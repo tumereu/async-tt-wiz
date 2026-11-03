@@ -73,7 +73,7 @@ class AccountHttpTest {
             }
         }
     }
-    // TBL-099
+    // I-D52
     @Test fun `token favorites are authenticated account scoped durable and distinguish defaults from empty`() {
         FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)

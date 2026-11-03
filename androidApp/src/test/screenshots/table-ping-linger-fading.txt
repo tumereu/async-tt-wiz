@@ -1,1 +1,0 @@
-Ping overlay alone on white, 2.75 seconds after moving past a ping on player A: its ghost ring is fading out.

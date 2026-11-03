@@ -302,7 +302,8 @@ class AttackTargetPresentationTest {
             cards = initial.board.cards.map { it.copy(definition = submitted.digest) },
             combat = CombatArea("combat", listOf(CombatPair("pair",
                 attackers = listOf(CombatOccurrence("attacker", "a/BATTLEFIELD/0")), attackTarget = targetId)))))
-        for (zone in listOf(PlayZone.BATTLEFIELD, PlayZone.HAND, PlayZone.LIBRARY)) {
+        // A target that left the battlefield is "(gone)" (combat review #3), so only battlefield targets are drawn here
+        for (zone in listOf(PlayZone.BATTLEFIELD)) {
             for (faceDown in listOf(false, true)) for (known in listOf(false, true)) {
                 val destination = TableFixture.container("b", zone)
                 val state = original.copy(board = original.board.copy(
@@ -366,13 +367,4 @@ class AttackTargetPresentationTest {
         assertEquals(plan.prediction, change.state)
     }
 
-    @Test fun defaultSingleCornersUseTheSameDragAsPowerToughness() {
-        for (face in listOf(DefinitionFace("walker", "Walker", typeLine = "Planeswalker", loyalty = "4"),
-            DefinitionFace("battle", "Battle", typeLine = "Battle", defense = "7"),
-            DefinitionFace("saga", "Saga", typeLine = "Enchantment — Saga"))) {
-            val value = face.defaultCorner()
-            assertEquals((value.toInt() + 1).toString(), cornerDragValue(value, 1))
-            assertEquals((value.toInt() - 1).toString(), cornerDragValue(value, -1))
-        }
-    }
 }

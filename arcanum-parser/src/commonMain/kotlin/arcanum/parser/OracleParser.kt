@@ -25,7 +25,7 @@ object OracleParser {
      * wording newly read, a definition shaped differently, a fix), so stored definitions made by an older parser are
      * parsed again.
      */
-    const val VERSION: Int = 23
+    const val VERSION: Int = 24
 
     /**
      * Every subtype the pinned Comprehensive Rules list (CR 205.3g–m, 205.3q), as the parser reads them: what a host
@@ -41,6 +41,8 @@ object OracleParser {
         val self = selfNames(card.name, face)
         var abilities = abilities(card.text, self, isSpell)
         val hasX = face.manaCost?.symbols?.any { it is arcanum.api.ManaSymbol.Variable } == true ||
+            // ecl chunk 13: "As an additional cost to cast this spell, blight X." (X announced as it is cast, CR 601.2b)
+            abilities.any { a -> a is Ability.Static && a.mechanics.any { it is arcanum.api.Mechanic.XAtMost } } ||
             // sos chunk 08: "As an additional cost to cast this spell, pay X life." (X announced as it is cast, CR 601.2b)
             (isSpell && card.text.contains("As an additional cost to cast this spell, pay X life."))
         if (hasX) abilities = abilities.map { if (it is Ability.Spell) it.copy(instructions = it.instructions.copy(announced = listOf("X"))) else it }

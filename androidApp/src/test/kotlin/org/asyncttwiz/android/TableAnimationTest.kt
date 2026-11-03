@@ -182,7 +182,6 @@ class TableAnimationTest {
                 val moving = animation.frame(progress).single { it.item.cardId == id }.item
                 if (moving.inTransit || progress == 0f) {
                     assertTrue(moving.covered)
-                    assertFalse(moving.panelRevealed)
                     assertNull(moving.artwork)
                     assertEquals("", moving.value)
                 }
@@ -453,39 +452,6 @@ class TableAnimationTest {
         assertEquals(1f, cards.single().alpha)
     }
 
-    // HIS-030, TBL-040, ZON-046
-    @Test fun cardsFlyFaceDownBetweenTempPilesAndIntoAndOutOfThem() {
-        // a's Temp piles 1 and 2 exist; pile 1 holds one card. Moves: Temp 1 -> Temp 2 (and back, as an undo),
-        // Temp 2 -> Library, Graveyard -> Temp 1.
-        val base = TableFixture.play(library = 2)
-        val one = "a/TEMP/1"; val two = "a/TEMP/2"
-        val id = "a/LIBRARY/0"
-        val start = moved(base.copy(board = base.board.copy(containers = base.board.containers +
-            PlayContainer(one, PlayZone.LIBRARY, "a", temp = true) +
-            PlayContainer(two, PlayZone.LIBRARY, "a", temp = true, tempNumber = 2))), listOf(id), one)
-        val inTwo = moved(start, listOf(id), two)
-        val inLibrary = moved(inTwo, listOf(id), "a/LIBRARY")
-        val inGraveyard = moved(start, listOf(id), "a/GRAVEYARD")
-        for (landscape in listOf(false, true)) for ((from, to) in listOf(start to inTwo, inTwo to start, inTwo to inLibrary,
-                inLibrary to inTwo, inGraveyard to start)) {
-            val before = TableFixture.scene(from, landscape); val after = TableFixture.scene(to, landscape)
-            val source = before.items.single { it.kind == TableItemKind.PILE && id in it.cards }
-            val target = after.items.single { it.kind == TableItemKind.PILE && id in it.cards }
-            assertTrue(before.items.none { it.kind == TableItemKind.CARD && it.cardId == id }, "no own drawing in a pile")
-            val animation = HistorySceneAnimation(before)
-            assertTrue(animation.retarget(after, 1f))
-            val departing = animation.frame(0f).single { it.item.cardId == id }
-            assertEquals(source.bounds, departing.bounds)
-            // Neighbouring piles are close: sample a few milliseconds into the (speed-bound) flight.
-            val flying = animation.frame(5f / animation.durationMillis).single { it.item.cardId == id }
-            assertTrue(flying.item.inTransit, "$landscape ${source.id} -> ${target.id}")
-            assertTrue(flying.item.covered)
-            assertNotEquals(source.bounds, flying.bounds)
-            assertTrue(animation.durationMillis > 1)
-            // Landed: nothing is left drawn over the pile.
-            assertTrue(animation.frame(1f).none { it.item.cardId == id && it.alpha > 0f })
-        }
-    }
 
     /** Every flight of [ids] from [from] to [to]: present, in transit early on, and gone once landed. */
     private fun pileFlights(from: PlayState, to: PlayState, ids: List<String>, landscape: Boolean = false): List<HistoryAnimatedItem> {
@@ -535,17 +501,6 @@ class TableAnimationTest {
     @Test fun faceDownPileCardsNeverShowTheirFaceInFlight() {
         val base = TableFixture.play(library = 2)
         val id = "a/LIBRARY/0"
-        // a's card lies face down in Exile; moving it to the Graveyard turns it face up only on arrival.
-        val faceDown = moved(base, listOf(id), "a/EXILE").let { play -> play.copy(board = play.board.copy(cards = play.board.cards.map {
-            if (it.id == id) it.copy(covered = true, explicitlyCovered = true) else it })) }
-        val withTemp = faceDown.copy(board = faceDown.board.copy(containers = faceDown.board.containers +
-            PlayContainer("a/TEMP/1", PlayZone.LIBRARY, "a", temp = true)))
-        val toTemp = moved(withTemp, listOf(id), "a/TEMP/1")
-        for (flight in pileFlights(withTemp, toTemp, listOf(id)) + pileFlights(toTemp, withTemp, listOf(id))) {
-            assertTrue(flight.item.covered)
-            assertEquals("", flight.item.value)
-            assertNull(flight.item.artwork)
-        }
         // A move within one pile adds no flight.
         val reordered = base.copy(board = base.board.copy(containers = base.board.containers.map {
             if (it.id == "a/LIBRARY") it.copy(cards = it.cards.reversed()) else it }))

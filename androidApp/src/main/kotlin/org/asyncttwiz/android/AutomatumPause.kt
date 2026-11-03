@@ -123,7 +123,7 @@ internal class PauseController {
     fun holding(node: String): Boolean = heldNode == node && routes?.holding(node) == true
 
     /** Whether [viewer]'s own pause is shown on [play]'s board: running, or held there. */
-    fun ownPause(play: PlayState, viewer: String): Boolean = play.board.automatum &&
+    fun ownPause(play: PlayState, viewer: String): Boolean =
         (running(play.currentNodeId)?.role is PauseRole.Yours || holding(play.currentNodeId) && PausePoints.pauseFor(play.board, viewer))
 
     /** The board (node) whose pause bar the viewer hid with its eye (I-D10, finalreview-combat #2); null: none. */

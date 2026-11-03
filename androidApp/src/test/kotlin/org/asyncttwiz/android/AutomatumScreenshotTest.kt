@@ -115,16 +115,4 @@ class AutomatumScreenshotTest {
             "Inspecting Alice's Meadow Sentinel with Automatum on lists where its 4/6 comes from: 1/3 printed, +1/+1 from counters, +2/+2 until end of turn.")
     }
 
-    // TBL-114: while Automatum computes a card's P/T, its P/T controls are off and show the computed value
-    @Test fun computedPowerToughnessIsNotEditable() {
-        val play = board()
-        val (toolkit, _) = render(play)
-        compose.runOnIdle { toolkit.openCard(TableScope(sentinel.id, listOf(sentinel.id))) }
-        compose.onNodeWithContentDescription("Inspect").assertIsDisplayed()
-        // TBL-116, I-D46: with Automatum on the menu has no P/T controls (and no "Manual…") while Automatum doesn't wait
-        // for something done by hand
-        compose.onNodeWithContentDescription("Manual…").assertDoesNotExist()
-        compose.onNodeWithContentDescription("Set corner").assertDoesNotExist()
-        compose.onNodeWithContentDescription("Set EOT P/T").assertDoesNotExist()
-    }
 }

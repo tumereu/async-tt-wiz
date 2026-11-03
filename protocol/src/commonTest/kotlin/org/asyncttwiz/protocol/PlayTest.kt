@@ -54,7 +54,7 @@ class PlayTest {
         }
     }
 
-    // TRN-029, TRN-033 (the opening hands: automatumStartDrawsEachOpeningHand)
+    // TRN-029 (the opening hands: automatumStartDrawsEachOpeningHand)
     @Test fun sharedInitialBoardPreservesConcreteCopiesDefaultsAndDefinitionsExcludesSideboard() {
         val preparation = ready()
         val original = preparation.copy()

@@ -1,1 +1,0 @@
-Portrait table with two effects on the Stack, after closing the Stack bubbles and opening your player menu (life and counters).

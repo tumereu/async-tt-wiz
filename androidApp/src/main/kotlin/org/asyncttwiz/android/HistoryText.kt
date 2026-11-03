@@ -333,8 +333,8 @@ fun historyText(event: GameplayMutation?, before: PlayState? = null, viewer: Str
                 if (transition.rulesVersion >= TempPiles.SEARCH_RULES_VERSION) "Search closed → ${zone(search.containerId)} unchanged"
                 else "Search closed → ${zone(search.containerId)} shuffled" }
             ?: transition.contents?.from?.takeIf { it.search }?.let { search -> "Search closed → Library shuffled" +
-                listOfNotNull(searchQueueCount(SearchQueue.topCount(search), "top"),
-                    searchQueueCount(SearchQueue.bottomCount(search), "bottom")).joinToString("") { " · $it" } }
+                listOfNotNull(SearchQueue.topCount(search).takeIf { it > 0 }?.let { "$it on top" },
+                    SearchQueue.bottomCount(search).takeIf { it > 0 }?.let { "$it on bottom" }).joinToString("") { " · $it" } }
             ?: "Card panel closed → ${action.rest.name.lowercase().replace('_', ' ')}", "Close panel")
         is PlayAction.RevealContentsCard -> text("${card(action.cardId)} revealed in panel", "Reveal card")
         is PlayAction.ReorderContents -> text("Card panel reordered", "Reorder panel")

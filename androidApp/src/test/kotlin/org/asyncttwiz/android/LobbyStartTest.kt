@@ -217,11 +217,8 @@ class LobbyStartTest {
             for (viewer in listOf(owner, other)) {
                 val scene = TablePresentation.scene(active, play, viewer.accountId, width, height, landscape)
                 assertEquals(2, scene.fields.size)
-                // ... including both players' always-shown (still empty) Temp 1 piles.
                 // ... and the opening hands of seven (I-D49)
-                assertEquals(27, scene.items.count { it.kind != TableItemKind.COUNTER })
-                // TBL-119: a game played with Automatum (every game, SYS-055) shows no colour counters
-                assertTrue(scene.items.none { it.kind == TableItemKind.COUNTER })
+                assertEquals(25, scene.items.size)
                 for (item in scene.items) {
                     // Scrollable docks may extend offscreen; only clipped drawings are exposed.
                     for (visible in item.visible) {
@@ -248,9 +245,8 @@ class LobbyStartTest {
                 assertEquals(viewer.accountId, scene.fields.last().owner)
                 assertEquals(play.board.containers.map { it.id }.filterNot { id -> play.board.containers.single { it.id == id }.zone == PlayZone.BATTLEFIELD }.toSet(),
                     scene.items.filter { it.zone != null && !it.temp && it.kind != TableItemKind.CARD }.map { it.id }.toSet())
-                // Each player's Temp 1 is shown under its deterministic ID before it exists.
-                assertEquals(play.board.players.map { TempPiles.containerId(play.id, it.accountId) }.toSet(),
-                    scene.items.filter { it.temp }.map { it.id }.toSet())
+                // No Temp piles (I-D52)
+                assertTrue(scene.items.none { it.temp })
             }
         }
     }

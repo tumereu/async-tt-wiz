@@ -43,14 +43,6 @@ internal fun menuIcon(name: String): ImageVector {
     return when {
         n == "timeline" -> Icons.Outlined.History
         n == "ready" -> Icons.Outlined.CheckCircleOutline
-        n == "edit status" -> Icons.Outlined.Edit
-        n == "clear status" -> Icons.Outlined.Close
-        n == "hide status bubble" -> Icons.Outlined.VisibilityOff
-        n == "show status bubble" -> Icons.Outlined.Visibility
-        n == "mute status bubble" -> Icons.Outlined.CommentsDisabled
-        n == "unmute status bubble" -> Icons.Outlined.ChatBubbleOutline
-        // Single-value P/T steps ("P/T +1/+0", "EOT P/T +0/−1", ...): generated "+/·"-style glyphs.
-        powerToughnessStep(name) != null -> powerToughnessStepIcon(powerToughnessStep(name)!!)
         // Automatum's quick actions (CMB-028, CMB-029, CMB-034, TRN-059): each its own icon, before the generic matches
         n == "pass" -> Icons.AutoMirrored.Outlined.ArrowForward
         n == "no blocks" -> Icons.Outlined.RemoveModerator
@@ -225,5 +217,4 @@ internal fun MenuButton(name: String, modifier: Modifier = Modifier, enabled: Bo
 internal data class MenuControl(val name: String, val enabled: Boolean = true, val selected: Boolean = false,
     val color: Color? = null, val refused: String? = null, val click: () -> Unit)
 
-@Composable
-internal fun MenuControl.Square() = ManualActionSquare(name, "", enabled, selected = selected, iconTint = color, onClick = click)
+

@@ -102,6 +102,12 @@ The definition model (overview in `Definitions.kt`):
   ("target creature that crewed it this turn", CR 702.122c), `Measure.Distinct` ("for each card type among spells you've cast this
   turn", each event's object as it was) and `Keyword.Equip.perTurn` ("Equip—Sacrifice another nonland permanent. Activate only once
   each turn"); sneak's "if his sneak cost was paid" is `Condition.Paid` of the sneak keyword.
+- Lorwyn Eclipsed (set `ecl`): blight (CR 701.68: `KeywordAction.Blight(players, count)`, a cost part or an effect whose bind names
+  "the blighted creature"), `KeywordAction.Behold.count` ("Behold three Elementals", now required), `CostPart.Choose` (a creature type
+  chosen with the costs), `Choice.CreatureTypeAmong` ("choose Elemental, Elf, … or Treefolk"), `ManaKind.EachColorAmong` ("for each color
+  among permanents you control, add one mana of that color"), `Mechanic.XAtMost` ("X can't be greater than …"),
+  `Mechanic.LoseAllCreatureTypes` and `TargetSlot.sharing` ("two target creature cards that share a creature type"). Vivid is an
+  ability word; "the number of colors among permanents you control" is `Value.CountDistinct` by colour.
 
 `ExampleCardsTest` shows about twenty invented cards written in the model and their
 JSON. Decisions from the API reviews (D19–D49) are built here where they concern card

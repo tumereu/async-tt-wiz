@@ -110,7 +110,7 @@ class InfiniteBattlefieldTest {
 
             val events = mutableListOf<TableIntent>()
             val gesture = TableGestureCoordinator(events::add)
-            gesture.update(scene, TableSelection(), true)
+            gesture.update(scene, true)
             val start = scene.items.single { it.cardId == "a/HAND/2" }.visible.first().center
             gesture.down(start, 0); gesture.move(end, 80)
             val landing = tableDragLanding(scene, gesture.preview)
@@ -120,9 +120,6 @@ class InfiniteBattlefieldTest {
             assertEquals(-3, destination.column)
             assertEquals(0, destination.row)
             assertEquals(field.containerId, destination.containerId)
-            val ping = assertNotNull(TableAnnotationGeometry(scene, "a").location(end)).position!!
-            assertEquals(floor((end.x - field.originX) / scene.footprint).toInt(), ping.x)
-            assertTrue(ping.x < 0)
         }
     }
 

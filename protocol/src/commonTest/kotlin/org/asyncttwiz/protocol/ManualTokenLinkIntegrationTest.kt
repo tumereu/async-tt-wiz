@@ -42,7 +42,7 @@ class ManualTokenLinkIntegrationTest {
             counter.transition.fields)
         accept(PlayAction.SetNote(tokenId, " current token note "))
         accept(PlayAction.SetFace(tokenId, id(12)))
-        // TBL-076: the switch set the printed corner; edit it so the clone's reset below has work to do.
+        // I-D52: the switch set the printed corner; edit it so the clone's reset below has work to do.
         accept(PlayAction.SetCorner(tokenId, " 7/8 "))
         val beforeClone = current
         val source = current.board.cards.single { it.id == tokenId }

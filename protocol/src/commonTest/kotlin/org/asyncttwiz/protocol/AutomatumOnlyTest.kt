@@ -69,7 +69,7 @@ class AutomatumOnlyTest {
             PlayAction.DeclineResult(gameplayId(60)), PlayAction.WithdrawResult(gameplayId(60)),
             PlayAction.Mtg(MtgAction.SetSkipWhenNoChoice(false)), PlayAction.Mtg(MtgAction.SetFullControl(true)),
             PlayAction.Mtg(MtgAction.SetRecord(early.id, null, early)), PlayAction.Mtg(MtgAction.SetRecord(early.id, early, null)),
-            PlayAction.InspectFace(battlefieldCard.id, battlefieldCard.faceId, field),
+            PlayAction.InspectFace(battlefieldCard.id, battlefieldCard.faceId, field), PlayAction.PassAttention,
             move(state, 10, MoveDestination(field, MoveInsertion.EMPTY, BoardPosition(4, 1))),
             PlayAction.Combat(CombatAction.Open), PlayAction.Combat(CombatAction.Remove(gameplayId(70), gameplayId(71)))))
             assertNull(refusal(state, action, b), "$action")

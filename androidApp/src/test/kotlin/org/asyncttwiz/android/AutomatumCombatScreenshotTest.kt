@@ -181,7 +181,7 @@ class AutomatumCombatScreenshotTest {
 
     // ---- Drags (I-D36)
 
-    // ZON-077, ZON-004, TRN-031, I-D36, I-D28: with Automatum on a hand land dragged onto the Battlefield is played through Automatum, a
+    // ZON-077, ZON-004, I-D36, I-D28: with Automatum on a hand land dragged onto the Battlefield is played through Automatum, a
     // spell dragged onto the Stack opens the cast; moving a card by hand to another zone and dragging life are refused
     @Test fun dragsAreAutomatumActions() {
         start(board(TurnPosition.PRECOMBAT_MAIN, MtgPriority(f.a), aliceField = listOf(mountain), bobField = listOf(ogre),
@@ -193,12 +193,10 @@ class AutomatumCombatScreenshotTest {
         assertTrue(alice.handle(TableIntent.Move(TableScope(land, listOf(land)), TableDestination.Grid(aField, 2, 0), drag = true)), alice.error)
         assertEquals(PlayZone.BATTLEFIELD, zone(land), "played through Automatum")
         assertTrue(play.board.engineRecords.any { it.id == "turn" }, "counted as the turn's land play")
-        // A card moved by hand out of its zone, life dragged: refused, shaking what was dragged (I-D46)
+        // A card moved by hand out of its zone: refused, shaking what was dragged (I-D46)
         assertFalse(alice.handle(TableIntent.Move(TableScope(fieldLand, listOf(fieldLand)),
             TableDestination.Container(f.id("a/GRAVEYARD"), PlayZone.GRAVEYARD), drag = true)))
         assertEquals(fieldLand, alice.shaking?.id)
-        assertFalse(alice.handle(TableIntent.PlayerDelta(f.b, null, -2)))
-        assertEquals("life/${f.b}", alice.shaking?.id)
         assertNull(alice.error)
         // Within its own Battlefield a card only changes place
         assertTrue(alice.handle(TableIntent.Move(TableScope(fieldLand, listOf(fieldLand)), TableDestination.Grid(aField, 5, 1), drag = true)))
@@ -216,14 +214,14 @@ class AutomatumCombatScreenshotTest {
     // ---- The combat area with Automatum (I-D32)
 
     private fun scene(viewer: String) = TablePresentation.scene(f.game, play, viewer, 412f, 892f, false)
-    private fun tap(toolkit: TableToolkitController, item: TableItem) = toolkit.open(TableIntent.Actions(item.id, null), item, TableSelection())
+    private fun tap(toolkit: TableToolkitController, item: TableItem) = toolkit.open(TableIntent.Actions(item.id, null), item)
     /** Taps [card] on its Battlefield as [toolkit]'s player sees it. */
     private fun tapCard(toolkit: TableToolkitController, card: String) = tap(toolkit,
         scene(toolkit.viewer).items.first { it.cardId == card && it.viewport != "combat" && it.zone == PlayZone.BATTLEFIELD })
     /** Taps [card]'s combat copy as [toolkit]'s player sees it. */
     private fun tapCopy(toolkit: TableToolkitController, card: String) = tap(toolkit,
         scene(toolkit.viewer).items.first { it.viewport == "combat" && it.sourceId == card })
-    private fun quick(toolkit: TableToolkitController) = automatumCombatQuickActions(play, toolkitQuickContext(play, TableSelection(), toolkit.viewer)
+    private fun quick(toolkit: TableToolkitController) = automatumCombatQuickActions(play, toolkitQuickContext(play, toolkit.viewer)
         .copy(automatumCombat = AutomatumBoards.combat(play) { engineTags(tree, play.currentNodeId) })
         .withCombatTarget(toolkit.combat, play, "Bob"), TableActionScope(play.gameId, play.id)).orEmpty()
     private fun perform(toolkit: TableToolkitController, name: String) = quick(toolkit).single { it.name == name }.let { action ->
@@ -292,15 +290,14 @@ class AutomatumCombatScreenshotTest {
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi")
     fun attackersAreStagedByTapsThenCommittedLandscape() { landscape = true; stagingFlow("combat-staging-landscape") } // CMB-028
 
-    // CMB-028, TRN-020, TRN-059: with Automatum on, Main 1 has no Attack quick action (the row is Automatum's toggles):
+    // CMB-028, TRN-059: with Automatum on, Main 1 has no Attack quick action (the row is Automatum's toggles):
     // Next step goes on to Declare attackers through Automatum, where taps stage attackers
     @Test fun mainPhaseNextStepGoesToDeclareAttackers() {
         start(board(TurnPosition.PRECOMBAT_MAIN, MtgPriority(f.a), aliceField = listOf(brute), bobField = listOf(ogre)))
         val alice = toolkit(f.a)
-        assertTrue(AutomatumToggles.shown(play, toolkitQuickContext(play, TableSelection(), f.a)))
+        assertTrue(AutomatumToggles.shown(play, toolkitQuickContext(play, f.a)))
         assertTrue(alice.perform(TableActionIntent.Next(TableActionScope(play.gameId, play.id))), alice.error)
         assertEquals(TurnPosition.DECLARE_ATTACKERS, TurnPosition.of(play.board.turn))
-        assertEquals(TableMode.NORMAL, alice.selectionState.value.mode, "taps stage; no selection mode")
     }
 
     // CMB-028: a tap on another target's header makes its lane the active one; taps then stage there
@@ -545,7 +542,7 @@ class AutomatumCombatScreenshotTest {
             aliceHand = listOf(spark, quash), bobHand = listOf(spark)))
         val alice = toolkit(f.a)
         val bob = toolkit(f.b)
-        fun tap(toolkit: TableToolkitController, item: TableItem) = toolkit.open(TableIntent.Actions(item.id, null), item, TableSelection())
+        fun tap(toolkit: TableToolkitController, item: TableItem) = toolkit.open(TableIntent.Actions(item.id, null), item)
         fun scene(viewer: String) = TablePresentation.scene(f.game, play, viewer, 412f, 892f, false)
         assertTrue(alice.cast.start(card(play, spark, aHand)))
         tap(alice, scene(f.a).items.first { it.id == "life/${f.b}" })

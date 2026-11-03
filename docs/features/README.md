@@ -8,10 +8,10 @@ text in `docs/design/` or `docs/decisions.md`, the catalog wins.
 
 | File | Area |
 | --- | --- |
-| [table.md](table.md) | `TBL` Battlefield, card display, gestures, menus, tokens, links |
-| [zones.md](zones.md) | `ZON` Hand, library, graveyard/exile, temp piles, panels, hidden information |
-| [turns-combat-stack.md](turns-combat-stack.md) | `TRN` Turns, steps, whose move, life, dice, results; `CMB` combat; `STK` Stack |
-| [history.md](history.md) | `HIS` Timeline, playback, branches, undo/redo, event texts and icons, pings |
+| [table.md](table.md) | `TBL` Battlefield, card display, gestures, menus, inspecting cards |
+| [zones.md](zones.md) | `ZON` Hand, library, graveyard/exile and its view, hidden information |
+| [turns-combat-stack.md](turns-combat-stack.md) | `TRN` Turns, steps, whose move, life, results; `CMB` combat; `STK` Stack |
+| [history.md](history.md) | `HIS` Timeline, playback, branches, undo/redo, event texts and icons |
 | [lobby.md](lobby.md) | `LOB` Accounts, decks, game list, chat, notifications, settings, updates |
 | [draft.md](draft.md) | `DRF` Cubes, pods, drafting, grids, deck building |
 | [rules.md](rules.md) | `SYS` Cross-cutting rules every feature follows (authority, performance, policies) |

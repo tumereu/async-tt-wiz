@@ -28,18 +28,6 @@ class TurnMarksPresentationTest {
         assertTrue(damageIsLethal("9999999999999999999999", "2/9999999999999999999998"))
     }
 
-    // TBL-025
-    @Test fun eotAndPermanentNotesHaveSeparateChipsAndEditorsValidateMarks() {
-        val layout = cardAnnotationLayout(9f, 29f, 9f, 10f, true, 6, hasEotNote = true)
-        assertNotNull(layout.note); assertNotNull(layout.eotNote)
-        assertNull(layout.note.intersection(layout.eotNote))
-        val scope = ManualScope("game", "play", "card", listOf("card"))
-        assertTrue(ValueDraft(scope, ManualValue(ManualValueKind.EOT_CORNER), "+3/+3").valid)
-        assertFalse(ValueDraft(scope, ManualValue(ManualValueKind.EOT_CORNER), "3").valid)
-        assertFalse(ValueDraft(scope, ManualValue(ManualValueKind.DAMAGE), "oops").valid)
-        assertTrue(ValueDraft(scope, ManualValue(ManualValueKind.EOT_NOTE), "can't block\nthis turn").valid)
-        assertTrue(ManualValue(ManualValueKind.EOT_NOTE).multiline)
-    }
 
     // TBL-029, TBL-030
     @Test fun tablePresentationCarriesEffectiveValuesAndDoesNotLeakCoveredMarks() {
@@ -51,14 +39,13 @@ class TurnMarksPresentationTest {
         }))
         val item = TablePresentation.scene(f.game, state, f.a, 412f, 892f, false).items.single { it.cardId == source.id }
         assertEquals("3/5", item.corner); assertEquals("2", item.damage); assertEquals("+2/+2", item.eotCorner)
-        assertEquals("can't block", item.eotNote)
         val covered = state.copy(board = state.board.copy(cards = state.board.cards.map {
             if (it.id == source.id) it.copy(covered = true, explicitlyCovered = true) else it
         }))
         // Rules v23: a face-down Battlefield card's marks are public; only its face is covered.
         val faceDown = TablePresentation.scene(f.game, covered, f.a, 412f, 892f, false).items.single { it.cardId == source.id }
         assertTrue(faceDown.covered)
-        assertEquals("2", faceDown.damage); assertEquals("+2/+2", faceDown.eotCorner); assertEquals("can't block", faceDown.eotNote)
+        assertEquals("2", faceDown.damage); assertEquals("+2/+2", faceDown.eotCorner)
         // A card whose face is truly hidden (here: in the opponent's Hand) still leaks no marks.
         val stack = covered.board.containers.single { it.zone == PlayZone.HAND && it.accountId != f.a }
         val onStack = covered.copy(board = covered.board.copy(cards = covered.board.cards.map {
@@ -69,6 +56,6 @@ class TurnMarksPresentationTest {
                 else -> it } }))
         assertTrue(cardValuesHidden(onStack.board, onStack.board.cards.single { it.id == source.id }, f.a))
         val hidden = TablePresentation.scene(f.game, onStack, f.a, 412f, 892f, false).items.single { it.cardId == source.id }
-        assertEquals("", hidden.damage); assertEquals("", hidden.eotCorner); assertEquals("", hidden.eotNote)
+        assertEquals("", hidden.damage); assertEquals("", hidden.eotCorner)
     }
 }

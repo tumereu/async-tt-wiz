@@ -1,1 +1,0 @@
-Change tags on two smallest-size cards over stripes, 0.85 seconds in: still fully opaque during the hold.

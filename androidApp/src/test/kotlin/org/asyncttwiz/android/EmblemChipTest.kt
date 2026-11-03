@@ -25,8 +25,7 @@ class EmblemChipTest {
         EngineRecord("emblem:$n", EngineRecordKind.Emblem, n.toLong(), "{}", player, text)
 
     private val play = TableFixture.play(library = 0).let { initial ->
-        initial.copy(board = initial.board.copy(players = initial.board.players.map { if (it.accountId == "a") it.copy(status = "OK?") else it },
-            engineRecords = listOf(
+        initial.copy(board = initial.board.copy(engineRecords = listOf(
                 emblem(2, "a", "Creatures you control get +1/+1."),
                 emblem(1, "b", "Whenever a creature you control deals combat damage to a player, search your library for a blue or " +
                     "black creature card, put it onto the battlefield, then shuffle."),
@@ -50,8 +49,7 @@ class EmblemChipTest {
         } }
         compose.waitForIdle()
         compose.onRoot().captureShot("$SCREENSHOTS/emblem-chips-portrait.png",
-            "Portrait table where you have the status \"OK?\" and two emblems and the opponent one long emblem: each emblem is " +
-                "a violet chip with its text by the life square, yours above your status bubble, the opponent's below their " +
-                "square, a long text cut after two lines.")
+            "Portrait table where you have two emblems and the opponent one long emblem: each emblem is a violet chip with " +
+                "its text by the life square, yours above your square, the opponent's below theirs, a long text cut after two lines.")
     }
 }

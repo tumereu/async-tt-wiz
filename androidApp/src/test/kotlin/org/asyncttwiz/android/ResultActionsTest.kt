@@ -320,7 +320,6 @@ class ResultActionsTest {
         assertTrue(gameLockAllows(TableIntent.Peek(null)))
         assertTrue(gameLockAllows(TableIntent.Inspect("card")))
         assertTrue(gameLockAllows(TableIntent.DismissTapUi))
-        assertFalse(gameLockAllows(TableIntent.Draw("library", "hand", "top")))
         assertFalse(gameLockAllows(TableIntent.Submit(PlayAction.PassAttention, null)))
     }
 }

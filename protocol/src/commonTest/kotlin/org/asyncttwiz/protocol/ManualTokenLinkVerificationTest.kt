@@ -50,7 +50,7 @@ class ManualTokenLinkVerificationTest {
             assertNull(removed.mutation.transition.fields.single().to)
             assertEquals(original.board, removed.state!!.board)
         }
-        // TBL-076: the switch sets the printed corner; a later edit gives the reset something to undo.
+        // I-D52: the switch sets the printed corner; a later edit gives the reset something to undo.
         val flipped = accept(accept(original, PlayAction.SetFace(id(9), id(12)), 33).state!!,
             PlayAction.SetCorner(id(9), "custom"), 35).state!!
         val reset = accept(flipped, PlayAction.ResetCorner(id(9)), 34)

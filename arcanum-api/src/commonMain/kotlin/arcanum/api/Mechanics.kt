@@ -81,6 +81,11 @@ sealed interface Mechanic {
     @Serializable @SerialName("all-creature-types") data object AllCreatureTypes : Mechanic {
         override val layer: Layer get() = Layer.Type
     }
+    // ecl
+    /** "Loses all creature types" (layer 4, CR 613.1d): it has no creature types; its other types and subtypes stay. */
+    @Serializable @SerialName("lose-all-creature-types") data object LoseAllCreatureTypes : Mechanic {
+        override val layer: Layer get() = Layer.Type
+    }
     @Serializable @SerialName("colors") data class SetColors(val colors: List<ColorRef>, val add: Boolean = false) : Mechanic {
         override val layer: Layer get() = Layer.Color
         override val stacking: Stacking get() = Stacking.Independent
@@ -280,6 +285,10 @@ sealed interface Mechanic {
     @Serializable @SerialName("cant-spend-mana") data object CantSpendMana : Mechanic
     /** "X can't be [lessThan − 1]" ("X can't be 0"). */
     @Serializable @SerialName("x-at-least") data class XAtLeast(val min: Int) : Mechanic
+    // ecl
+    /** "X can't be greater than [max]" (CR 107.3a): the X chosen for this spell, worked out as the choice is made ("the greatest
+     * toughness among creatures you control"). */
+    @Serializable @SerialName("x-at-most") data class XAtMost(val max: Value) : Mechanic
     /** Splice onto [onto] (CR 702.47a): as you cast such a spell you may reveal this card and pay [cost]; the spell gains
      * this card's instructions. Functions in the hand. */
     @Serializable @SerialName("splice-onto") data class SpliceOnto(val onto: ObjectFilter, val cost: Cost) : Mechanic

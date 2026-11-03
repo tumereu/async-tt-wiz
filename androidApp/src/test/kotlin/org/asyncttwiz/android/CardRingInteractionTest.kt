@@ -36,191 +36,12 @@ class CardRingInteractionTest {
         toolkit.openCard(TableScope(contextId, if (multi) listOf(source, f.source(f.a, "1/2").id) else listOf(contextId)))
         compose.setContent {
             MaterialTheme {
-                CompositionLocalProvider(LocalTableMenuAnnotations provides TableMenuAnnotations(EventReference(play.id, play.currentNodeId)) {
-                    sent += it; true
-                }) {
-                    TableSurface(f.game, play, f.a, false, Modifier.fillMaxSize(),
-                        connected = true, toolkit = toolkit, onIntent = toolkit::handle)
-                }
+                TableSurface(f.game, play, f.a, false, Modifier.fillMaxSize(),
+                    connected = true, toolkit = toolkit, onIntent = toolkit::handle)
             }
         }
         compose.waitForIdle()
         return toolkit
-    }
-
-    // TBL-070, TBL-084
-    @Test fun realCardMenuShowsTheOwnerEntryDisabledOnlyOnMore() {
-        render()
-        for (page in 1..2) {
-            compose.ringPage(page)
-            compose.onNode(hasContentDescription("; switch to other player", substring = true)).assertDoesNotExist()
-        }
-        compose.ringPage(3)
-        compose.onNode(hasContentDescription("; switch to other player", substring = true)).assertIsDisplayed().assertIsNotEnabled()
-    }
-
-    // TBL-089, ZON-042
-    @Test fun handUsesOneFixedPageWithoutBattlefieldControlsAndRandomDefaultsToWholeHand() {
-        val play = f.initial
-        val hand = play.board.containers.single { it.zone == PlayZone.HAND && it.accountId == f.a }
-        render(play = play, contextId = hand.cards.first())
-        compose.onNodeWithContentDescription("Choose action page").assertDoesNotExist()
-        for (name in listOf("Inspect", "Play", "Face down", "Reveal", "Battlefield", "Discard", "Exile", "Library top", "Library bottom",
-            "Shuffle into library", "Temp 1", "Discard random", "Reveal random", "Exile random", "Random to library bottom"))
-            compose.onNodeWithContentDescription(name).assertIsDisplayed().assertIsEnabled()
-        for (name in listOf("Set corner", "Edit card note", "Declare without tapping", "Set damage", "Stack", "Temp 2", "Temp 3", "Temp 4"))
-            compose.onNodeWithContentDescription(name).assertDoesNotExist()
-        compose.ringClick("Discard random")
-        val action = assertIs<PlayAction.RandomHand>(sent.single())
-        assertTrue(action.selectedIds.isEmpty())
-        assertTrue(action.cardId in hand.cards)
-    }
-
-    // STK-009, TBL-094
-    @Test fun battlefieldEnablesItsWidgetsAndNote() = zoneEnablement(PlayZone.BATTLEFIELD)
-
-    // TBL-074
-    @Test fun everydayStackButtonAddsProjectionWithoutDeclaringOrTapping() {
-        val play = f.combat()
-        val toolkit = render(play = play)
-        compose.ringPage(1)
-        compose.onNodeWithContentDescription("Declare + tap").assertDoesNotExist()
-        compose.onNodeWithContentDescription("Stack").assertIsDisplayed().performClick()
-        assertEquals(listOf<PlayAction>(PlayAction.Stack(StackAction.AddEffect(f.source(f.a, "1/3").id,
-            CombatStackRules.stackDigest(play)))), sent)
-        assertNull(toolkit.capture)
-    }
-
-    // HIS-082, STK-009, STK-019
-    @Test fun manageStackEntryNoteAndPingTargetTheEntryNotItsCard() {
-        val initial = f.combat()
-        val source = f.source(f.a, "1/2").id
-        val hand = initial.board.containers.single { it.zone == PlayZone.HAND && it.accountId == f.a }
-        val play = initial.copy(board = initial.board.copy(cards = initial.board.cards.map {
-            if (it.id == source) it.copy(containerId = hand.id, placement = null, note = "source note") else it
-        }, containers = initial.board.containers.map { container -> container.copy(cards = container.cards - source +
-            if (container.id == hand.id) listOf(source) else emptyList()) }))
-        val id = f.id("effect")
-        val toolkit = render(play = play)
-        compose.runOnIdle { toolkit.stackContents() }
-        compose.mainClock.advanceTimeBy(600) // Past the popup's opening-gesture guard.
-        compose.onNodeWithText("Manage Stack · 2").assertIsDisplayed()
-        // The top entry is the effect; the second is a real card on the Stack, whose own note lives on the card menu.
-        compose.onAllNodesWithContentDescription("Edit note")[1].assertIsNotEnabled()
-        compose.onAllNodesWithContentDescription("Edit note")[0].assertIsEnabled().performClick()
-        compose.onNode(hasSetTextAction()).performTextReplacement("projection note")
-        compose.onNodeWithText("Set", useUnmergedTree = true).performClick()
-        compose.runOnIdle { assertEquals(listOf<PlayAction>(PlayAction.SetProjectionNote(id, "projection note")), sent) }
-        compose.onNodeWithText("Manage Stack · 2").assertIsDisplayed()
-        compose.mainClock.advanceTimeBy(600)
-        compose.onAllNodesWithContentDescription("Ping / Unping")[0].assertIsEnabled().performClick()
-        compose.runOnIdle { assertEquals(PingTarget(PingTargetKind.OCCURRENCE, id), assertIs<PlayAction.Ping>(sent.last()).target) }
-        compose.onNodeWithText("Manage Stack · 2").assertIsDisplayed()
-    }
-
-    // CMB-003, CMB-005, HIS-082, TBL-091
-    @Test fun combatProjectionHasOnlyCombatControlsAndTargetsItsOwnNoteAndPing() {
-        val id = f.id("attacker1")
-        val toolkit = render(play = f.combat(), contextId = id)
-        compose.onNodeWithContentDescription("Choose action page").assertDoesNotExist()
-        compose.onNodeWithContentDescription("Edit card note").assertIsEnabled()
-        compose.onNodeWithContentDescription("Ping / Unping").assertIsEnabled()
-        compose.onNodeWithContentDescription("Attack →").assertIsEnabled()
-        // No battlefield controls on a projection: those live on the real card (P/T, damage and EOT marks are the exception, CMB-003).
-        for (name in listOf("Declare without tapping", "Set blue counter", "Clone", "Stack"))
-            compose.onNodeWithContentDescription(name).assertDoesNotExist()
-        compose.ringClick("Edit card note")
-        compose.onNode(hasSetTextAction()).performTextReplacement("projection note")
-        compose.onNodeWithText("Set", useUnmergedTree = true).performClick()
-        compose.runOnIdle {
-            assertEquals(listOf<PlayAction>(PlayAction.SetProjectionNote(id, "projection note")), sent)
-            toolkit.openCard(TableScope(id, listOf(id)))
-        }
-        compose.ringClick("Ping / Unping")
-        compose.runOnIdle {
-            assertEquals(PingTarget(PingTargetKind.OCCURRENCE, id), assertIs<PlayAction.Ping>(sent.last()).target)
-        }
-    }
-
-    // CMB-003, TBL-094
-    @Test fun combatCopyMarksChangeEverySelectedRealCard() {
-        val sentinel = f.source(f.a, "1/3").id
-        val river = f.source(f.a, "1/2").id
-        val play = f.combat()
-        val toolkit = TableToolkitController(f.a, { play }, { true }, { action, _ -> sent += action; true },
-            playBatch = { actions, _ -> batches += actions.toList(); sent += actions; true })
-        toolkit.openCard(TableScope(f.id("attacker1"), listOf(f.id("attacker1"), f.id("attacker2"))))
-        compose.setContent { MaterialTheme {
-            TableSurface(f.game, play, f.a, false, Modifier.fillMaxSize(), connected = true, toolkit = toolkit, onIntent = toolkit::handle)
-        } }
-        compose.waitForIdle()
-        for (name in listOf("Set corner", "Set damage", "Set EOT P/T", "Edit EOT note", "Edit EOT keywords")) compose.onNodeWithContentDescription(name).assertIsEnabled()
-        // P/T edits the real card's permanent P/T, like the normal card menu's P/T.
-        compose.ringClick("Increase corner")
-        compose.runOnIdle { assertEquals(listOf<PlayAction>(PlayAction.AdjustCorner(sentinel, CornerPart.BOTH, 1),
-            PlayAction.AdjustCorner(river, CornerPart.BOTH, 1)), batches.last()) }
-        compose.ringClick("Increase damage")
-        compose.runOnIdle { assertEquals(listOf<PlayAction>(PlayAction.AdjustDamage(sentinel, "1"), PlayAction.AdjustDamage(river, "1")), batches.last()) }
-        compose.ringClick("Increase EOT P/T")
-        compose.runOnIdle { assertEquals(listOf<PlayAction>(PlayAction.AdjustEotCorner(sentinel, CornerPart.BOTH, 1),
-            PlayAction.AdjustEotCorner(river, CornerPart.BOTH, 1)), batches.last()) }
-        compose.ringClick("Edit EOT note")
-        compose.onNode(hasSetTextAction()).performTextReplacement("+2/+0")
-        compose.onNodeWithText("Set", useUnmergedTree = true).performClick()
-        compose.runOnIdle { assertEquals(listOf<PlayAction>(PlayAction.SetEotNote(sentinel, "+2/+0"), PlayAction.SetEotNote(river, "+2/+0")), batches.last()) }
-        // The copy's own note stays separate from the real card's marks (CMB-005).
-        assertTrue(sent.none { it is PlayAction.SetProjectionNote || it is PlayAction.SetNote })
-    }
-
-    private fun zoneEnablement(zone: PlayZone) {
-        val source = f.source(f.a, "1/3").id
-        val initial = f.combat()
-        val target = initial.board.containers.single { it.zone == zone && (zone == PlayZone.STACK || it.accountId == f.a) }
-        val play = initial.copy(board = initial.board.copy(cards = initial.board.cards.map {
-            if (it.id == source) it.copy(containerId = target.id, placement = if (zone == PlayZone.BATTLEFIELD) it.placement else null) else it
-        }, containers = initial.board.containers.map { container -> container.copy(cards = container.cards.filterNot { it == source } +
-            if (container.id == target.id) listOf(source) else emptyList()) }, combat = null))
-        render(play = play)
-        compose.ringPage(1)
-        fun enabled(name: String, expected: Boolean) {
-            val node = compose.onNodeWithContentDescription(name)
-            if (expected) node.assertIsEnabled() else node.assertIsNotEnabled()
-        }
-        enabled("Edit card note", zone != PlayZone.HAND)
-        for (name in listOf("Set corner", "Increase corner", "Decrease corner", "Declare without tapping"))
-            enabled(name, zone == PlayZone.BATTLEFIELD)
-        enabled("Stack", zone != PlayZone.STACK)
-        compose.onNodeWithContentDescription("Declare + tap").assertDoesNotExist()
-        // TBL-094: damage and the EOT marks are battlefield-only.
-        enabled("Set EOT P/T", zone == PlayZone.BATTLEFIELD)
-        enabled("Increase EOT P/T", zone == PlayZone.BATTLEFIELD)
-        compose.ringPage(2)
-        enabled("Set blue counter", zone == PlayZone.BATTLEFIELD)
-        enabled("Increase blue counter", zone == PlayZone.BATTLEFIELD)
-        enabled("Edit EOT note", zone == PlayZone.BATTLEFIELD)
-        compose.ringPage(3)
-        enabled("Set damage", zone == PlayZone.BATTLEFIELD)
-        enabled("Increase damage", zone == PlayZone.BATTLEFIELD)
-        // TBL-073: EOT keywords is on Everyday.
-        compose.ringPage(1)
-        enabled("Edit EOT keywords", zone == PlayZone.BATTLEFIELD)
-    }
-
-    // TBL-084
-    @Test fun tokenOwnerEntryStaysOnMoreAndSkipsRealCardsInMixedSelection() {
-        val source = f.source(f.a, "1/3").id
-        val initial = f.combat()
-        val play = initial.copy(board = initial.board.copy(cards = initial.board.cards.map {
-            if (it.id == source) it.copy(token = true) else it
-        }))
-        render(multi = true, play = play)
-        for (page in listOf(1, 2)) {
-            compose.ringPage(page)
-            compose.onNode(hasContentDescription("; switch to other player", substring = true)).assertDoesNotExist()
-        }
-        compose.ringPage(3)
-        compose.onNodeWithContentDescription("Owner Alice; switch to other player").assertIsDisplayed().performClick()
-        compose.runOnIdle { assertEquals(listOf<PlayAction>(PlayAction.SetOwner(source, f.b)), sent) }
     }
 
     // TBL-069
@@ -231,7 +52,7 @@ class CardRingInteractionTest {
         compose.onNodeWithContentDescription("Inspect").performTouchInput { down(center) }
         compose.mainClock.advanceTimeBy(350)
         compose.onNodeWithContentDescription("Inspect").performTouchInput { advanceEventTime(350); up() }
-        compose.runOnIdle { assertNull(toolkit.inspection); assertNotNull(toolkit.manual.scope); assertTrue(sent.isEmpty()) }
+        compose.runOnIdle { assertNull(toolkit.inspection); assertNotNull(toolkit.capture); assertTrue(sent.isEmpty()) }
         compose.mainClock.autoAdvance = true
         compose.onNodeWithContentDescription("Inspect").performClick()
         compose.onNodeWithContentDescription("Close card inspection").assertIsDisplayed()
@@ -241,13 +62,10 @@ class CardRingInteractionTest {
     // TBL-068
     @Test fun outsideTapDismissesWithoutActivatingTableChrome() {
         val toolkit = render()
-        compose.ringPage(1)
-        val selection = toolkit.selectionState.value
-        // The underlying interaction-mode control must not open its dropdown.
+        compose.mainClock.advanceTimeBy(350)
         compose.onNodeWithContentDescription("Card action ring").performTouchInput { click(Offset(width - 30f, height - 25f)) }
         compose.onNodeWithContentDescription("Card action ring").assertDoesNotExist()
-        compose.onNodeWithText("Normal").assertDoesNotExist()
-        compose.runOnIdle { assertEquals(selection, toolkit.selectionState.value); assertTrue(sent.isEmpty()); assertNull(toolkit.manual.scope) }
+        compose.runOnIdle { assertTrue(sent.isEmpty()); assertNull(toolkit.capture) }
     }
 
     private fun sourcePoint(corner: String = "1/3"): Offset {
@@ -256,21 +74,6 @@ class CardRingInteractionTest {
         return Offset(point.x, point.y)
     }
 
-    // TBL-042, TBL-068
-    @Test fun delayedDoubleTapThroughOpenRingTapsCardOnceWithoutReopeningRing() {
-        val toolkit = render()
-        val point = sourcePoint()
-        compose.runOnIdle { toolkit.dismiss() }
-        compose.onNodeWithContentDescription("Shared table").performTouchInput { click(point) }
-        compose.onNodeWithContentDescription("Card action ring").assertExists()
-        compose.mainClock.advanceTimeBy(600)
-        compose.onNodeWithContentDescription("Shared table").performTouchInput { doubleClick(point) }
-        compose.onNodeWithContentDescription("Card action ring").assertDoesNotExist()
-        compose.runOnIdle {
-            assertNull(toolkit.manual.scope)
-            assertEquals(listOf<PlayAction>(PlayAction.SetTapped(f.source(f.a, "1/3").id, true)), sent)
-        }
-    }
 
     @Test fun sameCardSingleTapOnlyClosesRingAndAnotherCardTapOpensItsRing() {
         val toolkit = render()
@@ -278,7 +81,7 @@ class CardRingInteractionTest {
         compose.onNodeWithContentDescription("Shared table").performTouchInput { click(sourcePoint()) }
         compose.mainClock.advanceTimeBy(400)
         compose.onNodeWithContentDescription("Card action ring").assertDoesNotExist()
-        compose.runOnIdle { assertNull(toolkit.manual.scope); assertTrue(sent.isEmpty()) }
+        compose.runOnIdle { assertNull(toolkit.capture); assertTrue(sent.isEmpty()) }
         compose.runOnIdle { val id = f.source(f.a, "1/3").id; toolkit.openCard(TableScope(id, listOf(id))) }
         compose.mainClock.advanceTimeBy(600)
         val scene = TablePresentation.scene(f.game, f.combat(), f.a, 412f, 892f, false)
@@ -290,7 +93,7 @@ class CardRingInteractionTest {
         assertFalse(square.contains(Offset(point.x, point.y)), "The second card must be outside the reserved square")
         compose.onNodeWithContentDescription("Shared table").performTouchInput { click(Offset(point.x, point.y)) }
         compose.runOnIdle {
-            assertEquals(another, toolkit.manual.scope?.contextId)
+            assertEquals(another, toolkit.capture?.contextViewId)
             assertTrue(sent.isEmpty())
         }
     }
@@ -308,215 +111,4 @@ class CardRingInteractionTest {
         compose.runOnIdle { assertIs<PlayAction.MoveCard>(sent.single()) }
     }
 
-    // SYS-042, TBL-068
-    @Test fun outsideRectangleAndPinchRemainTableGestures() {
-        val toolkit = render()
-        compose.mainClock.advanceTimeBy(600)
-        val point = sourcePoint()
-        compose.onNodeWithContentDescription("Shared table").performTouchInput {
-            swipe(point + Offset(-25f, -35f), point + Offset(5f, 5f), 160)
-        }
-        compose.onNodeWithContentDescription("Card action ring").assertDoesNotExist()
-        compose.runOnIdle {
-            assertTrue(f.source(f.a, "1/3").id in toolkit.selectionState.value.ids)
-            val id = f.source(f.a, "1/3").id; toolkit.openCard(TableScope(id, listOf(id)))
-        }
-        compose.mainClock.advanceTimeBy(600)
-        compose.onNodeWithContentDescription("Shared table").performTouchInput {
-            down(0, point); down(1, point + Offset(20f, 0f))
-            moveTo(0, point - Offset(10f, 0f)); moveTo(1, point + Offset(30f, 0f))
-            up(0); up(1)
-        }
-        compose.onNodeWithContentDescription("Card action ring").assertDoesNotExist()
-        compose.runOnIdle { assertTrue(toolkit.layoutState.value.camera.zoom > 1f); assertTrue(sent.isEmpty()) }
-    }
-
-    // TBL-079
-    @Test fun cornerCellsAdjustBothPartsForEverySelectedSourceAndValueOpensEditor() {
-        val toolkit = render(multi = true)
-        compose.ringPage(1)
-        compose.onNodeWithContentDescription("Increase corner").performClick()
-        assertEquals(listOf<PlayAction>(PlayAction.AdjustCorner(f.source(f.a, "1/3").id, CornerPart.BOTH, 1),
-            PlayAction.AdjustCorner(f.source(f.a, "1/2").id, CornerPart.BOTH, 1)), sent)
-        compose.onNodeWithContentDescription("Set corner").performClick()
-        compose.runOnIdle { assertEquals(ManualValueKind.CORNER, toolkit.manual.editor?.field?.kind) }
-        compose.onNodeWithContentDescription("Card action ring").assertDoesNotExist()
-    }
-
-    @Test fun moreDamageAndEverydayEotAdjustmentsBatchTheWholeSelection() {
-        render(multi = true)
-        // Round 34: damage is rarely needed, so it is the last cell of More.
-        compose.ringPage(3)
-        compose.onNodeWithContentDescription("Increase damage").assertIsDisplayed().performClick()
-        compose.ringPage(1)
-        compose.onNodeWithContentDescription("Increase damage").assertDoesNotExist()
-        compose.onNodeWithContentDescription("Increase EOT P/T").assertIsDisplayed().performClick()
-        val ids = listOf(f.source(f.a, "1/3").id, f.source(f.a, "1/2").id)
-        compose.runOnIdle {
-            assertEquals<List<List<PlayAction>>>(listOf(ids.map { PlayAction.AdjustDamage(it, "1") },
-                ids.map { PlayAction.AdjustEotCorner(it, CornerPart.BOTH, 1) }), batches)
-        }
-    }
-
-    @Test fun countersEotNoteEditorBatchesTheWholeSelection() {
-        render(multi = true)
-        compose.ringPage(2)
-        compose.onNodeWithContentDescription("Edit EOT note").assertIsDisplayed().performClick()
-        compose.onNode(hasSetTextAction()).performTextReplacement("can't block")
-        compose.onNodeWithText("Set", useUnmergedTree = true).performClick()
-        compose.runOnIdle {
-            val ids = listOf(f.source(f.a, "1/3").id, f.source(f.a, "1/2").id)
-            assertEquals<List<List<PlayAction>>>(listOf(ids.map { PlayAction.SetEotNote(it, "can't block") }), batches)
-        }
-    }
-
-    // TBL-080
-    @Test fun counterDragShowsRelativeResultAndDoesNotSwipePagesOrOpenEditor() {
-        val toolkit = render()
-        compose.ringPage(2)
-        compose.mainClock.advanceTimeBy(600)
-        val value = compose.onNodeWithContentDescription("Set blue counter")
-        value.performTouchInput { down(center); moveBy(Offset(3 * VALUE_DRAG_STEP_DP + 1f, 0f)) }
-        val initial = f.source(f.a, "1/3").counters[CounterColor.BLUE] ?: "0"
-        compose.onNodeWithText(valueDragLabel(initial, 3)).assertExists()
-        compose.runOnIdle { assertTrue(sent.isEmpty()); assertNull(toolkit.manual.editor) }
-        value.performTouchInput { up() }
-        compose.runOnIdle {
-            assertEquals(listOf<PlayAction>(PlayAction.AdjustCounter(CounterTarget.CARD, f.source(f.a, "1/3").id, CounterColor.BLUE, "3")), sent)
-            assertNull(toolkit.manual.editor)
-        }
-        value.assertExists()
-        compose.onNode(hasContentDescription("Action page 2 of ", substring = true)).assertIsDisplayed()
-    }
-
-    // TBL-079
-    @Test fun counterCellsKeepSetAndAdjustmentCallbacks() {
-        val toolkit = render()
-        compose.ringPage(2)
-        compose.onNodeWithContentDescription("Decrease blue counter").performClick()
-        compose.onNodeWithContentDescription("Increase blue counter").performClick()
-        assertEquals(listOf<PlayAction>(PlayAction.AdjustCounter(CounterTarget.CARD, f.source(f.a, "1/3").id, CounterColor.BLUE, "-1"),
-            PlayAction.AdjustCounter(CounterTarget.CARD, f.source(f.a, "1/3").id, CounterColor.BLUE, "1")), sent)
-        compose.onNodeWithContentDescription("Set blue counter").performClick()
-        compose.runOnIdle { assertEquals(ManualValue(ManualValueKind.COUNTER, CounterColor.BLUE), toolkit.manual.editor?.field) }
-    }
-
-    // TBL-080
-    @Test fun cornerWidgetOnEverydayPageDragsBothPartsAndRetainsItsEditor() {
-        val toolkit = render(multi = true)
-        compose.ringPage(1)
-        compose.mainClock.advanceTimeBy(600)
-        val value = compose.onNodeWithContentDescription("Set corner")
-        value.performTouchInput { down(center); moveBy(Offset(10f, -96f)) }
-        compose.onNodeWithText("+2 → 3/5").assertExists()
-        value.performTouchInput { up() }
-        compose.runOnIdle {
-            assertEquals(listOf<PlayAction>(PlayAction.SetCorner(f.source(f.a, "1/3").id, "3/5"),
-                PlayAction.SetCorner(f.source(f.a, "1/2").id, "3/4")), sent)
-            assertNull(toolkit.manual.editor)
-        }
-        value.performClick()
-        compose.runOnIdle { assertEquals(ManualValueKind.CORNER, toolkit.manual.editor?.field?.kind) }
-    }
-
-    // TBL-069
-    @Test fun counterValueDragDuringOpeningGuardIsInert() {
-        CardRingPageStore(ApplicationProvider.getApplicationContext(), f.a, f.game.id).write(1)
-        val toolkit = render()
-        val value = compose.onNodeWithContentDescription("Set blue counter")
-        val initial = f.source(f.a, "1/3").counters[CounterColor.BLUE] ?: "0"
-        // Rendering settles well within the 280ms guard; the opening gesture's tail stays inert.
-        value.performTouchInput { down(center); moveBy(Offset(20f, -(3 * VALUE_DRAG_STEP_DP + 1f))) }
-        compose.onNodeWithText(valueDragLabel(initial, 3)).assertDoesNotExist()
-        value.performTouchInput { up() }
-        compose.runOnIdle { assertTrue(sent.isEmpty()); assertNull(toolkit.manual.editor) }
-        compose.onNode(hasContentDescription("Action page 2 of ", substring = true)).assertIsDisplayed()
-    }
-
-    // TBL-065
-    @Test fun swipeChangesPageAndAnotherCardRemembersItAfterClosingTheRing() {
-        val toolkit = render()
-        compose.ringPage(2)
-        compose.mainClock.advanceTimeBy(600)
-        compose.onNodeWithContentDescription("Increase blue counter").performTouchInput {
-            swipe(center, center - Offset(100f, 0f), 160)
-        }
-        compose.onNode(hasContentDescription("Action page 3 of ", substring = true)).assertIsDisplayed()
-        compose.ringPage(3)
-        compose.runOnIdle { toolkit.dismiss() }
-        compose.waitForIdle()
-        compose.runOnIdle {
-            val another = f.source(f.a, "1/2").id
-            toolkit.openCard(TableScope(another, listOf(another)))
-        }
-        compose.onNode(hasContentDescription("Action page 3 of ", substring = true)).assertIsDisplayed()
-        assertTrue(sent.isEmpty())
-    }
-
-    @Test fun verticalDragDoesNotSwitchPagesAndMorePageNeedsNoScrolling() {
-        render()
-        compose.ringPage(3)
-        compose.mainClock.advanceTimeBy(600)
-        val grid = compose.onNodeWithContentDescription("Reset corner")
-        grid.performTouchInput { swipe(center, center - Offset(0f, 100f), 160) }
-        compose.onNode(hasContentDescription("Action page 3 of ", substring = true)).assertIsDisplayed()
-        compose.onNodeWithContentDescription("Reset corner").assertIsDisplayed()
-        assertTrue(sent.isEmpty())
-    }
-
-    // TBL-070
-    @Test fun pagesKeepTheSameWidthAndDisabledActionsStayDisabled() {
-        render()
-        compose.ringPage(1)
-        val bounds = compose.onNodeWithContentDescription("Card action grid").fetchSemanticsNode().boundsInRoot
-        compose.onNodeWithContentDescription("Inspect other side").assertDoesNotExist()
-        for (page in 2..3) {
-            compose.ringPage(page)
-            val resized = compose.onNodeWithContentDescription("Card action grid").fetchSemanticsNode().boundsInRoot
-            assertEquals(bounds.width, resized.width)
-            assertTrue(resized.height <= 300f)
-        }
-        compose.ringPage(3)
-        compose.onNodeWithContentDescription("Inspect other side").assertIsNotEnabled()
-    }
-
-    // TBL-076, TBL-021: Switch face also shows the new face's printed corner.
-    @Test fun switchFaceShowsTheNewFacesPrintedCorner() {
-        val source = f.source(f.a, "1/3")
-        val start = f.combat()
-        val old = start.definitions.single { it.digest == source.definition }.definition
-        val front = old.faces.single { it.faceId == source.faceId }
-        val night = DefinitionFace(f.id("night"), "Night Form", listOf(front.faceId), typeLine = "Creature — Werewolf",
-            power = "4", toughness = "5")
-        val definition = old.copy(faces = listOf(front.copy(otherFaceIds = listOf(night.faceId)), night))
-        val submitted = SubmittedDefinition(DeckJson.digest(definition), definition)
-        var play by mutableStateOf(start.copy(definitions = start.definitions + submitted,
-            board = start.board.copy(cards = start.board.cards.map {
-                if (it.id == source.id) it.copy(definition = submitted.digest, corner = "3/3") else it })))
-        val toolkit = TableToolkitController(f.a, { play }, { true }, { action, _ ->
-            sent += action
-            // The shared engine is the app's prediction path.
-            val change = GameplayRules.change(play, f.a, GameCommand(java.util.UUID.randomUUID().toString(),
-                GameScope(play.gameId, playId = play.id), GameAction.Play(action), f.id("client"), "1"))
-            play = assertNotNull(change.state, change.reason); true
-        })
-        compose.setContent {
-            MaterialTheme {
-                TableSurface(f.game, play, f.a, false, Modifier.fillMaxSize(), connected = true, toolkit = toolkit, onIntent = toolkit::handle)
-            }
-        }
-        // The table draws each card's corner from its scene item.
-        fun shown() = TablePresentation.scene(f.game, play, f.a, 412f, 892f, false, toolkit.layoutState.value).items
-            .single { it.cardId == source.id && !it.projection }
-        assertEquals("3/3", shown().corner)
-        assertTrue(shown().changedPowerToughness)
-        compose.runOnIdle { toolkit.openCard(TableScope(source.id, listOf(source.id))) }
-        compose.waitForIdle()
-        // TBL-082: Switch face is on More.
-        compose.ringPage(3)
-        compose.ringClick("Switch face")
-        assertEquals(listOf<PlayAction>(PlayAction.SetFace(source.id, night.faceId)), sent)
-        assertEquals("4/5", shown().corner)
-        assertFalse(shown().changedPowerToughness, "The printed value is not shown as changed")
-    }
 }

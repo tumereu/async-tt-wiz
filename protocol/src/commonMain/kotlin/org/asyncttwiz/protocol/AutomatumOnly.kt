@@ -14,7 +14,8 @@ package org.asyncttwiz.protocol
  *   opening status);
  * - the combat draft in the lanes the engine reads when attackers and blockers are declared (open the area, place,
  *   remove, declare into it, retarget, set blocks; not closing it);
- * - a card's place within its own Battlefield, which no rule reads;
+ * - a card's place within its own Battlefield, which no rule reads, and passing the move ([PlayAction.PassAttention]: only
+ *   shown, the move otherwise follows whoever must act, I-D34);
  * - "Inspect other side" ([PlayAction.InspectFace]).
  *
  * Anything else is refused with [RuleRefusals.AUTOMATUM_ONLY]. Undo, Redo, branching, chat, conceding by result and
@@ -39,7 +40,8 @@ object AutomatumOnly {
 
     /** Whether [actor] may send [action] outside an automated batch on [board]. */
     fun allowed(board: BoardState, actor: String, action: PlayAction): Boolean = when (action) {
-        is PlayAction.SuggestResult, is PlayAction.DeclineResult, is PlayAction.WithdrawResult, is PlayAction.InspectFace -> true
+        is PlayAction.SuggestResult, is PlayAction.DeclineResult, is PlayAction.WithdrawResult, is PlayAction.InspectFace,
+        PlayAction.PassAttention -> true
         is PlayAction.Mtg -> when (val mtg = action.action) {
             is MtgAction.SetSkipWhenNoChoice, is MtgAction.SetFullControl -> true
             is MtgAction.SetMulligans -> opening(board, actor)

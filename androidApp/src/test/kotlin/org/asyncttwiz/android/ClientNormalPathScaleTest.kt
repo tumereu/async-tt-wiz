@@ -199,22 +199,6 @@ class ClientNormalPathScaleTest {
         operation
     }
 
-    @Test fun item4PingRenderingAndCaptureReuseActiveIndex() = scale("4 active ping") { tree ->
-        val pinged = F.play(tree, PlayAction.Ping(EventReference(tree.initial.id, tree.currentNodeId), F.pingTarget), 800002)
-        val state = pinged.preparedState(pinged.currentNodeId)!!
-        val projection = ActivePingProjection()
-        val records = projection.records(state)
-        assertEquals(1, records.size)
-        val before = projection.projectedRecords
-        val operation: () -> Unit = {
-            repeat(64) {
-                assertSame(records, projection.records(state))
-                assertFalse(tablePingIntent(state, EventReference(state.id, state.currentNodeId), F.pingTarget, projection).add)
-            }
-            assertEquals(before, projection.projectedRecords)
-        }
-        operation
-    }
 
     @Test fun item5ChatAppendUnreadRefreshAndVisibleLookupAreIndexed() = scale("5 chat") { tree ->
         fun message(n: Int) = ChatMessage(F.id(900000 + n), tree.initial.gameId, tree.initial.id,

@@ -50,7 +50,7 @@ internal object AutomatumDrags {
      * still the opening "Mulliganing". The opening is the host's setup before the engine's game begins: [openingAction]s
      * stay allowed, and the first turn begins once both players are Ready.
      */
-    fun opening(board: BoardState, viewer: String?): Boolean = board.automatum && board.turn.number == "1" &&
+    fun opening(board: BoardState, viewer: String?): Boolean = board.turn.number == "1" &&
         PlayerStatus.opening(board, viewer)
 
     /** Whether [action] is one of [viewer]'s opening actions ([opening], I-D49): a mulligan of their own hand and library,

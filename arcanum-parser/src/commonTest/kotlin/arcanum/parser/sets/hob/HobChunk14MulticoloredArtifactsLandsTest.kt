@@ -223,7 +223,7 @@ class HobChunk14MulticoloredArtifactsLandsTest {
             search(basicLand()),
             move(Objects.Bound("found"), Zone.Battlefield, tapped = true, postBind = "land"),
             shuffle,
-            Step.Pay(cost(CostPart.Action(KeywordAction.Behold(sub("Elf")), bind = "beheld")), payer = Players.You, bind = "paid"),
+            Step.Pay(cost(CostPart.Action(KeywordAction.Behold(sub("Elf"), arcanum.api.Value.Fixed(1)), bind = "beheld")), payer = Players.You, bind = "paid"),
             Step.If(Condition.Did("paid"), then = listOf(untapIt(Objects.Bound("land"))))),
     )
 

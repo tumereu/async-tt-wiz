@@ -10,7 +10,7 @@ import org.junit.jupiter.api.Test
 /** SYS-053: the server refuses actions the rules don't allow with a reason the app turns into a message; nothing
  * is recorded, the game is unchanged and a retry gets the same answer. */
 class RuleRefusalsRuntimeTest {
-    // SYS-053, STK-003, TBL-094
+    // SYS-053, STK-003
     @Test fun `off-battlefield damage and EOT marks and any real card into the Stack are refused with their reason`() {
         FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)

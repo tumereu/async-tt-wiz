@@ -25,7 +25,8 @@ class TimelineLayoutTest {
                 if (before.zone == PlayZone.BATTLEFIELD) assertTrue(after.visible.all { it.bottom <= review.world.visibleViewport.bottom })
             }
             for ((before, after) in normal.fields.zip(review.fields)) assertEquals(before.gridBounds, after.gridBounds)
-            val bottom = review.items.filter { it.viewport in (if (landscape) setOf("a/HAND") else setOf("a/HAND", "dock/a", "counters/a")) }.maxOf { it.bounds.bottom }
+            val bottom = (review.items.filter { it.viewport == "a/HAND" }.map { it.bounds.bottom } +
+                review.viewports.filter { !landscape && it.id == "dock/a" }.map { it.bounds.bottom }).max()
             val panelTop = height - tableBottomHeight(landscape)
             assertEquals(panelTop - if (landscape) 2f else 0f, bottom, .001f)
             assertFalse(review.worldInput(TablePoint(review.world.visibleViewport.center.x, panelTop + 1)))

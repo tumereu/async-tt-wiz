@@ -60,7 +60,7 @@ class LibraryKnowledgeTest {
         return play(tree, LibraryActions.draw(board, library(tree, owner).id, hand.id, 1).single(), owner)
     }
 
-    // ZON-065
+    // I-D52
     @Test fun drawUndoSearchCloseRepeatedlyActuallyShuffles() {
         for (keepTop in listOf(false, true)) {
             var tree = GameplayTree(root())

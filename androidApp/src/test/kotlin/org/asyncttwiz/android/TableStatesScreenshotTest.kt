@@ -36,12 +36,6 @@ class TableStatesScreenshotTest {
             combat = play.board.combat!!.let { area -> area.copy(pairs = area.pairs.mapIndexed { index, pair ->
                 if (index == 0) pair.copy(attackTarget = target.id) else pair }) }))
     }
-    private val combatNotesState = f.combat().let { play ->
-        val notes = mapOf(f.source(f.a, "1/3").id to "Vigilance", f.source(f.a, "1/2").id to "Lifelink")
-        play.copy(board = play.board.copy(cards = play.board.cards.map { it.copy(note = notes[it.id] ?: it.note) },
-            combat = play.board.combat!!.let { area -> area.copy(pairs = area.pairs.map { pair -> pair.copy(
-                attackers = pair.attackers.map { if (it.id == f.id("attacker2")) it.copy(note = "Copy note") else it }) }) }))
-    }
     private val graveyardState = f.initial.let { play ->
         val graveyard = f.id("a/GRAVEYARD")
         val river = play.board.cards.single { it.containerId == f.id("a/HAND") && it.corner == "1/2" }
@@ -69,16 +63,6 @@ class TableStatesScreenshotTest {
         if (review) history.select(when (kind) { "history-start" -> path.first(); "history-end" -> path.last(); else -> path[3] })
         history.displayPosition()
         if (kind == "history-playing") playback.play()
-        val stackSample = f.combat().let { play ->
-            val card = CombatStackRules.inspection(play.board, f.id("effect"))!!
-            val old = play.definitions.single { it.digest == card.definition }
-            val definition = old.definition.copy(faces = old.definition.faces.map { it.copy(
-                rulesText = "Draw a card, then discard a card.\nReturn target permanent to its owner's hand.\nA literal third paragraph.") })
-            val replacement = SubmittedDefinition(DeckJson.digest(definition), definition)
-            play.copy(definitions = play.definitions.map { if (it == old) replacement else it }, board = play.board.copy(
-                cards = play.board.cards.map { if (it.definition == old.digest) it.copy(definition = replacement.digest) else it },
-                stackTextMarks = mapOf(f.id("effect") to setOf(1))))
-        }
         val tokenState = f.combat().let { state ->
             val actual = state.board.containers.single { it.zone == PlayZone.STACK }.cards.first { id -> state.board.cards.any { it.id == id } }
             val tokenIds = listOf(f.source(f.a, "1/3").id, f.source(f.b, "2/3").id,
@@ -89,18 +73,13 @@ class TableStatesScreenshotTest {
                     it.copy(cards = it.cards.reversed()) else it },
                 stackEffects = state.board.stackEffects.map { it.copy(sourceId = f.source(f.a, "1/3").id) }))
         }
-        val current = { if (kind in listOf("stack-bubbles", "stack-preview")) stackSample
-            else if (kind == "combat-targets") combatTargetsState
-            else if (kind == "combat-notes") combatNotesState
+        val current = { if (kind == "combat-targets") combatTargetsState
             else if (kind.startsWith("tokens")) tokenState
             else if (review) requireNotNull(tree.stateAt(playback.position.cursorId))
             else if (kind == "graveyard-contents") graveyardState else f.combat() }
         val toolkit = TableToolkitController(f.a, current, { !review || history.armed != null || playback.position.mode == HistoryMode.LIVE },
             { action, _ -> sent += action; true })
         if (kind == "tokens-small") toolkit.layoutState.value = TableLayoutState(TableCamera(zoom = TablePresentation.MIN_ZOOM))
-        if (kind.startsWith("stack-menu")) toolkit.selectionState.value = TableSelection(mode = TableMode.SELECT)
-        if (kind == "combat") toolkit.selectionState.value = TableSelection(setOf(f.source(f.a, "1/3").id, f.source(f.a, "1/2").id), mode = TableMode.SELECT)
-        if (kind in listOf("stack-bubbles", "stack-preview")) toolkit.showStackBubbles(f.id("effect"))
         val explorer = HistoryExplorerController(Executor { it.run() }, { it() })
         explorer.update(tree, openingNodeId = tree.nodes.values.first { it.requestId == f.id("request5") }.id)
         compose.setContent {
@@ -128,20 +107,6 @@ class TableStatesScreenshotTest {
         }
         compose.waitForIdle()
         when (kind) {
-            "stack-bubbles", "stack-preview" -> {
-                compose.onNodeWithContentDescription("Put to battlefield").assertIsDisplayed()
-                compose.onNodeWithContentDescription("Put to graveyard").assertIsDisplayed()
-                compose.onNodeWithContentDescription("Stack text mark 2").assertIsDisplayed()
-                if (kind == "stack-preview") {
-                    compose.mainClock.autoAdvance = false
-                    compose.onNodeWithContentDescription("Mark text · drag up or down").performTouchInput {
-                        down(center); moveBy(androidx.compose.ui.geometry.Offset(0f, 28f))
-                    }
-                    compose.waitForIdle() // Flush Android pointer delivery before advancing frozen composition frames.
-                    compose.mainClock.advanceTimeByFrame()
-                    compose.mainClock.advanceTimeByFrame()
-                }
-            }
             "tokens-contents" -> compose.onNodeWithContentDescription("Stack, 2 entries").performClick()
             "tokens-menu" -> compose.runOnIdle { toolkit.openCard(TableScope(f.source(f.a, "1/3").id, listOf(f.source(f.a, "1/3").id))) }
             "tokens-inspector" -> compose.runOnIdle { toolkit.inspect(f.source(f.a, "1/3").id) }
@@ -149,7 +114,7 @@ class TableStatesScreenshotTest {
                 // HIS-036: holding Auto is the only way to branch.
                 compose.onNodeWithContentDescription("Continue playing from here").assertDoesNotExist()
                 compose.onNodeWithContentDescription("Auto advance").performTouchInput { longClick() }
-                compose.onNodeWithContentDescription("Interaction mode").assertExists()
+                compose.onNodeWithContentDescription("Undo").assertExists()
                 compose.onNodeWithContentDescription("Auto advance").assertDoesNotExist()
                 compose.onNodeWithContentDescription("Cancel continuation").assertIsDisplayed()
                 compose.onNodeWithText("Continuing from", substring = true).assertDoesNotExist()
@@ -158,7 +123,7 @@ class TableStatesScreenshotTest {
             "stack-contents" -> {
                 compose.onNodeWithContentDescription("Stack, 2 entries").performTouchInput { doubleClick() }
                 compose.runOnIdle { assertEquals("manageStack", toolkit.panel) }
-                compose.onNodeWithText("Manage Stack · 2").assertExists()
+                compose.onNodeWithText("Stack · 2").assertExists()
             }
             "graveyard-contents" -> {
                 // A pile tap opens its menu; the double-tap opens the search panel.
@@ -166,7 +131,7 @@ class TableStatesScreenshotTest {
                 compose.mainClock.advanceTimeBy(500)
                 compose.onNodeWithContentDescription("Your Graveyard panel, 3 cards").assertIsDisplayed()
                 compose.onNode(isDialog()).assertDoesNotExist()
-                compose.onNodeWithContentDescription("Panel card actions").assertDoesNotExist()
+                compose.onNodeWithContentDescription("Card action ring").assertDoesNotExist()
                 val scene = TablePresentation.scene(f.game, current(), f.a, 412f, 892f, landscape, toolkit.layoutState.value)
                 val panel = scene.cardPanels.single()
                 assertEquals(PlayZone.GRAVEYARD, panel.localZone)
@@ -196,11 +161,8 @@ class TableStatesScreenshotTest {
         file.parentFile!!.mkdirs()
         val combat = "in combat at declare attackers"
         val shown = when (kind) {
-            "combat" -> "$combat, both your attackers selected, one blocked; the Stack holds an effect and a card"
-            "combat-notes" -> "$combat, Meadow Sentinel noted Vigilance and River Adept noted Lifelink: Sentinel's copy, without a note of its own, shows Vigilance, River Adept's copy its own Copy note and the River Adept Stack entry shows Lifelink"
+            "combat" -> "$combat, one attacker blocked; the Stack holds an effect and a card"
             "combat-targets" -> "$combat, the first attack aimed at the opponent's Jace Beleren planeswalker, in its own lane"
-            "stack-bubbles" -> "$combat, action bubbles open on the top Stack effect, its second rules paragraph marked"
-            "stack-preview" -> "$combat, holding the Stack effect's Mark text bubble and dragging down: paragraph preview shows"
             "tokens" -> "$combat, where your attacker, the opponent's blocker and one hand card are tokens"
             "tokens-small" -> "$combat with several tokens, zoomed out as far as possible"
             "tokens-contents" -> "$combat with several tokens, after tapping the two-entry Stack"
@@ -220,10 +182,6 @@ class TableStatesScreenshotTest {
             else -> error("No caption for $kind")
         }
         captureShot(file.path, "${if (landscape) "Landscape" else "Portrait"} table $shown.")
-        if (kind == "stack-preview") {
-            compose.onNodeWithContentDescription("Stack text drag preview").assertIsDisplayed()
-            compose.onNodeWithText("A literal third paragraph.").assertIsDisplayed()
-        }
         val image = ImageIO.read(file)
         assertEquals(if (landscape) 892 else 412, image.width)
         assertEquals(if (landscape) 412 else 892, image.height)
@@ -241,57 +199,29 @@ class TableStatesScreenshotTest {
             assertTrue(scene.combatDividers.all { (from, _) -> scene.combatLabels.all { from.y >= it.bounds.bottom - .01f } })
             assertTrue(scene.combatLaneDividers.all { (from, _) -> scene.combatLabels.all { from.y <= it.bounds.y + .01f } })
         }
-        if (kind == "stack-preview") {
-            compose.onRoot().performTouchInput { cancel() }
-            compose.mainClock.autoAdvance = true
-        }
         explorer.close()
         return sent
     }
 
-    // CMB-008, CMB-013, CMB-014, STK-008, STK-013, STK-017, STK-018, STK-021
+    // CMB-008, CMB-013, CMB-014, STK-008, STK-018, STK-021
     @Test fun combatPortrait() { render("combat", false) }
     @Test fun combatCardTargetPortrait() { render("combat-targets", false) }
-    // CMB-005
-    @Test fun combatCopyWithoutItsOwnNoteShowsTheRealCardsNotePortrait() { render("combat-notes", false) }
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun combatCardTargetLandscape() { render("combat-targets", true) }
-    @Test fun stackBubblesPortrait() { render("stack-bubbles", false) }
-    @Test fun stackDoubleTapWithBubblesOpenShowsManageStackWithoutTappingSource() {
-        val sent = render("stack-bubbles", false)
-        val scene = TablePresentation.scene(f.game, f.combat(), f.a, 412f, 892f, false)
-        val card = scene.items.single { it.cardId == f.id("effect") }
-        compose.onRoot().performTouchInput {
-            doubleClick(androidx.compose.ui.geometry.Offset(card.bounds.center.x, card.bounds.bottom - 6))
-        }
-        compose.onNodeWithText("Manage Stack · 2").assertIsDisplayed()
-        compose.onNodeWithContentDescription("Card action ring").assertDoesNotExist()
-        compose.onAllNodesWithContentDescription("Put to battlefield").onFirst().assertIsDisplayed()
-        compose.onAllNodesWithContentDescription("Card actions").assertCountEquals(0)
-        compose.onAllNodesWithContentDescription("Copy").assertCountEquals(2)
-        compose.onAllNodesWithContentDescription("Change controller").assertCountEquals(2)
-        compose.onAllNodesWithContentDescription("Change controller").onFirst().assertIsEnabled()
-        compose.onAllNodesWithContentDescription("Change controller").onLast().assertIsNotEnabled()
-        compose.onNodeWithContentDescription("Move up").assertDoesNotExist()
-        compose.onNodeWithContentDescription("Move down").assertDoesNotExist()
-        compose.onNodeWithContentDescription("Tap selected scope").assertDoesNotExist()
-        compose.onNodeWithContentDescription("Untap selected scope").assertDoesNotExist()
-        assertTrue(sent.isEmpty())
-    }
     @Test fun manageStackReflectsLiveMembershipAndClosesWhenEmpty() {
         var state by mutableStateOf(f.combat())
         val ui = TableToolkitController(f.a, { state }, { true }, { _, _ -> error("Browsing is local") })
         ui.stackContents()
         compose.setContent { MaterialTheme {
-            TableToolkitScreen(ui, state, f.game, false, TableSelection())
+            TableToolkitScreen(ui, state, f.game, false)
         } }
-        compose.onNodeWithText("Manage Stack · 2").assertIsDisplayed()
+        compose.onNodeWithText("Stack · 2").assertIsDisplayed()
         compose.runOnIdle {
             state = state.copy(board = state.board.copy(stackEffects = emptyList(), containers = state.board.containers.map {
                 if (it.zone == PlayZone.STACK) it.copy(cards = it.cards - f.id("effect")) else it }))
         }
-        compose.onNodeWithText("Manage Stack · 1").assertIsDisplayed()
+        compose.onNodeWithText("Stack · 1").assertIsDisplayed()
         compose.runOnIdle { state = f.initial }
-        compose.onNodeWithText("Manage Stack · 1").assertDoesNotExist()
+        compose.onNodeWithText("Stack · 1").assertDoesNotExist()
         compose.runOnIdle { assertNull(ui.panel) }
     }
     // STK-021
@@ -299,9 +229,9 @@ class TableStatesScreenshotTest {
     @Test fun manageStackPeekAttachesAboveTheManageDialogAndReleasesBackToIt() {
         val state = f.combat()
         compose.setContent { MaterialTheme {
-            ManageStackDialog(state, f.a, true, {}, { error("Inspection must stay local") })
+            ManageStackDialog(state, f.a, {})
         } }
-        compose.onNodeWithText("Manage Stack · 2").assertIsDisplayed()
+        compose.onNodeWithText("Stack · 2").assertIsDisplayed()
         val dialog = android.view.inspector.WindowInspector.getGlobalWindowViews().last()
         val row = compose.onNodeWithText("Top ·", substring = true)
         compose.mainClock.autoAdvance = false
@@ -319,105 +249,19 @@ class TableStatesScreenshotTest {
         row.performTouchInput { up() }
         compose.mainClock.autoAdvance = true
         compose.onNodeWithContentDescription("Card inspection content").assertDoesNotExist()
-        compose.onNodeWithText("Manage Stack · 2").assertIsDisplayed()
+        compose.onNodeWithText("Stack · 2").assertIsDisplayed()
     }
-    @Test fun stackHoldHighlightsTheMarkedParagraphWithoutSubmittingAnything() {
-        val sent = render("stack-bubbles", false)
-        val play = f.combat()
-        val scene = TablePresentation.scene(f.game, play, f.a, 412f, 892f, false)
-        val card = scene.items.single { it.cardId == f.id("effect") }
-        compose.mainClock.autoAdvance = false
-        compose.onNodeWithContentDescription("Shared table").performTouchInput {
-            down(androidx.compose.ui.geometry.Offset(card.bounds.center.x, card.bounds.bottom - 6))
-        }
-        compose.waitForIdle()
-        compose.mainClock.advanceTimeBy(650)
-        compose.onNodeWithText("Return target permanent to its owner's hand.").assertExists()
-        compose.onNode(hasStateDescription("Stack text mark 2")).assertExists()
-        compose.onNodeWithContentDescription("Shared table").performTouchInput { up() }
-        compose.mainClock.autoAdvance = true
-        compose.onNodeWithText("Return target permanent to its owner's hand.").assertDoesNotExist()
-        assertTrue(sent.isEmpty())
-    }
-    // STK-017
     @OptIn(ExperimentalRoborazziApi::class)
-    @Test fun explicitStackInspectStaysOpenAndKeepsItsTextMarker() {
-        val sent = render("stack-bubbles", false)
-        val scene = TablePresentation.scene(f.game, f.combat(), f.a, 412f, 892f, false)
-        val card = scene.items.single { it.cardId == f.id("effect") }
-        compose.onNodeWithContentDescription("Shared table").performTouchInput {
-            doubleClick(androidx.compose.ui.geometry.Offset(card.bounds.center.x, card.bounds.bottom - 6))
-        }
-        val inspect = compose.onAllNodesWithContentDescription("Your Stack entry").onFirst().fetchSemanticsNode()
-            .config[androidx.compose.ui.semantics.SemanticsActions.CustomActions].single { it.label == "Inspect" }
-        compose.runOnIdle { assertTrue(inspect.action()) }
-        captureShot("$SCREENSHOTS/ring-stack-inspection.png", "Portrait table in combat: after double-tapping the top Stack effect " +
-            "into Manage Stack, its Inspect view open with the marked paragraph.")
-        compose.onNodeWithContentDescription("Close card inspection").assertIsDisplayed()
-        compose.onNode(hasText("Return target permanent to its owner's hand.") and
-            hasAnyAncestor(hasContentDescription("Card inspection content"))).performScrollTo().assertIsDisplayed()
-        compose.onNode(hasStateDescription("Stack text mark 2")).assertExists()
-        compose.onNodeWithContentDescription("Close card inspection").performClick()
-        compose.onNode(hasText("Return target permanent to its owner's hand.") and
-            hasAnyAncestor(hasContentDescription("Card inspection content"))).assertDoesNotExist()
-        compose.onNodeWithText("Manage Stack · 2").assertIsDisplayed()
-        compose.onNodeWithText("Return target permanent to its owner's hand.").assertExists() // The mark chip remains.
-        assertTrue(sent.isEmpty())
-    }
-    // STK-013, STK-016, TBL-018, ZON-013
-    @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun stackBubblesLandscape() { render("stack-bubbles", true) }
-    @Test fun stackPreviewPortrait() { render("stack-preview", false) }
-    @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun stackPreviewLandscape() { render("stack-preview", true) }
     @Test fun tokensOnBattlefieldHandStackAndCombatPortrait() { render("tokens", false) }
     @Test fun tokensAtSmallestCardSizePortrait() { render("tokens-small", false) }
     @Test fun tokenContentsPreviewPortrait() { render("tokens-contents", false) }
     @Test fun tokenMenuPreviewPortrait() { render("tokens-menu", false) }
     @Test fun tokenInspectorPreviewPortrait() { render("tokens-inspector", false) }
     @Test fun realTokenOnStackPortrait() { render("tokens-stack-card", false) }
-    @Test fun ownLibraryDoubleTapSubmitsOnlyOneDrawNotView() {
-        val sent = render("combat", false)
-        compose.onNodeWithContentDescription("Alice library, 50 cards").performTouchInput { doubleClick() }
-        compose.mainClock.advanceTimeBy(400)
-        val library = f.combat().board.containers.single { it.id == f.id("a/LIBRARY") }
-        assertEquals(listOf(PlayAction.MoveCard(library.cards.first(), MoveSource(library.id, edge = MoveSourceEdge.TOP),
-            MoveDestination(f.id("a/HAND"), MoveInsertion.UNORDERED))), sent)
-        compose.onNodeWithText("Library contents").assertDoesNotExist()
-    }
-    // ZON-013
-    @Test fun opponentLibraryDoubleTapDrawsIntoOwnersHandWithoutView() {
-        val sent = render("combat", false)
-        compose.onNodeWithContentDescription("Bob library, 50 cards").performTouchInput { doubleClick() }
-        compose.mainClock.advanceTimeBy(400)
-        val library = f.combat().board.containers.single { it.id == f.id("b/LIBRARY") }
-        assertEquals(listOf(PlayAction.MoveCard(library.cards.first(), MoveSource(library.id, edge = MoveSourceEdge.TOP),
-            MoveDestination(f.id("b/HAND"), MoveInsertion.UNORDERED))), sent)
-        compose.onNodeWithText("Library contents").assertDoesNotExist()
-    }
     // CMB-008, STK-018, TBL-046, ZON-058
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun combatLandscape() { render("combat", true) }
     @Test fun stackPortrait() { render("stack-contents", false) }
     @Test fun graveyardBrowserPortrait() { render("graveyard-contents", false) }
-    @Test fun graveyardTapOpensFixedPanelCardMenuWithoutSending() {
-        val sent = render("graveyard-contents", false)
-        compose.mainClock.advanceTimeBy(350)
-        compose.onNodeWithContentDescription("Graveyard panel: Meadow Sentinel").performTouchInput { advanceEventTime(350); click() }
-        compose.onNodeWithContentDescription("Panel card actions").assertIsDisplayed()
-        compose.onNodeWithContentDescription("Card action ring").assertDoesNotExist()
-        compose.onNodeWithContentDescription("Graveyard panel: Meadow Sentinel").assertIsSelected()
-        val labels = panelCardActions.map { it.name }
-        val first = compose.onNodeWithContentDescription("Inspect").fetchSemanticsNode().boundsInRoot
-        for ((index, label) in labels.withIndex()) {
-            val cell = compose.onNodeWithContentDescription(label).assertIsDisplayed()
-            if (label in listOf("Graveyard", "Reveal+Hand", "Reveal+Top")) cell.assertIsNotEnabled()
-            else if (label != "Ping / Unping" && label != "Inspect other side") cell.assertIsEnabled()
-            val bounds = cell.fetchSemanticsNode().boundsInRoot
-            assertEquals(CardRingGeometry.cell, bounds.width)
-            assertEquals(CardRingGeometry.cell, bounds.height)
-            assertEquals(first.left + index % 5 * (first.width + 2f), bounds.left, .1f)
-            assertEquals(first.top + index / 5 * (first.height + 2f), bounds.top, .1f)
-        }
-        assertTrue(sent.isEmpty())
-    }
     // ZON-057
     @Test fun graveyardHoldInspectsWithoutOpeningActionsOrLogging() {
         val sent = render("graveyard-contents", false)
@@ -426,7 +270,7 @@ class TableStatesScreenshotTest {
         compose.mainClock.advanceTimeBy(350)
         row.performTouchInput { advanceEventTime(350); down(center) }
         compose.waitForIdle(); compose.mainClock.advanceTimeBy(600)
-        compose.onNodeWithContentDescription("Panel card actions").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Card action ring").assertDoesNotExist()
         compose.onNodeWithContentDescription("Card action ring").assertDoesNotExist()
         compose.onNodeWithContentDescription("Card inspection content").assertIsDisplayed()
         compose.onNodeWithText("Creature — Soldier", substring = false).assertExists()
@@ -434,7 +278,7 @@ class TableStatesScreenshotTest {
         row.performTouchInput { up() }
         compose.mainClock.autoAdvance = true
         compose.onNodeWithContentDescription("Card inspection content").assertDoesNotExist()
-        compose.onNodeWithContentDescription("Panel card actions").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Card action ring").assertDoesNotExist()
         compose.onNodeWithText("Creature — Soldier", substring = false).assertDoesNotExist()
         compose.onNodeWithContentDescription("Your Graveyard panel, 3 cards").assertIsDisplayed()
         assertTrue(sent.isEmpty())
@@ -451,12 +295,12 @@ class TableStatesScreenshotTest {
         row.performTouchInput { advanceEventTime(350); click() }
         compose.waitForIdle()
         compose.mainClock.advanceTimeBy(120)
-        compose.onNodeWithContentDescription("Panel card actions").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Card action ring").assertIsDisplayed()
         compose.onRoot().performTouchInput { click(center) }
         compose.mainClock.advanceTimeBy(400)
         compose.mainClock.autoAdvance = true
         assertTrue(sent.isEmpty())
-        compose.onNodeWithContentDescription("Panel card actions").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Card action ring").assertDoesNotExist()
         compose.onNodeWithContentDescription("Your Graveyard panel, 3 cards").assertIsDisplayed()
     }
     // HIS-005, HIS-036, HIS-037, HIS-044, STK-018
@@ -503,20 +347,11 @@ class TableStatesScreenshotTest {
         val sent = render("combat", true)
         compose.onNodeWithContentDescription("Bob, life", substring = true).performClick()
         compose.onNodeWithContentDescription("Life", substring = false).assertExists()
-        compose.onNodeWithContentDescription("Set life").assertExists()
+        compose.onNodeWithContentDescription("Set life").assertDoesNotExist()
         compose.onNodeWithContentDescription("Set red counter").assertDoesNotExist()
         assertTrue(sent.isEmpty())
     }
 
-    // TRN-034
-    @Test fun emptyPortraitCounterOpensOnlyCountersWithoutMutation() {
-        val sent = render("combat", false)
-        compose.onNodeWithContentDescription("Bob, red, no value").performClick()
-        compose.onNodeWithContentDescription("Counters").assertExists()
-        compose.onNodeWithContentDescription("Set red counter").assertExists()
-        compose.onNodeWithContentDescription("Set life").assertDoesNotExist()
-        assertTrue(sent.isEmpty())
-    }
 
       // HIS-036
       @Test fun pausedAutoHoldImmediatelyArmsWithoutDialogAndConsumesTap() {
@@ -525,7 +360,7 @@ class TableStatesScreenshotTest {
          compose.onNode(isDialog()).assertDoesNotExist()
          compose.onNodeWithContentDescription("Cancel continuation").assertIsDisplayed()
           compose.onNodeWithContentDescription("Auto advance").assertDoesNotExist()
-         compose.onNodeWithContentDescription("Interaction mode").assertIsDisplayed()
+         compose.onNodeWithContentDescription("Undo").assertIsDisplayed()
      }
 
      @Test fun returnToCurrentAtHeadLeavesTimelineWithoutDialog() {

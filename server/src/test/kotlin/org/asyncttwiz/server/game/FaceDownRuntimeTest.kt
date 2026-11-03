@@ -8,7 +8,7 @@ import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 
 class FaceDownRuntimeTest {
-    // STK-005, STK-003, ZON-008: a face-down entry on the Stack, resolved face down; manifest top too; both replay exactly.
+    // STK-003: a face-down entry on the Stack, resolved face down; manifest top too; both replay exactly.
     @Test fun `face-down casts go through a face-down Stack entry onto the battlefield, manifest top too, and both replay exactly`() {
         FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
@@ -64,7 +64,7 @@ class FaceDownRuntimeTest {
         }
     }
 
-    // STK-005, ZON-073, ZON-075, TBL-109: what the server sends the opponent never shows a face-down entry's card.
+    // ZON-073, ZON-075, TBL-109: what the server sends the opponent never shows a face-down entry's card.
     @Test fun `a face-down Stack entry reveals nothing to the opponent in heads, results or history`() {
         FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)

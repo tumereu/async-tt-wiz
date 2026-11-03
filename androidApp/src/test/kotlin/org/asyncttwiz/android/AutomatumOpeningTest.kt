@@ -82,25 +82,11 @@ class AutomatumOpeningTest {
     private fun library(player: String) = play.board.containers.single { it.zone == PlayZone.LIBRARY && it.accountId == player }
     private fun handId(player: String) = play.board.containers.single { it.zone == PlayZone.HAND && it.accountId == player }.id
     private fun quick(toolkit: TableToolkitController, name: String) =
-        QuickActions.contextual(play, QuickContext(viewer = toolkit.viewer), toolkit.table).single { it.name == name }
+        QuickActions.contextual(play, QuickContext(viewer = toolkit.viewer)).single { it.name == name }
     private fun quickNames(toolkit: TableToolkitController) =
-        QuickActions.contextual(play, QuickContext(viewer = toolkit.viewer), toolkit.table).map { it.name }
+        QuickActions.contextual(play, QuickContext(viewer = toolkit.viewer)).map { it.name }
     private fun mulligans(player: String) = play.board.players.single { it.accountId == player }.mulligans
     private fun opening(player: String) = PlayerStatus.opening(play.board, player)
-    /** "Mull N" with 7 in its dialog (TRN-027, ZON-028), as the player taps it (Automatum off). */
-    private fun mullSeven(toolkit: TableToolkitController) {
-        val mull = quick(toolkit, "Mull N")
-        assertTrue(mull.enabled, "Mull N works during the opening: ${mull.refused}")
-        assertTrue(toolkit.table.perform(mull.intent))
-        val library = assertNotNull(toolkit.library, "the mulligan dialog opened")
-        assertEquals(0, library.controller.mulligan(library.handIds, 7).refused, toolkit.error)
-        toolkit.dismiss()
-    }
-    private fun ready(toolkit: TableToolkitController) {
-        val ready = quick(toolkit, QuickActions.READY)
-        assertTrue(ready.enabled)
-        assertTrue(toolkit.table.perform(ready.intent), toolkit.error)
-    }
     /** "Mulligan" (I-D49), as the player taps it. */
     private fun mulligan(toolkit: TableToolkitController) {
         val mulligan = quick(toolkit, QuickActions.MULLIGAN)

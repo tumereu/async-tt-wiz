@@ -46,19 +46,6 @@ class HistoryAutoPauseTest {
         }
     }
 
-    // ZON-021
-    @Test fun toggleMayPauseUnderRevealButAutomaticallyExposedTopsNeverDo() {
-        for (enabled in listOf(false, true)) assertEquals(setOf(PlaybackAutoPause.REVEAL),
-            triggers(PlayAction.SetKeepTopRevealed("theirs", enabled)))
-        val exposure = GameplayDisclosure(other.id, "face", "theirs", listOf(me, opponent), automatic = true)
-        for (action in listOf(PlayAction.ShuffleLibrary("theirs", "seed"),
-            PlayAction.MoveCard(other.id, MoveSource("theirs"), MoveDestination("hand", MoveInsertion.UNORDERED)),
-            PlayAction.MoveCard(other.id, MoveSource("hand"), MoveDestination("theirs", MoveInsertion.TOP)))) {
-            assertFalse(PlaybackAutoPause.REVEAL in triggers(action, GameplayTransition(disclosures = listOf(exposure))))
-        }
-        assertEquals(setOf(PlaybackAutoPause.REVEAL), triggers(PlayAction.InspectFace(other.id, "face", "theirs"),
-            GameplayTransition(disclosures = listOf(exposure.copy(automatic = false)))))
-    }
 
     private val me = "me"
     private val opponent = "opponent"

@@ -102,66 +102,11 @@ class TableChangesScreenshotTest {
         return TableBounds(left.toFloat(), top.toFloat(), (right - left + 1).toFloat(), (bottom - top + 1).toFloat())
     }
 
-    @Test fun smallestCardTagsAreOpaqueUnclippedScreenBoundedAndTouchTransparent() {
-        val appearance = CardAppearance(cardSize = MIN_CARD_SCALE, textSize = MIN_CARD_SCALE)
-        val play = LiveTableFixture.menuPlay()
-        val original = TablePresentation.scene(LiveTableFixture.game, play, "a", 412f, 892f, false, appearance = appearance)
-            .items.first { it.kind == TableItemKind.CARD && !it.covered && it.zone == PlayZone.BATTLEFIELD }
-        // Same smallest-card face as the table, at a left edge and at the bottom/right screen edge.
-        val transform = original.faceTransform()
-        val left = original.copy(id = "card/left", cardId = "left", bounds = TableBounds(2f, 250f, transform.width, transform.height),
-            cardTransform = transform.copy(rotation = 0f), counters = mapOf(CounterColor.RED to "1"), note = "")
-            .let { it.copy(visible = listOf(it.bounds.copy(width = it.bounds.width / 2),
-                it.bounds.copy(x = it.bounds.center.x, width = it.bounds.width / 2))) }
-        val edge = left.copy(id = "card/edge", cardId = "edge",
-            bounds = TableBounds(410f - transform.width, 890f - transform.height, transform.width, transform.height))
-            .let { it.copy(visible = listOf(it.bounds)) }
-        val items = listOf(left, edge).associateBy { it.id }
-        val changes = TableChanges { 0L }
-        var taps = 0
-        compose.setContent {
-            Box(Modifier.fillMaxSize().pointerInput(Unit) { detectTapGestures { taps++ } }) {
-                Canvas(Modifier.fillMaxSize()) {
-                    for (x in 0 until size.width.toInt() step 4)
-                        drawRect(if (x % 8 == 0) Color.White else Color(0xff426f97), Offset(x.toFloat(), 0f), Size(4f, size.height))
-                    for (card in items.values) drawRect(Color.White, Offset(card.bounds.x, card.bounds.y), Size(card.bounds.width, card.bounds.height))
-                }
-                TableChangeOverlay(changes, "a", appearance, items::get)
-            }
-        }
-        compose.waitForIdle(); compose.mainClock.autoAdvance = false
-        animate(changes, GameplayTransition(fields = listOf(
-            GameplayFieldChange("left", GameplayField.CORNER, "1/1", "3/3"),
-            GameplayFieldChange("edge", GameplayField.CORNER, "1/1", "3/3"),
-            GameplayFieldChange("left", GameplayField.COUNTER, "0", "1", CounterColor.RED))))
-        compose.mainClock.advanceTimeBy(200); compose.waitForIdle()
-        val image = capture("changefx-smallest-card-300ms", "Change tags on two smallest-size cards over stripes, 0.3 seconds in: " +
-            "+2/+2 on both, red +1 counter on one, the other in the screen corner.")
-        val flashLeft = image.getRGB((left.bounds.x + 3).toInt(), (left.bounds.bottom - 3).toInt())
-        val flashRight = image.getRGB((left.bounds.right - 3).toInt(), (left.bounds.bottom - 3).toInt())
-        assertNotEquals(Color.White.toArgb(), flashLeft, "Value flash must remain visible at 300 ms")
-        assertEquals(flashLeft, flashRight, "Value flash must cover every visible fragment")
-        val pt = assertOpaquePill(image, TableBounds(left.bounds.right, left.bounds.bottom - 24, 90f, 40f), TableChangeTagFill, "+2/+2")
-        assertTrue(pt.x >= left.bounds.right, "P/T tag belongs beside the bottom-right value, not over the art")
-        assertTrue(pt.width > left.bounds.width, "The full tag must extend beyond the smallest card width")
-        assertOpaquePill(image, TableBounds(310f, 850f, 102f, 42f), TableChangeTagFill, "+2/+2")
-        assertOpaquePill(image, TableBounds(2f, left.bounds.y - 24f, 110f, left.bounds.height + 34), counterColor(CounterColor.RED), "+1")
-        compose.onRoot().performTouchInput { click(Offset(pt.center.x, pt.center.y)) }
-        compose.runOnIdle { assertEquals(1, taps, "Tags must not intercept touches") }
-        compose.mainClock.advanceTimeBy(550); compose.waitForIdle()
-        val held = capture("changefx-smallest-card-held",
-            "Change tags on two smallest-size cards over stripes, 0.85 seconds in: still fully opaque during the hold.")
-        assertEquals(0, changedPixels(image, held, pt), "Pill stays fully opaque throughout the hold")
-        compose.mainClock.advanceTimeBy(350); compose.waitForIdle()
-        val fading = capture("changefx-smallest-card-fading",
-            "Change tags on two smallest-size cards over stripes, 1.2 seconds in: fading out after the hold.")
-        assertTrue(changedPixels(held, fading, pt) > 40, "Pill fades only after the hold")
-    }
 
     // HIS-031
-    @Test fun realStackEntryHighlightsAndLinkGlowDrawInBothPlaybackDirections() = stackFeedback(projection = false)
+    @Test fun realStackEntryHighlightsDrawInBothPlaybackDirections() = stackFeedback(projection = false)
 
-    @Test fun projectedStackEntryHighlightsAndLinkGlowDrawInBothPlaybackDirections() = stackFeedback(projection = true)
+    @Test fun projectedStackEntryHighlightsDrawInBothPlaybackDirections() = stackFeedback(projection = true)
 
     private fun stackFeedback(projection: Boolean) {
         val (initial, id) = ChangeTargetFixture.stack(projection)
@@ -177,27 +122,10 @@ class TableChangesScreenshotTest {
         val owner = if (!projection) GameplayTransition(fields = listOf(GameplayFieldChange(id, GameplayField.OWNER, "a", "b")))
             else GameplayTransition(combatStack = CombatStackTransition(effects = listOf(StackEffectChange(id,
                 play.board.stackEffects.single().copy(controller = "a"), play.board.stackEffects.single()))))
-        val note = if (!projection) GameplayTransition(fields = listOf(GameplayFieldChange(id, GameplayField.NOTE, "old", "new")))
-            else GameplayTransition(combatStack = CombatStackTransition(effects = listOf(StackEffectChange(id,
-                play.board.stackEffects.single().copy(note = "old"), play.board.stackEffects.single()))))
-        val text = GameplayTransition(combatStack = CombatStackTransition(textMarks = listOf(StackTextMarkChange(id, emptySet(), setOf(0)))))
-        val link = if (!projection) GameplayTransition(links = listOf(LinkChange(null, PlayLink("link",
-            LinkEndpoint(LinkEndpointKind.CARD, id), LinkEndpoint(LinkEndpointKind.PLAYER, "a")))))
-            else GameplayTransition(combatStack = CombatStackTransition(addedLinks = listOf(ProjectionLink("link", id, "combat-occurrence"))))
-        for (reverse in listOf(false, true)) for ((name, transition) in listOf("owner" to owner, "note" to note, "text" to text, "link" to link)) {
-            // Reversing a removal adds a link; reversing an addition correctly has no glow.
-            val recorded = if (reverse && name == "link") if (!projection)
-                link.copy(links = link.links.map { LinkChange(it.to, null) })
-                else GameplayTransition(combatStack = CombatStackTransition(removedLinks = link.combatStack!!.addedLinks))
-                else transition
-            animate(changes, recorded, reverse)
-            val change = when (name) {
-                "owner" -> "controller change"
-                "note" -> "note change"
-                "text" -> "text mark added"
-                else -> if (reverse) "link removal" else "link added"
-            }
-            val played = if (reverse && name == "link") "played backwards, so a link appears" else "played ${if (reverse) "backwards" else "forward"}"
+        for (reverse in listOf(false, true)) for ((name, transition) in listOf("owner" to owner)) {
+            animate(changes, transition, reverse)
+            val change = "controller change"
+            val played = "played ${if (reverse) "backwards" else "forward"}"
             val during = capture("stack-changefx-$projection-$name-$reverse", "Change highlight layer alone on white for $entry: " +
                 "$change $played, mid-animation.")
             assertTrue(changedPixels(before, during, drawing.bounds) > 10, "$name must draw on the exact Stack entry (reverse=$reverse)")
@@ -234,30 +162,6 @@ class TableChangesScreenshotTest {
             "Public owner feedback must only pulse the border")
     }
 
-    @Test fun zeroedCounterKeepsMinusOneTagOnItsOutlineSlotThenExpires() {
-        val initial = LiveTableFixture.menuPlay()
-        val play = initial.copy(board = initial.board.copy(players = initial.board.players.map { it.copy(counters = emptyMap()) }))
-        val scene = ChangeTargetFixture.scene(play)
-        val hud = scene.items.single { it.id == "counter/a/BLUE" }
-        assertEquals("", hud.value)
-        val changes = TableChanges { 0L }
-        overlay(scene, changes)
-        val before = capture("zero-counter-changefx-before",
-            "Change highlight layer alone on white, before player A's blue counter drops from 1 to 0.")
-        animate(changes, GameplayTransition(fields = listOf(GameplayFieldChange("a", GameplayField.PLAYER_COUNTER, "1", "0", CounterColor.BLUE))))
-        compose.runOnIdle { assertEquals("-1", changes.active.values.single().tag) }
-        assertTrue(changedPixels(before, capture("zero-counter-changefx-flash",
-            "Just after player A's blue counter drops from 1 to 0: the now empty counter slot flashes."), hud.bounds) > 20)
-        compose.mainClock.advanceTimeBy(650); compose.waitForIdle()
-        val tagArea = TableBounds(hud.bounds.x, hud.bounds.y - 20, hud.bounds.width + 24, 40f)
-        assertTrue(changedPixels(before, capture("zero-counter-changefx-tag",
-            "0.65 seconds after player A's blue counter drops from 1 to 0: the flash is over, a -1 tag stays beside the empty slot."), tagArea) > 20,
-            "The tag must outlive the flash on the empty counter slot")
-        compose.mainClock.advanceTimeBy(900); compose.waitForIdle()
-        compose.runOnIdle { assertTrue(changes.active.isEmpty()) }
-        assertEquals(0, changedPixels(before, capture("zero-counter-changefx-expired",
-            "Change highlight layer alone on white after player A's blue counter change has expired: nothing is drawn."), TableBounds(0f, 0f, 412f, 892f)))
-    }
 
     // HIS-031, TBL-033
     @Test fun accumulatedTagsAndHighlightsAtAMidAnimationFrame() {
@@ -268,6 +172,8 @@ class TableChangesScreenshotTest {
             appearance = CardAppearance(cardSize = MIN_CARD_SCALE))
         val card = scene.items.first { it.kind == TableItemKind.CARD && it.zone == PlayZone.BATTLEFIELD && it.owner == "a" && !it.covered }
         val changes = TableChanges { 0L }
+        // Automatum's board worked out up front, so the frames below never depend on when its worker finishes
+        AutomatumBoards.compute(play, "a")
         compose.setContent { MaterialTheme {
             TableSurface(LiveTableFixture.game, play, "a", false, runtime = TableRuntimeHooks(changes = changes))
         } }

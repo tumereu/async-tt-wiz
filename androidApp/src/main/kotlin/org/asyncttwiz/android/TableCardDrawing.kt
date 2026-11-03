@@ -113,73 +113,23 @@ internal class TableCardPainter(val density: Float, scene: TableScene, val cache
         }
     }
     fun DrawScope.cardAnnotations(i: TableItem, x: Float, y: Float, z: Float) {
-        // Hidden cards carry no values; a public face-down card's values are drawn on its back.
-        if (i.note.isEmpty() && i.eotNote.isEmpty() && i.counters.isEmpty() && i.automatumMarks.isEmpty()) return
+        // TBL-113: what Automatum changed on the card besides P/T, one violet-text chip under the title
+        if (i.automatumMarks.isEmpty()) return
         // Use the complete font bounds plus padding, not the old fixed art band.
         paint.textSize = 7 * noteScale * z * density
         val noteMetrics = paint.fontMetrics
         val noteHeight = (noteMetrics.bottom - noteMetrics.top) / (z * density) + 2f
-        paint.textSize = 7 * valueScale * z * density
-        val valueMetrics = paint.fontMetrics
-        val counterHeight = maxOf(10 * valueScale, (valueMetrics.bottom - valueMetrics.top) / (z * density) + 2f)
-        val entries = CounterColor.entries.mapNotNull { color -> i.counters[color]?.takeIf(TablePresentation::nonzero)?.let { color to it } }
-        val layout = cardAnnotationLayout(titleBand, artBottom, noteHeight, counterHeight, i.note.isNotEmpty(), entries.size,
-            i.eotNote.isNotEmpty(), i.automatumMarks.isNotEmpty())
-        fun label(value: String, b: TableBounds, metrics: Paint.FontMetrics) {
-            val baseline = y + (b.y + b.height / 2) * z - (metrics.top + metrics.bottom) / (2 * density)
-            // Only horizontal clipping: every line retains its complete vertical extent.
-            clipRect((x + b.x * z) * density, y * density,
-                (x + b.right * z) * density, (y + 40 * z) * density) {
-                text(value, x + (b.x + 1f) * z, baseline, value.length)
-            }
+        val slot = automatumMarksSlot(titleBand, noteHeight)
+        val value = i.automatumMarks.joinToString(", ").take(32)
+        val b = slot.copy(width = minOf(slot.width, cache.measure(value) / (z * density) + 2f))
+        drawRoundRect(Color.White, xy(x + b.x * z, y + b.y * z), size(b.width * z, b.height * z), CornerRadius(z * density))
+        paint.color = EmblemChipColor.toArgb()
+        val baseline = y + (b.y + b.height / 2) * z - (noteMetrics.top + noteMetrics.bottom) / (2 * density)
+        // Only horizontal clipping: every line retains its complete vertical extent.
+        clipRect((x + b.x * z) * density, y * density, (x + b.right * z) * density, (y + 40 * z) * density) {
+            text(value, x + (b.x + 1f) * z, baseline, value.length)
         }
-        layout.note?.let { slot ->
-            paint.textSize = 7 * noteScale * z * density
-            val b = slot.copy(width = minOf(slot.width, cache.measure(i.note.take(32)) / (z * density) + 2f))
-            drawRoundRect(Color.White, xy(x + b.x * z, y + b.y * z), size(b.width * z, b.height * z), CornerRadius(z * density))
-            paint.color = android.graphics.Color.DKGRAY
-            label(i.note.take(32), b, noteMetrics)
-        }
-        layout.eotNote?.let { slot ->
-            val value = "⌛ ${i.eotNote.take(30)}"
-            paint.textSize = 7 * noteScale * z * density
-            val b = slot.copy(width = minOf(slot.width, cache.measure(value) / (z * density) + 2f))
-            drawRoundRect(Color.White, xy(x + b.x * z, y + b.y * z), size(b.width * z, b.height * z), CornerRadius(z * density))
-            paint.color = EotPowerToughnessColor
-            label(value, b, noteMetrics)
-        }
-        layout.marks?.let { slot ->
-            val value = i.automatumMarks.joinToString(", ").take(32)
-            paint.textSize = 7 * noteScale * z * density
-            val b = slot.copy(width = minOf(slot.width, cache.measure(value) / (z * density) + 2f))
-            drawRoundRect(Color.White, xy(x + b.x * z, y + b.y * z), size(b.width * z, b.height * z), CornerRadius(z * density))
-            paint.color = EmblemChipColor.toArgb()
-            label(value, b, noteMetrics)
-            paint.color = android.graphics.Color.DKGRAY
-        }
-        paint.textSize = 7 * valueScale * z * density
-        entries.forEachIndexed { index, (color, value) ->
-            val slot = layout.counters[index]
-            val width = minOf(slot.width, maxOf(counterHeight, cache.measure(value.take(3)) / (z * density) + 2f))
-            val b = slot.copy(width = width)
-            drawRoundRect(counterColor(color), xy(x + b.x * z, y + b.y * z), size(b.width * z, b.height * z),
-                CornerRadius(minOf(b.width, b.height) * z * density / 2))
-            paint.color = android.graphics.Color.DKGRAY
-            val shown = value.take(3)
-            val glyphs = android.graphics.Rect()
-            paint.getTextBounds(shown, 0, shown.length, glyphs)
-            val availableWidth = (b.width - 2f).coerceAtLeast(1f) * z * density
-            val availableHeight = (b.height - 2f).coerceAtLeast(1f) * z * density
-            val fit = minOf(1f, availableWidth / glyphs.width().coerceAtLeast(1),
-                availableHeight / glyphs.height().coerceAtLeast(1))
-            if (fit < 1f) {
-                paint.textSize *= fit
-                paint.getTextBounds(shown, 0, shown.length, glyphs)
-            }
-            text(shown, x + b.center.x * z - glyphs.exactCenterX() / density,
-                y + b.center.y * z - glyphs.exactCenterY() / density, shown.length)
-            paint.textSize = 7 * valueScale * z * density
-        }
+        paint.color = android.graphics.Color.DKGRAY
     }
     fun DrawScope.cardFace(i: TableItem, x: Float, y: Float, color: Color, title: String) {
         translate(x * density, y * density) {

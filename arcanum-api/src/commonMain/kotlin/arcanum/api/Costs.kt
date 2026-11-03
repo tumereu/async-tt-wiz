@@ -74,6 +74,10 @@ sealed interface CostPart {
     /** Choose a player matching [filter] ("you may choose an opponent", gift, CR 702.174a); kept with the spell and the
      * permanent it becomes, read with [Players.ChosenAsCost]. */
     @Serializable @SerialName("choose-player") data class ChoosePlayer(val filter: PlayerFilter) : CostPart
+    // ecl
+    /** Make [choice] as part of paying the cost ("you may choose a creature type and behold two creatures of that type", CR 601.2f);
+     * kept with the spell and the permanent it becomes under [bind], which [SubtypeRef.Chosen] and the other references read. */
+    @Serializable @SerialName("choose") data class Choose(val choice: Choice, val bind: String) : CostPart
     // msh
     /** The payer gets [amount] [kind] counters ("Ward—Get five poison counters", CR 122.1). */
     @Serializable @SerialName("get-counters") data class GetCounters(val kind: CounterKind, val amount: Value) : CostPart
@@ -130,4 +134,8 @@ sealed interface ManaKind {
     @Serializable @SerialName("choose") data class Choose(val amount: Value, val colors: List<ColorRef>? = null, val combination: Boolean = false) : ManaKind
     /** [amount] mana of any colour/type a land matching [filter] could produce (Reflecting Pool style). */
     @Serializable @SerialName("as-could") data class AsCouldProduce(val filter: ObjectFilter, val amount: Value) : ManaKind
+    // ecl
+    /** One mana of each colour among [objects] ("For each color among permanents you control, add one mana of that color", CR 105.4,
+     * 106.1). */
+    @Serializable @SerialName("each-color-among") data class EachColorAmong(val objects: Objects) : ManaKind
 }

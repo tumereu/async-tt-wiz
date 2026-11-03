@@ -20,21 +20,6 @@ class TableChromeTest {
         assertTrue(tableIsLoading(connecting.copy(reconnectingGames = setOf("other")).tableView(), game, null))
     }
 
-    // TRN-013, TRN-015, TRN-018
-    @Test fun quickVisibilityAndAdvanceStyleUseTurnAndMoveIndependentlyForBothPlayers() {
-        val play = TableFixture.play()
-        for (viewer in listOf("a", "b")) for (turn in listOf("a", "b")) for (move in listOf("a", "b")) {
-            val current = play.copy(board = play.board.copy(turn = play.board.turn.copy(accountId = turn), attentionHolder = move))
-            assertEquals(viewer == turn || viewer == move || QuickActions.openingMulligan(current, viewer), QuickActions.visible(current, viewer))
-            val style = advanceButtonStyle(current.board, viewer)
-            when {
-                viewer != move -> assertEquals(AdvanceButtonStyle(Color.White, Color.Gray, Color.Gray), style)
-                viewer == turn -> assertEquals(AdvanceButtonStyle(OwnTableColor, Color.White, OwnTableColor), style)
-                else -> assertEquals(AdvanceButtonStyle(Color.White, OpponentTableColor, OpponentTableColor), style)
-            }
-            assertEquals(battlefieldColor(move, viewer, move, false), tableBarColor(current.board, viewer))
-        }
-    }
 
     @Test fun liveTimelineCentersLatestAndProjectsOnlyTheVisibleWindow() {
         val count = 50_000

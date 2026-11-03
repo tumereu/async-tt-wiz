@@ -76,7 +76,7 @@ class CombatAndStackTest {
         assertFalse(declare(reopened, 20).board.combat!!.pairs.single().blocked)
     }
 
-    // STK-019
+    // I-D52
     @Test fun copyingAndControllerChangesAreProjectionOnlyExactDeltas() {
         val initial = effect(state(), 20, 8000)
         val original = initial.board.stackEffects.single()

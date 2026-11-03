@@ -214,7 +214,7 @@ class UndoOwnerRuleTest {
         assertEquals("replayBlocked", control(tree).reason)
     }
 
-    // HIS-088
+    // I-D52
     @Test fun projectionPingProtectsProjectionRatherThanSourceCardOrAncestry() {
         var tree = play(GameplayTree(root()), b, PlayAction.Combat(CombatAction.Open))
          tree = play(tree, a, PlayAction.Combat(CombatAction.Declare(state(tree).board.combat!!.id, id(10))))
@@ -395,7 +395,7 @@ class UndoOwnerRuleTest {
         assertEquals(original, tree.nodes.getValue(suffix).transition.delta!!.libraryReseeds)
     }
 
-    // HIS-088
+    // I-D52
     @Test fun cardPingDoesNotLockWholeReferencedAncestry() {
         var tree = play(GameplayTree(root()), a, PlayAction.SetTapped(id(10), true))
         tree = play(tree, b, PlayAction.AdjustLife(b, "1"))

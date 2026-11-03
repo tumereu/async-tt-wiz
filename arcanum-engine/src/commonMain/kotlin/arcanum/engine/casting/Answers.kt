@@ -42,6 +42,8 @@ internal object Answers {
             is Question.Announce -> {
                 val v = (answer as? Answer.Number)?.value ?: refuse("Expected a number")
                 if (v < q.min) refuse("${q.name} must be at least ${q.min}")
+                // ecl: "X can't be greater than …" (CR 107.3a)
+                if (q.name == "X") plan.xMaximum()?.let { max -> if (v > max) refuse("X can't be greater than $max") }
                 c.copy(announced = c.announced + (q.name to v))
             }
             is Question.Target -> {
@@ -57,6 +59,12 @@ internal object Answers {
                 if (q.slot.slot.sameController &&
                     chosen.mapNotNull { (it as? arcanum.engine.state.TargetRef.Object)?.id?.let { id -> plan.snap.board.controller(id) } }.distinct().size > 1)
                     refuse("The targets must have the same controller")
+                // ecl: "two target creature cards that share a creature type" (CR 601.2c)
+                q.slot.slot.sharing?.let { quality ->
+                    val ids = chosen.mapNotNull { (it as? arcanum.engine.state.TargetRef.Object)?.id }
+                    val e = plan.snap.evaluator(plan.player)
+                    if (ids.any { a -> ids.any { b -> a != b && !e.shares(quality, a, b) } }) refuse("The targets must share $quality")
+                }
                 // gtc chunk 10: "from a single graveyard": one owner (CR 601.2c)
                 if (q.slot.slot.sameOwner &&
                     chosen.mapNotNull { (it as? arcanum.engine.state.TargetRef.Object)?.id?.let { id -> plan.snap.state.obj(id)?.owner } }.distinct().size > 1)
@@ -114,6 +122,12 @@ internal object Answers {
                 c.copy(names = c.names.with(q.key, NamedValue.Colors(before + color)))
             }
             is Question.Pay -> refuse("Mana is paid when the cast finishes")
+            // ecl: a creature type chosen with the costs, kept under its name for the parts and the spell that read it
+            is Question.CostChoice -> {
+                val subtype = (answer as? Answer.SubtypeChoice)?.subtype ?: refuse("Expected a creature type")
+                (q.part.choice as? arcanum.api.Choice.CreatureTypeAmong)?.let { if (subtype !in it.among) refuse("Not one of the types offered") }
+                c.copy(names = c.names.with(q.part.bind, NamedValue.SubtypeValue(subtype)))
+            }
             is Question.Player -> {
                 val chosen = (answer as? Answer.Player)?.player ?: refuse("Expected a player")
                 if (chosen !in q.among) refuse("Not a player to choose: $chosen")

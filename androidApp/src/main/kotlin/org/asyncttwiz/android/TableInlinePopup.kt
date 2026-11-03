@@ -57,17 +57,9 @@ internal fun Modifier.ringInputTarget(draggable: Boolean = false): Modifier = co
         register(key, TableBounds(windowOrigin.x + bounds.left, windowOrigin.y + bounds.top, bounds.width, bounds.height), draggable)
     }
 }
-internal data class RingCompound(val value: String, val minus: MenuControl, val plus: MenuControl,
-    val drag: ((Long) -> Unit)? = null, val dragValue: String = value, val corner: Boolean = false)
-internal data class RingEntry(val id: String, val label: String, val control: MenuControl,
-    val compound: RingCompound? = null, val fill: Color? = null,
-    val drag: ((Long) -> Unit)? = null, val dragValue: String = "0")
+internal data class RingEntry(val id: String, val label: String, val control: MenuControl, val fill: Color? = null)
 
 internal fun ringShortLabel(name: String): String = when (name) {
-    "Declare + tap" -> "Decl+tap"
-    "Declare without tapping" -> "Declare"
-    "Ping / Unping" -> "Ping"
-    "Add Stack effect" -> "Effect"
     "Remove from combat" -> "Rm combat"
     else -> name.removePrefix("Move to ").removePrefix("Move ").substringBefore(" · ")
 }
@@ -76,9 +68,7 @@ internal fun ringShortLabel(name: String): String = when (name) {
 internal fun ringPlaceholder(id: String): RingEntry {
     val name = when (id) {
         "inspect" -> "Inspect"
-        "note" -> "Edit card note"
         "otherSide" -> "Inspect other side"
-        "owner" -> "Owner"
         else -> id
     }
     return RingEntry(id, ringShortLabel(name), MenuControl(name, false) {})
@@ -87,27 +77,16 @@ internal fun ringPlaceholder(id: String): RingEntry {
 /** One thing the engine offers for the card (§3 I4): a full-width row above the menu's cells, its [icon] by kind. */
 internal data class EngineRow(val control: MenuControl, val icon: androidx.compose.ui.graphics.vector.ImageVector)
 
-/** [rows]: the engine's actions shown above the first page's cells (Automatum on, §3 I4); [remembered]: the page opened
- * last is remembered per layout (the Automatum menu always opens on its first page). */
+/** A card's menu (TBL-063, TBL-064): [rows], the engine's actions (§3 I4), above the one [page]'s cells. */
 @Composable
-internal fun CardActionRing(game: String, viewer: String, identity: String, viewId: String,
+internal fun CardActionRing(identity: String, viewId: String,
     entries: List<RingEntry>, own: Boolean, ownerColor: Color, dismiss: () -> Unit,
-    layout: CardMenuLayout, pages: List<CardRingPage> = CardRingPages.pages(layout),
-    rows: List<EngineRow> = emptyList(), remembered: Boolean = true) {
-    val context = LocalContext.current
-    val store = remember(context, viewer, game) { CardRingPageStore(context, viewer, game) }
-    var page by remember(viewer, game, layout, remembered) { mutableIntStateOf(if (remembered) store.read(layout) else 0) }
-    val selectedPage = page.coerceIn(pages.indices)
-    val slots = CardRingPages.layout(pages[selectedPage].actions)
-    // Reserve the tallest page, including empty rows, so placement and the header never jump.
-    val gridRows = pages.maxOf { inlinePopupGridRows(CardRingPages.layout(it.actions)) }
+    page: CardRingPage, rows: List<EngineRow> = emptyList()) {
+    val slots = CardRingPages.layout(page.actions)
+    val gridRows = inlinePopupGridRows(slots)
     val rowsHeight = rows.size * (EngineRowHeight + InlinePopupStyle.cellGap)
-    val reserved = pages.indices.maxOf { index -> inlinePopupGridRows(CardRingPages.layout(pages[index].actions)).let { r ->
-        r * CardRingGeometry.cell + (r - 1).coerceAtLeast(0) * InlinePopupStyle.cellGap } + if (index == 0) rowsHeight else 0f }
+    val reserved = gridRows * CardRingGeometry.cell + (gridRows - 1).coerceAtLeast(0) * InlinePopupStyle.cellGap + rowsHeight
     val anchor = LocalCardRingAnchors.current[viewId]
-    val paged = pages.size > 1
-    val selectPage: (Int) -> Unit = { page = it; if (remembered) store.write(it, layout) }
-    val switchPage: (Int) -> Unit = { delta -> if (paged) selectPage(CardRingPages.adjacent(selectedPage, delta, pages.size)) }
     BoxWithConstraints(Modifier.fillMaxSize()) {
     val gridWidth = CardRingGeometry.gridSide + (CardRingPages.columns - 1) * InlinePopupStyle.cellGap
     // A full-height header must not force the menu over its card on small screens.
@@ -118,26 +97,22 @@ internal fun CardActionRing(game: String, viewer: String, identity: String, view
         if (beside) maxHeight.value - 24f else vertical
     } ?: (maxHeight.value - 24f)
     TableInlinePopup(identity, viewId, anchor, own, ownerColor, dismiss,
-        description = "Card action ring", title = "Card actions", switchPage = switchPage) {
+        description = "Card action ring", title = "Card actions") {
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            // A single-page layout has no page header at all.
-            if (paged) InlinePopupPages(pages.map { it.name }, selectedPage, ownerColor, selectPage)
-            key(identity, viewId, selectedPage) {
-                val maxHeight = (contentHeight - if (paged) 52f else 0f).coerceAtLeast(48f)
+            key(identity, viewId) {
+                val maxHeight = contentHeight.coerceAtLeast(48f)
                 Column(Modifier.heightIn(min = minOf(reserved, maxHeight).dp, max = maxHeight.dp)
                     .verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(InlinePopupStyle.cellGap.dp)) {
-                    if (selectedPage == 0) for (row in rows) EngineActionRow(row, ownerColor)
-                    repeat(if (rows.isEmpty()) gridRows else inlinePopupGridRows(slots)) { row ->
+                    for (row in rows) EngineActionRow(row, ownerColor)
+                    repeat(gridRows) { row ->
                         Row(horizontalArrangement = Arrangement.spacedBy(InlinePopupStyle.cellGap.dp)) {
                             var column = 0
                             while (column < CardRingPages.columns) {
                                 val slot = slots.firstOrNull { it.cell == row * CardRingPages.columns + column }
                                 val entry = slot?.let { s -> entries.firstOrNull { it.id == s.id } ?: ringPlaceholder(s.id) }
                                 if (entry == null) Spacer(Modifier.size(CardRingGeometry.cell.dp))
-                                else if (entry.compound != null) RingWidget(entry, ownerColor)
-                                else InlinePopupCell(entry.control, entry.label, ownerColor,
-                                    fill = entry.fill, drag = entry.drag, dragValue = entry.dragValue)
+                                else InlinePopupCell(entry.control, entry.label, ownerColor, fill = entry.fill)
                                 column += slot?.span ?: 1
                             }
                         }
@@ -309,33 +284,6 @@ internal fun inlinePopupBounds(width: Float, height: Float, anchor: TableBounds,
 }
 
 @Composable
-internal fun InlinePopupPages(pages: List<String>, selected: Int, color: Color, select: (Int) -> Unit) {
-    var expanded by remember { mutableStateOf(false) }
-    Row(Modifier.width((CardRingGeometry.gridSide + (CardRingPages.columns - 1) * InlinePopupStyle.cellGap).dp)
-        .height(48.dp).semantics {
-        contentDescription = "Action page ${selected + 1} of ${pages.size}, ${pages[selected]}"
-    }, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-        RingPress(MenuControl("Previous page") { expanded = false; select(CardRingPages.adjacent(selected, -1, pages.size)) },
-            Modifier.size(48.dp), color) { Text("◀", color = MenuInk) }
-        Box(Modifier.weight(1f)) {
-            RingPress(MenuControl("Choose action page") { expanded = !expanded }, Modifier.fillMaxWidth().height(48.dp), color) {
-                Text(pages[selected], fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                    color = MenuInk, fontWeight = FontWeight.Bold)
-            }
-            DropdownMenu(expanded, { expanded = false }, modifier = Modifier.heightIn(max = 240.dp).ringInputTarget(draggable = true)) {
-                pages.forEachIndexed { index, name ->
-                    DropdownMenuItem(text = { Text(name) }, modifier = Modifier.ringInputTarget().semantics {
-                        contentDescription = "$name page"; this.selected = index == selected
-                    }, onClick = { expanded = false; select(index) })
-                }
-            }
-        }
-        RingPress(MenuControl("Next page") { expanded = false; select(CardRingPages.adjacent(selected, 1, pages.size)) },
-            Modifier.size(48.dp), color) { Text("▶", color = MenuInk) }
-    }
-}
-
-@Composable
 internal fun InlinePopupPanel(dismiss: () -> Unit, title: String, width: Dp = 360.dp, height: Dp = 288.dp,
     key: String = title, sheet: Boolean = false, content: @Composable ColumnScope.() -> Unit) {
     // Opening a card menu from a row clears the toolkit anchor while this panel is still visible.
@@ -360,22 +308,10 @@ internal fun InlinePopupPanel(dismiss: () -> Unit, title: String, width: Dp = 36
 }
 
 @Composable
-private fun RingWidget(entry: RingEntry, owner: Color) {
-    val compound = requireNotNull(entry.compound)
-    ValueControl(compound.value, entry.control, compound.minus, compound.plus, entry.control.color ?: owner,
-        entry.fill ?: Color.White, compound.dragValue, compound.corner, compound.drag)
-}
-
-@Composable
 internal fun InlinePopupCell(control: MenuControl, label: String = control.name, owner: Color = LocalInlinePopupColor.current,
-    modifier: Modifier = Modifier.size(CardRingGeometry.cell.dp), fill: Color? = null,
-    drag: ((Long) -> Unit)? = null, dragValue: String = "0") {
-    val entry = RingEntry(control.name, label, control, fill = fill, drag = drag, dragValue = dragValue)
-    var delta by remember(entry.id) { mutableStateOf<Long?>(null) }
-    val dragModifier = if (entry.drag != null) Modifier.ringInputTarget(draggable = true)
-        .valueDragGestures(entry.control.enabled && TableActions.numeric(entry.dragValue),
-            preview = { delta = it }, commit = entry.drag) else Modifier
-    RingPress(entry.control, modifier.then(dragModifier), entry.control.color ?: owner, fill = entry.fill ?: Color.White) {
+    modifier: Modifier = Modifier.size(CardRingGeometry.cell.dp), fill: Color? = null) {
+    val entry = RingEntry(control.name, label, control, fill = fill)
+    RingPress(entry.control, modifier, entry.control.color ?: owner, fill = entry.fill ?: Color.White) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
             val twoLines = '\n' in entry.label
             MenuIcon(entry.control.name, Modifier.size(if (twoLines) 18.dp else 24.dp),
@@ -385,7 +321,6 @@ internal fun InlinePopupCell(control: MenuControl, label: String = control.name,
             CellLabel(entry.label, MenuInk.copy(alpha = if (entry.control.enabled) 1f else .38f),
                 Modifier.padding(horizontal = 2.dp), textModifier)
         }
-        delta?.let { HoldTooltip(valueDragLabel(entry.dragValue, it)) }
     }
 }
 

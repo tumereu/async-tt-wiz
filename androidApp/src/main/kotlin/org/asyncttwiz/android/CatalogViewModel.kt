@@ -200,7 +200,7 @@ class CatalogViewModel(application: Application) : AndroidViewModel(application)
                 phase = progress.phase
                 main.post { if (!cleared) state = state.copy(progress = progress, status = progress.label(), background = false) }
             }
-        }.also { AndroidTokenCatalog.refresh(getApplication()) }
+        }
     }
     private fun publish(value: CatalogUiState) { main.post { if (!cleared) {
         state = catalogConsentPresentation(value.copy(loaded = true), initialDownloadAccepted)

@@ -23,7 +23,7 @@ class BattlefieldPlacementTest {
         PlayCard(id(n), digest, id(7), id(container), id(face), covered = faceDown || container == 10, explicitlyCovered = faceDown,
             placement = at?.let { PlayPlacement(it, id(n + 100)) })
 
-    // TBL-007, ZON-062
+    // TBL-007
     @Test fun planeswalkersAndCreaturesFromExileGraveyardOrLibraryGoToTheMainRow() {
         // A land already holds (0, 0) and a creature (0, 1): the main row's next free cell is (1, 1).
         val board = listOf(card(30, "land", 42, 14, BoardPosition(0, 0)), card(31, "bear", 41, 14, BoardPosition(0, 1)))
@@ -35,7 +35,7 @@ class BattlefieldPlacementTest {
             assertEquals(BoardPosition(1, 1), BattlefieldPlacement.cell(play, field, card), card.id)
     }
 
-    // TBL-007, ZON-062
+    // TBL-007
     @Test fun aLandGoesToTheLandRow() {
         val land = card(20, "land", 42, 12)
         val play = state(listOf(card(30, "land", 42, 14, BoardPosition(0, 0)), land))
@@ -52,7 +52,7 @@ class BattlefieldPlacementTest {
         assertEquals(BoardPosition(0, 1), BattlefieldPlacement.cell(play, field, unknown))
     }
 
-    // TBL-008, ZON-062
+    // TBL-008
     @Test fun aBatchGivesEachCardItsOwnRowAndCell() {
         val cards = listOf(card(20, "land", 42, 12), card(21, "pw", 40, 12), card(22, "land", 42, 12), card(23, "bear", 41, 12))
         val play = state(cards + card(30, "bear", 41, 14, BoardPosition(0, 1)))

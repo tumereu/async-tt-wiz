@@ -92,7 +92,8 @@ class AutomatumI12ReviewTest {
     private val sent = mutableListOf<GameAction.PlayBatch>()
     private var message: String? = null
     private fun controller(current: () -> PlayState?) =
-        CastController(f.a, current, { batch, _ -> sent += batch; true }, { emptyList() }, { message = it })
+        // These reviews check the open cast at its payment: the mana section, Autotap off (I-D47)
+        CastController(f.a, current, { batch, _ -> sent += batch; true }, { emptyList() }, { message = it }).also { it.autotap = false }
     private fun manaGroups(decision: Decision.ManaPayment) =
         decision.options.filterIsInstance<ManaUse.Ability>().groupBy { it.source }.values.map { it.toList<ManaUse>() }
 
@@ -119,7 +120,7 @@ class AutomatumI12ReviewTest {
         val play = board(listOf(mountain, spark), listOf(mountain))
         val gameplay = mutableListOf<PlayAction>()
         val toolkit = TableToolkitController(f.a, { play }, { true }, { action, _ -> gameplay += action; true },
-            automatedBatch = { batch, _ -> sent += batch; true })
+            automatedBatch = { batch, _ -> sent += batch; true }).also { it.cast.autotap = false }
         assertTrue(toolkit.cast.start(hand[1]))
         assertTrue(toolkit.setAutomatum(false), "switching off: ${toolkit.error}")
         assertEquals(listOf<PlayAction>(PlayAction.Mtg(MtgAction.SetAutomatum(false))), gameplay)
@@ -135,7 +136,7 @@ class AutomatumI12ReviewTest {
                 covered = true, explicitlyCovered = true, corner = "") else card
         }
         AutomatumBoards.compute(play, f.a)
-        val toolkit = TableToolkitController(f.a, { play }, { true }, { _, _ -> true }, automatedBatch = { batch, _ -> sent += batch; true })
+        val toolkit = TableToolkitController(f.a, { play }, { true }, { _, _ -> true }, automatedBatch = { batch, _ -> sent += batch; true }).also { it.cast.autotap = false }
         compose.setContent {
             MaterialTheme { NoRipples { Box(Modifier.fillMaxSize()) {
                 TableSurface(f.game, play, f.a, false, Modifier.fillMaxSize(), connected = true, onIntent = toolkit::handle, toolkit = toolkit,
@@ -198,7 +199,7 @@ class AutomatumI12ReviewTest {
             bobHand[1] -> card.copy(definition = spark.submitted.digest, faceId = spark.face.faceId)
             else -> card
         } }
-        val toolkit = TableToolkitController(f.a, { play }, { true }, { _, _ -> true }, automatedBatch = { batch, _ -> sent += batch; true })
+        val toolkit = TableToolkitController(f.a, { play }, { true }, { _, _ -> true }, automatedBatch = { batch, _ -> sent += batch; true }).also { it.cast.autotap = false }
         fun doubleTap(card: String): String? {
             toolkit.dismissError()
             toolkit.handle(TableIntent.Move(TableScope(card, listOf(card)), TableDestination.Container(f.id("stack"), PlayZone.STACK),
@@ -273,7 +274,7 @@ class AutomatumI12ReviewTest {
         val play = board(listOf(mountain, recall), listOf(swamp)) { card ->
             if (card.id in graveyard) card.copy(definition = hound.submitted.digest, faceId = hound.face.faceId) else card
         }
-        val toolkit = TableToolkitController(f.a, { play }, { true }, { _, _ -> true }, automatedBatch = { batch, _ -> sent += batch; true })
+        val toolkit = TableToolkitController(f.a, { play }, { true }, { _, _ -> true }, automatedBatch = { batch, _ -> sent += batch; true }).also { it.cast.autotap = false }
         assertTrue(toolkit.cast.start(hand[1]))
         val targets = assertNotNull(toolkit.cast.flow?.pending as? Decision.Targets)
         assertTrue(targets.options.size >= 2, "both Grave Hounds are legal targets")
@@ -320,7 +321,7 @@ class AutomatumI12ReviewTest {
             override fun <T> run(work: () -> T, done: (T) -> Unit) { queued += { done(work()) } }
         }
         val live = board(listOf(mountain, spark), listOf(mountain))
-        val cast = CastController(f.a, { live }, { batch, _ -> sent += batch; true }, { emptyList() }, { message = it }, worker)
+        val cast = CastController(f.a, { live }, { batch, _ -> sent += batch; true }, { emptyList() }, { message = it }, worker).also { it.autotap = false }
         assertTrue(cast.start(hand[1]))
         assertTrue(cast.open && cast.busy && cast.flow == null, "nothing worked out on the caller's thread")
         assertFalse(cast.start(hand[1]), "one cast at a time")

@@ -1,1 +1,1 @@
-Casting Flash Surge opens the cast panel by the Stack with its card text and the optional cost first: "Pay the Kicker cost?" with Yes and No, Accept automatically, Cancel and a greyed Cast.
+Casting Flash Surge (a kicker choice) opens the cast panel full width exactly above the hand: the card small beside its name, "Pay the Kicker cost?" with Yes and No, and a bottom row with the eye at the left and Cancel and Cast with their icons at the right.

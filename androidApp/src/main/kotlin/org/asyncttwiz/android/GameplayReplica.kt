@@ -13,7 +13,7 @@ class GameplayReplica(private val tableChanges: (TableChangeBatch) -> Unit = {})
         tableChanges(batch.copy(events = batch.events.filter { it.mutation.requestId !in skip && it.mutation.invocationId !in skip }, cursor = display?.currentNodeId))
     }
     private data class Prediction(val command: GameCommand, val actor: String,
-        var commitRevision: String? = null, var withdrawn: Boolean = false)
+        var commitRevision: String? = null, var withdrawn: Boolean = false, var base: String? = null)
     private val predictions = linkedMapOf<String, Prediction>()
     private val records = linkedMapOf<String, GameRevision>()
     var tree: DownloadedTree? = null
@@ -56,6 +56,24 @@ class GameplayReplica(private val tableChanges: (TableChangeBatch) -> Unit = {})
         animatedPredictions.add(command.requestId)
         return true
     }
+    /**
+     * I-D47: predicts [command] in place of the local-only prediction [previewId] (a cast shown at once while its batch
+     * was worked out). The table moves on from what it shows (the preview) to [command]'s result, animating only what
+     * differs; the preview is gone either way, and when [command] doesn't predict the table goes back without it.
+     */
+    fun replace(previewId: String, command: GameCommand, actor: String): Boolean {
+        if (predictions.remove(previewId) == null) return predict(command, actor)
+        animatedPredictions.remove(previewId)
+        val shown = display?.currentNodeId
+        rebase()
+        if (predict(command, actor)) return true
+        if (display?.currentNodeId != shown) tableChanges(TableChangeBatch(jump = true))
+        return false
+    }
+
+    /** I-D47: the event the prediction [requestId] follows on the board shown, while it is shown (not withdrawn). */
+    fun shownOn(requestId: String): String? = predictions[requestId]?.takeIf { !it.withdrawn }?.base
+
     fun withdraw(requestId: String) {
         val before = display?.currentNodeId
         predictions[requestId]?.withdrawn = true; rebase()
@@ -204,6 +222,7 @@ class GameplayReplica(private val tableChanges: (TableChangeBatch) -> Unit = {})
                 prediction.withdrawn = true; controlBlocked = true
                 continue
             }
+            prediction.base = next.currentNodeId
             if (nextTree != null) {
                 val change = predictChange(nextTree, prediction.actor, prediction.command)
                 if (change.reason != null) {

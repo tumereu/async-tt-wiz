@@ -155,4 +155,54 @@ class GameplayReplicaTest {
         assertEquals("21", f.life(replica.display)); assertEquals(2, replica.retainedRecords.size)
         assertTrue(replica.retainedRecords.all { it.chatMessage == null })
     }
+
+    private fun batch(f: GameplayFixture, vararg deltas: String) = f.command(PlayAction.PassAttention)
+        .copy(action = GameAction.PlayBatch(deltas.map { PlayAction.AdjustLife(f.actor, it) }))
+
+    // STK-042 (I-D47): a cast's preview is a local prediction the cast's batch takes the place of; the table moves on from
+    // the preview to the batch's result with the batch's own events (no jump back), and the preview never stays
+    @Test fun previewIsReplacedByTheBatchItShowedEarly() {
+        val f = GameplayFixture()
+        val changes = mutableListOf<TableChangeBatch>()
+        val replica = GameplayReplica { changes += it }
+        assertTrue(replica.root(f.head()))
+        changes.clear()
+        val preview = batch(f, "-1")
+        assertTrue(replica.predict(preview, f.actor))
+        assertEquals("19", f.life(replica.display))
+        assertEquals(f.root.id, replica.shownOn(preview.requestId), "the preview follows the board it was planned on")
+        val real = batch(f, "-1", "-2")
+        assertTrue(replica.replace(preview.requestId, real, f.actor))
+        assertEquals("17", f.life(replica.display))
+        assertNull(replica.shownOn(preview.requestId))
+        assertEquals(listOf(real.requestId), replica.pendingIds)
+        val last = changes.last()
+        assertFalse(last.jump, "no jump back to the board before the preview")
+        assertEquals(2, last.events.size, "the batch's own events, from the board before the preview")
+        // What the server accepts is what the device shows (the other device gets the same board)
+        var authoritative = GameplayTree(f.initial)
+        authoritative = assertNotNull(HistoryContinuation.change(authoritative, f.actor, real).tree)
+        assertEquals(authoritative.stateAt(authoritative.currentNodeId)!!.board, replica.display!!.board)
+    }
+
+    // STK-042: a preview whose cast doesn't go out is taken back like a refused prediction; one whose batch doesn't
+    // predict leaves the table as it was before the preview
+    @Test fun previewTakenBackWhenTheCastDoesNotGoOut() {
+        val f = GameplayFixture()
+        val changes = mutableListOf<TableChangeBatch>()
+        val replica = GameplayReplica { changes += it }
+        assertTrue(replica.root(f.head()))
+        val preview = batch(f, "-3")
+        assertTrue(replica.predict(preview, f.actor))
+        replica.retire(preview.requestId)
+        assertEquals("20", f.life(replica.display))
+        assertTrue(changes.last().jump)
+        val again = batch(f, "-3")
+        assertTrue(replica.predict(again, f.actor))
+        // A batch the rules refuse (a player who isn't in the game) doesn't predict: the preview is gone all the same
+        val wrong = f.command(PlayAction.PassAttention).copy(action = GameAction.PlayBatch(listOf(PlayAction.AdjustLife(f.id(999), "-4"))))
+        assertFalse(replica.replace(again.requestId, wrong, f.actor))
+        assertEquals("20", f.life(replica.display))
+        assertTrue(replica.pendingIds.isEmpty())
+    }
 }

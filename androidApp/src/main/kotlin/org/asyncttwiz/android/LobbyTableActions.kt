@@ -82,16 +82,30 @@ internal class LobbyTableActions(private val scope: LobbyScope, private val tabl
         return !closed && session?.historyControl(game, actor, action) == true
     }
     /** [tags]: an automated batch's tag per member (Automatum, rules v36). */
-    fun gameplayBatch(actions: List<PlayAction>, requestId: String, tags: List<MtgTag?> = emptyList()): Boolean {
+    fun gameplayBatch(actions: List<PlayAction>, requestId: String, tags: List<MtgTag?> = emptyList(), replaces: String? = null): Boolean {
+        val game = state.detail ?: return false
+        val actor = accountId() ?: return false
+        if (closed) { replaces?.let(::dropPreview); return false }
+        val personal = historyOwner
+        if (personal != null && personal.armed == null && personal.playback?.position?.mode == HistoryMode.PLAYBACK) {
+            replaces?.let(::dropPreview); return false
+        }
+        fun send(continuation: Continuation?) = session?.gameplayBatch(game, actor, actions, requestId, continuation,
+            captured = { historyOwner?.captured(it) }, tags = tags, replaces = replaces) == true
+        return if (personal != null) personal.gameplay({ session?.play(game) }, ::send) else send(null)
+    }
+    /** I-D47: a cast shown at once on this device while its batch is worked out; only on the live line (not while a
+     * timeline point is held or reviewed, where the batch continues from another board). */
+    fun previewBatch(actions: List<PlayAction>, requestId: String, tags: List<MtgTag?>): Boolean {
         val game = state.detail ?: return false
         val actor = accountId() ?: return false
         if (closed) return false
         val personal = historyOwner
-        if (personal != null && personal.armed == null && personal.playback?.position?.mode == HistoryMode.PLAYBACK) return false
-        fun send(continuation: Continuation?) = session?.gameplayBatch(game, actor, actions, requestId, continuation,
-            captured = { historyOwner?.captured(it) }, tags = tags) == true
-        return if (personal != null) personal.gameplay({ session?.play(game) }, ::send) else send(null)
+        if (personal != null && (personal.armed != null || personal.playback?.position?.mode == HistoryMode.PLAYBACK)) return false
+        return session?.previewBatch(game, actor, actions, tags, requestId) == true
     }
+    fun previewShownOn(requestId: String): String? = state.detail?.let { session?.previewShownOn(it, requestId) }
+    fun dropPreview(requestId: String) { state.detail?.let { session?.dropPreview(it, requestId) } }
     /** Annotating a viewed boundary appends to ordinary current history; it does not activate that
      * boundary or silently acquire historical continuation intent. */
     fun annotate(action: PlayAction): Boolean {

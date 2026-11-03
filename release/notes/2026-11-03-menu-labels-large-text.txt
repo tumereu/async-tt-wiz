@@ -1,0 +1,1 @@
+fix: With large system text, menu and quick-action labels no longer break in the middle of a word or get cut off.

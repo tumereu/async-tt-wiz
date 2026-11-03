@@ -69,7 +69,7 @@ internal fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: 
         clipRect(table.x * density, table.y * density, table.right * density, table.bottom * density) {
             for (spread in 6 downTo 1) drawRoundRect(Color.Black.copy(alpha = .03f), xy(panel.x - spread / 2f, panel.y + 1.5f - spread / 2f),
                 size(panel.width + spread, panel.height + spread), CornerRadius(8 * density))
-            drawRoundRect(Color(0xfffbfcfb), xy(panel.x, panel.y), size(panel.width, panel.height), CornerRadius(8 * density))
+            drawRoundRect(CombatPanelColor, xy(panel.x, panel.y), size(panel.width, panel.height), CornerRadius(8 * density))
             drawRoundRect(Color(0xffc9d2d0), xy(panel.x, panel.y), size(panel.width, panel.height), CornerRadius(8 * density),
                 style = Stroke(density))
             for ((from, to) in scene.combatLaneDividers) drawLine(Color.Black.copy(alpha = CombatStackPresentation.LANE_DIVIDER_ALPHA),

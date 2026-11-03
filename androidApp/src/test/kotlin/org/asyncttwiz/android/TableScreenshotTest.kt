@@ -123,7 +123,7 @@ class TableScreenshotTest {
         val output = File("$SCREENSHOTS/table-floating-error.png")
         requireNotNull(output.parentFile).mkdirs()
         compose.onRoot().captureShot(output.path,
-            "Portrait table mid-game with a floating error message about a refused undo, shown above the table controls.")
+            "Portrait table mid-game with a floating error message about a refused undo, shown above the own hand row so the life square, hand and table controls stay visible.")
         val image = ImageIO.read(output)
         assertEquals(412, image.width)
         assertEquals(892, image.height)

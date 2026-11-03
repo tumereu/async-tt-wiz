@@ -1,0 +1,1 @@
+mod: Messages on the table appear above your hand instead of covering your hand and life.

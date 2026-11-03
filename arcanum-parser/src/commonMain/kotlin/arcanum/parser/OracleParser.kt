@@ -229,6 +229,19 @@ object OracleParser {
                     continue
                 }
             }
+            // tdm chunk 02: "As this enchantment enters, choose Abzan or Mardu." and its "• Abzan — [ability]" lines (CR 614.12, 607.2a)
+            if (!isSpell && i < lines.size && lines[i].startsWith("• ") && Tdm.AS_ENTERS_CHOOSE_A_OR_B.matches(line)) {
+                val bullets = mutableListOf<String>()
+                var j = i
+                while (j < lines.size && lines[j].startsWith("• ")) bullets += REMINDER.replace(lines[j++], "").trim()
+                sentences.tdmChosenOption(line, bullets)?.let { abilities ->
+                    i = j
+                    result += abilities
+                    raws += raw.trim()
+                    bullets.forEach { raws += it }
+                    continue
+                }
+            }
             // "Choose one —" and its "• " modes (CR 700.2)
             val choose = CHOOSE.matchEntire(line)
             if (choose != null && isSpell) {
@@ -415,6 +428,14 @@ object OracleParser {
 
     /** One keyword with its values, or null when [part] isn't exactly a known keyword written in its form. */
     fun keyword(part: String): Keyword? {
+        // tdm chunk 12: "hexproof from monocolored" (CR 702.11d)
+        Tdm.HEXPROOF_FROM.matchEntire(part)?.let { m ->
+            return Keyword.HexproofFrom(when (m.groupValues[1]) {
+                "monocolored" -> arcanum.api.ObjectFilter.Monocolored
+                "multicolored" -> arcanum.api.ObjectFilter.Multicolored
+                else -> return null
+            })
+        }
         // "Flashback—Sacrifice a Mountain." (CR 702.34a): a cost that isn't only mana.
         // spm: "Mayhem" without a cost (CR 702.187c)
         if (part == "Mayhem") return Keyword.Mayhem(null)

@@ -44,6 +44,7 @@ internal object Filters {
      * controls", "land card with a basic land type", "legendary creature you control".
      */
     fun noun(phrase: String): ObjectFilter? {
+        TdmPhrases.noun(phrase)?.let { return it } // tdm
         EoePhrases.noun(phrase)?.let { return it } // eoe
         SpmPhrases.noun(phrase)?.let { return it } // spm
         EclPhrases.noun(phrase)?.let { return it } // ecl
@@ -917,6 +918,7 @@ internal object Events {
 internal object Conditions {
     fun condition(text: String, self: Set<String> = emptySet()): Condition? {
         MechanicWordings.condition(text, self)?.let { return it }
+        TdmPhrases.condition(text)?.let { return it } // tdm
         EoePhrases.condition(text, self)?.let { return it } // eoe
         SpmPhrases.condition(text, self)?.let { return it } // spm
         TlaPhrases.condition(text, self)?.let { return it } // tla
@@ -1384,6 +1386,7 @@ internal const val EXILED_WITH = "exiled"
 internal object Values {
     /** [exiled]: what "the exiled card" refers to on this card (linked abilities, CR 607.2a). */
     fun value(text: String, exiled: Objects? = null): Value? {
+        TdmPhrases.value(text)?.let { return it } // tdm
         EoePhrases.value(text)?.let { return it } // eoe
         TlaPhrases.value(text)?.let { return it } // tla
         EclPhrases.value(text)?.let { return it } // ecl

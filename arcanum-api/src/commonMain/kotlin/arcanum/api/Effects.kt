@@ -395,7 +395,10 @@ sealed interface KeywordAction {
      * [slot] declared in the enclosing [Instructions.targets] (at most [count]). [KeywordExpansions.expand] writes it out. */
     @Serializable @SerialName("support") data class Support(val count: Value, val slot: String) : KeywordAction
     @Serializable @SerialName("detain") data class Detain(val objects: Objects) : KeywordAction
-    @Serializable @SerialName("endure") data class Endure(val count: Value) : KeywordAction
+    /** [objects] endure [count] (CR 701.63a): each one's controller creates a [count]/[count] white Spirit creature token unless they put
+     * [count] +1/+1 counters on it; enduring 0 does nothing (701.63b). tdm: "Anafenza endures 2", "it endures X" (the creature that
+     * entered). */
+    @Serializable @SerialName("endure") data class Endure(val objects: Objects, val count: Value) : KeywordAction
     /** "Exile three cards from your graveyard or sacrifice a Food" (CR 701.61a). */
     @Serializable @SerialName("forage") data object Forage : KeywordAction
     @Serializable @SerialName("cloak") data class Cloak(val count: Value) : KeywordAction

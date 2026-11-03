@@ -420,9 +420,12 @@ internal object Actions {
         val dealt = after.map { it.copy(sourceSeen = it.sourceSeen ?: act.snapshot(it.source)) }
         act.record(Change.Damage(dealt))
         // fra: what has dealt combat damage remembers it ("as long as they haven't dealt combat damage yet")
-        dealt.filter { it.combat }.map { it.source }.distinct().forEach { source ->
+        // tdm: and what has dealt any damage ("as long as it hasn't dealt damage yet")
+        dealt.map { it.source }.distinct().forEach { source ->
             val o = act.obj(source) ?: return@forEach
-            if (!o.facts.dealtCombatDamage) act.record(Change.ObjectUpdated(o, o.copy(facts = o.facts.copy(dealtCombatDamage = true))))
+            val combat = dealt.any { it.source == source && it.combat }
+            val facts = o.facts.copy(dealtDamage = true, dealtCombatDamage = o.facts.dealtCombatDamage || combat)
+            if (facts != o.facts) act.record(Change.ObjectUpdated(o, o.copy(facts = facts)))
         }
         var excess = 0
         val excessTo = mutableMapOf<TargetRef, Int>()

@@ -441,9 +441,12 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
     // ---- The next question
 
     fun next(): Question? {
-        // CR 601.2b: modes, optional and additional costs, announced values
-        instructions.modes?.let { modes -> if (choices.names[MODES_ASKED] == null) return Question.Modes(modes) }
+        // CR 601.2b: modes, optional and additional costs, announced values; ecl: optional costs first when how many modes may be
+        // chosen depends on them ("If this spell's additional cost was paid, choose both instead")
+        val modesFirst = instructions.modes?.maxIf == null
+        if (modesFirst) instructions.modes?.let { modes -> if (choices.names[MODES_ASKED] == null) return Question.Modes(modes) }
         additionalCosts.forEach { (inst, m) -> if (m.optional && optionalTimes(inst) == null) return Question.OptionalCost(optionalKey(inst), m) }
+        if (!modesFirst) instructions.modes?.let { modes -> if (choices.names[MODES_ASKED] == null) return Question.Modes(modes) }
         spliceable.forEach { if (choices.costs[spliceKey(it.card)] == null) return Question.Splice(spliceKey(it.card), it) }
         val announce = (instructions.announced + (if (Costs.mentionsX(contributions)) listOf("X") else emptyList())).distinct()
         announce.forEach { name -> if (name !in choices.announced) return Question.Announce(name, if (name == "X") xMinimum() else 0) }
@@ -590,12 +593,15 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
     fun decision(q: Question, id: DecisionId): Decision = when (q) {
         is Question.Modes -> {
             val chosenBefore = snap.state.obj(sourceId)?.facts?.modesChosen.orEmpty()
-            val printed = if (q.modes.maxIf != null && eval.holds(q.modes.maxIf!!)) q.modes.maxIfCount ?: q.modes.max else q.modes.max
+            val raised = q.modes.maxIf != null && holdsAsCast(q.modes.maxIf!!)
+            val printed = if (raised) q.modes.maxIfCount ?: q.modes.max else q.modes.max
             // msh: "choose up to X"
             val max = q.modes.maxCount?.let { minOf(printed, maxOf(q.modes.min, eval.value(it))) } ?: printed
+            // ecl: "Choose one. If …, choose both instead": exactly that many
+            val min = if (raised && q.modes.min == q.modes.max) max else q.modes.min
             Decision.Modes(id, player, sourceId, q.modes.options.mapIndexed { i, m ->
                 ModeOption(i, m.text, available = !(q.modes.onlyUnchosen && i in chosenBefore), pawprints = m.pawprints)
-            }, q.modes.min, max, q.modes.repeatable, pawprintLimit = q.modes.pawprintLimit)
+            }, min, max, q.modes.repeatable, pawprintLimit = q.modes.pawprintLimit)
         }
         is Question.OptionalCost -> if (q.mechanic.repeatable) Decision.ChooseNumber(id, player, sourceId, 0, null)
             else Decision.May(id, player, sourceId, "Pay the ${q.mechanic.keyword?.text ?: "optional"} cost?", q.mechanic.cost)

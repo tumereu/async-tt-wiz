@@ -117,7 +117,8 @@ internal class Evaluator(val board: Board, val ctx: Context) {
         is Objects.Bound -> boundObjects(ctx.names[objects.name])
         is Objects.Remembered -> boundObjects(selfMemory(objects.key))
         is Objects.EventObject -> ctx.event?.objects.orEmpty().filter { it.role == objects.role }.flatMap { it.ids }
-        is Objects.AttachedTo -> objects(objects.of).mapNotNull { (state.obj(it)?.attachedTo as? TargetRef.Object)?.id }
+        // ecl: an Aura sacrificed to pay its own ability's cost still names what it was attached to (CR 608.2h)
+        is Objects.AttachedTo -> objects(objects.of).mapNotNull { ((state.obj(it)?.attachedTo ?: lki(it)?.attachedTo) as? TargetRef.Object)?.id }
         // The source's new object after a zone change: bound by a flow that knows the move, else found in the log
         Objects.SelfAfter -> ctx.names[SELF_AFTER]?.let { boundObjects(it) } ?: listOfNotNull(ctx.self?.let { board.readingLog(); Lki.newObject(state, it) })
         Objects.Tested -> listOfNotNull(ctx.tested)

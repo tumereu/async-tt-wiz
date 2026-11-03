@@ -363,5 +363,25 @@ class AutomatumControlsScreenshotTest {
         assertEquals(7, StackMenuActions.controls(off, entry, true, {}, {}, {}).size)
     }
 
+    // TRN-062, I-D46: during Alice's opening her hand card's menu offers "Put on bottom" (the London mulligan's bottom)
+    // without any "Manual…"; it puts the card on the bottom of her library
+    @Test fun openingHandMenuPutsOnBottom() {
+        val base = board(lands = 2)
+        val play = base.copy(board = base.board.copy(turn = base.board.turn.copy(number = "1"),
+            players = base.board.players.map { it.copy(status = PlayerStatus.OPENING) }))
+        val toolkit = render(play)
+        compose.runOnIdle { toolkit.openCard(TableScope(sparkId, listOf(sparkId))) }
+        compose.waitForIdle()
+        compose.onNodeWithContentDescription(MANUAL).assertDoesNotExist()
+        compose.onNodeWithText(CardRingPages.PUT_ON_BOTTOM).assertExists()
+        captureShot("$SCREENSHOTS/automatum/opening-put-on-bottom.png",
+            "During Alice's opening with Automatum on, Storm Spark's hand menu shows its greyed Cast row, Inspect and \"Put on bottom\", the London mulligan's way to put a card on the bottom of her library.")
+        compose.ringClick("Library bottom")
+        compose.waitForIdle()
+        val move = manual.filterIsInstance<PlayAction.MoveCard>().single()
+        assertEquals(sparkId, move.cardId)
+        assertEquals(MoveInsertion.BOTTOM, move.destination.insertion)
+    }
+
     private companion object { const val MANUAL = "Manual…" }
 }

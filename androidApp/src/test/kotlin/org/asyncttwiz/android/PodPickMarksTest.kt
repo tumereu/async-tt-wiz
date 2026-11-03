@@ -86,6 +86,22 @@ class PodPickMarksTest {
         assertFalse(PodPickRules(pack.copy(cards = pack.cards.take(5)), settings).automaticBurns)
     }
 
+    // DRF-045: keep 2 + burn 2 + discard 2 covers a 6-card pack, so only the keeps are chosen; a 7-card one still needs burns.
+    @Test fun discardThresholdCoveringTheRestMakesBurnsAutomatic() {
+        val discarding = settings.copy(discardRemainingAt = 2)
+        val end = PodPickRules(pack.copy(cards = pack.cards.take(6)), discarding)
+        assertTrue(end.automaticBurns)
+        assertEquals(0, end.manualBurns)
+        assertEquals(empty, empty.toggle("5", PodPickMark.BURN, end))
+        val marks = empty.toggle("1", PodPickMark.KEEP, end).toggle("2", PodPickMark.KEEP, end)
+        assertTrue(end.canConfirm(marks, false))
+        assertEquals(listOf("3", "4", "5", "6"), end.burnIds(marks))
+        val before = PodPickRules(pack.copy(cards = pack.cards.take(7)), discarding)
+        assertFalse(before.automaticBurns)
+        assertEquals(2, before.manualBurns)
+        assertFalse(before.canConfirm(marks, false))
+    }
+
     @Test fun fewerCardsThanKeepAndEmptyPackAreHandled() {
         val endRules = PodPickRules(pack.copy(cards = pack.cards.take(1)), settings)
         assertEquals(1, endRules.requiredKeeps)

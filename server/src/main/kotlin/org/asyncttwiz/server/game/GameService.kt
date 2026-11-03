@@ -333,6 +333,11 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
             encodedUpdate = GameWire.encode(update)
             sql.insertInto(GAME_REVISION).set(GAME_REVISION.GAME_ID, game.id).set(GAME_REVISION.REVISION, revision)
                 .set(GAME_REVISION.PAYLOAD, encodedUpdate).execute()
+            // LOB-114: after this command the recipient is still in the opening "Mulliganing" status while its author is
+            // not: the author is Ready and waits for them.
+            fun opponentReady(recipient: UUID) = play?.board?.let { board ->
+                PlayerStatus.opening(board, recipient.toString()) && !PlayerStatus.opening(board, inbox.accountId.toString())
+            } == true
             // The shared reducer/store already chose the accepted group, including extensions.
             // Record within THIS execution transaction, never from a delivery timer or a retry.
             val moves = (listOfNotNull(mutation) + batchMutations).map { mutation ->
@@ -346,11 +351,13 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
             // One activity record per event, written together per recipient (a big batch's events are one player's)
             for ((opponent, events) in moves.groupBy({ it.first }, { it.second }))
                 org.asyncttwiz.server.activity.ActivityService.recordAll(sql, opponent, ActivityKind.GAME,
-                    game.id!!, events, yourMove = summary.attentionHolder == opponent.toString(), move = true)
+                    game.id!!, events, yourMove = summary.attentionHolder == opponent.toString(), move = true,
+                    opponentReady = opponentReady(opponent))
             insertedChat?.let { message ->
                 val opponent = if (inbox.accountId == game.inviterId) game.recipientId!! else game.inviterId!!
                 org.asyncttwiz.server.activity.ActivityService.record(sql, opponent, ActivityKind.GAME,
-                    game.id!!, uuid(message.id), inbox.accountId, yourMove = summary.attentionHolder == opponent.toString(), newMessage = true)
+                    game.id!!, uuid(message.id), inbox.accountId, yourMove = summary.attentionHolder == opponent.toString(), newMessage = true,
+                    opponentReady = opponentReady(opponent))
             }
             // The other player's earlier Ready is otherwise never answered when this Ready starts the game.
             if (gameplay == null && play != null && play.startRequestId == command.requestId) {
@@ -369,7 +376,8 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
             if (isGameplay && mutation == null && batchMutations.isEmpty()) {
                 val opponent = if (inbox.accountId == game.inviterId) game.recipientId!! else game.inviterId!!
                 org.asyncttwiz.server.activity.ActivityService.record(sql, opponent, ActivityKind.GAME,
-                    game.id!!, uuid(command.requestId), inbox.accountId, yourMove = summary.attentionHolder == opponent.toString(), move = true)
+                    game.id!!, uuid(command.requestId), inbox.accountId, yourMove = summary.attentionHolder == opponent.toString(), move = true,
+                    opponentReady = opponentReady(opponent))
             }
         }
         val created = when {

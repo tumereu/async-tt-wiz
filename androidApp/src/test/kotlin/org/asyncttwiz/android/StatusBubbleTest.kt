@@ -25,6 +25,16 @@ class StatusBubbleTest {
         assertEquals(life.width, StatusBubble.bounds(life, false, 2f, lines = 2).width)
     }
 
+    // TRN-039: text shorter than the bubble sits in its middle; the widest line keeps the padding on both sides.
+    @Test fun shortTextIsCentredInTheBubble() {
+        val life = TableBounds(10f, 100f, 48f, 48f)
+        val short = StatusBubble.bounds(life, below = true, textWidth = 6f)
+        assertEquals(life.x + 21f, StatusBubble.lineX(short, 6f))
+        val wide = StatusBubble.bounds(life, below = true, textWidth = 80f)
+        assertEquals(wide.x + StatusBubble.PADDING, StatusBubble.lineX(wide, 80f))
+        assertEquals(wide.x + StatusBubble.PADDING + 20f, StatusBubble.lineX(wide, 40f))
+    }
+
     // [StatusBubble.lines] ellipsizes its last line with this.
     @Test fun fitEllipsizesTheLongestPrefixWithoutSplittingASurrogatePair() {
         val measure = { text: String -> text.length * 6f }

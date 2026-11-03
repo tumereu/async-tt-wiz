@@ -181,10 +181,16 @@ internal fun CardActions(state: PlayState, viewer: String, scope: ManualScope, a
     val layout = CardRingPages.context(state.board, previewViewId ?: card.id) ?: CardMenuLayout.CARD
     val attacker = CardRingPages.declaredAttacker(state.board, listOf(card.id))
     // Automatum on (§3 I4, I-D28, I-D46): only the engine's actions and what has no game effect; while Automatum waits
-    // for something done by hand (I-D37) the menu is today's
+    // for something done by hand (I-D37) the menu is today's. During the viewer's opening their own hand cards also offer
+    // "Put on bottom" (TRN-062: the London mulligan's bottom)
     val automatum = state.board.automatum
     val engineMenu = automatum && !AutomatumBoards.manualAllowed(state)
-    val pages = if (engineMenu) CardRingPages.automatumPages(layout, token = card.token, attacker = attacker)
+    val opening = engineMenu && AutomatumDrags.opening(state.board, viewer) && card.owner == viewer &&
+        state.board.containers.any { it.id == card.containerId && it.zone == PlayZone.HAND }
+    if (opening) entries.indexOfFirst { it.id == "Library bottom" }.takeIf { it >= 0 }?.let { index ->
+        entries[index] = entries[index].copy(label = CardRingPages.PUT_ON_BOTTOM)
+    }
+    val pages = if (engineMenu) CardRingPages.automatumPages(layout, token = card.token, attacker = attacker, opening = opening)
         else CardRingPages.pages(layout, token = card.token, attacker = attacker,
             cast = automatum && CastController.playLabel(state, card.id, viewer) == "Cast")
     val rows = if (engineMenu) automatumRows else emptyList()

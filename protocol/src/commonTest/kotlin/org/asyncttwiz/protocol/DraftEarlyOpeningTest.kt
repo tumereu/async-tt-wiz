@@ -42,7 +42,7 @@ class DraftEarlyOpeningTest {
         // Spent Librarians join the pack: pack cards are kept first, so Librarians are kept back only on small packs.
         val cards = cards(state, id) + librarians
         val keep = state.settings.keep + librarians.size
-        val burn = if (cards.size <= keep + state.settings.burn) emptyList() else cards.drop(keep).take(state.settings.burn)
+        val burn = if (state.settings.keepsOnly(cards.size, keep.toLong())) emptyList() else cards.drop(keep).take(state.settings.burn)
         val result = DraftEngine.pick(state, DraftPick(player, id, cards.take(keep), burn, librarians))
         assertNull(result.reason)
         return assertNotNull(result.state)

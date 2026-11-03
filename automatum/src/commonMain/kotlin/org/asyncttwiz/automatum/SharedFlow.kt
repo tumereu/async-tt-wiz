@@ -59,8 +59,11 @@ class SharedFlow(
     val priority: String? get() = state.takeIf { it.pending == null && it.stack.isNotEmpty() && it.result == null }
         ?.priority?.holder?.value
 
-    /** Who holds priority now with nothing to decide (an empty Stack too), or null. */
-    val holder: String? get() = state.takeIf { it.pending == null && it.result == null }?.priority?.holder?.value
+    /** Who holds priority now with nothing to decide (an empty Stack too), or null. In an untap step nobody holds it
+     * (CR 502.4): the active player is the one whose pass ends the step there ([HostPriority.resting]; the first turn
+     * begins after the opening). */
+    val holder: String? get() = state.takeIf { it.pending == null && it.result == null }?.let { s ->
+        s.priority.holder?.value ?: s.turn.active.value.takeIf { HostPriority.resting(s) } }
 
     /** The player who declares attackers or blockers now (CR 508.1, 509.1): nobody holds priority until they do; null
      * when no declaration is awaited. */

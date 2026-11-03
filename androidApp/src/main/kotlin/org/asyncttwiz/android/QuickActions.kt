@@ -108,10 +108,15 @@ object QuickActions {
             TurnPosition.POSTCOMBAT_MAIN, TurnPosition.END_STEP -> add("End turn", "", TableActionIntent.End(scope))
             else -> Unit
         }
+        // TRN-027: with Automatum on too, the opening's mulligans are the host's setup before the game begins
+        val mulligans = mutableListOf<TableActionIntent>()
         if (openingMulligan(play, context.viewer)) {
             val targets = context.viewer?.let { controller.targets(play, it) }
-            add("Mull N", "⇄", controller.library(play, LibraryTool.MULLIGAN_N, targets), "↓")
-            add("Mull −1", "⇄", controller.library(play, LibraryTool.MULLIGAN_MINUS_ONE, targets), "−1")
+            val mullN = controller.library(play, LibraryTool.MULLIGAN_N, targets)
+            val mullOne = controller.library(play, LibraryTool.MULLIGAN_MINUS_ONE, targets)
+            mulligans += listOfNotNull(mullN, mullOne)
+            add("Mull N", "⇄", mullN, "↓")
+            add("Mull −1", "⇄", mullOne, "−1")
             add(READY, "", TableActionIntent.Status(scope, ""))
             if (!turnPlayer) return result
         }
@@ -121,7 +126,7 @@ object QuickActions {
         // Automatum on (§3 I4, I-D28): quick actions that change the game by hand (untapping, drawing, mulligans,
         // closing the combat area) stay in place, greyed, and say why; step changes go through Automatum (TRN-057)
         if (play.board.automatum && !AutomatumBoards.manualAllowed(play))
-            return result.map { if (manualIntent(it.intent)) it.copy(enabled = false, refused = AutomatumDrags.MANUAL) else it }
+            return result.map { if (manualIntent(it.intent) && it.intent !in mulligans) it.copy(enabled = false, refused = AutomatumDrags.MANUAL) else it }
         return result
     }
 

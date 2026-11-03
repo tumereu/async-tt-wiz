@@ -30,7 +30,7 @@ class DraftConsecutivePicksTest {
         val id = state.queues.getValue(player).first()
         val cards = state.packs.first { it.id == id }.cards
         val keep = state.settings.keep
-        val burn = if (cards.size <= keep + state.settings.burn) emptyList() else cards.drop(keep).take(state.settings.burn)
+        val burn = if (state.settings.keepsOnly(cards.size, keep.toLong())) emptyList() else cards.drop(keep).take(state.settings.burn)
         val result = DraftEngine.pick(state, DraftPick(player, id, cards.take(keep), burn))
         assertNull(result.reason)
         return assertNotNull(result.state)
@@ -156,7 +156,7 @@ class DraftConsecutivePicksTest {
         val cards = (state.packs.first { it.id == id }.cards + librarians).shuffled(random)
         val keep = cards.take(state.settings.keep + librarians.size)
         val rest = cards.drop(keep.size)
-        val burn = if (cards.size <= keep.size + state.settings.burn) (if (random.nextBoolean()) rest else emptyList())
+        val burn = if (state.settings.keepsOnly(cards.size, keep.size.toLong())) (if (random.nextBoolean()) rest else emptyList())
             else rest.take(state.settings.burn)
         val result = DraftEngine.pick(state, DraftPick(player, id, keep, burn, librarians))
         assertNull(result.reason)

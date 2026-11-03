@@ -30,7 +30,11 @@ import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.*
+import androidx.compose.ui.text.TextMeasurer
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -378,12 +382,48 @@ internal fun InlinePopupCell(control: MenuControl, label: String = control.name,
                 tint = (entry.control.color ?: owner).copy(alpha = if (entry.control.enabled) 1f else .35f))
             val textModifier = if (twoLines) Modifier.semantics { hideFromAccessibility() }
                 else Modifier.clearAndSetSemantics {}
-            Text(entry.label, Modifier.padding(horizontal = 2.dp).then(textModifier),
-                fontSize = 8.sp, lineHeight = 9.sp, textAlign = TextAlign.Center, maxLines = 2, overflow = TextOverflow.Clip,
-                letterSpacing = 0.sp, color = MenuInk.copy(alpha = if (entry.control.enabled) 1f else .38f), fontWeight = FontWeight.Medium)
+            CellLabel(entry.label, MenuInk.copy(alpha = if (entry.control.enabled) 1f else .38f),
+                Modifier.padding(horizontal = 2.dp), textModifier)
         }
         delta?.let { HoldTooltip(valueDragLabel(entry.dragValue, it)) }
     }
+}
+
+/**
+ * A menu or quick-action cell's label (TBL-064): 8 sp on up to two lines, wrapped only between words. Where a word is
+ * wider than the cell, or the lines don't fit under the icon (large system text), the label is drawn smaller instead of
+ * breaking a word ("Graveyar d") or being cut off.
+ */
+@Composable
+internal fun CellLabel(text: String, color: Color, modifier: Modifier = Modifier, textModifier: Modifier = Modifier) {
+    val measurer = rememberTextMeasurer()
+    BoxWithConstraints(modifier, contentAlignment = Alignment.Center) {
+        val style = LocalTextStyle.current.merge(CellLabelStyle)
+        val scale = remember(text, style, constraints, measurer) { cellLabelScale(measurer, text, style, constraints) }
+        Text(text, textModifier, color = color, maxLines = 2, overflow = TextOverflow.Clip,
+            style = style.copy(fontSize = style.fontSize * scale, lineHeight = style.lineHeight * scale))
+    }
+}
+
+private val CellLabelStyle = TextStyle(fontSize = 8.sp, lineHeight = 9.sp, letterSpacing = 0.sp,
+    fontWeight = FontWeight.Medium, textAlign = TextAlign.Center)
+
+/** The factor (at most 1, at least about .5) [text] is drawn at so its widest word fits one line of [constraints]' width
+ * and its at most two lines fit their height. */
+internal fun cellLabelScale(measurer: TextMeasurer, text: String, style: TextStyle, constraints: Constraints): Float {
+    if (!constraints.hasBoundedWidth || text.isBlank()) return 1f
+    val width = constraints.maxWidth
+    fun at(scale: Float) = style.copy(fontSize = style.fontSize * scale, lineHeight = style.lineHeight * scale)
+    val widest = text.split(' ', '\n').filter { it.isNotEmpty() }
+        .maxOf { measurer.measure(it, style, softWrap = false, maxLines = 1).size.width }
+    var scale = if (widest > width) width * .97f / widest else 1f
+    if (!constraints.hasBoundedHeight) return scale
+    repeat(6) {
+        val layout = measurer.measure(text, at(scale), maxLines = 2, constraints = Constraints(maxWidth = width))
+        if (!layout.didOverflowHeight && layout.size.height <= constraints.maxHeight) return scale
+        scale *= .9f
+    }
+    return scale
 }
 
 @OptIn(ExperimentalFoundationApi::class)

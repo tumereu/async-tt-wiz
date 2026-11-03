@@ -4,10 +4,6 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.KeyframesSpec
 import androidx.compose.animation.core.keyframes
 import androidx.compose.foundation.layout.*
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.FastForward
-import androidx.compose.material.icons.outlined.Tune
-import androidx.compose.material.icons.outlined.WaterDrop
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
@@ -72,13 +68,13 @@ internal object AutomatumToggles {
         val own = play.board.players.single { it.accountId == viewer }
         return listOf(
             AutomatumToggle(FULL_CONTROL, "Full\ncontrol", "Full control: also pause for your own spells and in every step in which you could act",
-                Icons.Outlined.Tune, own.fullControl, enabled) { setFullControl(!own.fullControl) },
+                menuIcon(FULL_CONTROL), own.fullControl, enabled) { setFullControl(!own.fullControl) },
             AutomatumToggle(SKIP, "Skip if\nno choice", "Skip when I have no choice: Automatum passes for you when you could only pass",
-                Icons.Outlined.FastForward, own.skipWhenNoChoice, enabled) {
+                menuIcon(SKIP), own.skipWhenNoChoice, enabled) {
                 submit(PlayAction.Mtg(MtgAction.SetSkipWhenNoChoice(!own.skipWhenNoChoice)))
             },
             AutomatumToggle(AUTOTAP, "Autotap\nmana", "Autotap mana sources: casting pays by itself, with mana in your pool first",
-                Icons.Outlined.WaterDrop, autotap, true) { setAutotap(!autotap) })
+                menuIcon(AUTOTAP), autotap, true) { setAutotap(!autotap) })
     }
 }
 
@@ -101,9 +97,7 @@ internal fun RowScope.AutomatumToggleCells(play: PlayState, viewer: String, enab
             Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
                 val ink = if (toggle.on) AutomatumViolet else MenuInk.copy(alpha = .55f)
                 Icon(toggle.icon, null, Modifier.size(18.dp), tint = ink.copy(alpha = if (toggle.enabled) ink.alpha else .3f))
-                Text(toggle.label, Modifier.padding(horizontal = 2.dp), fontSize = 8.sp, lineHeight = 9.sp, textAlign = TextAlign.Center,
-                    maxLines = 2, overflow = TextOverflow.Clip, letterSpacing = 0.sp, fontWeight = FontWeight.Medium,
-                    color = MenuInk.copy(alpha = if (toggle.enabled) 1f else .38f))
+                CellLabel(toggle.label, MenuInk.copy(alpha = if (toggle.enabled) 1f else .38f), Modifier.padding(horizontal = 2.dp))
             }
         }
     }

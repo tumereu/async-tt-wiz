@@ -1,1 +1,1 @@
-Portrait table mid-game with a floating error message about a refused undo, shown above the table controls.
+Portrait table mid-game with a floating error message about a refused undo, shown above the own hand row so the life square, hand and table controls stay visible.

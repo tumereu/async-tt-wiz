@@ -161,17 +161,24 @@ class AutomatumScreenshotTest {
         assertEquals(listOf<PlayAction>(PlayAction.Mtg(MtgAction.SetAutomatum(false))), sent)
     }
 
-    // TRN-055, SYS-063: holding the switch opens its panel: status, the own skip setting, clearing
-    // the data and the engine's records
+    // TRN-055, SYS-063: holding the switch opens its panel: status in plain words, what is done by hand, the own skip
+    // setting, clearing the data and, closed until asked for, the engine's records
     @Test fun holdOpensThePanel() {
         val (toolkit, sent) = render(board(true))
         compose.onNodeWithContentDescription("Automatum on. Turn Automatum off").performTouchInput { longClick() }
         compose.waitForIdle()
         assertEquals("automatum", toolkit.panel)
         compose.mainClock.advanceTimeBy(600)
-        compose.onNodeWithText("Automatum on · 1 ability is manual").assertExists()
+        compose.onNodeWithText("Automatum on").assertExists()
+        compose.onNodeWithText("By hand: Wild Surge. Automatum can't read this ability yet; you carry it out yourself.").assertExists()
+        compose.onNodeWithText("effect:pump [Effect]", substring = true).assertDoesNotExist()
         captureShot("$SCREENSHOTS/automatum/hold-panel.png",
-            "Holding the Automatum switch opens its panel: the status line (the invented Wild Surge plays by hand), the own Skip when I have no choice switch, Clear Automatum data and the engine records.")
+            "Holding the Automatum switch opens its panel: Automatum on and what it does, the invented Wild Surge done by hand, the own Skip when I have no choice switch, Clear Automatum data and the closed Engine details.")
+        compose.onNodeWithContentDescription("Show engine details").performClick()
+        compose.waitForIdle()
+        compose.onNodeWithText("effect:pump [Effect]", substring = true).assertExists()
+        captureShot("$SCREENSHOTS/automatum/hold-panel-engine-details.png",
+            "Tapping Engine details at the bottom of the Automatum panel opens the engine's records in small grey type below it.")
         compose.onNodeWithContentDescription("Skip when I have no choice").performClick()
         compose.waitForIdle()
         assertEquals(listOf<PlayAction>(PlayAction.Mtg(MtgAction.SetSkipWhenNoChoice(false))), sent)

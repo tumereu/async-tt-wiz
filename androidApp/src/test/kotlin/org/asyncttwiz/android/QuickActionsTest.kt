@@ -12,7 +12,7 @@ internal object TableToolFixture {
             PlayContainer(id(11), PlayZone.LIBRARY, turnPlayer, listOf(id(22))),
             PlayContainer(id(12), PlayZone.HAND, turnPlayer, listOf(id(23), id(24))),
             PlayContainer(id(13), PlayZone.BATTLEFIELD, id(8)), PlayContainer(id(14), PlayZone.LIBRARY, id(8)),
-            PlayContainer(id(15), PlayZone.HAND, id(8)))
+            PlayContainer(id(15), PlayZone.HAND, id(8)), PlayContainer(id(16), PlayZone.STACK, null))
         val cards = listOf(
             // A card originally owned by the OTHER player is still in the tracked player's field.
             PlayCard(id(20), "def", id(8), id(10), id(25), tapped = true, placement = PlayPlacement(BoardPosition(4, 2), id(30))),

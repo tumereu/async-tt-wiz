@@ -70,18 +70,16 @@ class HistoryRuntimeIntegrationTest {
             assertEquals(2, x.wire.reads.size)
             assertTrue(x.reconnects.last().steps.any { it.stage.startsWith("headDeltaGraceExpired:") })
             assertFalse(x.session.ready(x.game.id))
-            val toolkit = TableToolkitController(f.a, { x.session.play(x.game) }, { true },
-                { action, group -> x.session.gameplay(x.game, f.a, action, group) }, waitingForConnection = { true })
-            // I-D52: nothing is tapped by hand; a note goes through the same capture path
-            assertTrue(toolkit.submit(PlayAction.SetNote(f.id(9), "Noted")))
-            assertEquals("Noted", x.session.play(x.game)!!.board.cards.first().note)
+            // I-D52: the table taps nothing by hand any more; the session's capture path is the same for any action
+            assertTrue(x.session.gameplay(x.game, f.a, PlayAction.SetTapped(f.id(9), true), null))
+            assertTrue(x.session.play(x.game)!!.board.cards.first().tapped)
             assertTrue(x.commands().isEmpty(), "Capture must not send through a recovering stream")
             x.publish()
             val original = x.commands().single()
-            assertEquals("Noted", x.session.play(x.game)!!.board.cards.first().note, "Publication must retain the captured prediction")
+            assertTrue(x.session.play(x.game)!!.board.cards.first().tapped, "Publication must retain the captured prediction")
             x.message(x.execute(original))
             x.message(GameResult(original.requestId, original.scope, "accepted", ingressOrdinal = "1", commitRevision = x.revision.toString()))
-            assertEquals("Noted", x.session.acceptedPlay(x.game)!!.board.cards.first().note)
+            assertTrue(x.session.acceptedPlay(x.game)!!.board.cards.first().tapped)
             assertEquals(1, x.commands().size)
             assertFalse(x.session.pending(x.game.id))
         }

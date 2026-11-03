@@ -1,1 +1,0 @@
-Landscape table: card menu for the first card in your hand, a single page with no page header.

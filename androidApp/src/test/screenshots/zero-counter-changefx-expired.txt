@@ -1,1 +1,0 @@
-Change highlight layer alone on white after player A's blue counter change has expired: nothing is drawn.

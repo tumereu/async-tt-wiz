@@ -180,17 +180,17 @@ internal fun CardActions(state: PlayState, viewer: String, scope: ManualScope, a
     for (tool in tools.distinctBy { it.name }) add(tool.name, ringShortLabel(tool.name), tool)
     val layout = CardRingPages.context(state.board, previewViewId ?: card.id) ?: CardMenuLayout.CARD
     val attacker = CardRingPages.declaredAttacker(state.board, listOf(card.id))
-    // Automatum on (§3 I4, I-D28): the engine's actions, what has no game effect, and "Manual…", which opens today's
-    // menu only while Automatum waits for something done by hand (I-D37), or for the viewer's own hand cards during their
-    // opening (TRN-027: the London mulligan's "Library bottom")
+    // Automatum on (§3 I4, I-D28, I-D46): only the engine's actions and what has no game effect; while Automatum waits
+    // for something done by hand (I-D37) the menu is today's. During the viewer's opening their own hand cards also offer
+    // "Put on bottom" (TRN-062: the London mulligan's bottom)
     val automatum = state.board.automatum
-    val opening = AutomatumDrags.opening(state.board, viewer) && card.owner == viewer &&
+    val engineMenu = automatum && !AutomatumBoards.manualAllowed(state)
+    val opening = engineMenu && AutomatumDrags.opening(state.board, viewer) && card.owner == viewer &&
         state.board.containers.any { it.id == card.containerId && it.zone == PlayZone.HAND }
-    var manualOpen by remember(scope.contextId, previewViewId, automatum) { mutableStateOf(false) }
-    val engineMenu = automatum && !manualOpen
-    if (engineMenu) entries += RingEntry(CardRingPages.MANUAL, CardRingPages.MANUAL, MenuControl(CardRingPages.MANUAL,
-        enabled && (AutomatumBoards.manualAllowed(state) || opening), refused = AutomatumDrags.MANUAL) { manualOpen = true })
-    val pages = if (engineMenu) CardRingPages.automatumPages(layout, token = card.token, attacker = attacker)
+    if (opening) entries.indexOfFirst { it.id == "Library bottom" }.takeIf { it >= 0 }?.let { index ->
+        entries[index] = entries[index].copy(label = CardRingPages.PUT_ON_BOTTOM)
+    }
+    val pages = if (engineMenu) CardRingPages.automatumPages(layout, token = card.token, attacker = attacker, opening = opening)
         else CardRingPages.pages(layout, token = card.token, attacker = attacker,
             cast = automatum && CastController.playLabel(state, card.id, viewer) == "Cast")
     val rows = if (engineMenu) automatumRows else emptyList()
@@ -295,18 +295,18 @@ internal fun ManualActionSquare(name: String, symbol: String, enabled: Boolean =
     assignedHold: (() -> Unit)? = null, holdName: String? = null, iconTint: Color? = null,
     bordered: Boolean = true, modifier: Modifier = Modifier, labelled: Boolean = false,
     dragValue: String? = null, onDelta: ((Long) -> Unit)? = null, refused: String? = null, onClick: () -> Unit) {
-    // A refused square stays greyed but says why on tap (I-D28)
-    val refuse = LocalRefusal.current
+    // I-D46: a refused square stays greyed; a tap shakes it and holding it says why
     val reason = refused.takeIf { !enabled }
     val tappable = enabled || reason != null
-    val currentClick by rememberUpdatedState(if (reason != null) { { refuse(reason) } } else onClick)
+    var shakes by remember { mutableIntStateOf(0) }
+    val currentClick by rememberUpdatedState(if (reason != null) { { shakes += 1 } } else onClick)
     val currentHold by rememberUpdatedState(assignedHold)
     var tooltip by remember { mutableStateOf(false) }
     var delta by remember { mutableStateOf<Long?>(null) }
     val background = fill ?: Color.White
     val dragModifier = if (onDelta != null) Modifier.valueDragGestures(enabled && TableActions.numeric(dragValue ?: "0"),
         preview = { delta = it }, commit = onDelta) else Modifier
-    Box(modifier.then(if (labelled) Modifier.fillMaxWidth().heightIn(min = 48.dp) else Modifier.size(48.dp)).ringInputTarget(draggable = onDelta != null)
+    Box(modifier.shaken(shakes).then(if (labelled) Modifier.fillMaxWidth().heightIn(min = 48.dp) else Modifier.size(48.dp)).ringInputTarget(draggable = onDelta != null)
         .pressFeedback(enabled).then(dragModifier).semantics(mergeDescendants = true) {
         contentDescription = name
         role = Role.Button
@@ -380,7 +380,7 @@ internal fun ManualActionSquare(name: String, symbol: String, enabled: Boolean =
         }
         }
         }
-        if (tooltip) HoldTooltip(tooltipName)
+        if (tooltip) HoldTooltip(reason ?: tooltipName)
         delta?.let { HoldTooltip(valueDragLabel(dragValue, it)) }
     }
 }

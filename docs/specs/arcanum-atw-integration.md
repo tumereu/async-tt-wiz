@@ -427,6 +427,21 @@ out of anything stuck.
   hand for the next cast. The cast panel docks full width exactly above the viewer's hand with the card small
   (`SmallCard`: tap Inspect, hold the large overlay; I-D48), no rules text, no spinner, the eye fixed at the bottom-left
   while the rest fades (`HoldTip` on hold), icon + text buttons. Catalog: STK-023, STK-024, STK-042, TBL-043, LOB-113.
+- **Built (I-D46 (a)–(c), 2026-11-03):** (a) `TableToolkitController.playable` is the set of cards with a legal
+  `CardPlay` for the viewer (the engine's options, worked out on the Automatum worker and kept per board); the table
+  draws a soft cyan halo behind them (live table only; none during a cast or an open choice). (b) An Automatum refusal
+  of a gesture (hand double-tap or drag cast, tapping by hand, a manual drag, a life drag, a Library or Temp pile with
+  nothing to offer) shakes the item (`TableToolkitController.shaking`) instead of setting the message; genuine
+  failures (offline, still working out) keep theirs. A refused control (`MenuControl.refused`) shakes on tap and shows
+  its reason on hold; `LocalRefusal` is gone. Inspect lists the reasons of the card's refused plays
+  (`automatumReasons`). (c) With Automatum on the quick-actions row is `AutomatumToggles` (Full control: the device
+  setting, synced as SYS-071; Skip when I have no choice: `SetSkipWhenNoChoice`; Autotap mana: the cast's own
+  setting `PauseSettings.autotap`), except during the opening
+  mulligan and while Automatum's combat offers quick actions. "Manual…" is gone: card and zone menus show only engine
+  rows and no-game-effect cells, today's menus while a `Manual` decision is open; Table actions, the Stack bubbles and
+  Manage Stack drop their manual entries. Catalog: TBL-043, TBL-046, TBL-071, TBL-114–TBL-118, ZON-004, ZON-007,
+  ZON-013, ZON-077, ZON-078, TRN-010, TRN-015, TRN-020, TRN-031, TRN-059, TRN-061, STK-035, SYS-063, SYS-069, SYS-071,
+  LOB-113.
 
 ## 4. Shared state ATW adds
 

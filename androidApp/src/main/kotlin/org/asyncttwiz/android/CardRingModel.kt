@@ -46,22 +46,24 @@ internal object CardRingPages {
     /** A Temp pile's contents (its Look): the panel layout with Temp 1–4. */
     val tempPanel = listOf(CardRingPage("Card", panelMoves + tempPiles))
 
-    /** The cell that opens a context's manual menu with Automatum on (§3 I4). */
-    const val MANUAL = "Manual…"
+    /** The label of a hand card's "Library bottom" during the opening with Automatum on (TRN-062). */
+    const val PUT_ON_BOTTOM = "Put on bottom"
 
     /**
-     * Automatum on (§3 I4, I-D28): the engine's actions for the card are rows above these cells, then what has no game
-     * effect (inspecting, notes, pings, links, the six colour counters Automatum ignores) and the combat draft; the rest
-     * of today's menu is behind "Manual…" ([MANUAL]), which opens it only while Automatum waits for something done by
-     * hand (I-D37).
+     * Automatum on (§3 I4, I-D28, I-D46): the engine's actions for the card are rows above these cells, then only what
+     * has no game effect (inspecting, notes, pings, links, the six colour counters Automatum ignores) and the combat
+     * draft. Today's menu ([pages]) is shown instead only while Automatum waits for something done by hand (I-D37).
+     * [opening]: the viewer's own hand card during their opening, which can also go on the bottom of their library
+     * (TRN-062, the London mulligan's bottom; labelled [PUT_ON_BOTTOM]).
      */
-    fun automatumPages(layout: CardMenuLayout, token: Boolean = false, attacker: Boolean = false): List<CardRingPage> = when (layout) {
+    fun automatumPages(layout: CardMenuLayout, token: Boolean = false, attacker: Boolean = false,
+        opening: Boolean = false): List<CardRingPage> = when (layout) {
         CardMenuLayout.CARD -> listOf(CardRingPage("Automatum", listOf("inspect", "otherSide", "note", "Ping / Unping",
-            if (attacker) "Attack →" else "Declare without tapping", "Link", "Unlink", MANUAL)), card[1])
+            if (attacker) "Attack →" else "Declare without tapping", "Link", "Unlink")), card[1])
         CardMenuLayout.COMBAT -> listOf(CardRingPage("Combat", listOf("inspect", "note", "Ping / Unping", "Attack →",
-            "Remove from combat", "Link", "Links", MANUAL)))
-        CardMenuLayout.HAND -> listOf(CardRingPage("Hand", listOf("inspect", MANUAL)))
-        CardMenuLayout.PANEL, CardMenuLayout.TEMP_PANEL -> listOf(CardRingPage("Card", listOf("inspect", "otherSide", "Ping / Unping", MANUAL)))
+            "Remove from combat", "Link", "Links")))
+        CardMenuLayout.HAND -> listOf(CardRingPage("Hand", listOf("inspect") + if (opening) listOf("Library bottom") else emptyList()))
+        CardMenuLayout.PANEL, CardMenuLayout.TEMP_PANEL -> listOf(CardRingPage("Card", listOf("inspect", "otherSide", "Ping / Unping")))
     }
 
     /** Only the state twins replace a cell; nothing is ever added, hidden or left blank. */

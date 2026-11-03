@@ -136,7 +136,7 @@ internal fun AutomatumPauseSettings(accountId: String) {
                 Modifier.weight(1f).padding(end = 12.dp, top = 4.dp, bottom = 4.dp))
             Switch(checked = settings.fullControl, onCheckedChange = null)
         }
-        // I-D47: casting taps the mana sources by itself (mana already in your pool first)
+        // I-D47 (also a quick-actions toggle, I-D46 (c)): casting taps the mana sources by itself (mana already in your pool first)
         Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("autotap")
             .toggleable(settings.autotap, role = Role.Switch, onValueChange = { preferences.settings = settings.copy(autotap = it) }),
             verticalAlignment = Alignment.CenterVertically) {

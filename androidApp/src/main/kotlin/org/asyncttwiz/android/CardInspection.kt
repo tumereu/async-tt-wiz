@@ -245,8 +245,9 @@ internal fun GameplayCardInspection(state: PlayState, viewer: String, inspection
             marks.firstOrNull()?.second?.faceId?.let { id -> faces.indexOfFirst { it.faceId == id }.takeIf { it >= 0 }?.let(::face) }
         } }
         LaunchedEffect(permitted) { if (controller.state?.card != permitted) controller.open(permitted, shown, flipped) }
-        val annotation = remember(card, names, inspection.provisional, computed, viewer) {
-            inspectionAnnotation(card, names, inspection.provisional, computed, viewer) }
+        val annotation = remember(card, names, inspection.provisional, computed, viewer, IdentityKey(state.board)) {
+            listOfNotNull(inspectionAnnotation(card, names, inspection.provisional, computed, viewer).ifBlank { null },
+                automatumReasons(state, viewer, card.id, names).joinToString("\n").ifBlank { null }).joinToString("\n") }
         if (controller.state != null) CardInspection(controller, annotation,
             markedOptions = marks,
             token = card.token, owner = if (card.owner == viewer) OwnTableColor else OpponentTableColor,
@@ -269,6 +270,25 @@ private fun inspectionAnnotation(card: PlayCard, names: Map<String, String>, pro
     card.eotNote.takeIf(String::isNotBlank)?.let { "⌛ $it (until end of turn)" },
     card.counters.entries.joinToString(" · ") { "${it.key.name.lowercase()}: ${it.value}" }.takeIf(String::isNotBlank),
     card.note.takeIf(String::isNotBlank)).joinToString("\n")
+
+/**
+ * I-D46 (b): with Automatum on, why the viewer can't do now what Automatum offers for [cardId] (cast or play it, an
+ * ability), one line each ("Cast — Only in your main phase while the Stack is empty."), from the plays already worked out
+ * for this board (none while they aren't, and none for other players' cards).
+ */
+internal fun automatumReasons(state: PlayState, viewer: String, cardId: String, names: Map<String, String>): List<String> {
+    if (!state.board.automatum) return emptyList()
+    val plays = AutomatumBoards.cachedCardPlays(state, viewer) ?: return emptyList()
+    val name = CastController.cardName(state, cardId)
+    return plays.of(cardId).mapNotNull { offered ->
+        val refusal = offered.refusal?.takeIf { it != org.asyncttwiz.automatum.CardPlay.Refusal.NotYours } ?: return@mapNotNull null
+        val label = when (offered.kind) {
+            org.asyncttwiz.automatum.CardPlay.Kind.Cast -> if (offered.text == "Cast") "Cast" else "Cast · ${offered.text}"
+            else -> offered.text
+        }
+        "$label — ${engineRefusal(refusal, offered.kind, name, names)}"
+    }
+}
 
 /** Automatum on (I1): where [card]'s computed values come from, one line each ("7/7: 1/1 printed, +1/+1 Elvish
  * Hierophant, +3/+3 Giant Growth until end of turn"), then its typed counters; null when nothing is computed for it. */

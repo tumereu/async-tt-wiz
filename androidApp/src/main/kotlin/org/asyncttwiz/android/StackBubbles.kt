@@ -92,17 +92,16 @@ data class StackBubbleGeometry(val entryId: String, val anchor: TableBounds, val
 /** Semantics and drawings only: all pointer input stays with TableGestureCoordinator. No scrim. */
 @Composable
 internal fun StackBubbleOverlay(geometry: StackBubbleGeometry, options: List<StackTextOption>, ownerColor: Color,
-    preview: TableGesturePreview, enabled: Boolean, perform: (TableIntent) -> Unit, manualRefused: Boolean = false) {
+    preview: TableGesturePreview, enabled: Boolean, perform: (TableIntent) -> Unit) {
     val entrance = remember(geometry.entryId) { Animatable(0f) }
     LaunchedEffect(entrance) { entrance.animateTo(1f, tween(240)) }
     val density = LocalDensity.current.density
     for (item in geometry.controls) {
         val b = item.bounds
         val marker = item.id.endsWith("/mark")
-        val greyed = manualRefused && !marker && !item.id.endsWith("/ping")
         Box(Modifier.offset(b.x.dp, b.y.dp).size(b.width.dp, b.height.dp).graphicsLayer {
             val t = entrance.value
-            alpha = t * if (greyed) .4f else 1f
+            alpha = t
             scaleX = .35f + .65f * t; scaleY = scaleX
             translationX = (geometry.anchor.center.x - b.center.x) * (1f - t) * density
             translationY = (geometry.anchor.center.y - b.center.y) * (1f - t) * density

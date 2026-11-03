@@ -27,7 +27,7 @@ internal inline fun BoxWithConstraintsScope.TableControlsLayer(play: PlayState, 
                     .copy(automatumCombat = toolkit.combat.ready(play), pauseBar = toolkit.pause.barWithPass(play, accountId))
                     .withCombatTarget(toolkit.combat, play, scene.combatLabels.firstOrNull { it.cardId == null }?.label?.removePrefix("→ ")),
                     toolkit.table, endingColor,
-                    Modifier.fillMaxSize().padding(start = 60.dp, end = 8.dp), perform = toolkit::perform)
+                    Modifier.fillMaxSize().padding(start = 60.dp, end = 8.dp), perform = toolkit::perform, submit = { toolkit.submit(it) })
                 runtime.undo?.let { undo -> ActionSquare("Undo", "↶", runtime.controlsConnected ?: connected,
                     Modifier.align(Alignment.CenterStart).padding(start = 10.dp), holdName = if (runtime.redo != null) "Redo" else null,
                     onHold = runtime.redo?.let { redo -> { redo() } }, icon = { TableChromeIcon("undo") }, onClick = { undo() }) }

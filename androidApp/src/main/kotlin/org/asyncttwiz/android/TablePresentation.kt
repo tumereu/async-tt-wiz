@@ -299,9 +299,12 @@ object TablePresentation {
         val card = scene.items.find { entryId != null && it.cardId == entryId && it.zone == PlayZone.STACK && it.visible.isNotEmpty() }
             ?: return null
         val pile = scene.items.single { it.id == card.viewport }
-        return StackBubbleGeometry.create(requireNotNull(entryId), pile.bounds, width, height,
+        val geometry = StackBubbleGeometry.create(requireNotNull(entryId), pile.bounds, width, height,
             play.board.stackTextMarks[entryId]?.minOrNull(), if (card.covered) 0 else StackText.options(play, entryId).size)
             .copy(multipleMarks = play.board.stackTextMarks[entryId].orEmpty().size > 1)
+        // STK-035 (I-D46): with Automatum on its manual moves aren't offered; the Mark text handle stays
+        return if (AutomatumBoards.manualAllowed(play)) geometry
+            else geometry.copy(controls = geometry.controls.filter { it.id.endsWith("/mark") })
     }
 
     fun scene(game: GameSummary, play: PlayState, viewer: String, width: Float, height: Float, landscape: Boolean,

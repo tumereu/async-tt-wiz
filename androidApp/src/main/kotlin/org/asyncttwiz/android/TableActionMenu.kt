@@ -64,9 +64,11 @@ fun TableActionMenu(play: PlayState, viewerId: String, context: QuickContext, co
     var die by remember(scope) { mutableStateOf(false) }
     val landscape = LocalConfiguration.current.screenWidthDp > LocalConfiguration.current.screenHeightDp
     val enabled = context.playable && controller.enabled(scope)
-    val table = TableActionMenus.table(play, context, controller, pendingSuggestionId, mayAccept)
-    // Automatum on (§3 I4, I-D28): the combat area and tokens are Automatum's; dice, coins, the timeline and results stay
+    // Automatum on (§3 I4, I-D28, I-D46): the combat area and tokens are Automatum's, so they aren't offered (except while
+    // Automatum waits for something done by hand); dice, coins, the timeline and results stay
     val manual = AutomatumBoards.manualAllowed(play)
+    val table = TableActionMenus.table(play, context, controller, pendingSuggestionId, mayAccept).filter {
+        manual || (it.intent !is TableActionIntent.Token && it.intent !is TableActionIntent.Combat) }
     fun control(entry: TableMenuAction): MenuControl {
             val end = entry.intent is TableActionIntent.End
             val label = when (entry.intent) {
@@ -75,10 +77,7 @@ fun TableActionMenu(play: PlayState, viewerId: String, context: QuickContext, co
                 is TableActionIntent.Draw -> "Draw one · turn player"
                 else -> if (end && play.board.turn.accountId != viewerId) "End opponent's turn" else entry.name
             }
-            val refused = !manual && (entry.intent is TableActionIntent.Token || entry.intent is TableActionIntent.Combat)
-            return MenuControl(label,
-                enabled && !refused, color = if (end) endingPlayerColor else null,
-                refused = AutomatumDrags.MANUAL.takeIf { refused }) {
+            return MenuControl(label, enabled, color = if (end) endingPlayerColor else null) {
                 if (entry.name == "Suggest game end") ending = true
                 else if (perform(entry.intent)) onDismiss()
             }
@@ -88,15 +87,11 @@ fun TableActionMenu(play: PlayState, viewerId: String, context: QuickContext, co
             if (controller.flipCoin(scope)) onDismiss()
          }) + listOf(MenuControl("Timeline", onTimeline != null) { onDismiss(); onTimeline?.invoke() }) +
         table.filter { it.intent is TableActionIntent.Ending }.map(::control)
-    // A refused entry's reason shows on the table, so the dialog closes first
-    val refusal = LocalRefusal.current
-    if (!ending && !die) CompositionLocalProvider(LocalRefusal provides { onDismiss(); refusal(it) }) {
-        TableMenuPanel(onDismiss, width = if (landscape) 776.dp else 400.dp, title = "Table actions") {
+    if (!ending && !die) TableMenuPanel(onDismiss, width = if (landscape) 776.dp else 400.dp, title = "Table actions") {
         for (row in entries.chunked(if (landscape) 3 else 2)) Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            for (entry in row) MenuButton(entry.name, Modifier.weight(1f), entry.enabled, entry.color, refused = entry.refused, onClick = entry.click)
+            for (entry in row) MenuButton(entry.name, Modifier.weight(1f), entry.enabled, entry.color, onClick = entry.click)
             repeat((if (landscape) 3 else 2) - row.size) { Spacer(Modifier.weight(1f)) }
         }
-    }
     }
     if (ending && outcome == null) TableMenuPanel({ ending = false }, title = "Suggest game end") {
         for (choice in listOf("My win" to EndingTool.SUGGEST_WIN, "My loss" to EndingTool.SUGGEST_LOSS, "Draw game" to EndingTool.SUGGEST_DRAW))

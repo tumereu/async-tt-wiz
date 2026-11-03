@@ -389,22 +389,23 @@ internal fun InlinePopupCell(control: MenuControl, label: String = control.name,
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 internal fun RingPress(control: MenuControl, modifier: Modifier, color: Color,
-    fill: Color = Color.White, role: Role = Role.Button, bordered: Boolean = true, content: @Composable () -> Unit) {
-    var tooltip by remember { mutableStateOf(false) }
-    // A refused control stays greyed but says why on tap (I-D28)
-    val refuse = LocalRefusal.current
+    fill: Color = Color.White, role: Role = Role.Button, bordered: Boolean = true, tooltip: String = control.name,
+    content: @Composable () -> Unit) {
+    var holding by remember { mutableStateOf(false) }
+    // I-D46: a refused control stays greyed; a tap shakes it and holding it says why
     val reason = control.refused.takeIf { !control.enabled }
-    Surface(modifier.pressFeedback(control.enabled).ringInputTarget().semantics(mergeDescendants = true) {
+    var shakes by remember { mutableIntStateOf(0) }
+    Surface(modifier.shaken(shakes).pressFeedback(control.enabled).ringInputTarget().semantics(mergeDescendants = true) {
             contentDescription = control.name; selected = control.selected; if (!control.enabled) disabled() }
         .combinedClickable(enabled = control.enabled || reason != null, role = role, hapticFeedbackEnabled = false,
-            onLongClick = { tooltip = true }, onClick = if (reason != null) { { refuse(reason) } } else control.click),
+            onLongClick = { holding = true }, onClick = if (reason != null) { { shakes += 1 } } else control.click),
         shape = if (bordered) RoundedCornerShape(3.dp) else androidx.compose.ui.graphics.RectangleShape,
         color = fill.compositeOver(Color.White), shadowElevation = if (bordered) 3.dp else 0.dp,
         border = if (bordered) BorderStroke(if (control.selected) 2.dp else 1.dp, color.copy(alpha = if (control.enabled) .5f else .2f)) else null) {
         Box(contentAlignment = Alignment.Center) {
             content()
-            if (tooltip) HoldTooltip(control.name)
+            if (holding) HoldTooltip(reason ?: tooltip)
         }
     }
-    if (tooltip) LaunchedEffect(control.name) { kotlinx.coroutines.delay(2000); tooltip = false }
+    if (holding) LaunchedEffect(control.name) { kotlinx.coroutines.delay(2000); holding = false }
 }

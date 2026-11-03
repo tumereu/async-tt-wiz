@@ -193,12 +193,13 @@ class AutomatumCombatScreenshotTest {
         assertTrue(alice.handle(TableIntent.Move(TableScope(land, listOf(land)), TableDestination.Grid(aField, 2, 0), drag = true)), alice.error)
         assertEquals(PlayZone.BATTLEFIELD, zone(land), "played through Automatum")
         assertTrue(play.board.engineRecords.any { it.id == "turn" }, "counted as the turn's land play")
-        // A card moved by hand out of its zone, life dragged: refused with the reason
+        // A card moved by hand out of its zone, life dragged: refused, shaking what was dragged (I-D46)
         assertFalse(alice.handle(TableIntent.Move(TableScope(fieldLand, listOf(fieldLand)),
             TableDestination.Container(f.id("a/GRAVEYARD"), PlayZone.GRAVEYARD), drag = true)))
-        assertEquals(AutomatumDrags.MANUAL_MOVE, alice.error)
+        assertEquals(fieldLand, alice.shaking?.id)
         assertFalse(alice.handle(TableIntent.PlayerDelta(f.b, null, -2)))
-        assertEquals(AutomatumDrags.LIFE, alice.error)
+        assertEquals("life/${f.b}", alice.shaking?.id)
+        assertNull(alice.error)
         // Within its own Battlefield a card only changes place
         assertTrue(alice.handle(TableIntent.Move(TableScope(fieldLand, listOf(fieldLand)), TableDestination.Grid(aField, 5, 1), drag = true)))
         assertEquals(PlayZone.BATTLEFIELD, zone(fieldLand))
@@ -286,13 +287,13 @@ class AutomatumCombatScreenshotTest {
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi")
     fun attackersAreStagedByTapsThenCommittedLandscape() { landscape = true; stagingFlow("combat-staging-landscape") } // CMB-028
 
-    // CMB-028, TRN-020: with Automatum on, Main 1 offers Attack, which goes on to Declare attackers through Automatum
-    @Test fun mainPhaseAttackGoesToDeclareAttackers() {
+    // CMB-028, TRN-020, TRN-059: with Automatum on, Main 1 has no Attack quick action (the row is Automatum's toggles):
+    // Next step goes on to Declare attackers through Automatum, where taps stage attackers
+    @Test fun mainPhaseNextStepGoesToDeclareAttackers() {
         start(board(TurnPosition.PRECOMBAT_MAIN, MtgPriority(f.a), aliceField = listOf(brute), bobField = listOf(ogre)))
         val alice = toolkit(f.a)
-        val attack = QuickActions.contextual(play, toolkitQuickContext(play, TableSelection(), f.a), alice.table)
-            .single { it.name == "Attack" }
-        assertTrue(alice.perform(attack.intent), alice.error)
+        assertTrue(AutomatumToggles.shown(play, toolkitQuickContext(play, TableSelection(), f.a)))
+        assertTrue(alice.perform(TableActionIntent.Next(TableActionScope(play.gameId, play.id))), alice.error)
         assertEquals(TurnPosition.DECLARE_ATTACKERS, TurnPosition.of(play.board.turn))
         assertEquals(TableMode.NORMAL, alice.selectionState.value.mode, "taps stage; no selection mode")
     }

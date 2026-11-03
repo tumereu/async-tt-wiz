@@ -131,6 +131,10 @@ The definition model (overview in `Definitions.kt`):
   `KeywordAction.Support(count, slot)`, its targets a slot of the instructions), discover, endure and learn. New pieces:
   `ObjectMark.Foretold`, `Plotted` and `Cloaked`, `Effect.IncreaseSpeed` (CR 702.179c) and `CostObjects.Choose.upTo` ("tapping up to one
   untapped creature you control").
+- By-hand mechanics, second round (2026-11-03): enlist (its linked trigger on `EventPattern.Enlists`; the cost is the engine's), soulbond
+  (`Effect.Pair`, `ObjectFilter.Paired`, `Objects.PairedWith`) and haunt (`Effect.Haunt`, "the creature it haunts" is `Objects.LinkedTo`
+  haunt) are written out; the Ring tempting you gets `ObjectMark.RingBearer`, `Value.RingTemptations` and `EventPattern.RingTempts`;
+  `KeywordExpansions.TRIBUTE_PAID` is public for "if tribute wasn't paid".
 - Edge of Eternities (set `eoe`): warp, station and devour written out by `KeywordExpansions` (CR 702.185, 702.184, 702.82; warp's
   exile at the next end step and the card's later permission from exile, `ObjectMark.Warped` for "warped cards"; station puts charge
   counters equal to `NumericProperty.Stationing`, the tapped creature's power, or its toughness with `Mechanic.StationsWithToughness`;

@@ -69,6 +69,10 @@ internal object StateBasedActions {
         arcanum.engine.turn.Speed.check(act, view)
         // CR 702.145c, d, f, g: day or night for daybound and nightbound permanents, and their transforming (at once, checked here)
         arcanum.engine.turn.DayNight.check(act, view)
+        // CR 701.54a: a Ring-bearer another player gained control of stops being one (checked here, as the designation ends at once)
+        arcanum.engine.ring.TheRing.check(act, view)
+        // CR 702.95e: paired creatures that stop being creatures under the pairing player's control become unpaired at once
+        arcanum.engine.soulbond.Soulbond.check(act, view)
         val toGraveyard = mutableListOf<ObjectId>()
         val destroyed = mutableListOf<ObjectId>()
         val unattach = mutableListOf<ObjectId>()

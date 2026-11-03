@@ -65,7 +65,10 @@ internal object Triggers {
     fun detect(recorder: Recorder, whole: Change, before: GameState?, viewBefore: View? = null) {
         if (whole is Change.TriggersWaiting || whole is Change.DelayedTriggerRemoved || whole is Change.DelayedTriggerAdded) return
         val state = recorder.state
-        val now = Engine.view(state)
+        var now = Engine.view(state)
+        // hob backfill: storied gives its designation any time its condition holds, and continuous effects apply again
+        // before triggers are looked for (CR 702.195a, c): an event that completes the condition already sees it
+        if (grantDesignations(recorder, now)) now = Engine.view(state)
         // fra: objects whose entering doesn't cause abilities to trigger (CR 603.2): the event without them
         val change = withoutMuted(state, now, whole) ?: return
         val found = mutableListOf<WaitingTrigger>()
@@ -86,6 +89,7 @@ internal object Triggers {
                 found += check(state, ViewBoard(state, now), now, part, s, lookBack = false, whole = change)
             }
         found += discardedFromHand(state, now, change, seen)
+        found += leftTheStack(state, now, change, seen)
         found += additional(state, now, change, found)
         val delayedFired = mutableListOf<arcanum.engine.state.DelayedTrigger>()
         state.delayedTriggers.values.toList().forEach { dt ->
@@ -156,6 +160,25 @@ internal object Triggers {
                     "${o.id}/${inst.origin.key}" in seen) emptyList()
                 // the event names the card as it was in the hand
                 else check(state, ViewBoard(state, now), now, change, Source(m.before.id, o.owner, ability, inst.origin), lookBack = false)
+            }
+        }
+
+    /**
+     * A spell's own "when this spell is put into a graveyard during its resolution" (haunt, CR 702.55a) works on the Stack (CR 113.6k):
+     * found on the card as it is now, its abilities that trigger on itself leaving the Stack, the event naming the spell it was.
+     */
+    private fun leftTheStack(state: GameState, now: View, change: Change, seen: Set<String>): List<WaitingTrigger> =
+        (change as? Change.ZoneChange)?.moves.orEmpty().filter { it.from == Zone.Stack }.flatMap { m ->
+            val o = now[m.after.id] ?: return@flatMap emptyList()
+            val c = o.characteristics ?: return@flatMap emptyList()
+            c.abilities.flatMap { inst ->
+                val ability = inst.ability as? Ability.Triggered
+                val fromStack = (ability?.trigger as? Trigger.On)?.events.orEmpty().any {
+                    it is arcanum.api.EventPattern.ZoneChange && it.from == Zone.Stack && it.objects == arcanum.api.ObjectFilter.Is(arcanum.api.Objects.Self)
+                }
+                if (ability == null || !fromStack || Functioning.zones(ability, c.isInstantOrSorcery()) != setOf(Zone.Stack) ||
+                    "${o.id}/${inst.origin.key}" in seen) emptyList()
+                else check(state, ViewBoard(state, now), now, change, Source(m.before.id, m.before.controller ?: o.owner, ability, inst.origin), lookBack = false)
             }
         }
 
@@ -336,6 +359,17 @@ internal object Triggers {
             kept.isEmpty() -> null
             else -> change.copy(moves = kept)
         }
+    }
+
+    /** Records the designations [Mechanic.GetsDesignation] gives players who don't have them yet (storied, CR 702.195a);
+     * true when one was given. */
+    private fun grantDesignations(recorder: Recorder, view: View): Boolean {
+        val missing = recorder.state.players.filter { !it.lost }.flatMap { p ->
+            view.players[p.id]?.mechanics.orEmpty().mapNotNull { (it.mechanic as? Mechanic.GetsDesignation)?.designation }.distinct()
+                .filter { it !in p.designations }.map { p.id to it }
+        }
+        missing.forEach { (player, designation) -> recorder.record(Change.PlayerDesignation(player, designation, before = false, after = true)) }
+        return missing.isNotEmpty()
     }
 
     /** "Triggers an additional time" (CR 603.2d). */

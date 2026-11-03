@@ -443,6 +443,10 @@ sealed interface GameEvent {
     @Serializable @SerialName("firebended") data class Firebended(val player: PlayerId) : GameEvent
     /** [player] waterbended: paid a waterbend cost (CR 701.67c). */
     @Serializable @SerialName("waterbended") data class Waterbended(val player: PlayerId) : GameEvent
+    /** [attacker] enlisted [enlisted]: tapped it as it attacked (CR 702.154a, c). */
+    @Serializable @SerialName("enlisted") data class Enlisted(val attacker: ObjectId, val enlisted: ObjectId) : GameEvent
+    /** The Ring tempted [player] (CR 701.54d); [bearer]: the creature they chose as their Ring-bearer, if they could. */
+    @Serializable @SerialName("ring-tempted") data class RingTempted(val player: PlayerId, val bearer: ObjectId?) : GameEvent
     /** Day became night ([night]) or night became day (CR 731.1a). */
     @Serializable @SerialName("day-night") data class DayNightChanged(val night: Boolean) : GameEvent
     /** A triggered ability of [source] triggered on an event of [cause]'s kind and was put on the Stack as [item] (CR 603.2): what

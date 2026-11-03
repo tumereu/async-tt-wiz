@@ -92,8 +92,12 @@ internal object Combat {
         attacks.forEach { a ->
             if (snap.view[a.attacker]?.has { it == Mechanic.AttacksWithoutTapping } != true) record(Changes.tap(state, a.attacker))
         }
+        // CR 508.1g, h, 702.154a: the creatures enlisted are tapped as the optional cost to attack
+        attacks.forEach { a -> a.enlisted.forEach { record(Changes.tap(state, it)) } }
         // CR 508.1k: they become attacking creatures
         record(Change.Combat(null, CombatState(attackers = attacks.map { Attacker(it.attacker, it.target) }), listOf(Meaning.AttackersDeclared)))
+        // CR 702.154a, c: "When you do" (the linked trigger, 607.2h) sees each creature an attacker enlisted
+        attacks.forEach { a -> a.enlisted.forEach { record(Change.Happened(arcanum.engine.change.GameEvent.Enlisted(a.attacker, it))) } }
     }
 
     /** As the declare blockers step begins: defending players who can't block anything declare no blockers (P5). */

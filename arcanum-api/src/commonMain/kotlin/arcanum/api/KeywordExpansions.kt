@@ -800,6 +800,9 @@ object KeywordExpansions {
 
     /** CR 702.49a, d: "[Cost], Reveal this card, Return an unblocked attacking creature you control to its owner's hand:
      * Put this card onto the battlefield tapped and attacking" (the same player or planeswalker as the returned creature). */
+    /** The mark of a creature whose tribute was paid (CR 702.104b): "if tribute wasn't paid" is its absence. */
+    val TRIBUTE_PAID: ObjectMark get() = KeywordExpansionsMore.TRIBUTE_PAID
+
     /** The name the creature returned to pay a sneak cost is bound to (msh, CR 702.190b). */
     const val SNEAK_RETURNED: String = "sneak-returned"
 

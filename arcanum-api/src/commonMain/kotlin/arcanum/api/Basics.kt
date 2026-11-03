@@ -160,6 +160,10 @@ sealed interface ObjectMark {
     /** A cloaked permanent (CR 701.58a): face down as a 2/2 creature with ward {2} because it was cloaked; turned face up for
      * its mana cost if it's a creature card (701.58b). Set by the engine as it cloaks. */
     @Serializable @SerialName("cloaked") data object Cloaked : ObjectMark
+    /** A Ring-bearer (CR 701.54a, b): the creature its controller chose as the Ring tempted them, until they choose another or
+     * another player gains control of it. Not a copiable value. Set by the engine; "your Ring-bearer" is a creature you control
+     * with it (701.54e). */
+    @Serializable @SerialName("ring-bearer") data object RingBearer : ObjectMark
     /** Any other mark by name. */
     @Serializable @SerialName("named") data class Named(val name: String) : ObjectMark
 }

@@ -10,6 +10,7 @@ import com.github.takahirom.roborazzi.captureRoboImage
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import arcanum.api.Layout
@@ -59,7 +60,9 @@ class AutomatumFinalCombatReviewTest {
     private val mountain = invented("mountain", "Mountain", null, "Basic Land — Mountain", "")
     private val tolls = invented("tolls", "Edict of Tolls", "{4}{W}", "Enchantment",
         "Creatures can't attack you or planeswalkers you control unless their controller pays {X} for each of those creatures, where X is the number of enchantments you control.")
-    private val all = listOf(brute, bear, ogre, spark, mountain, tolls)
+    private val lurker = invented("lurker", "Clammy Lurker", "{3}{G}", "Creature — Horror",
+        "Whenever this creature attacks, another target attacking creature can't be blocked this turn.", "2/5")
+    private val all = listOf(brute, bear, ogre, spark, mountain, tolls, lurker)
 
     private val aHand = f.id("a/HAND")
     private val bHand = f.id("b/HAND")
@@ -301,6 +304,42 @@ class AutomatumFinalCombatReviewTest {
         compose.onNodeWithContentDescription("Show pause").performClick()
         compose.mainClock.advanceTimeByFrame()
         assertEquals(1, bounds("Your pause").size, "and brings it back")
+    }
+
+    // finalreview-combat #7 — STK-037: the defending player's pause on the attack names the attack ("Alice attacks: you may
+    // act"), so it doesn't read as his own declaration; the attacker's waiting bar names the step
+    @Test fun theDefendersPauseNamesTheAttack() {
+        start(board(TurnPosition.DECLARE_ATTACKERS, null, aliceField = listOf(brute, bear), bobField = listOf(ogre, mountain),
+            bobHand = listOf(spark)))
+        val alice = toolkit(f.a)
+        tapCard(alice, card(play, brute))
+        assertTrue(perform(alice, "Commit attack (1)"), alice.error)
+        assertEquals(PausePoints.At(f.b, PausePoints.Point.Pause), PausePoints.at(play.board), "Bob's pause on the attack")
+        val names = mapOf(f.a to "Alice", f.b to "Bob")
+        assertEquals("Alice attacks", pauseStep(play.board, f.b, names))
+        assertEquals("Declare attackers", pauseStep(play.board, f.a, names))
+        show(toolkit(f.b))
+        compose.mainClock.advanceTimeBy(500)
+        compose.onNodeWithText("Alice attacks: you may act").assertExists()
+        compose.onRoot().captureShot("$SCREENSHOTS/automatum/pause-defender-attack.png",
+            "Alice attacked Bob with her Ironhide Brute and Bob could answer with Storm Spark: his pause bar above his hand reads \"Alice attacks: you may act\" with the eye, a violet bar emptying over his response time, Hold and Pass.")
+    }
+
+    // Two-device simulations with background work (SYS-025): the panel's flow is worked out off the main thread,
+    // so for a moment after the board changed it is still the previous board's; a tap on the table then isn't taken as
+    // a target for that board's choice (it went to the old choice instead of staging or blocking)
+    @Test fun aTapIsNoTargetForThePreviousBoardsChoice() {
+        start(board(TurnPosition.DECLARE_ATTACKERS, null, aliceField = listOf(lurker, brute, bear), bobField = listOf(ogre)))
+        val alice = toolkit(f.a)
+        listOf(lurker, brute, bear).forEach { tapCard(alice, card(play, it)) }
+        assertTrue(perform(alice, "Commit attack (3)"), alice.error)
+        val flow = assertNotNull(AutomatumBoards.sharedFlow(play, engineTags(tree, play.currentNodeId)))
+        val decision = assertIs<arcanum.engine.decision.Decision.Targets>(flow.decision, "the Lurker's trigger asks Alice for its target")
+        alice.flows.show(flow)
+        assertTrue(alice.flows.targeting)
+        assertTrue(alice.flows.answer(arcanum.engine.decision.Answer.Targets(listOf(decision.options.first()))), alice.error)
+        assertTrue(flow.play.board !== play.board, "the board went on")
+        assertTrue(!alice.flows.targeting, "the previous board's choice takes no tap")
     }
 
     // finalreview-combat #7 — CMB-029, STK-037: at Alice's pause on the blocks the pause bar has the Pass; the combat quick

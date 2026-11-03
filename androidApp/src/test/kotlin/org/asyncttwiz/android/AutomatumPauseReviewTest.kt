@@ -63,7 +63,7 @@ class AutomatumPauseReviewTest {
         AutomatumBoards.definitionSource = { submitted -> submitted.mapNotNull { s ->
             byDigest[s.digest]?.let { s.digest to ParsedCard.Read(it, 0) } }.toMap() }
     }
-    @After fun forget() { AutomatumBoards.reset(); AutomatumBoards.definitionSource = null }
+    @After fun forget() { AutomatumBoards.reset(); AutomatumBoards.definitionSource = null; DeviceRandom.seeded(null) }
 
     /** Alice's main phase with Automatum on: the first hand cards of each player become [aliceHand] / [bobHand], the
      * first lands [aliceLands] / [bobLands] (untapped); every other hand card is out of the game. */
@@ -538,6 +538,8 @@ class AutomatumPauseReviewTest {
      */
     private fun simulate(seed: Long, ticks: Int): SimStats {
         val random = kotlin.random.Random(seed)
+        // The devices' request ids and seeds from the game's seed: the same game on every run
+        DeviceRandom.seeded(seed)
         val start = simBoard(random)
         tree = GameplayTree(start)
         val stats = SimStats()
@@ -565,10 +567,11 @@ class AutomatumPauseReviewTest {
         fun liveState() = tree!!.stateAt(tree!!.currentNodeId)!!
         fun refresh() {
             val live = liveState()
-            if (live.currentNodeId != head.value.currentNodeId) { changedAt = now; stats.events++ }
+            // By the board: an Undo of an earlier event replays the later ones, changing the board at the same newest event
+            if (live.board !== head.value.board) { changedAt = now; stats.events++ }
             head.value = live
             for (d in devices) {
-                if (d.live.currentNodeId != live.currentNodeId) {
+                if (d.live.board !== live.board) {
                     d.live = live
                     if (d.held == null && d.toolkit.cast.open) d.toolkit.cast.follow()
                 }

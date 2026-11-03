@@ -119,8 +119,7 @@ internal object AutomatumBoards {
     private val flows = object : LinkedHashMap<IdentityKey, SharedFlow?>(16, .75f, true) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<IdentityKey, SharedFlow?>?) = size > 8
     }
-    private val random = java.security.SecureRandom()
-    private fun seed(): String = org.asyncttwiz.protocol.RandomV1.encodeSeed(ByteArray(32).also(random::nextBytes))
+    private fun seed(): String = DeviceRandom.seed()
 
     /** Whether [play]'s board has a shared flow to show (I2): an open decision, or something on the Stack. */
     fun sharedFlowShown(play: PlayState): Boolean = play.board.automatum &&

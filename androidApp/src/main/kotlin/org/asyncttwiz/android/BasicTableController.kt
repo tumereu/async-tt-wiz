@@ -1,7 +1,6 @@
 package org.asyncttwiz.android
 
 import org.asyncttwiz.protocol.*
-import java.util.UUID
 
 /** Invocation lowering, not a board store. The toolkit collects constituents against its batch draft. */
 class BasicTableController(private val play: () -> PlayState?, private val connected: () -> Boolean,
@@ -9,7 +8,7 @@ class BasicTableController(private val play: () -> PlayState?, private val conne
     fun handle(intent: TableIntent): Boolean {
         if (!connected()) return false
         val state = play() ?: return false
-        val invocation = (intent as? TableIntent.Move)?.invocationId ?: UUID.randomUUID().toString()
+        val invocation = (intent as? TableIntent.Move)?.invocationId ?: DeviceRandom.uuid()
         return when (intent) {
             is TableIntent.Draw -> {
                 val library = state.board.containers.singleOrNull { it.id == intent.libraryId && it.zone == PlayZone.LIBRARY }

@@ -170,6 +170,52 @@ model is untouched):**
   across turns, branching and checkpoint states equal to direct ones with bounded work, undo-rule cases, JSON round
   trips and the frozen sample, the PostgreSQL store and the wipe.
 
+**Phase 3–4 (2026-11-03): built behind a seam; every game still starts and plays on today's model.**
+- **Engine inputs (§8)** in `arcanum-engine`: `Input.AgreedResult(result)` ends the game as the players agreed (a draw,
+  CR 104.4i; a win: the others concede, CR 104.3a; the host vouches, never listed by `options`);
+  `StartOptions.simultaneousMulligans` with `Input.SetupAnswer(player, answer)`: each round's mulligan declarations and
+  bottom choices in any order (the open one is still the next in turn order and is asked again with a new id; the
+  mulligans are still taken together; listed by `options`). Concede was already an engine input.
+- **Submissions** (`protocol` `game/Submission.kt`): `Submission(id, parentId, acts, table)`: inputs, not results
+  (`Act.Perform(input)`, `Act.SkipWhenNoChoice`), random answers among them; `Submission.of(event)` for a device's own
+  event. `Authority.make` is the gate: the engine is the only rules check; what stays a player's own: conceding,
+  settings, early answers, making a suggestion, agreeing a result (an `AgreedResult` only answers the other player's
+  suggestion of it), confirming a result the engine reports. `Acceptance.accept`: arrival order on the live line,
+  `stale` when the parent isn't its last event, unless a deliberate branch; the state from the warm one (moved) or a
+  checkpoint. `Attention.of(state)`: whose move it is from the engine.
+- **Server** (`EngineGames`): warm states per play (LRU of 32; taken out while a submission is worked on, put back
+  after commit), `GameAction.Submit` through the game inbox (one ordering, same request identities), the event stored
+  (`EngineHistoryStore`) and broadcast as `GameRevision.engineEvent` (engine format, definitions by reference);
+  `GameHead.engine` = `EngineSnapshot(definitions, rootId, headId, state)`; the live line's last event = the event
+  accepted last. Refusals: `stale`, `refusedByEngine`, `notEngineState`. The game's start is the server's own first
+  event (`StartGame` with the lobby's starter, simultaneous mulligans, server random results). **Seam:** a play is
+  engine state only when the test seam `engineSeats` gives its seats (null in the service). Protocol minor 5.
+- **Device** (`protocol` `game/GameSession.kt`, not wired into the app yet): the shown model = confirmed events + own
+  pending events (provisional); drafts (a private flow) sent as one submission; `received` confirms the own event,
+  applies another player's (dropping pending, so the player sees the board update), or says `Reload` (another
+  branch, or a revert that needs a checkpoint); `refused` drops the refused event and those on it.
+- **Tests:** engine (`SimultaneousMulligansTest`, agreed results in `GameEndTest`); protocol `AuthorityTest`
+  (device event = server event, stale race and resync, refusals, agreed result, concession, branches, seeded games of
+  two devices in step with the server, drafts); server `EngineGameServiceTest` (inbox order, stale refusal, broadcast,
+  warm and cold head, concession, attention; old-model plays refuse submissions).
+
+**Left for the switch-over (not started):**
+1. *Engine definitions on the server:* the seats come from the seam; the server must parse the game's decks
+   (`arcanum-parser` on the server, the `PrintedCard` conversion now in `client-storage` moved to a shared module),
+   then `PlayStore.start` creates the engine history for every game.
+2. *App, phase 4–5:* the app's socket session loads `GameHead.engine` into a `GameSession`, sends `GameAction.Submit`,
+   feeds `engineEvent`s and refusals in, and the table renders from `Engine.view`/`visible` + `TableState` with
+   animations from the change list, keeping every current UI behaviour (the largest part: today's table renders
+   `PlayState`/`BoardState` everywhere); pause points, early answers, drafts, settings as table changes; Autotap becomes
+   a shared table setting (§9 point 3).
+3. *Game end:* a confirmed engine result (`TableChange.ResultConfirmed`) has to end the play as `AcceptResult` does
+   (return to the lobby, deck visibility, activity); concede/agreed result through the engine replace
+   `GameAction.Concede`/`AcceptResult`.
+4. *History reads:* timeline/history pages, undo (`UndoRule`) and explicit branching on engine events; the
+   reproduction bundle (I-D43) from the stored inputs.
+5. *Then* move `db/pending/wipe_plays_for_engine_state.sql` to the next `V<n>` (test env first) and delete the old
+   model: `automatum/` mapping, `PlayState`/`BoardState` game fields, `AutomatumOnly`, the manual protocol actions.
+
 **For the owner:** (1) the wipe's timing (kept for the switch rather than run now); (2) §8's agreed results and
 simultaneous pre-game decisions need new engine inputs (engine work, phase 3+); (3) Autotap becomes a shared table
 setting per §2 (today it is per device); (4) undo across more than 4 turn starts loads a checkpoint (≤ 63 events).

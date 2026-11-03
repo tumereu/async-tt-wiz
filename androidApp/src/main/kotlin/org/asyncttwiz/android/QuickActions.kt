@@ -186,7 +186,10 @@ fun QuickActionStrip(play: PlayState, context: QuickContext, controller: TableAc
                         quickActionLabel(action.name), owner = Color.Black, modifier = Modifier.weight(1f).height(48.dp))
                 }
             }
-            if (!QuickActions.mulliganOnly(play, context.viewer)) ActionSquare(nextLabel, "↦", controller.enabled(scope), Modifier.width(if (compact) 68.dp else 72.dp).shadow(3.dp, AdvanceArrowShape)
+            // I-D46 d: with Automatum on the arrow says what a tap does, in a neutral colour
+            if (!QuickActions.mulliganOnly(play, context.viewer) && play.board.automatum) AutomatumStepArrow(play, controller.enabled(scope), compact,
+                onHold = { perform(TableActionIntent.End(scope)) }) { perform(TableActionIntent.Next(scope)) }
+            else if (!QuickActions.mulliganOnly(play, context.viewer)) ActionSquare(nextLabel, "↦", controller.enabled(scope), Modifier.width(if (compact) 68.dp else 72.dp).shadow(3.dp, AdvanceArrowShape)
                 .background(style.fill, AdvanceArrowShape).border(1.dp, style.outline, AdvanceArrowShape).clip(AdvanceArrowShape),
                 fill = style.fill, ink = style.ink, compactContent = true,
                 holdName = "End turn", onHold = { perform(TableActionIntent.End(scope)) },

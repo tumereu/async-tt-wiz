@@ -5,6 +5,8 @@ import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.outlined.PanTool
+import androidx.compose.material.icons.outlined.SkipNext
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -292,9 +294,10 @@ internal fun PauseBarHost(toolkit: TableToolkitController, play: PlayState, scen
             if (running != null) PauseProgress(pause, running)
             else Text("Holding — cast or activate as you like", fontSize = 11.sp, color = Color(0xff4b5a5f))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, androidx.compose.ui.Alignment.End)) {
-                if (running != null) OutlinedButton({ pause.hold(node) }) { Text("Hold") }
-                Button({ if (!pause.passBehind(node)) toolkit.flows.step(StepFlow.Until.Pass) },
-                    colors = ButtonDefaults.buttonColors(containerColor = AutomatumViolet)) { Text("Pass") }
+                if (running != null) ChoiceButton("Hold", androidx.compose.material.icons.Icons.Outlined.PanTool) { pause.hold(node) }
+                ChoiceButton("Pass", androidx.compose.material.icons.Icons.Outlined.SkipNext, primary = true) {
+                    if (!pause.passBehind(node)) toolkit.flows.step(StepFlow.Until.Pass)
+                }
             }
         }
     }

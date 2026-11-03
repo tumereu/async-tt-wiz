@@ -4,6 +4,9 @@ import android.content.Context
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.outlined.Check
+import androidx.compose.material.icons.outlined.Label
+import androidx.compose.material.icons.outlined.Style
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -60,14 +63,15 @@ internal fun CardNameSection(cast: FlowQuestions, decision: Decision.ChooseCardN
         if (typed.length < 2) { suggestions = emptyList(); return@LaunchedEffect }
         suggestions = withContext(Dispatchers.IO) { runCatching { source.names(typed) }.getOrDefault(emptyList()) }
     }
-    Section("Name a card") {
+    Section("Name a card", "Write any card name, then OK.") {
         OutlinedTextField(text, { text = it }, Modifier.fillMaxWidth(), singleLine = true,
             placeholder = { Text("Card name", fontSize = 12.sp) }, textStyle = LocalTextStyle.current.copy(fontSize = 13.sp))
         val shown = suggestions.filter { !it.equals(text.trim(), ignoreCase = true) }
         if (shown.isNotEmpty()) FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            for (name in shown) SuggestionChip({ text = name }, label = { Text(name, fontSize = 12.sp) })
+            for (name in shown) SuggestionChip({ text = name }, label = { Text(name, fontSize = 12.sp) },
+                icon = { Icon(androidx.compose.material.icons.Icons.Outlined.Style, null, Modifier.size(16.dp)) })
         }
-        Button({ cast.answer(Answer.CardName(text.trim())) }, enabled = text.isNotBlank()) { Text("OK") }
+        ChoiceButton("OK", androidx.compose.material.icons.Icons.Outlined.Check, enabled = text.isNotBlank(), primary = true) { cast.answer(Answer.CardName(text.trim())) }
     }
 }
 
@@ -84,12 +88,13 @@ internal val creatureTypes: List<Subtype> by lazy {
 @Composable
 internal fun CreatureTypeSection(cast: FlowQuestions, decision: Decision.ChooseSubtype) {
     var filter by remember(decision.id) { mutableStateOf("") }
-    Section("Choose a creature type") {
+    Section("Choose a creature type", "Find a type and tap it.") {
         OutlinedTextField(filter, { filter = it }, Modifier.fillMaxWidth(), singleLine = true,
             placeholder = { Text("Find a type", fontSize = 12.sp) }, textStyle = LocalTextStyle.current.copy(fontSize = 13.sp))
         val shown = creatureTypes.filter { it.name.contains(filter.trim(), ignoreCase = true) }
         FlowRow(Modifier.heightIn(max = 168.dp).verticalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            for (type in shown) SuggestionChip({ cast.answer(Answer.SubtypeChoice(type)) }, label = { Text(type.name, fontSize = 12.sp) })
+            for (type in shown) SuggestionChip({ cast.answer(Answer.SubtypeChoice(type)) }, label = { Text(type.name, fontSize = 12.sp) },
+                icon = { Icon(androidx.compose.material.icons.Icons.Outlined.Label, null, Modifier.size(16.dp)) })
         }
         if (shown.isEmpty()) Text("No creature type has that in its name.", fontSize = 11.sp)
     }

@@ -10,6 +10,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.material.icons.outlined.DeleteSweep
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -115,7 +116,8 @@ internal fun AutomatumPanel(play: PlayState, viewer: String, computed: ComputedB
             Switch(own.skipWhenNoChoice, { submit(PlayAction.Mtg(MtgAction.SetSkipWhenNoChoice(it))) }, enabled = enabled,
                 modifier = Modifier.semantics { contentDescription = "Skip when I have no choice" })
         }
-        OutlinedButton({ confirmClear = true }, enabled = enabled && Automatum.recorded(board)) { Text("Clear Automatum data") }
+        ChoiceButton("Clear Automatum data", androidx.compose.material.icons.Icons.Outlined.DeleteSweep,
+            enabled = enabled && Automatum.recorded(board)) { confirmClear = true }
         HorizontalDivider()
         Text("Engine data", fontWeight = FontWeight.Bold, fontSize = 12.sp)
         val lines = automatumDebugLines(board)

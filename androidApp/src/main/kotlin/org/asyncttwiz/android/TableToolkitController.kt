@@ -267,7 +267,16 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
         if (!play.board.automatum) return null
         if (cast.open) { error = CastController.BUSY; return false }
         val until = when (intent) {
-            is TableActionIntent.Next -> org.asyncttwiz.automatum.StepFlow.Until.Pass
+            is TableActionIntent.Next -> {
+                // I-D46 d: the step arrow's "Done" finishes Automatum's step done by hand (I-D37); its "Resolve" at the
+                // viewer's pause held behind the live game returns to it, as Let it resolve does (STK-039)
+                if (Automatum.flowOpen(play.board) && AutomatumBoards.byHand(play)) {
+                    val manual = flows.view?.takeIf { it.play.board === play.board }?.decision as? arcanum.engine.decision.Decision.Manual
+                    if (manual != null) { error = null; return flows.answer(arcanum.engine.decision.Answer.Done) }
+                }
+                if (CombatStackRules.stack(play.board).cards.isNotEmpty() && pause.passBehind(play.currentNodeId)) return true
+                org.asyncttwiz.automatum.StepFlow.Until.Pass
+            }
             is TableActionIntent.End -> org.asyncttwiz.automatum.StepFlow.Until.EndOfTurn
             is TableActionIntent.Choose -> {
                 val now = TurnPosition.of(play.board.turn)

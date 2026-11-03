@@ -2,6 +2,10 @@ package org.asyncttwiz.android
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.automirrored.outlined.Reply
+import androidx.compose.material.icons.outlined.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -81,12 +85,15 @@ internal fun SharedFlowHost(toolkit: TableToolkitController, play: PlayState, sc
     val dialog = decision is Decision.Divide && flow.division != null
     if (dialog && flows.answering != null && !flows.hidden && dividingInDialog(flow)) {
         val division = flow.division!!
-        CombatDivisionDialog(flows, play, names, decision as Decision.Divide, division, toolkit.combat.divisionCount(play, division))
+        CompositionLocalProvider(LocalChoiceFrame provides ChoiceFrame(toolkit.viewer)) {
+            CombatDivisionDialog(flows, play, names, decision as Decision.Divide, division, toolkit.combat.divisionCount(play, division))
+        }
         return
     }
     // Finalreview-combat #2: the priority prompts (a pause on something on the Stack, the other player's) dock above the
     // hand in portrait while the combat area is shown, clear of its preview
     CastPanelPlacement(stack, if (bar) handRow?.center?.y else null, if (!bar && decision == null) combatDock(scene, viewer) else null) {
+        CompositionLocalProvider(LocalChoiceFrame provides ChoiceFrame(viewer)) {
         when {
             decision != null && flows.answering != null -> when {
                 flows.targeting -> if (!toolkit.stackTargeting) FlowTargetBar(flows, flow, play, decision as Decision.Targets)
@@ -112,6 +119,7 @@ internal fun SharedFlowHost(toolkit: TableToolkitController, play: PlayState, sc
                 // STK-038 (I-D41): while this device waits for them
                 toolkit.pause.running(play.currentNodeId)?.takeIf { it.role is PauseRole.Theirs && it.role.millis > 0 }
                     ?.let { { PauseProgress(toolkit.pause, it) } }) { confirm = true }
+        }
         }
     }
     if (confirm) {
@@ -240,12 +248,11 @@ private fun RespondPrompt(flows: SharedFlowController, pause: PauseController, f
         val more = flow.state.stack.size - 1
         if (more > 0) Text("$more more below it on the Stack", fontSize = 11.sp, color = Color(0xff4b5a5f))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End), verticalAlignment = Alignment.CenterVertically) {
-            if (running != null) TextButton({ pause.hold(node) }) { Text("Hold") }
+            if (running != null) BarButton("Hold", Icons.Outlined.PanTool) { pause.hold(node) }
             // Responding holds the pause first, its bar running or not (#2), so the game waits for the response or it
             // becomes a branch (STK-039)
-            OutlinedButton({ flows.respond(play) }) { Text("Respond") }
-            Button({ if (!pause.passBehind(node)) flows.pass(viewer) },
-                colors = ButtonDefaults.buttonColors(containerColor = AutomatumViolet)) { Text("Let it resolve") }
+            ChoiceButton("Respond", Icons.AutoMirrored.Outlined.Reply) { flows.respond(play) }
+            ChoiceButton("Let it resolve", Icons.Outlined.PlayArrow, primary = true) { if (!pause.passBehind(node)) flows.pass(viewer) }
         }
     }
 }
@@ -256,8 +263,8 @@ private fun RespondBar(flows: SharedFlowController, pause: PauseController, play
     SlimBar("Responding") {
         Text("Respond — cast a card from your hand", Modifier.weight(1f), fontSize = 13.sp, fontWeight = FontWeight.Medium,
             maxLines = 2, overflow = TextOverflow.Ellipsis)
-        TextButton(flows::stopResponding) { Text("Back") }
-        TextButton({ if (!pause.passBehind(play.currentNodeId)) flows.pass(viewer) }) { Text("Let it resolve") }
+        BarButton("Back", Icons.AutoMirrored.Outlined.ArrowBack, onClick = flows::stopResponding)
+        BarButton("Let it resolve", Icons.Outlined.PlayArrow) { if (!pause.passBehind(play.currentNodeId)) flows.pass(viewer) }
     }
 }
 
@@ -271,7 +278,7 @@ private fun WaitingBar(text: String, action: String, progress: (@Composable () -
             Text(text, fontSize = 13.sp, maxLines = 3, overflow = TextOverflow.Ellipsis)
             progress()
         }
-        TextButton(act) { Text(action) }
+        BarButton(action, if (action.startsWith("Pass")) Icons.Outlined.SkipNext else Icons.Outlined.SupervisorAccount, onClick = act)
     }
 }
 
@@ -280,26 +287,35 @@ private fun WaitingBar(text: String, action: String, progress: (@Composable () -
 private fun DecisionPanel(flows: SharedFlowController, flow: SharedFlow, play: PlayState, names: Map<String, String>,
     decision: Decision, forOther: Boolean, otherName: String) {
     FlowSurface("Automatum choice") {
+        // I-D47: what the choice is and where it comes from ("Scry 2 · Carrot Cake"), then a short instruction
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(sourceName(flows, flow, play, decision), Modifier.weight(1f), fontWeight = FontWeight.Bold, fontSize = 15.sp)
+            Text(choiceTitle(flows, flow, play, decision), Modifier.weight(1f), fontWeight = FontWeight.Bold, fontSize = 15.sp)
             EyeButton(hidden = false, flows::toggleHidden, "Automatum panel")
         }
         if (forOther) Text("Choosing for $otherName", fontSize = 12.sp, fontWeight = FontWeight.Medium, color = AutomatumViolet)
         if (!hasOwnText(decision)) sourceText(flows, flow, play, decision)?.let {
             Text(it, fontSize = 11.sp, lineHeight = 14.sp, color = Color(0xff4b5a5f))
         }
-        when (decision) {
-            is Decision.ManaPayment -> {
-                ManaSection(flows, flows, play, decision)
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                    Button({ flows.answer(Answer.ManaPayment(flows.mana)) }, enabled = flows.paid,
-                        colors = ButtonDefaults.buttonColors(containerColor = AutomatumViolet)) { Text("Pay") }
+        choiceHint(decision)?.let { ChoiceHintText(it) }
+        CompositionLocalProvider(LocalChoiceFrame provides LocalChoiceFrame.current.copy(headed = true)) {
+            when (decision) {
+                is Decision.ManaPayment -> {
+                    ManaSection(flows, flows, play, decision)
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                        ChoiceButton("Pay", Icons.Outlined.Check, enabled = flows.paid, primary = true) {
+                            flows.answer(Answer.ManaPayment(flows.mana))
+                        }
+                    }
                 }
+                else -> OpenSection(flows, flows, play, names, decision)
             }
-            else -> OpenSection(flows, flows, play, names, decision)
         }
     }
 }
+
+/** A choice's title (I-D47): what it is and, when it has one, the card it comes from: "Scry 2 · Carrot Cake". */
+private fun choiceTitle(flows: SharedFlowController, flow: SharedFlow, play: PlayState, decision: Decision): String =
+    listOfNotNull(choiceWhat(decision), decision.source?.let { sourceName(flows, flow, play, decision) }).joinToString(" · ")
 
 /** Targets of a trigger, picked on the table as for a cast (I-D5, I-D6); there is no cancelling a shared flow. */
 @Composable
@@ -307,9 +323,9 @@ private fun FlowTargetBar(flows: SharedFlowController, flow: SharedFlow, play: P
     SlimBar("Choose targets") {
         Text("${sourceName(flows, flow, play, decision)} — ${targetPrompt(decision)}", Modifier.weight(1f), fontSize = 13.sp,
             fontWeight = FontWeight.Medium, maxLines = 2, overflow = TextOverflow.Ellipsis)
-        if (decision.max != 1 || decision.min == 0) TextButton(flows::confirmTargets, enabled = flows.picked.size >= decision.min) {
-            Text(if (flows.picked.isEmpty()) "None" else "Done")
-        }
+        if (decision.max != 1 || decision.min == 0) BarButton(if (flows.picked.isEmpty()) "None" else "Done",
+            if (flows.picked.isEmpty()) Icons.Outlined.Block else Icons.Outlined.Check, enabled = flows.picked.size >= decision.min,
+            onClick = flows::confirmTargets)
     }
 }
 

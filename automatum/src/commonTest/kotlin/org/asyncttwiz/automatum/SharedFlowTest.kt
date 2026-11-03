@@ -202,4 +202,49 @@ class SharedFlowTest {
         assertEquals(start.board, back.board, "back to before the cast")
     }
 
+    // CR 701.22, I-D48: the two-area scry screen answers "Put on the bottom" and both orders that follow it at once, as one
+    // step: the top part on top in its order, the bottom part under the rest of the library in its order
+    @Test fun scryAndItsOrdersAreAnsweredInOneStep() {
+        val reading = arcanum.engine.cards.Cards.invent("Tea Leaf Reading", "{U}", "Sorcery", "Scry 4.")
+        table.put(alice, PlayZone.BATTLEFIELD, "Island")
+        val (plains, island, swamp, forest, mountain) = table.put(alice, PlayZone.LIBRARY, "Plains", "Island", "Swamp", "Forest", "Mountain")
+        val (card) = table.put(alice, PlayZone.HAND, reading)
+        val rt = RoundTrip(table.state(), table.definitions)
+        val plays = HandPlays.of(rt.state, table.definitions, alice, log(rt))
+        var cast = CastFlow.start(rt.state, table.definitions, alice, log(rt), plays.of(card).first(), seeds())
+        (cast.pending as? Decision.ManaPayment)?.let { cast = cast.answer(Answer.ManaPayment(it.suggestion)) }
+        rt.apply(cast.sent(), alice)
+        val open = flow(rt)
+        val put = assertIs<Decision.ChooseObjects>(open.decision)
+        assertEquals("Put on the bottom", put.text)
+        assertEquals(4, put.options.size)
+        val objects = put.options.associateBy { open.atwCard(it) }
+        fun of(vararg cards: String) = Answer.Objects(cards.map { objects.getValue(it) })
+        val batches = rt.batches.size
+        rt.apply(open.answer(of(forest, plains), listOf(of(swamp, island), of(forest, plains))), alice)
+        assertEquals(batches + 1, rt.batches.size, "one step")
+        assertFalse(Automatum.flowOpen(rt.state.board))
+        val library = rt.state.board.containers.single { it.id == table.container(alice, PlayZone.LIBRARY) }.cards
+        assertEquals(listOf(swamp, island, mountain, forest, plains), library)
+    }
+
+    // I-D48: an order that doesn't match what the engine asks next is left out: the engine's question stays open
+    @Test fun aFollowingOrderThatDoesNotFitStaysOpen() {
+        val reading = arcanum.engine.cards.Cards.invent("Tea Leaf Reading", "{U}", "Sorcery", "Scry 4.")
+        table.put(alice, PlayZone.BATTLEFIELD, "Island")
+        val (plains, island, swamp, forest) = table.put(alice, PlayZone.LIBRARY, "Plains", "Island", "Swamp", "Forest", "Mountain")
+        val (card) = table.put(alice, PlayZone.HAND, reading)
+        val rt = RoundTrip(table.state(), table.definitions)
+        val plays = HandPlays.of(rt.state, table.definitions, alice, log(rt))
+        var cast = CastFlow.start(rt.state, table.definitions, alice, log(rt), plays.of(card).first(), seeds())
+        (cast.pending as? Decision.ManaPayment)?.let { cast = cast.answer(Answer.ManaPayment(it.suggestion)) }
+        rt.apply(cast.sent(), alice)
+        val open = flow(rt)
+        val objects = (open.decision as Decision.ChooseObjects).options.associateBy { open.atwCard(it) }
+        fun of(vararg cards: String) = Answer.Objects(cards.map { objects.getValue(it) })
+        rt.apply(open.answer(of(forest, plains), listOf(of(swamp, plains))), alice)
+        val next = assertIs<Decision.ChooseObjects>(flow(rt).decision)
+        assertEquals("Order on top, first on top", next.text)
+        assertEquals(setOf(swamp, island), next.options.map { flow(rt).atwCard(it) }.toSet())
+    }
 }

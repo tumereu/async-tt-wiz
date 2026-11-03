@@ -106,10 +106,33 @@ heavy cases varied up to ~5× between two runs; both shown):
 - **Storage:** event JSON median 0.6 KB, p95 3.4 KB, max 56 KB (a shuffle lists the library), about 1.2 KB per input;
   definitions by reference save a third. A checkpoint of a turn-58 state with the log kept to this and last turn is
   142 KB, 7 ms to write or read (with the whole log it would be 1.3 MB, 70–85 ms); the decks' definitions 55 KB once.
-- **Pi 5: not measured** (the Pi is production; running a benchmark there wasn't authorized). Estimate from single-thread
-  benchmarks (Cortex-A76 2.4 GHz vs Zen 3 4.6 GHz, about 2.5–3× in Geekbench; a JVM with less cache and memory bandwidth
-  more): **3–4× slower**, so typical inputs ~3 ms median and ~10 ms p95, heavy ones 50–400 ms, a cold-start game's first
-  inputs up to ~0.5 s. Fine for a turn-based async game; the owner can confirm with the spike test's numbers on the Pi.
+- **Pi 5: measured, about 2× slower** than this desktop (the estimate was 3–4×). `./scripts/gradle.sh
+  :server:engineBenchmarkJar` builds `server/build/benchmark/engine-benchmark.jar` (15 MB: the spike's classes, the
+  invented cards, engine/api/parser/protocol and Kotlin libraries) holding the spike's seeded games as recorded inputs;
+  `java -jar` replays them (the random player's option listing, ~10× what is measured, isn't redone): a cold game, 2
+  warm-up games, 4 measured whole games (3,966 inputs), then the checkpoints (11 runs) and heavy cases (20 runs each).
+  Run once on 2026-11-03 in the production server container's JRE (Temurin 21.0.12, aarch64, 4 cores, `-Xmx512m`,
+  `nice 19`, 44 s, no throttling, then removed), and the same jar here (23 s, other builds running). Fewer warm-up and
+  measured games than the spike test, so compare the columns with each other rather than with the bullets above.
+  Milliseconds, median / p95 / max:
+
+  | Case | Desktop (Ryzen 5 5600X) | Pi 5 |
+  | --- | --- | --- |
+  | Typical input, all kinds (p99 7.1 / 13.4) | 1.1 / 3.9 / 21 | 2.2 / 7.5 / 51 |
+  | Pass priority (2,638 of them) | 0.7 / 3.1 / 17 | 1.5 / 6.1 / 51 |
+  | Mana payment answer | 4.1 / 8.0 / 9.7 | 7.4 / 16 / 19 |
+  | Cold JVM, first game's inputs | 2.2 / 8.8 / 116 | 4.9 / 17 / 138 |
+  | Turn change, 90 permanents (untap 45, upkeep, draw) | 22 / 25 / 25 | 37 / 39 / 41 |
+  | Board wipe, 60 creatures die (190 changes) | 40 / 44 / 46 | 61 / 73 / 82 |
+  | Cast + pay on the 61-permanent lord board | 34 / 43 / 44 | 38 / 61 / 62 |
+  | Resolving there (SBA, layers) | 6.7 / 9.5 / 9.6 | 13 / 14 / 15 |
+  | 20 blockers and combat damage | 2.3 / 3.2 / 8.0 | 4.0 / 6.1 / 7.4 |
+  | Checkpoint as stored (134 KB), encode | 8.9 / 10 / 13 | 14 / 17 / 19 |
+  | Checkpoint as stored, decode | 8.7 / 12 / 13 | 19 / 20 / 22 |
+  | Checkpoint with the whole log (729 KB), encode / decode median | 48 / 54 | 83 / 122 |
+
+  So on the Pi a typical input costs ~2 ms (p95 ~8 ms), the heaviest constructed cases 40–80 ms, a cold read of a
+  stored checkpoint ~20 ms: fine for a turn-based async game.
 
 **Phase 2 — event model and storage (protocol package `org.asyncttwiz.protocol.game`; nothing uses it yet, the old
 model is untouched):**

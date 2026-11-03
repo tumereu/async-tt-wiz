@@ -11630,7 +11630,10 @@ internal class Sentences(
         // "During your turn, each non-Lesson instant and sorcery card in your graveyard has flashback. The flashback cost is equal to that card's
         // mana cost." (layer 6, CR 702.34a)
         Tla.EACH_HAS_FLASHBACK_ITS_MANA_COST.matchEntire(line)?.let { m ->
-            val cards = Filters.noun(m.groupValues[1].replace(" instant and sorcery card", " instant or sorcery card")) ?: return null
+            val phrase = m.groupValues[1].replace(" instant and sorcery card", " instant or sorcery card")
+            // "non-Lesson instant or sorcery card": the "non-" word applies to both card types
+            val cards = if (phrase.startsWith("non")) Filters.all(Filters.noun(phrase.substringBefore(' ')) ?: return null, Filters.noun(phrase.substringAfter(' ')) ?: return null)
+                else Filters.noun(phrase) ?: return null
             return Ability.Static(listOf(Mechanic.GainAbilities(listOf(arcanum.api.Keyword.Flashback(Cost(listOf(CostPart.ItsManaCost)))))),
                 affects = Affected.Objects(Objects.Each(cards)), condition = arcanum.api.Condition.YourTurn)
         }
@@ -11852,7 +11855,7 @@ internal class Sentences(
         }
         // "When you next cast a Lesson spell this turn, copy it and you may choose new targets for the copy." (CR 603.7, 707.10)
         Tla.WHEN_NEXT_CAST_COPY.matchEntire(sentence)?.let { m ->
-            val spells = Filters.noun(m.groupValues[1]) ?: return null
+            val spells = Filters.noun(m.groupValues[1].removeSuffix(" spell")) ?: return null
             return listOf(Step.Do(Effect.CreateDelayedTrigger(arcanum.api.Trigger.On(EventPattern.Cast(spells, PlayerFilter.You)), Instructions(steps = listOf(
                 Step.Do(Effect.CopySpell(Objects.EventObject(EventRole.Object), Players.You, newTargets = true)))), duration = arcanum.api.Duration.EndOfTurn)))
         }

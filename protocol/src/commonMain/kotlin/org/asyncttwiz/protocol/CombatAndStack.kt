@@ -255,97 +255,10 @@ object CombatStackRules {
         val board = state.board
         val playAction = (command.action as GameAction.Play).action
         val next = when (playAction) {
-            is PlayAction.Combat -> {
-                val area = board.combat
-                when (val action = playAction.action) {
-                    CombatAction.Open -> if (area != null) board else board.copy(
-                        combat = CombatArea(CommandIds.uuidV5(command.requestId, "combat-area/0")))
-                    is CombatAction.Close -> {
-                        // An absent captured area does not close a subsequently opened/replacement area.
-                        if (action.areaId == null || area == null) board
-                        else if (area.id != action.areaId) return reject("inapplicable")
-                        else board.copy(combat = null)
-                    }
-                    is CombatAction.Remove -> {
-                        if (area?.id != action.areaId) return reject("missingReference")
-                        if (occurrences(area).none { it.id == action.occurrenceId }) return reject("missingReference")
-                        board.copy(combat = without(area, action.occurrenceId))
-                    }
-                    is CombatAction.SetAttackTarget -> {
-                        if (area?.id != action.areaId || area.pairs.none { it.id == action.pairId }) return reject("missingReference")
-                        if (action.cardId != null && !canAttack(state, action.cardId, rulesVersion)) return reject("inapplicable")
-                        board.copy(combat = area.copy(pairs = area.pairs.map {
-                            if (it.id == action.pairId) it.copy(attackTarget = action.cardId) else it
-                        }))
-                    }
-                    is CombatAction.SetBlocks -> {
-                        if (area?.id != action.areaId) return reject("missingReference")
-                        if (action.pairIds.any { id -> area.pairs.none { it.id == id } }) return reject("missingReference")
-                        val existing = occurrences(area).singleOrNull { it.sourceId == action.sourceId }
-                        if (existing != null && area.pairs.any { p -> p.attackers.any { it.id == existing.id } }) return reject("inapplicable")
-                        if ((existing?.let { blockedPairs(area, it.id) } ?: emptyList()) != action.expected) return reject("sourceChanged")
-                        if (action.pairIds.isEmpty()) {
-                            if (existing == null) board else board.copy(combat = without(area, existing.id))
-                        } else {
-                            val source = board.cards.singleOrNull { it.id == action.sourceId } ?: return reject("missingReference")
-                            if (board.containers.singleOrNull { it.id == source.containerId }?.zone != PlayZone.BATTLEFIELD)
-                                return reject("inapplicable")
-                            val first = action.pairIds.first()
-                            val occurrence = (existing ?: CombatOccurrence(CommandIds.uuidV5(command.requestId, "combat-occurrence/0"),
-                                action.sourceId)).copy(alsoBlocks = action.pairIds.drop(1))
-                            val stays = existing != null && area.pairs.single { it.id == first }.blockers.any { it.id == existing.id }
-                            val base = if (existing == null || stays) area else without(area, existing.id, removeEmpty = false)
-                            val pairs = base.pairs.map { pair ->
-                                when {
-                                    pair.id != first -> pair
-                                    stays -> pair.copy(blockers = pair.blockers.map { if (it.id == occurrence.id) occurrence else it })
-                                    else -> pair.copy(blockers = pair.blockers + occurrence)
-                                }
-                            }
-                            board.copy(combat = area.copy(pairs = pairs.filterNot(::empty)))
-                        }
-                    }
-                    is CombatAction.Declare, is CombatAction.Place -> {
-                        val sourceId = when (action) {
-                            is CombatAction.Declare -> action.sourceId
-                            is CombatAction.Place -> action.sourceId
-                            else -> error("unreachable")
-                        }
-                        val source = board.cards.singleOrNull { it.id == sourceId } ?: return reject("missingReference")
-                        if (board.containers.singleOrNull { it.id == source.containerId }?.zone != PlayZone.BATTLEFIELD)
-                            return reject("inapplicable")
-                        val areaId = if (action is CombatAction.Declare) action.areaId else (action as CombatAction.Place).destination.areaId
-                        if (area?.id != areaId) return reject("missingReference")
-                        val existing = occurrences(area).singleOrNull { it.sourceId == sourceId }
-                        val location = existing?.let { location(area, it.id) }
-                        if (action is CombatAction.Place && location != action.expectedOccurrence) return reject("sourceChanged")
-                        if (action is CombatAction.Declare && location?.role == CombatRole.ATTACKER) return GameplayChange(state)
-                        val occurrence = existing ?: CombatOccurrence(CommandIds.uuidV5(command.requestId, "combat-occurrence/0"), sourceId)
-                        val reduced = without(area, occurrence.id, removeEmpty = false)
-                        val destination = if (action is CombatAction.Place) action.destination else CombatDestination(areaId,
-                            CombatRole.ATTACKER, pairGap = IdentityGap(reduced.pairs.lastOrNull()?.id))
-                        val pairs = reduced.pairs.toMutableList()
-                        val pairIndex: Int
-                        if (destination.pairId == null) {
-                            if (destination.attackTarget != null && !canAttack(state, destination.attackTarget, rulesVersion)) return reject("inapplicable")
-                            pairIndex = gapIndex(pairs.map { it.id }, destination.pairGap) ?: return reject("destinationChanged")
-                            pairs.add(pairIndex, CombatPair(CommandIds.uuidV5(command.requestId, "combat-pair/0"), attackTarget = destination.attackTarget))
-                        } else {
-                            pairIndex = pairs.indexOfFirst { it.id == destination.pairId }
-                            if (pairIndex < 0) return reject("missingReference")
-                        }
-                        val pair = pairs[pairIndex]
-                        val side = pair.side(destination.role).toMutableList()
-                        val index = if (destination.insertion == CombatInsertion.APPEND) side.size else {
-                            val filtered = side.filterNot { it.sourceId in destination.pendingSourceIds }
-                            val at = gapIndex(filtered.map { it.id }, destination.cardGap) ?: return reject("destinationChanged")
-                            if (at == 0) 0 else side.indexOfFirst { it.id == filtered[at - 1].id } + 1
-                        }
-                        side.add(index, occurrence)
-                        pairs[pairIndex] = pair.withSide(destination.role, side)
-                        board.copy(combat = area.copy(pairs = pairs.filterNot(::empty)))
-                    }
-                }
+            // A refusal or no-op is returned as it is; otherwise the next board
+            is PlayAction.Combat -> when (val result = combat(state, command, playAction, rulesVersion)) {
+                is GameplayChange -> return result
+                else -> result as BoardState
             }
             is PlayAction.Stack -> when (val action = playAction.action) {
                 is StackAction.MarkText, is StackAction.ToggleTextMark -> {
@@ -438,6 +351,103 @@ object CombatStackRules {
             else emptyList()), rulesVersion = rulesVersion)
     }
 
+    /** [change]'s next board for a [PlayAction.Combat], or its [GameplayChange] when refused or a no-op (its own
+     * method, so the JVM compiles [change]). */
+    private fun combat(state: PlayState, command: GameCommand, playAction: PlayAction.Combat, rulesVersion: Int): Any {
+        fun reject(reason: String) = GameplayChange(reason = reason)
+        val board = state.board
+        val area = board.combat
+        return when (val action = playAction.action) {
+            CombatAction.Open -> if (area != null) board else board.copy(
+                combat = CombatArea(CommandIds.uuidV5(command.requestId, "combat-area/0")))
+            is CombatAction.Close -> {
+                // An absent captured area does not close a subsequently opened/replacement area.
+                if (action.areaId == null || area == null) board
+                else if (area.id != action.areaId) return reject("inapplicable")
+                else board.copy(combat = null)
+            }
+            is CombatAction.Remove -> {
+                if (area?.id != action.areaId) return reject("missingReference")
+                if (occurrences(area).none { it.id == action.occurrenceId }) return reject("missingReference")
+                board.copy(combat = without(area, action.occurrenceId))
+            }
+            is CombatAction.SetAttackTarget -> {
+                if (area?.id != action.areaId || area.pairs.none { it.id == action.pairId }) return reject("missingReference")
+                if (action.cardId != null && !canAttack(state, action.cardId, rulesVersion)) return reject("inapplicable")
+                board.copy(combat = area.copy(pairs = area.pairs.map {
+                    if (it.id == action.pairId) it.copy(attackTarget = action.cardId) else it
+                }))
+            }
+            is CombatAction.SetBlocks -> {
+                if (area?.id != action.areaId) return reject("missingReference")
+                if (action.pairIds.any { id -> area.pairs.none { it.id == id } }) return reject("missingReference")
+                val existing = occurrences(area).singleOrNull { it.sourceId == action.sourceId }
+                if (existing != null && area.pairs.any { p -> p.attackers.any { it.id == existing.id } }) return reject("inapplicable")
+                if ((existing?.let { blockedPairs(area, it.id) } ?: emptyList()) != action.expected) return reject("sourceChanged")
+                if (action.pairIds.isEmpty()) {
+                    if (existing == null) board else board.copy(combat = without(area, existing.id))
+                } else {
+                    val source = board.cards.singleOrNull { it.id == action.sourceId } ?: return reject("missingReference")
+                    if (board.containers.singleOrNull { it.id == source.containerId }?.zone != PlayZone.BATTLEFIELD)
+                        return reject("inapplicable")
+                    val first = action.pairIds.first()
+                    val occurrence = (existing ?: CombatOccurrence(CommandIds.uuidV5(command.requestId, "combat-occurrence/0"),
+                        action.sourceId)).copy(alsoBlocks = action.pairIds.drop(1))
+                    val stays = existing != null && area.pairs.single { it.id == first }.blockers.any { it.id == existing.id }
+                    val base = if (existing == null || stays) area else without(area, existing.id, removeEmpty = false)
+                    val pairs = base.pairs.map { pair ->
+                        when {
+                            pair.id != first -> pair
+                            stays -> pair.copy(blockers = pair.blockers.map { if (it.id == occurrence.id) occurrence else it })
+                            else -> pair.copy(blockers = pair.blockers + occurrence)
+                        }
+                    }
+                    board.copy(combat = area.copy(pairs = pairs.filterNot(::empty)))
+                }
+            }
+            is CombatAction.Declare, is CombatAction.Place -> {
+                val sourceId = when (action) {
+                    is CombatAction.Declare -> action.sourceId
+                    is CombatAction.Place -> action.sourceId
+                    else -> error("unreachable")
+                }
+                val source = board.cards.singleOrNull { it.id == sourceId } ?: return reject("missingReference")
+                if (board.containers.singleOrNull { it.id == source.containerId }?.zone != PlayZone.BATTLEFIELD)
+                    return reject("inapplicable")
+                val areaId = if (action is CombatAction.Declare) action.areaId else (action as CombatAction.Place).destination.areaId
+                if (area?.id != areaId) return reject("missingReference")
+                val existing = occurrences(area).singleOrNull { it.sourceId == sourceId }
+                val location = existing?.let { location(area, it.id) }
+                if (action is CombatAction.Place && location != action.expectedOccurrence) return reject("sourceChanged")
+                if (action is CombatAction.Declare && location?.role == CombatRole.ATTACKER) return GameplayChange(state)
+                val occurrence = existing ?: CombatOccurrence(CommandIds.uuidV5(command.requestId, "combat-occurrence/0"), sourceId)
+                val reduced = without(area, occurrence.id, removeEmpty = false)
+                val destination = if (action is CombatAction.Place) action.destination else CombatDestination(areaId,
+                    CombatRole.ATTACKER, pairGap = IdentityGap(reduced.pairs.lastOrNull()?.id))
+                val pairs = reduced.pairs.toMutableList()
+                val pairIndex: Int
+                if (destination.pairId == null) {
+                    if (destination.attackTarget != null && !canAttack(state, destination.attackTarget, rulesVersion)) return reject("inapplicable")
+                    pairIndex = gapIndex(pairs.map { it.id }, destination.pairGap) ?: return reject("destinationChanged")
+                    pairs.add(pairIndex, CombatPair(CommandIds.uuidV5(command.requestId, "combat-pair/0"), attackTarget = destination.attackTarget))
+                } else {
+                    pairIndex = pairs.indexOfFirst { it.id == destination.pairId }
+                    if (pairIndex < 0) return reject("missingReference")
+                }
+                val pair = pairs[pairIndex]
+                val side = pair.side(destination.role).toMutableList()
+                val index = if (destination.insertion == CombatInsertion.APPEND) side.size else {
+                    val filtered = side.filterNot { it.sourceId in destination.pendingSourceIds }
+                    val at = gapIndex(filtered.map { it.id }, destination.cardGap) ?: return reject("destinationChanged")
+                    if (at == 0) 0 else side.indexOfFirst { it.id == filtered[at - 1].id } + 1
+                }
+                side.add(index, occurrence)
+                pairs[pairIndex] = pair.withSide(destination.role, side)
+                board.copy(combat = area.copy(pairs = pairs.filterNot(::empty)))
+            }
+        }
+    }
+
     private fun empty(pair: CombatPair) = pair.attackers.isEmpty() && pair.blockers.isEmpty()
     private fun without(area: CombatArea, id: String, removeEmpty: Boolean = true) = area.copy(pairs = area.pairs.map {
         it.copy(attackers = it.attackers.filterNot { card -> card.id == id }, blockers = it.blockers.filterNot { card -> card.id == id })
@@ -457,12 +467,21 @@ object CombatStackRules {
     }
 
     /** Called by the shared record boundary, including future real-move/token reducers. */
+    /** The cards of [before] that are gone from [after]; the lists are hashed only when they don't line up by id. */
+    private fun vanished(before: List<PlayCard>, after: List<PlayCard>): List<PlayCard> {
+        if (before === after) return emptyList()
+        if (before.size == after.size && before.indices.all { before[it] === after[it] || before[it].id == after[it].id })
+            return emptyList()
+        val remaining = after.mapTo(HashSet()) { it.id }
+        return before.filter { old -> old.id !in remaining }
+    }
+
     internal fun closeInvariants(before: BoardState, candidate: BoardState, rulesVersion: Int = 18): BoardState? {
-        val remaining = candidate.cards.mapTo(HashSet()) { it.id }
-        val vanished = before.cards.filter { old -> old.id !in remaining }
+        val vanished = vanished(before.cards, candidate.cards)
         if (vanished.any { !it.token }) return null
         val battlefield = candidate.containers.filter { it.zone == PlayZone.BATTLEFIELD }.map { it.id }.toSet()
-        val live = candidate.cards.associateBy { it.id }
+        // Read only for combat, the Stack and entry ids: an event on a big board without them hashes no card here.
+        val live by lazy { candidate.cards.associateBy { it.id } }
         val combat = candidate.combat?.let { area -> area.copy(pairs = area.pairs.map { pair ->
             fun keep(cards: List<CombatOccurrence>) = cards.filter { live[it.sourceId]?.containerId in battlefield }
             // CMB-031: an attacker blocks nothing; a blocker's further blocks name other pairs that still hold attackers
@@ -498,9 +517,7 @@ object CombatStackRules {
             }) return null
         val ids = (occurrences(combat).map { it.id } + effects.map { it.id }).toSet()
         if (ids.size != allOccurrences.size + effects.size || ids.any { it in live }) return null
-        val entityIds = candidate.cards.map { it.id } + candidate.containers.map { it.id } + ids +
-            listOfNotNull(combat?.id) + combat?.pairs.orEmpty().map { it.id }
-        if (entityIds.distinct().size != entityIds.size) return null
+        // (Their distinctness is part of all ids' below, checked once: either refuses the same board.)
         val stack = candidate.containers.singleOrNull { it.zone == PlayZone.STACK }
         if (effects.isNotEmpty() && stack == null) return null
         if (stack != null && (stack.cards.distinct().size != stack.cards.size ||
@@ -510,8 +527,12 @@ object CombatStackRules {
         val links = candidate.projectionLinks.filter { it.first in ids && it.second in ids }
         if (links.any { it.first == it.second } || links.map { projectionPair(it.first, it.second) }.distinct().size != links.size)
             return null
-        val allIds = entityIds + candidate.players.map { it.accountId } + candidate.links.map { it.id } + links.map { it.id }
-        if (allIds.distinct().size != allIds.size) return null
+        // Every id of the board distinct: cards, containers, entries, the combat and its pairs, players and links
+        val seen = HashSet<String>((candidate.cards.size + candidate.containers.size + ids.size) * 2)
+        if (!candidate.cards.all { seen.add(it.id) } || !candidate.containers.all { seen.add(it.id) } || !ids.all(seen::add) ||
+            combat?.id?.let(seen::add) == false || !combat?.pairs.orEmpty().all { seen.add(it.id) } ||
+            !candidate.players.all { seen.add(it.accountId) } || !candidate.links.all { seen.add(it.id) } || !links.all { seen.add(it.id) })
+            return null
         return candidate.copy(combat = combat, stackEffects = effects, projectionLinks = links,
             stackTextMarks = candidate.stackTextMarks.filterKeys { it in stack?.cards.orEmpty() })
     }

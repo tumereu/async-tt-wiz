@@ -119,67 +119,7 @@ object LibraryRules {
                         GameplayDisclosure(id, card.faceId, source.id, viewers)
                     }))
             }
-            is PlayAction.DismissContents -> {
-                val display = board.contentsDisplays.singleOrNull { it.id == action.displayId } ?: return GameplayChange(state)
-                // Rules v29: either player may close any panel, with the author's very same choices,
-                // so a game never gets stuck on a forgotten one.
-                if (display.author != actor && rulesVersion < ANY_PLAYER_CLOSES_RULES_VERSION)
-                    return GameplayChange(reason = "accessDenied")
-                val source = board.containers.single { it.id == display.containerId }
-                // Hand reveals are references: Done returns them simply by removing the tray,
-                // preserving the exact hand order and expiring public visibility in ONE event.
-                if (rulesVersion >= 19 && source.zone == PlayZone.HAND && display.reveal) {
-                    return record(board.copy(contentsDisplays = board.contentsDisplays - display,
-                        cards = board.cards.map { if (it.id in display.cardIds) it.copy(knownToAll = false) else it }),
-                        GameplayTransition(contents = ContentsDisplayChange(from = display)))
-                }
-                val ids = display.cardIds.filter { it in source.cards }
-                val rest = source.cards.filterNot { it in ids }
-                // Older clients omitted a seed on dismiss. The request still binds one reproducible result.
-                val seed = action.seed ?: RandomV1.encodeSeed(DeckJson.intent("contents-rest", command.requestId)
-                    .chunked(2).map { it.toInt(16).toByte() }.toByteArray())
-                // Rules v31: a Temp pile Search closes without touching the pile (null: keep its order).
-                val resolution = if (TempPiles.searchKeepsOrder(source, display, rulesVersion)) null
-                    else if (display.search) ContentsRest.SHUFFLE else action.rest
-                val restZone = when (resolution) {
-                    ContentsRest.GRAVEYARD -> PlayZone.GRAVEYARD
-                    ContentsRest.EXILE -> PlayZone.EXILE
-                    else -> null
-                }
-                val restDestination = board.containers.singleOrNull { it.accountId == source.accountId && it.zone == restZone }
-                val order = when (resolution) {
-                    null -> source.cards
-                    ContentsRest.TOP -> if (TempPiles.lookKeepsPlace(source, display, ContentsRest.TOP, rulesVersion))
-                        TempPiles.inPlace(source.cards, ids) else ids + rest
-                    ContentsRest.BOTTOM -> rest + ids
-                    ContentsRest.BOTTOM_RANDOM -> rest + RandomV1.shuffle(ids, seed)
-                    ContentsRest.GRAVEYARD, ContentsRest.EXILE -> rest
-                    ContentsRest.SHUFFLE -> if (rulesVersion >= SearchQueue.RULES_VERSION) SearchQueue.closeOrder(display, source.cards, seed)
-                        else RandomV1.shuffle(source.cards, seed)
-                }
-                if (restZone != null && restDestination == null) return GameplayChange(reason = "missingReference")
-                val next = board.copy(contentsDisplays = board.contentsDisplays.filterNot { it.id == display.id },
-                    containers = board.containers.map { when (it.id) {
-                        source.id -> it.copy(cards = order)
-                        // Rules v27: put there one by one in panel order, so the last panel card ends on top.
-                        restDestination?.id -> it.copy(cards = if (rulesVersion >= PileOrder.RULES_VERSION)
-                            PileOrder.arrive(it.cards, ids) else (it.cards + ids).sorted())
-                        else -> it
-                    } }, cards = board.cards.map { card -> when {
-                        card.id in ids && restZone != null -> card.copy(containerId = restDestination!!.id,
-                            covered = false, explicitlyCovered = false, knownToAll = false, counters = emptyMap(),
-                            corner = state.definitions.single { it.digest == card.definition }.definition.faces.single { it.faceId == card.faceId }.defaultCorner())
-                        card.containerId == source.id && resolution == ContentsRest.SHUFFLE -> card.copy(knownToAll = false)
-                        contentsRulesVersion >= 2 && card.id in ids -> card.copy(knownToAll = false)
-                        else -> card
-                    } })
-                record(next, GameplayTransition(contents = ContentsDisplayChange(from = display),
-                    libraryOrder = LibraryOrderChange(source.id, source.cards, order),
-                    disclosures = if (restZone == null) emptyList() else ids.map { id ->
-                        val card = board.cards.single { it.id == id }
-                        GameplayDisclosure(id, card.faceId, restDestination!!.id, board.players.map { it.accountId })
-                    }))
-            }
+            is PlayAction.DismissContents -> dismissContents(state, actor, command, action, contentsRulesVersion, rulesVersion)
             is PlayAction.RevealContentsCard -> {
                 val display = board.contentsDisplays.singleOrNull { it.id == action.displayId } ?: return GameplayChange(reason = "missingReference")
                 if (display.author != actor && rulesVersion < AnyPlayer.RULES_VERSION) return GameplayChange(reason = "accessDenied")
@@ -210,6 +150,73 @@ object LibraryRules {
             }
             else -> error("Not a Library action")
         }
+    }
+
+    /** [change] of a [PlayAction.DismissContents] (its own method, so the JVM compiles [change]). */
+    private fun dismissContents(state: PlayState, actor: String, command: GameCommand, action: PlayAction.DismissContents,
+        contentsRulesVersion: Int, rulesVersion: Int): GameplayChange {
+        val board = state.board
+        fun record(next: BoardState, transition: GameplayTransition) =
+            GameplayRules.record(state, actor, command, next, transition, contentsRulesVersion, rulesVersion)
+        val display = board.contentsDisplays.singleOrNull { it.id == action.displayId } ?: return GameplayChange(state)
+        // Rules v29: either player may close any panel, with the author's very same choices,
+        // so a game never gets stuck on a forgotten one.
+        if (display.author != actor && rulesVersion < ANY_PLAYER_CLOSES_RULES_VERSION)
+            return GameplayChange(reason = "accessDenied")
+        val source = board.containers.single { it.id == display.containerId }
+        // Hand reveals are references: Done returns them simply by removing the tray,
+        // preserving the exact hand order and expiring public visibility in ONE event.
+        if (rulesVersion >= 19 && source.zone == PlayZone.HAND && display.reveal) {
+            return record(board.copy(contentsDisplays = board.contentsDisplays - display,
+                cards = board.cards.map { if (it.id in display.cardIds) it.copy(knownToAll = false) else it }),
+                GameplayTransition(contents = ContentsDisplayChange(from = display)))
+        }
+        val ids = display.cardIds.filter { it in source.cards }
+        val rest = source.cards.filterNot { it in ids }
+        // Older clients omitted a seed on dismiss. The request still binds one reproducible result.
+        val seed = action.seed ?: RandomV1.encodeSeed(DeckJson.intent("contents-rest", command.requestId)
+            .chunked(2).map { it.toInt(16).toByte() }.toByteArray())
+        // Rules v31: a Temp pile Search closes without touching the pile (null: keep its order).
+        val resolution = if (TempPiles.searchKeepsOrder(source, display, rulesVersion)) null
+            else if (display.search) ContentsRest.SHUFFLE else action.rest
+        val restZone = when (resolution) {
+            ContentsRest.GRAVEYARD -> PlayZone.GRAVEYARD
+            ContentsRest.EXILE -> PlayZone.EXILE
+            else -> null
+        }
+        val restDestination = board.containers.singleOrNull { it.accountId == source.accountId && it.zone == restZone }
+        val order = when (resolution) {
+            null -> source.cards
+            ContentsRest.TOP -> if (TempPiles.lookKeepsPlace(source, display, ContentsRest.TOP, rulesVersion))
+                TempPiles.inPlace(source.cards, ids) else ids + rest
+            ContentsRest.BOTTOM -> rest + ids
+            ContentsRest.BOTTOM_RANDOM -> rest + RandomV1.shuffle(ids, seed)
+            ContentsRest.GRAVEYARD, ContentsRest.EXILE -> rest
+            ContentsRest.SHUFFLE -> if (rulesVersion >= SearchQueue.RULES_VERSION) SearchQueue.closeOrder(display, source.cards, seed)
+                else RandomV1.shuffle(source.cards, seed)
+        }
+        if (restZone != null && restDestination == null) return GameplayChange(reason = "missingReference")
+        val next = board.copy(contentsDisplays = board.contentsDisplays.filterNot { it.id == display.id },
+            containers = board.containers.map { when (it.id) {
+                source.id -> it.copy(cards = order)
+                // Rules v27: put there one by one in panel order, so the last panel card ends on top.
+                restDestination?.id -> it.copy(cards = if (rulesVersion >= PileOrder.RULES_VERSION)
+                    PileOrder.arrive(it.cards, ids) else (it.cards + ids).sorted())
+                else -> it
+            } }, cards = board.cards.map { card -> when {
+                card.id in ids && restZone != null -> card.copy(containerId = restDestination!!.id,
+                    covered = false, explicitlyCovered = false, knownToAll = false, counters = emptyMap(),
+                    corner = state.definitions.single { it.digest == card.definition }.definition.faces.single { it.faceId == card.faceId }.defaultCorner())
+                card.containerId == source.id && resolution == ContentsRest.SHUFFLE -> card.copy(knownToAll = false)
+                contentsRulesVersion >= 2 && card.id in ids -> card.copy(knownToAll = false)
+                else -> card
+            } })
+        return record(next, GameplayTransition(contents = ContentsDisplayChange(from = display),
+            libraryOrder = LibraryOrderChange(source.id, source.cards, order),
+            disclosures = if (restZone == null) emptyList() else ids.map { id ->
+                val card = board.cards.single { it.id == id }
+                GameplayDisclosure(id, card.faceId, restDestination!!.id, board.players.map { it.accountId })
+            }))
     }
 
     private val specialZones = setOf(PlayZone.LIBRARY, PlayZone.GRAVEYARD, PlayZone.EXILE)

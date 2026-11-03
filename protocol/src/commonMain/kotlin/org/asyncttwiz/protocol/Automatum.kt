@@ -577,10 +577,10 @@ object MtgFacts {
     /** [to] (the board after [action]) with zone-change counts, timestamps, the fresh facts of new objects and
      * emptied mana pools; null when a stamp would pass [Automatum.MAX_TIMESTAMP] (#8). */
     internal fun after(from: BoardState, to: BoardState, action: PlayAction): BoardState? {
-        val old = from.cards.associateBy { it.id }
         val zones = (from.containers + to.containers).associate { it.id to it.zone }
         val shuffled = shuffled(from, action)
-        var clock = maxOf(clock(from), clock(to))
+        // clock(to) but for the cards the event left as they were (the very same objects), which clock(from) counts
+        var clock = maxOf(clock(from), clock(to.copy(cards = buildList { CardChanges.each(from.cards, to.cards) { _, _, card -> add(card) } })))
         // A mulligan returns the shown hand, shuffles the library and draws (CR 103.5): each step counts as the same
         // moves made one by one would (returns in their move order, then draws from the top), so one Mulligan event
         // ends exactly where its single moves and shuffle end.
@@ -594,8 +594,7 @@ object MtgFacts {
             for (id in returns + draws) mulliganStamps[id] = ++clock
             (library + mulligan.displayedHand).toSet()
         }.orEmpty()
-        val cards = to.cards.map { card ->
-            val before = old[card.id]
+        fun restamped(before: PlayCard?, card: PlayCard): PlayCard =
             when {
                 before != null && card.id in mulliganed -> {
                     val drawn = card.containerId == mulligan!!.handId
@@ -618,6 +617,18 @@ object MtgFacts {
                     card.copy(timestamp = ++clock)
                 else -> card
             }
+        // Without a shuffle or a mulligan only a card the event changed can be restamped (an untouched one is the same
+        // object, in the same container): the others are skipped without hashing the board's cards.
+        val cards = if (mulligan == null && shuffled.isEmpty()) {
+            var changed: MutableList<PlayCard>? = null
+            CardChanges.each(from.cards, to.cards) { index, before, card ->
+                val next = restamped(before, card)
+                if (next !== card) (changed ?: to.cards.toMutableList().also { changed = it })[index] = next
+            }
+            changed ?: to.cards
+        } else {
+            val old = from.cards.associateBy { it.id }
+            to.cards.map { card -> restamped(old[card.id], card) }
         }
         val turnChanged = from.turn != to.turn
         val players = if (!turnChanged) to.players else to.players.map { if (it.manaPool.isEmpty()) it else it.copy(manaPool = emptyList()) }

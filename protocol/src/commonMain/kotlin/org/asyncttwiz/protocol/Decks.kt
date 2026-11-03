@@ -105,12 +105,32 @@ object DraftDecks {
  */
 object DeckJson {
     val format = Json { encodeDefaults = true; explicitNulls = true; ignoreUnknownKeys = false }
-    private fun canonical(value: JsonElement): String = when (value) {
-        is JsonObject -> value.keys.sorted().joinToString(",", "{", "}") {
-            JsonPrimitive(it).toString() + ":" + canonical(value.getValue(it))
+    private fun canonical(value: JsonElement): String = StringBuilder().also { canonical(value, it) }.toString()
+    // One builder for the whole value (every history event's seal canonicalizes the event).
+    private fun canonical(value: JsonElement, out: StringBuilder) {
+        when (value) {
+            is JsonObject -> {
+                out.append('{')
+                value.keys.sorted().forEachIndexed { i, key ->
+                    if (i > 0) out.append(',')
+                    quoted(key, out)
+                    out.append(':')
+                    canonical(value.getValue(key), out)
+                }
+                out.append('}')
+            }
+            is JsonArray -> {
+                out.append('[')
+                value.forEachIndexed { i, element -> if (i > 0) out.append(','); canonical(element, out) }
+                out.append(']')
+            }
+            is JsonPrimitive -> if (value.isString) quoted(value.content, out) else out.append(value.toString())
         }
-        is JsonArray -> value.joinToString(",", "[", "]", transform = ::canonical)
-        else -> value.toString()
+    }
+    /** As the JSON library prints a string; one that needs no escape is copied as it is. */
+    private fun quoted(text: String, out: StringBuilder) {
+        if (text.any { it < ' ' || it == '"' || it == '\\' }) out.append(JsonPrimitive(text).toString())
+        else out.append('"').append(text).append('"')
     }
     inline fun <reified T> canonical(value: T): String = canonicalElement(format.encodeToJsonElement(value))
     fun canonicalElement(value: JsonElement): String = canonical(value)

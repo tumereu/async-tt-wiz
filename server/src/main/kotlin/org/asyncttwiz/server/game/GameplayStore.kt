@@ -17,6 +17,13 @@ import org.jooq.DSLContext
 import org.jooq.JSONB
 import org.jooq.impl.DSL
 
+/** The display group after [mutation] in [tree]. A node command [requestId] has just recorded (a play, or a member of
+ * its batch) carries it: its bookkeeping's group is the one its reducer materialized, so a 1000-member Automatum batch
+ * isn't walked back and forth node by node to read it. Any other node's is its materialized board's. */
+internal fun groupAt(tree: GameplayTree, mutation: GameplayMutation, requestId: String?): GameplayGroup? =
+    mutation.bookkeeping?.toGroup?.takeIf { requestId != null && (mutation.requestId == requestId || mutation.invocationId == requestId) }
+        ?: tree.stateAt(mutation.id)?.currentGroup
+
 /** Relational mutations and coherent exports share the existing game-locked execution domain. */
 internal class GameplayStore(private val clock: Clock = Clock.systemUTC(),
     private val accountByteBudget: Long = 32L * 1024 * 1024,
@@ -203,35 +210,12 @@ internal class GameplayStore(private val clock: Clock = Clock.systemUTC(),
             .where(GAMEPLAY_TREE_CONTROL.PLAY_ID.eq(id(next.initial.id)))
             .and(DSL.row(GAMEPLAY_TREE_CONTROL.KIND, GAMEPLAY_TREE_CONTROL.ID).`in`(removedControls.map { DSL.row(it.kind, it.id) })).execute()
         var memberIndex = 0
-        for (record in delta.upserts) when (record.kind) {
-            "node" -> {
-                val mutation = next.nodes.getValue(record.id)
-                val state = requireNotNull(next.stateAt(mutation.id))
-                val group = requireNotNull(state.currentGroup)
-                val groupPayload = JSONB.valueOf(json.encodeToString(group))
-                val mutationPayload = JSONB.valueOf(record.payload.toString())
-                sql.insertInto(GAMEPLAY_GROUP).set(GAMEPLAY_GROUP.ID, id(group.id)).set(GAMEPLAY_GROUP.GAME_ID, id(state.gameId))
-                    .set(GAMEPLAY_GROUP.PLAY_ID, id(state.id)).set(GAMEPLAY_GROUP.AUTHOR_ID, id(group.author))
-                    .set(GAMEPLAY_GROUP.FIRST_NODE_ID, id(group.firstNodeId)).set(GAMEPLAY_GROUP.LAST_NODE_ID, id(group.lastNodeId))
-                    .set(GAMEPLAY_GROUP.PAYLOAD, groupPayload)
-                    .onConflict(GAMEPLAY_GROUP.ID).doUpdate().set(GAMEPLAY_GROUP.LAST_NODE_ID, id(group.lastNodeId))
-                    .set(GAMEPLAY_GROUP.PAYLOAD, groupPayload).execute()
-                sql.insertInto(GAMEPLAY_MUTATION).set(GAMEPLAY_MUTATION.ID, id(mutation.id))
-                    .set(GAMEPLAY_MUTATION.GAME_ID, id(state.gameId)).set(GAMEPLAY_MUTATION.PLAY_ID, id(state.id))
-                    .set(GAMEPLAY_MUTATION.PARENT_ID, id(mutation.parentId)).set(GAMEPLAY_MUTATION.BRANCH_ID, id(mutation.branchId))
-                    .set(GAMEPLAY_MUTATION.AUTHOR_ID, id(mutation.author)).set(GAMEPLAY_MUTATION.REQUEST_ID, id(mutation.requestId))
-                    .set(GAMEPLAY_MUTATION.COMMAND_REQUEST_ID, id(requestId ?: mutation.requestId))
-                    .set(GAMEPLAY_MUTATION.MEMBER_INDEX, if (mutation.invocationId == requestId) memberIndex++ else 0)
-                    .set(GAMEPLAY_MUTATION.GROUP_ID, id(group.id)).set(GAMEPLAY_MUTATION.EFFECTIVE_ORDINAL, revision)
-                    .set(GAMEPLAY_MUTATION.PAYLOAD, mutationPayload)
-                    .onConflict(GAMEPLAY_MUTATION.ID).doUpdate().set(GAMEPLAY_MUTATION.PARENT_ID, id(mutation.parentId))
-                    .set(GAMEPLAY_MUTATION.RETAINED, true).set(GAMEPLAY_MUTATION.GROUP_ID, id(group.id))
-                    .set(GAMEPLAY_MUTATION.NODE_VERSION, GAMEPLAY_MUTATION.NODE_VERSION.plus(1))
-                    .set(GAMEPLAY_MUTATION.PAYLOAD, mutationPayload).execute()
-            }
-            "root", "definition" -> Unit
-            else -> Unit
+        val nodes = delta.upserts.filter { it.kind == "node" }.map { record ->
+            val mutation = next.nodes.getValue(record.id)
+            StoredNode(mutation, record.payload.toString(), requireNotNull(groupAt(next, mutation, requestId)),
+                if (mutation.invocationId == requestId) memberIndex++ else 0)
         }
+        storeNodes(sql, next.initial, nodes, revision, requestId)
         controls(sql, next.initial.id, delta.upserts.filter { it.kind !in setOf("root", "definition", "node") })
         val records = transactionRecords.get()?.takeIf { it.first.get() === before }?.second ?: EndpointReadCache()
         GameplayEndpoint(sql, next.initial.id, records).save(before, next, delta, revision)
@@ -240,6 +224,42 @@ internal class GameplayStore(private val clock: Clock = Clock.systemUTC(),
             .where(GAME_PLAY.ID.eq(id(next.initial.id))).execute() == 1)
         return delta
     }
+    private companion object { const val NODE_ROWS = 500 }
+    private class StoredNode(val mutation: GameplayMutation, val payload: String, val group: GameplayGroup, val memberIndex: Int)
+
+    /** Every node's row and its group's, a statement each for any number of nodes (a 1000-member Automatum batch,
+     * I-D14): a group named by several nodes keeps its first node's inserted values and its last node's update, as one
+     * upsert a node did. */
+    private fun storeNodes(sql: DSLContext, play: PlayState, nodes: List<StoredNode>, revision: Long, requestId: String?) {
+        if (nodes.isEmpty()) return
+        val groups = linkedMapOf<String, Pair<GameplayGroup, GameplayGroup>>()
+        for (node in nodes) groups[node.group.id] = (groups[node.group.id]?.first ?: node.group) to node.group
+        for (chunk in groups.values.chunked(NODE_ROWS)) {
+            var insert = sql.insertInto(GAMEPLAY_GROUP, GAMEPLAY_GROUP.ID, GAMEPLAY_GROUP.GAME_ID, GAMEPLAY_GROUP.PLAY_ID,
+                GAMEPLAY_GROUP.AUTHOR_ID, GAMEPLAY_GROUP.FIRST_NODE_ID, GAMEPLAY_GROUP.LAST_NODE_ID, GAMEPLAY_GROUP.PAYLOAD)
+            for ((first, last) in chunk) insert = insert.values(id(first.id), id(play.gameId), id(play.id), id(first.author),
+                id(first.firstNodeId), id(last.lastNodeId), JSONB.valueOf(json.encodeToString(last)))
+            insert.onConflict(GAMEPLAY_GROUP.ID).doUpdate().set(GAMEPLAY_GROUP.LAST_NODE_ID, DSL.excluded(GAMEPLAY_GROUP.LAST_NODE_ID))
+                .set(GAMEPLAY_GROUP.PAYLOAD, DSL.excluded(GAMEPLAY_GROUP.PAYLOAD)).execute()
+        }
+        for (chunk in nodes.chunked(NODE_ROWS)) {
+            var insert = sql.insertInto(GAMEPLAY_MUTATION, GAMEPLAY_MUTATION.ID, GAMEPLAY_MUTATION.GAME_ID, GAMEPLAY_MUTATION.PLAY_ID,
+                GAMEPLAY_MUTATION.PARENT_ID, GAMEPLAY_MUTATION.BRANCH_ID, GAMEPLAY_MUTATION.AUTHOR_ID, GAMEPLAY_MUTATION.REQUEST_ID,
+                GAMEPLAY_MUTATION.COMMAND_REQUEST_ID, GAMEPLAY_MUTATION.MEMBER_INDEX, GAMEPLAY_MUTATION.GROUP_ID,
+                GAMEPLAY_MUTATION.EFFECTIVE_ORDINAL, GAMEPLAY_MUTATION.PAYLOAD)
+            for (node in chunk) {
+                val mutation = node.mutation
+                insert = insert.values(id(mutation.id), id(play.gameId), id(play.id), id(mutation.parentId), id(mutation.branchId),
+                    id(mutation.author), id(mutation.requestId), id(requestId ?: mutation.requestId), node.memberIndex,
+                    id(node.group.id), revision, JSONB.valueOf(node.payload))
+            }
+            insert.onConflict(GAMEPLAY_MUTATION.ID).doUpdate().set(GAMEPLAY_MUTATION.PARENT_ID, DSL.excluded(GAMEPLAY_MUTATION.PARENT_ID))
+                .set(GAMEPLAY_MUTATION.RETAINED, true).set(GAMEPLAY_MUTATION.GROUP_ID, DSL.excluded(GAMEPLAY_MUTATION.GROUP_ID))
+                .set(GAMEPLAY_MUTATION.NODE_VERSION, GAMEPLAY_MUTATION.NODE_VERSION.plus(1))
+                .set(GAMEPLAY_MUTATION.PAYLOAD, DSL.excluded(GAMEPLAY_MUTATION.PAYLOAD)).execute()
+        }
+    }
+
     fun history(sql: DSLContext, state: PlayState, revision: Long, after: Long): GameplayHistoryPage {
         val rows = sql.selectFrom(GAMEPLAY_MUTATION).where(GAMEPLAY_MUTATION.PLAY_ID.eq(id(state.id)))
             .and(GAMEPLAY_MUTATION.RETAINED.eq(true))

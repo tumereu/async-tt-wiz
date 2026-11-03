@@ -313,8 +313,10 @@ internal class EngineGames(private val capacity: Int = 32) {
                 sql.update(ENGINE_SEAT).set(ENGINE_SEAT.NEXT_STOP, stopId).set(ENGINE_SEAT.NEXT_STOP_AT, time)
                     .where(ENGINE_SEAT.PLAY_ID.eq(play)).and(ENGINE_SEAT.ACCOUNT_ID.eq(seat.account)).execute()
                 if (stop != null) newStops += seat.account.toString()
-                // §15: a wait for this player's real input begins at the head while they aren't live
-                if (stop != null && stop.event == null && !live(seat.account)) round(sql, play, seat.account, stop.at, kind(state.model, player))
+                // §15: a wait for this player's real input begins at the head while they aren't live (not one going on
+                // across the other player's table-only events)
+                val waited = seat.nextStop?.let { history.store.node(it)?.event?.assumed == null } == true
+                if (stop != null && stop.event == null && !waited && !live(seat.account)) round(sql, play, seat.account, stop.at, kind(state.model, player))
             }
             moves[seat.account.toString()] = stop != null
         }
@@ -327,9 +329,10 @@ internal class EngineGames(private val capacity: Int = 32) {
     }
 
     /** The state at a local head [localHead] behind the head ([after] the events between): the head's state copied and
-     * the events taken back, or from a checkpoint. */
+     * the events taken back, or from a checkpoint. At the head, the head's own state ([NextStop.of] applies nothing to it
+     * then). */
     private fun stateAtLocalHead(history: GameHistory, state: LiveState, localHead: String, after: List<GameEvent>): GameModel {
-        if (after.isEmpty()) return state.model.copy()
+        if (after.isEmpty()) return state.model
         if (after.size > history.every) return history.stateAt(localHead)
         val model = state.model.copy()
         for (event in after.asReversed()) {

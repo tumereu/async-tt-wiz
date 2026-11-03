@@ -98,19 +98,26 @@ class LobbyService(private val runtime: ServiceRuntime) {
     /** [viewer]: whose list it is; a play whose state is the engine's says whose move it is per viewer (I-D56 §7). */
     private fun summary(sql: DSLContext, game: org.asyncttwiz.server.generated.tables.records.GameRecord, viewer: UUID? = null): GameSummary {
         if (game.lifecycle != "ACTIVE") return summary(sql, game, null as String?)
-        val engine = viewer?.let { v -> game.currentPlay?.let { org.asyncttwiz.server.game.EngineSeats.attention(sql, it, v) } }
-        return summary(sql, game, if (engine != null) engine.holder else org.asyncttwiz.server.game.PlayStore.read(sql, game.id!!)?.board?.effectiveAttentionHolder)
+        return summary(sql, game, org.asyncttwiz.server.game.PlayStore.read(sql, game.id!!)?.board?.effectiveAttentionHolder, viewer)
     }
 
     /** Execution already owns the locked game row and the reduced board. Do not reload either. */
     internal fun summary(sql: DSLContext, game: org.asyncttwiz.server.generated.tables.records.GameRecord,
-        attentionHolder: String?): GameSummary {
+        attentionHolder: String?, viewer: UUID? = null): GameSummary {
         val inviter = ACCOUNT.`as`("inviter")
         val recipient = ACCOUNT.`as`("recipient")
+        // I-D56 §7: for a viewer of a play whose state is the engine's, whose move it is comes from the engine seats
+        // (read in the same round trip): the viewer's own next stop first, then the other player's
+        val play = game.currentPlay?.takeIf { viewer != null && game.lifecycle == "ACTIVE" }
+        val seats = DSL.field("(SELECT string_agg(account_id::text || ':' || (next_stop IS NOT NULL)::text, ',' ORDER BY account_id) " +
+            "FROM engine_seat WHERE play_id = {0})", String::class.java, DSL.`val`(play, UUID::class.java))
         val identities = sql.select(INVITATION.STATE, inviter.USERNAME, recipient.USERNAME,
-            inviter.AVATAR_SCRYFALL_ID, inviter.AVATAR_FACE, recipient.AVATAR_SCRYFALL_ID, recipient.AVATAR_FACE).from(INVITATION)
+            inviter.AVATAR_SCRYFALL_ID, inviter.AVATAR_FACE, recipient.AVATAR_SCRYFALL_ID, recipient.AVATAR_FACE, seats).from(INVITATION)
             .join(inviter).on(inviter.ID.eq(game.inviterId)).join(recipient).on(recipient.ID.eq(game.recipientId))
             .where(INVITATION.ID.eq(game.currentInvitation)).fetchSingle()
+        val engine = identities.value8()?.split(",")?.map { it.substringBefore(":") to (it.substringAfter(":") == "true") }
+        val holder = if (engine == null) attentionHolder
+            else engine.firstOrNull { it.first == viewer.toString() && it.second }?.first ?: engine.firstOrNull { it.second }?.first
         return GameSummary(game.id.toString(), game.gameName!!, game.createdAt!!.toInstant().toString(),
             AccountIdentity(game.inviterId.toString(), identities.value2()!!,
                 identities[inviter.AVATAR_SCRYFALL_ID]?.let { Avatar(it.toString(), identities[inviter.AVATAR_FACE] ?: 0) }),
@@ -118,7 +125,7 @@ class LobbyService(private val runtime: ServiceRuntime) {
                 identities[recipient.AVATAR_SCRYFALL_ID]?.let { Avatar(it.toString(), identities[recipient.AVATAR_FACE] ?: 0) }), game.preparationRound.toString(),
             game.currentInvitation.toString(), InvitationState.valueOf(identities.value1()!!), GameLifecycle.valueOf(game.lifecycle!!),
             game.revision.toString(), game.currentPlay?.toString(),
-            attentionHolder,
+            holder,
             game.updatedAt!!.toInstant().toString(), game.podId?.toString(), game.podName, game.podInvitationHeld == true)
     }
 

@@ -201,7 +201,9 @@ internal object StateCompare {
         fun sorted(s: GameState, ids: List<ObjectId>) = ids.map { s.objOrThrow(it) }.sortedWith(Derived.order).map { it.id }
         fun check(what: String, a: Any?, b: Any?) { if (a != b) problems += "$what:\n    engine  $a\n    rebuilt $b" }
         for ((a, b) in expected.players.zip(rebuilt.players)) {
-            check("player ${a.id}", a, b)
+            // The engine's known library places (I-D56) live only within one call here: today's model keeps its own
+            // library layers, which the rebuilt state doesn't read back
+            check("player ${a.id}", a.copy(libraryPlaces = emptyMap()), b)
         }
         check("players", expected.players.map { it.id }, rebuilt.players.map { it.id })
         val ids = (expected.objects.keys + rebuilt.objects.keys)

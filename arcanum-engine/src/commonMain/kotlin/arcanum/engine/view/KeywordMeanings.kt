@@ -37,7 +37,10 @@ object KeywordMeanings {
     /** Keywords the engine applies in its own code rather than through abilities. */
     val engineCode: Set<KeywordKind> = setOf(Keyword.Phasing,
         // gtc: casting both halves of a split card (CR 702.102) is a way to cast it ([arcanum.engine.input.CastWay.fused])
-        Keyword.Fuse)
+        Keyword.Fuse,
+        // CR 702.143: foretelling is a special action the rules give a card in a hand that keeps it hidden, and casting it
+        // a permission the rules give its owner (arcanum.engine.foretell.Foretell)
+        Keyword.Foretell.Kind)
 
     /** The abilities [keyword] stands for; empty for [engineCode] keywords and those with no rules meaning. */
     fun expand(keyword: Keyword): List<Ability> =

@@ -84,7 +84,20 @@ data class TurnState(
     // sos
     /** One entry for each turn a player will skip: their next turns that don't happen (CR 614.10, "skips their next X turns"). */
     val skippedTurns: List<PlayerId> = emptyList(),
+    /** Control of players waiting for their next turn (or combat phase), oldest first (CR 723.1, 723.1a, b): each waits until
+     * that player actually takes a turn. */
+    val controlNext: List<PlayerControl> = emptyList(),
+    /** The player controlled during this turn (CR 723.1: the whole turn, until the next one begins) or its combat phase
+     * (723.2), and by whom. */
+    val controlled: PlayerControl? = null,
 )
+
+/**
+ * [controller] controls [player] (CR 723): makes every choice and decision [player] is allowed or told to make, seeing what
+ * they could see (723.4, 723.5), during [player]'s next turn, or only its combat phase when [combatOnly] (723.2).
+ */
+@Serializable
+data class PlayerControl(val player: PlayerId, val controller: PlayerId, val combatOnly: Boolean = false)
 
 /** Who has priority and how many players in a row have passed (CR 117, D57). Null holder: nobody (untap, cleanup). */
 @Serializable

@@ -616,6 +616,12 @@ internal object Payment {
         val leftover = mutableListOf<Step>()
         var self = plan.sourceId
         countActivation(recorder, self, plan.origin!!, loyalty = false)
+        // CR 702.143a: foretelling exiles the card face down
+        if (arcanum.engine.foretell.Foretell.isForetell(plan.origin)) {
+            arcanum.engine.foretell.Foretell.exile(act, costCause(plan), self)
+            Casting.keepPriority(recorder, plan.player)
+            return Progress.Done
+        }
         action.instructions.steps.forEach { step ->
             val effect = (step as? Step.Do)?.effect
             when {

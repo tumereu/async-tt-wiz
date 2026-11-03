@@ -155,7 +155,9 @@ internal object Legality {
         if (during != null && (snap.state.turn.active != player || snap.state.turn.step != during)) return "only during your $during step (CR 702.190a)"
         if (way.fused) cantFuse(o, way, fromHand, permission != null)?.let { return it }
         // CR 307.1, 702.8a: sorcery timing unless it's an instant or has flash
-        val instant = during != null || !faceDown && (CardType.Instant in types || chars?.hasKeyword(Keyword.Flash) == true ||
+        // A card cast from face down in exile (foretold, CR 406.3a) has its card's abilities
+        val flash = chars?.hasKeyword(Keyword.Flash) == true || o.faceDown && face.abilities.any { it == Keyword.Flash }
+        val instant = during != null || !faceDown && (CardType.Instant in types || flash ||
             snap.view[card]?.has { it is Mechanic.InstantSpeed } == true || castsAsThoughFlash(snap, player, card))
         if (!instant && !sorceryTiming(snap, player)) return "only as a sorcery: your main phase, empty Stack (CR 307.1)"
         restriction(snap, player, card)?.let { return it }
@@ -358,6 +360,7 @@ internal object Legality {
     fun instance(snap: Snapshot, id: ObjectId, origin: AbilityOrigin): AbilityInstance? =
         snap.view[id]?.characteristics?.abilities?.firstOrNull { it.origin == origin }
             ?: faceDownActions(snap, id).firstOrNull { it.origin == origin }
+            ?: arcanum.engine.foretell.Foretell.actions(snap.state, snap.view, id, forwarded = true).firstOrNull { it.origin == origin }
 
     /**
      * The special actions a face-down permanent's own card offers (CR 702.37e, 116.2b: turning it face up for its

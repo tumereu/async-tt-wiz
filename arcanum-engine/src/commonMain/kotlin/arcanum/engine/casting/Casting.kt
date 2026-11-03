@@ -83,7 +83,9 @@ internal object Casting {
     }
 
     fun activate(recorder: Recorder, input: Input.Activate, from: Int = recorder.changes.size): Progress {
-        fillPlayed(recorder, input, input.player, input.source, "activated")?.let { return it }
+        // CR 702.143a: foretelling keeps the card hidden, so a viewer's state takes it unknown (D60)
+        if (!arcanum.engine.foretell.Foretell.isForetell(input.ability))
+            fillPlayed(recorder, input, input.player, input.source, "activated")?.let { return it }
         val snap = recorder.snapshot()
         val instance = Legality.instance(snap, input.source, input.ability)
             ?: throw IllegalArgumentException("${input.source} has no ability ${input.ability.key}")

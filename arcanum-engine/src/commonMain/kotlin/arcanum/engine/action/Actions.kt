@@ -230,6 +230,9 @@ internal object Actions {
                 if (toBattlefield && before.zone == Zone.Stack && arcanum.engine.room.Rooms.isRoom(before.definition))
                     after = after.copy(marks = after.marks + arcanum.api.ObjectMark.Unlocked(arcanum.engine.room.Rooms.door(before.face)))
                 if (!toBattlefield && m.to != Zone.Stack) after = after.copy(controller = null)
+                // Marks it gets as it goes elsewhere than the battlefield (foretold: exiled face down, CR 702.143a)
+                if (!toBattlefield && m.marks.isNotEmpty()) after = after.copy(marks = (after.marks + m.marks).distinct(),
+                    facts = if (arcanum.api.ObjectMark.Foretold in m.marks) after.facts.copy(foretoldTurn = act.state.turn.number) else after.facts)
                 // D60: hidden from the viewer where it goes (an opponent's hand, face down), or put in a hidden random order
                 if (Knowledge.forgets(scratch, after)) after = Knowledge.forgotten(after)
                 if (m.newId != null && m.to == Zone.Library) after = Knowledge.forgotten(after).copy(id = m.newId)

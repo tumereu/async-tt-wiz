@@ -32,12 +32,14 @@ internal object Knowledge {
     fun public(o: GameObject): Boolean = o.zone in PUBLIC_ZONES && !o.faceDown
 
     /** Whether [player] may see what [o] is where it is: a public card, a card in their own hand or outside the game
-     * (CR 402.3), a face-down permanent or spell they control (CR 708.5); never a card in a library or exiled face down
-     * (CR 406.3: only where an ability lets them look, [lookable]). */
+     * (CR 402.3), a face-down permanent or spell they control (CR 708.5), a card they foretold (CR 702.143a); never a card in a
+     * library or otherwise exiled face down (CR 406.3: only where an ability lets them look, [lookable]). */
     fun mayKnow(o: GameObject, player: PlayerId): Boolean = when {
         public(o) -> true
         o.zone == Zone.Hand || o.zone == Zone.Outside -> o.owner == player
         o.faceDown && (o.zone == Zone.Battlefield || o.zone == Zone.Stack) -> (o.controller ?: o.owner) == player
+        // CR 702.143a: its owner may look at a foretold card
+        o.faceDown && arcanum.engine.foretell.Foretell.mayLook(o, player) -> true
         else -> false
     }
 
@@ -58,17 +60,25 @@ internal object Knowledge {
 
     /** Objects [player] may see the identity of now: public ones, their own hand and cards outside the game, face-down
      * cards they may look at, and cards a "you may look at" ability lets them look at (CR 401.5 cards such as "look at
-     * the top card of your library any time"); revealed ones ("play with the top card revealed") for everyone. */
-    fun visible(state: GameState, view: View, player: PlayerId): Set<ObjectId> =
+     * the top card of your library any time"); revealed ones ("play with the top card revealed") for everyone. While
+     * [player] controls another player, also what that player may see of objects in the game (CR 723.4: not their cards
+     * outside the game). */
+    fun visible(state: GameState, view: View, player: PlayerId): Set<ObjectId> {
+        val own = ownVisible(state, view, player)
+        val controlled = arcanum.engine.turn.Control.controlledBy(state, player) ?: return own
+        return own + ownVisible(state, view, controlled).filter { state.obj(it)?.zone != Zone.Outside }
+    }
+
+    private fun ownVisible(state: GameState, view: View, player: PlayerId): Set<ObjectId> =
         state.objects.values.filter { mayKnow(it, player) }.map { it.id }.toSet() +
             lookable(state, view).filter { (_, looker) -> looker == null || looker == player }.map { it.first }
 
-    /** Objects only [player] may see (I-D18): [visible] to them and not to some other player still in the game (their
+    /** Objects only [player] may see (I-D18): visible to them and not to some other player still in the game (their
      * hand and cards outside the game, face-down cards they control, cards only they may look at). Library cards nobody
-     * may look at aren't among them. */
+     * may look at aren't among them. What a controlling player sees of them (CR 723.4) doesn't count. */
     fun privateTo(state: GameState, view: View, player: PlayerId): Set<ObjectId> {
-        val others = state.players.filter { it.id != player && !it.lost }.map { visible(state, view, it.id) }
-        return visible(state, view, player).filter { id -> others.any { id !in it } }.toSet()
+        val others = state.players.filter { it.id != player && !it.lost }.map { ownVisible(state, view, it.id) }
+        return ownVisible(state, view, player).filter { id -> others.any { id !in it } }.toSet()
     }
 
     /** Cards a "you may look at … any time" ability lets a player look at (CR 401.5), with who may look (null: revealed

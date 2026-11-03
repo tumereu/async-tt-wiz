@@ -134,6 +134,8 @@ data class ObjectFacts(
     /** The sources of the mana spent to cast it, one entry per mana that had a source ("if mana from a Treasure was spent",
      * CR 106.3); read as they last existed once they have left. */
     val manaSources: List<ObjectId> = emptyList(),
+    /** The turn it was foretold in ([arcanum.api.ObjectMark.Foretold], CR 702.143a): castable for its foretell cost after it. */
+    val foretoldTurn: Int? = null,
 )
 
 /** Mana of one kind spent: a colour, or colourless when [color] is null. */

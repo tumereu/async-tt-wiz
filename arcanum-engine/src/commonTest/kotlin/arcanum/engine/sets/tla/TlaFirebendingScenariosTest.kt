@@ -227,9 +227,6 @@ class TlaFirebendingScenariosTest {
         alice.battlefield(bear, *Array(5) { "Mountain" })
         alice.hand(TlaSet.vardansComet)
         alice.casts(TlaSet.vardansComet)
-        // foretell is a by-hand keyword (no special action to foretell yet): the cast asks to apply it by hand
-        resolveAll()
-        if (pending is Decision.Manual) answer(Answer.Done)
         resolveAll()
         attackWith(bear)
         expect { red() shouldBe 5 }

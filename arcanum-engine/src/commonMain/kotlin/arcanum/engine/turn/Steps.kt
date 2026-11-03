@@ -160,11 +160,15 @@ internal object Steps {
             next = Priority.nextPlayer(s, next)
         }
         val number = s.turn.number + 1
+        // CR 723.1, 723.1a, b: control of the player whose turn actually begins applies to it, the last created winning; the
+        // control of the turn before ends as this one begins
+        val (taken, waiting) = s.turn.controlNext.partition { it.player == next }
         val turn = TurnState(
             number = number, active = next, step = TurnStep.Untap,
             turnStarted = s.turn.turnStarted + (next to number),
             extraTurns = if (extra != null) s.turn.extraTurns.drop(s.turn.extraTurns.indexOf(extra) + 1) else s.turn.extraTurns,
             skippedTurns = skipped,
+            controlNext = waiting, controlled = taken.lastOrNull(),
         )
         // CR 800.4m: players who left and whose turn would have begun now (passed over in turn order)
         val passedOver = if (extra == null) leftPlayersBetween(s, s.turn.active, next) else emptyList()

@@ -371,11 +371,17 @@ internal object Effects {
                 }
                 kinds.distinct().forEach { Actions.putCounters(act, cause, ref, it, 1) }
             }
-            // msh: CR 723: who makes a player's decisions is the host's; done by hand
-            is Effect.ControlNextTurn -> scope.players(effect.players).forEach { p ->
-                // tla: or only their next combat phase (CR 723.2)
-                act.manual(scope.actor, scope.self, if (effect.combatPhase) "You control ${p.value} during their next combat phase (CR 723.2)"
-                    else "You control ${p.value} during their next turn (CR 723)")
+            // msh: CR 723.1: control of a player during their next turn, waiting until they actually take one; the host asks
+            // Engine.decider who makes their decisions
+            is Effect.ControlNextTurn -> {
+                val controller = scope.players(effect.controller).firstOrNull() ?: return
+                scope.players(effect.players).forEach { p ->
+                    val control = arcanum.engine.state.PlayerControl(p, controller, combatOnly = effect.combatPhase)
+                    val turn = act.state.turn
+                    // tla: only their next combat phase (CR 723.2): this turn's when it is theirs and its combat is still to come
+                    val now = effect.combatPhase && turn.active == p && turn.step in BEFORE_COMBAT
+                    act.record(Changes.step(act.state, if (now) turn.copy(controlled = control) else turn.copy(controlNext = turn.controlNext + control)))
+                }
             }
             is Effect.PutCountersOf -> {
                 val board = scope.eval().board
@@ -1316,6 +1322,8 @@ internal object Effects {
         act.record(Change.Happened(GameEvent.Airbended(scope.actor)))
     }
 
+    private val BEFORE_COMBAT = setOf(arcanum.api.TurnStep.Untap, arcanum.api.TurnStep.Upkeep, arcanum.api.TurnStep.Draw,
+        arcanum.api.TurnStep.PrecombatMain)
     private const val POPULATED = "\$populated"
     private const val EXERTED = "\$exerted"
 }

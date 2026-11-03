@@ -27,7 +27,7 @@ object AutomatumSupport {
     }
 
     /** Effects the engine always hands to the players (its `manual` calls outside Manual steps). */
-    private val manualEffects = setOf("skip-next-turn", "control-next-turn", "support")
+    private val manualEffects = setOf("support")
 
     /** Whether [definition] has any part Automatum leaves to the players. */
     fun byHand(definition: CardDefinition): Boolean = handParts(definition).isNotEmpty()

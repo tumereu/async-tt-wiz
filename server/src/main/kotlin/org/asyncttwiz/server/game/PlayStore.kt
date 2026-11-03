@@ -53,7 +53,7 @@ internal object PlayStore {
         return change.reason
     }
 
-    fun start(sql: DSLContext, game: GameSummary, preparation: LobbyPreparation, requestId: String) {
+    fun start(sql: DSLContext, game: GameSummary, preparation: LobbyPreparation, requestId: String): PlayState {
         check(StartRules.canStart(game, preparation))
         val state = StartRules.initialize(game, preparation, requestId,
             preparation.players.associate { it.accountId to seed() },
@@ -67,5 +67,6 @@ internal object PlayStore {
         GameplayStore().initialize(sql, state)
         sql.update(GAME).set(GAME.LIFECYCLE, "ACTIVE").set(GAME.CURRENT_PLAY, id)
             .where(GAME.ID.eq(UUID.fromString(game.id))).and(GAME.CURRENT_PLAY.isNull).execute().also { check(it == 1) }
+        return state
     }
 }

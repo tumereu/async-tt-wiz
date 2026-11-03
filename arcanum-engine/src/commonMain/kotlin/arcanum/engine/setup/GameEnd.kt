@@ -121,6 +121,33 @@ internal object GameEnd {
         return Outcome(recorder.changes.toList(), waiting)
     }
 
+    /**
+     * [Input.AgreedResult]: the players still in the game end it as they agreed, at once (CR 104.1). An open decision is
+     * dropped, an open cast or activation cancelled first (CR 601.2). A draw: every remaining player leaves together
+     * (CR 104.4i, 104.4a); a win: every other remaining player concedes (CR 104.3a), so the winner is the only one left
+     * (CR 104.2a).
+     */
+    fun agree(state: GameState, input: Input.AgreedResult): Outcome {
+        val recorder = Recorder(state.deepCopy())
+        val s = recorder.state
+        require(s.players.size >= 2) { "A game of one player has no result to agree on" }
+        val left = s.players.filterNot { it.lost }.map { it.id }
+        val result = input.result
+        if (result is GameResult.Won) require(result.winner in left) { "${result.winner} isn't in the game" }
+        s.pending?.let { open ->
+            recorder.record(Changes.pending(s, null))
+            (open.continuation as? Continuation.Announcing)?.let { Casting.cancel(recorder, it, it.player) }
+        }
+        recorder.record(Change.Happened(GameEvent.ResultAgreed(result)))
+        val leaving = if (result is GameResult.Won) left - result.winner else left
+        leaving.forEach { player ->
+            if (result is GameResult.Won) recorder.record(Change.Happened(GameEvent.Conceded(player)))
+            recorder.record(Change.Lost(player, false, true))
+        }
+        close(recorder)
+        return Outcome(recorder.changes.toList(), null)
+    }
+
     /** An open flow can go on unless the Stack item it resolves has left the game. */
     private fun stillOpen(s: GameState, c: Continuation): Boolean =
         c !is Continuation.Resolving || c.item in s.stackItems || (c.left != null && !s.player(c.left.controller).lost)

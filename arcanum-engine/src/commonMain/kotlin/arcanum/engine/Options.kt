@@ -56,7 +56,7 @@ internal object Options {
         // CR 104.1, 800.4a: nothing to do once the game is over or the player has left it
         if (arcanum.engine.setup.GameEnd.over(state) || state.player(player).lost) return emptyList()
         val snap = Snapshot(state)
-        state.pending?.let { return answers(snap, it, player) }
+        state.pending?.let { return answers(snap, it, player) + arcanum.engine.setup.Setup.earlyAnswers(state, it, player) }
         // CR 103: a game made by Engine.newGame starts with Input.StartGame
         if (!state.started) return listOf(Input.StartGame())
         if (Combat.waitingForDeclaration(state)) return declarations(snap, player)

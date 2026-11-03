@@ -37,6 +37,8 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
     private val json = GameWire.json
     private val lobby = LobbyService(runtime)
     private val gameplayStore = GameplayStore()
+    /** I-D54 phase 3: plays whose state is the engine's (none unless [engineSeats] starts them). */
+    private val engineGames = EngineGames()
     internal fun evictExpiredBaselines() = gameplayStore.evictExpiredExports()
     private fun uuid(value: String): UUID {
         if (!DeckValidation.uuid(value)) throw GameProtocolFailure("invalidInput")
@@ -172,11 +174,15 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
     /** [game] is the row locked by this transaction: the play is read (and checked) once, for the summary too. */
     private fun readHead(sql: DSLContext, principal: AccountService.Principal, gameId: String, game: GameRecord): GameHead {
         val play = PlayStore.read(sql, game.id!!)
-        val summary = lobby.summary(sql, game, if (game.lifecycle == "ACTIVE") play?.board?.effectiveAttentionHolder else null)
+        // I-D54: a play whose state is the engine's says whose move it is from the engine
+        val engine = game.currentPlay?.takeIf { game.lifecycle == "ACTIVE" && engineGames.mayExist(sql) }?.let { engineGames.snapshot(sql, it) }
+        val summary = lobby.summary(sql, game, if (game.lifecycle != "ACTIVE") null
+            else if (engine != null) engine.second else play?.board?.effectiveAttentionHolder)
         return GameHead(gameId, summary.revision, summary, preparation =
             if (play == null && canReadPreparation(summary, principal.account.accountId)) PreparationStore.read(sql, summary) else null,
             play = play, retainedTreeRequired = play != null, chatSync = ChatStore.sync(sql, uuid(gameId)), boundedEndpoint = true,
-            ownPodDeckName = PreparationStore.ownPodDeckName(sql, uuid(gameId), actor(principal)))
+            ownPodDeckName = PreparationStore.ownPodDeckName(sql, uuid(gameId), actor(principal)),
+            engine = engine?.first)
     }
     /** Snapshot export and original-outcome lookup are independent of the incremental delivery window. */
     fun baseline(principal: AccountService.Principal, gameId: String, ids: List<String>): GameplayManifest {
@@ -259,6 +265,7 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
 
     internal fun executeOne(listener: org.jooq.ExecuteListener?): Boolean {
         var committedTree: Pair<Long, GameplayTree>? = null
+        var committedEngine: EngineGames.Accepted? = null
         val executed = transaction { context ->
         val sql = if (listener == null) context else DSL.using(context.configuration().derive(listener))
         val game = sql.selectFrom(GAME).where(DSL.exists(sql.selectOne().from(GAME_INBOX)
@@ -282,6 +289,7 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
         var createdMutation: GameplayMutation? = null
         var batchMutations: List<GameplayMutation> = emptyList()
         var insertedChat: ChatMessage? = null
+        var engineAccepted: EngineGames.Accepted? = null
         val gameplay = if (reordersStack(command)) GameplayTreeChange(reason = "stackReorderingRemoved")
         else if (isGameplay) {
             val tree = if (game.lifecycle == "ACTIVE") gameplayStore.readCurrent(sql, game) else null
@@ -309,6 +317,8 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
             GameAction.Concede -> applyConcession(sql, game, inbox.accountId.toString(), command, Math.addExact(before, 1))
                 .also { (_, next) -> next?.let { committedTree = Math.addExact(before, 1) to it } }.first
             GameAction.DeleteGame -> applyDeletion(sql, game, command)
+            is GameAction.Submit -> applySubmission(sql, game, inbox.accountId!!, command.action as GameAction.Submit).let { (reason, accepted) ->
+                engineAccepted = accepted; reason }
             is GameAction.SendChat -> ChatStore.apply(sql, game, inbox.accountId!!, command).also { insertedChat = it.message }.reason
             GameAction.CancelSetup -> applyCancellation(sql, game, inbox.accountId!!, command)
             is GameAction.SelectDeck -> applySelection(sql, game, inbox.accountId!!, command)
@@ -331,17 +341,21 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
                 .where(GAME.ID.eq(game.id)).execute()
             val next = gameplay?.tree
             val reducedPlay = next?.stateAt(next.currentNodeId)
+            val engine = engineAccepted
             val summary = if (reducedPlay != null) {
                 game.revision = revision; game.updatedAt = updatedAt
                 lobby.summary(sql, game, reducedPlay.board.effectiveAttentionHolder)
+            } else if (engine != null) {
+                game.revision = revision; game.updatedAt = updatedAt
+                lobby.summary(sql, game, engine.attention)
             } else lobby.summary(sql, game.id!!)
             val play = reducedPlay ?: if (summary.lifecycle == GameLifecycle.ACTIVE) PlayStore.read(sql, game.id!!) else null
             update = GameRevision(game.id.toString(), before.toString(), revision.toString(), command.requestId,
                 inbox.accountId.toString(), command.scope, summary,
                 if (summary.lifecycle == GameLifecycle.LOBBY) PreparationStore.read(sql, summary) else null,
-                if (gameplay == null && command.action !is GameAction.SendChat) play else null, mutation,
+                if (gameplay == null && command.action !is GameAction.SendChat && engine == null) play else null, mutation,
                 if (mutation != null) play?.currentGroup else null,
-                insertedChat, treeDelta)
+                insertedChat, treeDelta, engineEvent = engine?.encoded)
             encodedUpdate = GameWire.encode(update)
             sql.insertInto(GAME_REVISION).set(GAME_REVISION.GAME_ID, game.id).set(GAME_REVISION.REVISION, revision)
                 .set(GAME_REVISION.PAYLOAD, encodedUpdate).execute()
@@ -385,7 +399,7 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
                 org.asyncttwiz.server.activity.ActivityService.record(sql, opponent, ActivityKind.GAME,
                     game.id!!, uuid(command.requestId), inbox.accountId)
             }
-            if (isGameplay && mutation == null && batchMutations.isEmpty()) {
+            if ((isGameplay && mutation == null && batchMutations.isEmpty()) || engine != null) {
                 val opponent = if (inbox.accountId == game.inviterId) game.recipientId!! else game.inviterId!!
                 org.asyncttwiz.server.activity.ActivityService.record(sql, opponent, ActivityKind.GAME,
                     game.id!!, uuid(command.requestId), inbox.accountId, yourMove = summary.attentionHolder == opponent.toString(), move = true,
@@ -409,6 +423,7 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
                 it.accountId == inbox.accountId.toString() }.deck!!.let { listOf(it.id) }
             else -> emptyList()
         }
+        if (revision != null) committedEngine = engineAccepted
         val result = GameResult(command.requestId, command.scope, gameplay?.outcome ?: if (rejection == null) "accepted" else "rejected",
             rejection, inbox.ingressOrdinal.toString(), revision?.toString(), created, mutation, gameplay?.targetId)
         val encoded = json.encodeToString(result)
@@ -426,6 +441,7 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
             // A poison request must not terminate a scheduled worker or retain tentative writes.
             context.connection { it.rollback(requestSavepoint) }
             committedTree = null
+            committedEngine = null
             reject(context, game.id!!, inbox, GameResult(command.requestId, command.scope, "rejected",
                 (failure as? GameProtocolFailure)?.code ?: "internalError", inbox.ingressOrdinal.toString()))
             org.slf4j.LoggerFactory.getLogger(GameService::class.java).error(
@@ -440,6 +456,7 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
         }
     }
         committedTree?.let { (revision, tree) -> gameplayStore.committed(revision, tree) }
+        committedEngine?.let(engineGames::committed)
         return executed
     }
 
@@ -451,6 +468,18 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
         sql.insertInto(GAME_OUTBOX).set(GAME_OUTBOX.GAME_ID, game).set(GAME_OUTBOX.ACCOUNT_ID, inbox.accountId)
             .set(GAME_OUTBOX.REQUEST_ID, inbox.requestId).set(GAME_OUTBOX.RESULT, GameWire.encode(result)).execute()
         return true
+    }
+
+    /** I-D54 phase 3 ([GameAction.Submit]): the reason [submission] is refused, or the event it made. */
+    private fun applySubmission(sql: DSLContext, game: GameRecord, account: UUID, submit: GameAction.Submit): Pair<String?, EngineGames.Accepted?> {
+        if (game.lifecycle != "ACTIVE") return "lifecycleEnded" to null
+        val play = game.currentPlay ?: return "lifecycleEnded" to null
+        return try {
+            val accepted = engineGames.submit(sql, play, account, submit.submission, submit.branch) ?: return "notEngineState" to null
+            null to accepted
+        } catch (refusal: org.asyncttwiz.protocol.game.Refusal) {
+            (if (refusal.reason == "stale") "stale" else "refusedByEngine") to null
+        }
     }
 
     /** CR 104.3a (I-D52, [GameAction.Concede]): [actor]'s loss is recorded on the live line ([GameResultRules.concession],
@@ -573,7 +602,14 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
         change.state?.let { preparation ->
             PreparationStore.saveReadiness(sql, account, preparation)
             if (command.action is GameAction.ShowDeck) DeckVisibilityStore.chosen(sql, game.id!!, account)
-            if (StartRules.canStart(summary, preparation)) PlayStore.start(sql, summary, preparation, command.requestId)
+            if (StartRules.canStart(summary, preparation)) {
+                val play = PlayStore.start(sql, summary, preparation, command.requestId)
+                // I-D54 (test seam until the switch-over): the play's state is the engine's; its first event starts the
+                // game. Not kept warm here: the transaction hasn't committed yet
+                engineSeats?.invoke(game.id!!)?.let { seats ->
+                    engineGames.start(sql, UUID.fromString(play.id), seats, arcanum.engine.state.PlayerId(play.starter.accountId), account)
+                }
+            }
         }
         return change.reason
     }

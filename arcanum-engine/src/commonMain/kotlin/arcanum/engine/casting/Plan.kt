@@ -427,6 +427,9 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
     val manaWays: List<ManaPaymentWay> = if (!isSpell) (ability as? Ability.Activated)?.rules?.payManaBy.orEmpty() else
         withGrantedAsSpell().flatMap { (it.ability as? Ability.Static)?.mechanics.orEmpty().filterIsInstance<Mechanic.PayManaBy>().map { m -> m.way } }
 
+    /** ecl: the permission it is cast with lets mana be spent as though it were mana of any type (CR 609.4b). */
+    val manaAsAnyColor: Boolean get() = permission?.first?.manaAsAnyColor == true
+
     /** "You can't spend mana to cast this spell": only its other ways pay (convoke, delve). */
     val cantSpendMana: Boolean = isSpell &&
         snap0Abilities().any { (it.ability as? Ability.Static)?.mechanics.orEmpty().any { m -> m == Mechanic.CantSpendMana } }
@@ -618,10 +621,11 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
         is Question.Player -> Decision.ChoosePlayer(id, player, sourceId, q.among)
         is Question.CostChoice -> Decision.ChooseSubtype(id, player, sourceId, (q.part.choice as? arcanum.api.Choice.CreatureTypeAmong)?.among)
         is Question.Pay -> if (cantSpendMana) {
-            Decision.ManaPayment(id, player, sourceId, q.cost, Mana.options(snap, player, q.cost, itemId, manaWays)
+            Decision.ManaPayment(id, player, sourceId, q.cost, Mana.options(snap, player, q.cost, itemId, manaWays, manaAsAnyColor)
                 .filter { it is ManaUse.Special || it is ManaUse.Life }, Mana.suggest(snap, player, q.cost, itemId, manaWays, canSpendMana = false))
         } else Decision.ManaPayment(id, player, sourceId, q.cost,
-            Mana.options(snap, player, q.cost, itemId, manaWays), Mana.suggest(snap, player, q.cost, itemId, manaWays))
+            Mana.options(snap, player, q.cost, itemId, manaWays, manaAsAnyColor),
+            Mana.suggest(snap, player, q.cost, itemId, manaWays, anyColor = manaAsAnyColor))
     }
 
     companion object {

@@ -77,7 +77,7 @@ class AutomatumCastScreenshotTest {
             covered = false, tapped = tapped, placement = PlayPlacement(BoardPosition(2 + n, 0), id)) }
         val cubCard = initial.board.cards.single { it.id == landId }.copy(id = cubId, definition = cub.submitted.digest, faceId = "cub")
         return initial.copy(definitions = initial.definitions + invented.map { it.submitted },
-            board = initial.board.copy(priority = MtgPriority(f.a),
+            board = initial.board.copy(automatum = true, priority = MtgPriority(f.a),
                 cards = initial.board.cards.map { when (it.id) {
                     sparkId -> it.copy(definition = spark.submitted.digest, faceId = "spark")
                     surgeId -> it.copy(definition = surge.submitted.digest, faceId = "surge")

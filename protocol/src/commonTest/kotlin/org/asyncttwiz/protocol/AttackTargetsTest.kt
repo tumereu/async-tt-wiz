@@ -64,7 +64,7 @@ class AttackTargetsTest {
         assertNotNull(GameplayHistory.apply(otherStep, event))
     }
 
-    @Test fun placementKeepingAPlayerTargetConcernsTheDefender() {
+    @Test fun placementKeepingAPlayerTargetAndDepartureFallbackConcernTheDefender() {
         val initial = declared()
         val area = initial.board.combat!!
         val place = exact(initial, PlayAction.Combat(CombatAction.Place(id(22),
@@ -72,6 +72,11 @@ class AttackTargetsTest {
         assertTrue(place.transition.concerns!!.fields.any { it.field == ConcernField.DefendingPlayer })
         val otherTurn = initial.copy(board = initial.board.copy(turn = initial.board.turn.copy(accountId = id(8))))
         assertNull(GameplayHistory.apply(otherTurn, place))
+        val targeted = exact(initial, retarget(initial, id(21))).state!!
+        val target = targeted.board.cards.single { it.id == id(21) }
+        val fallback = exact(targeted, PlayAction.MoveCard(target.id, MoveSource(target.containerId, target.placement),
+            MoveDestination(id(13), MoveInsertion.UNORDERED))).mutation!!
+        assertTrue(fallback.transition.concerns!!.fields.any { it.field == ConcernField.DefendingPlayer })
     }
 
     @Test fun setClearValidateAndReplayTargets() {
@@ -179,15 +184,16 @@ class AttackTargetsTest {
         assertEquals("inapplicable", CombatStackRules.change(ownBattle(original), id(7), command, rulesVersion = 27).reason)
     }
 
-    // CR 506.4c (I-D52, combat review #3): attackers keep a target that left the battlefield; they attack nothing
-    @Test fun targetDepartureKeepsTheTarget() {
+    @Test fun targetDepartureFallsBackInTheSameMoveAndExactInverseRestoresIt() {
         val original = declared()
         val targeted = exact(original, retarget(original, id(21))).state!!
         val target = targeted.board.cards.single { it.id == id(21) }
         val moved = exact(targeted, PlayAction.MoveCard(target.id, MoveSource(target.containerId, target.placement),
             MoveDestination(id(13), MoveInsertion.UNORDERED)))
-        assertEquals(id(21), moved.state!!.board.combat!!.pairs.single().attackTarget)
+        assertNull(moved.state!!.board.combat!!.pairs.single().attackTarget)
         assertEquals(targeted.board.combat!!.pairs.single().attackers, moved.state.board.combat.pairs.single().attackers)
+        assertTrue(moved.mutation!!.transition.concerns!!.fields.any { it.field == ConcernField.AttackTargetIncident(id(21)) })
+        assertNull(GameplayHistory.apply(original, moved.mutation))
     }
 
     @Test fun targetConcernIgnoresUnrelatedFieldsButProtectsTargetEligibilityAndPriorTarget() {

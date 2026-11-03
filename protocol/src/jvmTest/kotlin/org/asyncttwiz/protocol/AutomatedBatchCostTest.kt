@@ -41,7 +41,7 @@ class AutomatedBatchCostTest {
         }
         containers += PlayContainer(stack, PlayZone.STACK)
         return PlayState(id(1), id(2), id(3), id(4), PlayRoot(id(5), id(6)), id(5),
-            BoardState(listOf(PlayPlayer(a), PlayPlayer(b)), cards, containers, TurnState(a)),
+            BoardState(listOf(PlayPlayer(a), PlayPlayer(b)), cards, containers, TurnState(a), automatum = true),
             listOf(SubmittedDefinition(digest, definition)), emptyList(), InitialStarter(StarterChoice(a), a))
     }
 

@@ -47,7 +47,7 @@ class AutomatedBatchEquivalenceTest {
         }
         containers += PlayContainer(id(28), PlayZone.STACK)
         return PlayState(id(1), id(2), id(3), id(4), PlayRoot(id(5), id(6)), id(5),
-            BoardState(listOf(PlayPlayer(a), PlayPlayer(b)), cards, containers, TurnState(a)),
+            BoardState(listOf(PlayPlayer(a), PlayPlayer(b)), cards, containers, TurnState(a), automatum = true),
             listOf(SubmittedDefinition(digest, definition)), emptyList(), InitialStarter(StarterChoice(a), a))
     }
 
@@ -182,11 +182,10 @@ class AutomatedBatchEquivalenceTest {
     }
 
     private companion object {
-        /** Made by the reducer before the batch cost work (master df7258dd); made again when the board lost its
-         * Automatum switch (I-D52), which the boards' digests in the transcript held. */
-        val EXPECTED = listOf("4b399be52d89ed2aeeec425e4e23e234947d6d7c30f98610bb11763e15224f4a",
-            "5d3f44906f1ca333e7939629bb245ef024efccf99754736b54d24e173cc7e9f5",
-            "356ac874589fa2e65e8b8b025bf9a7bb5c01a1d378c53f1ea5356c9d47c6d423",
-            "7d32b4c4554ed14e9464e0aa60299e06ef335ac88e1ec0bd8c0d67f46416e818")
+        /** Made by the reducer before the batch cost work (master df7258dd). */
+        val EXPECTED = listOf("2af78688a8afe915acf783b6e36acd7b2be57387a721a10033f3ad929d705cfc",
+            "30e2044b67333e18a5fffee282d5081d0876520aebed61a8973ef5c2b13a1351",
+            "e7e8b2f46599264043e80f723b8d4a580079653b8debfb64570647d49506a255",
+            "157826222f4620c6588141ac42667a6c90a9e93b5d83bf24719975304ee6a5c0")
     }
 }

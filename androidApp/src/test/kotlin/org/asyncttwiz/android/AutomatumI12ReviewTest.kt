@@ -78,7 +78,7 @@ class AutomatumI12ReviewTest {
         val initial = f.initial
         val fieldCards = initial.board.cards.filter { it.containerId == field }.map { it.id }
         return initial.copy(definitions = initial.definitions + invented.map { it.submitted },
-            board = initial.board.copy(priority = MtgPriority(f.a), cards = initial.board.cards.map { card ->
+            board = initial.board.copy(automatum = true, priority = MtgPriority(f.a), cards = initial.board.cards.map { card ->
                 val h = hand.indexOf(card.id).takeIf { it in inHand.indices }?.let(inHand::get)
                 val b = fieldCards.indexOf(card.id).takeIf { it in onField.indices }?.let(onField::get)
                 when {

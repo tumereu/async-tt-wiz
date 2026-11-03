@@ -14,7 +14,7 @@ class AutomatumFlowTest {
 
     private fun base(): PlayState = gameplayFixture().withBattlefieldCards(gameplayId(10), gameplayId(11))
     /** [base] with Automatum on: automated (tagged) events apply only then (SYS-057). */
-    private fun on(): PlayState = base().let { it.copy(board = it.board) }
+    private fun on(): PlayState = base().let { it.copy(board = it.board.copy(automatum = true)) }
     private fun card(state: PlayState, n: Int) = state.board.cards.single { it.id == gameplayId(n) }
     private fun command(action: GameAction) = GameCommand(gameplayId(request++), GameScope(gameplayId(1), playId = gameplayId(2)),
         action, gameplayId(80), "1")

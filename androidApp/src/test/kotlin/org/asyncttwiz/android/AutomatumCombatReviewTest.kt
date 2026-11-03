@@ -95,7 +95,7 @@ class AutomatumCombatReviewTest {
         assertEquals(aliceField.size + bobField.size, roles.size, "the fixture has room for the cards")
         val dropped = initial.board.cards.filter { it.containerId in setOf(aField, bField, aHand, bHand) && it.id !in roles }.map { it.id }.toSet()
         return initial.copy(definitions = initial.definitions + all.map { it.submitted },
-            board = initial.board.copy(priority = priority,
+            board = initial.board.copy(automatum = true, priority = priority,
                 turn = TurnState(f.a, "3", position.phase, position.step),
                 cards = initial.board.cards.filter { it.id !in dropped }.map { card -> roles[card.id]?.let { what ->
                     card.copy(definition = what.submitted.digest, faceId = what.face.faceId, corner = what.face.corner, tapped = false,

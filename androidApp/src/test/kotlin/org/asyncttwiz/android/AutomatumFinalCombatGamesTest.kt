@@ -129,7 +129,7 @@ class AutomatumFinalCombatGamesTest {
         for (library in initial.board.containers.filter { it.zone == PlayZone.LIBRARY }) for (id in library.cards) keep[id] = deck()
         val owner = { card: PlayCard -> initial.board.containers.single { c -> c.id == card.containerId }.accountId ?: card.owner }
         return initial.copy(definitions = initial.definitions + all.map { it.submitted },
-            board = initial.board.copy(priority = MtgPriority(f.a),
+            board = initial.board.copy(automatum = true, priority = MtgPriority(f.a),
                 turn = TurnState(f.a, "3", TurnPosition.PRECOMBAT_MAIN.phase, TurnPosition.PRECOMBAT_MAIN.step),
                 cards = initial.board.cards.filter { it.id in keep }.map { card -> keep.getValue(card.id).let { w ->
                     card.copy(owner = owner(card), definition = w.submitted.digest, faceId = w.face.faceId, corner = w.face.corner, tapped = false,

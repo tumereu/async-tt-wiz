@@ -34,7 +34,7 @@ class ComputedBoardTest {
             controller = PlayerId(table.alice), timestamp = timestamp, createdTurn = 1, duration = duration))
 
     private fun board(vararg records: EngineRecord, edit: (PlayState) -> PlayState = { it }): PlayState = table.state().let { s ->
-        edit(s.copy(board = s.board.copy(engineRecords = records.toList(), cards = s.board.cards.map { card ->
+        edit(s.copy(board = s.board.copy(automatum = true, engineRecords = records.toList(), cards = s.board.cards.map { card ->
             when (card.id) {
                 hierophant -> card.copy(timestamp = 1)
                 seer -> card.copy(timestamp = 2, typedCounters = listOf(TypedCounter("+1/+1", 2, 3)))

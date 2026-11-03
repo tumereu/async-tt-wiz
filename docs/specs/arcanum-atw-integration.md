@@ -522,8 +522,8 @@ out of anything stuck.
   ZON-002, ZON-004, ZON-007, ZON-011, ZON-077, TBL-025, TBL-026, TBL-032, TBL-056, TBL-071, TBL-115, TBL-116, TBL-118,
   SYS-069, HIS-078, TRN-010, TRN-030, TRN-034, TRN-035, TRN-039, TRN-044, CMB-005, STK-009, STK-016, STK-019, STK-023,
   STK-035.
-- **Built (I-D52 P1, Automatum always on — protocol, server, engine, 2026-11-03):** the switch is gone: `BoardState.automatum`
-  (left as an always-true getter until the app's manual paths go), `MtgAction.SetAutomatum`/`ClearRecords`,
+- **Built (I-D52 P1, Automatum always on — protocol, server, engine, 2026-11-03):** the switch is gone (`BoardState.automatum` stays,
+  set on every play the server starts and changed by no event, until the app's manual paths that read it go), `MtgAction.SetAutomatum`/`ClearRecords`,
   `GameAction.RevertFlow`/`ExitFlow`, `FlowRevert`, `Automatum.closeFlow`/`turnOnRefusal`/`turnScoped`,
   `MtgFacts.stampUnstamped`, `EngineRecord.resolving`, `CreateInvitation.automatum`/`ChallengeFromPod.automatum` and
   `game.automatum`; the app's switch, its confirmation and hold panel ("Clear Automatum data", engine details) and the New

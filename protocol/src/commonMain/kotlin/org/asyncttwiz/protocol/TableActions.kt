@@ -107,7 +107,7 @@ object TableActions {
             // A passed step only moves forward inside this turn, but for Automatum's additional combat phase (CR 500.8:
             // the turn goes back to a beginning of combat after a combat or a main phase, finalreview-combat #1).
             if ((action as? PlayAction.ChooseStep)?.through == true && chosen.ordinal < position.ordinal &&
-                !(chosen == TurnPosition.BEGIN_COMBAT && position.ordinal > TurnPosition.BEGIN_COMBAT.ordinal))
+                !(board.automatum && chosen == TurnPosition.BEGIN_COMBAT && position.ordinal > TurnPosition.BEGIN_COMBAT.ordinal))
                 return reject("inapplicable")
             from.copy(phase = chosen.phase, step = chosen.step)
         }

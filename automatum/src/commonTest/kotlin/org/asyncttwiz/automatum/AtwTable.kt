@@ -69,7 +69,7 @@ internal class AtwTable(private val name: String = "table") {
             }
         } + PlayContainer(id("container/stack"), PlayZone.STACK)
         // Automatum on: its automated events apply only then (SYS-057)
-        val board = BoardState(players.map { PlayPlayer(it, fullControl = it in fullControl) }, cards.toList(), containers, turn, priority = priority)
+        val board = BoardState(players.map { PlayPlayer(it, fullControl = it in fullControl) }, cards.toList(), containers, turn, priority = priority, automatum = true)
         val definitionsList = submitted.values.sortedBy { it.digest }
         var state = PlayState(id("game"), id("play"), id("round"), id("start"), PlayRoot(id("root"), id("branch")), id("root"),
             board, definitionsList,

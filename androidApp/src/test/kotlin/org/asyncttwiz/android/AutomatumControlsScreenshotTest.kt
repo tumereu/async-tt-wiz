@@ -74,7 +74,7 @@ class AutomatumControlsScreenshotTest {
             forests.take(lands).mapIndexed { n, id -> PlayCard(id, forest.submitted.digest, f.a, field, "forest", covered = false,
                 placement = PlayPlacement(BoardPosition(3 + n, 0), id)) }
         return initial.copy(definitions = initial.definitions + invented.map { it.submitted },
-            board = initial.board.copy(priority = MtgPriority(f.a),
+            board = initial.board.copy(automatum = true, priority = MtgPriority(f.a),
                 cards = initial.board.cards.map { when (it.id) {
                     sparkId -> it.copy(definition = spark.submitted.digest, faceId = "spark")
                     in others -> it.copy(definition = mountain.submitted.digest, faceId = "mountain", tapped = true, corner = "")
@@ -331,7 +331,7 @@ class AutomatumControlsScreenshotTest {
     // Note, Ping or text marks either); with it off all are there
     @Test fun stackOffersNoManualMoves() {
         val off = f.combat()
-        val on = off.copy(board = off.board)
+        val on = off.copy(board = off.board.copy(automatum = true))
         val entry = f.id("effect")
         fun shown(play: PlayState) = TablePresentation.stackBubbles(
             TablePresentation.scene(f.game, play, f.a, 412f, 892f, false), play, entry, 412f, 892f)

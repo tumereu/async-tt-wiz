@@ -82,7 +82,7 @@ class AutomatumPauseReviewTest {
         val dropped = initial.board.cards.filter { (it.containerId == aHand || it.containerId == bHand) && it.id !in kept }.map { it.id }.toSet()
         val assigned = aCards + bCards + aLand + bLand
         return initial.copy(definitions = initial.definitions + all.map { it.submitted },
-            board = initial.board.copy(priority = MtgPriority(f.a),
+            board = initial.board.copy(automatum = true, priority = MtgPriority(f.a),
                 players = initial.board.players.map { it.copy(fullControl = it.accountId in fullControl) },
                 cards = initial.board.cards.filter { it.id !in dropped }.map { card -> assigned[card.id]?.let { what ->
                     card.copy(definition = what.submitted.digest, faceId = what.face.faceId, corner = "", tapped = false) } ?: card },
@@ -527,7 +527,7 @@ class AutomatumPauseReviewTest {
         for (library in initial.board.containers.filter { it.zone == PlayZone.LIBRARY }) for (id in library.cards)
             keep[id] = if (random.nextBoolean()) spark else mountain
         return initial.copy(definitions = initial.definitions + all.map { it.submitted },
-            board = initial.board.copy(priority = MtgPriority(f.a),
+            board = initial.board.copy(automatum = true, priority = MtgPriority(f.a),
                 cards = initial.board.cards.filter { it.id in keep }.map { card -> keep.getValue(card.id).let { what ->
                     card.copy(owner = initial.board.containers.single { c -> c.id == card.containerId }.accountId ?: card.owner, definition = what.submitted.digest, faceId = what.face.faceId, corner = "", tapped = false) } },
                 containers = initial.board.containers.map { it.copy(cards = it.cards.filter { id -> id in keep }) }.map {

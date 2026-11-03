@@ -344,6 +344,12 @@ internal object Resolution {
             })
             return
         }
+        // tdm: CR 720.3d: a resolving Omen spell is shuffled into its owner's library instead
+        if (!fizzled && card.definition?.layout == arcanum.api.Layout.Omen && card.face == 1) {
+            Actions.move(act, null, listOf(PlannedMove(item.id, Zone.Library, meanings = listOf(meaning))))
+            Actions.shuffle(act, card.owner)
+            return
+        }
         Actions.move(act, null, listOf(PlannedMove(item.id, leavesTo(act, item), meanings = listOf(meaning))))
     }
 

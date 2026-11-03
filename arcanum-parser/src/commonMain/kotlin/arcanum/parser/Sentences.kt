@@ -1232,6 +1232,12 @@ internal class Sentences(
             // dsk chunk 13: "if a land entered … this turn and you control a prime number of lands"
             else conditionWithAnd(it.groupValues[1]) ?: return null
         }
+            .let { c ->
+                // tdm chunk 11: "Whenever a creature you control enters, if you cast it, …": it is the creature that entered (CR 603.4)
+                val enters = trigger.events.singleOrNull() as? EventPattern.ZoneChange
+                if (c == arcanum.api.Condition.CastFrom(null, Objects.Self) && enters != null && enters.to == Zone.Battlefield && enters.objects != ObjectFilter.Is(Objects.Self))
+                    arcanum.api.Condition.CastFrom(null, Objects.EventObject(EventRole.After)) else c
+            }
         // chunk 25: "it"/"them" in the effect: the event's object, or the objects the condition is about;
         // chunk 20: "that creature" is the event's object
         val about = (interveningIf as? arcanum.api.Condition.ObjectMatches)
@@ -18233,7 +18239,8 @@ internal class Sentences(
         // tdm chunk 10: "search your library for a black card, a green card, and a blue card. Put those cards into your graveyard, then shuffle."
         Tdm.SEARCH_COLORS_INTO_GRAVEYARD.matchEntire(text)?.let { m ->
             val colors = (1..3).map { Tokens.color(m.groupValues[it]) ?: return null }
-            return colors.mapIndexed { i, c -> Step.Do(Effect.Search(Players.You, ObjectFilter.OfColor(c), Value.Fixed(1), zones = listOf(Zone.Library),
+            return colors.mapIndexed { i, c -> Step.Do(Effect.Search(Players.You, (1..i).fold(ObjectFilter.OfColor(c) as ObjectFilter) { f, k ->
+                Filters.all(f, ObjectFilter.Not(ObjectFilter.Is(Objects.Bound("found$k")))) }, Value.Fixed(1), zones = listOf(Zone.Library),
                 bind = "found${i + 1}", searcher = Players.You)) } +
                 colors.indices.map { i -> Step.Do(Effect.Move(Objects.Bound("found${i + 1}"), Destination(Zone.Graveyard))) } + Step.Do(Effect.Shuffle(Players.You))
         }
@@ -18241,7 +18248,7 @@ internal class Sentences(
         Tdm.MAY_DISCARD_HAND_DRAW_EQUAL.matchEntire(text)?.let { m ->
             val amount = Values.value(m.groupValues[1]) ?: return null
             val hand = Objects.Each(Filters.all(ObjectFilter.InZone(Zone.Hand), ObjectFilter.OwnedBy(PlayerFilter.You)))
-            return listOf(Step.Pay(steps = listOf(Step.Do(Effect.Discard(Players.You, Value.Count(hand), ObjectFilter.Any, objects = hand))),
+            return listOf(Step.Pay(steps = listOf(Step.Do(Effect.Discard(Players.You, Value.Fixed(1), ObjectFilter.Any, objects = hand))),
                 payer = Players.You, bind = "discarded"),
                 Step.If(arcanum.api.Condition.Did("discarded"), listOf(Step.Do(Effect.Draw(Players.You, amount)))))
         }
@@ -18336,7 +18343,7 @@ internal class Sentences(
             val exiled = exiledCard ?: return null
             return listOf(Step.ForEach(arcanum.api.Each.Players(Players.Each(PlayerFilter.Opponent)), "opponent", listOf(
                 Step.Do(Effect.CreateToken(arcanum.api.TokenSpec.CopyOf(exiled), Value.Fixed(1), Players.You, tapped = true,
-                    attacking = arcanum.api.AttackTarget.These(Recipients(players = Players.Bound("opponent"))), bind = "tokens")))),
+                    attacking = arcanum.api.AttackTarget.These(Recipients(players = Players.Bound("opponent"))), bind = "tokens"))), together = true),
                 Step.Do(Effect.CreateDelayedTrigger(arcanum.api.Trigger.On(EventPattern.StepBegins(arcanum.api.TurnStep.End, PlayerFilter.You)),
                     Instructions(steps = listOf(Step.Do(Effect.Sacrifice(Objects.Bound("tokens"))))))))
         }
@@ -18388,8 +18395,13 @@ internal class Sentences(
         }
         // tdm chunk 14: New Way Forward (CR 615.7, 603.12)
         Tdm.NEXT_TIME_SOURCE_OF_CHOICE_PREVENT_REFLECT.matchEntire(text)?.takeIf { isSelf(it.groupValues[1]) }?.let {
+            val source = Objects.Bound("source")
+            val reflexive = Instructions(steps = listOf(Step.Do(Effect.ReflexiveTrigger(Instructions(steps = listOf(
+                Step.Do(Effect.DealDamage(Recipients(players = Players.ControllerOf(source)), Value.EventAmount, Objects.Self)),
+                Step.Do(Effect.Draw(Players.You, Value.EventAmount))))))))
             return listOf(Step.Choose(arcanum.api.Choice.Objects(ObjectFilter.Any, Value.Fixed(1), Value.Fixed(1)), bind = "source", chooser = Players.You),
-                Step.Do(Effect.PreventDamage(Recipients(players = Players.You), Value.EventAmount, ObjectFilter.Is(Objects.Bound("source")), arcanum.api.Duration.EndOfTurn)))
+                Step.Do(Effect.ApplyMechanics(listOf(Mechanic.Prevention(EventPattern.Damage(ObjectFilter.Is(source), RecipientFilter(players = PlayerFilter.You)),
+                    additional = reflexive)), null, arcanum.api.Duration.EndOfTurn, uses = 1)))
         }
         return null
     }
@@ -18422,6 +18434,29 @@ internal class Sentences(
                 Step.Choose(arcanum.api.Choice.Objects(tdmInGraveyard(ObjectFilter.Category(arcanum.api.ObjectCategory.Card)), Value.Fixed(n), Value.Fixed(n)), bind = "chosen",
                     chooser = Players.You),
                 Step.Do(Effect.Move(Objects.Bound("chosen"), Destination(Zone.Library, libraryPosition = 0)))))
+        }
+        // tdm chunk 06: "You may attach this Equipment to it." after creating a token: the token (CR 301.5)
+        Tdm.MAY_ATTACH_SELF_TO_IT.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let {
+            val create = (steps.lastOrNull() as? Step.Do)?.effect as? Effect.CreateToken ?: return@let
+            val bind = create.bind ?: "token"
+            return steps.dropLast(1) + Step.Do(create.copy(bind = bind)) +
+                Step.May(listOf(Step.Do(Effect.Attach(Objects.Self, Recipients(objects = Objects.Bound(bind))))), player = Players.You)
+        }
+        // tdm chunk 09: "Put a +1/+1 counter on each of those creatures." after returning cards to the battlefield: the permanents they became
+        // (CR 400.7)
+        Tdm.COUNTER_ON_EACH_OF_THOSE.matchEntire(sentence)?.let { m ->
+            val move = (steps.lastOrNull() as? Step.Do)?.effect as? Effect.Move ?: return@let
+            if (move.to.zone != Zone.Battlefield) return@let
+            val bind = move.postBind ?: "returned"
+            return steps.dropLast(1) + Step.Do(move.copy(postBind = bind)) + Step.Do(Effect.PutCounters(Objects.Bound(bind), Counters.kind(m.groupValues[1]) ?: return null, Value.Fixed(1)))
+        }
+        // tdm chunk 09: "If it was a token, draw a card." after returning a permanent to its hand: the permanent as it last existed (CR 608.2h)
+        Tdm.IF_IT_WAS_A_TOKEN.matchEntire(sentence)?.let { m ->
+            val move = (steps.lastOrNull() as? Step.Do)?.effect as? Effect.Move ?: return@let
+            val bind = move.preBind ?: "returned"
+            val then = instructions(m.groupValues[1].replaceFirstChar { it.uppercase() } + ".") ?: return null
+            return steps.dropLast(1) + Step.Do(move.copy(preBind = bind)) +
+                Step.If(arcanum.api.Condition.ObjectMatches(Objects.Bound(bind), ObjectFilter.Category(arcanum.api.ObjectCategory.Token)), then = then.steps)
         }
         // tdm chunk 11: "It gains lifelink and haste until end of turn." after creating a token
         Tdm.CREATE_IT_GAINS_UNTIL_EOT.matchEntire(sentence)?.let { m ->
@@ -18611,7 +18646,7 @@ internal class Sentences(
         // tdm chunk 14: "each opponent loses half their life, rounded up" (CR 107.1a)
         Tdm.EACH_OPPONENT_LOSES_HALF.matchEntire(sentence)?.let { m ->
             return listOf(Step.ForEach(arcanum.api.Each.Players(Players.Each(PlayerFilter.Opponent)), "opponent", listOf(Step.Do(Effect.LoseLife(Players.Bound("opponent"),
-                Value.Half(Value.LifeOf(Players.Bound("opponent")), roundUp = m.groupValues[1] == "up"))))))
+                Value.Half(Value.LifeOf(Players.Bound("opponent")), roundUp = m.groupValues[1] == "up")))), together = true))
         }
         // tdm chunk 13: "Copy this spell." (CR 707.10)
         Tdm.COPY_THIS_SPELL.matchEntire(sentence)?.let {

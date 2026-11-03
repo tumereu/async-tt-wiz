@@ -230,11 +230,20 @@ internal object Tdm {
     val COUNTER_IS_PUT_ON = Regex("""(an? counter is|one or more counters are) put on (.+)""")
     // tdm chunk 14: "each opponent loses half their life, rounded up"
     val EACH_OPPONENT_LOSES_HALF = Regex("""[Ee]ach opponent loses half their life, rounded (up|down)\.""")
+    // tdm chunk 06: "You may attach this Equipment to it." after a token is created
+    val MAY_ATTACH_SELF_TO_IT = Regex("""You may attach (.+) to it\.""")
+    // tdm chunk 09: "Put a +1/+1 counter on each of those creatures."
+    val COUNTER_ON_EACH_OF_THOSE = Regex("""Put an? (\S+) counter on each of those creatures\.""")
+    // tdm chunk 09: "If it was a token, draw a card."
+    val IF_IT_WAS_A_TOKEN = Regex("""If it was a token, (.+)\.""")
     val DESTROY_ITS_CONTROLLER_SEARCHES = Regex("""[Dd]estroy target (.+?)\. Its controller searches their library for an? (.+?) card, puts it onto the battlefield tapped with an? (\S+) counter on it, then shuffles\.""")
 }
 
 /** tdm: nouns, conditions and values of Tarkir: Dragonstorm wordings, tried first by [Filters], [Conditions] and [Values]. */
 internal object TdmPhrases {
+    private val BASIC_TYPES_LIST = Regex("""basic ((?:[A-Z]\w+, )+)or ([A-Z]\w+)(?: cards?)?""")
+    private val NAMED_OR_NAMED = Regex("""cards? named (.+?) or (.+)""")
+    private val OR_A_SPELL_YOU_CONTROL = Regex("""(.+? you control) or an? (\w+) spell you control""")
     // tdm chunk 13: "permanent that's one or more colors" (not colorless, CR 105.2c)
     private val ONE_OR_MORE_COLORS = Regex("""(.+?) that's one or more colors""")
     // tdm chunk 04: "you've cast both a creature spell and a noncreature spell this turn"
@@ -245,6 +254,19 @@ internal object TdmPhrases {
     private val DIFFERENT_KINDS_OF_COUNTERS = Regex("""there are (\w+) or more different kinds of counters among (.+)""")
 
     fun noun(phrase: String): ObjectFilter? {
+        // tdm chunk 02: "basic Plains, Swamp, or Forest card": basic, and any of the land types (CR 205.4a)
+        BASIC_TYPES_LIST.matchEntire(phrase)?.let { m ->
+            val types = m.groupValues[1].removeSuffix(", ").split(", ") + m.groupValues[2]
+            return Filters.all(ObjectFilter.Super(arcanum.api.Supertype.Basic), ObjectFilter.Or(types.map { ObjectFilter.Sub(arcanum.api.SubtypeRef.Literal(arcanum.api.Subtype(it))) }))
+        }
+        // tdm chunk 04: "card named Stormbrood Orb or Rockhewn Dragon" (either name, CR 201.2)
+        NAMED_OR_NAMED.matchEntire(phrase)?.let { m -> return ObjectFilter.Or(listOf(ObjectFilter.Named(m.groupValues[1]), ObjectFilter.Named(m.groupValues[2]))) }
+        // tdm chunk 13: "creature you control or a creature spell you control" (a permanent or a spell, CR 110.1, 112.1)
+        OR_A_SPELL_YOU_CONTROL.matchEntire(phrase)?.let { m ->
+            val first = Filters.noun(m.groupValues[1]) ?: return null
+            val spell = Filters.noun(m.groupValues[2] + " spell") ?: return null
+            return ObjectFilter.Or(listOf(first, Filters.all(spell, ObjectFilter.ControlledBy(PlayerFilter.You))))
+        }
         // tdm chunk 14: "creature card with mana value X plus 1" (X announced, CR 107.3a)
         Tdm.WITH_MANA_VALUE_X_PLUS.matchEntire(phrase)?.takeIf { it.groupValues[3].isEmpty() }?.let { m ->
             return Filters.all(Filters.noun(m.groupValues[1]) ?: return null, ObjectFilter.ManaValue(Comparison.Equal,

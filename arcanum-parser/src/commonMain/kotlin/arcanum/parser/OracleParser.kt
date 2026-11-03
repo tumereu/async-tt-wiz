@@ -311,7 +311,24 @@ object OracleParser {
                 if (ability is Ability.Spell || ability.isCastingCost()) Ability.Unparsed(raws[index]) else ability.withText(raws[index])
             }.distinct()
         }
-        return result.mapIndexed { index, ability -> ability.withText(raws[index]) }
+        // tdm chunk 02: "exile … until this creature leaves the battlefield" and a later "the exiled card": the exile keeps the card as card memory
+        // (linked abilities, CR 607.2a)
+        val linked = if (sentences.exiledCard == arcanum.api.Objects.Remembered(EXILED_WITH)) result.map(::rememberUntilLeaves) else result
+        return linked.mapIndexed { index, ability -> ability.withText(raws[index]) }
+    }
+
+    /** tdm: [ability] with each top-level "exile … until … leaves" kept as card memory (when nothing keeps it already). */
+    private fun rememberUntilLeaves(ability: Ability): Ability {
+        val triggered = ability as? Ability.Triggered ?: return ability
+        val steps = triggered.instructions.steps
+        if (steps.any { ((it as? arcanum.api.Step.Do)?.effect as? arcanum.api.Effect.Remember)?.key == EXILED_WITH }) return ability
+        val linked = steps.flatMap { step ->
+            val move = (step as? arcanum.api.Step.Do)?.effect as? arcanum.api.Effect.Move
+            if (move?.untilLeaves == null || move.to.zone != arcanum.api.Zone.Exile) listOf(step)
+            else listOf(arcanum.api.Step.Do(move.copy(postBind = move.postBind ?: "exiled")),
+                arcanum.api.Step.Do(arcanum.api.Effect.Remember(EXILED_WITH, arcanum.api.Objects.Bound(move.postBind ?: "exiled"))))
+        }
+        return if (linked == steps) ability else triggered.copy(instructions = triggered.instructions.copy(steps = linked))
     }
 
     /** The ability with its printed [raw] lines as its text, reminder text left out (shown to players: "you may"

@@ -302,6 +302,15 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
     }
 
     /** How often the optional cost of [inst] was chosen; null while not asked. */
+    /** tdm: the spell could be cast now without an additional cost that gives it flash: sorcery timing apart from the spell itself on the
+     * Stack (CR 307.1), or an instant. */
+    fun flashWithoutCost(): Boolean {
+        val s = base
+        val sorceryTime = s.turn.active == player && s.stack.all { it == itemId } &&
+            (s.turn.step == arcanum.api.TurnStep.PrecombatMain || s.turn.step == arcanum.api.TurnStep.PostcombatMain)
+        return sorceryTime || snap.view[itemId]?.characteristics?.types?.contains(arcanum.api.CardType.Instant) == true
+    }
+
     fun optionalTimes(inst: AbilityInstance): Int? = (choices.costs[optionalKey(inst)] as? NamedValue.Number)?.value
 
     val contributions: List<Costs.Contribution> = buildList {

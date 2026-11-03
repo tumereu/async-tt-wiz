@@ -14,6 +14,12 @@ internal object FinPhrases {
     // fin chunk 03: "the total mana value of other permanents you control"
     private val TOTAL_MANA_VALUE_OF = Regex("""the total mana value of (.+)""")
 
+    // fin chunk 05
+    private val MANA_SPENT = Regex("""(?:at least (\w+)|(\w+) or more) mana was spent to cast (?:it|that spell)""")
+    private val IT_HAS_COUNTERS = Regex("""it has (\w+) or more (\S+) counters on it""")
+    private val PLAYER_DEALT_COMBAT_DAMAGE = Regex("""a player was dealt (\d+) or more combat damage this turn""")
+    private val DIED_UNDER_CONTROL = Regex("""an? (\w+) died under (an opponent's|your) control this turn""")
+    private val CARDS_ARE_IN_GRAVEYARD = Regex("""(\w+) or more cards are in your graveyard""")
     fun noun(phrase: String): ObjectFilter? {
         THAT_ISNT.matchEntire(phrase)?.let { m ->
             val kind = Filters.noun(m.groupValues[1]) ?: return null
@@ -33,6 +39,39 @@ internal object FinPhrases {
     }
 
     fun condition(text: String, self: Set<String>): Condition? {
+        // fin chunk 05: "at least four mana was spent to cast it", "four or more mana was spent to cast that spell" (the spell cast, CR 601.2h)
+        MANA_SPENT.matchEntire(text)?.let { m ->
+            val n = Numbers.count(m.groupValues[1] + m.groupValues[2]) ?: return null
+            return Condition.Compare(Value.ManaSpent(of = Objects.EventObject(arcanum.api.EventRole.Object)), arcanum.api.Comparison.AtLeast, Value.Fixed(n))
+        }
+        // fin chunk 05: "it has three or more +1/+1 counters on it" (this object)
+        IT_HAS_COUNTERS.matchEntire(text)?.let { m ->
+            val n = Numbers.count(m.groupValues[1]) ?: return null
+            return Condition.ObjectMatches(Objects.Self, ObjectFilter.HasCounter(Counters.kind(m.groupValues[2]) ?: return null, atLeast = n))
+        }
+        // fin chunk 05: "a player was dealt 6 or more combat damage this turn" (one player's damage added up)
+        PLAYER_DEALT_COMBAT_DAMAGE.matchEntire(text)?.let { m ->
+            val damage = arcanum.api.EventPattern.Damage(ObjectFilter.Any, arcanum.api.RecipientFilter(players = arcanum.api.PlayerFilter.Is(arcanum.api.Players.Tested)),
+                combat = true)
+            return Condition.PlayerExists(arcanum.api.PlayerFilter.Where(Condition.HappenedThisTurn(damage, atLeast = m.groupValues[1].toInt(),
+                measure = arcanum.api.Measure.Amount)), atLeast = 1)
+        }
+        // fin chunk 05: "your life total is less than or equal to half your starting life total" (CR 103.4)
+        if (text == "your life total is less than or equal to half your starting life total")
+            return Condition.Compare(Value.LifeOf(arcanum.api.Players.You), arcanum.api.Comparison.AtMost,
+                Value.Half(Value.StartingLife(arcanum.api.Players.You), roundUp = false))
+        // fin chunk 05: "a creature died under an opponent's control this turn"
+        DIED_UNDER_CONTROL.matchEntire(text)?.let { m ->
+            val noun = Filters.noun(m.groupValues[1]) ?: return null
+            val whose = if (m.groupValues[2] == "an opponent's") arcanum.api.PlayerFilter.Opponent else arcanum.api.PlayerFilter.You
+            return Condition.HappenedThisTurn(arcanum.api.EventPattern.ZoneChange(Filters.all(noun, ObjectFilter.ControlledBy(whose)), from = arcanum.api.Zone.Battlefield,
+                to = arcanum.api.Zone.Graveyard), atLeast = 1, measure = arcanum.api.Measure.Events)
+        }
+        // fin chunk 05: "eight or more cards are in your graveyard"
+        CARDS_ARE_IN_GRAVEYARD.matchEntire(text)?.let { m ->
+            val n = Numbers.count(m.groupValues[1]) ?: return null
+            return Condition.Exists(Filters.all(ObjectFilter.InZone(arcanum.api.Zone.Graveyard), ObjectFilter.OwnedBy(arcanum.api.PlayerFilter.You)), atLeast = n)
+        }
         // fin-condition-end
         return null
     }
@@ -81,4 +120,17 @@ internal object Fin {
     val ADD_MANA_LIST = Regex("""Add ((?:\{[WUBRGC]\})+(?:, (?:and )?(?:\{[WUBRGC]\})+)+)\.""")
     val THOSE_CREATURES_GAIN = Regex("""Those creatures gain (.+) until end of turn\.""")
     val COPY_ENCHANTMENT_HASTE_LORE = Regex("""Create a token that's a copy of target (.+?)\. It gains haste\. If it's a Saga, put up to three lore counters on it\. Sacrifice it at the beginning of your next end step\.""")
+    // fin chunk 05
+    val SELF_DEALS_DAMAGE = Regex("""(.+?) deals damage""")
+    val COUNTERS_EQUAL_TO_THAT_CREATURES_POWER = Regex("""Put a number of (\S+) counters on (.+?) equal to that creature's power\.""")
+    val MAY_SACRIFICE_ANY_NUMBER_DRAW = Regex("""You may sacrifice any number of (.+?)\. If you do, draw that many cards\.""")
+    val IF_YOU_PUT_A_CARD_INTO_HAND = Regex("""If you put a card into your hand this way, (.+)\.""")
+    val IF_IT_HAS_COUNTERS_TRANSFORM_IT = Regex("""If it has (\w+) or more (\S+) counters on it, transform it\.""")
+    val RETURN_IT_TO_BATTLEFIELD = Regex("""Return it to the battlefield( tapped)?\.""")
+    val TRANSFORM_THEN_ATTACH = Regex("""Transform (.+?), then attach it to an? (.+)\.""")
+    val CREATURES_OTHER_THAN_SELF_AND_CHOSEN_GET = Regex("""Until end of turn, creatures other than (.+?) and the chosen creature get ([+-]\d+)/([+-]\d+)\.""")
+    val WOULD_DEAL_DAMAGE_DOUBLE = Regex("""If an? (.+?) would deal damage to a permanent or player, it deals double that damage instead\.""")
+    val AS_TRANSFORMS_CHOOSE_OPPONENT = Regex("""As (.+?) transforms into (.+), choose an opponent\.""")
+    val AS_TRANSFORMS_INTO = Regex("""As (.+?) transforms into (.+)""")
+    val WHEN_CHOSEN_LEAVES = Regex("""When the chosen creature leaves the battlefield, (.+)""")
 }

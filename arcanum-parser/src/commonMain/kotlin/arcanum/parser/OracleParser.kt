@@ -110,6 +110,8 @@ object OracleParser {
         sentences.discardedCard = text.contains("the discarded card")
         // tla chunk 02: an Aura's spell targets through its enchant slot (CR 303.4a)
         sentences.enchantSlot = text.lines().any { it.startsWith("Enchant ") }
+        // fin chunk 05: "When the chosen creature leaves the battlefield" links to the creature an earlier ability chose (CR 607.2a)
+        sentences.finChosenCreatureLinked = text.contains("When the chosen creature leaves the battlefield")
         sentences.exiledCard = when {
             text.lines().any { it.trim().startsWith("Hideaway ") } -> arcanum.api.Objects.LinkedTo(Keyword.Hideaway.Kind)
             text.contains("the exiled card", ignoreCase = true) -> arcanum.api.Objects.Remembered(EXILED_WITH)

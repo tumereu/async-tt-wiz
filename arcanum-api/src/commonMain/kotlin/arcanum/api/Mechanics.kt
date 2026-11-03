@@ -556,6 +556,11 @@ sealed interface Modification {
      * you don't, it enters tapped"), choose ("choose a creature type"). Effects on [Objects.Self] apply to it as it
      * enters. */
     @Serializable @SerialName("as-enters") data class AsEnters(val steps: List<Step>) : Modification
+    // fin
+    /** "As this creature transforms into [face], …" (CR 712.20): [steps] happen while the permanent transforms, not afterward and not on the
+     * Stack, with the permanent already its new face; used on a [Mechanic.Replacement] of [EventPattern.Transform]. Unlike [AsEnters], the
+     * steps may do anything ("you get an emblem", "choose an opponent"). */
+    @Serializable @SerialName("as-transforms") data class AsTransforms(val steps: List<Step>) : Modification
     /** The damage is dealt to [to] instead ("is dealt to this creature instead"). */
     @Serializable @SerialName("redirect") data class ChangeRecipient(val to: Recipients) : Modification
     /** Also create [count] of [token] ("those tokens plus that many 1/1 Squirrel tokens"). */

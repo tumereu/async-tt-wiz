@@ -1279,6 +1279,7 @@ internal class Sentences(
         val events = during?.groupValues?.get(1) ?: text
         val onlyIf = during?.let { arcanum.api.Condition.YourTurn }
         eoeTrigger(events)?.let { return it to onlyIf } // eoe
+        finTrigger(events)?.let { return it to onlyIf } // fin
         tlaTrigger(events)?.let { return it to onlyIf } // tla
         sosTrigger(events)?.let { return it to onlyIf } // sos
         tmtTrigger(events)?.let { return it to onlyIf } // tmt
@@ -17057,6 +17058,9 @@ internal class Sentences(
 
     // ---- fin: Final Fantasy wordings (the set's parser tests, sets/fin/FinChunk*Test.kt); regexes in [Fin], phrases in [FinPhrases]
 
+    /** fin chunk 05: the card has "When the chosen creature leaves the battlefield": its "choose a creature" is remembered (CR 607.2a). */
+    var finChosenCreatureLinked = false
+
     /** fin: a tiered spell's modes "[name] — [cost] — [effect]" (CR 702.183a), the name a flavor word (CR 207.2d); with [body], a paragraph each
      * mode completes ("… has the chosen base power and toughness." and "• Galian Beast — {0} — 3/2."). */
     fun finTiered(body: String?, modeLines: List<String>): Ability.Spell? {
@@ -17122,6 +17126,39 @@ internal class Sentences(
             val granted = keywords(m.groupValues[3]) ?: return null
             return Ability.Static(listOf(Mechanic.GainAbilities(granted)), affects = arcanum.api.Affected.Objects(Objects.Union(listOf(Objects.Self,
                 Objects.Each(Filters.all(ObjectFilter.Not(ObjectFilter.Is(Objects.Self)), others))))), condition = arcanum.api.Condition.YourTurn)
+        }
+        // fin chunk 05: "If a Wizard you control would deal damage to a permanent or player, it deals double that damage instead." (CR 614.1a)
+        Fin.WOULD_DEAL_DAMAGE_DOUBLE.matchEntire(line)?.let { m ->
+            val sources = Filters.noun(m.groupValues[1]) ?: return null
+            return Ability.Static(listOf(Mechanic.Replacement(EventPattern.Damage(sources, RecipientFilter(objects = ObjectFilter.Category(arcanum.api.ObjectCategory.Permanent),
+                players = PlayerFilter.Any)), modify = listOf(Modification.MultiplyAmount(2)))), affects = arcanum.api.Affected.Objects(Objects.Self))
+        }
+        // fin chunk 05: "When the chosen creature leaves the battlefield, transform Zerand." (the creature its enters ability chose, CR 607.2a)
+        Fin.WHEN_CHOSEN_LEAVES.matchEntire(line)?.let { m ->
+            val steps = instructions(m.groupValues[1].replaceFirstChar { it.uppercase() })?.takeIf { it.targets.isEmpty() }?.steps ?: return null
+            return Ability.Triggered(arcanum.api.Trigger.On(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Remembered("chosen")), from = Zone.Battlefield)),
+                Instructions(steps = steps))
+        }
+        // fin chunk 05: "When the chosen player loses the game, you win the game." (the player chosen as it transformed)
+        if (line == "When the chosen player loses the game, you win the game.") {
+            return Ability.Triggered(arcanum.api.Trigger.On(EventPattern.LoseGame(PlayerFilter.Is(Players.Remembered("chosen player")))),
+                Instructions(steps = listOf(Step.Do(Effect.WinGame(Players.You)))))
+        }
+        // fin chunk 05: "As this creature transforms into Shinryu, choose an opponent." (remembered as "the chosen player")
+        Fin.AS_TRANSFORMS_CHOOSE_OPPONENT.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) && isSelf(it.groupValues[2]) }?.let { m ->
+            val face = self.filter { it.first().isUpperCase() }.maxByOrNull { it.length } ?: return null
+            return Ability.Static(listOf(Mechanic.Replacement(EventPattern.Transform(Filters.all(ObjectFilter.Is(Objects.Self), ObjectFilter.Named(face))),
+                modify = listOf(Modification.AsTransforms(listOf(Step.Choose(arcanum.api.Choice.Player(PlayerFilter.Opponent), bind = "chosen player",
+                    chooser = Players.You, remember = true)))))), affects = arcanum.api.Affected.Objects(Objects.Self))
+        }
+        // fin chunk 05: "As this creature transforms into [this face], [effect]" (CR 712.20: applied while it transforms, not afterward)
+        Fin.AS_TRANSFORMS_INTO.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            val face = self.filter { it.first().isUpperCase() }.maxByOrNull { it.length } ?: return null
+            val named = self.filter { m.groupValues[2].startsWith("$it, ") }.maxByOrNull { it.length } ?: return null
+            val steps = instructions(m.groupValues[2].removePrefix("$named, ").replaceFirstChar { it.uppercase() })?.takeIf { it.targets.isEmpty() }?.steps
+                ?: return null
+            return Ability.Static(listOf(Mechanic.Replacement(EventPattern.Transform(Filters.all(ObjectFilter.Is(Objects.Self), ObjectFilter.Named(face))),
+                modify = listOf(Modification.AsTransforms(steps)))), affects = arcanum.api.Affected.Objects(Objects.Self))
         }
         // fin-late-end
         return null
@@ -17216,6 +17253,15 @@ internal class Sentences(
             val granted = keywords(m.groupValues[1]) ?: return null
             return steps + Step.Do(Effect.ApplyMechanics(listOf(Mechanic.GainAbilities(granted)), arcanum.api.Affected.Objects(last.objects),
                 arcanum.api.Duration.EndOfTurn))
+        }
+        // fin chunk 05: "If you put a card into your hand this way, [effect]." after "you may reveal it and put it into your hand": the optional
+        // action becomes a payment named "put" (CR 118.12)
+        Fin.IF_YOU_PUT_A_CARD_INTO_HAND.matchEntire(sentence)?.let { m ->
+            val last = steps.lastOrNull() as? Step.If ?: return null
+            val may = last.then.singleOrNull() as? Step.May ?: return null
+            val then = instructions(m.groupValues[1].replaceFirstChar { it.uppercase() } + ".")?.takeIf { it.targets.isEmpty() } ?: return null
+            return steps.dropLast(1) + last.copy(then = listOf(Step.Pay(steps = may.steps, payer = may.player, bind = "put"))) +
+                Step.If(arcanum.api.Condition.Did("put"), then = then.steps)
         }
         // fin-modify-end
         return null
@@ -17374,6 +17420,59 @@ internal class Sentences(
             val all = Regex("""\{[^}]+\}""").findAll(m.groupValues[1]).joinToString("") { it.value }
             return listOf(Step.Do(Effect.AddMana(ManaProduction(ManaKind.Fixed(ManaCost.parse(all) ?: return null)), Players.You)))
         }
+        // fin chunk 05: "Put a number of +1/+1 counters on Vincent equal to that creature's power." (in a dies trigger: as it last existed)
+        Fin.COUNTERS_EQUAL_TO_THAT_CREATURES_POWER.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[2]) }?.let { m ->
+            val kind = Counters.kind(m.groupValues[1]) ?: return null
+            val dying = (context.event as? EventPattern.ZoneChange)?.takeIf { it.from == Zone.Battlefield } ?: return null
+            if (dying.objects is ObjectFilter.Is) return null
+            return listOf(Step.Do(Effect.PutCounters(Objects.Self, kind, Value.Of(arcanum.api.NumericProperty.Power, Objects.EventObject(EventRole.Before),
+                arcanum.api.Combine.Single))))
+        }
+        // fin chunk 05: "You lose that much life." after damage this object dealt (CR 120.3)
+        if (sentence == "You lose that much life." && context.event is EventPattern.Damage) return listOf(Step.Do(Effect.LoseLife(Players.You, Value.EventAmount)))
+        // fin chunk 05: "You may sacrifice any number of other creatures. If you do, draw that many cards."
+        Fin.MAY_SACRIFICE_ANY_NUMBER_DRAW.matchEntire(sentence)?.let { m ->
+            val filter = Filters.noun(m.groupValues[1]) ?: return null
+            return listOf(Step.Pay(Cost(listOf(CostPart.Sacrifice(CostObjects.Choose(filter, null), postBind = "sacrificed"))),
+                payer = Players.You, bind = "paid"),
+                Step.If(arcanum.api.Condition.Did("paid"), then = listOf(Step.Do(Effect.Draw(Players.You, Value.Count(Objects.Bound("sacrificed")))))))
+        }
+        // fin chunk 05: "If it has three or more +1/+1 counters on it, transform it." in a cast trigger: "it" is this permanent, not the spell
+        Fin.IF_IT_HAS_COUNTERS_TRANSFORM_IT.matchEntire(sentence)?.let { m ->
+            val n = Numbers.count(m.groupValues[1]) ?: return null
+            return listOf(Step.If(arcanum.api.Condition.ObjectMatches(Objects.Self, ObjectFilter.HasCounter(Counters.kind(m.groupValues[2]) ?: return null, atLeast = n)),
+                then = listOf(Step.Do(Effect.Transform(Objects.Self)))))
+        }
+        // fin chunk 05: "Return it to the battlefield tapped." in this object's dies trigger: the card in the graveyard (CR 400.7)
+        Fin.RETURN_IT_TO_BATTLEFIELD.matchEntire(sentence)?.let { m ->
+            val dies = context.event as? EventPattern.ZoneChange ?: return null
+            if (dies.objects != ObjectFilter.Is(Objects.Self) || dies.to != Zone.Graveyard) return null
+            return listOf(Step.Do(Effect.Move(Objects.EventObject(EventRole.After), Destination(Zone.Battlefield, tapped = m.groupValues[1].isNotEmpty()))))
+        }
+        // fin chunk 05: "Transform this enchantment, then attach it to a creature you control." (a creature chosen as it happens, CR 701.3)
+        Fin.TRANSFORM_THEN_ATTACH.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            val filter = Filters.noun(m.groupValues[2]) ?: return null
+            return listOf(Step.Do(Effect.Transform(Objects.Self)),
+                Step.Choose(arcanum.api.Choice.Objects(filter, Value.Fixed(1), Value.Fixed(1)), bind = "chosen", chooser = Players.You),
+                Step.Do(Effect.Attach(Objects.Self, Recipients(objects = Objects.Bound("chosen")))))
+        }
+        // fin chunk 05: "You draw that many cards." after life lost or damage dealt (the event's amount)
+        if (sentence == "You draw that many cards." && (context.event is EventPattern.LoseLife || context.event is EventPattern.Damage))
+            return listOf(Step.Do(Effect.Draw(Players.You, Value.EventAmount)))
+        // fin chunk 05: "Until end of turn, creatures other than Zerand and the chosen creature get -2/-2."
+        Fin.CREATURES_OTHER_THAN_SELF_AND_CHOSEN_GET.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            val p = m.groupValues[2].toInt()
+            val t = m.groupValues[3].toInt()
+            val creature = ObjectFilter.Type(arcanum.api.CardType.Creature)
+            val others = Objects.Each(Filters.all(creature, ObjectFilter.Not(ObjectFilter.Is(Objects.Self)), ObjectFilter.Not(ObjectFilter.Is(Objects.Remembered("chosen")))))
+            return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.ModifyPowerToughness(Value.Fixed(p), Value.Fixed(t))), arcanum.api.Affected.Objects(others),
+                arcanum.api.Duration.EndOfTurn)))
+        }
+        // fin chunk 05: "Choose a creature an opponent controls." kept by the card as "the chosen creature" (linked abilities, CR 607.2a)
+        if (sentence == "Choose a creature an opponent controls." && finChosenCreatureLinked) {
+            return listOf(Step.Choose(arcanum.api.Choice.Objects(Filters.noun("creature an opponent controls") ?: return null, Value.Fixed(1), Value.Fixed(1)),
+                bind = "chosen", chooser = Players.You, remember = true))
+        }
         // fin-effect-end
         return null
     }
@@ -17396,6 +17495,11 @@ internal class Sentences(
                 Step.Do(Effect.CreateDelayedTrigger(arcanum.api.Trigger.On(EventPattern.StepBegins(arcanum.api.TurnStep.End, PlayerFilter.You)),
                     Instructions(steps = listOf(Step.Do(Effect.Sacrifice(tokens)))))),
             )
+        }
+        // fin chunk 05: "Each player discards a card. Then you draw a card for each card type among cards discarded this way." (CR 205.2a)
+        if (text == "Each player discards a card. Then you draw a card for each card type among cards discarded this way.") {
+            return listOf(Step.Do(Effect.Discard(Players.Each(PlayerFilter.Any), Value.Fixed(1), ObjectFilter.Any, postBind = "discarded")),
+                Step.Do(Effect.Draw(Players.You, Value.CountDistinct(Objects.Bound("discarded"), arcanum.api.SharedQuality.CardType))))
         }
         // fin-whole-end
         return null
@@ -17424,6 +17528,19 @@ internal class Sentences(
         return listOf(Step.Do(Effect.CreateDelayedTrigger(arcanum.api.Trigger.On(event), read, arcanum.api.Duration.EndOfTurn)))
     }
 
+    /** fin: trigger events, tried by [trigger] after the other sets' first rules. */
+    private fun finTrigger(events: String): arcanum.api.Trigger.On? {
+        // fin chunk 05: "At the end of combat on your turn" (the end of combat step, CR 511)
+        if (events == "the end of combat on your turn") return arcanum.api.Trigger.On(EventPattern.StepBegins(arcanum.api.TurnStep.EndOfCombat, PlayerFilter.You))
+        // fin chunk 05: "Whenever Cedric deals damage" (to anything, combat or not)
+        Fin.SELF_DEALS_DAMAGE.matchEntire(events)?.takeIf { isSelf(it.groupValues[1]) }?.let {
+            return arcanum.api.Trigger.On(EventPattern.Damage(ObjectFilter.Is(Objects.Self), RecipientFilter()))
+        }
+        // fin chunk 05: "Whenever an opponent loses life" (CR 119.3)
+        if (events == "an opponent loses life") return arcanum.api.Trigger.On(EventPattern.LoseLife(PlayerFilter.Opponent))
+        // fin-trigger-end
+        return null
+    }
     // ---- fin end
 
     // ---- eoe: Edge of Eternities wordings (the set's parser tests, sets/eoe/EoeChunk*Test.kt); regexes in [Eoe], phrases in [EoePhrases]

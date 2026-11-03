@@ -131,6 +131,9 @@ sealed interface EventPattern {
     @Serializable @SerialName("cycle") data class Cycle(val cards: ObjectFilter, val players: PlayerFilter) : EventPattern
     @Serializable @SerialName("create-token") data class CreateToken(val tokens: ObjectFilter) : EventPattern
     @Serializable @SerialName("transform") data class Transform(val objects: ObjectFilter) : EventPattern
+    // fin
+    /** A player matching [players] loses the game (CR 104.3; "When the chosen player loses the game, you win the game"). */
+    @Serializable @SerialName("lose-game") data class LoseGame(val players: PlayerFilter) : EventPattern
     @Serializable @SerialName("turned-face-up") data class TurnedFaceUp(val objects: ObjectFilter) : EventPattern
     @Serializable @SerialName("search") data class Search(val players: PlayerFilter) : EventPattern
     @Serializable @SerialName("countered") data class Countered(val objects: ObjectFilter) : EventPattern

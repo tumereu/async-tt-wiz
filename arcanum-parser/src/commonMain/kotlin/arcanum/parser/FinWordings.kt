@@ -175,4 +175,17 @@ internal object Fin {
     val ATTACKED_THIS_TURN_MAY_PLAY_TOP = Regex("""As long as (.+?) attacked this turn, you may play the top card of your library\.""")
     val WOULD_MILL_PLUS = Regex("""If an opponent would mill one or more cards, they mill that many cards plus (\w+) instead\.""")
     val COPY_ABILITY_X_TIMES = Regex("""(\{X\}\{X\}, \{T\}): Copy target activated or triggered ability you control X times\. You may choose new targets for the copies\. This ability can't be copied and X can't be 0\.""")
+    // fin chunk 11
+    val RETURN_TARGET_WITH_ADDITIONAL_COUNTERS = Regex("""Return target (.+?) from your graveyard to the battlefield with (\w+) additional (\S+) counters? on it\.""")
+    val EACH_OPPONENT_DISCARDS_LOSES_EXILES = Regex("""Each opponent discards a card, loses (\d+) life, and exiles the top (\w+) cards of their library\.""")
+    val EACH_PLAYER_SACRIFICES_HALF = Regex("""Each player sacrifices half the (.+?) they control of their choice, rounded (down|up)\.""")
+    val EXILE_CARD_COPY_EXCEPT_DEMON = Regex("""Exile up to one target (.+?) from a graveyard\. If you exiled a card this way, create a token that's a copy of that card, except it's a (\d+)/(\d+) (black|white|blue|red|green) ([A-Z][a-z]+)\.""")
+    val CREATE_INSTEAD_IF_CAST_FROM_GRAVEYARD = Regex("""(Create .+? tokens?)\. If this spell was cast from a graveyard, instead create X of those tokens\.""")
+    val COUNTER_THEN_BECOMES_ARTIFACT_CREATURE = Regex("""Put a \+1/\+1 counter on (.+?)\. It becomes an? ([A-Z][a-z]+) artifact creature in addition to its other types until end of turn\.""")
+    val EXILE_TOP_SACRIFICE_PLAY_ANY_TYPE = Regex("""Exile the top card of that player's library\. Then you may (sacrifice .+?)\. If you do, you may play the exiled card this turn, and mana of any type can be spent to cast it\.""")
+    val PLAYER_GAINS_CONTROL_DRAW_TREASURE_LOSE = Regex("""That player gains control of (.+?)\. If they do, you draw that many cards, create that many tapped Treasure tokens, then lose that much life\.""")
+    val HAS_A_COUNTER_ATTACK_DESPITE_DEFENDER = Regex("""As long as (.+?) has a counter on it, it can attack as though it didn't have defender\.""")
+    val WOULD_DIE_INSTEAD_EXILE_GAIN = Regex("""If an? (.+?) would die, instead exile it and you gain (\d+) life\.""")
+    val PUT_TARGET_EXILED_WITH_ONTO_BATTLEFIELD = Regex("""(.+?): Put target (.+?) exiled with (.+?) onto the battlefield tapped under your control with (\w+) additional \+1/\+1 counters on it\.""")
+    val PLAYER_SACRIFICES = Regex("""a player sacrifices (another creature|a creature)""")
 }

@@ -17227,6 +17227,31 @@ internal class Sentences(
                 listOf(Step.Do(Effect.CopySpell(Objects.Target("ability"), Players.You, newTargets = true))))), announced = listOf("X")),
                 arcanum.api.ActivationRules(timing = arcanum.api.Timing.Any, activatedBy = PlayerFilter.You, minimumX = 1, cantBeCopied = true))
         }
+        // fin chunk 11: "As long as this creature has a counter on it, it can attack as though it didn't have defender." (CR 702.3b)
+        Fin.HAS_A_COUNTER_ATTACK_DESPITE_DEFENDER.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let {
+            return Ability.Static(listOf(Mechanic.CanAttackDespiteDefender), affects = arcanum.api.Affected.Objects(Objects.Self),
+                condition = arcanum.api.Condition.ObjectMatches(Objects.Self, ObjectFilter.HasCounter(null, atLeast = 1)))
+        }
+        // fin chunk 11: "If a nontoken creature an opponent controls would die, instead exile it and you gain 2 life." (CR 614.1a; the cards exiled are
+        // remembered for "exiled with", CR 607.2a)
+        Fin.WOULD_DIE_INSTEAD_EXILE_GAIN.matchEntire(line)?.let { m ->
+            val dying = Filters.noun(m.groupValues[1]) ?: return null
+            return Ability.Static(listOf(Mechanic.Replacement(EventPattern.ZoneChange(dying, from = Zone.Battlefield, to = Zone.Graveyard), instead = Instructions(steps = listOf(
+                Step.Do(Effect.Move(Objects.EventObject(EventRole.Before), Destination(Zone.Exile), postBind = "exiled")),
+                Step.Do(Effect.Remember(EXILED_WITH, Objects.Bound("exiled"))),
+                Step.Do(Effect.GainLife(Players.You, Value.Fixed(m.groupValues[2].toInt()))))))), affects = arcanum.api.Affected.Objects(Objects.Self))
+        }
+        // fin chunk 11: "{4}{B}{B}, {T}: Put target creature card exiled with The Darkness Crystal onto the battlefield tapped under your control with two
+        // additional +1/+1 counters on it."
+        Fin.PUT_TARGET_EXILED_WITH_ONTO_BATTLEFIELD.matchEntire(line)?.takeIf { isSelf(it.groupValues[3]) }?.let { m ->
+            val cost = cost(m.groupValues[1]) ?: return null
+            val slot = TargetSlot("card", TargetKind.Objects(Filters.all(Filters.noun(m.groupValues[2]) ?: return null, ObjectFilter.Is(Objects.Remembered(EXILED_WITH)))),
+                min = Value.Fixed(1), max = Value.Fixed(1))
+            val n = Numbers.count(m.groupValues[4]) ?: return null
+            return Ability.Activated(cost, Instructions(targets = listOf(slot), steps = listOf(Step.Do(Effect.Move(Objects.Target("card"), Destination(Zone.Battlefield,
+                tapped = true, controller = Players.You, counters = listOf(arcanum.api.CountersToPut(arcanum.api.CounterKind.PowerToughness(1, 1), Value.Fixed(n)))))))),
+                arcanum.api.ActivationRules(timing = arcanum.api.Timing.Any, activatedBy = PlayerFilter.You))
+        }
         // fin-late-end
         return null
     }
@@ -17604,6 +17629,33 @@ internal class Sentences(
         // fin chunk 09: "Each opponent mills cards equal to the number of cards in your hand."
         if (sentence == "Each opponent mills cards equal to the number of cards in your hand.")
             return listOf(Step.Do(Effect.Mill(Players.Each(PlayerFilter.Opponent), Value.HandSize(Players.You))))
+        // fin chunk 11: "Return target creature card from your graveyard to the battlefield with two additional +1/+1 counters on it." (CR 122.6)
+        Fin.RETURN_TARGET_WITH_ADDITIONAL_COUNTERS.matchEntire(sentence)?.let { m ->
+            val target = context.target(Filters.slotName(m.groupValues[1]), Filters.all(Filters.noun(m.groupValues[1]) ?: return null, ObjectFilter.InZone(Zone.Graveyard),
+                ObjectFilter.OwnedBy(PlayerFilter.You)))
+            val n = Numbers.count(m.groupValues[2]) ?: return null
+            return listOf(Step.Do(Effect.Move(target, Destination(Zone.Battlefield, counters = listOf(arcanum.api.CountersToPut(Counters.kind(m.groupValues[3]) ?: return null,
+                Value.Fixed(n)))))))
+        }
+        // fin chunk 11: "Each opponent discards a card, loses 2 life, and exiles the top three cards of their library."
+        Fin.EACH_OPPONENT_DISCARDS_LOSES_EXILES.matchEntire(sentence)?.let { m ->
+            val each = Players.Each(PlayerFilter.Opponent)
+            return listOf(Step.Do(Effect.Discard(each, Value.Fixed(1), ObjectFilter.Any)), Step.Do(Effect.LoseLife(each, Value.Fixed(m.groupValues[1].toInt()))),
+                Step.Do(Effect.Move(Objects.LibraryCards(each, Value.Fixed(Numbers.count(m.groupValues[2]) ?: return null), fromTop = true), Destination(Zone.Exile))))
+        }
+        // fin chunk 11: "Draw a card for each creature that died this turn."
+        if (sentence == "Draw a card for each creature that died this turn.")
+            return listOf(Step.Do(Effect.Draw(Players.You, Value.EventsThisTurn(EventPattern.ZoneChange(ObjectFilter.Type(arcanum.api.CardType.Creature),
+                from = Zone.Battlefield, to = Zone.Graveyard), arcanum.api.Measure.Objects))))
+        // fin chunk 11: "Each player sacrifices half the non-God creatures they control of their choice, rounded down." (CR 107.1a)
+        Fin.EACH_PLAYER_SACRIFICES_HALF.matchEntire(sentence)?.let { m ->
+            val kind = Filters.noun(m.groupValues[1]) ?: return null
+            val theirs = Filters.all(kind, ObjectFilter.ControlledBy(PlayerFilter.Is(Players.Bound("player"))))
+            val half = Value.Half(Value.Count(Objects.Each(theirs)), roundUp = m.groupValues[2] == "up")
+            return listOf(Step.ForEach(arcanum.api.Each.Players(Players.Each(PlayerFilter.Any)), "player", steps = listOf(
+                Step.Choose(arcanum.api.Choice.Objects(theirs, half, half), bind = "sacrificed", chooser = Players.Bound("player")),
+                Step.Do(Effect.Sacrifice(Objects.Bound("sacrificed")))), together = true))
+        }
         // fin-effect-end
         return null
     }
@@ -17707,6 +17759,56 @@ internal class Sentences(
                     Instructions(steps = listOf(Step.If(arcanum.api.Condition.ObjectMatches(equipment, ObjectFilter.Attached(to = Objects.Each(yours))),
                         then = listOf(Step.Do(Effect.Unattach(equipment)))))), arcanum.api.Duration.EndOfTurn)))
         }
+        // fin chunk 11: "Exile up to one target creature card from a graveyard. If you exiled a card this way, create a token that's a copy of that card,
+        // except it's a 5/5 black Demon." (CR 707.9b)
+        Fin.EXILE_CARD_COPY_EXCEPT_DEMON.matchEntire(text)?.let { m ->
+            val name = Filters.slotName(m.groupValues[1])
+            context.targets += TargetSlot(name, TargetKind.Objects(Filters.all(Filters.noun(m.groupValues[1]) ?: return null, ObjectFilter.InZone(Zone.Graveyard))),
+                min = Value.Fixed(0), max = Value.Fixed(1))
+            val color = when (m.groupValues[4]) { "white" -> Color.White; "blue" -> Color.Blue; "black" -> Color.Black; "red" -> Color.Red; else -> Color.Green }
+            val subtype = m.groupValues[5].takeIf { it in RulesWords.subtypes } ?: return null
+            return listOf(Step.Do(Effect.Move(Objects.Target(name), Destination(Zone.Exile), postBind = "exiled")),
+                Step.If(arcanum.api.Condition.NonEmpty("exiled"), then = listOf(Step.Do(Effect.CreateToken(arcanum.api.TokenSpec.CopyOf(Objects.Bound("exiled"), except = listOf(
+                    arcanum.api.CopyException.PowerToughness(m.groupValues[2].toInt(), m.groupValues[3].toInt()),
+                    arcanum.api.CopyException.Colors(listOf(arcanum.api.ColorRef.Literal(color))),
+                    arcanum.api.CopyException.Types(addSubtypes = listOf(arcanum.api.SubtypeRef.Literal(Subtype(subtype))), replaceSubtypes = true))),
+                    Value.Fixed(1), Players.You)))))
+        }
+        // fin chunk 11: "Create two tapped 2/2 black Horror creature tokens. If this spell was cast from a graveyard, instead create X of those tokens,
+        // where X is …" (X read by [instructions])
+        Fin.CREATE_INSTEAD_IF_CAST_FROM_GRAVEYARD.matchEntire(text)?.let { m ->
+            val usual = effect(m.groupValues[1] + ".", context)?.singleOrNull() as? Step.Do ?: return null
+            val create = usual.effect as? Effect.CreateToken ?: return null
+            return listOf(Step.If(arcanum.api.Condition.CastFrom(Zone.Graveyard, Objects.Self), then = listOf(Step.Do(create.copy(count = Value.Announced("X")))),
+                otherwise = listOf(usual)))
+        }
+        // fin chunk 11: "Put a +1/+1 counter on this Vehicle. It becomes a Spirit artifact creature in addition to its other types until end of turn."
+        Fin.COUNTER_THEN_BECOMES_ARTIFACT_CREATURE.matchEntire(text)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            val subtype = m.groupValues[2].takeIf { it in RulesWords.subtypes } ?: return null
+            return listOf(Step.Do(Effect.PutCounters(Objects.Self, arcanum.api.CounterKind.PowerToughness(1, 1), Value.Fixed(1))),
+                Step.Do(Effect.ApplyMechanics(listOf(Mechanic.SetTypes(add = listOf(arcanum.api.CardType.Artifact, arcanum.api.CardType.Creature),
+                    addSubtypes = listOf(arcanum.api.SubtypeRef.Literal(Subtype(subtype))))), arcanum.api.Affected.Objects(Objects.Self), arcanum.api.Duration.EndOfTurn)))
+        }
+        // fin chunk 11: "Exile the top card of that player's library. Then you may sacrifice another creature or artifact. If you do, you may play the
+        // exiled card this turn, and mana of any type can be spent to cast it."
+        Fin.EXILE_TOP_SACRIFICE_PLAY_ANY_TYPE.matchEntire(text)?.let { m ->
+            val sacrifice = cost(m.groupValues[1].replaceFirstChar { it.uppercase() }) ?: return null
+            return listOf(Step.Do(Effect.Move(Objects.LibraryCards(Players.EventPlayer, Value.Fixed(1), fromTop = true), Destination(Zone.Exile), postBind = "exiled")),
+                Step.Pay(sacrifice, payer = Players.You, bind = "paid"),
+                Step.If(arcanum.api.Condition.Did("paid"), then = listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.MayPlay(Zone.Exile, PlayKind.Play,
+                    manaAsAnyColor = true, holder = PlayerFilter.You)), arcanum.api.Affected.Objects(Objects.Bound("exiled")), arcanum.api.Duration.EndOfTurn)))))
+        }
+        // fin chunk 11: "That player gains control of Kain. If they do, you draw that many cards, create that many tapped Treasure tokens, then lose that
+        // much life." (the combat damage dealt, CR 120.3)
+        Fin.PLAYER_GAINS_CONTROL_DRAW_TREASURE_LOSE.matchEntire(text)?.takeIf { isSelf(it.groupValues[1]) && context.event is EventPattern.Damage }?.let {
+            val many = Value.EventAmount
+            return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.ControlledBy(Players.EventPlayer)), arcanum.api.Affected.Objects(Objects.Self),
+                arcanum.api.Duration.Indefinitely)),
+                Step.If(arcanum.api.Condition.ObjectMatches(Objects.Self, ObjectFilter.ControlledBy(PlayerFilter.Is(Players.EventPlayer))), then = listOf(
+                    Step.Do(Effect.Draw(Players.You, many)),
+                    Step.Do(Effect.CreateToken(arcanum.api.TokenSpec.Predefined("Treasure"), many, Players.You, tapped = true)),
+                    Step.Do(Effect.LoseLife(Players.You, many)))))
+        }
         // fin-whole-end
         return null
     }
@@ -17744,6 +17846,10 @@ internal class Sentences(
         }
         // fin chunk 05: "Whenever an opponent loses life" (CR 119.3)
         if (events == "an opponent loses life") return arcanum.api.Trigger.On(EventPattern.LoseLife(PlayerFilter.Opponent))
+        // fin chunk 11: "Whenever a player sacrifices another creature" (CR 701.21a)
+        Fin.PLAYER_SACRIFICES.matchEntire(events)?.let { m ->
+            return arcanum.api.Trigger.On(EventPattern.Sacrifice(Filters.noun(m.groupValues[1]) ?: return null))
+        }
         // fin-trigger-end
         return null
     }

@@ -866,5 +866,10 @@ internal object Actions {
             is StatusFlag.Marked -> flag.mark in o.marks
         }
         if (now != on) act.record(Change.Status(id, flag, now, on, meanings))
+        // CR 702.170d: a card becoming plotted is castable on later turns
+        if (on && now != on && flag == StatusFlag.Marked(arcanum.api.ObjectMark.Plotted)) {
+            val marked = act.state.objOrThrow(id)
+            act.record(Change.Facts(id, marked.facts, marked.facts.copy(plottedTurn = act.state.turn.number)))
+        }
     }
 }

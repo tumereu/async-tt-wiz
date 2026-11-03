@@ -643,6 +643,9 @@ internal object Payment {
                     val moved = Actions.move(act, costCause(plan), listOf(PlannedMove(self, effect.to.zone, faceDown = effect.to.faceDown, counters = counters)))
                     self = moved[self] ?: (self as ObjectId.Card).next()
                 }
+                // CR 702.170a: "It becomes a plotted card."
+                effect is Effect.Mark && effect.objects == Objects.Self ->
+                    Actions.tapStatus(act, self, arcanum.engine.state.StatusFlag.Marked(effect.mark), !effect.remove)
                 else -> leftover += step
             }
         }

@@ -626,7 +626,8 @@ class Review2KeywordsTest {
     // D61
     @Test
     fun everyKeywordHasAMeaning() {
-        val noMeaning = setOf<KeywordKind>(Keyword.Reach, Keyword.Partner)
+        // Spree and tiered (CR 702.172a, 702.183a) mean what their modes carry (Mode.extraCost)
+        val noMeaning = setOf<KeywordKind>(Keyword.Reach, Keyword.Partner, Keyword.Spree, Keyword.Tiered)
         KeywordKind.all.filterIsInstance<Keyword>().forEach { keyword ->
             if (keyword.kind in noMeaning || keyword.kind in KeywordMeanings.engineCode) return@forEach
             assertTrue(KeywordMeanings.expand(keyword).isNotEmpty(), "${keyword.text} means nothing")

@@ -376,7 +376,9 @@ sealed interface KeywordAction {
     /** Double counters, life, power, or mana (CR 701.10). */
     @Serializable @SerialName("double") data class Double(val what: Doubled) : KeywordAction
     @Serializable @SerialName("bolster") data class Bolster(val count: Value) : KeywordAction
-    @Serializable @SerialName("support") data class Support(val count: Value) : KeywordAction
+    /** "Support N" (CR 701.39a, b): put a +1/+1 counter on each of up to N (other, on a permanent) target creatures, the targets of
+     * [slot] declared in the enclosing [Instructions.targets] (at most [count]). [KeywordExpansions.expand] writes it out. */
+    @Serializable @SerialName("support") data class Support(val count: Value, val slot: String) : KeywordAction
     @Serializable @SerialName("detain") data class Detain(val objects: Objects) : KeywordAction
     @Serializable @SerialName("endure") data class Endure(val count: Value) : KeywordAction
     /** "Exile three cards from your graveyard or sacrifice a Food" (CR 701.61a). */

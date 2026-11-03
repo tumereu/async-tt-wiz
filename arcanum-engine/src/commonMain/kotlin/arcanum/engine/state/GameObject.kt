@@ -136,6 +136,8 @@ data class ObjectFacts(
     val manaSources: List<ObjectId> = emptyList(),
     /** The turn it was foretold in ([arcanum.api.ObjectMark.Foretold], CR 702.143a): castable for its foretell cost after it. */
     val foretoldTurn: Int? = null,
+    /** The turn it became plotted in ([arcanum.api.ObjectMark.Plotted], CR 702.170d): castable after it. */
+    val plottedTurn: Int? = null,
 )
 
 /** Mana of one kind spent: a colour, or colourless when [color] is null. */

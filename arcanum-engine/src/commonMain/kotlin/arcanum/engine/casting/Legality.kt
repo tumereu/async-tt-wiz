@@ -157,7 +157,9 @@ internal object Legality {
         // CR 307.1, 702.8a: sorcery timing unless it's an instant or has flash
         // A card cast from face down in exile (foretold, CR 406.3a) has its card's abilities
         val flash = chars?.hasKeyword(Keyword.Flash) == true || o.faceDown && face.abilities.any { it == Keyword.Flash }
-        val instant = during != null || !faceDown && (CardType.Instant in types || flash ||
+        // CR 702.170d: a plotted card is cast during its owner's main phase while the Stack is empty
+        val plotted = arcanum.engine.foretell.Plot.isPlotted(permission?.second?.origin)
+        val instant = !plotted && during != null || !plotted && !faceDown && (CardType.Instant in types || flash ||
             snap.view[card]?.has { it is Mechanic.InstantSpeed } == true || castsAsThoughFlash(snap, player, card))
         if (!instant && !sorceryTiming(snap, player)) return "only as a sorcery: your main phase, empty Stack (CR 307.1)"
         restriction(snap, player, card)?.let { return it }
@@ -373,7 +375,9 @@ internal object Legality {
         if (!o.faceDown) return arcanum.engine.room.Rooms.unlockActions(snap.state, id)
         val face = o.definition?.faces?.firstOrNull() ?: return emptyList()
         // CR 701.40b: a manifested creature card turns face up for its mana cost
-        val manifested = if (arcanum.api.ObjectMark.Manifested in o.marks && CardType.Creature in face.types && face.manaCost != null)
+        // CR 701.58b: so does a cloaked one
+        val manifested = if ((arcanum.api.ObjectMark.Manifested in o.marks || arcanum.api.ObjectMark.Cloaked in o.marks) &&
+            CardType.Creature in face.types && face.manaCost != null)
             listOf(AbilityInstance(Ability.SpecialAction(arcanum.api.Cost.mana(face.manaCost!!),
                 arcanum.api.Instructions(steps = listOf(arcanum.api.Step.Do(arcanum.api.Effect.TurnFaceUp(arcanum.api.Objects.Self)))),
                 timing = Timing.Any, functionsIn = listOf(arcanum.api.Zone.Battlefield),

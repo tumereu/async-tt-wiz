@@ -41,12 +41,40 @@ object KeywordMeanings {
         // a permission the rules give its owner (arcanum.engine.foretell.Foretell)
         Keyword.Foretell.Kind)
 
-    /** The abilities [keyword] stands for; empty for [engineCode] keywords and those with no rules meaning. */
-    fun expand(keyword: Keyword): List<Ability> =
-        KeywordExpansions.expand(keyword) ?: if (keyword.kind in engineCode) emptyList() else manual(keyword)
+    /** Keywords whose abilities depend on the face they are printed on ([expand]'s `below`). */
+    val faceDependent: Set<KeywordKind> = setOf(Keyword.Backup.Kind)
+
+    /** The abilities [keyword] stands for; empty for [engineCode] keywords and those with no rules meaning. [below]: the
+     * abilities printed after it on its face (backup grants them, CR 702.165a). */
+    fun expand(keyword: Keyword, below: List<Ability> = emptyList()): List<Ability> =
+        KeywordExpansions.expand(keyword) ?: when {
+            keyword.kind in engineCode -> emptyList()
+            keyword is Keyword.Backup -> listOf(backup(keyword, below))
+            else -> manual(keyword)
+        }
 
     /** Whether [keyword] is done by hand ([expand] gives `Manual` abilities only). */
-    fun isManual(keyword: Keyword): Boolean = KeywordExpansions.expand(keyword) == null && keyword.kind !in engineCode
+    fun isManual(keyword: Keyword): Boolean = KeywordExpansions.expand(keyword) == null && keyword.kind !in engineCode &&
+        keyword.kind !in faceDependent
+
+    /**
+     * CR 702.165a, c, d: "When this creature enters, put N +1/+1 counters on target creature. If that's another creature, it also
+     * gains the non-backup abilities of this creature printed below this one until end of turn." [below] are the abilities printed
+     * after the backup ability on its face, fixed as the trigger is created.
+     */
+    private fun backup(keyword: Keyword.Backup, below: List<Ability>): Ability {
+        val target = Objects.Target("backup")
+        val granted = below.filterNot { it is Keyword.Backup }
+        return Ability.Triggered(Trigger.On(EventPattern.ZoneChange(self, to = Zone.Battlefield)), Instructions(
+            targets = listOf(arcanum.api.TargetSlot("backup", arcanum.api.TargetKind.Objects(ObjectFilter.Type(CardType.Creature)),
+                min = Value.Fixed(1), max = Value.Fixed(1))),
+            steps = listOfNotNull(
+                Step.Do(arcanum.api.Effect.PutCounters(target, arcanum.api.CounterKind.PowerToughness(1, 1), Value.Fixed(keyword.amount))),
+                if (granted.isEmpty()) null else Step.If(arcanum.api.Condition.Not(arcanum.api.Condition.ObjectMatches(target, self)), listOf(
+                    Step.Do(arcanum.api.Effect.ApplyMechanics(listOf(arcanum.api.Mechanic.GainAbilities(granted)), arcanum.api.Affected.Objects(target),
+                        arcanum.api.Duration.EndOfTurn)))),
+            )))
+    }
 
     /** The by-hand abilities of a keyword without an expansion, at its natural moment ([moments]; as cast when not listed). */
     fun manual(keyword: Keyword): List<Ability> {
@@ -85,12 +113,11 @@ object KeywordMeanings {
         val m = mutableMapOf<KeywordKind, List<Moment>>()
         fun at(vararg moment: Moment, kinds: () -> List<KeywordKind>) = kinds().forEach { m[it] = moment.toList() }
         at(Moment.Cast) {
-            listOf(Keyword.Epic, Keyword.Assist, Keyword.Spree, Keyword.Tiered, Keyword.Ripple.Kind, Keyword.Entwine.Kind,
-                Keyword.Emerge.Kind, Keyword.Mutate.Kind, Keyword.Disguise.Kind, Keyword.Plot.Kind, Keyword.Awaken.Kind, Keyword.Prototype.Kind)
+            listOf(Keyword.Epic, Keyword.Assist, Keyword.Ripple.Kind, Keyword.Emerge.Kind, Keyword.Mutate.Kind, Keyword.Prototype.Kind)
         }
         at(Moment.Enters) {
             listOf(Keyword.HiddenAgenda, Keyword.Daybound, Keyword.Nightbound, Keyword.Compleated, Keyword.ReadAhead,
-                Keyword.StartYourEngines, Keyword.Tribute.Kind, Keyword.Backup.Kind)
+                Keyword.StartYourEngines)
         }
         at(Moment.Enters, Moment.AnotherCreatureYouControlEnters) { listOf(Keyword.Soulbond) }
         at(Moment.Attacks) { listOf(Keyword.Enlist) }

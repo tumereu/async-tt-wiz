@@ -283,8 +283,56 @@ internal object KeywordExpansionsMore {
                     zones = listOf(Zone.Library), bind = "partner", searcher = Players.Target("partner-player"))),
                 Step.Do(Effect.Move(Objects.Bound("partner"), Destination(Zone.Hand))),
                 Step.Do(Effect.Shuffle(Players.Target("partner-player")))), player = Players.Target("partner-player"))))))
+        // CR 702.172a, 702.183a: spree ("choose one or more modes") and tiered ("choose one") are in the spell's modes, each mode's
+        // cost an additional cost of the spell when chosen ([Mode.extraCost])
+        Keyword.Spree, Keyword.Tiered -> emptyList()
+        // CR 702.42a: "You may choose all modes of this spell instead of just the number specified. If you do, you pay an additional
+        // [cost]." (the engine lets all modes be chosen; the cost is added once more than one is)
+        is Keyword.Entwine -> listOf(Ability.Static(listOf(Mechanic.AdditionalCost(Keyword.Entwine.Kind, keyword.cost,
+            times = Value.Min(listOf(Value.Fixed(1), Value.Difference(Value.ModesChosen, Value.Fixed(1)))))), affects = self))
+        // CR 702.168a, d: "You may cast this card as a 2/2 face-down creature with ward {2}, no name, no subtypes, and no mana cost by
+        // paying {3} rather than paying its mana cost"; turned face up for its disguise cost as a special action (ward {2} while face
+        // down: the engine's face-down values for a disguised permanent)
+        is Keyword.Disguise -> listOf(
+            Ability.Static(listOf(Mechanic.AlternativeCost(Keyword.Disguise.Kind, Cost.mana(ManaCost.parse("{3}")!!), faceDown = true)), affects = self),
+            Ability.SpecialAction(keyword.cost, steps(Effect.TurnFaceUp(Objects.Self)), timing = Timing.Any, functionsIn = listOf(Zone.Battlefield),
+                condition = Condition.ObjectMatches(Objects.Self, ObjectFilter.HasStatus(Status.FaceDown))))
+        // CR 702.170a, b: "Any time you have priority during your main phase while the stack is empty, you may exile this card from your
+        // hand and pay [cost]. It becomes a plotted card." (a special action; casting a plotted card, 702.170d, is the engine's)
+        is Keyword.Plot -> listOf(Ability.SpecialAction(keyword.cost, Instructions(steps = listOf(
+            Step.Do(Effect.Move(Objects.Self, Destination(Zone.Exile))),
+            Step.Do(Effect.Mark(Objects.Self, ObjectMark.Plotted)))), timing = Timing.Sorcery, functionsIn = listOf(Zone.Hand)))
+        // CR 702.113a, b: "You may pay [cost] rather than pay this spell's mana cost as you cast this spell" and "If this spell's awaken
+        // cost was paid, put N +1/+1 counters on target land you control. That land becomes a 0/0 Elemental creature with haste. It's
+        // still a land." (the target only when the awaken cost is paid)
+        is Keyword.Awaken -> {
+            val paid = paid(Keyword.Awaken.Kind)
+            val land = Objects.Target("awakened")
+            listOf(
+                alternative(Keyword.Awaken.Kind, keyword.cost),
+                Ability.Spell(Instructions(
+                    targets = listOf(TargetSlot("awakened", TargetKind.Objects(ObjectFilter.And(listOf(ObjectFilter.Type(CardType.Land),
+                        ObjectFilter.ControlledBy(PlayerFilter.You)))), min = Value.Fixed(1), max = Value.Fixed(1), onlyIf = paid)),
+                    steps = listOf(Step.If(paid, listOf(
+                        Step.Do(Effect.PutCounters(land, CounterKind.PowerToughness(1, 1), Value.Fixed(keyword.amount))),
+                        Step.Do(Effect.ApplyMechanics(listOf(
+                            Mechanic.SetTypes(add = listOf(CardType.Creature), addSubtypes = listOf(SubtypeRef.Literal(Subtype("Elemental")))),
+                            Mechanic.SetPowerToughness(Value.Fixed(0), Value.Fixed(0)), Mechanic.GainAbilities(listOf(Keyword.Haste))),
+                            Affected.Objects(land), Duration.Indefinitely)))))),
+                ))
+        }
+        // CR 702.104a, b: "As this creature enters, choose an opponent. That player may put an additional N +1/+1 counters on it as it
+        // enters." (it enters marked when they do: "if tribute wasn't paid" reads that)
+        is Keyword.Tribute -> listOf(Ability.Static(listOf(Mechanic.Replacement(entersSelfEvent, modify = listOf(Modification.AsEnters(listOf(
+            Step.Choose(Choice.Player(PlayerFilter.Opponent), bind = "tribute-opponent", chooser = Players.You),
+            Step.May(listOf(
+                Step.Modify(Modification.EntersWithCounters(CounterKind.PowerToughness(1, 1), Value.Fixed(keyword.amount))),
+                Step.Modify(Modification.EntersMarked(TRIBUTE_PAID))), player = Players.Bound("tribute-opponent"))))))), affects = self))
         else -> null
     }
+
+    /** A creature whose tribute was paid (CR 702.104b). */
+    val TRIBUTE_PAID: ObjectMark = ObjectMark.Named("tribute paid")
 
     /** A mark for a permanent with echo that came under its controller's control since their last upkeep. */
     private val ECHO_DUE = ObjectMark.Named("echo")

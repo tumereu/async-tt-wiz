@@ -312,6 +312,7 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             // fra: a prepare spell (CR 722.3c, d)
             ObjectFilter.PrepareSpell -> o?.prepareSpellOf != null
             ObjectFilter.HasDealtCombatDamage -> o?.facts?.dealtCombatDamage == true
+            ObjectFilter.HasDealtDamage -> o?.facts?.dealtDamage == true // tdm
             // msh: the only creature declared as an attacker in this combat (CR 506.5)
             ObjectFilter.AttackingAlone -> state.combat?.attackers.orEmpty().any { it.id == id } && attackedAlone(id)
             // msh: a target of one of these spells or abilities (CR 115.1)
@@ -499,6 +500,9 @@ internal class Evaluator(val board: Board, val ctx: Context) {
 
     private fun counterList(id: ObjectId) = state.obj(id)?.counters ?: lki(id)?.counters
 
+    /** tdm: the kinds of counters on [id] (CR 122.1). */
+    private fun counterKinds(id: ObjectId) = counterList(id).orEmpty().filter { it.count > 0 }.map { it.kind }.distinct()
+
     private fun GameObject.printedTypes(): List<CardType> = definition?.faces?.getOrNull(face)?.types.orEmpty()
 
     /** [a] and [b] share [quality] ("share a color", "with the same power"). */
@@ -516,6 +520,7 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             SharedQuality.BasicLandType -> ca.subtypes.any { it in Subtypes.basicLandTypes && it in cb.subtypes }
             SharedQuality.PlaneswalkerType -> planeswalkerTypes(ca).any { it in planeswalkerTypes(cb) }
             is SharedQuality.Number -> property(quality.property, a) == property(quality.property, b)
+            SharedQuality.CounterKind -> counterKinds(a).any { it in counterKinds(b) } // tdm
         }
     }
 
@@ -535,6 +540,7 @@ internal class Evaluator(val board: Board, val ctx: Context) {
                 SharedQuality.BasicLandType -> c.subtypes.filter { it in Subtypes.basicLandTypes }
                 SharedQuality.PlaneswalkerType -> planeswalkerTypes(c)
                 is SharedQuality.Number -> listOf(property(quality.property, id))
+                SharedQuality.CounterKind -> counterKinds(id) // tdm
             }
         }
         val holder = mutableMapOf<Any, Int>()
@@ -748,6 +754,7 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             SharedQuality.BasicLandType -> cs.map { c -> c.subtypes.filter { it in Subtypes.basicLandTypes } }
             SharedQuality.PlaneswalkerType -> cs.map { planeswalkerTypes(it) }
             is SharedQuality.Number -> ids.map { listOf(property(quality.property, it)) }
+            SharedQuality.CounterKind -> ids.map { counterKinds(it) } // tdm
             SharedQuality.CreatureType -> emptyList()
         }
         return values.flatMap { it.distinct() }.groupingBy { it }.eachCount().values.maxOrNull() ?: 0
@@ -763,6 +770,7 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             SharedQuality.BasicLandType -> cs.flatMap { c -> c.subtypes.filter { it in Subtypes.basicLandTypes } }.distinct().size
             SharedQuality.PlaneswalkerType -> cs.flatMap { planeswalkerTypes(it) }.distinct().size
             is SharedQuality.Number -> ids.map { property(quality.property, it) }.distinct().size
+            SharedQuality.CounterKind -> ids.flatMap { counterKinds(it) }.distinct().size // tdm
         }
     }
 

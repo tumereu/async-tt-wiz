@@ -58,6 +58,12 @@ Design: `docs/specs/arcanum-automatum.md` §6.
   `EoePhrases` for values, conditions, nouns and events) and the `eoe*` functions of `Sentences.kt`, tried first; station symbol lines
   ("N+ | abilities") become statics of the Spacecraft or Planet with N or more charge counters, and the printed power and toughness
   belong to the striation that makes it a creature ("It's an artifact creature at N+.").
+  Tarkir: Dragonstorm (`tdm`): all 276 cards parse (the Omen cards as two faces, the five basic lands untested; the reversible
+  printings skipped); its rules are in `TdmWordings.kt` (`Tdm`, and `TdmPhrases` for nouns and conditions) and the `tdm*` functions of
+  `Sentences.kt`, tried first; "As this enchantment enters, choose Abzan or Mardu." with its "• Abzan — [ability]" lines is read by
+  `OracleParser` (each ability works only if its clan was chosen), "Mobilize X, where X is …" is written out as its triggered
+  ability, an exile "until … leaves the battlefield" is kept as card memory when another ability names "the exiled card", and "if you
+  cast it" in another creature's enters trigger is that creature.
 - Mechanics that used to be by hand (`MechanicWordings.kt`, tried first; `MechanicWordingsTest`, one test per wording): the Ring tempting
   you (the effect, "whenever the Ring tempts you", "[this] is your Ring-bearer", "you don't control a Ring-bearer", "you chose a creature
   other than [this] as your Ring-bearer"), soulbond's "As long as [this] is paired with another creature, both creatures have …" /

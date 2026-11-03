@@ -25,7 +25,7 @@ object OracleParser {
      * wording newly read, a definition shaped differently, a fix), so stored definitions made by an older parser are
      * parsed again.
      */
-    const val VERSION: Int = 29
+    const val VERSION: Int = 30
 
     /**
      * Every subtype the pinned Comprehensive Rules list (CR 205.3g–m, 205.3q), as the parser reads them: what a host
@@ -237,6 +237,19 @@ object OracleParser {
                     continue
                 }
             }
+            // tdm chunk 02: "As this enchantment enters, choose Abzan or Mardu." and its "• Abzan — [ability]" lines (CR 614.12, 607.2a)
+            if (!isSpell && i < lines.size && lines[i].startsWith("• ") && Tdm.AS_ENTERS_CHOOSE_A_OR_B.matches(line)) {
+                val bullets = mutableListOf<String>()
+                var j = i
+                while (j < lines.size && lines[j].startsWith("• ")) bullets += REMINDER.replace(lines[j++], "").trim()
+                sentences.tdmChosenOption(line, bullets)?.let { abilities ->
+                    i = j
+                    result += abilities
+                    raws += raw.trim()
+                    bullets.forEach { raws += it }
+                    continue
+                }
+            }
             // "Choose one —" and its "• " modes (CR 700.2)
             val choose = CHOOSE.matchEntire(line)
             if (choose != null && isSpell) {
@@ -306,7 +319,24 @@ object OracleParser {
                 if (ability is Ability.Spell || ability.isCastingCost()) Ability.Unparsed(raws[index]) else ability.withText(raws[index])
             }.distinct()
         }
-        return result.mapIndexed { index, ability -> ability.withText(raws[index]) }
+        // tdm chunk 02: "exile … until this creature leaves the battlefield" and a later "the exiled card": the exile keeps the card as card memory
+        // (linked abilities, CR 607.2a)
+        val linked = if (sentences.exiledCard == arcanum.api.Objects.Remembered(EXILED_WITH)) result.map(::rememberUntilLeaves) else result
+        return linked.mapIndexed { index, ability -> ability.withText(raws[index]) }
+    }
+
+    /** tdm: [ability] with each top-level "exile … until … leaves" kept as card memory (when nothing keeps it already). */
+    private fun rememberUntilLeaves(ability: Ability): Ability {
+        val triggered = ability as? Ability.Triggered ?: return ability
+        val steps = triggered.instructions.steps
+        if (steps.any { ((it as? arcanum.api.Step.Do)?.effect as? arcanum.api.Effect.Remember)?.key == EXILED_WITH }) return ability
+        val linked = steps.flatMap { step ->
+            val move = (step as? arcanum.api.Step.Do)?.effect as? arcanum.api.Effect.Move
+            if (move?.untilLeaves == null || move.to.zone != arcanum.api.Zone.Exile) listOf(step)
+            else listOf(arcanum.api.Step.Do(move.copy(postBind = move.postBind ?: "exiled")),
+                arcanum.api.Step.Do(arcanum.api.Effect.Remember(EXILED_WITH, arcanum.api.Objects.Bound(move.postBind ?: "exiled"))))
+        }
+        return if (linked == steps) ability else triggered.copy(instructions = triggered.instructions.copy(steps = linked))
     }
 
     /** The ability with its printed [raw] lines as its text, reminder text left out (shown to players: "you may"
@@ -423,6 +453,14 @@ object OracleParser {
 
     /** One keyword with its values, or null when [part] isn't exactly a known keyword written in its form. */
     fun keyword(part: String): Keyword? {
+        // tdm chunk 12: "hexproof from monocolored" (CR 702.11d)
+        Tdm.HEXPROOF_FROM.matchEntire(part)?.let { m ->
+            return Keyword.HexproofFrom(when (m.groupValues[1]) {
+                "monocolored" -> arcanum.api.ObjectFilter.Monocolored
+                "multicolored" -> arcanum.api.ObjectFilter.Multicolored
+                else -> return null
+            })
+        }
         // "Flashback—Sacrifice a Mountain." (CR 702.34a): a cost that isn't only mana.
         // spm: "Mayhem" without a cost (CR 702.187c)
         if (part == "Mayhem") return Keyword.Mayhem(null)

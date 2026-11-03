@@ -173,7 +173,9 @@ internal object Legality {
         // CR 702.170d: a plotted card is cast during its owner's main phase while the Stack is empty
         val plotted = arcanum.engine.foretell.Plot.isPlotted(permission?.second?.origin)
         val instant = !plotted && during != null || !plotted && !faceDown && (CardType.Instant in types || flash ||
-            snap.view[card]?.has { it is Mechanic.InstantSpeed } == true || castsAsThoughFlash(snap, player, card))
+            snap.view[card]?.has { it is Mechanic.InstantSpeed } == true || castsAsThoughFlash(snap, player, card) ||
+            // tdm: an additional cost whose payment lets it be cast as though it had flash (the cast then pays it)
+            chars?.abilities.orEmpty().any { inst -> (inst.ability as? arcanum.api.Ability.Static)?.mechanics.orEmpty().any { it is Mechanic.AdditionalCost && it.flash } })
         if (!instant && !sorceryTiming(snap, player)) return "only as a sorcery: your main phase, empty Stack (CR 307.1)"
         restriction(snap, player, card)?.let { return it }
         if (cantCastBy(snap, player, card)) return "$player can't cast it"

@@ -28,6 +28,8 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 import kotlin.test.assertEquals
+import kotlin.test.assertIs
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -88,7 +90,8 @@ class AutomatumFinalCombatReviewTest {
                     card.copy(definition = what.submitted.digest, faceId = what.face.faceId, corner = what.face.corner, tapped = false,
                         covered = card.containerId == aHand || card.containerId == bHand, enteredTurn = if (card.containerId in setOf(aField, bField)) "1" else "")
                 } ?: card },
-                containers = initial.board.containers.map { it.copy(cards = it.cards.filter { id -> id !in dropped }) }))
+                containers = initial.board.containers.map { it.copy(cards = it.cards.filter { id -> id !in dropped }) }.map {
+                    if (it.zone == PlayZone.LIBRARY && it.cards.size >= 2) it.copy(layers = LibraryLayers.initial(f.id("layer/${it.id}"), it.cards)) else it }))
     }
     private fun card(play: PlayState, what: Invented, container: String? = null) =
         play.board.cards.first { it.definition == what.submitted.digest && (container == null || it.containerId == container) }.id
@@ -101,10 +104,11 @@ class AutomatumFinalCombatReviewTest {
     private val play get() = live.value!!
 
     private fun start(initial: PlayState) { tree = GameplayTree(initial); live.value = initial }
-    private fun accept(actor: String, action: GameAction, request: String = f.id("request/${requests++}")): Boolean {
+    private fun accept(actor: String, action: GameAction, request: String = f.id("request/${requests++}"), from: String? = null): Boolean {
         val history = tree!!
-        val command = GameCommand(request, GameScope(play.gameId, playId = play.id), action, f.id("client"), "1")
-        val change = if (action is GameAction.Play) history.play(actor, command) else PlayBatches.change(history, actor, command)
+        val command = GameCommand(request, GameScope(play.gameId, playId = play.id), action, f.id("client"), "1",
+            continuation = from?.let { Continuation(it, explicit = true) })
+        val change = HistoryContinuation.change(history, actor, command)
         assertNull(change.reason, "the server takes $action")
         tree = change.tree
         live.value = tree!!.stateAt(tree!!.currentNodeId)
@@ -177,6 +181,78 @@ class AutomatumFinalCombatReviewTest {
         assertTrue(perform(bob, "Commit blocks"), bob.error)
         assertEquals(PausePoints.At(f.a, PausePoints.Point.Pause), PausePoints.at(play.board), "Alice's pause on the blocks")
         return toolkit(f.a)
+    }
+
+    /** [viewer]'s device holding the point [held] (I-D41, STK-039): it acts on that point's board, continuing from it. */
+    private fun heldToolkit(viewer: String, held: String) = TableToolkitController(viewer, { tree!!.stateAt(held) }, { true },
+        { action, _ -> accept(viewer, GameAction.Play(action), from = held) },
+        playBatch = { actions, request -> accept(viewer, GameAction.PlayBatch(actions), request, from = held) },
+        playTree = { tree }, automatedBatch = { batch, request -> accept(viewer, batch, request, from = held) },
+        continuation = { Continuation(held, explicit = true) })
+
+    /** Answers the open division of combat damage with the suggestion, from [viewer]'s device. */
+    private fun divideAsSuggested(viewer: String) {
+        val flow = assertNotNull(AutomatumBoards.sharedFlow(play, engineTags(tree, play.currentNodeId)))
+        val decision = assertIs<arcanum.engine.decision.Decision.Divide>(flow.decision)
+        val device = toolkit(viewer)
+        device.flows.show(flow)
+        if (decision.player.value != viewer) device.flows.chooseFor(decision)
+        assertTrue(device.flows.answer(arcanum.engine.decision.Answer.Division(decision.suggested)), device.error)
+    }
+
+    // I-D41, STK-039, CR 509, 510 (late reaction branching mid-combat): Alice's Ironhide Brute and Stout Bear attack, Bob
+    // blocks the Brute with his Hill Ogre; at his pause on the blocks he holds. Alice's device goes on for him (the hold
+    // isn't shown to it): combat damage is dealt on the live line. From the held point Bob's Storm Spark kills the Bear:
+    // a branch, on which the combat goes on from the blocks — only the Brute deals damage (3 to the Ogre, 2 trampling
+    // over), and the live line's damage isn't on it
+    @Test fun aLateReactionDuringTheBlocksBranchesTheCombat() {
+        start(board(TurnPosition.DECLARE_ATTACKERS, null, aliceField = listOf(brute, bear, mountain), bobField = listOf(ogre, mountain),
+            aliceHand = listOf(spark), bobHand = listOf(spark)))
+        val bobLife = play.board.players.single { it.accountId == f.b }.life.toInt()
+        val alice = toolkit(f.a)
+        val (bruteCard, bearCard) = listOf(card(play, brute), card(play, bear))
+        tapCard(alice, bruteCard); tapCard(alice, bearCard)
+        assertTrue(perform(alice, "Commit attack (2)"), alice.error)
+        // Bob's pause on the attack: he lets it go
+        assertTrue(toolkit(f.b).flows.step(StepFlow.Until.Pass), "pass")
+        val bob = toolkit(f.b)
+        tapCard(bob, card(play, ogre)); tapCopy(bob, bruteCard)
+        assertTrue(perform(bob, "Commit blocks"), bob.error)
+        // Alice's pause on the blocks: she passes; then Bob's
+        assertTrue(toolkit(f.a).flows.step(StepFlow.Until.Pass), "Alice passes")
+        val held = play.currentNodeId
+        assertEquals(PausePoints.At(f.b, PausePoints.Point.Pause), PausePoints.at(play.board), "Bob's pause on the blocks")
+        // Bob holds; Alice's device passes for him when his time is up there (I-D41)
+        AutomatumBoards.compute(play, f.a)
+        assertTrue(toolkit(f.a).flows.autoPass(f.b, held), "Alice's device goes on")
+        if (AutomatumBoards.sharedFlow(play, engineTags(tree, play.currentNodeId))?.decision != null) divideAsSuggested(f.a)
+        assertEquals(bobLife - 4, play.board.players.single { it.accountId == f.b }.life.toInt(), "live: 2 trample + 2 from the Bear")
+        val live = play.currentNodeId
+        // From the held point, Bob's Storm Spark at the Bear
+        val at = tree!!.stateAt(held)!!
+        AutomatumBoards.compute(at, f.b)
+        val reacting = heldToolkit(f.b, held)
+        val bobSpark = at.board.containers.single { it.id == bHand }.cards.single()
+        assertTrue(reacting.cast.start(bobSpark), reacting.error)
+        val bearItem = TablePresentation.scene(f.game, at, f.b, 412f, 892f, false).items
+            .first { it.cardId == bearCard && it.viewport != "combat" && it.zone == PlayZone.BATTLEFIELD }
+        reacting.open(TableIntent.Actions(bearItem.id, null), bearItem, TableSelection())
+        assertTrue(reacting.cast.cast(), reacting.error)
+        assertTrue(play.currentNodeId != live && tree!!.nodes.values.count { it.parentId == held } == 2, "a branch from the held point")
+        // On the branch: both let the Spark resolve, the damage step follows
+        var guard = 12
+        while (TurnPosition.of(play.board.turn) != TurnPosition.POSTCOMBAT_MAIN && guard-- > 0) {
+            val flow = assertNotNull(AutomatumBoards.sharedFlow(play, engineTags(tree, play.currentNodeId)), "the branch's board is taken over")
+            when {
+                flow.decision is arcanum.engine.decision.Decision.Divide -> divideAsSuggested(f.a)
+                flow.decision != null -> error("unexpected ${flow.decision}")
+                flow.holder != null -> { val h = flow.holder!!; val d = toolkit(h)
+                    assertTrue(if (CombatStackRules.stack(play.board).cards.isNotEmpty()) d.flows.pass(h) else d.flows.step(StepFlow.Until.Pass), d.error) }
+                else -> error("nobody to act at ${play.board.turn}")
+            }
+        }
+        assertEquals(PlayZone.GRAVEYARD, play.board.containers.single { c -> c.id == play.board.cards.single { it.id == bearCard }.containerId }.zone)
+        assertEquals(bobLife - 2, play.board.players.single { it.accountId == f.b }.life.toInt(), "on the branch only the Brute's 2 trample over")
     }
 
     private fun bounds(description: String): List<Rect> =

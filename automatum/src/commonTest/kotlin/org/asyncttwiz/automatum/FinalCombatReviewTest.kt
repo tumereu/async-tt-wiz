@@ -29,18 +29,21 @@ class FinalCombatReviewTest {
         Cards.invent("Edict of Tolls", "{4}{W}", "Enchantment",
             "Creatures can't attack you or planeswalkers you control unless their controller pays {X} for each of those creatures, where X is the number of enchantments you control.")
         Cards.invent("Ember Lance", "{R}", "Instant", "Ember Lance deals 1 damage to any target.")
+        Cards.invent("Dawnwatch Cleric", "{1}{W}", "Creature — Human Cleric", "At the beginning of your upkeep, you gain 1 life.", "1/1")
     }
     private val table = AtwTable("final-combat-review")
     private val alice get() = table.alice
     private val bob get() = table.bob
 
     /** Alice's main phase of turn 3; Bob keeps an instant and a Mountain, so the host stops for him at his pauses. */
-    private fun game(fullControl: Boolean = true): RoundTrip {
+    private fun game(fullControl: Boolean = true, bobResponds: Boolean = true): RoundTrip {
         table.turn = TurnState(alice, "3", TurnPosition.PRECOMBAT_MAIN.phase, TurnPosition.PRECOMBAT_MAIN.step)
         table.priority = MtgPriority(alice)
         table.put(alice, PlayZone.LIBRARY, "Island", "Island", "Island")
-        table.put(bob, PlayZone.BATTLEFIELD, "Mountain")
-        table.put(bob, PlayZone.HAND, "Ember Lance")
+        if (bobResponds) {
+            table.put(bob, PlayZone.BATTLEFIELD, "Mountain")
+            table.put(bob, PlayZone.HAND, "Ember Lance")
+        }
         table.put(bob, PlayZone.LIBRARY, "Island", "Island", "Island")
         if (fullControl) table.fullControl += listOf(alice, bob)
         return RoundTrip(table.state(), table.definitions)
@@ -65,7 +68,8 @@ class FinalCombatReviewTest {
     // trigger resolves in a later call than the one that put it there: the added phase must survive ATW's round trip
     // (the engine's TurnState.extraPhases) and the turn must go to a second beginning of combat after the first combat.
     // finalreview-combat #1: TurnExtras doesn't keep extraPhases/resumeAt, so EngineState.from drops the added phase
-    // (the round trip fails on "turn"; without the check the second combat never comes)
+    // (the round trip fails on "turn"; without the check the second combat never comes). Once kept, the step back to the
+    // added beginning of combat must also be taken (see the next test)
     @Ignore("finalreview-combat #1: an additional combat phase is lost between engine calls (TurnExtras has no extraPhases)")
     @Test fun anAdditionalCombatPhaseFromAnAttackTriggerIsTaken() {
         val (valoria) = table.put(alice, PlayZone.BATTLEFIELD, "Valoria, Dawnwing Marshal")
@@ -87,25 +91,21 @@ class FinalCombatReviewTest {
         assertTrue(CombatFlow.choices(rt.call()).attacks.containsKey(valoria), "Valoria (vigilance) may attack again")
     }
 
-    // finalreview-combat #1 (second half) — CR 500.8, TRN-014: once the added phase is kept, the step change into it goes
-    // back in ATW's order (end of combat → beginning of combat). When nobody can act in that added beginning of combat
-    // (no Full control), EngineBatch.step says it as a passed step (`ChooseStep(through = laterStep())`), which ATW's
-    // reducer refuses for a step earlier than the board's ("A passed step only moves forward inside this turn"), so the
-    // whole batch would be refused. Shown on the reducer: the batch's first two members as the planner makes them
-    @Ignore("finalreview-combat #1: the step back to an added beginning of combat is refused as a passed step")
-    @Test fun anAddedCombatPassedThroughIsTakenByTheReducer() {
-        table.turn = TurnState(alice, "3", TurnPosition.END_COMBAT.phase, TurnPosition.END_COMBAT.step)
-        table.priority = null
-        val state = table.state()
-        val command = org.asyncttwiz.protocol.GameCommand(org.asyncttwiz.protocol.CommandIds.uuidV5(AtwTable.NAMESPACE, "extra-combat"),
-            org.asyncttwiz.protocol.GameScope(state.gameId, playId = state.id),
-            org.asyncttwiz.protocol.GameAction.PlayBatch(listOf(
-                org.asyncttwiz.protocol.PlayAction.ChooseStep(TurnPosition.BEGIN_COMBAT, through = true),
-                org.asyncttwiz.protocol.PlayAction.ChooseStep(TurnPosition.DECLARE_ATTACKERS))),
-            org.asyncttwiz.protocol.CommandIds.uuidV5(AtwTable.NAMESPACE, "stream"), "1")
-        val first = org.asyncttwiz.protocol.GameplayRules.change(state, alice,
-            org.asyncttwiz.protocol.PlayBatches.member(command, 0, (command.action as org.asyncttwiz.protocol.GameAction.PlayBatch).actions[0]))
-        assertEquals("accepted", first.outcome, "the passed step into the added beginning of combat: ${first.reason}")
+    // finalreview-combat #1 — CR 500.8, I-D22: when nobody can act on the way (Bob has nothing; no Full control), one call
+    // runs from Alice's declaration through her trigger, the first combat and into the added one, where she declares
+    // attackers again. The planner says the step back to the added beginning of combat as a passed step, which ATW's
+    // reducer refuses: the plan fails, so the attack can't be sent at all; the game can't go on with Automatum on
+    // (every retry plans the same batch) until Automatum is switched off
+    @Ignore("finalreview-combat #1: an attack whose trigger adds a combat can't be sent when the call runs into that combat")
+    @Test fun anAttackThatRunsIntoTheAddedCombatCanBeSent() {
+        val (valoria) = table.put(alice, PlayZone.BATTLEFIELD, "Valoria, Dawnwing Marshal")
+        val rt = game(fullControl = false, bobResponds = false)
+        rt.run(alice) { StepFlow.pass(it, alice) }
+        assertEquals(TurnPosition.DECLARE_ATTACKERS, position(rt))
+        rt.run(alice) { CombatFlow.declareAttackers(it, listOf(LaneAttack(valoria))) }
+        assertEquals("17", rt.state.board.players.single { it.accountId == bob }.life, "the first combat's 3 damage")
+        assertEquals(TurnPosition.DECLARE_ATTACKERS, position(rt), "the added combat's declare attackers step")
+        assertTrue(CombatFlow.choices(rt.call()).attacks.containsKey(valoria), "Valoria may attack again (untapped, vigilance)")
     }
 
     // CR 508.1g–j (rtr): a cost to attack is paid as attackers are declared; the attack waits for the payment, a shared
@@ -161,6 +161,27 @@ class FinalCombatReviewTest {
         passUntil(rt, max = 20) { position(rt) == TurnPosition.POSTCOMBAT_MAIN }
         assertEquals(PlayZone.GRAVEYARD, rt.state.board.containers.single { c -> c.id == rt.state.board.cards.single { it.id == duelist }.containerId }.zone)
         assertEquals("20", rt.state.board.players.single { it.accountId == bob }.life)
+    }
+
+    // I-D41, STK-036 (decision B): without Full control, from Bob's second main phase to Alice's: Alice's pause in Bob's end
+    // step (she could answer), Bob's pause on Alice's upkeep trigger (her own trigger is passed for her), then Alice's
+    // stop in her main phase; nobody stops in the untap, draw or the upkeep after the trigger resolved
+    @Test fun aTurnChangeStopsAtTheEndStepAndTheUpkeepTrigger() {
+        table.turn = TurnState(bob, "2", TurnPosition.POSTCOMBAT_MAIN.phase, TurnPosition.POSTCOMBAT_MAIN.step)
+        table.priority = MtgPriority(bob)
+        table.put(alice, PlayZone.BATTLEFIELD, "Dawnwatch Cleric", "Mountain")
+        table.put(alice, PlayZone.HAND, "Ember Lance")
+        table.put(alice, PlayZone.LIBRARY, "Island", "Island", "Island")
+        table.put(bob, PlayZone.BATTLEFIELD, "Mountain")
+        table.put(bob, PlayZone.HAND, "Ember Lance")
+        table.put(bob, PlayZone.LIBRARY, "Island", "Island", "Island")
+        val rt = RoundTrip(table.state(), table.definitions)
+        val points = mutableListOf<String>()
+        fun note() { points += "${position(rt)}:${holder(rt)?.let { if (it == alice) "A" else "B" } ?: "-"}${if (rt.engine().stack.isEmpty()) "" else "+stack"}" }
+        var guard = 8
+        while (guard-- > 0 && !(rt.state.board.turn.accountId == alice && position(rt) == TurnPosition.PRECOMBAT_MAIN)) { pass(rt); note() }
+        assertEquals(listOf("END_STEP:A", "UPKEEP:B+stack", "PRECOMBAT_MAIN:A"), points)
+        assertEquals("21", rt.state.board.players.single { it.accountId == alice }.life)
     }
 
     // I-D41, STK-036: without Full control, a whole turn of Alice's with an attack stops for Bob only at his pauses: the

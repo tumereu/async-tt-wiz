@@ -1,0 +1,1 @@
+mod: With Automatum on, a spell you cast leaves your hand at once, only the Stack lights up when you target a spell, "Bob is choosing" fits on one line, the Automatum toggles show clearly whether they are on, and things you can't do now shake instead of showing a message.

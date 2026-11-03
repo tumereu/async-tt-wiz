@@ -1,1 +1,1 @@
-During Alice's opening in a game with Automatum on, her quick-actions row is Mulligan and Keep, each an icon with its name, beside the step arrow.
+During Alice's opening in a game with Automatum on, her quick-actions row is Mulligan and Keep, each an icon with its name, beside the step arrow, greyed until both players are Ready.

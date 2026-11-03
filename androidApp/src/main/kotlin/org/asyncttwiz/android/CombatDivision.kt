@@ -136,49 +136,32 @@ internal fun engineShares(decision: Decision.Divide, division: DamageDivision, s
     division.among.zip(decision.among).map { (ref, target) -> Share(target, shares[ref] ?: 0) }
 
 /**
- * The division dialog (CMB-033) of the open division of combat damage, for the player who divides (or chooses for them):
- * filled in with Automatum's suggestion, so OK alone accepts it. Inspect hides it to look at the table.
+ * The division of combat damage (CMB-033) open for the player who divides (or chooses for them), docked above the hand
+ * like every Automatum panel (UI review round 2 #7): filled in with Automatum's suggestion, so OK alone accepts it; the
+ * eye hides it to look at the table.
  */
 @Composable
-internal fun CombatDivisionDialog(flows: SharedFlowController, play: PlayState, names: Map<String, String>,
+internal fun CombatDivisionPanel(flows: SharedFlowController, play: PlayState, names: Map<String, String>,
     decision: Decision.Divide, division: DamageDivision, count: Pair<Int, Int>?) {
     // The decision's suggestion: Automatum's, or an early answer given just as it opened (I-D33)
     val start = division.among.zip(decision.among).associate { (ref, target) ->
         ref to (decision.suggested.firstOrNull { it.target == target }?.amount ?: 0) }
     val draft = remember(decision.id) { DivisionDraft(division, start, free = Divisions.orderFree(division)) }
-    Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = .32f)).pointerInput(Unit) { detectTapGestures { } },
-        contentAlignment = Alignment.Center) {
-        Surface(Modifier.padding(20.dp).widthIn(max = 380.dp).semantics { contentDescription = "Division of combat damage" },
-            shape = RoundedCornerShape(16.dp), color = Color.White, shadowElevation = 8.dp, border = BorderStroke(2.dp, AutomatumViolet)) {
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                val card = play.board.cards.firstOrNull { it.id == division.source }
-                val corner = LocalComputedBoard.current.cards[division.source]?.corner ?: card?.let(::effectiveCorner).orEmpty()
-                Row(verticalAlignment = Alignment.Top) {
-                    Text(listOfNotNull(refName(play, names, MtgRef.Card(division.source, card?.zoneChanges ?: 0)) +
-                        corner.takeIf { it.isNotEmpty() }?.let { " $it" }.orEmpty(), "trample".takeIf { division.trampleTo != null })
-                        .joinToString(" · "), Modifier.weight(1f), fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                    if (count != null) Text("${count.first} of ${count.second}", color = Color(0xff78909c), fontSize = 14.sp)
-                }
-                Text("${division.amount} damage to divide among what it fights", fontSize = 13.sp, color = Color(0xff4b5a5f))
-                DivisionRows(draft, play, names)
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    ChoiceButton("Inspect", Icons.Outlined.ZoomIn, Modifier.weight(1f).semantics { contentDescription = "Inspect the table" },
-                        onClick = flows::toggleHidden)
-                    ChoiceButton("OK", Icons.Outlined.Check, Modifier.weight(1f), enabled = draft.refusal == null && !flows.busy, primary = true) {
-                        flows.answer(Answer.Division(engineShares(decision, division, draft.shares)))
-                    }
-                }
-            }
+    AutomatumDockPanel("Division of combat damage", flows.hidden, flows::toggleHidden, "division", buttons = {
+        ChoiceButton("OK", Icons.Outlined.Check, enabled = draft.refusal == null && !flows.busy, primary = true) {
+            flows.answer(Answer.Division(engineShares(decision, division, draft.shares)))
         }
-    }
-}
-
-/** The dialog hidden by Inspect (CMB-033): a button bringing it back. */
-@Composable
-internal fun DivisionHidden(flows: SharedFlowController) {
-    AutomatumDockBar("Division hidden") {
-        Text("Dividing combat damage", Modifier.weight(1f), fontSize = 13.sp)
-        BarButton("Divide damage", Icons.Outlined.CallSplit, onClick = flows::toggleHidden)
+    }) {
+        val card = play.board.cards.firstOrNull { it.id == division.source }
+        val corner = LocalComputedBoard.current.cards[division.source]?.corner ?: card?.let(::effectiveCorner).orEmpty()
+        Row(verticalAlignment = Alignment.Top) {
+            Text(listOfNotNull(refName(play, names, MtgRef.Card(division.source, card?.zoneChanges ?: 0)) +
+                corner.takeIf { it.isNotEmpty() }?.let { " $it" }.orEmpty(), "trample".takeIf { division.trampleTo != null })
+                .joinToString(" · "), Modifier.weight(1f), fontWeight = FontWeight.Bold, fontSize = 15.sp)
+            if (count != null) Text("${count.first} of ${count.second}", color = Color(0xff78909c), fontSize = 13.sp)
+        }
+        Text("${division.amount} damage to divide among what it fights", fontSize = 12.sp, color = Color(0xff4b5a5f))
+        DivisionRows(draft, play, names)
     }
 }
 

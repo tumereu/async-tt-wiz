@@ -380,7 +380,7 @@ class AutomatumControlsScreenshotTest {
         compose.onNodeWithContentDescription("Mull N").assertDoesNotExist()
         compose.onNodeWithContentDescription(AutomatumToggles.FULL_CONTROL).assertDoesNotExist()
         captureShot("$SCREENSHOTS/automatum/opening-quick-actions.png",
-            "During Alice's opening in a game with Automatum on, her quick-actions row is Mulligan and Keep, each an icon with its name, beside the step arrow.")
+            "During Alice's opening in a game with Automatum on, her quick-actions row is Mulligan and Keep, each an icon with its name, beside the step arrow, greyed until both players are Ready.")
         compose.runOnIdle { toolkit.openCard(TableScope(sparkId, listOf(sparkId))) }
         compose.waitForIdle()
         compose.onNodeWithContentDescription("Library bottom").assertDoesNotExist()

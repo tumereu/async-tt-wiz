@@ -321,6 +321,7 @@ object TablePresentation {
         val players = listOf(opponent, own)
         val byId = play.board.cards.associateBy { it.id }
         val definitions = play.definitions.associate { it.digest to it.definition }
+        val castFromHand = castSpellSources(play.board)
         fun name(id: String?) = if (game.inviter.accountId == id) game.inviter.username else game.recipient.username
         fun container(player: String?, zone: PlayZone) = play.board.containers.single { it.accountId == player && it.zone == zone && !it.temp }
         fun face(card: PlayCard?) = card?.let { definitions[it.definition]?.faces?.firstOrNull { f -> f.faceId == it.faceId } }
@@ -485,7 +486,11 @@ object TablePresentation {
         val modeSize = modeButtonSize(appearance.size(CardArea.HAND), railHeight)
         for ((index, player) in players.withIndex()) {
             val ownSide = player.accountId == viewer
-            val hand = container(player.accountId, PlayZone.HAND)
+            val hand = container(player.accountId, PlayZone.HAND).let { hand ->
+                // UI review round 2 #9 (decided for the owner): with Automatum on a spell cast from a hand leaves it at once:
+                // its card isn't drawn in the hand while its entry is on the Stack (the card stays there, STK-001)
+                if (!play.board.automatum) hand else hand.copy(cards = hand.cards.filter { it !in castFromHand })
+            }
             val normalHandBounds = if (!ownSide) {
                 if (landscape) TableBounds(sidebar + 10f, 2f, (width - sidebar - toolbarWidth - 20f).coerceAtLeast(handWidth), maxOf(HEADER, railHeight))
                 else TableBounds(8f, worldTop - railHeight, width - 16f, railHeight)
@@ -779,3 +784,7 @@ object TablePresentation {
         return definition.copy(name = face.name, faces = listOf(face))
     }
 }
+
+/** The cards whose spell Automatum has on the Stack (UI review round 2 #9: not drawn in their hand meanwhile). */
+internal fun castSpellSources(board: BoardState): Set<String> =
+    board.stackEffects.filter { it.item?.kind == MtgStackKind.Spell }.mapTo(HashSet()) { it.sourceId }

@@ -74,13 +74,11 @@ internal object StackMenuActions {
     }
 }
 
-/** Exceptional Stack edits stay in one compact, live shared-state view. With [targets] (an Automatum cast or choice
- * picking a target on the Stack, I-D6) it is a target picker instead: the legal entries glow and a tap picks one
- * ([pickTarget]); the others are dimmed, and the editing controls are left out. */
+/** Exceptional Stack edits stay in one compact, live shared-state view. (An Automatum target on the Stack is picked in
+ * the docked [StackTargetPicker].) */
 @Composable
 internal fun ManageStackDialog(state: PlayState, viewer: String, enabled: Boolean, dismiss: () -> Unit,
-    perform: (TableIntent) -> Unit, editNote: ((String) -> Unit)? = null,
-    targets: List<String>? = null, pickTarget: (String) -> Unit = {}) {
+    perform: (TableIntent) -> Unit, editNote: ((String) -> Unit)? = null) {
     val annotations = LocalTableMenuAnnotations.current
     val order = CombatStackRules.stack(state.board).cards
     val size = rememberCardAppearance().size(CardArea.STACK)
@@ -96,9 +94,7 @@ internal fun ManageStackDialog(state: PlayState, viewer: String, enabled: Boolea
             snapshot = card.takeIf { CombatStackRules.liveSource(state.board, id) == null }, stackEntryId = id)
     }
     // Wide enough for one row of seven 48 dp entry buttons.
-    InlinePopupPanel(dismiss, title = if (targets != null) "Choose a target · ${targets.size}" else "Manage Stack · ${order.size}",
-        // UI review #6: the target picker is as tall as its entries
-        width = 384.dp, height = if (targets != null) (96 + 72 * entries.size).coerceAtMost(520).dp else 520.dp, key = "manage-stack", sheet = true) {
+    InlinePopupPanel(dismiss, title = "Manage Stack · ${order.size}", width = 384.dp, height = 520.dp, key = "manage-stack", sheet = true) {
         LazyColumn(Modifier.fillMaxWidth().heightIn(max = 440.dp).ringInputTarget(draggable = true), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             itemsIndexed(entries, key = { _, entry -> entry.cardId }) { index, entry ->
                 val id = entry.cardId
@@ -106,21 +102,15 @@ internal fun ManageStackDialog(state: PlayState, viewer: String, enabled: Boolea
                 val projection = state.board.stackEffects.any { it.id == id }
                 val controlled = CombatStackRules.controller(state.board, id) == viewer
                 val owner = if (controlled) OwnTableColor else OpponentTableColor
-                val target = targets?.contains(id)
-                Column(if (target == null) Modifier else Modifier.alpha(if (target) 1f else .4f)
-                    .then(if (target) Modifier.border(2.dp, AutomatumViolet, androidx.compose.foundation.shape.RoundedCornerShape(6.dp))
-                        .semantics { contentDescription = "Legal target" } else Modifier)) {
-                    Row(Modifier.contentsCardGestures(id, PlayZone.STACK, actions = { if (target == true) pickTarget(id) }, double = null,
+                Column {
+                    Row(Modifier.contentsCardGestures(id, PlayZone.STACK, actions = {}, double = null,
                         inspect = { inspect(id, false) }, peek = { held -> if (held) inspect(id, true) else if (peeking) inspection = null }),
                         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         val definition = state.definitions.find { it.digest == card?.definition }?.definition
                         val face = definition?.faces?.indexOfFirst { it.faceId == card?.faceId } ?: -1
                         val art = if (entry.faceVisible && definition != null && face >= 0)
                             InspectedCard.retained(requireNotNull(card).definition, definition).artwork[face] else null
-                        // UI review #6, I-D48: picking a target, the entry is drawn as a battlefield card
-                        if (targets != null) ChoiceCardFace(choiceCard(state, viewer, id, card?.id, entry.faceVisible, entry.name)
-                            .copy(own = controlled), small = true)
-                        else Box(Modifier.size(32.dp * size, 44.dp * size).cardFrame(card?.token == true, owner, projection)
+                        Box(Modifier.size(32.dp * size, 44.dp * size).cardFrame(card?.token == true, owner, projection)
                             .semantics { contentDescription = if (controlled) "Your Stack entry" else "Opponent Stack entry" },
                             contentAlignment = Alignment.Center) {
                             if (art != null) CardArtwork(art, entry.name, 64, 88, Modifier.fillMaxSize())
@@ -130,7 +120,7 @@ internal fun ManageStackDialog(state: PlayState, viewer: String, enabled: Boolea
                             style = MaterialTheme.typography.bodyMedium, maxLines = 2)
                         StackMarkChips(state.board.stackTextMarks[id].orEmpty())
                     }
-                    if (targets == null) Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                         StackMenuActions.controls(state, id, enabled, perform, note = editNote?.let { { it(id) } },
                             ping = annotations?.let { { StackMenuActions.ping(state, id, it) } }).forEach { control ->
                             FilledTonalIconButton(onClick = control.click, enabled = control.enabled,
@@ -139,7 +129,7 @@ internal fun ManageStackDialog(state: PlayState, viewer: String, enabled: Boolea
                             }
                         }
                     }
-                    if (targets == null) stackTextOptions(state, id, viewer).forEachIndexed { option, text ->
+                    stackTextOptions(state, id, viewer).forEachIndexed { option, text ->
                         FilterChip(selected = option in state.board.stackTextMarks[id].orEmpty(),
                             onClick = { perform(TableIntent.Submit(StackMenuActions.toggleMark(id, option), null)) },
                              enabled = enabled, modifier = Modifier.ringInputTarget().tableChangeFlash(LocalTableChanges.current,

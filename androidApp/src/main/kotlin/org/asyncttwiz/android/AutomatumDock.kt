@@ -13,8 +13,22 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Surface
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
+import org.asyncttwiz.protocol.CombatStackRules
+import org.asyncttwiz.protocol.PlayState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
@@ -99,4 +113,62 @@ internal fun AutomatumDockBar(description: String, content: @Composable RowScope
             drawRect(Color.White)
             drawLine(AutomatumViolet, Offset(0f, 0f), Offset(size.width, 0f), 2.dp.toPx())
         }.padding(start = 14.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically, content = content)
+}
+
+/** UI review round 2 N3: where an open choice in a dock panel puts its own buttons (OK, Yes / No, Keep): the panel's
+ * bottom row beside the eye, as in the cast and respond panels ([DockButtons]). */
+internal class DockSlot {
+    var buttons by mutableStateOf<(@Composable RowScope.() -> Unit)?>(null)
+}
+
+/** The dock panel the composed choice sits in, null outside one. */
+internal val LocalDockSlot = compositionLocalOf<DockSlot?> { null }
+
+/** A choice's own buttons: in its dock panel's bottom row ([LocalDockSlot]); elsewhere (the cast panel) right-aligned
+ * under the choice. The main button last. */
+@Composable
+internal fun DockButtons(content: @Composable RowScope.() -> Unit) {
+    val slot = LocalDockSlot.current
+    if (slot == null) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
+            verticalAlignment = Alignment.CenterVertically, content = content)
+        return
+    }
+    SideEffect { slot.buttons = content }
+    DisposableEffect(slot) { onDispose { slot.buttons = null } }
+}
+
+/**
+ * Picking a Stack entry as a target (STK-023, UI review round 2 #7): docked above the hand like every Automatum panel,
+ * the Stack's entries top first drawn as cards (hold: Inspect), the legal ones ringed in violet, the others dimmed; a tap
+ * on a legal one picks it. Back returns to picking on the table.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+internal fun StackTargetPicker(toolkit: TableToolkitController, play: PlayState) {
+    val viewer = toolkit.viewer
+    val targets = toolkit.stackTargets(play)
+    val stack = CombatStackRules.stack(play.board)
+    val entries = contentsEntries(play, PileContents(stack.id, "Stack", stack.cards, true), viewer)
+    var hidden by remember { mutableStateOf(false) }
+    val inspector = remember { ChoiceInspector() }
+    AutomatumDockPanel("Stack target picker", hidden, { hidden = !hidden }, "target picker", buttons = {
+        ChoiceButton("Back", Icons.AutoMirrored.Outlined.ArrowBack, onClick = toolkit::closeStackTargets)
+    }) {
+        Text("Choose a target · ${targets.size}", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+        ChoiceHintText("Tap a spell or ability ringed in violet (1 is the top of the Stack).")
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            entries.forEachIndexed { index, entry ->
+                val id = entry.cardId
+                val legal = id in targets
+                val card = choiceCard(play, viewer, id, CombatStackRules.inspection(play.board, id)?.id, entry.faceVisible, entry.name)
+                    .copy(own = CombatStackRules.controller(play.board, id) == viewer)
+                ChoiceCardFace(card, Modifier.alpha(if (legal) 1f else .4f)
+                    .then(if (legal) Modifier.semantics { contentDescription = "Legal target" } else Modifier)
+                    .choiceCardGestures(id, tap = { if (legal) toolkit.pickStackTarget(id) }, hold = { inspector.hold(card, it) }),
+                    selected = legal, badge = "${index + 1}")
+            }
+        }
+    }
+    ChoiceInspection(inspector, play, viewer)
 }

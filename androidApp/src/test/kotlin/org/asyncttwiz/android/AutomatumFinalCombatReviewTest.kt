@@ -7,6 +7,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Rect
 import com.github.takahirom.roborazzi.captureRoboImage
+import androidx.compose.ui.test.hasAnyAncestor
+import androidx.compose.ui.test.hasContentDescription
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -134,10 +137,9 @@ class AutomatumFinalCombatReviewTest {
     private fun quick(toolkit: TableToolkitController) = automatumCombatQuickActions(play, toolkitQuickContext(play, TableSelection(), toolkit.viewer)
         .copy(automatumCombat = AutomatumBoards.combat(play) { engineTags(tree, play.currentNodeId) })
         .withCombatTarget(toolkit.combat, play, "Bob"), TableActionScope(play.gameId, play.id)).orEmpty()
-    private fun perform(toolkit: TableToolkitController, name: String) = quick(toolkit).single { it.name == name }.let { action ->
-        assertTrue(action.enabled, "$name: ${action.refused}")
-        toolkit.perform(action.intent)
-    }
+    /** The step arrow (TRN-063): it reads [label] (when given), isn't greyed, and a tap goes on. */
+    private fun arrow(toolkit: TableToolkitController, label: String? = null) =
+        tapArrow(play, toolkit, AutomatumBoards.combat(play) { engineTags(tree, play.currentNodeId) }, label)
 
     /** Where exploratory pictures go (not committed): the FINALREVIEW_SHOTS directory when set. */
     private fun snap(name: String) {
@@ -177,13 +179,13 @@ class AutomatumFinalCombatReviewTest {
         val alice = toolkit(f.a)
         val (bruteCard, bearCard) = listOf(card(play, brute), card(play, bear))
         tapCard(alice, bruteCard); tapCard(alice, bearCard)
-        assertTrue(perform(alice, "Commit attack (2)"), alice.error)
+        assertTrue(arrow(alice, "Attack (2)"), alice.error)
         // Bob's pause on the attack (his Storm Spark): he lets it go
         if (TurnPosition.of(play.board.turn) == TurnPosition.DECLARE_ATTACKERS) assertTrue(toolkit(f.b).flows.step(StepFlow.Until.Pass), "pass")
         assertEquals(TurnPosition.DECLARE_BLOCKERS, TurnPosition.of(play.board.turn))
         val bob = toolkit(f.b)
         tapCard(bob, card(play, ogre)); tapCopy(bob, bruteCard)
-        assertTrue(perform(bob, "Commit blocks"), bob.error)
+        assertTrue(arrow(bob), bob.error)
         assertEquals(PausePoints.At(f.a, PausePoints.Point.Pause), PausePoints.at(play.board), "Alice's pause on the blocks")
         return toolkit(f.a)
     }
@@ -217,12 +219,12 @@ class AutomatumFinalCombatReviewTest {
         val alice = toolkit(f.a)
         val (bruteCard, bearCard) = listOf(card(play, brute), card(play, bear))
         tapCard(alice, bruteCard); tapCard(alice, bearCard)
-        assertTrue(perform(alice, "Commit attack (2)"), alice.error)
+        assertTrue(arrow(alice, "Attack (2)"), alice.error)
         // Bob's pause on the attack: he lets it go
         assertTrue(toolkit(f.b).flows.step(StepFlow.Until.Pass), "pass")
         val bob = toolkit(f.b)
         tapCard(bob, card(play, ogre)); tapCopy(bob, bruteCard)
-        assertTrue(perform(bob, "Commit blocks"), bob.error)
+        assertTrue(arrow(bob), bob.error)
         // Alice's pause on the blocks: she passes; then Bob's
         assertTrue(toolkit(f.a).flows.step(StepFlow.Until.Pass), "Alice passes")
         val held = play.currentNodeId
@@ -269,11 +271,13 @@ class AutomatumFinalCombatReviewTest {
         val alice = toolkit(f.a)
         val bearCard = card(play, bear)
         tapCard(alice, bearCard)
-        assertTrue(perform(alice, "Commit attack (1)"), alice.error)
+        assertTrue(arrow(alice, "Attack (1)"), alice.error)
         val flow = assertNotNull(AutomatumBoards.sharedFlow(play, engineTags(tree, play.currentNodeId)))
         val payment = assertIs<arcanum.engine.decision.Decision.ManaPayment>(flow.decision, "the attack waits for Alice's payment")
         assertEquals(f.a, payment.player.value)
         assertTrue(quick(alice).none { it.enabled }, "no combat quick action while the payment is open: ${quick(alice).map { it.name }}")
+        assertNotNull(stepBlocked(play, false, AutomatumBoards.combat(play) { engineTags(tree, play.currentNodeId) }),
+            "the step arrow is greyed while the payment is open")
         alice.flows.show(flow)
         assertTrue(alice.flows.answer(arcanum.engine.decision.Answer.ManaPayment(payment.suggestion)), alice.error)
         assertTrue(play.board.cards.single { it.id == bearCard }.tapped, "the Bear attacks")
@@ -285,14 +289,14 @@ class AutomatumFinalCombatReviewTest {
         compose.onAllNodesWithContentDescription(description, substring = true).fetchSemanticsNodes().map { it.boundsInRoot }
 
     // finalreview-combat #2 (fixed) — I-D41, CMB-029, STK-037: at a pause in combat (the blocks), the thing to react to is
-    // the combat area's damage preview: in portrait the pause bar ("Declare blockers: you may act", Hold, Pass) docks above
+    // the combat area's damage preview: in portrait the pause bar ("Declare blockers: you may act", Hold) docks above
     // Alice's hand, clear of the combat panel and its preview, and its eye hides it (I-D10) and brings it back
     @Test fun thePauseOnTheBlocksLeavesThePreviewVisible() {
         val alice = blocked()
         show(alice)
         compose.mainClock.advanceTimeBy(500)
         compose.onRoot().captureShot("$SCREENSHOTS/automatum/pause-combat-docked.png",
-            "Bob blocked Alice's Ironhide Brute with his Hill Ogre and it is Alice's pause on the blocks: in portrait her pause bar (\"Declare blockers: you may act\", the eye, Hold and Pass) sits just above her hand, so the combat area and its damage preview stay in view.")
+            "Bob blocked Alice's Ironhide Brute with his Hill Ogre and it is Alice's pause on the blocks: in portrait her pause bar (\"Declare blockers: you may act\", the eye and Hold, no Pass: the step arrow reads Next) sits just above her hand, so the combat area and its damage preview stay in view.")
         val pause = bounds("Your pause")
         assertEquals(1, pause.size, "Alice's pause bar is shown")
         val preview = bounds("Would take") + bounds("Header would go from") + bounds("Hide the combat area")
@@ -314,7 +318,7 @@ class AutomatumFinalCombatReviewTest {
             bobHand = listOf(spark)))
         val alice = toolkit(f.a)
         tapCard(alice, card(play, brute))
-        assertTrue(perform(alice, "Commit attack (1)"), alice.error)
+        assertTrue(arrow(alice, "Attack (1)"), alice.error)
         assertEquals(PausePoints.At(f.b, PausePoints.Point.Pause), PausePoints.at(play.board), "Bob's pause on the attack")
         val names = mapOf(f.a to "Alice", f.b to "Bob")
         assertEquals("Alice attacks", pauseStep(play.board, f.b, names))
@@ -323,7 +327,7 @@ class AutomatumFinalCombatReviewTest {
         compose.mainClock.advanceTimeBy(500)
         compose.onNodeWithText("Alice attacks: you may act").assertExists()
         compose.onRoot().captureShot("$SCREENSHOTS/automatum/pause-defender-attack.png",
-            "Alice attacked Bob with her Ironhide Brute and Bob could answer with Storm Spark: his pause bar above his hand reads \"Alice attacks: you may act\" with the eye, a violet bar emptying over his response time, Hold and Pass.")
+            "Alice attacked Bob with her Ironhide Brute and Bob could answer with Storm Spark: his pause bar above his hand reads \"Alice attacks: you may act\" with the eye, a violet bar emptying over his response time and Hold; his step arrow reads Pass.")
     }
 
     // Two-device simulations with background work (SYS-025): the panel's flow is worked out off the main thread,
@@ -333,7 +337,7 @@ class AutomatumFinalCombatReviewTest {
         start(board(TurnPosition.DECLARE_ATTACKERS, null, aliceField = listOf(lurker, brute, bear), bobField = listOf(ogre)))
         val alice = toolkit(f.a)
         listOf(lurker, brute, bear).forEach { tapCard(alice, card(play, it)) }
-        assertTrue(perform(alice, "Commit attack (3)"), alice.error)
+        assertTrue(arrow(alice, "Attack (3)"), alice.error)
         val flow = assertNotNull(AutomatumBoards.sharedFlow(play, engineTags(tree, play.currentNodeId)))
         val decision = assertIs<arcanum.engine.decision.Decision.Targets>(flow.decision, "the Lurker's trigger asks Alice for its target")
         alice.flows.show(flow)
@@ -343,18 +347,20 @@ class AutomatumFinalCombatReviewTest {
         assertTrue(!alice.flows.targeting, "the previous board's choice takes no tap")
     }
 
-    // finalreview-combat #7 — CMB-029, STK-037: at Alice's pause on the blocks the pause bar has the Pass; the combat quick
-    // actions offer no second one while that bar is shown, and do once it is gone
+    // UI review round 2 #1 — CMB-029, STK-037, TRN-063: at Alice's pause on the blocks only the step arrow goes on: the
+    // pause bar has Hold but no Pass, and combat offers no quick action of its own
     @Test fun thePauseOnTheBlocksHasOnePass() {
         val alice = blocked()
         val context = toolkitQuickContext(play, TableSelection(), f.a)
             .copy(automatumCombat = AutomatumBoards.combat(play) { engineTags(tree, play.currentNodeId) })
         val scope = TableActionScope(play.gameId, play.id)
-        assertTrue(automatumCombatQuickActions(play, context, scope).orEmpty().any { it.name == "Pass" }, "no pause bar: the quick Pass")
-        assertTrue(automatumCombatQuickActions(play, context.copy(pauseBar = true), scope).orEmpty().none { it.name == "Pass" })
+        assertTrue(automatumCombatQuickActions(play, context, scope).orEmpty().isEmpty(), "no combat quick action")
+        assertEquals("Next", AutomatumStep.of(play).label)
         show(alice)
         compose.mainClock.advanceTimeBy(500)
-        assertTrue(alice.pause.barWithPass(play, f.a), "Alice's bar with its Pass is shown")
+        assertTrue(alice.pause.ownPause(play, f.a), "Alice's pause bar is shown")
+        compose.onNode(hasText("Hold") and hasAnyAncestor(hasContentDescription("Your pause"))).assertExists()
+        compose.onNode(hasText("Pass") and hasAnyAncestor(hasContentDescription("Your pause"))).assertDoesNotExist()
     }
 
     // finalreview-combat #5 — SYS-025: right after the other player's event arrived, before what combat allows on the new

@@ -141,9 +141,14 @@ class AutomatumCastScreenshotTest {
         compose.onNodeWithText("Storm Spark — choose any target").assertExists()
         assertTrue(sent.isEmpty(), "nothing is sent while the cast is open (I-D11)")
         compose.onRoot().captureShot("$SCREENSHOTS/automatum/cast-target-bar.png",
-            "Double-tapping Storm Spark with Automatum on: the cast panel is a slim bar over the hand (\"Storm Spark — choose any target\" with Cancel and its icon) while every legal target, cards and both life squares, glows violet.")
-        // D32: nothing else changes while the cast is open
-        compose.runOnIdle { assertFalse(toolkit.submit(PlayAction.AdjustLife(f.a, "-1"))); assertEquals(CastController.BUSY, toolkit.error) }
+            "Double-tapping Storm Spark with Automatum on: the cast panel is a slim bar just above the hand (\"Storm Spark — choose any target\" with Cancel and its icon) while the legal targets glow: the creatures on both battlefields and Bob's life square are outlined in violet; the step arrow is greyed while the cast is open.")
+        // D32, STK-025, UI review round 2 #4: nothing else changes while the cast is open; the refusal shakes, no message
+        compose.runOnIdle {
+            assertFalse(toolkit.submit(PlayAction.AdjustLife(f.a, "-1")))
+            assertNull(toolkit.error)
+            assertEquals(sparkId, toolkit.shaking?.id, "the card being cast shakes")
+            assertEquals(CastController.BUSY, stepBlocked(play, toolkit.cast.open, null), "the step arrow is greyed and says why on hold")
+        }
         compose.runOnIdle { toolkit.open(TableIntent.Actions("life/${f.b}", null), lifeSquare(play, f.b), TableSelection()) }
         compose.waitForIdle()
         compose.onNodeWithContentDescription("Cast panel").assertDoesNotExist()
@@ -181,7 +186,7 @@ class AutomatumCastScreenshotTest {
         assertEquals(0f, panel.left, 1f); assertEquals(412f, panel.right / compose.density.density, 1f)
         val eye = compose.onNodeWithContentDescription("Hide cast panel").fetchSemanticsNode().boundsInRoot
         captureShot("$SCREENSHOTS/automatum/cast-choices.png",
-            "Casting Flash Surge (a kicker choice) opens the cast panel full width exactly above the hand: the card small beside its name, \"Pay the Kicker cost?\" with Yes and No, and a bottom row with the eye at the left and Cancel and Cast with their icons at the right.")
+            "Casting Flash Surge (a kicker choice) opens the cast panel full width exactly above the hand: the card small beside its name, \"Pay the Kicker cost?\" with No and Yes at its right, and a bottom row with the eye at the left and Cancel and Cast with their icons at the right; the step arrow is greyed while the cast is open.")
         compose.onNodeWithContentDescription("Hide cast panel").performClick()
         compose.waitForIdle()
         compose.onNodeWithText("Pay the Kicker cost?").assertDoesNotExist()

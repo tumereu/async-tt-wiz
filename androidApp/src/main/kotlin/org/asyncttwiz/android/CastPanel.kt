@@ -1,8 +1,27 @@
 package org.asyncttwiz.android
 
-import android.content.Context
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.AutoAwesome
+import androidx.compose.material.icons.outlined.Bolt
+import androidx.compose.material.icons.outlined.Check
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -18,7 +37,6 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.Layout
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -38,20 +56,16 @@ import org.asyncttwiz.automatum.ManaPicks
 import org.asyncttwiz.protocol.*
 
 /**
- * The cast panel (integration spec I-D6, §3 I2): one floating panel by the Stack while a cast is open. Its sections
- * follow the rules order (CR 601.2b–h): the way to cast (face, alternative cost), then each choice (modes, X, optional
- * costs) with the card's text above, then the mana section with the engine's suggested tapping. Targets are chosen on
- * the table: the panel shrinks to a slim bar while legal targets glow. The eye hides the panel to look at the board
- * (I-D10); "Cancel" and Back drop the whole cast. "Accept automatically" (D3) is this player's own setting here.
+ * The cast panel (integration spec I-D6, §3 I2, I-D47): shown only while a cast has a real choice (modes, X, optional or
+ * alternative costs, targets; with Autotap off also the mana). It spans the table's width docked exactly above the
+ * viewer's hand, with the card small as on the battlefield (tap: Inspect; hold: the large Inspect overlay) and its
+ * sections in the rules order (CR 601.2b–h). Targets are chosen on the table: the panel shrinks to a slim bar while legal
+ * targets glow. The eye (I-D10) stays where it is: the rest of the panel fades away around it and comes back. "Cancel"
+ * and Back drop the whole cast.
  */
 @Composable
 internal fun CastPanelHost(toolkit: TableToolkitController, play: PlayState, scene: TableScene?, names: Map<String, String>) {
     val cast = toolkit.cast
-    val context = LocalContext.current
-    val preferences = remember(context) { context.applicationContext.getSharedPreferences("automatum-cast", Context.MODE_PRIVATE) }
-    val key = "accept/${toolkit.viewer}"
-    var accept by remember(key) { mutableStateOf(preferences.getBoolean(key, false)) }
-    SideEffect { cast.acceptAutomatically = accept }
     // Targets are chosen: a pile opened to pick them from closes again once they are (i12review #14)
     LaunchedEffect(cast.targeting || toolkit.flows.targeting) { if (!cast.targeting && !toolkit.flows.targeting) toolkit.targetingEnded() }
     val flow = cast.flow ?: return
@@ -61,15 +75,24 @@ internal fun CastPanelHost(toolkit: TableToolkitController, play: PlayState, sce
     val stack = scene?.stackRegion ?: scene?.items?.firstOrNull { it.zone == PlayZone.STACK && it.kind == TableItemKind.PILE }?.bounds
     // The slim bar sits over the own hand row (hand cards are never targets), so the battlefield stays free to tap
     val handRow = scene?.items?.firstOrNull { it.kind == TableItemKind.HAND && it.owner == toolkit.viewer }?.bounds
-    CastPanelPlacement(stack, if (cast.targeting) handRow?.center?.y else null) {
-        when {
-            // Picking a target in Manage Stack: its sheet stands in for the bar until it closes
-            cast.targeting -> if (!toolkit.stackTargeting) TargetBar(cast, flow, play)
-            cast.hidden -> Surface(Modifier.size(44.dp), shape = CircleShape, color = Color.White, shadowElevation = 6.dp,
-                border = BorderStroke(2.dp, AutomatumViolet)) {
-                EyeButton(hidden = true, cast::toggleHidden)
-            }
-            else -> CastPanel(cast, flow, play, names, accept) { accept = it; preferences.edit().putBoolean(key, it).apply() }
+    if (cast.targeting) {
+        // Picking a target in Manage Stack: its sheet stands in for the bar until it closes
+        CastPanelPlacement(stack, handRow?.center?.y) { if (!toolkit.stackTargeting) TargetBar(cast, flow, play) }
+        return
+    }
+    DockedAboveHand(handRow) { CastPanel(toolkit, cast, flow, play, names) }
+}
+
+/** I-D47: the table's full width, its bottom exactly on the top of the viewer's hand row [hand] (the table's bottom
+ * without one), at most up to the table's top. */
+@Composable
+private fun DockedAboveHand(hand: TableBounds?, content: @Composable () -> Unit) {
+    Layout(content = content, modifier = Modifier.fillMaxSize()) { measurables, constraints ->
+        val bottom = (hand?.y?.dp?.roundToPx() ?: constraints.maxHeight).coerceIn(0, constraints.maxHeight)
+        val placeable = measurables.firstOrNull()?.measure(Constraints(minWidth = constraints.maxWidth, maxWidth = constraints.maxWidth,
+            maxHeight = bottom))
+        layout(constraints.maxWidth, constraints.maxHeight) {
+            placeable?.place(0, bottom - placeable.height)
         }
     }
 }
@@ -127,58 +150,115 @@ private fun TargetBar(cast: CastController, flow: CastFlow, play: PlayState) {
         Row(Modifier.padding(start = 14.dp, end = 4.dp).heightIn(min = 44.dp), verticalAlignment = Alignment.CenterVertically) {
             Text("${spellName(flow, play)} — ${targetPrompt(decision)}", Modifier.weight(1f), fontSize = 13.sp,
                 fontWeight = FontWeight.Medium, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            if (cast.busy) Working()
             if (decision.max != 1 || decision.min == 0) TextButton(cast::confirmTargets, enabled = cast.picked.size >= decision.min) {
-                Text(if (cast.picked.isEmpty()) "None" else "Done")
+                IconText(Icons.Outlined.Check, if (cast.picked.isEmpty()) "None" else "Done")
             }
-            TextButton(cast::cancel, Modifier.semantics { contentDescription = "Cancel cast" }) { Text("Cancel") }
+            TextButton(cast::cancel, Modifier.semantics { contentDescription = "Cancel cast" }) { IconText(Icons.Outlined.Close, "Cancel") }
         }
     }
 }
 
+/** I-D48: a button's icon beside its words. */
+@Composable
+internal fun IconText(icon: ImageVector, text: String) {
+    Icon(icon, null, Modifier.size(18.dp))
+    Spacer(Modifier.width(4.dp))
+    Text(text)
+}
+
+/**
+ * The panel docked above the hand (I-D47): the card small as on the battlefield beside its name (an ability's text for
+ * an activation), the sections, then a bottom row with the eye at its left and Cancel and Cast at its right. The eye
+ * never moves: hiding fades the panel (its background, sections and buttons) away around it, leaving only the eye.
+ */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun CastPanel(cast: CastController, flow: CastFlow, play: PlayState, names: Map<String, String>,
-    accept: Boolean, setAccept: (Boolean) -> Unit) {
-    Surface(Modifier.semantics { contentDescription = "Cast panel" }, shape = RoundedCornerShape(8.dp), color = Color.White,
-        shadowElevation = 6.dp, border = BorderStroke(2.dp, AutomatumViolet)) {
-        Column(Modifier.padding(10.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(spellName(flow, play), Modifier.weight(1f), fontWeight = FontWeight.Bold, fontSize = 15.sp)
-                if (cast.busy) Working()
-                EyeButton(hidden = false, cast::toggleHidden)
-            }
-            (cast.abilityText ?: cardText(play, flow.cardId))?.let { Text(it, fontSize = 11.sp, lineHeight = 14.sp, color = Color(0xff4b5a5f)) }
-            if (cast.ways.size > 1) Section("Cast as") {
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    for (way in cast.ways) FilterChip(way == flow.begin, { if (way != flow.begin) cast.way(way) },
-                        label = { Text(wayLabel(play, flow, way), fontSize = 12.sp) })
+private fun CastPanel(toolkit: TableToolkitController, cast: CastController, flow: CastFlow, play: PlayState, names: Map<String, String>) {
+    val shown by animateFloatAsState(if (cast.hidden) 0f else 1f, tween(180), label = "Cast panel")
+    Column(Modifier.fillMaxWidth()
+        .then(if (cast.hidden) Modifier else Modifier.pointerInput(Unit) {}.semantics { contentDescription = "Cast panel" })
+        .drawBehind {
+            drawRect(Color.White.copy(alpha = shown))
+            drawLine(AutomatumViolet.copy(alpha = shown), Offset(0f, 0f), Offset(size.width, 0f), 2.dp.toPx())
+        }) {
+        AnimatedVisibility(!cast.hidden, enter = fadeIn(tween(180)) + expandVertically(tween(180), expandFrom = Alignment.Bottom),
+            exit = fadeOut(tween(180)) + shrinkVertically(tween(180), shrinkTowards = Alignment.Bottom)) {
+            Column(Modifier.padding(start = 10.dp, end = 10.dp, top = 8.dp).heightIn(max = 360.dp).verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    SmallCard(toolkit, play, flow.cardId, spellName(flow, play))
+                    Column(Modifier.weight(1f)) {
+                        Text(spellName(flow, play), fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                        cast.abilityText?.let { Text(it, fontSize = 11.sp, lineHeight = 14.sp, color = Color(0xff4b5a5f)) }
+                    }
+                }
+                if (cast.ways.size > 1) Section("Cast as") {
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        for (way in cast.ways) FilterChip(way == flow.begin, { if (way != flow.begin) cast.way(way) },
+                            label = { Text(wayLabel(play, flow, way), fontSize = 12.sp) })
+                    }
+                }
+                flow.steps.forEachIndexed { index, (decision, answer) -> AnsweredSection(cast, flow, play, names, index, decision, answer) }
+                when (val open = flow.pending) {
+                    null -> Text(if (flow.activation) "Ready." else "Ready to cast.", fontSize = 12.sp)
+                    // I-D47: with Autotap on the panel has no mana selection (its sources are tapped as Cast goes out)
+                    is Decision.ManaPayment -> if (!cast.autotap) ManaSection(cast, cast, play, open)
+                        else Text("Ready to cast: Autotap pays ${open.cost}.", fontSize = 12.sp)
+                    else -> OpenSection(cast, cast, play, names, open)
                 }
             }
-            flow.steps.forEachIndexed { index, (decision, answer) -> AnsweredSection(cast, flow, play, names, index, decision, answer) }
-            when (val open = flow.pending) {
-                null -> Text(if (flow.activation) "Ready." else "Ready to cast.", fontSize = 12.sp)
-                is Decision.ManaPayment -> ManaSection(cast, cast, play, open)
-                else -> OpenSection(cast, cast, play, names, open)
+        }
+        Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+            Surface(shape = CircleShape, color = Color.White, border = BorderStroke(2.dp,
+                AutomatumViolet.copy(alpha = 1f - shown)), shadowElevation = if (cast.hidden) 6.dp else 0.dp) {
+                HoldTip(if (cast.hidden) "Show the cast panel" else "Hide the cast panel") { EyeButton(hidden = cast.hidden, cast::toggleHidden) }
             }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Checkbox(accept, setAccept, Modifier.semantics { contentDescription = "Accept automatically" })
-                Text("Accept automatically", fontSize = 12.sp)
-            }
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
-                TextButton(cast::cancel, Modifier.semantics { contentDescription = "Cancel cast" }) { Text("Cancel") }
-                Button(cast::cast, enabled = !cast.busy && (cast.paid || flow.complete),
-                    colors = ButtonDefaults.buttonColors(containerColor = AutomatumViolet)) { Text(actionLabel(flow)) }
+            Spacer(Modifier.weight(1f))
+            AnimatedVisibility(!cast.hidden, enter = fadeIn(tween(180)), exit = fadeOut(tween(180))) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    TextButton(cast::cancel, Modifier.semantics { contentDescription = "Cancel cast" }) { IconText(Icons.Outlined.Close, "Cancel") }
+                    Button(cast::cast, enabled = !cast.busy && (cast.paid || flow.complete || (cast.autotap && flow.pending is Decision.ManaPayment)),
+                        colors = ButtonDefaults.buttonColors(containerColor = AutomatumViolet)) {
+                        IconText(if (flow.activation) Icons.Outlined.Bolt else Icons.Outlined.AutoAwesome, actionLabel(flow))
+                    }
+                }
             }
         }
     }
 }
 
-/** Automatum is working out the last step (SYS-025): a small violet spinner; the panel takes no input meanwhile. */
+/** I-D48: an icon-only control without a hold action of its own says what it does on hold. */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun Working() {
-    CircularProgressIndicator(Modifier.size(18.dp).semantics { contentDescription = "Automatum is working" },
-        color = AutomatumViolet, strokeWidth = 2.dp)
+internal fun HoldTip(description: String, content: @Composable () -> Unit) {
+    TooltipBox(positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
+        tooltip = { PlainTooltip { Text(description) } }, state = rememberTooltipState()) { content() }
+}
+
+/**
+ * I-D48: a card in a panel looks like a battlefield card: small, its art, its name under it while the art is missing; a
+ * tap opens Inspect and holding it shows the large Inspect overlay until released.
+ */
+@Composable
+internal fun SmallCard(toolkit: TableToolkitController, play: PlayState, cardId: String, name: String) {
+    val card = play.board.cards.singleOrNull { it.id == cardId }
+    val definition = card?.let { c -> play.definitions.singleOrNull { it.digest == c.definition }?.definition }
+    val face = definition?.faces?.let { faces -> faces.singleOrNull { it.faceId == card.faceId } ?: faces.firstOrNull() }
+    val art = face?.takeIf { it.scryfallId != null || it.imageUri != null }?.tableArtwork(definition.faces.indexOf(face), card.definition)?.forTable()
+    Box(Modifier.size(44.dp, 62.dp).clip(RoundedCornerShape(4.dp)).background(Color(0xff2f3437))
+        .border(1.dp, Color(0xff1f2326), RoundedCornerShape(4.dp))
+        .semantics { contentDescription = "Card $name" }
+        .pointerInput(cardId) {
+            detectTapGestures(onTap = { toolkit.inspect(cardId) }, onLongPress = { toolkit.peek(cardId) }, onPress = {
+                tryAwaitRelease()
+                if (toolkit.peek?.cardId == cardId) toolkit.peek(null)
+            })
+        }, contentAlignment = Alignment.Center) {
+        CardArtwork(art, "", 192, 140, Modifier.fillMaxSize(), crop = true, placeholder = {
+            Text(name, Modifier.padding(2.dp), color = Color.White, fontSize = 8.sp, lineHeight = 9.sp, maxLines = 4,
+                overflow = TextOverflow.Ellipsis)
+        })
+    }
 }
 
 @Composable
@@ -218,7 +298,7 @@ private fun AnsweredSection(cast: CastController, flow: CastFlow, play: PlayStat
         else -> Section(sectionTitle(decision)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(answerLabel(cast, play, names, decision, answer), Modifier.weight(1f), fontSize = 12.sp)
-                TextButton({ cast.back(index) }) { Text("Change") }
+                TextButton({ cast.back(index) }) { IconText(Icons.Outlined.Edit, "Change") }
             }
         }
     }

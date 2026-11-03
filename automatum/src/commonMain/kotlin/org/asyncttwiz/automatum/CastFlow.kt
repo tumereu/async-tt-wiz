@@ -53,7 +53,7 @@ class CastFlow private constructor(
     /** Each answered decision with its answer, in order. */
     val steps: List<Pair<Decision, Answer>>,
     /** How many objects the Stack held before [begin]. */
-    private val stackBefore: Int,
+    internal val stackBefore: Int,
 ) {
     /** The open question of the cast or land play itself, or null when it is complete and can be sent ([plan]). A
      * decision after it (the order or targets of triggers it caused, the legend rule) belongs to the shared flow that
@@ -143,16 +143,46 @@ class CastFlow private constructor(
      */
     fun sent(): EngineCall {
         check(complete) { "The cast isn't complete" }
-        val done = replay(Context(play, definitions, player, log, seeds), begin, answers, strict = true).call
-        // Final cast review #6: a land play, mana ability or special action whose trigger went on the Stack is passed on too
-        val stacked = begin is Input.Cast || done.working.stack.size > stackBefore
-        if (stacked && done.pending == null && done.working.stack.isNotEmpty() && done.working.priority.holder?.value == player) {
-            // I-D41: with "Full control" their own spell is a pause for the caster, who keeps priority (to cast again)
-            if (StepFlow.fullControl(done, player)) return done
-            done.perform(Input.PassPriority(PlayerId(player)), automatic = true)
-            StepFlow.automatic(done)
+        return Sending(replay(Context(play, definitions, player, log, seeds), begin, answers, strict = true)).sent()
+    }
+
+    /**
+     * The flow completed with [payment] (the open [Decision.ManaPayment] answered with it; null when nothing is open) in
+     * one replay, ready to send (I-D47, "Autotap mana sources"): [Sending.cast] is the cast alone (the acting device's
+     * instant preview), [Sending.sent] then what follows it as [sent] does.
+     * @throws IllegalArgumentException when the engine refuses [payment], or something else is still open.
+     */
+    fun sending(payment: List<arcanum.engine.decision.ManaUse>?): Sending {
+        val all = if (payment != null) {
+            require(pending is Decision.ManaPayment) { "No payment is open" }
+            answers + Answer.ManaPayment(payment)
+        } else answers
+        val done = replay(Context(play, definitions, player, log, seeds), begin, all, strict = true)
+        require(done.complete) { "The cast isn't complete" }
+        return Sending(done)
+    }
+
+    /** A complete flow on its way out (I-D47): [cast] holds the cast alone until [sent] passes on after it. */
+    class Sending internal constructor(val flow: CastFlow) {
+        private var passed = false
+        /** The engine call of the cast alone (no passes after it); [sent] goes on in the same call. */
+        val cast: EngineCall get() = flow.call
+
+        /** The cast with what follows it ([CastFlow.sent]); performed once, in [cast]'s own call. */
+        fun sent(): EngineCall {
+            val done = flow.call
+            if (passed) return done
+            passed = true
+            // Final cast review #6: a land play, mana ability or special action whose trigger went on the Stack is passed on too
+            val stacked = flow.begin is Input.Cast || done.working.stack.size > flow.stackBefore
+            if (stacked && done.pending == null && done.working.stack.isNotEmpty() && done.working.priority.holder?.value == flow.player) {
+                // I-D41: with "Full control" their own spell is a pause for the caster, who keeps priority (to cast again)
+                if (StepFlow.fullControl(done, flow.player)) return done
+                done.perform(Input.PassPriority(PlayerId(flow.player)), automatic = true)
+                StepFlow.automatic(done)
+            }
+            return done
         }
-        return done
     }
 
     /** The batch that sends the whole flow (I-D11) with what follows it ([sent]), with [command]'s request id, as

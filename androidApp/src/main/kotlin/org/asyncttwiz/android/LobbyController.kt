@@ -160,8 +160,16 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
     fun gameplay(action: PlayAction, invocationId: String? = null, continuation: Continuation? = null): Boolean =
         tableActions.gameplay(action, invocationId, continuation)
     fun historyControl(action: GameAction): Boolean = tableActions.historyControl(action)
-    fun gameplayBatch(actions: List<PlayAction>, requestId: String, tags: List<MtgTag?> = emptyList()): Boolean =
-        tableActions.gameplayBatch(actions, requestId, tags)
+    fun gameplayBatch(actions: List<PlayAction>, requestId: String, tags: List<MtgTag?> = emptyList(), replaces: String? = null): Boolean =
+        tableActions.gameplayBatch(actions, requestId, tags, replaces)
+    /** I-D47: the instant preview of a cast ([CastPreview]). */
+    val castPreview: CastPreview = object : CastPreview {
+        override fun show(batch: GameAction.PlayBatch, requestId: String) = tableActions.previewBatch(batch.actions, requestId, batch.tags)
+        override fun shownOn(requestId: String) = tableActions.previewShownOn(requestId)
+        override fun drop(requestId: String) = tableActions.dropPreview(requestId)
+        override fun send(batch: GameAction.PlayBatch, requestId: String, replaces: String) =
+            tableActions.gameplayBatch(batch.actions, requestId, batch.tags, replaces)
+    }
     fun annotate(action: PlayAction): Boolean = tableActions.annotate(action)
     fun annotateBatch(actions: List<PlayAction>): Boolean = tableActions.annotateBatch(actions)
     fun inspectFace(action: PlayAction.InspectFace, lifetimeId: String, isCurrent: () -> Boolean,

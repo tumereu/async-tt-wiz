@@ -212,6 +212,8 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
         override fun leaveHold() { history.cancelContinuation() }
     } }
     SideEffect { toolkit.pause.routes = pauseRoutes }
+    // I-D47: Autotap mana sources (Settings → Automatum)
+    SideEffect { toolkit.cast.autotap = pauseSettings.autotap }
     AutomatumPauseDriver(toolkit, playback, play, live?.currentNodeId,
         liveShown = position?.mode == HistoryMode.LIVE && history.armed == null && !resultLocked,
         opponentOnline = state.opponentPresence?.let { PresenceText.dot(it, monotonicMillis()) == PresenceDot.ONLINE } == true,
@@ -404,4 +406,4 @@ internal fun tableToolkit(controller: LobbyController, history: TableHistoryCont
     playTree = controller::displayTree, continuation = { history.armed?.let { Continuation(it, true) } },
     automatedBatch = { batch, requestId -> controller.gameplayBatch(batch.actions, requestId, batch.tags) },
     exitFlow = { controller.historyControl(GameAction.ExitFlow(it)) },
-    automatumWork = AutomatumWork.Background)
+    automatumWork = AutomatumWork.Background, castPreview = controller.castPreview)

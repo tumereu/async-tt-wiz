@@ -88,6 +88,12 @@ sealed interface Value {
     // sos
     /** [base] raised to the power [exponent] ("draws 2ˣ cards": 2⁰ = 1); a negative exponent counts as 0. */
     @Serializable @SerialName("exponential") data class Exponential(val base: Int, val exponent: Value) : Value
+    // tla
+    /** The amount of unspent mana in the mana pools of [players] ("as long as you have six or more unspent mana", CR 106.4). */
+    @Serializable @SerialName("mana-in-pool") data class ManaInPool(val players: Players) : Value
+    /** The most of [objects] that share one value of [quality] ("the greatest number of creatures you control that have a creature type in
+     * common"; a changeling shares every creature type). */
+    @Serializable @SerialName("most-sharing") data class MostSharing(val objects: Objects, val quality: SharedQuality) : Value
 }
 
 /**
@@ -122,6 +128,9 @@ sealed interface NumericProperty {
     /** The number of [color] mana symbols in its mana cost, hybrid symbols of that colour included (CR 107.4, 202.1: "a spell
      * with one or more blue mana symbols in its mana cost"). */
     @Serializable @SerialName("mana-symbols") data class ManaSymbols(val color: Color) : NumericProperty
+    // tla
+    /** How many creature types it has ("for each of its creature types"; a changeling has every one, CR 702.73a). */
+    @Serializable @SerialName("creature-types") data object CreatureTypes : NumericProperty
 }
 
 /** How [Value.Of] turns the objects' numbers into one. */

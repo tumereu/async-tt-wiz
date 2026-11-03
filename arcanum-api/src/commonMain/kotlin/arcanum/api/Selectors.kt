@@ -54,6 +54,10 @@ sealed interface Objects {
     @Serializable @SerialName("where") data class Where(val objects: Objects, val filter: ObjectFilter) : Objects
     /** [base] without [minus] ("the rest", "the other cards"). */
     @Serializable @SerialName("except") data class Except(val base: Objects, val minus: Objects) : Objects
+    // tla
+    /** In an ability another object's static ability gives (layer 6), the object giving it ('Equipped creature has "… Return this
+     * Equipment to its owner's hand."', CR 113.10); elsewhere [Self]. */
+    @Serializable @SerialName("granter") data object Granter : Objects
 }
 
 /**

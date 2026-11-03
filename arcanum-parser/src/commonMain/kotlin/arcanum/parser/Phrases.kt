@@ -143,6 +143,8 @@ internal object Filters {
         }
         // blb chunk 05: "permanents you control with counters on them" (any kind)
         WITH_ANY_COUNTERS.matchEntire(phrase)?.let { m -> return and(noun(m.groupValues[1]) ?: return null, ObjectFilter.HasCounter(null, atLeast = 1)) }
+        // tla chunk 03: "creature with no counters on it"
+        WITH_NO_COUNTERS.matchEntire(phrase)?.let { m -> return and(noun(m.groupValues[1]) ?: return null, ObjectFilter.Not(ObjectFilter.HasCounter(null, atLeast = 1))) }
         // chunk 21: "creatures you control with +1/+1 counters on them"
         WITH_COUNTERS.matchEntire(phrase)?.let { m ->
             val kind = Counters.kind(m.groupValues[2]) ?: return null
@@ -400,7 +402,9 @@ internal object Filters {
         // blb chunk 04
         "Mice" to "Mouse",
         // msh
-        "Heroes" to "Hero")
+        "Heroes" to "Hero",
+        // tla chunk 02
+        "Allies" to "Ally")
     // chunk 31
     private val IN_YOUR_GRAVEYARD = Regex("""(.+) in your graveyard""")
     private val FROM_A_GRAVEYARD = Regex("""(.+) from a graveyard""")
@@ -418,6 +422,7 @@ internal object Filters {
     // chunk 20
     private val WITH_POWER_TOUGHNESS = Regex("""(\d+)/(\d+) (.+)""")
     // chunk 21
+    private val WITH_NO_COUNTERS = Regex("""(.+) with no counters on (?:it|them)""") // tla chunk 03
     private val WITH_COUNTERS = Regex("""(.+) with (?:an? )?(\S+) counters? on (?:it|them)""")
     // blb chunk 12
     private val OF_CHOSEN_TYPE = Regex("""(.+) of the chosen type""")
@@ -900,6 +905,7 @@ internal object Events {
 /** Conditions ("if you control seven or more lands with different names"). */
 internal object Conditions {
     fun condition(text: String, self: Set<String> = emptySet()): Condition? {
+        TlaPhrases.condition(text, self)?.let { return it } // tla
         SosPhrases.condition(text, self)?.let { return it } // sos
         TmtPhrases.condition(text, self)?.let { return it } // tmt
         MshPhrases.condition(text, self)?.let { return it } // msh
@@ -1363,6 +1369,7 @@ internal const val EXILED_WITH = "exiled"
 internal object Values {
     /** [exiled]: what "the exiled card" refers to on this card (linked abilities, CR 607.2a). */
     fun value(text: String, exiled: Objects? = null): Value? {
+        TlaPhrases.value(text)?.let { return it } // tla
         SosPhrases.value(text)?.let { return it } // sos
         HobPhrases.value(text)?.let { return it } // hob
         FraPhrases.value(text)?.let { return it } // fra

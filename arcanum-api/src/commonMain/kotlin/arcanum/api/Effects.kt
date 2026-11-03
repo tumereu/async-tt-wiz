@@ -25,7 +25,13 @@ sealed interface Effect {
         val bind: String? = null,
     ) : Effect
     /** [first] and [second] each deal damage equal to their power to the other (CR 701.14). */
-    @Serializable @SerialName("fight") data class Fight(val first: Objects, val second: Objects) : Effect
+    @Serializable @SerialName("fight") data class Fight(
+        val first: Objects, val second: Objects,
+        // tla
+        /** Names the damage [first] deals to [second] ("If the creature the opponent controls is dealt excess damage this way", read with
+         * [Value.Excess]). */
+        val bind: String? = null,
+    ) : Effect
 
     @Serializable @SerialName("destroy") data class Destroy(
         val objects: Objects, val noRegeneration: Boolean = false, val preBind: String? = null, val postBind: String? = null,
@@ -193,7 +199,13 @@ sealed interface Effect {
 
     @Serializable @SerialName("extra-turn") data class ExtraTurn(val players: Players) : Effect
     /** An additional combat phase after this one, followed by an additional main phase when [followedByMain] (CR 500.8). */
-    @Serializable @SerialName("extra-combat") data class ExtraCombat(val untapAttackers: Boolean = false, val followedByMain: Boolean = false) : Effect
+    @Serializable @SerialName("extra-combat") data class ExtraCombat(
+        val untapAttackers: Boolean = false, val followedByMain: Boolean = false,
+        // tla
+        /** Only creatures matching this can attack during that combat phase ("Only land creatures can attack during that combat
+         * phase"); null: any. */
+        val onlyAttackers: ObjectFilter? = null,
+    ) : Effect
     @Serializable @SerialName("exchange-life") data class ExchangeLife(val first: Players, val second: Players) : Effect
     /** [mechanics] apply to the spell [objects] and to the permanent it becomes (CR 400.7d): "that creature enters with
      * two additional +1/+1 counters", "it can't be countered". Inside [mechanics], [Objects.Affected] is the spell and the
@@ -259,7 +271,12 @@ sealed interface Effect {
     @Serializable @SerialName("one-more-of-each-kind") data class OneMoreCounterOfEachKind(val recipients: Recipients) : Effect
     /** [controller] controls [players] during their next turn: makes every decision they could make, seeing what they could see
      * (CR 723.1, 723.2; "you control target opponent during their next turn"). */
-    @Serializable @SerialName("control-next-turn") data class ControlNextTurn(val players: Players, val controller: Players) : Effect
+    @Serializable @SerialName("control-next-turn") data class ControlNextTurn(
+        val players: Players, val controller: Players,
+        // tla
+        /** Only during their next combat phase ("you control target opponent during their next combat phase", CR 723.2). */
+        val combatPhase: Boolean = false,
+    ) : Effect
 }
 
 /** Who or what receives damage or an attachment: objects, players, or both; [target] is everything chosen for that
@@ -389,4 +406,9 @@ sealed interface KeywordAction {
     /** "Recruit" (CR 701.70a): draw a card, then discard a card; if a nonland card was discarded this way, create a 1/1 white
      * Human Soldier creature token. [KeywordExpansions.expand] writes it out. */
     @Serializable @SerialName("recruit") data object Recruit : KeywordAction
+    // tla
+    /** "Airbend [objects]" (CR 701.65a): exile those permanents and/or spells; for each card exiled this way, for as long as it
+     * remains exiled, its owner may cast it by paying {2} rather than paying its mana cost. The bind of [Effect.Action] names the
+     * exiled cards. Triggers "whenever you airbend" once for the instruction (701.65b). */
+    @Serializable @SerialName("airbend") data class Airbend(val objects: Objects) : KeywordAction
 }

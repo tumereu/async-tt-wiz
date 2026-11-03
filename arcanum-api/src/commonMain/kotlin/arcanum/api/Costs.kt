@@ -77,6 +77,11 @@ sealed interface CostPart {
     // msh
     /** The payer gets [amount] [kind] counters ("Ward—Get five poison counters", CR 122.1). */
     @Serializable @SerialName("get-counters") data class GetCounters(val kind: CounterKind, val amount: Value) : CostPart
+    // tla
+    /** "Waterbend [cost]" (CR 701.67a): pay [cost]; for each generic mana in it, the payer may tap an untapped artifact or
+     * creature they control rather than pay that mana ([ManaPaymentWay.Waterbend]; 701.67b: only that generic mana). [x] sets its
+     * {X} when the text defines it ("waterbending {X} …, where X is its mana value"). Paying it is waterbending (701.67c). */
+    @Serializable @SerialName("waterbend") data class Waterbend(val cost: ManaCost, val x: Value? = null) : CostPart
     /** Text the definition can't express as a cost part; shown as a reminder. */
     @Serializable @SerialName("manual") data class Manual(val text: String) : CostPart
 }

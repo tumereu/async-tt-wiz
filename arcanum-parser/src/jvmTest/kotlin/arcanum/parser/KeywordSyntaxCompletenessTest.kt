@@ -11,7 +11,9 @@ class KeywordSyntaxCompletenessTest {
     private val notReadYet = setOf("CompanionAbility", "Enchant", "Protection", "HexproofFrom", "Landwalk", "Affinity", "Typecycling",
         "Splice", "PartnerWith", "Prototype",
         // blb: read by their own rules (a gift's kind, a Class's level section)
-        "Gift", "ClassLevel")
+        "Gift", "ClassLevel",
+        // tla: "Firebending X, where X is …" is read by its own rule
+        "FirebendingX")
 
     @Test
     fun parserReadsEveryKeywordTypeExactlyOnce() {

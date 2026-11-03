@@ -605,7 +605,7 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
 
     companion object {
         /** The target slot of an Aura spell (CR 303.4a) and of a bestowed spell (CR 702.103b). */
-        const val ENCHANT_SLOT = "enchant"
+        const val ENCHANT_SLOT = arcanum.api.Keyword.Enchant.SLOT
 
         // Keys in [arcanum.engine.decision.Choices.names] the casting flow keeps for itself; [publicNames] drops them.
         const val ITEM = "\$item"

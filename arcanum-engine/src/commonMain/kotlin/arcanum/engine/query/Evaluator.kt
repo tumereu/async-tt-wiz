@@ -117,7 +117,8 @@ internal class Evaluator(val board: Board, val ctx: Context) {
         is Objects.Bound -> boundObjects(ctx.names[objects.name])
         is Objects.Remembered -> boundObjects(selfMemory(objects.key))
         is Objects.EventObject -> ctx.event?.objects.orEmpty().filter { it.role == objects.role }.flatMap { it.ids }
-        is Objects.AttachedTo -> objects(objects.of).mapNotNull { (state.obj(it)?.attachedTo as? TargetRef.Object)?.id }
+        // tla: an Aura or Equipment sacrificed to pay the cost: what it was attached to as it last existed (CR 608.2h)
+        is Objects.AttachedTo -> objects(objects.of).mapNotNull { ((state.obj(it)?.attachedTo ?: lki(it)?.attachedTo) as? TargetRef.Object)?.id }
         // tla: in an ability another object's static ability gives, that object (CR 113.10)
         Objects.Granter -> listOfNotNull((ctx.stackItem?.origin as? arcanum.engine.view.AbilityOrigin.FromAbility)?.source ?: ctx.self)
         // The source's new object after a zone change: bound by a flow that knows the move, else found in the log
@@ -920,15 +921,18 @@ internal object History {
         val state = evaluator.board.state
         val casts = state.eventsOf(state.turn.number).filter { arcanum.engine.trigger.EventMatcher.isCast(it) }
             .map { (it as arcanum.engine.change.Change.StackItemAdded).item }
-        val index = casts.indexOfFirst { it.id == id }
-        if (index < 0) return false
+        val found = casts.indexOfFirst { it.id == id }
+        // tla: a spell on the Stack not yet cast (its costs being determined, CR 601.2f) is the next one cast
+        val beingCast = found < 0 && state.obj(id)?.zone == Zone.Stack
+        if (found < 0 && !beingCast) return false
+        val index = if (beingCast) casts.size else found
         val self = evaluator.ctx.self
         fun counts(spell: ObjectId): Boolean {
             val judged = if (self != null && spell != self && Lki.newObject(state, spell) == self) self else spell
             return evaluator.matches(filter.spells, judged)
         }
         if (!counts(id)) return false
-        val caster = casts[index].controller
+        val caster = if (beingCast) evaluator.board.controller(id) else casts[index].controller
         return casts.take(index).count { it.controller == caster && counts(it.id) } + 1 == filter.n
     }
 

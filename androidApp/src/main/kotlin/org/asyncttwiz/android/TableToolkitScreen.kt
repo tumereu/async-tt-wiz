@@ -137,6 +137,8 @@ internal fun TableToolkitScreen(toolkit: TableToolkitController, play: PlayState
     SharedFlowHost(toolkit, play, scene, names)
     // I-D41: a pause on an empty Stack (on the Stack the respond panel shows it)
     PauseBarHost(toolkit, play, scene, names)
+    // I-D49: the opening's Keep / Bottom screen
+    OpeningKeepHost(toolkit, play, scene)
     // I-D40: a step that would act for the other player asks first
     ActingForDialog(toolkit.flows, names)
     // I-D45: tapping the Automatum switch asks first

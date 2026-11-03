@@ -279,6 +279,17 @@ out of anything stuck.
   (`HostPriority.resting`: the new game, or a turn changed by hand while off) is left by the active player's pass: the
   host gives them priority as the last to pass in succession, so the step ends (CR 500.2, 103.8) and the upkeep follows
   (`HostPriority.leaveUntap`, `SharedFlow.holder`). Catalog: TRN-057, TRN-059, TRN-062, SYS-069.
+- **Built (I-D49, rules-driven opening):** the rules are `GameRules` (protocol; `GameRules.STANDARD`: opening hand 7, one
+  free mulligan; `owed`, `canMulligan`). The engine's `StartGame` mulligans are sequential (CR 103.5: the starting player
+  declares first), so the opening stays ATW's own events as host setup: `StartRules.initialize(automatum = true)` puts
+  the top seven of each shuffled library into the hand; `PlayPlayer.mulligans`, set by the player's own
+  `MtgAction.SetMulligans(before, after)`, counts them. With Automatum on the opening's quick actions are Mulligan
+  (`TableActionIntent.OpeningMulligan`: one batch of `PlayAction.Mulligan` + `SetMulligans`, not counted from an empty
+  hand) and Keep (`TableActionIntent.Keep`: Ready at once, or the Keep / Bottom screen `OpeningKeepHost` over `TwoAreas`;
+  OK sends the bottom moves and Ready as one batch); logic in `AutomatumOpening`. The interim "Put on bottom" hand-menu
+  cell is gone. Choices made: Mulligan greyed once the hand kept would be empty; a Back button on the Keep / Bottom
+  screen; switched on with an empty hand, Mulligan draws the seven uncounted. Catalog: TRN-027, TRN-059, TRN-062,
+  ZON-029, SYS-069.
 - **Built (I-D41, pause points):** `PausePoints` (module `automatum/`) is the rule: a stop is the holder's own main phase on
   an empty Stack; a pause is another player's spell or ability on top of the Stack, the defending player's priority in
   the declare attackers step and both players' in the declare blockers step (once creatures attack); with

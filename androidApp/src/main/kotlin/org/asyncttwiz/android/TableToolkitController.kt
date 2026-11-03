@@ -298,6 +298,36 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
      * step go through Automatum ([SharedFlowController.step]); an earlier step, the step it is in, and a step passed into
      * for a quick action's own work are refused. Null with Automatum off (the manual step change goes on).
      */
+    /** I-D49: the viewer's Keep / Bottom screen is open ([OpeningKeepHost]); personal UI. */
+    var keeping by mutableStateOf(false); private set
+    fun closeKeep() { keeping = false }
+
+    /**
+     * The viewer's opening with Automatum on (I-D49, TRN-062): "Mulligan" sends the London mulligan as one batch (one
+     * Undo); "Keep" sets Ready at once when nothing is owed to the bottom, otherwise opens the Keep / Bottom screen.
+     */
+    override fun opening(intent: TableActionIntent): Boolean {
+        val play = current()?.takeIf { enabled() && AutomatumDrags.opening(it.board, viewer) } ?: return false
+        return when (intent) {
+            is TableActionIntent.OpeningMulligan -> {
+                val actions = AutomatumOpening.mulligan(play.board, viewer, DeviceRandom.seed())
+                    ?: run { error = QuickActions.NO_MORE_MULLIGANS; return false }
+                keeping = false
+                batchResult { actions.all { submit(it) } }
+            }
+            is TableActionIntent.Keep -> if (AutomatumOpening.owed(play.board, viewer) > 0) { error = null; keeping = true; true }
+                else confirmKeep(emptyList())
+            else -> false
+        }
+    }
+
+    /** Keeps the viewer's hand with [bottom] put on the bottom of their library, then Ready (I-D49), as one batch. */
+    fun confirmKeep(bottom: List<String>): Boolean {
+        val play = current()?.takeIf { enabled() && AutomatumDrags.opening(it.board, viewer) } ?: return false
+        val actions = AutomatumOpening.keep(play.board, viewer, bottom) ?: return false
+        return batchResult { actions.all { submit(it) } }.also { if (it) keeping = false }
+    }
+
     override fun automatumStep(intent: TableActionIntent): Boolean? {
         val play = current() ?: return null
         if (!play.board.automatum) return null
@@ -374,7 +404,7 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
     fun dismiss() { panel = null; library = null; manual.close(); capture = null; popupItem = null; stackTargeting = false }
     internal val hasBackOverlay get() = inspection != null || peek != null || manual.inspection != null ||
         manual.editor != null || manual.scope != null || panel != null || stackBubbleEntry != null ||
-        tokens.showingCatalog || tokens.showingLinks
+        tokens.showingCatalog || tokens.showingLinks || keeping
     internal fun dismissBackOverlay() {
         when {
             inspection != null || manual.inspection != null -> closeInspection()
@@ -383,6 +413,7 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
             tokens.showingCatalog || tokens.showingLinks -> tokens.close()
             manual.scope != null || panel != null -> dismissTapUi()
             stackBubbleEntry != null -> showStackBubbles(null)
+            keeping -> closeKeep()
         }
     }
     fun closeInspection() { inspectionLifetime = null; inspectionSubscription?.close(); inspectionSubscription = null; inspection = null; manual.closeInspection() }

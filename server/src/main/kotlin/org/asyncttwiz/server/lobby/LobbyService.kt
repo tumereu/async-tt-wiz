@@ -109,8 +109,10 @@ class LobbyService(private val runtime: ServiceRuntime) {
         // I-D56 §7: for a viewer of a play whose state is the engine's, whose move it is comes from the engine seats
         // (read in the same round trip): the viewer's own next stop first, then the other player's
         val play = game.currentPlay?.takeIf { viewer != null && game.lifecycle == "ACTIVE" }
-        val seats = DSL.field("(SELECT string_agg(account_id::text || ':' || (next_stop IS NOT NULL)::text, ',' ORDER BY account_id) " +
-            "FROM engine_seat WHERE play_id = {0})", String::class.java, DSL.`val`(play, UUID::class.java))
+        // Only for an active play: other summaries don't touch the engine tables (a database at an older schema has none)
+        val seats = if (play == null) DSL.inline(null, String::class.java)
+            else DSL.field("(SELECT string_agg(account_id::text || ':' || (next_stop IS NOT NULL)::text, ',' ORDER BY account_id) " +
+                "FROM engine_seat WHERE play_id = {0})", String::class.java, DSL.`val`(play, UUID::class.java))
         val identities = sql.select(INVITATION.STATE, inviter.USERNAME, recipient.USERNAME,
             inviter.AVATAR_SCRYFALL_ID, inviter.AVATAR_FACE, recipient.AVATAR_SCRYFALL_ID, recipient.AVATAR_FACE, seats).from(INVITATION)
             .join(inviter).on(inviter.ID.eq(game.inviterId)).join(recipient).on(recipient.ID.eq(game.recipientId))

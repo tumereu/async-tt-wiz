@@ -248,6 +248,14 @@ internal object Effects {
             is Effect.ExchangeControl -> exchangeControl(scope, effect)
             is Effect.MoveCounters -> {
                 val to = onBattlefield(scope, effect.to).firstOrNull() ?: return
+                // tla: a permanent that has left the battlefield ("when it leaves, put its counters on …"): the counters it had as
+                // it last existed are put, none removed (CR 608.2h)
+                val board = scope.eval().board
+                scope.objects(effect.from).filter { act.state.obj(it)?.zone != Zone.Battlefield }.forEach { gone ->
+                    board.snapshot(gone)?.counters.orEmpty().filter { c -> c.count > 0 && (effect.kind == null || c.kind == effect.kind) }.forEach { c ->
+                        Actions.putCounters(act, cause, TargetRef.Object(to), c.kind, minOf(c.count, scope.value(effect.amount)))
+                    }
+                }
                 onBattlefield(scope, effect.from).forEach { from ->
                     val kinds = effect.kind?.let { listOf(it) } ?: act.state.objOrThrow(from).counters.map { it.kind }
                     kinds.forEach { k ->

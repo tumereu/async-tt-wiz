@@ -26,7 +26,7 @@ import kotlin.test.Test
  */
 class TlaAllyScenariosTest {
     private val villager = Cards.invent("Village Ally", "{W}", "Creature — Human Ally", "", "1/1")
-    private val shrine = Cards.invent("Quiet Shrine", "{1}", "Legendary Enchantment — Shrine", "")
+    private val shrine = Cards.invent("Hushed Shrine", "{1}", "Legendary Enchantment — Shrine", "")
     private val shrine2 = Cards.invent("Still Shrine", "{1}", "Legendary Enchantment — Shrine", "")
     private val hawk = Cards.invent("Sky Hawk", "{1}{W}", "Creature — Bird", "Flying", "1/1")
     private fun allyTokens(n: Int) = "Ally Token" to n

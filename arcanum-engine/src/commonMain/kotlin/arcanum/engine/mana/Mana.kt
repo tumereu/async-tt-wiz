@@ -390,17 +390,20 @@ internal object Mana {
      * the cheapest sources (lands before creatures, single colours before many, nothing sacrificed when avoidable);
      * Phyrexian symbols by mana when it can be found, else by life. The spell's other ways to pay [ways] (convoke, delve,
      * improvise, CR 702.51, 702.66, 702.126) are used only when mana alone isn't found, or alone when mana can't be spent
-     * on it ([canSpendMana] false); a creature that is a mana source isn't also tapped for convoke.
+     * on it ([canSpendMana] false); a creature that is a mana source isn't also tapped for convoke. [notSources]: objects the
+     * cost itself taps, not tapped for mana.
      */
     fun suggest(
         snap: Snapshot, player: PlayerId, cost: ManaCost, paysFor: ObjectId?,
         ways: List<ManaPaymentWay> = emptyList(), canSpendMana: Boolean = true, anyColor: Boolean = false,
+        notSources: Set<ObjectId> = emptySet(),
     ): List<ManaUse> {
         if (cost.symbols.all { it is ManaSymbol.Generic && it.amount == 0 || it is ManaSymbol.Variable }) return emptyList()
         if (!canSpendMana) return suggestFrom(snap, player, cost, capped(specialPayers(snap, player, ways), ways), emptyList(), paysFor)
         val any = anyColor || spendsAsAnyColor(snap, player, paysFor)
         val pool = poolPayers(snap, player, paysFor, anyColor = any)
-        val sources = sources(snap, player)
+        // tla: a source the cost taps ({T}) can't also make mana for it
+        val sources = sources(snap, player).filter { it.id !in notSources }
         val byMana = suggestFrom(snap, player, cost, pool, sources, paysFor, any)
         if (byMana.isNotEmpty() || ways.isEmpty()) return byMana
         return suggestFrom(snap, player, cost, pool + capped(specialPayers(snap, player, ways, sources.map { it.id }.toSet()), ways), sources, paysFor, any)

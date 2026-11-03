@@ -261,22 +261,31 @@ class AutomatumHandScreenshotTest {
         assertEquals(listOf(0), toolkit.hand.options?.times, "holding never toggles")
     }
 
-    // ZON-079, TBL-118: a card Automatum doesn't allow now (every Mountain tapped) rises with a shake, its chip greyed, no
-    // sources outlined; its second tap is refused with a shake too
-    @Test fun unplayableRisesWithAShake() {
+    // ZON-079, TBL-118 (I-D50, I-D46 (b)): a card Automatum doesn't allow now (every Mountain tapped) only shakes when
+    // tapped: it isn't raised, shows no chips and outlines no sources; another tap shakes it again; a raised card is
+    // lowered by it
+    @Test fun unplayableOnlyShakes() {
         val play = board(tapped = true)
         val toolkit = render(play)
         compose.runOnIdle { tap(toolkit, play, sparkId) }
         compose.waitForIdle()
-        assertEquals(sparkId, toolkit.hand.raised)
+        assertNull(toolkit.hand.raised, "not raised")
         assertEquals(sparkId, toolkit.shaking?.id)
         assertTrue(toolkit.hand.sources(play).isEmpty())
-        compose.onNodeWithContentDescription("Way Cast {R}")
-            .assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "chosen, can't be paid now"))
+        compose.onNodeWithContentDescription("Way Cast {R}").assertDoesNotExist()
         val shakes = toolkit.shaking
         compose.runOnIdle { tap(toolkit, play, sparkId) }
         compose.waitForIdle()
         assertTrue(toolkit.shaking != shakes, "shaken again")
+        assertNull(toolkit.hand.raised)
+        // The Mountain in hand can still be played: it rises; a tap on Storm Spark then lowers it and only shakes
+        compose.runOnIdle { tap(toolkit, play, landId) }
+        compose.waitForIdle()
+        assertEquals(landId, toolkit.hand.raised)
+        compose.runOnIdle { tap(toolkit, play, sparkId) }
+        compose.waitForIdle()
+        assertNull(toolkit.hand.raised)
+        assertEquals(sparkId, toolkit.shaking?.id)
         assertTrue(sent.isEmpty())
         assertNull(toolkit.error)
     }

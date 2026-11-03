@@ -379,9 +379,10 @@ out of anything stuck.
   prefetches the members' storage lookups in one read each (`IndexedMap.prefetch`), writes the nodes, groups, activity
   (`ActivityService.recordAll`) and endpoint degrees in a few statements (about 6000 statements → about 35), and reads a
   new member's group from its bookkeeping instead of walking the batch back and forth (`groupAt`). Probes
-  (`AutomatedBatchCostTest`, `AutomatedBatchServerCostTest`) print the costs. Left: every member's position record
-  stores the board's whole ping-target set (`RetainedPosition.targets`, ~45 KB per member on a 600-card board), which
-  is now most of a big batch's storage time; storing each distinct set once would need a stored-format change.
+  (`AutomatedBatchCostTest`, `AutomatedBatchServerCostTest`) print the costs. Each event's position record names its
+  board's ping-target set (`RetainedPosition.targets`, ~45 KB on a 600-card board) by digest instead of repeating it:
+  each distinct set is stored once per play as a `targets` endpoint record (server-only, no migration; positions
+  written before keep the set inline and read the same). Stored bytes per batch member went from ~28 KB to ~3 KB.
 
 ## 4. Shared state ATW adds
 

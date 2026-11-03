@@ -575,10 +575,12 @@ class AutomatumCombatScreenshotTest {
         fun scene(viewer: String) = TablePresentation.scene(f.game, play, viewer, 412f, 892f, false)
         assertTrue(alice.cast.start(card(play, spark, aHand)))
         tap(alice, scene(f.a).items.first { it.id == "life/${f.b}" })
-        assertTrue(alice.cast.cast(), alice.error)
+        // I-D47: Autotap (on) sends the cast once its last choice is made; only a cast still open waits for Cast
+        if (alice.cast.open) assertTrue(alice.cast.cast(), alice.error)
         assertTrue(bob.cast.start(card(play, spark, bHand)), bob.error)
         tap(bob, scene(f.b).items.first { it.id == "life/${f.a}" })
-        assertTrue(bob.cast.cast(), bob.error)
+        // I-D47: Autotap (on) sends the cast once its last choice is made; only a cast still open waits for Cast
+        if (bob.cast.open) assertTrue(bob.cast.cast(), bob.error)
         val stack = play.board.containers.single { it.zone == PlayZone.STACK }
         assertEquals(2, stack.cards.size)
         val below = stack.cards[1]

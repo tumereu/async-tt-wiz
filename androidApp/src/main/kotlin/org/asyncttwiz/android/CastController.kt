@@ -31,10 +31,10 @@ interface AutomatumWork {
     /** Runs [work], then [done] with its result on the main thread. */
     fun <T> run(work: () -> T, done: (T) -> Unit)
 
-    /** Runs [first], then [shown] with its result on the main thread while [second] goes on from it at once (nothing
-     * queued meanwhile runs in between, I-D47), then [done] with that. */
-    fun <A, B> staged(first: () -> A, shown: (A) -> Unit, second: (A) -> B, done: (B) -> Unit) =
-        run(first) { a -> shown(a); run({ second(a) }, done) }
+    /** Runs [first], then [shown] with its result on the main thread while the work [next] gives for it (null: none)
+     * goes on at once (nothing queued meanwhile runs in between, I-D47), then [done] with that. */
+    fun <A, B> staged(first: () -> A, shown: (A) -> Unit, next: (A) -> (() -> B)?, done: (B) -> Unit) =
+        run(first) { a -> shown(a); next(a)?.let { run(it, done) } }
 
     object Inline : AutomatumWork {
         override fun <T> run(work: () -> T, done: (T) -> Unit) = done(work())
@@ -46,11 +46,12 @@ interface AutomatumWork {
         override fun <T> run(work: () -> T, done: (T) -> Unit) {
             worker.execute { val result = work(); main.post { done(result) } }
         }
-        override fun <A, B> staged(first: () -> A, shown: (A) -> Unit, second: (A) -> B, done: (B) -> Unit) {
+        override fun <A, B> staged(first: () -> A, shown: (A) -> Unit, next: (A) -> (() -> B)?, done: (B) -> Unit) {
             worker.execute {
                 val a = first()
                 main.post { shown(a) }
-                val b = second(a)
+                val second = next(a) ?: return@execute
+                val b = second()
                 main.post { done(b) }
             }
         }
@@ -361,12 +362,12 @@ internal class CastController(
             Step.Drop(FAILED)
         }
         // I-D47: a cast shown as a preview goes on at once on the worker to its batch with what follows it
-        this.work.staged({ guarded(work) }, { outcome ->
+        this.work.staged<Step, Step>({ guarded(work) }, { outcome ->
             if (run != generation) return@staged
             if (outcome is Step.Preview) showPreview(outcome)
             else { busy = false; result = apply(outcome) }
-        }, { outcome -> if (outcome is Step.Preview) guarded { finish(outcome) } else null }) { outcome ->
-            if (outcome == null || run != generation) return@staged
+        }, { outcome -> if (outcome is Step.Preview) ({ guarded { finish(outcome) } }) else null }) { outcome ->
+            if (run != generation) return@staged
             busy = false
             result = apply(outcome)
         }

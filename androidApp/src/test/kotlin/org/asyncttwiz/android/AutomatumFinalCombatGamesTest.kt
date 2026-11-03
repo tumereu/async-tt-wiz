@@ -189,10 +189,11 @@ class AutomatumFinalCombatGamesTest {
         /** Manual actions (lane drafts) go to the server at once, so the next tap sees them (the app's own prediction). */
         var manual: (PlayAction, String?) -> Boolean = { _, _ -> false }
         var manualBatch: (List<PlayAction>, String) -> Boolean = { _, _ -> false }
+        // These games keep a cast open (its mana section, I-D47 Autotap off) while the table goes on, then Cast it
         val toolkit = TableToolkitController(player, { if (held != null) view else live }, { true }, { action, _ -> manual(action, null) },
             playBatch = { actions, request -> manualBatch(actions, request) },
             automatedBatch = { batch, request -> queue += Triple(batch, request, held); madeOn[request] = (if (held != null) view else live).currentNodeId; true }, playTree = { tree },
-            continuation = { held?.let { Continuation(it, explicit = true) } }, automatumWork = work ?: AutomatumWork.Inline)
+            continuation = { held?.let { Continuation(it, explicit = true) } }, automatumWork = work ?: AutomatumWork.Inline).also { it.cast.autotap = false }
         val routes = object : PauseRoutes {
             override fun hold(node: String): Boolean { held = node; view = tree!!.stateAt(node)!!; return true }
             override fun holding(node: String) = held == node

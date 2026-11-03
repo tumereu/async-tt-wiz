@@ -1,0 +1,1 @@
+mod: A spell you cast with Automatum shows on the Stack with its lands tapped right away, without waiting.

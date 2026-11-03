@@ -119,6 +119,18 @@ class SettingsScreenTest {
         compose.onNodeWithTag("full-control").assertIsOn()
     }
 
+    // LOB-113, STK-024 (I-D47): "Autotap mana sources" starts on and is kept on the device per account
+    @Test fun autotapSetting() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        compose.setContent { ScreenTheme { AutomatumPauseSettings("autotap") } }
+        compose.onNodeWithTag("autotap").assertIsOn()
+        compose.onNodeWithTag("autotap").performClick()
+        compose.waitForIdle()
+        assertEquals(PauseSettings(autotap = false), PausePreferences(context, "autotap").settings)
+        assertTrue(PausePreferences(context, "someone else").settings.autotap)
+        compose.onNodeWithTag("autotap").assertIsOff()
+    }
+
     // LOB-079, LOB-113
     @Test @Config(qualifiers = "w412dp-h2600dp-port-xhdpi")
     fun fullPagePortraitScreenshot() = capture("settings-portrait-full", "on a very tall portrait screen")

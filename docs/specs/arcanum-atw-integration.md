@@ -400,6 +400,25 @@ out of anything stuck.
   board's ping-target set (`RetainedPosition.targets`, ~45 KB on a 600-card board) by digest instead of repeating it:
   each distinct set is stored once per play as a `targets` endpoint record (server-only, no migration; positions
   written before keep the set inline and read the same). Stored bytes per batch member went from ~28 KB to ~3 KB.
+- **Built (I-D47 casting, 2026-11-03):** "Autotap mana sources" is `PauseSettings.autotap` (Settings → Automatum, device
+  per account, on by default; `PausePreferences.settings` is the value a quick-actions toggle binds), copied into
+  `CastController.autotap`. With it on a payment is answered with the engine's suggestion (pool mana first, `Mana.suggest`)
+  and never shown; one the suggestion can't make is refused ("Not enough mana to pay …"); off, the mana chips stay
+  (STK-024). `CastFlow.sending(payment)` completes a flow in one replay (was three: answer, `sent`, plan); its
+  `Sending.cast` is the cast alone and `Sending.sent()` goes on in the same call. Latency found with
+  `PerformanceProbeTest.probeACastOnABusyBoard` (desktop JVM, ~180-card board): hand plays ~150 ms (cached, worked out in
+  the background), start ~12 ms, pay ~20 ms, preview plan ~12–40 ms, the passes after the cast (`StepFlow.automatic`)
+  ~70–200 ms, the full plan ~30–60 ms, then the prediction on the main thread ~15–35 ms; nothing waited for the server
+  (automated batches were already predicted). So a complete cast's own changes are planned first (`Step.Preview`) and
+  shown as a local-only prediction (`CastPreview`: `GameSession.previewBatch`, never sent) while the worker goes straight
+  on to the full batch (`AutomatumWork.staged`, nothing queued in between); the batch then replaces the preview
+  (`GameplayReplica.replace`: the table animates from the preview to the batch's result with the batch's own events) and
+  a cast that can't go out drops it (`retire`, a jump back). Only casts on the live line preview (not a held or reviewed
+  point); a board that moved on under a preview drops the cast ("The table changed: cast it again."). A double-tap on a
+  battlefield card with Automatum on activates its one legal mana ability (several: its card menu) — the way to tap by
+  hand for the next cast. The cast panel docks full width exactly above the viewer's hand with the card small
+  (`SmallCard`: tap Inspect, hold the large overlay; I-D48), no rules text, no spinner, the eye fixed at the bottom-left
+  while the rest fades (`HoldTip` on hold), icon + text buttons. Catalog: STK-023, STK-024, STK-042, TBL-043, LOB-113.
 
 ## 4. Shared state ATW adds
 

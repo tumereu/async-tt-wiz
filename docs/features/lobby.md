@@ -125,7 +125,7 @@ Everything outside the game table: accounts, profile, navigation, game list, gam
 - **LOB-080** Games → "Deck visibility": Visible, Hidden or "Show after first game" (default), saved on your account and used as the start value of "Show deck name & art" in new games. (r31)
 - **LOB-081** Table → Card move speed (0.25–3×, default 1×), the Event text switch (on by default), and Card size and Card text size (0.5–3×) with "Customize per area"/"Customize per text", tap-to-type values and a live sample; these are stored on the device. (r29)
 - **LOB-082** Timeline playback → the auto-pause switches, History playback pause (default 1 s, 0.1–10 s), Rewind pause (default 0.1 s), and "Rewind automatically when the opponent branched" with "During live play" and "When opening a game" (both off by default). (r33)
-- **LOB-113** Automatum → "Response time" (1–3 s in 0.5 s steps, default 2 s), "When the opponent can react" (Wait, the default, or Proceed at once) and "Full control" (off by default, SYS-071); stored on the device per account (STK-037, STK-038). (r41)
+- **LOB-113** Automatum → "Response time" (1–3 s in 0.5 s steps, default 2 s), "When the opponent can react" (Wait, the default, or Proceed at once) and "Full control" (off by default, SYS-071) and "Autotap mana sources" (on by default, STK-024); stored on the device per account (STK-037, STK-038). (r42)
 - **LOB-083** About & account → What's new, Report a problem, Send error reports (LOB-104), the version line "Version <name> (<code>) <type> · commit <hash>" (selectable), and Log out. (r35)
 
 ### App updates

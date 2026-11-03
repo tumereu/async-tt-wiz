@@ -137,8 +137,8 @@ class AutomatumControlsScreenshotTest {
         assertTrue(sent.isEmpty() && manual.isEmpty())
     }
 
-    // TBL-115, CR 602.2, 605.3a: activating from the menu goes through the cast panel ("Activate") and out as one batch
-    // that the server takes; a mana ability adds its mana at once
+    // TBL-115, STK-024, CR 602.2, 605.3a: activating from the menu goes out as one batch that the server takes, paid by
+    // Autotap without a panel (nothing to choose, I-D47); a mana ability adds its mana at once
     @Test fun activatingFromTheMenu() {
         val play = board(lands = 3)
         val toolkit = render(play)
@@ -146,10 +146,7 @@ class AutomatumControlsScreenshotTest {
         compose.waitForIdle()
         compose.ringClick("{2}{G}, {T}: Draw a card.")
         compose.waitForIdle()
-        compose.onNodeWithContentDescription("Cast panel").assertExists()
-        compose.onNodeWithText("Mana · {2}{G}").assertExists()
-        compose.onNode(hasText("Activate") and hasClickAction()).performClick()
-        compose.waitForIdle()
+        compose.onNodeWithContentDescription("Cast panel").assertDoesNotExist()
         assertNull(toolkit.cast.flow)
         val (batch, request) = sent.single()
         val after = accepted(play, batch, request)

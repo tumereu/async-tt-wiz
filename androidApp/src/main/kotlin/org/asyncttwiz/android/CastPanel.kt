@@ -208,7 +208,8 @@ private fun CastPanel(toolkit: TableToolkitController, cast: CastController, flo
                 }
             }
         }
-        Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+        // A fixed height: the eye stays exactly where it is whether the buttons beside it show or not
+        Row(Modifier.fillMaxWidth().height(52.dp).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             Surface(shape = CircleShape, color = Color.White, border = BorderStroke(2.dp,
                 AutomatumViolet.copy(alpha = 1f - shown)), shadowElevation = if (cast.hidden) 6.dp else 0.dp) {
                 HoldTip(if (cast.hidden) "Show the cast panel" else "Hide the cast panel") { EyeButton(hidden = cast.hidden, cast::toggleHidden) }

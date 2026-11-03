@@ -69,7 +69,7 @@ internal fun Scenario.may(yes: Boolean) {
 /** Answers the open option choice with the option starting with [text]. */
 internal fun Scenario.option(text: String) {
     val d = decision<Decision.ChooseOption>()
-    answer(Answer.Option(d.options.first { it.startsWith(text) }))
+    answer(Answer.Option(d.options.firstOrNull { it.startsWith(text) } ?: error("No option \"$text\" among ${d.options}")))
 }
 
 /** Passes priority until the Stack is empty or a decision is open; triggers that trigger together are put on the Stack

@@ -493,29 +493,37 @@ class PodBuildViewTest {
         compose.onNodeWithText("Main · MV 1").assertIsDisplayed()
         compose.onNodeWithText("1 / 2").assertIsDisplayed()
         compose.onNodeWithText("Main 3").assertIsDisplayed()
-        compose.onNodeWithText("◀ Side").assertIsDisplayed()
+        // The buttons under the card do what the gestures do: Trash (left), Keep (a tap), Side (right)
+        compose.onNodeWithContentDescription("Move to Trash").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Keep").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Move to Side").assertIsDisplayed()
+        // A swipe left moves it as in the columns (DRF-099): Main → Trash
         compose.onNodeWithTag("pod-build-feed-card-first").performTouchInput { swipeLeft() }
-        compose.runOnIdle { assertEquals(listOf("first" to PodDeckCategory.SIDE), moves) }
+        compose.runOnIdle { assertEquals(listOf("first" to PodDeckCategory.TRASH), moves) }
         compose.onNodeWithText("2 / 2").assertIsDisplayed()
         compose.onNodeWithText("Main 2").assertIsDisplayed()
         compose.onNodeWithContentDescription("Undo").assertIsEnabled().performClick()
         compose.runOnIdle { assertEquals("first" to PodDeckCategory.MAIN, moves.last()) }
         compose.onNodeWithTag("pod-build-feed-card-first").assertIsDisplayed()
         compose.onNodeWithText("1 / 2").assertIsDisplayed()
-        compose.onNodeWithTag("pod-build-feed-card-first").performTouchInput { swipeRight() }
+        // A tap keeps it where it is, as a swipe right did before
+        compose.onNodeWithTag("pod-build-feed-card-first").performTouchInput { click() }
         compose.runOnIdle { assertEquals(2, moves.size) }
+        compose.onNodeWithText("2 / 2").assertIsDisplayed()
         compose.onNodeWithContentDescription("Undo").performClick()
         compose.runOnIdle { assertEquals(2, moves.size) }
+        // A swipe right: Main → Side
         compose.onNodeWithTag("pod-build-feed-card-first").performTouchInput { swipeRight() }
-        compose.onNodeWithTag("pod-build-feed-card-second").performTouchInput { swipeLeft() }
+        compose.runOnIdle { assertEquals("first" to PodDeckCategory.SIDE, moves.last()) }
+        compose.onNodeWithContentDescription("Keep").performClick()
         // The last decision closes the review; its summary shows briefly on the Build screen.
         compose.onNodeWithTag("pod-build-feed").assertDoesNotExist()
-        compose.runOnIdle { assertEquals("second" to PodDeckCategory.SIDE, moves.last()) }
+        compose.runOnIdle { assertEquals(3, moves.size) }
         compose.onNodeWithText("Kept 1 · 1 to Side").assertIsDisplayed()
         compose.onNodeWithText("Next", substring = true).assertDoesNotExist()
     }
 
-    // DRF-107, DRF-110
+    // DRF-107, DRF-108, DRF-110
     @Test fun columnFeedClosesAtItsEndAndSectionFeedsCoverEveryColumn() {
         val (build, move) = movingBuild(PodDeckBuild(listOf(PodDeckCopy("land"), PodDeckCopy("first"),
             PodDeckCopy("side", PodDeckCategory.SIDE), PodDeckCopy("trash", PodDeckCategory.TRASH))))
@@ -527,14 +535,14 @@ class PodBuildViewTest {
         compose.onNodeWithTag("pod-build-feed-label-MAIN-0").performClick()
         val actions = compose.onNodeWithTag("pod-build-feed-card-land").fetchSemanticsNode()
             .config[androidx.compose.ui.semantics.SemanticsActions.CustomActions]
-        assertEquals(listOf("Keep", "Move to Side"), actions.map { it.label })
+        assertEquals(listOf("Keep", "Move to Side", "Move to Trash"), actions.map { it.label })
         compose.runOnIdle { actions.first().action() }
         compose.onNodeWithTag("pod-build-feed").assertDoesNotExist()
         compose.onNodeWithText("Kept 1").assertIsDisplayed()
         compose.onNodeWithTag("pod-build-feed-label-MAIN-2").performClick()
         compose.onNodeWithText("Main · MV 1").assertIsDisplayed()
         compose.onNodeWithContentDescription("Undo").assertIsNotEnabled()
-        compose.onNodeWithTag("pod-build-feed-card-first").performTouchInput { swipeLeft() }
+        compose.onNodeWithTag("pod-build-feed-card-first").performTouchInput { swipeRight() }
         compose.onNodeWithTag("pod-build-feed").assertDoesNotExist()
         compose.onNodeWithText("1 to Side").assertIsDisplayed()
         compose.runOnIdle { assertEquals(listOf("first" to PodDeckCategory.SIDE), moves) }
@@ -542,13 +550,22 @@ class PodBuildViewTest {
         compose.onNodeWithTag("pod-build-feed-header-SIDE").performClick()
         compose.onNodeWithText("Side · MV 1").assertIsDisplayed()
         compose.onNodeWithText("1 / 2").assertIsDisplayed()
-        compose.onNodeWithText("◀ Trash").assertIsDisplayed()
-        compose.onNodeWithTag("pod-build-feed-card-first").performTouchInput { swipeLeft() }
+        compose.onNodeWithContentDescription("Move to Main").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Move to Trash").performClick()
         compose.runOnIdle { assertEquals("first" to PodDeckCategory.TRASH, moves.last()) }
         androidx.test.espresso.Espresso.pressBack()
         compose.onNodeWithText("Trash 2").assertIsDisplayed()
-        compose.onNodeWithTag("pod-build-feed-header-TRASH").assertDoesNotExist()
-        compose.onNodeWithTag("pod-build-feed-label-TRASH-2").assertDoesNotExist()
+        // Trash has a review too: right → Main, left → Side
+        compose.onNodeWithTag("pod-build-feed-label-TRASH-2").assertIsDisplayed()
+        compose.onNodeWithTag("pod-build-feed-header-TRASH").performClick()
+        compose.onNodeWithText("Trash · MV 1").assertIsDisplayed()
+        compose.onNodeWithText("1 / 2").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Move to Side").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Move to Main").performClick()
+        compose.onNodeWithContentDescription("Keep").performClick()
+        compose.onNodeWithTag("pod-build-feed").assertDoesNotExist()
+        compose.runOnIdle { assertEquals(PodDeckCategory.MAIN, moves.last().second) }
+        compose.onNodeWithText("Kept 1 · 1 to Main").assertIsDisplayed()
     }
 
     // DRF-092

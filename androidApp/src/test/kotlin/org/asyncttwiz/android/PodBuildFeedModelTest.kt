@@ -24,46 +24,52 @@ class PodBuildFeedModelTest {
         val feed = assertNotNull(podBuildFeed(PodDeckCategory.SIDE, buckets, labels, null))
         assertEquals(listOf("l1", "a1", "a2", "b1", "c1"), feed.cards.map { it.copyId })
         assertEquals("Side · Lands", feed.title)
-        assertEquals("Side · MV 1", feed.decide(false).title)
-        val done = (1..5).fold(feed) { state, _ -> state.decide(false) }
+        assertEquals("Side · MV 1", feed.decide(null).title)
+        val done = (1..5).fold(feed) { state, _ -> state.decide(null) }
         assertTrue(done.finished)
         assertEquals("Side", done.title)
         assertEquals("5 / 5", done.progress)
     }
 
-    // DRF-107, DRF-108
-    @Test fun keepAndDemoteFollowTheSectionAndTrashHasNoFeed() {
-        assertEquals(PodDeckCategory.SIDE, podBuildFeedDemotion(PodDeckCategory.MAIN))
-        assertEquals(PodDeckCategory.TRASH, podBuildFeedDemotion(PodDeckCategory.SIDE))
-        assertNull(podBuildFeedDemotion(PodDeckCategory.TRASH))
-        assertNull(podBuildFeed(PodDeckCategory.TRASH, buckets, labels, null))
-        assertEquals(PodDeckCategory.SIDE, podBuildFeed(PodDeckCategory.MAIN, buckets, labels, null)!!.target)
-        assertEquals(PodDeckCategory.TRASH, podBuildFeed(PodDeckCategory.SIDE, buckets, labels, null)!!.target)
+    // DRF-107, DRF-108: swipes move a copy as in the columns (DRF-099); Trash has a review too
+    @Test fun swipesFollowTheColumnsAndTrashHasAFeed() {
+        val main = podBuildFeed(PodDeckCategory.MAIN, buckets, labels, null)!!
+        assertEquals(PodDeckCategory.SIDE to PodDeckCategory.TRASH, main.right to main.left)
+        val side = podBuildFeed(PodDeckCategory.SIDE, buckets, labels, null)!!
+        assertEquals(PodDeckCategory.MAIN to PodDeckCategory.TRASH, side.right to side.left)
+        val trash = assertNotNull(podBuildFeed(PodDeckCategory.TRASH, buckets, labels, null))
+        assertEquals(PodDeckCategory.MAIN to PodDeckCategory.SIDE, trash.right to trash.left)
+        assertEquals("Trash · Lands", trash.title)
     }
 
     // DRF-110
     @Test fun decisionsCountIntoTheSummaryAndStopAtTheEnd() {
         val feed = podBuildFeed(PodDeckCategory.MAIN, buckets, labels, 2)!!
-        val done = feed.decide(false).decide(true).decide(false)
+        val done = feed.decide(null).decide(PodDeckCategory.SIDE).decide(PodDeckCategory.TRASH)
         assertTrue(done.finished)
         assertNull(done.current)
-        assertEquals("Kept 2 · 1 to Side", done.summary)
-        assertSame(done, done.decide(true))
-        assertEquals("2 to Trash", podBuildFeed(PodDeckCategory.SIDE, buckets, labels, 2)!!.decide(true).decide(true).summary)
+        assertEquals("Kept 1 · 1 to Side · 1 to Trash", done.summary)
+        assertSame(done, done.decide(PodDeckCategory.SIDE))
+        assertEquals("2 to Trash", podBuildFeed(PodDeckCategory.SIDE, buckets, labels, 2)!!
+            .decide(PodDeckCategory.TRASH).decide(PodDeckCategory.TRASH).summary)
+        assertEquals("Kept 1 · 1 to Main", podBuildFeed(PodDeckCategory.TRASH, buckets, labels, 2)!!
+            .decide(PodDeckCategory.MAIN).decide(null).summary)
+        // Its own section is a keep
+        assertEquals("Kept 1", podBuildFeed(PodDeckCategory.MAIN, buckets, labels, 3)!!.decide(PodDeckCategory.MAIN).summary)
     }
 
     @Test fun undoStepsBackOneCardAndOnlyReturnsMovedCopies() {
         val feed = podBuildFeed(PodDeckCategory.MAIN, buckets, labels, 2)!!
         assertFalse(feed.canUndo)
         assertEquals(feed to null, feed.undo())
-        val (afterDemote, restore) = feed.decide(false).decide(true).undo()
+        val (afterMove, restore) = feed.decide(null).decide(PodDeckCategory.SIDE).undo()
         assertEquals("a2", restore)
-        assertEquals("a2", afterDemote.current?.copyId)
-        val (afterKeep, none) = afterDemote.undo()
+        assertEquals("a2", afterMove.current?.copyId)
+        val (afterKeep, none) = afterMove.undo()
         assertNull(none)
         assertEquals("a1", afterKeep.current?.copyId)
         // Undo still works once finished (while the last card's flick plays).
-        val (back, moved) = feed.decide(false).decide(false).decide(true).undo()
+        val (back, moved) = feed.decide(null).decide(null).decide(PodDeckCategory.TRASH).undo()
         assertEquals("b1", moved)
         assertFalse(back.finished)
     }

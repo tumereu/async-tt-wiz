@@ -164,7 +164,8 @@ fun PodBuildView(
                 val count = podBuildCount(build, category)
                 val buckets = podBuildColumns(build, category, copies, definitions, columns)
                 val sectionColor = category.podBuildColor()
-                val feedable = editable && podBuildFeedDemotion(category) != null
+                // DRF-107: every section has a review, Trash too
+                val feedable = editable
                 item(key = "header-$category") {
                     Surface(color = sectionColor.copy(alpha = .16f).compositeOver(MaterialTheme.colorScheme.surfaceContainer),
                         modifier = Modifier.fillMaxWidth().then(if (sliding) Modifier.animateItem(fadeInSpec = null,

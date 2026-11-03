@@ -124,6 +124,8 @@ private class Planner(private val call: EngineCall, private val actor: String, c
 
     /** The index in [EngineCall.changes] of the change being said. */
     private var current = 0
+    /** The last look over every value, after the last change ([run]). */
+    private var final = false
 
     fun run(): BatchPlan {
         for ((index, change) in call.changes.withIndex()) {
@@ -146,8 +148,10 @@ private class Planner(private val call: EngineCall, private val actor: String, c
                 pendingLog.clear(); pendingCause = null
             } else if (pendingLog.isNotEmpty()) pendingCause = pendingCause ?: cause(change)
         }
-        // Each change settled the values it touched; one look over everything makes sure nothing was missed.
+        // Each change settled the values it touched; one look over everything makes sure nothing was missed, and writes
+        // the open flow's record once for the whole batch.
         current = call.changes.lastIndex
+        final = true
         settle(null)
         // A token gone from ATW but not yet from the engine is kept only in an open flow's record ([Lingering]); without
         // one the engine checked state-based actions (CR 704.3) and it ceased to exist (CR 704.5d)
@@ -610,7 +614,9 @@ private class Planner(private val call: EngineCall, private val actor: String, c
         // I-D33 (#7): early answers stay while their decision can still open; used ones and stale ones go
         val wanted = (records() + PreAnswers.kept(board, engine, ids, call.preAnswered)).associateBy { it.id }
         val current = board.engineRecords.associateBy { it.id }
-        for (id in (current.keys + wanted.keys).sorted()) if (current[id] != wanted[id])
+        // finalreview-sync #3 (N1): the open flow's record is written once per batch, from what it was before to what it
+        // is after, so a batch that answers a flow never closes and opens it again (where the flow began stays readable)
+        for (id in (current.keys + wanted.keys).sorted()) if (current[id] != wanted[id] && (final || id != Automatum.CONTINUATION_ID))
             play(PlayAction.Mtg(MtgAction.SetRecord(id, current[id], wanted[id])))
         return actions.size > start
     }
@@ -690,7 +696,7 @@ private class Planner(private val call: EngineCall, private val actor: String, c
             delayed = { memo(it.id, it) { EngineCodec.delayedRecord(it) } },
             emblemText = { o -> board.engineRecords.firstOrNull { it.id == EngineCodec.emblemId(o) }?.text
                 ?: emblemTexts[o.id] ?: EngineCodec.emblemText(o) },
-            held = { card(atwId(it)) != null })
+            held = { card(atwId(it)) != null }, entry = entries::get)
     }
 
     /** The texts of emblems this call made (I-D25), when their abilities carry none: the quoted ability of what made them. */
@@ -757,7 +763,8 @@ internal fun records(state: GameState, board: org.asyncttwiz.protocol.BoardState
     effect: (arcanum.engine.state.EffectObject) -> EngineRecord = EngineCodec::effectRecord,
     delayed: (arcanum.engine.state.DelayedTrigger) -> EngineRecord = EngineCodec::delayedRecord,
     emblemText: (GameObject) -> String = EngineCodec::emblemText,
-    held: (arcanum.engine.state.CardId) -> Boolean = { true }): List<EngineRecord> = buildList {
+    held: (arcanum.engine.state.CardId) -> Boolean = { true },
+    entry: (ObjectId) -> String? = { null }): List<EngineRecord> = buildList {
     state.effects.values.forEach { add(effect(it)) }
     state.delayedTriggers.values.forEach { add(delayed(it)) }
     state.command.mapNotNull { state.objects[it] }.forEach { add(EngineCodec.emblemRecord(it, emblemText(it))) }
@@ -775,8 +782,21 @@ internal fun records(state: GameState, board: org.asyncttwiz.protocol.BoardState
     if (state.triggered.isNotEmpty())
         add(EngineRecord(EngineCodec.TRIGGERED, EngineRecordKind.Triggered, data = EngineCodec.encode(triggeredSerializer, state.triggered)))
     state.pending?.let { add(EngineRecord(Automatum.CONTINUATION_ID, EngineRecordKind.Continuation,
-        data = codec.encode(FlowRecord.serializer(), FlowRecord(state.viewer?.value, it, lingering(state, held))))) }
+        data = codec.encode(FlowRecord.serializer(), FlowRecord(state.viewer?.value, it, lingering(state, held))),
+        resolving = resolving(it.continuation).mapNotNull(entry).distinct())) }
 }.sortedBy { it.id }
+
+/** The Stack objects a flow's [continuation] is resolving (CR 608.2), outermost last: closed without being taken back,
+ * their ATW entries become manual ([EngineRecord.resolving], finalreview-sync #6, #7). */
+internal fun resolving(continuation: arcanum.engine.decision.Continuation): List<ObjectId> {
+    val items = mutableListOf<ObjectId>()
+    var c: arcanum.engine.decision.Continuation? = continuation
+    while (c != null) {
+        if (c is arcanum.engine.decision.Continuation.Resolving && c.left == null) items += c.item
+        c = c.then
+    }
+    return items
+}
 
 /**
  * The tokens and copies of cards [state] still has outside the Battlefield and the Stack whose ATW card is gone

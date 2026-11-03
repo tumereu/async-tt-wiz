@@ -1,0 +1,1 @@
+fix: Switching Automatum off in the middle of one of its steps always works now and takes back the whole step, both players' answers included; when that isn't possible, the spell it was resolving stays on the Stack for you to finish by hand.

@@ -19,11 +19,12 @@ import kotlin.test.fail
 
 /**
  * Final sync review: long seeded games of two players on one shared history tree (the server's), with Undo and Redo,
- * flow reverts (the switch during a flow, I-D19), Automatum switched off and on (outside combat; #1 covers combat),
+ * flow reverts (the switch during a flow, I-D19, one server step), Automatum switched off and on and its data cleared,
  * branches from earlier acting points, and the stored history replayed. Invariants after every step: the rebuilt engine
  * state equals the engine's own ([TreeGame.send]); Undo of the latest batch gives back its board, Redo the board after it;
  * a revert gives back the board before the flow; a branch from an acting point starts from that point's engine state;
- * the history replays to the server's head; and the engine can always take the board over. Invented cards only.
+ * the history replays to the server's head; the incremental engine log ([EngineLog.Chain]) is the whole one; and the
+ * engine can always take the board over. Invented cards only.
  */
 class FinalSyncGamesTest {
     init { CombatCards.ensured }
@@ -38,7 +39,7 @@ class FinalSyncGamesTest {
     private class Batch(val actor: String, val head: String, val before: BoardState, val after: BoardState)
 
     private class Counts(var calls: Int = 0, var undos: Int = 0, var redos: Int = 0, var reverts: Int = 0, var switches: Int = 0,
-        var branches: Int = 0, var clears: Int = 0, var known3: Int = 0, var known4: Int = 0, var known5: Int = 0, var refused: MutableMap<String, Int> = linkedMapOf(), var turn: Int = 0)
+        var branches: Int = 0, var clears: Int = 0, var known5: Int = 0, var refused: MutableMap<String, Int> = linkedMapOf(), var turn: Int = 0)
 
     private val problems = mutableListOf<String>()
 
@@ -57,10 +58,9 @@ class FinalSyncGamesTest {
         // The board before the batch that opened the open flow (I-D8)
         var flowStart: BoardState? = null
         val ops = mutableListOf<String>()
+        val chain = EngineLog.Chain(table.definitions)
         fun problem(text: String) { problems += "seed $seed step ${counts.calls}: $text" }
         fun refused(what: String, reason: String?) { counts.refused.merge("$what:$reason", 1, Int::plus) }
-        fun inCombat(play: PlayState) = TurnPosition.of(play.board.turn) in setOf(TurnPosition.DECLARE_ATTACKERS,
-            TurnPosition.DECLARE_BLOCKERS, TurnPosition.FIRST_STRIKE_DAMAGE, TurnPosition.COMBAT_DAMAGE, TurnPosition.END_COMBAT)
         fun players() = table.players.random(random)
 
         for (i in 0 until steps) {
@@ -88,17 +88,11 @@ class FinalSyncGamesTest {
                     if (!Automatum.flowOpen(game.state.board)) flowStart = null
                     if (random.nextBoolean()) {
                         val redone = game.control(last.actor, GameAction.Redo)
-                        // #4 (finalreview-sync, its own test): a batch's redo may be refused or shift stamps inside it
-                        if (redone.tree == null) {
-                            refused("redo", redone.reason)
-                            if (redone.reason != "targetTransitionBlocked") problem("Redo right after Undo refused: ${redone.reason}")
-                            continue
-                        }
+                        // #4 (fixed, its own test): a redo right after its undo gives back exactly the batch
+                        if (redone.tree == null) { refused("redo", redone.reason); problem("Redo right after Undo refused: ${redone.reason}"); continue }
                         counts.redos++; ops += "redo"
                         val differs = boardDiff(last.after, game.state.board, 40)
-                        if (differs.lines().any { it.isNotEmpty() && !it.substringBefore(":").endsWith(".timestamp") })
-                            problem("Redo didn't give back the board after the batch:\n$differs")
-                        else if (differs.isNotEmpty()) counts.known4++
+                        if (differs.isNotEmpty()) problem("Redo didn't give back the board after the batch:\n$differs")
                         batches += Batch(last.actor, game.head, last.before, game.state.board)
                     }
                     continue
@@ -122,25 +116,26 @@ class FinalSyncGamesTest {
                     }
                     continue
                 }
-                // The switch during a flow: the flow is reverted on the server (I-D19), then Automatum is off and on again
+                // The switch during a flow (I-D19, #6): one server step that takes the whole flow back, then Automatum is
+                // off; a player turns it on again
                 r < 14 && flow -> {
-                    val reverted = game.control(players(), GameAction.RevertFlow)
-                    if (reverted.tree == null) { refused("revert", reverted.reason); problem("the open flow couldn't be reverted: ${reverted.reason}") }
-                    else {
-                        counts.reverts++; ops += "revert"
-                        // #3 (its own test): a flow of several decisions is reverted only to its latest decision
-                        if (Automatum.flowOpen(game.state.board)) counts.known3++
-                        else flowStart?.let { if (game.state.board != it) problem("the revert didn't give back the board before the flow:\n" + boardDiff(it, game.state.board)) }
-                        flowStart = null
-                        batches.removeAll { b -> b.head !in game.tree.nodes }
+                    val off = game.control(players(), GameAction.ExitFlow(MtgAction.SetAutomatum(false)))
+                    if (off.tree == null) { refused("off", off.reason); problem("switching off during a flow was refused: ${off.reason}"); continue }
+                    counts.reverts++; ops += "revert"
+                    // #3 (fixed, its own test): the whole flow is taken back, both players' events
+                    if (Automatum.flowOpen(game.state.board)) problem("the switch left the flow open")
+                    else flowStart?.let { start ->
+                        val back = game.state.board.copy(automatum = true)
+                        if (back != start) problem("the revert didn't give back the board before the flow:\n" + boardDiff(start, back))
                     }
-                    if (game.manual(players(), PlayAction.Mtg(MtgAction.SetAutomatum(false))).tree == null) problem("switching off was refused")
+                    flowStart = null
+                    batches.removeAll { b -> b.head !in game.tree.nodes }
                     if (game.manual(players(), PlayAction.Mtg(MtgAction.SetAutomatum(true))).tree == null) problem("switching on was refused")
                     counts.switches++; ops += "revert-switch"
                     continue
                 }
-                // Off and on outside combat, nothing done by hand: the engine state stays (best effort, I-D28, I-D42)
-                r < 18 && !flow && !inCombat(play) -> {
+                // Off and on, nothing done by hand: the engine state stays (best effort, I-D28; the current combat too, #1)
+                r < 18 && !flow -> {
                     val before = game.engine()
                     game.manual(players(), PlayAction.Mtg(MtgAction.SetAutomatum(false)))
                     game.manual(players(), PlayAction.Mtg(MtgAction.SetAutomatum(true)))
@@ -149,9 +144,9 @@ class FinalSyncGamesTest {
                     if (differs.isNotEmpty()) problem("off/on in ${TurnPosition.of(play.board.turn)} changed the engine state: ${differs.first().take(300)}")
                     continue
                 }
-                // "Clear Automatum data" while off, then on again (I-D24, I-D28 best effort): the engine still takes the board.
-                // Outside combat (#1 covers combat: its own tests)
-                r < 24 && !flow && !inCombat(play) -> {
+                // "Clear Automatum data" while off, then on again (I-D24, I-D28 best effort): the engine still takes the board,
+                // in combat too (#1: blocks declared again never double)
+                r < 24 && !flow -> {
                     game.manual(players(), PlayAction.Mtg(MtgAction.SetAutomatum(false)))
                     game.manual(players(), PlayAction.Mtg(MtgAction.ClearRecords))
                     game.manual(players(), PlayAction.Mtg(MtgAction.SetAutomatum(true)))
@@ -196,6 +191,16 @@ class FinalSyncGamesTest {
                 if (!Automatum.flowOpen(before) && Automatum.flowOpen(game.state.board)) flowStart = before
                 if (!Automatum.flowOpen(game.state.board)) flowStart = null
                 batches += Batch(actor, game.head, before, game.state.board)
+            }
+            // N3: the incremental log along the tree (the app's) is the log read from every tag, after undos and branches too
+            if (counts.calls % 5 == 0) {
+                val play = game.state
+                val turn = play.board.turn.number.toIntOrNull()
+                val whole = EngineLog.recent(EngineLog.from(game.tags(), play, table.definitions), turn)
+                val incremental = chain.log(game.head, play, turn) { id ->
+                    game.tree.nodes[id]?.let { node -> game.tree.materializationId(id)?.let { EngineLog.Event(it, node.parentId, node.tag) } }
+                }
+                if (incremental != whole) problem("the incremental engine log differs: ${incremental.size} vs ${whole.size} entries")
             }
             // The stored history replays to the server's head (server and clients agree; test-only replay from the start)
             if (counts.calls % 40 == 0) {
@@ -248,7 +253,7 @@ class FinalSyncGamesTest {
         for (seed in listOf(61L, 62L, 63L, 64L, 65L, 66L)) {
             val counts = play(seed, steps = 220)
             println("finalreview-sync games seed $seed: ${counts.calls} calls, turn ${counts.turn}, undos ${counts.undos}, redos ${counts.redos}, " +
-                "reverts ${counts.reverts}, switches ${counts.switches}, branches ${counts.branches}, clears ${counts.clears}, known #3 ${counts.known3}, known #4 ${counts.known4}, branch points ${counts.known5}, refused ${counts.refused}")
+                "reverts ${counts.reverts}, switches ${counts.switches}, branches ${counts.branches}, clears ${counts.clears}, branch points ${counts.known5}, refused ${counts.refused}")
         }
         problems.forEach { println("finalreview-sync PROBLEM $it") }
         assertTrue(problems.isEmpty(), "${problems.size} problems:\n" + problems.take(6).joinToString("\n"))

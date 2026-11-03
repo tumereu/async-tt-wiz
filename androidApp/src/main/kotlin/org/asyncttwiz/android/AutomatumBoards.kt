@@ -202,10 +202,17 @@ internal object AutomatumBoards {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Pair<Set<String>, EngineLog.Decoder>>?) = size > 4
     }
 
+    /** The game's event logs along its history tree (one per play): each event's log is worked out once (N3). */
+    private val chains = object : LinkedHashMap<String, Pair<Set<String>, EngineLog.Chain>>(4, .75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Pair<Set<String>, EngineLog.Chain>>?) = size > 4
+    }
+
     /** The engine's event log from the history's [tags] (D33): this and last turn's events ([EngineLog.recent]), each tag
-     * read only once per game ([EngineLog.Decoder], SYS-025). Empty when it can't be read (a cast then misses "this
-     * turn" facts rather than failing). */
+     * read only once per game ([EngineLog.Decoder], SYS-025); for the history tree's own [HistoryTags], from the log
+     * after the nearest event already read ([EngineLog.Chain], finalreview-sync N3: no walk through the whole history).
+     * Empty when it can't be read (a cast then misses "this turn" facts rather than failing). */
     fun engineLog(play: PlayState, definitions: Map<String, CardDefinition>, tags: List<MtgTag?>): List<LoggedChange> {
+        if (tags is HistoryTags) return chainLog(play, definitions, tags)
         if (tags.all { it?.data.isNullOrEmpty() }) return emptyList()
         val decoder = synchronized(decoders) {
             decoders[play.id]?.takeIf { it.first == definitions.keys }?.second
@@ -213,6 +220,25 @@ internal object AutomatumBoards {
         }
         return try {
             EngineLog.recent(synchronized(decoder) { decoder.log(tags, play) }, play.board.turn.number.toIntOrNull())
+        } catch (problem: Exception) {
+            AppLog.warn("automatum", "Engine log unreadable: ${problem::class.java.simpleName}")
+            emptyList()
+        }
+    }
+
+    private fun chainLog(play: PlayState, definitions: Map<String, CardDefinition>, tags: HistoryTags): List<LoggedChange> {
+        val chain = synchronized(chains) {
+            chains[play.id]?.takeIf { it.first == definitions.keys }?.second
+                ?: EngineLog.Chain(definitions).also { chains[play.id] = definitions.keys to it }
+        }
+        val tree = tags.tree
+        return try {
+            synchronized(chain) {
+                chain.log(tags.nodeId, play, play.board.turn.number.toIntOrNull()) { id ->
+                    val node = tree.nodes[id] ?: return@log null
+                    tree.materializationId(id)?.let { EngineLog.Event(it, node.parentId, node.tag) }
+                }
+            }
         } catch (problem: Exception) {
             AppLog.warn("automatum", "Engine log unreadable: ${problem::class.java.simpleName}")
             emptyList()
@@ -245,6 +271,7 @@ internal object AutomatumBoards {
         synchronized(flows) { flows.clear() }
         synchronized(combats) { combats.clear() }
         synchronized(decoders) { decoders.clear() }
+        synchronized(chains) { chains.clear() }
         lastCombatRecord = null
     }
 
@@ -278,15 +305,22 @@ internal fun rememberComputedBoard(play: PlayState, viewer: String, tags: (() ->
 }
 
 /** The tags of the history's events from the start up to [nodeId], in order (D33: the engine's event log rides on them).
- * Walks the chain of events back once; no board is rebuilt. */
-internal fun engineTags(tree: GameplayTree?, nodeId: String): List<MtgTag?> {
-    tree ?: return emptyList()
-    val tags = ArrayList<MtgTag?>()
-    var id: String? = nodeId
-    while (id != null) {
-        val node = tree.nodes[id] ?: break
-        tags += node.tag
-        id = node.parentId
+ * Read through when listed only: [AutomatumBoards.engineLog] reads the log from the tree itself, from the nearest event
+ * already read (finalreview-sync N3). No board is rebuilt. */
+internal fun engineTags(tree: GameplayTree?, nodeId: String): List<MtgTag?> = if (tree == null) emptyList() else HistoryTags(tree, nodeId)
+
+/** [engineTags] of [tree] up to [nodeId]: listed (walking the chain of events back once) only when read as a list. */
+internal class HistoryTags(val tree: GameplayTree, val nodeId: String) : AbstractList<MtgTag?>() {
+    private val tags: List<MtgTag?> by lazy {
+        val tags = ArrayList<MtgTag?>()
+        var id: String? = nodeId
+        while (id != null) {
+            val node = tree.nodes[id] ?: break
+            tags += node.tag
+            id = node.parentId
+        }
+        tags.asReversed()
     }
-    return tags.asReversed()
+    override val size: Int get() = tags.size
+    override fun get(index: Int): MtgTag? = tags[index]
 }

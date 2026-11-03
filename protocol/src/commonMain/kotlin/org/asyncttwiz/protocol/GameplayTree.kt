@@ -262,6 +262,9 @@ import kotlin.concurrent.Volatile
         val change = GameplayRules.change(reseeded.copy(currentBranchId = branchId), actor, resolved, referenceResolver(),
             plannedBefore = state.board.takeIf { reseeds.isNotEmpty() })
         val mutation = change.mutation?.let {
+            // The seal covers the delta, not the bookkeeping: without reseeds the reducer's seal stands (finalreview-sync
+            // N4: one seal per member of a big automated batch, not two)
+            if (reseeds.isEmpty()) return@let GameplayHistory.recontextualize(state, it)
             val recorded = GameplayHistory.recontextualize(state, it.copy(transition = it.transition.copy(
                 delta = it.transition.delta!!.copy(libraryReseeds = reseeds))))
             recorded.copy(transition = recorded.transition.copy(delta = recorded.transition.delta!!.copy(seal = GameplayDeltas.seal(recorded))))

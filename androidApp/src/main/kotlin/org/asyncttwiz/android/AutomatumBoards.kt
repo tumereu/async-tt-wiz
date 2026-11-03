@@ -147,9 +147,6 @@ internal object AutomatumBoards {
     fun throughEngine(board: org.asyncttwiz.protocol.BoardState): Boolean = combatRecord(board).first
     fun hadFirstStrikeStep(board: org.asyncttwiz.protocol.BoardState): Boolean = combatRecord(board).second
 
-    /** Whether manual controls work on [play]'s board: Automatum off, or its open choice is something to do by hand
-     * (I-D28, I-D37). */
-    fun manualAllowed(play: PlayState): Boolean = !play.board.automatum || byHand(play)
 
     /** The shared flow of [play]'s board already worked out, if any. */
     fun cachedFlow(play: PlayState): SharedFlow? = synchronized(flows) { flows[IdentityKey(play.board)] }

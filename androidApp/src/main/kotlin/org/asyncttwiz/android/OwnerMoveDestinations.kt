@@ -18,11 +18,7 @@ internal fun ownerMoveDestination(board: BoardState, id: String, destination: Ta
     val owner = CombatStackRules.liveSource(board, id)?.owner ?: return destination
     return when (destination) {
         is TableDestination.Container -> if (destination.zone in ownerOnlyZones) {
-            // A Temp pile redirects to the owner's Temp pile of the same number, which may not have been created yet.
-            val temp = board.containers.firstOrNull { it.id == destination.id && it.temp }
-            val target = if (temp != null) TempPiles.container(board, owner, temp.tempNumber)?.id
-                    ?: playId?.takeIf(DeckValidation::uuid)?.let { TempPiles.containerId(it, owner, temp.tempNumber) } ?: return destination
-                else board.zoneContainer(owner, destination.zone)?.id ?: return destination
+            val target = board.zoneContainer(owner, destination.zone)?.id ?: return destination
             if (target == destination.id) destination else destination.copy(id = target, handGap = null)
         } else destination
         is TableDestination.Grid -> if (destination.ownerOnly) {

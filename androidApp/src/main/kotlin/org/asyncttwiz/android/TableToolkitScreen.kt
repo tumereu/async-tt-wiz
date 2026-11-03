@@ -28,7 +28,7 @@ import org.asyncttwiz.protocol.*
 /** The production overlay tree, mounted once alongside the Canvas and using its captured IDs. */
 @Composable
 internal fun TableToolkitScreen(toolkit: TableToolkitController, play: PlayState, game: GameSummary,
-    landscape: Boolean, selection: TableSelection,
+    landscape: Boolean,
     accepted: PlayState? = null, peekScroll: ScrollState? = null, scene: TableScene? = null,
     onTimeline: (() -> Unit)? = null) {
     val names = mapOf(game.inviter.accountId to game.inviter.username, game.recipient.accountId to game.recipient.username)

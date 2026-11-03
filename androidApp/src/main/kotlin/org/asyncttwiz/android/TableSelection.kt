@@ -4,13 +4,6 @@ data class TableScope(val contextId: String, val cardIds: List<String>)
 data class TableMoveSource(val containerId: String, val placement: TablePlacement? = null, val libraryTop: Boolean = false,
     val sourceId: String? = null, val bottomSlice: List<String> = emptyList(), val takeFromEdge: Boolean = false)
 
-/** Personal selection. Scope capture deliberately copies IDs, never indexes or a live selection view. */
-data class TableSelection(val ids: Set<String> = emptySet()) {
-    fun scope(id: String, visualOrder: List<String> = ids.toList()): TableScope = TableScope(id,
-        if (id in ids) (visualOrder.filter { it in ids } + ids.filter { it !in visualOrder }).distinct() else listOf(id))
-    fun retain(existing: Set<String>) = copy(ids = ids.intersect(existing))
-}
-
 sealed interface TableDestination {
     data class Container(val id: String, val zone: org.asyncttwiz.protocol.PlayZone,
         val bottom: Boolean = false, val handGap: org.asyncttwiz.protocol.IdentityGap? = null) : TableDestination
@@ -45,7 +38,8 @@ sealed interface TableIntent {
         /** Made by dragging (or its accessibility action): with Automatum on it means an engine action (I-D36). */
         val drag: Boolean = false) : TableIntent
     data class Submit(val action: org.asyncttwiz.protocol.PlayAction, val invocationId: String?) : TableIntent
-    data class Selection(val selection: TableSelection) : TableIntent
+    /** A tap on empty table or hand space: lowers a raised hand card and drops the combat selection. */
+    data object EmptyTap : TableIntent
     data class Camera(val camera: TableCamera) : TableIntent
     data class Scroll(val viewportId: String, val offset: Float, val vertical: Boolean = false) : TableIntent
     /** ZON-081 (I-D50): a hand shown [offset] dp past its end (elastic; 0 once it is back). */

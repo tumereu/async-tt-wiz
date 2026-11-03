@@ -25,7 +25,7 @@ import org.asyncttwiz.protocol.*
 /** ZON-079, ZON-080 (I-D50): the mana sources Autotap would tap for the raised hand card, and the extras' chips. */
 internal val AutotapAmber = Color(0xffe09a1c)
 
-internal fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: String, selection: TableSelection, preview: TableGesturePreview,
+internal fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: String, preview: TableGesturePreview,
     alphas: Map<String, Float> = emptyMap(), artwork: Map<String, ImageBitmap> = emptyMap(),
     cache: TableDrawCache, presenceDot: PresenceDot? = null,
     /** Automatum cast (I-D6): legal targets glow violet: cards by card id (and their Stack entries and combat copies),
@@ -159,8 +159,7 @@ internal fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: 
             }
         }
     }
-    val highlighted = selection.ids
-    val focused = highlighted + listOfNotNull(preview.pressedId?.let { id -> scene.items.firstOrNull { it.id == id }?.cardId })
+    val focused = listOfNotNull(preview.pressedId?.let { id -> scene.items.firstOrNull { it.id == id }?.cardId })
     val relatedSources = scene.items.filter { it.cardId in focused }.mapNotNull { it.sourceId }.toSet()
     fun outlines(i: TableItem, b: TableBounds, card: Boolean = false) {
         if (i.sourceId != null && i.sourceId in relatedSources) {
@@ -169,8 +168,6 @@ internal fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: 
                 size((b.width - 2 * inset).coerceAtLeast(0f), (b.height - 2 * inset).coerceAtLeast(0f)), style = Stroke(2 * density))
         }
         val outset = if (card) 2f else 0f
-        if (i.cardId in highlighted) drawRect(Color(0xff397ccc), xy(b.x - outset, b.y - outset),
-            size(b.width + 2 * outset, b.height + 2 * outset), style = Stroke(3 * density))
         if (i.id == preview.pressedId) drawRect(Color(0xffe7ab24), xy(b.x - outset, b.y - outset),
             size(b.width + 2 * outset, b.height + 2 * outset), style = Stroke(2 * density))
         if (sources.isNotEmpty() && i.zone == PlayZone.BATTLEFIELD && !i.projection && i.cardId in sources) {
@@ -214,21 +211,6 @@ internal fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: 
                     drawCircle(Color.White, 4.5f * density, center)
                     drawCircle(presenceDot.color, 3.5f * density, center)
                 }
-            }
-            TableItemKind.COUNTER -> {
-                val marker = when (i.counter) {
-                    CounterColor.RED -> Color(0xffb44b51); CounterColor.BLUE -> Color(0xff426f97)
-                    CounterColor.GREEN -> Color(0xff3c744f); CounterColor.YELLOW -> Color(0xffc7ab3d)
-                    CounterColor.PURPLE -> Color(0xff8c639d); else -> Color(0xff626b6e)
-                }
-                val radius = minOf(14f, b.height / 2 - 6f)
-                val hasValue = TablePresentation.nonzero(i.value)
-                drawCircle(if (hasValue) marker else marker.copy(alpha = .3f), radius * density,
-                    xy(b.center.x, b.center.y), style = if (hasValue) androidx.compose.ui.graphics.drawscope.Fill else Stroke(density))
-                paint.isFakeBoldText = true
-                paint.color = if (i.counter == CounterColor.YELLOW) android.graphics.Color.rgb(32, 42, 46) else android.graphics.Color.WHITE
-                if (hasValue) centeredText(i.value, TableBounds(b.center.x - radius, b.center.y - radius, 2 * radius, 2 * radius), 11f)
-                paint.color = android.graphics.Color.DKGRAY; paint.textSize = 11 * density; paint.isFakeBoldText = false
             }
             TableItemKind.PILE -> {
                 if (i.cards.isEmpty()) {
@@ -370,6 +352,6 @@ internal fun SampleTableCard(appearance: CardAppearance, scale: Float, modifier:
     val density = LocalDensity.current.density
     val cache = remember(density) { TableDrawCache(density) }
     Canvas(modifier.size(bounds.width.dp, bounds.height.dp).semantics { contentDescription = sample.label }) {
-        drawTable(scene, "sample", "sample", TableSelection(), TableGesturePreview(), cache = cache)
+        drawTable(scene, "sample", "sample", TableGesturePreview(), cache = cache)
     }
 }

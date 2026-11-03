@@ -144,7 +144,6 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
     internal val hand = HandController(viewer, { acting()?.takeIf { enabled() } }, layoutState, automatumWork, ::engineTags,
         cast = { card, way, extras -> error = null; castGesture = card; cast.start(card, way, extras) },
         shake = { shake(it) }, unplayable = { play, card -> AutomatumBoards.cachedCardPlays(play, viewer)?.let { unplayable(play, card) } })
-    val selectionState = mutableStateOf(TableSelection())
     val table = TableActionController(::current, ::enabled, this)
     private val basic = BasicTableController(::current, ::enabled, ::enqueue)
     private var invocation: String? = null
@@ -511,7 +510,7 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
         dismiss(); capture = bound
     }
 
-    fun open(captured: TableIntent.Actions, item: TableItem, selection: TableSelection) {
+    fun open(captured: TableIntent.Actions, item: TableItem) {
         // Targets are picked on the table while a cast asks for them (I-D5, I-D6); a Graveyard or Exile pile holding some
         // opens as its card panel to pick them from (i12review #14)
         if (cast.targeting || flows.targeting) {

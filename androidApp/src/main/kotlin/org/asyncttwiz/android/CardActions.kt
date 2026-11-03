@@ -54,16 +54,14 @@ internal fun EngineCardMenu(toolkit: TableToolkitController, play: PlayState, bo
         }))
     val ownerColor = if (card.owner == viewer) OwnTableColor else OpponentTableColor
     val rows = automatumRows(toolkit, play, bound, names, enabled)
-    val pages = CardRingPages.automatumPages(layout)
+    val page = CardRingPages.page(layout)
     val anchors = LocalCardRingAnchors.current
-    if (view in anchors) CardActionRing(play.gameId, viewer, card.id, view, entries, card.owner == viewer, ownerColor,
-        toolkit::dismiss, layout, pages, rows, remembered = false)
+    if (view in anchors) CardActionRing(card.id, view, entries, card.owner == viewer, ownerColor, toolkit::dismiss, page, rows)
     else BoxWithConstraints(Modifier.fillMaxSize()) {
         // A card without a table drawing: the menu centres on the screen
         val anchor = TableBounds(maxWidth.value / 2 - 24, maxHeight.value / 2 - 50, 48f, 100f)
         CompositionLocalProvider(LocalCardRingAnchors provides (anchors + (view to anchor))) {
-            CardActionRing(play.gameId, viewer, card.id, view, entries, card.owner == viewer, ownerColor, toolkit::dismiss,
-                layout, pages, rows, remembered = false)
+            CardActionRing(card.id, view, entries, card.owner == viewer, ownerColor, toolkit::dismiss, page, rows)
         }
     }
 }

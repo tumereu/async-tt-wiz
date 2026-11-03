@@ -103,7 +103,7 @@ internal class HandController(
     fun follow() {
         val card = raised ?: return
         val play = current()
-        if (play == null || AutomatumBoards.manualAllowed(play) || !CastController.ownHand(play, card, viewer) ||
+        if (play == null || !CastController.ownHand(play, card, viewer) ||
             card in castSpellSources(play.board)) { lower(); return }
         if (board !== play.board) compute(play)
     }
@@ -165,7 +165,7 @@ internal class HandController(
     /** ZON-079: the sources Autotap would tap for the raised card on [play] (outlined on the table). */
     fun sources(play: PlayState): Set<String> {
         val o = options ?: return emptySet()
-        if (o.cardId != raised || AutomatumBoards.manualAllowed(play)) return emptySet()
+        if (o.cardId != raised) return emptySet()
         return o.sources
     }
 

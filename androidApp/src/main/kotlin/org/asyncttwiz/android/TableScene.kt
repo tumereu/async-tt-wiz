@@ -34,9 +34,7 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
     accepted: PlayState? = null, runtime: TableRuntimeHooks = TableRuntimeHooks()) {
     PrefetchGameArtwork(play, accountId)
     val layoutState: MutableState<TableLayoutState> = toolkit?.layoutState ?: remember(play.id, accountId) { mutableStateOf(TableLayoutState()) }
-    val selectionState: MutableState<TableSelection> = toolkit?.selectionState ?: remember(play.id, accountId) { mutableStateOf(TableSelection()) }
     var layout by layoutState
-    var selection by selectionState
     var gestureError by remember(play.id, accountId) { mutableStateOf<String?>(null) }
     val peekScroll = rememberScrollState()
     val peekScreenHeight by rememberUpdatedState(holdPreviewScreenHeight())
@@ -45,13 +43,11 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
     val callback by rememberUpdatedState(onIntent)
     val writable = connected && onIntent != null
     val currentWritable by rememberUpdatedState(writable)
-    val currentSelection by rememberUpdatedState(selection)
     val currentRuntime by rememberUpdatedState(runtime)
     var presentation by remember(play.id, accountId) { mutableStateOf<(() -> TableScene)?>(null) }
     val density = LocalDensity.current.density
     val coordinator = remember(play.id, accountId, density) {
         lateinit var owner: TableGestureCoordinator
-        var beforeSelection = selection
         owner = TableGestureCoordinator({ intent ->
             // A pending result blocks game actions only; looking at cards (hold preview, inspect) stays personal and allowed.
             if (currentRuntime.gameActionsBlocked && !gameLockAllows(intent)) return@TableGestureCoordinator
@@ -74,18 +70,17 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
                 is TableIntent.Scroll -> layout = if (intent.vertical)
                     layout.copy(scrollY = layout.scrollY + (intent.viewportId to intent.offset))
                     else layout.copy(scroll = layout.scroll + (intent.viewportId to intent.offset))
-                is TableIntent.Selection -> if (!currentRuntime.reviewing) {
-                    beforeSelection = selection; selection = intent.selection
+                TableIntent.EmptyTap -> if (!currentRuntime.reviewing) {
                     // CMB-032, CMB-034: a tap on the empty table clears the combat selection (a blocker finishes early)
-                    if (intent.selection.ids.isEmpty()) toolkit?.combat?.clearSelection()
+                    toolkit?.combat?.clearSelection()
                     // ZON-079: tapping anywhere else lowers a raised hand card
-                    if (intent.selection.ids.isEmpty()) toolkit?.hand?.lower()
+                    toolkit?.hand?.lower()
                 }
                 is TableIntent.Actions -> {
                     val captured = owner.capturedActions ?: intent
                     if (toolkit != null) {
                         val item = owner.actionItem
-                        if (item != null) toolkit.open(captured, item, currentSelection)
+                        if (item != null) toolkit.open(captured, item)
                     }
                 }
                 is TableIntent.Inspect -> toolkit?.inspect(intent.cardId)
@@ -96,7 +91,6 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
                         DebugLatency.tap(game.id, if (sent) "rotated" else if (!currentWritable) "dropped:sceneNotWritable" else "dropped:controllerRefused",
                             cardId = intent.scope.contextId)
                     }
-                    if (!sent && intent is TableIntent.Move) selection = beforeSelection
                 }
             }
         }, density = density, onPeekScroll = { peekScroll.holdPreviewScroll(it * density, peekScreenHeight) }, diagnostic = { event ->
@@ -232,11 +226,7 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
         SideEffect { previousLayout = layout; previousSize = maxWidth to maxHeight }
         SideEffect {
             presentation = { rendered.value.scene }
-            var retained = selection.retain((play.board.cards.map { it.id } + play.board.stackEffects.map { it.id } +
-                CombatStackRules.occurrences(play.board.combat).map { it.id }).toSet())
-            if (runtime.reviewing) retained = retained.copy(ids = emptySet())
-            if (retained != selection) selection = retained
-            coordinator.update(scene, retained, writable, sceneSource = { rendered.value.scene }, reviewing = runtime.reviewing)
+            coordinator.update(scene, writable, sceneSource = { rendered.value.scene }, reviewing = runtime.reviewing)
         }
         Box(Modifier.fillMaxSize().semantics {
             contentDescription = "Shared table"
@@ -307,7 +297,7 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
             Canvas(Modifier.fillMaxSize()) {
                 DebugLatency.tapFrame(game.id, progress.value, refreshRate)
                 val frame = rendered.value
-                drawTable(frame.scene, accountId, play.board.turn.accountId, selection, preview, frame.alphas, artwork, drawCache,
+                drawTable(frame.scene, accountId, play.board.turn.accountId, preview, frame.alphas, artwork, drawCache,
                     presenceDot, castGlow, playable, shaking?.let { it.id to shakeOffset.value }?.takeIf { it.second != 0f }, raisedSources)
             }
             TableSemanticNodes(game, play, scene, semanticItems, rendered, runtime, { currentRuntime }, coordinator, writable, toolkit,
@@ -323,7 +313,7 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
         CardPanelHeaders(scene, accountId, toolkit)
         TableControlsLayer(play, accountId, landscape, connected, runtime, toolkit, scene, { gestureError }, { gestureError = null })
         AnimatedCardRingAnchors(rendered, toolkit?.capture != null) {
-         if (toolkit != null) TableToolkitScreen(toolkit, play, game, landscape, selection, accepted,
+         if (toolkit != null) TableToolkitScreen(toolkit, play, game, landscape, accepted,
               peekScroll = peekScroll, scene = scene, onTimeline = runtime.history)
         }
     }

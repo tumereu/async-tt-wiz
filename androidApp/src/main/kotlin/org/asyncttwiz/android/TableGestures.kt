@@ -22,7 +22,7 @@ class TableGestureCoordinator(
     fun pointFromPixels(x: Float, y: Float) = TablePoint(x / density, y / density)
     private enum class Phase { PRESS, DRAG, SCROLL, HOLD, TRANSFORM, PAN, HAND_PAN }
     private data class Capture(val item: TableItem?, val start: TablePoint, val time: Long,
-        val selection: TableSelection, val scope: TableScope?, val viewport: TableViewport?, var phase: Phase = Phase.PRESS,
+        val scope: TableScope?, val viewport: TableViewport?, var phase: Phase = Phase.PRESS,
         var point: TablePoint = start, var double: Boolean = false, val sources: Map<String, TableMoveSource> = emptyMap(),
         var destination: TableDestination? = null, var replacingLocal: Boolean = false,
         val suppressTapUi: Boolean = false, val camera: TableCamera = TableCamera(), val panRegion: String? = null,
@@ -45,7 +45,6 @@ class TableGestureCoordinator(
             return sceneSnapshot
         }
         set(value) { sceneSnapshot = value }
-    private var selection = TableSelection()
     private var writable = false
     private var reviewing = false
     private var navigationCamera: TableCamera? = null // unresisted pointer position, never compounded rubber
@@ -68,11 +67,10 @@ class TableGestureCoordinator(
             distance(point, it.capture.start) <= slopDp * 4
     } == true
 
-    fun update(scene: TableScene, selection: TableSelection, writable: Boolean, sceneSource: (() -> TableScene)? = null,
+    fun update(scene: TableScene, writable: Boolean, sceneSource: (() -> TableScene)? = null,
         reviewing: Boolean = false) {
         this.scene = scene; this.sceneSource = sceneSource; lastSample = null
         this.reviewing = reviewing
-        this.selection = if (reviewing) selection.copy(ids = emptySet()) else selection
         this.writable = writable
         // Removed cards cannot become the card that has slid into their old bounds.
         val c = capture
@@ -90,7 +88,6 @@ class TableGestureCoordinator(
             pendingCleared = "targetRemoved"; pending = null
         }
     }
-    private fun order() = scene.items.filter { it.kind == TableItemKind.CARD }.mapNotNull { it.cardId }
     fun down(point: TablePoint, time: Long, dismissedRingCard: String? = null) {
         if (capture != null) cancel()
         tick(time)
@@ -103,11 +100,9 @@ class TableGestureCoordinator(
             item.cards.firstOrNull() // the displayed real card, not an invented logical top in unordered bins
         } else null
         val scope = id?.let { if (item?.zone == PlayZone.STACK) TableScope(it, listOf(it)) else
-            selection.scope(it, order()).let { scope -> scope.copy(cardIds = scope.cardIds.filter { selected ->
-                scene.items.none { it.cardId == selected && it.zone == PlayZone.STACK }
-            }) } }
+            TableScope(it, listOf(it)) }
         val region = scene.panRegion(point)
-        val next = Capture(item, point, time, selection, scope, scene.viewports.firstOrNull { it.id == region },
+        val next = Capture(item, point, time, scope, scene.viewports.firstOrNull { it.id == region },
             sources = scene.sources.filterKeys { it in scope?.cardIds.orEmpty() },
             suppressTapUi = dismissedRingCard != null && (item?.cardId == dismissedRingCard || item?.id == dismissedRingCard),
             camera = navigationCamera ?: scene.camera, panRegion = region)
@@ -131,8 +126,8 @@ class TableGestureCoordinator(
                 distance(point, old.capture.start) <= slopDp * 4 && time <= old.deadline) {
                 next.double = true
                 next.replacingLocal = old.shown && item != null
-                // The first press's stable scope wins even if sync/selection changed between taps.
-                capture = next.copy(scope = old.capture.scope, selection = old.capture.selection, sources = old.capture.sources)
+                // The first press's stable scope wins even if sync changed between taps.
+                capture = next.copy(scope = old.capture.scope, sources = old.capture.sources)
                 pending = null
                 recentTap = null
             } else { pending = null; if (!old.shown) single(old.capture); capture = next }
@@ -359,17 +354,11 @@ class TableGestureCoordinator(
     }
     fun actions(item: TableItem) {
         val id = item.cardId ?: item.cards.firstOrNull().takeIf { item.zone == PlayZone.LIBRARY }
-        val scope = id?.let { selection.scope(it, order()) }
-        single(Capture(item, item.bounds.center, 0, selection, scope, null,
+        val scope = id?.let { TableScope(it, listOf(it)) }
+        single(Capture(item, item.bounds.center, 0, scope, null,
             sources = scene.sources.filterKeys { it in scope?.cardIds.orEmpty() }), explicit = true)
     }
     fun inspect(item: TableItem) { peekId(item)?.let { emit(TableIntent.Inspect(it)) } }
-    fun accessibleMove(item: TableItem, destination: TableDestination) {
-        if (!scene.canDrag(item)) return
-        val id = item.cardId ?: return
-        val scope = if (item.zone == PlayZone.STACK) TableScope(id, listOf(id)) else selection.scope(id, order())
-        if (writable && targetsExist(scope)) emit(TableIntent.Move(scope, destination, scene.sources.filterKeys { it in scope.cardIds }, drag = true))
-    }
     private fun rotatable(scope: TableScope) = scope.copy(cardIds = scope.cardIds.filter { id ->
         scene.items.any { it.cardId == id && it.zone == PlayZone.BATTLEFIELD && !it.projection }
     })
@@ -381,7 +370,7 @@ class TableGestureCoordinator(
             // Closing this card's ring is the single-tap action, but still seeds a normal double tap.
             return
         } else if (item == null || item.kind == TableItemKind.HAND) {
-            emit(TableIntent.Selection(c.selection.copy(ids = emptySet())))
+            emit(TableIntent.EmptyTap)
         } else if (c.scope == null || targetsExist(c.scope)) {
             val event = TableIntent.Actions(item.id, if (item.kind == TableItemKind.CARD) c.scope else null)
             // Private binding for the Actions host. The personal event need not disclose Library order/IDs.

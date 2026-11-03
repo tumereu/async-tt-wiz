@@ -190,23 +190,20 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
     LaunchedEffect(resultLocked) {
         if (resultLocked) {
             toolkit.dismiss(); toolkit.closeInspection()
-            toolkit.selectionState.value = TableSelection()
         }
     }
     SideEffect { toolkit.reviewContext("${target?.boundaryNodeId}/${if (reviewing) position?.cursorId else "live"}") }
     val back = remember(game.id) { TableBackStateMachine() }
     val context = LocalContext.current
-    val selection = toolkit.selectionState.value
     SideEffect { DebugJank.state("screen" to "table", "history_nodes" to (tree?.nodes?.size ?: 0).toString()) }
     DisposableEffect(Unit) { onDispose { DebugJank.state("screen" to "games", "table_mode" to "play",
         "history_nodes" to "0", "visible_cards" to "0", "popup" to "none", "dragging" to "false") } }
     val overlay = toolkit.hasBackOverlay || explorerOpen || state.chatOpen
-    LaunchedEffect(overlay, reviewing, history.armed, selection) {
-        if (overlay || reviewing || history.armed != null || selection.ids.isNotEmpty()) back.reset()
+    LaunchedEffect(overlay, reviewing, history.armed) {
+        if (overlay || reviewing || history.armed != null) back.reset()
     }
     BackHandler {
-        when (back.back(SystemClock.elapsedRealtime(), overlay, reviewing || history.armed != null,
-            selection.ids.isNotEmpty())) {
+        when (back.back(SystemClock.elapsedRealtime(), overlay, reviewing || history.armed != null)) {
             TableBackAction.CLOSE_OVERLAY -> when {
                 state.chatOpen -> controller.closeChat()
                 explorerOpen -> explorerOpen = false
@@ -214,7 +211,6 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
             }
             // Back abandons personal review immediately rather than playing the path back to live.
             TableBackAction.EXIT_REVIEW -> history.cancelContinuation()
-            TableBackAction.CLEAR_SELECTION -> toolkit.selectionState.value = TableSelection()
             TableBackAction.PROMPT -> Toast.makeText(context, "Press back again to leave", Toast.LENGTH_SHORT).show()
             TableBackAction.LEAVE -> controller.back()
         }

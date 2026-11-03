@@ -115,17 +115,17 @@ data class TableLayoutState(val camera: TableCamera = TableCamera(), val scroll:
     val raised: String? = null,
     /** ZON-081 (I-D50): a hand pulled past its end (dp, by hand viewport id), springing back on release. */
     val overscroll: Map<String, Float> = emptyMap())
-enum class TableItemKind { CARD, PILE, LIFE, COUNTER, HAND }
+enum class TableItemKind { CARD, PILE, LIFE, HAND }
 data class TableItem(
     val id: String, val bounds: TableBounds, val label: String, val value: String,
     val owner: String? = null, val zone: PlayZone? = null, val cards: List<String> = emptyList(),
     val kind: TableItemKind = TableItemKind.PILE, val viewport: String = "", val cardId: String? = null,
     val covered: Boolean = false, val tapped: Boolean = false, val corner: String = "",
     val visible: List<TableBounds> = listOf(bounds), val footprint: TableBounds = bounds,
-    val counter: CounterColor? = null, val peekOwners: List<String> = emptyList(),
+    val peekOwners: List<String> = emptyList(),
     val sourceId: String? = cardId, val projection: Boolean = false, val frozen: Boolean = false,
     val token: Boolean = false,
-    val typeIcon: String = "", val artwork: ArtworkReference? = null, val drawHandId: String? = null,
+    val typeIcon: String = "", val artwork: ArtworkReference? = null,
     val inTransit: Boolean = false, val cardTransform: TableCardTransform? = null,
     val flipScale: Float = 1f, val copies: Int = 1, val faceTitle: String = "",
     val countBadge: TableBounds? = null, val typeLine: String = "", val keepTopRevealed: Boolean = false,

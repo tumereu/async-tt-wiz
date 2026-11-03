@@ -78,6 +78,20 @@ Design: `docs/specs/arcanum-automatum.md` §6.
   object ("Put a +1/+1 counter on your Ring-bearer."), haunt's modal trigger working in exile too, and a dungeon card's rooms ("[name] — [effect] (→ [room] or [room])", `MechanicWordings.rooms`; a room
   effect it can't read is a `Step.Manual`);
   in `OracleParser`, spree's and tiered's "+ [cost] — [effect]" modes and "Partner with [name]" (names with commas).
+- Mechanics the engine plays since its lanes 1–4 (regexes in `MechanicWordings.kt`, rules in the `mechanic*` functions of
+  `Sentences.kt`, tried first; `EngineLaneWordingsTest`, one test per wording; played parsed in the engine's
+  `ReadLaneWordingsScenariosTest`): "You may exert [this] as it attacks. When you do, [effect]" (`Mechanic.AsAttacks`, the effect read
+  as in its attack trigger) and "Exert [this]" as a cost; costs to attack and block ("Creatures can't attack you unless their controller
+  pays {2} for each creature they control that's attacking you.", "Enchanted creature can't attack or block unless its controller pays
+  {3}.", "This creature can't attack unless you sacrifice a land.", "[Black creatures] can't attack unless their controller sacrifices a
+  land … for each … that's attacking.", "creatures can't block unless their controller pays {1} / 2 life for each of those creatures /
+  blocking creature they control", also inside "As long as …"); "Any time you could mulligan and [this] is in your hand, you may
+  [effect]." (works in the hand); "Your starting hand size is increased by N." (works in the command zone); "[Enchanted creature] is a
+  copy of [the chosen creature / enchanted creature]" and "Other creatures you control are copies of enchanted creature."; the keyword
+  actions explore ("it", a target, "each …"), monstrosity N/X with "as long as this creature is monstrous", adapt, support (other
+  targets on a permanent), learn, discover, manifest / cloak the top card(s) of your library, time travel and goad ("goad it" is the
+  object just targeted, never this permanent). Siege reminder text was already dropped and "this Siege" read. Not read: "whenever you
+  exert a creature" and "becomes monstrous" (no event pattern in the API).
 - `TypeLine`, `PrintedNumbers`: type lines and printed numbers, both ways.
 - `OracleRenderer.render(ability)`: writes an ability back as oracle-style English,
   for checking parses against the original text.

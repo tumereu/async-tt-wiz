@@ -98,6 +98,10 @@ internal object MechanicWordings {
         if (text == "you've completed a dungeon") return Condition.Compare(Value.DungeonsCompleted(arcanum.api.Players.You),
             arcanum.api.Comparison.AtLeast, Value.Fixed(1))
         if (text == "you control a Ring-bearer") return Condition.Exists(yourRingBearer, 1)
+        // CR 701.37b: "As long as this creature is monstrous, …"
+        IS_MONSTROUS.matchEntire(text)?.takeIf { isSelf(it.groupValues[1], self) || it.groupValues[1] == "it" }?.let {
+            return Condition.ObjectMatches(Objects.Self, ObjectFilter.HasStatus(Status.Marked(ObjectMark.Monstrous)))
+        }
         return null
     }
 
@@ -174,4 +178,51 @@ internal object MechanicWordings {
     }
 
     private fun isSelf(name: String, self: Set<String>): Boolean = name in self || name.replaceFirstChar { it.lowercase() } in self
+
+    // ---- Mechanics the engine plays since its lanes 1–4 (read by the `mechanic*` functions of `Sentences`)
+
+    /** "this creature is monstrous" (CR 701.37b). */
+    val IS_MONSTROUS = Regex("""(.+) is monstrous""")
+
+    /** "You may exert this creature as it attacks. When you do, [effect]" (CR 701.43d, 508.1g). */
+    val MAY_EXERT_AS_ATTACKS = Regex("""You may exert (.+?) as (?:it|he|she|they) attacks?\.(?: When you do, (.+))?""")
+    /** "Exert this creature" as a cost (CR 701.43a). */
+    val EXERT_COST = Regex("""[Ee]xert (.+)""")
+
+    /** "Creatures can't attack you unless their controller pays {2} for each creature they control that's attacking you." (CR 508.1d, h) */
+    val CANT_ATTACK_YOU_UNLESS_PAYS_EACH_ATTACKING = Regex(
+        """(.+?) can't attack you(?: or (planeswalkers you control))? unless their controller pays (\{[^}]+\}) for each creature they control that's attacking you(?: or a planeswalker you control)?(?:, where X is (.+))?\.""")
+    /** "Enchanted creature can't attack unless its controller pays {3}.", "… can't attack or block unless …" (CR 508.1d, 509.1d) */
+    val CANT_ATTACK_UNLESS_ITS_CONTROLLER_PAYS = Regex("""(.+?) can't (attack|block|attack or block) unless its controller pays (\{[^}]+\})\.""")
+    /** "This creature can't attack unless you sacrifice a land." (CR 508.1h: a cost other than mana) */
+    val SELF_CANT_ATTACK_UNLESS_YOU = Regex("""(.+?) can't (attack|block) unless you (sacrifice .+|return .+|pay .+|discard .+|exile .+|tap .+)\.""")
+    /** "Black creatures can't attack unless their controller sacrifices a land of their choice for each black creature they control
+     * that's attacking." */
+    val CANT_ATTACK_UNLESS_CONTROLLER_SACRIFICES = Regex(
+        """(.+?) can't attack unless their controller sacrifices (an? .+?)(?: of their choice)? for each (.+?) they control that's attacking\.""")
+    /** "Creatures can't block unless their controller pays {1} for each of those creatures." / "… for each blocking creature they
+     * control." (CR 509.1d) */
+    val CANT_BLOCK_UNLESS_PAYS = Regex("""(.+?) can't block unless their controller pays (\{[^}]+\}|\d+ life) for each (?:of those creatures|blocking creature they control)\.""")
+
+    /** "Any time you could mulligan and this card is in your hand, you may [effect]." (CR 103.5b) */
+    val ANY_TIME_YOU_COULD_MULLIGAN = Regex("""Any time you could mulligan and (.+?) is in your hand, you may (.+)""")
+    /** "Your starting hand size is increased by one." (CR 103.5) */
+    val STARTING_HAND_SIZE = Regex("""Your starting hand size is (increased|reduced|decreased) by (\w+)\.""")
+
+    /** "Enchanted creature is a copy of the chosen creature.", "Other creatures you control are copies of enchanted creature."
+     * (CR 613.2a, 707.2) */
+    val IS_A_COPY_OF = Regex("""(.+?) (?:is a copy|are copies) of (.+)\.""")
+
+    /** Keyword actions (CR 701). */
+    val EXPLORES = Regex("""(.+?) explores\.""")
+    val MONSTROSITY = Regex("""Monstrosity (\d+|X)\.""")
+    val ADAPT = Regex("""Adapt (\d+|X)\.""")
+    val SUPPORT = Regex("""Support (\d+|X)\.""")
+    val DISCOVER = Regex("""(?:You )?[Dd]iscover (\d+|X)\.""")
+    val MANIFEST_TOP = Regex("""(?:You )?[Mm]anifest the top (card|two cards|three cards) of your library\.""")
+    val CLOAK_TOP = Regex("""(?:You )?[Cc]loak the top (card|two cards|three cards) of your library\.""")
+    /** "all creatures your opponents control", "each Merfolk creature you control" */
+    val ALL_NOUN = Regex("""(?:[Aa]ll|[Ee]ach) (.+)""")
+    val GOAD = Regex("""Goad (.+)\.""")
+    val EXILE_HAND_DRAW_THAT_MANY = Regex("""Exile all (?:the )?cards from your hand, then draw that many cards\.""")
 }

@@ -523,7 +523,10 @@ report and replay their inputs on a saved state. The default `EngineTrace.None` 
     the parser's `Step.Manual` / `CostPart.Manual` for wordings it marks so.
   - Parser side (`Ability.Unparsed`, not the engine's): keyword actions and wordings it doesn't read yet (the modal haunt trigger,
     "whenever you choose a creature as your Ring-bearer" (`EventPattern.RingTempts.chosen`) and "your Ring-bearer" as an object
-    are read since the third round).
+    are read since the third round; exert, costs to attack and block, "any time you could mulligan", starting hand sizes, "is a
+    copy of" / "are copies of" and the keyword actions explore, monstrosity, adapt, support, learn, discover, manifest, cloak,
+    time travel and goad since the lane wordings round, played parsed in `casting/ReadLaneWordingsScenariosTest`; "whenever you
+    exert a creature" and "becomes monstrous" have no event pattern yet).
 - Not yet, around the game:
   team and other variant starts; restarting a game (CR 104.1).
 

@@ -31,7 +31,7 @@ import kotlin.test.assertTrue
 /**
  * Costs to attack and block other than mana (CR 508.1h, 509.1d), optional "as it attacks" costs (CR 508.1g) with exert
  * (CR 701.43) and its "when you do" trigger, and exert as an activated ability's cost. The cards are written by hand from
- * parsed parts: the parser doesn't read these wordings yet.
+ * parsed parts (written before the parser read these wordings; `casting/ReadLaneWordingsScenariosTest` plays them parsed).
  */
 class CombatCostsTest {
     private fun ability(text: String, base: String): Ability =

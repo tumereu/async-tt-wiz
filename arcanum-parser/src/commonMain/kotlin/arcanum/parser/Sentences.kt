@@ -13717,7 +13717,9 @@ internal class Sentences(
         val options = modeLines.map { line ->
             val t = Regex("""Target (.+)\.""").matchEntire(line) ?: return null
             val noun = t.groupValues[1]
-            val name = Filters.slotName(noun)
+            // msh backfill: each mode's own slot ("artifact card", "creature card"), so the step after the modes reads every
+            // chosen target (one shared name kept only the first mode's)
+            val name = noun
             names += name
             arcanum.api.Mode(Instructions(targets = listOf(mshSlot(name, mshTargetYourGraveyard(noun) ?: return null))), text = line)
         }

@@ -246,7 +246,7 @@ class TableGesturesTest {
             "Even a stationary grab must resume spring-back on release")
     }
 
-    // SYS-029, TBL-011, TBL-012, TBL-060
+    // SYS-029, TBL-011, TBL-012
     @Test fun emptySingleTapIsImmediateDoubleTapFitsAndDoubleTapHoldDragPans() {
         val scene = TableFixture.scene(TableFixture.play(board = 2), ui = TableLayoutState(TableCamera(zoom = 1.4f)))
         val point = TablePoint(scene.world!!.viewport.center.x, scene.world.viewport.center.y)
@@ -673,20 +673,6 @@ class TableGesturesTest {
         assertTrue(move.destination is TableDestination.Grid)
         assertEquals("a/BATTLEFIELD", move.sources.getValue("a/BATTLEFIELD/0").containerId)
         assertTrue(f.events.none { it is TableIntent.Actions || it is TableIntent.Rotate || it is TableIntent.Inspect })
-    }
-    // SYS-029, ZON-013, ZON-014
-    @Test fun librarySingleTapOpensActionsImmediatelyAndDragBindsActualTop() {
-        val f = Fixture()
-        val pile = f.scene.items.single { it.id == "a/LIBRARY" }; val p = pile.visible.first().center
-        f.tap(0, p)
-        assertEquals(TableIntent.Actions(pile.id, null), f.events.single())
-        f.gestures.tick(420)
-        assertEquals(TableIntent.Actions(pile.id, null), f.events.single())
-        f.events.clear(); f.gestures.down(p, 450)
-        val dest = f.scene.fields.last().bounds.center
-        f.gestures.move(dest, 500); f.gestures.up(dest, 550)
-        assertEquals(listOf("a/LIBRARY/0"), f.events.filterIsInstance<TableIntent.Move>().single().scope.cardIds)
-        assertTrue(f.events.filterIsInstance<TableIntent.Move>().single().sources.getValue("a/LIBRARY/0").libraryTop)
     }
 
 

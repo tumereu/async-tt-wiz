@@ -164,7 +164,7 @@ class AutomatumControlsScreenshotTest {
         assertEquals(listOf("G"), accepted(play, mana, manaRequest).board.players.single { it.accountId == f.a }.manaPool.map { it.color })
     }
 
-    // SYS-069, TRN-031, I-D28: manual changes are refused with the reason; what has no game effect still goes through
+    // SYS-069, I-D28: manual changes are refused with the reason; what has no game effect still goes through
     @Test fun manualChangesRefused() {
         val play = board(lands = 2)
         val toolkit = render(play)

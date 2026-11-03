@@ -203,7 +203,7 @@ class TableStatesScreenshotTest {
         return sent
     }
 
-    // CMB-008, CMB-013, CMB-014, STK-008, STK-013, STK-017, STK-018, STK-021
+    // CMB-008, CMB-013, CMB-014, STK-008, STK-018, STK-021
     @Test fun combatPortrait() { render("combat", false) }
     @Test fun combatCardTargetPortrait() { render("combat-targets", false) }
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun combatCardTargetLandscape() { render("combat-targets", true) }
@@ -251,7 +251,6 @@ class TableStatesScreenshotTest {
         compose.onNodeWithContentDescription("Card inspection content").assertDoesNotExist()
         compose.onNodeWithText("Manage Stack · 2").assertIsDisplayed()
     }
-    // STK-017
     @OptIn(ExperimentalRoborazziApi::class)
     @Test fun tokensOnBattlefieldHandStackAndCombatPortrait() { render("tokens", false) }
     @Test fun tokensAtSmallestCardSizePortrait() { render("tokens-small", false) }

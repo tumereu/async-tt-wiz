@@ -1,1 +1,1 @@
-Portrait table in combat at declare attackers, both your attackers selected, one blocked; the Stack holds an effect and a card.
+Portrait table in combat at declare attackers, one attacker blocked; the Stack holds an effect and a card.

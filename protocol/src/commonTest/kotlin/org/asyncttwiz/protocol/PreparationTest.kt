@@ -58,7 +58,7 @@ class PreparationTest {
         assertNotNull(select(saved = saved, definitions = listOf(submitted)).state)
     }
 
-    // TBL-076
+    // I-D52
     @Test fun existingSavedMultipartDeckNormalizesOnlyItsNewGameSnapshot() {
         val old = definition.copy(layout = "adventure")
         val digest = DeckJson.digest(old)

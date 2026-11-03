@@ -181,7 +181,7 @@ class AutomatumCombatScreenshotTest {
 
     // ---- Drags (I-D36)
 
-    // ZON-077, ZON-004, TRN-031, I-D36, I-D28: with Automatum on a hand land dragged onto the Battlefield is played through Automatum, a
+    // ZON-077, ZON-004, I-D36, I-D28: with Automatum on a hand land dragged onto the Battlefield is played through Automatum, a
     // spell dragged onto the Stack opens the cast; moving a card by hand to another zone and dragging life are refused
     @Test fun dragsAreAutomatumActions() {
         start(board(TurnPosition.PRECOMBAT_MAIN, MtgPriority(f.a), aliceField = listOf(mountain), bobField = listOf(ogre),
@@ -290,7 +290,7 @@ class AutomatumCombatScreenshotTest {
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi")
     fun attackersAreStagedByTapsThenCommittedLandscape() { landscape = true; stagingFlow("combat-staging-landscape") } // CMB-028
 
-    // CMB-028, TRN-020, TRN-059: with Automatum on, Main 1 has no Attack quick action (the row is Automatum's toggles):
+    // CMB-028, TRN-059: with Automatum on, Main 1 has no Attack quick action (the row is Automatum's toggles):
     // Next step goes on to Declare attackers through Automatum, where taps stage attackers
     @Test fun mainPhaseNextStepGoesToDeclareAttackers() {
         start(board(TurnPosition.PRECOMBAT_MAIN, MtgPriority(f.a), aliceField = listOf(brute), bobField = listOf(ogre)))

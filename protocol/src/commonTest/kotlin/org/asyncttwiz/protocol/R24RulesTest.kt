@@ -67,7 +67,7 @@ class R24RulesTest {
 
     @Test fun rulesVersionIsAtLeast24() = assertTrue(CURRENT_GAMEPLAY_RULES_VERSION >= 24)
 
-    // STK-005, STK-003, TBL-090, ZON-008
+    // STK-003
     @Test fun castingFaceDownPutsAFaceDownEntryOnTheStackThatResolvesIntoAFaceDown22WithoutRevealingIt() {
         val (stacked, cast) = castFaceDown()
         // On the Stack: a face-down entry pointing at the hand card, which stays in the Hand hidden from the opponent.
@@ -96,7 +96,7 @@ class R24RulesTest {
         assertTrue(ManualDisclosure.permittedFaces(cast, down, b, inspecting = true).isEmpty())
     }
 
-    // STK-005
+    // I-D52
     @Test fun aFaceDownEntryComesOnlyFromAHandAndItsCopyStaysFaceDown() {
         val start = inHand()
         val (stacked, _) = castFaceDown()
@@ -118,7 +118,7 @@ class R24RulesTest {
         assertFalse(CombatStackRules.valid(StackAction.AddEffect(gameplayId(10), GameplayRules.stackDigest(start), faceDown = false)))
     }
 
-    // STK-005: going to the graveyard instead, the card is put there face up like any other spell.
+    // I-D52: going to the graveyard instead, the card is put there face up like any other spell.
     @Test fun aFaceDownEntryPutIntoTheGraveyardLeavesTheHandFaceUp() {
         val (stacked, _) = castFaceDown()
         val entry = stacked.board.stackEffects.single()
@@ -165,7 +165,7 @@ class R24RulesTest {
         assertEquals(card(cast, 10).corner, card(replayed, 10).corner)
     }
 
-    // ZON-018
+    // I-D52
     @Test fun manifestTopEntersTheBattlefieldFaceDownWithoutRevealing() {
         val start = gameplayFixture()
         val top = start.board.containers.single { it.id == library }.cards.first()
@@ -193,7 +193,7 @@ class R24RulesTest {
         return assertNotNull(change.tree, change.reason)
     }
 
-    // STK-005: play and resolve are one Undo.
+    // I-D52: play and resolve are one Undo.
     @Test fun undoingTheCastIsBlockedByALaterEditOfThePublicCorner() {
         val root = handRoot()
         val edited = assertNotNull(cast(root, 200).play(b, command(GameAction.Play(

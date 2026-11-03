@@ -75,7 +75,7 @@ class LibraryLayersTest {
         assertEquals(RandomV1.shuffle(library(known).cards, seed(3)), library(shuffled).cards)
     }
 
-    // ZON-025
+    // I-D52
     @Test fun randomTopAndBottomAddOneHiddenLayerEachAroundKnownCards() {
         var state = top(root(), 1100)
         val topLayer = library(state).layers.first()
@@ -95,7 +95,7 @@ class LibraryLayersTest {
         assertTrue(state.board.cards.filter { it.id in (1101..1104).map(::id) }.all { it.covered && it.containerId == libraryId })
     }
 
-    // ZON-025
+    // I-D52
     @Test fun randomMoveIsOneEventWithOrdinaryResetsAndValidatesItsInputs() {
         val start = root()
         val change = GameplayRules.change(start, a, command(start, random(listOf(1100, 1101), bottom = true)))
@@ -115,7 +115,7 @@ class LibraryLayersTest {
         assertEquals(setOf(1000, 1001, 1100).map(::id).toSet(), library(back).cards.takeLast(3).toSet())
     }
 
-    // ZON-072
+    // I-D52
     @Test fun plannerSendsEachOwnersCardsToTheirOwnLibraryAndSkipsTokens() {
         val start = root()
         val board = start.board.copy(cards = start.board.cards.map { if (it.id == id(1103)) it.copy(owner = b) else it })

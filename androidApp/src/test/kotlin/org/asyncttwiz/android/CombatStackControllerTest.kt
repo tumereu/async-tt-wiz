@@ -72,28 +72,6 @@ class CombatStackControllerTest {
         }
     }
 
-    // CMB-019
-    @Test fun combinedDeclarationHasIndividualNodesAndDoesNotForceUntap() {
-        val state = combatState().let { it.copy(board = it.board.copy(cards = it.board.cards.map { card ->
-            if (card.id == combatId(21)) card.copy(tapped = true) else card
-        })) }
-        val commands = CombatCommands()
-        val plan = CombatStackController.declare(state, actor, targets(state, 20, 21), true, commands::command)
-        // Only the source which actually needs tapping, then the area and two occurrences: taps come first.
-        assertEquals(1, plan.commands.size)
-        val actions = plan.commands.single().playActions()
-        assertEquals(4, actions.size)
-        assertEquals(PlayAction.SetTapped(combatId(20), true), actions.first())
-        assertEquals(PlayAction.Combat(CombatAction.Open), actions[1])
-        assertTrue(actions.drop(2).all { (it as PlayAction.Combat).action is CombatAction.Declare })
-        val accepted = replay(state, plan)
-        assertEquals(2, accepted.board.combat!!.pairs.size)
-        assertEquals(state.board.cards.map { it.placement }, accepted.board.cards.map { it.placement })
-        assertTrue(accepted.board.cards.filter { it.id in setOf(combatId(20), combatId(21)) }.all { it.tapped })
-        val repeated = CombatStackController.declare(accepted, actor, targets(accepted, 20, 21), false, commands::command)
-        assertTrue(repeated.commands.isEmpty())
-        assertEquals(accepted, repeated.prediction)
-    }
 
     @Test fun sourceAliasesBindOnceAndEffectsRemoveIndividually() {
         val initial = combatState()

@@ -244,7 +244,7 @@ class TableScreenshotTest {
         return toolkit to sent
     }
 
-    // SYS-045, TBL-081, TRN-008, TRN-010, TRN-032
+    // SYS-045, TRN-008, TRN-010
     @Test fun cardActionsPortrait() { menu("card-actions", false) }
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun cardActionsLandscape() { menu("card-actions", true) }
     @Test fun playerActionsPortrait() { menu("player-actions", false) }

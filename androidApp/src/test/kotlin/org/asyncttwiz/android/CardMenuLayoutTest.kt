@@ -15,7 +15,7 @@ class CardMenuLayoutTest {
         assertEquals(CardMenuLayout.CARD, CardRingPages.context(board, sentinel.id))
         assertEquals(CardMenuLayout.COMBAT, CardRingPages.context(board, f.id("attacker1")))
         assertEquals(CardMenuLayout.COMBAT, CardRingPages.context(board, f.id("blocker")))
-        // Stack entries have no card menu: Manage Stack holds their actions (STK-019). A real card in the Stack, only
+        // Stack entries have no card menu: tapping the Stack opens the Stack list (STK-018). A real card in the Stack, only
         // in a state recorded before r35 (STK-003), has none either.
         assertNull(CardRingPages.context(board, f.id("effect")))
         val stackCard = CombatStackRules.stack(board).cards.single { it != f.id("effect") }

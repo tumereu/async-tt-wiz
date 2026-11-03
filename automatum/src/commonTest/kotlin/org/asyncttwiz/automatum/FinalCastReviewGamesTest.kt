@@ -129,7 +129,7 @@ class FinalCastReviewGamesTest {
             // The board as Automatum left it needs no settling: the holder shown is the holder the engine works with
             HostPriority.wanted(s, HostPriority.kept(rt.state.board))?.let { problem("priority resettled after an automated batch", "$where after $lastAction: board ${rt.state.board.priority} -> $it") }
             // I-D27: the menus list nothing of the other player's library (a card in their hand gets one greyed Cast before the
-            // plays are read, ZON-007; one the viewer saw leave the battlefield may be listed, greyed as not theirs)
+            // plays are read; one the viewer saw leave the battlefield may be listed, greyed as not theirs)
             for (viewer in table.players) {
                 val plays = CardPlays.of(rt.state, rt.definitions, viewer, log())
                 for (card in plays.byCard.keys) {
@@ -176,7 +176,7 @@ class FinalCastReviewGamesTest {
                         val plays = CardPlays.of(rt.state, rt.definitions, holder, log())
                         val legal = plays.byCard.flatMap { (card, list) -> list.filter { it.legal }.map { card to it } }
                             .filter { (_, p) -> p.kind != CardPlay.Kind.Mana || random.nextInt(6) == 0 }
-                        // The double-tap and the menu agree on what a hand card can do (ZON-004, ZON-007)
+                        // The double-tap and the menu agree on what a hand card can do (ZON-004)
                         val hand = HandPlays.of(rt.state, rt.definitions, holder, log())
                         for ((card, inputs) in hand.byCard) {
                             val menu = plays.of(card).mapNotNull { it.input }.filter { it is Input.Cast || it is Input.PlayLand }

@@ -8,7 +8,7 @@ import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 
 class KeepTopRevealedIntegrationTest {
-    // ZON-021
+    // I-D52
     @Test fun `forks after draws preserve the revealed top and explicit branch shuffles replace it for both players`() {
         FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
@@ -67,7 +67,7 @@ class KeepTopRevealedIntegrationTest {
         }
     }
 
-    // ZON-020
+    // I-D52
     @Test fun `either player controls a durable undoable continuous reveal shared with the opponent`() {
         FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)

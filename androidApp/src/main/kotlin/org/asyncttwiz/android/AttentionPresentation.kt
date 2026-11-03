@@ -29,14 +29,6 @@ internal val TimelineBarColor = Color(0xffe5e7e9)
 internal fun tableBarColor(board: BoardState, viewer: String, reviewing: Boolean = false) =
     if (reviewing) TimelineBarColor else battlefieldColor(board.effectiveAttentionHolder, viewer, board.effectiveAttentionHolder, lands = false)
 
-internal data class AdvanceButtonStyle(val fill: Color, val ink: Color, val outline: Color)
-
-internal fun advanceButtonStyle(board: BoardState, viewer: String): AdvanceButtonStyle = when {
-    board.effectiveAttentionHolder != viewer -> AdvanceButtonStyle(Color.White, Color.Gray, Color.Gray)
-    board.turn.accountId == viewer -> AdvanceButtonStyle(OwnTableColor, Color.White, OwnTableColor)
-    else -> AdvanceButtonStyle(Color.White, OpponentTableColor, OpponentTableColor)
-}
-
 /** Constant-size observation of displayed endpoints; never walks or replays history. */
 internal class MoveArrivalTracker(private val viewer: String) {
     private var previous: PlayState? = null

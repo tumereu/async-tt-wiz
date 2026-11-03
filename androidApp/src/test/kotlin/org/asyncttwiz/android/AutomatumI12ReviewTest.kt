@@ -127,7 +127,7 @@ class AutomatumI12ReviewTest {
         assertNull(toolkit.cast.flow)
     }
 
-    // i12review #3 (I-D27, STK-005): Alice targets Bob's face-down creature; the cast panel's answered Target
+    // i12review #3 (I-D27, SYS-065): Alice targets Bob's face-down creature; the cast panel's answered Target
     // section named it by its real card ("Hidden Basilisk") in I2a; fixed by I2b (CastController.shown), kept as a check
     @Test fun faceDownTargetIsNotNamedInTheCastPanel() {
         val hidden = f.source(f.b, "2/3")

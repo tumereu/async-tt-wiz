@@ -38,7 +38,7 @@ class CardPanelLayoutTest {
     }
 
 
-    // ZON-037, ZON-051, SYS-051
+    // ZON-037, SYS-051
     @Test fun panelTypesFollowTheSharedOrderNamesAlphabeticCopiesGroupedAndHiddenCardsStayPrivate() {
         val specs = listOf("Zulu" to "Creature", "Alpha" to "Land", "Beta" to "Creature", "Beta" to "Creature", "Rock" to "Artifact")
         val definitions = specs.mapIndexed { n, (name, type) -> SubmittedDefinition("d$n",

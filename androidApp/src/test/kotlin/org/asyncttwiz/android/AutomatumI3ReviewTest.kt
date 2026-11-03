@@ -171,7 +171,7 @@ class AutomatumI3ReviewTest {
         assertFalse("Hidden Basilisk" in name, "the face-down blocker is named \"$name\" to Alice")
     }
 
-    // #11 (I-D27, STK-005, STK-027): Alice casts a morph face down; Bob, who may respond, is shown its name and rules text in
+    // #11 (I-D27, SYS-065, STK-027): Alice casts a morph face down; Bob, who may respond, is shown its name and rules text in
     // the respond prompt ("Alice cast Veiled Thicket Stalker"): the prompt names the top entry's card from the game's card
     // data without asking whether the viewer may see it (the Stack entry itself is face down)
     @Test fun theRespondPromptDoesNotNameAFaceDownSpell() {
@@ -189,7 +189,7 @@ class AutomatumI3ReviewTest {
             call.perform(Input.PassPriority(PlayerId(f.a)))
             StepFlow.automatic(call)
         }
-        assertTrue(play.board.stackEffects.single().faceDown == true, "the entry is face down (STK-005)")
+        assertTrue(play.board.stackEffects.single().faceDown == true, "the entry is face down (SYS-065)")
         assertEquals(f.b, play.board.priority?.holder, "Bob may respond")
         AutomatumBoards.compute(play, f.b)
         AutomatumBoards.sharedFlow(play, engineTags(tree, play.currentNodeId))

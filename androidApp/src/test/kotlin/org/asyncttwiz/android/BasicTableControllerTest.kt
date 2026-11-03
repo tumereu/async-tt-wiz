@@ -95,38 +95,6 @@ internal class BasicTableFixture {
 }
 
 class BasicTableControllerTest {
-    // TBL-045, ZON-004
-    @Test fun handDoubleTapLandAndNonlandUseTheDragRequestPath() {
-        for (land in listOf(false, true)) {
-            val f = BasicTableFixture()
-            val definition = f.definition.copy(faces = f.definition.faces.map { it.copy(typeLine = if (land) "Basic Land — Forest" else "Creature") })
-            val digest = DeckJson.digest(definition)
-            val initial = f.root.copy(definitions = listOf(SubmittedDefinition(digest, definition)),
-                board = f.root.board.copy(cards = f.root.board.cards.map { it.copy(definition = digest) }))
-            f.connect(initial)
-            try {
-                assertTrue(f.move(40, TableDestination.Container(f.container(PlayZone.HAND), PlayZone.HAND)))
-                val scene = TablePresentation.scene(f.game, f.play, f.actor, 412f, 892f, false)
-                val hand = scene.items.single { it.cardId == f.id(40) }
-                val destination = assertNotNull(handDoubleTapDestination(scene, hand))
-                assertEquals(if (land) TableDestination.Grid(f.container(PlayZone.BATTLEFIELD), 0, 0)
-                    else TableDestination.Container(f.container(PlayZone.STACK), PlayZone.STACK), destination)
-                val before = f.commands().size
-                val moves = mutableListOf<TableIntent.Move>()
-                val gestures = TableGestureCoordinator({ if (it is TableIntent.Move) { moves += it; assertTrue(f.basic.handle(it)) } })
-                gestures.update(scene, true)
-                val point = hand.visible.first().center
-                gestures.down(point, 0); gestures.up(point, 20)
-                gestures.down(point, 100); gestures.up(point, 120)
-                assertEquals(1, moves.size)
-                val action = (f.commands().drop(before).first().action as GameAction.Play).action
-                if (land) {
-                    assertEquals(f.container(PlayZone.BATTLEFIELD), assertIs<PlayAction.MoveCard>(action).destination.containerId)
-                    assertEquals(BoardPosition(0, 0), action.destination.position)
-                } else assertEquals(f.id(40), assertIs<StackAction.AddEffect>(assertIs<PlayAction.Stack>(action).action).sourceId)
-            } finally { f.lobby.close(); f.worker.drain() }
-        }
-    }
 
     // TBL-044
     @Test fun nonBattlefieldOrientationIsIgnoredWithoutShowingAnError() {
@@ -141,22 +109,6 @@ class BasicTableControllerTest {
         } finally { f.lobby.close(); f.worker.drain() }
     }
 
-    @Test fun doubleTapUsesCurrentContextNotStaleDrawingOrFirstSelectedCardAndFailedQueueIsVisible() {
-        val f = BasicTableFixture(); f.connect()
-        try {
-            val toolkit = TableToolkitController(f.actor, { f.play }, { true }, f.lobby::gameplay, playBatch = f.lobby::gameplayBatch)
-            for (n in 40..41) assertTrue(f.move(n, TableDestination.Grid(f.container(PlayZone.BATTLEFIELD), n - 40, 0)))
-            assertTrue(f.lobby.gameplay(PlayAction.SetTapped(f.id(41), true)))
-            val before = f.commands().size
-            // Drawing still says untapped and selection order starts with a different card.
-            assertTrue(toolkit.handle(TableIntent.Rotate(TableScope(f.id(41), listOf(f.id(40), f.id(41))), true, toggle = true)))
-            assertFalse(f.card(40).tapped); assertFalse(f.card(41).tapped)
-            assertTrue(f.commands().drop(before).all { ((it.action as GameAction.Play).action as PlayAction.SetTapped).tapped == false })
-            val refused = TableToolkitController(f.actor, { f.play }, { true }, { _, _ -> false }, waitingForConnection = { true })
-            assertFalse(refused.handle(TableIntent.Rotate(TableScope(f.id(41), listOf(f.id(41))), true, toggle = true)))
-            assertNotNull(refused.error, "Waiting for connection must not hide a refused rotation")
-        } finally { f.lobby.close(); f.worker.drain() }
-    }
     @Test fun handMultiReorderKeepsAnAlreadyPlacedPrefixWithoutSendingANoop() {
         val f = BasicTableFixture(); f.connect()
         try {
@@ -186,17 +138,6 @@ class BasicTableControllerTest {
     }
 
 
-    // TBL-044
-    @Test fun rotateSkipsStackMembersOfMixedSelection() {
-        val f = BasicTableFixture(); f.connect()
-        assertTrue(f.stackEntry(40))
-        val entry = f.play.board.stackEffects.single().id
-        assertTrue(f.move(41, TableDestination.Grid(f.container(PlayZone.BATTLEFIELD), 0, 0)))
-        val before = f.commands().size
-        assertTrue(f.basic.handle(TableIntent.Rotate(TableScope(f.id(41), listOf(entry, f.id(41))), true)))
-        assertEquals(listOf(PlayAction.SetTapped(f.id(41), true)), f.commands().drop(before).map { (it.action as GameAction.Play).action })
-        assertFalse(f.card(40).tapped)
-    }
     // TBL-053
     @Test fun selectedCardsEnterExistingPileInSourceOrderImmediatelyWithOneInvocationAndOriginalOutcomes() {
         val f = BasicTableFixture(); f.connect()
@@ -322,23 +263,6 @@ class BasicTableControllerTest {
         }
     }
 
-    @Test fun capturedSourceAndDestinationDoNotFollowSyncAndStackUsesSemanticPredictedPredecessor() {
-        val f = BasicTableFixture(); f.connect()
-        val scope = TableScope(f.id(40), listOf(f.id(40)))
-        val original = TableIntent.Move(scope, TableDestination.Grid(f.container(PlayZone.BATTLEFIELD), 0, 0),
-            BasicTableController.sources(f.play, scope.cardIds, true))
-        val remote = f.data.command(PlayAction.MoveCard(f.id(40), MoveSource(f.container(PlayZone.LIBRARY)),
-            MoveDestination(f.container(PlayZone.HAND), MoveInsertion.UNORDERED)))
-        f.message(f.update(f.root, remote, 1, f.other))
-        assertFalse(f.basic.handle(original)); assertTrue(f.commands().isEmpty())
-        assertTrue(f.move(40, TableDestination.Container(f.container(PlayZone.STACK), PlayZone.STACK)))
-        val predecessor = f.play
-        assertTrue(f.move(41, TableDestination.Container(f.container(PlayZone.HAND), PlayZone.HAND), true))
-        assertTrue(f.move(41, TableDestination.Container(f.container(PlayZone.STACK), PlayZone.STACK)))
-        val moves = f.commands().mapNotNull { ((it.action as GameAction.Play).action as? PlayAction.Stack)?.action as? StackAction.AddEffect }
-        assertEquals(GameplayRules.stackDigest(predecessor), moves.last().expectedStackDigest)
-        assertNotEquals(moves.first().expectedStackDigest, moves.last().expectedStackDigest)
-    }
 
 
     // TBL-053

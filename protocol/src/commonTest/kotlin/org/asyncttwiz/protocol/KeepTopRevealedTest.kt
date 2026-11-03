@@ -65,7 +65,7 @@ class KeepTopRevealedTest {
             RandomV1.shuffle(cards, it).drop(drawn).first() != oldTop
         }
 
-    // ZON-021
+    // I-D52
     @Test fun explicitShuffleIncludesTheKnownTopInTheFullPermutation() {
         val before = exact(root(), PlayAction.SetKeepTopRevealed(libraryId, true)).state!!
         val cards = library(before).cards
@@ -79,7 +79,7 @@ class KeepTopRevealedTest {
         assertTop(after)
     }
 
-    // ZON-021
+    // I-D52
     @Test fun searchDismissalShufflesTheFullLibraryIncludingTheKnownTop() {
         // Search forces a shuffle even if an older caller asks to put the rest on top.
         for (rest in listOf(ContentsRest.SHUFFLE, ContentsRest.TOP)) {
@@ -99,7 +99,7 @@ class KeepTopRevealedTest {
         }
     }
 
-    // ZON-021
+    // I-D52
     @Test fun mulliganShufflesTheKnownTopWithTheReturnedHandBeforeDrawingAndRevealingTheNewTop() {
         var before = exact(root(), PlayAction.SetKeepTopRevealed(libraryId, true)).state!!
         repeat(2) { before = exact(before, LibraryActions.draw(before.board, libraryId, handId, 1).single()).state!! }
@@ -116,7 +116,7 @@ class KeepTopRevealedTest {
         assertTop(after)
     }
 
-    // ZON-021
+    // I-D52
     @Test fun bothActorsReseedOnlyTheHiddenLayerAfterEachDrawUntilOneCardIsLeftKnown() {
         var before = exact(root(), PlayAction.SetKeepTopRevealed(libraryId, true)).state!!
         repeat(5) { draws ->
@@ -207,7 +207,7 @@ class KeepTopRevealedTest {
         }
     }
 
-    // HIS-042, ZON-021
+    // HIS-042
     @Test fun realBranchesFromEarlierAndInternalCurrentNodesPreserveTheTopUntilExplicitShuffle() {
         var tree = play(GameplayTree(root()), PlayAction.SetKeepTopRevealed(libraryId, true))
         val points = mutableListOf<PlayState>()
@@ -250,7 +250,7 @@ class KeepTopRevealedTest {
         }
     }
 
-    // ZON-020
+    // I-D52
     @Test fun eitherPlayerCanToggleAndBothDirectionsUndoRedoAcrossUnrelatedOtherPlayerEdit() {
         for (actor in listOf(a, b)) {
             val other = if (actor == a) b else a
@@ -281,7 +281,7 @@ class KeepTopRevealedTest {
         }
     }
 
-    // ZON-020
+    // I-D52
     @Test fun currentTopTracksDrawMillShuffleAndMoveToTopWithExactDisclosuresAndInverse() {
         var state = exact(root(), PlayAction.SetKeepTopRevealed(libraryId, true)).let {
             assertFalse(it.mutation!!.transition.disclosures.single().automatic)
@@ -338,7 +338,7 @@ class KeepTopRevealedTest {
         }
     }
 
-    // ZON-021
+    // I-D52
     @Test fun emptyLibraryAndRefillAndBranchReseedKeepTheExposedIdentityFixed() {
         var state = exact(root(), PlayAction.SetKeepTopRevealed(libraryId, true)).state!!
         repeat(6) {

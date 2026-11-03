@@ -100,6 +100,8 @@ internal class CastController(
     private val beginning: () -> Unit = {},
     /** I-D47: shows a complete cast at once on this device while what follows it is worked out (null: no preview). */
     private val preview: CastPreview? = null,
+    /** The pictures of tokens a cast makes (§4.6). */
+    private val tokenArt: org.asyncttwiz.automatum.TokenArt = org.asyncttwiz.automatum.TokenArt.None,
 ) : FlowQuestions {
     /** The open cast, null when none. */
     var flow by mutableStateOf<CastFlow?>(null); private set
@@ -504,7 +506,7 @@ internal class CastController(
         if (preview == null || next.begin !is Input.Cast) return plan(sending)
         val requestId = DeviceRandom.uuid()
         return try {
-            Step.Preview(sending, EngineBatch.plan(sending.cast, viewer, command(next, requestId)), requestId, next.play.board)
+            Step.Preview(sending, EngineBatch.plan(sending.cast, viewer, command(next, requestId), tokenArt), requestId, next.play.board)
         } catch (problem: Unmappable) {
             plan(sending)
         }
@@ -517,7 +519,7 @@ internal class CastController(
     private fun plan(sending: CastFlow.Sending): Step {
         val done = sending.flow
         val requestId = DeviceRandom.uuid()
-        return try { Step.Send(done, EngineBatch.plan(sending.sent(), viewer, command(done, requestId)), requestId, done.play.board) }
+        return try { Step.Send(done, EngineBatch.plan(sending.sent(), viewer, command(done, requestId), tokenArt), requestId, done.play.board) }
         catch (problem: Unmappable) {
             AppLog.warn("automatum", "Cast couldn't be planned: ${problem.message?.take(200)}")
             Step.Drop("Automatum couldn't send that cast.")

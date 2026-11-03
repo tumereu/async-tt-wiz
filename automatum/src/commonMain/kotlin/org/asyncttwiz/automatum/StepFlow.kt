@@ -57,6 +57,8 @@ object StepFlow {
      */
     fun pass(call: EngineCall, player: String, until: Until = Until.Pass): Pending? {
         HostPriority.settle(call)
+        // The first turn begins after the opening (CR 103.8), or a turn changed by hand goes on from its untap step
+        if (HostPriority.resting(call.working) && call.working.turn.active.value == player) HostPriority.leaveUntap(call)
         val s = call.working
         require(s.pending == null) { "A decision is open: ${s.pending?.decision}" }
         val keep = when (until) {

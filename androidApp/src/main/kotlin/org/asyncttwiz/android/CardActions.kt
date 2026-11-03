@@ -181,12 +181,15 @@ internal fun CardActions(state: PlayState, viewer: String, scope: ManualScope, a
     val layout = CardRingPages.context(state.board, previewViewId ?: card.id) ?: CardMenuLayout.CARD
     val attacker = CardRingPages.declaredAttacker(state.board, listOf(card.id))
     // Automatum on (§3 I4, I-D28): the engine's actions, what has no game effect, and "Manual…", which opens today's
-    // menu only while Automatum waits for something done by hand (I-D37)
+    // menu only while Automatum waits for something done by hand (I-D37), or for the viewer's own hand cards during their
+    // opening (TRN-027: the London mulligan's "Library bottom")
     val automatum = state.board.automatum
+    val opening = AutomatumDrags.opening(state.board, viewer) && card.owner == viewer &&
+        state.board.containers.any { it.id == card.containerId && it.zone == PlayZone.HAND }
     var manualOpen by remember(scope.contextId, previewViewId, automatum) { mutableStateOf(false) }
     val engineMenu = automatum && !manualOpen
     if (engineMenu) entries += RingEntry(CardRingPages.MANUAL, CardRingPages.MANUAL, MenuControl(CardRingPages.MANUAL,
-        enabled && AutomatumBoards.manualAllowed(state), refused = AutomatumDrags.MANUAL) { manualOpen = true })
+        enabled && (AutomatumBoards.manualAllowed(state) || opening), refused = AutomatumDrags.MANUAL) { manualOpen = true })
     val pages = if (engineMenu) CardRingPages.automatumPages(layout, token = card.token, attacker = attacker)
         else CardRingPages.pages(layout, token = card.token, attacker = attacker,
             cast = automatum && CastController.playLabel(state, card.id, viewer) == "Cast")

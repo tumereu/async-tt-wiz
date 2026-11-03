@@ -34,7 +34,9 @@ import kotlin.test.fail
  * server does, rebuilds the engine state from the new board, and checks it against the engine's own result (exactly with
  * full information; what each player can see on a viewer's board), and that undoing the batch gives the board back.
  */
-internal class RoundTrip(var state: PlayState, val definitions: Map<String, CardDefinition>, seed: Long = 1) {
+internal class RoundTrip(var state: PlayState, val definitions: Map<String, CardDefinition>, seed: Long = 1,
+    /** The pictures of the tokens its calls make (§4.6). */
+    private val tokenArt: TokenArt = TokenArt.None) {
     private val random = Random(seed)
     private var requests = 0
     /** The history's tags so far, in order (the engine's event log, [EngineLog]). */
@@ -79,7 +81,7 @@ internal class RoundTrip(var state: PlayState, val definitions: Map<String, Card
         val command = GameCommand(CommandIds.uuidV5(AtwTable.NAMESPACE, "request/${requests++}"),
             GameScope(state.gameId, playId = state.id), GameAction.PlayBatch(listOf(PlayAction.PassAttention)),
             CommandIds.uuidV5(AtwTable.NAMESPACE, "stream"), "1")
-        val plan = EngineBatch.plan(call, actor, command)
+        val plan = EngineBatch.plan(call, actor, command, tokenArt)
         lastPlan = plan
         largestBatch = maxOf(largestBatch, plan.actions.size)
         largestTag = maxOf(largestTag, plan.tags.maxOfOrNull { it?.data?.encodeToByteArray()?.size ?: 0 } ?: 0)

@@ -99,6 +99,7 @@ class ActivityDelivery(private val store: ActivityDeliveryStore, private val pos
                 val silent = hint.kind == ActivityKind.GAME && previous != null && !previous.alertNext &&
                     !(hint.notice?.yourMove == true && previous.yourMove != true) && hint.notice?.reminder != true &&
                     hint.notice?.gameOver == null && // LOB-111: a game-over notice always alerts.
+                    hint.notice?.opponentReady != true && // LOB-114: so does "<opponent> is ready".
                     notices[key]?.silent != false
                 notices[key] = ActivityNotice(key, hint, silent)
             }

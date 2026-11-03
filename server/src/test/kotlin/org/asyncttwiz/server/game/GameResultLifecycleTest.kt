@@ -260,6 +260,30 @@ class GameResultLifecycleTest {
         }
     }
 
+    // LOB-114, TRN-027
+    @Test fun `setting Ready while the other player still mulligans tells them their opponent is ready`() {
+        FreshDatabase().start().use { db ->
+            FoundationMigrations.migrate(db.settings)
+            Fixture(db).use { f ->
+                val activity = org.asyncttwiz.server.activity.ActivityService(f.runtime)
+                fun notice(of: AccountService.Principal) = activity.page(of, null).readyNotices!!
+                    .single { it.kind == ActivityKind.GAME && it.gameId == f.game.id }.notice!!
+                assertTrue(f.initial.board.players.all { it.status == PlayerStatus.OPENING })
+                // An ordinary action while both still mulligan is a plain move notice.
+                assertEquals("accepted", f.other.execute(GameAction.Play(PlayAction.SetLife(f.b.account.accountId, "19"))).outcome)
+                assertFalse(notice(f.a).opponentReady)
+                assertEquals("accepted", f.other.execute(GameAction.Play(PlayAction.SetStatus(""))).outcome)
+                assertTrue(notice(f.a).opponentReady)
+                assertEquals("ResultB", notice(f.a).opponentName)
+                // Once both are ready nobody is told the other is ready.
+                assertEquals("accepted", f.owner.execute(GameAction.Play(PlayAction.SetStatus("Keeping 7"))).outcome)
+                assertFalse(notice(f.b).opponentReady)
+                assertEquals("accepted", f.other.execute(GameAction.Play(PlayAction.SetLife(f.b.account.accountId, "18"))).outcome)
+                assertFalse(notice(f.a).opponentReady)
+            }
+        }
+    }
+
     @Test fun `opponent decline clears the shared suggestion durably and stale accept cannot end the game`() {
         FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)

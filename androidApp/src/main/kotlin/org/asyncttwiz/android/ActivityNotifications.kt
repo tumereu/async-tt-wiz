@@ -17,7 +17,9 @@ internal data class GameNotificationText(val title: String, val text: String, va
 internal fun gameNotificationText(content: GameNoticeContent) = GameNotificationText(
     "${content.gameName} · vs ${content.opponentName}",
     (content.gameOver?.let { "Game over · ${content.opponentName} accepted ${gameOverResult(it)}" }
-        ?: if (content.reminder) "${content.opponentName} is waiting for you" else if (content.yourMove) "Your move"
+        ?: if (content.reminder) "${content.opponentName} is waiting for you"
+        else if (content.opponentReady) "${content.opponentName} is ready" // LOB-114
+        else if (content.yourMove) "Your move"
         else "${content.opponentName}'s move") + (if (content.newMessage) " · new message" else ""),
     java.time.OffsetDateTime.parse(content.lastEventAt).toInstant().toEpochMilli())
 

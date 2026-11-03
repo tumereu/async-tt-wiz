@@ -57,6 +57,7 @@ by the owner before release.
 | I-D46 | **Playtest decisions (owner, 2026-11-03):** (a) castable hand cards and activatable permanents glow softly from behind (from the engine's options); (b) no refusal snackbars ("X can't be cast now") — the UI conveys it (no glow; a tap on an unplayable card gives a small shake; the reason is in Inspect); (c) with Automatum on players use only Automatum: the quick-actions row becomes Automatum toggles (Full control, Skip when I have no choice, Autotap mana) and there are no manual table actions; no "Manual…" entries at all (owner: the non-Automatum way to do things is switching Automatum off; keep Automatum play as simple as possible — Automatum off exists to recover a game from a bug or to use an unsupported card); during an open "do this by hand" step (I-D37) the direct gestures (drags, life/counter controls) work without any extra menu; (d) the step button uses MTG Arena-style wording that says what pressing it does ("Pass", "To combat", "Attack (2)", "No blocks", "Resolve", "End turn"), neutral colour. |
 | I-D47 | **Casting (owner, 2026-11-03):** "Autotap mana sources" (setting, on by default): double-tap (or drag) casts at once with the automatic payment; the cast panel appears only when there are real choices (modes, kicker/additional costs, X, targets) and has no mana selection. Mana already in the pool is used first, so to pay differently: undo, tap the wanted sources by hand (mana goes to the pool), cast again — autotap pays the rest. The panel: full width, docked exactly above the hand, shows the card's art small (hold = large Inspect overlay), the hide/show eye stays in the same place. Casting feels instant: the local prediction shows the result at once, the server confirms in the background (no spinner). Every resolution choice says what it is and where it comes from (e.g. "Scry 1 · Carrot Cake") with card images and labelled areas. |
 | I-D48 | **Cards and buttons in Automatum panels (owner, 2026-11-03):** every card a panel or choice shows renders like a card on the battlefield — a small card you can drag, tap and hold to Inspect — never a text-only button; zones of a choice (e.g. Scry's Top / Bottom) are labelled areas the cards are dragged or tapped into. Buttons are icon or icon + text, not text-only; an icon-only button without its own hold action shows a tooltip saying what it does on hold. This allows small convenience buttons (e.g. "all to bottom") without clutter. **Two-area choices** (Scry: Top / Bottom; likewise surveil top / graveyard, two piles, keep / discard and any other choice between two places): the cards start in the first area; tapping a card moves it instantly to the end of the other area (and back); dragging places it at a position (order within an area matters where the rules say so, e.g. the order on top of the library). |
+| I-D49 | **Rules-driven opening with Automatum on (owner, 2026-11-03):** game rules (hardcoded for now, later per-game settings): opening hand 7, one free mulligan, London mulligan (CR 103.5). The game starts with both libraries shuffled and 7 cards drawn for each player; while mulliganing, the quick actions are "Mulligan" (hand back, shuffle, draw 7) and "Keep" (if cards are owed to the bottom: a Keep / Bottom two-area screen, I-D48, all 7 start in Keep, tap the owed number into Bottom, confirm → Ready). After the free mulligan each further mulligan owes one more card (keep 7, 6, 5, …). Both players decide at the same time; turn 1 begins when both have kept (no first-turn draw for the starting player). Automatum off keeps the manual Mull N / Ready flow (TRN-027–029). |
 
 Earlier library decisions that shape this: one switch for the whole game (D20); the engine may refuse moves while on
 (D32); anyone may decide for anyone (D11, P7); results are ordinary actions in one all-or-nothing batch (P1, SYS-010);
@@ -271,6 +272,13 @@ out of anything stuck.
   `triggered` and pre-answer records and sets passes in a row to 0 (`Automatum.turnScoped`), recorded in the sealed
   delta so Undo of the switch restores them. Catalog: TRN-004, TRN-057, TRN-061, SYS-055, SYS-070.
 
+- **Built (opening, 2026-11-03):** ATW's opening (TRN-027–TRN-029) is the host's setup before the engine's game begins
+  (not the engine's `StartGame`): while a player's status is "Mulliganing" on turn 1 the toolkit lets their own
+  `Mulligan` and hand-to-own-library-bottom moves through (`AutomatumDrags.openingAction`); every step route is refused
+  until both are Ready (`SharedFlowController.OPENING`). A board resting in an untap step with nobody holding priority
+  (`HostPriority.resting`: the new game, or a turn changed by hand while off) is left by the active player's pass: the
+  host gives them priority as the last to pass in succession, so the step ends (CR 500.2, 103.8) and the upkeep follows
+  (`HostPriority.leaveUntap`, `SharedFlow.holder`). Catalog: TRN-057, TRN-059, TRN-062, SYS-069.
 - **Built (I-D41, pause points):** `PausePoints` (module `automatum/`) is the rule: a stop is the holder's own main phase on
   an empty Stack; a pause is another player's spell or ability on top of the Stack, the defending player's priority in
   the declare attackers step and both players' in the declare blockers step (once creatures attack); with
@@ -518,7 +526,9 @@ All in `protocol/` (`Automatum.kt` and the model files); the server stores and c
   existing in ATW at once (TBL-103); the engine keeps it in its new zone until state-based actions are next checked (CR
   704.5d), so while a flow waits for a decision mid-resolution (a destroyed token's "its controller may search") the
   continuation record keeps those objects and their place (`FlowRecord.lingering`), never shown to players; without an
-  open decision such an object is unmappable.
+  open decision such an object is unmappable. Its picture (SYS-072, built): the planning device's `TokenArt` finds the
+  best catalog token printing (the source card's related tokens, else a full characteristics match, else none) and its
+  Scryfall id goes into the `CreateToken`'s card data; the engine's definition is unchanged.
 - **Copies of cards** (CR 707.12, made where the card is): an ATW token card made in its owner's Exile
   (`CreateToken(definition, containerId)`), showing the copied card's own card data marked as a token's (as ATW's
   manual copy, `CloneToken`); its ledger keeps the engine's id, definition and `copyOfCard`. Cast, it stays in Exile

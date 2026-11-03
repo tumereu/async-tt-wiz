@@ -25,6 +25,8 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
     private val exitFlow: ((MtgAction) -> Boolean)? = null,
     /** Where a cast's engine work runs (SYS-025): off the main thread in the app. */
     automatumWork: AutomatumWork = AutomatumWork.Inline,
+    /** The pictures of tokens Automatum makes (§4.6): the catalog's best matching token printings in the app. */
+    tokenArt: org.asyncttwiz.automatum.TokenArt = org.asyncttwiz.automatum.TokenArt.None,
     /** I-D47: a complete cast shown at once on this device while its batch is worked out (null: not here). */
     castPreview: CastPreview? = null) : TableActionRoutes {
     private val identity = state()?.let { TableActionScope(it.gameId, it.id) }
@@ -65,11 +67,11 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
 
     /** Casting from the hand through Automatum (I2a): a private flow; while it is open nothing else changes (D32). */
     internal val cast = CastController(viewer, { acting()?.takeIf { enabled() } }, automatedBatch, ::engineTags, { error = it },
-        automatumWork, beginning = ::holdForReaction, preview = castPreview)
+        automatumWork, beginning = ::holdForReaction, preview = castPreview, tokenArt = tokenArt)
     /** Priority, responding, resolution and triggers through Automatum (I2b): shared flows; while one waits for an
      * answer nothing else changes (D32). */
     internal val flows = SharedFlowController(viewer, { acting()?.takeIf { enabled() } }, automatedBatch, ::engineTags, { error = it },
-        automatumWork, onRespond = ::holdForReaction)
+        automatumWork, onRespond = ::holdForReaction, tokenArt = tokenArt)
     private val automatumWork = automatumWork
     /** Combat through Automatum (I3 on today's lanes): declarations, passing on to the damage, early divisions. */
     internal val combat = CombatController({ current()?.takeIf { enabled() } }, { submit(it) }, ::engineTags, automatumWork,
@@ -248,6 +250,8 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
             action is PlayAction.BeginTurn
         if (step && CombatStackRules.stack(board).cards.isNotEmpty()) return SharedFlowController.STACK_WAITING
         if (step) return SharedFlowController.STEPS_FORWARD
+        // TRN-027: the viewer's own mulligans and library bottom during their opening, the host's setup before the game
+        if (AutomatumDrags.openingAction(board, viewer, action)) return null
         // I4, I-D28: only what the rules allow; manual changes only while Automatum waits for something done by hand
         if (!byHand && engineRoute == 0 && AutomatumDrags.manual(action)) return when (action) {
             is PlayAction.Stack -> AutomatumDrags.STACK

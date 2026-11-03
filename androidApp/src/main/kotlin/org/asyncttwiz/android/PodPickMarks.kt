@@ -54,7 +54,7 @@ internal class PodPickRules(pack: DraftPrivatePack, settings: DraftSettings, val
     val ids = pack.cards.map { it.id } + librarians
     val spentLibrarians get() = librarians.size
     val requiredKeeps = minOf(settings.keep + librarians.size, ids.size)
-    val automaticBurns = ids.size <= requiredKeeps.toLong() + settings.burn
+    val automaticBurns = settings.keepsOnly(ids.size, requiredKeeps.toLong())
     val manualBurns = if (automaticBurns) 0 else settings.burn
     val requiredBurns = if (automaticBurns) ids.size - requiredKeeps else settings.burn
 

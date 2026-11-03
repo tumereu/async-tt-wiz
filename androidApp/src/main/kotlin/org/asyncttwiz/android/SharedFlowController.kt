@@ -42,6 +42,8 @@ internal class SharedFlowController(
     private val work: AutomatumWork = AutomatumWork.Inline,
     /** "Respond" was tapped (#2: it holds the viewer's pause, [PauseController.holdForReaction]). */
     private val onRespond: () -> Unit = {},
+    /** The pictures of tokens a flow makes (§4.6). */
+    private val tokenArt: org.asyncttwiz.automatum.TokenArt = org.asyncttwiz.automatum.TokenArt.None,
 ) : FlowQuestions {
     /** The flow of the shown board, null until worked out (or when there is none). */
     var view by mutableStateOf<SharedFlow?>(null); private set
@@ -133,6 +135,8 @@ internal class SharedFlowController(
         val play = current() ?: return false
         if (Automatum.flowOpen(play.board)) { fail(BUSY); return false }
         if (CombatStackRules.stack(play.board).cards.isNotEmpty()) { fail(STACK_WAITING); return false }
+        // TRN-027, TRN-028: the opening (mulligans) is the host's setup; the engine's game begins after it (CR 103.8)
+        if (play.board.turn.number == "1" && PlayerStatus.anyOpening(play.board)) { fail(OPENING); return false }
         acting = null
         return sendCall(play) { flow ->
             val holder = flow.holder
@@ -303,7 +307,7 @@ internal class SharedFlowController(
                 val requestId = DeviceRandom.uuid()
                 val command = GameCommand(requestId, GameScope(play.gameId, playId = play.id),
                     GameAction.PlayBatch(listOf(PlayAction.PassAttention)), DeviceRandom.uuid(), "1")
-                val plan = EngineBatch.plan(call, viewer, command)
+                val plan = EngineBatch.plan(call, viewer, command, tokenArt)
                 if (plan.actions.isEmpty()) Outcome.Empty else Outcome.Send(play.board, plan.action, requestId)
             } catch (ask: Ask) {
                 Outcome.Confirm(ask.acting)
@@ -358,6 +362,8 @@ internal class SharedFlowController(
             arcanum.api.Zone.Exile, arcanum.api.Zone.Command)
         const val BUSY = "Automatum is waiting for a choice. Answer it, or switch Automatum off, first."
         const val STACK_WAITING = "Let the Stack resolve before changing the step."
+        /** TRN-027: with Automatum on the first turn begins once both players are Ready. */
+        const val OPENING = "The game begins once both players are Ready."
         const val TAKE_OVER = "Automatum can't take over this board."
         const val NOTHING_TO_PASS = "Automatum couldn't go on from here."
         /** TRN-057: steps and turns change only through Automatum while it is on. */

@@ -136,3 +136,9 @@ internal fun Scenario.hits(vararg attackers: String, picks: List<String> = empty
 
 /** The Omen face of [name] (CR 720.3). */
 internal val omen = CastWay(face = 1)
+
+/** The way to cast [name] by a permission (a [Mechanic.MayPlay] of another object, "without paying its mana cost"), as the
+ * engine offers it to [player]. */
+internal fun Scenario.permitted(name: String, player: arcanum.engine.scenario.ScenarioPlayer = alice): CastWay =
+    arcanum.engine.Engine.options(state, player.id).filterIsInstance<arcanum.engine.input.Input.Cast>()
+        .first { it.card == card(name) && it.way.permission != null }.way

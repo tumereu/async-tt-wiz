@@ -203,7 +203,7 @@ internal data class AutomatumAskText(val title: String, val text: String, val bu
  * own unsent cast, both of which switching off takes back (SYS-060, STK-025). */
 internal fun automatumAskText(on: Boolean, flowOpen: Boolean, castOpen: Boolean): AutomatumAskText =
     if (on) AutomatumAskText("Turn Automatum on?",
-        "Automatum then plays by the rules for both players, and changes by hand are refused.", "Turn on")
+        "Automatum then plays the game by the rules for both players: it casts, resolves and moves things for you.", "Turn on")
     else AutomatumAskText("Turn Automatum off?", "Both players then play by hand; nothing is checked or done automatically." +
         (if (flowOpen) " Automatum's unfinished step is taken back first." else "") +
         (if (castOpen) " Your unfinished cast is dropped." else ""), "Turn off")

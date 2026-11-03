@@ -1,0 +1,1 @@
+mod: The phase overview (tap the step square at the top) only shows where the turn is; move on with the step button.

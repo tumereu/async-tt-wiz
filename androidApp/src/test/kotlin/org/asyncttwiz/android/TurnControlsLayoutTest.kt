@@ -47,7 +47,7 @@ class TurnControlsLayoutTest {
         val play = TableToolFixture.play(TurnPosition.FIRST_STRIKE_DAMAGE)
         val controller = TableActionController({ play }, { true }, RecordingRoutes())
         compose.setContent { MaterialTheme {
-            PhaseStepPicker(play, play.board.turn.accountId, Color.Blue, controller, {})
+            PhaseStepPicker(play, play.board.turn.accountId, Color.Blue, {})
         } }
         // TRN-008: every step square's short name sits on one line.
         for (step in TurnPosition.entries) {

@@ -74,6 +74,49 @@ object StepFlow {
         return automatic(call, keep)
     }
 
+    /**
+     * Where a pass on an empty Stack lands, in the step arrow's words (owner playtest 2026-11-03 #1: the words say exactly
+     * what a tap does, read from the engine call the tap sends, never guessed from the board).
+     */
+    sealed interface Landing {
+        /** The passing player isn't the turn's player: they pass. */
+        data object Pass : Landing
+        /** The turn's player goes from before combat into combat (their declaration of attackers, or a point there). */
+        data object ToCombat : Landing
+        /** The turn ends: a later turn, or this turn's end step or cleanup, with no combat damage dealt on the way. */
+        data object EndTurn : Landing
+        /** Anything else: a later point of the same turn (the second main phase when nothing can attack, combat damage). */
+        data object Next : Landing
+    }
+
+    /**
+     * Where [actor]'s pass on an empty Stack from [start] landed: [end] is the engine state the call ended in (what the
+     * tap sends). "To combat" only when the call stopped in combat; a turn's player with nothing that can attack gets
+     * no declaration (CR 508.8), so that pass lands in the second main phase ("Next") or ends the turn ("End turn").
+     */
+    fun landing(start: arcanum.engine.state.GameState, end: arcanum.engine.state.GameState, actor: String): Landing {
+        if (start.turn.active.value != actor) return Landing.Pass
+        if (end.turn.number != start.turn.number) return if (damageOnTheWay(start)) Landing.Next else Landing.EndTurn
+        val from = position(start)
+        val to = position(end)
+        val combat = org.asyncttwiz.protocol.TurnPosition.BEGIN_COMBAT..org.asyncttwiz.protocol.TurnPosition.END_COMBAT
+        return when {
+            Engine.result(end) != null -> Landing.Next
+            from < org.asyncttwiz.protocol.TurnPosition.BEGIN_COMBAT && to in combat -> Landing.ToCombat
+            to >= org.asyncttwiz.protocol.TurnPosition.END_STEP && !damageOnTheWay(start) -> Landing.EndTurn
+            else -> Landing.Next
+        }
+    }
+
+    /** Whether combat damage is still to come in [start]'s combat: creatures attack and the (last) combat damage step
+     * hasn't begun. */
+    private fun damageOnTheWay(start: arcanum.engine.state.GameState): Boolean =
+        start.combat?.attackers?.isNotEmpty() == true && position(start) < org.asyncttwiz.protocol.TurnPosition.COMBAT_DAMAGE
+
+    /** Where [s] is in its turn, as ATW names the steps (the first-strike damage step included, I-D31). */
+    fun position(s: arcanum.engine.state.GameState): org.asyncttwiz.protocol.TurnPosition =
+        EngineCodec.position(s.turn.step, s.combat?.firstStrikeStep == true)
+
     /** [player]'s "Full control" on the call's board (I-D41). */
     internal fun fullControl(call: EngineCall, player: String): Boolean =
         call.state.board.players.firstOrNull { it.accountId == player }?.fullControl == true

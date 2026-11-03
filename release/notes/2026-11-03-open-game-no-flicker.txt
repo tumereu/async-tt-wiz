@@ -1,0 +1,1 @@
+fix: Opening a game no longer flickers into the timeline when nothing new happened; it opens to the timeline only when your opponent did something meanwhile.

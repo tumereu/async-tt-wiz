@@ -36,7 +36,7 @@ import org.asyncttwiz.protocol.*
  * "No blocks"), "Resolve" with something on the Stack. [Waiting]: another choice is open, which its own panel answers:
  * greyed ([stepBlocked]).
  */
-internal sealed class AutomatumStep(val label: String) {
+sealed class AutomatumStep(val label: String) {
     data object Pass : AutomatumStep("Pass")
     data object Next : AutomatumStep("Next")
     data object ToCombat : AutomatumStep("To combat")
@@ -47,7 +47,17 @@ internal sealed class AutomatumStep(val label: String) {
     data class Block(val count: Int) : AutomatumStep(if (count == 0) "No blocks" else "Block ($count)")
 
     companion object {
-        /** The step arrow on [play]'s board (read from ATW's board alone, so it shows at once). */
+        /** The words of a pass on an empty Stack that lands as [landing] (owner playtest 2026-11-03 #1: read from the
+         * engine call the tap sends, [SharedFlowController.plan]). */
+        fun of(landing: org.asyncttwiz.automatum.StepFlow.Landing): AutomatumStep = when (landing) {
+            org.asyncttwiz.automatum.StepFlow.Landing.Pass -> Pass
+            org.asyncttwiz.automatum.StepFlow.Landing.ToCombat -> ToCombat
+            org.asyncttwiz.automatum.StepFlow.Landing.EndTurn -> EndTurn
+            org.asyncttwiz.automatum.StepFlow.Landing.Next -> Next
+        }
+
+        /** The step arrow on [play]'s board read from ATW's board alone: what the arrow shows until the tap's plan is
+         * worked out ([SharedFlowController.plan]), and where it can't act. */
         fun of(play: PlayState): AutomatumStep {
             val board = play.board
             if (Automatum.flowOpen(board)) return Waiting
@@ -109,6 +119,17 @@ internal fun stepBlocked(play: PlayState, castOpen: Boolean, combat: org.asynctt
 }
 
 /**
+ * Owner playtest 2026-11-03 #2 (MTG Arena): whether [viewer] sees the step arrow on [play]: in their own turn, and in the
+ * other player's turn only while they hold priority (a pause, Resolve) or must decide (their blockers, a choice of
+ * theirs: the move is theirs, TRN-058).
+ */
+internal fun stepArrowShown(play: PlayState, viewer: String?): Boolean {
+    val board = play.board
+    if (viewer == null || board.turn.accountId == viewer) return true
+    return board.priority?.holder == viewer || board.effectiveAttentionHolder == viewer
+}
+
+/**
  * The step arrow with Automatum on (I-D46 d, I-D48): neutral, an icon above the label that says what a tap does
  * ([AutomatumStep]); tap = that, hold = End turn as before (TRN-017). The one control that moves the game on with
  * Automatum on (UI review round 2 #1): panels and quick actions have no Pass, Let it resolve or Commit of their own.
@@ -116,8 +137,9 @@ internal fun stepBlocked(play: PlayState, castOpen: Boolean, combat: org.asynctt
  */
 @Composable
 internal fun AutomatumStepArrow(play: PlayState, enabled: Boolean, compact: Boolean, onHold: () -> Unit,
-    blocked: String? = null, onClick: () -> Unit) {
-    val step = AutomatumStep.of(play)
+    blocked: String? = null, planned: AutomatumStep? = null, onClick: () -> Unit) {
+    // Owner playtest 2026-11-03 #1: the words of the tap's own plan once worked out, the board's until then
+    val step = planned ?: AutomatumStep.of(play)
     val usable = enabled && blocked == null && step != AutomatumStep.Waiting
     val ink = AutomatumStepInk.copy(alpha = if (usable) 1f else .38f)
     var shakes by remember { mutableIntStateOf(0) }

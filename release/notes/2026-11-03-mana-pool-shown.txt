@@ -1,0 +1,1 @@
+add: Each player's unspent mana shows as mana symbols next to their lands.

@@ -108,7 +108,7 @@ class TableControlsInteractionTest {
         var play by mutableStateOf(TableToolFixture.play(TurnPosition.DECLARE_ATTACKERS, "42"))
         val controller = TableActionController({ play }, { true }, RecordingRoutes())
         compose.setContent { MaterialTheme {
-            PhaseStepPicker(play, play.board.turn.accountId, OwnTableColor, controller, {},
+            PhaseStepPicker(play, play.board.turn.accountId, OwnTableColor, {},
                 names = mapOf(play.board.turn.accountId to "Alice"))
         } }
         compose.onNodeWithText("Combat · Declare attackers").assertIsDisplayed()
@@ -140,7 +140,7 @@ class TableControlsInteractionTest {
         val controller = TableActionController({ initial }, { true }, RecordingRoutes())
         compose.setContent { MaterialTheme {
             TurnStepIcon(turn)
-            if (picker) PhaseStepPicker(initial, initial.board.turn.accountId, OwnTableColor, controller, {})
+            if (picker) PhaseStepPicker(initial, initial.board.turn.accountId, OwnTableColor, {})
         } }
         for (step in TurnPosition.entries) {
             compose.runOnIdle { turn = turn.copy(phase = step.phase, step = step.step) }

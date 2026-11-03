@@ -174,8 +174,9 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
     /** [game] is the row locked by this transaction: the play is read (and checked) once, for the summary too. */
     private fun readHead(sql: DSLContext, principal: AccountService.Principal, gameId: String, game: GameRecord): GameHead {
         val play = PlayStore.read(sql, game.id!!)
-        // I-D54: a play whose state is the engine's says whose move it is from the engine
-        val engine = game.currentPlay?.takeIf { game.lifecycle == "ACTIVE" && engineGames.mayExist(sql) }?.let { engineGames.snapshot(sql, it) }
+        // I-D54: a play whose state is the engine's says whose move it is from the engine, per viewer (I-D56 §7)
+        val engine = game.currentPlay?.takeIf { game.lifecycle == "ACTIVE" && engineGames.mayExist(sql) }
+            ?.let { engineGames.snapshot(sql, it, actor(principal)) }
         val summary = lobby.summary(sql, game, if (game.lifecycle != "ACTIVE") null
             else if (engine != null) engine.second else play?.board?.effectiveAttentionHolder)
         return GameHead(gameId, summary.revision, summary, preparation =
@@ -247,9 +248,14 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
     private fun canReadPreparation(summary: GameSummary, accountId: String) = accountId == summary.inviter.accountId ||
         (accountId == summary.recipient.accountId && summary.invitationState == InvitationState.ACCEPTED)
 
-    internal fun visibleRevision(revision: GameRevision, accountId: String): GameRevision =
-        if (revision.summary.lifecycle !in listOf(GameLifecycle.LOBBY, GameLifecycle.ACTIVE)) revision.copy(preparation = null, play = null, mutation = null, group = null, chatMessage = null, treeDelta = null)
+    internal fun visibleRevision(stored: GameRevision, accountId: String): GameRevision {
+        // I-D56 §7: whose move an engine play is comes from each viewer's own next stop; the per-player table stays here
+        val moves = stored.engine?.moves
+        val revision = if (moves == null) stored else stored.copy(engine = stored.engine?.copy(moves = null), summary = stored.summary.copy(
+            attentionHolder = if (moves[accountId] == true) accountId else moves.entries.firstOrNull { it.value }?.key))
+        return if (revision.summary.lifecycle !in listOf(GameLifecycle.LOBBY, GameLifecycle.ACTIVE)) revision.copy(preparation = null, play = null, mutation = null, group = null, chatMessage = null, treeDelta = null)
         else if (canReadPreparation(revision.summary, accountId)) revision else revision.copy(preparation = null)
+    }
 
     /** An old unpublished board must not restore access after a later lifecycle commit. */
     fun publicationState(principal: AccountService.Principal, revision: GameRevision): GameServerMessage = transaction { sql ->
@@ -265,7 +271,7 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
 
     internal fun executeOne(listener: org.jooq.ExecuteListener?): Boolean {
         var committedTree: Pair<Long, GameplayTree>? = null
-        var committedEngine: EngineGames.Accepted? = null
+        var committedEngine: EngineGames.Outcome? = null
         val executed = transaction { context ->
         val sql = if (listener == null) context else DSL.using(context.configuration().derive(listener))
         val game = sql.selectFrom(GAME).where(DSL.exists(sql.selectOne().from(GAME_INBOX)
@@ -289,7 +295,7 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
         var createdMutation: GameplayMutation? = null
         var batchMutations: List<GameplayMutation> = emptyList()
         var insertedChat: ChatMessage? = null
-        var engineAccepted: EngineGames.Accepted? = null
+        var engineAccepted: EngineGames.Outcome? = null
         val gameplay = if (reordersStack(command)) GameplayTreeChange(reason = "stackReorderingRemoved")
         else if (isGameplay) {
             val tree = if (game.lifecycle == "ACTIVE") gameplayStore.readCurrent(sql, game) else null
@@ -317,8 +323,9 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
             GameAction.Concede -> applyConcession(sql, game, inbox.accountId.toString(), command, Math.addExact(before, 1))
                 .also { (_, next) -> next?.let { committedTree = Math.addExact(before, 1) to it } }.first
             GameAction.DeleteGame -> applyDeletion(sql, game, command)
-            is GameAction.Submit -> applySubmission(sql, game, inbox.accountId!!, command.action as GameAction.Submit).let { (reason, accepted) ->
-                engineAccepted = accepted; reason }
+            is GameAction.Submit, is GameAction.EngineSeen, is GameAction.EngineRewind, is GameAction.EngineRequestRewind,
+            is GameAction.EngineAnswerRewind, GameAction.EngineCancelRewind, is GameAction.EngineSettings ->
+                applyEngine(sql, game, inbox.accountId!!, command).let { (reason, accepted) -> engineAccepted = accepted; reason }
             is GameAction.SendChat -> ChatStore.apply(sql, game, inbox.accountId!!, command).also { insertedChat = it.message }.reason
             GameAction.CancelSetup -> applyCancellation(sql, game, inbox.accountId!!, command)
             is GameAction.SelectDeck -> applySelection(sql, game, inbox.accountId!!, command)
@@ -345,7 +352,7 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
             val summary = if (reducedPlay != null) {
                 game.revision = revision; game.updatedAt = updatedAt
                 lobby.summary(sql, game, reducedPlay.board.effectiveAttentionHolder)
-            } else if (engine != null) {
+            } else if (engine != null && !engine.ended) {
                 game.revision = revision; game.updatedAt = updatedAt
                 lobby.summary(sql, game, engine.attention)
             } else lobby.summary(sql, game.id!!)
@@ -355,7 +362,7 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
                 if (summary.lifecycle == GameLifecycle.LOBBY) PreparationStore.read(sql, summary) else null,
                 if (gameplay == null && command.action !is GameAction.SendChat && engine == null) play else null, mutation,
                 if (mutation != null) play?.currentGroup else null,
-                insertedChat, treeDelta, engineEvent = engine?.encoded)
+                insertedChat, treeDelta, engineEvent = engine?.events?.firstOrNull(), engine = engine?.update)
             encodedUpdate = GameWire.encode(update)
             sql.insertInto(GAME_REVISION).set(GAME_REVISION.GAME_ID, game.id).set(GAME_REVISION.REVISION, revision)
                 .set(GAME_REVISION.PAYLOAD, encodedUpdate).execute()
@@ -399,11 +406,20 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
                 org.asyncttwiz.server.activity.ActivityService.record(sql, opponent, ActivityKind.GAME,
                     game.id!!, uuid(command.requestId), inbox.accountId)
             }
-            if ((isGameplay && mutation == null && batchMutations.isEmpty()) || engine != null) {
+            if (isGameplay && mutation == null && batchMutations.isEmpty()) {
                 val opponent = if (inbox.accountId == game.inviterId) game.recipientId!! else game.inviterId!!
                 org.asyncttwiz.server.activity.ActivityService.record(sql, opponent, ActivityKind.GAME,
                     game.id!!, uuid(command.requestId), inbox.accountId, yourMove = summary.attentionHolder == opponent.toString(), move = true,
                     opponentReady = opponentReady(opponent))
+            }
+            // I-D56 §7: a player hears of an engine play only when their next stop is new ("your move", timed from that
+            // event), never of the line beyond it; LOB-111: the game's end once its result is final
+            if (engine != null) {
+                val opponent = if (inbox.accountId == game.inviterId) game.recipientId!! else game.inviterId!!
+                if (engine.ended) org.asyncttwiz.server.activity.ActivityService.record(sql, opponent, ActivityKind.GAME,
+                    game.id!!, uuid(command.requestId), inbox.accountId)
+                else if (opponent.toString() in engine.newStops) org.asyncttwiz.server.activity.ActivityService.record(sql, opponent,
+                    ActivityKind.GAME, game.id!!, uuid(command.requestId), inbox.accountId, yourMove = true, move = true)
             }
         }
         val created = when {
@@ -412,7 +428,8 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
                 listOf(member.id) + listOfNotNull(member.transition.movement?.to?.placement?.pileId?.takeIf {
                     (member.action as? PlayAction.MoveCard)?.destination?.insertion == MoveInsertion.EMPTY })
             }
-            command.action is GameAction.AcceptResult || command.action == GameAction.Concede -> listOf(update!!.summary.preparationRound)
+            command.action is GameAction.AcceptResult || command.action == GameAction.Concede || engineAccepted?.ended == true ->
+                listOf(update!!.summary.preparationRound)
             mutation != null -> listOf(mutation.id) + listOfNotNull(
                 mutation.transition.movement?.to?.placement?.pileId?.takeIf {
                     (command.action as? GameAction.Play)?.action.let { action -> action is PlayAction.MoveCard && action.destination.insertion == MoveInsertion.EMPTY } })
@@ -470,16 +487,32 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
         return true
     }
 
-    /** I-D54 phase 3 ([GameAction.Submit]): the reason [submission] is refused, or the event it made. */
-    private fun applySubmission(sql: DSLContext, game: GameRecord, account: UUID, submit: GameAction.Submit): Pair<String?, EngineGames.Accepted?> {
+    /**
+     * I-D54 phase 3, I-D56 step A: a play whose state is the engine's ([GameAction.Submit], local-head reports, rewinds and
+     * undo requests, private settings): the reason it is refused, or what it did. A result that became final ends the
+     * play as an accepted result does (I-D56 §11: concession at once, else confirmed once both players saw it).
+     */
+    private fun applyEngine(sql: DSLContext, game: GameRecord, account: UUID, command: GameCommand): Pair<String?, EngineGames.Outcome?> {
         if (game.lifecycle != "ACTIVE") return "lifecycleEnded" to null
         val play = game.currentPlay ?: return "lifecycleEnded" to null
-        return try {
-            val accepted = engineGames.submit(sql, play, account, submit.submission, submit.branch) ?: return "notEngineState" to null
-            null to accepted
+        val now = java.time.OffsetDateTime.ofInstant(clock.instant(), java.time.ZoneOffset.UTC)
+        val live = { player: UUID -> OpponentPresences.read(sql, game.id!!, player, now).state == PresenceState.ONLINE }
+        val outcome = try {
+            when (val action = command.action) {
+                is GameAction.Submit -> engineGames.submit(sql, play, account, action.submission, live)
+                is GameAction.EngineSeen -> engineGames.seen(sql, play, account, action.eventId, live)
+                is GameAction.EngineRewind -> engineGames.rewind(sql, play, account, action.target, live)
+                is GameAction.EngineRequestRewind -> engineGames.requestRewind(sql, play, account, action.target, action.message, live)
+                is GameAction.EngineAnswerRewind -> engineGames.answerRewind(sql, play, account, action.accept, live)
+                GameAction.EngineCancelRewind -> engineGames.cancelRewind(sql, play, account, live)
+                is GameAction.EngineSettings -> engineGames.settings(sql, play, account, action.settings, live)
+                else -> error("Not an engine action")
+            } ?: return "notEngineState" to null
         } catch (refusal: org.asyncttwiz.protocol.game.Refusal) {
-            (if (refusal.reason == "stale") "stale" else "refusedByEngine") to null
+            return (if (refusal.reason in ENGINE_REASONS) refusal.reason else "refusedByEngine") to null
         }
+        if (outcome.ended) PlayStore.endEngine(sql, lobby.summary(sql, game.id!!), command.requestId) { lobby.summary(sql, it) }
+        return null to outcome
     }
 
     /** CR 104.3a (I-D52, [GameAction.Concede]): [actor]'s loss is recorded on the live line ([GameResultRules.concession],
@@ -606,8 +639,10 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
                 val play = PlayStore.start(sql, summary, preparation, command.requestId)
                 // I-D54 (test seam until the switch-over): the play's state is the engine's; its first event starts the
                 // game. Not kept warm here: the transaction hasn't committed yet
-                engineSeats?.invoke(game.id!!)?.let { seats ->
-                    engineGames.start(sql, UUID.fromString(play.id), seats, arcanum.engine.state.PlayerId(play.starter.accountId), account)
+                (engineSeats?.invoke(game.id!!) ?: EngineDecks.seats(preparation).takeIf { engineDecks })?.let { seats ->
+                    val now = java.time.OffsetDateTime.ofInstant(clock.instant(), java.time.ZoneOffset.UTC)
+                    engineGames.start(sql, UUID.fromString(play.id), seats, arcanum.engine.state.PlayerId(play.starter.accountId), account) { player ->
+                        OpponentPresences.read(sql, game.id!!, player, now).state == PresenceState.ONLINE }
                 }
             }
         }

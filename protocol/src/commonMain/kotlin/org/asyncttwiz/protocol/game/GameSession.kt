@@ -2,7 +2,7 @@ package org.asyncttwiz.protocol.game
 
 import arcanum.engine.input.Input
 import arcanum.engine.state.PlayerId
-import kotlin.random.Random
+
 
 /**
  * A device's copy of one game (I-D54 §3, phase 4): it runs the same engine on the same events as the server.
@@ -18,7 +18,7 @@ import kotlin.random.Random
  * - An event elsewhere in the tree (a branch, a rewind) or a revert this model can't make exactly is [Received.Reload]:
  *   the caller takes the state at the event from its history ([GameHistory]) and starts a new session there.
  */
-class GameSession(val model: GameModel, head: String, val me: PlayerId, private val random: Random = Random.Default) {
+class GameSession(val model: GameModel, head: String, val me: PlayerId) {
     /** The last event the server confirmed on the line this device follows. */
     var head: String = head
         private set
@@ -57,13 +57,14 @@ class GameSession(val model: GameModel, head: String, val me: PlayerId, private 
         draft = null; draftId = null
     }
 
-    /** One acting point at once: [input], the random results that follow it, and [table] changes (I-D35). */
-    fun act(id: String, input: Input?, table: List<TableChange> = emptyList()): Submission {
+    /** One acting point at once: [input] (the other player's, assumed, when [assumed]: I-D56 §3), the random answers
+     * from the line's stream that follow it, and [table] changes (I-D35). */
+    fun act(id: String, input: Input?, table: List<TableChange> = emptyList(), assumed: Boolean = false): Submission {
         val builder = begin(id)
         try {
             if (input != null) {
-                builder.perform(input)
-                builder.answerRandoms(model, random)
+                builder.perform(input, assumedBy = if (assumed) me else null)
+                builder.answerRandoms()
             }
             table.forEach(builder::table)
         } catch (e: RuntimeException) {

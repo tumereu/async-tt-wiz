@@ -1,89 +1,111 @@
 package org.asyncttwiz.protocol.game
 
+import arcanum.api.Zone
 import arcanum.engine.Engine
 import arcanum.engine.change.Change
-import arcanum.engine.change.Changes
 import arcanum.engine.decision.Answer
 import arcanum.engine.decision.Decision
-import arcanum.engine.decision.RandomKind
 import arcanum.engine.input.Input
 import arcanum.engine.state.GameState
 import arcanum.engine.state.PlayerId
-import kotlin.random.Random
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /**
  * One acting point as a device sends it (I-D54 §3: inputs, not results): the new event's [id], the event it was made on
- * ([parentId]), what the engine is to do ([acts], in order: the player's input, the device's random answers that
- * followed it, passes the device made for players) and the event's [table] changes. The server makes the event from it
- * ([Authority.make]) on the state at [parentId] and gets the same event the device made, since the engine is
- * deterministic and the random results come with the inputs.
+ * ([parentId]), what the engine is to do ([acts], in order: a new line's start when it branches, the player's input, the
+ * random answers from the line's stream that followed it, engine-automatic answers) and the event's [table] changes. The
+ * server makes the event from it ([Authority.make]) on the state at [parentId] and gets the same event the device made,
+ * since the engine is deterministic and the random answers come from the line's stream (I-D56 §9).
  */
 @Serializable
 data class Submission(val id: String, val parentId: String, val acts: List<Act> = emptyList(), val table: List<TableChange> = emptyList()) {
     companion object {
         /** What a device sends for [event], an event it made itself ([EventBuilder]). */
-        fun of(event: GameEvent): Submission = Submission(event.id, event.parentId, event.engine?.steps.orEmpty().flatMap { step ->
-            step.input?.let { listOf(Act.Perform(it)) }
-                ?: step.changes.map { change ->
-                    check(change is Change.SkipWhenNoChoice) { "A host step holds only setting changes, not $change" }
-                    Act.SkipWhenNoChoice(change.player, change.after)
-                }
-        }, event.table)
+        fun of(event: GameEvent): Submission = Submission(event.id, event.parentId,
+            listOfNotNull(event.startsLine?.let { Act.NewLine(it) }) + event.engine?.steps.orEmpty().mapNotNull { step ->
+                step.input?.let { Act.Perform(it, assumed = step.assumedBy != null) }
+            }, event.table.filter { it !is TableChange.LineMoved })
     }
 }
 
 /** One thing a [Submission] asks the engine to do. */
 @Serializable
 sealed interface Act {
-    /** Perform [input] ([Engine.perform]). */
+    /** Perform [input] ([Engine.perform]); [assumed]: the other player's input, assumed by the author (I-D56 §3). */
     @Serializable @SerialName("input")
-    data class Perform(val input: Input) : Act
+    data class Perform(val input: Input, val assumed: Boolean = false) : Act
 
-    /** [player]'s "Skip when I have no choice" set to [on] (engine state the engine never changes itself, I-D41). */
-    @Serializable @SerialName("skip-when-no-choice")
-    data class SkipWhenNoChoice(val player: PlayerId, val on: Boolean) : Act
+    /** The event starts line [number] (I-D56 §9: a branch at a mismatch, §8): the first act of a submission made on an
+     * event other than the head; [number] is the play's next line. */
+    @Serializable @SerialName("new-line")
+    data class NewLine(val number: Int) : Act
 }
 
-/** Why a [Submission] was refused: the input or table change it names isn't possible on the state it was made on. */
+/** Why a [Submission] was refused: the input or table change it names isn't possible on the state it was made on.
+ * [reason] is short and stable ("stale", "revealsHidden", …) or says what the engine refused. */
 class Refusal(val reason: String) : RuntimeException(reason)
 
 /**
  * The server's gate (I-D54 §3): a submission is accepted when every engine input is one the engine accepts on the state
- * (the engine is the only rules check, so no ATW rules gate is left) and every table change fits the table and is the
- * author's to make. Who may submit which gameplay input is [WhoActs] (today: anyone, the all-actions policy). Always
- * the player's own: conceding (CR 104.3a), their settings and early answers, their result suggestion, and accepting a
- * result the other player suggested (an [Input.AgreedResult] only answers the other player's [TableState.suggestion]
- * of that result). Random results come from the device and are taken as given (owner, 2026-11-03).
+ * (the engine is the only rules check), every input is one its author may make ([WhoActs], I-D56 §6), every random
+ * answer is the line's ([LineRandom]) and every table change fits the table and is the author's to make. Always the
+ * player's own: conceding (CR 104.3a), early answers, their result suggestion, accepting a result the other player
+ * suggested (an [Input.AgreedResult] only answers the other player's [TableState.suggestion] of that result), and
+ * confirming a result the engine reports.
  */
 object Authority {
+    /**
+     * What a submission may do beyond its inputs: [nextLine], the number a new line takes here (null: none may start);
+     * [tentative], the author's line is tentative (an assumption of theirs is unconfirmed), so the information rule
+     * applies (I-D56 §5); [resultSeenByAll], every player's local head has reached the result the engine reports, so it
+     * may be confirmed (I-D56 §11).
+     */
+    data class Rules(val nextLine: Int? = null, val tentative: Boolean = false, val resultSeenByAll: Boolean = true)
+
     /**
      * Makes the event [submission] describes, by [author], on [model] (the state at its parent): on success [model] is
      * the event's state; refused ([Refusal]) it is as it was.
      */
-    fun make(model: GameModel, submission: Submission, author: PlayerId, whoActs: WhoActs = WhoActs.Anyone): GameEvent {
+    fun make(model: GameModel, submission: Submission, author: PlayerId, rules: Rules = Rules()): GameEvent {
+        val assumes = submission.acts.any { it is Act.Perform && it.assumed }
+        val before = if (rules.tentative || assumes) model.engine.deepCopy() else null
         val builder = EventBuilder(model, submission.id, submission.parentId, author.value)
         try {
-            val suggestion = model.table.suggestion
-            for (act in submission.acts) when (act) {
+            var performed = 0
+            var assumed = false
+            val changes = mutableListOf<Change>()
+            for ((index, act) in submission.acts.withIndex()) when (act) {
+                is Act.NewLine -> {
+                    if (index != 0 || rules.nextLine == null) throw Refusal("A line starts only at a branch, as its first act")
+                    if (act.number != rules.nextLine) throw Refusal("stale")
+                    builder.startLine(act.number)
+                }
                 is Act.Perform -> {
-                    allowed(act.input, author, suggestion, model.engine, whoActs)
-                    try { builder.perform(act.input) }
+                    val kind = WhoActs.kind(model, act.input, author, act.assumed)
+                    when (kind) {
+                        is WhoActs.Kind.Assumed -> if (performed > 0) throw Refusal("An assumed input begins its own event (I-D56 §13)")
+                            else assumed = true
+                        WhoActs.Kind.Own -> if (assumed) throw Refusal("Assumed and real inputs never share an event (I-D56 §13)")
+                        WhoActs.Kind.Automatic, WhoActs.Kind.Random -> {}
+                    }
+                    if (kind == WhoActs.Kind.Random) {
+                        val d = model.engine.pending!!.decision as Decision.Random
+                        if ((act.input as Input.Answer).answer != builder.randomAnswer(d)) throw Refusal("A random answer that isn't the line's (I-D56 §9)")
+                    }
+                    try { changes += builder.perform(act.input, assumedBy = if (kind is WhoActs.Kind.Assumed) author else null).changes }
                     catch (e: IllegalArgumentException) { throw Refusal("Refused by the engine: ${e.message}") }
                     catch (e: IllegalStateException) { throw Refusal("Refused by the engine: ${e.message}") }
-                }
-                is Act.SkipWhenNoChoice -> {
-                    if (act.player != author) throw Refusal("Only ${act.player} changes their own settings")
-                    if (model.engine.players.none { it.id == act.player }) throw Refusal("${act.player} isn't in the game")
-                    builder.host(listOf(Changes.skipWhenNoChoice(model.engine, act.player, act.on)))
+                    performed++
                 }
             }
             for (change in submission.table) {
-                allowed(change, author, model)
+                allowed(change, author, model, rules)
                 try { builder.table(change) } catch (e: IllegalStateException) { throw Refusal("Table change doesn't fit: ${e.message}") }
             }
-            if (submission.acts.isEmpty() && submission.table.isEmpty()) throw Refusal("An empty submission")
+            if (builder.empty) throw Refusal("An empty submission")
+            // I-D56 §5: while the author's line is tentative, nothing may show them a card they couldn't see before
+            if (before != null && InformationRule.revealing(before, changes, author).isNotEmpty()) throw Refusal(REVEALS_HIDDEN)
             return builder.build()
         } catch (refusal: Refusal) {
             builder.abandon()
@@ -91,31 +113,25 @@ object Authority {
         }
     }
 
-    /** Whether [author] may make [input] on [state] by [whoActs] and the result rules, the engine's own check aside:
-     * what a device offers its player of [Engine.options]. */
-    fun mayMake(state: GameState, input: Input, author: PlayerId, suggestion: ResultSuggestion? = null,
-        whoActs: WhoActs = WhoActs.Anyone): Boolean =
-        try { allowed(input, author, suggestion, state, whoActs); true } catch (_: Refusal) { false }
+    /** The refusal of an event that would show its author hidden cards while their line is tentative (I-D56 §5). */
+    const val REVEALS_HIDDEN = "revealsHidden"
 
-    private fun allowed(input: Input, author: PlayerId, suggestion: ResultSuggestion?, state: GameState, whoActs: WhoActs) {
-        when (input) {
-            is Input.Concede -> if (input.player != author) throw Refusal("Only ${input.player} concedes for themselves (CR 104.3a)")
-            is Input.AgreedResult -> if (suggestion == null || suggestion.result != input.result || suggestion.by == author)
-                throw Refusal("A result is agreed by accepting the other player's suggestion of it")
-            else -> whoActs.refusal(state, input, author)?.let { throw Refusal(it) }
-        }
-    }
+    /** Whether [author] may make [input] on [state] as their own real input ([WhoActs], the result rules), the
+     * engine's own check aside: what a device offers its player of [Engine.options]. */
+    fun mayMake(state: GameState, input: Input, author: PlayerId, table: TableState = TableState()): Boolean =
+        try { WhoActs.kind(GameModel(state, table), input, author, assumed = false) == WhoActs.Kind.Own } catch (_: Refusal) { false }
 
-    private fun allowed(change: TableChange, author: PlayerId, model: GameModel) {
+    private fun allowed(change: TableChange, author: PlayerId, model: GameModel, rules: Rules) {
         val own: PlayerId? = when (change) {
-            is TableChange.Settings -> change.player
             is TableChange.EarlyAnswered -> (change.after ?: change.before)?.player
             // Anyone may take a suggestion back or decline it; only its author makes it
             is TableChange.Suggestion -> change.after?.by
             is TableChange.ResultConfirmed -> {
                 if (change.after != null && Engine.result(model.engine) == null) throw Refusal("No result to confirm")
+                if (change.after != null && !rules.resultSeenByAll) throw Refusal("The result is confirmed once both players have seen it (I-D56 §11)")
                 change.after
             }
+            is TableChange.LineMoved -> throw Refusal("The line moves only with the event's own random answers")
             is TableChange.Placed, is TableChange.AttackDraft, is TableChange.BlockDraft -> null
         }
         if (own != null && own != author) throw Refusal("Only $own makes this change")
@@ -123,17 +139,139 @@ object Authority {
 }
 
 /**
- * The seam where "who may submit which input" is decided (I-D55, being refined by the owner: players acting only for
- * themselves, proceeding on assumed answers of the other player that become a branch when the real answer differs).
- * [refusal] says why [author] may not make [input] on [state], or null. Conceding and agreeing a result are checked
- * by [Authority] itself.
+ * Who may submit which input (I-D56 §6), the same rules on the server and the device: a player's own real inputs where
+ * they are the decider ([Engine.decider], CR 723.5); engine-automatic answers any device may make because they decide
+ * nothing for anyone; random answers (the host's, D25); and the other player's input assumed by the author, of the
+ * assumable kinds only (§3). Nothing else: no passing, choosing, dividing or declaring for the other player.
  */
-fun interface WhoActs {
-    fun refusal(state: GameState, input: Input, author: PlayerId): String?
+object WhoActs {
+    sealed interface Kind {
+        /** The author's own real input. */
+        data object Own : Kind
+        /** An engine-automatic answer (§6 a–c): not assumed, never compared, never a branch. */
+        data object Automatic : Kind
+        /** The answer to the engine's random decision, from the line's stream. */
+        data object Random : Kind
+        /** [about]'s input, assumed by the author. */
+        data class Assumed(val about: PlayerId) : Kind
+    }
 
-    companion object {
-        /** Today's behaviour: every player may make every gameplay input (all-actions policy, P7, D11). */
-        val Anyone: WhoActs = WhoActs { _, _, _ -> null }
+    /** What [input] by [author] on [model] is, or a [Refusal] saying why they may not make it. */
+    fun kind(model: GameModel, input: Input, author: PlayerId, assumed: Boolean): Kind {
+        val state = model.engine
+        when (input) {
+            is Input.Concede -> return if (input.player == author && !assumed) Kind.Own else throw Refusal("Only ${input.player} concedes for themselves (CR 104.3a)")
+            is Input.AgreedResult -> {
+                val suggestion = model.table.suggestion
+                if (assumed || suggestion == null || suggestion.result != input.result || suggestion.by == author)
+                    throw Refusal("A result is agreed by accepting the other player's suggestion of it")
+                return Kind.Own
+            }
+            is Input.StartGame -> throw Refusal("The server starts the game")
+            // The host's own input when passes made for players reach the same position again (CR 104.4b)
+            Input.MandatoryLoop -> return if (assumed) throw Refusal("Not an assumable input") else Kind.Automatic
+            else -> {}
+        }
+        val decision = (input as? Input.Answer)?.let { a -> state.pending?.decision?.takeIf { it.id == a.decision } }
+        if (decision is Decision.Random) return if (assumed) throw Refusal("Not an assumable input") else Kind.Random
+        val player = playerOf(state, input) ?: throw Refusal("Refused by the engine: no such decision")
+        val decider = Engine.decider(state, player)
+        if (!assumed) {
+            if (decider == author) return Kind.Own
+            if (automatic(model, input, player, decision)) return Kind.Automatic
+            throw Refusal("Only $decider decides this (I-D56 §6)")
+        }
+        if (decider == author) throw Refusal("An input of your own isn't assumed")
+        assumable(state, input, player, author)?.let { throw Refusal(it) }
+        return Kind.Assumed(player)
+    }
+
+    /** Whose input [input] is by the rules on [state]: its player, or the open decision's. */
+    fun playerOf(state: GameState, input: Input): PlayerId? = when (input) {
+        is Input.PlayLand -> input.player
+        is Input.Cast -> input.player
+        is Input.Activate -> input.player
+        is Input.PassPriority -> input.player
+        is Input.DeclareAttackers -> input.player
+        is Input.DeclareBlockers -> input.player
+        is Input.Cancel -> input.player
+        is Input.Concede -> input.player
+        is Input.SetupAnswer -> input.player
+        is Input.Answer -> state.pending?.decision?.takeIf { it.id == input.decision }?.player
+        else -> null
+    }
+
+    /**
+     * §6's engine-automatic answers: (a) a pass of a player who could only pass, judged without cards only they can see
+     * (the shared state keeps every player's "Skip when I have no choice" off, so [Engine.shouldPassFor] is that public
+     * judgement); (b) an order-free division of combat damage answered with the engine's suggestion (CMB-033: one
+     * creature, or enough for lethal damage to each); (c) the decider's own early answer (I-D33), applied as its decision
+     * opens. Choices with one legal answer that depend on nothing hidden the engine makes itself (P5).
+     */
+    private fun automatic(model: GameModel, input: Input, player: PlayerId, decision: Decision?): Boolean {
+        val state = model.engine
+        if (input is Input.PassPriority) return Engine.shouldPassFor(state, player)
+        if (input !is Input.Answer || decision == null) return false
+        if (decision is Decision.Divide && decision.lethal.isNotEmpty() && input.answer == Answer.Division(decision.suggested)) {
+            val creatures = decision.lethal.size
+            if (creatures <= 1 || decision.amount >= decision.lethal.sumOf { it.amount }) return true
+        }
+        val key = EarlyAnswer.keyOf(decision)
+        return model.table.earlyAnswers.values.any { early ->
+            early.player == player && early.key == key && early.answer == input.answer && (early.turn == null || early.turn == state.turn.number)
+        }
+    }
+
+    /** Why [author] may not assume [input] of [player] here (I-D56 §3), or null: a pass anywhere but at [player]'s stop,
+     * blocks without costs to block (CR 509.1d), or the opening keep. */
+    private fun assumable(state: GameState, input: Input, player: PlayerId, author: PlayerId): String? = when {
+        input is Input.PassPriority -> when {
+            state.pending != null || state.priority.holder != player -> "Not an assumable input"
+            Stops.stop(state, player) -> "Passing at their own main phase is skipping their turn, not assumed (I-D56 §3)"
+            else -> null
+        }
+        input is Input.DeclareBlockers ->
+            if (Engine.blockCosts(state, input.blocks)) "Blocks with a cost to block aren't assumed (CR 509.1d)" else null
+        keep(input) -> when {
+            state.turn.number != 0 -> "Not an assumable input"
+            state.turn.active != author -> "Only the starting player assumes the other player's keep (I-D56 §3)"
+            !logged(state) { it is arcanum.engine.change.GameEvent.Kept && it.player == author } -> "Assume a keep after your own"
+            logged(state) { it is arcanum.engine.change.GameEvent.Mulliganed && it.player == player } -> "A keep that owes cards to the bottom isn't assumed"
+            else -> null
+        }
+        else -> "Not an assumable input"
+    }
+
+    private fun keep(input: Input): Boolean = when (input) {
+        is Input.SetupAnswer -> input.answer == Answer.Option(KEEP)
+        is Input.Answer -> input.answer == Answer.Option(KEEP)
+        else -> false
+    }
+
+    private fun logged(state: GameState, event: (arcanum.engine.change.GameEvent) -> Boolean): Boolean =
+        state.log.any { ((it.change as? Change.Happened)?.event)?.let(event) == true }
+
+    private const val KEEP = "Keep"
+}
+
+/** Stops and pauses (STK-036, I-D56 §2): where a player's own device stops for them. */
+object Stops {
+    /** [player]'s stop on [state]: their own main phase with an empty Stack (CR 505). */
+    fun stop(state: GameState, player: PlayerId): Boolean = state.turn.active == player && state.stack.isEmpty() &&
+        (state.turn.step == arcanum.api.TurnStep.PrecombatMain || state.turn.step == arcanum.api.TurnStep.PostcombatMain)
+
+    /** [player]'s pause on [state]: the other player's spell or ability on top of the Stack, the other player's attack,
+     * blocks (both players), the other player's end step. */
+    fun pause(state: GameState, player: PlayerId): Boolean {
+        val top = state.stack.lastOrNull()
+        if (top != null) return (state.stackItems[top]?.controller ?: state.obj(top)?.controller) != player
+        val attacking = state.combat?.attackers?.isNotEmpty() == true
+        return when (state.turn.step) {
+            arcanum.api.TurnStep.DeclareAttackers -> attacking && state.turn.active != player
+            arcanum.api.TurnStep.DeclareBlockers -> attacking
+            arcanum.api.TurnStep.End -> state.turn.active != player
+            else -> false
+        }
     }
 }
 
@@ -141,45 +279,139 @@ fun interface WhoActs {
 class LiveState(val at: String, val model: GameModel)
 
 /**
- * The server's order (I-D54 §3): submissions are taken in arrival order, each on the live line's last event [head]; one
- * made on another event is refused as stale (another player's came first; the device resyncs when that event reaches
- * it), unless it is a deliberate [branch] from an event of the tree. The state at the parent is [warm]'s when it is
- * there or near ([GameHistory.move]), else a checkpoint and the events after it ([GameHistory.stateAt]).
+ * The server's order (I-D54 §3, I-D56 §8): submissions are taken in arrival order. A player adds real inputs only at
+ * their local head ([LocalHeads]): a submission at P first moves its author's local head to P (P at or past it on the
+ * main line), then
+ * - P is the head: appended;
+ * - the next main-line event after P is an assumed input about the author: the same input confirms it ([Confirmed]: the
+ *   author's local head moves past it and the submission is dropped as a duplicate); any other input (a mana ability
+ *   or special action first included) is a branch: the new event's parent is P, it starts a new line, and the old line
+ *   after P is discarded (kept in storage, shown to nobody);
+ * - the author's concession at P is a branch too (I-D56 §11: the result never depends on what they haven't seen);
+ * - otherwise: `stale`.
+ * The invariant this keeps: unconfirmed assumptions on the main line are about one player, so there is never more than
+ * one tentative line. The state at the parent is [warm]'s when it is there or near ([GameHistory.move]), else a
+ * checkpoint and the events after it ([GameHistory.stateAt]).
  */
 object Acceptance {
-    /** The accepted [event] and the state after it ([live]). */
-    class Accepted(val event: GameEvent, val live: LiveState)
+    sealed interface Result
+    /** The accepted [event] and the state after it ([live]); [discarded]: the first event of the line it discarded. */
+    class Accepted(val event: GameEvent, val live: LiveState, val discarded: String? = null) : Result
+    /** The submission confirmed the assumed input [event] about its author and was dropped. */
+    class Confirmed(val event: String) : Result
 
-    /** Accepts [submission]; refused ([Refusal]), [warm] is no longer usable. */
-    fun accept(history: GameHistory, head: String, warm: LiveState?, submission: Submission, author: PlayerId, branch: Boolean,
-        whoActs: WhoActs = WhoActs.Anyone): Accepted {
-        val parent = submission.parentId
-        if (!branch && parent != head) throw Refusal("stale")
-        if (parent != history.store.rootId && history.store.node(parent) == null) throw Refusal("No event $parent")
+    /**
+     * Accepts [submission] by [author] on the main line ending at [head] with each player's local head [heads] (a player
+     * without one is at the root); [nextLine] is the line a branch starts; [rewindOpen]: an undo request is open, so
+     * only a concession is taken (I-D56 §10). Refused ([Refusal]), or accepted with a new event, [warm] is used up.
+     */
+    fun accept(history: GameHistory, head: String, warm: LiveState?, submission: Submission, author: PlayerId,
+        heads: Map<PlayerId, String>, nextLine: Int, rewindOpen: Boolean = false): Result {
+        val concession = submission.acts.filterIsInstance<Act.Perform>().firstOrNull()?.input.let { it is Input.Concede && it.player == author }
+        if (rewindOpen && !concession) throw Refusal("rewindRequested")
         if (submission.id == history.store.rootId || history.store.node(submission.id) != null) throw Refusal("Event ${submission.id} exists")
-        val model = when {
-            warm == null -> history.stateAt(parent)
-            else -> history.move(warm.model, warm.at, parent)
+        val own = heads[author] ?: history.store.rootId
+        val ahead = MainLine.after(history, head, own) ?: throw Refusal("stale")
+        val parent = submission.parentId
+        val at = if (parent == own) 0 else ahead.indexOfFirst { it.id == parent } + 1
+        if (parent != own && at == 0) throw Refusal("stale")
+        val rest = ahead.drop(at)
+        fun state() = if (warm == null) history.stateAt(parent) else history.move(warm.model, warm.at, parent)
+        if (rest.isEmpty()) {
+            if (submission.acts.firstOrNull() is Act.NewLine) throw Refusal("stale")
+            val model = state()
+            val others = model.engine.players.map { it.id }.filter { it != author }.map { heads[it] ?: history.store.rootId }
+            val tentative = others.any { other -> tentativeFor(history, head, other, author) }
+            val seen = others.all { other -> MainLine.after(history, head, other)?.all { e -> e.engine == null } == true }
+            val event = Authority.make(model, submission, author, Authority.Rules(tentative = tentative, resultSeenByAll = seen))
+            return Accepted(event, LiveState(event.id, model))
         }
-        val event = Authority.make(model, submission, author, whoActs)
-        return Accepted(event, LiveState(event.id, model))
+        val next = rest.first()
+        val first = submission.acts.filterIsInstance<Act.Perform>().firstOrNull()
+        val assumed = next.assumed
+        val players = (heads.keys + author).distinct()
+        val about = assumed?.let { step -> assumedAbout(step, next, players) }
+        if (first == null || first.assumed) throw Refusal("stale")
+        if (about != author && !concession) throw Refusal("stale")
+        if (about == author && !concession && same(first.input, assumed!!.input!!)) return Confirmed(next.id)
+        // A branch at the author's local head: a new line, the old line after it discarded
+        if (submission.acts.firstOrNull() !is Act.NewLine) throw Refusal("newLine")
+        val model = state()
+        val event = Authority.make(model, submission, author, Authority.Rules(nextLine = nextLine))
+        return Accepted(event, LiveState(event.id, model), discarded = next.id)
+    }
+
+    /** Whether the main line after [other]'s local head holds an assumption of [author]'s: [author]'s line is
+     * tentative (I-D56 §2). */
+    fun tentativeFor(history: GameHistory, head: String, other: String, author: PlayerId): Boolean =
+        MainLine.after(history, head, other)?.any { it.assumed?.assumedBy == author } ?: true
+
+    /** Whom the assumed [step] of [event] is about: the input's player, or for an answer the player who isn't its
+     * assumer (two players, I-D56). */
+    fun assumedAbout(step: EngineStep, event: GameEvent, players: List<PlayerId>): PlayerId? {
+        val input = step.input ?: return null
+        val named = when (input) {
+            is Input.PassPriority -> input.player
+            is Input.DeclareBlockers -> input.player
+            is Input.SetupAnswer -> input.player
+            else -> null
+        }
+        return named ?: players.firstOrNull { it != step.assumedBy }
+    }
+
+    /** The same engine input, compared canonically (blocks as a set, I-D56 §8). */
+    fun same(a: Input, b: Input): Boolean = when {
+        a is Input.DeclareBlockers && b is Input.DeclareBlockers -> a.player == b.player && a.blocks.toSet() == b.blocks.toSet()
+        else -> a == b
     }
 }
 
-/**
- * The random results a device makes for the engine's [Decision.Random] decisions (I-D54 §3, D25: shuffles, coin flips,
- * die rolls, random choices), answered on [builder] until none is open; with full information the engine keeps ids.
- */
-fun EventBuilder.answerRandoms(model: GameModel, random: Random) {
-    while (true) {
-        val d = model.engine.pending?.decision as? Decision.Random ?: return
-        perform(Input.Answer(d.id, randomAnswer(d.what, random)))
+/** A game's main line (I-D56 §2): the line of events ending at the head. */
+object MainLine {
+    /** The events after [from] up to [head], oldest first, when [from] is on the main line (the root or an event at or
+     * before the head); else null. */
+    fun after(history: GameHistory, head: String, from: String): List<GameEvent>? {
+        if (from == head) return emptyList()
+        val root = history.store.rootId
+        val depth = if (from == root) 0 else history.store.node(from)?.depth ?: return null
+        val out = mutableListOf<GameEvent>()
+        var cursor = head
+        while (cursor != root) {
+            val node = history.store.node(cursor) ?: return null
+            if (node.depth <= depth) return if (cursor == from) out.asReversed() else null
+            out += node.event
+            cursor = node.event.parentId
+        }
+        return if (from == root) out.asReversed() else null
     }
 }
 
-/** A random result of [kind] from [random]. */
-fun randomAnswer(kind: RandomKind, random: Random): Answer = when (kind) {
-    RandomKind.CoinFlip -> Answer.CoinFlip(random.nextBoolean())
-    is RandomKind.Die -> Answer.DieRolls(List(kind.count) { random.nextInt(1, kind.sides + 1) })
-    is RandomKind.Objects -> Answer.RandomObjects(kind.among.shuffled(random).take(kind.count))
+/** The information rule (I-D56 §5): what going on would show a player that they couldn't see. */
+object InformationRule {
+    /**
+     * The cards [changes] (made on [before]) show [viewer] at some moment that weren't visible to them in [before]
+     * ([Engine.revealed]: compared by card, looks and reveals in passing included), apart from cards of their own library
+     * (protected by the reseed, §9).
+     */
+    fun revealing(before: GameState, changes: List<Change>, viewer: PlayerId): Set<arcanum.engine.state.CardId> =
+        Engine.revealed(before, changes, viewer).filterTo(mutableSetOf()) { card ->
+            before.current(card)?.let { !(it.zone == Zone.Library && it.owner == viewer) } ?: true
+        }
+
+    /** Whether [event]'s random answers include a result players see (a coin flip, a die roll, a random choice; a
+     * shuffle's order is hidden and a new line reshuffles it anyway). */
+    fun randomResult(event: GameEvent, before: GameState): Boolean {
+        val state = before.deepCopy()
+        var found = false
+        for (step in event.engine?.steps.orEmpty()) {
+            val d = state.pending?.decision as? Decision.Random
+            val input = step.input
+            if (d != null && input is Input.Answer && input.decision == d.id) {
+                val what = d.what
+                if (!(what is arcanum.engine.decision.RandomKind.Objects && what.library.isNotEmpty())) found = true
+            }
+            step.changes.forEach { state.apply(it) }
+        }
+        return found
+    }
 }

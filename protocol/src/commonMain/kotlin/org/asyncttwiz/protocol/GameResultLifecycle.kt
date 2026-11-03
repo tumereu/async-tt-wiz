@@ -52,12 +52,17 @@ object GameResultRules {
         // rules' result is confirmed by either player
         if (actor == suggestion.author && suggestion.outcome != SuggestedResult.LOSS && !suggestion.byRules)
             return reject("otherPlayerRequired")
+        return ResultAcceptance(next(prepared, play, command.requestId))
+    }
+
+    /** The lobby preparation after [play] ends by request [requestId]: nobody ready, the starter alternated if chosen. */
+    fun next(prepared: LobbyPreparation, play: PlayState, requestId: String): LobbyPreparation {
         // The persisted preparation is independent of the mutable play board and saved deck sources.
         // Do not introduce a new starter default or sample Random during this transition. Alternating
         // hands the start to the player who did not start this play (its resolved starter, after Random).
         val starter = if (!prepared.alternateStarter) prepared.starter
             else prepared.players.map { it.accountId }.singleOrNull { it != play.starter.accountId }?.let(::StarterChoice) ?: prepared.starter
-        return ResultAcceptance(prepared.copy(roundId = CommandIds.uuidV5(command.requestId, "preparation-round"),
-            players = prepared.players.map { it.copy(ready = false) }, starter = starter))
+        return prepared.copy(roundId = CommandIds.uuidV5(requestId, "preparation-round"),
+            players = prepared.players.map { it.copy(ready = false) }, starter = starter)
     }
 }

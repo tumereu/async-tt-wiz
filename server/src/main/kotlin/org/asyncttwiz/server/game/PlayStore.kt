@@ -53,6 +53,22 @@ internal object PlayStore {
         return change.reason
     }
 
+    /**
+     * I-D56 §11: the play of [game] whose state is the engine's ends once its result is final (a concession, or the
+     * engine's result confirmed after both players saw it), as an accepted result ends a play: back to the lobby, the
+     * finished decks recorded and revealed.
+     */
+    fun endEngine(sql: DSLContext, game: GameSummary, requestId: String, summary: (UUID) -> GameSummary) {
+        val play = read(sql, UUID.fromString(game.id)) ?: return
+        val preparation = GameResultRules.next(PreparationStore.read(sql, game), play, requestId)
+        sql.update(GAME_PLAY).set(GAME_PLAY.ENDED_REQUEST_ID, UUID.fromString(requestId))
+            .where(GAME_PLAY.ID.eq(UUID.fromString(game.playId!!))).and(GAME_PLAY.ENDED_REQUEST_ID.isNull)
+            .execute().also { check(it == 1) }
+        DeckVisibilityStore.recordFinished(sql, preparation)
+        PreparationStore.returnToLobby(sql, preparation)
+        DeckVisibilityStore.revealFinished(sql, preparation, summary)
+    }
+
     fun start(sql: DSLContext, game: GameSummary, preparation: LobbyPreparation, requestId: String): PlayState {
         check(StartRules.canStart(game, preparation))
         val state = StartRules.initialize(game, preparation, requestId,

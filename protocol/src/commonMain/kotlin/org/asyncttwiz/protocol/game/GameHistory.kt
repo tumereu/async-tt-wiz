@@ -111,5 +111,11 @@ class InMemoryHistory(override val rootId: String, initial: String) : HistorySto
         }
     }
 
+    /** Takes the events [ids] out with their checkpoints (a rewind deletes the events after its target, I-D56 §10). */
+    fun remove(ids: Set<String>) {
+        nodes.keys.removeAll(ids)
+        checkpoints.keys.removeAll(ids)
+    }
+
     fun depthOfParent(event: GameEvent): Int = if (event.parentId == rootId) 0 else nodes.getValue(event.parentId).depth
 }

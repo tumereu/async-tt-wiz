@@ -49,12 +49,7 @@ fun ResolvedDeckEntry.definition(catalog: CatalogMetadata?): CardDefinition {
  * A catalog face's colour indicator (CR 204) as WUBRG letters. The catalog keeps a face's colours, not its indicator:
  * a coloured face without a mana cost has its colour from an indicator (CR 202.2), as a double-faced card's back face.
  */
-internal fun catalogColorIndicator(record: JsonObject): String? {
-    if ((record["manaCost"] as? JsonPrimitive)?.contentOrNull?.isNotBlank() == true) return null
-    return (record["colors"] as? JsonArray)?.mapNotNull { (it as? JsonPrimitive)?.contentOrNull }
-        ?.filter { it.length == 1 && it in "WUBRG" }?.distinct()?.sortedBy { "WUBRG".indexOf(it) }
-        ?.joinToString("")?.takeIf { it.isNotEmpty() }
-}
+internal fun catalogColorIndicator(record: JsonObject): String? = org.asyncttwiz.protocol.game.GameCards.colorIndicator(record)
 
 /** Owner's gameplay identity, deliberately excluding printing metadata and redundant keyword tags. */
 internal fun tokenGameplayIdentity(definition: CardDefinition): String = DeckJson.intent("catalog-token", DeckJson.canonical(

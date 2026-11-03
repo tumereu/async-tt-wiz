@@ -2,6 +2,7 @@ package org.asyncttwiz.protocol.game
 
 import arcanum.engine.change.Change
 import arcanum.engine.input.Input
+import arcanum.engine.state.PlayerId
 import kotlinx.serialization.Serializable
 
 /**
@@ -16,13 +17,19 @@ data class GameEvent(
     val author: String,
     val engine: EnginePart? = null,
     val table: List<TableChange> = emptyList(),
-)
+) {
+    /** The first step when it is an assumed input (I-D56 §13: an assumed input always begins its own event). */
+    val assumed: EngineStep? get() = engine?.steps?.firstOrNull { it.input != null }?.takeIf { it.assumedBy != null }
+
+    /** The line this event starts (I-D56 §9: its first step reshuffles the libraries' unknown parts), or null. */
+    val startsLine: Int? get() = table.firstNotNullOfOrNull { (it as? TableChange.LineMoved)?.takeIf { m -> m.before.number != m.after.number }?.after?.number }
+}
 
 /**
  * The engine's part of an event: each [steps]' input in order with the changes the engine made for it (D59), as one
- * acting point (I-D35): the player's input, the host's answers that followed it (random results made on the device,
- * I-D54 §3) and passes the host made for players ([arcanum.engine.Engine.shouldPassFor]). The inputs are kept for the
- * server's check and for reproduction (I-D43); applying and reverting use only the changes.
+ * acting point (I-D35): the player's input, the random answers that followed it (I-D56 §9, from the line's stream) and
+ * engine-automatic answers (I-D56 §6). The inputs are kept for the server's check and for reproduction (I-D43);
+ * applying and reverting use only the changes.
  *
  * [timestampBefore] is the engine's timestamp counter before the event ([arcanum.engine.state.GameState.timestampCounter],
  * which the engine never moves back): reverting the event puts it back, so the state at an event is the same however it
@@ -34,6 +41,7 @@ data class EnginePart(val timestampBefore: Long, val steps: List<EngineStep>) {
 }
 
 /** [input] and the [changes] [arcanum.engine.Engine.perform] made for it; [input] null for a host's own changes made
- * without the engine (a player's "Skip when I have no choice", [arcanum.engine.change.Changes]). */
+ * without the engine (a new line's reshuffle of the libraries' unknown parts, I-D56 §9). [assumedBy]: the input is the
+ * other player's, assumed by this player (I-D56 §3); confirmed when that player's local head moves past it. */
 @Serializable
-data class EngineStep(val input: Input? = null, val changes: List<Change>)
+data class EngineStep(val input: Input? = null, val changes: List<Change>, val assumedBy: PlayerId? = null)

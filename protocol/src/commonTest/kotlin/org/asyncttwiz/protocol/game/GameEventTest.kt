@@ -88,15 +88,13 @@ class GameEventTest {
         val obj = ObjectId.Card(arcanum.engine.state.CardId("c1"), 2)
         var table = TableState()
         table = TableChange.Placed(obj, null, Placement(1, 0)).apply(table)
-        table = TableChange.Settings(alice, PlaySettings(), PlaySettings(fullControl = true)).apply(table)
+        table = TableChange.LineMoved(Line(), Line(0, 2)).apply(table)
         table = TableChange.AttackDraft(null, listOf(arcanum.engine.input.Attack(obj, arcanum.engine.state.TargetRef.Player(alice)))).apply(table)
         assertEquals(Placement(1, 0), table.placements[obj])
-        assertTrue(table.settingsOf(alice).fullControl)
+        assertEquals(Line(0, 2), table.line)
         assertFailsWith<IllegalStateException> { TableChange.Placed(obj, null, Placement(2, 0)).apply(table) }
-        assertFailsWith<IllegalStateException> { TableChange.Settings(alice, PlaySettings(), PlaySettings(autotap = false)).apply(table) }
-        // Back to default settings leaves no entry
-        table = TableChange.Settings(alice, PlaySettings(fullControl = true), PlaySettings()).apply(table)
-        assertEquals(emptyMap(), table.settings)
+        assertFailsWith<IllegalStateException> { TableChange.LineMoved(Line(), Line(1, 0)).apply(table) }
+        table = TableChange.LineMoved(Line(0, 2), Line()).apply(table)
         assertEquals(TableState(placements = mapOf(obj to Placement(1, 0)), attackDraft = table.attackDraft), table)
     }
 
@@ -140,7 +138,7 @@ class GameEventTest {
         val snapshot = model.copy()
         val builder = EventBuilder(model, "x", parent, "alice")
         builder.perform(arcanum.engine.input.Input.PassPriority(assertNotNull(model.engine.priority.holder)))
-        builder.table(TableChange.Settings(PlayerId("bob"), model.table.settingsOf(PlayerId("bob")), PlaySettings(autotap = false)))
+        builder.table(TableChange.Suggestion(null, ResultSuggestion(PlayerId("bob"), arcanum.engine.setup.GameResult.Draw)))
         builder.abandon()
         assertTrue(model.sameAs(snapshot))
     }

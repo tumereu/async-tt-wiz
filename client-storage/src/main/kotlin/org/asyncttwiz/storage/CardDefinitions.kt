@@ -10,6 +10,7 @@ import kotlinx.serialization.json.jsonObject
 import org.asyncttwiz.protocol.DefinitionFace
 import org.asyncttwiz.protocol.PrintedPart
 import org.asyncttwiz.protocol.SubmittedDefinition
+import org.asyncttwiz.protocol.game.GameCards
 import org.asyncttwiz.protocol.CardDefinition as GameCard
 
 /** What the device knows about one game card's rules (docs/specs/arcanum-atw-integration.md I-D2). */
@@ -50,15 +51,8 @@ class CardDefinitions internal constructor(
         for ((digest, card) in cards) {
             val hit = cached[digest]?.let(::decode)
             if (hit != null) { result[digest] = hit; continue }
-            val parsed = when (val printed = PrintedCard.of(card.definition)) {
-                is PrintedCard.Card -> try {
-                    val definition = parse(printed.layout, printed.faces)
-                    ParsedCard.Read(definition, definition.faces.sumOf { face -> face.abilities.count { it is Ability.Unparsed } })
-                } catch (error: RuntimeException) {
-                    // The parser throws on printed values it can't read (a type line, a mana cost).
-                    ParsedCard.Unreadable(error.message ?: error::class.java.simpleName)
-                }
-                is PrintedCard.Unreadable -> ParsedCard.Unreadable(printed.problem)
+            val parsed = GameCards.parse(card.definition, parse).let { p ->
+                p.definition?.let { ParsedCard.Read(it, p.manualAbilities) } ?: ParsedCard.Unreadable(p.problem.orEmpty())
             }
             result[digest] = parsed
             fresh += when (parsed) {
@@ -96,63 +90,3 @@ class CardDefinitions internal constructor(
  * unreadable. */
 internal data class CachedCardDefinition(val digest: String, val definitionJson: String?, val manualAbilities: Long,
     val problem: String?)
-
-/** A game card as the Arcanum parser reads it: its layout and printed faces. */
-internal sealed interface PrintedCard {
-    data class Card(val layout: Layout, val faces: List<OracleCard>) : PrintedCard
-    data class Unreadable(val problem: String) : PrintedCard
-
-    companion object {
-        /** Layouts whose parts share one physical face (PhysicalCardFaces keeps them as [DefinitionFace.parts]). */
-        private val SHARED_FACE = setOf("split", "aftermath", "adventure", "flip")
-
-        fun of(card: GameCard): PrintedCard {
-            val single = card.faces.singleOrNull()
-            val faces = when {
-                single != null && single.parts.isNotEmpty() -> single.parts.map { part(it) }
-                // Made before parts were kept: the halves are only in the combined text.
-                single != null && card.layout in SHARED_FACE -> return Unreadable("the parts of this ${card.layout} card aren't in its card data")
-                else -> card.faces.map { face(it, card.token) }
-            }
-            val layout = if (faces.size == 1) Layout.Normal else when (card.layout) {
-                // An aftermath card is a split card whose second half has aftermath (CR 702.127).
-                "split", "aftermath" -> Layout.Split
-                "flip" -> Layout.Flip
-                "transform" -> Layout.Transform
-                "modal_dfc" -> Layout.ModalDoubleFaced
-                "adventure" -> Layout.Adventure
-                "omen" -> Layout.Omen
-                else -> return Unreadable("faces of layout ${card.layout}")
-            }
-            return Card(layout, faces)
-        }
-
-        private fun face(face: DefinitionFace, token: Boolean) = OracleCard(
-            name = face.name,
-            manaCost = face.manaCost.ifBlank { null },
-            // A token record's type line starts with "Token", which isn't a card type.
-            typeLine = if (token) face.typeLine.removePrefix("Token ") else face.typeLine,
-            text = face.rulesText,
-            power = face.power.ifBlank { null },
-            toughness = face.toughness.ifBlank { null },
-            loyalty = face.loyalty.ifBlank { null },
-            defense = face.defense.ifBlank { null },
-            // Card data made before the field existed: read it from the catalog record the face was made from.
-            colorIndicator = face.colorIndicator ?: face.sourceData?.let { data ->
-                runCatching { catalogColorIndicator(Json.parseToJsonElement(data).jsonObject) }.getOrNull()
-            },
-        )
-
-        private fun part(part: PrintedPart) = OracleCard(
-            name = part.name,
-            manaCost = part.manaCost.ifBlank { null },
-            typeLine = part.typeLine,
-            text = part.rulesText,
-            power = part.power.ifBlank { null },
-            toughness = part.toughness.ifBlank { null },
-            loyalty = part.loyalty.ifBlank { null },
-            defense = part.defense.ifBlank { null },
-            colorIndicator = part.colorIndicator,
-        )
-    }
-}

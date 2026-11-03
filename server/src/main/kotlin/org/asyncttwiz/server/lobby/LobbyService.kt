@@ -95,9 +95,12 @@ class LobbyService(private val runtime: ServiceRuntime) {
 
     fun summary(sql: DSLContext, id: UUID): GameSummary = summary(sql, sql.selectFrom(GAME).where(GAME.ID.eq(id)).fetchSingle())
 
-    private fun summary(sql: DSLContext, game: org.asyncttwiz.server.generated.tables.records.GameRecord): GameSummary =
-        summary(sql, game, if (game.lifecycle == "ACTIVE")
-            org.asyncttwiz.server.game.PlayStore.read(sql, game.id!!)?.board?.effectiveAttentionHolder else null)
+    /** [viewer]: whose list it is; a play whose state is the engine's says whose move it is per viewer (I-D56 §7). */
+    private fun summary(sql: DSLContext, game: org.asyncttwiz.server.generated.tables.records.GameRecord, viewer: UUID? = null): GameSummary {
+        if (game.lifecycle != "ACTIVE") return summary(sql, game, null as String?)
+        val engine = viewer?.let { v -> game.currentPlay?.let { org.asyncttwiz.server.game.EngineSeats.attention(sql, it, v) } }
+        return summary(sql, game, if (engine != null) engine.holder else org.asyncttwiz.server.game.PlayStore.read(sql, game.id!!)?.board?.effectiveAttentionHolder)
+    }
 
     /** Execution already owns the locked game row and the reduced board. Do not reload either. */
     internal fun summary(sql: DSLContext, game: org.asyncttwiz.server.generated.tables.records.GameRecord,
@@ -133,7 +136,7 @@ class LobbyService(private val runtime: ServiceRuntime) {
                 .and(if (after == null) DSL.trueCondition() else GAME.ID.gt(UUID.fromString(after)))
                 .orderBy(GAME.ID).limit(101).forShare().fetchInto(GAME)
             // A game whose stored play can't be read is left out; opening it fails on its own (SYS-052).
-            val games = rows.take(100).mapNotNull { StoredData.orSkip("game", it.id) { summary(sql, it) } }
+            val games = rows.take(100).mapNotNull { StoredData.orSkip("game", it.id) { summary(sql, it, actor) } }
             Result(200, json.encodeToString(GameList(games, if (rows.size > 100) rows[99].id.toString() else null)))
         }
     }

@@ -17,6 +17,8 @@ DELETE FROM account_activity WHERE game_id IN (SELECT game_id FROM wiped_game);
 DELETE FROM activity_presence WHERE game_id IN (SELECT game_id FROM wiped_game);
 DELETE FROM game_chat_read_cursor WHERE game_id IN (SELECT game_id FROM wiped_game);
 DELETE FROM game_chat WHERE game_id IN (SELECT game_id FROM wiped_game);
+DELETE FROM engine_async_round WHERE play_id IN (SELECT id FROM game_play WHERE game_id IN (SELECT game_id FROM wiped_game));
+DELETE FROM engine_seat WHERE play_id IN (SELECT id FROM game_play WHERE game_id IN (SELECT game_id FROM wiped_game));
 DELETE FROM engine_checkpoint WHERE play_id IN (SELECT id FROM game_play WHERE game_id IN (SELECT game_id FROM wiped_game));
 DELETE FROM engine_event WHERE play_id IN (SELECT id FROM game_play WHERE game_id IN (SELECT game_id FROM wiped_game));
 DELETE FROM engine_play WHERE play_id IN (SELECT id FROM game_play WHERE game_id IN (SELECT game_id FROM wiped_game));

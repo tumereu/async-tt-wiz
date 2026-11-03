@@ -46,7 +46,7 @@ data class Concerns(val writes: Set<StateKey>, val reads: Set<StateKey>, val rea
             fun obj(id: ObjectId) { if (id is ObjectId.Card) reads += StateKey.Presence(id.card) }
             when (change) {
                 is TableChange.Placed -> { writes += StateKey.Table("placement:${change.obj}"); obj(change.obj) }
-                is TableChange.Settings -> writes += StateKey.Table("settings:${change.player}")
+                is TableChange.LineMoved -> writes += StateKey.Table("line")
                 is TableChange.EarlyAnswered -> writes += StateKey.Table("early:${change.key}")
                 is TableChange.AttackDraft -> {
                     writes += StateKey.Table("attack-draft")
@@ -92,6 +92,7 @@ data class Concerns(val writes: Set<StateKey>, val reads: Set<StateKey>, val rea
                 is Change.Ledger -> change.player?.let { into += StateKey.Player(it) }
                 is Change.Lost -> into += StateKey.Player(change.player)
                 is Change.SkipWhenNoChoice -> into += StateKey.Player(change.player)
+                is Change.LibraryPlaces -> into += StateKey.Player(change.player)
                 is Change.PlayerDesignation -> into += StateKey.Player(change.player)
                 is Change.Reverted -> writes(change.change, into)
                 else -> {}

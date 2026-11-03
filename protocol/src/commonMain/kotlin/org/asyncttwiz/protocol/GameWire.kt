@@ -10,7 +10,7 @@ const val CURRENT_GAMEPLAY_RULES_VERSION = 36
 /** The socket protocol version of this build (SYS-033: one compatible set of apps and server). Apps offer it
  *  as [GameHello.maxMinor] and the server welcomes with its own: a lower offer gets [GameUpgradeRequired] (the app
  *  is older), and an app welcomed with a lower minor waits for the server update. Bump it with any socket wire change. */
-const val GAME_PROTOCOL_MINOR = 5
+const val GAME_PROTOCOL_MINOR = 6
 
 @Serializable enum class PresenceState { ONLINE, IDLE, OFFLINE }
 /** The opponent's presence in this game. Ages are whole seconds as of sending, so the clocks never need to agree.
@@ -29,12 +29,25 @@ const val GAME_PROTOCOL_MINOR = 5
      * result (a waiting suggestion withdrawn or declined first) and the play ends as an accepted result ends it. */
     @Serializable @SerialName("concede") data object Concede : GameAction
     /** I-D54 phase 3: one acting point of a game whose state is the engine's ([org.asyncttwiz.protocol.game]): engine
-     * inputs (with the device's random answers) and table changes on the event it was made on. The server makes the
-     * event ([org.asyncttwiz.protocol.game.Authority]), refusing it when its parent isn't the live line's last event
-     * ("stale": another player's event came first) unless [branch] (a deliberate branch from an older event), or when an
-     * input or table change isn't possible there. */
-    @Serializable @SerialName("submit") data class Submit(val submission: org.asyncttwiz.protocol.game.Submission,
-        val branch: Boolean = false) : GameAction
+     * inputs (with the line's random answers) and table changes on the event it was made on. The server makes the event
+     * ([org.asyncttwiz.protocol.game.Authority]) at the head, confirms or branches at an assumed input about the author
+     * (I-D56 §8, [org.asyncttwiz.protocol.game.Acceptance]), and refuses it as "stale" when another player's event came
+     * first, or when an input or table change isn't possible there ("refusedByEngine", "revealsHidden"). */
+    @Serializable @SerialName("submit") data class Submit(val submission: org.asyncttwiz.protocol.game.Submission) : GameAction
+    /** I-D56 §7: the actor's device showed the main line up to [eventId]: their local head moves forward to it (moving
+     * past an assumed input about them confirms it). Sent throttled; never moves a local head back. */
+    @Serializable @SerialName("engineSeen") data class EngineSeen(val eventId: String) : GameAction
+    /** I-D56 §10: takes the main line back to just after [target] when that is free for the actor (everything after it
+     * their own and nothing new shown to them); else refused "requestNeeded". Starts a new line. */
+    @Serializable @SerialName("engineRewind") data class EngineRewind(val target: String) : GameAction
+    /** I-D56 §10: asks the other player to approve taking the main line back to just after [target], with [message]. */
+    @Serializable @SerialName("engineRequestRewind") data class EngineRequestRewind(val target: String, val message: String = "") : GameAction
+    /** I-D56 §10: the other player's answer to the open undo request: [accept] rewinds, else it is closed. */
+    @Serializable @SerialName("engineAnswerRewind") data class EngineAnswerRewind(val accept: Boolean) : GameAction
+    /** I-D56 §10: the requester takes their open undo request back. */
+    @Serializable @SerialName("engineCancelRewind") data object EngineCancelRewind : GameAction
+    /** I-D56 §13: the actor's private play settings for this game (response mode, Always assume resolves, Autotap). */
+    @Serializable @SerialName("engineSettings") data class EngineSettings(val settings: org.asyncttwiz.protocol.game.PlaySettings) : GameAction
     /** [tag] (rules v36): the Magic meaning of the event, made by the engine (D33); absent only for what a player may
      * send outside Automatum ([AutomatumOnly]). */
     @OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
@@ -122,7 +135,26 @@ const val GAME_PROTOCOL_MINOR = 5
 /** A play's engine state as a device loads it (I-D54 phase 4): its card [definitions]
  * ([org.asyncttwiz.protocol.game.EngineJson.encodeDefinitions]), its [rootId], the live line's last event [headId] and
  * the [state] there ([org.asyncttwiz.protocol.game.EngineJson.encodeModel]). */
-@Serializable data class EngineSnapshot(val definitions: String, val rootId: String, val headId: String, val state: String)
+@Serializable data class EngineSnapshot(val definitions: String, val rootId: String, val headId: String, val state: String,
+    /** I-D56: each player's local head by account (the assumer's indicator shows how far the other has confirmed). */
+    val localHeads: Map<String, String> = emptyMap(),
+    /** The reader's own private play settings for this game (I-D56 §13); never the other player's. */
+    val settings: org.asyncttwiz.protocol.game.PlaySettings? = null,
+    /** The open undo request, if any (I-D56 §10). */
+    val rewindRequest: EngineRewindRequest? = null,
+    /** The play's line counter: a branch starts line [lines] + 1 (I-D56 §9). */
+    val lines: Int = 0)
+/** An open undo request (I-D56 §10): [by] asks to take the main line back to just after [target], with [message]. */
+@Serializable data class EngineRewindRequest(val by: String, val target: String, val message: String = "")
+/** I-D56: what an engine revision changed beyond [GameRevision.engineEvent]: the events after the first ([events]), a
+ * rewind's [target] (devices take the line back to it before applying [events]), the local heads, the line counter and
+ * the open undo request. */
+@Serializable data class EngineUpdate(val events: List<String> = emptyList(), val target: String? = null,
+    val localHeads: Map<String, String> = emptyMap(), val lines: Int = 0, val rewindRequest: EngineRewindRequest? = null,
+    /** The assumed event a submission confirmed (it made no event of its own). */
+    val confirmed: String? = null,
+    /** Server only, removed before a revision is sent: per account, whether they have a next stop (I-D56 §7). */
+    val moves: Map<String, Boolean>? = null)
 @Serializable @SerialName("revision") data class GameRevision(val gameId: String, val baseRevision: String,
     val resultRevision: String, val requestId: String, val author: String, val scope: GameScope,
     val summary: GameSummary, val preparation: LobbyPreparation? = null, val play: PlayState? = null,
@@ -131,13 +163,22 @@ const val GAME_PROTOCOL_MINOR = 5
     /** I-D54: the engine event this revision accepted, in the play's engine format
      * ([org.asyncttwiz.protocol.game.EngineJson.encodeEvent], definitions by reference to [GameHead.engine]'s). */
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER)
-    val engineEvent: String? = null) : GameServerMessage
+    val engineEvent: String? = null,
+    /** I-D56: the rest of what an engine revision changed. */
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER)
+    val engine: EngineUpdate? = null) : GameServerMessage
 /** The opponent's presence changed (opened/left the game, or came back from idle). */
 @Serializable @SerialName("presence") data class GamePresenceUpdate(val gameId: String, val opponent: OpponentPresence) : GameServerMessage
 @Serializable @SerialName("pong") data class GamePong(val correlationId: String) : GameServerMessage
 @Serializable data class GameRevisions(val revisions: List<GameRevision>, val next: String? = null)
 @Serializable data class LookupGameResults(val requestIds: List<String>)
 @Serializable data class GameResults(val statuses: List<GameRequestStatus>)
+
+/** I-D56: the actions of a play whose state is the engine's besides [GameAction.Submit] (local heads, rewinds, undo
+ * requests, private settings). */
+val GameAction.isEngine: Boolean get() = this is GameAction.EngineSeen || this is GameAction.EngineRewind ||
+    this is GameAction.EngineRequestRewind || this is GameAction.EngineAnswerRewind || this == GameAction.EngineCancelRewind ||
+    this is GameAction.EngineSettings
 
 /** Future actions extend this same typed envelope, not a second lifecycle/gameplay queue. */
 object GameWire {
@@ -171,6 +212,14 @@ object GameWire {
             require(DeckValidation.uuid(submission.id) && DeckValidation.uuid(submission.parentId))
             require(submission.acts.size <= MAX_SUBMITTED && submission.table.size <= MAX_SUBMITTED)
             require(submission.acts.isNotEmpty() || submission.table.isNotEmpty())
+        } else if (command.action.isEngine) {
+            require(command.scope.playId != null && command.scope.preparationId == null && command.scope.invitationId == null)
+            when (val action = command.action) {
+                is GameAction.EngineSeen -> require(DeckValidation.uuid(action.eventId))
+                is GameAction.EngineRewind -> require(DeckValidation.uuid(action.target))
+                is GameAction.EngineRequestRewind -> require(DeckValidation.uuid(action.target) && action.message.length <= 500)
+                else -> {}
+            }
         } else if (command.action is GameAction.AcceptResult || command.action == GameAction.Concede) {
             require(command.scope.playId != null && command.scope.preparationId == null && command.scope.invitationId == null)
             if (command.action is GameAction.AcceptResult) require(DeckValidation.uuid(command.action.suggestionId))

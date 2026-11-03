@@ -56,7 +56,7 @@ class UndoRuleTest {
         val touched = Concerns.of(play).writes
         val elsewhere = model.engine.battlefield.filterIsInstance<ObjectId.Card>().first { StateKey.Presence(it.card) !in touched }
         val moving = event { table(place(elsewhere, 5)) }
-        val setting = event { table(TableChange.Settings(games.bob, model.table.settingsOf(games.bob), PlaySettings(autotap = false))) }
+        val setting = event { table(TableChange.Suggestion(null, ResultSuggestion(games.bob, arcanum.engine.setup.GameResult.Draw))) }
         assertNull(UndoRule.blocking(play, listOf(moving, setting)))
         UndoRule.undo(model, play, listOf(moving, setting))
         // The land is back in hand; the later table events keep their values
@@ -91,7 +91,8 @@ class UndoRuleTest {
         // The latest event can always be undone
         assertNull(UndoRule.blocking(again, emptyList()))
         val alice = PlayerId("alice")
-        val settings = event { table(TableChange.Settings(alice, model.table.settingsOf(alice), PlaySettings(fullControl = true))) }
+        val early = EarlyAnswer(alice, "k", arcanum.engine.decision.Answer.YesNo(true))
+        val settings = event { table(TableChange.EarlyAnswered("k", null, early)) }
         val result = event { table(TableChange.Suggestion(null, ResultSuggestion(alice, arcanum.engine.setup.GameResult.Draw))) }
         assertNull(UndoRule.blocking(settings, listOf(result)))
     }

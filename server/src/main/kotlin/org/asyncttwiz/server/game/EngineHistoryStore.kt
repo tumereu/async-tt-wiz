@@ -77,6 +77,15 @@ internal class EngineHistoryStore private constructor(
         }
     }
 
+    /** Deletes the events [ids] and their checkpoints (a rewind takes the events after its target away, I-D56 §10). */
+    fun delete(ids: Collection<String>) {
+        if (ids.isEmpty()) return
+        val uuids = ids.map(UUID::fromString)
+        sql.deleteFrom(ENGINE_CHECKPOINT).where(ENGINE_CHECKPOINT.PLAY_ID.eq(play)).and(ENGINE_CHECKPOINT.EVENT_ID.`in`(uuids)).execute()
+        sql.deleteFrom(ENGINE_EVENT).where(ENGINE_EVENT.PLAY_ID.eq(play)).and(ENGINE_EVENT.ID.`in`(uuids)).execute()
+        ids.forEach { nodes.remove(it); checkpoints.remove(it) }
+    }
+
     /**
      * Stores [event] (applied to its parent's state, giving [state]) as the next event the server accepted, with its
      * checkpoint when its depth gets one ([GameHistory.checkpointFor]). Returns its node.

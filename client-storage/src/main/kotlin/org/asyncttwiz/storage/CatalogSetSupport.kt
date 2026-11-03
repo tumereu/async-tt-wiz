@@ -91,9 +91,9 @@ class CatalogSetSupport(private val repository: CatalogRepository, private val b
 
     /** As a game parses the card's data (CardDefinitions); unreadable: by hand. */
     private fun cardByHand(data: org.asyncttwiz.protocol.CardDefinition): Boolean = try {
-        when (val printed = PrintedCard.of(data)) {
-            is PrintedCard.Card -> byHand(OracleParser.parseCard(printed.layout, printed.faces))
-            is PrintedCard.Unreadable -> true
+        when (val printed = org.asyncttwiz.protocol.game.GameCards.printed(data)) {
+            is org.asyncttwiz.protocol.game.GameCards.Printed.Card -> byHand(OracleParser.parseCard(printed.layout, printed.faces))
+            is org.asyncttwiz.protocol.game.GameCards.Printed.Unreadable -> true
         }
     } catch (_: RuntimeException) {
         true // The parser throws on printed values it can't read: the whole card is by hand.

@@ -30,6 +30,8 @@ kotlin {
             api(project(":core"))
             // I-D54: a game's state is the Arcanum engine's state plus ATW's table state (package game).
             api(project(":arcanum-engine"))
+            // I-D54 switch-over item 1: the server and the device read game cards with one parser (game/GameCards)
+            api(project(":arcanum-parser"))
             implementation(libs.serialization.json)
             implementation("org.jetbrains.kotlinx:kotlinx-collections-immutable:0.4.0")
         }

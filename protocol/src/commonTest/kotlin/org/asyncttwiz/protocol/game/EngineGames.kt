@@ -32,7 +32,10 @@ internal class EngineGames(seed: Long, decks: Pair<List<String>, List<String>> =
     private var turn = 0
     private var ids = 0
 
-    fun model(): GameModel = GameModel(initial.deepCopy())
+    /** The game's random secret (I-D56 §9). */
+    val secret: String = LineRandom.secret(ByteArray(32) { (seed * 31 + it).toByte() })
+
+    fun model(): GameModel = GameModel(initial.deepCopy(), TableState(secret = secret))
 
     fun over(model: GameModel): Boolean = Engine.result(model.engine) != null
 
@@ -42,24 +45,22 @@ internal class EngineGames(seed: Long, decks: Pair<List<String>, List<String>> =
         val builder = EventBuilder(model, id, parentId, author)
         val placed = model.table.placements.keys
         if (model.engine.turn.number > 0 && rnd.nextInt(8) == 0) {
-            // A table-only event: a card moved on the battlefield, or a setting changed
+            // A table-only event: a card moved on the battlefield, or an early answer given or taken back
             val obj = model.engine.battlefield.filter { it in placed }.randomOrNull(rnd)
             if (obj != null && rnd.nextBoolean()) {
                 val before = model.table.placements.getValue(obj)
                 builder.table(TableChange.Placed(obj, before, Placement(rnd.nextInt(12), rnd.nextInt(3))))
             } else {
                 val player = if (rnd.nextBoolean()) alice else bob
-                val before = model.table.settingsOf(player)
-                builder.table(TableChange.Settings(player, before, before.copy(fullControl = !before.fullControl)))
+                val key = "early:${player.value}"
+                val before = model.table.earlyAnswers[key]
+                builder.table(TableChange.EarlyAnswered(key, before, if (before == null) EarlyAnswer(player, key, Answer.YesNo(true)) else null))
             }
             return builder.build()
         }
         builder.perform(choose(model.engine))
-        // The random results the device answers at once (I-D54 §3)
-        while (true) {
-            val d = model.engine.pending?.decision as? Decision.Random ?: break
-            builder.perform(Input.Answer(d.id, random(d.what)))
-        }
+        // The random answers from the line's stream (I-D56 §9)
+        builder.answerRandoms()
         // A place for each permanent that entered (the device's table part)
         val taken = model.table.placements.filterKeys { it in model.engine.battlefield }.values.toMutableSet()
         for (obj in model.engine.battlefield) if (obj !in model.table.placements && obj is ObjectId.Card) {
@@ -84,15 +85,6 @@ internal class EngineGames(seed: Long, decks: Pair<List<String>, List<String>> =
             (it is Input.DeclareBlockers && it.blocks.isEmpty()) }
         return if (inputsThisTurn < 40 && doing.isNotEmpty() && rnd.nextInt(3) > 0) doing.random(rnd)
         else listed.filter { it !in doing }.ifEmpty { listed }.random(rnd)
-    }
-
-    private fun random(kind: RandomKind): Answer = when (kind) {
-        RandomKind.CoinFlip -> Answer.CoinFlip(rnd.nextBoolean())
-        is RandomKind.Die -> Answer.DieRolls(List(kind.count) { rnd.nextInt(1, kind.sides + 1) })
-        is RandomKind.Objects -> {
-            check(!kind.newIds) { "full information keeps ids" }
-            Answer.RandomObjects(kind.among.shuffled(rnd).take(kind.count))
-        }
     }
 
     /** Plays up to [events] events (or the game's end) from [model] at [parentId]: the events and each one's state. */

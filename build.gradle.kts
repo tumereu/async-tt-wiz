@@ -52,7 +52,7 @@ tasks.register("verifyModuleBoundaries") {
         val expected = mapOf(
             ":core" to emptySet(),
             // I-D54: a game's state is the Arcanum engine's state, so protocol and the server use the engine.
-            ":protocol" to setOf(":core", ":scale-fixtures", ":arcanum-engine"),
+            ":protocol" to setOf(":core", ":scale-fixtures", ":arcanum-engine", ":arcanum-parser"),
             ":client-storage" to setOf(":core", ":protocol", ":arcanum-parser"),
             ":androidApp" to setOf(":core", ":protocol", ":client-storage", ":automatum", ":scale-fixtures"),
             ":server" to setOf(":core", ":protocol", ":scale-fixtures", ":arcanum-api", ":arcanum-engine"),

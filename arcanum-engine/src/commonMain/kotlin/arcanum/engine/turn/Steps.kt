@@ -143,12 +143,20 @@ internal object Steps {
     private fun beginTurn(recorder: Recorder) {
         val s = recorder.state
         val extra = s.turn.extraTurns.firstOrNull { p -> !s.player(p).lost }
-        val next = extra ?: Priority.nextPlayer(s, s.turn.active)
+        var next = extra ?: Priority.nextPlayer(s, s.turn.active)
+        // sos: skipped turns are passed over (CR 614.10); each skip is used up by the turn it replaces
+        var skipped = s.turn.skippedTurns
+        var guard = s.players.size * (skipped.size + 1)
+        while (next in skipped && extra == null && guard-- > 0) {
+            skipped = skipped - next
+            next = Priority.nextPlayer(s, next)
+        }
         val number = s.turn.number + 1
         val turn = TurnState(
             number = number, active = next, step = TurnStep.Untap,
             turnStarted = s.turn.turnStarted + (next to number),
             extraTurns = if (extra != null) s.turn.extraTurns.drop(s.turn.extraTurns.indexOf(extra) + 1) else s.turn.extraTurns,
+            skippedTurns = skipped,
         )
         // CR 800.4m: players who left and whose turn would have begun now (passed over in turn order)
         val passedOver = if (extra == null) leftPlayersBetween(s, s.turn.active, next) else emptyList()
@@ -316,6 +324,11 @@ internal object Steps {
         }
         endEffects(recorder) { d, _ -> d == Duration.EndOfTurn }
         endEffects(recorder, onlyController = s.turn.active, createdBefore = s.turn.number) { d, _ -> d == Duration.UntilEndOfYourNextTurn }
+        // sos: "until the end of their next turn", for the player named as the effect was created
+        recorder.state.effects.values.toList().filter { it.duration is Duration.UntilEndOfNextTurnOf && it.createdTurn < s.turn.number }.forEach { e ->
+            val players = Snapshot(recorder.state).evaluator(e.controller, e.source, e.names).players((e.duration as Duration.UntilEndOfNextTurnOf).players)
+            if (s.turn.active in players) recorder.record(Change.EffectRemoved(e))
+        }
         // CR 702.171b: a permanent stays saddled until the end of the turn
         val saddled = StatusFlag.Marked(arcanum.api.ObjectMark.Saddled)
         s.battlefield.filter { s.obj(it)?.marks?.contains(arcanum.api.ObjectMark.Saddled) == true }

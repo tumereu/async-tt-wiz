@@ -78,6 +78,20 @@ object KeywordExpansions {
             affects = Affected.Players(Players.You), condition = Condition.Exists(ObjectFilter.And(listOf(
                 or(ObjectFilter.Type(CardType.Artifact), ObjectFilter.Sub(Subtype("Saga")), ObjectFilter.Super(Supertype.Legendary)),
                 ObjectFilter.ControlledBy(PlayerFilter.You))), atLeast = 3)))
+        // sos: CR 702.153a: "As an additional cost to cast this spell, you may sacrifice a creature with power N or greater" and "When you cast
+        // this spell, if a casualty cost was paid for it, copy it. If the spell has any targets, you may choose new targets for the copy."
+        is Keyword.Casualty -> listOf(
+            Ability.Static(listOf(Mechanic.AdditionalCost(Keyword.Casualty.Kind, Cost(listOf(CostPart.Sacrifice(CostObjects.Choose(ObjectFilter.And(listOf(
+                ObjectFilter.Type(CardType.Creature), ObjectFilter.Power(Comparison.AtLeast, Value.Fixed(keyword.amount)))), Value.Fixed(1))))), optional = true)),
+                affects = Affected.Objects(Objects.Self)),
+            Ability.Triggered(Trigger.On(EventPattern.Cast(ObjectFilter.Is(Objects.Self), by = PlayerFilter.Any)),
+                steps(Effect.CopySpell(Objects.Self, Players.You, newTargets = true)),
+                interveningIf = Condition.Paid(Keyword.Casualty.Kind, times = 1, of = Objects.Self)))
+        // sos: CR 702.94a: "You may reveal this card from your hand as you draw it if it's the first card you've drawn this turn. When you reveal
+        // this card this way, you may cast it by paying [cost] rather than its mana cost." (the reveal is shown as the trigger)
+        is Keyword.Miracle -> listOf(Ability.Triggered(Trigger.On(listOf(EventPattern.Draw(PlayerFilter.You)), nthThisTurn = 1),
+            Instructions(steps = listOf(Step.May(listOf(Step.Do(Effect.Cast(Objects.Self, PlayKind.Cast, cost = keyword.cost, caster = Players.You))), Players.You))),
+            triggersOnlyIf = Condition.ObjectMatches(Objects.EventObject(EventRole.Object), ObjectFilter.Is(Objects.Self)), functionsIn = listOf(Zone.Hand)))
         // sos: CR 702.191a: "Whenever you cast a spell, if this permanent is a creature and the amount of mana spent to cast that spell is
         // greater than this creature's power or this creature's toughness, put a +1/+1 counter on this creature."
         Keyword.Increment -> {

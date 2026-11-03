@@ -154,6 +154,8 @@ The definition model (overview in `Definitions.kt`):
   among creatures you control"), `ObjectFilter.HasDealtDamage` ("as long as it hasn't dealt damage yet") and `AdditionalCost.flash`
   ("you may cast this spell as though it had flash if you behold a Dragon as an additional cost to cast it", CR 702.8a);
   `DefinitionChecks` keeps a loop that creates a token attacking each player.
+- Engine lane 4 (2026-11-03): `Mechanic.BlockCost` ("creatures can't block unless their controller pays …", CR 509.1d), beside
+  `Mechanic.AttackCost` (any cost parts now, CR 508.1h) and `Mechanic.AsAttacks` (exert, CR 701.43d).
 
 `ExampleCardsTest` shows about twenty invented cards written in the model and their
 JSON. Decisions from the API reviews (D19–D49) are built here where they concern card

@@ -41,11 +41,18 @@ sealed interface PlannedEvent {
         override val controller: PlayerId, override val source: ObjectId? = null,
     ) : PlannedEvent
 
-    /** rtr chunk 07: [controller] pays the total cost to attack [cost] (CR 508.1h–j), then [attacks] become attacking creatures
-     * (CR 508.1f, k). */
+    /** rtr chunk 07: [controller] pays the total cost to attack (CR 508.1g–j), then [attacks] become attacking creatures
+     * (CR 508.1f, k). The cost is worked out from the state the event starts in, so a redone event pays the same. */
     @Serializable @SerialName("declare-attackers")
     data class DeclareAttackers(
-        val attacks: List<arcanum.engine.input.Attack>, val cost: arcanum.api.ManaCost,
+        val attacks: List<arcanum.engine.input.Attack>,
+        override val controller: PlayerId, override val source: ObjectId? = null,
+    ) : PlannedEvent
+
+    /** [controller] pays the total cost to block (CR 509.1d–f), then [blocks] become blocking creatures (CR 509.1g). */
+    @Serializable @SerialName("declare-blockers")
+    data class DeclareBlockers(
+        val blocks: List<arcanum.engine.input.Block>,
         override val controller: PlayerId, override val source: ObjectId? = null,
     ) : PlannedEvent
 
@@ -90,8 +97,14 @@ internal object Events {
                 Actions.putCounters(act, cause, arcanum.engine.state.TargetRef.Object(it), event.kind, event.amount)
             }
             is PlannedEvent.DeclareAttackers -> {
-                act.payMana(event.controller, null, event.cost)
+                val costs = arcanum.engine.combat.CombatRules.attackCosts(arcanum.engine.casting.Snapshot(act.state), event.attacks)
+                arcanum.engine.combat.Combat.payCosts(act, event.controller, costs)
                 arcanum.engine.combat.Combat.attack(act.state, act::record, event.attacks)
+            }
+            is PlannedEvent.DeclareBlockers -> {
+                val costs = arcanum.engine.combat.CombatRules.blockCosts(arcanum.engine.casting.Snapshot(act.state), event.blocks)
+                arcanum.engine.combat.Combat.payCosts(act, event.controller, costs)
+                arcanum.engine.combat.Combat.block(act.state, act::record, event.controller, event.blocks)
             }
             is PlannedEvent.Move -> Actions.move(act, cause, event.ids.map {
                 PlannedMove(it, event.to, controller = event.under, tapped = event.tapped, meanings = event.meanings)

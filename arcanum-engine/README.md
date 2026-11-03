@@ -421,7 +421,7 @@ report and replay their inputs on a saved state. The default `EngineTrace.None` 
   with the abilities its temptation count gives, `Value.RingTemptations`; the Ring-bearer, `ObjectMark.RingBearer`, ended by another
   choice or another player gaining control; `EventPattern.RingTempts`, the chosen creature as its object); enlist (CR 702.154, an
   optional cost to attack, CR 508.1g: `Attack.enlisted` names the creatures tapped, one per enlist ability, checked with the
-  declaration; the linked trigger reads `EventPattern.Enlists`; `options` doesn't list enlisting, a host adds it to a declaration;
+  declaration; the linked trigger reads `EventPattern.Enlists`; `options` lists a declaration with each attacker enlisting what it can;
   two enlist abilities on one creature both trigger for each creature enlisted, a simplification of 702.154d);
   soulbond (`soulbond/Soulbond`, CR 702.95: `Effect.Pair`, `ObjectFilter.Paired`, `Objects.PairedWith`, the pair kept in both
   creatures' memory and ended with the state-based actions, 702.95e); haunt (CR 702.55: `Effect.Haunt` exiles the card haunting the target, kept as
@@ -455,13 +455,22 @@ report and replay their inputs on a saved state. The default `EngineTrace.None` 
   Banding (`combat/Banding`, CR 702.22, scenarios in `combat/BandingTest`): attackers declared with the same `Attack.band` form an
   attacking band (creatures with banding and at most one without, one target; kept as `Attacker.band` for the combat); a creature
   blocking a member blocks the whole band; the defending player assigns the damage of an attacker blocked by a creature with banding,
-  the active player that of a blocker blocking one. `options` doesn't list bands; a host adds them to a declaration. "Bands with
+  the active player that of a blocker blocking one. `options` lists a declaration with one band of the attackers that can form it. "Bands with
   other" isn't an API keyword yet. Hidden agenda and double agenda (`conspiracy/Conspiracies`, CR 702.106, 103.2e, 905.4,
   scenarios in `conspiracy/HiddenAgendaTest`): with `StartOptions.conspiracies` (a Conspiracy Draft game) each player in turn order
   may put conspiracy cards from outside the game into the command zone, those with hidden agenda face down with their owner's
   secretly chosen name(s) as memory under "name" (what "the chosen name" reads; double agenda's second name counts too); the
   keyword expands to the special action turning it face up (CR 116.2j). D60: the owner may look at it; in another player's view
   the host answers which chosen cards go face down, and the name is asked of the owner (the host answering) as it is revealed.
+- Done, engine lane 4 (2026-11-03, scenarios in `combat/CombatCostsTest`): costs to attack of any kind (`Mechanic.AttackCost`:
+  sacrificing, tapping, life, … with the mana, CR 508.1h–j) and costs to block (`Mechanic.BlockCost`, CR 509.1d–f), paid as the
+  declaration is made (`PlannedEvent.DeclareAttackers` / `DeclareBlockers`, waiting for the payment's choices, D29); a declaration
+  that can't be paid isn't made or offered, and a requirement never makes a creature pay one (CR 508.1d, 509.1c). Optional "as it
+  attacks" costs (`Mechanic.AsAttacks`, CR 508.1g: exert, 701.43d) are chosen with the declaration (`Attack.paying`, their origins),
+  paid with the other costs, and their "when you do" triggers (CR 607.2h). Exert and other keyword actions as costs of activated
+  abilities are done as the action, the source as "this" (CR 701.43a, b); an exerted permanent's "doesn't untap" now ends after its
+  controller's next untap step (the step's player read with the effect's names). `options` lists, beside the plain declarations, one
+  with every optional cost paid, one with enlisting and one with a band.
 - By hand still (D61; `KeywordMeanings.moments`, effects `act.manual` asks for), each for a reason:
   - Keywords: none (`KeywordMeanings.moments` is empty; "bands with other" and the other keywords the API doesn't list aren't
     read).
@@ -472,9 +481,7 @@ report and replay their inputs on a saved state. The default `EngineTrace.None` 
     "whenever you choose a creature as your Ring-bearer" (`EventPattern.RingTempts.chosen`) and "your Ring-bearer" as an object
     are read since the third round).
 - Not yet: `nthThisTurn`'s
-  `during`; in the flow: costs to attack other than mana and enlist, and
-  "as it attacks" costs (CR 508.1g–h), battles as attack targets (protectors, CR 310.8, 506.2),
-  other keyword actions as costs (exert); no cube card has any of these. Also missing: copy effects from static
+  `during`; battles as attack targets (protectors, CR 310.8, 506.2). Also missing: copy effects from static
   abilities (effect objects only). Around the game:
   actions "any time you could mulligan" (103.5b), effects that change the starting hand size, team and other variant
   starts; a decision of a player who left (the decision stays open; CR 800.4f–h, a cost not paid or another player

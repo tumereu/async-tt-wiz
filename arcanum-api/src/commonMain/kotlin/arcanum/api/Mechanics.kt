@@ -196,6 +196,11 @@ sealed interface Mechanic {
     @Serializable @SerialName("attack-cost") data class AttackCost(val cost: Cost, val target: Recipients? = null) : Mechanic {
         override val stacking: Stacking get() = Stacking.Independent
     }
+    /** "Creatures can't block [attackers] unless their controller pays [cost] for each" (CR 509.1d): the static ability's
+     * `affects` is the creatures restricted; [attackers] what they block (any attacker when null). */
+    @Serializable @SerialName("block-cost") data class BlockCost(val cost: Cost, val attackers: ObjectFilter? = null) : Mechanic {
+        override val stacking: Stacking get() = Stacking.Independent
+    }
     /** Can block [count] additional creatures each combat. */
     @Serializable @SerialName("can-block-additional") data class CanBlockAdditional(val count: Int) : Mechanic {
         override val stacking: Stacking get() = Stacking.Additive

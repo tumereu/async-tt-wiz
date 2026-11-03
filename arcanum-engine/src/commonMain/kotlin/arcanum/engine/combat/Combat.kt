@@ -77,13 +77,30 @@ internal object Combat {
         val snap = Snapshot(s)
         CombatRules.illegalAttack(snap, input.player, input.attacks)?.let { throw IllegalArgumentException("Illegal attack: $it") }
         Banding.illegal(snap, input.attacks)?.let { throw IllegalArgumentException("Illegal attack: $it") }
-        // rtr chunk 07: a cost to attack is paid first (CR 508.1h–j), as an event that waits for the payment (D29)
-        CombatRules.attackCost(snap, input.attacks)?.let { cost ->
-            require(CombatRules.canPayToAttack(snap, input.player, input.attacks)) { "Illegal attack: the cost to attack ($cost) can't be paid (CR 508.1d)" }
-            return arcanum.engine.action.Events.run(recorder, arcanum.engine.action.PlannedEvent.DeclareAttackers(input.attacks, cost, controller = input.player))
+        // rtr chunk 07: the costs to attack are paid first (CR 508.1g–j), as an event that waits for the payment's decisions (D29)
+        if (CombatRules.attackCosts(snap, input.attacks).isNotEmpty()) {
+            require(CombatRules.canPayToAttack(snap, input.player, input.attacks)) { "Illegal attack: the cost to attack can't be paid (CR 508.1d)" }
+            return arcanum.engine.action.Events.run(recorder, arcanum.engine.action.PlannedEvent.DeclareAttackers(input.attacks, controller = input.player))
         }
         attack(recorder.state, recorder::record, input.attacks)
         return Progress.Done
+    }
+
+    /** CR 508.1h–j, 509.1d–f: [player] pays [costs] in full: the mana as one payment, then the other parts, each read with
+     * its creature as "this"; each paid optional cost's "when you do" triggers (CR 603.12, 607.2h). */
+    fun payCosts(act: arcanum.engine.action.Act, player: PlayerId, costs: List<CombatRules.CombatCost>) {
+        CombatRules.manaOf(costs)?.let { act.payMana(player, null, it) }
+        costs.forEachIndexed { i, c ->
+            val rest = c.cost.parts.filter { it !is arcanum.api.CostPart.Mana }
+            if (rest.isEmpty()) return@forEachIndexed
+            val cause = arcanum.engine.action.Cause(player, c.creature, key = "combat-cost:${c.creature}:$i")
+            arcanum.engine.resolution.Costs.pay(arcanum.engine.resolution.Scope(act, cause, c.names, null), player, arcanum.api.Cost(rest))
+        }
+        val linked = costs.filter { it.then != null }.map { c ->
+            arcanum.engine.decision.WaitingTrigger(player, arcanum.api.Ability.Triggered(arcanum.api.Trigger.On(emptyList()), c.then!!),
+                c.origin, c.creature, names = c.names)
+        }
+        arcanum.engine.trigger.Triggers.addWaiting(act.recorder, linked)
     }
 
     /** CR 508.1f, k: [attacks] become attacking creatures, tapped unless they have vigilance; [record] makes each change. */
@@ -117,14 +134,25 @@ internal object Combat {
             "${input.player} isn't a defending player waiting to declare blockers (CR 509.1)"
         }
         CombatRules.illegalBlock(snap, input.player, input.blocks)?.let { throw IllegalArgumentException("Illegal block: $it") }
-        val combat = s.combat!!
+        // CR 509.1d–f: the costs to block are paid first, as an event that waits for the payment's decisions (D29)
+        if (CombatRules.blockCosts(snap, input.blocks).isNotEmpty()) {
+            require(CombatRules.canPayToBlock(snap, input.player, input.blocks)) { "Illegal block: the cost to block can't be paid (CR 509.1d)" }
+            return arcanum.engine.action.Events.run(recorder, arcanum.engine.action.PlannedEvent.DeclareBlockers(input.blocks, controller = input.player))
+        }
+        block(s, recorder::record, input.player, input.blocks)
+        return Progress.Done
+    }
+
+    /** CR 509.1g–h: [blocks] become blocking creatures for [player]; [record] makes the change. */
+    fun block(state: GameState, record: (Change) -> Unit, player: PlayerId, blocks: List<arcanum.engine.input.Block>) {
+        val snap = Snapshot(state)
+        val combat = state.combat!!
         // CR 702.22h: blocking a member of a band blocks the whole band
-        val blockers = input.blocks.groupBy { it.blocker }.map { (b, bs) -> Banding.blocks(combat, Blocker(b, bs.map { it.attacker }, input.player)) }
+        val blockers = blocks.groupBy { it.blocker }.map { (b, bs) -> Banding.blocks(combat, Blocker(b, bs.map { it.attacker }, player)) }
         // CR 509.1g: they become blocking creatures; CR 509.1h: with the last declaration, attackers become blocked or
         // unblocked in the same event, so triggers on it see the final state (CR 509.3c, 509.3g)
-        recorder.record(Change.Combat(combat, decided(snap, combat.copy(blockers = combat.blockers + blockers,
-            blockersDeclaredBy = combat.blockersDeclaredBy + input.player)), listOf(Meaning.BlockersDeclared)))
-        return Progress.Done
+        record(Change.Combat(combat, decided(snap, combat.copy(blockers = combat.blockers + blockers,
+            blockersDeclaredBy = combat.blockersDeclaredBy + player)), listOf(Meaning.BlockersDeclared)))
     }
 
     /** CR 509.1h: once every defending player has declared blockers, an attacker with blockers is blocked, one without

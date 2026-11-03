@@ -299,7 +299,19 @@ internal class Sentences(
     }
 
     /** The instructions of an instant or sorcery (CR 113.3a). */
-    private fun spell(line: String): Ability? = if (isSpell) instructions(line)?.let { Ability.Spell(it) } else null
+    private fun spell(line: String): Ability? = if (isSpell) instructions(line)?.let { Ability.Spell(otherThanTheTarget(it)) } else null
+
+    /** hob backfill: in a spell with one object target, "put a counter on each other creature you control" is other than
+     * that target ("Put a +1/+1 counter on target creature you control. If …, also put a +1/+1 counter on each other
+     * creature you control."); "other" can't mean other than the spell, which is never on the battlefield. */
+    private fun otherThanTheTarget(instructions: Instructions): Instructions {
+        val slot = instructions.targets.singleOrNull()?.takeIf { it.what is arcanum.api.TargetKind.Objects } ?: return instructions
+        fun read(step: Step): Step = when (step) {
+            is Step.If -> step.copy(then = step.then.map { read(it) }, otherwise = step.otherwise.map { read(it) })
+            else -> otherThanTarget(step, Objects.Target(slot.name))
+        }
+        return instructions.copy(steps = instructions.steps.map { read(it) })
+    }
 
     /** "As this land enters, you may pay 2 life. If you don't, it enters tapped." (CR 614.12, 118.12a) */
     private fun static(line: String): Ability? {
@@ -10484,6 +10496,17 @@ internal class Sentences(
         return null
     }
 
+    /** [step] putting counters on "each other …" with "other" read as other than [target] rather than this object. */
+    private fun otherThanTarget(step: Step, target: Objects): Step {
+        val effect = (step as? Step.Do)?.effect as? Effect.PutCounters ?: return step
+        val each = effect.objects as? Objects.Each ?: return step
+        val and = each.filter as? ObjectFilter.And ?: return step
+        val self = ObjectFilter.Not(ObjectFilter.Is(Objects.Self))
+        if (self !in and.all) return step
+        val filter = ObjectFilter.And(and.all.map { if (it == self) ObjectFilter.Not(ObjectFilter.Is(target)) else it })
+        return Step.Do(effect.copy(objects = Objects.Each(filter)))
+    }
+
     /** hob: sentences that change the steps before them, tried first in [modify]. */
     private fun hobModify(sentence: String, steps: List<Step>, context: Context): List<Step>? {
         // hob chunk 02: "Counter target spell. If that spell's mana value was 2 or less, recruit." (the countered spell as it last existed)
@@ -13724,7 +13747,9 @@ internal class Sentences(
         val options = modeLines.map { line ->
             val t = Regex("""Target (.+)\.""").matchEntire(line) ?: return null
             val noun = t.groupValues[1]
-            val name = Filters.slotName(noun)
+            // msh backfill: each mode's own slot ("artifact card", "creature card"), so the step after the modes reads every
+            // chosen target (one shared name kept only the first mode's)
+            val name = noun
             names += name
             arcanum.api.Mode(Instructions(targets = listOf(mshSlot(name, mshTargetYourGraveyard(noun) ?: return null))), text = line)
         }

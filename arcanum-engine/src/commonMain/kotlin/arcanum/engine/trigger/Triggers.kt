@@ -65,7 +65,10 @@ internal object Triggers {
     fun detect(recorder: Recorder, whole: Change, before: GameState?, viewBefore: View? = null) {
         if (whole is Change.TriggersWaiting || whole is Change.DelayedTriggerRemoved || whole is Change.DelayedTriggerAdded) return
         val state = recorder.state
-        val now = Engine.view(state)
+        var now = Engine.view(state)
+        // hob backfill: storied gives its designation any time its condition holds, and continuous effects apply again
+        // before triggers are looked for (CR 702.195a, c): an event that completes the condition already sees it
+        if (grantDesignations(recorder, now)) now = Engine.view(state)
         // fra: objects whose entering doesn't cause abilities to trigger (CR 603.2): the event without them
         val change = withoutMuted(state, now, whole) ?: return
         val found = mutableListOf<WaitingTrigger>()
@@ -358,6 +361,17 @@ internal object Triggers {
             kept.isEmpty() -> null
             else -> change.copy(moves = kept)
         }
+    }
+
+    /** Records the designations [Mechanic.GetsDesignation] gives players who don't have them yet (storied, CR 702.195a);
+     * true when one was given. */
+    private fun grantDesignations(recorder: Recorder, view: View): Boolean {
+        val missing = recorder.state.players.filter { !it.lost }.flatMap { p ->
+            view.players[p.id]?.mechanics.orEmpty().mapNotNull { (it.mechanic as? Mechanic.GetsDesignation)?.designation }.distinct()
+                .filter { it !in p.designations }.map { p.id to it }
+        }
+        missing.forEach { (player, designation) -> recorder.record(Change.PlayerDesignation(player, designation, before = false, after = true)) }
+        return missing.isNotEmpty()
     }
 
     /** "Triggers an additional time" (CR 603.2d). */

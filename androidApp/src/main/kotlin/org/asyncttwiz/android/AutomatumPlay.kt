@@ -24,13 +24,17 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.asyncttwiz.protocol.*
 
-/** I-D46 (b): how long a refusal's shake runs. */
-internal const val SHAKE_MILLIS = 300
+/** I-D46 (b): how long a refusal's shake runs (owner, playtest 2026-11-03: short and subtle). */
+internal const val SHAKE_MILLIS = 160
 
-/** I-D46 (b): a small horizontal shake (dp offsets), for a card, pile or control Automatum doesn't allow. */
+/** I-D46 (b): the shake's sideways offsets in dp, evenly spaced before it settles back at 0. */
+internal val SHAKE_OFFSETS = listOf(3f, -2f, 1f)
+
+/** I-D46 (b): a small horizontal shake (dp offsets), for a card, pile or control Automatum doesn't allow; the one spec
+ * every shake uses (the table's items and the controls, [shaken]). */
 internal fun shakeKeyframes(): KeyframesSpec<Float> = keyframes {
     durationMillis = SHAKE_MILLIS
-    for ((n, at) in listOf(4f, -4f, 3f, -2f, 1f).withIndex()) at at (n + 1) * SHAKE_MILLIS / 6
+    for ((n, at) in SHAKE_OFFSETS.withIndex()) at at (n + 1) * SHAKE_MILLIS / (SHAKE_OFFSETS.size + 1)
 }
 
 /** Shakes the element each time [shakes] goes up (I-D46: a refused control says why on hold, never by a message). */

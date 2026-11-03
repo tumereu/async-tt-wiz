@@ -395,6 +395,22 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
             val mana = Costs.expand(m.change, e)
             if (m.change is CostChange.More) increases += mana else reductions += mana to m.minimum
         }
+        // tmt backfill: "the next noncreature spell you cast this turn has affinity for artifacts": a keyword an effect
+        // grants the next spells whose meaning changes the spell's cost applies as that spell is cast (CR 601.2f, 611.2f)
+        snap.state.effects.values.filter { it.affects is arcanum.api.Affected.NextSpells }.forEach { effect ->
+            val granted = effect.mechanics.filterIsInstance<Mechanic.GainAbilities>().flatMap { it.abilities }
+            if (granted.isEmpty()) return@forEach
+            val e = snap.evaluator(effect.controller, self = effect.source, names = effect.names)
+            if (!NextSpells.appliesTo(snap.state, effect.id, e, itemId)) return@forEach
+            val own = snap.evaluator(player, self = itemId)
+            granted.flatMap { a -> (a as? Keyword)?.let { arcanum.api.KeywordExpansions.expand(it) } ?: listOf(a) }
+                .filterIsInstance<Ability.Static>().flatMap { it.mechanics }.filterIsInstance<Mechanic.CostChange>()
+                .filter { own.matches(it.what, itemId) }
+                .forEach { cc ->
+                    val mana = Costs.expand(cc.change, own)
+                    if (cc.change is CostChange.More) increases += mana else reductions += mana to cc.minimum
+                }
+        }
         // eoe: "Each spell cast this way costs {1} more to cast" (the permission it is cast with, CR 601.2f)
         permission?.first?.costChange?.let { ch ->
             val mana = Costs.expand(ch, eval)

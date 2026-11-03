@@ -1543,6 +1543,8 @@ internal class Sentences(
         if (event is EventPattern.Damage && event.source != ObjectFilter.Is(Objects.Self) && event.to.objects == null) context.it = Objects.EventObject(EventRole.Source)
         // gtc chunk 07: "When this creature deals combat damage, return it to its owner's hand": it is this creature
         if (event is EventPattern.Damage && event.source == ObjectFilter.Is(Objects.Self) && event.to == RecipientFilter()) context.it = Objects.Self
+        // spm chunk 02: "Whenever this creature deals combat damage to a player, he connives": the player isn't an object, "it" is this creature
+        if (event is EventPattern.Damage && event.source == ObjectFilter.Is(Objects.Self) && event.to.objects == null && event.to.players != null) context.it = Objects.Self
         // chunk 36: "Whenever this creature attacks, put a +1/+1 counter on it": it is this creature
         if (event is EventPattern.Attack && event.attacker == ObjectFilter.Is(Objects.Self)) context.it = Objects.Self
         context.them = them

@@ -142,6 +142,10 @@ internal object Legality {
             if (faceMatches(filter, face) == false) return "that permission doesn't let it be cast as ${face.name}"
         }
         if (way.alternative != null && alternative(snap, card, way, player) == null) return "no such alternative cost, or its condition isn't met"
+        // tmt: a permission to cast only by an alternative cost ("using their sneak abilities", "using its bestow ability")
+        (permission?.second?.mechanic as? Mechanic.MayPlay)?.viaAlternative?.let { via ->
+            if (alternative(snap, card, way, player)?.second?.keyword != via) return "only by its ${via.text.lowercase()} cost"
+        }
         // msh: sneak (CR 702.190a): only during the caster's declare blockers step, then as though it had flash
         val during = alternative(snap, card, way, player)?.second?.duringYour
         if (during != null && (snap.state.turn.active != player || snap.state.turn.step != during)) return "only during your $during step (CR 702.190a)"

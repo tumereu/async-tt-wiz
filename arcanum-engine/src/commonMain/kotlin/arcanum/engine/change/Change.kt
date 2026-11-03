@@ -485,6 +485,9 @@ sealed interface Meaning {
     @Serializable @SerialName("paid-for") data class PaidFor(
         @Serializable(with = arcanum.api.KeywordKindSerializer::class) val keyword: arcanum.api.KeywordKind,
     ) : Meaning
+    // tmt
+    /** Tapped to pay the cost of [vehicle]'s crew ability: it crewed that Vehicle (CR 702.122b, c). */
+    @Serializable @SerialName("crewed") data class Crewed(val vehicle: ObjectId) : Meaning
     @Serializable @SerialName("priority-passed") data object PriorityPassed : Meaning
     @Serializable @SerialName("priority-granted") data object PriorityGranted : Meaning
     @Serializable @SerialName("turn-began") data object TurnBegan : Meaning

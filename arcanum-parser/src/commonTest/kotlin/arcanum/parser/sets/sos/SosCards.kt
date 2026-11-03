@@ -221,6 +221,8 @@ val x: Value = Value.Announced(name = "X")
 /** "When you do, …" (CR 603.12) */
 fun reflexive(vararg steps: Step, targets: List<TargetSlot> = emptyList()): Step =
     Step.Do(Effect.ReflexiveTrigger(Instructions(targets = targets, steps = steps.toList())))
+/** "Whenever one or more cards leave your graveyard" (CR 603.10a: looks back in time; one trigger for cards leaving together) */
+val leaveYourGraveyard: Trigger = Trigger.On(EventPattern.ZoneChange(and(cardFilter, ObjectFilter.OwnedBy(PlayerFilter.You)), from = Zone.Graveyard), oneOrMore = true)
 /** Counters put "by you": by your spells and abilities */
 val byYou: ObjectFilter = ObjectFilter.ControlledBy(PlayerFilter.You)
 /** "This land enters tapped." */

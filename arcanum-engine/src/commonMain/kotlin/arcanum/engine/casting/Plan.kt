@@ -410,6 +410,8 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
                         is CostPart.Sacrifice -> listOf(part.preBind, part.postBind)
                         is CostPart.Discard -> listOf(part.preBind, part.postBind)
                         is CostPart.ReturnToHand -> listOf(part.preBind, part.postBind)
+                        // CR 702.180a: the creature tapped for harmonize
+                        is CostPart.TapObjects -> listOf(part.bind)
                         else -> emptyList()
                     }
                     bindNames.filterNotNull().forEach { b = b.with(it, ids) }

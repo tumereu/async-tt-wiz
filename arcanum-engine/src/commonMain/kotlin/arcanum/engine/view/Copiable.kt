@@ -58,6 +58,9 @@ internal class Copiable(private val state: GameState, val reads: ViewReads = Vie
             definition.layout == Layout.Split && (o.zone != Zone.Stack || o.facts.fused) -> definition.faces.mapIndexed { i, f -> IndexedFace(i, f) }
             else -> listOfNotNull(definition.faces.getOrNull(o.face)?.let { IndexedFace(o.face, it) })
         }
+        // CR 718.3: cast prototyped, on the Stack and the battlefield its mana cost, colour, power and toughness are its prototype's
+        if (o.facts.alternative?.keyword == arcanum.api.Keyword.Prototype.Kind && (o.zone == Zone.Stack || o.zone == Zone.Battlefield))
+            faces = faces.map { IndexedFace(it.index, prototyped(it.face)) }
         // CR 613.2a, 707.2: copy effects in timestamp order
         copyEffectsOn(id).forEach { (effect, copy) ->
             val copied = effect.copied?.let { listOf(IndexedFace(0, it)) } ?: copiedFaces(effect, copy, visiting)
@@ -85,6 +88,13 @@ internal class Copiable(private val state: GameState, val reads: ViewReads = Vie
         val FACE_DOWN = FaceDefinition(
             name = "", types = listOf(CardType.Creature), power = PrintedNumber.Fixed(2), toughness = PrintedNumber.Fixed(2),
         )
+
+        /** CR 718.3b: [face] with its prototype's mana cost, power and toughness, and the colour of that mana cost (CR 202.2). */
+        fun prototyped(face: FaceDefinition): FaceDefinition {
+            val p = face.abilities.filterIsInstance<arcanum.api.Keyword.Prototype>().firstOrNull() ?: return face
+            val cost = p.cost.parts.filterIsInstance<arcanum.api.CostPart.Mana>().firstOrNull()?.cost ?: return face
+            return face.copy(manaCost = cost, colorIndicator = null, power = PrintedNumber.Fixed(p.power), toughness = PrintedNumber.Fixed(p.toughness))
+        }
 
         /** CR 702.168a, 701.58a: a disguised or cloaked face-down object is a 2/2 creature with ward {2}. */
         val FACE_DOWN_WARD = FACE_DOWN.copy(abilities = listOf(arcanum.api.Keyword.Ward(arcanum.api.Cost.mana(arcanum.api.ManaCost.parse("{2}")!!))))

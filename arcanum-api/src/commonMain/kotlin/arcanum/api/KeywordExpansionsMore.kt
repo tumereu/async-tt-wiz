@@ -328,8 +328,49 @@ internal object KeywordExpansionsMore {
             Step.May(listOf(
                 Step.Modify(Modification.EntersWithCounters(CounterKind.PowerToughness(1, 1), Value.Fixed(keyword.amount))),
                 Step.Modify(Modification.EntersMarked(TRIBUTE_PAID))), player = Players.Bound("tribute-opponent"))))))), affects = self))
+        // CR 702.119a, c: "You may cast this spell by paying [cost] and sacrificing a creature rather than paying its mana cost" and "If
+        // you chose to pay this spell's emerge cost, its total cost is reduced by an amount of generic mana equal to the sacrificed
+        // creature's mana value." (the spell's own reduction reads the creature chosen for the cost, CR 601.2f)
+        is Keyword.Emerge -> listOf(
+            alternative(Keyword.Emerge.Kind, Cost(keyword.cost.parts + CostPart.Sacrifice(CostObjects.Choose(ObjectFilter.And(listOf(
+                ObjectFilter.Type(CardType.Creature), ObjectFilter.ControlledBy(PlayerFilter.You))), Value.Fixed(1)), preBind = EMERGED))),
+            Ability.Static(listOf(Mechanic.CostChange(ObjectFilter.Is(Objects.Self), CostChange.Less(ManaCost(listOf(ManaSymbol.Generic(1))),
+                Value.Of(NumericProperty.ManaValue, Objects.Bound(EMERGED), Combine.Total)))), affects = self))
+        // CR 702.180a, b: "You may cast this card from your graveyard by paying [cost] and tapping up to one untapped creature you control
+        // rather than paying this spell's mana cost," "If you cast this spell using its harmonize ability, its total cost is reduced by an
+        // amount of generic mana equal to the tapped creature's power," and "If the harmonize cost was paid, exile this card instead of
+        // putting it anywhere else any time it would leave the stack."
+        is Keyword.Harmonize -> listOf(
+            Ability.Static(listOf(Mechanic.MayPlay(Zone.Graveyard, PlayKind.Cast, cost = keyword.cost, then = Destination(Zone.Exile), holder = PlayerFilter.You,
+                additionalCost = Cost(listOf(CostPart.TapObjects(CostObjects.Choose(ObjectFilter.And(listOf(ObjectFilter.Type(CardType.Creature),
+                    ObjectFilter.ControlledBy(PlayerFilter.You), ObjectFilter.Not(ObjectFilter.HasStatus(Status.Tapped)))), Value.Fixed(1), upTo = true),
+                    bind = HARMONIZED))))), affects = self),
+            Ability.Static(listOf(Mechanic.CostChange(ObjectFilter.Is(Objects.Self), CostChange.Less(ManaCost(listOf(ManaSymbol.Generic(1))),
+                Value.Of(NumericProperty.Power, Objects.Bound(HARMONIZED), Combine.Total)))), affects = self))
+        // CR 702.160a, 718.3: cast prototyped for its prototype cost, with that mana cost, power and toughness as it is on the Stack and the
+        // battlefield (the engine's copiable values of a spell cast this way)
+        is Keyword.Prototype -> listOf(alternative(Keyword.Prototype.Kind, keyword.cost))
+        // CR 702.127a: "You may cast this half of this split card from your graveyard," "This half of this split card can't be cast from any
+        // zone other than a graveyard," and "If this spell was cast from a graveyard, exile it instead of putting it anywhere else any time
+        // it would leave the stack." (the engine keeps each half to its zone)
+        Keyword.Aftermath -> listOf(Ability.Static(listOf(Mechanic.MayPlay(Zone.Graveyard, PlayKind.Cast, then = Destination(Zone.Exile),
+            holder = PlayerFilter.You)), affects = self))
+        // CR 702.60a: "When you cast this spell, you may reveal the top N cards of your library … you may cast any of those cards with the
+        // same name as this spell without paying their mana costs, then put all revealed cards not cast this way on the bottom of your
+        // library in any order."
+        is Keyword.Ripple -> listOf(Ability.Triggered(castSelf, Instructions(steps = listOf(Step.May(listOf(
+            Step.Do(Effect.Reveal(Objects.LibraryCards(Players.You, Value.Fixed(keyword.amount), fromTop = true), bind = "rippled")),
+            Step.Choose(Choice.Objects(ObjectFilter.SameNameAs(Objects.Self), Value.Fixed(0), null, from = Objects.Bound("rippled")), bind = "ripple-same",
+                chooser = Players.You),
+            Step.ForEach(Each.Objects(Objects.Bound("ripple-same")), "ripple-one", listOf(
+                Step.Do(Effect.Cast(Objects.Bound("ripple-one"), PlayKind.Cast, withoutPaying = true, caster = Players.You)))),
+            Step.Do(Effect.Move(Objects.Where(Objects.Bound("rippled"), ObjectFilter.InZone(Zone.Library)),
+                Destination(Zone.Library, libraryPosition = -1)))), player = Players.You)))))
         else -> null
     }
+
+    private const val EMERGED = "emerged"
+    private const val HARMONIZED = "harmonized"
 
     /** A creature whose tribute was paid (CR 702.104b). */
     val TRIBUTE_PAID: ObjectMark = ObjectMark.Named("tribute paid")

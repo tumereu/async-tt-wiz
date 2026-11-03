@@ -471,19 +471,19 @@ class Review2KeywordsTest {
         expect { alice.battlefield has embalmed }
     }
 
-    /** Harmonize (casting from the graveyard) comes up as the card is put into the graveyard. */
-    // CR 702.180a, D61
+    /** Harmonize (by hand before): once in the graveyard, the card may be cast from there for its harmonize cost. */
+    // CR 702.180a
     @Test
-    fun harmonizeIsDoneByHandAsItReachesTheGraveyard() = scenario {
+    fun harmonizeCastsFromTheGraveyard() = scenario {
         val chorus = Cards.invent("Review Echoing Chorus", "{1}{G}", "Sorcery", "Draw a card.\nHarmonize {3}{G}")
-        alice.battlefield("Forest", "Forest")
+        alice.battlefield("Forest", "Forest", "Forest", "Forest", "Forest", "Forest")
         alice.hand(chorus)
         alice.library("Island")
         alice.casts(chorus)
         allPass()
         expect { alice.graveyard has chorus }
-        allPass()
-        assertTrue(decision<Decision.Manual>().text.startsWith("Harmonize"))
+        assertTrue(pending == null)
+        assertTrue(Engine.options(state, alice.id).any { it is Input.Cast && it.card == card(chorus) })
     }
 
     /** Miracle comes up as the card is drawn: its controller may cast it for the miracle cost (sos: no longer by hand). */

@@ -145,6 +145,12 @@ internal object Legality {
                 ?: snap.evaluator(applied.controller, self = applied.source, names = applied.names, holder = player).matches(filter, card)
             if (!matches) return "that permission doesn't let it be cast as ${face.name}"
         }
+        // CR 702.127a: an aftermath half is cast only from a graveyard, and its permission is for that half only
+        val aftermathHalf = face.abilities.any { it == Keyword.Aftermath }
+        if (aftermathHalf && o.zone != Zone.Graveyard) return "that half is cast only from a graveyard (CR 702.127a)"
+        val byAftermath = (permission?.second?.origin as? AbilityOrigin.Expansion)?.let { e ->
+            chars?.abilities.orEmpty().firstOrNull { it.origin == e.keyword }?.ability == Keyword.Aftermath } == true
+        if (byAftermath && !aftermathHalf) return "only the aftermath half is cast from a graveyard (CR 702.127a)"
         if (way.alternative != null && alternative(snap, card, way, player) == null) return "no such alternative cost, or its condition isn't met"
         // tmt: a permission to cast only by an alternative cost ("using their sneak abilities", "using its bestow ability")
         (permission?.second?.mechanic as? Mechanic.MayPlay)?.viaAlternative?.let { via ->

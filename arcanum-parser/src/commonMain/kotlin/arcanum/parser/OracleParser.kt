@@ -135,6 +135,25 @@ object OracleParser {
                 raws += printed
                 continue
             }
+            // CR 702.172a, 702.183a: spree's and tiered's "+ [cost] — [effect]" lines: modes whose costs are additional costs of the spell
+            // when chosen ([arcanum.api.Mode.extraCost]); spree chooses one or more, tiered exactly one
+            if (isSpell && COST_MODE.matches(line)) {
+                val modeLines = mutableListOf(line)
+                while (i < lines.size && COST_MODE.matches(REMINDER.replace(lines[i], "").trim())) modeLines += REMINDER.replace(lines[i++], "").trim()
+                val tiered = result.any { it == Keyword.Tiered }
+                val options = modeLines.map { ml ->
+                    val m = COST_MODE.matchEntire(ml)!!
+                    val cost = ManaCost.parse(m.groupValues[1])
+                    val instructions = sentences.instructions(m.groupValues[2].replaceFirstChar { it.uppercase() })
+                    if (cost == null || instructions == null) null else arcanum.api.Mode(instructions, extraCost = Cost.mana(cost), text = ml)
+                }
+                val printed = modeLines.joinToString("\n")
+                result += if (options.all { it != null } && (tiered || result.any { it == Keyword.Spree })) Ability.Spell(arcanum.api.Instructions(
+                    modes = arcanum.api.Modes(options.filterNotNull(), min = 1, max = if (tiered) 1 else options.size, chooser = arcanum.api.Players.You)))
+                    else Ability.Unparsed(printed)
+                raws += printed
+                continue
+            }
             // chunk 55: a leveler band (CR 711.2a, b): "LEVEL N1-N2" or "LEVEL N3+", its P/T box and the abilities printed
             // with it, up to the next band. A band with an unread line stays printed text as a whole.
             if (LEVEL_BAND.matches(line)) {
@@ -330,6 +349,8 @@ object OracleParser {
      */
     private fun keywordLine(line: String): List<Ability>? {
         if (line.isEmpty() || (line.endsWith(".") && !line.contains('—'))) return null
+        // CR 702.124j: "Partner with [name]", a name that may have a comma, alone on its line
+        PARTNER_WITH.matchEntire(line)?.let { return listOf(Keyword.PartnerWith(it.groupValues[1])) }
         // A keyword with an em-dash cost ("Flashback—{1}{U}, Pay 3 life.") is alone on its line; its commas are the cost's.
         val parts = when {
             line.contains("; ") -> line.split("; ")
@@ -465,6 +486,9 @@ object OracleParser {
     /** Longest names first, so "Double strike" or "Multikicker" is never read as a shorter name. */
     private val BY_LENGTH = KeywordSyntax.all.sortedByDescending { it.lowercase.length }
     private val LEVEL_BAND = Regex("""LEVEL (\d+)(?:-(\d+)|\+)""")
+    /** A spree or tiered mode (CR 702.172a, 702.183a): "+ {1} — Counter target spell." */
+    private val COST_MODE = Regex("""\+ ((?:\{[^}]+\})+) — (.+)""")
+    private val PARTNER_WITH = Regex("""Partner with (.+)""")
     private val CHOOSE = Regex("""Choose (one|two|three|four)( or more| or both)?(?: —|\. You may choose the same mode more than once\.)""")
     private val FLASHBACK_COST = Regex("""Flashback—(.+?)\.?""")
     private val SPLICE = Regex("""Splice onto (\w+) (\{.+\})""")

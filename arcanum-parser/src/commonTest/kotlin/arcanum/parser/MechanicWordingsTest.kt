@@ -137,4 +137,109 @@ class MechanicWordingsTest {
         Ability.Static(listOf(Mechanic.GainAbilities(listOf(Ability.Activated(arcanum.api.Cost.mana(arcanum.api.ManaCost.parse("{2}{U}")!!),
             Instructions(steps = listOf(Step.Do(Effect.Untap(Objects.Self)))), arcanum.api.ActivationRules(arcanum.api.Timing.Any, PlayerFilter.You)
             )))), pair, condition = paired))
+
+    // ---- Spree, tiered, partner with, bargain, tribute, disturb
+
+    private fun mana(text: String) = arcanum.api.Cost.mana(arcanum.api.ManaCost.parse(text)!!)
+    private val counterTarget = Instructions(targets = listOf(TargetSlot("spell", TargetKind.Objects(ObjectFilter.Category(arcanum.api.ObjectCategory.Spell)),
+        Value.Fixed(1), Value.Fixed(1))), steps = listOf(Step.Do(Effect.Counter(Objects.Target("spell")))))
+
+    // CR 702.172a: "+ [cost] — [effect]" modes, one or more, each cost an additional cost when chosen
+    @Test
+    fun spreeModes() = card(
+        name = "Quick Getaway",
+        cost = "{U}",
+        type = "Instant",
+        text = """
+            Spree (Choose one or more additional costs.)
+            + {1}{U} — Counter target spell.
+            + {2} — Draw two cards, then discard a card.
+        """,
+    ) parsesTo abilities(arcanum.api.Keyword.Spree, Ability.Spell(Instructions(modes = arcanum.api.Modes(listOf(
+        arcanum.api.Mode(counterTarget, extraCost = mana("{1}{U}")),
+        arcanum.api.Mode(Instructions(steps = listOf(drawCards(2),
+            Step.Do(Effect.Discard(arcanum.api.Players.You, Value.Fixed(1), ObjectFilter.Any)))), extraCost = mana("{2}"))),
+        min = 1, max = 2, chooser = arcanum.api.Players.You))))
+
+    // CR 702.183a: tiered chooses exactly one
+    @Test
+    fun tieredModes() = card(
+        name = "Graded Insight",
+        cost = "{U}",
+        type = "Sorcery",
+        text = """
+            Tiered (Choose one additional cost.)
+            + {0} — Draw a card.
+            + {2} — Draw two cards.
+        """,
+    ) parsesTo abilities(arcanum.api.Keyword.Tiered, Ability.Spell(Instructions(modes = arcanum.api.Modes(listOf(
+        arcanum.api.Mode(Instructions(steps = listOf(drawCards(1))), extraCost = mana("{0}")),
+        arcanum.api.Mode(Instructions(steps = listOf(drawCards(2))), extraCost = mana("{2}"))),
+        min = 1, max = 1, chooser = arcanum.api.Players.You))))
+
+    // CR 702.124j: "Partner with [name]", the name with a comma
+    @Test
+    fun partnerWith() = card(
+        name = "Ledger Twin",
+        cost = "{2}{U}",
+        type = "Legendary Creature — Human Wizard",
+        pt = "2/2",
+        text = "Partner with Okto, Eye of Ledgers (When this creature enters, target player may put Okto into their hand from their library, then shuffle.)",
+    ) parsesTo abilities(arcanum.api.Keyword.PartnerWith("Okto, Eye of Ledgers"))
+
+    // CR 702.166b: "If this spell was bargained"
+    @Test
+    fun ifBargained() = card(
+        name = "Bargained Vigor",
+        cost = "{1}{G}",
+        type = "Instant",
+        text = """
+            Bargain (You may sacrifice an artifact, enchantment, or token as you cast this spell.)
+            Draw a card. If this spell was bargained, draw two cards.
+        """,
+    ) parsesTo abilities(arcanum.api.Keyword.Bargain, Ability.Spell(Instructions(steps = listOf(drawCards(1),
+        Step.If(Condition.Paid(arcanum.api.Keyword.Bargain, times = 1, of = Objects.Self), listOf(drawCards(2)))))))
+
+    // CR 702.166b: a permanent's "if it was bargained"
+    @Test
+    fun ifItWasBargained() = card(
+        name = "Bargained Courtier",
+        cost = "{2}{B}",
+        type = "Creature — Human Noble",
+        pt = "2/2",
+        text = """
+            Bargain (You may sacrifice an artifact, enchantment, or token as you cast this spell.)
+            When this creature enters, if it was bargained, draw a card.
+        """,
+    ) parsesTo abilities(arcanum.api.Keyword.Bargain, whenThisEnters(drawCards(1),
+        interveningIf = Condition.Paid(arcanum.api.Keyword.Bargain, times = 1, of = Objects.Self)))
+
+    // CR 702.104b: "if tribute wasn't paid"
+    @Test
+    fun tributeWasntPaid() = card(
+        name = "Tithe Brute",
+        cost = "{3}{R}",
+        type = "Creature — Minotaur",
+        pt = "3/3",
+        text = """
+            Tribute 2 (As this creature enters, an opponent of your choice may put two +1/+1 counters on it.)
+            When this creature enters, if tribute wasn't paid, you gain 4 life.
+        """,
+    ) parsesTo abilities(arcanum.api.Keyword.Tribute(2), whenThisEnters(Step.Do(Effect.GainLife(arcanum.api.Players.You, Value.Fixed(4))),
+        interveningIf = Condition.Not(Condition.ObjectMatches(Objects.Self, ObjectFilter.HasStatus(Status.Marked(arcanum.api.KeywordExpansions.TRIBUTE_PAID))))))
+
+    // CR 702.146b, 614.1a: a disturb back face's "If [this] would be put into a graveyard from anywhere, exile it instead."
+    @Test
+    fun exileItInstead() = card(
+        name = "Lingering Shade",
+        cost = null,
+        type = "Creature — Spirit",
+        pt = "2/2",
+        colorIndicator = "W",
+        text = """
+            Flying
+            If Lingering Shade would be put into a graveyard from anywhere, exile it instead.
+        """,
+    ) parsesTo abilities(arcanum.api.Keyword.Flying, Ability.Static(listOf(Mechanic.Replacement(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self),
+        to = Zone.Graveyard), modify = listOf(arcanum.api.Modification.ChangeDestination(arcanum.api.Destination(Zone.Exile))))), Affected.Objects(Objects.Self)))
 }

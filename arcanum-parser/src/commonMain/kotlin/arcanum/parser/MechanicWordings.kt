@@ -27,6 +27,8 @@ internal object MechanicWordings {
         ObjectFilter.ControlledBy(PlayerFilter.You)))
 
     private val IS_YOUR_RING_BEARER = Regex("""(.+) is your Ring-bearer""")
+    private val WAS_BARGAINED = Regex("""(.+) was bargained""")
+    private val SELF_TO_GRAVEYARD_EXILE_INSTEAD = Regex("""If (.+) would be put into a graveyard from anywhere, exile it instead\.""")
     private val CHOSE_OTHER_RING_BEARER = Regex("""you chose a creature other than (.+) as your Ring-bearer""")
 
     /** Trigger events ("the Ring tempts you"). */
@@ -46,6 +48,13 @@ internal object MechanicWordings {
         CHOSE_OTHER_RING_BEARER.matchEntire(text)?.takeIf { isSelf(it.groupValues[1], self) }?.let {
             return Condition.ObjectMatches(Objects.EventObject(EventRole.Object), ObjectFilter.Not(ObjectFilter.Is(Objects.Self)))
         }
+        // CR 702.166b: "if this spell was bargained", "if it was bargained" (a permanent's enters trigger)
+        WAS_BARGAINED.matchEntire(text)?.takeIf { it.groupValues[1] == "it" || it.groupValues[1] == "this spell" || isSelf(it.groupValues[1], self) }?.let {
+            return Condition.Paid(Keyword.Bargain, times = 1, of = Objects.Self)
+        }
+        // CR 702.104b: "if tribute wasn't paid" (the opponent chose not to put the counters on it)
+        if (text == "tribute wasn't paid")
+            return Condition.Not(Condition.ObjectMatches(Objects.Self, ObjectFilter.HasStatus(Status.Marked(arcanum.api.KeywordExpansions.TRIBUTE_PAID))))
         if (text == "you don't control a Ring-bearer") return Condition.Not(Condition.Exists(yourRingBearer, 1))
         if (text == "you control a Ring-bearer") return Condition.Exists(yourRingBearer, 1)
         return null
@@ -68,6 +77,11 @@ internal object MechanicWordings {
      * it is paired. [isSelf] says whether a name is this object's; [keyword] reads one keyword, [granted] a quoted ability.
      */
     fun static(line: String, isSelf: (String) -> Boolean, keyword: (String) -> Keyword?, granted: (String) -> Ability?): Ability? {
+        // CR 614.1a: "If [this] would be put into a graveyard from anywhere, exile it instead." (a disturb back face, CR 702.146b)
+        SELF_TO_GRAVEYARD_EXILE_INSTEAD.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let {
+            return Ability.Static(listOf(Mechanic.Replacement(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), to = arcanum.api.Zone.Graveyard),
+                modify = listOf(arcanum.api.Modification.ChangeDestination(arcanum.api.Destination(arcanum.api.Zone.Exile))))), affects = Affected.Objects(Objects.Self))
+        }
         val m = PAIRED.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) } ?: return null
         val what = m.groupValues[3]
         val quoted = QUOTED.matchEntire(what)

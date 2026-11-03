@@ -147,6 +147,10 @@ sealed interface ObjectMark {
     /** Harnessed (CR 701.64b): a permanent stays harnessed until it leaves the battlefield; its ∞ abilities work only then
      * ([AbilityLabel.Infinity], CR 702.186b). Set with [Effect.Mark] ("Harness [this permanent]", 701.64a). */
     @Serializable @SerialName("harnessed") data object Harnessed : ObjectMark
+    // eoe
+    /** A warped card in exile (CR 702.185b): exiled by the delayed triggered ability a warp ability created (its owner may cast
+     * it after that turn). Set with [Effect.Mark] on the exiled card. */
+    @Serializable @SerialName("warped") data object Warped : ObjectMark
     /** A foretold card (CR 702.143a, c): exiled face down by its foretell special action; its owner may look at it and cast it
      * for its foretell cost after the turn it was foretold. Set by the engine. */
     @Serializable @SerialName("foretold") data object Foretold : ObjectMark

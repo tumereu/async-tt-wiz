@@ -821,7 +821,7 @@ internal object Actions {
      */
     fun draw(act: Act, cause: Cause?, player: PlayerId, count: Int): Map<ObjectId, ObjectId> {
         val drawn = LinkedHashMap<ObjectId, ObjectId>()
-        repeat(count) {
+        repeat(drawCount(act, cause, player, count)) {
             val max = act.view().players[player]?.mechanics.orEmpty().mapNotNull { (it.mechanic as? Mechanic.MaxDrawsPerTurn)?.count }.minOrNull()
             if (max != null && drawsThisTurn(act, player) >= max) return drawn
             val top = act.state.player(player).library.firstOrNull()
@@ -834,6 +834,22 @@ internal object Actions {
             drawn += move(act, cause, listOf(PlannedMove(top, Zone.Hand, meanings = listOf(Meaning.Drew))))
         }
         return drawn
+    }
+
+    /** eoe: replacements that refer to the number of cards drawn ("you draw that many cards plus one instead") modify an instruction to
+     * draw before its individual draws (CR 121.2a, 616.1g). */
+    private fun drawCount(act: Act, cause: Cause?, player: PlayerId, count: Int): Int {
+        if (count <= 0) return count
+        var n = count
+        Replacements.candidates(act, cause).forEach { r ->
+            val pattern = r.mechanic.event as? arcanum.api.EventPattern.Draw ?: return@forEach
+            if (r.mechanic.modify.isEmpty() || r.mechanic.instead != null ||
+                r.mechanic.modify.any { it !is Modification.AddAmount && it !is Modification.MultiplyAmount }) return@forEach
+            val e = Evaluator(act.board(), Context(you = r.controller, self = r.source, names = r.names))
+            if (!e.matches(pattern.players, player)) return@forEach
+            n = modifyAmount(act, n, r) ?: n
+        }
+        return n
     }
 
     private fun drawsThisTurn(act: Act, player: PlayerId): Int = act.state.eventsOf(act.state.turn.number).count { c ->

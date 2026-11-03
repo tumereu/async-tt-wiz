@@ -222,6 +222,9 @@ sealed interface Mechanic {
     /** With negative power, assigns combat damage as though its power were positive: as much as its power below 0 ("If
      * Loot's power is negative, he assigns combat damage as though his power were positive", CR 510.1a otherwise: none). */
     @Serializable @SerialName("damage-as-though-power-positive") data object AssignsDamageAsThoughPowerPositive : Mechanic
+    // eoe
+    /** Stations permanents using its toughness rather than its power (CR 702.184c): what [NumericProperty.Stationing] reads. */
+    @Serializable @SerialName("stations-with-toughness") data object StationsWithToughness : Mechanic
 
     // ---- Permissions, costs and casting (CR 601, 117, 118) ----
     /** May be cast (or activated) at any time it could cast an instant (flash, CR 702.8): the affected objects. */
@@ -264,6 +267,11 @@ sealed interface Mechanic {
         // hob
         /** The permission can be used only while this holds ("you may play them if you control a Wizard"). */
         val condition: Condition? = null,
+        // eoe
+        /** A spell cast with this permission costs more or less ("Each spell cast this way costs {1} more to cast", CR 601.2f). */
+        val costChange: arcanum.api.CostChange? = null,
+        /** A land played with this permission enters tapped ("Each land played this way enters tapped", CR 614.1c). */
+        val landsEnterTapped: Boolean = false,
     ) : Mechanic
     /** "You may pay [cost] rather than pay this spell's mana cost" (CR 118.9). [faceDown]: cast face down as a 2/2 for
      * {3} (morph, disguise, CR 702.37c); the keyword's own cost is paid in the special action that turns it face up.
@@ -273,11 +281,15 @@ sealed interface Mechanic {
      * `WasCast(Zone.Exile)`. [perTurn]: that player may use it only that many times each turn ("Once each turn, you may
      * pay {0} rather than pay the mana cost for a spell you cast from exile"), counted on the ability's object.
      * [duringYour] (msh, sneak, CR 702.190a): used only during that step of the caster's turn, any time they could cast
-     * an instant then. */
+     * an instant then. [from] (eoe, warp, CR 702.185a): only for the card cast from that zone ("you may cast this card from
+     * your hand by paying …"), or from a zone a permission names this keyword for ([MayPlay.viaAlternative]: "You may cast
+     * this card from your graveyard using its warp ability"). */
     @Serializable @SerialName("alternative-cost") data class AlternativeCost(
         @Serializable(with = KeywordKindSerializer::class) val keyword: KeywordKind? = null,
         val cost: Cost, val faceDown: Boolean = false, val perTurn: Int? = null,
         val duringYour: TurnStep? = null,
+        // eoe
+        val from: Zone? = null,
     ) : Mechanic
     /** "As an additional cost to cast this spell, …" (CR 601.2f); [optional]/[repeatable] for kicker/multikicker;
      * [times] for a cost paid a computed number of times (escalate: once per mode beyond the first). */

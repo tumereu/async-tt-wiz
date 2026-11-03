@@ -152,6 +152,13 @@ internal object Legality {
             chars?.abilities.orEmpty().firstOrNull { it.origin == e.keyword }?.ability == Keyword.Aftermath } == true
         if (byAftermath && !aftermathHalf) return "only the aftermath half is cast from a graveyard (CR 702.127a)"
         if (way.alternative != null && alternative(snap, card, way, player) == null) return "no such alternative cost, or its condition isn't met"
+        // eoe: an alternative cost for a card cast from one zone only (warp: "from your hand", CR 702.185a), or from where a permission
+        // names its keyword ("You may cast this card from your graveyard using its warp ability")
+        alternative(snap, card, way, player)?.second?.let { alt ->
+            val only = alt.from ?: return@let
+            val via = (permission?.second?.mechanic as? Mechanic.MayPlay)?.viaAlternative
+            if (o.zone != only && (via == null || via != alt.keyword)) return "that alternative cost is only for a card cast from the ${only.toString().lowercase()}"
+        }
         // tmt: a permission to cast only by an alternative cost ("using their sneak abilities", "using its bestow ability")
         (permission?.second?.mechanic as? Mechanic.MayPlay)?.viaAlternative?.let { via ->
             if (alternative(snap, card, way, player)?.second?.keyword != via) return "only by its ${via.text.lowercase()} cost"

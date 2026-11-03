@@ -125,7 +125,10 @@ object DefinitionChecks {
                     found += "an effect with event-scoped mechanics changes the rules of the game; leave its affects empty (CR 611.2c)"
                 if (type == "compare" && element.typeOf("right") == "fixed" && element.typeOf("comparison") in setOf("ge", "gt")) {
                     val left = element["left"] as? JsonObject
-                    if (left?.typeName() == "count" && left.typeOf("objects") == "each") found += "a count of matching objects compared with a number: use Exists"
+                    // eoe: objects all opponents control together ("your opponents control three or more creatures") are a count compared with the
+                    // number, since Exists of objects opponents control is read per opponent (below)
+                    if (left?.typeName() == "count" && left.typeOf("objects") == "each" && !controlledByOpponents(left["objects"]))
+                        found += "a count of matching objects compared with a number: use Exists"
                     if (left?.typeName() == "events-this-turn") found += "a count of this turn's events compared with a number: use HappenedThisTurn"
                 }
                 if ((type == "may-play" || type == "alternative-cost") && (element["cost"] as? JsonObject)?.let { (it["parts"] as? JsonArray)?.isEmpty() } == true)

@@ -137,6 +137,10 @@ sealed interface NumericProperty {
     // tla
     /** How many creature types it has ("for each of its creature types"; a changeling has every one, CR 702.73a). */
     @Serializable @SerialName("creature-types") data object CreatureTypes : NumericProperty
+    // eoe
+    /** The number of charge counters it stations a permanent with (CR 702.184a): its power, or its toughness while it has
+     * [Mechanic.StationsWithToughness] (CR 702.184c). */
+    @Serializable @SerialName("stationing") data object Stationing : NumericProperty
 }
 
 /** How [Value.Of] turns the objects' numbers into one. */

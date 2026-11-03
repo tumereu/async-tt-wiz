@@ -21,6 +21,7 @@ internal class ViewBoard(override val state: GameState, val view: View) : Board 
         state.stackItems[id]?.let { return it.controller }
         return snapshot(id)?.let { it.controller ?: it.owner }
     }
+    override fun hasMechanic(id: ObjectId, mechanic: (arcanum.api.Mechanic) -> Boolean): Boolean = view[id]?.has(mechanic) == true
 }
 
 /** Last known information (CR 608.2h, 603.10): what an object was as it left its zone, read from the tagged events

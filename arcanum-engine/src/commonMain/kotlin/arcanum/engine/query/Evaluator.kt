@@ -64,6 +64,9 @@ internal interface Board {
     /** Told before the tagged events (D33) are read, or last known information found in them: a view that read none
      * stays the same while only events are added ([arcanum.engine.view.ViewCache]). */
     fun readingLog() {}
+
+    /** eoe: whether a rule matching [mechanic] applies to [id] in the finished view (false part-way through the layers). */
+    fun hasMechanic(id: ObjectId, mechanic: (arcanum.api.Mechanic) -> Boolean): Boolean = false
 }
 
 /**
@@ -333,7 +336,9 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             is ObjectFilter.HasAbilityKind -> c?.abilities.orEmpty().any { it.ability.isKind(filter.kind) }
             is ObjectFilter.AbilityOf -> matchesAbility(filter, id)
             is ObjectFilter.WasCast -> (facts(id)?.castFrom ?: prospectiveCastFrom(id))?.let { filter.from == null || it == filter.from } ?: false
-            is ObjectFilter.WasPaid -> (facts(id)?.paid.orEmpty().filter { it.keyword == filter.keyword }.sumOf { it.times }) >= filter.times
+            // eoe: an alternative cost counts too ("a spell was warped this turn": cast for its warp cost, CR 702.185c)
+            is ObjectFilter.WasPaid -> facts(id).let { f -> (f?.paid.orEmpty() + listOfNotNull(f?.alternative)) }
+                .filter { it.keyword == filter.keyword }.sumOf { it.times } >= filter.times
             is ObjectFilter.HasStatus -> hasStatus(id, o, filter.status)
             // gtc chunk 07: the blocking relation of this combat (CR 509.1a, 509.1h)
             is ObjectFilter.Blocking -> objects(filter.objects).let { them -> state.combat?.blockers.orEmpty().any { b -> b.id == id && b.attackers.any { it in them } } }
@@ -662,6 +667,9 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             is NumericProperty.Counters -> counterList(id).orEmpty().let { counters ->
                 if (property.kind == null) counters.sumOf { it.count } else counters.filter { it.kind == property.kind }.sumOf { it.count }
             }
+            // eoe: what it stations with: its power, or its toughness when a rule says so (CR 702.184a, c)
+            NumericProperty.Stationing -> property(if (board.hasMechanic(id) { it == arcanum.api.Mechanic.StationsWithToughness })
+                NumericProperty.Toughness else NumericProperty.Power, id)
             // tla: how many creature types it has (every one for a changeling, CR 702.73a)
             NumericProperty.CreatureTypes -> c?.let { if (it.allCreatureTypes) Subtypes.creatureTypeCount else creatureTypes(it).distinct().size } ?: 0
             // CR 709.5c

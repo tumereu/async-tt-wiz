@@ -167,6 +167,9 @@ sealed interface Effect {
      * it resolves (608.2h). */
     @Serializable @SerialName("delayed-trigger") data class CreateDelayedTrigger(
         val trigger: Trigger, val instructions: Instructions, val duration: Duration? = null, val repeats: Boolean = false,
+        // eoe
+        /** Triggers only in a later turn than the one it was created in ("at the beginning of the end step on your next turn"). */
+        val laterTurn: Boolean = false,
     ) : Effect
     /** Unattach [objects] from what they are attached to (CR 701.3d). */
     @Serializable @SerialName("unattach") data class Unattach(val objects: Objects) : Effect

@@ -172,7 +172,11 @@ internal object Steps {
         )
         // CR 800.4m: players who left and whose turn would have begun now (passed over in turn order)
         val passedOver = if (extra == null) leftPlayersBetween(s, s.turn.active, next) else emptyList()
+        val previous = s.turn.active
+        val previousTurn = s.turn.number
         recorder.record(Changes.step(s, turn, listOf(Meaning.TurnBegan, Meaning.StepBegan)))
+        // CR 502.2, 731.2: the untap step checks whether day becomes night or night becomes day
+        DayNight.untapCheck(recorder, previous, previousTurn)
         // Their effects lasting until their next turn, or until a point in it, end as that turn would have begun
         passedOver.forEach { left -> endEffects(recorder, onlyController = left) { d, _ -> keyedToYourNextTurn(d) } }
         // "Until your next turn" ends as that player's next turn begins (CR 611.2b); so does their goading (CR 701.15a)

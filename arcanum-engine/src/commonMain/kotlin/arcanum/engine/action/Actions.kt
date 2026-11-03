@@ -119,7 +119,15 @@ internal object Actions {
         // CR 714.3a: as a Saga enters, its controller puts a lore counter on it
         final.filter { it.to == Zone.Battlefield }.mapNotNull { result[it.id] }
             .filter { act.state.obj(it)?.zone == Zone.Battlefield && act.view()[it]?.characteristics?.subtypes?.any { s -> s.name == "Saga" } == true }
-            .forEach { putCounters(act, cause, TargetRef.Object(it), CounterKind.Lore, 1) }
+            .forEach { saga ->
+                // CR 714.3b, 702.155b: with read ahead, the number of lore counters chosen between one and its final chapter number
+                val chars = act.view()[saga]?.characteristics
+                val final = chars?.abilities.orEmpty().mapNotNull { ((it.ability as? arcanum.api.Ability.Triggered)?.trigger as? arcanum.api.Trigger.Chapter)
+                    ?.chapters?.maxOrNull() }.maxOrNull()
+                val readAhead = chars?.hasKeyword(arcanum.api.Keyword.ReadAhead) == true && final != null && final > 1
+                val lore = if (readAhead) act.chooseNumber(act.controllerOf(saga) ?: act.state.objOrThrow(saga).owner, saga, 1, final) else 1
+                putCounters(act, cause, TargetRef.Object(saga), CounterKind.Lore, lore)
+            }
         Replacements.addLinked(act, linked)
         // CR 610.3: "until" returns happen right after the event, without the Stack
         if (result.isNotEmpty()) arcanum.engine.trigger.Triggers.runOneShots(act)
@@ -226,6 +234,8 @@ internal object Actions {
                 if (m.memory.values.isNotEmpty()) after = after.copy(memory = m.memory)
                 if (toBattlefield && m.attachTo != null) after = after.copy(attachedTo = m.attachTo)
                 if (toBattlefield && m.transformed && before.definition?.layout == Layout.Transform) after = after.copy(face = 1)
+                // CR 702.145b: at night a daybound card enters transformed
+                if (toBattlefield && !m.faceDown && arcanum.engine.turn.DayNight.entersTransformed(scratch, after)) after = after.copy(face = 1)
                 // CR 709.5d: a Room enters with the half cast as a spell unlocked
                 if (toBattlefield && before.zone == Zone.Stack && arcanum.engine.room.Rooms.isRoom(before.definition))
                     after = after.copy(marks = after.marks + arcanum.api.ObjectMark.Unlocked(arcanum.engine.room.Rooms.door(before.face)))
@@ -306,8 +316,10 @@ internal object Actions {
             ?: o.definition?.faces?.getOrNull(if (m.transformed && o.definition.layout == Layout.Transform) 1 else o.face)
             ?: return emptyList()
         fun amount(n: arcanum.api.PrintedNumber?) = (n as? arcanum.api.PrintedNumber.Fixed)?.value ?: 0
+        // CR 702.150a: compleated: two fewer for each Phyrexian symbol paid with life
+        val compleated = if (face.abilities.any { it == arcanum.api.Keyword.Compleated }) 2 * o.facts.phyrexianPaidWithLife else 0
         return listOfNotNull(
-            (CounterKind.Loyalty to amount(face.loyalty)).takeIf { CardType.Planeswalker in face.types && it.second > 0 },
+            (CounterKind.Loyalty to amount(face.loyalty) - compleated).takeIf { CardType.Planeswalker in face.types && it.second > 0 },
             (CounterKind.Defense to amount(face.defense)).takeIf { CardType.Battle in face.types && it.second > 0 },
         )
     }

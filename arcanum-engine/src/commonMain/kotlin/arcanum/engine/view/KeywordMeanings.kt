@@ -39,7 +39,15 @@ object KeywordMeanings {
         Keyword.Fuse,
         // CR 702.143: foretelling is a special action the rules give a card in a hand that keeps it hidden, and casting it
         // a permission the rules give its owner (arcanum.engine.foretell.Foretell)
-        Keyword.Foretell.Kind)
+        Keyword.Foretell.Kind,
+        // CR 702.179a: start your engines! gives speed as a state-based action (arcanum.engine.turn.Speed)
+        Keyword.StartYourEngines,
+        // CR 702.145: day and night, and the transforming of daybound and nightbound permanents (arcanum.engine.turn.DayNight)
+        Keyword.Daybound, Keyword.Nightbound,
+        // CR 702.150a: fewer loyalty counters for Phyrexian mana paid with life, as it enters (arcanum.engine.action.Actions)
+        Keyword.Compleated,
+        // CR 702.155: the lore counters a Saga enters with, and which chapters trigger the turn it entered
+        Keyword.ReadAhead)
 
     /** Keywords whose abilities depend on the face they are printed on ([expand]'s `below`). */
     val faceDependent: Set<KeywordKind> = setOf(Keyword.Backup.Kind)
@@ -116,8 +124,7 @@ object KeywordMeanings {
             listOf(Keyword.Epic, Keyword.Assist, Keyword.Ripple.Kind, Keyword.Emerge.Kind, Keyword.Mutate.Kind, Keyword.Prototype.Kind)
         }
         at(Moment.Enters) {
-            listOf(Keyword.HiddenAgenda, Keyword.Daybound, Keyword.Nightbound, Keyword.Compleated, Keyword.ReadAhead,
-                Keyword.StartYourEngines)
+            listOf(Keyword.HiddenAgenda)
         }
         at(Moment.Enters, Moment.AnotherCreatureYouControlEnters) { listOf(Keyword.Soulbond) }
         at(Moment.Attacks) { listOf(Keyword.Enlist) }

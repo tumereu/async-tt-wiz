@@ -199,8 +199,9 @@ internal object EventMatcher {
         is EventPattern.Expend -> ((change as? Change.Happened)?.event as? GameEvent.SpentOnSpells)
             ?.takeIf { it.before < pattern.amount && it.after >= pattern.amount && e.matches(pattern.players, it.player) }
             ?.let { listOf(TriggerEvent(players = listOf(it.player), amount = pattern.amount)) }.orEmpty()
-        // Day and night aren't tracked yet.
-        is EventPattern.DayNightChanges -> emptyList()
+        // CR 731.1a: day becomes night, or night becomes day
+        is EventPattern.DayNightChanges -> ((change as? Change.Happened)?.event as? GameEvent.DayNightChanged)
+            ?.takeIf { pattern.toNight == null || pattern.toNight == it.night }?.let { listOf(TriggerEvent()) }.orEmpty()
         // blb: CR 702.174c, 701.61a, 716.2a
         is EventPattern.GiveGift -> ((change as? Change.Happened)?.event as? GameEvent.GaveGift)
             ?.takeIf { e.matches(pattern.players, it.player) }?.let { listOf(TriggerEvent(players = listOf(it.player))) }.orEmpty()

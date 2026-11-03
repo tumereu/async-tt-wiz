@@ -138,6 +138,8 @@ data class ObjectFacts(
     val foretoldTurn: Int? = null,
     /** The turn it became plotted in ([arcanum.api.ObjectMark.Plotted], CR 702.170d): castable after it. */
     val plottedTurn: Int? = null,
+    /** How many Phyrexian mana symbols of its cost were paid with life as it was cast (compleated, CR 702.150a). */
+    val phyrexianPaidWithLife: Int = 0,
 )
 
 /** Mana of one kind spent: a colour, or colourless when [color] is null. */

@@ -383,6 +383,10 @@ internal object Effects {
                     act.record(Changes.step(act.state, if (now) turn.copy(controlled = control) else turn.copy(controlNext = turn.controlNext + control)))
                 }
             }
+            // CR 702.179c: speed increases (from none to the amount), at most 4
+            is Effect.IncreaseSpeed -> scope.players(effect.players).forEach { p ->
+                arcanum.engine.turn.Speed.set(act, p, arcanum.engine.turn.Speed.of(act.state, p) + scope.value(effect.amount))
+            }
             is Effect.PutCountersOf -> {
                 val board = scope.eval().board
                 val counters = scope.objects(effect.of).flatMap { id -> act.state.obj(id)?.counters ?: board.snapshot(id)?.counters.orEmpty() }

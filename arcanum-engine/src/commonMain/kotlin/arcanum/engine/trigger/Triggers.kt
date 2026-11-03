@@ -301,7 +301,12 @@ internal object Triggers {
             if (c.kind != CounterKind.Lore || holder != e.ctx.self) return@let null
             val from = c.before?.count ?: 0
             val to = c.after?.count ?: 0
-            trigger.chapters.filter { it in (from + 1)..to }.map { TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(holder))), amount = it) }
+            // CR 702.155a: read ahead: the turn it entered, only the chapter of exactly its number of lore counters
+            val o = e.board.state.obj(holder)
+            val readAhead = o != null && o.controlSince?.turn == e.board.state.turn.number &&
+                e.characteristics(holder)?.hasKeyword(arcanum.api.Keyword.ReadAhead) == true
+            trigger.chapters.filter { it in (from + 1)..to && (!readAhead || it == to) }
+                .map { TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(holder))), amount = it) }
         }.orEmpty()
         // State triggers are checked when triggers are put on the Stack (CR 603.8)
         is Trigger.State -> emptyList()

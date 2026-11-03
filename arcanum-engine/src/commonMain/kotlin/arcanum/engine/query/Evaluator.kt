@@ -767,8 +767,8 @@ internal class Evaluator(val board: Board, val ctx: Context) {
         is Condition.ResolvedEarlierThisGame -> objects(condition.of).flatMap { names(characteristics(it)) }.any { name ->
             state.players.any { p -> matches(condition.controller, p.id) && (p.ledger[resolvedKey(name)] ?: 0) > 0 }
         }
-        // Speed (CR 702.178) isn't modelled yet.
-        Condition.MaxSpeed -> false
+        // CR 702.179e: max speed is speed 4
+        Condition.MaxSpeed -> arcanum.engine.turn.Speed.of(state, ctx.you) >= arcanum.engine.turn.Speed.MAX
         // The revealed companion is set up before the game (CR 702.139a); the host marks it in card memory.
         Condition.RevealedCompanion -> selfMemory(REVEALED_COMPANION) != null
         is Condition.Chose -> (ctx.names[condition.name] as? NamedValue.Option)?.option == condition.option

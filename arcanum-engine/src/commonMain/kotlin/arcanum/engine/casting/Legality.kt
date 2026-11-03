@@ -137,9 +137,13 @@ internal object Legality {
         val fromHand = o.zone == Zone.Hand && o.owner == player
         val permission = if (fromHand && way.permission == null) null else permission(snap, player, card, way, PlayKind.Cast)
         if (!fromHand && permission == null) return "no permission to cast it from ${o.zone}"
-        // A permission for some spells only ("it may not be cast as an Adventure this way", CR 715.4): the face cast
+        // A permission for some spells only ("it may not be cast as an Adventure this way", CR 715.4): the face cast; a filter
+        // the face alone can't answer ("a spell with mana value less than or equal to …", ecl) is checked on the card
         (permission?.second?.mechanic as? Mechanic.MayPlay)?.resultingSpell?.let { filter ->
-            if (faceMatches(filter, face) == false) return "that permission doesn't let it be cast as ${face.name}"
+            val applied = permission.second
+            val matches = faceMatches(filter, face)
+                ?: snap.evaluator(applied.controller, self = applied.source, names = applied.names, holder = player).matches(filter, card)
+            if (!matches) return "that permission doesn't let it be cast as ${face.name}"
         }
         if (way.alternative != null && alternative(snap, card, way, player) == null) return "no such alternative cost, or its condition isn't met"
         // tmt: a permission to cast only by an alternative cost ("using their sneak abilities", "using its bestow ability")
@@ -152,7 +156,8 @@ internal object Legality {
         if (way.fused) cantFuse(o, way, fromHand, permission != null)?.let { return it }
         // CR 307.1, 702.8a: sorcery timing unless it's an instant or has flash
         val instant = during != null || !faceDown && (CardType.Instant in types || chars?.hasKeyword(Keyword.Flash) == true ||
-            snap.view[card]?.has { it is Mechanic.InstantSpeed } == true || castsAsThoughFlash(snap, player, card))
+            snap.view[card]?.has { it is Mechanic.InstantSpeed } == true || castsAsThoughFlash(snap, player, card) ||
+            ownInstantSpeed(snap, player, card))
         if (!instant && !sorceryTiming(snap, player)) return "only as a sorcery: your main phase, empty Stack (CR 307.1)"
         restriction(snap, player, card)?.let { return it }
         if (cantCastBy(snap, player, card)) return "$player can't cast it"
@@ -181,6 +186,14 @@ internal object Legality {
         is ObjectFilter.Type -> (filter.cardType as? arcanum.api.CardTypeRef.Literal)?.let { it.cardType in face.types }
         else -> null
     }
+
+    /** ecl: the card's own "You may cast this spell as though it had flash if …" (CR 113.6a: it works where the card is cast
+     * from), when its condition holds. */
+    private fun ownInstantSpeed(snap: Snapshot, player: PlayerId, card: ObjectId): Boolean =
+        snap.view[card]?.characteristics?.abilities.orEmpty().any { inst ->
+            val static = inst.ability as? Ability.Static ?: return@any false
+            Mechanic.InstantSpeed in static.mechanics && static.condition?.let { snap.evaluator(player, self = card).holds(it) } != false
+        }
 
     private fun castsAsThoughFlash(snap: Snapshot, player: PlayerId, card: ObjectId): Boolean =
         snap.view.players[player]?.mechanics.orEmpty().any { applied ->

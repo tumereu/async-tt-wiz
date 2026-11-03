@@ -209,7 +209,9 @@ model is untouched):**
 2. *App, phase 4–5:* the app's socket session loads `GameHead.engine` into a `GameSession`, sends `GameAction.Submit`,
    feeds `engineEvent`s and refusals in, and the table renders from `Engine.view`/`visible` + `TableState` with
    animations from the change list, keeping every current UI behaviour (the largest part: today's table renders
-   `PlayState`/`BoardState` everywhere); pause points, early answers, drafts, settings as table changes; Autotap becomes
+   `PlayState`/`BoardState` everywhere), including the 2026-11-03 playtest fixes (step arrow words from its planned
+   tap, hidden in the opponent's turn unless you act, local prediction; view-only phase dialog; no timeline flicker on
+   opening; the mana pool row) and their tests; pause points, early answers, drafts, settings as table changes; Autotap becomes
    a shared table setting (§9 point 3).
 3. *Game end:* a confirmed engine result (`TableChange.ResultConfirmed`) has to end the play as `AcceptResult` does
    (return to the lobby, deck visibility, activity); concede/agreed result through the engine replace

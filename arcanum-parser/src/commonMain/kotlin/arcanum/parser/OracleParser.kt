@@ -40,7 +40,9 @@ object OracleParser {
         val isSpell = face.types.any { it == arcanum.api.CardType.Instant || it == arcanum.api.CardType.Sorcery }
         val self = selfNames(card.name, face)
         var abilities = abilities(card.text, self, isSpell)
-        val hasX = face.manaCost?.symbols?.any { it is arcanum.api.ManaSymbol.Variable } == true
+        val hasX = face.manaCost?.symbols?.any { it is arcanum.api.ManaSymbol.Variable } == true ||
+            // ecl chunk 12: "As an additional cost to cast this spell, blight X." (X announced as it is cast, CR 601.2b)
+            abilities.any { a -> a is Ability.Static && a.mechanics.any { it is arcanum.api.Mechanic.XAtMost } }
         if (hasX) abilities = abilities.map { if (it is Ability.Spell) it.copy(instructions = it.instructions.copy(announced = listOf("X"))) else it }
         // Overload (CR 702.96b): the spell's text with "target" replaced by "each".
         if (abilities.any { it is Keyword.Overload }) {

@@ -336,6 +336,9 @@ data class TargetSlot(
     /** The chosen objects' [Choice.TotalLimit.property] adds up to at most [Choice.TotalLimit.atMost] ("up to two target creatures
      * with total mana value 6 or less", CR 601.2c). */
     val totalAtMost: Choice.TotalLimit? = null,
+    // ecl
+    /** The chosen objects must all share this quality ("two target creature cards that share a creature type", CR 601.2c). */
+    val sharing: SharedQuality? = null,
 )
 
 /** What a target can be. "Any target" is [Either] of creatures, planeswalkers and battles, and players (CR 115.4). */

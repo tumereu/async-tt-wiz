@@ -364,8 +364,9 @@ sealed interface KeywordAction {
     @Serializable @SerialName("ring-tempts") data object TheRingTemptsYou : KeywordAction
     /** Exert [objects]: they don't untap during their controller's next untap step (CR 701.43). */
     @Serializable @SerialName("exert") data class Exert(val objects: Objects) : KeywordAction
-    /** Behold a [filter]: reveal one from your hand or choose one you control (CR 701.4a). */
-    @Serializable @SerialName("behold") data class Behold(val filter: ObjectFilter) : KeywordAction
+    /** Behold [count] [filter]s: reveal them from your hand and/or choose them among permanents you control, each a different
+     * object (CR 701.4a; ecl: "Behold three Elementals"). */
+    @Serializable @SerialName("behold") data class Behold(val filter: ObjectFilter, val count: Value) : KeywordAction
     /** Exile cards from your graveyard with total mana value [amount] or more (CR 701.59a). */
     @Serializable @SerialName("collect-evidence") data class CollectEvidence(val amount: Value) : KeywordAction
     /** "Earthbend N": target land you control becomes … (CR 701.66a). Keyword actions that target name a [slot]
@@ -384,4 +385,9 @@ sealed interface KeywordAction {
     /** "Recruit" (CR 701.70a): draw a card, then discard a card; if a nonland card was discarded this way, create a 1/1 white
      * Human Soldier creature token. [KeywordExpansions.expand] writes it out. */
     @Serializable @SerialName("recruit") data object Recruit : KeywordAction
+    // ecl
+    /** "[Players] blight(s) N" (CR 701.68a): each of [players] puts [count] -1/-1 counters on a creature they control. A player who
+     * can't do it (no creatures) can't choose to blight (701.68b); the bind of [Effect.Action] or [CostPart.Action] names the creature
+     * chosen, "the blighted creature" (701.68c). As a cost, [players] is the payer. */
+    @Serializable @SerialName("blight") data class Blight(val players: Players, val count: Value) : KeywordAction
 }

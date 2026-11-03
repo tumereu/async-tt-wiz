@@ -193,12 +193,13 @@ object DraftEngine {
         if (selected.distinct().size != selected.size || pick.keep.size.toLong() != keep)
             return reject(DraftPickRejection.WRONG_COUNTS)
         val rest = cards.filter { it !in pick.keep }
-        // Equivalent to pack.cards.size <= settings.keep + burn: a spend never changes whether a pick is near the end.
-        val nearEnd = cards.size <= keep + state.settings.burn
+        val nearEnd = state.settings.keepsOnly(cards.size, keep)
         if (nearEnd) {
             if (pick.burn.isNotEmpty() && pick.burn.toSet() != rest.toSet()) return reject(DraftPickRejection.WRONG_COUNTS)
         } else if (pick.burn.size != state.settings.burn) return reject(DraftPickRejection.WRONG_COUNTS)
-        val burned = if (nearEnd) rest else pick.burn
+        // Near the end the first burn-count of the rest burn (all of them when that is all) and the discard threshold
+        // throws away what is left.
+        val burned = if (nearEnd) rest.take(state.settings.burn) else pick.burn
         return DraftPickResult(state = Working(state).applyPick(pick, burned))
     }
 
@@ -268,9 +269,8 @@ object DraftEngine {
                 val cards = pack(id).cards
                 // Queued packs always hold more than keep cards (smaller ones are awarded on arrival).
                 if (cards.size < settings.keep) break
-                val rest = cards.drop(settings.keep)
-                val nearEnd = cards.size <= settings.keep + settings.burn
-                move(DraftPick(player, id, cards.take(settings.keep)), if (nearEnd) rest else rest.take(settings.burn))
+                // Normal or near-end burns alike (DRF-045): the threshold discards whatever near-end burns leave.
+                move(DraftPick(player, id, cards.take(settings.keep)), cards.drop(settings.keep).take(settings.burn))
                 open()
                 count++
             }

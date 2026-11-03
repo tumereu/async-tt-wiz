@@ -17,7 +17,7 @@ class DraftEngineTest {
         val id = state.queues.getValue(player).first()
         val pack = state.packs.first { it.id == id }
         return DraftPick(player, id, pack.cards.take(state.settings.keep),
-            if (pack.cards.size <= state.settings.keep + state.settings.burn) emptyList()
+            if (state.settings.keepsOnly(pack.cards.size, state.settings.keep.toLong())) emptyList()
             else pack.cards.drop(state.settings.keep).take(state.settings.burn))
     }
 
@@ -275,6 +275,30 @@ class DraftEngineTest {
         assertTrue(request.burn.isEmpty())
         val after = assertNotNull(DraftEngine.pick(exact, request).state)
         assertEquals(2, after.log.last().burned.size)
+    }
+
+    // DRF-045, DRF-046: when keep + burn + discard covers the pack, only keeps are chosen; burn-count burn, the rest go.
+    @Test fun keepBurnAndDiscardCoveringThePackNeedOnlyKeeps() {
+        for (explicit in listOf(false, true)) {
+            val initial = start(settings(cards = 6, keep = 2, burn = 1).copy(discardRemainingAt = 3))
+            val actor = initial.seating.first()
+            val id = initial.queues.getValue(actor).first()
+            val cards = initial.packs.first { it.id == id }.cards
+            assertEquals(DraftPickRejection.WRONG_COUNTS,
+                DraftEngine.pick(initial, DraftPick(actor, id, cards.take(2), cards.subList(2, 3))).reason)
+            val after = assertNotNull(DraftEngine.pick(initial, DraftPick(actor, id, cards.take(2),
+                if (explicit) cards.drop(2) else emptyList())).state)
+            val event = after.log.single()
+            assertEquals(cards.take(2), event.kept)
+            assertEquals(cards.subList(2, 3), event.burned)
+            assertEquals(cards.drop(3), event.discarded)
+            assertTrue(after.packs.first { it.id == id }.cards.isEmpty())
+        }
+        // One more card than keep + burn + discard: burns are still chosen.
+        val bigger = start(settings(cards = 7, keep = 2, burn = 1).copy(discardRemainingAt = 3))
+        val request = choice(bigger, bigger.seating.first())
+        assertEquals(1, request.burn.size)
+        assertEquals(DraftPickRejection.WRONG_COUNTS, DraftEngine.pick(bigger, request.copy(burn = emptyList())).reason)
     }
 
     // DRF-046

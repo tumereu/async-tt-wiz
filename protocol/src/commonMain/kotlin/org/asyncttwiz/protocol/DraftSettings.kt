@@ -35,6 +35,14 @@ data class DraftSettings(
     /** Rochester: packs open at once across the table; null = one per player. */
     val tablePacksOpen: Int? = null,
 ) {
+    /**
+     * DRF-045: a pick from a pack holding [cards] cards (spent Librarians included) with [keep] keep slots needs only the
+     * keeps when the rest would all go anyway: burned, or discarded at the threshold after the burns. The engine then
+     * burns up to burn-count of the rest and discards the others. A Librarian spend adds as many cards as keep slots, so
+     * it never changes the answer.
+     */
+    fun keepsOnly(cards: Int, keep: Long): Boolean = cards <= keep + burn + discardRemainingAt
+
     fun validate(players: Int): List<DraftSettingsIssue> = buildList {
         if (sideboardLimit != null && sideboardLimit < 0) add(DraftSettingsIssue.SIDEBOARD_LIMIT)
         if (librarians !in 0..10 || !mode.packPassing && librarians != 0) add(DraftSettingsIssue.LIBRARIANS)

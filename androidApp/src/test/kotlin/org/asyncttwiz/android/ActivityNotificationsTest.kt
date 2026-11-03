@@ -29,6 +29,15 @@ class ActivityNotificationsTest {
         }
     }
 
+    // LOB-114
+    @Test fun opponentReadyTextReplacesTheMoveTextAndKeepsTheChatSuffix() {
+        val content = org.asyncttwiz.protocol.GameNoticeContent("Friday", "Alex", "2026-10-27T12:34:56+02:00", false, opponentReady = true)
+        assertEquals("Alex is ready", gameNotificationText(content).text)
+        assertEquals("Alex is ready", gameNotificationText(content.copy(yourMove = true)).text)
+        assertEquals("Alex is ready · new message", gameNotificationText(content.copy(newMessage = true)).text)
+        assertEquals("Friday · vs Alex", gameNotificationText(content).title)
+    }
+
     // LOB-078
     @Test fun podsOnlyUsersCanEnableAlertsWithExistingPromptGuards() {
         for (destination in listOf(ShellDestination.PODS, ShellDestination.GAMES)) {

@@ -181,7 +181,7 @@ data class GameState(
         fun start(players: List<PlayerId>, life: Int = 20, step: TurnStep = TurnStep.PrecombatMain): GameState =
             GameState(
                 players = players.map { PlayerState(it, life, startingLife = life) }.toMutableList(),
-                turn = TurnState(1, players.first(), step, turnStarted = mapOf(players.first() to 1)),
+                turn = TurnState(1, players.first(), step, turnStarted = mapOf(players.first() to 1), turnsTaken = mapOf(players.first() to 1)),
                 priority = PriorityState(players.first()),
             )
     }

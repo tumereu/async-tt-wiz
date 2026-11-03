@@ -41,3 +41,17 @@ internal fun Scenario.drive(vararg answers: Pair<(Decision) -> Boolean, Scenario
         handler.second(this)
     }
 }
+
+/** Passes (declaring no blockers) until [step], answering the decisions [answers] know on the way. */
+internal fun Scenario.untilStep(step: arcanum.api.TurnStep, vararg answers: Pair<(Decision) -> Boolean, Scenario.() -> Unit>) {
+    var guard = 80
+    while (state.turn.step != step && guard-- > 0) {
+        val d = pending
+        if (d == null) {
+            if (state.priority.holder == null && state.turn.step == arcanum.api.TurnStep.DeclareBlockers) bob.blocks() else allPass()
+            continue
+        }
+        val handler = answers.firstOrNull { it.first(d) } ?: kotlin.test.fail("Unexpected decision $d")
+        handler.second(this)
+    }
+}

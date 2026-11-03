@@ -305,9 +305,10 @@ internal object Mana {
     }
 
     /** Payers from mana in [player]'s pool that may be spent on [paysFor] (CR 106.6). */
-    fun poolPayers(snap: Snapshot, player: PlayerId, paysFor: ObjectId?, indices: List<Int>? = null): List<Payer> {
+    fun poolPayers(snap: Snapshot, player: PlayerId, paysFor: ObjectId?, indices: List<Int>? = null, asAnyColor: Boolean = false): List<Payer> {
         val pool = snap.state.player(player).manaPool
-        val anyColor = spendsAsAnyColor(snap, player, paysFor)
+        // spm: "Mana of any type can be spent to cast spells this way" (the permission the spell is cast with, CR 609.4b)
+        val anyColor = asAnyColor || spendsAsAnyColor(snap, player, paysFor)
         return pool.withIndex().filter { (i, u) -> (indices == null || i in indices) && allowed(snap, player, u, paysFor) }
             .map { (i, u) -> Payer(if (anyColor) (Color.all + u.color).toSet() else setOf(u.color), u.snow, ManaUse.Pool(i), u) }
     }

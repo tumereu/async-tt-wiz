@@ -246,7 +246,11 @@ object CardVisibility {
     /** Rules v36: who has priority and how many passed in a row (D57); null while nobody tracks it. */
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val priority: MtgPriority? = null,
     /** Rules v36: the engine's own records (§4.3), sorted by id, each changed on its own. */
-    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val engineRecords: List<EngineRecord> = emptyList()) {
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val engineRecords: List<EngineRecord> = emptyList(),
+    /** I-D54/I-D56 step C: a board shown for a game whose state is the engine's carries that state (never serialized;
+     * equal only to itself, so board equality stays cheap): every engine reader of the board uses it instead of
+     * rebuilding one from the board ([org.asyncttwiz.protocol.game.EngineView]). */
+    @kotlinx.serialization.Transient val engine: org.asyncttwiz.protocol.game.EngineView? = null) {
     val effectiveAttentionHolder: String get() = attentionHolder ?: turn.accountId
 }
 @Serializable data class InitialShuffle(val accountId: String, val seed: String, val order: List<String>,

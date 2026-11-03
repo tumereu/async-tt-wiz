@@ -66,6 +66,7 @@ class EngineCall(
      * (I-D3, I-D18); the history then folds it into its batch's visible event (I-D22).
      */
     fun perform(input: Input, automatic: Boolean = false): Pending? {
+        if (!automatic) own += input
         run(input, automatic)
         while (true) {
             val decision = working.pending?.decision ?: return null
@@ -104,6 +105,11 @@ class EngineCall(
             run(Input.Answer(decision.id, answer))
         }
     }
+
+    /** The inputs a player made in this call, in order ([perform] without `automatic`): what a game on engine state sends
+     * (I-D56 step C), where the device answers the randomness and makes the automatic passes itself. */
+    val inputs: List<Input> get() = own
+    private val own = mutableListOf<Input>()
 
     /** The steps the engine left to the players in this call, each answered Done ([perform]; pivot review #3), its
      * batch says them in the history. */

@@ -1,6 +1,6 @@
 # Table
 
-The battlefield, how cards look on it, how you touch them, their menus, multi-select, tokens and links.
+The battlefield, how cards look on it, how you touch them, their menus and inspecting cards. Automatum keeps the game (I-D52): nothing on the table is changed by hand.
 
 ### Battlefield layout
 
@@ -11,13 +11,13 @@ The battlefield, how cards look on it, how you touch them, their menus, multi-se
 - **TBL-005** The battlefield feels endless: no field edge is visible anywhere you can pan, and its background covers the whole pan area on both sides. (r31)
 - **TBL-006** Drags may drop a card in any column, including left of where cards normally start; automatic placement still takes the first free spot from column 0 rightward. (r31)
 - **TBL-007** Cards put onto the battlefield from a menu (not dragged) go to the land row only if they are lands; everything else goes to the first free spot of the main row. (r34)
-- **TBL-008** Face-down cards put onto the battlefield always go to the main row, and a menu move of several cards puts each on the first free spot of its own row. (r34)
+- **TBL-008** Face-down cards put onto the battlefield always go to the main row,. (r34)
 - **TBL-009** In landscape the piles, life, counters and Stack sit in a left sidebar; in portrait they sit above and below the battlefield. (r2)
 
 ### Pan and zoom
 
 - **TBL-010** Pinch zooms the battlefield between 0.65× and 2×; a two-finger drag pans it. (r2)
-- **TBL-011** Double-tap on empty battlefield and keep the finger down to pan with one finger. (r2)
+- **TBL-011** A one-finger drag that starts on empty battlefield pans it, as does a double-tap with the finger kept down; there is no selection rectangle. (r45)
 - **TBL-012** A double tap on empty battlefield without dragging zooms to fit the whole table (empty columns are not counted). (r2)
 - **TBL-013** You can pan up to 3 card slots past the outermost cards on the left and right. (r6)
 - **TBL-014** Panning past the limit stretches like a rubber band and springs back on release without overshooting. (r3)
@@ -34,17 +34,14 @@ The battlefield, how cards look on it, how you touch them, their menus, multi-se
 - **TBL-022** P/T that differs from the printed value is drawn in brown (#A0522D). (r15)
 - **TBL-023** A card with an until-end-of-turn P/T change shows its P/T in teal with an hourglass ⌛ in front. (r16)
 - **TBL-024** Damage shows as a red-outlined badge left of P/T; it fills red when damage reaches the card's toughness (a hint only). (r16)
-- **TBL-025** A card note shows as a white chip with its first 32 characters on the art; an until-end-of-turn note is a separate chip starting with ⌛ in teal. Not shown with Automatum on (TBL-119). (r44)
-- **TBL-026** Card counters show as round badges in their colour (red, blue, green, yellow, purple, gray), centred over the art and in two rows when there are more than two; zero or empty shows nothing. Not shown with Automatum on (TBL-119). (r44)
 - **TBL-027** A card that came onto the battlefield this turn shows its name in blue (#1A56DB), also after changing sides and for new tokens and clones; combat copies follow their card; full-image cards show no mark. (r29)
 - **TBL-028** Face-down battlefield cards show the card back with a "?" name on a white chip, blue when the card arrived this turn. (r30)
-- **TBL-029** Face-down battlefield cards' P/T, counters, notes and damage are visible to both players; they start as 2/2, and turning one face up resets P/T to printed. (r19)
-- **TBL-030** Hidden cards (opponent's hand, face-down outside the battlefield) show no counters, notes or P/T. (r19)
-- **TBL-031** Every tap on a card shows a short press border, so both taps of a double tap are visible; the selection border rotates with the card, also mid-animation. (r11)
-- **TBL-032** Linked cards (and linked Stack or combat copies) are joined by a gray line (not with Automatum on, TBL-119). (r44)
+- **TBL-029** Face-down battlefield cards' P/T and damage are visible to both players; they start as 2/2, and turning one face up resets P/T to printed. (r45)
+- **TBL-030** Hidden cards (opponent's hand, face-down outside the battlefield) show no P/T. (r45)
+- **TBL-031** Every tap on a card shows a short press border, so both taps of a double tap are visible; it rotates with the card, also mid-animation. (r45)
 - **TBL-112** With Automatum on, a battlefield creature (and its combat copies) shows in its corner the P/T Automatum works out from its printed values, its Automatum counters and the effects in play, not the hand-set corner: green when it is above the printed value in one number and below in neither, red the other way round, brown when one number is up and the other down, the usual ink when unchanged, with ⌛ in front while an until-end-of-turn effect changes it. Loyalty, defense, Sagas and other non-creature corners stay as set by hand. While the board holds something Automatum can't take over (a hand-made Stack entry, cards in a Temp pile, data it can't read), every card shows its hand-set values. The values follow each board change, worked out in the background without delaying the action itself. (r37)
-- **TBL-113** With Automatum on, what Automatum changed on a battlefield card besides P/T shows as one violet-text chip below its notes (first 32 characters): a changed type line, changed colours, keywords it gained ("Flying") or lost ("no Flying"), and its Automatum counters ("+1/+1 ×2"). Keyword notes (TBL-086) are only notes then; Automatum doesn't read them. (r37)
-- **TBL-033** Changes to a card's P/T or counters flash a small change tag such as "+2" (changes close together add up; about 1 s, then a 0.5 s fade); note, owner, face and link changes briefly highlight the card. Both players' changes, live and in playback, never on jumps or catch-up. (r14)
+- **TBL-113** With Automatum on, what Automatum changed on a battlefield card besides P/T shows as one violet-text chip under its title (first 32 characters): a changed type line, changed colours, keywords it gained ("Flying") or lost ("no Flying"), and its Automatum counters ("+1/+1 ×2"). (r45)
+- **TBL-033** Changes to a card's P/T flash a small change tag such as "+2" (changes close together add up; about 1 s, then a 0.5 s fade); owner and face changes briefly highlight the card. Both players' changes, live and in playback, never on jumps or catch-up. (r45)
 
 ### Card sizes
 
@@ -63,96 +60,46 @@ The battlefield, how cards look on it, how you touch them, their menus, multi-se
 
 - **TBL-041** A single tap on a card opens its menu at once, never waiting for a possible double tap. (r8)
 - **TBL-042** A double tap is two taps within 400 ms and 32 dp of each other; it still works when the first tap already opened a menu. (r5)
-- **TBL-043** Double-tapping a battlefield card taps or untaps it; if it is selected, the whole selection turns to the opposite of the touched card's state and stays selected; if not, the selection clears and only that card turns. With Automatum on, a double-tap on a battlefield card with a mana ability Automatum allows now taps it for mana instead (the ability as from its menu, TBL-115: the mana goes to its controller's pool, which Autotap spends first, STK-024; its player keeps priority); with several such abilities its card menu opens to pick one; otherwise tapping by hand is refused: the card shakes (SYS-069, TBL-118). (r43)
+- **TBL-043** Double-tapping a battlefield card with a mana ability Automatum allows now taps it for mana (the ability as from its menu, TBL-115: the mana goes to its controller's pool, which Autotap spends first, STK-024; its player keeps priority); with several such abilities its card menu opens to pick one. Nothing is tapped by hand: otherwise the card shakes (SYS-069, TBL-118). (r45)
 - **TBL-044** Only battlefield cards can be tapped; a card leaving the battlefield untaps, and double taps on cards elsewhere never tap them. (r12)
-- **TBL-045** Double-tapping a hand card plays it like a drag: a land (front face) goes to the land row; a card that is a permanent on every face goes to the Stack and then resolves to the main row as a separate timeline step; anything else goes to the Stack. (r15)
-- **TBL-046** Double-tapping a library draws its top card (refused with Automatum on: the library shakes, SYS-069, TBL-118); double-tapping a graveyard or exile pile opens its search panel. (r43)
+- **TBL-045** Double-tapping a hand card casts it, or plays a land, through Automatum (ZON-004). (r45)
+- **TBL-046** Double-tapping a library does nothing (nothing is drawn by hand; its single tap opens or shakes it, ZON-013); double-tapping a graveyard or exile pile opens its search panel. (r45)
 - **TBL-047** Holding a card for 350 ms opens its preview without changing anything; moving the finger first starts a drag instead, and an open preview never turns into a move. (r2)
 - **TBL-048** Holding empty hand space shows nothing, and holding a library never reveals its cards. (r29)
-- **TBL-049** In timeline mode double taps do nothing (no error) and the selection is cleared with multi-select off. (r13)
-- **TBL-050** Back first closes menus, dialogs and timeline mode, then clears the selection; on the bare table it takes a second Back within 2 s to leave, with the hint "Press back again to leave". (r4)
+- **TBL-049** In timeline mode double taps do nothing (no error). (r45)
+- **TBL-050** Back first closes menus, dialogs and timeline mode; on the bare table it takes a second Back within 2 s to leave, with the hint "Press back again to leave". (r45)
 
 ### Dragging and battlefield piles
 
-- **TBL-051** Dragging a card moves it; dragging a selected card moves the whole selection, which stays selected after the move; dragging an unselected card clears the selection and moves only that card. With Automatum on, drags follow ZON-077. (r38)
-- **TBL-052** A drag shows a lifted card and highlights where it will land; a cancelled or invalid drop puts everything back, selection included, and records nothing. (r2)
+- **TBL-051** Dragging a card does what the drag means to Automatum (ZON-077); one card is dragged at a time. (r45)
+- **TBL-052** A drag shows a lifted card and highlights where it will land; a cancelled or invalid drop puts the card back and records nothing. (r45)
 - **TBL-053** Dropping a card onto another battlefield card puts it on top of that card's pile; a pile holds at most 3 cards, and a drop that would make 4 shows as invalid and does nothing. (r30)
 - **TBL-054** Cards in a pile peek out diagonally toward the top-left and keep their own tapped and face-down state; dragging a member onto its own pile brings it to the top, dragging it to empty space splits it off. (r2)
-- **TBL-055** Dropping a card on the other player's hand, library, graveyard or exile sends it to its owner's zone instead, and the drop preview shows that; either battlefield is fine. (r5)
-
-### Multi-select
-
-- **TBL-056** The interaction mode button sits at the end of your own hand row (48 dp × hand size, at least 40 dp); a tap cycles Normal → Select → Ping with no chooser (Normal → Select with Automatum on, TBL-119). (r44)
-- **TBL-057** A one-finger drag starting on empty table space draws a selection box; any card whose visible part it touches is selected, and the cards it would select light up while drawing. (r3)
-- **TBL-058** In Normal mode a new box replaces the selection; in Select mode it adds to it. (r31)
-- **TBL-059** In Select mode a single tap adds or removes that card from the selection. (r2)
-- **TBL-060** Tapping empty table or empty hand space clears the selection without changing the mode. (r2)
-- **TBL-061** In Select mode, double-tapping a selected card taps or untaps the selection, then clears it and returns to Normal mode. (r16)
-- **TBL-062** A menu opened on a selected card acts on the whole selection and shows the count; on an unselected card it acts on that card only and keeps the selection. The targets are fixed when the menu opens. (r12)
 
 ### Card menus
 
 - **TBL-063** Every card menu is one floating popup: square, solid, bordered buttons with a light shadow on the board, with no sheet, title or close button. (r10)
-- **TBL-064** Card menus (battlefield, hand, Stack, combat and panel cards) put their buttons in a grid of 5 columns of 48 dp cells, each an icon plus one short label; a menu with fewer buttons just has fewer rows. Labels wrap only between words: where a word or the label's two lines don't fit the cell (large system text), the label is drawn smaller instead of breaking a word or being cut off; the quick-actions cells do the same. Holding a button shows its full name above it (below near the top edge), never under the finger. (r16)
-- **TBL-065** Paged menus have a "◀ title ▶" header (arrows wrap; tapping the title lists the pages); swiping also changes page, and the last page is remembered per game. (r16)
-- **TBL-066** A paged menu keeps room for its tallest page, so the header and buttons never jump when you change page. (r16)
+- **TBL-064** Card menus (battlefield, combat and panel cards) put their buttons in a grid of 5 columns of 48 dp cells, each an icon plus one short label; a menu with fewer buttons just has fewer rows. Labels wrap only between words: where a word or the label's two lines don't fit the cell (large system text), the label is drawn smaller instead of breaking a word or being cut off; the quick-actions cells do the same. Holding a button shows its full name above it (below near the top edge), never under the finger. (r16)
 - **TBL-067** The menu opens on the side of the card with the most room, preferring above your own cards and below the opponent's. (r4)
 - **TBL-068** A tap outside the menu closes it and still goes through to the table (double taps and drags work); only buttons and chips count as inside, gaps do not. Back also closes it. (r11)
 - **TBL-069** A press that starts within 280 ms of the menu opening does nothing, so a fast second tap cannot hit a button by accident. (r8)
-- **TBL-070** Menu buttons are always shown and greyed out when they don't apply; a button only changes when it has a twin for the card's state (Face down ↔ Face up, Hand ↔ Remove token, Declare ↔ Attack →). (r28)
-- **TBL-071** Each kind of card has one fixed layout: battlefield cards have three pages (Everyday, Counters, More); combat copies and hand cards have one page each (with Automatum on hand cards have no menu, ZON-079). Stack entries have no card menu: tapping one shows its Stack bubbles (STK-010), and Manage Stack holds their other actions (STK-019). With Automatum on, the menus are TBL-115 and TBL-116; these layouts show only while Automatum waits for something done by hand (STK-032). (r44)
-- **TBL-072** Menus offer the same actions on your opponent's cards as on yours; moves always go to the card owner's zones and labels show no player names. (r30)
+- **TBL-070** Menu buttons are always shown and greyed out when they don't apply. (r45)
+- **TBL-071** Each kind of card has one fixed one-page menu (TBL-116): battlefield cards, combat copies and Graveyard or Exile panel cards; a hand card has no menu (ZON-079). Stack entries have no card menu: tapping the Stack opens the Stack list (STK-018). (r45)
 - **TBL-115** With Automatum on, a card's menu (battlefield card, combat copy, panel card; a hand card has none, ZON-079) starts with what Automatum offers for the card, one full-width row each with a violet icon: its casts ("Cast", or "Cast · " and the way, such as a flashback or an Adventure), a land's "Play", then each activated ability with its printed text ("{T}: Add {G}."), mana abilities and special actions (turning a face-down card face up, unlocking a door) included. A row is enabled when Automatum allows it now, otherwise greyed: tapping a greyed row shakes it, and holding it shows why: "Bob holds priority now.", "Only in your main phase while the Stack is empty.", "A loyalty ability: once each turn, in your main phase while the Stack is empty.", "Already used as often as allowed this turn.", "Storm Spark can't be cast now." or "Grovewatch Druid: Automatum doesn't allow that now (a cost it can't pay, or nothing to target)."; while a cast or an Automatum choice is open, its own message (STK-025, STK-032). The other player's cards list their abilities greyed ("Only its controller can do that."); a combat copy shows its real card's rows; a card with nothing to offer has no rows. While Automatum still works the card out, one greyed row says "Automatum is working out what this card can do…". A row is used like a cast: the cast panel when it has a real choice (STK-023, STK-024: Autotap pays) with the ability's text and "Activate", then one step; an ability that goes on the Stack is passed on by its player as after a cast (STK-026), and a mana ability or special action without choices goes out at once, its player keeping priority (in the other player's turn too), unless it set off a trigger that went on the Stack, which is passed on as after a cast. (r44)
-- **TBL-116** With Automatum on, the cells below the rows keep only Inspect and the combat draft (no notes, pings, links or colour counters, TBL-119): battlefield cards Inspect, Other side, Attack → (greyed unless the card attacks; no Declare: taps stage attackers, CMB-028), one page; combat copies Inspect, Attack →, Remove from combat (both only on Automatum's draft, CMB-028); panel cards Inspect, Other side; hand cards have no menu (ZON-079). There is no "Manual…" and no greyed manual cell: the way to change the game by hand is switching Automatum off. The menu always opens on its first page. While Automatum waits for something done by hand (STK-032) the card's usual menu (TBL-071) shows instead. With Automatum off the menus are exactly as before. (r44)
+- **TBL-116** Below the rows a card's menu has only Inspect and the combat draft: battlefield cards Inspect, Other side, Attack → (greyed unless the card attacks; no Declare: taps stage attackers, CMB-028); combat copies Inspect, Attack →, Remove from combat (both only on Automatum's draft, CMB-028); Graveyard and Exile panel cards Inspect, Other side; hand cards have no menu (ZON-079). There are no notes, pings, links, counters, moves or other changes by hand (I-D52). The menu has one page. (r45)
 - **TBL-117** With Automatum on, the cards Automatum lets you do something with now glow softly in cyan from behind: casting or playing it, or activating one of its abilities other than a mana ability (special actions included), exactly what Automatum allows you at that moment, so without priority only what is allowed anyway glows and the other player's cards never do. A land or other permanent whose only use now is its mana ability doesn't glow. Hand, battlefield and panel cards glow; nothing glows on the timeline, during the opening (TRN-062), while a cast or an Automatum choice is open, or until Automatum has worked the board out (off the main thread, kept per board). (r43)
-- **TBL-118** With Automatum on, a gesture Automatum doesn't allow says nothing: the card, pile or life square it was made on gives a small sideways shake (a tap raising, or a double-tap or drag of, a card that can't be cast or played now (ZON-079), also while a cast or an Automatum choice is open; tapping a card by hand; a manual drag; a life drag; a tap on a Library or Temp pile with nothing to offer, ZON-078; a tap on something that isn't a legal target while targets are picked, STK-023; an action refused while your cast is open, STK-025; a cast dropped because its card can't be cast or paid for now or the table changed under it, which shakes that card). A refusal inside an open cast panel is said in the panel (STK-024). Inspecting a card lists why Automatum doesn't allow each thing it offers for it now, one line each ("Cast — Storm Spark can't be cast now.", "{2}{G}, {T}: Draw a card. — Bob holds priority now."). Failures that aren't Automatum's refusals (offline, still working out) keep their message. (r44)
-- **TBL-119** With Automatum on, the virtual-tabletop controls are gone, because Automatum keeps the game: no notes, pings, text marks on Stack entries, links, colour counters on cards or players, statuses, dice or coins, in any menu (the card menus keep Inspect, Other side and the combat draft's Attack → and Remove from combat, TBL-116), the Life panel (life only, and the other player's presence line), Manage Stack, the Stack bubbles (there are none), Table actions (no Roll die… or Flip coin) or the interaction mode button (Normal and Select only). Notes, colour counters, statuses, links, text marks and pings already in the game simply aren't shown, on the table or in Inspect, and nothing is deleted: with Automatum off (or while Automatum waits for something done by hand, STK-032) they show and work again. Chat, Inspect, the timeline and settings stay. (r44)
-
-### Everyday page
-
-- **TBL-073** Everyday holds, in order: Inspect, Note, P/T, Stack, Declare, Keywords, EOT keywords, Graveyard, Exile, Clone, Ping, Hand, Library top, Library bottom, Shuffle into library, EOT P/T, Battlefield. (r36)
-- **TBL-074** "Stack" puts the card on the Stack; "Declare" declares it in combat without tapping it, and becomes "Attack →" once the card is a declared attacker. (r28)
-- **TBL-075** On tokens, Hand becomes "Remove token", and Library top, Library bottom and Shuffle into library remove the token. (r28)
-- **TBL-077** Clone makes a token copy of the card; a non-land copy appears in the main row. (r30)
-- **TBL-085** Keywords and EOT keywords open a toggle grid of Flying, First strike, Double strike, Deathtouch, Lifelink, Trample, Haste, Vigilance, Reach, Menace, Hexproof, Indestructible, Defender, Ward, Can't block, Goaded; each toggle saves at once and the grid stays open. (r19)
-- **TBL-086** Keyword toggles write the note as keywords joined by ", " (e.g. "Flying, Trample"); any other note text greys them out; with several cards a toggle is on only if all have it. They are greyed out on hidden cards. With Automatum on they still write notes, which Automatum doesn't read (TBL-113). (r37)
-
-### Counters page
-
-- **TBL-078** Counters has three rows, each with two colour counter controls and then Note, EOT note and Reset counters in the last column. (r18)
-- **TBL-079** P/T, damage, EOT P/T and each counter are wide controls: − on the left, the value in the middle (tap to type it, drag to change it), + on the right; all six colours are there even with no counters. (r5)
-- **TBL-080** Dragging a value control changes it along the stronger direction of the drag, with a bubble like "+3 → 23"; the first three steps need 33.6 dp each, then it speeds up; letting go sends one change. (r31)
-- **TBL-081** Typing a value uses one square value field between − and + buttons. (r13)
-
-### More page
-
-- **TBL-082** More holds: Owner, Other side, Link, Unlink, single P/T step buttons, Reset P/T, until-end-of-turn P/T step buttons, Face down/up, Switch face, Temp 1 and Set damage last. (r40)
-- **TBL-114** With Automatum on, a card whose P/T Automatum works out (TBL-112) can't have its P/T set by hand: P/T (which shows the computed value), EOT P/T, the P/T and until-end-of-turn P/T step buttons and Reset P/T are greyed out for it, and with several cards selected they change only the others, also in the usual menu shown while Automatum waits for something done by hand (TBL-116). (r43)
-- **TBL-083** P/T step buttons read "+/·", "−/·", "·/+", "·/−" (· = side unchanged); the until-end-of-turn ones show the same icon with a small hourglass in its top-right corner, not touching the symbols or the label; all stay visible, greyed out on cards without P/T. (r36)
-- **TBL-084** Owner shows the owner's colour and is enabled only for battlefield tokens; tapping it gives the token to the other player. (r28)
-- **TBL-076** "Switch face" turns to the next face and works only on truly two-faced cards (transform, modal double-faced, meld, battle); adventure, split, flip and aftermath cards have one face. Switching either way also sets the corner to the new face's printed value (P/T, loyalty for planeswalkers, defense for battles, 1 for Sagas, empty when the face has none); a face-down card keeps its corner. One Undo takes back both. (r35)
-- **TBL-087** Link is enabled only with 2 or more cards selected and links every pair of them, with no target picker; Unlink lists the card's links with a Remove link button on each. (r12)
+- **TBL-118** With Automatum on, a gesture Automatum doesn't allow says nothing: the card, pile or life square it was made on gives a small sideways shake (a tap raising, or a double-tap or drag of, a card that can't be cast or played now (ZON-079), also while a cast or an Automatum choice is open; tapping a card by hand; a manual drag; a tap on a Library with nothing to offer, ZON-078; a tap on something that isn't a legal target while targets are picked, STK-023; an action refused while your cast is open, STK-025; a cast dropped because its card can't be cast or paid for now or the table changed under it, which shakes that card). A refusal inside an open cast panel is said in the panel (STK-024). Inspecting a card lists why Automatum doesn't allow each thing it offers for it now, one line each ("Cast — Storm Spark can't be cast now.", "{2}{G}, {T}: Draw a card. — Bob holds priority now."). Failures that aren't Automatum's refusals (offline, still working out) keep their message. (r45)
+- **TBL-119** There are no virtual-tabletop controls, because Automatum keeps the game (I-D52): no notes, pings, text marks on Stack entries, links, colour counters on cards or players, statuses, dice or coins, tokens or combat areas made by hand, Temp piles, selection or interaction modes. Card menus keep Inspect, Other side and the combat draft's Attack → and Remove from combat (TBL-116); the Life panel shows life and the other player's presence line (TRN-030); the Stack list has no buttons (STK-018); Table actions hold the timeline and the result (TRN-010). Chat, Inspect, the timeline and settings stay. (r45)
 - **TBL-088** "Other side" (Inspect other side) deliberately shows a card's hidden side and is recorded in the history; it is the only way an opponent sees a face-down card's front. (r21)
-
-### Hand, combat and Stack menus
-
-- **TBL-089** The hand card menu is one page: Inspect, Play, Face down, Reveal, Battlefield, Discard, Exile, Library top, Library bottom, Shuffle into library, Temp 1, Discard random, Reveal random, Exile random, Random to library bottom. (r36)
-- **TBL-090** Hand "Play" does the same as double-tapping the card; "Face down" casts it face down (STK-005). (r35)
-- **TBL-091** The combat copy menu is described in CMB-003. (r36)
 
 ### Card state rules
 
 - **TBL-093** A card leaving the battlefield loses its notes, P/T changes, counters, links and owner changes, turns to its front face and untaps; face-down survives only a move to exile. (r13)
-- **TBL-094** Buttons that change a card are greyed out outside the battlefield. Stack entries and combat copies can have their own notes and pings; combat copies also set P/T, damage and the until-end-of-turn marks on the real card (CMB-003). (r35)
 - **TBL-095** Damage, until-end-of-turn P/T and until-end-of-turn notes clear from every card when the turn passes and when a card changes zone; moving between battlefields keeps them. (r16)
-- **TBL-096** On hidden cards the menu shows "—" instead of values, but notes, damage and marks can still be edited without seeing them. (r30)
 - **TBL-097** The owner is whose deck the card came from; the controller is whichever battlefield it is on; only the Owner button on tokens changes the owner. (r5)
 
 ### Tokens
 
-- **TBL-098** Create token (from Table actions) lists all tokens alphabetically, Blank included; each row has small art, the name and a second line with P/T and keywords; hold a row to inspect it, and a search field filters the list. (r16)
-- **TBL-099** Favourite tokens are saved on the server per account and listed first; until you choose your own they are Treasure, Food, Clue, Blood, Map and Gold. (r12)
-- **TBL-100** The token list is prepared with the card records, so it opens and filters instantly; if favourites can't load it says "Favorites are offline; using saved favorites." (r13)
 - **TBL-101** A new token joins a pile of identical, untouched tokens (untapped, face up, no counters, marks or links, not in combat) that has fewer than 3 cards, fullest first; otherwise it starts a new pile with normal placement. (r30)
 - **TBL-102** New non-land tokens and copies appear in the main row; land tokens in the land row. (r30)
 - **TBL-103** A token moved to a graveyard, exile or library stops existing. (r28)
@@ -165,5 +112,5 @@ The battlefield, how cards look on it, how you touch them, their menus, multi-se
 - **TBL-107** Inspect from the menu shows the full card image, with tidy "‹ n/m ›" buttons to switch faces on multi-faced cards. (r31)
 - **TBL-108** Split cards, Rooms, Planes and Battles turn sideways when inspected; aftermath and flip cards get a Rotate button in Inspect only; sideways cards are no taller than upright ones (at most 448 dp). (r30)
 - **TBL-109** Inspecting your own face-down card shows its front dimmed with a "Face down" label; ordinary holds and inspects never show a hidden side to the opponent. (r21)
-- **TBL-110** Inspect shows the card's current P/T as "X/Y", and until-end-of-turn changes and notes marked "(until end of turn)". With Automatum on, a card whose P/T Automatum works out shows where it comes from instead, one line for P/T and one per other change: "4/6: 1/3 printed, +1/+1 counters, +2/+2 Wild Surge until end of turn", "Flying — Wild Surge until end of turn", then "Counters: +1/+1 ×1"; a source the viewer may not see reads "a card". The hold preview shows the same. (r37)
+- **TBL-110** Inspect shows the card's current P/T as "X/Y", with until-end-of-turn changes marked "(until end of turn)". With Automatum on, a card whose P/T Automatum works out shows where it comes from instead, one line for P/T and one per other change: "4/6: 1/3 printed, +1/+1 counters, +2/+2 Wild Surge until end of turn", "Flying — Wild Surge until end of turn", then "Counters: +1/+1 ×1"; a source the viewer may not see reads "a card". The hold preview shows the same. (r45)
 - **TBL-111** Holding a card that lies on top of other cards in a battlefield pile (TBL-053) previews it and then each card under it, in pile order, one below the other in the same scrolling preview; each shows only what the table shows of it (a face-down card stays hidden from the opponent). (r36)

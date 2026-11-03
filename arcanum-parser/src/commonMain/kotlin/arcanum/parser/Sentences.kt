@@ -12628,6 +12628,13 @@ internal class Sentences(
         }
         // sos chunk 11: "It's still a land." after "if this land isn't a creature, it becomes …": a reminder (CR 205.1b)
         if (sentence == "It's still a land." && ((steps.lastOrNull() as? Step.If)?.then?.singleOrNull() as? Step.Do)?.effect is Effect.ApplyMechanics) return steps
+        // sos chunk 13: "Create a 3/3 … token with flying. It gains haste until end of turn." ("it" is the token)
+        Sos.IT_GAINS_UNTIL_EOT.matchEntire(sentence)?.let { m ->
+            val create = (steps.lastOrNull() as? Step.Do)?.effect as? Effect.CreateToken ?: return@let
+            val keywords = sosKeywords(m.groupValues[1]) ?: return@let
+            val bind = create.bind ?: "token"
+            return steps.dropLast(1) + Step.Do(create.copy(bind = bind)) + sosUntilEndOfTurn(Objects.Bound(bind), Mechanic.GainAbilities(keywords))
+        }
         // sos chunk 04: "Put a stun counter on each of them." after tapping them
         Sos.PUT_COUNTER_ON_EACH_OF_THEM.matchEntire(sentence)?.let { m ->
             val tap = (steps.lastOrNull() as? Step.Do)?.effect as? Effect.Tap ?: return@let

@@ -39,7 +39,7 @@ object AutomatumSupport {
     private val manualEffects = emptySet<String>()
 
     /** Keyword actions the engine hands to the players (`Effects.keywordAction`'s `manual` call): by their JSON type. */
-    private val manualKeywordActions = setOf("venture", "learn", "ring-tempts")
+    private val manualKeywordActions = setOf("venture", "learn")
 
     /** Steps of a mana ability's resolution, besides adding the mana, that ask a player something: the engine can't ask
      * while a mana ability resolves (CR 605.3b), so it leaves them to the players (`Payment.finishManaAbility`). */

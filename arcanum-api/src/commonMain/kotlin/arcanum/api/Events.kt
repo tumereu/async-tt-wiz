@@ -170,6 +170,11 @@ sealed interface EventPattern {
     /** A Class matching [objects] becomes level [level] (CR 716.2a, "When this Class becomes level 2"). */
     @Serializable @SerialName("class-level") data class BecomesLevel(val objects: ObjectFilter, val level: Int) : EventPattern
     /** A player forages (CR 701.61a, "Whenever you forage"). */
+    /** [objects] enlists a creature (CR 702.154c): roles object (the attacker) and other combatant (the creature it tapped). */
+    @Serializable @SerialName("enlists") data class Enlists(val objects: ObjectFilter) : EventPattern
+    /** "Whenever the Ring tempts you" (CR 701.54d): once the player has chosen their Ring-bearer, or couldn't. Role object: the
+     * creature chosen. */
+    @Serializable @SerialName("ring-tempts") data class RingTempts(val players: PlayerFilter) : EventPattern
     @Serializable @SerialName("forage") data class Forage(val players: PlayerFilter) : EventPattern
     /** A permanent matching [objects] is given an unlocked designation (CR 709.5h), as it enters or later; [thisDoor]:
      * only the half the triggered ability is printed on ("When you unlock this door"); [fully]: only when it then has

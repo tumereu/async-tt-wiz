@@ -6,6 +6,41 @@ package arcanum.api
  */
 internal object KeywordExpansionsMore {
     fun expand(keyword: Keyword): List<Ability>? = when (keyword) {
+        // CR 702.55a: on a permanent "When this permanent is put into a graveyard from the battlefield, exile it haunting target creature";
+        // on an instant or sorcery "When this spell is put into a graveyard during its resolution, exile it haunting target creature"
+        Keyword.Haunt -> {
+            val target = TargetSlot("haunted", TargetKind.Objects(ObjectFilter.Type(CardType.Creature)), min = Value.Fixed(1), max = Value.Fixed(1))
+            val haunt = Instructions(targets = listOf(target), steps = listOf(Step.Do(Effect.Haunt(Objects.EventObject(EventRole.After), Objects.Target("haunted")))))
+            listOf(
+                Ability.Triggered(Trigger.On(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), from = Zone.Battlefield, to = Zone.Graveyard)), haunt),
+                Ability.Triggered(Trigger.On(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), from = Zone.Stack, to = Zone.Graveyard, resolving = true)),
+                    haunt),
+            )
+        }
+        // CR 702.95a: "When this creature enters, if you control both this creature and another creature and both are unpaired, you may
+        // pair this creature with another unpaired creature you control for as long as both remain creatures on the battlefield under
+        // your control" and "Whenever another creature you control enters, if you control both that creature and this one and both are
+        // unpaired, you may pair that creature with this creature …"
+        Keyword.Soulbond -> {
+            val unpairedYours = ObjectFilter.And(listOf(ObjectFilter.Type(CardType.Creature), ObjectFilter.ControlledBy(PlayerFilter.You),
+                ObjectFilter.Not(ObjectFilter.Paired)))
+            val other = ObjectFilter.And(listOf(ObjectFilter.Not(ObjectFilter.Is(Objects.Self)), unpairedYours))
+            val entered = Objects.EventObject(EventRole.After)
+            listOf(
+                Ability.Triggered(Trigger.On(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), to = Zone.Battlefield)),
+                    Instructions(steps = listOf(Step.May(listOf(Step.Do(Effect.Pair(Objects.Self, Objects.Each(other)))), Players.You))),
+                    interveningIf = Condition.And(listOf(Condition.ObjectMatches(Objects.Self, unpairedYours), Condition.Exists(other, 1)))),
+                Ability.Triggered(Trigger.On(EventPattern.ZoneChange(ObjectFilter.And(listOf(ObjectFilter.Not(ObjectFilter.Is(Objects.Self)),
+                    ObjectFilter.Type(CardType.Creature), ObjectFilter.ControlledBy(PlayerFilter.You))), to = Zone.Battlefield)),
+                    Instructions(steps = listOf(Step.May(listOf(Step.Do(Effect.Pair(Objects.Self, entered))), Players.You))),
+                    interveningIf = Condition.And(listOf(Condition.ObjectMatches(Objects.Self, unpairedYours), Condition.ObjectMatches(entered, unpairedYours)))),
+            )
+        }
+        // CR 702.154a, b: the optional cost to attack is the engine's (a declared attacker's enlisted creature, CR 508.1g); the linked
+        // trigger: "When you do, this creature gets +X/+0 until end of turn, where X is the tapped creature's power."
+        Keyword.Enlist -> listOf(Ability.Triggered(Trigger.On(EventPattern.Enlists(ObjectFilter.Is(Objects.Self))), steps(Effect.ApplyMechanics(
+            listOf(Mechanic.ModifyPowerToughness(Value.Of(NumericProperty.Power, Objects.EventObject(EventRole.OtherCombatant), Combine.Single), Value.Fixed(0))),
+            self, Duration.EndOfTurn))))
         // CR 702.109a: "You may cast this card by paying [cost] rather than its mana cost," "If this spell's dash cost was paid, return
         // the permanent this spell becomes to its owner's hand at the beginning of the next end step," and "As long as this permanent's
         // dash cost was paid, it has haste." (the return as an end step trigger of the permanent: the first end step after it entered)
@@ -184,19 +219,6 @@ internal object KeywordExpansionsMore {
         is Keyword.Freerunning -> listOf(alternative(Keyword.Freerunning.Kind, keyword.cost, Condition.HappenedThisTurn(EventPattern.Damage(
             ObjectFilter.And(listOf(ObjectFilter.ControlledBy(PlayerFilter.You), ObjectFilter.Sub(Subtype("Assassin")))),
             RecipientFilter(players = PlayerFilter.Any), combat = true), atLeast = 1, measure = Measure.Events)))
-        // CR 702.185a: "You may cast this card from your hand by paying [cost] rather than its mana cost" and "If this spell's warp cost was
-        // paid, exile the permanent this spell becomes at the beginning of the next end step. Its owner may cast this card after the
-        // current turn has ended for as long as it remains exiled." (exiled in an end step, it is cast on a later turn as the card's own
-        // timing allows)
-        is Keyword.Warp -> {
-            val paid = paid(Keyword.Warp.Kind)
-            listOf(
-                alternative(Keyword.Warp.Kind, keyword.cost, Condition.ObjectMatches(Objects.Self, ObjectFilter.InZone(Zone.Hand))),
-                Ability.Triggered(nextEndStep, Instructions(steps = listOf(
-                    Step.Do(Effect.Move(Objects.Self, Destination(Zone.Exile), postBind = "warped")),
-                    Step.Do(Effect.ApplyMechanics(listOf(Mechanic.MayPlay(Zone.Exile, PlayKind.Cast, holder = PlayerFilter.You)),
-                        Affected.Objects(Objects.Bound("warped")), Duration.Indefinitely)))), interveningIf = paid))
-        }
         // CR 702.146a, b: "You may cast this card transformed from your graveyard by paying [cost] rather than its mana cost." (the back
         // face's "If it would be put into a graveyard from anywhere, exile it instead" is printed there)
         is Keyword.Disturb -> listOf(Ability.Static(listOf(Mechanic.MayPlay(Zone.Graveyard, PlayKind.Cast, cost = keyword.cost, transformed = true,
@@ -227,14 +249,6 @@ internal object KeywordExpansionsMore {
                 Value.CastX(Objects.Self))))), affects = self),
             Ability.Triggered(entersSelf, steps(Effect.Draw(Players.You, Value.Fixed(1))),
                 interveningIf = Condition.Compare(Value.CastX(Objects.Self), Comparison.AtLeast, Value.Fixed(5))))
-        // CR 702.82a: "As this object enters, you may sacrifice any number of creatures. This permanent enters with N +1/+1 counters on it
-        // for each creature sacrificed this way."
-        is Keyword.Devour -> listOf(Ability.Static(listOf(Mechanic.Replacement(entersSelfEvent, modify = listOf(Modification.AsEnters(listOf(
-            Step.Choose(Choice.Objects(ObjectFilter.And(listOf(ObjectFilter.Type(CardType.Creature), ObjectFilter.ControlledBy(PlayerFilter.You),
-                ObjectFilter.Not(ObjectFilter.Is(Objects.Self)))), Value.Fixed(0), null), bind = "devoured", chooser = Players.You),
-            Step.Do(Effect.Sacrifice(Objects.Bound("devoured"), postBind = "eaten")),
-            Step.Modify(Modification.EntersWithCounters(CounterKind.PowerToughness(1, 1),
-                Value.Times(Value.Count(Objects.Bound("eaten")), keyword.amount)))))))), affects = self))
         // CR 702.38a: "As this object enters, reveal any number of cards from your hand that share a creature type with it. This permanent
         // enters with N +1/+1 counters on it for each card revealed this way."
         is Keyword.Amplify -> listOf(Ability.Static(listOf(Mechanic.Replacement(entersSelfEvent, modify = listOf(Modification.AsEnters(listOf(
@@ -258,12 +272,6 @@ internal object KeywordExpansionsMore {
         // until end of turn. Activate only as a sorcery." (saddled ends in the cleanup step)
         is Keyword.Saddle -> listOf(Ability.Activated(Cost(listOf(CostPart.TapObjects(CostObjects.Choose(otherUntappedCreatureYouControl, count = null,
             total = Total(NumericProperty.Power, Value.Fixed(keyword.amount)))))), steps(Effect.Mark(Objects.Self, ObjectMark.Saddled)),
-            ActivationRules(timing = Timing.Sorcery, activatedBy = PlayerFilter.You)))
-        // CR 702.184a: "Tap another untapped creature you control: Put a number of charge counters on this permanent equal to the tapped
-        // creature's power. Activate only as a sorcery."
-        Keyword.Station -> listOf(Ability.Activated(Cost(listOf(CostPart.TapObjects(CostObjects.Choose(otherUntappedCreatureYouControl, count = Value.Fixed(1)),
-            bind = "stationed"))), steps(Effect.PutCounters(Objects.Self, CounterKind.Named("charge"),
-            Value.Of(NumericProperty.Power, Objects.Bound("stationed"), Combine.Single))),
             ActivationRules(timing = Timing.Sorcery, activatedBy = PlayerFilter.You)))
         // CR 702.124j: "When this permanent enters, target player may search their library for a card named [name], reveal it, put it into
         // their hand, then shuffle."

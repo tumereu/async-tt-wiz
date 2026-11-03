@@ -97,6 +97,8 @@ sealed interface Value {
     @Serializable @SerialName("mana-in-pool") data class ManaInPool(val players: Players) : Value
     /** The most of [objects] that share one value of [quality] ("the greatest number of creatures you control that have a creature type in
      * common"; a changeling shares every creature type). */
+    /** How many times the Ring has tempted [players] this game (CR 701.54c). */
+    @Serializable @SerialName("ring-temptations") data class RingTemptations(val players: Players) : Value
     @Serializable @SerialName("most-sharing") data class MostSharing(val objects: Objects, val quality: SharedQuality) : Value
 }
 
@@ -135,6 +137,10 @@ sealed interface NumericProperty {
     // tla
     /** How many creature types it has ("for each of its creature types"; a changeling has every one, CR 702.73a). */
     @Serializable @SerialName("creature-types") data object CreatureTypes : NumericProperty
+    // eoe
+    /** The number of charge counters it stations a permanent with (CR 702.184a): its power, or its toughness while it has
+     * [Mechanic.StationsWithToughness] (CR 702.184c). */
+    @Serializable @SerialName("stationing") data object Stationing : NumericProperty
 }
 
 /** How [Value.Of] turns the objects' numbers into one. */

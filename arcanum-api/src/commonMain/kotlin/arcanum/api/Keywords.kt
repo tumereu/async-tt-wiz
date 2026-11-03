@@ -557,8 +557,9 @@ sealed interface Keyword : Ability {
         override val kind: KeywordKind get() = Kind
         companion object Kind : KeywordKind { override val id: String get() = "hideaway"; override val text: String get() = "Hideaway"; override val rule: String get() = "702.75" }
     }
-    /** Devour (CR 702.82) */
-    @Serializable @SerialName("devour") data class Devour(override val amount: Int) : Keyword, HasAmount {
+    /** Devour (CR 702.82); [what]: "Devour [quality] N" sacrifices permanents of that quality rather than creatures (702.82c, eoe:
+     * "Devour land 3"). */
+    @Serializable @SerialName("devour") data class Devour(override val amount: Int, val what: ObjectFilter? = null) : Keyword, HasAmount {
         init { requireAmount(amount) }
         override val kind: KeywordKind get() = Kind
         companion object Kind : KeywordKind { override val id: String get() = "devour"; override val text: String get() = "Devour"; override val rule: String get() = "702.82" }

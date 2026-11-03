@@ -167,6 +167,9 @@ sealed interface Effect {
      * it resolves (608.2h). */
     @Serializable @SerialName("delayed-trigger") data class CreateDelayedTrigger(
         val trigger: Trigger, val instructions: Instructions, val duration: Duration? = null, val repeats: Boolean = false,
+        // eoe
+        /** Triggers only in a later turn than the one it was created in ("at the beginning of the end step on your next turn"). */
+        val laterTurn: Boolean = false,
     ) : Effect
     /** Unattach [objects] from what they are attached to (CR 701.3d). */
     @Serializable @SerialName("unattach") data class Unattach(val objects: Objects) : Effect
@@ -249,6 +252,12 @@ sealed interface Effect {
     ) : Effect
     /** Create an emblem (CR 114) with [abilities] in the command zone of [players]; "you" in them is its owner, and the
      * names and choices they use are fixed when it is created. */
+    /** Pair [objects] (one object) with one of [with] its controller chooses (soulbond, CR 702.95a): only creatures on the battlefield
+     * under the controller of the ability, both unpaired; otherwise neither becomes paired (702.95c). */
+    @Serializable @SerialName("pair") data class Pair(val objects: Objects, val with: Objects) : Effect
+    /** "Exile [card] haunting [creature]" (haunt, CR 702.55a, b): the card, in a graveyard, is exiled and haunts the creature, kept as
+     * the exiled card's memory under the haunt keyword's id ("the creature it haunts" is [Objects.LinkedTo] haunt). */
+    @Serializable @SerialName("haunt") data class Haunt(val card: Objects, val creature: Objects) : Effect
     @Serializable @SerialName("emblem") data class CreateEmblem(val abilities: List<Ability>, val players: Players) : Effect
     /** A keyword action; [bind] names what it acted on ("the beheld card", "the evidence collected"). */
     @Serializable @SerialName("keyword-action") data class Action(val action: KeywordAction, val bind: String? = null) : Effect

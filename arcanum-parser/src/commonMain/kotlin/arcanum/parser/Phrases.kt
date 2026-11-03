@@ -44,6 +44,7 @@ internal object Filters {
      * controls", "land card with a basic land type", "legendary creature you control".
      */
     fun noun(phrase: String): ObjectFilter? {
+        EoePhrases.noun(phrase)?.let { return it } // eoe
         SpmPhrases.noun(phrase)?.let { return it } // spm
         EclPhrases.noun(phrase)?.let { return it } // ecl
         SosPhrases.noun(phrase)?.let { return it } // sos
@@ -460,6 +461,8 @@ internal object Events {
     /** One or more events of one trigger ("this artifact enters or leaves the battlefield", "attacks or blocks"). */
     // chunk 21
     fun events(text: String, self: Set<String>): List<EventPattern>? {
+        MechanicWordings.events(text, self)?.let { return it }
+        EoePhrases.events(text, self)?.let { return it } // eoe
         EclPhrases.events(text, self)?.let { return it } // ecl
         FraPhrases.events(text, self)?.let { return it } // fra
         // blb chunk 03: "this artifact enters and when you sacrifice it" (only its controller sacrifices it, CR 701.21a)
@@ -507,6 +510,7 @@ internal object Events {
     }
 
     fun event(text: String, self: Set<String>): EventPattern? {
+        MechanicWordings.event(text)?.let { return it }
         EclPhrases.event(text, self)?.let { return it } // ecl
         FraPhrases.event(text, self)?.let { return it } // fra
         // gtc chunk 01: battalion, "this creature and at least two other creatures attack": declared as attackers together
@@ -912,6 +916,8 @@ internal object Events {
 /** Conditions ("if you control seven or more lands with different names"). */
 internal object Conditions {
     fun condition(text: String, self: Set<String> = emptySet()): Condition? {
+        MechanicWordings.condition(text, self)?.let { return it }
+        EoePhrases.condition(text, self)?.let { return it } // eoe
         SpmPhrases.condition(text, self)?.let { return it } // spm
         TlaPhrases.condition(text, self)?.let { return it } // tla
         EclPhrases.condition(text, self)?.let { return it } // ecl
@@ -1378,6 +1384,7 @@ internal const val EXILED_WITH = "exiled"
 internal object Values {
     /** [exiled]: what "the exiled card" refers to on this card (linked abilities, CR 607.2a). */
     fun value(text: String, exiled: Objects? = null): Value? {
+        EoePhrases.value(text)?.let { return it } // eoe
         TlaPhrases.value(text)?.let { return it } // tla
         EclPhrases.value(text)?.let { return it } // ecl
         SosPhrases.value(text)?.let { return it } // sos

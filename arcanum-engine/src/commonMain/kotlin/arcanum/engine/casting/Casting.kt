@@ -44,8 +44,12 @@ internal object Casting {
         // The face played is up as it enters, so that face's "as this land enters" applies (CR 712.11, 614.12)
         s.obj(input.card)?.let { if (input.face != it.face) recorder.record(Change.Face(input.card, it.face, input.face)) }
         // Through the event pipeline: "enters tapped", "as this land enters" choices (CR 614.12); a choice waits
+        // eoe: "Each land played this way enters tapped" (the permission it is played with, CR 614.1c)
+        val fromHand = s.obj(input.card)?.let { it.zone == Zone.Hand && it.owner == input.player } == true
+        val tapped = !fromHand && Legality.permissions(snap, input.player, input.card, PlayKind.Play).firstOrNull()
+            ?.let { (it.second.mechanic as? arcanum.api.Mechanic.MayPlay)?.landsEnterTapped } == true
         val entering = arcanum.engine.action.Events.run(recorder, arcanum.engine.action.PlannedEvent.Move(listOf(input.card), Zone.Battlefield,
-            listOf(Meaning.PlayedLand), under = input.player, controller = input.player, source = input.card))
+            listOf(Meaning.PlayedLand), under = input.player, tapped = tapped, controller = input.player, source = input.card))
         if (entering is Progress.Waiting) return entering
         keepPriority(recorder, input.player)
         return Progress.Done

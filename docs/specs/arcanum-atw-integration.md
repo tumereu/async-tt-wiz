@@ -249,6 +249,13 @@ out of anything stuck.
   to the combat step it was made in. #9 — the early division panel has Inspect. #12 — tapping an attacker's real card
   with a blocker selected blocks it; the combat record's reads are kept per board (`AutomatumBoards.combatRecord`).
   Catalog: CMB-007, CMB-013, CMB-029, CMB-032–CMB-035, STK-034, SYS-070.
+- **Built (combat choices and costs, 2026-11-03, engine lanes 3–4):** the attacker's choices with the staged attackers
+  (enlist, optional costs to attack such as exert, banding) are an early answer of their own (`PreAnswer.AttackChoices`,
+  one record beside the staging, dropped once attackers are declared), read by `CombatFlow.withChoices` as the step arrow
+  declares; `CombatChoices.enlist`/`enlistable`/`optional`/`banding` say what may be chosen, `CombatShown.costs` the
+  mandatory costs to attack or block of the draft (CR 508.1h, 509.1d); the declaration pays mana by Autotap (I-D47),
+  other payment choices stay the shared flow's. A battle's protector is kept in the card ledger (CR 310.9). Catalog:
+  CMB-036–CMB-039.
 - **Built (loops):** `StepFlow.automatic` keeps `Engine.loopKey` of each state it passes in with something on the Stack;
   the same key again with only forced passes since (CR 104.4b, 732.4) stops the batch with `Input.MandatoryLoop`, whose
   `Decision.Manual` the shared-flow panel shows ("The game is a draw: …"); answering it makes the engine's game a draw.

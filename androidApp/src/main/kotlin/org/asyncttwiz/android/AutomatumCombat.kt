@@ -14,6 +14,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import org.asyncttwiz.automatum.AttackChoice
 import org.asyncttwiz.automatum.AutomatumLog
 import org.asyncttwiz.automatum.CombatFlow
 import org.asyncttwiz.automatum.CombatRefused
@@ -81,8 +82,86 @@ internal class CombatController(
     var numbersHidden by mutableStateOf(false); private set
 
     fun select(card: String?) { selection = card?.let { it to step(board()) } }
-    fun clearSelection() { selection = null }
+    fun clearSelection() { selection = null; picking = null }
+    /** CMB-036, CMB-038: the viewer stops picking for a staged attacker (its selection stays). */
+    fun stopPicking() { picking = null }
     fun toggleNumbers() { numbersHidden = !numbersHidden }
+
+    // ---- The attacker's choices with their staged attackers (CMB-036–CMB-038): shared as an early answer of its own
+    // ([PreAnswer.AttackChoices]); only which attacker the viewer is enlisting for or forming a band with is theirs
+
+    /** What the viewer's taps pick for a staged attacker now: creatures to enlist ([Picking.Enlist], CMB-036) or the
+     * members of its band ([Picking.Band], CMB-038); null otherwise. It belongs to the step it began in. */
+    sealed interface Picking {
+        val attacker: String
+        data class Enlist(override val attacker: String) : Picking
+        data class Band(override val attacker: String) : Picking
+    }
+    val picked: Picking? get() = picking?.takeIf { it.second == step(board()) }?.first
+    private var picking by mutableStateOf<Pair<Picking, String>?>(null)
+
+    /** CMB-036: begins (or ends) picking the creatures [attacker] enlists. */
+    fun pickEnlisted(attacker: String) {
+        picking = if (picked == Picking.Enlist(attacker)) null else Picking.Enlist(attacker) to step(board())
+    }
+
+    /** CMB-038: begins (or ends) forming [attacker]'s band; it joins a band of its own at once. */
+    fun pickBand(attacker: String): Boolean {
+        val play = current() ?: return false
+        if (picked == Picking.Band(attacker)) { picking = null; return true }
+        picking = Picking.Band(attacker) to step(board())
+        val choices = CombatFlow.attackChoices(play.board)
+        if (choices[attacker]?.band != null) return true
+        val band = (choices.values.mapNotNull { it.band }.maxOrNull() ?: 0) + 1
+        return changeChoice(play, attacker) { it.copy(band = band) }
+    }
+
+    /** CMB-037: [attacker] pays the optional cost to attack [key] (exert), or no longer does. */
+    fun toggleOptional(attacker: String, key: String): Boolean = current()?.let { play ->
+        changeChoice(play, attacker) { c -> c.copy(paying = if (key in c.paying) c.paying - key else c.paying + key) } } ?: false
+
+    /** CMB-036: [attacker] enlists [creature] (as many as it has enlist abilities, [limit]: the first goes when full), or
+     * no longer does when it already enlists it. */
+    fun toggleEnlisted(play: PlayState, attacker: String, creature: String, limit: Int): Boolean {
+        val sent = changeChoice(play, attacker) { c ->
+            if (creature in c.enlisted) c.copy(enlisted = c.enlisted - creature)
+            else c.copy(enlisted = (c.enlisted + creature).takeLast(limit.coerceAtLeast(1)))
+        }
+        if (sent && CombatFlow.attackChoices(current()?.board ?: play.board)[attacker]?.enlisted.orEmpty().size >= limit) picking = null
+        return sent
+    }
+
+    /** CMB-036: [attacker] enlists nothing. */
+    fun clearEnlisted(attacker: String): Boolean = current()?.let { play -> changeChoice(play, attacker) { it.copy(enlisted = emptyList()) } } ?: false
+
+    /** CMB-038: the staged [member] joins the band of the attacker being formed into one, or leaves it. */
+    fun toggleBandMember(play: PlayState, member: String): Boolean {
+        val leader = (picked as? Picking.Band)?.attacker ?: return false
+        val band = CombatFlow.attackChoices(play.board)[leader]?.band ?: return false
+        return changeChoice(play, member) { c -> c.copy(band = if (c.band == band) null else band) }
+    }
+
+    /** The event that sets [card]'s choice to [change] of it on [play]'s board (the record withdrawn once nothing is
+     * chosen), or null when nothing changes. */
+    internal fun choiceAction(play: PlayState, card: String, change: (AttackChoice) -> AttackChoice): PlayAction? {
+        val given = CombatFlow.attackChoices(play.board)
+        val before = given[card] ?: AttackChoice(card)
+        val after = change(before)
+        if (after == before) return null
+        val rest = given.values.filter { it.cardId != card } + listOfNotNull(after.takeUnless { it.empty })
+        // A band of one is no band (CMB-038): its last member leaves it too
+        val bands = rest.mapNotNull { it.band }.groupingBy { it }.eachCount()
+        val choices = rest.map { if (it.band != null && bands[it.band] == 1 && it.cardId != (picked as? Picking.Band)?.attacker) it.copy(band = null) else it }
+            .filterNot { it.empty }
+        if (choices.isEmpty()) return PreAnswers.withdraw(play.board, PreAnswer.ATTACK_CHOICES)
+        return PreAnswers.set(play.board, PreAnswer.AttackChoices(play.board.turn.accountId, play.board.turn.number.toIntOrNull(), choices))
+    }
+
+    private fun changeChoice(play: PlayState, card: String, change: (AttackChoice) -> AttackChoice): Boolean {
+        val action = choiceAction(play, card, change) ?: return false
+        AutomatumLog.preEvent(play.gameId, "attack choice", card)
+        return submit(action)
+    }
 
     /** CMB-028: the active target lane on [play]'s board: chosen this turn and still a target, else the defending player. */
     fun activeTarget(play: PlayState): String? {
@@ -137,7 +216,9 @@ internal class CombatController(
 
     /** Whether [a] and [b] differ only in what a draft of a declaration changes (the lanes, what is only shown). */
     private fun sameDeclaration(a: BoardState, b: BoardState): Boolean =
-        a.turn == b.turn && a.priority == b.priority && a.engineRecords == b.engineRecords &&
+        a.turn == b.turn && a.priority == b.priority &&
+            // CMB-036: the attacker's choices are an early answer beside the board, which what may be declared doesn't read
+            a.engineRecords.filter { it.kind != EngineRecordKind.PreAnswer } == b.engineRecords.filter { it.kind != EngineRecordKind.PreAnswer } &&
             a.cards.size == b.cards.size && a.cards.zip(b.cards).all { (x, y) -> x.id == y.id && x.containerId == y.containerId &&
                 x.tapped == y.tapped && x.zoneChanges == y.zoneChanges }
 
@@ -147,6 +228,10 @@ internal class CombatController(
 
     /** What is shown of combat on [play]'s board when already worked out (never blocks); null until then. */
     fun ready(play: PlayState): CombatShown? = if (shownBoard === play.board) view else AutomatumBoards.cachedCombat(play)
+
+    /** [ready], else the last shown board's while it awaits the same declaration (the combat area keeps its chips while a
+     * draft change is worked out, CMB-036–CMB-038); null when neither. */
+    fun readyOrLast(play: PlayState): CombatShown? = ready(play) ?: shownBoard?.takeIf { sameDeclaration(it, play.board) }?.let { view }
 
     /** The early answer (I-D33) to [division]: [shares] by target. One ordinary event, undoable. */
     fun giveEarly(division: DamageDivision, shares: Map<MtgRef, Int>): Boolean {

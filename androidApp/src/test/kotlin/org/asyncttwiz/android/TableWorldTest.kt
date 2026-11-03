@@ -91,9 +91,17 @@ class TableWorldTest {
                 }
                 val homeGap = home.fields.last().gridBounds.y - home.fields.first().gridBounds.bottom
                 assertEquals(homeGap * zoom, next.fields.last().gridBounds.y - next.fields.first().gridBounds.bottom, .001f)
+                // CMB-007: the combat panel is screen-level when zoomed out: it stays centred where the world puts it,
+                // but its cards stay COMBAT_MIN_CARD wide on screen instead of shrinking with the world
+                val homePanel = transformed(home.combatPanel!!)
+                assertEquals(homePanel.center.x, next.combatPanel!!.center.x, .001f)
+                assertEquals(homePanel.center.y, next.combatPanel!!.center.y, .001f)
                 for (item in home.items) {
                     val other = next.items.single { it.id == item.id }
-                    if (item.zone == PlayZone.BATTLEFIELD) {
+                    if (item.viewport == "combat" && zoom < 1f) {
+                        assertEquals(maxOf(item.bounds.width * zoom, TablePresentation.COMBAT_MIN_CARD), other.bounds.width, .001f, item.id)
+                        assertEquals(other.bounds.width * item.bounds.height / item.bounds.width, other.bounds.height, .001f, item.id)
+                    } else if (item.zone == PlayZone.BATTLEFIELD) {
                         val expected = transformed(item.bounds)
                         assertEquals(expected.x, other.bounds.x, .001f, item.id)
                         assertEquals(expected.y, other.bounds.y, .001f, item.id)

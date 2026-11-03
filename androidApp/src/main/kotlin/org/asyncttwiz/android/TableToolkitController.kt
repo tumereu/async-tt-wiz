@@ -2,6 +2,9 @@ package org.asyncttwiz.android
 
 import androidx.compose.runtime.*
 import org.asyncttwiz.protocol.*
+import org.asyncttwiz.automatum.AttackChoice
+import org.asyncttwiz.automatum.PreAnswer
+import org.asyncttwiz.automatum.PreAnswers
 import androidx.lifecycle.ViewModel
 
 data class ToolkitCapture(val viewIds: List<String>, val contextViewId: String,
@@ -67,7 +70,7 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
     /** Priority, responding, resolution and triggers through Automatum (I2b): shared flows; while one waits for an
      * answer nothing else changes (D32). */
     internal val flows = SharedFlowController(viewer, { acting()?.takeIf { enabled() } }, automatedBatch, ::engineTags, { error = it },
-        automatumWork, onRespond = ::holdForReaction, tokenArt = tokenArt)
+        automatumWork, onRespond = ::holdForReaction, tokenArt = tokenArt, autotap = { cast.autotap })
     private val automatumWork = automatumWork
 
     /**
@@ -715,7 +718,19 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
         val declaring = choices.declaring
         if (declaring != null && enabled() && controllerOf(play, card) == declaring) {
             if (choices.attackers) {
-                if (attacking) return unstage(occurrence!!.id)
+                // CMB-036: picking what a staged attacker enlists, a creature that may be enlisted is enlisted (or no longer)
+                (combat.picked as? CombatController.Picking.Enlist)?.let { picking ->
+                    if (!attacking && card in choices.enlistable) {
+                        combat.toggleEnlisted(play, picking.attacker, card, choices.enlist[picking.attacker] ?: 1)
+                        return true
+                    }
+                }
+                // CMB-038: forming a band, another staged attacker joins it or leaves it
+                (combat.picked as? CombatController.Picking.Band)?.let { picking ->
+                    if (attacking && card != picking.attacker) { combat.toggleBandMember(play, card); return true }
+                }
+                combat.stopPicking()
+                if (attacking) return unstage(occurrence!!.id, card)
                 if (card !in choices.attacks && !creature(play, card)) return false
                 return stage(play, listOf(card), combat.activeTarget(play))
             }
@@ -758,10 +773,15 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
         } }
     }
 
-    private fun unstage(occurrenceId: String): Boolean {
-        val area = current()?.board?.combat ?: return false
+    /** CMB-028: the staged attacker [card] leaves the staging, with its choices (CMB-036–CMB-038); one Undo step. */
+    private fun unstage(occurrenceId: String, card: String): Boolean {
+        val play = current() ?: return false
+        val area = play.board.combat ?: return false
         error = null
-        return engineRoute { submit(PlayAction.Combat(CombatAction.Remove(area.id, occurrenceId))) }
+        val choice = combat.choiceAction(play, card) { AttackChoice(card) }
+        return engineRoute { batchResult {
+            submit(PlayAction.Combat(CombatAction.Remove(area.id, occurrenceId))).also { if (it && choice != null) submit(choice) }
+        } }
     }
 
     /** CMB-034: [blocker] blocks the attackers of [pairId] too, or no longer when it does; one that can block one attacker
@@ -793,7 +813,11 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
         val ids = area.pairs.flatMap { if (attackers) it.attackers else it.blockers }.map { it.id }
         if (ids.isEmpty()) return false
         combat.clearSelection()
-        return engineRoute { batchResult { ids.map { submit(PlayAction.Combat(CombatAction.Remove(area.id, it))) }.any { it } } }
+        // CMB-036–CMB-038: the attacker's choices go with the staging
+        val choices = if (attackers) PreAnswers.withdraw(play.board, PreAnswer.ATTACK_CHOICES) else null
+        return engineRoute { batchResult {
+            (ids.map { submit(PlayAction.Combat(CombatAction.Remove(area.id, it))) } + listOfNotNull(choices?.let(::submit))).any { it }
+        } }
     }
 
     fun perform(intent: TableActionIntent): Boolean {

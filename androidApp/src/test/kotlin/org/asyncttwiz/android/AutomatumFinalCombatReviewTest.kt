@@ -264,12 +264,14 @@ class AutomatumFinalCombatReviewTest {
         assertEquals(bobLife - 2, play.board.players.single { it.accountId == f.b }.life.toInt(), "on the branch only the Brute's 2 trample over")
     }
 
-    // CR 508.1g–j (rtr), CMB-028, I-D29: Bob's Edict of Tolls makes attacking him cost {1} per creature. Alice stages her
-    // Stout Bear and commits: the attack waits for her payment, a choice of hers the shared-flow panel shows with the
-    // suggested Mountain; paid, the Bear attacks
+    // CR 508.1g–j (rtr), CMB-028, CMB-037, I-D29: Bob's Edict of Tolls makes attacking him cost {1} per creature. With
+    // Autotap mana off, Alice stages her Stout Bear and commits: the attack waits for her payment, a choice of hers the
+    // shared-flow panel shows with the suggested Mountain; paid, the Bear attacks (with Autotap on it is paid by itself:
+    // AutomatumCombatChoicesTest)
     @Test fun aCostToAttackIsPaidFromTheCommit() {
         start(board(TurnPosition.DECLARE_ATTACKERS, null, aliceField = listOf(bear, mountain), bobField = listOf(tolls)))
         val alice = toolkit(f.a)
+        alice.cast.autotap = false
         val bearCard = card(play, bear)
         tapCard(alice, bearCard)
         assertTrue(arrow(alice, "Attack (1)"), alice.error)

@@ -44,6 +44,9 @@ internal class SharedFlowController(
     private val onRespond: () -> Unit = {},
     /** The pictures of tokens a flow makes (§4.6). */
     private val tokenArt: org.asyncttwiz.automatum.TokenArt = org.asyncttwiz.automatum.TokenArt.None,
+    /** "Autotap mana sources" (I-D47): the mana of costs to attack or block is paid by itself as they are declared
+     * (CMB-037). */
+    private val autotap: () -> Boolean = { true },
 ) : FlowQuestions {
     /** The flow of the shown board, null until worked out (or when there is none). */
     var view by mutableStateOf<SharedFlow?>(null); private set
@@ -195,7 +198,7 @@ internal class SharedFlowController(
             when {
                 holder != null -> flow.step(holder, until)
                 !declares -> flow.step(active, until)
-                else -> flow.declare()
+                else -> flow.declare(autotap())
             }
         }
     }

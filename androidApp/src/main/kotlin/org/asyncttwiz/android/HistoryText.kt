@@ -6,6 +6,8 @@ import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.toPersistentMap
 
 import org.asyncttwiz.protocol.*
+import org.asyncttwiz.automatum.PreAnswer
+import org.asyncttwiz.automatum.PreAnswers
 
 data class HistoryText(val description: String, val label: String, val move: HistoryMove? = null)
 /** A card move: [subjects] are the moved cards' names, null for each card the viewer could not see at the time.
@@ -440,6 +442,10 @@ fun historyText(event: GameplayMutation?, before: PlayState? = null, viewer: Str
                 val owner = emblem.player?.let(::playerPrefix).orEmpty()
                 if (mtg.after == null) text("${owner}Emblem removed", "Emblem")
                 else text("${owner}Emblem → " + emblem.text.replace('\n', ' ').let { if (it.length > 48) it.take(48).trimEnd() + "…" else it }, "Emblem")
+            } ?: (mtg.after ?: mtg.before)?.takeIf { it.kind == EngineRecordKind.PreAnswer && it.id == "pre:" + PreAnswer.ATTACK_CHOICES }?.let {
+                // CMB-036–CMB-038: the attacker's choices with their staged attackers
+                val after = mtg.after?.let { r -> runCatching { PreAnswers.decode(r) }.getOrNull() } as? PreAnswer.AttackChoices
+                text(attackChoicesText(after?.choices.orEmpty(), ::card), "Attack choices")
             } ?: (mtg.after ?: mtg.before)?.takeIf { it.kind == EngineRecordKind.PreAnswer }?.let { early ->
                 // I-D33: a division (or another answer) given early, before its decision opened
                 val forWhom = early.player?.takeIf { it != event.author }?.let { " for ${historyPlayerName(it, usernames)}" }.orEmpty()
@@ -552,4 +558,17 @@ internal fun historyMoveSubjects(subjects: List<String?>): String {
         hidden == 1 -> if (names.isEmpty()) "a card" else "1 card"
         else -> "$hidden cards"
     })).joinToString(", ")
+}
+
+/** CMB-036–CMB-038: the history line of the attacker's choices after a change ([choices], [name] of a card): "Attack
+ * choices: Sunscorch Raider exerts · Drillmaster Vey enlists Stout Bear · band: Shieldwall Knight, Stout Bear", or
+ * "Attack choices cleared". */
+internal fun attackChoicesText(choices: List<org.asyncttwiz.automatum.AttackChoice>, name: (String) -> String): String {
+    val parts = choices.flatMap { c ->
+        listOfNotNull(
+            "${name(c.cardId)} pays as it attacks".takeIf { c.paying.isNotEmpty() },
+            c.enlisted.takeIf { it.isNotEmpty() }?.let { e -> "${name(c.cardId)} enlists ${e.joinToString(" and ") { name(it) }}" })
+    } + choices.filter { it.band != null }.groupBy { it.band }.values.filter { it.size >= 2 }
+        .map { band -> "band: ${band.joinToString(", ") { name(it.cardId) }}" }
+    return if (parts.isEmpty()) "Attack choices cleared" else "Attack choices: " + parts.joinToString(" · ")
 }

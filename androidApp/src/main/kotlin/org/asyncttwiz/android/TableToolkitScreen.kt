@@ -34,7 +34,8 @@ internal fun TableToolkitScreen(toolkit: TableToolkitController, play: PlayState
     val names = mapOf(game.inviter.accountId to game.inviter.username, game.recipient.accountId to game.recipient.username)
     val enabled = toolkit.enabled()
     val endingColor = if (play.board.turn.accountId == toolkit.viewer) OwnTableColor else OpponentTableColor
-    val context = toolkitQuickContext(play, selection, toolkit.viewer).copy(automatumCombat = toolkit.combat.ready(play))
+    val context = toolkitQuickContext(play, selection, toolkit.viewer).copy(automatumCombat = toolkit.combat.ready(play),
+        pauseBar = toolkit.pause.barWithPass(play, toolkit.viewer))
         .withCombatTarget(toolkit.combat, play, CombatStackRules.defendingPlayer(play.board)?.let { names[it] })
     val bound = toolkit.capture
     val popup = toolkit.popupItem

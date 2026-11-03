@@ -311,6 +311,83 @@ class AutomatumTest {
         assertEquals(off.board, undone.stateAt(undone.currentNodeId)!!.board)
     }
 
+    // SYS-070 (finalreview-sync #1, I-D42 refined 2026-11-03): in a combat step with the combat area open, turning
+    // Automatum on keeps the combat record (Automatum reads it while the lanes still show it); once the board shows no
+    // combat it is dropped as before
+    @Test fun switchingOnKeepsTheCurrentCombat() {
+        val combat = EngineRecord("combat", EngineRecordKind.Combat, data = """{"attackers":[]}""")
+        val position = TurnPosition.DECLARE_BLOCKERS
+        val inCombat = base().let { it.copy(board = it.board.copy(engineRecords = listOf(combat),
+            turn = it.board.turn.copy(phase = position.phase, step = position.step), combat = CombatArea(gameplayId(70)))) }
+        assertEquals(listOf(combat), accept(inCombat, mtg(MtgAction.SetAutomatum(true))).state!!.board.engineRecords)
+        val closed = inCombat.copy(board = inCombat.board.copy(combat = null))
+        assertTrue(accept(closed, mtg(MtgAction.SetAutomatum(true))).state!!.board.engineRecords.isEmpty())
+    }
+
+    /** [root] with Automatum on, a structured item on its Stack entry and an open flow resolving it. */
+    private fun resolving(): PlayState {
+        var state = root()
+        val item = MtgStackItem(MtgRef.StackItem("ability-1"), MtgStackKind.Activated, a, timestamp = 5, data = "{}")
+        state = accept(state, mtg(MtgAction.SetStackItem(entry(state), null, item))).state!!
+        state = accept(state, mtg(MtgAction.SetAutomatum(true))).state!!
+        val open = continuation.copy(resolving = listOf(entry(state)))
+        return accept(state, mtg(MtgAction.SetRecord(open.id, null, open))).state!!
+    }
+
+    // SYS-060, CR 608.2, I-D15 (finalreview-sync #6, #7): switching off or clearing Automatum's data closes an open flow
+    // where it is; the spell or ability it was resolving becomes a manual entry (no structured item), so Automatum is
+    // off and switching it on asks to deal with the entry first, instead of resolving it again from its start
+    @Test fun closingAFlowMakesWhatItResolvedManual() {
+        val state = resolving()
+        for (action in listOf(MtgAction.SetAutomatum(false), MtgAction.ClearRecords)) {
+            val closed = accept(state, mtg(action)).state!!
+            assertFalse(Automatum.flowOpen(closed.board), "$action")
+            assertNull(closed.board.stackEffects.single().item, "$action")
+            assertFalse(closed.board.automatum, "$action")
+            assertEquals(RuleRefusals.AUTOMATUM_MANUAL_STACK, change(closed, mtg(MtgAction.SetAutomatum(true))).reason)
+        }
+        // A flow resolving nothing (a choice between steps) leaves the Stack as it is, and clearing leaves Automatum on
+        val between = accept(state, mtg(MtgAction.SetRecord(continuation.id, continuation.copy(resolving = listOf(entry(state))),
+            continuation))).state!!
+        val cleared = accept(between, mtg(MtgAction.ClearRecords)).state!!
+        assertNotNull(cleared.board.stackEffects.single().item)
+        assertTrue(cleared.board.automatum)
+        // Only the continuation names what it resolves, by Stack entry ids
+        for (bad in listOf(effect.copy(resolving = listOf(entry(state))), continuation.copy(resolving = listOf("not-an-id"))))
+            assertFalse(MtgRules.valid(MtgAction.SetRecord(bad.id, null, bad)), "$bad")
+    }
+
+    // SYS-060, TRN-054, TRN-055 (finalreview-sync #6, #7; owner decision 2026-11-03): switching off or clearing during a
+    // flow is one server step that always goes through: the flow is taken back when it can be (here its opening is in
+    // the history), else closed where it is (here the history starts inside it); then the switch or clear is the actor's
+    // own event
+    @Test fun exitingAFlowTakesItBackOrClosesIt() {
+        val open = resolving()
+        val beforeFlow = open.copy(board = open.board.copy(engineRecords = listOf(effect)), currentNodeId = open.root.id)
+        var tree = GameplayTree(beforeFlow)
+        tree = assertNotNull(HistoryContinuation.change(tree, a, command(GameAction.Play(
+            mtg(MtgAction.SetRecord(continuation.id, null, open.board.engineRecords.single()))))).tree)
+        tree = assertNotNull(HistoryContinuation.change(tree, b, command(GameAction.Play(PlayAction.SetLife(b, "17")))).tree)
+        for (then in listOf(MtgAction.SetAutomatum(false), MtgAction.ClearRecords)) {
+            val exited = assertNotNull(HistoryContinuation.change(tree, b, command(GameAction.ExitFlow(then))).tree, "$then")
+            val board = exited.stateAt(exited.currentNodeId)!!.board
+            assertEquals(listOf(exited.currentNodeId), exited.nodes.keys.toList(), "$then: the flow is taken back, one event left")
+            assertEquals("20", board.players.single { it.accountId == b }.life, "$then: Bob's event in the flow too")
+            assertNotNull(board.stackEffects.single().item, "$then: nothing was resolved by hand")
+            assertEquals(then == MtgAction.ClearRecords, board.automatum)
+            assertEquals(if (then == MtgAction.ClearRecords) emptyList() else listOf(effect), board.engineRecords)
+        }
+        // The flow's start out of reach: closed where it is
+        val closed = assertNotNull(HistoryContinuation.change(GameplayTree(open.copy(currentNodeId = open.root.id)), b,
+            command(GameAction.ExitFlow(MtgAction.SetAutomatum(false)))).tree)
+        val board = closed.stateAt(closed.currentNodeId)!!.board
+        assertFalse(board.automatum)
+        assertFalse(Automatum.flowOpen(board))
+        assertNull(board.stackEffects.single().item)
+        // Only the switch-off and the clear go this way
+        assertFalse(GameWire.valid(command(GameAction.ExitFlow(MtgAction.SetAutomatum(true)))))
+    }
+
     // SYS-066 (I-D25): an emblem record says whose it is and its text; other records say neither
     @Test fun emblemRecordsCarryTheirPlayerAndText() {
         val state = root()

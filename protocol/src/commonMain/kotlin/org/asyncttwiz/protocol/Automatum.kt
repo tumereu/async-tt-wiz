@@ -50,15 +50,40 @@ object Automatum {
     /** Whether a shared flow is open: the board holds the continuation (I-D8). */
     fun flowOpen(board: BoardState): Boolean = board.engineRecords.any { it.id == CONTINUATION_ID }
 
+    /**
+     * [board] with its open flow closed where it is, without taking it back (I-D24; finalreview-sync #6, #7): the
+     * continuation goes, and each Stack entry whose spell or ability was half resolved ([EngineRecord.resolving]) becomes
+     * a manual entry (no structured item), so the rest of it is done by hand and switching Automatum on asks to deal with
+     * it first (I-D15) instead of resolving it again from its start (CR 608.2); Automatum is then off, as it never runs
+     * over a manual entry. [board] itself when no flow is open.
+     */
+    fun closeFlow(board: BoardState): BoardState {
+        val flow = board.engineRecords.singleOrNull { it.id == CONTINUATION_ID } ?: return board
+        val manual = board.stackEffects.filter { it.id in flow.resolving && it.item != null }.map { it.id }.toSet()
+        return board.copy(engineRecords = board.engineRecords.filterNot { it.id == CONTINUATION_ID },
+            automatum = board.automatum && manual.isEmpty(),
+            stackEffects = if (manual.isEmpty()) board.stackEffects
+                else board.stackEffects.map { if (it.id in manual) it.copy(item = null) else it })
+    }
+
     /** Whether [board] holds data "Clear Automatum data" removes ([MtgAction.ClearRecords]): engine records, the priority
      * holder, card and player ledgers. Typed counters and mana pools are game values and stay. */
     fun recorded(board: BoardState): Boolean = board.engineRecords.isNotEmpty() || board.priority != null ||
         board.cards.any { it.ledger.isNotEmpty() } || board.players.any { it.ledger.isNotEmpty() }
 
     /** I-D42: engine data that belongs to the combat, step or turn it was recorded in, dropped when Automatum is turned on
-     * ([MtgAction.SetAutomatum]): the combat record, triggered abilities waiting for the Stack and early answers. */
-    fun turnScoped(record: EngineRecord): Boolean = record.kind == EngineRecordKind.Combat ||
-        record.kind == EngineRecordKind.Triggered || record.kind == EngineRecordKind.PreAnswer
+     * on [board] ([MtgAction.SetAutomatum]): triggered abilities waiting for the Stack, early answers, and the combat
+     * record once the board shows no combat (finalreview-sync #1: the current combat stays, so a declared attack or
+     * block isn't lost; Automatum reads it only while the lanes still match it). */
+    fun turnScoped(record: EngineRecord, board: BoardState): Boolean =
+        record.kind == EngineRecordKind.Combat && !inCombat(board) ||
+            record.kind == EngineRecordKind.Triggered || record.kind == EngineRecordKind.PreAnswer
+
+    /** Whether [board] is in a combat step from declare attackers to end of combat with the combat area open. */
+    fun inCombat(board: BoardState): Boolean = board.combat != null && TurnPosition.of(board.turn) in COMBAT_STEPS
+
+    private val COMBAT_STEPS = setOf(TurnPosition.DECLARE_ATTACKERS, TurnPosition.DECLARE_BLOCKERS,
+        TurnPosition.FIRST_STRIKE_DAMAGE, TurnPosition.COMBAT_DAMAGE, TurnPosition.END_COMBAT)
 
     /** I-D15: why Automatum can't be turned on now (a [RuleRefusals] code), or null when it can: the Stack holds a
      * manual entry (one without a structured item, STK-016) or a Temp pile holds cards (D38). */
@@ -152,11 +177,15 @@ object Automatum {
 
 /** One engine record ATW stores and doesn't interpret (P2, §4.3); [timestamp] for effect objects, delayed triggers
  * and emblems (CR 613.7b), so ATW's timestamp clock ([MtgFacts.clock]) sees every stamp. An [EngineRecordKind.Emblem]
- * also says what ATW shows of it: whose it is ([player]) and its rules [text] (I-D25); other records have neither. */
+ * also says what ATW shows of it: whose it is ([player]) and its rules [text] (I-D25); other records have neither.
+ * [resolving], on the continuation only: the Stack entries (ids of [StackEffect]s) whose spell or ability is half
+ * resolved while the flow waits; closing the flow without taking it back makes them manual entries
+ * ([Automatum.closeFlow], finalreview-sync #6, #7). */
 @Serializable data class EngineRecord(val id: String, val kind: EngineRecordKind,
     @EncodeDefault(EncodeDefault.Mode.NEVER) val timestamp: Long? = null, val data: String,
     @EncodeDefault(EncodeDefault.Mode.NEVER) val player: String? = null,
-    @EncodeDefault(EncodeDefault.Mode.NEVER) val text: String = "")
+    @EncodeDefault(EncodeDefault.Mode.NEVER) val text: String = "",
+    @EncodeDefault(EncodeDefault.Mode.NEVER) val resolving: List<String> = emptyList())
 
 /** What made a change, for history lines ("Storm Spark dealt 3 damage to Grizzly Cub"): the spell's or ability's
  * [source], by the [name] it had then, its [controller], and the Stack [item] resolving. */
@@ -193,14 +222,15 @@ object Automatum {
      * a manual entry or a Temp pile holds cards (I-D15, [Automatum.turnOnRefusal]), and gives the Battlefield's and
      * Exile's cards that have no timestamp yet (games begun before rules v36) stamps in a stated order
      * ([MtgFacts.stampUnstamped]). Turning it on also drops the turn-scoped engine data recorded before it
-     * ([Automatum.turnScoped]: the combat record, waiting triggers, early answers, I-D42), since play by hand may have
-     * ended that combat, step or turn; priority (its holder and passes in a row) stays. Undoing the switch brings them
-     * back. Turning it off always applies
-     * and closes an open flow's continuation; effect records stay (I-D24). */
+     * ([Automatum.turnScoped]: waiting triggers, early answers and a combat record the board no longer shows, I-D42),
+     * since play by hand may have ended that step or turn; priority (its holder and passes in a row) stays. Undoing the switch brings them
+     * back. Turning it off always applies and closes an open flow's continuation ([Automatum.closeFlow]); effect records
+     * stay (I-D24). The app switches off during a flow with [GameAction.ExitFlow], which takes the flow back first. */
     @Serializable @SerialName("setAutomatum") data class SetAutomatum(val on: Boolean) : MtgAction
     /** "Clear Automatum data" (I-D24): removes every engine record (effects, delayed triggers, the open continuation, …),
      * the priority holder and the card and player ledgers ([Automatum.recorded]); typed counters and mana pools stay.
-     * Always applies; changes nothing when there is nothing to clear. */
+     * Always applies; changes nothing when there is nothing to clear. An open flow is closed as switching off closes it
+     * ([Automatum.closeFlow]). */
     @Serializable @SerialName("clearRecords") data object ClearRecords : MtgAction
     /** The actor's own "Skip when I have no choice" (I-D18, [PlayPlayer.skipWhenNoChoice]); only its player changes it. */
     @Serializable @SerialName("setSkipWhenNoChoice") data class SetSkipWhenNoChoice(val on: Boolean) : MtgAction
@@ -248,6 +278,8 @@ object MtgRules {
 
     private fun valid(record: EngineRecord?, id: String) = record == null || record.id == id && Automatum.data(record.data) &&
         stamp(record.timestamp ?: 0) && (record.kind == EngineRecordKind.Continuation) == (id == Automatum.CONTINUATION_ID) &&
+        (record.resolving.isEmpty() || record.kind == EngineRecordKind.Continuation && record.resolving.size <= Automatum.MAX_LIST &&
+            record.resolving.all(DeckValidation::uuid)) &&
         if (record.kind == EngineRecordKind.Emblem) record.player?.let(DeckValidation::uuid) == true &&
             DeckValidation.text(record.text, Automatum.MAX_TEXT_BYTES)
         else if (record.kind == EngineRecordKind.PreAnswer) record.player?.let(DeckValidation::uuid) == true && record.text.isEmpty()
@@ -297,13 +329,14 @@ object MtgRules {
                     // I-D42: turn-scoped engine data from before the switch is dropped (best effort); priority stays as it is
                     // (combat review #11: passes in a row restart by themselves once the step changed, TurnExtras.passesAt)
                     MtgFacts.stampUnstamped(board)?.copy(automatum = true,
-                        engineRecords = board.engineRecords.filterNot(Automatum::turnScoped)) ?: return reject("invalidStructure")
+                        engineRecords = board.engineRecords.filterNot { Automatum.turnScoped(it, board) }) ?: return reject("invalidStructure")
                 }
-                // I-D24: switching off closes the open flow; every other record stays.
-                else -> board.copy(automatum = false, engineRecords = board.engineRecords.filterNot { it.id == Automatum.CONTINUATION_ID })
+                // I-D24: switching off closes the open flow (a half-resolved spell or ability becomes a manual entry,
+                // finalreview-sync #6); every other record stays.
+                else -> Automatum.closeFlow(board).copy(automatum = false)
             }
             MtgAction.ClearRecords -> if (!Automatum.recorded(board)) return unchanged
-                else board.copy(engineRecords = emptyList(), priority = null,
+                else Automatum.closeFlow(board).copy(engineRecords = emptyList(), priority = null,
                     cards = board.cards.map { if (it.ledger.isEmpty()) it else it.copy(ledger = "") },
                     players = board.players.map { if (it.ledger.isEmpty()) it else it.copy(ledger = "") })
             is MtgAction.SetSkipWhenNoChoice -> {
@@ -455,7 +488,7 @@ object MtgFacts {
 
     /** #4: what an automated batch was planned on ([MtgTag.board]): the board without what is only shown (piles
      * and positions, notes, the six colour counters, marks, statuses, panels, links, the move holder, the result
-     * suggestion, library layers). */
+     * suggestion, library layers) and the players' pause settings (Full control, Skip when I have no choice). */
     fun digest(board: BoardState): String {
         val json = GameWire.json
         fun without(element: JsonElement, vararg keys: String) = JsonObject((element as JsonObject).filterKeys { it !in keys })
@@ -465,7 +498,10 @@ object MtgFacts {
             engineRecords = board.engineRecords.filterNot { it.kind == EngineRecordKind.PreAnswer })
         val element = json.encodeToJsonElement(BoardState.serializer(), shown) as JsonObject
         val reduced = JsonObject(element + mapOf(
-            "players" to JsonArray(element.getValue("players").jsonArray.map { without(it, "status", "counters") }),
+            // Finalreview-combat #7: Full control and Skip when I have no choice only say where the host passes for a
+            // player, which the batch's planner already did: changing either (FullControlSync as a game opens) never
+            // refuses the other player's batch in flight
+            "players" to JsonArray(element.getValue("players").jsonArray.map { without(it, "status", "counters", "fullControl", "skipWhenNoChoice") }),
             "cards" to JsonArray(element.getValue("cards").jsonArray.map { without(it, "placement", "note", "eotNote", "counters", "knownToAll") }),
             "containers" to JsonArray(element.getValue("containers").jsonArray.map { without(it, "layers", "keepTopRevealed") }),
             "stackEffects" to JsonArray(element.getValue("stackEffects").jsonArray.map { without(it, "note") })))
@@ -473,64 +509,72 @@ object MtgFacts {
     }
 
     /**
-     * I-D26 (#7): [mutation] (a recorded rules v36 event being redone) with fresh timestamps: every stamp the event gave
-     * (a timestamp its delta sets that its delta didn't hold before: moved and stamped cards, new tokens, counters,
-     * Stack items, records) moves above [above] (when it isn't already), in the order the event gave them, so stamp order follows the
-     * real order of events although a redo puts the event back at its old place in history. The event's action and
-     * opaque engine data keep the values they were recorded with; only its recorded transition (what replay applies
-     * and checks) changes, and it is sealed again.
+     * I-D26 (#7, finalreview-sync #4): how a redo moves the stamps its event gave. Every stamp above [base] (the clock of
+     * the board before the redone event, or before the first member of a redone batch) was given by it, so all of them
+     * move up by [shift] together, the gaps between them kept: one shift for every member of a batch, so a later member
+     * that names a stamp an earlier one gave still finds it.
      */
-    internal fun freshStamps(mutation: GameplayMutation, above: Long): GameplayMutation {
-        val delta = mutation.transition.delta ?: return mutation
-        if (mutation.transition.rulesVersion < Automatum.RULES_VERSION) return mutation
-        val kinds = setOf("card", "player", "effect", "record")
-        fun stamps(element: JsonElement?, out: MutableSet<Long>, key: String? = null) {
-            when (element) {
-                is JsonObject -> element.forEach { (k, v) -> stamps(v, out, k) }
-                is JsonArray -> element.forEach { stamps(it, out, key) }
-                is JsonPrimitive -> if (key == "timestamp") element.longOrNull?.let(out::add)
-                else -> Unit
-            }
-        }
+    internal class StampShift(val base: Long, val shift: Long)
+
+    /**
+     * The [StampShift] for redoing [members] (an event, or a batch's members in order) on a board whose clock is [base],
+     * with the game's clock now at [above]: the stamps they gave move above [above] only when some other stamp reached
+     * them meanwhile (a redo right after its undo gives back exactly the recorded event). Null when nothing moves.
+     */
+    internal fun stampShift(members: List<GameplayMutation>, base: Long, above: Long): StampShift? {
         val given = sortedSetOf<Long>()
-        for (entity in delta.entities) if (entity.kind in kinds) for (value in entity.values) {
-            val leaf = value.path.lastOrNull()
-            val old = mutableSetOf<Long>(); val new = mutableSetOf<Long>()
-            if (leaf == "timestamp") { (value.from as? JsonPrimitive)?.longOrNull?.let(old::add); (value.to as? JsonPrimitive)?.longOrNull?.let(new::add) }
-            else { stamps(value.from, old); stamps(value.to, new) }
-            given += new - old
+        for (member in members) {
+            if (member.transition.delta == null || member.transition.rulesVersion < Automatum.RULES_VERSION) continue
+            stamps(member.transition) { if (it > base) given += it; it }
         }
-        if (given.isEmpty()) return mutation
-        // Shifted as a block (the gaps between them kept), and only when some other stamp reached them meanwhile: a redo
-        // right after its undo gives back exactly the recorded event.
-        val shift = above + 1 - given.first()
-        if (shift <= 0 || given.last() > Automatum.MAX_TIMESTAMP - shift) return mutation
-        val fresh = given.associateWith { it + shift }
-        fun rewrite(element: JsonElement?, key: String? = null): JsonElement? = when (element) {
-            is JsonObject -> {
-                // A delta edit of one timestamp field: {"path": [..., "timestamp"], "from": …, "to": …}
-                val leaf = ((element["path"] as? JsonArray)?.lastOrNull() as? JsonPrimitive)?.contentOrNull == "timestamp"
-                JsonObject(element.mapValues { (k, v) -> rewrite(v, if (leaf && k == "to") "timestamp" else k)!! })
-            }
-            is JsonArray -> JsonArray(element.map { rewrite(it, key)!! })
-            is JsonPrimitive -> if (key == "timestamp") element.longOrNull?.let { fresh[it] }?.let(::JsonPrimitive) ?: element else element
-            else -> element
-        }
-        // A given stamp is above every stamp the board held before the event, so it appears only where the event's
-        // results are recorded: the delta's new values, the concerns' after values, the created tokens.
-        val json = GameWire.json
-        val rewritten = json.decodeFromJsonElement(GameplayTransition.serializer(),
-            rewrite(json.encodeToJsonElement(GameplayTransition.serializer(), mutation.transition))!!)
-        // A concern on a written timestamp field witnesses the new value itself.
-        val entities = rewritten.delta?.entities.orEmpty()
-        val transition = rewritten.copy(concerns = rewritten.concerns?.let { set -> set.copy(fields = set.fields.map { tuple ->
-            val field = tuple.field as? ConcernField.Written ?: return@map tuple
-            if (entities.getOrNull(field.entity)?.values?.getOrNull(field.value)?.path?.lastOrNull() != "timestamp") tuple
-            else tuple.copy(after = rewrite(tuple.after, "timestamp")!!)
-        }) })
+        if (given.isEmpty()) return null
+        val shift = maxOf(above, base) + 1 - given.first()
+        if (shift <= 0 || given.last() > Automatum.MAX_TIMESTAMP - shift) return null
+        return StampShift(base, shift)
+    }
+
+    /**
+     * I-D26: [mutation] (a recorded rules v36 event being redone) with fresh timestamps by [shift]: every stamp the event
+     * or its batch gave ([StampShift.base]) moves, so stamp order follows the real order of events although a redo puts
+     * the event back at its old place in history. The event's action and opaque engine data keep the values they were
+     * recorded with (the engine reads a stamp from ATW's own field, finalreview-sync #2); only its recorded transition
+     * (what replay applies and checks) changes, and it is sealed again.
+     */
+    internal fun freshStamps(mutation: GameplayMutation, shift: StampShift?): GameplayMutation {
+        shift ?: return mutation
+        if (mutation.transition.delta == null || mutation.transition.rulesVersion < Automatum.RULES_VERSION) return mutation
+        val transition = stamps(mutation.transition) { if (it > shift.base) it + shift.shift else it }
+        if (transition == mutation.transition) return mutation
         val restamped = mutation.copy(transition = transition)
         return restamped.copy(transition = restamped.transition.copy(delta = restamped.transition.delta!!.copy(
             seal = GameplayDeltas.seal(restamped))))
+    }
+
+    /** [transition] with every timestamp in it mapped by [map]: `timestamp` fields of recorded values, delta edits of a
+     * timestamp field (from and to) and concerns on such an edit (before and after). */
+    private fun stamps(transition: GameplayTransition, map: (Long) -> Long): GameplayTransition {
+        fun stamp(element: JsonElement): JsonElement =
+            (element as? JsonPrimitive)?.longOrNull?.let { JsonPrimitive(map(it)) } ?: element
+        fun rewrite(element: JsonElement, key: String? = null): JsonElement = when (element) {
+            is JsonObject -> {
+                // A delta edit of one timestamp field: {"path": [..., "timestamp"], "from": …, "to": …}
+                val leaf = ((element["path"] as? JsonArray)?.lastOrNull() as? JsonPrimitive)?.contentOrNull == "timestamp"
+                JsonObject(element.mapValues { (k, v) -> if (leaf && (k == "from" || k == "to")) stamp(v) else rewrite(v, k) })
+            }
+            is JsonArray -> JsonArray(element.map { rewrite(it, key) })
+            is JsonPrimitive -> if (key == "timestamp") stamp(element) else element
+            else -> element
+        }
+        val json = GameWire.json
+        val rewritten = json.decodeFromJsonElement(GameplayTransition.serializer(),
+            rewrite(json.encodeToJsonElement(GameplayTransition.serializer(), transition)))
+        // A concern on a written timestamp field witnesses its values themselves.
+        val entities = rewritten.delta?.entities.orEmpty()
+        return rewritten.copy(concerns = rewritten.concerns?.let { set -> set.copy(fields = set.fields.map { tuple ->
+            val field = tuple.field as? ConcernField.Written ?: return@map tuple
+            if (entities.getOrNull(field.entity)?.values?.getOrNull(field.value)?.path?.lastOrNull() != "timestamp") tuple
+            else tuple.copy(before = stamp(tuple.before), after = stamp(tuple.after))
+        }) })
     }
 
     /** [to] (the board after [action]) with zone-change counts, timestamps, the fresh facts of new objects and

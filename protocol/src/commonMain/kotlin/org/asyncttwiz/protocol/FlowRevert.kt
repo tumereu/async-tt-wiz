@@ -3,7 +3,7 @@ package org.asyncttwiz.protocol
 /**
  * Rules v36 (I-D19, I-D24): [GameAction.RevertFlow] takes an open Automatum flow back to where it began, as one server
  * process. The flow is open while the board holds the continuation (I-D8); it began with the first event of the batch
- * that opened the continuation. Every event on the live line from the newest back to that one is taken back in order,
+ * (or the single event) on whose board before it no flow was open (finalreview-sync #3). Every event on the live line from the newest back to that one is taken back in order,
  * whoever made it (unlike Undo, which takes back only the actor's own events), with each event's exact recorded
  * inverse (SYS-027). The events leave the history like undone ones but go to nobody's redo; redo entries anchored in
  * them are dropped. Either player may send it.
@@ -16,9 +16,33 @@ object FlowRevert {
     /** The most events one revert takes back: a flow of several automated batches (I-D14). */
     const val MAX_EVENTS = 5000
 
-    /** The event that opened the continuation (it named none before and one after). */
-    fun opens(node: GameplayMutation): Boolean = ((node.action as? PlayAction.Mtg)?.action as? MtgAction.SetRecord)
-        ?.let { it.id == Automatum.CONTINUATION_ID && it.before == null && it.after != null } == true
+    /**
+     * [GameAction.ExitFlow] (finalreview-sync #6, #7; owner decision 2026-11-03: switching off always goes through): the
+     * open flow is taken back as [change] does when it can be; when it can't (or no flow is open) nothing is taken back
+     * and the switch event closes the flow where it is ([Automatum.closeFlow]). Then [GameAction.ExitFlow.then] is
+     * recorded as the actor's own event. Refused only as an ordinary play of it would be.
+     */
+    fun exit(tree: GameplayTree, actor: String, command: GameCommand): GameplayTreeChange {
+        val action = command.action as? GameAction.ExitFlow ?: return GameplayTreeChange(reason = "invalidInput")
+        if (!GameWire.valid(command)) return GameplayTreeChange(reason = "invalidInput")
+        if (command.scope.gameId != tree.initial.gameId || command.scope.playId != tree.initial.id)
+            return GameplayTreeChange(reason = "inapplicable")
+        if (actor !in tree.initial.board.players.map { it.accountId }) return GameplayTreeChange(reason = "accessDenied")
+        val head = tree.stateAt(tree.currentNodeId) ?: return GameplayTreeChange(reason = "historyUnavailable")
+        var base = tree
+        val keys = mutableSetOf<GameplayTreeKey>()
+        if (Automatum.flowOpen(head.board)) {
+            change(tree, actor, command.copy(action = GameAction.RevertFlow)).tree
+                ?.takeIf { tree.selectiveReferenceFailure(it) == null }
+                ?.let { base = it; keys += it.editKeys }
+        }
+        val played = base.play(actor, command.copy(action = GameAction.Play(PlayAction.Mtg(action.then)), continuation = null,
+            expectedSelection = null, invocationId = null))
+        if (played.reason != null) return played
+        val next = played.tree ?: return if (base === tree) GameplayTreeChange() else GameplayTreeChange(base.changedFrom(tree, keys))
+        keys += next.editKeys
+        return GameplayTreeChange(next.changedFrom(tree, keys), targetId = played.targetId)
+    }
 
     fun change(tree: GameplayTree, actor: String, command: GameCommand): GameplayTreeChange {
         if (!GameWire.valid(command) || command.action != GameAction.RevertFlow) return GameplayTreeChange(reason = "invalidInput")
@@ -27,28 +51,26 @@ object FlowRevert {
         if (actor !in tree.initial.board.players.map { it.accountId }) return GameplayTreeChange(reason = "accessDenied")
         val head = tree.stateAt(tree.currentNodeId) ?: return GameplayTreeChange(reason = "historyUnavailable")
         if (!Automatum.flowOpen(head.board)) return GameplayTreeChange(reason = "noFlow")
-        // Newest first: back to the opening event, then to the first member of its batch.
+        // Newest first, taking each event back as it goes, to the first event of the batch (or the single event) on whose
+        // board before it no flow was open (finalreview-sync #3: a batch that answers a flow closes and opens the
+        // continuation again, so the flow began where it was first opened, not where its latest decision was).
         val removed = mutableListOf<GameplayMutation>()
+        var state = head
         var cursor = tree.currentNodeId
         while (true) {
             if (removed.size >= MAX_EVENTS) return GameplayTreeChange(reason = "tooFarBack")
             val node = tree.nodes[cursor] ?: return GameplayTreeChange(reason = "historyUnavailable")
+            state = tree.unapply(state, node) ?: return GameplayTreeChange(reason = "replayBlocked")
             removed += node
-            if (opens(node)) break
+            val previous = tree.nodes[node.parentId]
+            val sameBatch = node.invocationId != null && previous != null && previous.invocationId == node.invocationId &&
+                previous.author == node.author
+            if (!sameBatch && !Automatum.flowOpen(state.board)) break
             cursor = node.parentId
-        }
-        val invocation = removed.last().invocationId
-        if (invocation != null) while (true) {
-            val previous = tree.nodes[removed.last().parentId] ?: break
-            if (previous.invocationId != invocation || previous.author != removed.last().author) break
-            if (removed.size >= MAX_EVENTS) return GameplayTreeChange(reason = "tooFarBack")
-            removed += previous
         }
         val children = tree.index().children
         if (removed.drop(1).any { children[it.id].orEmpty().size > 1 } || children[removed.first().id].orEmpty().isNotEmpty())
             return GameplayTreeChange(reason = "forkBoundary")
-        var state = head
-        for (node in removed) state = tree.unapply(state, node) ?: return GameplayTreeChange(reason = "replayBlocked")
         val ids = removed.map { it.id }.toSet()
         var nodes = tree.nodes
         var removedParents = tree.removedParents

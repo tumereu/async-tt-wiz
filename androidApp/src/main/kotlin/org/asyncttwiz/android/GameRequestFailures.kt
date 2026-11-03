@@ -7,6 +7,9 @@ internal fun historyControlFailure(action: GameAction?, reason: String?): String
     // I-D19: switching Automatum off still closes the flow when its revert is refused (I-D24).
     if (action == GameAction.RevertFlow) return if (reason == "noFlow") "Automatum had already finished its step."
         else "Automatum's unfinished step couldn't be taken back; it was closed as it is."
+    // finalreview-sync #6: switching off (or clearing) during a flow is refused only as any play would be
+    if (action is GameAction.ExitFlow) return "Can't " + (if (action.then == MtgAction.ClearRecords) "clear Automatum data" else
+        "switch Automatum off") + ": " + refusalText(reason).replaceFirstChar { it.lowercase() }
     val verb = when (action) { GameAction.Undo -> "undo"; GameAction.Redo -> "redo"; else -> return null }
     val explanation = when (reason) {
         "tooFarBack" -> "your opponent has made too many moves since your last one."

@@ -121,7 +121,7 @@ class AutomatumI12ReviewTest {
         val toolkit = TableToolkitController(f.a, { play }, { true }, { action, _ -> gameplay += action; true },
             automatedBatch = { batch, _ -> sent += batch; true })
         assertTrue(toolkit.cast.start(hand[1]))
-        assertTrue(toolkit.setAutomatum(false, null), "switching off: ${toolkit.error}")
+        assertTrue(toolkit.setAutomatum(false), "switching off: ${toolkit.error}")
         assertEquals(listOf<PlayAction>(PlayAction.Mtg(MtgAction.SetAutomatum(false))), gameplay)
         assertNull(toolkit.cast.flow)
     }

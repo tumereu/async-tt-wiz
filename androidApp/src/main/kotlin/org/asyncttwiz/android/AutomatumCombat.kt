@@ -121,16 +121,21 @@ internal class CombatController(
     }
 
     /**
-     * What may be declared on [play]'s board, not worked out on the main thread when avoidable (#12, SYS-025): the
-     * board's own when worked out, else the last shown board's while it awaits the same declaration (drafting only moves
-     * cards in the lanes, which the engine doesn't read while a declaration is awaited); else worked out now (blocking).
+     * What may be declared on [play]'s board, never worked out on the main thread in the app (#12, finalreview-combat #5,
+     * SYS-025): the board's own when worked out, else the last shown board's while it awaits the same declaration
+     * (drafting only moves cards in the lanes, which the engine doesn't read while a declaration is awaited); else
+     * [WORKING] until [AutomatumCombatHost] has worked it out ([working] tells it). Worked out now only with
+     * [AutomatumWork.Inline] (tests).
      */
     fun choices(play: PlayState): CombatShown {
         ready(play)?.let { return it }
         val last = shownBoard
         if (last != null && last.automatum && sameDeclaration(last, play.board)) return view
-        return shown(play)
+        return if (work === AutomatumWork.Inline) shown(play) else WORKING
     }
+
+    /** Whether [shown] is [WORKING]: what combat allows on the board isn't worked out yet. */
+    fun working(shown: CombatShown): Boolean = shown === WORKING
 
     /** Whether [a] and [b] differ only in what a draft of a declaration changes (the lanes, what is only shown). */
     private fun sameDeclaration(a: BoardState, b: BoardState): Boolean =
@@ -179,6 +184,7 @@ internal class CombatController(
      */
     fun draftRefusal(play: PlayState, sources: List<String>, role: CombatRole, pairId: String?, attackTarget: String?): String? {
         val shown = choices(play)
+        if (working(shown)) return WORKING_OUT
         // A board Automatum can't take over keeps its manual combat
         if (shown.choices.unsupported.isNotEmpty()) return null
         val choices = shown.choices
@@ -230,6 +236,9 @@ internal class CombatController(
         const val NOT_DECLARING = "Creatures join combat as attackers in the Declare attackers step, as blockers in the Declare blockers step."
         const val DECLARED = "Attackers and blockers are already declared."
         const val DECLARED_ATTACKERS = "Attackers are already declared."
+        const val WORKING_OUT = "Automatum is still working out this combat: try again in a moment."
+        /** What [choices] gives while the board's combat isn't worked out yet (an identity, never equal to a result). */
+        private val WORKING = CombatShown(CombatShown.NONE.choices)
     }
 }
 
@@ -297,8 +306,9 @@ internal fun automatumCombatQuickActions(play: PlayState, context: QuickContext,
                 add(greyed("Commit blocks", CombatTool.AUTOMATUM_DECLARE,
                     if (blocks.isEmpty()) "Nothing blocks yet: tap your creature, then the attacker it blocks." else shown.draftRefusal))
             }
-            // CMB-029: no separate prompt; passing priority goes on to the damage
-            shown.passing != null && shown.passing == viewer -> add(action("Pass", CombatTool.AUTOMATUM_PASS))
+            // CMB-029: no separate prompt; passing priority goes on to the damage (the pause bar's Pass while it is shown,
+            // finalreview-combat #7: one Pass, not two)
+            shown.passing != null && shown.passing == viewer && !context.pauseBar -> add(action("Pass", CombatTool.AUTOMATUM_PASS))
         }
     }
 }

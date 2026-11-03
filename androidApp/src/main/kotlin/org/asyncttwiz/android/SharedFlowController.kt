@@ -104,12 +104,14 @@ internal class SharedFlowController(
     /**
      * I-D41 (STK-037, STK-038): the pause on the board [node] is over: [holder] passes priority, then Automatum goes on, as
      * one batch from this device (the one whose step made the pause, or the holder's own). Quiet: nothing is said when it
-     * can't be sent (the table moved on, another answer is being worked out).
+     * can't be sent (the table moved on, another answer is being worked out). False when nothing was begun (busy, the
+     * table moved on); [sent] then says, once the pass is worked out, whether it went out (finalreview-combat #6: with
+     * the work off the main thread the return value can't tell).
      */
-    fun autoPass(holder: String, node: String): Boolean {
+    fun autoPass(holder: String, node: String, sent: (Boolean) -> Unit = {}): Boolean {
         val play = current()?.takeIf { it.currentNodeId == node } ?: return false
         if (Automatum.flowOpen(play.board)) return false
-        return sendCall(play, quiet = true) { flow ->
+        return sendCall(play, quiet = true, sent = sent) { flow ->
             if (flow.holder != holder) throw Refused(null)
             flow.pass(holder)
         }
@@ -287,9 +289,9 @@ internal class SharedFlowController(
     /**
      * Works one engine call out on [work] (SYS-025) from [play]'s flow and sends it as one automated batch (I-D11,
      * SYS-010) planned on [play], unless the board moved on meanwhile. True when it was taken (with
-     * [AutomatumWork.Inline]: what the result says).
+     * [AutomatumWork.Inline]: what the result says). [sent]: whether a batch went out, once known (on the main thread).
      */
-    private fun sendCall(play: PlayState, quiet: Boolean = false, perform: (SharedFlow) -> EngineCall): Boolean {
+    private fun sendCall(play: PlayState, quiet: Boolean = false, sent: (Boolean) -> Unit = {}, perform: (SharedFlow) -> EngineCall): Boolean {
         val fail: (String?) -> Unit = if (quiet) { _ -> } else this.fail
         val route = send ?: run { fail("Automatum isn't available here."); return false }
         if (busy) return false
@@ -334,6 +336,7 @@ internal class SharedFlowController(
                     else -> { fail(null); picked = emptyList(); true }
                 }
             }
+            sent(outcome is Outcome.Send && result)
         }
         return result
     }

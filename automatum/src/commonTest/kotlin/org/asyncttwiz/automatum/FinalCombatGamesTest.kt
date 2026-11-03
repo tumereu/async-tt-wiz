@@ -380,7 +380,6 @@ class FinalCombatGamesTest {
     // has neither a stop nor a pause: no pause bar, nothing passes by itself, the step button is the only way on.
     // finalreview-combat #4 (I-D29, CMB-029): Dragon's Maze seed 103: the blocks' damage needs a choice between
     // replacement effects, so the table shows no preview for the whole declare blockers step
-    @kotlin.test.Ignore("finalreview-combat #3, #4: a dead upkeep after a round of automatic turns; no preview when damage needs a choice")
     @Test fun strictGamesHaveNoDeadPointsAndAlwaysAPreview() {
         val problems = run("gtc", listOf(92L), strict = true) + run("dgm", listOf(103L), strict = true)
         assertTrue(problems.isEmpty(), problems.joinToString("\n"))

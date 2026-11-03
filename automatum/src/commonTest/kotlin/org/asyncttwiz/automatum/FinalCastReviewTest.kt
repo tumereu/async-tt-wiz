@@ -206,6 +206,9 @@ class FinalCastReviewTest {
         table.put(alice, PlayZone.BATTLEFIELD, "Mountain")
         val (pathfinder) = table.put(alice, PlayZone.BATTLEFIELD, "Seasoned Pathfinder")
         val (spark) = table.put(alice, PlayZone.HAND, "Storm Spark")
+        // A land to play keeps Alice's main phase a stop after the search (finalreview-combat #3: with nothing to do the
+        // host would run the turns on to her next draw)
+        table.put(alice, PlayZone.HAND, "Mountain")
         table.put(alice, PlayZone.LIBRARY, "Forest", "Denial")
         table.put(bob, PlayZone.LIBRARY, "Storm Spark")
         val rt = RoundTrip(table.state(), table.definitions)
@@ -217,7 +220,8 @@ class FinalCastReviewTest {
             when {
                 d is Decision.ChooseObjects -> rt.apply(shared.answer(Answer.Objects(d.options.take(1))), d.player.value)
                 d != null -> rt.apply(shared.answer(shared.listedAnswers().first()), d.player.value)
-                shared.priority != null -> rt.apply(shared.pass(shared.priority!!), shared.priority!!)
+                shared.priority != null && org.asyncttwiz.protocol.CombatStackRules.stack(rt.state.board).cards.isNotEmpty() ->
+                    rt.apply(shared.pass(shared.priority!!), shared.priority!!)
                 else -> break
             }
         }

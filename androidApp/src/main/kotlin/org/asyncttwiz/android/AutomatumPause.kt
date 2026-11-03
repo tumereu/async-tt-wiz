@@ -16,6 +16,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import org.asyncttwiz.automatum.PausePoints
@@ -38,6 +39,10 @@ internal sealed interface PauseRole {
      * after [millis] (0: at once). */
     data class Theirs(val holder: String, override val millis: Long) : PauseRole
 }
+
+/** Finalreview-combat #6: how often a device tries its pass at a pause that ran out, and how long it waits in between. */
+private const val AUTO_PASS_TRIES = 3
+private const val AUTO_PASS_RETRY_MILLIS = 400L
 
 internal object LivePause {
     /**
@@ -117,6 +122,14 @@ internal class PauseController {
     /** Whether the viewer holds at [node]. */
     fun holding(node: String): Boolean = heldNode == node && routes?.holding(node) == true
 
+    /** Whether [viewer]'s own pause bar (with its Pass) is shown on [play]'s board: running, or held there. */
+    fun barWithPass(play: PlayState, viewer: String): Boolean = play.board.automatum &&
+        (running(play.currentNodeId)?.role is PauseRole.Yours || holding(play.currentNodeId) && PausePoints.pauseFor(play.board, viewer))
+
+    /** The board (node) whose pause bar the viewer hid with its eye (I-D10, finalreview-combat #2); null: none. */
+    var hiddenAt by mutableStateOf<String?>(null); private set
+    fun toggleHidden(node: String) { hiddenAt = if (hiddenAt == node) null else node }
+
     /** #4 (SYS-004): the pauses this device has passed by itself, newest last (a few hundred at most). */
     private val passed = LinkedHashSet<String>()
     /** Whether this device passed by itself at [node] already: an Undo brought it back, and isn't redone by itself. */
@@ -158,10 +171,24 @@ internal fun AutomatumPauseDriver(toolkit: TableToolkitController, playback: His
     val node = play?.currentNodeId
     val role = if (play != null && node != null && liveShown)
         LivePause.role(play.board, toolkit.viewer, toolkit.authorOf(node), opponentOnline, settings) else null
-    /** Passes for [holder] at [node], once per device (#4: a pause an Undo brought back isn't passed again by itself). */
-    fun autoPass(holder: String, node: String) {
-        if (pause.passedAt(node)) return
-        if (toolkit.flows.autoPass(holder, node)) pause.passed(node)
+    /**
+     * Passes for [holder] at [node], once per device (#4: a pause an Undo brought back isn't passed again by itself).
+     * Finalreview-combat #6: counted as passed only once the batch went out; while the device is busy with another call it
+     * waits for it, and a pass that wasn't sent (the table changed meanwhile) is tried again, a few times at most.
+     */
+    suspend fun autoPass(holder: String, node: String) {
+        repeat(AUTO_PASS_TRIES) { attempt ->
+            if (pause.passedAt(node)) return
+            if (attempt > 0) delay(AUTO_PASS_RETRY_MILLIS)
+            snapshotFlow { toolkit.flows.busy }.first { !it }
+            val sent = CompletableDeferred<Boolean>()
+            // Marked in the callback itself, so a pass that went out counts even when this effect was cancelled meanwhile
+            if (!toolkit.flows.autoPass(holder, node) { if (it) pause.passed(node); sent.complete(it) }) {
+                if (toolkit.flows.busy) return@repeat
+                return
+            }
+            if (sent.await()) return
+        }
     }
     LaunchedEffect(node, role) {
         if (node == null || role == null) {
@@ -237,7 +264,7 @@ internal fun PauseBarHost(toolkit: TableToolkitController, play: PlayState, scen
     if (running == null && !held) return
     val step = TurnPosition.of(play.board.turn)?.label ?: "This step"
     val stack = scene?.stackRegion ?: scene?.items?.firstOrNull { it.zone == PlayZone.STACK && it.kind == TableItemKind.PILE }?.bounds
-    CastPanelPlacement(stack, null) {
+    CastPanelPlacement(stack, null, combatDock(scene, viewer)) {
         val role = running?.role
         if (role is PauseRole.Theirs) {
             if (role.millis <= 0) return@CastPanelPlacement
@@ -248,8 +275,20 @@ internal fun PauseBarHost(toolkit: TableToolkitController, play: PlayState, scen
             }
             return@CastPanelPlacement
         }
+        // I-D10 (finalreview-combat #2): the eye hides the bar to see the table under it; its time runs on meanwhile
+        if (pause.hiddenAt == node) {
+            Surface(Modifier.size(44.dp), shape = androidx.compose.foundation.shape.CircleShape, color = Color.White,
+                shadowElevation = 6.dp, border = BorderStroke(2.dp, AutomatumViolet)) {
+                EyeButton(hidden = true, { pause.toggleHidden(node) }, "pause")
+            }
+            return@CastPanelPlacement
+        }
         PauseSurface("Your pause") {
-            Text(if (held) "$step: take your time" else "$step: you may act", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+            Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                Text(if (held) "$step: take your time" else "$step: you may act", Modifier.weight(1f), fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold)
+                EyeButton(hidden = false, { pause.toggleHidden(node) }, "pause")
+            }
             if (running != null) PauseProgress(pause, running)
             else Text("Holding — cast or activate as you like", fontSize = 11.sp, color = Color(0xff4b5a5f))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, androidx.compose.ui.Alignment.End)) {
@@ -260,6 +299,11 @@ internal fun PauseBarHost(toolkit: TableToolkitController, play: PlayState, scen
         }
     }
 }
+
+/** Finalreview-combat #2 (I-D41, CMB-029): while the combat area's panel is shown, pause surfaces dock above the viewer's
+ * hand row in portrait (where [CastPanelPlacement] puts them), so the combat and its damage preview stay visible. */
+internal fun combatDock(scene: TableScene?, viewer: String): TableBounds? = scene?.takeIf { it.combatPanel != null }
+    ?.items?.firstOrNull { it.kind == TableItemKind.HAND && it.owner == viewer }?.bounds
 
 @Composable
 private fun PauseSurface(description: String, content: @Composable ColumnScope.() -> Unit) {

@@ -94,12 +94,16 @@ data class PreviewDamage(val source: String, val target: MtgRef, val amount: Int
  * - [dealt]: each damage, in order; [damage]: the total per creature and player (ATW card ids and account ids).
  * - [life]: each player's life change (damage, lifelink); [dies]: the ATW cards that would die (CR 704.5g–h).
  * - [divisions]: the divisions asked on the way, with the shares taken.
+ * - [assumed]: getting to the damage needs another choice (a trigger's target, a choice between replacement effects,
+ *   a payment), taken here as the engine's suggestion or first listed answer (finalreview-combat #4): the damage
+ *   depends on how it is answered.
  */
 data class DamagePreview(
     val dealt: List<PreviewDamage>,
     val life: Map<String, Int>,
     val dies: List<String>,
     val divisions: List<Pair<DamageDivision, Map<MtgRef, Int>>>,
+    val assumed: Boolean = false,
 ) {
     /** Damage per card id or account id. */
     val damage: Map<String, Int>
@@ -337,8 +341,10 @@ object CombatFlow {
      * are still awaited (none when null), and each division takes [divisions]' shares for its source card when the
      * engine accepts them, else its suggestion. Worked out on a copy; nothing changes.
      *
-     * Null when there is no combat with attackers, attackers are still awaited, or getting to the damage needs another
-     * decision or a random result (a trigger's choice while the Stack resolves).
+     * Another decision on the way (a trigger's choice while the Stack resolves, a choice between replacement effects) is
+     * answered with its suggestion or the engine's first listed answer, and the preview says so ([DamagePreview.assumed],
+     * finalreview-combat #4). Null when there is no combat with attackers, attackers are still awaited, or the way needs
+     * a random result or hidden cards.
      */
     fun preview(call: EngineCall, blocks: List<LaneBlock>? = null, divisions: Map<String, Map<MtgRef, Int>> = emptyMap()): DamagePreview? {
         val s = call.working.deepCopy()
@@ -351,6 +357,7 @@ object CombatFlow {
         val dies = mutableListOf<String>()
         val asked = mutableListOf<Pair<DamageDivision, Map<MtgRef, Int>>>()
         val turn = s.turn.number
+        var assumed = false
         repeat(400) {
             val input: Input = when (val d = s.pending?.decision) {
                 is Decision.Divide -> {
@@ -371,7 +378,12 @@ object CombatFlow {
                         else -> return null
                     }
                 }
-                else -> return null
+                is Decision.Random, is Decision.HostFill, is Decision.OtherView -> return null
+                is Decision.ManaPayment -> { assumed = true; Input.Answer(d.id, Answer.ManaPayment(d.suggestion)) }
+                else -> {
+                    assumed = true
+                    Engine.options(s, d.player).filterIsInstance<Input.Answer>().firstOrNull() ?: return null
+                }
             }
             val outcome = try { Engine.perform(s, input) } catch (_: IllegalArgumentException) { return null }
             var final = false
@@ -388,9 +400,9 @@ object CombatFlow {
                     else -> Unit
                 }
             }
-            if (final) return DamagePreview(dealt, life, dies, asked)
+            if (final) return DamagePreview(dealt, life, dies, asked, assumed)
             // Combat is over (no damage dealt in the last step): the preview is what happened on the way
-            if (s.combat == null || s.turn.number != turn || s.turn.step !in COMBAT) return DamagePreview(dealt, life, dies, asked)
+            if (s.combat == null || s.turn.number != turn || s.turn.step !in COMBAT) return DamagePreview(dealt, life, dies, asked, assumed)
         }
         return null
     }

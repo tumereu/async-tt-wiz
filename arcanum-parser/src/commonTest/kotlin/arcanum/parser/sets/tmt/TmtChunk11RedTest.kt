@@ -216,13 +216,13 @@ class TmtChunk11RedTest {
 
     // CR 120.3: as much mana as the damage dealt; CR 106.4: kept until end of turn
     @Test
-    fun furyNinjaDestroyer() = card(
-        name = "Fury, Ninja Destroyer",
+    fun hotshellNinjaDestroyer() = card(
+        name = "Hotshell, Ninja Destroyer",
         cost = "{2}{R}{R}",
         type = "Legendary Creature — Mutant Ninja Turtle",
         text = """
-            Fury must be blocked if able.
-            Enrage — Whenever Fury is dealt damage, add that much {R}. Until end of turn, you don't lose this mana as steps and phases end.
+            Hotshell must be blocked if able.
+            Enrage — Whenever Hotshell is dealt damage, add that much {R}. Until end of turn, you don't lose this mana as steps and phases end.
         """,
         pt = "4/4",
     ) parsesTo abilities(

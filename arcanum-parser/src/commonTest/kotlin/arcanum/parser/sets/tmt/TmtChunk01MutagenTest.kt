@@ -195,8 +195,8 @@ class TmtChunk01MutagenTest {
 
     // CR 205.1b: it becomes a creature in addition to its types; CR 603.10a: the counters it had
     @Test
-    fun tinkerGearheadSavant() = card(
-        name = "Tinker, Gearhead Savant",
+    fun cogwrightGearheadSavant() = card(
+        name = "Cogwright, Gearhead Savant",
         cost = "{3}{U}",
         type = "Legendary Creature — Mutant Ninja Turtle",
         text = """

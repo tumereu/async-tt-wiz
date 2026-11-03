@@ -11356,6 +11356,8 @@ internal class Sentences(
     private fun tmtCreatedToken(steps: List<Step>): Pair<List<Step>, Objects>? {
         val at = steps.indexOfLast { (it as? Step.Do)?.effect is Effect.CreateToken }.takeIf { it >= 0 } ?: return null
         val create = (steps[at] as Step.Do).effect as Effect.CreateToken
+        // one defined token ("create a 2/2 red Mutant creature token"); copies have their own rules
+        if (create.token !is arcanum.api.TokenSpec.Defined || create.count != Value.Fixed(1)) return null
         val name = create.bind ?: "token"
         val about = Objects.Bound(name)
         val after = steps.drop(at + 1)
@@ -11464,6 +11466,13 @@ internal class Sentences(
                 ObjectFilter.Category(arcanum.api.ObjectCategory.Card)), Value.Fixed(0), Value.Fixed(1), from = hand), bind = noun, chooser = Players.You)
             return listOf(choose(m.groupValues[1]) ?: return null, choose(m.groupValues[2]) ?: return null,
                 Step.Do(Effect.Move(Objects.Union(listOf(Objects.Bound(m.groupValues[1]), Objects.Bound(m.groupValues[2]))), Destination(Zone.Battlefield))))
+        }
+        // tmt chunk 14: "Exile target creature you own." (linked to "exiled with this land", CR 607.2a)
+        Tmt.EXILE_TARGET_YOU_OWN.matchEntire(sentence)?.let { m ->
+            val name = tmtNewSlotName(context, Filters.slotName(m.groupValues[1]))
+            context.targets += tmtSlot(name, Filters.noun(m.groupValues[1] + " you own") ?: return null)
+            val exile = Step.Do(Effect.Move(Objects.Target(name), Destination(Zone.Exile), postBind = "exiled"))
+            return if (linkedExile) listOf(exile, Step.Do(Effect.Remember(EXILED_WITH, Objects.Bound("exiled")))) else listOf(exile)
         }
         // tmt chunk 03: "Exile enchanted creature."
         Tmt.VERB_ATTACHED.matchEntire(sentence)?.let { m ->
@@ -11640,7 +11649,7 @@ internal class Sentences(
         // tmt chunk 05: "Sacrifice a permanent unless you discard a card." (CR 118.12a)
         Tmt.SACRIFICE_UNLESS_DISCARD.matchEntire(sentence)?.let { m ->
             val sacrifice = effect("Sacrifice a ${m.groupValues[1]}.", context) ?: return null
-            return listOf(Step.Pay(Cost(listOf(CostPart.Discard(CostObjects.Choose(ObjectFilter.Any, count = Value.Fixed(1))))), payer = Players.You, bind = "paid"),
+            return listOf(Step.Pay(cost("Discard a card") ?: return null, payer = Players.You, bind = "paid"),
                 Step.If(arcanum.api.Condition.Not(arcanum.api.Condition.Did("paid")), then = sacrifice))
         }
         // tmt chunk 07: "Exile up to one target artifact you control and up to one target creature you control. Then return them to the

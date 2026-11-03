@@ -33,10 +33,15 @@ internal object Ecl {
     val charm = Cards.invent("Hearth Ward Charm", "{1}{W}", "Enchantment", "")
 }
 
-/** Passes priority until the Stack is empty or a decision is open. */
+/** Passes priority until the Stack is empty or a decision is open; triggers that trigger together are put on the Stack in
+ * the order offered (CR 603.3b). */
 internal fun Scenario.resolveAll() {
     var guard = 60
-    while (state.stack.isNotEmpty() && pending == null && guard-- > 0) allPass()
+    while (guard-- > 0) {
+        (pending as? Decision.OrderTriggers)?.let { d -> answer(Answer.Order(d.triggers.map { it.index })) }
+        if (state.stack.isEmpty() || pending != null) break
+        allPass()
+    }
 }
 
 /** Answers an open yes/no question (a "you may", or "choose new targets for the copy?"). */

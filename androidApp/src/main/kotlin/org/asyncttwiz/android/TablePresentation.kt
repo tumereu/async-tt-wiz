@@ -329,12 +329,6 @@ object TablePresentation {
         } ?: 4f
         // CMB-007: the combat area is a panel floating over the battlefields, folded away by the viewer on request
         val folded = play.board.combat?.id?.let { it == ui.combatHidden } == true
-        // Combat review #12: its cards are never smaller than COMBAT_MIN_CARD, so names and badges stay readable
-        val combatCard = maxOf(hudWidth * battlefieldScale, COMBAT_MIN_CARD)
-        val combat = CombatStackPresentation.combat(if (folded) play.board.copy(combat = null) else play.board, combatCard,
-            combatCard * hudHeight / hudWidth, play.definitions, mapOf(game.inviter.accountId to game.inviter.username, game.recipient.accountId to game.recipient.username), viewer,
-            appearance.text(CardTextScalePart.TITLE), avatars = listOf(game.inviter, game.recipient)
-                .mapNotNull { player -> player.avatar?.let { player.accountId to it } }.toMap())
         val railHeight = (if (landscape) 48f else 52f) + handHeight - hudHeight
         // Both modes reserve the very same timeline and controls; review never reframes the camera.
         val controlsHeight = tableBottomHeight(landscape)
@@ -368,6 +362,17 @@ object TablePresentation {
         val bandY = worldViewport.height / 2 - bandHeight / 2
         val logicalFields = listOf(TableBounds(0f, bandY - fieldHeights[0], worldViewport.width, fieldHeights[0]),
             TableBounds(0f, bandY + bandHeight, worldViewport.width, fieldHeights[1]))
+        // TBL-121: an untouched camera in landscape opens on the battlefields' whole height
+        val opening = landscape && landscapeHome && ui.camera == TableCamera()
+        val viewZoom = if (opening) (worldViewport.height / (logicalFields.last().bottom - logicalFields.first().y)).coerceIn(MIN_ZOOM, 1f)
+            else ui.camera.zoom.takeIf { it.isFinite() }?.coerceIn(MIN_ZOOM, MAX_ZOOM) ?: 1f
+        // Combat review #12, CMB-007: its cards are never narrower than COMBAT_MIN_CARD on screen, so names and badges stay
+        // readable; the panel is screen-level, so a table zoomed out (the landscape opening, a pinch) doesn't shrink them
+        val combatCard = maxOf(hudWidth * battlefieldScale, COMBAT_MIN_CARD / minOf(viewZoom, 1f))
+        val combat = CombatStackPresentation.combat(if (folded) play.board.copy(combat = null) else play.board, combatCard,
+            combatCard * hudHeight / hudWidth, play.definitions, mapOf(game.inviter.accountId to game.inviter.username, game.recipient.accountId to game.recipient.username), viewer,
+            appearance.text(CardTextScalePart.TITLE), avatars = listOf(game.inviter, game.recipient)
+                .mapNotNull { player -> player.avatar?.let { player.accountId to it } }.toMap())
         val combatX = (worldViewport.width - combat.width) / 2
         val worldLeft = minOf(0f, logicalLeft * columnPitch, combatX)
         val worldRight = maxOf(worldViewport.width, logicalRight * columnPitch + 32f * battlefieldScale, combatX + combat.width)
@@ -379,7 +384,7 @@ object TablePresentation {
             contentBounds.copy(x = worldLeft - 3 * columnPitch, width = contentBounds.width + 6 * columnPitch))
         // Gestures own resistance/settling. Do not hard-clamp away their overscroll animation here.
         // TBL-121: [landscapeHome] (the table screen): an untouched camera in landscape opens on the whole height
-        val camera = if (landscape && landscapeHome && ui.camera == TableCamera()) world.landscapeHome() else world.normalize(ui.camera)
+        val camera = if (opening) world.landscapeHome() else world.normalize(ui.camera)
         val zoom = camera.zoom
         val fieldScale = battlefieldScale * zoom
         val cw = hudWidth * fieldScale; val ch = hudHeight * fieldScale; val envelope = GRID * fieldScale

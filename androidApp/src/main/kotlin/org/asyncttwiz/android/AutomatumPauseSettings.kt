@@ -166,7 +166,7 @@ internal fun AutomatumPauseSettings(accountId: String) {
                 Modifier.weight(1f).padding(end = 12.dp, top = 4.dp, bottom = 4.dp))
             Switch(checked = settings.autotap, onCheckedChange = null)
         }
-        EngineDefaultSettings(preferences)
+        if (BuildConfig.DEBUG) EngineDefaultSettings(preferences)
     }
 }
 

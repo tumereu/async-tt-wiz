@@ -171,9 +171,11 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
     fun tick(live: Boolean, now: Long) {
         this.live = live; this.now = now
         val before = device.status
+        val tip = device.session.tip
         device.presence(live, now)
         device.advance(now)
-        if (device.status != before) changed()
+        drainNotes()
+        if (device.status != before || device.session.tip != tip || notes.isNotEmpty()) changed()
     }
 
     /** What to send now (drained). */

@@ -65,7 +65,7 @@ class TimelineStatusOverlayTest {
         compose.onNodeWithTag("playback-flash").assertDoesNotExist()
     }
 
-    // HIS-040
+    // old-model Old branch chip
     @Test fun oldBranchShowsANeutralGreyChipAboveTheUsualStatus() {
         var opponent by mutableStateOf(false)
         compose.setContent { MaterialTheme { TimelineCentreText(opponent, PAUSED, oldBranch = true) } }

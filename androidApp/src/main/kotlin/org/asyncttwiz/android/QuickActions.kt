@@ -111,7 +111,7 @@ fun QuickActionStrip(play: PlayState, context: QuickContext, controller: TableAc
             val engine = LocalEngineRoutes.current
             Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
                 // I-D56 §14 (TRN-059): on engine state the toggles are the player's private settings for this game
-                if (toggles && engine != null) EngineToggleCells(engine, controller.enabled(scope))
+                if (toggles && engine != null) EngineToggleCells(engine, true)
                 else if (toggles) AutomatumToggleCells(play, requireNotNull(context.viewer), controller.enabled(scope), submit)
                 for (action in actions) key(action.intent) {
                     InlinePopupCell(MenuControl(action.name, action.enabled && controller.enabled(scope), refused = action.refused) { perform(action.intent) },

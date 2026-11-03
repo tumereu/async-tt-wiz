@@ -187,7 +187,7 @@ class AutomatumPauseTest {
         assertNull(bob.error)
     }
 
-    // STK-038 (I-D41): both online, "Wait": Alice's device waits for Bob's response time, showing it, then passes for him
+    // old-model pass for them (I-D41): both online, "Wait": Alice's device waits for Bob's response time, showing it, then passes for him
     @Test fun bothOnlineTheActingDeviceWaitsThenGoesOn() {
         val play = board()
         val cast = aliceCasts(play)
@@ -217,10 +217,10 @@ class AutomatumPauseTest {
         assertEquals(life(play, f.b) - 3, life(after, f.b))
     }
 
-    // STK-038 (I-D41): Bob isn't online (async play): Alice's device never waits, it passes for him at once
+    // old-model pass for them (I-D41): Bob isn't online (async play): Alice's device never waits, it passes for him at once
     @Test fun anOfflineOpponentIsNotWaitedFor() = notWaitedFor(online = false, PauseSettings())
 
-    // STK-038 (I-D41): Alice's "When the opponent can react" is Proceed at once: no wait even with Bob online
+    // old-model pass for them (I-D41): Alice's "When the opponent can react" is Proceed at once: no wait even with Bob online
     @Test fun proceedAtOnceDoesNotWait() = notWaitedFor(online = true, PauseSettings(proceedAtOnce = true))
 
     // STK-037, SYS-071 (I-D41): with Full control Alice keeps priority after her own spell: her own pause, which her own
@@ -237,7 +237,7 @@ class AutomatumPauseTest {
         assertEquals(PausePoints.At(f.b, PausePoints.Point.Pause), PausePoints.at(after.board))
     }
 
-    // STK-039 (I-D41): Bob, offline, didn't respond in time and Alice's device went on; catching up he holds that point
+    // old-model Hold (I-D41): Bob, offline, didn't respond in time and Alice's device went on; catching up he holds that point
     // and casts his Storm Spark there: a new branch from his pause, with Alice's spell still on the Stack under his
     @Test fun aReactionAfterTheGameWentOnIsABranch() {
         val play = board()
@@ -291,7 +291,7 @@ class AutomatumPauseTest {
     }
 
     // HIS-093 (I-D41): Bob was offline: Alice's device passed for him and the game went on. Catching up, Auto stops on his
-    // pause with no time limit, the respond panel shown; holding Auto there branches as usual (STK-039). STK-027: in
+    // pause with no time limit, the respond panel shown; holding Auto there branches as usual (old-model Hold). STK-027: in
     // timeline mode the panel's Respond is greyed and it says how to respond
     @Test fun playbackStopsAtYourPause() {
         val play = board()

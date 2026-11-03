@@ -65,7 +65,7 @@ class HistoryTimelineTest {
         assertTrue(historyIconGlyph(events.last().icon).isNotBlank())
     }
 
-    // HIS-005, HIS-036
+    // HIS-005, old-model timeline branching
     @Test fun branchSplitsAfterTheSharedEventOrTheArmedPointInTheGapCentre() {
         val plain = HistoryTimelineEvent("a", HistoryIcon.FLAG, "", null, null)
         assertFalse(HistoryTimelineLayout.splitsAfter(plain, null))

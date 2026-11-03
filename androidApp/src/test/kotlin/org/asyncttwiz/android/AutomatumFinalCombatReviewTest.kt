@@ -191,7 +191,7 @@ class AutomatumFinalCombatReviewTest {
         return toolkit(f.a)
     }
 
-    /** [viewer]'s device holding the point [held] (I-D41, STK-039): it acts on that point's board, continuing from it. */
+    /** [viewer]'s device holding the point [held] (I-D41, old-model Hold): it acts on that point's board, continuing from it. */
     private fun heldToolkit(viewer: String, held: String) = TableToolkitController(viewer, { tree!!.stateAt(held) }, { true },
         { action, _ -> accept(viewer, GameAction.Play(action), from = held) },
         playBatch = { actions, request -> accept(viewer, GameAction.PlayBatch(actions), request, from = held) },
@@ -208,7 +208,7 @@ class AutomatumFinalCombatReviewTest {
         assertTrue(device.flows.answer(arcanum.engine.decision.Answer.Division(decision.suggested)), device.error)
     }
 
-    // I-D41, STK-039, CR 509, 510 (late reaction branching mid-combat): Alice's Ironhide Brute and Stout Bear attack, Bob
+    // I-D41, old-model Hold, CR 509, 510 (late reaction branching mid-combat): Alice's Ironhide Brute and Stout Bear attack, Bob
     // blocks the Brute with his Hill Ogre; at his pause on the blocks he holds. Alice's device goes on for him (the hold
     // isn't shown to it): combat damage is dealt on the live line. From the held point Bob's Storm Spark kills the Bear:
     // a branch, on which the combat goes on from the blocks — only the Brute deals damage (3 to the Ogre, 2 trampling
@@ -386,7 +386,7 @@ class AutomatumFinalCombatReviewTest {
         assertTrue(play.board.combat?.pairs.orEmpty().any { p -> p.attackers.any { it.sourceId == bruteCard } }, device.error)
     }
 
-    // finalreview-combat #6 — STK-038: a pass at a pause is worked out on the worker; when the table changed meanwhile (the
+    // finalreview-combat #6 — old-model pass for them: a pass at a pause is worked out on the worker; when the table changed meanwhile (the
     // live board replaced without a new event) it isn't sent and its callback says so, so the pause isn't counted as passed
     // (AutomatumPauseDriver tries again); the next try goes out
     @Test fun aPauseIsCountedPassedOnlyOnceItsPassWentOut() {

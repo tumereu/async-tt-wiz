@@ -165,6 +165,9 @@ internal object EngineEventText {
         }
         val step = event.engine?.steps?.firstOrNull { it.input != null }
         val assumed = if (step?.assumedBy != null) " (assumed)" else ""
+        // An assumed input is the other player's (§14: "Bob passes (assumed)"); an answer names no player, its event's author made it
+        fun actor(): String = step?.assumedBy?.let { by -> names.keys.firstOrNull { it != by.value }?.let { who(PlayerId(it)) } }
+            ?: if (event.author == viewer) "You" else names[event.author] ?: "A player"
         val input = step?.input
         return when (input) {
             null -> when {
@@ -186,8 +189,8 @@ internal object EngineEventText {
                 else -> "${who(input.player)} chose"
             }
             is Input.Answer -> when (input.answer) {
-                arcanum.engine.decision.Answer.Option("Keep") -> "${names[event.author]?.let { if (event.author == viewer) "You" else it } ?: "A player"} kept$assumed"
-                else -> "${if (event.author == viewer) "You" else names[event.author] ?: "A player"} chose"
+                arcanum.engine.decision.Answer.Option("Keep") -> "${actor()} kept$assumed"
+                else -> "${actor()} chose$assumed"
             }
             is Input.Concede -> "${who(input.player)} conceded"
             is Input.AgreedResult -> "The result was agreed"
@@ -383,11 +386,11 @@ private fun EngineBar(text: String, presence: String?, buttons: @Composable RowS
 /** §14: the assumer's indicator: how many assumptions wait to be confirmed and how many actions came since the first. */
 @Composable
 private fun EngineIndicator(indicator: GameDevice.Indicator) {
-    Box(Modifier.fillMaxWidth().padding(top = 52.dp), contentAlignment = Alignment.TopCenter) {
+    Box(Modifier.fillMaxSize().padding(start = 8.dp), contentAlignment = Alignment.CenterStart) {
         Surface(shape = RoundedCornerShape(12.dp), color = Color.White, shadowElevation = 3.dp,
             border = androidx.compose.foundation.BorderStroke(1.dp, AutomatumViolet.copy(alpha = .6f)),
             modifier = Modifier.testTag("engine-indicator")) {
-            Text("${indicator.assumed} assumed · ${indicator.since} actions since", Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+            Text("${indicator.assumed} assumed · ${indicator.since} ${if (indicator.since == 1) "action" else "actions"} since", Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
                 fontSize = 12.sp, color = AutomatumViolet, fontWeight = FontWeight.Medium)
         }
     }
@@ -420,7 +423,7 @@ private fun EngineCatchUp(routes: EngineTableRoutes, opponent: String) {
     val game = routes.engine ?: return
     val mode = game.device.settings.mode
     ScreenDialog({ game.startPlayback(); routes.pump() }, title = "Catching up", actions = {
-        DialogMainButton("Play", { game.startPlayback(); routes.pump() }, Modifier.testTag("catch-up-play"), icon = "play")
+        DialogMainButton("Play", { game.startPlayback(); routes.pump() }, Modifier.testTag("catch-up-play"), icon = "start")
     }) {
         Text("$opponent played on while you were away. Their actions play back, stopping wherever you decide.",
             style = MaterialTheme.typography.bodyMedium)
@@ -453,12 +456,12 @@ private fun EngineRequestDialog(routes: EngineTableRoutes, opponent: String) {
     val preview = game.device.requestPreview()
     ScreenDialog({}, title = "$opponent asks to undo", actions = {
         DialogCancelButton("Deny", { game.answerRequest(false); routes.pump() }, Modifier.testTag("request-deny"))
-        DialogMainButton("Accept", { game.answerRequest(true); routes.pump() }, Modifier.testTag("request-accept"), icon = "undo")
+        DialogMainButton("Accept", { game.answerRequest(true); routes.pump() }, Modifier.testTag("request-accept"), icon = "ready")
     }) {
         val message = preview?.message.orEmpty()
         if (message.isNotBlank()) Text("“$message”", style = MaterialTheme.typography.bodyLarge)
         val turn = preview?.board?.engine?.turn
-        Text("The game goes back to " + (turn?.let { "turn ${it.number}, ${org.asyncttwiz.automatum.EngineProjection.position(it.step).label}" } ?: "an earlier point") +
+        Text("The game goes back to " + (turn?.let { if (it.number == 0) "the opening" else "turn ${it.number}, ${org.asyncttwiz.automatum.EngineProjection.position(it.step).label}" } ?: "an earlier point") +
             if (preview?.unseen == true) ", and actions you haven't seen yet are taken back." else ".", style = MaterialTheme.typography.bodyMedium)
         Text("The game waits until you answer.", style = MaterialTheme.typography.bodySmall)
     }
@@ -490,9 +493,9 @@ private fun EngineRewindDialog(routes: EngineTableRoutes, choice: EngineTableRou
             }
             routes.rewind = null
             routes.pump()
-        }, Modifier.testTag("rewind-confirm"), enabled = target != null, icon = if (needsRequest == true) "send" else "undo")
+        }, Modifier.testTag("rewind-confirm"), enabled = target != null, icon = if (needsRequest == true) "send" else "withdraw")
     }) {
-        Text("Go back to just before:", style = MaterialTheme.typography.bodyMedium)
+        Text(if (shown.isEmpty()) "Nothing to undo yet: your actions are still on their way." else "Go back to just before:", style = MaterialTheme.typography.bodyMedium)
         LazyColumn(Modifier.fillMaxWidth().heightIn(max = 280.dp)) {
             items(shown, key = { it.id }) { event ->
                 val selected = event.parentId == target

@@ -55,14 +55,16 @@ internal class EngineGameFixture(startingPlayer: String = TableStatesFixture.a) 
                 }))
     }
 
+    /** As the server starts it: every player's Skip when I have no choice off in the shared state (I-D56 §13). */
     val model: GameModel = GameModel(Engine.newGame(listOf(a, b).map { p ->
         Seat(PlayerId(p), decks.getValue(p).map { (id, card) -> DeckCard(CardId(id), card.definition) })
-    }), TableState(secret = LineRandom.secret(ByteArray(32) { 3 })))
+    }).also { s -> s.players.toList().forEach { p -> s.apply(arcanum.engine.change.Changes.skipWhenNoChoice(s, p.id, false)) } },
+        TableState(secret = LineRandom.secret(ByteArray(32) { 3 })))
     val codec = EngineJson(GameDefinitions.of(model.engine))
 
     /** The server's first event: the game started (Alice first), simultaneous mulligans. */
     val start: GameEvent = EventBuilder(model, f.id("start"), f.id("root"), "server").run {
-        perform(Input.StartGame(StartOptions(startingPlayer = PlayerId(startingPlayer), simultaneousMulligans = true)))
+        perform(Input.StartGame(StartOptions(startingPlayer = PlayerId(startingPlayer), simultaneousMulligans = true, freeFirstMulligan = true)))
         answerRandoms()
         build()
     }

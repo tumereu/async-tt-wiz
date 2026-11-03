@@ -362,7 +362,7 @@ class AutomatumCombatScreenshotTest {
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi")
     fun blockersAreAssignedByTapsLandscape() { landscape = true; blockingFlow("combat-blocking-landscape") } // CMB-034
 
-    // TRN-061, I-D40, CMB-034, TRN-063: Alice taps the step arrow's Block (1) for Bob: it asks first, and nothing is sent
+    // old-model acting-for confirmation, I-D40, CMB-034, TRN-063: Alice taps the step arrow's Block (1) for Bob: it asks first, and nothing is sent
     // before she confirms; confirmed, his blocks are declared as drafted
     @Test fun declaringBlocksForTheDefenderAsksFirst() {
         attackers(ogre)

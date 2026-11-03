@@ -24,7 +24,7 @@ class TableHistoryControllerTest {
         state = tree.stateAt(tree.currentNodeId))
 
 
-    // HIS-037
+    // old-model armed continuation
     @Test fun continueAtCurrentHeadReturnsLiveWithoutConfirmationOrArming() {
         Harness().use { h ->
             val tree = f.tap(f.root())
@@ -71,7 +71,7 @@ class TableHistoryControllerTest {
         }
     }
 
-    // HIS-036
+    // old-model timeline branching
     @Test fun continuationRequestPausesAndImmediatelyArmsTheCapturedBoundary() {
         Harness().use { h ->
             val tree = f.tap(f.root())
@@ -160,7 +160,7 @@ class TableHistoryControllerTest {
         }
     }
 
-    // HIS-037
+    // old-model armed continuation
     @Test fun cancellingArmedContinuationReturnsToLiveWithoutSendingRequests() {
         for (viaReturnCurrent in listOf(false, true)) Harness().use { h ->
             val tree = f.tap(f.root())

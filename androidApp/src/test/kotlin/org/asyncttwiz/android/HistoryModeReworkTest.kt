@@ -21,7 +21,7 @@ import org.asyncttwiz.protocol.*
 class HistoryModeReworkTest {
     @get:Rule val compose = createComposeRule()
 
-    // HIS-047
+    // old-model game tree
     @Test fun treePinchAndPanKeepTurnTagsAttachedWithoutSelectingOrClosing() {
         val tree = F.play(GameplayTree(F.root()), PlayAction.EndTurn, 401)
         val controller = HistoryExplorerController(java.util.concurrent.Executor { it.run() }, { it() })
@@ -61,7 +61,7 @@ class HistoryModeReworkTest {
         } finally { controller.close() }
     }
 
-    // HIS-013, HIS-014, HIS-039
+    // HIS-013, old-model rewind to a branch, old-model branch lock
     @Test fun pendingBranchOffersRewindAndPlayWithoutHoldToBranchThenFastRollbackLocksTransportUntilCommonAncestor() {
         val common = F.play(GameplayTree(F.root()), PlayAction.AdjustLife(F.a, "1"), 100)
         val old1 = F.play(common, PlayAction.AdjustLife(F.b, "1"), 101, F.b)
@@ -110,7 +110,7 @@ class HistoryModeReworkTest {
         compose.mainClock.autoAdvance = true
     }
 
-    // HIS-012, HIS-013, HIS-014, HIS-040
+    // HIS-012, HIS-013, old-model rewind to a branch, old-model Old branch chip
     @Test fun anOldBranchPickedByThePlayerStepsAlongItsOwnLineAndOffersRewind() {
         val common = F.play(GameplayTree(F.root()), PlayAction.AdjustLife(F.a, "1"), 100)
         val old1 = F.play(common, PlayAction.AdjustLife(F.b, "1"), 101, F.b)
@@ -150,7 +150,7 @@ class HistoryModeReworkTest {
         compose.onNodeWithText("Hold to branch", useUnmergedTree = true).assertExists() // HIS-013
     }
 
-    // HIS-008, HIS-038
+    // HIS-008, old-model Opponent branched
     @Test fun tableCentreTextNamesAPendingBranchAndThePlaybackStatus() {
         var branched by mutableStateOf(true)
         var status by mutableStateOf(TimelinePlaybackStatus.PAUSED)
@@ -192,7 +192,7 @@ class HistoryModeReworkTest {
         compose.onNodeWithText("Auto: off").assertIsDisplayed()
     }
 
-    // HIS-036
+    // old-model timeline branching
     @Test fun runningAutoButtonHoldPausesAndBranchesAtOriginalCursorWithoutToggling() {
         val tree = TableStatesFixture.history()
         val player = TableStatesFixture.playback(tree)

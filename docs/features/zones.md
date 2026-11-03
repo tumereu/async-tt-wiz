@@ -23,8 +23,8 @@ Hand, library, graveyard and exile, the graveyard/exile view, and who sees what 
 ### Library order
 
 - **ZON-023** Library order is hidden: cards put on top or bottom keep a known place, top-end actions (draw, mill, look, reveal) take the known top first and bottom-end actions the known bottom; a shuffle makes it all unknown. (r29)
-- **ZON-024** Every new branch re-randomizes the unknown parts of both libraries the same way each time: draw, undo, draw again (or branching again from the same point) gives the same card. (r29)
-- **ZON-026** You may undo your own look, scry or reveal. (r9)
+- **ZON-024** Every line of play (the game's start, a branch, a rewind or free undo) reshuffles the unknown parts of both libraries; cards whose place someone knows keep it (HIS-042). Drawing, undoing and drawing again gives a new card. (r48)
+- **ZON-026** Undoing your own look, scry or reveal needs the other player's approval (an undo request, HIS-098). (r48)
 
 ### Graveyard and exile
 

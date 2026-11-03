@@ -185,7 +185,7 @@ class AutomatumPauseReviewTest {
         frames()
     }
 
-    // pausereview #1 (STK-039, I-D41: a reaction after the acting player moved on uses branching): Bob starts casting his
+    // pausereview #1 (old-model Hold, I-D41: a reaction after the acting player moved on uses branching): Bob starts casting his
     // Storm Spark from his hand during his pause (double-tap or the hand menu's Cast, not Respond). Beginning a cast or
     // ability at one's own pause holds it, so it continues from there instead of being dropped when Alice's device passes.
     @Test fun aCastBegunDuringYourPauseHoldsIt() {
@@ -199,7 +199,7 @@ class AutomatumPauseReviewTest {
         assertEquals(cast.currentNodeId, routes.held, "the pause is held while Bob casts, so his cast continues from it")
     }
 
-    // pausereview #2 (STK-037/STK-039): Bob's response time is 1 s, Alice's 3 s. His bar has run out but the game is still
+    // pausereview #2 (STK-037/old-model Hold): Bob's response time is 1 s, Alice's 3 s. His bar has run out but the game is still
     // at his pause (Alice's device still waits); he taps Respond: it holds, the bar running or not, so Alice's device
     // doesn't pass for him while he picks targets.
     @Test fun respondAfterYourBarRanOutStillHolds() {
@@ -213,7 +213,7 @@ class AutomatumPauseReviewTest {
         assertEquals(cast.currentNodeId, routes.held)
     }
 
-    // pausereview #1/#2 (STK-037, STK-039): Alice's device went on at once (Proceed at once); Bob's table still shows his
+    // pausereview #1/#2 (STK-037, old-model Hold): Alice's device went on at once (Proceed at once); Bob's table still shows his
     // pause for his response time while his device acts on the live game. Respond holds the pause shown, not the live
     // game, and his Storm Spark from there is a branch.
     @Test fun respondOnTheTableHeldAtYourPauseBranches() {
@@ -268,7 +268,7 @@ class AutomatumPauseReviewTest {
         assertTrue(sent.isEmpty(), "nothing is passed for Alice while she casts")
     }
 
-    // pausereview #4 (SYS-004, STK-038): Bob is offline, so Alice's device passed for him at once and Storm Spark resolved.
+    // pausereview #4 (SYS-004, old-model pass for them): Bob is offline, so Alice's device passed for him at once and Storm Spark resolved.
     // Alice takes that back with Undo (her own step): the board is again Bob's pause made by her cast. A pause the device
     // already passed and that Undo brought back isn't passed again by itself, so she can undo back before the resolution.
     @Test fun undoOfTheAutomaticPassIsNotRedone() {
@@ -368,7 +368,7 @@ class AutomatumPauseReviewTest {
         assertEquals("Priority → alice", historyText(pass.copy(author = f.b), usernames = names).description, "his own pass")
     }
 
-    // pausereview #7 (STK-039, SYS-062; I-D41 decision A): Alice's Mind Prick at Bob is his pause; offline, Alice's device
+    // pausereview #7 (old-model Hold, old-model branch inside a flow; I-D41 decision A): Alice's Mind Prick at Bob is his pause; offline, Alice's device
     // passes for him and the spell resolves: Bob must choose a card to discard (an open Automatum choice). Catching up,
     // Bob holds his pause and casts Storm Spark there: a branch, leaving the live line's open choice behind with it.
     @Test fun aLateReactionBranchesWhileTheLiveGameHasAnOpenChoice() {
@@ -404,14 +404,14 @@ class AutomatumPauseReviewTest {
         assertTrue(sent.isNotEmpty(), "Bob's device passes for him when the bar has emptied")
     }
 
-    // pausereview (STK-039): Bob held his pause on Alice's Storm Spark; her device passed for him and she went on with
+    // pausereview (old-model Hold): Bob held his pause on Alice's Storm Spark; her device passed for him and she went on with
     // End turn (the turn passes to Bob, who draws). Bob's Storm Spark from the held pause is a branch from there.
     @Test fun aHeldReactionBranchesAfterTheTurnWentOn() = heldReactionAfterTheTurnWentOn(landFirst = false, shuffled = false)
 
-    // pausereview (STK-039): the same, with Alice playing a Mountain before End turn
+    // pausereview (old-model Hold): the same, with Alice playing a Mountain before End turn
     @Test fun aHeldReactionBranchesAfterALandAndTheTurnWentOn() = heldReactionAfterTheTurnWentOn(landFirst = true, shuffled = false)
 
-    // pausereview #10 (STK-039, I-D41; HIS-037 continuations, HIS-042 reseed; SYS-010 #4 "an automated batch only to the
+    // pausereview #10 (old-model Hold, I-D41; old-model armed continuation continuations, HIS-042 reseed; SYS-010 #4 "an automated batch only to the
     // board it was planned on"): the same game with the libraries in an unknown order, as every real game has them. A
     // branch reseeds the unknown library order, so Bob's device plans his cast on the branch's start (the held board
     // reseeded as the server will), and the server takes it

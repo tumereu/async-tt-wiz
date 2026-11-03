@@ -111,7 +111,7 @@ class TableStatesScreenshotTest {
             "tokens-menu" -> compose.runOnIdle { toolkit.openCard(TableScope(f.source(f.a, "1/3").id, listOf(f.source(f.a, "1/3").id))) }
             "tokens-inspector" -> compose.runOnIdle { toolkit.inspect(f.source(f.a, "1/3").id) }
             "continue" -> {
-                // HIS-036: holding Auto is the only way to branch.
+                // old-model timeline branching: holding Auto is the only way to branch.
                 compose.onNodeWithContentDescription("Continue playing from here").assertDoesNotExist()
                 compose.onNodeWithContentDescription("Auto advance").performTouchInput { longClick() }
                 compose.onNodeWithContentDescription("Undo").assertExists()
@@ -304,7 +304,7 @@ class TableStatesScreenshotTest {
         compose.onNodeWithContentDescription("Card action ring").assertDoesNotExist()
         compose.onNodeWithContentDescription("Your Graveyard panel, 3 cards").assertIsDisplayed()
     }
-    // HIS-005, HIS-036, HIS-037, HIS-044, STK-018
+    // HIS-005, old-model timeline branching, old-model armed continuation, old-model game tree, STK-018
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun stackLandscape() { render("stack-contents", true) }
     @Test fun historyStartPortrait() { render("history-start", false) }
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun historyStartLandscape() { render("history-start", true) }
@@ -354,7 +354,7 @@ class TableStatesScreenshotTest {
     }
 
 
-      // HIS-036
+      // old-model timeline branching
       @Test fun pausedAutoHoldImmediatelyArmsWithoutDialogAndConsumesTap() {
          render("history-paused", false)
           compose.onNodeWithContentDescription("Auto advance").performTouchInput { longClick() }
@@ -372,7 +372,7 @@ class TableStatesScreenshotTest {
           compose.onNodeWithContentDescription("Table actions").assertIsDisplayed()
      }
 
-    // HIS-043, HIS-045, HIS-046
+    // HIS-043, old-model game tree, old-model game tree
     @Test fun treeCentersReviewGroupAndTapSelectsLastEventThenCloses() {
         val tree = f.history()
         val explorer = HistoryExplorerController(Executor { it.run() }, { it() })

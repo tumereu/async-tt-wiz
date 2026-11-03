@@ -66,7 +66,7 @@ class TableScreenshotTest {
         compose.onNodeWithText("View · 50").assertDoesNotExist()
         if (paused) {
             compose.onNodeWithContentDescription("Interaction mode").assertDoesNotExist()
-            compose.onNodeWithContentDescription("Continue playing from here").assertDoesNotExist() // HIS-036
+            compose.onNodeWithContentDescription("Continue playing from here").assertDoesNotExist() // old-model timeline branching
         } else {
             compose.onNodeWithContentDescription("History", substring = false).assertDoesNotExist()
             // ("Next" is also the step arrow's word, TRN-063)

@@ -33,44 +33,22 @@ class TimelineNavigationRegressionTest {
         return root
     }
 
-    // HIS-036, HIS-037
-    @Test fun holdingAutoArmsSelectedPastWithoutMutatingAndKeepsStripMounted() {
+    // HIS-019, HIS-013 (I-D56 §8): the timeline is view-only: holding Auto at a past point arms nothing and sends nothing
+    @Test fun holdingAutoAtAPastPointDoesNotBranch() {
         val f = BasicTableFixture()
         try {
             val root = review(f)
-            val player = f.lobby.history.playback!!
-            val description = HistoryTimelineLayout.events(player.tree, player.tree.sharedHeadId).first().description
-            val event = hasContentDescription(description) and isSelected()
-            val before = compose.onNode(event, useUnmergedTree = true).assertIsDisplayed().fetchSemanticsNode().boundsInRoot
             val sent = f.commands().size
-            // The top bar has no branch button; holding Auto is the only way to branch.
             compose.onNodeWithContentDescription("Continue playing from here").assertDoesNotExist()
-            compose.onNodeWithContentDescription("Return to current").assertIsDisplayed()
+            compose.onNodeWithText("Hold to branch", useUnmergedTree = true).assertDoesNotExist()
             compose.onNodeWithContentDescription("Auto advance").performTouchInput { longClick() }
             drain(f)
             compose.runOnIdle {
-                assertEquals(root, f.lobby.history.armed)
-                assertEquals(root, player.position.cursorId)
-                assertNotEquals(root, player.tree.sharedHeadId)
+                assertEquals(null, f.lobby.history.armed)
                 assertEquals(sent, f.commands().size)
             }
-            compose.onNodeWithContentDescription("Cancel continuation").assertIsDisplayed()
-            compose.onNodeWithContentDescription("Auto advance").assertDoesNotExist()
-            assertEquals(before, compose.onNode(event, useUnmergedTree = true).assertIsDisplayed().fetchSemanticsNode().boundsInRoot)
-            // The first predicted fork lands before the worker can publish its history index.
-            compose.runOnIdle { assertTrue(f.lobby.gameplay(PlayAction.AdjustLife(f.actor, "2"))) }
-            compose.waitForIdle()
-            compose.onNode(event, useUnmergedTree = true).assertIsDisplayed()
-            drain(f)
-            compose.runOnIdle {
-                assertEquals(f.play.currentNodeId, f.lobby.history.armed)
-                assertTrue(player.tree.contains(f.play.currentNodeId))
-            }
-            // (the Automatum toggles that are on count as selected too)
-            assertTrue(compose.onAllNodes(isSelected(), useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty())
-            compose.onNodeWithContentDescription("Cancel continuation").performClick()
-            drain(f)
-            compose.onNodeWithContentDescription("Timeline mode").assertIsDisplayed()
+            compose.onNodeWithContentDescription("Cancel continuation").assertDoesNotExist()
+            assertNotEquals(null, root)
         } finally { f.lobby.close(); f.worker.drain() }
     }
 

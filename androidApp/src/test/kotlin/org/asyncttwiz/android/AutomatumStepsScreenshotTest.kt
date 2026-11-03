@@ -229,7 +229,7 @@ class AutomatumStepsScreenshotTest {
         assertEquals(SharedFlowController.STACK_WAITING, waiting.error)
     }
 
-    // TRN-061, TRN-004, SYS-037, I-D40: Alice presses Next step in her own main phase while Bob holds priority (she passed;
+    // old-model acting-for confirmation, TRN-004, SYS-037, I-D40: Alice presses Next step in her own main phase while Bob holds priority (she passed;
     // he has Full control): she is asked first and nothing is sent until she confirms; Cancel sends nothing; confirmed,
     // it is Bob's pass as if he had pressed it
     @Test fun steppingForTheOtherPlayerAsksFirst() {
@@ -262,7 +262,7 @@ class AutomatumStepsScreenshotTest {
         assertTrue(position(after)!! > TurnPosition.PRECOMBAT_MAIN, "Bob passed after Alice: the main phase ended (${position(after)})")
     }
 
-    // TRN-061, I-D40: End turn and a later step for the other player say what they do for them, as do declarations; a
+    // old-model acting-for confirmation, I-D40: End turn and a later step for the other player say what they do for them, as do declarations; a
     // confirmation given after the table changed sends nothing
     @Test fun actingForTheOtherPlayerSaysWhatItDoes() {
         val play = board()

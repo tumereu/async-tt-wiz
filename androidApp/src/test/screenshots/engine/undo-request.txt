@@ -1,0 +1,1 @@
+Bob asks to undo: Alice sees his message, where the game would go back to, and Accept or Deny; the game waits until she answers.

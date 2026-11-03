@@ -180,7 +180,7 @@ class PivotReviewAppTest {
         assertEquals(emptyList(), refused)
     }
 
-    // TRN-050, HIS-037 (the lost ResultLockContinuationScenarioTest, on Automatum's steps): Bob suggests a draw; Alice,
+    // TRN-050, old-model armed continuation (the lost ResultLockContinuationScenarioTest, on Automatum's steps): Bob suggests a draw; Alice,
     // reviewing the point before it, continues from there with an Automatum step: the server takes it, the new branch has
     // no suggestion (the suggestion stays on the old branch), and both keep playing by the rules on the new branch
     @Test fun continuingFromBeforeASuggestionPlaysOnByTheRules() {

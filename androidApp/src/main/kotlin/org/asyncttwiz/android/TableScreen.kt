@@ -267,15 +267,8 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
                                     autoPause = playbackAutoPause, board = play.board, definitions = play.definitions,
                                   onSettings = { playbackSettingsOpen = true },
                                  animationFinished = settledCursor == position?.cursorId && play.currentNodeId == position?.cursorId,
-                                  onTree = {
-                                      playback.pause()
-                                       tree?.let {
-                                           explorerOpeningCursor = it.resolveCursor(playback.position.cursorId)
-                                           explorer.opening(explorerOpeningCursor)
-                                          explorerOpen = true
-                                      }
-                                  },
-                                  continuationReady = !resultLocked && position?.cursorId?.let(history::canRequestContinuation) == true,
+                                  // I-D56 §8, §16: no game tree dialog and no branching from the timeline (HIS-010, HIS-013)
+                                  continuationReady = false,
                                  overlay = true, landscape = landscape,
                                   background = tableBarColor(play.board, accountId, reviewing = !editable),
                                    readOnly = editable, playCursorId = stripCursor,

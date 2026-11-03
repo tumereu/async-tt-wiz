@@ -100,7 +100,7 @@ class TimelineStripInteractionTest {
         assertTrue(pauses > 0)
     }
 
-    // HIS-005, HIS-036
+    // HIS-005, old-model timeline branching
     @Test fun branchMarkerSitsInTheGapWhereTheBranchSplitsAndAnArmedPointShowsTheComingSplit() {
         var armed by mutableStateOf<String?>(null)
         val events = (0..4).map { if (it == 1) event(it).copy(alternatives = 1) else event(it) }

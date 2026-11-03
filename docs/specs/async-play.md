@@ -476,3 +476,46 @@ and reshuffles; results and concession on tentative lines; the async-round measu
 
 - `docs/pre-release-review.md` (owner's list): the "Undo/redo" item names redo and the "Keep top card revealed" item
   names branch reseeds; the owner updates them (every line reseeds, §9; no redo, §10).
+
+## 18. Built (step A, 2026-11-03)
+
+Step A of §13 (phases 1–2: stored format and server rules) is built behind the I-D54 seam, with I-D54's remaining
+server items; see `engine-state-architecture.md` §10 for what and where. Nothing a player sees changed yet: every game
+still starts on today's model, so no catalog entry of §17 changes in this step (they change with steps C and D).
+
+Decided while building (the most vision-aligned reading; owner to confirm):
+1. **Seed:** the game's secret is part of the shared state both devices hold (`TableState.secret`, owner's decision);
+   line numbers come from one counter on the play (`engine_play.lines`). A device starting a branch names the next
+   number (`Act.NewLine`); the server refuses any other as `stale`, so it never reuses a stream.
+2. **Where a line starts:** a branch's first step is the reshuffle, inside the branching event. A rewind (free or
+   approved) adds the server's own line-start event at the target (the reshuffle only), so the new line exists at once
+   for both devices.
+3. **Known places** live in the engine (`PlayerState.libraryPlaces`). Looks make places known through `Change.Shown`
+   (a scry, a look, a search, a reveal), cards put at a place through the zone change, random-order puts become one
+   group; a reorder by itself marks nothing (it always follows a look). Cards a player may look at any time are fixed
+   when a line reshuffles.
+4. **Engine-automatic (b)** is only the order-free combat damage division answered with the suggestion: the engine
+   already makes one-answer choices that depend on nothing hidden itself (P5). **(c)** early answers match by
+   decision kind, player and source (`EarlyAnswer.keyOf`).
+5. **Assume keep:** the starting player is the setup's active player; allowed after their own Kept event while the
+   opponent has no Mulliganed event (no card owed to the bottom).
+6. **Random results for free undo:** coin flips, die rolls and random choices count; a shuffle's order doesn't (it is
+   hidden, and the rewind's new line reshuffles anyway).
+7. **Confirmation** compares only the decider's first input with the assumed one; the rest of a confirming
+   submission is dropped (the device plays the line back).
+8. **Local heads** start at the game's start event for both players; reports only move a head forward along the main
+   line (the unmodified client is trusted to stop at its decision points; the server doesn't enforce them).
+9. **Discarded lines** stay in `engine_event`; a rewind deletes the main line's events after its target (and their
+   checkpoints); a discarded line hanging below a deleted event stays as it is, for problem reports.
+10. **The other player's table-only events** a rewind lets stand are added again as new events (new ids) after the
+    line-start event while they still apply, else dropped.
+11. **Notifications:** a player is notified ("your move") only when their next stop is new, timed from that event;
+    whose move a game is reads the viewer's own next stop first, then the other player's.
+12. **Async rounds** are logged with kinds keep, choice, stop, blocks, pause, priority; live = the green dot
+    (presence ONLINE). An information-rule stop shows on the server as an ordinary wait at the head.
+13. **Results:** a concession ends the play at once (while behind, after its branch); any other engine result ends it
+    once a player confirms it after both local heads reached it.
+14. **Settings changes** make a revision that carries no settings (the other player sees only that the revision
+    number moved).
+15. **Cards the server can't read** start as unknown objects; the readiness check (I-D52) already keeps such decks
+    out of games.

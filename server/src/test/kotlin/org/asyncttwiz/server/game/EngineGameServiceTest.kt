@@ -182,6 +182,10 @@ class EngineGameServiceTest {
         val stored = f.revisions(f.b, before).last()
         assertEquals(f.b.account.accountId, stored.summary.attentionHolder)
         assertNull(stored.engine!!.moves, "the per-player table stays on the server")
+        // §15: the waits for a real input that began while that player wasn't live are logged (nobody has the game open)
+        val rounds = runtime.transaction { c -> org.jooq.impl.DSL.using(c, org.jooq.SQLDialect.POSTGRES)
+            .fetch("SELECT account_id, kind FROM engine_async_round ORDER BY ordinal").map { it.get(0).toString() to it.get(1, String::class.java) } }
+        assertEquals(listOf(f.a.account.accountId to "keep", f.b.account.accountId to "keep"), rounds.take(2))
         // Bob answers the same at his local head: confirmed, no new event
         val head = f.snapshot().headId
         val confirm = f.recipient.execute(GameAction.Submit(bob.act(id(), Input.Answer(open.id, Answer.Option("Keep")))))

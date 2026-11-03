@@ -202,10 +202,9 @@ model is untouched):**
   two devices in step with the server, drafts); server `EngineGameServiceTest` (inbox order, stale refusal, broadcast,
   warm and cold head, concession, attention; old-model plays refuse submissions).
 
-**Left for the switch-over (not started):**
-1. *Engine definitions on the server:* the seats come from the seam; the server must parse the game's decks
-   (`arcanum-parser` on the server, the `PrintedCard` conversion now in `client-storage` moved to a shared module),
-   then `PlayStore.start` creates the engine history for every game.
+**Left for the switch-over** (items 1, 3 and 5 built behind the seam in I-D56 step A, below):
+1. *Engine definitions on the server:* **built** (`EngineDecks`, `protocol` `game/GameCards`, the reading moved from
+   `client-storage`); left: turn `ATW_ENGINE_GAMES` on (every game then starts as engine state).
 2. *App, phase 4–5:* the app's socket session loads `GameHead.engine` into a `GameSession`, sends `GameAction.Submit`,
    feeds `engineEvent`s and refusals in, and the table renders from `Engine.view`/`visible` + `TableState` with
    animations from the change list, keeping every current UI behaviour (the largest part: today's table renders
@@ -213,20 +212,64 @@ model is untouched):**
    tap, hidden in the opponent's turn unless you act, local prediction; view-only phase dialog; no timeline flicker on
    opening; the mana pool row) and their tests; pause points, early answers, drafts, settings as table changes; Autotap becomes
    a shared table setting (§9 point 3).
-3. *Game end:* a confirmed engine result (`TableChange.ResultConfirmed`) has to end the play as `AcceptResult` does
-   (return to the lobby, deck visibility, activity); concede/agreed result through the engine replace
-   `GameAction.Concede`/`AcceptResult`.
+3. *Game end:* **built** (`PlayStore.endEngine`: a concession at once, any other result once confirmed after both
+   local heads reached it, I-D56 §11); left: the app sends them instead of `GameAction.Concede`/`AcceptResult`.
 4. *History reads:* timeline/history pages, undo (`UndoRule`) and explicit branching on engine events; the
    reproduction bundle (I-D43) from the stored inputs.
-5. *Before the wipe, so the stored format changes once* (async-play spec review B4, B2, B3, B5): positional library
-   knowledge (known prefix/suffix and ordered layers per library) in the engine or table state, so a branch reseeds
-   only the unknown order; random answers deterministic per line (seeded by the game, the line's start and the
-   decision's index on the line: undo and redo give the same results, only a branch gets a new stream; where the seed
-   lives without letting devices predict hidden results needs a decision); the assumed-input flag, confirmations,
-   event splitting and a per-player head; who may submit which input plugs into `WhoActs`.
+5. *Before the wipe, so the stored format changes once:* **built** (I-D56 step A below; the format change is the one
+   the wipe covers).
 6. *Then* move `db/pending/wipe_plays_for_engine_state.sql` to the next `V<n>` (test env first) and delete the old
    model: `automatum/` mapping, `PlayState`/`BoardState` game fields, `AutomatumOnly`, the manual protocol actions.
 
 **For the owner:** (1) the wipe's timing (kept for the switch rather than run now); (2) §8's agreed results and
 simultaneous pre-game decisions need new engine inputs (engine work, phase 3+); (3) Autotap becomes a shared table
 setting per §2 (today it is per device); (4) undo across more than 4 turn starts loads a checkpoint (≤ 63 events).
+
+## 10. Built (I-D56 step A, 2026-11-03): stored format, engine prerequisites, server rules
+
+Behind the seam: every game still starts on today's model unless the test seam or `ATW_ENGINE_GAMES=1` starts it as
+engine state; nothing is wiped yet. This replaces §2's "undo, redo, branching … work exactly as now", §3's "branching
+from an older point" and "random answers as given", and the phase 3–4 notes' `WhoActs.Anyone`, deliberate branches,
+`TableChange.Settings`/`Act.SkipWhenNoChoice` and `Attention.of(state)` at the head, as `async-play.md` §17 lists.
+
+- **Engine (`arcanum-engine`, generic, KDoc and CR-cited tests in `LibraryPlacesTest`):** `PlayerState.libraryPlaces`
+  (known exact places and random-order groups since the last shuffle, kept by the recorder as `Change.LibraryPlaces`:
+  cards put at a known place, looked at or revealed where they lie; a shuffle forgets them); with full information
+  `Act.fill` records `Change.Shown(to, ids)` (what a player looked at; changes nothing); `Engine.revealed(before,
+  changes, viewer)` (the cards an outcome shows a viewer at any moment, by card; the review's helper);
+  `Engine.unknownOrder`/`reorderUnknown` (a host's new order of the unknown parts only; cards a player may look at
+  stay); `Engine.blockCosts` (CR 509.1d).
+- **Stored format (`protocol` `game`):** `EngineStep.assumedBy`; `TableState.secret` (32 bytes the server makes at
+  the play's start, in the shared state both devices hold: owner's decision, I-D27) and `TableState.line` (`Line`:
+  number and random answers used), moved by `TableChange.LineMoved` that `EventBuilder` adds itself; `LineRandom`
+  (the k-th random answer of line n from SHA-256 of secret, n, k); `EventBuilder.startLine` (a new line's first step
+  reshuffles both libraries' unknown parts, one answer per part); private `PlaySettings` (`ResponseMode` Full control /
+  Normal / Auto-skip, Always assume resolves, Autotap) out of the table and engine state; the shared engine state
+  keeps every player's `skipWhenNoChoice` off. `Act.NewLine(number)` starts a branch's line. Frozen sample
+  re-recorded once.
+- **Server rules (`protocol`):** `WhoActs` (own inputs by `Engine.decider`; engine-automatic answers: a pass
+  `Engine.shouldPassFor` gives on the shared state, an order-free combat damage division with the suggestion, the
+  decider's own early answer by `EarlyAnswer.keyOf`; random answers checked against the line's stream; assumed
+  inputs of §3's kinds only, first in their event); `Acceptance` (§8: local heads, duplicate confirmation, branch with
+  the next line, concession while behind, `stale`, `rewindRequested`); `InformationRule.revealing` (own library
+  exempt) checked whenever the author's line is tentative or the event assumes; `Stops`, `NextStop` per response
+  mode; `Rewind.requestNeeded` (free undo vs request); the result confirmed only once every local head reached it;
+  `MainLine`.
+- **Server (`EngineGames`, V57):** `engine_play.lines` (the line counter) and the open undo request;
+  `engine_event.created_at`; `engine_seat` (local head, private settings, next stop and its time);
+  `engine_async_round` (§15). Actions `EngineSeen`, `EngineRewind`, `EngineRequestRewind`, `EngineAnswerRewind`,
+  `EngineCancelRewind`, `EngineSettings`; `Submit` lost `branch`; `EngineSnapshot`/`EngineUpdate` carry local heads,
+  the reader's own settings, the request and the counter. Whose move it is comes per viewer from `engine_seat` (heads,
+  revisions via `visibleRevision`, the lobby list); a player is notified only when their next stop is new. Protocol
+  minor 6.
+- **Tests:** `LibraryPlacesTest` (engine); `AuthorityTest` with `AsyncServer` (two devices at protocol level: assume →
+  confirm, assume → mismatch → branch with the discarded line off the main line, line counter, info-rule stop and the
+  real pass after it, next stops by mode, free undo vs request, reshuffle keeping a scried card's known place,
+  concession while behind, result confirmation, seeded games of own inputs in step with the server);
+  `EngineGameServiceTest` (the same through the service, per-viewer attention, async rounds, private settings,
+  decks parsed on the server).
+
+**Next:** step B (device core: `GameSession` buffer past the local head, playback stops by mode, local-head reports,
+assume/wait/grace, revert on a branch), step C (app with I-D54 item 2; catalog entries per `async-play.md` §17), step
+D (switch-over: the wipe as `V<n>`, delete the old model, adversarial review).
+

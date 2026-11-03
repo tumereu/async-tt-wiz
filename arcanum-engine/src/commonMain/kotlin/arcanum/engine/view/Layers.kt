@@ -159,7 +159,10 @@ internal class WorkBoard(override val state: GameState, val work: MutableMap<Obj
         ?: if (state.obj(id) == null && id !in state.stackItems) { readingLog(); snapshot(id)?.characteristics } else null
 
     override fun controller(id: ObjectId): PlayerId? {
+        // tmt backfill: an object that has left its zone is controlled as it last existed (CR 608.2h), as the finished view
+        // reads it: "if a permanent left the battlefield under your control this turn" in a static's condition
         val o = state.obj(id) ?: return work[id]?.controller ?: state.stackItems[id]?.controller
+            ?: if (id !in work) { readingLog(); snapshot(id)?.let { it.controller ?: it.owner } } else null
         // CR 108.4a: off the battlefield and the Stack, the owner answers for a card
         return if (o.zone == Zone.Battlefield || o.zone == Zone.Stack) work[id]?.controller ?: o.controller ?: o.owner else o.owner
     }

@@ -64,7 +64,9 @@ class TableLayoutScreenshotTest {
         val image = ImageIO.read(output)
         assertEquals(if (landscape) 892 else 412, image.width)
         assertEquals(if (landscape) 412 else 892, image.height)
-        val scene = TablePresentation.scene(LiveTableFixture.game, play, "a", image.width.toFloat(), image.height.toFloat(), landscape)
+        // as the table screen lays it out (TBL-121)
+        val scene = TablePresentation.scene(LiveTableFixture.game, play, "a", image.width.toFloat(), image.height.toFloat(), landscape,
+            landscapeHome = true)
         assertRenderedLandsBands(image, scene, "a")
         val region = scene.stackRegion!!
         assertEquals(0xff2a1740.toInt(), image.getRGB((region.x + 2).toInt(), region.center.y.toInt()))

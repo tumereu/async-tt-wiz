@@ -86,7 +86,7 @@ internal fun PodViewSettingsButton(pick: PodPickColumns?, build: PodBuildColumns
     sideBySide: PodBuildColumns = rememberPodBuildSideBySide()) {
     var open by remember { mutableStateOf(false) }
     Box {
-        IconButton({ open = true }, Modifier.size(48.dp)) { EntryIcon("View settings", "settings") }
+        HoldTip("View settings") { IconButton({ open = true }, Modifier.size(48.dp)) { EntryIcon("View settings", "settings") } }
         DropdownMenu(open, { open = false }, Modifier.testTag("pod-view-settings")) {
             Column(Modifier.padding(horizontal = 12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 if (pick != null) PodViewSettingRow("Draft · cards per row") {

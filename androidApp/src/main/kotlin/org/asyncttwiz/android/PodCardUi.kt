@@ -164,19 +164,24 @@ internal fun PodColumnControl(label: String, description: String, value: Int, ra
 
 @Composable
 private fun PodColumnButton(description: String, add: Boolean, enabled: Boolean, action: () -> Unit) {
+    HoldTip(description) {
     CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
         IconButton(action, Modifier.size(32.dp), enabled = enabled) {
             Icon(if (add) Icons.Default.Add else Icons.Default.Remove, description, Modifier.size(20.dp))
         }
     }
+    }
 }
 
 @Composable
 internal fun PodSmallButton(description: String, text: String, enabled: Boolean, width: Dp = 32.dp, action: () -> Unit) {
+    // I-D48: a symbol-only button says what it does on hold
+    HoldTip(description) {
     CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
         TextButton(action, enabled = enabled, modifier = Modifier.size(width, 32.dp)
             .semantics { contentDescription = description }, contentPadding = PaddingValues(0.dp)) {
             Text(text, fontSize = 12.sp, maxLines = 1)
         }
+    }
     }
 }

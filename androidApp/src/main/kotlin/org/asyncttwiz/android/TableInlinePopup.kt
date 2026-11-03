@@ -44,6 +44,8 @@ import kotlin.math.abs
 import org.asyncttwiz.protocol.TableActions
 
 internal val LocalCardRingAnchors = compositionLocalOf<Map<String, TableBounds>> { emptyMap() }
+/** TBL-067: the areas table popups keep off when they fit elsewhere (both hands). */
+internal val LocalPopupAvoid = compositionLocalOf<List<TableBounds>> { emptyList() }
 private val LocalRingInputTargets = compositionLocalOf<(Any, TableBounds?, Boolean) -> Unit> { { _, _, _ -> } }
 
 /** Register controls (or a list's scroll viewport), never a button grid's container or gaps. */
@@ -184,6 +186,7 @@ internal fun TableInlinePopup(identity: String, viewId: String, anchor: TableBou
         Unit
     } }
     val currentDismiss by rememberUpdatedState(dismiss)
+    val avoid = LocalPopupAvoid.current
     var entered by remember(identity, viewId) { mutableStateOf(false) }
     var closing by remember(identity, viewId) { mutableStateOf(false) }
     val requestDismiss = { closing = true }
@@ -254,8 +257,8 @@ internal fun TableInlinePopup(identity: String, viewId: String, anchor: TableBou
             val maxW = minOf(width.roundToPx(), (constraints.maxWidth - 24.dp.roundToPx()).coerceAtLeast(0))
             val maxH = (constraints.maxHeight - 24.dp.roundToPx()).coerceAtLeast(0)
             val child = measurables.single().measure(androidx.compose.ui.unit.Constraints(
-                minWidth = if (sheet) maxW else 0, maxWidth = maxW,
-                minHeight = if (sheet) minOf(height.roundToPx(), maxH) else 0,
+                // A sheet is as tall as its content, up to [height] (STK-018: no empty panel under a short list).
+                minWidth = if (sheet) maxW else 0, maxWidth = maxW, minHeight = 0,
                 maxHeight = if (sheet) minOf(height.roundToPx(), maxH) else maxH))
             val screenW = constraints.maxWidth.toDp().value; val screenH = constraints.maxHeight.toDp().value
             val childW = child.width.toDp().value; val childH = child.height.toDp().value
@@ -263,7 +266,7 @@ internal fun TableInlinePopup(identity: String, viewId: String, anchor: TableBou
             // An explicit placement pins the top-left corner (e.g. beside the card panels); it is only clamped on screen.
             val bounds = placement?.let { b -> TableBounds(b.x.coerceIn(0f, (screenW - childW).coerceAtLeast(0f)),
                 b.y.coerceIn(0f, (screenH - childH).coerceAtLeast(0f)), childW, childH) }
-                ?: inlinePopupBounds(screenW, screenH, card, own, childW, childH, focus)
+                ?: inlinePopupBounds(screenW, screenH, card, own, childW, childH, focus, avoid)
             layout(constraints.maxWidth, constraints.maxHeight) {
                 child.place(bounds.x.dp.roundToPx(), bounds.y.dp.roundToPx())
             }
@@ -274,8 +277,9 @@ internal fun TableInlinePopup(identity: String, viewId: String, anchor: TableBou
 
 /** Prefer a free region beside the captured anchor; clamp measured content on tight screens. */
 internal fun inlinePopupBounds(width: Float, height: Float, anchor: TableBounds, own: Boolean,
-    desiredWidth: Float, desiredHeight: Float, focusY: Float = desiredHeight / 2): TableBounds {
-    CardRingGeometry.place(width, height, anchor, own, desiredWidth, desiredHeight, focusY)?.let { return it.square }
+    desiredWidth: Float, desiredHeight: Float, focusY: Float = desiredHeight / 2,
+    avoid: List<TableBounds> = emptyList()): TableBounds {
+    CardRingGeometry.place(width, height, anchor, own, desiredWidth, desiredHeight, focusY, avoid)?.let { return it.square }
     val w = desiredWidth.coerceAtMost((width - 24).coerceAtLeast(0f))
     val h = desiredHeight.coerceAtMost((height - 24).coerceAtLeast(0f))
     val y = if (anchor.y >= h + 20) anchor.y - h - 8 else anchor.bottom + 8

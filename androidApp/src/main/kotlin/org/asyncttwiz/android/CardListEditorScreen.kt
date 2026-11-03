@@ -97,11 +97,13 @@ internal fun CardListEditorScaffold(title: String, navigation: (() -> Unit)?, la
             else ScreenIconButton(IMPORT_FROM_LINK, "link", open, Modifier.testTag("open-import-link"), enabled = linkEnabled)
             if (deleteLabel != null) TextButton({ keyboard?.hide(); focus.clearFocus(); delete() },
                 Modifier.heightIn(min = 48.dp).testTag("delete-list"), enabled = deleteEnabled,
-                colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)) { Text(deleteLabel, maxLines = 1) }
+                colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)) {
+                    Icon(screenIcon("delete"), null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(deleteLabel, maxLines = 1)
+                }
         }
         if (landscape) Row(Modifier.fillMaxWidth().padding(start = 8.dp, end = 16.dp, top = 4.dp, bottom = 4.dp),
             verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            if (navigation != null) IconButton(onClick = navigation) { EntryIcon("Open navigation", "menu") }
+            if (navigation != null) HoldTip("Open navigation") { IconButton(onClick = navigation) { EntryIcon("Open navigation", "menu") } }
             Text(title, Modifier.padding(start = if (navigation == null) 8.dp else 0.dp), style = MaterialTheme.typography.titleLarge, maxLines = 1)
             named(Modifier.weight(1f))
             link()
@@ -141,8 +143,8 @@ internal fun DiscardChangesDialog(keepEditing: () -> Unit, discard: () -> Unit) 
     ScreenDialog(keepEditing) {
         Text("Discard unsaved changes?", style = MaterialTheme.typography.titleMedium)
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
-            ScreenOutlinedButton(keepEditing) { Text("Keep editing") }
-            ScreenButton(discard) { Text("Discard") }
+            ScreenOutlinedButton(keepEditing) { ButtonLabel("edit", "Keep editing") }
+            ScreenButton(discard) { ButtonLabel("delete", "Discard") }
         }
     }
 }
@@ -209,9 +211,11 @@ private fun CardListCardsTab(editor: CardListEditor, search: CardListSearch, loo
                         val groups = preparationGroups(rows.map { it.printing.id to it.quantity.toLong() }, definitions)
                         // LOB-105: every section shows, even when empty; its header's + opens search with that section chosen.
                         visualDeckSection(saved, rows.sumOf { it.quantity.toLong() }, groups, columns.count, headerAction = {
-                            IconButton({ editor.destination(section); search.open(CardListEdits.total(entries)) },
-                                Modifier.testTag("add-cards-${saved.shortLabel().lowercase()}"), enabled = editor.editable) {
-                                Icon(screenIcon("add"), "Add cards to ${saved.sectionLabel()}", tint = saved.sectionColor())
+                            HoldTip("Add cards to ${saved.sectionLabel()}") {
+                                IconButton({ editor.destination(section); search.open(CardListEdits.total(entries)) },
+                                    Modifier.testTag("add-cards-${saved.shortLabel().lowercase()}"), enabled = editor.editable) {
+                                    Icon(screenIcon("add"), "Add cards to ${saved.sectionLabel()}", tint = saved.sectionColor())
+                                }
                             }
                         }) { tile ->
                             val key = "$section/${tile.digest}"
@@ -231,8 +235,10 @@ private fun CardListCardsTab(editor: CardListEditor, search: CardListSearch, loo
         if (entries != null && editor.canUndo) {
             Surface(Modifier.align(Alignment.BottomStart).padding(16.dp).size(48.dp).testTag("card-list-undo"),
                 shape = CircleShape, color = MaterialTheme.colorScheme.surfaceContainerHigh, shadowElevation = 4.dp) {
-                IconButton(editor::undoCards, enabled = editor.editable, modifier = Modifier.semantics { contentDescription = "Undo" }) {
-                    TableChromeIcon("undo")
+                HoldTip("Undo") {
+                    IconButton(editor::undoCards, enabled = editor.editable, modifier = Modifier.semantics { contentDescription = "Undo" }) {
+                        TableChromeIcon("undo")
+                    }
                 }
             }
         }
@@ -325,12 +331,12 @@ private fun CardSearchPage(editor: CardListEditor, search: CardListSearch, lands
     Box(Modifier.fillMaxSize()) {
     Column(Modifier.fillMaxSize().testTag("card-search")) {
         Row(Modifier.fillMaxWidth().padding(start = 4.dp, end = 16.dp, top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-            IconButton({ search.close() }) { EntryIcon("Back to the list", "chevron-left") }
+            HoldTip("Back to the list") { IconButton({ search.close() }) { EntryIcon("Back to the list", "chevron-left") } }
             ScreenTextField(state.text, search::text, Modifier.weight(1f).testTag("card-search-field")
                 .semantics { contentDescription = "Search cards" }, placeholder = "Search cards, e.g. t:goblin mv<=2",
                 keyboardOptions = imeOptions(ImeAction.Search), keyboardActions = KeyboardActions(onSearch = { keyboard?.hide() }),
                 trailingIcon = if (state.text.isEmpty()) null else ({
-                    IconButton({ search.text("") }, Modifier.size(48.dp)) { EntryIcon("Clear search", "close") }
+                    HoldTip("Clear search") { IconButton({ search.text("") }, Modifier.size(48.dp)) { EntryIcon("Clear search", "close") } }
                 }))
         }
         SearchChips(search, oneRow = landscape)

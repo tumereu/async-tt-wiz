@@ -44,7 +44,8 @@ import org.asyncttwiz.protocol.*
  * The eye hides the panel to look at the board (I-D10). Nothing shows while a cast is open (its own panel does).
  */
 @Composable
-internal fun SharedFlowHost(toolkit: TableToolkitController, play: PlayState, scene: TableScene?, names: Map<String, String>) {
+internal fun SharedFlowHost(toolkit: TableToolkitController, play: PlayState, scene: TableScene?, names: Map<String, String>,
+    reviewing: Boolean = false) {
     val flows = toolkit.flows
     val shown = !toolkit.cast.open && AutomatumBoards.sharedFlowShown(play)
     LaunchedEffect(IdentityKey(play.board), shown) {
@@ -110,7 +111,7 @@ internal fun SharedFlowHost(toolkit: TableToolkitController, play: PlayState, sc
             }
             holder == viewer -> when {
                 flows.responding == play.currentNodeId -> RespondBar(flows)
-                else -> RespondPrompt(flows, toolkit.pause, flow, play, names, viewer)
+                else -> RespondPrompt(flows, toolkit.pause, flow, play, names, viewer, reviewing)
             }
             // UI review round 2 #1: passing for them is the step arrow's "Resolve" (asked first, I-D40)
             holder != null -> WaitingBar(play, "${name(holder)} may respond to ${topName(flows, flow, play)}",
@@ -150,8 +151,8 @@ internal fun ActingForDialog(flows: SharedFlowController, names: Map<String, Str
     AlertDialog(onDismissRequest = flows::cancelActing,
         title = { Text(text.title) },
         text = { Text(text.text) },
-        confirmButton = { TextButton({ flows.confirmActing() }) { Text(text.button) } },
-        dismissButton = { TextButton(flows::cancelActing) { Text("Cancel") } })
+        confirmButton = { BarButton(text.button, Icons.Outlined.SkipNext) { flows.confirmActing() } },
+        dismissButton = { BarButton("Cancel", Icons.Outlined.Close, onClick = flows::cancelActing) })
 }
 
 /** What the confirmation of [asked] says (I-D40); [name] is the other player's name, when known. */
@@ -192,13 +193,16 @@ internal fun actingForText(asked: ActingFor, name: String?): ActingForText {
     }
 }
 
+/** STK-027: what the respond panel says in timeline mode, where its Respond is greyed. */
+internal const val REVIEW_RESPOND = "Hold Auto to respond on a branch"
+
 /** The priority prompt (CR 117.3d), docked above the hand (UI review #4): the card on top of the Stack drawn as a card
  * (hold: Inspect) beside "Alice cast Storm Spark", an ability's own line, its targets (cards as cards) and Respond (the
  * step arrow's "Resolve" lets it resolve, UI review round 2 #1); at a pause (I-D41, STK-037) its time running out and
  * Hold, or "take your time" once held. */
 @Composable
 private fun RespondPrompt(flows: SharedFlowController, pause: PauseController, flow: SharedFlow, play: PlayState,
-    names: Map<String, String>, viewer: String) {
+    names: Map<String, String>, viewer: String, reviewing: Boolean = false) {
     val node = play.currentNodeId
     val running = pause.running(node)?.takeIf { it.role is PauseRole.Yours }
     val inspector = remember(node) { ChoiceInspector() }
@@ -206,7 +210,8 @@ private fun RespondPrompt(flows: SharedFlowController, pause: PauseController, f
         if (running != null) ChoiceButton("Hold", Icons.Outlined.PanTool) { pause.hold(node) }
         // Responding holds the pause first, its bar running or not (#2), so the game waits for the response or it
         // becomes a branch (STK-039)
-        ChoiceButton("Respond", Icons.AutoMirrored.Outlined.Reply, primary = true) { flows.respond(play) }
+        // UI review round 2 N15 (STK-027): in timeline mode a response is made on a branch, by holding Auto (HIS-036)
+        ChoiceButton("Respond", Icons.AutoMirrored.Outlined.Reply, enabled = !reviewing, primary = true) { flows.respond(play) }
     }) {
         val item = flow.top
         val hidden = topHidden(flows, flow)
@@ -220,7 +225,8 @@ private fun RespondPrompt(flows: SharedFlowController, pause: PauseController, f
                 // An ability says which of its source's abilities it is; a spell is its card (hold it to read it)
                 if (item != null && !hidden && item.kind !is StackItemKind.Spell && item.kind !is StackItemKind.SpellCopy)
                     flow.text(item)?.let { Text(it, fontSize = 11.sp, lineHeight = 14.sp, color = Color(0xff4b5a5f)) }
-                if (running != null) PauseProgress(pause, running)
+                if (reviewing) Text(REVIEW_RESPOND, fontSize = 12.sp, color = Color(0xff4b5a5f))
+                else if (running != null) PauseProgress(pause, running)
                 else if (pause.holding(node)) Text("Holding — take your time", fontSize = 12.sp, fontWeight = FontWeight.Medium,
                     color = AutomatumViolet)
             }

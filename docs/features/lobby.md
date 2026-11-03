@@ -166,6 +166,6 @@ Everything outside the game table: accounts, profile, navigation, game list, gam
 ### Screens and dialogs
 
 - **LOB-100** Screen titles are one line in the same place on every screen; New/Import buttons sit at the top right of Games, Pods and Manage decks. (r21)
-- **LOB-101** Dialog buttons sit in one row on the right with the main action last and delete actions in red. (r21)
+- **LOB-101** Dialog buttons sit in one row on the right with the main action last and delete actions in red. Every button in dialogs, the lobby, decks and cubes and drafts shows an icon before its text (a cross on the dismiss button, a check, a bin on delete actions, or the action's own icon), never text alone; a button showing only an icon or symbol (the draft grid's arrows, a basic land's − and +) says what it does when held. (r47)
 - **LOB-102** The keyboard's Enter key does what the screen's button does: sign in, search, send a chat message, save a name or a value. Where search runs as you type, it just closes the keyboard. (r24)
 - **LOB-103** First loads show a full-area placeholder (with Retry on failure), errors appear as a floating message at the bottom, and screens keep their layout when states change. (r15)

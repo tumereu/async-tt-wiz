@@ -21,7 +21,7 @@ internal const val REPORTS_PROMPT_TEXT = "When the app crashes, runs slowly, stu
 internal fun ReportsPromptDialog(answer: (Boolean) -> Unit) {
     ScreenDialog({ answer(false) }, Modifier.testTag("reports-prompt"), title = "Send error reports?", actions = {
         DialogCancelButton("No thanks", { answer(false) }, Modifier.testTag("reports-prompt-no"))
-        DialogMainButton("Send reports", { answer(true) }, Modifier.testTag("reports-prompt-yes"))
+        DialogMainButton("Send reports", { answer(true) }, Modifier.testTag("reports-prompt-yes"), icon = "send")
     }) {
         Text(REPORTS_PROMPT_TEXT)
     }

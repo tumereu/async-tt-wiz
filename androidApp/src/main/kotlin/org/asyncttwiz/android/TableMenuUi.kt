@@ -84,7 +84,8 @@ internal fun menuIcon(name: String): ImageVector {
         "bottom" in n -> Icons.Outlined.VerticalAlignBottom
         "top" in n -> Icons.Outlined.VerticalAlignTop
         "graveyard" in n || n.startsWith("mill") || n.startsWith("discard") -> Icons.Outlined.Inventory2
-        n == "play" || n == "cast" -> PlayCardIcon
+        n == "cast" -> Icons.Outlined.AutoAwesome
+        n == "play" -> PlayCardIcon
         "exile" in n -> Icons.Outlined.Block
         "clone" in n -> Icons.Outlined.ControlPointDuplicate
         "unlink" in n || n == "links" || "remove link" in n -> Icons.Outlined.LinkOff

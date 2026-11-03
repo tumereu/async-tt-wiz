@@ -296,5 +296,10 @@ internal fun pauseStep(board: BoardState, viewer: String, names: Map<String, Str
     if (position == TurnPosition.DECLARE_ATTACKERS && board.turn.accountId != viewer &&
         board.combat?.pairs?.any { it.attackers.isNotEmpty() } == true)
         return "${names[board.turn.accountId] ?: "The other player"} attacks"
-    return position?.label ?: "This step"
+    // UI review round 2 N9: the main phases by the phase chip's names ("Main 1: you may act")
+    return when (position) {
+        TurnPosition.PRECOMBAT_MAIN, TurnPosition.POSTCOMBAT_MAIN -> stepLabel(position)
+        null -> "This step"
+        else -> position.label
+    }
 }

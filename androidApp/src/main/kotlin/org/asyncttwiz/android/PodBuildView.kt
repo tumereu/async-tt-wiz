@@ -157,7 +157,7 @@ fun PodBuildView(
                 Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(horizontal = PodBuildSidePadding),
                     verticalAlignment = Alignment.CenterVertically) {
                     Text(deckName, Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
-                    IconButton({ naming = true }) { EntryIcon("Name deck", "edit") }
+                    HoldTip("Name deck") { IconButton({ naming = true }) { EntryIcon("Name deck", "edit") } }
                 }
             }
             for (category in PodDeckCategory.entries) {
@@ -248,7 +248,7 @@ fun PodBuildView(
         Surface(Modifier.fillMaxWidth().height(48.dp), color = MaterialTheme.colorScheme.surfaceContainer) {
             if (submitted) Box(contentAlignment = Alignment.Center) { Text("✓ Submitted", style = MaterialTheme.typography.labelLarge) }
             else Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
-                IconButton({
+                HoldTip("Undo last change") { IconButton({
                     onUndo()?.let { (id, destination) ->
                         feedback = PodBuildFeedback(++feedbackId, "→ ${destination.podBuildLabel()}")
                         arriving = setOf(id)
@@ -256,9 +256,9 @@ fun PodBuildView(
                     sliding = true
                     settle++
                 }, Modifier.size(48.dp).testTag("pod-build-undo").semantics { contentDescription = "Undo last change" },
-                    enabled = editable && canUndo) { TableChromeIcon("undo") }
+                    enabled = editable && canUndo) { TableChromeIcon("undo") } }
                 Button({ confirmSubmit = true }, Modifier.weight(1f).fillMaxHeight(), enabled = submitEnabled,
-                    shape = MaterialTheme.shapes.extraSmall) { Text("Submit deck (${podBuildCount(build, PodDeckCategory.MAIN) + build.basics.total})") }
+                    shape = MaterialTheme.shapes.extraSmall) { ButtonLabel("send", "Submit deck (${podBuildCount(build, PodDeckCategory.MAIN) + build.basics.total})") }
             }
         }
       }
@@ -274,14 +274,14 @@ fun PodBuildView(
     }
     if (confirmSubmit && submitEnabled) ScreenDialog({ confirmSubmit = false }, title = "Submit deck?", actions = {
         DialogCancelButton("Cancel", { confirmSubmit = false })
-        DialogMainButton("Submit", { confirmSubmit = false; onSubmit() })
+        DialogMainButton("Submit", { confirmSubmit = false; onSubmit() }, icon = "send")
     })
     if (naming) {
         val name = rememberDialogField(deckName)
         val save = { onRename(name.text.trim()); naming = false }
         ScreenDialog({ naming = false }, title = "Deck name", actions = {
             DialogCancelButton("Cancel", { naming = false })
-            DialogMainButton("Save name", save, enabled = name.text.isNotBlank())
+            DialogMainButton("Save name", save, enabled = name.text.isNotBlank(), icon = "rename")
         }) {
             OutlinedTextField(name.value, { name.value = it.copy(text = it.text.take(120)) }, Modifier.fillMaxWidth().dialogField(name),
                 singleLine = true, label = { Text("Name") }, keyboardOptions = imeOptions(ImeAction.Done),
@@ -378,9 +378,9 @@ private fun PodBuildBasics(basics: PodDeckBasics, editable: Boolean, onAdjust: (
                 val count = basics.podBuildValues()[index]
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     CardText("{${DraftColor.entries[index].name}}", Modifier.weight(1f), style = MaterialTheme.typography.titleLarge)
-                    OutlinedIconButton({ onAdjust(index, -1) }, enabled = count > 0) { Text("−", Modifier.semantics { contentDescription = "Remove $name" }) }
+                    HoldTip("Remove $name") { OutlinedIconButton({ onAdjust(index, -1) }, enabled = count > 0) { Text("−", Modifier.semantics { contentDescription = "Remove $name" }) } }
                     Text("$count", Modifier.width(48.dp), textAlign = TextAlign.Center)
-                    OutlinedIconButton({ onAdjust(index, 1) }, enabled = count < Int.MAX_VALUE) { Text("+", Modifier.semantics { contentDescription = "Add $name" }) }
+                    HoldTip("Add $name") { OutlinedIconButton({ onAdjust(index, 1) }, enabled = count < Int.MAX_VALUE) { Text("+", Modifier.semantics { contentDescription = "Add $name" }) } }
                 }
             }
     }

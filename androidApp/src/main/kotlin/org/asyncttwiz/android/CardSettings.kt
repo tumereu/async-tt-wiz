@@ -89,7 +89,7 @@ internal fun ScaleValueInput(label: String, value: Float, range: ClosedFloatingP
     val parsed = input.text.trim().toFloatOrNull()?.takeIf { it.isFinite() }?.coerceIn(range)
     ScreenDialog(dismiss, title = label, actions = {
         DialogCancelButton("Cancel", dismiss)
-        DialogMainButton("Save", { parsed?.let(save) }, Modifier.testTag("card-scale-save"), enabled = parsed != null)
+        DialogMainButton("Save", { parsed?.let(save) }, Modifier.testTag("card-scale-save"), enabled = parsed != null, icon = "save")
     }) {
         Text("Scale (${range.start}–${range.endInclusive}×)")
         ScreenTextField(input.value, { input.value = it }, modifier = Modifier.fillMaxWidth().testTag("card-scale-input").dialogField(input),

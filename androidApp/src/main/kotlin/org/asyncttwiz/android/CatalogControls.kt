@@ -37,7 +37,7 @@ internal fun CatalogStartupDialog(state: CatalogUiState, download: () -> Unit, d
     ScreenDialog(if (initial) ({}) else dismiss, title = if (state.installed == null) "Download card records?" else "Update card records?",
         actions = {
             DialogCancelButton(if (initial) "Exit" else "Not now", dismiss)
-            DialogMainButton("Download", download)
+            DialogMainButton("Download", download, icon = "download")
         }) {
         Text(if (initial) "The app needs the card catalog to work. Artwork downloads separately, only when needed."
             else "Card records are needed to import decks. Artwork downloads separately, only when needed.")
@@ -55,7 +55,7 @@ internal fun CatalogControls(controller: CatalogViewModel) {
     val state = controller.state
     if (state.fullRefresh != null) ScreenDialog(controller::dismissFullRefresh, title = "Refresh full catalog?", actions = {
         DialogCancelButton("Cancel", controller::dismissFullRefresh)
-        DialogMainButton("Refresh full catalog", controller::confirmFullRefresh)
+        DialogMainButton("Refresh full catalog", controller::confirmFullRefresh, icon = "sync")
     }) {
         Text("This re-downloads and replaces all card records. Normal updates download only new and recent sets.")
         Text(state.fullSize?.let { "Download size: ${catalogSize(it)}." } ?: "Download size unavailable (up to 4 GB).")

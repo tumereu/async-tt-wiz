@@ -273,13 +273,13 @@ class AutomatumPauseTest {
         assertEquals(PausePoints.At(f.b, PausePoints.Point.Pause), PausePoints.at(passed.board))
         show(passed, f.b)
         compose.mainClock.advanceTimeBy(800)
-        compose.onNodeWithText("Precombat main: you may act").assertExists()
+        compose.onNodeWithText("Main 1: you may act").assertExists()
         compose.onNodeWithText("Hold").assertExists()
         // UI review round 2 #1 (TRN-063): the step arrow alone says Pass; the pause panel has none of its own
         compose.onNode(hasText("Pass") and hasAnyAncestor(hasContentDescription("Your pause"))).assertDoesNotExist()
         compose.onNodeWithContentDescription("Pass").assertExists()
         compose.onRoot().captureShot("$SCREENSHOTS/automatum/pause-empty-stack.png",
-            "Bob has Full control and could cast Storm Spark, so Alice's pass in her main phase gives him a pause: docked full width above his hand \"Precombat main: you may act\" with a violet bar emptying over his response time, the eye at the bottom left and Hold at the right; his step arrow reads Pass.")
+            "Bob has Full control and could cast Storm Spark, so Alice's pass in her main phase gives him a pause: docked full width above his hand \"Main 1: you may act\" with a violet bar emptying over his response time, the eye at the bottom left and Hold at the right; his step arrow reads Pass.")
     }
 
     // SYS-071 (I-D41): the device's Full control goes into a game Automatum is on in when the game's value differs
@@ -291,7 +291,8 @@ class AutomatumPauseTest {
     }
 
     // HIS-093 (I-D41): Bob was offline: Alice's device passed for him and the game went on. Catching up, Auto stops on his
-    // pause with no time limit, the respond panel shown; holding Auto there branches as usual (STK-039)
+    // pause with no time limit, the respond panel shown; holding Auto there branches as usual (STK-039). STK-027: in
+    // timeline mode the panel's Respond is greyed and it says how to respond
     @Test fun playbackStopsAtYourPause() {
         val play = board()
         val cast = aliceCasts(play)
@@ -325,7 +326,9 @@ class AutomatumPauseTest {
         compose.mainClock.advanceTimeBy(10_000)
         assertEquals(cast.currentNodeId, playback.position.cursorId, "no time limit")
         compose.onNodeWithText("Alice cast Storm Spark").assertExists()
+        compose.onNodeWithText(REVIEW_RESPOND).assertExists()
+        compose.onNode(hasText("Respond") and hasClickAction()).assertIsNotEnabled()
         compose.onRoot().captureShot("$SCREENSHOTS/automatum/pause-playback-stop.png",
-            "Bob, offline while Alice cast Storm Spark at him, catches up in timeline mode: Auto stopped at his pause (the respond panel shows Alice's spell) and waits there until he plays on or holds Auto to respond on a branch.")
+            "Bob, offline while Alice cast Storm Spark at him, catches up in timeline mode: Auto stopped at his pause; the respond panel shows Alice's spell with Respond greyed and \"Hold Auto to respond on a branch\", and waits there until he plays on or holds Auto.")
     }
 }

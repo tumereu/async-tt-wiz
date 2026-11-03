@@ -145,8 +145,8 @@ internal fun AuthenticatedShell(controller: AuthController, landscape: Boolean, 
 @Composable
 internal fun Navigation(controller: AuthController, close: Boolean, lobby: LobbyController?, pods: PodController? = null) {
     Column(Modifier.fillMaxSize()) {
-        if (close) IconButton(onClick = { controller.drawer(false) }, Modifier.align(Alignment.End)) {
-            EntryIcon("Close navigation", "close")
+        if (close) HoldTip("Close navigation", Modifier.align(Alignment.End)) {
+            IconButton(onClick = { controller.drawer(false) }) { EntryIcon("Close navigation", "close") }
         }
         Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 8.dp)) {
             NavigationItem("Menu", null, controller.state.destination == ShellDestination.MENU) {

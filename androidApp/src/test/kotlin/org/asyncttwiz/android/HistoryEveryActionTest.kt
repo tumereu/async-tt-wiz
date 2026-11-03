@@ -109,7 +109,7 @@ class HistoryEveryActionTest {
             PlayAction.Mtg(MtgAction.SetStackItem(id(62), null, MtgStackItem(MtgRef.StackItem("s"), MtgStackKind.Triggered, a, timestamp = 1))),
             PlayAction.Mtg(MtgAction.SetRecord("e", null, EngineRecord("e", EngineRecordKind.Effect, 1, "{}"))),
             PlayAction.Mtg(MtgAction.SetSkipWhenNoChoice(false)),
-            PlayAction.Mtg(MtgAction.SetFullControl(true)), PlayAction.Mtg(MtgAction.SetMulligans(0, 1)),
+            PlayAction.Mtg(MtgAction.SetFullControl(true)), PlayAction.Mtg(MtgAction.SetMulligans(0, 1)), PlayAction.Mtg(MtgAction.Skipped("Venture into the dungeon")),
             PlayAction.BeginTurn(a),
             PlayAction.Stack(StackAction.AddAbility(CardDefinition("Spark", listOf(DefinitionFace(id(70), "Spark", rulesText = "Draw a card.")),
                 token = true).let { SubmittedDefinition(DeckJson.digest(it), it) }, a, "digest")))
@@ -205,6 +205,7 @@ class HistoryEveryActionTest {
             is MtgAction.SetSkipWhenNoChoice -> "setSkipWhenNoChoice"
             is MtgAction.SetFullControl -> "setFullControl"
             is MtgAction.SetMulligans -> "setMulligans"
+            is MtgAction.Skipped -> "skipped"
         }
     }
 

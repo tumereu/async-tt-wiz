@@ -158,7 +158,7 @@ class ResultActionsTest {
         assertEquals(HistoryText("Result withdrawn", "Withdraw result"), historyText(event, before = pending))
         publish(next, retry, a.accountId)
         assertNull(f.session.acceptedPlay(active)!!.board.resultSuggestion)
-        assertTrue(f.session.gameplay(active, a.accountId, PlayAction.NextStep))
+        assertTrue(f.session.gameplay(active, a.accountId, PlayAction.PassAttention))
     }
 
     @Test fun rejectionRemovesOnlySuggestionOverlayAndGraceWaitNeverRetargetsOldPlay() = Fixture().use { f ->
@@ -171,6 +171,30 @@ class ResultActionsTest {
         assertTrue(f.session.suggestResult(active, a.accountId, target, SuggestedResult.WIN))
         assertEquals(1, f.commands().size)
         assertTrue(f.session.pending(game.id)) // Captured during grace, not sent before recovery.
+    }
+
+    // TRN-065 (I-D53, pivot review #1): the result the rules gave is shown to both players at once, from their own side,
+    // with one OK; either player confirms it, its author too, and nobody declines or withdraws it
+    @Test fun theRulesResultIsShownToBothAndEitherPlayerConfirmsIt() {
+        val command = GameCommand(id(), GameScope(game.id, playId = initial.id),
+            GameAction.Play(PlayAction.SuggestResult(SuggestedResult.WIN, byRules = true)), id(), "1")
+        val ended = GameplayRules.change(initial, a.accountId, command).state!!.also { proposals[it.currentNodeId] = command }
+        val suggestion = ended.board.resultSuggestion!!
+        val shown = mapOf(a.accountId to "You won", b.accountId to "You lost")
+        for ((viewer, text) in shown) {
+            val panel = assertNotNull(ResultActions.pendingPresentation(active, ended, viewer))
+            assertEquals(text, panel.text); assertTrue(panel.byRules); assertTrue(panel.canAccept)
+        }
+        for (viewer in shown.keys) Fixture(viewer).use { f ->
+            f.head(active.copy(revision = "2"), play = ended)
+            val captured = ResultAcceptanceTarget(target, suggestion.id)
+            assertTrue(f.session.acceptResult(active, viewer, captured), "$viewer confirms")
+            assertEquals(GameAction.AcceptResult(suggestion.id), f.commands().last().action)
+        }
+        // A draw reads the same for both
+        val draw = GameplayRules.change(initial, b.accountId, command.copy(requestId = id(),
+            action = GameAction.Play(PlayAction.SuggestResult(SuggestedResult.DRAW, byRules = true)))).state!!
+        for (viewer in shown.keys) assertEquals("Draw", ResultActions.pendingPresentation(active, draw, viewer)!!.text)
     }
 
     @Test fun otherPlayerAcceptsExactCapturedDialogOnceAndOnlyRevisionReturnsBothReadyCleared() = Fixture(b.accountId).use { f ->

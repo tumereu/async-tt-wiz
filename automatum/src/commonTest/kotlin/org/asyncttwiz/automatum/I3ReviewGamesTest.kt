@@ -71,7 +71,9 @@ class I3ReviewGamesTest {
         assertEquals(engine, shown, "seed $seed after $what: the step shown is the engine's")
         val batch = rt.batches.lastOrNull() ?: return
         assertFalse(batch.first().grouping?.folded == true, "seed $seed after $what: the step's first event is shown")
-        assertTrue(batch.drop(1).all { it.grouping?.folded == true }, "seed $seed after $what: the rest is folded")
+        // but an engine gap, said in an event of its own (pivot review #3)
+        assertTrue(batch.drop(1).all { it.grouping?.folded == true || (it.action as? org.asyncttwiz.protocol.PlayAction.Mtg)?.action is
+            org.asyncttwiz.protocol.MtgAction.Skipped }, "seed $seed after $what: the rest is folded")
     }
 
     private fun play(seed: Long, calls: Int): Pair<Int, Int> {

@@ -82,6 +82,14 @@ class EngineCall(
                         else -> return working.pending
                     }
                 }
+                // Pivot review #3 (I-D52): every game is played by the rules, so a step the engine leaves to the players
+                // is an engine gap: logged for a report (I-D43), answered Done at once and said in the history
+                // ([MtgAction.Skipped], [gaps]); the game goes on without it
+                is Decision.Manual -> {
+                    gaps += decision.text
+                    AutomatumLog.refusal(state.gameId, "engine gap", "skipped by hand step: ${decision.text}")
+                    Answer.Done
+                }
                 // I-D33: a decision a player answered early is answered now, when the engine takes the early answer; the
                 // early answer is used up either way (one the engine refuses leaves the decision asked as usual)
                 else -> {
@@ -96,6 +104,10 @@ class EngineCall(
             run(Input.Answer(decision.id, answer))
         }
     }
+
+    /** The steps the engine left to the players in this call, each answered Done ([perform]; pivot review #3), its
+     * batch says them in the history. */
+    val gaps = mutableListOf<String>()
 
     /** The early answers (record ids, I-D33) whose decision opened in this call: applied, or refused and asked as usual.
      * The call's batch removes them; the others stay while their decision can still open ([PreAnswers.kept]). */

@@ -5,10 +5,17 @@ import kotlinx.serialization.Serializable
 
 /** Win/loss is always relative to author, never relative to the receiving screen. */
 @Serializable enum class SuggestedResult { WIN, LOSS, DRAW }
-/** [note] is the author's optional reason shown to both players (rules v25); empty is omitted on the wire. */
+/** [note] is the author's optional reason shown to both players (rules v25); empty is omitted on the wire. [byRules]
+ * (I-D53): the result the rules gave, which Automatum's batch recorded with its acting player as [author]: either player
+ * confirms it, nobody declines or withdraws it (Undo takes it back until it is confirmed). */
 @OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
 @Serializable data class ResultSuggestion(val id: String, val author: String, val outcome: SuggestedResult,
-    @EncodeDefault(EncodeDefault.Mode.NEVER) val note: String = "")
+    @EncodeDefault(EncodeDefault.Mode.NEVER) val note: String = "",
+    @EncodeDefault(EncodeDefault.Mode.NEVER) val byRules: Boolean = false) {
+    /** The result from [viewer]'s side. */
+    fun outcomeFor(viewer: String): SuggestedResult = if (viewer == author || outcome == SuggestedResult.DRAW) outcome
+        else if (outcome == SuggestedResult.WIN) SuggestedResult.LOSS else SuggestedResult.WIN
+}
 /** Relevant from/to tuple for history replay and selective Undo integration; no board snapshot. */
 @Serializable data class ResultSuggestionChange(val from: ResultSuggestion?, val to: ResultSuggestion?)
 
@@ -41,8 +48,10 @@ object GameResultRules {
             prepared.gameId != game.id || prepared.roundId != play.preparationRound) return reject("inapplicable")
         val suggestion = play.board.resultSuggestion ?: return reject("inapplicable")
         if (action.suggestionId != suggestion.id) return reject("inapplicable")
-        // CR 104.3a (I-D52): a player may concede at any time; their own loss needs nobody else's acceptance
-        if (actor == suggestion.author && suggestion.outcome != SuggestedResult.LOSS) return reject("otherPlayerRequired")
+        // CR 104.3a (I-D52): a player may concede at any time; their own loss needs nobody else's acceptance. I-D53: the
+        // rules' result is confirmed by either player
+        if (actor == suggestion.author && suggestion.outcome != SuggestedResult.LOSS && !suggestion.byRules)
+            return reject("otherPlayerRequired")
         // The persisted preparation is independent of the mutable play board and saved deck sources.
         // Do not introduce a new starter default or sample Random during this transition. Alternating
         // hands the start to the player who did not start this play (its resolved starter, after Random).

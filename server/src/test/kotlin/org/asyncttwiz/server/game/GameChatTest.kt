@@ -47,7 +47,7 @@ class GameChatTest {
                 else GameScope(game.id, game.preparationRound, if (action == GameAction.AcceptInvitation) game.invitationId else null)
             return GameCommand(UUID.randomUUID().toString(), scope, action, stream.streamId, stream.generation)
         }
-        fun admit(c: GameCommand) = games.admit(actor, hello, connection, c)
+        fun admit(c: GameCommand) = games.admit(actor, hello, connection, games.boarded(actor, c))
         fun result(c: GameCommand) = games.results(actor, game.id, listOf(c.requestId)).statuses.single().result!!
         fun execute(c: GameCommand): GameResult { admit(c); assertTrue(games.executeOne()); return result(c) }
         fun execute(a: GameAction) = execute(command(a))

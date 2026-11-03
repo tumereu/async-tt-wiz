@@ -34,15 +34,15 @@ The game timeline: the event strip, timeline mode and playback, catching up on w
 - **HIS-022** Rewinding to a branch point steps back group by group with its own "Rewind pause", 0.1 s by default, adjustable from 0.02 s to 2 s. (r29)
 - **HIS-023** Starting Auto or a rewind takes its first step right away; later steps keep the pause. (r31)
 - **HIS-024** Auto stops after an opponent's group that matches an enabled auto-pause trigger, after that group's animation. Your own actions never auto-pause. (r12)
-- **HIS-025** Auto-pause triggers and defaults: Added to Stack on, Removed from Stack off, Reveal on, Pings / comments on, Die / coin results off, Your life hit off, Your cards hit on, Move passes to you on, Attackers declared off, Opponent plays a land off, Opponent puts a nonland card onto the battlefield from hand off. (r36)
-- **HIS-093** With Automatum on, Auto also stops after a group that leaves you at a pause (STK-036), whatever the auto-pause switches say, unless the next group is your own; it waits there with no time limit until you play on, and holding Auto there branches as usual to respond. It stops once for one pause: not again when an auto-pause already stopped at that point, nor after a ping or comment that leaves the same pause shown. (r41)
+- **HIS-025** Auto-pause triggers and defaults: Added to Stack on, Removed from Stack off, Reveal on, Your life hit off, Your cards hit on, Move passes to you on, Attackers declared off, Opponent plays a land off, Opponent puts a nonland card onto the battlefield from hand off. (r46)
+- **HIS-093** Auto also stops after a group that leaves you at a pause (STK-036), whatever the auto-pause switches say, unless the next group is your own; it waits there with no time limit until you play on, and holding Auto there branches as usual to respond. It stops once for one pause: not again when an auto-pause already stopped at that point, nor after a ping or comment that leaves the same pause shown. (r41)
 - **HIS-090** "Your life hit" is an opponent's change to your life or your player counters; "Your cards hit" is an opponent's action on a card you own or control (also its combat copies and Stack entries) or one giving you a card. Each device's earlier "Your life / cards hit" choice carries over to "Your cards hit". (r36)
 - **HIS-026** A hand-to-battlefield move never counts as a Reveal. (r13)
 - **HIS-027** "Move passes to you" pauses only if the next event is not your own. Status changes never auto-pause; opening a graveyard/exile panel is not a reveal. (r17)
 - **HIS-028** Playback settings live in Settings under "Timeline playback" and in a dialog from the timeline's gear: the auto-pause switches ("Stop Auto after an opponent's matching action"), "History playback pause", "Rewind pause", the auto-rewind switches and Card move speed. (r31)
 - **HIS-029** Live play: when the opponent reveals cards in a panel, the table holds the face-up panel for one playback pause before moving on, without entering timeline mode. The board just before an opponent's result suggestion is likewise shown before the suggestion. (r8)
 - **HIS-030** Playback and live opponent actions animate each change (cards fly, rotate, flip, fade; moves between piles fly too). Rewinds animate backwards. A jump (tree pick) shows no effects. (r31)
-- **HIS-031** Changes show a delta tag and a number flash (about 1.5 s fade; changes in that window add up) for life, player counters, card P/T and counters, and a highlight for note, owner, face, link, text mark and step changes; for your own and the opponent's changes, live and in playback, not on jumps. (r13)
+- **HIS-031** Changes show a delta tag and a number flash (about 1.5 s fade; changes in that window add up) for life, player counters, card P/T and counters, and a highlight for face and step changes; for your own and the opponent's changes, live and in playback, not on jumps. (r46)
 
 ### Opening and returning to a game
 
@@ -74,10 +74,9 @@ The game timeline: the event strip, timeline mode and playback, catching up on w
 
 - **HIS-050** History is shown in event groups: playback, Previous/Next and auto-pause work per group, while undo works per action. A group holds one player's related actions. (r2)
 - **HIS-051** A manual "pass move" joins the group before it, whoever made it (for display only); undo still undoes only the pass. (r2)
-- **HIS-052** Taps group with the actions around them and lead into the next action; untaps form their own groups, joining only other untaps, and never group with taps. Pings, comments and step changes join the author's current group. (r13)
+- **HIS-052** Taps group with the actions around them and lead into the next action; untaps form their own groups, joining only other untaps, and never group with taps. Step changes join the author's current group. (r46)
 - **HIS-053** Repeated moves of the same kind (same source and destination, e.g. several draws) form one group; moving cards into a library followed by shuffling it is one group. (r13)
-- **HIS-054** Casting: after "Added to Stack", the same player's text marks and notes on that Stack entry and taps (mana) join its group. (r14)
-- **HIS-055** Double-tap auto-resolve from hand records the Stack entry and the move to the battlefield as separate groups, so the opponent's playback can stop at the Stack. (r15)
+- **HIS-054** Casting: after "Added to Stack", the same player's taps (mana) join its group. (r46)
 - **HIS-056** Revealing a card in a panel and moving it on are separate groups, so the opponent sees the flip before the card flies. Closing a Search, Look or Reveal panel is its own group that nothing joins. (r29)
 - **HIS-057** Taps come first, then attacker declarations, and the step into Declare blockers joins that declaration group and ends it, so the timeline always stops at Declare blockers for the defender. (r29)
 - **HIS-058** Ending the turn or skipping ahead records every step passed on the way as events (rules-accurate: the starting player's first draw step and blockers/damage without attackers are skipped). They stay in one group and one undo, and never pause playback, stop, pass the move or notify. (r33)
@@ -100,7 +99,7 @@ The game timeline: the event strip, timeline mode and playback, catching up on w
 
 ### Event icons
 
-- **HIS-070** A card move's icon shows where the card went: hand = the draw (download) icon, battlefield = dashboard, Stack = layers, graveyard = sweep, exile = block, library (top or bottom) = books, Temp pile = inbox; moves within the same place keep the move icon. (r33)
+- **HIS-070** A card move's icon shows where the card went: hand = the draw (download) icon, battlefield = dashboard, Stack = layers, graveyard = sweep, exile = block, library (top or bottom) = books; moves within the same place keep the move icon. (r46)
 - **HIS-071** Edit icons show the direction: heart / broken heart for life gained / lost, +1 / −1 / 0 for card counters, up / down arrows for player counters and P/T, a flame for damage and a bandage for removed damage. (r34)
 - **HIS-072** Step changes show an arrow, a new turn a skip-next sign, closing a view an eye-off, closing combat a check mark, choosing an attack target a crosshair, and passing the move a flag. (r34)
 - **HIS-073** An unchanged or non-numeric value counts as an increase, P/T reads by the sum of power and toughness, and setting a counter to empty shows the down icon (only clearing shows 0). (r34)

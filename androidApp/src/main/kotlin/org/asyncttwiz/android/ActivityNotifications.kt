@@ -16,13 +16,21 @@ import org.asyncttwiz.protocol.SuggestedResult
 internal data class GameNotificationText(val title: String, val text: String, val whenMillis: Long)
 internal fun gameNotificationText(content: GameNoticeContent) = GameNotificationText(
     "${content.gameName} · vs ${content.opponentName}",
-    (content.gameOver?.let { if (content.conceded) "Game over · ${content.opponentName} conceded"
+    (content.gameOver?.let { if (content.byRules) "Game over · ${byRulesResult(it)}" // I-D53
+        else if (content.conceded) "Game over · ${content.opponentName} conceded"
         else "Game over · ${content.opponentName} accepted ${gameOverResult(it)}" }
         ?: if (content.reminder) "${content.opponentName} is waiting for you"
         else if (content.opponentReady) "${content.opponentName} is ready" // LOB-114
         else if (content.yourMove) "Your move"
         else "${content.opponentName}'s move") + (if (content.newMessage) " · new message" else ""),
     java.time.OffsetDateTime.parse(content.lastEventAt).toInstant().toEpochMilli())
+
+/** I-D53: the rules' result, from the notified player's side. */
+internal fun byRulesResult(outcome: SuggestedResult) = when (outcome) {
+    SuggestedResult.WIN -> "You won"
+    SuggestedResult.LOSS -> "You lost"
+    SuggestedResult.DRAW -> "Draw"
+}
 
 /** LOB-111: the accepted suggestion, from its author's (the notified player's) side. */
 private fun gameOverResult(outcome: SuggestedResult) = when (outcome) {

@@ -292,7 +292,7 @@ internal object GameplayConcerns {
                     is MtgAction.SetStackItem -> fields += ConcernField.StackMember(mtg.entryId)
                     is MtgAction.SetPriority, is MtgAction.SetManaPool, is MtgAction.Restamp,
                     is MtgAction.SetRecord, is MtgAction.SetSkipWhenNoChoice,
-                    is MtgAction.SetFullControl, is MtgAction.SetMulligans -> Unit
+                    is MtgAction.SetFullControl, is MtgAction.SetMulligans, is MtgAction.Skipped -> Unit
                 }
                 is PlayAction.SetFace -> {
                     definition(card(a.cardId).definition)

@@ -164,7 +164,8 @@ class AutomatumControlsScreenshotTest {
         assertEquals(listOf("G"), accepted(play, mana, manaRequest).board.players.single { it.accountId == f.a }.manaPool.map { it.color })
     }
 
-    // SYS-069, I-D28: manual changes are refused with the reason; what has no game effect still goes through
+    // SYS-069, I-D28: manual changes are refused with the reason, also what the tabletop used to allow (notes, colour
+    // counters, dice: the server's own check, AutomatumOnly, pivot review #7); passing the move still goes through
     @Test fun manualChangesRefused() {
         val play = board(lands = 2)
         val toolkit = render(play)
@@ -175,9 +176,13 @@ class AutomatumControlsScreenshotTest {
             assertEquals(AutomatumDrags.MANUAL, toolkit.error)
             assertFalse(toolkit.submit(PlayAction.CreateToken(forest.submitted)))
             assertTrue(manual.isEmpty())
-            assertTrue(toolkit.submit(PlayAction.SetNote(druidId, "watch it")))
-            assertTrue(toolkit.submit(PlayAction.AdjustCounter(CounterTarget.CARD, druidId, CounterColor.RED, "1")))
-            assertTrue(toolkit.submit(PlayAction.RollDie("6", 4)))
+            for (gone in listOf(PlayAction.SetNote(druidId, "watch it"), PlayAction.AdjustCounter(CounterTarget.CARD, druidId,
+                    CounterColor.RED, "1"), PlayAction.RollDie("6", 4))) {
+                assertFalse(toolkit.submit(gone), "$gone")
+                assertEquals(AutomatumDrags.MANUAL, toolkit.error)
+            }
+            assertTrue(manual.isEmpty())
+            assertTrue(toolkit.submit(PlayAction.PassAttention))
         }
     }
 
@@ -197,7 +202,8 @@ class AutomatumControlsScreenshotTest {
             "With Automatum on, Alice's quick-actions row in her draw step is three toggles, Full control (off), Skip if no choice (on) and Autotap mana (on), beside the step arrow; there are no manual quick actions.")
     }
 
-    // I-D46 (c), SYS-063, SYS-071, I-D47: the toggles change Skip when I have no choice in the game, Full control and
+    // I-D46 (c), SYS-063, SYS-071, SYS-003, I-D47: the toggles change Skip when I have no choice in the game (sent at once,
+    // no confirmation or Send), Full control and
     // Autotap mana on the device; holding one says what it does
     @Test fun togglesChangeTheSettings() {
         val play = board(lands = 2)

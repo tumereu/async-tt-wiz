@@ -126,7 +126,7 @@ private fun TableElementChange(active: ActiveTableChange, progress: State<Float>
             val z = if (card) transform.width / 28f else 1f
             val origin = if (card) TablePoint(b.center.x - transform.width / 2, b.center.y - transform.height / 2) else TablePoint(b.x, b.y)
             val valueScale = appearance.text(CardTextScalePart.VALUES)
-            val noteScale = appearance.text(CardTextScalePart.NOTE)
+            val noteScale = appearance.text(CardTextScalePart.VALUES)
             fun local(r: TableBounds) = TableBounds(origin.x + r.x * z, origin.y + r.y * z, r.width * z, r.height * z)
             val slot = when (key.kind) {
                  TableChangeKind.CORNER -> {

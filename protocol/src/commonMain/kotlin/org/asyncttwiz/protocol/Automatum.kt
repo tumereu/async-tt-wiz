@@ -194,6 +194,14 @@ object Automatum {
     /** Adds (null [before]), changes or removes (null [after]) the engine record [id]. */
     @Serializable @SerialName("setRecord") data class SetRecord(val id: String, val before: EngineRecord?,
         val after: EngineRecord?) : MtgAction
+    /**
+     * Pivot review #3 (I-D52): a step the engine left to the players although every game is played by the rules (an
+     * engine gap, [text] the engine's description). Automatum answers it "Done" at once and says so in the history with
+     * this event, which changes nothing on the board; only an automated batch carries it.
+     */
+    @Serializable @SerialName("skipped") data class Skipped(val text: String) : MtgAction {
+        companion object { const val MAX_BYTES = 400 }
+    }
 }
 
 /** A card's object identity: its zone-change count (D21) and timestamp (D34). */
@@ -247,6 +255,7 @@ object MtgRules {
             Automatum.data(action.before) && Automatum.data(action.after)
         is MtgAction.SetStackItem -> DeckValidation.uuid(action.entryId) && valid(action.before) && valid(action.after)
         is MtgAction.SetRecord -> Automatum.name(action.id) && valid(action.before, action.id) && valid(action.after, action.id)
+        is MtgAction.Skipped -> action.text.isNotBlank() && DeckValidation.text(action.text, MtgAction.Skipped.MAX_BYTES)
     }
 
     internal fun change(state: PlayState, actor: String, command: GameCommand, action: MtgAction): GameplayChange {
@@ -353,6 +362,8 @@ object MtgRules {
                 board.copy(engineRecords = (board.engineRecords.filterNot { it.id == action.id } + listOfNotNull(action.after))
                     .sortedBy { it.id })
             }
+            // Only said in the history
+            is MtgAction.Skipped -> board
         }
         return GameplayRules.record(state, actor, command, next, GameplayTransition())
     }

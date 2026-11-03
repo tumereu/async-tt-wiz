@@ -287,7 +287,8 @@ class AutomatumFinalCombatReviewTest {
         val alice = blocked()
         show(alice)
         compose.mainClock.advanceTimeBy(500)
-        snap("pause-on-blocks-portrait")
+        compose.onRoot().captureShot("$SCREENSHOTS/automatum/pause-combat-docked.png",
+            "Bob blocked Alice's Ironhide Brute with his Hill Ogre and it is Alice's pause on the blocks: in portrait her pause bar (\"Declare blockers: you may act\", the eye, Hold and Pass) sits just above her hand, so the combat area and its damage preview stay in view.")
         val pause = bounds("Your pause")
         assertEquals(1, pause.size, "Alice's pause bar is shown")
         val preview = bounds("Would take") + bounds("Header would go from") + bounds("Hide the combat area")
@@ -351,7 +352,8 @@ class AutomatumFinalCombatReviewTest {
         val node = play.currentNodeId
         var sent: Boolean? = null
         assertTrue(device.flows.autoPass(f.a, node) { sent = it })
-        live.value = play.copy(board = play.board.copy())
+        // An equal board (a replica rebuild): set through null, as the state keeps an equal value it is given
+        val rebuilt = play.copy(board = play.board.copy()); live.value = null; live.value = rebuilt
         queued.removeAt(0)()
         assertEquals(false, sent, "the table changed: not sent")
         assertEquals(node, play.currentNodeId)

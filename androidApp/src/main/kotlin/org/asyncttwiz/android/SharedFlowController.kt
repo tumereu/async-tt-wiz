@@ -289,9 +289,8 @@ internal class SharedFlowController(
     /**
      * Works one engine call out on [work] (SYS-025) from [play]'s flow and sends it as one automated batch (I-D11,
      * SYS-010) planned on [play], unless the board moved on meanwhile. True when it was taken (with
-     * [AutomatumWork.Inline]: what the result says).
+     * [AutomatumWork.Inline]: what the result says). [sent]: whether a batch went out, once known (on the main thread).
      */
-    /** [sent]: whether a batch went out, once known (on the main thread). */
     private fun sendCall(play: PlayState, quiet: Boolean = false, sent: (Boolean) -> Unit = {}, perform: (SharedFlow) -> EngineCall): Boolean {
         val fail: (String?) -> Unit = if (quiet) { _ -> } else this.fail
         val route = send ?: run { fail("Automatum isn't available here."); return false }

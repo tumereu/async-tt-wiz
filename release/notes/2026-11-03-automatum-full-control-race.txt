@@ -1,0 +1,1 @@
+fix: With Automatum on, changing Full control while the other player is acting no longer makes their action fail, and the blocks pause shows one Pass instead of two.

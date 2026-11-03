@@ -154,6 +154,13 @@ The definition model (overview in `Definitions.kt`):
   among creatures you control"), `ObjectFilter.HasDealtDamage` ("as long as it hasn't dealt damage yet") and `AdditionalCost.flash`
   ("you may cast this spell as though it had flash if you behold a Dragon as an additional cost to cast it", CR 702.8a);
   `DefinitionChecks` keeps a loop that creates a token attacking each player.
+- Final Fantasy (set `fin`): `Effect.EndTurn` (CR 724.1) and `Effect.AdditionalStep` ("an additional end step after this step", CR
+  500.9), `KeywordAction.Meld(objects, into)` with the existing `Layout.Meld` (CR 701.42), `Effect.Cast.manaAsAnyType` (CR 609.4b),
+  `ActivationRules.cantBeCopied` ("this ability can't be copied", CR 707.10), `Modification.AsTransforms` ("as this creature transforms
+  into …", its steps), `Modification.WinFlips` (a coin flip won by a replacement, CR 705.2), `Modification.EntersUntapped` ("lands you
+  control enter untapped"), `Mechanic.DamageNotRemovedInCleanup` (CR 514.2), `Mechanic.LoseAllLandTypes` (layer 4), events
+  `EventPattern.LoseGame`, `ControlChange(objects, from, to)` (CR 613.1b), `Mill` (for replacements of a mill) and `Tap.producing` ("tap
+  a land for {C}"), and `ObjectFilter.CrewedBy` ("a Vehicle crewed by [this] this turn").
 
 `ExampleCardsTest` shows about twenty invented cards written in the model and their
 JSON. Decisions from the API reviews (D19–D49) are built here where they concern card

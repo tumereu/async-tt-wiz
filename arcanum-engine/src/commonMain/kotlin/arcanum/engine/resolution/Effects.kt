@@ -979,7 +979,11 @@ internal object Effects {
             names = names.with(LOCKED, NamedValue.Objects(locked))
             affected = Affected.Objects(Objects.Bound(LOCKED))
         }
-        val lockedObjects = locked ?: if (layered && affects is Affected.Objects) e.objects(affects.objects) else null
+        // fin: CR 400.7j: a target the effect moved to a public zone ("return target card to the battlefield. It gains haste") is found
+        // as the new object
+        val lockedObjects = locked ?: if (layered && affects is Affected.Objects) e.objects(affects.objects).map { id ->
+            if (affects.objects is Objects.Target) arcanum.engine.query.Lki.newObject(act.state, id) ?: id else id
+        } else null
         val lockedPlayers = (affects as? Affected.Players)?.let { e.players(it.players) }
         act.record(Changes.effect(act.state) { ts ->
             EffectObject(

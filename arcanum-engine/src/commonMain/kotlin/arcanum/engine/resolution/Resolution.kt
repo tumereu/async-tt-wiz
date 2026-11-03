@@ -335,13 +335,15 @@ internal object Resolution {
                 meanings = listOf(Meaning.Resolved), attachTo = attachTo, faceDown = card.faceDown, tapped = sneaked, attacking = attacking, memory = memory)))
             return
         }
-        // CR 715.4: a resolving Adventure is exiled instead, and its controller may cast the creature from exile later
+        // CR 715.3d: a resolving Adventure is exiled instead, and its controller may play the card from exile later (fin: a land card, a Town,
+        // is played as a land)
         if (!fizzled && card.definition?.layout == arcanum.api.Layout.Adventure && card.face == 1) {
+            val land = arcanum.api.CardType.Land in card.definition.faces.first().types
             val exiled = Actions.move(act, null, listOf(PlannedMove(item.id, Zone.Exile, meanings = listOf(meaning))))[item.id]
             if (exiled != null && act.state.obj(exiled)?.zone == Zone.Exile) act.record(arcanum.engine.change.Changes.effect(act.state) { ts ->
                 arcanum.engine.state.EffectObject(
                     id = arcanum.engine.state.EffectId("E$ts"),
-                    mechanics = listOf(Mechanic.MayPlay(Zone.Exile, arcanum.api.PlayKind.Cast, holder = arcanum.api.PlayerFilter.You,
+                    mechanics = listOf(Mechanic.MayPlay(Zone.Exile, if (land) arcanum.api.PlayKind.Play else arcanum.api.PlayKind.Cast, holder = arcanum.api.PlayerFilter.You,
                         resultingSpell = arcanum.api.ObjectFilter.Not(arcanum.api.ObjectFilter.Sub(arcanum.api.Subtype("Adventure"))))),
                     affects = arcanum.api.Affected.Objects(arcanum.api.Objects.Self), locked = listOf(exiled), source = exiled,
                     controller = item.controller, timestamp = ts, createdTurn = act.state.turn.number,

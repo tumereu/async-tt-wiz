@@ -161,7 +161,7 @@ internal object Actions {
                 is Modification.EntersMarked -> if (move.to == Zone.Battlefield) move.copy(marks = move.marks + mod.mark) else move
                 // Amounts, recipients and extra tokens don't apply to a zone change.
                 is Modification.MultiplyAmount, is Modification.AddAmount, is Modification.ChangeRecipient,
-                is Modification.AlsoCreate, is Modification.CreateInstead -> move
+                is Modification.AlsoCreate, is Modification.CreateInstead, Modification.HealsOtherDamage -> move
             }
         }
         return move
@@ -466,6 +466,14 @@ internal object Actions {
                 is Modification.ChangeRecipient -> recipientsOf(e, mod.to).firstOrNull()
                     ?.takeIf { redirectable(act, damage.recipient) && redirectable(act, it) }
                     ?.let { damage.copy(recipient = it) } ?: damage
+                // msh: "instead that damage is dealt, but all other damage already dealt to him is healed" (CR 701.69a): the damage
+                // marked before this event is removed as it is dealt
+                Modification.HealsOtherDamage -> {
+                    (damage.recipient as? TargetRef.Object)?.let { r -> act.obj(r.id) }?.let { o ->
+                        if (o.damage > 0 || o.deathtouchDamage) act.record(Change.DamageMarked(o.id, o.damage, 0, o.deathtouchDamage, false))
+                    }
+                    damage
+                }
                 else -> damage
             }
         }
@@ -641,6 +649,9 @@ internal object Actions {
 
     fun tap(act: Act, ids: List<ObjectId>, tapped: Boolean, meanings: List<Meaning> = emptyList()): List<ObjectId> =
         ids.distinct().filter { act.obj(it)?.zone == Zone.Battlefield && act.obj(it)?.tapped != tapped }.filter {
+            // msh: "can't become untapped"
+            tapped || act.view()[it]?.has { m -> m == Mechanic.CantBecomeUntapped } != true
+        }.filter {
             // CR 122.1d: a permanent with a stun counter that would become untapped loses a stun counter instead
             if (tapped || act.obj(it)!!.counters(CounterKind.Stun) == 0) true else {
                 act.record(Changes.counters(act.state, TargetRef.Object(it), CounterKind.Stun, -1))

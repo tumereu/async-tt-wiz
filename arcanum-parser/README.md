@@ -33,6 +33,9 @@ Design: `docs/specs/arcanum-automatum.md` §6.
   find nothing.
   The Hobbit (`hob`): all 193 cards parse (adventurers as two faces); its rules are in `HobWordings.kt` and the `hob*` functions of
   `Sentences.kt` (tried first, each reading one specific wording; texts of several sentences are offered to them whole first).
+  Marvel Super Heroes (`msh`): all 281 cards parse (modal double-faced heroes as two faces); its rules are in `MshWordings.kt` and
+  the `msh*` functions of `Sentences.kt`, tried first like The Hobbit's; flavor words before modes and abilities are dropped
+  (CR 207.2d), dotted names ("U.S.Agent") are also read without dots, and "he/she/they" refer back to the card.
 - `TypeLine`, `PrintedNumbers`: type lines and printed numbers, both ways.
 - `OracleRenderer.render(ability)`: writes an ability back as oracle-style English,
   for checking parses against the original text.

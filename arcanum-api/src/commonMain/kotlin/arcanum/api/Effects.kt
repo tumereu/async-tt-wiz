@@ -247,6 +247,14 @@ sealed interface Effect {
      * target creature"), read as [of] last existed when it has left (CR 608.2h). Nothing is removed from [of]; moving
      * counters is [MoveCounters]. */
     @Serializable @SerialName("put-counters-of") data class PutCountersOf(val objects: Objects, val of: Objects) : Effect
+    // msh
+    /** For each kind of counter on each of [recipients], give it another counter of that kind ("For each kind of counter on
+     * target permanent or player, give that permanent or player another counter of that kind"; as proliferate does for
+     * each permanent and player chosen, CR 701.34a). */
+    @Serializable @SerialName("one-more-of-each-kind") data class OneMoreCounterOfEachKind(val recipients: Recipients) : Effect
+    /** [controller] controls [players] during their next turn: makes every decision they could make, seeing what they could see
+     * (CR 723.1, 723.2; "you control target opponent during their next turn"). */
+    @Serializable @SerialName("control-next-turn") data class ControlNextTurn(val players: Players, val controller: Players) : Effect
 }
 
 /** Who or what receives damage or an attachment: objects, players, or both; [target] is everything chosen for that

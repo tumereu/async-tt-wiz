@@ -238,7 +238,7 @@ internal object Steps {
             // CR 502.3: "untaps during each other player's untap step"
             if (!o.tapped || o.phasedOut) return@forEach
             if (after.board.controller(id) != active && after.view[id]?.has { it == Mechanic.UntapsDuringOtherUntapSteps } != true) return@forEach
-            if (after.view[id]?.has { it == Mechanic.DoesntUntap } == true) return@forEach
+            if (after.view[id]?.has { it == Mechanic.DoesntUntap || it == Mechanic.CantBecomeUntapped } == true) return@forEach
             if (o.counters(CounterKind.Stun) > 0) {
                 recorder.record(Changes.counters(recorder.state, TargetRef.Object(id), CounterKind.Stun, -1))
             } else {

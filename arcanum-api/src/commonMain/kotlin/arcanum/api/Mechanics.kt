@@ -260,10 +260,13 @@ sealed interface Mechanic {
      * may pay {W}{U}{B}{R}{G} rather than pay the mana cost for spells you cast": [ObjectFilter.WasCast]); a card is
      * tested as the spell it becomes as it is cast from where it is (CR 601.2a), so "a spell you cast from exile" is
      * `WasCast(Zone.Exile)`. [perTurn]: that player may use it only that many times each turn ("Once each turn, you may
-     * pay {0} rather than pay the mana cost for a spell you cast from exile"), counted on the ability's object. */
+     * pay {0} rather than pay the mana cost for a spell you cast from exile"), counted on the ability's object.
+     * [duringYour] (msh, sneak, CR 702.190a): used only during that step of the caster's turn, any time they could cast
+     * an instant then. */
     @Serializable @SerialName("alternative-cost") data class AlternativeCost(
         @Serializable(with = KeywordKindSerializer::class) val keyword: KeywordKind? = null,
         val cost: Cost, val faceDown: Boolean = false, val perTurn: Int? = null,
+        val duringYour: TurnStep? = null,
     ) : Mechanic
     /** "As an additional cost to cast this spell, …" (CR 601.2f); [optional]/[repeatable] for kicker/multikicker;
      * [times] for a cost paid a computed number of times (escalate: once per mode beyond the first). */
@@ -287,6 +290,10 @@ sealed interface Mechanic {
     }
     /** [label] abilities of the affected objects may be activated [count] times each turn ("can boast twice each turn"). */
     @Serializable @SerialName("label-uses") data class LabelUsesPerTurn(val label: AbilityLabel, val count: Int) : Mechanic
+    // msh
+    /** [label] abilities of the affected objects that may be activated only once (power-up, exhaust) may be activated [count]
+     * more times ("Each power-up ability of permanents you control can be activated an additional time"). */
+    @Serializable @SerialName("label-additional-uses") data class LabelAdditionalUses(val label: AbilityLabel, val count: Int) : Mechanic
     /** Spells or abilities matching [what] cost more or less by [change] (CR 601.2f, 118.7); abilities by keyword with
      * [ObjectFilter.HasKeyword] ("equip abilities cost {1} less"). [minimum]: the generic mana a reduction can't go
      * below (0: no minimum). */
@@ -345,6 +352,13 @@ sealed interface Mechanic {
         override val stacking: Stacking get() = Stacking.Independent
     }
     @Serializable @SerialName("doesnt-untap") data object DoesntUntap : Mechanic
+    // msh
+    /** The affected permanents can't become untapped: not in an untap step and not by any effect ("can't become untapped"). */
+    @Serializable @SerialName("cant-become-untapped") data object CantBecomeUntapped : Mechanic
+    /** The affected objects' abilities may be activated as though they had haste ({T} and {Q} in their costs, CR 302.6);
+     * attacking still needs haste ("You may activate abilities of creatures you control as though those creatures had
+     * haste"). */
+    @Serializable @SerialName("abilities-ignore-summoning-sickness") data object AbilitiesIgnoreSummoningSickness : Mechanic
     /** The affected permanents untap during each other player's untap step too (CR 502.3). */
     @Serializable @SerialName("untaps-during-other-untap-steps") data object UntapsDuringOtherUntapSteps : Mechanic
     /** The affected players don't lose the game for having 0 or less life (CR 704.5a doesn't apply to them). */
@@ -512,4 +526,8 @@ sealed interface Modification {
     /** The tokens of a token-creating event that match the replacement's event are created as [token] instead, as many ("that
      * many 5/5 red Dragon creature tokens with flying are created instead", CR 614.1a); other tokens of the event stay. */
     @Serializable @SerialName("create-instead") data class CreateInstead(val token: TokenSpec) : Modification
+    // msh
+    /** The damage is dealt, but all other damage already marked on the permanent it is dealt to is healed first ("instead that
+     * damage is dealt, but all other damage already dealt to him is healed", CR 701.69a). */
+    @Serializable @SerialName("heals-other-damage") data object HealsOtherDamage : Modification
 }

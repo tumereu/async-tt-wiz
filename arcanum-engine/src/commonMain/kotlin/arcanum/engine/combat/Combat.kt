@@ -40,6 +40,15 @@ import arcanum.engine.state.TargetRef
  * ([removeWhatLeft], CR 506.4).
  */
 internal object Combat {
+    /** What one of [ids] attacks, or last attacked this turn before it left combat (ninjutsu, sneak: "the same player,
+     * planeswalker, or battle as the returned creature", CR 702.49c, 702.190b); null when none attacked. */
+    fun lastTarget(s: GameState, ids: Collection<ObjectId>): TargetRef? {
+        val of = ids.toSet()
+        s.combat?.attackers.orEmpty().firstOrNull { it.id in of }?.let { return it.target }
+        return s.eventsOf(s.turn.number).asReversed().asSequence().filterIsInstance<Change.Combat>()
+            .mapNotNull { c -> c.before?.attackers.orEmpty().firstOrNull { it.id in of }?.target }.firstOrNull()
+    }
+
     /** Whether the game waits for attackers or blockers to be declared (CR 508.1, 509.1). */
     fun waitingForDeclaration(s: GameState): Boolean = when (s.turn.step) {
         TurnStep.DeclareAttackers -> s.combat == null

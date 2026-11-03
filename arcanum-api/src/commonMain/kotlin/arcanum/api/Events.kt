@@ -68,6 +68,10 @@ sealed interface EventPattern {
      * when given ("by a modular triggered ability"). */
     @Serializable @SerialName("counters") data class CountersPut(
         val objects: ObjectFilter, val kind: CounterKind? = null, val causedBy: ObjectFilter? = null,
+        // msh
+        /** Only the event that puts the [reaching]th counter of [kind] on the object: it had fewer before and at least that many
+         * after ("When the fourth plan counter is put on this enchantment"). */
+        val reaching: Int? = null,
     ) : EventPattern
     /** An Aura, Equipment or Fortification matching [objects] becomes unattached from something matching [from]
      * (CR 701.3d). Roles object (the attachment), from (what it was attached to, last known information). */
@@ -82,7 +86,13 @@ sealed interface EventPattern {
     @Serializable @SerialName("player-counters") data class PlayerCountersPut(
         val players: PlayerFilter, val kind: CounterKind? = null, val causedBy: ObjectFilter? = null,
     ) : EventPattern
-    @Serializable @SerialName("tap") data class Tap(val objects: ObjectFilter, val forMana: Boolean? = null) : EventPattern
+    /** An object matching [objects] becomes tapped; [forMana]: only (true) or never (false) for mana; [forCost]: only when
+     * tapped to pay that keyword's cost ("becomes tapped to pay a teamwork cost", CR 702.194a). */
+    @Serializable @SerialName("tap") data class Tap(
+        val objects: ObjectFilter, val forMana: Boolean? = null,
+        // msh
+        @Serializable(with = KeywordKindSerializer::class) val forCost: KeywordKind? = null,
+    ) : EventPattern
     @Serializable @SerialName("untap") data class Untap(val objects: ObjectFilter) : EventPattern
     /** A creature attacks; [alone] for "attacks alone"; [target] narrows what it attacks. Roles object (the attacker),
      * defender (a planeswalker or battle attacked); [Players.EventPlayer] is the player attacked. */
@@ -112,7 +122,12 @@ sealed interface EventPattern {
     ) : EventPattern
     /** An object or player becomes the target of a spell or ability matching [by] (heroic, ward). Roles object,
      * source (the spell or ability). */
-    @Serializable @SerialName("becomes-target") data class BecomesTarget(val objects: ObjectFilter, val by: ObjectFilter) : EventPattern
+    @Serializable @SerialName("becomes-target") data class BecomesTarget(
+        val objects: ObjectFilter, val by: ObjectFilter,
+        // msh
+        /** Players matching this becoming the target count too ("a player or permanent becomes the target of …"); null: none. */
+        val players: PlayerFilter? = null,
+    ) : EventPattern
     @Serializable @SerialName("cycle") data class Cycle(val cards: ObjectFilter, val players: PlayerFilter) : EventPattern
     @Serializable @SerialName("create-token") data class CreateToken(val tokens: ObjectFilter) : EventPattern
     @Serializable @SerialName("transform") data class Transform(val objects: ObjectFilter) : EventPattern
@@ -160,6 +175,10 @@ sealed interface EventPattern {
     /** A player matching [players] manifests dread (CR 701.62b), once the whole action is done. Roles object (the
      * manifested permanent, if any) and rest (the cards put into the graveyard). */
     @Serializable @SerialName("manifest-dread") data class ManifestDread(val players: PlayerFilter) : EventPattern
+    // msh
+    /** A permanent matching [objects] would connive or connives (CR 701.50): what a replacement replaces ("If a creature you
+     * control would connive, instead …"). Role object (the conniving permanent); [Players.EventPlayer] is its controller. */
+    @Serializable @SerialName("connive") data class Connive(val objects: ObjectFilter) : EventPattern
 }
 
 /** Who received damage or is attacked: objects matching [objects], players matching [players]. Both null = any. */

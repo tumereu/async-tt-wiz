@@ -88,7 +88,8 @@ internal data class Context(
     val dividedShare: Int? = null,
     // dsk gaps
     /** Cards not on the Stack or the battlefield are tested as the spell they would be if cast from where they are
-     * (CR 601.2a): [ObjectFilter.WasCast] from their zone. For alternative costs given to spells cast from a zone. */
+     * (CR 601.2a): [ObjectFilter.WasCast] from their zone, a spell, controlled by [you]. For alternative costs given to
+     * spells cast from a zone and to the next spells cast. */
     val prospectiveCast: Boolean = false,
 )
 
@@ -285,7 +286,9 @@ internal class Evaluator(val board: Board, val ctx: Context) {
                 ObjectCategory.Token -> o?.token ?: lki(id)?.token ?: false
                 // A permanent that left is read as it last existed (CR 608.2h): "a permanent you controlled left"
                 ObjectCategory.Permanent -> zoneOf(id) == Zone.Battlefield || (o == null && lki(id)?.zone == Zone.Battlefield)
-                ObjectCategory.Spell -> state.stackItems[id]?.kind.let { it == StackItemKind.Spell || it is StackItemKind.SpellCopy }
+                // msh: a card tested as the spell it would be or is becoming as it is cast (CR 601.2a)
+                ObjectCategory.Spell -> state.stackItems[id]?.kind.let { it == StackItemKind.Spell || it is StackItemKind.SpellCopy } ||
+                    ctx.prospectiveCast && (prospectiveCastFrom(id) != null || state.obj(id)?.zone == Zone.Stack)
                 ObjectCategory.StackAbility -> state.stackItems[id]?.kind.let { it == StackItemKind.Activated || it == StackItemKind.Triggered }
             }
             is ObjectFilter.Type -> {
@@ -298,13 +301,20 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             // fra: a prepare spell (CR 722.3c, d)
             ObjectFilter.PrepareSpell -> o?.prepareSpellOf != null
             ObjectFilter.HasDealtCombatDamage -> o?.facts?.dealtCombatDamage == true
+            // msh: the only creature declared as an attacker in this combat (CR 506.5)
+            ObjectFilter.AttackingAlone -> state.combat?.attackers.orEmpty().any { it.id == id } && attackedAlone(id)
+            // msh: a target of one of these spells or abilities (CR 115.1)
+            is ObjectFilter.TargetedBy -> objects(filter.objects).any { item ->
+                state.stackItems[item]?.targets?.values.orEmpty().any { refs -> refs.any { it == TargetRef.Object(id) } }
+            }
             // hob: the condition read with this object as the tested one
             is ObjectFilter.Where -> with(ctx.copy(tested = id)).holds(filter.condition)
             ObjectFilter.Colorless -> c != null && c.colors.isEmpty()
             ObjectFilter.Multicolored -> c != null && c.colors.size >= 2
             ObjectFilter.Monocolored -> c != null && c.colors.size == 1
             is ObjectFilter.Shares -> objects(filter.objects).any { other -> other != id && shares(filter.quality, id, other) }
-            is ObjectFilter.ControlledBy -> controllerOf(id)?.let { matches(filter.players, it) } ?: false
+            // msh: a card tested as the spell it would be is controlled by the player who would cast it (CR 601.2a)
+            is ObjectFilter.ControlledBy -> (controllerOf(id) ?: prospectiveCastFrom(id)?.let { ctx.you })?.let { matches(filter.players, it) } ?: false
             is ObjectFilter.OwnedBy -> ownerOf(id)?.let { matches(filter.players, it) } ?: false
             is ObjectFilter.InZone -> zoneOf(id) == filter.zone
             is ObjectFilter.Named -> filter.name in names(c)
@@ -621,7 +631,30 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             }
             // CR 709.5c
             NumericProperty.UnlockedDoors -> o?.marks.orEmpty().count { it is arcanum.api.ObjectMark.Unlocked }
+            // msh: mana symbols of a colour in its mana cost, hybrid ones included (CR 107.4, 202.1)
+            is NumericProperty.ManaSymbols -> c?.manaCost?.symbols.orEmpty().count { s ->
+                when (s) {
+                    is arcanum.api.ManaSymbol.Colored -> s.color == property.color
+                    is arcanum.api.ManaSymbol.Hybrid -> s.first == property.color || s.second == property.color
+                    is arcanum.api.ManaSymbol.GenericHybrid -> s.color == property.color
+                    is arcanum.api.ManaSymbol.ColorlessHybrid -> s.color == property.color
+                    is arcanum.api.ManaSymbol.Phyrexian -> s.color == property.color
+                    is arcanum.api.ManaSymbol.PhyrexianHybrid -> s.first == property.color || s.second == property.color
+                    else -> false
+                }
+            }
         }
+    }
+
+    /** msh: whether [id] was the only creature declared as an attacker in the latest declaration of attackers this turn
+     * (CR 506.5: a creature put onto the battlefield attacking doesn't change that). */
+    private fun attackedAlone(id: ObjectId): Boolean {
+        val declared = state.eventsOf(state.turn.number).lastOrNull { c ->
+            c is arcanum.engine.change.Change.Combat && arcanum.engine.change.Meaning.AttackersDeclared in c.meanings
+        } as? arcanum.engine.change.Change.Combat ?: return false
+        val before = declared.before?.attackers.orEmpty().map { it.id }.toSet()
+        val now = declared.after?.attackers.orEmpty().filter { it.id !in before }
+        return now.singleOrNull()?.id == id
     }
 
     /** Mana value; X counts its announced value on the Stack (CR 202.3e), also for a spell that has left the Stack and is

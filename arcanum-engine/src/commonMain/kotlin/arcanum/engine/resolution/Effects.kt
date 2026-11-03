@@ -170,7 +170,11 @@ internal object Effects {
             // CR 701.28: only a transforming double-faced permanent transforms; it gets a new timestamp (CR 613.7g)
             is Effect.Transform -> onBattlefield(scope, effect.objects).forEach { id ->
                 val o = act.state.objOrThrow(id)
-                if (o.definition?.layout != Layout.Transform) return@forEach
+                // msh: a modal double-faced permanent transforms too (CR 701.27a), not into an instant or sorcery face (701.27d)
+                val layout = o.definition?.layout
+                if (layout != Layout.Transform && layout != Layout.ModalDoubleFaced) return@forEach
+                val other = o.definition!!.faces.getOrNull(1 - o.face) ?: return@forEach
+                if (layout == Layout.ModalDoubleFaced && (arcanum.api.CardType.Instant in other.types || arcanum.api.CardType.Sorcery in other.types)) return@forEach
                 act.record(Change.Face(id, o.face, 1 - o.face, listOf(Meaning.Transformed)))
                 act.record(Change.Restamped(id, o.timestamp, act.state.nextTimestamp()))
             }
@@ -334,6 +338,19 @@ internal object Effects {
                 arcanum.engine.room.Rooms.lock(act, id, door)
             }
             // The counters [of] has (as it last existed), each kind and number, put on each object
+            // msh: "For each kind of counter on target permanent or player, give that permanent or player another counter of that kind"
+            // (as proliferate does for one chosen permanent or player, CR 701.34a)
+            is Effect.OneMoreCounterOfEachKind -> Actions.recipientsOf(scope.eval(), effect.recipients).forEach { ref ->
+                val kinds = when (ref) {
+                    is TargetRef.Object -> act.state.obj(ref.id)?.takeIf { it.zone == Zone.Battlefield }?.counters?.map { it.kind }.orEmpty()
+                    is TargetRef.Player -> act.state.player(ref.id).counters.map { it.kind }
+                }
+                kinds.distinct().forEach { Actions.putCounters(act, cause, ref, it, 1) }
+            }
+            // msh: CR 723: who makes a player's decisions is the host's; done by hand
+            is Effect.ControlNextTurn -> scope.players(effect.players).forEach { p ->
+                act.manual(scope.actor, scope.self, "You control ${p.value} during their next turn (CR 723)")
+            }
             is Effect.PutCountersOf -> {
                 val board = scope.eval().board
                 val counters = scope.objects(effect.of).flatMap { id -> act.state.obj(id)?.counters ?: board.snapshot(id)?.counters.orEmpty() }
@@ -503,8 +520,7 @@ internal object Effects {
     private fun attackTarget(scope: Scope, target: arcanum.api.AttackTarget): TargetRef? = when (target) {
         arcanum.api.AttackTarget.Chosen -> scope.act.state.opponents(scope.actor).firstOrNull()?.let { TargetRef.Player(it) }
         is arcanum.api.AttackTarget.SameAs -> {
-            val of = scope.objects(target.objects).toSet()
-            scope.act.state.combat?.attackers.orEmpty().firstOrNull { it.id in of }?.target
+            arcanum.engine.combat.Combat.lastTarget(scope.act.state, scope.objects(target.objects))
                 ?: scope.act.state.opponents(scope.actor).firstOrNull()?.let { TargetRef.Player(it) }
         }
         is arcanum.api.AttackTarget.These -> recipients(scope, target.recipients).firstOrNull()
@@ -1017,6 +1033,41 @@ internal object Effects {
     // ---- Keyword actions (CR 701)
 
     /** fra: what [player] can behold (CR 701.4a): matching cards in their hand and permanents they control. */
+    /**
+     * msh: conniving with its replacements (CR 614.1a, 701.50a): each conniving permanent a "If a creature you control would connive,
+     * instead …" applies to does the replacement's instructions instead, with it as the event's object; a replacement doesn't apply
+     * again to the connive it brings (CR 614.5). False when no replacement applies (the plain expansion runs).
+     */
+    private fun connive(scope: Scope, action: KeywordAction.Connive): Boolean {
+        val act = scope.act
+        val view = act.view()
+        val replacements = view.rules.filter { applied ->
+            val m = applied.mechanic as? arcanum.api.Mechanic.Replacement ?: return@filter false
+            m.event is arcanum.api.EventPattern.Connive && m.instead != null && scope.names[conniveGuard(applied)] == null
+        }
+        if (replacements.isEmpty()) return false
+        val conniving = scope.objects(action.objects)
+        conniving.forEach { id ->
+            val applied = replacements.firstOrNull { a ->
+                val m = a.mechanic as arcanum.api.Mechanic.Replacement
+                Evaluator(act.board(), arcanum.engine.query.Context(a.controller, a.source, a.names)).matches((m.event as arcanum.api.EventPattern.Connive).objects, id)
+            }
+            if (applied == null) {
+                val one = scope.names.with(CONNIVER, NamedValue.Objects(listOf(id)))
+                Steps.run(Scope(act, scope.cause, one, scope.event, scope.actor), KeywordExpansions.expand(action.copy(objects = Objects.Bound(CONNIVER)))!!)
+                return@forEach
+            }
+            val m = applied.mechanic as arcanum.api.Mechanic.Replacement
+            val event = arcanum.engine.state.TriggerEvent(listOf(arcanum.engine.state.RoleObjects(arcanum.api.EventRole.Object, listOf(id))), listOfNotNull(act.controllerOf(id)))
+            val names = scope.names.with(applied.names).with(conniveGuard(applied), NamedValue.Number(1))
+            Steps.run(Scope(act, Cause(applied.controller, applied.source, key = "connive:$id"), names, event), m.instead!!.steps)
+        }
+        return true
+    }
+
+    private fun conniveGuard(applied: arcanum.engine.view.AppliedMechanic) = "\$connive-replaced:${applied.source}:${applied.origin?.key}"
+    private const val CONNIVER = "\$conniver"
+
     fun beholdable(scope: Scope, player: arcanum.engine.state.PlayerId, filter: arcanum.api.ObjectFilter): List<ObjectId> {
         val e = scope.eval()
         val state = scope.act.state
@@ -1025,6 +1076,7 @@ internal object Effects {
 
     private fun keywordAction(scope: Scope, action: KeywordAction, bind: String?) {
         val act = scope.act
+        if (action is KeywordAction.Connive && connive(scope, action)) return
         KeywordExpansions.expand(action)?.let { steps -> return Steps.run(scope, steps) }
         val cause = scope.cause
         when (action) {

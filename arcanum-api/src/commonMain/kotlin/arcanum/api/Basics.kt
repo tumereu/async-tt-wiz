@@ -143,6 +143,10 @@ sealed interface ObjectMark {
      * permanent stays prepared; casting it unprepares the permanent (722.3b, c). Set and removed with [Effect.Mark]
      * ("becomes prepared", "becomes unprepared"); "enters prepared" marks it as it enters. */
     @Serializable @SerialName("prepared") data object Prepared : ObjectMark
+    // msh
+    /** Harnessed (CR 701.64b): a permanent stays harnessed until it leaves the battlefield; its ∞ abilities work only then
+     * ([AbilityLabel.Infinity], CR 702.186b). Set with [Effect.Mark] ("Harness [this permanent]", 701.64a). */
+    @Serializable @SerialName("harnessed") data object Harnessed : ObjectMark
     /** Any other mark by name. */
     @Serializable @SerialName("named") data class Named(val name: String) : ObjectMark
 }

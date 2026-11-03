@@ -142,9 +142,12 @@ internal object Legality {
             if (faceMatches(filter, face) == false) return "that permission doesn't let it be cast as ${face.name}"
         }
         if (way.alternative != null && alternative(snap, card, way, player) == null) return "no such alternative cost, or its condition isn't met"
+        // msh: sneak (CR 702.190a): only during the caster's declare blockers step, then as though it had flash
+        val during = alternative(snap, card, way, player)?.second?.duringYour
+        if (during != null && (snap.state.turn.active != player || snap.state.turn.step != during)) return "only during your $during step (CR 702.190a)"
         if (way.fused) cantFuse(o, way, fromHand, permission != null)?.let { return it }
         // CR 307.1, 702.8a: sorcery timing unless it's an instant or has flash
-        val instant = !faceDown && (CardType.Instant in types || chars?.hasKeyword(Keyword.Flash) == true ||
+        val instant = during != null || !faceDown && (CardType.Instant in types || chars?.hasKeyword(Keyword.Flash) == true ||
             snap.view[card]?.has { it is Mechanic.InstantSpeed } == true || castsAsThoughFlash(snap, player, card))
         if (!instant && !sorceryTiming(snap, player)) return "only as a sorcery: your main phase, empty Stack (CR 307.1)"
         restriction(snap, player, card)?.let { return it }
@@ -245,7 +248,19 @@ internal object Legality {
             if (m.perTurn != null && activationsThisTurn(snap, source, alternativeKey(origin)) >= m.perTurn!!) return@mapNotNull null
             AbilityInstance(Ability.Static(listOf(m), affects = arcanum.api.Affected.Objects(arcanum.api.Objects.Self)), origin) to m
         }
-        return own + granted
+        // msh: "the next red or green creature spell you cast this turn can be cast without paying its mana cost": an
+        // effect's alternative cost for the next spells (CR 611.2f), tested on the card as the spell it would be (CR 601.2a)
+        val next = snap.view.rules.mapNotNull { applied ->
+            val m = applied.mechanic as? Mechanic.AlternativeCost ?: return@mapNotNull null
+            val id = applied.effect ?: return@mapNotNull null
+            val effect = snap.state.effects[id]?.takeIf { it.affects is arcanum.api.Affected.NextSpells } ?: return@mapNotNull null
+            if (applied.controller != player) return@mapNotNull null
+            val e = snap.evaluator(player, self = effect.source, names = effect.names)
+            if (!NextSpells.appliesTo(snap.state, id, e.with(e.ctx.copy(prospectiveCast = true)), card)) return@mapNotNull null
+            AbilityInstance(Ability.Static(listOf(m), affects = arcanum.api.Affected.Objects(arcanum.api.Objects.Self)),
+                AbilityOrigin.FromEffect(id, effect.mechanics.indexOf(m), 0)) to m
+        }
+        return own + granted + next
     }
 
     /** The use count key of a granted alternative cost with a limit each turn, kept on the granting object. */
@@ -281,7 +296,7 @@ internal object Legality {
         }
         val key = instance.origin.key
         ability.rules.perTurn?.let { if (activationsThisTurn(snap, source, key) >= it) return "only $it time(s) each turn (CR 602.5b)" }
-        if (ability.rules.once && activationsEver(snap, source, key) > 0) return "only once"
+        if (ability.rules.once && activationsEver(snap, source, key) >= 1 + additionalUses(snap, source, ability)) return "only once"
         return null
     }
 
@@ -303,6 +318,11 @@ internal object Legality {
             snap.view[source]?.has { it == arcanum.api.Mechanic.CantBeTurnedFaceUp } == true) return "it can't be turned face up"
         return null
     }
+
+    /** msh: "Each power-up ability of permanents you control can be activated an additional time" (CR 702.193a). */
+    private fun additionalUses(snap: Snapshot, source: ObjectId, ability: Ability.Activated): Int = ability.label?.let { label ->
+        snap.view[source]?.mechanics.orEmpty().sumOf { (it.mechanic as? arcanum.api.Mechanic.LabelAdditionalUses)?.takeIf { m -> m.label == label }?.count ?: 0 }
+    } ?: 0
 
     fun activationsThisTurn(snap: Snapshot, source: ObjectId, key: String): Int =
         snap.state.obj(source)?.facts?.activations.orEmpty().filter { it.key == key && it.turn == snap.state.turn.number }.sumOf { it.count }

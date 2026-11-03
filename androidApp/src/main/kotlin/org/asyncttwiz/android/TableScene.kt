@@ -56,7 +56,7 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
         owner = TableGestureCoordinator({ intent ->
             // A pending result blocks game actions only; looking at cards (hold preview, inspect) stays personal and allowed.
             if (currentRuntime.gameActionsBlocked && !gameLockAllows(intent)) return@TableGestureCoordinator
-            if (intent !is TableIntent.Camera && intent !is TableIntent.Scroll)
+            if (intent !is TableIntent.Camera && intent !is TableIntent.Scroll && intent !is TableIntent.Overscroll)
                 DebugJank.action(intent::class.simpleName ?: "TableIntent")
             when (intent) {
                 TableIntent.DismissTapUi -> {
@@ -71,6 +71,8 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
                 is TableIntent.StackBubbles -> toolkit?.showStackBubbles(intent.entryId)
                 is TableIntent.SearchPile -> toolkit?.openPublicPile(intent.containerId, toggle = false)
                 is TableIntent.Camera -> layout = layout.copy(camera = intent.camera)
+                is TableIntent.Overscroll -> layout = layout.copy(overscroll = if (intent.offset == 0f) layout.overscroll - intent.viewportId
+                    else layout.overscroll + (intent.viewportId to intent.offset))
                 is TableIntent.Scroll -> layout = if (intent.vertical)
                     layout.copy(scrollY = layout.scrollY + (intent.viewportId to intent.offset))
                     else layout.copy(scroll = layout.scroll + (intent.viewportId to intent.offset))
@@ -78,6 +80,8 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
                     beforeSelection = selection; selection = intent.selection
                     // CMB-032, CMB-034: a tap on the empty table clears the combat selection (a blocker finishes early)
                     if (intent.selection.ids.isEmpty()) toolkit?.combat?.clearSelection()
+                    // ZON-079: tapping anywhere else lowers a raised hand card
+                    if (intent.selection.ids.isEmpty()) toolkit?.hand?.lower()
                 }
                 is TableIntent.Actions -> {
                     val captured = owner.capturedActions ?: intent
@@ -269,6 +273,8 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
                 CombatStackRules.occurrences(play.board.combat).map { it.id }).toSet())
             if (runtime.reviewing) retained = retained.copy(ids = emptySet(), mode = if (retained.mode == TableMode.SELECT) TableMode.NORMAL else retained.mode)
             if (visitedGroup != play.currentGroup?.id && retained.mode == TableMode.PING) retained = retained.copy(mode = TableMode.NORMAL)
+            // TBL-119: no Ping mode with Automatum on
+            if (scene.automatumHand && retained.mode == TableMode.PING) retained = retained.copy(mode = TableMode.NORMAL)
             visitedGroup = play.currentGroup?.id
             if (retained != selection) selection = retained
             coordinator.update(scene, retained, writable || (retained.mode == TableMode.PING &&
@@ -339,6 +345,8 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
             // I-D46: the viewer's playable cards glow (live table only); a refused gesture shakes what it was made on
             val playable = if (runtime.reviewing) emptySet() else toolkit?.playable(play).orEmpty()
             val shaking = toolkit?.shaking
+            // ZON-079 (I-D50): what Autotap would tap for the raised hand card (live table only)
+            val raisedSources = if (runtime.reviewing) emptySet() else toolkit?.hand?.sources(play).orEmpty()
             val shakeOffset = remember(shaking) { androidx.compose.animation.core.Animatable(0f) }
             LaunchedEffect(shaking) { if (shaking != null) shakeOffset.animateTo(0f, shakeKeyframes()) }
             Box(Modifier.fillMaxWidth().height(48.dp).background(barColor))
@@ -348,10 +356,13 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
                 DebugLatency.tapFrame(game.id, progress.value, refreshRate)
                 val frame = rendered.value
                 val panelCard = toolkit?.popupItem?.cardId?.takeIf { toolkit.panel?.startsWith("panelCard/") == true }
-                drawTable(frame.scene, accountId, play.board.turn.accountId, selection.copy(ids = selection.ids + listOfNotNull(panelCard)), preview, play.board.links, frame.alphas, activePings,
-                    play.board.projectionLinks, TableAnnotationGeometry(frame.scene, game.inviter.accountId), artwork, drawCache,
+                // TBL-119 (I-D50): with Automatum on no links or pings are drawn
+                val tabletop = !frame.scene.automatumHand
+                drawTable(frame.scene, accountId, play.board.turn.accountId, selection.copy(ids = selection.ids + listOfNotNull(panelCard)), preview,
+                    if (tabletop) play.board.links else emptyList(), frame.alphas, if (tabletop) activePings else emptyList(),
+                    if (tabletop) play.board.projectionLinks else emptyList(), TableAnnotationGeometry(frame.scene, game.inviter.accountId), artwork, drawCache,
                     pingPulse?.value ?: 0f, statusModes, presenceDot, castGlow, playable,
-                    shaking?.let { it.id to shakeOffset.value }?.takeIf { it.second != 0f })
+                    shaking?.let { it.id to shakeOffset.value }?.takeIf { it.second != 0f }, raisedSources)
             }
             previewValue?.let { (pressedId, delta) ->
                 scene.items.firstOrNull { it.id == pressedId }?.let { item ->
@@ -363,7 +374,8 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
             }
             TableSemanticNodes(game, play, scene, semanticItems, rendered, annotations, pingProjection, pingReference,
                 activePings, runtime, { currentRuntime }, coordinator, writable, toolkit, selectionState, { preview }, layoutState)
-            for (item in scene.items.filter { it.zone == PlayZone.STACK && it.kind == TableItemKind.CARD && it.visible.isNotEmpty() }) {
+            // TBL-119: with Automatum on no text marks are shown
+            if (!scene.automatumHand) for (item in scene.items.filter { it.zone == PlayZone.STACK && it.kind == TableItemKind.CARD && it.visible.isNotEmpty() }) {
                 play.board.stackTextMarks[item.cardId]?.let { indices ->
                     StackMarkChips(indices, Modifier.offset {
                         val b = rendered.value.items[item.id]?.bounds ?: item.bounds
@@ -399,4 +411,5 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
 }
 
 internal fun gameLockAllows(intent: TableIntent): Boolean = intent is TableIntent.Camera || intent is TableIntent.Scroll ||
+    intent is TableIntent.Overscroll ||
     intent == TableIntent.DismissTapUi || intent is TableIntent.Peek || intent is TableIntent.Inspect || intent is TableIntent.SearchPile

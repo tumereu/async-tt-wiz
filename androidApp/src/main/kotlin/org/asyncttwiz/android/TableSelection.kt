@@ -76,6 +76,8 @@ sealed interface TableIntent {
     data class Selection(val selection: TableSelection) : TableIntent
     data class Camera(val camera: TableCamera) : TableIntent
     data class Scroll(val viewportId: String, val offset: Float, val vertical: Boolean = false) : TableIntent
+    /** ZON-081 (I-D50): a hand shown [offset] dp past its end (elastic; 0 once it is back). */
+    data class Overscroll(val viewportId: String, val offset: Float) : TableIntent
 }
 
 /** Only explicit bubble actions on the captured top may advance personal focus. */

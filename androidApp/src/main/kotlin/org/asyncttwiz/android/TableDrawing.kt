@@ -22,6 +22,9 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import org.asyncttwiz.protocol.*
 
+/** ZON-079, ZON-080 (I-D50): the mana sources Autotap would tap for the raised hand card, and the extras' chips. */
+internal val AutotapAmber = Color(0xffe09a1c)
+
 internal fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: String, selection: TableSelection, preview: TableGesturePreview,
     links: List<PlayLink> = emptyList(), alphas: Map<String, Float> = emptyMap(), pings: List<RecordedPingChange> = emptyList(),
     projectionLinks: List<ProjectionLink> = emptyList(), annotations: TableAnnotationGeometry, artwork: Map<String, ImageBitmap> = emptyMap(),
@@ -33,7 +36,9 @@ internal fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: 
     /** I-D46 (a): the viewer's cards Automatum lets them do something with now glow softly from behind, by card id. */
     playable: Set<String> = emptySet(),
     /** I-D46 (b): the item shaken by a refused gesture (an item id, card id or "life/<account>") and its offset in dp. */
-    shake: Pair<String, Float>? = null) {
+    shake: Pair<String, Float>? = null,
+    /** ZON-079 (I-D50): the mana sources Autotap would tap for the raised hand card, outlined in amber, by card id. */
+    sources: Set<String> = emptySet()) {
     val density = density
     with(TableCardPainter(density, scene, cache, artwork)) {
     scene.viewports.firstOrNull { it.id == "sidebar" }?.bounds?.let { b ->
@@ -191,6 +196,11 @@ internal fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: 
             size(b.width + 2 * outset, b.height + 2 * outset), style = Stroke(3 * density))
         if (i.id == preview.pressedId) drawRect(Color(0xffe7ab24), xy(b.x - outset, b.y - outset),
             size(b.width + 2 * outset, b.height + 2 * outset), style = Stroke(2 * density))
+        if (sources.isNotEmpty() && i.zone == PlayZone.BATTLEFIELD && !i.projection && i.cardId in sources) {
+            drawRect(AutotapAmber.copy(alpha = .35f), xy(b.x - outset - 2, b.y - outset - 2),
+                size(b.width + 2 * outset + 4, b.height + 2 * outset + 4), style = Stroke(6 * density))
+            drawRect(AutotapAmber, xy(b.x - outset, b.y - outset), size(b.width + 2 * outset, b.height + 2 * outset), style = Stroke(2.5f * density))
+        }
         if (glow.isNotEmpty() && (i.cardId in glow || i.sourceId in glow || i.id in glow)) {
             drawRect(AutomatumViolet.copy(alpha = .35f), xy(b.x - outset - 2, b.y - outset - 2),
                 size(b.width + 2 * outset + 4, b.height + 2 * outset + 4), style = Stroke(6 * density))

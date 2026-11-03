@@ -47,19 +47,18 @@ internal object CardRingPages {
     val tempPanel = listOf(CardRingPage("Card", panelMoves + tempPiles))
 
     /**
-     * Automatum on (§3 I4, I-D28, I-D46): the engine's actions for the card are rows above these cells, then only what
-     * has no game effect (inspecting, notes, pings, links, the six colour counters Automatum ignores) and an attacker's
-     * target (Attack →). Today's menu ([pages]) is shown instead only while Automatum waits for something done by hand (I-D37).
+     * Automatum on (§3 I4, I-D28, I-D46, I-D50): the engine's actions for the card are rows above these cells, then only
+     * inspecting and the combat draft (Attack →, Remove from combat); the virtual-tabletop cells (notes, pings, links, the
+     * six colour counters) are gone (TBL-119), and a hand card has no menu at all (ZON-079). Today's menu ([pages]) is
+     * shown instead only while Automatum waits for something done by hand (I-D37).
      */
     fun automatumPages(layout: CardMenuLayout, token: Boolean = false, attacker: Boolean = false): List<CardRingPage> = when (layout) {
         // UI review round 2 #5: no Declare (a manual combat action; taps stage attackers, CMB-028); Attack → stays in its
         // place, greyed unless the card attacks
-        CardMenuLayout.CARD -> listOf(CardRingPage("Automatum", listOf("inspect", "otherSide", "note", "Ping / Unping",
-            "Attack →", "Link", "Unlink")), card[1])
-        CardMenuLayout.COMBAT -> listOf(CardRingPage("Combat", listOf("inspect", "note", "Ping / Unping", "Attack →",
-            "Remove from combat", "Link", "Links")))
+        CardMenuLayout.CARD -> listOf(CardRingPage("Automatum", listOf("inspect", "otherSide", "Attack →")))
+        CardMenuLayout.COMBAT -> listOf(CardRingPage("Combat", listOf("inspect", "Attack →", "Remove from combat")))
         CardMenuLayout.HAND -> listOf(CardRingPage("Hand", listOf("inspect")))
-        CardMenuLayout.PANEL, CardMenuLayout.TEMP_PANEL -> listOf(CardRingPage("Card", listOf("inspect", "otherSide", "Ping / Unping")))
+        CardMenuLayout.PANEL, CardMenuLayout.TEMP_PANEL -> listOf(CardRingPage("Card", listOf("inspect", "otherSide")))
     }
 
     /** Only the state twins replace a cell; nothing is ever added, hidden or left blank. */

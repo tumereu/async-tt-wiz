@@ -114,7 +114,7 @@ The game timeline: the event strip, timeline mode and playback, catching up on w
 
 ### Pings
 
-- **HIS-078** The table mode button cycles Normal → Select → Ping. In Ping mode, tapping a card, a Stack/combat entry, a life total or counter (the player), an area or an empty spot pings it; tapping a ping removes it. The card menu has Ping too. (r3)
+- **HIS-078** The table mode button cycles Normal → Select → Ping. In Ping mode, tapping a card, a Stack/combat entry, a life total or counter (the player), an area or an empty spot pings it; tapping a ping removes it. The card menu has Ping too. With Automatum on there is no Ping mode, no Ping in menus and no ping is shown (TBL-119). (r44)
 - **HIS-079** A ping belongs to the event group being shown and joins its author's group. Ping mode turns back to Normal when the shown group changes. (r7)
 - **HIS-080** An active ping shows a numbered marker with an expanding ring loop (about 1.2 s) in the pinger's colour. Numbers always count the active pings of the group (ping a, b, unping a → b becomes 1). (r7)
 - **HIS-081** When the shown group moves past a ping group, its rings linger about 2.5 s and fade out instead of vanishing; jumps never leave lingering rings. (r14)

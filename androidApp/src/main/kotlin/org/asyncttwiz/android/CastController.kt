@@ -148,11 +148,13 @@ internal class CastController(
     val targeting: Boolean get() = flow?.pending is Decision.Targets
 
     /**
-     * Casts (or plays, a land) the hand card [cardId] the first way the engine offers (ZON-004, ZON-007). False with a
-     * message when it can't be begun: a cast is already open, the card is in the other player's hand (I-D27: nothing
-     * about it is read or shown), or (once worked out) the engine doesn't allow it now (I-D28).
+     * Casts (or plays, a land) the hand card [cardId] [way] (the first way the engine offers when null, ZON-004) with the
+     * optional additional costs [extras] chosen with its cost chips (I-D50, ZON-080: times each is paid, in order; the
+     * cast never asks them). False with a message when it can't be begun: a cast is already open, the card is in the
+     * other player's hand (I-D27: nothing about it is read or shown), or (once worked out) the engine doesn't allow it
+     * now (I-D28).
      */
-    fun start(cardId: String): Boolean {
+    fun start(cardId: String, way: Input? = null, extras: List<Int> = emptyList()): Boolean {
         beginning()
         val play = current() ?: return false
         if (!play.board.automatum) return false
@@ -168,18 +170,20 @@ internal class CastController(
         return step {
             val definitions = AutomatumBoards.definitions(play)
             val plays = AutomatumBoards.handPlays(play, viewer) { history }
-            val ways = plays.of(cardId)
+            val offered = plays.of(cardId)
             val name = cardName(play, cardId)
-            if (ways.isEmpty()) return@step Step.Drop(if (plays.unsupported.isNotEmpty()) "$TAKE_OVER ${plays.unsupported.first()}"
+            val begin = way ?: offered.firstOrNull()
+            if (begin == null) return@step Step.Drop(if (plays.unsupported.isNotEmpty()) "$TAKE_OVER ${plays.unsupported.first()}"
                 else if (land(play, cardId)) "$name can't be played now." else "$name can't be cast now.")
             val flow = try {
-                CastFlow.start(play, definitions, viewer, AutomatumBoards.engineLog(play, definitions, history), ways.first(), seeds())
+                CastFlow.start(play, definitions, viewer, AutomatumBoards.engineLog(play, definitions, history), begin, seeds(), extras = extras)
             } catch (problem: IllegalArgumentException) {
                 return@step Step.Drop("$name can't be cast now.")
             } catch (problem: Unsupported) {
                 return@step Step.Drop("$TAKE_OVER ${problem.reasons.firstOrNull()}")
             }
-            settle(flow, auto = true, autotapOn, keep = null, ways = ways)
+            // I-D50: the way was chosen with the cost chips: the panel has no "Cast as"
+            settle(flow, auto = true, autotapOn, keep = null, ways = listOf(begin))
         }
     }
 

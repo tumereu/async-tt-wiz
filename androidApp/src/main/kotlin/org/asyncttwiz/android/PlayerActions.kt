@@ -34,7 +34,9 @@ internal fun PlayerActions(state: PlayState, scope: ManualScope, actions: Manual
             val own = player.accountId == viewer
             // The life row sits on the panel edge nearest the life square: own panels open above it, the opponent's below.
             if (!own) PlayerLifeRow(state, player, actions, enabled, submit)
-            PlayerStatusSection(state, player, own = own, enabled = enabled, close = actions::close, submit = submit)
+            // TBL-119 (I-D50): with Automatum on statuses are gone; the other player's presence line stays
+            if (AutomatumBoards.manualAllowed(state)) PlayerStatusSection(state, player, own = own, enabled = enabled, close = actions::close, submit = submit)
+            else if (!own) LocalOpponentPresence.current?.let { PlayerStatusLabel(rememberPresenceLine(it), maxLines = 1, dot = rememberPresenceDot(it)?.color) }
             if (own) PlayerLifeRow(state, player, actions, enabled, submit)
         } else {
             for (pair in CounterColor.entries.chunked(2)) Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {

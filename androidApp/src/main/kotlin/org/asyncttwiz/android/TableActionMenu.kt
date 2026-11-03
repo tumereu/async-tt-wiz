@@ -65,7 +65,7 @@ fun TableActionMenu(play: PlayState, viewerId: String, context: QuickContext, co
     val landscape = LocalConfiguration.current.screenWidthDp > LocalConfiguration.current.screenHeightDp
     val enabled = context.playable && controller.enabled(scope)
     // Automatum on (§3 I4, I-D28, I-D46): the combat area and tokens are Automatum's, so they aren't offered (except while
-    // Automatum waits for something done by hand); dice, coins, the timeline and results stay
+    // Automatum waits for something done by hand); nor are dice and coins (I-D50, TBL-119); the timeline and results stay
     val manual = AutomatumBoards.manualAllowed(play)
     val table = TableActionMenus.table(play, context, controller, pendingSuggestionId, mayAccept).filter {
         manual || (it.intent !is TableActionIntent.Token && it.intent !is TableActionIntent.Combat) }
@@ -83,9 +83,9 @@ fun TableActionMenu(play: PlayState, viewerId: String, context: QuickContext, co
             }
     }
     val entries = table.filterNot { it.intent is TableActionIntent.Ending }.map(::control) +
-        listOf(MenuControl("Roll die…", enabled) { die = true }, MenuControl("Flip coin", enabled) {
+        (if (!manual) emptyList() else listOf(MenuControl("Roll die…", enabled) { die = true }, MenuControl("Flip coin", enabled) {
             if (controller.flipCoin(scope)) onDismiss()
-         }) + listOf(MenuControl("Timeline", onTimeline != null) { onDismiss(); onTimeline?.invoke() }) +
+         })) + listOf(MenuControl("Timeline", onTimeline != null) { onDismiss(); onTimeline?.invoke() }) +
         table.filter { it.intent is TableActionIntent.Ending }.map(::control)
     if (!ending && !die) TableMenuPanel(onDismiss, width = if (landscape) 776.dp else 400.dp, title = "Table actions") {
         for (row in entries.chunked(if (landscape) 3 else 2)) Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {

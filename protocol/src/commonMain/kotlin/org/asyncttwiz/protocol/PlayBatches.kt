@@ -26,6 +26,8 @@ object PlayBatches {
         val batch = command.action as? GameAction.PlayBatch
             ?: return GameplayTreeChange(reason = "invalidInput")
         if (!GameWire.valid(command)) return GameplayTreeChange(reason = "invalidInput")
+        // Each member's new event, looked up as it is recorded, is read from storage for the whole batch at once
+        tree.prefetch(batch.actions.indices.map { CommandIds.uuidV5(CommandIds.uuidV5(command.requestId, "member/$it"), "board-node") })
         var candidate = tree
         val keys = linkedSetOf<GameplayTreeKey>()
         var target: String? = null

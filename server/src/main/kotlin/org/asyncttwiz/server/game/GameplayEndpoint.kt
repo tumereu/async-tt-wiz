@@ -40,16 +40,31 @@ internal class GameplayEndpoint(private val sql: DSLContext, private val play: S
         for (chunk in removals.chunked(1000)) sql.deleteFrom(R).where(R.PLAY_ID.eq(id))
             .and(DSL.row(R.KIND, R.ID).`in`(chunk.map { DSL.row(it.first, it.second) })).execute()
         val upserts = pending.filterValues { it != null }
+        val rendered = java.util.IdentityHashMap<JsonElement, String>()
         for (chunk in upserts.entries.chunked(1000)) {
             val insert = sql.insertInto(R, R.PLAY_ID, R.KIND, R.ID, R.PAYLOAD)
-            for ((key, value) in chunk) insert.values(id, key.first, key.second, JSONB.valueOf(value.toString()))
+            for ((key, value) in chunk) insert.values(id, key.first, key.second, JSONB.valueOf(text(value!!, rendered)))
             insert.onConflict(R.PLAY_ID, R.KIND, R.ID).doUpdate().set(R.PAYLOAD, DSL.excluded(R.PAYLOAD)).execute()
         }
         pending.clear()
     }
+    /** [get] of many [keys] of one [kind] in one read (cached ones as cached). */
+    private fun getAll(kind: String, keys: List<String>): Map<String, JsonElement?> = cache.readAll(keys.associateBy { "record/$kind/$it" }) { missing ->
+        recordsRead += missing.size
+        sql.select(R.ID, R.PAYLOAD).from(R).where(R.PLAY_ID.eq(id)).and(R.KIND.eq(kind)).and(R.ID.`in`(missing))
+            .fetch().associate { it.value1()!! to json.parseToJsonElement(it.value2()!!.data()) }
+    }
+    /** [value]'s JSON text, as its toString() writes it, each array shared by several records (the targets of a
+     * batch's positions) written out once. */
+    private fun text(value: JsonElement, rendered: MutableMap<JsonElement, String>): String = when (value) {
+        is JsonObject -> value.entries.joinToString(",", "{", "}") { (key, element) -> JsonPrimitive(key).toString() + ":" + text(element, rendered) }
+        is JsonArray -> rendered.getOrPut(value) { value.toString() }
+        else -> value.toString()
+    }
     private fun keys(kind: String) = sql.select(R.ID).from(R).where(R.PLAY_ID.eq(id)).and(R.KIND.eq(kind)).fetch(R.ID).filterNotNull().toSet()
     private inline fun <reified T : Any> map(kind: String): Map<String, T> = EndpointMap(
-        { key -> get(kind, key)?.let { json.decodeFromJsonElement<T>(it) } }, { keys(kind) })
+        { key -> get(kind, key)?.let { json.decodeFromJsonElement<T>(it) } }, { keys(kind) },
+        bulk = { keys -> getAll(kind, keys).mapNotNull { (key, value) -> value?.let { key to json.decodeFromJsonElement<T>(it) } }.toMap() })
 
     private inline fun <reified T : Any> controls(kind: String): Map<String, T> = EndpointMap({ key ->
         recordsRead++
@@ -57,14 +72,31 @@ internal class GameplayEndpoint(private val sql: DSLContext, private val play: S
             .where(GAMEPLAY_TREE_CONTROL.PLAY_ID.eq(id)).and(GAMEPLAY_TREE_CONTROL.KIND.eq(kind)).and(GAMEPLAY_TREE_CONTROL.ID.eq(key))
             .fetchOne(GAMEPLAY_TREE_CONTROL.PAYLOAD)?.let { json.parseToJsonElement(it.data()) } }?.let { json.decodeFromJsonElement<T>(it) }
     }, { sql.select(GAMEPLAY_TREE_CONTROL.ID).from(GAMEPLAY_TREE_CONTROL).where(GAMEPLAY_TREE_CONTROL.PLAY_ID.eq(id))
-        .and(GAMEPLAY_TREE_CONTROL.KIND.eq(kind)).fetch(GAMEPLAY_TREE_CONTROL.ID).filterNotNull().toSet() })
+        .and(GAMEPLAY_TREE_CONTROL.KIND.eq(kind)).fetch(GAMEPLAY_TREE_CONTROL.ID).filterNotNull().toSet() },
+        bulk = { keys -> cache.readAll(keys.associateBy { "control/$kind/$it" }) { missing ->
+            recordsRead += missing.size
+            sql.select(GAMEPLAY_TREE_CONTROL.ID, GAMEPLAY_TREE_CONTROL.PAYLOAD).from(GAMEPLAY_TREE_CONTROL)
+                .where(GAMEPLAY_TREE_CONTROL.PLAY_ID.eq(id)).and(GAMEPLAY_TREE_CONTROL.KIND.eq(kind)).and(GAMEPLAY_TREE_CONTROL.ID.`in`(missing))
+                .fetch().associate { it.value1()!! to json.parseToJsonElement(it.value2()!!.data()) }
+        }.mapNotNull { (key, value) -> value?.let { key to json.decodeFromJsonElement<T>(it) } }.toMap() })
 
     private fun edges(kind: String): Map<String, Set<String>> = EndpointMap({ source ->
         val condition = E.PLAY_ID.eq(id).and(E.KIND.eq(kind)).and(E.SOURCE_ID.eq(source))
         EndpointSet({ target -> recordsRead++; sql.fetchExists(sql.selectOne().from(E).where(condition).and(E.TARGET_ID.eq(target))) },
             { get("degree/$kind", source)?.jsonPrimitive?.int ?: 0 },
             { recordsRead++; sql.select(E.TARGET_ID).from(E).where(condition).fetch(E.TARGET_ID).filterNotNull().toSet() })
-    }, { sql.selectDistinct(E.SOURCE_ID).from(E).where(E.PLAY_ID.eq(id)).and(E.KIND.eq(kind)).fetch(E.SOURCE_ID).filterNotNull().toSet() })
+    }, { sql.selectDistinct(E.SOURCE_ID).from(E).where(E.PLAY_ID.eq(id)).and(E.KIND.eq(kind)).fetch(E.SOURCE_ID).filterNotNull().toSet() },
+        bulk = { sources ->
+            // The same answers as the per-source reads above, for many sources in two reads
+            val degrees = getAll("degree/$kind", sources)
+            recordsRead++
+            val targets = sql.select(E.SOURCE_ID, E.TARGET_ID).from(E).where(E.PLAY_ID.eq(id)).and(E.KIND.eq(kind)).and(E.SOURCE_ID.`in`(sources))
+                .fetch().groupBy({ it.value1()!! }, { it.value2()!! }).mapValues { it.value.toSet() }
+            sources.associateWith { source ->
+                val known = targets[source].orEmpty()
+                EndpointSet({ target -> target in known }, { degrees[source]?.jsonPrimitive?.int ?: 0 }, { known })
+            }
+        })
 
     private fun pingKey(reference: ReferencedEventContext, target: PingTarget) = buildJsonArray {
         add(json.encodeToJsonElement(reference)); add(json.encodeToJsonElement(target)) }.toString()
@@ -85,7 +117,13 @@ internal class GameplayEndpoint(private val sql: DSLContext, private val play: S
                 .and(GAMEPLAY_MUTATION.ID.eq(UUID.fromString(key))).and(GAMEPLAY_MUTATION.RETAINED.eq(true))
                 .fetchOne(GAMEPLAY_MUTATION.PAYLOAD)?.let { json.parseToJsonElement(it.data()) } }?.let { json.decodeFromJsonElement<GameplayMutation>(it) }
         }, { sql.select(GAMEPLAY_MUTATION.ID).from(GAMEPLAY_MUTATION).where(GAMEPLAY_MUTATION.PLAY_ID.eq(id))
-            .and(GAMEPLAY_MUTATION.RETAINED.eq(true)).fetch(GAMEPLAY_MUTATION.ID).map { it.toString() }.toSet() })
+            .and(GAMEPLAY_MUTATION.RETAINED.eq(true)).fetch(GAMEPLAY_MUTATION.ID).map { it.toString() }.toSet() },
+            bulk = { keys -> cache.readAll(keys.associateBy { "node/$it" }) { missing ->
+                recordsRead += missing.size
+                sql.select(GAMEPLAY_MUTATION.ID, GAMEPLAY_MUTATION.PAYLOAD).from(GAMEPLAY_MUTATION).where(GAMEPLAY_MUTATION.PLAY_ID.eq(id))
+                    .and(GAMEPLAY_MUTATION.ID.`in`(missing.map(UUID::fromString))).and(GAMEPLAY_MUTATION.RETAINED.eq(true))
+                    .fetch().associate { it.value1()!!.toString() to json.parseToJsonElement(it.value2()!!.data()) }
+            }.mapNotNull { (key, value) -> value?.let { key to json.decodeFromJsonElement<GameplayMutation>(it) } }.toMap() })
         val sizes = controls<Int>("redo-size")
         val redo = EndpointMap<String, List<GameplayRedoEntry>>({ account -> sizes[account]?.takeIf { it > 0 }?.let { size ->
             val slots = controls<GameplayRedoEntry>("redo-entry")
@@ -144,8 +182,11 @@ internal class GameplayEndpoint(private val sql: DSLContext, private val play: S
             for (key in chunk) insert.values(id, key.first, key.second, key.third)
             changed(insert.onConflictDoNothing().returning(E.KIND, E.SOURCE_ID).fetch(), 1)
         }
+        // Each changed source's degree, read for all of them at once (a batch adds a child to each of its events)
+        val counted = degrees.filterValues { it != 0 }.keys.groupBy({ it.first }, { it.second })
+            .mapValues { (kind, sources) -> sources.chunked(1000).fold(emptyMap<String, JsonElement?>()) { all, chunk -> all + getAll("degree/$kind", chunk) } }
         for ((key, amount) in degrees) if (amount != 0) put("degree/${key.first}", key.second,
-            JsonPrimitive((get("degree/${key.first}", key.second)?.jsonPrimitive?.int ?: 0) + amount))
+            JsonPrimitive((counted.getValue(key.first)[key.second]?.jsonPrimitive?.int ?: 0) + amount))
         edgeChanges.clear()
     }
 
@@ -161,9 +202,13 @@ internal class GameplayEndpoint(private val sql: DSLContext, private val play: S
         // Reparenting changes every descendant's ancestry identity, even when its recorded
         // transition bytes are unchanged and therefore absent from the wire upserts.
         val positionKeys = (index.positions as? EndpointMap)?.changedKeys ?: ids
-        for (key in positionKeys) {
-            put("position", key, index.positions[key]?.let { json.encodeToJsonElement(it) })
-        }
+        // A batch's events mostly share one targets set (the same object): it is encoded once
+        val targets = java.util.IdentityHashMap<Set<PingTarget>, JsonElement>()
+        for (key in positionKeys) put("position", key, index.positions[key]?.let { position ->
+            val encoded = json.encodeToJsonElement(position.copy(targets = null)).jsonObject
+            if (position.targets == null) encoded else JsonObject(encoded + ("targets" to targets.getOrPut(position.targets) {
+                json.encodeToJsonElement(position.targets) }))
+        })
         val state = requireNotNull(next.stateAt(next.currentNodeId))
         val commentKeys = (state.annotations.commentsById as? EndpointMap)?.changedKeys.orEmpty()
         val pingKeys = (state.annotations.pingsById as? EndpointMap)?.changedKeys.orEmpty()

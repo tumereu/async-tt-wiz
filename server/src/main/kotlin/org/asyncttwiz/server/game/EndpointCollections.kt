@@ -5,15 +5,22 @@ import org.asyncttwiz.protocol.*
 /** Immutable request-local overlays over indexed SQL reads. Enumeration is reserved for explicit
  * exports/maintenance. A keyed edit never copies the underlying table or a high-fanout edge set. */
 internal class EndpointMap<K, V : Any>(private val lookup: (K) -> V?, private val all: () -> Set<K>,
-    private val edits: Map<K, V?> = emptyMap(), private val reads: MutableMap<K, V?> = mutableMapOf()) : AbstractMap<K, V>(), IndexedMap<K, V> {
+    private val edits: Map<K, V?> = emptyMap(), private val reads: MutableMap<K, V?> = mutableMapOf(),
+    /** [lookup] of many keys in one read (absent keys left out), for [prefetch]. */
+    private val bulk: ((List<K>) -> Map<K, V>)? = null) : AbstractMap<K, V>(), IndexedMap<K, V> {
     val changedKeys: Set<K> get() = edits.keys
     override fun get(key: K): V? = if (key == null) null else if (edits.containsKey(key)) edits[key] else
         if (reads.containsKey(key)) reads[key] else lookup(key).also { reads[key] = it }
     override fun containsKey(key: K) = get(key) != null
     override val entries: Set<Map.Entry<K, V>> get() = (all() + edits.keys).mapNotNull { key ->
         get(key)?.let { java.util.AbstractMap.SimpleImmutableEntry(key, it) } }.toSet()
-    override fun putting(key: K, value: V): Map<K, V> = EndpointMap(lookup, all, edits + (key to value), reads)
-    override fun removing(key: K): Map<K, V> = EndpointMap(lookup, all, edits + (key to null), reads)
+    override fun putting(key: K, value: V): Map<K, V> = EndpointMap(lookup, all, edits + (key to value), reads, bulk)
+    override fun removing(key: K): Map<K, V> = EndpointMap(lookup, all, edits + (key to null), reads, bulk)
+    override fun prefetch(keys: Collection<K>) {
+        val load = bulk ?: return
+        val missing = keys.filter { !edits.containsKey(it) && !reads.containsKey(it) }.distinct()
+        for (chunk in missing.chunked(1000)) { val found = load(chunk); for (key in chunk) reads[key] = found[key] }
+    }
 }
 
 /** Fixed-size decoded record cache; never captures a connection, lazy loader, or whole history. */
@@ -23,6 +30,16 @@ internal class EndpointReadCache {
     }
     fun read(key: String, load: () -> kotlinx.serialization.json.JsonElement?): kotlinx.serialization.json.JsonElement? =
         if (values.containsKey(key)) values[key] else load().also { values[key] = it }
+    /** [read] of every key of [keys] (cache key to the key [load] reads it by): [load] reads those not cached at once
+     * and leaves out the absent ones. By the loader's key. */
+    fun readAll(keys: Map<String, String>, load: (List<String>) -> Map<String, kotlinx.serialization.json.JsonElement>):
+        Map<String, kotlinx.serialization.json.JsonElement?> {
+        val known = keys.filterKeys { values.containsKey(it) }.entries.associate { (cached, key) -> key to values[cached] }
+        val missing = keys.filterKeys { !values.containsKey(it) }
+        val loaded = if (missing.isEmpty()) emptyMap() else load(missing.values.toList())
+        for ((cached, key) in missing) values[cached] = loaded[key]
+        return known + missing.values.associateWith { loaded[it] }
+    }
     fun write(key: String, value: kotlinx.serialization.json.JsonElement?) { values[key] = value }
     fun copy() = EndpointReadCache().also { it.values.putAll(values) }
 }

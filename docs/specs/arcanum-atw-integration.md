@@ -370,6 +370,18 @@ out of anything stuck.
     again (busy, table changed) a few times. #7: `MtgFacts.digest` leaves out Full control and Skip when I have no
     choice, so a change of either never refuses the other player's batch in flight; the combat quick actions offer no
     "Pass" while the viewer's pause bar (with its Pass) is shown. Catalog: CMB-029, STK-036–STK-038, SYS-057.
+- **Built (batch cost, finalreview-sync N4, 2026-11-03):** a 1000-member batch keeps every per-member check and record,
+  made cheaper without changing what is accepted or recorded (`AutomatedBatchEquivalenceTest` compares the recorded
+  events with the earlier reducer's). The reducer visits only the cards an event changed (`CardChanges`) instead of
+  hashing the whole board several times per member, pile membership is one pass (was cards × piles × cards per move),
+  each entity is encoded once per event's concerns, and `GameplayConcerns.capture`, `LibraryRules.change` and
+  `CombatStackRules.change` are split below the JVM's 8000-byte compile limit (they ran interpreted). The server
+  prefetches the members' storage lookups in one read each (`IndexedMap.prefetch`), writes the nodes, groups, activity
+  (`ActivityService.recordAll`) and endpoint degrees in a few statements (about 6000 statements → about 35), and reads a
+  new member's group from its bookkeeping instead of walking the batch back and forth (`groupAt`). Probes
+  (`AutomatedBatchCostTest`, `AutomatedBatchServerCostTest`) print the costs. Left: every member's position record
+  stores the board's whole ping-target set (`RetainedPosition.targets`, ~45 KB per member on a 600-card board), which
+  is now most of a big batch's storage time; storing each distinct set once would need a stored-format change.
 
 ## 4. Shared state ATW adds
 

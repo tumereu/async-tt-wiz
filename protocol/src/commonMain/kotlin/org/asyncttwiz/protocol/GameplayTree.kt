@@ -82,6 +82,16 @@ import kotlin.concurrent.Volatile
 
     fun endpointIndex(): RetainedIndex = index()
 
+    /** Storage-backed trees read what a batch's new events [nodeIds] look up (whether they exist, their children
+     * and positions) in one go instead of once per member; the lookups themselves stay as they are. */
+    internal fun prefetch(nodeIds: Collection<String>) {
+        (nodes as? IndexedMap<String, GameplayMutation>)?.prefetch(nodeIds)
+        (removedParents as? IndexedMap<String, String>)?.prefetch(nodeIds)
+        val index = index()
+        (index.children as? IndexedMap<String, Set<String>>)?.prefetch(nodeIds)
+        (index.positions as? IndexedMap<String, RetainedPosition>)?.prefetch(nodeIds)
+    }
+
     /** Reducers publish their write set, not a diff of the retained history. */
     internal fun changedFrom(previous: GameplayTree, keys: Set<GameplayTreeKey>): GameplayTree {
         editBase = previous.generationToken

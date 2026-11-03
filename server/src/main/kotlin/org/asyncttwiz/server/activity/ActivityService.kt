@@ -324,11 +324,25 @@ class ActivityService(private val runtime: ServiceRuntime, private val clock: Cl
          * is how [answered] sees a stretch end without another statement per move. */
         fun record(sql: DSLContext, owner: UUID, kind: ActivityKind, game: UUID, identity: UUID,
             author: UUID? = null, time: OffsetDateTime = OffsetDateTime.now(ZoneOffset.UTC),
+            yourMove: Boolean = false, newMessage: Boolean = false, move: Boolean = false) =
+            recordAll(sql, owner, kind, game, listOf(identity to author), time, yourMove, newMessage, move)
+
+        /** [record] for each of [events] (identity, author) in order, at one [time], in a few statements however many
+         * there are (a 1000-member Automatum batch, I-D14): consecutive activity ids, every event row, and the summary
+         * and pending pushes as the last of the one-by-one records leaves them. */
+        fun recordAll(sql: DSLContext, owner: UUID, kind: ActivityKind, game: UUID, events: List<Pair<UUID, UUID?>>,
+            time: OffsetDateTime = OffsetDateTime.now(ZoneOffset.UTC),
             yourMove: Boolean = false, newMessage: Boolean = false, move: Boolean = false) {
-            if (author == owner) return
-            val id = nextActivityId(sql, owner)
-            sql.insertInto(EVENT).set(EVENT.ACCOUNT_ID, owner).set(EVENT.ACTIVITY_ID, id).set(EVENT.KIND, kind.name)
-                .set(EVENT.GAME_ID, game).set(EVENT.IDENTITY, identity).set(EVENT.AUTHOR_ID, author).set(EVENT.CREATED_AT, time).execute()
+            val recorded = events.filter { (_, author) -> author != owner }
+            if (recorded.isEmpty()) return
+            val last = nextActivityIds(sql, owner, recorded.size)
+            val ids = (last - recorded.size + 1..last).toList()
+            var insert = sql.insertInto(EVENT, EVENT.ACCOUNT_ID, EVENT.ACTIVITY_ID, EVENT.KIND, EVENT.GAME_ID, EVENT.IDENTITY,
+                EVENT.AUTHOR_ID, EVENT.CREATED_AT)
+            for ((i, event) in recorded.withIndex()) insert = insert.values(owner, ids[i], kind.name, game, event.first, event.second, time)
+            insert.execute()
+            val (identity, author) = recorded.last()
+            val id = ids.last()
             // Never seen here: only a later heartbeat of the recipient in this game marks it seen. A recent
             // heartbeat proves presence only up to that heartbeat; the app may have closed since.
             val armed = move && kind == ActivityKind.GAME
@@ -346,11 +360,12 @@ class ActivityService(private val runtime: ServiceRuntime, private val clock: Cl
                 // (ON CONFLICT expressions see the existing row, so this compares against the previous move.)
                 .set(SUMMARY.REMINDER_ACTIVITY_ID, if (armed) DSL.`when`(answered(), DSL.inline(null, SUMMARY.REMINDER_ACTIVITY_ID))
                     .otherwise(SUMMARY.REMINDER_ACTIVITY_ID) else SUMMARY.REMINDER_ACTIVITY_ID).execute()
-            queuePush(sql, owner, kind, game, id, identity, time)
+            queuePush(sql, owner, kind, game, ids.zip(recorded.map { it.first }), time)
         }
 
-        private fun nextActivityId(sql: DSLContext, owner: UUID): Long = sql.insertInto(CURSOR).set(CURSOR.ACCOUNT_ID, owner)
-            .set(CURSOR.HIGH_WATER, 1L).onConflict(CURSOR.ACCOUNT_ID).doUpdate().set(CURSOR.HIGH_WATER, CURSOR.HIGH_WATER.plus(1L))
+        /** The last of [count] new consecutive activity ids of [owner]. */
+        private fun nextActivityIds(sql: DSLContext, owner: UUID, count: Int): Long = sql.insertInto(CURSOR).set(CURSOR.ACCOUNT_ID, owner)
+            .set(CURSOR.HIGH_WATER, count.toLong()).onConflict(CURSOR.ACCOUNT_ID).doUpdate().set(CURSOR.HIGH_WATER, CURSOR.HIGH_WATER.plus(count.toLong()))
             .returning(CURSOR.HIGH_WATER).fetchSingle().highWater!!
 
         /** A new play starts without either player's waiting reminder from an earlier play. */
@@ -391,15 +406,17 @@ class ActivityService(private val runtime: ServiceRuntime, private val clock: Cl
                 if (seen != null && seen.isAfter(mark) && seen.plusSeconds(REMINDER_SECONDS).isAfter(now.toInstant())) continue
                 // Same lock order as record(): cursor, then summary, then push. The summary claim is fenced on the
                 // observed stretch, so a concurrent move by either player wins; a skipped ID is only a gap.
-                val id = nextActivityId(sql, owner)
+                val id = nextActivityIds(sql, owner, 1)
                 if (sql.update(SUMMARY).set(SUMMARY.REMINDER_ACTIVITY_ID, id).where(SUMMARY.ACCOUNT_ID.eq(owner))
                     .and(SUMMARY.GAME_ID.eq(game)).and(SUMMARY.KIND.eq("GAME")).and(SUMMARY.REMINDER_ACTIVITY_ID.isNull)
                     .and(SUMMARY.REMINDER_MOVE_AT.eq(row[SUMMARY.REMINDER_MOVE_AT])).andNot(answered()).execute() == 1)
-                    queuePush(sql, owner, ActivityKind.GAME, game, id, row[SUMMARY.IDENTITY]!!, now)
+                    queuePush(sql, owner, ActivityKind.GAME, game, listOf(id to row[SUMMARY.IDENTITY]!!), now)
             }
         }
 
-        private fun queuePush(sql: DSLContext, owner: UUID, kind: ActivityKind, game: UUID, id: Long, identity: UUID, time: OffsetDateTime) {
+        /** The pending push of each of [owner]'s installations as queuing [events] (activity id, identity) one by one
+         * leaves it. */
+        private fun queuePush(sql: DSLContext, owner: UUID, kind: ActivityKind, game: UUID, events: List<Pair<Long, UUID>>, time: OffsetDateTime) {
             val installs = sql.select(INSTALL.GENERATION).from(INSTALL).join(SESSION).on(SESSION.ID.eq(INSTALL.SESSION_ID))
                 .join(ACCOUNT).on(ACCOUNT.ID.eq(INSTALL.ACCOUNT_ID)).where(INSTALL.ACCOUNT_ID.eq(owner))
                 .and(INSTALL.PUSH_TOKEN.isNotNull).and(SESSION.REVOKED_AT.isNull).and(SESSION.AUTH_EPOCH.eq(ACCOUNT.AUTH_EPOCH))
@@ -407,15 +424,22 @@ class ActivityService(private val runtime: ServiceRuntime, private val clock: Cl
             for (generation in installs) {
                 val pending = sql.selectFrom(PUSH).where(PUSH.GENERATION.eq(generation)).and(PUSH.GAME_ID.eq(game))
                     .and(PUSH.KIND.eq(kind.name)).forUpdate().fetchOne()
-                val first = if (pending?.identity == identity) pending.firstAt!! else time
-                val due = time // Game timing is evaluated against live presence by the scheduler.
-                val retrying = pending?.identity == identity && pending.attempts!! > 0
-                val nextDue = if (retrying) maxOf(due, pending!!.dueAt!!) else due
+                // What each one-by-one upsert would have found and left: (identity, first, due, attempts)
+                var row = pending?.let { Triple(it.identity!!, it.firstAt!!, it.dueAt!!) to it.attempts!! }
+                for ((_, identity) in events) {
+                    val same = row?.first?.first == identity
+                    val first = if (same) row!!.first.second else time
+                    val retrying = same && row!!.second > 0
+                    val due = if (retrying) maxOf(time, row!!.first.third) else time
+                    row = Triple(identity, first, due) to if (retrying) row!!.second else 0
+                }
+                val (id, identity) = events.last()
+                val (first, due) = row!!.first.second to row.first.third
                 sql.insertInto(PUSH).set(PUSH.GENERATION, generation).set(PUSH.GAME_ID, game).set(PUSH.KIND, kind.name)
                     .set(PUSH.ACTIVITY_ID, id).set(PUSH.IDENTITY, identity).set(PUSH.FIRST_AT, first).set(PUSH.DUE_AT, due)
                     .set(PUSH.EXPIRES_AT, time.plusHours(24)).onConflict(PUSH.GENERATION, PUSH.GAME_ID, PUSH.KIND).doUpdate()
-                    .set(PUSH.ACTIVITY_ID, id).set(PUSH.IDENTITY, identity).set(PUSH.FIRST_AT, first).set(PUSH.DUE_AT, nextDue)
-                    .set(PUSH.EXPIRES_AT, time.plusHours(24)).set(PUSH.ATTEMPTS, if (retrying) pending!!.attempts else 0).execute()
+                    .set(PUSH.ACTIVITY_ID, id).set(PUSH.IDENTITY, identity).set(PUSH.FIRST_AT, first).set(PUSH.DUE_AT, due)
+                    .set(PUSH.EXPIRES_AT, time.plusHours(24)).set(PUSH.ATTEMPTS, row.second).execute()
             }
         }
     }

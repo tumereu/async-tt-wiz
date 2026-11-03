@@ -692,16 +692,28 @@ object GameplayRules {
         state.shuffles.firstOrNull { card.id in it.order }?.accountId ?: card.owner
 
     internal fun members(board: BoardState, container: PlayContainer, placement: PlayPlacement?): List<String> =
-        if (container.zone == PlayZone.BATTLEFIELD) container.cards.filter { id -> board.cards.single { it.id == id }.placement == placement }
+        if (container.zone == PlayZone.BATTLEFIELD) board.cards.associateBy { it.id }.let { cards ->
+            container.cards.filter { id -> cards.getValue(id).placement == placement }
+        }
         else container.cards
+
+    /** [members] of every pile of Battlefield [container] at once, by placement (one pass over the board's cards). */
+    internal fun piles(board: BoardState, container: PlayContainer): Map<PlayPlacement?, List<String>> {
+        val cards = board.cards.associateBy { it.id }
+        return container.cards.groupBy { id -> cards.getValue(id).placement }
+    }
 
     /** Battlefield inventory order between piles is nonsemantic; canonical pile IDs retain exact replay bytes.
      * Within each pile the original top-first member order remains semantic and is never sorted by card ID.
      */
     internal fun canonicalBoard(board: BoardState): BoardState {
         val placements = board.cards.associate { it.id to it.placement }
-        return board.copy(containers = board.containers.map { container -> if (container.zone == PlayZone.BATTLEFIELD)
-            container.copy(cards = container.cards.sortedBy { placements[it]?.pileId }) else container })
+        return board.copy(containers = board.containers.map { container -> if (container.zone == PlayZone.BATTLEFIELD) {
+            // Already in order (as after every earlier move): the stable sort would keep it as it is
+            val keys = container.cards.map { placements[it]?.pileId }
+            if ((1 until keys.size).all { compareValues(keys[it - 1], keys[it]) <= 0 }) container
+            else container.copy(cards = container.cards.sortedBy { placements[it]?.pileId })
+        } else container })
     }
 
     internal fun location(board: BoardState, cardId: String, orderedHand: Boolean = false,

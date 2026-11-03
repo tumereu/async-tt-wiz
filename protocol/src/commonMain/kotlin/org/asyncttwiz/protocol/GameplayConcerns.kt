@@ -63,10 +63,20 @@ internal object GameplayConcerns {
         mutation.transition.concerns != null && mutation.action is PlayAction.MoveCard && entity.kind == "card" &&
             mutation.transition.tokens.any { it.from?.card?.id == entity.id && it.to == null }
 
-    private fun written(state: PlayState, mutation: GameplayMutation, field: ConcernField.Written, after: Boolean): JsonElement {
+    /** The encoded entities of one board, each encoded once however many of an event's concerns read it. */
+    private class EntityValues(val state: PlayState) {
+        private val values = HashMap<Pair<String, String>, JsonElement?>()
+        fun of(kind: String, id: String): JsonElement? {
+            val key = kind to id
+            return if (key in values) values[key] else GameplayDeltas.entityValue(state, kind, id).also { values[key] = it }
+        }
+    }
+
+    private fun written(state: PlayState, mutation: GameplayMutation, field: ConcernField.Written, after: Boolean,
+        values: EntityValues): JsonElement {
         val entity = mutation.transition.delta!!.entities[field.entity]
         val edit = entity.values[field.value]
-        var value = at(GameplayDeltas.entityValue(state, entity.kind, entity.id), edit.path)
+        var value = at(values.of(entity.kind, entity.id), edit.path)
         // A known-top draw concerns only that the top layer was a known one, never what lies beneath.
         if (knownTopDraw(mutation) && entity.kind == "container" &&
             entity.id == (mutation.action as PlayAction.MoveCard).source.containerId && edit.path.firstOrNull() == "layers")
@@ -96,12 +106,13 @@ internal object GameplayConcerns {
         }
     }
 
-    private fun read(state: PlayState, mutation: GameplayMutation, field: ConcernField, after: Boolean): JsonElement {
+    private fun read(state: PlayState, mutation: GameplayMutation, field: ConcernField, after: Boolean,
+        values: EntityValues = EntityValues(state)): JsonElement {
         val b = state.board
         fun container(id: String) = b.containers.single { it.id == id }
         return when (field) {
-            is ConcernField.Written -> written(state, mutation, field, after)
-            is ConcernField.Entity -> at(GameplayDeltas.entityValue(state, field.kind, field.id), field.path) ?: JsonNull
+            is ConcernField.Written -> written(state, mutation, field, after, values)
+            is ConcernField.Entity -> at(values.of(field.kind, field.id), field.path) ?: JsonNull
             is ConcernField.Cell -> encoded(b.cards.filter { it.containerId == field.container && it.placement?.position == field.position }
                 .map { it.id to it.placement!!.pileId }.sortedBy { it.first })
             is ConcernField.Incident -> buildJsonObject {
@@ -172,10 +183,12 @@ internal object GameplayConcerns {
         val concerns = mutation.transition.concerns ?: return true
         if (concerns.rulesVersion !in 1..3) return false
         val endpoint = if (after) state else LibraryKnowledge.applyReseeds(state, mutation.transition.delta!!.libraryReseeds, false) ?: return false
-        return runCatching { concerns.fields.all { read(endpoint, mutation, it.field, after) == if (after) it.after else it.before } }.getOrDefault(false)
+        val values = EntityValues(endpoint)
+        return runCatching { concerns.fields.all { read(endpoint, mutation, it.field, after, values) == if (after) it.after else it.before } }.getOrDefault(false)
     }
 
-    fun capture(from: PlayState, to: PlayState, mutation: GameplayMutation, delta: GameplayDelta): ConcernSet {
+    /** The selectors an event concerns, gathered in steps (one method each, so the JVM compiles them). */
+    private class Selectors(val from: PlayState, val to: PlayState) {
         val fields = linkedSetOf<ConcernField>()
         fun entity(kind: String, id: String, vararg path: String) { fields += ConcernField.Entity(kind, id, path.toList()) }
         fun card(id: String) = from.board.cards.single { it.id == id }
@@ -194,325 +207,343 @@ internal object GameplayConcerns {
                 PingTargetKind.LOCATION -> Unit
             }
         }
-        when (val a = mutation.action) {
-            is PlayAction.SetTapped -> fields += ConcernField.TapEligible(a.cardId)
-            is PlayAction.MoveCard -> {
-                val c = card(a.cardId)
-                fields += ConcernField.Incident(c.id)
-                // Entry defaults write these flags even when their values happen not to change.
-                for (key in listOf("covered", "explicitlyCovered", "knownToAll", "tapped")) entity("card", c.id, key)
-                val source = from.board.containers.single { it.id == a.source.containerId }
-                if (mutation.transition.rulesVersion >= 13 && to.board.cards.any { it.id == c.id }) {
-                    // A first move into a Temp pile creates its target in this same mutation.
-                    val target = from.board.containers.singleOrNull { it.id == a.destination.containerId }
-                        ?: to.board.containers.single { it.id == a.destination.containerId }
-                    if (source.id != target.id && (source.zone != PlayZone.BATTLEFIELD || target.zone != PlayZone.BATTLEFIELD))
-                        entity("card", c.id, "note")
-                    if (source.zone == PlayZone.BATTLEFIELD && target.zone != PlayZone.BATTLEFIELD) {
-                        for (key in listOf("corner", "counters", "faceId", "owner")) entity("card", c.id, key)
-                        definition(c.definition)
-                    }
+        fun action(mutation: GameplayMutation) {
+            when (val a = mutation.action) {
+                is PlayAction.SetTapped -> fields += ConcernField.TapEligible(a.cardId)
+                is PlayAction.MoveCard -> moveCard(a, mutation)
+                is PlayAction.CreateToken, is PlayAction.CloneToken -> {
+                    val token = mutation.transition.tokens.single().to!!.card
+                    definition(token.definition)
+                    // A copy of a card made in an Exile (Automatum) has no cell
+                    token.placement?.let { fields += ConcernField.Cell(token.containerId, it.position) }
+                    fields += ConcernField.Occupied(token.id); token.placement?.let { fields += ConcernField.Occupied(it.pileId) }
                 }
-                if (source.zone == PlayZone.LIBRARY) {
-                    // The sealed layer edits witness exactly the layers this move changed. Taking a card from a
-                    // known top concerns only that card and that it was on top; taking one from a hidden-order
-                    // layer by its edge concerns that layer's whole membership.
-                    val layer = LibraryLayers.segmentOf(source, c.id)?.layer
-                    if (a.source.edge == MoveSourceEdge.TOP && layer?.ordered == true && layer == source.layers.first() &&
-                        a.destination.containerId != source.id && !source.keepTopRevealed)
-                        fields += ConcernField.Top(source.id, c.id)
-                    else if (layer?.ordered == false && (a.source.edge != MoveSourceEdge.MEMBER || a.source.bottomSlice.isNotEmpty()))
-                        fields += ConcernField.LayerMembers(source.id, layer.id)
-                    if (a.source.bottomSlice.isNotEmpty()) fields += ConcernField.Slice(source.id, ContentsSelection.BOTTOM, a.source.bottomSlice.size)
-                    if (a.source.edge == MoveSourceEdge.BOTTOM) fields += ConcernField.Slice(source.id, ContentsSelection.BOTTOM, 1)
+                is PlayAction.RemoveToken -> fields += ConcernField.Incident(a.cardId)
+                is PlayAction.Link -> {
+                    fields += ConcernField.LinkPair(a.first, a.second)
+                    fields += ConcernField.Exists(a.first); fields += ConcernField.Exists(a.second)
                 }
-                if (mutation.transition.rulesVersion >= 23 && source.zone == PlayZone.BATTLEFIELD &&
-                    to.board.containers.any { it.id == a.destination.containerId && it.zone == PlayZone.BATTLEFIELD }) {
-                    // The public face-down corner is assigned (even unchanged) from cover state and the shown face.
-                    entity("card", c.id, "corner"); entity("card", c.id, "faceId"); definition(c.definition)
-                } else if (mutation.transition.rulesVersion >= 23 &&
-                    to.board.cards.singleOrNull { it.id == c.id }?.let { it.isFaceDown && it.containerId == a.destination.containerId } == true &&
-                    to.board.containers.any { it.id == a.destination.containerId && it.zone == PlayZone.BATTLEFIELD })
-                    entity("card", c.id, "corner")
-                if (a.destination.insertion == MoveInsertion.EMPTY) fields += ConcernField.Cell(a.destination.containerId, a.destination.position!!)
-                a.removeStackEntryId?.let { projection(it); fields += ConcernField.Live(it) }
-            }
-            is PlayAction.CreateToken, is PlayAction.CloneToken -> {
-                val token = mutation.transition.tokens.single().to!!.card
-                definition(token.definition)
-                // A copy of a card made in an Exile (Automatum) has no cell
-                token.placement?.let { fields += ConcernField.Cell(token.containerId, it.position) }
-                fields += ConcernField.Occupied(token.id); token.placement?.let { fields += ConcernField.Occupied(it.pileId) }
-            }
-            is PlayAction.RemoveToken -> fields += ConcernField.Incident(a.cardId)
-            is PlayAction.Link -> {
-                fields += ConcernField.LinkPair(a.first, a.second)
-                fields += ConcernField.Exists(a.first); fields += ConcernField.Exists(a.second)
-            }
-            is PlayAction.RemoveLink -> Unit
-            is PlayAction.LinkProjections -> {
-                fields += ConcernField.ProjectionPair(a.first.occurrenceId, a.second.occurrenceId)
-                projection(a.first.occurrenceId); projection(a.second.occurrenceId)
-            }
-            is PlayAction.RemoveProjectionLink -> Unit
-            is PlayAction.ShuffleLibrary -> knowledge(a.containerId)
-            is PlayAction.MoveToLibraryRandom -> {
-                entity("container", a.libraryId, "zone"); entity("container", a.libraryId, "accountId")
-                a.cardIds.forEach { id ->
-                    val c = card(id)
-                    fields += ConcernField.Incident(id)
-                    fields += ConcernField.AttackTargetIncident(id)
-                    for (key in listOf("containerId", "owner", "token", "covered", "explicitlyCovered", "knownToAll", "tapped", "note"))
-                        entity("card", id, key)
-                    if (from.board.containers.single { it.id == c.containerId }.zone == PlayZone.BATTLEFIELD) {
-                        for (key in listOf("corner", "counters", "faceId")) entity("card", id, key)
-                        definition(c.definition)
-                    }
+                is PlayAction.RemoveLink -> Unit
+                is PlayAction.LinkProjections -> {
+                    fields += ConcernField.ProjectionPair(a.first.occurrenceId, a.second.occurrenceId)
+                    projection(a.first.occurrenceId); projection(a.second.occurrenceId)
                 }
-            }
-            is PlayAction.SetKeepTopRevealed -> {
-                entity("container", a.containerId, "zone"); entity("container", a.containerId, "accountId")
-                if (a.enabled) fields += ConcernField.Slice(a.containerId, ContentsSelection.TOP, 1)
-            }
-            is PlayAction.Mulligan -> {
-                knowledge(a.libraryId)
-                entity("container", a.libraryId, "cards"); entity("container", a.handId, "cards")
-                val ids = from.board.containers.single { it.id == a.libraryId }.cards + a.displayedHand
-                val returned = a.displayedHand.toSet()
-                val drawn = to.board.containers.single { it.id == a.handId }.cards.toSet()
-                ids.forEach { id ->
-                    for (key in listOf("containerId", "covered", "explicitlyCovered", "tapped")) entity("card", id, key)
-                    if (id in returned || id in drawn)
-                        entity("card", id, "note")
+                is PlayAction.RemoveProjectionLink -> Unit
+                is PlayAction.ShuffleLibrary -> knowledge(a.containerId)
+                is PlayAction.MoveToLibraryRandom -> toLibraryRandom(a, mutation)
+                is PlayAction.SetKeepTopRevealed -> {
+                    entity("container", a.containerId, "zone"); entity("container", a.containerId, "accountId")
+                    if (a.enabled) fields += ConcernField.Slice(a.containerId, ContentsSelection.TOP, 1)
                 }
-            }
-            // The delta witnesses the note itself; controller, snapshot and combat location are unrelated.
-            is PlayAction.SetProjectionNote -> fields += ConcernField.ProjectionIdentity(a.occurrenceId)
-            is PlayAction.ShowContents -> {
-                fields += ConcernField.PanelSlot
-                fields += ConcernField.Slice(a.containerId, a.selection, a.count)
-                mutation.transition.contents!!.to!!.cardIds.forEach { entity("card", it, "knownToAll") }
-            }
-            is PlayAction.RevealHand -> {
-                fields += ConcernField.PanelSlot
-                entity("container", a.handId, "zone"); entity("container", a.handId, "accountId")
-                a.cardIds.forEach { id ->
-                    for (key in listOf("containerId", "faceId", "knownToAll")) entity("card", id, key)
-                }
-            }
-            is PlayAction.RandomHand -> {
-                fields += ConcernField.HandCandidates(a.handId, a.selectedIds)
-                entity("container", a.handId, "zone"); entity("container", a.handId, "accountId")
-                entity("card", a.cardId, "containerId")
-                if (a.result == HandRandomResult.REVEAL) {
+                is PlayAction.Mulligan -> mulligan(a, mutation)
+                // The delta witnesses the note itself; controller, snapshot and combat location are unrelated.
+                is PlayAction.SetProjectionNote -> fields += ConcernField.ProjectionIdentity(a.occurrenceId)
+                is PlayAction.ShowContents -> {
                     fields += ConcernField.PanelSlot
-                    entity("card", a.cardId, "faceId"); entity("card", a.cardId, "knownToAll")
-                } else {
-                    fields += ConcernField.Incident(a.cardId)
-                    if (mutation.transition.rulesVersion >= 20) entity("card", a.cardId, "owner")
-                    for (key in listOf("covered", "explicitlyCovered", "knownToAll", "tapped", "note")) entity("card", a.cardId, key)
+                    fields += ConcernField.Slice(a.containerId, a.selection, a.count)
+                    mutation.transition.contents!!.to!!.cardIds.forEach { entity("card", it, "knownToAll") }
                 }
-            }
-            is PlayAction.DismissContents -> {
-                val display = from.board.contentsDisplays.single { it.id == a.displayId }
-                entity("contents", a.displayId)
-                if (mutation.transition.rulesVersion >= 19 && display.reveal &&
-                    from.board.containers.single { it.id == display.containerId }.zone == PlayZone.HAND) {
-                    entity("container", display.containerId, "zone")
-                    display.cardIds.forEach { entity("card", it, "containerId"); entity("card", it, "knownToAll") }
-                } else {
-                    knowledge(display.containerId)
-                    display.cardIds.forEach { id ->
-                        fields += ConcernField.Incident(id)
-                        for (key in listOf("containerId", "faceId", "corner", "counters", "covered", "explicitlyCovered")) entity("card", id, key)
-                        definition(card(id).definition)
+                is PlayAction.RevealHand -> {
+                    fields += ConcernField.PanelSlot
+                    entity("container", a.handId, "zone"); entity("container", a.handId, "accountId")
+                    a.cardIds.forEach { id ->
+                        for (key in listOf("containerId", "faceId", "knownToAll")) entity("card", id, key)
                     }
                 }
-            }
-            is PlayAction.RevealContentsCard -> { entity("contents", a.displayId); entity("card", a.cardId, "faceId") }
-            is PlayAction.ReorderContents -> entity("contents", a.displayId)
-            PlayAction.NextStep, PlayAction.EndTurn, is PlayAction.ChooseStep, is PlayAction.BeginTurn -> {
-                // A passed step (rules v33) leaves the move where it is.
-                if ((a as? PlayAction.ChooseStep)?.through != true) fields += ConcernField.Attention
-                entity("turn", "")
-                if (mutation.transition.rulesVersion >= 17 && TurnMarks.passed(from.board, to.board))
-                    fields += ConcernField.TemporaryMarks
-            }
-            PlayAction.PassAttention -> fields += ConcernField.Attention
-            is PlayAction.Ping -> target(a.target)
-            is PlayAction.Unping -> target(a.target)
-            is PlayAction.EventComment -> Unit // retained text, not a dependency on ancestry identity
-            is PlayAction.Combat -> {
-                val source = when (val combat = a.action) {
-                    is CombatAction.Declare -> combat.sourceId
-                    is CombatAction.Place -> combat.sourceId
-                    is CombatAction.SetBlocks -> combat.sourceId
-                    is CombatAction.Remove, is CombatAction.Close, CombatAction.Open, is CombatAction.SetAttackTarget -> null
+                is PlayAction.RandomHand -> randomHand(a, mutation)
+                is PlayAction.DismissContents -> dismissContents(a, mutation)
+                is PlayAction.RevealContentsCard -> { entity("contents", a.displayId); entity("card", a.cardId, "faceId") }
+                is PlayAction.ReorderContents -> entity("contents", a.displayId)
+                PlayAction.NextStep, PlayAction.EndTurn, is PlayAction.ChooseStep, is PlayAction.BeginTurn -> {
+                    // A passed step (rules v33) leaves the move where it is.
+                    if ((a as? PlayAction.ChooseStep)?.through != true) fields += ConcernField.Attention
+                    entity("turn", "")
+                    if (mutation.transition.rulesVersion >= 17 && TurnMarks.passed(from.board, to.board))
+                        fields += ConcernField.TemporaryMarks
                 }
-                source?.let { entity("card", it, "containerId"); fields += ConcernField.Incident(it) }
-                // Combat edits depend on occurrence uniqueness, area and pair gaps.
-                val retarget = a.action as? CombatAction.SetAttackTarget
-                if (retarget != null) {
-                    entity("combat", "", "id")
-                    entity("combat", "", "pairs", "@${retarget.pairId}", "id")
-                    entity("combat", "", "pairs", "@${retarget.pairId}", "attackTarget")
-                    retarget.cardId?.let { fields += ConcernField.AttackTargetEligible(it) }
-                } else {
-                    entity("combat", "")
-                    (a.action as? CombatAction.Place)?.destination?.attackTarget?.let { fields += ConcernField.AttackTargetEligible(it) }
+                PlayAction.PassAttention -> fields += ConcernField.Attention
+                is PlayAction.Ping -> target(a.target)
+                is PlayAction.Unping -> target(a.target)
+                is PlayAction.EventComment -> Unit // retained text, not a dependency on ancestry identity
+                is PlayAction.Combat -> combat(a, mutation)
+                is PlayAction.Stack -> when (val stack = a.action) {
+                    is StackAction.AddEffect -> {
+                        fields += ConcernField.Live(stack.sourceId)
+                        entity("card", stack.sourceId, "containerId"); entity("card", stack.sourceId, "owner")
+                    }
+                    is StackAction.CopyEffect -> {
+                        projection(stack.entryId); fields += ConcernField.Live(stack.entryId)
+                        fields += ConcernField.Controller(stack.entryId)
+                    }
+                    is StackAction.SetController -> { projection(stack.occurrenceId); fields += ConcernField.Controller(stack.occurrenceId) }
+                    is StackAction.MarkText -> { fields += ConcernField.Options(stack.entryId); fields += ConcernField.StackMember(stack.entryId) }
+                    is StackAction.ToggleTextMark -> { fields += ConcernField.Options(stack.entryId); fields += ConcernField.StackMember(stack.entryId) }
+                    is StackAction.RemoveEffect -> projection(stack.occurrenceId)
+                    // Rules v36 (I-D13): the Stack guard and the sealed delta witness everything it reads.
+                    is StackAction.AddAbility -> Unit
+                    is StackAction.ReorderEffect -> projection(stack.occurrenceId)
                 }
-                if (mutation.transition.rulesVersion >= 20) {
-                    val playerTarget = if (retarget != null) retarget.cardId == null else source?.let { id ->
-                        to.board.combat?.pairs?.any { pair -> pair.attackTarget == null &&
-                            (pair.attackers + pair.blockers).any { it.sourceId == id } }
-                    } == true
-                    if (playerTarget) fields += ConcernField.DefendingPlayer
+                // Rules v36: the sealed delta witnesses each value set; an object named by its id also concerns that the
+                // card is still that object (its zone-change count), and a structured item that its entry is on the Stack.
+                is PlayAction.Mtg -> when (val mtg = a.action) {
+                    is MtgAction.SetCounter -> (mtg.holder as? MtgRef.Card)?.let { entity("card", it.cardId, "zoneChanges") }
+                    is MtgAction.SetLedger -> (mtg.holder as? MtgRef.Card)?.let { entity("card", it.cardId, "zoneChanges") }
+                    is MtgAction.Attach -> entity("card", mtg.card.cardId, "zoneChanges")
+                    is MtgAction.SetStackItem -> fields += ConcernField.StackMember(mtg.entryId)
+                    is MtgAction.SetAutomatum, is MtgAction.SetPriority, is MtgAction.SetManaPool, is MtgAction.Restamp,
+                    is MtgAction.SetRecord, MtgAction.ClearRecords, is MtgAction.SetSkipWhenNoChoice,
+                    is MtgAction.SetFullControl -> Unit
+                }
+                is PlayAction.SetFace -> {
+                    definition(card(a.cardId).definition)
+                    // Rules v35 assigns the new face's printed corner, even when it happens to be unchanged.
+                    if (ManualEditRules.faceCornerResets(card(a.cardId), a.faceId, mutation.transition.rulesVersion))
+                        entity("card", a.cardId, "corner")
+                }
+                is PlayAction.ResetCorner -> { definition(card(a.cardId).definition); entity("card", a.cardId, "faceId") }
+                is PlayAction.InspectFace -> definition(card(a.cardId).definition)
+                is PlayAction.SetCovered -> {
+                    entity("card", a.cardId, "covered"); entity("card", a.cardId, "explicitlyCovered")
+                    if (mutation.transition.rulesVersion >= 23) {
+                        // v23 assigns the public face-down corner on the Battlefield only.
+                        entity("card", a.cardId, "containerId"); entity("card", a.cardId, "corner")
+                        entity("card", a.cardId, "faceId"); definition(card(a.cardId).definition)
+                    }
+                }
+                is PlayAction.SetDamage, is PlayAction.AdjustDamage, is PlayAction.SetEotCorner, is PlayAction.AdjustEotCorner,
+                is PlayAction.SetEotNote, is PlayAction.SetOwner, is PlayAction.SetNote, is PlayAction.SetCorner, is PlayAction.AdjustCorner,
+                is PlayAction.SetCounter, is PlayAction.AdjustCounter, is PlayAction.ClearCardCounter,
+                is PlayAction.SetLife, is PlayAction.AdjustLife, is PlayAction.SetPlayerCounter, is PlayAction.AdjustPlayerCounter,
+                // The sealed delta witnesses exactly the actor's status (before, after).
+                // Turning a Temp pile on/off writes the whole container; the delta witnesses it exactly.
+                is PlayAction.SetTempPile,
+                is PlayAction.SetStatus, is PlayAction.RollDie, is PlayAction.FlipCoin, is PlayAction.SuggestResult, is PlayAction.DeclineResult,
+                is PlayAction.WithdrawResult -> Unit
+            }
+        }
+        fun moveCard(a: PlayAction.MoveCard, mutation: GameplayMutation) {
+            val c = card(a.cardId)
+            fields += ConcernField.Incident(c.id)
+            // Entry defaults write these flags even when their values happen not to change.
+            for (key in listOf("covered", "explicitlyCovered", "knownToAll", "tapped")) entity("card", c.id, key)
+            val source = from.board.containers.single { it.id == a.source.containerId }
+            if (mutation.transition.rulesVersion >= 13 && to.board.cards.any { it.id == c.id }) {
+                // A first move into a Temp pile creates its target in this same mutation.
+                val target = from.board.containers.singleOrNull { it.id == a.destination.containerId }
+                    ?: to.board.containers.single { it.id == a.destination.containerId }
+                if (source.id != target.id && (source.zone != PlayZone.BATTLEFIELD || target.zone != PlayZone.BATTLEFIELD))
+                    entity("card", c.id, "note")
+                if (source.zone == PlayZone.BATTLEFIELD && target.zone != PlayZone.BATTLEFIELD) {
+                    for (key in listOf("corner", "counters", "faceId", "owner")) entity("card", c.id, key)
+                    definition(c.definition)
                 }
             }
-            is PlayAction.Stack -> when (val stack = a.action) {
-                is StackAction.AddEffect -> {
-                    fields += ConcernField.Live(stack.sourceId)
-                    entity("card", stack.sourceId, "containerId"); entity("card", stack.sourceId, "owner")
-                }
-                is StackAction.CopyEffect -> {
-                    projection(stack.entryId); fields += ConcernField.Live(stack.entryId)
-                    fields += ConcernField.Controller(stack.entryId)
-                }
-                is StackAction.SetController -> { projection(stack.occurrenceId); fields += ConcernField.Controller(stack.occurrenceId) }
-                is StackAction.MarkText -> { fields += ConcernField.Options(stack.entryId); fields += ConcernField.StackMember(stack.entryId) }
-                is StackAction.ToggleTextMark -> { fields += ConcernField.Options(stack.entryId); fields += ConcernField.StackMember(stack.entryId) }
-                is StackAction.RemoveEffect -> projection(stack.occurrenceId)
-                // Rules v36 (I-D13): the Stack guard and the sealed delta witness everything it reads.
-                is StackAction.AddAbility -> Unit
-                is StackAction.ReorderEffect -> projection(stack.occurrenceId)
+            if (source.zone == PlayZone.LIBRARY) {
+                // The sealed layer edits witness exactly the layers this move changed. Taking a card from a
+                // known top concerns only that card and that it was on top; taking one from a hidden-order
+                // layer by its edge concerns that layer's whole membership.
+                val layer = LibraryLayers.segmentOf(source, c.id)?.layer
+                if (a.source.edge == MoveSourceEdge.TOP && layer?.ordered == true && layer == source.layers.first() &&
+                    a.destination.containerId != source.id && !source.keepTopRevealed)
+                    fields += ConcernField.Top(source.id, c.id)
+                else if (layer?.ordered == false && (a.source.edge != MoveSourceEdge.MEMBER || a.source.bottomSlice.isNotEmpty()))
+                    fields += ConcernField.LayerMembers(source.id, layer.id)
+                if (a.source.bottomSlice.isNotEmpty()) fields += ConcernField.Slice(source.id, ContentsSelection.BOTTOM, a.source.bottomSlice.size)
+                if (a.source.edge == MoveSourceEdge.BOTTOM) fields += ConcernField.Slice(source.id, ContentsSelection.BOTTOM, 1)
             }
-            // Rules v36: the sealed delta witnesses each value set; an object named by its id also concerns that the
-            // card is still that object (its zone-change count), and a structured item that its entry is on the Stack.
-            is PlayAction.Mtg -> when (val mtg = a.action) {
-                is MtgAction.SetCounter -> (mtg.holder as? MtgRef.Card)?.let { entity("card", it.cardId, "zoneChanges") }
-                is MtgAction.SetLedger -> (mtg.holder as? MtgRef.Card)?.let { entity("card", it.cardId, "zoneChanges") }
-                is MtgAction.Attach -> entity("card", mtg.card.cardId, "zoneChanges")
-                is MtgAction.SetStackItem -> fields += ConcernField.StackMember(mtg.entryId)
-                is MtgAction.SetAutomatum, is MtgAction.SetPriority, is MtgAction.SetManaPool, is MtgAction.Restamp,
-                is MtgAction.SetRecord, MtgAction.ClearRecords, is MtgAction.SetSkipWhenNoChoice,
-                is MtgAction.SetFullControl -> Unit
-            }
-            is PlayAction.SetFace -> {
-                definition(card(a.cardId).definition)
-                // Rules v35 assigns the new face's printed corner, even when it happens to be unchanged.
-                if (ManualEditRules.faceCornerResets(card(a.cardId), a.faceId, mutation.transition.rulesVersion))
-                    entity("card", a.cardId, "corner")
-            }
-            is PlayAction.ResetCorner -> { definition(card(a.cardId).definition); entity("card", a.cardId, "faceId") }
-            is PlayAction.InspectFace -> definition(card(a.cardId).definition)
-            is PlayAction.SetCovered -> {
-                entity("card", a.cardId, "covered"); entity("card", a.cardId, "explicitlyCovered")
-                if (mutation.transition.rulesVersion >= 23) {
-                    // v23 assigns the public face-down corner on the Battlefield only.
-                    entity("card", a.cardId, "containerId"); entity("card", a.cardId, "corner")
-                    entity("card", a.cardId, "faceId"); definition(card(a.cardId).definition)
+            if (mutation.transition.rulesVersion >= 23 && source.zone == PlayZone.BATTLEFIELD &&
+                to.board.containers.any { it.id == a.destination.containerId && it.zone == PlayZone.BATTLEFIELD }) {
+                // The public face-down corner is assigned (even unchanged) from cover state and the shown face.
+                entity("card", c.id, "corner"); entity("card", c.id, "faceId"); definition(c.definition)
+            } else if (mutation.transition.rulesVersion >= 23 &&
+                to.board.cards.singleOrNull { it.id == c.id }?.let { it.isFaceDown && it.containerId == a.destination.containerId } == true &&
+                to.board.containers.any { it.id == a.destination.containerId && it.zone == PlayZone.BATTLEFIELD })
+                entity("card", c.id, "corner")
+            if (a.destination.insertion == MoveInsertion.EMPTY) fields += ConcernField.Cell(a.destination.containerId, a.destination.position!!)
+            a.removeStackEntryId?.let { projection(it); fields += ConcernField.Live(it) }
+        }
+        fun toLibraryRandom(a: PlayAction.MoveToLibraryRandom, mutation: GameplayMutation) {
+            entity("container", a.libraryId, "zone"); entity("container", a.libraryId, "accountId")
+            a.cardIds.forEach { id ->
+                val c = card(id)
+                fields += ConcernField.Incident(id)
+                fields += ConcernField.AttackTargetIncident(id)
+                for (key in listOf("containerId", "owner", "token", "covered", "explicitlyCovered", "knownToAll", "tapped", "note"))
+                    entity("card", id, key)
+                if (from.board.containers.single { it.id == c.containerId }.zone == PlayZone.BATTLEFIELD) {
+                    for (key in listOf("corner", "counters", "faceId")) entity("card", id, key)
+                    definition(c.definition)
                 }
             }
-            is PlayAction.SetDamage, is PlayAction.AdjustDamage, is PlayAction.SetEotCorner, is PlayAction.AdjustEotCorner,
-            is PlayAction.SetEotNote, is PlayAction.SetOwner, is PlayAction.SetNote, is PlayAction.SetCorner, is PlayAction.AdjustCorner,
-            is PlayAction.SetCounter, is PlayAction.AdjustCounter, is PlayAction.ClearCardCounter,
-            is PlayAction.SetLife, is PlayAction.AdjustLife, is PlayAction.SetPlayerCounter, is PlayAction.AdjustPlayerCounter,
-            // The sealed delta witnesses exactly the actor's status (before, after).
-            // Turning a Temp pile on/off writes the whole container; the delta witnesses it exactly.
-            is PlayAction.SetTempPile,
-            is PlayAction.SetStatus, is PlayAction.RollDie, is PlayAction.FlipCoin, is PlayAction.SuggestResult, is PlayAction.DeclineResult,
-            is PlayAction.WithdrawResult -> Unit
         }
-        // Layer normalization (a lone card becomes known, known neighbours merge) depends on the changed layers'
-        // sizes and their neighbours' order knowledge. A known-top draw is exempt: it only takes the top card.
-        for (container in to.board.containers.filter { it.zone == PlayZone.LIBRARY }) {
-            val old = from.board.containers.singleOrNull { it.id == container.id }?.layers.orEmpty()
-            if (old == container.layers || ConcernField.Top(container.id, (mutation.action as? PlayAction.MoveCard)?.cardId ?: "") in fields) continue
-            val before = old.associateBy { it.id }; val after = container.layers.associateBy { it.id }
-            val changed = (before.keys + after.keys).filter { before[it] != after[it] }.toSet()
-            fun around(list: List<LibraryLayer>) = list.indices.filter { list[it].id in changed }
-                .flatMap { listOfNotNull(list.getOrNull(it - 1)?.id, list.getOrNull(it + 1)?.id) }
-            val neighbors = (around(old) + around(container.layers)).filter { it !in changed }.toSet()
-            val ids = changed.sorted()
-            val caps = ids.map { id -> 2 + (before[id]?.cards.orEmpty() - after[id]?.cards.orEmpty().toSet()).size }
-            fields += ConcernField.LayerShape(container.id, ids, caps, neighbors.sorted())
-        }
-        if (mutation.transition.rulesVersion >= 14) {
-            // Retained library edits must not lose their continuous-disclosure semantics when
-            // the toggle is selectively undone. These are local field reads, not history scans.
-            val touched = delta.entities.filter { it.kind == "container" }.map { it.id }.toMutableSet()
-            touched += mutation.transition.disclosures.map { it.containerId }
-            (mutation.action as? PlayAction.MoveCard)?.let { touched += it.source.containerId; touched += it.destination.containerId }
-            from.board.containers.filter { it.zone == PlayZone.LIBRARY && it.id in touched }.forEach {
-                entity("container", it.id, "keepTopRevealed")
-            }
-            mutation.transition.disclosures.filter { it.automatic || mutation.action is PlayAction.SetKeepTopRevealed }
-                .forEach { entity("card", it.cardId, "faceId") }
-        }
-        if (mutation.transition.rulesVersion >= 17) {
-            // Zone entry resets assign all temporary fields, including absent/empty ones.
-            val previous = from.board.cards.associateBy { it.id }
-            to.board.cards.forEach { c -> previous[c.id]?.let { old ->
-                if (old.containerId != c.containerId &&
-                    (from.board.containers.single { it.id == old.containerId }.zone != PlayZone.BATTLEFIELD ||
-                        to.board.containers.single { it.id == c.containerId }.zone != PlayZone.BATTLEFIELD))
-                    for (key in listOf("damage", "eotCorner", "eotNote")) entity("card", c.id, key)
-            } }
-        }
-        if (mutation.transition.rulesVersion >= EnteredTurn.RULES_VERSION) {
-            // Arrival assigns the entered turn (even unchanged) and leaving clears it. The stored value
-            // is the current turn number, so an entering event also concerns it: undoing an earlier
-            // turn change beneath it would leave a stale mark.
-            val arrivals = EnteredTurn.arrivals(from.board, to.board)
-            arrivals.keys.forEach { entity("card", it, "enteredTurn") }
-            if (arrivals.values.any { it.isNotEmpty() }) entity("turn", "", "number")
-        }
-        if (mutation.transition.rulesVersion >= 18) {
-            when (val action = mutation.action) {
-                is PlayAction.MoveCard -> fields += ConcernField.AttackTargetIncident(action.cardId)
-                is PlayAction.RemoveToken -> fields += ConcernField.AttackTargetIncident(action.cardId)
-                else -> Unit
+        fun mulligan(a: PlayAction.Mulligan, mutation: GameplayMutation) {
+            knowledge(a.libraryId)
+            entity("container", a.libraryId, "cards"); entity("container", a.handId, "cards")
+            val ids = from.board.containers.single { it.id == a.libraryId }.cards + a.displayedHand
+            val returned = a.displayedHand.toSet()
+            val drawn = to.board.containers.single { it.id == a.handId }.cards.toSet()
+            ids.forEach { id ->
+                for (key in listOf("containerId", "covered", "explicitlyCovered", "tapped")) entity("card", id, key)
+                if (id in returned || id in drawn)
+                    entity("card", id, "note")
             }
         }
-        if (mutation.transition.rulesVersion >= 20 && mutation.transition.combatStack?.attackTargets.orEmpty().any { change ->
-                change.to == null && to.board.combat?.pairs?.any { it.id == change.pairId } == true })
-            fields += ConcernField.DefendingPlayer
-        if (mutation.transition.rulesVersion >= 13) {
-            val edit = when (val a = mutation.action) {
-                is PlayAction.SetDamage -> ConcernField.EditEligible(a.cardId, stackAllowed = true)
-                is PlayAction.AdjustDamage -> ConcernField.EditEligible(a.cardId, stackAllowed = true)
-                is PlayAction.SetEotCorner -> ConcernField.EditEligible(a.cardId, stackAllowed = true)
-                is PlayAction.AdjustEotCorner -> ConcernField.EditEligible(a.cardId, stackAllowed = true)
-                is PlayAction.SetEotNote -> ConcernField.EditEligible(a.cardId, stackAllowed = true)
-                is PlayAction.SetNote -> ConcernField.EditEligible(a.cardId, stackAllowed = true)
-                is PlayAction.SetOwner -> ConcernField.EditEligible(a.cardId)
-                is PlayAction.SetCorner -> ConcernField.EditEligible(a.cardId)
-                is PlayAction.AdjustCorner -> ConcernField.EditEligible(a.cardId)
-                is PlayAction.ResetCorner -> ConcernField.EditEligible(a.cardId)
-                is PlayAction.ClearCardCounter -> ConcernField.EditEligible(a.cardId)
-                is PlayAction.SetCounter -> if (a.target == CounterTarget.CARD) ConcernField.EditEligible(a.targetId) else null
-                is PlayAction.AdjustCounter -> if (a.target == CounterTarget.CARD) ConcernField.EditEligible(a.targetId) else null
-                else -> null
+        fun randomHand(a: PlayAction.RandomHand, mutation: GameplayMutation) {
+            fields += ConcernField.HandCandidates(a.handId, a.selectedIds)
+            entity("container", a.handId, "zone"); entity("container", a.handId, "accountId")
+            entity("card", a.cardId, "containerId")
+            if (a.result == HandRandomResult.REVEAL) {
+                fields += ConcernField.PanelSlot
+                entity("card", a.cardId, "faceId"); entity("card", a.cardId, "knownToAll")
+            } else {
+                fields += ConcernField.Incident(a.cardId)
+                if (mutation.transition.rulesVersion >= 20) entity("card", a.cardId, "owner")
+                for (key in listOf("covered", "explicitlyCovered", "knownToAll", "tapped", "note")) entity("card", a.cardId, key)
             }
-            edit?.let { fields += it }
         }
-        for (read in mutation.transition.reads) when (read.field) {
-            GameplayField.FACE -> entity("card", read.targetId, "faceId")
-            GameplayField.COVERED -> entity("card", read.targetId, "covered")
-            GameplayField.EXPLICITLY_COVERED -> entity("card", read.targetId, "explicitlyCovered")
-            GameplayField.CONTAINER -> entity("card", read.targetId, "containerId")
-            GameplayField.TURN_PLAYER -> entity("turn", "", "accountId")
-            else -> error("Unrecorded read field: ${read.field}")
+        fun dismissContents(a: PlayAction.DismissContents, mutation: GameplayMutation) {
+            val display = from.board.contentsDisplays.single { it.id == a.displayId }
+            entity("contents", a.displayId)
+            if (mutation.transition.rulesVersion >= 19 && display.reveal &&
+                from.board.containers.single { it.id == display.containerId }.zone == PlayZone.HAND) {
+                entity("container", display.containerId, "zone")
+                display.cardIds.forEach { entity("card", it, "containerId"); entity("card", it, "knownToAll") }
+            } else {
+                knowledge(display.containerId)
+                display.cardIds.forEach { id ->
+                    fields += ConcernField.Incident(id)
+                    for (key in listOf("containerId", "faceId", "corner", "counters", "covered", "explicitlyCovered")) entity("card", id, key)
+                    definition(card(id).definition)
+                }
+            }
         }
-        mutation.transition.combatStack?.let { effects ->
-            (effects.effects.filter { it.to == null }.map { it.id } + effects.occurrences.filter { it.to == null }.map { it.id })
-                .forEach { fields += ConcernField.ProjectionIncident(it) }
+        fun combat(a: PlayAction.Combat, mutation: GameplayMutation) {
+            val source = when (val combat = a.action) {
+                is CombatAction.Declare -> combat.sourceId
+                is CombatAction.Place -> combat.sourceId
+                is CombatAction.SetBlocks -> combat.sourceId
+                is CombatAction.Remove, is CombatAction.Close, CombatAction.Open, is CombatAction.SetAttackTarget -> null
+            }
+            source?.let { entity("card", it, "containerId"); fields += ConcernField.Incident(it) }
+            // Combat edits depend on occurrence uniqueness, area and pair gaps.
+            val retarget = a.action as? CombatAction.SetAttackTarget
+            if (retarget != null) {
+                entity("combat", "", "id")
+                entity("combat", "", "pairs", "@${retarget.pairId}", "id")
+                entity("combat", "", "pairs", "@${retarget.pairId}", "attackTarget")
+                retarget.cardId?.let { fields += ConcernField.AttackTargetEligible(it) }
+            } else {
+                entity("combat", "")
+                (a.action as? CombatAction.Place)?.destination?.attackTarget?.let { fields += ConcernField.AttackTargetEligible(it) }
+            }
+            if (mutation.transition.rulesVersion >= 20) {
+                val playerTarget = if (retarget != null) retarget.cardId == null else source?.let { id ->
+                    to.board.combat?.pairs?.any { pair -> pair.attackTarget == null &&
+                        (pair.attackers + pair.blockers).any { it.sourceId == id } }
+                } == true
+                if (playerTarget) fields += ConcernField.DefendingPlayer
+            }
         }
+        fun rest(mutation: GameplayMutation, delta: GameplayDelta) {
+            // Layer normalization (a lone card becomes known, known neighbours merge) depends on the changed layers'
+            // sizes and their neighbours' order knowledge. A known-top draw is exempt: it only takes the top card.
+            for (container in to.board.containers.filter { it.zone == PlayZone.LIBRARY }) {
+                val old = from.board.containers.singleOrNull { it.id == container.id }?.layers.orEmpty()
+                if (old == container.layers || ConcernField.Top(container.id, (mutation.action as? PlayAction.MoveCard)?.cardId ?: "") in fields) continue
+                val before = old.associateBy { it.id }; val after = container.layers.associateBy { it.id }
+                val changed = (before.keys + after.keys).filter { before[it] != after[it] }.toSet()
+                fun around(list: List<LibraryLayer>) = list.indices.filter { list[it].id in changed }
+                    .flatMap { listOfNotNull(list.getOrNull(it - 1)?.id, list.getOrNull(it + 1)?.id) }
+                val neighbors = (around(old) + around(container.layers)).filter { it !in changed }.toSet()
+                val ids = changed.sorted()
+                val caps = ids.map { id -> 2 + (before[id]?.cards.orEmpty() - after[id]?.cards.orEmpty().toSet()).size }
+                fields += ConcernField.LayerShape(container.id, ids, caps, neighbors.sorted())
+            }
+            if (mutation.transition.rulesVersion >= 14) {
+                // Retained library edits must not lose their continuous-disclosure semantics when
+                // the toggle is selectively undone. These are local field reads, not history scans.
+                val touched = delta.entities.filter { it.kind == "container" }.map { it.id }.toMutableSet()
+                touched += mutation.transition.disclosures.map { it.containerId }
+                (mutation.action as? PlayAction.MoveCard)?.let { touched += it.source.containerId; touched += it.destination.containerId }
+                from.board.containers.filter { it.zone == PlayZone.LIBRARY && it.id in touched }.forEach {
+                    entity("container", it.id, "keepTopRevealed")
+                }
+                mutation.transition.disclosures.filter { it.automatic || mutation.action is PlayAction.SetKeepTopRevealed }
+                    .forEach { entity("card", it.cardId, "faceId") }
+            }
+            if (mutation.transition.rulesVersion >= 17) {
+                // Zone entry resets assign all temporary fields, including absent/empty ones.
+                CardChanges.each(from.board.cards, to.board.cards) { _, previous, c -> previous?.let { old ->
+                    if (old.containerId != c.containerId &&
+                        (from.board.containers.single { it.id == old.containerId }.zone != PlayZone.BATTLEFIELD ||
+                            to.board.containers.single { it.id == c.containerId }.zone != PlayZone.BATTLEFIELD))
+                        for (key in listOf("damage", "eotCorner", "eotNote")) entity("card", c.id, key)
+                } }
+            }
+            if (mutation.transition.rulesVersion >= EnteredTurn.RULES_VERSION) {
+                // Arrival assigns the entered turn (even unchanged) and leaving clears it. The stored value
+                // is the current turn number, so an entering event also concerns it: undoing an earlier
+                // turn change beneath it would leave a stale mark.
+                val arrivals = EnteredTurn.arrivals(from.board, to.board)
+                arrivals.keys.forEach { entity("card", it, "enteredTurn") }
+                if (arrivals.values.any { it.isNotEmpty() }) entity("turn", "", "number")
+            }
+            if (mutation.transition.rulesVersion >= 18) {
+                when (val action = mutation.action) {
+                    is PlayAction.MoveCard -> fields += ConcernField.AttackTargetIncident(action.cardId)
+                    is PlayAction.RemoveToken -> fields += ConcernField.AttackTargetIncident(action.cardId)
+                    else -> Unit
+                }
+            }
+            if (mutation.transition.rulesVersion >= 20 && mutation.transition.combatStack?.attackTargets.orEmpty().any { change ->
+                    change.to == null && to.board.combat?.pairs?.any { it.id == change.pairId } == true })
+                fields += ConcernField.DefendingPlayer
+            if (mutation.transition.rulesVersion >= 13) {
+                val edit = when (val a = mutation.action) {
+                    is PlayAction.SetDamage -> ConcernField.EditEligible(a.cardId, stackAllowed = true)
+                    is PlayAction.AdjustDamage -> ConcernField.EditEligible(a.cardId, stackAllowed = true)
+                    is PlayAction.SetEotCorner -> ConcernField.EditEligible(a.cardId, stackAllowed = true)
+                    is PlayAction.AdjustEotCorner -> ConcernField.EditEligible(a.cardId, stackAllowed = true)
+                    is PlayAction.SetEotNote -> ConcernField.EditEligible(a.cardId, stackAllowed = true)
+                    is PlayAction.SetNote -> ConcernField.EditEligible(a.cardId, stackAllowed = true)
+                    is PlayAction.SetOwner -> ConcernField.EditEligible(a.cardId)
+                    is PlayAction.SetCorner -> ConcernField.EditEligible(a.cardId)
+                    is PlayAction.AdjustCorner -> ConcernField.EditEligible(a.cardId)
+                    is PlayAction.ResetCorner -> ConcernField.EditEligible(a.cardId)
+                    is PlayAction.ClearCardCounter -> ConcernField.EditEligible(a.cardId)
+                    is PlayAction.SetCounter -> if (a.target == CounterTarget.CARD) ConcernField.EditEligible(a.targetId) else null
+                    is PlayAction.AdjustCounter -> if (a.target == CounterTarget.CARD) ConcernField.EditEligible(a.targetId) else null
+                    else -> null
+                }
+                edit?.let { fields += it }
+            }
+            for (read in mutation.transition.reads) when (read.field) {
+                GameplayField.FACE -> entity("card", read.targetId, "faceId")
+                GameplayField.COVERED -> entity("card", read.targetId, "covered")
+                GameplayField.EXPLICITLY_COVERED -> entity("card", read.targetId, "explicitlyCovered")
+                GameplayField.CONTAINER -> entity("card", read.targetId, "containerId")
+                GameplayField.TURN_PLAYER -> entity("turn", "", "accountId")
+                else -> error("Unrecorded read field: ${read.field}")
+            }
+            mutation.transition.combatStack?.let { effects ->
+                (effects.effects.filter { it.to == null }.map { it.id } + effects.occurrences.filter { it.to == null }.map { it.id })
+                    .forEach { fields += ConcernField.ProjectionIncident(it) }
+            }
+        }
+    }
+
+    fun capture(from: PlayState, to: PlayState, mutation: GameplayMutation, delta: GameplayDelta): ConcernSet {
+        val gathered = Selectors(from, to)
+        gathered.action(mutation)
+        gathered.rest(mutation, delta)
+        val fields = gathered.fields
         delta.entities.forEachIndexed { i, e -> e.values.indices.forEach { fields += ConcernField.Written(i, it) } }
         // Install selectors first: known-order source edits deliberately do not bind the exposed next card.
         val version = if (mutation.transition.rulesVersion >= 13) 3 else if (mutation.action is PlayAction.SetTapped) 2 else 1
         val selectors = ConcernSet(fields.map { ConcernTuple(it, JsonNull, JsonNull) }, rulesVersion = version)
         val recorded = mutation.copy(transition = mutation.transition.copy(delta = delta, concerns = selectors))
-        return ConcernSet(fields.map { ConcernTuple(it, read(from, recorded, it, false), read(to, recorded, it, true)) }, rulesVersion = version)
+        val before = EntityValues(from); val after = EntityValues(to)
+        return ConcernSet(fields.map { ConcernTuple(it, read(from, recorded, it, false, before), read(to, recorded, it, true, after)) },
+            rulesVersion = version)
     }
 }

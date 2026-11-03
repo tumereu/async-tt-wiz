@@ -335,15 +335,18 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
                 .set(GAME_REVISION.PAYLOAD, encodedUpdate).execute()
             // The shared reducer/store already chose the accepted group, including extensions.
             // Record within THIS execution transaction, never from a delivery timer or a retry.
-            (listOfNotNull(mutation) + batchMutations).forEach { mutation ->
-                val group = requireNotNull(next?.stateAt(mutation.id)?.currentGroup ?: play?.currentGroup)
+            val moves = (listOfNotNull(mutation) + batchMutations).map { mutation ->
+                val group = requireNotNull(next?.let { groupAt(it, mutation, command.requestId) } ?: play?.currentGroup)
                 // Passing joins the preceding display group even when the other player made it.
                 // Activity still belongs to the player who performed this individual event.
                 check(group.author == mutation.author || mutation.action == PlayAction.PassAttention)
                 val opponent = if (mutation.author == game.inviterId.toString()) game.recipientId!! else game.inviterId!!
-                org.asyncttwiz.server.activity.ActivityService.record(sql, opponent, ActivityKind.GAME,
-                    game.id!!, uuid(group.id), uuid(mutation.author), yourMove = summary.attentionHolder == opponent.toString(), move = true)
+                opponent to (uuid(group.id) to uuid(mutation.author))
             }
+            // One activity record per event, written together per recipient (a big batch's events are one player's)
+            for ((opponent, events) in moves.groupBy({ it.first }, { it.second }))
+                org.asyncttwiz.server.activity.ActivityService.recordAll(sql, opponent, ActivityKind.GAME,
+                    game.id!!, events, yourMove = summary.attentionHolder == opponent.toString(), move = true)
             insertedChat?.let { message ->
                 val opponent = if (inbox.accountId == game.inviterId) game.recipientId!! else game.inviterId!!
                 org.asyncttwiz.server.activity.ActivityService.record(sql, opponent, ActivityKind.GAME,

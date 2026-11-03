@@ -62,11 +62,13 @@ internal object GameplayDeltas {
         }
     }
 
+    // Looked up once: every event's seal encodes its action
+    private val actionSerializer = PlayAction.serializer()
     fun seal(mutation: GameplayMutation): String = DeckJson.intent("gameplay-event-v2", buildJsonObject {
         put("requestId", mutation.requestId)
         put("invocationId", mutation.invocationId?.let(::JsonPrimitive) ?: JsonNull)
         put("author", mutation.author)
-        put("action", json.encodeToJsonElement(PlayAction.serializer(), mutation.action))
+        put("action", json.encodeToJsonElement(actionSerializer, mutation.action))
         // Branch assignment and optional grouping describe retained topology/presentation, not
         // the recorded board effect. Reparenting and legacy grouping fallback must not invalidate it.
         put("transition", json.encodeToJsonElement(GameplayTransition.serializer(), mutation.transition.copy(delta = null)))
@@ -80,7 +82,7 @@ internal object GameplayDeltas {
     fun capture(from: PlayState, to: PlayState, nodeId: String, projectionNoteId: String? = null,
         orderedPiles: Boolean = false): GameplayDelta {
         val changes = mutableListOf<GameplayEntityDelta>()
-        fun <T> entity(kind: String, id: String, index: Int, old: T?, next: T?, serializer: KSerializer<T>) {
+        fun <T> entity(kind: String, id: String, index: () -> Int, old: T?, next: T?, serializer: KSerializer<T>) {
             if (old == next) return
             val values = mutableListOf<GameplayValueDelta>()
             diff(emptyList(), old?.let { json.encodeToJsonElement(serializer, it) },
@@ -92,14 +94,35 @@ internal object GameplayDeltas {
                 if (old.cards != next.cards) values += GameplayValueDelta(listOf("cards"),
                     JsonArray(old.cards.map(::JsonPrimitive)), JsonArray(next.cards.map(::JsonPrimitive)), unordered = true)
             }
-            changes += GameplayEntityDelta(kind, id, index, values)
+            changes += GameplayEntityDelta(kind, id, index(), values)
         }
+        fun <T> entity(kind: String, id: String, index: Int, old: T?, next: T?, serializer: KSerializer<T>) =
+            entity(kind, id, { index }, old, next, serializer)
         fun <T> members(kind: String, old: List<T>, next: List<T>, serializer: KSerializer<T>, id: (T) -> String) {
-            if (old === next || old == next) return
+            if (old === next) return
+            fun ascending(list: List<T>) = (1 until list.size).all { id(list[it - 1]) <= id(list[it]) }
+            val sorted by lazy { ascending(old) && ascending(next) }
+            // The same entities in the same order (an event changes a few of a big board's cards): only those that
+            // aren't the very same object can differ, visited in the same order as below, without hashing the rest.
+            if (old.size == next.size) {
+                val changed = mutableListOf<Int>()
+                var aligned = true
+                for (i in old.indices) {
+                    if (old[i] === next[i]) continue
+                    if (id(old[i]) != id(next[i])) { aligned = false; break }
+                    changed += i
+                }
+                if (aligned) {
+                    for (i in changed) entity(kind, id(next[i]), { if (sorted) -1 else next.indexOf(next[i]) }, old[i], next[i], serializer)
+                    return
+                }
+            }
+            if (old == next) return
             val left = old.associateBy(id); val right = next.associateBy(id)
-            val sorted = old.map(id) == old.map(id).sorted() && next.map(id) == next.map(id).sorted()
+            // The index is looked up only for an entity that changed (a whole-list scan per unchanged one made a
+            // big board's every event quadratic).
             for (key in left.keys + right.keys) entity(kind, key,
-                if (sorted) -1 else if (key in right) next.indexOf(right.getValue(key)) else old.indexOf(left.getValue(key)),
+                { if (sorted) -1 else if (key in right) next.indexOf(right.getValue(key)) else old.indexOf(left.getValue(key)) },
                 left[key], right[key], serializer)
         }
         val a = from.board; val b = to.board
@@ -138,11 +161,13 @@ internal object GameplayDeltas {
             value.path.isEmpty() || value.path.first() in setOf("placement", "containerId") } }.map { it.id }.toSet()
         for (container in a.containers.filter { it.zone == PlayZone.BATTLEFIELD }) {
             val nextContainer = b.containers.single { it.id == container.id }
-            if (container.cards == nextContainer.cards && (container.cards + nextContainer.cards).none { it in relocated }) continue
+            if (container.cards == nextContainer.cards && (relocated.isEmpty() || (container.cards + nextContainer.cards).none { it in relocated })) continue
             val placements = (a.cards + b.cards).filter { it.containerId == container.id }.mapNotNull { it.placement }.distinct()
+            val before = GameplayRules.piles(a, container)
+            val after = GameplayRules.piles(b, nextContainer)
             for (placement in placements) {
-                val old = GameplayRules.members(a, container, placement)
-                val next = GameplayRules.members(b, nextContainer, placement)
+                val old = before[placement].orEmpty()
+                val next = after[placement].orEmpty()
                 if (old != next) piles += GameplayPileDelta(container.id, placement, old, next)
             }
         }

@@ -7,6 +7,9 @@ import kotlinx.collections.immutable.toPersistentList
 interface IndexedMap<K, V> : Map<K, V> {
     fun putting(key: K, value: V): Map<K, V>
     fun removing(key: K): Map<K, V>
+    /** Reads [keys] ahead in one go where the storage can (each is then read as [get] would have read it): a
+     * 1000-member batch (I-D14) looks up each new event's id once per member otherwise. */
+    fun prefetch(keys: Collection<K>) {}
 }
 
 interface IndexedSet<T> : Set<T> {

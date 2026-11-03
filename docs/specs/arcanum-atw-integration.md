@@ -52,6 +52,13 @@ by the owner before release.
 | I-D41 | **Pause points and response windows** (owner, 2026-11-02; review item B): when the opponent does something you could react to, you're shown it with a short pause (1–3 s, progress bar) in which you can react easily. "Full control" (per player) adds pause points (e.g. your own spells). Both online: the reacting player may hold and think as long as they like; the acting player has a setting to proceed at once or to wait, but waits at most the response time. Opponent offline (async): the acting player never waits. Timeline playback with Automatum on stops at the same pause points, with no time limit. A reaction after the acting player moved on uses branching (a longer reaction time on one side than the other). Testing decides if it feels good. |
 | I-D42 | **Switching Automatum on drops turn-scoped engine data** (owner, 2026-11-02; review item C): leftover combat, passes, waiting triggers and early answers are dropped — best effort. Automatum off is mainly a "bug → report → fix by hand → continue" escape and for un-cards; the goal is that people play with it on. Refined 2026-11-03 (final sync review #1, decided overnight, to be confirmed): the current combat stays while the lanes still show it; only stale combat is dropped. |
 | I-D43 | **Logging for reproduction** (owner, 2026-11-02): engine and ATW Automatum logic log plenty, captured in error/problem reports, so a weird game situation can be reported, reproduced as an automated test and fixed. |
+| I-D44 | **Automatum on by default for new games** (owner, 2026-11-03): a new game's first state has Automatum on, so both players see it on from the start; the New game dialog has an "Automatum" switch (on by default) to start a game without it. Existing games are unchanged. Built: `CreateInvitation.automatum` (and `ChallengeFromPod.automatum`; a pod challenge has no dialog and asks for on) is stored on the game (V51, `game.automatum`, false for existing games and when absent) and every play of the game starts with it (`StartRules.initialize(automatum)`). |
+| I-D45 | **Toggling the switch asks first** (owner, 2026-11-03): tapping the Automatum switch shows a local "Turn Automatum on?" / "Turn Automatum off?" dialog with a short line on what it means; Cancel does nothing. Where turning on is refused (I-D15) the refusal shows at once instead, so there is one dialog, not two; turning off mentions an unfinished Automatum step or own cast it takes back. |
+| I-D46 | **Playtest decisions (owner, 2026-11-03):** (a) castable hand cards and activatable permanents glow softly from behind (from the engine's options); (b) no refusal snackbars ("X can't be cast now") — the UI conveys it (no glow; a tap on an unplayable card gives a small shake; the reason is in Inspect); (c) with Automatum on players use only Automatum: the quick-actions row becomes Automatum toggles (Full control, Skip when I have no choice, Autotap mana) and there are no manual table actions; no "Manual…" entries at all (owner: the non-Automatum way to do things is switching Automatum off; keep Automatum play as simple as possible — Automatum off exists to recover a game from a bug or to use an unsupported card); during an open "do this by hand" step (I-D37) the direct gestures (drags, life/counter controls) work without any extra menu; (d) the step button uses MTG Arena-style wording that says what pressing it does ("Pass", "To combat", "Attack (2)", "No blocks", "Resolve", "End turn"), neutral colour. |
+| I-D47 | **Casting (owner, 2026-11-03):** "Autotap mana sources" (setting, on by default): double-tap (or drag) casts at once with the automatic payment; the cast panel appears only when there are real choices (modes, kicker/additional costs, X, targets) and has no mana selection. Mana already in the pool is used first, so to pay differently: undo, tap the wanted sources by hand (mana goes to the pool), cast again — autotap pays the rest. The panel: full width, docked exactly above the hand, shows the card's art small (hold = large Inspect overlay), the hide/show eye stays in the same place. Casting feels instant: the local prediction shows the result at once, the server confirms in the background (no spinner). Every resolution choice says what it is and where it comes from (e.g. "Scry 1 · Carrot Cake") with card images and labelled areas. |
+| I-D48 | **Cards and buttons in Automatum panels (owner, 2026-11-03):** every card a panel or choice shows renders like a card on the battlefield — a small card you can drag, tap and hold to Inspect — never a text-only button; zones of a choice (e.g. Scry's Top / Bottom) are labelled areas the cards are dragged or tapped into. Buttons are icon or icon + text, not text-only; an icon-only button without its own hold action shows a tooltip saying what it does on hold. This allows small convenience buttons (e.g. "all to bottom") without clutter. **Two-area choices** (Scry: Top / Bottom; likewise surveil top / graveyard, two piles, keep / discard and any other choice between two places): the cards start in the first area; tapping a card moves it instantly to the end of the other area (and back); dragging places it at a position (order within an area matters where the rules say so, e.g. the order on top of the library). |
+| I-D49 | **Rules-driven opening with Automatum on (owner, 2026-11-03):** game rules (hardcoded for now, later per-game settings): opening hand 7, one free mulligan, London mulligan (CR 103.5). The game starts with both libraries shuffled and 7 cards drawn for each player; while mulliganing, the quick actions are "Mulligan" (hand back, shuffle, draw 7) and "Keep" (if cards are owed to the bottom: a Keep / Bottom two-area screen, I-D48, all 7 start in Keep, tap the owed number into Bottom, confirm → Ready). After the free mulligan each further mulligan owes one more card (keep 7, 6, 5, …). Both players decide at the same time; turn 1 begins when both have kept (no first-turn draw for the starting player). Automatum off keeps the manual Mull N / Ready flow (TRN-027–029). |
+| I-D50 | **Hand and table in Automatum mode (owner, 2026-11-03):** no hand context menu; hold = Inspect. Tapping a hand card raises it a little ("half a double-tap") and highlights the mana sources autotap would use; tapping it again casts/plays it. While raised, chips above it offer the ways to cast it, the regular cast first and selected, then each optional/alternative cost (kicker, flashback, evoke, offspring, …) with proper mana symbols: tapping a chip selects it (the highlighted sources update), tapping the selected chip again — or the card — casts it that way; unaffordable chips are disabled. Chips show just name + cost (proper mana symbols); hold on a chip shows its details like Inspect does for cards; the chip is shown even when there is only the regular cast. Two kinds, visibly different: **ways to cast** (regular, flashback, evoke, alternative costs, other faces — one at a time: tap selects, tapping the selected one casts) and **extras** that add to any way (kicker, buyback, offspring, gift and other optional additional costs — "+" chips with an on/off check: tap toggles, never casts; multikicker-like extras count up per tap with a ×N badge and a small "−"). The cast panel remains only for targets, modes and X. No hand reordering: a horizontal drag pans the hand (vertical drag still casts, I-D36); it snaps back like the battlefield (when wider than the screen, only the ends are pulled back into view); no compressing of the hand (small cards must stay easy to hit). Virtual-tabletop controls are dropped with Automatum on — notes, pings, text marks, links, colour counters, statuses, dice/coin — because with Automatum working they only get in the way; chat, Inspect, the timeline and settings stay. Automatum off keeps them all. |
 
 Earlier library decisions that shape this: one switch for the whole game (D20); the engine may refuse moves while on
 (D32); anyone may decide for anyone (D11, P7); results are ordinary actions in one all-or-nothing batch (P1, SYS-010);
@@ -266,6 +273,24 @@ out of anything stuck.
   `triggered` and pre-answer records and sets passes in a row to 0 (`Automatum.turnScoped`), recorded in the sealed
   delta so Undo of the switch restores them. Catalog: TRN-004, TRN-057, TRN-061, SYS-055, SYS-070.
 
+- **Built (opening, 2026-11-03):** ATW's opening (TRN-027–TRN-029) is the host's setup before the engine's game begins
+  (not the engine's `StartGame`): while a player's status is "Mulliganing" on turn 1 the toolkit lets their own
+  `Mulligan` and hand-to-own-library-bottom moves through (`AutomatumDrags.openingAction`); every step route is refused
+  until both are Ready (`SharedFlowController.OPENING`). A board resting in an untap step with nobody holding priority
+  (`HostPriority.resting`: the new game, or a turn changed by hand while off) is left by the active player's pass: the
+  host gives them priority as the last to pass in succession, so the step ends (CR 500.2, 103.8) and the upkeep follows
+  (`HostPriority.leaveUntap`, `SharedFlow.holder`). Catalog: TRN-057, TRN-059, TRN-062, SYS-069.
+- **Built (I-D49, rules-driven opening):** the rules are `GameRules` (protocol; `GameRules.STANDARD`: opening hand 7, one
+  free mulligan; `owed`, `canMulligan`). The engine's `StartGame` mulligans are sequential (CR 103.5: the starting player
+  declares first), so the opening stays ATW's own events as host setup: `StartRules.initialize(automatum = true)` puts
+  the top seven of each shuffled library into the hand; `PlayPlayer.mulligans`, set by the player's own
+  `MtgAction.SetMulligans(before, after)`, counts them. With Automatum on the opening's quick actions are Mulligan
+  (`TableActionIntent.OpeningMulligan`: one batch of `PlayAction.Mulligan` + `SetMulligans`, not counted from an empty
+  hand) and Keep (`TableActionIntent.Keep`: Ready at once, or the Keep / Bottom screen `OpeningKeepHost` over `TwoAreas`;
+  OK sends the bottom moves and Ready as one batch); logic in `AutomatumOpening`. The interim "Put on bottom" hand-menu
+  cell is gone. Choices made: Mulligan greyed once the hand kept would be empty; a Back button on the Keep / Bottom
+  screen; switched on with an empty hand, Mulligan draws the seven uncounted. Catalog: TRN-027, TRN-059, TRN-062,
+  ZON-029, SYS-069.
 - **Built (I-D41, pause points):** `PausePoints` (module `automatum/`) is the rule: a stop is the holder's own main phase on
   an empty Stack; a pause is another player's spell or ability on top of the Stack, the defending player's priority in
   the declare attackers step and both players' in the declare blockers step (once creatures attack); with
@@ -391,9 +416,60 @@ out of anything stuck.
   prefetches the members' storage lookups in one read each (`IndexedMap.prefetch`), writes the nodes, groups, activity
   (`ActivityService.recordAll`) and endpoint degrees in a few statements (about 6000 statements → about 35), and reads a
   new member's group from its bookkeeping instead of walking the batch back and forth (`groupAt`). Probes
-  (`AutomatedBatchCostTest`, `AutomatedBatchServerCostTest`) print the costs. Left: every member's position record
-  stores the board's whole ping-target set (`RetainedPosition.targets`, ~45 KB per member on a 600-card board), which
-  is now most of a big batch's storage time; storing each distinct set once would need a stored-format change.
+  (`AutomatedBatchCostTest`, `AutomatedBatchServerCostTest`) print the costs. Each event's position record names its
+  board's ping-target set (`RetainedPosition.targets`, ~45 KB on a 600-card board) by digest instead of repeating it:
+  each distinct set is stored once per play as a `targets` endpoint record (server-only, no migration; positions
+  written before keep the set inline and read the same). Stored bytes per batch member went from ~28 KB to ~3 KB.
+- **Built (I-D47 casting, 2026-11-03):** "Autotap mana sources" is `PauseSettings.autotap` (Settings → Automatum, device
+  per account, on by default; `PausePreferences.settings` is the value a quick-actions toggle binds), copied into
+  `CastController.autotap`. With it on a payment is answered with the engine's suggestion (pool mana first, `Mana.suggest`)
+  and never shown; one the suggestion can't make is refused ("Not enough mana to pay …"); off, the mana chips stay
+  (STK-024). `CastFlow.sending(payment)` completes a flow in one replay (was three: answer, `sent`, plan); its
+  `Sending.cast` is the cast alone and `Sending.sent()` goes on in the same call. Latency found with
+  `PerformanceProbeTest.probeACastOnABusyBoard` (desktop JVM, ~180-card board): hand plays ~150 ms (cached, worked out in
+  the background), start ~12 ms, pay ~20 ms, preview plan ~12–40 ms, the passes after the cast (`StepFlow.automatic`)
+  ~70–200 ms, the full plan ~30–60 ms, then the prediction on the main thread ~15–35 ms; nothing waited for the server
+  (automated batches were already predicted). So a complete cast's own changes are planned first (`Step.Preview`) and
+  shown as a local-only prediction (`CastPreview`: `GameSession.previewBatch`, never sent) while the worker goes straight
+  on to the full batch (`AutomatumWork.staged`, nothing queued in between); the batch then replaces the preview
+  (`GameplayReplica.replace`: the table animates from the preview to the batch's result with the batch's own events) and
+  a cast that can't go out drops it (`retire`, a jump back). Only casts on the live line preview (not a held or reviewed
+  point); a board that moved on under a preview drops the cast ("The table changed: cast it again."). A double-tap on a
+  battlefield card with Automatum on activates its one legal mana ability (several: its card menu) — the way to tap by
+  hand for the next cast. The cast panel docks full width exactly above the viewer's hand with the card small
+  (`SmallCard`: tap Inspect, hold the large overlay; I-D48), no rules text, no spinner, the eye fixed at the bottom-left
+  while the rest fades (`HoldTip` on hold), icon + text buttons. Catalog: STK-023, STK-024, STK-042, TBL-043, LOB-113.
+- **Built (I-D46 (a)–(c), 2026-11-03):** (a) `TableToolkitController.playable` is the set of cards with a legal
+  `CardPlay` for the viewer (the engine's options, worked out on the Automatum worker and kept per board); the table
+  draws a soft cyan halo behind them (live table only; none during a cast or an open choice). (b) An Automatum refusal
+  of a gesture (hand double-tap or drag cast, tapping by hand, a manual drag, a life drag, a Library or Temp pile with
+  nothing to offer) shakes the item (`TableToolkitController.shaking`) instead of setting the message; genuine
+  failures (offline, still working out) keep theirs. A refused control (`MenuControl.refused`) shakes on tap and shows
+  its reason on hold; `LocalRefusal` is gone. Inspect lists the reasons of the card's refused plays
+  (`automatumReasons`). (c) With Automatum on the quick-actions row is `AutomatumToggles` (Full control: the device
+  setting, synced as SYS-071; Skip when I have no choice: `SetSkipWhenNoChoice`; Autotap mana: the cast's own
+  setting `PauseSettings.autotap`), except during the opening
+  mulligan and while Automatum's combat offers quick actions. "Manual…" is gone: card and zone menus show only engine
+  rows and no-game-effect cells, today's menus while a `Manual` decision is open; Table actions, the Stack bubbles and
+  Manage Stack drop their manual entries. Catalog: TBL-043, TBL-046, TBL-071, TBL-114–TBL-118, ZON-004, ZON-007,
+  ZON-013, ZON-077, ZON-078, TRN-010, TRN-015, TRN-020, TRN-031, TRN-059, TRN-061, STK-035, SYS-063, SYS-069, SYS-071,
+  LOB-113.
+- **Built (I-D46 (d), I-D47 choices, I-D48, UI review 2026-11-03 #1, #4–#6, #9):** the step arrow with Automatum on is
+  `AutomatumStepArrow`, its words from `AutomatumStep.of(play)` (ATW's board alone): Pass / Next / To combat / End turn /
+  Attack (N) / No attack / Block (N) / No blocks / Resolve / Done; "Resolve" is the holder's pass
+  (`SharedFlowController.step` with `Until.Pass` on a Stack holding Automatum's items), "Done" answers the open `Manual`
+  decision. Choices: `choiceWhat`/`choiceHint` title and instruct every decision kind; cards are `ChoiceCardFace`
+  (battlefield look, hold = Inspect, covered when not `shown`). `ObjectsShape.of` reads a `ChooseObjects` by the engine's
+  sentence: two places (scry, surveil, piles, discard, a library bottom) are `TwoAreaChoice` over `TwoAreas` (tap: other
+  area's end; drag: a position; "All to …"), reusable as is for the London-mulligan Keep / Bottom screen (I-D49); one
+  area orders; anything else picks. `SharedFlow.answer(answer, then)` answers the orders the engine asks next of the same
+  cards in the same call (scry's "Order on top" / "Order on the bottom"). Every Automatum panel docks above the hand
+  (`AboveHand`, `AutomatumDockPanel`, `AutomatumDockBar`; in landscape at most 420 dp wide), eye bottom-left, Hold first
+  on the right; the respond panel and choices show the source card and "About:" cards (the trigger's event objects and
+  targets). Choices made: tap = move to the other area's end, "No attack" for an empty declaration, a greyed "Next" while
+  another choice is open, piles' second question stays the engine's "first / second" option buttons, AlertDialogs keep
+  text buttons. Catalog: TRN-017, TRN-018, TRN-063, STK-023, STK-024, STK-027–STK-031, STK-037, STK-038, STK-040,
+  STK-043, STK-044, CMB-033.
 
 ## 4. Shared state ATW adds
 
@@ -493,7 +569,9 @@ All in `protocol/` (`Automatum.kt` and the model files); the server stores and c
   existing in ATW at once (TBL-103); the engine keeps it in its new zone until state-based actions are next checked (CR
   704.5d), so while a flow waits for a decision mid-resolution (a destroyed token's "its controller may search") the
   continuation record keeps those objects and their place (`FlowRecord.lingering`), never shown to players; without an
-  open decision such an object is unmappable.
+  open decision such an object is unmappable. Its picture (SYS-072, built): the planning device's `TokenArt` finds the
+  best catalog token printing (the source card's related tokens, else a full characteristics match, else none) and its
+  Scryfall id goes into the `CreateToken`'s card data; the engine's definition is unchanged.
 - **Copies of cards** (CR 707.12, made where the card is): an ATW token card made in its owner's Exile
   (`CreateToken(definition, containerId)`), showing the copied card's own card data marked as a token's (as ATW's
   manual copy, `CloneToken`); its ledger keeps the engine's id, definition and `copyOfCard`. Cast, it stays in Exile
@@ -528,8 +606,8 @@ All in `protocol/` (`Automatum.kt` and the model files); the server stores and c
 - **Off:** a dim outlined rune at about 40% opacity.
 - **On:** the rune filled with a violet-to-cyan gradient and a soft outer glow that slowly breathes (about 3 s); one
   small spark orbits it.
-- **Tap:** switches Automatum for the whole game, as one shared event both players see; history: "Alice turned
-  Automatum on". Turning it on with manual Stack entries or other state the engine can't take over asks first (what
+- **Tap:** asks first (I-D45), then switches Automatum for the whole game, as one shared event both players see;
+  history: "Alice turned Automatum on". New games start with it on (I-D44). Turning it on with manual Stack entries or other state the engine can't take over asks first (what
   happens to them is decided when I0 is built).
 - **Hold:** a small status panel ("Automatum on · 2 abilities are manual") and the debug view of engine data.
 

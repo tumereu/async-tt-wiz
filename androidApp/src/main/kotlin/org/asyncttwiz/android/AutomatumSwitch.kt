@@ -7,6 +7,13 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.clickable
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.DeleteSweep
+import androidx.compose.material.icons.outlined.ExpandLess
+import androidx.compose.material.icons.outlined.ExpandMore
+import androidx.compose.material.icons.outlined.PowerSettingsNew
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.horizontalScroll
@@ -89,57 +96,86 @@ private fun DrawScope.rune(color: Color, r: Float) {
 }
 
 /**
- * The switch's hold panel (integration spec §5): the status ("Automatum on · 2 abilities are manual", and why the
- * board isn't computed when it can't be taken over), the viewer's own "Skip when I have no choice" (I-D18), "Clear
- * Automatum data" (I-D24, confirmed) and a read-only view of the engine's records (P2).
+ * The switch's hold panel (integration spec §5), in plain words for players: whether Automatum is on and what it does,
+ * what is left to the players (cards with abilities it can't read, and why it can't take over the board when it
+ * can't), the viewer's own "Skip when I have no choice" (I-D18) and "Clear Automatum data" (I-D24, confirmed). The
+ * engine's records (P2) stay behind a closed "Engine details" toggle at the bottom.
  */
 @Composable
 internal fun AutomatumPanel(play: PlayState, viewer: String, computed: ComputedBoard, enabled: Boolean,
     dismiss: () -> Unit, submit: (PlayAction) -> Boolean) {
     val board = play.board
     var confirmClear by remember { mutableStateOf(false) }
+    var details by remember { mutableStateOf(false) }
+    val text = automatumPanelText(board.automatum, computed)
     // A sheet like Manage Stack: text and controls in one panel; the whole panel takes its own touches.
-    InlinePopupPanel(dismiss, "Automatum", width = 320.dp, height = 420.dp, sheet = true) {
-        Column(Modifier.fillMaxWidth().ringInputTarget(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text(automatumStatus(board.automatum, computed), Modifier.semantics { contentDescription = "Automatum status" },
+    InlinePopupPanel(dismiss, "Automatum", width = 320.dp, height = 360.dp, sheet = true) {
+        Column(Modifier.fillMaxWidth().ringInputTarget(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(text.status, Modifier.semantics { contentDescription = "Automatum status" },
             fontWeight = FontWeight.Bold, color = AutomatumViolet)
-        if (board.automatum && computed.unsupported.isNotEmpty()) {
-            Text("Shown by hand while the board holds:", fontSize = 12.sp)
-            computed.unsupported.forEach { Text("• $it", fontSize = 12.sp) }
+        Text(text.automated, fontSize = 13.sp, lineHeight = 17.sp)
+        text.byHand?.let { Text(it, fontSize = 13.sp, lineHeight = 17.sp) }
+        if (text.notTakenOver.isNotEmpty()) Column {
+            Text("Automatum can't take over this board yet:", fontSize = 13.sp, lineHeight = 17.sp)
+            text.notTakenOver.forEach { Text("• $it", fontSize = 13.sp, lineHeight = 17.sp) }
         }
-        if (computed.manualCards.isNotEmpty()) Text("Manual: " + computed.manualCards.joinToString(", ") { (name, count) ->
-            if (count == 1) name else "$name ($count)" }, fontSize = 12.sp)
         val own = board.players.singleOrNull { it.accountId == viewer }
         if (own != null) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Text("Skip when I have no choice", Modifier.weight(1f))
             Switch(own.skipWhenNoChoice, { submit(PlayAction.Mtg(MtgAction.SetSkipWhenNoChoice(it))) }, enabled = enabled,
                 modifier = Modifier.semantics { contentDescription = "Skip when I have no choice" })
         }
-        OutlinedButton({ confirmClear = true }, enabled = enabled && Automatum.recorded(board)) { Text("Clear Automatum data") }
+        OutlinedButton({ confirmClear = true }, enabled = enabled && Automatum.recorded(board)) {
+            Icon(Icons.Outlined.DeleteSweep, null, Modifier.size(18.dp))
+            Spacer(Modifier.width(8.dp))
+            Text("Clear Automatum data")
+        }
         HorizontalDivider()
-        Text("Engine data", fontWeight = FontWeight.Bold, fontSize = 12.sp)
-        val lines = automatumDebugLines(board)
-        if (lines.isEmpty()) Text("Nothing recorded", fontSize = 11.sp)
-        Box(Modifier.horizontalScroll(rememberScrollState())) {
-            Column { lines.forEach { Text(it, fontSize = 10.sp, fontFamily = FontFamily.Monospace, lineHeight = 12.sp) } }
+        // Developer detail, secondary: small, grey and closed until asked for
+        Row(Modifier.fillMaxWidth().clickable { details = !details }.padding(vertical = 4.dp)
+            .semantics(mergeDescendants = true) { contentDescription = if (details) "Hide engine details" else "Show engine details" },
+            verticalAlignment = Alignment.CenterVertically) {
+            Icon(if (details) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore, null, Modifier.size(16.dp), tint = DetailGrey)
+            Spacer(Modifier.width(4.dp))
+            Text("Engine details", fontSize = 11.sp, color = DetailGrey)
+        }
+        if (details) {
+            val lines = automatumDebugLines(board)
+            if (lines.isEmpty()) Text("Nothing recorded", fontSize = 11.sp, color = DetailGrey)
+            Box(Modifier.horizontalScroll(rememberScrollState())) {
+                Column { lines.forEach { Text(it, fontSize = 10.sp, fontFamily = FontFamily.Monospace, lineHeight = 12.sp, color = DetailGrey) } }
+            }
         }
         }
     }
     if (confirmClear) AlertDialog({ confirmClear = false }, title = { Text("Clear Automatum data?") },
         text = { Text("Removes every effect, ledger and record Automatum keeps in this game. Cards, counters and mana stay as they are.") },
-        confirmButton = { TextButton({ confirmClear = false; submit(PlayAction.Mtg(MtgAction.ClearRecords)) }) { Text("Clear") } },
-        dismissButton = { TextButton({ confirmClear = false }) { Text("Cancel") } })
+        confirmButton = { TextButton({ confirmClear = false; submit(PlayAction.Mtg(MtgAction.ClearRecords)) }) {
+            Icon(Icons.Outlined.DeleteSweep, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Clear")
+        } },
+        dismissButton = { TextButton({ confirmClear = false }) {
+            Icon(Icons.Outlined.Close, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Cancel")
+        } })
 }
 
-/** "Automatum on · 2 abilities are manual", "Automatum off". */
-internal fun automatumStatus(on: Boolean, computed: ComputedBoard): String {
-    if (!on) return "Automatum off"
-    val manual = computed.manualAbilities
-    return "Automatum on · " + when (manual) {
-        0 -> "no abilities are manual"
-        1 -> "1 ability is manual"
-        else -> "$manual abilities are manual"
-    }
+private val DetailGrey = Color(0xff6b7b80)
+
+/** What the Automatum panel says (TRN-055): [status] "Automatum on" / "Automatum off", [automated] what that means,
+ * [byHand] the cards whose abilities players carry out themselves (null: none), [notTakenOver] why Automatum can't take
+ * over the board (empty: it can). */
+internal data class AutomatumPanelText(val status: String, val automated: String, val byHand: String?,
+    val notTakenOver: List<String>)
+
+internal fun automatumPanelText(on: Boolean, computed: ComputedBoard): AutomatumPanelText {
+    if (!on) return AutomatumPanelText("Automatum off", "Both players play by hand; nothing is checked or done automatically.",
+        null, emptyList())
+    val cards = computed.manualCards.joinToString(", ") { (name, count) -> if (count == 1) name else "$name ($count)" }
+    val byHand = if (computed.manualCards.isEmpty()) null
+        else "By hand: $cards. Automatum can't read ${if (computed.manualAbilities == 1) "this ability" else "these abilities"} " +
+            "yet; you carry ${if (computed.manualAbilities == 1) "it" else "them"} out yourself."
+    return AutomatumPanelText("Automatum on",
+        "It plays by the rules for both players: casting, abilities, combat and the turn's steps.",
+        byHand, computed.unsupported)
 }
 
 /** The engine's records and ledgers as stored (P2): one line each, data cut at 160 characters. */
@@ -158,4 +194,32 @@ internal fun automatumDebugLines(board: BoardState): List<String> {
             if (c.ledger.isNotEmpty()) add("ledger ${c.id.take(8)} ${cut(c.ledger)}")
         }
     }
+}
+
+/** What the Automatum switch's confirmation says (I-D45): title, text and confirm button. */
+internal data class AutomatumAskText(val title: String, val text: String, val button: String)
+
+/** [on] is what the switch would turn Automatum to; [flowOpen] an unfinished Automatum step and [castOpen] the viewer's
+ * own unsent cast, both of which switching off takes back (SYS-060, STK-025). */
+internal fun automatumAskText(on: Boolean, flowOpen: Boolean, castOpen: Boolean): AutomatumAskText =
+    if (on) AutomatumAskText("Turn Automatum on?",
+        "Automatum then plays the game by the rules for both players: it casts, resolves and moves things for you.", "Turn on")
+    else AutomatumAskText("Turn Automatum off?", "Both players then play by hand; nothing is checked or done automatically." +
+        (if (flowOpen) " Automatum's unfinished step is taken back first." else "") +
+        (if (castOpen) " Your unfinished cast is dropped." else ""), "Turn off")
+
+/** I-D45 (TRN-054): tapping the switch asks first; Cancel, Back or a tap outside does nothing. */
+@Composable
+internal fun AutomatumSwitchDialog(toolkit: TableToolkitController, play: PlayState) {
+    val on = toolkit.automatumAsk ?: return
+    val text = automatumAskText(on, Automatum.flowOpen(play.board), toolkit.cast.open)
+    AlertDialog(onDismissRequest = toolkit::cancelAutomatum,
+        title = { Text(text.title) },
+        text = { Text(text.text) },
+        confirmButton = { TextButton({ toolkit.confirmAutomatum() }) {
+            Icon(Icons.Outlined.PowerSettingsNew, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(text.button)
+        } },
+        dismissButton = { TextButton(toolkit::cancelAutomatum) {
+            Icon(Icons.Outlined.Close, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Cancel")
+        } })
 }

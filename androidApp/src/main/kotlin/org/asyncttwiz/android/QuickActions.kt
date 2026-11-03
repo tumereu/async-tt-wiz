@@ -43,8 +43,13 @@ data class QuickAction(val name: String, val glyph: String, val intent: TableAct
 object QuickActions {
     const val contextualPositions = 3
     const val READY = "Ready"
+    /** I-D49: the opening's quick actions with Automatum on. */
+    const val MULLIGAN = "Mulligan"
+    const val KEEP = "Keep"
+    const val NO_MORE_MULLIGANS = "No more mulligans: the hand you keep would have no cards."
     const val ASSUME_NO_BLOCKS = "Assume no blocks"
-    /** While the viewer's status is exactly the opening status, they are still mulliganing: Mull N, Mull −1, Ready. */
+    /** While the viewer's status is exactly the opening status, they are still mulliganing: Mull N, Mull −1, Ready
+     * (with Automatum on: Mulligan and Keep, I-D49). */
     fun openingMulligan(play: PlayState, viewer: String?) = PlayerStatus.opening(play.board, viewer)
     /** Only mulligan offerings: no step arrow for a player who would not otherwise see the strip. */
     fun mulliganOnly(play: PlayState, viewer: String?) = openingMulligan(play, viewer) &&
@@ -85,9 +90,7 @@ object QuickActions {
                 add("Draw one + next", "↓", controller.draw(play, true), "↦")
             }
             TurnPosition.PRECOMBAT_MAIN -> {
-                // CMB-028: with Automatum on "Attack" goes on to the declare attackers step, where taps stage attackers
-                if (play.board.automatum) add("Attack", "", choose(TurnPosition.DECLARE_ATTACKERS))
-                else add("Select attackers", "", TableActionIntent.SelectAttackers(scope, advance = true))
+                add("Select attackers", "", TableActionIntent.SelectAttackers(scope, advance = true))
                 add("Skip combat", "", choose(TurnPosition.END_STEP))
             }
             TurnPosition.DECLARE_ATTACKERS -> if (context.selectedSourceIds.isNotEmpty()) {
@@ -110,10 +113,22 @@ object QuickActions {
             TurnPosition.POSTCOMBAT_MAIN, TurnPosition.END_STEP -> add("End turn", "", TableActionIntent.End(scope))
             else -> Unit
         }
-        if (openingMulligan(play, context.viewer)) {
+        // TRN-062 (I-D49): with Automatum on the opening follows the game's rules: Mulligan or Keep
+        if (play.board.automatum && openingMulligan(play, context.viewer)) {
+            val taken = play.board.players.firstOrNull { it.accountId == context.viewer }?.mulligans ?: 0
+            val more = GameRules.STANDARD.canMulligan(taken)
+            result += QuickAction(MULLIGAN, "⇄", TableActionIntent.OpeningMulligan(scope), enabled = more,
+                refused = if (more) null else NO_MORE_MULLIGANS)
+            result += QuickAction(KEEP, "", TableActionIntent.Keep(scope))
+            if (!turnPlayer) return result
+        }
+        // TRN-027: the opening's mulligans by hand (Automatum off)
+        else if (openingMulligan(play, context.viewer)) {
             val targets = context.viewer?.let { controller.targets(play, it) }
-            add("Mull N", "⇄", controller.library(play, LibraryTool.MULLIGAN_N, targets), "↓")
-            add("Mull −1", "⇄", controller.library(play, LibraryTool.MULLIGAN_MINUS_ONE, targets), "−1")
+            val mullN = controller.library(play, LibraryTool.MULLIGAN_N, targets)
+            val mullOne = controller.library(play, LibraryTool.MULLIGAN_MINUS_ONE, targets)
+            add("Mull N", "⇄", mullN, "↓")
+            add("Mull −1", "⇄", mullOne, "−1")
             add(READY, "", TableActionIntent.Status(scope, ""))
             if (!turnPlayer) return result
         }
@@ -160,28 +175,37 @@ class ActionPress(private val assignedHold: Boolean) {
 /** Equal-width popup cells fill the space before the right-corner advance arrow. */
 @Composable
 fun QuickActionStrip(play: PlayState, context: QuickContext, controller: TableActionController,
-    endingPlayerColor: Color, modifier: Modifier = Modifier, perform: (TableActionIntent) -> Boolean = controller::perform) {
+    endingPlayerColor: Color, modifier: Modifier = Modifier, perform: (TableActionIntent) -> Boolean = controller::perform,
+    /** I-D46 (c): sends the viewer's own Automatum setting changes (Skip when I have no choice). */
+    submit: (PlayAction) -> Boolean = { false }) {
     if (!context.playable) return
-    if (!QuickActions.visible(play, context.viewer)) {
+    // I-D46 (c): with Automatum on the row is the viewer's Automatum toggles, on either player's turn
+    val toggles = AutomatumToggles.shown(play, context)
+    val visible = QuickActions.visible(play, context.viewer)
+    if (!visible && !toggles) {
         Box(modifier, contentAlignment = Alignment.Center) {
             Text("Opponent's turn", color = Color.Black.copy(alpha = .38f), style = MaterialTheme.typography.bodySmall)
         }
         return
     }
-    val actions = QuickActions.contextual(play, context, controller)
+    val actions = if (toggles) emptyList() else QuickActions.contextual(play, context, controller)
     val scope = TableActionScope(play.gameId, play.id)
     val style = advanceButtonStyle(play.board, requireNotNull(context.viewer))
     val nextLabel = nextStepLabel(play.board.turn)
     BoxWithConstraints(modifier, contentAlignment = Alignment.Center) {
-        val compact = maxWidth < 480.dp && actions.size >= 3
+        val compact = maxWidth < 480.dp && (toggles || actions.size >= 3)
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                if (toggles) AutomatumToggleCells(play, requireNotNull(context.viewer), controller.enabled(scope), submit)
                 for (action in actions) key(action.intent) {
                     InlinePopupCell(MenuControl(action.name, action.enabled && controller.enabled(scope), refused = action.refused) { perform(action.intent) },
                         quickActionLabel(action.name), owner = Color.Black, modifier = Modifier.weight(1f).height(48.dp))
                 }
             }
-            if (!QuickActions.mulliganOnly(play, context.viewer)) ActionSquare(nextLabel, "↦", controller.enabled(scope), Modifier.width(if (compact) 68.dp else 72.dp).shadow(3.dp, AdvanceArrowShape)
+            // I-D46 d: with Automatum on the arrow says what a tap does, in a neutral colour
+            if (visible && !QuickActions.mulliganOnly(play, context.viewer) && play.board.automatum) AutomatumStepArrow(play,
+                controller.enabled(scope), compact, onHold = { perform(TableActionIntent.End(scope)) }) { perform(TableActionIntent.Next(scope)) }
+            else if (visible && !QuickActions.mulliganOnly(play, context.viewer)) ActionSquare(nextLabel, "↦", controller.enabled(scope), Modifier.width(if (compact) 68.dp else 72.dp).shadow(3.dp, AdvanceArrowShape)
                 .background(style.fill, AdvanceArrowShape).border(1.dp, style.outline, AdvanceArrowShape).clip(AdvanceArrowShape),
                 fill = style.fill, ink = style.ink, compactContent = true,
                 holdName = "End turn", onHold = { perform(TableActionIntent.End(scope)) },

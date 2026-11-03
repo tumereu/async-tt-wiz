@@ -1,0 +1,1 @@
+mod: Holding the Automatum switch now explains in plain words what Automatum does and which cards you play by hand; the engine details stay closed until you open them.

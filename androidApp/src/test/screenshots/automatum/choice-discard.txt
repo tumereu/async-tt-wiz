@@ -1,0 +1,1 @@
+Alice cast Ember Rummage, drew two and must discard one: "Discard 1 · Ember Rummage" shows her hand as cards in a Hand area, one tapped into the Discard area, and OK is enabled once exactly one is there.

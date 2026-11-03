@@ -1,0 +1,1 @@
+add: With Automatum on, casting taps your lands by itself ("Autotap mana sources" in Settings, on at first): double-tap a card to cast it. To choose which land pays, undo, double-tap that land first (its mana waits in your pool) and cast again.

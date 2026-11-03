@@ -7,6 +7,9 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.UnfoldLess
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -32,6 +35,8 @@ import org.asyncttwiz.protocol.*
 internal val ArrowColor = Color(0xff5f7a87)
 internal val FightsColor = Color(0xffe8890c)
 internal val PreviewRed = Color(0xffb3261e)
+/** The combat area's panel, under its lane header pills. */
+internal val CombatPanelColor = Color(0xfffbfcfb)
 
 /** The keywords whose badges combat copies show with Automatum on (CMB-035), lowercase, in this order. */
 private val COMBAT_KEYWORDS = listOf("Flying", "Reach", "Menace", "Trample", "First strike", "Double strike", "Deathtouch",
@@ -179,10 +184,14 @@ internal fun CombatAreaOverlay(combat: CombatController?, play: PlayState, scene
         val tint = if (lane.side == viewer) OwnTableColor else OpponentTableColor
         Box(Modifier.offset { IntOffset(b.x.dp.roundToPx(), b.y.dp.roundToPx()) }.size(b.width.dp, b.height.dp)
             .semantics { contentDescription = "Header would go from $now to ${now + change}" }) {
-            Text("$now → ${now + change}", Modifier.align(Alignment.CenterEnd).padding(end = lane.inset.dp)
-                .background(androidx.compose.ui.graphics.lerp(Color.White, tint, .13f), RoundedCornerShape(50))
-                .padding(horizontal = 3.dp), color = PreviewRed, fontWeight = FontWeight.Bold, fontSize = lane.fontSize.sp,
-                lineHeight = (lane.fontSize * 1.2f).sp, maxLines = 1, softWrap = false)
+            // The tag is the header pill's right end (same height, tint and rounding), covering the value drawn there
+            Box(Modifier.align(Alignment.CenterEnd).padding(end = lane.inset.dp, top = (lane.padding / 2).dp,
+                bottom = (lane.padding / 2).dp).fillMaxHeight()
+                .background(androidx.compose.ui.graphics.lerp(CombatPanelColor, tint, .13f), RoundedCornerShape(50))
+                .padding(start = 4.dp, end = lane.padding.dp), contentAlignment = Alignment.Center) {
+                Text("$now → ${now + change}", color = PreviewRed, fontWeight = FontWeight.Bold, fontSize = lane.fontSize.sp,
+                    lineHeight = (lane.fontSize * 1.2f).sp, maxLines = 1, softWrap = false)
+            }
         }
     }
     for ((player, change) in preview?.life.orEmpty()) {
@@ -205,11 +214,13 @@ internal fun CombatAreaOverlay(combat: CombatController?, play: PlayState, scene
     // Just right of the panel's top-right corner: the fold button (CMB-007), then the eye hiding and showing the preview's
     // numbers (CMB-029)
     val panel = scene.combatPanel ?: return
-    if (fold != null) {
-        Box(Modifier.offset { IntOffset((panel.right + 3f).dp.roundToPx(), panel.y.dp.roundToPx()) }.size(30.dp)
-            .background(Color.White, CircleShape).border(1.dp, ArrowColor, CircleShape)
-            .semantics { contentDescription = "Hide the combat area" }.clickable { fold(true) }, contentAlignment = Alignment.Center) {
-            Text("▾", color = Color(0xff263238), fontSize = 16.sp, fontWeight = FontWeight.Bold)
+    // Icon-only, so holding either says what it does (I-D48)
+    if (fold != null) Box(Modifier.offset { IntOffset((panel.right + 3f).dp.roundToPx(), panel.y.dp.roundToPx()) }) {
+        HoldTip("Hide the combat area") {
+            Box(Modifier.size(30.dp).background(Color.White, CircleShape).border(1.dp, ArrowColor, CircleShape)
+                .semantics { contentDescription = "Hide the combat area" }.clickable { fold(true) }, contentAlignment = Alignment.Center) {
+                Icon(Icons.Outlined.UnfoldLess, null, Modifier.size(18.dp), tint = Color(0xff263238))
+            }
         }
     }
     // Finalreview-combat #4 (CMB-029): the way to the damage needs a choice, which the preview took as suggested
@@ -218,9 +229,13 @@ internal fun CombatAreaOverlay(combat: CombatController?, play: PlayState, scene
     }
     val eyeY = panel.y + if (fold != null) 34f else 0f
     if (shown.preview != null && combat != null) {
-        Box(Modifier.offset { IntOffset((panel.right + 3f).dp.roundToPx(), eyeY.dp.roundToPx()) }.size(30.dp)
-            .background(Color.White, CircleShape).border(1.dp, AutomatumViolet, CircleShape), contentAlignment = Alignment.Center) {
-            EyeButton(hidden = combat.numbersHidden, combat::toggleNumbers, "damage preview")
+        Box(Modifier.offset { IntOffset((panel.right + 3f).dp.roundToPx(), eyeY.dp.roundToPx()) }) {
+            HoldTip(if (combat.numbersHidden) "Show the damage preview" else "Hide the damage preview") {
+                Box(Modifier.size(30.dp).background(Color.White, CircleShape).border(1.dp, AutomatumViolet, CircleShape),
+                    contentAlignment = Alignment.Center) {
+                    EyeButton(hidden = combat.numbersHidden, combat::toggleNumbers, "damage preview")
+                }
+            }
         }
     }
 }

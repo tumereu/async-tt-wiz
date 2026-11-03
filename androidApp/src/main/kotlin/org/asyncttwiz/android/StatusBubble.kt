@@ -45,6 +45,9 @@ internal object StatusBubble {
         val y = if (below) life.bottom + TAIL + 1f else life.y - TAIL - 1f - height
         return TableBounds(life.x, y, width, height)
     }
+    /** TRN-039: where a line [lineWidth] wide starts so it sits centred in [bubble] (a short status in a bubble widened to
+     * the life square, or a wrapped line shorter than the longest). */
+    fun lineX(bubble: TableBounds, lineWidth: Float): Float = bubble.x + (bubble.width - lineWidth) / 2
     /** The whole text on one line when it fits; otherwise wrapped (at a space when possible) onto up to
      * [MAX_LINES] lines, the last of which is ellipsized when even those are not enough. */
     fun lines(text: String, maxWidth: Float, measure: (String) -> Float): List<String> = lines(text, maxWidth, MAX_LINES, measure)

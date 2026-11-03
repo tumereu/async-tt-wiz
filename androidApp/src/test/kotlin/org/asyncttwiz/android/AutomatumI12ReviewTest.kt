@@ -92,7 +92,8 @@ class AutomatumI12ReviewTest {
     private val sent = mutableListOf<GameAction.PlayBatch>()
     private var message: String? = null
     private fun controller(current: () -> PlayState?) =
-        CastController(f.a, current, { batch, _ -> sent += batch; true }, { emptyList() }, { message = it })
+        // These reviews check the open cast at its payment: the mana section, Autotap off (I-D47)
+        CastController(f.a, current, { batch, _ -> sent += batch; true }, { emptyList() }, { message = it }).also { it.autotap = false }
     private fun manaGroups(decision: Decision.ManaPayment) =
         decision.options.filterIsInstance<ManaUse.Ability>().groupBy { it.source }.values.map { it.toList<ManaUse>() }
 
@@ -119,7 +120,7 @@ class AutomatumI12ReviewTest {
         val play = board(listOf(mountain, spark), listOf(mountain))
         val gameplay = mutableListOf<PlayAction>()
         val toolkit = TableToolkitController(f.a, { play }, { true }, { action, _ -> gameplay += action; true },
-            automatedBatch = { batch, _ -> sent += batch; true })
+            automatedBatch = { batch, _ -> sent += batch; true }).also { it.cast.autotap = false }
         assertTrue(toolkit.cast.start(hand[1]))
         assertTrue(toolkit.setAutomatum(false), "switching off: ${toolkit.error}")
         assertEquals(listOf<PlayAction>(PlayAction.Mtg(MtgAction.SetAutomatum(false))), gameplay)
@@ -135,7 +136,7 @@ class AutomatumI12ReviewTest {
                 covered = true, explicitlyCovered = true, corner = "") else card
         }
         AutomatumBoards.compute(play, f.a)
-        val toolkit = TableToolkitController(f.a, { play }, { true }, { _, _ -> true }, automatedBatch = { batch, _ -> sent += batch; true })
+        val toolkit = TableToolkitController(f.a, { play }, { true }, { _, _ -> true }, automatedBatch = { batch, _ -> sent += batch; true }).also { it.cast.autotap = false }
         compose.setContent {
             MaterialTheme { NoRipples { Box(Modifier.fillMaxSize()) {
                 TableSurface(f.game, play, f.a, false, Modifier.fillMaxSize(), connected = true, onIntent = toolkit::handle, toolkit = toolkit,
@@ -189,8 +190,8 @@ class AutomatumI12ReviewTest {
     }
 
     // i12review #9 (I-D27, ZON-004, ZON-007; rules v30: the other player acts on a hand blind): with Automatum on, Bob's
-    // hidden hand cards all read "Cast" (greyed) in Alice's hand menu, and her double-tap on one says the same neutral
-    // "Only its owner can cast that card." whatever the card is
+    // hidden hand cards all read "Cast" (greyed) in Alice's hand menu, and her double-tap on one only shakes it (I-D46,
+    // TBL-118), whatever the card is
     @Test fun opponentsHiddenHandCardIsNeitherNamedNorTyped() {
         assertTrue(bobHand.size >= 2)
         val play = board(emptyList(), listOf(mountain)) { card -> when (card.id) {
@@ -198,18 +199,18 @@ class AutomatumI12ReviewTest {
             bobHand[1] -> card.copy(definition = spark.submitted.digest, faceId = spark.face.faceId)
             else -> card
         } }
-        val toolkit = TableToolkitController(f.a, { play }, { true }, { _, _ -> true }, automatedBatch = { batch, _ -> sent += batch; true })
+        val toolkit = TableToolkitController(f.a, { play }, { true }, { _, _ -> true }, automatedBatch = { batch, _ -> sent += batch; true }).also { it.cast.autotap = false }
         fun doubleTap(card: String): String? {
             toolkit.dismissError()
             toolkit.handle(TableIntent.Move(TableScope(card, listOf(card)), TableDestination.Container(f.id("stack"), PlayZone.STACK),
                 handDoubleTap = true))
+            assertEquals(card, toolkit.shaking?.id, "the card shakes")
             return toolkit.error
         }
         val land = doubleTap(bobHand[0])
         val instant = doubleTap(bobHand[1])
-        assertFalse(land.orEmpty().contains("Mountain") || instant.orEmpty().contains("Storm Spark"), "$land / $instant")
-        assertEquals(land, instant, "the refusal doesn't tell a hidden land from a hidden spell")
-        assertEquals(CastController.NOT_YOURS, land)
+        assertNull(land, "no message tells a hidden land")
+        assertNull(instant, "no message tells a hidden spell")
         fun control(card: String) = handMenuTools(toolkit, play, ToolkitCapture(listOf(card), card, listOf(card), emptyMap(), null),
             TableSelection(), emptyMap(), true).single { it.name == "Play" || it.name == "Cast" }
         assertEquals(control(bobHand[0]).name, control(bobHand[1]).name, "the menu doesn't tell a hidden land from a hidden spell")
@@ -273,7 +274,7 @@ class AutomatumI12ReviewTest {
         val play = board(listOf(mountain, recall), listOf(swamp)) { card ->
             if (card.id in graveyard) card.copy(definition = hound.submitted.digest, faceId = hound.face.faceId) else card
         }
-        val toolkit = TableToolkitController(f.a, { play }, { true }, { _, _ -> true }, automatedBatch = { batch, _ -> sent += batch; true })
+        val toolkit = TableToolkitController(f.a, { play }, { true }, { _, _ -> true }, automatedBatch = { batch, _ -> sent += batch; true }).also { it.cast.autotap = false }
         assertTrue(toolkit.cast.start(hand[1]))
         val targets = assertNotNull(toolkit.cast.flow?.pending as? Decision.Targets)
         assertTrue(targets.options.size >= 2, "both Grave Hounds are legal targets")
@@ -320,7 +321,7 @@ class AutomatumI12ReviewTest {
             override fun <T> run(work: () -> T, done: (T) -> Unit) { queued += { done(work()) } }
         }
         val live = board(listOf(mountain, spark), listOf(mountain))
-        val cast = CastController(f.a, { live }, { batch, _ -> sent += batch; true }, { emptyList() }, { message = it }, worker)
+        val cast = CastController(f.a, { live }, { batch, _ -> sent += batch; true }, { emptyList() }, { message = it }, worker).also { it.autotap = false }
         assertTrue(cast.start(hand[1]))
         assertTrue(cast.open && cast.busy && cast.flow == null, "nothing worked out on the caller's thread")
         assertFalse(cast.start(hand[1]), "one cast at a time")

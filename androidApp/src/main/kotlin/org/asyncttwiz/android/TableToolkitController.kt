@@ -24,7 +24,11 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
      * server step ([GameAction.ExitFlow]) that takes the flow back when it can and always goes through. */
     private val exitFlow: ((MtgAction) -> Boolean)? = null,
     /** Where a cast's engine work runs (SYS-025): off the main thread in the app. */
-    automatumWork: AutomatumWork = AutomatumWork.Inline) : TableActionRoutes {
+    automatumWork: AutomatumWork = AutomatumWork.Inline,
+    /** The pictures of tokens Automatum makes (§4.6): the catalog's best matching token printings in the app. */
+    tokenArt: org.asyncttwiz.automatum.TokenArt = org.asyncttwiz.automatum.TokenArt.None,
+    /** I-D47: a complete cast shown at once on this device while its batch is worked out (null: not here). */
+    castPreview: CastPreview? = null) : TableActionRoutes {
     private val identity = state()?.let { TableActionScope(it.gameId, it.id) }
     private var draft: PlayBatchDraft? = null
     fun current(): PlayState? = (draft?.state ?: state())?.takeIf { TableActionScope(it.gameId, it.id) == identity }
@@ -62,12 +66,12 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
     private fun holdForReaction() = pause.holdForReaction(current(), viewer)
 
     /** Casting from the hand through Automatum (I2a): a private flow; while it is open nothing else changes (D32). */
-    internal val cast = CastController(viewer, { acting()?.takeIf { enabled() } }, automatedBatch, ::engineTags, { error = it },
-        automatumWork, beginning = ::holdForReaction)
+    internal val cast = CastController(viewer, { acting()?.takeIf { enabled() } }, automatedBatch, ::engineTags, { castMessage(it) },
+        automatumWork, beginning = ::holdForReaction, preview = castPreview, tokenArt = tokenArt)
     /** Priority, responding, resolution and triggers through Automatum (I2b): shared flows; while one waits for an
      * answer nothing else changes (D32). */
     internal val flows = SharedFlowController(viewer, { acting()?.takeIf { enabled() } }, automatedBatch, ::engineTags, { error = it },
-        automatumWork, onRespond = ::holdForReaction)
+        automatumWork, onRespond = ::holdForReaction, tokenArt = tokenArt)
     private val automatumWork = automatumWork
     /** Combat through Automatum (I3 on today's lanes): declarations, passing on to the damage, early divisions. */
     internal val combat = CombatController({ current()?.takeIf { enabled() } }, { submit(it) }, ::engineTags, automatumWork,
@@ -102,6 +106,33 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
         return null
     }
     private var cardPlaysPending: Any? = null
+
+    /**
+     * I-D46 (a): the cards the viewer may do something with through Automatum now (cast or play it, activate one of its
+     * abilities other than mana abilities, special actions included): exactly the engine's options for the viewer
+     * ([org.asyncttwiz.automatum.CardPlays], worked out off the main thread and kept per board). Empty with Automatum
+     * off, while a cast or an Automatum choice is open, while the viewer can't act, and until it is worked out.
+     */
+    internal fun playable(play: PlayState): Set<String> {
+        if (!play.board.automatum || !enabled() || cast.open || Automatum.flowOpen(play.board)) return emptySet()
+        // The game begins only once both players are Ready (TRN-062)
+        if (play.board.turn.number == "1" && PlayerStatus.anyOpening(play.board)) return emptySet()
+        val plays = cardPlays(play) ?: return emptySet()
+        playableCache?.takeIf { it.first === plays }?.let { return it.second }
+        // A mana ability alone is no reason to glow (owner, 2026-11-03): lands and mana rocks would glow whenever you hold
+        // priority
+        return plays.byCard.filterValues { offered -> offered.any { it.legal && it.kind != org.asyncttwiz.automatum.CardPlay.Kind.Mana } }
+            .keys.also { playableCache = plays to it }
+    }
+    private var playableCache: Pair<org.asyncttwiz.automatum.CardPlays, Set<String>>? = null
+
+    /** Whether [cardId], a card in the viewer's hand, is known to have no cast or play Automatum allows now (I-D46). */
+    private fun unplayable(play: PlayState, cardId: String): Boolean {
+        val plays = AutomatumBoards.cachedCardPlays(play, viewer) ?: return false
+        if (plays.unsupported.isNotEmpty() || !CastController.ownHand(play, cardId, viewer)) return false
+        return plays.of(cardId).none { it.legal && (it.kind == org.asyncttwiz.automatum.CardPlay.Kind.Cast ||
+            it.kind == org.asyncttwiz.automatum.CardPlay.Kind.Play) }
+    }
 
     /** Begins what a card menu offers through Automatum ([CastController.begin]): the cast panel's flow. */
     internal fun play(cardId: String, play: org.asyncttwiz.automatum.CardPlay): Boolean {
@@ -139,8 +170,13 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
     }
     var error by mutableStateOf<String?>(null); private set
     fun dismissError() { error = null }
-    /** Shows why a greyed control can't be used ([MenuControl.refused]). */
-    fun refuse(message: String) { error = message }
+
+    /** I-D46: what Automatum doesn't allow, tried on a card or pile by a gesture, shakes it instead of a message; why
+     * shows when the card is inspected. [serial] tells one shake from the next of the same item. */
+    data class Shake(val id: String, val serial: Int)
+    var shaking by mutableStateOf<Shake?>(null); private set
+    private var shakes = 0
+    fun shake(id: String) { error = null; shaking = Shake(id, ++shakes) }
     /** Automatum on (I-D28): the ordinary actions an Automatum interaction is made of (moving a card within its own
      * Battlefield or hand, the combat draft) go through while this is above zero; other manual changes are refused. */
     private var engineRoute = 0
@@ -246,6 +282,8 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
             action is PlayAction.BeginTurn
         if (step && CombatStackRules.stack(board).cards.isNotEmpty()) return SharedFlowController.STACK_WAITING
         if (step) return SharedFlowController.STEPS_FORWARD
+        // TRN-027: the viewer's own mulligans and library bottom during their opening, the host's setup before the game
+        if (AutomatumDrags.openingAction(board, viewer, action)) return null
         // I4, I-D28: only what the rules allow; manual changes only while Automatum waits for something done by hand
         if (!byHand && engineRoute == 0 && AutomatumDrags.manual(action)) return when (action) {
             is PlayAction.Stack -> AutomatumDrags.STACK
@@ -260,12 +298,51 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
      * step go through Automatum ([SharedFlowController.step]); an earlier step, the step it is in, and a step passed into
      * for a quick action's own work are refused. Null with Automatum off (the manual step change goes on).
      */
+    /** I-D49: the viewer's Keep / Bottom screen is open ([OpeningKeepHost]); personal UI. */
+    var keeping by mutableStateOf(false); private set
+    fun closeKeep() { keeping = false }
+
+    /**
+     * The viewer's opening with Automatum on (I-D49, TRN-062): "Mulligan" sends the London mulligan as one batch (one
+     * Undo); "Keep" sets Ready at once when nothing is owed to the bottom, otherwise opens the Keep / Bottom screen.
+     */
+    override fun opening(intent: TableActionIntent): Boolean {
+        val play = current()?.takeIf { enabled() && AutomatumDrags.opening(it.board, viewer) } ?: return false
+        return when (intent) {
+            is TableActionIntent.OpeningMulligan -> {
+                val actions = AutomatumOpening.mulligan(play.board, viewer, DeviceRandom.seed())
+                    ?: run { error = QuickActions.NO_MORE_MULLIGANS; return false }
+                keeping = false
+                batchResult { actions.all { submit(it) } }
+            }
+            is TableActionIntent.Keep -> if (AutomatumOpening.owed(play.board, viewer) > 0) { error = null; keeping = true; true }
+                else confirmKeep(emptyList())
+            else -> false
+        }
+    }
+
+    /** Keeps the viewer's hand with [bottom] put on the bottom of their library, then Ready (I-D49), as one batch. */
+    fun confirmKeep(bottom: List<String>): Boolean {
+        val play = current()?.takeIf { enabled() && AutomatumDrags.opening(it.board, viewer) } ?: return false
+        val actions = AutomatumOpening.keep(play.board, viewer, bottom) ?: return false
+        return batchResult { actions.all { submit(it) } }.also { if (it) keeping = false }
+    }
+
     override fun automatumStep(intent: TableActionIntent): Boolean? {
         val play = current() ?: return null
         if (!play.board.automatum) return null
         if (cast.open) { error = CastController.BUSY; return false }
         val until = when (intent) {
-            is TableActionIntent.Next -> org.asyncttwiz.automatum.StepFlow.Until.Pass
+            is TableActionIntent.Next -> {
+                // I-D46 d: the step arrow's "Done" finishes Automatum's step done by hand (I-D37); its "Resolve" at the
+                // viewer's pause held behind the live game returns to it, as Let it resolve does (STK-039)
+                if (Automatum.flowOpen(play.board) && AutomatumBoards.byHand(play)) {
+                    val manual = flows.view?.takeIf { it.play.board === play.board }?.decision as? arcanum.engine.decision.Decision.Manual
+                    if (manual != null) { error = null; return flows.answer(arcanum.engine.decision.Answer.Done) }
+                }
+                if (CombatStackRules.stack(play.board).cards.isNotEmpty() && pause.passBehind(play.currentNodeId)) return true
+                org.asyncttwiz.automatum.StepFlow.Until.Pass
+            }
             is TableActionIntent.End -> org.asyncttwiz.automatum.StepFlow.Until.EndOfTurn
             is TableActionIntent.Choose -> {
                 val now = TurnPosition.of(play.board.turn)
@@ -327,7 +404,7 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
     fun dismiss() { panel = null; library = null; manual.close(); capture = null; popupItem = null; stackTargeting = false }
     internal val hasBackOverlay get() = inspection != null || peek != null || manual.inspection != null ||
         manual.editor != null || manual.scope != null || panel != null || stackBubbleEntry != null ||
-        tokens.showingCatalog || tokens.showingLinks
+        tokens.showingCatalog || tokens.showingLinks || keeping
     internal fun dismissBackOverlay() {
         when {
             inspection != null || manual.inspection != null -> closeInspection()
@@ -336,6 +413,7 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
             tokens.showingCatalog || tokens.showingLinks -> tokens.close()
             manual.scope != null || panel != null -> dismissTapUi()
             stackBubbleEntry != null -> showStackBubbles(null)
+            keeping -> closeKeep()
         }
     }
     fun closeInspection() { inspectionLifetime = null; inspectionSubscription?.close(); inspectionSubscription = null; inspection = null; manual.closeInspection() }
@@ -380,6 +458,25 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
         if (!on) cast.cancel("dropped: switched off")
         return submit(PlayAction.Mtg(MtgAction.SetAutomatum(on)))
     }
+
+    /** What the open "Turn Automatum on/off?" confirmation would switch to (I-D45); null while none is open. Local only. */
+    var automatumAsk by mutableStateOf<Boolean?>(null); private set
+
+    /**
+     * Tapping the Automatum switch (I-D45, TRN-054): asks first, sending nothing until confirmed. Turning on where it would
+     * be refused (I-D15) shows the refusal at once instead, so there is only ever one dialog.
+     */
+    fun askAutomatum(on: Boolean) {
+        val play = current() ?: return
+        if (on && Automatum.turnOnRefusal(play.board) != null) { setAutomatum(true); return }
+        automatumAsk = on
+    }
+    fun confirmAutomatum(): Boolean {
+        val on = automatumAsk ?: return false
+        automatumAsk = null
+        return setAutomatum(on)
+    }
+    fun cancelAutomatum() { automatumAsk = null }
 
     /** Switching off or "Clear Automatum data" during an open flow goes as one [GameAction.ExitFlow] (finalreview-sync #6,
      * #7): the flow is taken back first when it can be. */
@@ -505,11 +602,25 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
             item.kind in listOf(TableItemKind.LIFE, TableItemKind.COUNTER) -> {
                 dismiss(); manual.player(play, requireNotNull(item.owner), counters = item.kind == TableItemKind.COUNTER)
             }
-            item.zone == PlayZone.LIBRARY -> openLibrary(item.id)
+            item.zone == PlayZone.LIBRARY -> if (zoneMenuEmpty(play, item.id)) { dismiss(); shake(item.id); return }
+                else openLibrary(item.id)
             item.zone in PublicPiles.zones -> openPileMenu(item.id)
             else -> openPublicPile(item.id)
         }
         popupItem = item
+    }
+
+    /** I-D46: with Automatum on (and nothing to do by hand, I-D37) a Temp pile, and a Library whose top card Automatum
+     * offers nothing for, have nothing in their menu: a tap shakes the pile instead of opening it. */
+    private fun zoneMenuEmpty(play: PlayState, id: String): Boolean {
+        if (AutomatumBoards.manualAllowed(play)) return false
+        val pile = play.board.containers.singleOrNull { it.id == id }
+        if (pile == null || pile.temp) return true
+        if (pile.zone != PlayZone.LIBRARY) return false
+        val top = pile.cards.firstOrNull() ?: return true
+        // Not worked out yet: the menu opens and shows the rows once they are
+        val plays = cardPlays(play) ?: return false
+        return plays.of(top).none { it.legal }
     }
 
     fun openLibrary(id: String, tool: LibraryTool = LibraryTool.CONTENTS, handIds: List<String>? = null) {
@@ -745,12 +856,62 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
             stackEntryId = viewId.takeIf { it in CombatStackRules.stack(play.board).cards })
     }
     fun handle(intent: TableIntent): Boolean {
+        // I-D46: with Automatum on, a gesture Automatum doesn't allow shakes the card, pile or life square it was made on
+        // instead of saying why (Inspect says it); genuine failures (offline, still working out) keep their message
+        val target = gestureTarget(intent)?.takeIf { current()?.board?.automatum == true }
+        if (target == null) return handleIntent(intent)
+        castGesture = target
+        error = null
+        val result = try { handleIntent(intent) } finally { if (!cast.open) castGesture = null }
+        val message = error
+        if (!result && message != null && refusal(message)) shake(target)
+        return result
+    }
+
+    /** The item a refused gesture shakes (I-D46): a double-tapped or dragged card, a double-tapped library, a dragged
+     * life square; null for anything else. */
+    private fun gestureTarget(intent: TableIntent): String? = when (intent) {
+        is TableIntent.Move -> intent.scope.contextId.takeIf { intent.handDoubleTap || intent.drag }
+        is TableIntent.Rotate -> intent.scope.contextId
+        is TableIntent.Draw -> intent.libraryId
+        is TableIntent.PlayerDelta -> "life/${intent.accountId}".takeIf { intent.color == null }
+        else -> null
+    }
+
+    /** A hand card double-tapped or dragged onto the Battlefield or Stack with Automatum on (ZON-004, I-D36): cast or
+     * played; one already known to have no cast or play Automatum allows now shakes at once (I-D46). */
+    private fun castFromHand(cardId: String): Boolean {
+        val play = acting()?.takeIf { enabled() }
+        if (play != null && !cast.open && unplayable(play, cardId)) { shake(cardId); return false }
+        return cast.start(cardId)
+    }
+
+    /** The card a cast was begun on by a gesture, so its refusal worked out in the background shakes it too. */
+    private var castGesture: String? = null
+
+    /** Whether [message] says Automatum doesn't allow something (shaken, I-D46) rather than a failure to report. */
+    private fun refusal(message: String): Boolean = "Reconnect" !in message && message != CombatController.WORKING_OUT &&
+        message != CastController.FAILED && !message.startsWith(CastController.TAKE_OVER) && "at most 100" !in message
+
+    /** The cast's own messages: one saying the card can't be cast or played now, worked out after a gesture, shakes the
+     * card instead (I-D46). */
+    private fun castMessage(message: String?) {
+        val card = castGesture
+        castGesture = null
+        val unplayable = message != null && !message.startsWith("The table changed") &&
+            (message.endsWith("can't be cast now.") || message.endsWith("can't be played now."))
+        if (unplayable && card != null && current()?.board?.automatum == true) shake(card) else error = message
+    }
+
+    private fun handleIntent(intent: TableIntent): Boolean {
         // Automatum on (I2a, ZON-004): a hand double-tap casts (or plays, a land) through the engine
-        if (intent is TableIntent.Move && intent.handDoubleTap && current()?.board?.automatum == true) return cast.start(intent.scope.contextId)
+        if (intent is TableIntent.Move && intent.handDoubleTap && current()?.board?.automatum == true) return castFromHand(intent.scope.contextId)
         // Automatum on (I-D36, I-D28): a drag is the engine action it means, or refused with the reason; while Automatum
         // waits for something done by hand drags work as with it off (I-D37, SYS-069)
         val engineDrags = current()?.let { it.board.automatum && !AutomatumBoards.byHand(it) } == true
         if (intent is TableIntent.Move && intent.drag && engineDrags) return automatumDrag(intent)
+        // I-D47: a double-tap on a battlefield card taps it for mana through Automatum (the mana goes to the pool)
+        if (intent is TableIntent.Rotate && intent.toggle && engineDrags) tapForMana(intent)?.let { return it }
         if (intent is TableIntent.PlayerDelta && intent.color == null && engineDrags) {
             error = AutomatumDrags.LIFE; return false
         }
@@ -768,6 +929,24 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
         } else handleOne(intent)
     }
     /**
+     * I-D47 (TBL-043): a double-tap on a battlefield card with Automatum on activates its mana ability, the mana going to
+     * its controller's pool for the next cast (autotap pays with the pool first): the one mana ability Automatum allows
+     * now goes as from its menu (TBL-115); with several (or one asking a colour) the panel or the card's menu lets the
+     * player choose. Null when the card has no mana ability allowed now (then the double-tap is what it was).
+     */
+    private fun tapForMana(intent: TableIntent.Rotate): Boolean? {
+        val play = current()?.takeIf { enabled() } ?: return null
+        val card = CombatStackRules.liveSource(play.board, intent.scope.contextId)?.id ?: return null
+        val plays = cardPlays(play) ?: run { error = WORKING_OUT; return false }
+        val mana = plays.of(card).filter { it.kind == org.asyncttwiz.automatum.CardPlay.Kind.Mana && it.legal }
+        return when (mana.size) {
+            0 -> null
+            1 -> play(card, mana.single())
+            else -> { openCard(TableScope(card, listOf(card)), intent.sources); true }
+        }
+    }
+
+    /**
      * A drag with Automatum on (I-D36): a hand card dropped on the Battlefield or the Stack is played or cast (the cast
      * panel, as a double-tap, ZON-004); a creature dropped into the combat area joins the draft of the declaration the
      * engine awaits ([CombatController.draftRefusal]); a card moved within its own Battlefield or hand only changes its
@@ -778,7 +957,7 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
         when (val route = AutomatumDrags.route(play, intent)) {
             AutomatumDrags.Route.Cast -> {
                 if (intent.scope.cardIds.distinct().size > 1) { error = AutomatumDrags.ONE_AT_A_TIME; return false }
-                return cast.start(intent.scope.contextId)
+                return castFromHand(intent.scope.contextId)
             }
             AutomatumDrags.Route.Place -> return engineRoute { handle(intent.copy(drag = false)) }
             AutomatumDrags.Route.Combat -> {

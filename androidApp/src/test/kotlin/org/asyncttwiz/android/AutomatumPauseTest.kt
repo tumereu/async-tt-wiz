@@ -119,7 +119,8 @@ class AutomatumPauseTest {
         assertTrue(alice.cast.start(aSpark))
         val life = TablePresentation.scene(f.game, play, f.a, 412f, 892f, false).items.first { it.id == "life/${f.b}" }
         alice.open(TableIntent.Actions(life.id, null), life, TableSelection())
-        assertTrue(alice.cast.cast(), alice.error)
+        // I-D47: Autotap (on) sends the cast once its last choice is made; only a cast still open waits for Cast
+        if (alice.cast.open) assertTrue(alice.cast.cast(), alice.error)
         return takeSent(play, f.a)
     }
     private fun life(play: PlayState, player: String) = play.board.players.single { it.accountId == player }.life.toInt()
@@ -250,7 +251,8 @@ class AutomatumPauseTest {
         assertTrue(bob.cast.start(bSpark), bob.error)
         val life = TablePresentation.scene(f.game, cast, f.b, 412f, 892f, false).items.first { it.id == "life/${f.a}" }
         bob.open(TableIntent.Actions(life.id, null), life, TableSelection())
-        assertTrue(bob.cast.cast(), bob.error)
+        // I-D47: Autotap (on) sends the cast once its last choice is made; only a cast still open waits for Cast
+        if (bob.cast.open) assertTrue(bob.cast.cast(), bob.error)
         val branched = takeSent(cast, f.b, from = cast.currentNodeId)
         val history = assertNotNull(tree)
         assertEquals(2, history.nodes.values.count { it.parentId == cast.currentNodeId }, "two lines go on from Bob's pause")
@@ -272,9 +274,10 @@ class AutomatumPauseTest {
         compose.mainClock.advanceTimeBy(800)
         compose.onNodeWithText("Precombat main: you may act").assertExists()
         compose.onNodeWithText("Hold").assertExists()
-        compose.onNodeWithText("Pass").assertExists()
+        // TRN-063: the step arrow says Pass too; the pause panel's own Pass is beside Hold
+        compose.onNode(hasText("Pass") and hasAnyAncestor(hasContentDescription("Your pause"))).assertExists()
         compose.onRoot().captureShot("$SCREENSHOTS/automatum/pause-empty-stack.png",
-            "Bob has Full control and could cast Storm Spark, so Alice's pass in her main phase gives him a pause: by the Stack \"Precombat main: you may act\" with a violet bar emptying over his response time, an eye to hide the panel, Hold and Pass.")
+            "Bob has Full control and could cast Storm Spark, so Alice's pass in her main phase gives him a pause: docked full width above his hand \"Precombat main: you may act\" with a violet bar emptying over his response time, the eye at the bottom left, Hold and Pass at the right.")
     }
 
     // SYS-071 (I-D41): the device's Full control goes into a game Automatum is on in when the game's value differs

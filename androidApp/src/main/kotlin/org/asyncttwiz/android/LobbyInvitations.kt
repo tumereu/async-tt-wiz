@@ -5,7 +5,8 @@ import org.asyncttwiz.protocol.*
 import java.util.UUID
 import java.util.concurrent.ExecutorService
 
-data class GameNameDraft(val recipient: AccountIdentity, val name: String)
+/** [automatum]: the new game starts with Automatum on (I-D44, on by default). */
+data class GameNameDraft(val recipient: AccountIdentity, val name: String, val automatum: Boolean = true)
 
 /** LobbyController's invitations: naming and creating a new game with a contact, challenging from a
  * pod, and answering or repeating an invitation. Main thread; requests run on [worker]. */
@@ -39,9 +40,10 @@ internal class LobbyInvitations(private val scope: LobbyScope, private val api: 
         if (closed || state.mutating || state.contacts.none { it.accountId == contact.accountId }) return
         val pending = pendingCreate
         state = state.copy(draft = if (pending == null) GameNameDraft(contact, suggest())
-            else GameNameDraft(pendingRecipient!!, pending.gameName), uncertain = pending != null, error = null)
+            else GameNameDraft(pendingRecipient!!, pending.gameName, pending.automatum), uncertain = pending != null, error = null)
     }
     fun name(value: String) { if (!state.mutating && pendingCreate == null) state = state.copy(draft = state.draft?.copy(name = value), error = null) }
+    fun automatum(on: Boolean) { if (!state.mutating && pendingCreate == null) state = state.copy(draft = state.draft?.copy(automatum = on)) }
     fun reroll() { if (!state.mutating && pendingCreate == null) name(suggest()) }
     fun dismiss() { if (!state.mutating) state = state.copy(draft = null, error = null) }
     fun create() {
@@ -49,7 +51,8 @@ internal class LobbyInvitations(private val scope: LobbyScope, private val api: 
         val draft = state.draft ?: return
         if (!LobbyValidation.name(draft.name)) { state = state.copy(error = "Enter a game name."); return }
         val token = credential() ?: return
-        val input = pendingCreate ?: CreateInvitation(UUID.randomUUID().toString(), draft.recipient.accountId, draft.name)
+        val input = pendingCreate ?: CreateInvitation(UUID.randomUUID().toString(), draft.recipient.accountId, draft.name,
+            automatum = draft.automatum)
         pendingCreate = input; pendingRecipient = draft.recipient
         val generation = epoch
         state = state.copy(mutating = true, error = null)
@@ -95,7 +98,9 @@ internal class LobbyInvitations(private val scope: LobbyScope, private val api: 
             var captured = previous
             val result = runCatching { runBlocking {
                 val request = captured ?: resolve().let { definitions ->
-                    PodChallenge(podId, ChallengeFromPod(UUID.randomUUID().toString(), opponentId, gameName, definitions),
+                    // I-D44: a pod challenge has no dialog; it starts with Automatum on like a new game by default
+                    PodChallenge(podId, ChallengeFromPod(UUID.randomUUID().toString(), opponentId, gameName, definitions,
+                        automatum = true),
                         SubmitDefinitions(UUID.randomUUID().toString(), definitions))
                 }.also { captured = it }
                 serviceRetry(current = { generation == epoch }) { decks.submit(token, request.submission) }

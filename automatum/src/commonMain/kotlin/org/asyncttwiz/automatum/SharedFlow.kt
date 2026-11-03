@@ -59,8 +59,11 @@ class SharedFlow(
     val priority: String? get() = state.takeIf { it.pending == null && it.stack.isNotEmpty() && it.result == null }
         ?.priority?.holder?.value
 
-    /** Who holds priority now with nothing to decide (an empty Stack too), or null. */
-    val holder: String? get() = state.takeIf { it.pending == null && it.result == null }?.priority?.holder?.value
+    /** Who holds priority now with nothing to decide (an empty Stack too), or null. In an untap step nobody holds it
+     * (CR 502.4): the active player is the one whose pass ends the step there ([HostPriority.resting]; the first turn
+     * begins after the opening). */
+    val holder: String? get() = state.takeIf { it.pending == null && it.result == null }?.let { s ->
+        s.priority.holder?.value ?: s.turn.active.value.takeIf { HostPriority.resting(s) } }
 
     /** The player who declares attackers or blockers now (CR 508.1, 509.1): nobody holds priority until they do; null
      * when no declaration is awaited. */
@@ -104,10 +107,28 @@ class SharedFlow(
      * Answers the open decision, then the automatic passes.
      * @throws IllegalArgumentException when the engine refuses [answer] (nothing changes).
      */
-    fun answer(answer: Answer): EngineCall {
+    fun answer(answer: Answer): EngineCall = answer(answer, emptyList())
+
+    /**
+     * Answers the open decision and then the orders that follow from the same choice ([then], I-D48), then the automatic
+     * passes. While the engine next asks the same player to put all the offered cards of the same source in order (a
+     * [Decision.ChooseObjects] of all its options, as scry's "Order on top" and "Order on the bottom" after "Put on the
+     * bottom", CR 701.22), the order in [then] of exactly those cards answers it in the same call. An order the engine
+     * doesn't ask (one card) is left out; whatever is still asked stays open.
+     * @throws IllegalArgumentException when the engine refuses [answer] (nothing changes).
+     */
+    fun answer(answer: Answer, then: List<Answer.Objects>): EngineCall {
         val open = requireNotNull(decision) { "Nothing to answer" }
         return call().apply {
             perform(Input.Answer(open.id, answer))
+            val left = then.toMutableList()
+            while (left.isNotEmpty()) {
+                val next = pending?.decision as? Decision.ChooseObjects ?: break
+                if (next.player != open.player || next.source != open.source || next.min != next.options.size) break
+                val order = left.firstOrNull { it.chosen.size == next.options.size && it.chosen.toSet() == next.options.toSet() } ?: break
+                left.remove(order)
+                perform(Input.Answer(next.id, order))
+            }
             StepFlow.automatic(this)
         }
     }

@@ -85,9 +85,11 @@ class AutomatumControlsScreenshotTest {
 
     private val sent = mutableListOf<Pair<GameAction.PlayBatch, String>>()
     private val manual = mutableListOf<PlayAction>()
-    private fun render(play: PlayState): TableToolkitController {
+    /** [batches]: ordinary batches are sent too (recorded in [manual]). */
+    private fun render(play: PlayState, batches: Boolean = false): TableToolkitController {
         AutomatumBoards.compute(play, f.a)
         val toolkit = TableToolkitController(f.a, { play }, { true }, { action, _ -> manual += action; true },
+            playBatch = if (batches) { actions, _ -> manual += actions; true } else null,
             automatedBatch = { batch, request -> sent += batch to request; true })
         compose.setContent {
             MaterialTheme {
@@ -112,33 +114,32 @@ class AutomatumControlsScreenshotTest {
         return assertNotNull(tree.stateAt(tree.currentNodeId))
     }
 
-    // TBL-115, TBL-116, I-D28: a battlefield card's menu lists its abilities with their text, the one Automatum doesn't
-    // allow greyed with the reason on tap; today's actions are behind "Manual…", greyed while Automatum is on
-    @Test fun battlefieldMenuShowsAbilitiesAndManual() {
+    // TBL-115, TBL-116, I-D28, I-D46: a battlefield card's menu lists its abilities with their text, the one Automatum
+    // doesn't allow greyed: a tap on it shakes it without a message, holding it says why; no "Manual…" and no manual cells
+    @Test fun battlefieldMenuShowsAbilitiesOnly() {
         val play = board(lands = 2)
         val toolkit = render(play)
         compose.runOnIdle { toolkit.openCard(TableScope(druidId, listOf(druidId))) }
         compose.waitForIdle()
         compose.onNodeWithContentDescription("{T}: Add {G}.").assertIsEnabled()
         compose.onNodeWithContentDescription("{2}{G}, {T}: Draw a card.").assertIsNotEnabled()
-        compose.onNodeWithContentDescription(CardRingPages.MANUAL).assertIsNotEnabled()
+        compose.onNodeWithContentDescription(MANUAL).assertDoesNotExist()
         compose.onNodeWithContentDescription("Graveyard").assertDoesNotExist()
         captureShot("$SCREENSHOTS/automatum/menu-abilities.png",
-            "With Automatum on, tapping Grovewatch Druid with two untapped Forests opens its menu with its abilities as rows: \"{T}: Add {G}.\" enabled and \"{2}{G}, {T}: Draw a card.\" greyed, then Inspect, Other side, Note, Ping, Declare, Link, Unlink and a greyed \"Manual…\".")
+            "With Automatum on, tapping Grovewatch Druid with two untapped Forests opens its menu with its abilities as rows: \"{T}: Add {G}.\" enabled and \"{2}{G}, {T}: Draw a card.\" greyed, then only Inspect, Other side, Note, Ping, Declare, Link and Unlink.")
         compose.ringClick("{2}{G}, {T}: Draw a card.")
-        compose.runOnIdle {
-            assertEquals("Grovewatch Druid: Automatum doesn't allow that now (a cost it can't pay, or nothing to target).", toolkit.error)
-        }
-        compose.ringClick(CardRingPages.MANUAL)
+        compose.runOnIdle { assertNull(toolkit.error, "a refused row only shakes") }
+        compose.mainClock.advanceTimeBy(350)
+        compose.onNodeWithContentDescription("{2}{G}, {T}: Draw a card.").performTouchInput { advanceEventTime(350); longClick() }
         compose.waitForIdle()
-        compose.runOnIdle { assertEquals(AutomatumDrags.MANUAL, toolkit.error) }
-        captureShot("$SCREENSHOTS/automatum/menu-manual-refused.png",
-            "Tapping the greyed \"Manual…\" in Grovewatch Druid's menu shows why at the bottom of the table: with Automatum on the game changes only by the rules; switch Automatum off to change it by hand.")
+        compose.onNodeWithText("Grovewatch Druid: Automatum doesn't allow that now (a cost it can't pay, or nothing to target).").assertExists()
+        captureShot("$SCREENSHOTS/automatum/menu-refused-reason.png",
+            "Holding the greyed \"{2}{G}, {T}: Draw a card.\" row in Grovewatch Druid's menu shows why above it: Automatum doesn't allow that now (a cost it can't pay, or nothing to target).")
         assertTrue(sent.isEmpty() && manual.isEmpty())
     }
 
-    // TBL-115, CR 602.2, 605.3a: activating from the menu goes through the cast panel ("Activate") and out as one batch
-    // that the server takes; a mana ability adds its mana at once
+    // TBL-115, STK-024, CR 602.2, 605.3a: activating from the menu goes out as one batch that the server takes, paid by
+    // Autotap without a panel (nothing to choose, I-D47); a mana ability adds its mana at once
     @Test fun activatingFromTheMenu() {
         val play = board(lands = 3)
         val toolkit = render(play)
@@ -146,10 +147,7 @@ class AutomatumControlsScreenshotTest {
         compose.waitForIdle()
         compose.ringClick("{2}{G}, {T}: Draw a card.")
         compose.waitForIdle()
-        compose.onNodeWithContentDescription("Cast panel").assertExists()
-        compose.onNodeWithText("Mana · {2}{G}").assertExists()
-        compose.onNode(hasText("Activate") and hasClickAction()).performClick()
-        compose.waitForIdle()
+        compose.onNodeWithContentDescription("Cast panel").assertDoesNotExist()
         assertNull(toolkit.cast.flow)
         val (batch, request) = sent.single()
         val after = accepted(play, batch, request)
@@ -164,7 +162,7 @@ class AutomatumControlsScreenshotTest {
         assertEquals(listOf("G"), accepted(play, mana, manaRequest).board.players.single { it.accountId == f.a }.manaPool.map { it.color })
     }
 
-    // ZON-007, TBL-115: a hand card's menu is its casts as rows, Inspect and "Manual…"
+    // ZON-007, TBL-115, I-D46: a hand card's menu is its casts as rows and Inspect
     @Test fun handMenuShowsCast() {
         val play = board(lands = 0).let { p -> p.copy(board = p.board.copy(cards = p.board.cards.map {
             if (it.definition == mountain.submitted.digest) it.copy(tapped = false) else it })) }
@@ -172,10 +170,10 @@ class AutomatumControlsScreenshotTest {
         compose.runOnIdle { toolkit.openCard(TableScope(sparkId, listOf(sparkId))) }
         compose.waitForIdle()
         compose.onNodeWithContentDescription("Cast").assertIsEnabled()
-        compose.onNodeWithContentDescription(CardRingPages.MANUAL).assertIsNotEnabled()
+        compose.onNodeWithContentDescription(MANUAL).assertDoesNotExist()
         compose.onNodeWithContentDescription("Discard").assertDoesNotExist()
         captureShot("$SCREENSHOTS/automatum/menu-hand.png",
-            "With Automatum on and Mountains untapped, Storm Spark's hand menu shows Automatum's \"Cast\" as a row above Inspect and a greyed \"Manual…\".")
+            "With Automatum on and Mountains untapped, Storm Spark's hand menu shows Automatum's \"Cast\" as a row above Inspect, its only cell.")
     }
 
     // SYS-069, TRN-031, I-D28: manual changes are refused with the reason; what has no game effect still goes through
@@ -195,18 +193,40 @@ class AutomatumControlsScreenshotTest {
         }
     }
 
-    // TRN-059: quick actions that change the game by hand stay in place, greyed with the reason; moving the turn stays
-    @Test fun manualQuickActionsGreyed() {
+    // TRN-059, I-D46: with Automatum on the quick-actions row is the viewer's Automatum toggles, on either player's turn;
+    // no manual quick action (the draws, Skip combat) is there
+    @Test fun quickActionsAreAutomatumToggles() {
         val drawStep = board(lands = 2).let { p -> p.copy(board = p.board.copy(turn = p.board.turn.copy(
             phase = TurnPosition.DRAW.phase, step = TurnPosition.DRAW.step))) }
-        val toolkit = TableToolkitController(f.a, { drawStep }, { true }, { _, _ -> true })
-        val actions = QuickActions.contextual(drawStep, QuickContext(viewer = f.a), toolkit.table)
-        val draw = actions.single { it.name == "Draw one" }
-        assertFalse(draw.enabled)
-        assertEquals(AutomatumDrags.MANUAL, draw.refused)
-        val main = board(lands = 2)
-        val offered = QuickActions.contextual(main, QuickContext(viewer = f.a), TableToolkitController(f.a, { main }, { true }, { _, _ -> true }).table)
-        assertTrue(offered.single { it.name == "Skip combat" }.enabled, "moving the turn goes through Automatum")
+        assertTrue(AutomatumToggles.shown(drawStep, QuickContext(viewer = f.a)))
+        assertTrue(AutomatumToggles.shown(drawStep, QuickContext(viewer = f.b)), "also on the other player's turn")
+        assertFalse(AutomatumToggles.shown(board(lands = 2, automatum = false), QuickContext(viewer = f.a)))
+        render(drawStep)
+        compose.onNodeWithContentDescription(AutomatumToggles.FULL_CONTROL).assertIsDisplayed()
+        compose.onNodeWithContentDescription(AutomatumToggles.SKIP).assertIsDisplayed()
+        compose.onNodeWithContentDescription(AutomatumToggles.AUTOTAP).assertIsDisplayed()
+        compose.onNodeWithContentDescription("Draw one").assertDoesNotExist()
+        captureShot("$SCREENSHOTS/automatum/quick-toggles.png",
+            "With Automatum on, Alice's quick-actions row in her draw step is three toggles, Full control (off), Skip if no choice (on) and Autotap mana (on), beside the step arrow; there are no manual quick actions.")
+    }
+
+    // I-D46 (c), SYS-063, SYS-071, I-D47: the toggles change Skip when I have no choice in the game, Full control and
+    // Autotap mana on the device; holding one says what it does
+    @Test fun togglesChangeTheSettings() {
+        val play = board(lands = 2)
+        render(play)
+        compose.onNodeWithContentDescription(AutomatumToggles.SKIP).performClick()
+        compose.waitForIdle()
+        assertEquals(listOf<PlayAction>(PlayAction.Mtg(MtgAction.SetSkipWhenNoChoice(false))), manual)
+        compose.onNodeWithContentDescription(AutomatumToggles.AUTOTAP).performClick()
+        compose.onNodeWithContentDescription(AutomatumToggles.FULL_CONTROL).performClick()
+        compose.waitForIdle()
+        val context = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
+        assertFalse(PausePreferences(context, f.a).settings.autotap, "the cast's own setting")
+        assertTrue(PausePreferences(context, f.a).settings.fullControl)
+        compose.onNodeWithContentDescription(AutomatumToggles.AUTOTAP).performTouchInput { longClick() }
+        compose.waitForIdle()
+        compose.onNodeWithText("Autotap mana sources: casting pays by itself, with mana in your pool first").assertExists()
     }
 
     // ZON-078, CR 305.1, 401.5 (final cast review #8): with a Seer of Harvestide-like card, the Library menu offers the
@@ -235,9 +255,9 @@ class AutomatumControlsScreenshotTest {
         compose.runOnIdle { toolkit.open(TableIntent.Actions(pile.id, null), pile, TableSelection()) }
         compose.waitForIdle()
         compose.onNodeWithContentDescription("Play · Forest").assertIsEnabled()
-        compose.onNodeWithContentDescription(CardRingPages.MANUAL).assertIsNotEnabled()
+        compose.onNodeWithContentDescription(MANUAL).assertDoesNotExist()
         captureShot("$SCREENSHOTS/automatum/menu-library-top.png",
-            "With Automatum on and a Furrow Seer (\"You may play lands from the top of your library\") on Alice's battlefield, tapping her Library opens its menu with Automatum's \"Play · Forest\" row for the top card above a greyed \"Manual…\".")
+            "With Automatum on and a Furrow Seer (\"You may play lands from the top of your library\") on Alice's battlefield, tapping her Library opens its menu with only Automatum's \"Play · Forest\" row for the top card.")
         compose.ringClick("Play · Forest")
         compose.waitForIdle()
         val (batch, request) = sent.single()
@@ -245,22 +265,146 @@ class AutomatumControlsScreenshotTest {
         assertEquals(field, after.board.cards.single { it.id == top }.containerId, "the Forest was played from the top")
     }
 
-    // ZON-078: without anything the engine offers for the top card, the Library menu stays "Manual…" alone
-    @Test fun libraryMenuWithoutTopCardPlays() {
-        val toolkit = render(board(lands = 0))
-        compose.runOnIdle { toolkit.openLibrary(f.id("a/LIBRARY")) }
+    // ZON-078, I-D46: without anything the engine offers for the top card, tapping the Library opens no menu: it shakes
+    @Test fun libraryWithoutTopCardPlaysShakes() {
+        val play = board(lands = 0)
+        val toolkit = render(play)
+        val library = f.id("a/LIBRARY")
+        val pile = TablePresentation.scene(f.game, play, f.a, 412f, 892f, false).items.first { it.zone == PlayZone.LIBRARY && it.id == library }
+        compose.runOnIdle { toolkit.open(TableIntent.Actions(pile.id, null), pile, TableSelection()) }
         compose.waitForIdle()
-        compose.onNodeWithContentDescription(CardRingPages.MANUAL).assertIsNotEnabled()
-        compose.onAllNodes(hasContentDescription("Play", substring = true)).assertCountEquals(0)
+        compose.runOnIdle {
+            assertNull(toolkit.panel)
+            assertEquals(library, toolkit.shaking?.id)
+            assertNull(toolkit.error)
+        }
     }
 
-    // TBL-116: with Automatum off the menus are exactly as before: no "Manual…", today's pages
+    // TBL-116: with Automatum off the menus are exactly as before: no engine rows, today's pages
     @Test fun automatumOffKeepsTodaysMenu() {
         val play = board(lands = 2, automatum = false)
         val toolkit = render(play)
         compose.runOnIdle { toolkit.openCard(TableScope(druidId, listOf(druidId))) }
         compose.waitForIdle()
-        compose.onNodeWithContentDescription(CardRingPages.MANUAL).assertDoesNotExist()
+        compose.onNodeWithContentDescription(MANUAL).assertDoesNotExist()
         compose.onNodeWithContentDescription("{T}: Add {G}.").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Graveyard").assertExists()
     }
+
+    // TBL-117, I-D46 (a): the viewer's cards Automatum lets them use now glow: Storm Spark with Mountains untapped and the
+    // Druid (its draw ability); lands with only their mana abilities don't; nothing of the other player's, nothing while
+    // Automatum is off
+    @Test fun playableCardsGlow() {
+        val play = board(lands = 1).let { p -> p.copy(board = p.board.copy(cards = p.board.cards.map {
+            if (it.definition == mountain.submitted.digest) it.copy(tapped = false) else it })) }
+        val toolkit = render(play)
+        val playable = compose.runOnIdle { toolkit.playable(play) }
+        assertTrue(druidId in playable && sparkId in playable, playable.toString())
+        assertFalse(forests[0] in playable, "a mana ability alone doesn't glow")
+        assertTrue(playable.none { id -> play.board.cards.single { it.id == id }.definition == mountain.submitted.digest })
+        assertTrue(playable.none { id -> play.board.cards.single { it.id == id }.owner != f.a }, "only the viewer's own cards")
+        captureShot("$SCREENSHOTS/automatum/playable-glow.png",
+            "With Automatum on in Alice's main phase, her cards she can use now glow softly in cyan from behind: Storm Spark in her hand and Grovewatch Druid (its draw ability); her Forest and untapped Mountains, which offer only mana, don't.")
+        val off = board(lands = 1, automatum = false)
+        assertTrue(TableToolkitController(f.a, { off }, { true }, { _, _ -> true }).playable(off).isEmpty())
+    }
+
+    // I-D46 (b), ZON-004, ZON-077: a double-tap or drag Automatum doesn't allow shakes the card instead of a message, and
+    // Inspect says why; a battlefield card's double-tap (tapping by hand) and a life drag shake too
+    @Test fun refusedGesturesShake() {
+        val play = board(lands = 2)
+        val toolkit = render(play)
+        compose.runOnIdle {
+            toolkit.playable(play)
+            val hand = TablePresentation.scene(f.game, play, f.a, 412f, 892f, false).items
+                .first { it.kind == TableItemKind.CARD && it.cardId == sparkId }
+            assertFalse(toolkit.handle(TableIntent.Move(TableScope(sparkId, listOf(sparkId)),
+                assertNotNull(handDoubleTapDestination(TablePresentation.scene(f.game, play, f.a, 412f, 892f, false), hand)),
+                handDoubleTap = true)))
+            assertEquals(sparkId, toolkit.shaking?.id)
+            assertNull(toolkit.error)
+            // A tapped Mountain (no mana ability Automatum allows now, TBL-043): untapping it by hand shakes it
+            val tappedMountain = play.board.cards.first { it.definition == mountain.submitted.digest && it.tapped }.id
+            assertFalse(toolkit.handle(TableIntent.Rotate(TableScope(tappedMountain, listOf(tappedMountain)), false, toggle = true)))
+            assertEquals(tappedMountain, toolkit.shaking?.id)
+            assertFalse(toolkit.handle(TableIntent.PlayerDelta(f.a, null, -1)))
+            assertEquals("life/${f.a}", toolkit.shaking?.id)
+            assertFalse(toolkit.handle(TableIntent.Move(TableScope(druidId, listOf(druidId)),
+                TableDestination.Container(f.id("a/GRAVEYARD"), PlayZone.GRAVEYARD), drag = true)))
+            assertEquals(druidId, toolkit.shaking?.id)
+            assertNull(toolkit.error)
+            assertTrue(manual.isEmpty() && sent.isEmpty())
+            assertEquals(listOf("Cast — Storm Spark can't be cast now."), automatumReasons(play, f.a, sparkId, emptyMap()))
+        }
+        compose.runOnIdle { toolkit.inspect(sparkId) }
+        compose.waitForIdle()
+        compose.onNodeWithText("Cast — Storm Spark can't be cast now.", substring = true).assertExists()
+        captureShot("$SCREENSHOTS/automatum/inspect-reason.png",
+            "With every Mountain tapped, double-tapping Storm Spark only shakes it; inspecting it shows why under the card: \"Cast — Storm Spark can't be cast now.\"")
+    }
+
+    // TRN-010, I-D46: with Automatum on the Table actions have no combat area or token entries
+    @Test fun tableActionsWithoutManualEntries() {
+        val toolkit = render(board(lands = 2))
+        compose.runOnIdle { toolkit.tableMenu() }
+        compose.waitForIdle()
+        compose.onNodeWithContentDescription("Create token").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Create combat area").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Flip coin").assertExists()
+    }
+
+    // STK-035, I-D46: with Automatum on the Stack bubbles are only the Mark text handle and Manage Stack only Note and
+    // Ping; with it off all are there
+    @Test fun stackOffersNoManualMoves() {
+        val off = f.combat()
+        val on = off.copy(board = off.board.copy(automatum = true))
+        val entry = f.id("effect")
+        fun bubbles(play: PlayState) = assertNotNull(TablePresentation.stackBubbles(
+            TablePresentation.scene(f.game, play, f.a, 412f, 892f, false), play, entry, 412f, 892f)).controls.map { it.id.substringAfter('/') }
+        assertEquals(listOf("mark"), bubbles(on))
+        assertEquals(listOf("battlefield", "graveyard", "remove", "exile", "mark"), bubbles(off))
+        assertEquals(listOf("Edit note", "Ping / Unping"), StackMenuActions.controls(on, entry, true, {}, {}, {}).map { it.name })
+        assertEquals(7, StackMenuActions.controls(off, entry, true, {}, {}, {}).size)
+    }
+
+    // TRN-062, TRN-059, I-D49, I-D48: during Alice's opening with Automatum on her quick actions are Mulligan and Keep (icon
+    // and text) and her hand cards' menu has no bottom; after two mulligans Keep opens the Keep / Bottom screen: OK only
+    // with one card in Bottom, then that card goes to the bottom of her library and she is Ready, in one batch
+    @Test fun openingMulliganKeepAndBottom() {
+        val base = board(lands = 2)
+        val play = base.copy(board = base.board.copy(turn = base.board.turn.copy(number = "1"), priority = null,
+            players = base.board.players.map { it.copy(status = PlayerStatus.OPENING, mulligans = if (it.accountId == f.a) 2 else 0) }))
+        val toolkit = render(play, batches = true)
+        compose.onNodeWithContentDescription(QuickActions.MULLIGAN).assertIsEnabled()
+        compose.onNodeWithContentDescription(QuickActions.KEEP).assertIsEnabled()
+        compose.onNodeWithContentDescription("Mull N").assertDoesNotExist()
+        compose.onNodeWithContentDescription(AutomatumToggles.FULL_CONTROL).assertDoesNotExist()
+        captureShot("$SCREENSHOTS/automatum/opening-quick-actions.png",
+            "During Alice's opening in a game with Automatum on, her quick-actions row is Mulligan and Keep, each an icon with its name, beside the step arrow.")
+        compose.runOnIdle { toolkit.openCard(TableScope(sparkId, listOf(sparkId))) }
+        compose.waitForIdle()
+        compose.onNodeWithContentDescription("Library bottom").assertDoesNotExist()
+        compose.runOnIdle { toolkit.dismiss() }
+        compose.onNodeWithContentDescription(QuickActions.KEEP).performClick()
+        compose.waitForIdle()
+        compose.onNodeWithText(AutomatumOpening.title(1)).assertIsDisplayed()
+        val ok = hasText("OK") and hasClickAction()
+        compose.onNode(ok).assertIsNotEnabled()
+        compose.onNode(hasContentDescription("Storm Spark") and hasAnyAncestor(hasContentDescription("Keep area"))).performClick()
+        compose.waitForIdle()
+        compose.onNode(hasContentDescription("Storm Spark") and hasAnyAncestor(hasContentDescription("Bottom area"))).assertExists()
+        compose.onNode(ok).assertIsEnabled()
+        captureShot("$SCREENSHOTS/automatum/opening-keep-bottom.png",
+            "After two mulligans Alice tapped Keep: the panel above her hand reads \"Mulligan · put 1 on the bottom\", her other hand cards are in Keep, Storm Spark (tapped once) is in Bottom, and OK is enabled.")
+        assertTrue(manual.isEmpty(), "nothing is sent before OK")
+        compose.onNode(ok).performClick()
+        compose.waitForIdle()
+        val move = manual.filterIsInstance<PlayAction.MoveCard>().single()
+        assertEquals(sparkId, move.cardId)
+        assertEquals(MoveInsertion.BOTTOM, move.destination.insertion)
+        assertEquals(PlayAction.SetStatus(""), manual.last())
+        compose.runOnIdle { assertFalse(toolkit.keeping) }
+    }
+
+    private companion object { const val MANUAL = "Manual…" }
 }

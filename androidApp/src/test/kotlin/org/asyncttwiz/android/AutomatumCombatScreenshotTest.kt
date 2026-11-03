@@ -193,12 +193,13 @@ class AutomatumCombatScreenshotTest {
         assertTrue(alice.handle(TableIntent.Move(TableScope(land, listOf(land)), TableDestination.Grid(aField, 2, 0), drag = true)), alice.error)
         assertEquals(PlayZone.BATTLEFIELD, zone(land), "played through Automatum")
         assertTrue(play.board.engineRecords.any { it.id == "turn" }, "counted as the turn's land play")
-        // A card moved by hand out of its zone, life dragged: refused with the reason
+        // A card moved by hand out of its zone, life dragged: refused, shaking what was dragged (I-D46)
         assertFalse(alice.handle(TableIntent.Move(TableScope(fieldLand, listOf(fieldLand)),
             TableDestination.Container(f.id("a/GRAVEYARD"), PlayZone.GRAVEYARD), drag = true)))
-        assertEquals(AutomatumDrags.MANUAL_MOVE, alice.error)
+        assertEquals(fieldLand, alice.shaking?.id)
         assertFalse(alice.handle(TableIntent.PlayerDelta(f.b, null, -2)))
-        assertEquals(AutomatumDrags.LIFE, alice.error)
+        assertEquals("life/${f.b}", alice.shaking?.id)
+        assertNull(alice.error)
         // Within its own Battlefield a card only changes place
         assertTrue(alice.handle(TableIntent.Move(TableScope(fieldLand, listOf(fieldLand)), TableDestination.Grid(aField, 5, 1), drag = true)))
         assertEquals(PlayZone.BATTLEFIELD, zone(fieldLand))
@@ -286,13 +287,13 @@ class AutomatumCombatScreenshotTest {
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi")
     fun attackersAreStagedByTapsThenCommittedLandscape() { landscape = true; stagingFlow("combat-staging-landscape") } // CMB-028
 
-    // CMB-028, TRN-020: with Automatum on, Main 1 offers Attack, which goes on to Declare attackers through Automatum
-    @Test fun mainPhaseAttackGoesToDeclareAttackers() {
+    // CMB-028, TRN-020, TRN-059: with Automatum on, Main 1 has no Attack quick action (the row is Automatum's toggles):
+    // Next step goes on to Declare attackers through Automatum, where taps stage attackers
+    @Test fun mainPhaseNextStepGoesToDeclareAttackers() {
         start(board(TurnPosition.PRECOMBAT_MAIN, MtgPriority(f.a), aliceField = listOf(brute), bobField = listOf(ogre)))
         val alice = toolkit(f.a)
-        val attack = QuickActions.contextual(play, toolkitQuickContext(play, TableSelection(), f.a), alice.table)
-            .single { it.name == "Attack" }
-        assertTrue(alice.perform(attack.intent), alice.error)
+        assertTrue(AutomatumToggles.shown(play, toolkitQuickContext(play, TableSelection(), f.a)))
+        assertTrue(alice.perform(TableActionIntent.Next(TableActionScope(play.gameId, play.id))), alice.error)
         assertEquals(TurnPosition.DECLARE_ATTACKERS, TurnPosition.of(play.board.turn))
         assertEquals(TableMode.NORMAL, alice.selectionState.value.mode, "taps stage; no selection mode")
     }
@@ -468,15 +469,15 @@ class AutomatumCombatScreenshotTest {
         compose.onNodeWithContentDescription("Free").performClick()
         compose.waitForIdle()
         // 1 past the blockers while the Ogre lacks lethal damage: refused
-        compose.onAllNodesWithText("−")[1].performClick()
-        compose.onAllNodesWithText("+")[2].performClick()
+        compose.onAllNodesWithContentDescription("One less")[1].performClick()
+        compose.onAllNodesWithContentDescription("One more")[2].performClick()
         compose.waitForIdle()
         compose.onNodeWithText("With trample every blocker needs lethal damage before any goes past it.").assertExists()
         compose.onNodeWithText("OK").assertIsNotEnabled()
         captureShot("$SCREENSHOTS/automatum/combat-division-free.png",
             "The same division switched to Free: Alice took 1 from the Ogre and gave it to Bob, so OK is greyed and the line under the rows says every blocker needs lethal damage before any goes past it (trample).")
-        compose.onAllNodesWithText("+")[1].performClick()
-        compose.onAllNodesWithText("−")[2].performClick()
+        compose.onAllNodesWithContentDescription("One more")[1].performClick()
+        compose.onAllNodesWithContentDescription("One less")[2].performClick()
         compose.waitForIdle()
         val life = life(f.b)
         compose.onNodeWithText("OK").performClick()
@@ -575,10 +576,12 @@ class AutomatumCombatScreenshotTest {
         fun scene(viewer: String) = TablePresentation.scene(f.game, play, viewer, 412f, 892f, false)
         assertTrue(alice.cast.start(card(play, spark, aHand)))
         tap(alice, scene(f.a).items.first { it.id == "life/${f.b}" })
-        assertTrue(alice.cast.cast(), alice.error)
+        // I-D47: Autotap (on) sends the cast once its last choice is made; only a cast still open waits for Cast
+        if (alice.cast.open) assertTrue(alice.cast.cast(), alice.error)
         assertTrue(bob.cast.start(card(play, spark, bHand)), bob.error)
         tap(bob, scene(f.b).items.first { it.id == "life/${f.a}" })
-        assertTrue(bob.cast.cast(), bob.error)
+        // I-D47: Autotap (on) sends the cast once its last choice is made; only a cast still open waits for Cast
+        if (bob.cast.open) assertTrue(bob.cast.cast(), bob.error)
         val stack = play.board.containers.single { it.zone == PlayZone.STACK }
         assertEquals(2, stack.cards.size)
         val below = stack.cards[1]

@@ -21,10 +21,12 @@ import kotlin.math.roundToLong
  * Proceed at once (true) or Wait (false); [fullControl]: pauses where the player usually wouldn't respond too (SYS-071),
  * copied into each game Automatum plays, since the other player's device follows it; [fullControlChanged]: when it was
  * last changed on this device (0: never; a value set before this was kept counts as 1), so it goes into a game only after
- * a change ([FullControlSync], #5).
+ * a change ([FullControlSync], #5). [autotap]: "Autotap mana sources" (I-D47, on by default): a cast is paid with
+ * Automatum's suggested tapping (mana in the pool first) and the cast panel has no mana selection; this device's own,
+ * for the quick actions to bind too ([PausePreferences.settings]).
  */
 internal data class PauseSettings(val responseMillis: Long = DEFAULT_RESPONSE_MILLIS, val proceedAtOnce: Boolean = false,
-    val fullControl: Boolean = false, val fullControlChanged: Long = if (fullControl) 1L else 0L) {
+    val fullControl: Boolean = false, val fullControlChanged: Long = if (fullControl) 1L else 0L, val autotap: Boolean = true) {
     companion object {
         const val DEFAULT_RESPONSE_MILLIS = 2_000L
         const val MIN_RESPONSE_MILLIS = 1_000L
@@ -59,19 +61,21 @@ internal class PausePreferences(context: Context, private val accountId: String)
     private val proceedKey = "proceed/$accountId"
     private val fullControlKey = "full-control/$accountId"
     private val fullControlChangedKey = "full-control-changed/$accountId"
-    private val keys = setOf(responseKey, proceedKey, fullControlKey, fullControlChangedKey)
+    private val autotapKey = "autotap/$accountId"
+    private val keys = setOf(responseKey, proceedKey, fullControlKey, fullControlChangedKey, autotapKey)
 
     var settings: PauseSettings
         get() = preferences.getBoolean(fullControlKey, false).let { fullControl ->
             PauseSettings(preferences.getLong(responseKey, PauseSettings.DEFAULT_RESPONSE_MILLIS)
                 .coerceIn(PauseSettings.MIN_RESPONSE_MILLIS, PauseSettings.MAX_RESPONSE_MILLIS),
                 preferences.getBoolean(proceedKey, false), fullControl,
-                preferences.getLong(fullControlChangedKey, if (fullControl) 1L else 0L))
+                preferences.getLong(fullControlChangedKey, if (fullControl) 1L else 0L), preferences.getBoolean(autotapKey, true))
         }
         set(value) {
             preferences.edit().putLong(responseKey, value.responseMillis.coerceIn(PauseSettings.MIN_RESPONSE_MILLIS,
                 PauseSettings.MAX_RESPONSE_MILLIS)).putBoolean(proceedKey, value.proceedAtOnce)
-                .putBoolean(fullControlKey, value.fullControl).putLong(fullControlChangedKey, value.fullControlChanged).apply()
+                .putBoolean(fullControlKey, value.fullControl).putLong(fullControlChangedKey, value.fullControlChanged)
+                .putBoolean(autotapKey, value.autotap).apply()
         }
 
     override fun synced(gameId: String): Long = preferences.getLong("full-control-synced/$accountId/$gameId", 0L)
@@ -131,6 +135,14 @@ internal fun AutomatumPauseSettings(accountId: String) {
             SettingsLabel("Full control", "Also pause for your own spells and in every step in which you could act",
                 Modifier.weight(1f).padding(end = 12.dp, top = 4.dp, bottom = 4.dp))
             Switch(checked = settings.fullControl, onCheckedChange = null)
+        }
+        // I-D47 (also a quick-actions toggle, I-D46 (c)): casting taps the mana sources by itself (mana already in your pool first)
+        Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("autotap")
+            .toggleable(settings.autotap, role = Role.Switch, onValueChange = { preferences.settings = settings.copy(autotap = it) }),
+            verticalAlignment = Alignment.CenterVertically) {
+            SettingsLabel("Autotap mana sources", "Casting pays by itself, with mana in your pool first; off, you choose what to tap",
+                Modifier.weight(1f).padding(end = 12.dp, top = 4.dp, bottom = 4.dp))
+            Switch(checked = settings.autotap, onCheckedChange = null)
         }
     }
 }

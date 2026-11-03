@@ -31,17 +31,28 @@ internal object StackMenuActions {
         note: (() -> Unit)? = null, ping: (() -> Unit)? = null): List<MenuControl> {
         val effect = state.board.stackEffects.find { it.id == entryId }
         val movable = effect?.isCopy != true
-        // Automatum on (§3 I4, I-D28): Automatum resolves the Stack; its entries change only by the rules
+        // Automatum on (§3 I4, I-D28, I-D46): Automatum resolves the Stack; its entries change only by the rules, so the
+        // manual controls aren't offered (except while Automatum waits for something done by hand)
         val manual = AutomatumBoards.manualAllowed(state)
-        val refused = AutomatumDrags.STACK.takeIf { !manual }
-        return listOf(
-            MenuControl("Remove from Stack", enabled && manual && effect != null, refused = refused) { perform(TableIntent.Submit(remove(entryId), null)) },
-            MenuControl("Put to battlefield", enabled && manual && movable, refused = refused) { perform(TableIntent.StackDestination(entryId, PlayZone.BATTLEFIELD)) },
-            MenuControl("Put to graveyard", enabled && manual && movable, refused = refused) { perform(TableIntent.StackDestination(entryId, PlayZone.GRAVEYARD)) },
-            MenuControl("Copy", enabled && manual, refused = refused) { perform(TableIntent.Submit(copy(state, entryId), null)) },
-            MenuControl("Change controller", enabled && manual && effect != null, refused = refused) { perform(TableIntent.Submit(changeController(state, entryId), null)) },
-            MenuControl("Edit note", enabled && effect != null && note != null) { note?.invoke() },
+        return (if (!manual) emptyList() else listOf(
+            MenuControl("Remove from Stack", enabled && effect != null) { perform(TableIntent.Submit(remove(entryId), null)) },
+            MenuControl("Put to battlefield", enabled && movable) { perform(TableIntent.StackDestination(entryId, PlayZone.BATTLEFIELD)) },
+            MenuControl("Put to graveyard", enabled && movable) { perform(TableIntent.StackDestination(entryId, PlayZone.GRAVEYARD)) },
+            MenuControl("Copy", enabled) { perform(TableIntent.Submit(copy(state, entryId), null)) },
+            MenuControl("Change controller", enabled && effect != null) { perform(TableIntent.Submit(changeController(state, entryId), null)) })) +
+            listOf(MenuControl("Edit note", enabled && effect != null && note != null) { note?.invoke() },
             MenuControl("Ping / Unping", enabled && ping != null) { ping?.invoke() })
+    }
+
+    /** The icon of a Manage Stack control ([controls]). */
+    fun icon(name: String): androidx.compose.ui.graphics.vector.ImageVector = when (name) {
+        "Remove from Stack" -> androidx.compose.material.icons.Icons.Outlined.Close
+        "Put to battlefield" -> androidx.compose.material.icons.Icons.Outlined.TableRows
+        "Put to graveyard" -> androidx.compose.material.icons.Icons.Outlined.Inventory2
+        "Copy" -> androidx.compose.material.icons.Icons.Outlined.ContentCopy
+        "Change controller" -> androidx.compose.material.icons.Icons.Outlined.SwapHoriz
+        "Edit note" -> androidx.compose.material.icons.Icons.AutoMirrored.Outlined.StickyNote2
+        else -> androidx.compose.material.icons.Icons.Outlined.AdsClick
     }
     /** Pings the entry as its own occurrence, never its real card (STK-009). */
     fun ping(state: PlayState, entryId: String, annotations: TableMenuAnnotations): Boolean =
@@ -86,7 +97,8 @@ internal fun ManageStackDialog(state: PlayState, viewer: String, enabled: Boolea
     }
     // Wide enough for one row of seven 48 dp entry buttons.
     InlinePopupPanel(dismiss, title = if (targets != null) "Choose a target · ${targets.size}" else "Manage Stack · ${order.size}",
-        width = 384.dp, height = 520.dp, key = "manage-stack", sheet = true) {
+        // UI review #6: the target picker is as tall as its entries
+        width = 384.dp, height = if (targets != null) (96 + 72 * entries.size).coerceAtMost(520).dp else 520.dp, key = "manage-stack", sheet = true) {
         LazyColumn(Modifier.fillMaxWidth().heightIn(max = 440.dp).ringInputTarget(draggable = true), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             itemsIndexed(entries, key = { _, entry -> entry.cardId }) { index, entry ->
                 val id = entry.cardId
@@ -105,7 +117,10 @@ internal fun ManageStackDialog(state: PlayState, viewer: String, enabled: Boolea
                         val face = definition?.faces?.indexOfFirst { it.faceId == card?.faceId } ?: -1
                         val art = if (entry.faceVisible && definition != null && face >= 0)
                             InspectedCard.retained(requireNotNull(card).definition, definition).artwork[face] else null
-                        Box(Modifier.size(32.dp * size, 44.dp * size).cardFrame(card?.token == true, owner, projection)
+                        // UI review #6, I-D48: picking a target, the entry is drawn as a battlefield card
+                        if (targets != null) ChoiceCardFace(choiceCard(state, viewer, id, card?.id, entry.faceVisible, entry.name)
+                            .copy(own = controlled), small = true)
+                        else Box(Modifier.size(32.dp * size, 44.dp * size).cardFrame(card?.token == true, owner, projection)
                             .semantics { contentDescription = if (controlled) "Your Stack entry" else "Opponent Stack entry" },
                             contentAlignment = Alignment.Center) {
                             if (art != null) CardArtwork(art, entry.name, 64, 88, Modifier.fillMaxSize())
@@ -116,19 +131,11 @@ internal fun ManageStackDialog(state: PlayState, viewer: String, enabled: Boolea
                         StackMarkChips(state.board.stackTextMarks[id].orEmpty())
                     }
                     if (targets == null) Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        val icons = listOf(Icons.Outlined.Close, Icons.Outlined.TableRows, Icons.Outlined.Inventory2,
-                            Icons.Outlined.ContentCopy, Icons.Outlined.SwapHoriz, Icons.AutoMirrored.Outlined.StickyNote2,
-                            Icons.Outlined.AdsClick)
                         StackMenuActions.controls(state, id, enabled, perform, note = editNote?.let { { it(id) } },
-                            ping = annotations?.let { { StackMenuActions.ping(state, id, it) } }).forEachIndexed { action, control ->
-                            // A refused button stays greyed but says why on tap (I-D28)
-                            val refuse = LocalRefusal.current
-                            val reason = control.refused.takeIf { !control.enabled }
-                            FilledTonalIconButton(onClick = if (reason != null) { { refuse(reason) } } else control.click,
-                                enabled = control.enabled || reason != null,
-                                shape = androidx.compose.foundation.shape.RoundedCornerShape(6.dp), modifier = Modifier.size(48.dp).ringInputTarget()
-                                    .then(if (reason != null) Modifier.alpha(.38f) else Modifier)) {
-                                Icon(icons[action], control.name, Modifier.size(22.dp))
+                            ping = annotations?.let { { StackMenuActions.ping(state, id, it) } }).forEach { control ->
+                            FilledTonalIconButton(onClick = control.click, enabled = control.enabled,
+                                shape = androidx.compose.foundation.shape.RoundedCornerShape(6.dp), modifier = Modifier.size(48.dp).ringInputTarget()) {
+                                Icon(StackMenuActions.icon(control.name), control.name, Modifier.size(22.dp))
                             }
                         }
                     }

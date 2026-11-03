@@ -27,7 +27,7 @@ internal inline fun BoxWithConstraintsScope.TableControlsLayer(play: PlayState, 
                     .copy(automatumCombat = toolkit.combat.ready(play), pauseBar = toolkit.pause.barWithPass(play, accountId))
                     .withCombatTarget(toolkit.combat, play, scene.combatLabels.firstOrNull { it.cardId == null }?.label?.removePrefix("→ ")),
                     toolkit.table, endingColor,
-                    Modifier.fillMaxSize().padding(start = 60.dp, end = 8.dp), perform = toolkit::perform)
+                    Modifier.fillMaxSize().padding(start = 60.dp, end = 8.dp), perform = toolkit::perform, submit = { toolkit.submit(it) })
                 runtime.undo?.let { undo -> ActionSquare("Undo", "↶", runtime.controlsConnected ?: connected,
                     Modifier.align(Alignment.CenterStart).padding(start = 10.dp), holdName = if (runtime.redo != null) "Redo" else null,
                     onHold = runtime.redo?.let { redo -> { redo() } }, icon = { TableChromeIcon("undo") }, onClick = { undo() }) }
@@ -45,7 +45,8 @@ internal inline fun BoxWithConstraintsScope.TableControlsLayer(play: PlayState, 
     }
     FloatingTransientError(runtime.errorMessage ?: toolkit?.error ?: gestureError(),
         { if (runtime.errorMessage != null) runtime.dismissError?.invoke() else if (toolkit?.error != null) toolkit.dismissError() else clearGestureError() },
-        Modifier.align(Alignment.BottomCenter).padding(bottom = 64.dp))
+        // Above the own hand row (the mode button's top), clear of the own life square, hand and quick actions
+        Modifier.align(Alignment.BottomCenter).padding(bottom = scene.modeButton?.let { (maxHeight.value - it.y).coerceAtLeast(64f) }?.dp ?: 64.dp))
     // Screen-fixed personal control remains reachable; it does not compete over card hit regions.
     // Beside the own hand row's outer end; the hand row is shortened by its width.
     val modeButton = scene.modeButton

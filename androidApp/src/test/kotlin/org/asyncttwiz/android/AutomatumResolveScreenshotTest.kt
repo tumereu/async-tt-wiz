@@ -119,7 +119,8 @@ class AutomatumResolveScreenshotTest {
         assertTrue(toolkit.cast.start(aSpark))
         val tapped = if (target.startsWith("life/")) item(play, f.a) { it.id == target } else item(play, f.a) { it.cardId == target }
         toolkit.open(TableIntent.Actions(tapped.id, null), tapped, TableSelection())
-        assertTrue(toolkit.cast.cast(), toolkit.error)
+        // I-D47: Autotap (on) sends the cast once its last choice is made; only a cast still open waits for Cast
+        if (toolkit.cast.open) assertTrue(toolkit.cast.cast(), toolkit.error)
         val (batch, request) = sent.single()
         return accepted(play, batch, request, f.a)
     }
@@ -156,9 +157,11 @@ class AutomatumResolveScreenshotTest {
         assertEquals(1, cast.board.stackEffects.size)
         val toolkit = render(cast, f.b)
         compose.onNodeWithText("Alice cast Storm Spark").assertExists()
-        compose.onNodeWithText("Target: You").assertExists()
+        // STK-027 (UI review #5): the spell is shown as its card, its target as "Target:" and a player's name
+        compose.onNode(hasText("Target:") and hasAnyAncestor(hasContentDescription("Respond prompt"))).assertExists()
+        compose.onNode(hasText("You") and hasAnyAncestor(hasContentDescription("Respond prompt"))).assertExists()
         compose.onRoot().captureShot("$SCREENSHOTS/automatum/respond-prompt.png",
-            "Alice cast Storm Spark at Bob with Automatum on and Bob holds a Storm Spark he could answer with: by the Stack Bob sees \"Alice cast Storm Spark\" with its text, \"Target: You\", Respond and Let it resolve, and the move is his (\"Your move\", green bars) since he must act.")
+            "Alice cast Storm Spark at Bob with Automatum on and Bob holds a Storm Spark he could answer with: docked above his hand Bob sees Storm Spark's card beside \"Alice cast Storm Spark\", \"Target: You\", the eye at the bottom left and Respond and Let it resolve at the right, and the move is his (\"Your move\") since he must act.")
         compose.runOnIdle { assertFalse(toolkit.submit(PlayAction.NextStep)); assertEquals(SharedFlowController.STACK_WAITING, toolkit.error) }
         compose.onNodeWithText("Respond").performClick()
         compose.waitForIdle()
@@ -206,14 +209,16 @@ class AutomatumResolveScreenshotTest {
         return after
     }
 
-    // STK-030, I-D11, CR 603.3, 608.2d: the deciding player answers in the panel; its prompt is the card's sentence
+    // STK-030, I-D11, I-D47, CR 603.3, 608.2d: the deciding player answers in the panel, titled with what the choice is and
+    // where it comes from and showing the card it is about; its prompt is the card's sentence
     @Test fun resolutionChoicePanel() {
         val open = fertileDeath()
         val toolkit = render(open, f.b)
         compose.onNodeWithContentDescription("Automatum choice").assertExists()
-        compose.onNodeWithText("Fertile Passing").assertExists()
+        compose.onNodeWithText("You may · Fertile Passing").assertExists()
+        compose.onNode(hasContentDescription("Tinkered Mite") and hasClickAction()).assertExists()
         compose.onRoot().captureShot("$SCREENSHOTS/automatum/resolve-choice.png",
-            "Alice's Storm Spark killed Bob's Tinkered Mite under her Fertile Passing: by the Stack Bob is asked the trigger's sentence, \"that creature's controller may draw a card\", with Yes and No; the move is his while he chooses.")
+            "Alice's Storm Spark killed Bob's Tinkered Mite under her Fertile Passing: docked above his hand Bob sees Fertile Passing's card beside \"You may · Fertile Passing\", \"About:\" with Tinkered Mite's card, the trigger's sentence \"that creature's controller may draw a card\", and Yes and No with icons; the move is his while he chooses.")
         // STK-032: life changes wait; passing the move only shows and goes on
         compose.runOnIdle {
             assertFalse(toolkit.submit(PlayAction.AdjustLife(f.b, "-1")))

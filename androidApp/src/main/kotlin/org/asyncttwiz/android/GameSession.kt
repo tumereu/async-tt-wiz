@@ -272,8 +272,44 @@ class GameSession(private val connection: GameConnection, private val credential
         gameplayCommand(game, actor, GameAction.Play(action), invocationId, continuation, captured) != null
 
     fun gameplayBatch(game: GameSummary, actor: String, actions: List<PlayAction>, requestId: String,
-        continuation: Continuation? = null, captured: (GameCommand) -> Unit = {}, tags: List<MtgTag?> = emptyList()): Boolean =
-        gameplayCommand(game, actor, GameAction.PlayBatch(actions, tags), requestId, continuation, captured, requestId) != null
+        continuation: Continuation? = null, captured: (GameCommand) -> Unit = {}, tags: List<MtgTag?> = emptyList(),
+        replaces: String? = null): Boolean {
+        val queued = gameplayCommand(game, actor, GameAction.PlayBatch(actions, tags), requestId, continuation, captured, requestId,
+            replaces) != null
+        // I-D47: a preview the batch couldn't take the place of is taken back
+        if (!queued && replaces != null) dropPreview(game, replaces)
+        return queued
+    }
+
+    /**
+     * I-D47: shows an automated batch (a cast alone) on this device only, as a prediction that is never sent, while the
+     * cast's batch is worked out; [gameplayBatch] with `replaces` takes its place, [dropPreview] takes it back. False when
+     * it can't be shown here (then the cast goes out without it).
+     */
+    fun previewBatch(game: GameSummary, actor: String, actions: List<PlayAction>, tags: List<MtgTag?>, requestId: String): Boolean {
+        val current = summary(game)
+        if (closed || current.lifecycle != GameLifecycle.ACTIVE || current.playId == null || (account != null && account != actor)) return false
+        val replica = plays[game.id] ?: return false
+        if (replica.accepted?.id != current.playId || replica.pendingIds.size >= 256) return false
+        val stream = streams[game.id] ?: return false
+        val generation = stream.generation ?: stream.lastGeneration ?: return false
+        val command = GameCommand(requestId, GameScope(game.id, playId = current.playId), GameAction.PlayBatch(actions, tags),
+            stream.id, generation)
+        if (!GameWire.valid(command) || !replica.predict(command, actor)) return false
+        statusChanged()
+        return true
+    }
+
+    /** I-D47: the event a preview follows on the board shown, while it is shown. */
+    fun previewShownOn(game: GameSummary, requestId: String): String? = plays[game.id]?.shownOn(requestId)
+
+    /** I-D47: takes a preview back (the cast didn't go out). */
+    fun dropPreview(game: GameSummary, requestId: String) {
+        val replica = plays[game.id] ?: return
+        if (replica.shownOn(requestId) == null && requestId !in replica.pendingIds) return
+        replica.retire(requestId)
+        statusChanged()
+    }
 
     /** Explicit logged inspection on the same original queue. Callers supply a UI lifetime guard
      * and close the subscription on dismissal. Only Accepted may drive ManualActions.inspected. */
@@ -297,7 +333,8 @@ class GameSession(private val connection: GameConnection, private val credential
     }
 
     private fun gameplayCommand(game: GameSummary, actor: String, action: GameAction, invocationId: String?,
-        continuation: Continuation?, captured: (GameCommand) -> Unit = {}, requestId: String = UUID.randomUUID().toString()): GameCommand? = measureLatency(game, action) {
+        continuation: Continuation?, captured: (GameCommand) -> Unit = {}, requestId: String = UUID.randomUUID().toString(),
+        replaces: String? = null): GameCommand? = measureLatency(game, action) {
         checkAccount()
         val current = summary(game)
         fun refused(gate: String): GameCommand? {
@@ -335,7 +372,7 @@ class GameSession(private val connection: GameConnection, private val credential
         // not authority to suppress the server's processing-time candidate.
         // Replica prediction is limited to exact terminal controls; selective suffixes stay server-only.
         // The accepted delta is prepared by the serial tree worker before publication.
-        if (action.isPlay && !replica.predict(command, actor)) {
+        if (action.isPlay && !(if (replaces != null) replica.replace(replaces, command, actor) else replica.predict(command, actor))) {
             // SYS-053: a rules refusal says why, exactly as the server's refusal of the same action would.
             val rule = replica.predictionRefusal?.takeIf { it in RuleRefusals.ALL }
                 ?: return refused("predictionRefused")

@@ -236,6 +236,8 @@ object Automatum {
     @Serializable @SerialName("setSkipWhenNoChoice") data class SetSkipWhenNoChoice(val on: Boolean) : MtgAction
     /** The actor's own "Full control" (I-D41, [PlayPlayer.fullControl]); only its player changes it. */
     @Serializable @SerialName("setFullControl") data class SetFullControl(val on: Boolean) : MtgAction
+    /** The actor's own mulligans in their opening (I-D49, [PlayPlayer.mulligans]); only its player changes it. */
+    @Serializable @SerialName("setMulligans") data class SetMulligans(val before: Int, val after: Int) : MtgAction
     @Serializable @SerialName("setPriority") data class SetPriority(val before: MtgPriority?, val after: MtgPriority?) : MtgAction
     @Serializable @SerialName("setManaPool") data class SetManaPool(val accountId: String, val before: List<PoolMana>,
         val after: List<PoolMana>) : MtgAction
@@ -299,6 +301,7 @@ object MtgRules {
 
     fun valid(action: MtgAction): Boolean = when (action) {
         is MtgAction.SetAutomatum, MtgAction.ClearRecords, is MtgAction.SetSkipWhenNoChoice, is MtgAction.SetFullControl -> true
+        is MtgAction.SetMulligans -> listOf(action.before, action.after).all { it in 0..GameRules.MAX_MULLIGANS }
         is MtgAction.SetPriority -> valid(action.before) && valid(action.after)
         is MtgAction.SetManaPool -> DeckValidation.uuid(action.accountId) && valid(action.before) && valid(action.after)
         is MtgAction.SetCounter -> (action.holder is MtgRef.Card || action.holder is MtgRef.Player) && valid(action.holder) &&
@@ -348,6 +351,12 @@ object MtgRules {
                 val player = player(actor) ?: return reject("missingReference")
                 if (player.fullControl == action.on) return unchanged
                 players(actor) { it.copy(fullControl = action.on) }
+            }
+            is MtgAction.SetMulligans -> {
+                val player = player(actor) ?: return reject("missingReference")
+                if (player.mulligans != action.before) return reject("inapplicable")
+                if (action.before == action.after) return unchanged
+                players(actor) { it.copy(mulligans = action.after) }
             }
             is MtgAction.SetPriority -> {
                 if (board.priority != action.before) return reject("inapplicable")
@@ -501,7 +510,7 @@ object MtgFacts {
             // Finalreview-combat #7: Full control and Skip when I have no choice only say where the host passes for a
             // player, which the batch's planner already did: changing either (FullControlSync as a game opens) never
             // refuses the other player's batch in flight
-            "players" to JsonArray(element.getValue("players").jsonArray.map { without(it, "status", "counters", "fullControl", "skipWhenNoChoice") }),
+            "players" to JsonArray(element.getValue("players").jsonArray.map { without(it, "status", "counters", "fullControl", "skipWhenNoChoice", "mulligans") }),
             "cards" to JsonArray(element.getValue("cards").jsonArray.map { without(it, "placement", "note", "eotNote", "counters", "knownToAll") }),
             "containers" to JsonArray(element.getValue("containers").jsonArray.map { without(it, "layers", "keepTopRevealed") }),
             "stackEffects" to JsonArray(element.getValue("stackEffects").jsonArray.map { without(it, "note") })))

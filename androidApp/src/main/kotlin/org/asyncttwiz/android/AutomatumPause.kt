@@ -5,6 +5,8 @@ import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.outlined.PanTool
+import androidx.compose.material.icons.outlined.SkipNext
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -263,39 +265,31 @@ internal fun PauseBarHost(toolkit: TableToolkitController, play: PlayState, scen
     val held = pause.holding(node) && PausePoints.pauseFor(play.board, viewer)
     if (running == null && !held) return
     val step = pauseStep(play.board, viewer, names)
-    val stack = scene?.stackRegion ?: scene?.items?.firstOrNull { it.zone == PlayZone.STACK && it.kind == TableItemKind.PILE }?.bounds
-    CastPanelPlacement(stack, null, combatDock(scene, viewer)) {
+    // UI review #4 (decided for the owner): docked full width above the hand like every Automatum panel, the eye and Hold
+    // where they are in the respond panel
+    AboveHand(handRow(scene, viewer)) {
         val role = running?.role
         if (role is PauseRole.Theirs) {
-            if (role.millis <= 0) return@CastPanelPlacement
-            PauseSurface("Automatum waiting") {
-                Text("${names[role.holder] ?: "The other player"} may act · $step", fontSize = 13.sp, maxLines = 2,
-                    overflow = TextOverflow.Ellipsis)
-                PauseProgress(pause, running)
+            if (role.millis <= 0) return@AboveHand
+            AutomatumDockBar("Automatum waiting") {
+                Column(Modifier.weight(1f).padding(vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text("${names[role.holder] ?: "The other player"} may act · $step", fontSize = 13.sp, maxLines = 2,
+                        overflow = TextOverflow.Ellipsis)
+                    PauseProgress(pause, running)
+                }
             }
-            return@CastPanelPlacement
+            return@AboveHand
         }
-        // I-D10 (finalreview-combat #2): the eye hides the bar to see the table under it; its time runs on meanwhile
-        if (pause.hiddenAt == node) {
-            Surface(Modifier.size(44.dp), shape = androidx.compose.foundation.shape.CircleShape, color = Color.White,
-                shadowElevation = 6.dp, border = BorderStroke(2.dp, AutomatumViolet)) {
-                EyeButton(hidden = true, { pause.toggleHidden(node) }, "pause")
+        // I-D10 (finalreview-combat #2): the eye hides the panel to see the table under it; its time runs on meanwhile
+        AutomatumDockPanel("Your pause", pause.hiddenAt == node, { pause.toggleHidden(node) }, "pause", buttons = {
+            if (running != null) BarButton("Hold", androidx.compose.material.icons.Icons.Outlined.PanTool) { pause.hold(node) }
+            ChoiceButton("Pass", androidx.compose.material.icons.Icons.Outlined.SkipNext, primary = true) {
+                if (!pause.passBehind(node)) toolkit.flows.step(StepFlow.Until.Pass)
             }
-            return@CastPanelPlacement
-        }
-        PauseSurface("Your pause") {
-            Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-                Text(if (held) "$step: take your time" else "$step: you may act", Modifier.weight(1f), fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold)
-                EyeButton(hidden = false, { pause.toggleHidden(node) }, "pause")
-            }
+        }) {
+            Text(if (held) "$step: take your time" else "$step: you may act", fontSize = 14.sp, fontWeight = FontWeight.Bold)
             if (running != null) PauseProgress(pause, running)
             else Text("Holding — cast or activate as you like", fontSize = 11.sp, color = Color(0xff4b5a5f))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, androidx.compose.ui.Alignment.End)) {
-                if (running != null) OutlinedButton({ pause.hold(node) }) { Text("Hold") }
-                Button({ if (!pause.passBehind(node)) toolkit.flows.step(StepFlow.Until.Pass) },
-                    colors = ButtonDefaults.buttonColors(containerColor = AutomatumViolet)) { Text("Pass") }
-            }
         }
     }
 }
@@ -308,17 +302,4 @@ internal fun pauseStep(board: BoardState, viewer: String, names: Map<String, Str
         board.combat?.pairs?.any { it.attackers.isNotEmpty() } == true)
         return "${names[board.turn.accountId] ?: "The other player"} attacks"
     return position?.label ?: "This step"
-}
-
-/** Finalreview-combat #2 (I-D41, CMB-029): while the combat area's panel is shown, pause surfaces dock above the viewer's
- * hand row in portrait (where [CastPanelPlacement] puts them), so the combat and its damage preview stay visible. */
-internal fun combatDock(scene: TableScene?, viewer: String): TableBounds? = scene?.takeIf { it.combatPanel != null }
-    ?.items?.firstOrNull { it.kind == TableItemKind.HAND && it.owner == viewer }?.bounds
-
-@Composable
-private fun PauseSurface(description: String, content: @Composable ColumnScope.() -> Unit) {
-    Surface(Modifier.semantics { contentDescription = description }, shape = RoundedCornerShape(8.dp), color = Color.White,
-        shadowElevation = 6.dp, border = BorderStroke(2.dp, AutomatumViolet)) {
-        Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp), content = content)
-    }
 }

@@ -90,6 +90,25 @@ class PlayTest {
         assertEquals(revision, GameWire.json.decodeFromString<GameServerMessage>(GameWire.encode(revision)))
     }
 
+    // TRN-062 (I-D49, CR 103.5): a play started with Automatum on begins with each player's opening hand of seven drawn
+    // from the top of their shuffled library, both players still mulliganing
+    @Test fun automatumStartDrawsEachOpeningHand() {
+        val state = StartRules.initialize(game, ready(), id(11), seeds, automatum = true)
+        assertTrue(state.board.automatum)
+        assertEquals(listOf(PlayerStatus.OPENING, PlayerStatus.OPENING), state.board.players.map { it.status })
+        for (player in ready().players) {
+            val order = state.shuffles.single { it.accountId == player.accountId }.order
+            val hand = state.board.containers.single { it.zone == PlayZone.HAND && it.accountId == player.accountId }
+            val library = state.board.containers.single { it.zone == PlayZone.LIBRARY && it.accountId == player.accountId }
+            assertEquals(order.take(GameRules.STANDARD.openingHand), hand.cards)
+            assertEquals(order.drop(GameRules.STANDARD.openingHand), library.cards)
+            assertTrue(LibraryLayers.valid(library))
+            assertTrue(state.board.cards.filter { it.id in hand.cards }.all { it.containerId == hand.id && it.covered })
+        }
+        assertTrue(StartRules.initialize(game, ready(), id(11), seeds).board.containers.filter { it.zone == PlayZone.HAND }
+            .all { it.cards.isEmpty() }, "without Automatum the players draw by hand (TRN-027)")
+    }
+
     @Test fun randomIsOnlyResolvedFromExplicitInitializationInputAndSameInputIsDeterministic() {
         val preparation = ready().copy(starter = StarterChoice())
         val seed = RandomGolden.vectors[2].seed

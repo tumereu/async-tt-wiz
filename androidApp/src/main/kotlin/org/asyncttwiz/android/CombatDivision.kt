@@ -6,6 +6,11 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.Undo
+import androidx.compose.material.icons.outlined.CallSplit
+import androidx.compose.material.icons.outlined.Check
+import androidx.compose.material.icons.outlined.ZoomIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -79,7 +84,9 @@ internal fun DivisionRows(draft: DivisionDraft, play: PlayState, names: Map<Stri
                 }
             }
         }
-        val step = with(LocalDensity.current) { 50.dp.toPx() }
+        val step = with(LocalDensity.current) { 66.dp.toPx() }
+        val inspector = remember(division.source) { ChoiceInspector() }
+        ChoiceInspection(inspector, play, LocalChoiceFrame.current.viewer)
         val shares = draft.shares
         for ((index, ref) in draft.rows.withIndex()) {
             val creature = ref != division.trampleTo
@@ -103,6 +110,13 @@ internal fun DivisionRows(draft: DivisionDraft, play: PlayState, names: Map<Stri
                         else if (moved < -step / 2 && at > 0) { draft.move(at, at - 1); moved += step }
                     }
                 }.semantics { contentDescription = "Drag to reorder" }, color = Color(0xff78909c), fontSize = 20.sp)
+                // I-D48: a creature or planeswalker shows as its card (a face-down one covered); holding it inspects it
+                (ref as? MtgRef.Card)?.let { card ->
+                    val played = play.board.cards.singleOrNull { it.id == card.cardId }
+                    val face = choiceCard(play, LocalChoiceFrame.current.viewer, card.cardId, card.cardId, played?.isFaceDown == false, name)
+                    ChoiceCardFace(face, Modifier.padding(end = 8.dp, top = 2.dp, bottom = 2.dp)
+                        .choiceCardGestures(card.cardId, tap = {}, hold = { inspector.hold(face, it) }), small = true)
+                }
                 Text(if (draft.inOrder && creature) "${index + 1}. $name" else name, Modifier.weight(1f), fontSize = 14.sp, maxLines = 2)
                 if (draft.inOrder) Text("$amount", fontWeight = FontWeight.Bold, fontSize = 16.sp)
                 else Stepper(amount, 0, division.amount) { draft.set(ref, it) }
@@ -148,9 +162,11 @@ internal fun CombatDivisionDialog(flows: SharedFlowController, play: PlayState, 
                 Text("${division.amount} damage to divide among what it fights", fontSize = 13.sp, color = Color(0xff4b5a5f))
                 DivisionRows(draft, play, names)
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    OutlinedButton(flows::toggleHidden, Modifier.weight(1f).semantics { contentDescription = "Inspect the table" }) { Text("Inspect") }
-                    Button({ flows.answer(Answer.Division(engineShares(decision, division, draft.shares))) }, Modifier.weight(1f),
-                        enabled = draft.refusal == null && !flows.busy, colors = ButtonDefaults.buttonColors(containerColor = AutomatumViolet)) { Text("OK") }
+                    ChoiceButton("Inspect", Icons.Outlined.ZoomIn, Modifier.weight(1f).semantics { contentDescription = "Inspect the table" },
+                        onClick = flows::toggleHidden)
+                    ChoiceButton("OK", Icons.Outlined.Check, Modifier.weight(1f), enabled = draft.refusal == null && !flows.busy, primary = true) {
+                        flows.answer(Answer.Division(engineShares(decision, division, draft.shares)))
+                    }
                 }
             }
         }
@@ -160,8 +176,9 @@ internal fun CombatDivisionDialog(flows: SharedFlowController, play: PlayState, 
 /** The dialog hidden by Inspect (CMB-033): a button bringing it back. */
 @Composable
 internal fun DivisionHidden(flows: SharedFlowController) {
-    Surface(shape = RoundedCornerShape(22.dp), color = Color.White, shadowElevation = 6.dp, border = BorderStroke(2.dp, AutomatumViolet)) {
-        TextButton(flows::toggleHidden) { Text("Divide damage", color = AutomatumViolet, fontWeight = FontWeight.Bold) }
+    AutomatumDockBar("Division hidden") {
+        Text("Dividing combat damage", Modifier.weight(1f), fontSize = 13.sp)
+        BarButton("Divide damage", Icons.Outlined.CallSplit, onClick = flows::toggleHidden)
     }
 }
 
@@ -179,12 +196,13 @@ internal fun EarlyDivisionPanel(combat: CombatController, play: PlayState, divis
     // Combat review #9: Inspect folds the panel away to look at the combat area, as the division dialog's does
     var hidden by remember(division.source, division.firstStrike) { mutableStateOf(false) }
     if (hidden) {
-        Surface(shape = RoundedCornerShape(22.dp), color = Color.White, shadowElevation = 6.dp, border = BorderStroke(2.dp, AutomatumViolet)) {
-            TextButton({ hidden = false }) { Text("Divide early", color = AutomatumViolet, fontWeight = FontWeight.Bold) }
+        AutomatumDockBar("Early division hidden") {
+            Text("Your division comes later", Modifier.weight(1f), fontSize = 13.sp)
+            BarButton("Divide early", Icons.Outlined.CallSplit) { hidden = false }
         }
         return
     }
-    Surface(Modifier.widthIn(max = 380.dp).semantics { contentDescription = "Early division" }, shape = RoundedCornerShape(8.dp),
+    Surface(Modifier.fillMaxWidth().semantics { contentDescription = "Early division" }, shape = RoundedCornerShape(0.dp),
         color = Color.White, shadowElevation = 6.dp, border = BorderStroke(2.dp, AutomatumViolet)) {
         Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text("${combatName(play, division.source)} — divide ${division.amount} damage", fontWeight = FontWeight.Bold, fontSize = 14.sp)
@@ -192,12 +210,11 @@ internal fun EarlyDivisionPanel(combat: CombatController, play: PlayState, divis
                 fontSize = 11.sp, color = Color(0xff4b5a5f))
             DivisionRows(draft, play, names)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
-                TextButton({ hidden = true }, Modifier.semantics { contentDescription = "Inspect the table" }) { Text("Inspect") }
+                BarButton("Inspect", Icons.Outlined.ZoomIn, Modifier.semantics { contentDescription = "Inspect the table" }) { hidden = true }
                 Spacer(Modifier.weight(1f))
-                if (given != null) TextButton({ combat.withdrawEarly(division) }, enabled = enabled) { Text("Withdraw") }
-                Button({ combat.giveEarly(division, draft.shares) }, enabled = enabled && draft.refusal == null &&
-                    draft.shares != given?.shares?.associate { it.target to it.amount },
-                    colors = ButtonDefaults.buttonColors(containerColor = AutomatumViolet)) { Text("Ready") }
+                if (given != null) BarButton("Withdraw", Icons.AutoMirrored.Outlined.Undo, enabled = enabled) { combat.withdrawEarly(division) }
+                ChoiceButton("Ready", Icons.Outlined.Check, enabled = enabled && draft.refusal == null &&
+                    draft.shares != given?.shares?.associate { it.target to it.amount }, primary = true) { combat.giveEarly(division, draft.shares) }
             }
         }
     }

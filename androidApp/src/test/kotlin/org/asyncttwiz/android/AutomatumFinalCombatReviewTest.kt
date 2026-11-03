@@ -242,7 +242,8 @@ class AutomatumFinalCombatReviewTest {
         val bearItem = TablePresentation.scene(f.game, at, f.b, 412f, 892f, false).items
             .first { it.cardId == bearCard && it.viewport != "combat" && it.zone == PlayZone.BATTLEFIELD }
         reacting.open(TableIntent.Actions(bearItem.id, null), bearItem, TableSelection())
-        assertTrue(reacting.cast.cast(), reacting.error)
+        // I-D47: Autotap (on) sends the cast once its last choice is made; only a cast still open waits for Cast
+        if (reacting.cast.open) assertTrue(reacting.cast.cast(), reacting.error)
         assertTrue(play.currentNodeId != live && tree!!.nodes.values.count { it.parentId == held } == 2, "a branch from the held point")
         // On the branch: both let the Spark resolve, the damage step follows
         var guard = 12

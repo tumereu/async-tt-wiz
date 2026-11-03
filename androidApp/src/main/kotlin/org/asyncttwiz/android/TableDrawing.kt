@@ -29,7 +29,11 @@ internal fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: 
     presenceDot: PresenceDot? = null,
     /** Automatum cast (I-D6): legal targets glow violet: cards by card id (and their Stack entries and combat copies),
      * players by their life square's id. */
-    glow: Set<String> = emptySet()) {
+    glow: Set<String> = emptySet(),
+    /** I-D46 (a): the viewer's cards Automatum lets them do something with now glow softly from behind, by card id. */
+    playable: Set<String> = emptySet(),
+    /** I-D46 (b): the item shaken by a refused gesture (an item id, card id or "life/<account>") and its offset in dp. */
+    shake: Pair<String, Float>? = null) {
     val density = density
     with(TableCardPainter(density, scene, cache, artwork)) {
     scene.viewports.firstOrNull { it.id == "sidebar" }?.bounds?.let { b ->
@@ -65,7 +69,7 @@ internal fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: 
         clipRect(table.x * density, table.y * density, table.right * density, table.bottom * density) {
             for (spread in 6 downTo 1) drawRoundRect(Color.Black.copy(alpha = .03f), xy(panel.x - spread / 2f, panel.y + 1.5f - spread / 2f),
                 size(panel.width + spread, panel.height + spread), CornerRadius(8 * density))
-            drawRoundRect(Color(0xfffbfcfb), xy(panel.x, panel.y), size(panel.width, panel.height), CornerRadius(8 * density))
+            drawRoundRect(CombatPanelColor, xy(panel.x, panel.y), size(panel.width, panel.height), CornerRadius(8 * density))
             drawRoundRect(Color(0xffc9d2d0), xy(panel.x, panel.y), size(panel.width, panel.height), CornerRadius(8 * density),
                 style = Stroke(density))
             for ((from, to) in scene.combatLaneDividers) drawLine(Color.Black.copy(alpha = CombatStackPresentation.LANE_DIVIDER_ALPHA),
@@ -205,6 +209,8 @@ internal fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: 
         // Opaque cards need only the existing clip, not a separate GPU render target per fragment.
         if (alpha < 1f) drawContext.canvas.saveLayer(androidx.compose.ui.geometry.Rect(left * density, top * density,
             right * density, bottom * density), cache.layerPaint.apply { this.alpha = alpha })
+        val shift = shake?.takeIf { (id, _) -> i.id == id || i.cardId == id }?.second ?: 0f
+        if (shift != 0f) drawContext.transform.translate(shift * density, 0f)
         try {
         val b = i.bounds
         val color = if (i.owner == null) Color(0xff59656a) else if (i.owner == viewer) OwnTableColor else OpponentTableColor
@@ -265,6 +271,12 @@ internal fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: 
                   val cardWidth = transform.width; val cardHeight = transform.height
                   rotate(transform.rotation, xy(b.center.x, b.center.y)) {
                      val x = b.center.x - cardWidth / 2; val y = b.center.y - cardHeight / 2
+                      // I-D46 (a): a soft halo behind the card, fading outward within the card's outline room
+                      if (playable.isNotEmpty() && i.cardId in playable && i.zone != PlayZone.STACK) for (ring in 4 downTo 1) {
+                          val spread = ring.toFloat()
+                          drawRoundRect(AutomatumCyan.copy(alpha = .16f), xy(x - spread, y - spread),
+                              size(cardWidth + 2 * spread, cardHeight + 2 * spread), CornerRadius((2 + spread) * density))
+                      }
                       scale(i.flipScale, 1f, xy(b.center.x, b.center.y)) { cardFace(i, x, y, color, i.value) }
                       if (i.panelRevealed && !i.covered) {
                           // Center in the art crop (11..30), clear of the title and corner text.
@@ -288,7 +300,10 @@ internal fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: 
             }
         }
         if (i.kind != TableItemKind.CARD) outlines(i, b)
-        } finally { if (alpha < 1f) drawContext.canvas.restore() }
+        } finally {
+            if (shift != 0f) drawContext.transform.translate(-shift * density, 0f)
+            if (alpha < 1f) drawContext.canvas.restore()
+        }
     }
     }
     // Badge bounds belong to the pile, not its top card's face. Draw above Stack projections too.
@@ -372,7 +387,7 @@ internal fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: 
             xy(tipX + 4f, if (i.valueDragSide == ValueDragSide.TOP) bubble.y else bubble.bottom), 1.5f * density)
         paint.color = android.graphics.Color.rgb(32, 42, 46)
         lines.forEachIndexed { n, line ->
-            text(line, bubble.x + StatusBubble.PADDING, bubble.y + StatusBubble.HEIGHT / 2 + n * StatusBubble.LINE -
+            text(line, StatusBubble.lineX(bubble, cache.measure(line) / density), bubble.y + StatusBubble.HEIGHT / 2 + n * StatusBubble.LINE -
                 cache.centerOffset() / density, line.length)
         }
         paint.color = android.graphics.Color.DKGRAY; paint.textSize = previousSize

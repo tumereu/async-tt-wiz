@@ -218,7 +218,8 @@ class PlayerStatusUiTest {
         assertEquals(listOf<PlayAction>(PlayAction.SetStatus("GG")), sent)
     }
 
-    // TRN-039: a one-character status still gets a bubble as wide as the life square, its tail on a straight edge.
+    // TRN-039: a one-character status still gets a bubble as wide as the life square, its tail on a straight edge and its
+    // text centred.
     private fun shortStatusShot(landscape: Boolean) {
         val initial = TableFixture.play(library = 0)
         val play = initial.copy(board = initial.board.copy(players = initial.board.players.map {
@@ -233,7 +234,7 @@ class PlayerStatusUiTest {
         val orientation = if (landscape) "landscape" else "portrait"
         compose.onRoot().captureShot("$SCREENSHOTS/status-bubble-one-character-$orientation.png",
             "${orientation.replaceFirstChar { it.uppercase() }} table where you have the status \"!\" and the opponent \"?\": " +
-                "each one-character bubble is as wide as its life square.")
+                "each one-character bubble is as wide as its life square, its character centred.")
     }
     @Test fun oneCharacterStatusBubblesPortrait() = shortStatusShot(false)
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun oneCharacterStatusBubblesLandscape() = shortStatusShot(true)

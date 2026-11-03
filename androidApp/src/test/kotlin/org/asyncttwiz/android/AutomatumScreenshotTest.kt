@@ -86,7 +86,8 @@ class AutomatumScreenshotTest {
         return toolkit to sent
     }
 
-    // TRN-054, SYS-055: off, the switch is a dim outlined rune; a tap turns Automatum on for the whole game
+    // TRN-054, SYS-055: off, the switch is a dim outlined rune; a tap asks first (I-D45), then turns Automatum on for
+    // the whole game
     @Test fun switchOffTurnsAutomatumOn() {
         val (_, sent) = render(board(false))
         val switch = compose.onNodeWithContentDescription("Automatum off. Turn Automatum on")
@@ -94,7 +95,44 @@ class AutomatumScreenshotTest {
             "The Automatum switch in the top bar while Automatum is off: a dim outlined rune.")
         switch.performClick()
         compose.waitForIdle()
+        assertEquals(emptyList(), sent, "nothing is sent before the confirmation")
+        compose.onNodeWithText("Turn Automatum on?").assertExists()
+        captureShot("$SCREENSHOTS/automatum/switch-ask-on.png",
+            "Tapping the Automatum switch while it is off asks first: \"Turn Automatum on?\" with what it means, Cancel and Turn on.")
+        compose.onNodeWithText("Turn on").performClick()
+        compose.waitForIdle()
         assertEquals(listOf<PlayAction>(PlayAction.Mtg(MtgAction.SetAutomatum(true))), sent)
+    }
+
+    // TRN-054 (I-D45): Cancel in the switch's confirmation does nothing
+    @Test fun switchConfirmationCancelSendsNothing() {
+        val (toolkit, sent) = render(board(true))
+        compose.onNodeWithContentDescription("Automatum on. Turn Automatum off").performClick()
+        compose.waitForIdle()
+        compose.onNodeWithText("Turn Automatum off?").assertExists()
+        compose.onNodeWithText("Cancel").performClick()
+        compose.waitForIdle()
+        assertEquals(null, toolkit.automatumAsk)
+        assertEquals(emptyList(), sent)
+    }
+
+    // TRN-054, SYS-059 (I-D45): where turning on is refused there is no confirmation, only the refusal
+    @Test fun refusedSwitchOnSkipsTheConfirmation() {
+        val play = board(false).let { it.copy(board = it.board.copy(containers = it.board.containers.map { c ->
+            if (c.zone == PlayZone.STACK) c.copy(cards = listOf(sentinel.id)) else c })) }
+        assertTrue(Automatum.turnOnRefusal(play.board) != null)
+        val sent = mutableListOf<PlayAction>()
+        val toolkit = TableToolkitController(f.a, { play }, { true }, { action, _ -> sent += action; true })
+        toolkit.askAutomatum(true)
+        assertEquals(null, toolkit.automatumAsk)
+        assertEquals(listOf<PlayAction>(PlayAction.Mtg(MtgAction.SetAutomatum(true))), sent)
+    }
+
+    // TRN-054 (I-D45): turning off during an unfinished Automatum step says that step is taken back first
+    @Test fun switchOffConfirmationMentionsTheOpenStep() {
+        assertEquals("Turn Automatum off?", automatumAskText(false, flowOpen = false, castOpen = false).title)
+        assertTrue(automatumAskText(false, flowOpen = true, castOpen = true).text
+            .endsWith("Automatum's unfinished step is taken back first. Your unfinished cast is dropped."))
     }
 
     // TRN-054, TBL-021, TBL-112, TBL-113: on, the switch is a violet-to-cyan sigil, and creatures show the engine's P/T
@@ -118,20 +156,29 @@ class AutomatumScreenshotTest {
         assertEquals(listOf("Flying"), guideItem.automatumMarks)
         compose.onNodeWithContentDescription("Automatum on. Turn Automatum off").performClick()
         compose.waitForIdle()
+        compose.onNodeWithText("Turn off").performClick()
+        compose.waitForIdle()
         assertEquals(listOf<PlayAction>(PlayAction.Mtg(MtgAction.SetAutomatum(false))), sent)
     }
 
-    // TRN-055, SYS-063: holding the switch opens its panel: status, the own skip setting, clearing
-    // the data and the engine's records
+    // TRN-055, SYS-063: holding the switch opens its panel: status in plain words, what is done by hand, the own skip
+    // setting, clearing the data and, closed until asked for, the engine's records
     @Test fun holdOpensThePanel() {
         val (toolkit, sent) = render(board(true))
         compose.onNodeWithContentDescription("Automatum on. Turn Automatum off").performTouchInput { longClick() }
         compose.waitForIdle()
         assertEquals("automatum", toolkit.panel)
         compose.mainClock.advanceTimeBy(600)
-        compose.onNodeWithText("Automatum on · 1 ability is manual").assertExists()
+        compose.onNodeWithText("Automatum on").assertExists()
+        compose.onNodeWithText("By hand: Wild Surge. Automatum can't read this ability yet; you carry it out yourself.").assertExists()
+        compose.onNodeWithText("effect:pump [Effect]", substring = true).assertDoesNotExist()
         captureShot("$SCREENSHOTS/automatum/hold-panel.png",
-            "Holding the Automatum switch opens its panel: the status line (the invented Wild Surge plays by hand), the own Skip when I have no choice switch, Clear Automatum data and the engine records.")
+            "Holding the Automatum switch opens its panel: Automatum on and what it does, the invented Wild Surge done by hand, the own Skip when I have no choice switch, Clear Automatum data and the closed Engine details.")
+        compose.onNodeWithContentDescription("Show engine details").performClick()
+        compose.waitForIdle()
+        compose.onNodeWithText("effect:pump [Effect]", substring = true).assertExists()
+        captureShot("$SCREENSHOTS/automatum/hold-panel-engine-details.png",
+            "Tapping Engine details at the bottom of the Automatum panel opens the engine's records in small grey type below it.")
         compose.onNodeWithContentDescription("Skip when I have no choice").performClick()
         compose.waitForIdle()
         assertEquals(listOf<PlayAction>(PlayAction.Mtg(MtgAction.SetSkipWhenNoChoice(false))), sent)
@@ -179,9 +226,9 @@ class AutomatumScreenshotTest {
         val (toolkit, _) = render(play)
         compose.runOnIdle { toolkit.openCard(TableScope(sentinel.id, listOf(sentinel.id))) }
         compose.onNodeWithContentDescription("Inspect").assertIsDisplayed()
-        // TBL-116: with Automatum on the P/T controls are in the usual menu behind "Manual…", greyed while Automatum
-        // doesn't wait for something done by hand
-        compose.onNodeWithContentDescription(CardRingPages.MANUAL).assertIsNotEnabled()
+        // TBL-116, I-D46: with Automatum on the menu has no P/T controls (and no "Manual…") while Automatum doesn't wait
+        // for something done by hand
+        compose.onNodeWithContentDescription("Manual…").assertDoesNotExist()
         compose.onNodeWithContentDescription("Set corner").assertDoesNotExist()
         compose.onNodeWithContentDescription("Set EOT P/T").assertDoesNotExist()
     }

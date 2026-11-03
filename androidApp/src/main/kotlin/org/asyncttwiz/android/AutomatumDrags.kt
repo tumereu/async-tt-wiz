@@ -42,6 +42,28 @@ internal object AutomatumDrags {
         return Route.Refused(MANUAL_MOVE)
     }
 
+    /**
+     * Whether [viewer] is in their opening with Automatum on (TRN-027–TRN-029, CR 103.5): the first turn and their status
+     * still the opening "Mulliganing". The opening is the host's setup before the engine's game begins: [openingAction]s
+     * stay allowed, and the first turn begins once both players are Ready.
+     */
+    fun opening(board: BoardState, viewer: String?): Boolean = board.automatum && board.turn.number == "1" &&
+        PlayerStatus.opening(board, viewer)
+
+    /** Whether [action] is one of [viewer]'s opening actions ([opening], I-D49): a mulligan of their own hand and library,
+     * or putting their own hand cards on the bottom of their library (the London mulligan's bottom on keeping, CR 103.5). */
+    fun openingAction(board: BoardState, viewer: String?, action: PlayAction): Boolean {
+        if (!opening(board, viewer)) return false
+        fun own(containerId: String, zone: PlayZone) = board.containers.any { it.id == containerId && it.zone == zone && it.accountId == viewer }
+        return when (action) {
+            is PlayAction.Mulligan -> own(action.libraryId, PlayZone.LIBRARY) && own(action.handId, PlayZone.HAND)
+            is PlayAction.MoveCard -> action.destination.insertion == MoveInsertion.BOTTOM &&
+                own(action.destination.containerId, PlayZone.LIBRARY) &&
+                board.cards.singleOrNull { it.id == action.cardId }?.let { own(it.containerId, PlayZone.HAND) } == true
+            else -> false
+        }
+    }
+
     const val MANUAL_MOVE = "With Automatum on, cards move only by the rules. Switch Automatum off to move them by hand."
     const val STACK = "Automatum resolves the Stack: let it resolve, or switch Automatum off to move it by hand."
     const val LIFE = "With Automatum on, life changes only by the rules. Switch Automatum off to change it by hand."

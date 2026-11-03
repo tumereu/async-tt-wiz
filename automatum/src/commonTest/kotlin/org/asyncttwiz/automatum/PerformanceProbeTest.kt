@@ -87,4 +87,38 @@ class PerformanceProbeTest {
                 println("probe $what (${t.members} members): build ${t.build}, perform ${t.perform}, plan ${t.plan}, apply as the server ${t.apply}")
         }
     }
+
+    // I-D47: where a cast's time goes on a busy board (the steps the acting device runs before its batch is predicted)
+    @Test fun probeACastOnABusyBoard() {
+        table.put(alice, PlayZone.BATTLEFIELD, *Array(6) { "Forest" })
+        val seers = table.put(alice, PlayZone.HAND, *Array(6) { "Elvish Seer" })
+        val main = board(TurnPosition.PRECOMBAT_MAIN)
+        val clock = TimeSource.Monotonic
+        repeat(6) { round ->
+            val seer = seers[round]
+            var mark = clock.markNow()
+            val plays = HandPlays.of(main, table.definitions, alice, emptyList())
+            val listing = mark.elapsedNow(); mark = clock.markNow()
+            val flow = CastFlow.start(main, table.definitions, alice, emptyList(), plays.of(seer).first(),
+                CastFlow.Seeds { CommandIds.uuidV5(AtwTable.NAMESPACE, "cast-seed/$round") })
+            val start = mark.elapsedNow(); mark = clock.markNow()
+            val payment = flow.pending as arcanum.engine.decision.Decision.ManaPayment
+            val paid = flow.sending(payment.suggestion)
+            val answer = mark.elapsedNow(); mark = clock.markNow()
+            val command = GameCommand(CommandIds.uuidV5(AtwTable.NAMESPACE, "cast/$round"), GameScope(main.gameId, playId = main.id),
+                GameAction.PlayBatch(listOf(PlayAction.PassAttention)), CommandIds.uuidV5(AtwTable.NAMESPACE, "stream"), "1")
+            val preview = EngineBatch.plan(paid.cast, alice, command)
+            val previewing = mark.elapsedNow(); mark = clock.markNow()
+            val sent = paid.sent()
+            val sending = mark.elapsedNow(); mark = clock.markNow()
+            val plan = EngineBatch.plan(sent, alice, command)
+            val planning = mark.elapsedNow(); mark = clock.markNow()
+            val batch = command.copy(action = plan.action)
+            var next = main
+            for ((i, action) in plan.actions.withIndex()) next = GameplayRules.change(next, alice, PlayBatches.member(batch, i, action)).state!!
+            val applying = mark.elapsedNow()
+            if (round >= 3) println("probe cast (${plan.actions.size} members, preview ${preview.actions.size}): hand plays $listing, start $start, pay $answer, preview plan $previewing, " +
+                "sent $sending, plan $planning, apply $applying")
+        }
+    }
 }

@@ -84,6 +84,32 @@ class StepFlowTest {
             rt.lastPlan!!.actions.filterIsInstance<PlayAction.ChooseStep>().map { it.position })
     }
 
+    // CR 103.8, 103.8a, 502.4 (TRN-027–TRN-029): after ATW's opening (mulligans by hand, the host's setup) a new game rests
+    // in the starting player's first untap step with nobody holding priority; the step button begins the first turn: the
+    // upkeep follows, the draw is skipped and the starting player acts in their main phase with the hands as kept
+    @Test fun theFirstTurnBeginsFromTheOpeningUntapStep() {
+        at(TurnPosition.UNTAP, 1)
+        table.priority = null
+        val kept = table.put(alice, PlayZone.HAND, "Mountain", "Island")
+        table.put(alice, PlayZone.LIBRARY, "Island", "Island")
+        val bobKept = table.put(bob, PlayZone.HAND, "Island")
+        table.put(bob, PlayZone.LIBRARY, "Island")
+        val rt = game()
+        assertEquals(alice, SharedFlow(rt.state, table.definitions, emptyList()) { AtwTable.SEED }.holder,
+            "the starting player's pass ends the untap step")
+        rt.run(alice) { assertNull(StepFlow.pass(it, alice)) }
+        assertEquals(TurnState(alice, "1", TurnPosition.PRECOMBAT_MAIN.phase, TurnPosition.PRECOMBAT_MAIN.step), rt.state.board.turn)
+        assertEquals(MtgPriority(alice), rt.state.board.priority)
+        assertEquals(kept, hand(rt, alice), "no card drawn on the starting player's first turn")
+        assertEquals(bobKept, hand(rt, bob))
+        assertEquals(listOf(TurnPosition.UPKEEP, TurnPosition.DRAW, TurnPosition.PRECOMBAT_MAIN),
+            rt.lastPlan!!.actions.filterIsInstance<PlayAction.ChooseStep>().map { it.position })
+        // Only the active player's pass ends it: the other player doesn't hold priority there
+        at(TurnPosition.UNTAP, 1)
+        table.priority = null
+        assertFailsWith<IllegalArgumentException> { game().run(bob) { StepFlow.pass(it, bob) } }
+    }
+
     // CR 117.3d, 117.4: a player who can still act isn't passed for: the step button then moves one priority pass on
     // (with "Full control", I-D41: otherwise the host passes for them where they have no pause, see PausePointsTest)
     @Test fun aPlayerWhoCanActKeepsPriority() {

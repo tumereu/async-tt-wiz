@@ -41,7 +41,18 @@ internal class EndpointReadCache {
         return known + missing.values.associateWith { loaded[it] }
     }
     fun write(key: String, value: kotlinx.serialization.json.JsonElement?) { values[key] = value }
-    fun copy() = EndpointReadCache().also { it.values.putAll(values) }
+
+    /** Decoded target sets of positions by their stored reference, each one known to be stored already: read from the
+     * play's records or written in this transaction (they are never removed). Bounded like [values]. */
+    private val targetSets = object : LinkedHashMap<String, Set<PingTarget>>(64, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Set<PingTarget>>?) = size > 64
+    }
+    fun targets(ref: String, load: () -> Set<PingTarget>): Set<PingTarget> = targetSets.getOrPut(ref, load)
+    fun knowsTargets(ref: String) = targetSets.containsKey(ref)
+    fun rememberTargets(ref: String, targets: Set<PingTarget>) { targetSets[ref] = targets }
+    /** The reference of this very set (not an equal one), when it is known: a batch's positions mostly share one. */
+    fun targetsRef(targets: Set<PingTarget>): String? = targetSets.entries.firstOrNull { it.value === targets }?.key
+    fun copy() = EndpointReadCache().also { it.values.putAll(values); it.targetSets.putAll(targetSets) }
 }
 
 internal class EndpointSet<T> private constructor(private val base: Reads<T>,

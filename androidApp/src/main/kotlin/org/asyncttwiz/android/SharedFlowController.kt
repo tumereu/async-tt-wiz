@@ -42,6 +42,8 @@ internal class SharedFlowController(
     private val work: AutomatumWork = AutomatumWork.Inline,
     /** "Respond" was tapped (#2: it holds the viewer's pause, [PauseController.holdForReaction]). */
     private val onRespond: () -> Unit = {},
+    /** The pictures of tokens a flow makes (§4.6). */
+    private val tokenArt: org.asyncttwiz.automatum.TokenArt = org.asyncttwiz.automatum.TokenArt.None,
 ) : FlowQuestions {
     /** The flow of the shown board, null until worked out (or when there is none). */
     var view by mutableStateOf<SharedFlow?>(null); private set
@@ -125,16 +127,26 @@ internal class SharedFlowController(
      * The step button, the step arrow and the phase dialog with Automatum on (TRN-057): the player holding priority
      * passes [until] as far as asked, whoever pressed it (TRN-004, D11), then Automatum goes on to the next point where a
      * player can act. With attackers or blockers awaited it declares what the combat lanes hold ("End turn" and a step
-     * after combat attack with nothing instead). Refused while the Stack holds anything (STK-029) or a choice is open.
+     * after combat attack with nothing instead). With something on the Stack [StepFlow.Until.Pass] is "Resolve": the
+     * holder passes as with Let it resolve (I-D46 d); anything further is refused (STK-029), as while a choice is open.
      * When that would act for the other player nothing is sent: [acting] asks the viewer first (I-D40) and
      * [confirmActing] goes on ([confirmed]: the player the viewer agreed to act for).
      */
     fun step(until: StepFlow.Until, confirmed: String? = null): Boolean {
         val play = current() ?: return false
         if (Automatum.flowOpen(play.board)) { fail(BUSY); return false }
-        if (CombatStackRules.stack(play.board).cards.isNotEmpty()) { fail(STACK_WAITING); return false }
+        // I-D46 d: with something on the Stack the step arrow is "Resolve": its holder passes, as Let it resolve does
+        val stacked = CombatStackRules.stack(play.board).cards.isNotEmpty()
+        if (stacked && (until != StepFlow.Until.Pass || play.board.stackEffects.none { it.item != null })) { fail(STACK_WAITING); return false }
+        // TRN-027, TRN-028: the opening (mulligans) is the host's setup; the engine's game begins after it (CR 103.8)
+        if (play.board.turn.number == "1" && PlayerStatus.anyOpening(play.board)) { fail(OPENING); return false }
         acting = null
         return sendCall(play) { flow ->
+            if (stacked) {
+                val holder = flow.priority ?: throw Refused(STACK_WAITING)
+                if (holder != viewer && holder != confirmed) throw Ask(ActingFor(play.board, holder, until, ActingFor.Kind.Pass(priority = true)))
+                return@sendCall flow.pass(holder)
+            }
             val holder = flow.holder
             val declaring = if (holder == null) flow.declaring else null
             val active = flow.state.turn.active.value
@@ -168,7 +180,11 @@ internal class SharedFlowController(
     /** I-D40: the viewer cancelled [acting]; nothing is sent. */
     fun cancelActing() { acting = null }
 
-    override fun answer(answer: Answer): Boolean {
+    override fun answer(answer: Answer): Boolean = answerWith(answer, emptyList())
+
+    /** I-D48: a two-area choice's answer and the orders the engine then asks of the same cards, as one step
+     * ([SharedFlow.answer]). */
+    override fun answerWith(answer: Answer, then: List<Answer.Objects>): Boolean {
         val play = current() ?: return false
         val open = view?.takeIf { it.play.board === play.board }?.decision
         if (open != null && open.id.value != shownDecision) { fail("The table changed: look at the choice again."); return false }
@@ -177,7 +193,7 @@ internal class SharedFlowController(
             if (decision.id.value != shownDecision) throw Refused("The table changed: look at the choice again.")
             // A division of combat damage (I-D29): the damage is dealt and the game goes on through the steps (I3)
             if (answer is Answer.Division && flow.division != null) flow.divide(answer.shares.associate { flow.ref(it.target) to it.amount })
-            else flow.answer(answer)
+            else flow.answer(answer, then)
         }
     }
 
@@ -303,7 +319,7 @@ internal class SharedFlowController(
                 val requestId = DeviceRandom.uuid()
                 val command = GameCommand(requestId, GameScope(play.gameId, playId = play.id),
                     GameAction.PlayBatch(listOf(PlayAction.PassAttention)), DeviceRandom.uuid(), "1")
-                val plan = EngineBatch.plan(call, viewer, command)
+                val plan = EngineBatch.plan(call, viewer, command, tokenArt)
                 if (plan.actions.isEmpty()) Outcome.Empty else Outcome.Send(play.board, plan.action, requestId)
             } catch (ask: Ask) {
                 Outcome.Confirm(ask.acting)
@@ -358,6 +374,8 @@ internal class SharedFlowController(
             arcanum.api.Zone.Exile, arcanum.api.Zone.Command)
         const val BUSY = "Automatum is waiting for a choice. Answer it, or switch Automatum off, first."
         const val STACK_WAITING = "Let the Stack resolve before changing the step."
+        /** TRN-027: with Automatum on the first turn begins once both players are Ready. */
+        const val OPENING = "The game begins once both players are Ready."
         const val TAKE_OVER = "Automatum can't take over this board."
         const val NOTHING_TO_PASS = "Automatum couldn't go on from here."
         /** TRN-057: steps and turns change only through Automatum while it is on. */

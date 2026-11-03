@@ -66,7 +66,7 @@ Cubes, pods of 2–8 players drafting asynchronously, the pick and grid screens,
 
 - **DRF-043** Seating is random. Each round opens "open packs" packs per player; a round's packs all pass one way and the direction flips each round. (r16)
 - **DRF-044** A pick takes "keep" cards into your pool and removes "burn" cards from the draft; burned cards go to nobody. A confirmed pick cannot be undone. (r16)
-- **DRF-045** A pack with keep cards or fewer left is given to its receiver automatically; with keep + burn or fewer you choose only the keeps and the rest burn. (r16)
+- **DRF-045** A pack with keep cards or fewer left is given to its receiver automatically; with keep + burn + discard (DRF-046) or fewer you choose only the keeps and the rest go to nobody: up to burn of them burn and the others are thrown away. (r42)
 - **DRF-046** After a pick leaves "discard" cards or fewer in the pack, the rest are thrown away; 0 means never. (r16)
 - **DRF-047** You open your next round's packs as soon as no pack of your opened rounds can come back to you for a pick. (r20)
 - **DRF-048** You never see a next-round pack while a pack of your current round can still reach you; such packs wait hidden and send no "your pick". (r21)

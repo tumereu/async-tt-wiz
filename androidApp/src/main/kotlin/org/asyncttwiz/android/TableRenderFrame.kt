@@ -26,9 +26,7 @@ internal fun AnimatedStackBubbleOverlay(frame: State<TableRenderFrame>, play: Pl
     val bubble = scene.stackBubbles ?: return
     val card = scene.items.find { it.cardId == bubble.entryId && it.zone == PlayZone.STACK }
     StackBubbleOverlay(bubble, stackTextOptions(play, bubble.entryId, viewer),
-        if (card?.owner == viewer) OwnTableColor else OpponentTableColor, preview(), enabled, perform,
-        // Automatum on (§3 I4): its moves are refused (with the reason on tap), so they show greyed
-        manualRefused = !AutomatumBoards.manualAllowed(play))
+        if (card?.owner == viewer) OwnTableColor else OpponentTableColor, preview(), enabled, perform)
 }
 
 @Composable

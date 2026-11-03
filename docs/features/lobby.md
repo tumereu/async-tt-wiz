@@ -46,7 +46,7 @@ Everything outside the game table: accounts, profile, navigation, game list, gam
 - **LOB-028** Contacts and Choose opponent share one screen with two tabs: Contacts (default, with a local "Filter contacts" field) and Search (search usernames). Empty results say "No players found"; loading shows a spinner. (r17)
 - **LOB-029** Contacts tab rows have a remove button (Contacts screen) or an invite button (Choose opponent); Search rows have icon-only Add contact and, when choosing an opponent, Invite. Inviting someone also adds them as a contact. (r15)
 - **LOB-030** Removing a contact asks "Remove <name>?" with "Existing games and invitations will not change." (r15)
-- **LOB-031** "New game" opens Choose opponent; picking a player opens the "New game" dialog ("Invite <name>") with an editable random fantasy game name (like "Azure Spark"), a reroll button, Cancel and Create. (r15)
+- **LOB-031** "New game" opens Choose opponent; picking a player opens the "New game" dialog ("Invite <name>") with an editable random fantasy game name (like "Azure Spark"), a reroll button, an "Automatum" switch ("Plays by the rules for you. Can be turned off in the game."), on by default, that decides whether the game starts with Automatum on (SYS-055), Cancel and Create. (r42)
 - **LOB-032** Adding a contact is one-sided: no friend request, and it never accepts anything for the other player. (r1)
 
 ### Game lobby
@@ -117,6 +117,7 @@ Everything outside the game table: accounts, profile, navigation, game list, gam
 - **LOB-076** If no notice reached you, the app itself reminds you of games waiting for your move and pods waiting for your pick or deck build: 15 min, 30 min, 1 h, 2 h, 4 h, 8 h and 16 h after it went to the background, then daily until you open it. A notification you swipe away stays away until your opponent does something new (for a pod: a new pick arrives or the draft ends). (r35)
 - **LOB-077** You get a notification when a game you are Ready for starts; pod notices cover a new pod invitation, "Your pick — <pod>", "Draft complete: build your deck", "Decks ready — <pod>", "Draft cancelled", "Pod destroyed" and "Auto-start off — <pod>". (r25)
 - **LOB-111** When your opponent accepts your result suggestion, you get a Game activity notification "<game> · vs <opponent>" reading "Game over · <opponent> accepted your win" ("your loss", "the draw"), timed like a move notification (LOB-073); tapping it opens the game. It is timed as when it is not your move (60 s), always alerts, and like any game notification adds " · new message" after unread chat (LOB-072). (r36)
+- **LOB-114** When your opponent sets Ready (or any other status) while your own status is still the opening "Mulliganing" (TRN-027), their game notification reads "<opponent> is ready" instead of "Your move" or "<opponent>'s move", for as long as their latest action leaves it so. It is timed like a move notification (LOB-073), always alerts, and like any game notification adds " · new message" after unread chat (LOB-072). (r42)
 - **LOB-078** Tapping a notification opens that game or pod; a game's or pod's notification clears while you have it open. Android 13+ asks for notification permission once, on the Games list or Pods screen. (r19)
 
 ### Settings
@@ -125,7 +126,7 @@ Everything outside the game table: accounts, profile, navigation, game list, gam
 - **LOB-080** Games → "Deck visibility": Visible, Hidden or "Show after first game" (default), saved on your account and used as the start value of "Show deck name & art" in new games. (r31)
 - **LOB-081** Table → Card move speed (0.25–3×, default 1×), the Event text switch (on by default), and Card size and Card text size (0.5–3×) with "Customize per area"/"Customize per text", tap-to-type values and a live sample; these are stored on the device. (r29)
 - **LOB-082** Timeline playback → the auto-pause switches, History playback pause (default 1 s, 0.1–10 s), Rewind pause (default 0.1 s), and "Rewind automatically when the opponent branched" with "During live play" and "When opening a game" (both off by default). (r33)
-- **LOB-113** Automatum → "Response time" (1–3 s in 0.5 s steps, default 2 s), "When the opponent can react" (Wait, the default, or Proceed at once) and "Full control" (off by default, SYS-071); stored on the device per account (STK-037, STK-038). (r41)
+- **LOB-113** Automatum → "Response time" (1–3 s in 0.5 s steps, default 2 s), "When the opponent can react" (Wait, the default, or Proceed at once) and "Full control" (off by default, SYS-071) and "Autotap mana sources" (on by default, STK-024; also a quick-actions toggle, TRN-059); stored on the device per account (STK-037, STK-038). (r43)
 - **LOB-083** About & account → What's new, Report a problem, Send error reports (LOB-104), the version line "Version <name> (<code>) <type> · commit <hash>" (selectable), and Log out. (r35)
 
 ### App updates

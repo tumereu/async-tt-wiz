@@ -42,7 +42,6 @@ internal fun menuIcon(name: String): ImageVector {
     val n = name.lowercase()
     return when {
         n == "timeline" -> Icons.Outlined.History
-        n == "manual…" -> Icons.Outlined.PanTool
         n == "ready" -> Icons.Outlined.CheckCircleOutline
         n == "edit status" -> Icons.Outlined.Edit
         n == "clear status" -> Icons.Outlined.Close
@@ -52,6 +51,17 @@ internal fun menuIcon(name: String): ImageVector {
         n == "unmute status bubble" -> Icons.Outlined.ChatBubbleOutline
         // Single-value P/T steps ("P/T +1/+0", "EOT P/T +0/−1", ...): generated "+/·"-style glyphs.
         powerToughnessStep(name) != null -> powerToughnessStepIcon(powerToughnessStep(name)!!)
+        // Automatum's quick actions (CMB-028, CMB-029, CMB-034, TRN-059): each its own icon, before the generic matches
+        n == "pass" -> Icons.AutoMirrored.Outlined.ArrowForward
+        n == "no blocks" -> Icons.Outlined.RemoveModerator
+        n == "commit blocks" -> Icons.Outlined.GppGood
+        n == "clear" -> Icons.Outlined.ClearAll
+        n.startsWith("rest →") -> Icons.Outlined.GpsFixed
+        n.startsWith("commit attack") -> Icons.Outlined.TaskAlt
+        n == "full control" -> Icons.Outlined.Tune
+        n == "skip if no choice" -> Icons.Outlined.FastForward
+        n == "autotap mana" -> Icons.Outlined.WaterDrop
+        n == "keep" -> Icons.Outlined.CheckCircleOutline
         n == "draw + go to main" -> Icons.Outlined.Download
         // Same crosshair as the "Choose attack target" history event (rules v34).
         n == "attack →" -> Icons.Outlined.GpsFixed
@@ -143,11 +153,24 @@ internal fun MenuIcon(name: String, modifier: Modifier = Modifier, tint: Color =
         }, null, Modifier.fillMaxSize().graphicsLayer { if (name == "Battlefield tapped") rotationZ = 90f }, tint = tint)
         Icon(if (name == "Battlefield tapped") Icons.Outlined.Rotate90DegreesCw else Icons.Outlined.Visibility,
             null, Modifier.size(11.dp).align(Alignment.BottomEnd), tint = tint)
-    } else if ("declare" in name.lowercase() && name.lowercase() != "declare blockers") Box(modifier.size(24.dp)) {
+    } else if (swordsIcon(name)) Box(modifier.size(24.dp)) {
+        val n = name.lowercase()
         Icon(painterResource(R.drawable.swords_outlined), name, Modifier.fillMaxSize(), tint = tint)
-        if ("+ tap" in name.lowercase()) Icon(Icons.Outlined.Rotate90DegreesCw, null,
-            Modifier.size(10.dp).align(Alignment.BottomEnd), tint = tint)
+        // The attack's own swords, badged: "+ tap" taps, "Rest →" adds every other creature, Commit attack confirms
+        val badge = when {
+            "+ tap" in n -> Icons.Outlined.Rotate90DegreesCw
+            n.startsWith("rest →") -> Icons.Outlined.Add
+            n.startsWith("commit attack") -> Icons.Outlined.Check
+            else -> null
+        }
+        if (badge != null) Icon(badge, null, Modifier.size(10.dp).align(Alignment.BottomEnd), tint = tint)
     } else Icon(menuIcon(name), contentDescription = name, modifier = modifier.size(24.dp), tint = tint)
+}
+
+/** Attack-making names drawn as crossed swords: Declare …, and Automatum's "Rest → <target>" and "Commit attack" (CMB-028). */
+internal fun swordsIcon(name: String): Boolean {
+    val n = name.lowercase()
+    return n.startsWith("rest →") || n.startsWith("commit attack") || "declare" in n && n != "declare blockers"
 }
 
 /** Bounded context panel: wrap content, never reserve an empty fullscreen sheet. */
@@ -198,13 +221,10 @@ internal fun MenuButton(name: String, modifier: Modifier = Modifier, enabled: Bo
     ManualActionSquare(name, "", enabled, fill = fill, modifier = modifier, labelled = true, refused = refused, onClick = onClick)
 }
 
-/** [refused]: a greyed control that says why on tap (Automatum on, I-D28: manual actions are refused with their reason,
- * SYS-040: shown and greyed, never hidden). */
+/** [refused]: a greyed control Automatum doesn't allow now (I-D28, SYS-040: shown and greyed, never hidden): a tap
+ * shakes it and holding it shows [refused], the reason (I-D46). */
 internal data class MenuControl(val name: String, val enabled: Boolean = true, val selected: Boolean = false,
     val color: Color? = null, val refused: String? = null, val click: () -> Unit)
-
-/** Shows the reason of a greyed control tapped ([MenuControl.refused]) as the table's floating message. */
-internal val LocalRefusal = staticCompositionLocalOf<(String) -> Unit> { {} }
 
 @Composable
 internal fun MenuControl.Square() = ManualActionSquare(name, "", enabled, selected = selected, iconTint = color, onClick = click)

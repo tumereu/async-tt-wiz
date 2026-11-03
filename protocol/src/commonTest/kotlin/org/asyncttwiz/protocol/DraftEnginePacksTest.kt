@@ -19,7 +19,7 @@ class DraftEnginePacksTest {
             val player = state.seating.first { state.queues.getValue(it).isNotEmpty() }
             val pack = assertNotNull(DraftEngine.privateView(state, player).head)
             val ids = pack.cards.map { it.id }
-            val burn = if (ids.size <= state.settings.keep + state.settings.burn) emptyList()
+            val burn = if (state.settings.keepsOnly(ids.size, state.settings.keep.toLong())) emptyList()
                 else ids.drop(state.settings.keep).take(state.settings.burn)
             val result = DraftEngine.pick(state, DraftPick(player, pack.id, ids.take(state.settings.keep), burn))
             assertNull(result.reason)

@@ -1,0 +1,1 @@
+mod: With Automatum on, menus show only what Automatum allows, and the quick-actions row holds the Full control, Skip if no choice and Autotap mana switches; switch Automatum off to change things by hand.

@@ -1,0 +1,1 @@
+mod: In drafts, when the cards left in a pack would all be burned or thrown away anyway, you only choose your picks.

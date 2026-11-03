@@ -65,6 +65,10 @@ internal object StateBasedActions {
                 .filter { it !in state.player(p.id).designations }
                 .forEach { act.record(Change.PlayerDesignation(p.id, it, before = false, after = true)) }
         }
+        // CR 702.179a: start your engines! gives a player with no speed speed 1 (a state-based action)
+        arcanum.engine.turn.Speed.check(act, view)
+        // CR 702.145c, d, f, g: day or night for daybound and nightbound permanents, and their transforming (at once, checked here)
+        arcanum.engine.turn.DayNight.check(act, view)
         val toGraveyard = mutableListOf<ObjectId>()
         val destroyed = mutableListOf<ObjectId>()
         val unattach = mutableListOf<ObjectId>()

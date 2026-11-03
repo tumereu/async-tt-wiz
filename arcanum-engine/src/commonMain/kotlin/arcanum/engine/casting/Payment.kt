@@ -144,6 +144,10 @@ internal object Payment {
             val life = 2 * lifeFor.size
             if (recorder.state.player(player).life < life) refuse("Not enough life to pay $life")
             Actions.payLife(act, Cause(player, null, key = "life:${recorder.state.nextTimestamp()}"), player, life)
+            // CR 702.150a: compleated reads how many Phyrexian symbols of a spell were paid with life
+            if (plan.isSpell) recorder.state.obj(plan.itemId)?.let { o ->
+                recorder.record(Change.Facts(plan.itemId, o.facts, o.facts.copy(phyrexianPaidWithLife = lifeFor.size)))
+            }
         }
         val usedIndices = used.mapNotNull { (it.use as? ManaUse.Pool)?.index }.toSet()
         val spent = poolNow.filterIndexed { i, _ -> i in usedIndices }
@@ -616,6 +620,12 @@ internal object Payment {
         val leftover = mutableListOf<Step>()
         var self = plan.sourceId
         countActivation(recorder, self, plan.origin!!, loyalty = false)
+        // CR 702.143a: foretelling exiles the card face down
+        if (arcanum.engine.foretell.Foretell.isForetell(plan.origin)) {
+            arcanum.engine.foretell.Foretell.exile(act, costCause(plan), self)
+            Casting.keepPriority(recorder, plan.player)
+            return Progress.Done
+        }
         action.instructions.steps.forEach { step ->
             val effect = (step as? Step.Do)?.effect
             when {
@@ -637,6 +647,9 @@ internal object Payment {
                     val moved = Actions.move(act, costCause(plan), listOf(PlannedMove(self, effect.to.zone, faceDown = effect.to.faceDown, counters = counters)))
                     self = moved[self] ?: (self as ObjectId.Card).next()
                 }
+                // CR 702.170a: "It becomes a plotted card."
+                effect is Effect.Mark && effect.objects == Objects.Self ->
+                    Actions.tapStatus(act, self, arcanum.engine.state.StatusFlag.Marked(effect.mark), !effect.remove)
                 else -> leftover += step
             }
         }

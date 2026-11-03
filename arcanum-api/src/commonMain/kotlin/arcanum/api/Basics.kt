@@ -147,6 +147,15 @@ sealed interface ObjectMark {
     /** Harnessed (CR 701.64b): a permanent stays harnessed until it leaves the battlefield; its ∞ abilities work only then
      * ([AbilityLabel.Infinity], CR 702.186b). Set with [Effect.Mark] ("Harness [this permanent]", 701.64a). */
     @Serializable @SerialName("harnessed") data object Harnessed : ObjectMark
+    /** A foretold card (CR 702.143a, c): exiled face down by its foretell special action; its owner may look at it and cast it
+     * for its foretell cost after the turn it was foretold. Set by the engine. */
+    @Serializable @SerialName("foretold") data object Foretold : ObjectMark
+    /** A plotted card (CR 702.170a, c): its owner may cast it from exile without paying its mana cost during their main phase
+     * while the Stack is empty on any later turn (702.170d). Set by the plot special action or "it becomes plotted". */
+    @Serializable @SerialName("plotted") data object Plotted : ObjectMark
+    /** A cloaked permanent (CR 701.58a): face down as a 2/2 creature with ward {2} because it was cloaked; turned face up for
+     * its mana cost if it's a creature card (701.58b). Set by the engine as it cloaks. */
+    @Serializable @SerialName("cloaked") data object Cloaked : ObjectMark
     /** Any other mark by name. */
     @Serializable @SerialName("named") data class Named(val name: String) : ObjectMark
 }

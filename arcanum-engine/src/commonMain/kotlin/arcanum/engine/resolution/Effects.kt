@@ -371,11 +371,21 @@ internal object Effects {
                 }
                 kinds.distinct().forEach { Actions.putCounters(act, cause, ref, it, 1) }
             }
-            // msh: CR 723: who makes a player's decisions is the host's; done by hand
-            is Effect.ControlNextTurn -> scope.players(effect.players).forEach { p ->
-                // tla: or only their next combat phase (CR 723.2)
-                act.manual(scope.actor, scope.self, if (effect.combatPhase) "You control ${p.value} during their next combat phase (CR 723.2)"
-                    else "You control ${p.value} during their next turn (CR 723)")
+            // msh: CR 723.1: control of a player during their next turn, waiting until they actually take one; the host asks
+            // Engine.decider who makes their decisions
+            is Effect.ControlNextTurn -> {
+                val controller = scope.players(effect.controller).firstOrNull() ?: return
+                scope.players(effect.players).forEach { p ->
+                    val control = arcanum.engine.state.PlayerControl(p, controller, combatOnly = effect.combatPhase)
+                    val turn = act.state.turn
+                    // tla: only their next combat phase (CR 723.2): this turn's when it is theirs and its combat is still to come
+                    val now = effect.combatPhase && turn.active == p && turn.step in BEFORE_COMBAT
+                    act.record(Changes.step(act.state, if (now) turn.copy(controlled = control) else turn.copy(controlNext = turn.controlNext + control)))
+                }
+            }
+            // CR 702.179c: speed increases (from none to the amount), at most 4
+            is Effect.IncreaseSpeed -> scope.players(effect.players).forEach { p ->
+                arcanum.engine.turn.Speed.set(act, p, arcanum.engine.turn.Speed.of(act.state, p) + scope.value(effect.amount))
             }
             is Effect.PutCountersOf -> {
                 val board = scope.eval().board
@@ -1244,7 +1254,12 @@ internal object Effects {
                     val power = scope.eval().property(arcanum.api.NumericProperty.Power, id)
                     applyMechanics(scope, listOf(Mechanic.ModifyPowerToughness(Value.Fixed(power), Value.Fixed(0))), null, Duration.EndOfTurn, null, locked = listOf(id))
                 }
-                is arcanum.api.Doubled.Mana -> act.manual(scope.actor, scope.self, "Double the mana in your mana pool")
+                // CR 701.10e: each of them adds an additional amount of mana equal to the amount of each type they have
+                is arcanum.api.Doubled.Mana -> scope.players(what.players).forEach { p ->
+                    val pool = act.state.player(p).manaPool
+                    if (pool.isNotEmpty()) act.record(Changes.manaPool(act.state, p, pool + pool.map { arcanum.engine.state.ManaUnit(it.color, snow = it.snow) },
+                        listOf(arcanum.engine.change.Meaning.ManaAdded)))
+                }
             }
             is KeywordAction.Regenerate -> regenerate(scope, onBattlefield(scope, action.objects))
             // CR 701.43: it won't untap during its controller's next untap step
@@ -1259,8 +1274,25 @@ internal object Effects {
                 if (ids.isNotEmpty()) applyMechanics(scope, listOf(Mechanic.CantAttack(), Mechanic.CantBlock(ObjectFilter.Any),
                     Mechanic.CantBeActivated(manaAbilities = true)), null, Duration.UntilYourNextTurn, null, locked = ids)
             }
-            // CR 701.39b: put a +1/+1 counter on each of up to N other target creatures
-            is KeywordAction.Support -> act.manual(scope.actor, scope.self, "Support ${scope.value(action.count)}")
+            // CR 701.40a, c: the top card of the library onto the battlefield face down as a 2/2 creature, one card at a time;
+            // CR 701.58a: cloaked, it also has ward {2}
+            is KeywordAction.Manifest -> scope.bind(bind, NamedValue.Objects(manifest(scope, scope.value(action.count), ObjectMark.Manifested)))
+            is KeywordAction.Cloak -> scope.bind(bind, NamedValue.Objects(manifest(scope, scope.value(action.count), ObjectMark.Cloaked)))
+            // CR 701.56a: for each suspended card you own and each permanent you control with a time counter on it, you may add or
+            // remove a time counter
+            KeywordAction.TimeTravel -> {
+                val e = scope.eval()
+                val suspended = act.state.exile.filter { id -> act.state.obj(id)?.let { it.owner == scope.actor && it.counters(CounterKind.Time) > 0 &&
+                    e.characteristics(id)?.abilities.orEmpty().any { a -> a.ability is arcanum.api.Keyword.Suspend } } == true }
+                val permanents = act.state.battlefield.filter { e.controllerOf(it) == scope.actor && act.state.obj(it)!!.counters(CounterKind.Time) > 0 }
+                (suspended + permanents).forEach { id ->
+                    val choice = act.chooseOption(scope.actor, id, listOf(TIME_ADD, TIME_REMOVE, TIME_NEITHER))
+                    when (choice) {
+                        TIME_ADD -> Actions.putCounters(act, cause, TargetRef.Object(id), CounterKind.Time, 1)
+                        TIME_REMOVE -> Actions.removeCounters(act, TargetRef.Object(id), CounterKind.Time, 1)
+                    }
+                }
+            }
             // blb: CR 701.61a: exile three cards from your graveyard or sacrifice a Food; nothing if neither can be done
             KeywordAction.Forage -> if (Costs.canPay(scope, scope.actor, arcanum.api.Cost(listOf(arcanum.engine.casting.Costs.forage)))) {
                 Costs.pay(scope, scope.actor, arcanum.api.Cost(listOf(arcanum.engine.casting.Costs.forage)))
@@ -1283,6 +1315,23 @@ internal object Effects {
             else -> act.manual(scope.actor, scope.self, "Do by hand: ${action::class.simpleName}")
         }
     }
+
+    /** CR 701.40a, c, 701.58a, c: the actor's top card onto the battlefield face down, [count] times one at a time, each [mark]ed
+     * (manifested, cloaked); the permanents made. */
+    private fun manifest(scope: Scope, count: Int, mark: ObjectMark): List<ObjectId> {
+        val act = scope.act
+        return (1..count).mapNotNull {
+            val top = act.state.player(scope.actor).library.firstOrNull() ?: return@mapNotNull null
+            val moved = Actions.move(act, scope.cause, listOf(PlannedMove(top, Zone.Battlefield, controller = scope.actor, faceDown = true)))[top]
+                ?.takeIf { act.state.obj(it)?.zone == Zone.Battlefield } ?: return@mapNotNull null
+            Actions.tapStatus(act, moved, StatusFlag.Marked(mark), true)
+            moved
+        }
+    }
+
+    private const val TIME_ADD = "add a time counter"
+    private const val TIME_REMOVE = "remove a time counter"
+    private const val TIME_NEITHER = "neither"
 
     /**
      * CR 701.62a: [player] looks at the top two cards of their library, manifests one (CR 701.40a: face down as a 2/2,
@@ -1329,6 +1378,8 @@ internal object Effects {
         act.record(Change.Happened(GameEvent.Airbended(scope.actor)))
     }
 
+    private val BEFORE_COMBAT = setOf(arcanum.api.TurnStep.Untap, arcanum.api.TurnStep.Upkeep, arcanum.api.TurnStep.Draw,
+        arcanum.api.TurnStep.PrecombatMain)
     private const val POPULATED = "\$populated"
     private const val EXERTED = "\$exerted"
 }

@@ -36,6 +36,9 @@ Design: `docs/specs/arcanum-automatum.md` §6.
   Marvel Super Heroes (`msh`): all 281 cards parse (modal double-faced heroes as two faces); its rules are in `MshWordings.kt` and
   the `msh*` functions of `Sentences.kt`, tried first like The Hobbit's; flavor words before modes and abilities are dropped
   (CR 207.2d), dotted names ("U.S.Agent") are also read without dots, and "he/she/they" refer back to the card.
+  Teenage Mutant Ninja Turtles (`tmt`): all 190 cards parse; its rules are in `TmtWordings.kt` and the `tmt*` functions of
+  `Sentences.kt`, tried first like The Hobbit's; names of two characters ("Don & Raph attack", "The Neutrinos get") are read with
+  singular verbs, and a modal trigger's "choose one that hasn't been chosen this turn." may end with a period.
 - `TypeLine`, `PrintedNumbers`: type lines and printed numbers, both ways.
 - `OracleRenderer.render(ability)`: writes an ability back as oracle-style English,
   for checking parses against the original text.

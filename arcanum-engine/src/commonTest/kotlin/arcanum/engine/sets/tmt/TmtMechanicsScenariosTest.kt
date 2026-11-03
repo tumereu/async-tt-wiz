@@ -71,6 +71,16 @@ class TmtMechanicsScenariosTest {
         You may cast creature spells from your graveyard using their sneak abilities.
     """)
 
+    private val eternal = Cards.invent("Shells Eternal", "{3}{W}", "Instant",
+        "Search your library and/or outside the game for exactly four legendary creature cards you own with different names, then reveal those cards. An opponent chooses two of them. Put the chosen cards into your hand and shuffle the rest into your library.")
+    private val legends = (1..4).map { Cards.invent("Sewer Legend $it", "{2}", "Legendary Creature — Rat", "", "2/2") }
+    private val tale = Cards.invent("The Lone Survivor's Tale", "{4}{B}{G}", "Enchantment — Saga", """
+        (As this Saga enters and after your draw step, add a lore counter. Sacrifice after III.)
+        I — Destroy all creatures.
+        II — Mill four cards. When you do, return target creature card from your graveyard to your hand.
+        III — Whenever a creature you control attacks alone this turn, put three +1/+1 counters on it. It gains trample, lifelink, and indestructible until end of turn.
+    """)
+
     private fun Scenario.resolveAll() {
         var guard = 40
         while (state.stack.isNotEmpty() && pending == null && guard-- > 0) allPass()
@@ -284,6 +294,58 @@ class TmtMechanicsScenariosTest {
         expect {
             ogre.zone shouldBe Zone.Battlefield
             ogre.tapped shouldBe true
+        }
+    }
+
+    /** With level 3, a creature card in the graveyard can't be cast for its mana cost: only with sneak. */
+    // CR 601.2a
+    @Test
+    fun graveyardCastOnlyWithSneak() = scenario {
+        alice.battlefield(shinobi, "Swamp", "Swamp", "Swamp", "Mountain", "Mountain", "Mountain")
+        alice.graveyard(ogre)
+        alice.activates(shinobi, ability = 0)
+        resolveAll()
+        alice.activates(shinobi, ability = 1)
+        resolveAll()
+        assertFailsWith<IllegalArgumentException> { alice.casts(ogre) }
+    }
+
+    /** Four legends with different names from the library and outside the game; the opponent picks two for the hand. */
+    // CR 400.11a, 701.23
+    @Test
+    fun searchLibraryAndOutsideTheGame() = scenario {
+        alice.battlefield("Plains", "Plains", "Plains", "Plains")
+        alice.hand(eternal)
+        alice.library(legends[0], legends[1], bear)
+        put(alice, listOf(legends[2], legends[3]), Zone.Outside)
+        alice.casts(eternal)
+        resolveAll()
+        alice.chooses(*legends.toTypedArray())
+        resolveAll()
+        bob.chooses(legends[0], legends[2])
+        resolveAll()
+        expect {
+            alice.hand.names.sortedBy { it } shouldBe listOf(legends[0], legends[2])
+            alice.library.names.size shouldBe 3
+        }
+    }
+
+    /** Chapter III: a creature attacking alone this turn gets three counters and keywords. */
+    // CR 603.7c, 714.2b
+    @Test
+    fun attacksAloneThisTurn() = scenario {
+        alice.battlefield(bear)
+        alice.battlefield(tale, counters = listOf(CounterKind.Lore to 2))
+        alice.library("Forest", "Forest")
+        bob.library("Forest", "Forest")
+        advanceTo(TurnStep.PrecombatMain, turn = 3)
+        resolveAll()
+        advanceTo(TurnStep.DeclareAttackers)
+        alice.attacks(bear)
+        resolveAll()
+        expect {
+            bear.counters(p1p1) shouldBe 3
+            bear hasKeyword arcanum.api.Keyword.Lifelink
         }
     }
 }

@@ -33,7 +33,7 @@ internal object Sos {
     val UNLESS_CONDITION = Regex("""(.+) unless (.+)\.""")
     val ADD_AMOUNT_EQUAL_TO_POWER = Regex("""[Aa]dd an amount of (\{[WUBRGC]\}) equal to (.+?)'s power\.""")
     val CREATE_COPY_OF_SELF = Regex("""[Cc]reate a token that's a copy of (.+)\.""")
-    val IF_EXILE_TOP_PLAY_UNTIL_NEXT_TURN = Regex("""If (.+?), exile the top card of your library\. You may play that card until the end of your next turn\.""")
+    val IF_EXILE_TOP_PLAY_UNTIL_NEXT_TURN = Regex("""(?:(.+?\.) )?If (.+?), exile the top card of your library\. You may play that card until the end of your next turn\.""")
 
     // sos chunk 03: paradigm (CR 702.192) and spells exiling themselves
     val EXILE_SELF = Regex("""Exile (.+)\.""")
@@ -54,8 +54,8 @@ internal object Sos {
     val WHEN_YOU_CAST_COPY_IF = Regex("""When you cast this spell, copy it if (.+?)\. You may choose new targets for the copy\.""")
     val WHEN_YOU_CAST_WHILE_MAY_COPY = Regex("""When you cast this spell while (.+?), you may copy this spell\.""")
     val TARGET_GETS_UNTIL_EOT_IF = Regex("""(.+) until end of turn if (.+)\.""")
-    val PUT_COUNTERS_ON_IT_IF = Regex("""put (\w+) (\S+) counters? on it if (.+)\.""")
-    val RETURN_UP_TO_ONE_MANA_VALUE_X = Regex("""return up to one target (.+?) with mana value X or less from your graveyard to the battlefield\.""")
+    val PUT_COUNTERS_ON_IT_IF = Regex("""[Pp]ut (\w+) (\S+) counters? on it if (.+)\.""")
+    val RETURN_UP_TO_ONE_MANA_VALUE_X = Regex("""[Rr]eturn up to one target (.+?) with mana value X or less from your graveyard to the battlefield\.""")
 
     // sos chunk 06: looking and revealing
     val LOOK_PUT_ONE_OR_TWO_IF = Regex("""Look at the top (\w+) cards of your library\. Put one of them into your hand and the rest on the bottom of your library in any order\. If (.+?), instead put two of them into your hand and the rest on the bottom of your library in any order\.""")
@@ -63,7 +63,7 @@ internal object Sos {
     val LOOK_TOP_X_PUT_ONE_REST_GRAVEYARD = Regex("""[Ll]ook at the top X cards of your library\. Put one of those cards into your hand and the rest into your graveyard\.""")
     val LOOK_TOP_N_PUT_ONE_OTHER = Regex("""Look at the top (\w+) cards of your library\. Put one of (?:them|those cards) into your hand and the other (on the bottom of your library|into your graveyard)\.""")
     val LOOK_REVEAL_UP_TO_LANDS_BATTLEFIELD_CREATURES_HAND = Regex("""Look at the top (\w+) cards of your library\. You may reveal up to (\w+) (.+?) from among them, then put the rest on the bottom of your library in a random order\. Put all land cards revealed this way onto the battlefield tapped and put all creature cards revealed this way into your hand\.""")
-    val LOOK_REVEAL_LAND_OR_X = Regex("""look at the top (\w+) cards of your library\. You may reveal a land card or a card with \{X\} in its mana cost from among them and put it into your hand\. Put the rest on the bottom of your library in a random order\.""")
+    val LOOK_REVEAL_LAND_OR_X = Regex("""[Ll]ook at the top (\w+) cards of your library\. You may reveal a land card or a card with \{X\} in its mana cost from among them and put it into your hand\. Put the rest on the bottom of your library in a random order\.""")
     val REVEAL_UNTIL_PUT_HAND_REST_BOTTOM = Regex("""Reveal cards from the top of your library until you reveal an? (.+?)\. Put that card into your hand and the rest on the bottom of your library in a random order\.""")
     val MILL_PUT_FROM_AMONG_ONTO_BATTLEFIELD = Regex("""Mill (\w+) cards\. Then put an? (.+?) from among them onto the battlefield\.""")
     val MILL_MAY_PLAY_THIS_TURN = Regex("""[Mm]ill a card\. You may play that card this turn\.""")
@@ -79,7 +79,7 @@ internal object Sos {
     val TARGET_OPPONENT_EXILES_GREATEST = Regex("""Target opponent exiles an? (.+?) they control with the greatest mana value among (.+?) they control\.""")
 
     // sos chunk 08: graveyards, flashback and casting from exile
-    val EXILE_TARGET_MAY_CAST_UNTIL_NEXT_TURN = Regex("""exile target (.+?) from your graveyard\. Until the end of your next turn, you may cast that card\.""")
+    val EXILE_TARGET_MAY_CAST_UNTIL_NEXT_TURN = Regex("""[Ee]xile target (.+?) from your graveyard\. Until the end of your next turn, you may cast that card\.""")
     val EXILE_TARGET_AND_TOP_EACH_OWNER_MAY_PLAY = Regex("""Exile target (.+?) and the top card of your library\. For each of those cards, its owner may play it until the end of their next turn\.""")
     val EXILE_FROM_OPPONENT_GRAVEYARD_MAY_CAST = Regex("""Exile target (.+?) from an opponent's graveyard\. You may cast it this turn, and mana of any type can be spent to cast that spell\. If that spell would be put into a graveyard, exile it instead\.""")
     val PUT_TARGET_FROM_A_GRAVEYARD_LOSE_LIFE = Regex("""Put target (.+?) from a graveyard onto the battlefield under your control\. You lose life equal to that card's mana value\.""")
@@ -91,7 +91,7 @@ internal object Sos {
     val ONE_OR_MORE_COUNTERS_PUT_ON = Regex("""one or more (\S+) counters are put on (.+)""")
     val MOVE_X_COUNTERS_ONTO_ANOTHER = Regex("""At the beginning of combat on your turn, you may pay \{X\}\. When you do, move X (\S+) counters from (.+?) onto another target (.+)\.""")
     val PUT_COUNTER_THEN_DOUBLE = Regex("""Put an? (\S+) counter on target (.+?), then double the number of (\S+) counters on that creature\.""")
-    val CREATE_TOKEN_PUT_COUNTERS_OF_SELF = Regex("""create (.+?) token, then put (.+?)'s counters on that token\.""")
+    val CREATE_TOKEN_PUT_COUNTERS_OF_SELF = Regex("""[Cc]reate (.+?) token, then put (.+?)'s counters on that token\.""")
     val AS_LONG_AS_N_COUNTERS_GROUP_GETS = Regex("""As long as there are (\w+) or more (\S+) counters on (.+?), (.+?) get ([+-]\d+)/([+-]\d+)\.""")
     val CREATE_TOKEN_PUT_X_WHERE_DIFFERENT_NAMES = Regex("""Create (.+?) token\. Put X (\S+) counters on it\.""")
 
@@ -99,16 +99,16 @@ internal object Sos {
     val CAST_SPELL_WITH_X = Regex("""you cast a spell with \{X\} in its mana cost""")
     val CAST_SPELL_YOU_DONT_OWN = Regex("""you cast a spell you don't own""")
     val CANT_BE_COPIED = Regex("""This spell can't be copied\.""")
-    val COPY_TARGET_SPELL_GAINS = Regex("""Copy target (.+?) spell you control\. The copy gains (\w+) and "(.+)"""")
+    val COPY_TARGET_SPELL_GAINS = Regex("""Copy target (.+?) spell you control\. The copy gains (\w+) and "(.+)"\.?""")
     val SPELLS_HAVE_KEYWORD = Regex("""(Instant and sorcery spells you cast(?: from your hand)?|Each instant and sorcery spell you cast) (?:have|has) (.+?)\.""")
     val CARDS_IN_HAND_HAVE_KEYWORD = Regex("""Each (.+?) card in your hand has (.+?)\.""")
     val ONCE_EACH_TURN_CAST_FREE = Regex("""Once during each of your turns, you may cast an? (.+?) from your hand without paying its mana cost\.""")
-    val CAST_TRIGGER_MAY_SACRIFICE_COPY = Regex("""you may sacrifice an? (.+?)\. If you do, copy that spell and you may choose new targets for the copy\.""")
-    val CAST_TRIGGER_MAY_TAP_COPY = Regex("""you may tap (\w+) untapped (.+?) you control\. If you do, copy that spell\. You may choose new targets for the copy\.""")
+    val CAST_TRIGGER_MAY_SACRIFICE_COPY = Regex("""[Yy]ou may sacrifice an? (.+?)\. If you do, copy that spell and you may choose new targets for the copy\.""")
+    val CAST_TRIGGER_MAY_TAP_COPY = Regex("""[Yy]ou may tap (\w+) untapped (.+?) you control\. If you do, copy that spell\. You may choose new targets for the copy\.""")
 
     // sos chunk 11: becoming things
     val UNTIL_EOT_BECOMES_FRACTAL_X_PLUS = Regex("""Until end of turn, target (.+?) becomes a (\w+) and (\w+) (\w+) with base power and toughness each equal to X plus (\d+)\.""")
-    val IF_NOT_CREATURE_BECOMES = Regex("""If (.+?) isn't a creature, it becomes a (\d+)/(\d+) (\w+) creature with "(.+)" It's still a land\.""")
+    val IF_NOT_CREATURE_BECOMES = Regex("""If (.+?) isn't a creature, it becomes a (\d+)/(\d+) (\w+) creature with "(.+)"\.?""")
     val COPY_EXCEPT_FRACTAL_PUT_COUNTERS = Regex("""Create a token that's a copy of target (.+?), except it's a 0/0 (\w+) creature in addition to its other types\. Put (\w+) (\S+) counters on it\.""")
     val LANDS_WITH_CHOSEN_NAME_HAVE = Regex("""(.+?) with the chosen name have "(.+)"""")
 
@@ -116,8 +116,8 @@ internal object Sos {
     val CHOOSE_UP_TO_SAME_MODE = Regex("""Choose up to (\w+)\. You may choose the same mode more than once\.""")
     val ONE_OR_TWO_TARGET_EACH_GET = Regex("""One or two target (.+?) each get ([+-]\d+)/([+-]\d+) until end of turn\.""")
     val DEALS_DAMAGE_TO_EACH_OF_ONE_OR_TWO = Regex("""(.+?) deals (\d+) damage to each of one or two targets\.""")
-    val ANY_NUMBER_TARGET_EACH_GET_AND_GAIN = Regex("""Until end of turn, any number of target (.+?) each get ([+-]\d+)/([+-]\d+) and gain "(.+)"""")
-    val GROUP_GETS_GAINS_KEYWORD_AND_QUOTED = Regex("""Until end of turn, (.+?) get ([+-]\d+)/([+-]\d+) and gain (\w+) and "(.+)"""")
+    val ANY_NUMBER_TARGET_EACH_GET_AND_GAIN = Regex("""Until end of turn, any number of target (.+?) each get ([+-]\d+)/([+-]\d+) and gain "(.+)"\.?""")
+    val GROUP_GETS_GAINS_KEYWORD_AND_QUOTED = Regex("""Until end of turn, (.+?) get ([+-]\d+)/([+-]\d+) and gain (\w+) and "(.+)"\.?""")
     val DISCARDS_ANY_THEN_DRAWS_THAT_MANY = Regex("""Target player discards any number of cards, then draws that many cards\.""")
 
     // sos chunk 13: skipping turns, powers of two and other one-offs
@@ -128,6 +128,13 @@ internal object Sos {
     val SACRIFICE_LANDS_SEARCH_BASICS = Regex("""Sacrifice (\w+) lands\. Search your library for (\w+) basic land cards, put them onto the battlefield tapped, then shuffle\.""")
     val TARGET_GETS_IF_CAST_ANOTHER_THEN_DEALS = Regex("""Target (.+?) gets ([+-]\d+)/([+-]\d+) until end of turn if you've cast another (.+?) spell this turn\. Then it deals damage equal to its power to up to one target (.+)\.""")
     val TARGET_PLAYER_DISCARDS_X = Regex("""Target player discards X cards\.""")
+    val ANOTHER_TARGET_COUNTER = Regex("""[Pp]ut an? (\S+) counter on another target (.+)\.""")
+    val THAT_PLAYER_MILLS = Regex("""[Tt]hat player mills (\w+) cards\.""")
+    val PUT_COUNTER_ON_EACH_OF_THEM = Regex("""Put an? (\S+) counter on each of them\.""")
+    val THAT_CREATURES_CONTROLLER_LOSES = Regex("""[Tt]hat creature's controller loses (\d+) life\.""")
+    val GROUP_GETS_FOR_EACH_COLOR_SPENT = Regex("""(.+?) get ([+-]\d+)/([+-]\d+) until end of turn for each color of mana spent to cast that spell\.""")
+    val PLUS_NAMED_IN_GRAVEYARD = Regex("""(\d+) plus the number of cards named (.+) in your graveyard""")
+    val DEALS_DAMAGE_EQUAL_TO_TARGET = Regex("""(.+?) deals damage equal to (.+?) to target (.+)\.""")
     val GRANDEUR = Regex("""Grandeur — Discard another card named (.+?): (.+)""")
     val LANDS_HAVE_QUOTED = Regex("""(Lands you control) have "(.+)"""")
     val PUT_X_COUNTERS_ON_IT = Regex("""Put (X|\w+) (\S+) counters on it\.""")
@@ -162,7 +169,7 @@ internal object SosPhrases {
         }
         // sos chunk 10: "you've cast an instant or sorcery spell this turn"
         CAST_THIS_TURN.matchEntire(text)?.let { m ->
-            val spells = Filters.noun(m.groupValues[1] + " spell") ?: return null
+            val spells = Filters.noun(m.groupValues[1]) ?: return null
             return Condition.HappenedThisTurn(EventPattern.Cast(spells, PlayerFilter.You), atLeast = 1, measure = Measure.Events)
         }
         // sos chunk 13: "you have seven or more cards in your hand"
@@ -205,6 +212,10 @@ internal object SosPhrases {
         MANA_SPENT.matchEntire(text)?.let { m ->
             return Value.ManaSpent(of = if (m.groupValues[1] == "that spell") thatSpell else Objects.Self)
         }
+        // sos chunk 12: "the number of instant and sorcery cards in your graveyard"
+        if (text == "the number of instant and sorcery cards in your graveyard")
+            return Value.Count(Objects.Each(Filters.all(ObjectFilter.Or(listOf(ObjectFilter.Type(CardType.Instant), ObjectFilter.Type(CardType.Sorcery))),
+                ObjectFilter.InZone(Zone.Graveyard), ObjectFilter.OwnedBy(PlayerFilter.You))))
         // sos chunk 09: "the number of cards you've drawn this turn" (one draw is one card, CR 121.2)
         if (text == "the number of cards you've drawn this turn") return Value.EventsThisTurn(EventPattern.Draw(PlayerFilter.You), Measure.Events)
         // sos chunk 05: "the amount of life you gained this turn"
@@ -226,6 +237,9 @@ internal object SosPhrases {
         }
         // sos chunk 03: "instant and/or sorcery card" (one card of either type)
         if (phrase == "instant and/or sorcery card" || phrase == "instant and/or sorcery cards")
+            return ObjectFilter.Or(listOf(ObjectFilter.Type(CardType.Instant), ObjectFilter.Type(CardType.Sorcery)))
+        // sos chunk 03: "instant and sorcery card", "instant and sorcery cards" (each a card of either type)
+        if (phrase == "instant and sorcery card" || phrase == "instant and sorcery cards")
             return ObjectFilter.Or(listOf(ObjectFilter.Type(CardType.Instant), ObjectFilter.Type(CardType.Sorcery)))
         // sos chunk 06: "creature and/or land card", "creature and/or land cards"
         if (phrase == "creature and/or land card" || phrase == "creature and/or land cards")

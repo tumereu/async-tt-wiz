@@ -120,7 +120,7 @@ class HobChunk11BlackTest {
         static(Mechanic.CantBlock(ObjectFilter.Any)),
         triggered(entersSelf, move(target("card"), Zone.Exile), loseLife(2, Players.Each(PlayerFilter.Opponent)),
             targets = listOf(slot("card", and(cardFilter, inZone(Zone.Graveyard), ObjectFilter.OwnedBy(PlayerFilter.Opponent)), min = 0))),
-        activated(cost(mana("{2}"), sacrificeA(or(artifact, creature))), move(Objects.Self, Zone.Hand), rules = asSorcery),
+        activated(cost(mana("{2}"), sacrificeA(or(artifact, creature))), move(Objects.Self, Zone.Hand), rules = asSorcery, functionsIn = listOf(Zone.Graveyard)),
     )
 
     // CR 603.2c: once for the batch

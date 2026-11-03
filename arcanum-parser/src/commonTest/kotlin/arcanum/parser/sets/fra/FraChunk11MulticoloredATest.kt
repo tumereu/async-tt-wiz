@@ -84,7 +84,8 @@ class FraChunk11MulticoloredATest {
             Lifelink
             {2}{W/B}: Return this card from your graveyard to your hand.
         """,
-    ) parsesTo abilities(Keyword.Lifelink, activated(cost(mana("{2}{W/B}")), move(Objects.Self, Zone.Hand)))
+    // hob: the ability works in the graveyard it returns the card from (CR 113.6m)
+    ) parsesTo abilities(Keyword.Lifelink, activated(cost(mana("{2}{W/B}")), move(Objects.Self, Zone.Hand)).copy(functionsIn = listOf(Zone.Graveyard)))
 
     // CR 603.2h
     @Test

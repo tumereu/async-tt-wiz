@@ -192,7 +192,11 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
         b
     }
 
-    val eval: Evaluator = snap.evaluator(player, self = sourceId, names = names, stackItem = item)
+    // hob: a permission's cost reads the spell it lets be cast as the affected object ("pay life equal to its mana value
+    // rather than pay its mana cost", CR 118.9)
+    val eval: Evaluator = snap.evaluator(player, self = sourceId, names = names, stackItem = item).let { e ->
+        if (isSpell) e.with(e.ctx.copy(affected = itemId)) else e
+    }
 
     // ---- Instructions
 

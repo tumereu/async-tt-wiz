@@ -1056,8 +1056,12 @@ internal class Sentences(
         // chunk 45: "Activate only if this card is suspended" states the zone it works in (CR 113.6b)
         return Ability.Activated(named, instructions, arcanum.api.ActivationRules(timing = timing, perTurn = perTurn, costChange = costChange, condition = condition,
             activatedBy = activatedBy, once = once, payManaBy = payManaBy),
-            functionsIn = zoneOf(condition))
+            // hob chunk 11: "Return this card from your graveyard to your hand" states the zone it works in (CR 113.6m); the engine
+            // works out only moves onto the battlefield by itself
+            functionsIn = zoneOf(condition) ?: Graveyard.takeIf { RETURN_SELF_FROM_GRAVEYARD_TO_HAND_TEXT.find(text)?.let { isSelf(it.groupValues[1]) } == true })
     }
+    private val Graveyard = listOf(Zone.Graveyard)
+    private val RETURN_SELF_FROM_GRAVEYARD_TO_HAND_TEXT = Regex("""Return (.+?) from your graveyard to your hand""")
 
     /** "Whenever [event], [if condition,] [effect]." (CR 603.1) */
     private fun triggered(line: String): Ability? {
@@ -10702,8 +10706,10 @@ internal class Sentences(
         // power and toughness are each equal to the number of lands you control."' (for good, CR 611.2a)
         Hob.BECOMES_CREATURE_GAINS_QUOTED.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
             val subtype = m.groupValues[2].takeIf { it in RulesWords.subtypes } ?: return null
-            val granted = Sentences(setOf("this creature")).line(m.groupValues[3]) ?: return null
-            if (granted is Ability.Unparsed) return null
+            val read = Sentences(setOf("this creature")).line(m.groupValues[3]) ?: return null
+            if (read is Ability.Unparsed) return null
+            // an ability an effect grants isn't characteristic-defining (CR 604.3a): it sets power and toughness in layer 7b
+            val granted = (read as? Ability.Static)?.copy(characteristicDefining = false) ?: read
             return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.SetTypes(add = listOf(CardType.Creature),
                 addSubtypes = listOf(arcanum.api.SubtypeRef.Literal(Subtype(subtype)))), Mechanic.GainAbilities(listOf(granted))), hobSelfOnly, arcanum.api.Duration.Indefinitely)))
         }

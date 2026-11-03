@@ -173,7 +173,7 @@ class HobChunk07DrawingAndLandfallTest {
         triggered(landfall, pump(Objects.Self, 1, 1), abilityWord = "Landfall"),
     )
 
-    // CR 611.2a, 604.3: a creature for good, its power and toughness defined by a granted ability
+    // CR 611.2a; 604.3a: the granted ability isn't characteristic-defining (layer 7b)
     @Test
     fun barnulfsWelcome() = card(
         name = "Barnulf's Welcome",
@@ -187,7 +187,7 @@ class HobChunk07DrawingAndLandfallTest {
         triggered(landfall, counters(target("creature")), targets = listOf(slot("creature", creatureYouControl)), abilityWord = "Landfall"),
         activated(cost(mana("{5}{G}{G}")), Step.Do(Effect.ApplyMechanics(listOf(
             Mechanic.SetTypes(add = listOf(CardType.Creature), addSubtypes = listOf(SubtypeRef.Literal(Subtype("Bear")))),
-            has(static(Mechanic.SetPowerToughness(count(and(land, you)), count(and(land, you))), characteristicDefining = true))),
+            has(static(Mechanic.SetPowerToughness(count(and(land, you)), count(and(land, you)))))),
             Affected.Objects(Objects.Self), Duration.Indefinitely))),
     )
 

@@ -229,7 +229,10 @@ internal object Payment {
         val player = plan.player
         val s = recorder.state
         val snap = recorder.snapshot()
-        val eval = snap.evaluator(player, self = plan.sourceId, names = plan.names, stackItem = plan.item)
+        // hob: a permission's cost reads the spell as the affected object, as the plan does
+        val eval = snap.evaluator(player, self = plan.sourceId, names = plan.names, stackItem = plan.item).let { e ->
+            if (plan.isSpell) e.with(e.ctx.copy(affected = plan.itemId)) else e
+        }
         fun objects(what: CostObjects): List<ObjectId> = when (what) {
             CostObjects.Self -> listOf(plan.sourceId)
             is CostObjects.These -> eval.objects(what.objects)

@@ -75,6 +75,14 @@ The definition model (overview in `Definitions.kt`):
   ("one target of each card type"), `Keyword.Equip.costChange`, `Duration.UntilCast`, `Modification.CreateInstead` ("that many
   Dragons are created instead"), and the mechanics `AnyNumberInDeck`, `NoGraveyardForZeroLoyalty`, `LegendRuleDoesntApply`,
   `LoyaltyAtInstantSpeed`, `AssignsDamageAsThoughPowerPositive` and `EventDoesntTrigger`.
+- The Hobbit (set `hob`): storied (CR 702.195: a `KeywordExpansions` entry giving `Designation.EnduringStory` through
+  `Mechanic.GetsDesignation`), recruit (CR 701.70a: `KeywordAction.Recruit`, written out with `KeywordExpansions.RECRUIT_TOKEN`), and
+  smaller pieces: `Mechanic.AbilityAlternativeCost` ("you may pay {0} rather than pay the equip cost of the first equip ability you
+  activate each turn"), `MayPlay.condition` ("you may play them if you control a Wizard"), `Value.ManaSpent.source` ("if mana from a
+  Treasure was spent"), `Trigger.On.batchTotal` ("whenever you attack with creatures with total power 12 or greater"),
+  `ObjectFilter.Where` with `Condition.Odd` and `Condition.RememberedOption` ("a spell with mana value of the chosen quality"),
+  `Effect.SeparatePiles.faceDownPile`; "its controller amasses" is a loop over that player (`DefinitionChecks` allows a single keyword
+  action in such a loop, since the action takes no players).
 
 `ExampleCardsTest` shows about twenty invented cards written in the model and their
 JSON. Decisions from the API reviews (D19–D49) are built here where they concern card

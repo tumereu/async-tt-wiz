@@ -287,7 +287,9 @@ internal object Triggers {
                 val events = state.eventsOf(state.turn.number)
                 val at = events.indexOfLast { it === whole }.takeIf { it >= 0 } ?: events.indexOfLast { it == whole }
                 val earlier = (if (at >= 0) events.take(at) else events).flatMap { units(it) }
-                if (!trigger.oneOrMore) now.filterIndexed { i, _ -> earlier.size + i + 1 == n }
+                // hob: for that player ("an opponent draws their second card each turn": each opponent's own draws, CR 603.2)
+                fun same(a: TriggerEvent, b: TriggerEvent) = a.players.firstOrNull() == b.players.firstOrNull()
+                if (!trigger.oneOrMore) now.filterIndexed { i, unit -> earlier.count { same(it, unit) } + now.take(i).count { same(it, unit) } + 1 == n }
                 else now.filter { unit ->
                     earlier.count { !trigger.batchPerPlayer || it.players.firstOrNull() == unit.players.firstOrNull() } + 1 == n
                 }

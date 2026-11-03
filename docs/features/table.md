@@ -8,6 +8,7 @@ The battlefield, how cards look on it, how you touch them, their menus and inspe
 - **TBL-002** Battlefield cards are 28×40 dp at normal size on a 42 dp column pitch; tapped cards rotate in place and neighbours never overlap, in any mix of tapped cards and also mid-rotation. (r10)
 - **TBL-003** Each battlefield has at least three rows and grows when cards sit lower; a row is card height × card size × zoom plus about 10% margin above and below, so cards never stick out over zone edges. (r14)
 - **TBL-004** The row next to each player's own edge is the land row; the rows toward the middle hold everything else. (r34)
+- **TBL-120** Each player's mana pool shows, while it isn't empty, as a small white pill of mana symbols (as drawn in card text, in WUBRG order, then colourless; more than 8 mana shows each kind once with its count, "×4") at the left of their battlefield on the line between their land row and the row next to it, live and in the timeline, as in MTG Arena. (r47)
 - **TBL-005** The battlefield feels endless: no field edge is visible anywhere you can pan, and its background covers the whole pan area on both sides. (r31)
 - **TBL-006** Drags may drop a card in any column, including left of where cards normally start; automatic placement still takes the first free spot from column 0 rightward. (r31)
 - **TBL-007** Cards Automatum puts onto the battlefield go to the land row only if they are lands; everything else goes to the first free spot of the main row. (r46)

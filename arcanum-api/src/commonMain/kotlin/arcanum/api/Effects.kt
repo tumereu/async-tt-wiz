@@ -205,6 +205,12 @@ sealed interface Effect {
     @Serializable @SerialName("forget") data class Forget(val key: String, val objects: Objects? = null) : Effect
 
     @Serializable @SerialName("extra-turn") data class ExtraTurn(val players: Players) : Effect
+    // fin
+    /** "End the turn" (CR 724.1): every spell and ability on the Stack is exiled (this one included), then the turn goes on from its cleanup
+     * step (CR 514), with no other phases or steps in between. */
+    @Serializable @SerialName("end-turn") data object EndTurn : Effect
+    /** "There is an additional [step] after this step" (CR 500.9): the step happens again right after the current one. */
+    @Serializable @SerialName("additional-step") data class AdditionalStep(val step: TurnStep) : Effect
     /** An additional combat phase after this one, followed by an additional main phase when [followedByMain] (CR 500.8). */
     @Serializable @SerialName("extra-combat") data class ExtraCombat(
         val untapAttackers: Boolean = false, val followedByMain: Boolean = false,
@@ -234,6 +240,9 @@ sealed interface Effect {
         val resultingSpell: ObjectFilter? = null,
         /** "Cast it transformed": a transforming double-faced card cast with its back face up (a Siege, CR 310.12b, 712.11a). */
         val transformed: Boolean = false,
+        // fin
+        /** "and mana of any type can be spent to cast that spell" (CR 601.2h). */
+        val manaAsAnyType: Boolean = false,
     ) : Effect
     /** "When you do, …" (CR 603.12): a reflexive triggered ability, put on the Stack as its own item, targets chosen
      * then. Placed inside a [Step.If] on what was done. It triggers once per time the action is taken, but only once
@@ -437,6 +446,10 @@ sealed interface KeywordAction {
      * remains exiled, its owner may cast it by paying {2} rather than paying its mana cost. The bind of [Effect.Action] names the
      * exiled cards. Triggers "whenever you airbend" once for the instruction (701.65b). */
     @Serializable @SerialName("airbend") data class Airbend(val objects: Objects) : KeywordAction
+    // fin
+    /** "Meld them into [into]" (CR 701.42a): the two cards of [objects], a meld pair, are put onto the battlefield with their back faces up and
+     * combined as one permanent (CR 712.4): [into], the back face both cards share. If they can't be melded, they stay where they are (701.42c). */
+    @Serializable @SerialName("meld") data class Meld(val objects: Objects, val into: String) : KeywordAction
     // ecl
     /** "[Players] blight(s) N" (CR 701.68a): each of [players] puts [count] -1/-1 counters on a creature they control. A player who
      * can't do it (no creatures) can't choose to blight (701.68b); the bind of [Effect.Action] or [CostPart.Action] names the creature

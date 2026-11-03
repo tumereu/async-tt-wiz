@@ -552,7 +552,7 @@ class TdmChunk12RedTest {
                             filter = and(
                                 creature,
                                 opponents,
-                                ObjectFilter.ThisTurn(event = EventPattern.Damage(source = ObjectFilter.Any, to = RecipientFilter())),
+                                ObjectFilter.ThisTurn(event = EventPattern.Damage(source = ObjectFilter.Any, to = RecipientFilter()), role = arcanum.api.EventRole.Object),
                             ),
                         ),
                         min = n(1),

@@ -85,7 +85,9 @@ object Cards {
     }
 
     private fun parse(text: CubeCardText): CardDefinition {
-        val layout = LAYOUTS[text.layout] ?: error("Unknown layout ${text.layout}")
+        // fin: a meld card names its partner ("Meld:<partner>", CR 712.4)
+        val layout = LAYOUTS[text.layout] ?: text.layout.removePrefix("Meld:").takeIf { it != text.layout }?.let { Layout.Meld(it) }
+            ?: error("Unknown layout ${text.layout}")
         val definition = if (layout == Layout.Normal) CardDefinition(Layout.Normal, listOf(OracleParser.parse(text.faces.single())))
             else OracleParser.parseCard(layout, text.faces)
         val unparsed = definition.faces.flatMap { it.abilities }.filterIsInstance<arcanum.api.Ability.Unparsed>()

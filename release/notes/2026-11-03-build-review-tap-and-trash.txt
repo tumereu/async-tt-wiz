@@ -1,0 +1,1 @@
+mod: In the one-by-one deck review a tap keeps the card, swipes move it the same way as in the columns, buttons under the card do the same, and the Trash can be reviewed too.

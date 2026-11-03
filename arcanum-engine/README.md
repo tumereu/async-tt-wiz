@@ -416,6 +416,15 @@ report and replay their inputs on a saved state. The default `EngineTrace.None` 
   chosen as a Siege enters, each clan's ability working only when chosen; a spell cast as though it had flash only by paying the
   additional cost that gives it flash; what has dealt any damage remembered; and a cost that names an announced X ("Sacrifice a creature
   you control with mana value X") checked once X is announced (CR 601.2b).
+- Done, Final Fantasy (scenarios in `commonTest/…/sets/fin/`): every card plays (templates repeated elsewhere in the set played once in
+  `FinTemplatesScenariosTest`). Ending the turn (CR 724.1: the Stack exiled, straight to cleanup); additional steps after the current one
+  (CR 500.9); meld (the two exiled cards one permanent, back face up, both cards leaving together; its mana value the total of the
+  front faces); a player's protection (targeting and damage); mill and coin-flip replacements; "as this transforms into" steps; control
+  changes noticed as events (`sba/ControlChanges`: also as effects end in cleanup, before delayed triggers of the same duration end,
+  and moving who has controlled the permanent continuously, CR 302.6); "that player" of a trigger kept in the effects it creates;
+  "tap a land for {C}" seen as its mana is added; the target an effect moved found as the new object (CR 400.7j); attachments of a
+  host that left as it last existed; damage kept in cleanup; a batch trigger's "that many" counting its events; and a land
+  adventurer played from exile after its Adventure (CR 715.3d).
 - Done, keywords that used to be by hand (2026-11-03, scenarios in `view/AutomatedKeywords*Test`, `casting/ForetellTest`,
   `casting/AlternativeWaysTest`, `turn/ControlPlayerTest`, `turn/DayNightAndSpeedTest`): the expansions of `KeywordExpansionsMore`
   (arcanum-api README) and engine code for foretell (`foretell/Foretell`: the special action and the foretold card's permission),

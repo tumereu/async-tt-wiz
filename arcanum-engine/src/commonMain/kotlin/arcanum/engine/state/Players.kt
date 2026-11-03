@@ -90,6 +90,11 @@ data class TurnState(
     /** The player controlled during this turn (CR 723.1: the whole turn, until the next one begins) or its combat phase
      * (723.2), and by whom. */
     val controlled: PlayerControl? = null,
+    // fin
+    /** Additional steps still to come right after the current one, in order (CR 500.9: "an additional end step after this step"). */
+    val extraSteps: List<TurnStep> = emptyList(),
+    /** An effect ended the turn (CR 724.1): once the resolving object has left the Stack, the game goes straight to the cleanup step. */
+    val endingTurn: Boolean = false,
 )
 
 /**

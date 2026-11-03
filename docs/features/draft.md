@@ -163,10 +163,10 @@ Cubes, pods of 2–8 players drafting asynchronously, the pick and grid screens,
 
 ### Build review (one by one)
 
-- **DRF-107** Tapping a column label (like "2" or "Lands") or a Main/Side header ("Review ›") opens a full-screen one-by-one review of those cards; Trash has no review. (r22)
-- **DRF-108** In the review, swipe right keeps the card where it is and left moves it one tier down (Main → Side, Side → Trash), committing at 30% of the card width; tapping flips double-faced cards. (r22)
+- **DRF-107** Tapping a column label (like "2" or "Lands") or a section header ("Review ›") opens a full-screen one-by-one review of those cards, for Main, Side and Trash alike. (r47)
+- **DRF-108** In the review a tap keeps the card where it is and goes on to the next; a swipe moves it as a swipe in the columns does (DRF-099: Main right→Side, left→Trash; Side right→Main, left→Trash; Trash right→Main, left→Side), committing at 30% of the card width. Under the card the same three as icon-and-word buttons in their colours (◀ left destination, ✓ Keep, right destination ▶), and a flip button for double-faced cards. (r47)
 - **DRF-109** The review shows "Main · MV 2"-style position and the Main count, Undo at the top left and a close button at the top right; system Back also closes it. (r24)
-- **DRF-110** After the last card the review closes itself and a summary chip like "Kept 3 · 2 to Side" shows on Build for about 2 s; review moves can be undone with Build's Undo. (r24)
+- **DRF-110** After the last card the review closes itself and a summary chip like "Kept 3 · 2 to Side · 1 to Trash" shows on Build for about 2 s; review moves can be undone with Build's Undo. (r47)
 
 ### Stats
 

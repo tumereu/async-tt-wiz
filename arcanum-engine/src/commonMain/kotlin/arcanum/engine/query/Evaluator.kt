@@ -135,9 +135,16 @@ internal class Evaluator(val board: Board, val ctx: Context) {
         }
         is Objects.AttachmentsOf -> {
             val hosts = objects(objects.of).toSet()
+            // fin: a host that has left the battlefield: what was attached to it as it last existed (CR 608.2h), those still unattached
+            val gone = hosts.filter { state.obj(it)?.zone != Zone.Battlefield }.map { TargetRef.Object(it) }.toSet()
+            val wereAttached = if (gone.isEmpty()) emptySet() else {
+                board.readingLog()
+                state.eventsOf(state.turn.number).filterIsInstance<arcanum.engine.change.Change.Attached>().filter { it.before in gone && it.after == null }
+                    .map { it.id }.toSet()
+            }
             state.battlefield.filter { id ->
                 val a = state.obj(id)?.attachedTo
-                a is TargetRef.Object && a.id in hosts && matches(objects.filter, id)
+                ((a is TargetRef.Object && a.id in hosts) || (a == null && id in wereAttached)) && matches(objects.filter, id)
             }
         }
         is Objects.Each -> each(objects.filter)
@@ -237,7 +244,8 @@ internal class Evaluator(val board: Board, val ctx: Context) {
         is Players.Remembered -> boundPlayers(selfMemory(players.key))
         // blb: the opponent chosen for a gift, kept by the permanent the spell became (CR 702.174a, 400.7d)
         is Players.ChosenAsCost -> objects(players.of).mapNotNull { facts(it)?.chosenPlayer }.distinct()
-        Players.EventPlayer -> ctx.event?.players.orEmpty()
+        // fin: in an effect a triggered ability created, "that player" is its event's player, kept as the effect began (CR 608.2h)
+        Players.EventPlayer -> ctx.event?.players ?: (ctx.names[EVENT_PLAYERS] as? arcanum.engine.state.NamedValue.Players)?.ids.orEmpty()
         is Players.ControllerOf -> objects(players.objects).mapNotNull { controllerOf(it) }.distinct()
         is Players.OwnerOf -> objects(players.objects).mapNotNull { ownerOf(it) }.distinct()
         Players.Active -> listOf(state.turn.active)
@@ -385,6 +393,8 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             is ObjectFilter.ThisTurn -> History.happened(this, filter.event, objectId = id, role = filter.role)
             // tmt: tapped this turn to pay a crew cost of one of the Vehicles (CR 702.122c)
             is ObjectFilter.CrewedThisTurn -> History.crewed(this, id, objects(filter.vehicles).toSet())
+            // fin: a Vehicle one of [crew] crewed this turn (CR 702.122b)
+            is ObjectFilter.CrewedBy -> objects(filter.crew).any { History.crewed(this, it, setOf(id)) }
             // blb gaps 2: "with {X} in its mana cost" (CR 107.3, 202.1); "the first instant spell you've cast this turn"
             ObjectFilter.XInManaCost -> c?.manaCost?.symbols.orEmpty().any { it is arcanum.api.ManaSymbol.Variable && it.name == 'X' }
             is ObjectFilter.NthSpellThisTurn -> History.isNthSpell(this, filter, id)
@@ -726,6 +736,10 @@ internal class Evaluator(val board: Board, val ctx: Context) {
     private fun frontFaceCost(id: ObjectId): arcanum.api.ManaCost? {
         val o = state.obj(id) ?: return null
         val definition = o.definition ?: return null
+        // fin: CR 202.3c, 712.8g: a melded permanent's mana value is the total of its two front faces'
+        if (definition.layout is arcanum.api.Layout.Meld && o.face == 1 && o.zone == Zone.Battlefield)
+            return arcanum.api.ManaCost(((definition.faces.first().manaCost?.symbols ?: emptyList()) +
+                o.mergedBelow.flatMap { it.definition?.faces?.firstOrNull()?.manaCost?.symbols.orEmpty() }))
         if (definition.layout != arcanum.api.Layout.Transform || o.face == 0 || o.faceDown) return null
         if (o.zone != Zone.Battlefield && o.zone != Zone.Stack) return null
         if (state.effects.values.any { e -> e.locked?.contains(id) == true && e.mechanics.any { it is arcanum.api.Mechanic.CopyOf } }) return null
@@ -834,6 +848,8 @@ internal class Evaluator(val board: Board, val ctx: Context) {
     companion object {
         /** Names flows bind for references the evaluator can't work out alone. */
         const val SELF_AFTER = "\$self-after"
+        /** fin: the players of the event of the triggered ability that created an effect ([Players.EventPlayer] in it). */
+        const val EVENT_PLAYERS = "\$event-players"
         const val USES_ACTIVATED = "\$uses-activated"
         const val USES_RESOLVED = "\$uses-resolved"
         const val EXCESS_PREFIX = "\$excess:"

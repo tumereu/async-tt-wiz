@@ -12,7 +12,7 @@ The game timeline: the event strip, timeline mode and playback, catching up on w
 
 ### Timeline mode
 
-- **HIS-006** Timeline mode starts by itself only when a game opens (or the app returns) with unseen events; otherwise only when the player enters it. Opponent actions, hold-inspect and menu actions keep the table live. (r29)
+- **HIS-006** Timeline mode starts by itself only when a game opens (or the app returns) with unseen events of the other player (only your own events since, such as your device's own passes or another device of yours, open it live with no switch into timeline mode); otherwise only when the player enters it. Opponent actions, hold-inspect and menu actions keep the table live. (r47)
 - **HIS-007** Timeline mode and play mode use the same bottom area height and cross-fade in about 200 ms, so the board never jumps; the hand, piles and life sit unchanged directly above the timeline panel. (r45)
 - **HIS-008** In timeline mode the top and bottom bars turn grey, the battlefield is dimmed, and the board centre shows a faint "Timeline mode" label with icon and, on its own line, the playback status "Playing", "Paused" or "Rewinding" with its icon. (r31)
 - **HIS-009** When playback starts or stops (by hand, by auto-pause or at the end), a large play or pause sign flashes in the board's top-right corner; while a rewind runs, a rewind sign stays there. (r31)
@@ -47,9 +47,9 @@ The game timeline: the event strip, timeline mode and playback, catching up on w
 ### Opening and returning to a game
 
 - **HIS-032** The device remembers, per game and account, the last event shown live. Debug builds keep it across logout and account switches. (r8)
-- **HIS-033** Opening a game with unseen events opens timeline mode paused at the last event you saw; nothing plays by itself, so you can play it back and react or branch. Playback never skips ahead to the latest state. (r29)
+- **HIS-033** Opening a game with unseen events of the other player opens timeline mode paused at the last event you saw; nothing plays by itself, so you can play it back and react or branch. Playback never skips ahead to the latest state. When everything since the last event you saw is your own, the game opens live, looking as it did, with no timeline mode in between. (r47)
 - **HIS-034** With no saved point (first open, new device) the game opens live at the newest move. (r29)
-- **HIS-035** Leaving the app pauses at the shown point at once; coming back with unseen events stops there in timeline mode instead of rushing through them. A return where only chat or other non-event data changed stays live. (r28)
+- **HIS-035** Leaving the app pauses at the shown point at once; coming back with unseen events of the other player stops there in timeline mode instead of rushing through them. A return where only chat or other non-event data changed, or only your own events arrived, stays live. (r47)
 
 ### Branches and rewind
 

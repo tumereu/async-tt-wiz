@@ -69,6 +69,20 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
     internal val flows = SharedFlowController(viewer, { acting()?.takeIf { enabled() } }, automatedBatch, ::engineTags, { error = it },
         automatumWork, onRespond = ::holdForReaction, tokenArt = tokenArt)
     private val automatumWork = automatumWork
+
+    /**
+     * Owner playtest 2026-11-03 #1, #6: begins working out what a tap of the step arrow does on the board the viewer acts
+     * on ([SharedFlowController.plan], in the background), so its words and its tap come from the same plan. Nothing while
+     * the viewer's cast is open or they can't act.
+     */
+    internal fun planStep() { if (enabled() && !cast.open) acting()?.let(flows::plan) }
+
+    /** The step arrow's words on the shown [play] from its tap's plan, or null until worked out (or when the board acted
+     * on isn't the one shown). */
+    internal fun plannedStep(play: PlayState): AutomatumStep? {
+        val acting = acting()?.takeIf { it.currentNodeId == play.currentNodeId } ?: return null
+        return flows.stepPlan?.takeIf { it.board === acting.board }?.step
+    }
     /** Combat through Automatum (I3 on today's lanes): declarations, passing on to the damage, early divisions. */
     internal val combat = CombatController({ current()?.takeIf { enabled() } }, { submit(it) }, ::engineTags, automatumWork,
         { error }, { error = it }, board = { current() })

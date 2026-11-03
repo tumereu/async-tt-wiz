@@ -245,7 +245,7 @@ class BlbChunk06SeasonsAndModesTest {
                     )),
                     Mode(Instructions(
                         targets = listOf(slot("creature", ObjectFilter.And(listOf(creature, opponents,
-                            ObjectFilter.ThisTurn(EventPattern.Damage(ObjectFilter.Any, RecipientFilter())))))),
+                            ObjectFilter.ThisTurn(EventPattern.Damage(ObjectFilter.Any, RecipientFilter()), role = arcanum.api.EventRole.Object))))),
                         steps = listOf(Step.Do(Effect.Destroy(Objects.Target("creature")))),
                     )),
                 ),

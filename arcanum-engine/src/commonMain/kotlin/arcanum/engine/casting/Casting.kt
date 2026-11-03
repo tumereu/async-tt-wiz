@@ -217,7 +217,7 @@ internal object Casting {
      * mana to pay with; CR 101.2, 601.2c, 601.2h, 118.3): then nothing about it happened and the card stays where it is.
      */
     fun castByEffect(act: arcanum.engine.action.Act, player: arcanum.engine.state.PlayerId, card: ObjectId,
-                     withoutPaying: Boolean, cost: arcanum.api.Cost?, transformed: Boolean = false): ObjectId? {
+                     withoutPaying: Boolean, cost: arcanum.api.Cost?, transformed: Boolean = false, manaAsAnyType: Boolean = false): ObjectId? {
         val o = act.state.obj(card) ?: return null
         val snap = Snapshot(act.state)
         // CR 712.11a: cast transformed, a transforming double-faced card is its back face (a Siege, CR 310.12b)
@@ -244,8 +244,9 @@ internal object Casting {
         // As for a cast with priority: from here on it is a spell cast from where its card was (CR 601.2a), so an
         // alternative cost for "a spell you cast from exile" still applies as its costs are determined (CR 601.2b, f)
         act.record(Change.Facts(onStack, now.facts, now.facts.copy(castFrom = o.zone)))
+        // fin: "mana of any type can be spent to cast that spell" (CR 609.4b)
         val terms = arcanum.api.Mechanic.MayPlay(o.zone, PlayKind.Cast, cost = cost, withoutPaying = withoutPaying && cost == null,
-            holder = arcanum.api.PlayerFilter.You)
+            holder = arcanum.api.PlayerFilter.You, manaAsAnyColor = manaAsAnyType)
         var asked = false
         var c = Continuation.Announcing(player, Announced.Spell(onStack, CastWay(face, alternative = alternative), terms, byEffect = true), AnnounceStage.Modes,
             Choices(names = Bindings.EMPTY.with(Plan.FROM, NamedValue.Option(Plan.zoneName(o.zone)))))

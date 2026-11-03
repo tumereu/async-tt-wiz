@@ -191,7 +191,7 @@ class AutomatumStepsScreenshotTest {
         compose.setContent { MaterialTheme {
             Column {
                 TurnIndicator(play.board.turn, "Alice", Color(0xff2e7d5b), {})
-                PhaseStepPicker(play, play.board.turn.accountId, Color(0xff2e7d5b), controller, {},
+                PhaseStepPicker(play, play.board.turn.accountId, Color(0xff2e7d5b), {},
                     names = mapOf(play.board.turn.accountId to "Alice"))
             }
         } }
@@ -229,34 +229,37 @@ class AutomatumStepsScreenshotTest {
         assertEquals(SharedFlowController.STACK_WAITING, waiting.error)
     }
 
-    // TRN-061, TRN-004, SYS-037, I-D40: Bob presses Next step while Alice holds priority in her main phase: he is asked first and
-    // nothing is sent until he confirms; Cancel sends nothing; confirmed, it is Alice's pass as if she had pressed it
+    // TRN-061, TRN-004, SYS-037, I-D40: Alice presses Next step in her own main phase while Bob holds priority (she passed;
+    // he has Full control): she is asked first and nothing is sent until she confirms; Cancel sends nothing; confirmed,
+    // it is Bob's pass as if he had pressed it
     @Test fun steppingForTheOtherPlayerAsksFirst() {
-        val play = board(fullControl = setOf(f.b))
+        val play = board(fullControl = setOf(f.b)).let { it.copy(board = it.board.copy(priority = MtgPriority(f.b, 1), attentionHolder = f.b)) }
         val scope = TableActionScope(play.gameId, play.id)
         sent.clear()
-        val bob = toolkit(play, f.b)
-        assertFalse(bob.table.perform(TableActionIntent.Next(scope)))
+        val alice = toolkit(play, f.a)
+        assertFalse(alice.table.perform(TableActionIntent.Next(scope)))
         assertTrue(sent.isEmpty())
-        val asked = assertNotNull(bob.flows.acting)
-        assertEquals(f.a, asked.player)
+        val asked = assertNotNull(alice.flows.acting)
+        assertEquals(f.b, asked.player)
         assertEquals(ActingFor.Kind.Pass(priority = true), asked.kind)
-        bob.flows.cancelActing()
-        assertNull(bob.flows.acting)
+        alice.flows.cancelActing()
+        assertNull(alice.flows.acting)
         assertTrue(sent.isEmpty())
-        assertFalse(bob.table.perform(TableActionIntent.Next(scope)))
-        render(play, f.b, bob)
-        compose.onNodeWithText("Pass for Alice?").assertIsDisplayed()
-        compose.onNodeWithText("Alice has priority and may still want to act. Passing for them lets the game go on.").assertIsDisplayed()
+        render(play, f.a, alice)
+        assertEquals(AutomatumStep.Pass, alice.plannedStep(play))
+        compose.onNode(hasContentDescription("Pass") and hasClickAction()).performClick()
+        compose.waitForIdle()
+        compose.onNodeWithText("Pass for Bob?").assertIsDisplayed()
+        compose.onNodeWithText("Bob has priority and may still want to act. Passing for them lets the game go on.").assertIsDisplayed()
+        assertTrue(sent.isEmpty())
         captureShot("$SCREENSHOTS/automatum/step-for-other-asks.png",
-            "With Automatum on, Bob pressed Next step in Alice's main phase while she holds priority: before anything is sent he is asked \"Pass for Alice?\", with Pass for them and Cancel.")
+            "With Automatum on, Alice pressed the step arrow (Pass) in her own main phase while Bob holds priority: before anything is sent she is asked \"Pass for Bob?\", with Pass for them and Cancel.")
         compose.onNode(hasText("Pass for them") and hasAnyAncestor(isDialog())).performClick()
         compose.waitForIdle()
-        assertNull(bob.flows.acting)
+        assertNull(alice.flows.acting)
         val (batch, request) = sent.single()
-        val after = accepted(play, batch, request, f.b)
-        assertEquals(TurnPosition.PRECOMBAT_MAIN, position(after))
-        assertEquals(MtgPriority(f.b, 1), after.board.priority, "Alice passed; Bob, who could cast Storm Spark with Full control, holds priority")
+        val after = accepted(play, batch, request, f.a)
+        assertTrue(position(after)!! > TurnPosition.PRECOMBAT_MAIN, "Bob passed after Alice: the main phase ended (${position(after)})")
     }
 
     // TRN-061, I-D40: End turn and a later step for the other player say what they do for them, as do declarations; a
@@ -286,5 +289,75 @@ class AutomatumStepsScreenshotTest {
         assertFalse(bob.flows.confirmActing())
         assertEquals("The table changed: try again.", bob.error)
         assertTrue(sent.isEmpty())
+    }
+
+    // TRN-063 (owner playtest 2026-11-03 #1): in Alice's first main phase with nothing that can attack, the step arrow
+    // doesn't say "To combat": its words come from what its tap does (the engine declares no attack, CR 508.8, and the
+    // turn goes on to Bob's), and the tap sends that very plan
+    @Test fun theStepArrowSaysWhatItsTapDoes() {
+        // Alice has only her two Mountains and nothing in hand
+        val full = board(bobSpark = false)
+        val gone = full.board.cards.filter { it.id == aSpark || it.containerId == aField && it.definition != mountain.submitted.digest }
+            .map { it.id }.toSet()
+        val play = full.copy(board = full.board.copy(cards = full.board.cards.filter { it.id !in gone },
+            containers = full.board.containers.map { it.copy(cards = it.cards.filter { id -> id !in gone }) }))
+        assertEquals(AutomatumStep.ToCombat, AutomatumStep.of(play), "the board alone would say To combat")
+        sent.clear()
+        val toolkit = toolkit(play, f.a)
+        toolkit.planStep()
+        assertEquals(AutomatumStep.EndTurn, toolkit.plannedStep(play))
+        assertTrue(sent.isEmpty(), "planning sends nothing")
+        assertTrue(toolkit.table.perform(TableActionIntent.Next(TableActionScope(play.gameId, play.id))))
+        val (batch, request) = sent.single()
+        val after = accepted(play, batch, request, f.a)
+        assertTrue(after.board.turn.number.toInt() > play.board.turn.number.toInt(), "the turn ended: ${after.board.turn}")
+    }
+
+    // TRN-015, TRN-063 (owner playtest 2026-11-03 #2, MTG Arena): in the other player's turn the step arrow shows only while
+    // you hold priority or must decide; in your own turn it always shows
+    @Test fun theStepArrowHidesInTheOtherPlayersTurnUnlessYouAct() {
+        val play = board()
+        assertTrue(stepArrowShown(play, f.a))
+        assertFalse(stepArrowShown(play, f.b), "Alice holds priority in her turn")
+        assertTrue(stepArrowShown(play.copy(board = play.board.copy(priority = MtgPriority(f.b, 1), attentionHolder = f.b)), f.b))
+        val blocking = play.copy(board = play.board.copy(priority = null, attentionHolder = f.b,
+            turn = play.board.turn.copy(phase = TurnPosition.DECLARE_BLOCKERS.phase, step = TurnPosition.DECLARE_BLOCKERS.step)))
+        assertTrue(stepArrowShown(blocking, f.b), "Bob declares blockers")
+        render(play, f.b)
+        compose.onNodeWithContentDescription("Pass").assertDoesNotExist()
+        captureShot("$SCREENSHOTS/automatum/step-arrow-hidden-opponent-turn.png",
+            "Bob's table in Alice's main phase while she holds priority: Bob's Automatum toggles show, but no step arrow, since there is nothing for him to pass or decide.")
+    }
+
+    // TRN-009 (owner playtest 2026-11-03 #3): the phase dialog only shows where the turn is: its step squares do nothing
+    // and it has no Next step or End turn
+    @Test fun thePhaseDialogIsViewOnly() {
+        val play = board()
+        compose.setContent { MaterialTheme { PhaseStepPicker(play, f.a, Color(0xff2e7d5b), {}) } }
+        compose.onNodeWithContentDescription("Precombat main").assertIsSelected()
+        compose.onNodeWithContentDescription("End step").assertHasNoClickAction()
+        compose.onNodeWithText("Next step").assertDoesNotExist()
+        compose.onNodeWithText("End turn").assertDoesNotExist()
+        captureShot("$SCREENSHOTS/automatum/phase-dialog-view-only.png",
+            "The phase dialog in Alice's first main phase: the step squares by phase with Main 1 outlined as the current step, and no buttons: moving on is the step arrow's.")
+    }
+
+    // TBL-120 (owner playtest 2026-11-03 #5, MTG Arena): each player's mana pool shows as a row of mana symbols between
+    // their land row and the next row, only while it isn't empty
+    @Test fun manaPoolsShowBetweenTheLandRowAndTheNextRow() {
+        val play = board().let { p -> p.copy(board = p.board.copy(players = p.board.players.map { player ->
+            if (player.accountId == f.a) player.copy(manaPool = listOf(PoolMana("R"), PoolMana("G"), PoolMana("R"))) else player
+        })) }
+        render(play, f.a)
+        compose.onNodeWithContentDescription("Mana pool: 2 {R}, 1 {G}").assertIsDisplayed()
+        compose.onAllNodes(hasContentDescription("Mana pool", substring = true)).assertCountEquals(1)
+        val scene = TablePresentation.scene(f.game, play, f.a, 412f, 892f, false)
+        val own = scene.fields.last()
+        val line = assertNotNull(manaPoolLine(scene.fields, own))
+        assertEquals(own.gridBounds.bottom - own.rowHeight, line, .5f)
+        val pool = compose.onNodeWithContentDescription("Mana pool: 2 {R}, 1 {G}").fetchSemanticsNode().boundsInRoot
+        assertEquals(line, (pool.top + pool.bottom) / 2, 1f)
+        captureShot("$SCREENSHOTS/automatum/mana-pool-row.png",
+            "Alice has {R}{R}{G} in her mana pool: a small white pill of three mana symbols (the two red, then green, in WUBRG order) sits at the left of her battlefield on the line between her land row and the row above it; Bob's pool is empty, so he has none.")
     }
 }

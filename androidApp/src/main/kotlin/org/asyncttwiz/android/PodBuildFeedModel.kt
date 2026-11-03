@@ -2,28 +2,34 @@ package org.asyncttwiz.android
 
 import org.asyncttwiz.protocol.CardDefinition
 import org.asyncttwiz.protocol.PodDeckCategory
+import org.asyncttwiz.protocol.PodDeckRules
+import org.asyncttwiz.protocol.PodDeckSwipe
 
 /** One pool copy in a feed; a ×N stack yields N consecutive feed cards. */
 internal data class PodBuildFeedCard(val copyId: String, val digest: String, val definition: CardDefinition?, val column: Int)
 
 /**
- * Reviewing one Build column (or a whole section) one copy at a time. [cards] is a snapshot taken when the
- * feed opens, so moves never reorder it. Each decision either keeps the copy in [category] or moves it one
- * tier lower ([target]); [demoted] records the decisions made so far, in order.
+ * Reviewing one Build column (or a whole section, Trash too) one copy at a time. [cards] is a snapshot taken when
+ * the feed opens, so moves never reorder it. Each decision either keeps the copy in [category] (a tap) or moves it
+ * where a swipe in the columns would ([right], [left]: DRF-099); [moved] records the decisions made so far, in order
+ * (null: kept).
  */
 internal data class PodBuildFeed(
     val category: PodDeckCategory,
-    val target: PodDeckCategory,
     /** The reviewed column, or null for the whole section. */
     val column: Int?,
     val labels: List<String>,
     val cards: List<PodBuildFeedCard>,
-    val demoted: List<Boolean> = emptyList(),
+    val moved: List<PodDeckCategory?> = emptyList(),
 ) {
-    val position: Int get() = demoted.size
+    /** Where a swipe right sends the copy, as in the columns. */
+    val right: PodDeckCategory get() = PodDeckRules.swipe(category, PodDeckSwipe.RIGHT)
+    /** Where a swipe left sends the copy, as in the columns. */
+    val left: PodDeckCategory get() = PodDeckRules.swipe(category, PodDeckSwipe.LEFT)
+    val position: Int get() = moved.size
     val current: PodBuildFeedCard? get() = cards.getOrNull(position)
     val finished: Boolean get() = position >= cards.size
-    val canUndo: Boolean get() = demoted.isNotEmpty()
+    val canUndo: Boolean get() = moved.isNotEmpty()
 
     /** "Main · MV 2"; a section feed names the current card's column, and just the section once finished. */
     val title: String get() {
@@ -34,25 +40,23 @@ internal data class PodBuildFeed(
 
     val progress: String get() = "${minOf(position + 1, cards.size)} / ${cards.size}"
 
-    /** Zero parts are left out ("Kept 3", "2 to Side"); an empty review says "Kept 0". */
-    val summary: String get() = listOfNotNull(demoted.count { !it }.takeIf { it > 0 }?.let { "Kept $it" },
-        demoted.count { it }.takeIf { it > 0 }?.let { "$it to ${target.podBuildLabel()}" }).joinToString(" · ").ifEmpty { "Kept 0" }
+    /** Zero parts are left out ("Kept 3", "2 to Side", "1 to Trash"); an empty review says "Kept 0". */
+    val summary: String get() = (listOf(null, right, left).mapNotNull { destination ->
+        moved.count { it == destination }.takeIf { it > 0 }?.let { count ->
+            if (destination == null) "Kept $count" else "$count to ${destination.podBuildLabel()}"
+        }
+    }).joinToString(" · ").ifEmpty { "Kept 0" }
 
-    fun decide(demote: Boolean): PodBuildFeed = if (finished) this else copy(demoted = demoted + demote)
+    /** The current copy kept ([destination] null) or moved to [destination]. */
+    fun decide(destination: PodDeckCategory?): PodBuildFeed =
+        if (finished) this else copy(moved = moved + destination?.takeIf { it != category })
 
     /** Back one card. The returned copy id, when present, was moved by that decision and must move back. */
     fun undo(): Pair<PodBuildFeed, String?> {
         if (!canUndo) return this to null
-        val previous = copy(demoted = demoted.dropLast(1))
-        return previous to cards[previous.position].copyId.takeIf { demoted.last() }
+        val previous = copy(moved = moved.dropLast(1))
+        return previous to cards[previous.position].copyId.takeIf { moved.last() != null }
     }
-}
-
-/** The tier a feed swipe-left sends a copy to; Trash has no feed. */
-internal fun podBuildFeedDemotion(category: PodDeckCategory): PodDeckCategory? = when (category) {
-    PodDeckCategory.MAIN -> PodDeckCategory.SIDE
-    PodDeckCategory.SIDE -> PodDeckCategory.TRASH
-    PodDeckCategory.TRASH -> null
 }
 
 /** Bucket labels read as "Lands", "MV 0" … "MV 5+". */
@@ -63,12 +67,11 @@ internal fun podBuildFeedColumnLabel(label: String): String =
 internal fun podBuildFeed(
     category: PodDeckCategory, buckets: List<List<PodBuildTile>>, labels: List<String>, column: Int?,
 ): PodBuildFeed? {
-    val target = podBuildFeedDemotion(category) ?: return null
     val cards = buckets.withIndex().filter { column == null || it.index == column }.flatMap { (index, tiles) ->
         tiles.flatMap { tile -> tile.copyIds.map { PodBuildFeedCard(it, tile.digest, tile.definition, index) } }
     }
     if (cards.isEmpty()) return null
-    return PodBuildFeed(category, target, column, labels, cards)
+    return PodBuildFeed(category, column, labels, cards)
 }
 
 /** Width of each of [perRow] equal cards across [columnWidth], with [gap] between neighbours. */

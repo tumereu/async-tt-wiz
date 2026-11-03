@@ -1,1 +1,1 @@
-With Automatum on, Bob pressed Next step in Alice's main phase while she holds priority: before anything is sent he is asked "Pass for Alice?", with Pass for them and Cancel.
+With Automatum on, Alice pressed the step arrow (Pass) in her own main phase while Bob holds priority: before anything is sent she is asked "Pass for Bob?", with Pass for them and Cancel.

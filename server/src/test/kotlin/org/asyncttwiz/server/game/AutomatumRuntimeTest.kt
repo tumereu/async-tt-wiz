@@ -98,11 +98,11 @@ class AutomatumRuntimeTest {
                 val stale = f.recipient.execute(batch(listOf(PlayAction.AdjustLife(owner, "-3")),
                     listOf(planned.copy(meanings = listOf("damaged"))), f.recipient))
                 assertEquals("inapplicable", stale.reason)
-                // Switching off reverts it all, both players' steps, in one server process
-                val reverted = f.recipient.execute(f.recipient.command(PlayAction.NextStep).copy(action = GameAction.RevertFlow))
+                // Switching off reverts it all, both players' steps, and switches off, in one server process (#6)
+                val reverted = f.recipient.execute(f.recipient.command(PlayAction.NextStep)
+                    .copy(action = GameAction.ExitFlow(MtgAction.SetAutomatum(false))))
                 assertEquals("accepted", reverted.outcome, reverted.reason)
-                assertEquals(start.board, state().board)
-                assertEquals(start.currentNodeId, state().currentNodeId)
+                assertEquals(start.board.copy(automatum = false), state().board)
                 assertEquals("noFlow", f.owner.execute(f.owner.command(PlayAction.NextStep).copy(action = GameAction.RevertFlow)).reason)
             }
         }

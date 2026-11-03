@@ -50,7 +50,7 @@ by the owner before release.
 | I-D39 | **No damage automation with Automatum off** (owner, 2026-11-02): with Automatum off players do everything by hand (the combat layout still communicates attacks and blocks); today's "Deal combat damage"/auto-resolve damage is removed. Automatum is the improved version of it. |
 | I-D40 | **Acting for the other player asks first** (owner, 2026-11-02; review item A): the step button or any priority pass made for the other player shows an explicit confirmation. Later maybe a game setting (before or during a game) to allow or forbid acting for the opponent. |
 | I-D41 | **Pause points and response windows** (owner, 2026-11-02; review item B): when the opponent does something you could react to, you're shown it with a short pause (1–3 s, progress bar) in which you can react easily. "Full control" (per player) adds pause points (e.g. your own spells). Both online: the reacting player may hold and think as long as they like; the acting player has a setting to proceed at once or to wait, but waits at most the response time. Opponent offline (async): the acting player never waits. Timeline playback with Automatum on stops at the same pause points, with no time limit. A reaction after the acting player moved on uses branching (a longer reaction time on one side than the other). Testing decides if it feels good. |
-| I-D42 | **Switching Automatum on drops turn-scoped engine data** (owner, 2026-11-02; review item C): leftover combat, passes, waiting triggers and early answers are dropped — best effort. Automatum off is mainly a "bug → report → fix by hand → continue" escape and for un-cards; the goal is that people play with it on. |
+| I-D42 | **Switching Automatum on drops turn-scoped engine data** (owner, 2026-11-02; review item C): leftover combat, passes, waiting triggers and early answers are dropped — best effort. Automatum off is mainly a "bug → report → fix by hand → continue" escape and for un-cards; the goal is that people play with it on. Refined 2026-11-03 (final sync review #1, decided overnight, to be confirmed): the current combat stays while the lanes still show it; only stale combat is dropped. |
 | I-D43 | **Logging for reproduction** (owner, 2026-11-02): engine and ATW Automatum logic log plenty, captured in error/problem reports, so a weird game situation can be reported, reproduced as an automated test and fixed. |
 
 Earlier library decisions that shape this: one switch for the whole game (D20); the engine may refuse moves while on
@@ -325,6 +325,33 @@ out of anything stuck.
     out the listed answers and the suggestion's payment on the worker, `listedAnswers` is cached per flow, `pays`
     remembers its latest answer, and `SharedFlowController.toggleMana` runs on `work`. Catalog: ZON-004, ZON-078,
     STK-023, STK-040, STK-041, TBL-115, SYS-067.
+- **Built (final sync review fixes, 2026-11-03; owner questions decided overnight, vision-aligned, to be confirmed):**
+  - **Switching off always works (#6, #7, decision A):** the switch during a flow and "Clear Automatum data" during a
+    flow send one command, `GameAction.ExitFlow(then)` (`then` = `SetAutomatum(false)` or `ClearRecords`), which the server
+    carries out as one step (`FlowRevert.exit`): the flow is reverted when it can be, otherwise nothing is taken back; then
+    `then` is recorded as the actor's event. `SetAutomatum(false)` and `ClearRecords` close an open flow with
+    `Automatum.closeFlow`: the continuation names the Stack entries it is resolving (`EngineRecord.resolving`, written by
+    the planner from the engine's `Continuation.Resolving` chain), which become manual entries (no item), and Automatum
+    is then off, so switching on asks to deal with them first (I-D15) instead of resolving them again (CR 608.2). One
+    command means no play waits behind an unpredictable revert on the device (`controlBarrier`). SYS-060, TRN-054, TRN-055.
+  - **Combat on switch-on (#1, decision B, refines I-D42):** `SetAutomatum(true)` keeps the combat record while the board
+    is in a combat step with the area open (`Automatum.inCombat`); `EngineState.from` reads the record while the lanes
+    still show its attackers and declared blockers (a blocker whose attackers left has no lane, CR 510.1d), otherwise
+    the lanes, taken as declared once someone holds priority in the declare attackers step (attackers) or in or after
+    the declare blockers step (blockers); before that the lanes' blockers are a draft, so declaring them never doubles a
+    blocker. SYS-070.
+  - **Flow revert (#3, N1):** `FlowRevert` walks back, taking each event back as it goes, to the first event of the batch
+    on whose board before it no flow was open (all decisions of a flow, whoever made them); the planner writes the
+    continuation record once per batch (net before → after), so an answer batch never closes and opens it again.
+  - **Redo stamps (#2, #4, I-D26):** a redone invocation gets one stamp shift (`MtgFacts.stampShift`): every stamp above
+    the clock of the board before its first member moves by the same amount, in every member's recorded values, delta
+    edits and concerns, only when another stamp reached them meanwhile (a redo right after its undo gives back the
+    batch exactly). The engine reads an effect's, delayed trigger's, emblem's and Stack item's stamp from ATW's field
+    (`EngineCodec.effect`, `delayed`, `emblem`, `stackItem`), which the redo moves; the copy in the opaque data is not.
+  - **Engine log (N3):** `EngineLog.Chain` keeps the log after each history event by its materialization id (which
+    changes when an earlier event changes) as a shared persistent list; a log is worked out from the nearest event
+    already read and only this and last turn's entries are walked. The app's `engineTags` is a lazy `HistoryTags` that
+    `AutomatumBoards.engineLog` reads through the chain without listing the history.
 
 ## 4. Shared state ATW adds
 

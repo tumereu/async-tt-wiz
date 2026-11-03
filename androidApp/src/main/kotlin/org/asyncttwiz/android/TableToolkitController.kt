@@ -21,6 +21,9 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
     private val continuation: () -> Continuation? = { null },
     /** One automated batch (Automatum, I-D11) with its tags, sent with the given request id. */
     automatedBatch: ((GameAction.PlayBatch, String) -> Boolean)? = null,
+    /** I-D19, I-D24 (finalreview-sync #6, #7): switching Automatum off or clearing its data during an open flow, as one
+     * server step ([GameAction.ExitFlow]) that takes the flow back when it can and always goes through. */
+    private val exitFlow: ((MtgAction) -> Boolean)? = null,
     /** Where a cast's engine work runs (SYS-025): off the main thread in the app. */
     automatumWork: AutomatumWork = AutomatumWork.Inline) : TableActionRoutes {
     private val identity = state()?.let { TableActionScope(it.gameId, it.id) }
@@ -302,6 +305,11 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
                 invocationId ?: UUID.randomUUID().toString())
         }
         if (action is PlayAction.InspectFace && acceptedInspection != null) return loggedInspection(action)
+        if (draft == null && exitFlow != null && leavesFlow(play, action)) {
+            error = null
+            return exitFlow.invoke((action as PlayAction.Mtg).action).also { sent ->
+                if (!sent) error = "Action could not be queued. Reconnect and try again." }
+        }
         val group = invocationId ?: UUID.randomUUID().toString()
         val actions = if (action is PlayAction.MoveCard) GameplayRules.moveActions(play,
             action.copy(destination = ownerMoveDestination(play.board, action.cardId, action.destination, play.id))) else listOf(action)
@@ -362,17 +370,23 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
 
     /**
      * The Automatum switch (integration spec §5): turns it [on] or off for the whole game, one shared event. Switching off
-     * during an open flow first takes the flow back on the server ([revertFlow], I-D19); switching off closes the
-     * flow either way (I-D24), and drops the player's own open cast, which nothing was sent of. A refusal (I-D15) shows
-     * its reason like any refused action.
+     * during an open flow is one server step ([exitFlow], I-D19, finalreview-sync #6) that takes the flow back when it
+     * can and otherwise closes it where it is (I-D24); it always goes through. It also drops the player's own open
+     * cast, which nothing was sent of. A refusal (I-D15) shows its reason like any refused action.
      */
-    fun setAutomatum(on: Boolean, revertFlow: (() -> Boolean)?): Boolean {
+    fun setAutomatum(on: Boolean): Boolean {
         val play = current() ?: return false
         org.asyncttwiz.automatum.AutomatumLog.switch(play.gameId, on)
         // The player's own open cast was never sent (I-D11): switching off simply drops it (i12review #2)
         if (!on) cast.cancel("dropped: switched off")
-        if (!on && Automatum.flowOpen(play.board)) revertFlow?.invoke()
         return submit(PlayAction.Mtg(MtgAction.SetAutomatum(on)))
+    }
+
+    /** Switching off or "Clear Automatum data" during an open flow goes as one [GameAction.ExitFlow] (finalreview-sync #6,
+     * #7): the flow is taken back first when it can be. */
+    private fun leavesFlow(play: PlayState, action: PlayAction): Boolean {
+        val mtg = (action as? PlayAction.Mtg)?.action
+        return (mtg == MtgAction.SetAutomatum(false) || mtg == MtgAction.ClearRecords) && Automatum.flowOpen(play.board)
     }
     fun stackContents() { dismiss(); tokens.close(); showStackBubbles(null); panel = "manageStack" }
     /** Manage Stack is open to pick a target from (an entry below the top, I-D6). */

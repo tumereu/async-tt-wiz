@@ -155,7 +155,10 @@ internal object EngineCodec {
         emblem.definition?.faces.orEmpty().joinToString("\n") { AtwTokens.rulesText(it) }.trim()
 
     fun isEmblem(record: EngineRecord) = record.kind == EngineRecordKind.Emblem
+    /** finalreview-sync #2 (I-D26, CR 613.7): an object's stamp is ATW's field, which a redo moves; the copy in the engine
+     * data keeps the stamp it was recorded with. */
     fun emblem(record: EngineRecord): GameObject = decode(GameObject.serializer(), record.data)
+        .let { o -> record.timestamp?.takeIf { it != o.timestamp }?.let { o.copy(timestamp = it) } ?: o }
 
     /** The engine's combat (record [COMBAT]) in turn [turn] (ATW's turn number): the combat's JSON with the turn added. */
     fun combatRecord(combat: CombatState, turn: Int): EngineRecord {
@@ -190,8 +193,12 @@ internal object EngineCodec {
 
     fun isEffect(record: EngineRecord) = record.kind == EngineRecordKind.Effect
     fun isDelayed(record: EngineRecord) = record.kind == EngineRecordKind.DelayedTrigger
+    /** The effect object of [record], stamped as ATW's field says (finalreview-sync #2, as [emblem]). */
     fun effect(record: EngineRecord): EffectObject = decode(EffectObject.serializer(), record.data)
+        .let { e -> record.timestamp?.takeIf { it != e.timestamp }?.let { e.copy(timestamp = it) } ?: e }
+    /** The delayed trigger of [record], stamped as ATW's field says (finalreview-sync #2, as [emblem]). */
     fun delayed(record: EngineRecord): DelayedTrigger = decode(DelayedTrigger.serializer(), record.data)
+        .let { d -> record.timestamp?.takeIf { it != d.timestamp }?.let { d.copy(timestamp = it) } ?: d }
 
     fun stackKind(item: StackItem): MtgStackKind = when (item.kind) {
         arcanum.engine.state.StackItemKind.Spell -> MtgStackKind.Spell
@@ -209,7 +216,9 @@ internal object EngineCodec {
         modes = item.modes, values = item.announced, timestamp = item.timestamp,
         data = encode(StackItem.serializer(), item))
 
+    /** The engine's Stack item, stamped as ATW's field says (finalreview-sync #2, as [emblem]). */
     fun stackItem(item: MtgStackItem): StackItem = decode(StackItem.serializer(), item.data)
+        .let { i -> if (i.timestamp == item.timestamp) i else i.copy(timestamp = item.timestamp) }
 
     /** The entry of a spell being cast (CR 601.2a): its card is on the Stack, its item not made yet; no [MtgStackItem.data]. */
     fun casting(card: MtgRef, controller: String, timestamp: Long) =

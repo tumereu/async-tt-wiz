@@ -27,6 +27,11 @@ const val GAME_PROTOCOL_MINOR = 3
     /** Rules v36 (I-D19): takes the open Automatum flow back to where it began, every event since its start in order
      * whoever made it, as one server process ([FlowRevert]); sent when Automatum is switched off during a flow. */
     @Serializable @SerialName("revertFlow") data object RevertFlow : GameAction
+    /** Rules v36 (I-D19, I-D24; finalreview-sync #6, #7): switching Automatum off ([MtgAction.SetAutomatum] false) or
+     * "Clear Automatum data" ([MtgAction.ClearRecords]) as [then], as one server process that always goes through
+     * ([FlowRevert.exit]): an open flow is taken back when it can be, else closed where it is ([Automatum.closeFlow]);
+     * then [then] is recorded as the actor's event. */
+    @Serializable @SerialName("exitFlow") data class ExitFlow(val then: MtgAction) : GameAction
     @Serializable @SerialName("acceptResult") data class AcceptResult(val suggestionId: String) : GameAction
     /** [tag] (rules v36): the Magic meaning of the event, made by the engine (D33); absent for manual play. */
     @OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
@@ -148,8 +153,10 @@ object GameWire {
             require(command.scope.playId != null && command.scope.preparationId == null && command.scope.invitationId == null)
             require(DeckValidation.uuid(command.action.suggestionId))
         } else if (command.action.isPlay || command.action == GameAction.Undo || command.action == GameAction.Redo ||
-            command.action == GameAction.RevertFlow) {
+            command.action == GameAction.RevertFlow || command.action is GameAction.ExitFlow) {
             require(command.scope.playId != null && command.scope.preparationId == null && command.scope.invitationId == null)
+            if (command.action is GameAction.ExitFlow) require(command.action.then == MtgAction.SetAutomatum(false) ||
+                command.action.then == MtgAction.ClearRecords)
             if (command.action is GameAction.Play) require(GameplayRules.valid(command.action.action) &&
                 command.action.tag?.let(MtgTag::valid) != false)
             if (command.action is GameAction.PlayBatch) require(command.action.actions.size in 1..PlayBatches.limit(command.action) &&

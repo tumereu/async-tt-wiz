@@ -46,8 +46,10 @@ object SelectiveUndo {
                 if (atomic) budget.remaining = members * 51
                 var candidate = tree
                 val keys = mutableSetOf<GameplayTreeKey>()
+                // I-D26 (finalreview-sync #4): one stamp shift for the whole redone batch
+                val stamps = Stamps(queue.asReversed().take(members).map { it.mutation })
                 repeat(members) {
-                    val change = redo(candidate, actor, budget)
+                    val change = redo(candidate, actor, budget, stamps)
                     if (change.reason != null) return@run change
                     candidate = change.tree ?: return@run change
                     keys += candidate.editKeys
@@ -88,6 +90,16 @@ object SelectiveUndo {
 
     private class Budget(var remaining: Int = 51) {
         fun spend(events: Int): Boolean { remaining -= events; return remaining >= 0 }
+    }
+
+    /** The fresh stamps of one redone invocation (I-D26): worked out once, on the board before its first member. */
+    private class Stamps(val members: List<GameplayMutation>) {
+        private var known = false
+        private var shift: MtgFacts.StampShift? = null
+        fun shift(before: BoardState, head: BoardState): MtgFacts.StampShift? {
+            if (!known) { shift = MtgFacts.stampShift(members, MtgFacts.clock(before), MtgFacts.clock(head)); known = true }
+            return shift
+        }
     }
 
     private fun undo(tree: GameplayTree, actor: String, budget: Budget): GameplayTreeChange {
@@ -142,7 +154,7 @@ object SelectiveUndo {
         return state
     }
 
-    private fun redo(tree: GameplayTree, actor: String, budget: Budget): GameplayTreeChange {
+    private fun redo(tree: GameplayTree, actor: String, budget: Budget, stamps: Stamps): GameplayTreeChange {
         val queue = tree.redoByAccount[actor].orEmpty()
         val entry = queue.lastOrNull() ?: return GameplayTreeChange(reason = "noCandidate")
         val target = entry.mutation
@@ -180,9 +192,9 @@ object SelectiveUndo {
         var state = beforeSuffix(tree, later, target.parentId) ?: return GameplayTreeChange(reason = "historyUnavailable")
         if (!tree.referencesMatch(target)) return GameplayTreeChange(reason = "referenceBlocked", targetId = target.id)
         // Exact target transition FIRST, even if there is no suffix. No fresh arithmetic/defaults/targets, except
-        // (rules v36, I-D26) fresh timestamps, so stamp order follows the real order of events.
-        val restored = MtgFacts.freshStamps(GameplayHistory.recontextualize(state, target),
-            maxOf(MtgFacts.clock(head.board), MtgFacts.clock(state.board)))
+        // (rules v36, I-D26) fresh timestamps, so stamp order follows the real order of events: one shift for every
+        // member of a batch, worked out before its first (finalreview-sync #4).
+        val restored = MtgFacts.freshStamps(GameplayHistory.recontextualize(state, target), stamps.shift(state.board, head.board))
         state = tree.replay(state, restored) ?: return GameplayTreeChange(reason = "targetTransitionBlocked", targetId = target.id)
         var nodes = tree.nodes.putShared(target.id, restored)
         if (successor != null) nodes = nodes.putShared(successor.id, successor.copy(parentId = target.id))

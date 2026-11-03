@@ -29,6 +29,7 @@ object HistoryContinuation {
             is GameAction.PlayBatch -> PlayBatches.change(tree, actor, command)
             GameAction.Undo, GameAction.Redo -> SelectiveUndo.change(tree, actor, command)
             GameAction.RevertFlow -> FlowRevert.change(tree, actor, command)
+            is GameAction.ExitFlow -> FlowRevert.exit(tree, actor, command)
             else -> GameplayTreeChange(reason = "invalidInput")
         }
         val next = change.tree ?: return change

@@ -166,11 +166,7 @@ object EngineState {
             priority = board.priority?.let { PriorityState(it.holder?.let(::PlayerId),
                 if (it.passes > 0 && turnExtras.passesAt != null && turnExtras.passesAt != TurnExtras.at(board.turn.number, position)) 0 else it.passes)
             } ?: PriorityState(null),
-            // In the declare attackers step lanes without the engine's combat are a draft of the declaration (I3b)
-            // #1 (I-D28): the engine's combat record only while it is this board's combat (a combat finished by hand while
-            // Automatum was off isn't Automatum's any more)
-            combat = EngineCodec.currentCombat(board)
-                ?: lanes(board, ids).takeUnless { position == TurnPosition.DECLARE_ATTACKERS },
+            combat = combat(board, ids, position),
             ledger = records[EngineCodec.LEDGER]?.let { EngineCodec.decode(ledgerSerializer, it.data).toMutableMap() } ?: mutableMapOf(),
             log = log.toMutableList(),
             pending = flow?.pending,
@@ -339,6 +335,47 @@ object EngineState {
 
     /** Combat as ATW's lanes show it, for a combat declared by hand (no engine record): each pair's attackers attack its
      * target (a planeswalker or battle card) or the defending player; its blockers block them. */
+    /**
+     * The engine's combat on [board]. Its record while it is the board's combat (#1, I-D28: a combat finished by hand
+     * while Automatum was off isn't Automatum's any more) and the lanes still show it (finalreview-sync #1: switching
+     * Automatum on keeps the current combat; one changed by hand meanwhile is taken from the lanes). Otherwise the lanes
+     * ([declared]).
+     */
+    private fun combat(board: BoardState, ids: CardIds, position: TurnPosition): CombatState? {
+        val lanes = lanes(board, ids)
+        EngineCodec.currentCombat(board)?.takeIf { shows(it, lanes) }?.let { return it }
+        return declared(board, lanes, position)
+    }
+
+    /** Whether [lanes] show [record]'s combat: the same attackers and, once blockers were declared, the same blockers of
+     * them (blockers drafted in the lanes before that are the declaration being made; a blocker whose attackers left
+     * combat still blocks, CR 510.1d, but has no lane). */
+    private fun shows(record: CombatState, lanes: CombatState?): Boolean {
+        val attackers = record.attackers.map { it.id }.toSet()
+        if (attackers != lanes?.attackers.orEmpty().map { it.id }.toSet()) return false
+        if (record.blockersDeclaredBy.isEmpty() && !record.blocksDecided) return true
+        return record.blockers.filter { b -> b.attackers.any { it in attackers } }.map { it.id }.toSet() ==
+            lanes?.blockers.orEmpty().map { it.id }.toSet()
+    }
+
+    /**
+     * The combat ATW's [lanes] show, taken over as declared by hand (I-D42, finalreview-sync #1). In the declare attackers
+     * step the lanes are a draft of the declaration (I3b) until someone holds priority there; blocks count as declared
+     * (CR 509.1h) after the declare blockers step or once someone holds priority in it, and before that the lanes'
+     * blockers are a draft, so declaring them never adds them a second time.
+     */
+    private fun declared(board: BoardState, lanes: CombatState?, position: TurnPosition): CombatState? {
+        val held = board.priority?.holder != null
+        if (position == TurnPosition.DECLARE_ATTACKERS && !held) return null
+        val combat = lanes ?: return null
+        val declared = position in AFTER_BLOCKS || position == TurnPosition.DECLARE_BLOCKERS && held
+        if (!declared) return combat.copy(attackers = combat.attackers.map { it.copy(blocked = false) }, blockers = emptyList())
+        val defender = CombatStackRules.defendingPlayer(board)
+        return combat.copy(blockersDeclaredBy = listOfNotNull(defender?.let(::PlayerId)), blocksDecided = true)
+    }
+
+    private val AFTER_BLOCKS = setOf(TurnPosition.FIRST_STRIKE_DAMAGE, TurnPosition.COMBAT_DAMAGE, TurnPosition.END_COMBAT)
+
     private fun lanes(board: BoardState, ids: CardIds): CombatState? {
         val area = board.combat?.takeIf { it.pairs.isNotEmpty() } ?: return null
         val defender = CombatStackRules.defendingPlayer(board)
@@ -451,6 +488,76 @@ object EngineLog {
         private fun codec(state: PlayState): TagCodec {
             if (codecFor?.board !== state.board) { codec = TagCodec.of(state, definitions); codecFor = state }
             return codec!!
+        }
+
+        /** The log ops of one tag's [data] (read once); null when this version can't read it. */
+        internal fun ops(data: String, state: PlayState): List<LogOp>? =
+            read[data] ?: runCatching { codec(state).decode(data).log }.getOrNull()?.also { read[data] = it }
+    }
+
+    /** One history event as [Chain] reads it: its [identity] (changes whenever an event before it changes: the tree's
+     * materialization id), the event before it ([parent], null at the start) and its [tag]. */
+    class Event(val identity: String, val parent: String?, val tag: MtgTag?)
+
+    /**
+     * [from] and [recent] for one game's history tree as it grows (finalreview-sync N3; SYS-025, no full-history rebuild):
+     * the log after each event is kept by the event's identity, so a log is worked out from the nearest event already
+     * read instead of from the start, and only this and last turn's entries are walked. Entries are shared between
+     * events (a persistent list), so keeping them costs one cell per logged change. Not for use from several threads at
+     * once (callers lock it). [definitions] as for [from].
+     */
+    class Chain(definitions: Map<String, CardDefinition>, private val capacity: Int = 100_000) {
+        private val decoder = Decoder(definitions)
+        private class Cell(val entry: LoggedChange, val rest: Cell?) {
+            /** The latest turn of this entry and those before it. */
+            val maxTurn: Int = maxOf(entry.turn, rest?.maxTurn ?: Int.MIN_VALUE)
+        }
+        private class Logged(val head: Cell?, val unreadable: Int)
+        private val after = object : LinkedHashMap<String, Logged>(256, .75f, true) {
+            override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Logged>?) = size > capacity
+        }
+
+        /**
+         * The recent log ([recent] for [turn]) after the event [at] ([event] reads one by its id; null: the start) on
+         * [state]. @throws Unsupported as [from].
+         */
+        fun log(at: String?, state: PlayState, turn: Int?, event: (String) -> Event?): List<LoggedChange> {
+            val walked = ArrayList<Event>()
+            var known: Logged? = null
+            var cursor = at
+            while (cursor != null) {
+                val e = event(cursor) ?: break
+                after[e.identity]?.let { known = it } ?: walked.add(e)
+                if (known != null) break
+                cursor = e.parent
+            }
+            var logged = known ?: Logged(null, 0)
+            for (e in walked.asReversed()) {
+                val data = e.tag?.data?.takeIf { it.isNotEmpty() }
+                if (data != null) {
+                    val ops = decoder.ops(data, state)
+                    if (ops == null) logged = Logged(logged.head, logged.unreadable + 1)
+                    else {
+                        var head = logged.head
+                        for (op in ops) head = when (op) {
+                            is LogOp.Add -> Cell(op.entry, head)
+                            LogOp.Drop -> head?.rest
+                        }
+                        logged = Logged(head, logged.unreadable)
+                    }
+                }
+                after[e.identity] = logged
+            }
+            if (logged.unreadable > 0)
+                throw Unsupported(listOf("an earlier Automatum step in the history can't be read by this version of the app"))
+            val out = ArrayList<LoggedChange>()
+            var cell = logged.head
+            while (cell != null && (turn == null || cell.maxTurn >= turn - 1)) {
+                if (turn == null || cell.entry.turn >= turn - 1) out += cell.entry
+                cell = cell.rest
+            }
+            out.reverse()
+            return out
         }
     }
 }

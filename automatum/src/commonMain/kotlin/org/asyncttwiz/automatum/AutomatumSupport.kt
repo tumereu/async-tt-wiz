@@ -36,11 +36,10 @@ object AutomatumSupport {
     }
 
     /** Effects the engine always hands to the players (its `manual` calls outside Manual steps). */
-    private val manualEffects = setOf("control-next-turn")
+    private val manualEffects = emptySet<String>()
 
-    /** Keyword actions the engine hands to the players (`Effects.keywordAction`'s `manual` calls): by their JSON type. */
-    private val manualKeywordActions = setOf("support", "discover", "venture", "learn", "endure", "cloak", "time-travel",
-        "ring-tempts", "manifest")
+    /** Keyword actions the engine hands to the players (`Effects.keywordAction`'s `manual` call): by their JSON type. */
+    private val manualKeywordActions = setOf("venture", "learn", "ring-tempts")
 
     /** Steps of a mana ability's resolution, besides adding the mana, that ask a player something: the engine can't ask
      * while a mana ability resolves (CR 605.3b), so it leaves them to the players (`Payment.finishManaAbility`). */
@@ -119,9 +118,7 @@ object AutomatumSupport {
                     // A keyword action, as an effect or as part of a cost
                     "keyword-action", "action" -> (element["action"] as? JsonObject)?.let { action ->
                         val kind = (action["type"] as? JsonPrimitive)?.content
-                        val what = ((action["what"] as? JsonObject)?.get("type") as? JsonPrimitive)?.content
                         if (kind in manualKeywordActions) found += "by hand: $kind"
-                        else if (kind == "double" && what == "mana") found += "by hand: double the mana"
                     }
                     "pay" -> element["cost"]?.let { resolutionCost(it, found) }
                     in keywordNames -> {

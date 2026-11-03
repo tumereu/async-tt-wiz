@@ -1,0 +1,1 @@
+add: Many more cards can now be played: foretell, plot, dash, echo, disguise, day and night, speed and dozens of other card abilities are handled for you.

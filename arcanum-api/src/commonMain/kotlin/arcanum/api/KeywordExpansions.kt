@@ -277,6 +277,14 @@ object KeywordExpansions {
                 ObjectFilter.HasStatus(Status.Attacking), ObjectFilter.HasStatus(Status.Unblocked))), count = Value.Fixed(1)), preBind = SNEAK_RETURNED)),
             duringYour = TurnStep.DeclareBlockers))
         is Keyword.CommanderNinjutsu -> listOf(ninjutsu(keyword.cost, listOf(Zone.Hand, Zone.Command)))
+        // spm: CR 702.188a: cast for [cost] by also returning a tapped creature you control to its owner's hand (an alternative cost)
+        is Keyword.WebSlinging -> static(webSlinging(keyword.cost))
+        // spm: CR 702.187b: as long as you discarded this card this turn, you may cast it from your graveyard for [cost] rather than its
+        // mana cost; CR 702.187c: without a cost, you may play it from your graveyard (a land too). The discard is the event whose
+        // card in the graveyard is this object (CR 400.7).
+        is Keyword.Mayhem -> static(Mechanic.MayPlay(Zone.Graveyard, if (keyword.cost == null) PlayKind.Play else PlayKind.Cast, cost = keyword.cost,
+            holder = PlayerFilter.You, condition = Condition.ObjectMatches(Objects.Self,
+                ObjectFilter.ThisTurn(EventPattern.Discard(ObjectFilter.Any, PlayerFilter.You), role = EventRole.After))))
         // CR 702.84a: return to the battlefield; it gains haste; exile it at the next end step; if it would leave the
         // battlefield, exile it instead; activate only as a sorcery
         is Keyword.Unearth -> listOf(Ability.Activated(keyword.cost, Instructions(steps = listOf(
@@ -601,7 +609,7 @@ object KeywordExpansions {
                 optional = true)),
                 condition = Condition.Exists(creatureYouControl, atLeast = 1), affects = Affected.Objects(Objects.Self)))
         }
-        else -> null
+        else -> KeywordExpansionsMore.expand(keyword)
     }
 
     /**
@@ -648,6 +656,39 @@ object KeywordExpansions {
                     Instructions(steps = listOf(Step.Do(Effect.Move(returned, Destination(Zone.Battlefield, tapped = true, controller = Players.You))))))),
             )
         }
+        // CR 701.39a, b: a +1/+1 counter on each of the targets
+        is KeywordAction.Support -> listOf(Step.Do(Effect.PutCounters(Objects.Target(action.slot), CounterKind.PowerToughness(1, 1), Value.Fixed(1))))
+        // CR 701.57a: exile cards from the top until a nonland card with mana value N or less; you may cast it without paying its mana
+        // cost if the resulting spell's mana value is N or less, else put it into your hand; the rest on the bottom in a random order
+        is KeywordAction.Discover -> {
+            val upTo = ObjectFilter.ManaValue(Comparison.AtMost, action.count)
+            listOf(
+                Step.Do(Effect.RevealUntil(ObjectFilter.And(listOf(ObjectFilter.Not(ObjectFilter.Type(CardType.Land)), upTo)), library = Players.You,
+                    count = Value.Fixed(1), reveal = true, into = Zone.Exile, foundBind = "discovered", restBind = "discover-rest")),
+                Step.Pay(steps = listOf(Step.Do(Effect.Cast(Objects.Bound("discovered"), PlayKind.Cast, withoutPaying = true, resultingSpell = upTo,
+                    caster = Players.You))), payer = Players.You, bind = "discover-cast"),
+                Step.If(Condition.Not(Condition.Did("discover-cast")), listOf(Step.Do(Effect.Move(Objects.Bound("discovered"), Destination(Zone.Hand))))),
+                Step.Do(Effect.Move(Objects.Bound("discover-rest"), Destination(Zone.Library, libraryPosition = -1, randomOrder = true))))
+        }
+        // CR 701.63a: put N +1/+1 counters on it or create an N/N white Spirit creature token (counters only while it is on the
+        // battlefield)
+        is KeywordAction.Endure -> listOf(
+            Step.Choose(Choice.Option(listOf(ENDURE_COUNTERS, ENDURE_SPIRIT)), bind = "endure", chooser = Players.You),
+            Step.If(Condition.And(listOf(Condition.Chose("endure", ENDURE_COUNTERS), Condition.ObjectMatches(Objects.Self, ObjectFilter.InZone(Zone.Battlefield)))),
+                then = listOf(Step.Do(Effect.PutCounters(Objects.Self, CounterKind.PowerToughness(1, 1), action.count))),
+                otherwise = listOf(Step.Do(Effect.CreateToken(TokenSpec.Defined(SPIRIT_TOKEN, power = action.count, toughness = action.count), Value.Fixed(1), Players.You)))))
+        // CR 701.48a: you may reveal a Lesson card you own from outside the game and put it into your hand, or discard a card to draw a
+        // card
+        KeywordAction.Learn -> listOf(
+            Step.Choose(Choice.Option(listOf(LEARN_LESSON, LEARN_RUMMAGE, LEARN_NOTHING)), bind = "learn", chooser = Players.You),
+            Step.If(Condition.Chose("learn", LEARN_LESSON), listOf(
+                Step.Choose(Choice.Objects(ObjectFilter.And(listOf(ObjectFilter.InZone(Zone.Outside), ObjectFilter.OwnedBy(PlayerFilter.You),
+                    ObjectFilter.Sub(Subtype("Lesson")))), Value.Fixed(1), Value.Fixed(1)), bind = "lesson", chooser = Players.You),
+                Step.Do(Effect.Reveal(Objects.Bound("lesson"))),
+                Step.Do(Effect.Move(Objects.Bound("lesson"), Destination(Zone.Hand))))),
+            Step.If(Condition.Chose("learn", LEARN_RUMMAGE), listOf(
+                Step.Pay(Cost(listOf(CostPart.Discard(CostObjects.Choose(ObjectFilter.Any, Value.Fixed(1))))), payer = Players.You, bind = "rummaged"),
+                Step.If(Condition.Did("rummaged"), listOf(Step.Do(Effect.Draw(Players.You, Value.Fixed(1))))))))
         is KeywordAction.EmpowerJace -> listOf(
             Step.If(Condition.Not(Condition.Exists(jaceTokenYouControl, atLeast = 1)),
                 then = listOf(Step.Do(Effect.CreateToken(TokenSpec.Defined(JACE_TOKEN), count = Value.Fixed(1), controller = Players.You)))),
@@ -660,6 +701,16 @@ object KeywordExpansions {
     /** Firebending [amount] (CR 702.189a): an attack trigger adding [amount] {R} kept until end of combat. */
     private fun firebending(amount: Value) = Ability.Triggered(Trigger.On(EventPattern.Attack(ObjectFilter.Is(Objects.Self))), steps(Effect.AddMana(
         ManaProduction(ManaKind.Fixed(ManaCost.parse("{R}")!!, times = amount), keptUntil = Duration.EndOfCombat), Players.You)))
+
+    private const val ENDURE_COUNTERS = "+1/+1 counters"
+    private const val ENDURE_SPIRIT = "Spirit token"
+    private const val LEARN_LESSON = "a Lesson card from outside the game"
+    private const val LEARN_RUMMAGE = "discard a card to draw a card"
+    private const val LEARN_NOTHING = "nothing"
+
+    /** The token endure creates (CR 701.63a): a white Spirit creature token, N/N as it is created. */
+    private val SPIRIT_TOKEN: FaceDefinition = FaceDefinition("Spirit Token", colorIndicator = listOf(Color.White), types = listOf(CardType.Creature),
+        subtypes = listOf(Subtype("Spirit")), power = PrintedNumber.Fixed(0), toughness = PrintedNumber.Fixed(0))
 
     // hob
     /** The token recruit creates (CR 701.70a): a 1/1 white Human Soldier creature token. */
@@ -723,6 +774,18 @@ object KeywordExpansions {
      * Put this card onto the battlefield tapped and attacking" (the same player or planeswalker as the returned creature). */
     /** The name the creature returned to pay a sneak cost is bound to (msh, CR 702.190b). */
     const val SNEAK_RETURNED: String = "sneak-returned"
+
+    /** The name the creature returned to pay a web-slinging cost is bound to (spm: "the mana value of the returned creature"). */
+    const val WEB_SLINGING_RETURNED: String = "web-slinging-returned"
+
+    /** The names keyword costs make for the spell, which its permanent keeps too (CR 400.7d: "the returned creature"). */
+    val COST_NAMES: Set<String> = setOf(SNEAK_RETURNED, WEB_SLINGING_RETURNED)
+
+    /** spm: the alternative cost of web-slinging [cost] (CR 702.188a): [cost] and returning a tapped creature you control to its
+     * owner's hand; also what "each legendary spell you cast … has web-slinging" gives those spells. */
+    fun webSlinging(cost: Cost): Mechanic.AlternativeCost = Mechanic.AlternativeCost(Keyword.WebSlinging.Kind, Cost(cost.parts + CostPart.ReturnToHand(
+        CostObjects.Choose(ObjectFilter.And(listOf(ObjectFilter.Type(CardType.Creature), ObjectFilter.ControlledBy(PlayerFilter.You),
+            ObjectFilter.HasStatus(Status.Tapped))), count = Value.Fixed(1)), preBind = WEB_SLINGING_RETURNED)))
 
     private fun ninjutsu(cost: Cost, zones: List<Zone>) = Ability.Activated(
         Cost(cost.parts + CostPart.Reveal(CostObjects.Self) + CostPart.ReturnToHand(CostObjects.Choose(ObjectFilter.And(listOf(

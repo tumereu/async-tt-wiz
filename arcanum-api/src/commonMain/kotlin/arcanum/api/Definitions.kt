@@ -278,6 +278,9 @@ data class Modes(
     /** "… If [condition], you may choose [maxIf] instead" (e.g. "you may choose both instead"). */
     val maxIf: Condition? = null,
     val maxIfCount: Int? = null,
+    /** dsk backfill: when [maxIf] holds, any number from [min] up to [maxIfCount] modes are chosen ("choose one or more
+     * instead", CR 700.2d) rather than exactly [maxIfCount] ("choose both instead"). */
+    val upToMaxIf: Boolean = false,
     /** "Choose one that hasn't been chosen" (for this object). */
     val onlyUnchosen: Boolean = false,
     /** "Choose one that hasn't been chosen this turn". */
@@ -342,6 +345,9 @@ data class TargetSlot(
     // ecl
     /** The chosen objects must all share this quality ("two target creature cards that share a creature type", CR 601.2c). */
     val sharing: SharedQuality? = null,
+    // spm
+    /** The chosen objects must all differ in this quality ("up to six target creature cards with different names", CR 601.2c). */
+    val distinct: SharedQuality? = null,
 )
 
 /** What a target can be. "Any target" is [Either] of creatures, planeswalkers and battles, and players (CR 115.4). */

@@ -26,7 +26,7 @@ object Engine {
      * automatic, or the other way round. A host that keeps per-card "fully supported" results worked out with this
      * engine keeps them per this version (and the parser's), so a new engine works them out again.
      */
-    const val SUPPORT_VERSION: Int = 2
+    const val SUPPORT_VERSION: Int = 3
 
     /** The characteristics of every object after continuous effects (CR 613), the rules that apply to objects and
      * players, and the game rules in force (P3). A pure function of [state]. */
@@ -69,7 +69,8 @@ object Engine {
      * hand and cards outside the game, face-down cards they control, and cards an ability lets them look at any time
      * ("you may look at the top card of your library any time", CR 401.5). A host shows a player what [state] knows
      * of these and nothing of the rest: of the others' cards, of [GameState.pending] decisions of other players over
-     * cards not among these, and of [arcanum.engine.change.Change.Filled]s that aren't public.
+     * cards not among these, and of [arcanum.engine.change.Change.Filled]s that aren't public. While [player] controls
+     * another player ([decider]), also what that player may see of objects in the game (CR 723.4).
      */
     fun visible(state: GameState, player: PlayerId): Set<arcanum.engine.state.ObjectId> =
         arcanum.engine.action.Knowledge.visible(state, view(state), player)
@@ -90,9 +91,20 @@ object Engine {
      * ([arcanum.engine.state.PlayerState.skipWhenNoChoice]) on, that is enough; off, only when it doesn't depend on cards
      * only they may see (an empty hand and no face-down permanent: an instant they can't afford is theirs to pass with).
      * False while such cards are unknown in [state] (another player's view, D60): their own view decides. The engine never
-     * passes for anyone by itself; a host performs [Input.PassPriority] for each player this says, one at a time.
+     * passes for anyone by itself; a host performs [Input.PassPriority] for each player this says, one at a time. While
+     * another player controls [player] (CR 723), the controller's setting counts ([decider]).
      */
     fun shouldPassFor(state: GameState, player: PlayerId): Boolean = arcanum.engine.turn.AutoPass.shouldPass(state, player)
+
+    /**
+     * Who makes [player]'s choices and decisions now (CR 723.5): the player controlling them during this turn (723.1) or
+     * its combat phase (723.2), else [player]. Decisions, options and inputs stay [player]'s own (they use only that
+     * player's resources, 723.5a, and stay the active player, 723.3); a host lets the decider answer [player]'s decisions
+     * and make their inputs, shows the decider what [visible] gives (723.4), and still lets only [player] concede (723.6)
+     * and make the choices no rule or object calls for (723.5b). The controller goes on making their own decisions
+     * (723.8).
+     */
+    fun decider(state: GameState, player: PlayerId): PlayerId = arcanum.engine.turn.Control.decider(state, player)
 
     /**
      * A key for finding loops of mandatory actions (CR 104.4b, 732.4): equal for two states that differ only in object

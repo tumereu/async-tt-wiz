@@ -28,7 +28,9 @@ internal class ViewBoard(override val state: GameState, val view: View) : Board 
 
     override fun controller(id: ObjectId): PlayerId? {
         val o = state.obj(id)
-        if (o == null) return state.stackItems[id]?.controller ?: view[id]?.controller
+        // blb backfill: an object that left is read as it last existed (CR 608.2h): "if you've sacrificed a Food this
+        // turn" asks who controlled the Food
+        if (o == null) return state.stackItems[id]?.controller ?: view[id]?.controller ?: snapshot(id)?.let { it.controller ?: it.owner }
         return if (o.zone == Zone.Battlefield || o.zone == Zone.Stack) view[id]?.controller ?: o.controller ?: o.owner else o.owner
     }
 }

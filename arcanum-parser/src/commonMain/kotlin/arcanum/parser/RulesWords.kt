@@ -552,6 +552,12 @@ internal object RulesWords {
         "legal justice", "mental organism", "net", "no one dies!", "photographic reflexes", "radar sense", "seismic takedown",
         "solar beam", "sonic attack", "street justice", "technopathy", "trick arrows", "tyrannosaurus rex", "unbreakable skin",
         "wasp's sting",
+        // spm
+        "animal may-ham", "bring down", "camouflage", "conceal", "darkforce inversion", "date night", "dinosaur formula", "do homework",
+        "fateful bite", "fear gas", "fight crime", "find new host", "from the future", "goblin formula", "heckle", "hero worship", "impound",
+        "investigative journalism", "lizard formula", "look around", "mind swap", "nosh", "patrol night", "pavitr's sevā", "puff piece",
+        "repair", "reveal", "sensational save", "share", "smear campaign", "sonic blast", "top of the food chain", "undying vengeance",
+        "unreliable visions", "venom blast", "vibro-shock gauntlets", "web support",
     )
 
     /** An ability word or flavor word ([abilityWords], [flavorWords]), compared without case. */

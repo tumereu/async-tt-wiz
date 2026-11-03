@@ -145,6 +145,12 @@ internal object Legality {
                 ?: snap.evaluator(applied.controller, self = applied.source, names = applied.names, holder = player).matches(filter, card)
             if (!matches) return "that permission doesn't let it be cast as ${face.name}"
         }
+        // CR 702.127a: an aftermath half is cast only from a graveyard, and its permission is for that half only
+        val aftermathHalf = face.abilities.any { it == Keyword.Aftermath }
+        if (aftermathHalf && o.zone != Zone.Graveyard) return "that half is cast only from a graveyard (CR 702.127a)"
+        val byAftermath = (permission?.second?.origin as? AbilityOrigin.Expansion)?.let { e ->
+            chars?.abilities.orEmpty().firstOrNull { it.origin == e.keyword }?.ability == Keyword.Aftermath } == true
+        if (byAftermath && !aftermathHalf) return "only the aftermath half is cast from a graveyard (CR 702.127a)"
         if (way.alternative != null && alternative(snap, card, way, player) == null) return "no such alternative cost, or its condition isn't met"
         // tmt: a permission to cast only by an alternative cost ("using their sneak abilities", "using its bestow ability")
         (permission?.second?.mechanic as? Mechanic.MayPlay)?.viaAlternative?.let { via ->
@@ -155,7 +161,11 @@ internal object Legality {
         if (during != null && (snap.state.turn.active != player || snap.state.turn.step != during)) return "only during your $during step (CR 702.190a)"
         if (way.fused) cantFuse(o, way, fromHand, permission != null)?.let { return it }
         // CR 307.1, 702.8a: sorcery timing unless it's an instant or has flash
-        val instant = during != null || !faceDown && (CardType.Instant in types || chars?.hasKeyword(Keyword.Flash) == true ||
+        // A card cast from face down in exile (foretold, CR 406.3a) has its card's abilities
+        val flash = chars?.hasKeyword(Keyword.Flash) == true || o.faceDown && face.abilities.any { it == Keyword.Flash }
+        // CR 702.170d: a plotted card is cast during its owner's main phase while the Stack is empty
+        val plotted = arcanum.engine.foretell.Plot.isPlotted(permission?.second?.origin)
+        val instant = !plotted && during != null || !plotted && !faceDown && (CardType.Instant in types || flash ||
             snap.view[card]?.has { it is Mechanic.InstantSpeed } == true || castsAsThoughFlash(snap, player, card))
         if (!instant && !sorceryTiming(snap, player)) return "only as a sorcery: your main phase, empty Stack (CR 307.1)"
         restriction(snap, player, card)?.let { return it }
@@ -190,7 +200,9 @@ internal object Legality {
     private fun castsAsThoughFlash(snap: Snapshot, player: PlayerId, card: ObjectId): Boolean =
         snap.view.players[player]?.mechanics.orEmpty().any { applied ->
             val m = applied.mechanic as? Mechanic.CastAsThoughFlash ?: return@any false
-            snap.evaluator(applied.controller, self = applied.source, holder = player).matches(m.spells, card)
+            // blb backfill: the card is judged as the spell it would be ("noncreature spells", CR 601.3a)
+            val e = snap.evaluator(applied.controller, self = applied.source, holder = player)
+            e.with(e.ctx.copy(prospectiveCast = true)).matches(m.spells, card)
         }
 
     /** "Cast this spell only …" (CR 601.3e): the card's own [Mechanic.CastRestriction]s; [timing] too unless an effect
@@ -358,6 +370,7 @@ internal object Legality {
     fun instance(snap: Snapshot, id: ObjectId, origin: AbilityOrigin): AbilityInstance? =
         snap.view[id]?.characteristics?.abilities?.firstOrNull { it.origin == origin }
             ?: faceDownActions(snap, id).firstOrNull { it.origin == origin }
+            ?: arcanum.engine.foretell.Foretell.actions(snap.state, snap.view, id, forwarded = true).firstOrNull { it.origin == origin }
 
     /**
      * The special actions a face-down permanent's own card offers (CR 702.37e, 116.2b: turning it face up for its
@@ -370,7 +383,9 @@ internal object Legality {
         if (!o.faceDown) return arcanum.engine.room.Rooms.unlockActions(snap.state, id)
         val face = o.definition?.faces?.firstOrNull() ?: return emptyList()
         // CR 701.40b: a manifested creature card turns face up for its mana cost
-        val manifested = if (arcanum.api.ObjectMark.Manifested in o.marks && CardType.Creature in face.types && face.manaCost != null)
+        // CR 701.58b: so does a cloaked one
+        val manifested = if ((arcanum.api.ObjectMark.Manifested in o.marks || arcanum.api.ObjectMark.Cloaked in o.marks) &&
+            CardType.Creature in face.types && face.manaCost != null)
             listOf(AbilityInstance(Ability.SpecialAction(arcanum.api.Cost.mana(face.manaCost!!),
                 arcanum.api.Instructions(steps = listOf(arcanum.api.Step.Do(arcanum.api.Effect.TurnFaceUp(arcanum.api.Objects.Self)))),
                 timing = Timing.Any, functionsIn = listOf(arcanum.api.Zone.Battlefield),

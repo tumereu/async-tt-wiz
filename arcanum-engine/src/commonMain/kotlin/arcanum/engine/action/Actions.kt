@@ -107,7 +107,7 @@ internal object Actions {
                 // rtr chunk 06: the proposed move names its cause, for "a spell or ability an opponent controls causes you to discard"
                 proposed = { m -> Changes.move(act.state, listOf(m.id), m.to, meanings = m.meanings).let { c ->
                     if (cause == null) c else c.causedBy(arcanum.engine.change.CausedBy(cause.source, null, cause.controller, cause.item?.id)) } },
-                modify = { m, r, _ -> modifyMove(act, m, r) },
+                modify = { m, r, _ -> modifyMove(act, m, r, linked) },
                 instead = { r, instance -> runInstead(act, r, instance) },
                 linked = linked,
                 // CR 701.19c: "can't be regenerated"
@@ -119,7 +119,15 @@ internal object Actions {
         // CR 714.3a: as a Saga enters, its controller puts a lore counter on it
         final.filter { it.to == Zone.Battlefield }.mapNotNull { result[it.id] }
             .filter { act.state.obj(it)?.zone == Zone.Battlefield && act.view()[it]?.characteristics?.subtypes?.any { s -> s.name == "Saga" } == true }
-            .forEach { putCounters(act, cause, TargetRef.Object(it), CounterKind.Lore, 1) }
+            .forEach { saga ->
+                // CR 714.3b, 702.155b: with read ahead, the number of lore counters chosen between one and its final chapter number
+                val chars = act.view()[saga]?.characteristics
+                val final = chars?.abilities.orEmpty().mapNotNull { ((it.ability as? arcanum.api.Ability.Triggered)?.trigger as? arcanum.api.Trigger.Chapter)
+                    ?.chapters?.maxOrNull() }.maxOrNull()
+                val readAhead = chars?.hasKeyword(arcanum.api.Keyword.ReadAhead) == true && final != null && final > 1
+                val lore = if (readAhead) act.chooseNumber(act.controllerOf(saga) ?: act.state.objOrThrow(saga).owner, saga, 1, final) else 1
+                putCounters(act, cause, TargetRef.Object(saga), CounterKind.Lore, lore)
+            }
         Replacements.addLinked(act, linked)
         // CR 610.3: "until" returns happen right after the event, without the Stack
         if (result.isNotEmpty()) arcanum.engine.trigger.Triggers.runOneShots(act)
@@ -131,9 +139,11 @@ internal object Actions {
 
     private fun isRegeneration(r: Replacement): Boolean = r.names[REGENERATED] != null
 
-    private fun modifyMove(act: Act, m: PlannedMove, r: Replacement): PlannedMove? {
+    private fun modifyMove(act: Act, m: PlannedMove, r: Replacement, linked: MutableList<WaitingTrigger>): PlannedMove? {
         var move = m
-        val e = Evaluator(act.board(), Context(you = r.controller, self = r.source ?: m.id, names = r.names))
+        // spm: the entering permanent's own replacements read the names its spell's keyword costs made ("the returned creature")
+        val names = if (m.memory.values.isEmpty() || r.source != m.id) r.names else Bindings(m.memory.values + r.names.values)
+        val e = Evaluator(act.board(), Context(you = r.controller, self = r.source ?: m.id, names = names))
         for (mod in r.mechanic.modify) {
             move = when (mod) {
                 Modification.Skip -> return null
@@ -156,7 +166,15 @@ internal object Actions {
                     val options = e.each(mod.of).filter { it != move.id }
                     val chooser = r.controller
                     val chosen = act.chooseObjects(chooser, move.id, options, if (mod.optional) 0 else 1, 1, "Enter as a copy of")
-                    chosen.firstOrNull()?.let { move.copy(copyOf = it to mod.except) } ?: move
+                    chosen.firstOrNull()?.let { of ->
+                        // spm: "When you do, exile that card": the linked trigger knows the object copied (CR 603.12)
+                        val bind = mod.bind
+                        val then = r.mechanic.whenApplied
+                        if (bind != null && then != null) linked += WaitingTrigger(controller = r.controller,
+                            ability = arcanum.api.Ability.Triggered(arcanum.api.Trigger.On(emptyList()), then), origin = null, source = r.source,
+                            names = r.names.with(bind, NamedValue.Objects(listOf(of))))
+                        move.copy(copyOf = of to mod.except)
+                    } ?: move
                 }
                 is Modification.AsEnters -> Steps.asEnters(act, r, move, mod.steps) ?: return null
                 // fra: "enters prepared" (CR 722.3a)
@@ -226,10 +244,15 @@ internal object Actions {
                 if (m.memory.values.isNotEmpty()) after = after.copy(memory = m.memory)
                 if (toBattlefield && m.attachTo != null) after = after.copy(attachedTo = m.attachTo)
                 if (toBattlefield && m.transformed && before.definition?.layout == Layout.Transform) after = after.copy(face = 1)
+                // CR 702.145b: at night a daybound card enters transformed
+                if (toBattlefield && !m.faceDown && arcanum.engine.turn.DayNight.entersTransformed(scratch, after)) after = after.copy(face = 1)
                 // CR 709.5d: a Room enters with the half cast as a spell unlocked
                 if (toBattlefield && before.zone == Zone.Stack && arcanum.engine.room.Rooms.isRoom(before.definition))
                     after = after.copy(marks = after.marks + arcanum.api.ObjectMark.Unlocked(arcanum.engine.room.Rooms.door(before.face)))
                 if (!toBattlefield && m.to != Zone.Stack) after = after.copy(controller = null)
+                // Marks it gets as it goes elsewhere than the battlefield (foretold: exiled face down, CR 702.143a)
+                if (!toBattlefield && m.marks.isNotEmpty()) after = after.copy(marks = (after.marks + m.marks).distinct(),
+                    facts = if (arcanum.api.ObjectMark.Foretold in m.marks) after.facts.copy(foretoldTurn = act.state.turn.number) else after.facts)
                 // D60: hidden from the viewer where it goes (an opponent's hand, face down), or put in a hidden random order
                 if (Knowledge.forgets(scratch, after)) after = Knowledge.forgotten(after)
                 if (m.newId != null && m.to == Zone.Library) after = Knowledge.forgotten(after).copy(id = m.newId)
@@ -303,8 +326,10 @@ internal object Actions {
             ?: o.definition?.faces?.getOrNull(if (m.transformed && o.definition.layout == Layout.Transform) 1 else o.face)
             ?: return emptyList()
         fun amount(n: arcanum.api.PrintedNumber?) = (n as? arcanum.api.PrintedNumber.Fixed)?.value ?: 0
+        // CR 702.150a: compleated: two fewer for each Phyrexian symbol paid with life
+        val compleated = if (face.abilities.any { it == arcanum.api.Keyword.Compleated }) 2 * o.facts.phyrexianPaidWithLife else 0
         return listOfNotNull(
-            (CounterKind.Loyalty to amount(face.loyalty)).takeIf { CardType.Planeswalker in face.types && it.second > 0 },
+            (CounterKind.Loyalty to amount(face.loyalty) - compleated).takeIf { CardType.Planeswalker in face.types && it.second > 0 },
             (CounterKind.Defense to amount(face.defense)).takeIf { CardType.Battle in face.types && it.second > 0 },
         )
     }
@@ -863,5 +888,10 @@ internal object Actions {
             is StatusFlag.Marked -> flag.mark in o.marks
         }
         if (now != on) act.record(Change.Status(id, flag, now, on, meanings))
+        // CR 702.170d: a card becoming plotted is castable on later turns
+        if (on && now != on && flag == StatusFlag.Marked(arcanum.api.ObjectMark.Plotted)) {
+            val marked = act.state.objOrThrow(id)
+            act.record(Change.Facts(id, marked.facts, marked.facts.copy(plottedTurn = act.state.turn.number)))
+        }
     }
 }

@@ -160,6 +160,7 @@ internal class Sentences(
     private var triggerIt: Pair<Objects, Zone?>? = null
 
     fun line(line: String): Ability? {
+        spmLine(line)?.let { return it } // spm
         tlaLine(line)?.let { return it } // tla
         eclLine(line)?.let { return it } // ecl
         sosLine(line)?.let { return it } // sos
@@ -265,7 +266,8 @@ internal class Sentences(
         val options = modeLines.map { arcanum.api.Mode(instructions(modeBody(it)) ?: return null, text = it) }
         if (options.isEmpty()) return null
         val maxIf = when (m.groupValues[4]) { "one or more" -> options.size; "both" -> 2; else -> Numbers.count(m.groupValues[4]) ?: return null }
-        return Ability.Spell(Instructions(modes = arcanum.api.Modes(options, min = n, max = n, maxIf = condition, maxIfCount = maxIf, chooser = Players.You)),
+        return Ability.Spell(Instructions(modes = arcanum.api.Modes(options, min = n, max = n, maxIf = condition, maxIfCount = maxIf,
+            upToMaxIf = m.groupValues[4] == "one or more", chooser = Players.You)),
             abilityWord = m.groupValues[1].ifEmpty { null })
     }
 
@@ -296,6 +298,7 @@ internal class Sentences(
 
     /** "As this land enters, you may pay 2 life. If you don't, it enters tapped." (CR 614.12, 118.12a) */
     private fun static(line: String): Ability? {
+        spmStatic(line)?.let { return it } // spm
         tlaStatic(line)?.let { return it } // tla
         eclStatic(line)?.let { return it } // ecl
         sosStatic(line)?.let { return it } // sos
@@ -626,7 +629,11 @@ internal class Sentences(
                 }
             }
             val keywords = m.groupValues[2].takeIf { it.isNotEmpty() }?.split(" and ")?.map { OracleParser.keyword(it) ?: return null }.orEmpty()
-            val mechanics = listOf<Mechanic>(Mechanic.SetTypes(add = add, addSubtypes = subtypes, replaceTypes = m.groupValues[3].isNotEmpty())) +
+            // gtc backfill: "Enchanted land is a Swamp." sets its land type: the old land types go (CR 305.7)
+            val setsLandType = add.isEmpty() && subtypes.isNotEmpty() &&
+                subtypes.all { (it as? arcanum.api.SubtypeRef.Literal)?.subtype?.name in Filters.BASIC_LAND_TYPES }
+            val mechanics = listOf<Mechanic>(Mechanic.SetTypes(add = add, addSubtypes = subtypes, replaceTypes = m.groupValues[3].isNotEmpty(),
+                replaceSubtypes = setsLandType)) +
                 (if (keywords.isEmpty()) emptyList() else listOf(Mechanic.GainAbilities(keywords)))
             return Ability.Static(mechanics, affects = arcanum.api.Affected.Objects(Objects.AttachedTo(of = Objects.Self)))
         }
@@ -1224,6 +1231,7 @@ internal class Sentences(
         ABILITY_WORD.matchEntire(header)?.takeIf { RulesWords.isAbilityOrFlavorWord(it.groupValues[1]) }?.let { w ->
             return (modalTrigger(w.groupValues[2], modeLines) as? Ability.Triggered)?.copy(abilityWord = w.groupValues[1])
         }
+        spmModalTrigger(header, modeLines)?.let { return it } // spm
         tlaModalTrigger(header, modeLines)?.let { return it } // tla
         sosModalTrigger(header, modeLines)?.let { return it } // sos
         mshModalTrigger(header, modeLines)?.let { return it } // msh
@@ -1242,6 +1250,7 @@ internal class Sentences(
     /** A trigger's events. "One or more …" triggers once per batch; "during your turn" is checked as it would trigger. */
     // chunk 21
     private fun trigger(text: String): Pair<arcanum.api.Trigger.On, arcanum.api.Condition?>? {
+        spmTrigger(text)?.let { return it } // spm
         eclTrigger(text)?.let { return it } // ecl
         val during = DURING_YOUR_TURN.matchEntire(text)
         val events = during?.groupValues?.get(1) ?: text
@@ -1552,6 +1561,8 @@ internal class Sentences(
         if (event is EventPattern.Damage && event.source != ObjectFilter.Is(Objects.Self) && event.to.objects == null) context.it = Objects.EventObject(EventRole.Source)
         // gtc chunk 07: "When this creature deals combat damage, return it to its owner's hand": it is this creature
         if (event is EventPattern.Damage && event.source == ObjectFilter.Is(Objects.Self) && event.to == RecipientFilter()) context.it = Objects.Self
+        // spm chunk 02: "Whenever this creature deals combat damage to a player, he connives": the player isn't an object, "it" is this creature
+        if (event is EventPattern.Damage && event.source == ObjectFilter.Is(Objects.Self) && event.to.objects == null && event.to.players != null) context.it = Objects.Self
         // chunk 36: "Whenever this creature attacks, put a +1/+1 counter on it": it is this creature
         if (event is EventPattern.Attack && event.attacker == ObjectFilter.Is(Objects.Self)) context.it = Objects.Self
         context.them = them
@@ -1568,7 +1579,8 @@ internal class Sentences(
             // hob: wordings of several sentences read as a whole (the hob rules see the ability's whole text first)
             val body = (if (whereX == null) text else text.removeRange(whereX.range)).trim()
             val wholeFrom = context.targets.size
-            val whole = if (body.contains(". ")) eclWhole(body.replaceFirstChar { it.uppercase() }, context) // ecl
+            val whole = if (body.contains(". ")) spmWhole(body.replaceFirstChar { it.uppercase() }, context) // spm
+                ?: eclWhole(body.replaceFirstChar { it.uppercase() }, context) // ecl
                 ?: tlaWhole(body.replaceFirstChar { it.uppercase() }, context) // tla
                 ?: sosWhole(body.replaceFirstChar { it.uppercase() }, context) // sos
                 ?: tmtWhole(body.replaceFirstChar { it.uppercase() }, context) // tmt
@@ -1598,6 +1610,7 @@ internal class Sentences(
     /** Sentences that change the step before them ("If this spell was kicked, it deals 4 damage instead.", "It can't be
      * regenerated."). */
     private fun modify(sentence: String, steps: List<Step>, context: Context): List<Step>? {
+        spmModify(sentence, steps, context)?.let { return it } // spm
         tlaModify(sentence, steps, context)?.let { return it } // tla
         eclModify(sentence, steps, context)?.let { return it } // ecl
         sosModify(sentence, steps, context)?.let { return it } // sos
@@ -2817,6 +2830,7 @@ internal class Sentences(
     private fun effectRules(sentence: String, context: Context): List<Step>? {
         // "Draw two cards. Then discard a card …": a sentence that starts with "Then" follows the one before it.
         if (sentence.startsWith("Then ")) return effect(sentence.removePrefix("Then ").replaceFirstChar { it.uppercase() }, context)
+        spmEffect(sentence, context)?.let { return it } // spm
         tlaEffect(sentence, context)?.let { return it } // tla
         eclEffect(sentence, context)?.let { return it } // ecl
         sosEffect(sentence, context)?.let { return it } // sos
@@ -5657,7 +5671,7 @@ internal class Sentences(
                 "unlock doors", "unlock a door" -> ObjectFilter.AbilityOf(kind = arcanum.api.AbilityKind.Unlock)
                 "turn permanents face up", "turn a permanent face up" -> ObjectFilter.AbilityOf(kind = arcanum.api.AbilityKind.TurnFaceUp)
                 // as "Spend this mana only to cast artifact spells" reads (chunk 03)
-                else -> eclSpendUse(use) ?: tmtSpendUse(use) ?: mshSpendUse(use) ?: CAST_SPELLS.matchEntire(use)?.let { m -> Filters.noun(m.groupValues[1])?.let { Filters.all(ObjectFilter.Category(arcanum.api.ObjectCategory.Spell), it) } } ?: return null
+                else -> spmSpendUse(use) ?: eclSpendUse(use) ?: tmtSpendUse(use) ?: mshSpendUse(use) ?: CAST_SPELLS.matchEntire(use)?.let { m -> Filters.noun(m.groupValues[1])?.let { Filters.all(ObjectFilter.Category(arcanum.api.ObjectCategory.Spell), it) } } ?: return null
             }
         }
         return uses.singleOrNull() ?: ObjectFilter.Or(uses)
@@ -9425,7 +9439,7 @@ internal class Sentences(
         // chunk 35: also after a quoted ability that ends a sentence ('… with "This token can't block." If …')
         val SENTENCE_END = Regex("""(?<=\.)\s+|(?<=\.")\s+""")
         // msh: "Power-up —", "I LOVE Squirrels! —", "Do You Like Squirrels? —"
-        val ABILITY_WORD = Regex("""([A-Z][A-Za-z'!?\- ]+) — (.+)""")
+        val ABILITY_WORD = Regex("""([A-Z][A-Za-z'!?\-ā ]+) — (.+)""") // spm: "Pavitr's Sevā"
         const val IMPRINTED = "imprinted"
         val LABELS = mapOf("boast" to arcanum.api.AbilityLabel.Boast, "solved" to arcanum.api.AbilityLabel.Solved,
             "exhaust" to arcanum.api.AbilityLabel.Exhaust, "max speed" to arcanum.api.AbilityLabel.MaxSpeed,
@@ -15127,6 +15141,778 @@ internal class Sentences(
         return null
     }
     // ---- sos end
+
+    // ---- spm: Marvel's Spider-Man wordings (the set's parser tests, sets/spm/SpmChunk*Test.kt); regexes in [Spm], phrases in [SpmPhrases].
+    // Tried first, each rule reading one wording and falling through when it can't.
+
+    private val spmSelfOnly get() = Affected.Objects(Objects.Self)
+    private val spmP1P1 get() = arcanum.api.CounterKind.PowerToughness(1, 1)
+    private fun spmN(word: String): Int? = Numbers.count(word)
+    private fun spmCap(text: String) = text.replaceFirstChar { it.uppercase() }
+    private fun spmSlot(name: String, filter: ObjectFilter, min: Int = 1, max: Int? = 1) =
+        TargetSlot(name, TargetKind.Objects(filter), min = Value.Fixed(min), max = max?.let { Value.Fixed(it) })
+    private fun spmNewSlotName(context: Context, base: String) = if (context.targets.none { it.name == base }) base else nextTargetName(base, context.targets.map { it.name })
+    private fun spmApply(objects: Objects, duration: arcanum.api.Duration, vararg mechanics: Mechanic) =
+        Step.Do(Effect.ApplyMechanics(mechanics.toList(), Affected.Objects(objects), duration))
+    private fun spmPower(of: Objects) = Value.Of(arcanum.api.NumericProperty.Power, of, arcanum.api.Combine.Single)
+    private fun spmSubtypes(words: String): List<arcanum.api.SubtypeRef>? =
+        words.trim().split(' ').map { w -> w.takeIf { it in RulesWords.subtypes }?.let { arcanum.api.SubtypeRef.Literal(Subtype(it)) } ?: return null }
+    private val spmNotLegendary get() = arcanum.api.CopyException.Types(removeSupertypes = listOf(Supertype.Legendary))
+    private val spmEntersSelf get() = EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), to = Zone.Battlefield)
+    private fun spmPronoun(text: String) = text == "it" || text == "he" || text == "she" || text == "they" || text == "It" || text == "He" || text == "She"
+    /** The card's own name or "it"/"he" in its own trigger. */
+    private fun spmSelfOrPronoun(text: String) = isSelf(text) || spmPronoun(text)
+
+    /** spm: whole lines read before the other rules. */
+    private fun spmLine(line: String): Ability? {
+        // spm chunk 08: "Whenever Spider-Slayer deals damage to a Spider, destroy that creature." (the creature dealt damage, CR 120.3)
+        Spm.DEALS_DAMAGE_TO_SUBTYPE_DESTROY.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            val subtype = m.groupValues[2].takeIf { it in RulesWords.subtypes } ?: return null
+            return Ability.Triggered(arcanum.api.Trigger.On(EventPattern.Damage(ObjectFilter.Is(Objects.Self),
+                arcanum.api.RecipientFilter(objects = ObjectFilter.Sub(Subtype(subtype))))),
+                Instructions(steps = listOf(Step.Do(Effect.Destroy(Objects.EventObject(EventRole.Object))))))
+        }
+        // spm chunk 08: "At the beginning of each player's first main phase, that player may put a +1/+1 counter on this creature. If they do,
+        // they add {C} for each counter on it." (CR 505.1: the precombat main phase; the mana goes to that player)
+        Spm.EACH_PLAYERS_MAIN_MAY_COUNTER_ADD_C.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let {
+            return Ability.Triggered(arcanum.api.Trigger.On(EventPattern.StepBegins(arcanum.api.TurnStep.PrecombatMain, PlayerFilter.Any)), Instructions(steps = listOf(
+                Step.Pay(steps = listOf(Step.Do(Effect.PutCounters(Objects.Self, spmP1P1, Value.Fixed(1)))), payer = Players.EventPlayer, bind = "paid"),
+                Step.If(arcanum.api.Condition.Did("paid"), then = listOf(Step.Do(Effect.AddMana(ManaProduction(ManaKind.Fixed(ManaCost.parse("{C}")!!,
+                    times = Value.Of(arcanum.api.NumericProperty.Counters(null), Objects.Self, arcanum.api.Combine.Single))), Players.EventPlayer)))))))
+        }
+        // spm chunk 05: "{3}{G}{G}: Return this card and target land card from your graveyard to the battlefield tapped." (it works in the
+        // graveyard, CR 113.6m)
+        if (line.contains(": ")) {
+            val costText = line.substringBefore(": ")
+            val body = line.substringAfter(": ")
+            Spm.RETURN_SELF_AND_TARGET_FROM_GRAVEYARD.matchEntire(body)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+                val cost = cost(costText) ?: return null
+                val filter = Filters.all(Filters.noun(m.groupValues[2]) ?: return null, ObjectFilter.InZone(Zone.Graveyard), ObjectFilter.OwnedBy(PlayerFilter.You))
+                val name = Filters.slotName(m.groupValues[2])
+                return Ability.Activated(cost, Instructions(targets = listOf(spmSlot(name, filter)), steps = listOf(Step.Do(Effect.Move(
+                    Objects.Union(listOf(Objects.Self, Objects.Target(name))), Destination(Zone.Battlefield, tapped = m.groupValues[3].isNotEmpty()))))),
+                    arcanum.api.ActivationRules(timing = arcanum.api.Timing.Any, activatedBy = PlayerFilter.You), functionsIn = listOf(Zone.Graveyard))
+            }
+            // spm chunk 05: "{2}, Return a tapped creature you control to its owner's hand: Put this card from your hand onto the battlefield.
+            // Activate only as a sorcery." (it works in the hand, CR 113.6m)
+            val sorcery = body.endsWith(" Activate only as a sorcery.")
+            Spm.PUT_SELF_FROM_HAND_ONTO_BATTLEFIELD.matchEntire(body.removeSuffix(" Activate only as a sorcery."))?.takeIf { isSelf(it.groupValues[1]) }?.let {
+                val cost = cost(costText) ?: return null
+                return Ability.Activated(cost, Instructions(steps = listOf(Step.Do(Effect.Move(Objects.Self, Destination(Zone.Battlefield))))),
+                    arcanum.api.ActivationRules(timing = if (sorcery) arcanum.api.Timing.Sorcery else arcanum.api.Timing.Any, activatedBy = PlayerFilter.You),
+                    functionsIn = listOf(Zone.Hand))
+            }
+        }
+        return null
+    }
+
+    /** spm: static abilities, tried first in [static]. */
+    private fun spmStatic(line: String): Ability? {
+        // spm chunk 01: "Each legendary spell you cast that's one or more colors has web-slinging {G}{W}{U}." (CR 702.188a: an alternative
+        // cost of those spells as they are cast, CR 601.2b)
+        Spm.SPELLS_HAVE_WEB_SLINGING.matchEntire(line)?.let { m ->
+            val cost = ManaCost.parse(m.groupValues[2]) ?: return null
+            return Ability.Static(listOf(Mechanic.GainAbilities(listOf(arcanum.api.Keyword.WebSlinging(Cost.mana(cost))))), affects = Affected.Objects(Objects.Each(
+                Filters.all(ObjectFilter.Category(arcanum.api.ObjectCategory.Spell), ObjectFilter.Super(Supertype.Legendary), ObjectFilter.Not(ObjectFilter.Colorless),
+                    ObjectFilter.ControlledBy(PlayerFilter.You), ObjectFilter.WasCast()))))
+        }
+        // spm chunk 01: "If Scarlet Spider was cast using web-slinging, he enters with X +1/+1 counters on him, where X is the mana value of the
+        // returned creature." (CR 614.1c; the creature returned to pay the cost, as it last existed, CR 608.2h)
+        Spm.ENTERS_WITH_X_IF_WEB_SLINGING.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let {
+            return Ability.Static(listOf(Mechanic.Replacement(spmEntersSelf, modify = listOf(Modification.EntersWithCounters(spmP1P1,
+                Value.Of(arcanum.api.NumericProperty.ManaValue, Objects.Bound(arcanum.api.KeywordExpansions.WEB_SLINGING_RETURNED), arcanum.api.Combine.Single))))),
+                affects = spmSelfOnly, condition = arcanum.api.Condition.Paid(arcanum.api.Keyword.WebSlinging.Kind, times = 1, of = Objects.Self))
+        }
+        // spm chunk 01: "Each nonland card in your graveyard has mayhem. The mayhem cost is equal to its mana cost." (CR 702.187b)
+        Spm.CARDS_IN_GRAVEYARD_HAVE_MAYHEM.matchEntire(line)?.let { m ->
+            val cards = Filters.noun(m.groupValues[1]) ?: return null
+            return Ability.Static(listOf(Mechanic.GainAbilities(listOf(arcanum.api.Keyword.Mayhem(Cost(listOf(CostPart.ItsManaCost)))))),
+                affects = Affected.Objects(Objects.Each(Filters.all(cards, ObjectFilter.InZone(Zone.Graveyard), ObjectFilter.OwnedBy(PlayerFilter.You)))))
+        }
+        // spm chunk 01: "Spells you cast from your graveyard cost {2} less to cast." (CR 601.2f)
+        Spm.SPELLS_CAST_FROM_COST_LESS.matchEntire(line)?.let { m ->
+            val zone = when (m.groupValues[1]) { "graveyard" -> Zone.Graveyard; "hand" -> Zone.Hand; else -> Zone.Exile }
+            return Ability.Static(listOf(Mechanic.CostChange(Filters.all(ObjectFilter.Category(arcanum.api.ObjectCategory.Spell), ObjectFilter.ControlledBy(PlayerFilter.You),
+                ObjectFilter.WasCast(zone)), arcanum.api.CostChange.Less(ManaCost.parse(m.groupValues[2]) ?: return null, Value.Fixed(1)))), affects = spmSelfOnly)
+        }
+        // spm chunk 02: "This creature has flying as long as it's modified." (CR 700.9)
+        Spm.HAS_KEYWORD_AS_LONG_AS_MODIFIED.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            return Ability.Static(listOf(Mechanic.GainAbilities(keywords(m.groupValues[2]) ?: return null)), affects = spmSelfOnly,
+                condition = arcanum.api.Condition.ObjectMatches(Objects.Self, ObjectFilter.Modified))
+        }
+        // spm chunk 03: "Enchanted creature is a Citizen with base power and toughness 1/1. It has defender and loses all other abilities."
+        // (layers 4, 6, 7b; a creature type replaces the others, CR 205.1b; it loses its abilities, then gains defender, CR 613.7)
+        Spm.ENCHANTED_IS_SUBTYPE_BASE_PT_HAS_LOSES.matchEntire(line)?.let { m ->
+            val subtype = m.groupValues[1].takeIf { it in RulesWords.subtypes } ?: return null
+            return Ability.Static(listOf(Mechanic.SetTypes(addSubtypes = listOf(arcanum.api.SubtypeRef.Literal(Subtype(subtype))), replaceSubtypes = true),
+                Mechanic.SetPowerToughness(Value.Fixed(m.groupValues[2].toInt()), Value.Fixed(m.groupValues[3].toInt())),
+                Mechanic.LoseAbilities(), Mechanic.GainAbilities(keywords(m.groupValues[4]) ?: return null)), affects = Affected.Objects(Objects.AttachedTo(Objects.Self)))
+        }
+        // spm chunk 03: "As long as there are eight or more cards in your graveyard, Doc Ock has base power and toughness 8/8." (layer 7b)
+        Spm.AS_LONG_AS_BASE_PT.matchEntire(line)?.takeIf { isSelf(it.groupValues[2]) }?.let { m ->
+            val condition = conditionWithAnd(m.groupValues[1]) ?: return null
+            return Ability.Static(listOf(Mechanic.SetPowerToughness(Value.Fixed(m.groupValues[3].toInt()), Value.Fixed(m.groupValues[4].toInt()))),
+                affects = spmSelfOnly, condition = condition)
+        }
+        // spm chunk 03: "Equipped creature gets +2/+2 and is a Spider Hero in addition to its other types." (layers 4, 7c)
+        Spm.EQUIPPED_GETS_AND_IS_IN_ADDITION.matchEntire(line)?.let { m ->
+            return Ability.Static(listOf(Mechanic.ModifyPowerToughness(ptChange(m.groupValues[1]) ?: return null, ptChange(m.groupValues[2]) ?: return null),
+                Mechanic.SetTypes(addSubtypes = spmSubtypes(m.groupValues[3]) ?: return null)), affects = Affected.Objects(Objects.AttachedTo(Objects.Self)))
+        }
+        // spm chunk 04: "You may have Chameleon enter as a copy of a creature you control, except his name is Chameleon, Master of Disguise."
+        // (CR 707.9b: the name is part of the copy)
+        Spm.MAY_ENTER_AS_COPY_EXCEPT_NAME.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            val of = Filters.noun(m.groupValues[2]) ?: return null
+            return Ability.Static(listOf(Mechanic.Replacement(spmEntersSelf, modify = listOf(Modification.EntersAsCopy(of,
+                listOf(arcanum.api.CopyException.Name(m.groupValues[3])), optional = true)))), affects = spmSelfOnly)
+        }
+        // spm chunk 04: "You may have Superior Spider-Man enter as a copy of any creature card in a graveyard, except his name is Superior
+        // Spider-Man and he's a 4/4 Spider Human Hero in addition to his other types. When you do, exile that card." (CR 707.9b, 603.12: the
+        // card copied, exiled by a trigger linked to the replacement)
+        Spm.MAY_ENTER_AS_COPY_OF_CARD_IN_GRAVEYARD.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            val of = Filters.all(Filters.noun(m.groupValues[2]) ?: return null, ObjectFilter.InZone(Zone.Graveyard))
+            val except = listOf(arcanum.api.CopyException.Name(m.groupValues[3]),
+                arcanum.api.CopyException.PowerToughness(m.groupValues[4].toInt(), m.groupValues[5].toInt()),
+                arcanum.api.CopyException.Types(addSubtypes = spmSubtypes(m.groupValues[6]) ?: return null))
+            return Ability.Static(listOf(Mechanic.Replacement(spmEntersSelf, modify = listOf(Modification.EntersAsCopy(of, except, optional = true, bind = "copied")),
+                whenApplied = Instructions(steps = listOf(Step.Do(Effect.Move(Objects.Bound("copied"), Destination(Zone.Exile))))))), affects = spmSelfOnly)
+        }
+        // spm chunk 05: "You may cast this card from your graveyard by discarding a card in addition to paying its other costs." (CR 601.2f)
+        Spm.MAY_CAST_FROM_GRAVEYARD_BY_DISCARDING.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let {
+            return Ability.Static(listOf(Mechanic.MayPlay(Zone.Graveyard, PlayKind.Cast, holder = PlayerFilter.You,
+                additionalCost = Cost(costPart("Discard a card") ?: return null))), affects = spmSelfOnly)
+        }
+        // spm chunk 05: "You may cast Spider spells and noncreature spells from the top of your library." (CR 601.2a)
+        Spm.MAY_CAST_TWO_KINDS_FROM_TOP.matchEntire(line)?.let { m ->
+            val kinds = listOf(m.groupValues[1], m.groupValues[2]).map { Filters.noun(it) ?: return null }
+            return Ability.Static(listOf(Mechanic.MayPlay(Zone.Library, PlayKind.Cast, topOnly = true, holder = PlayerFilter.You)),
+                affects = Affected.Objects(Objects.Each(Filters.all(ObjectFilter.Or(kinds), ObjectFilter.InZone(Zone.Library), ObjectFilter.OwnedBy(PlayerFilter.You)))))
+        }
+        // spm chunk 07: "Enchanted creature gets +2/+2 for each Aura and Equipment attached to it." (counted continuously, layer 7c)
+        Spm.ATTACHED_GETS_FOR_EACH_ATTACHED.matchEntire(line)?.let { m ->
+            val count = Value.Count(Objects.AttachmentsOf(Objects.AttachedTo(Objects.Self), ObjectFilter.Or(listOf(
+                ObjectFilter.Sub(Subtype("Aura")), ObjectFilter.Sub(Subtype("Equipment"))))))
+            fun per(n: Int): Value = when (n) { 0 -> Value.Fixed(0); 1 -> count; else -> Value.Times(count, n) }
+            return Ability.Static(listOf(Mechanic.ModifyPowerToughness(per(m.groupValues[1].toInt()), per(m.groupValues[2].toInt()))),
+                affects = Affected.Objects(Objects.AttachedTo(Objects.Self)))
+        }
+        // spm chunk 07: "All damage that would be dealt to you is dealt to enchanted creature instead." (CR 614.1a)
+        if (Spm.ALL_DAMAGE_TO_YOU_TO_ENCHANTED.matches(line))
+            return Ability.Static(listOf(Mechanic.Replacement(EventPattern.Damage(ObjectFilter.Any, arcanum.api.RecipientFilter(players = PlayerFilter.You)),
+                modify = listOf(Modification.ChangeRecipient(arcanum.api.Recipients(objects = Objects.AttachedTo(Objects.Self)))))), affects = spmSelfOnly)
+        // spm chunk 07: "If damage would be dealt to Anti-Venom, prevent that damage and put that many +1/+1 counters on him." (CR 615.5)
+        Spm.PREVENT_DAMAGE_PUT_THAT_MANY_COUNTERS.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            return Ability.Static(listOf(Mechanic.Prevention(EventPattern.Damage(ObjectFilter.Any, arcanum.api.RecipientFilter(objects = ObjectFilter.Is(Objects.Self))),
+                additional = Instructions(steps = listOf(Step.Do(Effect.PutCounters(Objects.Self, Counters.kind(m.groupValues[2]) ?: return null, Value.EventAmount)))))),
+                affects = spmSelfOnly)
+        }
+        // spm chunk 07: "As Arachne enters, look at an opponent's hand, then choose a card type other than creature." (CR 614.12, 607.2d)
+        Spm.LOOK_AT_OPPONENTS_HAND_CHOOSE_CARD_TYPE.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            val other = Filters.CARD_TYPES[m.groupValues[2]] ?: return null
+            val among = listOf(CardType.Artifact, CardType.Battle, CardType.Creature, CardType.Enchantment, CardType.Instant, CardType.Kindred, CardType.Land,
+                CardType.Planeswalker, CardType.Sorcery).filter { it != other }
+            return Ability.Static(listOf(Mechanic.Replacement(spmEntersSelf, modify = listOf(Modification.AsEnters(listOf(
+                Step.Choose(arcanum.api.Choice.Player(PlayerFilter.Opponent), bind = "opponent", chooser = Players.You),
+                Step.Do(Effect.LookAt(Objects.Each(Filters.all(ObjectFilter.InZone(Zone.Hand), ObjectFilter.OwnedBy(PlayerFilter.Is(Players.Bound("opponent"))))), Players.You)),
+                Step.Choose(arcanum.api.Choice.CardType(among), bind = CHOSEN_TYPE, chooser = Players.You, remember = true)))))), affects = spmSelfOnly)
+        }
+        // spm chunk 07: "Spells of the chosen type cost {1} more to cast." (CR 601.2f; the type chosen as it entered)
+        Spm.SPELLS_OF_CHOSEN_TYPE_COST_MORE.matchEntire(line)?.let { m ->
+            return Ability.Static(listOf(Mechanic.CostChange(Filters.all(ObjectFilter.Category(arcanum.api.ObjectCategory.Spell),
+                ObjectFilter.Type(arcanum.api.CardTypeRef.Remembered(CHOSEN_TYPE))), arcanum.api.CostChange.More(ManaCost.parse(m.groupValues[1]) ?: return null, Value.Fixed(1)))),
+                affects = spmSelfOnly)
+        }
+        // spm chunk 08: "You can't cast Spider-Man 2099 during your first, second, or third turns of the game." (CR 601.3)
+        Spm.CANT_CAST_DURING_FIRST_TURNS.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let {
+            return Ability.Static(listOf(Mechanic.CastRestriction(condition = arcanum.api.Condition.Not(arcanum.api.Condition.And(listOf(arcanum.api.Condition.YourTurn,
+                arcanum.api.Condition.Compare(Value.TurnsTaken(Players.You), arcanum.api.Comparison.AtMost, Value.Fixed(3))))))), affects = spmSelfOnly)
+        }
+        // spm chunk 08: 'The "legend rule" doesn't apply to Spiders you control.' (CR 704.5j)
+        Spm.LEGEND_RULE_DOESNT_APPLY_TO.matchEntire(line)?.let { m ->
+            val filter = Filters.noun(m.groupValues[1]) ?: SpmPhrases.pluralSubtype(m.groupValues[1])?.let { ObjectFilter.Sub(it) } ?: return null
+            return Ability.Static(listOf(Mechanic.LegendRuleDoesntApply), affects = Affected.Objects(Objects.Each(Filters.all(filter, ObjectFilter.ControlledBy(PlayerFilter.You)))))
+        }
+        // spm chunk 07: "This spell costs {1} less to cast if it targets a Spider." (CR 601.2f: the spell's creature target)
+        Spm.COSTS_LESS_IF_IT_TARGETS_SUBTYPE.matchEntire(line)?.let { m ->
+            val subtype = m.groupValues[2].takeIf { it in RulesWords.subtypes } ?: return null
+            return Ability.Static(listOf(Mechanic.CostChange(ObjectFilter.Is(Objects.Self), arcanum.api.CostChange.Less(ManaCost.parse(m.groupValues[1]) ?: return null, Value.Fixed(1)))),
+                affects = spmSelfOnly, condition = arcanum.api.Condition.ObjectMatches(Objects.Target("creature"), ObjectFilter.Sub(Subtype(subtype))))
+        }
+        // spm chunk 08: "You don't lose unspent red mana as steps and phases end." (CR 500.4, 106.4)
+        Spm.DONT_LOSE_UNSPENT_MANA.matchEntire(line)?.let { m ->
+            val color = Tokens.color(m.groupValues[1]) ?: return null
+            return Ability.Static(listOf(Mechanic.KeepsUnspentMana(listOf(color))), affects = Affected.Players(Players.You))
+        }
+        // spm chunk 08: "Spells and abilities can't be countered." (CR 701.6)
+        if (Spm.SPELLS_AND_ABILITIES_CANT_BE_COUNTERED.matches(line))
+            return Ability.Static(listOf(Mechanic.CantBeCountered), affects = Affected.Objects(Objects.Each(ObjectFilter.Or(listOf(
+                ObjectFilter.Category(arcanum.api.ObjectCategory.Spell), ObjectFilter.Category(arcanum.api.ObjectCategory.StackAbility))))))
+        // spm chunk 08: "As this land enters, choose a basic land type. Then you may pay 2 life. If you don't, it enters tapped." (CR 614.12)
+        Spm.CHOOSE_BASIC_LAND_TYPE_THEN_MAY_PAY_LIFE.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            return Ability.Static(listOf(Mechanic.Replacement(spmEntersSelf, modify = listOf(Modification.AsEnters(
+                listOf(Step.Choose(arcanum.api.Choice.BasicLandType, bind = CHOSEN_TYPE, chooser = Players.You, remember = true)) +
+                    unlessPays(Players.You, Cost(listOf(CostPart.PayLife(Value.Fixed(m.groupValues[2].toInt())))), listOf(Step.Modify(Modification.EntersTapped))))))),
+                affects = spmSelfOnly)
+        }
+        // spm chunk 08: "This land is the chosen type." (layer 4; it had no land types, so the type is added, CR 305.7)
+        Spm.IS_THE_CHOSEN_TYPE.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let {
+            return Ability.Static(listOf(Mechanic.SetTypes(addSubtypes = listOf(arcanum.api.SubtypeRef.Remembered(CHOSEN_TYPE)))), affects = spmSelfOnly)
+        }
+        // spm chunk 08: "Other Spiders, Boars, Bats, …, and Wolves you control get +1/+1." (each permanent of any of those creature types)
+        Spm.OTHER_PLURAL_LIST_GET.matchEntire(line)?.let { m ->
+            val types = m.groupValues[1].split(Regex(""",? and |, """)).map { SpmPhrases.pluralSubtype(it.trim()) ?: return null }
+            return Ability.Static(listOf(Mechanic.ModifyPowerToughness(ptChange(m.groupValues[2]) ?: return null, ptChange(m.groupValues[3]) ?: return null)),
+                affects = Affected.Objects(Objects.Each(Filters.all(ObjectFilter.Not(ObjectFilter.Is(Objects.Self)), ObjectFilter.Or(types.map { ObjectFilter.Sub(it) }),
+                    ObjectFilter.ControlledBy(PlayerFilter.You)))))
+        }
+        return null
+    }
+
+    /** spm: trigger events (with a condition checked as it would trigger), tried first in [trigger]. */
+    private fun spmTrigger(text: String): Pair<arcanum.api.Trigger.On, arcanum.api.Condition?>? {
+        SpmPhrases.events(text)?.let { return arcanum.api.Trigger.On(it) to null }
+        // spm chunk 04: "you cast a creature spell with mana value equal to Jackal's power" (its power as the spell is cast)
+        CAST_MV_EQUAL_TO_POWER.matchEntire(text)?.takeIf { isSelf(it.groupValues[2]) }?.let { m ->
+            val spell = Filters.noun(m.groupValues[1] + " spell") ?: return null
+            return arcanum.api.Trigger.On(EventPattern.Cast(Filters.all(spell, ObjectFilter.ManaValue(arcanum.api.Comparison.Equal, spmPower(Objects.Self))), PlayerFilter.You)) to null
+        }
+        // spm chunk 03: "you draw your first or second card each turn" (CR 121.2: each card drawn is a draw)
+        if (text == "you draw your first or second card each turn")
+            return arcanum.api.Trigger.On(listOf(EventPattern.Draw(PlayerFilter.You)), nthThisTurn = 2, throughNth = true) to null
+        // spm chunk 07: "you attack with two or more Spiders" (once for the attack, CR 508.1)
+        ATTACK_WITH_N_OR_MORE.matchEntire(text)?.let { m ->
+            val n = spmN(m.groupValues[1])?.takeIf { it >= 2 } ?: return null
+            val noun = SpmPhrases.pluralSubtype(m.groupValues[2])?.let { ObjectFilter.Sub(it) } ?: Filters.noun(m.groupValues[2].removeSuffix("s")) ?: return null
+            return arcanum.api.Trigger.On(listOf(EventPattern.Attack(Filters.all(noun, ObjectFilter.ControlledBy(PlayerFilter.You)))), oneOrMore = true, atLeast = n) to null
+        }
+        // spm chunk 07: "Spinneret and Spiderling deals 4 or more damage" (the damage it deals at once, to any recipients)
+        DEALS_N_OR_MORE_DAMAGE.matchEntire(text)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            return arcanum.api.Trigger.On(listOf(EventPattern.Damage(ObjectFilter.Is(Objects.Self), arcanum.api.RecipientFilter())), oneOrMore = true) to
+                arcanum.api.Condition.Compare(Value.EventAmount, arcanum.api.Comparison.AtLeast, Value.Fixed(m.groupValues[2].toInt()))
+        }
+        // spm chunk 08: "this land enters from a graveyard"
+        ENTERS_FROM_A.matchEntire(text)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            val zone = when (m.groupValues[2]) { "graveyard" -> Zone.Graveyard; "exile" -> Zone.Exile; else -> return null }
+            return arcanum.api.Trigger.On(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), from = zone, to = Zone.Battlefield)) to null
+        }
+        // spm chunk 06: "a creature an opponent controls with the greatest power among creatures that player controls dies" (its power as it
+        // last existed against the creatures an opponent still controls; in a two-player game, that player's)
+        if (text == "a creature an opponent controls with the greatest power among creatures that player controls dies") {
+            val theirs = Filters.all(ObjectFilter.Type(CardType.Creature), ObjectFilter.ControlledBy(PlayerFilter.Opponent))
+            return arcanum.api.Trigger.On(EventPattern.ZoneChange(Filters.all(theirs, ObjectFilter.Power(arcanum.api.Comparison.AtLeast,
+                Value.Of(arcanum.api.NumericProperty.Power, Objects.Each(theirs), arcanum.api.Combine.Greatest))), from = Zone.Battlefield, to = Zone.Graveyard)) to null
+        }
+        return null
+    }
+
+    /** spm: a triggered ability with modes, "choose one or both —" (CR 700.2). */
+    private fun spmModalTrigger(header: String, modeLines: List<String>): Ability? {
+        val m = WHENEVER.matchEntire(header) ?: return null
+        if (!Spm.CHOOSE_ONE_OR_BOTH_MODES.matches(m.groupValues[3])) return null
+        val (trigger, onlyIf) = trigger(m.groupValues[2]) ?: return null
+        val options = spmDistinctSlots(modeLines.map { arcanum.api.Mode(instructions(modeBody(it), that = that(trigger)) ?: return null, text = it) })
+        if (options.size != 2) return null
+        return Ability.Triggered(trigger, Instructions(modes = arcanum.api.Modes(options, min = 1, max = 2, chooser = Players.You)), triggersOnlyIf = onlyIf)
+    }
+
+    /** spm chunk 04: modes that may all be chosen keep their targets apart: a slot named as an earlier mode's gets the next name
+     * ("Tap target creature" and "Untap target creature": "creature" and "second creature", CR 700.2, 601.2c). */
+    private fun spmDistinctSlots(options: List<arcanum.api.Mode>): List<arcanum.api.Mode> {
+        val taken = mutableListOf<String>()
+        return options.map { mode ->
+            var instructions = mode.instructions
+            instructions.targets.forEach { slot ->
+                if (slot.name in taken) {
+                    val renamed = nextTargetName(slot.name, taken + instructions.targets.map { it.name })
+                    instructions = instructions.copy(targets = instructions.targets.map { if (it.name == slot.name) it.copy(name = renamed) else it },
+                        steps = instructions.steps.map { renameTargetSlot(it, slot.name, renamed) })
+                    taken += renamed
+                } else taken += slot.name
+            }
+            mode.copy(instructions = instructions)
+        }
+    }
+
+    /** spm: "Spend this mana only to cast spells from exile." (CR 106.6) */
+    private fun spmSpendUse(use: String): ObjectFilter? = when (use) {
+        "cast spells from exile" -> Filters.all(ObjectFilter.Category(arcanum.api.ObjectCategory.Spell), ObjectFilter.WasCast(Zone.Exile))
+        else -> null
+    }
+
+    /** spm: sentences that change the steps before them. */
+    private fun spmModify(sentence: String, steps: List<Step>, context: Context): List<Step>? {
+        // spm chunk 01: "If this spell's mayhem cost was paid, creatures your opponents control get -2/-2 until end of turn instead." (CR 607.2i)
+        Spm.IF_COST_PAID_INSTEAD.matchEntire(sentence)?.let { m ->
+            val kind = arcanum.api.KeywordKind.all.firstOrNull { it.text.lowercase() == m.groupValues[1] } ?: return null
+            val last = steps.lastOrNull() ?: return null
+            val instead = effect(spmCap(m.groupValues[2]) + ".", context) ?: return null
+            return steps.dropLast(1) + Step.If(arcanum.api.Condition.Paid(kind, times = 1, of = Objects.Self), then = instead, otherwise = listOf(last))
+        }
+        // spm chunk 07: "When excess damage is dealt to the creature an opponent controls this way, destroy up to one target noncreature artifact
+        // with mana value 3 or less." (after a fight: the damage dealt to the second creature, CR 120.4a; a reflexive trigger, CR 603.12)
+        Spm.WHEN_EXCESS_DAMAGE_THIS_WAY_DESTROY.matchEntire(sentence)?.let { m ->
+            val fight = (steps.lastOrNull() as? Step.Do)?.effect as? Effect.Fight ?: return null
+            val destroyed = Filters.noun(m.groupValues[2]) ?: return null
+            val name = Filters.slotName(m.groupValues[2])
+            val reflexive = Instructions(targets = listOf(spmSlot(name, destroyed, min = 0)), steps = listOf(Step.Do(Effect.Destroy(Objects.Target(name)))))
+            return steps.dropLast(1) + Step.Do(fight.copy(bind = "fight")) + Step.If(arcanum.api.Condition.Compare(Value.Excess("fight"),
+                arcanum.api.Comparison.Greater, Value.Fixed(0)), then = listOf(Step.Do(Effect.ReflexiveTrigger(reflexive))))
+        }
+        // spm chunk 07: "If it's a Spider, you gain 2 life." (the target, as the spell resolves)
+        Spm.IF_ITS_A.matchEntire(sentence)?.let { m ->
+            val it = context.targets.lastOrNull()?.takeIf { it.what is TargetKind.Objects }?.let { Objects.Target(it.name) } ?: return null
+            val subtype = m.groupValues[1].takeIf { s -> s in RulesWords.subtypes } ?: return null
+            val then = effect(spmCap(m.groupValues[2]), context) ?: return null
+            return steps + Step.If(arcanum.api.Condition.ObjectMatches(it, ObjectFilter.Sub(Subtype(subtype))), then = then)
+        }
+        // spm chunk 03: "It becomes a legendary Spider Hero in addition to its other types." (indefinitely, layer 4)
+        Spm.IT_BECOMES_TYPES_IN_ADDITION.matchEntire(sentence)?.let { m ->
+            val it = context.targets.lastOrNull()?.takeIf { it.what is TargetKind.Objects }?.let { Objects.Target(it.name) } ?: return null
+            return steps + spmApply(it, arcanum.api.Duration.Indefinitely, Mechanic.SetTypes(addSubtypes = spmSubtypes(m.groupValues[2]) ?: return null,
+                addSupertypes = if (m.groupValues[1].isNotEmpty()) listOf(Supertype.Legendary) else emptyList()))
+        }
+        // spm chunk 03: "He gains hexproof and becomes colorless until end of turn." (after a counter is put on this object)
+        Spm.GAINS_AND_BECOMES_COLORLESS.matchEntire(sentence)?.let { m ->
+            val put = (steps.lastOrNull() as? Step.Do)?.effect as? Effect.PutCounters ?: return null
+            return steps + spmApply(put.objects, arcanum.api.Duration.EndOfTurn, Mechanic.GainAbilities(keywords(m.groupValues[1]) ?: return null),
+                Mechanic.SetColors(emptyList()))
+        }
+        // spm chunk 03: 'Until your next turn, he becomes a land and gains "{T}: Add {U}."' (after "untap Hydro-Man"; CR 205.1b: no longer a
+        // creature, layer 4; the ability, layer 6)
+        Spm.BECOMES_LAND_AND_GAINS.matchEntire(sentence)?.let { m ->
+            val untap = (steps.lastOrNull() as? Step.Do)?.effect as? Effect.Untap ?: return null
+            val granted = Sentences(setOf("this land", "this creature")).line(m.groupValues[1]) ?: return null
+            return steps + spmApply(untap.objects, arcanum.api.Duration.UntilYourNextTurn, Mechanic.SetTypes(add = listOf(CardType.Land), replaceTypes = true),
+                Mechanic.GainAbilities(listOf(granted)))
+        }
+        // spm chunk 06: "It gains this card's other abilities." (after a counter is put on the target; written out by [OracleParser] with the
+        // face's other abilities, CR 113.10)
+        if (sentence == "It gains this card's other abilities.") {
+            val put = (steps.lastOrNull() as? Step.Do)?.effect as? Effect.PutCounters ?: return null
+            return steps + spmApply(put.objects, arcanum.api.Duration.Indefinitely, Mechanic.GainAbilities(emptyList()))
+        }
+        // spm chunk 06: "You may play that card for as long as you control this creature." (after exiling a card)
+        Spm.MAY_PLAY_THAT_CARD_AS_LONG_AS_YOU_CONTROL.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let {
+            val moved = (steps.lastOrNull() as? Step.Do)?.effect as? Effect.Move ?: return null
+            val card = moved.postBind?.let { Objects.Bound(it) } ?: return null
+            return steps + Step.Do(Effect.ApplyMechanics(listOf(Mechanic.MayPlay(Zone.Exile, PlayKind.Play, holder = PlayerFilter.You)), Affected.Objects(card),
+                arcanum.api.Duration.AsLongAs(arcanum.api.Condition.ObjectMatches(Objects.Self, ObjectFilter.ControlledBy(PlayerFilter.You)))))
+        }
+        // spm chunk 07: 'It gains "This creature attacks each combat if able" and "When this creature deals combat damage to a player, sacrifice
+        // it."' (the card returned to the battlefield, indefinitely, layer 6)
+        Spm.GAINS_QUOTED_AND_QUOTED.matchEntire(sentence)?.let { m ->
+            val moved = (steps.lastOrNull() as? Step.Do)?.effect as? Effect.Move ?: return null
+            if (moved.to.zone != Zone.Battlefield) return null
+            val inner = Sentences(setOf("this creature"))
+            val abilities = listOf(m.groupValues[1], m.groupValues[2]).map { q -> val t = (if (q.endsWith(".")) q else "$q.").replace(", sacrifice it.", ", sacrifice this creature."); inner.line(t) ?: return null }
+            val bound = moved.postBind ?: "returned"
+            return steps.dropLast(1) + Step.Do(moved.copy(postBind = bound)) +
+                spmApply(Objects.Bound(bound), arcanum.api.Duration.Indefinitely, Mechanic.GainAbilities(abilities))
+        }
+        return null
+    }
+
+    /** spm: texts of several sentences read as a whole, tried first in [read]. */
+    private fun spmWhole(text: String, context: Context): List<Step>? {
+        // spm chunk 06: "Create a 3/3 blue Illusion Villain creature token for each nontoken Villain you control. Exile those tokens when
+        // Mysterio leaves the battlefield." (a delayed trigger, CR 603.7)
+        Spm.CREATE_FOR_EACH_EXILE_WHEN_LEAVES.matchEntire(text)?.takeIf { isSelf(it.groupValues[3]) }?.let { m ->
+            val token = Tokens.defined(m.groupValues[1]) ?: return null
+            val count = Value.Count(Filters.objects(m.groupValues[2]) ?: return null)
+            return listOf(Step.Do(Effect.CreateToken(token, count, Players.You, bind = "tokens")),
+                Step.Do(Effect.CreateDelayedTrigger(arcanum.api.Trigger.On(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), from = Zone.Battlefield)),
+                    Instructions(steps = listOf(Step.Do(Effect.Move(Objects.Bound("tokens"), Destination(Zone.Exile))))))))
+        }
+        // spm chunk 04: "Choose a card name. Whenever a creature with the chosen name deals combat damage to a player this turn, draw a card."
+        // (CR 603.7b: a delayed trigger that triggers each time)
+        Spm.CHOOSE_NAME_DAMAGE_TRIGGER_THIS_TURN.matchEntire(text)?.let { m ->
+            val then = Sentences(self).instructions(spmCap(m.groupValues[2])) ?: return null
+            return listOf(Step.Choose(arcanum.api.Choice.CardName(ObjectFilter.Any), bind = "name", chooser = Players.You),
+                Step.Do(Effect.CreateDelayedTrigger(arcanum.api.Trigger.On(EventPattern.Damage(Filters.all(ObjectFilter.Type(CardType.Creature), ObjectFilter.ChosenName("name")),
+                    arcanum.api.RecipientFilter(players = PlayerFilter.Any), combat = true)), then, duration = arcanum.api.Duration.EndOfTurn, repeats = true)))
+        }
+        // spm chunk 04: "you may copy it. If you do, you may choose new targets for the copy. If the copy is a permanent spell, it gains haste."
+        // (CR 707.10, 707.10c: a copy of a permanent spell becomes a token; haste for the spell and the permanent, CR 400.7d)
+        if (Spm.MAY_COPY_FROM_ELSEWHERE_HASTE.matches(text)) {
+            val copy = Objects.Bound("copy")
+            return listOf(Step.Pay(steps = listOf(Step.Do(Effect.CopySpell(Objects.EventObject(EventRole.Object), Players.You, newTargets = true, bind = "copy"))),
+                payer = Players.You, bind = "paid"),
+                Step.If(arcanum.api.Condition.And(listOf(arcanum.api.Condition.Did("paid"), arcanum.api.Condition.ObjectMatches(copy, Filters.noun("permanent card")!!))),
+                    then = listOf(Step.Do(Effect.SpellGets(copy, listOf(Mechanic.GainAbilities(listOf(arcanum.api.Keyword.Haste))))))))
+        }
+        // spm chunk 05: "Look at the top five cards of your library. You may reveal up to two creature cards from among them and put them into
+        // your hand. Put the rest on the bottom of your library in a random order."
+        Spm.LOOK_TOP_N_MAY_REVEAL_UP_TO_PUT_HAND.matchEntire(text)?.let { m ->
+            val seen = spmN(m.groupValues[1]) ?: return null
+            val most = spmN(m.groupValues[2]) ?: return null
+            val filter = Filters.noun(m.groupValues[3]) ?: Filters.noun(m.groupValues[3].removeSuffix("s")) ?: return null
+            return listOf(
+                Step.Do(Effect.LookAt(Objects.LibraryCards(Players.You, Value.Fixed(seen), fromTop = true), bind = "seen", players = Players.You)),
+                Step.Choose(arcanum.api.Choice.Objects(filter, Value.Fixed(0), Value.Fixed(most), from = Objects.Bound("seen")), bind = "revealed", chooser = Players.You),
+                Step.Do(Effect.Reveal(Objects.Bound("revealed"))),
+                Step.Do(Effect.Move(Objects.Bound("revealed"), Destination(Zone.Hand))),
+                Step.Do(Effect.Move(Objects.Except(Objects.Bound("seen"), Objects.Bound("revealed")), Destination(Zone.Library, libraryPosition = -1, randomOrder = true))))
+        }
+        // spm chunk 05: "Look at the top five cards of your library. You may put a creature card from among them onto the battlefield. Put the
+        // rest on the bottom of your library in a random order."
+        // (the names tla gives the same wording)
+        Spm.LOOK_TOP_N_MAY_PUT_ONTO_BATTLEFIELD.matchEntire(text)?.let { m ->
+            val seen = spmN(m.groupValues[1]) ?: return null
+            val filter = Filters.noun(m.groupValues[2]) ?: return null
+            return listOf(
+                Step.Do(Effect.LookAt(Objects.LibraryCards(Players.You, Value.Fixed(seen), fromTop = true), bind = "looked", players = Players.You)),
+                Step.Choose(arcanum.api.Choice.Objects(filter, Value.Fixed(0), Value.Fixed(1), from = Objects.Bound("looked")), bind = "chosen", chooser = Players.You),
+                Step.Do(Effect.Move(Objects.Bound("chosen"), Destination(Zone.Battlefield))),
+                Step.Do(Effect.Move(Objects.Except(Objects.Bound("looked"), Objects.Bound("chosen")), Destination(Zone.Library, libraryPosition = -1, randomOrder = true))))
+        }
+        // spm chunk 05: "look at that many cards from the top of your library. Put one of them into your hand and the rest into your
+        // graveyard." (the damage dealt)
+        if (Spm.LOOK_THAT_MANY_ONE_HAND_REST_GRAVEYARD.matches(text) && context.event is EventPattern.Damage)
+            return listOf(
+                Step.Do(Effect.LookAt(Objects.LibraryCards(Players.You, Value.EventAmount, fromTop = true), bind = "seen", players = Players.You)),
+                Step.Choose(arcanum.api.Choice.Objects(ObjectFilter.Any, Value.Fixed(1), Value.Fixed(1), from = Objects.Bound("seen")), bind = "kept", chooser = Players.You),
+                Step.Do(Effect.Move(Objects.Bound("kept"), Destination(Zone.Hand))),
+                Step.Do(Effect.Move(Objects.Except(Objects.Bound("seen"), Objects.Bound("kept")), Destination(Zone.Graveyard))))
+        // spm chunk 06: "look at the top nine cards of target opponent's library, exile two of them face down, then put the rest on the bottom
+        // of their library in a random order. You may play the exiled cards for as long as they remain exiled. Mana of any type can be spent to
+        // cast spells this way." (CR 406.3; the permission and the mana rule go with those cards, CR 601.2a, 609.4b)
+        Spm.BLACK_CAT.matchEntire(text)?.let { m ->
+            val seen = spmN(m.groupValues[1]) ?: return null
+            val n = spmN(m.groupValues[2]) ?: return null
+            val opponent = context.targetOpponent()
+            val playerOf = (opponent as? Players.Target) ?: return null
+            return listOf(
+                Step.Do(Effect.LookAt(Objects.LibraryCards(playerOf, Value.Fixed(seen), fromTop = true), bind = "seen", players = Players.You)),
+                Step.Choose(arcanum.api.Choice.Objects(ObjectFilter.Any, Value.Fixed(n), Value.Fixed(n), from = Objects.Bound("seen")), bind = "chosen", chooser = Players.You),
+                Step.Do(Effect.Move(Objects.Bound("chosen"), Destination(Zone.Exile, faceDown = true), postBind = "exiled")),
+                Step.Do(Effect.Move(Objects.Except(Objects.Bound("seen"), Objects.Bound("chosen")), Destination(Zone.Library, libraryPosition = -1, randomOrder = true))),
+                Step.Do(Effect.ApplyMechanics(listOf(Mechanic.MayPlay(Zone.Exile, PlayKind.Play, holder = PlayerFilter.You, manaAsAnyColor = true)),
+                    Affected.Objects(Objects.Bound("exiled")), arcanum.api.Duration.Indefinitely)))
+        }
+        // spm chunk 06: "you may sacrifice another creature. If you do, draw X cards, then you may put a permanent card with mana value X or
+        // less from your hand onto the battlefield, where X is the sacrificed creature's mana value." (its last known information, CR 608.2h)
+        Spm.MAY_SACRIFICE_DRAW_X_PUT_PERMANENT.matchEntire(text)?.let { m ->
+            val filter = Filters.noun(m.groupValues[1]) ?: return null
+            val x = Value.Of(arcanum.api.NumericProperty.ManaValue, Objects.Bound(SACRIFICED), arcanum.api.Combine.Single)
+            return listOf(
+                Step.Pay(Cost(listOf(CostPart.Sacrifice(CostObjects.Choose(Filters.all(ObjectFilter.Type(CardType.Creature), ObjectFilter.ControlledBy(PlayerFilter.You),
+                    ObjectFilter.Not(ObjectFilter.Is(Objects.Self))), Value.Fixed(1)), preBind = SACRIFICED))), payer = Players.You, bind = "paid"),
+                Step.If(arcanum.api.Condition.Did("paid"), then = listOf(
+                    Step.Do(Effect.Draw(Players.You, x)),
+                    Step.Choose(arcanum.api.Choice.Objects(Filters.all(filter, ObjectFilter.InZone(Zone.Hand), ObjectFilter.OwnedBy(PlayerFilter.You),
+                        ObjectFilter.ManaValue(arcanum.api.Comparison.AtMost, x)), Value.Fixed(0), Value.Fixed(1)), bind = "chosen", chooser = Players.You),
+                    Step.Do(Effect.Move(Objects.Bound("chosen"), Destination(Zone.Battlefield))))))
+        }
+        // spm chunk 06: "until end of turn, you may look at the top card of your library any time and you may play cards from the top of your
+        // library. If you cast a spell this way, pay life equal to its mana value rather than pay its mana cost." (CR 118.9, 305.1)
+        if (Spm.GWENOM.matches(text)) {
+            val top = Filters.all(ObjectFilter.InZone(Zone.Library), ObjectFilter.OwnedBy(PlayerFilter.You))
+            val eot = arcanum.api.Duration.EndOfTurn
+            return listOf(
+                Step.Do(Effect.ApplyMechanics(listOf(Mechanic.MayLookAt(Objects.LibraryCards(Players.You, Value.Fixed(1), fromTop = true))), Affected.Players(Players.You), eot)),
+                Step.Do(Effect.ApplyMechanics(listOf(Mechanic.MayPlay(Zone.Library, PlayKind.Play, topOnly = true, holder = PlayerFilter.You)),
+                    Affected.Objects(Objects.Each(Filters.all(ObjectFilter.Type(CardType.Land), top))), eot)),
+                Step.Do(Effect.ApplyMechanics(listOf(Mechanic.MayPlay(Zone.Library, PlayKind.Cast, topOnly = true, holder = PlayerFilter.You,
+                    cost = Cost(listOf(CostPart.PayLife(Value.Of(arcanum.api.NumericProperty.ManaValue, Objects.Affected, arcanum.api.Combine.Single)))))),
+                    Affected.Objects(Objects.Each(Filters.all(ObjectFilter.Not(ObjectFilter.Type(CardType.Land)), top))), eot)))
+        }
+        // spm chunk 06: "Two target players each reveal the top card of their library. They each lose life equal to the mana value of the card
+        // revealed by the other player. Then they each put the card they revealed into their hand." (a library holds only its owner's cards,
+        // CR 400.3)
+        Spm.PARKER_LUCK.matchEntire(text)?.let { m ->
+            val n = spmN(m.groupValues[1]) ?: return null
+            context.targets += TargetSlot("players", TargetKind.Players(PlayerFilter.Any), min = Value.Fixed(n), max = Value.Fixed(n))
+            val players = Players.Target("players")
+            val revealed = Objects.Bound("revealed")
+            return listOf(
+                Step.Do(Effect.Reveal(Objects.LibraryCards(players, Value.Fixed(1), fromTop = true), bind = "revealed")),
+                Step.ForEach(arcanum.api.Each.Players(players), bind = "player", together = true, steps = listOf(
+                    Step.Do(Effect.LoseLife(Players.Bound("player"), Value.Of(arcanum.api.NumericProperty.ManaValue,
+                        Objects.Where(revealed, ObjectFilter.Not(ObjectFilter.OwnedBy(PlayerFilter.Is(Players.Bound("player"))))), arcanum.api.Combine.Total))))),
+                Step.Do(Effect.Move(revealed, Destination(Zone.Hand))))
+        }
+        // spm chunk 06: "Each player may discard a card. Each player who doesn't loses 3 life." (CR 101.4)
+        Spm.EACH_PLAYER_MAY_DISCARD_WHO_DOESNT_LOSES.matchEntire(text)?.let { m ->
+            return listOf(Step.ForEach(arcanum.api.Each.Players(Players.Each(PlayerFilter.Any)), bind = "player", together = true, steps = listOf(
+                Step.Pay(Cost(costPart("Discard a card") ?: return null), payer = Players.Bound("player"), bind = "paid"),
+                Step.If(arcanum.api.Condition.Not(arcanum.api.Condition.Did("paid")), then = listOf(
+                    Step.Do(Effect.LoseLife(Players.Bound("player"), Value.Fixed(m.groupValues[1].toInt()))))))))
+        }
+        // spm chunk 06: "Put a +1/+1 counter on it. Then surveil X, where X is the number of counters on it." (the attacking creature)
+        if (Spm.PUT_COUNTER_THEN_SURVEIL_COUNTERS_ON_IT.matches(text)) {
+            val it = context.it ?: return null
+            return listOf(Step.Do(Effect.PutCounters(it, spmP1P1, Value.Fixed(1))),
+                Step.Do(Effect.Surveil(Players.You, Value.Of(arcanum.api.NumericProperty.Counters(null), it, arcanum.api.Combine.Single))))
+        }
+        // spm chunk 06: "Exile X target artifacts and/or creatures. Return the exiled cards to the battlefield under their owners' control at the
+        // beginning of the next end step." (CR 603.7)
+        Spm.EXILE_X_TARGETS_RETURN_NEXT_END_STEP.matchEntire(text)?.let { m ->
+            val filter = Filters.noun(m.groupValues[1]) ?: Filters.noun(m.groupValues[1].replace("s and/or ", " or ").removeSuffix("s")) ?: return null
+            context.targets += TargetSlot("targets", TargetKind.Objects(filter), min = Value.Announced("X"), max = Value.Announced("X"))
+            return listOf(Step.Do(Effect.Move(Objects.Target("targets"), Destination(Zone.Exile), postBind = "exiled")),
+                Step.Do(Effect.CreateDelayedTrigger(arcanum.api.Trigger.On(EventPattern.StepBegins(arcanum.api.TurnStep.End, PlayerFilter.Any)), Instructions(steps = listOf(
+                    Step.Do(Effect.Move(Objects.Bound("exiled"), Destination(Zone.Battlefield, controller = Players.OwnerOf(Objects.Bound("exiled"))))))))))
+        }
+        // spm chunk 06: "you may exchange life totals with target opponent. If you lost life this way, draw that many cards." (CR 701.12c:
+        // after the exchange, the difference is what you lost)
+        if (Spm.MAY_EXCHANGE_LIFE_DRAW_LOST.matches(text)) {
+            val opponent = context.targetOpponent()
+            val lost = Value.Difference(Value.LifeOf(opponent), Value.LifeOf(Players.You))
+            return listOf(Step.Pay(steps = listOf(Step.Do(Effect.ExchangeLife(Players.You, opponent))), payer = Players.You, bind = "paid"),
+                Step.If(arcanum.api.Condition.And(listOf(arcanum.api.Condition.Did("paid"), arcanum.api.Condition.Compare(lost, arcanum.api.Comparison.Greater, Value.Fixed(0)))),
+                    then = listOf(Step.Do(Effect.Draw(Players.You, lost)))))
+        }
+        // spm chunk 06: "you may exile the top card of your library. If you do, you may play that card until you exile another card with this
+        // creature." (the card is kept as this object's card memory; the permission ends when another replaces it, CR 607.2a)
+        Spm.SUPERIOR_FOES.matchEntire(text)?.takeIf { isSelf(it.groupValues[1]) }?.let {
+            return listOf(Step.Pay(steps = listOf(Step.Do(Effect.Move(Objects.LibraryCards(Players.You, Value.Fixed(1), fromTop = true), Destination(Zone.Exile),
+                postBind = "exiled"))), payer = Players.You, bind = "paid"),
+                Step.If(arcanum.api.Condition.Did("paid"), then = listOf(
+                    Step.Do(Effect.Remember(EXILED_WITH, Objects.Bound("exiled"), replace = true)),
+                    Step.Do(Effect.ApplyMechanics(listOf(Mechanic.MayPlay(Zone.Exile, PlayKind.Play, holder = PlayerFilter.You)), Affected.Objects(Objects.Bound("exiled")),
+                        arcanum.api.Duration.AsLongAs(arcanum.api.Condition.ObjectMatches(Objects.Bound("exiled"), ObjectFilter.Is(Objects.Remembered(EXILED_WITH)))))))))
+        }
+        // spm chunk 06: "Put him on the bottom of his owner's library. If you do, return the exiled cards to their owners' hands." (the card in
+        // the graveyard; the cards its enters ability exiled, CR 607.2a)
+        if (Spm.PUT_SELF_ON_BOTTOM_IF_YOU_DO_RETURN_EXILED.matches(text) && context.event is EventPattern.ZoneChange) {
+            return listOf(Step.Pay(steps = listOf(Step.Do(Effect.Move(Objects.EventObject(EventRole.After), Destination(Zone.Library, libraryPosition = -1)))),
+                payer = Players.You, mandatory = true, bind = "paid"),
+                Step.If(arcanum.api.Condition.Did("paid"), then = listOf(Step.Do(Effect.Move(Objects.Remembered(EXILED_WITH), Destination(Zone.Hand))))))
+        }
+        // spm chunk 07: "Target creature deals damage equal to its power to itself. If that creature is attacking, Wisecrack deals 2 damage to
+        // that creature's controller."
+        Spm.TARGET_DEALS_DAMAGE_TO_ITSELF_IF_ATTACKING.matchEntire(text)?.takeIf { isSelf(it.groupValues[2]) }?.let { m ->
+            val name = spmNewSlotName(context, Filters.slotName(m.groupValues[1]))
+            context.targets += spmSlot(name, Filters.noun(m.groupValues[1]) ?: return null)
+            val t = Objects.Target(name)
+            return listOf(Step.Do(Effect.DealDamage(arcanum.api.Recipients(objects = t), spmPower(t), source = t)),
+                Step.If(arcanum.api.Condition.ObjectMatches(t, ObjectFilter.HasStatus(arcanum.api.Status.Attacking)), then = listOf(
+                    Step.Do(Effect.DealDamage(arcanum.api.Recipients(players = Players.ControllerOf(t)), Value.Fixed(m.groupValues[3].toInt()), source = Objects.Self)))))
+        }
+        // spm chunk 06: "You may pay {X}. When you do, he deals X damage to target player." (X chosen as the cost is paid, CR 107.3a; a
+        // reflexive trigger, CR 603.12)
+        PAY_X_WHEN_YOU_DO.matchEntire(text)?.let { m ->
+            val reflexive = instructions(spmCap(m.groupValues[1]), event = context.event)?.withX(Value.Bound("X")) ?: return null
+            return listOf(Step.Choose(arcanum.api.Choice.Number(Value.Fixed(0)), bind = "X", chooser = Players.You),
+                Step.Pay(Cost(listOf(CostPart.Mana(ManaCost.parse("{X}")!!, x = Value.Bound("X")))), payer = Players.You, bind = "paid"),
+                Step.If(arcanum.api.Condition.Did("paid"), then = listOf(Step.Do(Effect.ReflexiveTrigger(reflexive)))))
+        }
+        // spm chunk 08: "Copy target activated or triggered ability you control. You may choose new targets for the copy." (CR 707.10)
+        if (text == "Copy target activated or triggered ability you control. You may choose new targets for the copy.") {
+            context.targets += spmSlot("ability", Filters.all(ObjectFilter.Or(listOf(ObjectFilter.AbilityOf(kind = arcanum.api.AbilityKind.Activated),
+                ObjectFilter.AbilityOf(kind = arcanum.api.AbilityKind.Triggered))), ObjectFilter.ControlledBy(PlayerFilter.You)))
+            return listOf(Step.Do(Effect.CopySpell(Objects.Target("ability"), Players.You, newTargets = true)))
+        }
+        return null
+    }
+
+    private val PAY_X_WHEN_YOU_DO = Regex("""You may pay \{X\}\. When you do, (.+)""")
+
+    /** spm: effect sentences, tried first in [effect]. */
+    private fun spmEffect(sentence: String, context: Context): List<Step>? {
+        // spm chunk 02: "put its +1/+1 counters on target creature you control" (this creature as it last existed, CR 603.10a)
+        Spm.PUT_ITS_COUNTERS_ON_TARGET.matchEntire(sentence)?.let { m ->
+            val event = context.event as? EventPattern.ZoneChange ?: return null
+            if (event.objects != ObjectFilter.Is(Objects.Self) || event.from != Zone.Battlefield) return null
+            val kind = Counters.kind(m.groupValues[1]) ?: return null
+            val name = spmNewSlotName(context, Filters.slotName(m.groupValues[2]))
+            context.targets += spmSlot(name, Filters.noun(m.groupValues[2]) ?: return null)
+            return listOf(Step.Do(Effect.PutCounters(Objects.Target(name), kind,
+                Value.Of(arcanum.api.NumericProperty.Counters(kind), Objects.EventObject(EventRole.Before), arcanum.api.Combine.Single))))
+        }
+        // spm chunk 03: "Until end of turn, target creature you control becomes a Citizen with base power and toughness 1/1 and gains hexproof."
+        // (layers 4, 6, 7b; the creature type replaces the others, CR 205.1b)
+        Spm.UNTIL_EOT_BECOMES_SUBTYPE_BASE_PT_GAINS.matchEntire(sentence)?.let { m ->
+            val subtype = m.groupValues[2].takeIf { it in RulesWords.subtypes } ?: return null
+            val name = spmNewSlotName(context, Filters.slotName(m.groupValues[1]))
+            context.targets += spmSlot(name, Filters.noun(m.groupValues[1]) ?: return null)
+            return listOf(spmApply(Objects.Target(name), arcanum.api.Duration.EndOfTurn,
+                Mechanic.SetTypes(addSubtypes = listOf(arcanum.api.SubtypeRef.Literal(Subtype(subtype))), replaceSubtypes = true),
+                Mechanic.SetPowerToughness(Value.Fixed(m.groupValues[3].toInt()), Value.Fixed(m.groupValues[4].toInt())),
+                Mechanic.GainAbilities(keywords(m.groupValues[5]) ?: return null)))
+        }
+        // spm chunk 03: "up to one other target creature loses all abilities and becomes a green Lizard creature with base power and toughness
+        // 4/4." (indefinitely; layers 4, 5, 6, 7b, CR 205.1b)
+        Spm.LOSES_ALL_BECOMES_COLOR_CREATURE.matchEntire(sentence)?.let { m ->
+            val objects = spmTargetSubject(m.groupValues[1], context) ?: return null
+            val subtype = m.groupValues[3].takeIf { it in RulesWords.subtypes } ?: return null
+            return listOf(spmApply(objects, arcanum.api.Duration.Indefinitely, Mechanic.LoseAbilities(),
+                Mechanic.SetColors(listOf(ColorRef.Literal(Tokens.color(m.groupValues[2]) ?: return null))),
+                Mechanic.SetTypes(add = listOf(CardType.Creature), addSubtypes = listOf(arcanum.api.SubtypeRef.Literal(Subtype(subtype))), replaceTypes = true, replaceSubtypes = true),
+                Mechanic.SetPowerToughness(Value.Fixed(m.groupValues[4].toInt()), Value.Fixed(m.groupValues[5].toInt()))))
+        }
+        // spm chunk 03: "target non-Equipment artifact you control becomes an artifact creature with base power and toughness 3/3 until end of
+        // turn." (layers 4, 7b)
+        Spm.BECOMES_ARTIFACT_CREATURE_BASE_PT_UNTIL_EOT.matchEntire(sentence)?.let { m ->
+            val objects = spmTargetSubject(m.groupValues[1], context) ?: return null
+            return listOf(spmApply(objects, arcanum.api.Duration.EndOfTurn, Mechanic.SetTypes(add = listOf(CardType.Artifact, CardType.Creature)),
+                Mechanic.SetPowerToughness(Value.Fixed(m.groupValues[2].toInt()), Value.Fixed(m.groupValues[3].toInt()))))
+        }
+        // spm chunk 03: "Until end of turn, target creature you control gets +3/+1 and becomes a Dinosaur in addition to its other types."
+        Spm.UNTIL_EOT_GETS_AND_BECOMES_IN_ADDITION.matchEntire(sentence)?.let { m ->
+            val subtype = m.groupValues[4].takeIf { it in RulesWords.subtypes } ?: return null
+            val name = spmNewSlotName(context, Filters.slotName(m.groupValues[1]))
+            context.targets += spmSlot(name, Filters.noun(m.groupValues[1]) ?: return null)
+            return listOf(spmApply(Objects.Target(name), arcanum.api.Duration.EndOfTurn,
+                Mechanic.ModifyPowerToughness(ptChange(m.groupValues[2]) ?: return null, ptChange(m.groupValues[3]) ?: return null),
+                Mechanic.SetTypes(addSubtypes = listOf(arcanum.api.SubtypeRef.Literal(Subtype(subtype))))))
+        }
+        // spm chunk 04: "When you next cast a creature spell this turn, copy it, except the copy isn't legendary." (CR 603.7, 707.10)
+        Spm.NEXT_CREATURE_SPELL_COPY_NOT_LEGENDARY.matchEntire(sentence)?.let { m ->
+            val spells = Filters.noun(m.groupValues[1] + " spell") ?: return null
+            return listOf(Step.Do(Effect.CreateDelayedTrigger(arcanum.api.Trigger.On(EventPattern.Cast(spells, PlayerFilter.You)),
+                Instructions(steps = listOf(Step.Do(Effect.CopySpell(Objects.EventObject(EventRole.Object), Players.You, newTargets = false, except = listOf(spmNotLegendary))))),
+                duration = arcanum.api.Duration.EndOfTurn)))
+        }
+        // spm chunk 04: "copy that spell, except the copy isn't legendary." (CR 707.10, 707.9b)
+        if (Spm.COPY_THAT_SPELL_NOT_LEGENDARY.matches(sentence) && context.event is EventPattern.Cast)
+            return listOf(Step.Do(Effect.CopySpell(Objects.EventObject(EventRole.Object), Players.You, newTargets = false, except = listOf(spmNotLegendary))))
+        // spm chunk 04: "create a token that's a copy of it, except it isn't legendary." (the creature that dealt the damage, CR 707.9b)
+        if (Spm.CREATE_TOKEN_COPY_NOT_LEGENDARY.matches(sentence)) {
+            val it = context.it ?: return null
+            return listOf(Step.Do(Effect.CreateToken(arcanum.api.TokenSpec.CopyOf(it, except = listOf(spmNotLegendary)), Value.Fixed(1), Players.You)))
+        }
+        // spm chunk 05: "Return up to six target creature cards with different names from your graveyard to the battlefield." (CR 601.2c)
+        Spm.RETURN_UP_TO_DIFFERENT_NAMES.matchEntire(sentence)?.let { m ->
+            val n = spmN(m.groupValues[1]) ?: return null
+            val noun = m.groupValues[2].removeSuffix("s")
+            val filter = Filters.all(Filters.noun(noun) ?: return null, ObjectFilter.InZone(Zone.Graveyard), ObjectFilter.OwnedBy(PlayerFilter.You))
+            val name = spmNewSlotName(context, Filters.slotName(noun))
+            context.targets += spmSlot(name, filter, min = 0, max = n).copy(distinct = arcanum.api.SharedQuality.Name)
+            return listOf(Step.Do(Effect.Move(Objects.Target(name), Destination(Zone.Battlefield))))
+        }
+        // spm chunk 05: "You may cast an artifact spell from your hand with mana value less than or equal to the number of ingenuity counters on
+        // Lady Octopus without paying its mana cost." (CR 118.9)
+        Spm.MAY_CAST_FROM_HAND_MV_AT_MOST_FREE.matchEntire(sentence)?.let { m ->
+            val cards = Filters.noun(m.groupValues[1] + " card") ?: return null
+            val most = spmValue(m.groupValues[2]) ?: return null
+            return listOf(Step.Choose(arcanum.api.Choice.Objects(Filters.all(cards, ObjectFilter.InZone(Zone.Hand), ObjectFilter.OwnedBy(PlayerFilter.You),
+                ObjectFilter.ManaValue(arcanum.api.Comparison.AtMost, most)), Value.Fixed(0), Value.Fixed(1)), bind = "chosen", chooser = Players.You),
+                Step.Do(Effect.Cast(Objects.Bound("chosen"), PlayKind.Cast, withoutPaying = true, caster = Players.You)))
+        }
+        // spm chunk 07: "create a 2/1 green Spider creature token with reach, then you gain 1 life for each Spider you control." (two steps)
+        Spm.CREATE_THEN_YOU.matchEntire(sentence)?.let { m ->
+            val create = effect("Create ${m.groupValues[1]}.", context) ?: return null
+            val then = effect("You ${m.groupValues[2]}", context) ?: return null
+            return create + then
+        }
+        // spm chunk 06: "Target opponent loses life equal to the number of creatures they control." (counted as it resolves)
+        Spm.TARGET_OPPONENT_LOSES_FOR_THEIR.matchEntire(sentence)?.let { m ->
+            val opponent = context.targetOpponent()
+            val noun = Filters.noun(m.groupValues[1].removeSuffix("s")) ?: return null
+            return listOf(Step.Do(Effect.LoseLife(opponent, Value.Count(Objects.Each(Filters.all(noun, ObjectFilter.ControlledBy(PlayerFilter.Is(opponent))))))))
+        }
+        // spm chunk 06: "he deals 2 damage to target creature and 2 damage to that creature's controller."
+        Spm.DEALS_TO_TARGET_AND_ITS_CONTROLLER.matchEntire(sentence)?.takeIf { spmSelfOrPronoun(it.groupValues[1]) }?.let { m ->
+            val name = spmNewSlotName(context, Filters.slotName(m.groupValues[3]))
+            context.targets += spmSlot(name, Filters.noun(m.groupValues[3]) ?: return null)
+            val t = Objects.Target(name)
+            return listOf(Step.Do(Effect.DealDamage(arcanum.api.Recipients(objects = t), Value.Fixed(m.groupValues[2].toInt()), source = Objects.Self)),
+                Step.Do(Effect.DealDamage(arcanum.api.Recipients(players = Players.ControllerOf(t)), Value.Fixed(m.groupValues[4].toInt()), source = Objects.Self)))
+        }
+        // spm chunk 06: "Exile any number of target players' graveyards." (CR 115.1)
+        if (Spm.EXILE_ANY_NUMBER_TARGET_GRAVEYARDS.matches(sentence)) {
+            context.targets += TargetSlot("players", TargetKind.Players(PlayerFilter.Any), min = Value.Fixed(0), max = null)
+            return listOf(Step.Do(Effect.Move(Objects.Each(Filters.all(ObjectFilter.InZone(Zone.Graveyard), ObjectFilter.OwnedBy(PlayerFilter.Is(Players.Target("players"))))),
+                Destination(Zone.Exile))))
+        }
+        // spm chunk 06: "exile up to one target nonland permanent and up to one target nonland permanent card from a graveyard." (kept for "the
+        // exiled cards", CR 607.2a)
+        Spm.EXILE_UP_TO_ONE_AND_UP_TO_ONE.matchEntire(sentence)?.let { m ->
+            val names = listOf(m.groupValues[1], m.groupValues[2]).map { noun ->
+                val name = spmNewSlotName(context, Filters.slotName(noun))
+                context.targets += spmSlot(name, Filters.noun(noun) ?: return null, min = 0)
+                name
+            }
+            val exiled = Objects.Union(names.map { Objects.Target(it) })
+            return if (exiledCard != null) listOf(Step.Do(Effect.Move(exiled, Destination(Zone.Exile), postBind = "exiled")),
+                Step.Do(Effect.Remember(EXILED_WITH, Objects.Bound("exiled"))))
+            else listOf(Step.Do(Effect.Move(exiled, Destination(Zone.Exile))))
+        }
+        // spm chunk 07: "up to one target creature gains first strike and vigilance until end of turn."
+        Spm.UP_TO_ONE_TARGET_GAINS.matchEntire(sentence)?.let { m ->
+            val name = spmNewSlotName(context, Filters.slotName(m.groupValues[1]))
+            val gains = keywords(m.groupValues[2]) ?: return null
+            context.targets += spmSlot(name, Filters.noun(m.groupValues[1]) ?: return null, min = 0)
+            return listOf(spmApply(Objects.Target(name), arcanum.api.Duration.EndOfTurn, Mechanic.GainAbilities(gains)))
+        }
+        // spm chunk 07: "One or two target creatures each get +1/+0 and gain first strike until end of turn."
+        Spm.ONE_OR_TWO_EACH_GET_AND_GAIN.matchEntire(sentence)?.let { m ->
+            val noun = m.groupValues[2].removeSuffix("s")
+            val name = spmNewSlotName(context, Filters.slotName(m.groupValues[2]))
+            context.targets += spmSlot(name, Filters.noun(noun) ?: Filters.noun(m.groupValues[2]) ?: return null, min = 1, max = 2)
+            return listOf(spmApply(Objects.Target(name), arcanum.api.Duration.EndOfTurn,
+                Mechanic.ModifyPowerToughness(ptChange(m.groupValues[3]) ?: return null, ptChange(m.groupValues[4]) ?: return null),
+                Mechanic.GainAbilities(keywords(m.groupValues[5]) ?: return null)))
+        }
+        // spm chunk 07: "One or two target creatures you control each get +1/+0 until end of turn. They each deal damage …": "they" are the
+        // earlier targets (read by the dsk rule)
+        if (sentence.startsWith("They each deal damage equal to their power to ") && context.them == null)
+            context.them = context.targets.lastOrNull()?.takeIf { it.what is TargetKind.Objects }?.let { Objects.Target(it.name) }
+        // spm chunk 07: "suspect up to one target creature." (CR 701.60a)
+        Spm.SUSPECT.matchEntire(sentence)?.let { m ->
+            val name = spmNewSlotName(context, Filters.slotName(m.groupValues[2]))
+            context.targets += spmSlot(name, Filters.noun(m.groupValues[2]) ?: return null, min = if (m.groupValues[1].isEmpty()) 1 else 0)
+            return listOf(Step.Do(Effect.Mark(Objects.Target(name), arcanum.api.ObjectMark.Suspected)))
+        }
+        // spm chunk 07: "double the number of each kind of counter on each Spider and legendary creature you control." (CR 701.10e)
+        Spm.DOUBLE_EACH_KIND_ON_EACH.matchEntire(sentence)?.let { m ->
+            val filter = spmSpiderAndLegendary(m.groupValues[1]) ?: Filters.noun(m.groupValues[1]) ?: return null
+            return listOf(Step.Do(Effect.Action(arcanum.api.KeywordAction.Double(arcanum.api.Doubled.Counters(Objects.Each(filter), null)))))
+        }
+        // spm chunk 08: "Counter target instant spell, sorcery spell, or triggered ability." (CR 701.6)
+        if (Spm.COUNTER_TARGET_SPELLS_OR_TRIGGERED.matches(sentence)) {
+            val spell = ObjectFilter.Category(arcanum.api.ObjectCategory.Spell)
+            context.targets += spmSlot("spell or ability", ObjectFilter.Or(listOf(Filters.all(ObjectFilter.Type(CardType.Instant), spell),
+                Filters.all(ObjectFilter.Type(CardType.Sorcery), spell), ObjectFilter.AbilityOf(kind = arcanum.api.AbilityKind.Triggered))))
+            return listOf(Step.Do(Effect.Counter(Objects.Target("spell or ability"))))
+        }
+        // spm chunk 08: "Until your next turn, each creature attacks each combat if able and attacks a player other than you if able." (two
+        // requirements, CR 508.1d)
+        if (Spm.MAXIMUM_CARNAGE.matches(sentence))
+            return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.MustAttack(), Mechanic.MustAttack(arcanum.api.Recipients(players = Players.Each(PlayerFilter.Not(PlayerFilter.You))))),
+                Affected.Objects(Objects.Each(ObjectFilter.Type(CardType.Creature))), arcanum.api.Duration.UntilYourNextTurn)))
+        return null
+    }
+
+    /** spm: a target named as the subject of a sentence ("up to one other target creature", "target non-Equipment artifact you control"). */
+    private fun spmTargetSubject(subject: String, context: Context): Objects? {
+        val upTo = subject.startsWith("up to one ") || subject.startsWith("Up to one ")
+        val rest = subject.removePrefix("up to one ").removePrefix("Up to one ")
+        val noun = when {
+            rest.startsWith("other target ") -> "other " + rest.removePrefix("other target ")
+            rest.startsWith("target ") -> rest.removePrefix("target ")
+            rest.startsWith("Target ") -> rest.removePrefix("Target ")
+            else -> return null
+        }
+        val filter = Filters.noun(noun) ?: return null
+        val name = spmNewSlotName(context, Filters.slotName(noun.removePrefix("other ")))
+        context.targets += spmSlot(name, filter, min = if (upTo) 0 else 1)
+        return Objects.Target(name)
+    }
+
+    /** spm chunk 07: "Spider and legendary creature you control": each permanent that's either (a Spider, or a legendary creature). */
+    private fun spmSpiderAndLegendary(phrase: String): ObjectFilter? {
+        val m = Regex("""([A-Z]\w+) and legendary creature you control""").matchEntire(phrase) ?: return null
+        val subtype = m.groupValues[1].takeIf { it in RulesWords.subtypes } ?: return null
+        return Filters.all(ObjectFilter.Or(listOf(ObjectFilter.Sub(Subtype(subtype)), Filters.all(ObjectFilter.Super(Supertype.Legendary), ObjectFilter.Type(CardType.Creature)))),
+            ObjectFilter.ControlledBy(PlayerFilter.You))
+    }
+
+    /** spm: "the number of ingenuity counters on Lady Octopus". */
+    private fun spmValue(text: String): Value? {
+        COUNTERS_ON_SELF.matchEntire(text)?.takeIf { isSelf(it.groupValues[2]) }?.let { m ->
+            val kind = Counters.kind(m.groupValues[1]) ?: arcanum.api.CounterKind.Named(m.groupValues[1])
+            return Value.Of(arcanum.api.NumericProperty.Counters(kind), Objects.Self, arcanum.api.Combine.Single)
+        }
+        return Values.value(text)
+    }
+
+    private val CAST_MV_EQUAL_TO_POWER = Regex("""you cast an? (.+?) spell with mana value equal to (.+?)'s power""")
+    private val ATTACK_WITH_N_OR_MORE = Regex("""you attack with (\w+) or more (\w+)""")
+    private val DEALS_N_OR_MORE_DAMAGE = Regex("""(.+?) deals (\d+) or more damage""")
+    private val ENTERS_FROM_A = Regex("""(.+?) enters from an? (graveyard|exile)""")
+    private val COUNTERS_ON_SELF = Regex("""the number of (\w+) counters on (.+)""")
 
     // ---- ecl: Lorwyn Eclipsed (tried first; each rule reads one wording and falls through when it can't)
 

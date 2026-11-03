@@ -114,7 +114,9 @@ internal class Evaluator(val board: Board, val ctx: Context) {
         // CR 601.2f: the total cost is determined after the targets are chosen)
         is Objects.Target -> ctx.names[objects.slot]?.let { boundObjects(it) }
             ?: ctx.self?.let { s -> state.stackItems[s]?.targets?.get(objects.slot)?.filterIsInstance<TargetRef.Object>()?.map { it.id } }.orEmpty()
-        is Objects.Bound -> boundObjects(ctx.names[objects.name])
+        // spm: a name a keyword's cost made for the spell is kept by the permanent it became ("the returned creature")
+        is Objects.Bound -> boundObjects(ctx.names[objects.name]
+            ?: selfMemory(objects.name).takeIf { objects.name in arcanum.api.KeywordExpansions.COST_NAMES })
         is Objects.Remembered -> boundObjects(selfMemory(objects.key))
         is Objects.EventObject -> ctx.event?.objects.orEmpty().filter { it.role == objects.role }.flatMap { it.ids }
         // ecl: an Aura sacrificed to pay its own ability's cost still names what it was attached to (CR 608.2h)
@@ -374,6 +376,13 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             ObjectFilter.XInManaCost -> c?.manaCost?.symbols.orEmpty().any { it is arcanum.api.ManaSymbol.Variable && it.name == 'X' }
             is ObjectFilter.NthSpellThisTurn -> History.isNthSpell(this, filter, id)
             // CR 115.7: one target in all ("with a single target"), of [target] when given
+            // spm: modified (CR 700.9): a counter on it, an Equipment attached, or an Aura its controller controls attached
+            ObjectFilter.Modified -> (counterList(id)?.any { it.count > 0 } == true) || state.battlefield.any { other ->
+                val a = state.obj(other)?.attachedTo
+                a is TargetRef.Object && a.id == id && characteristics(other)?.let { oc ->
+                    oc.hasSubtype(Subtype("Equipment")) || (oc.hasSubtype(Subtype("Aura")) && controllerOf(other) == controllerOf(id))
+                } == true
+            }
             is ObjectFilter.SingleTarget -> {
                 val targets = state.stackItems[id]?.targets?.values?.flatten().orEmpty()
                 targets.size == 1 && filter.target.let { f -> f == null || (targets[0] as? TargetRef.Object)?.id?.let { matches(f, it) } == true }
@@ -555,6 +564,11 @@ internal class Evaluator(val board: Board, val ctx: Context) {
 
     fun value(value: Value): Int = when (value) {
         is Value.Fixed -> value.value
+        // spm: the turns that player has had this game, this one included: worked out from the number of the latest turn they began,
+        // players taking turns in order from turn 1 (extra turns aren't counted apart)
+        is Value.TurnsTaken -> players(value.players).firstOrNull()?.let { p ->
+            ((state.turn.turnStarted[p] ?: 0) + state.players.size - 1) / state.players.size
+        } ?: 0
         is Value.Announced -> (ctx.names[value.name] as? NamedValue.Number)?.value ?: ctx.stackItem?.announced?.get(value.name) ?: 0
         is Value.Bound -> boundNumber(ctx.names[value.name])
         is Value.Remembered -> boundNumber(selfMemory(value.key))
@@ -767,8 +781,8 @@ internal class Evaluator(val board: Board, val ctx: Context) {
         is Condition.ResolvedEarlierThisGame -> objects(condition.of).flatMap { names(characteristics(it)) }.any { name ->
             state.players.any { p -> matches(condition.controller, p.id) && (p.ledger[resolvedKey(name)] ?: 0) > 0 }
         }
-        // Speed (CR 702.178) isn't modelled yet.
-        Condition.MaxSpeed -> false
+        // CR 702.179e: max speed is speed 4
+        Condition.MaxSpeed -> arcanum.engine.turn.Speed.of(state, ctx.you) >= arcanum.engine.turn.Speed.MAX
         // The revealed companion is set up before the game (CR 702.139a); the host marks it in card memory.
         Condition.RevealedCompanion -> selfMemory(REVEALED_COMPANION) != null
         is Condition.Chose -> (ctx.names[condition.name] as? NamedValue.Option)?.option == condition.option

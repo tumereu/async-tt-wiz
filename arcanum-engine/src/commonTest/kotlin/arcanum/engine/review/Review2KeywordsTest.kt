@@ -416,20 +416,25 @@ class Review2KeywordsTest {
 
     // ---- Keywords done by hand
 
-    /** A keyword the engine doesn't automate (mobilize) stops with a manual step as the creature attacks. */
-    // CR 702.181a, D61
+    /** A keyword the engine doesn't automate (enlist) stops with a manual step as the creature attacks; mobilize, by hand
+     * before, now creates its tokens. */
+    // CR 702.154a, 702.181a, D61
     @Test
-    fun mobilizeIsDoneByHandAsItAttacks() = scenario {
+    fun enlistIsDoneByHandAsItAttacks() = scenario {
+        val enlister = Cards.invent("Review Drafting Sergeant", "{1}{W}", "Creature — Human Soldier", "Enlist", "2/2")
         val mobilizer = Cards.invent("Review Horde Caller", "{1}{R}", "Creature — Goblin", "Mobilize 2", "2/2")
-        alice.battlefield(mobilizer)
+        alice.battlefield(enlister, mobilizer)
         advanceTo(TurnStep.DeclareAttackers)
-        alice.attacks(mobilizer)
+        alice.attacks(enlister, mobilizer)
         allPass()
+        if (pending is Decision.OrderTriggers) alice.answers(Answer.Order(listOf(0, 1)))
+        while (pending !is Decision.Manual && state.stack.isNotEmpty()) passPriority()
         val manual = decision<Decision.Manual>()
-        assertEquals("Mobilize 2 (CR 702.181): apply it by hand", manual.text)
+        assertEquals("Enlist (CR 702.154): apply it by hand", manual.text)
         assertEquals(alice.id, manual.player)
         alice.answers(Answer.Done)
-        expect { stack.isEmpty() }
+        allPass()
+        expect { alice.battlefield.size shouldBe 4 }
     }
 
     /** Split second (automated since the Reality Fracture work, by hand before): while the spell is on the Stack, no
@@ -452,33 +457,33 @@ class Review2KeywordsTest {
         expect { bob.life shouldBe 18 }
     }
 
-    /** Embalm: the engine pays its cost (mana, exiling the card from the graveyard, as a sorcery) and asks for the effect
-     * by hand. */
-    // CR 702.128a, D61
+    /** Embalm: the engine pays its cost (mana, exiling the card from the graveyard, as a sorcery) and creates the token
+     * (by hand before). */
+    // CR 702.128a
     @Test
-    fun embalmPaysItsCostAndAsksForTheToken() = scenario {
+    fun embalmPaysItsCostAndCreatesTheToken() = scenario {
         val embalmed = Cards.invent("Review Gilded Mummy", "{1}{W}", "Creature — Human Cleric", "Embalm {W}", "2/2")
         alice.battlefield("Plains")
         alice.graveyard(embalmed)
         alice.activates(embalmed)
         expect { alice.exile has embalmed }
         allPass()
-        assertTrue(decision<Decision.Manual>().text.startsWith("Embalm"))
+        expect { alice.battlefield has embalmed }
     }
 
-    /** Harmonize (casting from the graveyard) comes up as the card is put into the graveyard. */
-    // CR 702.180a, D61
+    /** Harmonize (by hand before): once in the graveyard, the card may be cast from there for its harmonize cost. */
+    // CR 702.180a
     @Test
-    fun harmonizeIsDoneByHandAsItReachesTheGraveyard() = scenario {
+    fun harmonizeCastsFromTheGraveyard() = scenario {
         val chorus = Cards.invent("Review Echoing Chorus", "{1}{G}", "Sorcery", "Draw a card.\nHarmonize {3}{G}")
-        alice.battlefield("Forest", "Forest")
+        alice.battlefield("Forest", "Forest", "Forest", "Forest", "Forest", "Forest")
         alice.hand(chorus)
         alice.library("Island")
         alice.casts(chorus)
         allPass()
         expect { alice.graveyard has chorus }
-        allPass()
-        assertTrue(decision<Decision.Manual>().text.startsWith("Harmonize"))
+        assertTrue(pending == null)
+        assertTrue(Engine.options(state, alice.id).any { it is Input.Cast && it.card == card(chorus) })
     }
 
     /** Miracle comes up as the card is drawn: its controller may cast it for the miracle cost (sos: no longer by hand). */
@@ -621,7 +626,8 @@ class Review2KeywordsTest {
     // D61
     @Test
     fun everyKeywordHasAMeaning() {
-        val noMeaning = setOf<KeywordKind>(Keyword.Reach, Keyword.Partner)
+        // Spree and tiered (CR 702.172a, 702.183a) mean what their modes carry (Mode.extraCost)
+        val noMeaning = setOf<KeywordKind>(Keyword.Reach, Keyword.Partner, Keyword.Spree, Keyword.Tiered)
         KeywordKind.all.filterIsInstance<Keyword>().forEach { keyword ->
             if (keyword.kind in noMeaning || keyword.kind in KeywordMeanings.engineCode) return@forEach
             assertTrue(KeywordMeanings.expand(keyword).isNotEmpty(), "${keyword.text} means nothing")

@@ -310,7 +310,18 @@ internal data class TurnExtras(
     /** [at] the declare attackers step whose attack the defending player has been paused for already
      * ([PausePoints.attackAnswered], finalreview-combat #7); null otherwise. */
     val attackAnswered: String? = null,
+    /** Players' turns still to be skipped (the engine's `TurnState.skippedTurns`, CR 614.10). */
+    val skippedTurns: List<PlayerId> = emptyList(),
+    /** Control of players waiting for their next turn (the engine's `TurnState.controlNext`, CR 723.1). */
+    val controlNext: List<arcanum.engine.state.PlayerControl> = emptyList(),
+    /** The player controlled during this turn (the engine's `TurnState.controlled`, CR 723), with the turn (ATW's turn number)
+     * it belongs to in [controlledTurn]: a later turn has none. */
+    val controlled: arcanum.engine.state.PlayerControl? = null,
+    val controlledTurn: Int? = null,
 ) {
+    /** [controlled] when it is of [turn]. */
+    fun controlled(turn: Int): arcanum.engine.state.PlayerControl? = controlled?.takeIf { controlledTurn == turn }
+
     /** [extraPhases] and [resumeAt] when they are of [turn], else none. */
     fun phases(turn: Int): Pair<List<TurnStep>, TurnStep?> =
         if (phasesTurn == turn) extraPhases to resumeAt else emptyList<TurnStep>() to null

@@ -22,7 +22,7 @@ The definition model (overview in `Definitions.kt`):
   names a keyword without values for filters ("creatures with flying").
   `KeywordExpansions` is the shared table mapping keywords to abilities built from
   mechanics (flying → `CanBeBlockedOnlyBy`, deathtouch → `Deathtouch`); a keyword without an entry is
-  null there (the engine then has it done by hand); ability labels (exhaust, boast, …)
+  null there (the engine then carries it out in its own code, or has it done by hand); ability labels (exhaust, boast, …)
   add their rules through `withLabelRules`; keyword actions expand through
   `KeywordExpansions.expand(action)`; `PredefinedTokens` defines Treasure, Food, Clue,
   Blood and the other tokens of CR 111.10.
@@ -108,6 +108,12 @@ The definition model (overview in `Definitions.kt`):
   among permanents you control, add one mana of that color"), `Mechanic.XAtMost` ("X can't be greater than …"),
   `Mechanic.LoseAllCreatureTypes` and `TargetSlot.sharing` ("two target creature cards that share a creature type"). Vivid is an
   ability word; "the number of colors among permanents you control" is `Value.CountDistinct` by colour.
+- Marvel's Spider-Man (set `spm`): web-slinging and mayhem as `KeywordExpansions` entries (CR 702.188a, 702.187b; `Keyword.Mayhem.cost`
+  null is mayhem without a cost, CR 702.187c; `KeywordExpansions.webSlinging` and `WEB_SLINGING_RETURNED`, kept with `COST_NAMES` for the
+  permanent: "the returned creature"), `ObjectFilter.Modified` (CR 700.9), `Effect.CopySpell.except` ("except the copy isn't
+  legendary"), `TargetSlot.distinct` ("with different names"), `EventPattern.PlayLand.from`/`notFrom`, `Trigger.On.throughNth` ("your
+  first or second card each turn"), `Value.TurnsTaken` ("during your first, second, or third turns"), `Modification.EntersAsCopy.bind`
+  (the copied card for "When you do, exile that card"); `DefinitionChecks` allows looking at cards as a permanent enters.
 - Avatar: The Last Airbender (set `tla`): airbend (CR 701.65, `KeywordAction.Airbend`), earthbend (CR 701.66, expanded with the land's
   return when it dies or is exiled), waterbend costs (CR 701.67, `CostPart.Waterbend` and `ManaPaymentWay.Waterbend`), "firebending X,
   where X is …" (`Keyword.FirebendingX`; firebending's mana lasts until end of combat), the bend events (`EventPattern.Airbend`,
@@ -116,6 +122,15 @@ The definition model (overview in `Definitions.kt`):
   `Effect.Fight.bind` (the excess damage), `Effect.ExtraCombat.onlyAttackers`, `Effect.ControlNextTurn.combatPhase`,
   `ActivationRules.minimumX` ("X can't be 0"), `Value.ManaInPool`, `Value.MostSharing`, `NumericProperty.CreatureTypes`,
   `Objects.Granter` and `Keyword.Enchant.SLOT`.
+- Keywords no longer by hand (2026-11-03): `KeywordExpansionsMore` (asked by `KeywordExpansions.expand` for keywords it doesn't list)
+  writes out dash, blitz, echo, cumulative upkeep, embalm, eternalize, encore, mobilize, myriad, melee, dethrone, provoke, rampage,
+  soulshift, bloodthirst, ingest, undaunted, ascend, gravestorm, replicate, squad, bargain, demonstrate, spectacle, surge, prowl,
+  freerunning, warp, disturb, recover, transmute, riot, ravenous, devour, amplify, graft, saddle, station, partner
+  with, entwine, disguise, plot, awaken, tribute, emerge, harmonize, prototype, aftermath and ripple from their CR definitions; spree and
+  tiered expand to nothing (their modes carry the costs, `Mode.extraCost`). Keyword actions written out: support (now
+  `KeywordAction.Support(count, slot)`, its targets a slot of the instructions), discover, endure and learn. New pieces:
+  `ObjectMark.Foretold`, `Plotted` and `Cloaked`, `Effect.IncreaseSpeed` (CR 702.179c) and `CostObjects.Choose.upTo` ("tapping up to one
+  untapped creature you control").
 
 `ExampleCardsTest` shows about twenty invented cards written in the model and their
 JSON. Decisions from the API reviews (D19–D49) are built here where they concern card

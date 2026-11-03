@@ -289,9 +289,11 @@ internal object Triggers {
                 val earlier = (if (at >= 0) events.take(at) else events).flatMap { units(it) }
                 // hob: for that player ("an opponent draws their second card each turn": each opponent's own draws, CR 603.2)
                 fun same(a: TriggerEvent, b: TriggerEvent) = a.players.firstOrNull() == b.players.firstOrNull()
-                if (!trigger.oneOrMore) now.filterIndexed { i, unit -> earlier.count { same(it, unit) } + now.take(i).count { same(it, unit) } + 1 == n }
+                // spm: "your first or second card each turn" ([Trigger.On.throughNth]): any of the first n
+                fun nth(k: Int) = if (trigger.throughNth) k <= n else k == n
+                if (!trigger.oneOrMore) now.filterIndexed { i, unit -> nth(earlier.count { same(it, unit) } + now.take(i).count { same(it, unit) } + 1) }
                 else now.filter { unit ->
-                    earlier.count { !trigger.batchPerPlayer || it.players.firstOrNull() == unit.players.firstOrNull() } + 1 == n
+                    nth(earlier.count { !trigger.batchPerPlayer || it.players.firstOrNull() == unit.players.firstOrNull() } + 1)
                 }
             } ?: now
             counted.filter { trigger.atLeast == null || it.objects.firstOrNull { o -> o.role == EventRole.Object }?.ids.orEmpty().size >= trigger.atLeast!! }
@@ -301,7 +303,12 @@ internal object Triggers {
             if (c.kind != CounterKind.Lore || holder != e.ctx.self) return@let null
             val from = c.before?.count ?: 0
             val to = c.after?.count ?: 0
-            trigger.chapters.filter { it in (from + 1)..to }.map { TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(holder))), amount = it) }
+            // CR 702.155a: read ahead: the turn it entered, only the chapter of exactly its number of lore counters
+            val o = e.board.state.obj(holder)
+            val readAhead = o != null && o.controlSince?.turn == e.board.state.turn.number &&
+                e.characteristics(holder)?.hasKeyword(arcanum.api.Keyword.ReadAhead) == true
+            trigger.chapters.filter { it in (from + 1)..to && (!readAhead || it == to) }
+                .map { TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(holder))), amount = it) }
         }.orEmpty()
         // State triggers are checked when triggers are put on the Stack (CR 603.8)
         is Trigger.State -> emptyList()
@@ -417,6 +424,7 @@ internal object Triggers {
         val item = StackItem(
             id = stackId, kind = StackItemKind.Triggered, controller = t.controller, source = t.source, ability = ability,
             origin = t.origin, targets = choices.second, modes = choices.first, names = t.names,
+            divided = divide(act, t, ability, choices.first, choices.second),
             snapshots = (listOfNotNull(t.sourceSeen) + t.snapshots).distinctBy { it.id }, event = t.event, delayedTrigger = t.delayedTrigger,
             timestamp = act.state.nextTimestamp(),
         )
@@ -426,6 +434,31 @@ internal object Triggers {
         if (source != null && (ability.trigger as? arcanum.api.Trigger.On)?.events.orEmpty().any { it is arcanum.api.EventPattern.Attack } &&
             t.event.objects.any { it.role == arcanum.api.EventRole.Object && source in it.ids })
             act.record(Change.Happened(arcanum.engine.change.GameEvent.AbilityTriggered(source, stackId, attack = true)))
+    }
+
+    /** dsk backfill: an amount divided among a triggered ability's targets is divided as it is put on the Stack (CR 603.3d,
+     * 601.2d): a single target gets all of it; among two or more, its controller divides it, at least one each. */
+    private fun divide(
+        act: Act, t: WaitingTrigger, ability: Ability.Triggered, modes: List<Int>, targets: Map<String, List<TargetRef>>,
+    ): List<arcanum.engine.state.DividedShare> {
+        val slots = ability.instructions.targets + modes.flatMap { ability.instructions.modes?.options?.getOrNull(it)?.instructions?.targets.orEmpty() }
+        if (slots.none { it.divided != null }) return emptyList()
+        val e = act.evaluator(arcanum.engine.query.Context(t.controller, t.source, t.names, event = t.event))
+        return slots.flatMap { slot ->
+            val amount = slot.divided?.let { e.value(it) } ?: return@flatMap emptyList()
+            val chosen = targets[slot.name].orEmpty()
+            when (chosen.size) {
+                0 -> emptyList()
+                1 -> listOf(arcanum.engine.state.DividedShare(slot.name, chosen.single(), amount))
+                else -> {
+                    val shares = (act.asker.ask { Decision.Divide(it, t.controller, t.source, amount, chosen, 1) } as Answer.Division).shares
+                    require(shares.sumOf { it.amount } == amount && shares.all { it.amount >= 1 && it.target in chosen }) {
+                        "Divide $amount among the targets, at least 1 each"
+                    }
+                    shares.map { arcanum.engine.state.DividedShare(slot.name, it.target, it.amount) }
+                }
+            }
+        }
     }
 
     private fun recordTriggerCount(act: Act, source: ObjectId, origin: AbilityOrigin?) {

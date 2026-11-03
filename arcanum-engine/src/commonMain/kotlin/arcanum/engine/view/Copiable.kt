@@ -44,20 +44,25 @@ internal class Copiable(private val state: GameState, val reads: ViewReads = Vie
         state.stackItems[id]?.kind?.let { kind ->
             // CR 707.10: a copy of a spell copies the original's copiable values
             if (kind is StackItemKind.SpellCopy) {
-                return faces(kind.copied, visiting)
-                    ?: state.stackItems[id]?.snapshots?.firstOrNull { it.id == kind.copied }?.characteristics?.let { listOf(IndexedFace(0, it.asFace())) }
+                return (faces(kind.copied, visiting)
+                    ?: state.stackItems[id]?.snapshots?.firstOrNull { it.id == kind.copied }?.characteristics?.let { listOf(IndexedFace(0, it.asFace())) })
+                    // spm: its own exceptions (CR 707.9b)
+                    ?.map { if (kind.except.isEmpty()) it else IndexedFace(it.index, exceptions(it.face, kind.except)) }
             }
         }
         val o = state.obj(id) ?: return null
         // CR 613.2b, 708.2a: face down, its copiable values are the face-down values whatever it is, so a face-down
         // permanent the caller can't see (D60) is a 2/2 too
-        if (o.faceDown) return listOf(IndexedFace(0, FACE_DOWN))
+        if (o.faceDown) return listOf(IndexedFace(0, faceDown(o)))
         val definition = o.definition ?: return null
         var faces: List<IndexedFace> = when {
             // CR 709.4: a split card outside the Stack has both halves' characteristics; a fused split spell too (709.4d)
             definition.layout == Layout.Split && (o.zone != Zone.Stack || o.facts.fused) -> definition.faces.mapIndexed { i, f -> IndexedFace(i, f) }
             else -> listOfNotNull(definition.faces.getOrNull(o.face)?.let { IndexedFace(o.face, it) })
         }
+        // CR 718.3: cast prototyped, on the Stack and the battlefield its mana cost, colour, power and toughness are its prototype's
+        if (o.facts.alternative?.keyword == arcanum.api.Keyword.Prototype.Kind && (o.zone == Zone.Stack || o.zone == Zone.Battlefield))
+            faces = faces.map { IndexedFace(it.index, prototyped(it.face)) }
         // CR 613.2a, 707.2: copy effects in timestamp order
         copyEffectsOn(id).forEach { (effect, copy) ->
             val copied = effect.copied?.let { listOf(IndexedFace(0, it)) } ?: copiedFaces(effect, copy, visiting)
@@ -85,6 +90,21 @@ internal class Copiable(private val state: GameState, val reads: ViewReads = Vie
         val FACE_DOWN = FaceDefinition(
             name = "", types = listOf(CardType.Creature), power = PrintedNumber.Fixed(2), toughness = PrintedNumber.Fixed(2),
         )
+
+        /** CR 718.3b: [face] with its prototype's mana cost, power and toughness, and the colour of that mana cost (CR 202.2). */
+        fun prototyped(face: FaceDefinition): FaceDefinition {
+            val p = face.abilities.filterIsInstance<arcanum.api.Keyword.Prototype>().firstOrNull() ?: return face
+            val cost = p.cost.parts.filterIsInstance<arcanum.api.CostPart.Mana>().firstOrNull()?.cost ?: return face
+            return face.copy(manaCost = cost, colorIndicator = null, power = PrintedNumber.Fixed(p.power), toughness = PrintedNumber.Fixed(p.toughness))
+        }
+
+        /** CR 702.168a, 701.58a: a disguised or cloaked face-down object is a 2/2 creature with ward {2}. */
+        val FACE_DOWN_WARD = FACE_DOWN.copy(abilities = listOf(arcanum.api.Keyword.Ward(arcanum.api.Cost.mana(arcanum.api.ManaCost.parse("{2}")!!))))
+
+        /** The face-down values of [o] (CR 708.2a): with ward {2} when it was cast disguised or cloaked. */
+        fun faceDown(o: arcanum.engine.state.GameObject): FaceDefinition =
+            if (arcanum.api.ObjectMark.Cloaked in o.marks || o.facts.alternative?.keyword == arcanum.api.Keyword.Disguise.Kind) FACE_DOWN_WARD
+            else FACE_DOWN
 
         /** CR 702.103b: "becomes an Aura enchantment and gains enchant creature" (no longer a creature, nor of a creature
          * type). */
@@ -159,11 +179,14 @@ internal class Copiable(private val state: GameState, val reads: ViewReads = Vie
          * the rules of its label ([KeywordExpansions.withLabelRules]). A keyword without an expansion gets abilities that
          * stop with a manual step at its natural moment ([KeywordMeanings]).
          */
-        fun expand(instances: List<AbilityInstance>, depth: Int = 0): List<AbilityInstance> = instances.flatMap { inst ->
+        fun expand(instances: List<AbilityInstance>, depth: Int = 0): List<AbilityInstance> = instances.flatMapIndexed { i, inst ->
             val ability = KeywordExpansions.withLabelRules(inst.ability)
             val head = if (ability == inst.ability) inst else inst.copy(ability = ability)
             if (ability is Keyword && depth < 3) {
-                val expansion = KeywordMeanings.expand(ability)
+                // CR 702.165a: the abilities printed below it (backup)
+                val below = if (ability.kind in KeywordMeanings.faceDependent)
+                    instances.drop(i + 1).filter { it.origin is AbilityOrigin.Printed }.map { it.ability } else emptyList()
+                val expansion = KeywordMeanings.expand(ability, below)
                     .mapIndexed { i, a -> AbilityInstance(a, AbilityOrigin.Expansion(inst.origin, i), inst.timestamp) }
                 listOf(head) + expand(expansion, depth + 1)
             } else listOf(head)

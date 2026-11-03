@@ -61,7 +61,10 @@ internal object EventMatcher {
                 else -> true
             } && (pattern.removedLoyaltyAtLeast == null || (a.loyalty ?: 0) <= -pattern.removedLoyaltyAtLeast!!)
             if (kindMatches && (pattern.manaAbilities || !a.manaAbility) && e.matches(pattern.source, a.source) && e.matches(pattern.by, a.player))
-                listOf(TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(a.source))), listOf(a.player))) else null
+                // gtc backfill: the activated ability is the event's object ("copy that ability", like the spell of a cast
+                // event); its source is the source (CR 113.7)
+                listOf(TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(a.item ?: a.source)), RoleObjects(EventRole.Source, listOf(a.source))),
+                    listOf(a.player))) else null
         }.orEmpty()
         is EventPattern.Damage -> (change as? Change.Damage)?.dealt.orEmpty().filter { d ->
             !pattern.excess && (pattern.combat == null || pattern.combat == d.combat) &&
@@ -91,7 +94,9 @@ internal object EventMatcher {
             ((change as? Change.StackItemRemoved)?.takeIf { Meaning.Countered in it.meanings && e.matches(pattern.objects, it.item.id) }
                 ?.let { listOf(TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(it.item.id))), listOf(it.item.controller))) }.orEmpty())
         is EventPattern.PlayLand -> moves(change).filter { Meaning.PlayedLand in it.meanings && e.matches(pattern.lands, it.after.id) &&
-            e.matches(pattern.players, it.after.controller ?: it.after.owner) }
+            e.matches(pattern.players, it.after.controller ?: it.after.owner) &&
+            // spm: "play a land from exile", "from anywhere other than your hand"
+            (pattern.from == null || it.from == pattern.from) && (pattern.notFrom == null || it.from != pattern.notFrom) }
             .map { TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(it.after.id))), listOf(it.after.controller ?: it.after.owner)) }
         is EventPattern.CountersPut -> if (causedBy(e, change, pattern.causedBy) && reaches(change, pattern.reaching))
             counters(e, change, pattern.objects, pattern.kind, put = true, last = false) else emptyList()
@@ -199,8 +204,9 @@ internal object EventMatcher {
         is EventPattern.Expend -> ((change as? Change.Happened)?.event as? GameEvent.SpentOnSpells)
             ?.takeIf { it.before < pattern.amount && it.after >= pattern.amount && e.matches(pattern.players, it.player) }
             ?.let { listOf(TriggerEvent(players = listOf(it.player), amount = pattern.amount)) }.orEmpty()
-        // Day and night aren't tracked yet.
-        is EventPattern.DayNightChanges -> emptyList()
+        // CR 731.1a: day becomes night, or night becomes day
+        is EventPattern.DayNightChanges -> ((change as? Change.Happened)?.event as? GameEvent.DayNightChanged)
+            ?.takeIf { pattern.toNight == null || pattern.toNight == it.night }?.let { listOf(TriggerEvent()) }.orEmpty()
         // blb: CR 702.174c, 701.61a, 716.2a
         is EventPattern.GiveGift -> ((change as? Change.Happened)?.event as? GameEvent.GaveGift)
             ?.takeIf { e.matches(pattern.players, it.player) }?.let { listOf(TriggerEvent(players = listOf(it.player))) }.orEmpty()

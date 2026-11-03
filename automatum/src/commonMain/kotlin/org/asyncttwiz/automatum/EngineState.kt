@@ -162,7 +162,8 @@ object EngineState {
             delayedTriggers = LinkedHashMap(board.engineRecords.filter(EngineCodec::isDelayed).map(EngineCodec::delayed).associateBy { it.id }),
             turn = TurnState(board.turn.number.toInt(), PlayerId(board.turn.accountId), EngineCodec.step(position),
                 turnExtras.landsPlayed.takeIf { turnExtras.turn == null || turnExtras.turn == board.turn.number.toInt() } ?: emptyMap(), turnExtras.turnStarted ?: Derived.turnStarted(board), turnExtras.extraTurns,
-                extraPhases, resumeAt),
+                extraPhases, resumeAt, skippedTurns = turnExtras.skippedTurns, controlNext = turnExtras.controlNext,
+                controlled = turnExtras.controlled(board.turn.number.toInt())),
             // #10 (CR 117.4, I-D28): passes in a row count only in the step they were made in; a step or turn changed by
             // hand while Automatum was off starts the count again
             priority = board.priority?.let { PriorityState(it.holder?.let(::PlayerId),
@@ -320,6 +321,8 @@ object EngineState {
         val public = o.zone in setOf(Zone.Battlefield, Zone.Graveyard, Zone.Exile, Zone.Stack, Zone.Command) && !o.faceDown
         return public || card.token || (o.zone == Zone.Hand && o.owner.value == viewer) ||
             (o.faceDown && (o.zone == Zone.Battlefield || o.zone == Zone.Stack) && (o.controller ?: o.owner).value == viewer) ||
+            // CR 702.143a: a foretold card is its owner's to look at, face down in exile (hidden from the others, I-D27)
+            (o.faceDown && o.zone == Zone.Exile && arcanum.api.ObjectMark.Foretold in o.marks && o.owner.value == viewer) ||
             CardVisibility.isVisibleFaceUp(board, card, viewer)
     }
 

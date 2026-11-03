@@ -130,6 +130,10 @@ sealed interface Effect {
     /** Copy a spell or ability on the Stack (CR 707.10); [newTargets] lets the copy's controller choose new ones. */
     @Serializable @SerialName("copy-spell") data class CopySpell(
         val objects: Objects, val controller: Players, val newTargets: Boolean, val bind: String? = null,
+        // spm
+        /** Exceptions to the copy ("copy that spell, except the copy isn't legendary", CR 707.9b, 707.10): part of its copiable
+         * values, so the token a permanent spell's copy becomes has them too (CR 707.10c). */
+        val except: List<CopyException> = emptyList(),
     ) : Effect
     /** Counter a spell or ability (CR 701.6); "unless its controller pays" is a [Step.Pay] by that player and a
      * [Step.If] that counters when they didn't (CR 118.12a). */
@@ -269,6 +273,8 @@ sealed interface Effect {
      * target permanent or player, give that permanent or player another counter of that kind"; as proliferate does for
      * each permanent and player chosen, CR 701.34a). */
     @Serializable @SerialName("one-more-of-each-kind") data class OneMoreCounterOfEachKind(val recipients: Recipients) : Effect
+    /** "Increase your speed by [amount]" (CR 702.179c): a player with no speed gets that speed; speed is at most 4. */
+    @Serializable @SerialName("increase-speed") data class IncreaseSpeed(val players: Players, val amount: Value) : Effect
     /** [controller] controls [players] during their next turn: makes every decision they could make, seeing what they could see
      * (CR 723.1, 723.2; "you control target opponent during their next turn"). */
     @Serializable @SerialName("control-next-turn") data class ControlNextTurn(
@@ -376,7 +382,9 @@ sealed interface KeywordAction {
     /** Double counters, life, power, or mana (CR 701.10). */
     @Serializable @SerialName("double") data class Double(val what: Doubled) : KeywordAction
     @Serializable @SerialName("bolster") data class Bolster(val count: Value) : KeywordAction
-    @Serializable @SerialName("support") data class Support(val count: Value) : KeywordAction
+    /** "Support N" (CR 701.39a, b): put a +1/+1 counter on each of up to N (other, on a permanent) target creatures, the targets of
+     * [slot] declared in the enclosing [Instructions.targets] (at most [count]). [KeywordExpansions.expand] writes it out. */
+    @Serializable @SerialName("support") data class Support(val count: Value, val slot: String) : KeywordAction
     @Serializable @SerialName("detain") data class Detain(val objects: Objects) : KeywordAction
     @Serializable @SerialName("endure") data class Endure(val count: Value) : KeywordAction
     /** "Exile three cards from your graveyard or sacrifice a Food" (CR 701.61a). */

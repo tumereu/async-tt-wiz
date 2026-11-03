@@ -31,11 +31,37 @@ internal object MechanicWordings {
     private val SELF_TO_GRAVEYARD_EXILE_INSTEAD = Regex("""If (.+) would be put into a graveyard from anywhere, exile it instead\.""")
     private val CHOSE_OTHER_RING_BEARER = Regex("""you chose a creature other than (.+) as your Ring-bearer""")
 
-    /** Trigger events ("the Ring tempts you"). */
+    /** Trigger events ("the Ring tempts you", "the creature it haunts dies"). */
     fun event(text: String): EventPattern? = when (text) {
         // CR 701.54d
         "the Ring tempts you" -> EventPattern.RingTempts(PlayerFilter.You)
+        // CR 702.55b, c
+        "the creature it haunts dies", "the creature this card haunts dies" -> hauntedDies
         else -> null
+    }
+
+    /** "the creature it haunts dies" (CR 702.55b): the creature the haunt ability targeted, kept by the exiled card. */
+    val hauntedDies: EventPattern = EventPattern.ZoneChange(ObjectFilter.Is(Objects.LinkedTo(Keyword.Haunt)), from = arcanum.api.Zone.Battlefield,
+        to = arcanum.api.Zone.Graveyard)
+
+    private val ENTERS_OR_HAUNTED_DIES = Regex("""(.+) enters or the creature it haunts dies""")
+
+    /** Several events of one trigger ("this creature enters or the creature it haunts dies"). */
+    fun events(text: String, self: Set<String>): List<EventPattern>? {
+        ENTERS_OR_HAUNTED_DIES.matchEntire(text)?.takeIf { isSelf(it.groupValues[1], self) }?.let {
+            return listOf(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), to = arcanum.api.Zone.Battlefield), hauntedDies)
+        }
+        return null
+    }
+
+    /** CR 702.55c: a triggered ability that refers to the creature its card haunts can trigger in exile (and also on the battlefield when
+     * it has another event there). */
+    fun haunting(ability: Ability?): Ability? {
+        val triggered = ability as? Ability.Triggered ?: return ability
+        val events = (triggered.trigger as? arcanum.api.Trigger.On)?.events ?: return ability
+        if (hauntedDies !in events) return ability
+        val zones = if (events.all { it == hauntedDies }) listOf(arcanum.api.Zone.Exile) else listOf(arcanum.api.Zone.Battlefield, arcanum.api.Zone.Exile)
+        return triggered.copy(functionsIn = zones)
     }
 
     /** Conditions ("Frodo is your Ring-bearer", "you don't control a Ring-bearer", "you chose a creature other than Faramir as your

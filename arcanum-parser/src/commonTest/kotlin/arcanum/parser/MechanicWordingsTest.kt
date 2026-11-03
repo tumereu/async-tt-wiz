@@ -242,4 +242,45 @@ class MechanicWordingsTest {
         """,
     ) parsesTo abilities(arcanum.api.Keyword.Flying, Ability.Static(listOf(Mechanic.Replacement(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self),
         to = Zone.Graveyard), modify = listOf(arcanum.api.Modification.ChangeDestination(arcanum.api.Destination(Zone.Exile))))), Affected.Objects(Objects.Self)))
+
+    // ---- Haunt (CR 702.55)
+
+    private val hauntedDies = EventPattern.ZoneChange(ObjectFilter.Is(Objects.LinkedTo(arcanum.api.Keyword.Haunt)), from = Zone.Battlefield, to = Zone.Graveyard)
+
+    // CR 702.55b, c: "When this creature enters or the creature it haunts dies" works on the battlefield and in exile
+    @Test
+    fun entersOrHauntedDies() = card(
+        name = "Gloom Specter",
+        cost = "{3}{B}",
+        type = "Creature — Spirit",
+        pt = "2/2",
+        text = """
+            Haunt (When this creature dies, exile it haunting target creature.)
+            When this creature enters or the creature it haunts dies, target player loses 2 life and you gain 2 life.
+        """,
+    ) parsesTo abilities(arcanum.api.Keyword.Haunt, Ability.Triggered(Trigger.On(listOf(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self),
+        to = Zone.Battlefield), hauntedDies)), Instructions(
+        targets = listOf(TargetSlot("player", TargetKind.Players(PlayerFilter.Any), Value.Fixed(1), Value.Fixed(1))),
+        steps = listOf(Step.Do(Effect.LoseLife(arcanum.api.Players.Target("player"), Value.Fixed(2))),
+            Step.Do(Effect.GainLife(arcanum.api.Players.You, Value.Fixed(2))))), functionsIn = listOf(Zone.Battlefield, Zone.Exile)))
+
+    // CR 702.55b, c: a haunt spell's "When the creature this card haunts dies" works in exile only
+    @Test
+    fun hauntedCreatureDiesSpell() = card(
+        name = "Grim Haunting",
+        cost = "{1}{B}",
+        type = "Sorcery",
+        text = """
+            Target player discards a card.
+            Haunt (When this spell card is put into a graveyard after resolving, exile it haunting target creature.)
+            When the creature this card haunts dies, target player discards a card.
+        """,
+    ) parsesTo abilities(
+        Ability.Spell(Instructions(targets = listOf(TargetSlot("player", TargetKind.Players(PlayerFilter.Any), Value.Fixed(1), Value.Fixed(1))),
+            steps = listOf(Step.Do(Effect.Discard(arcanum.api.Players.Target("player"), Value.Fixed(1), ObjectFilter.Any))))),
+        arcanum.api.Keyword.Haunt,
+        Ability.Triggered(Trigger.On(hauntedDies), Instructions(
+            targets = listOf(TargetSlot("player", TargetKind.Players(PlayerFilter.Any), Value.Fixed(1), Value.Fixed(1))),
+            steps = listOf(Step.Do(Effect.Discard(arcanum.api.Players.Target("player"), Value.Fixed(1), ObjectFilter.Any)))),
+            functionsIn = listOf(Zone.Exile)))
 }

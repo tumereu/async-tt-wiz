@@ -161,6 +161,8 @@ internal class Sentences(
 
     fun line(line: String): Ability? {
         MechanicWordings.static(line, ::isSelf, OracleParser::keyword) { Sentences(setOf("this creature")).line(it) }?.let { return it }
+        // CR 702.55c: "the creature it haunts" triggers in exile
+        if (line.contains(" haunts dies")) return MechanicWordings.haunting(triggered(line))
         spmLine(line)?.let { return it } // spm
         tlaLine(line)?.let { return it } // tla
         eclLine(line)?.let { return it } // ecl

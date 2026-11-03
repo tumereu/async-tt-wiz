@@ -127,7 +127,6 @@ object KeywordMeanings {
             listOf(Keyword.HiddenAgenda)
         }
         at(Moment.AttacksOrBlocks) { listOf(Keyword.Banding) }
-        at(Moment.Dies, Moment.Cast) { listOf(Keyword.Haunt) }
         m
     }
 }

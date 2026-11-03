@@ -6,6 +6,17 @@ package arcanum.api
  */
 internal object KeywordExpansionsMore {
     fun expand(keyword: Keyword): List<Ability>? = when (keyword) {
+        // CR 702.55a: on a permanent "When this permanent is put into a graveyard from the battlefield, exile it haunting target creature";
+        // on an instant or sorcery "When this spell is put into a graveyard during its resolution, exile it haunting target creature"
+        Keyword.Haunt -> {
+            val target = TargetSlot("haunted", TargetKind.Objects(ObjectFilter.Type(CardType.Creature)), min = Value.Fixed(1), max = Value.Fixed(1))
+            val haunt = Instructions(targets = listOf(target), steps = listOf(Step.Do(Effect.Haunt(Objects.EventObject(EventRole.After), Objects.Target("haunted")))))
+            listOf(
+                Ability.Triggered(Trigger.On(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), from = Zone.Battlefield, to = Zone.Graveyard)), haunt),
+                Ability.Triggered(Trigger.On(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), from = Zone.Stack, to = Zone.Graveyard, resolving = true)),
+                    haunt),
+            )
+        }
         // CR 702.95a: "When this creature enters, if you control both this creature and another creature and both are unpaired, you may
         // pair this creature with another unpaired creature you control for as long as both remain creatures on the battlefield under
         // your control" and "Whenever another creature you control enters, if you control both that creature and this one and both are

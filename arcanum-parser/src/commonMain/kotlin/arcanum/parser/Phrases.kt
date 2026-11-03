@@ -460,6 +460,7 @@ internal object Events {
     /** One or more events of one trigger ("this artifact enters or leaves the battlefield", "attacks or blocks"). */
     // chunk 21
     fun events(text: String, self: Set<String>): List<EventPattern>? {
+        MechanicWordings.events(text, self)?.let { return it }
         EclPhrases.events(text, self)?.let { return it } // ecl
         FraPhrases.events(text, self)?.let { return it } // fra
         // blb chunk 03: "this artifact enters and when you sacrifice it" (only its controller sacrifices it, CR 701.21a)

@@ -511,6 +511,10 @@ object KeywordExpansions {
             steps(Effect.PutCounters(Objects.Self, CounterKind.PowerToughness(1, 1), Value.Fixed(keyword.amount)), Effect.Mark(Objects.Self, ObjectMark.Renowned)),
             interveningIf = Condition.Not(Condition.ObjectMatches(Objects.Self, ObjectFilter.HasStatus(Status.Marked(ObjectMark.Renowned))))))
         // CR 702.130a: "Whenever this creature becomes blocked, defending player loses N life."
+        // tla: CR 702.189a: "Whenever this creature attacks, add N {R}. Until end of combat, you don't lose this mana as steps and
+        // phases end."
+        is Keyword.Firebending -> listOf(firebending(Value.Fixed(keyword.amount)))
+        is Keyword.FirebendingX -> listOf(firebending(keyword.amount))
         is Keyword.Afflict -> listOf(Ability.Triggered(Trigger.On(EventPattern.BecomesBlocked(ObjectFilter.Is(Objects.Self), ObjectFilter.Any)),
             steps(Effect.LoseLife(Players.DefendingPlayerOf(Objects.Self), Value.Fixed(keyword.amount)))))
         // CR 702.135a: "When this permanent is put into a graveyard from the battlefield, create N 1/1 white and black
@@ -636,6 +640,22 @@ object KeywordExpansions {
             Step.Do(Effect.Discard(Players.You, Value.Fixed(1), ObjectFilter.Any, preBind = "recruited")),
             Step.If(Condition.ObjectMatches(Objects.Bound("recruited"), ObjectFilter.Not(ObjectFilter.Type(CardType.Land))),
                 then = listOf(Step.Do(Effect.CreateToken(TokenSpec.Defined(RECRUIT_TOKEN), Value.Fixed(1), Players.You)))))
+        // tla: CR 701.66a: "Target land you control becomes a 0/0 land creature with haste in addition to its other types. Put N
+        // +1/+1 counters on it. When that land dies or is put into exile, return it to the battlefield tapped under your control."
+        is KeywordAction.Earthbend -> {
+            val land = Objects.Target(action.slot)
+            val returned = Objects.EventObject(EventRole.After)
+            listOf(
+                Step.Do(Effect.ApplyMechanics(listOf(Mechanic.SetTypes(add = listOf(CardType.Creature)),
+                    Mechanic.SetPowerToughness(Value.Fixed(0), Value.Fixed(0)), Mechanic.GainAbilities(listOf(Keyword.Haste))),
+                    Affected.Objects(land), Duration.Indefinitely)),
+                Step.Do(Effect.PutCounters(land, CounterKind.PowerToughness(1, 1), action.amount)),
+                Step.Do(Effect.CreateDelayedTrigger(Trigger.On(listOf(
+                    EventPattern.ZoneChange(ObjectFilter.Is(land), from = Zone.Battlefield, to = Zone.Graveyard),
+                    EventPattern.ZoneChange(ObjectFilter.Is(land), to = Zone.Exile))),
+                    Instructions(steps = listOf(Step.Do(Effect.Move(returned, Destination(Zone.Battlefield, tapped = true, controller = Players.You))))))),
+            )
+        }
         is KeywordAction.EmpowerJace -> listOf(
             Step.If(Condition.Not(Condition.Exists(jaceTokenYouControl, atLeast = 1)),
                 then = listOf(Step.Do(Effect.CreateToken(TokenSpec.Defined(JACE_TOKEN), count = Value.Fixed(1), controller = Players.You)))),
@@ -643,6 +663,11 @@ object KeywordExpansions {
             Step.Do(Effect.PutCounters(Objects.Bound("empowered"), CounterKind.Loyalty, action.count)))
         else -> null
     }
+
+    // tla
+    /** Firebending [amount] (CR 702.189a): an attack trigger adding [amount] {R} kept until end of combat. */
+    private fun firebending(amount: Value) = Ability.Triggered(Trigger.On(EventPattern.Attack(ObjectFilter.Is(Objects.Self))), steps(Effect.AddMana(
+        ManaProduction(ManaKind.Fixed(ManaCost.parse("{R}")!!, times = amount), keptUntil = Duration.EndOfCombat), Players.You)))
 
     // hob
     /** The token recruit creates (CR 701.70a): a 1/1 white Human Soldier creature token. */

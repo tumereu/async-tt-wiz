@@ -357,7 +357,8 @@ internal object Actions {
      * over lethal per recipient (CR 120.4a). */
     data class DamageResult(
         val dealt: List<DamageDealt>, val excess: Int,
-        // spm: the excess over lethal dealt to each recipient ("excess damage is dealt to the creature … this way")
+        // tla
+        /** The excess damage dealt to each recipient (CR 120.4a). */
         val excessTo: Map<TargetRef, Int> = emptyMap(),
     ) {
         val total: Int get() = dealt.sumOf { it.amount }

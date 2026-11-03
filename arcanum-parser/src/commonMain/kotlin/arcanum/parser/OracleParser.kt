@@ -44,7 +44,9 @@ object OracleParser {
             // ecl chunk 13: "As an additional cost to cast this spell, blight X." (X announced as it is cast, CR 601.2b)
             abilities.any { a -> a is Ability.Static && a.mechanics.any { it is arcanum.api.Mechanic.XAtMost } } ||
             // sos chunk 08: "As an additional cost to cast this spell, pay X life." (X announced as it is cast, CR 601.2b)
-            (isSpell && card.text.contains("As an additional cost to cast this spell, pay X life."))
+            (isSpell && card.text.contains("As an additional cost to cast this spell, pay X life.")) ||
+            // tla chunk 01: "As an additional cost to cast this spell, waterbend {X}." (X announced as it is cast, CR 601.2b, 107.3)
+            (isSpell && card.text.contains("As an additional cost to cast this spell, waterbend {X}."))
         if (hasX) abilities = abilities.map { if (it is Ability.Spell) it.copy(instructions = it.instructions.copy(announced = listOf("X"))) else it }
         // Overload (CR 702.96b): the spell's text with "target" replaced by "each".
         if (abilities.any { it is Keyword.Overload }) {
@@ -105,6 +107,8 @@ object OracleParser {
         // abilities, CR 607.2a): hideaway's card, or the cards an exile instruction keeps as card memory.
         // dsk chunk 11: "the discarded card" is the card discarded to pay the additional cost
         sentences.discardedCard = text.contains("the discarded card")
+        // tla chunk 02: an Aura's spell targets through its enchant slot (CR 303.4a)
+        sentences.enchantSlot = text.lines().any { it.startsWith("Enchant ") }
         sentences.exiledCard = when {
             text.lines().any { it.trim().startsWith("Hideaway ") } -> arcanum.api.Objects.LinkedTo(Keyword.Hideaway.Kind)
             text.contains("the exiled card", ignoreCase = true) -> arcanum.api.Objects.Remembered(EXILED_WITH)

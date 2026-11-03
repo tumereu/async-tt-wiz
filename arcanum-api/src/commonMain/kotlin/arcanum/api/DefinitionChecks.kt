@@ -281,6 +281,8 @@ object DefinitionChecks {
             ((spell["instructions"] as? JsonObject)?.get("announced") as? JsonArray).orEmpty().map { it.jsonPrimitive.content } }.toSet()
         abilities.filter { it.typeName() == "spell" }.forEach { spell -> visitAll(spell) { o ->
             if (o.typeName() == null && "what" in o) o.string("name")?.let { spellSlots += it } } }
+        // tla: an Aura spell targets through its enchant keyword (CR 303.4a)
+        if (abilities.any { it.typeName() == "enchant" }) spellSlots += Keyword.Enchant.SLOT
         // A cost reduction of the spell is applied after its targets are chosen too ("costs {3} less if it targets a tapped
         // creature", CR 601.2f).
         fun isCostStatic(a: JsonObject) = a.typeName() == "static" && (a["mechanics"] as? JsonArray).orEmpty()

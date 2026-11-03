@@ -111,10 +111,17 @@ The definition model (overview in `Definitions.kt`):
 - Marvel's Spider-Man (set `spm`): web-slinging and mayhem as `KeywordExpansions` entries (CR 702.188a, 702.187b; `Keyword.Mayhem.cost`
   null is mayhem without a cost, CR 702.187c; `KeywordExpansions.webSlinging` and `WEB_SLINGING_RETURNED`, kept with `COST_NAMES` for the
   permanent: "the returned creature"), `ObjectFilter.Modified` (CR 700.9), `Effect.CopySpell.except` ("except the copy isn't
-  legendary"), `Effect.Fight.bind` (the damage to the second creature and its excess), `TargetSlot.distinct` ("with different names"),
-  `EventPattern.PlayLand.from`/`notFrom`, `Trigger.On.throughNth` ("your first or second card each turn"), `Value.TurnsTaken` ("during
-  your first, second, or third turns"), `Modification.EntersAsCopy.bind` (the copied card for "When you do, exile that card") and
-  `Mechanic.KeepsUnspentMana`; `DefinitionChecks` allows looking at cards as a permanent enters.
+  legendary"), `TargetSlot.distinct` ("with different names"), `EventPattern.PlayLand.from`/`notFrom`, `Trigger.On.throughNth` ("your
+  first or second card each turn"), `Value.TurnsTaken` ("during your first, second, or third turns"), `Modification.EntersAsCopy.bind`
+  (the copied card for "When you do, exile that card"); `DefinitionChecks` allows looking at cards as a permanent enters.
+- Avatar: The Last Airbender (set `tla`): airbend (CR 701.65, `KeywordAction.Airbend`), earthbend (CR 701.66, expanded with the land's
+  return when it dies or is exiled), waterbend costs (CR 701.67, `CostPart.Waterbend` and `ManaPaymentWay.Waterbend`), "firebending X,
+  where X is …" (`Keyword.FirebendingX`; firebending's mana lasts until end of combat), the bend events (`EventPattern.Airbend`,
+  `Earthbend`, `Firebend`, `Waterbend`), `EventPattern.AbilityTriggers` ("a creature you control attacking causes a triggered ability of
+  that creature to trigger"), `Mechanic.SetName`, `Mechanic.KeepsUnspentMana` and `UnspentManaBecomes`, `GainAbilitiesOf.triggered`,
+  `Effect.Fight.bind` (the excess damage), `Effect.ExtraCombat.onlyAttackers`, `Effect.ControlNextTurn.combatPhase`,
+  `ActivationRules.minimumX` ("X can't be 0"), `Value.ManaInPool`, `Value.MostSharing`, `NumericProperty.CreatureTypes`,
+  `Objects.Granter` and `Keyword.Enchant.SLOT`.
 
 `ExampleCardsTest` shows about twenty invented cards written in the model and their
 JSON. Decisions from the API reviews (D19–D49) are built here where they concern card

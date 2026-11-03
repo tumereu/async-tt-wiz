@@ -431,6 +431,18 @@ sealed interface GameEvent {
     @Serializable @SerialName("manifested-dread") data class ManifestedDread(
         val player: PlayerId, val manifested: ObjectId?, val rest: List<ObjectId>,
     ) : GameEvent
+    // tla
+    /** [player] airbended: exiled one or more objects as an instruction to airbend told them (CR 701.65b). */
+    @Serializable @SerialName("airbended") data class Airbended(val player: PlayerId) : GameEvent
+    /** [player] earthbended: the delayed triggered ability of an earthbend was created (CR 701.66b). */
+    @Serializable @SerialName("earthbended") data class Earthbended(val player: PlayerId) : GameEvent
+    /** [player] firebended: a firebending ability they control resolved (CR 702.189b). */
+    @Serializable @SerialName("firebended") data class Firebended(val player: PlayerId) : GameEvent
+    /** [player] waterbended: paid a waterbend cost (CR 701.67c). */
+    @Serializable @SerialName("waterbended") data class Waterbended(val player: PlayerId) : GameEvent
+    /** A triggered ability of [source] triggered on an event of [cause]'s kind and was put on the Stack as [item] (CR 603.2): what
+     * "attacking causes a triggered ability of that creature to trigger" looks for. [attack]: the event was [source] attacking. */
+    @Serializable @SerialName("ability-triggered") data class AbilityTriggered(val source: ObjectId, val item: ObjectId, val attack: Boolean) : GameEvent
 }
 
 /**

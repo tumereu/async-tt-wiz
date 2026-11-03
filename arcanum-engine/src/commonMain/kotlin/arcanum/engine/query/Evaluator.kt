@@ -121,6 +121,8 @@ internal class Evaluator(val board: Board, val ctx: Context) {
         is Objects.EventObject -> ctx.event?.objects.orEmpty().filter { it.role == objects.role }.flatMap { it.ids }
         // ecl: an Aura sacrificed to pay its own ability's cost still names what it was attached to (CR 608.2h)
         is Objects.AttachedTo -> objects(objects.of).mapNotNull { ((state.obj(it)?.attachedTo ?: lki(it)?.attachedTo) as? TargetRef.Object)?.id }
+        // tla: in an ability another object's static ability gives, that object (CR 113.10)
+        Objects.Granter -> listOfNotNull((ctx.stackItem?.origin as? arcanum.engine.view.AbilityOrigin.FromAbility)?.source ?: ctx.self)
         // The source's new object after a zone change: bound by a flow that knows the move, else found in the log
         Objects.SelfAfter -> ctx.names[SELF_AFTER]?.let { boundObjects(it) } ?: listOfNotNull(ctx.self?.let { board.readingLog(); Lki.newObject(state, it) })
         Objects.Tested -> listOfNotNull(ctx.tested)
@@ -587,6 +589,10 @@ internal class Evaluator(val board: Board, val ctx: Context) {
         is Value.Count -> objects(value.objects).size
         is Value.CountPlayers -> players(value.players).size
         is Value.CountDistinct -> distinct(value.quality, objects(value.objects))
+        // tla: unspent mana (CR 106.4)
+        is Value.ManaInPool -> players(value.players).sumOf { state.player(it).manaPool.size }
+        // tla: the most objects sharing one value of the quality (a changeling shares every creature type, CR 702.73a)
+        is Value.MostSharing -> mostSharing(value.quality, objects(value.objects))
         is Value.Of -> combine(value.how, objects(value.objects).map { property(value.property, it) })
         is Value.PlayerCounters -> players(value.players).sumOf { state.player(it).counters(value.kind) }
         is Value.LifeOf -> players(value.players).sumOf { state.player(it).life }
@@ -652,6 +658,8 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             is NumericProperty.Counters -> counterList(id).orEmpty().let { counters ->
                 if (property.kind == null) counters.sumOf { it.count } else counters.filter { it.kind == property.kind }.sumOf { it.count }
             }
+            // tla: how many creature types it has (every one for a changeling, CR 702.73a)
+            NumericProperty.CreatureTypes -> c?.let { if (it.allCreatureTypes) Subtypes.creatureTypeCount else creatureTypes(it).distinct().size } ?: 0
             // CR 709.5c
             NumericProperty.UnlockedDoors -> o?.marks.orEmpty().count { it is arcanum.api.ObjectMark.Unlocked }
             // msh: mana symbols of a colour in its mana cost, hybrid ones included (CR 107.4, 202.1)
@@ -706,6 +714,26 @@ internal class Evaluator(val board: Board, val ctx: Context) {
         Combine.Total -> values.sum()
         Combine.Greatest -> values.maxOrNull() ?: 0
         Combine.Least -> values.minOrNull() ?: 0
+    }
+
+    /** tla: the most of [ids] that share one value of [quality]. */
+    private fun mostSharing(quality: SharedQuality, ids: List<ObjectId>): Int {
+        val cs = ids.mapNotNull { characteristics(it) }
+        if (quality == SharedQuality.CreatureType) {
+            val all = cs.count { it.allCreatureTypes }
+            val counts = cs.filter { !it.allCreatureTypes }.flatMap { creatureTypes(it).distinct() }.groupingBy { it }.eachCount()
+            return all + (counts.values.maxOrNull() ?: 0)
+        }
+        val values: List<List<Any>> = when (quality) {
+            SharedQuality.Color -> cs.map { it.colors }
+            SharedQuality.CardType -> cs.map { it.types }
+            SharedQuality.Name -> cs.map { names(it) }
+            SharedQuality.BasicLandType -> cs.map { c -> c.subtypes.filter { it in Subtypes.basicLandTypes } }
+            SharedQuality.PlaneswalkerType -> cs.map { planeswalkerTypes(it) }
+            is SharedQuality.Number -> ids.map { listOf(property(quality.property, it)) }
+            SharedQuality.CreatureType -> emptyList()
+        }
+        return values.flatMap { it.distinct() }.groupingBy { it }.eachCount().values.maxOrNull() ?: 0
     }
 
     internal fun distinct(quality: SharedQuality, ids: List<ObjectId>): Int {
@@ -916,15 +944,18 @@ internal object History {
         val state = evaluator.board.state
         val casts = state.eventsOf(state.turn.number).filter { arcanum.engine.trigger.EventMatcher.isCast(it) }
             .map { (it as arcanum.engine.change.Change.StackItemAdded).item }
-        val index = casts.indexOfFirst { it.id == id }
-        if (index < 0) return false
+        val found = casts.indexOfFirst { it.id == id }
+        // tla: a spell on the Stack not yet cast (its costs being determined, CR 601.2f) is the next one cast
+        val beingCast = found < 0 && state.obj(id)?.zone == Zone.Stack
+        if (found < 0 && !beingCast) return false
+        val index = if (beingCast) casts.size else found
         val self = evaluator.ctx.self
         fun counts(spell: ObjectId): Boolean {
             val judged = if (self != null && spell != self && Lki.newObject(state, spell) == self) self else spell
             return evaluator.matches(filter.spells, judged)
         }
         if (!counts(id)) return false
-        val caster = casts[index].controller
+        val caster = if (beingCast) evaluator.board.controller(id) else casts[index].controller
         return casts.take(index).count { it.controller == caster && counts(it.id) } + 1 == filter.n
     }
 

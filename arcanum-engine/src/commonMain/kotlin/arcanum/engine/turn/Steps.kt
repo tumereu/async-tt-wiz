@@ -113,13 +113,17 @@ internal object Steps {
     private fun leave(recorder: Recorder) {
         val s = recorder.state
         val step = s.turn.step
-        // spm: "You don't lose unspent red mana as steps and phases end" (CR 500.4)
-        val keeps = if (s.players.all { it.manaPool.isEmpty() }) emptyMap() else arcanum.engine.view.Layers.view(s).players.mapValues { (_, v) ->
-            v.mechanics.mapNotNull { it.mechanic as? arcanum.api.Mechanic.KeepsUnspentMana }.flatMap { it.colors }.toSet() }
+        val view = Snapshot(s).view
         s.players.forEach { p ->
-            val colors = keeps[p.id].orEmpty()
-            val kept = p.manaPool.filter { (it.keptUntil != null && !(step == TurnStep.Cleanup && it.keptUntil == Duration.EndOfTurn)) || it.color in colors }
-            if (kept.size != p.manaPool.size) recorder.record(Changes.manaPool(s, p.id, kept, listOf(Meaning.ManaEmptied)))
+            // tla: mana kept "until end of combat" is lost as the end of combat step ends (CR 702.189a); players that keep unspent mana of
+            // some colours keep it (CR 106.4); unspent mana that becomes a colour instead of being lost stays, that colour (614.1a)
+            val mechanics = view.players[p.id]?.mechanics.orEmpty().map { it.mechanic }
+            val keptColors = mechanics.filterIsInstance<arcanum.api.Mechanic.KeepsUnspentMana>().flatMap { it.colors }.toSet()
+            val becomes = mechanics.filterIsInstance<arcanum.api.Mechanic.UnspentManaBecomes>().lastOrNull()?.color
+            fun keeps(u: arcanum.engine.state.ManaUnit) = (u.keptUntil != null && !(step == TurnStep.Cleanup && u.keptUntil == Duration.EndOfTurn) &&
+                !(step == TurnStep.EndOfCombat && u.keptUntil == Duration.EndOfCombat)) || (u.color != null && u.color in keptColors)
+            val kept = p.manaPool.mapNotNull { u -> if (keeps(u)) u else becomes?.let { u.copy(color = it, keptUntil = null) } }
+            if (kept != p.manaPool) recorder.record(Changes.manaPool(s, p.id, kept, listOf(Meaning.ManaEmptied)))
         }
         endEffects(recorder) { d, you -> d is Duration.ThroughNextStep && d.step == step && whose(recorder.state, d.whose, you) }
         if (step == TurnStep.EndOfCombat) {

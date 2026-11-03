@@ -260,6 +260,16 @@ internal object Resolution {
         return definition.faces.getOrNull(printed.face)?.abilities?.getOrNull(printed.index) is arcanum.api.Keyword.Gift
     }
 
+    /** tla: whether [item] is the triggered ability of a firebending keyword's expansion (CR 702.189a), printed or granted. */
+    private fun isFirebending(item: StackItem): Boolean {
+        if (item.origin !is arcanum.engine.view.AbilityOrigin.Expansion) return false
+        val ability = item.ability as? arcanum.api.Ability.Triggered ?: return false
+        val add = (ability.instructions.steps.singleOrNull() as? arcanum.api.Step.Do)?.effect as? arcanum.api.Effect.AddMana ?: return false
+        val kind = add.mana.kind as? arcanum.api.ManaKind.Fixed ?: return false
+        return add.mana.keptUntil == arcanum.api.Duration.EndOfCombat && kind.mana == arcanum.api.ManaCost.parse("{R}") &&
+            ability.trigger == arcanum.api.Trigger.On(arcanum.api.EventPattern.Attack(arcanum.api.ObjectFilter.Is(arcanum.api.Objects.Self)))
+    }
+
     /**
      * The item leaves the Stack (CR 608.2n): an instant or sorcery card goes to its owner's graveyard (or where its
      * permission says, flashback CR 702.34a); a permanent spell enters the battlefield under its controller's control,
@@ -281,6 +291,8 @@ internal object Resolution {
         val meaning = if (fizzled) Meaning.Fizzled else Meaning.Resolved
         val card = act.state.obj(item.id)
         if (!fizzled && givesGift(act, item)) act.record(Change.Happened(arcanum.engine.change.GameEvent.GaveGift(item.controller)))
+        // tla: CR 702.189b: a firebending ability its controller controls resolved
+        if (!fizzled && isFirebending(item)) act.record(Change.Happened(arcanum.engine.change.GameEvent.Firebended(item.controller)))
         if (item.kind is StackItemKind.SpellCopy && !fizzled && card == null) {
             // CR 707.10f, 608.3f: a copy of a permanent spell becomes a token permanent as it resolves
             val c = act.view()[item.id]?.characteristics

@@ -346,10 +346,17 @@ internal object Mana {
         return snap.evaluator(player, self = unit.source).matches(restriction, paysFor)
     }
 
-    /** Payers for the other ways the spell may pay ([ManaPaymentWay], CR 702.51, 702.66, 702.126). */
+    /** Payers for the other ways the spell may pay ([ManaPaymentWay], CR 702.51, 702.66, 702.126); [ManaPaymentWay.Waterbend] is listed
+     * once for each generic mana of the waterbend cost (tla, CR 701.67b), and [suggest] uses at most that many of its payers. */
     fun specialPayers(snap: Snapshot, player: PlayerId, ways: List<ManaPaymentWay>, exclude: Set<ObjectId> = emptySet()): List<Payer> =
         ways.distinct().flatMap { way ->
             when (way) {
+                // tla: CR 701.67a: an untapped artifact or creature for one generic mana
+                ManaPaymentWay.Waterbend -> snap.state.battlefield.filter { id ->
+                    val o = snap.state.obj(id)
+                    o != null && !o.tapped && !o.phasedOut && snap.board.controller(id) == player && id !in exclude &&
+                        snap.view[id]?.characteristics?.let { it.isType(CardType.Artifact) || it.isType(CardType.Creature) } == true
+                }.map { id -> Payer(emptySet(), snow = false, use = ManaUse.Special(way, listOf(id))) }
                 ManaPaymentWay.TapCreatures -> untapped(snap, player, CardType.Creature).filter { it !in exclude }.map { id ->
                     Payer((snap.view[id]?.characteristics?.colors.orEmpty() + listOf<Color?>()).toSet(), snow = false,
                         use = ManaUse.Special(way, listOf(id)))
@@ -366,6 +373,13 @@ internal object Mana {
                 }
             }
         }
+
+    /** tla: at most as many waterbend payers as the waterbend cost has generic mana (CR 701.67b). */
+    private fun capped(payers: List<Payer>, ways: List<ManaPaymentWay>): List<Payer> {
+        val cap = ways.count { it == ManaPaymentWay.Waterbend }
+        val waterbend = payers.filter { (it.use as? ManaUse.Special)?.way == ManaPaymentWay.Waterbend }
+        return payers.filter { it !in waterbend } + waterbend.take(cap)
+    }
 
     private fun untapped(snap: Snapshot, player: PlayerId, type: CardType): List<ObjectId> = snap.state.battlefield.filter { id ->
         val o = snap.state.obj(id)
@@ -395,20 +409,23 @@ internal object Mana {
      * the cheapest sources (lands before creatures, single colours before many, nothing sacrificed when avoidable);
      * Phyrexian symbols by mana when it can be found, else by life. The spell's other ways to pay [ways] (convoke, delve,
      * improvise, CR 702.51, 702.66, 702.126) are used only when mana alone isn't found, or alone when mana can't be spent
-     * on it ([canSpendMana] false); a creature that is a mana source isn't also tapped for convoke.
+     * on it ([canSpendMana] false); a creature that is a mana source isn't also tapped for convoke. [notSources]: objects the
+     * cost itself taps, not tapped for mana.
      */
     fun suggest(
         snap: Snapshot, player: PlayerId, cost: ManaCost, paysFor: ObjectId?,
         ways: List<ManaPaymentWay> = emptyList(), canSpendMana: Boolean = true, anyColor: Boolean = false,
+        notSources: Set<ObjectId> = emptySet(),
     ): List<ManaUse> {
         if (cost.symbols.all { it is ManaSymbol.Generic && it.amount == 0 || it is ManaSymbol.Variable }) return emptyList()
-        if (!canSpendMana) return suggestFrom(snap, player, cost, specialPayers(snap, player, ways), emptyList(), paysFor)
+        if (!canSpendMana) return suggestFrom(snap, player, cost, capped(specialPayers(snap, player, ways), ways), emptyList(), paysFor)
         val any = anyColor || spendsAsAnyColor(snap, player, paysFor)
         val pool = poolPayers(snap, player, paysFor, anyColor = any)
-        val sources = sources(snap, player)
+        // tla: a source the cost taps ({T}) can't also make mana for it
+        val sources = sources(snap, player).filter { it.id !in notSources }
         val byMana = suggestFrom(snap, player, cost, pool, sources, paysFor, any)
         if (byMana.isNotEmpty() || ways.isEmpty()) return byMana
-        return suggestFrom(snap, player, cost, pool + specialPayers(snap, player, ways, sources.map { it.id }.toSet()), sources, paysFor, any)
+        return suggestFrom(snap, player, cost, pool + capped(specialPayers(snap, player, ways, sources.map { it.id }.toSet()), ways), sources, paysFor, any)
     }
 
     /** [suggest] from [pool] (pool mana and other ways' payers, used as they are) and mana [sources]. */

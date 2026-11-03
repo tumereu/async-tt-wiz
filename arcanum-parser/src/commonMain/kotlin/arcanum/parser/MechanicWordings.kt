@@ -35,6 +35,8 @@ internal object MechanicWordings {
     fun event(text: String): EventPattern? = when (text) {
         // CR 701.54d
         "the Ring tempts you" -> EventPattern.RingTempts(PlayerFilter.You)
+        // CR 309.7
+        "you complete a dungeon" -> EventPattern.CompletesDungeon(PlayerFilter.You)
         // CR 702.55b, c
         "the creature it haunts dies", "the creature this card haunts dies" -> hauntedDies
         else -> null
@@ -90,6 +92,9 @@ internal object MechanicWordings {
         if (text == "tribute wasn't paid")
             return Condition.Not(Condition.ObjectMatches(Objects.Self, ObjectFilter.HasStatus(Status.Marked(arcanum.api.KeywordExpansions.TRIBUTE_PAID))))
         if (text == "you don't control a Ring-bearer") return Condition.Not(Condition.Exists(yourRingBearer, 1))
+        // CR 309.7
+        if (text == "you've completed a dungeon") return Condition.Compare(Value.DungeonsCompleted(arcanum.api.Players.You),
+            arcanum.api.Comparison.AtLeast, Value.Fixed(1))
         if (text == "you control a Ring-bearer") return Condition.Exists(yourRingBearer, 1)
         return null
     }
@@ -98,7 +103,32 @@ internal object MechanicWordings {
     fun effect(sentence: String): List<Step>? = when (sentence) {
         // CR 701.54a
         "The Ring tempts you." -> listOf(Step.Do(Effect.Action(KeywordAction.TheRingTemptsYou)))
+        // CR 701.49a–d
+        "Venture into the dungeon." -> listOf(Step.Do(Effect.Action(KeywordAction.Venture)))
+        "Venture into Undercity." -> listOf(Step.Do(Effect.Action(KeywordAction.VentureInto(undercity))))
+        // CR 726.1, 726.3
+        "You take the initiative." -> listOf(Step.Do(Effect.GiveDesignation(arcanum.api.Players.You, arcanum.api.Designation.Initiative)))
         else -> null
+    }
+
+    /** "Undercity" (CR 205.3p, 701.49d). */
+    private val undercity: ObjectFilter = ObjectFilter.Sub(arcanum.api.SubtypeRef.Literal(arcanum.api.Subtype("Undercity")))
+
+    private val ROOM = Regex("""(.+?) — (.+?)(?:\s*\(→ (.+?)\))?""")
+
+    /**
+     * A dungeon card's rooms (CR 309.4): one line each, "[name] — [effect] (→ [room] or [room])", the topmost first; the arrows name the
+     * rooms they lead to. [effect] reads a room's effect; one it can't read is done by hand. Null when a line isn't a room.
+     */
+    fun rooms(text: String, effect: (String) -> arcanum.api.Instructions?): List<arcanum.api.DungeonRoom>? {
+        val lines = text.lines().map { it.trim() }.filter { it.isNotEmpty() }
+        val parsed = lines.map { ROOM.matchEntire(it) ?: return null }
+        val names = parsed.map { it.groupValues[1] }
+        return parsed.map { m ->
+            val next = m.groupValues[3].takeIf { it.isNotEmpty() }?.split(" or ")?.map { n -> names.indexOf(n.trim()).takeIf { it >= 0 } ?: return null }.orEmpty()
+            val text = m.groupValues[2].trim()
+            arcanum.api.DungeonRoom(m.groupValues[1], effect(text) ?: arcanum.api.Instructions(steps = listOf(Step.Manual(text))), next)
+        }
     }
 
     private val PAIRED = Regex("""As long as (.+) is paired with another creature, (?:both creatures|each of those creatures) (have|has|gets?) (.+?)\.?""")

@@ -179,6 +179,8 @@ sealed interface EventPattern {
      * creature chosen. */
     @Serializable @SerialName("ring-tempts") data class RingTempts(val players: PlayerFilter) : EventPattern
     @Serializable @SerialName("forage") data class Forage(val players: PlayerFilter) : EventPattern
+    /** A player completes a dungeon (CR 309.7, "Whenever you complete a dungeon"). */
+    @Serializable @SerialName("completes-dungeon") data class CompletesDungeon(val players: PlayerFilter) : EventPattern
     /** A permanent matching [objects] is given an unlocked designation (CR 709.5h), as it enters or later; [thisDoor]:
      * only the half the triggered ability is printed on ("When you unlock this door"); [fully]: only when it then has
      * both ("whenever you fully unlock a Room", CR 709.5i). Role object (the permanent); [Players.EventPlayer] is its

@@ -73,6 +73,8 @@ internal object StateBasedActions {
         arcanum.engine.ring.TheRing.check(act, view)
         // CR 702.95e: paired creatures that stop being creatures under the pairing player's control become unpaired at once
         arcanum.engine.soulbond.Soulbond.check(act, view)
+        // CR 309.6: a dungeon whose venture marker is on its bottommost room, its room ability gone, is completed
+        arcanum.engine.dungeon.Dungeons.check(act)
         val toGraveyard = mutableListOf<ObjectId>()
         val destroyed = mutableListOf<ObjectId>()
         val unattach = mutableListOf<ObjectId>()

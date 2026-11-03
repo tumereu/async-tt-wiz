@@ -602,6 +602,7 @@ internal class Evaluator(val board: Board, val ctx: Context) {
         is Value.ManaInPool -> players(value.players).sumOf { state.player(it).manaPool.size }
         // tla: the most objects sharing one value of the quality (a changeling shares every creature type, CR 702.73a)
         is Value.RingTemptations -> players(value.players).sumOf { arcanum.engine.ring.TheRing.temptations(state, it) }
+        is Value.DungeonsCompleted -> players(value.players).sumOf { arcanum.engine.dungeon.Dungeons.completed(state, it) }
         is Value.MostSharing -> mostSharing(value.quality, objects(value.objects))
         is Value.Of -> combine(value.how, objects(value.objects).map { property(value.property, it) })
         is Value.PlayerCounters -> players(value.players).sumOf { state.player(it).counters(value.kind) }

@@ -1116,6 +1116,8 @@ internal object Effects {
             act.record(Change.PlayerDesignation(it.id, designation, true, false))
         }
         if (designation !in act.state.player(player).designations) act.record(Change.PlayerDesignation(player, designation, false, true))
+        // CR 726.2, 726.5: taking the initiative triggers, also for the player who has it
+        if (designation == Designation.Initiative) act.record(Change.Happened(GameEvent.TookInitiative(player)))
     }
 
     // ---- Keyword actions (CR 701)
@@ -1335,6 +1337,9 @@ internal object Effects {
             }
             // CR 701.54: the Ring tempts the player doing it
             KeywordAction.TheRingTemptsYou -> arcanum.engine.ring.TheRing.tempt(act, cause, scope.actor)
+            // CR 701.49: venture into the dungeon, or into [quality] (701.49d)
+            KeywordAction.Venture -> arcanum.engine.dungeon.Dungeons.venture(act, cause, scope.actor, null)
+            is KeywordAction.VentureInto -> arcanum.engine.dungeon.Dungeons.venture(act, cause, scope.actor, action.dungeons)
             else -> act.manual(scope.actor, scope.self, "Do by hand: ${action::class.simpleName}")
         }
     }

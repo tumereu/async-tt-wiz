@@ -425,6 +425,10 @@ sealed interface GameEvent {
     @Serializable @SerialName("mandatory-loop") data object MandatoryLoop : GameEvent
     /** [player] foraged (CR 701.61a). */
     @Serializable @SerialName("foraged") data class Foraged(val player: PlayerId) : GameEvent
+    /** [player] completed [dungeon] (CR 309.7). */
+    @Serializable @SerialName("completed-dungeon") data class CompletedDungeon(val player: PlayerId, val dungeon: ObjectId) : GameEvent
+    /** [player] took the initiative (CR 726.2, 726.5: also when they had it). */
+    @Serializable @SerialName("took-initiative") data class TookInitiative(val player: PlayerId) : GameEvent
     /** [player] gave a gift (CR 702.174c). */
     @Serializable @SerialName("gave-gift") data class GaveGift(val player: PlayerId) : GameEvent
     /** The Class [id] became level [level] (CR 716.2a). */
@@ -487,6 +491,8 @@ sealed interface Meaning {
     @Serializable @SerialName("put-into-graveyard") data object PutIntoGraveyard : Meaning
     @Serializable @SerialName("entered") data object Entered : Meaning
     @Serializable @SerialName("left-battlefield") data object LeftBattlefield : Meaning
+    /** Removed from the game (a completed dungeon, CR 309.7): back outside the game. */
+    @Serializable @SerialName("left-the-game") data object LeftTheGame : Meaning
     @Serializable @SerialName("played-land") data object PlayedLand : Meaning
     @Serializable @SerialName("token-created") data object TokenCreated : Meaning
     /** A copy of a card was created in the card's zone (CR 707.12). */

@@ -423,7 +423,7 @@ report and replay their inputs on a saved state. The default `EngineTrace.None` 
   `Objects.LinkedTo(haunt)`; a spell's own trigger on leaving the Stack is found on its card). The parser reads their wordings
   and spree and tiered modes, "partner with", "if this spell was bargained", "if tribute wasn't paid" and "If [this] would be put
   into a graveyard from anywhere, exile it instead".
-- Done, by-hand mechanics, third round (2026-11-03, scenarios in `mutate/MutateTest`, `epic/EpicTest`, `casting/AssistTest`): mutate and merged permanents
+- Done, by-hand mechanics, third round (2026-11-03, scenarios in `mutate/MutateTest`, `epic/EpicTest`, `casting/AssistTest`, `dungeon/VentureTest`): mutate and merged permanents
   (`mutate/Mutate`, CR 702.140, 730: the mutate cost is an alternative cost whose spell targets a non-Human creature with the
   same owner; resolving with that target legal it merges on top or under as its controller chooses, `GameEvent.Mutated` and
   `EventPattern.Mutates`, else it enters as a creature spell, 702.140b; the merged permanent stays the same object, keeping its
@@ -439,12 +439,17 @@ report and replay their inputs on a saved state. The default `EngineTrace.None` 
   `casting/AssistTest`): with the costs, the caster may choose another player (`Decision.ChooseOption`, "nobody" or a player),
   who chooses how much of the total cost's generic mana to pay (`ChooseNumber`) and pays it with their own mana (`ManaPayment`
   of that player, kept in `Choices.assist`); the caster pays the rest (`Plan.manaToPay`). The assisting player's mana is paid
-  as on resolution (no spell-restricted mana).
+  as on resolution (no spell-restricted mana). Venturing into the dungeon and the initiative (`dungeon/Dungeons`, CR 309, 701.49,
+  726, scenarios in `dungeon/VentureTest`): a dungeon card the player owns outside the game (chosen in their own view when the state
+  is another player's, D31) is put into the command zone with the venture marker (the dungeon's memory) on its topmost room; each
+  venture follows an arrow (the owner choosing among several) and the room's ability triggers, controlled by the owner; from the
+  bottommost room venturing completes it and starts a new one, and a dungeon on its bottommost room whose room ability has left the
+  Stack is completed as a state-based action (CR 309.6): back outside the game, `GameEvent.CompletedDungeon`, counted in the player's
+  ledger. "Venture into Undercity" only chooses Undercity dungeons; the initiative's three inherent triggers (CR 726.2: upkeep, combat
+  damage to its holder, taking it, `GameEvent.TookInitiative` also when retaken, 726.5) are sourceless waiting triggers.
 - By hand still (D61; `KeywordMeanings.moments`, effects `act.manual` asks for), each for a reason:
   - Keywords: banding (bands and the defending player assigning damage,
     CR 702.22) and hidden agenda (conspiracies, outside normal play).
-  - Keyword actions: venture into the dungeon and the initiative (dungeon cards, outside the game and the deck, and their rooms;
-    the parser doesn't read them either).
   - Steps: mana paid on resolution whose amount isn't known there ("its mana cost", an unannounced X), the rest of a mana ability
     whose other effect needs a decision, the rest of a special action the engine doesn't do (none of the keywords' any more), and
     the parser's `Step.Manual` / `CostPart.Manual` for wordings it marks so.
@@ -452,7 +457,7 @@ report and replay their inputs on a saved state. The default `EngineTrace.None` 
     Ring's rarer wordings ("whenever you choose a creature as your Ring-bearer", "your Ring-bearer" as an object), and the keyword
     actions above other than earthbend, airbend, behold, blight, connive, forage, recruit, the Ring and the cube's (discover,
     manifest, cloak, support, learn, endure and time travel are done by the engine once read).
-- Not yet: venture (above), `nthThisTurn`'s
+- Not yet: `nthThisTurn`'s
   `during`; in the flow: costs to attack other than mana and enlist, and
   "as it attacks" costs (CR 508.1g–h), battles as attack targets (protectors, CR 310.8, 506.2),
   other keyword actions as costs (exert); no cube card has any of these. Also missing: copy effects from static

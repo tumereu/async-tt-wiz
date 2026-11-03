@@ -37,6 +37,12 @@ object OracleParser {
     /** Parses a whole face: its printed characteristics and its rules text. */
     fun parse(card: OracleCard): FaceDefinition {
         val face = characteristics(card)
+        // CR 309.4: a dungeon card's text is its rooms
+        if (arcanum.api.CardType.Dungeon in face.types) {
+            val self = selfNames(card.name, face)
+            MechanicWordings.rooms(card.text) { Sentences(self, true).instructions(it) }?.let { return face.copy(rooms = it) }
+            return face.copy(abilities = listOf(Ability.Unparsed(card.text)))
+        }
         val isSpell = face.types.any { it == arcanum.api.CardType.Instant || it == arcanum.api.CardType.Sorcery }
         val self = selfNames(card.name, face)
         var abilities = abilities(card.text, self, isSpell)

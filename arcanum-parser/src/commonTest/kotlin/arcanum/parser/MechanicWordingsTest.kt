@@ -299,4 +299,50 @@ class MechanicWordingsTest {
         arcanum.api.Keyword.Mutate(arcanum.parser.cube.manaCost("{1}{G}{G}")),
         Ability.Triggered(Trigger.On(EventPattern.Mutates(ObjectFilter.Is(Objects.Self))), Instructions(steps = listOf(drawCards(1)))),
     )
+
+    // CR 701.49a: "venture into the dungeon"
+    @Test
+    fun ventureIntoTheDungeon() = card(
+        name = "Torch Delver",
+        cost = "{1}{W}",
+        type = "Creature — Human Rogue",
+        pt = "2/1",
+        text = "When this creature enters, venture into the dungeon.",
+    ) parsesTo abilities(whenThisEnters(Step.Do(Effect.Action(KeywordAction.Venture))))
+
+    // CR 726.1, 726.3: "you take the initiative"
+    @Test
+    fun takeTheInitiative() = card(
+        name = "Gate Warden",
+        cost = "{2}{W}",
+        type = "Creature — Human Soldier",
+        pt = "2/3",
+        text = "When this creature enters, you take the initiative.",
+    ) parsesTo abilities(whenThisEnters(Step.Do(Effect.GiveDesignation(arcanum.api.Players.You, arcanum.api.Designation.Initiative))))
+
+    // CR 309.7: "Whenever you complete a dungeon" and "as long as you've completed a dungeon"
+    @Test
+    fun completeADungeon() = card(
+        name = "Vault Cartographer",
+        cost = "{2}{U}",
+        type = "Creature — Human Wizard",
+        pt = "1/3",
+        text = "Whenever you complete a dungeon, draw a card.",
+    ) parsesTo abilities(Ability.Triggered(Trigger.On(EventPattern.CompletesDungeon(PlayerFilter.You)), Instructions(steps = listOf(drawCards(1)))))
+
+    // CR 309.4: a dungeon card's rooms, their effects and their arrows
+    @Test
+    fun dungeonRooms() {
+        val face = OracleParser.parse(OracleCard("Test Crypt", null, "Dungeon — Undercity", """
+            Crypt Door — Scry 1. (→ Bone Hall or Dark Well)
+            Bone Hall — Draw a card. (→ Final Vault)
+            Dark Well — Draw a card. (→ Final Vault)
+            Final Vault — Draw a card.
+        """.trimIndent()))
+        kotlin.test.assertEquals(listOf(arcanum.api.CardType.Dungeon), face.types)
+        kotlin.test.assertEquals(listOf(arcanum.api.Subtype("Undercity")), face.subtypes)
+        kotlin.test.assertEquals(listOf("Crypt Door", "Bone Hall", "Dark Well", "Final Vault"), face.rooms.map { it.name })
+        kotlin.test.assertEquals(listOf(listOf(1, 2), listOf(3), listOf(3), emptyList()), face.rooms.map { it.next })
+        kotlin.test.assertEquals(Instructions(steps = listOf(drawCards(1))), face.rooms[3].instructions)
+    }
 }

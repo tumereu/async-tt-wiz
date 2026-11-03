@@ -15,6 +15,8 @@ sealed interface CardType {
     @Serializable @SerialName("land") data object Land : CardType
     @Serializable @SerialName("planeswalker") data object Planeswalker : CardType
     @Serializable @SerialName("sorcery") data object Sorcery : CardType
+    /** A dungeon card (CR 309): begins outside the game, brought into the command zone by venturing into the dungeon. */
+    @Serializable @SerialName("dungeon") data object Dungeon : CardType
 }
 
 /** Supertypes (CR 205.4). */

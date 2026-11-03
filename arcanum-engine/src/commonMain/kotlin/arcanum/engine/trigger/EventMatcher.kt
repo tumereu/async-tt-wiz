@@ -235,6 +235,9 @@ internal object EventMatcher {
         is EventPattern.RingTempts -> ((change as? Change.Happened)?.event as? GameEvent.RingTempted)
             ?.takeIf { e.matches(pattern.players, it.player) }
             ?.let { listOf(TriggerEvent(listOfNotNull(it.bearer?.let { b -> RoleObjects(EventRole.Object, listOf(b)) }), listOf(it.player))) }.orEmpty()
+        // CR 309.7
+        is EventPattern.CompletesDungeon -> ((change as? Change.Happened)?.event as? GameEvent.CompletedDungeon)
+            ?.takeIf { e.matches(pattern.players, it.player) }?.let { listOf(TriggerEvent(players = listOf(it.player))) }.orEmpty()
         is EventPattern.Forage -> ((change as? Change.Happened)?.event as? GameEvent.Foraged)
             ?.takeIf { e.matches(pattern.players, it.player) }?.let { listOf(TriggerEvent(players = listOf(it.player))) }.orEmpty()
         is EventPattern.BecomesLevel -> ((change as? Change.Happened)?.event as? GameEvent.BecameLevel)

@@ -88,7 +88,7 @@ class FinChunk11BlackTest {
                 gainLife(2))))),
         activated(cost(mana("{4}{B}{B}"), tap),
             doing(Effect.Move(target("card"), Destination(Zone.Battlefield, tapped = true, controller = Players.You, counters = listOf(CountersToPut(p1p1, n(2)))))),
-            targets = listOf(slot("card", and(creature, ObjectFilter.Is(Objects.Remembered("exiled")))))),
+            targets = listOf(slot("card", and(creature, inZone(Zone.Exile), ObjectFilter.Is(Objects.Remembered("exiled")))))),
     )
 
     // CR 702.3b

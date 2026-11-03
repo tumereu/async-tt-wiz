@@ -244,7 +244,8 @@ internal class Evaluator(val board: Board, val ctx: Context) {
         is Players.Remembered -> boundPlayers(selfMemory(players.key))
         // blb: the opponent chosen for a gift, kept by the permanent the spell became (CR 702.174a, 400.7d)
         is Players.ChosenAsCost -> objects(players.of).mapNotNull { facts(it)?.chosenPlayer }.distinct()
-        Players.EventPlayer -> ctx.event?.players.orEmpty()
+        // fin: in an effect a triggered ability created, "that player" is its event's player, kept as the effect began (CR 608.2h)
+        Players.EventPlayer -> ctx.event?.players ?: (ctx.names[EVENT_PLAYERS] as? arcanum.engine.state.NamedValue.Players)?.ids.orEmpty()
         is Players.ControllerOf -> objects(players.objects).mapNotNull { controllerOf(it) }.distinct()
         is Players.OwnerOf -> objects(players.objects).mapNotNull { ownerOf(it) }.distinct()
         Players.Active -> listOf(state.turn.active)
@@ -847,6 +848,8 @@ internal class Evaluator(val board: Board, val ctx: Context) {
     companion object {
         /** Names flows bind for references the evaluator can't work out alone. */
         const val SELF_AFTER = "\$self-after"
+        /** fin: the players of the event of the triggered ability that created an effect ([Players.EventPlayer] in it). */
+        const val EVENT_PLAYERS = "\$event-players"
         const val USES_ACTIVATED = "\$uses-activated"
         const val USES_RESOLVED = "\$uses-resolved"
         const val EXCESS_PREFIX = "\$excess:"

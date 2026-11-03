@@ -957,6 +957,8 @@ internal object Effects {
         val act = scope.act
         val e = scope.eval()
         var names = extra.entries.fold(scope.names) { n, (k, v) -> n.with(k, v) }
+        // fin: "that player" of the trigger's event, for an effect that lasts after the trigger has resolved
+        scope.event?.players?.takeIf { it.isNotEmpty() }?.let { names = names.with(arcanum.engine.query.Evaluator.EVENT_PLAYERS, NamedValue.Players(it)) }
         // gtc backfill: a copy of the object an event names ("become a copy of that card", the card put into a graveyard) is
         // found now and kept by name (D37): the event is gone when the copy effect is applied later (CR 707.2)
         val fixed = mechanics.map { fix(e, it) }.map { thisAbility(scope, it) }.map { m ->
@@ -964,6 +966,11 @@ internal object Effects {
             val of = e.objects(m.objects).firstOrNull() ?: return@map m
             names = names.with(COPY_OF, NamedValue.Objects(listOf(of)))
             m.copy(objects = Objects.Bound(COPY_OF))
+        }.map { m ->
+            // fin: "that player gains control of …": the player the event names, found now (CR 608.2h) and kept by name
+            if (m !is Mechanic.ControlledBy || !m.players.toString().contains("Event")) return@map m
+            names = names.with(NEW_CONTROLLER, NamedValue.Players(e.players(m.players)))
+            m.copy(players = arcanum.api.Players.Bound(NEW_CONTROLLER))
         }
         val layered = fixed.any { it.layer != null }
         // Objects named by the effect itself: its rules that aren't layer effects find them through a frozen name
@@ -985,6 +992,7 @@ internal object Effects {
 
     private const val LOCKED = "\$affected"
     private const val COPY_OF = "\$copy-of"
+    private const val NEW_CONTROLLER = "\$new-controller"
 
     /** Marks an effect on a spell and the permanent it becomes ([Effect.SpellGets], CR 400.7d): its names hold both. */
     const val FOLLOWS_SPELL = "\$follows-spell"

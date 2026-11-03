@@ -58,7 +58,7 @@ class FinChunk15ArtifactsLandsAndMeldTest {
     ) parsesTo abilities(
         Keyword.Flying,
         triggered(attacksSelf, counters(target("land"), 1, blight),
-            doing(Effect.ApplyMechanics(listOf(Mechanic.SetTypes(replaceSubtypes = true), Mechanic.LoseAbilities(), has(addColorless)), Affected.Objects(target("land")),
+            doing(Effect.ApplyMechanics(listOf(Mechanic.LoseAllLandTypes, Mechanic.LoseAbilities(), has(addColorless)), Affected.Objects(target("land")),
                 Duration.AsLongAs(Condition.ObjectMatches(target("land"), ObjectFilter.HasCounter(blight, atLeast = 1))))),
             targets = listOf(slot("land", land))),
         triggered(on(EventPattern.Tap(and(land, you), forMana = true, producing = ManaCost.parse("{C}"))),

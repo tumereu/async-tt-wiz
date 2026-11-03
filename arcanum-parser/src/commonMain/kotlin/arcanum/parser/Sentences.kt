@@ -17303,7 +17303,8 @@ internal class Sentences(
         // additional +1/+1 counters on it."
         Fin.PUT_TARGET_EXILED_WITH_ONTO_BATTLEFIELD.matchEntire(line)?.takeIf { isSelf(it.groupValues[3]) }?.let { m ->
             val cost = cost(m.groupValues[1]) ?: return null
-            val slot = TargetSlot("card", TargetKind.Objects(Filters.all(Filters.noun(m.groupValues[2]) ?: return null, ObjectFilter.Is(Objects.Remembered(EXILED_WITH)))),
+            val slot = TargetSlot("card", TargetKind.Objects(Filters.all(Filters.noun(m.groupValues[2]) ?: return null,
+                ObjectFilter.InZone(Zone.Exile), ObjectFilter.Is(Objects.Remembered(EXILED_WITH)))),
                 min = Value.Fixed(1), max = Value.Fixed(1))
             val n = Numbers.count(m.groupValues[4]) ?: return null
             return Ability.Activated(cost, Instructions(targets = listOf(slot), steps = listOf(Step.Do(Effect.Move(Objects.Target("card"), Destination(Zone.Battlefield,
@@ -18413,7 +18414,7 @@ internal class Sentences(
             val target = Objects.Target("land")
             return Ability.Triggered(on(EventPattern.Attack(selfIs)), Instructions(targets = listOf(TargetSlot("land", TargetKind.Objects(land), min = Value.Fixed(1),
                 max = Value.Fixed(1))), steps = listOf(Step.Do(Effect.PutCounters(target, kind, Value.Fixed(1))),
-                Step.Do(Effect.ApplyMechanics(listOf(Mechanic.SetTypes(replaceSubtypes = true), Mechanic.LoseAbilities(), Mechanic.GainAbilities(listOf(addC))),
+                Step.Do(Effect.ApplyMechanics(listOf(Mechanic.LoseAllLandTypes, Mechanic.LoseAbilities(), Mechanic.GainAbilities(listOf(addC))),
                     arcanum.api.Affected.Objects(target), arcanum.api.Duration.AsLongAs(arcanum.api.Condition.ObjectMatches(target, ObjectFilter.HasCounter(kind, atLeast = 1))))))))
         }
         // "Whenever you tap a land for {C}, add an additional {C}." (CR 106.12)

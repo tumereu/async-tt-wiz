@@ -92,6 +92,11 @@ sealed interface Mechanic {
     @Serializable @SerialName("lose-all-creature-types") data object LoseAllCreatureTypes : Mechanic {
         override val layer: Layer get() = Layer.Type
     }
+    // fin
+    /** "Loses all land types" (layer 4, CR 613.1d, 205.3i): it has no land types; its other types and subtypes stay. */
+    @Serializable @SerialName("lose-all-land-types") data object LoseAllLandTypes : Mechanic {
+        override val layer: Layer get() = Layer.Type
+    }
     @Serializable @SerialName("colors") data class SetColors(val colors: List<ColorRef>, val add: Boolean = false) : Mechanic {
         override val layer: Layer get() = Layer.Color
         override val stacking: Stacking get() = Stacking.Independent

@@ -342,7 +342,9 @@ internal object Triggers {
 
     private fun batch(instances: List<TriggerEvent>): TriggerEvent {
         val roles = instances.flatMap { it.objects }.groupBy { it.role }.map { (role, list) -> RoleObjects(role, list.flatMap { it.ids }.distinct()) }
-        return TriggerEvent(roles, instances.flatMap { it.players }.distinct(), instances.mapNotNull { it.amount }.takeIf { it.isNotEmpty() }?.sum())
+        // fin: a batch of events without amounts counts its events ("whenever one or more Birds you control attack, look at that many cards")
+        return TriggerEvent(roles, instances.flatMap { it.players }.distinct(), instances.mapNotNull { it.amount }.takeIf { it.isNotEmpty() }?.sum()
+            ?: instances.size)
     }
 
     /** fra: [change] without the parts [Mechanic.EventDoesntTrigger] mutes ("Artifacts and creatures entering the battlefield

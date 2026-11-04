@@ -1,0 +1,1 @@
+mod: No panel tells you what you just cast; your own moves show briefly at the top like your opponent's

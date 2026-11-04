@@ -83,6 +83,11 @@ internal fun SharedFlowHost(toolkit: TableToolkitController, play: PlayState, sc
     fun name(player: String) = if (player == viewer) "You" else names[player] ?: "The other player"
     val decision = flow.decision
     val holder = flow.priority
+    // TRN-062 (owner playtest 2026-11-04 #3): the opening's Mulligan / Keep is answered only with the quick actions
+    if (flows.onEngine && openingDecision(decision)) return
+    // STK-027 (owner playtest 2026-11-04 #5, #6): on engine state nothing covers the board while you hold priority with
+    // something on the Stack: it shows on the Stack, Resolve sits under it and a response is cast the usual way
+    if (flows.onEngine && decision == null && holder == viewer) return
     // CMB-033: a division of combat damage has a panel of its own; one made by itself shows nothing meanwhile
     val dialog = decision is Decision.Divide && flow.division != null
     // UI review #4 (decided for the owner): every Automatum panel docks full width exactly above the viewer's hand, like
@@ -139,6 +144,10 @@ internal fun SharedFlowHost(toolkit: TableToolkitController, play: PlayState, sc
             dismissButton = { TextButton({ confirm = false }) { IconText(Icons.Outlined.Close, "Cancel") } })
     }
 }
+
+/** The opening's mulligan decision (Keep or Mulligan, CR 103.5), which the quick actions answer (TRN-062). */
+internal fun openingDecision(decision: Decision?): Boolean =
+    decision is Decision.ChooseOption && decision.options.containsAll(listOf("Keep", "Mulligan"))
 
 /** Combat review #8: how long the dividing player's client waits for the client that opened an order-free division to
  * answer it before answering it itself. */
@@ -382,7 +391,7 @@ internal fun choiceTitle(flows: SharedFlowController, flow: SharedFlow, play: Pl
 /** Targets of a trigger, picked on the table as for a cast (I-D5, I-D6); there is no cancelling a shared flow. */
 @Composable
 private fun FlowTargetBar(flows: SharedFlowController, flow: SharedFlow, play: PlayState, decision: Decision.Targets) {
-    AutomatumDockBar("Choose targets") {
+    AutomatumDockBar("Choose targets", eye = true) {
         Text("${sourceName(flows, flow, play, decision)} — ${targetPrompt(decision)}", Modifier.weight(1f), fontSize = 13.sp,
             fontWeight = FontWeight.Medium, maxLines = 2, overflow = TextOverflow.Ellipsis)
         if (decision.max != 1 || decision.min == 0) BarButton(if (flows.picked.isEmpty()) "None" else "Done",

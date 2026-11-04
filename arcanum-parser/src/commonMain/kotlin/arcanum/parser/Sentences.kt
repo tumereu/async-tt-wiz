@@ -337,6 +337,57 @@ internal class Sentences(
         return tdmObjects(subject, context)
     }
 
+    /** dungeons: the dungeon cards' room effects (CR 309.4c) that no other rule reads; each falls through when it can't read. */
+    private fun dungeonEffect(sentence: String, context: Context): List<Step>? {
+        // "Draw three cards and reveal them." ("them": the cards drawn, as they are in the hand)
+        MechanicWordings.DRAW_AND_REVEAL.matchEntire(sentence)?.let { m ->
+            val n = Numbers.count(m.groupValues[1]) ?: return null
+            context.them = Objects.Bound("drawn")
+            return listOf(Step.Do(Effect.Draw(Players.You, Value.Fixed(n), postBind = "drawn")), Step.Do(Effect.Reveal(Objects.Bound("drawn"))))
+        }
+        // "You may cast one of them without paying its mana cost." (CR 601.2, 608.2g: cast while the ability resolves; a land
+        // can't be cast)
+        if (MechanicWordings.MAY_CAST_ONE_OF_THEM_FREE.matches(sentence)) {
+            val them = context.them ?: return null
+            return listOf(
+                Step.Choose(arcanum.api.Choice.Objects(ObjectFilter.Not(ObjectFilter.Type(CardType.Land)), Value.Fixed(0), Value.Fixed(1), from = them),
+                    bind = "toCast", chooser = Players.You),
+                Step.Do(Effect.Cast(Objects.Bound("toCast"), PlayKind.Cast, withoutPaying = true, caster = Players.You)))
+        }
+        // "Put a creature card from among them onto the battlefield with three +1/+1 counters on it." (after "Reveal the top ten
+        // cards of your library.": one of them if there is one, CR 609.3; "it" afterwards is that permanent, CR 400.7)
+        MechanicWordings.PUT_ONE_FROM_AMONG_ONTO_BATTLEFIELD.matchEntire(sentence)?.let { m ->
+            val seen = context.seen ?: return null
+            val filter = Filters.noun(m.groupValues[1]) ?: return null
+            val counters = if (m.groupValues[2].isEmpty()) emptyList() else listOf(arcanum.api.CountersToPut(
+                Counters.kind(m.groupValues[3]) ?: return null, Value.Fixed(Numbers.count(m.groupValues[2]) ?: return null)))
+            context.picked = "chosen"
+            context.it = Objects.Bound("put")
+            return listOf(
+                Step.Choose(arcanum.api.Choice.Objects(filter, Value.Fixed(1), Value.Fixed(1), from = Objects.Bound(seen)), bind = "chosen", chooser = Players.You),
+                Step.Do(Effect.Move(Objects.Bound("chosen"), Destination(Zone.Battlefield, counters = counters), postBind = "put")))
+        }
+        // "Sacrifice a creature, an artifact, and a land." (one of each, sacrificed at once, CR 701.21a): three different permanents,
+        // an artifact creature counting as one of them only (each choice excludes the ones before it)
+        MechanicWordings.SACRIFICE_LIST.matchEntire(sentence)?.let { m ->
+            val nouns = m.groupValues[1].split(Regex(""",? and |, """)).map { it.removeArticle() }
+            val binds = nouns.indices.map { "sacrificed${it + 1}" }
+            val chooses = nouns.zip(binds).mapIndexed { n, (noun, bind) ->
+                val earlier = binds.take(n).map { ObjectFilter.Not(ObjectFilter.Is(Objects.Bound(it))) }
+                Step.Choose(arcanum.api.Choice.Objects(Filters.all(Filters.noun(noun) ?: return null, ObjectFilter.ControlledBy(PlayerFilter.You), *earlier.toTypedArray()),
+                    Value.Fixed(1), Value.Fixed(1)), bind = bind, chooser = Players.You)
+            }
+            return chooses + Step.Do(Effect.Sacrifice(Objects.Union(binds.map { Objects.Bound(it) })))
+        }
+        // "Discard a card and sacrifice a creature, an artifact, and a land." (the discard, then the sacrifice)
+        MechanicWordings.DISCARD_AND_SACRIFICE.matchEntire(sentence)?.let { m ->
+            val first = effect(m.groupValues[1] + ".", context) ?: return null
+            val second = effect(m.groupValues[2].replaceFirstChar { it.uppercase() } + ".", context) ?: return null
+            return first + second
+        }
+        return null
+    }
+
     /** Effect sentences: the keyword actions (CR 701) the engine does, and the exiled hand redrawn. */
     private fun mechanicEffect(sentence: String, context: Context): List<Step>? {
         fun action(action: arcanum.api.KeywordAction) = listOf(Step.Do(Effect.Action(action)))
@@ -2369,7 +2420,12 @@ internal class Sentences(
         // dsk chunk 02: "You may play it this turn." / "You may play them until the end of your next turn." (the exiled cards)
         YOU_MAY_PLAY_EXILED.matchEntire(sentence)?.let { m ->
             val exiled = (if (m.groupValues[1] == "them") context.them else context.it) as? Objects.Bound ?: return null
-            val duration = if (m.groupValues[2] == "this turn") arcanum.api.Duration.EndOfTurn else arcanum.api.Duration.UntilEndOfYourNextTurn
+            // dungeons: "You may play them." has no end; once a card leaves exile it is a new object (CR 400.7)
+            val duration = when (m.groupValues[2]) {
+                "this turn" -> arcanum.api.Duration.EndOfTurn
+                "" -> arcanum.api.Duration.Indefinitely
+                else -> arcanum.api.Duration.UntilEndOfYourNextTurn
+            }
             return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.MayPlay(Zone.Exile, arcanum.api.PlayKind.Play, holder = PlayerFilter.You)),
                 arcanum.api.Affected.Objects(exiled), duration)))
         }
@@ -3074,6 +3130,7 @@ internal class Sentences(
         if (sentence.startsWith("Then ")) return effect(sentence.removePrefix("Then ").replaceFirstChar { it.uppercase() }, context)
         MechanicWordings.effect(sentence)?.let { return it }
         mechanicEffect(sentence, context)?.let { return it }
+        dungeonEffect(sentence, context)?.let { return it } // dungeons
         tdmEffect(sentence, context)?.let { return it } // tdm
         eoeEffect(sentence, context)?.let { return it } // eoe
         finEffect(sentence, context)?.let { return it } // fin
@@ -9928,7 +9985,8 @@ internal class Sentences(
         val ALTERNATIVE_COST_FOR_SPELLS = Regex("""(Once each turn, )?[Yy]ou may pay (\{[^ ]+\}) rather than pay the mana cost for (?:a spell|spells) you cast( from exile)?\.""")
         val GETS_AND_GAINS_UNTIL_EOT = Regex("""(.+?) gets ([+-](?:\d+|X))/([+-](?:\d+|X)) and (gains|loses) (.+) until (end of turn|your next turn)\.""")
         val DEALS_DAMAGE_EQUAL_TO = Regex("""(.+?) deals damage equal to (the number of .+?|the power of .+?) to (any target|target .+|each opponent)\.""")
-        val YOU_MAY_PLAY_EXILED = Regex("""You may play (it|them) (this turn|until the end of your next turn)\.""")
+        // dungeons: no duration ("You may play them."): for as long as they remain exiled
+        val YOU_MAY_PLAY_EXILED = Regex("""You may play (it|them)(?: (this turn|until the end of your next turn))?\.""")
         val MILL_THEN_RETURN_FROM_AMONG_THEM = Regex("""Mill (\w+) cards, then return up to (\w+) (.+) from among them to your hand\.""")
         val ADD_MANA_SPEND_ONLY_TO = Regex("""Add (.+)\. Spend this mana only to (.+)\.""")
         val CAST_SPELLS = Regex("""cast (?:an? )?(.+?) spells?""")
@@ -10298,7 +10356,8 @@ internal class Sentences(
     private fun gapPredicates(text: String): List<Mechanic>? = text.split(BlbGaps.PREDICATE_AND).map { predicate ->
         BlbGaps.BASE_PT.matchEntire(predicate)?.let { m ->
             Mechanic.SetPowerToughness(Value.Fixed(m.groupValues[1].toInt()), Value.Fixed(m.groupValues[2].toInt()))
-        } ?: predicates(predicate)?.singleOrNull() ?: return null
+        } ?: (if (predicate == "can't attack") Mechanic.CantAttack() else null) // dungeons
+            ?: predicates(predicate)?.singleOrNull() ?: return null
     }
 
     private fun gapDuration(text: String): arcanum.api.Duration? = when (text) {
@@ -10363,16 +10422,20 @@ internal class Sentences(
         }
         // "Each opponent loses 4 life unless that player sacrifices a nonland permanent of their choice or discards a card." (CR
         // 101.4, 118.12a): each opponent may pay; those who don't lose the life
+        // dungeons: "Each player loses 2 life unless they discard a card.", "… unless they sacrifice a creature, artifact, or land of
+        // their choice." (one cost naming several types, read whole before it is split into options)
         BlbGaps.EACH_OPPONENT_UNLESS.matchEntire(sentence)?.let { m ->
-            val options = m.groupValues[2].split(" or ").map { option ->
-                val verb = option.substringBefore(' ')
-                val plain = BlbGaps.THIRD_PERSON[verb]?.let { it + option.removePrefix(verb) } ?: option
-                Cost(costPart(plain.removeSuffix(" of their choice").replaceFirstChar { it.uppercase() }) ?: return@let)
+            fun option(text: String): Cost? {
+                val verb = text.substringBefore(' ')
+                val plain = BlbGaps.THIRD_PERSON[verb]?.let { it + text.removePrefix(verb) } ?: text
+                return Cost(costPart(plain.removeSuffix(" of their choice").replaceFirstChar { it.uppercase() }) ?: return null)
             }
-            val player = Players.Bound("opponent")
-            val effect = BlbGaps.LOSES_LIFE.matchEntire(m.groupValues[1])?.let { Effect.LoseLife(player, Value.Fixed(it.groupValues[1].toInt())) } ?: return@let
-            return listOf(Step.ForEach(arcanum.api.Each.Players(Players.Each(PlayerFilter.Opponent)), bind = "opponent", together = true,
-                steps = unlessPays(player, options.singleOrNull() ?: Cost(listOf(CostPart.OneOf(options))), listOf(Step.Do(effect)))))
+            val cost = option(m.groupValues[3]) ?: m.groupValues[3].split(" or ").map { option(it) ?: return@let }.let { Cost(listOf(CostPart.OneOf(it))) }
+            val each = if (m.groupValues[1] == "player") PlayerFilter.Any else PlayerFilter.Opponent
+            val player = Players.Bound(m.groupValues[1])
+            val effect = BlbGaps.LOSES_LIFE.matchEntire(m.groupValues[2])?.let { Effect.LoseLife(player, Value.Fixed(it.groupValues[1].toInt())) } ?: return@let
+            return listOf(Step.ForEach(arcanum.api.Each.Players(Players.Each(each)), bind = m.groupValues[1], together = true,
+                steps = unlessPays(player, cost, listOf(Step.Do(effect)))))
         }
         // "At the beginning of your next end step, [effect]." (a delayed trigger, CR 603.7)
         BlbGaps.AT_YOUR_NEXT_END_STEP.matchEntire(sentence)?.let { m ->
@@ -10470,12 +10533,13 @@ internal class Sentences(
         val TYPE_IN_ADDITION_AND_HAS = Regex("""it's an? (\S+) in addition to its other types and it has (.+)""")
         val PREDICATE_AND = Regex(""" and (?=(?:has|loses|can't|gets) )""")
         val BASE_PT = Regex("""(?:also )?has base power and toughness (\d+)/(\d+)""")
-        val TARGET_UNTIL = Regex("""(?:Up to (\w+) target|Target) (.+?) ((?:loses all abilities|can't be blocked|has base power and toughness).*?) (until end of turn|until your next turn|this turn)\.""")
+        // dungeons: "can't attack" ("Target creature can't attack until your next turn.")
+        val TARGET_UNTIL = Regex("""(?:Up to (\w+) target|Target) (.+?) ((?:loses all abilities|can't be blocked|can't attack|has base power and toughness).*?) (until end of turn|until your next turn|this turn)\.""")
         val IF_ITS_A_IT_ALSO = Regex("""If it's an? (.+?), it (?:also )?(.+?) (until end of turn|until your next turn)\.""")
         val TYPE_FOR_AS_LONG_AS_COUNTER = Regex("""It's an? (\S+) in addition to its other types for as long as it has an? (\S+) counter on it\.""")
         val WHENEVER_THAT_CREATURE_THIS_TURN = Regex("""Whenever that creature deals (combat )?damage this turn, (.+)""")
         val FOR_EACH_COUNTER_ON_IT = Regex("""For each (\S+) counter on it, (.+)""")
-        val EACH_OPPONENT_UNLESS = Regex("""Each opponent (.+?) unless that player (.+)\.""")
+        val EACH_OPPONENT_UNLESS = Regex("""Each (opponent|player) (.+?) unless (?:that player|they) (.+)\.""")
         val LOSES_LIFE = Regex("""loses (\d+) life""")
         val THIRD_PERSON = mapOf("sacrifices" to "sacrifice", "discards" to "discard", "pays" to "pay", "exiles" to "exile", "returns" to "return")
         val AT_YOUR_NEXT_END_STEP = Regex("""At the beginning of your next end step, (.+)""")

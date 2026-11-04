@@ -23,6 +23,7 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.collectLatest
 import org.asyncttwiz.protocol.*
 
@@ -170,7 +171,10 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
         }
         var previousLayout by remember { mutableStateOf(layout) }
         var previousSize by remember { mutableStateOf(maxWidth to maxHeight) }
-        val navigation = previousLayout != layout || previousSize != (maxWidth to maxHeight)
+        // ZON-079 (owner playtest 2026-11-04 #9): raising or lowering a hand card is the only layout change that animates,
+        // at the card move speed; any other layout change (camera, panels) or a new size jumps
+        val raiseOnly = previousLayout != layout && previousLayout.copy(raised = layout.raised) == layout
+        val navigation = previousLayout != layout && !raiseOnly || previousSize != (maxWidth to maxHeight)
         // One interpolated scene feeds Canvas, hit testing AND semantic nodes. No destination-only overlays.
         val animation = remember(play.id, accountId) { HistorySceneAnimation(targetScene) }
         val movePreferences = rememberCardMovePreferences(accountId)
@@ -187,7 +191,7 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
                 DebugLatency.tapAnimation(game.id, animation.rotatingCardIds)
                 progress.snapTo(0f)
                 animationRevision++
-                if (navigation || runtime.changes?.animates(play.currentNodeId) == false) progress.snapTo(1f)
+                if (navigation || !raiseOnly && runtime.changes?.animates(play.currentNodeId) == false) progress.snapTo(1f)
                 else progress.animateTo(1f, tween(animation.durationMillis, easing = androidx.compose.animation.core.LinearEasing))
             } else if (progress.value < 1f) {
                 // Metadata can cancel this effect mid-scene, but cannot slow its existing clock.
@@ -284,8 +288,10 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
             val barColor by animateColorAsState(tableBarColor(play.board, accountId, runtime.reviewing), tween(200), label = "Table bars")
             // A cast or an Automatum decision choosing targets (I-D6): its legal targets glow
             val castGlow = toolkit?.cast?.glow(play).orEmpty() + toolkit?.flows?.glow(play).orEmpty()
-            // I-D46: the viewer's playable cards glow (live table only); a refused gesture shakes what it was made on
-            val playable = if (runtime.reviewing) emptySet() else toolkit?.playable(play).orEmpty()
+            // I-D46: the viewer's playable cards glow (live table only); a refused gesture shakes what it was made on.
+            // TBL-117 (owner playtest 2026-11-04 #8): while Automatum works a new board out the cards that stayed where they
+            // were keep their glow, and each glow fades in and out, so a card that stays playable never blinks
+            val glow = rememberPlayableGlow(play, if (runtime.reviewing) emptySet() else toolkit?.playableOrNull(play))
             val shaking = toolkit?.shaking
             // ZON-079 (I-D50): what Autotap would tap for the raised hand card (live table only)
             val raisedSources = if (runtime.reviewing) emptySet() else toolkit?.hand?.sources(play).orEmpty()
@@ -298,7 +304,7 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
                 DebugLatency.tapFrame(game.id, progress.value, refreshRate)
                 val frame = rendered.value
                 drawTable(frame.scene, accountId, play.board.turn.accountId, preview, frame.alphas, artwork, drawCache,
-                    presenceDot, castGlow, playable, shaking?.let { it.id to shakeOffset.value }?.takeIf { it.second != 0f }, raisedSources)
+                    presenceDot, castGlow, glow.alphas(), shaking?.let { it.id to shakeOffset.value }?.takeIf { it.second != 0f }, raisedSources)
             }
             TableSemanticNodes(game, play, scene, semanticItems, rendered, runtime, { currentRuntime }, coordinator, writable, toolkit,
                 { preview }, layoutState)
@@ -328,3 +334,42 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
 internal fun gameLockAllows(intent: TableIntent): Boolean = intent is TableIntent.Camera || intent is TableIntent.Scroll ||
     intent is TableIntent.Overscroll ||
     intent == TableIntent.DismissTapUi || intent is TableIntent.Peek || intent is TableIntent.Inspect || intent is TableIntent.SearchPile
+
+/** TBL-117: the playable glow of each card, fading between boards (read while drawing, so only the canvas redraws). */
+internal class PlayableGlow {
+    val levels = androidx.compose.runtime.mutableStateMapOf<String, androidx.compose.animation.core.Animatable<Float, androidx.compose.animation.core.AnimationVector1D>>()
+    var shown: Set<String> = emptySet()
+    var containers: Map<String, String> = emptyMap()
+    fun alphas(): Map<String, Float> = levels.mapValues { it.value.value }.filterValues { it > 0f }
+}
+
+/** How long a card's playable glow takes to fade in or out (TBL-117). */
+internal const val GLOW_FADE_MILLIS = 220
+
+/**
+ * TBL-117: the glow of [play]'s playable cards, [target] (null while Automatum still works the board out: the cards
+ * still in the container they glowed in keep glowing until it is known). Each card's glow fades to its new strength.
+ */
+@Composable
+internal fun rememberPlayableGlow(play: PlayState, target: Set<String>?): PlayableGlow {
+    val glow = remember(play.id) { PlayableGlow() }
+    val containers = remember(IdentityKey(play.board)) { play.board.cards.associate { it.id to it.containerId } }
+    val next = target ?: remember(IdentityKey(play.board), glow.shown) {
+        glow.shown.filterTo(HashSet()) { id -> glow.containers[id] != null && glow.containers[id] == containers[id] }
+    }
+    LaunchedEffect(next) {
+        glow.shown = next
+        glow.containers = containers
+        kotlinx.coroutines.coroutineScope {
+            for (id in next) {
+                val level = glow.levels.getOrPut(id) { androidx.compose.animation.core.Animatable(0f) }
+                launch { level.animateTo(1f, androidx.compose.animation.core.tween(GLOW_FADE_MILLIS)) }
+            }
+            for ((id, level) in glow.levels.toMap()) if (id !in next) launch {
+                level.animateTo(0f, androidx.compose.animation.core.tween(GLOW_FADE_MILLIS))
+                if (id !in glow.shown) glow.levels.remove(id)
+            }
+        }
+    }
+    return glow
+}

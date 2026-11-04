@@ -1,0 +1,1 @@
+mod: Mulligan and Keep are only the buttons at the bottom; nothing covers the table during the opening

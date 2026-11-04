@@ -115,6 +115,30 @@ class GameDeviceTest {
         assertTrue(sim.take(sim.alice).any { it is org.asyncttwiz.protocol.GameAction.EngineSettings })
     }
 
+    // HIS-095 (I-D56 §27): pausing playback stops it at the next point where Full control would stop, even where the
+    // player's own mode (Auto-skip) wouldn't; their answer there (playing on) ends the pause and playback goes on by
+    // their mode
+    @Test
+    fun pausingStopsAtTheNextFullControlPoint() {
+        val sim = spells("Storm Spark")
+        sim.bobToMain()
+        val device = sim.load(sim.alice)
+        device.play()
+        device.playToStop()
+        device.act((device.status as GameDevice.Status.Stopped).assumed)
+        assertEquals(ResponseMode.AutoSkip, device.settings.mode)
+        device.pausing = true
+        while (device.step() != null) Unit
+        val stop = assertIs<GameDevice.Status.Stopped>(device.status, "paused at an assumed pass Auto-skip goes past")
+        assertTrue(stop.paused)
+        assertIs<Input.PassPriority>(stop.assumed)
+        assertEquals(GameDevice.Acted.Confirmed, device.act(stop.assumed))
+        assertTrue(!device.pausing, "playing on ends the pause")
+        // Her Auto-skip goes on to the head without stopping
+        while (device.step() != null) Unit
+        assertTrue(!device.session.behind)
+    }
+
     // I-D56 §8, §9: another answer at the stop branches with a new line; the assumer's device goes back to the branch
     // point with a note, and plays the opponent's event back
     @Test

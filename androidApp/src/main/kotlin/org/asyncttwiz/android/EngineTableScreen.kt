@@ -6,7 +6,15 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
+import androidx.compose.foundation.border
 import androidx.compose.material.icons.outlined.History
+import androidx.compose.material.icons.outlined.Pause
+import androidx.compose.material.icons.outlined.PlayArrow
+import androidx.compose.material3.Text
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.unit.sp
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -99,14 +107,17 @@ internal fun EngineTableScreen(controller: LobbyController, accountId: String, h
             shown.transition?.takeIf { it.serial != applied.transition }?.let { t ->
                 applied.transition = t.serial
                 changes.applyEngine(t.cursor, t.jump, t.changes, t.shuffled)
-                // HIS-076: live, only the other player's new events (playback is theirs), quiet on open, return and undo
-                val told = t.forward.lastOrNull { it.author != accountId }
+                // HIS-076 (owner playtest 2026-11-04 #5): live, the newest event just shown, yours too (your own action's
+                // text fades at the top like the other player's); quiet on open, return and undo
+                val told = t.forward.lastOrNull()
                 if (told != null) eventText.post(t.cursor, engine.timeline.text(engine, told, names)) else eventText.moved(t.cursor)
             }
         }
     }
     val status = shown.status
     val playing = status is GameDevice.Status.Playing
+    // HIS-013 (§27): playback, and a stop its pause made, have the strip and the play/pause button at the bottom
+    val playback = playing || (status as? GameDevice.Status.Stopped)?.paused == true
     val back = remember(game.id) { TableBackStateMachine() }
     val overlay = toolkit.hasBackOverlay || state.chatOpen
     BackHandler {
@@ -152,9 +163,13 @@ internal fun EngineTableScreen(controller: LobbyController, accountId: String, h
                         liveTimeline = if (timeline.isEmpty()) null else ({
                             EngineStrip(timeline, accountId, landscape) { routes.enterReview(timeline.last().id) }
                         }),
-                        bottomPanel = if (reviewPlay == null || timeline.isEmpty()) null else ({ _ ->
-                            EngineReviewPanel(routes, timeline, accountId, landscape, playbackPause) { playbackSettingsOpen = true }
-                        })))
+                        bottomPanel = when {
+                            reviewPlay != null && timeline.isNotEmpty() -> ({ _ ->
+                                EngineReviewPanel(routes, timeline, accountId, landscape, playbackPause) { playbackSettingsOpen = true }
+                            })
+                            playback -> ({ _ -> EnginePlaybackPanel(routes, timeline, accountId, landscape) })
+                            else -> null
+                        }))
                 // Over the top row (whose move/step/turn), never taking its taps.
                 EventTextOverlay(eventText, playbackPause, Modifier.align(Alignment.TopCenter))
             }
@@ -227,6 +242,64 @@ internal fun EngineReviewPanel(routes: EngineTableRoutes, events: List<HistoryTi
         } else Column(Modifier.fillMaxWidth().height(tableBottomHeight(false).dp).background(TimelineBarColor)) {
             Box(Modifier.height(TableTimelineHeight.dp)) { strip() }
             Box(Modifier.fillMaxWidth().height(TableControlsHeight.dp)) { transport() }
+        }
+    }
+}
+
+/**
+ * Playback on engine state (HIS-001, HIS-013, §27): the strip of the events shown so far, and below it, where timeline
+ * mode's Auto is, the play/pause button: a tap pauses (playback goes on to the next point where Full control would stop,
+ * where you may act or play on) or plays again; holding it opens the response mode dialog.
+ */
+@Composable
+internal fun EnginePlaybackPanel(routes: EngineTableRoutes, events: List<HistoryTimelineEvent>, viewer: String, landscape: Boolean) {
+    val game = routes.engine ?: return
+    val shown = game.shown ?: return
+    val stop = shown.status as? GameDevice.Status.Stopped
+    val playing = shown.status is GameDevice.Status.Playing && !shown.pausing
+    val label = when {
+        playing -> "Pause"
+        stop != null -> "Play"
+        else -> "Pausing"
+    }
+    val strip: @Composable () -> Unit = {
+        if (events.isNotEmpty()) EngineStrip(events, viewer, landscape) { routes.enterReview(events.last().id) }
+    }
+    val button: @Composable () -> Unit = {
+        Box(Modifier.fillMaxSize().padding(horizontal = 56.dp), contentAlignment = Alignment.Center) {
+            ActionSquare("Playback", "", true, Modifier.fillMaxWidth().height(48.dp).testTag("playback-toggle")
+                .background(Color.White, androidx.compose.foundation.shape.RoundedCornerShape(4.dp))
+                .border(1.dp, MenuBorder, androidx.compose.foundation.shape.RoundedCornerShape(4.dp))
+                .semantics { stateDescription = label },
+                fill = Color.White, ink = Color(0xff253d44), compactContent = true, holdName = "Response mode",
+                onHold = { routes.modeDialog = true }, gestureKey = label,
+                icon = {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Icon(if (playing) Icons.Outlined.Pause else Icons.Outlined.PlayArrow, null, Modifier.size(20.dp),
+                            tint = if (playing) Color(0xffb57d45) else Color(0xff5b896c))
+                        Column {
+                            Text(label, fontSize = 16.sp, lineHeight = 20.sp)
+                            Text("Hold: response mode", fontSize = 10.sp, lineHeight = 12.sp, color = Color(0xff66757a))
+                        }
+                    }
+                }) {
+                when {
+                    playing -> game.pause(true)
+                    stop != null -> game.act(stop.assumed)
+                    else -> game.pause(false)
+                }
+                routes.pump()
+            }
+        }
+    }
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
+        if (landscape) Row(Modifier.fillMaxWidth().height(tableBottomHeight(true).dp).background(TimelineBarColor),
+            verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.weight(1f).height(TableTimelineHeight.dp)) { strip() }
+            Box(Modifier.weight(1f).height(TableControlsHeight.dp)) { button() }
+        } else Column(Modifier.fillMaxWidth().height(tableBottomHeight(false).dp).background(TimelineBarColor)) {
+            Box(Modifier.height(TableTimelineHeight.dp)) { strip() }
+            Box(Modifier.fillMaxWidth().height(TableControlsHeight.dp)) { button() }
         }
     }
 }

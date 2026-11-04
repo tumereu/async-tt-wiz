@@ -179,7 +179,7 @@ class DeckVisibilityTest {
         // Back to the V45 schema: undo V61 (games' change marker), V60 (engine seat waits: the table goes below), V59 (games with plays wiped: nothing to undo here), V58 (play defaults, branch notices), V57 (engine async play), V56 (engine history tables), V55 (pods' Automatum support), V54 (games with plays wiped, game Automatum dropped: nothing to undo here), V53 (lists' Automatum support), V52 (opponent ready notices), V51 (game Automatum), V50 (Automatum reports), V49 (automated batch members), V48 (prepared
         // cube), V47 (Maybe sections) and V46, then migrate forward again.
         sql("""
-            DROP TRIGGER game_change_xid ON game; DROP FUNCTION game_change_xid(); ALTER TABLE game DROP COLUMN change_xid;
+            DROP TRIGGER game_change_xid ON game; DROP FUNCTION game_change_xid(); DROP TABLE game_change;
             ALTER TABLE account DROP COLUMN play_defaults; ALTER TABLE activity_summary DROP COLUMN branched;
             DROP TABLE engine_async_round; DROP TABLE engine_seat;
             DROP TABLE engine_checkpoint; DROP TABLE engine_event; DROP TABLE engine_play;

@@ -12,6 +12,7 @@ import org.asyncttwiz.server.generated.tables.Account.ACCOUNT
 import org.asyncttwiz.server.generated.tables.AccountRequest.ACCOUNT_REQUEST
 import org.asyncttwiz.server.generated.tables.Contact.CONTACT
 import org.asyncttwiz.server.generated.tables.Game.GAME
+import org.asyncttwiz.server.generated.tables.GameChange.GAME_CHANGE
 import org.asyncttwiz.server.generated.tables.Invitation.INVITATION
 import org.asyncttwiz.server.generated.tables.RequestIdentity.REQUEST_IDENTITY
 import org.jooq.DSLContext
@@ -158,7 +159,8 @@ class LobbyService(private val runtime: ServiceRuntime) {
                 else GAME.INVITER_ID.eq(actor).or(GAME.RECIPIENT_ID.eq(actor).and(INVITATION.STATE.eq("ACCEPTED"))))
                 .and(GAME.LIFECYCLE.`in`("LOBBY", "ACTIVE"))
             val access = if (changedSince == null) listed
-                else GAME.INVITER_ID.eq(actor).or(GAME.RECIPIENT_ID.eq(actor)).and(GAME.CHANGE_XID.ge(changedSince))
+                else GAME.INVITER_ID.eq(actor).or(GAME.RECIPIENT_ID.eq(actor)).and(DSL.exists(DSL.selectOne().from(GAME_CHANGE)
+                    .where(GAME_CHANGE.GAME_ID.eq(GAME.ID)).and(GAME_CHANGE.CHANGE_XID.ge(changedSince))))
             val onList = DSL.field(listed).`as`("on_list")
             // The locked rows themselves, not just their ids: each summary then needs no second read of its game.
             val rows = sql.select(*GAME.fields(), onList).from(GAME).join(INVITATION).on(INVITATION.ID.eq(GAME.CURRENT_INVITATION))

@@ -71,9 +71,9 @@ class FoundationDatabaseTest {
                 assertEquals(setOf("service_writer", "flyway_schema_history", "account", "account_session", "account_token_favorites", "password_reset_token", "reset_mail",
                     "request_identity", "account_request", "definition", "account_definition", "saved_deck", "deck_entry", "saved_cube", "cube_entry", "pod", "pod_member", "pod_invitation",
                     "contact", "game", "invitation", "game_stream", "game_inbox", "game_revision", "game_outbox",
-                    "player_preparation", "game_definition", "game_play", "gameplay_group", "gameplay_mutation",
-                    "game_chat", "game_chat_read_cursor", "game_play_mutation", "activity_cursor", "account_activity", "activity_summary",
-                    "activity_installation", "activity_push", "activity_presence", "gameplay_tree_control", "gameplay_endpoint_record", "gameplay_endpoint_edge", "debug_crash_report", "debug_crash_daily_count",
+                    "player_preparation", "game_definition", "game_play",
+                    "game_chat", "game_chat_read_cursor", "activity_cursor", "account_activity", "activity_summary",
+                    "activity_installation", "activity_push", "activity_presence", "debug_crash_report", "debug_crash_daily_count",
                     "problem_report", "pod_draft_marks", "pod_deck_notes", "finished_deck_matchup", "pod_preset",
                     "engine_play", "engine_event", "engine_checkpoint", "engine_seat", "engine_async_round", "game_change"), tables)
             }

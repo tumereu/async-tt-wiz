@@ -139,7 +139,10 @@ class EngineHistoryStoreTest {
             sql.execute("INSERT INTO invitation(id,game_id,state) VALUES (?,?,'PENDING')", invitation, waiting)
             connection.commit()
 
+            // V62 dropped the old model's tables V59 also emptied: its statements for them have nothing left to do
+            val dropped = Regex("\\b(game_play_mutation|gameplay_endpoint_edge|gameplay_endpoint_record|gameplay_tree_control|gameplay_mutation|gameplay_group)\\b")
             val wipe = javaClass.getResource("/db/migration/V59__engine_state_wipe_plays.sql")!!.readText()
+                .lines().filterNot { dropped.containsMatchIn(it) }.joinToString("\n")
             connection.createStatement().use { it.execute(wipe) }
             connection.commit()
 

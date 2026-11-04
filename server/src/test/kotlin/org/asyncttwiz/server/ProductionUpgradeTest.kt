@@ -299,8 +299,12 @@ class ProductionUpgradeTest {
                 return (table == "game" && value("id") in wipedGames) || value("game_id") in wipedGames || value("play_id") in wipedPlays
             }
             assertTrue(started in wipedGames)
+            // V62 dropped the old model's tables: V59 had already emptied them, so none of their rows was a game's still
+            val dropped = setOf("game_play_mutation", "gameplay_endpoint_edge", "gameplay_endpoint_record", "gameplay_tree_control",
+                "gameplay_mutation", "gameplay_group")
             for ((table, rows) in tables)
-                assertEquals(rows.count { !wiped(table, it.jsonObject) }, query(db, "SELECT count(*) FROM \"$table\"") { it.getInt(1) }.single(),
+                if (table in dropped) assertTrue(rows.all { wiped(table, it.jsonObject) }, "$table held only wiped rows")
+                else assertEquals(rows.count { !wiped(table, it.jsonObject) }, query(db, "SELECT count(*) FROM \"$table\"") { it.getInt(1) }.single(),
                     "$table rows after upgrade")
 
             val config = EphemeralPorts.settings(db.settings)

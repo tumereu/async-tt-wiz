@@ -16,10 +16,6 @@ import org.jooq.meta.jaxb.Database;
 import org.jooq.meta.jaxb.Generate;
 import org.jooq.meta.jaxb.Generator;
 import org.jooq.meta.jaxb.Jdbc;
-import org.jooq.meta.jaxb.MatcherRule;
-import org.jooq.meta.jaxb.Matchers;
-import org.jooq.meta.jaxb.MatchersTableType;
-import org.jooq.meta.jaxb.Strategy;
 import org.jooq.meta.jaxb.Target;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
@@ -74,13 +70,8 @@ public final class GenerateJooq {
                         .withJdbc(new Jdbc().withDriver("org.postgresql.Driver").withUrl(db.getJdbcUrl())
                                 .withUser(db.getUsername()).withPassword(db.getPassword()))
                         .withGenerator(new Generator()
-                                // V14's retained legacy table must not collide with V11's live writer.
-                                .withStrategy(new Strategy().withMatchers(new Matchers().withTables(
-                                        new MatchersTableType().withExpression("game_play_mutation")
-                                                .withTableClass(new MatcherRule().withExpression("LegacyGamePlayMutation"))
-                                                .withRecordClass(new MatcherRule().withExpression("LegacyGamePlayMutationRecord")))))
                                 .withDatabase(new Database().withName("org.jooq.meta.postgres.PostgresDatabase")
-                                        .withInputSchema("public").withIncludes("service_writer|account|account_session|password_reset_token|reset_mail|request_identity|account_request|definition|account_definition|saved_deck|deck_entry|saved_cube|cube_entry|pod|pod_member|pod_invitation|pod_draft_marks|pod_deck_notes|pod_preset|contact|game|invitation|game_stream|game_inbox|game_revision|game_outbox|player_preparation|finished_deck_matchup|game_definition|game_play|gameplay_group|gameplay_mutation|gameplay_tree_control|gameplay_endpoint_record|gameplay_endpoint_edge|game_play_mutation|game_chat|game_chat_read_cursor|activity_cursor|account_activity|activity_summary|activity_installation|activity_push|activity_presence|debug_crash_report|debug_crash_daily_count|engine_play|engine_event|engine_checkpoint|engine_seat|engine_async_round|game_change"))
+                                        .withInputSchema("public").withIncludes("service_writer|account|account_session|password_reset_token|reset_mail|request_identity|account_request|definition|account_definition|saved_deck|deck_entry|saved_cube|cube_entry|pod|pod_member|pod_invitation|pod_draft_marks|pod_deck_notes|pod_preset|contact|game|invitation|game_stream|game_inbox|game_revision|game_outbox|player_preparation|finished_deck_matchup|game_definition|game_play|game_chat|game_chat_read_cursor|activity_cursor|account_activity|activity_summary|activity_installation|activity_push|activity_presence|debug_crash_report|debug_crash_daily_count|engine_play|engine_event|engine_checkpoint|engine_seat|engine_async_round|game_change"))
                                 .withGenerate(new Generate().withGeneratedAnnotation(false).withComments(false)
                                         .withJavadoc(false).withPojos(false).withDaos(false))
                                 .withTarget(new Target().withPackageName("org.asyncttwiz.server.generated")

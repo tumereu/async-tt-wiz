@@ -20,8 +20,6 @@ import org.asyncttwiz.server.generated.tables.Game.GAME
 import org.asyncttwiz.server.generated.tables.PlayerPreparation.PLAYER_PREPARATION
 import org.asyncttwiz.server.generated.tables.GamePlay.GAME_PLAY
 import org.asyncttwiz.server.generated.tables.Invitation.INVITATION
-import org.asyncttwiz.server.generated.tables.GameplayGroup.GAMEPLAY_GROUP
-import org.asyncttwiz.server.generated.tables.GameplayMutation.GAMEPLAY_MUTATION
 import org.asyncttwiz.server.generated.tables.Pod.POD
 import org.asyncttwiz.server.generated.tables.PodMember.POD_MEMBER
 import org.asyncttwiz.server.generated.tables.PodInvitation.POD_INVITATION
@@ -120,16 +118,6 @@ class ActivityService(private val runtime: ServiceRuntime, private val clock: Cl
             if (kind == ActivityKind.INVITATION && row.recipientId == owner && row.currentInvitation == id &&
                 row.lifecycle == "LOBBY" && invitation.state == "PENDING")
                 return@transaction ActivityTarget(gameId, ActivityDestination.INVITATION, invitationId = identity)
-            if (kind == ActivityKind.GAME && row.lifecycle == "ACTIVE" && (owner == row.inviterId || invitation.state == "ACCEPTED")) {
-                val group = sql.selectFrom(GAMEPLAY_GROUP).where(GAMEPLAY_GROUP.ID.eq(id))
-                    .and(GAMEPLAY_GROUP.GAME_ID.eq(game)).and(GAMEPLAY_GROUP.PLAY_ID.eq(row.currentPlay)).fetchOne()
-                if (group != null) {
-                    val first = sql.selectFrom(GAMEPLAY_MUTATION).where(GAMEPLAY_MUTATION.ID.eq(group.firstNodeId))
-                        .and(GAMEPLAY_MUTATION.PLAY_ID.eq(row.currentPlay)).fetchSingle()
-                    return@transaction ActivityTarget(gameId, ActivityDestination.GROUP, playId = row.currentPlay.toString(),
-                        groupId = identity, boundaryNodeId = first.parentId.toString())
-                }
-            }
             ActivityTarget(gameId, ActivityDestination.CURRENT, playId = row.currentPlay?.toString())
         }
     }

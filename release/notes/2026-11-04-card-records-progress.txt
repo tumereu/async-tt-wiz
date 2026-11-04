@@ -1,0 +1,1 @@
+fix: The card records progress no longer covers the buttons at the bottom of the screen, a failed first download is tried once more by itself, and working out which draft sets the app can play no longer keeps the phone busy for an hour

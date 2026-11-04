@@ -19,3 +19,10 @@
 # personalTest build, 2026-11-04): anything a device and a server must agree on (ids, keys, choices) writes its names
 # out (Decision.kind, Question.kind, Texts.costName); texts and logs drop the outer names themselves.
 -keepattributes InnerClasses,EnclosingMethod
+
+# Firebase finds its component registrars by name in the manifest and makes them with their no-arg constructor. Its own
+# rule ("-keep class * implements ComponentRegistrar") keeps no members, so R8 full mode dropped the constructors of
+# FirebaseMessagingKtxRegistrar and FirebaseInstallationsKtxRegistrar (smoke 2026-11-04: "Could not instantiate").
+-keep class * implements com.google.firebase.components.ComponentRegistrar {
+    <init>();
+}

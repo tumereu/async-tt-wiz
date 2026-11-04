@@ -156,7 +156,7 @@ Everything outside the game table: accounts, profile, navigation, game list, gam
 - **LOB-093** Settings → Card records shows the installed date and record count, progress while working, "Check for updates" and "Refresh full catalog" (confirm dialog; the only way to re-download everything). (r9)
 - **LOB-094** Progress reads "Downloading card records: x / y MB" (KB for small updates), "Indexing card records: x / y MB processed · N cards", then "Finishing up — verifying catalog…"; the bar shows real progress where the size is known and moves without a fixed position while finishing or when the total is unknown. (r30)
 - **LOB-095** If the app needs a new catalog format, it deletes the old catalog and downloads it again at startup. (r17)
-- **LOB-096** While the first catalog downloads, deck and game screens show a busy overlay with its progress; the menu, Settings and an open game do not. (r17)
+- **LOB-096** While the first catalog downloads, deck and game screens show its progress in a bar at the bottom, with the screen laid out above it so the bar never covers the screen's buttons; the menu, Settings and an open game do not. A failed download is tried once more by itself before the player is asked to retry. (r17)
 - **LOB-110** Card records include rarity, format legalities and colour identity for search (LOB-108); records downloaded before search are downloaded again once, asked as for any card records update. (r35)
 
 ### Card pictures

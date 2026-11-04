@@ -131,6 +131,17 @@ internal fun ScreenBusyOverlay(message: String?, progress: org.asyncttwiz.storag
     }
 }
 
+/** LOB-096: the shell-wide card records progress sits below the screen, which is laid out above it while it shows, so it
+ * never covers the screen's own buttons (a screen's bottom "Ready" stays visible and tappable). */
+@Composable
+internal fun CatalogProgressDock(message: String?, progress: org.asyncttwiz.storage.CatalogProgress?,
+    modifier: Modifier = Modifier.fillMaxSize(), content: @Composable BoxScope.() -> Unit) {
+    Column(modifier) {
+        Box(Modifier.weight(1f).fillMaxWidth(), content = content)
+        FloatingBusyPill(message, progress, Modifier.align(Alignment.CenterHorizontally))
+    }
+}
+
 @Composable
 internal fun FloatingBusyPill(message: String?, progress: org.asyncttwiz.storage.CatalogProgress? = null,
     modifier: Modifier = Modifier) {

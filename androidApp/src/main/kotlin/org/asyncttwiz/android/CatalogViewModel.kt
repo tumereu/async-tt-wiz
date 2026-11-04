@@ -104,7 +104,7 @@ class CatalogViewModel(application: Application) : AndroidViewModel(application)
                     CatalogSet(code, date)
                 }
                 if (force || available == null || CatalogUpdatePolicy.changed(installed, available) || cadence.due(System.currentTimeMillis())) {
-                    val list = source.setList()
+                    val list = if (force || installed == null) retriedOnce("Checking card records") { source.setList() } else source.setList()
                     available = list.metadata
                     sets = list.sets
                     // HEAD is small metadata, not consent to a bulk download.
@@ -117,7 +117,7 @@ class CatalogViewModel(application: Application) : AndroidViewModel(application)
                 pending = plan
                 val due = force || cadence.due(System.currentTimeMillis()) || CatalogUpdatePolicy.changed(installed, available)
                 if (due && (catalogAutoDownload(installed, plan, metered) || installed == null && initialDownloadAccepted && plan != null)) {
-                    installed = install(checkNotNull(plan), size)
+                    installed = retriedOnce("Card records download") { install(checkNotNull(plan), size) }
                     cadence.checked(System.currentTimeMillis(), true)
                     publish(CatalogUiState(installed = installed, metered = metered, background = !force,
                         status = if (force) "Card records are up to date." else null))
@@ -127,7 +127,8 @@ class CatalogViewModel(application: Application) : AndroidViewModel(application)
                         if (force && plan == null && installed != null) "Card records are up to date." else null,
                         background = !force, plan = plan?.takeIf { due }))
                 }
-            } catch (_: Exception) {
+            } catch (failure: Exception) {
+                AppLog.warn("catalog", "Card records check or update failed", failure)
                 cadence.checked(System.currentTimeMillis(), false)
                 // Failed automatic installation still leaves an actionable update/consent offer.
                 publish(CatalogUiState(installed = installed,
@@ -185,13 +186,24 @@ class CatalogViewModel(application: Application) : AndroidViewModel(application)
         state = current.copy(busy = true, error = false, status = progress.label(), progress = progress, background = false)
         worker.execute {
             try {
-                val installed = install(plan, size)
+                val installed = retriedOnce("Card records download") { install(plan, size) }
                 cadence.checked(System.currentTimeMillis(), true)
                 publish(CatalogUiState(installed = installed, metered = current.metered, status = "Card records are up to date."))
             }
-            catch (_: Exception) { publish(current.copy(busy = false, error = true,
-                status = "Download failed. Check your connection and free storage, then retry. Your previous records have not changed.")) }
+            catch (failure: Exception) {
+                AppLog.warn("catalog", "Card records download failed", failure)
+                publish(current.copy(busy = false, error = true,
+                    status = "Download failed. Check your connection and free storage, then retry. Your previous records have not changed.")) }
         }
+    }
+
+    /** A failed card records transfer is logged with its cause and tried once more on its own before the player is asked to
+     * retry (the first download on a fresh install has failed at once and worked on Retry). Worker only. */
+    private fun <T> retriedOnce(what: String, block: () -> T): T = try { block() } catch (failure: Exception) {
+        if (cleared || failure is InterruptedException) throw failure
+        AppLog.warn("catalog", "$what failed; trying once more", failure)
+        Thread.sleep(2_000)
+        block()
     }
 
     private fun install(plan: CatalogUpdatePlan, size: Long?): CatalogMetadata {

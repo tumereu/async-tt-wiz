@@ -63,6 +63,22 @@ class NonGameplayBusyTest {
         compose.onAllNodes(hasProgressBarRangeInfo(ProgressBarRangeInfo.Indeterminate)).assertCountEquals(0)
     }
 
+    // LOB-096: the card records progress never covers a screen's bottom buttons
+    @Test fun catalogProgressLeavesTheScreensBottomButtonsUncovered() {
+        var tapped = 0
+        compose.setContent { ScreenTheme {
+            val progress = CatalogProgress(CatalogPhase.INDEXING, 149_000_000, 184_000_000, 101_866)
+            CatalogProgressDock(progress.label(), progress) {
+                Button(onClick = { tapped++ }, Modifier.align(androidx.compose.ui.Alignment.BottomCenter)) { Text("Ready") }
+            }
+        } }
+        val pill = compose.onNodeWithTag("floating-busy-pill").fetchSemanticsNode().boundsInRoot
+        val ready = compose.onNodeWithText("Ready").fetchSemanticsNode().boundsInRoot
+        assertTrue(ready.bottom <= pill.top, "the button sits above the progress, not under it")
+        compose.onNodeWithText("Ready").performClick()
+        compose.runOnIdle { assertEquals(1, tapped) }
+    }
+
     @Test fun messageWithoutProgressKeepsItsSpinner() {
         compose.setContent { ScreenTheme { FloatingBusyPill("Loading games…") } }
         compose.onAllNodes(hasProgressBarRangeInfo(ProgressBarRangeInfo.Indeterminate)).assertCountEquals(1)

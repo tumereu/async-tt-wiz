@@ -123,6 +123,10 @@ internal object DebugCrashes {
     private val started = AtomicBoolean()
     @Volatile private var token: String? = null
 
+    /** The signed-in session's token as the app last said ([authenticated]), for a problem report sent from a screen
+     * that doesn't hold the account (the table's Send problem report). */
+    fun sessionToken(): String? = token
+
     @Synchronized fun install(application: Application) {
         if (!Diagnostics.enabled || store != null) return
         val reports = CrashReportStore(File(application.filesDir, "debug-crashes"))

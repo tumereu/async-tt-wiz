@@ -260,11 +260,15 @@ internal fun refusedText(reason: String): String? = when (reason) {
     GameDevice.REVEALS_HIDDEN -> CastController.WAIT_TO_CATCH_UP
     "stale", "newLine" -> NOT_TAKEN
     GameDevice.DRAFT_DROPPED -> NOT_TAKEN
-    else -> null
+    // SYS-012: any other refusal of the player's own action is told too, never a silent snap back (problem report N7FU6Y)
+    else -> NOT_ACCEPTED
 }
 
 /** A player's own action the game moved on from before it reached the server (SYS-012). */
 internal const val NOT_TAKEN = "That wasn't taken: the game moved on first. The table shows where it is now."
+
+/** A player's own action the game refused for another reason (SYS-012). */
+internal const val NOT_ACCEPTED = "That wasn't taken: the game didn't accept it. The table shows where it is now."
 
 /** The waiting bar's words (§14) for [wait]. */
 internal fun waitingText(wait: GameDevice.Wait, play: PlayState, opponent: String): String? = when (wait) {

@@ -484,8 +484,10 @@ class GameDevice(
      *
      * [performed] (SYS-025): called once the player's inputs are made at the head, before what follows by itself is folded
      * in, when what is made so far shows this player nothing the information rule holds back: the model already shows
-     * the action, so a host may show it before the event is finished. The action may still be refused after it: by the
-     * information rule (what follows by itself would show a hidden card, [REVEALS_HIDDEN]) or an engine failure.
+     * the action, so a host may show it before the event is finished. The player's own passes that follow stop before
+     * one that would show a hidden card (the player then holds priority, as their device's own steps do, §5), so after
+     * it only what the engine does by itself (a forced pass, an automatic answer) showing a hidden card, or an engine
+     * failure, refuses the action (problem report N7FU6Y).
      */
     fun act(input: Input, table: List<TableChange> = emptyList(), performed: (() -> Unit)? = null,
         follow: (GameModel) -> Input? = { null }): Acted = act(input, table, follow, null, performed)
@@ -630,7 +632,8 @@ class GameDevice(
             return Acted.Refused(e.message ?: "refusedByEngine")
         }
         // SYS-025: what is made so far may be shown now, unless it alone would show this player something the information
-        // rule holds back (then the whole event would be refused too)
+        // rule holds back (then the whole event is refused, before anything shows). What follows by itself can't refuse
+        // it by that rule any more: the player's own passes stop before one that would show something ([fold])
         if (performed != null && (before == null || !shows(before, builder))) performed()
         return finish(builder, own = !assumed, before = before, player = player)
     }
@@ -639,7 +642,7 @@ class GameDevice(
      * or a random result while [before] is given (the state before it: their line is tentative, or the event assumes):
      * then the draft is taken back unsent (§5). [player]: made by the player's own action (a refusal is told). */
     private fun finish(builder: EventBuilder, own: Boolean, before: GameState?, player: Boolean = false): Acted {
-        try { fold(builder, own) } catch (e: RuntimeException) { abandon(); return Acted.Refused(e.message ?: "refusedByEngine") }
+        try { fold(builder, own, guard = before) } catch (e: RuntimeException) { abandon(); return Acted.Refused(e.message ?: "refusedByEngine") }
         // I-D56 §5: while the line is tentative (or this assumes), nothing may show this player a hidden card
         if (before != null && shows(before, builder)) {
             val first = builder.inputs.firstOrNull()
@@ -667,8 +670,11 @@ class GameDevice(
      * public forced passes of either player, and with [own] the player's own passes by their mode and (Auto-skip) their
      * one-answer questions. Stops at anything else, at the game's end, after a whole round of turns at the next stop,
      * at a loop of the player's own yields, and turns a loop of forced passes into the engine's loop choice (CR 104.4b).
+     * With [guard] (the state before the event, on a tentative line) it also stops before a pass of the player's own that
+     * would show them something the information rule holds back (§5): the pass is taken back and the player holds
+     * priority there, as their device's own steps leave it ([automaticStep]), instead of the whole action being refused.
      */
-    private fun fold(builder: EventBuilder, own: Boolean) {
+    private fun fold(builder: EventBuilder, own: Boolean, guard: GameState? = null) {
         val start = model.engine.turn.number
         val forcedSeen = mutableSetOf<LoopKey>()
         val yielded = mutableSetOf<LoopKey>()
@@ -699,8 +705,13 @@ class GameDevice(
                 builder.perform(Input.MandatoryLoop)
                 return@repeat
             }
+            val mark = builder.mark()
             builder.perform(Input.PassPriority(holder))
             builder.answerRandoms()
+            if (yields && guard != null && shows(guard, builder)) {
+                builder.takeBack(mark)
+                return
+            }
         }
     }
 

@@ -322,7 +322,7 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
             error = null
             return when (intent) {
                 is TableActionIntent.Next -> when {
-                    flows.view?.declaring == viewer -> flows.step(org.asyncttwiz.automatum.StepFlow.Until.Pass)
+                    declares(play) -> flows.step(org.asyncttwiz.automatum.StepFlow.Until.Pass)
                     // Smoke 2026-11-04 (TRN-057, TRN-063): an arrow that says "End turn" ends the turn; a plain pass
                     // would stop at the viewer's own main phase on the way (STK-036)
                     arrowStep(play) == AutomatumStep.EndTurn -> e.endTurn()
@@ -353,6 +353,12 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
         error = null
         return flows.step(until)
     }
+
+    /** Whether the viewer declares attackers or blockers on [play] now (the step arrow then declares what the lanes hold),
+     * from the board's own flow. Problem report XGN86Q: no panel shows at a declaration, so the panel's flow ([flows]'
+     * view) isn't there to ask. */
+    private fun declares(play: PlayState): Boolean =
+        (flows.view?.takeIf { it.play.board === play.board } ?: AutomatumBoards.sharedFlow(play, engineTags()))?.declaring == viewer
 
     /** Whether [action] changes only what is shown, nothing Automatum reads (the values an automated batch's board
      * digest covers, SYS-057). An action the rules refuse anyway counts as shown-only: its own refusal is reported. */

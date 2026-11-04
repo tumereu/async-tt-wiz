@@ -655,14 +655,16 @@ class GameDevice(
         } catch (e: Refusal) { return Acted.Refused(e.reason) }
         val before = if (assumed || tentative()) model.engine.deepCopy() else null
         val builder = open(newLine)
+        val shift = LineShift.of(builder, model)
         try {
-            builder.perform(input, assumedBy = if (assumed) me else null)
-            builder.answerRandoms()
-            if (!assumed) while (true) {
-                val next = follow(model) ?: break
-                builder.perform(next)
+            fun made(input: Input, assumedBy: PlayerId?) {
+                val at = builder.engineSteps.size
+                builder.perform(shift?.map(input, model.engine) ?: input, assumedBy = assumedBy)
                 builder.answerRandoms()
+                shift?.follow(input, builder.engineSteps.drop(at + 1))
             }
+            made(input, if (assumed) me else null)
+            if (!assumed) while (true) made(follow(model) ?: break, null)
             table.forEach(builder::table)
         } catch (e: RuntimeException) {
             session.abandon()
@@ -673,6 +675,47 @@ class GameDevice(
         // it by that rule any more: the player's own passes stop before one that would show something ([fold])
         if (performed != null && (before == null || !shows(before, builder))) performed()
         return finish(builder, own = !assumed, before = before, player = player)
+    }
+
+    /**
+     * Problem report GXKJSE (cast, Undo, the same cast refused): the player's inputs of one flow are worked out on the board
+     * shown, the state before the event. An event that starts a line (§9: the first one after a rewind, or a branch) first
+     * puts the libraries' unknown parts in a new order, and those logged changes move the ids the engine names its
+     * decisions with (they read the log's size). [shown] follows the same inputs on the state without that reorder, so
+     * each answer is given here to the decision it answers on the board shown. It stops following (answers go as they
+     * are) once the two part ways, which the reorder alone never makes them do.
+     */
+    private class LineShift(private var shown: GameState?) {
+        /** [input] as made on [here]: an answer to the decision open on the shown state names the one open here. */
+        fun map(input: Input, here: GameState): Input {
+            val open = shown?.pending?.decision ?: return input
+            val now = here.pending?.decision ?: return input
+            if (input !is Input.Answer || input.decision != open.id || now.id == open.id || now::class != open::class) return input
+            return input.copy(decision = now.id)
+        }
+
+        /** Follows [input] (as worked out on the board shown) and the random answers [after] it made here. */
+        fun follow(input: Input, after: List<EngineStep>) {
+            val s = shown ?: return
+            try {
+                Engine.perform(s, input).changes.forEach(s::apply)
+                for (step in after) {
+                    val answer = (step.input as? Input.Answer)?.answer ?: error("not a random answer")
+                    val d = s.pending?.decision as? Decision.Random ?: error("no random decision")
+                    Engine.perform(s, Input.Answer(d.id, answer)).changes.forEach(s::apply)
+                }
+            } catch (_: RuntimeException) { shown = null }
+        }
+
+        companion object {
+            /** The shift of [builder]'s event on [model] when it begins with a line's reorder, else null. */
+            fun of(builder: EventBuilder, model: GameModel): LineShift? {
+                val start = builder.engineSteps.firstOrNull()?.takeIf { it.input == null } ?: return null
+                val s = model.engine.deepCopy()
+                start.changes.asReversed().forEach(s::revert)
+                return LineShift(s)
+            }
+        }
     }
 
     /** Folds what follows by itself into [builder]'s event and sends it, unless it would show this player a hidden card

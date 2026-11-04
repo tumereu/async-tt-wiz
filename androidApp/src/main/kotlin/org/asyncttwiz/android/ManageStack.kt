@@ -20,7 +20,7 @@ import org.asyncttwiz.protocol.*
 /** The Stack's entries in one compact, live view (STK-019): look and inspect only; the Stack changes only by the rules
  * (I-D52). (An Automatum target on the Stack is picked in the docked [StackTargetPicker].) */
 @Composable
-internal fun ManageStackDialog(state: PlayState, viewer: String, dismiss: () -> Unit) {
+internal fun ManageStackDialog(state: TableBoard, viewer: String, dismiss: () -> Unit) {
     val order = CombatStackRules.stack(state.board).cards
     val size = rememberCardAppearance().size(CardArea.STACK)
     if (order.isEmpty()) { LaunchedEffect(Unit) { dismiss() }; return }
@@ -30,8 +30,8 @@ internal fun ManageStackDialog(state: PlayState, viewer: String, dismiss: () -> 
     fun inspect(id: String, hold: Boolean) {
         val card = CombatStackRules.inspection(state.board, id) ?: return
         peeking = hold
-        inspection = ManualInspection(state.gameId, state.id, id,
-            ManualDisclosure.permittedFaces(state, card, viewer, inspecting = true).map { it.faceId },
+        inspection = ManualInspection(state.gameId, state.playId, id,
+            ManualDisclosure.permittedFaces(state.board, state.definitions, card, viewer, inspecting = true).map { it.faceId },
             snapshot = card.takeIf { CombatStackRules.liveSource(state.board, id) == null }, stackEntryId = id)
     }
     InlinePopupPanel(dismiss, title = "Stack · ${order.size}", width = 384.dp, height = 520.dp, key = "manage-stack", sheet = true) {

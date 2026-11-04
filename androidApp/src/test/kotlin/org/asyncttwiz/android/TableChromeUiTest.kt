@@ -34,8 +34,8 @@ class TableChromeUiTest {
         val playback = LiveTableFixture.playback()
         val events = HistoryTimelineLayout.events(playback.tree, playback.tree.sharedHeadId)
         compose.setContent { MaterialTheme {
-            val toolkit = remember(viewer) { TableToolkitController(viewer, { play }, { true }, { _, _ -> true }) }
-            TableSurface(TableFixture.game, play, viewer, landscape, Modifier.fillMaxSize(),
+            val toolkit = remember(viewer) { TableToolkitController(viewer, { TableBoard.of(play) }, { true }, { _, _ -> true }) }
+            TableSurface(TableFixture.game, TableBoard.of(play), viewer, landscape, Modifier.fillMaxSize(),
                 connected = true, onIntent = toolkit::handle, toolkit = toolkit,
                 runtime = TableRuntimeHooks(navigation = {}, chat = {}, undo = { true }, reviewing = review,
                     history = { playback.scrub(playback.tree.sharedHeadId); review = true }, returnCurrent = { review = false },
@@ -56,8 +56,8 @@ class TableChromeUiTest {
             // TRN-015, TRN-059, TRN-063: the toggles show on either player's turn, the step arrow in your own turn and in the
             // other player's only while you must act (the move is yours: your blockers here)
             val shown = who == turn || who == move
-            assertEquals(shown, stepArrowShown(play, who))
-            val next = compose.onNodeWithContentDescription(AutomatumStep.of(play).label)
+            assertEquals(shown, stepArrowShown(TableBoard.of(play), who))
+            val next = compose.onNodeWithContentDescription(AutomatumStep.of(TableBoard.of(play)).label)
             if (shown) next.assertIsDisplayed() else next.assertDoesNotExist()
             compose.onNodeWithText("Opponent's turn").assertDoesNotExist()
             compose.onNodeWithContentDescription("Untap all").assertDoesNotExist()
@@ -83,7 +83,7 @@ class TableChromeUiTest {
                 assertEquals((if (landscape) pixels.width / 2f else 0f) + 60f, cells.first().left)
                 assertEquals(b.left - 4f, cells.last().right)
             }
-            val handLabel = TablePresentation.scene(TableFixture.game, play, who, pixels.width.toFloat(), pixels.height.toFloat(), landscape)
+            val handLabel = TablePresentation.scene(TableFixture.game, TableBoard.of(play), who, pixels.width.toFloat(), pixels.height.toFloat(), landscape)
                 .items.single { it.cardId == "$who/HAND/0" }.label
             val handBefore = compose.onAllNodesWithContentDescription(handLabel).fetchSemanticsNodes().map { it.boundsInRoot }
             // Only the strip's toggle enters timeline mode; event taps describe without scrubbing.
@@ -123,13 +123,13 @@ class TableChromeUiTest {
         val initial = TableFixture.play(hand = 4)
         val play = initial.copy(board = initial.board.copy(attentionHolder = "b",
             turn = initial.board.turn.copy(accountId = "b")))
-        val toolkit = TableToolkitController("a", { play }, { true }, { _, _ -> true })
+        val toolkit = TableToolkitController("a", { TableBoard.of(play) }, { true }, { _, _ -> true })
         compose.setContent { MaterialTheme {
-            TableSurface(game, play, "a", landscape, Modifier.fillMaxSize(), connected = true,
+            TableSurface(game, TableBoard.of(play), "a", landscape, Modifier.fillMaxSize(), connected = true,
                 onIntent = toolkit::handle, toolkit = toolkit)
         } }
         val root = compose.onRoot().fetchSemanticsNode().boundsInRoot
-        val scene = TablePresentation.scene(game, play, "a", root.width, root.height, landscape)
+        val scene = TablePresentation.scene(game, TableBoard.of(play), "a", root.width, root.height, landscape)
         val hand = scene.items.single { it.id == "b/HAND" }.bounds.let { Rect(it.x, it.y, it.right, it.bottom) }
         // Nonempty hands expose their cards, not a separate Hand semantics node.
         val cardLabel = scene.items.single { it.cardId == "b/HAND/0" }.label

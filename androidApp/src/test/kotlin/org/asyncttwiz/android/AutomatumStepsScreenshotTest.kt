@@ -105,7 +105,7 @@ class AutomatumStepsScreenshotTest {
     }
 
     private val sent = mutableListOf<Pair<GameAction.PlayBatch, String>>()
-    private fun toolkit(play: PlayState, viewer: String) = TableToolkitController(viewer, { play }, { true }, { _, _ -> true },
+    private fun toolkit(play: PlayState, viewer: String) = TableToolkitController(viewer, { TableBoard.of(play) }, { true }, { _, _ -> true },
         automatedBatch = { batch, request -> sent += batch to request; true }, playTree = { tree })
 
     /** [viewer] presses [intent] (the step arrow or the phase dialog) on [play]; the batch the server accepts. */
@@ -123,7 +123,7 @@ class AutomatumStepsScreenshotTest {
             MaterialTheme {
                 NoRipples {
                     Box(Modifier.fillMaxSize()) {
-                        TableSurface(f.game, play, viewer, false, Modifier.fillMaxSize(), connected = true,
+                        TableSurface(f.game, TableBoard.of(play), viewer, false, Modifier.fillMaxSize(), connected = true,
                             onIntent = toolkit::handle, toolkit = toolkit,
                             runtime = TableRuntimeHooks(navigation = {}, chat = {}, undo = { true }, controlsConnected = true))
                     }
@@ -159,7 +159,7 @@ class AutomatumStepsScreenshotTest {
         val play = board(bobSpark = false)
         val toolkit = toolkit(play, f.a)
         assertTrue(toolkit.cast.start(aSpark))
-        val life = TablePresentation.scene(f.game, play, f.a, 412f, 892f, false).items.first { it.id == "life/${f.b}" }
+        val life = TablePresentation.scene(f.game, TableBoard.of(play), f.a, 412f, 892f, false).items.first { it.id == "life/${f.b}" }
         toolkit.open(TableIntent.Actions(life.id, null), life)
         // I-D47: Autotap (on) sends the cast once its last choice is made; only a cast still open waits for Cast
         if (toolkit.cast.open) assertTrue(toolkit.cast.cast(), toolkit.error)
@@ -187,11 +187,11 @@ class AutomatumStepsScreenshotTest {
     // Blockers and Damage, current; TRN-007: the step button shows "1st strike"
     @Test fun phaseDialogShowsTheFirstStrikeStep() {
         val play = TableToolFixture.play(TurnPosition.FIRST_STRIKE_DAMAGE, "5").let { it.copy(board = it.board) }
-        val controller = TableActionController({ play }, { true }, RecordingRoutes())
+        val controller = TableActionController({ TableBoard.of(play) }, { true }, RecordingRoutes())
         compose.setContent { MaterialTheme {
             Column {
                 TurnIndicator(play.board.turn, "Alice", Color(0xff2e7d5b), {})
-                PhaseStepPicker(play, play.board.turn.accountId, Color(0xff2e7d5b), {},
+                PhaseStepPicker(TableBoard.of(play), play.board.turn.accountId, Color(0xff2e7d5b), {},
                     names = mapOf(play.board.turn.accountId to "Alice"))
             }
         } }
@@ -246,7 +246,7 @@ class AutomatumStepsScreenshotTest {
         assertNull(alice.flows.acting)
         assertTrue(sent.isEmpty())
         render(play, f.a, alice)
-        assertEquals(AutomatumStep.Pass, alice.plannedStep(play))
+        assertEquals(AutomatumStep.Pass, alice.plannedStep(TableBoard.of(play)))
         compose.onNode(hasContentDescription("Pass") and hasClickAction()).performClick()
         compose.waitForIdle()
         compose.onNodeWithText("Pass for Bob?").assertIsDisplayed()
@@ -268,7 +268,7 @@ class AutomatumStepsScreenshotTest {
         val play = board()
         var live = play
         sent.clear()
-        val bob = TableToolkitController(f.b, { live }, { true }, { _, _ -> true },
+        val bob = TableToolkitController(f.b, { TableBoard.of(live) }, { true }, { _, _ -> true },
             automatedBatch = { batch, request -> sent += batch to request; true }, playTree = { tree })
         assertFalse(bob.table.perform(TableActionIntent.End(TableActionScope(play.gameId, play.id))))
         val asked = assertNotNull(bob.flows.acting)
@@ -301,11 +301,11 @@ class AutomatumStepsScreenshotTest {
             .map { it.id }.toSet()
         val play = full.copy(board = full.board.copy(cards = full.board.cards.filter { it.id !in gone },
             containers = full.board.containers.map { it.copy(cards = it.cards.filter { id -> id !in gone }) }))
-        assertEquals(AutomatumStep.ToCombat, AutomatumStep.of(play), "the board alone would say To combat")
+        assertEquals(AutomatumStep.ToCombat, AutomatumStep.of(TableBoard.of(play)), "the board alone would say To combat")
         sent.clear()
         val toolkit = toolkit(play, f.a)
         toolkit.planStep()
-        assertEquals(AutomatumStep.EndTurn, toolkit.plannedStep(play))
+        assertEquals(AutomatumStep.EndTurn, toolkit.plannedStep(TableBoard.of(play)))
         assertTrue(sent.isEmpty(), "planning sends nothing")
         assertTrue(toolkit.table.perform(TableActionIntent.Next(TableActionScope(play.gameId, play.id))))
         val (batch, request) = sent.single()
@@ -317,12 +317,12 @@ class AutomatumStepsScreenshotTest {
     // you hold priority or must decide; in your own turn it always shows
     @Test fun theStepArrowHidesInTheOtherPlayersTurnUnlessYouAct() {
         val play = board()
-        assertTrue(stepArrowShown(play, f.a))
-        assertFalse(stepArrowShown(play, f.b), "Alice holds priority in her turn")
-        assertTrue(stepArrowShown(play.copy(board = play.board.copy(priority = MtgPriority(f.b, 1), attentionHolder = f.b)), f.b))
+        assertTrue(stepArrowShown(TableBoard.of(play), f.a))
+        assertFalse(stepArrowShown(TableBoard.of(play), f.b), "Alice holds priority in her turn")
+        assertTrue(stepArrowShown(TableBoard.of(play.copy(board = play.board.copy(priority = MtgPriority(f.b, 1), attentionHolder = f.b))), f.b))
         val blocking = play.copy(board = play.board.copy(priority = null, attentionHolder = f.b,
             turn = play.board.turn.copy(phase = TurnPosition.DECLARE_BLOCKERS.phase, step = TurnPosition.DECLARE_BLOCKERS.step)))
-        assertTrue(stepArrowShown(blocking, f.b), "Bob declares blockers")
+        assertTrue(stepArrowShown(TableBoard.of(blocking), f.b), "Bob declares blockers")
         render(play, f.b)
         compose.onNodeWithContentDescription("Pass").assertDoesNotExist()
         captureShot("$SCREENSHOTS/automatum/step-arrow-hidden-opponent-turn.png",
@@ -333,7 +333,7 @@ class AutomatumStepsScreenshotTest {
     // and it has no Next step or End turn
     @Test fun thePhaseDialogIsViewOnly() {
         val play = board()
-        compose.setContent { MaterialTheme { PhaseStepPicker(play, f.a, Color(0xff2e7d5b), {}) } }
+        compose.setContent { MaterialTheme { PhaseStepPicker(TableBoard.of(play), f.a, Color(0xff2e7d5b), {}) } }
         compose.onNodeWithContentDescription("Precombat main").assertIsSelected()
         compose.onNodeWithContentDescription("End step").assertHasNoClickAction()
         compose.onNodeWithText("Next step").assertDoesNotExist()
@@ -351,7 +351,7 @@ class AutomatumStepsScreenshotTest {
         render(play, f.a)
         compose.onNodeWithContentDescription("Mana pool: 2 {R}, 1 {G}").assertIsDisplayed()
         compose.onAllNodes(hasContentDescription("Mana pool", substring = true)).assertCountEquals(1)
-        val scene = TablePresentation.scene(f.game, play, f.a, 412f, 892f, false)
+        val scene = TablePresentation.scene(f.game, TableBoard.of(play), f.a, 412f, 892f, false)
         val own = scene.fields.last()
         val line = assertNotNull(manaPoolLine(scene.fields, own))
         assertEquals(own.gridBounds.bottom - own.rowHeight, line, .5f)

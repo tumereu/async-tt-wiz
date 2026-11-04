@@ -110,7 +110,7 @@ class AutomatumPauseTest {
     /** Ordinary (manual) actions a device sent. */
     private val submitted = mutableListOf<PlayAction>()
     /** [viewer]'s device showing [play]; [from]: the point its next action continues from (held, as the app arms it). */
-    private fun device(play: PlayState, viewer: String, from: String? = null) = TableToolkitController(viewer, { play }, { true },
+    private fun device(play: PlayState, viewer: String, from: String? = null) = TableToolkitController(viewer, { TableBoard.of(play) }, { true },
         { action, _ -> submitted += action; true }, automatedBatch = { batch, request -> sent += batch to request; true }, playTree = { tree },
         continuation = { from?.let { Continuation(it, explicit = true) } })
 
@@ -118,7 +118,7 @@ class AutomatumPauseTest {
     private fun aliceCasts(play: PlayState): PlayState {
         val alice = device(play, f.a)
         assertTrue(alice.cast.start(aSpark))
-        val life = TablePresentation.scene(f.game, play, f.a, 412f, 892f, false).items.first { it.id == "life/${f.b}" }
+        val life = TablePresentation.scene(f.game, TableBoard.of(play), f.a, 412f, 892f, false).items.first { it.id == "life/${f.b}" }
         alice.open(TableIntent.Actions(life.id, null), life)
         // I-D47: Autotap (on) sends the cast once its last choice is made; only a cast still open waits for Cast
         if (alice.cast.open) assertTrue(alice.cast.cast(), alice.error)
@@ -147,10 +147,10 @@ class AutomatumPauseTest {
             MaterialTheme {
                 NoRipples {
                     Box(Modifier.fillMaxSize()) {
-                        TableSurface(f.game, play, viewer, false, Modifier.fillMaxSize(), connected = true,
+                        TableSurface(f.game, TableBoard.of(play), viewer, false, Modifier.fillMaxSize(), connected = true,
                             onIntent = toolkit::handle, toolkit = toolkit,
                             runtime = TableRuntimeHooks(navigation = {}, chat = {}, undo = { true }, controlsConnected = true))
-                        AutomatumPauseDriver(toolkit, null, play, play.currentNodeId, liveShown = true, opponentOnline = online,
+                        AutomatumPauseDriver(toolkit, null, TableBoard.of(play), play.currentNodeId, liveShown = true, opponentOnline = online,
                             settings = settings)
                     }
                 }
@@ -250,7 +250,7 @@ class AutomatumPauseTest {
         val bob = device(cast, f.b, from = cast.currentNodeId)
         AutomatumBoards.compute(cast, f.b)
         assertTrue(bob.cast.start(bSpark), bob.error)
-        val life = TablePresentation.scene(f.game, cast, f.b, 412f, 892f, false).items.first { it.id == "life/${f.a}" }
+        val life = TablePresentation.scene(f.game, TableBoard.of(cast), f.b, 412f, 892f, false).items.first { it.id == "life/${f.a}" }
         bob.open(TableIntent.Actions(life.id, null), life)
         // I-D47: Autotap (on) sends the cast once its last choice is made; only a cast still open waits for Cast
         if (bob.cast.open) assertTrue(bob.cast.cast(), bob.error)
@@ -312,7 +312,7 @@ class AutomatumPauseTest {
         compose.setContent {
             MaterialTheme {
                 NoRipples {
-                    TableSurface(f.game, cast, f.b, false, Modifier.fillMaxSize(), connected = true, onIntent = bob::handle, toolkit = bob,
+                    TableSurface(f.game, TableBoard.of(cast), f.b, false, Modifier.fillMaxSize(), connected = true, onIntent = bob::handle, toolkit = bob,
                         runtime = TableRuntimeHooks(navigation = {}, chat = {}, undo = { true }, reviewing = true,
                             timelinePlayback = playback.status, controlsConnected = true,
                             bottomPanel = { controls -> HistoryPlaybackPanel(playback, history.currentNodeId, f.b, true, 1_000, {},

@@ -2,142 +2,43 @@ package org.asyncttwiz.automatum
 
 import arcanum.api.CardDefinition
 import arcanum.engine.Engine
-import arcanum.engine.Pending
+import arcanum.engine.Outcome
 import arcanum.engine.change.Change
-import arcanum.engine.decision.Answer
 import arcanum.engine.decision.Decision
 import arcanum.engine.decision.FilledObject
-import arcanum.engine.decision.RandomKind
 import arcanum.engine.input.Input
-import arcanum.engine.state.CardId
 import arcanum.engine.state.GameState
 import arcanum.engine.state.LoggedChange
 import arcanum.engine.state.ObjectId
 import arcanum.engine.state.PlayerId
-import org.asyncttwiz.protocol.CommandIds
 import org.asyncttwiz.protocol.PlayState
-import org.asyncttwiz.protocol.RandomV1
 
 /**
- * One engine call as ATW hosts it (integration spec §2): the engine state built from [state] ([EngineState.from]),
- * [perform] with a player's input, and every host decision answered inside the same call (D25, D60):
+ * One engine call as ATW hosts it on today's model (integration spec §2): the engine state built from [state]
+ * ([EngineState.from]), [perform] with a player's input, and every host decision answered inside the same call (D25, D60;
+ * [EngineRun]); a step another player decides in their own view ([Decision.OtherView], D31) has its identities filled
+ * from ATW's card data, and the call is recorded for reports from its first input on (I-D43). [changes] are everything
+ * it did, in order, for [EngineBatch.plan] to turn into one ATW batch.
  *
- * - randomness with ATW's own seeded randomness ([RandomV1], fresh seeds from [seeds]); a shuffle's order is the one
- *   ATW's `ShuffleLibrary` gives for the same seed, so the batch can say it with that event;
- * - host fills from ATW's card data (every client has the game's cards and their definitions);
- * - a step another player decides in their own view ([Decision.OtherView], D31): its identities are filled in here;
- *   when that player has to decide something there, the call stops and the open flow is handed to them;
- * - a player's decision answered early (a pre-event, I-D33, [PreAnswers]) with that answer, when the engine takes it.
- *
- * The call ends when the engine waits for a player ([pending]) or is done. [changes] are everything it did, in order,
- * for [EngineBatch.plan] to turn into one ATW batch.
+ * Engine-responsiveness R4a: a game on engine state runs an [EngineRun] on its own state instead; this is today's model
+ * only.
  */
-class EngineCall(
+class EngineCall private constructor(
     val state: PlayState,
     val definitions: Map<String, CardDefinition>,
-    val viewer: String? = null,
-    val log: List<LoggedChange> = emptyList(),
-    private val seeds: () -> String,
-) {
-    // I-D43: the board of the latest call is a report's latest board, also when the engine can't take it
-    init { AutomatumLog.context(state, definitions, viewer, log) }
-
-    /** The engine state the call starts from. */
-    val start: GameState = EngineState.from(state, definitions, viewer, log)
-    /** The state after [changes]. */
-    val working: GameState = start.deepCopy()
-    val changes = mutableListOf<Change>()
-    internal val ids = CardIds.of(state.board)
-    internal val shuffles = mutableListOf<ShuffleAnswer>()
-    /** Card ids a viewer's shuffle made (D60), by the ATW card each one is. */
-    internal val hidden = mutableMapOf<CardId, String>()
-
-    /** What the engine waits for now: a player's decision, or another player's view ([Decision.OtherView]). */
-    val pending: Pending? get() = working.pending
-
-    /** The [changes] (by index) that are a player's own priority pass: the history shows them; other priority changes
-     * (a pass the host made, priority given) are folded into the visible event of their batch (I-D22). */
-    val ownPasses: Set<Int> get() = passes
-    private val passes = mutableSetOf<Int>()
-
-    /**
-     * Performs [input] and answers the host's decisions that follow; returns what the engine then waits for.
-     * [automatic]: the host makes the input for a player, as a priority pass when `Engine.shouldPassFor` says so
-     * (I-D3, I-D18); the history then folds it into its batch's visible event (I-D22).
-     */
-    fun perform(input: Input, automatic: Boolean = false): Pending? {
-        if (!automatic) own += input
-        run(input, automatic)
-        while (true) {
-            val decision = working.pending?.decision ?: return null
-            val answer = when (decision) {
-                is Decision.Random -> random(decision)
-                is Decision.HostFill -> Answer.Filled(decision.objects.map(::filled))
-                is Decision.OtherView -> {
-                    val filled = decision.objects.map(::filled)
-                    // D31: the identities alone carry on while that player has nothing to decide there; random results
-                    // there are the host's too
-                    when (val next = Engine.otherViewDecision(working, filled)) {
-                        null -> Answer.OtherView(filled, emptyList())
-                        is Decision.Random -> Answer.OtherView(filled, listOf(random(next)))
-                        else -> return working.pending
-                    }
-                }
-                // Pivot review #3 (I-D52): every game is played by the rules, so a step the engine leaves to the players
-                // is an engine gap: logged for a report (I-D43), answered Done at once and said in the history
-                // ([MtgAction.Skipped], [gaps]); the game goes on without it
-                is Decision.Manual -> {
-                    gaps += decision.text
-                    AutomatumLog.refusal(state.gameId, "engine gap", "skipped by hand step: ${decision.text}")
-                    Answer.Done
-                }
-                // I-D33: a decision a player answered early is answered now, when the engine takes the early answer; the
-                // early answer is used up either way (one the engine refuses leaves the decision asked as usual)
-                else -> {
-                    val early = PreAnswers.matching(state.board, working, ids, decision) ?: return working.pending
-                    preAnswered += PreAnswers.id(early)
-                    val taken = PreAnswers.answer(early, working, ids, decision)
-                    AutomatumLog.preEvent(state.gameId, if (taken == null) "refused" else "used",
-                        "${PreAnswers.id(early)} for ${decision.kind} ${decision.id.value}")
-                    taken ?: return working.pending
-                }
-            }
-            run(Input.Answer(decision.id, answer))
-        }
-    }
-
-    /** The inputs a player made in this call, in order ([perform] without `automatic`): what a game on engine state sends
-     * (I-D56 step C), where the device answers the randomness and makes the automatic passes itself. */
-    val inputs: List<Input> get() = own
-    private val own = mutableListOf<Input>()
-
-    /** The steps the engine left to the players in this call, each answered Done ([perform]; pivot review #3), its
-     * batch says them in the history. */
-    val gaps = mutableListOf<String>()
-
-    /** The early answers (record ids, I-D33) whose decision opened in this call: applied, or refused and asked as usual.
-     * The call's batch removes them; the others stay while their decision can still open ([PreAnswers.kept]). */
-    internal val preAnswered = mutableSetOf<String>()
-
-    /**
-     * Answers the decision open when the call started with the early answer given for it ([PreAnswers.forOpen], #8: given
-     * while the batch that opened the decision was on its way), then goes on as [perform] does; returns what the engine
-     * then waits for.
-     * @throws IllegalArgumentException when no early answer the engine takes is given for the open decision.
-     */
-    fun performEarly(): Pending? {
-        val early = requireNotNull(PreAnswers.forOpen(this)) { "No early answer for the open decision" }
-        val decision = working.pending!!.decision
-        preAnswered += PreAnswers.id(early)
-        AutomatumLog.preEvent(state.gameId, "used", "${PreAnswers.id(early)} for the open ${decision.kind} ${decision.id.value}")
-        return perform(Input.Answer(decision.id, PreAnswers.answer(early, working, ids, decision)!!))
-    }
+    val viewer: String?,
+    val log: List<LoggedChange>,
+    start: GameState,
+    seeds: () -> String,
+) : EngineRun(start, state.board, state.gameId, CardIds.of(state.board), seeds) {
+    constructor(state: PlayState, definitions: Map<String, CardDefinition>, viewer: String? = null,
+        log: List<LoggedChange> = emptyList(), seeds: () -> String) :
+        this(state, definitions, viewer, log, built(state, definitions, viewer, log), seeds)
 
     /** A change the host makes itself before the input (priority settled while ATW's steps change by hand,
      * [HostPriority]); it goes out with the call's batch. */
     internal fun host(change: Change) {
-        working.apply(change)
-        changes += change
+        applyHost(change)
         recording?.add(CallStep.Host(change)) ?: hostSteps.add(CallStep.Host(change))
     }
 
@@ -149,20 +50,14 @@ class EngineCall(
     /** The number [AutomatumLog] gave this call, once it performed an input. */
     val logNumber: Int? get() = recording?.number
 
-    /** The identities of [decision]'s objects, for the player who decides in their own view (D31). */
-    fun otherView(decision: Decision.OtherView): List<FilledObject> = decision.objects.map(::filled)
-
-    private fun run(input: Input, automatic: Boolean = true) {
+    override fun performed(input: Input): Outcome {
         val recorded = recording ?: AutomatumLog.begin(this, hostSteps.toList()).also { recording = it }
         recorded.add(CallStep.Perform(input))
-        val outcome = Engine.perform(working, input, recorded.trace)
-        if (input is Input.PassPriority && !automatic)
-            outcome.changes.indexOfFirst { it is Change.Priority }.takeIf { it >= 0 }?.let { passes += changes.size + it }
-        outcome.changes.forEach { working.apply(it); changes += it }
+        return Engine.perform(working, input, recorded.trace)
     }
 
     /** The identity of [id] from ATW's card data. */
-    private fun filled(id: ObjectId): FilledObject {
+    override fun filled(id: ObjectId): FilledObject {
         val card = (id as? ObjectId.Card)?.card ?: error("Not a card: $id")
         val atw = hidden[card] ?: ids.atw(card)
         val played = state.board.cards.singleOrNull { it.id == atw } ?: error("No card $atw to fill $id")
@@ -172,43 +67,13 @@ class EngineCall(
         return FilledObject(id, definition)
     }
 
-    private fun random(decision: Decision.Random): Answer = when (val what = decision.what) {
-        RandomKind.CoinFlip -> Answer.CoinFlip(RandomV1.sample(2, RandomV1.Words(seeds())::next) == 0)
-        is RandomKind.Die -> RandomV1.Words(seeds()).let { words -> Answer.DieRolls(List(what.count) { RandomV1.sample(what.sides, words::next) + 1 }) }
-        is RandomKind.Objects -> objects(decision.player, what)
-    }
-
-    /** Random objects: a shuffle ([shuffled]) in the order ATW's `ShuffleLibrary` gives; else a random pick. */
-    private fun objects(player: PlayerId, what: RandomKind.Objects): Answer.RandomObjects {
-        val seed = seeds()
-        val atw = what.among.map { (it as? ObjectId.Card)?.let { o -> hidden[o.card] ?: ids.atw(o.card) } ?: error("Not a card: $it") }
-        val owner = if (what.library.isNotEmpty()) player else shuffled(what)
-        val order = if (owner == null) RandomV1.shuffle(atw, seed).take(what.count) else {
-            // ATW shuffles the whole library with the seed; cards the shuffle leaves out (CR 701.24b) go back on top.
-            // Final cast review #7: the library as the engine shuffles it, not as it is while the decision is asked (cards
-            // found earlier in the step, "search …, put them onto the battlefield, then shuffle", have left it by then)
-            val library = what.library.ifEmpty { working.player(owner).library }
-                .map { (it as ObjectId.Card).card.let { c -> hidden[c] ?: ids.atw(c) } }
-            RandomV1.shuffle(library, seed).filter { it in atw }
-        }
-        val byAtw = atw.zip(what.among).toMap()
-        val chosen = if (!what.newIds) order.map { byAtw.getValue(it) } else order.mapIndexed { i, real ->
-            // D60: new ids for cards whose order the viewer doesn't know; this host knows which card each one is
-            CardId(CommandIds.uuidV5(HIDDEN_NAMESPACE, "$seed/$i")).also { hidden[it] = real }.let { ObjectId.Card(it, 0) }
-        }
-        if (owner != null) shuffles += ShuffleAnswer(owner, seed, order)
-        return Answer.RandomObjects(chosen)
-    }
-
-    /** The player whose library [what] shuffles: all of it (but cards the shuffle leaves out) in a random order. */
-    private fun shuffled(what: RandomKind.Objects): PlayerId? {
-        if (what.count != what.among.size || what.among.isEmpty()) return null
-        return working.players.firstOrNull { p -> what.among.all { it in p.library } }?.id
-    }
-
     private companion object {
-        /** A fixed namespace for the card ids of a viewer's shuffle. */
-        const val HIDDEN_NAMESPACE = "8a3d6f0e-5b1c-4e7a-9d2f-6c4b8e1a7f30"
+        /** The engine state of [state]'s board; I-D43: the board of the latest call is a report's latest board, also
+         * when the engine can't take it. */
+        fun built(state: PlayState, definitions: Map<String, CardDefinition>, viewer: String?, log: List<LoggedChange>): GameState {
+            AutomatumLog.context(state, definitions, viewer, log)
+            return EngineState.from(state, definitions, viewer, log)
+        }
     }
 }
 

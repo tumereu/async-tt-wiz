@@ -109,12 +109,12 @@ class AutomatumResolveScreenshotTest {
     private fun tags(play: PlayState) = engineTags(tree?.takeIf { it.stateAt(it.currentNodeId)?.board == play.board }, play.currentNodeId)
 
     private fun item(play: PlayState, viewer: String, predicate: (TableItem) -> Boolean): TableItem =
-        TablePresentation.scene(f.game, play, viewer, 412f, 892f, false).items.first(predicate)
+        TablePresentation.scene(f.game, TableBoard.of(play), viewer, 412f, 892f, false).items.first(predicate)
 
     /** Alice casts her Storm Spark at [target] (a life square or card id) through Automatum, as the app sends it. */
     private fun aliceCasts(play: PlayState, target: String): PlayState {
         val sent = mutableListOf<Pair<GameAction.PlayBatch, String>>()
-        val toolkit = TableToolkitController(f.a, { play }, { true }, { _, _ -> true }, automatedBatch = { b, r -> sent += b to r; true },
+        val toolkit = TableToolkitController(f.a, { TableBoard.of(play) }, { true }, { _, _ -> true }, automatedBatch = { b, r -> sent += b to r; true },
             playTree = { tree })
         assertTrue(toolkit.cast.start(aSpark))
         val tapped = if (target.startsWith("life/")) item(play, f.a) { it.id == target } else item(play, f.a) { it.cardId == target }
@@ -130,13 +130,13 @@ class AutomatumResolveScreenshotTest {
         AutomatumBoards.compute(play, viewer)
         AutomatumBoards.sharedFlow(play, tags(play))
         val history = tree
-        val toolkit = TableToolkitController(viewer, { play }, { true }, { _, _ -> true },
+        val toolkit = TableToolkitController(viewer, { TableBoard.of(play) }, { true }, { _, _ -> true },
             automatedBatch = { batch, request -> sent += batch to request; true }, playTree = { history })
         compose.setContent {
             MaterialTheme {
                 NoRipples {
                     Box(Modifier.fillMaxSize()) {
-                        TableSurface(f.game, play, viewer, false, Modifier.fillMaxSize(), connected = true,
+                        TableSurface(f.game, TableBoard.of(play), viewer, false, Modifier.fillMaxSize(), connected = true,
                             onIntent = toolkit::handle, toolkit = toolkit,
                             runtime = TableRuntimeHooks(navigation = {}, chat = {}, undo = { true }, controlsConnected = true))
                     }

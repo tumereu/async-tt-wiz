@@ -176,7 +176,7 @@ data class CombatShown(
  * [EngineBatch] (one pair per attacker in its target's lane, blockers in the pair of the first attacker they block;
  * creatures removed from combat leave their pairs; the area closes as combat ends, CR 511.3).
  *
- * Each call works on an [EngineCall] the caller made and sends with [EngineBatch.plan], and ends with the host's
+ * Each call works on an [EngineRun] the caller made (today's model: an [EngineCall], sent with [EngineBatch.plan]), and ends with the host's
  * automatic passes ([StepFlow.automatic]).
  */
 object CombatFlow {
@@ -206,29 +206,39 @@ object CombatFlow {
         }
     }
 
+    /**
+     * [shown] for a game on engine state (I-D56, engine-responsiveness R4a): [state] is its own state (full information,
+     * never changed here) and [board] the board the table shows of it (its lanes and records). Never throws.
+     */
+    fun shown(state: GameState, board: BoardState, gameId: String): CombatShown {
+        if (TurnPosition.of(board.turn) !in COMBAT_POSITIONS) return CombatShown.NONE
+        return try { shown(EngineRun.of(state, board, gameId) { error("No randomness while looking") }) }
+        catch (_: RuntimeException) { CombatShown.NONE }
+    }
+
     /** Whether [board]'s combat runs through the engine: attackers were declared through it (its combat record is
      * there, of this combat: #1, not one finished by hand while Automatum was off), so it deals the combat damage
      * itself. */
     fun throughEngine(board: BoardState): Boolean = runCatching { EngineCodec.currentCombat(board) != null }.getOrDefault(false)
 
     /** What the table shows of combat in [call]'s state now ([CombatShown]). */
-    fun shown(call: EngineCall): CombatShown {
+    fun shown(call: EngineRun): CombatShown {
         val s = call.working
         val choices = choices(call)
         val open = division(call)
         val firstStrike = firstStrikeStep(call)
-        val blocks = if (choices.declaring != null && !choices.attackers) lanes(call.state.board.combat).second else null
+        val blocks = if (choices.declaring != null && !choices.attackers) lanes(call.board.combat).second else null
         val previewed = !choices.attackers && (s.turn.step == TurnStep.DeclareBlockers || open != null || firstStrike)
         val turn = s.turn.number
-        val early = PreAnswers.of(call.state.board).filterIsInstance<PreAnswer.Division>().filter { it.turn == null || it.turn == turn }
+        val early = PreAnswers.of(call.board).filterIsInstance<PreAnswer.Division>().filter { it.turn == null || it.turn == turn }
             .associate { d -> d.source.cardId to d.shares.associate { it.target to it.amount } }
         val preview = if (!previewed) null else try { preview(call, blocks, early) } catch (_: RuntimeException) { null }
         // #3 (CR 510.4): only divisions of the open one's damage step; the regular step's come with that step
         val coming = if (open == null) emptyList() else preview?.divisions.orEmpty().map { it.first }
             .filter { it.source != open.source && it.firstStrike == open.firstStrike }.distinctBy { it.source }
         // CMB-028: the quick actions say why a declaration can't be made yet
-        val drafted = if (choices.declaring == null) null else lanes(call.state.board.combat).let { (attacks, blocks) ->
-            withChoices(attacks, call.state.board) to blocks }
+        val drafted = if (choices.declaring == null) null else lanes(call.board.combat).let { (attacks, blocks) ->
+            withChoices(attacks, call.board) to blocks }
         fun refusals(attacks: List<LaneAttack>, blocks: List<LaneBlock>) =
             if (choices.attackers) attackRefusal(call, attacks) else blockRefusal(call, blocks)
         val draftRefusal = drafted?.let { (attacks, blocks) -> refusals(attacks, blocks) }
@@ -244,7 +254,7 @@ object CombatFlow {
     }
 
     /** What may be declared in [call]'s state now. */
-    fun choices(call: EngineCall): CombatChoices {
+    fun choices(call: EngineRun): CombatChoices {
         val s = call.working
         if (s.pending != null) return CombatChoices.NONE
         val ids = call.ids
@@ -300,13 +310,13 @@ object CombatFlow {
     }
 
     /** Why the engine refuses [attacks] as the attackers declared in [call]'s state (for people), or null. */
-    fun attackRefusal(call: EngineCall, attacks: List<LaneAttack>): String? {
+    fun attackRefusal(call: EngineRun, attacks: List<LaneAttack>): String? {
         val input = try { attackInput(call, attacks) } catch (refused: CombatRefused) { return refused.reason }
         return refusal(call.working, input)?.let { reason(call, it) }
     }
 
     /** Why the engine refuses [blocks] as the blockers declared in [call]'s state (for people), or null. */
-    fun blockRefusal(call: EngineCall, blocks: List<LaneBlock>): String? {
+    fun blockRefusal(call: EngineRun, blocks: List<LaneBlock>): String? {
         val input = try { blockInput(call, blocks) } catch (refused: CombatRefused) { return refused.reason }
         return refusal(call.working, input)?.let { reason(call, it) }
     }
@@ -316,7 +326,7 @@ object CombatFlow {
      * passes. Returns what the engine waits for.
      * @throws CombatRefused when the engine refuses the declaration; nothing changes then.
      */
-    fun declareAttackers(call: EngineCall, attacks: List<LaneAttack>, autotap: Boolean = false): Pending? {
+    fun declareAttackers(call: EngineRun, attacks: List<LaneAttack>, autotap: Boolean = false): Pending? {
         val input = attackInput(call, attacks)
         refusal(call.working, input)?.let { throw CombatRefused(reason(call, it)) }
         paid(call, input.player, call.perform(input), autotap)?.let { return it }
@@ -328,7 +338,7 @@ object CombatFlow {
      * [autotap] the mana it asks [player] to pay is paid with its suggestion in the same call, as casting does; any other
      * choice of the payment (what to sacrifice) stays open for the shared flow's panel.
      */
-    private fun paid(call: EngineCall, player: PlayerId, pending: Pending?, autotap: Boolean): Pending? {
+    private fun paid(call: EngineRun, player: PlayerId, pending: Pending?, autotap: Boolean): Pending? {
         var open = pending
         while (autotap) {
             val d = open?.decision as? Decision.ManaPayment ?: break
@@ -345,7 +355,7 @@ object CombatFlow {
      * passes.
      * @throws CombatRefused when the engine refuses the declaration; nothing changes then.
      */
-    fun declareBlockers(call: EngineCall, blocks: List<LaneBlock>, autotap: Boolean = false): Pending? {
+    fun declareBlockers(call: EngineRun, blocks: List<LaneBlock>, autotap: Boolean = false): Pending? {
         val input = blockInput(call, blocks)
         refusal(call.working, input)?.let { throw CombatRefused(reason(call, it)) }
         paid(call, input.player, call.perform(input), autotap)?.let { return it }
@@ -375,7 +385,7 @@ object CombatFlow {
     }
 
     /** The choices of [attackers]: who may enlist and what, the optional costs to attack and banding (CMB-036–CMB-038). */
-    private fun attackExtras(call: EngineCall, player: PlayerId, attackers: CombatChoices): CombatChoices {
+    private fun attackExtras(call: EngineRun, player: PlayerId, attackers: CombatChoices): CombatChoices {
         val s = call.working
         val view = Engine.view(s)
         val candidates = attackers.attacks.keys.mapNotNull { atw -> runCatching { atw to objectOf(s, call.ids, atw) }.getOrNull() }
@@ -400,7 +410,7 @@ object CombatFlow {
 
     /** CMB-037 (CR 508.1h): the costs to attack each of [attacks] must pay as the lanes hold it: its "can't attack …
      * unless … pays" costs that apply to what it attacks (the engine asks for a payment when it attacks alone). */
-    private fun attackCosts(call: EngineCall, attacks: List<LaneAttack>): Map<String, List<CombatCostShown>> {
+    private fun attackCosts(call: EngineRun, attacks: List<LaneAttack>): Map<String, List<CombatCostShown>> {
         val s = call.working
         val view = Engine.view(s)
         return attacks.mapNotNull { a ->
@@ -413,7 +423,7 @@ object CombatFlow {
     }
 
     /** CMB-037 (CR 509.1d): the costs to block each blocker of [blocks] must pay, as for [attackCosts]. */
-    private fun blockCosts(call: EngineCall, blocks: List<LaneBlock>): Map<String, List<CombatCostShown>> {
+    private fun blockCosts(call: EngineRun, blocks: List<LaneBlock>): Map<String, List<CombatCostShown>> {
         val s = call.working
         val view = Engine.view(s)
         return blocks.distinctBy { it.blockerId }.mapNotNull { b ->
@@ -458,7 +468,7 @@ object CombatFlow {
      * Whether the combat damage step now is the first-strike one, a second following (CR 510.4). ATW shows it as its
      * own step, `TurnPosition.FIRST_STRIKE_DAMAGE` (I-D31).
      */
-    fun firstStrikeStep(call: EngineCall): Boolean =
+    fun firstStrikeStep(call: EngineRun): Boolean =
         call.working.turn.step == TurnStep.CombatDamage && call.working.combat?.firstStrikeStep == true
 
     /** Whether [board]'s combat has had a first-strike combat damage step (CR 510.4, I-D31): the phase dialog shows that
@@ -467,14 +477,14 @@ object CombatFlow {
         runCatching { EngineCodec.currentCombat(board)?.firstStrikers != null }.getOrDefault(false)
 
     /** The open division of combat damage in [call]'s state, or null. */
-    fun division(call: EngineCall): DamageDivision? = division(call.working, call.ids)
+    fun division(call: EngineRun): DamageDivision? = division(call.working, call.ids)
 
     /**
      * Answers the open division with [shares] (damage by ATW reference; null: the suggestion, I-D29), then the host's
      * automatic passes. Anyone may answer for the deciding player (D11).
      * @throws IllegalArgumentException when the engine refuses the division.
      */
-    fun divide(call: EngineCall, shares: Map<MtgRef, Int>? = null): Pending? {
+    fun divide(call: EngineRun, shares: Map<MtgRef, Int>? = null): Pending? {
         val d = call.working.pending?.decision as? Decision.Divide ?: throw IllegalArgumentException("No division is open")
         val answer = Answer.Division(shares?.map { (ref, amount) -> Share(call.ids.target(ref), amount) } ?: d.suggested)
         Engine.perform(call.working, Input.Answer(d.id, answer))
@@ -492,12 +502,13 @@ object CombatFlow {
      * finalreview-combat #4). Null when there is no combat with attackers, attackers are still awaited, or the way needs
      * a random result or hidden cards.
      */
-    fun preview(call: EngineCall, blocks: List<LaneBlock>? = null, divisions: Map<String, Map<MtgRef, Int>> = emptyMap()): DamagePreview? {
+    fun preview(call: EngineRun, blocks: List<LaneBlock>? = null, divisions: Map<String, Map<MtgRef, Int>> = emptyMap()): DamagePreview? {
         val s = call.working.deepCopy()
         if (s.combat?.attackers.isNullOrEmpty()) return null
         val ids = call.ids
         fun card(o: ObjectId) = ids.atw((o as ObjectId.Card).card)
-        HostPriority.wanted(s, HostPriority.kept(call.state.board))?.let { if (it != s.priority) s.apply(Change.Priority(s.priority, it)) }
+        // Today's model: a priority the engine left where it is in this step ([HostPriority.kept]); none on a game's own state
+        StepFlow.settledPriority(s, call is EngineCall && HostPriority.kept(call.board))?.let { if (it != s.priority) s.apply(Change.Priority(s.priority, it)) }
         val dealt = mutableListOf<PreviewDamage>()
         val life = mutableMapOf<String, Int>()
         val dies = mutableListOf<String>()
@@ -563,7 +574,7 @@ object CombatFlow {
         return s.battlefield.firstOrNull { (it as? ObjectId.Card)?.card == card } ?: throw CombatRefused("That card isn't on the battlefield")
     }
 
-    private fun attackInput(call: EngineCall, attacks: List<LaneAttack>): Input.DeclareAttackers {
+    private fun attackInput(call: EngineRun, attacks: List<LaneAttack>): Input.DeclareAttackers {
         val s = call.working
         val defender = s.players.firstOrNull { it.id != s.turn.active && !it.lost }?.id
         val view by lazy { Engine.view(s) }
@@ -578,7 +589,7 @@ object CombatFlow {
         })
     }
 
-    private fun blockInput(call: EngineCall, blocks: List<LaneBlock>): Input.DeclareBlockers {
+    private fun blockInput(call: EngineRun, blocks: List<LaneBlock>): Input.DeclareBlockers {
         val s = call.working
         // The player blocking: the controller of the attacked player's or planeswalker's side (two players: the one not active)
         val defender = s.players.firstOrNull { it.id != s.turn.active && !it.lost }?.id ?: throw CombatRefused("There is no defending player")
@@ -596,7 +607,7 @@ object CombatFlow {
     }
 
     /** The engine's [message] for people: objects by name, players as "a player" or "you". */
-    private fun reason(call: EngineCall, message: String): String {
+    private fun reason(call: EngineRun, message: String): String {
         val s = call.working
         val view = Engine.view(s)
         var text = message.removePrefix("Illegal attack: ").removePrefix("Illegal block: ")
@@ -623,7 +634,7 @@ object CombatFlow {
      * Whether the open decision in [call]'s state is a division of combat damage whose "In order" result can't depend on
      * the order ([Divisions.orderFree], CMB-033): the table answers it with the suggestion at once, without asking.
      */
-    fun answeredByItself(call: EngineCall): Boolean = answeredByItself(call.working, call.ids)
+    fun answeredByItself(call: EngineRun): Boolean = answeredByItself(call.working, call.ids)
 
     private fun answeredByItself(s: GameState, ids: CardIds): Boolean {
         val d = s.pending?.decision as? Decision.Divide ?: return false

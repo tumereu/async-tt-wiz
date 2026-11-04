@@ -123,7 +123,7 @@ class AutomatumI3ReviewTest {
         return true
     }
 
-    private fun toolkit(viewer: String) = TableToolkitController(viewer, { live.value }, { true },
+    private fun toolkit(viewer: String) = TableToolkitController(viewer, { live.value?.let(TableBoard::of) }, { true },
         { action, _ -> accept(viewer, GameAction.Play(action)) },
         playBatch = { actions, request -> accept(viewer, GameAction.PlayBatch(actions), request) },
         playTree = { tree }, automatedBatch = { batch, request -> accept(viewer, batch, request) })
@@ -153,7 +153,7 @@ class AutomatumI3ReviewTest {
         val division = assertIs<Decision.Divide>(flow.decision, "Alice divides the trample damage")
         assertEquals(f.a, division.player.value)
         val blocker = division.among.filterIsInstance<TargetRef.Object>().single().id
-        val name = objectName(alice.flows, play, blocker)
+        val name = objectName(alice.flows, TableBoard.of(play), blocker)
         assertFalse("Hidden Basilisk" in name, "the face-down blocker is named \"$name\" to Alice")
     }
 
@@ -181,7 +181,7 @@ class AutomatumI3ReviewTest {
         AutomatumBoards.sharedFlow(play, engineTags(tree, play.currentNodeId))
         val bob = toolkit(f.b)
         compose.setContent { MaterialTheme { NoRipples { Box(Modifier.fillMaxSize()) {
-            TableSurface(f.game, live.value!!, f.b, false, Modifier.fillMaxSize(), connected = true, onIntent = bob::handle, toolkit = bob,
+            TableSurface(f.game, TableBoard.of(live.value!!), f.b, false, Modifier.fillMaxSize(), connected = true, onIntent = bob::handle, toolkit = bob,
                 runtime = TableRuntimeHooks(navigation = {}, chat = {}, undo = { true }, controlsConnected = true))
         } } } }
         compose.waitForIdle()
@@ -204,14 +204,14 @@ class AutomatumI3ReviewTest {
         val first = card(play, brute, aField)
         val second = card(play, basilisk, aField)
         val shown = AutomatumBoards.combat(play) { engineTags(tree, play.currentNodeId) }
-        alice.combat.show(play, shown)
+        alice.combat.show(TableBoard.of(play), shown)
         assertEquals(f.a, shown.choices.declaring)
         accept(f.a, GameAction.Play(PlayAction.Combat(CombatAction.Open)))
         val area = play.board.combat!!.id
         accept(f.a, GameAction.Play(PlayAction.Combat(CombatAction.Place(first, CombatDestination(area, CombatRole.ATTACKER, pairGap = IdentityGap())))))
         assertNull(AutomatumBoards.cachedCombat(play))
-        assertTrue(alice.combat.choices(play) === shown, "the last shown board's choices")
-        assertNull(alice.combat.draftRefusal(play, listOf(second), CombatRole.ATTACKER, null, null))
+        assertTrue(alice.combat.choices(TableBoard.of(play)) === shown, "the last shown board's choices")
+        assertNull(alice.combat.draftRefusal(TableBoard.of(play), listOf(second), CombatRole.ATTACKER, null, null))
         assertNull(AutomatumBoards.cachedCombat(play), "nothing worked out for the drafted board")
     }
 }

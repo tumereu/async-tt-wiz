@@ -102,14 +102,14 @@ class PivotReviewAppTest {
     }
     /** [viewer]'s device on the live game, or holding the point [held] (it acts on that board, continuing from it). */
     private fun toolkit(viewer: String, held: String? = null) = TableToolkitController(viewer,
-        { if (held != null) tree!!.stateAt(held) else play }, { true },
+        { (if (held != null) tree!!.stateAt(held) else play)?.let(TableBoard::of) }, { true },
         { action, _ -> serve(viewer, GameAction.Play(action), from = held) },
         playBatch = { actions, request -> serve(viewer, GameAction.PlayBatch(actions), request, from = held) },
         playTree = { tree }, automatedBatch = { batch, request -> serve(viewer, batch, request, from = held) },
         continuation = { held?.let { Continuation(it, explicit = true) } })
 
     private fun tags(at: PlayState = play) = engineTags(tree, at.currentNodeId)
-    private fun scene(viewer: String, at: PlayState = play) = TablePresentation.scene(f.game, at, viewer, 412f, 892f, false)
+    private fun scene(viewer: String, at: PlayState = play) = TablePresentation.scene(f.game, TableBoard.of(at), viewer, 412f, 892f, false)
     private fun tapCard(toolkit: TableToolkitController, card: String) = scene(toolkit.viewer).items
         .first { it.cardId == card && it.viewport != "combat" && it.zone == PlayZone.BATTLEFIELD }
         .let { toolkit.open(TableIntent.Actions(it.id, null), it) }
@@ -234,7 +234,7 @@ class PivotReviewAppTest {
     }
     private fun hand(player: String) = play.board.containers.single { it.zone == PlayZone.HAND && it.accountId == player }.cards
     private fun quick(toolkit: TableToolkitController, name: String) =
-        QuickActions.contextual(play, QuickContext(viewer = toolkit.viewer)).single { it.name == name }
+        QuickActions.contextual(TableBoard.of(play), QuickContext(viewer = toolkit.viewer)).single { it.name == name }
     private fun opening(toolkit: TableToolkitController, name: String) = quick(toolkit, name).let {
         assertTrue(it.enabled, "$name: ${it.refused}"); assertTrue(toolkit.table.perform(it.intent), toolkit.error) }
 
@@ -255,7 +255,7 @@ class PivotReviewAppTest {
         opening(alice, QuickActions.KEEP)
         assertTrue(alice.keeping)
         // TRN-028: Alice's turn-1 controls wait while either player is still Mulliganing
-        assertEquals(SharedFlowController.OPENING, stepBlocked(play, false, null))
+        assertEquals(SharedFlowController.OPENING, stepBlocked(TableBoard.of(play), false, null))
         assertFalse(alice.table.perform(TableActionIntent.Next(TableActionScope(play.gameId, play.id))))
         assertEquals(SharedFlowController.OPENING, alice.error)
         assertTrue(alice.confirmKeep(listOf(hand(f.a).first())), alice.error)

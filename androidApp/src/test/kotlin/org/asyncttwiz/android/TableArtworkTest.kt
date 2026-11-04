@@ -90,7 +90,7 @@ class TableArtworkTest {
             board = initial.board.copy(cards = initial.board.cards.map { card ->
                 definitions.getValue(card.id).let { card.copy(definition = it.digest, faceId = it.definition.faces.single().faceId) }
             }))
-        val order = gameArtworkReferences(play, viewer).filter { it.size == "art_crop" }.map { reference ->
+        val order = gameArtworkReferences(TableBoard.of(play), viewer).filter { it.size == "art_crop" }.map { reference ->
             play.definitions.single { it.digest == reference.version }.definition.name
         }
         assertEquals(listOf("Hand", "Field"), order.take(2))

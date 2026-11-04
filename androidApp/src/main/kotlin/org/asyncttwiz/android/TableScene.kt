@@ -29,14 +29,14 @@ import org.asyncttwiz.protocol.*
 
 /** Normal production surface. One pointer arbiter, one Actions host, and no authoritative local board. */
 @Composable
-internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String, landscape: Boolean,
+internal fun TableSurface(game: GameSummary, play: TableBoard, accountId: String, landscape: Boolean,
     modifier: Modifier = Modifier, connected: Boolean = false, onIntent: ((TableIntent) -> Boolean)? = null,
     placements: Map<String, TablePlacement> = emptyMap(), toolkit: TableToolkitController? = null,
-    accepted: PlayState? = null, runtime: TableRuntimeHooks = TableRuntimeHooks()) {
+    accepted: TableBoard? = null, runtime: TableRuntimeHooks = TableRuntimeHooks()) {
     PrefetchGameArtwork(play, accountId)
-    val layoutState: MutableState<TableLayoutState> = toolkit?.layoutState ?: remember(play.id, accountId) { mutableStateOf(TableLayoutState()) }
+    val layoutState: MutableState<TableLayoutState> = toolkit?.layoutState ?: remember(play.playId, accountId) { mutableStateOf(TableLayoutState()) }
     var layout by layoutState
-    var gestureError by remember(play.id, accountId) { mutableStateOf<String?>(null) }
+    var gestureError by remember(play.playId, accountId) { mutableStateOf<String?>(null) }
     val peekScroll = rememberScrollState()
     val peekScreenHeight by rememberUpdatedState(holdPreviewScreenHeight())
     var screenOrigin by remember { mutableStateOf(Offset.Zero) }
@@ -45,9 +45,9 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
     val writable = connected && onIntent != null
     val currentWritable by rememberUpdatedState(writable)
     val currentRuntime by rememberUpdatedState(runtime)
-    var presentation by remember(play.id, accountId) { mutableStateOf<(() -> TableScene)?>(null) }
+    var presentation by remember(play.playId, accountId) { mutableStateOf<(() -> TableScene)?>(null) }
     val density = LocalDensity.current.density
-    val coordinator = remember(play.id, accountId, density) {
+    val coordinator = remember(play.playId, accountId, density) {
         lateinit var owner: TableGestureCoordinator
         owner = TableGestureCoordinator({ intent ->
             // A pending result blocks game actions only; looking at cards (hold preview, inspect) stays personal and allowed.
@@ -180,22 +180,22 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
         val raiseOnly = previousLayout != layout && previousLayout.copy(raised = layout.raised) == layout
         val navigation = previousLayout != layout && !raiseOnly || previousSize != (maxWidth to maxHeight)
         // One interpolated scene feeds Canvas, hit testing AND semantic nodes. No destination-only overlays.
-        val animation = remember(play.id, accountId) { HistorySceneAnimation(targetScene) }
+        val animation = remember(play.playId, accountId) { HistorySceneAnimation(targetScene) }
         val movePreferences = rememberCardMovePreferences(accountId)
         val moveMultiplier by movePreferences.multiplierState()
         SideEffect { animation.cardMoveSpeedDpPerMs = DEFAULT_CARD_MOVE_SPEED * moveMultiplier }
         val progress = remember(animation) { androidx.compose.animation.core.Animatable(1f) }
         var animationRevision by remember(animation) { mutableIntStateOf(0) }
         SideEffect { animation.updateMetadata(targetScene) }
-        LaunchedEffect(animation, targetScene.animationTargets, play.currentNodeId, runtime.sceneVersion) {
+        LaunchedEffect(animation, targetScene.animationTargets, play.nodeId, runtime.sceneVersion) {
             val settled = runtime.onSceneSettled
             val faceChanges = runtime.changes?.active?.keys?.filter { it.kind == TableChangeKind.FACE }?.map { it.target }?.toSet().orEmpty()
-            val shuffles = if (navigation) emptySet() else runtime.changes?.shuffles(play.currentNodeId).orEmpty()
-            if (animation.retarget(targetScene, progress.value, faceChanges, shuffles, play.currentNodeId)) {
+            val shuffles = if (navigation) emptySet() else runtime.changes?.shuffles(play.nodeId).orEmpty()
+            if (animation.retarget(targetScene, progress.value, faceChanges, shuffles, play.nodeId)) {
                 DebugLatency.tapAnimation(game.id, animation.rotatingCardIds)
                 progress.snapTo(0f)
                 animationRevision++
-                if (navigation || !raiseOnly && runtime.changes?.animates(play.currentNodeId) == false) progress.snapTo(1f)
+                if (navigation || !raiseOnly && runtime.changes?.animates(play.nodeId) == false) progress.snapTo(1f)
                 else progress.animateTo(1f, tween(animation.durationMillis, easing = androidx.compose.animation.core.LinearEasing))
             } else if (progress.value < 1f) {
                 // Metadata can cancel this effect mid-scene, but cannot slow its existing clock.
@@ -203,7 +203,7 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
             }
             animationRevision++
             withFrameNanos { }
-            settled?.invoke(play.currentNodeId)
+            settled?.invoke(play.nodeId)
         }
         // Only draw/layout/semantics (and the small open-overlay host) observe the clock. Sampling
         // and clipping are shared once per frame, not repeated for every accessibility child.
@@ -229,7 +229,7 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
                 layout = layout.copy(localPileId = null)
         }
         val artwork = tableArtwork(scene.copy(items = semanticItems))
-        val drawCache = remember(density, play.id) { TableDrawCache(density) }
+        val drawCache = remember(density, play.playId) { TableDrawCache(density) }
         val refreshRate = androidx.compose.ui.platform.LocalView.current.display?.refreshRate ?: 60f
         SideEffect { previousLayout = layout; previousSize = maxWidth to maxHeight }
         SideEffect {
@@ -355,8 +355,8 @@ internal const val GLOW_FADE_MILLIS = 220
  * still in the container they glowed in keep glowing until it is known). Each card's glow fades to its new strength.
  */
 @Composable
-internal fun rememberPlayableGlow(play: PlayState, target: Set<String>?): PlayableGlow {
-    val glow = remember(play.id) { PlayableGlow() }
+internal fun rememberPlayableGlow(play: TableBoard, target: Set<String>?): PlayableGlow {
+    val glow = remember(play.playId) { PlayableGlow() }
     val containers = remember(IdentityKey(play.board)) { play.board.cards.associate { it.id to it.containerId } }
     val next = target ?: remember(IdentityKey(play.board), glow.shown) {
         glow.shown.filterTo(HashSet()) { id -> glow.containers[id] != null && glow.containers[id] == containers[id] }

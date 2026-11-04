@@ -148,8 +148,8 @@ class EngineGameTest {
             assertEquals(expected.status, shown.status)
             assertEquals(expected.indicator, shown.indicator)
             assertEquals(expected.line.size, shown.line.size)
-            assertEquals(expected.play.board.turn, shown.play.board.turn)
-            assertEquals(expected.play.board.players.map { it.status }, shown.play.board.players.map { it.status })
+            assertEquals(expected.board.board.turn, shown.board.board.turn)
+            assertEquals(expected.board.board.players.map { it.status }, shown.board.board.players.map { it.status })
             // The server's echoes are worked in on the engine thread too
             val pending = threaded.read { it.session.pending }
             pending.forEachIndexed { n, event -> threaded.revision(f.revision(event, n + 2, mapOf(f.a to event.id, f.b to f.start.id))) }

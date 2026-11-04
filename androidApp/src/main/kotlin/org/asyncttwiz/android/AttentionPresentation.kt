@@ -7,7 +7,7 @@ internal data class AttentionPresentation(val label: String, val name: String, v
     val color get() = if (own) OwnTableColor else OpponentTableColor
 }
 
-internal fun attentionPresentation(game: GameSummary, play: PlayState, viewer: String,
+internal fun attentionPresentation(game: GameSummary, play: TableBoard, viewer: String,
     reviewing: Boolean, connected: Boolean, catchingUp: Boolean = false): AttentionPresentation {
     // TRN-058: the move the game list shows too (on engine state: whom the game really waits for)
     val holder = play.board.moveHolder
@@ -35,14 +35,14 @@ internal fun tableBarColor(board: BoardState, viewer: String, reviewing: Boolean
 
 /** Constant-size observation of displayed endpoints; never walks or replays history. */
 internal class MoveArrivalTracker(private val viewer: String) {
-    private var previous: PlayState? = null
+    private var previous: TableBoard? = null
     private var wasLive = false
 
-    fun observe(play: PlayState, live: Boolean, event: GameplayMutation?): Boolean {
+    fun observe(play: TableBoard, live: Boolean, event: GameplayMutation?): Boolean {
         val before = previous
-        val arrived = live && wasLive && before != null && before.id == play.id &&
-            before.currentNodeId != play.currentNodeId && before.board.effectiveAttentionHolder != viewer &&
-            play.board.effectiveAttentionHolder == viewer && event?.id == play.currentNodeId &&
+        val arrived = live && wasLive && before != null && before.playId == play.playId &&
+            before.nodeId != play.nodeId && before.board.effectiveAttentionHolder != viewer &&
+            play.board.effectiveAttentionHolder == viewer && event?.id == play.nodeId &&
             (event.author != viewer || event.action == PlayAction.NextStep || event.action == PlayAction.EndTurn ||
                 event.action is PlayAction.ChooseStep || event.action is PlayAction.BeginTurn)
         previous = play

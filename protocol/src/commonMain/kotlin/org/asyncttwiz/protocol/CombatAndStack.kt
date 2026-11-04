@@ -135,16 +135,38 @@ object CombatStackRules {
     fun defendingPlayer(board: BoardState): String? = board.players.firstOrNull { it.accountId != board.turn.accountId }?.accountId
     /** The player whose combat it is (the turn player), derived like [defendingPlayer]. */
     fun attackingPlayer(board: BoardState): String? = board.players.firstOrNull { it.accountId == board.turn.accountId }?.accountId
-    fun canAttack(state: PlayState, cardId: String, rulesVersion: Int = CURRENT_GAMEPLAY_RULES_VERSION): Boolean {
-        val card = state.board.cards.singleOrNull { it.id == cardId } ?: return false
-        val container = state.board.containers.singleOrNull { it.id == card.containerId } ?: return false
-        val face = state.definitions.singleOrNull { it.digest == card.definition }?.definition?.faces
+    fun canAttack(state: PlayState, cardId: String, rulesVersion: Int = CURRENT_GAMEPLAY_RULES_VERSION): Boolean =
+        canAttack(state.board, state.definitions, cardId, rulesVersion)
+
+    /** [canAttack] on [board] with its card data [definitions]. */
+    fun canAttack(board: BoardState, definitions: List<SubmittedDefinition>, cardId: String,
+        rulesVersion: Int = CURRENT_GAMEPLAY_RULES_VERSION): Boolean {
+        val card = board.cards.singleOrNull { it.id == cardId } ?: return false
+        val container = board.containers.singleOrNull { it.id == card.containerId } ?: return false
+        val face = definitions.singleOrNull { it.digest == card.definition }?.definition?.faces
             ?.singleOrNull { it.faceId == card.faceId } ?: return false
         if (container.zone != PlayZone.BATTLEFIELD) return false
-        if (rulesVersion < AttackTargets.RULES_VERSION) return container.accountId == defendingPlayer(state.board) &&
+        if (rulesVersion < AttackTargets.RULES_VERSION) return container.accountId == defendingPlayer(board) &&
             (face.typeLine.contains("Planeswalker", ignoreCase = true) || face.typeLine.contains("Battle", ignoreCase = true))
-        val owner = AttackTargets.battlefieldOwner(state.board, face.typeLine) ?: return false
+        val owner = AttackTargets.battlefieldOwner(board, face.typeLine) ?: return false
         return !card.isFaceDown && container.accountId == owner
+    }
+
+    /**
+     * The combat lanes [board] holds after [action] (the table's own staging of a declaration, CMB-009–CMB-034), with
+     * the same checks and ids as the gameplay change gives ([requestId]: the action's request, naming new pairs and
+     * occurrences; the wire's checks first, the lanes' invariants after); [board] itself when nothing changes.
+     * [definitions]: the board's card data.
+     * @throws IllegalArgumentException with the gameplay change's reason when refused.
+     */
+    fun stage(board: BoardState, definitions: List<SubmittedDefinition>, requestId: String, action: CombatAction,
+        rulesVersion: Int = CURRENT_GAMEPLAY_RULES_VERSION): BoardState {
+        require(valid(action)) { "invalidInput" }
+        val next = when (val result = lanes(board, definitions, requestId, action, rulesVersion)) {
+            is BoardState -> result
+            else -> throw IllegalArgumentException((result as GameplayChange).reason ?: "inapplicable")
+        }
+        return if (next == board) board else closeInvariants(board, next, rulesVersion) ?: throw IllegalArgumentException("invalidStructure")
     }
 
     /** A face-down cast's entry (STK-005): shown as a card back to both players; only its holder may inspect it. */
@@ -256,7 +278,7 @@ object CombatStackRules {
         val playAction = (command.action as GameAction.Play).action
         val next = when (playAction) {
             // A refusal or no-op is returned as it is; otherwise the next board
-            is PlayAction.Combat -> when (val result = combat(state, command, playAction, rulesVersion)) {
+            is PlayAction.Combat -> when (val result = lanes(board, state.definitions, command.requestId, playAction.action, rulesVersion)) {
                 is GameplayChange -> return result
                 else -> result as BoardState
             }
@@ -351,15 +373,15 @@ object CombatStackRules {
             else emptyList()), rulesVersion = rulesVersion)
     }
 
-    /** [change]'s next board for a [PlayAction.Combat], or its [GameplayChange] when refused or a no-op (its own
-     * method, so the JVM compiles [change]). */
-    private fun combat(state: PlayState, command: GameCommand, playAction: PlayAction.Combat, rulesVersion: Int): Any {
+    /** [change]'s next board for a [PlayAction.Combat] ([action] on [board], [requestId] naming what it makes), [board]
+     * itself for a no-op, or a [GameplayChange] when refused (its own method, so the JVM compiles [change]). */
+    private fun lanes(board: BoardState, definitions: List<SubmittedDefinition>, requestId: String, action: CombatAction,
+        rulesVersion: Int): Any {
         fun reject(reason: String) = GameplayChange(reason = reason)
-        val board = state.board
         val area = board.combat
-        return when (val action = playAction.action) {
+        return when (action) {
             CombatAction.Open -> if (area != null) board else board.copy(
-                combat = CombatArea(CommandIds.uuidV5(command.requestId, "combat-area/0")))
+                combat = CombatArea(CommandIds.uuidV5(requestId, "combat-area/0")))
             is CombatAction.Close -> {
                 // An absent captured area does not close a subsequently opened/replacement area.
                 if (action.areaId == null || area == null) board
@@ -373,7 +395,7 @@ object CombatStackRules {
             }
             is CombatAction.SetAttackTarget -> {
                 if (area?.id != action.areaId || area.pairs.none { it.id == action.pairId }) return reject("missingReference")
-                if (action.cardId != null && !canAttack(state, action.cardId, rulesVersion)) return reject("inapplicable")
+                if (action.cardId != null && !canAttack(board, definitions, action.cardId, rulesVersion)) return reject("inapplicable")
                 board.copy(combat = area.copy(pairs = area.pairs.map {
                     if (it.id == action.pairId) it.copy(attackTarget = action.cardId) else it
                 }))
@@ -391,7 +413,7 @@ object CombatStackRules {
                     if (board.containers.singleOrNull { it.id == source.containerId }?.zone != PlayZone.BATTLEFIELD)
                         return reject("inapplicable")
                     val first = action.pairIds.first()
-                    val occurrence = (existing ?: CombatOccurrence(CommandIds.uuidV5(command.requestId, "combat-occurrence/0"),
+                    val occurrence = (existing ?: CombatOccurrence(CommandIds.uuidV5(requestId, "combat-occurrence/0"),
                         action.sourceId)).copy(alsoBlocks = action.pairIds.drop(1))
                     val stays = existing != null && area.pairs.single { it.id == first }.blockers.any { it.id == existing.id }
                     val base = if (existing == null || stays) area else without(area, existing.id, removeEmpty = false)
@@ -419,17 +441,17 @@ object CombatStackRules {
                 val existing = occurrences(area).singleOrNull { it.sourceId == sourceId }
                 val location = existing?.let { location(area, it.id) }
                 if (action is CombatAction.Place && location != action.expectedOccurrence) return reject("sourceChanged")
-                if (action is CombatAction.Declare && location?.role == CombatRole.ATTACKER) return GameplayChange(state)
-                val occurrence = existing ?: CombatOccurrence(CommandIds.uuidV5(command.requestId, "combat-occurrence/0"), sourceId)
+                if (action is CombatAction.Declare && location?.role == CombatRole.ATTACKER) return board
+                val occurrence = existing ?: CombatOccurrence(CommandIds.uuidV5(requestId, "combat-occurrence/0"), sourceId)
                 val reduced = without(area, occurrence.id, removeEmpty = false)
                 val destination = if (action is CombatAction.Place) action.destination else CombatDestination(areaId,
                     CombatRole.ATTACKER, pairGap = IdentityGap(reduced.pairs.lastOrNull()?.id))
                 val pairs = reduced.pairs.toMutableList()
                 val pairIndex: Int
                 if (destination.pairId == null) {
-                    if (destination.attackTarget != null && !canAttack(state, destination.attackTarget, rulesVersion)) return reject("inapplicable")
+                    if (destination.attackTarget != null && !canAttack(board, definitions, destination.attackTarget, rulesVersion)) return reject("inapplicable")
                     pairIndex = gapIndex(pairs.map { it.id }, destination.pairGap) ?: return reject("destinationChanged")
-                    pairs.add(pairIndex, CombatPair(CommandIds.uuidV5(command.requestId, "combat-pair/0"), attackTarget = destination.attackTarget))
+                    pairs.add(pairIndex, CombatPair(CommandIds.uuidV5(requestId, "combat-pair/0"), attackTarget = destination.attackTarget))
                 } else {
                     pairIndex = pairs.indexOfFirst { it.id == destination.pairId }
                     if (pairIndex < 0) return reject("missingReference")

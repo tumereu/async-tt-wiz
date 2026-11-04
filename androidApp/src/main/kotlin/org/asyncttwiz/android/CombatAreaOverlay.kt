@@ -56,7 +56,7 @@ private val COMBAT_KEYWORDS = listOf("Flying", "Reach", "Menace", "Trample", "Fi
  * while staging, the attacking player's own staging chips, held chips and the eye.
  */
 @Composable
-internal fun CombatAreaOverlay(combat: CombatController?, play: PlayState, scene: TableScene, viewer: String, writable: Boolean,
+internal fun CombatAreaOverlay(combat: CombatController?, play: TableBoard, scene: TableScene, viewer: String, writable: Boolean,
     /** CMB-007: folds the combat area away (true) to see the battlefield under it, or brings it back. */
     fold: ((Boolean) -> Unit)? = null, bounds: (TableItem) -> TableBounds) {
     val area = play.board.combat
@@ -293,7 +293,7 @@ internal class StagingChip(val text: String, val icon: androidx.compose.ui.graph
 
 /** The chips of the staged attacker [card] (CMB-036–CMB-038): its optional costs to attack as toggles ("Exert"),
  * "Enlist" with what it enlists, "Band" with banding; changeable only when [choosing]. */
-private fun stagingChips(play: PlayState, combat: CombatController?, choices: org.asyncttwiz.automatum.CombatChoices,
+private fun stagingChips(play: TableBoard, combat: CombatController?, choices: org.asyncttwiz.automatum.CombatChoices,
     given: Map<String, org.asyncttwiz.automatum.AttackChoice>, bands: Map<Int, List<String>>, picking: CombatController.Picking?,
     card: String, choosing: Boolean, computed: org.asyncttwiz.automatum.ComputedBoard): List<StagingChip> = buildList {
     val choice = given[card]

@@ -68,7 +68,7 @@ class TableChangeTargetsTest {
 }
 
 internal object ChangeTargetFixture {
-    fun scene(play: PlayState) = TablePresentation.scene(LiveTableFixture.game, play, "a", 412f, 892f, false)
+    fun scene(play: PlayState) = TablePresentation.scene(LiveTableFixture.game, TableBoard.of(play), "a", 412f, 892f, false)
 
     fun stack(projection: Boolean, covered: Boolean = false): Pair<PlayState, String> {
         val play = LiveTableFixture.menuPlay()

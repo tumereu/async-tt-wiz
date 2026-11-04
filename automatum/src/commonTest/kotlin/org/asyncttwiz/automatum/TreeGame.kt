@@ -69,7 +69,8 @@ internal class TreeGame(start: PlayState, val definitions: Map<String, CardDefin
 
     /** [call]'s batch sent by [actor] (from [from]: a branch), as the server takes it; checked unless [check] is false.
      * Returns the server's answer (its tree is kept when accepted). */
-    fun send(call: EngineCall, actor: String, from: String? = null, check: Boolean = true): GameplayTreeChange {
+    fun send(run: EngineRun, actor: String, from: String? = null, check: Boolean = true): GameplayTreeChange {
+        val call = run as EngineCall
         if (call.changes.isEmpty()) return GameplayTreeChange()
         val command = command(GameAction.PlayBatch(listOf(PlayAction.PassAttention)), from)
         val plan = EngineBatch.plan(call, actor, command)

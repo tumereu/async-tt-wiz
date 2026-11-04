@@ -91,13 +91,13 @@ class CardPlays private constructor(
         }
 
         /**
-         * [of] for a board made from the engine's own state ([org.asyncttwiz.protocol.BoardState.engine], I-D56 step C):
-         * [state] is that state (full information, not changed here), [view] its view and [visible] what [viewer] may see
-         * of it ([Engine.visible]), which the caller already has (engine-responsiveness R3: worked out once on the engine
-         * thread, nothing copied). The same plays as [of] gives for it.
+         * [of] for a game on engine state (I-D56; engine-responsiveness R3, R4a): [state] is its own state (full
+         * information, not changed here; the card ids are the game's), [view] its view and [visible] what [viewer] may
+         * see of it ([Engine.visible]), which the caller already has (worked out once on the engine thread, nothing
+         * copied).
          */
-        fun of(play: PlayState, state: GameState, viewer: String, view: View, visible: Set<ObjectId>): CardPlays =
-            of(state, CardIds.of(play.board), viewer, view, visible)
+        fun of(state: GameState, viewer: String, view: View, visible: Set<ObjectId>): CardPlays =
+            of(state, CardIds(), viewer, view, visible)
 
         private fun of(state: GameState, ids: CardIds, viewer: String, view: View, visible: Set<ObjectId>): CardPlays {
             val me = PlayerId(viewer)

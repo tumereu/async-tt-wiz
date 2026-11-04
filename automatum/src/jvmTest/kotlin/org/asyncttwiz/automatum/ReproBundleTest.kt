@@ -41,8 +41,8 @@ class ReproBundleTest {
         var cast = CastFlow.start(rt.state, table.definitions, alice, log(rt), plays.of(spark).first(), CastFlow.Seeds(::seed))
         cast = cast.answer(Answer.Targets(listOf(TargetRef.Player(PlayerId(bob)))))
         cast = cast.answer(Answer.ManaPayment((cast.pending as Decision.ManaPayment).suggestion))
-        val sent = cast.sent().also { rt.apply(it, alice) }
-        val pass = SharedFlow(rt.state, table.definitions, log(rt), ::seed).pass(bob).also { rt.apply(it, bob) }
+        val sent = (cast.sent() as EngineCall).also { rt.apply(it, alice) }
+        val pass = (SharedFlow(rt.state, table.definitions, log(rt), ::seed).pass(bob) as EngineCall).also { rt.apply(it, bob) }
         assertEquals("17", rt.state.board.players.single { it.accountId == bob }.life)
 
         // The log has the engine calls with their shape, and the batches planned from them

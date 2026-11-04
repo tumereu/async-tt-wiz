@@ -77,7 +77,7 @@ class TableStatesScreenshotTest {
             else if (kind.startsWith("tokens")) tokenState
             else if (review) requireNotNull(tree.stateAt(playback.position.cursorId))
             else if (kind == "graveyard-contents") graveyardState else f.combat() }
-        val toolkit = TableToolkitController(f.a, current, { !review || history.armed != null || playback.position.mode == HistoryMode.LIVE },
+        val toolkit = TableToolkitController(f.a, { TableBoard.of(current()) }, { !review || history.armed != null || playback.position.mode == HistoryMode.LIVE },
             { action, _ -> sent += action; true })
         if (kind == "tokens-small") toolkit.layoutState.value = TableLayoutState(TableCamera(zoom = TablePresentation.MIN_ZOOM))
         val explorer = HistoryExplorerController(Executor { it.run() }, { it() })
@@ -90,7 +90,7 @@ class TableStatesScreenshotTest {
                     val reviewing = review && playback.position.mode == HistoryMode.PLAYBACK && history.armed == null
                     LaunchedEffect(playback.position) { history.displayPosition() }
                     Box(Modifier.fillMaxSize()) {
-                        TableSurface(f.game, current(), f.a, landscape, Modifier.fillMaxSize(), connected = !reviewing,
+                        TableSurface(f.game, TableBoard.of(current()), f.a, landscape, Modifier.fillMaxSize(), connected = !reviewing,
                             onIntent = toolkit::handle, toolkit = toolkit,
                             runtime = TableRuntimeHooks(navigation = {}, chat = {}, history = { history.select(playback.position.cursorId) },
                                 undo = { true },
@@ -132,7 +132,7 @@ class TableStatesScreenshotTest {
                 compose.onNodeWithContentDescription("Your Graveyard panel, 3 cards").assertIsDisplayed()
                 compose.onNode(isDialog()).assertDoesNotExist()
                 compose.onNodeWithContentDescription("Card action ring").assertDoesNotExist()
-                val scene = TablePresentation.scene(f.game, current(), f.a, 412f, 892f, landscape, toolkit.layoutState.value)
+                val scene = TablePresentation.scene(f.game, TableBoard.of(current()), f.a, 412f, 892f, landscape, toolkit.layoutState.value)
                 val panel = scene.cardPanels.single()
                 assertEquals(PlayZone.GRAVEYARD, panel.localZone)
                 assertEquals(0f, panel.bounds.x)
@@ -187,7 +187,7 @@ class TableStatesScreenshotTest {
         assertEquals(if (landscape) 412 else 892, image.height)
         if (kind.startsWith("combat")) {
             compose.onNodeWithContentDescription("Table actions").assertIsDisplayed().assertIsEnabled()
-            val scene = TablePresentation.scene(f.game, current(), f.a, image.width.toFloat(), image.height.toFloat(), landscape,
+            val scene = TablePresentation.scene(f.game, TableBoard.of(current()), f.a, image.width.toFloat(), image.height.toFloat(), landscape,
                 landscapeHome = true)
             if (kind == "combat") assertRenderedLandsBands(image, scene, f.a, turnPlayer = current().board.turn.accountId)
             // the title size of the area's cards, never smaller than COMBAT_MIN_CARD (combat review #12)
@@ -210,10 +210,10 @@ class TableStatesScreenshotTest {
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun combatCardTargetLandscape() { render("combat-targets", true) }
     @Test fun manageStackReflectsLiveMembershipAndClosesWhenEmpty() {
         var state by mutableStateOf(f.combat())
-        val ui = TableToolkitController(f.a, { state }, { true }, { _, _ -> error("Browsing is local") })
+        val ui = TableToolkitController(f.a, { TableBoard.of(state) }, { true }, { _, _ -> error("Browsing is local") })
         ui.stackContents()
         compose.setContent { MaterialTheme {
-            TableToolkitScreen(ui, state, f.game, false)
+            TableToolkitScreen(ui, TableBoard.of(state), f.game, false)
         } }
         compose.onNodeWithText("Stack · 2").assertIsDisplayed()
         compose.runOnIdle {
@@ -230,7 +230,7 @@ class TableStatesScreenshotTest {
     @Test fun manageStackPeekAttachesAboveTheManageDialogAndReleasesBackToIt() {
         val state = f.combat()
         compose.setContent { MaterialTheme {
-            ManageStackDialog(state, f.a, {})
+            ManageStackDialog(TableBoard.of(state), f.a, {})
         } }
         compose.onNodeWithText("Stack · 2").assertIsDisplayed()
         val dialog = android.view.inspector.WindowInspector.getGlobalWindowViews().last()

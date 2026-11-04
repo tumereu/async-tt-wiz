@@ -31,27 +31,26 @@ import org.asyncttwiz.protocol.TurnPosition
  * acting client keeps its engine calls on the device and sends everything as one batch ([plan]) when the cast is
  * complete; cancelling before that only drops these local steps, and nothing reaches the other player.
  *
- * A flow is immutable: [answer] and [change] give a new flow, replayed from [play] with [begin] and the answers so far
+ * A flow is immutable: [answer] and [change] give a new flow, replayed from [source] with [begin] and the answers so far
  * (the engine names its decisions after the state, so a replay meets the same decisions again; random results are kept
  * by [Seeds] and repeat). Changing an earlier answer ([change]) keeps the later answers that still fit and drops the
  * rest, so a choice made before (a target) survives a toggle above it (kicker) whenever the engine still accepts it.
  *
  * The engine state holds full information (I-D17, I-D27: the client holds every card; the cast panel shows only what
- * [player] may see), so the automatic passes after the cast ([sent]) can pass for either player; [EngineCall] answers the
+ * [player] may see), so the automatic passes after the cast ([sent]) can pass for either player; [EngineRun] answers the
  * host's decisions on the way.
  */
 class CastFlow private constructor(
-    val play: PlayState,
-    val definitions: Map<String, CardDefinition>,
+    /** Where the flow runs: the board it was begun on and its engine state. */
+    val source: Source,
     val player: String,
-    val log: List<LoggedChange>,
     /** [Input.Cast], [Input.PlayLand] or [Input.Activate] of [player]. */
     val begin: Input,
     /** The answers given, in order. */
     val answers: List<Answer>,
     private val seeds: Seeds,
-    /** The engine call holding every change so far. */
-    val call: EngineCall,
+    /** The engine run holding every change so far. */
+    val call: EngineRun,
     /** Each answered decision with its answer, in order. */
     val steps: List<Pair<Decision, Answer>>,
     /** How many objects the Stack held before [begin]. */
@@ -94,7 +93,7 @@ class CastFlow private constructor(
         val open = requireNotNull(pending) { "Nothing to answer" }
         // Checked on the current state first, so a refusal doesn't cost a replay
         Engine.perform(call.working, Input.Answer(open.id, answer))
-        return replayOn(play, begin, answers + answer, strict = true)
+        return replayOn(begin, answers + answer, strict = true)
     }
 
     /**
@@ -104,21 +103,27 @@ class CastFlow private constructor(
      */
     fun change(index: Int, answer: Answer): CastFlow {
         require(index in answers.indices) { "No step $index" }
-        val next = replayOn(play, begin, answers.take(index) + answer + answers.drop(index + 1), strict = false)
+        val next = replayOn(begin, answers.take(index) + answer + answers.drop(index + 1), strict = false)
         require(next.answers.size > index) { "The engine refuses that answer" }
         return next
     }
 
     /** The flow back at step [index]: that decision is open again, its answer and the later ones dropped. */
-    fun back(index: Int): CastFlow = replayOn(play, begin, answers.take(index.coerceIn(0, answers.size)), strict = true)
+    fun back(index: Int): CastFlow = replayOn(begin, answers.take(index.coerceIn(0, answers.size)), strict = true)
 
     /** The same cast begun another way ([ways]: another face or cost), keeping the answers that still fit. */
-    fun withBegin(input: Input): CastFlow = replayOn(play, input, answers, strict = false)
+    fun withBegin(input: Input): CastFlow = replayOn(input, answers, strict = false)
 
     /** The flow replayed on [newPlay] (the board changed underneath, D32): the same answers while they still fit.
      * @throws IllegalArgumentException when the cast can't be begun there any more. */
-    fun on(newPlay: PlayState, newLog: List<LoggedChange> = log): CastFlow =
-        replay(Context(newPlay, definitions, player, newLog, seeds, extras), begin, answers, strict = false)
+    fun on(newSource: Source): CastFlow = replay(Context(newSource, player, seeds, extras), begin, answers, strict = false)
+
+    /** Today's model: [on] [newPlay]'s board rebuilt for the engine, with this flow's card definitions. */
+    fun on(newPlay: PlayState, newLog: List<LoggedChange>): CastFlow =
+        on(Source.legacy(newPlay, (source as Source.Legacy).definitions, newLog))
+
+    /** The board the flow was begun on. */
+    val board: BoardState get() = source.board
 
     /** Whether paying the open [Decision.ManaPayment] with [uses] completes it (the engine accepts the payment). */
     fun pays(uses: List<arcanum.engine.decision.ManaUse>): Boolean {
@@ -150,9 +155,9 @@ class CastFlow private constructor(
      * action that put a trigger on the Stack (a landfall trigger: their own thing on top, no pause without Full control);
      * one that put nothing there keeps priority with its player (CR 305.1, 605.3a, 116.3c). [call] stays the cast alone.
      */
-    fun sent(): EngineCall {
+    fun sent(): EngineRun {
         check(complete) { "The cast isn't complete" }
-        return Sending(replay(Context(play, definitions, player, log, seeds, extras), begin, answers, strict = true)).sent()
+        return Sending(replay(Context(source, player, seeds, extras), begin, answers, strict = true)).sent()
     }
 
     /**
@@ -166,7 +171,7 @@ class CastFlow private constructor(
             require(pending is Decision.ManaPayment) { "No payment is open" }
             answers + Answer.ManaPayment(payment)
         } else answers
-        val done = replay(Context(play, definitions, player, log, seeds, extras), begin, all, strict = true)
+        val done = replay(Context(source, player, seeds, extras), begin, all, strict = true)
         require(done.complete) { "The cast isn't complete" }
         return Sending(done)
     }
@@ -175,10 +180,10 @@ class CastFlow private constructor(
     class Sending internal constructor(val flow: CastFlow) {
         private var passed = false
         /** The engine call of the cast alone (no passes after it); [sent] goes on in the same call. */
-        val cast: EngineCall get() = flow.call
+        val cast: EngineRun get() = flow.call
 
         /** The cast with what follows it ([CastFlow.sent]); performed once, in [cast]'s own call. */
-        fun sent(): EngineCall {
+        fun sent(): EngineRun {
             val done = flow.call
             if (passed) return done
             passed = true
@@ -205,8 +210,37 @@ class CastFlow private constructor(
     /** The ATW card of an engine object, when it is a card. */
     fun atwCard(id: ObjectId): String? = (id as? ObjectId.Card)?.let { call.ids.atw(it.card) }
 
-    private fun replayOn(on: PlayState, begin: Input, answers: List<Answer>, strict: Boolean): CastFlow =
-        replay(Context(on, definitions, player, log, seeds, extras), begin, answers, strict)
+    private fun replayOn(begin: Input, answers: List<Answer>, strict: Boolean): CastFlow =
+        replay(Context(source, player, seeds, extras), begin, answers, strict)
+
+    /**
+     * Where a flow runs: the [board] of the game [gameId] it is begun on and a fresh engine run on it for each replay
+     * ([run], given the flow's seeds).
+     */
+    sealed class Source(val board: BoardState, val gameId: String) {
+        internal abstract fun run(seeds: () -> String): EngineRun
+
+        /** A game on engine state (I-D56, engine-responsiveness R4a): its own [state] (full information, never changed
+         * here) shown as [board]. */
+        class Engine internal constructor(val state: GameState, board: BoardState, gameId: String) : Source(board, gameId) {
+            override fun run(seeds: () -> String): EngineRun = EngineRun.of(state, board, gameId, seeds)
+        }
+
+        /** Today's model: [play]'s board rebuilt for the engine with the game's card [definitions] and its [log]. */
+        class Legacy internal constructor(val play: PlayState, val definitions: Map<String, CardDefinition>,
+            val log: List<LoggedChange>) : Source(play.board, play.gameId) {
+            override fun run(seeds: () -> String): EngineRun =
+                EngineCall(play, definitions, null, log, seeds).also(HostPriority::settle)
+        }
+
+        companion object {
+            /** A game on engine state: [state] shown as [board]. */
+            fun engine(state: GameState, board: BoardState, gameId: String): Source = Engine(state, board, gameId)
+            /** Today's model: [play]'s board rebuilt for the engine. */
+            fun legacy(play: PlayState, definitions: Map<String, CardDefinition>, log: List<LoggedChange>): Source =
+                Legacy(play, definitions, log)
+        }
+    }
 
     /** Random results of a flow, kept so a replay repeats them. */
     class Seeds(private val fresh: () -> String) {
@@ -225,19 +259,21 @@ class CastFlow private constructor(
          */
         fun start(play: PlayState, definitions: Map<String, CardDefinition>, player: String, log: List<LoggedChange>,
             begin: Input, seeds: Seeds, answers: List<Answer> = emptyList(), extras: List<Int>? = null): CastFlow =
-            replay(Context(play, definitions, player, log, seeds, extras), begin, answers, strict = true)
+            start(Source.legacy(play, definitions, log), player, begin, seeds, answers, extras)
+
+        /** [start] on [source] (a game on engine state: [Source.engine]). */
+        fun start(source: Source, player: String, begin: Input, seeds: Seeds, answers: List<Answer> = emptyList(),
+            extras: List<Int>? = null): CastFlow = replay(Context(source, player, seeds, extras), begin, answers, strict = true)
 
         /** Whether [continuation] is part of casting or playing the card (CR 601.2, 305.1), which the caster's device
          * keeps to itself (I-D11), rather than what follows it. */
         internal fun private(continuation: Continuation): Boolean =
             continuation is Continuation.Announcing || continuation is Continuation.Event || continuation is Continuation.Played
 
-        internal class Context(val play: PlayState, val definitions: Map<String, CardDefinition>, val player: String,
-            val log: List<LoggedChange>, val seeds: Seeds, val extras: List<Int>? = null)
+        internal class Context(val source: Source, val player: String, val seeds: Seeds, val extras: List<Int>? = null)
 
         internal fun replay(c: Context, begin: Input, answers: List<Answer>, strict: Boolean): CastFlow {
-            val call = EngineCall(c.play, c.definitions, null, c.log, c.seeds.reader())
-            HostPriority.settle(call)
+            val call = c.source.run(c.seeds.reader())
             val stackBefore = call.working.stack.size
             call.perform(begin)
             val given = mutableListOf<Answer>()
@@ -257,7 +293,7 @@ class CastFlow private constructor(
                 steps += open to answer
                 chosen()
             }
-            return CastFlow(c.play, c.definitions, c.player, c.log, begin, given, c.seeds, call, steps, stackBefore, c.extras)
+            return CastFlow(c.source, c.player, begin, given, c.seeds, call, steps, stackBefore, c.extras)
         }
 
         /** What [Input.Cast] [way] says beside the plain cast: its face when the card has several to cast ("Reel // Rend
@@ -320,11 +356,11 @@ class HandPlays private constructor(val byCard: Map<String, List<Input>>, val un
         }
 
         /**
-         * [of] for a board made from the engine's own state ([org.asyncttwiz.protocol.BoardState.engine], I-D56 step C):
-         * [state] is that state (full information, not changed here) and [view] its view when the caller already has it
-         * (engine-responsiveness R3: worked out on the engine thread, nothing copied). The same plays as [of] gives for it.
+         * [of] for a game on engine state (I-D56; engine-responsiveness R3, R4a): [state] is its own state (full
+         * information, not changed here; the card ids are the game's) and [view] its view when the caller already has it
+         * (worked out on the engine thread, nothing copied).
          */
-        fun of(play: PlayState, state: GameState, viewer: String, view: View?): HandPlays = of(state, CardIds.of(play.board), viewer, view)
+        fun of(state: GameState, viewer: String, view: View?): HandPlays = of(state, CardIds(), viewer, view)
 
         private fun of(state: GameState, ids: CardIds, viewer: String, view: View?): HandPlays {
             val hand = state.players.firstOrNull { it.id.value == viewer }?.hand.orEmpty().toSet()
@@ -376,16 +412,7 @@ internal object HostPriority {
     }
 
     /** The priority [s] should have (null: leave it as it is); [kept]: the board's priority is the engine's own ([kept]). */
-    fun wanted(s: GameState, kept: Boolean = false): PriorityState? {
-        if (s.pending != null || s.turn.step == TurnStep.Untap || s.turn.step == TurnStep.Cleanup || awaitsDeclaration(s)) return null
-        val active = s.turn.active
-        val holder = s.priority.holder
-        return when {
-            holder == null -> PriorityState(active, 0)
-            s.stack.isEmpty() && s.priority.passes == 0 && holder != active && !kept -> PriorityState(active, 0)
-            else -> null
-        }
-    }
+    fun wanted(s: GameState, kept: Boolean = false): PriorityState? = StepFlow.settledPriority(s, kept)
 
     /**
      * [s] rests in an untap step with nobody holding priority and nothing to decide (CR 502.4). ATW rests there before
@@ -394,8 +421,7 @@ internal object HostPriority {
      * hand while Automatum was off, whose untapping is taken as done by hand (I-D28, best effort). The step button then
      * ends the step ([leaveUntap]).
      */
-    fun resting(s: GameState): Boolean = s.pending == null && s.result == null && s.turn.step == TurnStep.Untap &&
-        s.priority.holder == null
+    fun resting(s: GameState): Boolean = StepFlow.resting(s)
 
     /** Ends the untap step [call] rests in ([resting]) as the rules end a step (CR 500.2): the host gives the active
      * player priority as the last of the players to pass in succession, so their pass ends it and the upkeep begins.
@@ -408,10 +434,4 @@ internal object HostPriority {
         call.host(Change.Priority(s.priority, PriorityState(order.first(), order.size - 1), listOf(Meaning.PriorityGranted)))
     }
 
-    /** Attackers or blockers are awaited (CR 508.1, 509.1): nobody has priority until they are declared. */
-    private fun awaitsDeclaration(s: GameState): Boolean = s.priority.holder == null && when (s.turn.step) {
-        TurnStep.DeclareAttackers -> s.combat == null
-        TurnStep.DeclareBlockers -> s.combat?.let { !it.blocksDecided && it.attackers.isNotEmpty() } == true
-        else -> false
-    }
 }

@@ -57,7 +57,7 @@ class ArtworkPrefetchStartTest {
         awaitRequestFor(deckCard)
         assertTrue(synchronized(requested) { requested.none { gameCard in it } }, "Nothing of the game is fetched before it opens")
         val data = GameplayFixture()
-        compose.setContent { PrefetchGameArtwork(data.initial.copy(definitions = listOf(definition(gameCard))), data.actor) }
+        compose.setContent { PrefetchGameArtwork(TableBoard.of(data.initial.copy(definitions = listOf(definition(gameCard)))), data.actor) }
         awaitRequestFor(gameCard)
     }
 }

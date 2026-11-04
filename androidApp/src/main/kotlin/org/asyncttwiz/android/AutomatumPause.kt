@@ -114,17 +114,17 @@ internal class PauseController {
      * meanwhile: the pause shown on the live table (also while it is held there after the game went on), else [play]
      * (the board acted on) when it is [viewer]'s pause. Nothing when it is held (or continued from) already.
      */
-    fun holdForReaction(play: PlayState?, viewer: String) {
+    fun holdForReaction(play: TableBoard?, viewer: String) {
         val node = shown?.takeIf { it.role is PauseRole.Yours }?.node
-            ?: play?.takeIf { PausePoints.pauseFor(it.board, viewer) }?.currentNodeId ?: return
+            ?: play?.takeIf { PausePoints.pauseFor(it.board, viewer) }?.nodeId ?: return
         if (!holding(node) && routes?.holding(node) != true) hold(node)
     }
     /** Whether the viewer holds at [node]. */
     fun holding(node: String): Boolean = heldNode == node && routes?.holding(node) == true
 
     /** Whether [viewer]'s own pause is shown on [play]'s board: running, or held there. */
-    fun ownPause(play: PlayState, viewer: String): Boolean =
-        (running(play.currentNodeId)?.role is PauseRole.Yours || holding(play.currentNodeId) && PausePoints.pauseFor(play.board, viewer))
+    fun ownPause(play: TableBoard, viewer: String): Boolean =
+        (running(play.nodeId)?.role is PauseRole.Yours || holding(play.nodeId) && PausePoints.pauseFor(play.board, viewer))
 
     /** The board (node) whose pause bar the viewer hid with its eye (I-D10, finalreview-combat #2); null: none. */
     var hiddenAt by mutableStateOf<String?>(null); private set
@@ -163,12 +163,12 @@ internal class PauseController {
  * [liveShown] whether it is the live game.
  */
 @Composable
-internal fun AutomatumPauseDriver(toolkit: TableToolkitController, playback: HistoryPlayback?, play: PlayState?,
+internal fun AutomatumPauseDriver(toolkit: TableToolkitController, playback: HistoryPlayback?, play: TableBoard?,
     liveHead: String?, liveShown: Boolean, opponentOnline: Boolean, settings: PauseSettings,
     sync: FullControlSync = remember { FullControlSync.Memory() }) {
     val pause = toolkit.pause
     SideEffect { pause.liveHead = liveHead }
-    val node = play?.currentNodeId
+    val node = play?.nodeId
     val role = if (play != null && node != null && liveShown)
         LivePause.role(play.board, toolkit.viewer, toolkit.authorOf(node), opponentOnline, settings) else null
     /**
@@ -229,7 +229,7 @@ internal fun AutomatumPauseDriver(toolkit: TableToolkitController, playback: His
         val changed = settings.fullControlChanged
         if (own == settings.fullControl) { if (sync.synced(game) < changed) sync.synced(game, changed); return@LaunchedEffect }
         if (sync.synced(game) >= changed) return@LaunchedEffect
-        if (toolkit.enabled() && !toolkit.cast.open && !Automatum.flowOpen(board) &&
+        if (toolkit.enabled() && !toolkit.cast.open && play.flowOpen != true &&
             toolkit.submit(PlayAction.Mtg(MtgAction.SetFullControl(settings.fullControl)))) sync.synced(game, changed)
     }
 }
@@ -254,10 +254,10 @@ internal fun PauseProgress(pause: PauseController, shown: ShownPause) {
  * the viewer's device waits for them. Nothing otherwise (on the Stack the respond panel shows the pause, STK-027).
  */
 @Composable
-internal fun PauseBarHost(toolkit: TableToolkitController, play: PlayState, scene: TableScene?, names: Map<String, String>) {
+internal fun PauseBarHost(toolkit: TableToolkitController, play: TableBoard, scene: TableScene?, names: Map<String, String>) {
     if (AutomatumBoards.sharedFlowShown(play) || toolkit.cast.open) return
     val pause = toolkit.pause
-    val node = play.currentNodeId
+    val node = play.nodeId
     val viewer = toolkit.viewer
     val running = pause.running(node)
     val held = pause.holding(node) && PausePoints.pauseFor(play.board, viewer)

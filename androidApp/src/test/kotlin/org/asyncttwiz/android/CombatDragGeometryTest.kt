@@ -6,7 +6,7 @@ import kotlin.test.*
 
 class CombatDragGeometryTest {
     private val f = TableStatesFixture
-    private fun scene(play: PlayState, zoom: Float = 1f) = TablePresentation.scene(f.game, play, f.a,
+    private fun scene(play: PlayState, zoom: Float = 1f) = TablePresentation.scene(f.game, TableBoard.of(play), f.a,
         892f, 412f, true, TableLayoutState(camera = TableCamera(zoom = zoom)))
 
     private fun predict(play: PlayState, ids: List<String>, destination: CombatDestination) =

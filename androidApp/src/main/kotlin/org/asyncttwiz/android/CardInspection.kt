@@ -170,9 +170,9 @@ internal fun InspectionFaceSwitcher(face: Int, count: Int,
 
 /** Game inspection filters playable faces BEFORE entering the general deck/art inspector. */
 @Composable
-internal fun GameplayCardInspection(state: PlayState, viewer: String, inspection: ManualInspection, close: () -> Unit,
+internal fun GameplayCardInspection(state: TableBoard, viewer: String, inspection: ManualInspection, close: () -> Unit,
     names: Map<String, String> = emptyMap(), peek: Boolean = false, peekScroll: ScrollState? = null) {
-    if (inspection.gameId != state.gameId || inspection.playId != state.id) return
+    if (inspection.gameId != state.gameId || inspection.playId != state.playId) return
     BackHandler(enabled = peek, onBack = close)
     val computed = LocalComputedBoard.current
     val card = inspection.snapshot ?: CombatStackRules.inspection(state.board, inspection.cardId) ?: return
@@ -190,8 +190,8 @@ internal fun GameplayCardInspection(state: PlayState, viewer: String, inspection
     val faceDown = ManualDisclosure.faceDownOutsideHiddenZones(state.board, card) ||
         CombatStackRules.faceDownEntry(state.board, inspection.cardId)
     // Only the deliberate, logged "Inspect other side" shows an opponent a face-down front; ordinary inspects never do.
-    val allowed = if (inspection.explicit) inspection.faceIds else if (ManualDisclosure.faceDownFrontHidden(state, card, viewer)) emptyList() else
-        ManualDisclosure.permittedFaces(state, card, viewer, inspecting = true).map { it.faceId }.filter { it in inspection.faceIds }
+    val allowed = if (inspection.explicit) inspection.faceIds else if (ManualDisclosure.faceDownFrontHidden(state.board, card, viewer)) emptyList() else
+        ManualDisclosure.permittedFaces(state.board, state.definitions, card, viewer, inspecting = true).map { it.faceId }.filter { it in inspection.faceIds }
     val faces = definition?.faces.orEmpty().filter { it.faceId in allowed }
     if (faces.isEmpty()) {
         if (peek) Popup(properties = PopupProperties(focusable = false)) {
@@ -235,7 +235,7 @@ internal fun GameplayCardInspection(state: PlayState, viewer: String, inspection
 /** The text above a game card's inspection: owner, tapped state and the card's current table values; with Automatum
  * on (I1), where its computed values come from instead of the manual corner. */
 private fun inspectionAnnotation(card: PlayCard, names: Map<String, String>, provisional: Boolean,
-    computed: ComputedBoard = ComputedBoard.NONE, viewer: String = "", state: PlayState? = null): String = listOfNotNull(
+    computed: ComputedBoard = ComputedBoard.NONE, viewer: String = "", state: TableBoard? = null): String = listOfNotNull(
     "Provisional inspection · awaiting shared result".takeIf { provisional },
     "Owner ${names[card.owner] ?: "Player"} · ${if (card.tapped) "tapped" else "untapped"}",
     computedCorner(computed, card, viewer) ?: inspectedCorner(card).takeIf(String::isNotBlank),
@@ -246,7 +246,7 @@ private fun inspectionAnnotation(card: PlayCard, names: Map<String, String>, pro
  * ability), one line each ("Cast — Only in your main phase while the Stack is empty."), from the plays already worked out
  * for this board (none while they aren't, and none for other players' cards).
  */
-internal fun automatumReasons(state: PlayState, viewer: String, cardId: String, names: Map<String, String>): List<String> {
+internal fun automatumReasons(state: TableBoard, viewer: String, cardId: String, names: Map<String, String>): List<String> {
     val plays = AutomatumBoards.cachedCardPlays(state, viewer) ?: return emptyList()
     val name = CastController.cardName(state, cardId)
     return plays.of(cardId).mapNotNull { offered ->
@@ -288,12 +288,12 @@ internal sealed interface PilePeekCard {
 }
 
 /** [card] as its own hold preview shows it to [viewer] (a face-down front stays hidden from the opponent, TBL-109). */
-private fun pilePeekCard(state: PlayState, viewer: String, card: PlayCard, names: Map<String, String>,
+private fun pilePeekCard(state: TableBoard, viewer: String, card: PlayCard, names: Map<String, String>,
     inspection: ManualInspection?, computed: ComputedBoard): PilePeekCard {
     val definition = state.definitions.singleOrNull { it.digest == card.definition }?.definition
         ?: return PilePeekCard.Covered(card.id, "Card data unavailable")
-    val allowed = if (ManualDisclosure.faceDownFrontHidden(state, card, viewer)) emptyList() else
-        ManualDisclosure.permittedFaces(state, card, viewer, inspecting = true).map { it.faceId }
+    val allowed = if (ManualDisclosure.faceDownFrontHidden(state.board, card, viewer)) emptyList() else
+        ManualDisclosure.permittedFaces(state.board, state.definitions, card, viewer, inspecting = true).map { it.faceId }
             .filter { inspection == null || it in inspection.faceIds }
     val faces = definition.faces.filter { it.faceId in allowed }
     if (faces.isEmpty()) return PilePeekCard.Covered(card.id, "Covered card")

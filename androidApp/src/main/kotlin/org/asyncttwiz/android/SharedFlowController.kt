@@ -14,7 +14,7 @@ import org.asyncttwiz.automatum.AutomatumLog
 import org.asyncttwiz.automatum.CombatFlow
 import org.asyncttwiz.automatum.CombatRefused
 import org.asyncttwiz.automatum.EngineBatch
-import org.asyncttwiz.automatum.EngineCall
+import org.asyncttwiz.automatum.EngineRun
 import org.asyncttwiz.automatum.ManaPicks
 import org.asyncttwiz.automatum.SharedFlow
 import org.asyncttwiz.automatum.StepFlow
@@ -35,7 +35,7 @@ import org.asyncttwiz.protocol.*
  */
 internal class SharedFlowController(
     private val viewer: String,
-    private val current: () -> PlayState?,
+    private val current: () -> TableBoard?,
     private val send: ((GameAction.PlayBatch, String) -> Boolean)?,
     private val tags: () -> List<MtgTag?>,
     private val fail: (String?) -> Unit,
@@ -89,12 +89,12 @@ internal class SharedFlowController(
 
     /** The open decision is targets the viewer picks on the table, on the board they act on: until the panel has the new
      * board's flow (worked out off the main thread) a tap isn't taken as a target for the previous board's decision. */
-    val targeting: Boolean get() = answering is Decision.Targets && view?.play?.board === current()?.board
+    val targeting: Boolean get() = answering is Decision.Targets && view?.board === current()?.board
 
     fun toggleHidden() { hidden = !hidden }
 
     /** "Respond": the prompt shrinks to a bar while the player casts from the hand. */
-    fun respond(play: PlayState) { onRespond(); responding = play.currentNodeId; hidden = false }
+    fun respond(play: TableBoard) { onRespond(); responding = play.nodeId; hidden = false }
     fun stopResponding() { responding = null }
 
     /** "Choose for them" confirmed (D11): the viewer answers the other player's open decision. */
@@ -119,8 +119,8 @@ internal class SharedFlowController(
      * the work off the main thread the return value can't tell).
      */
     fun autoPass(holder: String, node: String, sent: (Boolean) -> Unit = {}): Boolean {
-        val play = current()?.takeIf { it.currentNodeId == node } ?: return false
-        if (Automatum.flowOpen(play.board)) return false
+        val play = current()?.takeIf { it.nodeId == node } ?: return false
+        if (play.flowOpen) return false
         return sendCall(play, quiet = true, sent = sent) { flow ->
             if (flow.holder != holder) throw Refused(null)
             flow.pass(holder)
@@ -154,8 +154,8 @@ internal class SharedFlowController(
     }
 
     /** Why the step button can't act on [play] at all (nothing is worked out then), or null. */
-    private fun stepRefusal(play: PlayState, until: StepFlow.Until): String? {
-        if (Automatum.flowOpen(play.board)) return BUSY
+    private fun stepRefusal(play: TableBoard, until: StepFlow.Until): String? {
+        if (play.flowOpen) return BUSY
         // I-D46 d: with something on the Stack the step arrow is "Resolve": its holder passes, as Let it resolve does
         val stacked = CombatStackRules.stack(play.board).cards.isNotEmpty()
         if (stacked && (until != StepFlow.Until.Pass || play.board.stackEffects.none { it.item != null })) return STACK_WAITING
@@ -166,7 +166,7 @@ internal class SharedFlowController(
 
     /** What a press of the step button does on [play]'s flow: who acts ([actor]), what it is ([kind]), whether it acts
      * for the other player ([ask], I-D40) and the engine call it makes ([call], made when asked for). */
-    private class Pressed(val actor: String, val kind: Kind, val ask: ActingFor?, val call: () -> EngineCall) {
+    private class Pressed(val actor: String, val kind: Kind, val ask: ActingFor?, val call: () -> EngineRun) {
         sealed interface Kind {
             data object Resolve : Kind
             data object Pass : Kind
@@ -175,7 +175,7 @@ internal class SharedFlowController(
         }
     }
 
-    private fun pressed(play: PlayState, flow: SharedFlow, until: StepFlow.Until): Pressed {
+    private fun pressed(play: TableBoard, flow: SharedFlow, until: StepFlow.Until): Pressed {
         if (CombatStackRules.stack(play.board).cards.isNotEmpty()) {
             val holder = flow.priority ?: throw Refused(STACK_WAITING)
             val ask = if (holder != viewer) ActingFor(play.board, holder, until, ActingFor.Kind.Pass(priority = true)) else null
@@ -227,7 +227,7 @@ internal class SharedFlowController(
      * The step arrow's plan on [play]'s board (the one the viewer acts on), or null while it is worked out on [work] (begun
      * once per board; [stepPlan] then changes, so the arrow recomposes with it) or when the step arrow can't act there.
      */
-    fun plan(play: PlayState): StepPlan? {
+    fun plan(play: TableBoard): StepPlan? {
         stepPlan?.takeIf { it.board === play.board }?.let { return it }
         if (send == null || busy || planning === play.board || stepRefusal(play, StepFlow.Until.Pass) != null) return null
         planning = play.board
@@ -238,7 +238,7 @@ internal class SharedFlowController(
         return stepPlan?.takeIf { it.board === play.board }
     }
 
-    private fun makePlan(play: PlayState): StepPlan {
+    private fun makePlan(play: TableBoard): StepPlan {
         var step: AutomatumStep? = null
         var ask: ActingFor? = null
         val outcome = outcome(play) { flow ->
@@ -290,7 +290,7 @@ internal class SharedFlowController(
      * ([SharedFlow.answer]). */
     override fun answerWith(answer: Answer, then: List<Answer.Objects>): Boolean {
         val play = current() ?: return false
-        val open = view?.takeIf { it.play.board === play.board }?.decision
+        val open = view?.takeIf { it.board === play.board }?.decision
         if (open != null && open.id.value != shownDecision) { fail("The table changed: look at the choice again."); return false }
         return sendCall(play) { flow ->
             val decision = flow.decision ?: throw Refused(null)
@@ -334,14 +334,14 @@ internal class SharedFlowController(
     }
 
     /** The table items that glow as legal targets of the open decision the viewer answers. */
-    fun glow(play: PlayState): Set<String> {
+    fun glow(play: TableBoard): Set<String> {
         val flow = view ?: return emptySet()
         val decision = answering as? Decision.Targets ?: return emptySet()
         return targetGlow(play, decision.options.map(flow::ref))
     }
 
     /** The Stack entries that are legal targets of the open decision the viewer answers, top first. */
-    fun stackTargets(play: PlayState): List<String> {
+    fun stackTargets(play: TableBoard): List<String> {
         val flow = view ?: return emptyList()
         val decision = answering as? Decision.Targets ?: return emptyList()
         return targetEntries(play, decision.options.map(flow::ref))
@@ -391,8 +391,8 @@ internal class SharedFlowController(
     }
 
     /** The flow of [play]'s board: the shown one, or worked out now when the board moved on (blocking: on [work]). */
-    private fun flowOf(play: PlayState): SharedFlow =
-        view?.takeIf { it.play.board === play.board } ?: AutomatumBoards.sharedFlow(play, tags()) ?: throw Refused(TAKE_OVER)
+    private fun flowOf(play: TableBoard): SharedFlow =
+        view?.takeIf { it.board === play.board } ?: AutomatumBoards.sharedFlow(play, tags()) ?: throw Refused(TAKE_OVER)
 
     /** A refusal with its message for the player (null: none). */
     private class Refused(message: String?) : Exception(message)
@@ -414,7 +414,7 @@ internal class SharedFlowController(
      * SYS-010) planned on [play], unless the board moved on meanwhile. True when it was taken (with
      * [AutomatumWork.Inline]: what the result says). [sent]: whether a batch went out, once known (on the main thread).
      */
-    private fun sendCall(play: PlayState, quiet: Boolean = false, sent: (Boolean) -> Unit = {}, perform: (SharedFlow) -> EngineCall): Boolean {
+    private fun sendCall(play: TableBoard, quiet: Boolean = false, sent: (Boolean) -> Unit = {}, perform: (SharedFlow) -> EngineRun): Boolean {
         val fail: (String?) -> Unit = if (quiet) { _ -> } else this.fail
         val route = send ?: if (engineSend != null) { _, _ -> false } else run { fail("Automatum isn't available here."); return false }
         if (busy) return false
@@ -428,7 +428,7 @@ internal class SharedFlowController(
     }
 
     /** Works one engine call out from [play]'s flow ([perform]) and plans it as one automated batch (I-D11, SYS-010). */
-    private fun outcome(play: PlayState, perform: (SharedFlow) -> EngineCall): Outcome = try {
+    private fun outcome(play: TableBoard, perform: (SharedFlow) -> EngineRun): Outcome = try {
         val call = perform(flowOf(play))
         // I-D56 step C: only the viewer's own inputs go out; their device folds what follows by itself (the other player's
         // points are assumed, automatic or waited for, never passed for them)
@@ -438,7 +438,7 @@ internal class SharedFlowController(
             if (own.isEmpty()) Outcome.Empty else Outcome.Engine(play.board, own)
         } else {
             val requestId = DeviceRandom.uuid()
-            val command = GameCommand(requestId, GameScope(play.gameId, playId = play.id),
+            val command = GameCommand(requestId, GameScope(play.gameId, playId = play.playId),
                 GameAction.PlayBatch(listOf(PlayAction.PassAttention)), DeviceRandom.uuid(), "1")
             val plan = EngineBatch.plan(call, viewer, command, tokenArt)
             if (plan.actions.isEmpty()) Outcome.Empty else Outcome.Send(play.board, plan.action, requestId)
@@ -495,7 +495,7 @@ internal class SharedFlowController(
         return decision.options.firstOrNull { target ->
             when (val ref = flow.ref(target)) {
                 is MtgRef.Card -> ref.cardId in ids
-                is MtgRef.StackItem -> flow.play.board.stackEffects.any { it.id in ids && it.item?.id == ref }
+                is MtgRef.StackItem -> flow.board.stackEffects.any { it.id in ids && it.item?.id == ref }
                 is MtgRef.Player -> false
             }
         }

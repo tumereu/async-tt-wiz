@@ -9,7 +9,6 @@ import arcanum.engine.state.ObjectId
 import arcanum.engine.state.PlayerId
 import arcanum.engine.state.StackItemKind
 import org.asyncttwiz.protocol.HistoryIcon
-import org.asyncttwiz.protocol.PlayState
 import org.asyncttwiz.protocol.PlayZone
 import org.asyncttwiz.protocol.game.GameEvent
 import org.asyncttwiz.protocol.game.TableChange as GameTableChange
@@ -229,7 +228,7 @@ internal object EngineChanges {
         }.toMap()
     }
 
-    fun between(before: PlayState, after: PlayState, ptBefore: Map<String, Pair<Int, Int>>, ptAfter: Map<String, Pair<Int, Int>>,
+    fun between(before: TableBoard, after: TableBoard, ptBefore: Map<String, Pair<Int, Int>>, ptAfter: Map<String, Pair<Int, Int>>,
         events: List<GameEvent>): List<TableChange> = buildList {
         for (p in after.board.players) {
             val old = before.board.players.firstOrNull { it.accountId == p.accountId }?.life?.toBigIntegerOrNull() ?: continue
@@ -255,11 +254,11 @@ internal object EngineChanges {
     }.distinctBy { it.key }
 
     /** The libraries the events shuffled (their containers), for the shuffle animation. */
-    fun shuffled(play: PlayState, events: List<GameEvent>): Set<String> {
+    fun shuffled(play: TableBoard, events: List<GameEvent>): Set<String> {
         val players = events.flatMap { e -> e.engine?.changes.orEmpty().filterIsInstance<Change.Shuffle>().map { it.player.value } }.toSet()
         return play.board.containers.filter { it.zone == PlayZone.LIBRARY && !it.temp && it.accountId in players }.map { it.id }.toSet()
     }
 
-    private fun org.asyncttwiz.protocol.PlayCard.controllerOf(play: PlayState): String? =
+    private fun org.asyncttwiz.protocol.PlayCard.controllerOf(play: TableBoard): String? =
         play.board.containers.firstOrNull { it.id == containerId }?.accountId
 }

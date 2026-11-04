@@ -80,14 +80,16 @@ data class BatchPlan(val actions: List<PlayAction>, val tags: List<MtgTag?>, val
  */
 object EngineBatch {
     /**
-     * The batch for [call]'s changes, sent by [actor] as [command] (its request id names the members). The plan's
+     * The batch for [run]'s changes (an [EngineCall]), sent by [actor] as [command] (its request id names the members). The plan's
      * [BatchPlan.state] is the board the server will make of it: the acting client shows it as its prediction without
      * running the members through the reducer again. [tokenArt] finds the picture of each token the call makes.
      *
      * @throws Unmappable when a change can't be said with ATW's actions, or the batch wouldn't pass the server's checks
      *   ([GameWire.valid]) or fit one game message.
      */
-    fun plan(call: EngineCall, actor: String, command: GameCommand, tokenArt: TokenArt = TokenArt.None): BatchPlan {
+    fun plan(run: EngineRun, actor: String, command: GameCommand, tokenArt: TokenArt = TokenArt.None): BatchPlan {
+        // Today's model only: a call on a board rebuilt from ATW's state
+        val call = run as EngineCall
         val game = call.state.gameId
         val plan = try {
             Planner(call, actor, command, tokenArt).run()

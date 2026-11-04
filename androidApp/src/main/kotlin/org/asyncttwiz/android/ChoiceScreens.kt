@@ -16,7 +16,6 @@ import androidx.compose.ui.unit.sp
 import arcanum.engine.decision.Answer
 import arcanum.engine.decision.Decision
 import arcanum.engine.state.ObjectId
-import org.asyncttwiz.protocol.PlayState
 
 /**
  * Who looks at a choice and how it is framed (I-D47, I-D48): [viewer] for the cards' outlines and Inspect; [headed]: the
@@ -160,7 +159,7 @@ internal fun areaIcon(label: String): ImageVector = when (label) {
 }
 
 /** The card of engine object [id] in a choice, as the viewer may see it. */
-internal fun choiceCardOf(flow: FlowQuestions, play: PlayState, viewer: String, id: ObjectId, tapped: Boolean = false): ChoiceCardData =
+internal fun choiceCardOf(flow: FlowQuestions, play: TableBoard, viewer: String, id: ObjectId, tapped: Boolean = false): ChoiceCardData =
     choiceCard(play, viewer, id.toString(), flow.atwCard(id), flow.shown(id), objectName(flow, play, id), tapped)
 
 /**
@@ -169,7 +168,7 @@ internal fun choiceCardOf(flow: FlowQuestions, play: PlayState, viewer: String, 
  * ([FlowQuestions.answerWith]). Putting cards in order is one area; picking taps cards to choose them.
  */
 @Composable
-internal fun ObjectsSection(cast: FlowQuestions, flow: FlowQuestions, play: PlayState, decision: Decision.ChooseObjects) {
+internal fun ObjectsSection(cast: FlowQuestions, flow: FlowQuestions, play: TableBoard, decision: Decision.ChooseObjects) {
     val shape = remember(decision) { ObjectsShape.of(decision) }
     val viewer = LocalChoiceFrame.current.viewer
     val cards = decision.options.associate { it.toString() to choiceCardOf(flow, play, viewer, it) }
@@ -216,7 +215,7 @@ internal fun ObjectsSection(cast: FlowQuestions, flow: FlowQuestions, play: Play
 
 /** The legend rule (CR 704.5j) as cards: tap the one to keep, then Keep. */
 @Composable
-internal fun LegendRuleSection(cast: FlowQuestions, flow: FlowQuestions, play: PlayState, decision: Decision.LegendRule) {
+internal fun LegendRuleSection(cast: FlowQuestions, flow: FlowQuestions, play: TableBoard, decision: Decision.LegendRule) {
     val viewer = LocalChoiceFrame.current.viewer
     val inspector = remember(decision.id) { ChoiceInspector() }
     var kept by remember(decision.id) { mutableStateOf<String?>(null) }

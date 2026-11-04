@@ -48,17 +48,17 @@ object QuickActions {
     const val KEEP = "Keep"
     const val NO_MORE_MULLIGANS = "No more mulligans: the hand you keep would have no cards."
     /** While the viewer's status is exactly the opening status, they are still mulliganing: Mulligan and Keep (I-D49). */
-    fun openingMulligan(play: PlayState, viewer: String?) = PlayerStatus.opening(play.board, viewer)
+    fun openingMulligan(play: TableBoard, viewer: String?) = PlayerStatus.opening(play.board, viewer)
     /** Only mulligan offerings: no step arrow for a player who would not otherwise see the strip. */
-    fun mulliganOnly(play: PlayState, viewer: String?) = openingMulligan(play, viewer) &&
+    fun mulliganOnly(play: TableBoard, viewer: String?) = openingMulligan(play, viewer) &&
         play.board.turn.accountId != viewer && play.board.effectiveAttentionHolder != viewer
-    fun visible(play: PlayState, viewer: String?) = viewer != null &&
+    fun visible(play: TableBoard, viewer: String?) = viewer != null &&
         (play.board.turn.accountId == viewer || play.board.effectiveAttentionHolder == viewer || openingMulligan(play, viewer))
     /** The quick actions besides the Automatum toggles: Automatum's combat staging while it offers it (CMB-028,
      * CMB-034), else the viewer's opening (Mulligan and Keep, TRN-062). Nothing changes the game by hand (I-D52). */
-    fun contextual(play: PlayState, context: QuickContext): List<QuickAction> {
+    fun contextual(play: TableBoard, context: QuickContext): List<QuickAction> {
         if (!context.playable) return emptyList()
-        val scope = TableActionScope(play.gameId, play.id)
+        val scope = TableActionScope(play.gameId, play.playId)
         automatumCombatQuickActions(play, context, scope)?.let { return it }
         if (!openingMulligan(play, context.viewer)) return emptyList()
         val taken = play.board.players.firstOrNull { it.accountId == context.viewer }?.mulligans ?: 0
@@ -89,7 +89,7 @@ class ActionPress(private val assignedHold: Boolean) {
 
 /** Equal-width popup cells fill the space before the right-corner advance arrow. */
 @Composable
-fun QuickActionStrip(play: PlayState, context: QuickContext, controller: TableActionController,
+fun QuickActionStrip(play: TableBoard, context: QuickContext, controller: TableActionController,
     endingPlayerColor: Color, modifier: Modifier = Modifier, perform: (TableActionIntent) -> Boolean = controller::perform,
     /** I-D46 (c): sends the viewer's own Automatum setting changes (Skip when I have no choice). */
     submit: (PlayAction) -> Boolean = { false }) {
@@ -104,7 +104,7 @@ fun QuickActionStrip(play: PlayState, context: QuickContext, controller: TableAc
         return
     }
     val actions = if (toggles) emptyList() else QuickActions.contextual(play, context)
-    val scope = TableActionScope(play.gameId, play.id)
+    val scope = TableActionScope(play.gameId, play.playId)
     BoxWithConstraints(modifier, contentAlignment = Alignment.Center) {
         val compact = maxWidth < 480.dp && (toggles || actions.size >= 3)
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {

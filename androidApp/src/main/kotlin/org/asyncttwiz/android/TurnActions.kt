@@ -115,7 +115,7 @@ fun TurnIndicator(turn: TurnState, turnPlayerName: String, turnPlayerColor: Colo
  * step arrow, TRN-063; the squares do nothing and there are no step buttons).
  */
 @Composable
-fun PhaseStepPicker(play: PlayState, viewerId: String, endingPlayerColor: Color, onDismiss: () -> Unit,
+fun PhaseStepPicker(play: TableBoard, viewerId: String, endingPlayerColor: Color, onDismiss: () -> Unit,
     names: Map<String, String> = emptyMap()) {
     val landscape = LocalConfiguration.current.screenWidthDp > LocalConfiguration.current.screenHeightDp
     val turn = play.board.turn

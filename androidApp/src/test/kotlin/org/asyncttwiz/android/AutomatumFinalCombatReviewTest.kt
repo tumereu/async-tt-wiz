@@ -123,21 +123,21 @@ class AutomatumFinalCombatReviewTest {
         live.value = tree!!.stateAt(tree!!.currentNodeId)
         return true
     }
-    private fun toolkit(viewer: String) = TableToolkitController(viewer, { live.value }, { true },
+    private fun toolkit(viewer: String) = TableToolkitController(viewer, { live.value?.let(TableBoard::of) }, { true },
         { action, _ -> accept(viewer, GameAction.Play(action)) },
         playBatch = { actions, request -> accept(viewer, GameAction.PlayBatch(actions), request) },
         playTree = { tree }, automatedBatch = { batch, request -> accept(viewer, batch, request) })
 
     private fun scene(viewer: String, landscape: Boolean = false) =
-        if (landscape) TablePresentation.scene(f.game, play, viewer, 892f, 412f, true) else TablePresentation.scene(f.game, play, viewer, 412f, 892f, false)
+        if (landscape) TablePresentation.scene(f.game, TableBoard.of(play), viewer, 892f, 412f, true) else TablePresentation.scene(f.game, TableBoard.of(play), viewer, 412f, 892f, false)
     private fun tap(toolkit: TableToolkitController, item: TableItem) = toolkit.open(TableIntent.Actions(item.id, null), item)
     private fun tapCard(toolkit: TableToolkitController, card: String) = tap(toolkit,
         scene(toolkit.viewer).items.first { it.cardId == card && it.viewport != "combat" && it.zone == PlayZone.BATTLEFIELD })
     private fun tapCopy(toolkit: TableToolkitController, card: String) = tap(toolkit,
         scene(toolkit.viewer).items.first { it.viewport == "combat" && it.sourceId == card })
-    private fun quick(toolkit: TableToolkitController) = automatumCombatQuickActions(play, toolkitQuickContext(play, toolkit.viewer)
+    private fun quick(toolkit: TableToolkitController) = automatumCombatQuickActions(TableBoard.of(play), toolkitQuickContext(TableBoard.of(play), toolkit.viewer)
         .copy(automatumCombat = AutomatumBoards.combat(play) { engineTags(tree, play.currentNodeId) })
-        .withCombatTarget(toolkit.combat, play, "Bob"), TableActionScope(play.gameId, play.id)).orEmpty()
+        .withCombatTarget(toolkit.combat, TableBoard.of(play), "Bob"), TableActionScope(play.gameId, play.id)).orEmpty()
     /** The step arrow (TRN-063): it reads [label] (when given), isn't greyed, and a tap goes on. */
     private fun arrow(toolkit: TableToolkitController, label: String? = null) =
         tapArrow(play, toolkit, AutomatumBoards.combat(play) { engineTags(tree, play.currentNodeId) }, label)
@@ -160,10 +160,10 @@ class AutomatumFinalCombatReviewTest {
             MaterialTheme {
                 NoRipples {
                     Box(Modifier.fillMaxSize()) {
-                        TableSurface(f.game, live.value!!, toolkit.viewer, landscape, Modifier.fillMaxSize(), connected = true,
+                        TableSurface(f.game, TableBoard.of(live.value!!), toolkit.viewer, landscape, Modifier.fillMaxSize(), connected = true,
                             onIntent = toolkit::handle, toolkit = toolkit,
                             runtime = TableRuntimeHooks(navigation = {}, chat = {}, undo = { true }, controlsConnected = true))
-                        AutomatumPauseDriver(toolkit, null, live.value!!, live.value!!.currentNodeId, liveShown = true,
+                        AutomatumPauseDriver(toolkit, null, TableBoard.of(live.value!!), live.value!!.currentNodeId, liveShown = true,
                             opponentOnline = online, settings = PauseSettings(responseMillis = 3_000))
                     }
                 }
@@ -192,7 +192,7 @@ class AutomatumFinalCombatReviewTest {
     }
 
     /** [viewer]'s device holding the point [held] (I-D41, old-model Hold): it acts on that point's board, continuing from it. */
-    private fun heldToolkit(viewer: String, held: String) = TableToolkitController(viewer, { tree!!.stateAt(held) }, { true },
+    private fun heldToolkit(viewer: String, held: String) = TableToolkitController(viewer, { tree!!.stateAt(held)?.let(TableBoard::of) }, { true },
         { action, _ -> accept(viewer, GameAction.Play(action), from = held) },
         playBatch = { actions, request -> accept(viewer, GameAction.PlayBatch(actions), request, from = held) },
         playTree = { tree }, automatedBatch = { batch, request -> accept(viewer, batch, request, from = held) },
@@ -242,7 +242,7 @@ class AutomatumFinalCombatReviewTest {
         val reacting = heldToolkit(f.b, held)
         val bobSpark = at.board.containers.single { it.id == bHand }.cards.single()
         assertTrue(reacting.cast.start(bobSpark), reacting.error)
-        val bearItem = TablePresentation.scene(f.game, at, f.b, 412f, 892f, false).items
+        val bearItem = TablePresentation.scene(f.game, TableBoard.of(at), f.b, 412f, 892f, false).items
             .first { it.cardId == bearCard && it.viewport != "combat" && it.zone == PlayZone.BATTLEFIELD }
         reacting.open(TableIntent.Actions(bearItem.id, null), bearItem)
         // I-D47: Autotap (on) sends the cast once its last choice is made; only a cast still open waits for Cast
@@ -279,7 +279,7 @@ class AutomatumFinalCombatReviewTest {
         val payment = assertIs<arcanum.engine.decision.Decision.ManaPayment>(flow.decision, "the attack waits for Alice's payment")
         assertEquals(f.a, payment.player.value)
         assertTrue(quick(alice).none { it.enabled }, "no combat quick action while the payment is open: ${quick(alice).map { it.name }}")
-        assertNotNull(stepBlocked(play, false, AutomatumBoards.combat(play) { engineTags(tree, play.currentNodeId) }),
+        assertNotNull(stepBlocked(TableBoard.of(play), false, AutomatumBoards.combat(play) { engineTags(tree, play.currentNodeId) }),
             "the step arrow is greyed while the payment is open")
         alice.flows.show(flow)
         assertTrue(alice.flows.answer(arcanum.engine.decision.Answer.ManaPayment(payment.suggestion)), alice.error)
@@ -346,7 +346,7 @@ class AutomatumFinalCombatReviewTest {
         alice.flows.show(flow)
         assertTrue(alice.flows.targeting)
         assertTrue(alice.flows.answer(arcanum.engine.decision.Answer.Targets(listOf(decision.options.first()))), alice.error)
-        assertTrue(flow.play.board !== play.board, "the board went on")
+        assertTrue(flow.board !== play.board, "the board went on")
         assertTrue(!alice.flows.targeting, "the previous board's choice takes no tap")
     }
 
@@ -354,14 +354,14 @@ class AutomatumFinalCombatReviewTest {
     // pause bar has Hold but no Pass, and combat offers no quick action of its own
     @Test fun thePauseOnTheBlocksHasOnePass() {
         val alice = blocked()
-        val context = toolkitQuickContext(play, f.a)
+        val context = toolkitQuickContext(TableBoard.of(play), f.a)
             .copy(automatumCombat = AutomatumBoards.combat(play) { engineTags(tree, play.currentNodeId) })
         val scope = TableActionScope(play.gameId, play.id)
-        assertTrue(automatumCombatQuickActions(play, context, scope).orEmpty().isEmpty(), "no combat quick action")
-        assertEquals("Next", AutomatumStep.of(play).label)
+        assertTrue(automatumCombatQuickActions(TableBoard.of(play), context, scope).orEmpty().isEmpty(), "no combat quick action")
+        assertEquals("Next", AutomatumStep.of(TableBoard.of(play)).label)
         show(alice)
         compose.mainClock.advanceTimeBy(500)
-        assertTrue(alice.pause.ownPause(play, f.a), "Alice's pause bar is shown")
+        assertTrue(alice.pause.ownPause(TableBoard.of(play), f.a), "Alice's pause bar is shown")
         compose.onNode(hasText("Hold") and hasAnyAncestor(hasContentDescription("Your pause"))).assertExists()
         compose.onNode(hasText("Pass") and hasAnyAncestor(hasContentDescription("Your pause"))).assertDoesNotExist()
     }
@@ -371,7 +371,7 @@ class AutomatumFinalCombatReviewTest {
     @Test fun aCombatTapBeforeTheBoardIsWorkedOutDoesntBlock() {
         start(board(TurnPosition.DECLARE_ATTACKERS, null, aliceField = listOf(brute, bear), bobField = listOf(ogre)))
         val waiting = object : AutomatumWork { override fun <T> run(work: () -> T, done: (T) -> Unit) = Unit }
-        val device = TableToolkitController(f.a, { live.value }, { true }, { action, _ -> accept(f.a, GameAction.Play(action)) },
+        val device = TableToolkitController(f.a, { live.value?.let(TableBoard::of) }, { true }, { action, _ -> accept(f.a, GameAction.Play(action)) },
             playBatch = { actions, request -> accept(f.a, GameAction.PlayBatch(actions), request) },
             playTree = { tree }, automatedBatch = { batch, request -> accept(f.a, batch, request) }, automatumWork = waiting)
         val before = play.board
@@ -381,7 +381,7 @@ class AutomatumFinalCombatReviewTest {
         assertTrue(play.board === before, "nothing staged meanwhile")
         assertNull(AutomatumBoards.cachedCombat(play), "nothing worked out on the caller's thread")
         // Once worked out (AutomatumCombatHost), the tap stages
-        device.combat.show(play, AutomatumBoards.combat(play) { engineTags(tree, play.currentNodeId) })
+        device.combat.show(TableBoard.of(play), AutomatumBoards.combat(play) { engineTags(tree, play.currentNodeId) })
         tapCard(device, bruteCard)
         assertTrue(play.board.combat?.pairs.orEmpty().any { p -> p.attackers.any { it.sourceId == bruteCard } }, device.error)
     }
@@ -395,7 +395,7 @@ class AutomatumFinalCombatReviewTest {
         val later = object : AutomatumWork {
             override fun <T> run(work: () -> T, done: (T) -> Unit) { queued += { done(work()) } }
         }
-        val device = TableToolkitController(f.b, { live.value }, { true }, { action, _ -> accept(f.b, GameAction.Play(action)) },
+        val device = TableToolkitController(f.b, { live.value?.let(TableBoard::of) }, { true }, { action, _ -> accept(f.b, GameAction.Play(action)) },
             playBatch = { actions, request -> accept(f.b, GameAction.PlayBatch(actions), request) },
             playTree = { tree }, automatedBatch = { batch, request -> accept(f.b, batch, request) }, automatumWork = later)
         val node = play.currentNodeId

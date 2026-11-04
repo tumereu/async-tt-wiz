@@ -109,13 +109,13 @@ class AutomatumHandScreenshotTest {
     private val sent = mutableListOf<Pair<GameAction.PlayBatch, String>>()
     private fun render(play: PlayState): TableToolkitController {
         AutomatumBoards.compute(play, f.a)
-        val toolkit = TableToolkitController(f.a, { play }, { true }, { _, _ -> true },
+        val toolkit = TableToolkitController(f.a, { TableBoard.of(play) }, { true }, { _, _ -> true },
             automatedBatch = { batch, request -> sent += batch to request; true })
         compose.setContent {
             MaterialTheme {
                 NoRipples {
                     Box(Modifier.fillMaxSize()) {
-                        TableSurface(f.game, play, f.a, false, Modifier.fillMaxSize(), connected = true,
+                        TableSurface(f.game, TableBoard.of(play), f.a, false, Modifier.fillMaxSize(), connected = true,
                             onIntent = toolkit::handle, toolkit = toolkit,
                             runtime = TableRuntimeHooks(navigation = {}, chat = {}, undo = { true }, controlsConnected = true))
                     }
@@ -126,7 +126,7 @@ class AutomatumHandScreenshotTest {
         return toolkit
     }
 
-    private fun scene(play: PlayState, toolkit: TableToolkitController? = null) = TablePresentation.scene(f.game, play, f.a, 412f, 892f,
+    private fun scene(play: PlayState, toolkit: TableToolkitController? = null) = TablePresentation.scene(f.game, TableBoard.of(play), f.a, 412f, 892f,
         false, toolkit?.layoutState?.value ?: TableLayoutState())
 
     /** A single tap on [card] in a hand, as the table's gestures make it. */
@@ -162,20 +162,20 @@ class AutomatumHandScreenshotTest {
             .assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "chosen"))
         compose.onNodeWithContentDescription("Extra Kicker {4}").assertExists()
             .assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "off"))
-        assertEquals(1, toolkit.hand.sources(play).size)
+        assertEquals(1, toolkit.hand.sources(TableBoard.of(play)).size)
         captureShot("$SCREENSHOTS/automatum/hand-raised-chips.png",
             "Tapping Flash Surge with Automatum on raises it a little above the hand with its chips in a row above it: the chosen \"Cast {R}\" way filled violet and an amber \"+ Kicker {4}\" extra with an empty check box; the one Mountain Autotap would tap is outlined in amber on Alice's battlefield.")
         compose.onNodeWithContentDescription("Extra Kicker {4}").performClick()
         compose.waitForIdle()
         compose.onNodeWithContentDescription("Extra Kicker {4}").assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "on"))
-        assertEquals(5, toolkit.hand.sources(play).size, "the sources follow the kicker")
+        assertEquals(5, toolkit.hand.sources(TableBoard.of(play)).size, "the sources follow the kicker")
         assertNull(toolkit.cast.flow, "an extra never casts")
         captureShot("$SCREENSHOTS/automatum/hand-raised-kicker.png",
             "The same raised Flash Surge after tapping its Kicker chip: the extra is checked and tinted amber, and all five Mountains Autotap would tap for {4}{R} are outlined in amber.")
         // ZON-079: a tap anywhere else lowers it
         compose.runOnIdle { toolkit.open(TableIntent.Actions("life/${f.b}", null), lifeSquare(play, f.b)) }
         assertNull(toolkit.hand.raised)
-        assertTrue(toolkit.hand.sources(play).isEmpty())
+        assertTrue(toolkit.hand.sources(TableBoard.of(play)).isEmpty())
     }
 
     // ZON-080, STK-023, CR 702.33: the kicker chosen with its chip, a second tap on the card casts it kicked: the cast
@@ -220,7 +220,7 @@ class AutomatumHandScreenshotTest {
         compose.runOnIdle { tap(toolkit, play, landId) }
         compose.waitForIdle()
         compose.onNodeWithContentDescription("Way Play").assertExists()
-        assertTrue(toolkit.hand.sources(play).isEmpty())
+        assertTrue(toolkit.hand.sources(TableBoard.of(play)).isEmpty())
         compose.runOnIdle { tap(toolkit, play, landId) }
         compose.waitForIdle()
         val (batch, request) = sent.single()
@@ -271,7 +271,7 @@ class AutomatumHandScreenshotTest {
         compose.waitForIdle()
         assertNull(toolkit.hand.raised, "not raised")
         assertEquals(sparkId, toolkit.shaking?.id)
-        assertTrue(toolkit.hand.sources(play).isEmpty())
+        assertTrue(toolkit.hand.sources(TableBoard.of(play)).isEmpty())
         compose.onNodeWithContentDescription("Way Cast {R}").assertDoesNotExist()
         val shakes = toolkit.shaking
         compose.runOnIdle { tap(toolkit, play, sparkId) }
@@ -393,12 +393,12 @@ class AutomatumHandScreenshotTest {
     private fun device(tree: GameplayTree, player: String): TableToolkitController {
         val state = tree.stateAt(tree.currentNodeId)!!
         AutomatumBoards.compute(state, player)
-        return TableToolkitController(player, { state }, { true }, { _, _ -> true }, playTree = { tree },
+        return TableToolkitController(player, { TableBoard.of(state) }, { true }, { _, _ -> true }, playTree = { tree },
             automatedBatch = { batch, request -> sent += batch to request; true })
     }
 
     private fun tapOn(device: TableToolkitController, play: PlayState, viewer: String, card: String) {
-        val item = TablePresentation.scene(f.game, play, viewer, 412f, 892f, false, device.layoutState.value).items
+        val item = TablePresentation.scene(f.game, TableBoard.of(play), viewer, 412f, 892f, false, device.layoutState.value).items
             .single { it.cardId == card && it.zone == PlayZone.HAND }
         device.open(TableIntent.Actions(item.id, TableScope(card, listOf(card))), item)
     }

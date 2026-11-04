@@ -106,9 +106,9 @@ class TableControlsInteractionTest {
     // TRN-008, TRN-056: the twelve steps; the first-strike damage step only while the turn is in it (or its combat had it)
     @Test fun pickerIsDialogWithPhaseLanesAndCurrentStepAndPlayer() {
         var play by mutableStateOf(TableToolFixture.play(TurnPosition.DECLARE_ATTACKERS, "42"))
-        val controller = TableActionController({ play }, { true }, RecordingRoutes())
+        val controller = TableActionController({ TableBoard.of(play) }, { true }, RecordingRoutes())
         compose.setContent { MaterialTheme {
-            PhaseStepPicker(play, play.board.turn.accountId, OwnTableColor, {},
+            PhaseStepPicker(TableBoard.of(play), play.board.turn.accountId, OwnTableColor, {},
                 names = mapOf(play.board.turn.accountId to "Alice"))
         } }
         compose.onNodeWithText("Combat · Declare attackers").assertIsDisplayed()
@@ -137,10 +137,10 @@ class TableControlsInteractionTest {
         val initial = TableToolFixture.play()
         var turn by mutableStateOf(initial.board.turn)
         var picker by mutableStateOf(false)
-        val controller = TableActionController({ initial }, { true }, RecordingRoutes())
+        val controller = TableActionController({ TableBoard.of(initial) }, { true }, RecordingRoutes())
         compose.setContent { MaterialTheme {
             TurnStepIcon(turn)
-            if (picker) PhaseStepPicker(initial, initial.board.turn.accountId, OwnTableColor, {})
+            if (picker) PhaseStepPicker(TableBoard.of(initial), initial.board.turn.accountId, OwnTableColor, {})
         } }
         for (step in TurnPosition.entries) {
             compose.runOnIdle { turn = turn.copy(phase = step.phase, step = step.step) }

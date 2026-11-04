@@ -26,6 +26,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
@@ -89,7 +90,7 @@ class EngineProjectionTest {
     }
 
     @Test
-    fun cardsKeepTheirIdsAndContainersAndTheBoardCarriesTheState() {
+    fun cardsKeepTheirIdsAndContainersAndTheBoardIsPlainData() {
         val m = started()
         val play = EngineProjection.project(base, m, table.alice, "e9")
         val board = play.board
@@ -100,11 +101,9 @@ class EngineProjectionTest {
         assertEquals(m.engine.player(alice).library.map { (it as ObjectId.Card).card.value }, library.cards, "top first")
         assertTrue(board.players.none { it.status == PlayerStatus.OPENING })
         assertEquals(table.alice, board.turn.accountId)
-        // Every engine reader of the board takes the engine's own state
-        val state = EngineState.from(play, table.definitions)
-        assertEquals(m.engine.objects.keys, state.objects.keys)
-        assertNotNull(board.engine)
-        assertSame(board.engine, play.copy().board.engine)
+        // Engine-responsiveness R4a: the board is the plain data the table draws; the engine state stays beside it
+        assertNull(board.engine)
+        assertTrue(play.definitions.map { it.digest }.containsAll(board.cards.map { it.definition }.toSet()), "every card's data")
     }
 
     @Test

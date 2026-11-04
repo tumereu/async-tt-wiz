@@ -122,7 +122,7 @@ class AutomatumChoicesScreenshotTest {
     private fun tags(play: PlayState) = engineTags(tree?.takeIf { it.stateAt(it.currentNodeId)?.board == play.board }, play.currentNodeId)
 
     private val sent = mutableListOf<Pair<GameAction.PlayBatch, String>>()
-    private fun toolkit(play: PlayState, viewer: String) = TableToolkitController(viewer, { play }, { true }, { _, _ -> true },
+    private fun toolkit(play: PlayState, viewer: String) = TableToolkitController(viewer, { TableBoard.of(play) }, { true }, { _, _ -> true },
         automatedBatch = { batch, request -> sent += batch to request; true }, playTree = { tree })
 
     /** Alice casts the spell in her hand (no targets) through Automatum, as the app sends it. */
@@ -144,7 +144,7 @@ class AutomatumChoicesScreenshotTest {
             MaterialTheme {
                 NoRipples {
                     Box(Modifier.fillMaxSize()) {
-                        TableSurface(f.game, play, viewer, false, Modifier.fillMaxSize(), connected = true,
+                        TableSurface(f.game, TableBoard.of(play), viewer, false, Modifier.fillMaxSize(), connected = true,
                             onIntent = toolkit::handle, toolkit = toolkit,
                             runtime = TableRuntimeHooks(navigation = {}, chat = {}, undo = { true }, controlsConnected = true))
                     }
@@ -157,7 +157,7 @@ class AutomatumChoicesScreenshotTest {
 
     private fun card(name: String) = compose.onAllNodes(hasContentDescription(name) and hasClickAction()).onFirst()
     private fun cards(play: PlayState, container: String) = play.board.containers.single { it.id == container }.cards
-    private fun name(play: PlayState, id: String) = CastController.cardName(play, id)
+    private fun name(play: PlayState, id: String) = CastController.cardName(TableBoard.of(play), id)
 
     // STK-043, STK-030, I-D47, I-D48, CR 701.22: Alice's scry is a titled two-area screen: the three cards start on Top; a tap moves
     // one to Bottom at once; OK puts it on the bottom and the rest on top in their order, one step
@@ -276,10 +276,10 @@ class AutomatumChoicesScreenshotTest {
             "Resolve" to stacked,
             "End turn" to at(play, TurnPosition.POSTCOMBAT_MAIN, f.a),
             "End turn" to at(play, TurnPosition.END_STEP, f.a))
-        for ((label, state) in states) assertEquals(label, AutomatumStep.of(state).label, "${TurnPosition.of(state.board.turn)}")
+        for ((label, state) in states) assertEquals(label, AutomatumStep.of(TableBoard.of(state)).label, "${TurnPosition.of(state.board.turn)}")
         compose.setContent {
             MaterialTheme { NoRipples {
-                FlowRowOfArrows(states.map { it.second }.distinctBy { AutomatumStep.of(it).label })
+                FlowRowOfArrows(states.map { it.second }.distinctBy { AutomatumStep.of(TableBoard.of(it)).label })
             } }
         }
         compose.waitForIdle()
@@ -293,7 +293,7 @@ class AutomatumChoicesScreenshotTest {
     private fun FlowRowOfArrows(boards: List<PlayState>) {
         FlowRow(Modifier.background(Color(0xffeef1f0)).padding(8.dp).width(360.dp), horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            for (state in boards) AutomatumStepArrow(state, enabled = true, compact = false, onHold = {}) {}
+            for (state in boards) AutomatumStepArrow(TableBoard.of(state), enabled = true, compact = false, onHold = {}) {}
         }
     }
 
@@ -316,7 +316,7 @@ class AutomatumChoicesScreenshotTest {
         val start = board().let { it.copy(board = it.board.copy(players = it.board.players.map { p -> if (p.accountId == f.b) p.copy(life = "3") else p })) }
         val alice = toolkit(start, f.a)
         assertTrue(alice.cast.start(aCard), alice.error)
-        val target = TablePresentation.scene(f.game, start, f.a, 412f, 892f, false).items.first { it.id == "life/${f.b}" }
+        val target = TablePresentation.scene(f.game, TableBoard.of(start), f.a, 412f, 892f, false).items.first { it.id == "life/${f.b}" }
         alice.open(TableIntent.Actions(target.id, null), target)
         if (alice.cast.open) assertTrue(alice.cast.cast(), alice.error)
         val (batch, request) = sent.single()
@@ -338,7 +338,7 @@ class AutomatumChoicesScreenshotTest {
         val play = board(bobSpark = true)
         val alice = toolkit(play, f.a)
         assertTrue(alice.cast.start(aCard), alice.error)
-        val target = TablePresentation.scene(f.game, play, f.a, 412f, 892f, false).items.first { it.id == "life/${f.b}" }
+        val target = TablePresentation.scene(f.game, TableBoard.of(play), f.a, 412f, 892f, false).items.first { it.id == "life/${f.b}" }
         alice.open(TableIntent.Actions(target.id, null), target)
         // STK-023: with Autotap on the cast goes out once its target is chosen
         if (alice.cast.open) assertTrue(alice.cast.cast(), alice.error)
@@ -346,7 +346,7 @@ class AutomatumChoicesScreenshotTest {
         sent.clear()
         val cast = accepted(play, batch, request, f.a)
         assertEquals(f.b, cast.board.priority?.holder, "Bob may respond")
-        assertEquals(AutomatumStep.Resolve, AutomatumStep.of(cast))
+        assertEquals(AutomatumStep.Resolve, AutomatumStep.of(TableBoard.of(cast)))
         render(cast, f.b)
         compose.onNodeWithContentDescription("Resolve").assertExists()
         compose.onRoot().captureShot("$SCREENSHOTS/automatum/step-arrow-resolve.png",

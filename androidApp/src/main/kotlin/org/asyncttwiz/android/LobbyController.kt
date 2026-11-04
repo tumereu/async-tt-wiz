@@ -101,7 +101,7 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
             reconnectingGames = ids.filter(wire::reconnecting).toSet(),
             acceptedPreparation = state.selected?.let(wire::acceptedPreparation), preparation = next, transferFeedback = feedback,
             queuedTransferCards = state.selected?.let(wire::queuedTransfers) ?: 0, play = state.detail?.let(wire::play),
-            acceptedPlay = state.detail?.let(wire::acceptedPlay),
+            acceptedPlay = state.detail?.let(wire::acceptedPlay), board = state.detail?.let(wire::board),
             ownPodDeckName = state.selected?.let(wire::ownPodDeckName),
             opponentPresence = state.selected?.let(wire::opponentPresence),
             chat = state.selected?.let { personalChat.presentation(it, accountId(), wire.chat(it), wire.outgoingChat(it)) } ?: ChatPresentation(),
@@ -138,7 +138,7 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
         routes.fence()
         closePicker(); inspection.close(); setupCancellation.clear()
         state = state.copy(selected = null, detail = null, preparing = false, acceptedPreparation = null,
-            preparation = null, play = null, acceptedPlay = null, transferFeedback = null, queuedTransferCards = 0,
+            preparation = null, play = null, acceptedPlay = null, board = null, transferFeedback = null, queuedTransferCards = 0,
             chatOpen = false, chat = ChatPresentation(), gameContext = null, deletion = null, activityTarget = null,
             error = "This game is no longer available.")
     }
@@ -247,11 +247,11 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
     fun activityUnavailable(message: String = "This activity is no longer available. Showing your current Games.") =
         routes.activityUnavailable(message)
     fun openActivity(route: ActivityRoute, current: () -> Boolean) = routes.openActivity(route, current)
-    fun open(id: String) { if (!state.mutating) { tableActions.resetHistory(); routes.fence(); setupCancellation.clear(); queue.dropQueued(); closePicker(); inspection.close(); state = state.copy(selected = id, detail = null, activityTarget = null, acceptedPreparation = null, preparation = null, play = null, acceptedPlay = null, preparing = false, transferFeedback = null, chatOpen = false, chat = ChatPresentation(), gameContext = null, deletion = null, error = null); openGame(); refresh() } }
+    fun open(id: String) { if (!state.mutating) { tableActions.resetHistory(); routes.fence(); setupCancellation.clear(); queue.dropQueued(); closePicker(); inspection.close(); state = state.copy(selected = id, detail = null, activityTarget = null, acceptedPreparation = null, preparation = null, play = null, acceptedPlay = null, board = null, preparing = false, transferFeedback = null, chatOpen = false, chat = ChatPresentation(), gameContext = null, deletion = null, error = null); openGame(); refresh() } }
     fun back() { if (state.deletion != null) dismissGameDeletion() else if (state.gameContext != null) dismissGameContext()
         else if (setupCancellation.confirmation != null) setupCancellation.dismiss() else if (setupCancellation.context != null) setupCancellation.dismissContext()
         else if (state.chatOpen) closeChat() else if (inspection.state != null) inspection.close() else if (state.preparing) state = state.copy(preparing = false, transferFeedback = null)
-        else if (state.picker != null) closePicker() else if (state.draft != null) dismiss() else { queue.dropQueued(); tableActions.resetHistory(); routes.fence(); state = state.copy(selected = null, detail = null, activityTarget = null, acceptedPreparation = null, preparation = null, play = null, acceptedPlay = null, transferFeedback = null, error = null); refresh() } }
+        else if (state.picker != null) closePicker() else if (state.draft != null) dismiss() else { queue.dropQueued(); tableActions.resetHistory(); routes.fence(); state = state.copy(selected = null, detail = null, activityTarget = null, acceptedPreparation = null, preparation = null, play = null, acceptedPlay = null, board = null, transferFeedback = null, error = null); refresh() } }
     fun tick() { session?.tick() }
     fun heartbeat(presence: GamePresence): Boolean = session?.heartbeat(presence) == true
     fun sync() { tick(); if (refresher.inForeground && !state.busy && !state.mutating) refresh(background = true) }

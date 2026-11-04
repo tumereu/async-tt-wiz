@@ -149,7 +149,7 @@ class TableAnimationTest {
             changes.apply(TableChangeBatch(listOf(TableAppliedEvent(node))))
             assertEquals(setOf(display.containerId), changes.shuffles(node.id))
             for (viewer in listOf(f.actor, f.other)) {
-                val scene = TablePresentation.scene(f.game, f.root, viewer, 412f, 892f, false)
+                val scene = TablePresentation.scene(f.game, TableBoard.of(f.root), viewer, 412f, 892f, false)
                 val pile = scene.items.single { it.id == display.containerId }
                 val animation = HistorySceneAnimation(scene)
                 assertTrue(animation.retarget(scene, 1f, shuffles = changes.shuffles(node.id), shuffleCursor = node.id))

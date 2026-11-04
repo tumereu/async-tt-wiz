@@ -10,7 +10,7 @@ import org.asyncttwiz.protocol.*
 /** The table's accessibility layer: a semantics node for every field and table item, each laid out on the animated
  * frame. Inline, so it stays part of TableSurface's own recomposition scope. */
 @Composable
-internal inline fun TableSemanticNodes(game: GameSummary, play: PlayState, scene: TableScene, semanticItems: List<TableItem>,
+internal inline fun TableSemanticNodes(game: GameSummary, play: TableBoard, scene: TableScene, semanticItems: List<TableItem>,
     rendered: State<TableRenderFrame>, runtime: TableRuntimeHooks,
     crossinline currentRuntime: () -> TableRuntimeHooks, coordinator: TableGestureCoordinator, writable: Boolean,
     toolkit: TableToolkitController?, crossinline preview: () -> TableGesturePreview,

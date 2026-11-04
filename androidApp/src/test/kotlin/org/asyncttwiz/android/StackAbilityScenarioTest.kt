@@ -7,7 +7,6 @@ import arcanum.engine.state.ObjectId
 import arcanum.engine.state.PlayerId
 import org.asyncttwiz.protocol.CombatStackRules
 import org.asyncttwiz.protocol.MtgStackKind
-import org.asyncttwiz.protocol.PlayState
 import org.asyncttwiz.protocol.game.GameDevice
 import org.asyncttwiz.protocol.game.PlaySettings
 import org.asyncttwiz.protocol.game.ResponseMode
@@ -40,7 +39,7 @@ class StackAbilityScenarioTest {
         sim.now += 1_000
     }
 
-    private fun top(play: PlayState): String? = CombatStackRules.stack(play.board).cards.firstOrNull()
+    private fun top(play: TableBoard): String? = CombatStackRules.stack(play.board).cards.firstOrNull()
 
     /** Plays [game] back until it stops. */
     private fun playToStop(game: EngineGame) {

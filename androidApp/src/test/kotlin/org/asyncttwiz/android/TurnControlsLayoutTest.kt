@@ -45,9 +45,9 @@ class TurnControlsLayoutTest {
     private fun picker() {
         // In the first-strike damage step (TRN-056) the dialog shows all thirteen squares
         val play = TableToolFixture.play(TurnPosition.FIRST_STRIKE_DAMAGE)
-        val controller = TableActionController({ play }, { true }, RecordingRoutes())
+        val controller = TableActionController({ TableBoard.of(play) }, { true }, RecordingRoutes())
         compose.setContent { MaterialTheme {
-            PhaseStepPicker(play, play.board.turn.accountId, Color.Blue, {})
+            PhaseStepPicker(TableBoard.of(play), play.board.turn.accountId, Color.Blue, {})
         } }
         // TRN-008: every step square's short name sits on one line.
         for (step in TurnPosition.entries) {
@@ -63,14 +63,14 @@ class TurnControlsLayoutTest {
 
     private fun advance() {
         val state = mutableStateOf(TableToolFixture.play())
-        val controller = TableActionController({ state.value }, { true }, RecordingRoutes())
+        val controller = TableActionController({ TableBoard.of(state.value) }, { true }, RecordingRoutes())
         compose.setContent { MaterialTheme {
-            QuickActionStrip(state.value, QuickContext(viewer = state.value.board.turn.accountId), controller,
+            QuickActionStrip(TableBoard.of(state.value), QuickContext(viewer = state.value.board.turn.accountId), controller,
                 Color.Blue, Modifier.fillMaxWidth())
         } }
         for (step in TurnPosition.entries) {
             compose.runOnIdle { state.value = TableToolFixture.play(step) }
-            val label = AutomatumStep.of(state.value).label
+            val label = AutomatumStep.of(TableBoard.of(state.value)).label
             val text = assertFits(label)
             val arrow = compose.onNodeWithContentDescription(label).fetchSemanticsNode().boundsInRoot
             assertTrue(arrow.width in 68f..72f)

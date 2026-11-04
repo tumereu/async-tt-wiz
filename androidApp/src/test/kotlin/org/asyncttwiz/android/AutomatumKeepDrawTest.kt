@@ -87,12 +87,12 @@ class AutomatumKeepDrawTest {
         change.tree?.let { tree = it; shown = play }
         return change.tree != null
     }
-    private fun device(viewer: String) = TableToolkitController(viewer, { play }, { true },
+    private fun device(viewer: String) = TableToolkitController(viewer, { TableBoard.of(play) }, { true },
         { action, _ -> apply(viewer, GameAction.Play(action)) },
         playBatch = { actions, request -> apply(viewer, GameAction.PlayBatch(actions), request) },
         playTree = { tree }, automatedBatch = { batch, request -> apply(viewer, batch, request) })
     private fun quick(toolkit: TableToolkitController, name: String) =
-        QuickActions.contextual(play, QuickContext(viewer = toolkit.viewer)).single { it.name == name }
+        QuickActions.contextual(TableBoard.of(play), QuickContext(viewer = toolkit.viewer)).single { it.name == name }
     private fun hand(player: String) = play.board.containers.single { it.zone == PlayZone.HAND && it.accountId == player }.cards
     private fun library(player: String) = play.board.containers.single { it.zone == PlayZone.LIBRARY && it.accountId == player }
 
@@ -112,7 +112,7 @@ class AutomatumKeepDrawTest {
 
     /** A tap on [card] in Alice's hand, as the table's gestures make it. */
     private fun tapHand(toolkit: TableToolkitController, card: String) {
-        val item = TablePresentation.scene(game, play, alice, 412f, 892f, false, toolkit.layoutState.value).items
+        val item = TablePresentation.scene(game, TableBoard.of(play), alice, 412f, 892f, false, toolkit.layoutState.value).items
             .single { it.cardId == card && it.zone == PlayZone.HAND }
         compose.runOnIdle { toolkit.open(TableIntent.Actions(item.id, TableScope(card, listOf(card))), item) }
     }
@@ -130,7 +130,7 @@ class AutomatumKeepDrawTest {
                 NoRipples {
                     Box(Modifier.fillMaxSize()) {
                         shown?.let { current ->
-                            TableSurface(summary, current, alice, false, Modifier.fillMaxSize(), connected = true,
+                            TableSurface(summary, TableBoard.of(current), alice, false, Modifier.fillMaxSize(), connected = true,
                                 onIntent = a::handle, toolkit = a,
                                 runtime = TableRuntimeHooks(navigation = {}, chat = {}, undo = { true }, controlsConnected = true))
                         }
@@ -198,7 +198,7 @@ class AutomatumKeepDrawTest {
     // it. Every card fades and one shakes, on a canvas whose layers push nothing; the canvas is left as it was.
     @Test fun aFadeLayerTheRendererSkipsLeavesTheCanvasBalanced() {
         tree = GameplayTree(newGame())
-        val scene = TablePresentation.scene(game, play, alice, 412f, 892f, false, TableLayoutState())
+        val scene = TablePresentation.scene(game, TableBoard.of(play), alice, 412f, 892f, false, TableLayoutState())
         val cards = scene.items.filter { it.kind == TableItemKind.CARD && it.visible.isNotEmpty() }
         assertTrue(cards.size >= 7, "the hand is drawn")
         val bitmap = android.graphics.Bitmap.createBitmap(412, 892, android.graphics.Bitmap.Config.ARGB_8888)

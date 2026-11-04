@@ -120,7 +120,7 @@ class AutomatumPauseReviewTest {
     private val submitted = mutableListOf<Pair<String, PlayAction>>()
     /** [viewer]'s device showing [state]; [from]: the point its next action continues from (held, as the app arms it). */
     private fun device(state: () -> PlayState, viewer: String, tag: String = viewer, from: () -> String? = { null }) =
-        TableToolkitController(viewer, state, { true }, { action, _ -> submitted += tag to action; true },
+        TableToolkitController(viewer, { TableBoard.of(state()) }, { true }, { action, _ -> submitted += tag to action; true },
             automatedBatch = { batch, request -> sent += batch to request; true }, playTree = { tree },
             continuation = { from()?.let { Continuation(it, explicit = true) } })
     private fun device(play: PlayState, viewer: String, from: String? = null) = device({ play }, viewer, from = { from })
@@ -136,7 +136,7 @@ class AutomatumPauseReviewTest {
         return takeSent(play, viewer, from)
     }
     private fun targetLife(toolkit: TableToolkitController, play: PlayState, viewer: String, target: String) {
-        val life = TablePresentation.scene(f.game, play, viewer, 412f, 892f, false).items.first { it.id == "life/$target" }
+        val life = TablePresentation.scene(f.game, TableBoard.of(play), viewer, 412f, 892f, false).items.first { it.id == "life/$target" }
         toolkit.open(TableIntent.Actions(life.id, null), life)
     }
     private fun life(play: PlayState, player: String) = play.board.players.single { it.accountId == player }.life.toInt()
@@ -165,10 +165,10 @@ class AutomatumPauseReviewTest {
                 NoRipples {
                     val now = shown.value!!
                     Box(Modifier.fillMaxSize()) {
-                        TableSurface(f.game, now, viewer, false, Modifier.fillMaxSize(), connected = true,
+                        TableSurface(f.game, TableBoard.of(now), viewer, false, Modifier.fillMaxSize(), connected = true,
                             onIntent = toolkit::handle, toolkit = toolkit,
                             runtime = TableRuntimeHooks(navigation = {}, chat = {}, undo = { true }, controlsConnected = true))
-                        AutomatumPauseDriver(toolkit, null, now, now.currentNodeId, liveShown = true, opponentOnline = online,
+                        AutomatumPauseDriver(toolkit, null, TableBoard.of(now), now.currentNodeId, liveShown = true, opponentOnline = online,
                             settings = settings)
                     }
                 }
@@ -231,10 +231,10 @@ class AutomatumPauseReviewTest {
             MaterialTheme {
                 NoRipples {
                     Box(Modifier.fillMaxSize()) {
-                        TableSurface(f.game, cast, f.b, false, Modifier.fillMaxSize(), connected = true,
+                        TableSurface(f.game, TableBoard.of(cast), f.b, false, Modifier.fillMaxSize(), connected = true,
                             onIntent = bob::handle, toolkit = bob,
                             runtime = TableRuntimeHooks(navigation = {}, chat = {}, undo = { true }, controlsConnected = true))
-                        AutomatumPauseDriver(bob, null, cast, went.currentNodeId, liveShown = true, opponentOnline = true,
+                        AutomatumPauseDriver(bob, null, TableBoard.of(cast), went.currentNodeId, liveShown = true, opponentOnline = true,
                             settings = PauseSettings())
                     }
                 }
@@ -299,9 +299,9 @@ class AutomatumPauseReviewTest {
         compose.mainClock.autoAdvance = false
         compose.setContent {
             val now = state.value
-            AutomatumPauseDriver(phone, null, now, now.currentNodeId, liveShown = true, opponentOnline = true,
+            AutomatumPauseDriver(phone, null, TableBoard.of(now), now.currentNodeId, liveShown = true, opponentOnline = true,
                 settings = PauseSettings(fullControl = true))
-            AutomatumPauseDriver(tablet, null, now, now.currentNodeId, liveShown = true, opponentOnline = true,
+            AutomatumPauseDriver(tablet, null, TableBoard.of(now), now.currentNodeId, liveShown = true, opponentOnline = true,
                 settings = PauseSettings(fullControl = false))
         }
         repeat(8) { round ->
@@ -486,7 +486,7 @@ class AutomatumPauseReviewTest {
         val queue = mutableListOf<Triple<GameAction.PlayBatch, String, String?>>()
         // As the app's toolkit (TableScreen's tableToolkit): the live game, or the held point's board once held. These games
         // keep a cast open (its mana section, I-D47 Autotap off) while the table goes on, then Cast it
-        val toolkit = TableToolkitController(player, { if (held != null) view else live }, { true }, { _, _ -> true },
+        val toolkit = TableToolkitController(player, { TableBoard.of(if (held != null) view else live) }, { true }, { _, _ -> true },
             automatedBatch = { batch, request -> queue += Triple(batch, request, held); true }, playTree = { tree },
             continuation = { held?.let { Continuation(it, explicit = true) } }).also { it.cast.autotap = false }
         val routes = object : PauseRoutes {
@@ -561,7 +561,7 @@ class AutomatumPauseReviewTest {
             val live = head.value
             for (d in devices) if (d.online)
                 androidx.compose.runtime.key(d.player) {
-                    AutomatumPauseDriver(d.toolkit, null, d.view, live.currentNodeId, liveShown = d.held == null,
+                    AutomatumPauseDriver(d.toolkit, null, TableBoard.of(d.view), live.currentNodeId, liveShown = d.held == null,
                         opponentOnline = other(d).online, settings = d.settings)
                 }
         }
@@ -686,7 +686,7 @@ class AutomatumPauseReviewTest {
                         is Plan.React -> if (there) {
                             val path = if (plan.respond) (if (running) "Respond during the bar" else "Respond after the bar") else "cast from the hand"
                             // Respond holds the pause as the app's Respond does (#2); a cast begun from the hand too (#1)
-                            if (plan.respond) d.toolkit.flows.respond(d.view)
+                            if (plan.respond) d.toolkit.flows.respond(TableBoard.of(d.view))
                             if (!beginSpark(d)) stats.reactions.merge("$path, nothing castable", 1, Int::plus)
                             else { stats.reactions.merge(path, 1, Int::plus); d.casting = Reaction(plan.node, path, now + random.nextLong(800, 3_000)) }
                         }

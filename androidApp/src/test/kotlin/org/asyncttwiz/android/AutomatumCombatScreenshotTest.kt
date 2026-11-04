@@ -138,7 +138,7 @@ class AutomatumCombatScreenshotTest {
         return true
     }
 
-    private fun toolkit(viewer: String) = TableToolkitController(viewer, { live.value }, { true },
+    private fun toolkit(viewer: String) = TableToolkitController(viewer, { live.value?.let(TableBoard::of) }, { true },
         { action, _ -> accept(viewer, GameAction.Play(action)) },
         playBatch = { actions, request -> accept(viewer, GameAction.PlayBatch(actions), request) },
         playTree = { tree }, automatedBatch = { batch, request -> accept(viewer, batch, request) })
@@ -164,7 +164,7 @@ class AutomatumCombatScreenshotTest {
             MaterialTheme {
                 NoRipples {
                     Box(Modifier.fillMaxSize()) {
-                        TableSurface(f.game, live.value!!, toolkit.viewer, landscape, Modifier.fillMaxSize(), connected = true,
+                        TableSurface(f.game, TableBoard.of(live.value!!), toolkit.viewer, landscape, Modifier.fillMaxSize(), connected = true,
                             onIntent = toolkit::handle, toolkit = toolkit,
                             runtime = TableRuntimeHooks(navigation = {}, chat = {}, undo = { true }, controlsConnected = true))
                     }
@@ -212,7 +212,7 @@ class AutomatumCombatScreenshotTest {
 
     // ---- The combat area with Automatum (I-D32)
 
-    private fun scene(viewer: String) = TablePresentation.scene(f.game, play, viewer, 412f, 892f, false)
+    private fun scene(viewer: String) = TablePresentation.scene(f.game, TableBoard.of(play), viewer, 412f, 892f, false)
     private fun tap(toolkit: TableToolkitController, item: TableItem) = toolkit.open(TableIntent.Actions(item.id, null), item)
     /** Taps [card] on its Battlefield as [toolkit]'s player sees it. */
     private fun tapCard(toolkit: TableToolkitController, card: String) = tap(toolkit,
@@ -220,9 +220,9 @@ class AutomatumCombatScreenshotTest {
     /** Taps [card]'s combat copy as [toolkit]'s player sees it. */
     private fun tapCopy(toolkit: TableToolkitController, card: String) = tap(toolkit,
         scene(toolkit.viewer).items.first { it.viewport == "combat" && it.sourceId == card })
-    private fun quick(toolkit: TableToolkitController) = automatumCombatQuickActions(play, toolkitQuickContext(play, toolkit.viewer)
+    private fun quick(toolkit: TableToolkitController) = automatumCombatQuickActions(TableBoard.of(play), toolkitQuickContext(TableBoard.of(play), toolkit.viewer)
         .copy(automatumCombat = AutomatumBoards.combat(play) { engineTags(tree, play.currentNodeId) })
-        .withCombatTarget(toolkit.combat, play, "Bob"), TableActionScope(play.gameId, play.id)).orEmpty()
+        .withCombatTarget(toolkit.combat, TableBoard.of(play), "Bob"), TableActionScope(play.gameId, play.id)).orEmpty()
     private fun perform(toolkit: TableToolkitController, name: String) = quick(toolkit).single { it.name == name }.let { action ->
         assertTrue(action.enabled, "$name: ${action.refused}")
         toolkit.perform(action.intent)
@@ -260,11 +260,11 @@ class AutomatumCombatScreenshotTest {
         assertEquals(listOf<String?>(null), play.board.combat!!.pairs.map { it.attackTarget }, "staged to the defending player's lane")
         // UI review round 2 #1: the quick actions only stage; the step arrow attacks
         assertEquals(listOf("Rest → Bob", "Clear"), quick(alice).map { it.name })
-        assertEquals("Attack (1)", AutomatumStep.of(play).label)
+        assertEquals("Attack (1)", AutomatumStep.of(TableBoard.of(play)).label)
         assertFalse(quick(alice).first().enabled, "nothing else may attack")
         tapCard(alice, bruteCard)
         assertNull(play.board.combat?.pairs?.firstOrNull { p -> p.attackers.isNotEmpty() }, "tapped again: unstaged")
-        assertEquals("No attack", AutomatumStep.of(play).label)
+        assertEquals("No attack", AutomatumStep.of(TableBoard.of(play)).label)
         tapCard(alice, bearCard)
         assertNotNull(alice.error, "the summoning-sick Bear says why")
         assertTrue(alice.error!!.contains("Stout Bear"), alice.error)
@@ -311,7 +311,7 @@ class AutomatumCombatScreenshotTest {
     @Test fun mainPhaseNextStepGoesToDeclareAttackers() {
         start(board(TurnPosition.PRECOMBAT_MAIN, MtgPriority(f.a), aliceField = listOf(brute), bobField = listOf(ogre)))
         val alice = toolkit(f.a)
-        assertTrue(AutomatumToggles.shown(play, toolkitQuickContext(play, f.a)))
+        assertTrue(AutomatumToggles.shown(TableBoard.of(play), toolkitQuickContext(TableBoard.of(play), f.a)))
         assertTrue(alice.perform(TableActionIntent.Next(TableActionScope(play.gameId, play.id))), alice.error)
         assertEquals(TurnPosition.DECLARE_ATTACKERS, TurnPosition.of(play.board.turn))
     }
@@ -321,8 +321,8 @@ class AutomatumCombatScreenshotTest {
         start(board(TurnPosition.DECLARE_ATTACKERS, null, aliceField = listOf(brute), bobField = listOf(walker)))
         val alice = toolkit(f.a)
         val target = card(play, walker)
-        alice.combat.chooseTarget(play, target)
-        assertEquals(target, alice.combat.activeTarget(play))
+        alice.combat.chooseTarget(TableBoard.of(play), target)
+        assertEquals(target, alice.combat.activeTarget(TableBoard.of(play)))
         assertEquals("Rest → Oath Seer", quick(alice).first().name)
         tapCard(alice, card(play, brute))
         assertEquals(listOf<String?>(target), play.board.combat!!.pairs.map { it.attackTarget })
@@ -337,7 +337,7 @@ class AutomatumCombatScreenshotTest {
         // UI review round 2 #1: the quick actions only clear; the step arrow declares
         assertEquals(listOf("Clear"), quick(bob).map { it.name })
         assertFalse(quick(bob).last().enabled, "nothing blocks yet")
-        assertEquals("No blocks", AutomatumStep.of(play).label)
+        assertEquals("No blocks", AutomatumStep.of(TableBoard.of(play)).label)
         tapCard(bob, wardenCard)
         assertEquals(wardenCard, bob.combat.selected)
         tapCopy(bob, bruteCard)
@@ -410,8 +410,8 @@ class AutomatumCombatScreenshotTest {
         val bob = toolkit(f.b)
         tapCard(bob, card(play, ogre))
         tapCopy(bob, houndCard)
-        assertEquals("Block (1)", AutomatumStep.of(play).label)
-        assertNotNull(stepBlocked(play, false, AutomatumBoards.combat(play) { engineTags(tree, play.currentNodeId) }))
+        assertEquals("Block (1)", AutomatumStep.of(TableBoard.of(play)).label)
+        assertNotNull(stepBlocked(TableBoard.of(play), false, AutomatumBoards.combat(play) { engineTags(tree, play.currentNodeId) }))
         assertTrue(perform(bob, "Clear"), bob.error)
         assertTrue(arrow(bob, "No blocks"), bob.error)
         assertTrue(blocks().isEmpty(), "Clear empties the draft and No blocks declares none")
@@ -430,7 +430,7 @@ class AutomatumCombatScreenshotTest {
         assertTrue(arrow(bob, "Block (1)"), bob.error)
         val alice = toolkit(f.a)
         assertTrue(quick(alice).isEmpty(), "no combat quick action: the step arrow goes on")
-        assertEquals("Next", AutomatumStep.of(play).label, "Alice holds priority: an instant in hand")
+        assertEquals("Next", AutomatumStep.of(TableBoard.of(play)).label, "Alice holds priority: an instant in hand")
         val lifeBefore = life(f.b)
         AutomatumBoards.combat(play) { engineTags(tree, play.currentNodeId) }
         render(alice)
@@ -540,8 +540,8 @@ class AutomatumCombatScreenshotTest {
         compose.runOnIdle {
             val flow = AutomatumBoards.sharedFlow(play, engineTags(tree, play.currentNodeId))!!
             alice.flows.show(flow)
-            alice.combat.show(play, AutomatumBoards.combat(play) { engineTags(tree, play.currentNodeId) })
-            assertEquals(1 to 2, alice.combat.divisionCount(play, flow.division!!), "Alice's comes first of the two")
+            alice.combat.show(TableBoard.of(play), AutomatumBoards.combat(play) { engineTags(tree, play.currentNodeId) })
+            assertEquals(1 to 2, alice.combat.divisionCount(TableBoard.of(play), flow.division!!), "Alice's comes first of the two")
             assertTrue(alice.flows.answer(arcanum.engine.decision.Answer.Division((flow.decision as Decision.Divide).suggested)), alice.error)
         }
         assertTrue(PreAnswers.of(play.board).isEmpty(), "applied and used up")
@@ -559,7 +559,7 @@ class AutomatumCombatScreenshotTest {
         val alice = toolkit(f.a)
         val bob = toolkit(f.b)
         fun tap(toolkit: TableToolkitController, item: TableItem) = toolkit.open(TableIntent.Actions(item.id, null), item)
-        fun scene(viewer: String) = TablePresentation.scene(f.game, play, viewer, 412f, 892f, false)
+        fun scene(viewer: String) = TablePresentation.scene(f.game, TableBoard.of(play), viewer, 412f, 892f, false)
         assertTrue(alice.cast.start(card(play, spark, aHand)))
         tap(alice, scene(f.a).items.first { it.id == "life/${f.b}" })
         // I-D47: Autotap (on) sends the cast once its last choice is made; only a cast still open waits for Cast
@@ -573,16 +573,16 @@ class AutomatumCombatScreenshotTest {
         val below = stack.cards[1]
         assertTrue(alice.cast.start(card(play, quash, aHand)), alice.error)
         assertTrue(alice.cast.targeting)
-        assertTrue(stack.id in alice.cast.glow(play), "the Stack glows: an entry below the top is a legal target")
+        assertTrue(stack.id in alice.cast.glow(TableBoard.of(play)), "the Stack glows: an entry below the top is a legal target")
         val sparks = play.board.stackEffects.map { it.sourceId }
-        assertTrue(sparks.none { it in alice.cast.glow(play) }, "the spells' cards in the hands don't glow")
+        assertTrue(sparks.none { it in alice.cast.glow(TableBoard.of(play)) }, "the spells' cards in the hands don't glow")
         // STK-045: a spell's card isn't drawn in its hand while the spell is on the Stack, for either player
         for (viewer in listOf(f.a, f.b)) assertTrue(scene(viewer).items.none { it.zone == PlayZone.HAND && it.cardId in sparks },
             "$viewer sees no cast Storm Spark in a hand")
-        assertTrue(stack.cards.all { it in alice.cast.glow(play) }, "their Stack entries do")
+        assertTrue(stack.cards.all { it in alice.cast.glow(TableBoard.of(play)) }, "their Stack entries do")
         tap(alice, scene(f.a).items.first { it.zone == PlayZone.STACK && it.kind == TableItemKind.PILE })
         assertTrue(alice.stackTargeting)
-        assertEquals(stack.cards, alice.stackTargets(play))
+        assertEquals(stack.cards, alice.stackTargets(TableBoard.of(play)))
         render(alice)
         compose.onNodeWithText("Choose a target · 2").assertExists()
         captureShot("$SCREENSHOTS/automatum/stack-target-picker.png",

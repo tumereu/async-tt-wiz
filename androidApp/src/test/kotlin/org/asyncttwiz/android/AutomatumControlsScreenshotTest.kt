@@ -95,14 +95,14 @@ class AutomatumControlsScreenshotTest {
     /** [batches]: ordinary batches are sent too (recorded in [manual]). */
     private fun render(play: PlayState, batches: Boolean = false): TableToolkitController {
         AutomatumBoards.compute(play, f.a)
-        val toolkit = TableToolkitController(f.a, { play }, { true }, { action, _ -> manual += action; true },
+        val toolkit = TableToolkitController(f.a, { TableBoard.of(play) }, { true }, { action, _ -> manual += action; true },
             playBatch = if (batches) { actions, _ -> manual += actions; true } else null,
             automatedBatch = { batch, request -> sent += batch to request; true })
         compose.setContent {
             MaterialTheme {
                 NoRipples {
                     Box(Modifier.fillMaxSize()) {
-                        TableSurface(f.game, play, f.a, false, Modifier.fillMaxSize(), connected = true,
+                        TableSurface(f.game, TableBoard.of(play), f.a, false, Modifier.fillMaxSize(), connected = true,
                             onIntent = toolkit::handle, toolkit = toolkit,
                             runtime = TableRuntimeHooks(navigation = {}, chat = {}, undo = { true }, controlsConnected = true))
                     }
@@ -173,7 +173,7 @@ class AutomatumControlsScreenshotTest {
 
     /** A tap on [card] on Alice's Battlefield, as the table sends it. */
     private fun tapCard(toolkit: TableToolkitController, play: PlayState, card: String) {
-        val item = TablePresentation.scene(f.game, play, f.a, 412f, 892f, false).items
+        val item = TablePresentation.scene(f.game, TableBoard.of(play), f.a, 412f, 892f, false).items
             .first { it.cardId == card && it.zone == PlayZone.BATTLEFIELD && it.viewport != "combat" }
         toolkit.open(TableIntent.Actions(item.id, TableScope(card, listOf(card))), item)
     }
@@ -258,7 +258,7 @@ class AutomatumControlsScreenshotTest {
         compose.runOnIdle { tapCard(toolkit, play, tappedMountain) }
         compose.waitForIdle()
         compose.runOnIdle {
-            assertEquals(emptyList(), toolkit.activatable(play, tappedMountain))
+            assertEquals(emptyList(), toolkit.activatable(TableBoard.of(play), tappedMountain))
             assertNotNull(toolkit.capture, "its menu")
             assertNull(toolkit.abilityCard)
         }
@@ -297,8 +297,8 @@ class AutomatumControlsScreenshotTest {
     @Test fun quickActionsAreAutomatumToggles() {
         val drawStep = board(lands = 2).let { p -> p.copy(board = p.board.copy(turn = p.board.turn.copy(
             phase = TurnPosition.DRAW.phase, step = TurnPosition.DRAW.step))) }
-        assertTrue(AutomatumToggles.shown(drawStep, QuickContext(viewer = f.a)))
-        assertTrue(AutomatumToggles.shown(drawStep, QuickContext(viewer = f.b)), "also on the other player's turn")
+        assertTrue(AutomatumToggles.shown(TableBoard.of(drawStep), QuickContext(viewer = f.a)))
+        assertTrue(AutomatumToggles.shown(TableBoard.of(drawStep), QuickContext(viewer = f.b)), "also on the other player's turn")
         render(drawStep)
         compose.onNodeWithContentDescription(AutomatumToggles.FULL_CONTROL).assertIsDisplayed()
         compose.onNodeWithContentDescription(AutomatumToggles.SKIP).assertIsDisplayed()
@@ -349,7 +349,7 @@ class AutomatumControlsScreenshotTest {
             }
         }))
         val toolkit = render(play)
-        val pile = TablePresentation.scene(f.game, play, f.a, 412f, 892f, false).items
+        val pile = TablePresentation.scene(f.game, TableBoard.of(play), f.a, 412f, 892f, false).items
             .first { it.zone == PlayZone.LIBRARY && it.id == library }
         compose.runOnIdle { toolkit.open(TableIntent.Actions(pile.id, null), pile) }
         compose.waitForIdle()
@@ -369,7 +369,7 @@ class AutomatumControlsScreenshotTest {
         val play = board(lands = 0)
         val toolkit = render(play)
         val library = f.id("a/LIBRARY")
-        val pile = TablePresentation.scene(f.game, play, f.a, 412f, 892f, false).items.first { it.zone == PlayZone.LIBRARY && it.id == library }
+        val pile = TablePresentation.scene(f.game, TableBoard.of(play), f.a, 412f, 892f, false).items.first { it.zone == PlayZone.LIBRARY && it.id == library }
         compose.runOnIdle { toolkit.open(TableIntent.Actions(pile.id, null), pile) }
         compose.waitForIdle()
         compose.runOnIdle {
@@ -386,7 +386,7 @@ class AutomatumControlsScreenshotTest {
         val play = board(lands = 1).let { p -> p.copy(board = p.board.copy(cards = p.board.cards.map {
             if (it.definition == mountain.submitted.digest) it.copy(tapped = false) else it })) }
         val toolkit = render(play)
-        val playable = compose.runOnIdle { toolkit.playable(play) }
+        val playable = compose.runOnIdle { toolkit.playable(TableBoard.of(play)) }
         assertTrue(druidId in playable && sparkId in playable, playable.toString())
         assertFalse(forests[0] in playable, "a mana ability alone doesn't glow")
         assertTrue(playable.none { id -> play.board.cards.single { it.id == id }.definition == mountain.submitted.digest })
@@ -401,11 +401,11 @@ class AutomatumControlsScreenshotTest {
         val play = board(lands = 2)
         val toolkit = render(play)
         compose.runOnIdle {
-            toolkit.playable(play)
-            val hand = TablePresentation.scene(f.game, play, f.a, 412f, 892f, false).items
+            toolkit.playable(TableBoard.of(play))
+            val hand = TablePresentation.scene(f.game, TableBoard.of(play), f.a, 412f, 892f, false).items
                 .first { it.kind == TableItemKind.CARD && it.cardId == sparkId }
             assertFalse(toolkit.handle(TableIntent.Move(TableScope(sparkId, listOf(sparkId)),
-                assertNotNull(handDoubleTapDestination(TablePresentation.scene(f.game, play, f.a, 412f, 892f, false), hand)),
+                assertNotNull(handDoubleTapDestination(TablePresentation.scene(f.game, TableBoard.of(play), f.a, 412f, 892f, false), hand)),
                 handDoubleTap = true)))
             assertEquals(sparkId, toolkit.shaking?.id)
             assertNull(toolkit.error)
@@ -418,7 +418,7 @@ class AutomatumControlsScreenshotTest {
             assertEquals(druidId, toolkit.shaking?.id)
             assertNull(toolkit.error)
             assertTrue(manual.isEmpty() && sent.isEmpty())
-            assertEquals(listOf("Cast — Storm Spark can't be cast now."), automatumReasons(play, f.a, sparkId, emptyMap()))
+            assertEquals(listOf("Cast — Storm Spark can't be cast now."), automatumReasons(TableBoard.of(play), f.a, sparkId, emptyMap()))
         }
         compose.runOnIdle { toolkit.inspect(sparkId) }
         compose.waitForIdle()
@@ -443,8 +443,8 @@ class AutomatumControlsScreenshotTest {
     @Test fun concedeAsksFirst() {
         val play = board(lands = 2)
         val intents = mutableListOf<TableActionIntent>()
-        val toolkit = TableToolkitController(f.a, { play }, { true }, { _, _ -> true })
-        compose.setContent { MaterialTheme { TableActionMenu(play, toolkit.table, {}, perform = { intents += it; true }) } }
+        val toolkit = TableToolkitController(f.a, { TableBoard.of(play) }, { true }, { _, _ -> true })
+        compose.setContent { MaterialTheme { TableActionMenu(TableBoard.of(play), toolkit.table, {}, perform = { intents += it; true }) } }
         compose.onNodeWithContentDescription("Suggest game end").assertExists()
         compose.onNodeWithContentDescription("Concede").performClick()
         compose.waitForIdle()
@@ -462,8 +462,8 @@ class AutomatumControlsScreenshotTest {
     // "Report a problem" without leaving the game
     @Test fun tableActionsSendAProblemReport() {
         val play = board(lands = 2)
-        val toolkit = TableToolkitController(f.a, { play }, { true }, { _, _ -> true })
-        compose.setContent { MaterialTheme { TableActionMenu(play, toolkit.table, {}, perform = { true }, reportToken = { null }) } }
+        val toolkit = TableToolkitController(f.a, { TableBoard.of(play) }, { true }, { _, _ -> true })
+        compose.setContent { MaterialTheme { TableActionMenu(TableBoard.of(play), toolkit.table, {}, perform = { true }, reportToken = { null }) } }
         captureShot("$SCREENSHOTS/automatum/table-actions-report.png",
             "Table actions with Timeline, Suggest game end, Concede and Send problem report, each an icon and its name.")
         compose.onNodeWithContentDescription("Send problem report").performClick()

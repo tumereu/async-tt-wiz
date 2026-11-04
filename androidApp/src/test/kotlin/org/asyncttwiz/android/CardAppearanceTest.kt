@@ -73,7 +73,7 @@ class CardAppearanceTest {
             val width = if (landscape) 892f else 412f
             val height = if (landscape) 412f else 892f
             val appearance = CardAppearance(cardSize = scale, textSize = scale)
-            val scene = TablePresentation.scene(f.game, play, f.a, width, height, landscape,
+            val scene = TablePresentation.scene(f.game, TableBoard.of(play), f.a, width, height, landscape,
                 TableLayoutState(camera = TableCamera(zoom = zoom)), appearance = appearance)
             assertEquals(28f * scale * zoom, scene.cardWidth, .001f)
             assertEquals(40f * scale * zoom, scene.cardHeight, .001f)
@@ -109,7 +109,7 @@ class CardAppearanceTest {
                 "Visible Stack fragments must not cover a hand; off-screen sidebar content is clipped")
             if (landscape) {
                 val sidebar = scene.viewports.single { it.id == "sidebar" }
-                val bottom = TablePresentation.scene(f.game, play, f.a, width, height, true,
+                val bottom = TablePresentation.scene(f.game, TableBoard.of(play), f.a, width, height, true,
                     TableLayoutState(scrollY = mapOf("sidebar" to sidebar.maxScrollY)), appearance = appearance)
                 for (item in bottom.items.filter { it.kind == TableItemKind.PILE && it.owner == f.a && it.zone != PlayZone.STACK }) {
                     val port = bottom.viewports.single { it.id == item.viewport }.bounds

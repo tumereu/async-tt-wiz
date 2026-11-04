@@ -70,12 +70,12 @@ class AutomatumScreenshotTest {
         // Worked out before the first frame, as the worker would have by then
         AutomatumBoards.compute(play, f.a)
         val sent = mutableListOf<PlayAction>()
-        val toolkit = TableToolkitController(f.a, { play }, { true }, { action, _ -> sent += action; true })
+        val toolkit = TableToolkitController(f.a, { TableBoard.of(play) }, { true }, { action, _ -> sent += action; true })
         compose.setContent {
             MaterialTheme {
                 NoRipples {
                     Box(Modifier.fillMaxSize()) {
-                        TableSurface(f.game, play, f.a, false, Modifier.fillMaxSize(), connected = true,
+                        TableSurface(f.game, TableBoard.of(play), f.a, false, Modifier.fillMaxSize(), connected = true,
                             onIntent = toolkit::handle, toolkit = toolkit,
                             runtime = TableRuntimeHooks(navigation = {}, chat = {}, undo = { true }, controlsConnected = true))
                     }
@@ -95,7 +95,7 @@ class AutomatumScreenshotTest {
         val computed = AutomatumBoards.cached(play, f.a)!!
         assertEquals("4/6", computed.cards.getValue(sentinel.id).corner)
         assertEquals("1/2", computed.cards.getValue(guide.id).corner)
-        val scene = TablePresentation.scene(f.game, play, f.a, 412f, 892f, false, computed = computed)
+        val scene = TablePresentation.scene(f.game, TableBoard.of(play), f.a, 412f, 892f, false, computed = computed)
         val sentinelItem = scene.items.single { it.cardId == sentinel.id && it.zone == PlayZone.BATTLEFIELD }
         assertEquals("4/6", sentinelItem.corner)
         assertTrue(sentinelItem.cornerHourglass)

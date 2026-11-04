@@ -65,7 +65,7 @@ import org.asyncttwiz.protocol.*
  * and Back drop the whole cast.
  */
 @Composable
-internal fun CastPanelHost(toolkit: TableToolkitController, play: PlayState, scene: TableScene?, names: Map<String, String>) {
+internal fun CastPanelHost(toolkit: TableToolkitController, play: TableBoard, scene: TableScene?, names: Map<String, String>) {
     val cast = toolkit.cast
     // Targets are chosen: a pile opened to pick them from closes again once they are (i12review #14)
     LaunchedEffect(cast.targeting || toolkit.flows.targeting) { if (!cast.targeting && !toolkit.flows.targeting) toolkit.targetingEnded() }
@@ -150,7 +150,7 @@ internal fun CastPanelPlacement(stack: TableBounds?, middle: Float?, dock: Table
 }
 
 @Composable
-private fun TargetBar(cast: CastController, flow: CastFlow, play: PlayState) {
+private fun TargetBar(cast: CastController, flow: CastFlow, play: TableBoard) {
     val decision = flow.pending as Decision.Targets
     // UI review #4, #9: docked above the hand like every Automatum panel, never over it
     AutomatumDockBar("Choose targets", eye = true) {
@@ -178,7 +178,7 @@ internal fun IconText(icon: ImageVector, text: String) {
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun CastPanel(toolkit: TableToolkitController, cast: CastController, flow: CastFlow, play: PlayState, names: Map<String, String>) {
+private fun CastPanel(toolkit: TableToolkitController, cast: CastController, flow: CastFlow, play: TableBoard, names: Map<String, String>) {
     val shown by animateFloatAsState(if (cast.hidden) 0f else 1f, tween(180), label = "Cast panel")
     Column(Modifier.fillMaxWidth()
         .then(if (cast.hidden) Modifier else Modifier.pointerInput(Unit) {}.semantics { contentDescription = "Cast panel" })
@@ -248,7 +248,7 @@ internal fun HoldTip(description: String, content: @Composable () -> Unit) {
  * tap opens Inspect and holding it shows the large Inspect overlay until released.
  */
 @Composable
-internal fun SmallCard(toolkit: TableToolkitController, play: PlayState, cardId: String, name: String) {
+internal fun SmallCard(toolkit: TableToolkitController, play: TableBoard, cardId: String, name: String) {
     val card = play.board.cards.singleOrNull { it.id == cardId }
     val definition = card?.let { c -> play.definitions.singleOrNull { it.digest == c.definition }?.definition }
     val face = definition?.faces?.let { faces -> faces.singleOrNull { it.faceId == card.faceId } ?: faces.firstOrNull() }
@@ -288,7 +288,7 @@ internal fun Section(title: String, hint: String? = null, content: @Composable C
  * table. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun AnsweredSection(cast: CastController, flow: CastFlow, play: PlayState, names: Map<String, String>,
+private fun AnsweredSection(cast: CastController, flow: CastFlow, play: TableBoard, names: Map<String, String>,
     index: Int, decision: Decision, answer: Answer) {
     when {
         decision is Decision.May && answer is Answer.YesNo -> Section(mayTitle(decision)) {
@@ -321,7 +321,7 @@ private fun AnsweredSection(cast: CastController, flow: CastFlow, play: PlayStat
 /** The open question (but targets, chosen on the table, and mana, [ManaSection]) of a cast or a shared flow. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-internal fun OpenSection(cast: FlowQuestions, flow: FlowQuestions, play: PlayState, names: Map<String, String>, decision: Decision) {
+internal fun OpenSection(cast: FlowQuestions, flow: FlowQuestions, play: TableBoard, names: Map<String, String>, decision: Decision) {
     // I-D47, I-D48: each section says what the choice is with a short instruction; cards are drawn as cards, buttons
     // carry icons
     val viewer = LocalChoiceFrame.current.viewer
@@ -455,7 +455,7 @@ internal fun OpenSection(cast: FlowQuestions, flow: FlowQuestions, play: PlaySta
 /** Choices the panel has no control of its own for: the engine's listed answers (a card type, a basic land type). */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun ListedSection(cast: FlowQuestions, flow: FlowQuestions, play: PlayState, names: Map<String, String>, decision: Decision) {
+private fun ListedSection(cast: FlowQuestions, flow: FlowQuestions, play: TableBoard, names: Map<String, String>, decision: Decision) {
     Section(choiceWhat(decision), choiceHint(decision)) {
         FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             for (answer in flow.listedAnswers()) ChoiceButton(answerLabel(flow, play, names, decision, answer), Icons.Outlined.RadioButtonUnchecked) {
@@ -526,7 +526,7 @@ private fun modeText(mode: arcanum.engine.decision.ModeOption) = mode.text ?: "M
 /** The mana section: the engine's suggested tapping shown tapped, the other sources untapped; a tap toggles one. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-internal fun ManaSection(cast: FlowQuestions, flow: FlowQuestions, play: PlayState, decision: Decision.ManaPayment) {
+internal fun ManaSection(cast: FlowQuestions, flow: FlowQuestions, play: TableBoard, decision: Decision.ManaPayment) {
     Section("Mana · ${decision.cost}", choiceHint(decision)) {
         val groups = ManaPicks.groups(decision)
         val viewer = LocalChoiceFrame.current.viewer
@@ -603,7 +603,7 @@ private fun actionLabel(flow: CastFlow) = when {
     else -> "Cast"
 }
 
-private fun spellName(flow: CastFlow, play: PlayState): String {
+private fun spellName(flow: CastFlow, play: TableBoard): String {
     val cast = flow.begin as? Input.Cast
     val definition = cast?.let { flow.state.obj(it.card)?.definition ?: flow.state.objects.values.firstOrNull { o ->
         (o.id as? ObjectId.Card)?.card == (it.card as ObjectId.Card).card }?.definition }
@@ -611,13 +611,13 @@ private fun spellName(flow: CastFlow, play: PlayState): String {
     return definition?.faces?.getOrNull(cast.way.face)?.name ?: CastController.cardName(play, flow.cardId)
 }
 
-internal fun cardText(play: PlayState, cardId: String): String? {
+internal fun cardText(play: TableBoard, cardId: String): String? {
     val card = play.board.cards.singleOrNull { it.id == cardId } ?: return null
     val faces = play.definitions.singleOrNull { it.digest == card.definition }?.definition?.faces ?: return null
     return faces.joinToString("\n") { it.rulesText }.trim().ifEmpty { null }
 }
 
-private fun wayLabel(play: PlayState, flow: CastFlow, way: Input): String = when (way) {
+private fun wayLabel(play: TableBoard, flow: CastFlow, way: Input): String = when (way) {
     is Input.Cast -> CastFlow.wayLabel(flow.state.objects.values.firstOrNull { (it.id as? ObjectId.Card)?.card ==
         (way.card as ObjectId.Card).card }?.definition, way) ?: "Cast"
     is Input.PlayLand -> if (way.face == 0) "Play" else "Play back face"
@@ -648,7 +648,7 @@ private fun sectionTitle(d: Decision): String = when (d) {
     else -> "Choice"
 }
 
-private fun answerLabel(flow: FlowQuestions, play: PlayState, names: Map<String, String>, decision: Decision, answer: Answer): String = when (answer) {
+private fun answerLabel(flow: FlowQuestions, play: TableBoard, names: Map<String, String>, decision: Decision, answer: Answer): String = when (answer) {
     is Answer.Targets -> answer.chosen.joinToString { targetName(flow, play, names, it) }.ifEmpty { "None" }
     is Answer.Objects -> answer.chosen.joinToString { objectName(flow, play, it) }.ifEmpty { "None" }
     is Answer.Modes -> answer.chosen.joinToString(" · ") { i -> (decision as? Decision.Modes)?.options?.firstOrNull { it.index == i }?.text ?: "Mode ${i + 1}" }
@@ -667,18 +667,18 @@ private fun answerLabel(flow: FlowQuestions, play: PlayState, names: Map<String,
     else -> answer::class.simpleName ?: "Answer"
 }
 
-internal fun targetName(flow: FlowQuestions, play: PlayState, names: Map<String, String>, target: TargetRef): String = when (target) {
+internal fun targetName(flow: FlowQuestions, play: TableBoard, names: Map<String, String>, target: TargetRef): String = when (target) {
     is TargetRef.Player -> names[target.id.value] ?: "A player"
     is TargetRef.Object -> objectName(flow, play, target.id)
 }
 
 /** An object's name, or "A hidden card" when the viewer mustn't see it (I-D27). */
-internal fun objectName(flow: FlowQuestions, play: PlayState, id: ObjectId): String =
+internal fun objectName(flow: FlowQuestions, play: TableBoard, id: ObjectId): String =
     if (!flow.shown(id)) "A hidden card"
     else flow.engine.obj(id)?.let { it.definition?.faces?.getOrNull(it.face)?.name }
         ?: flow.atwCard(id)?.let { CastController.cardName(play, it) } ?: "An object"
 
-private fun manaLabel(flow: FlowQuestions, play: PlayState, use: ManaUse, group: List<ManaUse>): String = when (use) {
+private fun manaLabel(flow: FlowQuestions, play: TableBoard, use: ManaUse, group: List<ManaUse>): String = when (use) {
     is ManaUse.Ability -> objectName(flow, play, use.source) + " " + group.filterIsInstance<ManaUse.Ability>()
         .map { it.color?.symbol ?: 'C' }.distinct().joinToString("/")
     is ManaUse.Pool -> "Pool mana"

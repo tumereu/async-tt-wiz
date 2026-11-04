@@ -43,7 +43,7 @@ class SharedFlowTest {
     }
 
     /** [player] casts [card] at [target] with the suggested mana, as the app sends it ([CastFlow.sent]). */
-    private fun cast(rt: RoundTrip, player: String, card: String, target: TargetRef): EngineCall {
+    private fun cast(rt: RoundTrip, player: String, card: String, target: TargetRef): EngineRun {
         val plays = HandPlays.of(rt.state, table.definitions, player, log(rt))
         var flow = CastFlow.start(rt.state, table.definitions, player, log(rt), plays.of(card).first(), seeds())
         flow = flow.answer(Answer.Targets(listOf(target)))

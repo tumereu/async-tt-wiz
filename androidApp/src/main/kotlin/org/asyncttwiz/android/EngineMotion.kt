@@ -3,7 +3,6 @@ package org.asyncttwiz.android
 import androidx.compose.runtime.mutableStateOf
 import arcanum.engine.state.GameState
 import org.asyncttwiz.protocol.BoardState
-import org.asyncttwiz.protocol.PlayState
 
 /**
  * TBL-040 on engine state (owner playtest 2026-11-04): what one published board change shows in order. An own action
@@ -34,13 +33,13 @@ internal object EngineMotion {
      * [EngineGame]'s preview) the steps start with it (drawn already, it settles at once; else it shows first) and go on
      * after the step that looks like it (only it when none does: never back to an older look).
      */
-    fun trim(steps: List<PlayState>, before: PlayState?, after: PlayState, shownFirst: PlayState?): List<PlayState> {
+    fun trim(steps: List<TableBoard>, before: TableBoard?, after: TableBoard, shownFirst: TableBoard?): List<TableBoard> {
         val keys = steps.map { key(it.board) }
         val candidates = if (shownFirst == null) steps else {
             val at = keys.lastIndexOf(key(shownFirst.board))
             listOf(shownFirst) + if (at < 0) emptyList() else steps.drop(at + 1)
         }
-        val kept = ArrayList<PlayState>()
+        val kept = ArrayList<TableBoard>()
         var last = before?.let { key(it.board) }
         val end = key(after.board)
         for (step in candidates) {
@@ -61,13 +60,13 @@ internal object EngineMotion {
 internal class EngineMotionQueue {
     private var version = -1L
     private var serial = 0L
-    private var steps: List<PlayState> = emptyList()
+    private var steps: List<TableBoard> = emptyList()
     /** The board version and how many of its steps have played (state: the table recomposes on it). */
     private val played = mutableStateOf(-1L to 0)
 
     /** Composition: [version]'s board [live], with the steps of [transition] to show before it when it is new (a board
      * published again with the same transition, an action's preview, shows at once). */
-    fun board(version: Long, transition: EngineGame.Transition?, live: PlayState): PlayState {
+    fun board(version: Long, transition: EngineGame.Transition?, live: TableBoard): TableBoard {
         if (version != this.version) {
             // The table just opened: the last board shows as it is
             if (this.version < 0) transition?.let { serial = it.serial }

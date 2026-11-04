@@ -77,7 +77,8 @@ internal class RoundTrip(var state: PlayState, val definitions: Map<String, Card
         call(viewer).also { body(it); apply(it, actor) }
 
     /** Applies [call]'s changes as one ATW batch and checks the round trip. */
-    fun apply(call: EngineCall, actor: String) {
+    fun apply(run: EngineRun, actor: String) {
+        val call = run as EngineCall
         lastCall = call
         if (call.changes.isEmpty()) return
         val command = GameCommand(CommandIds.uuidV5(AtwTable.NAMESPACE, "request/${requests++}"),

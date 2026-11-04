@@ -19,7 +19,7 @@ class TablePerformanceTest {
             }
             val play = initial.copy(board = initial.board.copy(cards = counted,
                 containers = initial.board.containers.map { it.copy(cards = it.cards.reversed()) }))
-            val placements = TablePresentation.logicalPlacements(play)
+            val placements = TablePresentation.logicalPlacements(TableBoard.of(play))
             for (container in play.board.containers) container.cards.forEachIndexed { index, id ->
                 assertEquals(TablePlacement(2, 1, index, "pile"), placements[id])
             }
@@ -63,7 +63,7 @@ class TablePerformanceTest {
         }, containers = initial.board.containers.map {
             it.copy(cards = if (it.zone == PlayZone.STACK) listOf("effect") else it.cards.reversed())
         }, stackEffects = listOf(StackEffect("effect", "a/BATTLEFIELD/0"))))
-        val positions = TablePresentation.logicalPlacements(play)
+        val positions = TablePresentation.logicalPlacements(TableBoard.of(play))
         for (owner in listOf("a", "b")) {
             assertEquals(TablePlacement(2, 1, 0, "pile"), positions["$owner/BATTLEFIELD/2"])
             assertEquals(TablePlacement(2, 1, 0, "other"), positions["$owner/BATTLEFIELD/1"])
@@ -106,10 +106,10 @@ class TablePerformanceTest {
             if (!card.containerId.endsWith("BATTLEFIELD")) card else card.copy(
                 placement = if (n % 5 == 0) null else PlayPlacement(BoardPosition(n % 3, n % 2), "pile${n % 4}"))
         }))
-        val positions = TablePresentation.logicalPlacements(play)
+        val positions = TablePresentation.logicalPlacements(TableBoard.of(play))
         for (camera in listOf(TableCamera(), TableCamera(20f, -30f, .65f), TableCamera(-50f, 40f, 2f))) {
             val ui = TableLayoutState(camera)
-            val scene = TablePresentation.scene(TableFixture.game, play, "a", 412f, 820f, false, ui,
+            val scene = TablePresentation.scene(TableFixture.game, TableBoard.of(play), "a", 412f, 820f, false, ui,
                 logicalPositions = positions)
             assertEquals(TableFixture.scene(play, ui = ui), scene)
         }

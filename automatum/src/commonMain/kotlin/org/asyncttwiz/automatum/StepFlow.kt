@@ -4,6 +4,7 @@ import arcanum.engine.Engine
 import arcanum.engine.Pending
 import arcanum.engine.decision.Answer
 import arcanum.engine.input.Input
+import arcanum.engine.setup.result
 import arcanum.engine.state.PlayerId
 
 /**
@@ -13,7 +14,7 @@ import arcanum.engine.state.PlayerId
  * "at the beginning of …" triggers, the first-turn draw skipped (CR 103.8a) and extra turns taken (CR 500.7, I-D12);
  * all of that is the engine's, and [EngineBatch] says it with ATW's step and turn events.
  *
- * Every function here works on an [EngineCall] the caller made (best with full information, I-D17/I-D27: a viewer's
+ * Every function here works on an [EngineRun] the caller made (best with full information, I-D17/I-D27: a viewer's
  * state can't tell what the other player's unknown hand would let them do, so the host never passes for them there),
  * then sends it as one batch with [EngineBatch.plan]. Each ends with the host's automatic passes ([automatic]), so
  * one call runs on to the next point where a player could act (I-D22): a player with a choice holds priority, a
@@ -55,10 +56,13 @@ object StepFlow {
      *
      * @throws IllegalArgumentException when [player] doesn't hold priority or a decision is open; nothing changes then.
      */
-    fun pass(call: EngineCall, player: String, until: Until = Until.Pass): Pending? {
-        HostPriority.settle(call)
-        // The first turn begins after the opening (CR 103.8), or a turn changed by hand goes on from its untap step
-        if (HostPriority.resting(call.working) && call.working.turn.active.value == player) HostPriority.leaveUntap(call)
+    fun pass(call: EngineRun, player: String, until: Until = Until.Pass): Pending? {
+        // Today's model: priority settled where ATW's steps changed by hand; the first turn begins after the opening
+        // (CR 103.8), or a turn changed by hand goes on from its untap step (a game's own engine state has neither)
+        if (call is EngineCall) {
+            HostPriority.settle(call)
+            if (resting(call.working) && call.working.turn.active.value == player) HostPriority.leaveUntap(call)
+        }
         val s = call.working
         require(s.pending == null) { "A decision is open: ${s.pending?.decision}" }
         val keep = when (until) {
@@ -117,9 +121,42 @@ object StepFlow {
     fun position(s: arcanum.engine.state.GameState): org.asyncttwiz.protocol.TurnPosition =
         EngineCodec.position(s.turn.step, s.combat?.firstStrikeStep == true)
 
+    /**
+     * [s] rests in an untap step with nobody holding priority and nothing to decide (CR 502.4): before the game begins
+     * after the opening (CR 103.8), or after a turn changed by hand on today's model ([HostPriority.leaveUntap]).
+     */
+    fun resting(s: arcanum.engine.state.GameState): Boolean = s.pending == null && s.result == null &&
+        s.turn.step == arcanum.api.TurnStep.Untap && s.priority.holder == null
+
+    /**
+     * The priority [s] should have for a look ahead from it (null: leave it as it is): nobody holding it, the active
+     * player gets it (no passes); with an empty Stack and no passes made, a holder other than the active player is left
+     * from a turn changed by hand and the active player gets it, unless [kept] (the engine left it there). In the untap
+     * and cleanup steps nobody gets priority (CR 502.4, 514.3), nor while attackers or blockers are awaited (CR 508.1,
+     * 509.1).
+     */
+    fun settledPriority(s: arcanum.engine.state.GameState, kept: Boolean = false): arcanum.engine.state.PriorityState? {
+        if (s.pending != null || s.turn.step == arcanum.api.TurnStep.Untap || s.turn.step == arcanum.api.TurnStep.Cleanup ||
+            awaitsDeclaration(s)) return null
+        val active = s.turn.active
+        val holder = s.priority.holder
+        return when {
+            holder == null -> arcanum.engine.state.PriorityState(active, 0)
+            s.stack.isEmpty() && s.priority.passes == 0 && holder != active && !kept -> arcanum.engine.state.PriorityState(active, 0)
+            else -> null
+        }
+    }
+
+    /** Attackers or blockers are awaited (CR 508.1, 509.1): nobody has priority until they are declared. */
+    private fun awaitsDeclaration(s: arcanum.engine.state.GameState): Boolean = s.priority.holder == null && when (s.turn.step) {
+        arcanum.api.TurnStep.DeclareAttackers -> s.combat == null
+        arcanum.api.TurnStep.DeclareBlockers -> s.combat?.let { !it.blocksDecided && it.attackers.isNotEmpty() } == true
+        else -> false
+    }
+
     /** [player]'s "Full control" on the call's board (I-D41). */
-    internal fun fullControl(call: EngineCall, player: String): Boolean =
-        call.state.board.players.firstOrNull { it.accountId == player }?.fullControl == true
+    internal fun fullControl(call: EngineRun, player: String): Boolean =
+        call.board.players.firstOrNull { it.accountId == player }?.fullControl == true
 
     /** The player the host goes on passing for in turn [turn] (I-D22), until the turn reaches [stop] (null: its end). */
     private class Keep(val player: String, val turn: Int, val stop: org.asyncttwiz.protocol.TurnPosition?) {
@@ -141,7 +178,7 @@ object StepFlow {
      * [CombatFlow.divide].
      * @throws IllegalArgumentException when nothing is open or the engine refuses [answer]; nothing changes then.
      */
-    fun answer(call: EngineCall, answer: Answer): Pending? {
+    fun answer(call: EngineRun, answer: Answer): Pending? {
         val open = requireNotNull(call.working.pending?.decision) { "No decision is open" }
         // Checked first, so a refusal leaves the call as it was
         Engine.perform(call.working, Input.Answer(open.id, answer))
@@ -154,7 +191,7 @@ object StepFlow {
      * decision was on its way, [PreAnswers.forOpen]), then the host's automatic passes.
      * @throws IllegalArgumentException when no early answer the engine takes is given for it; nothing changes then.
      */
-    fun answerEarly(call: EngineCall): Pending? {
+    fun answerEarly(call: EngineRun): Pending? {
         call.performEarly()?.let { return it }
         return automatic(call)
     }
@@ -169,9 +206,9 @@ object StepFlow {
      * actions (CR 104.4b, 732.4: the same state, `Engine.loopKey`, again with only forced passes since) stops it with
      * `Input.MandatoryLoop`: the engine's loop choice says the game is a draw, and choosing Draw makes it one (I-D52).
      */
-    fun automatic(call: EngineCall): Pending? = automatic(call, null)
+    fun automatic(call: EngineRun): Pending? = automatic(call, null)
 
-    private fun automatic(call: EngineCall, keep: Keep?): Pending? {
+    private fun automatic(call: EngineRun, keep: Keep?): Pending? {
         val start = call.working.turn.number
         // CR 104.4b, 732.4: the states passed in with only forced passes since (a loop needs the Stack: on an empty one
         // passing moves the step on)

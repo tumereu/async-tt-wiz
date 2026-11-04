@@ -281,7 +281,7 @@ object CombatStackPresentation {
             maxOf(cardHeight, visible.maxOfOrNull { it.bounds.y + it.bounds.height } ?: 0f), ids.size, visible, ids.toList())
     }
 
-    fun label(state: PlayState, drawing: OccurrenceDrawing): String {
+    fun label(state: TableBoard, drawing: OccurrenceDrawing): String {
         val card = drawing.card
         val hidden = if (drawing.frozen) card.covered else CombatStackRules.faceDownEntry(state.board, drawing.viewId) ||
             !CardVisibility.isVisibleFaceUp(state.board, card, "")

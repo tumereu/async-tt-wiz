@@ -6,6 +6,7 @@ import arcanum.engine.setup.GameResult
 import arcanum.engine.state.GameState
 import arcanum.engine.state.PlayerId
 import org.asyncttwiz.automatum.EngineProjection
+import org.asyncttwiz.protocol.BoardState
 import org.asyncttwiz.protocol.EngineRewindRequest
 import org.asyncttwiz.protocol.EngineSnapshot
 import org.asyncttwiz.protocol.GameAction
@@ -100,8 +101,8 @@ interface EngineWorker {
 
 /**
  * One game played on engine state on this device (I-D54 item 2, I-D56 step C): the device core ([GameDevice], which
- * holds the main line, playback, assumptions, undo and requests) and the board the table shows of it
- * ([EngineProjection]: the projected [PlayState] carrying the engine's state). Everything it sends is in [take]; the
+ * holds the main line, playback, assumptions, undo and requests) and the board the table shows of it ([TableBoard], the
+ * render model: [EngineProjection]'s board with the engine state beside it, engine-responsiveness R4a). Everything it sends is in [take]; the
  * server's revisions and refusals come in through [revision] and [refused]. Times are the caller's.
  *
  * Threads (step D2): the device lives on the [worker]'s engine thread; every change there ends by publishing a new
@@ -130,10 +131,10 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
     val notes = ArrayDeque<GameDevice.Note>()
 
     /**
-     * What the table shows now, published by the engine thread after each change: the projected board ([play]) and what
-     * the async panels read of the device. Immutable; [engine] is the board's own copy of the engine state.
+     * What the table shows now, published by the engine thread after each change: the board ([board]) and what the async
+     * panels read of the device. Immutable; [engine] is the board's own copy of the engine state.
      */
-    class Shown(val version: Long, val play: PlayState, val status: GameDevice.Status, val locked: Boolean,
+    class Shown(val version: Long, val board: TableBoard, val status: GameDevice.Status, val locked: Boolean,
         val settings: PlaySettings, val opponent: PlayerId, val behind: Boolean, val tip: String, val localHead: String,
         val drafting: Boolean, val request: EngineRewindRequest?, val indicator: GameDevice.Indicator?, val undoTarget: String?,
         /** The events shown to the player: the main line up to the local head ([held]), then their own pending events. */
@@ -141,12 +142,12 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
         /** The player paused playback (§27): it goes on to the next point where Full control stops. */
         val pausing: Boolean = false,
         /** The first passes of the player's recent End turns (§29.2: the Undo dialog lists them as "End turn"). */
-        val endTurns: Set<String> = emptySet(),
-        /** Engine-responsiveness R3: what the engine thread worked out with [play]'s board: its computed card values, the
-         * player's hand plays (none yet on an own action's early board: they come with the board after it) and, when
-         * first asked, the card menus' plays ([AutomatumBoards] reads them from here for the table). */
-        val values: EngineBoardValues? = null) {
-        val engine: GameState get() = play.board.engine!!.state
+        val endTurns: Set<String> = emptySet()) {
+        val engine: GameState get() = board.engine!!.state
+        /** Engine-responsiveness R3: what the engine thread worked out with [board]: its computed card values, the player's
+         * hand plays (none yet on an own action's early board: they come with the board after it) and, when first asked,
+         * the card menus' plays, the shared flow and combat. */
+        val values: EngineBoardValues? get() = board.values
     }
 
     /** The last published snapshot (main thread); null until the game first loaded. */
@@ -163,7 +164,7 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
     private var published = 0L
     private var live = false
     private var now = 0L
-    private var previous: PlayState? = null
+    private var previous: TableBoard? = null
     private var lastTransition: Transition? = null
 
     /** The last [Transition] published (the screen applies each once, by its serial). */
@@ -194,7 +195,7 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
     }
 
     /** The board the table shows now: the projected state at the local head and the device's own pending events. */
-    fun play(): PlayState = requireNotNull(shown) { "Not loaded yet" }.play
+    fun play(): TableBoard = requireNotNull(shown) { "Not loaded yet" }.board
 
     /** Publishes what changed (engine thread): the board projected anew, the notes drained, then the main thread told.
      * [timing]: the own action whose board this is (its probe times the building and hears when it is shown). */
@@ -212,18 +213,18 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
         // TRN-058 (I-D57): the move pill and the bar colours show whom the game really waits for, as the game list does
         val play = board(tip, attention, device.move?.value)
         // R3: the player's hand plays go out with the board (a board published again unchanged keeps them)
-        val values = EngineBoardValues.of(play.board, me)?.also { it.workedHandPlays() }
+        play.values?.workedHandPlays()
         val local = session.indexOf(session.localHead) ?: -1
         val held = session.events.take(local + 1)
         val line = held + session.pending
         val before = previous
-        if (before == null || before.currentNodeId != tip || before.board.turn != play.board.turn)
+        if (before == null || before.nodeId != tip || before.board.turn != play.board.turn)
             transition(before, play, tip, line, attention, device.move?.value)
         previewed = null
         previous = play
         val shown = Shown(++published, play, status, device.locked, device.settings, device.opponent, session.behind, tip,
             session.localHead, session.drafting, device.request, device.indicator(), device.undoTarget(), line, held, lastTransition,
-            device.needsReload, device.pausing, held.mapNotNullTo(HashSet()) { e -> e.id.takeIf(device::endedTurn) }, values)
+            device.needsReload, device.pausing, held.mapNotNullTo(HashSet()) { e -> e.id.takeIf(device::endedTurn) })
         lastShown = shown
         timing?.let { it.boardEnd = clock(); it.version = shown.version }
         worker.main {
@@ -240,7 +241,7 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
 
     /** What the board built last ([board]) was made from (engine thread). */
     private class Built(val model: GameModel, val changes: Long, val table: org.asyncttwiz.protocol.game.TableState,
-        val staging: EngineProjection.Staging?, val tokenArt: org.asyncttwiz.automatum.TokenArt, val base: PlayState, val play: PlayState)
+        val staging: EngineProjection.Staging?, val tokenArt: org.asyncttwiz.automatum.TokenArt, val base: PlayState, val play: TableBoard)
     private var built: Built? = null
 
     /** Tests and measurements (engine-responsiveness R3): the boards projected from the device's model to publish. */
@@ -252,34 +253,49 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
      * (its engine state, [GameModel.changes], and table state), the staging, the token pictures and the base are those
      * of the board built last (an own action's early board published again with its whole outcome when nothing followed
      * it, or a board published again for its status alone), that board is published again with only these fields new;
-     * otherwise it is projected anew ([EngineProjection.project], a deep copy of the state) with its computed values
-     * ([EngineBoardValues], from the model's one view). Engine thread.
+     * otherwise it is projected anew ([EngineProjection.project], with a snapshot of the state, [table]) with its computed
+     * values ([EngineBoardValues], from the model's one view). Engine thread.
      */
-    private fun board(nodeId: String, attention: String?, move: String?): PlayState {
+    private fun board(nodeId: String, attention: String?, move: String?): TableBoard {
         val model = device.model
         val last = built
         if (last != null && last.model === model && last.changes == model.changes && last.table === model.table &&
             last.staging === staging && last.tokenArt === tokenArt && last.base === base) {
             val old = last.play
-            if (old.currentNodeId == nodeId && old.board.attentionHolder == attention && old.board.move == move) return old
+            if (old.nodeId == nodeId && old.board.attentionHolder == attention && old.board.move == move) return old
             val board = if (old.board.attentionHolder == attention && old.board.move == move) old.board
                 else old.board.copy(attentionHolder = attention, move = move)
-            return old.copy(board = board, currentNodeId = nodeId)
+            return old.with(board, nodeId)
                 .also { built = Built(model, last.changes, last.table, last.staging, last.tokenArt, last.base, it) }
         }
         boardsBuilt++
-        val play = EngineProjection.project(base, model, me, nodeId, attention, staging, tokenArt, pictures, move)
-        values(play, model)
+        val play = table(EngineProjection.project(base, model, me, nodeId, attention, staging, tokenArt, pictures, move), model, nodeId)
         built = Built(model, model.changes, model.table, staging, tokenArt, base, play)
         return play
     }
 
-    /** R3: [play]'s computed values (and later plays), from [model]'s view and visible set: [play] was just projected from
-     * it for [viewer]. Engine thread. */
-    private fun values(play: PlayState, model: GameModel, viewer: String = me) {
-        EngineBoardValues.make(play, viewer, runCatching { model.view() }.getOrNull(),
-            runCatching { model.visible(PlayerId(viewer)) }.getOrDefault(emptySet()), worker)
+    /**
+     * The render model of [projected], just projected from [model] on [nodeId] for [viewer] (engine-responsiveness R4a):
+     * with a snapshot of the model's engine and table state beside it and its computed values (and later plays, R3) from
+     * the model's view and visible set. Engine thread.
+     */
+    private fun table(projected: EngineProjection.Board, model: GameModel, nodeId: String, viewer: String = me): TableBoard {
+        val visible = runCatching { model.visible(PlayerId(viewer)) }.getOrDefault(emptySet())
+        val engine = org.asyncttwiz.protocol.game.EngineView(model.engine, model.table, PlayerId(viewer), visible)
+        val values = EngineBoardValues.make(projected, gameId, engine.state, viewer, runCatching { model.view() }.getOrNull(), visible, worker)
+        // R4a, until the controllers read the engine state directly: the board carries it as before
+        val board = projected.board.copy(engine = engine)
+        return TableBoard(gameId, base.id, nodeId, board, projected.definitions, engine, values,
+            legacy = legacyOf(board, projected.definitions, nodeId))
     }
+
+    /** [this] board on [nodeId] with [board] (the same engine state and values). */
+    private fun TableBoard.with(board: BoardState = this.board, nodeId: String = this.nodeId): TableBoard =
+        copy(board = board, nodeId = nodeId, legacy = legacyOf(board, definitions, nodeId))
+
+    /** R4a, until the controllers read the engine state directly: the board as today's model's play (the same board). */
+    private fun legacyOf(board: BoardState, definitions: List<org.asyncttwiz.protocol.SubmittedDefinition>, nodeId: String): PlayState =
+        base.copy(board = board, currentNodeId = nodeId, currentGroup = null, definitions = definitions)
 
     /**
      * SYS-025: the board with the player's own action made, while its event is still being finished (what follows by
@@ -296,12 +312,12 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
         }
         // On the board shown before (its node): the table animates it from there, and the panels stay as they were until
         // the action's whole outcome is published (owner playtest 2026-11-04: nothing else flickers)
-        val play = board(last.play.currentNodeId, attention, last.play.board.move)
+        val play = board(last.board.nodeId, attention, last.board.board.move)
         previewed = play
         // R3: its computed values come with it; its hand plays with the board published after it
         val shown = Shown(++published, play, last.status, last.locked, last.settings, last.opponent, last.behind, last.tip,
             last.localHead, last.drafting, last.request, last.indicator, last.undoTarget, last.line, last.held, last.transition,
-            last.needsReload, last.pausing, last.endTurns, EngineBoardValues.of(play.board, me))
+            last.needsReload, last.pausing, last.endTurns)
         timing.boardEnd = clock(); timing.version = shown.version
         worker.main { this.shown = shown; measure(shown, timing); onShown() }
         return true
@@ -321,7 +337,7 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
         /** TBL-040 (owner playtest 2026-11-04): the boards in between, in event order, each after a step of the forward
          * events that moved, tapped, made or turned something (the board shown before and the last one left out): the
          * table plays them one after another at the card move speed, so every card goes to its place in its turn. */
-        val steps: List<PlayState> = emptyList(),
+        val steps: List<TableBoard> = emptyList(),
         /** §29.4: an undo (a rewind) took back events shown here: who undid, and the first action taken back with the
          * state it was shown on (for its words, "Undid: cast Storm Spark"); [steps] then fly the cards back. */
         val undone: Undone? = null)
@@ -337,11 +353,11 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
     private var pt: Map<String, Pair<Int, Int>> = emptyMap()
     private var loaded = true
     /** The board [preview] published last (engine thread): the next transition's steps start with it. */
-    private var previewed: PlayState? = null
+    private var previewed: TableBoard? = null
 
-    private fun transition(before: PlayState?, after: PlayState, tip: String, line: List<GameEvent>, attention: String?, move: String?) {
+    private fun transition(before: TableBoard?, after: TableBoard, tip: String, line: List<GameEvent>, attention: String?, move: String?) {
         val ptAfter = EngineChanges.powerToughness(device.model)
-        val from = before?.currentNodeId?.let { id -> line.indexOfFirst { it.id == id }.takeIf { it >= 0 } ?: if (id == device.session.lineStart) -1 else null }
+        val from = before?.nodeId?.let { id -> line.indexOfFirst { it.id == id }.takeIf { it >= 0 } ?: if (id == device.session.lineStart) -1 else null }
         val to = line.indexOfFirst { it.id == tip }.takeIf { it >= 0 } ?: if (tip == device.session.lineStart) -1 else null
         if (!loaded && before != null && from == null) rewinding?.let { r -> if (undo(r, before, after, attention, move)) return }
         val jump = loaded || before == null || from == null || to == null
@@ -349,7 +365,7 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
         val backward = if (!jump && to!! < from!!) line.subList(to + 1, from + 1).reversed() else emptyList()
         val changes = if (jump || before == null) emptyList() else EngineChanges.between(before, after, pt, ptAfter, forward + backward)
         // On the transition's node, so the table animates it as one of its steps
-        val shownFirst = previewed?.copy(currentNodeId = tip)
+        val shownFirst = previewed?.with(nodeId = tip)
         val steps = if (jump || forward.isEmpty()) emptyList() else runCatching {
             EngineMotion.trim(motionSteps(forward, tip, attention, move), before, after, shownFirst)
         }.onFailure { AppLog.info("engine", "No motion steps: ${it.message}") }.getOrDefault(emptyList())
@@ -366,9 +382,9 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
      * undid and the first action taken back. False when the board shown before isn't on the line shown before (nothing
      * of it was taken back) or the point isn't on it.
      */
-    private fun undo(r: Rewinding, before: PlayState, after: PlayState, attention: String?, move: String?): Boolean {
+    private fun undo(r: Rewinding, before: TableBoard, after: TableBoard, attention: String?, move: String?): Boolean {
         val old = r.line
-        val from = old.indexOfFirst { it.id == before.currentNodeId }.takeIf { it >= 0 } ?: return false
+        val from = old.indexOfFirst { it.id == before.nodeId }.takeIf { it >= 0 } ?: return false
         val to = old.indexOfFirst { it.id == r.target }.takeIf { it >= 0 } ?: if (old.firstOrNull()?.parentId == r.target) -1 else return false
         if (to >= from) return false
         val undone = old.subList(to + 1, from + 1).toList()
@@ -378,11 +394,11 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
             val start = (if (device.session.tip == r.target) device.model.copy() else device.session.stateAt(r.target)) ?: return@runCatching emptyList()
             if (undone.size > EngineMotion.MAX_EVENTS) return@runCatching emptyList()
             val tables = start.copy().let { t -> undone.map { e -> t.apply(e); t.table } }
-            val boards = boardsAlong(start, undone, tables, after.currentNodeId, attention, move)
+            val boards = boardsAlong(start, undone, tables, after.nodeId, attention, move)
             EngineMotion.trim(boards.asReversed(), before, after, null)
         }.onFailure { AppLog.info("engine", "No undo motion: ${it.message}") }.getOrDefault(emptyList())
         val first = undone.firstOrNull { !EngineEventText.hidden(it) || EngineEventText.pass(it) }
-        lastTransition = Transition(++transitions, after.currentNodeId, false, changes, emptySet(), emptyList(), undone.asReversed(), steps,
+        lastTransition = Transition(++transitions, after.nodeId, false, changes, emptySet(), emptyList(), undone.asReversed(), steps,
             Undone(r.by, first, r.state))
         pt = ptNow
         loaded = false
@@ -395,7 +411,7 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
      * colour), the last [EngineMotion.MAX_STEPS] at most. Worked out from the tip backwards (each event reverts exactly),
      * then forwards step by step on a copy: nothing is replayed from the line's start (owner rule).
      */
-    private fun motionSteps(all: List<GameEvent>, tip: String, attention: String?, move: String?): List<PlayState> {
+    private fun motionSteps(all: List<GameEvent>, tip: String, attention: String?, move: String?): List<TableBoard> {
         // A long run of events (a revision with many) shows its last ones step by step, what came before at once
         val forward = all.takeLast(EngineMotion.MAX_EVENTS)
         if (forward.sumOf { it.engine?.steps?.size ?: 0 } < 2) return emptyList()
@@ -410,10 +426,10 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
      * event) that changed what the table draws, projected on [tip] with [attention] and [move], the last
      * [EngineMotion.MAX_STEPS] at most. */
     private fun boardsAlong(start: GameModel, forward: List<GameEvent>, tables: List<org.asyncttwiz.protocol.game.TableState>,
-        tip: String, attention: String?, move: String?): List<PlayState> {
+        tip: String, attention: String?, move: String?): List<TableBoard> {
         val state = start.engine
         var seen = EngineMotion.objects(state)
-        val boards = ArrayList<Pair<PlayState, GameModel>>()
+        val boards = ArrayList<Pair<EngineProjection.Board, GameModel>>()
         forward.forEachIndexed { i, e ->
             for (step in e.engine?.steps.orEmpty()) {
                 step.changes.forEach(state::apply)
@@ -426,7 +442,7 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
             }
         }
         // R3: each step kept comes with its computed values (from the view its projection worked out)
-        return boards.map { (play, model) -> play.also { values(it, model) } }
+        return boards.map { (play, model) -> table(play, model, tip) }
     }
 
     /** The timeline's events and texts (HIS-001–HIS-005 on engine events; main thread). */
@@ -440,7 +456,7 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
      * player's own pending events), view-only; null when the device can't reach it exactly (it was trimmed, or a draft
      * is open).
      */
-    fun reviewPlay(id: String): PlayState? = worker.call {
+    fun reviewPlay(id: String): TableBoard? = worker.call {
         val session = device.session
         if (session.drafting) return@call null
         val model = when {
@@ -451,12 +467,12 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
             else -> runCatching { session.stateAt(id) }.getOrNull()
         } ?: return@call null
         if (model.stale) return@call null
-        EngineProjection.project(base, model, me, id, null, null, tokenArt, pictures).also { values(it, model) }
+        table(EngineProjection.project(base, model, me, id, null, null, tokenArt, pictures), model, id)
     }
 
     /** The board of [model] (the point an undo goes back to) as [viewer] sees it, for a view-only preview. */
-    fun preview(model: GameModel, at: String, viewer: String): PlayState? = worker.call {
-        runCatching { EngineProjection.project(base, model, viewer, at, null, null, tokenArt).also { values(it, model, viewer) } }.getOrNull()
+    fun preview(model: GameModel, at: String, viewer: String): TableBoard? = worker.call {
+        runCatching { table(EngineProjection.project(base, model, viewer, at, null, null, tokenArt), model, at, viewer) }.getOrNull()
     }
 
     /** The token pictures for the engine's tokens (SYS-072), from the device's card records. */
@@ -469,10 +485,10 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
      * (I-D56 §12); at the head staging is shared as table changes instead (I-D54 §8, [EngineDrafts]). Engine thread. */
     private var staging: EngineProjection.Staging? = null
 
-    /** Stages [play]'s combat lanes and attack choices (a board the combat controls made from the shown one). */
-    fun stage(play: PlayState) = worker.call {
-        val records = play.board.engineRecords.filter { it.kind == org.asyncttwiz.protocol.EngineRecordKind.PreAnswer }
-        staging = EngineProjection.Staging(EngineProjection.Staging.keyOf(device.model.engine), play.board.combat, records)
+    /** Stages [board]'s combat lanes and attack choices (a board the combat controls made from the shown one). */
+    fun stage(board: BoardState) = worker.call {
+        val records = board.engineRecords.filter { it.kind == org.asyncttwiz.protocol.EngineRecordKind.PreAnswer }
+        staging = EngineProjection.Staging(EngineProjection.Staging.keyOf(device.model.engine), board.combat, records)
         publish()
     }
 
@@ -782,7 +798,7 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
      */
     private fun stillSame(what: String, board: Shown?,
         same: (arcanum.engine.state.GameState, arcanum.engine.state.GameState) -> Boolean = GameDevice::sameDecision): Boolean {
-        val seen = board?.play?.board?.engine?.state ?: return false
+        val seen = board?.board?.engine?.state ?: return false
         if (device.session.drafting || !same(seen, device.model.engine)) return false
         AppLog.info("engine", "Own $what made on board v$published: the same decision as on board v${board.version} it was tapped on")
         return true
@@ -860,7 +876,7 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
                 nanos(parts[OwnActionTiming.ENGINE]) + nanos(parts[OwnActionTiming.INFO]), nanos(parts[OwnActionTiming.BOARD]))
             worker.frame { timing.frame = clock(); arrived(timing) }
         }
-        measuring?.boards?.add(shown.play.board)
+        measuring?.boards?.add(shown.board.board)
     }
 
     /** Main thread: a part of [timing]'s arrived; reported once every part is in. */

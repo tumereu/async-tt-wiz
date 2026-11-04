@@ -90,7 +90,7 @@ interface CastPreview {
  */
 internal class CastController(
     private val viewer: String,
-    private val current: () -> PlayState?,
+    private val current: () -> TableBoard?,
     private val send: ((GameAction.PlayBatch, String) -> Boolean)?,
     private val tags: () -> List<MtgTag?>,
     private val fail: (String?) -> Unit,
@@ -162,7 +162,7 @@ internal class CastController(
         val play = current() ?: return false
         if (open) { fail(BUSY); return false }
         // A shared flow waits for an answer (D32): nothing is cast meanwhile
-        if (Automatum.flowOpen(play.board)) { fail(SharedFlowController.BUSY); return false }
+        if (play.flowOpen) { fail(SharedFlowController.BUSY); return false }
         if (!ownHand(play, cardId, viewer)) { fail(NOT_YOURS); return false }
         val history = tags()
         val autotapOn = autotap
@@ -170,7 +170,6 @@ internal class CastController(
         hidden = false
         abilityText = null
         return step {
-            val definitions = AutomatumBoards.definitions(play)
             val plays = AutomatumBoards.handPlays(play, viewer) { history }
             val offered = plays.of(cardId)
             val name = cardName(play, cardId)
@@ -178,7 +177,7 @@ internal class CastController(
             if (begin == null) return@step Step.Drop(if (plays.unsupported.isNotEmpty()) "$TAKE_OVER ${plays.unsupported.first()}"
                 else if (land(play, cardId)) "$name can't be played now." else "$name can't be cast now.")
             val flow = try {
-                CastFlow.start(play, definitions, viewer, AutomatumBoards.engineLog(play, definitions, history), begin, seeds(), extras = extras)
+                CastFlow.start(source(play, history), viewer, begin, seeds(), extras = extras)
             } catch (problem: IllegalArgumentException) {
                 return@step Step.Drop("$name can't be cast now.")
             } catch (problem: Unsupported) {
@@ -198,19 +197,18 @@ internal class CastController(
         beginning()
         val play = current() ?: return false
         if (open) { fail(BUSY); return false }
-        if (Automatum.flowOpen(play.board)) { fail(SharedFlowController.BUSY); return false }
+        if (play.flowOpen) { fail(SharedFlowController.BUSY); return false }
         val history = tags()
         val autotapOn = autotap
         starting = cardId
         hidden = false
         abilityText = text.takeIf { input is Input.Activate }
         return step {
-            val definitions = AutomatumBoards.definitions(play)
             val ways = if (input is Input.Activate) listOf(input)
                 else AutomatumBoards.handPlays(play, viewer) { history }.of(cardId).takeIf { input in it } ?: listOf(input)
             val name = cardName(play, cardId)
             val flow = try {
-                CastFlow.start(play, definitions, viewer, AutomatumBoards.engineLog(play, definitions, history), input, seeds())
+                CastFlow.start(source(play, history), viewer, input, seeds())
             } catch (problem: IllegalArgumentException) {
                 return@step Step.Drop(if (input is Input.Activate) "$name: that can't be done now." else "$name can't be cast now.")
             } catch (problem: Unsupported) {
@@ -301,7 +299,7 @@ internal class CastController(
     fun cancel(how: String = "cancelled") {
         notice = null
         // I-D43: how each cast flow ended
-        if (flow != null || starting != null || sendingCard != null) (flow?.play?.gameId ?: current()?.gameId)?.let {
+        if (flow != null || starting != null || sendingCard != null) (flow?.source?.gameId ?: current()?.gameId)?.let {
             AutomatumLog.flow(it, "cast", how, flow?.cardId ?: starting ?: sendingCard.orEmpty())
         }
         generation++
@@ -316,14 +314,14 @@ internal class CastController(
 
     /** The table items that glow as legal targets of the open question: cards by id (and the Graveyard or Exile pile
      * holding one, opened to pick it), players by their life square. */
-    fun glow(play: PlayState): Set<String> {
+    fun glow(play: TableBoard): Set<String> {
         val f = flow ?: return emptySet()
         val decision = f.pending as? Decision.Targets ?: return emptySet()
         return targetGlow(play, decision.options.map(f::ref))
     }
 
     /** The Stack entries that are legal targets of the open question, top first (picked in Manage Stack). */
-    fun stackTargets(play: PlayState): List<String> {
+    fun stackTargets(play: TableBoard): List<String> {
         val f = flow ?: return emptyList()
         val decision = f.pending as? Decision.Targets ?: return emptyList()
         return targetEntries(play, decision.options.map(f::ref))
@@ -340,15 +338,14 @@ internal class CastController(
         // Checked again once the step being worked out is done
         if (busy) return
         val play = current() ?: return
-        if (f.play.id != play.id) return
-        if (f.play.board === play.board) return
+        if (f.source.gameId != play.gameId) return
+        if (f.board === play.board) return
         val history = tags()
         val keep = mana
         val autotapOn = autotap
         step {
             try {
-                val definitions = AutomatumBoards.definitions(play)
-                settle(f.on(play, AutomatumBoards.engineLog(play, definitions, history)), auto = false, autotapOn, keep, clear = false)
+                settle(f.on(source(play, history)), auto = false, autotapOn, keep, clear = false)
             } catch (problem: Exception) {
                 Step.Drop("The table changed: ${cardName(play, f.cardId)} can't be cast now.")
             }
@@ -362,8 +359,8 @@ internal class CastController(
         class Mana(val flow: CastFlow, val mana: List<ManaUse>, val paid: Boolean) : Step
         /** The complete [flow] planned as one batch on [board]. */
         class Send(val flow: CastFlow, val plan: BatchPlan, val requestId: String, val board: BoardState) : Step {
-            /** The event [board] is at. */
-            val node: String get() = flow.play.currentNodeId
+            /** The event [board] is at (today's model: the cast's preview follows it). */
+            val node: String get() = (flow.source as? CastFlow.Source.Legacy)?.play?.currentNodeId.orEmpty()
         }
         /** I-D47: the complete cast ([sending]) on [board]: [plan] is the cast alone, shown at once as a preview with
          * [requestId] while the batch with what follows it is worked out ([finish]). */
@@ -422,7 +419,7 @@ internal class CastController(
             starting = null
             notice = null
             outcome.ways?.let { ways = it }
-            if (outcome.ways != null) AutomatumLog.flow(outcome.flow.play.gameId, "cast", "started", outcome.flow.cardId)
+            if (outcome.ways != null) AutomatumLog.flow(outcome.flow.source.gameId, "cast", "started", outcome.flow.cardId)
             listed = outcome.listed; visible = outcome.visible
             flow = outcome.flow; mana = outcome.mana; paid = outcome.paid; picked = emptyList()
             if (outcome.clear) fail(null)
@@ -458,9 +455,7 @@ internal class CastController(
             val autotapOn = autotap
             starting = null
             return step {
-                val ready = try {
-                    planned.flow.on(play, AutomatumBoards.engineLog(play, AutomatumBoards.definitions(play), history))
-                } catch (_: Exception) { null }
+                val ready = try { planned.flow.on(source(play, history)) } catch (_: Exception) { null }
                 ready?.let { complete(it, autotapOn) } ?: Step.Drop(TABLE_CHANGED)
             }
         }
@@ -483,9 +478,7 @@ internal class CastController(
             val autotapOn = autotap
             starting = null
             return step {
-                val ready = try {
-                    planned.flow.on(play, AutomatumBoards.engineLog(play, AutomatumBoards.definitions(play), history))
-                } catch (_: Exception) { null }
+                val ready = try { planned.flow.on(source(play, history)) } catch (_: Exception) { null }
                 ready?.let { complete(it, autotapOn) } ?: Step.Drop(TABLE_CHANGED)
             }
         }
@@ -513,7 +506,7 @@ internal class CastController(
         return step {
             val next = try { change(f) } catch (problem: IllegalArgumentException) {
                 AppLog.info("automatum", "Cast step refused: ${problem.message?.take(200)}")
-                AutomatumLog.refusal(f.play.gameId, "cast step", problem.message.orEmpty())
+                AutomatumLog.refusal(f.source.gameId, "cast step", problem.message.orEmpty())
                 return@step Step.Refuse(NOT_ALLOWED)
             }
             settle(next, auto = true, autotapOn, keep = null, refuseShort = true)
@@ -553,24 +546,25 @@ internal class CastController(
             else -> return null
         }
         val sending = try { next.sending(uses) } catch (_: IllegalArgumentException) { return null }
-        if (engineSend != null) return Step.Engine(sending.flow, sending.cast.inputs.toList(), next.play.board)
+        if (engineSend != null) return Step.Engine(sending.flow, sending.cast.inputs.toList(), next.board)
         if (preview == null || next.begin !is Input.Cast) return plan(sending)
         val requestId = DeviceRandom.uuid()
         return try {
-            Step.Preview(sending, EngineBatch.plan(sending.cast, viewer, command(next, requestId), tokenArt), requestId, next.play.board)
+            Step.Preview(sending, EngineBatch.plan(sending.cast, viewer, command(next, requestId), tokenArt), requestId, next.board)
         } catch (problem: Unmappable) {
             plan(sending)
         }
     }
 
-    private fun command(done: CastFlow, requestId: String) = GameCommand(requestId, GameScope(done.play.gameId, playId = done.play.id),
+    private fun command(done: CastFlow, requestId: String) = GameCommand(requestId,
+        GameScope(done.source.gameId, playId = (done.source as CastFlow.Source.Legacy).play.id),
         GameAction.PlayBatch(listOf(PlayAction.PassAttention)), DeviceRandom.uuid(), "1")
 
     /** The complete cast as one batch (I-D11, SYS-010) on the board it was worked out on: the cast with what follows it. */
     private fun plan(sending: CastFlow.Sending): Step {
         val done = sending.flow
         val requestId = DeviceRandom.uuid()
-        return try { Step.Send(done, EngineBatch.plan(sending.sent(), viewer, command(done, requestId), tokenArt), requestId, done.play.board) }
+        return try { Step.Send(done, EngineBatch.plan(sending.sent(), viewer, command(done, requestId), tokenArt), requestId, done.board) }
         catch (problem: Unmappable) {
             AppLog.warn("automatum", "Cast couldn't be planned: ${problem.message?.take(200)}")
             Step.Drop("Automatum couldn't send that cast.")
@@ -579,18 +573,25 @@ internal class CastController(
 
     private fun targetOf(f: CastFlow, decision: Decision.Targets, item: TableItem): TargetRef? {
         if (item.kind == TableItemKind.LIFE) return decision.options.firstOrNull { it == TargetRef.Player(PlayerId(item.owner ?: return null)) }
-        val play = f.play
         val ids = listOfNotNull(item.sourceId, item.cardId)
         return decision.options.firstOrNull { target ->
             when (val ref = f.ref(target)) {
                 is MtgRef.Card -> ref.cardId in ids
-                is MtgRef.StackItem -> play.board.stackEffects.any { it.id in ids && it.item?.id == ref }
+                is MtgRef.StackItem -> f.board.stackEffects.any { it.id in ids && it.item?.id == ref }
                 is MtgRef.Player -> false
             }
         }
     }
 
     private fun seeds() = CastFlow.Seeds { DeviceRandom.seed() }
+
+    /** Where a cast on [play] runs (worked out on [work]): today's model's board rebuilt for the engine with the history's
+     * tags up to it ([history], the engine's event log, D33). */
+    private fun source(play: TableBoard, history: List<MtgTag?>): CastFlow.Source {
+        val legacy = requireNotNull(play.legacy) { "No board to cast on" }
+        val definitions = AutomatumBoards.definitions(legacy)
+        return CastFlow.Source.legacy(legacy, definitions, AutomatumBoards.engineLog(legacy, definitions, history))
+    }
 
     companion object {
         const val BUSY = "Finish or cancel the cast first."
@@ -608,27 +609,27 @@ internal class CastController(
         const val FAILED = "Automatum couldn't work that cast out."
         const val TAKE_OVER = "Automatum can't take over this board:"
 
-        fun cardName(play: PlayState, cardId: String): String {
+        fun cardName(play: TableBoard, cardId: String): String {
             val card = play.board.cards.singleOrNull { it.id == cardId } ?: return "That card"
             return play.definitions.singleOrNull { it.digest == card.definition }?.definition?.faces
                 ?.let { faces -> faces.singleOrNull { it.faceId == card.faceId } ?: faces.firstOrNull() }?.name ?: "That card"
         }
 
-        fun land(play: PlayState, cardId: String): Boolean {
+        fun land(play: TableBoard, cardId: String): Boolean {
             val card = play.board.cards.singleOrNull { it.id == cardId } ?: return false
             val front = play.definitions.singleOrNull { it.digest == card.definition }?.definition?.faces?.firstOrNull()
             return "Land" in StackContexts.types(front?.typeLine.orEmpty())
         }
 
         /** Whether [cardId] is in [viewer]'s own hand. */
-        fun ownHand(play: PlayState, cardId: String, viewer: String): Boolean {
+        fun ownHand(play: TableBoard, cardId: String, viewer: String): Boolean {
             val card = play.board.cards.singleOrNull { it.id == cardId } ?: return false
             return play.board.containers.any { it.id == card.containerId && it.zone == PlayZone.HAND && it.accountId == viewer }
         }
 
         /** The hand menu's Play with Automatum on (ZON-007): "Play" for a land, "Cast" for anything else, and "Cast" for a
          * card [viewer] can't see face up, whatever it is (I-D27). */
-        fun playLabel(play: PlayState, cardId: String, viewer: String): String {
+        fun playLabel(play: TableBoard, cardId: String, viewer: String): String {
             val card = play.board.cards.singleOrNull { it.id == cardId } ?: return "Cast"
             if (!CardVisibility.isVisibleFaceUp(play.board, card, viewer)) return "Cast"
             return if (land(play, cardId)) "Play" else "Cast"
@@ -639,7 +640,7 @@ internal class CastController(
 /** The table items that glow for the legal targets [refs] (I-D6): cards by id, a Graveyard or Exile pile holding one
  * (tapped, it opens to pick from, i12review #14), Stack entries by id, and the Stack itself when an entry below the top
  * is one (tapped, Manage Stack opens to pick from), players by their life square. */
-internal fun targetGlow(play: PlayState, refs: List<MtgRef>): Set<String> = refs.flatMap { ref ->
+internal fun targetGlow(play: TableBoard, refs: List<MtgRef>): Set<String> = refs.flatMap { ref ->
     // UI review round 2 #4 (decided for the owner): a spell on the Stack glows as its entry only, never as its real card
     // (in a hand, STK-001) or the pile holding it
     val entries = play.board.stackEffects.filter { it.item?.id == ref }.map { it.id }
@@ -655,7 +656,7 @@ internal fun targetGlow(play: PlayState, refs: List<MtgRef>): Set<String> = refs
 
 /** The Stack entries that are legal targets among [refs]: a spell by its card (its item's object), an ability by its
  * item (I-D6), top first. */
-internal fun targetEntries(play: PlayState, refs: List<MtgRef>): List<String> {
+internal fun targetEntries(play: TableBoard, refs: List<MtgRef>): List<String> {
     val wanted = refs.filter { it !is MtgRef.Player }.toSet()
     val entries = play.board.stackEffects.associateBy { it.id }
     return CombatStackRules.stack(play.board).cards.filter { id -> entries[id]?.item?.id in wanted }

@@ -41,7 +41,7 @@ internal fun panelColumn(index: Int, count: Int, columns: Int): Int {
 internal fun TableScene.localPanelOutside(point: TablePoint): Boolean =
     cardPanels.any { it.localZone != null && !it.bounds.contains(point) }
 
-internal fun localPanelDisplay(play: PlayState, viewer: String, ui: TableLayoutState): ContentsDisplay? {
+internal fun localPanelDisplay(play: TableBoard, viewer: String, ui: TableLayoutState): ContentsDisplay? {
     val pile = play.board.containers.singleOrNull { it.id == ui.localPileId && it.zone in listOf(PlayZone.GRAVEYARD, PlayZone.EXILE) }
         ?: return null
     if (pile.cards.isEmpty()) return null
@@ -49,7 +49,7 @@ internal fun localPanelDisplay(play: PlayState, viewer: String, ui: TableLayoutS
 }
 
 /** Layout depends only on the current materialized board and personal viewport, never history. */
-internal fun cardPanelGeometry(play: PlayState, viewer: String, ui: TableLayoutState, area: TableBounds,
+internal fun cardPanelGeometry(play: TableBoard, viewer: String, ui: TableLayoutState, area: TableBounds,
     scale: Float = 1f): List<CardPanelGeometry> {
     // I-D52: only the viewer's own look into a Graveyard or Exile (ZON-016); no shared search, look or reveal panels
     val local = localPanelDisplay(play, viewer, ui)
@@ -104,7 +104,7 @@ internal fun cardPanelGeometry(play: PlayState, viewer: String, ui: TableLayoutS
     }
 }
 
-internal fun cardPanels(scene: TableScene, play: PlayState, viewer: String, panels: List<CardPanelGeometry>): TableScene {
+internal fun cardPanels(scene: TableScene, play: TableBoard, viewer: String, panels: List<CardPanelGeometry>): TableScene {
     if (panels.isEmpty()) return scene
     val cards = play.board.cards.associateBy { it.id }
     val definitions = play.definitions.associateBy { it.digest }

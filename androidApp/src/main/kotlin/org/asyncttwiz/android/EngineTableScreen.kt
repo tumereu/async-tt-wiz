@@ -43,20 +43,20 @@ import org.asyncttwiz.protocol.game.GameDevice
 internal fun EngineTableScreen(controller: LobbyController, accountId: String, hamburger: (() -> Unit)?, landscape: Boolean) {
     val state = controller.table.value
     val game = state.detail ?: return
-    val live = state.play ?: return
+    val live = state.board ?: return
     val engine = controller.engineGame() ?: return
     // What the engine thread published last (I-D56 step D2): the table reads nothing else of the device
     val shown = engine.shown ?: return
     val interactive = game.id !in state.reconnectingGames
     val routes = remember(controller, game.id, accountId) {
         EngineTableRoutes(accountId, { controller.engineGame() }, { controller.engineSent() },
-            { controller.table.value.play?.takeIf { it.gameId == game.id } })
+            { controller.table.value.board?.takeIf { it.gameId == game.id } })
     }
     val context = LocalContext.current
     val tokenArt = remember(context) { AndroidTokenArt.of(context.applicationContext) }
-    val playId = live.id
+    val playId = live.playId
     val toolkit = remember(controller, game.id, playId, accountId) {
-        TableToolkitController(accountId, { controller.table.value.play?.takeIf { it.id == playId && it.gameId == game.id } },
+        TableToolkitController(accountId, { controller.table.value.board?.takeIf { it.playId == playId && it.gameId == game.id } },
             { game.id !in controller.table.value.reconnectingGames && routes.canAct() && routes.review == null },
             { action, _ -> routes.local(listOf(action)) },
             ending = { intent -> engineEnding(routes, intent) },
@@ -98,11 +98,11 @@ internal fun EngineTableScreen(controller: LobbyController, accountId: String, h
     val play = reviewPlay ?: motion.board(shown.version, shown.transition, live)
     SideEffect {
         if (reviewPlay != null) {
-            if (applied.reviewed != reviewPlay.currentNodeId) {
-                applied.reviewed = reviewPlay.currentNodeId
-                changes.applyEngine(reviewPlay.currentNodeId, jump = false, emptyList(), emptySet())
+            if (applied.reviewed != reviewPlay.nodeId) {
+                applied.reviewed = reviewPlay.nodeId
+                changes.applyEngine(reviewPlay.nodeId, jump = false, emptyList(), emptySet())
                 // HIS-076: in timeline mode every event shown has its chip, yours too
-                engine.event(reviewPlay.currentNodeId)?.let { eventText.post(it.id, engine.timeline.text(engine, it, names)) }
+                engine.event(reviewPlay.nodeId)?.let { eventText.post(it.id, engine.timeline.text(engine, it, names)) }
             }
         } else {
             applied.reviewed = null

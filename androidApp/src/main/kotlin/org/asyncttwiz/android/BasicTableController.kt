@@ -3,7 +3,7 @@ package org.asyncttwiz.android
 import org.asyncttwiz.protocol.*
 
 /** Invocation lowering, not a board store. The toolkit collects constituents against its batch draft. */
-class BasicTableController(private val play: () -> PlayState?, private val connected: () -> Boolean,
+class BasicTableController(private val play: () -> TableBoard?, private val connected: () -> Boolean,
     private val submit: (PlayAction, String?) -> Boolean) {
     fun handle(intent: TableIntent): Boolean {
         if (!connected()) return false
@@ -22,9 +22,9 @@ class BasicTableController(private val play: () -> PlayState?, private val conne
         }
     }
 
-    private fun move(current: PlayState, intent: TableIntent.Move, invocation: String, stackEntryId: String? = null): Boolean {
+    private fun move(current: TableBoard, intent: TableIntent.Move, invocation: String, stackEntryId: String? = null): Boolean {
         val state = current
-        val destinations = intent.scope.cardIds.groupBy { ownerMoveDestination(state.board, it, intent.destination, state.id) }
+        val destinations = intent.scope.cardIds.groupBy { ownerMoveDestination(state.board, it, intent.destination, state.playId) }
         if (destinations.size > 1 || destinations.keys.singleOrNull()?.let { it != intent.destination } == true) {
             // Splitting by owner must not repair stale captures or bypass the single Stack-entry rule.
             if (intent.scope.cardIds.size > 1 && intent.scope.cardIds.any { it in CombatStackRules.stack(state.board).cards }) return false
@@ -36,7 +36,7 @@ class BasicTableController(private val play: () -> PlayState?, private val conne
             }
             var sent = false
             for ((destination, ids) in destinations) {
-                val predecessor = play()?.takeIf { connected() && it.id == state.id } ?: break
+                val predecessor = play()?.takeIf { connected() && it.playId == state.playId } ?: break
                 sent = move(predecessor, intent.copy(scope = TableScope(intent.scope.contextId.takeIf { it in ids } ?: ids.first(), ids),
                     destination = destination, sources = intent.sources.filterKeys { it in ids }), invocation, stackEntryId) || sent
             }
@@ -68,7 +68,7 @@ class BasicTableController(private val play: () -> PlayState?, private val conne
             id !in ids && state.board.cards.single { it.id == id }.placement == p } }
         val grid = intent.destination as? TableDestination.Grid
         val positions = if (grid?.auto == true) {
-            BattlefieldPlacement.cells(state, target.id, ids.map { id -> state.board.cards.single { it.id == id } })
+            BattlefieldPlacement.cells(state.board, state.definitions, target.id, ids.map { id -> state.board.cards.single { it.id == id } })
         } else if (grid != null) {
             val context = sources[intent.scope.contextId]?.placement?.position
             ids.mapIndexed { index, id ->
@@ -87,7 +87,7 @@ class BasicTableController(private val play: () -> PlayState?, private val conne
         var any = false
         for ((index, id) in ids.withIndex()) {
             if (!connected()) break
-            val predecessor = play()?.takeIf { it.id == state.id && it.gameId == state.gameId } ?: break
+            val predecessor = play()?.takeIf { it.playId == state.playId && it.gameId == state.gameId } ?: break
             val currentTarget = predecessor.board.containers.singleOrNull { it.id == target.id } ?: break
             val destination = when {
                 target.zone == PlayZone.HAND && (intent.destination as? TableDestination.Container)?.handGap != null -> {
@@ -167,7 +167,7 @@ class BasicTableController(private val play: () -> PlayState?, private val conne
                     continue
                 }
             }
-            val constituents = GameplayRules.moveActions(predecessor, action)
+            val constituents = listOf<PlayAction>(action)
             // A failed first enqueue must not run its reset conveniences on an unmoved card.
             if (!submit(constituents.first(), invocation)) continue
             any = true
@@ -179,15 +179,15 @@ class BasicTableController(private val play: () -> PlayState?, private val conne
     }
 
     companion object {
-        fun projection(state: PlayState, action: PlayAction.MoveCard): PlayAction.Stack? {
+        fun projection(state: TableBoard, action: PlayAction.MoveCard): PlayAction.Stack? {
             if (action.removeStackEntryId != null) return null
             val card = state.board.cards.singleOrNull { it.id == action.cardId } ?: return null
             if (!CombatStackRules.canProject(state.board, card) || card.containerId != action.source.containerId ||
                 card.placement != action.source.placement) return null
-            return PlayAction.Stack(StackAction.AddEffect(card.id, GameplayRules.stackDigest(state)))
+            return PlayAction.Stack(StackAction.AddEffect(card.id, CombatStackRules.stackDigest(state.playId, state.board)))
         }
 
-        fun sources(state: PlayState, ids: List<String>, top: Boolean = false): Map<String, TableMoveSource> =
+        fun sources(state: TableBoard, ids: List<String>, top: Boolean = false): Map<String, TableMoveSource> =
             state.board.cards.filter { it.id in ids }.associate { c -> c.id to TableMoveSource(c.containerId,
                 c.placement?.let { TablePlacement(it.position.x, it.position.y, pileId = it.pileId) }, top) }
 
@@ -196,7 +196,7 @@ class BasicTableController(private val play: () -> PlayState?, private val conne
         }, if (libraryTop) MoveSourceEdge.TOP else MoveSourceEdge.MEMBER, bottomSlice, takeFromEdge)
 
         /** Same-source order is semantic; cross-source order is stable spatial order, not card name. */
-        private fun ordered(state: PlayState, ids: List<String>): List<String> {
+        private fun ordered(state: TableBoard, ids: List<String>): List<String> {
             val cards = state.board.cards.associateBy { it.id }
             return ids.distinct().filter { it in cards }.sortedWith(compareBy<String> {
                 state.board.containers.indexOfFirst { c -> c.id == cards.getValue(it).containerId }

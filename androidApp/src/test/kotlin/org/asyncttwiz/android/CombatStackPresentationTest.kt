@@ -20,7 +20,7 @@ class CombatStackPresentationTest {
         val drawings = CombatStackPresentation.stack(state.board, 28f, 40f).visible
         assertEquals(1, drawings.size)
         assertTrue(drawings.all { !it.card.tapped && it.bounds.width == 28f && it.bounds.height == 40f })
-        val scene = TablePresentation.scene(f.game, state, f.a, 412f, 892f, false)
+        val scene = TablePresentation.scene(f.game, TableBoard.of(state), f.a, 412f, 892f, false)
         assertTrue(scene.items.filter { it.zone == PlayZone.STACK && it.kind == TableItemKind.CARD }.all { !it.tapped })
         assertFalse(scene.items.single { it.cardId == f.id("attacker2") }.tapped)
         assertTrue(state.board.cards.single { it.id == f.source(f.a, "1/2").id }.tapped)
@@ -141,7 +141,7 @@ class CombatStackPresentationTest {
             val card = TablePresentation.COMBAT_MIN_CARD
             val geometry = CombatStackPresentation.combat(state.board, card, card * 40f / 28f, state.definitions,
                 listOf(f.game.inviter, f.game.recipient).associate { it.accountId to it.username }, f.a)
-            val home = TablePresentation.scene(f.game, state, f.a, if (landscape) 892f else 412f,
+            val home = TablePresentation.scene(f.game, TableBoard.of(state), f.a, if (landscape) 892f else 412f,
                 if (landscape) 412f else 892f, landscape)
             val rows = home.combatDrops.filter { it.destination.insertion == CombatInsertion.APPEND && it.destination.pairId != null }
             val center = if (rows.isEmpty()) home.combatDrops.first().landing.x else
@@ -149,7 +149,7 @@ class CombatStackPresentationTest {
             assertEquals(home.world!!.viewport.center.x, center, .001f)
             if (rows.isNotEmpty()) assertEquals(geometry.width, rows.maxOf { it.bounds.right } - rows.minOf { it.bounds.x }, .001f)
             val camera = TableCamera(13f, 5f, 1.4f)
-            val moved = TablePresentation.scene(f.game, state, f.a, if (landscape) 892f else 412f,
+            val moved = TablePresentation.scene(f.game, TableBoard.of(state), f.a, if (landscape) 892f else 412f,
                 if (landscape) 412f else 892f, landscape, TableLayoutState(camera = camera))
             assertEquals(camera, moved.camera)
             val movedRows = moved.combatDrops.filter { it.destination.insertion == CombatInsertion.APPEND && it.destination.pairId != null }

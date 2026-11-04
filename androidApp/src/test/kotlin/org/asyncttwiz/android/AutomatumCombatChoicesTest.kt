@@ -133,7 +133,7 @@ class AutomatumCombatChoicesTest {
         return true
     }
 
-    private fun device(viewer: String) = TableToolkitController(viewer, { live.value }, { true },
+    private fun device(viewer: String) = TableToolkitController(viewer, { live.value?.let(TableBoard::of) }, { true },
         { action, _ -> accept(viewer, GameAction.Play(action)) },
         playBatch = { actions, request -> accept(viewer, GameAction.PlayBatch(actions), request) },
         playTree = { tree }, automatedBatch = { batch, request -> accept(viewer, batch, request) })
@@ -151,7 +151,7 @@ class AutomatumCombatChoicesTest {
                 NoRipples {
                     Box(Modifier.fillMaxSize()) {
                         shownDevice.value?.let { device -> androidx.compose.runtime.key(device) {
-                            TableSurface(f.game, live.value!!, device.viewer, false, Modifier.fillMaxSize(), connected = true,
+                            TableSurface(f.game, TableBoard.of(live.value!!), device.viewer, false, Modifier.fillMaxSize(), connected = true,
                                 onIntent = device::handle, toolkit = device,
                                 runtime = TableRuntimeHooks(navigation = {}, chat = {}, undo = { true }, controlsConnected = true))
                         } }
@@ -162,7 +162,7 @@ class AutomatumCombatChoicesTest {
         compose.waitForIdle()
     }
 
-    private fun scene(viewer: String) = TablePresentation.scene(f.game, play, viewer, 412f, 892f, false)
+    private fun scene(viewer: String) = TablePresentation.scene(f.game, TableBoard.of(play), viewer, 412f, 892f, false)
     private fun tap(toolkit: TableToolkitController, item: TableItem) = toolkit.open(TableIntent.Actions(item.id, null), item)
     private fun tapCard(toolkit: TableToolkitController, card: String) = tap(toolkit,
         scene(toolkit.viewer).items.first { it.cardId == card && it.viewport != "combat" && it.zone == PlayZone.BATTLEFIELD })
@@ -248,7 +248,7 @@ class AutomatumCombatChoicesTest {
         assertEquals(setOf(raiderCard, sergeantCard), choices().keys)
         tapCard(alice, raiderCard)
         assertEquals(setOf(sergeantCard), choices().keys, "the Raider left the staging with its exert")
-        assertTrue(alice.clearCombatDraft(play), alice.error)
+        assertTrue(alice.clearCombatDraft(TableBoard.of(play)), alice.error)
         assertTrue(choices().isEmpty())
         assertNull(play.board.engineRecords.firstOrNull { it.kind == EngineRecordKind.PreAnswer })
     }
@@ -355,7 +355,7 @@ class AutomatumCombatChoicesTest {
         until(alice, bob) { play.board.cards.single { it.id == siegeCard }.containerId == aField }
         assertEquals(3, play.board.cards.single { it.id == siegeCard }.typedCounters.single { it.kind == "defense" }.count)
         until(alice, bob) { position() == TurnPosition.DECLARE_ATTACKERS }
-        alice.combat.chooseTarget(play, siegeCard)
+        alice.combat.chooseTarget(TableBoard.of(play), siegeCard)
         tapCard(alice, bearCard)
         assertEquals(listOf<String?>(siegeCard), play.board.combat!!.pairs.map { it.attackTarget })
         assertTrue(arrow(alice, "Attack (1)"), alice.error)

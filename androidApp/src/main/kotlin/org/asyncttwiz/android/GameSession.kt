@@ -186,9 +186,11 @@ class GameSession(private val connection: GameConnection, private val credential
         plays[gameId]?.pendingIds?.isNotEmpty() == true || resultIntents.values.any { it.command.scope.gameId == gameId }
     fun queuedTransfers(gameId: String) = preparations.queuedTransfers(gameId)
     fun acceptedPreparation(gameId: String) = preparations.acceptedPreparation(gameId)
-    fun acceptedPlay(game: GameSummary) = engineGame(game)?.play() ?: plays[game.id]?.accepted?.takeIf { summary(game).let { current ->
+    fun acceptedPlay(game: GameSummary) = engineGame(game)?.base ?: plays[game.id]?.accepted?.takeIf { summary(game).let { current ->
         current.lifecycle == GameLifecycle.ACTIVE && current.playId == it.id } }
-    fun play(game: GameSummary) = engineGame(game)?.play() ?: plays[game.id]?.display?.takeIf { acceptedPlay(game)?.id == it.id }
+    fun play(game: GameSummary) = engineGame(game)?.base ?: plays[game.id]?.display?.takeIf { acceptedPlay(game)?.id == it.id }
+    /** The board the table draws of [game] played on engine state (engine-responsiveness R4a), once it first loaded. */
+    internal fun board(game: GameSummary): TableBoard? = engineGame(game)?.play()
 
     // ---- I-D56: games played on engine state
     private val engineGames = mutableMapOf<String, EngineGame>()

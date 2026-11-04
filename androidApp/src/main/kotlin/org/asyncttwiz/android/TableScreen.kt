@@ -194,7 +194,7 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
     SideEffect { toolkit.pause.routes = pauseRoutes }
     // I-D47: Autotap mana sources (Settings → Automatum)
     SideEffect { toolkit.cast.autotap = pauseSettings.autotap }
-    AutomatumPauseDriver(toolkit, playback, play, live?.currentNodeId,
+    AutomatumPauseDriver(toolkit, playback, play?.let(TableBoard::of), live?.currentNodeId,
         liveShown = position?.mode == HistoryMode.LIVE && history.armed == null && !resultLocked,
         opponentOnline = state.opponentPresence?.let { PresenceText.dot(it, monotonicMillis()) == PresenceDot.ONLINE } == true,
         settings = pauseSettings, sync = pausePreferences)
@@ -235,9 +235,9 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
                 returnCurrent = if (waitingActivity) controller::leaveActivityReview else null)
         } else {
             BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
-                TableSurface(game, play, accountId, landscape, Modifier.fillMaxSize(),
+                TableSurface(game, TableBoard.of(play), accountId, landscape, Modifier.fillMaxSize(),
                     connected = interactive && editable && !resultLocked, onIntent = onIntent ?: toolkit::handle, placements = placements,
-                    toolkit = toolkit, accepted = state.acceptedPlay.takeIf { history.gate != null },
+                    toolkit = toolkit, accepted = state.acceptedPlay.takeIf { history.gate != null }?.let(TableBoard::of),
                        runtime = runtime.copy(chat = runtime.chat ?: controller::openChat,
                            gameActionsBlocked = resultLocked,
                            resultControls = TableResultControls(interactive && history.foreground &&
@@ -335,7 +335,7 @@ internal fun tableToolkit(controller: LobbyController, history: TableHistoryCont
 ): TableToolkitController = TableToolkitController(accountId, {
         val personal = controller.history
         (if (personal.playback?.position?.mode == HistoryMode.PLAYBACK && !personal.provisional) personal.view?.state else controller.table.value.play)
-            ?.takeIf { it.id == playId && it.gameId == game.id }
+            ?.takeIf { it.id == playId && it.gameId == game.id }?.let(TableBoard::of)
     }, { history.foreground && game.id !in controller.table.value.reconnectingGames && !controller.resultLocked() &&
         (history.playback?.position?.mode != HistoryMode.PLAYBACK || history.armed != null) },
     controller::gameplay, ending = { intent ->

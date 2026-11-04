@@ -22,7 +22,7 @@ class TableToolkitGeometryTest {
     @Test fun actualCanvasSceneSharesDrawHitSemanticsAndCommonScaleForCombatAndMixedStack() {
         val f = BasicTableFixture(); val play = state(f)
         for (landscape in listOf(false, true)) {
-            val scene = TablePresentation.scene(f.game, play, f.actor, if (landscape) 1200f else 480f,
+            val scene = TablePresentation.scene(f.game, TableBoard.of(play), f.actor, if (landscape) 1200f else 480f,
                 if (landscape) 700f else 1000f, landscape)
             val real = scene.items.single { it.cardId == f.id(40) && !it.projection }
             val combat = scene.items.single { it.cardId == f.id(301) }
@@ -49,7 +49,7 @@ class TableToolkitGeometryTest {
 
     @Test fun geometryDropCaptureKeepsExactAreaPairAndRoleWhenIncomingSceneReflows() {
         val f = BasicTableFixture(); val play = state(f)
-        val scene = TablePresentation.scene(f.game, play, f.actor, 480f, 1000f, false)
+        val scene = TablePresentation.scene(f.game, TableBoard.of(play), f.actor, 480f, 1000f, false)
         val source = scene.items.single { it.cardId == f.id(40) && !it.projection }
         val region = scene.combatDrops.first { it.destination.role == CombatRole.BLOCKER && it.destination.pairId == null }
         val events = mutableListOf<TableIntent>()

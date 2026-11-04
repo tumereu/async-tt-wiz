@@ -23,7 +23,7 @@ import org.asyncttwiz.protocol.*
 
 /** Compact game chrome shares the surface, so landscape hands occupy the same top/bottom rails. */
 @Composable
-internal fun BoxWithConstraintsScope.TableChromeHeader(game: GameSummary, play: PlayState, viewer: String, landscape: Boolean,
+internal fun BoxWithConstraintsScope.TableChromeHeader(game: GameSummary, play: TableBoard, viewer: String, landscape: Boolean,
     runtime: TableRuntimeHooks, toolkit: TableToolkitController?, compact: Boolean, appearance: CardAppearance) {
     val turnColor = if (play.board.turn.accountId == viewer) OwnTableColor else OpponentTableColor
     val attention = attentionPresentation(game, play, viewer, runtime.reviewing, toolkit?.enabled() == true, runtime.catchingUp)

@@ -93,7 +93,7 @@ class AutomatumI12ReviewTest {
     private var message: String? = null
     private fun controller(current: () -> PlayState?) =
         // These reviews check the open cast at its payment: the mana section, Autotap off (I-D47)
-        CastController(f.a, current, { batch, _ -> sent += batch; true }, { emptyList() }, { message = it }).also { it.autotap = false }
+        CastController(f.a, { current()?.let(TableBoard::of) }, { batch, _ -> sent += batch; true }, { emptyList() }, { message = it }).also { it.autotap = false }
     private fun manaGroups(decision: Decision.ManaPayment) =
         decision.options.filterIsInstance<ManaUse.Ability>().groupBy { it.source }.values.map { it.toList<ManaUse>() }
 
@@ -106,18 +106,18 @@ class AutomatumI12ReviewTest {
                 covered = true, explicitlyCovered = true, corner = "") else card
         }
         AutomatumBoards.compute(play, f.a)
-        val toolkit = TableToolkitController(f.a, { play }, { true }, { _, _ -> true }, automatedBatch = { batch, _ -> sent += batch; true }).also { it.cast.autotap = false }
+        val toolkit = TableToolkitController(f.a, { TableBoard.of(play) }, { true }, { _, _ -> true }, automatedBatch = { batch, _ -> sent += batch; true }).also { it.cast.autotap = false }
         compose.setContent {
             MaterialTheme { NoRipples { Box(Modifier.fillMaxSize()) {
-                TableSurface(f.game, play, f.a, false, Modifier.fillMaxSize(), connected = true, onIntent = toolkit::handle, toolkit = toolkit,
+                TableSurface(f.game, TableBoard.of(play), f.a, false, Modifier.fillMaxSize(), connected = true, onIntent = toolkit::handle, toolkit = toolkit,
                     runtime = TableRuntimeHooks(navigation = {}, chat = {}, undo = { true }, controlsConnected = true))
             } } }
         }
         compose.waitForIdle()
         compose.runOnIdle { assertTrue(toolkit.cast.start(hand[1])) }
         compose.waitForIdle()
-        assertTrue(hidden.id in toolkit.cast.glow(play), "the face-down 2/2 is a legal target")
-        val item = TablePresentation.scene(f.game, play, f.a, 412f, 892f, false).items
+        assertTrue(hidden.id in toolkit.cast.glow(TableBoard.of(play)), "the face-down 2/2 is a legal target")
+        val item = TablePresentation.scene(f.game, TableBoard.of(play), f.a, 412f, 892f, false).items
             .single { it.cardId == hidden.id && it.zone == PlayZone.BATTLEFIELD }
         compose.runOnIdle { toolkit.open(TableIntent.Actions(item.id, null), item) }
         compose.waitForIdle()
@@ -200,20 +200,20 @@ class AutomatumI12ReviewTest {
         val play = board(listOf(mountain, recall), listOf(swamp)) { card ->
             if (card.id in graveyard) card.copy(definition = hound.submitted.digest, faceId = hound.face.faceId) else card
         }
-        val toolkit = TableToolkitController(f.a, { play }, { true }, { _, _ -> true }, automatedBatch = { batch, _ -> sent += batch; true }).also { it.cast.autotap = false }
+        val toolkit = TableToolkitController(f.a, { TableBoard.of(play) }, { true }, { _, _ -> true }, automatedBatch = { batch, _ -> sent += batch; true }).also { it.cast.autotap = false }
         assertTrue(toolkit.cast.start(hand[1]))
         val targets = assertNotNull(toolkit.cast.flow?.pending as? Decision.Targets)
         assertTrue(targets.options.size >= 2, "both Grave Hounds are legal targets")
         val pile = f.id("a/GRAVEYARD")
-        val glow = toolkit.cast.glow(play)
+        val glow = toolkit.cast.glow(TableBoard.of(play))
         assertTrue(pile in glow, "the Graveyard holding them glows")
-        val items = TablePresentation.scene(f.game, play, f.a, 412f, 892f, false).items
+        val items = TablePresentation.scene(f.game, TableBoard.of(play), f.a, 412f, 892f, false).items
         val pileItem = items.single { it.id == pile }
         toolkit.open(TableIntent.Actions(pileItem.id, null), pileItem)
         assertNull(toolkit.error)
         assertEquals(pile, toolkit.layoutState.value.localPileId, "the pile opens as its card panel")
         assertTrue(toolkit.cast.targeting, "still choosing targets")
-        val panel = TablePresentation.scene(f.game, play, f.a, 412f, 892f, false, ui = toolkit.layoutState.value).items
+        val panel = TablePresentation.scene(f.game, TableBoard.of(play), f.a, 412f, 892f, false, ui = toolkit.layoutState.value).items
             .filter { it.viewport.startsWith("cardPanel/") }
         val unreachable = glow.filter { id -> id != pile && !id.startsWith("life/") &&
             items.none { it.cardId == id || it.sourceId == id || it.id == id } && panel.none { it.cardId == id } }
@@ -222,7 +222,7 @@ class AutomatumI12ReviewTest {
         AutomatumBoards.compute(play, f.a)
         compose.setContent {
             MaterialTheme { NoRipples { Box(Modifier.fillMaxSize()) {
-                TableSurface(f.game, play, f.a, false, Modifier.fillMaxSize(), connected = true, onIntent = toolkit::handle, toolkit = toolkit,
+                TableSurface(f.game, TableBoard.of(play), f.a, false, Modifier.fillMaxSize(), connected = true, onIntent = toolkit::handle, toolkit = toolkit,
                     runtime = TableRuntimeHooks(navigation = {}, chat = {}, undo = { true }, controlsConnected = true))
             } } }
         }
@@ -247,7 +247,7 @@ class AutomatumI12ReviewTest {
             override fun <T> run(work: () -> T, done: (T) -> Unit) { queued += { done(work()) } }
         }
         val live = board(listOf(mountain, spark), listOf(mountain))
-        val cast = CastController(f.a, { live }, { batch, _ -> sent += batch; true }, { emptyList() }, { message = it }, worker).also { it.autotap = false }
+        val cast = CastController(f.a, { TableBoard.of(live) }, { batch, _ -> sent += batch; true }, { emptyList() }, { message = it }, worker).also { it.autotap = false }
         assertTrue(cast.start(hand[1]))
         assertTrue(cast.open && cast.busy && cast.flow == null, "nothing worked out on the caller's thread")
         assertFalse(cast.start(hand[1]), "one cast at a time")

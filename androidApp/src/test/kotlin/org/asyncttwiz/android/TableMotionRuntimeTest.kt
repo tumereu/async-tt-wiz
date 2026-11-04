@@ -43,7 +43,7 @@ class TableMotionRuntimeTest {
         var handoffs = 0
         compose.setContent { MaterialTheme {
             val play = if (player.position.cursorId == "root") initial else target
-            TableSurface(TableFixture.game, play, "a", false, Modifier.fillMaxSize(), runtime = TableRuntimeHooks(
+            TableSurface(TableFixture.game, TableBoard.of(play), "a", false, Modifier.fillMaxSize(), runtime = TableRuntimeHooks(
                 reviewing = player.position.mode == HistoryMode.PLAYBACK,
                 sceneVersion = player.position.displayVersion,
                 onSceneSettled = { if (player.finishAnimation(it)) handoffs++ }))
@@ -53,7 +53,7 @@ class TableMotionRuntimeTest {
         compose.runOnIdle { player.next(automatic) }
         repeat(2) { compose.mainClock.advanceTimeByFrame(); compose.waitForIdle() }
         compose.mainClock.advanceTimeBy(32); compose.waitForIdle()
-        val item = TablePresentation.scene(TableFixture.game, target, "a", 412f, 892f, false).items.single { it.cardId == cardId }
+        val item = TablePresentation.scene(TableFixture.game, TableBoard.of(target), "a", 412f, 892f, false).items.single { it.cardId == cardId }
         val node = compose.onNodeWithContentDescription(item.label)
         val during = node.fetchSemanticsNode().boundsInRoot
         compose.runOnIdle { assertEquals(HistoryMode.PLAYBACK, player.position.mode); assertEquals(0, handoffs) }
@@ -74,7 +74,7 @@ class TableMotionRuntimeTest {
         val initial = TableFixture.play(library = 1)
         val state = mutableStateOf(initial)
         compose.setContent { MaterialTheme {
-            TableSurface(TableFixture.game, state.value, "a", false, Modifier.fillMaxSize())
+            TableSurface(TableFixture.game, TableBoard.of(state.value), "a", false, Modifier.fillMaxSize())
         } }
         compose.waitForIdle()
         compose.mainClock.autoAdvance = false
@@ -86,8 +86,8 @@ class TableMotionRuntimeTest {
                 "$owner/HAND" -> c.copy(cards = listOf(id))
                 else -> c
             } }))
-        val target = TablePresentation.scene(TableFixture.game, moved, "a", 412f, 892f, false).items.single { it.cardId == id }
-        val source = TablePresentation.scene(TableFixture.game, initial, "a", 412f, 892f, false).items.single { it.id == "$owner/LIBRARY" }
+        val target = TablePresentation.scene(TableFixture.game, TableBoard.of(moved), "a", 412f, 892f, false).items.single { it.cardId == id }
+        val source = TablePresentation.scene(TableFixture.game, TableBoard.of(initial), "a", 412f, 892f, false).items.single { it.id == "$owner/LIBRARY" }
         compose.runOnIdle { state.value = moved }
         // BoxWithConstraints subcomposes on Android's layout traversal, not on the test clock.
         compose.mainClock.advanceTimeByFrame()
@@ -133,7 +133,7 @@ class TableMotionRuntimeTest {
         val state = mutableStateOf(initial)
         val changes = if (jump) TableChanges() else null
         compose.setContent { MaterialTheme {
-            TableSurface(TableFixture.game, state.value, "a", false, Modifier.fillMaxSize(),
+            TableSurface(TableFixture.game, TableBoard.of(state.value), "a", false, Modifier.fillMaxSize(),
                 runtime = TableRuntimeHooks(changes = changes))
         } }
         compose.waitForIdle()
@@ -146,8 +146,8 @@ class TableMotionRuntimeTest {
                 PlayZone.HAND -> c.copy(cards = c.cards + "${c.accountId}/LIBRARY/0")
                 else -> c
             } }))
-        val before = TablePresentation.scene(TableFixture.game, initial, "a", 412f, 892f, false)
-        val after = TablePresentation.scene(TableFixture.game, target, "a", 412f, 892f, false)
+        val before = TablePresentation.scene(TableFixture.game, TableBoard.of(initial), "a", 412f, 892f, false)
+        val after = TablePresentation.scene(TableFixture.game, TableBoard.of(target), "a", 412f, 892f, false)
         compose.runOnIdle {
             changes?.apply(TableChangeBatch(jump = true))
             state.value = target
@@ -179,9 +179,9 @@ class TableMotionRuntimeTest {
         val initial = TableFixture.play(board = 1)
         val state = mutableStateOf(initial)
         val id = "a/BATTLEFIELD/0"
-        val toolkit = TableToolkitController("a", { state.value }, { true }, { _, _ -> true })
+        val toolkit = TableToolkitController("a", { TableBoard.of(state.value) }, { true }, { _, _ -> true })
         compose.setContent { MaterialTheme {
-            TableSurface(TableFixture.game, state.value, "a", false, Modifier.fillMaxSize(), toolkit = toolkit)
+            TableSurface(TableFixture.game, TableBoard.of(state.value), "a", false, Modifier.fillMaxSize(), toolkit = toolkit)
         } }
         compose.waitForIdle()
         compose.mainClock.autoAdvance = false
@@ -189,7 +189,7 @@ class TableMotionRuntimeTest {
             val target = initial.copy(currentNodeId = "tap/$tapped", board = initial.board.copy(cards = initial.board.cards.map {
                 if (it.id == id) it.copy(tapped = tapped) else it
             }))
-            val item = TablePresentation.scene(TableFixture.game, target, "a", 412f, 892f, false).items.single { it.cardId == id }
+            val item = TablePresentation.scene(TableFixture.game, TableBoard.of(target), "a", 412f, 892f, false).items.single { it.cardId == id }
             compose.runOnIdle { state.value = target }
             // Flush BoxWithConstraints' Android layout traversals separately before sampling
             // the animation clock; batched clock frames do not run those traversals themselves.
@@ -217,10 +217,10 @@ class TableMotionRuntimeTest {
                     it.copy(tapped = true, definition = DeckJson.digest(hand)) else it })) }
         val state = mutableStateOf(initial)
         compose.setContent { MaterialTheme {
-            TableSurface(TableFixture.game, state.value, "a", false, Modifier.fillMaxSize())
+            TableSurface(TableFixture.game, TableBoard.of(state.value), "a", false, Modifier.fillMaxSize())
         } }
         compose.waitForIdle()
-        val home = TablePresentation.scene(TableFixture.game, initial, "a", 412f, 892f, false)
+        val home = TablePresentation.scene(TableFixture.game, TableBoard.of(initial), "a", 412f, 892f, false)
         fun bounds(id: String) = compose.onNodeWithContentDescription(home.items.single { it.id == id }.label).fetchSemanticsNode().boundsInRoot
         val cardBefore = bounds("card/a/BATTLEFIELD/0")
         val handBefore = bounds("card/a/HAND/0")

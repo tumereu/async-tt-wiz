@@ -69,7 +69,7 @@ class HistoryUiSpineTest {
             assertEquals(root, h.history.armed)
             h.history.cancel(); assertNull(h.history.armed); assertTrue(h.sent.isEmpty())
             assertTrue(h.history.arm(root))
-            val toolkit = TableToolkitController(f.a, { h.history.view?.state }, { true }, { action, invocation ->
+            val toolkit = TableToolkitController(f.a, { h.history.view?.state?.let(TableBoard::of) }, { true }, { action, invocation ->
                 h.history.gameplay(action, invocation) { h.display }
             })
             // I-D52: nothing changes the board by hand; passing the move goes through the same path

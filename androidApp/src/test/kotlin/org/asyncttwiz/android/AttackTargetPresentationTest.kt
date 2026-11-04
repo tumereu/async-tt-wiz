@@ -36,7 +36,7 @@ class AttackTargetPresentationTest {
         for (landscape in listOf(false, true)) for (cardScale in listOf(.65f, 1f, 2f)) for (textScale in listOf(.5f, 1f, 2f)) {
             val appearance = CardAppearance(cardSize = cardScale, customizeText = true,
                 text = mapOf(CardTextScalePart.TITLE to textScale))
-            val scene = TablePresentation.scene(TableFixture.game, state, "a",
+            val scene = TablePresentation.scene(TableFixture.game, TableBoard.of(state), "a",
                 if (landscape) 892f else 412f, if (landscape) 412f else 892f, landscape, appearance = appearance)
             val lane = scene.combatLabels.single { it.cardId == "b/BATTLEFIELD/0" }
             // the title size of the area's cards, never smaller than COMBAT_MIN_CARD (combat review #12)
@@ -164,7 +164,7 @@ class AttackTargetPresentationTest {
                 CombatPair("p0", attackers = listOf(CombatOccurrence("o0", "a/BATTLEFIELD/0"))),
                 CombatPair("p1", attackers = listOf(CombatOccurrence("o1", "a/BATTLEFIELD/1")), attackTarget = "b/BATTLEFIELD/1")))))
         for (landscape in listOf(false, true)) for (viewer in listOf("a", "b")) {
-            val scene = TablePresentation.scene(TableFixture.game, state, viewer,
+            val scene = TablePresentation.scene(TableFixture.game, TableBoard.of(state), viewer,
                 if (landscape) 900f else 412f, if (landscape) 412f else 820f, landscape)
             assertEquals(listOf(null, "b/BATTLEFIELD/0", "b/BATTLEFIELD/1"), scene.combatLabels.map { it.cardId })
             val empty = scene.combatLabels[1]
@@ -196,10 +196,10 @@ class AttackTargetPresentationTest {
         val game = TableFixture.game.let { g -> if (g.inviter.accountId == defender)
             g.copy(inviter = g.inviter.copy(avatar = Avatar("avatar-print", 1)))
             else g.copy(recipient = g.recipient.copy(avatar = Avatar("avatar-print", 1))) }
-        val lane = TablePresentation.scene(game, state, "a", 412f, 892f, false).combatLabels.single()
+        val lane = TablePresentation.scene(game, TableBoard.of(state), "a", 412f, 892f, false).combatLabels.single()
         assertEquals(defender, lane.accountId)
         assertEquals(org.asyncttwiz.storage.ArtworkReference("avatar-print", 1, "avatar-v1", "art_crop"), lane.artwork)
-        val plain = TablePresentation.scene(TableFixture.game, state, "a", 412f, 892f, false).combatLabels.single()
+        val plain = TablePresentation.scene(TableFixture.game, TableBoard.of(state), "a", 412f, 892f, false).combatLabels.single()
         assertNull(plain.accountId)
         assertTrue(plain.label.startsWith("→ "))
     }
@@ -239,7 +239,7 @@ class AttackTargetPresentationTest {
             val result = CombatStackController.place(empty, combatId(7), listOf(combatId(24)), drop.destination, CombatCommands()::command)
             assertEquals(drop.destination.attackTarget, result.prediction.board.combat!!.pairs.single().attackTarget)
         }
-        assertEquals(listOf(null, combatId(80), combatId(81)), attackTargetChoices(original, mapOf(combatId(8) to "Bob"), combatId(7)).map { it.first })
+        assertEquals(listOf(null, combatId(80), combatId(81)), attackTargetChoices(TableBoard.of(original), mapOf(combatId(8) to "Bob"), combatId(7)).map { it.first })
     }
 
     // CMB-012
@@ -263,15 +263,15 @@ class AttackTargetPresentationTest {
         val names = mapOf(combatId(8) to "Bob")
         for (viewer in listOf(combatId(7), combatId(8))) {
             assertEquals(expected, CombatStackPresentation.combat(state.board, 48f, 68f, state.definitions, names, viewer).lanes.map { it.cardId })
-            assertEquals(expected, attackTargetChoices(state, names, viewer).map { it.first })
+            assertEquals(expected, attackTargetChoices(TableBoard.of(state), names, viewer).map { it.first })
         }
-        assertEquals(listOf("Bob", "Target 0", "Target 0", "Target 1", "Target 1"), attackTargetChoices(state, names, combatId(7)).map { it.second })
+        assertEquals(listOf("Bob", "Target 0", "Target 0", "Target 1", "Target 1"), attackTargetChoices(TableBoard.of(state), names, combatId(7)).map { it.second })
         // The opponent's Siege, a Battlemage and creatures are never targets, and the reducer agrees.
         for (id in listOf(combatId(83), combatId(86), combatId(82))) assertFalse(CombatStackRules.canAttack(state, id))
         for (id in expected.filterNotNull()) assertTrue(CombatStackRules.canAttack(state, id))
         // On the other player's turn the roles swap: their walkers are safe, the old attacker's Siege is protected.
         val swapped = state.copy(board = state.board.copy(turn = state.board.turn.copy(accountId = combatId(8))))
-        assertEquals(listOf(null, combatId(83)), attackTargetChoices(swapped, emptyMap(), combatId(7)).map { it.first })
+        assertEquals(listOf(null, combatId(83)), attackTargetChoices(TableBoard.of(swapped), emptyMap(), combatId(7)).map { it.first })
     }
 
     // CMB-012
@@ -283,12 +283,12 @@ class AttackTargetPresentationTest {
                     card.copy(covered = true, explicitlyCovered = true, knownToAll = known) else card
             }))
             for (viewer in listOf(combatId(7), combatId(8))) {
-                assertEquals(listOf(null to "Bob"), attackTargetChoices(hidden, mapOf(combatId(8) to "Bob"), viewer))
+                assertEquals(listOf(null to "Bob"), attackTargetChoices(TableBoard.of(hidden), mapOf(combatId(8) to "Bob"), viewer))
             }
         }
         // Legacy covered flags in public zones are not explicit face-down state.
         val legacy = original.copy(board = original.board.copy(cards = original.board.cards.map { it.copy(covered = true) }))
-        assertEquals(listOf(null, combatId(80), combatId(81)), attackTargetChoices(legacy, emptyMap(), combatId(7)).map { it.first })
+        assertEquals(listOf(null, combatId(80), combatId(81)), attackTargetChoices(TableBoard.of(legacy), emptyMap(), combatId(7)).map { it.first })
     }
 
     // CMB-013
@@ -313,7 +313,7 @@ class AttackTargetPresentationTest {
                         cards = (container.cards - targetId) + if (container.id == destination) listOf(targetId) else emptyList()) }))
                 for (viewer in listOf("a", "b")) for (landscape in listOf(false, true)) {
                     val visible = !faceDown && (known || zone == PlayZone.BATTLEFIELD || zone == PlayZone.HAND && viewer == "b")
-                    val scene = TablePresentation.scene(TableFixture.game, state, viewer,
+                    val scene = TablePresentation.scene(TableFixture.game, TableBoard.of(state), viewer,
                         if (landscape) 900f else 412f, if (landscape) 412f else 820f, landscape)
                     val lane = scene.combatLabels.single { it.cardId == targetId }
                     assertEquals(if (visible) "Secret face" else "→ Face-down card", lane.label)

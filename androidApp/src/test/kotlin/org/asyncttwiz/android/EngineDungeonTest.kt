@@ -63,7 +63,7 @@ class EngineDungeonTest {
     @Test fun theDungeonIsOnTheTable() {
         val game = ventured()
         val play = game.play()
-        val shown = assertNotNull(EngineProjection.dungeon(play.board, f.a), "Alice's dungeon is in her command zone")
+        val shown = assertNotNull(EngineProjection.dungeon(assertNotNull(play.engine).state, f.a), "Alice's dungeon is in her command zone")
         assertEquals("Lantern Crypt", shown.name)
         assertEquals("Crypt Door", shown.room)
         assertEquals("21", play.board.players.single { it.accountId == f.a }.life)
@@ -114,9 +114,9 @@ class EngineDungeonTest {
         assertEquals(listOf("Bone Hall", "Dark Well"), choice.options)
         assertIs<GameDevice.Acted.Sent>(game.act(Input.Answer(choice.id, Answer.Option("Dark Well"))))
         game.tick(false, 5_000)
-        assertEquals("Dark Well", EngineProjection.dungeon(game.play().board, f.a)?.room)
+        assertEquals("Dark Well", EngineProjection.dungeon(assertNotNull(game.play().engine).state, f.a)?.room)
         assertEquals("23", game.play().board.players.single { it.accountId == f.a }.life)
-        assertEquals("Crypt Door", EngineProjection.dungeon(assertNotNull(game.reviewPlay(before)).board, f.a)?.room)
+        assertEquals("Crypt Door", EngineProjection.dungeon(assertNotNull(assertNotNull(game.reviewPlay(before)).engine).state, f.a)?.room)
     }
 
     private fun render(game: EngineGame, toolkit: TableToolkitController, landscape: Boolean = false) {

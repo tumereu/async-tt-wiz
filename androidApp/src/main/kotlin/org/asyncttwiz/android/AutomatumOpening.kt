@@ -66,7 +66,7 @@ internal object AutomatumOpening {
  * them on the bottom of the library and sets Ready. Docked above the hand like every Automatum panel.
  */
 @Composable
-internal fun OpeningKeepHost(toolkit: TableToolkitController, play: PlayState, scene: TableScene?) {
+internal fun OpeningKeepHost(toolkit: TableToolkitController, play: TableBoard, scene: TableScene?) {
     val viewer = toolkit.viewer
     val open = toolkit.keeping && AutomatumDrags.opening(play.board, viewer)
     LaunchedEffect(open, toolkit.keeping) { if (toolkit.keeping && !open) toolkit.closeKeep() }

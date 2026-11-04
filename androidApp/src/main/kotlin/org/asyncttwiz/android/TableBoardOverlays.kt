@@ -19,7 +19,7 @@ import org.asyncttwiz.protocol.*
 /** What lies over the board below the chrome: each player's mana pool, the review dim, the playback flash, change and
  * event feedback, and a pending result. Inline, so it stays part of TableSurface's own recomposition scope. */
 @Composable
-internal inline fun TableBoardOverlays(game: GameSummary, play: PlayState, accountId: String, runtime: TableRuntimeHooks,
+internal inline fun TableBoardOverlays(game: GameSummary, play: TableBoard, accountId: String, runtime: TableRuntimeHooks,
     scene: TableScene, rendered: State<TableRenderFrame>) {
     ManaPoolRows(play, scene)
     if (runtime.reviewing) scene.world?.visibleViewport?.let { board ->
@@ -72,7 +72,7 @@ internal fun manaPoolLine(fields: List<TableField>, field: TableField): Float? {
  * nothing while the pool is empty. Purely visual: no pointer handlers.
  */
 @Composable
-internal fun ManaPoolRows(play: PlayState, scene: TableScene) {
+internal fun ManaPoolRows(play: TableBoard, scene: TableScene) {
     for (field in scene.fields) {
         val pool = play.board.players.firstOrNull { it.accountId == field.owner }?.manaPool.orEmpty()
         if (pool.isEmpty()) continue

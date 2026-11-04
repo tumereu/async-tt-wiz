@@ -5,7 +5,7 @@ import org.junit.Test
 import kotlin.test.*
 
 class PlayBatchClientTest {
-    private fun toolkit(f: BasicTableFixture) = TableToolkitController(f.actor, { f.play }, { true },
+    private fun toolkit(f: BasicTableFixture) = TableToolkitController(f.actor, { TableBoard.of(f.play) }, { true },
         f.lobby::gameplay, playBatch = f.lobby::gameplayBatch, playTree = f.lobby::displayTree)
 
 

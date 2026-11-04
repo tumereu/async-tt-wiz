@@ -36,7 +36,7 @@ class EngineCoreLoopTest {
     private val routes = EngineTableRoutes(f.a, { alice }, {}, { alice.play() }).apply { opponentName = "Bob" }
     private val toolkit = TableToolkitController(f.a, { alice.play() }, { routes.canAct() }, { action, _ -> routes.local(listOf(action)) },
         playBatch = { actions, requestId -> routes.local(actions, requestId) }, engine = routes)
-    private val scope get() = TableActionScope(f.game.id, alice.play().id)
+    private val scope get() = TableActionScope(f.game.id, alice.play().playId)
 
     /** A tap on Alice's battlefield card [card] as the table makes it (its item in the scene). */
     private fun tap(card: String): Boolean {

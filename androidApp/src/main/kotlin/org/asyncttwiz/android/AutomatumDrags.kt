@@ -22,7 +22,7 @@ internal object AutomatumDrags {
         data class Refused(val reason: String) : Route
     }
 
-    fun route(play: PlayState, intent: TableIntent.Move): Route {
+    fun route(play: TableBoard, intent: TableIntent.Move): Route {
         val board = play.board
         val ids = intent.scope.cardIds.ifEmpty { listOf(intent.scope.contextId) }
         if (ids.any { it in CombatStackRules.stack(board).cards }) return Route.Refused(STACK)

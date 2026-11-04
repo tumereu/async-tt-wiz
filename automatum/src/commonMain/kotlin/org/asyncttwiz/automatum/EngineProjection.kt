@@ -28,16 +28,15 @@ import org.asyncttwiz.protocol.SuggestedResult
 import org.asyncttwiz.protocol.TokenStacks
 import org.asyncttwiz.protocol.TurnPosition
 import org.asyncttwiz.protocol.TurnState
-import org.asyncttwiz.protocol.game.EngineView
 import org.asyncttwiz.protocol.game.GameModel
 import org.asyncttwiz.protocol.game.TableState
 import org.asyncttwiz.protocol.ResultSuggestion as AtwSuggestion
 
 /**
  * A game on engine state shown with ATW's table (I-D54 item 2, I-D56 step C): the board the table draws, made from the
- * engine's state ([Engine.view], [Engine.visible]) and the table state, as one player sees it. The board carries the
- * state it was made from ([BoardState.engine]), so every engine reader of it ([EngineState.from], [ComputedBoard],
- * the flows) works on the engine's own state; nothing is ever applied to it.
+ * engine's state ([Engine.view], [Engine.visible]) and the table state, as one player sees it ([Board]: the plain data the
+ * table draws, engine-responsiveness R4a; the engine state stays beside it, never on it, and nothing is ever applied to
+ * it).
  *
  * - Cards keep the game's card ids (the engine plays the prepared cards by their ids) and their card data; a token
  *   (or a copy that is no card) shows card data made from its engine definition ([AtwTokens.submitted]).
@@ -54,19 +53,22 @@ import org.asyncttwiz.protocol.ResultSuggestion as AtwSuggestion
  *   that brings one in shows them, a room ability on the Stack points at its dungeon, and the table draws it (TRN-069).
  */
 object EngineProjection {
+    /** What the table draws of a game on engine state: [board] (cards, piles, players, turn, combat lanes, Stack entries,
+     * records) as one player sees it, with the card data of every card on it ([definitions], by digest). */
+    data class Board(val board: BoardState, val definitions: List<SubmittedDefinition>)
+
     /** The board of [model] for [viewer], on [base] (the play as it started: its ids, containers, players, card data);
      * [nodeId] is the shown event; [attention]: who acts on it for the viewer (TRN-013); [move]: whose move the game is
      * for the viewer (TRN-058); [tokenArt] finds the engine's tokens' pictures (SYS-072), which the caller keeps in
      * [pictures] across boards. */
     fun project(base: PlayState, model: GameModel, viewer: String, nodeId: String, attention: String? = null,
         staging: Staging? = null, tokenArt: TokenArt = TokenArt.None, pictures: MutableMap<ObjectId, SubmittedDefinition> = HashMap(),
-        move: String? = null): PlayState {
+        move: String? = null): Board {
         val state = model.engine
         val table = model.table
         val me = PlayerId(viewer)
         // The model's view and visible set (worked out once per state, engine-responsiveness R2)
         val visible = model.visible(me)
-        val engineView = EngineView(state, table, me, visible)
         val view = runCatching { model.view() }.getOrNull()
         val board0 = base.board
         val definitions = base.definitions.associateBy { it.digest }.toMutableMap()
@@ -250,9 +252,8 @@ object EngineProjection {
             schemaVersion = board0.schemaVersion, combat = if (staged != null) staged.combat else combat(state, table),
             stackEffects = effects, resultSuggestion = suggestion(table, nodeId),
             attentionHolder = attention, priority = state.priority.let { MtgPriority(it.holder?.value, it.passes) },
-            engineRecords = records, engine = engineView, move = move)
-        return base.copy(board = board, currentNodeId = nodeId, currentGroup = null,
-            definitions = definitions.values.sortedBy { it.digest })
+            engineRecords = records, move = move)
+        return Board(board, definitions.values.sortedBy { it.digest })
     }
 
     /** [token] drawn with the picture [tokenArt] finds for it and the card whose effect made it ([by]); as it is when
@@ -328,9 +329,8 @@ object EngineProjection {
     /** A dungeon in a player's command zone (CR 309.2b): its card on the board ([cardId]) and the room its venture marker is on. */
     data class ShownDungeon(val cardId: String, val name: String, val room: String)
 
-    /** [player]'s dungeon in the command zone on a board made by [project], or null. */
-    fun dungeon(board: BoardState, player: String): ShownDungeon? {
-        val state = board.engine?.state ?: return null
+    /** [player]'s dungeon in the command zone of [state] (a game's own engine state), or null. */
+    fun dungeon(state: GameState, player: String): ShownDungeon? {
         val obj = state.command.mapNotNull { state.objects[it] }.firstOrNull { it.owner.value == player && isDungeon(it) } ?: return null
         val face = obj.definition?.faces?.firstOrNull() ?: return null
         val room = Engine.ventureRoom(state, obj.id)?.let { face.rooms.getOrNull(it)?.name }.orEmpty()

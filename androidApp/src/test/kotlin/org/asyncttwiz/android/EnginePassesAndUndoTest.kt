@@ -5,7 +5,6 @@ import arcanum.engine.input.Input
 import arcanum.engine.state.ObjectId
 import arcanum.engine.state.PlayerId
 import org.asyncttwiz.protocol.MtgStackKind
-import org.asyncttwiz.protocol.PlayState
 import org.asyncttwiz.protocol.game.GameDevice
 import org.junit.Test
 import kotlin.test.assertEquals
@@ -25,7 +24,7 @@ class EnginePassesAndUndoTest {
     private val names = mapOf(f.a to "Alice", f.b to "Bob")
 
     /** Where card [id] is on [play]'s board ("STACK" while its spell is there), or null when the board hides it. */
-    private fun where(play: PlayState, id: String): String? {
+    private fun where(play: TableBoard, id: String): String? {
         val board = play.board
         if (board.stackEffects.any { it.sourceId == id && it.item?.kind == MtgStackKind.Spell }) return "STACK"
         val card = board.cards.firstOrNull { it.id == id } ?: return null

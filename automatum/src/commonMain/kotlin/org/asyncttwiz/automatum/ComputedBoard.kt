@@ -15,9 +15,11 @@ import arcanum.engine.view.Characteristics
 import arcanum.engine.view.EffectSource
 import arcanum.engine.view.ExplainedEffect
 import arcanum.engine.view.View
+import org.asyncttwiz.protocol.BoardState
 import org.asyncttwiz.protocol.CardVisibility
 import org.asyncttwiz.protocol.PlayState
 import org.asyncttwiz.protocol.PlayZone
+import org.asyncttwiz.protocol.SubmittedDefinition
 
 /**
  * What a card on the Battlefield shows while Automatum is on (integration spec §3 I1): the engine's view of it next to
@@ -166,7 +168,7 @@ class ComputedBoard private constructor(
          * from it plays with its printed values, I-D21), as [viewer] is shown it. Blocking work: one engine view.
          */
         fun of(play: PlayState, definitions: Map<String, CardDefinition>, viewer: String): ComputedBoard {
-            val (manualAbilities, manualCards) = manual(play, definitions, viewer)
+            val (manualAbilities, manualCards) = manual(play.board, play.definitions, definitions, viewer)
             val unsupported = EngineState.unsupported(play, definitions, viewer)
             if (unsupported.isNotEmpty()) return ComputedBoard(emptyMap(), unsupported, manualAbilities, manualCards, null, null, null)
             // Full information (I-D27): only Battlefield cards are shown, each as anyone may see it (a face-down
@@ -176,26 +178,27 @@ class ComputedBoard private constructor(
             } catch (problem: Unsupported) {
                 return ComputedBoard(emptyMap(), problem.reasons, manualAbilities, manualCards, null, null, null)
             }
-            return computed(play, manualAbilities, manualCards, state, Engine.view(state))
+            return computed(play.board, manualAbilities, manualCards, state, Engine.view(state))
         }
 
         /**
-         * [of] for a board made from the engine's own state ([org.asyncttwiz.protocol.BoardState.engine], I-D56 step C):
-         * [state] is that state (full information; kept for [explain], so never changed afterwards) and [view] its view,
-         * which the caller already has (engine-responsiveness R3: the engine thread's one view of the state), so nothing
-         * is copied or worked out again. The same board as [of] gives for it.
+         * [of] for a game on engine state (I-D56; engine-responsiveness R3, R4a): [board] is the board shown of [state]
+         * ([EngineProjection]) with its card data [submitted], [state] the game's own state (full information; kept for
+         * [explain], so never changed afterwards) and [view] its view, which the caller already has (the engine thread's
+         * one view of the state), so nothing is copied or worked out again.
          */
-        fun of(play: PlayState, definitions: Map<String, CardDefinition>, viewer: String, state: GameState, view: View): ComputedBoard {
-            val (manualAbilities, manualCards) = manual(play, definitions, viewer)
-            return computed(play, manualAbilities, manualCards, state, view)
+        fun of(board: BoardState, submitted: List<SubmittedDefinition>, definitions: Map<String, CardDefinition>, viewer: String,
+            state: GameState, view: View): ComputedBoard {
+            val (manualAbilities, manualCards) = manual(board, submitted, definitions, viewer)
+            return computed(board, manualAbilities, manualCards, state, view)
         }
 
-        private fun computed(play: PlayState, manualAbilities: Int, manualCards: List<Pair<String, Int>>, state: GameState,
+        private fun computed(board: BoardState, manualAbilities: Int, manualCards: List<Pair<String, Int>>, state: GameState,
             view: View): ComputedBoard {
-            val ids = CardIds.of(play.board)
-            val battlefield = play.board.containers.filter { it.zone == PlayZone.BATTLEFIELD }.flatMap { it.cards }.toSet()
+            val ids = CardIds.of(board)
+            val battlefield = board.containers.filter { it.zone == PlayZone.BATTLEFIELD }.flatMap { it.cards }.toSet()
             val cards = LinkedHashMap<String, ComputedCard>()
-            for (card in play.board.cards) {
+            for (card in board.cards) {
                 if (card.id !in battlefield) continue
                 val id = ObjectId.Card(ids.engine(card.id), card.zoneChanges)
                 val o = view[id] ?: continue
@@ -218,14 +221,15 @@ class ComputedBoard private constructor(
             return ComputedBoard(cards, emptyList(), manualAbilities, manualCards, state, view, ids)
         }
 
-        private fun manual(play: PlayState, definitions: Map<String, CardDefinition>, viewer: String): Pair<Int, List<Pair<String, Int>>> {
-            val byDigest = play.definitions.associateBy { it.digest }
+        private fun manual(board: BoardState, submitted: List<SubmittedDefinition>, definitions: Map<String, CardDefinition>,
+            viewer: String): Pair<Int, List<Pair<String, Int>>> {
+            val byDigest = submitted.associateBy { it.digest }
             var total = 0
             val seen = mutableSetOf<String>()
             val shown = LinkedHashMap<String, Int>()
-            for (card in play.board.cards) {
+            for (card in board.cards) {
                 // I-D27: only cards the viewer may see count, so the number tells nothing of hidden ones
-                if (!CardVisibility.isVisibleFaceUp(play.board, card, viewer)) continue
+                if (!CardVisibility.isVisibleFaceUp(board, card, viewer)) continue
                 val definition = definitions[card.definition] ?: byDigest[card.definition]?.definition?.let(PrintedCards::definition) ?: continue
                 val count = definition.faces.sumOf { face -> face.abilities.count { it is Ability.Unparsed } }
                 if (count == 0) continue

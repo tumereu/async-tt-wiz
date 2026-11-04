@@ -289,14 +289,14 @@ object TablePresentation {
     fun sidebarWidth(width: Float, appearance: CardAppearance = CardAppearance()) =
         maxOf(minOf(224f, width * .366f), landscapeDockWidth(28f * appearance.size(CardArea.PILES)))
 
-    fun scene(game: GameSummary, play: PlayState, viewer: String, width: Float, height: Float, landscape: Boolean,
+    fun scene(game: GameSummary, play: TableBoard, viewer: String, width: Float, height: Float, landscape: Boolean,
         ui: TableLayoutState = TableLayoutState(), placements: Map<String, TablePlacement> = emptyMap(),
         toolbarWidth: Float = TOOLBAR, reviewing: Boolean = false,
         appearance: CardAppearance = CardAppearance(),
         logicalPositions: Map<String, TablePlacement> = logicalPlacements(play),
         computed: org.asyncttwiz.automatum.ComputedBoard = org.asyncttwiz.automatum.ComputedBoard.NONE,
         landscapeHome: Boolean = false): TableScene {
-        require(play.gameId == game.id && play.id == game.playId)
+        require(play.gameId == game.id && play.playId == game.playId)
         require(width > 0 && height > 0 && width.isFinite() && height.isFinite())
         val positions = logicalPositions + placements
         val own = play.board.players.single { it.accountId == viewer }
@@ -519,7 +519,7 @@ object TablePresentation {
             val dock = TableBounds(0f, rowY, dockWidth, dockRow)
             // TRN-069: the player's dungeon in the command zone takes a fourth place after the piles in portrait; in landscape
             // (no room beside the piles) it sits in the free row by them, under the Library
-            val dungeon = org.asyncttwiz.automatum.EngineProjection.dungeon(play.board, player.accountId)
+            val dungeon = play.engine?.let { org.asyncttwiz.automatum.EngineProjection.dungeon(it.state, player.accountId) }
             val places = if (dungeon != null && !landscape) 4 else 3
             val dp = port("dock/${player.accountId}", dock, (if (landscape) landscapeDockWidth(pileWidth) else portraitDock) +
                 (places - 3) * spacing)
@@ -723,7 +723,7 @@ object TablePresentation {
         "Land" in type -> "♧"; "Creature" in type -> "♙"; "Instant" in type -> "ϟ"
         "Sorcery" in type -> "◇"; "Artifact" in type -> "⚙"; "Enchantment" in type -> "☆"; else -> "◇"
     }
-    fun logicalPlacements(play: PlayState): Map<String, TablePlacement> {
+    fun logicalPlacements(play: TableBoard): Map<String, TablePlacement> {
         val byId = play.board.cards.associateBy { it.id }
         return buildMap {
             for (container in play.board.containers) {
@@ -739,13 +739,13 @@ object TablePresentation {
         }
     }
     /** Menu toggles must not mistake a legacy default cover for an explicit public face-down edit. */
-    fun cardForActions(play: PlayState, cardId: String): PlayCard {
+    fun cardForActions(play: TableBoard, cardId: String): PlayCard {
         val card = play.board.cards.single { it.id == cardId }
         val zone = play.board.containers.single { it.id == card.containerId }.zone
         return if (zone == PlayZone.LIBRARY || zone == PlayZone.HAND) card else card.copy(covered = card.isFaceDown)
     }
 
-    fun inspection(play: PlayState, viewer: String, cardId: String): CardDefinition? {
+    fun inspection(play: TableBoard, viewer: String, cardId: String): CardDefinition? {
         val card = play.board.cards.firstOrNull { it.id == cardId } ?: return null
         val region = play.board.containers.firstOrNull { it.id == card.containerId }?.accountId
         if (region != viewer && !CardVisibility.isVisibleFaceUp(play.board, card, viewer))

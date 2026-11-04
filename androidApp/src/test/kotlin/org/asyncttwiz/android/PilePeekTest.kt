@@ -67,11 +67,11 @@ class PilePeekTest {
     }
 
     private fun hold(play: PlayState, viewer: String, cardId: String): TableToolkitController {
-        val toolkit = TableToolkitController(viewer, { play }, { true }, { _, _ -> true })
+        val toolkit = TableToolkitController(viewer, { TableBoard.of(play) }, { true }, { _, _ -> true })
         compose.setContent { MaterialTheme { NoRipples {
-            TableSurface(f.game, play, viewer, false, Modifier.fillMaxSize(), connected = true, toolkit = toolkit, onIntent = toolkit::handle)
+            TableSurface(f.game, TableBoard.of(play), viewer, false, Modifier.fillMaxSize(), connected = true, toolkit = toolkit, onIntent = toolkit::handle)
         } } }
-        val scene = TablePresentation.scene(f.game, play, viewer, 412f, 892f, false)
+        val scene = TablePresentation.scene(f.game, TableBoard.of(play), viewer, 412f, 892f, false)
         val item = scene.items.single { it.cardId == cardId && !it.projection }
         val point = item.visible.flatMap { b -> listOf(b.center, TablePoint(b.x + 2f, b.y + 2f)) }.first { scene.hit(it)?.id == item.id }
         compose.mainClock.autoAdvance = false

@@ -85,9 +85,16 @@ object HandCasts {
      */
     fun options(play: PlayState, definitions: Map<String, CardDefinition>, viewer: String, log: List<LoggedChange>,
         cardId: String, offered: List<Input>, way: Int = 0, times: List<Int> = emptyList(),
+        seeds: CastFlow.Seeds = CastFlow.Seeds { error("No randomness before a cast") }): HandCastOptions? =
+        options(CastFlow.Source.legacy(play, definitions, log), definitions, viewer, cardId, offered, way, times, seeds)
+
+    /** [options] of a cast run on [source] (a game on engine state: [CastFlow.Source.engine]); [definitions]: the game's
+     * card definitions by ATW definition digest (the chips' names and texts). */
+    fun options(source: CastFlow.Source, definitions: Map<String, CardDefinition>, viewer: String,
+        cardId: String, offered: List<Input>, way: Int = 0, times: List<Int> = emptyList(),
         seeds: CastFlow.Seeds = CastFlow.Seeds { error("No randomness before a cast") }): HandCastOptions? {
-        fun start(input: Input, chosen: List<Int>): CastFlow = CastFlow.start(play, definitions, viewer, log, input, seeds, extras = chosen)
-        val plays = ways(play, definitions, viewer, log, cardId, offered) { input ->
+        fun start(input: Input, chosen: List<Int>): CastFlow = CastFlow.start(source, viewer, input, seeds, extras = chosen)
+        val plays = ways(source, viewer, cardId, offered) { input ->
             try { start(input, emptyList()); true } catch (_: IllegalArgumentException) { false } catch (_: Unsupported) { false }
         }
         if (plays.isEmpty() || way !in plays.indices) return null
@@ -95,7 +102,7 @@ object HandCasts {
         val extras = extrasOf(first)
         val chosen = extras.indices.map { i -> times.getOrElse(i) { 0 }.coerceAtLeast(0).let { if (extras[i].second.repeatable) it else minOf(it, 1) } }
         val current = probe { if (chosen == times) first else start(plays[way], chosen) }
-        val cardDefinition = play.board.cards.singleOrNull { it.id == cardId }?.let { definitions[it.definition] }
+        val cardDefinition = source.board.cards.singleOrNull { it.id == cardId }?.let { definitions[it.definition] }
         val ways = plays.mapIndexed { i, input ->
             val probe = if (i == way) current else probe { start(input, emptyList()) }
             val plain = if (i == way && chosen.any { it > 0 }) probe { start(input, emptyList()) } else probe
@@ -118,11 +125,14 @@ object HandCasts {
      * of its alternative costs, then both halves fused), so a way the player can't afford still shows, greyed. In the
      * engine's order, the plain cast of the front face first; a land's ways are only those offered.
      */
-    private fun ways(play: PlayState, definitions: Map<String, CardDefinition>, viewer: String, log: List<LoggedChange>,
-        cardId: String, offered: List<Input>, begins: (Input) -> Boolean): List<Input> {
+    private fun ways(source: CastFlow.Source, viewer: String, cardId: String, offered: List<Input>,
+        begins: (Input) -> Boolean): List<Input> {
         if (offered.any { it is Input.PlayLand }) return offered
-        val call = try { EngineCall(play, definitions, null, log) { error("No randomness while listing ways") } }
-            catch (_: Unsupported) { return offered }
+        val call = try {
+            // Today's model lists them on the board as rebuilt, priority as it is
+            if (source is CastFlow.Source.Legacy) EngineCall(source.play, source.definitions, null, source.log) { error("No randomness while listing ways") }
+            else source.run { error("No randomness while listing ways") }
+        } catch (_: Unsupported) { return offered }
         val state = call.working
         val card = state.players.firstOrNull { it.id.value == viewer }?.hand.orEmpty()
             .firstOrNull { (it as? arcanum.engine.state.ObjectId.Card)?.let { id -> call.ids.atw(id.card) } == cardId } ?: return offered
@@ -163,7 +173,7 @@ object HandCasts {
      * paid), as the cost chips chose them (I-D50): while the open question is the spell's next optional cost (CR 601.2b:
      * the engine asks them in order, after its modes, before splicing). Anything else is left open.
      */
-    internal fun answerExtras(call: EngineCall, extras: List<Int>) {
+    internal fun answerExtras(call: EngineRun, extras: List<Int>) {
         repeat(MAX_EXTRAS) {
             val pending = call.pending ?: return
             val announcing = pending.continuation as? Continuation.Announcing ?: return

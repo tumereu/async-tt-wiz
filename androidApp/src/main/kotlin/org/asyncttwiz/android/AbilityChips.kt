@@ -20,7 +20,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import org.asyncttwiz.protocol.PlayState
 import org.asyncttwiz.protocol.PlayZone
 
 /**
@@ -31,7 +30,7 @@ import org.asyncttwiz.protocol.PlayZone
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-internal fun PermanentAbilityChips(toolkit: TableToolkitController, play: PlayState, scene: TableScene?) {
+internal fun PermanentAbilityChips(toolkit: TableToolkitController, play: TableBoard, scene: TableScene?) {
     val cardId = toolkit.abilityCard ?: return
     val offered = toolkit.activatable(play, cardId)
     // The board changed under the chips: fewer than two abilities left to activate closes them

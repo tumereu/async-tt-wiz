@@ -7,7 +7,6 @@ import androidx.compose.ui.platform.LocalContext
 import org.asyncttwiz.protocol.SubmittedDefinition
 import org.asyncttwiz.protocol.DefinitionFace
 import org.asyncttwiz.protocol.PlayContainer
-import org.asyncttwiz.protocol.PlayState
 import org.asyncttwiz.protocol.PlayZone
 import org.asyncttwiz.storage.ArtworkReference
 import org.asyncttwiz.protocol.DeckJson
@@ -52,7 +51,7 @@ internal fun gameArtworkReferences(definitions: List<SubmittedDefinition>): List
 }
 
 /** The viewer's hand, then their battlefield, then the shared battlefield/Stack, then everything else. */
-internal fun gameArtworkReferences(play: PlayState, viewer: String): List<ArtworkReference> {
+internal fun gameArtworkReferences(play: TableBoard, viewer: String): List<ArtworkReference> {
     val byDigest = play.definitions.associateBy { it.digest }
     val cards = play.board.cards.associateBy { it.id }
     fun rank(container: PlayContainer) = when {
@@ -68,7 +67,7 @@ internal fun gameArtworkReferences(play: PlayState, viewer: String): List<Artwor
 
 /** Warm the retained game definitions in the background queue while this game is open. */
 @Composable
-internal fun PrefetchGameArtwork(play: PlayState, viewer: String) {
+internal fun PrefetchGameArtwork(play: TableBoard, viewer: String) {
     val context = LocalContext.current
     // Ordered by the board when the game opens (or its definitions change), not on every move.
     val references = remember(play.gameId, viewer, play.definitions) { gameArtworkReferences(play, viewer) }

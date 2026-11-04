@@ -248,7 +248,7 @@ class LobbyStartTest {
         val play = f.initial(); val active = game.copy(lifecycle = GameLifecycle.ACTIVE, playId = play.id)
         for ((width, height, landscape) in listOf(Triple(360f, 730f, false), Triple(780f, 310f, true))) {
             for (viewer in listOf(owner, other)) {
-                val scene = TablePresentation.scene(active, play, viewer.accountId, width, height, landscape)
+                val scene = TablePresentation.scene(active, TableBoard.of(play), viewer.accountId, width, height, landscape)
                 assertEquals(2, scene.fields.size)
                 // ... and the opening hands of seven (I-D49)
                 assertEquals(25, scene.items.size)

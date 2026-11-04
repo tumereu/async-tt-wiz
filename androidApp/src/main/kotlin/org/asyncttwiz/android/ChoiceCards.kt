@@ -33,7 +33,6 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
-import org.asyncttwiz.protocol.PlayState
 import org.asyncttwiz.storage.ArtworkReference
 import kotlin.math.abs
 import kotlin.math.roundToInt
@@ -52,7 +51,7 @@ internal data class ChoiceCardData(val key: String, val cardId: String?, val nam
 
 /** The [ChoiceCardData] of ATW card [cardId] on [play]'s board as [viewer] may see it ([shown]); [fallback] names an
  * object that is no card. */
-internal fun choiceCard(play: PlayState, viewer: String, key: String, cardId: String?, shown: Boolean, fallback: String,
+internal fun choiceCard(play: TableBoard, viewer: String, key: String, cardId: String?, shown: Boolean, fallback: String,
     tapped: Boolean = false): ChoiceCardData {
     val card = cardId?.let { id -> play.board.cards.firstOrNull { it.id == id } }
         ?: return ChoiceCardData(key, null, if (shown) fallback else "Hidden card", null, shown, tapped = tapped)
@@ -122,13 +121,13 @@ internal class ChoiceInspector {
 }
 
 @Composable
-internal fun ChoiceInspection(inspector: ChoiceInspector, play: PlayState, viewer: String) {
+internal fun ChoiceInspection(inspector: ChoiceInspector, play: TableBoard, viewer: String) {
     val card = inspector.held ?: return
     val id = card.cardId ?: return
     val played = play.board.cards.firstOrNull { it.id == id } ?: return
     val faces = play.definitions.firstOrNull { it.digest == played.definition }?.definition?.faces.orEmpty()
-    GameplayCardInspection(play, viewer, remember(play.id, id) {
-        ManualInspection(play.gameId, play.id, id, faces.map { it.faceId }, explicit = true, snapshot = played,
+    GameplayCardInspection(play, viewer, remember(play.playId, id) {
+        ManualInspection(play.gameId, play.playId, id, faces.map { it.faceId }, explicit = true, snapshot = played,
             stackEntryId = card.key.takeIf { card.ability != null })
     }, { inspector.hold(card, false) }, peek = true)
 }

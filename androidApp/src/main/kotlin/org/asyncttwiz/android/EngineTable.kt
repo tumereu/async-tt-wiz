@@ -81,7 +81,7 @@ interface EngineRoutes {
 
 /** The open table's engine routes and the async panels' own state (personal UI). */
 internal class EngineTableRoutes(val viewer: String, private val game: () -> EngineGame?, private val sent: () -> Unit,
-    private val shown: () -> PlayState?) : EngineRoutes {
+    private val shown: () -> TableBoard?) : EngineRoutes {
     val engine: EngineGame? get() = game()
 
     /** The rewind dialog (hold Undo, or an undo that needs the other player's approval): its chosen target. */
@@ -136,7 +136,8 @@ internal class EngineTableRoutes(val viewer: String, private val game: () -> Eng
         return done
     }
 
-    private fun local(g: EngineGame, device: GameDevice, play: PlayState, actions: List<PlayAction>, requestId: String?): Boolean {
+    private fun local(g: EngineGame, device: GameDevice, shown: TableBoard, actions: List<PlayAction>, requestId: String?): Boolean {
+        val play = shown.legacy ?: return false
         val places = mutableListOf<TableChange>()
         var staged: PlayState? = null
         for ((index, action) in actions.withIndex()) {
@@ -166,7 +167,7 @@ internal class EngineTableRoutes(val viewer: String, private val game: () -> Eng
             val board = s.board.copy(engine = play.board.engine)
             val drafts = EngineDrafts.changes(device.model, board, viewer)
             val acted = if (drafts.isEmpty()) null else g.table(drafts)
-            if (device.session.behind || acted == GameDevice.Acted.Kept) g.stage(s.copy(board = board))
+            if (device.session.behind || acted == GameDevice.Acted.Kept) g.stage(board)
             else if (acted is GameDevice.Acted.Refused) return false
             else g.unstage()
         }
@@ -223,10 +224,10 @@ internal class EngineTableRoutes(val viewer: String, private val game: () -> Eng
 
     /** STK-029 (owner playtest 2026-11-04 #6): something is on [play]'s Stack, so letting it resolve (Resolve) or
      * assuming the other player lets it (Assume) is the button directly under the Stack, not the step arrow's. */
-    fun stackHolds(play: PlayState): Boolean = CombatStackRules.stack(play.board).cards.isNotEmpty()
+    fun stackHolds(play: TableBoard): Boolean = CombatStackRules.stack(play.board).cards.isNotEmpty()
 
     /** The faint words over the battlefield while the other player must act (TRN-066), or null. */
-    fun waitingLine(play: PlayState): String? {
+    fun waitingLine(play: TableBoard): String? {
         val shown = game()?.shown ?: return null
         val status = shown.status as? GameDevice.Status.Waiting ?: return null
         if (status.offer == GameDevice.Offer.AssumeBlockers && (status.blockersScreen || blockersOpen == shown.tip)) return null
@@ -286,7 +287,7 @@ internal const val NOT_TAKEN = "That wasn't taken: the game moved on first. The 
 internal const val NOT_ACCEPTED = "That wasn't taken: the game didn't accept it. The table shows where it is now."
 
 /** The waiting bar's words (§14) for [wait]. */
-internal fun waitingText(wait: GameDevice.Wait, play: PlayState, opponent: String): String? = when (wait) {
+internal fun waitingText(wait: GameDevice.Wait, play: TableBoard, opponent: String): String? = when (wait) {
     is GameDevice.Wait.Respond -> "$opponent may respond to ${engineName(play, wait.to) ?: "your spell"}"
     is GameDevice.Wait.MayAct -> "$opponent may act · ${org.asyncttwiz.automatum.EngineProjection.position(wait.step).label}"
     GameDevice.Wait.Blockers -> "$opponent is declaring blockers"
@@ -301,15 +302,15 @@ internal fun waitingText(wait: GameDevice.Wait, play: PlayState, opponent: Strin
 
 /** The name of engine object [id] as the board's viewer may see it, or null; an ability on the Stack is named as its
  * source's ability ("Ember Herald's ability", STK-046), a copy of a spell as its spell. */
-private fun engineName(play: PlayState, id: ObjectId): String? {
-    val item = (id as? ObjectId.StackItem)?.let { play.board.engine?.state?.stackItems?.get(it) }
+private fun engineName(play: TableBoard, id: ObjectId): String? {
+    val item = (id as? ObjectId.StackItem)?.let { play.engine?.state?.stackItems?.get(it) }
     val ability = item != null && (item.kind is StackItemKind.Activated || item.kind is StackItemKind.Triggered)
     return sourceName(play, id)?.let { if (ability) "$it's ability" else it }
 }
 
 /** The name of engine object [id] (a Stack item's source) as the board's viewer may see it, or null. */
-private fun sourceName(play: PlayState, id: ObjectId): String? {
-    val view = play.board.engine ?: return null
+private fun sourceName(play: TableBoard, id: ObjectId): String? {
+    val view = play.engine ?: return null
     val state = view.state
     val obj = when (id) {
         is ObjectId.Card -> state.objects[id]
@@ -385,7 +386,7 @@ internal fun RowScope.EngineToggleCells(routes: EngineTableRoutes, enabled: Bool
  * result line, the assumer's indicator, the notes, and the undo dialogs.
  */
 @Composable
-internal fun EngineAsyncHost(toolkit: TableToolkitController, routes: EngineTableRoutes, play: PlayState, scene: TableScene?,
+internal fun EngineAsyncHost(toolkit: TableToolkitController, routes: EngineTableRoutes, play: TableBoard, scene: TableScene?,
     names: Map<String, String>, presence: ReceivedPresence?, summary: GameSummary) {
     val game = routes.engine ?: return
     val shown = game.shown ?: return
@@ -468,10 +469,10 @@ private fun EngineBar(text: String, what: String, buttons: @Composable RowScope.
  * it; none while your cast or a choice is open.
  */
 @Composable
-private fun EngineStackButton(toolkit: TableToolkitController, routes: EngineTableRoutes, play: PlayState, scene: TableScene?) {
+private fun EngineStackButton(toolkit: TableToolkitController, routes: EngineTableRoutes, play: TableBoard, scene: TableScene?) {
     if (!routes.stackHolds(play) || toolkit.cast.open) return
     val stack = scene?.stackRegion ?: scene?.items?.firstOrNull { it.zone == PlayZone.STACK && it.kind == TableItemKind.PILE }?.bounds ?: return
-    val scope = TableActionScope(play.gameId, play.id)
+    val scope = TableActionScope(play.gameId, play.playId)
     val resolve = routes.arrowShown() && AutomatumStep.of(play) == AutomatumStep.Resolve && toolkit.enabled()
     val assume = if (resolve) null else routes.waitAction()?.takeIf { it.resolves }
     if (!resolve && assume == null) return
@@ -522,7 +523,7 @@ private fun StackButtonContent(icon: androidx.compose.ui.graphics.vector.ImageVe
  * assumed, CR 509.1d); Back leaves it a wait with "Assume blockers" on the waiting bar. Nothing of it is shared (§12).
  */
 @Composable
-private fun EngineBlockersScreen(routes: EngineTableRoutes, scene: TableScene?, play: PlayState, opponent: String) {
+private fun EngineBlockersScreen(routes: EngineTableRoutes, scene: TableScene?, play: TableBoard, opponent: String) {
     val game = routes.engine ?: return
     val shownGame = game.shown ?: return
     var hidden by remember { mutableStateOf(false) }

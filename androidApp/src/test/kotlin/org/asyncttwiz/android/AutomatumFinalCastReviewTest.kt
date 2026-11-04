@@ -53,7 +53,7 @@ class AutomatumFinalCastReviewTest {
     // whole cast
     @Test fun repeatableModesCanBeTakenBackAndPawprintsAreCounted() {
         val answers = Answers()
-        compose.setContent { MaterialTheme { OpenSection(answers, answers, TableStatesFixture.initial, emptyMap(), season) } }
+        compose.setContent { MaterialTheme { OpenSection(answers, answers, TableBoard.of(TableStatesFixture.initial), emptyMap(), season) } }
         val returning = season.options[2].text!!
         compose.onNodeWithText(returning).performClick()
         compose.onNodeWithText(returning).performClick()
@@ -64,7 +64,7 @@ class AutomatumFinalCastReviewTest {
     // STK-040, finalreview-cast #5 (the same section): the pawprint cost of each mode is part of what the player chooses by
     @Test fun pawprintCostsAreShown() {
         val answers = Answers()
-        compose.setContent { MaterialTheme { OpenSection(answers, answers, TableStatesFixture.initial, emptyMap(), season) } }
+        compose.setContent { MaterialTheme { OpenSection(answers, answers, TableBoard.of(TableStatesFixture.initial), emptyMap(), season) } }
         assertEquals(1, compose.onAllNodesWithText("{P}{P}{P}", substring = true).fetchSemanticsNodes().size)
     }
 
@@ -72,7 +72,7 @@ class AutomatumFinalCastReviewTest {
     // once it is within the limit; "Clear" takes back every mode
     @Test fun repeatableModeTakenBackThenSent() {
         val answers = Answers()
-        compose.setContent { MaterialTheme { OpenSection(answers, answers, TableStatesFixture.initial, emptyMap(), season) } }
+        compose.setContent { MaterialTheme { OpenSection(answers, answers, TableBoard.of(TableStatesFixture.initial), emptyMap(), season) } }
         val rabbit = season.options[0].text!!
         val returning = season.options[2].text!!
         compose.onNodeWithText(returning).performClick()
@@ -100,7 +100,7 @@ class AutomatumFinalCastReviewTest {
         val catalog = CardNameSuggestions { text -> listOf("Velvet Fern", "Velvet Hollow").filter { it.contains(text, ignoreCase = true) } }
         val naming = Decision.ChooseCardName(DecisionId("name"), PlayerId("alice"), null, arcanum.api.ObjectFilter.Any)
         compose.setContent { MaterialTheme { CompositionLocalProvider(LocalCardNameSuggestions provides catalog) {
-            OpenSection(answers, answers, TableStatesFixture.initial, emptyMap(), naming)
+            OpenSection(answers, answers, TableBoard.of(TableStatesFixture.initial), emptyMap(), naming)
         } } }
         compose.onNodeWithText("OK").assertIsNotEnabled()
         compose.onNode(hasSetTextAction()).performTextInput("velv")
@@ -116,7 +116,7 @@ class AutomatumFinalCastReviewTest {
     @Test fun creatureTypeFromEveryType() {
         val answers = Answers()
         val choosing = Decision.ChooseSubtype(DecisionId("type"), PlayerId("alice"), null)
-        compose.setContent { MaterialTheme { OpenSection(answers, answers, TableStatesFixture.initial, emptyMap(), choosing) } }
+        compose.setContent { MaterialTheme { OpenSection(answers, answers, TableBoard.of(TableStatesFixture.initial), emptyMap(), choosing) } }
         compose.onNodeWithText("Zombie").assertExists()
         compose.onNode(hasSetTextAction()).performTextInput("ell")
         compose.onNodeWithText("Zombie").assertDoesNotExist()

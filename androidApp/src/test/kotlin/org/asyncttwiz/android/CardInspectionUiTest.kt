@@ -32,12 +32,12 @@ class CardInspectionUiTest {
     @Test fun jitteringHoldStillPeeksAtTheHoldDeadline() {
         val f = TableStatesFixture
         val play = f.combat()
-        val toolkit = TableToolkitController(f.a, { play }, { true }, { _, _ -> true })
+        val toolkit = TableToolkitController(f.a, { TableBoard.of(play) }, { true }, { _, _ -> true })
         compose.setContent { MaterialTheme {
-            TableSurface(f.game, play, f.a, false, Modifier.fillMaxSize(), connected = true,
+            TableSurface(f.game, TableBoard.of(play), f.a, false, Modifier.fillMaxSize(), connected = true,
                 toolkit = toolkit, onIntent = toolkit::handle)
         } }
-        val scene = TablePresentation.scene(f.game, play, f.a, 412f, 892f, false)
+        val scene = TablePresentation.scene(f.game, TableBoard.of(play), f.a, 412f, 892f, false)
         val card = scene.items.first { it.owner == f.a && it.kind == TableItemKind.CARD && it.zone == PlayZone.BATTLEFIELD && it.visible.isNotEmpty() }
         val point = card.visible.first().center
         val table = compose.onNodeWithContentDescription("Shared table")
@@ -69,12 +69,12 @@ class CardInspectionUiTest {
             }))
         }) }
         val sent = mutableListOf<PlayAction>()
-        val toolkit = TableToolkitController(f.a, { play }, { true }, { action, _ -> sent += action; true })
+        val toolkit = TableToolkitController(f.a, { TableBoard.of(play) }, { true }, { action, _ -> sent += action; true })
         compose.setContent { MaterialTheme {
-            TableSurface(f.game, play, f.a, landscape, Modifier.fillMaxSize(), connected = true,
+            TableSurface(f.game, TableBoard.of(play), f.a, landscape, Modifier.fillMaxSize(), connected = true,
                 toolkit = toolkit, onIntent = toolkit::handle)
         } }
-        val scene = TablePresentation.scene(f.game, play, f.a, if (landscape) 892f else 412f, if (landscape) 412f else 892f, landscape,
+        val scene = TablePresentation.scene(f.game, TableBoard.of(play), f.a, if (landscape) 892f else 412f, if (landscape) 412f else 892f, landscape,
             landscapeHome = true)
         val card = scene.items.first { it.owner == f.a && it.kind == TableItemKind.CARD && it.zone == PlayZone.BATTLEFIELD && it.visible.isNotEmpty() }
         val point = card.visible.first().center
@@ -115,13 +115,13 @@ class CardInspectionUiTest {
         val f = TableStatesFixture
         val play = f.combat()
         val playback = LiveTableFixture.playback()
-        val toolkit = TableToolkitController(f.a, { play }, { true }, { _, _ -> true })
+        val toolkit = TableToolkitController(f.a, { TableBoard.of(play) }, { true }, { _, _ -> true })
         compose.setContent { MaterialTheme {
             // The table screen's own hook: an inspection pauses the timeline.
-            TableSurface(f.game, play, f.a, false, Modifier.fillMaxSize(), connected = false, toolkit = toolkit,
+            TableSurface(f.game, TableBoard.of(play), f.a, false, Modifier.fillMaxSize(), connected = false, toolkit = toolkit,
                 onIntent = toolkit::handle, runtime = TableRuntimeHooks(reviewing = true, pauseForInspection = { playback.pause() }))
         } }
-        val scene = TablePresentation.scene(f.game, play, f.a, 412f, 892f, false)
+        val scene = TablePresentation.scene(f.game, TableBoard.of(play), f.a, 412f, 892f, false)
         val card = scene.items.first { it.owner == f.a && it.kind == TableItemKind.CARD && it.zone == PlayZone.BATTLEFIELD &&
             !it.covered && it.visible.isNotEmpty() }
         val point = card.visible.first().center

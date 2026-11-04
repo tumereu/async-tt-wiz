@@ -109,13 +109,13 @@ class StepArrowGamesTest {
         return change.reason == null
     }
 
-    private fun toolkit(player: String) = TableToolkitController(player, { live() }, { true },
+    private fun toolkit(player: String) = TableToolkitController(player, { TableBoard.of(live()) }, { true },
         { action, _ -> serve(player, GameAction.Play(action), f.id("arrowsim/${requests++}")) },
         playBatch = { actions, request -> serve(player, GameAction.PlayBatch(actions), request) },
         automatedBatch = { batch, request -> serve(player, batch, request) }, playTree = { tree })
 
     private fun tags(play: PlayState) = engineTags(tree, play.currentNodeId)
-    private fun scene(play: PlayState, viewer: String) = TablePresentation.scene(f.game, play, viewer, 412f, 892f, false)
+    private fun scene(play: PlayState, viewer: String) = TablePresentation.scene(f.game, TableBoard.of(play), viewer, 412f, 892f, false)
     private fun field(play: PlayState, player: String) =
         play.board.containers.single { it.zone == PlayZone.BATTLEFIELD && it.accountId == player }.cards
     private fun hand(play: PlayState, player: String) =
@@ -148,13 +148,13 @@ class StepArrowGamesTest {
     private fun tapArrow(device: TableToolkitController, player: String, stats: Stats) {
         val before = live()
         device.planStep()
-        val step = device.plannedStep(before)
+        val step = device.plannedStep(TableBoard.of(before))
         if (step == null) { stats.failures += "turn ${number(before)} ${position(before)}: no plan for $player's arrow (${device.flows.stepPlan})"; return }
         val label = step.label
-        if (AutomatumStep.of(before) == AutomatumStep.ToCombat && step != AutomatumStep.ToCombat) stats.notToCombat++
+        if (AutomatumStep.of(TableBoard.of(before)) == AutomatumStep.ToCombat && step != AutomatumStep.ToCombat) stats.notToCombat++
         val attackable = step == AutomatumStep.ToCombat || step == AutomatumStep.EndTurn || step == AutomatumStep.Next
         val could = attackable && before.board.turn.accountId == player && position(before) < TurnPosition.BEGIN_COMBAT && couldAttack(before)
-        val blocked = stepBlocked(before, device.cast.open, AutomatumBoards.combat(before) { tags(before) })
+        val blocked = stepBlocked(TableBoard.of(before), device.cast.open, AutomatumBoards.combat(before) { tags(before) })
         if (blocked != null) { stats.failures += "the arrow is greyed: $blocked"; return }
         if (!device.perform(TableActionIntent.Next(TableActionScope(before.gameId, before.id)))) {
             stats.failures += "$label refused: ${device.error}"; return
@@ -248,7 +248,7 @@ class StepArrowGamesTest {
                 if (d.cast.start(card)) {
                     var guard = 3
                     while (d.cast.open && d.cast.targeting && guard-- > 0) {
-                        val glow = d.cast.glow(live())
+                        val glow = d.cast.glow(TableBoard.of(live()))
                         val target = items().filter { it.id in glow || it.cardId in glow }.randomOrNull(random)
                         if (target == null) { d.cast.cancel(); break }
                         d.open(TableIntent.Actions(target.id, null), target)
@@ -260,9 +260,9 @@ class StepArrowGamesTest {
                 if (live() !== play) return@repeat
             }
             // Clear a staging the arrow can't declare (menace with one blocker)
-            if (stepBlocked(live(), false, AutomatumBoards.combat(live()) { tags(live()) }) != null) live().let { now ->
-                automatumCombatQuickActions(now, toolkitQuickContext(now, actor).copy(automatumCombat = AutomatumBoards.combat(now) { tags(now) })
-                    .withCombatTarget(d.combat, now, "them"), TableActionScope(now.gameId, now.id)).orEmpty()
+            if (stepBlocked(TableBoard.of(live()), false, AutomatumBoards.combat(live()) { tags(live()) }) != null) live().let { now ->
+                automatumCombatQuickActions(TableBoard.of(now), toolkitQuickContext(TableBoard.of(now), actor).copy(automatumCombat = AutomatumBoards.combat(now) { tags(now) })
+                    .withCombatTarget(d.combat, TableBoard.of(now), "them"), TableActionScope(now.gameId, now.id)).orEmpty()
                     .firstOrNull { it.name == "Clear" }?.takeIf { it.enabled }?.let { d.perform(it.intent) }
             }
             probe?.invoke(live(), actor)
@@ -294,7 +294,7 @@ class StepArrowGamesTest {
         var sentAt = 0L
         var members = 0
         var batch: GameAction.PlayBatch? = null
-        val toolkit = TableToolkitController(player, { board }, { true }, { _, _ -> false },
+        val toolkit = TableToolkitController(player, { TableBoard.of(board) }, { true }, { _, _ -> false },
             automatedBatch = { batch, _ -> sentAt = System.nanoTime(); members = batch.actions.size; this.batch = batch; true },
             playTree = tree)
     }
@@ -306,7 +306,7 @@ class StepArrowGamesTest {
         val cold = mutableListOf<Long>(); val planned = mutableListOf<Long>(); val tap = mutableListOf<Long>(); val apply = mutableListOf<Long>()
         var compared = 0
         play(29L, actions = 200) { play, actor ->
-            if (number(play) < 4 || stepBlocked(play, false, AutomatumBoards.combat(play) { tags(play) }) != null) return@play
+            if (number(play) < 4 || stepBlocked(TableBoard.of(play), false, AutomatumBoards.combat(play) { tags(play) }) != null) return@play
             // Before: the tap works the flow, the passes and the batch out, then sends
             val before = Probe(actor, play.copy(board = play.board.copy()), { tree })
             var start = System.nanoTime()

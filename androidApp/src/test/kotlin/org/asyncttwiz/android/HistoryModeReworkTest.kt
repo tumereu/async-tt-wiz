@@ -155,7 +155,7 @@ class HistoryModeReworkTest {
         var branched by mutableStateOf(true)
         var status by mutableStateOf(TimelinePlaybackStatus.PAUSED)
         compose.setContent { MaterialTheme {
-            TableSurface(TableFixture.game, TableFixture.play(board = 1), "a", false, androidx.compose.ui.Modifier.fillMaxSize(),
+            TableSurface(TableFixture.game, TableBoard.of(TableFixture.play(board = 1)), "a", false, androidx.compose.ui.Modifier.fillMaxSize(),
                 runtime = TableRuntimeHooks(reviewing = true, opponentBranched = branched, timelinePlayback = status))
         } }
         compose.onNodeWithText("Opponent branched").assertIsDisplayed()
@@ -322,8 +322,8 @@ class HistoryModeReworkTest {
         for (landscape in listOf(false, true)) {
             val width = if (landscape) 892f else 412f
             val height = if (landscape) 412f else 892f
-            val live = TablePresentation.scene(f.game, f.initial, f.a, width, height, landscape, ui)
-            val review = TablePresentation.scene(f.game, f.initial, f.a, width, height, landscape, ui, reviewing = true)
+            val live = TablePresentation.scene(f.game, TableBoard.of(f.initial), f.a, width, height, landscape, ui)
+            val review = TablePresentation.scene(f.game, TableBoard.of(f.initial), f.a, width, height, landscape, ui, reviewing = true)
             assertEquals(live.world, review.world)
             assertEquals(live.camera, review.camera)
             assertEquals(live.fields, review.fields)

@@ -12,7 +12,7 @@ class TableWorldTest {
         val cards = play.board.cards.filter { c -> play.board.containers.any { it.id == c.containerId && it.zone == PlayZone.BATTLEFIELD } }
         val positions = cards.mapIndexed { i, c -> c.id to TablePlacement(if (i % 2 == 0) -4 else 12, 0) }.toMap()
         for (landscape in listOf(false, true)) {
-            val scene = TablePresentation.scene(f.game, play, f.a, if (landscape) 892f else 412f,
+            val scene = TablePresentation.scene(f.game, TableBoard.of(play), f.a, if (landscape) 892f else 412f,
                 if (landscape) 412f else 892f, landscape, placements = positions)
             val world = scene.world!!
             assertTrue(world.panBounds.x <= -7 * TablePresentation.COLUMN_PITCH)
@@ -70,7 +70,7 @@ class TableWorldTest {
     @Test fun worldScalesUniformlyWhileAllHudGeometryStaysFixed() {
         val f = TableStatesFixture
         for (landscape in listOf(false, true)) {
-            fun scene(camera: TableCamera) = TablePresentation.scene(f.game, f.combat(), f.a,
+            fun scene(camera: TableCamera) = TablePresentation.scene(f.game, TableBoard.of(f.combat()), f.a,
                 if (landscape) 892f else 412f, if (landscape) 412f else 892f, landscape, TableLayoutState(camera))
             val home = scene(TableCamera())
             for (zoom in listOf(.65f, 1.4f, 2f)) {
@@ -122,8 +122,8 @@ class TableWorldTest {
         val play = initial.copy(board = initial.board.copy(combat = CombatArea("combat")))
         for (landscape in listOf(false, true)) {
             val (w, h) = if (landscape) 892f to 412f else 412f to 892f
-            val closed = TablePresentation.scene(TableFixture.game, initial, "a", w, h, landscape)
-            val open = TablePresentation.scene(TableFixture.game, play, "a", w, h, landscape)
+            val closed = TablePresentation.scene(TableFixture.game, TableBoard.of(initial), "a", w, h, landscape)
+            val open = TablePresentation.scene(TableFixture.game, TableBoard.of(play), "a", w, h, landscape)
             assertEquals(closed.fields, open.fields)
             assertEquals(closed.stackRegion, open.stackRegion)
             assertNotNull(open.combatPanel)

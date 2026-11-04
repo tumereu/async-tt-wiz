@@ -33,10 +33,61 @@ import java.util.concurrent.ConcurrentHashMap
  * board changes (never per frame, never in the way of an action's own result, SYS-025) and kept for the latest boards.
  * Card definitions are parsed on the device from the game's own card data (I-D2) by [definitionSource], which the app
  * installs (its [org.asyncttwiz.storage.CardDefinitions] on the account's storage), and kept in memory by digest.
- * A board of a game on engine state brings its computed values and plays from the engine thread ([EngineBoardValues],
- * engine-responsiveness R3): read from there, nothing is rebuilt from the board here.
+ * A board of a game on engine state ([TableBoard] with its [TableBoard.values]) brings its computed values and plays from
+ * the engine thread ([EngineBoardValues], engine-responsiveness R3): read from there, nothing is rebuilt from the board
+ * here. The functions on [PlayState] are today's model's (the boards it draws, [TableBoard.legacy]).
  */
 internal object AutomatumBoards {
+    // ---- What the table reads of the board it draws ([TableBoard])
+
+    /** [play]'s computed board as [viewer] sees it when already worked out (on engine state: the engine thread's). */
+    fun cached(play: TableBoard, viewer: String): ComputedBoard? =
+        play.values?.takeIf { it.viewer == viewer }?.computed ?: play.legacy?.let { cached(it, viewer) }
+
+    /** [play]'s computed board (blocking on today's model; on engine state the engine thread's). */
+    fun compute(play: TableBoard, viewer: String): ComputedBoard =
+        cached(play, viewer) ?: play.legacy?.let { compute(it, viewer) } ?: ComputedBoard.NONE
+
+    /** The game's card definitions the device could read, by digest. */
+    fun definitions(play: TableBoard): Map<String, CardDefinition> = definitions(play.definitions)
+
+    /** What [viewer] may cast or play from their hand on [play], when already worked out. */
+    fun cachedHandPlays(play: TableBoard, viewer: String): HandPlays? {
+        play.values?.takeIf { it.viewer == viewer }?.let { return it.handPlays }
+        return play.legacy?.let { cachedHandPlays(it, viewer) }
+    }
+
+    /** What [viewer] may cast or play from their hand on [play] (on engine state worked out on the engine thread). */
+    fun handPlays(play: TableBoard, viewer: String, tags: () -> List<MtgTag?>): HandPlays =
+        play.values?.takeIf { it.viewer == viewer }?.handPlays() ?: play.legacy?.let { handPlays(it, viewer, tags) } ?: HandPlays.NONE
+
+    /** What the engine offers [viewer] for each card on [play], when already worked out. */
+    fun cachedCardPlays(play: TableBoard, viewer: String): CardPlays? {
+        play.values?.takeIf { it.viewer == viewer }?.let { return it.cardPlays }
+        return play.legacy?.let { cachedCardPlays(it, viewer) }
+    }
+
+    /** What the engine offers [viewer] for each card on [play] (on engine state worked out on the engine thread). */
+    fun cardPlays(play: TableBoard, viewer: String, tags: () -> List<MtgTag?>): CardPlays =
+        play.values?.takeIf { it.viewer == viewer }?.cardPlays() ?: play.legacy?.let { cardPlays(it, viewer, tags) } ?: CardPlays.NONE
+
+    /** Whether [play]'s board has a shared flow to show (I2): an open decision, or something on the Stack. */
+    fun sharedFlowShown(play: TableBoard): Boolean = play.flowOpen || play.board.stackEffects.any { it.item != null }
+
+    /** The shared flow of [play]'s board already worked out, if any. */
+    fun cachedFlow(play: TableBoard): SharedFlow? = play.legacy?.let(::cachedFlow)
+
+    /** [play]'s board as a shared flow (priority, the open decision; I2), worked out now when not yet (blocking). */
+    fun sharedFlow(play: TableBoard, tags: List<MtgTag?>): SharedFlow? = play.legacy?.let { sharedFlow(it, tags) }
+
+    /** What the table shows of combat on [play]'s board already worked out, if any. */
+    fun cachedCombat(play: TableBoard): CombatShown? = play.legacy?.let(::cachedCombat)
+
+    /** What the table shows of combat on [play]'s board, worked out now when not yet (blocking). */
+    fun combat(play: TableBoard, tags: () -> List<MtgTag?>): CombatShown = play.legacy?.let { combat(it, tags) } ?: CombatShown.NONE
+
+    // ---- Today's model ([TableBoard.legacy])
+
     /** Parses (or reads from the device cache) the definitions of the given card data. Blocking. */
     @Volatile var definitionSource: ((Collection<SubmittedDefinition>) -> Map<String, ParsedCard>)? = null
 
@@ -50,10 +101,8 @@ internal object AutomatumBoards {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Key, ComputedBoard>?) = size > 8
     }
 
-    /** The board already worked out for [play]'s board as [viewer] sees it, if any (a board of a game on engine state: the
-     * engine thread's, made with it, engine-responsiveness R3). */
-    fun cached(play: PlayState, viewer: String): ComputedBoard? =
-        EngineBoardValues.of(play.board, viewer)?.computed ?: synchronized(boards) { boards[Key(play.board, viewer)] }
+    /** The board already worked out for [play]'s board as [viewer] sees it, if any. */
+    fun cached(play: PlayState, viewer: String): ComputedBoard? = synchronized(boards) { boards[Key(play.board, viewer)] }
 
     /** Works [play]'s board out (blocking: parsing new card data and one engine view). Never throws: a board the
      * device can't work out keeps every card manual and says why. */
@@ -61,7 +110,7 @@ internal object AutomatumBoards {
         cached(play, viewer)?.let { return it }
         val board = try {
             // R3: a board of a game on engine state the engine thread didn't make is worked out from its own engine state
-            play.board.engine?.let { engine -> ComputedBoard.of(play, definitions(play.definitions), viewer, engine.state, arcanum.engine.Engine.view(engine.state)) }
+            play.board.engine?.let { engine -> ComputedBoard.of(play.board, play.definitions, definitions(play.definitions), viewer, engine.state, arcanum.engine.Engine.view(engine.state)) }
                 ?: ComputedBoard.of(play, definitions(play.definitions), viewer)
         } catch (problem: Exception) {
             AppLog.warn("automatum", "Couldn't work the board out: ${problem::class.java.simpleName}")
@@ -83,21 +132,16 @@ internal object AutomatumBoards {
     fun definitions(play: PlayState): Map<String, CardDefinition> = definitions(play.definitions)
 
     /** What [viewer] may cast or play from their hand on [play]'s board, when already worked out. */
-    fun cachedHandPlays(play: PlayState, viewer: String): HandPlays? {
-        EngineBoardValues.of(play.board, viewer)?.let { return it.handPlays }
-        return synchronized(plays) { plays[PlaysKey(play.board, viewer)] }
-    }
+    fun cachedHandPlays(play: PlayState, viewer: String): HandPlays? = synchronized(plays) { plays[PlaysKey(play.board, viewer)] }
 
     /** What [viewer] may cast or play from their hand on [play]'s board (I2, I-D28): kept for the latest boards; worked
      * out now when not yet (blocking: one engine `options`). [tags]: the history's tags up to this board (D33), read
      * only when it has to be worked out. */
     fun handPlays(play: PlayState, viewer: String, tags: () -> List<MtgTag?>): HandPlays {
-        // R3: a board of a game on engine state: the engine thread's (worked out there now when not yet)
-        EngineBoardValues.of(play.board, viewer)?.let { return it.handPlays() }
         cachedHandPlays(play, viewer)?.let { return it }
         val result = try {
             val engine = play.board.engine
-            if (engine != null) HandPlays.of(play, engine.state, viewer, null) else {
+            if (engine != null) HandPlays.of(engine.state, viewer, null) else {
                 val definitions = definitions(play.definitions)
                 HandPlays.of(play, definitions, viewer, engineLog(play, definitions, tags()))
             }
@@ -114,21 +158,16 @@ internal object AutomatumBoards {
     }
 
     /** What the engine offers [viewer] for each card on [play]'s board, when already worked out. */
-    fun cachedCardPlays(play: PlayState, viewer: String): CardPlays? {
-        EngineBoardValues.of(play.board, viewer)?.let { return it.cardPlays }
-        return synchronized(cardPlays) { cardPlays[PlaysKey(play.board, viewer)] }
-    }
+    fun cachedCardPlays(play: PlayState, viewer: String): CardPlays? = synchronized(cardPlays) { cardPlays[PlaysKey(play.board, viewer)] }
 
     /** What the engine offers [viewer] for each card on [play]'s board (§3 I4: the card menus): kept for the latest
      * boards; worked out now when not yet (blocking: one engine `options` and `view`). */
     fun cardPlays(play: PlayState, viewer: String, tags: () -> List<MtgTag?>): CardPlays {
-        // R3: a board of a game on engine state: worked out on the engine thread, once per board
-        EngineBoardValues.of(play.board, viewer)?.let { return it.cardPlays() }
         cachedCardPlays(play, viewer)?.let { return it }
         val result = try {
             val engine = play.board.engine
             if (engine != null) arcanum.engine.Engine.view(engine.state).let { view ->
-                CardPlays.of(play, engine.state, viewer, view, arcanum.engine.Engine.visible(engine.state, arcanum.engine.state.PlayerId(viewer), view))
+                CardPlays.of(engine.state, viewer, view, arcanum.engine.Engine.visible(engine.state, arcanum.engine.state.PlayerId(viewer), view))
             } else {
                 val definitions = definitions(play.definitions)
                 CardPlays.of(play, definitions, viewer, engineLog(play, definitions, tags()))
@@ -257,7 +296,7 @@ internal object AutomatumBoards {
         }
     }
 
-    private fun definitions(submitted: List<SubmittedDefinition>): Map<String, CardDefinition> {
+    fun definitions(submitted: List<SubmittedDefinition>): Map<String, CardDefinition> {
         val missing = submitted.filter { !parsed.containsKey(it.digest) && it.digest !in unreadable }
         val source = definitionSource
         if (missing.isNotEmpty() && source != null) {
@@ -303,11 +342,11 @@ internal val LocalComputedBoard = staticCompositionLocalOf { ComputedBoard.NONE 
  * the first time).
  */
 @Composable
-internal fun rememberComputedBoard(play: PlayState, viewer: String, tags: (() -> List<MtgTag?>)? = null): ComputedBoard {
-    var last by remember(play.id, viewer) { mutableStateOf(ComputedBoard.NONE) }
+internal fun rememberComputedBoard(play: TableBoard, viewer: String, tags: (() -> List<MtgTag?>)? = null): ComputedBoard {
+    var last by remember(play.playId, viewer) { mutableStateOf(ComputedBoard.NONE) }
     // R3: a board of a game on engine state comes with its computed values (and, once worked out, the hand plays) from
     // the engine thread: shown at once, nothing worked out here
-    EngineBoardValues.of(play.board, viewer)?.let { values ->
+    play.values?.takeIf { it.viewer == viewer }?.let { values ->
         SideEffect {
             // SYS-030: an own action's probe counts its board's computed values and hand plays arriving
             OwnActionProbes.computed(play.board)

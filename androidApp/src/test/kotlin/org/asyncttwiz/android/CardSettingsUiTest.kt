@@ -64,8 +64,8 @@ class CardSettingsUiTest {
         val f = TableStatesFixture
         val play = f.combat()
         val preferences = CardAppearancePreferences(context)
-        val toolkit = TableToolkitController(f.a, { play }, { true }, { _, _ -> true })
-        compose.setContent { MaterialTheme { TableSurface(f.game, play, f.a, landscape, Modifier.fillMaxSize(), toolkit = toolkit) } }
+        val toolkit = TableToolkitController(f.a, { TableBoard.of(play) }, { true }, { _, _ -> true })
+        compose.setContent { MaterialTheme { TableSurface(f.game, TableBoard.of(play), f.a, landscape, Modifier.fillMaxSize(), toolkit = toolkit) } }
         for (scale in listOf(.5f, 3f)) for (zoom in listOf(.65f, 1f, 2f)) {
             compose.runOnIdle {
                 preferences.setSize(scale); preferences.setText(scale)
@@ -80,7 +80,7 @@ class CardSettingsUiTest {
             val situation = "${if (landscape) "Landscape" else "Portrait"} table in combat; card size ${scale}x, text ${scale}x, zoom ${zoom}x"
             captureShot(file.path, "$situation.")
             if (scale == 3f && zoom == 1f) {
-                val home = TablePresentation.scene(f.game, play, f.a, if (landscape) 892f else 412f,
+                val home = TablePresentation.scene(f.game, TableBoard.of(play), f.a, if (landscape) 892f else 412f,
                     if (landscape) 412f else 892f, landscape, appearance = preferences.read())
                 val world = home.world!!
                 for (field in home.fields) {

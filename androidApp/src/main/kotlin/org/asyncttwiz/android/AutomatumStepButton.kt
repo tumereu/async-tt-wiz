@@ -58,9 +58,9 @@ sealed class AutomatumStep(val label: String) {
 
         /** The step arrow on [play]'s board read from ATW's board alone: what the arrow shows until the tap's plan is
          * worked out ([SharedFlowController.plan]), and where it can't act. */
-        fun of(play: PlayState): AutomatumStep {
+        fun of(play: TableBoard): AutomatumStep {
             val board = play.board
-            if (Automatum.flowOpen(board)) return Waiting
+            if (play.flowOpen) return Waiting
             if (CombatStackRules.stack(board).cards.isNotEmpty()) return Resolve
             val position = TurnPosition.of(board.turn)
             val holder = board.priority?.holder
@@ -103,11 +103,11 @@ internal val AutomatumStepOutline = Color(0xff9aa7a3)
  * is open ([castOpen]), the opening (turn 1 while a player is still Mulliganing, TRN-062), another choice is open
  * ([AutomatumStep.Waiting]), or the declaration the lanes hold isn't one Automatum allows ([combat]: what it worked out).
  */
-internal fun stepBlocked(play: PlayState, castOpen: Boolean, combat: org.asyncttwiz.automatum.CombatShown?): String? {
+internal fun stepBlocked(play: TableBoard, castOpen: Boolean, combat: org.asyncttwiz.automatum.CombatShown?): String? {
     if (castOpen) return CastController.BUSY
     if (play.board.turn.number == "1" && PlayerStatus.anyOpening(play.board)) return SharedFlowController.OPENING
     val step = AutomatumStep.of(play)
-    if (step == AutomatumStep.Waiting) return if (Automatum.flowOpen(play.board)) SharedFlowController.BUSY
+    if (step == AutomatumStep.Waiting) return if (play.flowOpen) SharedFlowController.BUSY
         else SharedFlowController.STACK_WAITING
     val choices = combat?.choices ?: return null
     if (choices.declaring == null) return null
@@ -123,7 +123,7 @@ internal fun stepBlocked(play: PlayState, castOpen: Boolean, combat: org.asynctt
  * other player's turn only while they hold priority (a pause, Resolve) or must decide (their blockers, a choice of
  * theirs: they act on the board shown).
  */
-internal fun stepArrowShown(play: PlayState, viewer: String?): Boolean {
+internal fun stepArrowShown(play: TableBoard, viewer: String?): Boolean {
     val board = play.board
     if (viewer == null || board.turn.accountId == viewer) return true
     return board.priority?.holder == viewer || board.effectiveAttentionHolder == viewer
@@ -136,7 +136,7 @@ internal fun stepArrowShown(play: PlayState, viewer: String?): Boolean {
  * [blocked] ([stepBlocked]): greyed; a tap shakes it and holding it says why (I-D46 b).
  */
 @Composable
-internal fun AutomatumStepArrow(play: PlayState, enabled: Boolean, compact: Boolean, onHold: () -> Unit,
+internal fun AutomatumStepArrow(play: TableBoard, enabled: Boolean, compact: Boolean, onHold: () -> Unit,
     blocked: String? = null, planned: AutomatumStep? = null, onClick: () -> Unit) {
     // Owner playtest 2026-11-03 #1: the words of the tap's own plan once worked out, the board's until then
     val step = planned ?: AutomatumStep.of(play)

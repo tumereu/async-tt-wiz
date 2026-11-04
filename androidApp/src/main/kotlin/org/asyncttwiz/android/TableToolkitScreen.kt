@@ -28,9 +28,9 @@ import org.asyncttwiz.protocol.*
 
 /** The production overlay tree, mounted once alongside the Canvas and using its captured IDs. */
 @Composable
-internal fun TableToolkitScreen(toolkit: TableToolkitController, play: PlayState, game: GameSummary,
+internal fun TableToolkitScreen(toolkit: TableToolkitController, play: TableBoard, game: GameSummary,
     landscape: Boolean,
-    accepted: PlayState? = null, peekScroll: ScrollState? = null, scene: TableScene? = null,
+    accepted: TableBoard? = null, peekScroll: ScrollState? = null, scene: TableScene? = null,
     onTimeline: (() -> Unit)? = null, reviewing: Boolean = false) {
     val names = mapOf(game.inviter.accountId to game.inviter.username, game.recipient.accountId to game.recipient.username)
     val enabled = toolkit.enabled()
@@ -101,7 +101,7 @@ internal fun TableToolkitScreen(toolkit: TableToolkitController, play: PlayState
     AutomatumCombatHost(toolkit, play)
 }
 
-internal fun toolkitQuickContext(play: PlayState, viewer: String? = null): QuickContext =
+internal fun toolkitQuickContext(play: TableBoard, viewer: String? = null): QuickContext =
     QuickContext(combatAreaId = play.board.combat?.id, viewer = viewer)
 
 /**
@@ -110,7 +110,7 @@ internal fun toolkitQuickContext(play: PlayState, viewer: String? = null): Quick
  * those it doesn't allow now greyed with the reason on tap. A card in the other player's hand shows only a greyed Cast
  * (I-D27: nothing about it is read). Until Automatum has worked the board out (SYS-025) one greyed row says so.
  */
-internal fun automatumRows(toolkit: TableToolkitController, play: PlayState, bound: ToolkitCapture, names: Map<String, String>,
+internal fun automatumRows(toolkit: TableToolkitController, play: TableBoard, bound: ToolkitCapture, names: Map<String, String>,
     enabled: Boolean): List<EngineRow> {
     val cardId = CombatStackRules.liveSource(play.board, bound.contextViewId)?.id ?: bound.contextViewId
     val card = play.board.cards.singleOrNull { it.id == cardId } ?: return emptyList()
@@ -127,7 +127,7 @@ internal fun automatumRows(toolkit: TableToolkitController, play: PlayState, bou
  * or play it from the top, Seer of Harvestide-like), as the Library menu's rows; none when it offers
  * nothing, or for a top card the viewer may not see (CardPlays lists nothing of hidden cards, I-D27).
  */
-internal fun libraryTopRows(toolkit: TableToolkitController, play: PlayState, libraryId: String, names: Map<String, String>,
+internal fun libraryTopRows(toolkit: TableToolkitController, play: TableBoard, libraryId: String, names: Map<String, String>,
     enabled: Boolean): List<EngineRow> {
     val top = play.board.containers.singleOrNull { it.id == libraryId && it.zone == PlayZone.LIBRARY }?.cards?.firstOrNull()
         ?: return emptyList()
@@ -138,12 +138,12 @@ internal fun libraryTopRows(toolkit: TableToolkitController, play: PlayState, li
 }
 
 /** The menu rows of [offered], what the engine offers for [cardId]. */
-private fun engineRows(toolkit: TableToolkitController, play: PlayState, cardId: String,
+private fun engineRows(toolkit: TableToolkitController, play: TableBoard, cardId: String,
     offered: List<org.asyncttwiz.automatum.CardPlay>, names: Map<String, String>, enabled: Boolean): List<EngineRow> {
     val name = CastController.cardName(play, cardId)
     val busy = when {
         toolkit.cast.open -> CastController.BUSY
-        Automatum.flowOpen(play.board) -> SharedFlowController.BUSY
+        play.flowOpen -> SharedFlowController.BUSY
         else -> null
     }
     return offered.map { offered ->
@@ -201,7 +201,7 @@ internal fun ZoneMenu(kept: @Composable () -> Unit = {}, rows: List<EngineRow> =
 }
 
 /** The same targets, in the same order, as the combat area's lanes. */
-internal fun attackTargetChoices(play: PlayState, names: Map<String, String>, viewer: String): List<Pair<String?, String>> =
+internal fun attackTargetChoices(play: TableBoard, names: Map<String, String>, viewer: String): List<Pair<String?, String>> =
     listOf(null to (names[CombatStackRules.defendingPlayer(play.board)] ?: "Player")) +
         CombatStackPresentation.attackTargets(play.board, play.definitions, viewer).map { id ->
             val card = play.board.cards.single { it.id == id }
@@ -211,7 +211,7 @@ internal fun attackTargetChoices(play: PlayState, names: Map<String, String>, vi
 
 /** Target picture (player avatar or card art) beside its full name; the current target is marked and inert. */
 @Composable
-internal fun AttackTargetRow(play: PlayState, cardId: String?, label: String, defender: AccountIdentity?,
+internal fun AttackTargetRow(play: TableBoard, cardId: String?, label: String, defender: AccountIdentity?,
     current: Boolean, enabled: Boolean, onClick: () -> Unit) {
     val ink = MenuInk.copy(alpha = if (enabled || current) 1f else .38f)
     // The same opaque, bordered, shadowed cell as every other floating popup control; the gaps stay outside.

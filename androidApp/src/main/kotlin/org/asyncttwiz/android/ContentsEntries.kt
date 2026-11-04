@@ -19,7 +19,7 @@ internal fun contentsCategoryRank(category: String): Int =
 
 private val contentsOrder = compareBy<ContentsEntry>({ contentsCategoryRank(it.category) }, { it.name.lowercase() }, { it.cardId })
 
-fun contentsEntries(state: PlayState, pile: PileContents, viewer: String, search: String = ""): List<ContentsEntry> {
+fun contentsEntries(state: TableBoard, pile: PileContents, viewer: String, search: String = ""): List<ContentsEntry> {
     val entries = pile.cardIds.mapIndexed { index, id ->
         val card = CombatStackRules.inspection(state.board, id)
         val visible = card != null && !CombatStackRules.faceDownEntry(state.board, id) &&
@@ -39,7 +39,7 @@ fun contentsEntries(state: PlayState, pile: PileContents, viewer: String, search
 }
 
 /** Permission-aware presentation: backs contain no definition-derived names, types or search matches. */
-fun contentsEntries(state: PlayState, display: ContentsDisplay, viewer: String, search: String = ""): List<ContentsEntry> {
+fun contentsEntries(state: TableBoard, display: ContentsDisplay, viewer: String, search: String = ""): List<ContentsEntry> {
     val entries = display.cardIds.mapIndexed { index, id ->
         val visible = display.faceVisibleTo(id, viewer)
         val card = state.board.cards.singleOrNull { it.id == id }

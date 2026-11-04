@@ -26,7 +26,7 @@ import org.asyncttwiz.protocol.*
  * the game by hand (I-D52). A hand card has no menu (ZON-079).
  */
 @Composable
-internal fun EngineCardMenu(toolkit: TableToolkitController, play: PlayState, bound: ToolkitCapture, names: Map<String, String>,
+internal fun EngineCardMenu(toolkit: TableToolkitController, play: TableBoard, bound: ToolkitCapture, names: Map<String, String>,
     enabled: Boolean) {
     val view = bound.contextViewId
     val card = CombatStackRules.liveSource(play.board, view) ?: return

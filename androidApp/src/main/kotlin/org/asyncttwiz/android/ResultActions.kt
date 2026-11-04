@@ -39,7 +39,11 @@ object ResultActions {
     private fun includes(game: GameSummary, board: PlayState?) = capture(game, board) != null && board?.board?.resultSuggestion != null
 
     /** Visibility belongs to the displayed replayed board, not the live action lock. */
-    fun pendingPresentation(game: GameSummary, displayed: PlayState?, viewer: String): ResultPresentation? {
+    fun pendingPresentation(game: GameSummary, displayed: PlayState?, viewer: String): ResultPresentation? =
+        pendingPresentation(game, displayed?.let(TableBoard::of), viewer)
+
+    /** [pendingPresentation] of the board the table draws. */
+    fun pendingPresentation(game: GameSummary, displayed: TableBoard?, viewer: String): ResultPresentation? {
         val target = capture(game, displayed) ?: return null
         val suggestion = displayed?.board?.resultSuggestion ?: return null
         return presentation(game, displayed, viewer, ResultPlaybackGate(target, suggestion.id))
@@ -57,7 +61,16 @@ object ResultActions {
         game.lifecycle == GameLifecycle.ACTIVE && game.id == it.gameId && game.playId == it.id
     }?.let { ResultTarget(it.gameId, it.id) }
 
-    fun presentation(game: GameSummary, current: PlayState?, viewer: String,
+    /** [capture] of the board the table draws. */
+    fun capture(game: GameSummary, play: TableBoard?): ResultTarget? = play?.takeIf {
+        game.lifecycle == GameLifecycle.ACTIVE && game.id == it.gameId && game.playId == it.playId
+    }?.let { ResultTarget(it.gameId, it.playId) }
+
+    fun presentation(game: GameSummary, current: PlayState?, viewer: String, gate: ResultPlaybackGate?): ResultPresentation? =
+        presentation(game, current?.let(TableBoard::of), viewer, gate)
+
+    /** [presentation] of the board the table draws. */
+    fun presentation(game: GameSummary, current: TableBoard?, viewer: String,
         gate: ResultPlaybackGate?): ResultPresentation? {
         val target = capture(game, current) ?: return null
         val suggestion = current!!.board.resultSuggestion ?: return null

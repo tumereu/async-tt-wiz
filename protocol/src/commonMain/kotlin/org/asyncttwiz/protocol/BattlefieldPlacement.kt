@@ -21,8 +21,12 @@ object BattlefieldPlacement {
         firstFree(state.board, containerId, row(state.definitions, card, faceDown), taken)
 
     /** One cell per card of [cards], in order, each on its own row and never two in one cell. */
-    fun cells(state: PlayState, containerId: String, cards: List<PlayCard>): Map<String, BoardPosition> {
+    fun cells(state: PlayState, containerId: String, cards: List<PlayCard>): Map<String, BoardPosition> =
+        cells(state.board, state.definitions, containerId, cards)
+
+    /** [cells] on [board] with its card data [definitions] (a board drawn for a game on engine state). */
+    fun cells(board: BoardState, definitions: List<SubmittedDefinition>, containerId: String, cards: List<PlayCard>): Map<String, BoardPosition> {
         val taken = mutableSetOf<BoardPosition>()
-        return cards.associate { card -> card.id to cell(state, containerId, card, taken).also { taken += it } }
+        return cards.associate { card -> card.id to firstFree(board, containerId, row(definitions, card), taken).also { taken += it } }
     }
 }

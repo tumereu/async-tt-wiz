@@ -60,7 +60,7 @@ class EngineOwnActionPartsTest {
 
     /** The table's computed board and hand plays arrive for the board shown now. */
     private fun computedAndPlays(game: EngineGame) {
-        val shown = game.shown!!.play.board
+        val shown = game.shown!!.board.board
         OwnActionProbes.computed(shown); OwnActionProbes.plays(shown)
     }
 
@@ -76,7 +76,7 @@ class EngineOwnActionPartsTest {
     @Test fun anEarlyBoardIsTimedAsTheBoardAndTheLaterPartsAreFilledInAsTheyArrive() {
         val worker = QueuedWorker(early = true)
         val game = game(worker)
-        val before = game.shown!!.play.board
+        val before = game.shown!!.board.board
         val shownParts = mutableListOf<Pair<Long, Long>>()
         game.probe = { _, _, acted, board -> shownParts += acted to board }
         val reported = mutableListOf<OwnActionTiming>()
@@ -93,7 +93,7 @@ class EngineOwnActionPartsTest {
         // A computed board of the board shown before the action isn't this action's
         OwnActionProbes.computed(before); OwnActionProbes.plays(before)
         assertTrue(reported.isEmpty())
-        val after = game.shown!!.play.board
+        val after = game.shown!!.board.board
         OwnActionProbes.computed(after)
         assertTrue(reported.isEmpty(), "the hand plays haven't arrived yet")
         OwnActionProbes.plays(after)

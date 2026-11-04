@@ -29,9 +29,9 @@ class PlayerPopupUiTest {
                 else mapOf(CounterColor.BLUE to "3"))
         }))
         val sent = mutableListOf<PlayAction>()
-        val toolkit = TableToolkitController("a", { play }, { true }, { action, _ -> sent += action; true })
+        val toolkit = TableToolkitController("a", { TableBoard.of(play) }, { true }, { action, _ -> sent += action; true })
         compose.setContent { MaterialTheme {
-            TableSurface(TableFixture.game, play, "a", landscape, Modifier.fillMaxSize(), connected = true,
+            TableSurface(TableFixture.game, TableBoard.of(play), "a", landscape, Modifier.fillMaxSize(), connected = true,
                 onIntent = toolkit::handle, toolkit = toolkit)
         } }
         return Triple(play, toolkit, sent)
@@ -39,7 +39,7 @@ class PlayerPopupUiTest {
 
     private fun life(owner: String, landscape: Boolean = false, empty: Boolean = false) {
         val (play, toolkit, sent) = render(landscape, empty)
-        val scene = TablePresentation.scene(TableFixture.game, play, "a", if (landscape) 892f else 412f,
+        val scene = TablePresentation.scene(TableFixture.game, TableBoard.of(play), "a", if (landscape) 892f else 412f,
             if (landscape) 412f else 892f, landscape)
         compose.onNodeWithContentDescription(scene.items.single { it.id == "life/$owner" }.label).performClick()
         compose.mainClock.advanceTimeBy(350)

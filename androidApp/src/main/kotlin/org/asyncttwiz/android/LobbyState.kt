@@ -16,6 +16,8 @@ data class LobbyState(val contacts: List<AccountIdentity> = emptyList(), val que
     val preparation: LobbyPreparation? = null, val queuedTransferCards: Long = 0,
     val preparing: Boolean = false, val transferFeedback: TransferFeedback? = null, val play: PlayState? = null,
     val acceptedPlay: PlayState? = null, val activityTarget: ActivityTarget? = null,
+    /** The board the table draws of the selected game played on engine state (engine-responsiveness R4a). */
+    val board: TableBoard? = null,
     val gameContext: GameSummary? = null, val deletion: GameDeletion? = null,
     val chatOpen: Boolean = false, val chat: ChatPresentation = ChatPresentation(),
     val reconnectingGames: Set<String> = emptySet(), val backgroundLoading: Boolean = false,
@@ -29,7 +31,7 @@ data class LobbyState(val contacts: List<AccountIdentity> = emptyList(), val que
     /** Background refreshes have kept failing for a while; the shown lists may be stale. */
     val unreachable: Boolean = false) {
     val filteredContacts get() = contacts.filter { it.username.contains(contactFilter.trim(), ignoreCase = true) }
-    internal fun tableView() = LobbyTableView(selected, detail, play, acceptedPlay, connectedGames, reconnectingGames,
+    internal fun tableView() = LobbyTableView(selected, detail, play, acceptedPlay, board, connectedGames, reconnectingGames,
         syncedGames, activityTarget, chatOpen, chat.unread, connectionMessage, error, ownPodDeckName, opponentPresence)
 }
 
@@ -37,7 +39,7 @@ data class LobbyState(val contacts: List<AccountIdentity> = emptyList(), val que
  * state every few seconds; the table reads this narrow view ([LobbyController.table]) instead, so only a
  * change to one of these fields recomposes it. */
 internal data class LobbyTableView(val selected: String?, val detail: GameSummary?, val play: PlayState?,
-    val acceptedPlay: PlayState?, val connectedGames: Set<String>, val reconnectingGames: Set<String>,
+    val acceptedPlay: PlayState?, val board: TableBoard?, val connectedGames: Set<String>, val reconnectingGames: Set<String>,
     val syncedGames: Set<String>, val activityTarget: ActivityTarget?, val chatOpen: Boolean, val chatUnread: Int,
     val connectionMessage: String?, val error: String?, val ownPodDeckName: String?, val opponentPresence: ReceivedPresence?)
 

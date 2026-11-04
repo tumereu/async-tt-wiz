@@ -70,7 +70,7 @@ internal class DivisionDraft(val division: DamageDivision, start: Map<MtgRef, In
 
 /** The rows of a division (CMB-033): the switch, one row per recipient and the hint line. */
 @Composable
-internal fun DivisionRows(draft: DivisionDraft, play: PlayState, names: Map<String, String>) {
+internal fun DivisionRows(draft: DivisionDraft, play: TableBoard, names: Map<String, String>) {
     val division = draft.division
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Row(Modifier.background(Color(0xffeceff1), RoundedCornerShape(50)).padding(3.dp)) {
@@ -141,7 +141,7 @@ internal fun engineShares(decision: Decision.Divide, division: DamageDivision, s
  * eye hides it to look at the table.
  */
 @Composable
-internal fun CombatDivisionPanel(flows: SharedFlowController, play: PlayState, names: Map<String, String>,
+internal fun CombatDivisionPanel(flows: SharedFlowController, play: TableBoard, names: Map<String, String>,
     decision: Decision.Divide, division: DamageDivision, count: Pair<Int, Int>?) {
     // The decision's suggestion: Automatum's, or an early answer given just as it opened (I-D33)
     val start = division.among.zip(decision.among).associate { (ref, target) ->
@@ -171,7 +171,7 @@ internal fun CombatDivisionPanel(flows: SharedFlowController, play: PlayState, n
  * back.
  */
 @Composable
-internal fun EarlyDivisionPanel(combat: CombatController, play: PlayState, division: DamageDivision, names: Map<String, String>,
+internal fun EarlyDivisionPanel(combat: CombatController, play: TableBoard, division: DamageDivision, names: Map<String, String>,
     enabled: Boolean) {
     val given = combat.early(play, division)
     val start = given?.shares?.associate { it.target to it.amount } ?: division.suggested
@@ -206,12 +206,12 @@ internal fun EarlyDivisionPanel(combat: CombatController, play: PlayState, divis
 /** Whether the shared [flow]'s open decision is a division of combat damage shown in the dialog (not one Automatum's
  * table makes by itself, CMB-033). */
 internal fun dividingInDialog(flow: SharedFlow): Boolean = flow.decision is Decision.Divide &&
-    flow.division?.let { askedInDialog(flow.play, it) } == true
+    flow.division?.let { askedInDialog(flow.board, it) } == true
 
 /**
- * Whether [division] on [play]'s board is asked in the dialog (CMB-033): when its order can change something, and also
+ * Whether [division] on [board] is asked in the dialog (CMB-033): when its order can change something, and also
  * when it can't but its player has "Skip when I have no choice" off (combat review B: then it opens in Free, where the
  * player still has choices). Else the table makes it with the suggestion by itself.
  */
-internal fun askedInDialog(play: PlayState, division: DamageDivision): Boolean = !Divisions.orderFree(division) ||
-    play.board.players.firstOrNull { it.accountId == division.player }?.skipWhenNoChoice == false
+internal fun askedInDialog(board: BoardState, division: DamageDivision): Boolean = !Divisions.orderFree(division) ||
+    board.players.firstOrNull { it.accountId == division.player }?.skipWhenNoChoice == false

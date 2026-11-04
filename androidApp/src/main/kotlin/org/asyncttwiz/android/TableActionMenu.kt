@@ -14,12 +14,12 @@ import org.asyncttwiz.protocol.*
 /** The Table actions dialog (TRN-010): the timeline, the game's result and a problem report (I-D52: nothing that
  * changes the board by hand, no tokens, combat area, dice or coins). */
 @Composable
-fun TableActionMenu(play: PlayState, controller: TableActionController, onDismiss: () -> Unit,
+fun TableActionMenu(play: TableBoard, controller: TableActionController, onDismiss: () -> Unit,
     pendingSuggestionId: String? = null, mayAccept: Boolean = false,
     perform: (TableActionIntent) -> Boolean = controller::perform,
     names: Map<String, String> = emptyMap(), onTimeline: (() -> Unit)? = null,
     reportToken: () -> String? = DebugCrashes::sessionToken) {
-    val scope = TableActionScope(play.gameId, play.id)
+    val scope = TableActionScope(play.gameId, play.playId)
     var ending by remember(scope) { mutableStateOf(false) }
     var outcome by remember(scope) { mutableStateOf<Pair<String, EndingTool>?>(null) }
     var conceding by remember(scope) { mutableStateOf(false) }

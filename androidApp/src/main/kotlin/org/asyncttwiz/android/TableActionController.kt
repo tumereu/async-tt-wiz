@@ -35,13 +35,13 @@ sealed interface TableActionIntent {
     data class Keep(override val scope: TableActionScope) : TableActionIntent
 }
 
-class TableActionController(private val state: () -> PlayState?, private val canAct: () -> Boolean,
+class TableActionController(private val state: () -> TableBoard?, private val canAct: () -> Boolean,
     private val routes: TableActionRoutes) {
 
-    private fun current(scope: TableActionScope): PlayState? = state()?.takeIf {
-        canAct() && it.gameId == scope.gameId && it.id == scope.playId
+    private fun current(scope: TableActionScope): TableBoard? = state()?.takeIf {
+        canAct() && it.gameId == scope.gameId && it.playId == scope.playId
     }
-    fun scope(): TableActionScope? = state()?.let { TableActionScope(it.gameId, it.id) }
+    fun scope(): TableActionScope? = state()?.let { TableActionScope(it.gameId, it.playId) }
     fun enabled(scope: TableActionScope) = current(scope) != null
 
     fun perform(intent: TableActionIntent): Boolean {

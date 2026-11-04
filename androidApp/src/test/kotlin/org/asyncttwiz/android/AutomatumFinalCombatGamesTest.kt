@@ -191,7 +191,7 @@ class AutomatumFinalCombatGamesTest {
         var manual: (PlayAction, String?) -> Boolean = { _, _ -> false }
         var manualBatch: (List<PlayAction>, String) -> Boolean = { _, _ -> false }
         // These games keep a cast open (its mana section, I-D47 Autotap off) while the table goes on, then Cast it
-        val toolkit = TableToolkitController(player, { if (held != null) view else live }, { true }, { action, _ -> manual(action, null) },
+        val toolkit = TableToolkitController(player, { TableBoard.of(if (held != null) view else live) }, { true }, { action, _ -> manual(action, null) },
             playBatch = { actions, request -> manualBatch(actions, request) },
             automatedBatch = { batch, request -> queue += Triple(batch, request, held); madeOn[request] = (if (held != null) view else live).currentNodeId; true }, playTree = { tree },
             continuation = { held?.let { Continuation(it, explicit = true) } }, automatumWork = work ?: AutomatumWork.Inline).also { it.cast.autotap = false }
@@ -229,7 +229,7 @@ class AutomatumFinalCombatGamesTest {
             "\n  unsupported ${unsupported.size} ${unsupported.take(3)}"
     }
 
-    private fun scene(play: PlayState, viewer: String) = TablePresentation.scene(f.game, play, viewer, 412f, 892f, false)
+    private fun scene(play: PlayState, viewer: String) = TablePresentation.scene(f.game, TableBoard.of(play), viewer, 412f, 892f, false)
 
     /** [background]: each device's Automatum work runs as on a phone, off the main thread with its result later
      * ([QueuedWork]). */
@@ -256,7 +256,7 @@ class AutomatumFinalCombatGamesTest {
             val live = head.value
             for (d in devices) if (d.online)
                 androidx.compose.runtime.key(d.player) {
-                    AutomatumPauseDriver(d.toolkit, null, d.view, live.currentNodeId, liveShown = d.held == null,
+                    AutomatumPauseDriver(d.toolkit, null, TableBoard.of(d.view), live.currentNodeId, liveShown = d.held == null,
                         opponentOnline = other(d).online, settings = d.settings)
                 }
         }
@@ -332,7 +332,7 @@ class AutomatumFinalCombatGamesTest {
             work.drain()
             if (d.combatShown !== d.view.board) {
                 d.combatShown = d.view.board
-                d.toolkit.combat.show(d.view, AutomatumBoards.combat(d.view) { tags(d.view) })
+                d.toolkit.combat.show(TableBoard.of(d.view), AutomatumBoards.combat(d.view) { tags(d.view) })
             }
             // As SharedFlowHost: the panel's flow is the shown board's once worked out
             d.toolkit.flows.show(if (!d.toolkit.cast.open && AutomatumBoards.sharedFlowShown(d.view))
@@ -344,9 +344,9 @@ class AutomatumFinalCombatGamesTest {
         fun hand(d: Device) = d.view.board.containers.single { it.id == (if (d.player == f.a) aHand else bHand) }.cards
         fun field(play: PlayState, player: String) = play.board.containers.single { it.zone == PlayZone.BATTLEFIELD && it.accountId == player }.cards
         fun tapItem(d: Device, item: TableItem) = d.toolkit.open(TableIntent.Actions(item.id, null), item)
-        fun quick(d: Device) = automatumCombatQuickActions(d.view, toolkitQuickContext(d.view, d.player)
+        fun quick(d: Device) = automatumCombatQuickActions(TableBoard.of(d.view), toolkitQuickContext(TableBoard.of(d.view), d.player)
             .copy(automatumCombat = AutomatumBoards.combat(d.view) { tags(d.view) })
-            .withCombatTarget(d.toolkit.combat, d.view, "them"), TableActionScope(d.view.gameId, d.view.id)).orEmpty()
+            .withCombatTarget(d.toolkit.combat, TableBoard.of(d.view), "them"), TableActionScope(d.view.gameId, d.view.id)).orEmpty()
         /** Begins casting [card]; picks a target when asked: an attacking creature of the other player when there is one,
          * else that player. False when it can't be begun. */
         fun begin(d: Device, card: String): Boolean {
@@ -356,7 +356,7 @@ class AutomatumFinalCombatGamesTest {
             var guard = 3
             while (d.toolkit.cast.open && d.toolkit.cast.targeting && guard-- > 0) {
                 val items = scene(d.view, d.player).items.filter { it.viewport != "combat" }
-                val glow = d.toolkit.cast.glow(d.view)
+                val glow = d.toolkit.cast.glow(TableBoard.of(d.view))
                 val legal = items.filter { it.id in glow || it.cardId in glow }
                 val attackers = d.view.board.combat?.pairs.orEmpty().flatMap { it.attackers }.map { it.sourceId }
                 val target = legal.filter { it.cardId in attackers }.randomOrNull(random)
@@ -416,9 +416,9 @@ class AutomatumFinalCombatGamesTest {
                             d.toolkit.dismissError()
                         }
                         // The step arrow attacks (TRN-063); greyed (a staging Automatum doesn't allow), Clear first
-                        fun blocked() = stepBlocked(d.view, false, AutomatumBoards.combat(d.view) { tags(d.view) })
+                        fun blocked() = stepBlocked(TableBoard.of(d.view), false, AutomatumBoards.combat(d.view) { tags(d.view) })
                         if (blocked() != null) quick(d).firstOrNull { it.name == "Clear" }?.takeIf { it.enabled }?.let { d.toolkit.perform(it.intent) }
-                        val label = AutomatumStep.of(d.view).label
+                        val label = AutomatumStep.of(TableBoard.of(d.view)).label
                         val why = blocked()
                         if (why != null || !d.toolkit.perform(TableActionIntent.Next(TableActionScope(d.view.gameId, d.view.id))))
                             stats.failures += "attack: $label ${why ?: d.toolkit.error}"
@@ -432,9 +432,9 @@ class AutomatumFinalCombatGamesTest {
                             d.toolkit.combat.clearSelection(); d.toolkit.dismissError()
                         }
                         // The step arrow declares (TRN-063): Block (N), or No blocks once Clear emptied a draft it greys
-                        fun blocked() = stepBlocked(d.view, false, AutomatumBoards.combat(d.view) { tags(d.view) })
+                        fun blocked() = stepBlocked(TableBoard.of(d.view), false, AutomatumBoards.combat(d.view) { tags(d.view) })
                         if (blocked() != null) quick(d).firstOrNull { it.name == "Clear" }?.takeIf { it.enabled }?.let { d.toolkit.perform(it.intent) }
-                        val label = AutomatumStep.of(d.view).label
+                        val label = AutomatumStep.of(TableBoard.of(d.view)).label
                         val why = blocked()
                         if (why != null || !d.toolkit.perform(TableActionIntent.Next(TableActionScope(d.view.gameId, d.view.id))))
                             stats.failures += "blocks: $label ${why ?: d.toolkit.error}"

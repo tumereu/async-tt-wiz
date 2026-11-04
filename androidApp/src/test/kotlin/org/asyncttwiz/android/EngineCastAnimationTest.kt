@@ -7,7 +7,6 @@ import arcanum.engine.input.Input
 import arcanum.engine.state.ObjectId
 import arcanum.engine.state.PlayerId
 import org.asyncttwiz.protocol.MtgStackKind
-import org.asyncttwiz.protocol.PlayState
 import org.asyncttwiz.protocol.PlayZone
 import org.asyncttwiz.protocol.game.GameDevice
 import org.junit.Test
@@ -36,7 +35,7 @@ class EngineCastAnimationTest {
     /** What the player follows on a drawn board: where the Herald is, the Stack, the tokens and the tapped lands. */
     private data class Look(val herald: String, val stack: List<String>, val tokens: Int, val tapped: Int)
 
-    private fun look(play: PlayState, herald: String): Look {
+    private fun look(play: TableBoard, herald: String): Look {
         val b = play.board
         val card = b.cards.single { it.id == herald }
         val zone = b.containers.single { it.id == card.containerId }.zone
@@ -47,7 +46,7 @@ class EngineCastAnimationTest {
             b.cards.count { it.tapped })
     }
 
-    private fun scene(play: PlayState) = TablePresentation.scene(f.game, play, f.a, 412f, 892f, false)
+    private fun scene(play: TableBoard) = TablePresentation.scene(f.game, play, f.a, 412f, 892f, false)
 
     // TBL-040, STK-006, STK-045 (owner playtest 2026-11-04): one cast plays as the player can follow it: the card flies from
     // the hand to the Stack, then from the Stack to its place, then the trigger's token flies out to its place, one after
@@ -91,12 +90,12 @@ class EngineCastAnimationTest {
 
     private fun check(published: List<EngineGame.Shown>, before: EngineGame.Shown, herald: String) {
         val queue = EngineMotionQueue()
-        val drawn = mutableListOf(queue.board(before.version, before.transition, before.play))
+        val drawn = mutableListOf(queue.board(before.version, before.transition, before.board))
         for (shown in published) {
-            drawn += queue.board(shown.version, shown.transition, shown.play)
-            while (queue.playing) { queue.settled(); drawn += queue.board(shown.version, shown.transition, shown.play) }
+            drawn += queue.board(shown.version, shown.transition, shown.board)
+            while (queue.playing) { queue.settled(); drawn += queue.board(shown.version, shown.transition, shown.board) }
         }
-        val boards = drawn.fold(mutableListOf<PlayState>()) { kept, b ->
+        val boards = drawn.fold(mutableListOf<TableBoard>()) { kept, b ->
             if (kept.isEmpty() || EngineMotion.key(kept.last().board) != EngineMotion.key(b.board)) kept += b; kept }
         // Later steps of the other player's turn (their draw) look the same here
         val looks = boards.map { look(it, herald) }

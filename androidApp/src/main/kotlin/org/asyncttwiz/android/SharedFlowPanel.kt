@@ -44,7 +44,7 @@ import org.asyncttwiz.protocol.*
  * The eye hides the panel to look at the board (I-D10). Nothing shows while a cast is open (its own panel does).
  */
 @Composable
-internal fun SharedFlowHost(toolkit: TableToolkitController, play: PlayState, scene: TableScene?, names: Map<String, String>,
+internal fun SharedFlowHost(toolkit: TableToolkitController, play: TableBoard, scene: TableScene?, names: Map<String, String>,
     reviewing: Boolean = false) {
     val flows = toolkit.flows
     val shown = !toolkit.cast.open && AutomatumBoards.sharedFlowShown(play)
@@ -70,14 +70,14 @@ internal fun SharedFlowHost(toolkit: TableToolkitController, play: PlayState, sc
             val division = next.division
             val open = next.decision as? Decision.Divide
             val latest = toolkit.latestAuthor() == toolkit.viewer
-            if (division != null && open != null && !askedInDialog(play, division) && (latest || division.player == toolkit.viewer)) {
+            if (division != null && open != null && !askedInDialog(play.board, division) && (latest || division.player == toolkit.viewer)) {
                 if (!latest) kotlinx.coroutines.delay(ORDER_FREE_FALLBACK_MILLIS)
                 flows.answer(Answer.Division(open.suggested))
             }
         }
     }
     if (!shown) return
-    val flow = flows.view?.takeIf { it.play.board === play.board } ?: return
+    val flow = flows.view?.takeIf { it.board === play.board } ?: return
     var confirm by remember(IdentityKey(play.board)) { mutableStateOf(false) }
     val viewer = toolkit.viewer
     fun name(player: String) = if (player == viewer) "You" else names[player] ?: "The other player"
@@ -110,7 +110,7 @@ internal fun SharedFlowHost(toolkit: TableToolkitController, play: PlayState, sc
             flows.onEngine && holder != viewer -> {}
             decision != null -> Column {
                 // I-D29, I-D33: meanwhile the viewer may give their own division of this damage step early
-                toolkit.combat.ready(play)?.early?.firstOrNull { it.player == viewer && askedInDialog(play, it) }?.let { early ->
+                toolkit.combat.ready(play)?.early?.firstOrNull { it.player == viewer && askedInDialog(play.board, it) }?.let { early ->
                     EarlyDivisionPanel(toolkit.combat, play, early, names, toolkit.enabled())
                 }
                 // UI review round 2 #2 (decided for the owner): the observer's own words on one line, "Bob is choosing ·
@@ -120,14 +120,14 @@ internal fun SharedFlowHost(toolkit: TableToolkitController, play: PlayState, sc
                     "Choose for them") { confirm = true }
             }
             holder == viewer -> when {
-                flows.responding == play.currentNodeId -> RespondBar(flows)
+                flows.responding == play.nodeId -> RespondBar(flows)
                 else -> RespondPrompt(flows, toolkit.pause, flow, play, names, viewer, reviewing)
             }
             // UI review round 2 #1: passing for them is the step arrow's "Resolve" (asked first, I-D40)
             holder != null -> WaitingBar(play, "${name(holder)} may respond to ${topName(flows, flow, play)}",
                 topCard(flows, flow, play)?.let { choiceCard(play, viewer, "top", it, true, topName(flows, flow, play)) }, null,
                 // STK-038 (I-D41): while this device waits for them
-                toolkit.pause.running(play.currentNodeId)?.takeIf { it.role is PauseRole.Theirs && it.role.millis > 0 }
+                toolkit.pause.running(play.nodeId)?.takeIf { it.role is PauseRole.Theirs && it.role.millis > 0 }
                     ?.let { { PauseProgress(toolkit.pause, it) } }) {}
         }
         }
@@ -215,9 +215,9 @@ internal const val REVIEW_RESPOND = "Hold Auto to respond on a branch"
  * step arrow's "Resolve" lets it resolve, UI review round 2 #1); at a pause (I-D41, STK-037) its time running out and
  * Hold, or "take your time" once held. */
 @Composable
-private fun RespondPrompt(flows: SharedFlowController, pause: PauseController, flow: SharedFlow, play: PlayState,
+private fun RespondPrompt(flows: SharedFlowController, pause: PauseController, flow: SharedFlow, play: TableBoard,
     names: Map<String, String>, viewer: String, reviewing: Boolean = false) {
-    val node = play.currentNodeId
+    val node = play.nodeId
     val running = pause.running(node)?.takeIf { it.role is PauseRole.Yours }
     val inspector = remember(node) { ChoiceInspector() }
     AutomatumDockPanel("Respond prompt", flows.hidden, flows::toggleHidden, "Automatum panel", buttons = {
@@ -295,7 +295,7 @@ private fun RespondBar(flows: SharedFlowController) {
 /** What the other player does now, on one line beside the [card] it is about (I-D48: hold it to inspect it), with acting
  * for them ([action], D11) after a confirmation; [progress]: the time this device waits for them (STK-038). */
 @Composable
-private fun WaitingBar(play: PlayState, text: String, card: ChoiceCardData?, action: String?, progress: (@Composable () -> Unit)? = null, act: () -> Unit) {
+private fun WaitingBar(play: TableBoard, text: String, card: ChoiceCardData?, action: String?, progress: (@Composable () -> Unit)? = null, act: () -> Unit) {
     val inspector = remember(card?.key) { ChoiceInspector() }
     AutomatumDockBar("Automatum waiting") {
         if (card != null) ChoiceCardFace(card, Modifier.padding(end = 8.dp, top = 2.dp, bottom = 2.dp)
@@ -312,12 +312,12 @@ private fun WaitingBar(play: PlayState, text: String, card: ChoiceCardData?, act
 
 /** What the other player is choosing, in the observer's words (UI review round 2 #2): the card it comes from ("Fertile
  * Passing"), else what it is ("Order triggers", "Legend rule"), never the chooser's own "You may". */
-internal fun observerWhat(flows: SharedFlowController, flow: SharedFlow, play: PlayState, decision: Decision): String =
+internal fun observerWhat(flows: SharedFlowController, flow: SharedFlow, play: TableBoard, decision: Decision): String =
     commonSource(decision)?.let { sourceName(flows, flow, play, decision, it) }
         ?: if (decision is Decision.May) "a choice" else choiceWhat(decision)
 
 /** The card an open choice comes from, drawn on the other player's waiting bar (I-D48); null when none is shown. */
-private fun observedCard(flows: SharedFlowController, flow: SharedFlow, play: PlayState, viewer: String, decision: Decision): ChoiceCardData? {
+private fun observedCard(flows: SharedFlowController, flow: SharedFlow, play: TableBoard, viewer: String, decision: Decision): ChoiceCardData? {
     val source = commonSource(decision) ?: return null
     val card = (if (source is ObjectId.StackItem) flow.state.stackItems[source]?.source else source) ?: return null
     return choiceCardOf(flows, play, viewer, card).takeIf { it.cardId != null }
@@ -331,7 +331,7 @@ private fun commonSource(decision: Decision): ObjectId? = decision.source
  * source's card beside the title saying what the choice is and where it comes from (I-D47), an ability's own line, the
  * cards it is about (what it triggered on, its targets; UI review #5), a short instruction, then the choice. */
 @Composable
-private fun DecisionPanel(flows: SharedFlowController, flow: SharedFlow, play: PlayState, names: Map<String, String>,
+private fun DecisionPanel(flows: SharedFlowController, flow: SharedFlow, play: TableBoard, names: Map<String, String>,
     decision: Decision, forOther: Boolean, otherName: String) {
     val viewer = LocalChoiceFrame.current.viewer
     val inspector = remember(decision.id) { ChoiceInspector() }
@@ -385,12 +385,12 @@ private fun DecisionPanel(flows: SharedFlowController, flow: SharedFlow, play: P
 
 /** A choice's title (I-D47): what it is and, when it has one, the card it comes from: "Scry 2 · Carrot Cake", "Order
  * triggers · Peak Ascendancy" (the source all the triggers share, UI review round 2 N10). */
-internal fun choiceTitle(flows: SharedFlowController, flow: SharedFlow, play: PlayState, decision: Decision): String =
+internal fun choiceTitle(flows: SharedFlowController, flow: SharedFlow, play: TableBoard, decision: Decision): String =
     listOfNotNull(choiceWhat(decision), commonSource(decision)?.let { sourceName(flows, flow, play, decision, it) }).joinToString(" · ")
 
 /** Targets of a trigger, picked on the table as for a cast (I-D5, I-D6); there is no cancelling a shared flow. */
 @Composable
-private fun FlowTargetBar(flows: SharedFlowController, flow: SharedFlow, play: PlayState, decision: Decision.Targets) {
+private fun FlowTargetBar(flows: SharedFlowController, flow: SharedFlow, play: TableBoard, decision: Decision.Targets) {
     AutomatumDockBar("Choose targets", eye = true) {
         Text("${sourceName(flows, flow, play, decision)} — ${targetPrompt(decision)}", Modifier.weight(1f), fontSize = 13.sp,
             fontWeight = FontWeight.Medium, maxLines = 2, overflow = TextOverflow.Ellipsis)
@@ -403,7 +403,7 @@ private fun FlowTargetBar(flows: SharedFlowController, flow: SharedFlow, play: P
 // ---- Words
 
 /** "Alice cast Storm Spark", "You activated Elvish Seer", "Fertile Passing triggered". */
-private fun topTitle(flows: SharedFlowController, flow: SharedFlow, play: PlayState, names: Map<String, String>, viewer: String): String {
+private fun topTitle(flows: SharedFlowController, flow: SharedFlow, play: TableBoard, names: Map<String, String>, viewer: String): String {
     val item = flow.top ?: return "Something is on the Stack"
     val who = if (item.controller.value == viewer) "You" else names[item.controller.value] ?: "The other player"
     val name = topName(flows, flow, play)
@@ -423,7 +423,7 @@ private fun topHidden(flows: SharedFlowController, flow: SharedFlow): Boolean {
 
 /** The name of the top of the Stack as its entry shows it (a card, or an ability whose source is gone, STK-022); "a
  * face-down spell" when the viewer may not see it (#11, I-D27). */
-private fun topName(flows: SharedFlowController, flow: SharedFlow, play: PlayState): String {
+private fun topName(flows: SharedFlowController, flow: SharedFlow, play: TableBoard): String {
     if (topHidden(flows, flow)) return if (flow.state.stack.lastOrNull() is ObjectId.StackItem) "an ability of a face-down card" else "a face-down spell"
     val entry = CombatStackRules.stack(play.board).cards.firstOrNull() ?: return "it"
     val card = CombatStackRules.inspection(play.board, entry) ?: return "it"
@@ -431,16 +431,16 @@ private fun topName(flows: SharedFlowController, flow: SharedFlow, play: PlaySta
 }
 
 /** The card the top of the Stack shows, when the viewer may see it. */
-private fun topCard(flows: SharedFlowController, flow: SharedFlow, play: PlayState): String? =
+private fun topCard(flows: SharedFlowController, flow: SharedFlow, play: TableBoard): String? =
     if (topHidden(flows, flow)) null
     else CombatStackRules.stack(play.board).cards.firstOrNull()?.let { CombatStackRules.inspection(play.board, it)?.id }
 
-private fun faceName(play: PlayState, card: PlayCard): String? =
+private fun faceName(play: TableBoard, card: PlayCard): String? =
     play.definitions.singleOrNull { it.digest == card.definition }?.definition?.faces
         ?.let { faces -> faces.singleOrNull { it.faceId == card.faceId } ?: faces.firstOrNull() }?.name
 
 /** The decision's source ([source], its own by default) by name: the card or ability it is about. */
-private fun sourceName(flows: SharedFlowController, flow: SharedFlow, play: PlayState, decision: Decision,
+private fun sourceName(flows: SharedFlowController, flow: SharedFlow, play: TableBoard, decision: Decision,
     source: ObjectId? = decision.source): String {
     source ?: return if (decision is Decision.OrderTriggers) "Triggers" else "Automatum"
     if (source is ObjectId.StackItem) flow.state.stackItems[source]?.source?.let { return objectName(flows, play, it) }
@@ -451,7 +451,7 @@ private fun hasOwnText(decision: Decision) =
     decision is Decision.May || decision is Decision.ChooseObjects || decision is Decision.Manual || decision is Decision.OrderTriggers
 
 /** What the decision asks, in a few words: the card's sentence when it has one. */
-private fun prompt(flows: SharedFlowController, flow: SharedFlow, play: PlayState, decision: Decision): String = when (decision) {
+private fun prompt(flows: SharedFlowController, flow: SharedFlow, play: TableBoard, decision: Decision): String = when (decision) {
     is Decision.May -> decision.text
     is Decision.ChooseObjects -> decision.text
     is Decision.Manual -> decision.text

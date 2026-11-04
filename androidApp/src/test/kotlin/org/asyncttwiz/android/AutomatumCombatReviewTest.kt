@@ -130,21 +130,21 @@ class AutomatumCombatReviewTest {
         return true
     }
 
-    private fun toolkit(viewer: String, work: AutomatumWork = AutomatumWork.Inline) = TableToolkitController(viewer, { live.value }, { true },
+    private fun toolkit(viewer: String, work: AutomatumWork = AutomatumWork.Inline) = TableToolkitController(viewer, { live.value?.let(TableBoard::of) }, { true },
         { action, _ -> accept(viewer, GameAction.Play(action)) },
         playBatch = { actions, request -> accept(viewer, GameAction.PlayBatch(actions), request) },
         playTree = { tree }, automatedBatch = { batch, request -> accept(viewer, batch, request) }, automatumWork = work)
 
     private fun tags() = engineTags(tree, play.currentNodeId)
-    private fun scene(viewer: String) = TablePresentation.scene(f.game, play, viewer, 412f, 892f, false)
+    private fun scene(viewer: String) = TablePresentation.scene(f.game, TableBoard.of(play), viewer, 412f, 892f, false)
     private fun tap(toolkit: TableToolkitController, item: TableItem) = toolkit.open(TableIntent.Actions(item.id, null), item)
     private fun tapCard(toolkit: TableToolkitController, card: String) = tap(toolkit,
         scene(toolkit.viewer).items.first { it.cardId == card && it.viewport != "combat" && it.zone == PlayZone.BATTLEFIELD })
     private fun tapCopy(toolkit: TableToolkitController, card: String) = tap(toolkit,
         scene(toolkit.viewer).items.first { it.viewport == "combat" && it.sourceId == card })
-    private fun quick(toolkit: TableToolkitController) = automatumCombatQuickActions(play, toolkitQuickContext(play, toolkit.viewer)
+    private fun quick(toolkit: TableToolkitController) = automatumCombatQuickActions(TableBoard.of(play), toolkitQuickContext(TableBoard.of(play), toolkit.viewer)
         .copy(automatumCombat = AutomatumBoards.combat(play) { tags() })
-        .withCombatTarget(toolkit.combat, play, "Bob"), TableActionScope(play.gameId, play.id)).orEmpty()
+        .withCombatTarget(toolkit.combat, TableBoard.of(play), "Bob"), TableActionScope(play.gameId, play.id)).orEmpty()
     private fun perform(toolkit: TableToolkitController, name: String) = quick(toolkit).single { it.name == name }.let { action ->
         assertTrue(action.enabled, "$name: ${action.refused}")
         toolkit.perform(action.intent)
@@ -161,7 +161,7 @@ class AutomatumCombatReviewTest {
             MaterialTheme {
                 NoRipples {
                     Box(Modifier.fillMaxSize()) {
-                        TableSurface(f.game, live.value!!, toolkit.viewer, false, Modifier.fillMaxSize(), connected = true,
+                        TableSurface(f.game, TableBoard.of(live.value!!), toolkit.viewer, false, Modifier.fillMaxSize(), connected = true,
                             onIntent = toolkit::handle, toolkit = toolkit,
                             runtime = TableRuntimeHooks(navigation = {}, chat = {}, undo = { true }, controlsConnected = true))
                     }
@@ -208,7 +208,7 @@ class AutomatumCombatReviewTest {
             assertTrue(item.visible.none { it.intersection(panel)?.let { part -> part.width > .01f && part.height > .01f } == true }, item.id)
         // Folded away, the battlefield under it shows and nothing takes combat drops
         alice.layoutState.value = alice.layoutState.value.copy(combatHidden = play.board.combat!!.id)
-        val folded = TablePresentation.scene(f.game, play, f.a, 412f, 892f, false, alice.layoutState.value)
+        val folded = TablePresentation.scene(f.game, TableBoard.of(play), f.a, 412f, 892f, false, alice.layoutState.value)
         assertEquals(null, folded.combatPanel)
         assertNotNull(folded.combatFolded)
         assertTrue(folded.combatDrops.isEmpty())
@@ -256,7 +256,7 @@ class AutomatumCombatReviewTest {
         val waiting = object : AutomatumWork { override fun <T> run(work: () -> T, done: (T) -> Unit) = Unit }
         val bobsDevice = toolkit(f.b, waiting)
         // What combat allows is worked out (as AutomatumCombatHost does); only the engine's reason waits
-        bobsDevice.combat.show(play, AutomatumBoards.combat(play) { tags() })
+        bobsDevice.combat.show(TableBoard.of(play), AutomatumBoards.combat(play) { tags() })
         tapCard(bobsDevice, hidden)
         assertNotNull(bobsDevice.error)
         assertTrue("Hill Ogre" !in bobsDevice.error!!, "shown to Bob: ${bobsDevice.error}")
@@ -337,9 +337,9 @@ class AutomatumCombatReviewTest {
         val one = org.asyncttwiz.automatum.DamageDivision(f.a, card(play, brute), 5, listOf(MtgRef.Card(ogreCard, 0)),
             mapOf(MtgRef.Card(ogreCard, 0) to 3), mapOf(MtgRef.Card(ogreCard, 0) to 5), null)
         assertTrue(org.asyncttwiz.automatum.Divisions.orderFree(one))
-        assertFalse(askedInDialog(play, one))
+        assertFalse(askedInDialog(play.board, one))
         edit { b -> b.copy(players = b.players.map { if (it.accountId == f.a) it.copy(skipWhenNoChoice = false) else it }) }
-        assertTrue(askedInDialog(play, one))
+        assertTrue(askedInDialog(play.board, one))
         assertFalse(DivisionDraft(one, mapOf(MtgRef.Card(ogreCard, 0) to 5), free = true).inOrder)
         assertTrue(DivisionDraft(one, mapOf(MtgRef.Card(ogreCard, 0) to 5)).inOrder)
     }
@@ -352,8 +352,8 @@ class AutomatumCombatReviewTest {
         val division = org.asyncttwiz.automatum.DamageDivision(f.b, ogreCard, 3, listOf(MtgRef.Card(card(play, brute), 0),
             MtgRef.Card(wardenCard, 0)), mapOf(MtgRef.Card(card(play, brute), 0) to 5, MtgRef.Card(wardenCard, 0) to 3),
             mapOf(MtgRef.Card(card(play, brute), 0) to 3), null)
-        val combat = CombatController({ play }, { true }, { emptyList() })
-        compose.setContent { MaterialTheme { EarlyDivisionPanel(combat, play, division, mapOf(f.a to "Alice", f.b to "Bob"), true) } }
+        val combat = CombatController({ TableBoard.of(play) }, { true }, { emptyList() })
+        compose.setContent { MaterialTheme { EarlyDivisionPanel(combat, TableBoard.of(play), division, mapOf(f.a to "Alice", f.b to "Bob"), true) } }
         compose.onNodeWithContentDescription("Early division").assertExists()
         compose.onNodeWithContentDescription("Inspect the table").performClick()
         compose.onNodeWithContentDescription("Early division").assertDoesNotExist()
@@ -410,9 +410,9 @@ class AutomatumCombatReviewTest {
                         for (c in mine) if (random.nextInt(3) > 0) { tapCard(device, c); device.dismissError() }
                         // The step arrow attacks (TRN-063); greyed (a staging Automatum doesn't allow), Clear first
                         val combat = AutomatumBoards.combat(play) { tags() }
-                        if (stepBlocked(play, false, combat) != null) { perform(device, "Clear") }
-                        val blocked = stepBlocked(play, false, AutomatumBoards.combat(play) { tags() })
-                        val label = AutomatumStep.of(play).label
+                        if (stepBlocked(TableBoard.of(play), false, combat) != null) { perform(device, "Clear") }
+                        val blocked = stepBlocked(TableBoard.of(play), false, AutomatumBoards.combat(play) { tags() })
+                        val label = AutomatumStep.of(TableBoard.of(play)).label
                         if (blocked != null || !device.perform(TableActionIntent.Next(TableActionScope(play.gameId, play.id)))) {
                             note("$label refused: ${blocked ?: device.error}"); break
                         }
@@ -427,10 +427,10 @@ class AutomatumCombatReviewTest {
                             device.combat.clearSelection(); device.dismissError()
                         }
                         // The step arrow declares (TRN-063): Block (N), or No blocks once Clear emptied a draft it greys
-                        if (stepBlocked(play, false, AutomatumBoards.combat(play) { tags() }) != null &&
+                        if (stepBlocked(TableBoard.of(play), false, AutomatumBoards.combat(play) { tags() }) != null &&
                             CombatStackRules.blocks(play.board.combat).isNotEmpty()) perform(device, "Clear")
-                        val blocked = stepBlocked(play, false, AutomatumBoards.combat(play) { tags() })
-                        val label = AutomatumStep.of(play).label
+                        val blocked = stepBlocked(TableBoard.of(play), false, AutomatumBoards.combat(play) { tags() })
+                        val label = AutomatumStep.of(TableBoard.of(play)).label
                         // What the table previews for the blocks as declared (CMB-029), before they go out
                         if (blocked == null) {
                             expected = AutomatumBoards.combat(play) { tags() }.preview?.life

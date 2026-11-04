@@ -28,7 +28,6 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import org.asyncttwiz.protocol.CombatStackRules
-import org.asyncttwiz.protocol.PlayState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
@@ -165,7 +164,7 @@ internal fun DockButtons(content: @Composable RowScope.() -> Unit) {
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-internal fun StackTargetPicker(toolkit: TableToolkitController, play: PlayState) {
+internal fun StackTargetPicker(toolkit: TableToolkitController, play: TableBoard) {
     val viewer = toolkit.viewer
     val targets = toolkit.stackTargets(play)
     val stack = CombatStackRules.stack(play.board)

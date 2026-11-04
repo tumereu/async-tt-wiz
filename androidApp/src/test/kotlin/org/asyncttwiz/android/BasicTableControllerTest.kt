@@ -57,7 +57,7 @@ internal class BasicTableFixture {
     // History reviews (timeline points, held result reveals) run on [worker] too, so drain() completes them. On a
     // background thread they could land after a test advanced the Compose clock, which made reveal checks flaky.
     val lobby = LobbyController(api, { "A".repeat(43) }, worker, { it() }, gameConnection = wire, accountId = { actor }, historyReviewWorker = worker)
-    val basic = BasicTableController({ lobby.state.play }, { game.id in lobby.state.connectedGames }, lobby::gameplay)
+    val basic = BasicTableController({ lobby.state.play?.let(TableBoard::of) }, { game.id in lobby.state.connectedGames }, lobby::gameplay)
     val play get() = requireNotNull(lobby.state.play)
     fun card(n: Int) = play.board.cards.single { it.id == id(n) }
     fun commands() = wire.frames.filterIsInstance<GameCommand>()
@@ -71,7 +71,7 @@ internal class BasicTableFixture {
     }
     fun move(n: Int, destination: TableDestination, top: Boolean = false): Boolean {
         val scope = TableScope(id(n), listOf(id(n)))
-        return basic.handle(TableIntent.Move(scope, destination, BasicTableController.sources(play, scope.cardIds, top)))
+        return basic.handle(TableIntent.Move(scope, destination, BasicTableController.sources(TableBoard.of(play), scope.cardIds, top)))
     }
     /** A Stack entry pointing at card [n]; the card stays where it is (STK-003). */
     fun stackEntry(n: Int): Boolean = lobby.gameplay(PlayAction.Stack(StackAction.AddEffect(card(n).id, GameplayRules.stackDigest(play))))
@@ -101,7 +101,7 @@ class BasicTableControllerTest {
         val f = BasicTableFixture(); f.connect()
         try {
             assertTrue(f.move(40, TableDestination.Container(f.container(PlayZone.HAND), PlayZone.HAND)))
-            val toolkit = TableToolkitController(f.actor, { f.play }, { true }, f.lobby::gameplay, playBatch = f.lobby::gameplayBatch)
+            val toolkit = TableToolkitController(f.actor, { TableBoard.of(f.play) }, { true }, f.lobby::gameplay, playBatch = f.lobby::gameplayBatch)
             val before = f.commands().size
             assertFalse(toolkit.handle(TableIntent.Rotate(TableScope(f.id(40), listOf(f.id(40))), true, toggle = true)))
             assertNull(toolkit.error)
@@ -117,7 +117,7 @@ class BasicTableControllerTest {
             val before = f.commands().size
             val scope = TableScope(f.id(43), listOf(f.id(40), f.id(43)))
             assertTrue(f.basic.handle(TableIntent.Move(scope, TableDestination.Container(hand, PlayZone.HAND,
-                handGap = IdentityGap(beforeId = f.id(41))), BasicTableController.sources(f.play, scope.cardIds))))
+                handGap = IdentityGap(beforeId = f.id(41))), BasicTableController.sources(TableBoard.of(f.play), scope.cardIds))))
             assertEquals(listOf(40, 43, 41, 42).map(f::id), f.play.board.containers.single { it.id == hand }.cards)
             assertEquals(listOf(f.id(43)), f.commands().drop(before).map { ((it.action as GameAction.Play).action as PlayAction.MoveCard).cardId })
         } finally { f.lobby.close(); f.worker.drain() }
@@ -143,9 +143,9 @@ class BasicTableControllerTest {
         val f = BasicTableFixture(); f.connect()
         f.move(42, TableDestination.Grid(f.container(PlayZone.BATTLEFIELD), 2, 1))
         val before = f.play
-        val target = TableDestination.CardPile(f.id(42), BasicTableController.sources(before, listOf(f.id(42))).getValue(f.id(42)))
+        val target = TableDestination.CardPile(f.id(42), BasicTableController.sources(TableBoard.of(before), listOf(f.id(42))).getValue(f.id(42)))
         val scope = TableScope(f.id(41), listOf(f.id(41), f.id(40)))
-        assertTrue(f.basic.handle(TableIntent.Move(scope, target, BasicTableController.sources(before, scope.cardIds))))
+        assertTrue(f.basic.handle(TableIntent.Move(scope, target, BasicTableController.sources(TableBoard.of(before), scope.cardIds))))
         val commands = f.commands().drop(1)
         assertEquals(2, commands.size) // Both sent with no receipt/result/revision, not an ack barrier.
         val moves = commands.map { (it.action as GameAction.Play).action as PlayAction.MoveCard }
@@ -182,8 +182,8 @@ class BasicTableControllerTest {
         for ((order, sent) in listOf(listOf(40, 41, 42) to 0, listOf(42, 40, 41) to 2, listOf(40, 42, 41) to 1)) {
             val f = BasicTableFixture(); f.connect(initial(order))
             val scope = TableScope(f.id(40), listOf(f.id(40), f.id(41)))
-            val target = TableDestination.CardPile(f.id(42), BasicTableController.sources(f.play, listOf(f.id(42))).getValue(f.id(42)))
-            assertEquals(sent > 0, f.basic.handle(TableIntent.Move(scope, target, BasicTableController.sources(f.play, scope.cardIds))))
+            val target = TableDestination.CardPile(f.id(42), BasicTableController.sources(TableBoard.of(f.play), listOf(f.id(42))).getValue(f.id(42)))
+            assertEquals(sent > 0, f.basic.handle(TableIntent.Move(scope, target, BasicTableController.sources(TableBoard.of(f.play), scope.cardIds))))
             assertEquals(sent, f.commands().size)
             assertEquals(listOf(f.id(40), f.id(41), f.id(42)), f.play.board.containers.single { it.id == f.container(PlayZone.BATTLEFIELD) }.cards)
             if (sent == 1) {
@@ -193,7 +193,7 @@ class BasicTableControllerTest {
         }
         // Ordinary member drag within a full pile still brings only that member to the top.
         val f = BasicTableFixture(); f.connect(initial(listOf(40, 41, 42)))
-        assertTrue(f.move(41, TableDestination.CardPile(f.id(40), BasicTableController.sources(f.play, listOf(f.id(40))).getValue(f.id(40)))))
+        assertTrue(f.move(41, TableDestination.CardPile(f.id(40), BasicTableController.sources(TableBoard.of(f.play), listOf(f.id(40))).getValue(f.id(40)))))
         assertEquals(listOf(f.id(41), f.id(40), f.id(42)), f.play.board.containers.single { it.id == f.container(PlayZone.BATTLEFIELD) }.cards)
     }
 
@@ -203,8 +203,8 @@ class BasicTableControllerTest {
         val setup = f.update(f.root, f.commands().single(), 1); f.message(setup)
         val before = f.play
         val scope = TableScope(f.id(40), listOf(f.id(40), f.id(41)))
-        val target = TableDestination.CardPile(f.id(42), BasicTableController.sources(before, listOf(f.id(42))).getValue(f.id(42)))
-        assertTrue(f.basic.handle(TableIntent.Move(scope, target, BasicTableController.sources(before, scope.cardIds))))
+        val target = TableDestination.CardPile(f.id(42), BasicTableController.sources(TableBoard.of(before), listOf(f.id(42))).getValue(f.id(42)))
+        assertTrue(f.basic.handle(TableIntent.Move(scope, target, BasicTableController.sources(TableBoard.of(before), scope.cardIds))))
         val commands = f.commands().drop(1)
         val first = f.update(before, commands[0], 2)
         f.message(first)
@@ -218,7 +218,7 @@ class BasicTableControllerTest {
         assertEquals(interleaved.play!!.board, f.play.board)
         assertEquals(commands, f.commands().drop(1))
         val count = f.commands().size
-        val staleSources = BasicTableController.sources(before, scope.cardIds)
+        val staleSources = BasicTableController.sources(TableBoard.of(before), scope.cardIds)
         val departedTarget = f.data.command(PlayAction.MoveCard(f.id(42), MoveSource(f.container(PlayZone.BATTLEFIELD), f.card(42).placement),
             MoveDestination(f.container(PlayZone.EXILE), MoveInsertion.UNORDERED)))
         f.message(f.update(interleaved.play!!, departedTarget, 4, f.other))
@@ -249,7 +249,7 @@ class BasicTableControllerTest {
             val f = BasicTableFixture(); f.connect()
             val scope = TableScope(f.id(42), listOf(f.id(42), f.id(40))) // UI order is not Library order.
             val intent = TableIntent.Move(scope, TableDestination.Container(f.container(PlayZone.LIBRARY), PlayZone.LIBRARY, bottom),
-                BasicTableController.sources(f.play, scope.cardIds))
+                BasicTableController.sources(TableBoard.of(f.play), scope.cardIds))
             assertTrue(f.basic.handle(intent))
             val moves = f.commands().mapNotNull { ((it.action as GameAction.Play).action as? PlayAction.MoveCard) }
             // An already-top UNKNOWN card still needs a node to explicitly fix its position.
@@ -269,16 +269,16 @@ class BasicTableControllerTest {
     @Test fun realGridPileSingleMemberMovesPreservePlacementsAndCapacityRejectsWholeSelection() {
         val f = BasicTableFixture(); f.connect()
         f.move(40, TableDestination.Grid(f.container(PlayZone.BATTLEFIELD), 2, 1), true)
-        val target = TableDestination.CardPile(f.id(40), BasicTableController.sources(f.play, listOf(f.id(40))).getValue(f.id(40)))
+        val target = TableDestination.CardPile(f.id(40), BasicTableController.sources(TableBoard.of(f.play), listOf(f.id(40))).getValue(f.id(40)))
         f.move(41, target, true); f.move(42, target, true)
         assertEquals(f.card(40).placement, f.card(42).placement)
-        val placements = TablePresentation.logicalPlacements(f.play)
+        val placements = TablePresentation.logicalPlacements(TableBoard.of(f.play))
         assertEquals(2f, placements.getValue(f.id(40)).column)
         assertEquals(0, placements.getValue(f.id(42)).pileIndex)
         val before = f.commands()
         assertFalse(f.move(43, target, true)); assertEquals(before, f.commands())
         val scope = TableScope(f.id(41), listOf(f.id(41), f.id(43)))
-        assertFalse(f.basic.handle(TableIntent.Move(scope, target, BasicTableController.sources(f.play, scope.cardIds))))
+        assertFalse(f.basic.handle(TableIntent.Move(scope, target, BasicTableController.sources(TableBoard.of(f.play), scope.cardIds))))
         assertEquals(before, f.commands())
         assertTrue(f.move(41, TableDestination.Grid(f.container(PlayZone.BATTLEFIELD), 4, 0)))
         assertNotEquals(f.card(40).placement, f.card(41).placement)

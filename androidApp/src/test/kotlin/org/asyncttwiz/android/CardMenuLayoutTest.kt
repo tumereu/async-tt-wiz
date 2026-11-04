@@ -32,7 +32,7 @@ class CardMenuLayoutTest {
     // TBL-048, ZON-003
     @Test fun holdingTheHandBackgroundPreviewsNothingButAHandCardStillDoes() {
         val play = f.initial
-        val scene = TablePresentation.scene(f.game, play, f.a, 412f, 892f, false)
+        val scene = TablePresentation.scene(f.game, TableBoard.of(play), f.a, 412f, 892f, false)
         val hand = scene.items.single { it.kind == TableItemKind.HAND && it.owner == f.a }
         assertTrue(hand.cards.isNotEmpty())
         val background = (0..40).flatMap { x -> (0..10).map { y ->

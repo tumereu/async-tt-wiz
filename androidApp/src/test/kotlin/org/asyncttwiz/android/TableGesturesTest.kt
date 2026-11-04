@@ -406,9 +406,9 @@ class TableGesturesTest {
     // TBL-004
     @Test fun transformedLandsBandsStillTargetRowZero() {
         for (zoom in listOf(.65f, 1f, 2f)) for (pan in listOf(-12f, 0f, 12f)) for (owner in listOf("a", "b")) {
-            val home = TablePresentation.scene(LiveTableFixture.game, LiveTableFixture.play(), "a", 892f, 412f, true)
+            val home = TablePresentation.scene(LiveTableFixture.game, TableBoard.of(LiveTableFixture.play()), "a", 892f, 412f, true)
             val anchor = home.fields.single { it.owner == owner }.landsBounds(owner == "a").center
-            val scene = TablePresentation.scene(LiveTableFixture.game, LiveTableFixture.play(), "a", 892f, 412f, true,
+            val scene = TablePresentation.scene(LiveTableFixture.game, TableBoard.of(LiveTableFixture.play()), "a", 892f, 412f, true,
                 TableLayoutState(TableCamera(y = anchor.y - home.world!!.viewport.center.y + pan, zoom = zoom)))
             val start = scene.items.single { it.cardId == "a/HAND/2" }.visible.first().center
             for (field in scene.fields.filter { it.owner == owner }) {
@@ -432,7 +432,7 @@ class TableGesturesTest {
         val f = TableStatesFixture
         val play = f.combat()
         for (landscape in listOf(false, true)) {
-            val scene = TablePresentation.scene(f.game, play, f.a, if (landscape) 892f else 412f,
+            val scene = TablePresentation.scene(f.game, TableBoard.of(play), f.a, if (landscape) 892f else 412f,
                 if (landscape) 412f else 892f, landscape)
             val events = mutableListOf<TableIntent>()
             val gesture = TableGestureCoordinator(events::add)
@@ -457,7 +457,7 @@ class TableGesturesTest {
     @Test fun combatTapOpensCombatMenuDoubleTapDoesNothingAndHoldInspects() {
         val f = TableStatesFixture
         val play = f.combat()
-        val scene = TablePresentation.scene(f.game, play, f.a, 412f, 892f, false)
+        val scene = TablePresentation.scene(f.game, TableBoard.of(play), f.a, 412f, 892f, false)
         val card = scene.items.single { it.cardId == f.id("attacker2") }
         val events = mutableListOf<TableIntent>()
         val gesture = TableGestureCoordinator(events::add)
@@ -478,7 +478,7 @@ class TableGesturesTest {
         val f = TableStatesFixture
         val play = f.combat()
         for (zoom in listOf(.65f, 1f, 2f)) {
-            val base = TablePresentation.scene(f.game, play, f.a, 892f, 412f, true,
+            val base = TablePresentation.scene(f.game, TableBoard.of(play), f.a, 892f, 412f, true,
                 TableLayoutState(camera = TableCamera(x = -CombatStackPresentation.combat(play.board, 28f, 40f).width / 2 + 50f / zoom, zoom = zoom)))
             val world = base.world!!
             // The area's bigger cards (COMBAT_MIN_CARD) reach past a landscape viewport at zoom 2: the viewport is unbounded
@@ -516,7 +516,7 @@ class TableGesturesTest {
                     GameCommand(java.util.UUID.randomUUID().toString(), GameScope(play.gameId, playId = play.id),
                         GameAction.Play(action), play.id, "1")
                 }.prediction
-                val expected = TablePresentation.scene(f.game, prediction, f.a, 892f, 412f, true,
+                val expected = TablePresentation.scene(f.game, TableBoard.of(prediction), f.a, 892f, 412f, true,
                     TableLayoutState(camera = scene.camera)).items.single { it.cardId == occurrence.cardId }.bounds
                 assertEquals(expected.x, landing.x, .001f)
                 assertEquals(expected.y, landing.y, .001f)
@@ -557,7 +557,7 @@ class TableGesturesTest {
         for ((width, height, landscape) in listOf(Triple(412f, 892f, false), Triple(892f, 412f, true),
             Triple(360f, 640f, false), Triple(640f, 360f, true))) {
             val play = LiveTableFixture.play()
-            val scene = TablePresentation.scene(LiveTableFixture.game, play, "a", width, height, landscape)
+            val scene = TablePresentation.scene(LiveTableFixture.game, TableBoard.of(play), "a", width, height, landscape)
             val field = scene.fields.single { it.owner == "a" }
             assertTrue(field.bounds.height > 0)
             val hand = scene.items.single { it.cardId == "a/HAND/2" }
@@ -669,7 +669,7 @@ class TableGesturesTest {
 
     // SYS-005
     @Test fun twoFingerCompactSidebarPanIsPersonalNotABoardMove() {
-        val scene = TablePresentation.scene(TableFixture.game, TableFixture.play(), "a", 640f, 260f, true,
+        val scene = TablePresentation.scene(TableFixture.game, TableBoard.of(TableFixture.play()), "a", 640f, 260f, true,
             TableLayoutState(TableCamera(zoom = 2f)))
         val f = Fixture(scene)
         val sidebar = scene.viewports.single { it.id == "sidebar" }

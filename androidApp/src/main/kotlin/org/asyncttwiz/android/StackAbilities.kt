@@ -35,7 +35,6 @@ import org.asyncttwiz.protocol.CardVisibility
 import org.asyncttwiz.protocol.CombatStackRules
 import org.asyncttwiz.protocol.MtgStackItem
 import org.asyncttwiz.protocol.MtgStackKind
-import org.asyncttwiz.protocol.PlayState
 
 /**
  * STK-046 (owner 2026-11-04, MTG Arena as the reference): a triggered or activated ability on the Stack is drawn as an
@@ -65,7 +64,7 @@ internal object StackAbilities {
      * The ability Stack entry [entryId] shows to [viewer], or null when it is a spell (or a copy of one), not an entry, or
      * its source is hidden from [viewer] (a face-down entry stays a card back, STK-005).
      */
-    fun of(play: PlayState, entryId: String, viewer: String): StackAbilityShown? {
+    fun of(play: TableBoard, entryId: String, viewer: String): StackAbilityShown? {
         val effect = play.board.stackEffects.singleOrNull { it.id == entryId } ?: return null
         val item = effect.item ?: return null
         val triggered = when (item.kind) {

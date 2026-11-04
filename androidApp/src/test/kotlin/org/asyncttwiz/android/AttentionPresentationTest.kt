@@ -38,11 +38,11 @@ class AttentionPresentationTest {
         val waiting = d.initial.copy(board = d.initial.board.copy(attentionHolder = d.other))
         fun arrival(author: String, action: PlayAction, reviewBefore: Boolean = false, reviewAfter: Boolean = false): Boolean {
             val tracker = MoveArrivalTracker(d.actor)
-            assertFalse(tracker.observe(waiting, !reviewBefore, null))
+            assertFalse(tracker.observe(TableBoard.of(waiting), !reviewBefore, null))
             val change = GameplayRules.change(waiting, author, d.command(action))
             val next = requireNotNull(change.state)
-            val arrived = tracker.observe(next, !reviewAfter, change.mutation)
-            assertFalse(tracker.observe(next, !reviewAfter, change.mutation), "An endpoint must pulse only once")
+            val arrived = tracker.observe(TableBoard.of(next), !reviewAfter, change.mutation)
+            assertFalse(tracker.observe(TableBoard.of(next), !reviewAfter, change.mutation), "An endpoint must pulse only once")
             return arrived
         }
         assertTrue(arrival(d.other, PlayAction.PassAttention))
@@ -60,15 +60,15 @@ class AttentionPresentationTest {
             val own = play.board.effectiveAttentionHolder == viewer
             for ((w, h, landscape) in listOf(Triple(412f, 892f, false), Triple(892f, 412f, true))) {
                 for (reviewing in listOf(false, true)) {
-                    val pill = attentionPresentation(TableFixture.game, play, viewer, reviewing, true)
+                    val pill = attentionPresentation(TableFixture.game, TableBoard.of(play), viewer, reviewing, true)
                     assertEquals(if (own) "Your move" else if (viewer == "a") "Waiting · Bob" else "Waiting · Alice", pill.label)
                     assertEquals(if (own) OwnTableColor else OpponentTableColor, pill.color)
                     assertEquals(!reviewing, pill.enabled)
-                    val scene = TablePresentation.scene(TableFixture.game, play, viewer, w, h, landscape, reviewing = reviewing)
+                    val scene = TablePresentation.scene(TableFixture.game, TableBoard.of(play), viewer, w, h, landscape, reviewing = reviewing)
                     assertEquals(play.board.effectiveAttentionHolder, scene.fields.single { it.holdsAttention }.owner)
                 }
             }
-            assertFalse(attentionPresentation(TableFixture.game, play, viewer, false, false).enabled)
+            assertFalse(attentionPresentation(TableFixture.game, TableBoard.of(play), viewer, false, false).enabled)
         }
     }
 
@@ -80,15 +80,15 @@ class AttentionPresentationTest {
         for (viewer in listOf("a", "b")) {
             val other = if (viewer == "a") "b" else "a"
             val play = initial.copy(board = initial.board.copy(attentionHolder = viewer, move = other))
-            val pill = attentionPresentation(TableFixture.game, play, viewer, false, true)
+            val pill = attentionPresentation(TableFixture.game, TableBoard.of(play), viewer, false, true)
             assertEquals(if (viewer == "a") "Waiting · Bob" else "Waiting · Alice", pill.label)
             assertFalse(pill.own)
             assertEquals(battlefieldColor(other, viewer, other, false), tableBarColor(play.board, viewer))
-            val scene = TablePresentation.scene(TableFixture.game, play, viewer, 412f, 892f, false)
+            val scene = TablePresentation.scene(TableFixture.game, TableBoard.of(play), viewer, 412f, 892f, false)
             assertEquals(other, scene.fields.single { it.holdsAttention }.owner)
             // The game waits for the viewer: their move
             val own = initial.copy(board = initial.board.copy(attentionHolder = other, move = viewer))
-            assertEquals("Your move", attentionPresentation(TableFixture.game, own, viewer, false, true).label)
+            assertEquals("Your move", attentionPresentation(TableFixture.game, TableBoard.of(own), viewer, false, true).label)
             assertEquals(battlefieldColor(viewer, viewer, viewer, false), tableBarColor(own.board, viewer))
         }
     }
@@ -99,7 +99,7 @@ class AttentionPresentationTest {
         val initial = TableFixture.play()
         for (move in listOf("a", "b")) {
             val play = initial.copy(board = initial.board.copy(attentionHolder = move, move = move))
-            val pill = attentionPresentation(TableFixture.game, play, "a", false, true, catchingUp = true)
+            val pill = attentionPresentation(TableFixture.game, TableBoard.of(play), "a", false, true, catchingUp = true)
             assertEquals("Catching up", pill.label)
             assertEquals(move == "a", pill.own)
         }

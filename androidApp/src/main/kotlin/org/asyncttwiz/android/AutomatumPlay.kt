@@ -59,17 +59,17 @@ internal object AutomatumToggles {
      * mulligan is open (TRN-027) and while Automatum's combat offers them its own quick actions (CMB-028, CMB-029,
      * CMB-034).
      */
-    fun shown(play: PlayState, context: QuickContext): Boolean {
+    fun shown(play: TableBoard, context: QuickContext): Boolean {
         if (context.viewer == null) return false
         if (play.board.players.none { it.accountId == context.viewer }) return false
         if (QuickActions.openingMulligan(play, context.viewer)) return false
-        val scope = TableActionScope(play.gameId, play.id)
+        val scope = TableActionScope(play.gameId, play.playId)
         return automatumCombatQuickActions(play, context, scope).isNullOrEmpty()
     }
 
     /** The three toggles: Full control and Skip when I have no choice as the game holds them for [viewer] (SYS-071,
      * SYS-063), Autotap mana sources from this device (I-D47, [PauseSettings.autotap], which casting reads). */
-    fun of(play: PlayState, viewer: String, enabled: Boolean, autotap: Boolean, setFullControl: (Boolean) -> Unit,
+    fun of(play: TableBoard, viewer: String, enabled: Boolean, autotap: Boolean, setFullControl: (Boolean) -> Unit,
         submit: (PlayAction) -> Boolean, setAutotap: (Boolean) -> Unit): List<AutomatumToggle> {
         val own = play.board.players.single { it.accountId == viewer }
         return listOf(
@@ -88,7 +88,7 @@ internal object AutomatumToggles {
  * (UI review round 2 #8); an on toggle is filled violet with a check, an off one white with an empty ring; hold shows
  * what each does. */
 @Composable
-internal fun RowScope.AutomatumToggleCells(play: PlayState, viewer: String, enabled: Boolean, submit: (PlayAction) -> Boolean) {
+internal fun RowScope.AutomatumToggleCells(play: TableBoard, viewer: String, enabled: Boolean, submit: (PlayAction) -> Boolean) {
     val (pauseState, pausePreferences) = rememberPauseSettings(viewer)
     val toggles = AutomatumToggles.of(play, viewer, enabled, pauseState.value.autotap,
         // SYS-071: the device's setting, which goes into the game after a change (FullControlSync)

@@ -75,7 +75,7 @@ sealed interface PreAnswer {
  * Pre-events kept in the game (I-D33). Each early answer is its own engine record ([EngineRecordKind.PreAnswer], id
  * "pre:" + [PreAnswer.key]), set and withdrawn with an ordinary undoable event ([set], [withdraw]).
  *
- * - **Applied when its decision opens:** [EngineCall.perform] answers an opened decision with the early answer that
+ * - **Applied when its decision opens:** [EngineRun.perform] answers an opened decision with the early answer that
  *   names it ([matching]) when the engine takes it, and goes on, in the same call. One the engine refuses is skipped and
  *   the decision is asked as usual.
  * - **Kept until then:** automated batches keep an early answer while its decision can still open ([kept]: the same
@@ -149,9 +149,9 @@ object PreAnswers {
 
     /** The early answer to the decision open in [call]'s state that the engine takes, if any (#8: one given while the
      * batch opening its decision was on its way). */
-    fun forOpen(call: EngineCall): PreAnswer? {
+    fun forOpen(call: EngineRun): PreAnswer? {
         val decision = call.working.pending?.decision ?: return null
-        val early = matching(call.state.board, call.working, call.ids, decision) ?: return null
+        val early = matching(call.board, call.working, call.ids, decision) ?: return null
         return early.takeIf { answer(it, call.working, call.ids, decision) != null }
     }
 

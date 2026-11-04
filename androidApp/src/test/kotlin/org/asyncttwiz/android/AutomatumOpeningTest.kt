@@ -74,7 +74,7 @@ class AutomatumOpeningTest {
         change.tree?.let { tree = it }
         return change.tree != null
     }
-    private fun device(viewer: String) = TableToolkitController(viewer, { play }, { true },
+    private fun device(viewer: String) = TableToolkitController(viewer, { TableBoard.of(play) }, { true },
         { action, _ -> apply(viewer, GameAction.Play(action)) },
         playBatch = { actions, request -> apply(viewer, GameAction.PlayBatch(actions), request) },
         playTree = { tree }, automatedBatch = { batch, request -> apply(viewer, batch, request) })
@@ -83,9 +83,9 @@ class AutomatumOpeningTest {
     private fun library(player: String) = play.board.containers.single { it.zone == PlayZone.LIBRARY && it.accountId == player }
     private fun handId(player: String) = play.board.containers.single { it.zone == PlayZone.HAND && it.accountId == player }.id
     private fun quick(toolkit: TableToolkitController, name: String) =
-        QuickActions.contextual(play, QuickContext(viewer = toolkit.viewer)).single { it.name == name }
+        QuickActions.contextual(TableBoard.of(play), QuickContext(viewer = toolkit.viewer)).single { it.name == name }
     private fun quickNames(toolkit: TableToolkitController) =
-        QuickActions.contextual(play, QuickContext(viewer = toolkit.viewer)).map { it.name }
+        QuickActions.contextual(TableBoard.of(play), QuickContext(viewer = toolkit.viewer)).map { it.name }
     private fun mulligans(player: String) = play.board.players.single { it.accountId == player }.mulligans
     private fun opening(player: String) = PlayerStatus.opening(play.board, player)
     /** "Mulligan" (I-D49), as the player taps it. */

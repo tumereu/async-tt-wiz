@@ -96,14 +96,14 @@ class AutomatumCastScreenshotTest {
     private val sent = mutableListOf<Pair<GameAction.PlayBatch, String>>()
     private fun render(play: PlayState, autotap: Boolean = true): TableToolkitController {
         AutomatumBoards.compute(play, f.a)
-        val toolkit = TableToolkitController(f.a, { play }, { true }, { _, _ -> true },
+        val toolkit = TableToolkitController(f.a, { TableBoard.of(play) }, { true }, { _, _ -> true },
             automatedBatch = { batch, request -> sent += batch to request; true })
         toolkit.cast.autotap = autotap
         compose.setContent {
             MaterialTheme {
                 NoRipples {
                     Box(Modifier.fillMaxSize()) {
-                        TableSurface(f.game, play, f.a, false, Modifier.fillMaxSize(), connected = true,
+                        TableSurface(f.game, TableBoard.of(play), f.a, false, Modifier.fillMaxSize(), connected = true,
                             onIntent = toolkit::handle, toolkit = toolkit,
                             runtime = TableRuntimeHooks(navigation = {}, chat = {}, undo = { true }, controlsConnected = true))
                     }
@@ -118,7 +118,7 @@ class AutomatumCastScreenshotTest {
         TableScope(card, listOf(card)), TableDestination.Container(f.id("stack"), PlayZone.STACK), handDoubleTap = true))
 
     private fun lifeSquare(play: PlayState, player: String): TableItem =
-        TablePresentation.scene(f.game, play, f.a, 412f, 892f, false).items.single { it.id == "life/$player" }
+        TablePresentation.scene(f.game, TableBoard.of(play), f.a, 412f, 892f, false).items.single { it.id == "life/$player" }
 
     /** The batch the server would make of [batch] (its own checks, SYS-057), as the new board. */
     private fun accepted(play: PlayState, batch: GameAction.PlayBatch, request: String): PlayState {
@@ -137,7 +137,7 @@ class AutomatumCastScreenshotTest {
         compose.runOnIdle { assertTrue(doubleTap(toolkit, sparkId)) }
         compose.waitForIdle()
         assertTrue(toolkit.cast.targeting)
-        assertTrue("life/${f.b}" in toolkit.cast.glow(play), "Bob's life square glows")
+        assertTrue("life/${f.b}" in toolkit.cast.glow(TableBoard.of(play)), "Bob's life square glows")
         compose.onNodeWithText("Storm Spark — choose any target").assertExists()
         assertTrue(sent.isEmpty(), "nothing is sent while the cast is open (I-D11)")
         compose.onRoot().captureShot("$SCREENSHOTS/automatum/cast-target-bar.png",
@@ -154,7 +154,7 @@ class AutomatumCastScreenshotTest {
             assertFalse(toolkit.submit(PlayAction.AdjustLife(f.a, "-1")))
             assertNull(toolkit.error)
             assertEquals(sparkId, toolkit.shaking?.id, "the card being cast shakes")
-            assertEquals(CastController.BUSY, stepBlocked(play, toolkit.cast.open, null), "the step arrow is greyed and says why on hold")
+            assertEquals(CastController.BUSY, stepBlocked(TableBoard.of(play), toolkit.cast.open, null), "the step arrow is greyed and says why on hold")
         }
         compose.runOnIdle { toolkit.open(TableIntent.Actions("life/${f.b}", null), lifeSquare(play, f.b)) }
         compose.waitForIdle()
@@ -192,7 +192,7 @@ class AutomatumCastScreenshotTest {
         compose.onNodeWithText("Accept automatically").assertDoesNotExist()
         compose.onNodeWithText("Kicker {4}", substring = true).assertDoesNotExist()
         val panel = compose.onNodeWithContentDescription("Cast panel").fetchSemanticsNode().boundsInRoot
-        val hand = TablePresentation.scene(f.game, play, f.a, 412f, 892f, false).items
+        val hand = TablePresentation.scene(f.game, TableBoard.of(play), f.a, 412f, 892f, false).items
             .first { it.kind == TableItemKind.HAND && it.owner == f.a }.bounds
         assertEquals(hand.y, panel.bottom / compose.density.density, 1f, "docked exactly above the hand")
         assertEquals(0f, panel.left, 1f); assertEquals(412f, panel.right / compose.density.density, 1f)
@@ -310,7 +310,7 @@ class AutomatumCastScreenshotTest {
     private fun device(tree: GameplayTree, player: String = f.a): TableToolkitController {
         val state = tree.stateAt(tree.currentNodeId)!!
         AutomatumBoards.compute(state, player)
-        return TableToolkitController(player, { state }, { true }, { _, _ -> true }, playTree = { tree },
+        return TableToolkitController(player, { TableBoard.of(state) }, { true }, { _, _ -> true }, playTree = { tree },
             automatedBatch = { batch, request -> sent += batch to request; true })
     }
 
@@ -396,7 +396,7 @@ class AutomatumCastScreenshotTest {
         val replica = replicaOf(play)
         val preview = ReplicaPreview(replica, f.a)
         val work = HeldWork()
-        val toolkit = TableToolkitController(f.a, { replica.display }, { true }, { _, _ -> true }, playTree = { replica.displayTree },
+        val toolkit = TableToolkitController(f.a, { replica.display?.let(TableBoard::of) }, { true }, { _, _ -> true }, playTree = { replica.displayTree },
             automatedBatch = { batch, request -> sent += batch to request; true }, automatumWork = work, castPreview = preview)
         assertTrue(doubleTap(toolkit, cubId))
         // The preview: on the Stack, the Mountain tapped, nothing sent, the cast still open (nothing else changes meanwhile)
@@ -423,7 +423,7 @@ class AutomatumCastScreenshotTest {
         val replica = replicaOf(play)
         val preview = ReplicaPreview(replica, f.a)
         val work = HeldWork()
-        val toolkit = TableToolkitController(f.a, { replica.display }, { true }, { _, _ -> true }, playTree = { replica.displayTree },
+        val toolkit = TableToolkitController(f.a, { replica.display?.let(TableBoard::of) }, { true }, { _, _ -> true }, playTree = { replica.displayTree },
             automatedBatch = { batch, request -> sent += batch to request; true }, automatumWork = work, castPreview = preview)
         assertTrue(doubleTap(toolkit, cubId))
         assertTrue(replica.display!!.board.stackEffects.isNotEmpty())

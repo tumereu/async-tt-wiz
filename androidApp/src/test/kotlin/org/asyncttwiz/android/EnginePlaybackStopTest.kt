@@ -5,7 +5,6 @@ import arcanum.engine.input.Input
 import arcanum.engine.state.ObjectId
 import arcanum.engine.state.PlayerId
 import org.asyncttwiz.protocol.MtgStackKind
-import org.asyncttwiz.protocol.PlayState
 import org.asyncttwiz.protocol.PlayZone
 import org.asyncttwiz.protocol.game.GameDevice
 import org.asyncttwiz.protocol.game.PlaySettings
@@ -31,14 +30,14 @@ class EnginePlaybackStopTest {
     private val b = PlayerId(f.b)
 
     /** Where the Herald [herald] is on [play]'s board: "STACK" while its spell is there, else its card's zone. */
-    private fun where(play: PlayState, herald: String): String {
+    private fun where(play: TableBoard, herald: String): String {
         val board = play.board
         if (board.stackEffects.any { it.sourceId == herald && it.item?.kind == MtgStackKind.Spell }) return "STACK"
         val card = board.cards.single { it.id == herald }
         return board.containers.single { it.id == card.containerId }.zone.name
     }
 
-    private fun tokens(play: PlayState) = play.board.cards.count { c ->
+    private fun tokens(play: TableBoard) = play.board.cards.count { c ->
         c.token && play.board.containers.single { it.id == c.containerId }.zone == PlayZone.BATTLEFIELD }
 
     /** Alice's device on its own while Bob is away: what the server sent played back, her device's own steps sent. */
@@ -93,12 +92,12 @@ class EnginePlaybackStopTest {
 
         // Bob watches the playback as the events arrive
         sim.deliver(f.b)
-        val boards = mutableListOf<PlayState>()
+        val boards = mutableListOf<TableBoard>()
         var guard = 0
         while (bob.device.status is GameDevice.Status.Playing && guard++ < 200) {
             assertNotNull(bob.step())
             val shown = bob.shown!!
-            boards += shown.play
+            boards += shown.board
             shown.transition?.steps?.let(boards::addAll)
         }
         val stop = assertIs<GameDevice.Status.Stopped>(bob.device.status)

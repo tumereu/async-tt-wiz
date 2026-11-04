@@ -26,7 +26,7 @@ import org.asyncttwiz.protocol.*
  * change (I-D52), and for the other player their presence line (TRN-043).
  */
 @Composable
-internal fun PlayerPanel(state: PlayState, accountId: String, viewer: String, close: () -> Unit) {
+internal fun PlayerPanel(state: TableBoard, accountId: String, viewer: String, close: () -> Unit) {
     val player = state.board.players.singleOrNull { it.accountId == accountId } ?: return
     val own = player.accountId == viewer
     InlinePopupPanel(close, title = "Life") {

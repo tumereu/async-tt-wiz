@@ -38,7 +38,6 @@ import org.asyncttwiz.automatum.CastWayChip
 import org.asyncttwiz.automatum.HandCastOptions
 import org.asyncttwiz.automatum.HandCasts
 import org.asyncttwiz.protocol.MtgTag
-import org.asyncttwiz.protocol.PlayState
 import org.asyncttwiz.protocol.PlayZone
 
 /**
@@ -50,7 +49,7 @@ import org.asyncttwiz.protocol.PlayZone
  */
 internal class HandController(
     private val viewer: String,
-    private val current: () -> PlayState?,
+    private val current: () -> TableBoard?,
     private val layout: MutableState<TableLayoutState>,
     private val work: AutomatumWork,
     private val tags: () -> List<MtgTag?>,
@@ -58,7 +57,7 @@ internal class HandController(
     private val cast: (cardId: String, way: Input?, extras: List<Int>) -> Boolean,
     private val shake: (String) -> Unit,
     /** Whether [cardId] is known to have no cast or play Automatum allows now (null: not worked out yet). */
-    private val unplayable: (PlayState, String) -> Boolean?,
+    private val unplayable: (TableBoard, String) -> Boolean?,
 ) {
     /** The chosen way (an index of [HandCastOptions.ways]) and how often each extra is paid. */
     data class Choice(val way: Int = 0, val times: List<Int> = emptyList())
@@ -87,7 +86,7 @@ internal class HandController(
         return true
     }
 
-    private fun raise(play: PlayState, cardId: String) {
+    private fun raise(play: TableBoard, cardId: String) {
         layout.value = layout.value.copy(raised = cardId)
         choice = Choice(); options = null; held = null; answering = true
         compute(play)
@@ -165,13 +164,13 @@ internal class HandController(
     }
 
     /** ZON-079: the sources Autotap would tap for the raised card on [play] (outlined on the table). */
-    fun sources(play: PlayState): Set<String> {
+    fun sources(play: TableBoard): Set<String> {
         val o = options ?: return emptySet()
         if (o.cardId != raised) return emptySet()
         return o.sources
     }
 
-    private fun compute(play: PlayState) {
+    private fun compute(play: TableBoard) {
         val card = raised ?: return
         val run = ++generation
         val chosen = choice
@@ -179,9 +178,10 @@ internal class HandController(
         val history = tags()
         work.run({
             try {
+                val legacy = play.legacy!!
                 val definitions = AutomatumBoards.definitions(play)
-                val log = AutomatumBoards.engineLog(play, definitions, history)
-                HandCasts.options(play, definitions, viewer, log, card, AutomatumBoards.handPlays(play, viewer) { history }.of(card),
+                val log = AutomatumBoards.engineLog(legacy, definitions, history)
+                HandCasts.options(legacy, definitions, viewer, log, card, AutomatumBoards.handPlays(play, viewer) { history }.of(card),
                     chosen.way, chosen.times, org.asyncttwiz.automatum.CastFlow.Seeds { DeviceRandom.seed() })
             } catch (problem: Exception) {
                 AppLog.warn("automatum", "Couldn't work the cost chips out: ${problem::class.java.simpleName}")
@@ -210,7 +210,7 @@ internal class HandController(
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-internal fun RaisedCardChips(toolkit: TableToolkitController, play: PlayState, scene: TableScene?) {
+internal fun RaisedCardChips(toolkit: TableToolkitController, play: TableBoard, scene: TableScene?) {
     val hand = toolkit.hand
     LaunchedEffect(IdentityKey(play.board)) { hand.follow() }
     // Owner playtest 2026-11-04 #9: the chips come and go with a short fade and rise, as long as the card's own rise at
@@ -237,7 +237,7 @@ internal fun RaisedCardChips(toolkit: TableToolkitController, play: PlayState, s
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun RaisedChipsRow(hand: HandController, play: PlayState, raised: String, card: TableItem, options: HandCastOptions) {
+private fun RaisedChipsRow(hand: HandController, play: TableBoard, raised: String, card: TableItem, options: HandCastOptions) {
     val held = hand.held
     Layout(content = {
         Column(verticalArrangement = Arrangement.spacedBy(4.dp), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -333,7 +333,7 @@ private fun ExtraChip(chip: CastExtraChip, times: Int, tap: () -> Unit, less: ()
 /** The held chip's details, card-like (ZON-080): its name and cost, its printed text, and for the chosen way the total
  * with its extras; a chip the player can't pay for now says so. */
 @Composable
-private fun ChipDetails(play: PlayState, cardId: String, options: HandCastOptions, held: Int) {
+private fun ChipDetails(play: TableBoard, cardId: String, options: HandCastOptions, held: Int) {
     val extra = held >= HandController.EXTRA
     val way = if (extra) null else options.ways.getOrNull(held)
     val chip = if (extra) options.extras.getOrNull(held - HandController.EXTRA) else null
@@ -356,12 +356,12 @@ private fun ChipDetails(play: PlayState, cardId: String, options: HandCastOption
 }
 
 /** The line of [cardId]'s printed rules text that begins with the keyword [name] ("Kicker {4} (You may pay …)"). */
-private fun printedLine(play: PlayState, cardId: String, name: String): String? = cardText(play, cardId)?.lines()
+private fun printedLine(play: TableBoard, cardId: String, name: String): String? = cardText(play, cardId)?.lines()
     ?.firstOrNull { it.trim().startsWith(name, ignoreCase = true) }?.trim()
 
 /** A way's printed text: its alternative cost's (its printed line when there is one), the face's it casts, or the card's
  * own. */
-private fun wayText(play: PlayState, cardId: String, way: CastWayChip): String? {
+private fun wayText(play: TableBoard, cardId: String, way: CastWayChip): String? {
     way.text?.let { return printedLine(play, cardId, way.name) ?: it }
     val face = (way.input as? Input.Cast)?.way?.takeIf { !it.fused }?.face ?: (way.input as? Input.PlayLand)?.face ?: 0
     val card = play.board.cards.singleOrNull { it.id == cardId } ?: return null

@@ -53,11 +53,11 @@ class PendingOutcomeTableTest {
             drain(f)
             compose.onNodeWithContentDescription(resolve).assertIsDisplayed().assertIsEnabled()
             compose.onAllNodes(isDialog()).assertCountEquals(0)
-            for (label in listOf("Table actions", "Undo", AutomatumStep.of(f.play).label)) {
+            for (label in listOf("Table actions", "Undo", AutomatumStep.of(TableBoard.of(f.play)).label)) {
                 compose.onNodeWithContentDescription(label).assertIsNotEnabled().performClick()
             }
             compose.onNodeWithContentDescription("Choose phase/step", substring = true).assertIsNotEnabled().performClick()
-            val scene = TablePresentation.scene(f.game, f.play, f.actor, 412f, 892f, false)
+            val scene = TablePresentation.scene(f.game, TableBoard.of(f.play), f.actor, 412f, 892f, false)
             val field = scene.items.single { it.cardId == f.id(40) }.visible.first().center
             val hand = scene.items.single { it.cardId == f.id(41) }.visible.first().center
             compose.onRoot().performTouchInput {

@@ -47,18 +47,16 @@ class TableScreenshotTest {
         val library = initial.board.containers.single { it.id == "a/LIBRARY" }
         val play = initial.copy(board = initial.board.copy(contentsDisplays = listOf(
             ContentsDisplay("retained-view", "a", library.id, ContentsSelection.ALL, library.cards.size, false, library.cards))))
-        val toolkit = TableToolkitController("a", { TableBoard.of(play) }, { !paused }, { _, _ -> true })
-        val playback = LiveTableFixture.playback()
+        val toolkit = TableToolkitController("a", { tableBoard(play) }, { !paused }, { _, _ -> true })
         compose.setContent {
             MaterialTheme {
                 Column(Modifier.fillMaxSize()) {
-                    TableSurface(LiveTableFixture.game, TableBoard.of(play), "a", landscape, Modifier.weight(1f),
+                    TableSurface(LiveTableFixture.game, tableBoard(play), "a", landscape, Modifier.weight(1f),
                         connected = !paused, onIntent = toolkit::handle, toolkit = toolkit,
                         runtime = TableRuntimeHooks(chat = {}, history = {}, navigation = {}, chatUnread = 1,
                             undo = { true }, reviewing = paused, controlsConnected = true,
                             returnCurrent = if (paused) ({}) else null,
-                            reviewPanel = if (paused) ({ HistoryPlaybackPanel(playback, playback.tree.sharedHeadId, "a", true, 240L, {},
-                                overlay = true, landscape = landscape) }) else null))
+                            bottomPanel = if (paused) ({ _ -> LiveTableFixture.ReviewPanel("a", landscape, at = 5) }) else null))
                 }
             }
         }
@@ -97,7 +95,7 @@ class TableScreenshotTest {
             assertEquals(if (landscape) 892 else 412, image.width)
             assertEquals(if (landscape) 412 else 892, image.height)
             if (!controls) {
-                val normal = TablePresentation.scene(LiveTableFixture.game, TableBoard.of(play), "a",
+                val normal = TablePresentation.scene(LiveTableFixture.game, tableBoard(play), "a",
                     image.width.toFloat(), image.height.toFloat(), landscape, reviewing = paused, landscapeHome = true)
                 val scene = normal
                 assertRenderedLandsBands(image, scene, "a",
@@ -114,7 +112,7 @@ class TableScreenshotTest {
         compose.setContent {
             MaterialTheme {
                 Column(Modifier.fillMaxSize()) {
-                TableSurface(LiveTableFixture.game, TableBoard.of(play), "a", false, Modifier.fillMaxSize(), connected = true,
+                TableSurface(LiveTableFixture.game, tableBoard(play), "a", false, Modifier.fillMaxSize(), connected = true,
                     runtime = TableRuntimeHooks(errorMessage = "Can't undo: a later event refers to that action. Use History to review it, or keep playing.", dismissError = {}))
                 }
             }
@@ -134,7 +132,7 @@ class TableScreenshotTest {
         val message = mutableStateOf<String?>("This action could not be used.")
         val play = LiveTableFixture.play(5)
         compose.setContent { MaterialTheme {
-            TableSurface(LiveTableFixture.game, TableBoard.of(play), "a", false, Modifier.fillMaxSize(), connected = true,
+            TableSurface(LiveTableFixture.game, tableBoard(play), "a", false, Modifier.fillMaxSize(), connected = true,
                 runtime = TableRuntimeHooks(errorMessage = message.value, dismissError = { message.value = null }))
         } }
         compose.onNodeWithContentDescription("Dismiss message").performClick()
@@ -187,7 +185,7 @@ class TableScreenshotTest {
             else -> initial
         }
         val sent = mutableListOf<PlayAction>()
-        val toolkit = TableToolkitController("a", { TableBoard.of(play) }, { true }, { action, _ -> sent += action; submitOk })
+        val toolkit = TableToolkitController("a", { tableBoard(play) }, { true }, { action, _ -> sent += action; submitOk })
         when (kind) {
             "card-actions", "action-tooltip" -> toolkit.openCard(TableScope(sentinel.id, listOf(sentinel.id)))
             "player-actions" -> toolkit.open(TableIntent.Actions("life/b", null),
@@ -202,7 +200,7 @@ class TableScreenshotTest {
         }
         compose.setContent {
             MaterialTheme {
-                TableSurface(LiveTableFixture.game, TableBoard.of(play), "a", landscape, Modifier.fillMaxSize(),
+                TableSurface(LiveTableFixture.game, tableBoard(play), "a", landscape, Modifier.fillMaxSize(),
                     connected = true, onIntent = toolkit::handle, toolkit = toolkit,
                     runtime = TableRuntimeHooks(chat = {}, history = {}, navigation = {},
                         undo = { true }, controlsConnected = true))
@@ -408,12 +406,19 @@ internal object LiveTableFixture {
                 contentsDisplays = listOf(ContentsDisplay("reveal", "a", "a/LIBRARY", ContentsSelection.TOP, 2, true, shown))))
     }
 
-    fun playback(): HistoryPlayback {
+    /** Twelve life changes as the timeline strip shows them (R4b: the engine table's events), Bob's every third. */
+    fun timeline(): List<HistoryTimelineEvent> {
         fun id(n: Int) = "00000000-0000-4000-8000-${n.toString().padStart(12, '0')}"
-        val nodes = (1..12).map { n -> GameplayMutation(id(n), id(n - 1),
-            id(100), id(200 + n), if (n % 3 == 0) "b" else "a", null,
-            PlayAction.SetLife("a", (20 - n).toString()), GameplayTransition(),
-            grouping = HistorySemantic(HistorySignificance.LIFE_PLAYER_COUNTER_EDIT, HistoryIcon.FAVORITE, null)) }
-        return HistoryPlayback(HistoryTree(id(0), nodes, id(12), "fixture")).apply { scrub(id(6)) }
+        return (1..12).map { n -> HistoryTimelineEvent(id(n), HistoryIcon.FAVORITE, "Life set to ${20 - n}",
+            if (n % 3 == 0) "b" else "a", null, label = "Life") }
+    }
+
+    /** Timeline mode's panel of the engine table at [events]' event [at] (the latest by default, where entering it opens). */
+    @androidx.compose.runtime.Composable
+    fun ReviewPanel(viewer: String, landscape: Boolean, events: List<HistoryTimelineEvent> = timeline(), at: Int = events.lastIndex) {
+        val routes = androidx.compose.runtime.remember {
+            EngineTableRoutes(viewer, { null }, {}, { null }).apply { review = events[at].id }
+        }
+        EngineReviewPanel(routes, events, viewer, landscape, 240L)
     }
 }

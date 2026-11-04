@@ -32,17 +32,13 @@ class SwitchReviewTest {
         override fun send(message: GameClientMessage): Boolean { frames.add(message); return true }
         override fun disconnect() { disconnected++ }
         override fun close() = Unit
-        /** As the server after step D2 answers: `/v1/games/{id}/baselines` is gone (404 "not_found"), which the socket
-         * connection reads as a failed transfer (complete with null), not a refusal. */
-        override fun treeTransfer(gameId: String, requestIds: List<String>, rejected: (String) -> Unit,
-            complete: (GameplayTreeTransfer?) -> Unit): Boolean { treeTransfers++; complete(null); return true }
     }
 
     private inner class Session(me: String = f.a) {
         val wire = Wire()
         val posts = ArrayDeque<() -> Unit>()
         val session = GameSession(wire, { "A".repeat(43) }, { posts.add(it) }, {}, {}, { _, _ -> }, {},
-            accountId = { me }, treeCache = { _, _, _ -> null })
+            accountId = { me })
         fun drain() { while (posts.isNotEmpty()) posts.removeFirst()() }
         fun message(message: GameServerMessage) { wire.listener.message(message); drain() }
         fun connect(game: GameSummary) {

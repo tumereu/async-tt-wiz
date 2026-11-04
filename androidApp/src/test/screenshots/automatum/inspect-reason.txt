@@ -1,1 +1,0 @@
-With every Mountain tapped, double-tapping Storm Spark only shakes it; inspecting it shows why under the card: "Cast — Storm Spark can't be cast now."

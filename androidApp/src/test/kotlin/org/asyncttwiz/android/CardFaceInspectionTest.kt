@@ -61,7 +61,7 @@ class CardFaceInspectionTest {
                 MaterialTheme {
                     // A new inspection per case, as each hold or Inspect action makes one.
                     androidx.compose.runtime.key(shown.value) {
-                        GameplayCardInspection(TableBoard.of(p), v, ManualInspection(p.gameId, p.id, c.id,
+                        GameplayCardInspection(tableBoard(p), v, ManualInspection(p.gameId, p.id, c.id,
                             ManualDisclosure.permittedFaces(p, c, v, inspecting = true).map { it.faceId }), {}, peek = k)
                     }
                 }

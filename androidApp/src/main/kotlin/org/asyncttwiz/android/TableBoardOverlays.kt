@@ -26,7 +26,7 @@ internal inline fun TableBoardOverlays(game: GameSummary, play: TableBoard, acco
         // Purely visual siblings: no pointer handlers, so review gestures and chrome stay usable.
         Box(Modifier.offset(board.x.dp, board.y.dp).size(board.width.dp, board.height.dp)
             .background(Color.Black.copy(alpha = .12f)), contentAlignment = Alignment.Center) {
-            TimelineCentreText(runtime.opponentBranched, runtime.timelinePlayback ?: TimelinePlaybackStatus.PAUSED, runtime.oldBranch)
+            TimelineCentreText(runtime.timelinePlayback ?: TimelinePlaybackStatus.PAUSED)
         }
     }
     // TRN-066: the wait, faint like timeline mode's words; purely visual (no pointer handlers), so the board stays usable

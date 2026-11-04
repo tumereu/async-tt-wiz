@@ -1,1 +1,0 @@
-Table actions with Timeline, Suggest game end, Concede and Send problem report, each an icon and its name.

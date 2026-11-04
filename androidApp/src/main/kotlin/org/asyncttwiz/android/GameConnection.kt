@@ -13,8 +13,6 @@ import java.io.InputStream
 import java.io.ByteArrayOutputStream
 import org.asyncttwiz.storage.evictConnectionsInBackground
 
-data class GameplayTreeTransfer(val manifest: GameplayManifest, val plan: TreeDownloadPlan,
-    val openChunk: (Int) -> InputStream)
 
 /** One ordered socket. Credentials are headers only; redirects never forward them. */
 interface GameConnection : AutoCloseable {
@@ -27,12 +25,6 @@ interface GameConnection : AutoCloseable {
     fun connect(token: String, listener: Listener)
     fun send(message: GameClientMessage): Boolean
     fun disconnect()
-    /** The old model's history transfers (only test doubles still answer them): the server has no such routes since
-     * I-D56 step D2 and the app's connection starts none (false), so a game that would need one can't be opened. */
-    fun baseline(gameId: String, requestIds: List<String>, rejected: (String) -> Unit = {},
-        complete: (GameplayBaseline?) -> Unit): Boolean = false
-    fun treeTransfer(gameId: String, requestIds: List<String>, rejected: (String) -> Unit = {},
-        complete: (GameplayTreeTransfer?) -> Unit): Boolean = false
     fun chatPage(gameId: String, before: String? = null, after: String? = null, complete: (ChatPage?) -> Unit): Boolean = false
     fun chatRead(gameId: String, input: ReadChat? = null, complete: (ChatReadState?) -> Unit): Boolean = false
 }

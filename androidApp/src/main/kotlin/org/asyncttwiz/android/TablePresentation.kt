@@ -4,17 +4,6 @@ import org.asyncttwiz.protocol.*
 import org.asyncttwiz.storage.ArtworkReference
 import kotlin.math.max
 
-/** An accepted prediction must not briefly fall back to an older asynchronous history view. */
-internal class TableEndpointPresentation {
-    private var presented: PlayState? = null
-    fun live(live: PlayState?, indexed: PlayState?, awaitingIndex: Boolean, panelReveal: String? = null): PlayState? {
-        if (panelReveal != null) return indexed?.takeIf { it.currentNodeId == panelReveal } ?: presented
-        val matchesPresented = live != null && live.id == presented?.id &&
-            (live.board == presented?.board || live.currentNodeId == presented?.currentNodeId)
-        return if (awaitingIndex && !matchesPresented) indexed else live
-    }
-    fun presented(state: PlayState?) { if (state != null) presented = state }
-}
 
 /** All coordinates are dp. Personal navigation never changes shared placement or container order. */
 data class TablePoint(val x: Float, val y: Float)

@@ -9,7 +9,7 @@ class SingleCardPopupTest {
     @Test fun tapsOnSeveralCardsLeaveOnlyTheLatestMenuAndTwoFingerPressesOpenNone() {
         val f = TableStatesFixture
         val play = f.initial
-        val toolkit = TableToolkitController(f.a, { TableBoard.of(play) }, { true }, { _, _ -> true })
+        val toolkit = TableToolkitController(f.a, { tableBoard(play) }, { true }, { _, _ -> true })
         lateinit var gestures: TableGestureCoordinator
         val opened = mutableListOf<String?>()
         // Wired like the table host: every Actions intent opens through the one toolkit.
@@ -20,7 +20,7 @@ class SingleCardPopupTest {
                 toolkit.open(g.capturedActions ?: intent, requireNotNull(g.actionItem))
             }
         })
-        val scene = TablePresentation.scene(f.game, TableBoard.of(play), f.a, 412f, 892f, false)
+        val scene = TablePresentation.scene(f.game, tableBoard(play), f.a, 412f, 892f, false)
         gestures.update(scene, true)
         val (a, b) = scene.items.filter { item -> item.kind == TableItemKind.CARD && item.zone == PlayZone.BATTLEFIELD &&
             play.board.cards.any { it.id == item.cardId } && scene.hit(item.bounds.center)?.id == item.id }.take(2)

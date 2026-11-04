@@ -1,1 +1,0 @@
-Holding the greyed "{2}{G}, {T}: Draw a card." row in Grovewatch Druid's menu shows why above it: Automatum doesn't allow that now (a cost it can't pay, or nothing to target).

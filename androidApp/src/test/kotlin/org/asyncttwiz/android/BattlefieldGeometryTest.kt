@@ -17,7 +17,7 @@ class BattlefieldGeometryTest {
             val play = initial.copy(board = initial.board.copy(cards = initial.board.cards.map { it.copy(tapped = tapped) }))
             val width = if (landscape) 892f else 412f
             val height = if (landscape) 412f else 892f
-            fun scene(camera: TableCamera) = TablePresentation.scene(TableFixture.game, TableBoard.of(play), "a", width, height,
+            fun scene(camera: TableCamera) = TablePresentation.scene(TableFixture.game, tableBoard(play), "a", width, height,
                 landscape, TableLayoutState(camera), positions, appearance = CardAppearance(cardSize = scale))
             val home = scene(TableCamera(zoom = zoom))
             val world = home.world!!
@@ -56,11 +56,11 @@ class BattlefieldGeometryTest {
     // STK-008
     @Test fun stackHasEqualPaddingOnEverySideInBothOrientations() {
         for (landscape in listOf(false, true)) for (scale in listOf(.5f, 1f, 3f)) {
-            val scene = TablePresentation.scene(TableFixture.game, TableBoard.of(TableFixture.play()), "a",
+            val scene = TablePresentation.scene(TableFixture.game, tableBoard(TableFixture.play()), "a",
                 if (landscape) 892f else 412f, if (landscape) 412f else 892f, landscape,
                 appearance = CardAppearance(cardSize = scale))
             val sidebar = scene.viewports.firstOrNull { it.id == "sidebar" }
-            val visible = if (sidebar == null) scene else TablePresentation.scene(TableFixture.game, TableBoard.of(TableFixture.play()), "a",
+            val visible = if (sidebar == null) scene else TablePresentation.scene(TableFixture.game, tableBoard(TableFixture.play()), "a",
                 892f, 412f, true, TableLayoutState(scrollY = mapOf("sidebar" to sidebar.maxScrollY / 2)),
                 appearance = CardAppearance(cardSize = scale))
             val stack = visible.items.single { it.zone == PlayZone.STACK }.bounds

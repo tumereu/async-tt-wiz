@@ -1,1 +1,0 @@
-With Automatum on and a Furrow Seer ("You may play lands from the top of your library") on Alice's battlefield, tapping her Library opens its menu with only Automatum's "Play · Forest" row for the top card.

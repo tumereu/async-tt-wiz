@@ -1,1 +1,0 @@
-The phase dialog in Alice's first main phase: the step squares by phase with Main 1 outlined as the current step, and no buttons: moving on is the step arrow's.

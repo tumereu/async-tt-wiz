@@ -25,7 +25,7 @@ import kotlin.test.*
 class TableChatButtonTest {
     @get:Rule val compose = createComposeRule()
 
-    private fun drain(f: BasicTableFixture) {
+    private fun drain(f: EngineLobbyFixture) {
         repeat(4) { compose.runOnIdle { f.worker.drain() }; compose.waitForIdle() }
     }
 
@@ -47,18 +47,14 @@ class TableChatButtonTest {
         return count
     }
 
-    // LOB-066
+    // LOB-066 (on engine state, R4b)
     @Test fun chatButtonOpensGameChatSidePanelAndShowsADotOnlyWhileMessagesAreUnread() {
-        val f = BasicTableFixture()
+        val f = EngineLobbyFixture()
         val incoming = ChatMessage("incoming", f.game.id, f.game.playId!!, f.other, "Hello there", "1", "date")
         try {
-            // Connect as BasicTableFixture.connect does, with one unread message from the opponent in the head.
-            f.lobby.open(f.game.id); f.worker.drain(); f.wire.listener.opened()
-            f.message(GameWelcome(gameplayRulesVersion = CURRENT_GAMEPLAY_RULES_VERSION))
-            f.message(GameStreamReady(f.game.id, f.wire.frames.filterIsInstance<OpenGameStream>().last().streamId, "1"))
-            f.message(f.data.head(f.root).copy(chat = listOf(incoming)))
-            assertTrue(f.game.id in f.lobby.state.connectedGames)
-            compose.setContent { view = LocalView.current; MaterialTheme { TableScreen(f.lobby, f.actor, {}, true) } }
+            // The game opens on its engine head, with one unread message from the opponent in it.
+            f.connect(f.head(chat = listOf(incoming)))
+            compose.setContent { view = LocalView.current; MaterialTheme { TableScreen(f.lobby, f.me, {}, true) } }
             drain(f)
             assertTrue(dotPixels("Chat, 1 unread messages") > 0, "Unread messages show a dot on the button")
             compose.onNodeWithText("Game chat").assertDoesNotExist()
@@ -77,6 +73,6 @@ class TableChatButtonTest {
             // Reading the message clears the count, and with it the dot.
             compose.onNodeWithContentDescription("Chat, 0 unread messages").assertIsDisplayed()
             assertEquals(0, dotPixels("Chat, 0 unread messages"), "No unread messages, no dot")
-        } finally { f.lobby.close(); f.worker.drain() }
+        } finally { f.close() }
     }
 }

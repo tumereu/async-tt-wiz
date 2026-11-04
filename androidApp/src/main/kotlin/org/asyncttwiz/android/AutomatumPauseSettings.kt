@@ -14,68 +14,11 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 
-/**
- * I-D41 (LOB-113): how Automatum's pauses behave for this player. [responseMillis]: how long a pause runs (the progress
- * bar, and the longest the player's device waits for the other player); [proceedAtOnce]: "When the opponent can react",
- * Proceed at once (true) or Wait (false); [fullControl]: pauses where the player usually wouldn't respond too (SYS-071),
- * copied into each game Automatum plays, since the other player's device follows it; [fullControlChanged]: when it was
- * last changed on this device (0: never; a value set before this was kept counts as 1), so it goes into a game only after
- * a change ([FullControlSync], #5). [autotap]: "Autotap mana sources" (I-D47, on by default): a cast is paid with
- * Automatum's suggested tapping (mana in the pool first) and the cast panel has no mana selection; this device's own,
- * for the quick actions to bind too ([PausePreferences.settings]).
- */
-internal data class PauseSettings(val responseMillis: Long = DEFAULT_RESPONSE_MILLIS, val proceedAtOnce: Boolean = false,
-    val fullControl: Boolean = false, val fullControlChanged: Long = if (fullControl) 1L else 0L, val autotap: Boolean = true) {
-    companion object {
-        const val DEFAULT_RESPONSE_MILLIS = 2_000L
-        const val MIN_RESPONSE_MILLIS = 1_000L
-        const val MAX_RESPONSE_MILLIS = 3_000L
-        /** The slider's step. */
-        const val RESPONSE_STEP_MILLIS = 500L
-    }
-}
-
-/**
- * SYS-071 (pausereview #5): which change of this device's Full control ([PauseSettings.fullControlChanged]) each game
- * last took. A device sends its value into a game only after a change on it the game hasn't taken; otherwise it follows
- * the game, so two devices of one player with different settings don't change it back and forth.
- */
-internal interface FullControlSync {
-    /** The change [gameId] last took from this device (0: none). */
-    fun synced(gameId: String): Long
-    fun synced(gameId: String, changed: Long)
-
-    /** Kept while the table is open (tests). */
-    class Memory : FullControlSync {
-        private val games = mutableMapOf<String, Long>()
-        override fun synced(gameId: String) = games[gameId] ?: 0L
-        override fun synced(gameId: String, changed: Long) { games[gameId] = changed }
-    }
-}
-
-/** Device-local and account-scoped, like the other table and playback preferences. */
-internal class PausePreferences(context: Context, private val accountId: String) : FullControlSync {
+/** The play settings new games start with (LOB-113), device-local and account-scoped like the other table and playback
+ * preferences (the server keeps them per account; this is the device's copy for when it is signed out). */
+internal class PausePreferences(context: Context, private val accountId: String) {
     private val preferences = context.applicationContext.getSharedPreferences("automatum-pauses", Context.MODE_PRIVATE)
-    private val responseKey = "response/$accountId"
-    private val proceedKey = "proceed/$accountId"
-    private val fullControlKey = "full-control/$accountId"
-    private val fullControlChangedKey = "full-control-changed/$accountId"
     private val autotapKey = "autotap/$accountId"
-    private val keys = setOf(responseKey, proceedKey, fullControlKey, fullControlChangedKey, autotapKey)
-
-    var settings: PauseSettings
-        get() = preferences.getBoolean(fullControlKey, false).let { fullControl ->
-            PauseSettings(preferences.getLong(responseKey, PauseSettings.DEFAULT_RESPONSE_MILLIS)
-                .coerceIn(PauseSettings.MIN_RESPONSE_MILLIS, PauseSettings.MAX_RESPONSE_MILLIS),
-                preferences.getBoolean(proceedKey, false), fullControl,
-                preferences.getLong(fullControlChangedKey, if (fullControl) 1L else 0L), preferences.getBoolean(autotapKey, true))
-        }
-        set(value) {
-            preferences.edit().putLong(responseKey, value.responseMillis.coerceIn(PauseSettings.MIN_RESPONSE_MILLIS,
-                PauseSettings.MAX_RESPONSE_MILLIS)).putBoolean(proceedKey, value.proceedAtOnce)
-                .putBoolean(fullControlKey, value.fullControl).putLong(fullControlChangedKey, value.fullControlChanged)
-                .putBoolean(autotapKey, value.autotap).apply()
-        }
 
     /** I-D56 §7, §13 (LOB-113): the response mode and "Always assume resolves" a new game on engine state starts with. */
     var engineDefaults: org.asyncttwiz.protocol.game.PlaySettings
@@ -95,30 +38,6 @@ internal class PausePreferences(context: Context, private val accountId: String)
             }).putBoolean("engine-assume/$accountId", value.alwaysAssumeResolves).putBoolean(autotapKey, value.autotap).apply()
         }
 
-
-    override fun synced(gameId: String): Long = preferences.getLong("full-control-synced/$accountId/$gameId", 0L)
-    override fun synced(gameId: String, changed: Long) {
-        preferences.edit().putLong("full-control-synced/$accountId/$gameId", changed).apply()
-    }
-
-    fun observe(onChange: () -> Unit): () -> Unit {
-        val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, changed -> if (changed == null || changed in keys) onChange() }
-        preferences.registerOnSharedPreferenceChangeListener(listener)
-        return { preferences.unregisterOnSharedPreferenceChangeListener(listener) }
-    }
-}
-
-@Composable
-internal fun rememberPauseSettings(accountId: String): Pair<State<PauseSettings>, PausePreferences> {
-    val context = LocalContext.current
-    val preferences = remember(context, accountId) { PausePreferences(context, accountId) }
-    val state = remember(preferences) { mutableStateOf(preferences.settings) }
-    DisposableEffect(preferences) {
-        val stop = preferences.observe { state.value = preferences.settings }
-        state.value = preferences.settings
-        onDispose { stop() }
-    }
-    return state to preferences
 }
 
 /** Settings → Automatum (LOB-113): the play settings new games start with, kept on the server per account. */

@@ -44,7 +44,7 @@ class PivotCoverageScreenTest {
     // STK-035 (I-D52): Automatum resolves the Stack: the Stack list shows its entries and nothing to move or mark them
     @Test fun theStackListHasNoButtons() {
         val state = f.combat()
-        compose.setContent { MaterialTheme { ManageStackDialog(TableBoard.of(state), f.a, {}) } }
+        compose.setContent { MaterialTheme { ManageStackDialog(tableBoard(state), f.a, {}) } }
         compose.onNodeWithText("Stack · 2").assertIsDisplayed()
         for (gone in listOf("Put to battlefield", "Put to graveyard", "Put to exile", "Remove from Stack", "Mark text", "Resolve"))
             compose.onAllNodes(hasText(gone, substring = true) or hasContentDescription(gone, substring = true)).assertCountEquals(0)
@@ -56,10 +56,10 @@ class PivotCoverageScreenTest {
         val graveyard = f.initial.board.containers.first { it.zone == PlayZone.GRAVEYARD && it.accountId == f.a }
         val play = f.initial.copy(board = f.initial.board.copy(cards = f.initial.board.cards.filter { it.id !in graveyard.cards },
             containers = f.initial.board.containers.map { if (it.id == graveyard.id) it.copy(cards = emptyList()) else it }))
-        val toolkit = TableToolkitController(f.a, { TableBoard.of(play) }, { true }, { _, _ -> true })
+        val toolkit = TableToolkitController(f.a, { tableBoard(play) }, { true }, { _, _ -> true })
         toolkit.openPileMenu(graveyard.id)
         compose.setContent { MaterialTheme { Box(Modifier.fillMaxSize()) {
-            TableSurface(f.game, TableBoard.of(play), f.a, false, Modifier.fillMaxSize(), connected = true, onIntent = toolkit::handle, toolkit = toolkit,
+            TableSurface(f.game, tableBoard(play), f.a, false, Modifier.fillMaxSize(), connected = true, onIntent = toolkit::handle, toolkit = toolkit,
                 runtime = TableRuntimeHooks(navigation = {}, chat = {}, undo = { true }, controlsConnected = true))
         } } }
         compose.onNodeWithContentDescription("Search").assertExists().assertIsNotEnabled()
@@ -74,9 +74,9 @@ class PivotCoverageScreenTest {
         val emptied = f.initial.copy(board = f.initial.board.copy(cards = f.initial.board.cards.filter { it.id !in graveyard.cards },
             containers = f.initial.board.containers.map { if (it.id == graveyard.id) it.copy(cards = emptyList()) else it }))
         var play by androidx.compose.runtime.mutableStateOf(f.initial)
-        val toolkit = TableToolkitController(f.a, { TableBoard.of(play) }, { true }, { _, _ -> true })
+        val toolkit = TableToolkitController(f.a, { tableBoard(play) }, { true }, { _, _ -> true })
         compose.setContent { MaterialTheme { Box(Modifier.fillMaxSize()) {
-            TableSurface(f.game, TableBoard.of(play), f.a, false, Modifier.fillMaxSize(), connected = true, onIntent = toolkit::handle, toolkit = toolkit,
+            TableSurface(f.game, tableBoard(play), f.a, false, Modifier.fillMaxSize(), connected = true, onIntent = toolkit::handle, toolkit = toolkit,
                 runtime = TableRuntimeHooks(navigation = {}, chat = {}, undo = { true }, controlsConnected = true))
         } } }
         fun close() = compose.onAllNodes(hasContentDescription("Close", substring = true) and hasContentDescription("panel", substring = true))
@@ -91,33 +91,14 @@ class PivotCoverageScreenTest {
         compose.runOnIdle { assertEquals(null, toolkit.layoutState.value.localPileId) }
     }
 
-    // HIS-017: holding a face-up card inspects it, and pauses timeline playback first
-    @Test fun holdingACardInspectsItAndPausesPlayback() {
-        val play = f.initial
-        val toolkit = TableToolkitController(f.a, { TableBoard.of(play) }, { true }, { _, _ -> true })
-        var pauses = 0
-        compose.setContent { MaterialTheme { Box(Modifier.fillMaxSize()) {
-            TableSurface(f.game, TableBoard.of(play), f.a, false, Modifier.fillMaxSize(), connected = true, onIntent = toolkit::handle, toolkit = toolkit,
-                runtime = TableRuntimeHooks(navigation = {}, chat = {}, undo = { true }, controlsConnected = true,
-                    pauseForInspection = { pauses++ }))
-        } } }
-        compose.waitForIdle()
-        val size = compose.onRoot().fetchSemanticsNode().size
-        val density = compose.onRoot().fetchSemanticsNode().layoutInfo.density.density
-        val scene = TablePresentation.scene(f.game, TableBoard.of(play), f.a, size.width / density, size.height / density, false)
-        val card = scene.items.first { it.kind == TableItemKind.CARD && it.zone == PlayZone.BATTLEFIELD && !it.covered && it.owner == f.a }
-        compose.onRoot().performTouchInput { longClick(androidx.compose.ui.geometry.Offset(card.bounds.center.x * density, card.bounds.center.y * density), 1_000) }
-        compose.waitForIdle()
-        assertEquals(1, pauses, "playback paused")
-    }
 
     // CMB-016: "Attack →" lists the targets, the current one marked and greyed, the others to tap
     @Test fun theAttackTargetRowsMarkTheCurrentTarget() {
         val play = f.initial
         val clicks = mutableListOf<String>()
         compose.setContent { MaterialTheme { Column {
-            AttackTargetRow(TableBoard.of(play), null, "Bob", f.game.recipient, current = true, enabled = false) { clicks += "Bob" }
-            AttackTargetRow(TableBoard.of(play), null, "Carol", null, current = false, enabled = true) { clicks += "Carol" }
+            AttackTargetRow(tableBoard(play), null, "Bob", f.game.recipient, current = true, enabled = false) { clicks += "Bob" }
+            AttackTargetRow(tableBoard(play), null, "Carol", null, current = false, enabled = true) { clicks += "Carol" }
         } } }
         compose.onNodeWithContentDescription("Attack Bob, current target").assertIsNotEnabled().performClick()
         compose.onNodeWithContentDescription("Attack Carol").assertIsEnabled().performClick()

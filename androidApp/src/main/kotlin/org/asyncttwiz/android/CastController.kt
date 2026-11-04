@@ -14,11 +14,8 @@ import arcanum.engine.state.ObjectId
 import arcanum.engine.state.PlayerId
 import arcanum.engine.state.TargetRef
 import org.asyncttwiz.automatum.AutomatumLog
-import org.asyncttwiz.automatum.BatchPlan
 import org.asyncttwiz.automatum.CastFlow
-import org.asyncttwiz.automatum.EngineBatch
 import org.asyncttwiz.automatum.ManaPicks
-import org.asyncttwiz.automatum.Unmappable
 import org.asyncttwiz.automatum.Unsupported
 import org.asyncttwiz.protocol.*
 import java.util.concurrent.Executors
@@ -59,25 +56,8 @@ interface AutomatumWork {
 }
 
 /**
- * I-D47 (casting feels instant): a complete cast's own changes (the card on the Stack, its mana sources tapped) are shown
- * on this device at once, as a prediction that is never sent, while what follows the cast is still worked out; the
- * cast's batch then takes its place ([send]), and a cast that can't go out takes it back ([drop]), as a refused
- * prediction rolls back.
- */
-interface CastPreview {
-    /** Shows [batch] on this device only; false when it can't be shown (the cast then goes out without it). */
-    fun show(batch: GameAction.PlayBatch, requestId: String): Boolean
-    /** The event the preview [requestId] follows on the board shown now; null once it isn't shown. */
-    fun shownOn(requestId: String): String?
-    /** Takes the preview back. */
-    fun drop(requestId: String)
-    /** Sends [batch] (one automated batch with its request id) in place of the preview [replaces]. */
-    fun send(batch: GameAction.PlayBatch, requestId: String, replaces: String): Boolean
-}
-
-/**
  * Casting from the hand through Automatum (integration spec §3 I2a): one private flow at a time (I-D11). Its engine
- * calls stay on this device ([CastFlow]) and go out as one batch ([send]) when the cast is complete; "Cancel" or Back
+ * calls stay on this device ([CastFlow]) and go out as the player's own inputs ([engineSend]) when the cast is complete; "Cancel" or Back
  * drops it, sending nothing. While it is open nothing else changes the game ([open] blocks the toolkit's actions, D32);
  * looking stays free (I-D10).
  *
@@ -85,27 +65,19 @@ interface CastPreview {
  * panel shows it and takes no input. A step's result applies only if nothing replaced it (Cancel, another step).
  *
  * [current]: the board the player acts on, null while they can't act (the timeline reviewed, offline); the cast follows
- * only that board, never one shown in review. [send]: one automated batch with its request id; [tags]: the history's
- * tags up to [current] (the engine's event log, D33); [fail]: a message for the player.
+ * only that board, never one shown in review. [fail]: a message for the player.
  */
 internal class CastController(
     private val viewer: String,
     private val current: () -> TableBoard?,
-    private val send: ((GameAction.PlayBatch, String) -> Boolean)?,
-    private val tags: () -> List<MtgTag?>,
     private val fail: (String?) -> Unit,
     private val work: AutomatumWork = AutomatumWork.Inline,
-    /** A cast or ability is being begun, before the board it begins on is read (#1: it holds the viewer's pause shown,
-     * [PauseController.holdForReaction], so it begins on that point's board). */
-    private val beginning: () -> Unit = {},
-    /** I-D47: shows a complete cast at once on this device while what follows it is worked out (null: no preview). */
-    private val preview: CastPreview? = null,
     /** The pictures of tokens a cast makes (§4.6). */
     private val tokenArt: org.asyncttwiz.automatum.TokenArt = org.asyncttwiz.automatum.TokenArt.None,
     /** UI review round 2 #4 (I-D46 b): shakes a card on the table, for a cast that can't go on ([visual]). */
     private val shake: (String) -> Unit = {},
-    /** I-D56 step C: a game on engine state sends the complete cast as the player's own inputs (null: sent; else why
-     * not), and its device does what follows by itself; no batch is planned. */
+    /** I-D56 step C: sends the complete cast as the player's own inputs (null: sent; else why not), and the device does
+     * what follows by itself (null: casting isn't available here). */
     private val engineSend: ((List<Input>) -> String?)? = null,
 ) : FlowQuestions {
     /** The open cast, null when none. */
@@ -138,15 +110,10 @@ internal class CastController(
     private var listed: List<Answer> = emptyList()
     private var visible: Set<ObjectId> = emptySet()
     private var generation = 0
-    /** I-D47: the card of a complete cast shown as a preview ([preview]) while what follows it is worked out; it
-     * counts as open (nothing else changes the game meanwhile). */
-    private var sendingCard by mutableStateOf<String?>(null)
-    /** The preview shown, by its local request id. */
-    private var previewId: String? = null
 
-    val open: Boolean get() = flow != null || starting != null || sendingCard != null
+    val open: Boolean get() = flow != null || starting != null
     /** The card being cast (or played, or whose ability is activated) while a cast is [open]. */
-    val castCard: String? get() = flow?.cardId ?: starting ?: sendingCard
+    val castCard: String? get() = flow?.cardId ?: starting
     /** The open question is targets, chosen on the table: the panel is a slim bar. */
     val targeting: Boolean get() = flow?.pending is Decision.Targets
 
@@ -158,26 +125,24 @@ internal class CastController(
      * now (I-D28).
      */
     fun start(cardId: String, way: Input? = null, extras: List<Int> = emptyList()): Boolean {
-        beginning()
         val play = current() ?: return false
         if (open) { fail(BUSY); return false }
         // A shared flow waits for an answer (D32): nothing is cast meanwhile
         if (play.flowOpen) { fail(SharedFlowController.BUSY); return false }
         if (!ownHand(play, cardId, viewer)) { fail(NOT_YOURS); return false }
-        val history = tags()
         val autotapOn = autotap
         starting = cardId
         hidden = false
         abilityText = null
         return step {
-            val plays = AutomatumBoards.handPlays(play, viewer) { history }
+            val plays = AutomatumBoards.handPlays(play, viewer)
             val offered = plays.of(cardId)
             val name = cardName(play, cardId)
             val begin = way ?: offered.firstOrNull()
             if (begin == null) return@step Step.Drop(if (plays.unsupported.isNotEmpty()) "$TAKE_OVER ${plays.unsupported.first()}"
                 else if (land(play, cardId)) "$name can't be played now." else "$name can't be cast now.")
             val flow = try {
-                CastFlow.start(source(play, history), viewer, begin, seeds(), extras = extras)
+                CastFlow.start(source(play), viewer, begin, seeds(), extras = extras)
             } catch (problem: IllegalArgumentException) {
                 return@step Step.Drop("$name can't be cast now.")
             } catch (problem: Unsupported) {
@@ -194,21 +159,19 @@ internal class CastController(
      * [text] shown for an ability. False with a message when it can't be begun.
      */
     fun begin(cardId: String, input: Input, text: String? = null): Boolean {
-        beginning()
         val play = current() ?: return false
         if (open) { fail(BUSY); return false }
         if (play.flowOpen) { fail(SharedFlowController.BUSY); return false }
-        val history = tags()
         val autotapOn = autotap
         starting = cardId
         hidden = false
         abilityText = text.takeIf { input is Input.Activate }
         return step {
             val ways = if (input is Input.Activate) listOf(input)
-                else AutomatumBoards.handPlays(play, viewer) { history }.of(cardId).takeIf { input in it } ?: listOf(input)
+                else AutomatumBoards.handPlays(play, viewer).of(cardId).takeIf { input in it } ?: listOf(input)
             val name = cardName(play, cardId)
             val flow = try {
-                CastFlow.start(source(play, history), viewer, input, seeds())
+                CastFlow.start(source(play), viewer, input, seeds())
             } catch (problem: IllegalArgumentException) {
                 return@step Step.Drop(if (input is Input.Activate) "$name: that can't be done now." else "$name can't be cast now.")
             } catch (problem: Unsupported) {
@@ -299,13 +262,11 @@ internal class CastController(
     fun cancel(how: String = "cancelled") {
         notice = null
         // I-D43: how each cast flow ended
-        if (flow != null || starting != null || sendingCard != null) (flow?.source?.gameId ?: current()?.gameId)?.let {
-            AutomatumLog.flow(it, "cast", how, flow?.cardId ?: starting ?: sendingCard.orEmpty())
+        if (flow != null || starting != null) (flow?.source?.gameId ?: current()?.gameId)?.let {
+            AutomatumLog.flow(it, "cast", how, flow?.cardId ?: starting.orEmpty())
         }
         generation++
-        busy = false; starting = null; sendingCard = null
-        // I-D47: a preview of a cast that doesn't go out is taken back, as a refused prediction
-        previewId?.let { id -> previewId = null; preview?.drop(id) }
+        busy = false; starting = null
         flow = null; ways = emptyList(); mana = emptyList(); paid = false; picked = emptyList(); hidden = false; abilityText = null
         listed = emptyList(); visible = emptySet()
     }
@@ -340,12 +301,11 @@ internal class CastController(
         val play = current() ?: return
         if (f.source.gameId != play.gameId) return
         if (f.board === play.board) return
-        val history = tags()
         val keep = mana
         val autotapOn = autotap
         step {
             try {
-                settle(f.on(source(play, history)), auto = false, autotapOn, keep, clear = false)
+                settle(f.on(source(play)), auto = false, autotapOn, keep, clear = false)
             } catch (problem: Exception) {
                 Step.Drop("The table changed: ${cardName(play, f.cardId)} can't be cast now.")
             }
@@ -357,15 +317,7 @@ internal class CastController(
         class Show(val flow: CastFlow, val mana: List<ManaUse>, val paid: Boolean, val listed: List<Answer>,
             val visible: Set<ObjectId>, val ways: List<Input>?, val clear: Boolean) : Step
         class Mana(val flow: CastFlow, val mana: List<ManaUse>, val paid: Boolean) : Step
-        /** The complete [flow] planned as one batch on [board]. */
-        class Send(val flow: CastFlow, val plan: BatchPlan, val requestId: String, val board: BoardState) : Step {
-            /** The event [board] is at (today's model: the cast's preview follows it). */
-            val node: String get() = (flow.source as? CastFlow.Source.Legacy)?.play?.currentNodeId.orEmpty()
-        }
-        /** I-D47: the complete cast ([sending]) on [board]: [plan] is the cast alone, shown at once as a preview with
-         * [requestId] while the batch with what follows it is worked out ([finish]). */
-        class Preview(val sending: CastFlow.Sending, val plan: BatchPlan, val requestId: String, val board: BoardState) : Step
-        /** I-D56 step C: the complete [flow]'s own [inputs], made on [board], for a game on engine state. */
+        /** I-D56 step C: the complete [flow]'s own [inputs], made on [board]. */
         class Engine(val flow: CastFlow, val inputs: List<Input>, val board: BoardState) : Step
         /** The cast is dropped with [message]. */
         class Drop(val message: String) : Step
@@ -384,37 +336,15 @@ internal class CastController(
             current()?.gameId?.let { AutomatumLog.refusal(it, "cast", "${problem::class.java.simpleName}: ${problem.message}") }
             Step.Drop(FAILED)
         }
-        // I-D47: a cast shown as a preview goes on at once on the worker to its batch with what follows it
-        this.work.staged<Step, Step>({ guarded(work) }, { outcome ->
-            if (run != generation) return@staged
-            if (outcome is Step.Preview) showPreview(outcome)
-            else { busy = false; result = apply(outcome) }
-        }, { outcome -> if (outcome is Step.Preview) ({ guarded { finish(outcome) } }) else null }) { outcome ->
-            if (run != generation) return@staged
+        this.work.run({ guarded(work) }) { outcome ->
+            if (run != generation) return@run
             busy = false
             result = apply(outcome)
         }
         return result
     }
 
-    /** I-D47: the complete cast shown on this device at once (the card on the Stack, its sources tapped), the panel
-     * gone, while its batch is worked out; not shown when the board moved on meanwhile or there is no preview here. */
-    private fun showPreview(outcome: Step.Preview) {
-        val play = current() ?: return
-        if (play.board !== outcome.board) return
-        val shown = preview?.show(outcome.plan.action, outcome.requestId) == true
-        if (!shown) return
-        previewId = outcome.requestId
-        sendingCard = outcome.sending.flow.cardId
-        starting = null
-        flow = null; mana = emptyList(); paid = false; picked = emptyList(); hidden = false
-    }
-
-    /** The batch of a cast shown as a preview: the cast with what follows it (off the main thread). */
-    private fun finish(outcome: Step.Preview): Step = plan(outcome.sending)
-
     private fun apply(outcome: Step): Boolean = when (outcome) {
-        is Step.Preview -> true
         is Step.Show -> {
             starting = null
             notice = null
@@ -431,42 +361,9 @@ internal class CastController(
             follow()
             true
         }
-        is Step.Send -> sendPlanned(outcome)
         is Step.Engine -> sendEngine(outcome)
         is Step.Drop -> { drop(outcome.message); false }
         is Step.Refuse -> { notice = outcome.message; follow(); false }
-    }
-
-    /** Sends a planned cast, on the board the player acts on now: worked out again when that board moved on meanwhile;
-     * kept, ready to cast, while the player can't act. */
-    private fun sendPlanned(planned: Step.Send): Boolean {
-        val shown = previewId
-        // I-D47: the board shown is the planned one with this cast's preview on it
-        val previewed = shown != null && preview?.shownOn(shown) == planned.node
-        val play = current()
-        if (play == null) {
-            if (shown != null) { cancel("dropped: can't act"); fail(CANT_ACT); return false }
-            showReady(planned.flow); fail(CANT_ACT); return false
-        }
-        if (play.board !== planned.board && !previewed) {
-            // The board moved on under a preview: it is taken back, and the cast with it (the plainest, I-D47)
-            if (shown != null) { drop(TABLE_CHANGED); return false }
-            val history = tags()
-            val autotapOn = autotap
-            starting = null
-            return step {
-                val ready = try { planned.flow.on(source(play, history)) } catch (_: Exception) { null }
-                ready?.let { complete(it, autotapOn) } ?: Step.Drop(TABLE_CHANGED)
-            }
-        }
-        val route = send ?: run { cancel("dropped: no route"); fail("Casting isn't available here."); return false }
-        // The preview leaves as the batch's own prediction takes its place
-        previewId = null
-        cancel("sent")
-        if (planned.plan.actions.isEmpty()) { shown?.let { preview?.drop(it) }; return true }
-        val queued = if (shown != null) preview!!.send(planned.plan.action, planned.requestId, shown) else route(planned.plan.action, planned.requestId)
-        if (!queued) { fail("Action could not be queued. Reconnect and try again."); return false }
-        return true
     }
 
     /** I-D56 step C: sends a complete cast's own inputs on the board the player acts on now (worked out again when it
@@ -474,17 +371,17 @@ internal class CastController(
     private fun sendEngine(planned: Step.Engine): Boolean {
         val play = current() ?: run { showReady(planned.flow); fail(CANT_ACT); return false }
         if (play.board !== planned.board) {
-            val history = tags()
-            val autotapOn = autotap
+                val autotapOn = autotap
             starting = null
             return step {
-                val ready = try { planned.flow.on(source(play, history)) } catch (_: Exception) { null }
+                val ready = try { planned.flow.on(source(play)) } catch (_: Exception) { null }
                 ready?.let { complete(it, autotapOn) } ?: Step.Drop(TABLE_CHANGED)
             }
         }
         val card = planned.flow.cardId
         cancel("sent")
-        val refusal = engineSend!!(planned.inputs) ?: return true
+        val route = engineSend ?: run { fail("Casting isn't available here."); return false }
+        val refusal = route(planned.inputs) ?: return true
         AutomatumLog.refusal(play.gameId, "cast", refusal)
         // I-D56 §5: a cast that would show hidden cards while the line is tentative waits; its card shakes
         shake(card)
@@ -534,8 +431,7 @@ internal class CastController(
 
     /**
      * [next] completed and on its way out, or null when it isn't complete (a payment the suggestion doesn't make, with
-     * [autotapOn]): a cast shown first as a preview ([Step.Preview], I-D47) when this device shows previews, else its
-     * batch at once.
+     * [autotapOn]): its own inputs ([Step.Engine]).
      */
     private fun complete(next: CastFlow, autotapOn: Boolean, picked: List<ManaUse>? = null): Step? {
         val payment = next.pending as? Decision.ManaPayment
@@ -546,29 +442,7 @@ internal class CastController(
             else -> return null
         }
         val sending = try { next.sending(uses) } catch (_: IllegalArgumentException) { return null }
-        if (engineSend != null) return Step.Engine(sending.flow, sending.cast.inputs.toList(), next.board)
-        if (preview == null || next.begin !is Input.Cast) return plan(sending)
-        val requestId = DeviceRandom.uuid()
-        return try {
-            Step.Preview(sending, EngineBatch.plan(sending.cast, viewer, command(next, requestId), tokenArt), requestId, next.board)
-        } catch (problem: Unmappable) {
-            plan(sending)
-        }
-    }
-
-    private fun command(done: CastFlow, requestId: String) = GameCommand(requestId,
-        GameScope(done.source.gameId, playId = (done.source as CastFlow.Source.Legacy).play.id),
-        GameAction.PlayBatch(listOf(PlayAction.PassAttention)), DeviceRandom.uuid(), "1")
-
-    /** The complete cast as one batch (I-D11, SYS-010) on the board it was worked out on: the cast with what follows it. */
-    private fun plan(sending: CastFlow.Sending): Step {
-        val done = sending.flow
-        val requestId = DeviceRandom.uuid()
-        return try { Step.Send(done, EngineBatch.plan(sending.sent(), viewer, command(done, requestId), tokenArt), requestId, done.board) }
-        catch (problem: Unmappable) {
-            AppLog.warn("automatum", "Cast couldn't be planned: ${problem.message?.take(200)}")
-            Step.Drop("Automatum couldn't send that cast.")
-        }
+        return Step.Engine(sending.flow, sending.cast.inputs.toList(), next.board)
     }
 
     private fun targetOf(f: CastFlow, decision: Decision.Targets, item: TableItem): TargetRef? {
@@ -585,14 +459,10 @@ internal class CastController(
 
     private fun seeds() = CastFlow.Seeds { DeviceRandom.seed() }
 
-    /** Where a cast on [play] runs (worked out on [work]): a game on engine state's own state (engine-responsiveness R4a);
-     * today's model's board rebuilt for the engine with the history's tags up to it ([history], the engine's event log,
-     * D33). */
-    private fun source(play: TableBoard, history: List<MtgTag?>): CastFlow.Source {
-        play.engine?.let { return CastFlow.Source.engine(it.state, play.board, play.gameId) }
-        val legacy = requireNotNull(play.legacy) { "No board to cast on" }
-        val definitions = AutomatumBoards.definitions(legacy)
-        return CastFlow.Source.legacy(legacy, definitions, AutomatumBoards.engineLog(legacy, definitions, history))
+    /** Where a cast on [play] runs (worked out on [work]): the game's own engine state (engine-responsiveness R4a). */
+    private fun source(play: TableBoard): CastFlow.Source {
+        val engine = requireNotNull(play.engine) { "No board to cast on" }
+        return CastFlow.Source.engine(engine.state, play.board, play.gameId)
     }
 
     companion object {

@@ -52,7 +52,7 @@ class InspectionRenderingTest {
                 if (it.digest == card.definition) it.copy(definition = definition) else it
             }, board = f.initial.board.copy(cards = f.initial.board.cards.map { if (it.id == card.id) card else it }))
             MaterialTheme {
-                GameplayCardInspection(TableBoard.of(play), f.a, ManualInspection(play.gameId, play.id, card.id,
+                GameplayCardInspection(tableBoard(play), f.a, ManualInspection(play.gameId, play.id, card.id,
                     if (index == 3) emptyList() else definition.faces.map { it.faceId }), {}, peek = peek)
             }
         }

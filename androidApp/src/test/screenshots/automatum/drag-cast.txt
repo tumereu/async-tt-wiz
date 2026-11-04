@@ -1,1 +1,0 @@
-With Automatum on Alice dragged a Mountain from her hand onto the Battlefield (played through Automatum) and then Storm Spark onto the Stack: its cast opens with the target bar over her hand while legal targets glow.

@@ -104,7 +104,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                 if (failure.status == 401) authenticationRequired(token)
                 throw failure
             }
-        }, treeCache = local::treeCache, basicLandDefinitions = { podBasicDefinitions(catalog.repository) },
+        }, basicLandDefinitions = { podBasicDefinitions(catalog.repository) },
         dungeonDefinitions = catalog.dungeons::definitions)
     internal val heartbeat = GameHeartbeatController { token, presence ->
         controller.sessionToken() == token && lobby.heartbeat(presence)

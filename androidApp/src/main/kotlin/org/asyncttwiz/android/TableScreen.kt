@@ -31,20 +31,15 @@ data class TableRuntimeHooks(val chat: (() -> Unit)? = null, val history: (() ->
     val controlsConnected: Boolean? = null,
     val navigation: (() -> Unit)? = null,
     val returnCurrent: (() -> Unit)? = null, val chatUnread: Int = 0,
-    val reviewPanel: (@Composable () -> Unit)? = null, val liveTimeline: (@Composable () -> Unit)? = null,
+    val liveTimeline: (@Composable () -> Unit)? = null,
     val bottomPanel: (@Composable (@Composable () -> Unit) -> Unit)? = null,
-    val continuationArmed: Boolean = false, val errorMessage: String? = null, val dismissError: (() -> Unit)? = null,
+    val errorMessage: String? = null, val dismissError: (() -> Unit)? = null,
     val onSceneSettled: ((String) -> Unit)? = null, val sceneVersion: String? = null,
-    val cancelContinuation: (() -> Unit)? = null, val pauseForInspection: (() -> Unit)? = null,
-    val liveView: Boolean = !reviewing, val attentionEvent: GameplayMutation? = null,
+    val liveView: Boolean = !reviewing,
     val changes: TableChanges? = null,
     /** The opponent's presence: a dot on their life square and a line in their life panel. */
     val opponentPresence: ReceivedPresence? = null,
     val gameActionsBlocked: Boolean = false, val resultControls: TableResultControls? = null,
-    /** The shown timeline point was left behind by a different continuation; see [HistoryPlayback.branched]. */
-    val opponentBranched: Boolean = false,
-    /** The shown timeline point is on an old branch the player went to themselves; see [HistoryPlayback.oldBranch]. */
-    val oldBranch: Boolean = false,
     /** Null outside timeline mode; drives the centre status line and the corner play/pause flash. */
     val timelinePlayback: TimelinePlaybackStatus? = null,
     /** The catch-up pause (HIS-094): the move pill reads "Catching up" (TRN-006). */
@@ -53,261 +48,34 @@ data class TableRuntimeHooks(val chat: (() -> Unit)? = null, val history: (() ->
      * it doesn't. */
     val waitingLine: String? = null)
 
-/** The normal table route. No local initialization, entropy or placeholder future action handlers. */
+/** The table route: a game played on engine state has its table ([EngineTableScreen], I-D56); until it first loads on
+ * this device, a placeholder without cards that says it is loading (or why it can't). */
 @Composable
-internal fun TableScreen(controller: LobbyController, accountId: String, hamburger: (() -> Unit)?, landscape: Boolean,
-    onIntent: ((TableIntent) -> Boolean)? = null, placements: Map<String, TablePlacement> = emptyMap(),
-    runtime: TableRuntimeHooks = TableRuntimeHooks()) {
+internal fun TableScreen(controller: LobbyController, accountId: String, hamburger: (() -> Unit)?, landscape: Boolean) {
     // Never the whole lobby state: its games-list refresh would recompose the table every few seconds.
     val state = controller.table.value
     val game = state.detail ?: return
-    // I-D56: a game played on engine state has its own table screen
     if (controller.engineGame() != null) { EngineTableScreen(controller, accountId, hamburger, landscape); return }
-    val interactive = game.id !in state.reconnectingGames
-    val live = state.play
-    val history = remember(controller, game.id, live?.id, accountId) { controller.history }
-    val playbackPreferences = rememberHistoryPlaybackPreferences(accountId)
-    val tree = controller.retainedTree()
-    val displayTree = controller.displayTree()
-    LaunchedEffect(IdentityKey(displayTree), live?.currentNodeId, IdentityKey(live?.board), game.revision) {
-        history.openFrom(playbackPreferences.lastSeen(game.id), playbackPreferences::shown)
-        displayTree?.let { history.update(it, "${game.revision}/${live?.currentNodeId}", game, accountId,
-            accepted = tree ?: it, indexed = controller.retainedHistory()) }
-    }
-    DisposableEffect(history) { onDispose { history.leaving() } }
-    val playback = history.playback
-    val position = playback?.position
-    LaunchedEffect(position, IdentityKey(tree), playback?.tree, playback?.livePanelReveal) { history.displayPosition() }
-    // Returning from the background pauses at the shown point until the catch-up is in; while
-    // nothing new has arrived it still looks live. A catch-up that never completes shows the timeline.
-    var resumeHoldExpired by remember(history) { mutableStateOf(false) }
-    val resumeHeld = history.resumeHeld && !resumeHoldExpired
-    LaunchedEffect(history.resumeHeld) { resumeHoldExpired = false; if (history.resumeHeld) { delay(5_000); resumeHoldExpired = true } }
-    val synced = game.id in state.syncedGames
-    LaunchedEffect(synced, history.foreground, playback, playback?.tree, IdentityKey(displayTree)) {
-        if (synced) history.resumeCaughtUp(displayTree)
-    }
-    val reviewing = position?.mode == HistoryMode.PLAYBACK && !history.provisional && !resumeHeld
-    val editable = !reviewing || history.armed != null
-    var explorerOpen by remember(game.id, live?.id) { mutableStateOf(false) }
-    var explorerOpeningCursor by remember(game.id, live?.id) { mutableStateOf<String?>(null) }
-    val playbackPause by playbackPreferences.pauseState()
-    val playbackRewindPause by playbackPreferences.rewindPauseState()
-    val playbackAutoPause by playbackPreferences.autoPauseState()
-    val autoRewindLive by playbackPreferences.autoRewindLiveState()
-    val autoRewindOpen by playbackPreferences.autoRewindOpenState()
-    SideEffect { history.autoRewindLive = autoRewindLive; history.autoRewindOpen = autoRewindOpen }
-    val eventTextEnabled by rememberEventTextEnabled(accountId).first
-    SideEffect { history.eventText.enabled = eventTextEnabled }
-    var playbackSettingsOpen by remember(history) { mutableStateOf(false) }
-    var settledCursor by remember(history, position?.cursorId, position?.displayVersion) { mutableStateOf<String?>(null) }
-    val graphWorker = remember(history) { java.util.concurrent.Executors.newSingleThreadExecutor() }
-    val explorer = remember(history) { HistoryExplorerController(graphWorker, { action -> activityPost(action) }) }
-    DisposableEffect(explorer) { onDispose { explorer.close(); graphWorker.shutdown() } }
-    LaunchedEffect(IdentityKey(tree), history.explorerHistory, explorerOpen) {
-        // The live timeline includes provisional nodes; the explorer's review targets
-        // remain accepted. A not-yet-accepted live cursor is not missing downloaded history.
-        if (explorerOpen && tree != null && history.explorerHistory?.nodes === tree.nodes) {
-            explorer.update(tree, openingNodeId = explorerOpeningCursor, indexed = history.explorerHistory)
-            explorerOpeningCursor = null
-        }
-    }
-    var appliedActivity by remember(history) { mutableStateOf<ActivityTarget?>(null) }
-    val target = state.activityTarget
-    val waitingActivity = target?.destination == ActivityDestination.GROUP && target != appliedActivity
-    val awaitingIndex = displayTree != null && displayTree === tree && live?.currentNodeId == state.acceptedPlay?.currentNodeId &&
-        playback?.tree?.sharedHeadId != displayTree.currentNodeId
-    val endpoint = remember(history) { TableEndpointPresentation() }
-    val play = if (waitingActivity || playback == null) null else if (reviewing) history.view?.state
-        else endpoint.live(live, history.view?.state, awaitingIndex,
-            position?.cursorId?.takeIf { playback.livePanelReveal })
-    val resultLocked = controller.resultLocked()
-    SideEffect {
-        endpoint.presented(play)
-        play?.let {
-            history.showChanges(it.currentNodeId)
-        }
-    }
     var loadTimedOut by remember(game.id) { mutableStateOf(false) }
     var loadAttempt by remember(game.id) { mutableIntStateOf(0) }
-    LaunchedEffect(game.id, play == null, game.id in state.connectedGames, loadAttempt) {
+    LaunchedEffect(game.id, game.id in state.connectedGames, loadAttempt) {
         loadTimedOut = false
-        if (play == null) { delay(30_000); loadTimedOut = true }
+        delay(30_000); loadTimedOut = true
     }
-    LivePanelRevealPacing(playback, playbackPause,
-        settledCursor == position?.cursorId && play?.currentNodeId == position?.cursorId)
-    LaunchedEffect(target, IdentityKey(tree)) {
-        if (target?.destination == ActivityDestination.GROUP && target != appliedActivity && target.playId != null && target.boundaryNodeId != null) {
-            val captured = CapturedHistoryTarget(accountId, target.gameId, requireNotNull(target.playId), target.groupId, requireNotNull(target.boundaryNodeId))
-            controller.reviewHistoryTarget(captured, { controller.state.activityTarget == target }) {
-                history.acceptedTarget(it)
-                if (it.view.state != null) appliedActivity = target
-            }
-        }
-    }
-    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
-    DisposableEffect(history, lifecycleOwner) {
-        history.updateForeground(lifecycleOwner.lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.STARTED))
-        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
-            if (event == androidx.lifecycle.Lifecycle.Event.ON_STOP) history.updateForeground(false)
-            if (event == androidx.lifecycle.Lifecycle.Event.ON_START) history.updateForeground(true)
-        }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
-    }
-    var timelineEnd by remember(history) { mutableStateOf<String?>(null) }
-    LaunchedEffect(position, playback?.tree) {
-        if (playback != null && position != null) {
-            val endpoint = timelineEnd
-            if (position.mode == HistoryMode.LIVE) timelineEnd = playback.tree.sharedHeadId
-            else if (playback.tree.isAncestor(position.cursorId, playback.tree.sharedHeadId))
-                timelineEnd = playback.tree.sharedHeadId
-            else if (endpoint == null || !playback.tree.isAncestor(position.cursorId, endpoint)) timelineEnd = position.cursorId
-        }
-    }
-    LaunchedEffect(play?.currentNodeId, IdentityKey(state.acceptedPlay), position?.mode, history.armed) {
-        if (play != null) {
-            withFrameNanos { }
-            history.presented(play, controller.state.acceptedPlay,
-                history.playback?.position?.mode == HistoryMode.LIVE && history.armed == null)
-        }
-    }
-    val activity = tableActivity(LocalContext.current)
-    val retained = remember(activity) { activity?.let { ViewModelProvider(it)[TableToolkitViewModel::class.java] } }
-    val appContext = LocalContext.current.applicationContext
-    val tokenArt = remember(appContext) { AndroidTokenArt.of(appContext) }
-    val toolkit = remember(controller, game.id, live?.id, accountId) {
-        val playId = live?.id
-        val create = { tableToolkit(controller, history, game, accountId, playId, tokenArt) }
-        retained?.obtain(controller, listOf(game.id, playId.orEmpty(), accountId), create) ?: create()
-    }
-    DisposableEffect(toolkit) { onDispose { if (activity?.isChangingConfigurations != true) retained?.release(toolkit) } }
-    // I-D41: Automatum's pauses on the live table, held in the timeline when the viewer holds one
-    val (pauseSettingsState, pausePreferences) = rememberPauseSettings(accountId)
-    val pauseSettings by pauseSettingsState
-    val pauseRoutes = remember(history) { object : PauseRoutes {
-        override fun hold(node: String) = history.holdAt(node)
-        override fun holding(node: String) = history.holding(node)
-        override fun releaseLive() { history.playback?.releasePause() }
-        override fun leaveHold() { history.cancelContinuation() }
-    } }
-    SideEffect { toolkit.pause.routes = pauseRoutes }
-    // I-D47: Autotap mana sources (Settings → Automatum)
-    SideEffect { toolkit.cast.autotap = pauseSettings.autotap }
-    AutomatumPauseDriver(toolkit, playback, play?.let(TableBoard::of), live?.currentNodeId,
-        liveShown = position?.mode == HistoryMode.LIVE && history.armed == null && !resultLocked,
-        opponentOnline = state.opponentPresence?.let { PresenceText.dot(it, monotonicMillis()) == PresenceDot.ONLINE } == true,
-        settings = pauseSettings, sync = pausePreferences)
-    LaunchedEffect(resultLocked) {
-        if (resultLocked) {
-            toolkit.dismiss(); toolkit.closeInspection()
-        }
-    }
-    SideEffect { toolkit.reviewContext("${target?.boundaryNodeId}/${if (reviewing) position?.cursorId else "live"}") }
     val back = remember(game.id) { TableBackStateMachine() }
     val context = LocalContext.current
-    SideEffect { DebugJank.state("screen" to "table", "history_nodes" to (tree?.nodes?.size ?: 0).toString()) }
-    DisposableEffect(Unit) { onDispose { DebugJank.state("screen" to "games", "table_mode" to "play",
-        "history_nodes" to "0", "visible_cards" to "0", "popup" to "none", "dragging" to "false") } }
-    val overlay = toolkit.hasBackOverlay || explorerOpen || state.chatOpen
-    LaunchedEffect(overlay, reviewing, history.armed) {
-        if (overlay || reviewing || history.armed != null) back.reset()
-    }
     BackHandler {
-        when (back.back(SystemClock.elapsedRealtime(), overlay, reviewing || history.armed != null)) {
-            TableBackAction.CLOSE_OVERLAY -> when {
-                state.chatOpen -> controller.closeChat()
-                explorerOpen -> explorerOpen = false
-                else -> toolkit.dismissBackOverlay()
-            }
-            // Back abandons personal review immediately rather than playing the path back to live.
-            TableBackAction.EXIT_REVIEW -> history.cancelContinuation()
+        when (back.back(SystemClock.elapsedRealtime(), false, false)) {
             TableBackAction.PROMPT -> Toast.makeText(context, "Press back again to leave", Toast.LENGTH_SHORT).show()
             TableBackAction.LEAVE -> controller.back()
+            TableBackAction.CLOSE_OVERLAY, TableBackAction.EXIT_REVIEW -> {}
         }
     }
     Column(Modifier.fillMaxSize().background(Color(0xfff3f5f5))) {
-        if (play == null) {
-            TableUnavailable(game.gameName, landscape, Modifier.weight(1f), hamburger,
-                message = history.error ?: state.connectionMessage ?: if (loadTimedOut) "Connection timed out." else null,
-                loading = tableIsLoading(state, game.id, history.error, loadTimedOut),
-                retry = { loadAttempt++; controller.reconnect() },
-                returnCurrent = if (waitingActivity) controller::leaveActivityReview else null)
-        } else {
-            BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
-                TableSurface(game, TableBoard.of(play), accountId, landscape, Modifier.fillMaxSize(),
-                    connected = interactive && editable && !resultLocked, onIntent = onIntent ?: toolkit::handle, placements = placements,
-                    toolkit = toolkit, accepted = state.acceptedPlay.takeIf { history.gate != null }?.let(TableBoard::of),
-                       runtime = runtime.copy(chat = runtime.chat ?: controller::openChat,
-                           gameActionsBlocked = resultLocked,
-                           resultControls = TableResultControls(interactive && history.foreground &&
-                               ResultActions.canResolve(game, play, live, position),
-                               reject = {
-                                    if (!ResultActions.canResolve(game, play, controller.state.play, history.playback?.position) ||
-                                        !controller.rejectResult(it)) Toast.makeText(context, "Result action unavailable", Toast.LENGTH_SHORT).show()
-                                    else history.cancelContinuation()
-                               }, accept = {
-                                    if (!ResultActions.canResolve(game, play, controller.state.play, history.playback?.position) ||
-                                        !controller.acceptResult(it)) Toast.makeText(context, "Result action unavailable", Toast.LENGTH_SHORT).show()
-                                    else history.cancelContinuation()
-                               }),
-                          opponentPresence = state.opponentPresence,
-                          liveView = position?.mode == HistoryMode.LIVE || resumeHeld, changes = history.changes,
-                         attentionEvent = displayTree?.nodes?.get(play.currentNodeId),
-                         pauseForInspection = { playback?.pause() },
-                        errorMessage = state.connectionMessage ?: state.error, dismissError = controller::dismissSessionError,
-                        navigation = hamburger, chatUnread = state.chatUnread,
-                         history = playback?.let { player -> { history.select(player.tree.sharedHeadId) } },
-                          onSceneSettled = { settledCursor = it; playback?.finishAnimation(it) }, sceneVersion = position?.displayVersion,
-                          returnCurrent = if (reviewing || history.armed != null) history::current else null,
-                         cancelContinuation = history::cancelContinuation,
-                           bottomPanel = if (playback != null) ({ playControls ->
-                             // Prediction can precede the worker's timeline index. Keep its last
-                             // concrete boundary mounted until that new node is indexed.
-                             val stripCursor = if (history.armed != null)
-                                 play.currentNodeId.takeIf(playback.tree::contains) ?: playback.position.cursorId
-                                 else playback.tree.sharedHeadId
-                              HistoryPlaybackPanel(playback, timelineEnd ?: playback.tree.sharedHeadId, accountId,
-                                     interactive, playbackPause, { if (!resultLocked) history.requestContinuation(it) },
-                                    autoPause = playbackAutoPause, board = play.board, definitions = play.definitions,
-                                  onSettings = { playbackSettingsOpen = true },
-                                 animationFinished = settledCursor == position?.cursorId && play.currentNodeId == position?.cursorId,
-                                  // I-D56 §8, §16: no game tree dialog and no branching from the timeline (HIS-010, HIS-013)
-                                  continuationReady = false,
-                                 overlay = true, landscape = landscape,
-                                  background = tableBarColor(play.board, accountId, reviewing = !editable),
-                                   readOnly = editable, playCursorId = stripCursor,
-                                   onEnter = { history.select(stripCursor) },
-                                   playControls = playControls, rewindPauseMillis = playbackRewindPause,
-                                   // HIS-036: until its first action lands, the armed point shows the coming split.
-                                   armedSplit = history.armed?.takeIf { !history.provisional })
-                        }) else null, undo = { controller.historyControl(GameAction.Undo) },
-                        reviewing = !editable,
-                        opponentBranched = playback?.branched == true, oldBranch = playback?.oldBranch == true,
-                        timelinePlayback = if (!editable) playback?.status else null,
-                        continuationArmed = history.armed != null,
-                          controlsConnected = interactive && history.foreground && !resultLocked))
-                // Over the top row (whose move/step/turn), never taking its taps.
-                EventTextOverlay(history.eventText, playbackPause, Modifier.align(Alignment.TopCenter))
-            }
-        }
-    }
-    if (playbackSettingsOpen) PlaybackSettingsDialog(playbackPreferences, accountId) { playbackSettingsOpen = false }
-    if (explorerOpen && tree != null) HistoryExplorer(explorer,
-        mapOf(accountId to OwnTableColor, game.inviter.accountId.takeIf { it != accountId }.orEmpty() to OpponentTableColor,
-            game.recipient.accountId.takeIf { it != accountId }.orEmpty() to OpponentTableColor),
-        { explorerOpen = false }, onReview = { reviewed -> history.select(reviewed.currentNodeId) },
-        texts = playback?.tree?.texts.orEmpty())
-    if (state.chatOpen) {
-        // A modal panel owns focus/IME/Back; the drawer cannot obscure viewed rows.
-        Dialog(onDismissRequest = controller::closeChat, properties = DialogProperties(
-            usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
-            TrackGameDialogInput()
-            Box(Modifier.fillMaxSize()) {
-                 ChatPanel(controller, accountId, Modifier.align(Alignment.CenterEnd)
-                     .fillMaxWidth(if (landscape) .5f else 1f))
-            }
-        }
+        TableUnavailable(game.gameName, landscape, Modifier.weight(1f), hamburger,
+            message = state.connectionMessage ?: if (loadTimedOut) "Connection timed out." else null,
+            loading = tableIsLoading(state, game.id, null, loadTimedOut),
+            retry = { loadAttempt++; controller.reconnect() })
     }
 }
 
@@ -315,41 +83,8 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
 internal fun tableIsLoading(state: LobbyTableView, gameId: String, historyError: String?, timedOut: Boolean = false) =
     historyError == null && state.connectionMessage == null && gameId !in state.reconnectingGames && !timedOut
 
-private fun activityPost(action: () -> Unit) { android.os.Handler(android.os.Looper.getMainLooper()).post { action() } }
 
 internal val OwnTableColor = Color(0xff237d68)
 internal val OpponentTableColor = Color(0xffb44853)
 /** Emblem chips (I-D25): the Automatum violet of the switch (integration spec §5). */
 internal val EmblemChipColor = Color(0xff7a4fc4)
-
-private tailrec fun tableActivity(context: Context): ComponentActivity? = when (context) {
-    is ComponentActivity -> context
-    is ContextWrapper -> tableActivity(context.baseContext)
-    else -> null
-}
-
-/** The table's toolkit wiring: every toolkit/gesture/menu action is gated here by the connection, the personal
- * timeline (review is read-only until Continue) and [LobbyController.resultLocked]. */
-internal fun tableToolkit(controller: LobbyController, history: TableHistoryController, game: GameSummary,
-    accountId: String, playId: String?, tokenArt: org.asyncttwiz.automatum.TokenArt = org.asyncttwiz.automatum.TokenArt.None,
-): TableToolkitController = TableToolkitController(accountId, {
-        val personal = controller.history
-        (if (personal.playback?.position?.mode == HistoryMode.PLAYBACK && !personal.provisional) personal.view?.state else controller.table.value.play)
-            ?.takeIf { it.id == playId && it.gameId == game.id }?.let(TableBoard::of)
-    }, { history.foreground && game.id !in controller.table.value.reconnectingGames && !controller.resultLocked() &&
-        (history.playback?.position?.mode != HistoryMode.PLAYBACK || history.armed != null) },
-    controller::gameplay, ending = { intent ->
-        val target = controller.captureResult()
-        if (target == null) false else when (intent.tool) {
-            EndingTool.SUGGEST_WIN -> controller.suggestResult(target, SuggestedResult.WIN, intent.note)
-            EndingTool.SUGGEST_LOSS -> controller.suggestResult(target, SuggestedResult.LOSS, intent.note)
-            EndingTool.SUGGEST_DRAW -> controller.suggestResult(target, SuggestedResult.DRAW, intent.note)
-            EndingTool.ACCEPT -> intent.suggestionId?.takeIf { history.gate?.suggestionId == it }
-                ?.let { controller.acceptResult(ResultAcceptanceTarget(target, it)) } ?: false
-            EndingTool.CONCEDE -> controller.concede(target)
-        }
-    }, acceptedInspection = controller::inspectFace,
-    waitingForConnection = { game.id !in controller.table.value.connectedGames }, playBatch = controller::gameplayBatch,
-    playTree = controller::displayTree, continuation = { history.armed?.let { Continuation(it, true) } },
-    automatedBatch = { batch, requestId -> controller.gameplayBatch(batch.actions, requestId, batch.tags) },
-    automatumWork = AutomatumWork.Background, tokenArt = tokenArt, castPreview = controller.castPreview)

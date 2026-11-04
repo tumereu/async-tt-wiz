@@ -63,7 +63,7 @@ class FaceDownInspectionTest {
             val (play, card) = state(container.value)
             MaterialTheme {
                 // Only the deliberate, logged "Inspect other side" (explicit) shows the opponent the front.
-                GameplayCardInspection(TableBoard.of(play), viewer.value, ManualInspection(play.gameId, play.id, card.id,
+                GameplayCardInspection(tableBoard(play), viewer.value, ManualInspection(play.gameId, play.id, card.id,
                     listOf(card.faceId), explicit = explicit.value), {})
             }
         }
@@ -98,7 +98,7 @@ class FaceDownInspectionTest {
         val viewer = mutableStateOf(f.a)
         compose.setContent {
             MaterialTheme {
-                GameplayCardInspection(TableBoard.of(play), viewer.value, ManualInspection(play.gameId, play.id, entry,
+                GameplayCardInspection(tableBoard(play), viewer.value, ManualInspection(play.gameId, play.id, entry,
                     ManualDisclosure.permittedFaces(play, inspected, viewer.value, inspecting = true).map { it.faceId },
                     stackEntryId = entry), {})
             }

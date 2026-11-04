@@ -52,7 +52,6 @@ internal class HandController(
     private val current: () -> TableBoard?,
     private val layout: MutableState<TableLayoutState>,
     private val work: AutomatumWork,
-    private val tags: () -> List<MtgTag?>,
     /** Casts [cardId] [way] with [extras] chosen ([CastController.start]); false when it can't be begun. */
     private val cast: (cardId: String, way: Input?, extras: List<Int>) -> Boolean,
     private val shake: (String) -> Unit,
@@ -175,21 +174,15 @@ internal class HandController(
         val run = ++generation
         val chosen = choice
         board = play.board
-        val history = tags()
         work.run({
             try {
                 val definitions = AutomatumBoards.definitions(play)
-                val offered = AutomatumBoards.handPlays(play, viewer) { history }.of(card)
+                val offered = AutomatumBoards.handPlays(play, viewer).of(card)
                 val seeds = org.asyncttwiz.automatum.CastFlow.Seeds { DeviceRandom.seed() }
-                // R4a: a game on engine state works the chips out on its own state
-                val engine = play.engine
-                if (engine != null) HandCasts.options(org.asyncttwiz.automatum.CastFlow.Source.engine(engine.state, play.board, play.gameId),
+                // R4a: the chips are worked out on the game's own engine state
+                val engine = requireNotNull(play.engine) { "No board to cast on" }
+                HandCasts.options(org.asyncttwiz.automatum.CastFlow.Source.engine(engine.state, play.board, play.gameId),
                     definitions, viewer, card, offered, chosen.way, chosen.times, seeds)
-                else {
-                    val legacy = play.legacy!!
-                    HandCasts.options(legacy, definitions, viewer, AutomatumBoards.engineLog(legacy, definitions, history), card, offered,
-                        chosen.way, chosen.times, seeds)
-                }
             } catch (problem: Exception) {
                 AppLog.warn("automatum", "Couldn't work the cost chips out: ${problem::class.java.simpleName}")
                 null

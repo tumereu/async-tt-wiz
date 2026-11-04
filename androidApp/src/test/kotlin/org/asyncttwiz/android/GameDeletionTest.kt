@@ -47,12 +47,12 @@ class GameDeletionTest {
         val command = f.commands().single()
         assertEquals(GameScope(game.id, playId = game.playId), command.scope); assertTrue(GameWire.valid(command))
         assertFalse(f.session.deleteGame(game)); f.message(GameReceipt(command.requestId, command.scope, "7"))
-        assertTrue(f.session.pending(game.id)); assertNotNull(f.session.play(game))
+        assertTrue(f.session.pending(game.id)); assertEquals(GameLifecycle.ACTIVE, f.session.summary(game).lifecycle)
         f.message(GameResult(command.requestId, command.scope, "accepted", ingressOrdinal = "7", commitRevision = "7"))
-        assertEquals(changed, f.session.summary(game)); assertNotNull(f.session.play(game)) // No result-as-state.
+        assertEquals(changed, f.session.summary(game)) // No result-as-state.
         val deleted = changed.copy(lifecycle = GameLifecycle.DELETED, revision = "7")
         f.message(GameRevision(game.id, "6", "7", command.requestId, a.accountId, command.scope, deleted))
-        assertNull(f.session.play(game)); assertNull(f.session.preparation(game)); assertFalse(f.session.ready(game.id))
+        assertNull(f.session.engineGame(game)); assertNull(f.session.preparation(game)); assertFalse(f.session.ready(game.id))
         f.head(game); f.session.watch(listOf(game.copy(revision = "99")))
         assertEquals(deleted, f.session.summary(game)); assertFalse(f.session.deleteGame(game))
     }

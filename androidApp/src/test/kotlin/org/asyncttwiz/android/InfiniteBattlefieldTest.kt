@@ -38,7 +38,7 @@ class InfiniteBattlefieldTest {
     }
 
     private fun scene(play: PlayState, width: Float, height: Float, landscape: Boolean, camera: TableCamera = TableCamera()) =
-        TablePresentation.scene(LiveTableFixture.game, TableBoard.of(play), "a", width, height, landscape, TableLayoutState(camera))
+        TablePresentation.scene(LiveTableFixture.game, tableBoard(play), "a", width, height, landscape, TableLayoutState(camera))
 
     // SYS-041, TBL-005
     @Test fun battlefieldFeelsInfiniteFieldsCoverTheWholePanAreaOnBothSides() {

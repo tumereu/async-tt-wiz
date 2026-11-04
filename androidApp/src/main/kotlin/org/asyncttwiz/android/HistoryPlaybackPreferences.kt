@@ -133,19 +133,5 @@ internal fun HistoryPlaybackPreferences.autoPauseState(): State<Set<PlaybackAuto
     return state
 }
 
-@Composable
-internal fun HistoryPlaybackPreferences.autoRewindLiveState(): State<Boolean> = observedState { autoRewindLive }
 
-@Composable
-internal fun HistoryPlaybackPreferences.autoRewindOpenState(): State<Boolean> = observedState { autoRewindOpen }
 
-@Composable
-private fun <T> HistoryPlaybackPreferences.observedState(read: HistoryPlaybackPreferences.() -> T): State<T> {
-    val state = remember(this) { mutableStateOf(read()) }
-    DisposableEffect(this) {
-        val stop = observe { state.value = read() }
-        state.value = read()
-        onDispose { stop() }
-    }
-    return state
-}

@@ -47,7 +47,7 @@ class LifecycleVerificationTest {
                     receive(result)
                     assertEquals(if (status == "notAdmitted") emptyList() else listOf(result), settled)
                     assertFalse(session.pending(game.id)); assertEquals(removed, session.summary(game))
-                    assertNull(session.acceptedPreparation(game.id)); assertNull(session.preparation(game)); assertNull(session.play(game))
+                    assertNull(session.acceptedPreparation(game.id)); assertNull(session.preparation(game)); assertNull(session.engineGame(game))
                     assertTrue(session.chat(game.id).isEmpty()); assertTrue(session.outgoingChat(game.id).isEmpty())
                     assertFalse(session.sendChat(game, "new intent")); assertFalse(session.submit(game, GameAction.CancelSetup))
                     assertFalse(session.deleteGame(game))
@@ -73,7 +73,7 @@ class LifecycleVerificationTest {
         assertNull(f.lobby.state.deletion)
         f.lobby.openChat(); f.lobby.composeChat("unsent"); f.lobby.back()
         assertFalse(f.lobby.state.chatOpen); assertEquals(active.id, f.lobby.state.selected)
-        assertEquals(play, f.lobby.state.play); assertTrue(f.commands().isEmpty())
+        assertEquals(play.id, f.lobby.state.detail?.playId); assertTrue(f.commands().isEmpty())
         f.lobby.requestGameDeletion(active)
         // Advance the actual replica with a non-board record before its periodic head.
         val chat = ChatMessage(id(), active.id, play.id, f.owner.accountId, "same incarnation", "2", "date")
@@ -83,7 +83,7 @@ class LifecycleVerificationTest {
         assertTrue(f.lobby.confirmGameDeletion())
         assertEquals(GameScope(active.id, playId = play.id), f.commands().single().scope)
         assertEquals(GameAction.DeleteGame, f.commands().single().action)
-        assertEquals(play, f.lobby.state.play) // Request is not predicted shared deletion.
+        assertEquals(play.id, f.lobby.state.detail?.playId) // Request is not predicted shared deletion.
     }
 
     @Test fun setupAndActiveRowsReplaceEachOthersPersonalContextWithoutRetargetingConfirmation() = CancellationFixture().use { f ->

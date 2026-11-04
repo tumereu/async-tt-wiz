@@ -68,11 +68,7 @@ internal fun BoxWithConstraintsScope.TableChromeHeader(game: GameSummary, play: 
              fill = phaseColor(play.board.turn.phase), ink = Color(0xff25333b),
             icon = { TurnStepIcon(play.board.turn) },
             onClick = { toolkit?.phasePicker() })
-        if (runtime.continuationArmed) {
-            ActionSquare("Cancel continuation", "", runtime.cancelContinuation != null,
-                Modifier.size(48.dp).border(2.dp, OwnTableColor), fill = Color(0xffedf3ef), ink = OwnTableColor,
-                icon = { TableChromeIcon("fork") }, onClick = { runtime.cancelContinuation?.invoke() })
-        } else if (runtime.reviewing) {
+        if (runtime.reviewing) {
             ActionSquare("Return to current", "", runtime.returnCurrent != null, Modifier.width(buttonWidth.dp), icon = { TableChromeIcon("current") }, onClick = { runtime.returnCurrent?.invoke() })
         }
         Box {

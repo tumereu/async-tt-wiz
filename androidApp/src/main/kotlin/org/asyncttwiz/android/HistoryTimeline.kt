@@ -42,29 +42,6 @@ data class HistoryTimelineEvent(val id: String, val icon: HistoryIcon, val descr
     val author: String?, val groupId: String?, val alternatives: Int = 0, val label: String = "Change")
 
 object HistoryTimelineLayout {
-    fun events(tree: HistoryTree, endpoint: String): List<HistoryTimelineEvent> {
-        return IndexedHistoryEvents(tree, endpoint)
-    }
-    /** The line ending at [endpoint] as the timeline shows it: one event per visible event, the engine bookkeeping
-     * folded into it never shown or stopped at (I-D22). Each event's [HistoryTimelineEvent.id] is where the cursor goes:
-     * its last folded event, so stepping skips what is folded. */
-    internal class IndexedHistoryEvents(private val tree: HistoryTree, private val endpoint: String) : AbstractList<HistoryTimelineEvent>() {
-        var projectedEvents = 0; private set
-        private val units = tree.units(endpoint)
-        override val size get() = units.size
-        fun positionOf(id: String): Int = if (tree.contains(id) && tree.isAncestor(id, endpoint)) tree.units(id).lastIndex else -1
-        override fun get(index: Int): HistoryTimelineEvent {
-            projectedEvents++
-            val shown = units[index]
-            val id = if (index == units.lastIndex) endpoint else tree.nodes.getValue(units[index + 1]).parentId
-            val mutation = tree.nodes[shown]
-            val text = tree.texts[shown] ?: historyText(mutation)
-            return HistoryTimelineEvent(id, mutation?.grouping?.icon ?: if (mutation == null) HistoryIcon.FLAG else
-                org.asyncttwiz.protocol.HistoryGrouping.classify(mutation.action, tree.containers, mutation.transition).icon,
-                text.description,
-                mutation?.author, tree.group(shown)?.id, tree.alternatives(id), text.label)
-        }
-    }
     fun x(index: Int, selected: Int, width: Float, pitch: Float) =
         x(index, selected.toFloat(), width, pitch)
     fun x(index: Int, center: Float, width: Float, pitch: Float) =
@@ -91,8 +68,8 @@ fun HistoryTimeline(events: List<HistoryTimelineEvent>, selectedId: String, view
     onPause: () -> Unit, onSelect: (String) -> Unit, modifier: Modifier = Modifier,
     readOnly: Boolean = false, armedSplit: String? = null,
     eventIcon: @Composable (HistoryIcon) -> Unit = { HistoryEventIcon(it) }) {
-    val positions = remember(IdentityKey(events)) { if (events is HistoryTimelineLayout.IndexedHistoryEvents) null else events.withIndex().associate { it.value.id to it.index } }
-    val selected = (events as? HistoryTimelineLayout.IndexedHistoryEvents)?.positionOf(selectedId) ?: positions?.get(selectedId) ?: -1
+    val positions = remember(IdentityKey(events)) { events.withIndex().associate { it.value.id to it.index } }
+    val selected = positions[selectedId] ?: -1
     require(selected >= 0)
     val pause by rememberUpdatedState(onPause); val select by rememberUpdatedState(onSelect)
     val selectedNow by rememberUpdatedState(selected)
@@ -222,118 +199,7 @@ internal fun HistoryEventChip(event: HistoryTimelineEvent, color: Color, selecte
     }
 }
 
-/** Only remote panel flips need a paced endpoint while the ordinary table remains LIVE. */
-@Composable
-internal fun LivePanelRevealPacing(playback: HistoryPlayback?, pauseMillis: Long, animationFinished: Boolean) {
-    val latestPauseMillis by rememberUpdatedState(pauseMillis)
-    LaunchedEffect(playback, playback?.position, playback?.livePanelReveal, playback?.foreground, animationFinished) {
-        if (playback?.livePanelReveal == true && playback.foreground && animationFinished) {
-            delay(latestPauseMillis)
-            playback.finishPanelReveal()
-        }
-    }
-}
 
-/** Ready-to-host native history chrome. The host resolves position.cursorId/version into the shared
- * replayed board, forwards lifecycle/accepted updates to playback, and reports completed animations.
- * Each tick selects one group endpoint; receipt of a whole network batch never skips those stages. */
-@Composable
-fun HistoryPlaybackPanel(playback: HistoryPlayback, timelineEndpoint: String, viewer: String, connected: Boolean,
-    pauseMillis: Long, onContinue: (String) -> Unit, modifier: Modifier = Modifier,
-    continuationReady: Boolean = true, overlay: Boolean = false, landscape: Boolean = false,
-    animationFinished: Boolean = true, onTree: (() -> Unit)? = null,
-    autoPause: Set<PlaybackAutoPause> = PlaybackAutoPause.defaults,
-    board: org.asyncttwiz.protocol.BoardState? = null, onSettings: (() -> Unit)? = null,
-    definitions: List<org.asyncttwiz.protocol.SubmittedDefinition> = emptyList(),
-    background: Color = TimelineBarColor, readOnly: Boolean = false, onEnter: () -> Unit = {},
-    playControls: (@Composable () -> Unit)? = null, playCursorId: String = playback.tree.sharedHeadId,
-    rewindPauseMillis: Long = HistoryPlaybackPreferences.DEFAULT_REWIND_PAUSE_MILLIS, armedSplit: String? = null) {
-    require(pauseMillis > 0)
-    val position = playback.position
-    val stripCursor = if (readOnly) playCursorId else position.cursorId
-    // Timeline mode: the whole visible line (live line, or the old branch the cursor is on) to its tip.
-    val visibleTip = playback.visibleTip
-    val endpoint = when {
-        !readOnly -> visibleTip
-        playback.tree.isAncestor(stripCursor, timelineEndpoint) -> timelineEndpoint
-        playback.tree.isAncestor(stripCursor, playback.tree.sharedHeadId) -> playback.tree.sharedHeadId
-        else -> stripCursor
-    }
-    val events = remember(playback.tree, endpoint) { HistoryTimelineLayout.events(playback.tree, endpoint) }
-    val continuation by rememberUpdatedState(onContinue)
-    val latestPauseMillis by rememberUpdatedState(pauseMillis)
-    val latestRewindPauseMillis by rememberUpdatedState(rewindPauseMillis)
-    val latestAutoPause by rememberUpdatedState(autoPause)
-    val latestBoard by rememberUpdatedState(board)
-    val latestDefinitions by rememberUpdatedState(definitions)
-    LaunchedEffect(readOnly, position.cursorId, position.displayVersion, position.playing, playback.foreground,
-        animationFinished) {
-        if (!readOnly && playback.foreground && animationFinished) {
-            if (playback.finishAnimation(position.cursorId)) return@LaunchedEffect
-            if (!position.playing) return@LaunchedEffect
-            // HIS-093 (I-D41): with Automatum on, Auto stops where the viewer had a pause, without a time limit; once
-            // for one pause, also when an auto-pause stopped there (#6)
-            val pause = pauseKey(latestBoard, viewer)
-            if (playback.pauseAfterAnimation(pause)) return@LaunchedEffect
-            if (playback.stopAtPause(viewer, pause != null, pause)) return@LaunchedEffect
-            // Sample once per completed animation: a setting change affects the next pause,
-            // not a pause already in progress. A manual start steps at once.
-            delay(playback.nextStepDelayMillis(latestPauseMillis, latestRewindPauseMillis))
-            playback.next(automatic = true, viewer = viewer, autoPause = latestAutoPause, board = latestBoard, definitions = latestDefinitions)
-        }
-    }
-    val timeline: @Composable () -> Unit = {
-        Box(Modifier.fillMaxWidth().height(TableTimelineHeight.dp)) {
-            HistoryTimeline(events, stripCursor, viewer, playback::pauseFromStrip, playback::scrubFromStrip,
-                Modifier.fillMaxWidth(), readOnly = readOnly, armedSplit = armedSplit)
-            Row(Modifier.align(Alignment.CenterEnd).background(background)) {
-                if (readOnly) IconButton(onClick = onEnter,
-                    modifier = Modifier.size(if (landscape) 36.dp else 40.dp)) {
-                    Icon(Icons.Outlined.History, contentDescription = "Timeline mode")
-                } else {
-                    if (onSettings != null) IconButton(onClick = { playback.pause(); onSettings() },
-                        enabled = !playback.transportLocked,
-                        modifier = Modifier.size(if (landscape) 36.dp else 40.dp)) {
-                        Icon(Icons.Outlined.Settings, contentDescription = "Playback settings")
-                    }
-                    if (onTree != null) IconButton(onClick = { playback.pause(); onTree() },
-                        enabled = !playback.transportLocked,
-                        modifier = Modifier.size(if (landscape) 36.dp else 40.dp).semantics { contentDescription = "Open game tree" }) {
-                        TableChromeIcon("tree")
-                    }
-                }
-            }
-        }
-    }
-    val transport: @Composable () -> Unit = {
-        HistoryTransport(position, position.cursorId != playback.tree.rootId,
-            position.cursorId != visibleTip, connected && continuationReady,
-            playback::previous, { playback.next() }, playback::play, playback::pause, { captured ->
-                if (connected && playback.canContinue(captured)) continuation(captured)
-            }, controlsEnabled = !playback.transportLocked, branchPending = playback.branched,
-            offLiveLine = playback.offLiveLine)
-    }
-    val panel: @Composable () -> Unit = {
-        val timelineRow: @Composable () -> Unit = {
-            Box(Modifier.height(TableTimelineHeight.dp)) { timeline() }
-        }
-        val controlsRow: @Composable () -> Unit = {
-            Crossfade(readOnly, Modifier.fillMaxWidth().height(TableControlsHeight.dp), animationSpec = tween(200), label = "Table controls") { live ->
-                if (live) playControls?.invoke()
-                else Box(Modifier.fillMaxSize().padding(horizontal = 8.dp), contentAlignment = Alignment.Center) { transport() }
-            }
-        }
-        val barColor by animateColorAsState(background, tween(200), label = "Timeline bar")
-        if (landscape) Row(Modifier.fillMaxWidth().height(tableBottomHeight(true).dp).background(barColor), verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.weight(1f)) { timelineRow() }
-            Box(Modifier.weight(1f)) { controlsRow() }
-        } else Column(Modifier.fillMaxWidth().height(tableBottomHeight(false).dp).background(barColor)) {
-            timelineRow(); controlsRow()
-        }
-    }
-    if (overlay) Box(modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) { panel() }
-    else Box(modifier) { panel() }
-}
 
 /** Literal glyph vocabulary, also replaceable with the host's existing event icon renderer. Every table below is an
  * exhaustive `when` over [HistoryIcon]: a new icon does not compile until each draws it. [HistoryIcon.UNKNOWN]

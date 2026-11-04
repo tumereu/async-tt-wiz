@@ -1,1 +1,0 @@
-Alice cast a morph creature face down and Bob may respond: his prompt reads "Alice cast a face-down spell" without its name or text, its card covered, with Respond (the step arrow reads Resolve).

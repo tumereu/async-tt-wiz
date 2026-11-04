@@ -1,1 +1,0 @@
-Holding Flash Surge's Kicker chip shows its details in a white card-like popup above the chips: "+ Kicker {4}" with the symbol drawn as a mana symbol and the kicker's printed text.

@@ -174,7 +174,7 @@ class ActivityRuntimeIntegrationTest {
             assertEquals(route, requested); assertEquals(game.id, lobby.state.selected)
             assertEquals(boundary, lobby.state.activityTarget?.boundaryNodeId)
             assertNull(lobby.state.error)
-            assertNull(lobby.state.play) // Target authorization alone is not a fabricated historical board.
+            assertNull(lobby.state.board) // Target authorization alone is not a fabricated historical board.
             assertEquals(game.id, ActivityDisplay.game(true, lobby.state.selected, lobby.state.detail))
             assertNull(ActivityDisplay.game(false, lobby.state.selected, lobby.state.detail))
             target = ActivityTarget(game.id, ActivityDestination.UNAVAILABLE)
@@ -243,7 +243,7 @@ class ActivityRuntimeIntegrationTest {
                 assertNull(lobby.state.selected); assertNull(lobby.state.activityTarget)
                 assertNull(lobby.state.deletion); assertNull(lobby.setupCancellation.confirmation)
                 assertFalse(lobby.state.chatOpen); assertEquals(ChatPresentation(), lobby.state.chat)
-                assertNull(lobby.state.play); assertNull(lobby.state.acceptedPlay)
+                assertNull(lobby.state.board)
                 assertTrue(wire.frames.filterIsInstance<GameCommand>().isEmpty())
             } finally { lobby.close(); drain() }
         }

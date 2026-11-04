@@ -11,7 +11,7 @@ class CardPanelLayoutTest {
 
     @Test fun emptyLocalPilesHaveNoPanelGeometry() {
         for (zone in listOf(PlayZone.GRAVEYARD, PlayZone.EXILE)) {
-            assertNull(localPanelDisplay(TableBoard.of(f.root), f.actor, TableLayoutState(localPileId = f.container(zone))))
+            assertNull(localPanelDisplay(tableBoard(f.root), f.actor, TableLayoutState(localPileId = f.container(zone))))
         }
     }
 
@@ -53,7 +53,7 @@ class CardPanelLayoutTest {
             val ids = cards.map { it.id }
             val variant = play.copy(board = play.board.copy(cards = cards.map { it.copy(containerId = container) },
                 containers = play.board.containers.map { it.copy(cards = if (it.id == container) ids else emptyList()) }))
-            val panel = cardPanelGeometry(TableBoard.of(variant), f.actor, TableLayoutState(localPileId = container),
+            val panel = cardPanelGeometry(tableBoard(variant), f.actor, TableLayoutState(localPileId = container),
                 TableBounds(0f, 0f, 412f, 700f)).single()
             assertEquals(listOf("Creature (3)", "Artifact (1)", "Land (1)"), panel.typeHeaders.map { it.title })
             assertEquals(listOf("Beta", "Zulu", "Rock", "Alpha"), panel.rows.map { it.entry.name })
@@ -66,7 +66,7 @@ class CardPanelLayoutTest {
                 for (order in listOf(ids.reversed(), ids.drop(2) + ids.take(2))) {
                     val reordered = variant.copy(board = variant.board.copy(containers = variant.board.containers.map {
                         if (it.id == container) it.copy(cards = order) else it }))
-                    val other = cardPanelGeometry(TableBoard.of(reordered), f.actor, TableLayoutState(localPileId = container), TableBounds(0f, 0f, 412f, 700f)).single()
+                    val other = cardPanelGeometry(tableBoard(reordered), f.actor, TableLayoutState(localPileId = container), TableBounds(0f, 0f, 412f, 700f)).single()
                     assertEquals(panel.typeHeaders, other.typeHeaders)
                     assertEquals(panel.rows, other.rows)
                 }
@@ -83,7 +83,7 @@ class CardPanelLayoutTest {
     // ZON-036
     @Test fun localPileTogglesReplacesSurvivesMenusAndUpdatesWithoutCommands() {
         var play = manyCards()
-        val ui = TableToolkitController(f.actor, { TableBoard.of(play) }, { true }, { _, _ -> error("Local view must not send") })
+        val ui = TableToolkitController(f.actor, { tableBoard(play) }, { true }, { _, _ -> error("Local view must not send") })
         val grave = f.container(PlayZone.GRAVEYARD, f.other)
         val exile = f.container(PlayZone.EXILE)
         ui.openPublicPile(grave)

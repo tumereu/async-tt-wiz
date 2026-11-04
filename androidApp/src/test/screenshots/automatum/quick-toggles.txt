@@ -1,1 +1,0 @@
-With Automatum on, Alice's quick-actions row in her draw step is three toggles, Full control (off), Skip if no choice (on) and Autotap mana (on), beside the step arrow; there are no manual quick actions.

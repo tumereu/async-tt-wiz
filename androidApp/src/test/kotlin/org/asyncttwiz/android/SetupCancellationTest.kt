@@ -122,7 +122,7 @@ class SetupCancellationTest {
         assertFalse(f.lobby.cancelSetup(f.game))
         f.message(GameResult(original.requestId, original.scope, "rejected", "gameStarted", "1"))
         f.lobby.sync() // Deliberately stale HTTP lobby summary.
-        assertEquals(active, f.lobby.state.detail); assertEquals(play, f.lobby.state.play)
+        assertEquals(active, f.lobby.state.detail); assertEquals(play.id, f.lobby.state.detail?.playId)
         assertEquals(1, f.commands().size)
     }
 
@@ -135,7 +135,7 @@ class SetupCancellationTest {
             f.lobby.requestCancelSetup(f.game); f.lobby.showGameContext(f.game) // Late old-row handler.
             assertNull(f.lobby.setupCancellation.confirmation); assertNull(f.lobby.setupCancellation.context)
             assertTrue(f.commands().isEmpty())
-            if (play != null) assertEquals(play, f.lobby.state.play)
+            if (play != null) assertEquals(play.id, f.lobby.state.detail?.playId)
         }
     }
 }

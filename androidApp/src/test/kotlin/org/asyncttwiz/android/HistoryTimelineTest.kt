@@ -24,24 +24,6 @@ class HistoryTimelineTest {
         assertEquals(999, HistoryTimelineLayout.selectedAfterDrag(999,-240f,24f,1000))
     }
 
-    @Test fun projectionRetainsEveryBoundaryActualTypeAuthorGroupAndBranchStubs() {
-        fun node(n: Int, parent: Int, tapped: Boolean, author: String = id(70)) = GameplayMutation(id(n), id(parent), id(50),
-            id(100+n), author, null, PlayAction.SetTapped(id(80), tapped), GameplayTransition(),
-            grouping = HistoryGrouping.classify(PlayAction.SetTapped(id(80), tapped)))
-        val a = node(1,0,true); val b = node(2,1,false); val c = node(3,2,true,id(71)); val fork = node(4,1,false)
-        val events = HistoryTimelineLayout.events(HistoryTree(id(0), listOf(a,b,c,fork),id(3),"v3"), id(3))
-        assertEquals(listOf(id(0),id(1),id(2),id(3)), events.map { it.id })
-        assertEquals(1, events[1].alternatives)
-        assertEquals(events[1].groupId, events[2].groupId)
-        assertNotEquals(events[2].groupId, events[3].groupId)
-        assertEquals(listOf(null,id(70),id(70),id(71)), events.map { it.author })
-        assertEquals(HistoryIcon.FLAG, events.first().icon)
-        assertEquals(listOf(HistoryIcon.ROTATE_90_DEGREES_CW), events.drop(1).map { it.icon }.distinct())
-        assertEquals("A card untapped", events[2].description)
-        assertTrue(events.none { it.description.contains("00000000-") })
-        assertNotEquals(historyIconGlyph(HistoryIcon.FAVORITE), historyIconGlyph(HistoryIcon.ADS_CLICK))
-        assertEquals("•", historyIconGlyph(HistoryIcon.fromWire("invented-cast")))
-    }
 
     @Test fun mergedManualAndOccurrenceIconsRenderWithoutGenericFallback() {
         val actions = listOf(PlayAction.ResetCorner(id(1)), PlayAction.SetFace(id(1), id(2)),
@@ -55,15 +37,6 @@ class HistoryTimelineTest {
         assertEquals(HistoryIcon.UNKNOWN, HistoryIcon.fromWire("unknown-manual-action"))
     }
 
-    @Test fun oldEventCommentsStillProjectAsReadableTimelineEvents() {
-        val comment = GameplayMutation(id(1), id(0), id(50), id(101), id(70), null,
-            PlayAction.EventComment(EventReference(id(50), id(0)), "An old event comment"), GameplayTransition(),
-            grouping = HistoryGrouping.classify(PlayAction.EventComment(EventReference(id(50), id(0)), "An old event comment")))
-        val events = HistoryTimelineLayout.events(HistoryTree(id(0), listOf(comment), id(1), "v1"), id(1))
-        assertEquals("Comment", events.last().label)
-        assertTrue(events.last().description.contains("An old event comment"))
-        assertTrue(historyIconGlyph(events.last().icon).isNotBlank())
-    }
 
     // HIS-005, old-model timeline branching
     @Test fun branchSplitsAfterTheSharedEventOrTheArmedPointInTheGapCentre() {

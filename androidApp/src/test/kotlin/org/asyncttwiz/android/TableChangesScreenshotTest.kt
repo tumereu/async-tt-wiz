@@ -168,14 +168,12 @@ class TableChangesScreenshotTest {
         val context = ApplicationProvider.getApplicationContext<Context>()
         CardAppearancePreferences(context).setSize(MIN_CARD_SCALE)
         val play = LiveTableFixture.menuPlay()
-        val scene = TablePresentation.scene(LiveTableFixture.game, TableBoard.of(play), "a", 412f, 892f, false,
+        val scene = TablePresentation.scene(LiveTableFixture.game, tableBoard(play), "a", 412f, 892f, false,
             appearance = CardAppearance(cardSize = MIN_CARD_SCALE))
         val card = scene.items.first { it.kind == TableItemKind.CARD && it.zone == PlayZone.BATTLEFIELD && it.owner == "a" && !it.covered }
         val changes = TableChanges { 0L }
-        // Automatum's board worked out up front, so the frames below never depend on when its worker finishes
-        AutomatumBoards.compute(play, "a")
         compose.setContent { MaterialTheme {
-            TableSurface(LiveTableFixture.game, TableBoard.of(play), "a", false, runtime = TableRuntimeHooks(changes = changes))
+            TableSurface(LiveTableFixture.game, tableBoard(play), "a", false, runtime = TableRuntimeHooks(changes = changes))
         } }
         compose.waitForIdle()
         val before = capture("changefx-before", "Portrait table at the smallest card size, before any change plays.")

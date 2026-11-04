@@ -1,1 +1,0 @@
-With Automatum on and two untapped Forests, Grovewatch Druid's menu (opened directly: a tap on it now activates its one usable ability instead) lists its abilities as rows: "{T}: Add {G}." enabled and "{2}{G}, {T}: Draw a card." greyed, then only Inspect, Other side and Attack →.

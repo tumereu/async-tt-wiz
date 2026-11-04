@@ -1,1 +1,0 @@
-The timeline after Alice cast Storm Spark at Bob (it resolved and the turn went on by itself to her attack declaration) and then pressed End turn (into Bob's turn): the game's start and one event for each of the two Automatum steps; everything Automatum did on the way is folded into them.

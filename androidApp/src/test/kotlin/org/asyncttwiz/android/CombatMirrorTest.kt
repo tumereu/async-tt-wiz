@@ -52,7 +52,7 @@ class CombatMirrorTest {
         val f = TableStatesFixture
         val play = f.combat()
         for ((viewer, mirrored) in listOf(f.a to false, f.b to true)) {
-            val scene = TablePresentation.scene(f.game, TableBoard.of(play), viewer, 892f, 412f, true)
+            val scene = TablePresentation.scene(f.game, tableBoard(play), viewer, 892f, 412f, true)
             val attackers = scene.items.filter { it.viewport == "combat" &&
                 CombatStackRules.location(play.board.combat!!, it.cardId!!)?.role == CombatRole.ATTACKER }
             val blockers = scene.items.filter { it.viewport == "combat" &&
@@ -90,7 +90,7 @@ class CombatMirrorTest {
         val play = original.copy(board = original.board.copy(turn = original.board.turn.copy(accountId = f.b),
             combat = original.board.combat!!.copy(pairs = original.board.combat!!.pairs.map { it.copy(blockers = emptyList()) })))
         // Alice now defends: dragging Bob's attacker onto the other attacker's slot lands in the top row.
-        val scene = TablePresentation.scene(f.game, TableBoard.of(play), f.a, 892f, 412f, true)
+        val scene = TablePresentation.scene(f.game, tableBoard(play), f.a, 892f, 412f, true)
         val ids = play.board.combat!!.pairs.map { it.attackers.single().id }
         val events = mutableListOf<TableIntent>()
         val gestures = TableGestureCoordinator(events::add)

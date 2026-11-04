@@ -31,18 +31,15 @@ class TableChromeUiTest {
         var play by mutableStateOf(initial)
         var viewer by mutableStateOf("a")
         var review by mutableStateOf(false)
-        val playback = LiveTableFixture.playback()
-        val events = HistoryTimelineLayout.events(playback.tree, playback.tree.sharedHeadId)
+        val events = LiveTableFixture.timeline()
         compose.setContent { MaterialTheme {
-            val toolkit = remember(viewer) { TableToolkitController(viewer, { TableBoard.of(play) }, { true }, { _, _ -> true }) }
-            TableSurface(TableFixture.game, TableBoard.of(play), viewer, landscape, Modifier.fillMaxSize(),
+            val toolkit = remember(viewer) { TableToolkitController(viewer, { tableBoard(play) }, { true }, { _, _ -> true }) }
+            TableSurface(TableFixture.game, tableBoard(play), viewer, landscape, Modifier.fillMaxSize(),
                 connected = true, onIntent = toolkit::handle, toolkit = toolkit,
                 runtime = TableRuntimeHooks(navigation = {}, chat = {}, undo = { true }, reviewing = review,
-                    history = { playback.scrub(playback.tree.sharedHeadId); review = true }, returnCurrent = { review = false },
-                    bottomPanel = { playControls -> HistoryPlaybackPanel(playback, playback.tree.sharedHeadId, viewer, true, 60_000, {},
-                        overlay = true, landscape = landscape, background = tableBarColor(play.board, viewer, review),
-                        readOnly = !review, onEnter = { playback.scrub(playback.tree.sharedHeadId); review = true }, playControls = playControls,
-                         onSettings = {}, onTree = {}) }))
+                    history = { review = true }, returnCurrent = { review = false },
+                    liveTimeline = { EngineStrip(events, viewer, landscape) { review = true } },
+                    bottomPanel = if (review) ({ _ -> LiveTableFixture.ReviewPanel(viewer, landscape, events) }) else null))
         } }
         var arrow: androidx.compose.ui.geometry.Rect? = null
         for (who in listOf("a", "b")) for (turn in listOf("a", "b")) for (move in listOf("a", "b")) {
@@ -56,8 +53,8 @@ class TableChromeUiTest {
             // TRN-015, TRN-059, TRN-063: the toggles show on either player's turn, the step arrow in your own turn and in the
             // other player's only while you must act (the move is yours: your blockers here)
             val shown = who == turn || who == move
-            assertEquals(shown, stepArrowShown(TableBoard.of(play), who))
-            val next = compose.onNodeWithContentDescription(AutomatumStep.of(TableBoard.of(play)).label)
+            assertEquals(shown, stepArrowShown(tableBoard(play), who))
+            val next = compose.onNodeWithContentDescription(AutomatumStep.of(tableBoard(play)).label)
             if (shown) next.assertIsDisplayed() else next.assertDoesNotExist()
             compose.onNodeWithText("Opponent's turn").assertDoesNotExist()
             compose.onNodeWithContentDescription("Untap all").assertDoesNotExist()
@@ -77,13 +74,10 @@ class TableChromeUiTest {
                 val b = if (shown) next.fetchSemanticsNode().boundsInRoot.also { arrow = it } else requireNotNull(arrow)
                 assertTrue(b.width in 68f..72f); assertEquals(48f, b.height)
                 assertEquals(pixels.width - 8f, b.right, "Step button belongs in the right corner")
-                val cells = listOf(AutomatumToggles.FULL_CONTROL, AutomatumToggles.SKIP, AutomatumToggles.AUTOTAP)
-                    .map { compose.onNodeWithContentDescription(it, substring = true).fetchSemanticsNode().boundsInRoot }
-                for (cell in cells) assertEquals(cells.first().width, cell.width, 1f, "Equal toggle widths")
-                assertEquals((if (landscape) pixels.width / 2f else 0f) + 60f, cells.first().left)
-                assertEquals(b.left - 4f, cells.last().right)
+                // R4b: the toggles are the engine game's own (EngineToggleCells); their row is checked on an engine game
+                // (EngineTableScreenshotTest), this table has none
             }
-            val handLabel = TablePresentation.scene(TableFixture.game, TableBoard.of(play), who, pixels.width.toFloat(), pixels.height.toFloat(), landscape)
+            val handLabel = TablePresentation.scene(TableFixture.game, tableBoard(play), who, pixels.width.toFloat(), pixels.height.toFloat(), landscape)
                 .items.single { it.cardId == "$who/HAND/0" }.label
             val handBefore = compose.onAllNodesWithContentDescription(handLabel).fetchSemanticsNodes().map { it.boundsInRoot }
             // Only the strip's toggle enters timeline mode; event taps describe without scrubbing.
@@ -104,7 +98,7 @@ class TableChromeUiTest {
             assertEquals(TimelineBarColor.toArgb(), reviewPixels.getRGB(2, 35))
             assertEquals(TimelineBarColor.toArgb(), reviewPixels.getRGB(reviewPixels.width - 2, 35))
             assertEquals(TimelineBarColor.toArgb(), reviewPixels.getRGB(2, reviewPixels.height - 2))
-            assertEquals(HistoryMode.PLAYBACK, playback.position.mode, "Opening at the latest event stays in timeline")
+            compose.onNodeWithContentDescription("Return to current").assertExists()
         }
         compose.runOnIdle { review = false }
         compose.onNodeWithContentDescription("Table actions").performClick()
@@ -123,13 +117,13 @@ class TableChromeUiTest {
         val initial = TableFixture.play(hand = 4)
         val play = initial.copy(board = initial.board.copy(attentionHolder = "b",
             turn = initial.board.turn.copy(accountId = "b")))
-        val toolkit = TableToolkitController("a", { TableBoard.of(play) }, { true }, { _, _ -> true })
+        val toolkit = TableToolkitController("a", { tableBoard(play) }, { true }, { _, _ -> true })
         compose.setContent { MaterialTheme {
-            TableSurface(game, TableBoard.of(play), "a", landscape, Modifier.fillMaxSize(), connected = true,
+            TableSurface(game, tableBoard(play), "a", landscape, Modifier.fillMaxSize(), connected = true,
                 onIntent = toolkit::handle, toolkit = toolkit)
         } }
         val root = compose.onRoot().fetchSemanticsNode().boundsInRoot
-        val scene = TablePresentation.scene(game, TableBoard.of(play), "a", root.width, root.height, landscape)
+        val scene = TablePresentation.scene(game, tableBoard(play), "a", root.width, root.height, landscape)
         val hand = scene.items.single { it.id == "b/HAND" }.bounds.let { Rect(it.x, it.y, it.right, it.bottom) }
         // Nonempty hands expose their cards, not a separate Hand semantics node.
         val cardLabel = scene.items.single { it.cardId == "b/HAND/0" }.label
@@ -189,97 +183,6 @@ class TableChromeUiTest {
         assertEquals(0, selected)
     }
 
-    // HIS-010
-    @Test fun timelineStripEndsWithSettingsAndTreeAndBelowItPreviousAutoAndNextAsBorderlessArrows() {
-        val playback = LiveTableFixture.playback()
-        compose.setContent { MaterialTheme {
-            HistoryPlaybackPanel(playback, playback.tree.sharedHeadId, "a", true, 60_000, {}, onSettings = {}, onTree = {})
-        } }
-        fun bounds(name: String) = compose.onNodeWithContentDescription(name).assertIsDisplayed().fetchSemanticsNode().boundsInRoot
-        val width = compose.onRoot().fetchSemanticsNode().boundsInRoot.right
-        val gear = bounds("Playback settings")
-        val tree = bounds("Open game tree")
-        val previous = bounds("Previous")
-        val auto = bounds("Auto advance")
-        val next = bounds("Next")
-        // The strip row ends with the gear, then the game tree button at its very end.
-        assertEquals(gear.center.y, tree.center.y, 1f)
-        assertTrue(gear.right <= tree.left + .5f, "gear $gear before tree $tree")
-        assertEquals(width, tree.right, 1f)
-        // Below it, left to right: Previous, Auto, Next.
-        for (control in listOf(previous, auto, next)) assertTrue(control.top >= maxOf(gear.bottom, tree.bottom) - .5f, "$control below the strip")
-        assertTrue(previous.right <= auto.left + .5f && auto.right <= next.left + .5f, "$previous, $auto, $next")
-        // Previous and Next are plain arrows: their edges show the bar behind them, while Auto has a border.
-        val output = File("build/outputs/roborazzi/timeline-transport-borders.png").also { it.parentFile!!.mkdirs() }
-        compose.onRoot().captureRoboImage(output.path, ScratchCapture)
-        val pixels = ImageIO.read(output)
-        val bar = pixels.getRGB(previous.left.toInt() - 4, previous.center.y.toInt())
-        for (arrow in listOf(previous, next)) {
-            val y = arrow.center.y.toInt(); val x = arrow.center.x.toInt()
-            for ((px, py) in listOf(arrow.left.toInt() + 1 to y, arrow.right.toInt() - 2 to y, x to arrow.top.toInt() + 1, x to arrow.bottom.toInt() - 2))
-                assertEquals(bar, pixels.getRGB(px, py), "$arrow edge at $px,$py")
-        }
-        assertNotEquals(bar, pixels.getRGB(auto.left.toInt(), auto.center.y.toInt()), "Auto keeps its border")
-    }
 
-    @Test fun playStripHasNoWholeAreaClickOrPressedTintAndOnlyIconToggleEnters() {
-        val playback = LiveTableFixture.playback()
-        var entered = 0
-        compose.setContent { MaterialTheme {
-            HistoryPlaybackPanel(playback, playback.tree.sharedHeadId, "a", true, 60_000, {},
-                readOnly = true, onEnter = { entered++ }, onSettings = {}, onTree = {})
-        } }
-        compose.onNodeWithContentDescription("Playback settings").assertDoesNotExist()
-        compose.onNodeWithContentDescription("Open game tree").assertDoesNotExist()
-        compose.onNodeWithContentDescription("History options").assertDoesNotExist()
-        val output = File("build/outputs/roborazzi/timeline-strip-pressed.png").also { it.parentFile!!.mkdirs() }
-        compose.onRoot().captureRoboImage(output.path, ScratchCapture)
-        val before = ImageIO.read(output)
-        compose.mainClock.autoAdvance = false
-        compose.onRoot().performTouchInput { down(androidx.compose.ui.geometry.Offset(350f, 24f)) }
-        compose.mainClock.advanceTimeBy(300)
-        compose.onRoot().captureRoboImage(output.path, ScratchCapture)
-        val pressed = ImageIO.read(output)
-        assertEquals(before.getRGB(350, 24), pressed.getRGB(350, 24))
-        assertEquals(before.getRGB(50, 24), pressed.getRGB(50, 24), "Empty strip space has no press feedback")
-        compose.onRoot().performTouchInput { up() }
-        compose.mainClock.autoAdvance = true
-        assertEquals(0, entered)
-        compose.onNodeWithContentDescription("Event strip").assertHasNoClickAction()
-        compose.onNodeWithContentDescription("Timeline mode").assertIsDisplayed().performClick()
-        assertEquals(1, entered)
-    }
 
-    // HIS-007
-    @Test fun controlsCrossfadeWithoutMovingTheStripOrChangingPanelHeight() {
-        val playback = LiveTableFixture.playback().apply { scrub(tree.sharedHeadId) }
-        var live by mutableStateOf(true)
-        compose.setContent { MaterialTheme {
-            HistoryPlaybackPanel(playback, playback.tree.sharedHeadId, "a", true, 60_000, {},
-                readOnly = live, playControls = { androidx.compose.material3.Text("Quick actions") },
-                onSettings = {}, onTree = {})
-        } }
-        val selected = hasContentDescription(HistoryTimelineLayout.events(playback.tree, playback.tree.sharedHeadId).last().description) and isSelected()
-        val before = compose.onNode(selected, useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
-        val panelBefore = compose.onRoot().fetchSemanticsNode().boundsInRoot
-        assertEquals(panelBefore.center.x, before.center.x, "Selection is centered on the whole row, not the space before controls")
-        compose.onNodeWithContentDescription("History options").assertDoesNotExist()
-        compose.mainClock.autoAdvance = false
-        compose.runOnIdle { live = false }
-        // Commit the target-state recomposition before measuring animation time.
-        compose.mainClock.advanceTimeByFrame()
-        compose.waitForIdle()
-        compose.mainClock.advanceTimeBy(100)
-        compose.waitForIdle()
-        compose.onNodeWithText("Quick actions").assertExists()
-        compose.onNodeWithContentDescription("Auto advance").assertExists()
-        compose.onNodeWithContentDescription("History options").assertDoesNotExist()
-        compose.onNodeWithText("Event details").assertDoesNotExist()
-        compose.onNodeWithText("Download history").assertDoesNotExist()
-        assertEquals(before, compose.onNode(selected, useUnmergedTree = true).fetchSemanticsNode().boundsInRoot)
-        compose.mainClock.advanceTimeBy(150)
-        compose.onNodeWithText("Quick actions").assertDoesNotExist()
-        assertEquals(panelBefore, compose.onRoot().fetchSemanticsNode().boundsInRoot)
-        compose.mainClock.autoAdvance = true
-    }
 }

@@ -38,29 +38,6 @@ internal fun eventTextLifetimeMillis(pauseMillis: Long) = maxOf(EVENT_TEXT_MIN_M
 /** Only the final disappearance animates; showing and replacing are instant. */
 internal const val EVENT_TEXT_FADE_OUT_MILLIS = 450
 
-/** The shown group's text, from the board shown at its last event: each earlier event of the group is
- * stepped back once from there (no replay). The texts are the timeline/tree-dialog texts, so they never
- * name what [viewer] could not see. A group longer than [limit] reads as its last event. */
-internal fun eventGroupText(nodes: Map<String, GameplayMutation>, shown: PlayState, viewer: String?,
-    usernames: Map<String, String>, limit: Int = 512): HistoryText? {
-    val last = nodes[shown.currentNodeId] ?: return null
-    val group = last.bookkeeping?.toGroup
-    val ids = ArrayList<String>()
-    val texts = HashMap<String, HistoryText>()
-    var after: PlayState? = shown
-    var node = last
-    while (true) {
-        if (ids.size >= limit) return texts.getValue(last.id)
-        val before = after?.let { GameplayHistory.unapply(it, node) }
-        ids += node.id
-        texts[node.id] = historyText(node, before, viewer, usernames)
-        if (group == null || node.id == group.firstNodeId) break
-        node = nodes[node.parentId]?.takeIf { it.bookkeeping?.toGroup?.id == group.id } ?: break
-        after = before
-    }
-    ids.reverse()
-    return historyGroupText(ids, last.id, texts) { nodes[it]?.grouping?.folded == true }
-}
 
 /** Personal presentation only: what the shown board's latest group was. Timeline mode shows every
  * group it shows (also the viewer's own); live mode only an opponent's new group. A chip always
@@ -76,24 +53,6 @@ internal class EventTextFeed(worker: Executor, private val post: (() -> Unit) ->
     private var epoch = 0L
     @Volatile private var latest = 0L
 
-    /** Called once a board is actually displayed; repeated calls for the same board are ignored. */
-    fun displayed(cursor: String?, state: PlayState?, mode: HistoryMode, nodes: Map<String, GameplayMutation>,
-        viewer: String?, usernames: Map<String, String>, isAncestor: (String, String) -> Boolean) {
-        val previous = shownCursor; val previousMode = shownMode
-        shownCursor = cursor; shownMode = mode
-        if (cursor == previous) return
-        val generation = ++epoch; latest = generation
-        if (chip?.cursorId != cursor) chip = null
-        if (!enabled || cursor == null || state == null || state.currentNodeId != cursor) return
-        val node = nodes[cursor] ?: return // The initial state has nothing to tell.
-        if (mode == HistoryMode.LIVE && (previousMode != HistoryMode.LIVE || previous == null ||
-                node.author == viewer || !isAncestor(previous, cursor))) return
-        work.submit("event-text") {
-            if (latest != generation) return@submit
-            val text = eventGroupText(nodes, state, viewer, usernames)?.description?.takeIf { it.isNotBlank() } ?: return@submit
-            post { if (generation == epoch && shownCursor == cursor) chip = EventTextChip(cursor, text, generation, clock()) }
-        }
-    }
 
     /** On engine state (HIS-075, HIS-076): [text] of the event shown at [cursor] (the other player's newest); [always]:
      * shown with Event text off too (§29.4: what an undo took back). */

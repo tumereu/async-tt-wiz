@@ -23,24 +23,9 @@ object ResultNoteInput {
 }
 
 object ResultActions {
-    /** The live-end part of [blocksAt]: the live accepted endpoint, never the board at the personal review
-     * cursor, owns the lock. A local proposal also locks immediately while its ordinary prediction is in flight. */
-    fun blocksGameActions(game: GameSummary, accepted: PlayState?, predicted: PlayState? = accepted): Boolean =
-        listOf(accepted, predicted).any { includes(game, it) }
 
-    /** The one result-lock rule every game-action gate uses: actions are refused while the board they would apply
-     * to includes a pending suggestion. At the live end that is the live endpoint. In the timeline (reviewing or
-     * continuing) it is [board]: the shown point, the continuation's point or its predicted new branch, so a
-     * suggestion still "about to come", or on another branch, does not lock. An unknown board falls back to the
-     * live endpoint, so the lock is never looser than at the live end. Peek/Inspect stay allowed elsewhere. */
-    fun blocksAt(game: GameSummary, accepted: PlayState?, predicted: PlayState?, board: PlayState?, inTimeline: Boolean): Boolean =
-        if (inTimeline && board != null) includes(game, board) else blocksGameActions(game, accepted, predicted)
 
-    private fun includes(game: GameSummary, board: PlayState?) = capture(game, board) != null && board?.board?.resultSuggestion != null
 
-    /** Visibility belongs to the displayed replayed board, not the live action lock. */
-    fun pendingPresentation(game: GameSummary, displayed: PlayState?, viewer: String): ResultPresentation? =
-        pendingPresentation(game, displayed?.let(TableBoard::of), viewer)
 
     /** [pendingPresentation] of the board the table draws. */
     fun pendingPresentation(game: GameSummary, displayed: TableBoard?, viewer: String): ResultPresentation? {
@@ -49,25 +34,13 @@ object ResultActions {
         return presentation(game, displayed, viewer, ResultPlaybackGate(target, suggestion.id))
     }
 
-    /** A paused timeline at the live end is actionable too; earlier/catch-up frames are not. */
-    fun canResolve(game: GameSummary, displayed: PlayState?, live: PlayState?, position: HistoryPosition?): Boolean {
-        val target = capture(game, displayed) ?: return false
-        if (target != capture(game, live) || displayed == null || live == null || position == null) return false
-        return !position.playing && position.cursorId == live.currentNodeId && displayed.currentNodeId == live.currentNodeId &&
-            displayed.board.resultSuggestion != null && displayed.board.resultSuggestion == live.board.resultSuggestion
-    }
 
-    fun capture(game: GameSummary, play: PlayState?): ResultTarget? = play?.takeIf {
-        game.lifecycle == GameLifecycle.ACTIVE && game.id == it.gameId && game.playId == it.id
-    }?.let { ResultTarget(it.gameId, it.id) }
 
     /** [capture] of the board the table draws. */
     fun capture(game: GameSummary, play: TableBoard?): ResultTarget? = play?.takeIf {
         game.lifecycle == GameLifecycle.ACTIVE && game.id == it.gameId && game.playId == it.playId
     }?.let { ResultTarget(it.gameId, it.playId) }
 
-    fun presentation(game: GameSummary, current: PlayState?, viewer: String, gate: ResultPlaybackGate?): ResultPresentation? =
-        presentation(game, current?.let(TableBoard::of), viewer, gate)
 
     /** [presentation] of the board the table draws. */
     fun presentation(game: GameSummary, current: TableBoard?, viewer: String,

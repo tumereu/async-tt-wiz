@@ -103,7 +103,7 @@ class LobbyDeletionTest {
         val deleted = game.copy(lifecycle = GameLifecycle.DELETED, revision = "6")
         f.message(GameRevision(game.id, "5", "6", command.requestId, a.accountId, command.scope, deleted))
         assertTrue(f.lobby.state.games.isEmpty()); assertTrue(f.lobby.state.invitations.isEmpty())
-        assertNull(f.lobby.state.selected); assertNull(f.lobby.state.detail); assertNull(f.lobby.state.play)
+        assertNull(f.lobby.state.selected); assertNull(f.lobby.state.detail); assertNull(f.lobby.state.board)
         // Retain request recovery even though there is no navigation row left.
         f.message(GameResult(command.requestId, command.scope, "accepted", ingressOrdinal = "7", commitRevision = "6"))
         assertTrue(f.lobby.state.games.isEmpty()); assertNull(f.lobby.state.detail)

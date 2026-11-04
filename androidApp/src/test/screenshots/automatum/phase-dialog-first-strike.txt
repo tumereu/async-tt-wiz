@@ -1,1 +1,0 @@
-With Automatum on, in the first-strike combat damage step: the step button shows a bolt and "1st strike", and the phase dialog shows that square between Blockers and Damage, outlined as the current step.

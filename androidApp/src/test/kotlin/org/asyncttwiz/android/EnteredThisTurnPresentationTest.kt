@@ -14,7 +14,7 @@ class EnteredThisTurnPresentationTest {
         }))
 
     private fun items(state: PlayState, cardId: String) =
-        TablePresentation.scene(f.game, TableBoard.of(state), f.a, 412f, 892f, false).items.filter { it.kind == TableItemKind.CARD && it.sourceId == cardId }
+        TablePresentation.scene(f.game, tableBoard(state), f.a, 412f, 892f, false).items.filter { it.kind == TableItemKind.CARD && it.sourceId == cardId }
 
     // TBL-027
     @Test fun markedBattlefieldCardAndItsCombatCopyHaveABlueTitleAndSayItInTheirDescription() {
@@ -46,7 +46,7 @@ class EnteredThisTurnPresentationTest {
     @Test fun faceDownBattlefieldCardShowsAQuestionMarkTitleThatIsBlueWhenItEnteredThisTurn() {
         val source = f.source(f.a, "1/3")
         val turn = f.combat().board.turn.number
-        fun item(state: PlayState, viewer: String) = TablePresentation.scene(f.game, TableBoard.of(state), viewer, 412f, 892f, false)
+        fun item(state: PlayState, viewer: String) = TablePresentation.scene(f.game, tableBoard(state), viewer, 412f, 892f, false)
             .items.single { it.id == "card/${source.id}" }
         for (viewer in listOf(f.a, f.b)) {
             val fresh = item(withEntered(f.combat(), source.id, turn, covered = true), viewer)

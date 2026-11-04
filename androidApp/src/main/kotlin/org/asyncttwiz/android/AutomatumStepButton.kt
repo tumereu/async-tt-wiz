@@ -137,9 +137,8 @@ internal fun stepArrowShown(play: TableBoard, viewer: String?): Boolean {
  */
 @Composable
 internal fun AutomatumStepArrow(play: TableBoard, enabled: Boolean, compact: Boolean, onHold: () -> Unit,
-    blocked: String? = null, planned: AutomatumStep? = null, onClick: () -> Unit) {
-    // Owner playtest 2026-11-03 #1: the words of the tap's own plan once worked out, the board's until then
-    val step = planned ?: AutomatumStep.of(play)
+    blocked: String? = null, onClick: () -> Unit) {
+    val step = AutomatumStep.of(play)
     val usable = enabled && blocked == null && step != AutomatumStep.Waiting
     val ink = AutomatumStepInk.copy(alpha = if (usable) 1f else .38f)
     var shakes by remember { mutableIntStateOf(0) }

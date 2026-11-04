@@ -48,17 +48,8 @@ class GameConnectionLifecycleTest {
     }
 
     private class Owner : AutoCloseable {
-        val data = GameplayFixture()
-        private val play = data.initial.let { initial ->
-            var id = 500
-            val regions = initial.board.players.flatMap { player ->
-                PlayZone.entries.filter { it != PlayZone.STACK }.map { zone ->
-                    initial.board.containers.find { it.accountId == player.accountId && it.zone == zone }
-                        ?: PlayContainer(data.id(id++), zone, player.accountId)
-                }
-            } + PlayContainer(data.id(id), PlayZone.STACK)
-            initial.copy(board = initial.board.copy(containers = regions))
-        }
+        /** The game, played on engine state (R4b): its head loads it on the session's engine game. */
+        val data = EngineData()
         val wire = Wire()
         var signedIn = true
         val api = object : Lobbies {
@@ -72,7 +63,7 @@ class GameConnectionLifecycleTest {
             override fun close() = Unit
         }
         val lobby = LobbyController(api, { if (signedIn) "A".repeat(43) else null }, Worker(), { it() },
-            gameConnection = wire, accountId = { data.actor })
+            gameConnection = wire, accountId = { data.actor }, engineWorker = EngineWorker.Direct)
         // Same ownership boundary as AuthViewModel: neither the screen nor its effects own this.
         val maintenance = GameConnectionMaintenance({ signedIn }, lobby::sync)
         fun accept(generation: String = "1") {
@@ -82,7 +73,7 @@ class GameConnectionLifecycleTest {
                 if (it is OpenGameStream) it.streamId else (it as ResumeGameStream).streamId
             }
             wire.listener.message(GameStreamReady(data.game.id, stream, generation))
-            wire.listener.message(data.head(play))
+            wire.listener.message(data.head())
             assertTrue(data.game.id in lobby.state.connectedGames)
         }
         override fun close() { maintenance.close(); lobby.close() }
@@ -117,7 +108,7 @@ class GameConnectionLifecycleTest {
                 assertEquals(disconnects, owner.wire.disconnects)
                 assertEquals(frames, owner.wire.frames, "Rotation must not reopen or resume a stream")
                 assertEquals(owner.data.game.id, owner.lobby.state.selected)
-                assertNotNull(owner.lobby.state.play)
+                assertNotNull(owner.lobby.state.board)
                 assertTrue(owner.data.game.id in owner.lobby.state.connectedGames)
             }
         } finally { compose.runOnIdle { visible = false; owner.close() } }
@@ -152,7 +143,7 @@ class GameConnectionLifecycleTest {
             compose.onNodeWithText("Reconnecting…").assertDoesNotExist()
             compose.onNodeWithText("Disconnected · read-only").assertDoesNotExist()
             compose.onNodeWithContentDescription("Table actions").assertIsEnabled()
-            compose.runOnIdle { assertNotNull(owner.lobby.state.play); assertNull(owner.lobby.state.connectionMessage) }
+            compose.runOnIdle { assertNotNull(owner.lobby.state.board); assertNull(owner.lobby.state.connectionMessage) }
         } finally { compose.runOnIdle { owner.close() } }
     }
     // SYS-016
@@ -160,7 +151,8 @@ class GameConnectionLifecycleTest {
         val owner = Owner()
         compose.runOnIdle { owner.lobby.open(owner.data.game.id); owner.accept() }
         fun commands() = owner.wire.frames.filterIsInstance<GameCommand>()
-        fun act() = owner.lobby.gameplay(PlayAction.AdjustLife(owner.data.actor, "1"))
+        // R4b: the action waiting for the server is a chat message (an engine game's own actions wait in its outbox)
+        fun act(): Boolean { owner.lobby.composeChat("Hello"); owner.lobby.sendChat(); return owner.lobby.state.chat.draft == null }
         try {
             compose.setContent { MaterialTheme { WaitingLobby(owner.lobby, owner.data.actor, null) } }
             compose.runOnIdle { owner.wire.listener.disconnected() }
@@ -200,4 +192,12 @@ class GameConnectionLifecycleTest {
             }
         } finally { compose.runOnIdle { owner.close() } }
     }
+}
+
+/** A game played on engine state as its head opens it (R4b). */
+private class EngineData {
+    val f = EngineGameFixture()
+    val actor = f.a
+    val game = f.game.copy(lifecycle = GameLifecycle.ACTIVE, playId = f.base.id, preparationRound = f.base.preparationRound, revision = "1")
+    fun head() = GameHead(game.id, "1", game, play = f.base, engine = f.snapshot())
 }

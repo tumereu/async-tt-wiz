@@ -30,13 +30,13 @@ class CardRingInteractionTest {
     private val batches = mutableListOf<List<PlayAction>>()
     private fun render(multi: Boolean = false, play: PlayState = f.combat(),
         contextId: String = f.source(f.a, "1/3").id): TableToolkitController {
-        val toolkit = TableToolkitController(f.a, { TableBoard.of(play) }, { true }, { action, _ -> sent += action; true },
+        val toolkit = TableToolkitController(f.a, { tableBoard(play) }, { true }, { action, _ -> sent += action; true },
             playBatch = { actions, _ -> batches += actions.toList(); sent += actions; true })
         val source = f.source(f.a, "1/3").id
         toolkit.openCard(TableScope(contextId, if (multi) listOf(source, f.source(f.a, "1/2").id) else listOf(contextId)))
         compose.setContent {
             MaterialTheme {
-                TableSurface(f.game, TableBoard.of(play), f.a, false, Modifier.fillMaxSize(),
+                TableSurface(f.game, tableBoard(play), f.a, false, Modifier.fillMaxSize(),
                     connected = true, toolkit = toolkit, onIntent = toolkit::handle)
             }
         }
@@ -69,7 +69,7 @@ class CardRingInteractionTest {
     }
 
     private fun sourcePoint(corner: String = "1/3"): Offset {
-        val scene = TablePresentation.scene(f.game, TableBoard.of(f.combat()), f.a, 412f, 892f, false)
+        val scene = TablePresentation.scene(f.game, tableBoard(f.combat()), f.a, 412f, 892f, false)
         val point = scene.items.single { it.cardId == f.source(f.a, corner).id }.visible.first().center
         return Offset(point.x, point.y)
     }
@@ -84,7 +84,7 @@ class CardRingInteractionTest {
         compose.runOnIdle { assertNull(toolkit.capture); assertTrue(sent.isEmpty()) }
         compose.runOnIdle { val id = f.source(f.a, "1/3").id; toolkit.openCard(TableScope(id, listOf(id))) }
         compose.mainClock.advanceTimeBy(600)
-        val scene = TablePresentation.scene(f.game, TableBoard.of(f.combat()), f.a, 412f, 892f, false)
+        val scene = TablePresentation.scene(f.game, tableBoard(f.combat()), f.a, 412f, 892f, false)
         val square = compose.onNodeWithContentDescription("Card action grid").fetchSemanticsNode().boundsInRoot
         val item = scene.items.first { it.kind == TableItemKind.CARD && it.cardId != f.source(f.a, "1/3").id &&
             it.visible.isNotEmpty() && !square.contains(Offset(it.visible.first().center.x, it.visible.first().center.y)) }
@@ -103,7 +103,7 @@ class CardRingInteractionTest {
         render()
         compose.mainClock.advanceTimeBy(600)
         val point = sourcePoint()
-        val field = TablePresentation.scene(f.game, TableBoard.of(f.combat()), f.a, 412f, 892f, false).fields.last().bounds
+        val field = TablePresentation.scene(f.game, tableBoard(f.combat()), f.a, 412f, 892f, false).fields.last().bounds
         compose.onNodeWithContentDescription("Shared table").performTouchInput {
             swipe(point, Offset(field.right - 24f, field.center.y), 160)
         }

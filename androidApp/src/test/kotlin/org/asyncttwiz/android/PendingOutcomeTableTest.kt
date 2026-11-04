@@ -5,8 +5,10 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
-import androidx.test.core.app.ApplicationProvider
+import arcanum.engine.setup.GameResult
+import arcanum.engine.state.PlayerId
 import org.asyncttwiz.protocol.*
+import org.asyncttwiz.protocol.game.ResultSuggestion
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -14,76 +16,45 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import kotlin.test.*
 
+/** A pending result suggestion on the table of a game played on engine state (R4b: [EngineLobbyFixture]). */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35], qualifiers = "w412dp-h892dp-port-mdpi")
 class PendingOutcomeTableTest {
     @get:Rule val compose = createComposeRule()
 
-    private fun drain(f: BasicTableFixture) {
+    private fun drain(f: EngineLobbyFixture) {
         repeat(4) { compose.runOnIdle { f.worker.drain() }; compose.waitForIdle() }
     }
 
     private fun pendingTable(opponent: Boolean) {
-        val f = BasicTableFixture()
-        val root = f.root.copy(board = f.root.board.copy(
-            cards = f.root.board.cards.map { card -> when (card.id) {
-                f.id(40) -> card.copy(containerId = f.container(PlayZone.BATTLEFIELD), covered = false,
-                    placement = PlayPlacement(BoardPosition(0, 0), f.id(600)))
-                f.id(41) -> card.copy(containerId = f.container(PlayZone.HAND), covered = false)
-                else -> card
-            } },
-            containers = f.root.board.containers.map { container -> container.copy(cards = when (container.id) {
-                f.container(PlayZone.BATTLEFIELD) -> listOf(f.id(40))
-                f.container(PlayZone.HAND) -> listOf(f.id(41))
-                f.container(PlayZone.LIBRARY) -> listOf(f.id(42), f.id(43))
-                else -> emptyList()
-            }) }))
+        val f = EngineLobbyFixture()
         try {
-            f.connect(root)
-            val command = f.data.command(PlayAction.SuggestResult(SuggestedResult.DRAW))
-            f.message(f.update(root, command, 1, if (opponent) f.other else f.actor))
-            val head = f.play.currentNodeId
-            HistoryPlaybackPreferences(ApplicationProvider.getApplicationContext(), f.actor).shown(f.game.id, head)
-            compose.setContent { MaterialTheme { TableScreen(f.lobby, f.actor, {}, false) } }
+            val by = if (opponent) f.other else f.me
+            f.connect(f.head { it.copy(suggestion = ResultSuggestion(PlayerId(by), GameResult.Draw)) })
+            compose.setContent { MaterialTheme { TableScreen(f.lobby, f.me, {}, false) } }
             drain(f)
             val resolve = if (opponent) "Decline result" else "Withdraw result"
-            compose.runOnIdle { assertTrue(f.lobby.history.playback!!.livePanelReveal) }
-            compose.onNodeWithContentDescription(resolve).assertDoesNotExist()
-            compose.mainClock.advanceTimeBy(1_000)
-            drain(f)
             compose.onNodeWithContentDescription(resolve).assertIsDisplayed().assertIsEnabled()
             compose.onAllNodes(isDialog()).assertCountEquals(0)
-            for (label in listOf("Table actions", "Undo", AutomatumStep.of(TableBoard.of(f.play)).label)) {
+            // TRN-049: every other game action is blocked while the suggestion waits (at the opening the step arrow's place
+            // is the opening's quick actions)
+            val play = assertNotNull(f.lobby.state.board)
+            for (label in listOf("Table actions", "Undo")) {
                 compose.onNodeWithContentDescription(label).assertIsNotEnabled().performClick()
             }
             compose.onNodeWithContentDescription("Choose phase/step", substring = true).assertIsNotEnabled().performClick()
-            val scene = TablePresentation.scene(f.game, TableBoard.of(f.play), f.actor, 412f, 892f, false)
-            val field = scene.items.single { it.cardId == f.id(40) }.visible.first().center
-            val hand = scene.items.single { it.cardId == f.id(41) }.visible.first().center
+            val scene = TablePresentation.scene(f.game, play, f.me, 412f, 892f, false)
+            val hand = scene.items.first { it.kind == TableItemKind.CARD && it.zone == PlayZone.HAND && it.owner == f.me }.visible.first().center
+            // The viewer's half of the battlefield, below the middle of the screen
+            val field = TablePoint(206f, 560f)
             compose.onRoot().performTouchInput {
-                doubleClick(Offset(field.x, field.y))
+                doubleClick(Offset(hand.x, hand.y))
                 swipe(Offset(hand.x, hand.y), Offset(field.x, field.y))
             }
+            drain(f)
             compose.onAllNodes(isDialog()).assertCountEquals(0)
             assertTrue(f.commands().isEmpty())
-            compose.onNodeWithContentDescription("Timeline mode").assertIsEnabled()
-                .performSemanticsAction(SemanticsActions.OnClick) { assertTrue(it()) }
-            drain(f)
-            assertEquals(HistoryMode.PLAYBACK, f.lobby.history.playback!!.position.mode)
-            compose.onNodeWithContentDescription(resolve).assertIsDisplayed().assertIsEnabled()
-            compose.onNodeWithContentDescription("Previous").assertIsEnabled()
-                .performSemanticsAction(SemanticsActions.OnClick) { assertTrue(it()) }
-            drain(f)
-            compose.onNodeWithContentDescription(resolve).assertDoesNotExist()
-            // HIS-019, HIS-020 (I-D56 §8): the timeline is view-only: holding Auto offers no branching
-            compose.onNodeWithContentDescription("Auto advance").assertIsEnabled()
-                .assert(SemanticsMatcher("offers no Continue playing from here") { node ->
-                    node.config.getOrElseNullable(SemanticsActions.CustomActions) { null }.orEmpty().none { it.label == "Continue playing from here" }
-                })
-            compose.onNodeWithContentDescription("Next").assertIsEnabled()
-                .performSemanticsAction(SemanticsActions.OnClick) { assertTrue(it()) }
-            drain(f)
-            compose.onNodeWithContentDescription(resolve).assertIsDisplayed().assertIsEnabled()
+            // Chat still works
             compose.onNodeWithContentDescription("Chat, 0 unread messages").assertIsEnabled()
                 .performSemanticsAction(SemanticsActions.OnClick) { assertTrue(it()) }
             compose.runOnIdle { assertTrue(f.lobby.state.chatOpen); f.lobby.closeChat() }
@@ -91,13 +62,31 @@ class PendingOutcomeTableTest {
             compose.onNodeWithContentDescription(resolve).performSemanticsAction(SemanticsActions.OnClick) { assertTrue(it()) }
             drain(f)
             compose.onNodeWithContentDescription(resolve).assertDoesNotExist()
-            val action = f.commands().single().action
-            if (opponent) assertIs<PlayAction.DeclineResult>(assertIs<GameAction.Play>(action).action)
-            else assertIs<PlayAction.WithdrawResult>(assertIs<GameAction.Play>(action).action)
-        } finally { f.lobby.close(); f.worker.drain() }
+            assertEquals(1, f.commands().size, "declining or withdrawing goes out as one action")
+            assertNull(f.lobby.state.board?.board?.resultSuggestion)
+        } finally { f.close() }
     }
 
-    // HIS-020, LOB-071, TRN-047, TRN-049, TRN-050
+    // HIS-020: a pending suggestion never blocks the timeline (the other player's keep is an event to look at)
+    @Test fun aPendingSuggestionNeverBlocksTheTimeline() {
+        val f = EngineLobbyFixture()
+        try {
+            f.connect(f.head(otherKept = true) { it.copy(suggestion = ResultSuggestion(PlayerId(f.other), GameResult.Draw)) })
+            assertNotNull(f.lobby.engineGame()).playToStop(); f.lobby.engineSent(); f.worker.drain()
+            compose.setContent { MaterialTheme { TableScreen(f.lobby, f.me, {}, false) } }
+            drain(f)
+            assertNotNull(f.lobby.state.board?.board?.resultSuggestion)
+            compose.onAllNodesWithContentDescription("Timeline mode").onFirst().assertIsEnabled()
+                .performSemanticsAction(SemanticsActions.OnClick) { assertTrue(it()) }
+            drain(f)
+            compose.onNodeWithContentDescription("Return to current").assertExists().performClick()
+            drain(f)
+            compose.onNodeWithContentDescription("Return to current").assertDoesNotExist()
+            assertTrue(f.commands().isEmpty())
+        } finally { f.close() }
+    }
+
+    // HIS-020, LOB-071, TRN-047, TRN-049 (on engine state, R4b)
     @Test fun authorCanWithdrawOnTableWhileOtherActionsAreLockedAndTimelineAndChatWork() = pendingTable(false)
     @Test fun opponentCanDeclineOnTableWhileOtherActionsAreLockedAndTimelineAndChatWork() = pendingTable(true)
 }

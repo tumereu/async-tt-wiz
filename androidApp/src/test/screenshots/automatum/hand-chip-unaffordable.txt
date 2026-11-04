@@ -1,1 +1,0 @@
-With only two Mountains, the raised Flash Surge's "+ Kicker {4}" chip is greyed (Alice's mana can't pay {4}{R}) beside the chosen "Cast {R}"; one Mountain is outlined in amber.

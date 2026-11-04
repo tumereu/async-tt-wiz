@@ -36,7 +36,7 @@ class LifecycleIntegrationTest {
         f.head(removed)
         assertNull(f.lobby.state.deletion); assertNull(f.lobby.state.selected)
         assertFalse(f.lobby.state.chatOpen); assertEquals(ChatPresentation(), f.lobby.state.chat)
-        assertNull(f.lobby.state.play); assertFalse(f.lobby.confirmGameDeletion())
+        assertNull(f.lobby.state.board); assertFalse(f.lobby.confirmGameDeletion())
         f.lobby.gameContext(active); f.lobby.requestGameDeletion(active)
         assertNull(f.lobby.state.gameContext); assertNull(f.lobby.state.deletion)
         assertFalse(f.lobby.offersGameDeletion(active))

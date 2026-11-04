@@ -20,20 +20,20 @@ class CombatStackPresentationTest {
         val drawings = CombatStackPresentation.stack(state.board, 28f, 40f).visible
         assertEquals(1, drawings.size)
         assertTrue(drawings.all { !it.card.tapped && it.bounds.width == 28f && it.bounds.height == 40f })
-        val scene = TablePresentation.scene(f.game, TableBoard.of(state), f.a, 412f, 892f, false)
+        val scene = TablePresentation.scene(f.game, tableBoard(state), f.a, 412f, 892f, false)
         assertTrue(scene.items.filter { it.zone == PlayZone.STACK && it.kind == TableItemKind.CARD }.all { !it.tapped })
         assertFalse(scene.items.single { it.cardId == f.id("attacker2") }.tapped)
         assertTrue(state.board.cards.single { it.id == f.source(f.a, "1/2").id }.tapped)
         assertTrue(state.board.cards.single { it.id == actual }.tapped) // Presentation does not mutate the source.
     }
     private fun populated(): PlayState {
-        val commands = CombatCommands()
+        val boards = CombatBoards(combatId(8))
         val state = combatState()
-        val declared = CombatStackController.declare(state, combatId(8), listOf(20, 21).map {
+        val declared = boards.declare(state, listOf(20, 21).map {
             CombatStackController.bind(state.board, combatId(it))
-        }, false, commands::command).prediction
-        return CombatStackController.place(declared, combatId(8), listOf(combatId(22), combatId(23)),
-            CombatDestination(declared.board.combat!!.id, CombatRole.BLOCKER, declared.board.combat!!.pairs.first().id), commands::command).prediction
+        }, false)
+        return boards.place(declared, listOf(combatId(22), combatId(23)),
+            CombatDestination(declared.board.combat!!.id, CombatRole.BLOCKER, declared.board.combat!!.pairs.first().id))
     }
 
     // CMB-008
@@ -75,8 +75,7 @@ class CombatStackPresentationTest {
     @Test fun closedVersusEmptyAreaAndAccessibleInsertionChoices() {
         val state = combatState()
         assertTrue(CombatStackPresentation.combat(state.board, 48f, 68f).destinations.isEmpty())
-        val commands = CombatCommands()
-        val opened = CombatStackController.single(state, combatId(8), PlayAction.Combat(CombatAction.Open), commands::command).prediction
+        val opened = CombatBoards(combatId(8)).apply(state, PlayAction.Combat(CombatAction.Open))
         val scene = CombatStackPresentation.combat(opened.board, 48f, 68f)
         // One empty lane: at least one card slot wide, and wide enough for its full name.
         assertEquals(maxOf(48f + 2 * CombatStackPresentation.slotMargin(48f), CombatStackPresentation.laneWidth(scene.lanes.single())),
@@ -141,7 +140,7 @@ class CombatStackPresentationTest {
             val card = TablePresentation.COMBAT_MIN_CARD
             val geometry = CombatStackPresentation.combat(state.board, card, card * 40f / 28f, state.definitions,
                 listOf(f.game.inviter, f.game.recipient).associate { it.accountId to it.username }, f.a)
-            val home = TablePresentation.scene(f.game, TableBoard.of(state), f.a, if (landscape) 892f else 412f,
+            val home = TablePresentation.scene(f.game, tableBoard(state), f.a, if (landscape) 892f else 412f,
                 if (landscape) 412f else 892f, landscape)
             val rows = home.combatDrops.filter { it.destination.insertion == CombatInsertion.APPEND && it.destination.pairId != null }
             val center = if (rows.isEmpty()) home.combatDrops.first().landing.x else
@@ -149,7 +148,7 @@ class CombatStackPresentationTest {
             assertEquals(home.world!!.viewport.center.x, center, .001f)
             if (rows.isNotEmpty()) assertEquals(geometry.width, rows.maxOf { it.bounds.right } - rows.minOf { it.bounds.x }, .001f)
             val camera = TableCamera(13f, 5f, 1.4f)
-            val moved = TablePresentation.scene(f.game, TableBoard.of(state), f.a, if (landscape) 892f else 412f,
+            val moved = TablePresentation.scene(f.game, tableBoard(state), f.a, if (landscape) 892f else 412f,
                 if (landscape) 412f else 892f, landscape, TableLayoutState(camera = camera))
             assertEquals(camera, moved.camera)
             val movedRows = moved.combatDrops.filter { it.destination.insertion == CombatInsertion.APPEND && it.destination.pairId != null }
@@ -161,10 +160,12 @@ class CombatStackPresentationTest {
 
     // STK-008
     @Test fun stackTopThreeDrawingAllOrderedContentsAndCountAtCommonScale() {
-        val commands = CombatCommands()
-        var state = combatState()
-        repeat(27) { state = CombatStackController.addEffects(state, combatId(8),
-            listOf(CombatStackController.bind(state.board, combatId(20))), commands::command).prediction }
+        // 27 Stack entries pointing at the same card (STK-001), newest on top
+        val state = combatState().let { s ->
+            val entries = (0 until 27).map { StackEffect(combatId(500 + it), combatId(20)) }
+            s.copy(board = s.board.copy(stackEffects = entries.reversed() + s.board.stackEffects,
+                containers = s.board.containers.map { if (it.zone == PlayZone.STACK) it.copy(cards = entries.reversed().map { e -> e.id } + it.cards) else it }))
+        }
         val scene = CombatStackPresentation.stack(state.board, 48f, 68f)
         assertEquals(27, scene.count)
         assertEquals(1, scene.visible.size)

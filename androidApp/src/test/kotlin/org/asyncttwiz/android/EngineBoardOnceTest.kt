@@ -115,8 +115,8 @@ class EngineBoardOnceTest {
             val values = assertNotNull(s.values)
             val hand = values.handPlays ?: continue
             assertEquals(HandPlays.of(stateOf(play), f.a, null).byCard, hand.byCard, "hand plays on ${play.nodeId}")
-            assertSame(hand, AutomatumBoards.handPlays(play, f.a) { emptyList() })
-            val cards = AutomatumBoards.cardPlays(play, f.a) { emptyList() }
+            assertSame(hand, AutomatumBoards.handPlays(play, f.a))
+            val cards = AutomatumBoards.cardPlays(play, f.a)
             assertEquals(cardPlaysOf(play).byCard, cards.byCard, "card plays on ${play.nodeId}")
             assertSame(cards, AutomatumBoards.cachedCardPlays(play, f.a), "once per board")
         }

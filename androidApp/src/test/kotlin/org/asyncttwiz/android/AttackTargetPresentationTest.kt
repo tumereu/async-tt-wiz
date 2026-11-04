@@ -18,12 +18,10 @@ internal fun attackTargetState(): PlayState {
     val initial = base.copy(definitions = base.definitions + definitions, board = base.board.copy(cards = base.board.cards + targets,
         containers = base.board.containers.map { if (it.id == combatId(10)) it.copy(cards = it.cards + combatId(81)) else it } +
             PlayContainer(combatId(70), PlayZone.BATTLEFIELD, combatId(8), targets.filter { it.containerId == combatId(70) }.map { it.id })))
-    val commands = CombatCommands()
-    val declared = CombatStackController.declare(initial, combatId(7), (20..22).map { CombatStackController.bind(initial.board, combatId(it)) },
-        false, commands::command).prediction
+    val boards = CombatBoards(combatId(7))
+    val declared = boards.declare(initial, (20..22).map { CombatStackController.bind(initial.board, combatId(it)) }, false)
     val area = declared.board.combat!!
-    return CombatStackController.place(declared, combatId(7), listOf(combatId(23)),
-        CombatDestination(area.id, CombatRole.BLOCKER, area.pairs.first().id), commands::command).prediction
+    return boards.place(declared, listOf(combatId(23)), CombatDestination(area.id, CombatRole.BLOCKER, area.pairs.first().id))
 }
 
 class AttackTargetPresentationTest {
@@ -36,7 +34,7 @@ class AttackTargetPresentationTest {
         for (landscape in listOf(false, true)) for (cardScale in listOf(.65f, 1f, 2f)) for (textScale in listOf(.5f, 1f, 2f)) {
             val appearance = CardAppearance(cardSize = cardScale, customizeText = true,
                 text = mapOf(CardTextScalePart.TITLE to textScale))
-            val scene = TablePresentation.scene(TableFixture.game, TableBoard.of(state), "a",
+            val scene = TablePresentation.scene(TableFixture.game, tableBoard(state), "a",
                 if (landscape) 892f else 412f, if (landscape) 412f else 892f, landscape, appearance = appearance)
             val lane = scene.combatLabels.single { it.cardId == "b/BATTLEFIELD/0" }
             // the title size of the area's cards, never smaller than COMBAT_MIN_CARD (combat review #12)
@@ -70,8 +68,9 @@ class AttackTargetPresentationTest {
         assertEquals(area.pairs.map { it.id }, state.board.combat!!.pairs.map { it.id })
         // Visual neighbors can differ from recorded order: all insertion gaps must still be usable.
         for (drop in scene.destinations.filter { it.destination.pairId == null }) {
-            val result = CombatStackController.place(state, combatId(7), listOf(combatId(24)), drop.destination, CombatCommands()::command)
-            assertEquals(1, result.commands.size)
+            val boards = CombatBoards(combatId(7))
+            boards.place(state, listOf(combatId(24)), drop.destination)
+            assertTrue(boards.applied.isNotEmpty())
         }
     }
 
@@ -164,7 +163,7 @@ class AttackTargetPresentationTest {
                 CombatPair("p0", attackers = listOf(CombatOccurrence("o0", "a/BATTLEFIELD/0"))),
                 CombatPair("p1", attackers = listOf(CombatOccurrence("o1", "a/BATTLEFIELD/1")), attackTarget = "b/BATTLEFIELD/1")))))
         for (landscape in listOf(false, true)) for (viewer in listOf("a", "b")) {
-            val scene = TablePresentation.scene(TableFixture.game, TableBoard.of(state), viewer,
+            val scene = TablePresentation.scene(TableFixture.game, tableBoard(state), viewer,
                 if (landscape) 900f else 412f, if (landscape) 412f else 820f, landscape)
             assertEquals(listOf(null, "b/BATTLEFIELD/0", "b/BATTLEFIELD/1"), scene.combatLabels.map { it.cardId })
             val empty = scene.combatLabels[1]
@@ -196,10 +195,10 @@ class AttackTargetPresentationTest {
         val game = TableFixture.game.let { g -> if (g.inviter.accountId == defender)
             g.copy(inviter = g.inviter.copy(avatar = Avatar("avatar-print", 1)))
             else g.copy(recipient = g.recipient.copy(avatar = Avatar("avatar-print", 1))) }
-        val lane = TablePresentation.scene(game, TableBoard.of(state), "a", 412f, 892f, false).combatLabels.single()
+        val lane = TablePresentation.scene(game, tableBoard(state), "a", 412f, 892f, false).combatLabels.single()
         assertEquals(defender, lane.accountId)
         assertEquals(org.asyncttwiz.storage.ArtworkReference("avatar-print", 1, "avatar-v1", "art_crop"), lane.artwork)
-        val plain = TablePresentation.scene(TableFixture.game, TableBoard.of(state), "a", 412f, 892f, false).combatLabels.single()
+        val plain = TablePresentation.scene(TableFixture.game, tableBoard(state), "a", 412f, 892f, false).combatLabels.single()
         assertNull(plain.accountId)
         assertTrue(plain.label.startsWith("→ "))
     }
@@ -236,10 +235,10 @@ class AttackTargetPresentationTest {
         assertEquals(listOf(null, combatId(80), combatId(81)), attackerDrops.map { it.destination.attackTarget })
         assertEquals(long.lanes.map { it.bounds.x + it.bounds.width / 2 }, attackerDrops.map { it.landing.x })
         for (drop in long.destinations) {
-            val result = CombatStackController.place(empty, combatId(7), listOf(combatId(24)), drop.destination, CombatCommands()::command)
-            assertEquals(drop.destination.attackTarget, result.prediction.board.combat!!.pairs.single().attackTarget)
+            val result = CombatBoards(combatId(7)).place(empty, listOf(combatId(24)), drop.destination)
+            assertEquals(drop.destination.attackTarget, result.board.combat!!.pairs.single().attackTarget)
         }
-        assertEquals(listOf(null, combatId(80), combatId(81)), attackTargetChoices(TableBoard.of(original), mapOf(combatId(8) to "Bob"), combatId(7)).map { it.first })
+        assertEquals(listOf(null, combatId(80), combatId(81)), attackTargetChoices(tableBoard(original), mapOf(combatId(8) to "Bob"), combatId(7)).map { it.first })
     }
 
     // CMB-012
@@ -263,15 +262,15 @@ class AttackTargetPresentationTest {
         val names = mapOf(combatId(8) to "Bob")
         for (viewer in listOf(combatId(7), combatId(8))) {
             assertEquals(expected, CombatStackPresentation.combat(state.board, 48f, 68f, state.definitions, names, viewer).lanes.map { it.cardId })
-            assertEquals(expected, attackTargetChoices(TableBoard.of(state), names, viewer).map { it.first })
+            assertEquals(expected, attackTargetChoices(tableBoard(state), names, viewer).map { it.first })
         }
-        assertEquals(listOf("Bob", "Target 0", "Target 0", "Target 1", "Target 1"), attackTargetChoices(TableBoard.of(state), names, combatId(7)).map { it.second })
+        assertEquals(listOf("Bob", "Target 0", "Target 0", "Target 1", "Target 1"), attackTargetChoices(tableBoard(state), names, combatId(7)).map { it.second })
         // The opponent's Siege, a Battlemage and creatures are never targets, and the reducer agrees.
         for (id in listOf(combatId(83), combatId(86), combatId(82))) assertFalse(CombatStackRules.canAttack(state, id))
         for (id in expected.filterNotNull()) assertTrue(CombatStackRules.canAttack(state, id))
         // On the other player's turn the roles swap: their walkers are safe, the old attacker's Siege is protected.
         val swapped = state.copy(board = state.board.copy(turn = state.board.turn.copy(accountId = combatId(8))))
-        assertEquals(listOf(null, combatId(83)), attackTargetChoices(TableBoard.of(swapped), emptyMap(), combatId(7)).map { it.first })
+        assertEquals(listOf(null, combatId(83)), attackTargetChoices(tableBoard(swapped), emptyMap(), combatId(7)).map { it.first })
     }
 
     // CMB-012
@@ -283,12 +282,12 @@ class AttackTargetPresentationTest {
                     card.copy(covered = true, explicitlyCovered = true, knownToAll = known) else card
             }))
             for (viewer in listOf(combatId(7), combatId(8))) {
-                assertEquals(listOf(null to "Bob"), attackTargetChoices(TableBoard.of(hidden), mapOf(combatId(8) to "Bob"), viewer))
+                assertEquals(listOf(null to "Bob"), attackTargetChoices(tableBoard(hidden), mapOf(combatId(8) to "Bob"), viewer))
             }
         }
         // Legacy covered flags in public zones are not explicit face-down state.
         val legacy = original.copy(board = original.board.copy(cards = original.board.cards.map { it.copy(covered = true) }))
-        assertEquals(listOf(null, combatId(80), combatId(81)), attackTargetChoices(TableBoard.of(legacy), emptyMap(), combatId(7)).map { it.first })
+        assertEquals(listOf(null, combatId(80), combatId(81)), attackTargetChoices(tableBoard(legacy), emptyMap(), combatId(7)).map { it.first })
     }
 
     // CMB-013
@@ -313,7 +312,7 @@ class AttackTargetPresentationTest {
                         cards = (container.cards - targetId) + if (container.id == destination) listOf(targetId) else emptyList()) }))
                 for (viewer in listOf("a", "b")) for (landscape in listOf(false, true)) {
                     val visible = !faceDown && (known || zone == PlayZone.BATTLEFIELD || zone == PlayZone.HAND && viewer == "b")
-                    val scene = TablePresentation.scene(TableFixture.game, TableBoard.of(state), viewer,
+                    val scene = TablePresentation.scene(TableFixture.game, tableBoard(state), viewer,
                         if (landscape) 900f else 412f, if (landscape) 412f else 820f, landscape)
                     val lane = scene.combatLabels.single { it.cardId == targetId }
                     assertEquals(if (visible) "Secret face" else "→ Face-down card", lane.label)
@@ -329,42 +328,37 @@ class AttackTargetPresentationTest {
         val original = attackTargetState()
         val pairs = original.board.combat!!.pairs
         val selected = pairs.take(2).flatMap { it.attackers }.map { it.id }
-        val commands = CombatCommands()
-        val plan = CombatStackController.attackTarget(original, combatId(7), selected, combatId(80), commands::command)
-        val batch = assertIs<GameAction.PlayBatch>(plan.commands.single().action)
-        assertEquals(2, batch.actions.size)
-        assertTrue(plan.prediction.board.combat!!.pairs.take(2).all { it.attackTarget == combatId(80) })
-        assertEquals(pairs.map { it.blockers }, plan.prediction.board.combat!!.pairs.map { it.blockers })
+        val retarget = CombatBoards(combatId(7))
+        val plan = retarget.attackTarget(original, selected, combatId(80))
+        assertEquals(2, retarget.applied.size)
+        assertTrue(plan.board.combat!!.pairs.take(2).all { it.attackTarget == combatId(80) })
+        assertEquals(pairs.map { it.blockers }, plan.board.combat!!.pairs.map { it.blockers })
         val destination = CombatDestination(original.board.combat!!.id, CombatRole.ATTACKER, pairs.last().id)
-        val drag = CombatStackController.place(plan.prediction, combatId(7), selected, destination, commands::command)
-        assertEquals(2, assertIs<GameAction.PlayBatch>(drag.commands.single().action).actions.size)
-        assertEquals(original.board.combat, drag.prediction.board.combat)
-        assertEquals(original.board.cards, drag.prediction.board.cards)
+        val dragging = CombatBoards(combatId(7))
+        val drag = dragging.place(plan, selected, destination)
+        assertEquals(2, dragging.applied.size)
+        assertEquals(original.board.combat, drag.board.combat)
+        assertEquals(original.board.cards, drag.board.cards)
     }
 
     // CMB-015
     @Test fun crossLaneBlockerRowDropMovesAttackerIdentityAndLeavesOriginalBlockersInPlace() {
         val original = attackTargetState()
-        val commands = CombatCommands()
         val pairs = original.board.combat!!.pairs
         val attacker = pairs.first().attackers.single()
-        val targeted = CombatStackController.attackTarget(original, combatId(7), listOf(attacker.id), combatId(80), commands::command).prediction
+        val targeted = CombatBoards(combatId(7)).attackTarget(original, listOf(attacker.id), combatId(80))
         val destination = CombatDestination(targeted.board.combat!!.id, CombatRole.BLOCKER, pairs.last().id)
         assertTrue(CombatStackController.retargetDrop(targeted.board, listOf(attacker.id), destination).isEmpty())
-        val plan = CombatStackController.place(targeted, combatId(7), listOf(attacker.id), destination, commands::command)
-        val batch = assertIs<GameAction.PlayBatch>(plan.commands.single().action)
-        assertIs<CombatAction.Place>(assertIs<PlayAction.Combat>(batch.actions.single()).action)
-        val result = plan.prediction.board.combat!!
+        val placing = CombatBoards(combatId(7))
+        val plan = placing.place(targeted, listOf(attacker.id), destination)
+        assertIs<CombatAction.Place>(assertIs<PlayAction.Combat>(placing.applied.single()).action)
+        val result = plan.board.combat!!
         val origin = result.pairs.single { it.id == pairs.first().id }
         assertTrue(origin.attackers.isEmpty())
         assertEquals(pairs.first().blockers, origin.blockers)
         assertEquals(combatId(80), origin.attackTarget)
         assertEquals(pairs.last().copy(blockers = pairs.last().blockers + attacker, blocked = true), result.pairs.last())
-        assertEquals(targeted.board.cards, plan.prediction.board.cards)
-        val change = GameplayRules.change(targeted, combatId(7), plan.commands.single().playMembers().single())
-        assertNull(change.reason)
-        assertEquals(change, GameplayHistory.replay(targeted, change.mutation!!))
-        assertEquals(plan.prediction, change.state)
+        assertEquals(targeted.board.cards, plan.board.cards)
     }
 
 }

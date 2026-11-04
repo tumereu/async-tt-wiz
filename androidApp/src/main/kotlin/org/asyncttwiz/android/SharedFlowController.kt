@@ -13,18 +13,16 @@ import arcanum.engine.state.TargetRef
 import org.asyncttwiz.automatum.AutomatumLog
 import org.asyncttwiz.automatum.CombatFlow
 import org.asyncttwiz.automatum.CombatRefused
-import org.asyncttwiz.automatum.EngineBatch
 import org.asyncttwiz.automatum.EngineRun
 import org.asyncttwiz.automatum.ManaPicks
 import org.asyncttwiz.automatum.SharedFlow
 import org.asyncttwiz.automatum.StepFlow
-import org.asyncttwiz.automatum.Unmappable
 import org.asyncttwiz.protocol.*
 
 /**
  * Priority, responding, resolution, triggers and the steps of the turn through Automatum (integration spec §3 I2b, I3)
- * as shared flows (I-D11): each step goes out as its own automated batch as it happens and the open decision is kept in
- * the game, so both players follow it and either may answer (D11). The player holding priority with something on the
+ * as shared flows (I-D11): each step goes out as the viewer's own inputs ([engineSend]) and the open decision is kept in
+ * the game, so both players follow it. The player holding priority with something on the
  * Stack is offered "Respond" (cast from the hand, [CastController]) or "Let it resolve" ([pass]); the step button passes
  * on an empty Stack ([step], TRN-057); the deciding player answers in the panel; the other player may pass or choose for
  * them after confirming. While a decision is open nothing else changes the game (D32); looking stays free and the eye
@@ -36,23 +34,17 @@ import org.asyncttwiz.protocol.*
 internal class SharedFlowController(
     private val viewer: String,
     private val current: () -> TableBoard?,
-    private val send: ((GameAction.PlayBatch, String) -> Boolean)?,
-    private val tags: () -> List<MtgTag?>,
     private val fail: (String?) -> Unit,
     private val work: AutomatumWork = AutomatumWork.Inline,
-    /** "Respond" was tapped (#2: it holds the viewer's pause, [PauseController.holdForReaction]). */
-    private val onRespond: () -> Unit = {},
     /** The pictures of tokens a flow makes (§4.6). */
     private val tokenArt: org.asyncttwiz.automatum.TokenArt = org.asyncttwiz.automatum.TokenArt.None,
     /** "Autotap mana sources" (I-D47): the mana of costs to attack or block is paid by itself as they are declared
      * (CMB-037). */
     private val autotap: () -> Boolean = { true },
-    /** I-D56 step C: a game on engine state sends a flow's step as the player's own inputs (null: sent; else why not);
-     * its device answers the randomness and makes the passes that follow (no batch is planned). */
+    /** I-D56 step C: sends a flow's step as the player's own inputs (null: sent; else why not); the device answers the
+     * randomness and makes the passes that follow (null: Automatum isn't available here). */
     private val engineSend: ((List<arcanum.engine.input.Input>) -> String?)? = null,
 ) : FlowQuestions {
-    /** Whether this table is a game on engine state ([engineSend]). */
-    val onEngine: Boolean get() = engineSend != null
     /** The flow of the shown board, null until worked out (or when there is none). */
     var view by mutableStateOf<SharedFlow?>(null); private set
     /** The eye (I-D10): the panel is hidden so the board can be looked at. */
@@ -94,7 +86,7 @@ internal class SharedFlowController(
     fun toggleHidden() { hidden = !hidden }
 
     /** "Respond": the prompt shrinks to a bar while the player casts from the hand. */
-    fun respond(play: TableBoard) { onRespond(); responding = play.nodeId; hidden = false }
+    fun respond(play: TableBoard) { responding = play.nodeId; hidden = false }
     fun stopResponding() { responding = null }
 
     /** "Choose for them" confirmed (D11): the viewer answers the other player's open decision. */
@@ -112,45 +104,16 @@ internal class SharedFlowController(
     }
 
     /**
-     * I-D41 (STK-037, STK-038): the pause on the board [node] is over: [holder] passes priority, then Automatum goes on, as
-     * one batch from this device (the one whose step made the pause, or the holder's own). Quiet: nothing is said when it
-     * can't be sent (the table moved on, another answer is being worked out). False when nothing was begun (busy, the
-     * table moved on); [sent] then says, once the pass is worked out, whether it went out (finalreview-combat #6: with
-     * the work off the main thread the return value can't tell).
-     */
-    fun autoPass(holder: String, node: String, sent: (Boolean) -> Unit = {}): Boolean {
-        val play = current()?.takeIf { it.nodeId == node } ?: return false
-        if (play.flowOpen) return false
-        return sendCall(play, quiet = true, sent = sent) { flow ->
-            if (flow.holder != holder) throw Refused(null)
-            flow.pass(holder)
-        }
-    }
-
-    /** I-D40: a step the viewer asked for that would act for the other player, shown for confirmation ([confirmActing]);
-     * null when none waits. */
-    var acting by mutableStateOf<ActingFor?>(null); private set
-
-    /**
      * The step button, the step arrow and the phase dialog with Automatum on (TRN-057): the player holding priority
      * passes [until] as far as asked, whoever pressed it (TRN-004, D11), then Automatum goes on to the next point where a
      * player can act. With attackers or blockers awaited it declares what the combat lanes hold ("End turn" and a step
      * after combat attack with nothing instead). With something on the Stack [StepFlow.Until.Pass] is "Resolve": the
      * holder passes as with Let it resolve (I-D46 d); anything further is refused (STK-029), as while a choice is open.
-     * When that would act for the other player nothing is sent: [acting] asks the viewer first (I-D40) and
-     * [confirmActing] goes on ([confirmed]: the player the viewer agreed to act for).
      */
-    fun step(until: StepFlow.Until, confirmed: String? = null): Boolean {
+    fun step(until: StepFlow.Until): Boolean {
         val play = current() ?: return false
         stepRefusal(play, until)?.let { fail(it); return false }
-        acting = null
-        // Owner playtest 2026-11-03 #6: the arrow's tap planned in the background ([plan]) goes out at once
-        if (until == StepFlow.Until.Pass) stepPlan?.takeIf { it.board === play.board }?.let { return sendPlanned(it, confirmed) }
-        return sendCall(play) { flow ->
-            val pressed = pressed(play, flow, until)
-            pressed.ask?.takeIf { it.player != confirmed }?.let { throw Ask(it) }
-            pressed.call()
-        }
+        return sendCall(play) { flow -> pressed(play, flow, until) }
     }
 
     /** Why the step button can't act on [play] at all (nothing is worked out then), or null. */
@@ -164,125 +127,23 @@ internal class SharedFlowController(
         return null
     }
 
-    /** What a press of the step button does on [play]'s flow: who acts ([actor]), what it is ([kind]), whether it acts
-     * for the other player ([ask], I-D40) and the engine call it makes ([call], made when asked for). */
-    private class Pressed(val actor: String, val kind: Kind, val ask: ActingFor?, val call: () -> EngineRun) {
-        sealed interface Kind {
-            data object Resolve : Kind
-            data object Pass : Kind
-            data class Attack(val count: Int) : Kind
-            data class Block(val count: Int) : Kind
-        }
-    }
-
-    private fun pressed(play: TableBoard, flow: SharedFlow, until: StepFlow.Until): Pressed {
+    /** The engine call a press of the step button makes on [play]'s flow. */
+    private fun pressed(play: TableBoard, flow: SharedFlow, until: StepFlow.Until): EngineRun {
         if (CombatStackRules.stack(play.board).cards.isNotEmpty()) {
             val holder = flow.priority ?: throw Refused(STACK_WAITING)
-            val ask = if (holder != viewer) ActingFor(play.board, holder, until, ActingFor.Kind.Pass(priority = true)) else null
-            return Pressed(holder, Pressed.Kind.Resolve, ask) { flow.pass(holder) }
+            return flow.pass(holder)
         }
         val holder = flow.holder
         val declaring = if (holder == null) flow.declaring else null
         val active = flow.state.turn.active.value
-        val actor = holder ?: declaring ?: throw Refused(NOTHING_TO_PASS)
+        if (holder == null && declaring == null) throw Refused(NOTHING_TO_PASS)
         val declares = holder == null && !(declaring == active && until != StepFlow.Until.Pass)
-        val attackers = CombatFlow.lanes(play.board.combat).first.size
-        val blockers = CombatFlow.lanes(play.board.combat).second.map { it.blockerId }.distinct().size
-        val kind = when {
-            !declares -> Pressed.Kind.Pass
-            declaring == active -> Pressed.Kind.Attack(attackers)
-            else -> Pressed.Kind.Block(blockers)
-        }
-        // I-D40: acting for the other player asks first
-        val ask = if (actor == viewer) null else ActingFor(play.board, actor, until, when (kind) {
-            Pressed.Kind.Pass, Pressed.Kind.Resolve -> ActingFor.Kind.Pass(priority = holder != null)
-            is Pressed.Kind.Attack -> ActingFor.Kind.DeclareAttackers(attackers)
-            is Pressed.Kind.Block -> ActingFor.Kind.DeclareBlockers(blockers)
-        })
-        return Pressed(actor, kind, ask) {
-            when {
-                holder != null -> flow.step(holder, until)
-                !declares -> flow.step(active, until)
-                else -> flow.declare(autotap())
-            }
+        return when {
+            holder != null -> flow.step(holder, until)
+            !declares -> flow.step(active, until)
+            else -> flow.declare(autotap())
         }
     }
-
-    /**
-     * Owner playtest 2026-11-03 #1, #6: what a tap of the step arrow (Next, [StepFlow.Until.Pass]) does on [board], worked
-     * out once in the background from the very engine call the tap sends. [step] is its words, read from where that call
-     * ends (null when it can't go on: the board's own words then, [AutomatumStep.of]), so the arrow says exactly what
-     * happens; the tap then sends the planned batch at once and its local prediction shows it.
-     */
-    class StepPlan internal constructor(val board: BoardState, internal val step: AutomatumStep?, internal val ask: ActingFor?,
-        private val outcome: Any) {
-        internal val planned: Any get() = outcome
-    }
-
-    /** The step arrow's plan of the latest board asked for ([plan]). */
-    var stepPlan by mutableStateOf<StepPlan?>(null); private set
-    private var planning: BoardState? = null
-
-    /**
-     * The step arrow's plan on [play]'s board (the one the viewer acts on), or null while it is worked out on [work] (begun
-     * once per board; [stepPlan] then changes, so the arrow recomposes with it) or when the step arrow can't act there.
-     */
-    fun plan(play: TableBoard): StepPlan? {
-        stepPlan?.takeIf { it.board === play.board }?.let { return it }
-        if (send == null || busy || planning === play.board || stepRefusal(play, StepFlow.Until.Pass) != null) return null
-        planning = play.board
-        work.run({ makePlan(play) }) { plan ->
-            if (planning === plan.board) planning = null
-            if (current()?.board === plan.board) stepPlan = plan
-        }
-        return stepPlan?.takeIf { it.board === play.board }
-    }
-
-    private fun makePlan(play: TableBoard): StepPlan {
-        var step: AutomatumStep? = null
-        var ask: ActingFor? = null
-        val outcome = outcome(play) { flow ->
-            val pressed = pressed(play, flow, StepFlow.Until.Pass)
-            ask = pressed.ask
-            pressed.call().also { call ->
-                step = when (val kind = pressed.kind) {
-                    Pressed.Kind.Resolve -> AutomatumStep.Resolve
-                    is Pressed.Kind.Attack -> AutomatumStep.Attack(kind.count)
-                    is Pressed.Kind.Block -> AutomatumStep.Block(kind.count)
-                    Pressed.Kind.Pass -> AutomatumStep.of(StepFlow.landing(flow.state, call.working, pressed.actor))
-                }
-            }
-        }
-        return StepPlan(play.board, step.takeIf { outcome !is Outcome.Fail }, ask, outcome)
-    }
-
-    /** Sends [plan] at once, asking first when it acts for the other player and [confirmed] isn't that player (I-D40). */
-    private fun sendPlanned(plan: StepPlan, confirmed: String?): Boolean {
-        if (busy) return false
-        val outcome = plan.planned as Outcome
-        val route = send ?: return false
-        plan.ask?.takeIf { it.player != confirmed && outcome is Outcome.Send }?.let { asked ->
-            fail(null)
-            acting = ActingFor(asked.board, asked.player, asked.until, asked.kind) { player -> sendPlanned(plan, player) }
-            return false
-        }
-        stepPlan = null
-        return deliver(outcome, fail, route)
-    }
-
-    /** I-D40: the viewer confirmed [acting]: the step goes on for that player, unless the table changed meanwhile. */
-    fun confirmActing(): Boolean {
-        val asked = acting ?: return false
-        acting = null
-        if (current()?.board !== asked.board) { fail("The table changed: try again."); return false }
-        return asked.go?.invoke(asked.player) ?: step(asked.until, confirmed = asked.player)
-    }
-
-    /** I-D40: asks the viewer to confirm [asked], a step for the other player made by another route (No blocks). */
-    fun ask(asked: ActingFor) { fail(null); acting = asked }
-
-    /** I-D40: the viewer cancelled [acting]; nothing is sent. */
-    fun cancelActing() { acting = null }
 
     override fun answer(answer: Answer): Boolean = answerWith(answer, emptyList())
 
@@ -392,59 +253,42 @@ internal class SharedFlowController(
 
     /** The flow of [play]'s board: the shown one, or worked out now when the board moved on (blocking: on [work]). */
     private fun flowOf(play: TableBoard): SharedFlow =
-        view?.takeIf { it.board === play.board } ?: AutomatumBoards.sharedFlow(play, tags()) ?: throw Refused(TAKE_OVER)
+        view?.takeIf { it.board === play.board } ?: AutomatumBoards.sharedFlow(play) ?: throw Refused(TAKE_OVER)
 
     /** A refusal with its message for the player (null: none). */
     private class Refused(message: String?) : Exception(message)
 
-    /** I-D40: the call would act for the other player; the viewer is asked first. */
-    private class Ask(val acting: ActingFor) : Exception()
-
     private sealed interface Outcome {
-        class Send(val board: BoardState, val batch: GameAction.PlayBatch, val requestId: String) : Outcome
         class Fail(val message: String?) : Outcome
-        class Confirm(val acting: ActingFor) : Outcome
         data object Empty : Outcome
-        /** I-D56 step C: the viewer's own [inputs] made on [board], for a game on engine state. */
+        /** I-D56 step C: the viewer's own [inputs] made on [board]. */
         class Engine(val board: BoardState, val inputs: List<arcanum.engine.input.Input>) : Outcome
     }
 
     /**
-     * Works one engine call out on [work] (SYS-025) from [play]'s flow and sends it as one automated batch (I-D11,
-     * SYS-010) planned on [play], unless the board moved on meanwhile. True when it was taken (with
-     * [AutomatumWork.Inline]: what the result says). [sent]: whether a batch went out, once known (on the main thread).
+     * Works one engine call out on [work] (SYS-025) from [play]'s flow and sends the viewer's own inputs of it, unless
+     * the board moved on meanwhile. True when it was taken (with [AutomatumWork.Inline]: what the result says).
      */
-    private fun sendCall(play: TableBoard, quiet: Boolean = false, sent: (Boolean) -> Unit = {}, perform: (SharedFlow) -> EngineRun): Boolean {
-        val fail: (String?) -> Unit = if (quiet) { _ -> } else this.fail
-        val route = send ?: if (engineSend != null) { _, _ -> false } else run { fail("Automatum isn't available here."); return false }
+    private fun sendCall(play: TableBoard, perform: (SharedFlow) -> EngineRun): Boolean {
+        val route = engineSend ?: run { fail("Automatum isn't available here."); return false }
         if (busy) return false
         busy = true
         var result = true
         work.run({ outcome(play, perform) }) { outcome ->
             busy = false
-            result = deliver(outcome, fail, route, sent)
+            result = deliver(outcome, route)
         }
         return result
     }
 
-    /** Works one engine call out from [play]'s flow ([perform]) and plans it as one automated batch (I-D11, SYS-010). */
+    /** Works one engine call out from [play]'s flow ([perform]): the viewer's own inputs of it. */
     private fun outcome(play: TableBoard, perform: (SharedFlow) -> EngineRun): Outcome = try {
         val call = perform(flowOf(play))
         // I-D56 step C: only the viewer's own inputs go out; their device folds what follows by itself (the other player's
         // points are assumed, automatic or waited for, never passed for them)
-        if (engineSend != null) {
-            val own = call.inputs.takeWhile { it !is arcanum.engine.input.Input.MandatoryLoop &&
-                !(it is arcanum.engine.input.Input.PassPriority && it.player.value != viewer) }
-            if (own.isEmpty()) Outcome.Empty else Outcome.Engine(play.board, own)
-        } else {
-            val requestId = DeviceRandom.uuid()
-            val command = GameCommand(requestId, GameScope(play.gameId, playId = play.playId),
-                GameAction.PlayBatch(listOf(PlayAction.PassAttention)), DeviceRandom.uuid(), "1")
-            val plan = EngineBatch.plan(call, viewer, command, tokenArt)
-            if (plan.actions.isEmpty()) Outcome.Empty else Outcome.Send(play.board, plan.action, requestId)
-        }
-    } catch (ask: Ask) {
-        Outcome.Confirm(ask.acting)
+        val own = call.inputs.takeWhile { it !is arcanum.engine.input.Input.MandatoryLoop &&
+            !(it is arcanum.engine.input.Input.PassPriority && it.player.value != viewer) }
+        if (own.isEmpty()) Outcome.Empty else Outcome.Engine(play.board, own)
     } catch (refused: Refused) {
         Outcome.Fail(refused.message).also { refused.message?.let { AutomatumLog.refusal(play.gameId, "shared flow", it) } }
     } catch (refused: CombatRefused) {
@@ -454,39 +298,24 @@ internal class SharedFlowController(
         AppLog.info("automatum", "Answer refused: ${problem.message?.take(200)}")
         AutomatumLog.refusal(play.gameId, "shared flow", problem.message.orEmpty())
         Outcome.Fail(CastController.NOT_ALLOWED)
-    } catch (problem: Unmappable) {
-        AppLog.warn("automatum", "Shared flow step couldn't be planned: ${problem.message?.take(200)}")
-        Outcome.Fail("Automatum couldn't send that.")
     } catch (problem: Exception) {
         AppLog.warn("automatum", "Shared flow couldn't go on: ${problem::class.java.simpleName}: ${problem.message?.take(200)}")
         AutomatumLog.refusal(play.gameId, "shared flow", "${problem::class.java.simpleName}: ${problem.message}")
         Outcome.Fail("Automatum couldn't go on from here.")
     }
 
-    /** [outcome] on the main thread: its batch goes out unless the board moved on meanwhile; [sent] says whether one did.
-     * True when it was taken. */
-    private fun deliver(outcome: Outcome, fail: (String?) -> Unit, route: (GameAction.PlayBatch, String) -> Boolean,
-        sent: (Boolean) -> Unit = {}): Boolean {
-        val result = when (outcome) {
-            is Outcome.Fail -> { outcome.message?.let(fail); false }
-            is Outcome.Confirm -> { fail(null); acting = outcome.acting.takeIf { current()?.board === it.board }; false }
-            Outcome.Empty -> { fail(null); picked = emptyList(); true }
-            is Outcome.Send -> when {
-                current()?.board !== outcome.board -> { fail("The table changed: try again."); false }
-                !route(outcome.batch, outcome.requestId) -> { fail("Action could not be queued. Reconnect and try again."); false }
-                else -> { fail(null); picked = emptyList(); true }
-            }
-            is Outcome.Engine -> when {
-                current()?.board !== outcome.board -> { fail("The table changed: try again."); false }
-                else -> when (val refusal = engineSend!!(outcome.inputs)) {
-                    null -> { fail(null); picked = emptyList(); true }
-                    org.asyncttwiz.protocol.game.GameDevice.REVEALS_HIDDEN -> { fail(CastController.WAIT_TO_CATCH_UP); false }
-                    else -> { fail(CastController.NOT_ALLOWED); false }
-                }
+    /** [outcome] on the main thread: its inputs go out unless the board moved on meanwhile. True when it was taken. */
+    private fun deliver(outcome: Outcome, route: (List<arcanum.engine.input.Input>) -> String?): Boolean = when (outcome) {
+        is Outcome.Fail -> { outcome.message?.let(fail); false }
+        Outcome.Empty -> { fail(null); picked = emptyList(); true }
+        is Outcome.Engine -> when {
+            current()?.board !== outcome.board -> { fail("The table changed: try again."); false }
+            else -> when (route(outcome.inputs)) {
+                null -> { fail(null); picked = emptyList(); true }
+                org.asyncttwiz.protocol.game.GameDevice.REVEALS_HIDDEN -> { fail(CastController.WAIT_TO_CATCH_UP); false }
+                else -> { fail(CastController.NOT_ALLOWED); false }
             }
         }
-        sent((outcome is Outcome.Send || outcome is Outcome.Engine) && result)
-        return result
     }
 
     private fun targetOf(flow: SharedFlow, decision: Decision.Targets, item: TableItem): TargetRef? {
@@ -515,19 +344,3 @@ internal class SharedFlowController(
     }
 }
 
-/**
- * I-D40: a step a player asked for that acts for the other [player] (who holds priority or must declare), waiting for
- * the asking player's confirmation ([SharedFlowController.acting]); planned on [board], so it goes on only while the
- * table is still that board. [go] does it once confirmed (given the player agreed to); null: the step button's step.
- */
-internal class ActingFor(val board: BoardState, val player: String, val until: StepFlow.Until, val kind: Kind,
-    val go: ((String) -> Boolean)? = null) {
-    sealed interface Kind {
-        /** [player] passes as far as [until] asks: holding [priority], or else with their attack awaited (declared empty). */
-        data class Pass(val priority: Boolean) : Kind
-        /** [player]'s attack is declared as the combat lanes hold it: [count] attackers. */
-        data class DeclareAttackers(val count: Int) : Kind
-        /** [player]'s blocks are declared as the combat lanes hold them: [count] blockers. */
-        data class DeclareBlockers(val count: Int) : Kind
-    }
-}

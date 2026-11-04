@@ -151,7 +151,7 @@ internal fun WaitingLobby(controller: LobbyController, accountId: String, hambur
         val reconnecting = state.detail.id in state.reconnectingGames
         var dismissedReconnect by remember(state.detail.id, reconnecting) { mutableStateOf(false) }
         TableScreen(controller, accountId, hamburger, landscape)
-        if (reconnecting && state.play != null && !dismissedReconnect)
+        if (reconnecting && state.board != null && !dismissedReconnect)
             ReconnectingDialog(controller::back, dismiss = { dismissedReconnect = true })
         return
     }

@@ -1,1 +1,0 @@
-Bob tapped Hold during his pause: the bar is gone and the respond panel reads "Holding — take your time" with Respond (the step arrow resolves); he stays at that point as long as he likes.

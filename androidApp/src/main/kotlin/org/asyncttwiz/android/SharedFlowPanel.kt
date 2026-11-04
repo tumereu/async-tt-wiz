@@ -35,12 +35,11 @@ import org.asyncttwiz.protocol.*
 
 /**
  * Automatum's shared flows on the table (integration spec §3 I2b, I-D11): by the Stack, in the cast panel's style,
- * - the player holding priority with something on the Stack: "Alice cast Storm Spark" with Respond (Respond shrinks it to
- *   a bar over the hand while they cast a response, ZON-004); letting it resolve is the step arrow's "Resolve" (UI review
- *   round 2 #1: one control goes on);
  * - the player who decides an open choice of a resolution or a trigger: the choice, its prompt the card's sentence;
- * - the other player: "Bob is choosing · …" with "Choose for them" after a confirmation (D11), or "Bob may respond …"
- *   (passing for them is the step arrow's, asked first, I-D40); cards only that player may see stay hidden (I-D27).
+ * - the other player's choice while the viewer holds priority: "Bob is choosing · …" with "Choose for them" after a
+ *   confirmation (D11); cards only that player may see stay hidden (I-D27).
+ * Nothing covers the board while the viewer holds priority with something on the Stack (STK-027), and the waiting bar
+ * ([EngineAsyncHost]) says what the other player decides (I-D56 §14).
  * The eye hides the panel to look at the board (I-D10). Nothing shows while a cast is open (its own panel does).
  */
 @Composable
@@ -51,30 +50,13 @@ internal fun SharedFlowHost(toolkit: TableToolkitController, play: TableBoard, s
     LaunchedEffect(IdentityKey(play.board), shown) {
         if (!shown) { flows.show(null); return@LaunchedEffect }
         val ready = AutomatumBoards.cachedFlow(play)
-        // SYS-025: the history's tags are walked and the flow worked out off the main thread (with the open decision and
-        // its early answer, I-D33)
+        // SYS-025: the flow worked out off the main thread (with the open decision and its early answer, I-D33)
         val next = if (ready != null && play.board.engineRecords.none { it.kind == EngineRecordKind.PreAnswer }) ready
             else withContext(Dispatchers.Default) {
-                (ready ?: AutomatumBoards.sharedFlow(play, toolkit.engineTags()))?.also { it.decision; it.early }
+                (ready ?: AutomatumBoards.sharedFlow(play))?.also { it.decision; it.early }
             }
+        // I-D56 §6: the device running the step makes the engine-automatic answers itself
         flows.show(next)
-        // #8 (I-D33): a decision that opened with its early answer beside it (given while the batch opening it was on its
-        // way) is answered with it by the client of whoever made the latest event, which is there to send it
-        // I-D56 §6: on engine state the device running the step makes these engine-automatic answers itself
-        if (flows.onEngine) return@LaunchedEffect
-        if (next?.early != null && toolkit.latestAuthor() == toolkit.viewer) flows.answerEarly()
-        // CMB-033: a division of combat damage whose order can't change anything is made with the suggestion at once by
-        // one client (combat review #8): the one that opened it (whoever made the latest event); the dividing player's
-        // only when that one hasn't after a while (it went offline), so two clients never send the same answer
-        else if (next != null && toolkit.enabled()) {
-            val division = next.division
-            val open = next.decision as? Decision.Divide
-            val latest = toolkit.latestAuthor() == toolkit.viewer
-            if (division != null && open != null && !askedInDialog(play.board, division) && (latest || division.player == toolkit.viewer)) {
-                if (!latest) kotlinx.coroutines.delay(ORDER_FREE_FALLBACK_MILLIS)
-                flows.answer(Answer.Division(open.suggested))
-            }
-        }
     }
     if (!shown) return
     val flow = flows.view?.takeIf { it.board === play.board } ?: return
@@ -84,10 +66,10 @@ internal fun SharedFlowHost(toolkit: TableToolkitController, play: TableBoard, s
     val decision = flow.decision
     val holder = flow.priority
     // TRN-062 (owner playtest 2026-11-04 #3): the opening's Mulligan / Keep is answered only with the quick actions
-    if (flows.onEngine && openingDecision(decision)) return
-    // STK-027 (owner playtest 2026-11-04 #5, #6): on engine state nothing covers the board while you hold priority with
-    // something on the Stack: it shows on the Stack, Resolve sits under it and a response is cast the usual way
-    if (flows.onEngine && decision == null && holder == viewer) return
+    if (openingDecision(decision)) return
+    // STK-027 (owner playtest 2026-11-04 #5, #6): nothing covers the board while you hold priority with something on the
+    // Stack: it shows on the Stack, Resolve sits under it and a response is cast the usual way
+    if (decision == null && holder == viewer) return
     // CMB-033: a division of combat damage has a panel of its own; one made by itself shows nothing meanwhile
     val dialog = decision is Decision.Divide && flow.division != null
     // UI review #4 (decided for the owner): every Automatum panel docks full width exactly above the viewer's hand, like
@@ -105,9 +87,9 @@ internal fun SharedFlowHost(toolkit: TableToolkitController, play: TableBoard, s
                 else -> DecisionPanel(flows, flow, play, names, decision, forOther = decision.player.value != viewer,
                     otherName = name(decision.player.value))
             }
-            // I-D56 §14: on engine state the waiting bar ([EngineAsyncHost]) says what the other player decides; nobody
-            // chooses or passes for them (STK-031, STK-038 gone)
-            flows.onEngine && holder != viewer -> {}
+            // I-D56 §14: the waiting bar ([EngineAsyncHost]) says what the other player decides; nobody chooses or passes
+            // for them (STK-031, STK-038 gone)
+            holder != viewer -> {}
             decision != null -> Column {
                 // I-D29, I-D33: meanwhile the viewer may give their own division of this damage step early
                 toolkit.combat.ready(play)?.early?.firstOrNull { it.player == viewer && askedInDialog(play.board, it) }?.let { early ->
@@ -119,16 +101,6 @@ internal fun SharedFlowHost(toolkit: TableToolkitController, play: TableBoard, s
                     observerWhat(flows, flow, play, decision), observedCard(flows, flow, play, viewer, decision),
                     "Choose for them") { confirm = true }
             }
-            holder == viewer -> when {
-                flows.responding == play.nodeId -> RespondBar(flows)
-                else -> RespondPrompt(flows, toolkit.pause, flow, play, names, viewer, reviewing)
-            }
-            // UI review round 2 #1: passing for them is the step arrow's "Resolve" (asked first, I-D40)
-            holder != null -> WaitingBar(play, "${name(holder)} may respond to ${topName(flows, flow, play)}",
-                topCard(flows, flow, play)?.let { choiceCard(play, viewer, "top", it, true, topName(flows, flow, play)) }, null,
-                // STK-038 (I-D41): while this device waits for them
-                toolkit.pause.running(play.nodeId)?.takeIf { it.role is PauseRole.Theirs && it.role.millis > 0 }
-                    ?.let { { PauseProgress(toolkit.pause, it) } }) {}
         }
         }
     }
@@ -148,115 +120,6 @@ internal fun SharedFlowHost(toolkit: TableToolkitController, play: TableBoard, s
 /** The opening's mulligan decision (Keep or Mulligan, CR 103.5), which the quick actions answer (TRN-062). */
 internal fun openingDecision(decision: Decision?): Boolean =
     decision is Decision.ChooseOption && decision.options.containsAll(listOf("Keep", "Mulligan"))
-
-/** Combat review #8: how long the dividing player's client waits for the client that opened an order-free division to
- * answer it before answering it itself. */
-internal const val ORDER_FREE_FALLBACK_MILLIS = 4000L
-
-/**
- * I-D40: a step that would act for the other player (the step button, the step arrow, the phase dialog, the combat quick
- * actions: anything that goes through [SharedFlowController.step]) asks first, as "Pass for them" does (STK-028); nothing
- * is sent until it is confirmed.
- */
-@Composable
-internal fun ActingForDialog(flows: SharedFlowController, names: Map<String, String>) {
-    val asked = flows.acting ?: return
-    val text = actingForText(asked, names[asked.player])
-    AlertDialog(onDismissRequest = flows::cancelActing,
-        title = { Text(text.title) },
-        text = { Text(text.text) },
-        confirmButton = { BarButton(text.button, Icons.Outlined.SkipNext) { flows.confirmActing() } },
-        dismissButton = { BarButton("Cancel", Icons.Outlined.Close, onClick = flows::cancelActing) })
-}
-
-/** What the confirmation of [asked] says (I-D40); [name] is the other player's name, when known. */
-internal data class ActingForText(val title: String, val text: String, val button: String)
-
-internal fun actingForText(asked: ActingFor, name: String?): ActingForText {
-    val who = name ?: "the other player"
-    val subject = name ?: "The other player"
-    val board = asked.board
-    return when (val kind = asked.kind) {
-        is ActingFor.Kind.DeclareAttackers -> ActingForText("Declare attackers for $who?",
-            "$subject declares attackers now. This declares for them what the combat lanes hold: " +
-                (if (kind.count == 0) "no attack." else "${kind.count} ${if (kind.count == 1) "attacker" else "attackers"}."),
-            "Declare for them")
-        is ActingFor.Kind.DeclareBlockers -> ActingForText("Declare blockers for $who?",
-            "$subject declares blockers now. This declares for them what the combat lanes hold: " +
-                (if (kind.count == 0) "no blocks." else "${kind.count} ${if (kind.count == 1) "blocker" else "blockers"}."),
-            "Declare for them")
-        is ActingFor.Kind.Pass -> {
-            val first = if (kind.priority) "$subject has priority and may still want to act." else "$subject declares attackers now."
-            // In their own turn, passing on past combat declares no attack for them (TRN-057)
-            val now = TurnPosition.of(board.turn)
-            val beforeAttack = now != null && (now < TurnPosition.DECLARE_ATTACKERS || now == TurnPosition.DECLARE_ATTACKERS && !kind.priority)
-            val pastCombat = when (val until = asked.until) {
-                StepFlow.Until.Pass -> false
-                StepFlow.Until.EndOfTurn -> true
-                is StepFlow.Until.Step -> until.position > TurnPosition.DECLARE_ATTACKERS
-            }
-            val nothing = if (asked.player == board.turn.accountId && beforeAttack && pastCombat) ", attacking with nothing" else ""
-            when (val until = asked.until) {
-                StepFlow.Until.Pass -> ActingForText("Pass for $who?", "$first Passing for them lets the game go on.", "Pass for them")
-                StepFlow.Until.EndOfTurn -> ActingForText("End the turn for $who?",
-                    "$first Automatum passes for them until the turn ends$nothing.", "End turn for them")
-                is StepFlow.Until.Step -> ActingForText("Pass for $who?",
-                    "$first Automatum passes for them on to ${until.position.label}$nothing.", "Pass for them")
-            }
-        }
-    }
-}
-
-/** STK-027: what the respond panel says in timeline mode, where its Respond is greyed. */
-internal const val REVIEW_RESPOND = "Hold Auto to respond on a branch"
-
-/** The priority prompt (CR 117.3d), docked above the hand (UI review #4): the card on top of the Stack drawn as a card
- * (hold: Inspect) beside "Alice cast Storm Spark", an ability's own line, its targets (cards as cards) and Respond (the
- * step arrow's "Resolve" lets it resolve, UI review round 2 #1); at a pause (I-D41, STK-037) its time running out and
- * Hold, or "take your time" once held. */
-@Composable
-private fun RespondPrompt(flows: SharedFlowController, pause: PauseController, flow: SharedFlow, play: TableBoard,
-    names: Map<String, String>, viewer: String, reviewing: Boolean = false) {
-    val node = play.nodeId
-    val running = pause.running(node)?.takeIf { it.role is PauseRole.Yours }
-    val inspector = remember(node) { ChoiceInspector() }
-    AutomatumDockPanel("Respond prompt", flows.hidden, flows::toggleHidden, "Automatum panel", buttons = {
-        if (running != null) ChoiceButton("Hold", Icons.Outlined.PanTool) { pause.hold(node) }
-        // Responding holds the pause first, its bar running or not (#2), so the game waits for the response or it
-        // becomes a branch (STK-039)
-        // UI review round 2 N15 (STK-027): in timeline mode a response is made on a branch, by holding Auto (HIS-036)
-        ChoiceButton("Respond", Icons.AutoMirrored.Outlined.Reply, enabled = !reviewing, primary = true) { flows.respond(play) }
-    }) {
-        val item = flow.top
-        val hidden = topHidden(flows, flow)
-        val entry = CombatStackRules.stack(play.board).cards.firstOrNull()?.let { CombatStackRules.inspection(play.board, it)?.id }
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            if (entry != null) choiceCard(play, viewer, "top", entry, !hidden, topName(flows, flow, play)).let { card ->
-                ChoiceCardFace(card, Modifier.choiceCardGestures(card.key, tap = {}, hold = { inspector.hold(card, it) }), small = true)
-            }
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(topTitle(flows, flow, play, names, viewer), fontWeight = FontWeight.Bold, fontSize = 15.sp)
-                // An ability says which of its source's abilities it is; a spell is its card (hold it to read it)
-                if (item != null && !hidden && item.kind !is StackItemKind.Spell && item.kind !is StackItemKind.SpellCopy)
-                    flow.text(item)?.let { Text(it, fontSize = 11.sp, lineHeight = 14.sp, color = Color(0xff4b5a5f)) }
-                if (reviewing) Text(REVIEW_RESPOND, fontSize = 12.sp, color = Color(0xff4b5a5f))
-                else if (running != null) PauseProgress(pause, running)
-                else if (pause.holding(node)) Text("Holding — take your time", fontSize = 12.sp, fontWeight = FontWeight.Medium,
-                    color = AutomatumViolet)
-            }
-        }
-        val targets = item?.targets?.values?.flatten().orEmpty()
-        if (targets.isNotEmpty()) AboutRow("Target", targets.map { target ->
-            when (target) {
-                is TargetRef.Object -> AboutItem.Card(choiceCardOf(flows, play, viewer, target.id))
-                is TargetRef.Player -> AboutItem.Player(if (target.id.value == viewer) "You" else names[target.id.value] ?: "A player")
-            }
-        }, inspector)
-        val more = flow.state.stack.size - 1
-        if (more > 0) Text("$more more below it on the Stack", fontSize = 11.sp, color = Color(0xff4b5a5f))
-    }
-    ChoiceInspection(inspector, play, viewer)
-}
 
 /** What a prompt or choice is about: a card (drawn as a card) or a player (named). */
 private sealed interface AboutItem {
@@ -278,17 +141,6 @@ private fun AboutRow(label: String, items: List<AboutItem>, inspector: ChoiceIns
                 Text(item.name, fontSize = 12.sp)
             }
         }
-    }
-}
-
-/** Responding: the prompt as a bar above the hand while the player casts (double-tap or the hand menu's Cast); the step
- * arrow's "Resolve" lets it resolve instead (UI review round 2 #1). */
-@Composable
-private fun RespondBar(flows: SharedFlowController) {
-    AutomatumDockBar("Responding") {
-        Text("Respond — cast a card from your hand", Modifier.weight(1f), fontSize = 13.sp, fontWeight = FontWeight.Medium,
-            maxLines = 2, overflow = TextOverflow.Ellipsis)
-        BarButton("Back", Icons.AutoMirrored.Outlined.ArrowBack, onClick = flows::stopResponding)
     }
 }
 
@@ -402,38 +254,9 @@ private fun FlowTargetBar(flows: SharedFlowController, flow: SharedFlow, play: T
 
 // ---- Words
 
-/** "Alice cast Storm Spark", "You activated Elvish Seer", "Fertile Passing triggered". */
-private fun topTitle(flows: SharedFlowController, flow: SharedFlow, play: TableBoard, names: Map<String, String>, viewer: String): String {
-    val item = flow.top ?: return "Something is on the Stack"
-    val who = if (item.controller.value == viewer) "You" else names[item.controller.value] ?: "The other player"
-    val name = topName(flows, flow, play)
-    return when (item.kind) {
-        StackItemKind.Spell, is StackItemKind.SpellCopy -> "$who cast $name"
-        StackItemKind.Activated -> "$who activated $name"
-        StackItemKind.Triggered -> "${name.replaceFirstChar { it.uppercase() }} triggered"
-    }
-}
 
-/** Whether the top of the Stack (or its source) is hidden from the viewer (I-D27, STK-005: a spell cast face down). */
-private fun topHidden(flows: SharedFlowController, flow: SharedFlow): Boolean {
-    val top = flow.state.stack.lastOrNull() ?: return false
-    val shownObject = if (top is ObjectId.StackItem) flow.state.stackItems[top]?.source else top
-    return shownObject != null && !flows.shown(shownObject)
-}
 
-/** The name of the top of the Stack as its entry shows it (a card, or an ability whose source is gone, STK-022); "a
- * face-down spell" when the viewer may not see it (#11, I-D27). */
-private fun topName(flows: SharedFlowController, flow: SharedFlow, play: TableBoard): String {
-    if (topHidden(flows, flow)) return if (flow.state.stack.lastOrNull() is ObjectId.StackItem) "an ability of a face-down card" else "a face-down spell"
-    val entry = CombatStackRules.stack(play.board).cards.firstOrNull() ?: return "it"
-    val card = CombatStackRules.inspection(play.board, entry) ?: return "it"
-    return faceName(play, card) ?: "it"
-}
 
-/** The card the top of the Stack shows, when the viewer may see it. */
-private fun topCard(flows: SharedFlowController, flow: SharedFlow, play: TableBoard): String? =
-    if (topHidden(flows, flow)) null
-    else CombatStackRules.stack(play.board).cards.firstOrNull()?.let { CombatStackRules.inspection(play.board, it)?.id }
 
 private fun faceName(play: TableBoard, card: PlayCard): String? =
     play.definitions.singleOrNull { it.digest == card.definition }?.definition?.faces

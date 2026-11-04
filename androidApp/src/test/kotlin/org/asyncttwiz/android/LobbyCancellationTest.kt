@@ -87,7 +87,7 @@ class LobbyCancellationTest {
         f.message(GameResult(accept.requestId, accept.scope, "accepted", ingressOrdinal = "1", commitRevision = "1"))
         assertEquals(opens, f.opens); assertNull(f.lobby.state.selected)
         assertTrue(f.lobby.state.games.isEmpty()); assertTrue(f.lobby.state.invitations.isEmpty())
-        assertNull(f.lobby.state.preparation); assertNull(f.lobby.state.play)
+        assertNull(f.lobby.state.preparation); assertNull(f.lobby.state.board)
     }
     // LOB-039
     @Test fun eitherParticipantDispatchesCapturedRoundButNeverCurrentReplacementOrStartedPlay() {
@@ -154,7 +154,7 @@ class LobbyCancellationTest {
         val active = game.copy(lifecycle = GameLifecycle.ACTIVE, playId = play.id, revision = "1")
         f.head(active, play = play)
         f.message(GameResult(cancel.requestId, cancel.scope, "rejected", "lifecycleEnded", "2"))
-        assertEquals(active, f.lobby.state.detail); assertEquals(play, f.lobby.state.play)
+        assertEquals(active, f.lobby.state.detail); assertEquals(play.id, f.lobby.state.detail?.playId)
         assertFalse(f.lobby.cancelSetup(game))
         f.visible = false; f.lobby.refresh(); f.drain(); assertNull(f.lobby.state.selected)
         f.visible = true; f.httpGame = active.copy(revision = "2"); f.lobby.refresh(); f.drain()

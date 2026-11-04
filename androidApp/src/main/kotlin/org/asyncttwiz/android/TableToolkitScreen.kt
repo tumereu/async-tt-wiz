@@ -30,7 +30,7 @@ import org.asyncttwiz.protocol.*
 @Composable
 internal fun TableToolkitScreen(toolkit: TableToolkitController, play: TableBoard, game: GameSummary,
     landscape: Boolean,
-    accepted: TableBoard? = null, peekScroll: ScrollState? = null, scene: TableScene? = null,
+    peekScroll: ScrollState? = null, scene: TableScene? = null,
     onTimeline: (() -> Unit)? = null, reviewing: Boolean = false) {
     val names = mapOf(game.inviter.accountId to game.inviter.username, game.recipient.accountId to game.recipient.username)
     val enabled = toolkit.enabled()
@@ -55,10 +55,7 @@ internal fun TableToolkitScreen(toolkit: TableToolkitController, play: TableBoar
         }
         "manageStack" -> ManageStackDialog(play, toolkit.viewer, toolkit::dismiss)
         "table" -> {
-            val suggestion = accepted?.board?.resultSuggestion
-            TableActionMenu(play, toolkit.table, toolkit::dismiss,
-                pendingSuggestionId = suggestion?.id, mayAccept = suggestion?.author?.let { it != toolkit.viewer } == true,
-                perform = toolkit::perform, names = names, onTimeline = onTimeline)
+            TableActionMenu(play, toolkit.table, toolkit::dismiss, perform = toolkit::perform, names = names, onTimeline = onTimeline)
         }
         "phase" -> PhaseStepPicker(play, toolkit.viewer, endingColor, toolkit::dismiss, names = names)
         else -> if (panel?.startsWith("library/") == true) {
@@ -89,12 +86,8 @@ internal fun TableToolkitScreen(toolkit: TableToolkitController, play: TableBoar
     // Automatum (I2b): priority, resolution and trigger choices by the Stack
     SharedFlowHost(toolkit, play, scene, names, reviewing)
     val engine = LocalEngineRoutes.current
-    // I-D41: a pause on an empty Stack (on the Stack the respond panel shows it); on engine state the waiting bar
-    if (engine == null) PauseBarHost(toolkit, play, scene, names)
     // I-D49: the opening's Keep / Bottom screen
     OpeningKeepHost(toolkit, play, scene)
-    // I-D40: a step that would act for the other player asks first (gone on engine state: nobody acts for the other)
-    if (engine == null) ActingForDialog(toolkit.flows, names)
     // I-D56 §14: the async play panels of a game on engine state
     if (engine != null) EngineAsyncHost(toolkit, engine, play, scene, names, LocalOpponentPresence.current, game)
     // Automatum (I3): what combat allows and would do on this board, worked out in the background

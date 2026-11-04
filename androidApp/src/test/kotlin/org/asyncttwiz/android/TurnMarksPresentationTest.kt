@@ -37,13 +37,13 @@ class TurnMarksPresentationTest {
         val state = initial.copy(board = initial.board.copy(cards = initial.board.cards.map {
             if (it.id == source.id) it.copy(damage = "2", eotCorner = "+2/+2", eotNote = "can't block") else it
         }))
-        val item = TablePresentation.scene(f.game, TableBoard.of(state), f.a, 412f, 892f, false).items.single { it.cardId == source.id }
+        val item = TablePresentation.scene(f.game, tableBoard(state), f.a, 412f, 892f, false).items.single { it.cardId == source.id }
         assertEquals("3/5", item.corner); assertEquals("2", item.damage); assertEquals("+2/+2", item.eotCorner)
         val covered = state.copy(board = state.board.copy(cards = state.board.cards.map {
             if (it.id == source.id) it.copy(covered = true, explicitlyCovered = true) else it
         }))
         // Rules v23: a face-down Battlefield card's marks are public; only its face is covered.
-        val faceDown = TablePresentation.scene(f.game, TableBoard.of(covered), f.a, 412f, 892f, false).items.single { it.cardId == source.id }
+        val faceDown = TablePresentation.scene(f.game, tableBoard(covered), f.a, 412f, 892f, false).items.single { it.cardId == source.id }
         assertTrue(faceDown.covered)
         assertEquals("2", faceDown.damage); assertEquals("+2/+2", faceDown.eotCorner)
         // A card whose face is truly hidden (here: in the opponent's Hand) still leaks no marks.
@@ -55,7 +55,7 @@ class TurnMarksPresentationTest {
                 source.id in it.cards -> it.copy(cards = it.cards - source.id)
                 else -> it } }))
         assertTrue(cardValuesHidden(onStack.board, onStack.board.cards.single { it.id == source.id }, f.a))
-        val hidden = TablePresentation.scene(f.game, TableBoard.of(onStack), f.a, 412f, 892f, false).items.single { it.cardId == source.id }
+        val hidden = TablePresentation.scene(f.game, tableBoard(onStack), f.a, 412f, 892f, false).items.single { it.cardId == source.id }
         assertEquals("", hidden.damage); assertEquals("", hidden.eotCorner)
     }
 }

@@ -6,14 +6,11 @@ import kotlin.test.*
 
 class CombatDragGeometryTest {
     private val f = TableStatesFixture
-    private fun scene(play: PlayState, zoom: Float = 1f) = TablePresentation.scene(f.game, TableBoard.of(play), f.a,
+    private fun scene(play: PlayState, zoom: Float = 1f) = TablePresentation.scene(f.game, tableBoard(play), f.a,
         892f, 412f, true, TableLayoutState(camera = TableCamera(zoom = zoom)))
 
     private fun predict(play: PlayState, ids: List<String>, destination: CombatDestination) =
-        CombatStackController.place(play, f.a, ids, destination) { action ->
-            GameCommand(java.util.UUID.randomUUID().toString(), GameScope(play.gameId, playId = play.id),
-                GameAction.Play(action), play.id, "1")
-        }.prediction
+        CombatBoards(f.a).place(play, ids, destination)
 
     @Test fun midpointInsertionIsMonotonicWithSymmetricExactCenterCrossing() {
         val midpoints = listOf(20f, 60f, 100f)

@@ -97,35 +97,6 @@ class TableChangesTest {
         }
     }
 
-    // SYS-009, TBL-033
-    @Test fun predictionAndAcceptanceAnimateOnceIncludingPredictedUndoAndRedoWhileSnapshotsNeverAnimate() {
-        val batches = mutableListOf<TableChangeBatch>()
-        val replica = GameplayReplica { batches += it }
-        assertTrue(replica.root(f.head())); assertTrue(batches.single().jump); batches.clear()
-        var tree = GameplayTree(f.initial)
-        var rev = 1
-        for (action in listOf(GameAction.Play(PlayAction.AdjustLife(f.actor, "-1")), GameAction.Undo, GameAction.Redo)) {
-            val command = f.command(PlayAction.PassAttention).copy(action = action)
-            assertTrue(replica.predict(command, f.actor))
-            assertEquals(1, batches.flatMap { it.events }.size)
-            val updated = assertNotNull(HistoryContinuation.change(tree, f.actor, command).tree)
-            val state = assertNotNull(updated.stateAt(updated.currentNodeId))
-            val revision = GameRevision(f.game.id, rev.toString(), (++rev).toString(), command.requestId, f.actor,
-                command.scope, f.game.copy(revision = rev.toString()), play = state)
-            assertTrue(replica.published(f.head(state, rev.toString()), TreeSync.generation(updated), rev.toString(),
-                emptyList(), listOf(revision), HistoryTree.ingest(updated, rev.toString()), animate = true))
-            assertEquals(1, batches.flatMap { it.events }.size)
-            tree = updated; batches.clear()
-        }
-        val remote = f.command(PlayAction.AdjustLife(f.actor, "2"))
-        val updated = assertNotNull(tree.play(f.other, remote).tree)
-        val state = assertNotNull(updated.stateAt(updated.currentNodeId))
-        assertTrue(replica.published(f.head(state, (++rev).toString()), TreeSync.generation(updated), rev.toString(), emptyList(), emptyList(), HistoryTree.ingest(updated, rev.toString()), animate = true))
-        assertEquals("+2", ActiveTableChange(TableChangeExtraction.extract(batches.single().events.single()).single(), 0, 0).tag)
-        batches.clear()
-        assertTrue(replica.published(f.head(state, rev.toString()), TreeSync.generation(updated), rev.toString(), emptyList(), emptyList(), HistoryTree.ingest(updated, rev.toString())))
-        assertTrue(batches.single().jump)
-    }
 
     @Test fun jumpsDoNotWalkHistoryAndForwardWorkIsBounded() {
         var reads = 0
@@ -145,66 +116,8 @@ class TableChangesTest {
         assertTrue(single.events.single().reverse)
     }
 
-    // TBL-033
-    @Test fun playbackStepAndAutoEmitOnlyAfterTheMaterializedEndpointAndScrubsClearEffects() {
-        var tree = GameplayTree(f.initial)
-        repeat(3) { tree = assertNotNull(tree.play(f.actor, f.command(PlayAction.AdjustLife(f.actor, "-1"))).tree) }
-        val history = TableHistoryController(Executor { it.run() }, { it() }, { node, done ->
-            val cursor = node ?: tree.currentNodeId
-            done(DownloadedHistoryState(1, cursor, state = tree.stateAt(cursor))); true
-        }, { _, _, _ -> error("UI effects must never submit") })
-        history.use {
-            history.update(tree, "v")
-            history.select(f.root.id); history.displayPosition()
-            assertTrue(history.changes.active.isEmpty())
-            history.playback!!.next(); assertTrue(history.changes.active.isEmpty())
-            history.displayPosition()
-            assertEquals("-3", history.changes.active.values.single().tag)
-            history.playback!!.scrub(f.root.id); assertTrue(history.changes.active.isEmpty())
-            history.playback!!.play(); history.playback!!.next(automatic = true); history.displayPosition()
-            assertEquals("-3", history.changes.active.values.single().tag)
-            history.leaving(); assertTrue(history.changes.active.isEmpty())
-        }
-    }
 
-    @Test fun coalescedLivePublicationsKeepShuffleFeedbackAndCatchupDoesNotWiggle() {
-        val history = TableHistoryController(Executor { it.run() }, { it() }, { _, _ -> true }, { _, _, _ -> false })
-        history.use {
-            history.update(GameplayTree(f.initial), "v")
-            val shuffle = event().copy(mutation = event().mutation.copy(id = "shuffle",
-                action = PlayAction.ShuffleLibrary("library", "seed")))
-            val following = event().copy(mutation = event().mutation.copy(id = "following", parentId = "shuffle"))
-            history.liveChanges(TableChangeBatch(listOf(shuffle), cursor = "shuffle"))
-            history.liveChanges(TableChangeBatch(listOf(following), cursor = "following"))
-            history.showChanges("following")
-            assertEquals(setOf("library"), history.changes.shuffles("following"))
-            history.liveChanges(TableChangeBatch(listOf(shuffle), cursor = "shuffle"))
-            history.liveChanges(TableChangeBatch(jump = true))
-            history.showChanges("shuffle")
-            assertTrue(history.changes.shuffles("shuffle").isEmpty())
-        }
-    }
 
-    @Test fun remoteShuffleAndOtherFeedbackUseTheDisplayedPredictionAsTheirFence() {
-        val history = TableHistoryController(Executor { it.run() }, { it() }, { _, _ -> true }, { _, _, _ -> false })
-        history.use {
-            history.update(GameplayTree(f.initial), "v")
-            val shuffle = event(field(GameplayField.LIFE, "20", "19"), field(GameplayField.FACE, "front", "back"))
-                .let { it.copy(mutation = it.mutation.copy(id = "remote-shuffle",
-                    action = PlayAction.ShuffleLibrary("library", "seed"))) }
-            history.liveChanges(TableChangeBatch(listOf(shuffle), cursor = "local-prediction"))
-            history.showChanges("remote-shuffle")
-            assertTrue(history.changes.active.isEmpty())
-            assertTrue(history.changes.shuffles("remote-shuffle").isEmpty())
-            history.showChanges("local-prediction")
-            assertEquals(setOf("library"), history.changes.shuffles("local-prediction"))
-            assertTrue(history.changes.animates("local-prediction"))
-            assertFalse(history.changes.animates("remote-shuffle"))
-            assertEquals(setOf(TableChangeKind.LIFE, TableChangeKind.FACE),
-                history.changes.active.keys.map { it.kind }.toSet())
-            assertEquals("-1", history.changes.active.values.single { it.change.key.kind == TableChangeKind.LIFE }.tag)
-        }
-    }
 
     @Test fun playbackWithoutAnExplicitFenceUsesTheForwardOrReverseEndpoint() {
         val changes = TableChanges()
@@ -219,25 +132,4 @@ class TableChangesTest {
         assertTrue(changes.shuffles("before").isEmpty())
     }
 
-    // HIS-031, TBL-033
-    @Test fun liveEffectsWaitForTheirDisplayedEndpointAndJumpsDiscardPendingEffects() {
-        val tree = GameplayTree(f.initial)
-        val history = TableHistoryController(Executor { it.run() }, { it() }, { _, _ -> true }, { _, _, _ -> false })
-        history.use {
-            history.update(tree, "v")
-            val batch = TableChangeBatch(listOf(event(field(GameplayField.LIFE, "20", "19"))), cursor = "predicted")
-            history.liveChanges(batch)
-            history.showChanges("old-indexed-view")
-            assertTrue(history.changes.active.isEmpty())
-            history.showChanges("predicted")
-            assertEquals("-1", history.changes.active.values.single().tag)
-            history.liveChanges(batch.copy(cursor = "catchup"))
-            history.liveChanges(TableChangeBatch(jump = true))
-            history.showChanges("catchup")
-            assertTrue(history.changes.active.isEmpty())
-            history.updateForeground(false)
-            history.liveChanges(batch); history.showChanges("predicted")
-            assertTrue(history.changes.active.isEmpty())
-        }
-    }
 }

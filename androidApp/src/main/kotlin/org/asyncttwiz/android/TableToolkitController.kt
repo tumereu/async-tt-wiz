@@ -5,7 +5,6 @@ import org.asyncttwiz.protocol.*
 import org.asyncttwiz.automatum.AttackChoice
 import org.asyncttwiz.automatum.PreAnswer
 import org.asyncttwiz.automatum.PreAnswers
-import androidx.lifecycle.ViewModel
 
 data class ToolkitCapture(val viewIds: List<String>, val contextViewId: String,
     val sourceIds: List<String>, val sources: Map<String, TableMoveSource>, val areaId: String?)
@@ -15,90 +14,33 @@ data class ToolkitCapture(val viewIds: List<String>, val contextViewId: String,
 class TableToolkitController(val viewer: String, private val state: () -> TableBoard?,
     private val connected: () -> Boolean, private val gameplay: (PlayAction, String?) -> Boolean,
     private val ending: (TableActionIntent.Ending) -> Boolean = { false },
-    private val acceptedInspection: ((PlayAction.InspectFace, String, () -> Boolean, (InspectionEvent) -> Unit) -> InspectionSubscription?)? = null,
     private val waitingForConnection: () -> Boolean = { false },
     private val playBatch: ((List<PlayAction>, String) -> Boolean)? = null,
-    private val playTree: (() -> GameplayTree?)? = null,
-    private val continuation: () -> Continuation? = { null },
-    /** One automated batch (Automatum, I-D11) with its tags, sent with the given request id. */
-    automatedBatch: ((GameAction.PlayBatch, String) -> Boolean)? = null,
     /** Where a cast's engine work runs (SYS-025): off the main thread in the app. */
     automatumWork: AutomatumWork = AutomatumWork.Inline,
     /** The pictures of tokens Automatum makes (§4.6): the catalog's best matching token printings in the app. */
     tokenArt: org.asyncttwiz.automatum.TokenArt = org.asyncttwiz.automatum.TokenArt.None,
-    /** I-D47: a complete cast shown at once on this device while its batch is worked out (null: not here). */
-    castPreview: CastPreview? = null,
-    /** I-D56 step C: the routes of a game played on engine state (null: today's model). */
+    /** I-D56 step C: the routes of the game played on engine state (null: none, as in tests of the table alone). */
     val engine: EngineRoutes? = null) : TableActionRoutes {
     private val identity = state()?.let { TableActionScope(it.gameId, it.playId) }
-    private var draft: PlayBatchDraft? = null
     /** R4a: the batch being drafted on the board of a game on engine state ([EngineStaging]). */
     private var engineDraft: EngineDraft? = null
-    fun current(): TableBoard? = (engineDraft?.state ?: draft?.state?.let(TableBoard::of) ?: state())
+    fun current(): TableBoard? = (engineDraft?.state ?: state())
         ?.takeIf { TableActionScope(it.gameId, it.playId) == identity }
     fun enabled() = connected() && current() != null
-    /** The history's tags up to the shown board (the engine's event log, D33). */
-    fun engineTags(): List<MtgTag?> = current()?.let { engineTags(playTree?.invoke(), it.nodeId) }.orEmpty()
-    /** Who made the shown board's latest event (null at the game's start or without the history). */
-    fun latestAuthor(): String? = current()?.let { playTree?.invoke()?.nodes?.get(it.nodeId)?.author }
-    /** Who made the event [nodeId] (null at the game's start or without the history). */
-    fun authorOf(nodeId: String): String? = playTree?.invoke()?.nodes?.get(nodeId)?.author
-    /** Automatum's pauses on this table (I-D41): the one shown and the one the viewer holds. */
-    internal val pause = PauseController()
-
-    /**
-     * The board Automatum plans the viewer's casts and passes on (pausereview #10): the one shown, or, when what the viewer
-     * does next continues from a point the game has gone on from (a held pause, a timeline point), that point's board as
-     * the branch will begin, every library's unknown order reseeded (HIS-042), so the batch applies there. Kept while the
-     * shown board and the history's answer stay the same, so a cast following its board isn't worked out again.
-     */
-    internal fun acting(): TableBoard? {
-        val play = current() ?: return null
-        if (draft != null || engineDraft != null) return play
-        val from = continuation()?.nodeId?.takeIf { it == play.nodeId } ?: return play
-        val tree = playTree?.invoke() ?: return play
-        val legacy = play.legacy ?: return play
-        if (tree.initial.id != legacy.id || !tree.forksAt(from)) return play
-        branchStart?.takeIf { it.first.legacy === legacy }?.let { return it.second }
-        val start = tree.branchStart(legacy, viewer)?.let(TableBoard::of) ?: play
-        branchStart = play to start
-        return start
-    }
-    private var branchStart: Pair<TableBoard, TableBoard>? = null
-
-    /** #1, #2 (STK-039): a reaction the viewer begins at their own pause (a cast or ability, Respond) holds the pause
-     * first, so it continues from there (a branch once the game went on) instead of being dropped when the game moves. */
-    private fun holdForReaction() { if (engine == null) pause.holdForReaction(current(), viewer) }
-
     /** Casting from the hand through Automatum (I2a): a private flow; while it is open nothing else changes (D32). */
-    internal val cast = CastController(viewer, { acting()?.takeIf { enabled() } }, automatedBatch, ::engineTags, { castMessage(it) },
-        automatumWork, beginning = ::holdForReaction, preview = castPreview.takeIf { engine == null }, tokenArt = tokenArt,
-        shake = { shake(it) }, engineSend = engine?.let { e -> e::send })
+    internal val cast = CastController(viewer, { current()?.takeIf { enabled() } }, { castMessage(it) },
+        automatumWork, tokenArt = tokenArt, shake = { shake(it) }, engineSend = engine?.let { e -> e::send })
     /** Priority, responding, resolution and triggers through Automatum (I2b): shared flows; while one waits for an
      * answer nothing else changes (D32). */
-    internal val flows = SharedFlowController(viewer, { acting()?.takeIf { enabled() } }, automatedBatch, ::engineTags, { error = it },
-        automatumWork, onRespond = ::holdForReaction, tokenArt = tokenArt, autotap = { cast.autotap },
-        engineSend = engine?.let { e -> e::send })
+    internal val flows = SharedFlowController(viewer, { current()?.takeIf { enabled() } }, { error = it },
+        automatumWork, tokenArt = tokenArt, autotap = { cast.autotap }, engineSend = engine?.let { e -> e::send })
     private val automatumWork = automatumWork
 
-    /**
-     * Owner playtest 2026-11-03 #1, #6: begins working out what a tap of the step arrow does on the board the viewer acts
-     * on ([SharedFlowController.plan], in the background), so its words and its tap come from the same plan. Nothing while
-     * the viewer's cast is open or they can't act.
-     */
-    internal fun planStep() { if (enabled() && !cast.open) acting()?.let(flows::plan) }
-
-    /** The step arrow's words on the shown [play] from its tap's plan, or null until worked out (or when the board acted
-     * on isn't the one shown). */
-    internal fun plannedStep(play: TableBoard): AutomatumStep? {
-        val acting = acting()?.takeIf { it.nodeId == play.nodeId } ?: return null
-        return flows.stepPlan?.takeIf { it.board === acting.board }?.step
-    }
-
-    /** The words the step arrow shows on [play] ([AutomatumStepArrow]): its tap's plan, else the board's own. */
-    private fun arrowStep(play: TableBoard): AutomatumStep = plannedStep(play) ?: AutomatumStep.of(play)
+    /** The words the step arrow shows on [play] ([AutomatumStepArrow]): the board's own. */
+    private fun arrowStep(play: TableBoard): AutomatumStep = AutomatumStep.of(play)
     /** Combat through Automatum (I3 on today's lanes): declarations, passing on to the damage, early divisions. */
-    internal val combat = CombatController({ current()?.takeIf { enabled() } }, { submit(it) }, ::engineTags, automatumWork,
+    internal val combat = CombatController({ current()?.takeIf { enabled() } }, { submit(it) }, automatumWork,
         { error }, { error = it }, board = { current() })
     /** Bumped when hand plays worked out in the background are ready, so the hand menu shows them (SYS-025). */
     private var handPlaysReady by mutableStateOf(0)
@@ -108,10 +50,10 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
     internal fun handPlays(play: TableBoard): org.asyncttwiz.automatum.HandPlays? {
         handPlaysReady
         AutomatumBoards.cachedHandPlays(play, viewer)?.let { return it }
-        if (automatumWork === AutomatumWork.Inline) return AutomatumBoards.handPlays(play, viewer, ::engineTags)
+        if (automatumWork === AutomatumWork.Inline) return AutomatumBoards.handPlays(play, viewer)
         if (handPlaysPending !== play.board) {
             handPlaysPending = play.board
-            automatumWork.run({ AutomatumBoards.handPlays(play, viewer, ::engineTags) }) { handPlaysPending = null; handPlaysReady++ }
+            automatumWork.run({ AutomatumBoards.handPlays(play, viewer) }) { handPlaysPending = null; handPlaysReady++ }
         }
         return null
     }
@@ -122,10 +64,10 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
     internal fun cardPlays(play: TableBoard): org.asyncttwiz.automatum.CardPlays? {
         handPlaysReady
         AutomatumBoards.cachedCardPlays(play, viewer)?.let { return it }
-        if (automatumWork === AutomatumWork.Inline) return AutomatumBoards.cardPlays(play, viewer, ::engineTags)
+        if (automatumWork === AutomatumWork.Inline) return AutomatumBoards.cardPlays(play, viewer)
         if (cardPlaysPending !== play.board) {
             cardPlaysPending = play.board
-            automatumWork.run({ AutomatumBoards.cardPlays(play, viewer, ::engineTags) }) { cardPlaysPending = null; handPlaysReady++ }
+            automatumWork.run({ AutomatumBoards.cardPlays(play, viewer) }) { cardPlaysPending = null; handPlaysReady++ }
         }
         return null
     }
@@ -211,7 +153,7 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
     fun closeAbilities() { abilityCard = null; heldAbility = null }
     val layoutState = mutableStateOf(TableLayoutState())
     /** I-D50 (ZON-079, ZON-080): the viewer's hand with Automatum on: a tap raises a card with its cost chips. */
-    internal val hand = HandController(viewer, { acting()?.takeIf { enabled() } }, layoutState, automatumWork, ::engineTags,
+    internal val hand = HandController(viewer, { current()?.takeIf { enabled() } }, layoutState, automatumWork,
         cast = { card, way, extras -> error = null; castGesture = card; cast.start(card, way, extras) },
         shake = { shake(it) }, unplayable = { play, card -> AutomatumBoards.cachedCardPlays(play, viewer)?.let { unplayable(play, card) } })
     val table = TableActionController(::current, ::enabled, this)
@@ -253,8 +195,6 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
      * Battlefield or hand, the combat draft) go through while this is above zero; other manual changes are refused. */
     private var engineRoute = 0
     private fun <T> engineRoute(block: () -> T): T { engineRoute++; try { return block() } finally { engineRoute-- } }
-    private var inspectionSubscription: InspectionSubscription? = null
-    private var inspectionLifetime: String? = null
     private var reviewContext: String? = null
     fun reviewContext(context: String) {
         if (reviewContext != null && reviewContext != context) { closeInspection(); dismiss() }
@@ -262,25 +202,12 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
     }
 
     private fun batchResult(requestId: String = DeviceRandom.uuid(), block: () -> Boolean): Boolean {
-        if (draft != null || engineDraft != null) return block()
+        if (engineDraft != null) return block()
         if (cast.open) { busyShake(); return false }
         val initial = current() ?: return block()
-        // R4a: a game on engine state drafts on the board shown
-        if (initial.engine != null) return engineBatch(initial, requestId, block)
-        val legacy = requireNotNull(initial.legacy)
-        val pending = if (playTree == null) PlayBatchDraft(legacy, viewer, requestId)
-            else PlayBatchDraft(legacy, viewer, requestId, playTree.invoke() ?: return false, continuation())
-        draft = pending; invocation = pending.requestId; error = null
-        val result = try { block() } finally { draft = null; invocation = null }
-        if (pending.overflow) { error = "An action may contain at most 100 changes."; return false }
-        if (!result) return false
-        if (pending.actions.isEmpty()) return result
-        val sent = if (pending.actions.size == 1) gameplay(pending.actions.single(), pending.requestId)
-            else playBatch?.invoke(pending.actions.toList(), pending.requestId) == true
-        if (!sent) error = "Action could not be queued. Reconnect and try again."
-        return result && sent
+        return engineBatch(initial, requestId, block)
     }
-    /** [batchResult] on the board of a game on engine state: its members drafted there ([EngineDraft]), then sent together. */
+    /** [batchResult]: its members drafted on the board shown ([EngineDraft]), then sent together. */
     private fun engineBatch(initial: TableBoard, requestId: String, block: () -> Boolean): Boolean {
         val pending = EngineDraft(initial, viewer, requestId)
         engineDraft = pending; invocation = pending.requestId; error = null
@@ -297,7 +224,7 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
     private fun enqueue(action: PlayAction, invocationId: String?): Boolean {
         if (lastInvocation != invocationId) { lastInvocation = invocationId; error = null }
         refusal(action)?.let { if (it == CastController.BUSY) busyShake() else error = it; return false }
-        return (engineDraft?.add(action) ?: draft?.add(action) ?: gameplay(action, invocationId)).also { sent ->
+        return (engineDraft?.add(action) ?: gameplay(action, invocationId)).also { sent ->
             if (!sent) error = "Action could not be queued. Reconnect and try again."
         }
     }
@@ -355,25 +282,14 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
                 else -> false
             }
         }
-        return when (intent) {
-            is TableActionIntent.OpeningMulligan -> {
-                val actions = AutomatumOpening.mulligan(play.board, viewer, DeviceRandom.seed())
-                    ?: run { error = QuickActions.NO_MORE_MULLIGANS; return false }
-                keeping = false
-                batchResult { actions.all { submit(it) } }
-            }
-            is TableActionIntent.Keep -> if (AutomatumOpening.owed(play.board, viewer) > 0) { error = null; keeping = true; true }
-                else confirmKeep(emptyList())
-            else -> false
-        }
+        return false
     }
 
     /** Keeps the viewer's hand with [bottom] put on the bottom of their library, then Ready (I-D49), as one batch. */
     fun confirmKeep(bottom: List<String>): Boolean {
         val play = current()?.takeIf { enabled() && AutomatumDrags.opening(it.board, viewer) } ?: return false
-        engine?.let { e -> return e.keep(bottom).also { if (it) keeping = false } }
-        val actions = AutomatumOpening.keep(play.board, viewer, bottom) ?: return false
-        return batchResult { actions.all { submit(it) } }.also { if (it) keeping = false }
+        val e = engine ?: return false
+        return e.keep(bottom).also { if (it) keeping = false }
     }
 
     override fun automatumStep(intent: TableActionIntent): Boolean {
@@ -395,56 +311,26 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
                 else -> { error = SharedFlowController.STEPS_FORWARD; false }
             }
         }
-        val until = when (intent) {
-            is TableActionIntent.Next -> {
-                // At the viewer's pause held behind the live game the arrow returns to it (STK-039), on the Stack or an
-                // empty one (UI review round 2 #1: the arrow is the panels' only way on)
-                if ((CombatStackRules.stack(play.board).cards.isNotEmpty() || pause.ownPause(play, viewer)) &&
-                    pause.passBehind(play.nodeId)) return true
-                org.asyncttwiz.automatum.StepFlow.Until.Pass
-            }
-            is TableActionIntent.End -> org.asyncttwiz.automatum.StepFlow.Until.EndOfTurn
-            is TableActionIntent.Choose -> {
-                val now = TurnPosition.of(play.board.turn)
-                if (intent.pass || now == null || intent.position.ordinal <= now.ordinal) {
-                    error = SharedFlowController.STEPS_FORWARD; return false
-                }
-                org.asyncttwiz.automatum.StepFlow.Until.Step(intent.position)
-            }
-            else -> return false
-        }
-        error = null
-        return flows.step(until)
+        return false
     }
 
     /** Whether the viewer declares attackers or blockers on [play] now (the step arrow then declares what the lanes hold),
      * from the board's own flow. Problem report XGN86Q: no panel shows at a declaration, so the panel's flow ([flows]'
      * view) isn't there to ask. */
     private fun declares(play: TableBoard): Boolean =
-        (flows.view?.takeIf { it.board === play.board } ?: AutomatumBoards.sharedFlow(play, engineTags()))?.declaring == viewer
+        (flows.view?.takeIf { it.board === play.board } ?: AutomatumBoards.sharedFlow(play))?.declaring == viewer
 
     /** Whether [action] changes only what is shown, nothing Automatum reads (the values an automated batch's board
      * digest covers, SYS-057). An action the rules refuse anyway counts as shown-only: its own refusal is reported. */
     private fun shownOnly(play: TableBoard, action: PlayAction): Boolean {
-        // R4a: on engine state the table's own changes are worked out on the board shown; only its combat lanes and the
-        // records other than early answers are what Automatum reads of them (the board digest's, SYS-057)
-        if (play.engine != null) {
-            if (!EngineStaging.handles(play.board, action)) return false
-            val after = try { EngineStaging.apply(play.board, play.definitions, viewer, action, DeviceRandom.uuid()) }
-                catch (_: IllegalArgumentException) { return true }
-            fun read(b: BoardState) = b.combat to b.engineRecords.filterNot { it.kind == EngineRecordKind.PreAnswer }
-            return read(after) == read(play.board)
-        }
-        val command = GameCommand(DeviceRandom.uuid(), GameScope(play.gameId, playId = play.playId), GameAction.Play(action),
-            DeviceRandom.uuid(), "1")
-        val after = GameplayRules.preview(play.legacy ?: return true, viewer, command).state ?: return true
-        if (after.board === play.board) return true
-        // #12 (SYS-025): the shown board's digest once per board
-        val before = shownDigest?.takeIf { it.first === play.board }?.second
-            ?: MtgFacts.digest(play.board).also { shownDigest = play.board to it }
-        return MtgFacts.digest(after.board) == before
+        // The table's own changes are worked out on the board shown; only its combat lanes and the records other than
+        // early answers are what Automatum reads of them (the board digest's, SYS-057)
+        if (!EngineStaging.handles(play.board, action)) return false
+        val after = try { EngineStaging.apply(play.board, play.definitions, viewer, action, DeviceRandom.uuid()) }
+            catch (_: IllegalArgumentException) { return true }
+        fun read(b: BoardState) = b.combat to b.engineRecords.filterNot { it.kind == EngineRecordKind.PreAnswer }
+        return read(after) == read(play.board)
     }
-    private var shownDigest: Pair<BoardState, String>? = null
 
     /** Convenience members are lowered against the current draft, then sent together. */
     fun submit(action: PlayAction, invocationId: String? = invocation): Boolean {
@@ -455,7 +341,6 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
             return enqueue(BasicTableController.projection(play, action) ?: return false,
                 invocationId ?: DeviceRandom.uuid())
         }
-        if (action is PlayAction.InspectFace && acceptedInspection != null) return loggedInspection(action)
         val group = invocationId ?: DeviceRandom.uuid()
         // A move is its own only member (r13: its defaults belong to the move itself)
         val actions = if (action is PlayAction.MoveCard) listOf<PlayAction>(
@@ -483,32 +368,7 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
             keeping -> closeKeep()
         }
     }
-    fun closeInspection() { inspectionLifetime = null; inspectionSubscription?.close(); inspectionSubscription = null; inspection = null }
-    private fun loggedInspection(action: PlayAction.InspectFace): Boolean {
-        val play = current() ?: return false
-        closeInspection()
-        val lifetime = DeviceRandom.uuid()
-        inspectionLifetime = lifetime
-        inspection = ManualInspection(play.gameId, play.playId, action.cardId, listOf(action.faceId), explicit = true, provisional = true)
-        val subscription = acceptedInspection?.invoke(action, lifetime, {
-            inspectionLifetime == lifetime && inspection?.cardId == action.cardId &&
-                current()?.board?.cards?.any { it.id == action.cardId && it.containerId == action.containerId } == true
-        }) { event ->
-            when (event) {
-                is InspectionEvent.Accepted -> {
-                    val disclosure = event.disclosure
-                    val card = event.state.board.cards.singleOrNull { it.id == disclosure.cardId }
-                    if (viewer in disclosure.viewers && card != null && card.containerId == disclosure.containerId &&
-                        event.state.definitions.any { it.digest == card.definition && it.definition.faces.any { face -> face.faceId == disclosure.faceId } })
-                        inspection = ManualInspection(event.state.gameId, event.state.id, card.id, listOf(disclosure.faceId), explicit = true)
-                }
-                is InspectionEvent.NotAccepted -> { closeInspection(); error = "Inspection was not accepted." }
-            }
-        }
-        inspectionSubscription = subscription
-        if (subscription == null) { closeInspection(); error = if (waitingForConnection()) null else "Inspection is unavailable." }
-        return subscription != null
-    }
+    fun closeInspection() { inspection = null }
     fun tableMenu() { dismiss(); panel = "table" }
     fun phasePicker() { dismiss(); panel = "phase" }
     fun stackContents() { dismiss(); panel = "manageStack" }
@@ -696,7 +556,7 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
     /** A hand card double-tapped or dragged onto the Battlefield or Stack with Automatum on (ZON-004, I-D36): cast or
      * played; one already known to have no cast or play Automatum allows now shakes at once (I-D46). */
     private fun castFromHand(cardId: String): Boolean {
-        val play = acting()?.takeIf { enabled() }
+        val play = current()?.takeIf { enabled() }
         // I-D50: the raised card goes the way its chips chose
         val (way, extras) = hand.castChoice(cardId)
         hand.lower()
@@ -1057,11 +917,7 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
         if (CombatStackController.retargetDrop(initial.board, bound.viewIds, destination).isNotEmpty())
             return@batchResult setAttackTarget(bound,
                 initial.board.combat?.pairs?.find { it.id == destination.pairId }?.attackTarget ?: destination.attackTarget)
-        val probe = if (initial.engine != null) runCatching { engineProbe(initial, bound.viewIds, destination) }
-        else runCatching { CombatStackController.place(requireNotNull(initial.legacy), viewer, bound.viewIds, destination) { action ->
-            GameCommand(DeviceRandom.uuid(), GameScope(initial.gameId, playId = initial.playId),
-                GameAction.Play(action), initial.playId, "0")
-        } }
+        val probe = runCatching { engineProbe(initial, bound.viewIds, destination) }
         if (probe.isFailure) { error = probe.exceptionOrNull()?.message ?: "Unavailable combat destination"; return@batchResult false }
         val ids = CombatStackController.sources(CombatStackController.orderedTargets(initial.board, bound.viewIds))
         var target = destination
@@ -1089,23 +945,3 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
     }
 }
 
-/** Rotation retention without adding a gameplay store to the account/session controller. */
-class TableToolkitViewModel : ViewModel() {
-    private var owner: Any? = null
-    private var key: List<String>? = null
-    private var retained: TableToolkitController? = null
-    fun obtain(owner: Any, key: List<String>, create: () -> TableToolkitController): TableToolkitController {
-        if (this.owner !== owner || this.key != key) {
-            retained?.dismiss(); retained?.closeInspection()
-            this.owner = owner; this.key = key; retained = create()
-        }
-        return requireNotNull(retained)
-    }
-    fun release(toolkit: TableToolkitController) {
-        if (retained === toolkit) {
-            toolkit.dismiss(); toolkit.closeInspection()
-            retained = null; owner = null; key = null
-        }
-    }
-    override fun onCleared() { retained?.let(::release) }
-}

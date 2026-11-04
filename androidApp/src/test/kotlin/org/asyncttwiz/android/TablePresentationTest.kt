@@ -31,7 +31,7 @@ internal object TableFixture {
     }
     fun scene(play: PlayState = play(board = 3, hand = 2), landscape: Boolean = false,
         ui: TableLayoutState = TableLayoutState(), placements: Map<String, TablePlacement> = emptyMap()) =
-        TablePresentation.scene(game, TableBoard.of(play), "a", if (landscape) 900f else 412f, if (landscape) 412f else 820f,
+        TablePresentation.scene(game, tableBoard(play), "a", if (landscape) 900f else 412f, if (landscape) 412f else 820f,
             landscape, ui, placements)
 }
 
@@ -41,7 +41,7 @@ class TablePresentationTest {
     @Test fun landscapeOpensOnBothBattlefieldsWholeHeight() {
         val play = TableFixture.play(board = 3, hand = 2)
         fun scene(landscape: Boolean, ui: TableLayoutState = TableLayoutState(), home: Boolean = true) =
-            TablePresentation.scene(TableFixture.game, TableBoard.of(play), "a", if (landscape) 892f else 412f, if (landscape) 412f else 892f,
+            TablePresentation.scene(TableFixture.game, tableBoard(play), "a", if (landscape) 892f else 412f, if (landscape) 412f else 892f,
                 landscape, ui, landscapeHome = home)
         val plain = scene(true, home = false)
         val opened = scene(true)
@@ -68,7 +68,7 @@ class TablePresentationTest {
                     areas = mapOf(CardArea.PILES to size)) }
         }
         for ((width, height) in listOf(900f to 412f, 640f to 360f)) for (appearance in appearances) {
-            fun scene(scroll: Float = 0f) = TablePresentation.scene(TableFixture.game, TableBoard.of(TableFixture.play()), "a", width, height, true,
+            fun scene(scroll: Float = 0f) = TablePresentation.scene(TableFixture.game, tableBoard(TableFixture.play()), "a", width, height, true,
                 TableLayoutState(scrollY = mapOf("sidebar" to scroll)), appearance = appearance)
             val initial = scene()
             val sidebar = initial.viewports.single { it.id == "sidebar" }
@@ -102,7 +102,7 @@ class TablePresentationTest {
     // STK-007, TBL-009
     @Test fun landscapeSidebarIsCompactWithStackOnThePileMidlineAndFullPileTouchTargets() {
         for ((width, height) in listOf(900f to 412f, 640f to 360f)) for (scale in listOf(.5f, 1f)) {
-            val scene = TablePresentation.scene(TableFixture.game, TableBoard.of(TableFixture.play()), "a", width, height, true,
+            val scene = TablePresentation.scene(TableFixture.game, tableBoard(TableFixture.play()), "a", width, height, true,
                 appearance = CardAppearance(customizeAreas = true, areas = mapOf(CardArea.PILES to scale)))
             val sidebar = scene.viewports.single { it.id == "sidebar" }
             assertEquals(224f, sidebar.bounds.width)
@@ -133,7 +133,7 @@ class TablePresentationTest {
     }
 
     @Test fun landscapeStackTracksPileMidlineWhenSidebarScrolls() {
-        fun scene(scroll: Float) = TablePresentation.scene(TableFixture.game, TableBoard.of(TableFixture.play()), "a", 640f, 300f, true,
+        fun scene(scroll: Float) = TablePresentation.scene(TableFixture.game, tableBoard(TableFixture.play()), "a", 640f, 300f, true,
             TableLayoutState(scrollY = mapOf("sidebar" to scroll)))
         val first = scene(0f)
         val maxScroll = first.viewports.single { it.id == "sidebar" }.maxScrollY
@@ -169,7 +169,7 @@ class TablePresentationTest {
             for (reviewing in listOf(false, true)) for (combat in listOf(false, true)) {
                 val initial = LiveTableFixture.play()
                 val play = if (combat) initial.copy(board = initial.board.copy(combat = CombatArea("combat"))) else initial
-                val scene = TablePresentation.scene(LiveTableFixture.game, TableBoard.of(play), "a", w, h, true, reviewing = reviewing)
+                val scene = TablePresentation.scene(LiveTableFixture.game, tableBoard(play), "a", w, h, true, reviewing = reviewing)
                 val lane = scene.viewports.single { it.id == "combat" }.bounds
                 for (field in scene.fields) {
                     val lands = field.landsBounds(field.owner == "a")
@@ -178,7 +178,7 @@ class TablePresentationTest {
                     // CMB-007: the combat area floats over the battlefields' middle, never over their outer lands rows
                     assertNull(lands.intersection(lane))
                     val camera = scene.world!!.clamp(TableCamera(y = if (field.owner == "a") 10000f else -10000f))
-                    val panned = TablePresentation.scene(LiveTableFixture.game, TableBoard.of(play), "a", w, h, true,
+                    val panned = TablePresentation.scene(LiveTableFixture.game, tableBoard(play), "a", w, h, true,
                         TableLayoutState(camera), reviewing = reviewing)
                     val land = panned.items.single { it.cardId == "${field.owner}/BATTLEFIELD/0" }
                     val pannedLands = panned.fields.single { it.owner == field.owner }.landsBounds(field.owner == "a")
@@ -192,7 +192,7 @@ class TablePresentationTest {
     @Test fun bothFieldsAndOwnHandRemainUsableAtMockAndCompactViewportsIncludingReview() {
         for ((w, h, landscape) in listOf(Triple(412f, 892f, false), Triple(892f, 412f, true),
             Triple(360f, 640f, false), Triple(640f, 360f, true))) for (reviewing in listOf(false, true)) {
-            val scene = TablePresentation.scene(LiveTableFixture.game, TableBoard.of(LiveTableFixture.play()), "a", w, h, landscape, reviewing = reviewing)
+            val scene = TablePresentation.scene(LiveTableFixture.game, tableBoard(LiveTableFixture.play()), "a", w, h, landscape, reviewing = reviewing)
             val hand = scene.items.single { it.id == "a/HAND" }
             for (field in scene.fields) {
                 assertTrue(field.bounds.height > 0)
@@ -253,7 +253,7 @@ class TablePresentationTest {
         val play = TableFixture.play(library = 2, hand = 1).let { p -> p.copy(board = p.board.copy(
             cards = p.board.cards.map { it.copy(knownToAll = true, covered = false) })) }
         for (viewer in listOf("a", "b")) {
-            val scene = TablePresentation.scene(TableFixture.game, TableBoard.of(play), viewer, 400f, 800f, false)
+            val scene = TablePresentation.scene(TableFixture.game, tableBoard(play), viewer, 400f, 800f, false)
             for (pile in scene.items.filter { it.zone == PlayZone.LIBRARY && !it.temp }) {
                 assertTrue(pile.covered)
                         assertNull(pile.artwork)
@@ -405,7 +405,7 @@ class TablePresentationTest {
             for (width in listOf(320f, 360f, 412f)) for (zoom in listOf(.65f, 1f, 2f)) for (reviewing in listOf(false, true)) {
                 var emptyFields: List<TableField>? = null
                 for (play in listOf(empty, populated)) for (scroll in listOf(0f, Float.MAX_VALUE)) {
-                    val scene = TablePresentation.scene(TableFixture.game, TableBoard.of(play), "a", width, 892f, false,
+                    val scene = TablePresentation.scene(TableFixture.game, tableBoard(play), "a", width, 892f, false,
                         TableLayoutState(TableCamera(zoom = zoom), mapOf("dock/a" to scroll, "dock/b" to scroll,
                             "counters/a" to scroll, "counters/b" to scroll)), reviewing = reviewing)
                     val topDock = scene.viewports.single { it.id == "dock/b" }.bounds
@@ -470,7 +470,7 @@ class TablePresentationTest {
 
     @Test fun portraitWorldViewportFillsBetweenTheHands() {
         for (review in listOf(false, true)) {
-            val scene = TablePresentation.scene(LiveTableFixture.game, TableBoard.of(LiveTableFixture.play()), "a", 412f, 892f, false, reviewing = review)
+            val scene = TablePresentation.scene(LiveTableFixture.game, tableBoard(LiveTableFixture.play()), "a", 412f, 892f, false, reviewing = review)
             assertEquals(scene.items.single { it.id == "a/HAND" }.bounds.y, scene.world!!.viewport.bottom, .01f)
             assertEquals(scene.items.single { it.id == "b/HAND" }.bounds.bottom, scene.world.viewport.y, .01f)
             assertTrue(scene.fields.first().bounds.height > 100f)
@@ -481,12 +481,12 @@ class TablePresentationTest {
     @Test fun automaticInspectionUsesCurrentRegionNotOwnerAndNeverGrantsOpponentHiddenSide() {
         val p = TableFixture.play(hand = 1)
         val changed = p.copy(board = p.board.copy(cards = p.board.cards.map { c -> c.copy(owner = if (c.owner == "a") "b" else "a") }))
-        assertEquals(TableFixture.definition, TablePresentation.inspection(TableBoard.of(changed), "a", "a/HAND/0"))
-        val hidden = TablePresentation.inspection(TableBoard.of(changed), "a", "b/HAND/0")!!
+        assertEquals(TableFixture.definition, TablePresentation.inspection(tableBoard(changed), "a", "a/HAND/0"))
+        val hidden = TablePresentation.inspection(tableBoard(changed), "a", "b/HAND/0")!!
         assertEquals("Covered card", hidden.name); assertEquals("", hidden.faces.single().rulesText)
-        assertFalse(hidden.toString().contains("Secret")); assertNull(TablePresentation.inspection(TableBoard.of(changed), "a", "gone"))
+        assertFalse(hidden.toString().contains("Secret")); assertNull(TablePresentation.inspection(tableBoard(changed), "a", "gone"))
         val uncovered = changed.copy(board = changed.board.copy(cards = changed.board.cards.map { it.copy(covered = false) }))
-        assertEquals("Covered card", TablePresentation.inspection(TableBoard.of(uncovered), "a", "b/HAND/0")!!.name)
+        assertEquals("Covered card", TablePresentation.inspection(tableBoard(uncovered), "a", "b/HAND/0")!!.name)
     }
 
     // ZON-001, ZON-073
@@ -497,19 +497,19 @@ class TablePresentationTest {
             })) }
             val card = p.board.cards.single { it.id == "a/HAND/0" }
             for (viewer in listOf("a", "b")) {
-                val scene = TablePresentation.scene(TableFixture.game, TableBoard.of(p), viewer, 412f, 820f, false)
+                val scene = TablePresentation.scene(TableFixture.game, tableBoard(p), viewer, 412f, 820f, false)
                 val item = scene.items.single { it.cardId == card.id }
                 val preview = ManualDisclosure.permittedFaces(p, card, viewer, inspecting = false)
                 if (viewer == "a") {
                     assertFalse(item.covered)
                     assertEquals("Secret face", item.value)
                     assertEquals(listOf("Secret face"), preview.map { it.name })
-                    assertEquals(TableFixture.definition, TablePresentation.inspection(TableBoard.of(p), viewer, card.id))
+                    assertEquals(TableFixture.definition, TablePresentation.inspection(tableBoard(p), viewer, card.id))
                 } else {
                     assertTrue(item.covered)
                     assertFalse(item.label.contains("Secret"))
                     assertTrue(preview.isEmpty())
-                    assertEquals("Covered card", TablePresentation.inspection(TableBoard.of(p), viewer, card.id)!!.name)
+                    assertEquals("Covered card", TablePresentation.inspection(tableBoard(p), viewer, card.id)!!.name)
                 }
             }
         }
@@ -522,13 +522,13 @@ class TablePresentationTest {
                 card.copy(covered = true, explicitlyCovered = explicit)
             })) }
             for (viewer in listOf("a", "b")) {
-                val scene = TablePresentation.scene(TableFixture.game, TableBoard.of(p), viewer, 412f, 820f, false)
+                val scene = TablePresentation.scene(TableFixture.game, tableBoard(p), viewer, 412f, 820f, false)
                 val card = p.board.cards.single { it.id == "a/BATTLEFIELD/0" }
                 assertEquals(explicit, scene.items.single { it.cardId == card.id }.covered)
-                assertEquals(explicit, TablePresentation.cardForActions(TableBoard.of(p), card.id).covered)
+                assertEquals(explicit, TablePresentation.cardForActions(tableBoard(p), card.id).covered)
                 assertEquals(explicit, ManualDisclosure.permittedFaces(p, card, viewer, inspecting = false).isEmpty())
                 assertEquals(if (explicit && viewer != "a") "Covered card" else "Secret face",
-                    TablePresentation.inspection(TableBoard.of(p), viewer, card.id)!!.faces.single().name)
+                    TablePresentation.inspection(tableBoard(p), viewer, card.id)!!.faces.single().name)
             }
         }
     }
@@ -540,10 +540,10 @@ class TablePresentationTest {
         })) }
         val card = p.board.cards.single { it.id == "a/LIBRARY/0" }
         for (viewer in listOf("a", "b")) {
-            val scene = TablePresentation.scene(TableFixture.game, TableBoard.of(p), viewer, 412f, 820f, false)
+            val scene = TablePresentation.scene(TableFixture.game, tableBoard(p), viewer, 412f, 820f, false)
             assertTrue(scene.items.single { it.id == "a/LIBRARY" }.covered)
             assertTrue(ManualDisclosure.permittedFaces(p, card, viewer, inspecting = false).isEmpty())
-            if (viewer != "a") assertEquals("Covered card", TablePresentation.inspection(TableBoard.of(p), viewer, card.id)!!.name)
+            if (viewer != "a") assertEquals("Covered card", TablePresentation.inspection(tableBoard(p), viewer, card.id)!!.name)
         }
     }
 

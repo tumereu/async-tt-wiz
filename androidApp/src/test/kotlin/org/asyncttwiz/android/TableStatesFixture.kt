@@ -65,6 +65,4 @@ internal object TableStatesFixture {
             MoveDestination(id("a/BATTLEFIELD"), MoveInsertion.EMPTY, BoardPosition(3, 2))))
         return tree
     }
-    fun playback(tree: GameplayTree = history()) = HistoryPlayback(HistoryTree(tree.initial.root.id, tree.nodes.values.toList(),
-        tree.currentNodeId, "fixture", texts = historyTexts(tree, a, mapOf(a to "Alice", b to "Bob"))))
 }

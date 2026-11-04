@@ -45,9 +45,6 @@ internal fun Modifier.shaken(shakes: Int): Modifier {
     return graphicsLayer { translationX = offset.value * density }
 }
 
-/** One of the viewer's Automatum toggles in the quick-actions row (I-D46 (c)). */
-internal data class AutomatumToggle(val name: String, val label: String, val tooltip: String, val icon: ImageVector,
-    val on: Boolean, val enabled: Boolean, val toggle: () -> Unit)
 
 internal object AutomatumToggles {
     const val FULL_CONTROL = "Full control"
@@ -67,53 +64,5 @@ internal object AutomatumToggles {
         return automatumCombatQuickActions(play, context, scope).isNullOrEmpty()
     }
 
-    /** The three toggles: Full control and Skip when I have no choice as the game holds them for [viewer] (SYS-071,
-     * SYS-063), Autotap mana sources from this device (I-D47, [PauseSettings.autotap], which casting reads). */
-    fun of(play: TableBoard, viewer: String, enabled: Boolean, autotap: Boolean, setFullControl: (Boolean) -> Unit,
-        submit: (PlayAction) -> Boolean, setAutotap: (Boolean) -> Unit): List<AutomatumToggle> {
-        val own = play.board.players.single { it.accountId == viewer }
-        return listOf(
-            AutomatumToggle(FULL_CONTROL, "Full\ncontrol", "Full control: also pause for your own spells and in every step in which you could act",
-                menuIcon(FULL_CONTROL), own.fullControl, enabled) { setFullControl(!own.fullControl) },
-            AutomatumToggle(SKIP, "Skip if\nno choice", "Skip when I have no choice: Automatum passes for you when you could only pass",
-                menuIcon(SKIP), own.skipWhenNoChoice, enabled) {
-                submit(PlayAction.Mtg(MtgAction.SetSkipWhenNoChoice(!own.skipWhenNoChoice)))
-            },
-            AutomatumToggle(AUTOTAP, "Autotap\nmana", "Autotap mana sources: casting pays by itself, with mana in your pool first",
-                menuIcon(AUTOTAP), autotap, true) { setAutotap(!autotap) })
-    }
 }
 
-/** The quick-actions row with Automatum on (I-D46 (c)): equal-width icon + text toggles, the words at a readable size
- * (UI review round 2 #8); an on toggle is filled violet with a check, an off one white with an empty ring; hold shows
- * what each does. */
-@Composable
-internal fun RowScope.AutomatumToggleCells(play: TableBoard, viewer: String, enabled: Boolean, submit: (PlayAction) -> Boolean) {
-    val (pauseState, pausePreferences) = rememberPauseSettings(viewer)
-    val toggles = AutomatumToggles.of(play, viewer, enabled, pauseState.value.autotap,
-        // SYS-071: the device's setting, which goes into the game after a change (FullControlSync)
-        setFullControl = { on -> pausePreferences.settings = pauseState.value.copy(fullControl = on,
-            fullControlChanged = System.currentTimeMillis()) },
-        // I-D47: the cast's own "Autotap mana sources" setting (Settings → Automatum)
-        submit = submit, setAutotap = { on -> pausePreferences.settings = pauseState.value.copy(autotap = on) })
-    for (toggle in toggles) key(toggle.name) {
-        val control = MenuControl(toggle.name, toggle.enabled, selected = toggle.on, color = AutomatumViolet) { toggle.toggle() }
-        RingPress(control, Modifier.weight(1f).height(48.dp).semantics { stateDescription = if (toggle.on) "On" else "Off" },
-            AutomatumViolet, fill = if (toggle.on) AutomatumViolet else Color.White, role = Role.Switch,
-            tooltip = toggle.tooltip) {
-            val ink = (if (toggle.on) Color.White else MenuInk).let { it.copy(alpha = if (toggle.enabled) 1f else .45f) }
-            Column(Modifier.fillMaxSize().padding(horizontal = 3.dp), horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
-                    Icon(toggle.icon, null, Modifier.size(16.dp), tint = ink)
-                    // The state at a glance: a check when on, an empty ring when off
-                    Icon(if (toggle.on) androidx.compose.material.icons.Icons.Filled.CheckCircle
-                        else androidx.compose.material.icons.Icons.Outlined.RadioButtonUnchecked, null, Modifier.size(13.dp), tint = ink)
-                }
-                Text(toggle.label, color = ink, fontSize = 11.sp, lineHeight = 12.sp, letterSpacing = 0.sp, maxLines = 2,
-                    textAlign = TextAlign.Center, fontWeight = if (toggle.on) FontWeight.Bold else FontWeight.Medium,
-                    overflow = TextOverflow.Ellipsis)
-            }
-        }
-    }
-}

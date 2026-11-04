@@ -149,7 +149,7 @@ class TableAnimationTest {
             changes.apply(TableChangeBatch(listOf(TableAppliedEvent(node))))
             assertEquals(setOf(display.containerId), changes.shuffles(node.id))
             for (viewer in listOf(f.actor, f.other)) {
-                val scene = TablePresentation.scene(f.game, TableBoard.of(f.root), viewer, 412f, 892f, false)
+                val scene = TablePresentation.scene(f.game, tableBoard(f.root), viewer, 412f, 892f, false)
                 val pile = scene.items.single { it.id == display.containerId }
                 val animation = HistorySceneAnimation(scene)
                 assertTrue(animation.retarget(scene, 1f, shuffles = changes.shuffles(node.id), shuffleCursor = node.id))
@@ -344,34 +344,6 @@ class TableAnimationTest {
             placement = if (destination.endsWith("BATTLEFIELD")) PlayPlacement(BoardPosition(2, 2), it.id) else null) else it },
         containers = play.board.containers.map { c -> c.copy(cards = c.cards.filterNot { it in ids } + if (c.id == destination) ids else emptyList()) }))
 
-    @Test fun confirmationBeforeHistoryIndexNeverPublishesTheOlderBoardAgain() {
-        val initial = TableFixture.play(hand = 1)
-        val predicted = moved(initial, listOf("a/HAND/0"), "a/BATTLEFIELD").copy(currentNodeId = "predicted-node")
-        val endpoint = TableEndpointPresentation()
-        endpoint.presented(initial)
-        assertEquals(predicted, endpoint.live(predicted, initial, awaitingIndex = false))
-        endpoint.presented(predicted)
-        val animation = HistorySceneAnimation(TableFixture.scene(initial))
-        animation.retarget(TableFixture.scene(predicted), 1f)
-        val confirmed = predicted.copy()
-        val duringIndexing = endpoint.live(confirmed, initial, awaitingIndex = true)!!
-        assertEquals(confirmed, duringIndexing)
-        assertFalse(animation.retarget(TableFixture.scene(duringIndexing), .8f))
-        assertFalse(animation.retarget(TableFixture.scene(confirmed), 1f))
-
-        // A correction to that same predicted node also goes straight to the accepted endpoint,
-        // not via the old indexed board and then forward for a second time.
-        val correction = confirmed.copy(board = confirmed.board.copy(cards = confirmed.board.cards.map {
-            if (it.id == "a/HAND/0") it.copy(placement = PlayPlacement(BoardPosition(3, 2), it.id)) else it
-        }))
-        val current = animation.frame(.8f).single { it.item.cardId == "a/HAND/0" }.bounds
-        assertEquals(correction, endpoint.live(correction, initial, awaitingIndex = true))
-        assertTrue(animation.retarget(TableFixture.scene(correction), .8f))
-        assertEquals(current, animation.frame(0f).single { it.item.cardId == "a/HAND/0" }.bounds)
-
-        // Unseen remote nodes still wait for history's foreground/catch-up classification.
-        assertEquals(initial, endpoint.live(correction.copy(currentNodeId = "remote-node"), initial, awaitingIndex = true))
-    }
 
     // SYS-009
     @Test fun matchingConfirmationDoesNotRestartEvenMidFlightOrChangeCardIdentity() {

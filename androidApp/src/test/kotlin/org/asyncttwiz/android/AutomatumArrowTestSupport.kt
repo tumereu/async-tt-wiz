@@ -10,8 +10,8 @@ import kotlin.test.assertNull
  * passes): it reads [label] when given and isn't greyed ([stepBlocked]); the tap is Next through [toolkit].
  */
 internal fun tapArrow(play: PlayState, toolkit: TableToolkitController, combat: CombatShown?, label: String? = null): Boolean {
-    if (label != null) assertEquals(label, AutomatumStep.of(TableBoard.of(play)).label)
-    val blocked = stepBlocked(TableBoard.of(play), toolkit.cast.open, combat)
+    if (label != null) assertEquals(label, AutomatumStep.of(tableBoard(play)).label)
+    val blocked = stepBlocked(tableBoard(play), toolkit.cast.open, combat)
     assertNull(blocked, "the step arrow is greyed: $blocked")
     return toolkit.perform(TableActionIntent.Next(TableActionScope(play.gameId, play.id)))
 }

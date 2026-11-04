@@ -1,7 +1,6 @@
 package org.asyncttwiz.android
 
 import androidx.compose.runtime.snapshots.Snapshot
-import org.asyncttwiz.protocol.PlayAction
 import org.junit.Test
 import kotlin.test.*
 
@@ -21,18 +20,15 @@ class TableRefreshObservationTest {
         try { write(); Snapshot.sendApplyNotifications() } finally { handle.dispose() }
         return changed
     }
-    private fun BasicTableFixture.tableReads() = reads {
-        lobby.table.value; lobby.retainedTree(); lobby.displayTree(); lobby.retainedHistory(); lobby.resultLocked()
-    }
 
-    // SYS-028
+    // SYS-028 (on engine state, R4b: the table reads the lobby's narrow view, whose board is the engine game's)
     @Test fun backgroundRefreshWithUnchangedDataWritesNothingTheTableReads() {
-        val f = BasicTableFixture()
+        val f = EngineLobbyFixture()
         try {
             f.connect(); f.worker.drain()
-            val table = f.tableReads()
+            val table = reads { f.lobby.table.value }
             val view = f.lobby.table.value
-            val tree = f.lobby.displayTree()
+            assertNotNull(view.board)
             val whole = reads { f.lobby.state }
             var flipped = false
             val changed = writes { repeat(3) { f.lobby.sync(); flipped = flipped || f.lobby.state.busy; f.worker.drain() } }
@@ -40,23 +36,6 @@ class TableRefreshObservationTest {
             assertTrue(changed.containsAll(whole), "the whole lobby state was rewritten")
             assertTrue(changed.intersect(table).isEmpty(), "but nothing the table reads")
             assertSame(view, f.lobby.table.value)
-            assertSame(tree, f.lobby.displayTree())
-        } finally { f.lobby.close(); f.worker.drain() }
-    }
-
-    @Test fun replacingTheDisplayTreeInvalidatesTreeReadersEvenWithoutALobbyFieldChange() {
-        val f = BasicTableFixture()
-        try {
-            f.connect(); f.worker.drain()
-            val before = f.lobby.displayTree()
-            // The trees live in the session; this signal is what a tree reader observes beyond the lobby view.
-            val signal = reads { f.lobby.displayTree() } - reads { f.lobby.table.value }
-            assertTrue(signal.isNotEmpty())
-            val changed = writes { assertTrue(f.lobby.gameplay(PlayAction.AdjustLife(f.actor, "1"))); f.worker.drain() }
-            assertNotSame(before, f.lobby.displayTree())
-            assertTrue(changed.containsAll(signal))
-            // Nothing tree-related changing (a refresh) leaves the signal alone.
-            assertTrue(writes { f.lobby.sync(); f.worker.drain() }.intersect(signal).isEmpty())
-        } finally { f.lobby.close(); f.worker.drain() }
+        } finally { f.close() }
     }
 }

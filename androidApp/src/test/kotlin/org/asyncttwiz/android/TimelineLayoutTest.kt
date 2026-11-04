@@ -12,8 +12,8 @@ class TimelineLayoutTest {
             val play = TableFixture.play(hand = 4, board = 3).let { p -> p.copy(board = p.board.copy(players =
                 p.board.players.map { it.copy(counters = mapOf(CounterColor.BLUE to "2")) })) }
             val layout = TableLayoutState(TableCamera(13f, -8f, zoom), scroll = mapOf("a/HAND" to 9f))
-            val normal = TablePresentation.scene(TableFixture.game, TableBoard.of(play), "a", width, height, landscape, layout)
-            val review = TablePresentation.scene(TableFixture.game, TableBoard.of(play), "a", width, height, landscape, layout, reviewing = true)
+            val normal = TablePresentation.scene(TableFixture.game, tableBoard(play), "a", width, height, landscape, layout)
+            val review = TablePresentation.scene(TableFixture.game, tableBoard(play), "a", width, height, landscape, layout, reviewing = true)
             assertEquals(normal.camera, review.camera)
             assertEquals(normal.world!!.viewport, review.world!!.viewport)
             assertEquals(normal.world.bounds, review.world.bounds)
@@ -30,7 +30,7 @@ class TimelineLayoutTest {
             val panelTop = height - tableBottomHeight(landscape)
             assertEquals(panelTop - if (landscape) 2f else 0f, bottom, .001f)
             assertFalse(review.worldInput(TablePoint(review.world.visibleViewport.center.x, panelTop + 1)))
-            assertEquals(normal, TablePresentation.scene(TableFixture.game, TableBoard.of(play), "a", width, height, landscape, layout))
+            assertEquals(normal, TablePresentation.scene(TableFixture.game, tableBoard(play), "a", width, height, landscape, layout))
         }
     }
 }

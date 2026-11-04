@@ -1,1 +1,0 @@
-The same division switched to Free: Alice took 1 from the Ogre and gave it to Bob, so OK is greyed and the line under the rows says every blocker needs lethal damage before any goes past it (trample).

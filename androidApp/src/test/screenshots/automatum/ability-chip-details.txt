@@ -1,1 +1,0 @@
-Holding Grovewatch Druid's "Draw a card" chip shows its details above the chips: the card's name and the ability's whole text "{2}{G}, {T}: Draw a card."

@@ -22,7 +22,6 @@ import org.asyncttwiz.automatum.CombatShown
 import org.asyncttwiz.automatum.DamageDivision
 import org.asyncttwiz.automatum.Divisions
 import org.asyncttwiz.automatum.EngineBatch
-import org.asyncttwiz.automatum.EngineCall
 import org.asyncttwiz.automatum.EngineRun
 import org.asyncttwiz.automatum.EngineState
 import org.asyncttwiz.automatum.LaneAttack
@@ -49,7 +48,6 @@ import org.asyncttwiz.protocol.*
 internal class CombatController(
     private val current: () -> TableBoard?,
     private val submit: (PlayAction) -> Boolean,
-    private val tags: () -> List<MtgTag?>,
     /** Where the engine's reasons for refused drafts are worked out (SYS-025): off the main thread in the app. */
     private val work: AutomatumWork = AutomatumWork.Inline,
     /** The message shown now, and showing another (an engine reason worked out after the refusal). */
@@ -225,7 +223,7 @@ internal class CombatController(
 
     /** What the table shows of combat on [play]'s board: worked out already, or now (blocking). */
     fun shown(play: TableBoard): CombatShown =
-        if (shownBoard === play.board) view else AutomatumBoards.combat(play, tags)
+        if (shownBoard === play.board) view else AutomatumBoards.combat(play)
 
     /** What is shown of combat on [play]'s board when already worked out (never blocks); null until then. */
     fun ready(play: TableBoard): CombatShown? = if (shownBoard === play.board) view else AutomatumBoards.cachedCombat(play)
@@ -311,15 +309,9 @@ internal class CombatController(
 
     /** The engine's reason for a refusal on [play] (blocking: one engine call); null when it gives none. */
     private fun reason(play: TableBoard, refusal: (EngineRun) -> String?): String? = try {
-        // R4a: a game on engine state on its own state
-        val engine = play.engine
-        if (engine != null) refusal(EngineRun.of(engine.state, play.board, play.gameId) { error("No randomness") })
-        else {
-            val legacy = play.legacy!!
-            val definitions = AutomatumBoards.definitions(play)
-            refusal(EngineCall(legacy, definitions, EngineState.flowViewer(play.board),
-                AutomatumBoards.engineLog(legacy, definitions, tags())) { error("No randomness") })
-        }
+        // R4a: on the game's own engine state
+        val engine = play.engine ?: return null
+        refusal(EngineRun.of(engine.state, play.board, play.gameId) { error("No randomness") })
     } catch (problem: Exception) { null }
 
     companion object {
@@ -338,7 +330,7 @@ internal class CombatController(
 internal fun AutomatumCombatHost(toolkit: TableToolkitController, play: TableBoard) {
     LaunchedEffect(IdentityKey(play.board)) {
         val shown = AutomatumBoards.cachedCombat(play)
-            ?: kotlinx.coroutines.withContext(AutomatumBoards.boardWorker) { AutomatumBoards.combat(play, toolkit::engineTags) }
+            ?: kotlinx.coroutines.withContext(AutomatumBoards.boardWorker) { AutomatumBoards.combat(play) }
         toolkit.combat.show(play, shown)
     }
 }

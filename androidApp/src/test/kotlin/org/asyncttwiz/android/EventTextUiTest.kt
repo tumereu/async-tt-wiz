@@ -25,11 +25,9 @@ import kotlin.test.*
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class EventTextUiTest {
     @get:Rule val compose = createComposeRule()
-    private val f = DownloadedTreeFixture
 
     // HIS-075
     @Test fun textOverlaysTheTopRowWithoutTakingTapsAndFadesOnItsOwn() {
-        val tree = f.tap(f.root())
         val feed = EventTextFeed(Executor { it.run() }, { it() })
         var taps = 0
         compose.mainClock.autoAdvance = false
@@ -42,7 +40,8 @@ class EventTextUiTest {
             }
         }
         compose.runOnIdle {
-            feed.displayed(tree.currentNodeId, tree.stateAt(tree.currentNodeId), HistoryMode.PLAYBACK, tree.nodes, f.a, emptyMap()) { _, _ -> true }
+            // On engine state the table posts the shown event's text (HIS-076)
+            feed.post("tapped", "A card tapped")
             androidx.compose.runtime.snapshots.Snapshot.sendApplyNotifications()
         }
         compose.mainClock.advanceTimeBy(300)

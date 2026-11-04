@@ -13,13 +13,10 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
     authenticationRequired: (String) -> Unit = {}, installationId: String = UUID.randomUUID().toString(),
     private val deckApi: Decks? = null,
     private val activityTarget: (suspend (String, ActivityRoute) -> ActivityTarget)? = null,
-    treeCache: ((String, String, String) -> org.asyncttwiz.storage.GameplayTreeStore?)? = null,
     private val basicLandDefinitions: (() -> List<SubmittedDefinition>)? = null,
     /** The catalog's dungeon cards (blocking, on [worker]): sent with Ready when the deck ventures (OutsideCards). */
     private val dungeonDefinitions: (() -> List<SubmittedDefinition>)? = null,
     clock: () -> Long = ::monotonicMillis,
-    /** Runs the session's personal history reviews; null gives them their own background thread. Tests pass a worker they drain. */
-    historyReviewWorker: ExecutorService? = null,
     /** Where engine games do their work: the app's engine thread (I-D56 step D2); tests pass [EngineWorker.Direct]. */
     engineWorker: EngineWorker = EngineWorker.Background) : AutoCloseable {
     private val holder = LobbyStateHolder()
@@ -35,14 +32,12 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
     private val personalChat = GameChat()
     private val session: GameSession? = gameConnection?.let { GameSession(it, credential, post, authenticationRequired,
         changed = ::accepted, settled = { command, result ->
-            tableActions.historyOwner?.settled(command, result)
             if (command.action == GameAction.AcceptInvitation && result.outcome == "accepted" &&
                 latest[command.scope.gameId]?.lifecycle == GameLifecycle.LOBBY && sessionAvailable(command.scope.gameId)) open(command.scope.gameId)
             refresh(background = true)
-        }, statusChanged = ::connectionState, installationId = installationId, accountId = accountId, treeCache = treeCache,
-        tableChanges = { gameId, batch -> if (state.selected == gameId) tableActions.historyOwner?.liveChanges(batch) }, personalChat = personalChat,
-        openedGame = { state.selected }, engineWorker = engineWorker, engineLoad = { it == state.selected },
-        reviewWorker = historyReviewWorker ?: DebugJank.treeExecutor(java.util.concurrent.Executors.newSingleThreadExecutor())) }
+        }, statusChanged = ::connectionState, installationId = installationId, accountId = accountId,
+        personalChat = personalChat,
+        openedGame = { state.selected }, engineWorker = engineWorker, engineLoad = { it == state.selected }) }
     private fun sessionAvailable(id: String) = session?.available(id) != false
     private val scope = object : LobbyScope {
         override var state: LobbyState
@@ -68,9 +63,7 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
     private val removal: LobbyGameRemoval = LobbyGameRemoval(scope, accountId, session, setupCancellation)
     private val routes: LobbyActivityRoutes = LobbyActivityRoutes(scope, api, credential, accountId, worker, post, session, openGame,
         activityTarget)
-    private val tableActions: LobbyTableActions = LobbyTableActions(scope, table, accountId, worker, post, session)
-    val history: TableHistoryController get() = tableActions.history
-    fun clear() { queue.clear(); tableActions.resetHistory(); epoch++; contactBook.clear(); deckPicker.clear(); routes.fence(); refresher.clear(); inspection.close(); setupCancellation.clear(); personalChat.clear(); invitations.clear(); latest.clear(); session?.clear(); state = LobbyState() }
+    fun clear() { queue.clear(); epoch++; contactBook.clear(); deckPicker.clear(); routes.fence(); refresher.clear(); inspection.close(); setupCancellation.clear(); personalChat.clear(); invitations.clear(); latest.clear(); session?.clear(); state = LobbyState() }
     fun openChat() {
         if (state.detail?.lifecycle == GameLifecycle.ACTIVE) { state = state.copy(chatOpen = true); connectionState() }
     }
@@ -100,13 +93,11 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
             syncedGames = ids.filter(wire::caughtUp).toSet(), pendingGames = ids.filter(wire::pending).toSet(),
             reconnectingGames = ids.filter(wire::reconnecting).toSet(),
             acceptedPreparation = state.selected?.let(wire::acceptedPreparation), preparation = next, transferFeedback = feedback,
-            queuedTransferCards = state.selected?.let(wire::queuedTransfers) ?: 0, play = state.detail?.let(wire::play),
-            acceptedPlay = state.detail?.let(wire::acceptedPlay), board = state.detail?.let(wire::board),
+            queuedTransferCards = state.selected?.let(wire::queuedTransfers) ?: 0, board = state.detail?.let(wire::board),
             ownPodDeckName = state.selected?.let(wire::ownPodDeckName),
             opponentPresence = state.selected?.let(wire::opponentPresence),
             chat = state.selected?.let { personalChat.presentation(it, accountId(), wire.chat(it), wire.outgoingChat(it)) } ?: ChatPresentation(),
             chatLoaded = state.selected?.let(wire::chatLoaded) == true)
-        tableActions.showTrees(state.selected?.let { listOf(it, wire.retainedTree(it), wire.displayTree(it), wire.retainedHistory(it)) }.orEmpty())
         // Never re-enter the session from its own status callback; run waiting taps right after it.
         if (queue.anyReady()) post(queue::runQueued)
     }
@@ -114,7 +105,6 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
     private fun accepted(game: GameSummary) {
         val old = latest[game.id]
         if (old != null && !GameSession.newerOrEqual(game.revision, old.revision)) return
-        if (state.selected == game.id && state.detail?.playId != game.playId) tableActions.resetHistory()
         latest[game.id] = game
         setupCancellation.accepted(game)
         if (game.lifecycle in listOf(GameLifecycle.CANCELLED, GameLifecycle.DELETED)) state = state.copy(
@@ -134,11 +124,10 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
         if (!listed && state.selected == game.id) leaveUnavailable()
     }
     private fun leaveUnavailable() {
-        tableActions.resetHistory()
         routes.fence()
         closePicker(); inspection.close(); setupCancellation.clear()
         state = state.copy(selected = null, detail = null, preparing = false, acceptedPreparation = null,
-            preparation = null, play = null, acceptedPlay = null, board = null, transferFeedback = null, queuedTransferCards = 0,
+            preparation = null, board = null, transferFeedback = null, queuedTransferCards = 0,
             chatOpen = false, chat = ChatPresentation(), gameContext = null, deletion = null, activityTarget = null,
             error = "This game is no longer available.")
     }
@@ -155,42 +144,12 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
     internal fun requestCancelSetup(game: GameSummary) = removal.requestCancelSetup(game)
     internal fun confirmCancelSetup() = removal.confirmCancelSetup()
     fun cancelSetup(game: GameSummary): Boolean = removal.cancelSetup(game)
-    // The open table's requests, history and trees: LobbyTableActions.
-    fun resultLocked(): Boolean = tableActions.resultLocked()
-    fun captureResult(): ResultTarget? = tableActions.captureResult()
-    fun suggestResult(target: ResultTarget, outcome: SuggestedResult, note: String = ""): Boolean =
-        tableActions.suggestResult(target, outcome, note)
-    fun acceptResult(target: ResultAcceptanceTarget): Boolean = tableActions.acceptResult(target)
-    fun concede(target: ResultTarget): Boolean = tableActions.concede(target)
-    fun rejectResult(target: ResultAcceptanceTarget): Boolean = tableActions.rejectResult(target)
-    fun gameplay(action: PlayAction, invocationId: String? = null, continuation: Continuation? = null): Boolean =
-        tableActions.gameplay(action, invocationId, continuation)
-    fun historyControl(action: GameAction): Boolean = tableActions.historyControl(action)
-    fun gameplayBatch(actions: List<PlayAction>, requestId: String, tags: List<MtgTag?> = emptyList(), replaces: String? = null): Boolean =
-        tableActions.gameplayBatch(actions, requestId, tags, replaces)
-    /** I-D47: the instant preview of a cast ([CastPreview]). */
-    val castPreview: CastPreview = object : CastPreview {
-        override fun show(batch: GameAction.PlayBatch, requestId: String) = tableActions.previewBatch(batch.actions, requestId, batch.tags)
-        override fun shownOn(requestId: String) = tableActions.previewShownOn(requestId)
-        override fun drop(requestId: String) = tableActions.dropPreview(requestId)
-        override fun send(batch: GameAction.PlayBatch, requestId: String, replaces: String) =
-            tableActions.gameplayBatch(batch.actions, requestId, batch.tags, replaces)
-    }
-    fun inspectFace(action: PlayAction.InspectFace, lifetimeId: String, isCurrent: () -> Boolean,
-        observed: (InspectionEvent) -> Unit): InspectionSubscription? = tableActions.inspectFace(action, lifetimeId, isCurrent, observed)
     /** I-D56: the open game, when it is played on engine state. */
     internal fun engineGame(): EngineGame? = state.detail?.let { session?.engineGame(it) }
     /** The open engine game's own steps and what it sends ([GameSession.engineTick]); [connectionState] republishes. */
     internal fun engineTick() { state.selected?.let { session?.engineTick(it) } }
     /** After an action on the open engine game: what it sends goes out and the table shows its new board. */
     internal fun engineSent() { state.selected?.let { session?.pumpEngine(it) }; connectionState() }
-    fun retainedTree() = tableActions.retainedTree()
-    fun retainedHistory() = tableActions.retainedHistory()
-    fun displayTree() = tableActions.displayTree()
-    fun reviewHistory(nodeId: String?, complete: (DownloadedHistoryState) -> Unit): Boolean = tableActions.reviewHistory(nodeId, complete)
-    fun reviewHistoryTarget(target: CapturedHistoryTarget, isCurrent: () -> Boolean,
-        complete: (CapturedHistoryReview) -> Unit): Boolean = tableActions.reviewHistoryTarget(target, isCurrent, complete)
-    fun leaveActivityReview() { state = state.copy(activityTarget = null, error = null); tableActions.historyOwner?.current() }
     // Start settings, readiness and deck preparation: LobbyPreparationActions.
     fun starter(choice: StarterChoice) = preparationActions.starter(choice)
     fun alternateStarter(enabled: Boolean) = preparationActions.alternateStarter(enabled)
@@ -247,11 +206,11 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
     fun activityUnavailable(message: String = "This activity is no longer available. Showing your current Games.") =
         routes.activityUnavailable(message)
     fun openActivity(route: ActivityRoute, current: () -> Boolean) = routes.openActivity(route, current)
-    fun open(id: String) { if (!state.mutating) { tableActions.resetHistory(); routes.fence(); setupCancellation.clear(); queue.dropQueued(); closePicker(); inspection.close(); state = state.copy(selected = id, detail = null, activityTarget = null, acceptedPreparation = null, preparation = null, play = null, acceptedPlay = null, board = null, preparing = false, transferFeedback = null, chatOpen = false, chat = ChatPresentation(), gameContext = null, deletion = null, error = null); openGame(); refresh() } }
+    fun open(id: String) { if (!state.mutating) { routes.fence(); setupCancellation.clear(); queue.dropQueued(); closePicker(); inspection.close(); state = state.copy(selected = id, detail = null, activityTarget = null, acceptedPreparation = null, preparation = null, board = null, preparing = false, transferFeedback = null, chatOpen = false, chat = ChatPresentation(), gameContext = null, deletion = null, error = null); openGame(); refresh() } }
     fun back() { if (state.deletion != null) dismissGameDeletion() else if (state.gameContext != null) dismissGameContext()
         else if (setupCancellation.confirmation != null) setupCancellation.dismiss() else if (setupCancellation.context != null) setupCancellation.dismissContext()
         else if (state.chatOpen) closeChat() else if (inspection.state != null) inspection.close() else if (state.preparing) state = state.copy(preparing = false, transferFeedback = null)
-        else if (state.picker != null) closePicker() else if (state.draft != null) dismiss() else { queue.dropQueued(); tableActions.resetHistory(); routes.fence(); state = state.copy(selected = null, detail = null, activityTarget = null, acceptedPreparation = null, preparation = null, play = null, acceptedPlay = null, board = null, transferFeedback = null, error = null); refresh() } }
+        else if (state.picker != null) closePicker() else if (state.draft != null) dismiss() else { queue.dropQueued(); routes.fence(); state = state.copy(selected = null, detail = null, activityTarget = null, acceptedPreparation = null, preparation = null, board = null, transferFeedback = null, error = null); refresh() } }
     fun tick() { session?.tick() }
     fun heartbeat(presence: GamePresence): Boolean = session?.heartbeat(presence) == true
     fun sync() { tick(); if (refresher.inForeground && !state.busy && !state.mutating) refresh(background = true) }

@@ -40,10 +40,10 @@ class TableLayoutScreenshotTest {
             cards = initial.board.cards.map { card -> transfers[card.id]?.let { card.copy(containerId = it, covered = false) } ?: card },
             containers = initial.board.containers.map { c -> c.copy(cards = c.cards.filterNot { it in transfers } +
                 transfers.filterValues { it == c.id }.keys) }))
-        val toolkit = TableToolkitController("a", { TableBoard.of(play) }, { true }, { _, _ -> true })
+        val toolkit = TableToolkitController("a", { tableBoard(play) }, { true }, { _, _ -> true })
         compose.setContent {
             MaterialTheme {
-                TableSurface(LiveTableFixture.game, TableBoard.of(play), "a", landscape, Modifier.fillMaxSize(),
+                TableSurface(LiveTableFixture.game, tableBoard(play), "a", landscape, Modifier.fillMaxSize(),
                     connected = true, onIntent = toolkit::handle, toolkit = toolkit,
                     runtime = TableRuntimeHooks(navigation = {}, chat = {}, history = {}))
             }
@@ -65,7 +65,7 @@ class TableLayoutScreenshotTest {
         assertEquals(if (landscape) 892 else 412, image.width)
         assertEquals(if (landscape) 412 else 892, image.height)
         // as the table screen lays it out (TBL-121)
-        val scene = TablePresentation.scene(LiveTableFixture.game, TableBoard.of(play), "a", image.width.toFloat(), image.height.toFloat(), landscape,
+        val scene = TablePresentation.scene(LiveTableFixture.game, tableBoard(play), "a", image.width.toFloat(), image.height.toFloat(), landscape,
             landscapeHome = true)
         assertRenderedLandsBands(image, scene, "a")
         val region = scene.stackRegion!!

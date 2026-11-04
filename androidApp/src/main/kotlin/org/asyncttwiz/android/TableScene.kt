@@ -32,7 +32,7 @@ import org.asyncttwiz.protocol.*
 internal fun TableSurface(game: GameSummary, play: TableBoard, accountId: String, landscape: Boolean,
     modifier: Modifier = Modifier, connected: Boolean = false, onIntent: ((TableIntent) -> Boolean)? = null,
     placements: Map<String, TablePlacement> = emptyMap(), toolkit: TableToolkitController? = null,
-    accepted: TableBoard? = null, runtime: TableRuntimeHooks = TableRuntimeHooks()) {
+    runtime: TableRuntimeHooks = TableRuntimeHooks()) {
     PrefetchGameArtwork(play, accountId)
     val layoutState: MutableState<TableLayoutState> = toolkit?.layoutState ?: remember(play.playId, accountId) { mutableStateOf(TableLayoutState()) }
     var layout by layoutState
@@ -60,7 +60,6 @@ internal fun TableSurface(game: GameSummary, play: TableBoard, accountId: String
                     toolkit?.dismissTapUi()
                 }
                 is TableIntent.Peek -> {
-                    if (intent.cardId != null) currentRuntime.pauseForInspection?.invoke()
                     if (intent.cardId != null) peekScroll.dispatchRawDelta(-peekScroll.value.toFloat())
                     toolkit?.peek(intent.cardId)
                 }
@@ -149,7 +148,7 @@ internal fun TableSurface(game: GameSummary, play: TableBoard, accountId: String
             preview = coordinator.preview
         }) }
     val presenceDot = rememberPresenceDot(runtime.opponentPresence)
-    val computedBoard = rememberComputedBoard(play, accountId, toolkit?.let { t -> { t.engineTags() } })
+    val computedBoard = rememberComputedBoard(play, accountId)
     CompositionLocalProvider(LocalTableTapRelay provides relay, LocalTableChanges provides runtime.changes, LocalComputedBoard provides computedBoard,
         LocalOpponentPresence provides runtime.opponentPresence) {
     BoxWithConstraints(modifier.fillMaxWidth().onGloballyPositioned { screenOrigin = it.localToScreen(Offset.Zero) }.tableRingRelay(relay)
@@ -326,9 +325,9 @@ internal fun TableSurface(game: GameSummary, play: TableBoard, accountId: String
         val hands = remember(scene) { scene.items.filter { it.kind == TableItemKind.HAND }.map { it.bounds } }
         AnimatedCardRingAnchors(rendered, toolkit?.capture != null) {
          if (toolkit != null) CompositionLocalProvider(LocalPopupAvoid provides hands) {
-             TableToolkitScreen(toolkit, play, game, landscape, accepted,
+             TableToolkitScreen(toolkit, play, game, landscape,
               peekScroll = peekScroll, scene = scene, onTimeline = runtime.history,
-              reviewing = runtime.reviewing && !runtime.continuationArmed)
+              reviewing = runtime.reviewing)
          }
         }
     }

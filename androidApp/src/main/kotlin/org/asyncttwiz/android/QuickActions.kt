@@ -32,9 +32,7 @@ data class QuickContext(val combatAreaId: String? = null,
     /** CMB-028: the active attack target lane (null: the defending player) and its name, for "Rest → <target>". */
     val combatTarget: String? = null, val combatTargetName: String = "",
     /** UI review round 2 #3: the viewer's own cast is open, so the step arrow can't act ([stepBlocked]). */
-    val castOpen: Boolean = false,
-    /** Owner playtest 2026-11-03 #1: the step arrow's words from its tap's plan, once worked out. */
-    val plannedStep: AutomatumStep? = null)
+    val castOpen: Boolean = false)
 
 /** A disabled action stays in place, greyed and inert; one [refused] says why on tap (Automatum on, I-D28). */
 data class QuickAction(val name: String, val glyph: String, val intent: TableActionIntent, val badge: String? = null,
@@ -112,7 +110,6 @@ fun QuickActionStrip(play: TableBoard, context: QuickContext, controller: TableA
             Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
                 // I-D56 §14 (TRN-059): on engine state the toggles are the player's private settings for this game
                 if (toggles && engine != null) EngineToggleCells(engine, true)
-                else if (toggles) AutomatumToggleCells(play, requireNotNull(context.viewer), controller.enabled(scope), submit)
                 for (action in actions) key(action.intent) {
                     InlinePopupCell(MenuControl(action.name, action.enabled && controller.enabled(scope), refused = action.refused) { perform(action.intent) },
                         quickActionLabel(action.name), owner = Color.Black, modifier = Modifier.weight(1f).height(48.dp))
@@ -135,7 +132,7 @@ fun QuickActionStrip(play: TableBoard, context: QuickContext, controller: TableA
             if (arrow || wait != null || toggles || unconfirmed) Box {
                 if (arrow) AutomatumStepArrow(play,
                     controller.enabled(scope), compact, onHold = { perform(TableActionIntent.End(scope)) },
-                    blocked = stepBlocked(play, context.castOpen, context.automatumCombat), planned = context.plannedStep) {
+                    blocked = stepBlocked(play, context.castOpen, context.automatumCombat)) {
                     perform(TableActionIntent.Next(scope))
                 }
                 else if (wait != null) EngineWaitArrow(wait, compact)

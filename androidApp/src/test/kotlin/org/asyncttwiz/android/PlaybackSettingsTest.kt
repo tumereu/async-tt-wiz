@@ -66,36 +66,6 @@ class PlaybackSettingsTest {
         assertEquals(1f, moves.multiplier)
     }
 
-    // HIS-028
-    @Test fun timelineGearOpensTheSharedPlaybackSectionAndStopsAuto() {
-        val settings = HistoryPlaybackPreferences(context, "dialog")
-        val player = TableStatesFixture.playback()
-        player.openFrom(player.tree.rootId); player.play()
-        var open by mutableStateOf(false)
-        compose.setContent { MaterialTheme {
-            HistoryPlaybackPanel(player, player.tree.sharedHeadId, TableStatesFixture.a, true, 10_000, {},
-                animationFinished = false, onSettings = { open = true })
-            if (open) PlaybackSettingsDialog(settings, "dialog") { open = false }
-        } }
-        compose.onNodeWithContentDescription("Playback settings").performClick()
-        compose.runOnIdle { assertFalse(player.position.playing) }
-        compose.onNode(isDialog()).assertExists()
-        compose.onNodeWithText("Playback", useUnmergedTree = true).assertIsDisplayed()
-        compose.onNodeWithTag("auto-pause-STACK_ADDED").assertIsOn().performClick().assertIsOff()
-        compose.runOnIdle { assertFalse(PlaybackAutoPause.STACK_ADDED in settings.autoPause) }
-        for (trigger in listOf(PlaybackAutoPause.STACK_REMOVED, PlaybackAutoPause.LAND_FROM_HAND, PlaybackAutoPause.NONLAND_FROM_HAND)) {
-            compose.onNodeWithTag("auto-pause-${trigger.name}").performScrollTo().assertIsOff().performClick().assertIsOn()
-            compose.runOnIdle { assertTrue(trigger in settings.autoPause) }
-        }
-        compose.onNodeWithTag("card-move-speed").performScrollTo().assertIsDisplayed()
-        compose.onNodeWithTag("card-move-speed-value").performScrollTo().performClick()
-        compose.onNodeWithTag("card-scale-input").performTextReplacement("0.1")
-        compose.onNodeWithTag("card-scale-save").performClick()
-        compose.runOnIdle { assertEquals(.25f, CardMovePreferences(context, "dialog").multiplier) }
-        compose.onNodeWithTag("card-move-speed-value").assertTextEquals("0.25×")
-        compose.onNodeWithText("Done").performScrollTo().performClick()
-        compose.onNode(isDialog()).assertDoesNotExist()
-    }
 
     // HIS-028, LOB-082
     @Test fun settingsShowsSameTogglesAndDelay() {
@@ -111,31 +81,6 @@ class PlaybackSettingsTest {
     }
 
 
-    // HIS-015
-    @Test fun terminalMatchingGroupKeepsAutoOnDuringAnimationThenGoesLiveWithoutAnotherDelay() {
-        val event = GameplayMutation("one", "root", "branch", TableStatesFixture.id("request"), "opponent", null,
-            PlayAction.RollDie(6, 4), GameplayTransition())
-        val player = HistoryPlayback(HistoryTree("root", listOf(event), event.id, "v"))
-        player.openFrom("root"); player.play()
-        var animatedCursor by mutableStateOf<String?>("root")
-        compose.mainClock.autoAdvance = false
-        compose.setContent { MaterialTheme {
-            HistoryPlaybackPanel(player, player.tree.sharedHeadId, "me", true, 500, {},
-                animationFinished = animatedCursor == player.position.cursorId)
-        } }
-        compose.mainClock.advanceTimeByFrame()
-        compose.mainClock.advanceTimeBy(600)
-        compose.runOnIdle {
-            assertEquals(event.id, player.position.cursorId)
-            assertTrue(player.position.playing)
-        }
-        compose.mainClock.advanceTimeBy(2_000)
-        compose.runOnIdle { assertTrue(player.position.playing); animatedCursor = event.id }
-        compose.waitForIdle()
-        compose.mainClock.advanceTimeBy(48) // Recompose and run the completion effect, well before the 500ms group delay.
-        compose.waitForIdle()
-        compose.runOnIdle { assertFalse(player.position.playing); assertEquals(HistoryMode.LIVE, player.position.mode) }
-    }
 
     @Test fun legacyStackPreferenceMigratesOptOutAndOtherwiseUsesNewDefaultsOnlyOnce() {
         val stored = context.getSharedPreferences("history-playback", Context.MODE_PRIVATE)

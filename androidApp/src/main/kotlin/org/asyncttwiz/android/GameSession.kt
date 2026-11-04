@@ -2,9 +2,6 @@ package org.asyncttwiz.android
 
 import org.asyncttwiz.protocol.*
 import java.util.UUID
-import java.util.concurrent.ExecutorService
-import java.util.concurrent.Executors
-import org.asyncttwiz.storage.GameplayTreeStore
 
 /** One watched game's server stream: its open/resume state and the authorized generation. */
 internal data class SessionStream(val id: String = UUID.randomUUID().toString(), var generation: String? = null,
@@ -17,19 +14,14 @@ class GameSession(private val connection: GameConnection, private val credential
     private val changed: (GameSummary) -> Unit, private val settled: (GameCommand, GameResult) -> Unit,
     private val statusChanged: () -> Unit, private val installationId: String = UUID.randomUUID().toString(),
     private val accountId: () -> String? = { null },
-    private val treeCache: ((String, String, String) -> GameplayTreeStore?)? = null,
-    private val treeWorker: ExecutorService = DebugJank.treeExecutor(Executors.newSingleThreadExecutor()),
     private val now: () -> Long = { System.nanoTime() / 1_000_000 },
     reconnectTelemetry: (ReconnectEpisode) -> Unit = { if (Diagnostics.enabled) DebugLatency.reconnect(it) },
-    private val reviewWorker: ExecutorService = DebugJank.treeExecutor(Executors.newSingleThreadExecutor()),
-    private val tableChanges: (String, TableChangeBatch) -> Unit = { _, _ -> },
     private val personalChat: GameChat = GameChat(),
     private val openedGame: () -> String? = { null },
     /** Where engine games do their work (I-D56 step D2): the app's engine thread, or inline in tests. */
     private val engineWorker: EngineWorker = EngineWorker.Direct,
     /** Which engine games to load on the engine thread (the app: only the open one; switchreview #11). */
     private val engineLoad: (String) -> Boolean = { true }) : AutoCloseable {
-    private fun replica(gameId: String) = plays.getOrPut(gameId) { GameplayReplica { tableChanges(gameId, it) } }
     // Always traced: reports can be turned on mid-game; the default sink sends only while they are on.
     private val reconnectTrace = ReconnectRecorder(true, now, record = reconnectTelemetry)
     private var backgrounded = false
@@ -43,8 +35,7 @@ class GameSession(private val connection: GameConnection, private val credential
     private inline fun <T> measureLatency(game: GameSummary, action: GameAction, block: () -> T): T {
         if (!Diagnostics.enabled) return block()
         val previous = latencyTrace
-        val trace = DebugLatency.begin(game.id, action.latencyType(), (plays[game.id]?.tree?.tree?.nodes?.size ?: 0) +
-            if (plays[game.id]?.accepted != null) 1 else 0)
+        val trace = DebugLatency.begin(game.id, action.latencyType(), 0)
         latencyTrace = trace
         try { return block() } finally { latencyTrace = previous; trace?.finish() }
     }
@@ -66,40 +57,17 @@ class GameSession(private val connection: GameConnection, private val credential
         val next = ReceivedPresence(value, now())
         if (presences[gameId]?.let { PresenceText.same(it, next) } != true) presences[gameId] = next
     }
-    private val plays = mutableMapOf<String, GameplayReplica>()
     @Volatile private var account: String? = null
-    private data class ResultIntent(val command: GameCommand, val actor: String, var commitRevision: String? = null)
-    private val resultIntents = linkedMapOf<String, ResultIntent>()
-    private val scope = object : TreeCatchUp.Session {
+    private val scope = object : SessionScope {
         override val closed get() = this@GameSession.closed
         override val epoch get() = this@GameSession.epoch
         override val account get() = this@GameSession.account
         override fun sameAccount() = this@GameSession.sameAccount()
         override fun post(action: () -> Unit) = this@GameSession.post(action)
         override fun statusChanged() = this@GameSession.statusChanged()
-        override val token get() = this@GameSession.token
-        override fun credential() = this@GameSession.credential()
-        override fun stream(gameId: String) = streams[gameId]
-        override fun replica(gameId: String) = this@GameSession.replica(gameId)
-        override fun retained(gameId: String) = plays[gameId]
-        override fun summary(gameId: String) = summaries[gameId]
-        override fun pending(gameId: String) = pending.values.filter { it.scope.gameId == gameId }
-        override fun sent(requestId: String) = requestId in sent
-        override fun install(game: GameSummary, revision: String, preparation: LobbyPreparation?, play: PlayState?) =
-            this@GameSession.install(game, revision, preparation, play)
-        override fun result(result: GameResult) = this@GameSession.result(result)
-        override fun clearError() { error = null }
-        override fun flush() = this@GameSession.flush()
-        override fun recoveryReady() = this@GameSession.recoveryReady()
-        override fun connectionUnavailable(cause: String) = this@GameSession.connectionUnavailable(cause)
-        override fun cannotOpen(gameId: String, cause: String) = this@GameSession.cannotOpen(gameId, cause)
-        override fun send(message: GameClientMessage) = this@GameSession.send(message)
     }
     private val chats = SessionChat(scope, connection, personalChat, now, openedGame,
         syncable = { ready && available(it) && it in streams }, available = ::available)
-    private val catchUp = TreeCatchUp(scope, connection, treeCache, treeWorker, uiThread, now, reconnectTrace, chats)
-    private val reviews = SessionHistoryReview(scope, reviewWorker, ::checkAccount, plays::get, summaries::get, catchUp::cache, catchUp::observedPlay)
-    private val inspections = InspectionObservers(scope, plays::get, catchUp::observedPlay)
     fun chat(gameId: String) = chats.chat(gameId)
     fun chatLoaded(gameId: String) = chats.chatLoaded(gameId)
     fun presentedChat(gameId: String, ids: Set<String>) = chats.presentedChat(gameId, ids)
@@ -148,23 +116,23 @@ class GameSession(private val connection: GameConnection, private val credential
     }
     /** Everything the server had when the app returned to the foreground has been received and
      * published for this game, so a resumed table may decide live vs. timeline mode. */
-    fun caughtUp(gameId: String): Boolean = !backgrounded && !resumePending && ready(gameId) && catchUp.caughtUp(gameId)
-    /** Only a previously authorized, retained active play may capture originals during a short
+    fun caughtUp(gameId: String): Boolean = !backgrounded && !resumePending && ready(gameId)
+    /** Only a previously authorized, loaded active play may capture originals during a short
      * reconnect wait. Nothing is sent until stream recovery and its accepted head are complete. */
-    private fun activeRequest(game: GameSummary, captureDuringRecovery: Boolean = false): Boolean {
+    private fun activeRequest(game: GameSummary): Boolean {
         checkAccount()
         if (compatibilityError != null) return false
         if (ready(game.id)) { connectionDemand.remove(game.id); uncertainGames.remove(game.id); return true }
         if (closed || !available(game.id) || credential() == null || credential() != lastCredential ||
-            streams[game.id]?.lastGeneration == null || acceptedPlay(game) == null) return false
+            streams[game.id]?.lastGeneration == null || engineGame(game) == null) return false
         val started = connectionDemand.getOrPut(game.id, now)
         tick()
-        // Do not extend an uncertain old socket's predicted chain before its outcomes are known.
-        if (!captureDuringRecovery && (game.id in uncertainGames || catchUp.recovering(game.id))) return false
+        // Do not extend an uncertain old socket's chain before its outcomes are known.
+        if (game.id in uncertainGames) return false
         return now() - started < 3_000
     }
     fun available(gameId: String) = gameId !in unavailableGames && summaries[gameId]?.lifecycle !in listOf(GameLifecycle.CANCELLED, GameLifecycle.DELETED)
-    fun ready(gameId: String) = ready && available(gameId) && !catchUp.recovering(gameId) && streams[gameId]?.let { it.generation != null && it.head } == true
+    fun ready(gameId: String) = ready && available(gameId) && streams[gameId]?.let { it.generation != null && it.head } == true
     /** A negative ordinary read fences personal context, not uncertain admitted originals. */
     fun unavailable(gameId: String) {
         unavailableGames.add(gameId); clearContext(gameId)
@@ -173,22 +141,15 @@ class GameSession(private val connection: GameConnection, private val credential
     }
     private fun clearContext(gameId: String) {
         ownPodDeckNames.remove(gameId); presences.remove(gameId)
-        catchUp.remove(gameId)
-        inspections.remove(gameId)
-        preparations.remove(gameId); plays.remove(gameId); engineGames.remove(gameId); engineBacklog.remove(gameId); reloadAsked.remove(gameId)
+        preparations.remove(gameId); engineGames.remove(gameId); engineBacklog.remove(gameId); reloadAsked.remove(gameId)
         engineHeads.remove(gameId); headAsked.remove(gameId); unopenable.remove(gameId)
         acceptedRevisions.remove(gameId)
         chats.remove(gameId)
-        resultIntents.entries.removeAll { it.value.command.scope.gameId == gameId }
         streams[gameId]?.head = false
     }
-    fun pending(gameId: String) = pending.values.any { it.scope.gameId == gameId } || preparations.pending(gameId) ||
-        plays[gameId]?.pendingIds?.isNotEmpty() == true || resultIntents.values.any { it.command.scope.gameId == gameId }
+    fun pending(gameId: String) = pending.values.any { it.scope.gameId == gameId } || preparations.pending(gameId)
     fun queuedTransfers(gameId: String) = preparations.queuedTransfers(gameId)
     fun acceptedPreparation(gameId: String) = preparations.acceptedPreparation(gameId)
-    fun acceptedPlay(game: GameSummary) = engineGame(game)?.base ?: plays[game.id]?.accepted?.takeIf { summary(game).let { current ->
-        current.lifecycle == GameLifecycle.ACTIVE && current.playId == it.id } }
-    fun play(game: GameSummary) = engineGame(game)?.base ?: plays[game.id]?.display?.takeIf { acceptedPlay(game)?.id == it.id }
     /** The board the table draws of [game] played on engine state (engine-responsiveness R4a), once it first loaded. */
     internal fun board(game: GameSummary): TableBoard? = engineGame(game)?.play()
 
@@ -252,7 +213,7 @@ class GameSession(private val connection: GameConnection, private val credential
      * history catch-up, whose server routes are gone (switchreview #1). */
     private fun awaitEngineHead(message: GameRevision) {
         engineHeads.remove(message.gameId)
-        install(message.summary, message.resultRevision, message.preparation, null)
+        install(message.summary, message.resultRevision, message.preparation)
         if (acceptedRevisions[message.gameId]?.let { newerOrEqual(it, message.resultRevision) } != true)
             acceptedRevisions[message.gameId] = message.resultRevision
         if (engineLoad(message.gameId)) askHead(message.gameId)
@@ -280,7 +241,7 @@ class GameSession(private val connection: GameConnection, private val credential
             if (stream.generation == null || !engineLoad(gameId) || gameId in unopenable) continue
             val current = summaries[gameId] ?: continue
             if (current.lifecycle != GameLifecycle.ACTIVE || current.playId == null) continue
-            if (engineGames[gameId]?.base?.id == current.playId || plays[gameId]?.accepted?.id == current.playId) continue
+            if (engineGames[gameId]?.base?.id == current.playId) continue
             val kept = engineHeads[gameId]
             if (kept != null && kept.summary.playId == current.playId) engineHead(kept) else askHead(gameId)
         }
@@ -299,7 +260,7 @@ class GameSession(private val connection: GameConnection, private val credential
         if (message.summary.lifecycle != GameLifecycle.ACTIVE || message.summary.playId != game.base.id) {
             engineGames.remove(message.gameId)
             if (message.summary.lifecycle == GameLifecycle.ACTIVE && message.summary.playId != null) awaitEngineHead(message)
-            else install(message.summary, message.resultRevision, message.preparation, null)
+            else install(message.summary, message.resultRevision, message.preparation)
             return
         }
         game.revision(message)
@@ -356,28 +317,16 @@ class GameSession(private val connection: GameConnection, private val credential
         flush()
         statusChanged()
     }
-    fun retainedTree(gameId: String) = plays[gameId]?.tree?.tree
-    fun retainedHistory(gameId: String) = plays[gameId]?.history
-    fun displayTree(gameId: String) = plays[gameId]?.displayTree
-    /** Personal read-only review, including offline. */
-    fun review(gameId: String, nodeId: String?, complete: (DownloadedHistoryState) -> Unit): Boolean =
-        reviews.review(gameId, nodeId, complete)
-    /** Personal exact-boundary route for an authorized activity/history consumer. */
-    fun reviewTarget(target: CapturedHistoryTarget, isCurrent: () -> Boolean,
-        complete: (CapturedHistoryReview) -> Unit): Boolean = reviews.reviewTarget(target, isCurrent, complete)
-
-    fun withdrawGameplayPrediction(gameId: String, requestId: String) { plays[gameId]?.withdraw(requestId); statusChanged() }
     fun preparation(game: GameSummary): LobbyPreparation? = preparations.preparation(summary(game), game.id)
     fun summary(game: GameSummary): GameSummary = summaries[game.id]?.takeIf {
         ended(it) || newerOrEqual(it.revision, game.revision) } ?: game
     fun watch(games: List<GameSummary>) {
         checkAccount()
         for (game in games) {
-            install(game, game.revision, null, null)
+            install(game, game.revision, null)
             streams.getOrPut(game.id) { SessionStream() }
         }
         tick()
-        if (treeCache != null) for (game in games) catchUp.watch(summary(game))
     }
     fun tick() {
         if (closed) return
@@ -421,7 +370,6 @@ class GameSession(private val connection: GameConnection, private val credential
         } else if (welcome) {
             openStreams()
             streams.keys.forEach(chats::syncChatRead)
-            catchUp.checkHeadGaps()
             loadOpened()
             // The server's traffic lease counts protocol messages, not WebSocket control pings.
             if (now() - lastPing >= 25_000) { lastPing = now(); send(GamePing(UUID.randomUUID().toString())) }
@@ -440,180 +388,6 @@ class GameSession(private val connection: GameConnection, private val credential
         val current = summary(game)
         if (current.lifecycle != GameLifecycle.LOBBY || current.preparationRound != game.preparationRound) return false
         return enqueue(game, action) != null
-    }
-    /** Capture one original in memory; send now or after authorized reconnect recovery. */
-    fun gameplay(game: GameSummary, actor: String, action: PlayAction, invocationId: String? = null,
-        continuation: Continuation? = null, captured: (GameCommand) -> Unit = {}): Boolean =
-        gameplayCommand(game, actor, GameAction.Play(action), invocationId, continuation, captured) != null
-
-    fun gameplayBatch(game: GameSummary, actor: String, actions: List<PlayAction>, requestId: String,
-        continuation: Continuation? = null, captured: (GameCommand) -> Unit = {}, tags: List<MtgTag?> = emptyList(),
-        replaces: String? = null): Boolean {
-        val queued = gameplayCommand(game, actor, GameAction.PlayBatch(actions, tags), requestId, continuation, captured, requestId,
-            replaces) != null
-        // I-D47: a preview the batch couldn't take the place of is taken back
-        if (!queued && replaces != null) dropPreview(game, replaces)
-        return queued
-    }
-
-    /**
-     * I-D47: shows an automated batch (a cast alone) on this device only, as a prediction that is never sent, while the
-     * cast's batch is worked out; [gameplayBatch] with `replaces` takes its place, [dropPreview] takes it back. False when
-     * it can't be shown here (then the cast goes out without it).
-     */
-    fun previewBatch(game: GameSummary, actor: String, actions: List<PlayAction>, tags: List<MtgTag?>, requestId: String): Boolean {
-        val current = summary(game)
-        if (closed || current.lifecycle != GameLifecycle.ACTIVE || current.playId == null || (account != null && account != actor)) return false
-        val replica = plays[game.id] ?: return false
-        if (replica.accepted?.id != current.playId || replica.pendingIds.size >= 256) return false
-        val stream = streams[game.id] ?: return false
-        val generation = stream.generation ?: stream.lastGeneration ?: return false
-        val command = GameCommand(requestId, GameScope(game.id, playId = current.playId), GameAction.PlayBatch(actions, tags),
-            stream.id, generation)
-        if (!GameWire.valid(command) || !replica.predict(command, actor)) return false
-        statusChanged()
-        return true
-    }
-
-    /** I-D47: the event a preview follows on the board shown, while it is shown. */
-    fun previewShownOn(game: GameSummary, requestId: String): String? = plays[game.id]?.shownOn(requestId)
-
-    /** I-D47: takes a preview back (the cast didn't go out). */
-    fun dropPreview(game: GameSummary, requestId: String) {
-        val replica = plays[game.id] ?: return
-        if (replica.shownOn(requestId) == null && requestId !in replica.pendingIds) return
-        replica.retire(requestId)
-        statusChanged()
-    }
-
-    /** Explicit logged inspection on the same original queue. Callers supply a UI lifetime guard
-     * and close the subscription on dismissal. Only Accepted may drive ManualActions.inspected. */
-    fun inspectFace(game: GameSummary, actor: String, action: PlayAction.InspectFace, lifetimeId: String,
-        isCurrent: () -> Boolean, observed: (InspectionEvent) -> Unit,
-        continuation: Continuation? = null, captured: (GameCommand) -> Unit = {}): InspectionSubscription? {
-        if (lifetimeId.isBlank() || lifetimeId.length > 200 || !isCurrent()) return null
-        var subscription: InspectionSubscription? = null
-        gameplayCommand(game, actor, GameAction.Play(action), null, continuation, captured = { command ->
-            captured(command)
-            subscription = inspections.observe(command, actor, lifetimeId, action, isCurrent, observed)
-        }) ?: return null
-        return subscription
-    }
-
-    /** Exact typed shared controls use the SAME original queue and processing-time target.
-     * No fixed Undo target, alternate endpoint, or durable offline command queue. */
-    fun historyControl(game: GameSummary, actor: String, action: GameAction): Boolean {
-        if (action != GameAction.Undo && action != GameAction.Redo) return false
-        return gameplayCommand(game, actor, action, null, null) != null
-    }
-
-    private fun gameplayCommand(game: GameSummary, actor: String, action: GameAction, invocationId: String?,
-        continuation: Continuation?, captured: (GameCommand) -> Unit = {}, requestId: String = UUID.randomUUID().toString(),
-        replaces: String? = null): GameCommand? = measureLatency(game, action) {
-        checkAccount()
-        val current = summary(game)
-        fun refused(gate: String): GameCommand? {
-            DebugLatency.tap(game.id, "dropped:$gate")
-            error = compatibilityError ?: "Action not queued ($gate). Reconnect and try again."
-            statusChanged()
-            return null
-        }
-        if (closed || !activeRequest(current, captureDuringRecovery = (action as? GameAction.Play)?.action is PlayAction.SetTapped ||
-                (action as? GameAction.PlayBatch)?.actions?.all { it is PlayAction.SetTapped } == true) || pending.size >= 256 ||
-            current.lifecycle != GameLifecycle.ACTIVE || current.playId == null ||
-            (account != null && account != actor)) return refused("sessionUnavailable")
-        val replica = plays[game.id] ?: return refused("replicaMissing")
-        // The one result-lock rule: a continuation is gated by the board it continues from (an earlier timeline
-        // point, or its own predicted new branch), so a suggestion further along the old line does not block it.
-        // This is the same board the prediction below materializes; an unknown board falls back to the live lock.
-        val continuationBoard = continuation?.let { replica.displayTree?.stateAt(it.nodeId) }
-        if (ResultActions.blocksAt(current, replica.accepted, play(current), continuationBoard, inTimeline = continuation != null) &&
-            (action as? GameAction.Play)?.action !is PlayAction.DeclineResult &&
-            (action as? GameAction.Play)?.action !is PlayAction.WithdrawResult) return refused("pendingResult")
-        // Unpredicted controls remain a capture barrier: never drag from a pre-Undo board. Exact
-        // latest-head predictions allow rapid play/control sequences on the same original FIFO.
-        if (action.isPlay && resultIntents.values.any { it.command.scope.gameId == game.id &&
-                it.command.action !is GameAction.AcceptResult && it.command.action != GameAction.Concede &&
-                !replica.predicted(it.command.requestId) }) return refused("controlBarrier")
-        if (replica.pendingIds.size >= 256 || replica.accepted?.id != current.playId) return refused("predictionCapacityOrPlayChanged")
-        val stream = streams.getValue(game.id)
-        // Ordinary play names the active line it was made on (including an own pending branch): one that races
-        // with the opponent's deliberate branch is refused instead of landing in their new line.
-        val expectedSelection = replica.displayTree?.selectionKey?.takeIf { action.isPlay && continuation == null }
-        val command = GameCommand(requestId, GameScope(game.id, playId = current.playId),
-            action, stream.id, stream.generation ?: stream.lastGeneration!!, invocationId = invocationId, continuation = continuation,
-            expectedSelection = expectedSelection)
-        if (!GameWire.valid(command)) return refused("invalidCommand")
-        // A control can become eligible after an already-inflight original. Failure to predict is
-        // not authority to suppress the server's processing-time candidate.
-        // Replica prediction is limited to exact terminal controls; selective suffixes stay server-only.
-        // The accepted delta is prepared by the serial tree worker before publication.
-        if (action.isPlay && !(if (replaces != null) replica.replace(replaces, command, actor) else replica.predict(command, actor))) {
-            // SYS-053: a rules refusal says why, exactly as the server's refusal of the same action would.
-            val rule = replica.predictionRefusal?.takeIf { it in RuleRefusals.ALL }
-                ?: return refused("predictionRefused")
-            DebugLatency.tap(game.id, "dropped:$rule")
-            error = refusalText(rule)
-            statusChanged()
-            return null
-        }
-        if (!action.isPlay && resultIntents.values.none { it.command.scope.gameId == game.id &&
-                !replica.predicted(it.command.requestId) }) replica.predict(command, actor)
-        pending[command.requestId] = command
-        latencySubmitted(command, replica.predicted(command.requestId))
-        if (!action.isPlay) resultIntents[command.requestId] = ResultIntent(command, actor)
-        captured(command)
-        error = null; flush(); statusChanged(); return command
-    }
-    fun suggestResult(game: GameSummary, actor: String, target: ResultTarget, outcome: SuggestedResult,
-        note: String = ""): Boolean {
-        val current = summary(game)
-        val play = play(current) ?: return false
-        if (ResultActions.capture(current, play) != target) return false
-        return gameplay(current, actor, PlayAction.SuggestResult(outcome, ResultNoteInput.clean(note)))
-    }
-    fun acceptResult(game: GameSummary, actor: String, target: ResultAcceptanceTarget): Boolean =
-        measureLatency(game, GameAction.AcceptResult(target.suggestionId)) {
-        val current = summary(game)
-        // Only an accepted current suggestion is actionable; a local prediction is not acceptance authority.
-        val play = acceptedPlay(current) ?: return false
-        if (ResultActions.capture(current, play) != target.play || play.board.resultSuggestion?.id != target.suggestionId ||
-            (play.board.resultSuggestion?.author == actor && play.board.resultSuggestion?.byRules != true) ||
-            actor !in play.board.players.map { it.accountId }) return false
-        if (resultIntents.values.any { it.command.scope.playId == target.play.playId && it.command.action == GameAction.AcceptResult(target.suggestionId) }) return false
-        val command = resultCommand(target.play, GameAction.AcceptResult(target.suggestionId)) ?: return false
-        return enqueueResult(command, actor)
-    }
-    /** CR 104.3a (I-D52): [actor] concedes the shown play; a lifecycle request like accepting a result. */
-    fun concede(game: GameSummary, actor: String, target: ResultTarget): Boolean = measureLatency(game, GameAction.Concede) {
-        val current = summary(game)
-        val play = acceptedPlay(current) ?: return false
-        if (ResultActions.capture(current, play) != target || actor !in play.board.players.map { it.accountId }) return false
-        if (resultIntents.values.any { it.command.scope.playId == target.playId && it.command.action == GameAction.Concede }) return false
-        val command = resultCommand(target, GameAction.Concede) ?: return false
-        return enqueueResult(command, actor)
-    }
-    fun rejectResult(game: GameSummary, actor: String, target: ResultAcceptanceTarget): Boolean {
-        val current = summary(game)
-        val accepted = acceptedPlay(current) ?: return false
-        val suggestion = accepted.board.resultSuggestion ?: return false
-        if (ResultActions.capture(current, accepted) != target.play || suggestion.id != target.suggestionId) return false
-        return if (suggestion.author == actor) {
-            gameplay(current, actor, PlayAction.WithdrawResult(target.suggestionId))
-        } else gameplay(current, actor, PlayAction.DeclineResult(target.suggestionId))
-    }
-    private fun resultCommand(target: ResultTarget, action: GameAction): GameCommand? {
-        val game = summaries[target.gameId] ?: return null
-        if (!activeRequest(game) || pending.size >= 256) return null
-        val stream = streams.getValue(target.gameId)
-        return GameCommand(UUID.randomUUID().toString(), GameScope(target.gameId, playId = target.playId),
-            action, stream.id, stream.generation ?: stream.lastGeneration!!).takeIf(GameWire::valid)
-    }
-    private fun enqueueResult(command: GameCommand, actor: String): Boolean {
-        resultIntents[command.requestId] = ResultIntent(command, actor)
-        pending[command.requestId] = command
-        latencySubmitted(command, false)
-        error = null; flush(); statusChanged(); return true
     }
     fun deleteGame(game: GameSummary): Boolean {
         val current = summary(game)
@@ -722,7 +496,7 @@ class GameSession(private val connection: GameConnection, private val credential
                     message.statuses.map { it.requestId }.toSet() == stream.recoveryIds.toSet())
                 message.ended?.let {
                     require(it.id == message.gameId && ended(it))
-                    install(it, it.revision, null, null)
+                    install(it, it.revision, null)
                 }
                 // Successful ordinary stream authorization is fresh evidence of availability;
                 // a list/head omission alone was never a fabricated cancellation revision.
@@ -738,7 +512,7 @@ class GameSession(private val connection: GameConnection, private val credential
                 if (available(message.gameId)) {
                     headAsked.add(message.gameId)
                     // Switch-review #11: the open game's head and revisions carry its engine state; the list's are summaries
-                    send(SubscribeGame(message.gameId, plays[message.gameId]?.revision ?: acceptedRevisions[message.gameId] ?: "0",
+                    send(SubscribeGame(message.gameId, acceptedRevisions[message.gameId] ?: "0",
                         engine = engineLoad(message.gameId)))
                 }
                 flush()
@@ -754,7 +528,6 @@ class GameSession(private val connection: GameConnection, private val credential
                 if (acceptedRevisions[message.gameId]?.let { !newerOrEqual(message.revision, it) } == true) return
                 if (summaries[message.gameId]?.let { ended(it) && !ended(message.summary) } == true) return
                 message.ownPodDeckName?.let { ownPodDeckNames[message.gameId] = it }
-                catchUp.headArrived(message.summary)
                 chats.installChatHead(message)
                 // I-D56: an active play is engine state, played on its engine game
                 if (message.engine != null && message.play != null &&
@@ -762,15 +535,18 @@ class GameSession(private val connection: GameConnection, private val credential
                 else if (message.summary.lifecycle == GameLifecycle.ACTIVE && message.play == null) {
                     // A summary head (switch-review #11: every heartbeat, and a game in the list): the summary and presence;
                     // the open game asks for its engine head when this one is past what it received (switch-review #10)
-                    install(message.summary, message.revision, message.preparation, null)
+                    install(message.summary, message.revision, message.preparation)
                     streams[message.gameId]?.head = true
                     val loaded = engineGames[message.gameId]?.takeIf { it.base.id == message.summary.playId }
                     if (engineLoad(message.gameId) && loaded?.revision?.let { GameWire.ordinal(message.revision) > GameWire.ordinal(it) } == true)
                         askHead(message.gameId)
                 }
-                else if (!catchUp.head(message)) {
-                    install(message.summary, message.revision, message.preparation, null)
+                else {
+                    install(message.summary, message.revision, message.preparation)
                     streams[message.gameId]?.head = true
+                    // A play without engine state can't be played on this device (no history is downloaded any more)
+                    if (message.play != null && message.summary.lifecycle == GameLifecycle.ACTIVE)
+                        cannotOpen(message.gameId, "headWithoutEngine")
                 }
                 flush()
             }
@@ -781,9 +557,8 @@ class GameSession(private val connection: GameConnection, private val credential
                 // Duplicate accepted deliveries can still correlate exact originals, but cannot
                 // advance/replace storage or start recovery against an obsolete through-revision.
                 if (acceptedRevisions[message.gameId]?.let { GameWire.ordinal(message.resultRevision) <= GameWire.ordinal(it) } == true) {
-                    plays[message.gameId]?.takeIf { it.accepted?.id == message.summary.playId }?.apply(message)
                     correlateSelections(message)
-                    inspections.notifyInspections(); flush(); statusChanged(); return
+                    flush(); statusChanged(); return
                 }
                 if (summaries[message.gameId]?.let { ended(it) && !ended(message.summary) } == true) return
                 message.chatMessage?.let { chats.installChat(message.gameId, message.resultRevision, listOf(it), snapshot = false) }
@@ -793,23 +568,9 @@ class GameSession(private val connection: GameConnection, private val credential
                     correlateSelections(message)
                     flush(); statusChanged(); return
                 }
-                // I-D56: every play is engine state; one this device hasn't loaded waits for its engine head (only a play
-                // already held in the old model's replica, which nothing makes any more, still goes the old way)
-                if (message.summary.lifecycle == GameLifecycle.ACTIVE && message.summary.playId != null &&
-                    (message.engineEvent != null || message.engine != null || plays[message.gameId]?.accepted?.id != message.summary.playId)) {
-                    awaitEngineHead(message)
-                    correlateSelections(message)
-                    flush(); statusChanged(); return
-                }
-                if (catchUp.superseded(message)) {
-                    // History of a play that is no longer current: nothing to catch up or observe.
-                    correlateSelections(message); flush(); statusChanged(); return
-                }
-                catchUp.observePlay(message.summary)
-                if (message.summary.lifecycle == GameLifecycle.ACTIVE && message.summary.playId != null) {
-                    catchUp.revision(message)
-                } else install(message.summary, message.resultRevision, message.preparation, null)
-                // A correlated accepted revision is enough even when its result has not arrived yet.
+                // I-D56: every play is engine state; one this device hasn't loaded waits for its engine head
+                if (message.summary.lifecycle == GameLifecycle.ACTIVE && message.summary.playId != null) awaitEngineHead(message)
+                else install(message.summary, message.resultRevision, message.preparation)
                 correlateSelections(message)
             }
             is GameResult -> result(message)
@@ -826,11 +587,9 @@ class GameSession(private val connection: GameConnection, private val credential
                 else {
                     val original = message.requestId?.let(pending::get)
                     if (message.code == "accessDenied") message.gameId?.let(::unavailable)
-                    message.requestId?.let { id -> inspections.notAccepted(id) { request ->
-                        InspectionEvent.NotAccepted(request, admissionError = message) } }
                     message.requestId?.let { id ->
                         chats.failed(id, "Not sent. This request could not be used.")
-                        pending.remove(id)?.let { plays[it.scope.gameId]?.retire(id) }; preparations.forget(id); resultIntents.remove(id); sent.remove(id)
+                        pending.remove(id); preparations.forget(id); sent.remove(id)
                     }
                     if (original != null) error = historyControlFailure(original.action, message.code)
                         ?: "This game changed or the request could not be used. Refresh and try again."
@@ -841,53 +600,32 @@ class GameSession(private val connection: GameConnection, private val credential
                 presence(message.gameId, message.opponent)
             is GamePong -> if (message.correlationId == resumePing) { resumePing = null; resumePending = false }
         }
-        catchUp.checkHeadGaps()
         flush()
         recoveryReady()
         statusChanged()
     }
-    private fun install(game: GameSummary, revision: String, preparation: LobbyPreparation?, play: PlayState?) {
+    private fun install(game: GameSummary, revision: String, preparation: LobbyPreparation?) {
         require(game.revision == revision); GameWire.ordinal(revision)
         // An HTTP summary can lead the actual replica. It must not prevent catching that replica up.
         if (acceptedRevisions[game.id]?.let { !newerOrEqual(revision, it) } == true) return
         val old = summaries[game.id]
         if (old != null && ended(old) && !ended(game)) return
-        if (game.lifecycle != GameLifecycle.ACTIVE) plays.remove(game.id)
-        if (ended(game)) require(preparation == null && play == null)
+        if (ended(game)) require(preparation == null)
         if (game.id in unavailableGames && old != null && revision == old.revision &&
             game.lifecycle in listOf(GameLifecycle.LOBBY, GameLifecycle.ACTIVE)) return
         if (old != null && GameWire.ordinal(revision) > GameWire.ordinal(old.revision)) unavailableGames.remove(game.id)
-        catchUp.observePlay(game)
-        if (play != null) {
-            require(game.lifecycle == GameLifecycle.ACTIVE && play.gameId == game.id && play.id == game.playId &&
-                play.preparationRound == game.preparationRound && play.engineVersion == 1 && play.readFormat == 1)
-        }
         if (game.lifecycle != GameLifecycle.LOBBY) preparations.leftLobby(game.id)
         if (game.lifecycle == GameLifecycle.CANCELLED || game.lifecycle == GameLifecycle.DELETED) clearContext(game.id)
         if (preparation != null && game.lifecycle == GameLifecycle.LOBBY) preparations.accept(game, revision, preparation)
-        if ((preparation != null && game.lifecycle == GameLifecycle.LOBBY) || play != null || ended(game)) acceptedRevisions[game.id] = revision
-        if (play != null && catchUp.reachesHead(game.id, revision))
-            streams[game.id]?.head = true
+        if ((preparation != null && game.lifecycle == GameLifecycle.LOBBY) || ended(game)) acceptedRevisions[game.id] = revision
         if (summaries[game.id]?.let { newerOrEqual(revision, it.revision) } != false) summaries[game.id] = game
         retireSelections(game.id)
         changed(summary(game))
-        inspections.notifyInspections()
     }
-    /** I-D43: an Automatum batch the server refused was planned on a board the server no longer had (or failed its
-     * checks): the client and the server disagree. */
-    private fun automatumResult(original: GameCommand, result: GameResult) {
-        val game = original.scope.gameId
-        val batch = original.action as? GameAction.PlayBatch
-        if (batch != null && batch.tags.isNotEmpty() && result.outcome != "accepted")
-            org.asyncttwiz.automatum.AutomatumLog.mismatch(game, "server refused a batch",
-                "${result.outcome}: ${result.reason} (${batch.actions.size} actions, request ${original.requestId})")
-    }
-
     private fun result(result: GameResult) {
         if (Diagnostics.enabled) DebugLatency.result(result.requestId)
         val original = pending[result.requestId] ?: return
         require(result.scope == original.scope)
-        plays[original.scope.gameId]?.result(result)
         // I-D56 step C: the engine game hears of its refused actions (a stale submission, a refused rewind)
         engineGames[original.scope.gameId]?.let { engine ->
             if (result.outcome != "accepted" && (original.action is GameAction.Submit || original.action.isEngine)) {
@@ -899,18 +637,9 @@ class GameSession(private val connection: GameConnection, private val credential
         if (result.outcome != "accepted") chats.failed(result.requestId,
             "Not sent. The original play is no longer available or this request was refused.")
         preparations.settle(result) { retireSelections(original.scope.gameId) }
-        resultIntents[result.requestId]?.let { intent ->
-            if (result.outcome == "accepted") intent.commitRevision = requireNotNull(result.commitRevision)
-            else resultIntents.remove(result.requestId)
-            retireSelections(original.scope.gameId)
-        }
         // An engine game's refusals are its device's notes (I-D56 §8: a stale race is never shown as a refusal)
         error = if (result.outcome in setOf("accepted", "noOp") || original.action is GameAction.Submit || original.action.isEngine) null
             else historyControlFailure(original.action, result.reason) ?: refusalText(result.reason)
-        automatumResult(original, result)
-        if (result.outcome != "accepted") inspections.notAccepted(result.requestId) { request ->
-            InspectionEvent.NotAccepted(request, result = result) }
-        inspections.notifyInspections()
         if (original.action == GameAction.AcceptInvitation && result.outcome == "accepted" &&
             summaries[original.scope.gameId]?.podId != null) {
             send(SubscribeGame(original.scope.gameId, result.commitRevision ?: "0"))
@@ -921,13 +650,10 @@ class GameSession(private val connection: GameConnection, private val credential
     private fun retireSelections(gameId: String) {
         // A newer HTTP summary is not a board/preparation replica and cannot settle its overlay.
         val revision = acceptedRevisions[gameId] ?: return
-        resultIntents.entries.removeAll { (_, intent) -> intent.command.scope.gameId == gameId &&
-            intent.commitRevision?.let { newerOrEqual(revision, it) } == true }
         preparations.retire(gameId, revision)
     }
     private fun correlateSelections(message: GameRevision) {
         preparations.correlate(message.requestId, message.resultRevision)
-        resultIntents[message.requestId]?.commitRevision = message.resultRevision
         retireSelections(message.gameId)
     }
     private fun flush() {
@@ -946,7 +672,6 @@ class GameSession(private val connection: GameConnection, private val credential
         for ((id, command) in pending) {
             val stream = streams.getValue(command.scope.gameId)
             if (id !in sent && available(command.scope.gameId) && stream.generation != null && stream.head) {
-                if (catchUp.recovering(command.scope.gameId)) continue
                 if (!send(command.copy(generation = stream.generation!!))) return
                 sent.add(id)
             }
@@ -976,14 +701,13 @@ class GameSession(private val connection: GameConnection, private val credential
     private fun disconnect() {
         streams.keys.forEach { DebugJank.catchUp(it, false) }
         uncertainGames.addAll(pending.values.map { it.scope.gameId })
-        uncertainGames.addAll(resultIntents.values.map { it.command.scope.gameId })
         epoch++; connected = false; welcome = false; resumePing = null; token = null; connection.disconnect(); sent.clear(); chats.disconnected()
-        catchUp.disconnected(); presences.clear(); headAsked.clear()
+        presences.clear(); headAsked.clear()
         streams.values.forEach { it.generation = null; it.head = false; it.opening = false; it.awaitingReady = false }
     }
-    fun clear() { inspections.clear(); catchUp.clear(); disconnect(); reviews.clear(); pending.clear(); resultIntents.clear(); preparations.clear(); plays.clear();
+    fun clear() { disconnect(); pending.clear(); preparations.clear();
         ownPodDeckNames.clear(); chats.clear(); acceptedRevisions.clear(); summaries.clear(); unavailableGames.clear(); streams.clear(); connectionDemand.clear(); uncertainGames.clear(); reconnectTrace.clear(); lastCredential = null; account = null; compatibilityError = null; compatibilityRetryAt = Long.MAX_VALUE; error = null; statusChanged() }
-    override fun close() { closed = true; clear(); treeWorker.shutdown(); reviewWorker.shutdown(); connection.close() }
+    override fun close() { closed = true; clear(); connection.close() }
     companion object {
         /** The table's line for a game this device can't open (SYS-052): never a reconnect loop. */
         const val CANNOT_OPEN = "This game can't be opened on this device. Send a problem report from the menu."

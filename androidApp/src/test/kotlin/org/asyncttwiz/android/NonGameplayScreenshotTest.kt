@@ -110,7 +110,7 @@ class NonGameplayScreenshotTest(private val screen: String) {
                         AccountEntry(fixtures.auth, fixtures.reset)
                     } else if (screen in listOf("reconnecting", "gameplay-chat")) {
                         MaterialTheme {
-                            TableSurface(LiveTableFixture.game, TableBoard.of(LiveTableFixture.play()), "a", landscape, Modifier.fillMaxSize(), connected = screen != "reconnecting")
+                            TableSurface(LiveTableFixture.game, tableBoard(LiveTableFixture.play()), "a", landscape, Modifier.fillMaxSize(), connected = screen != "reconnecting")
                             if (screen == "reconnecting") ReconnectingDialog({})
                             else Box(Modifier.fillMaxSize(), contentAlignment = Alignment.CenterEnd) {
                                 ChatPanel(fixtures.lobby, "a", Modifier.fillMaxWidth(if (landscape) .5f else 1f))

@@ -39,7 +39,7 @@ class EmblemChipTest {
     @Test fun eachPlayersEmblemsOldestFirst() {
         assertEquals(listOf("Emblem: Creatures you control get +1/+1.", "Emblem: At the beginning of your end step, draw a card."),
             EmblemChips.texts(play.board, "a"))
-        val scene = TablePresentation.scene(TableFixture.game, TableBoard.of(play), "a", 412f, 892f, false)
+        val scene = TablePresentation.scene(TableFixture.game, tableBoard(play), "a", 412f, 892f, false)
         assertEquals(1, scene.items.single { it.id == "life/b" }.emblems.size)
         assertEquals(2, scene.items.single { it.id == "life/a" }.emblems.size)
     }
@@ -47,7 +47,7 @@ class EmblemChipTest {
     // TRN-053: in portrait the chips stack in the room right of the piles, clear of both hands; landscape keeps them by
     // the life square
     @Test fun portraitChipsSitRightOfThePilesClearOfTheHands() {
-        val scene = TablePresentation.scene(TableFixture.game, TableBoard.of(play), "a", 412f, 892f, false)
+        val scene = TablePresentation.scene(TableFixture.game, tableBoard(play), "a", 412f, 892f, false)
         val hands = scene.items.filter { it.kind == TableItemKind.HAND }.map { it.bounds }
         val piles = scene.items.filter { it.zone == PlayZone.LIBRARY || it.zone == PlayZone.GRAVEYARD || it.zone == PlayZone.EXILE }
         for (player in listOf("a", "b")) {
@@ -59,14 +59,14 @@ class EmblemChipTest {
             assertTrue(chips.all { it.x == area.x && it.y >= area.y && it.bottom <= area.bottom }, "$chips in $area")
             assertTrue(chips[0].bottom < chips[1].y)
         }
-        val landscape = TablePresentation.scene(TableFixture.game, TableBoard.of(play), "a", 892f, 412f, true)
+        val landscape = TablePresentation.scene(TableFixture.game, tableBoard(play), "a", 892f, 412f, true)
         assertNull(landscape.items.single { it.id == "life/a" }.emblemArea)
     }
 
     @Test fun emblemChipsPortrait() {
-        val toolkit = TableToolkitController("a", { TableBoard.of(play) }, { true }, { _, _ -> true })
+        val toolkit = TableToolkitController("a", { tableBoard(play) }, { true }, { _, _ -> true })
         compose.setContent { MaterialTheme {
-            TableSurface(TableFixture.game, TableBoard.of(play), "a", false, Modifier.fillMaxSize(), connected = true,
+            TableSurface(TableFixture.game, tableBoard(play), "a", false, Modifier.fillMaxSize(), connected = true,
                 onIntent = toolkit::handle, toolkit = toolkit)
         } }
         compose.waitForIdle()

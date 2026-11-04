@@ -81,7 +81,7 @@ class LobbyStartTest {
         assertEquals(StarterChoice(), f.lobby.state.preparation!!.starter)
         assertFalse(f.lobby.state.preparation!!.players.single { it.accountId == owner.accountId }.ready)
         assertTrue(f.lobby.state.preparation!!.players.single { it.accountId == other.accountId }.ready)
-        assertEquals(both, f.lobby.state.acceptedPreparation); assertNull(f.lobby.state.play)
+        assertEquals(both, f.lobby.state.acceptedPreparation); assertNull(f.lobby.state.board)
         f.message(GameReceipt(command.requestId, command.scope, "1")); f.result(command, "2")
         assertEquals(both, f.lobby.state.acceptedPreparation); assertTrue(game.id in f.lobby.state.pendingGames)
         val changed = StartRules.change(game, both, owner.accountId, command.scope, command.action).state!!
@@ -145,7 +145,7 @@ class LobbyStartTest {
     @Test fun readyAndWithdrawalPredictButOnlyRevisionCanInstallPlayAndLateReadCannotReopenLobby() = Fixture().use { f ->
         f.lobby.ready(); val ready = f.commands().single(); assertTrue(GameWire.valid(ready))
         assertTrue(f.lobby.state.preparation!!.players[0].ready); assertFalse(f.base.players[0].ready)
-        f.result(ready); assertNull(f.lobby.state.play); assertEquals(GameLifecycle.LOBBY, f.lobby.state.detail!!.lifecycle)
+        f.result(ready); assertNull(f.lobby.state.board); assertEquals(GameLifecycle.LOBBY, f.lobby.state.detail!!.lifecycle)
         val accepted = StartRules.change(game, f.base, owner.accountId, ready.scope, ready.action).state!!
         f.head(game.copy(revision = "1"), accepted)
         f.lobby.withdrawReady(); val withdrawal = f.commands().last()
@@ -154,9 +154,9 @@ class LobbyStartTest {
         val play = f.initial()
         val active = game.copy(lifecycle = GameLifecycle.ACTIVE, playId = play.id, revision = "2")
         f.head(active, play = play)
-        assertEquals(play, f.lobby.state.play); assertNull(f.lobby.state.preparation); assertNull(f.lobby.state.acceptedPreparation)
+        assertEquals(play.id, f.lobby.state.detail?.playId); assertNull(f.lobby.state.preparation); assertNull(f.lobby.state.acceptedPreparation)
         f.head(game, f.base); f.lobby.sync()
-        assertEquals(active, f.lobby.state.detail); assertEquals(play, f.lobby.state.play)
+        assertEquals(active, f.lobby.state.detail); assertEquals(play.id, f.lobby.state.detail?.playId)
         f.lobby.ready(); f.lobby.withdrawReady(); f.lobby.starter(StarterChoice())
         assertEquals(2, f.commands().size)
     }
@@ -171,7 +171,7 @@ class LobbyStartTest {
         assertTrue(f.wire.frames.any { it is SubscribeGame && it.gameId == game.id && it.revision == "1" })
         f.result(command); f.lobby.sync()
         assertTrue(f.lobby.state.pendingGames.isEmpty()); assertEquals(1, f.commands().size)
-        f.lobby.back(); assertNull(f.lobby.state.play); f.lobby.open(game.id)
+        f.lobby.back(); assertNull(f.lobby.state.board); f.lobby.open(game.id)
         assertEquals(active, f.lobby.state.detail)
     }
 
@@ -184,7 +184,7 @@ class LobbyStartTest {
         stale.message(GameHead(game.id, "99", game.copy(revision = "99"), preparation = f.base))
         assertEquals("0", f.lobby.state.detail!!.revision)
         f.lobby.clear(); f.wire.listener.message(GameHead(game.id, "100", game.copy(revision = "100"), preparation = f.base))
-        assertNull(f.lobby.state.play); assertNull(f.lobby.state.preparation); assertTrue(f.lobby.state.pendingGames.isEmpty())
+        assertNull(f.lobby.state.board); assertNull(f.lobby.state.preparation); assertTrue(f.lobby.state.pendingGames.isEmpty())
     }
 
     // LOB-045, SYS-018
@@ -236,7 +236,7 @@ class LobbyStartTest {
         val play = Fixture().use { old -> old.lobby.ready(); old.initial() }
         Fixture().use { fresh ->
             fresh.head(game.copy(lifecycle = GameLifecycle.ACTIVE, playId = play.id, revision = "2"), play = play)
-            assertEquals(play, fresh.lobby.state.play); assertTrue(fresh.commands().isEmpty())
+            assertEquals(play.id, fresh.lobby.state.detail?.playId); assertTrue(fresh.commands().isEmpty())
             // I-D49: the opening hand of seven drawn, four left in the library
             assertEquals(4, play.board.containers.single { it.accountId == owner.accountId && it.zone == PlayZone.LIBRARY }.cards.size)
             assertTrue(play.board.containers.filter { it.zone != PlayZone.LIBRARY && it.zone != PlayZone.HAND }.all { it.cards.isEmpty() }) // I-D49: opening hands drawn
@@ -248,7 +248,7 @@ class LobbyStartTest {
         val play = f.initial(); val active = game.copy(lifecycle = GameLifecycle.ACTIVE, playId = play.id)
         for ((width, height, landscape) in listOf(Triple(360f, 730f, false), Triple(780f, 310f, true))) {
             for (viewer in listOf(owner, other)) {
-                val scene = TablePresentation.scene(active, TableBoard.of(play), viewer.accountId, width, height, landscape)
+                val scene = TablePresentation.scene(active, tableBoard(play), viewer.accountId, width, height, landscape)
                 assertEquals(2, scene.fields.size)
                 // ... and the opening hands of seven (I-D49)
                 assertEquals(25, scene.items.size)

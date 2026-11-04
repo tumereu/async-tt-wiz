@@ -29,15 +29,15 @@ class TableInteractionsScreenshotTest {
     private val sent = mutableListOf<PlayAction>()
     private fun render(width: Float = 412f, height: Float = 892f, font: Float = 1f): Pair<TableToolkitController, TableScene> {
         val play = f.combat()
-        val toolkit = TableToolkitController(f.a, { TableBoard.of(play) }, { true }, { action, _ -> sent += action; true })
+        val toolkit = TableToolkitController(f.a, { tableBoard(play) }, { true }, { action, _ -> sent += action; true })
         compose.setContent {
             CompositionLocalProvider(LocalDensity provides Density(1f, font)) {
-                MaterialTheme { TableSurface(f.game, TableBoard.of(play), f.a, width > height, Modifier.fillMaxSize(),
+                MaterialTheme { TableSurface(f.game, tableBoard(play), f.a, width > height, Modifier.fillMaxSize(),
                     connected = true, toolkit = toolkit, onIntent = toolkit::handle) }
             }
         }
         compose.waitForIdle()
-        return toolkit to TablePresentation.scene(f.game, TableBoard.of(play), f.a, width, height, width > height)
+        return toolkit to TablePresentation.scene(f.game, tableBoard(play), f.a, width, height, width > height)
     }
 
     @OptIn(ExperimentalRoborazziApi::class)

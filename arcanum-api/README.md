@@ -138,7 +138,8 @@ The definition model (overview in `Definitions.kt`):
 - By-hand mechanics, third round (2026-11-03): mutate expands to its alternative cost (the target and the merging are the engine's)
   with `EventPattern.Mutates`; `CopyException.WithoutKeyword` (epic's copy); dungeons: `CardType.Dungeon`, `FaceDefinition.rooms`
   (`DungeonRoom`: name, the room ability's instructions, the rooms its arrows lead to), `KeywordAction.VentureInto(dungeons)`
-  ("venture into Undercity"), `EventPattern.CompletesDungeon` and `Value.DungeonsCompleted`; `CardType.Conspiracy`,
+  ("venture into Undercity"), `Mechanic.OnlyVentureInto` (a dungeon only "venture into [quality]" enters),
+  `EventPattern.CompletesDungeon` and `Value.DungeonsCompleted`; `CardType.Conspiracy`,
   `Keyword.DoubleAgenda`, `EventPattern.RingTempts.chosen` ("whenever you choose a creature as your Ring-bearer"), and hidden and
   double agenda expanding to the special action turning the conspiracy face up.
 - Edge of Eternities (set `eoe`): warp, station and devour written out by `KeywordExpansions` (CR 702.185, 702.184, 702.82; warp's

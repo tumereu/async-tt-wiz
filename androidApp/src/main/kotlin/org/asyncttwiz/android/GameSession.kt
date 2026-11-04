@@ -609,12 +609,13 @@ class GameSession(private val connection: GameConnection, private val credential
             current.lifecycle != GameLifecycle.ACTIVE || current.playId != game.playId) return false
         return enqueue(game, GameAction.DeleteGame) != null
     }
-    fun readiness(game: GameSummary, actor: String, action: GameAction): Boolean = measureLatency(game, action) {
+    /** [outside]: with Ready, the player's dungeon cards outside the game (OutsideCards), sent with it. */
+    fun readiness(game: GameSummary, actor: String, action: GameAction, outside: List<SubmittedDefinition> = emptyList()): Boolean = measureLatency(game, action) {
         if (action !is GameAction.SetStarter && action !is GameAction.SetAlternateStarter && action !is GameAction.SetPodGameBasics && action !is GameAction.ShowDeck &&
             action != GameAction.Ready && action != GameAction.WithdrawReady) return false
         val current = summary(game)
         val base = preparation(current) ?: return false
-        val command = command(current, action) ?: return false
+        val command = command(current, action)?.let { if (action == GameAction.Ready) it.copy(inlineDefinitions = outside) else it } ?: return false
         if (preparations.preparationIntent(current, base, actor, command.scope, action).state == null) return false
         preparations.readied(command, actor)
         pending[command.requestId] = command

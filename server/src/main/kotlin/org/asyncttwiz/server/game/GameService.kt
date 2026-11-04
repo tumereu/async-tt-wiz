@@ -501,7 +501,15 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
 
     private fun applyReadiness(sql: DSLContext, game: GameRecord, account: UUID, command: GameCommand): String? {
         val summary = lobby.summary(sql, game.id!!)
-        val change = StartRules.change(summary, PreparationStore.read(sql, summary), account.toString(), command.scope, command.action)
+        val changed = StartRules.change(summary, PreparationStore.read(sql, summary), account.toString(), command.scope, command.action)
+        // CR 309.2: a Ready brings the player's dungeon cards outside the game; a deck that ventures or takes the initiative needs them
+        val outside = command.inlineDefinitions
+        if (changed.state != null && command.action == GameAction.Ready) {
+            if (!org.asyncttwiz.protocol.game.OutsideCards.valid(outside)) return "invalidOutsideCards"
+            if (!EngineDecks.outsideProvided(changed.state!!, account.toString(), outside)) return "automatumUnsupported"
+        }
+        val change = if (command.action == GameAction.Ready) changed.copy(state = changed.state?.let {
+            StartRules.withOutside(it, account.toString(), outside) }) else changed
         if (change.state?.let { preparation -> StartRules.canStart(summary, preparation) &&
             preparation.players.any { !DeckValidation.quantities(it.deck!!.entries.map { entry -> entry.quantity }) } } == true)
             return "invalidDeck"
@@ -518,6 +526,8 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
         if (seats?.any { seat -> (seat.deck + seat.sideboard).any { it.definition == null } } == true) return "automatumUnsupported"
         change.state?.let { preparation ->
             PreparationStore.saveReadiness(sql, account, preparation)
+            // The prepared deck with its outside cards, and their definitions
+            if (command.action == GameAction.Ready) PreparationStore.saveSelection(sql, account, preparation)
             if (command.action is GameAction.ShowDeck) DeckVisibilityStore.chosen(sql, game.id!!, account)
             if (seats != null) {
                 val play = PlayStore.start(sql, summary, preparation, command.requestId)

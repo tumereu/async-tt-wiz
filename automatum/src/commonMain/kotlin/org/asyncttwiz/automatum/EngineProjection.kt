@@ -49,6 +49,9 @@ import org.asyncttwiz.protocol.ResultSuggestion as AtwSuggestion
  *   ([org.asyncttwiz.protocol.BattlefieldPlacement]), in timestamp order.
  * - The combat lanes show the engine's combat (a pair per attacker), or the shared attack and block staging before they are
  *   declared ([EngineDrafts], I-D54 §8); a token is drawn with its best matching picture ([TokenArt], SYS-072).
+ * - Dungeon cards (CR 309), outside the game or in the command zone, are cards of the board in no zone's list (like an ability's
+ *   card on the Stack), with the card data the player brought ([dungeon] finds the one in a player's command zone): the choice
+ *   that brings one in shows them, a room ability on the Stack points at its dungeon, and the table draws it (TRN-069).
  */
 object EngineProjection {
     /** The board of [model] for [viewer], on [base] (the play as it started: its ids, containers, players, card data);
@@ -111,6 +114,16 @@ object EngineProjection {
             members.getOrPut(containerId) { mutableListOf() } += obj to card.id
         }
         val controllerOf = { obj: GameObject -> view?.get(obj.id)?.controller ?: obj.controller ?: obj.owner }
+        // Dungeon cards (CR 309.2): the card data their player brought, found by name, else made from the engine's definition
+        for (obj in state.objects.values) {
+            if ((obj.zone != Zone.Outside && obj.zone != Zone.Command) || !isDungeon(obj)) continue
+            val name = obj.definition?.faces?.firstOrNull()?.name
+            val digest = base.definitions.firstOrNull { d -> d.definition.name == name &&
+                d.definition.faces.firstOrNull()?.typeLine?.startsWith("Dungeon") == true }?.digest
+                ?: AtwTokens.submitted(obj.definition!!, token = false).also { definitions[it.digest] = it }.digest
+            cards += PlayCard(id = obj.card.value, definition = digest, owner = obj.owner.value, containerId = stackContainer.id,
+                faceId = faceIdOf(obj, digest), covered = obj.id !in visible, timestamp = obj.timestamp)
+        }
         for (obj in state.objects.values) {
             val zone = if (obj.zone == Zone.Stack) castFrom[obj.id] ?: Zone.Hand else obj.zone
             val playZone = when (zone) {
@@ -225,7 +238,7 @@ object EngineProjection {
         val staged = staging?.takeIf { it.key == Staging.keyOf(state) }
         val records = buildList {
             state.combat?.let { add(EngineCodec.combatRecord(it, state.turn.number)) }
-            state.command.mapNotNull { state.objects[it] }.forEach { add(EngineCodec.emblemRecord(it, EngineCodec.emblemText(it))) }
+            state.command.mapNotNull { state.objects[it] }.filterNot(::isDungeon).forEach { add(EngineCodec.emblemRecord(it, EngineCodec.emblemText(it))) }
             // The staged choices and early answers: the player's own staging kept on the device (behind the head), else
             // the table's shared drafts (I-D54 §8)
             if (staged != null) addAll(staged.records) else addAll(EngineDrafts.records(state, table))
@@ -305,6 +318,20 @@ object EngineProjection {
             fun keyOf(state: GameState): String = "${state.turn.number}/${state.turn.step}/${state.combat?.attackers?.map { it.id }}/" +
                 "${state.combat?.blockersDeclaredBy}/${state.priority.holder}"
         }
+    }
+
+    private fun isDungeon(obj: GameObject): Boolean = obj.definition?.faces?.firstOrNull()?.types?.contains(arcanum.api.CardType.Dungeon) == true
+
+    /** A dungeon in a player's command zone (CR 309.2b): its card on the board ([cardId]) and the room its venture marker is on. */
+    data class ShownDungeon(val cardId: String, val name: String, val room: String)
+
+    /** [player]'s dungeon in the command zone on a board made by [project], or null. */
+    fun dungeon(board: BoardState, player: String): ShownDungeon? {
+        val state = board.engine?.state ?: return null
+        val obj = state.command.mapNotNull { state.objects[it] }.firstOrNull { it.owner.value == player && isDungeon(it) } ?: return null
+        val face = obj.definition?.faces?.firstOrNull() ?: return null
+        val room = Engine.ventureRoom(state, obj.id)?.let { face.rooms.getOrNull(it)?.name }.orEmpty()
+        return ShownDungeon(obj.card.value, face.name, room)
     }
 
     /** ATW's turn position of the engine's [step] (its label for the table's words). */

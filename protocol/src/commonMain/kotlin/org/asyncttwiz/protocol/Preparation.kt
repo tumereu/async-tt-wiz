@@ -7,9 +7,13 @@ import kotlinx.serialization.Serializable
 /** A compact consecutive set of concrete command-derived identities, not fungible quantities. */
 @Serializable data class PreparedEntry(val definition: String, val section: SavedDeckSection,
     val firstIndex: String, val quantity: Int, val suppliedBasic: BasicLand? = null)
+@OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
 @Serializable data class PreparedDeck(val id: String, val sourceId: String, val sourceRevision: String,
     val name: String, val cover: String?, val selectionRequestId: String, val entries: List<PreparedEntry>,
-    val basicDefinitions: Map<BasicLand, String> = emptyMap(), val nextCardIndex: String = "0") {
+    val basicDefinitions: Map<BasicLand, String> = emptyMap(), val nextCardIndex: String = "0",
+    /** The definitions (digests) of the cards its player owns outside the game besides the deck: the dungeon cards their device
+     * sent with Ready ([org.asyncttwiz.protocol.game.OutsideCards], CR 309.2). Omitted when none. */
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val outside: List<String> = emptyList()) {
     fun count(section: SavedDeckSection) = entries.filter { it.section == section }.sumOf { it.quantity.toLong() }
     fun card(entry: PreparedEntry, offset: Int): PreparedCard {
         require(entry in entries && offset in 0 until entry.quantity)

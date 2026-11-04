@@ -25,7 +25,7 @@ object OracleParser {
      * wording newly read, a definition shaped differently, a fix), so stored definitions made by an older parser are
      * parsed again.
      */
-    const val VERSION: Int = 32
+    const val VERSION: Int = 33
 
     /**
      * Every subtype the pinned Comprehensive Rules list (CR 205.3g–m, 205.3q), as the parser reads them: what a host
@@ -40,7 +40,9 @@ object OracleParser {
         // CR 309.4: a dungeon card's text is its rooms
         if (arcanum.api.CardType.Dungeon in face.types) {
             val self = selfNames(card.name, face)
-            MechanicWordings.rooms(card.text) { Sentences(self, true).instructions(it) }?.let { return face.copy(rooms = it) }
+            MechanicWordings.rooms(card.text) { Sentences(self, true).instructions(it) }?.let { d ->
+                return face.copy(rooms = d.rooms, abilities = listOfNotNull(d.only))
+            }
             return face.copy(abilities = listOf(Ability.Unparsed(card.text)))
         }
         val isSpell = face.types.any { it == arcanum.api.CardType.Instant || it == arcanum.api.CardType.Sorcery }

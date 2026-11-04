@@ -44,7 +44,9 @@ import arcanum.engine.view.View
  * (CR 309.4c). A dungeon whose marker is on its bottommost room and whose room ability has left the Stack is removed from the game,
  * completing it (a state-based action, CR 309.6, [check]). Completed dungeons are counted in the player's ledger ([COMPLETED]).
  *
- * The initiative's three inherent triggered abilities (CR 726.2) have no source and are found here ([inherent]).
+ * A dungeon that may only be entered by "venture into [quality]" (Undercity, [arcanum.api.Mechanic.OnlyVentureInto], CR 701.49d) is
+ * never chosen by a plain venture. The initiative's three inherent triggered abilities (CR 726.2) have no source and are found here
+ * ([inherent]).
  */
 internal object Dungeons {
     const val ROOM: String = "\$venture-room"
@@ -58,6 +60,11 @@ internal object Dungeons {
     private fun isDungeon(o: GameObject): Boolean = o.definition?.faces?.firstOrNull()?.types?.contains(CardType.Dungeon) == true
 
     private fun rooms(o: GameObject): List<DungeonRoom> = o.definition?.faces?.firstOrNull()?.rooms.orEmpty()
+
+    /** The qualities a dungeon may only be entered by venturing into ("You can't enter this dungeon unless you "venture into
+     * Undercity."", CR 701.49d): a plain venture can't choose it. */
+    private fun only(o: GameObject): List<ObjectFilter> = o.definition?.faces?.firstOrNull()?.abilities.orEmpty()
+        .filterIsInstance<Ability.Static>().flatMap { it.mechanics.filterIsInstance<arcanum.api.Mechanic.OnlyVentureInto>() }.map { it.quality }
 
     /** The dungeon [player] owns in the command zone (CR 309.3: at most one). */
     fun current(state: GameState, player: PlayerId): GameObject? =
@@ -89,7 +96,10 @@ internal object Dungeons {
         // Only its owner may see their cards outside the game (D60): their choice is made in their view
         act.fill(player, cause?.source, outside, "venture into the dungeon")
         val e = act.evaluator(Context(player, cause?.source, Bindings.EMPTY))
-        val options = outside.filter { id -> act.state.obj(id)?.let(::isDungeon) == true && (into == null || e.matches(into, id)) }
+        val options = outside.filter { id ->
+            val o = act.state.obj(id)
+            o != null && isDungeon(o) && (into == null || e.matches(into, id)) && only(o).all { it == into }
+        }
         if (options.isEmpty()) return
         val chosen = act.chooseObjects(player, cause?.source, options, 1, 1, "Venture into").firstOrNull() ?: return
         val moved = Actions.move(act, cause, listOf(PlannedMove(chosen, Zone.Command, controller = player)))[chosen] ?: return

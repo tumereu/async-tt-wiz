@@ -131,21 +131,33 @@ internal object MechanicWordings {
     /** "Undercity" (CR 205.3p, 701.49d). */
     private val undercity: ObjectFilter = ObjectFilter.Sub(arcanum.api.SubtypeRef.Literal(arcanum.api.Subtype("Undercity")))
 
-    private val ROOM = Regex("""(.+?) — (.+?)(?:\s*\(→ (.+?)\))?""")
+    private val ROOM = Regex("""(.+?) — (.+?)(?:\s*\((?:→|Leads to:) (.+?)\))?""")
+    private val ONLY_INTO = Regex("""You can't enter this dungeon unless you ["“]venture into ([A-Z][a-z]+)\.["”]""")
+
+    /** A dungeon card's text: its [rooms] and its restriction "You can't enter this dungeon unless you "venture into [quality]."" ([only],
+     * CR 701.49d), as a static ability. */
+    data class DungeonText(val rooms: List<arcanum.api.DungeonRoom>, val only: Ability?)
 
     /**
-     * A dungeon card's rooms (CR 309.4): one line each, "[name] — [effect] (→ [room] or [room])", the topmost first; the arrows name the
-     * rooms they lead to. [effect] reads a room's effect; one it can't read is done by hand. Null when a line isn't a room.
+     * A dungeon card's rooms (CR 309.4): one line each, "[name] — [effect] (→ [room] or [room])" (card data also writes the arrows
+     * "(Leads to: [room], [room])"), the topmost first; the arrows name the rooms they lead to. A first line "You can't enter this
+     * dungeon unless you "venture into [quality]."" restricts how it is entered (CR 701.49d). [effect] reads a room's effect; one it
+     * can't read is done by hand. Null when another line isn't a room.
      */
-    fun rooms(text: String, effect: (String) -> arcanum.api.Instructions?): List<arcanum.api.DungeonRoom>? {
+    fun rooms(text: String, effect: (String) -> arcanum.api.Instructions?): DungeonText? {
         val lines = text.lines().map { it.trim() }.filter { it.isNotEmpty() }
-        val parsed = lines.map { ROOM.matchEntire(it) ?: return null }
+        val only = lines.firstOrNull()?.let(ONLY_INTO::matchEntire)?.let { m ->
+            Ability.Static(listOf(arcanum.api.Mechanic.OnlyVentureInto(ObjectFilter.Sub(arcanum.api.SubtypeRef.Literal(arcanum.api.Subtype(m.groupValues[1]))))),
+                arcanum.api.Affected.Objects(arcanum.api.Objects.Self), functionsIn = listOf(arcanum.api.Zone.Outside), text = lines.first())
+        }
+        val parsed = lines.drop(if (only != null) 1 else 0).map { ROOM.matchEntire(it) ?: return null }
         val names = parsed.map { it.groupValues[1] }
-        return parsed.map { m ->
-            val next = m.groupValues[3].takeIf { it.isNotEmpty() }?.split(" or ")?.map { n -> names.indexOf(n.trim()).takeIf { it >= 0 } ?: return null }.orEmpty()
+        return DungeonText(parsed.map { m ->
+            val next = m.groupValues[3].takeIf { it.isNotEmpty() }?.split(" or ", ", ")
+                ?.map { n -> names.indexOf(n.trim()).takeIf { it >= 0 } ?: return null }.orEmpty()
             val text = m.groupValues[2].trim()
             arcanum.api.DungeonRoom(m.groupValues[1], effect(text) ?: arcanum.api.Instructions(steps = listOf(Step.Manual(text))), next)
-        }
+        }, only)
     }
 
     private val PAIRED = Regex("""As long as (.+) is paired with another creature, (?:both creatures|each of those creatures) (have|has|gets?) (.+?)\.?""")

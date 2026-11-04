@@ -325,6 +325,45 @@ class GameDeviceTest {
         assertTrue(bobs.model.sameAs(sim.server.stateAt(bobs.session.localHead)))
     }
 
+    // HIS-084, HIS-085 (I-D56 §10, report C9PVLM): Undo goes back to just before the player's latest own action, past the
+    // passes their device made by itself after it and never to a rewind's line start; it lands where they hold priority
+    // and their device waits for them there; a second Undo takes back the action before
+    @Test
+    fun undoTakesBackTheLatestOwnActionAndStaysThere() {
+        val sim = spells("Storm Spark")
+        sim.bobToMain()
+        val alice = sim.alice; val bob = sim.bob
+        val bobs = sim.device(bob)
+        val beforeLand = sim.server.head
+        sim.bobCasts("Storm Spark")
+        sim.settle()
+        val beforeCast = sim.server.line().first { e -> e.engine?.steps?.firstOrNull()?.input is Input.Cast }.parentId
+        bobs.endTurn(sim.now)
+        sim.settle()
+        val after = MainLine.after(sim.server.history, sim.server.head, beforeCast)!!
+        assertTrue(after.size > 2, "his device passed on by itself after the cast: ${after.size}")
+        assertEquals(GameDevice.Undo.Free(beforeCast), bobs.undo())
+        sim.settle()
+        fun inHand(name: String) = bobs.model.engine.player(bob).hand.count { bobs.model.engine.obj(it)?.definition?.faces?.first()?.name == name }
+        val sparks = inHand("Storm Spark")
+        assertTrue(sim.atMain(bob), "back at his main phase, holding priority")
+        assertEquals(20, bobs.model.engine.player(alice).life, "the spark's damage is gone")
+        assertTrue(bobs.model.engine.battlefield.none { bobs.model.engine.obj(it)?.tapped == true }, "his Island is untapped again")
+        assertTrue(bobs.model.sameAs(sim.server.stateAt(sim.server.head)), "his board is the server's")
+        assertEquals(1, MainLine.after(sim.server.history, sim.server.head, beforeCast)!!.size, "only the line start: his device made nothing more")
+        assertEquals(GameDevice.Status.YourMove, bobs.status)
+        // Again: the land goes back too, not the line start
+        assertEquals(GameDevice.Undo.Free(beforeLand), bobs.undo())
+        sim.settle()
+        assertEquals(sparks, inHand("Storm Spark"))
+        assertTrue(inHand("Island") > 0 && bobs.model.engine.battlefield.isEmpty(), "the Island is back in his hand")
+        assertEquals(2, sim.rewinds)
+        // Alice comes back: her board is the server's, and her strip has no rewind event to show
+        val alices = sim.load(alice)
+        alices.play(); alices.playToStop()
+        assertTrue(alices.model.sameAs(sim.server.stateAt(alices.session.localHead)))
+    }
+
     /** [p] plays back to the head, confirming each assumption their playback stops at. */
     private fun DeviceSim.catchUp(p: PlayerId) {
         val d = device(p)

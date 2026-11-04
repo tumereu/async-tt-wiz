@@ -102,6 +102,14 @@ class GameDevice(
     private val confirming = mutableSetOf<String>()
     /** The submissions made by the player's own actions (a refusal of one is told, even "stale"). */
     private val byPlayer = mutableSetOf<String>()
+    /** Who made this device's own recent events (I-D56 §10, report C9PVLM): true for the player's own action (an End
+     * turn's first pass included), false for the device's automatic steps; Undo goes back past the automatic ones. */
+    private val origins = LinkedHashMap<String, Boolean>()
+    /** An End turn waits for its first event: the player's action. */
+    private var endTurnMade = false
+    /** The head a free undo of this player's landed on: the device makes none of their own inputs there by itself
+     * (their mode's passes would carry the game straight past the point again); they act there themselves. */
+    private var holdAt: String? = null
     private val outbox = mutableListOf<GameAction>()
     private val notes = mutableListOf<Note>()
     private var reported: String? = null
@@ -332,6 +340,7 @@ class GameDevice(
         if (Engine.result(s) != null) return false
         val who = Attention.of(s) ?: return false
         if (who == me || declares(s)) {
+            if (holdAt == session.tip) return false
             val input = own(s) ?: return false
             if (reveals["${session.tip}:$input"] == true) return false
             return make(input, assumed = false) is Acted.Sent
@@ -347,7 +356,10 @@ class GameDevice(
      * attackers; the other player's points are assumed, automatic or waited for as usual. */
     fun endTurn(now: Long) {
         endTurn = model.engine.turn.number
+        endTurnMade = true
+        holdAt = null
         advance(now)
+        endTurnMade = false
     }
 
     /** The player's own input the device makes at the head by itself, or null (§6, §7). */
@@ -653,6 +665,13 @@ class GameDevice(
         openDraft = null; draftStop = null; draftBefore = null
         val event = session.sendEvent()
         if (player) byPlayer += event.id
+        if (own) {
+            val first = event.engine?.steps?.firstNotNullOfOrNull { it.input }
+            val ended = endTurnMade && (first == Input.PassPriority(me) || (first as? Input.DeclareAttackers)?.player == me)
+            origins[event.id] = player || ended
+            if (ended) endTurnMade = false
+            if (origins.size > MAX_ORIGINS) origins.remove(origins.keys.first())
+        }
         send(GameAction.Submit(Submission.of(event)))
         return Acted.Sent(event)
     }
@@ -838,12 +857,32 @@ class GameDevice(
         data class Unavailable(val reason: String) : Undo
     }
 
-    /** The point just before the player's latest own real input shown (their later assumed inputs go with it). */
+    /** The point just before the player's latest own real input shown (their later assumed inputs go with it): never
+     * the device's automatic steps (its passes by the player's mode, engine-automatic answers it made) nor a rewind's
+     * line start, so a second Undo goes on back past the player's previous action (report C9PVLM). */
     fun undoTarget(): String? {
         val shown = session.indexOf(session.localHead) ?: return null
-        return session.events.take(shown + 1).lastOrNull { e ->
-            e.author == me.value && e.assumed == null && (e.engine?.steps?.any { it.input != null } == true || (e.engine == null && e.table.isNotEmpty()))
-        }?.parentId
+        return session.events.take(shown + 1).lastOrNull(::realInput)?.parentId
+    }
+
+    /** Whether [e] is one of this player's own real inputs (an action of theirs, or a table-only event of theirs). Events
+     * made before this device was loaded are judged by their input: the player's own passes and inputs for the other
+     * player there are taken as automatic. */
+    private fun realInput(e: GameEvent): Boolean {
+        if (e.author != me.value || e.assumed != null) return false
+        val input = e.engine?.steps?.firstNotNullOfOrNull { it.input }
+        if (input == null) return e.engine == null && e.table.isNotEmpty() && e.table.none { it is TableChange.LineMoved }
+        origins[e.id]?.let { return it }
+        return when (input) {
+            is Input.PassPriority -> false
+            is Input.PlayLand -> input.player == me
+            is Input.Cast -> input.player == me
+            is Input.Activate -> input.player == me
+            is Input.DeclareAttackers -> input.player == me
+            is Input.DeclareBlockers -> input.player == me
+            is Input.SetupAnswer -> input.player == me
+            else -> true
+        }
     }
 
     /** Undo (a tap) to [target] (by default [undoTarget]): sent when free, else [Undo.Request]. */
@@ -900,6 +939,8 @@ class GameDevice(
                     note(Note.TakenBack(PlayerId(by), r.takenBack))
                 else -> {}
             }
+            // The player's own undo lands where they act next: their device waits for them there (§10)
+            holdAt = if (by == me.value) session.head else null
         } else for (event in events) {
             when (val r = session.received(event)) {
                 GameSession.Received.Reload -> { needsReload = true; break }
@@ -1033,6 +1074,7 @@ class GameDevice(
         /** Events a device keeps before the earlier local head (undo targets and request previews further back come
          * from the server). */
         const val KEPT_EVENTS = 64
+        private const val MAX_ORIGINS = 256
         private const val MAX_AUTOMATIC_EVENTS = 200
         private const val MAX_FOLDED = 500
         private const val MAX_RECORD = 400

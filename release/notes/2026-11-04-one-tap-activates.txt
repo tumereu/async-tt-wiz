@@ -1,0 +1,1 @@
+mod: One tap on a land or other permanent uses its ability: a land adds its mana; a card with several abilities shows a chip for each to pick from.

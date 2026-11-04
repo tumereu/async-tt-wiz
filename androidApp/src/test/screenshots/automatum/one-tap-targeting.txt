@@ -1,0 +1,1 @@
+With Automatum on, one tap on Alice's Cinder Adept, whose only ability is "{T}: Cinder Adept deals 1 damage to any target.", starts activating it: the target bar above her hand asks for a target and the legal targets glow violet.

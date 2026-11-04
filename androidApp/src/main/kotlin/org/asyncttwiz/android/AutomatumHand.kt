@@ -267,7 +267,7 @@ private fun RaisedChipsRow(hand: HandController, play: PlayState, raised: String
 }
 
 /** A chip's tap and hold: [hold] true while it is held (its details shown), false on release. */
-private fun Modifier.chipGestures(tap: () -> Unit, hold: (Boolean) -> Unit) = pointerInput(tap, hold) {
+internal fun Modifier.chipGestures(tap: () -> Unit, hold: (Boolean) -> Unit) = pointerInput(tap, hold) {
     detectTapGestures(onTap = { tap() }, onLongPress = { hold(true) }, onPress = {
         tryAwaitRelease()
         hold(false)

@@ -71,11 +71,15 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
                 is TableIntent.Scroll -> layout = if (intent.vertical)
                     layout.copy(scrollY = layout.scrollY + (intent.viewportId to intent.offset))
                     else layout.copy(scroll = layout.scroll + (intent.viewportId to intent.offset))
-                TableIntent.EmptyTap -> if (!currentRuntime.reviewing) {
-                    // CMB-032, CMB-034: a tap on the empty table clears the combat selection (a blocker finishes early)
-                    toolkit?.combat?.clearSelection()
-                    // ZON-079: tapping anywhere else lowers a raised hand card
-                    toolkit?.hand?.lower()
+                TableIntent.EmptyTap -> {
+                    // TBL-122: a tap on the empty table closes a battlefield card's ability chips
+                    toolkit?.closeAbilities()
+                    if (!currentRuntime.reviewing) {
+                        // CMB-032, CMB-034: a tap on the empty table clears the combat selection (a blocker finishes early)
+                        toolkit?.combat?.clearSelection()
+                        // ZON-079: tapping anywhere else lowers a raised hand card
+                        toolkit?.hand?.lower()
+                    }
                 }
                 is TableIntent.Actions -> {
                     val captured = owner.capturedActions ?: intent

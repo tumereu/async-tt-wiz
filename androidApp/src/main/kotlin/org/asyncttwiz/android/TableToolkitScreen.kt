@@ -82,6 +82,8 @@ internal fun TableToolkitScreen(toolkit: TableToolkitController, play: PlayState
     toolkit.peek?.let { GameplayCardInspection(play, toolkit.viewer, it, { toolkit.peek(null) }, names, peek = true, peekScroll = peekScroll) }
     // I-D50: the raised hand card's cost chips
     RaisedCardChips(toolkit, play, scene)
+    // TBL-122: a battlefield card's ability chips when it has several to activate
+    PermanentAbilityChips(toolkit, play, scene)
     // Automatum (I2a): the open cast's panel by the Stack, over the table
     CastPanelHost(toolkit, play, scene, names)
     // Automatum (I2b): priority, resolution and trigger choices by the Stack

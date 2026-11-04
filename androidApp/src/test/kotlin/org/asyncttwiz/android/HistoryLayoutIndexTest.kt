@@ -160,7 +160,7 @@ class HistoryLayoutIndexTest {
         assertEquals(graph.positions[cursors[0]], graph.positions[cursors[2]])
     }
 
-    // HIS-086
+    // old model (I-D54 §14)
     @Test fun undoPopAndBulkRollbackRemoveTailChipsAndRetainSurvivingCoordinates() {
         var tree = GameplayTree(F.root())
         repeat(12) { tree = F.play(tree, PlayAction.EndTurn, 200 + it) }

@@ -39,7 +39,7 @@ class PanelCloseGroupingTest {
         assertNotEquals(group(closed).id, group(step(closed, PlayAction.PassAttention, if (actor == a) b else a)).id)
     }
 
-    // HIS-056
+    // old model (I-D54 §14)
     @Test fun searchSessionIsOneGroupAndTheCloseWithItsShuffleIsTheNext() {
         val opened = step(root(), PlayAction.ShowContents(id(10), ContentsSelection.ALL))
         val panel = opened.board.contentsDisplays.single()
@@ -58,7 +58,7 @@ class PanelCloseGroupingTest {
         assertOwnStep(tapped, closed, a)
     }
 
-    // HIS-056
+    // old model (I-D54 §14)
     @Test fun lookSessionWithARevealGroupsAsBeforeAndTheCloseWithItsRestMovesIsItsOwnStep() {
         val opened = step(root(), PlayAction.ShowContents(id(10), ContentsSelection.TOP, 3))
         val panel = opened.board.contentsDisplays.single()
@@ -77,7 +77,7 @@ class PanelCloseGroupingTest {
         assertOwnStep(tap, step(tap, PlayAction.DismissContents(reveal.board.contentsDisplays.single().id, ContentsRest.BOTTOM, seed)), a)
     }
 
-    // HIS-056
+    // old model (I-D54 §14)
     @Test fun theOpponentClosingAnyPanelIsItsOwnStep() {
         for ((selection, reveal) in listOf(ContentsSelection.ALL to false, ContentsSelection.TOP to false, ContentsSelection.TOP to true)) {
             val opened = step(root(), PlayAction.ShowContents(id(10), selection, 2, reveal))
@@ -87,7 +87,7 @@ class PanelCloseGroupingTest {
         }
     }
 
-    // SYS-031
+    // old model (I-D54 §14)
     @Test fun closesUnderOlderRulesGroupExactlyAsBefore() {
         val display = ContentsDisplay(id(30), a, id(10), ContentsSelection.ALL, 1, false, listOf(id(20)), panelVersion = 3)
         val look = display.copy(selection = ContentsSelection.TOP)

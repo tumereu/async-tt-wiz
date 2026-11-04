@@ -42,7 +42,7 @@ class HistoryTextCacheTest {
         AccountIdentity(f.a, "alice"), AccountIdentity(f.b, "bob"), tree.initial.preparationRound, id(90), InvitationState.ACCEPTED)
     private fun texts(h: Harness, ids: List<String>) = ids.map { h.history.playback!!.tree.texts.getValue(it).description }
 
-    // HIS-069
+    // old model (I-D54 §14)
     @Test fun liveEventsKeepTheirMoveTextsAfterTheyAreNoLongerTheLatest() {
         for (viewer in listOf(f.a, f.b)) Harness().use { h ->
             var tree = root()
@@ -82,7 +82,7 @@ class HistoryTextCacheTest {
         }
     }
 
-    // HIS-069
+    // old model (I-D54 §14)
     @Test fun playbackAndReviewGiveOlderEventsTheirTextsWithoutRebuildingFromTheStart() {
         // The draws are far behind the live end: only their own boards can tell what moved.
         var tree = root()

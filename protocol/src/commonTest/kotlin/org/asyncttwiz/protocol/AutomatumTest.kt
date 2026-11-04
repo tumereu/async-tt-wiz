@@ -137,7 +137,7 @@ class AutomatumTest {
             listOf(MtgTag(listOf("cast"), MtgCause(a, ref(root(), 10), "Storm Spark")))))))
     }
 
-    // SYS-056; D21, CR 400.7: a zone change makes a new object with a new timestamp and fresh facts; a control change doesn't.
+    // old model (I-D54 §14); D21, CR 400.7: a zone change makes a new object with a new timestamp and fresh facts; a control change doesn't.
     @Test fun zoneChangesCountUpAndStampNewObjects() {
         var state = root()
         state = accept(state, mtg(MtgAction.SetCounter(ref(state, 10), "+1/+1", null, TypedCounter("+1/+1", 1, 3)))).state!!
@@ -159,7 +159,7 @@ class AutomatumTest {
         assertNull(dead.attachedTo)
     }
 
-    // SYS-056; CR 701.20d, D38: a shuffle makes every card of the library a new object, without new timestamps.
+    // old model (I-D54 §14); CR 701.20d, D38: a shuffle makes every card of the library a new object, without new timestamps.
     @Test fun shufflesMakeNewObjects() {
         val state = root()
         val shuffled = accept(state, PlayAction.ShuffleLibrary(library, RandomV1.encodeSeed(ByteArray(32) { 1 }))).state!!
@@ -167,7 +167,7 @@ class AutomatumTest {
         assertEquals(0, card(shuffled, 10).zoneChanges)
     }
 
-    // SYS-056; CR 613.7f: turning face down or up gives a new timestamp; a step change empties mana pools (CR 106.4).
+    // old model (I-D54 §14); CR 613.7f: turning face down or up gives a new timestamp; a step change empties mana pools (CR 106.4).
     @Test fun faceChangesStampAndStepsEmptyManaPools() {
         var state = root()
         state = accept(state, PlayAction.SetCovered(gameplayId(11), true)).state!!
@@ -177,7 +177,7 @@ class AutomatumTest {
         assertEquals(emptyList(), state.board.players.single { it.accountId == b }.manaPool)
     }
 
-    // SYS-056; D33, D42: a manual move is tagged with what the move alone means; an engine event carries the engine's tag.
+    // old model (I-D54 §14); D33, D42: a manual move is tagged with what the move alone means; an engine event carries the engine's tag.
     @Test fun movesAreTaggedAndEngineTagsAreRecordedAndSealed() {
         // Automatum on: its own (tagged) events apply only then (SYS-057)
         var state = root().let { it.copy(board = it.board) }
@@ -237,7 +237,7 @@ class AutomatumTest {
         assertEquals("replayBlocked", undo(spent).reason)
     }
 
-    // SYS-031: events recorded under older rules keep their behaviour; old boards gain no new fields.
+    // old model (I-D54 §14): events recorded under older rules keep their behaviour; old boards gain no new fields.
     @Test fun olderRulesAndOldBoardsAreUnchanged() {
         val state = root()
         val action = move(state, 12, MoveDestination(hand, MoveInsertion.UNORDERED))

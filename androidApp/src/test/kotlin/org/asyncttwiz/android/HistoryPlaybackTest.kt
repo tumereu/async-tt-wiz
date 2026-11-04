@@ -143,7 +143,7 @@ class HistoryPlaybackTest {
         assertEquals(id(5), playback.position.cursorId) // Racing continuation not lost in catch-up/live handoff.
     }
 
-    // HIS-029
+    // old model (I-D54 §14)
     @Test fun onlyRemotePanelRevealsHoldLiveAcrossSeparateOrBatchedReceipts() {
         val open = node(1, 0).copy(action = PlayAction.ShowContents(id(80), ContentsSelection.TOP, 2))
         val reveal = node(2, 1).copy(action = PlayAction.RevealContentsCard(id(81), id(82)))
@@ -251,7 +251,7 @@ class HistoryPlaybackTest {
         assertEquals(id(0), playback.position.cursorId)
     }
 
-    // HIS-050
+    // old model (I-D54 §14)
     @Test fun previousNextByGroupsExactScrubAndChangedPathCommonAncestorRollback() {
         val a = node(1,0); val b = node(2,1); val c = node(3,2, HistorySignificance.ORIENTATION)
         val d = node(4,3); val x = node(5,1, HistorySignificance.STACK_ENTRY)
@@ -394,7 +394,7 @@ class HistoryPlaybackTest {
             n(8, 3, 54), n(9, 3, 55)), head = 5)
     }
 
-    // HIS-012
+    // old model (I-D54 §14)
     @Test fun previousAndNextStepOneGroupAlongTheLiveLineAndNeverPlay() {
         val player = HistoryPlayback(forked())
         player.scrub(id(1))
@@ -410,7 +410,7 @@ class HistoryPlaybackTest {
         assertFalse(player.position.playing)
     }
 
-    // HIS-012
+    // old model (I-D54 §14)
     @Test fun anOldBranchIsTheVisibleLineToItsOwnTipFollowingItsBranchThenTheNewestOne() {
         val player = HistoryPlayback(forked())
         player.scrub(id(2)) // Picked in the game tree.

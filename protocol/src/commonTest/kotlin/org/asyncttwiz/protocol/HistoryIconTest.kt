@@ -18,7 +18,7 @@ class HistoryIconTest {
         }
     }
 
-    // HIS-074, SYS-034
+    // SYS-034, old model (I-D54 §14)
     @Test fun anUnknownNameDecodesAsUnknownInsteadOfFailing() {
         val semantic = GameWire.json.decodeFromString(HistorySemantic.serializer(),
             """{"significance":"PING","icon":"added_in_a_later_release"}""")

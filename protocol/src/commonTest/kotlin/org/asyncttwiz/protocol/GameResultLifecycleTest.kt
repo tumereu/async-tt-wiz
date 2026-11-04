@@ -129,7 +129,7 @@ class GameResultLifecycleTest {
         assertEquals("replayBlocked", GameplayHistory.replay(play(), withdrawn.nodes[withdrawn.currentNodeId]!!).reason)
     }
 
-    // HIS-060
+    // old model (I-D54 §14)
     @Test fun strictSingletonHasBothBoundariesIncludingTapAndSameAuthorEdit() {
         val initial = play().let { it.copy(board = it.board.copy(
             cards = listOf(PlayCard(id(20), "retained", a.accountId, id(21), id(22),

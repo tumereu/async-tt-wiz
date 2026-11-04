@@ -60,7 +60,7 @@ class EventTextTest {
         assertEquals("Drew a card", eventGroupText(game.tree.nodes, shown, f.a, names, limit = 2)?.description)
     }
 
-    // HIS-076
+    // old model (I-D54 §14)
     @Test fun timelineShowsEveryGroupIncludingOwnAndMovingBackwardsShowsTheGroupNowShown() {
         val game = game()
         Feed().run {
@@ -94,7 +94,7 @@ class EventTextTest {
         }
     }
 
-    // HIS-076
+    // old model (I-D54 §14)
     @Test fun liveShowsOnlyAnOpponentsNewGroup() {
         val game = game()
         Feed().run {

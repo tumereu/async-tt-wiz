@@ -50,7 +50,7 @@ class CardPanelTest {
         assertTrue(search.cardIds.none { search.faceVisibleTo(it, b) })
         assertTrue(search.cardIds.all { search.faceVisibleTo(it, a) })
     }
-    // HIS-056
+    // old model (I-D54 §14)
     @Test fun privatePanelRevealsOneCardThenMovesInASeparateGroupAndKnowledgeExpires() {
         val opened = step(root(), PlayAction.ShowContents(id(10), ContentsSelection.TOP, 3))
         val display = opened.board.contentsDisplays.single()
@@ -71,7 +71,7 @@ class CardPanelTest {
         assertFalse(returned.board.cards.first().knownToAll)
         assertFalse(CardVisibility.isVisibleFaceUp(returned.board, returned.board.cards.first(), b))
     }
-    // HIS-056
+    // old model (I-D54 §14)
     @Test fun searchOpenAndMovesHaveOneGroupTheCloseShuffleItsOwnAndNoRevealedKnowledgeSurvivesShuffle() {
         val opened = step(root(), PlayAction.ShowContents(id(10), ContentsSelection.ALL))
         val display = opened.board.contentsDisplays.single()

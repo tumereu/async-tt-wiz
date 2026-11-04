@@ -5,7 +5,19 @@ improvements, before the web client (roadmap). Phase 0 builds the libraries in t
 repository without integrating them into ATW. Each later phase, and every new shared
 state or catalog change, needs the owner's go-ahead.
 
+**Status of the ATW parts (2026-11-04):** the library design (§4–§7.8, §7.10, most
+decisions) holds. What this draft says about ATW's side is superseded: Automatum is
+always on and nothing changes the game by hand (I-D52), the engine's state is the game
+state and the server runs the engine (I-D54), and each player decides only for
+themselves, with a few answers assumed (I-D56). So §1's "optional layer on a manual
+table", the non-goal "not a rules referee", D1, D2's and D7's switch, D4, D11, D20,
+D32, P1, P2's manual fixes, P4, P7, P8, §7.9, §8, §9, §10, §11 and the switch rows of
+§13 no longer describe ATW; `arcanum-atw-integration.md` and `async-play.md` do. They
+are marked where they stand.
+
 ## 1. What it is
+
+*For ATW superseded in part: Automatum is always on and nothing is fixed by hand (I-D52); see the status note.*
 
 An optional rules-automation layer for Magic: The Gathering on top of the existing
 manual table, built as three generic libraries and an ATW integration:
@@ -28,6 +40,8 @@ that exist today.
 
 ### Non-goals
 
+*The first non-goal no longer holds for ATW: the server refuses what the rules don't allow (I-D52, I-D54).*
+
 - A rules referee. The engine never refuses or blocks a player action (SYS-036,
   SYS-037); it only computes, applies and asks.
 - Any ATW knowledge in the arcanum libraries (§4.1).
@@ -41,17 +55,17 @@ that exist today.
 
 | # | Decision |
 |---|---|
-| D1 | The engine is an **assistant**, not a referee. |
-| D2 | Derived shared state (e.g. computed P/T) is **per game and shared**: both players see the same board. If automation works well enough, the game-wide off switch may later be removed. |
+| D1 | The engine is an **assistant**, not a referee. *(Superseded for ATW by I-D52: Automatum keeps every game.)* |
+| D2 | Derived shared state (e.g. computed P/T) is **per game and shared**: both players see the same board. If automation works well enough, the game-wide off switch may later be removed. *(The switch is gone, I-D52.)* |
 | D3 | Casting opens a **cast dialog**: choose targets and the mana sources to tap, with a suggested tapping. The dialog can be set to **accept automatically**. |
-| D4 | Async play uses **our normal Stack/attention rules**. Live play is open (§9). |
+| D4 | Async play uses **our normal Stack/attention rules**. Live play is open (§9). *(Superseded by I-D56: async play.)* |
 | D5 | **Our own parser** from oracle text; no Forge data, no LLM fallback. |
 | D6 | Coverage is prioritised by **how often** a pattern comes up; rare and silly cards stay manual. |
-| D7 | Assists **happen automatically** unless a player has something to decide at that moment. No "accept" steps for things without a decision. One **"Automatum off"** switch turns the assists off; no per-assist settings. |
+| D7 | Assists **happen automatically** unless a player has something to decide at that moment. No "accept" steps for things without a decision. One **"Automatum off"** switch turns the assists off; no per-assist settings. *(The off switch is gone, I-D52.)* |
 | D8 | **Three generic libraries** (arcanum-api, arcanum-parser, arcanum-engine) with no ATW knowledge; the engine talks in MTG terms; ATW integrates them. The owner reviews their code and documentation at least at the interface level. |
 | D9 | Phase 0 (§13) is as described; the order of later phases may change as work goes on. |
 | D10 | The open questions (§15) are expected to be settled by playtesting. |
-| D11 | Any decision (a trigger's targets, trigger order, an opponent's choice during resolution) can be made **by either player on the other's behalf**. Such a decision pauses the other player's automatic playback by default, and the UI makes clear you are acting for someone else. The phone test (SYS-036) still applies. |
+| D11 | Any decision (a trigger's targets, trigger order, an opponent's choice during resolution) can be made **by either player on the other's behalf**. Such a decision pauses the other player's automatic playback by default, and the UI makes clear you are acting for someone else. The phone test (SYS-036) still applies. *(Superseded by I-D56: each player decides only for themselves; a few answers may be assumed.)* |
 | D12 | **Autoplay decisions** (§7.10) go on the roadmap: stored answers, applied deterministically by exactly one client even while their player is offline. |
 | D13 | Arcanum is developed **alongside the Android improvements, before the web client**. The libraries live in this repository; phase 0 does not integrate them into ATW. |
 | D14 | The parser is built **case by case, AI-assisted**: one effect or a group of similar wordings at a time, deciding together how to parse it, then implementing it. The owner reviews code periodically. (D5's "no LLM fallback" is about the parser itself, not how it is developed.) |
@@ -60,7 +74,7 @@ that exist today.
 | D17 | Types in the libraries are **sealed hierarchies rather than enums with values**, unless that causes serialization or multiplatform problems. |
 | D18 | **Card model:** a card is a layout and faces; a face is its characteristics plus abilities; abilities are the CR kinds (spell, activated, triggered, static) plus keywords. **Effects** (one-shot) and **mechanics** (continuous rules the engine applies) are separate; each mechanic defines how duplicates combine. **Keywords** stay keyword abilities with their identity (for "with flying", "loses flying"); one shared table in arcanum-api maps every keyword to abilities built from mechanics when definitions are loaded (deathtouch 1:1, flying → general "can't be blocked except by"). Ability words are labels on ordinary abilities. |
 | D19 | **Resolved references (API review, scenario 1):** card definitions never name specific objects; what they select is worked out at the CR-defined moment (targets when put on the Stack, other sets on resolution). What the engine stores names objects and players by id: a **Stack item** (ability of which card, controller, targets, X, modes) and an **effect object** (mechanics, locked-in affected objects, duration, source, controller, timestamp). Effect objects are arcanum types; the host stores and shows them without knowing their contents. Which parts lock in follows the CR (characteristic and control changes lock their set, rule changes keep applying to new objects, numbers lock at resolution, CR 611.2c, 608.2h). "You" is the controller of the Stack item or effect object, captured when it is created; for static abilities, the source's controller (CR 109.5). |
-| D20 | **One switch: Automatum on or off for the whole game** (replaces the separate game, player and card switches of D2, D7 and P4). No fine-grained control such as editing parts of an effect object. Turning it on may come with further restrictions (e.g. no manually created Stack entries) for anything that can't be brought in line with automation; these become clear when that part is built. |
+| D20 | **One switch: Automatum on or off for the whole game** (replaces the separate game, player and card switches of D2, D7 and P4). No fine-grained control such as editing parts of an effect object. Turning it on may come with further restrictions (e.g. no manually created Stack entries) for anything that can't be brought in line with automation; these become clear when that part is built. *(Superseded by I-D52: no switch.)* |
 | D21 | **Object identity (API review, scenario 3):** an object id is `ObjectId(card, zoneChanges)`, worked out by the engine: every zone change makes a new id (CR 400.7), so the engine knows the ids a resolution creates before the host applies it. A stale id (its object left the zone) reads as last known information and can't be acted on (CR 608.2h, 400.7). Effects that produce objects name them: one `bind` when the effect doesn't change ids (create token, copy, search), one bind per id stage when it does (`preBind`/`postBind` for a single move; more if an effect changes an id more than once). Zone-change triggers offer the "before" and "after" ids. Stored Stack items and effect objects carry snapshots of the stale ids they refer to. "Enters with counters" is part of the move, not a later step (CR 122.6). |
 | D22 | **Game history as ledgers (API review, scenario 4):** the engine stays stateless; what it needs from earlier in the game ("a creature died this turn", "your second spell", activation limits, mana spent, "if it was kicked") is kept by the host as **ledgers** at three scopes: game, player, and object instance (keyed by object id, so a zone change starts fresh). The engine defines the ledger keys and how each event changes them; changes are increments, decrements and set additions/removals where possible, so undo works. "This turn" ledgers reset at the turn's start, and the previous turn's are kept for "last turn" texts. A resolving permanent spell keeps the cast part of its ledger (CR 400.7d). If undo removes something a later automated result depended on, players fix it by hand. |
 | D23 | **Easiest first on definition updates (for now):** a definition update may break or wipe running games until the owner says otherwise. Stack items carry a copy of the ability they run (granted abilities have no place on the card anyway); other references to an ability use its position. Schema versioning of stored definitions is parked. |
@@ -72,7 +86,7 @@ that exist today.
 | D29 | **Several replacements and questions mid-event** (API review, scenario 11): the engine applies a card's own replacements, then control, copy and back-face replacements in CR order (CR 614.15, 616.1a–d), then asks the affected player to order the rest, only when two or more apply (autoplay decisions can store an order). A question in the middle of an event ("enter as a copy of …", replacement order) is an addressed decision like any other; the engine redoes the action from its start with the answers so far. While it waits, **nothing from that action is applied** (for now). |
 | D30 | **Structural gaps closed before the parser rounds** (API review, scenario 12): target counts are values (X targets, any number); a trigger can have several events and stays one ability ("enters or attacks"); cost parts name the objects they used ("the sacrificed creature", with its last known information); divided amounts are read per target; choices can be made from a bound group ("from among them"); inside a granted ability "this creature" is the object that has it, and its controller activates it; mana spent can be counted per colour; "until the end of your next turn"; "can't be activated". Other gaps (emblems, Class, Room, the Ring, votes, missing keywords, …) are added by the parser rounds in frequency order (D6, D14). |
 | D31 | **Resolution sequences** (API review 2, scenario 13; replaces D29's "nothing applied while waiting"): resolving a Stack item, casting a spell (CR 601.2, with mana abilities allowed inside and cancel rewinding the whole cast) and other automated sequences advance one committed step at a time. The current sequence (step, answers, bound objects, snapshots) is game state, so undo works per step. The engine is called with the state and the sequence position and returns events to apply plus the new position, a decision for a player, or "done". A choice opens a blocking dialog; the opponent sees it greyed out with "Choose for them" (D11), hidden cards behind extra confirmations. The client of the player whose choice (or action) started the step computes and sends everything up to the next decision in one batch; a batch also ends at an event whose hidden cards the server fills in, and the same client continues once they are known. Results only one player can see lead to that player's choices (miracle, madness). The escape from a stuck sequence is switching Automatum off. |
-| D32 | **Automatum on may block moves** (exception to the phone test SYS-036, only while it is on): an open sequence blocks other changes, and rule-breaking moves (an extra land, casting without enough mana) may be refused. It stays an assistant because anyone can switch it off at any time; "play anyway" actions are considered later. |
+| D32 | **Automatum on may block moves** (exception to the phone test SYS-036, only while it is on): an open sequence blocks other changes, and rule-breaking moves (an extra land, casting without enough mana) may be refused. It stays an assistant because anyone can switch it off at any time; "play anyway" actions are considered later. *(Superseded by I-D52: only engine-legal actions exist; there is no off switch.)* |
 | D33 | **Turn history from tagged events** (API review 2, scenario 14; replaces the "this turn" part of D22's ledgers): the host's own recorded events are the log. Events the engine produces carry their Magic meaning (died, sacrificed, destroyed, discarded, cast, combat damage, …) and a snapshot of what everyone could see of the objects involved; that is also better history text for players. "This turn" and "last turn" questions read the tagged events of those turns on the current branch, so undo and branches need nothing extra. Manual moves are tagged only with what the move itself defines unambiguously (D42); play with Automatum off is untagged and doesn't count. The goal is Automatum good enough to stay on all game, off only for rare cards. Per-object facts (mana spent, X, kicked, activations this turn) stay stored on the object (D22). |
 | D34 | **Object timestamps** (API review 2, scenario 15; CR 613.7): every object has a timestamp, an integer from one game-wide counter in game state that goes up each time an object enters a zone, becomes attached, turns face up or down, or transforms. The host assigns it itself, with or without Automatum, like the zone-change count. The counter **never goes back**: undo doesn't lower it (gaps are harmless, and a shared counter that undo reverts would block undoing earlier actions); it could simply be the sequence number of the event that set the timestamp. Objects entering at once are stamped in batch order without asking (CR 613.7m). |
 | D35 | **Ids for everything** (API review 2, scenario 16; extends D21): a sealed id type with `Card(card, zoneChanges)` for cards and tokens alike, and `StackItem(id)` for abilities and spell copies on the Stack (CR 109.1, 707.10). The engine makes new token ids itself as name-based UUIDs (version 5) from the Stack item's id and the token's number, so both clients compute the same ids and later steps of the same batch can use them. Merged permanents (mutate, meld) stay manual for now. The CR 400.7 exceptions (effects that continue on the permanent a spell becomes, cast permissions that follow the card onto the Stack, …) are one fixed list in the engine. |
@@ -107,6 +121,7 @@ that exist today.
 
 ## 3. Principles
 
+- *(P1, P2's manual fixes, P4, P7 and P8 are superseded by I-D52, I-D54 and I-D56.)*
 - **P1 Results are ordinary actions.** In ATW, a resolution becomes a batch of normal
   recorded actions (moves, damage, life, counters, tokens, …), sent as one
   all-or-nothing batch (SYS-010) and taken back by one Undo. History, undo, branches
@@ -478,6 +493,8 @@ kept in a visible **mana pool** until it empties at the end of the step (P2).
 
 ### 7.9 Deciding for another player (D11)
 
+*Superseded by I-D56: nobody decides for the other player; see `async-play.md` §3, §6.*
+
 Every pending decision is shown to the player it belongs to, and the other player can
 open and answer it too, like any manual action:
 - The UI makes clear you are acting on someone else's behalf (who the decision belongs
@@ -525,6 +542,9 @@ target choice for an ability).
 
 ## 8. New shared state in ATW
 
+*Historical: ATW's own model of these is replaced by the engine's state and the table state (I-D54); there is no
+switch (I-D52), and pending decisions are answered only by their player (I-D56).*
+
 Each of these is a rules-version bump (SYS-031) and needs owner approval of its
 catalog entries.
 
@@ -542,6 +562,8 @@ catalog entries.
 
 ## 9. Turns and priority
 
+*Decided by I-D56 (`async-play.md`): response modes, assumed answers and decision stops; no response windows.*
+
 - **Async play (D4):** today's Stack and attention flow. No new priority system.
 - **Live play: open.** Options discussed:
   1. No response window: the caster resolves when they like; the opponent responds
@@ -554,6 +576,8 @@ catalog entries.
 
 ## 10. Toggles
 
+*Superseded by I-D52: there is no switch.*
+
 - **Automatum on/off** (shared, one per game, D20). Off: everything behaves as today.
   On: computed values, effect objects, structured Stack entries, automatic triggers,
   state-based actions, the cast dialog and automatic resolution. What happens to
@@ -561,6 +585,8 @@ catalog entries.
   actions are restricted while it is on, is decided when this part is built.
 
 ## 11. Fit with existing rules
+
+*Historical: history, undo and player access are now `async-play.md` §8–§10 and the catalog (SYS-036, HIS-098).*
 
 - **History, undo, branches:** unchanged, because results are ordinary actions (P1).
   Undo of an automated batch is one Undo (SYS-004, SYS-010).
@@ -584,6 +610,8 @@ catalog entries.
 
 ## 13. Phases
 
+*The toggle, "Automatum off" and "removing the game-wide off switch" parts are done or moot: there is no switch (I-D52).*
+
 Phase 0 is fixed; the order and content of later phases may change as work goes on
 (D9).
 
@@ -599,6 +627,8 @@ Phase 0 is fixed; the order and content of later phases may change as work goes 
 Parser coverage grows alongside every phase, in frequency order.
 
 ## 14. Catalog and spec entries this would change
+
+*Historical: done (the catalog describes the app).*
 
 - **SYS-001** "no rules referee … the app never works out costs, targets or
   resolution" — would allow an optional assistant that does.

@@ -77,7 +77,7 @@ class R31TempPilesTest {
         }
     }
 
-    // SYS-031
+    // old model (I-D54 §14)
     @Test fun olderRulesStillShuffleATempPileOnSearchClose() {
         val start = root()
         val open = exact(start, PlayAction.ShowContents(pile(start), ContentsSelection.ALL))

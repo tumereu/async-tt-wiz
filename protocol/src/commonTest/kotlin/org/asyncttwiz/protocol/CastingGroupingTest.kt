@@ -13,7 +13,7 @@ class CastingGroupingTest {
     private fun append(group: GameplayGroup?, semantic: HistorySemantic, n: Int, actor: String = author) =
         HistoryGrouping.append(group, gameplayId(n), gameplayId(n + 1000), actor, semantic)
 
-    // HIS-054
+    // old model (I-D54 §14)
     @Test fun castWithTapPrefixMarksBothNoteFormsAndManaTapsKeepsItsEntryRepresentative() {
         var group = append(null, classify(PlayAction.SetTapped(gameplayId(14), true)), 100)
         val first = group
@@ -38,7 +38,7 @@ class CastingGroupingTest {
         assertEquals(group, GameWire.json.decodeFromString<GameplayGroup>(GameWire.json.encodeToString(group)))
     }
 
-    // HIS-054
+    // old model (I-D54 §14)
     @Test fun untapOtherProjectionOpponentAndAnyOtherActionCloseCastingContext() {
         val group = append(null, cast(), 100)
         val different = gameplayId(11)

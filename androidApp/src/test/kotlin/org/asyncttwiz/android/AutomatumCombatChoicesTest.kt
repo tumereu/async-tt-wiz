@@ -253,7 +253,7 @@ class AutomatumCombatChoicesTest {
         assertNull(play.board.engineRecords.firstOrNull { it.kind == EngineRecordKind.PreAnswer })
     }
 
-    // CMB-038: the history line of the attacker's choices
+    // old model (I-D54 §14): the history line of the attacker's choices
     @Test fun attackChoicesHistoryText() {
         val names = mapOf("v" to "Drillmaster Vey", "b" to "Stout Bear", "k" to "Shieldwall Knight", "r" to "Sunscorch Raider")
         assertEquals("Attack choices: Sunscorch Raider pays as it attacks · Drillmaster Vey enlists Stout Bear · band: Shieldwall Knight, Stout Bear",

@@ -102,7 +102,7 @@ class R35FaceCornerTest {
         assertEquals("4/5", corner(up))
     }
 
-    // SYS-031
+    // old model (I-D54 §14)
     @Test fun olderRulesSwitchOnlyTheFaceAndTheirEventsReplayUnchanged() {
         val start = root(creature, werewolf, corner = "9/9")
         val action = PlayAction.SetFace(card, werewolf.faceId)

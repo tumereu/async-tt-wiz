@@ -98,7 +98,7 @@ internal object EngineEventText {
         return obj.definition?.faces?.getOrNull(obj.face)?.name
     }
 
-    /** HIS-070–HIS-072 on engine events: the event's icon. */
+    /** HIS-070 on engine events: the event's icon. */
     fun icon(event: GameEvent): HistoryIcon {
         val input = event.engine?.steps?.firstOrNull { it.input != null }?.input
         return when (input) {

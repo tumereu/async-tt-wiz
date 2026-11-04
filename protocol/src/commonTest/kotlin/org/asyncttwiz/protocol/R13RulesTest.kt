@@ -215,7 +215,7 @@ class R13RulesTest {
         assertEquals(tree.stateAt(tree.currentNodeId), redone.stateAt(redone.currentNodeId))
     }
 
-    // HIS-052, HIS-053
+    // old model (I-D54 §14)
     @Test fun untapsOnlyJoinUntapsAndBackwardPingActionsWhileShuffleJoinsTheImmediatelyPriorLibraryEntry() {
         var s = root()
         s = exact(s, PlayAction.SetTapped(id(20), true)).state!!
@@ -247,7 +247,7 @@ class R13RulesTest {
         assertNotEquals(group.id, HistoryGrouping.append(group, id(82), id(83), b, untapSemantic).id)
     }
 
-    // SYS-031
+    // old model (I-D54 §14)
     @Test fun legacySealedMovesAndOffBattlefieldNotesReplayWithoutNewDefaultsOrGrouping() {
         val s = root()
         val card = s.board.cards.single { it.id == id(30) }

@@ -43,14 +43,14 @@ class HistoryTextTest {
         return changed
     }
 
-    // HIS-068
+    // old model (I-D54 §14)
     @Test fun statusChangesReadAsStatusSetOrCleared() {
         val set = format(PlayAction.SetStatus("Wait"), author = f.b, viewer = f.a)
         assertEquals("Status → Wait", set.description); assertEquals("Status", set.label)
         assertEquals("Status cleared", format(PlayAction.SetStatus("")).description)
     }
 
-    // HIS-068
+    // old model (I-D54 §14)
     @Test fun longStatusesAreCutToOneShortLine() {
         val long = format(PlayAction.SetStatus("Back in ten minutes. ".repeat(24).trim()), author = f.b, viewer = f.a)
         assertEquals("Status → " + "Back in ten minutes. ".repeat(3).take(HISTORY_STATUS_LIMIT - 1).trimEnd() + "…", long.description)
@@ -83,7 +83,7 @@ class HistoryTextTest {
         assertEquals("Velvet Prism Engine projection note: ready", format(PlayAction.SetProjectionNote(id(9), "ready"), before = before).description)
     }
 
-    // HIS-068
+    // old model (I-D54 §14)
     @Test fun turnDescriptionsDistinguishStepsFromNextTurnAndKeepLabels() {
         assertEquals(HistoryText("Moved to Declare attackers", "Choose step"), format(PlayAction.ChooseStep(TurnPosition.DECLARE_ATTACKERS)))
         val transition = GameplayTransition(fields = listOf(
@@ -113,7 +113,7 @@ class HistoryTextTest {
         }
     }
 
-    // HIS-062, HIS-066
+    // HIS-062, old model (I-D54 §14)
     @Test fun randomOrderLibraryMoveNamesOnlyVisibleCardsAndNeverTheirOrder() {
         val seed = RandomV1.encodeSeed(ByteArray(32))
         val graveyard = placed(f.a, PlayZone.GRAVEYARD)
@@ -134,7 +134,7 @@ class HistoryTextTest {
             historyText(event(PlayAction.MoveToLibraryRandom(library, listOf(id(9), id(12)), true, seed))).description)
     }
 
-    // HIS-066
+    // old model (I-D54 §14)
     @Test fun putsOntoASearchedLibrarySayTheyWaitAndTheCloseSaysWhatWaited() {
         val seed = RandomV1.encodeSeed(ByteArray(32))
         val graveyard = placed(f.a, PlayZone.GRAVEYARD)
@@ -291,7 +291,7 @@ class HistoryTextTest {
             format(PlayAction.Stack(StackAction.SetController(id(99), f.b))).description)
     }
 
-    // HIS-068
+    // old model (I-D54 §14)
     @Test fun shuffleLifeStepsRandomAndCommentArePlainEnglish() {
         assertEquals(HistoryText("Library shuffled", "Shuffle"), format(PlayAction.ShuffleLibrary(id(10), "secret seed")))
         assertEquals("Library shuffled", format(PlayAction.ShuffleLibrary(id(10), "secret"), author = f.b).description)
@@ -309,7 +309,7 @@ class HistoryTextTest {
         assertEquals("Comment: hello there", format(PlayAction.EventComment(EventReference(id(2), id(5)), "hello\nthere")).description)
     }
 
-    // HIS-062, HIS-067
+    // HIS-062, old model (I-D54 §14)
     @Test fun drawNeverNamesAnOpponentsCardAndGroupsHaveCompactCounts() {
         val action = PlayAction.MoveCard(id(12), MoveSource(id(13), edge = MoveSourceEdge.TOP),
             MoveDestination(id(21), MoveInsertion.UNORDERED))
@@ -393,7 +393,7 @@ class HistoryTextTest {
         assertEquals("Returned a card to bob's hand", format(toHand, returning, covered, f.b).description)
     }
 
-    // HIS-069
+    // old model (I-D54 §14)
     @Test fun historicalTextUsesEventTimeBoardAndSurvivesLaterRevealsAndForks() {
         var tree = GameplayTree(state)
         fun append(request: Int, action: PlayAction, actor: String = f.b) {
@@ -447,7 +447,7 @@ class HistoryTextTest {
             format(PlayAction.SuggestResult(SuggestedResult.LOSS, "Infinite combo")).description)
     }
 
-    // HIS-061
+    // Old model (I-D54 §14)
     @Test fun everyActionFamilyHasShortLabelsWithoutWireIdsOrMutationDumps() {
         val ref = EventReference(id(2), id(5))
         val actions = listOf(
@@ -520,7 +520,7 @@ class HistoryTextTest {
         return tree to draws
     }
 
-    // HIS-053
+    // old model (I-D54 §14)
     @Test fun treeDialogChipsAndSelectedLineShowTheWholeGroupOfMoves() {
         val (tree, draws) = drawTree()
         val explorer = HistoryExplorerController(java.util.concurrent.Executor { it.run() }, { it() })
@@ -543,7 +543,7 @@ class HistoryTextTest {
         } finally { explorer.close() }
     }
 
-    // HIS-067
+    // old model (I-D54 §14)
     @Test fun groupTextIsCappedWithAnEllipsis() {
         val texts = (1..40).associate { n -> id(800 + n) to HistoryText("", "Draw", HistoryMove(listOf("Card number $n with a long name"), "Drew $HISTORY_CARDS")) }
         val range = HistoryRange(id(800), id(800), texts.keys.toList(), texts.keys.last(), HistoryIcon.DOWNLOAD, f.b, null, HistoryPoint(0f, 0f))
@@ -557,7 +557,7 @@ class HistoryTextTest {
             historyRangeText(short, texts).description)
     }
 
-    // HIS-069
+    // old model (I-D54 §14)
     @Test fun movesWithoutBoardContextSayOnlyThatACardMoved() {
         val move = PlayAction.MoveCard(id(9), MoveSource(id(20)), MoveDestination(id(13), MoveInsertion.TOP))
         assertEquals(HistoryText("A card moved", "Move", HistoryMove(listOf(null), null)), historyText(event(move)))

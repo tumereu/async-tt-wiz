@@ -1,7 +1,7 @@
 # Async play: assumptions, waiting, branching and undo (I-D56)
 
-Status: **revised after the adversarial review, with the owner's answers (2026-11-03), then tightened after a second
-review (consistency, information-rule wording, entries list); for owner review.** Builds on
+Status: **approved (I-D56, 2026-11-03); built through the switch-over (steps A–D2, §18–§23, 2026-11-04): every game is
+played this way.** The choices made while building (§16, §18–§23) wait for the owner's confirmation. Builds on
 I-D52 (Automatum always on) and I-D54 (`engine-state-architecture.md`: engine state is the game state, the server is
 authoritative, clients send inputs). Replaces I-D40, I-D41, I-D55 and free branching; §17 lists every entry it changes.
 CR numbers are from the pinned Comprehensive Rules (`ComprehensiveRules.EFFECTIVE_DATE`).
@@ -143,6 +143,7 @@ The server gate (`WhoActs`) and the device follow the same rules:
     and an assumed keep always stop.
   Elsewhere your device confirms the assumed pass without asking and plays on. At a stop the table is live at that point
   and you answer as usual (§8). Auto-pause switches (HIS-024) remain viewing comfort; a decision stop always wins.
+  (Not applied on engine state yet: playback and timeline Auto ignore them.)
 - **Coming back** with opponent events past your local head: a catch-up screen first (what each mode means, the mode
   control, Play), with no count or preview of what is coming; then playback.
 - **"Return to current" and Back** while behind play on quickly to your next decision point; never a jump past it.
@@ -213,7 +214,7 @@ After a branch:
   surveil, search, a reveal; your own library counts here), a random result (coin flip, die, random choice), or a wait
   for the opponent's decision whose source you can't see (§5's hidden-source tell).
 - **Otherwise an undo request:** the rewind dialog (the timeline strip by event group as the target picker, with the
-  board at the target), an optional message, "Ask Bob". Bob gets the request dialog with the message and the target
+  board at the target; built so far as a list of event texts, newest first, `engine-state-architecture.md` §13), an optional message, "Ask Bob". Bob gets the request dialog with the message and the target
   board, shown only up to his local head (a target past it shows his local head's board and "and actions you haven't
   seen yet"), and Accept / Deny; it never says how many events go. While a request is open neither player sends game
   inputs: answers at a decision stop (confirming or branching) wait too. Looking and playback go on, and playback still
@@ -359,6 +360,8 @@ Added by the second review (plainest readings; owner to confirm):
 Open: the live definition (playtesting); whether async rounds drop compared with today (§15).
 
 ## 17. Entries to change
+
+*Done with steps C–D2 (the catalog and the specs below were changed); kept as the record.*
 
 Implementation updates these in the same commits as the code (AGENTS.md). "Remove" deletes the entry; "Change" rewrites
 it as stated.
@@ -587,17 +590,18 @@ Decided while building (the most vision-aligned reading; owner to confirm):
    dialog is view-only. It shows only while the viewer may act (their move or a decision stop).
 4. **Combat staging** is the declaring player's own on engine state (kept on their device, sent as the declaration),
    not the shared staging of I-D54 §8: plainest with I-D56 §12 and needs no table change; showing it to the other player
-   can come later (a list item for step D).
+   can come later (a list item for step D). *(Superseded by §22.1: shared staging.)*
 5. **The waiting bar** is one line above the hand with the presence line and the Assume button (Assume resolves, Assume
    blockers, Assume keep); it also says when an undo request or a suggestion holds the game.
 6. **Assume blockers screen:** "No blocks" only (OK assumes it, Back waits); editing assumed blocks on it is not built
-   (step D list).
+   (step D list). *(Built in D1, §22.10.)*
 7. **The assumer's indicator** is a small violet chip at the left edge of the table, "N assumed · M actions since".
 8. **Playback** steps one event at a time with the History playback pause; Back and Return to current play on to the
    next decision point.
 9. **Undo dialog:** the main line up to the local head as a list of short event texts, newest first, rather than the
    timeline strip; it says when the other player must approve, with an optional message. The incoming request shows the
    message and where the game goes back to (turn and step, "and actions you haven't seen yet"), not a board preview.
+   *(Board previews added in D1, §22.11.)*
 10. **Opening:** the engine's simultaneous mulligans, with today's Mulligan/Keep controls and Keep / Bottom screen; the
     server's start gives the first mulligan free as the game's rules say (TRN-062).
 11. **Defaults for new games** (response mode, Always assume resolves, Autotap) are kept on the device per account and

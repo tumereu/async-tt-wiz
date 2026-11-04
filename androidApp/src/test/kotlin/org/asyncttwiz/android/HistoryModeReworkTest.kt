@@ -213,7 +213,7 @@ class HistoryModeReworkTest {
         compose.onNodeWithText("Auto: off").assertIsDisplayed()
     }
 
-    // HIS-021, HIS-023
+    // HIS-023, old model (I-D54 §14)
     @Test fun manualStartStepsAtOnceThenWaitsForAnimationAndFullPauseAndReadsSettingChangesLive() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val settings = HistoryPlaybackPreferences(context, "timing")
@@ -273,7 +273,7 @@ class HistoryModeReworkTest {
         compose.runOnIdle { assertNotEquals(second, player.position.cursorId); player.pause() }
     }
 
-    // HIS-021
+    // old model (I-D54 §14)
     @Test fun pausePreferencePersistsPerAccountAndClampsReadsAndWrites() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val prefs = context.getSharedPreferences("history-playback", Context.MODE_PRIVATE)
@@ -294,7 +294,7 @@ class HistoryModeReworkTest {
         assertEquals(10_000L, bob.pauseMillis)
     }
 
-    // HIS-022
+    // old model (I-D54 §14)
     @Test fun rewindPausePreferenceIsSeparatePerAccountAndClamped() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val prefs = context.getSharedPreferences("history-playback", Context.MODE_PRIVATE)

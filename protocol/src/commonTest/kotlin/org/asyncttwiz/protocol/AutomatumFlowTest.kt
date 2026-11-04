@@ -64,7 +64,7 @@ class AutomatumFlowTest {
         assertEquals("stackChanged", change(added, PlayAction.Stack(StackAction.AddAbility(definition, b, GameplayRules.stackDigest(state)))).reason)
     }
 
-    // SYS-061 (I-D14): an automated batch (members with tags) may have up to 1000 members; one a player makes, 100
+    // old model (I-D54 §14) (I-D14): an automated batch (members with tags) may have up to 1000 members; one a player makes, 100
     @Test fun automatedBatchesMayBeBigger() {
         val tap = PlayAction.SetTapped(gameplayId(10), true)
         val tag = MtgTag(listOf("tapped"))

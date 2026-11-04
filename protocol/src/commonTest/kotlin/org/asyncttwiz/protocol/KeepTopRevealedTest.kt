@@ -380,7 +380,7 @@ class KeepTopRevealedTest {
         assertEquals(id(41), disclosure.faceId)
     }
 
-    // SYS-031
+    // old model (I-D54 §14)
     @Test fun legacyVersion13ShuffleReplaysWithoutNewFieldsOrDisclosures() {
         val state = root()
         val action = PlayAction.ShuffleLibrary(libraryId, seed)

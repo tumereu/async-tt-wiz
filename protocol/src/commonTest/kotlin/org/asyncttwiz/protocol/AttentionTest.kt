@@ -35,7 +35,7 @@ class AttentionTest {
         }
     }
 
-    // HIS-050, HIS-051, HIS-086, TRN-006
+    // TRN-006, old model (I-D54 §14)
     @Test fun eitherPlayerFlipsRatherThanAssignsAndDisplayGroupingNeverChangesUndo() {
         for (actor in listOf(a, b)) {
             val initial = state()
@@ -70,7 +70,7 @@ class AttentionTest {
         }
     }
 
-    // HIS-051
+    // old model (I-D54 §14)
     @Test fun passJoinsEvenAnOpponentsEndingSuggestionForDisplayOnly() {
         val suggested = GameplayTree(state()).play(a, play(PlayAction.SuggestResult(SuggestedResult.WIN), 20)).tree!!
         val passed = suggested.play(b, play(PlayAction.PassAttention, 21)).tree!!

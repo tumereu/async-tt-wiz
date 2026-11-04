@@ -12,7 +12,7 @@ The battlefield, how cards look on it, how you touch them, their menus and inspe
 - **TBL-005** The battlefield feels endless: no field edge is visible anywhere you can pan, and its background covers the whole pan area on both sides. (r31)
 - **TBL-006** Drags may drop a card in any column, including left of where cards normally start; automatic placement still takes the first free spot from column 0 rightward. (r31)
 - **TBL-007** Cards Automatum puts onto the battlefield go to the land row only if they are lands; everything else goes to the first free spot of the main row. (r46)
-- **TBL-008** Face-down cards put onto the battlefield always go to the main row,. (r34)
+- **TBL-008** Face-down cards put onto the battlefield always go to the main row. (r34)
 - **TBL-009** In landscape the piles, life, counters and Stack sit in a left sidebar; in portrait they sit above and below the battlefield. (r2)
 
 ### Pan and zoom
@@ -33,15 +33,15 @@ The battlefield, how cards look on it, how you touch them, their menus and inspe
 - **TBL-019** Normal cards show the art crop in the art box, with the app drawing the name and P/T; custom-image cards show the whole image with no name and P/T on a small background in the corner; cards without art show a type icon. (r4)
 - **TBL-020** Card names on the table shrink and clip to the card, never ending in "…". (r13)
 - **TBL-021** P/T sits in the bottom-right corner; planeswalkers show loyalty there, battles their defense, and Sagas start at 1. A creature's corner shows the P/T Automatum works out instead (TBL-112). (r37)
-- **TBL-022** P/T that differs from the printed value is drawn in brown (#A0522D). (r15)
-- **TBL-023** A card with an until-end-of-turn P/T change shows its P/T in teal with an hourglass ⌛ in front. (r16)
+- **TBL-022** P/T that differs from the printed value is drawn in brown (#A0522D); a creature whose P/T Automatum works out uses TBL-112's colours instead. (r49)
+- **TBL-023** A card with an until-end-of-turn P/T change shows its P/T in teal with an hourglass ⌛ in front; a creature whose P/T Automatum works out keeps TBL-112's colours with the ⌛. (r49)
 - **TBL-024** Damage shows as a red-outlined badge left of P/T; it fills red when damage reaches the card's toughness (a hint only). (r16)
 - **TBL-027** A card that came onto the battlefield this turn shows its name in blue (#1A56DB), also after changing sides and for new tokens and clones; combat copies follow their card; full-image cards show no mark. (r29)
 - **TBL-028** Face-down battlefield cards show the card back with a "?" name on a white chip, blue when the card arrived this turn. (r30)
 - **TBL-029** Face-down battlefield cards' P/T and damage are visible to both players; they start as 2/2, and turning one face up resets P/T to printed. (r45)
 - **TBL-030** Hidden cards (opponent's hand, face-down outside the battlefield) show no P/T. (r45)
 - **TBL-031** Every tap on a card shows a short press border, so both taps of a double tap are visible; it rotates with the card, also mid-animation. (r45)
-- **TBL-112** A battlefield creature (and its combat copies) shows in its corner the P/T Automatum works out from its printed values, its Automatum counters and the effects in play,: green when it is above the printed value in one number and below in neither, red the other way round, brown when one number is up and the other down, the usual ink when unchanged, with ⌛ in front while an until-end-of-turn effect changes it. Loyalty, defense, Sagas and other non-creature corners keep their own values. While the board holds data Automatum can't read, every card shows its own values. The values follow each board change, worked out in the background without delaying the action itself. (r46)
+- **TBL-112** A battlefield creature (and its combat copies) shows in its corner the P/T Automatum works out from its printed values, its Automatum counters and the effects in play: green when it is above the printed value in one number and below in neither, red the other way round, brown when one number is up and the other down, the usual ink when unchanged, with ⌛ in front while an until-end-of-turn effect changes it. Loyalty, defense, Sagas and other non-creature corners keep their own values. While the board holds data Automatum can't read, every card shows its own values. The values follow each board change, worked out in the background without delaying the action itself. (r46)
 - **TBL-113** What Automatum changed on a battlefield card besides P/T shows as one violet-text chip under its title (first 32 characters): a changed type line, changed colours, keywords it gained ("Flying") or lost ("no Flying"), and its Automatum counters ("+1/+1 ×2"). (r45)
 - **TBL-033** Changes to a card's P/T flash a small change tag such as "+2" (changes close together add up; about 1 s, then a 0.5 s fade); owner and face changes briefly highlight the card. Both players' changes, live and in playback, never on jumps or catch-up. (r45)
 

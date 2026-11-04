@@ -17,12 +17,15 @@ always on there is no second source of truth to keep in step with: the engine's 
   - *Engine state*: Arcanum's `GameState` — everything the rules care about (zones, objects, counters, damage, turn,
     priority, Stack, combat, the "this turn" event log, pending decision and continuation).
   - *Table state*: what only ATW cares about — card placement on the battlefield (position, grouping/rows, order),
-    per-player play settings (Full control, Skip when I have no choice, Autotap), early answers (I-D33), the shared attack
+    per-player play settings (Full control, Skip when I have no choice, Autotap; *superseded: private settings on the
+    server, outside the table state, `async-play.md` §13*), early answers (I-D33), the shared attack
     staging / block draft before it's declared, result suggestions and their answers.
 - **History = a tree of events; each event has two optional parts, applied and reverted together:**
   - *engine part*: the player's input(s) plus the engine's own reversible `Change` list (`GameState.apply/revert`, D59);
   - *table part*: a list of reversible table changes (before → after).
   Both parts are always reversible, so undo, redo, branching and timeline playback work exactly as now: they walk events.
+  *(Superseded by `async-play.md` §8, §10: no redo, branches only where a real answer differs from an assumed one, undo
+  free or by request.)*
   The undo rule stays (an event can be undone if no later event changed what it changed — each part reports what it
   touched).
 - **Display** comes from `Engine.view(state)` (computed characteristics) and `Engine.visible(state, viewer)` (what the
@@ -39,9 +42,10 @@ always on there is no second source of truth to keep in step with: the engine's 
   inputs in arrival order on top of the event they were made on, runs the engine, stores the event, and broadcasts it.
   If another player's input arrived first and the parent moved, yours is refused; your device then syncs to the server's
   state when the newer events arrive (local pending inputs are dropped — the player sees the board update and can act
-  again). Branching from an older point stays an explicit action as today.
+  again). Branching from an older point stays an explicit action as today. *(Superseded: `async-play.md` §8.)*
 - **Trust the client, even with randomness:** random answers (shuffles, coin flips, random choices — D25 host answers)
   are made on the device and sent with the input, so the local result is final at once; the server uses them as given.
+  *(Superseded: the server checks them against the line's stream, `async-play.md` §9.)*
 - **Server gate** becomes: "is this a legal engine input on this state (plus well-formed table changes by an allowed
   player)?" — the separate ATW rules gate and its protocol action types go away.
 
@@ -67,7 +71,8 @@ The app renders from engine views instead of ATW's model.
 The table UI, layout and behaviour (I-D52 addendum), all Automatum panels and controls, the timeline/history/branching UX,
 chat, presence, pause points (I-D41 — still client-side policy deciding when to send Pass), notifications, problem
 reports (now with the engine inputs as the reproduction bundle), lobby/decks/cubes/drafts. Players should see the same
-behaviour; catalog entries change only where wording names internals.
+behaviour; catalog entries change only where wording names internals. *(Superseded by I-D56: the branching UX and the
+I-D41 pause points went; see `async-play.md`.)*
 
 ## 7. Plan (after owner approval and the current round)
 
@@ -211,7 +216,8 @@ model is untouched):**
    `PlayState`/`BoardState` everywhere), including the 2026-11-03 playtest fixes (step arrow words from its planned
    tap, hidden in the opponent's turn unless you act, local prediction; view-only phase dialog; no timeline flicker on
    opening; the mana pool row) and their tests; pause points, early answers, drafts, settings as table changes; Autotap becomes
-   a shared table setting (§9 point 3).
+   a shared table setting (§9 point 3). *(Built in steps C–D1, §12–§13; superseded in part by I-D56: response modes
+   instead of pause points, private settings outside the table state.)*
 3. *Game end:* **built** (`PlayStore.endEngine`: a concession at once, any other result once confirmed after both
    local heads reached it, I-D56 §11); left: the app sends them instead of `GameAction.Concede`/`AcceptResult`.
 4. *History reads:* timeline/history pages, undo (`UndoRule`) and explicit branching on engine events; the
@@ -223,7 +229,7 @@ model is untouched):**
 
 **For the owner:** (1) the wipe's timing (kept for the switch rather than run now); (2) §8's agreed results and
 simultaneous pre-game decisions need new engine inputs (engine work, phase 3+); (3) Autotap becomes a shared table
-setting per §2 (today it is per device); (4) undo across more than 4 turn starts loads a checkpoint (≤ 63 events).
+setting per §2 (today it is per device; *answered the other way: private per player, `async-play.md` §16 choice 12*); (4) undo across more than 4 turn starts loads a checkpoint (≤ 63 events).
 
 ## 10. Built (I-D56 step A, 2026-11-03): stored format, engine prerequisites, server rules
 
@@ -321,7 +327,8 @@ the server still starts engine games only with `ATW_ENGINE_GAMES=1` or the test 
 - **Tests:** `automatum` `EngineProjectionTest`; app `EngineGameTest` (opening, assumed keep and passes, echo
   confirmation, the other player's catch-up, stop and confirmation) and `EngineTableScreenshotTest` (five screenshots).
 
-**Left for step D** (switch-over, wipe, deleting the old model) and what step C didn't build:
+**Left for step D** (switch-over, wipe, deleting the old model) and what step C didn't build (*status: items 1, 3–11 and 13
+done in D1–D2, §13–§14; what is still left is listed at the end of §14*):
 1. Switch: `ATW_ENGINE_GAMES` on (test env first), the app's engine path the default (drop `EnginePath`), the wipe
    `db/pending/wipe_plays_for_engine_state.sql` as the next `V<n>`.
 2. Delete the old model: the `automatum` mapping (`EngineState.from`'s building, `EngineBatch`, records and ledgers,
@@ -387,7 +394,7 @@ Still behind the debug switch (`EnginePath`); today's model stays the default an
   reviewed boards every round) with the leak oracle, and checks each device against the server and its bundle's replay;
   `EngineSharedStagingTest` checks the staging both tables show and a life flash.
 
-**Left for step D** (with §12's items 1, 2 and 13):
+**Left for step D** (with §12's items 1, 2 and 13; *item 11 done in D2, §14*):
 - Item 11, engine work off the main thread: not built. The device's own steps (`advance`: assumptions with their
   information-rule probes, folds), the server's events and the projection still run on the main thread. Moving them needs
   one engine thread that owns the `GameDevice` and publishes immutable snapshots (status, indicator, request, the

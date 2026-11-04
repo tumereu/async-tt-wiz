@@ -53,7 +53,7 @@ class DirectionIconsScreenshotTest {
         HistoryIcon.LAYERS_CLEAR to "Remove from the Stack (kept)",
         HistoryIcon.GPS_FIXED to "Choose attack target")
 
-    // HIS-071
+    // old model (I-D54 §14)
     @Test fun directionIconSheet() {
         compose.setContent {
             ScreenTheme {

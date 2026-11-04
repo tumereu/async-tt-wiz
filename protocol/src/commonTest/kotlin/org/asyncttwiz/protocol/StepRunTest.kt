@@ -28,7 +28,7 @@ class StepRunTest {
         return result.asReversed()
     }
 
-    // HIS-058
+    // old model (I-D54 §14)
     @Test fun betweenFillsEveryStepToTheEndOfTheTurn() {
         val all = p.drop(1)
         assertEquals(all - TurnPosition.DECLARE_BLOCKERS - TurnPosition.COMBAT_DAMAGE,
@@ -42,7 +42,7 @@ class StepRunTest {
         assertEquals(emptyList(), StepRun.between(state(TurnPosition.CLEANUP).board, null))
     }
 
-    // HIS-058
+    // old model (I-D54 §14)
     @Test fun turnOneSkipsTheDrawStep() {
         assertEquals(listOf(TurnPosition.UPKEEP), StepRun.between(state(TurnPosition.UNTAP, "1").board, TurnPosition.PRECOMBAT_MAIN))
         assertEquals(listOf(TurnPosition.UPKEEP, TurnPosition.DRAW),
@@ -136,7 +136,7 @@ class StepRunTest {
         }
     }
 
-    // HIS-058, TRN-014
+    // TRN-014, old model (I-D54 §14)
     @Test fun passedStepsNeverMoveAttentionAndRecordEachStep() {
         val start = state(TurnPosition.DECLARE_ATTACKERS, attackers = true, holder = f.a)
         val run = batch(start, StepRun.endTurn(start.board))
@@ -155,7 +155,7 @@ class StepRunTest {
         assertEquals(TurnState(f.b, "3"), board(run).turn)
     }
 
-    // HIS-058
+    // old model (I-D54 §14)
     @Test fun theWholeRunIsOneGroupAndOneUndo() {
         val start = state(TurnPosition.DECLARE_ATTACKERS, attackers = true)
         // The author's attacker declaration group continues through the run, Declare blockers included.
@@ -194,7 +194,7 @@ class StepRunTest {
         assertEquals(TurnPosition.END_STEP, (nodes.last().action as PlayAction.ChooseStep).position)
     }
 
-    // HIS-059
+    // old model (I-D54 §14)
     @Test fun aGroupOfOnlyPassedStepsTakesTheNextAnchorOfTheSameAction() {
         val semantic = HistoryGrouping.classify(PlayAction.ChooseStep(TurnPosition.DRAW, through = true), emptyList(),
             GameplayTransition(rulesVersion = 33))

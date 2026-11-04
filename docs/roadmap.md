@@ -11,9 +11,9 @@ Long-term direction, in order. Rough by design; the owner changes it as plans ch
 
 ## Alongside 1: Arcanum Automatum
 
-Optional MTG rules automation: an assistant that works out board state (P/T,
-keywords), casts, resolves and handles triggers, asking only when there is a
-decision, while everything stays doable by hand. Built as generic libraries
+MTG rules automation that plays every game (always on since I-D52): it works out
+board state (P/T, keywords), casts, resolves and handles triggers, asking only when
+there is a decision; nothing is done by hand. Built as generic libraries
 (arcanum-api, arcanum-parser, arcanum-engine) in this repository, then integrated
 into the app phase by phase, before the web client. Spec:
 `docs/specs/arcanum-automatum.md`. Later: autoplay decisions (stored answers such

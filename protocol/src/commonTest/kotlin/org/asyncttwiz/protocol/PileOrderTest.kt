@@ -109,7 +109,7 @@ class PileOrderTest {
         assertEquals(setOf(ids[3], ids[4]), (cards(drawn, hand)).toSet())
     }
 
-    // SYS-031
+    // old model (I-D54 §14)
     @Test fun olderRecordedMovesReplayUnchangedAsUnorderedBins() {
         val root = gameplayFixture(); val ids = cards(root, library)
         val (first, firstEvent) = legacyPileMove(root, toPile(ids[3]), 100)

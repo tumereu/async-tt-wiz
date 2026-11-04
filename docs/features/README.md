@@ -19,9 +19,10 @@ text in `docs/design/` or `docs/decisions.md`, the catalog wins.
 ## Games on engine state (I-D54, I-D56)
 
 Every game is played on engine state with async play (`docs/specs/async-play.md`) since the switch-over (I-D56 step D2);
-games started before it were removed. Gameplay entries describe that path; HIS-063–HIS-069, SYS-004, SYS-010 and
-SYS-061 still describe today's model's history texts and batches, whose code goes in the rest of the deletion
-(`docs/specs/engine-state-architecture.md` §14).
+games started before it were removed. The entries describe that path. The entries of today's model's history texts,
+icons, groups, reveal-panel holds and batches (HIS-029, HIS-051–HIS-057, HIS-059, HIS-060, HIS-063–HIS-069,
+HIS-071–HIS-073, SYS-056, SYS-061) were removed with the switch-over; their code and tests are still being deleted
+(`docs/specs/engine-state-architecture.md` §14), and those tests cite "old model (I-D54 §14)" instead.
 
 ## Entry format
 

@@ -151,7 +151,7 @@ class R15RulesTest {
         assertEquals(next, downloaded.stateAt(event.id))
     }
 
-    // SYS-031
+    // old model (I-D54 §14)
     @Test fun retainedVersion15MoveKeepsItsRecordedMapOrderAndSeal() {
         val original = counterState()
         val clone = withoutEnteredTurn(v29Change(original, PlayAction.CloneToken(gameplayId(10)), 201)).state!!

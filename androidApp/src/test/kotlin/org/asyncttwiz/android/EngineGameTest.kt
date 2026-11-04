@@ -65,8 +65,8 @@ class EngineGameTest {
         assertNotNull(game.device.indicator(), "still tentative: Bob hasn't seen them")
     }
 
-    // I-D56 §7, §8: coming back, Bob sees the catch-up screen first, then playback that stops at the keep assumed for him;
-    // his same answer confirms it and playback goes on
+    // I-D56 §7, §8, HIS-033 (§29.1): coming back in the opening, Bob isn't caught up with a paused playback: the opening
+    // shows at once up to the keep assumed for him, where playback stops; his same answer confirms it and playback goes on
     @Test fun theOtherPlayerCatchesUpAndConfirmsTheAssumedKeep() {
         val alice = alice()
         alice.tick(false, 1_000)
@@ -77,8 +77,7 @@ class EngineGameTest {
             f.codec.encodeModel(alice.device.model), localHeads = mapOf(f.a to events.last().id, f.b to f.start.id),
             baseId = f.start.id, base = f.snapshot().state, events = events.map(f.codec::encodeEvent))
         val bob = EngineGame(f.game.id, f.b, f.base, snapshot)
-        assertEquals(GameDevice.Status.CatchUp, bob.device.status)
-        bob.startPlayback()
+        assertIs<GameDevice.Status.Playing>(bob.device.status)
         var guard = 0
         while (bob.device.status is GameDevice.Status.Playing && guard++ < 100) bob.step()
         val stop = assertIs<GameDevice.Status.Stopped>(bob.device.status)

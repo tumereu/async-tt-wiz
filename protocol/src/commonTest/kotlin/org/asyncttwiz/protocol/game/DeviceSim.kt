@@ -225,7 +225,7 @@ internal class DeviceSim(val games: EngineGames, every: Int = 16) {
         repeat(rounds) {
             var moved = false
             for (p in only) {
-                if (!device(p).catchUp && device(p).playToStop().isNotEmpty()) moved = true
+                if (device(p).status != GameDevice.Status.CatchUp && device(p).playToStop().isNotEmpty()) moved = true
                 device(p).advance(now)
                 val out = device(p).take(now)
                 if (out.isNotEmpty()) moved = true

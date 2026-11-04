@@ -72,10 +72,9 @@ class GameDeviceTest {
         assertTrue(assumed.drop(1).all { it.assumed!!.input is Input.PassPriority }, "then Alice's passes in his turn")
         assertEquals(GameDevice.Indicator(assumed.size, sim.server.line().size - sim.server.line().indexOf(assumed.first()) - 1),
             sim.device(bob).indicator())
-        // Alice comes back: the catch-up screen, then playback that stops at the assumed keep
+        // Alice comes back in the opening: no paused catch-up there (§29.1), the opening shows at once up to the assumed keep
         val device = sim.load(alice)
-        assertEquals(GameDevice.Status.CatchUp, device.status)
-        device.play()
+        assertIs<GameDevice.Status.Stopped>(device.status, "the assumed keep at once, no paused catch-up")
         device.playToStop()
         val stop = assertIs<GameDevice.Status.Stopped>(device.status)
         assertEquals(assumed.first().id, stop.event.id)

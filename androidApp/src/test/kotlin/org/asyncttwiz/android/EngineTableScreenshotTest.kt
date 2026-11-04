@@ -59,12 +59,13 @@ class EngineTableScreenshotTest {
                             val events = game.timeline.events(game, names)
                             val status = game.shown?.status
                             val playing = status is GameDevice.Status.Playing
-                            val playback = playing || (status as? GameDevice.Status.Stopped)?.paused == true
+                            val catchUp = status == GameDevice.Status.CatchUp
+                            val playback = playing || catchUp || (status as? GameDevice.Status.Stopped)?.paused == true
                             TableSurface(summary, reviewed ?: game.play(), viewer, false, Modifier.fillMaxSize(), connected = reviewed == null,
                                 onIntent = toolkit::handle, toolkit = toolkit,
                                 runtime = TableRuntimeHooks(navigation = {}, chat = {}, undo = { routes.undo() },
                                     undoHold = { routes.holdUndo() }, controlsConnected = reviewed == null, opponentPresence = presence,
-                                    reviewing = reviewed != null || playing, liveView = reviewed == null && !playing,
+                                    reviewing = reviewed != null || playing || catchUp, liveView = reviewed == null && !playing && !catchUp,
                                     timelinePlayback = if (reviewed != null) TimelinePlaybackStatus.PAUSED else if (playing) TimelinePlaybackStatus.PLAYING else null,
                                     waitingLine = routes.waitingLine(game.play()),
                                     returnCurrent = if (reviewed != null) ({ routes.leaveReview() }) else null,
@@ -125,19 +126,67 @@ class EngineTableScreenshotTest {
         compose.runOnIdle { assertEquals(GameDevice.Status.YourMove, game.device.status) }
     }
 
-    // HIS-033 (I-D56 §7): coming back, Bob first sees the catch-up screen with his response mode
-    @Test fun catchUpScreen() {
-        val alice = aliceAtMain()
-        val events = alice.device.session.pending
-        val snapshot = EngineSnapshot(f.codec.encodeDefinitions(), f.snapshot().rootId, events.last().id,
-            f.codec.encodeModel(alice.device.model), localHeads = mapOf(f.a to events.last().id, f.b to f.start.id),
-            baseId = f.start.id, base = f.snapshot().state, events = events.map(f.codec::encodeEvent))
-        val bob = EngineGame(f.game.id, f.b, f.base, snapshot)
+    // HIS-033, HIS-094 (§29.1): coming back after the opening, Bob's playback of what Alice did starts paused: no dialog,
+    // the strip and Play at the bottom; a tap on Play starts it
+    @Test fun catchUpStartsPaused() {
+        val sim = EngineAppSim(f)
+        val alice = sim.load(f.a)
+        val bobAway = sim.load(f.b)
+        assertIs<GameDevice.Acted.Sent>(bobAway.keep(emptyList()))
+        sim.flush(f.b)
+        repeat(6) {
+            sim.deliver(f.a)
+            alice.playToStop()
+            (alice.device.status as? GameDevice.Status.Stopped)?.let { alice.act(it.assumed) }
+            if (alice.device.status == GameDevice.Status.YourMove && alice.device.model.engine.turn.number == 0) alice.keep(emptyList())
+            alice.tick(false, sim.now)
+            sim.flush(f.a)
+            sim.now += 1_000
+        }
+        val land = Engine.options(alice.device.model.engine, PlayerId(f.a)).filterIsInstance<Input.PlayLand>().first()
+        assertIs<GameDevice.Acted.Sent>(alice.send(listOf(land)))
+        sim.flush(f.a)
+        val bob = sim.load(f.b)
+        // Alice's keep, still in the opening, shows at once; past it playback waits
+        assertIs<GameDevice.Status.Playing>(bob.device.status)
+        bob.step()
+        assertEquals(GameDevice.Status.CatchUp, bob.device.status)
         render(bob, f.b)
-        compose.onNodeWithText("Catching up").assertExists()
-        compose.onNodeWithTag("catch-up-play").assertExists()
+        compose.onNodeWithText("Catching up").assertDoesNotExist()
+        compose.onNodeWithTag("playback-toggle").assertExists()
+        compose.onNodeWithTag("playback-toggle").assert(SemanticsMatcher.expectValue(
+            androidx.compose.ui.semantics.SemanticsProperties.StateDescription, "Play"))
         captureShot("$SCREENSHOTS/engine/catch-up.png",
-            "Bob comes back after Alice played on: the Catching up screen explains that her actions play back and stop where he decides, with his response mode (Full control, Normal, Auto-skip) and Play.")
+            "Bob comes back after Alice played on past the opening: no dialog; his table shows where he left it, dimmed as in playback with \"Paused\" in the middle, and Play at the bottom; nothing plays until he taps it.")
+        compose.onNodeWithTag("playback-toggle").performClick()
+        compose.runOnIdle {
+            assertTrue(bob.device.status.let { it is GameDevice.Status.Playing || it is GameDevice.Status.Stopped }, "Play started it")
+        }
+    }
+
+    // HIS-021, CMB-007 (§29.6): Alice attacked while Bob was away; his playback shows the attack in the combat area, the
+    // panel in the middle of the table, as in live combat
+    @Test fun anAttackPlaysBackInTheCombatArea() {
+        val scenario = EngineCombatScenario()
+        scenario.until(scenario::bothHaveCubs)
+        val alice = scenario.alice
+        val attacker = scenario.creatures(alice.device.model.engine, scenario.me, ready = true).first()
+        assertIs<GameDevice.Acted.Sent>(alice.send(listOf(Input.DeclareAttackers(scenario.me,
+            listOf(arcanum.engine.input.Attack(attacker, TargetRef.Player(scenario.other)))))))
+        alice.tick(false, scenario.sim.now)
+        if ((alice.device.status as? GameDevice.Status.Waiting)?.offer == GameDevice.Offer.AssumeBlockers) alice.assume()
+        scenario.sim.flush(scenario.f.a)
+        val bob = scenario.sim.load(scenario.f.b)
+        bob.startPlayback()
+        var guard = 0
+        while (bob.device.status is GameDevice.Status.Playing && guard++ < 100) {
+            val shown = bob.step()
+            if (shown?.engine?.steps.orEmpty().any { (it.input as? Input.DeclareAttackers)?.attacks?.isNotEmpty() == true }) break
+        }
+        assertTrue(bob.play().board.combat?.pairs.orEmpty().isNotEmpty(), "the attack shown")
+        render(bob, f.b, summary = scenario.f.game)
+        captureShot("$SCREENSHOTS/engine/playback-attack.png",
+            "Bob's playback of Alice's attack while he was away, stopped at his blocks: her Ember Cub attacks him in the combat area, the white panel in the middle of the table, as in live combat, with No blocks in the step arrow's place.")
     }
 
     /** Bob coming back after [aliceAtMain]: his device holds her events past his local head. */

@@ -55,9 +55,9 @@ class MoveTest {
         assertEquals(GameDevice.Status.YourMove, sim.device(bob).status)
         sim.assertMoves(mapOf(alice to bob, bob to bob), "Bob plays on")
         val device = sim.load(alice)
-        assertEquals(GameDevice.Status.CatchUp, device.status)
+        // HIS-033 (§29.1): coming back in the opening there is no paused catch-up: it shows at once up to the assumed keep
+        assertIs<GameDevice.Status.Stopped>(device.status, "the assumed keep at once, no paused catch-up")
         assertEquals(bob, device.move)
-        device.play()
         device.playToStop()
         val stop = assertIs<GameDevice.Status.Stopped>(device.status)
         assertEquals(bob, device.move, "a decision stop behind the head while Bob plays on is Bob's move")

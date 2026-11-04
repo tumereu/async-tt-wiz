@@ -823,3 +823,13 @@ Decided while building (the plainest reading; owner to confirm):
 5. **One tap activates:** a permanent with exactly one ability you can activate now activates it on tap (a land adds its mana); with several, tap opens the same chip menu as hand cards; hold = Inspect; in declare attackers/blockers a tap stages combat instead; unused mana floats in the pool.
 6. **Combat in playback** uses the middle combat-area design (I-D38); playback skips steps where nothing happened (combat included) unless full control is on.
 7. Pass / End turn latency: revisit after R1–R3 (no separate fix now).
+
+Built (1, 3, 6; 2026-11-04): `GameDevice.catchUp` holds playback paused only past the opening (`Status.CatchUp`, the
+playback panel's Play, no dialog); in the opening `step` shows every event up to a stop or the first turn at once; any
+submission of the player's ends the catch-up. The playback delay is `PLAYBACK_DELAY_MS` (0.33 s) divided by the Card move
+speed; `EnginePlaybackPace.quiet` also takes declarations of no attackers or blockers and combat changes with no
+attacker or block, and quiet events keep the delay under Full control. HIS-006, HIS-013, HIS-021, HIS-033, HIS-035,
+HIS-094, SYS-071.
+Decided while building (owner to confirm): the History playback pause no longer paces live playback, only timeline
+mode's Auto; answering a decision in the opening (e.g. a keep the other player assumed) ends the catch-up, so playback goes
+on after it without a paused start; an attack already showed in the combat area in playback (now covered by a test).

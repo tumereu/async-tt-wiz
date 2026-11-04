@@ -1,1 +1,1 @@
-Bob comes back after Alice played on: the Catching up screen explains that her actions play back and stop where he decides, with his response mode (Full control, Normal, Auto-skip) and Play.
+Bob comes back after Alice played on past the opening: no dialog; his table shows where he left it, dimmed as in playback with "Paused" in the middle, and Play at the bottom; nothing plays until he taps it.

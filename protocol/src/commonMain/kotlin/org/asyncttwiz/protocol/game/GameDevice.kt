@@ -25,7 +25,8 @@ import org.asyncttwiz.protocol.GameAction
  *   [NextStop.stopsAt]): the table is live there, and their answer ([act]) confirms the assumption (its first input the
  *   same, [Acceptance.confirms]: the rest is their next action after it) or branches the game (anything else, a new
  *   line). Elsewhere showing the assumed pass confirms it. Coming back with the other player's events buffered starts
- *   with the catch-up screen ([Status.CatchUp], [play]).
+ *   with playback paused ([Status.CatchUp], [play]); the opening (mulligans) is never played back: its events show at
+ *   once, up to a stop (§29.1).
  * - **Local-head reports** ([GameAction.EngineSeen]) go out throttled, at once where playback stops or reaches the head.
  * - **The device's own passes** (§6, §7): at the head, where the player gets priority and their mode doesn't stop
  *   there (or an "End turn" goes on), the device passes for them; such passes after the player's own input fold into its
@@ -87,7 +88,8 @@ class GameDevice(
     var needsReload: Boolean = false
         private set
 
-    /** Whether the catch-up screen shows before playback ([play] leaves it). */
+    /** Whether playback waits, paused, for the player's Play before it starts ([play] ends it; §29.1). Past the opening
+     * only: the opening shows at once ([opening]); any submission of the player's ends it. */
     var catchUp: Boolean = session.buffered.any { it.author != session.me.value }
         private set
 
@@ -226,7 +228,7 @@ class GameDevice(
         if (needsReload) return Status.Reload
         if (session.drafting) return Status.Drafting
         if (session.behind) {
-            if (catchUp) return Status.CatchUp
+            if (catchUp && !opening) return Status.CatchUp
             val next = session.buffered.first()
             return stopAt(next)?.let { Status.Stopped(next, it, paused = stopAt(next, settings.mode) == null) } ?: Status.Playing(next)
         }
@@ -315,8 +317,11 @@ class GameDevice(
 
     // ---- Playback
 
-    /** Leaves the catch-up screen: playback starts. */
+    /** Ends the catch-up pause: playback starts. */
     fun play() { catchUp = false }
+
+    /** Whether the shown state is in the opening (mulligans, turn 0): never played back (§29.1). */
+    private val opening: Boolean get() = model.engine.turn.number == 0
 
     /**
      * The player paused playback (§27, the play/pause button): it goes on to the next point where Full control would stop
@@ -326,11 +331,17 @@ class GameDevice(
     var pausing: Boolean = false
         set(value) { field = value && session.behind }
 
-    /** Shows the next buffered event unless playback stops before it: the event shown, or null. */
+    /**
+     * Shows the next buffered event unless playback stops before it: the event shown, or null. In the opening (§29.1)
+     * every event up to the first turn, a stop or the head shows at once: the last of them is answered.
+     */
     fun step(): GameEvent? {
-        if (needsReload || catchUp || session.drafting || !session.behind) return null
+        if (needsReload || (catchUp && !opening) || session.drafting || !session.behind) return null
         if (stopAt(session.buffered.first()) != null) return null
-        return session.showNext().also { if (!session.behind) pausing = false }
+        var shown: GameEvent
+        do shown = session.showNext() while (opening && session.behind && stopAt(session.buffered.first()) == null)
+        if (!session.behind) { pausing = false; catchUp = false }
+        return shown
     }
 
     /** "Return to current" and Back while behind (§7): plays on to the next decision point, never past it. */
@@ -1195,7 +1206,7 @@ class GameDevice(
     private fun send(action: GameAction) {
         // The server takes assumptions and result confirmations only from a local head it knows (I-D56 §6, §11): the
         // shown head's report goes first
-        if (action is GameAction.Submit) report(now, urgent = true)
+        if (action is GameAction.Submit) { report(now, urgent = true); catchUp = false }
         remember("out ${action::class.simpleName}${(action as? GameAction.Submit)?.submission?.let { " ${it.id} on ${it.parentId}" } ?: ""}")
         outbox += action
     }

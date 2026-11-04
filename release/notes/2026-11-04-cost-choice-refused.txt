@@ -1,0 +1,1 @@
+fix: Choosing how to pay a cost with options ("pay this or that") or an alternative cost no longer gets refused on the phone.

@@ -32,14 +32,16 @@ class AttentionHeaderTest {
         val landscape = mutableStateOf(false)
         val reviewing = mutableStateOf(false)
         val sent = mutableListOf<PlayAction>()
-        val toolkit = TableToolkitController("a", { tableBoard(play.value) }, { true }, { action, _ -> sent += action; true })
+        val toolkit = TableToolkitController("a", { engineTableBoard(play.value, "a") }, { true }, { action, _ -> sent += action; true })
         compose.setContent {
             MaterialTheme {
-                TableSurface(TableFixture.game, tableBoard(play.value), "a", landscape.value,
-                    Modifier.requiredSize(if (landscape.value) 892.dp else 412.dp, if (landscape.value) 412.dp else 892.dp),
-                    connected = true, onIntent = toolkit::handle, toolkit = toolkit,
-                    runtime = TableRuntimeHooks(navigation = {}, chat = {}, history = {},
-                        reviewing = reviewing.value, returnCurrent = {}))
+                EngineFixtureTable(play.value, "a") {
+                    TableSurface(TableFixture.game, engineTableBoard(play.value, "a"), "a", landscape.value,
+                        Modifier.requiredSize(if (landscape.value) 892.dp else 412.dp, if (landscape.value) 412.dp else 892.dp),
+                        connected = true, onIntent = toolkit::handle, toolkit = toolkit,
+                        runtime = TableRuntimeHooks(navigation = {}, chat = {}, history = {},
+                            reviewing = reviewing.value, returnCurrent = {}))
+                }
             }
         }
         for (wide in listOf(false, true)) {

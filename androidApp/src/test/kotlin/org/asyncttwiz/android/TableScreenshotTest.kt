@@ -47,16 +47,20 @@ class TableScreenshotTest {
         val library = initial.board.containers.single { it.id == "a/LIBRARY" }
         val play = initial.copy(board = initial.board.copy(contentsDisplays = listOf(
             ContentsDisplay("retained-view", "a", library.id, ContentsSelection.ALL, library.cards.size, false, library.cards))))
-        val toolkit = TableToolkitController("a", { tableBoard(play) }, { !paused }, { _, _ -> true })
+        // The engine table's board and routes (R4b follow-up): what the app draws of this board
+        val board = engineTableBoard(play, "a")
+        val toolkit = TableToolkitController("a", { board }, { !paused }, { _, _ -> true })
         compose.setContent {
             MaterialTheme {
-                Column(Modifier.fillMaxSize()) {
-                    TableSurface(LiveTableFixture.game, tableBoard(play), "a", landscape, Modifier.weight(1f),
-                        connected = !paused, onIntent = toolkit::handle, toolkit = toolkit,
-                        runtime = TableRuntimeHooks(chat = {}, history = {}, navigation = {}, chatUnread = 1,
-                            undo = { true }, reviewing = paused, controlsConnected = true,
-                            returnCurrent = if (paused) ({}) else null,
-                            bottomPanel = if (paused) ({ _ -> LiveTableFixture.ReviewPanel("a", landscape, at = 5) }) else null))
+                EngineFixtureTable(play, "a") {
+                    Column(Modifier.fillMaxSize()) {
+                        TableSurface(LiveTableFixture.game, board, "a", landscape, Modifier.weight(1f),
+                            connected = !paused, onIntent = toolkit::handle, toolkit = toolkit,
+                            runtime = TableRuntimeHooks(chat = {}, history = {}, navigation = {}, chatUnread = 1,
+                                undo = { true }, reviewing = paused, controlsConnected = true,
+                                returnCurrent = if (paused) ({}) else null,
+                                bottomPanel = if (paused) ({ _ -> LiveTableFixture.ReviewPanel("a", landscape, at = 5) }) else null))
+                    }
                 }
             }
         }
@@ -95,7 +99,7 @@ class TableScreenshotTest {
             assertEquals(if (landscape) 892 else 412, image.width)
             assertEquals(if (landscape) 412 else 892, image.height)
             if (!controls) {
-                val normal = TablePresentation.scene(LiveTableFixture.game, tableBoard(play), "a",
+                val normal = TablePresentation.scene(LiveTableFixture.game, board, "a",
                     image.width.toFloat(), image.height.toFloat(), landscape, reviewing = paused, landscapeHome = true)
                 val scene = normal
                 assertRenderedLandsBands(image, scene, "a",
@@ -185,7 +189,8 @@ class TableScreenshotTest {
             else -> initial
         }
         val sent = mutableListOf<PlayAction>()
-        val toolkit = TableToolkitController("a", { tableBoard(play) }, { true }, { action, _ -> sent += action; submitOk })
+        val board = engineTableBoard(play, "a")
+        val toolkit = TableToolkitController("a", { board }, { true }, { action, _ -> sent += action; submitOk })
         when (kind) {
             "card-actions", "action-tooltip" -> toolkit.openCard(TableScope(sentinel.id, listOf(sentinel.id)))
             "player-actions" -> toolkit.open(TableIntent.Actions("life/b", null),
@@ -200,10 +205,12 @@ class TableScreenshotTest {
         }
         compose.setContent {
             MaterialTheme {
-                TableSurface(LiveTableFixture.game, tableBoard(play), "a", landscape, Modifier.fillMaxSize(),
-                    connected = true, onIntent = toolkit::handle, toolkit = toolkit,
-                    runtime = TableRuntimeHooks(chat = {}, history = {}, navigation = {},
-                        undo = { true }, controlsConnected = true))
+                EngineFixtureTable(play, "a") {
+                    TableSurface(LiveTableFixture.game, board, "a", landscape, Modifier.fillMaxSize(),
+                        connected = true, onIntent = toolkit::handle, toolkit = toolkit,
+                        runtime = TableRuntimeHooks(chat = {}, history = {}, navigation = {},
+                            undo = { true }, controlsConnected = true))
+                }
             }
         }
         compose.waitForIdle()

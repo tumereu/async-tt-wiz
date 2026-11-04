@@ -61,20 +61,24 @@ class TableStatesScreenshotTest {
                     it.copy(cards = it.cards.reversed()) else it },
                 stackEffects = state.board.stackEffects.map { it.copy(sourceId = f.source(f.a, "1/3").id) }))
         }
-        val current = { if (kind == "combat-targets") combatTargetsState
+        val drawn = if (kind == "combat-targets") combatTargetsState
             else if (kind.startsWith("tokens")) tokenState
-            else if (kind == "graveyard-contents") graveyardState else f.combat() }
-        val toolkit = TableToolkitController(f.a, { tableBoard(current()) }, { true }, { action, _ -> sent += action; true })
+            else if (kind == "graveyard-contents") graveyardState else f.combat()
+        val current = { drawn }
+        // The engine table's board and routes (R4b follow-up): what the app draws of this board
+        val toolkit = TableToolkitController(f.a, { engineTableBoard(current(), f.a) }, { true }, { action, _ -> sent += action; true })
         if (kind == "tokens-small") toolkit.layoutState.value = TableLayoutState(TableCamera(zoom = TablePresentation.MIN_ZOOM))
         compose.setContent {
             MaterialTheme {
                 if (kind in listOf("placeholder", "unavailable")) TableUnavailable(f.game.gameName, landscape,
                     loading = kind == "placeholder", navigation = {}, retry = {})
                 else {
-                    Box(Modifier.fillMaxSize()) {
-                        TableSurface(f.game, tableBoard(current()), f.a, landscape, Modifier.fillMaxSize(), connected = true,
-                            onIntent = toolkit::handle, toolkit = toolkit,
-                            runtime = TableRuntimeHooks(navigation = {}, chat = {}, history = {}, undo = { true }, controlsConnected = true))
+                    EngineFixtureTable(current(), f.a) {
+                        Box(Modifier.fillMaxSize()) {
+                            TableSurface(f.game, engineTableBoard(current(), f.a), f.a, landscape, Modifier.fillMaxSize(), connected = true,
+                                onIntent = toolkit::handle, toolkit = toolkit,
+                                runtime = TableRuntimeHooks(navigation = {}, chat = {}, history = {}, undo = { true }, controlsConnected = true))
+                        }
                     }
                 }
             }
@@ -96,7 +100,7 @@ class TableStatesScreenshotTest {
                 compose.onNodeWithContentDescription("Your Graveyard panel, 3 cards").assertIsDisplayed()
                 compose.onNode(isDialog()).assertDoesNotExist()
                 compose.onNodeWithContentDescription("Card action ring").assertDoesNotExist()
-                val scene = TablePresentation.scene(f.game, tableBoard(current()), f.a, 412f, 892f, landscape, toolkit.layoutState.value)
+                val scene = TablePresentation.scene(f.game, engineTableBoard(current(), f.a), f.a, 412f, 892f, landscape, toolkit.layoutState.value)
                 val panel = scene.cardPanels.single()
                 assertEquals(PlayZone.GRAVEYARD, panel.localZone)
                 assertEquals(0f, panel.bounds.x)
@@ -133,7 +137,7 @@ class TableStatesScreenshotTest {
         assertEquals(if (landscape) 412 else 892, image.height)
         if (kind.startsWith("combat")) {
             compose.onNodeWithContentDescription("Table actions").assertIsDisplayed().assertIsEnabled()
-            val scene = TablePresentation.scene(f.game, tableBoard(current()), f.a, image.width.toFloat(), image.height.toFloat(), landscape,
+            val scene = TablePresentation.scene(f.game, engineTableBoard(current(), f.a), f.a, image.width.toFloat(), image.height.toFloat(), landscape,
                 landscapeHome = true)
             if (kind == "combat") assertRenderedLandsBands(image, scene, f.a, turnPlayer = current().board.turn.accountId)
             // the title size of the area's cards, never smaller than COMBAT_MIN_CARD (combat review #12)

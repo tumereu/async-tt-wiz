@@ -64,10 +64,12 @@ class EmblemChipTest {
     }
 
     @Test fun emblemChipsPortrait() {
-        val toolkit = TableToolkitController("a", { tableBoard(play) }, { true }, { _, _ -> true })
+        val toolkit = TableToolkitController("a", { engineTableBoard(play, "a") }, { true }, { _, _ -> true })
         compose.setContent { MaterialTheme {
-            TableSurface(TableFixture.game, tableBoard(play), "a", false, Modifier.fillMaxSize(), connected = true,
-                onIntent = toolkit::handle, toolkit = toolkit)
+            EngineFixtureTable(play, "a") {
+                TableSurface(TableFixture.game, engineTableBoard(play, "a"), "a", false, Modifier.fillMaxSize(), connected = true,
+                    onIntent = toolkit::handle, toolkit = toolkit)
+            }
         } }
         compose.waitForIdle()
         compose.onRoot().captureShot("$SCREENSHOTS/emblem-chips-portrait.png",

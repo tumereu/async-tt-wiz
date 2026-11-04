@@ -94,7 +94,7 @@ internal fun TableToolkitScreen(toolkit: TableToolkitController, play: PlayState
     // I-D40: a step that would act for the other player asks first (gone on engine state: nobody acts for the other)
     if (engine == null) ActingForDialog(toolkit.flows, names)
     // I-D56 §14: the async play panels of a game on engine state
-    if (engine != null) EngineAsyncHost(toolkit, engine, play, scene, names, LocalOpponentPresence.current)
+    if (engine != null) EngineAsyncHost(toolkit, engine, play, scene, names, LocalOpponentPresence.current, game)
     // Automatum (I3): what combat allows and would do on this board, worked out in the background
     AutomatumCombatHost(toolkit, play)
 }

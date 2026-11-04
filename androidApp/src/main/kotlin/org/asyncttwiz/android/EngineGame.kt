@@ -12,6 +12,7 @@ import org.asyncttwiz.protocol.PlayState
 import org.asyncttwiz.protocol.game.EngineJson
 import org.asyncttwiz.protocol.game.GameDevice
 import org.asyncttwiz.protocol.game.GameEvent
+import org.asyncttwiz.protocol.game.GameRepro
 import org.asyncttwiz.protocol.game.PlaySettings
 import org.asyncttwiz.protocol.game.TableChange
 import java.util.UUID
@@ -66,14 +67,14 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
     private var live = false
     private var now = 0L
 
-    init { load(snapshot, base) }
-
     /** (Re)loads the game from the server's [snapshot] (a new head, or the device asked to load again). */
     fun load(snapshot: EngineSnapshot, base: PlayState = this.base) {
         this.base = base
         val (loaded, json) = GameDevice.load(snapshot, PlayerId(me), ids)
         device = loaded; codec = json
         device.presence(live, now)
+        this.loaded = true
+        timeline.clear()
         changed()
     }
 
@@ -88,10 +89,74 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
             is GameDevice.Status.Waiting -> device.opponent.value
             else -> null
         }
-        val play = EngineProjection.project(base, device.model, me, device.session.tip, attention, staging)
+        val tip = device.session.tip
+        val play = EngineProjection.project(base, device.model, me, tip, attention, staging, tokenArt, pictures)
+        val previous = shown?.second
         shown = version to play
+        if (previous == null || previous.currentNodeId != tip || previous.board.turn != play.board.turn) transition(previous, play, tip)
         return play
     }
+
+    /**
+     * What the table animates between the board shown before and [play] (HIS-030, HIS-031): the events that led from
+     * one to the other along the line (forward: shown, made or played back; backward: taken back), their change flashes
+     * and shuffles, and the event chip's text (HIS-075: the other player's newest event). A load or a reload is a jump:
+     * nothing flashes or moves.
+     */
+    class Transition(val serial: Long, val cursor: String, val jump: Boolean, val changes: List<org.asyncttwiz.android.TableChange>,
+        val shuffled: Set<String>, val forward: List<GameEvent>, val backward: List<GameEvent>)
+
+    /** The last [Transition] (the screen applies each once, by its serial). */
+    var transition: Transition? = null
+        private set
+    private var transitions = 0L
+    private var pt: Map<String, Pair<Int, Int>> = emptyMap()
+    private var loaded = true
+
+    private fun transition(before: PlayState?, after: PlayState, tip: String) {
+        val ptAfter = EngineChanges.powerToughness(device.model.engine)
+        val line = timeline.shown(this)
+        val from = before?.currentNodeId?.let { id -> line.indexOfFirst { it.id == id }.takeIf { it >= 0 } ?: if (id == device.session.lineStart) -1 else null }
+        val to = line.indexOfFirst { it.id == tip }.takeIf { it >= 0 } ?: if (tip == device.session.lineStart) -1 else null
+        val jump = loaded || before == null || from == null || to == null
+        val forward = if (!jump && to!! > from!!) line.subList(from + 1, to + 1).toList() else emptyList()
+        val backward = if (!jump && to!! < from!!) line.subList(to + 1, from + 1).reversed() else emptyList()
+        val changes = if (jump || before == null) emptyList() else EngineChanges.between(before, after, pt, ptAfter, forward + backward)
+        transition = Transition(++transitions, tip, jump, changes, if (jump) emptySet() else EngineChanges.shuffled(after, forward),
+            forward, backward)
+        pt = ptAfter
+        loaded = false
+    }
+
+    /** The timeline's events and texts (HIS-001–HIS-005 on engine events). */
+    val timeline = EngineTimeline()
+
+    /** The event [id] among those shown to the player (the timeline's), or null. */
+    fun event(id: String): GameEvent? = timeline.shown(this).firstOrNull { it.id == id }
+
+    /**
+     * Timeline mode (HIS-004, HIS-012): the board at shown event [id] (on the main line up to the local head, or one of the
+     * player's own pending events), view-only; null when the device can't reach it exactly (it was trimmed, or a draft
+     * is open).
+     */
+    fun reviewPlay(id: String): PlayState? {
+        val session = device.session
+        if (session.drafting) return null
+        val model = when {
+            id == session.tip -> device.model.copy()
+            session.pending.any { it.id == id } -> device.model.copy().also { m ->
+                for (e in session.pending.asReversed()) { if (e.id == id) break; m.revert(e) }
+            }
+            else -> runCatching { session.stateAt(id) }.getOrNull()
+        } ?: return null
+        if (model.stale) return null
+        return EngineProjection.project(base, model, me, id, null, null, tokenArt, pictures)
+    }
+
+    /** The token pictures for the engine's tokens (SYS-072), from the device's card records. */
+    var tokenArt: org.asyncttwiz.automatum.TokenArt = org.asyncttwiz.automatum.TokenArt.None
+        set(value) { if (field !== value) { field = value; changed() } }
+    private val pictures = HashMap<arcanum.engine.state.ObjectId, org.asyncttwiz.protocol.SubmittedDefinition>()
 
     /** The player's own staging of a declaration (their lanes and attack choices, CMB-028, CMB-034), shown while the
      * point it was made at lasts and sent only as the declaration itself (I-D56 §12). */
@@ -104,6 +169,9 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
         staging = EngineProjection.Staging(EngineProjection.Staging.keyOf(device.model.engine), play.board.combat, records)
         changed()
     }
+
+    /** Drops the device's own staging: the shared drafts of the table show (I-D54 §8). */
+    fun unstage() { if (staging != null) { staging = null; changed() } }
 
     /** The player's opening: their mulligan (I-D54 §8: simultaneous mulligans), or null when they can't take one. */
     fun mulligan(): GameDevice.Acted? = setup(arcanum.engine.decision.Answer.Option("Mulligan"))
@@ -178,6 +246,24 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
         if (device.status != before || device.session.tip != tip || notes.isNotEmpty()) changed()
     }
 
+    /** The device's reproduction bundle (I-D43) for a problem report; null while it can't be made. */
+    fun repro(): GameRepro? = runCatching {
+        val repro = device.repro(codec)
+        val session = device.session
+        if (repro.base != null || session.drafting) return@runCatching repro
+        // The device can't go back exactly to the start of the line it holds (more than a few turns back): the bundle
+        // starts at the earliest event it can reach (reachable events are a suffix of the line: binary search)
+        val events = session.events
+        var low = 0; var high = events.size - 1; var found: Pair<Int, org.asyncttwiz.protocol.game.GameModel>? = null
+        while (low <= high) {
+            val mid = (low + high) / 2
+            val model = session.stateAt(events[mid].id)
+            if (model != null) { found = mid to model; high = mid - 1 } else low = mid + 1
+        }
+        val (at, model) = found ?: return@runCatching repro
+        repro.copy(lineStart = events[at].id, base = codec.encodeModel(model), events = events.drop(at + 1).map(codec::encodeEvent))
+    }.getOrNull()
+
     /** What to send now (drained). */
     fun take(now: Long): List<GameAction> = device.take(now)
 
@@ -189,7 +275,13 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
         if (inputs.isEmpty()) return GameDevice.Acted.Refused("nothing")
         val first = inputs.first()
         val rest = inputs.drop(1).iterator()
-        val result = device.act(first, table) { if (rest.hasNext()) rest.next() else null }
+        // I-D54 §8: a declaration ends the shared staging of it in the same event (at the head; at a decision stop the
+        // answer must be the input alone to confirm what was assumed)
+        val t = device.model.table
+        val clear = if (device.session.behind) emptyList() else listOfNotNull(
+            t.attackDraft?.takeIf { inputs.any { it is Input.DeclareAttackers } }?.let { TableChange.AttackDraft(it, null) },
+            t.blockDraft?.takeIf { inputs.any { it is Input.DeclareBlockers } }?.let { TableChange.BlockDraft(it, null) })
+        val result = device.act(first, table + clear) { if (rest.hasNext()) rest.next() else null }
         after()
         return result
     }
@@ -244,4 +336,7 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
         device.advance(now)
         changed()
     }
+
+    // Last, once every property above is set
+    init { load(snapshot, base) }
 }

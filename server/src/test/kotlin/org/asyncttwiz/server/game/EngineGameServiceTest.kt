@@ -26,6 +26,7 @@ import org.asyncttwiz.server.database.FoundationMigrations
 import org.asyncttwiz.server.database.FreshDatabase
 import org.asyncttwiz.server.decks.DeckService
 import org.asyncttwiz.server.lobby.LobbyService
+import org.asyncttwiz.server.generated.tables.ActivitySummary.ACTIVITY_SUMMARY
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 
@@ -71,7 +72,8 @@ class EngineGameServiceTest {
     }
 
     /** A started game; its play is engine state when [engine] (seats from the seam, or the decks with [decks]). */
-    private inner class Fixture(runtime: ServiceRuntime, engine: Boolean, decks: Boolean = false, tag: String = "") {
+    private inner class Fixture(runtime: ServiceRuntime, engine: Boolean, decks: Boolean = false, tag: String = "",
+        bobDefaults: PlaySettings? = null) {
         val a = account(runtime, "EngineA$tag${if (engine) "" else "x"}"); val b = account(runtime, "EngineB$tag${if (engine) "" else "x"}")
         val games = GameService(runtime)
         val game: GameSummary
@@ -91,6 +93,7 @@ class EngineGameServiceTest {
                 stream.execute(GameAction.SelectDeck(deck.deck.id, deck.deck.revision))
             }
             owner.execute(GameAction.SetStarter(StarterChoice(a.account.accountId)))
+            bobDefaults?.let { org.asyncttwiz.server.accounts.AccountSettingsService(runtime).set(b.account.accountId, AccountSettings(playDefaults = it)) }
             val seats = listOf(a, b).map { p -> PlayerId(p.account.accountId) }.map { p ->
                 Seat(p, names.mapIndexed { i, n -> DeckCard(CardId("${p.value}.$i"), Cards.definition(n)) })
             }
@@ -225,6 +228,10 @@ class EngineGameServiceTest {
         // I-D56 §7 (step B): the snapshot also holds the state at the earliest local head and the events after it, so
         // her device opens at her local head with Bob's branch buffered
         assertEquals(aliceKeep.id, snapshot.baseId)
+        // LOB-116 (I-D56 §8): Alice, whose assumption Bob answered differently, gets a Game activity that says so
+        assertEquals(true, runtime.transaction { c -> org.jooq.impl.DSL.using(c, org.jooq.SQLDialect.POSTGRES)
+            .select(ACTIVITY_SUMMARY.BRANCHED).from(ACTIVITY_SUMMARY).where(ACTIVITY_SUMMARY.ACCOUNT_ID.eq(UUID.fromString(f.a.account.accountId)))
+            .and(ACTIVITY_SUMMARY.GAME_ID.eq(UUID.fromString(f.game.id))).and(ACTIVITY_SUMMARY.KIND.eq("GAME")).fetchOne(ACTIVITY_SUMMARY.BRANCHED) })
         assertEquals(listOf(branch), snapshot.events.map(f.codec()::decodeEvent))
         val (opened, _) = org.asyncttwiz.protocol.game.GameDevice.load(snapshot, f.alice) { id() }
         assertEquals(aliceKeep.id, opened.session.localHead)
@@ -286,6 +293,15 @@ class EngineGameServiceTest {
         assertEquals(mine, f.snapshot(f.b).settings)
         assertEquals(PlaySettings(), f.snapshot(f.a).settings)
         assertTrue(f.revisions(f.a, "0").none { GameWire.encode(it).contains("alwaysAssumeResolves") })
+    }
+
+    // LOB-113 (I-D56 §7, step D): a new game starts with each player's defaults kept on the server for their account
+    @Test fun `a new game starts with the account's defaults`() = withService { runtime ->
+        val defaults = PlaySettings(ResponseMode.Normal, alwaysAssumeResolves = true, autotap = false)
+        val f = Fixture(runtime, engine = true, tag = "d", bobDefaults = defaults)
+        assertEquals(defaults, org.asyncttwiz.server.accounts.AccountSettingsService(runtime).read(f.b.account.accountId).playDefaults)
+        assertEquals(defaults, f.snapshot(f.b).settings)
+        assertEquals(PlaySettings(), f.snapshot(f.a).settings)
     }
 
     // I-D54 switch-over item 1: the game's decks parsed on the server become the engine seats

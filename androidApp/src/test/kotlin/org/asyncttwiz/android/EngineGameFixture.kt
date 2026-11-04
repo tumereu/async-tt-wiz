@@ -25,7 +25,7 @@ import org.asyncttwiz.protocol.game.TableState
  * ([base], [TableStatesFixture]'s containers) and the server's first event ([start]: the game started, simultaneous
  * mulligans) with its [snapshot].
  */
-internal class EngineGameFixture(startingPlayer: String = TableStatesFixture.a) {
+internal class EngineGameFixture(startingPlayer: String = TableStatesFixture.a, creatures: Boolean = false) {
     private val f = TableStatesFixture
     private class Invented(face: DefinitionFace, oracle: OracleCard) {
         val submitted = CardDefinition(face.name, listOf(face)).let { SubmittedDefinition(DeckJson.digest(it), it) }
@@ -36,18 +36,25 @@ internal class EngineGameFixture(startingPlayer: String = TableStatesFixture.a) 
         OracleCard("Storm Spark", "{R}", "Instant", "Storm Spark deals 3 damage to any target."))
     private val mountain = Invented(DefinitionFace("mountain", "Mountain", typeLine = "Basic Land — Mountain"),
         OracleCard("Mountain", null, "Basic Land — Mountain"))
+    private val cub = Invented(DefinitionFace("cub", "Ember Cub", typeLine = "Creature — Elemental Cat", manaCost = "{R}",
+        power = "2", toughness = "1"), OracleCard("Ember Cub", "{R}", "Creature — Elemental Cat", "", "2", "1"))
 
     val a = f.a
     val b = f.b
     val game: GameSummary = f.game
-    private val decks = listOf(a, b).associateWith { p -> List(30) { i -> f.id("$p/card/$i") to if (i % 3 == 2) spark else mountain } }
+    /** Mountains and Storm Sparks; with [creatures] also Ember Cubs (2/1 for {R}), a third each. */
+    private val decks = listOf(a, b).associateWith { p -> List(30) { i -> f.id("$p/card/$i") to when {
+        i % 3 == 2 -> spark
+        creatures && i % 3 == 1 -> cub
+        else -> mountain
+    } } }
 
     /** The play as it started: the fixture's containers holding the decks' cards in the libraries. */
     val base: PlayState = f.initial.let { p ->
         val cards = decks.flatMap { (player, deck) -> deck.map { (id, card) ->
             PlayCard(id, card.submitted.digest, player, f.id("${if (player == a) "a" else "b"}/LIBRARY"), card.submitted.definition.faces.single().faceId)
         } }
-        p.copy(definitions = listOf(spark.submitted, mountain.submitted).sortedBy { it.digest },
+        p.copy(definitions = (listOf(spark.submitted, mountain.submitted) + listOfNotNull(cub.submitted.takeIf { creatures })).sortedBy { it.digest },
             board = p.board.copy(cards = cards, stackEffects = emptyList(), combat = null, engineRecords = emptyList(),
                 containers = p.board.containers.map { c ->
                     if (c.zone == PlayZone.LIBRARY && !c.temp) c.copy(cards = cards.filter { it.containerId == c.id }.map { it.id }, layers = emptyList())
@@ -61,6 +68,8 @@ internal class EngineGameFixture(startingPlayer: String = TableStatesFixture.a) 
     }).also { s -> s.players.toList().forEach { p -> s.apply(arcanum.engine.change.Changes.skipWhenNoChoice(s, p.id, false)) } },
         TableState(secret = LineRandom.secret(ByteArray(32) { 3 })))
     val codec = EngineJson(GameDefinitions.of(model.engine))
+    /** The state before the game's start (the root's checkpoint, as the server stores it). */
+    val rootState: String = codec.encodeModel(model)
 
     /** The server's first event: the game started (Alice first), simultaneous mulligans. */
     val start: GameEvent = EventBuilder(model, f.id("start"), f.id("root"), "server").run {

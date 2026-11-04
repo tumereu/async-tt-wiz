@@ -418,6 +418,10 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
                 val opponent = if (inbox.accountId == game.inviterId) game.recipientId!! else game.inviterId!!
                 if (engine.ended) org.asyncttwiz.server.activity.ActivityService.record(sql, opponent, ActivityKind.GAME,
                     game.id!!, uuid(command.requestId), inbox.accountId)
+                // I-D56 §8 (LOB-116): the assumer hears that the other player answered differently, once per branch
+                else if (engine.branched) org.asyncttwiz.server.activity.ActivityService.record(sql, opponent, ActivityKind.GAME,
+                    game.id!!, uuid(command.requestId), inbox.accountId, yourMove = opponent.toString() in engine.newStops,
+                    move = true, branched = true)
                 else if (opponent.toString() in engine.newStops) org.asyncttwiz.server.activity.ActivityService.record(sql, opponent,
                     ActivityKind.GAME, game.id!!, uuid(command.requestId), inbox.accountId, yourMove = true, move = true)
             }

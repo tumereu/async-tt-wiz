@@ -5,11 +5,16 @@ import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.History
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import arcanum.engine.setup.GameResult
@@ -19,15 +24,17 @@ import org.asyncttwiz.protocol.*
 import org.asyncttwiz.protocol.game.GameDevice
 
 /**
- * The table of a game played on engine state (I-D56 step C, behind [EnginePath] until step D): the same table surface,
- * panels and controls as today's, drawn from the engine's state ([EngineGame.play]) and acting through the device core
- * ([EngineTableRoutes]); no timeline review, tree or branching: the async play panels ([EngineAsyncHost]) instead.
+ * The table of a game played on engine state (I-D56 steps C–D, behind [EnginePath] until the switch-over): the same table
+ * surface, panels and controls as today's, drawn from the engine's state ([EngineGame.play]) and acting through the device
+ * core ([EngineTableRoutes]), with the async play panels ([EngineAsyncHost]); the strip and timeline mode show the main
+ * line up to the viewer's local head, view-only ([EngineTimeline], HIS-001–HIS-019), the change flashes and the event
+ * chip come from the shown events ([EngineGame.Transition], HIS-031, HIS-075).
  */
 @Composable
 internal fun EngineTableScreen(controller: LobbyController, accountId: String, hamburger: (() -> Unit)?, landscape: Boolean) {
     val state = controller.table.value
     val game = state.detail ?: return
-    val play = state.play ?: return
+    val live = state.play ?: return
     val engine = controller.engineGame() ?: return
     val interactive = game.id !in state.reconnectingGames
     val routes = remember(controller, game.id, accountId) {
@@ -36,34 +43,70 @@ internal fun EngineTableScreen(controller: LobbyController, accountId: String, h
     }
     val context = LocalContext.current
     val tokenArt = remember(context) { AndroidTokenArt.of(context.applicationContext) }
-    val playId = play.id
+    val playId = live.id
     val toolkit = remember(controller, game.id, playId, accountId) {
         TableToolkitController(accountId, { controller.table.value.play?.takeIf { it.id == playId && it.gameId == game.id } },
-            { game.id !in controller.table.value.reconnectingGames && routes.canAct() },
+            { game.id !in controller.table.value.reconnectingGames && routes.canAct() && routes.review == null },
             { action, _ -> routes.local(listOf(action)) },
             ending = { intent -> engineEnding(routes, intent) },
             waitingForConnection = { game.id !in controller.table.value.connectedGames },
             playBatch = { actions, _ -> routes.local(actions) },
             automatumWork = AutomatumWork.Background, tokenArt = tokenArt, engine = routes)
     }
-    // LOB-113 (I-D56 §7): a new game starts with the player's defaults from Settings, given once by this device
-    val (_, pausePreferences) = rememberPauseSettings(accountId)
-    LaunchedEffect(game.id, playId) {
-        if (!pausePreferences.engineDefaultsGiven(playId)) {
-            val defaults = pausePreferences.engineDefaults
-            if (engine.device.settings != defaults) { engine.settings(defaults); controller.engineSent() }
-            pausePreferences.engineDefaultsGiven(playId, true)
-        }
+    // I-D43: problem and crash reports carry this game's device bundle while it is the latest open
+    DisposableEffect(controller, game.id) {
+        AutomatumReports.engine = { controller.engineGame()?.repro() }
+        onDispose { }
     }
+    // SYS-072: the engine's tokens show the best matching token picture
+    SideEffect { engine.tokenArt = tokenArt }
+    // LOB-113 (I-D56 §7): a new game starts with the player's defaults, which the server gives its seat from their account
     // I-D56 §13: Autotap is the player's private setting of this game; the cast flow reads it
     SideEffect { toolkit.cast.autotap = engine.device.settings.autotap }
     // The device's own steps (its passes, assumptions, a live wait turning async) and its local-head reports
     LaunchedEffect(controller, game.id) { while (true) { controller.engineTick(); delay(1_000) } }
     val locked = engine.device.locked
     LaunchedEffect(locked) { if (locked) { toolkit.dismiss(); toolkit.closeInspection() } }
+    val names = remember(game) { mapOf(game.inviter.accountId to game.inviter.username, game.recipient.accountId to game.recipient.username) }
+    val playbackPreferences = rememberHistoryPlaybackPreferences(accountId)
+    val playbackPause by playbackPreferences.pauseState()
+    // HIS-075: the event chip
+    val eventTextEnabled by rememberEventTextEnabled(accountId).first
+    val eventText = remember(game.id) { EventTextFeed({ it.run() }, { it() }) }
+    SideEffect { eventText.enabled = eventTextEnabled }
+    // HIS-031: the change flashes; HIS-030: the card motion of the shown events (none on a load)
+    val changes = remember(game.id, playId) { TableChanges() }
+    val applied = remember(game.id, playId) { AppliedMarks() }
+    // Timeline mode (HIS-004, HIS-012): the board at the review cursor, view-only
+    val reviewId = routes.review
+    val reviewPlay = remember(reviewId, engine.version) { reviewId?.let { engine.reviewPlay(it) } }
+    LaunchedEffect(reviewId, reviewPlay == null) { if (reviewId != null && reviewPlay == null) routes.leaveReview() }
+    val play = reviewPlay ?: live
+    SideEffect {
+        if (reviewPlay != null) {
+            if (applied.reviewed != reviewPlay.currentNodeId) {
+                applied.reviewed = reviewPlay.currentNodeId
+                changes.applyEngine(reviewPlay.currentNodeId, jump = false, emptyList(), emptySet())
+                // HIS-076: in timeline mode every event shown has its chip, yours too
+                engine.event(reviewPlay.currentNodeId)?.let { eventText.post(it.id, engine.timeline.text(engine, it, names)) }
+            }
+        } else {
+            applied.reviewed = null
+            engine.transition?.takeIf { it.serial != applied.transition }?.let { t ->
+                applied.transition = t.serial
+                changes.applyEngine(t.cursor, t.jump, t.changes, t.shuffled)
+                // HIS-076: live, only the other player's new events (playback is theirs), quiet on open, return and undo
+                val told = t.forward.lastOrNull { it.author != accountId }
+                if (told != null) eventText.post(t.cursor, engine.timeline.text(engine, told, names)) else eventText.moved(t.cursor)
+            }
+        }
+    }
+    val status = engine.device.status
+    val playing = status is GameDevice.Status.Playing
     val back = remember(game.id) { TableBackStateMachine() }
     val overlay = toolkit.hasBackOverlay || state.chatOpen
     BackHandler {
+        if (!overlay && routes.review != null) { routes.leaveReview(); return@BackHandler }
         // §7: Back while behind plays on to the next decision point, never past it
         if (!overlay && engine.device.session.behind) { engine.playToStop(); controller.engineSent(); return@BackHandler }
         when (back.back(SystemClock.elapsedRealtime(), overlay, false)) {
@@ -73,10 +116,12 @@ internal fun EngineTableScreen(controller: LobbyController, accountId: String, h
             TableBackAction.EXIT_REVIEW -> {}
         }
     }
+    val reviewing = reviewPlay != null || playing
+    val timeline = engine.timeline.events(engine, names)
     CompositionLocalProvider(LocalEngineRoutes provides routes) {
         Column(Modifier.fillMaxSize().background(Color(0xfff3f5f5))) {
             BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
-                TableSurface(game, play, accountId, landscape, Modifier.fillMaxSize(), connected = interactive && !locked,
+                TableSurface(game, play, accountId, landscape, Modifier.fillMaxSize(), connected = interactive && !locked && reviewPlay == null,
                     onIntent = toolkit::handle, toolkit = toolkit,
                     runtime = TableRuntimeHooks(chat = controller::openChat, navigation = hamburger, chatUnread = state.chatUnread,
                         undo = { routes.undo() }, undoHold = { routes.holdUndo() }, undoShakes = routes.undoShake,
@@ -85,8 +130,27 @@ internal fun EngineTableScreen(controller: LobbyController, accountId: String, h
                         resultControls = TableResultControls(interactive,
                             reject = { engine.answerSuggestion(false); controller.engineSent() },
                             accept = { engine.answerSuggestion(true); controller.engineSent() }),
-                        controlsConnected = interactive && !locked, returnCurrent = if (engine.device.session.behind) ({
-                            engine.playToStop(); controller.engineSent() }) else null))
+                        controlsConnected = interactive && !locked && reviewPlay == null,
+                        reviewing = reviewing, liveView = !reviewing, changes = changes,
+                        timelinePlayback = when {
+                            reviewPlay != null -> if (routes.reviewPlaying) TimelinePlaybackStatus.PLAYING else TimelinePlaybackStatus.PAUSED
+                            playing -> TimelinePlaybackStatus.PLAYING
+                            else -> null
+                        },
+                        history = if (timeline.isNotEmpty()) ({ routes.enterReview(timeline.last().id) }) else null,
+                        returnCurrent = when {
+                            reviewPlay != null -> ({ routes.leaveReview() })
+                            engine.device.session.behind -> ({ engine.playToStop(); controller.engineSent() })
+                            else -> null
+                        },
+                        liveTimeline = if (timeline.isEmpty()) null else ({
+                            EngineStrip(timeline, accountId, landscape) { routes.enterReview(timeline.last().id) }
+                        }),
+                        bottomPanel = if (reviewPlay == null || timeline.isEmpty()) null else ({ _ ->
+                            EngineReviewPanel(routes, timeline, accountId, landscape, playbackPause)
+                        })))
+                // Over the top row (whose move/step/turn), never taking its taps.
+                EventTextOverlay(eventText, playbackPause, Modifier.align(Alignment.TopCenter))
             }
         }
     }
@@ -100,6 +164,61 @@ internal fun EngineTableScreen(controller: LobbyController, accountId: String, h
         }
     }
 }
+
+/** HIS-001–HIS-004 on engine state: the read-only strip of the events shown to the viewer, newest centred, with the
+ * history button that enters timeline mode at its end. */
+@Composable
+internal fun EngineStrip(events: List<HistoryTimelineEvent>, viewer: String, landscape: Boolean, onEnter: () -> Unit) {
+    Box(Modifier.fillMaxWidth().height(TableTimelineHeight.dp)) {
+        HistoryTimeline(events, events.last().id, viewer, {}, {}, Modifier.fillMaxWidth(), readOnly = true)
+        IconButton(onClick = onEnter, modifier = Modifier.align(Alignment.CenterEnd).background(TimelineBarColor)
+            .size(if (landscape) 36.dp else 40.dp)) {
+            Icon(Icons.Outlined.History, contentDescription = "Timeline mode")
+        }
+    }
+}
+
+/**
+ * Timeline mode on engine state (HIS-004, HIS-010–HIS-015, HIS-021): the strip (swipe or tap an event to look at the board
+ * there), Previous / Auto / Next one event at a time up to the local head; automatic playback reaching the newest event
+ * returns to play mode. View-only: no branching (HIS-019).
+ */
+@Composable
+private fun EngineReviewPanel(routes: EngineTableRoutes, events: List<HistoryTimelineEvent>, viewer: String, landscape: Boolean,
+    pauseMillis: Long) {
+    val cursor = routes.review ?: return
+    val at = events.indexOfFirst { it.id == cursor }.takeIf { it >= 0 } ?: return
+    LaunchedEffect(routes.reviewPlaying, cursor) {
+        if (!routes.reviewPlaying) return@LaunchedEffect
+        delay(pauseMillis.coerceIn(100L, 10_000L))
+        if (at >= events.lastIndex) routes.leaveReview() else routes.review = events[at + 1].id
+    }
+    val position = HistoryPosition(cursor, HistoryMode.PLAYBACK, routes.reviewPlaying, cursor)
+    val strip: @Composable () -> Unit = {
+        HistoryTimeline(events, cursor, viewer, { routes.reviewPlaying = false }, { routes.review = it }, Modifier.fillMaxWidth())
+    }
+    val transport: @Composable () -> Unit = {
+        Box(Modifier.fillMaxSize().padding(horizontal = 8.dp), contentAlignment = Alignment.Center) {
+            HistoryTransport(position, at > 0, at < events.lastIndex, connected = false,
+                onPrevious = { routes.reviewPlaying = false; routes.review = events[(at - 1).coerceAtLeast(0)].id },
+                onNext = { routes.reviewPlaying = false; routes.review = events[(at + 1).coerceAtMost(events.lastIndex)].id },
+                onPlay = { routes.reviewPlaying = true }, onPause = { routes.reviewPlaying = false }, onContinue = {})
+        }
+    }
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
+        if (landscape) Row(Modifier.fillMaxWidth().height(tableBottomHeight(true).dp).background(TimelineBarColor),
+            verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.weight(1f).height(TableTimelineHeight.dp)) { strip() }
+            Box(Modifier.weight(1f).height(TableControlsHeight.dp)) { transport() }
+        } else Column(Modifier.fillMaxWidth().height(tableBottomHeight(false).dp).background(TimelineBarColor)) {
+            Box(Modifier.height(TableTimelineHeight.dp)) { strip() }
+            Box(Modifier.fillMaxWidth().height(TableControlsHeight.dp)) { transport() }
+        }
+    }
+}
+
+/** What the engine table applied once: the last transition and the board reviewed. */
+private class AppliedMarks { var transition = 0L; var reviewed: String? = null }
 
 /** The ending tools on engine state (TRN-046, TRN-064): suggestions are table changes, conceding an engine input. */
 private fun engineEnding(routes: EngineTableRoutes, intent: TableActionIntent.Ending): Boolean {

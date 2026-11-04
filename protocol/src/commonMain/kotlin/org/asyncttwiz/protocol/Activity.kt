@@ -25,7 +25,10 @@ import kotlinx.serialization.json.Json
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val gameOver: SuggestedResult? = null,
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val opponentReady: Boolean = false,
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val conceded: Boolean = false,
-    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val byRules: Boolean = false)
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val byRules: Boolean = false,
+    /** I-D56 §8 (LOB-116): the opponent's real answer differed from what the recipient assumed; their later actions
+     * were taken back. */
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val branched: Boolean = false)
 @Serializable data class ActivityPage(val entries: List<ActivityHint>, val nextCursor: String,
     val retentionFloor: String, val summaryReset: Boolean, val hasMore: Boolean,
     val readyNotices: List<ActivityHint>? = null)

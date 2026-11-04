@@ -86,5 +86,17 @@ internal class AccountSettingsState(private val source: AccountSettingsSource, p
             }
         }
     }
+    /** LOB-113 (I-D56 §7): the response mode, Always assume resolves and Autotap mana new games on engine state start
+     * with, kept on the server for every device of the account. */
+    fun setPlayDefaults(defaults: org.asyncttwiz.protocol.game.PlaySettings) {
+        val next = (settings ?: AccountSettings()).copy(playDefaults = defaults)
+        if (next == settings) return
+        settings = next
+        scope.launch {
+            runCatching { source.set(next) }.onFailure {
+                error = "Couldn't save your settings for new games to the server. They are kept on this device and sent later."
+            }
+        }
+    }
     fun dismissError() { error = null }
 }

@@ -51,9 +51,10 @@ import org.asyncttwiz.protocol.ResultSuggestion as AtwSuggestion
  */
 object EngineProjection {
     /** The board of [model] for [viewer], on [base] (the play as it started: its ids, containers, players, card data);
-     * [nodeId] is the shown event; [attention]: whose move it is for the viewer (TRN-013). */
+     * [nodeId] is the shown event; [attention]: whose move it is for the viewer (TRN-013); [tokenArt] finds the engine's
+     * tokens' pictures (SYS-072), which the caller keeps in [pictures] across boards. */
     fun project(base: PlayState, model: GameModel, viewer: String, nodeId: String, attention: String? = null,
-        staging: Staging? = null): PlayState {
+        staging: Staging? = null, tokenArt: TokenArt = TokenArt.None, pictures: MutableMap<ObjectId, SubmittedDefinition> = HashMap()): PlayState {
         val state = model.engine
         val table = model.table
         val me = PlayerId(viewer)
@@ -67,12 +68,20 @@ object EngineProjection {
             board0.containers.firstOrNull { it.zone == zone && it.accountId == player && !it.temp }
         val stackContainer = board0.containers.first { it.zone == PlayZone.STACK }
 
-        // Card data of an object: the prepared card's, else made from its engine definition (tokens, copies)
-        fun digestOf(obj: GameObject): String {
+        // What made each token, while the log still says (this and last turn): for its picture (SYS-072)
+        val madeBy = HashMap<ObjectId, arcanum.engine.change.CausedBy?>()
+        for (logged in state.log) (logged.change as? Change.Created)?.let { c -> c.objects.forEach { madeBy[it.obj.id] = c.by } }
+        // Card data of an object: the prepared card's, else made from its engine definition (tokens, copies); a token is
+        // drawn with the picture of its best matching token printing (SYS-072)
+        val digests = HashMap<ObjectId, String>()
+        fun digestOf(obj: GameObject): String = digests.getOrPut(obj.id) {
             val prepared = byCard[obj.card.value]
-            if (prepared != null && !obj.token && !obj.copyOfCard) return prepared.definition
-            val definition = obj.definition ?: return prepared?.definition ?: UNKNOWN.digest.also { definitions[it] = UNKNOWN }
-            return AtwTokens.submitted(definition, token = true).also { definitions[it.digest] = it }.digest
+            if (prepared != null && !obj.token && !obj.copyOfCard) return@getOrPut prepared.definition
+            val definition = obj.definition ?: return@getOrPut prepared?.definition ?: UNKNOWN.digest.also { definitions[it] = UNKNOWN }
+            val made = AtwTokens.submitted(definition, token = true)
+            // Once found, a token keeps its picture ([pictures], kept by the caller) after the log forgets what made it
+            val shown = if (!obj.token || tokenArt === TokenArt.None) made else pictures.getOrPut(obj.id) { pictured(made, madeBy[obj.id], base, byCard, tokenArt) }
+            shown.also { definitions[it.digest] = it }.digest
         }
         fun faceIdOf(obj: GameObject, digest: String): String {
             val faces = definitions[digest]?.definition?.faces.orEmpty()
@@ -216,7 +225,9 @@ object EngineProjection {
         val records = buildList {
             state.combat?.let { add(EngineCodec.combatRecord(it, state.turn.number)) }
             state.command.mapNotNull { state.objects[it] }.forEach { add(EngineCodec.emblemRecord(it, EngineCodec.emblemText(it))) }
-            staged?.records?.let { addAll(it) }
+            // The staged choices and early answers: the player's own staging kept on the device (behind the head), else
+            // the table's shared drafts (I-D54 §8)
+            if (staged != null) addAll(staged.records) else addAll(EngineDrafts.records(state, table))
         }.distinctBy { it.id }.sortedBy { it.id }
         val board = BoardState(players = players, cards = withPlaces + shownAbilities, containers = containers, turn = turn,
             schemaVersion = board0.schemaVersion, combat = if (staged != null) staged.combat else combat(state, table),
@@ -227,6 +238,22 @@ object EngineProjection {
             definitions = definitions.values.sortedBy { it.digest })
     }
 
+    /** [token] drawn with the picture [tokenArt] finds for it and the card whose effect made it ([by]); as it is when
+     * none is found (the plain frame). */
+    private fun pictured(token: SubmittedDefinition, by: arcanum.engine.change.CausedBy?, base: PlayState, byCard: Map<String, PlayCard>,
+        tokenArt: TokenArt): SubmittedDefinition {
+        if (tokenArt === TokenArt.None) return token
+        val face = token.definition.faces.singleOrNull() ?: return token
+        val digest = (by?.source as? ObjectId.Card)?.let { byCard[it.card.value]?.definition }
+        val source = base.definitions.firstOrNull { it.digest == digest }?.definition
+            ?: by?.name?.let { name -> base.definitions.firstOrNull { !it.definition.token && it.definition.name == name }?.definition }
+        val id = try { tokenArt.find(TokenArtQuery(face, source?.name ?: by?.name, source?.printingId)) }
+            catch (problem: Exception) { if (problem is kotlin.coroutines.cancellation.CancellationException) throw problem; null }
+            ?: return token
+        val card = token.definition.copy(faces = listOf(face.copy(scryfallId = id)))
+        return SubmittedDefinition(org.asyncttwiz.protocol.DeckJson.digest(card), card)
+    }
+
     /** The combat lanes: the engine's combat (a pair per attacker, blockers in the pair of the first attacker they block,
      * also blocking the others' pairs, CMB-031), else the attack staged before it is declared. */
     private fun combat(state: GameState, table: TableState): CombatArea? {
@@ -234,18 +261,22 @@ object EngineProjection {
         fun card(id: ObjectId) = (id as? ObjectId.Card)?.card?.value
         fun target(t: TargetRef) = ((t as? TargetRef.Object)?.id as? ObjectId.Card)?.card?.value
         if (combat != null) {
+            // CMB-034 (I-D54 §8): before blockers are declared, the defender's shared block staging
+            val drafted = table.blockDraft?.takeIf { combat.blockersDeclaredBy.isEmpty() && state.turn.step == arcanum.api.TurnStep.DeclareBlockers }
+                ?.groupBy { it.blocker }?.map { (blocker, blocks) -> blocker to blocks.map { it.attacker } }
+            val blocking = drafted ?: combat.blockers.map { it.id to it.attackers }
             val pairs = combat.attackers.mapNotNull { a ->
                 val attacker = card(a.id) ?: return@mapNotNull null
-                val blockers = combat.blockers.filter { it.attackers.firstOrNull() == a.id }.mapNotNull { b ->
-                    val id = card(b.id) ?: return@mapNotNull null
-                    CombatOccurrence("block:$id", id, alsoBlocks = b.attackers.drop(1).mapNotNull(::card).map { "pair:$it" })
+                val blockers = blocking.filter { it.second.firstOrNull() == a.id }.mapNotNull { (blocker, attackers) ->
+                    val id = card(blocker) ?: return@mapNotNull null
+                    CombatOccurrence("block:$id", id, alsoBlocks = attackers.drop(1).mapNotNull(::card).map { "pair:$it" })
                 }
                 CombatPair("pair:$attacker", listOf(CombatOccurrence("attack:$attacker", attacker)), blockers,
                     attackTarget = target(a.target), blocked = a.blocked)
             }
             return CombatArea(COMBAT_ID, pairs)
         }
-        val staged = table.attackDraft ?: return null
+        val staged = table.attackDraft?.takeIf { state.turn.step == arcanum.api.TurnStep.DeclareAttackers } ?: return null
         val pairs = staged.mapNotNull { a ->
             val attacker = card(a.attacker) ?: return@mapNotNull null
             CombatPair("pair:$attacker", listOf(CombatOccurrence("attack:$attacker", attacker)), attackTarget = target(a.target))

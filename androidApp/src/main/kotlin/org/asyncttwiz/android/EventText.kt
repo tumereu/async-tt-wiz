@@ -95,6 +95,16 @@ internal class EventTextFeed(worker: Executor, private val post: (() -> Unit) ->
         }
     }
 
+    /** On engine state (HIS-075, HIS-076): [text] of the event shown at [cursor] (the other player's newest). */
+    fun post(cursor: String, text: String) {
+        val generation = ++epoch; latest = generation
+        shownCursor = cursor
+        if (enabled && text.isNotBlank()) chip = EventTextChip(cursor, text, generation, clock())
+    }
+
+    /** On engine state: the board moved to [cursor] with nothing to tell (the chip of another board goes at once). */
+    fun moved(cursor: String) { if (chip?.cursorId != cursor) { chip = null; epoch++; latest = epoch } ; shownCursor = cursor }
+
     /** The chip's own clock: it fades after its lifetime whether or not playback is running. */
     fun remainingMillis(pauseMillis: Long, now: Long = clock()): Long =
         chip?.let { it.shownAt + eventTextLifetimeMillis(pauseMillis) - now }?.coerceAtLeast(0) ?: 0

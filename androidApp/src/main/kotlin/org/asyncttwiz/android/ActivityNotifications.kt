@@ -21,6 +21,7 @@ internal fun gameNotificationText(content: GameNoticeContent) = GameNotification
         else "Game over · ${content.opponentName} accepted ${gameOverResult(it)}" }
         ?: if (content.reminder) "${content.opponentName} is waiting for you"
         else if (content.opponentReady) "${content.opponentName} is ready" // LOB-114
+        else if (content.branched) "${content.opponentName} responded differently · your later actions were taken back" // LOB-116
         else if (content.yourMove) "Your move"
         else "${content.opponentName}'s move") + (if (content.newMessage) " · new message" else ""),
     java.time.OffsetDateTime.parse(content.lastEventAt).toInstant().toEpochMilli())

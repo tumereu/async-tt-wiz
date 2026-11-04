@@ -2,20 +2,41 @@ package org.asyncttwiz.server.accounts
 
 import java.util.UUID
 import org.asyncttwiz.protocol.AccountSettings
+import org.asyncttwiz.protocol.GameWire
+import org.asyncttwiz.protocol.game.PlaySettings
 import org.asyncttwiz.server.ServiceRuntime
 import org.asyncttwiz.server.game.DeckVisibilityStore
+import org.asyncttwiz.server.generated.tables.Account.ACCOUNT
+import org.jooq.DSLContext
 import org.jooq.SQLDialect
 import org.jooq.impl.DSL
 
 /** Server-side account preferences, shared by all of the account's devices. */
 class AccountSettingsService(private val runtime: ServiceRuntime) {
     fun read(accountId: String): AccountSettings = runtime.transaction { connection ->
-        AccountSettings(DeckVisibilityStore.setting(DSL.using(connection, SQLDialect.POSTGRES), UUID.fromString(accountId)))
+        read(DSL.using(connection, SQLDialect.POSTGRES), UUID.fromString(accountId))
     }
 
     fun set(accountId: String, settings: AccountSettings): AccountSettings = runtime.transaction { connection ->
         val sql = DSL.using(connection, SQLDialect.POSTGRES)
-        DeckVisibilityStore.save(sql, UUID.fromString(accountId), settings.deckVisibility)
-        AccountSettings(DeckVisibilityStore.setting(sql, UUID.fromString(accountId)))
+        val account = UUID.fromString(accountId)
+        DeckVisibilityStore.save(sql, account, settings.deckVisibility)
+        PlayDefaultsStore.save(sql, account, settings.playDefaults)
+        read(sql, account)
+    }
+
+    private fun read(sql: DSLContext, account: UUID) =
+        AccountSettings(DeckVisibilityStore.setting(sql, account), PlayDefaultsStore.read(sql, account))
+}
+
+/** The account's defaults for new games on engine state (LOB-113, I-D56 §7): given to their seat when a play starts. */
+internal object PlayDefaultsStore {
+    fun read(sql: DSLContext, account: UUID): PlaySettings =
+        sql.select(ACCOUNT.PLAY_DEFAULTS).from(ACCOUNT).where(ACCOUNT.ID.eq(account)).fetchOne(ACCOUNT.PLAY_DEFAULTS)
+            ?.let { runCatching { GameWire.json.decodeFromString(PlaySettings.serializer(), it) }.getOrNull() } ?: PlaySettings()
+
+    fun save(sql: DSLContext, account: UUID, settings: PlaySettings) {
+        sql.update(ACCOUNT).set(ACCOUNT.PLAY_DEFAULTS, if (settings == PlaySettings()) null
+            else GameWire.json.encodeToString(PlaySettings.serializer(), settings)).where(ACCOUNT.ID.eq(account)).execute()
     }
 }

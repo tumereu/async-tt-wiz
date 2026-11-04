@@ -234,7 +234,8 @@ class ActivityService(private val runtime: ServiceRuntime, private val clock: Cl
                 ActivityHint(row.activityId.toString(), ActivityKind.GAME, row.gameId.toString(), row.identity.toString(),
                     authorId.toString(), GameNoticeContent(gameRow.gameName!!, opponent.username!!,
                         row.lastEventAt.toString(), row.yourMove!!, row.newMessage!!, gameOver = gameOver,
-                        opponentReady = row.opponentReady!!, conceded = conceded, byRules = byRules && gameOver != null))
+                        opponentReady = row.opponentReady!!, conceded = conceded, byRules = byRules && gameOver != null,
+                        branched = row.branched!! && gameOver == null))
             }.take(50).toList()
         // A sent reminder stays listed (client watermarks dedupe it) until the recipient moves.
         val reminders = sql.select(SUMMARY.fields().toList() + GAME.GAME_NAME + ACCOUNT.USERNAME).from(SUMMARY)
@@ -335,15 +336,17 @@ class ActivityService(private val runtime: ServiceRuntime, private val clock: Cl
          * activity [author] is Ready while [owner] is still in the opening "Mulliganing" status. */
         fun record(sql: DSLContext, owner: UUID, kind: ActivityKind, game: UUID, identity: UUID,
             author: UUID? = null, time: OffsetDateTime = OffsetDateTime.now(ZoneOffset.UTC),
-            yourMove: Boolean = false, newMessage: Boolean = false, move: Boolean = false, opponentReady: Boolean = false) =
-            recordAll(sql, owner, kind, game, listOf(identity to author), time, yourMove, newMessage, move, opponentReady)
+            yourMove: Boolean = false, newMessage: Boolean = false, move: Boolean = false, opponentReady: Boolean = false,
+            branched: Boolean = false) =
+            recordAll(sql, owner, kind, game, listOf(identity to author), time, yourMove, newMessage, move, opponentReady, branched)
 
         /** [record] for each of [events] (identity, author) in order, at one [time], in a few statements however many
          * there are (a 1000-member Automatum batch, I-D14): consecutive activity ids, every event row, and the summary
          * and pending pushes as the last of the one-by-one records leaves them. */
         fun recordAll(sql: DSLContext, owner: UUID, kind: ActivityKind, game: UUID, events: List<Pair<UUID, UUID?>>,
             time: OffsetDateTime = OffsetDateTime.now(ZoneOffset.UTC),
-            yourMove: Boolean = false, newMessage: Boolean = false, move: Boolean = false, opponentReady: Boolean = false) {
+            yourMove: Boolean = false, newMessage: Boolean = false, move: Boolean = false, opponentReady: Boolean = false,
+            branched: Boolean = false) {
             val recorded = events.filter { (_, author) -> author != owner }
             if (recorded.isEmpty()) return
             val last = nextActivityIds(sql, owner, recorded.size)
@@ -360,11 +363,12 @@ class ActivityService(private val runtime: ServiceRuntime, private val clock: Cl
             sql.insertInto(SUMMARY).set(SUMMARY.ACCOUNT_ID, owner).set(SUMMARY.GAME_ID, game).set(SUMMARY.KIND, kind.name)
                 .set(SUMMARY.ACTIVITY_ID, id).set(SUMMARY.IDENTITY, identity).set(SUMMARY.AUTHOR_ID, author)
                 .set(SUMMARY.LAST_EVENT_AT, time).set(SUMMARY.YOUR_MOVE, yourMove)
-                .set(SUMMARY.NEW_MESSAGE, newMessage).set(SUMMARY.OPPONENT_READY, opponentReady)
+                .set(SUMMARY.NEW_MESSAGE, newMessage).set(SUMMARY.OPPONENT_READY, opponentReady).set(SUMMARY.BRANCHED, branched)
                 .set(SUMMARY.REMINDER_MOVE_AT, if (armed) time else null)
                 .onConflict(SUMMARY.ACCOUNT_ID, SUMMARY.GAME_ID, SUMMARY.KIND).doUpdate()
                 .set(SUMMARY.ACTIVITY_ID, id).set(SUMMARY.IDENTITY, identity).set(SUMMARY.AUTHOR_ID, author)
                 .set(SUMMARY.LAST_EVENT_AT, time).set(SUMMARY.YOUR_MOVE, yourMove).set(SUMMARY.OPPONENT_READY, opponentReady)
+                .set(SUMMARY.BRANCHED, branched)
                 .set(SUMMARY.NEW_MESSAGE, DSL.field("{0} or {1}", Boolean::class.java, SUMMARY.NEW_MESSAGE, DSL.excluded(SUMMARY.NEW_MESSAGE)))
                 .set(SUMMARY.REMINDER_MOVE_AT, if (armed) DSL.excluded(SUMMARY.REMINDER_MOVE_AT) else SUMMARY.REMINDER_MOVE_AT)
                 // Re-arming keeps a sent reminder within one stretch; a stretch the recipient answered starts anew.

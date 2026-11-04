@@ -80,6 +80,8 @@ internal class EngineGames(private val capacity: Int = 32) {
         val play: UUID, val events: List<String>, val live: LiveState?, val target: String? = null, val confirmed: String? = null,
         val ended: Boolean = false, val heads: Map<String, String> = emptyMap(), val moves: Map<String, Boolean> = emptyMap(),
         val newStops: Set<String> = emptySet(), val request: EngineRewindRequest? = null, val lines: Int = 0,
+        /** A submission's real answer differed from an assumed one: the main line branched (I-D56 §8). */
+        val branched: Boolean = false,
     ) {
         /** Whose move the game is for the stored summary: a player with a next stop (each viewer sees their own, §7). */
         val attention: String? get() = moves.entries.firstOrNull { it.value }?.key
@@ -120,8 +122,14 @@ internal class EngineGames(private val capacity: Int = 32) {
         builder.answerRandoms()
         val event = builder.build()
         store.append(history, event, author, initial)
-        for (seat in seats) sql.insertInto(ENGINE_SEAT).set(ENGINE_SEAT.PLAY_ID, play).set(ENGINE_SEAT.ACCOUNT_ID, UUID.fromString(seat.player.value))
-            .set(ENGINE_SEAT.LOCAL_HEAD, UUID.fromString(event.id)).execute()
+        // LOB-113: each player's seat starts with their account's defaults for new games
+        for (seat in seats) {
+            val account = UUID.fromString(seat.player.value)
+            sql.insertInto(ENGINE_SEAT).set(ENGINE_SEAT.PLAY_ID, play).set(ENGINE_SEAT.ACCOUNT_ID, account)
+                .set(ENGINE_SEAT.LOCAL_HEAD, UUID.fromString(event.id))
+                .set(ENGINE_SEAT.SETTINGS, GameWire.json.encodeToString(PlaySettings.serializer(),
+                    org.asyncttwiz.server.accounts.PlayDefaultsStore.read(sql, account))).execute()
+        }
         val state = LiveState(event.id, initial)
         return refresh(sql, play, history, state, listOf(event), live)
     }
@@ -157,7 +165,7 @@ internal class EngineGames(private val capacity: Int = 32) {
                 if (result.authorHead) setHead(sql, play, author, event.id)
                 // A concession ends an open undo request (I-D56 §10)
                 if (row.request != null) clearRequest(sql, play)
-                refresh(sql, play, history, result.live, listOf(event), live)
+                refresh(sql, play, history, result.live, listOf(event), live, branched = result.discarded != null)
             }
         }
     }
@@ -301,7 +309,7 @@ internal class EngineGames(private val capacity: Int = 32) {
      * head of a player who isn't live counts as an async round (§15); the outcome for the caller.
      */
     private fun refresh(sql: DSLContext, play: UUID, history: GameHistory, state: LiveState, events: List<GameEvent>, live: (UUID) -> Boolean,
-        target: String? = null, confirmed: String? = null): Outcome {
+        target: String? = null, confirmed: String? = null, branched: Boolean = false): Outcome {
         val head = state.at
         val seats = seats(sql, play)
         val newStops = mutableSetOf<String>()
@@ -331,7 +339,7 @@ internal class EngineGames(private val capacity: Int = 32) {
             events.any { e -> e.engine?.steps.orEmpty().any { it.input is Input.Concede } })
         val row = playRow(sql, play)
         return Outcome(play, events.map(history.codec::encodeEvent), state, target, confirmed, ended,
-            seats(sql, play).associate { it.account.toString() to it.head }, moves, newStops, row.request, row.lines)
+            seats(sql, play).associate { it.account.toString() to it.head }, moves, newStops, row.request, row.lines, branched)
     }
 
     /** The state at a local head [localHead] behind the head ([after] the events between): the head's state copied and

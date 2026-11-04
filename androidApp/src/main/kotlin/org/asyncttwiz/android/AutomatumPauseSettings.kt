@@ -96,9 +96,6 @@ internal class PausePreferences(context: Context, private val accountId: String)
             }).putBoolean("engine-assume/$accountId", value.alwaysAssumeResolves).putBoolean(autotapKey, value.autotap).apply()
         }
 
-    /** Whether this device gave game [gameId] the defaults ([engineDefaults]) once. */
-    fun engineDefaultsGiven(gameId: String): Boolean = preferences.getBoolean("engine-defaults/$accountId/$gameId", false)
-    fun engineDefaultsGiven(gameId: String, given: Boolean) { preferences.edit().putBoolean("engine-defaults/$accountId/$gameId", given).apply() }
 
     override fun synced(gameId: String): Long = preferences.getLong("full-control-synced/$accountId/$gameId", 0L)
     override fun synced(gameId: String, changed: Long) {
@@ -127,7 +124,7 @@ internal fun rememberPauseSettings(accountId: String): Pair<State<PauseSettings>
 
 /** Settings → Automatum (LOB-113). */
 @Composable
-internal fun AutomatumPauseSettings(accountId: String) {
+internal fun AutomatumPauseSettings(accountId: String, account: AccountSettingsState? = null) {
     val (state, preferences) = rememberPauseSettings(accountId)
     val settings by state
     Column(Modifier.fillMaxWidth().testTag("automatum-settings")) {
@@ -160,13 +157,17 @@ internal fun AutomatumPauseSettings(accountId: String) {
         }
         // I-D47 (also a quick-actions toggle, I-D46 (c)): casting taps the mana sources by itself (mana already in your pool first)
         Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("autotap")
-            .toggleable(settings.autotap, role = Role.Switch, onValueChange = { preferences.settings = settings.copy(autotap = it) }),
+            .toggleable(settings.autotap, role = Role.Switch, onValueChange = {
+                preferences.settings = settings.copy(autotap = it)
+                // LOB-113: also the default of new games on engine state, kept on the server
+                account?.settings?.let { s -> account.setPlayDefaults(s.playDefaults.copy(autotap = it)) }
+            }),
             verticalAlignment = Alignment.CenterVertically) {
             SettingsLabel("Autotap mana sources", "Casting pays by itself, with mana in your pool first; off, you choose what to tap",
                 Modifier.weight(1f).padding(end = 12.dp, top = 4.dp, bottom = 4.dp))
             Switch(checked = settings.autotap, onCheckedChange = null)
         }
-        if (BuildConfig.DEBUG) EngineDefaultSettings(preferences)
+        if (BuildConfig.DEBUG) EngineDefaultSettings(preferences, account)
     }
 }
 
@@ -176,9 +177,14 @@ internal fun AutomatumPauseSettings(accountId: String) {
  * state ([EnginePath], step C's test switch until the switch-over).
  */
 @Composable
-private fun EngineDefaultSettings(preferences: PausePreferences) {
-    var defaults by remember(preferences) { mutableStateOf(preferences.engineDefaults) }
-    fun set(next: org.asyncttwiz.protocol.game.PlaySettings) { preferences.engineDefaults = next; defaults = next }
+private fun EngineDefaultSettings(preferences: PausePreferences, account: AccountSettingsState?) {
+    var local by remember(preferences) { mutableStateOf(preferences.engineDefaults) }
+    // LOB-113 (I-D56 step D): kept on the server per account (the device keeps a copy for when it is signed out)
+    val defaults = account?.settings?.playDefaults ?: local
+    fun set(next: org.asyncttwiz.protocol.game.PlaySettings) {
+        preferences.engineDefaults = next; local = next
+        account?.setPlayDefaults(next)
+    }
     Text("Response mode in new games", Modifier.padding(vertical = 4.dp),
         style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
     for (mode in listOf(org.asyncttwiz.protocol.game.ResponseMode.FullControl, org.asyncttwiz.protocol.game.ResponseMode.Normal,

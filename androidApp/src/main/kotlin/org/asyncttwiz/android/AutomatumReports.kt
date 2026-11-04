@@ -7,6 +7,7 @@ import java.util.zip.GZIPOutputStream
 import org.asyncttwiz.automatum.AutomatumLog
 import org.asyncttwiz.automatum.ReproBundle
 import org.asyncttwiz.protocol.CrashReport
+import org.asyncttwiz.protocol.game.GameRepro
 
 /**
  * I-D43: Automatum's log in the Android log (debug level) and, in problem and crash reports, the latest game's
@@ -19,11 +20,35 @@ internal object AutomatumReports {
         AutomatumLog.listener = { entry -> Log.d(TAG, "${entry.game.take(8)} ${entry.line()}") }
     }
 
-    /** The latest game's bundle as report text; empty when Automatum recorded nothing or it can't be made. Never throws
-     * (also used while the app crashes). */
+    /** The latest game's bundle as report text: a game on engine state's device bundle ([GameRepro], I-D56 step D) when
+     * one was opened last, else today's Automatum bundle; empty when nothing was recorded or it can't be made. Never
+     * throws (also used while the app crashes). */
     fun text(maxChars: Int = CrashReport.MAX_AUTOMATUM): String = try {
-        AutomatumLog.bundle()?.let { fit(it, maxChars) }.orEmpty()
+        engine?.invoke()?.let { fitEngine(it, maxChars) }
+            ?: AutomatumLog.bundle()?.let { fit(it, maxChars) }.orEmpty()
     } catch (_: Throwable) { "" }
+
+    /** The latest game on engine state's device bundle ([EngineGame.repro]), set while one is open on this device. */
+    @Volatile var engine: (() -> GameRepro?)? = null
+
+    /** [repro] as report text ([GameRepro.REPORT_HEADER] and gzip+base64), dropping its least useful parts until it
+     * fits [maxChars]: older log entries, then the oldest events (the base can't be replayed past them then), then the
+     * base state. */
+    internal fun fitEngine(repro: GameRepro, maxChars: Int): String? {
+        var fitted = repro
+        while (true) {
+            val text = encode(fitted.encode())
+            if (text.length <= maxChars) return text
+            fitted = when {
+                fitted.log.size > MIN_ENTRIES -> fitted.copy(log = fitted.log.takeLast(fitted.log.size / 2))
+                fitted.base != null && fitted.events.size > MIN_ENTRIES -> fitted.copy(base = null, events = fitted.events.takeLast(fitted.events.size / 2))
+                fitted.events.size > MIN_ENTRIES -> fitted.copy(events = fitted.events.takeLast(fitted.events.size / 2))
+                fitted.base != null -> fitted.copy(base = null)
+                fitted.definitions.isNotEmpty() -> fitted.copy(definitions = "")
+                else -> return null
+            }
+        }
+    }
 
     /** [bundle] as report text, dropping its least useful parts until it fits [maxChars]: older engine calls, then ATW's
      * board, older log entries, the last call and the engine state. */
@@ -44,10 +69,14 @@ internal object AutomatumReports {
         }
     }
 
-    internal fun encode(bundle: ReproBundle): String {
+    internal fun encode(bundle: ReproBundle): String = ReproBundle.REPORT_HEADER + "\n" + gzip(bundle.encode())
+
+    private fun encode(engineBundle: String): String = GameRepro.REPORT_HEADER + "\n" + gzip(engineBundle)
+
+    private fun gzip(text: String): String {
         val bytes = ByteArrayOutputStream()
-        GZIPOutputStream(bytes).use { it.write(bundle.encode().toByteArray(Charsets.UTF_8)) }
-        return ReproBundle.REPORT_HEADER + "\n" + Base64.getEncoder().encodeToString(bytes.toByteArray())
+        GZIPOutputStream(bytes).use { it.write(text.toByteArray(Charsets.UTF_8)) }
+        return Base64.getEncoder().encodeToString(bytes.toByteArray())
     }
 
     private const val TAG = "Automatum"

@@ -32,7 +32,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import arcanum.engine.input.Block
 import arcanum.engine.input.Input
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.horizontalScroll
 import arcanum.engine.state.GameState
 import arcanum.engine.state.ObjectId
 import arcanum.engine.state.PlayerId
@@ -43,6 +47,7 @@ import org.asyncttwiz.protocol.game.GameEvent
 import org.asyncttwiz.protocol.game.PlaySettings
 import org.asyncttwiz.protocol.game.ResponseMode
 import org.asyncttwiz.protocol.game.TableChange
+import org.asyncttwiz.automatum.EngineDrafts
 
 /**
  * The table's routes into a game played on engine state (I-D56 step C): the player's own inputs ([send]: a cast, an
@@ -75,6 +80,17 @@ internal class EngineTableRoutes(val viewer: String, private val game: () -> Eng
     var undoShake by mutableIntStateOf(0)
 
     data class RewindChoice(val target: String?)
+
+    /** Timeline mode (HIS-004): the shown event the board is reviewed at; null in play mode. */
+    var review by mutableStateOf<String?>(null)
+    /** Timeline mode's Auto (HIS-013). */
+    var reviewPlaying by mutableStateOf(false)
+
+    /** The Assume blockers screen opened from the waiting bar at this point (CMB-040), personal. */
+    var blockersOpen by mutableStateOf<String?>(null)
+
+    fun enterReview(at: String) { reviewPlaying = false; review = at }
+    fun leaveReview() { reviewPlaying = false; review = null }
 
     /** After an action on the engine game: what it sends goes out and the table shows its new board. */
     fun pump() = sent()
@@ -119,7 +135,16 @@ internal class EngineTableRoutes(val viewer: String, private val game: () -> Eng
                 else -> return false
             }
         }
-        staged?.let { g.stage(it.copy(board = it.board.copy(engine = play.board.engine))) }
+        staged?.let { s ->
+            // I-D54 §8: the staging and the attack choices are shared as table changes at the head; at a decision stop
+            // behind it (playing back assumed blocks) they stay on the device and go out only as the declaration (§12)
+            val board = s.board.copy(engine = play.board.engine)
+            val drafts = EngineDrafts.changes(g.device.model, board, viewer)
+            val acted = if (drafts.isEmpty()) null else g.table(drafts)
+            if (g.device.session.behind || acted == GameDevice.Acted.Kept) g.stage(s.copy(board = board))
+            else if (acted is GameDevice.Acted.Refused) { sent(); return false }
+            else g.unstage()
+        }
         if (places.isNotEmpty()) g.table(places)
         sent()
         return true
@@ -151,53 +176,6 @@ internal class EngineTableRoutes(val viewer: String, private val game: () -> Eng
 }
 
 internal val LocalEngineRoutes = staticCompositionLocalOf<EngineTableRoutes?> { null }
-
-/** Short texts of engine events (the rewind dialog, the notes): who did what, from the viewer's side. */
-internal object EngineEventText {
-    fun of(event: GameEvent, state: GameState?, viewer: String, names: Map<String, String>): String {
-        fun who(player: PlayerId) = if (player.value == viewer) "You" else names[player.value] ?: "The other player"
-        fun card(id: ObjectId?): String {
-            val card = (id as? ObjectId.Card)?.card ?: return "an ability"
-            val s = state ?: return "a card"
-            val obj = s.objects.values.lastOrNull { it.card == card } ?: return "a card"
-            if (obj.faceDown || obj.id !in arcanum.engine.Engine.visible(s, PlayerId(viewer))) return "a card"
-            return obj.definition?.faces?.getOrNull(obj.face)?.name ?: "a card"
-        }
-        val step = event.engine?.steps?.firstOrNull { it.input != null }
-        val assumed = if (step?.assumedBy != null) " (assumed)" else ""
-        // An assumed input is the other player's (§14: "Bob passes (assumed)"); an answer names no player, its event's author made it
-        fun actor(): String = step?.assumedBy?.let { by -> names.keys.firstOrNull { it != by.value }?.let { who(PlayerId(it)) } }
-            ?: if (event.author == viewer) "You" else names[event.author] ?: "A player"
-        val input = step?.input
-        return when (input) {
-            null -> when {
-                event.table.any { it is TableChange.Placed } -> "${names[event.author]?.let { if (event.author == viewer) "You" else it } ?: "A player"} moved a card"
-                event.table.any { it is TableChange.Suggestion } -> "A result was suggested"
-                event.table.any { it is TableChange.ResultConfirmed } -> "The result was confirmed"
-                else -> "A new line began"
-            }
-            is Input.StartGame -> "The game began"
-            is Input.Cast -> "${who(input.player)} cast ${card(input.card)}"
-            is Input.PlayLand -> "${who(input.player)} played ${card(input.card)}"
-            is Input.Activate -> "${who(input.player)} activated ${card(input.source)}"
-            is Input.PassPriority -> "${who(input.player)} passed$assumed"
-            is Input.DeclareAttackers -> if (input.attacks.isEmpty()) "${who(input.player)}: no attack" else "${who(input.player)} attacked with ${input.attacks.size}"
-            is Input.DeclareBlockers -> if (input.blocks.isEmpty()) "${who(input.player)}: no blocks$assumed" else "${who(input.player)} blocked with ${input.blocks.size}$assumed"
-            is Input.SetupAnswer -> when (input.answer) {
-                arcanum.engine.decision.Answer.Option("Keep") -> "${who(input.player)} kept$assumed"
-                arcanum.engine.decision.Answer.Option("Mulligan") -> "${who(input.player)} took a mulligan"
-                else -> "${who(input.player)} chose"
-            }
-            is Input.Answer -> when (input.answer) {
-                arcanum.engine.decision.Answer.Option("Keep") -> "${actor()} kept$assumed"
-                else -> "${actor()} chose$assumed"
-            }
-            is Input.Concede -> "${who(input.player)} conceded"
-            is Input.AgreedResult -> "The result was agreed"
-            else -> "${if (event.author == viewer) "You" else names[event.author] ?: "A player"} acted"
-        }
-    }
-}
 
 /** The waiting bar's words (§14) for [wait]. */
 internal fun waitingText(wait: GameDevice.Wait, play: PlayState, opponent: String): String? = when (wait) {
@@ -292,7 +270,7 @@ internal fun RowScope.EngineToggleCells(routes: EngineTableRoutes, enabled: Bool
  */
 @Composable
 internal fun EngineAsyncHost(toolkit: TableToolkitController, routes: EngineTableRoutes, play: PlayState, scene: TableScene?,
-    names: Map<String, String>, presence: ReceivedPresence?) {
+    names: Map<String, String>, presence: ReceivedPresence?, summary: GameSummary) {
     val game = routes.engine ?: return
     val device = game.device
     val status = device.status
@@ -300,15 +278,17 @@ internal fun EngineAsyncHost(toolkit: TableToolkitController, routes: EngineTabl
     // §14: the assumer's indicator
     device.indicator()?.let { EngineIndicator(it) }
     when (status) {
-        is GameDevice.Status.Waiting -> if (status.blockersScreen) EngineBlockersScreen(routes, scene, opponent)
+        is GameDevice.Status.Waiting -> if (status.offer == GameDevice.Offer.AssumeBlockers && (status.blockersScreen || routes.blockersOpen == device.session.tip))
+                EngineBlockersScreen(routes, scene, play, opponent)
             else waitingText(status.reason, play, opponent)?.let { text ->
                 AboveHand(handRow(scene, routes.viewer)) {
                     EngineBar(text, presence?.let { PresenceText.line(it, monotonicMillis(), java.time.ZonedDateTime.now()) }) {
                         when (status.offer) {
                             GameDevice.Offer.AssumeResolves -> ChoiceButton("Assume resolves", Icons.Outlined.DoneAll, primary = true) {
                                 game.assume(); routes.pump() }
+                            // The screen to assume them (editable, CMB-040)
                             GameDevice.Offer.AssumeBlockers -> ChoiceButton("Assume blockers", Icons.Outlined.Shield, primary = true) {
-                                game.assume(); routes.pump() }
+                                routes.blockersOpen = device.session.tip }
                             GameDevice.Offer.AssumeKeep -> ChoiceButton("Assume keep", Icons.Outlined.Check, primary = true) {
                                 game.assume(); routes.pump() }
                             null -> if (status.reason == GameDevice.Wait.Request && device.request?.by == routes.viewer)
@@ -335,8 +315,8 @@ internal fun EngineAsyncHost(toolkit: TableToolkitController, routes: EngineTabl
     }
     // Incoming undo request (§10): Accept / Deny; the game is frozen meanwhile
     val request = device.request
-    if (request != null && request.by != routes.viewer) EngineRequestDialog(routes, opponent)
-    routes.rewind?.let { EngineRewindDialog(routes, it, names, opponent) }
+    if (request != null && request.by != routes.viewer) EngineRequestDialog(routes, opponent, summary)
+    routes.rewind?.let { EngineRewindDialog(routes, it, names, opponent, summary) }
     // Notes (§8, §10): told once
     LaunchedEffect(game.version) {
         while (game.notes.isNotEmpty()) {
@@ -397,23 +377,84 @@ private fun EngineIndicator(indicator: GameDevice.Indicator) {
 }
 
 /**
- * The Assume blockers screen (§4, §14): on the attacker's device only, opening with "No blocks" while the defender is
- * away; OK assumes the blocks (one tap), Back leaves it a wait with "Assume blockers" on the waiting bar.
+ * The Assume blockers screen (§4, §14, CMB-040): on the attacker's device only, opening with "No blocks" while the
+ * defender is away (or from the waiting bar's Assume blockers while they are online). The blocks may be edited first:
+ * under each attacker, the defender's untapped creatures as cards; tapping one makes it block that attacker (again: not),
+ * holding one inspects it. OK assumes the blocks (the engine checks them, CR 509.1b–c; blocks with a cost to block aren't
+ * assumed, CR 509.1d); Back leaves it a wait with "Assume blockers" on the waiting bar. Nothing of it is shared (§12).
  */
 @Composable
-private fun EngineBlockersScreen(routes: EngineTableRoutes, scene: TableScene?, opponent: String) {
+private fun EngineBlockersScreen(routes: EngineTableRoutes, scene: TableScene?, play: PlayState, opponent: String) {
     val game = routes.engine ?: return
+    val device = game.device
     var hidden by remember { mutableStateOf(false) }
+    val tip = device.session.tip
+    var blocks by remember(tip) { mutableStateOf<List<Pair<String, String>>>(emptyList()) }
+    var refusal by remember(tip) { mutableStateOf<String?>(null) }
+    val inspector = remember { ChoiceInspector() }
+    val s = device.model.engine
+    fun cardOf(id: ObjectId) = (id as? ObjectId.Card)?.card?.value
+    val attackers = s.combat?.attackers.orEmpty().mapNotNull { cardOf(it.id) }
+    val creatures = remember(tip) {
+        val view = runCatching { arcanum.engine.Engine.view(s) }.getOrNull()
+        s.battlefield.filter { id -> val o = s.obj(id); val v = view?.get(id)
+            o != null && !o.tapped && v?.controller == device.opponent && v.characteristics?.isType(arcanum.api.CardType.Creature) == true
+        }.mapNotNull(::cardOf)
+    }
+    fun objectOf(card: String) = s.battlefield.firstOrNull { cardOf(it) == card }
     AboveHand(handRow(scene, routes.viewer)) {
         AutomatumDockPanel("Assume blockers", hidden, { hidden = !hidden }, "blockers panel", buttons = {
-            ChoiceButton("Back", Icons.Outlined.Close) { game.closeBlockersScreen(); routes.pump() }
-            ChoiceButton("OK", Icons.Outlined.Check, primary = true) { game.assume(); routes.pump() }
+            ChoiceButton("Back", Icons.Outlined.Close) { routes.blockersOpen = null; game.closeBlockersScreen(); routes.pump() }
+            ChoiceButton("OK", Icons.Outlined.Check, primary = true) {
+                val chosen = blocks.mapNotNull { (b, a) -> Block(objectOf(b) ?: return@mapNotNull null, objectOf(a) ?: return@mapNotNull null) }
+                when (val acted = game.assume(chosen)) {
+                    is GameDevice.Acted.Refused -> refusal = "These blocks can't be assumed: ${acted.reason}"
+                    else -> routes.blockersOpen = null
+                }
+                routes.pump()
+            }
         }) {
             Text("Assume $opponent's blockers", fontWeight = FontWeight.Bold, fontSize = 15.sp)
-            ChoiceHintText("$opponent is away. Go on assuming they don't block; if they block when they come back, the game " +
-                "goes back to their blocks.")
-            Text("No blocks", Modifier.testTag("assumed-blocks"), fontSize = 14.sp, fontWeight = FontWeight.Medium)
+            ChoiceHintText("Go on assuming how $opponent blocks; if they block differently when they come back, the game " +
+                "goes back to their blocks. Tap their creatures under an attacker to block it.")
+            Text(if (blocks.isEmpty()) "No blocks" else "${blocks.size} ${if (blocks.size == 1) "block" else "blocks"}",
+                Modifier.testTag("assumed-blocks"), fontSize = 14.sp, fontWeight = FontWeight.Medium)
+            refusal?.let { Text(it, color = MaterialTheme.colorScheme.error, fontSize = 13.sp) }
+            Column(Modifier.heightIn(max = 260.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                for (attacker in attackers) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    val shownAttacker = choiceCard(play, routes.viewer, "attacker:$attacker", attacker, true, "Attacker")
+                    ChoiceCardFace(shownAttacker, Modifier.choiceCardGestures(shownAttacker.key, {}, { inspector.hold(shownAttacker, it) }), small = true)
+                    Icon(androidx.compose.material.icons.Icons.Outlined.Shield, null, Modifier.size(16.dp), tint = MenuInk.copy(alpha = .6f))
+                    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        if (creatures.isEmpty()) Text("No creatures to block", fontSize = 12.sp, color = MenuInk.copy(alpha = .7f))
+                        for (blocker in creatures) {
+                            val pair = blocker to attacker
+                            val chosen = pair in blocks
+                            val shown = choiceCard(play, routes.viewer, "block:$blocker:$attacker", blocker, true, "Creature")
+                            ChoiceCardFace(shown, Modifier.testTag("assume-block-$blocker-$attacker").choiceCardGestures(shown.key, {
+                                refusal = null
+                                blocks = if (chosen) blocks - pair else blocks + pair
+                            }, { inspector.hold(shown, it) }), selected = chosen, small = true)
+                        }
+                    }
+                }
+            }
         }
+    }
+    ChoiceInspection(inspector, play, routes.viewer)
+}
+
+/**
+ * HIS-099: a small view-only board of [model] (the point an undo goes back to) as [viewer] sees it, the table's own
+ * drawing with its bars greyed; nothing on it acts.
+ */
+@Composable
+private fun EngineBoardPreview(game: EngineGame, summary: GameSummary, model: org.asyncttwiz.protocol.game.GameModel, at: String, viewer: String) {
+    val board = remember(model, at) { runCatching { org.asyncttwiz.automatum.EngineProjection.project(game.base, model, viewer, at, null, null, game.tokenArt) }.getOrNull() }
+        ?: return
+    Box(Modifier.fillMaxWidth().height(260.dp).testTag("undo-board").semantics { contentDescription = "The board it goes back to" }) {
+        TableSurface(summary, board, viewer, false, Modifier.fillMaxSize(), connected = false,
+            runtime = TableRuntimeHooks(reviewing = true, liveView = false, controlsConnected = false))
     }
 }
 
@@ -436,14 +477,20 @@ private fun EngineCatchUp(routes: EngineTableRoutes, opponent: String) {
     }
 }
 
-/** Playback (§7): the other player's actions shown one at a time, paced by the playback pause setting. */
+private const val QUICK_PLAYBACK_MS = 120L
+
+/** Playback (§7): the other player's actions shown one at a time, paced by the playback pause setting (HIS-021). */
 @Composable
 private fun EnginePlayback(routes: EngineTableRoutes) {
     val game = routes.engine ?: return
     val preferences = rememberHistoryPlaybackPreferences(routes.viewer)
     val pause by preferences.pauseState()
     LaunchedEffect(game.version) {
-        delay(pause.coerceIn(150L, 3_000L))
+        // The other player's staging (moving lanes, I-D54 §8) and card places play back quickly; acting points take the pause
+        val next = (game.device.status as? GameDevice.Status.Playing)?.next
+        val quick = next != null && next.engine == null && next.table.all {
+            it is TableChange.AttackDraft || it is TableChange.BlockDraft || it is TableChange.Placed || it is TableChange.EarlyAnswered }
+        delay(if (quick) QUICK_PLAYBACK_MS else pause.coerceIn(150L, 10_000L))
         if (game.device.status is GameDevice.Status.Playing) { game.step(); routes.pump() }
     }
 }
@@ -451,7 +498,7 @@ private fun EnginePlayback(routes: EngineTableRoutes) {
 /** The incoming undo request (§10): the other player's message, what it takes back as far as the viewer has seen, Accept
  * or Deny; never how many actions go. */
 @Composable
-private fun EngineRequestDialog(routes: EngineTableRoutes, opponent: String) {
+private fun EngineRequestDialog(routes: EngineTableRoutes, opponent: String, summary: GameSummary) {
     val game = routes.engine ?: return
     val preview = game.device.requestPreview()
     ScreenDialog({}, title = "$opponent asks to undo", actions = {
@@ -463,6 +510,8 @@ private fun EngineRequestDialog(routes: EngineTableRoutes, opponent: String) {
         val turn = preview?.board?.engine?.turn
         Text("The game goes back to " + (turn?.let { if (it.number == 0) "the opening" else "turn ${it.number}, ${org.asyncttwiz.automatum.EngineProjection.position(it.step).label}" } ?: "an earlier point") +
             if (preview?.unseen == true) ", and actions you haven't seen yet are taken back." else ".", style = MaterialTheme.typography.bodyMedium)
+        // HIS-099: the board it goes back to, as far as the viewer has seen (their local head's when the target is past it)
+        preview?.let { EngineBoardPreview(game, summary, it.board, if (it.unseen) game.device.session.localHead else game.device.request?.target ?: "", routes.viewer) }
         Text("The game waits until you answer.", style = MaterialTheme.typography.bodySmall)
     }
 }
@@ -472,7 +521,8 @@ private fun EngineRequestDialog(routes: EngineTableRoutes, opponent: String) {
  * message, then Undo: done at once when it is free, else sent to the other player as an undo request.
  */
 @Composable
-private fun EngineRewindDialog(routes: EngineTableRoutes, choice: EngineTableRoutes.RewindChoice, names: Map<String, String>, opponent: String) {
+private fun EngineRewindDialog(routes: EngineTableRoutes, choice: EngineTableRoutes.RewindChoice, names: Map<String, String>, opponent: String,
+    summary: GameSummary) {
     val game = routes.engine ?: return
     val device = game.device
     val session = device.session
@@ -496,7 +546,7 @@ private fun EngineRewindDialog(routes: EngineTableRoutes, choice: EngineTableRou
         }, Modifier.testTag("rewind-confirm"), enabled = target != null, icon = if (needsRequest == true) "send" else "withdraw")
     }) {
         Text(if (shown.isEmpty()) "Nothing to undo yet: your actions are still on their way." else "Go back to just before:", style = MaterialTheme.typography.bodyMedium)
-        LazyColumn(Modifier.fillMaxWidth().heightIn(max = 280.dp)) {
+        LazyColumn(Modifier.fillMaxWidth().heightIn(max = 200.dp)) {
             items(shown, key = { it.id }) { event ->
                 val selected = event.parentId == target
                 Row(Modifier.fillMaxWidth().heightIn(min = 44.dp).clickable { target = event.parentId }
@@ -507,6 +557,9 @@ private fun EngineRewindDialog(routes: EngineTableRoutes, choice: EngineTableRou
                 }
             }
         }
+        // HIS-099: the board at the point it goes back to
+        val board = remember(target, game.version) { target?.takeIf { !session.drafting }?.let { runCatching { session.stateAt(it) }.getOrNull() } }
+        if (board != null) EngineBoardPreview(game, summary, board, target!!, routes.viewer)
         if (needsRequest == true) {
             Text("$opponent has seen this or it showed you something new: they are asked first. The game waits meanwhile.",
                 style = MaterialTheme.typography.bodySmall)

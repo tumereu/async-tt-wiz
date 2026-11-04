@@ -119,6 +119,21 @@ class TableChanges(private val now: () -> Long = { System.nanoTime() / 1_000_000
             active[change.key] = ActiveTableChange(change.copy(delta = delta), time, ++serial)
         }
     }
+    /** On engine state (I-D56 step D): [changes] the shown events made, worked out from the engine's own changes; the
+     * board at [cursor] animates (its card motion, and the [shuffled] libraries); a [jump] (a load) clears instead. */
+    fun applyEngine(cursor: String, jump: Boolean, changes: List<TableChange>, shuffled: Set<String>) {
+        if (jump) { clear(); motionCursor = null; return }
+        motionCursor = cursor
+        shuffledLibraries = shuffled
+        val time = now()
+        active.entries.removeAll { time - it.value.started >= WINDOW_MS }
+        for (change in changes) {
+            val old = active[change.key]?.takeIf { time - it.started < WINDOW_MS }
+            val delta = if (old != null && old.change.delta.size == change.delta.size)
+                old.change.delta.zip(change.delta) { a, b -> a + b } else change.delta
+            active[change.key] = ActiveTableChange(change.copy(delta = delta), time, ++serial)
+        }
+    }
     fun expire(key: TableChangeKey, serial: Long) { if (active[key]?.serial == serial) active.remove(key) }
     fun clear() { active.clear(); motionCursor = null; shuffledLibraries = emptySet() }
     companion object {

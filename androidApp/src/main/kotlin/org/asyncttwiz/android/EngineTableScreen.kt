@@ -93,7 +93,9 @@ internal fun EngineTableScreen(controller: LobbyController, accountId: String, h
     val reviewId = routes.review
     val reviewPlay = remember(reviewId, engine.version) { reviewId?.let { engine.reviewPlay(it) } }
     LaunchedEffect(reviewId, reviewPlay == null) { if (reviewId != null && reviewPlay == null) routes.leaveReview() }
-    val play = reviewPlay ?: live
+    // TBL-040 (owner playtest 2026-11-04): what a published board changed plays step by step, in event order
+    val motion = remember(game.id, playId) { EngineMotionQueue() }
+    val play = reviewPlay ?: motion.board(shown.version, shown.transition, live)
     SideEffect {
         if (reviewPlay != null) {
             if (applied.reviewed != reviewPlay.currentNodeId) {
@@ -148,6 +150,8 @@ internal fun EngineTableScreen(controller: LobbyController, accountId: String, h
                             accept = { engine.answerSuggestion(true); controller.engineSent() }),
                         controlsConnected = interactive && !locked && reviewPlay == null,
                         reviewing = reviewing, liveView = !reviewing, changes = changes,
+                        onSceneSettled = if (reviewPlay != null) null else ({ _ -> motion.settled() }),
+                        sceneVersion = if (reviewPlay != null) null else motion.key(),
                         waitingLine = routes.waitingLine(play),
                         timelinePlayback = when {
                             reviewPlay != null -> if (routes.reviewPlaying) TimelinePlaybackStatus.PLAYING else TimelinePlaybackStatus.PAUSED

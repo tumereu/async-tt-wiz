@@ -120,7 +120,7 @@ Turn and step tracking, whose move it is, the top and bottom game bars, life, ga
 - **STK-001** Every way of putting a card on the Stack (from battlefield, hand, graveyard, exile or library) adds a Stack entry pointing at the real card; the real card stays where it is. Several entries may come from the same card. (r17)
 - **STK-002** A hand card's entry is shown face up to both players while it is on the Stack. (r2)
 - **STK-003** Stack entries are always upright and can't be tapped. A real card is never in the Stack itself; only entries pointing at it are (STK-001). (r35)
-- **STK-006** Adding an entry shows a ghost card flying from the card to the Stack; removing one flies back. An entry leaving to the graveyard, battlefield or exile flies to that destination. Undo reverses the flight. (r14)
+- **STK-006** Adding an entry shows a ghost card flying from the card to the Stack; removing one flies back. An entry leaving to the graveyard, battlefield or exile flies to that destination; a spell whose card isn't drawn meanwhile (STK-045) is its card taking off from the hand to the Stack and then flying from its entry to its place, drawn once all the way. Undo reverses the flight. (r51)
 
 ### Stack display
 

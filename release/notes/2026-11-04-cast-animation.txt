@@ -1,0 +1,1 @@
+fix: Casting a creature no longer makes the table flicker: the card flies from your hand to the Stack and on to its place, and what follows (triggers, tokens, other moves) plays one step after another so you can follow it.

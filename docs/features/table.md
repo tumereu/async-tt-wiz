@@ -56,7 +56,7 @@ The battlefield, how cards look on it, how you touch them, their menus and inspe
 - **TBL-037** Tapping is a plain 90° clockwise turn about the card centre in 90 ms; untapping turns it back the same way. (r5)
 - **TBL-038** Moving cards fly at a steady speed (1.2 dp/ms by default, easing out, at most 350 ms, so short moves arrive early); a "Card move speed" setting scales it from 0.25× to 3×. (r14)
 - **TBL-039** Turning, moving, flipping and fading each take their own natural time; a scene lasts as long as its longest part. (r15)
-- **TBL-040** Every card move animates, yours and the opponent's, live and in playback, including moves between piles (library, graveyard, exile) on either side; hand cards slide aside when cards join or leave. (r31)
+- **TBL-040** Every card move animates, yours and the opponent's, live and in playback, including moves between piles (library, graveyard, exile) on either side; hand cards slide aside when cards join or leave. When one board brings several steps at once (your action and what follows it by itself: the passes, a spell resolving, the triggers it sets off and what they make), each step that moves, taps, makes or turns something plays in event order, one after another, each as long as its own animation at the card move speed (no playback pause); a token made as a Stack entry resolves flies out of that entry to its place. While your action's outcome is worked out its own board shows and the panels (whose move, the waiting bar) stay as they were, changing once when the outcome is in. (r51)
 
 ### Gestures
 

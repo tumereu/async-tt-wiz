@@ -27,8 +27,8 @@ import kotlin.test.assertIs
 import kotlin.test.assertTrue
 
 /**
- * I-D56 steps C–D (§14): the table of a game on engine state: the private toggles and the assumer's indicator, the
- * waiting bar with Assume resolves, the catch-up screen, the rewind dialog and the incoming undo request with the board
+ * I-D56 steps C–D (§14): the table of a game on engine state: the private toggles and the unconfirmed mark, the
+ * wait's faint words with Assume in the step arrow's place, the catch-up screen, the rewind dialog and the incoming undo request with the board
  * they go back to, the strip and timeline mode on engine events, the Assume blockers screen with edited blocks, and the
  * other player's shared attack staging.
  */
@@ -47,6 +47,7 @@ class EngineTableScreenshotTest {
      * mode), the strip of the events shown, the change flashes. */
     private fun render(game: EngineGame, viewer: String, presence: ReceivedPresence? = null,
         routes: EngineTableRoutes = EngineTableRoutes(viewer, { game }, {}, { game.play() }), summary: GameSummary = f.game): EngineTableRoutes {
+        routes.opponentName = names.entries.first { it.key != viewer }.value
         val toolkit = TableToolkitController(viewer, { game.play() }, { routes.canAct() }, { action, _ -> routes.local(listOf(action)) },
             playBatch = { actions, _ -> routes.local(actions) }, engine = routes)
         compose.setContent {
@@ -62,6 +63,7 @@ class EngineTableScreenshotTest {
                                     undoHold = { routes.holdUndo() }, controlsConnected = reviewed == null, opponentPresence = presence,
                                     reviewing = reviewed != null, liveView = reviewed == null,
                                     timelinePlayback = if (reviewed != null) TimelinePlaybackStatus.PAUSED else null,
+                                    waitingLine = routes.waitingLine(game.play()),
                                     returnCurrent = if (reviewed != null) ({ routes.leaveReview() }) else null,
                                     liveTimeline = if (events.isEmpty()) null else ({ EngineStrip(events, viewer, false) { routes.enterReview(events.last().id) } }),
                                     bottomPanel = if (reviewed == null) null else ({ _ -> EngineReviewPanel(routes, events, viewer, false, 1_000) })))
@@ -83,22 +85,24 @@ class EngineTableScreenshotTest {
         s.player(PlayerId(f.a)).hand.first { s.obj(it)?.definition?.faces?.first()?.name == name }
     }
 
-    // TRN-059, I-D56 §14 (assumer's indicator): the private toggles and how many answers are assumed
+    // TRN-059, TRN-068: the private toggles, and the unconfirmed mark at the step arrow's corner (no count)
     @Test fun assumedAnswersAndPrivateToggles() {
         val game = aliceAtMain()
-        render(game, f.a)
-        compose.onNodeWithTag("engine-indicator").assertExists()
+        val routes = EngineTableRoutes(f.a, { game }, {}, { game.play() }).apply { opponentName = "Bob" }
+        render(game, f.a, routes = routes)
+        compose.onNodeWithTag("engine-unconfirmed").assertExists()
+        compose.onNodeWithContentDescription("Bob hasn't seen your last moves yet", substring = true).assertExists()
         // HIS-001: the strip shows the events up to her local head (her keep, Bob's assumed keep and passes)
         compose.onNodeWithContentDescription("Event strip").assertExists()
         compose.onNodeWithContentDescription("Timeline mode").assertExists()
         compose.onNodeWithContentDescription("Response mode", substring = true).assertExists()
         compose.onNodeWithContentDescription("Always assume resolves").assertExists()
         compose.onRoot().captureShot("$SCREENSHOTS/engine/assumed-main.png",
-            "Alice kept while Bob was away and is in her first main phase: a violet chip at the left says how many of Bob's answers are assumed and how many actions came since, the strip above the quick actions shows the events so far in each player's colour, and the quick actions are her own Response mode (Auto-skip), Always assume resolves and Autotap mana.")
+            "Alice kept while Bob was away and is in her first main phase: a small violet dot at the step arrow's corner says Bob hasn't seen her last moves yet (no count, nothing over the board), the strip above the quick actions shows the events so far in each player's colour, and the quick actions are her own Response mode (Auto-skip), Always assume resolves and Autotap mana.")
     }
 
-    // STK-044, TRN-062, I-D56 §4, §14: Bob is online, so after Alice's keep the game waits for his; the waiting bar says
-    // so with his presence and offers Assume keep, and the step arrow is gone while he must act
+    // TRN-066, TRN-062, I-D56 §4, §14: Bob is online, so after Alice's keep the game waits for his; faint words over the
+    // battlefield say so (nothing covers the board) and Assume keep takes the step arrow's place while he must act
     @Test fun waitingBarOffersAssumeKeep() {
         val game = EngineGame(f.game.id, f.a, f.base, f.snapshot())
         game.tick(live = true, now = 1_000)
@@ -108,11 +112,12 @@ class EngineTableScreenshotTest {
         assertEquals(GameDevice.Offer.AssumeKeep, waiting.offer)
         render(game, f.a, ReceivedPresence(OpponentPresence(PresenceState.ONLINE, idleSeconds = 0), monotonicMillis()))
         compose.onNodeWithText("Bob is deciding on a mulligan").assertExists()
-        compose.onNodeWithText("Assume keep").assertExists()
+        compose.onNodeWithTag("engine-bar").assertDoesNotExist()
+        compose.onNodeWithTag("engine-wait-action").assertExists()
         compose.onRoot().captureShot("$SCREENSHOTS/engine/waiting-bar.png",
-            "Alice kept while Bob is online: above her hand the waiting bar says Bob is deciding on a mulligan, shows that he is online, and offers Assume keep; there is no step arrow while he must act.")
+            "Alice kept while Bob is online: faint words over the battlefield say Bob is deciding on a mulligan, nothing covers the board or her hand, and Assume keep stands where the step arrow would be.")
         // One tap assumes it: the game goes on to Alice's first main phase
-        compose.onNodeWithText("Assume keep").performClick()
+        compose.onNodeWithTag("engine-wait-action").performClick()
         compose.runOnIdle { assertEquals(GameDevice.Status.YourMove, game.device.status) }
     }
 

@@ -22,7 +22,7 @@ internal object AutoPass {
         val p = state.players.firstOrNull { it.id == player }?.takeUnless { it.lost } ?: return false
         val snap = Snapshot(state)
         // Nothing but passing: playing mana abilities alone does nothing at priority (the mana empties, CR 106.4)
-        if (Options.of(state, player).any { it !is Input.PassPriority && !manaAbility(snap, it) }) return false
+        if (Options.any(state, player) { it !is Input.PassPriority && !manaAbility(snap, it) }) return false
         // Cards only they may see that could let them act: a card in hand, a face-down permanent to turn face up
         // (CR 702.37e), a card they may look at and play; not cards outside the game (a revealed companion is public)
         val hidden = Knowledge.privateTo(state, snap.view, player).filter { state.obj(it)?.zone != Zone.Outside }

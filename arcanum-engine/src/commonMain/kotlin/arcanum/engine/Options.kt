@@ -69,6 +69,20 @@ internal object Options {
         }
     }
 
+    /**
+     * Whether [of] lists an input that [predicate] accepts: the same answer, but with priority the search stops at the
+     * first one found and [predicate] (cheap) is asked before the trial cast or activation of each spell and ability (a
+     * host asks this after every outcome, [AutoPass]).
+     */
+    fun any(state: GameState, player: PlayerId, predicate: (Input) -> Boolean): Boolean {
+        if (arcanum.engine.setup.GameEnd.over(state) || state.player(player).lost || state.pending != null || !state.started ||
+            Combat.waitingForDeclaration(state) || state.priority.holder != player) return of(state, player).any(predicate)
+        val snap = Snapshot(state)
+        return predicate(Input.PassPriority(player)) || lands(snap, player).any(predicate) ||
+            spellWays(snap, player).any { predicate(it) && startable(snap, it) } ||
+            abilityWays(snap, player).any { predicate(it) && startable(snap, it) }
+    }
+
     /** Whether [Engine.perform] accepts [input] in the snapshot's state (its view worked out once for every input tried). */
     private fun accepted(snap: Snapshot, input: Input): Boolean = performed(snap, input) != null
 
@@ -366,7 +380,10 @@ internal object Options {
             }
         }.filter { id -> snap.view[id]?.mechanics.orEmpty().any { it.mechanic is arcanum.api.Mechanic.MayPlay } }
 
-    private fun spells(snap: Snapshot, player: PlayerId): List<Input> = candidates(snap, player).flatMap { card ->
+    private fun spells(snap: Snapshot, player: PlayerId): List<Input> = spellWays(snap, player).filter { startable(snap, it) }.toList()
+
+    /** The casts [spells] tries (each legal to begin by its card and way), lazily, before their trial casts. */
+    private fun spellWays(snap: Snapshot, player: PlayerId): Sequence<Input.Cast> = candidates(snap, player).asSequence().flatMap { card ->
         val o = snap.state.obj(card) ?: return@flatMap emptyList()
         val fromHand = o.zone == Zone.Hand && o.owner == player
         // From the hand: as usual, or under a permission that changes how (without paying its mana cost, CR 601.2f)
@@ -379,7 +396,6 @@ internal object Options {
             }
         } + listOfNotNull(CastWay(fused = true).takeIf { fromHand })).filter { way -> Legality.cantCast(snap, player, card, way) == null }
             .map { Input.Cast(player, card, it) }
-            .filter { startable(snap, it) }
     }
 
     /**
@@ -404,18 +420,20 @@ internal object Options {
         return goesOn(recorder.state, pending)
     }
 
-    private fun abilities(snap: Snapshot, player: PlayerId): List<Input> {
+    private fun abilities(snap: Snapshot, player: PlayerId): List<Input> = abilityWays(snap, player).filter { startable(snap, it) }.toList()
+
+    /** The activations [abilities] tries (each legal to begin), lazily, before their trial activations. */
+    private fun abilityWays(snap: Snapshot, player: PlayerId): Sequence<Input.Activate> {
         val s = snap.state
         // Outside the game: the revealed companion's special action (CR 702.139a)
         val sources = s.battlefield + s.player(player).hand + s.player(player).graveyard + s.exile + s.command +
             s.player(player).outside
-        return sources.flatMap { id ->
+        return sources.asSequence().flatMap { id ->
             (snap.view[id]?.characteristics?.abilities.orEmpty() + Legality.faceDownActions(snap, id) +
                 arcanum.engine.foretell.Foretell.actions(s, snap.view, id))
                 .filter { it.ability is Ability.Activated || it.ability is Ability.SpecialAction }
                 .filter { Legality.cantActivate(snap, player, id, it) == null }
                 .map { Input.Activate(player, id, it.origin) }
-                .filter { startable(snap, it) }
         }
     }
 }

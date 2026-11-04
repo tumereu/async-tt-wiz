@@ -708,6 +708,10 @@ class HistorySceneAnimation(initial: TableScene) {
                 destination.realCardBounds(item.sourceId)?.let { bounds ->
                     start = start + (item.animationId to arrival.copy(bounds = bounds, alpha = 1f))
                 }
+                // STK-006, STK-045 (owner playtest 2026-11-04): a spell's card no longer drawn where it was cast from (its
+                // hand) takes off as its entry; it isn't also left fading out there
+                val real = "card/${item.sourceId}"
+                if (real !in end && start[real]?.item?.projection == false) start = start - real
                 continue
             }
             val pile = destination.items.firstOrNull { it.kind == TableItemKind.PILE && arrival.item.cardId in it.cards } ?: continue
@@ -715,6 +719,16 @@ class HistorySceneAnimation(initial: TableScene) {
             start = start + (arrival.item.animationId to arrival.copy(bounds = bounds,
                 item = arrival.item.copy(zone = pile.zone, viewport = pile.viewport)))
         }
+        // TBL-040 (owner playtest 2026-11-04): a token made as an entry leaves the Stack (the ability or spell that made
+        // it resolving) flies out of that entry to its place
+        val resolving = start.values.firstOrNull { it.item.kind == TableItemKind.CARD && it.item.projection &&
+            it.item.zone == org.asyncttwiz.protocol.PlayZone.STACK && !target.stackContains(it.item.cardId) && it.item.animationId !in end }
+        val madeTokens = if (resolving == null) emptyList() else end.values.filter { it.item.kind == TableItemKind.CARD &&
+            it.item.token && !it.item.projection && it.item.zone == org.asyncttwiz.protocol.PlayZone.BATTLEFIELD &&
+            it.item.animationId !in start && destination.items.none { old -> old.kind == TableItemKind.CARD && old.cardId == it.item.cardId } }
+        for (token in madeTokens) start = start + (token.item.animationId to token.copy(bounds = resolving!!.bounds,
+            item = token.item.copy(viewport = resolving.item.viewport)))
+        if (madeTokens.isNotEmpty()) start = start - resolving!!.item.animationId
         // A removed occurrence flies home independently of the real card, which stays drawn in place.
         // Membership (not the top-three drawings) distinguishes removal from a newly covered peek.
         for (departure in start.values.filter { it.item.kind == TableItemKind.CARD && it.item.projection &&
@@ -751,7 +765,7 @@ class HistorySceneAnimation(initial: TableScene) {
             end = end + (key to HistoryAnimatedItem(drawing(target, to), to.bounds, 0f))
         }
         val flights = stackRemovalFlights(destination, target)
-        stackFlightIds = flights.map { it.entry.animationId }.toSet()
+        val realFlights = HashSet<String>()
         for (flight in flights) {
             val entry = flight.entry
             val departure = start[entry.animationId] ?: HistoryAnimatedItem(entry, entry.bounds, 1f)
@@ -760,10 +774,21 @@ class HistorySceneAnimation(initial: TableScene) {
                 // The real card is already at its accepted destination; do not also fly it from
                 // Hand/Battlefield while its Stack projection is resolving to that same place.
                 val realId = "card/${entry.sourceId}"
-                end[realId]?.let { start = start + (realId to it) }
+                val real = end[realId]
+                if (real != null && realId !in start) {
+                    // STK-006 (owner playtest 2026-11-04): a spell's card that wasn't drawn while its entry was on the Stack
+                    // (STK-045) flies itself from the entry's place to where it goes; the entry is gone with it
+                    start = start - entry.animationId + (realId to real.copy(bounds = departure.bounds, alpha = 1f,
+                        item = real.item.copy(viewport = departure.item.viewport)))
+                    end = end - entry.animationId
+                    realFlights += realId
+                    continue
+                }
+                real?.let { start = start + (realId to it) }
                 end = end + (entry.animationId to departure.copy(bounds = flight.destination.bounds, alpha = 0f))
             }
         }
+        stackFlightIds = flights.map { it.entry.animationId }.toSet() + realFlights + madeTokens.map { it.item.animationId }
         // Rotation changes its endpoint AABB/anchor too; that alone is not a move. Any other
         // transition (including a move alongside a tap) keeps the longer scene duration.
         rotatingCardIds = end.values.mapNotNull { b ->

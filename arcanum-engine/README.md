@@ -16,6 +16,7 @@ Engine.newGame(seats, startingLife): GameState   // a game before it begins; Inp
 Engine.result(state): GameResult?                // Won(player) or Draw once the game is over (CR 104)
 Engine.visible(state, player): Set<ObjectId>     // the objects whose identity a player may know now (D60)
 Engine.shouldPassFor(state, player): Boolean     // a host passes priority for this player now (I-D3, I-D18)
+Engine.passCheck(state, player): PassCheck      // shouldPassFor as set and with the player's own skip on, one search
 Engine.decider(state, player): PlayerId          // who makes this player's decisions now (CR 723; see Controlling another player)
 Engine.revealed(before, changes, viewer): Set<CardId> // cards the changes show the viewer at some moment, new to them (full information)
 Engine.unknownOrder(state, player): List<List<ObjectId>> // the library's parts whose order nobody knows (CR 401.2)

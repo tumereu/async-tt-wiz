@@ -189,6 +189,9 @@ class GameDevice(
         data object Confirmed : Acted
         /** Staging behind the head: kept on the device, sent only as the declaration itself (§6). */
         data object Kept : Acted
+        /** Made and shown on the host's device while its event is still being finished there (SYS-025: a host that
+         * shows the action at [act]'s performed point answers this; a later refusal is told as a note). */
+        data object Made : Acted
         /** Not done, for [reason] ([REVEALS_HIDDEN]: wait for the other player to catch up). */
         data class Refused(val reason: String) : Acted
     }
@@ -319,7 +322,11 @@ class GameDevice(
             return WhoActs.automaticAnswer(model, d) ?: oneAnswer(s, d)
         }
         val holder = s.priority.holder
-        if (holder != null) return Input.PassPriority(holder).takeIf { Engine.shouldPassFor(s, holder) || modePasses(s, holder) }
+        if (holder != null) {
+            // One search of the player's options answers both (the engine's own pass and their mode's)
+            val check = Engine.passCheck(s, holder)
+            return Input.PassPriority(holder).takeIf { check.asSet || modePasses(s, holder, check) }
+        }
         if (endTurn == s.turn.number && s.turn.active == me)
             return Engine.options(s, me).firstOrNull { it is Input.DeclareAttackers && it.attacks.isEmpty() }
         return null
@@ -330,13 +337,13 @@ class GameDevice(
         else Engine.options(s, d.player).filterIsInstance<Input.Answer>().filter { it.decision == d.id }.singleOrNull()
 
     /** Whether this player's device passes for [player] (theirs to decide) on [s] by their mode (§2) or an End turn. */
-    private fun modePasses(s: GameState, player: PlayerId): Boolean {
+    private fun modePasses(s: GameState, player: PlayerId, check: arcanum.engine.PassCheck? = null): Boolean {
         if (endTurn == s.turn.number) return true
         val point = Stops.stop(s, player) || Stops.pause(s, player)
         return when (settings.mode) {
             ResponseMode.FullControl -> false
             ResponseMode.Normal -> !point
-            ResponseMode.AutoSkip -> !point || NextStop.passesWithOwnCards(s, player)
+            ResponseMode.AutoSkip -> !point || (check?.ownSkipOn ?: NextStop.passesWithOwnCards(s, player))
         }
     }
 
@@ -438,13 +445,19 @@ class GameDevice(
      * rule) and what [follow] gives after it is the player's next action, made after the confirmed event (at the head, or
      * at the next assumption about them: confirming or branching it in turn); any other input branches with a new line.
      * A concession at any time (behind the head: a branch, §11).
+     *
+     * [performed] (SYS-025): called once the player's inputs are made at the head, before what follows by itself is folded
+     * in, when what is made so far shows this player nothing the information rule holds back: the model already shows
+     * the action, so a host may show it before the event is finished. The action may still be refused after it: by the
+     * information rule (what follows by itself would show a hidden card, [REVEALS_HIDDEN]) or an engine failure.
      */
-    fun act(input: Input, table: List<TableChange> = emptyList(), follow: (GameModel) -> Input? = { null }): Acted =
-        act(input, table, follow, null)
+    fun act(input: Input, table: List<TableChange> = emptyList(), performed: (() -> Unit)? = null,
+        follow: (GameModel) -> Input? = { null }): Acted = act(input, table, follow, null, performed)
 
-    private fun act(input: Input, table: List<TableChange>, follow: (GameModel) -> Input?, replay: ArrayDeque<Input>?): Acted {
+    private fun act(input: Input, table: List<TableChange>, follow: (GameModel) -> Input?, replay: ArrayDeque<Input>?,
+        performed: (() -> Unit)? = null): Acted {
         refusal(input)?.let { return Acted.Refused(it) }
-        if (!session.behind) return make(input, assumed = false, follow = follow, table = table, player = true)
+        if (!session.behind) return make(input, assumed = false, follow = follow, table = table, player = true, performed = performed)
         val stop = status as? Status.Stopped
         if (stop != null && Acceptance.confirms(input, stop.assumed)) return confirmThen(input, table, follow, replay)
         if (stop == null && input !is Input.Concede) return Acted.Refused("playback")
@@ -559,7 +572,7 @@ class GameDevice(
 
     /** Makes [input] (assumed: the other player's, §3) as an event at the tip, or at the local head with [newLine]. */
     private fun make(input: Input, assumed: Boolean, follow: (GameModel) -> Input? = { null }, table: List<TableChange> = emptyList(),
-        newLine: Int? = null, player: Boolean = false): Acted {
+        newLine: Int? = null, player: Boolean = false, performed: (() -> Unit)? = null): Acted {
         // The server's rules (§6): the player's own inputs (or engine-automatic answers), the other player's only assumed
         try {
             val kind = WhoActs.kind(model, input, me, assumed)
@@ -580,6 +593,9 @@ class GameDevice(
             session.abandon()
             return Acted.Refused(e.message ?: "refusedByEngine")
         }
+        // SYS-025: what is made so far may be shown now, unless it alone would show this player something the information
+        // rule holds back (then the whole event would be refused too)
+        if (performed != null && (before == null || !shows(before, builder))) performed()
         return finish(builder, own = !assumed, before = before, player = player)
     }
 
@@ -635,8 +651,10 @@ class GameDevice(
             val mine = Engine.decider(s, holder) == me
             // After an assumed input only engine-automatic answers fold: the player's own inputs are their own event
             if (mine && !own) return
-            val forced = Engine.shouldPassFor(s, holder)
-            val yields = mine && !forced && modePasses(s, holder)
+            // One search of the holder's options answers both the forced pass and their own mode's (playtest 2026-11-04)
+            val check = Engine.passCheck(s, holder)
+            val forced = check.asSet
+            val yields = mine && !forced && modePasses(s, holder, check)
             if (!forced && !yields) return
             if (s.turn.number >= start + 2 && Stops.stop(s, s.turn.active)) return
             if (yields && !yielded.add(Engine.loopKey(s))) return

@@ -458,4 +458,8 @@ open game is loaded on the engine thread (list games keep their newest head unti
 published before the device's own steps that follow it, and a probe logs (and with reports on, records) an own action
 slower than 20 ms with its wait for the engine thread, its work and its board. The wait is faint words over the
 battlefield with Assume in the step arrow's place (TRN-066); the indicator is a dot at the arrow's corner (TRN-068).
-Still open: heads carry the whole engine snapshot with every 30 s heartbeat (switch-review #11, server side).
+Then (owner decision for #11): the games list reads summaries changed since a token (V61 marks each game write with its
+transaction id; SYS-075), only the open game's subscription carries its play and engine state (SubscribeGame.engine;
+heartbeat heads are summaries), a game no longer open is let go on the device, and nothing else of the list is read while
+a game is open. Engine.passCheck answers both no-choice questions from one search, and an own action's board is published
+at GameDevice.act's performed point, before what follows by itself is folded in (Acted.Made).

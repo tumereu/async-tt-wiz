@@ -17,6 +17,10 @@ internal class LobbyRefresh(private val scope: LobbyScope, private val api: Lobb
     private val epoch get() = scope.epoch
     private val latest get() = scope.latest
     @Volatile private var refreshVersion = 0L
+    /** Switch-review #11: the tokens the last list reads answered (main thread): the next read asks only for what changed
+     * since them. Null: the whole lists are read (first, after a failure, on return to the foreground). */
+    private var gamesSince: String? = null
+    private var invitationsSince: String? = null
     @Volatile private var lifecycleVersion = 0L
     @Volatile var inForeground = true
         private set
@@ -24,7 +28,7 @@ internal class LobbyRefresh(private val scope: LobbyScope, private val api: Lobb
     private val quietFailures = QuietRefreshFailures(clock)
     /** Fences a list read in flight, so its result is dropped. */
     fun fence() { refreshVersion++ }
-    fun clear() { refreshError = null; quietFailures.succeeded() }
+    fun clear() { refreshError = null; quietFailures.succeeded(); gamesSince = null; invitationsSince = null }
     fun background() {
         inForeground = false
         session?.background()
@@ -37,6 +41,8 @@ internal class LobbyRefresh(private val scope: LobbyScope, private val api: Lobb
         // Like GameSession.foreground's action-grace reset, an old interrupted read must not
         // present a reconnect error or prevent the silent resume attempt from starting.
         refreshVersion++
+        // Back from the background: the whole lists (names and avatars change without a game changing)
+        gamesSince = null; invitationsSince = null
         state = state.copy(busy = false, backgroundLoading = false,
             error = state.error.takeUnless { it == refreshError })
         refreshError = null
@@ -48,6 +54,11 @@ internal class LobbyRefresh(private val scope: LobbyScope, private val api: Lobb
         if (closed || !inForeground || state.busy || state.mutating) return
         val token = credential() ?: return
         val generation = epoch; val selected = state.selected
+        // Switch-review #11: once the lists are loaded, only what changed since the last read (summaries: no play or
+        // engine state); with a game open nothing else is read (no contacts, no head: the game's own stream has it)
+        val changes = state.loaded && gamesSince != null && invitationsSince != null
+        val sinceGames = gamesSince; val sinceInvitations = invitationsSince
+        val needsHead = selected != null && (!changes || state.detail?.id != selected)
         val version = ++refreshVersion; val lifecycle = lifecycleVersion
         fun current() = generation == epoch && version == refreshVersion && inForeground
         val atStart = latest.toMap()
@@ -60,6 +71,8 @@ internal class LobbyRefresh(private val scope: LobbyScope, private val api: Lobb
             if (!current()) return@execute
             val result = runCatching { runBlocking {
                 val contacts = mutableListOf<AccountIdentity>(); val games = mutableListOf<GameSummary>(); val invites = mutableListOf<GameSummary>()
+                val removedGames = mutableListOf<String>(); val removedInvites = mutableListOf<String>()
+                var gamesToken: String? = null; var invitesToken: String? = null
                 suspend fun pages(read: suspend (String?) -> String?): Boolean {
                     var after: String? = null; val seen = mutableSetOf<String>()
                     do {
@@ -68,19 +81,40 @@ internal class LobbyRefresh(private val scope: LobbyScope, private val api: Lobb
                     } while (after != null)
                     return current()
                 }
-                if (!pages { cursor -> serviceRetry(current = ::current, delays = delays) { api.contacts(token, cursor) }.let { contacts.addAll(it.contacts); it.next } }) return@runBlocking null
-                if (!pages { cursor -> serviceRetry(current = ::current, delays = delays) { api.games(token, false, cursor) }.let { games.addAll(it.games); it.next } }) return@runBlocking null
-                if (!pages { cursor -> serviceRetry(current = ::current, delays = delays) { api.games(token, true, cursor) }.let { invites.addAll(it.games); it.next } }) return@runBlocking null
-                val detail = selected?.let {
+                suspend fun list(invitations: Boolean, since: String?, cursor: String?): GameList =
+                    (if (since != null) api.gamesSince(token, invitations, since, cursor) else null)
+                        ?: api.games(token, invitations, cursor)
+                var delta = changes
+                if (!changes && !pages { cursor -> serviceRetry(current = ::current, delays = delays) { api.contacts(token, cursor) }.let { contacts.addAll(it.contacts); it.next } }) return@runBlocking null
+                if (!pages { cursor -> serviceRetry(current = ::current, delays = delays) { list(false, sinceGames.takeIf { changes }, cursor) }.let {
+                        if (cursor == null) { gamesToken = it.token; if (changes && it.token == null) delta = false }
+                        games.addAll(it.games); removedGames.addAll(it.removed); it.next } }) return@runBlocking null
+                if (!pages { cursor -> serviceRetry(current = ::current, delays = delays) { list(true, sinceInvitations.takeIf { changes }, cursor) }.let {
+                        if (cursor == null) invitesToken = it.token
+                        invites.addAll(it.games); removedInvites.addAll(it.removed); it.next } }) return@runBlocking null
+                // A server that can't answer changes answered whole lists: then they are read as such (contacts too)
+                if (changes && !delta) {
+                    if (!pages { cursor -> serviceRetry(current = ::current, delays = delays) { api.contacts(token, cursor) }.let { contacts.addAll(it.contacts); it.next } }) return@runBlocking null
+                }
+                val detail = selected?.takeIf { needsHead }?.let {
                     try { serviceRetry(current = ::current, delays = delays) { api.head(token, it) } } catch (failure: LobbyFailure) {
                         if (failure.code == "not_found") null else throw failure
                     }
                 }
-                LobbyState(contacts = contacts, games = games, invitations = invites, detail = detail)
+                ListRead(LobbyState(contacts = contacts, games = games, invitations = invites, detail = detail), delta,
+                    removedGames, removedInvites, gamesToken, invitesToken)
             } }
             post { if (!closed && generation == epoch && version == refreshVersion) {
-                val data = result.getOrNull()
+                val read = result.getOrNull()
                 val failure = result.exceptionOrNull()
+                // A changes read is applied to the lists shown, so what follows sees whole lists either way
+                val data = read?.let { r -> if (!r.delta) r.state else r.state.copy(contacts = state.contacts,
+                    games = applyChanges(state.games, r.state.games, r.removedGames),
+                    invitations = applyChanges(state.invitations, r.state.invitations, r.removedInvites),
+                    detail = r.state.detail ?: state.detail?.takeIf { it.id == selected }?.let { shown ->
+                        (r.state.games + r.state.invitations).firstOrNull { it.id == selected } ?: shown }) }
+                if (read != null) { gamesSince = read.gamesToken; invitationsSince = read.invitesToken }
+                else if (failure != null) { gamesSince = null; invitationsSince = null }
                 if (data != null) {
                     quietFailures.succeeded()
                     state = state.copy(unreachable = false)
@@ -120,6 +154,18 @@ internal class LobbyRefresh(private val scope: LobbyScope, private val api: Lobb
             } }
         }
     }
+    /** One list read: whole lists, or ([delta]) the games changed since the tokens and the ids that left each list. */
+    private class ListRead(val state: LobbyState, val delta: Boolean, val removedGames: List<String>, val removedInvites: List<String>,
+        val gamesToken: String?, val invitesToken: String?)
+
+    /** [rows] with [changed] put in (replacing a row of the same game, else added) and [removed] taken out. */
+    private fun applyChanges(rows: List<GameSummary>, changed: List<GameSummary>, removed: List<String>): List<GameSummary> {
+        val byId = changed.associateBy { it.id }
+        val gone = removed.toSet() - byId.keys
+        val kept = rows.filter { it.id !in gone }.map { old -> byId[old.id]?.takeIf { GameSession.newerOrEqual(it.revision, old.revision) } ?: old }
+        return kept + changed.filter { new -> kept.none { it.id == new.id } }
+    }
+
     private fun leaveUnavailable() = scope.leaveUnavailable()
     private fun connectionState() = scope.connectionState()
 }

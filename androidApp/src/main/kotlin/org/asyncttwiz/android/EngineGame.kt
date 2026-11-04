@@ -38,6 +38,11 @@ interface EngineWorker {
     /** Runs [work] on the main thread. */
     fun main(work: () -> Unit)
 
+    /** Runs [work] on the engine thread and waits only until it calls its release (or ends): an own action whose board
+     * shows before its event is finished (SYS-025). Without a release (null: inline when already on the engine thread,
+     * and [call] by default, so tests run it in order) the caller waits for all of it. */
+    fun early(work: (release: (() -> Unit)?) -> Unit) { call { work(null) } }
+
     /** Everything inline on the caller's thread (tests and simulations: the same order, synchronously). */
     object Direct : EngineWorker {
         override fun run(work: () -> Unit) = work()
@@ -69,6 +74,16 @@ interface EngineWorker {
 
         override fun main(work: () -> Unit) {
             if (android.os.Looper.myLooper() == android.os.Looper.getMainLooper()) work() else handler.post(work)
+        }
+
+        override fun early(work: (release: (() -> Unit)?) -> Unit) {
+            if (Thread.currentThread() === thread) { work(null); return }
+            val gate = java.util.concurrent.CountDownLatch(1)
+            executor.execute {
+                try { work { gate.countDown() } } catch (failure: Throwable) { AppLog.error("engine", "Engine work failed", failure) }
+                finally { gate.countDown() }
+            }
+            gate.await()
         }
     }
 }
@@ -176,12 +191,35 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
         val shown = Shown(++published, play, status, device.locked, device.settings, device.opponent, session.behind, tip,
             session.localHead, session.drafting, device.request, device.indicator(), device.undoTarget(), line, held, lastTransition,
             device.needsReload)
+        lastShown = shown
         worker.main {
             this.notes.addAll(notes)
             this.shown = shown
             loadFailed = false
             onShown()
         }
+    }
+
+    /** The last [Shown] published (engine thread). */
+    private var lastShown: Shown? = null
+
+    /**
+     * SYS-025: the board with the player's own action made, while its event is still being finished (what follows by
+     * itself folded in): the last published panels with the board projected anew. Engine thread, inside the action; the
+     * board after it ([publish]) animates from the board before the action as usual.
+     */
+    private fun preview() {
+        val last = lastShown ?: return
+        val attention = when (last.status) {
+            GameDevice.Status.YourMove, GameDevice.Status.Drafting, is GameDevice.Status.Stopped -> me
+            is GameDevice.Status.Waiting -> device.opponent.value
+            else -> null
+        }
+        val play = EngineProjection.project(base, device.model, me, device.session.tip, attention, staging, tokenArt, pictures)
+        val shown = Shown(++published, play, last.status, last.locked, last.settings, last.opponent, last.behind, last.tip,
+            last.localHead, last.drafting, last.request, last.indicator, last.undoTarget, last.line, last.held, last.transition,
+            last.needsReload)
+        worker.main { this.shown = shown; onShown() }
     }
 
     /** Runs [work] with the device on the engine thread and waits for it (a dialog's or a route's read of the device). */
@@ -290,10 +328,10 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
     }
 
     /** The step arrow's pass: the player's own priority (at a decision stop: their answer to what was assumed). */
-    fun pass(): GameDevice.Acted = acting(STALE, after = false) {
-        val holder = device.model.engine.priority.holder ?: return@acting GameDevice.Acted.Refused("noPriority")
-        if (arcanum.engine.Engine.decider(device.model.engine, holder).value != me) return@acting GameDevice.Acted.Refused("notYours")
-        act(Input.PassPriority(holder))
+    fun pass(): GameDevice.Acted = early("pass") { performed ->
+        val holder = device.model.engine.priority.holder ?: return@early GameDevice.Acted.Refused("noPriority")
+        if (arcanum.engine.Engine.decider(device.model.engine, holder).value != me) return@early GameDevice.Acted.Refused("notYours")
+        device.act(Input.PassPriority(holder), performed = performed)
     }
 
     // ---- The server
@@ -365,7 +403,7 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
      * one acting point; the device answers the randomness and makes the passes that follow by itself. */
     fun send(inputs: List<Input>, table: List<TableChange> = emptyList()): GameDevice.Acted {
         if (inputs.isEmpty()) return GameDevice.Acted.Refused("nothing")
-        return acting(STALE, "send") {
+        return early("send") { performed ->
             val first = inputs.first()
             val rest = inputs.drop(1).iterator()
             // I-D54 §8: a declaration ends the shared staging of it in the same event (at the head; at a decision stop the
@@ -374,12 +412,12 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
             val clear = if (device.session.behind) emptyList() else listOfNotNull(
                 t.attackDraft?.takeIf { inputs.any { it is Input.DeclareAttackers } }?.let { TableChange.AttackDraft(it, null) },
                 t.blockDraft?.takeIf { inputs.any { it is Input.DeclareBlockers } }?.let { TableChange.BlockDraft(it, null) })
-            device.act(first, table + clear) { if (rest.hasNext()) rest.next() else null }
+            device.act(first, table + clear, performed) { if (rest.hasNext()) rest.next() else null }
         }
     }
 
     /** One input of the player's own (a pass, a keep, a concession). */
-    fun act(input: Input): GameDevice.Acted = acting(STALE, "act") { device.act(input) }
+    fun act(input: Input): GameDevice.Acted = early("act") { performed -> device.act(input, performed = performed) }
 
     /** The step arrow's End turn (TRN-057): the device passes for the player until the turn ends. */
     fun endTurn() { acting(Unit, "endTurn") { device.endTurn(now) } }
@@ -447,6 +485,46 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
         }.also { timing?.acted = System.nanoTime() }
         if (refused) worker.main { notes.add(GameDevice.Note.Refused(STALE_REASON)) } else if (after) after(timing)
         return result
+    }
+
+    /**
+     * The player's own action [what] through [GameDevice.act] (SYS-025): like [acting], but the caller waits only until
+     * the action is made: its board is published at [GameDevice.act]'s performed point, before what follows by itself
+     * is folded into its event (on a phone that can take longer than a frame), and the caller gets [GameDevice.Acted.Made].
+     * A refusal after that (what follows by itself would show a hidden card on a tentative line, TRN-067, or an engine
+     * failure) is told as a note and the board goes back. Without the performed point (refused before it) it is [acting].
+     */
+    private fun early(what: String, work: (performed: () -> Unit) -> GameDevice.Acted): GameDevice.Acted {
+        val seen = shown?.version
+        val timing = Timing(what, System.nanoTime(), DebugLatency.begin(gameId, "engine:$what", 0)?.also { it.submitted(null, predicted = true) })
+        val result = java.util.concurrent.atomic.AtomicReference<GameDevice.Acted?>(null)
+        worker.early { release ->
+            timing.started = System.nanoTime()
+            if (!inAction && seen != null && seen != published) {
+                result.set(STALE)
+                worker.main { notes.add(GameDevice.Note.Refused(STALE_REASON)) }
+                return@early
+            }
+            val outer = !inAction && release != null
+            val wasIn = inAction
+            inAction = true
+            var early = false
+            val acted = try {
+                work {
+                    if (outer) {
+                        preview()
+                        timing.acted = System.nanoTime(); timing.shown(timing.acted)
+                        early = true
+                        result.set(GameDevice.Acted.Made)
+                        release!!()
+                    }
+                }
+            } finally { if (!wasIn) inAction = false }
+            if (!early) { timing.acted = System.nanoTime(); result.set(acted) }
+            else if (acted is GameDevice.Acted.Refused) worker.main { notes.add(GameDevice.Note.Refused(acted.reason)) }
+            after(if (early) null else timing)
+        }
+        return result.get() ?: GameDevice.Acted.Refused("failed")
     }
 
     /** Engine thread: an action is being worked out ([acting]). */

@@ -41,6 +41,7 @@ Rules that every feature follows: what the product is, who decides game state, h
 - **SYS-026** Games reach 10,000+ actions. Normal play, sync, navigation, undo and saving never replay or rebuild from the start of the game: a state comes from the nearest checkpoint (at most 63 events back) and the events after it. (r48)
 - **SYS-027** Every event stores exactly how to apply and revert it, checked against the current values. Timeline stepping, undo and opponent animations move step by step from the current position. (r6)
 - **SYS-028** Background lobby refreshes never redraw the open game table. (r30)
+- **SYS-075** The games list is kept current from lightweight summaries: the first read and each return to the app read the whole list, and between them only the games changed since the last read are fetched (ended or declined games drop out). While a game is open nothing else of the list is read, and only the open game is loaded as a game on the device; the others are summaries until opened. (r50)
 - **SYS-029** Every single-tap menu opens immediately, without waiting out the double-tap window. (r8)
 - **SYS-030** Test and debug builds record every action that took over 20 ms or had to wait for the server, plus stutters and reconnects, and upload them as reports. Production builds do the same only after the player turned reports on (LOB-104). (r35)
 

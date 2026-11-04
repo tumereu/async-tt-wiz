@@ -1,0 +1,1 @@
+fix: The games list and an open game use much less data and battery: only what changed is fetched, and only the open game is loaded

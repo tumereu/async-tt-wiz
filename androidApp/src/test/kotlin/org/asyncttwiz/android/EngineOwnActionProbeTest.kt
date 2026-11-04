@@ -29,7 +29,7 @@ class EngineOwnActionProbeTest {
         val hand = game.read { d -> d.model.engine.player(PlayerId(f.a)).hand.toList() }
         for (card in hand) {
             val acted = game.act(Input.PlayLand(PlayerId(f.a), card))
-            if (acted is GameDevice.Acted.Sent) return acted
+            if (acted is GameDevice.Acted.Sent || acted == GameDevice.Acted.Made) return acted
         }
         error("no land in hand")
     }
@@ -75,14 +75,61 @@ class EngineOwnActionProbeTest {
         } finally { worker.close() }
     }
 
-    /** A real engine thread with the test's own thread as the main thread: what it posts runs on [drain]. */
-    private class ThreadWorker : EngineWorker, AutoCloseable {
+    // SYS-025 (playtest 2026-11-04): on the engine thread the tap waits only until the land is made; its board is already
+    // posted to the main thread then, before the passes that follow it are worked out. The times before (waiting for the
+    // whole action) and after are printed, warmed up over several games.
+    @Test fun aLandPlayShowsBeforeItsEventIsFinished() {
+        val rounds = 6
+        for (early in listOf(false, true)) {
+            val times = mutableListOf<Double>()
+            repeat(rounds) {
+                val worker = ThreadWorker(early)
+                try {
+                    val game = EngineGame(f.game.id, f.a, f.base, f.snapshot(), worker = worker)
+                    worker.drain()
+                    mainPhase(game, worker::drain)
+                    val before = lands(game)
+                    val hand = game.read { d -> d.model.engine.player(PlayerId(f.a)).hand.toList() }
+                    var acted: GameDevice.Acted? = null
+                    var took = 0L
+                    for (card in hand) {
+                        val start = System.nanoTime()
+                        acted = game.act(Input.PlayLand(PlayerId(f.a), card))
+                        took = System.nanoTime() - start
+                        if (acted is GameDevice.Acted.Sent || acted == GameDevice.Acted.Made) break
+                        worker.drain()
+                    }
+                    times += took / 1e6
+                    if (early) {
+                        assertEquals(GameDevice.Acted.Made, acted)
+                        worker.drainMain()
+                        assertEquals(before + 1, lands(game), "the land shows from what was posted when the tap returned")
+                    }
+                    worker.drain()
+                    assertEquals(before + 1, lands(game))
+                } finally { worker.close() }
+            }
+            println("land play, tap to return (${if (early) "board at the performed point" else "whole action"}): " +
+                times.joinToString { "%.1f".format(it) } + " ms")
+        }
+    }
+
+    /** A real engine thread with the test's own thread as the main thread: what it posts runs on [drain]. With [early],
+     * an own action returns at its release, as [EngineWorker.Background] does. */
+    private class ThreadWorker(private val early: Boolean = false) : EngineWorker, AutoCloseable {
         @Volatile private var thread: Thread? = null
         private val executor = java.util.concurrent.Executors.newSingleThreadExecutor { r -> Thread(r, "test-engine").also { thread = it } }
         private val main = java.util.concurrent.LinkedBlockingQueue<() -> Unit>()
         override fun run(work: () -> Unit) { executor.execute(work) }
         override fun <T> call(work: () -> T): T = if (Thread.currentThread() === thread) work() else executor.submit<T> { work() }.get()
         override fun main(work: () -> Unit) { main.add(work) }
+        override fun early(work: (release: (() -> Unit)?) -> Unit) {
+            if (!early || Thread.currentThread() === thread) return super.early(work)
+            val gate = java.util.concurrent.CountDownLatch(1)
+            executor.execute { try { work { gate.countDown() } } finally { gate.countDown() } }
+            gate.await()
+        }
+        fun drainMain() { while (true) (main.poll() ?: break).invoke() }
         fun drain() {
             do {
                 executor.submit {}.get()

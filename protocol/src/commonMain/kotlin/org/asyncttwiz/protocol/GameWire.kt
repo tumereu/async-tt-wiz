@@ -10,7 +10,7 @@ const val CURRENT_GAMEPLAY_RULES_VERSION = 36
 /** The socket protocol version of this build (SYS-033: one compatible set of apps and server). Apps offer it
  *  as [GameHello.maxMinor] and the server welcomes with its own: a lower offer gets [GameUpgradeRequired] (the app
  *  is older), and an app welcomed with a lower minor waits for the server update. Bump it with any socket wire change. */
-const val GAME_PROTOCOL_MINOR = 6
+const val GAME_PROTOCOL_MINOR = 7
 
 @Serializable enum class PresenceState { ONLINE, IDLE, OFFLINE }
 /** The opponent's presence in this game. Ages are whole seconds as of sending, so the clocks never need to agree.
@@ -85,8 +85,11 @@ const val GAME_PROTOCOL_MINOR = 6
 @Serializable @SerialName("openStream") data class OpenGameStream(val gameId: String, val streamId: String) : GameClientMessage
 @Serializable @SerialName("resumeStream") data class ResumeGameStream(val gameId: String, val streamId: String,
     val requestIds: List<String>) : GameClientMessage
+/** Subscribes to [gameId]'s revisions after [revision] and its head. [engine] (switch-review #11): the open game, whose
+ * head carries its engine state and whose revisions their engine events; otherwise (a game in the list) the revisions
+ * carry only their summary, chat and preparation, and every head is a summary. Sent again it switches between the two. */
 @Serializable @SerialName("subscribe") data class SubscribeGame(val gameId: String, val revision: String = "0",
-    val readFormats: List<Int> = listOf(1)) : GameClientMessage
+    val readFormats: List<Int> = listOf(1), val engine: Boolean = true) : GameClientMessage
 /** [expectedSelection] (ordinary play only): the active line the client acted on, as the
  *  tree's selection control id ([GameplayTree.selectionKey]). It changes only when a continuation forks and
  *  becomes active, never by Undo/Redo or play on the same line. If it no longer matches, the action raced

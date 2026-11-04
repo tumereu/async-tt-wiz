@@ -60,7 +60,8 @@ class LobbyHttp(private val runtime: ServiceRuntime) {
             } else when (path) {
                 "/v1/users" -> lobby.search(principal, request.getParameter("username").orEmpty())
                 "/v1/contacts" -> lobby.contacts(principal, request.getParameter("after"))
-                "/v1/games", "/v1/invitations" -> lobby.list(principal, request.getParameter("after"), path == "/v1/invitations")
+                "/v1/games", "/v1/invitations" -> lobby.list(principal, request.getParameter("after"), path == "/v1/invitations",
+                    request.getParameter("since"))
                 else -> lobby.head(principal, parts[3])
             }
             reply(result)

@@ -102,6 +102,13 @@ object Engine {
     fun shouldPassFor(state: GameState, player: PlayerId): Boolean = arcanum.engine.turn.AutoPass.shouldPass(state, player)
 
     /**
+     * [shouldPassFor] two ways from one search of [options] (a host with its own "pass when I have no choice" asks both on
+     * the same state): with the deciding player's setting as it is ([PassCheck.asSet], the same as [shouldPassFor]) and
+     * as if [player]'s own setting were on ([PassCheck.ownSkipOn]).
+     */
+    fun passCheck(state: GameState, player: PlayerId): PassCheck = arcanum.engine.turn.AutoPass.check(state, player)
+
+    /**
      * Who makes [player]'s choices and decisions now (CR 723.5): the player controlling them during this turn (723.1) or
      * its combat phase (723.2), else [player]. Decisions, options and inputs stay [player]'s own (they use only that
      * player's resources, 723.5a, and stay the active player, 723.3); a host lets the decider answer [player]'s decisions
@@ -179,6 +186,15 @@ object Engine {
  */
 @Serializable
 data class Outcome(val changes: List<Change>, val pending: Pending?)
+
+/** [Engine.passCheck]: whether a host passes priority for a player with the deciding player's "Skip when I have no
+ * choice" as it is ([asSet]), and with the player's own setting on ([ownSkipOn]). */
+data class PassCheck(val asSet: Boolean, val ownSkipOn: Boolean) {
+    companion object {
+        /** Neither: the player may do something, or doesn't hold priority. */
+        val NONE = PassCheck(asSet = false, ownSkipOn = false)
+    }
+}
 
 /** A [decision] and the [continuation] that goes on once it is answered (D58). The host stores both as they are. */
 @Serializable

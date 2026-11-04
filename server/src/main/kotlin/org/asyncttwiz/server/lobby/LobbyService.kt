@@ -12,6 +12,7 @@ import org.asyncttwiz.server.generated.tables.Account.ACCOUNT
 import org.asyncttwiz.server.generated.tables.AccountRequest.ACCOUNT_REQUEST
 import org.asyncttwiz.server.generated.tables.Contact.CONTACT
 import org.asyncttwiz.server.generated.tables.Game.GAME
+import org.asyncttwiz.server.generated.tables.GameChange.GAME_CHANGE
 import org.asyncttwiz.server.generated.tables.Invitation.INVITATION
 import org.asyncttwiz.server.generated.tables.RequestIdentity.REQUEST_IDENTITY
 import org.jooq.DSLContext
@@ -136,23 +137,93 @@ class LobbyService(private val runtime: ServiceRuntime) {
             activity ?: game.updatedAt!!.toInstant().toString(), game.podId?.toString(), game.podName, game.podInvitationHeld == true)
     }
 
-    fun list(principal: AccountService.Principal, after: String?, invitations: Boolean): Result {
+    /**
+     * The games (or [invitations]) list, a page of 100 after [after]. With [since] (a token from an earlier read,
+     * switch-review #11): only the games changed since then, and the ids of changed games no longer on this list. Every
+     * read answers a token to read changes since next time (its first page's). The summaries are read in a constant
+     * number of queries per page ([listener]: tests count them).
+     */
+    fun list(principal: AccountService.Principal, after: String?, invitations: Boolean, since: String? = null,
+        listener: org.jooq.ExecuteListener? = null): Result {
         if (after != null && !DeckValidation.uuid(after)) return error(400, "invalid_request")
+        val changedSince = since?.let { it.toLongOrNull()?.takeIf { value -> value >= 0 } ?: return error(400, "invalid_request") }
         return runtime.transaction { connection ->
-            val sql = DSL.using(connection, SQLDialect.POSTGRES)
+            val base = DSL.using(connection, SQLDialect.POSTGRES)
+            val sql = if (listener == null) base else DSL.using(base.configuration().derive(listener))
             val actor = owner(principal)
+            // The token first: its snapshot is older than the rows' read, so a change committed after it has a marker at
+            // or after it (V61) and the next read since it can't miss one
+            val token = if (after == null) sql.fetchValue(DSL.field("pg_snapshot_xmin(pg_current_snapshot())::text", String::class.java)) else null
             // Held pod challenges are listed too; the recipient sees them before their deck is in.
-            val access = if (invitations) GAME.RECIPIENT_ID.eq(actor).and(INVITATION.STATE.eq("PENDING"))
-                else GAME.INVITER_ID.eq(actor).or(GAME.RECIPIENT_ID.eq(actor).and(INVITATION.STATE.eq("ACCEPTED")))
+            val listed = (if (invitations) GAME.RECIPIENT_ID.eq(actor).and(INVITATION.STATE.eq("PENDING"))
+                else GAME.INVITER_ID.eq(actor).or(GAME.RECIPIENT_ID.eq(actor).and(INVITATION.STATE.eq("ACCEPTED"))))
+                .and(GAME.LIFECYCLE.`in`("LOBBY", "ACTIVE"))
+            val access = if (changedSince == null) listed
+                else GAME.INVITER_ID.eq(actor).or(GAME.RECIPIENT_ID.eq(actor)).and(DSL.exists(DSL.selectOne().from(GAME_CHANGE)
+                    .where(GAME_CHANGE.GAME_ID.eq(GAME.ID)).and(GAME_CHANGE.CHANGE_XID.ge(changedSince))))
+            val onList = DSL.field(listed).`as`("on_list")
             // The locked rows themselves, not just their ids: each summary then needs no second read of its game.
-            val rows = sql.select(*GAME.fields()).from(GAME).join(INVITATION).on(INVITATION.ID.eq(GAME.CURRENT_INVITATION))
-                .where(access).and(GAME.LIFECYCLE.`in`("LOBBY", "ACTIVE"))
+            val rows = sql.select(*GAME.fields(), onList).from(GAME).join(INVITATION).on(INVITATION.ID.eq(GAME.CURRENT_INVITATION))
+                .where(access)
                 .and(if (after == null) DSL.trueCondition() else GAME.ID.gt(UUID.fromString(after)))
-                .orderBy(GAME.ID).limit(101).forShare().fetchInto(GAME)
-            // A game whose stored play can't be read is left out; opening it fails on its own (SYS-052).
-            val games = rows.take(100).mapNotNull { StoredData.orSkip("game", it.id) { summary(sql, it, actor) } }
-            Result(200, json.encodeToString(GameList(games, if (rows.size > 100) rows[99].id.toString() else null)))
+                .orderBy(GAME.ID).limit(101).forShare().fetch()
+            val page = rows.take(100)
+            val shown = page.filter { it.get(onList) == true }.map { it.into(GAME) }
+            val removed = page.filter { it.get(onList) != true }.map { it.get(GAME.ID).toString() }
+            // A game whose stored play can't be read is left out of a whole list; opening it fails on its own (SYS-052)
+            val games = summaries(sql, shown, actor, checkPlays = changedSince == null)
+            Result(200, json.encodeToString(GameList(games, if (rows.size > 100) rows[99].get(GAME.ID).toString() else null,
+                token, removed)))
         }
+    }
+
+    /**
+     * [summary] of each of [games] for [viewer]'s list, in two queries whatever their number (names, avatars, invitation
+     * state and the engine seats in one; with [checkPlays] the active plays' rows in the other, each decoded so a game
+     * whose play can't be read is left out, SYS-052). A play whose state isn't the engine's (no seats) reads whose move it
+     * is from its play row.
+     */
+    private fun summaries(sql: DSLContext, games: List<org.asyncttwiz.server.generated.tables.records.GameRecord>, viewer: UUID,
+        checkPlays: Boolean): List<GameSummary> {
+        if (games.isEmpty()) return emptyList()
+        val inviter = ACCOUNT.`as`("inviter")
+        val recipient = ACCOUNT.`as`("recipient")
+        val seats = DSL.field("(CASE WHEN {1} = 'ACTIVE' THEN (SELECT string_agg(s.account_id::text || '|' || (s.next_stop IS NOT NULL)::text || '|' || " +
+            "coalesce(to_char(coalesce(s.next_stop_at, (SELECT e.created_at FROM engine_event e WHERE e.play_id = s.play_id " +
+            "AND e.id = s.local_head)) AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"'), ''), ',' ORDER BY s.account_id) " +
+            "FROM engine_seat s WHERE s.play_id = {0}) END)", String::class.java, GAME.CURRENT_PLAY, GAME.LIFECYCLE)
+        val ids = games.map { it.id }
+        val identities = sql.select(GAME.ID, INVITATION.STATE, inviter.USERNAME, recipient.USERNAME, inviter.AVATAR_SCRYFALL_ID,
+            inviter.AVATAR_FACE, recipient.AVATAR_SCRYFALL_ID, recipient.AVATAR_FACE, seats).from(GAME)
+            .join(INVITATION).on(INVITATION.ID.eq(GAME.CURRENT_INVITATION))
+            .join(inviter).on(inviter.ID.eq(GAME.INVITER_ID)).join(recipient).on(recipient.ID.eq(GAME.RECIPIENT_ID))
+            .where(GAME.ID.`in`(ids)).fetch().associateBy { it.get(GAME.ID) }
+        val active = games.filter { it.lifecycle == "ACTIVE" }.map { it.id }
+        val plays = if (!checkPlays || active.isEmpty()) emptyMap() else sql.select(GAME.ID, org.asyncttwiz.server.generated.tables.GamePlay.GAME_PLAY.PAYLOAD)
+            .from(GAME).join(org.asyncttwiz.server.generated.tables.GamePlay.GAME_PLAY)
+            .on(org.asyncttwiz.server.generated.tables.GamePlay.GAME_PLAY.ID.eq(GAME.CURRENT_PLAY)
+                .and(org.asyncttwiz.server.generated.tables.GamePlay.GAME_PLAY.GAME_ID.eq(GAME.ID)))
+            .where(GAME.ID.`in`(active)).fetch().associate { it.value1() to it.value2() }
+        return games.mapNotNull { game -> StoredData.orSkip("game", game.id) {
+            val row = identities.getValue(game.id)
+            val engine = row.value9()?.split(",")?.map { it.split("|") }
+            val play = plays[game.id]?.let { payload -> StoredData.decode("game play", game.id!!) { GameWire.json.decodeFromString<PlayState>(payload) } }
+            val holder = if (engine != null)
+                engine.firstOrNull { it[0] == viewer.toString() && it[1] == "true" }?.get(0) ?: engine.firstOrNull { it[1] == "true" }?.get(0)
+            else if (game.lifecycle != "ACTIVE") null
+            else (play ?: org.asyncttwiz.server.game.PlayStore.read(sql, game.id!!))?.board?.effectiveAttentionHolder
+            val activity = engine?.firstOrNull { it[0] == viewer.toString() }?.getOrNull(2)?.takeIf { it.isNotEmpty() }
+                ?.let { java.time.Instant.parse(it).toString() }
+            GameSummary(game.id.toString(), game.gameName!!, game.createdAt!!.toInstant().toString(),
+                AccountIdentity(game.inviterId.toString(), row.value3()!!,
+                    row.value5()?.let { Avatar(it.toString(), row.value6() ?: 0) }),
+                AccountIdentity(game.recipientId.toString(), row.value4()!!,
+                    row.value7()?.let { Avatar(it.toString(), row.value8() ?: 0) }), game.preparationRound.toString(),
+                game.currentInvitation.toString(), InvitationState.valueOf(row.value2()!!), GameLifecycle.valueOf(game.lifecycle!!),
+                game.revision.toString(), game.currentPlay?.toString(),
+                holder,
+                activity ?: game.updatedAt!!.toInstant().toString(), game.podId?.toString(), game.podName, game.podInvitationHeld == true)
+        } }
     }
 
     fun head(principal: AccountService.Principal, id: String): Result {

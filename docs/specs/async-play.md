@@ -807,3 +807,14 @@ Decided while building (the plainest reading; owner to confirm):
    undo request, so it is also listed, shown and notified as theirs.
 2. **When the game waits for nobody** (both have seen a result not yet confirmed) the list keeps "Move not available";
    the table's pill and bars keep the board's own holder (the turn player's).
+
+
+## 29. Playtest decisions (owner, 2026-11-04 evening)
+
+1. **Catching up** shows no dialog: playback starts paused with the play/pause button at the bottom (tap = play, hold = the full control / auto-skip dialog). During the opening (mulligans) there is no playback: the current state shows directly.
+2. **Passes are implied:** "X passed" never appears in the event strip, timeline, event chips or notifications (passes stay in the data). Undo targets the last meaningful own action; a turn where nothing happened shows only as step/turn changes.
+3. **Playback delay** between events is about a third of the previous default, scaled by the animation speed setting (stops already happen exactly where you could react).
+4. **Undo animates backwards** quickly (reverse flights, no pauses) with a fading top text ("Undid: cast <card>"); the opponent who had seen the undone events sees the same.
+5. **One tap activates:** a permanent with exactly one ability you can activate now activates it on tap (a land adds its mana); with several, tap opens the same chip menu as hand cards; hold = Inspect; in declare attackers/blockers a tap stages combat instead; unused mana floats in the pool.
+6. **Combat in playback** uses the middle combat-area design (I-D38); playback skips steps where nothing happened (combat included) unless full control is on.
+7. Pass / End turn latency: revisit after R1–R3 (no separate fix now).

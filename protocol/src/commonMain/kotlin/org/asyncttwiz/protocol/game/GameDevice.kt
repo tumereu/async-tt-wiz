@@ -99,6 +99,11 @@ class GameDevice(
     private var blockersClosed: String? = null
     private val reveals = mutableMapOf<String, Boolean>()
     private val retry = mutableListOf<Retry>()
+    /** The player's own opening declarations (Keep, Mulligan, a bottom choice) the server took the other player's
+     * declaration before (both declare at the same time, TRN-027): made again on it ([redeclare]). */
+    private val redeclaring = mutableListOf<arcanum.engine.decision.Answer>()
+    /** The events of those declarations: their "stale" refusal, still to come, isn't told. */
+    private val redeclared = mutableSetOf<String>()
     private val confirming = mutableSetOf<String>()
     /** The submissions made by the player's own actions (a refusal of one is told, even "stale"). */
     private val byPlayer = mutableSetOf<String>()
@@ -342,6 +347,7 @@ class GameDevice(
     fun advance(now: Long) {
         this.now = now
         retryTable()
+        redeclare()
         repeat(MAX_AUTOMATIC_EVENTS) { if (!automaticStep()) return }
     }
 
@@ -384,7 +390,7 @@ class GameDevice(
         if (holder != null) {
             // One search of the player's options answers both (the engine's own pass and their mode's)
             val check = Engine.passCheck(s, holder)
-            return Input.PassPriority(holder).takeIf { check.asSet || modePasses(s, holder, check) }
+            return Input.PassPriority(holder).takeIf { (check.asSet && !Stops.stop(s, holder)) || modePasses(s, holder, check) }
         }
         if (endTurn == s.turn.number && s.turn.active == me)
             return Engine.options(s, me).firstOrNull { it is Input.DeclareAttackers && it.attacks.isEmpty() }
@@ -402,7 +408,8 @@ class GameDevice(
         return when (settings.mode) {
             ResponseMode.FullControl -> false
             ResponseMode.Normal -> !point
-            ResponseMode.AutoSkip -> !point || (check?.ownSkipOn ?: NextStop.passesWithOwnCards(s, player))
+            // Never at their own main phases (owner, smoke 2026-11-04: the turn is never passed away without them, STK-036)
+            ResponseMode.AutoSkip -> !point || (!Stops.stop(s, player) && (check?.ownSkipOn ?: NextStop.passesWithOwnCards(s, player)))
         }
     }
 
@@ -427,7 +434,7 @@ class GameDevice(
         }
         val holder = s.priority.holder
         if (holder != null) {
-            if (Engine.shouldPassFor(s, holder)) return Point.Automatic(Input.PassPriority(holder))
+            if (Stops.forcedPass(s, holder)) return Point.Automatic(Input.PassPriority(holder))
             val pass = Input.PassPriority(holder)
             if (Stops.stop(s, holder) || !assumable(pass)) return Point.Wait(Wait.TheirTurn)
             if (revealing(pass)) return Point.Wait(Wait.HiddenCards)
@@ -534,7 +541,7 @@ class GameDevice(
         val event = session.buffered.first()
         confirm(input)
         if (replay != null) for (folded in event.engine?.steps.orEmpty().drop(1).mapNotNull { it.input })
-            if (replay.firstOrNull() == folded) replay.removeFirst()
+            if (replay.firstOrNull() == folded) replay.removeAt(0)
         var acted: Acted = Acted.Confirmed
         val next = follow(model)
         if (next != null) acted = goOn(next, follow, replay)
@@ -732,7 +739,7 @@ class GameDevice(
             if (mine && !own) return
             // One search of the holder's options answers both the forced pass and their own mode's (playtest 2026-11-04)
             val check = Engine.passCheck(s, holder)
-            val forced = check.asSet
+            val forced = check.asSet && !Stops.stop(s, holder)
             val yields = mine && !forced && modePasses(s, holder, check)
             if (!forced && !yields) return
             if (s.turn.number >= start + 2 && Stops.stop(s, s.turn.active)) return
@@ -965,6 +972,7 @@ class GameDevice(
                 GameSession.Received.Reload -> { needsReload = true; break }
                 is GameSession.Received.Changed -> if (r.takenBack.isNotEmpty() && r.discarded.isNotEmpty())
                     note(Note.Branched(PlayerId(event.author), r.discarded.first(), r.takenBack))
+                is GameSession.Received.Applied -> lostOpening(r.dropped)
                 else -> {}
             }
         }
@@ -989,17 +997,74 @@ class GameDevice(
                 val submission = action.submission
                 if (confirming.remove(submission.id)) return
                 val mine = byPlayer.remove(submission.id)
-                if (session.refused(submission.id) == GameSession.Received.Reload) needsReload = true
+                val refused = session.refused(submission.id)
+                if (refused == GameSession.Received.Reload) needsReload = true
+                val again = reason == "stale" &&
+                    ((refused is GameSession.Received.Applied && lostOpening(refused.dropped)) || submission.id in redeclared)
+                redeclared.remove(submission.id)
                 if (submission.acts.isEmpty() && reason == "stale") retry += Retry(submission.table, submission.parentId)
-                // The player's own action is never dropped silently; the device's own passes and assumptions lost in
-                // the expected races are (I-D56 §8)
-                else if (reason != "stale" || mine) note(Note.Refused(reason))
+                // The player's own action is never dropped silently (an opening declaration is made again instead); the
+                // device's own passes and assumptions lost in the expected races are (I-D56 §8)
+                else if ((reason != "stale" || mine) && !again) note(Note.Refused(reason))
                 checkDraft()
             }
             is GameAction.EngineRewind -> note(if (reason == "requestNeeded") Note.RequestNeeded(action.target) else Note.Refused(reason))
             is GameAction.EngineSeen -> if (reported == action.eventId) reported = null
             else -> note(Note.Refused(reason))
         }
+    }
+
+    /**
+     * The player's own opening declarations among [dropped] (their own events the server didn't take: the other player's
+     * declaration came first, both declaring at the same time, TRN-027), kept to be made again on it ([redeclare]); the
+     * events after the first that isn't one are lost as any dropped events are. Whether any were kept.
+     */
+    private fun lostOpening(dropped: List<GameEvent>): Boolean {
+        // The model is back at the point the first of them was made on
+        if (dropped.isEmpty() || model.engine.turn.number != 0) return false
+        val kept = dropped.asSequence().map { e ->
+            val input = e.engine?.steps?.firstNotNullOfOrNull { it.input }
+            e to if (e.author != me.value || e.assumed != null) null
+            else when (input) {
+                is Input.SetupAnswer -> input.answer.takeIf { input.player == me }
+                is Input.Answer -> input.answer
+                else -> null
+            }
+        }.takeWhile { it.second != null }.toList()
+        redeclaring += kept.map { it.second!! }
+        kept.forEach { redeclared += it.first.id }
+        if (redeclared.size > MAX_ORIGINS) redeclared.clear()
+        return kept.isNotEmpty()
+    }
+
+    /**
+     * Makes the player's opening declarations the server took the other player's before ([lostOpening]) again: the other
+     * player's opening declarations shown at once (both declare at the same time, nothing to play back), then each of
+     * the player's own made on them as if just tapped (at a stop where the other player assumed it, it confirms it).
+     * Dropped when the opening no longer asks it.
+     */
+    private fun redeclare() {
+        if (redeclaring.isEmpty() || needsReload || session.drafting || request != null) return
+        while (session.behind && !catchUp && model.engine.turn.number == 0 && stopAt(session.buffered.first()) == null) session.showNext()
+        if (session.behind && status !is Status.Stopped) return
+        val answers = redeclaring.toList()
+        redeclaring.clear()
+        for (answer in answers) {
+            val input = openingInput(answer) ?: return
+            remember("redeclare $answer")
+            val acted = act(input)
+            if (acted !is Acted.Sent && acted !is Acted.Confirmed) return
+        }
+    }
+
+    /** The input declaring the player's own opening [answer] now: the answer to the open decision when it is theirs,
+     * else their declaration ahead of it ([Input.SetupAnswer]); null outside the opening or when neither is listed. */
+    fun openingInput(answer: arcanum.engine.decision.Answer): Input? {
+        val s = model.engine
+        if (s.turn.number != 0) return null
+        val d = s.pending?.decision
+        if (d != null && Engine.decider(s, d.player) == me) return Input.Answer(d.id, answer)
+        return Input.SetupAnswer(me, answer).takeIf { Engine.options(s, me).any { it is Input.SetupAnswer && it.player == me } }
     }
 
     /** The server moved this player's local head ahead of the shown state (a rewind, or a confirmation it took): the
@@ -1068,7 +1133,7 @@ class GameDevice(
 
     private fun remember(entry: String) {
         record.addLast(entry.take(MAX_ENTRY))
-        while (record.size > MAX_RECORD) record.removeFirst()
+        while (record.size > MAX_RECORD) record.removeAt(0)
     }
 
     /** The device's reproduction bundle (I-D43) on the engine-state model, with [codec] (the game's definitions). */

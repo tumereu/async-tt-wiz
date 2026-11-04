@@ -136,8 +136,9 @@ object HandCasts {
             .filter { instance -> (instance.ability as? Ability.Static)?.mechanics.orEmpty().any { it is Mechanic.AlternativeCost } }
             .map { it.origin }
         val player = arcanum.engine.state.PlayerId(viewer)
+        // Fused only for a split card (no refused probe, "it has no fuse", for every other card's menu)
         val listed = faces.flatMap { face -> alternatives.map { Input.Cast(player, card, arcanum.engine.input.CastWay(face, it)) } } +
-            Input.Cast(player, card, arcanum.engine.input.CastWay(fused = true))
+            listOfNotNull(Input.Cast(player, card, arcanum.engine.input.CastWay(fused = true)).takeIf { definition.layout == arcanum.api.Layout.Split })
         val all = listed.filter { it in offered || begins(it) }
         return all + offered.filter { it !in all }
     }

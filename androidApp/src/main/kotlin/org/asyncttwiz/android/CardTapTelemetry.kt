@@ -14,7 +14,7 @@ internal class CardTapRecorder(private val now: () -> Long = System::nanoTime,
         cardId: String? = null) {
         expire()
         if (event == "recognized") {
-            if (rotations.size == 32) finish(rotations.removeFirst(), "animationNotObserved")
+            if (rotations.size == 32) finish(rotations.removeAt(0), "animationNotObserved")
             rotations.add(Rotation(game, now(), CardTapDiagnostic(Instant.now().toString(), game, "dropped",
                 "callbackNotObserved", popupOpen = popup, catchUpInFlight = catchUp, treeWorkInFlight = tree)))
         } else if (event.startsWith("nearMiss:")) {
@@ -59,7 +59,7 @@ internal class CardTapRecorder(private val now: () -> Long = System::nanoTime,
     }
     @Synchronized fun expire() {
         while (rotations.firstOrNull()?.let { now() - it.up >= 3_000_000_000 } == true)
-            finish(rotations.removeFirst(), "animationNotObserved")
+            finish(rotations.removeAt(0), "animationNotObserved")
     }
     private fun finish(rotation: Rotation, reason: String) {
         record(rotation.sample.copy(reason = if (rotation.sample.outcome == "rotated") reason else rotation.sample.reason))
@@ -68,7 +68,7 @@ internal class CardTapRecorder(private val now: () -> Long = System::nanoTime,
 
 internal class CardTapBuffer(private val capacity: Int = 100) {
     private val values = ArrayDeque<CardTapDiagnostic>()
-    @Synchronized fun add(value: CardTapDiagnostic) { values.addLast(value); while (values.size > capacity) values.removeFirst() }
+    @Synchronized fun add(value: CardTapDiagnostic) { values.addLast(value); while (values.size > capacity) values.removeAt(0) }
     @Synchronized fun snapshot() = values.toList()
     @Synchronized fun acknowledge(batch: List<CardTapDiagnostic>) { batch.forEach { values.remove(it) } }
 }

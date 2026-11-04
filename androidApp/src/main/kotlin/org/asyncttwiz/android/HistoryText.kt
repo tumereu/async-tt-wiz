@@ -499,7 +499,7 @@ internal fun historyTexts(tree: GameplayTree, viewer: String?, usernames: Map<St
     children[tree.initial.root.id].orEmpty().forEach { pending.addLast(it to tree.initial) }
     while (pending.isNotEmpty()) {
         if (!current()) return emptyMap()
-        val (event, parent) = pending.removeLast()
+        val (event, parent) = pending.removeAt(pending.lastIndex)
         val same = event.parentId in unchanged && previous?.nodes?.get(event.id) == event && event.id in previousTexts
         if (same) unchanged.add(event.id)
         val before = if (same) null else parent ?: tree.stateAt(event.parentId)

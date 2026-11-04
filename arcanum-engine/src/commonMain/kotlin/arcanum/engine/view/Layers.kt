@@ -387,7 +387,7 @@ internal class LayerRun(private val state: GameState, private val traced: Object
             val seen = mutableSetOf(from)
             val queue = ArrayDeque(listOf(from))
             while (queue.isNotEmpty()) {
-                val k = queue.removeFirst()
+                val k = queue.removeAt(0)
                 if (k == to && k != from) return true
                 dependsOn[k].orEmpty().forEach { if (it == to) return true; if (seen.add(it)) queue.add(it) }
             }

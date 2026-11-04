@@ -66,7 +66,7 @@ class TableHistoryController(private val worker: Executor, private val post: (()
     fun showChanges(cursor: String) {
         val through = pendingChanges.indexOfLast { it.cursor == cursor }
         if (through >= 0) {
-            val events = (0..through).flatMap { pendingChanges.removeFirst().events }
+            val events = (0..through).flatMap { pendingChanges.removeAt(0).events }
             changes.apply(TableChangeBatch(events, cursor = cursor))
         }
     }

@@ -79,7 +79,7 @@ class GameModel(val engine: GameState, table: TableState = TableState()) {
         // first, older than every entry kept
         val drop = kept.lastOrNull()?.takeIf { it.turn == turn && turnBefore(changes) != turn }
         if (drop != null) {
-            kept.removeLast()
+            kept.removeAt(kept.lastIndex)
             engine.log.addAll(0, drop.dropped)
             floor = drop.floor
         }
@@ -101,7 +101,7 @@ class GameModel(val engine: GameState, table: TableState = TableState()) {
         val dropped = engine.log.takeWhile { it.turn < keepFrom }
         engine.forgetOlderTurns()
         kept.addLast(Drop(turn, floor, dropped))
-        if (kept.size > KEPT_DROPS) kept.removeFirst()
+        if (kept.size > KEPT_DROPS) kept.removeAt(0)
         floor = keepFrom
     }
 

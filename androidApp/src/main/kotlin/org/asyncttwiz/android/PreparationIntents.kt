@@ -74,7 +74,7 @@ internal class PreparationIntents {
             val next = captured.first()
             val queued = command(next.intent.gameId, next.intent.roundId, next::next) ?: break
             transfers[queued.requestId] = Transfer(queued, next.actor)
-            if (next.finished) captured.removeFirst()
+            if (next.finished) captured.removeAt(0)
         }
     }
 

@@ -118,7 +118,7 @@ class GameSession(base: GameModel, baseId: String, events: List<GameEvent>, loca
         draft = null; draftAt = null
         val event = builder.build()
         onSent?.let { hook -> hook(model.copy().also { it.revert(event) }.engine, event) }
-        while (behind) superseded += line.removeLast().id
+        while (behind) superseded += line.removeAt(line.lastIndex).id
         waiting.addLast(event)
         return event
     }
@@ -183,7 +183,7 @@ class GameSession(base: GameModel, baseId: String, events: List<GameEvent>, loca
         val first = waiting.firstOrNull()
         if (first != null && first.id == event.id) {
             if (first != event) return Received.Reload
-            waiting.removeFirst()
+            waiting.removeAt(0)
             if (waiting.isEmpty()) superseded.clear()
             line += event
             shown++
@@ -227,7 +227,7 @@ class GameSession(base: GameModel, baseId: String, events: List<GameEvent>, loca
             model.revert(e)
             if (model.stale) return Received.Reload
         }
-        repeat(dropped.size) { waiting.removeLast() }
+        repeat(dropped.size) { waiting.removeAt(waiting.lastIndex) }
         beforeShow?.invoke(model.engine, event)
         try { model.apply(event) } catch (_: IllegalStateException) { return Received.Reload }
         line += event
@@ -264,7 +264,7 @@ class GameSession(base: GameModel, baseId: String, events: List<GameEvent>, loca
             if (model.stale) return null
         }
         shown = minOf(shown, keep)
-        repeat(line.size - keep) { line.removeLast() }
+        repeat(line.size - keep) { line.removeAt(line.lastIndex) }
         return Received.Changed(discarded, takenBack, dropped)
     }
 
@@ -295,7 +295,7 @@ class GameSession(base: GameModel, baseId: String, events: List<GameEvent>, loca
             model.revert(e)
             if (model.stale) return Received.Reload
         }
-        repeat(dropped.size) { waiting.removeLast() }
+        repeat(dropped.size) { waiting.removeAt(waiting.lastIndex) }
         return Received.Applied(dropped, hadDraft)
     }
 
@@ -327,7 +327,7 @@ class GameSession(base: GameModel, baseId: String, events: List<GameEvent>, loca
     fun trim(id: String) {
         val at = indexOf(id) ?: return
         if (at < 0 || at >= shown) return
-        repeat(at + 1) { line.removeFirst() }
+        line.subList(0, at + 1).clear()
         shown -= at + 1
         lineStart = id
     }

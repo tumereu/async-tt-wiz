@@ -412,7 +412,7 @@ internal fun EngineAsyncHost(toolkit: TableToolkitController, routes: EngineTabl
     // Notes (§8, §10): told once
     LaunchedEffect(game.version) {
         while (game.notes.isNotEmpty()) {
-            when (val note = game.notes.removeFirst()) {
+            when (val note = game.notes.removeAt(0)) {
                 is GameDevice.Note.Branched -> routes.note = "${names[note.by.value] ?: opponent} " + when (note.discarded.assumed?.input) {
                     is Input.DeclareBlockers -> "blocked differently"
                     is Input.SetupAnswer, is Input.Answer -> "took a mulligan"

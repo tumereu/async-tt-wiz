@@ -28,8 +28,10 @@ undoing.
     priority.
   - **Normal:** at your **stops** (your own main phases with an empty Stack) and your **pauses** (STK-036: the other
     player's spell or ability on top of the Stack, their attack, blocks, their end step).
-  - **Auto-skip:** Normal, but your device passes at a stop or pause where you can't respond, and answers your questions
-    that have only one answer (today's "Skip when I have no choice"). Default for new games.
+  - **Auto-skip:** Normal, but your device passes at a pause where you can't respond, and answers your questions
+    that have only one answer (today's "Skip when I have no choice"). Default for new games. Your stops are never
+    passed for you, in any mode, even with nothing to do (owner, smoke 2026-11-04: a turn is never passed away
+    without its player; §6 (a)'s automatic passes leave them out too).
 - **Live / async:** the opponent is live while TRN-042 shows their green dot (this game open, touched in the last
   2 minutes); otherwise async, with the grace of §4.
 - **Assumed input:** an input of the opponent's that the acting player's device submits, flagged "assumed by

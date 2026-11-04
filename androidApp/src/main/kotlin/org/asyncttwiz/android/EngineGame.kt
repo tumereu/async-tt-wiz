@@ -158,8 +158,9 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
         set(value) { if (field !== value) { field = value; changed() } }
     private val pictures = HashMap<arcanum.engine.state.ObjectId, org.asyncttwiz.protocol.SubmittedDefinition>()
 
-    /** The player's own staging of a declaration (their lanes and attack choices, CMB-028, CMB-034), shown while the
-     * point it was made at lasts and sent only as the declaration itself (I-D56 §12). */
+    /** The player's own staging of a declaration made behind the head (at a decision stop in playback: their lanes and
+     * attack choices, CMB-028, CMB-034), shown while the point it was made at lasts and sent only as the declaration itself
+     * (I-D56 §12); at the head staging is shared as table changes instead (I-D54 §8, [EngineDrafts]). */
     var staging: EngineProjection.Staging? = null
         private set
 

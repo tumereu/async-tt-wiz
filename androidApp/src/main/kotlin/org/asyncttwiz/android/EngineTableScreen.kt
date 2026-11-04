@@ -7,6 +7,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.History
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.runtime.*
@@ -117,6 +118,7 @@ internal fun EngineTableScreen(controller: LobbyController, accountId: String, h
         }
     }
     val reviewing = reviewPlay != null || playing
+    var playbackSettingsOpen by remember(game.id) { mutableStateOf(false) }
     val timeline = engine.timeline.events(engine, names)
     CompositionLocalProvider(LocalEngineRoutes provides routes) {
         Column(Modifier.fillMaxSize().background(Color(0xfff3f5f5))) {
@@ -147,13 +149,15 @@ internal fun EngineTableScreen(controller: LobbyController, accountId: String, h
                             EngineStrip(timeline, accountId, landscape) { routes.enterReview(timeline.last().id) }
                         }),
                         bottomPanel = if (reviewPlay == null || timeline.isEmpty()) null else ({ _ ->
-                            EngineReviewPanel(routes, timeline, accountId, landscape, playbackPause)
+                            EngineReviewPanel(routes, timeline, accountId, landscape, playbackPause) { playbackSettingsOpen = true }
                         })))
                 // Over the top row (whose move/step/turn), never taking its taps.
                 EventTextOverlay(eventText, playbackPause, Modifier.align(Alignment.TopCenter))
             }
         }
     }
+    // HIS-010, HIS-028: the timeline panel's gear opens the playback settings
+    if (playbackSettingsOpen) PlaybackSettingsDialog(playbackPreferences, accountId) { playbackSettingsOpen = false }
     if (state.chatOpen) {
         Dialog(onDismissRequest = controller::closeChat, properties = DialogProperties(usePlatformDefaultWidth = false,
             decorFitsSystemWindows = false)) {
@@ -184,8 +188,8 @@ internal fun EngineStrip(events: List<HistoryTimelineEvent>, viewer: String, lan
  * returns to play mode. View-only: no branching (HIS-019).
  */
 @Composable
-private fun EngineReviewPanel(routes: EngineTableRoutes, events: List<HistoryTimelineEvent>, viewer: String, landscape: Boolean,
-    pauseMillis: Long) {
+internal fun EngineReviewPanel(routes: EngineTableRoutes, events: List<HistoryTimelineEvent>, viewer: String, landscape: Boolean,
+    pauseMillis: Long, onSettings: () -> Unit = {}) {
     val cursor = routes.review ?: return
     val at = events.indexOfFirst { it.id == cursor }.takeIf { it >= 0 } ?: return
     LaunchedEffect(routes.reviewPlaying, cursor) {
@@ -195,7 +199,13 @@ private fun EngineReviewPanel(routes: EngineTableRoutes, events: List<HistoryTim
     }
     val position = HistoryPosition(cursor, HistoryMode.PLAYBACK, routes.reviewPlaying, cursor)
     val strip: @Composable () -> Unit = {
-        HistoryTimeline(events, cursor, viewer, { routes.reviewPlaying = false }, { routes.review = it }, Modifier.fillMaxWidth())
+        Box(Modifier.fillMaxWidth().height(TableTimelineHeight.dp)) {
+            HistoryTimeline(events, cursor, viewer, { routes.reviewPlaying = false }, { routes.review = it }, Modifier.fillMaxWidth())
+            IconButton(onClick = { routes.reviewPlaying = false; onSettings() }, modifier = Modifier.align(Alignment.CenterEnd)
+                .background(TimelineBarColor).size(if (landscape) 36.dp else 40.dp)) {
+                Icon(Icons.Outlined.Settings, contentDescription = "Playback settings")
+            }
+        }
     }
     val transport: @Composable () -> Unit = {
         Box(Modifier.fillMaxSize().padding(horizontal = 8.dp), contentAlignment = Alignment.Center) {

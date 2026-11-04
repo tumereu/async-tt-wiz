@@ -601,5 +601,49 @@ Decided while building (the most vision-aligned reading; owner to confirm):
 10. **Opening:** the engine's simultaneous mulligans, with today's Mulligan/Keep controls and Keep / Bottom screen; the
     server's start gives the first mulligan free as the game's rules say (TRN-062).
 11. **Defaults for new games** (response mode, Always assume resolves, Autotap) are kept on the device per account and
-    given to a game once by the device that opens it first (not yet stored per account on the server: step D list).
+    given to a game once by the device that opens it first (step D1 moved them to the server: §21 choice 12).
 12. **Notes** (branch, take-back) show once as a dark chip at the top for 6 s.
+
+## 21. Built (step D1, 2026-11-04)
+
+Feature parity of the engine path, still behind the debug switch (see `engine-state-architecture.md` §13 for what and
+where). The catalog entries describe it (HIS-031, HIS-070, HIS-091, HIS-099, CMB-028, CMB-034, CMB-036–CMB-038, CMB-040,
+STK-034, LOB-113, new LOB-116; the README's note on the two paths).
+
+Decided while building (the most vision-aligned reading, MTG Arena as the reference; owner to confirm):
+1. **Shared staging** (I-D54 §8 over step C's choice §20.4): every staging change is a table-only event of its own
+   that the other player's table shows; playback shows such events (and card places, early answers) quickly (0.12 s)
+   instead of at the playback pause. The declaration clears it in its own event. Behind the head (a decision stop) the
+   staging stays on the device (§12). A draft left over (End turn passing the step) shows nowhere outside its step.
+2. **Attack choices** (enlist, optional costs, bands) travel inside the attack draft as the engine's own `Attack`s, so
+   the defender sees them as the attacker makes them.
+3. **Early answers** are table changes keyed as the engine will open the division (`Divide:<player>:<creature>`), valid
+   for the turn they are given in; the key doesn't tell the two combat damage steps apart.
+4. **Event texts** name the actor ("You", the other player's name) as HIS-091 does; a pass adds what it led to (what
+   resolved, a new turn, a new step). Texts are made once per event with the state when first shown.
+5. **Strip groups** are turns (the faint line between them): each event is one acting point already (HIS-092).
+6. **Timeline mode** shows any event the device holds (from the trimmed line's start up to the local head and the
+   player's own pending events), one event per step; the async panels hide while it shows (an incoming request still
+   opens); no flashes there, card motion only. Playback while behind counts as timeline mode for the grey bars and
+   "Return to current".
+7. **Flashes** come from comparing the boards before and after the shown events (life, P/T from the engine's view, step
+   and turn, face, control) plus the events' shuffles; none on opening the game.
+8. **The event chip** shows live only for the other player's newest event among those just shown (also in playback,
+   where they are all theirs); in timeline mode for every event shown.
+9. **Token pictures** use the engine's log for the token's maker (this and last turn); a device keeps a token's picture
+   once found, so a device opening the game later may pick one by the token alone.
+10. **Assume blockers** (CMB-040): under each attacker the defender's untapped creatures as small cards, tap to toggle a
+    block, hold to inspect; the waiting bar's Assume blockers (defender online) opens the same screen instead of assuming
+    "No blocks" at once.
+11. **Undo dialogs' board** is the whole table laid out at a phone's size and drawn small (300 dp high): a small table
+    would lay itself out differently. The request dialog shows the viewer's own newest board when the point is past
+    what they have seen.
+12. **New-game defaults** are part of the account settings (`playDefaults`); Settings' "Autotap mana sources" sets the
+    engine games' default too. The server gives a new game's seats their defaults; the device no longer gives them.
+13. **Branch notification** (LOB-116): "<opponent> responded differently · your later actions were taken back", one per
+    branch, collapsed per game as every game notification; a branch that ended the game (a concession while behind)
+    tells only the result.
+14. **Problem reports** carry the open engine game's bundle instead of today's Automatum bundle, cut to fit by halving
+    the log, then dropping the oldest events (and the base). A device that can no longer reach its line's start exactly
+    starts the bundle at the earliest event it can reach.
+15. **No release notes**: nothing of it reaches a release build before the switch-over (the debug switch).

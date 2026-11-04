@@ -47,7 +47,8 @@ import org.asyncttwiz.protocol.ResultSuggestion as AtwSuggestion
  * - What [viewer] may not see is covered (a card in a hidden zone they may see, looked at or revealed, is known to them).
  * - Battlefield places come from the table state, else the first free cell of the card's normal row
  *   ([org.asyncttwiz.protocol.BattlefieldPlacement]), in timestamp order.
- * - The combat lanes show the engine's combat (a pair per attacker), or the shared attack staging before it is declared.
+ * - The combat lanes show the engine's combat (a pair per attacker), or the shared attack and block staging before they are
+ *   declared ([EngineDrafts], I-D54 §8); a token is drawn with its best matching picture ([TokenArt], SYS-072).
  */
 object EngineProjection {
     /** The board of [model] for [viewer], on [base] (the play as it started: its ids, containers, players, card data);
@@ -294,9 +295,10 @@ object EngineProjection {
     }
 
     /**
-     * The declaring player's own staging of a declaration (CMB-028, CMB-034: their lanes and attack choices, as the
-     * combat controls make them) at the point [key] ([keyOf]: the turn, step and combat it belongs to): shown in place of
-     * the engine's combat while that point lasts, and sent only as the declaration itself (I-D56 §12).
+     * The declaring player's own staging of a declaration made behind the head (CMB-028, CMB-034: their lanes and attack
+     * choices, as the combat controls make them) at the point [key] ([keyOf]: the turn, step and combat it belongs to):
+     * shown in place of the engine's combat and the table's shared drafts ([EngineDrafts]) while that point lasts, and
+     * sent only as the declaration itself (I-D56 §12).
      */
     data class Staging(val key: String, val combat: CombatArea?, val records: List<org.asyncttwiz.protocol.EngineRecord> = emptyList()) {
         companion object {

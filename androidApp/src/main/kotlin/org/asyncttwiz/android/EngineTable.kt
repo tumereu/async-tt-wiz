@@ -1,6 +1,9 @@
 package org.asyncttwiz.android
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -61,9 +64,9 @@ interface EngineRoutes {
     fun endTurn(): Boolean
     fun mulligan(): Boolean
     fun keep(bottom: List<String>): Boolean
-    /** Table actions the controls make: a card moved on its own battlefield (its place, shared), the combat staging and
-     * attack choices (the declaring player's own until declared, I-D56 §12). False for anything else (nothing changes the
-     * game by hand). */
+    /** Table actions the controls make: a card moved on its own battlefield (its place, shared), the combat staging,
+     * attack choices and early answers (shared as table changes at the head, I-D54 §8; behind it the declaring player's
+     * own until declared, I-D56 §12). False for anything else (nothing changes the game by hand). */
     fun local(actions: List<PlayAction>): Boolean
 }
 
@@ -275,9 +278,11 @@ internal fun EngineAsyncHost(toolkit: TableToolkitController, routes: EngineTabl
     val device = game.device
     val status = device.status
     val opponent = names[device.opponent.value] ?: "The other player"
+    // Timeline mode (HIS-004) shows an earlier board, view-only: no async panels over it, only an incoming request
+    val reviewing = routes.review != null
     // §14: the assumer's indicator
-    device.indicator()?.let { EngineIndicator(it) }
-    when (status) {
+    if (!reviewing) device.indicator()?.let { EngineIndicator(it) }
+    if (!reviewing) when (status) {
         is GameDevice.Status.Waiting -> if (status.offer == GameDevice.Offer.AssumeBlockers && (status.blockersScreen || routes.blockersOpen == device.session.tip))
                 EngineBlockersScreen(routes, scene, play, opponent)
             else waitingText(status.reason, play, opponent)?.let { text ->
@@ -445,18 +450,31 @@ private fun EngineBlockersScreen(routes: EngineTableRoutes, scene: TableScene?, 
 }
 
 /**
- * HIS-099: a small view-only board of [model] (the point an undo goes back to) as [viewer] sees it, the table's own
- * drawing with its bars greyed; nothing on it acts.
+ * HIS-099: a small view-only board of [model] (the point an undo goes back to) as [viewer] sees it: the table's own
+ * drawing laid out at a phone's size and drawn smaller; nothing on it acts.
  */
 @Composable
 private fun EngineBoardPreview(game: EngineGame, summary: GameSummary, model: org.asyncttwiz.protocol.game.GameModel, at: String, viewer: String) {
     val board = remember(model, at) { runCatching { org.asyncttwiz.automatum.EngineProjection.project(game.base, model, viewer, at, null, null, game.tokenArt) }.getOrNull() }
         ?: return
-    Box(Modifier.fillMaxWidth().height(260.dp).testTag("undo-board").semantics { contentDescription = "The board it goes back to" }) {
-        TableSurface(summary, board, viewer, false, Modifier.fillMaxSize(), connected = false,
-            runtime = TableRuntimeHooks(reviewing = true, liveView = false, controlsConnected = false))
+    // The whole table laid out at a phone's size, drawn smaller (a small table would lay itself out differently)
+    val scale = PREVIEW_HEIGHT / PREVIEW_TABLE_HEIGHT
+    Box(Modifier.fillMaxWidth().height(PREVIEW_HEIGHT.dp).testTag("undo-board").semantics { contentDescription = "The board it goes back to" },
+        contentAlignment = Alignment.TopCenter) {
+        Box(Modifier.size((PREVIEW_TABLE_WIDTH * scale).dp, PREVIEW_HEIGHT.dp).clipToBounds()
+            .border(1.dp, MenuBorder, RoundedCornerShape(4.dp))) {
+            Box(Modifier.wrapContentSize(Alignment.TopStart, unbounded = true).requiredSize(PREVIEW_TABLE_WIDTH.dp, PREVIEW_TABLE_HEIGHT.dp)
+                .graphicsLayer { scaleX = scale; scaleY = scale; transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0f, 0f) }) {
+                TableSurface(summary, board, viewer, false, Modifier.fillMaxSize(), connected = false,
+                    runtime = TableRuntimeHooks(liveView = false, controlsConnected = false))
+            }
+        }
     }
 }
+
+private const val PREVIEW_HEIGHT = 300f
+private const val PREVIEW_TABLE_WIDTH = 412f
+private const val PREVIEW_TABLE_HEIGHT = 892f
 
 /** The catch-up screen (§7): coming back with the other player's actions unseen; what each mode means, the mode, Play. */
 @Composable
@@ -546,7 +564,7 @@ private fun EngineRewindDialog(routes: EngineTableRoutes, choice: EngineTableRou
         }, Modifier.testTag("rewind-confirm"), enabled = target != null, icon = if (needsRequest == true) "send" else "withdraw")
     }) {
         Text(if (shown.isEmpty()) "Nothing to undo yet: your actions are still on their way." else "Go back to just before:", style = MaterialTheme.typography.bodyMedium)
-        LazyColumn(Modifier.fillMaxWidth().heightIn(max = 200.dp)) {
+        LazyColumn(Modifier.fillMaxWidth().heightIn(max = 280.dp)) {
             items(shown, key = { it.id }) { event ->
                 val selected = event.parentId == target
                 Row(Modifier.fillMaxWidth().heightIn(min = 44.dp).clickable { target = event.parentId }

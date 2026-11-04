@@ -27,8 +27,10 @@ import kotlin.test.assertIs
 import kotlin.test.assertTrue
 
 /**
- * I-D56 step C (§14): the table of a game on engine state: the private toggles and the assumer's indicator, the waiting
- * bar with Assume resolves, the catch-up screen, the rewind dialog and the incoming undo request.
+ * I-D56 steps C–D (§14): the table of a game on engine state: the private toggles and the assumer's indicator, the
+ * waiting bar with Assume resolves, the catch-up screen, the rewind dialog and the incoming undo request with the board
+ * they go back to, the strip and timeline mode on engine events, the Assume blockers screen with edited blocks, and the
+ * other player's shared attack staging.
  */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
@@ -39,8 +41,12 @@ class EngineTableScreenshotTest {
 
     @After fun forget() = AutomatumBoards.reset()
 
-    private fun render(game: EngineGame, viewer: String, presence: ReceivedPresence? = null): EngineTableRoutes {
-        val routes = EngineTableRoutes(viewer, { game }, {}, { game.play() })
+    private val names = mapOf(TableStatesFixture.a to "Alice", TableStatesFixture.b to "Bob")
+
+    /** [game]'s table as [EngineTableScreen] draws it: the board (or the board at [routes]' review cursor in timeline
+     * mode), the strip of the events shown, the change flashes. */
+    private fun render(game: EngineGame, viewer: String, presence: ReceivedPresence? = null,
+        routes: EngineTableRoutes = EngineTableRoutes(viewer, { game }, {}, { game.play() }), summary: GameSummary = f.game): EngineTableRoutes {
         val toolkit = TableToolkitController(viewer, { game.play() }, { routes.canAct() }, { action, _ -> routes.local(listOf(action)) },
             playBatch = { actions, _ -> routes.local(actions) }, engine = routes)
         compose.setContent {
@@ -48,10 +54,17 @@ class EngineTableScreenshotTest {
                 NoRipples {
                     CompositionLocalProvider(LocalEngineRoutes provides routes) {
                         Box(Modifier.fillMaxSize()) {
-                            TableSurface(f.game, game.play(), viewer, false, Modifier.fillMaxSize(), connected = true,
+                            val reviewed = routes.review?.let { game.reviewPlay(it) }
+                            val events = game.timeline.events(game, names)
+                            TableSurface(summary, reviewed ?: game.play(), viewer, false, Modifier.fillMaxSize(), connected = reviewed == null,
                                 onIntent = toolkit::handle, toolkit = toolkit,
                                 runtime = TableRuntimeHooks(navigation = {}, chat = {}, undo = { routes.undo() },
-                                    undoHold = { routes.holdUndo() }, controlsConnected = true, opponentPresence = presence))
+                                    undoHold = { routes.holdUndo() }, controlsConnected = reviewed == null, opponentPresence = presence,
+                                    reviewing = reviewed != null, liveView = reviewed == null,
+                                    timelinePlayback = if (reviewed != null) TimelinePlaybackStatus.PAUSED else null,
+                                    returnCurrent = if (reviewed != null) ({ routes.leaveReview() }) else null,
+                                    liveTimeline = if (events.isEmpty()) null else ({ EngineStrip(events, viewer, false) { routes.enterReview(events.last().id) } }),
+                                    bottomPanel = if (reviewed == null) null else ({ _ -> EngineReviewPanel(routes, events, viewer, false, 1_000) })))
                         }
                     }
                 }
@@ -75,10 +88,13 @@ class EngineTableScreenshotTest {
         val game = aliceAtMain()
         render(game, f.a)
         compose.onNodeWithTag("engine-indicator").assertExists()
+        // HIS-001: the strip shows the events up to her local head (her keep, Bob's assumed keep and passes)
+        compose.onNodeWithContentDescription("Event strip").assertExists()
+        compose.onNodeWithContentDescription("Timeline mode").assertExists()
         compose.onNodeWithContentDescription("Response mode", substring = true).assertExists()
         compose.onNodeWithContentDescription("Always assume resolves").assertExists()
         compose.onRoot().captureShot("$SCREENSHOTS/engine/assumed-main.png",
-            "Alice kept while Bob was away and is in her first main phase: a violet chip at the top says how many of Bob's answers are assumed and how many actions came since, and the quick actions are her own Response mode (Auto-skip), Always assume resolves and Autotap mana.")
+            "Alice kept while Bob was away and is in her first main phase: a violet chip at the left says how many of Bob's answers are assumed and how many actions came since, the strip above the quick actions shows the events so far in each player's colour, and the quick actions are her own Response mode (Auto-skip), Always assume resolves and Autotap mana.")
     }
 
     // STK-044, TRN-062, I-D56 §4, §14: Bob is online, so after Alice's keep the game waits for his; the waiting bar says
@@ -125,8 +141,10 @@ class EngineTableScreenshotTest {
         compose.waitForIdle()
         compose.onNodeWithText("Go back to just before:").assertExists()
         compose.onNodeWithText("You kept").assertExists()
+        // HIS-099: the board at the chosen point
+        compose.onNodeWithTag("undo-board").assertExists()
         captureShot("$SCREENSHOTS/engine/rewind-dialog.png",
-            "Holding Undo opens the Undo dialog: the actions so far, newest first, to pick the point to go back to; going back past what Bob has seen asks him first.")
+            "Holding Undo opens the Undo dialog: the actions so far, newest first, to pick the point to go back to, and below them the board at that point; going back past what Bob has seen asks him first.")
     }
 
     // SYS-025 (I-D56 §10): the other player's undo request: their message, Accept or Deny; the game waits meanwhile
@@ -141,7 +159,65 @@ class EngineTableScreenshotTest {
         render(game, f.a)
         compose.onNodeWithText("Bob asks to undo").assertExists()
         compose.onNodeWithTag("request-accept").assertExists()
+        compose.onNodeWithTag("undo-board").assertExists()
         captureShot("$SCREENSHOTS/engine/undo-request.png",
-            "Bob asks to undo: Alice sees his message, where the game would go back to, and Accept or Deny; the game waits until she answers.")
+            "Bob asks to undo: Alice sees his message, where the game would go back to with a small view of that board, and Accept or Deny; the game waits until she answers.")
+    }
+
+    // HIS-004, HIS-010, HIS-012 (I-D56 step D): timeline mode on engine events: the board at an earlier event, view-only
+    @Test fun timelineModeShowsAnEarlierBoard() {
+        val game = aliceAtMain()
+        val routes = render(game, f.a)
+        val events = game.timeline.events(game, names)
+        compose.runOnIdle { routes.enterReview(events[1].id) }
+        compose.waitForIdle()
+        compose.onNodeWithContentDescription("Auto advance").assertExists()
+        compose.onNodeWithContentDescription("Return to current").assertExists()
+        captureShot("$SCREENSHOTS/engine/timeline-mode.png",
+            "Alice tapped the history button at the end of the strip and stepped back to her keep: the bars turn grey, the board shows the opening as it was then, and the timeline panel has the strip with Previous, Auto and Next; nothing on it acts.")
+    }
+
+    // CMB-040 (I-D56 §4, §14): the Assume blockers screen while Bob is away: Alice edits the blocks before assuming them
+    @Test fun assumeBlockersScreenEditsTheBlocks() {
+        val scenario = EngineCombatScenario()
+        scenario.until(scenario::bothHaveCubs)
+        val alice = scenario.alice
+        val s = alice.device.model.engine
+        val attacker = scenario.creatures(s, scenario.me, ready = true).first()
+        scenario.online[f.b] = false
+        alice.tick(false, scenario.sim.now + 120_000)
+        assertIs<GameDevice.Acted.Sent>(alice.send(listOf(arcanum.engine.input.Input.DeclareAttackers(scenario.me,
+            listOf(arcanum.engine.input.Attack(attacker, TargetRef.Player(scenario.other)))))))
+        alice.tick(false, scenario.sim.now + 121_000)
+        val waiting = assertIs<GameDevice.Status.Waiting>(alice.device.status)
+        assertTrue(waiting.blockersScreen)
+        render(alice, f.a)
+        compose.onNodeWithText("Assume Bob's blockers").assertExists()
+        val blocker = scenario.creatures(s, scenario.other, ready = false).first { s.obj(it)?.tapped == false } as ObjectId.Card
+        compose.onNodeWithTag("assume-block-${blocker.card.value}-${(attacker as ObjectId.Card).card.value}").performClick()
+        compose.waitForIdle()
+        compose.onNodeWithText("1 block").assertExists()
+        captureShot("$SCREENSHOTS/engine/assume-blockers.png",
+            "Bob is away when Alice attacks with her Ember Cub: the Assume blockers screen lists her attacker with Bob's untapped creatures beside it, and she tapped his Cub to assume it blocks (1 block) before pressing OK; Back would wait for him.")
+        // OK assumes exactly those blocks
+        compose.onNodeWithText("OK").performClick()
+        compose.runOnIdle {
+            val assumed = alice.device.session.pending.firstNotNullOf { it.assumed?.input as? arcanum.engine.input.Input.DeclareBlockers }
+            assertEquals(listOf(arcanum.engine.input.Block(blocker, attacker)), assumed.blocks)
+        }
+    }
+
+    // CMB-028 (I-D54 §8): Alice's attack staging is shared: Bob's table shows her staged Cub in the lane while she decides
+    @Test fun theOtherPlayersStagingShows() {
+        val scenario = EngineCombatScenario()
+        scenario.until(scenario::bothHaveCubs)
+        val alice = scenario.alice
+        val attacker = scenario.creatures(alice.device.model.engine, scenario.me, ready = true).first()
+        alice.table(listOf(org.asyncttwiz.protocol.game.TableChange.AttackDraft(null,
+            listOf(arcanum.engine.input.Attack(attacker, TargetRef.Player(scenario.other))))))
+        scenario.settle()
+        render(scenario.bob, f.b, summary = f.game)
+        captureShot("$SCREENSHOTS/engine/shared-staging.png",
+            "Alice is staging her attack: on Bob's table her Ember Cub already stands in the combat lane aimed at him while she decides, and the strip's newest event says she staged 1 attacker.")
     }
 }

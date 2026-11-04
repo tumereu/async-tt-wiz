@@ -348,3 +348,48 @@ the server still starts engine games only with `ATW_ENGINE_GAMES=1` or the test 
 13. The spec rows `async-play.md` §17 lists for `arcanum-atw-integration.md` and `arcanum-automatum.md` (they change when
     the switch-over ships), and the catalog's README note on the two paths.
 
+## 13. Built (I-D56 step D1, 2026-11-04): feature parity of the engine path
+
+Still behind the debug switch (`EnginePath`); today's model stays the default and nothing is wiped. Items 3–10 and 12 of
+§12's list, the way `async-play.md` §21 records the choices:
+- **Timeline** (item 3): `EngineTimeline` (app) lists the main line the device holds up to the local head and the
+  device's own pending events, one event per acting point, groups by turn; `EngineEventText` gives each event its text
+  and icon from its input, outcome and table part. The strip (`EngineStrip`, HIS-001–HIS-005), timeline mode
+  (`EngineReviewPanel`: the board at a held event via `EngineGame.reviewPlay`, Previous / Auto / Next, the gear) and the
+  event chip (`EventTextFeed.post`) run on it, view-only.
+- **Flashes and motion** (item 4): `EngineGame.Transition` (each new board's forward and backward events since the board
+  before, or a jump on a load) feeds `TableChanges.applyEngine`: life, P/T (from `Engine.view`), step and turn, face,
+  control and shuffles (`EngineChanges`); card motion animates only when not a jump.
+- **Token pictures** (item 5): `EngineProjection` takes a `TokenArt` and draws each engine token with its best matching
+  picture (SYS-072), the token's maker from the engine's log; the device keeps each token's picture once found.
+- **Shared staging, attack choices, early answers** (item 6, I-D54 §8): `EngineDrafts` (automatum) turns what the combat
+  controls stage into `TableChange.AttackDraft` (attacks as the engine's `Attack`, choices included), `BlockDraft` and the
+  viewer's own `EarlyAnswered` divisions, sent as table-only events at the head (kept on the device behind it); the
+  projection shows the table's drafts as lanes and the records the controls read; a declaration clears its draft in its
+  own event (`EngineGame.send`). Drafts show only in their step.
+- **Assume blockers with edited blocks** (item 7): the screen lists the defender's untapped creatures beside each
+  attacker; OK assumes the chosen blocks. **Board previews**: both undo dialogs draw the board at the point (the request
+  dialog as far as the viewer has seen).
+- **New-game defaults on the server** (item 8): `AccountSettings.playDefaults` (V58 `account.play_defaults`), set from
+  Settings; `EngineGames.start` gives each seat its account's defaults; the device no longer gives them.
+- **Branch notification** (item 9): `EngineGames.Outcome.branched`; the assumer's Game activity carries
+  `GameNoticeContent.branched` (V58 `activity_summary.branched`), LOB-116.
+- **Problem reports** (item 10): `AutomatumReports` sends the open engine game's `GameRepro` (`EngineGame.repro`, fitted
+  to the report's bound) instead of today's Automatum bundle.
+- **Two devices end to end through the app layer** (item 12, simulated): `EngineAppSim` (app tests) is one in-memory
+  server (the main line with checkpoints, `Acceptance`, `Rewind`, local heads, requests) exchanging `GameRevision`s and
+  refusals with two `EngineGame`s; `EngineTwoDeviceTest` plays seeded whole games (live, async, mixed: openings,
+  assumptions, combat with shared staging and assumed blocks, catch-ups, branches, undo requests, results, the strip and
+  reviewed boards every round) with the leak oracle, and checks each device against the server and its bundle's replay;
+  `EngineSharedStagingTest` checks the staging both tables show and a life flash.
+
+**Left for step D** (with §12's items 1, 2 and 13):
+- Item 11, engine work off the main thread: not built. The device's own steps (`advance`: assumptions with their
+  information-rule probes, folds), the server's events and the projection still run on the main thread. Moving them needs
+  one engine thread that owns the `GameDevice` and publishes immutable snapshots (status, indicator, request, the
+  projected board, the timeline) for the UI, which today reads the device directly in about 40 places; the player's own
+  actions keep their synchronous local result (SYS-025). Measure on a slow phone first.
+- Item 12 against a real server and devices (`ATW_ENGINE_GAMES=1` on the test environment) and the adversarial review.
+- The Undo dialog's target picker as the timeline strip (§10 says so; it is still the list of short texts).
+- An early division can't tell the first-strike damage step from the regular one (`EarlyAnswer.keyOf` has no step):
+  given in the first-strike step it would answer the regular step's division too if it still fits.

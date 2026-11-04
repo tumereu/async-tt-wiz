@@ -1,1 +1,1 @@
-Holding Undo opens the Undo dialog: the actions so far, newest first, to pick the point to go back to; going back past what Bob has seen asks him first.
+Holding Undo opens the Undo dialog: the actions so far, newest first, to pick the point to go back to, and below them the board at that point; going back past what Bob has seen asks him first.

@@ -22,6 +22,18 @@ interface HistoryStore {
             cursor = node.event.parentId
         }
     }
+
+    /** [head]'s node and its ancestors deeper than [depth], nearest first (fewer when one is missing). A store backed
+     * by a database reads them in a fixed number of queries however many there are. */
+    fun ancestors(head: String, depth: Int): List<HistoryNode> = buildList {
+        var cursor = head
+        while (cursor != rootId) {
+            val node = node(cursor) ?: break
+            if (node.depth <= depth) break
+            add(node)
+            cursor = node.event.parentId
+        }
+    }
 }
 
 /**

@@ -1,6 +1,7 @@
 package org.asyncttwiz.protocol.game
 
 import arcanum.engine.Engine
+import arcanum.engine.change.Change
 import arcanum.engine.decision.Answer
 import arcanum.engine.decision.Decision
 import arcanum.engine.input.Input
@@ -18,8 +19,12 @@ import kotlin.random.Random
  * test's control, so live play (prompt delivery), async play (a device that is away gets nothing and loads the game
  * again when it comes back) and races (actions crossing on the wire) are deterministic.
  *
- * The leak oracle runs on every event a device shows: while the player's line is tentative on the server (an
- * assumption of theirs not yet confirmed), nothing shown may reveal a card they couldn't see before (I-D56 §5, §13).
+ * The leak oracle runs on every event a device shows or sends: while the player's line is tentative on the server (an
+ * assumption of theirs not yet confirmed), nothing shown may reveal a card they couldn't see before (I-D56 §5, §13). It
+ * is worked out here, independently of the code under test ([InformationRule], [Engine.revealed]): the cards
+ * [Engine.visible] gives the player after each step of the event, and those shown or revealed to them in passing
+ * ([Change.Shown], [arcanum.engine.change.GameEvent.Revealed]), less what they saw before and their own library's. The
+ * equivalence oracle ([equivalence]) replays the main line's inputs on the bare engine.
  */
 internal class DeviceSim(val games: EngineGames, every: Int = 16) {
     val server = AsyncServer(games, every)
@@ -86,8 +91,54 @@ internal class DeviceSim(val games: EngineGames, every: Int = 16) {
         val tentative = (MainLine.after(server.history, server.head, other).orEmpty() + device.session.pending)
             .any { it.assumed?.assumedBy == me && it.id != event.id } || event.assumed?.assumedBy == me
         if (!tentative) return
-        val shown = InformationRule.revealing(before, event.engine?.changes.orEmpty(), me)
+        val shown = shownTo(before, event, me)
         if (shown.isNotEmpty()) leaks += "${me.value} shown $shown by ${event.id}"
+    }
+
+    /** The cards [event] shows [me] that they couldn't see on [before], apart from their own library's (I-D56 §5), worked
+     * out without the code under test: [Engine.visible] after each step, and what is shown or revealed in passing. */
+    private fun shownTo(before: arcanum.engine.state.GameState, event: GameEvent, me: PlayerId): Set<arcanum.engine.state.CardId> {
+        fun seen(state: arcanum.engine.state.GameState) = Engine.visible(state, me).mapNotNull { state.obj(it)?.card }
+        val known = seen(before).toSet() + before.player(me).library.mapNotNull { before.obj(it)?.card }
+        val existing = before.objects.values.map { it.card }.toSet()
+        val state = before.deepCopy()
+        val shown = mutableSetOf<arcanum.engine.state.CardId>()
+        for (step in event.engine?.steps.orEmpty()) {
+            for (change in step.changes) {
+                state.apply(change)
+                val ids = when (change) {
+                    is Change.Shown -> if (change.to == null || change.to == me) change.ids else emptyList()
+                    is Change.Happened -> (change.event as? arcanum.engine.change.GameEvent.Revealed)?.ids.orEmpty()
+                    else -> emptyList()
+                }
+                ids.forEach { id -> state.obj(id)?.card?.let(shown::add) }
+            }
+            shown += seen(state)
+        }
+        return shown.filterTo(mutableSetOf()) { it in existing && it !in known }
+    }
+
+    /**
+     * The equivalence oracle (I-D56 §13): the server's main line, its inputs performed one by one on the bare engine
+     * from the game's start (a new line's reshuffle applied as recorded, older turns' log dropped after each event as
+     * the model does), gives every recorded step's changes and the head's engine state: how the line was made (devices,
+     * assumptions, confirmations, slipped-in table events, branches) doesn't show in it. Mismatches, empty when equal.
+     */
+    fun equivalence(): List<String> {
+        val state = server.stateAt("root").engine
+        val out = mutableListOf<String>()
+        for (event in server.line()) {
+            for ((i, step) in event.engine?.steps.orEmpty().withIndex()) {
+                val input = step.input
+                val changes = if (input == null) step.changes else try { Engine.perform(state, input).changes }
+                    catch (e: RuntimeException) { out += "${event.id} step $i refused: ${e.message}"; return out }
+                if (changes != step.changes) { out += "${event.id} step $i made differently"; return out }
+                changes.forEach(state::apply)
+            }
+            state.forgetOlderTurns()
+        }
+        if (state != server.state().engine) out += "the head's state differs"
+        return out
     }
 
     /** Sends [p]'s device's outbox to the server, in order; the server's answers go into the inboxes. */

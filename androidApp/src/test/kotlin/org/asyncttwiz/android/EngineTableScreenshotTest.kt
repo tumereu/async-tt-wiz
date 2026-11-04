@@ -191,6 +191,7 @@ class EngineTableScreenshotTest {
         alice.tick(false, scenario.sim.now + 121_000)
         val waiting = assertIs<GameDevice.Status.Waiting>(alice.device.status)
         assertTrue(waiting.blockersScreen)
+        alice.notes.clear()
         render(alice, f.a)
         compose.onNodeWithText("Assume Bob's blockers").assertExists()
         val blocker = scenario.creatures(s, scenario.other, ready = false).first { s.obj(it)?.tapped == false } as ObjectId.Card
@@ -216,6 +217,7 @@ class EngineTableScreenshotTest {
         alice.table(listOf(org.asyncttwiz.protocol.game.TableChange.AttackDraft(null,
             listOf(arcanum.engine.input.Attack(attacker, TargetRef.Player(scenario.other))))))
         scenario.settle()
+        scenario.bob.notes.clear() // the scripted setup's own races (SYS-012 notes) aren't part of this picture
         render(scenario.bob, f.b, summary = f.game)
         captureShot("$SCREENSHOTS/engine/shared-staging.png",
             "Alice is staging her attack: on Bob's table her Ember Cub already stands in the combat lane aimed at him while she decides, and the strip's newest event says she staged 1 attacker.")

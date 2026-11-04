@@ -160,7 +160,9 @@ const val GAME_PROTOCOL_MINOR = 6
     /** The assumed event a submission confirmed (it made no event of its own). */
     val confirmed: String? = null,
     /** Server only, removed before a revision is sent: per account, whether they have a next stop (I-D56 §7). */
-    val moves: Map<String, Boolean>? = null)
+    val moves: Map<String, Boolean>? = null,
+    /** Server only, removed before a revision is sent: per account, their last-activity time (I-D56 §7). */
+    val activity: Map<String, String>? = null)
 @Serializable @SerialName("revision") data class GameRevision(val gameId: String, val baseRevision: String,
     val resultRevision: String, val requestId: String, val author: String, val scope: GameScope,
     val summary: GameSummary, val preparation: LobbyPreparation? = null, val play: PlayState? = null,

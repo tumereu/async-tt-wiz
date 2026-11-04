@@ -90,5 +90,19 @@ class EngineGameTest {
         assertTrue(bob.take(3_000).any { it is GameAction.Submit })
     }
 
+    // SYS-012 (abreview #1): the player's own action that the game moved on from before it reached the server is told
+    // ("That wasn't taken…"), never dropped silently; the table goes back to the server's
+    @Test fun aRefusedOwnActionIsTold() {
+        val game = alice()
+        game.tick(live = true, now = 1_000)
+        assertIs<GameDevice.Acted.Sent>(game.keep(emptyList()))
+        val submit = game.take(1_000).filterIsInstance<GameAction.Submit>().first()
+        game.refused(submit, "stale")
+        assertTrue(game.notes.any { it == GameDevice.Note.Refused("stale") })
+        assertEquals(NOT_TAKEN, refusedText("stale"))
+        assertTrue(game.device.session.pending.isEmpty() && game.device.model.sameAs(f.snapshot().let { s ->
+            f.codec.decodeModel(s.state) }), "back to the server's state")
+    }
+
     @Suppress("unused") private fun GameModel.unused() = Unit
 }

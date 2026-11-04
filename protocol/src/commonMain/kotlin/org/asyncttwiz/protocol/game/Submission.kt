@@ -44,7 +44,11 @@ sealed interface Act {
 
 /** Why a [Submission] was refused: the input or table change it names isn't possible on the state it was made on.
  * [reason] is short and stable ("stale", "revealsHidden", …) or says what the engine refused. */
-class Refusal(val reason: String) : RuntimeException(reason)
+class Refusal(val reason: String) : RuntimeException(reason) {
+    /** The state at hand when [Acceptance] refused (the warm state, moved, or one it loaded), so the server keeps it
+     * warm instead of loading a checkpoint for the next request; null when it used none. */
+    var state: LiveState? = null
+}
 
 /**
  * The server's gate (I-D54 §3): a submission is accepted when every engine input is one the engine accepts on the state
@@ -132,7 +136,13 @@ object Authority {
                 change.after
             }
             is TableChange.LineMoved -> throw Refusal("The line moves only with the event's own random answers")
-            is TableChange.Placed, is TableChange.AttackDraft, is TableChange.BlockDraft -> null
+            // I-D56 §6: placing your own cards on your battlefield (a place taken from an object that is gone: anyone)
+            is TableChange.Placed -> {
+                val obj = model.engine.obj(change.obj)
+                if (change.after != null && (obj == null || change.obj !in model.engine.battlefield)) throw Refusal("Only a permanent has a place")
+                obj?.controller
+            }
+            is TableChange.AttackDraft, is TableChange.BlockDraft -> null
         }
         if (own != null && own != author) throw Refusal("Only $own makes this change")
     }
@@ -298,12 +308,18 @@ class LiveState(val at: String, val model: GameModel)
  * main line), then
  * - P is the head: appended (a table-only event may be made there by an author who is behind: it doesn't move their
  *   local head, I-D56 §6);
+ * - only other table-only events follow P, none touching what the submission's table changes touch ([commutes]): they
+ *   decide nothing and the engine state is P's, so the event is made on the head instead (I-D56 §6: they never make an
+ *   input stale; the device slips them in under its pending events the same way, [GameSession]);
  * - the next main-line event after P is an assumed input about the author: the same input confirms it ([Confirmed]: the
  *   author's local head moves past it and the submission is dropped as a duplicate); any other input (a mana ability
  *   or special action first included) is a branch: the new event's parent is P, it starts a new line, and the old line
  *   after P is discarded (kept in storage, shown to nobody);
- * - the author's concession at P is a branch too (I-D56 §11: the result never depends on what they haven't seen);
+ * - the author's concession at P is a branch too (I-D56 §11: the result never depends on what they haven't seen), its
+ *   new line started by the server when the device didn't (a concession made at the device's head while an event was
+ *   still on its way to it, CR 104.3a: conceding is taken at any time);
  * - otherwise: `stale`.
+ * An assumed input is taken only at its author's own local head (I-D56 §6: never from a player who is behind).
  * The invariant this keeps: unconfirmed assumptions on the main line are about one player, so there is never more than
  * one tentative line. The state at the parent is [warm]'s when it is there or near ([GameHistory.move]), else a
  * checkpoint and the events after it ([GameHistory.stateAt]).
@@ -325,38 +341,76 @@ object Acceptance {
     fun accept(history: GameHistory, head: String, warm: LiveState?, submission: Submission, author: PlayerId,
         heads: Map<PlayerId, String>, nextLine: Int, rewindOpen: Boolean = false): Result {
         val concession = submission.acts.filterIsInstance<Act.Perform>().firstOrNull()?.input.let { it is Input.Concede && it.player == author }
-        if (rewindOpen && !concession) throw Refusal("rewindRequested")
-        if (submission.id == history.store.rootId || history.store.node(submission.id) != null) throw Refusal("Event ${submission.id} exists")
-        val own = heads[author] ?: history.store.rootId
-        val ahead = MainLine.after(history, head, own) ?: throw Refusal("stale")
-        val parent = submission.parentId
-        val at = if (parent == own) 0 else ahead.indexOfFirst { it.id == parent } + 1
-        if (parent != own && at == 0) throw Refusal("stale")
-        val rest = ahead.drop(at)
-        fun state() = if (warm == null) history.stateAt(parent) else history.move(warm.model, warm.at, parent)
-        if (rest.isEmpty()) {
-            if (submission.acts.firstOrNull() is Act.NewLine) throw Refusal("stale")
-            val model = state()
-            val others = model.engine.players.map { it.id }.filter { it != author }.map { heads[it] ?: history.store.rootId }
-            val tentative = others.any { other -> tentativeFor(history, head, other, author) }
-            val seen = others.all { other -> MainLine.after(history, head, other)?.all { e -> e.engine == null } == true }
-            val event = Authority.make(model, submission, author, Authority.Rules(tentative = tentative, resultSeenByAll = seen))
-            return Accepted(event, LiveState(event.id, model), authorHead = event.engine != null || parent == own)
+        var used: LiveState? = null
+        try {
+            if (rewindOpen && !concession) throw Refusal("rewindRequested")
+            if (submission.id == history.store.rootId || history.store.node(submission.id) != null) throw Refusal("Event ${submission.id} exists")
+            val own = heads[author] ?: history.store.rootId
+            val ahead = MainLine.after(history, head, own) ?: throw Refusal("stale")
+            val parent = submission.parentId
+            val at = if (parent == own) 0 else ahead.indexOfFirst { it.id == parent } + 1
+            if (parent != own && at == 0) throw Refusal("stale")
+            // I-D56 §6: assumed inputs only by a player whose own local head is where they are made
+            if (submission.acts.any { it is Act.Perform && it.assumed } && parent != own) throw Refusal("stale")
+            val rest = ahead.drop(at)
+            fun state(id: String): GameModel =
+                (if (warm == null) history.stateAt(id) else history.move(warm.model, warm.at, id)).also { used = LiveState(id, it) }
+            if (rest.all { commutes(it, submission.table) } && (rest.isEmpty() || submission.acts.firstOrNull() !is Act.NewLine || concession)) {
+                // At the head, or made on the head over other table-only events (the same engine state)
+                val acts = if (concession) submission.acts.filter { it !is Act.NewLine } else submission.acts
+                if (acts.firstOrNull() is Act.NewLine) throw Refusal("stale")
+                val model = state(head)
+                val others = model.engine.players.map { it.id }.filter { it != author }.map { heads[it] ?: history.store.rootId }
+                val tentative = others.any { other -> tentativeFor(history, head, other, author) }
+                // A result is confirmed once every player saw it, its author too (I-D56 §11)
+                val seen = ahead.all { it.engine == null } &&
+                    others.all { other -> MainLine.after(history, head, other)?.all { e -> e.engine == null } == true }
+                val event = Authority.make(model, submission.copy(parentId = head, acts = acts), author,
+                    Authority.Rules(tentative = tentative, resultSeenByAll = seen))
+                return Accepted(event, LiveState(event.id, model), authorHead = event.engine != null || parent == own)
+            }
+            val next = rest.first()
+            val first = submission.acts.filterIsInstance<Act.Perform>().firstOrNull()
+            val assumed = next.assumed
+            val players = (heads.keys + author).distinct()
+            val about = assumed?.let { step -> assumedAbout(step, next, players) }
+            if (first == null || first.assumed) throw Refusal("stale")
+            if (about != author && !concession) throw Refusal("stale")
+            if (about == author && !concession && confirms(first.input, assumed!!.input!!)) return Confirmed(next.id)
+            // A branch at the author's local head: a new line, the old line after it discarded. A concession's line is
+            // the server's to start when the device didn't (it conceded at what it showed as the head, §11)
+            val acts = when {
+                concession -> listOf(Act.NewLine(nextLine)) + submission.acts.filter { it !is Act.NewLine }
+                submission.acts.firstOrNull() is Act.NewLine -> submission.acts
+                else -> throw Refusal("newLine")
+            }
+            val model = state(parent)
+            val event = Authority.make(model, submission.copy(acts = acts), author, Authority.Rules(nextLine = nextLine))
+            return Accepted(event, LiveState(event.id, model), discarded = next.id)
+        } catch (refusal: Refusal) {
+            refusal.state = used ?: warm
+            throw refusal
         }
-        val next = rest.first()
-        val first = submission.acts.filterIsInstance<Act.Perform>().firstOrNull()
-        val assumed = next.assumed
-        val players = (heads.keys + author).distinct()
-        val about = assumed?.let { step -> assumedAbout(step, next, players) }
-        if (first == null || first.assumed) throw Refusal("stale")
-        if (about != author && !concession) throw Refusal("stale")
-        if (about == author && !concession && same(first.input, assumed!!.input!!)) return Confirmed(next.id)
-        // A branch at the author's local head: a new line, the old line after it discarded
-        if (submission.acts.firstOrNull() !is Act.NewLine) throw Refusal("newLine")
-        val model = state()
-        val event = Authority.make(model, submission, author, Authority.Rules(nextLine = nextLine))
-        return Accepted(event, LiveState(event.id, model), discarded = next.id)
     }
+
+    /**
+     * Whether [event], another event on the main line before a submission lands, lets the submission be made after it
+     * as if it weren't there (I-D56 §6): it is table-only (no engine part and no line moved: the engine state is the
+     * same) and writes none of the table parts [table] (the submission's table changes) writes. The server makes such a
+     * submission on the head ([accept]); a device slips such an event in under its pending events and open draft
+     * ([GameSession.received]) by the same rule, so both make the same event.
+     */
+    fun commutes(event: GameEvent, table: List<TableChange>): Boolean =
+        event.engine == null && event.table.none { it is TableChange.LineMoved } &&
+            Concerns.tableWrites(event.table).none { it in Concerns.tableWrites(table) }
+
+    /**
+     * Whether a player's answer at a decision stop whose first input is [first] confirms the assumed input [assumed]
+     * about them (I-D56 §8, §18.7): only the first input is compared (canonically, [same]); what else the answer holds
+     * (later inputs, table changes) is the player's next action after the confirmed event, not part of the
+     * confirmation. One rule for the server ([accept]) and the device ([GameDevice.act], [GameDevice.send]).
+     */
+    fun confirms(first: Input, assumed: Input): Boolean = same(first, assumed)
 
     /** Whether the main line after [other]'s local head holds an assumption of [author]'s: [author]'s line is
      * tentative (I-D56 §2). */
@@ -389,17 +443,12 @@ object MainLine {
      * before the head); else null. */
     fun after(history: GameHistory, head: String, from: String): List<GameEvent>? {
         if (from == head) return emptyList()
-        val root = history.store.rootId
-        val depth = if (from == root) 0 else history.store.node(from)?.depth ?: return null
-        val out = mutableListOf<GameEvent>()
-        var cursor = head
-        while (cursor != root) {
-            val node = history.store.node(cursor) ?: return null
-            if (node.depth <= depth) return if (cursor == from) out.asReversed() else null
-            out += node.event
-            cursor = node.event.parentId
-        }
-        return if (from == root) out.asReversed() else null
+        val depth = if (from == history.store.rootId) 0 else history.store.node(from)?.depth ?: return null
+        // One read of the line however far back [from] is (I-D54 §4: no query per event)
+        val nodes = history.store.ancestors(head, depth)
+        val last = nodes.lastOrNull() ?: return null
+        if (last.depth != depth + 1 || last.event.parentId != from) return null
+        return nodes.asReversed().map { it.event }
     }
 }
 
@@ -417,10 +466,14 @@ object InformationRule {
 
     /** Whether [event]'s random answers include a result players see (a coin flip, a die roll, a random choice; a
      * shuffle's order is hidden and a new line reshuffles it anyway). */
-    fun randomResult(event: GameEvent, before: GameState): Boolean {
+    fun randomResult(event: GameEvent, before: GameState): Boolean = randomResult(event.engine?.steps.orEmpty(), before)
+
+    /** [randomResult] of the engine [steps] made on [before] (an event being made). */
+    fun randomResult(steps: List<EngineStep>, before: GameState): Boolean {
+        if (steps.none { it.input is Input.Answer }) return false
         val state = before.deepCopy()
         var found = false
-        for (step in event.engine?.steps.orEmpty()) {
+        for (step in steps) {
             val d = state.pending?.decision as? Decision.Random
             val input = step.input
             if (d != null && input is Input.Answer && input.decision == d.id) {

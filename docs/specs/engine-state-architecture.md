@@ -348,10 +348,14 @@ the server still starts engine games only with `ATW_ENGINE_GAMES=1` or the test 
 13. The spec rows `async-play.md` §17 lists for `arcanum-atw-integration.md` and `arcanum-automatum.md` (they change when
     the switch-over ships), and the catalog's README note on the two paths.
 
+**Adversarial review of steps A and B (2026-11-04):** fixed; see `async-play.md` §21 (table-only events commute, drafts
+and confirmations, concession, random results, per-viewer times, batched main-line reads with a per-play event cache,
+warm state kept on refusals, server checks).
+
 ## 13. Built (I-D56 step D1, 2026-11-04): feature parity of the engine path
 
 Still behind the debug switch (`EnginePath`); today's model stays the default and nothing is wiped. Items 3–10 and 12 of
-§12's list, the way `async-play.md` §21 records the choices:
+§12's list, the way `async-play.md` §22 records the choices:
 - **Timeline** (item 3): `EngineTimeline` (app) lists the main line the device holds up to the local head and the
   device's own pending events, one event per acting point, groups by turn; `EngineEventText` gives each event its text
   and icon from its input, outcome and table part. The strip (`EngineStrip`, HIS-001–HIS-005), timeline mode

@@ -22,9 +22,10 @@ import org.asyncttwiz.protocol.GameAction
  *
  * - **Playback** (§7): events past the local head are buffered and shown one at a time ([step], paced by the UI);
  *   playback stops before an assumed input about the player where their private response mode stops ([Status.Stopped],
- *   [NextStop.stopsAt]): the table is live there, and their answer ([act]) confirms the assumption (the same input) or
- *   branches the game (anything else, a new line). Elsewhere showing the assumed pass confirms it. Coming back with
- *   the other player's events buffered starts with the catch-up screen ([Status.CatchUp], [play]).
+ *   [NextStop.stopsAt]): the table is live there, and their answer ([act]) confirms the assumption (its first input the
+ *   same, [Acceptance.confirms]: the rest is their next action after it) or branches the game (anything else, a new
+ *   line). Elsewhere showing the assumed pass confirms it. Coming back with the other player's events buffered starts
+ *   with the catch-up screen ([Status.CatchUp], [play]).
  * - **Local-head reports** ([GameAction.EngineSeen]) go out throttled, at once where playback stops or reaches the head.
  * - **The device's own passes** (§6, §7): at the head, where the player gets priority and their mode doesn't stop
  *   there (or an "End turn" goes on), the device passes for them; such passes after the player's own input fold into its
@@ -34,8 +35,9 @@ import org.asyncttwiz.protocol.GameAction
  *   if their Auto-skip were off) assumed at once while they are async, a wait while they are live (green presence, with
  *   [GRACE_MS] grace) unless "Always assume resolves"; every other priority point assumed at once; never at their own
  *   main phase; blockers (async: the Assume blockers screen with "No blocks", OK assumes) and the opening keep (async:
- *   at once); anything else a real wait. An assumption whose outcome would show the player a hidden card is not sent
- *   (the information rule, §5): a wait with no button.
+ *   at once); anything else a real wait. An assumption whose outcome would show the player a hidden card, or a random
+ *   result (whether it would show one can't be told before the result), is not sent (the information rule, §5): a
+ *   wait with no button.
  * - **Branches and rewinds** (§8, §10): when the server's main line changes behind the shown state, the device goes
  *   back to the point and says so ([Note.Branched], [Note.TakenBack]); events on the discarded line are gone.
  * - **Undo** ([undo]): free undo is sent at once, else the caller opens the request dialog ([requestUndo]); the other
@@ -43,7 +45,11 @@ import org.asyncttwiz.protocol.GameAction
  *   but a concession; playback goes on).
  * - **Table-only events** ([table]) are made at the head while they apply there, re-made after a stale refusal, else
  *   dropped; staging behind the head stays on the device. Early answers only at the head. A waiting suggestion locks
- *   every other game action once the shown state includes it (TRN-049).
+ *   every other game action once the shown state includes it (TRN-049). The other player's table-only events never
+ *   make the player's own events or open draft stale ([GameSession.received]).
+ * - **Refusals and drafts:** a refused action of the player's own is told ([Note.Refused]; the device's own passes and
+ *   assumptions refused in the expected races are not); a draft dropped because the main line changed under it is told
+ *   once ([Note.Refused] with [DRAFT_DROPPED]) and [send] then answers "noDraft".
  *
  * Times are the caller's ([advance], [presence], [take] take `now` in milliseconds), so simulations are deterministic.
  */
@@ -94,6 +100,8 @@ class GameDevice(
     private val reveals = mutableMapOf<String, Boolean>()
     private val retry = mutableListOf<Retry>()
     private val confirming = mutableSetOf<String>()
+    /** The submissions made by the player's own actions (a refusal of one is told, even "stale"). */
+    private val byPlayer = mutableSetOf<String>()
     private val outbox = mutableListOf<GameAction>()
     private val notes = mutableListOf<Note>()
     private var reported: String? = null
@@ -140,11 +148,11 @@ class GameDevice(
         data object Blockers : Wait
         /** They are deciding on a mulligan. */
         data object Keep : Wait
-        /** They are choosing ([source]: the card it comes from). */
+        /** They are choosing ([source]: the card it comes from, null when this player can't see it). */
         data class Choosing(val source: ObjectId?) : Wait
         /** Their own main phase, or their declaration of attackers: their turn to act. */
         data object TheirTurn : Wait
-        /** Going on would show you hidden cards (the information rule, §5). */
+        /** Going on would show you hidden cards, or a random result (the information rule, §5). */
         data object HiddenCards : Wait
         /** Your own events wait for the server. */
         data object Sending : Wait
@@ -350,7 +358,7 @@ class GameDevice(
                 if (revealing(keep)) return Point.Wait(Wait.HiddenCards)
                 return if (liveWait("$tip:keep")) Point.Wait(Wait.Keep, Offer.AssumeKeep, keep) else Point.Assume(keep)
             }
-            return Point.Wait(Wait.Choosing(d.source))
+            return Point.Wait(Wait.Choosing(d.source?.takeIf { it in Engine.visible(s, me) }))
         }
         val holder = s.priority.holder
         if (holder != null) {
@@ -395,7 +403,7 @@ class GameDevice(
             builder.perform(input, assumedBy = me)
             builder.answerRandoms()
             fold(builder, own = false)
-            InformationRule.revealing(before, builder.changes, me).isNotEmpty()
+            shows(before, builder)
         } catch (_: RuntimeException) {
             false
         } finally {
@@ -427,16 +435,56 @@ class GameDevice(
 
     /**
      * The player's own [input] (and [follow]'s further inputs of their flow, then [table] changes) as one acting point:
-     * at the head, or at a decision stop (the same input as assumed confirms it; any other branches with a new line);
-     * a concession at any time (behind the head: a branch, §11).
+     * at the head, or at a decision stop: there the same input as assumed confirms it ([Acceptance.confirms], the server's
+     * rule) and what [follow] gives after it is the player's next action, made after the confirmed event (at the head, or
+     * at the next assumption about them: confirming or branching it in turn); any other input branches with a new line.
+     * A concession at any time (behind the head: a branch, §11).
      */
-    fun act(input: Input, table: List<TableChange> = emptyList(), follow: (GameModel) -> Input? = { null }): Acted {
+    fun act(input: Input, table: List<TableChange> = emptyList(), follow: (GameModel) -> Input? = { null }): Acted =
+        act(input, table, follow, null)
+
+    private fun act(input: Input, table: List<TableChange>, follow: (GameModel) -> Input?, replay: ArrayDeque<Input>?): Acted {
         refusal(input)?.let { return Acted.Refused(it) }
-        if (!session.behind) return make(input, assumed = false, follow = follow, table = table)
+        if (!session.behind) return make(input, assumed = false, follow = follow, table = table, player = true)
         val stop = status as? Status.Stopped
-        if (stop != null && table.isEmpty() && Acceptance.same(input, stop.assumed)) return confirm(input)
+        if (stop != null && Acceptance.confirms(input, stop.assumed)) return confirmThen(input, table, follow, replay)
         if (stop == null && input !is Input.Concede) return Acted.Refused("playback")
-        return make(input, assumed = false, follow = follow, table = table, newLine = lines + 1)
+        return make(input, assumed = false, follow = follow, table = table, newLine = lines + 1, player = true)
+    }
+
+    /** Confirms the assumption at the stop with [input], then makes what [follow] gives next and [table] (I-D56 §8:
+     * "a confirmation followed by new input"). [replay]: [follow]'s queue, when it replays a draft's inputs (the confirmed
+     * event's own automatic answers are skipped in it). */
+    private fun confirmThen(input: Input, table: List<TableChange>, follow: (GameModel) -> Input?, replay: ArrayDeque<Input>?): Acted {
+        val event = session.buffered.first()
+        confirm(input)
+        if (replay != null) for (folded in event.engine?.steps.orEmpty().drop(1).mapNotNull { it.input })
+            if (replay.firstOrNull() == folded) replay.removeFirst()
+        var acted: Acted = Acted.Confirmed
+        val next = follow(model)
+        if (next != null) acted = goOn(next, follow, replay)
+        if (table.isNotEmpty() && acted !is Acted.Refused) {
+            val target = if (session.behind) session.headModel() else model
+            val again = rebase(target, table) ?: return Acted.Refused("inapplicable")
+            this.table(again).let { if (acted == Acted.Confirmed) acted = it }
+        }
+        return acted
+    }
+
+    /** The player's next [input] after a confirmation: at the head, or at the next assumption about them (whatever
+     * their mode: an answer that differs from it is a branch). */
+    private fun goOn(input: Input, follow: (GameModel) -> Input?, replay: ArrayDeque<Input>?): Acted {
+        if (!session.behind) return make(input, assumed = false, follow = follow, player = true)
+        val assumed = assumedAboutMe(session.buffered.first()) ?: return Acted.Refused("playback")
+        if (Acceptance.confirms(input, assumed)) return confirmThen(input, emptyList(), follow, replay)
+        return make(input, assumed = false, follow = follow, newLine = lines + 1, player = true)
+    }
+
+    /** The assumed input of [event] when it is the other player's assumption about this player, else null. */
+    private fun assumedAboutMe(event: GameEvent): Input? {
+        val step = event.assumed ?: return null
+        if (step.assumedBy == me || Acceptance.assumedAbout(step, event, players) != me) return null
+        return step.input
     }
 
     private fun refusal(input: Input?): String? = when {
@@ -450,24 +498,25 @@ class GameDevice(
 
     /** The player's answer equal to the assumed input at their stop: sent (the server confirms it, I-D56 §8), and
      * playback goes on past it. */
-    private fun confirm(input: Input): Acted {
+    private fun confirm(input: Input) {
         val submission = Submission(ids(), session.localHead, listOf(Act.Perform(input)))
         confirming += submission.id
         send(GameAction.Submit(submission))
         session.showNext()
-        return Acted.Confirmed
     }
 
     /**
-     * Opens a draft for a flow of the player's own (a cast with its choices): at the head, or at a decision stop (a new
-     * line: a branch, unless [send] finds its first input is the assumed one); null when the player can't act now.
-     * The caller performs the flow's inputs on it, then [send]s or [abandon]s.
+     * Opens a draft for a flow of the player's own (a cast with its choices): at the head, or at a decision stop (on the
+     * main line as it is there: [send] confirms the assumption when its first input is the assumed one and makes the
+     * rest after it, else sends it as a branch with a new line); null when the player can't act now. The caller
+     * performs the flow's inputs on it, then [send]s or [abandon]s. A draft the main line drops under it (a branch, a
+     * rewind, another event at the head that doesn't commute with it) is gone: told once, and [send] answers "noDraft".
      */
     fun begin(): EventBuilder? {
         if (refusal(null) != null) return null
         val stop = if (session.behind) status as? Status.Stopped ?: return null else null
         draftBefore = if (tentative()) model.engine.deepCopy() else null
-        val builder = if (stop != null) session.begin(ids(), newLine = lines + 1) else session.begin(ids())
+        val builder = session.begin(ids())
         openDraft = builder
         draftStop = stop
         return builder
@@ -476,13 +525,18 @@ class GameDevice(
     /** Sends the open draft with what follows it by itself (the player's passes by their mode, automatic answers). */
     fun send(): Acted {
         val builder = openDraft ?: return Acted.Refused("noDraft")
-        val stop = draftStop
-        val first = builder.inputs.firstOrNull()
-        if (stop != null && first != null && builder.inputs.size == 1 && Acceptance.same(first, stop.assumed)) {
-            abandon()
-            return confirm(first)
-        }
-        return finish(builder, own = true, before = draftBefore)
+        if (builder.finished || !session.drafting) { dropDraft(); return Acted.Refused("noDraft") }
+        if (needsReload) { abandon(); return Acted.Refused("reload") }
+        val stop = draftStop ?: return finish(builder, own = true, before = draftBefore, player = true)
+        // At a decision stop: the same rule as the server's (confirm, then the rest), else a branch made again with
+        // its new line first
+        val inputs = builder.playerInputs
+        val table = builder.tableChanges
+        abandon()
+        val first = inputs.firstOrNull() ?: return if (table.isEmpty()) Acted.Refused("empty") else this.table(table)
+        val replay = ArrayDeque(inputs.drop(1))
+        if (session.buffered.firstOrNull()?.id != stop.event.id) return Acted.Refused("playback")
+        return act(first, table, { replay.removeFirstOrNull() }, replay)
     }
 
     /** Takes the open draft back. */
@@ -491,13 +545,22 @@ class GameDevice(
         openDraft = null; draftStop = null; draftBefore = null
     }
 
+    /** The open draft is gone from the session (the main line changed under it): forgotten, and told once. */
+    private fun dropDraft() {
+        if (openDraft == null) return
+        openDraft = null; draftStop = null; draftBefore = null
+        note(Note.Refused(DRAFT_DROPPED))
+    }
+
+    private fun checkDraft() { if (openDraft != null && (openDraft!!.finished || !session.drafting)) dropDraft() }
+
     private var openDraft: EventBuilder? = null
     private var draftStop: Status.Stopped? = null
     private var draftBefore: GameState? = null
 
     /** Makes [input] (assumed: the other player's, §3) as an event at the tip, or at the local head with [newLine]. */
     private fun make(input: Input, assumed: Boolean, follow: (GameModel) -> Input? = { null }, table: List<TableChange> = emptyList(),
-        newLine: Int? = null): Acted {
+        newLine: Int? = null, player: Boolean = false): Acted {
         // The server's rules (§6): the player's own inputs (or engine-automatic answers), the other player's only assumed
         try {
             val kind = WhoActs.kind(model, input, me, assumed)
@@ -518,16 +581,16 @@ class GameDevice(
             session.abandon()
             return Acted.Refused(e.message ?: "refusedByEngine")
         }
-        return finish(builder, own = !assumed, before = before)
+        return finish(builder, own = !assumed, before = before, player = player)
     }
 
     /** Folds what follows by itself into [builder]'s event and sends it, unless it would show this player a hidden card
-     * while [before] is given (the state before it: their line is tentative, or the event assumes): then the draft is
-     * taken back unsent (§5). */
-    private fun finish(builder: EventBuilder, own: Boolean, before: GameState?): Acted {
+     * or a random result while [before] is given (the state before it: their line is tentative, or the event assumes):
+     * then the draft is taken back unsent (§5). [player]: made by the player's own action (a refusal is told). */
+    private fun finish(builder: EventBuilder, own: Boolean, before: GameState?, player: Boolean = false): Acted {
         try { fold(builder, own) } catch (e: RuntimeException) { abandon(); return Acted.Refused(e.message ?: "refusedByEngine") }
         // I-D56 §5: while the line is tentative (or this assumes), nothing may show this player a hidden card
-        if (before != null && InformationRule.revealing(before, builder.changes, me).isNotEmpty()) {
+        if (before != null && shows(before, builder)) {
             val first = builder.inputs.firstOrNull()
             abandon()
             reveals["${session.tip}:$first"] = true
@@ -535,9 +598,18 @@ class GameDevice(
         }
         openDraft = null; draftStop = null; draftBefore = null
         val event = session.sendEvent()
+        if (player) byPlayer += event.id
         send(GameAction.Submit(Submission.of(event)))
         return Acted.Sent(event)
     }
+
+    /**
+     * Whether what [builder] made on [before] would show this player something the information rule holds back (§5): a
+     * hidden card ([InformationRule.revealing]), or a random result (a coin flip deciding a look would tell the result
+     * before it happens if the wait were decided by it; so any outcome with a random result waits, decided without it).
+     */
+    private fun shows(before: GameState, builder: EventBuilder): Boolean =
+        InformationRule.revealing(before, builder.changes, me).isNotEmpty() || InformationRule.randomResult(builder.engineSteps, before)
 
     /**
      * Folds what follows the event's input by itself into it (I-D35, §6): random answers, engine-automatic answers,
@@ -615,10 +687,12 @@ class GameDevice(
             send(GameAction.Submit(Submission.of(event)))
             return Acted.Sent(event)
         }
+        // Made at the head, with the values there as the before-values (the player sees the board at their local head)
         val model = session.headModel()
-        if (!applies(model, changes)) return Acted.Refused("inapplicable")
+        val again = rebase(model, changes)
+        if (again == null || !applies(model, again)) return Acted.Refused("inapplicable")
         val builder = EventBuilder(model, ids(), session.head, me.value)
-        try { changes.forEach(builder::table) } catch (e: RuntimeException) { return Acted.Refused("inapplicable") }
+        try { again.forEach(builder::table) } catch (e: RuntimeException) { return Acted.Refused("inapplicable") }
         val event = builder.build()
         send(GameAction.Submit(Submission.of(event)))
         return Acted.Sent(event)
@@ -773,7 +847,11 @@ class GameDevice(
         if (update != null) {
             for ((account, head) in update.localHeads) heads[PlayerId(account)] = head
             request = update.rewindRequest
+            // The server confirmed where this device branched: it can't follow (the rules agree, so only after a fault)
+            if (update.confirmed?.let(session::supersedes) == true) needsReload = true
         }
+        events.forEach { byPlayer.remove(it.id) }
+        checkDraft()
         if (needsReload) return
         followServer()
         trim()
@@ -786,9 +864,13 @@ class GameDevice(
             is GameAction.Submit -> {
                 val submission = action.submission
                 if (confirming.remove(submission.id)) return
+                val mine = byPlayer.remove(submission.id)
                 if (session.refused(submission.id) == GameSession.Received.Reload) needsReload = true
                 if (submission.acts.isEmpty() && reason == "stale") retry += Retry(submission.table, submission.parentId)
-                else if (reason != "stale") note(Note.Refused(reason))
+                // The player's own action is never dropped silently; the device's own passes and assumptions lost in
+                // the expected races are (I-D56 §8)
+                else if (reason != "stale" || mine) note(Note.Refused(reason))
+                checkDraft()
             }
             is GameAction.EngineRewind -> note(if (reason == "requestNeeded") Note.RequestNeeded(action.target) else Note.Refused(reason))
             is GameAction.EngineSeen -> if (reported == action.eventId) reported = null
@@ -818,23 +900,29 @@ class GameDevice(
      * (at once where playback stops or reaches the head, else at most every [SEEN_EVERY_MS]). */
     fun take(now: Long): List<GameAction> {
         this.now = now
+        report(now, urgent = !session.behind || status is Status.Stopped)
+        return outbox.toList().also { outbox.clear() }
+    }
+
+    /** Reports the shown head when it is ahead of the server's (throttled unless [urgent]). */
+    private fun report(now: Long, urgent: Boolean) {
         val local = session.localHead
         val server = heads[me]
         val ahead = server == null || (session.indexOf(local) ?: -1) > (session.indexOf(server) ?: -1)
-        if (local != reported && local != server && ahead) {
-            val urgent = !session.behind || status is Status.Stopped
-            if (urgent || now - reportedAt >= SEEN_EVERY_MS) {
-                send(GameAction.EngineSeen(local))
-                reported = local; reportedAt = now
-            }
+        if (local != reported && local != server && ahead && (urgent || now - reportedAt >= SEEN_EVERY_MS)) {
+            remember("out EngineSeen")
+            outbox += GameAction.EngineSeen(local)
+            reported = local; reportedAt = now
         }
-        return outbox.toList().also { outbox.clear() }
     }
 
     /** What happened that the player is told once (drained). */
     fun notes(): List<Note> = notes.toList().also { notes.clear() }
 
     private fun send(action: GameAction) {
+        // The server takes assumptions and result confirmations only from a local head it knows (I-D56 §6, §11): the
+        // shown head's report goes first
+        if (action is GameAction.Submit) report(now, urgent = true)
         remember("out ${action::class.simpleName}${(action as? GameAction.Submit)?.submission?.let { " ${it.id} on ${it.parentId}" } ?: ""}")
         outbox += action
     }
@@ -876,6 +964,8 @@ class GameDevice(
         /** The refusal of an input that would show the player hidden cards while their line is tentative (§5). */
         const val REVEALS_HIDDEN = Authority.REVEALS_HIDDEN
         const val REWIND_REQUESTED = "rewindRequested"
+        /** The note of a draft the main line dropped under it (a branch, a rewind, another event at the head). */
+        const val DRAFT_DROPPED = "draftDropped"
         /** Events a device keeps before the earlier local head (undo targets and request previews further back come
          * from the server). */
         const val KEPT_EVENTS = 64

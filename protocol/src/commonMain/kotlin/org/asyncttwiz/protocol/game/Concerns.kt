@@ -42,6 +42,10 @@ data class Concerns(val writes: Set<StateKey>, val reads: Set<StateKey>, val rea
             return Concerns(writes, reads, readsEngine)
         }
 
+        /** The table parts [changes] write (two players' table changes commute when these don't meet). */
+        fun tableWrites(changes: List<TableChange>): Set<StateKey> =
+            mutableSetOf<StateKey>().also { writes -> changes.forEach { table(it, writes, mutableSetOf()) } }
+
         private fun table(change: TableChange, writes: MutableSet<StateKey>, reads: MutableSet<StateKey>) {
             fun obj(id: ObjectId) { if (id is ObjectId.Card) reads += StateKey.Presence(id.card) }
             when (change) {

@@ -200,7 +200,8 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
         // I-D56 §7: whose move an engine play is comes from each viewer's own next stop; the per-player table stays here
         val moves = stored.engine?.moves
         // ... and so does the last-activity time: nothing about the line past the viewer's next stop (§7)
-        val revision = if (moves == null) stored else stored.copy(engine = stored.engine?.copy(moves = null, activity = null),
+        // (a revision that changed nothing of the engine's carries only these: it is sent without an engine part)
+        val revision = if (moves == null) stored else stored.copy(engine = stored.engine?.copy(moves = null, activity = null)?.takeIf { it != EngineUpdate() },
             summary = stored.summary.copy(attentionHolder = if (moves[accountId] == true) accountId else moves.entries.firstOrNull { it.value }?.key,
                 updatedAt = stored.engine?.activity?.get(accountId) ?: stored.summary.updatedAt))
         return if (revision.summary.lifecycle !in listOf(GameLifecycle.LOBBY, GameLifecycle.ACTIVE)) revision.copy(preparation = null, play = null, mutation = null, group = null, chatMessage = null, treeDelta = null)
@@ -266,29 +267,47 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
                 .set(GAME.UPDATED_AT, updatedAt)
                 .where(GAME.ID.eq(game.id)).execute()
             val engine = engineAccepted
+            var seated: EngineUpdate? = null
             val summary = if (engine != null && !engine.ended) {
                 game.revision = revision; game.updatedAt = updatedAt
                 lobby.summary(sql, game, engine.attention)
-            } else lobby.summary(sql, game.id!!)
+            } else lobby.summary(sql, game.id!!).let { summary ->
+                // switchreview #2: every revision of an active engine play (chat, the start) says whose move it is per
+                // viewer from the engine seats, as an engine revision does ([visibleRevision]); never from the play's
+                // starting board
+                seated = summary.playId?.takeIf { engine == null && summary.lifecycle == GameLifecycle.ACTIVE }
+                    ?.let { engineGames.moves(sql, UUID.fromString(it)) }
+                seated?.let { summary.copy(attentionHolder = it.moves.orEmpty().entries.firstOrNull { (_, move) -> move }?.key) } ?: summary
+            }
             val play = if (summary.lifecycle == GameLifecycle.ACTIVE) PlayStore.read(sql, game.id!!) else null
             update = GameRevision(game.id.toString(), before.toString(), revision.toString(), command.requestId,
                 inbox.accountId.toString(), command.scope, summary,
                 if (summary.lifecycle == GameLifecycle.LOBBY) PreparationStore.read(sql, summary) else null,
                 if (command.action !is GameAction.SendChat && engine == null) play else null, null, null,
-                insertedChat, null, engineEvent = engine?.events?.firstOrNull(), engine = engine?.update)
+                insertedChat, null, engineEvent = engine?.events?.firstOrNull(), engine = engine?.update ?: seated)
             encodedUpdate = GameWire.encode(update)
             sql.insertInto(GAME_REVISION).set(GAME_REVISION.GAME_ID, game.id).set(GAME_REVISION.REVISION, revision)
                 .set(GAME_REVISION.PAYLOAD, encodedUpdate).execute()
             val opponent = if (inbox.accountId == game.inviterId) game.recipientId!! else game.inviterId!!
+            // Whether it is the other player's move: on engine state from their own next stop (switchreview #2)
+            val opponentMoves = seated?.moves?.get(opponent.toString()) ?: (summary.attentionHolder == opponent.toString())
             insertedChat?.let { message ->
                 org.asyncttwiz.server.activity.ActivityService.record(sql, opponent, ActivityKind.GAME,
-                    game.id!!, uuid(message.id), inbox.accountId, yourMove = summary.attentionHolder == opponent.toString(), newMessage = true)
+                    game.id!!, uuid(message.id), inbox.accountId, yourMove = opponentMoves, newMessage = true)
             }
             // The other player's earlier Ready is otherwise never answered when this Ready starts the game.
             if (play != null && play.startRequestId == command.requestId) {
                 org.asyncttwiz.server.activity.ActivityService.resetReminders(sql, game.id!!)
                 org.asyncttwiz.server.activity.ActivityService.record(sql, opponent, ActivityKind.GAME,
-                    game.id!!, uuid(play.id), inbox.accountId, yourMove = summary.attentionHolder == opponent.toString())
+                    game.id!!, uuid(play.id), inbox.accountId, yourMove = opponentMoves)
+            }
+            // switchreview #3 (LOB-075, LOB-076): a player whose move ended without the other player being told of a new
+            // one (a confirmation, playback past their stop, an undo request) is no longer listed or reminded (a new stop
+            // of the other player's recorded below arms their reminder again, from its own time)
+            if (engine != null && !engine.ended) for (player in engine.endedStops) {
+                val other = if (player == game.inviterId.toString()) game.recipientId!! else game.inviterId!!
+                org.asyncttwiz.server.activity.ActivityService.moveEnded(sql,
+                    UUID.fromString(player), game.id!!, other, engine.moves[other.toString()] == true, updatedAt)
             }
             // I-D56 §7: a player hears of an engine play only when their next stop is new ("your move", timed from that
             // event), never of the line beyond it; LOB-111: the game's end once its result is final
@@ -301,7 +320,8 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
                     move = true, branched = true)
                 else if (opponent.toString() in engine.newStops) org.asyncttwiz.server.activity.ActivityService.record(sql, opponent,
                     ActivityKind.GAME, game.id!!, uuid(command.requestId), inbox.accountId,
-                    time = engine.stopTimes[opponent.toString()] ?: java.time.OffsetDateTime.now(java.time.ZoneOffset.UTC), yourMove = true, move = true)
+                    time = engine.stopTimes[opponent.toString()] ?: java.time.OffsetDateTime.now(java.time.ZoneOffset.UTC), yourMove = true, move = true,
+                    opponentReady = opponent.toString() in engine.ready)
             }
         }
         val created = when {
@@ -485,14 +505,18 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
         if (change.state?.let { preparation -> (command.action == GameAction.Ready || StartRules.canStart(summary, preparation)) &&
             unsupported(sql, summary, preparation, account.toString().takeUnless { StartRules.canStart(summary, preparation) }) } == true)
             return "automatumUnsupported"
+        // I-D54: the play's state is the engine's, its decks parsed on the server. Switchreview #9 (I-D51/I-D52): the
+        // server's own parse decides too, whatever support was stored for the decks (none, an older deck revision, a
+        // pod's source): a card it can't read never starts a game as a dead card
+        val seats = change.state?.takeIf { StartRules.canStart(summary, it) }?.let { engineSeats?.invoke(game.id!!) ?: EngineDecks.seats(it) }
+        if (seats?.any { seat -> (seat.deck + seat.sideboard).any { it.definition == null } } == true) return "automatumUnsupported"
         change.state?.let { preparation ->
             PreparationStore.saveReadiness(sql, account, preparation)
             if (command.action is GameAction.ShowDeck) DeckVisibilityStore.chosen(sql, game.id!!, account)
-            if (StartRules.canStart(summary, preparation)) {
+            if (seats != null) {
                 val play = PlayStore.start(sql, summary, preparation, command.requestId)
-                // I-D54: the play's state is the engine's, its decks parsed on the server; its first event starts the
-                // game. Not kept warm here: the transaction hasn't committed yet
-                (engineSeats?.invoke(game.id!!) ?: EngineDecks.seats(preparation)).let { seats ->
+                // Its first event starts the game. Not kept warm here: the transaction hasn't committed yet
+                run {
                     val now = java.time.OffsetDateTime.ofInstant(clock.instant(), java.time.ZoneOffset.UTC)
                     engineGames.start(sql, UUID.fromString(play.id), seats, arcanum.engine.state.PlayerId(play.starter.accountId), account) { player ->
                         OpponentPresences.read(sql, game.id!!, player, now).state == PresenceState.ONLINE }

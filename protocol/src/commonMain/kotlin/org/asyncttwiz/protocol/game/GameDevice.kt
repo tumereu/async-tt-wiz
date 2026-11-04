@@ -216,8 +216,7 @@ class GameDevice(
 
     /** Whether this player may declare their opening mulligan or bottom choice now, while the other player's is the
      * open one (simultaneous mulligans in any order, I-D54 §8). */
-    private fun declares(s: GameState): Boolean =
-        s.turn.number == 0 && s.pending != null && Engine.options(s, me).any { it is Input.SetupAnswer && it.player == me }
+    private fun declares(s: GameState): Boolean = NextStop.declares(s, me)
 
     /** A waiting suggestion in the shown state locks every other game action (TRN-049, I-D56 §11). */
     val locked: Boolean get() = model.table.suggestion != null

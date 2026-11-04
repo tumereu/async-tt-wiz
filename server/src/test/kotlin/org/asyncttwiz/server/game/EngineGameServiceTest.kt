@@ -122,7 +122,9 @@ class EngineGameServiceTest {
         val bob = f.device(f.b)
         // The server started the game: Alice's mulligan declaration is open (starter as the lobby chose)
         assertEquals(f.alice, alice.model.engine.pending!!.decision.player)
-        assertEquals(f.a.account.accountId, f.attention(f.b))
+        // TRN-027 (switchreview #5): Bob may declare his own mulligan meanwhile: his move too, as each viewer sees it
+        assertEquals(f.b.account.accountId, f.attention(f.b))
+        assertEquals(f.a.account.accountId, f.attention(f.a))
         val revision = f.games.head(f.a, f.game.id).summary.revision
         // Both act on the same event; Bob's arrives first (mulligans in any order, §8)
         val bobs = f.recipient.command(GameAction.Submit(bob.act(id(), Input.SetupAnswer(bob.me, Answer.Option("Keep")))))
@@ -184,10 +186,11 @@ class EngineGameServiceTest {
         val stored = f.revisions(f.b, before).last()
         assertEquals(f.b.account.accountId, stored.summary.attentionHolder)
         assertNull(stored.engine!!.moves, "the per-player table stays on the server")
-        // §15: the waits for a real input that began while that player wasn't live are logged (nobody has the game open)
+        // §15: the waits for a real input that began while that player wasn't live are logged (nobody has the game open);
+        // at the start both players' mulligans wait at once (switchreview #5)
         val rounds = runtime.transaction { c -> org.jooq.impl.DSL.using(c, org.jooq.SQLDialect.POSTGRES)
             .fetch("SELECT account_id, kind FROM engine_async_round ORDER BY ordinal").map { it.get(0).toString() to it.get(1, String::class.java) } }
-        assertEquals(listOf(f.a.account.accountId to "keep", f.b.account.accountId to "keep"), rounds.take(2))
+        assertEquals(setOf(f.a.account.accountId to "keep", f.b.account.accountId to "keep"), rounds.take(2).toSet())
         // Bob answers the same at his local head: confirmed, no new event
         val head = f.snapshot().headId
         val confirm = f.recipient.execute(GameAction.Submit(bob.act(id(), Input.Answer(open.id, Answer.Option("Keep")))))

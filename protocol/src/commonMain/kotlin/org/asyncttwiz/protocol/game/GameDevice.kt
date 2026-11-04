@@ -463,7 +463,7 @@ class GameDevice(
         reveals[key]?.let { return it }
         if (reveals.size > MAX_PROBES) reveals.clear()
         val before = model.engine.deepCopy()
-        val builder = session.begin(ids())
+        val builder = open()
         val shows = try {
             builder.perform(input, assumedBy = me)
             builder.answerRandoms()
@@ -592,7 +592,7 @@ class GameDevice(
         if (refusal(null) != null) return null
         val stop = if (session.behind) status as? Status.Stopped ?: return null else null
         draftBefore = if (tentative()) model.engine.deepCopy() else null
-        val builder = session.begin(ids())
+        val builder = open()
         openDraft = builder
         draftStop = stop
         return builder
@@ -634,6 +634,10 @@ class GameDevice(
     private var draftStop: Status.Stopped? = null
     private var draftBefore: GameState? = null
 
+    /** Opens a draft at the tip: starting [newLine] (a branch), or the line a rewind left due at the head (§9). */
+    private fun open(newLine: Int? = null): EventBuilder =
+        session.begin(ids(), newLine ?: if (session.behind) null else Rewind.lineDue(model, lines))
+
     /** Makes [input] (assumed: the other player's, §3) as an event at the tip, or at the local head with [newLine]. */
     private fun make(input: Input, assumed: Boolean, follow: (GameModel) -> Input? = { null }, table: List<TableChange> = emptyList(),
         newLine: Int? = null, player: Boolean = false, performed: (() -> Unit)? = null): Acted {
@@ -643,7 +647,7 @@ class GameDevice(
             if (kind == WhoActs.Kind.Random) return Acted.Refused("Not the player's input")
         } catch (e: Refusal) { return Acted.Refused(e.reason) }
         val before = if (assumed || tentative()) model.engine.deepCopy() else null
-        val builder = session.begin(ids(), newLine)
+        val builder = open(newLine)
         try {
             builder.perform(input, assumedBy = if (assumed) me else null)
             builder.answerRandoms()
@@ -778,7 +782,7 @@ class GameDevice(
         if (session.behind && changes.any { it is TableChange.EarlyAnswered }) return Acted.Refused("behind")
         if (session.drafting) return Acted.Refused("drafting")
         if (!session.behind) {
-            val builder = session.begin(ids())
+            val builder = open()
             try { changes.forEach(builder::table) } catch (e: RuntimeException) { session.abandon(); return Acted.Refused("inapplicable") }
             val event = session.sendEvent()
             send(GameAction.Submit(Submission.of(event)))
@@ -789,6 +793,7 @@ class GameDevice(
         val again = rebase(model, changes)
         if (again == null || !applies(model, again)) return Acted.Refused("inapplicable")
         val builder = EventBuilder(model, ids(), session.head, me.value)
+        Rewind.lineDue(model, lines)?.let(builder::startLine)
         try { again.forEach(builder::table) } catch (e: RuntimeException) { return Acted.Refused("inapplicable") }
         val event = builder.build()
         send(GameAction.Submit(Submission.of(event)))
@@ -885,7 +890,7 @@ class GameDevice(
     private fun realInput(e: GameEvent): Boolean {
         if (e.author != me.value || e.assumed != null) return false
         val input = e.engine?.steps?.firstNotNullOfOrNull { it.input }
-        if (input == null) return e.engine == null && e.table.isNotEmpty() && e.table.none { it is TableChange.LineMoved }
+        if (input == null) return e.table.any { it !is TableChange.LineMoved }
         origins[e.id]?.let { return it }
         return when (input) {
             is Input.PassPriority -> false
@@ -946,7 +951,7 @@ class GameDevice(
         if (update != null && update.lines > lines) lines = update.lines
         val target = update?.target
         if (target != null) {
-            val by = events.firstOrNull()?.author
+            val by = update?.rewoundBy ?: events.firstOrNull()?.author
             when (val r = session.rewound(target, events)) {
                 GameSession.Received.Reload -> needsReload = true
                 is GameSession.Received.Changed -> if (r.takenBack.isNotEmpty() && by != me.value && by != null)

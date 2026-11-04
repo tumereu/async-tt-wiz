@@ -167,7 +167,9 @@ const val GAME_PROTOCOL_MINOR = 7
      * (TRN-058, I-D57). */
     val moves: Map<String, Boolean>? = null,
     /** Server only, removed before a revision is sent: per account, their last-activity time (I-D56 §7). */
-    val activity: Map<String, String>? = null)
+    val activity: Map<String, String>? = null,
+    /** Whose undo a rewind ([target]) is: the requester's when approved (a rewind adds no event to tell it by). */
+    val rewoundBy: String? = null)
 @Serializable @SerialName("revision") data class GameRevision(val gameId: String, val baseRevision: String,
     val resultRevision: String, val requestId: String, val author: String, val scope: GameScope,
     val summary: GameSummary, val preparation: LobbyPreparation? = null, val play: PlayState? = null,

@@ -123,6 +123,28 @@ object Rewind {
     fun standing(after: List<GameEvent>, player: PlayerId): List<GameEvent> =
         after.filter { it.author != player.value && it.engine == null && it.table.none { c -> c is TableChange.LineMoved } }
 
+    /**
+     * What a rewind by [player] to [target] adds (owner's rule 2026-11-04: an undo only pops events, it adds none of its
+     * own): the other players' table-only events among [after] that may stand ([standing]), made again on [model] (the
+     * state at [target], moved along) while they still apply, each handed to [added] as it is made. The first of them
+     * starts the new [line] (its reshuffle, §9); with none, the next event made at [target] starts it ([lineDue]).
+     */
+    fun again(model: GameModel, target: String, after: List<GameEvent>, player: PlayerId, line: Int, ids: () -> String,
+        added: (GameEvent) -> Unit): List<GameEvent> {
+        val events = mutableListOf<GameEvent>()
+        for (kept in standing(after, player)) {
+            val builder = EventBuilder(model, ids(), events.lastOrNull()?.id ?: target, kept.author)
+            if (events.isEmpty()) builder.startLine(line)
+            try { kept.table.forEach(builder::table) } catch (_: IllegalStateException) { builder.abandon(); continue }
+            events += builder.build().also(added)
+        }
+        return events
+    }
+
+    /** The line the next event made on [model] (the main line's head) starts, or null: after a rewind that added no
+     * event, the line counter ([lines]) is ahead of the head's line, and the new line starts with the next event (§9). */
+    fun lineDue(model: GameModel, lines: Int): Int? = lines.takeIf { model.table.line.number < it }
+
 }
 
 /** The point a player would resume a game at, as a notification names it (I-D57): the turn and step of [state], the state

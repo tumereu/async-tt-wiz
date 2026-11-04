@@ -109,7 +109,7 @@ internal fun EngineTableScreen(controller: LobbyController, accountId: String, h
                 changes.applyEngine(t.cursor, t.jump, t.changes, t.shuffled)
                 // HIS-076 (owner playtest 2026-11-04 #5): live, the newest event just shown, yours too (your own action's
                 // text fades at the top like the other player's); quiet on open, return and undo
-                val told = t.forward.lastOrNull()
+                val told = t.forward.lastOrNull { !EngineEventText.hidden(it) }
                 if (told != null) eventText.post(t.cursor, engine.timeline.text(engine, told, names)) else eventText.moved(t.cursor)
             }
         }

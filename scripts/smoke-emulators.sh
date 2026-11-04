@@ -6,7 +6,8 @@
 #
 #   scripts/smoke-emulators.sh up [--no-build]   start/prepare emulators, build, install, new run, sign in a/b
 #   scripts/smoke-emulators.sh build             build the smoke APK only
-#   scripts/smoke-emulators.sh install [APK]     install (default: last built smoke APK) on both
+#   scripts/smoke-emulators.sh install [APK]     install (default: last built smoke APK) on both;
+#                                                ATW_SMOKE_FRESH=1 uninstalls first (fixes socket EPERM; loses data)
 #   scripts/smoke-emulators.sh new-run           start a new output directory (clears logcat)
 #   scripts/smoke-emulators.sh signin            sign in a@a.com on device a and b@b.com on device b
 #   scripts/smoke-emulators.sh shot LABEL        screenshot both devices
@@ -150,6 +151,7 @@ PY
 
 install_one() {
     local s=$1 apk=$2 out
+    if [[ ${ATW_SMOKE_FRESH:-0} == 1 ]]; then adb -s "$s" uninstall "$PKG" </dev/null >/dev/null 2>&1 || true; fi
     if ! out=$(adb -s "$s" install -r "$apk" </dev/null 2>&1); then
         if grep -q -e INSTALL_FAILED_UPDATE_INCOMPATIBLE -e INSTALL_FAILED_VERSION_DOWNGRADE <<<"$out"; then
             echo "$s: replacing an incompatible/newer ATW Test install (its data is lost)"
@@ -195,14 +197,14 @@ PY
 find_text() {
     local s=$1 re=$2 nth=${3:-0}
     ui "$s" >/dev/null
-    python3 -I - "$(run_dir)/ui-$(name_of "$s").xml" "$re" "$nth" <<'PY'
+    python3 -I - "$(run_dir)/ui-$(name_of "$s").xml" "$re" "$nth" "$PKG" <<'PY'
 import re, sys, xml.etree.ElementTree as ET
-# "desc:RE" matches only content descriptions, "text:RE" only texts, plain RE either.
+# "desc:RE" matches only content descriptions, "text:RE" only texts, plain RE either. Only the app's own nodes.
 kind, _, raw = sys.argv[2].partition(":") if sys.argv[2].startswith(("desc:", "text:")) else ("", "", sys.argv[2])
 pattern = re.compile(raw)
-hits = [node for node in ET.parse(sys.argv[1]).iter("node")
-        if (kind != "desc" and pattern.search(node.get("text", ""))) or
-        (kind != "text" and pattern.search(node.get("content-desc", "")))]
+hits = [node for node in ET.parse(sys.argv[1]).iter("node") if node.get("package") == sys.argv[4] and (
+        (kind != "desc" and pattern.search(node.get("text", ""))) or
+        (kind != "text" and pattern.search(node.get("content-desc", ""))))]
 try:
     x1, y1, x2, y2 = map(int, re.findall(r"\d+", hits[int(sys.argv[3])].get("bounds")))
 except IndexError:
@@ -296,13 +298,15 @@ PY
     done
 }
 
-# Signs one device in, starting from whatever screen a fresh install shows.
+# Signs one device in, starting from whatever screen a fresh install shows. Accepts the catalog download.
 signin_one() {
     local s=$1 email=$2
     launch "$s"
-    wait_text "$s" '(?i)sign in|e-?mail|lobby|games' 60
-    if ! find_text "$s" '(?i)^e-?mail' >/dev/null; then
-        echo "$(name_of "$s"): already signed in (or no sign-in form shown)"; return 0
+    wait_text "$s" '(?i)^(sign in|download card records\?|what.s new)$|avatar|games|lobby' 90 || return 0
+    find_text "$s" "(?i)^what.s new$" >/dev/null && tap_text "$s" 'text:^OK$'
+    find_text "$s" '(?i)^download card records\?$' >/dev/null && tap_text "$s" 'text:^Download$'
+    if ! find_text "$s" 'desc:(?i)^e-?mail$' >/dev/null; then
+        echo "$(name_of "$s"): no sign-in form shown (already signed in?)"; return 0
     fi
     tap_text "$s" 'desc:(?i)^e-?mail$'
     clear_field "$s"
@@ -322,14 +326,14 @@ up)
     if [[ ${2:-} == --no-build ]]; then apk=$(apk_path); else apk=$(build | tail -n 1); fi
     both install_one "$apk"
     dir=$(new_run)
-    signin_one "$A" a@a.com
-    signin_one "$B" b@b.com
+    signin_one "$A" a@a.com || true
+    signin_one "$B" b@b.com || true
     echo "Run directory: $dir" ;;
 build) build ;;
 install) apk=${2:-$(apk_path)}; both install_one "$apk" ;;
 devices) check_host; devices_up ;;
 new-run) new_run ;;
-signin) signin_one "$A" a@a.com; signin_one "$B" b@b.com ;;
+signin) signin_one "$A" a@a.com || true; signin_one "$B" b@b.com ;;
 shot) shot_one "$A" "${2:?label}"; shot_one "$B" "$2" ;;
 rec) rec_start "${2:?label}" "${3:-10}"; sleep "${3:-10}"; rec_stop ;;
 rec-start) rec_start "${2:?label}" ;;

@@ -2,6 +2,7 @@ package org.asyncttwiz.android
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -32,6 +33,8 @@ import java.util.concurrent.ConcurrentHashMap
  * board changes (never per frame, never in the way of an action's own result, SYS-025) and kept for the latest boards.
  * Card definitions are parsed on the device from the game's own card data (I-D2) by [definitionSource], which the app
  * installs (its [org.asyncttwiz.storage.CardDefinitions] on the account's storage), and kept in memory by digest.
+ * A board of a game on engine state brings its computed values and plays from the engine thread ([EngineBoardValues],
+ * engine-responsiveness R3): read from there, nothing is rebuilt from the board here.
  */
 internal object AutomatumBoards {
     /** Parses (or reads from the device cache) the definitions of the given card data. Blocking. */
@@ -47,15 +50,19 @@ internal object AutomatumBoards {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Key, ComputedBoard>?) = size > 8
     }
 
-    /** The board already worked out for [play]'s board as [viewer] sees it, if any. */
-    fun cached(play: PlayState, viewer: String): ComputedBoard? = synchronized(boards) { boards[Key(play.board, viewer)] }
+    /** The board already worked out for [play]'s board as [viewer] sees it, if any (a board of a game on engine state: the
+     * engine thread's, made with it, engine-responsiveness R3). */
+    fun cached(play: PlayState, viewer: String): ComputedBoard? =
+        EngineBoardValues.of(play.board, viewer)?.computed ?: synchronized(boards) { boards[Key(play.board, viewer)] }
 
     /** Works [play]'s board out (blocking: parsing new card data and one engine view). Never throws: a board the
      * device can't work out keeps every card manual and says why. */
     fun compute(play: PlayState, viewer: String): ComputedBoard {
         cached(play, viewer)?.let { return it }
         val board = try {
-            ComputedBoard.of(play, definitions(play.definitions), viewer)
+            // R3: a board of a game on engine state the engine thread didn't make is worked out from its own engine state
+            play.board.engine?.let { engine -> ComputedBoard.of(play, definitions(play.definitions), viewer, engine.state, arcanum.engine.Engine.view(engine.state)) }
+                ?: ComputedBoard.of(play, definitions(play.definitions), viewer)
         } catch (problem: Exception) {
             AppLog.warn("automatum", "Couldn't work the board out: ${problem::class.java.simpleName}")
             ComputedBoard.failed("Automatum couldn't work this board out (${problem.message?.take(120) ?: problem::class.java.simpleName})")
@@ -76,16 +83,24 @@ internal object AutomatumBoards {
     fun definitions(play: PlayState): Map<String, CardDefinition> = definitions(play.definitions)
 
     /** What [viewer] may cast or play from their hand on [play]'s board, when already worked out. */
-    fun cachedHandPlays(play: PlayState, viewer: String): HandPlays? = synchronized(plays) { plays[PlaysKey(play.board, viewer)] }
+    fun cachedHandPlays(play: PlayState, viewer: String): HandPlays? {
+        EngineBoardValues.of(play.board, viewer)?.let { return it.handPlays }
+        return synchronized(plays) { plays[PlaysKey(play.board, viewer)] }
+    }
 
     /** What [viewer] may cast or play from their hand on [play]'s board (I2, I-D28): kept for the latest boards; worked
      * out now when not yet (blocking: one engine `options`). [tags]: the history's tags up to this board (D33), read
      * only when it has to be worked out. */
     fun handPlays(play: PlayState, viewer: String, tags: () -> List<MtgTag?>): HandPlays {
+        // R3: a board of a game on engine state: the engine thread's (worked out there now when not yet)
+        EngineBoardValues.of(play.board, viewer)?.let { return it.handPlays() }
         cachedHandPlays(play, viewer)?.let { return it }
         val result = try {
-            val definitions = definitions(play.definitions)
-            HandPlays.of(play, definitions, viewer, engineLog(play, definitions, tags()))
+            val engine = play.board.engine
+            if (engine != null) HandPlays.of(play, engine.state, viewer, null) else {
+                val definitions = definitions(play.definitions)
+                HandPlays.of(play, definitions, viewer, engineLog(play, definitions, tags()))
+            }
         } catch (problem: Exception) {
             AppLog.warn("automatum", "Couldn't list plays: ${problem::class.java.simpleName}")
             HandPlays.NONE
@@ -99,15 +114,25 @@ internal object AutomatumBoards {
     }
 
     /** What the engine offers [viewer] for each card on [play]'s board, when already worked out. */
-    fun cachedCardPlays(play: PlayState, viewer: String): CardPlays? = synchronized(cardPlays) { cardPlays[PlaysKey(play.board, viewer)] }
+    fun cachedCardPlays(play: PlayState, viewer: String): CardPlays? {
+        EngineBoardValues.of(play.board, viewer)?.let { return it.cardPlays }
+        return synchronized(cardPlays) { cardPlays[PlaysKey(play.board, viewer)] }
+    }
 
     /** What the engine offers [viewer] for each card on [play]'s board (§3 I4: the card menus): kept for the latest
      * boards; worked out now when not yet (blocking: one engine `options` and `view`). */
     fun cardPlays(play: PlayState, viewer: String, tags: () -> List<MtgTag?>): CardPlays {
+        // R3: a board of a game on engine state: worked out on the engine thread, once per board
+        EngineBoardValues.of(play.board, viewer)?.let { return it.cardPlays() }
         cachedCardPlays(play, viewer)?.let { return it }
         val result = try {
-            val definitions = definitions(play.definitions)
-            CardPlays.of(play, definitions, viewer, engineLog(play, definitions, tags()))
+            val engine = play.board.engine
+            if (engine != null) arcanum.engine.Engine.view(engine.state).let { view ->
+                CardPlays.of(play, engine.state, viewer, view, arcanum.engine.Engine.visible(engine.state, arcanum.engine.state.PlayerId(viewer), view))
+            } else {
+                val definitions = definitions(play.definitions)
+                CardPlays.of(play, definitions, viewer, engineLog(play, definitions, tags()))
+            }
         } catch (problem: Exception) {
             AppLog.warn("automatum", "Couldn't list card plays: ${problem::class.java.simpleName}")
             CardPlays.NONE
@@ -252,6 +277,7 @@ internal object AutomatumBoards {
     /** For tests: forget what was parsed and worked out. */
     fun reset() {
         parsed.clear(); unreadable.clear()
+        EngineBoardValues.reset()
         synchronized(boards) { boards.clear() }
         synchronized(plays) { plays.clear() }
         synchronized(cardPlays) { cardPlays.clear() }
@@ -279,6 +305,16 @@ internal val LocalComputedBoard = staticCompositionLocalOf { ComputedBoard.NONE 
 @Composable
 internal fun rememberComputedBoard(play: PlayState, viewer: String, tags: (() -> List<MtgTag?>)? = null): ComputedBoard {
     var last by remember(play.id, viewer) { mutableStateOf(ComputedBoard.NONE) }
+    // R3: a board of a game on engine state comes with its computed values (and, once worked out, the hand plays) from
+    // the engine thread: shown at once, nothing worked out here
+    EngineBoardValues.of(play.board, viewer)?.let { values ->
+        SideEffect {
+            // SYS-030: an own action's probe counts its board's computed values and hand plays arriving
+            OwnActionProbes.computed(play.board)
+            if (values.handPlays != null) OwnActionProbes.plays(play.board)
+        }
+        return values.computed
+    }
     val ready = AutomatumBoards.cached(play, viewer)
     LaunchedEffect(IdentityKey(play.board), viewer) {
         last = ready ?: withContext(AutomatumBoards.boardWorker) { AutomatumBoards.compute(play, viewer) }

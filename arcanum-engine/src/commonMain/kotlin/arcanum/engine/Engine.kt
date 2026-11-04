@@ -48,6 +48,22 @@ object Engine {
     /** What [player] may do now: play a land, cast, activate, pass, declare, or answer the open decision. */
     fun options(state: GameState, player: PlayerId): List<Input> = Options.of(state, player)
 
+    /** [options] with [view], [state]'s view ([view] of [state] as it is now) when the caller already has it: the same
+     * list without working the layers out again for the search. A view of another state gives wrong results. */
+    fun options(state: GameState, player: PlayerId, view: View?): List<Input> = Options.of(state, player, view)
+
+    /**
+     * Why [perform] would refuse [input] at once, worked out without performing it (no copy of [state] is made; with
+     * [view], [state]'s view when the caller has it, the layers aren't worked out either): for a land play, a cast or an
+     * activation (special actions included) the same reason, word for word, as the [IllegalArgumentException] [perform]
+     * throws before doing anything (the game is over, a decision is open, or it can't be begun: priority, timing, uses
+     * left this turn, what the card or ability allows, CR 116, 117.1, 305, 601.2, 602.5, 606.3). Null when it may be
+     * begun ([perform] may still refuse it later, as it is announced: a target or a cost it can't have), for a card
+     * [state] doesn't know (a viewer's state, D60: [perform] first asks for it) and for any other input. A host greys
+     * an action out with this reason instead of trying it.
+     */
+    fun refusal(state: GameState, input: Input, view: View? = null): String? = Perform.refusal(state, input, view)
+
     /**
      * Performs [input] on a copy of [state] and returns what changed, up to the next decision (D58): after every input
      * the engine applies state-based actions, puts triggered abilities on the Stack and gives priority (P5). While
@@ -122,6 +138,13 @@ object Engine {
      * as if [player]'s own setting were on ([PassCheck.ownSkipOn]).
      */
     fun passCheck(state: GameState, player: PlayerId): PassCheck = arcanum.engine.turn.AutoPass.check(state, player)
+
+    /** [passCheck] with [view], [state]'s view ([view] of [state] as it is now) when the caller already has it: the same
+     * result without working the layers out again for the search. A view of another state gives wrong results. */
+    fun passCheck(state: GameState, player: PlayerId, view: View?): PassCheck = arcanum.engine.turn.AutoPass.check(state, player, view)
+
+    /** [shouldPassFor] with [view], as [passCheck]'s. */
+    fun shouldPassFor(state: GameState, player: PlayerId, view: View?): Boolean = arcanum.engine.turn.AutoPass.shouldPass(state, player, view)
 
     /**
      * Who makes [player]'s choices and decisions now (CR 723.5): the player controlling them during this turn (723.1) or

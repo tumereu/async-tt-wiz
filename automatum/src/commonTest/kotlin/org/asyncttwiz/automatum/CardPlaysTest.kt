@@ -85,6 +85,17 @@ class CardPlaysTest {
         assertEquals(MtgPriority(alice), board.priority)
     }
 
+    // CR 305.2 (engine-responsiveness R3): a second land in hand after this turn's land play is greyed as used, the
+    // engine's reason asked without performing it (Engine.refusal)
+    @Test fun aSecondLandIsGreyedAsUsed() {
+        val (first, second) = table.put(alice, PlayZone.HAND, "Mountain", "Mountain")
+        val rt = RoundTrip(table.state(), table.definitions)
+        rt.apply(start(rt, assertNotNull(plays(rt).of(first).single().input)).sent(), alice)
+        val greyed = plays(rt).of(second).single()
+        assertNull(greyed.input)
+        assertEquals(CardPlay.Refusal.Used, greyed.refusal)
+    }
+
     // CR 702.6a: equip targets a creature its controller controls, as a sorcery
     @Test fun equipTargetsThenPays() {
         table.put(alice, PlayZone.BATTLEFIELD, "Mountain")

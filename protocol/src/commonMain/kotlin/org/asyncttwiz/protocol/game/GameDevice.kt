@@ -259,13 +259,53 @@ class GameDevice(
         Engine.result(s)?.let { return Status.Over(it, confirmable(), final()) }
         if (request != null) return Status.Waiting(Wait.Request)
         if (locked) return Status.Waiting(Wait.Suggestion)
-        val who = Attention.of(s) ?: return Status.Idle
-        if (who == me || declares(s)) return Status.YourMove
-        return when (val point = point(s)) {
-            is Point.Wait -> Status.Waiting(point.reason, point.offer, point.screen)
-            else -> Status.Waiting(Wait.Sending)
+        // R3: worked out once per point (the searches below don't run again while nothing they read changed)
+        val key = pointKey()
+        headStatus?.let { (at, status) -> if (key.same(at)) return status }
+        pointsWorkedOut++
+        val who = Attention.of(s)
+        val status = when {
+            who == null -> Status.Idle
+            who == me || declares(s) -> Status.YourMove
+            else -> when (val point = point(s)) {
+                is Point.Wait -> Status.Waiting(point.reason, point.offer, point.screen)
+                else -> Status.Waiting(Wait.Sending)
+            }
         }
+        headStatus = key to status
+        return status
     }
+
+    /**
+     * Engine-responsiveness R3: what the device's decisions at the head read besides the engine state at the tip (the
+     * tip names it: the state at an event is the same however it was reached, and nothing is decided while a draft is
+     * open; its open decision is compared too, by identity, as a cheap guard against a state changed in place): the table state (the other player's table-only events slip in under the device's own pending events without
+     * moving the tip), the player's settings, the other player's liveness and whether the live wait's grace still runs,
+     * an End turn going on, the head a free undo held at and the Assume blockers screen closed there. While none of it
+     * changes, the status at the head ([status]) and the device's own step there ([automaticStep]) stay the same, so each
+     * is worked out once per point: a tick at an unchanged point does no engine search. The grace running out is such a
+     * change (the first tick after it works the point out again), so a live wait still ends on time.
+     */
+    private class PointKey(val tip: String, val pending: Any?, val table: TableState, val settings: PlaySettings, val live: Boolean,
+        val grace: Boolean, val endTurn: Int?, val holdAt: String?, val blockersClosed: String?) {
+        fun same(other: PointKey?): Boolean = other != null && tip == other.tip && pending === other.pending && table === other.table &&
+            settings == other.settings &&
+            live == other.live && grace == other.grace && endTurn == other.endTurn && holdAt == other.holdAt &&
+            blockersClosed == other.blockersClosed
+    }
+
+    private fun pointKey() = PointKey(session.tip, model.engine.pending, model.table, settings, live, lastLive?.let { now - it < GRACE_MS } ?: false, endTurn,
+        holdAt, blockersClosed)
+
+    /** The status at the head worked out last, with its point ([PointKey]). */
+    private var headStatus: Pair<PointKey, Status>? = null
+    /** The point where the device's own step was last found to make nothing ([automaticStep]). */
+    private var idleAt: PointKey? = null
+
+    /** Tests and measurements (engine-responsiveness R3): how many times the status at the head or the device's own step
+     * there was worked out anew (each may search the engine's options); a tick at an unchanged point adds none. */
+    var pointsWorkedOut: Int = 0
+        private set
 
     /** Whether this player may declare their opening mulligan or bottom choice now, while the other player's is the
      * open one (simultaneous mulligans in any order, I-D54 §8). */
@@ -425,6 +465,15 @@ class GameDevice(
 
     private fun automaticStep(): Boolean {
         if (needsReload || session.drafting || session.behind || request != null || locked) return false
+        // R3: nothing to make here was already found at this point (no search again while it lasts)
+        val key = pointKey()
+        if (key.same(idleAt)) return false
+        pointsWorkedOut++
+        return decideStep().also { made -> if (!made) idleAt = key }
+    }
+
+    /** [automaticStep] worked out: whether the device made its own step at the head. */
+    private fun decideStep(): Boolean {
         val s = model.engine
         if (Engine.result(s) != null) return false
         val who = Attention.of(s) ?: return false
@@ -461,17 +510,17 @@ class GameDevice(
         val holder = s.priority.holder
         if (holder != null) {
             // One search of the player's options answers both (the engine's own pass and their mode's)
-            val check = Engine.passCheck(s, holder)
+            val check = Engine.passCheck(s, holder, model.keptView())
             return Input.PassPriority(holder).takeIf { (check.asSet && !Stops.stop(s, holder)) || modePasses(s, holder, check) }
         }
         if (endTurn == s.turn.number && s.turn.active == me)
-            return Engine.options(s, me).firstOrNull { it is Input.DeclareAttackers && it.attacks.isEmpty() }
+            return Engine.options(s, me, model.keptView()).firstOrNull { it is Input.DeclareAttackers && it.attacks.isEmpty() }
         return null
     }
 
     /** Under Auto-skip, the only answer to [d] (§2). */
     private fun oneAnswer(s: GameState, d: Decision): Input? = if (settings.mode != ResponseMode.AutoSkip) null
-        else Engine.options(s, d.player).filterIsInstance<Input.Answer>().filter { it.decision == d.id }.singleOrNull()
+        else Engine.options(s, d.player, model.keptView()).filterIsInstance<Input.Answer>().filter { it.decision == d.id }.singleOrNull()
 
     /** Whether this player's device passes for [player] (theirs to decide) on [s] by their mode (§2) or an End turn. */
     private fun modePasses(s: GameState, player: PlayerId, check: arcanum.engine.PassCheck? = null): Boolean {
@@ -497,7 +546,7 @@ class GameDevice(
         val d = s.pending?.decision
         if (d != null) {
             if (d !is Decision.Random) WhoActs.automaticAnswer(model, d)?.let { return Point.Automatic(it) }
-            val keep = Engine.options(s, d.player).firstOrNull { keep(it) }
+            val keep = Engine.options(s, d.player, model.keptView()).firstOrNull { keep(it) }
             if (keep != null && assumable(keep)) {
                 if (revealing(keep)) return Point.Wait(Wait.HiddenCards)
                 return if (liveWait("$tip:keep")) Point.Wait(Wait.Keep, Offer.AssumeKeep, keep) else Point.Assume(keep)
@@ -506,7 +555,7 @@ class GameDevice(
         }
         val holder = s.priority.holder
         if (holder != null) {
-            if (Stops.forcedPass(s, holder)) return Point.Automatic(Input.PassPriority(holder))
+            if (Stops.forcedPass(s, holder, model.keptView())) return Point.Automatic(Input.PassPriority(holder))
             val pass = Input.PassPriority(holder)
             if (Stops.stop(s, holder) || !assumable(pass)) return Point.Wait(Wait.TheirTurn)
             if (revealing(pass)) return Point.Wait(Wait.HiddenCards)
@@ -515,7 +564,7 @@ class GameDevice(
             val reason = if (top != null) Wait.Respond(top) else Wait.MayAct(s.turn.step)
             return if (!settings.alwaysAssumeResolves && liveWait("$tip:pass")) Point.Wait(reason, Offer.AssumeResolves, pass) else Point.Assume(pass)
         }
-        val blocks = Engine.options(s, opponent).filterIsInstance<Input.DeclareBlockers>()
+        val blocks = Engine.options(s, opponent, model.keptView()).filterIsInstance<Input.DeclareBlockers>()
         if (blocks.isNotEmpty()) {
             val none = Input.DeclareBlockers(opponent, emptyList())
             if (!assumable(none)) return Point.Wait(Wait.Blockers)
@@ -867,7 +916,7 @@ class GameDevice(
             // After an assumed input only engine-automatic answers fold: the player's own inputs are their own event
             if (mine && !own) return
             // One search of the holder's options answers both the forced pass and their own mode's (playtest 2026-11-04)
-            val check = Engine.passCheck(s, holder)
+            val check = Engine.passCheck(s, holder, model.keptView())
             val forced = check.asSet && !Stops.stop(s, holder)
             val yields = mine && !forced && modePasses(s, holder, check)
             if (!forced && !yields) return

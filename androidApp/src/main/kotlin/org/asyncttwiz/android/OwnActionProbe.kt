@@ -5,8 +5,9 @@ package org.asyncttwiz.android
  * [WAIT] (queued behind other work on the engine thread, e.g. the 1-second tick), [ENGINE] (the engine's work: the
  * action's inputs and what follows them before its board), [INFO] (the information rule's work on a tentative line) and
  * [BOARD] (building the board), adding up to [TOTAL]. After the board is published: [FRAME] (the main thread's next frame
- * drawn), [COMPUTED] and [PLAYS] (the table's computed board and the player's hand plays arriving from their own thread,
- * for this board or a later one) and [AFTER] (the engine thread's work after the board: the rest of the event, the
+ * drawn), [COMPUTED] and [PLAYS] (the table's computed board and the player's hand plays arriving, for this board or a
+ * later one: since engine-responsiveness R3 made by the engine thread with the board, the hand plays with the board
+ * published after an early one, [EngineBoardValues]) and [AFTER] (the engine thread's work after the board: the rest of the event, the
  * device's own steps and the board again; [AFTER_INFO] of it the information rule's).
  *
  * Times are nanoseconds of the game's clock. The engine thread writes the parts up to [AFTER]; the main thread the rest

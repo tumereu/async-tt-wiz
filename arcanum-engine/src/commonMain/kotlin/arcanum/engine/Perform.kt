@@ -65,6 +65,15 @@ internal object Perform {
         return runOn(recorder, input).also { it.view = recorder.state.viewCache?.view }
     }
 
+    /** [Engine.refusal]: the checks [untraced] and [runOn] make before anything is done, in their order, on [state]
+     * itself (nothing is changed, so no copy). */
+    fun refusal(state: GameState, input: Input, view: arcanum.engine.view.View?): String? {
+        if (input !is Input.PlayLand && input !is Input.Cast && input !is Input.Activate) return null
+        if (GameEnd.over(state)) return "The game is over (CR 104.1)"
+        state.pending?.let { open -> return "Waiting for ${open.decision.kind}: only its answer is accepted (D58)" }
+        return Casting.refusal(Options.snapshot(state, view), input)
+    }
+
     /** The longest refusal reason a trace keeps. */
     private const val MAX_REASON = 500
 

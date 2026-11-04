@@ -10,13 +10,14 @@ app. Design: `docs/specs/arcanum-automatum.md` §4.1 and §7 (§7.0 is the API, 
 ```kotlin
 Engine.view(state): View                         // characteristics after layers (CR 613), rules in force
 Engine.explain(state, id): Explanation?          // where one object's characteristics come from, effect by effect
-Engine.options(state, player): List<Input>       // what a player may do now: exact (every input listed is accepted)
+Engine.options(state, player[, view]): List<Input> // what a player may do now: exact (every input listed is accepted)
+Engine.refusal(state, input[, view]): String?    // why perform refuses a land play, cast or activation at once, without performing it
 Engine.perform(state, input[, view], trace?): Outcome // Outcome(changes, pending); never writes `state`; trace: see Tracing
 Engine.newGame(seats, startingLife): GameState   // a game before it begins; Input.StartGame starts it (CR 103)
 Engine.result(state): GameResult?                // Won(player) or Draw once the game is over (CR 104)
 Engine.visible(state, player[, view]): Set<ObjectId> // the objects whose identity a player may know now (D60)
-Engine.shouldPassFor(state, player): Boolean     // a host passes priority for this player now (I-D3, I-D18)
-Engine.passCheck(state, player): PassCheck      // shouldPassFor as set and with the player's own skip on, one search
+Engine.shouldPassFor(state, player[, view]): Boolean // a host passes priority for this player now (I-D3, I-D18)
+Engine.passCheck(state, player[, view]): PassCheck // shouldPassFor as set and with the player's own skip on, one search
 Engine.decider(state, player): PlayerId          // who makes this player's decisions now (CR 723; see Controlling another player)
 Engine.revealed(before, changes, viewer[, beforeView, afterView]): Set<CardId> // cards the changes show the viewer at some moment, new to them (full information)
 Engine.unknownOrder(state, player): List<List<ObjectId>> // the library's parts whose order nobody knows (CR 401.2)
@@ -79,10 +80,15 @@ seeded random games of cube cards, failing on any open player decision without a
   keyword's cost is paid by the engine and only its effect is by hand, saddle's excepted), so no keyword is silently ignored (D61).
   `ViewCache`: inside `perform` and `options` the engine's own working copy keeps its view until a change that can
   make it differ (a host's state never caches; `Engine.view` works it out afresh). A host that keeps a state's view
-  itself passes it in instead: `perform`'s `view` (the given state's), the `visible` and `revealed` overloads; and
+  itself passes it in instead: `perform`'s `view` (the given state's), the `options`, `passCheck`, `shouldPassFor`,
+  `visible` and `revealed` overloads (a search then starts from it; `passCheck`'s search and its check of hidden cards
+  share one view either way); and
   `Outcome.view` hands back the working copy's view of the state after the changes when it was kept to the end (not
   serialised, not part of equality), so a host applying the changes needn't work it out again.
-  `view/KeptViewsTest` checks each of these against `Engine.view` worked out afresh. Within a layer, dependencies are
+  `view/KeptViewsTest` checks each of these against `Engine.view` worked out afresh. `Engine.refusal` gives the
+  reason `perform` refuses a land play, cast or activation before doing anything (the same text from the same checks,
+  `Casting.refusal`) without copying the state, so a host greys out what it can't offer without trying each one
+  (`casting/RefusalTest` compares it with `perform`'s refusals). Within a layer, dependencies are
   tried only for pairs where one can exist (CR 613.8a) and resolutions are kept until the board changes in what they read.
 - `query/` — `Evaluator`: what objects, players, filters, values and conditions of a definition
   mean in a game; `History` answers "this turn" questions from the log.

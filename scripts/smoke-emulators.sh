@@ -57,7 +57,11 @@ new_run() {
     dir=$SMOKE_ROOT/$(date +%Y%m%d-%H%M%S)
     mkdir -p "$dir"
     ln -sfn "$dir" "$SMOKE_ROOT/latest"
-    for s in "$A" "$B"; do adb -s "$s" logcat -c </dev/null || true; done
+    # Clear the logs and wake the screens (a sleeping emulator screenshots white and ignores taps).
+    for s in "$A" "$B"; do
+        adb -s "$s" logcat -c </dev/null || true
+        adb -s "$s" shell input keyevent KEYCODE_WAKEUP </dev/null || true
+    done
     echo "$dir"
 }
 

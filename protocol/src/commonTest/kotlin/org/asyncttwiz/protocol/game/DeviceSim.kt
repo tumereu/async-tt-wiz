@@ -226,6 +226,26 @@ internal class DeviceSim(val games: EngineGames, every: Int = 16) {
         }
     }
 
+    /** The server's per-player record (EngineGames.refresh on the server, I-D57): whether the game waits for each player,
+     * from their next stop and the head; the other player than the asker of an open undo request or result suggestion. */
+    fun serverWaits(): Map<PlayerId, Boolean> {
+        val head = server.state()
+        val asker = server.request?.by ?: head.table.suggestion?.by?.value
+        return listOf(alice, bob).associateWith { p ->
+            val local = server.heads.getValue(p)
+            val after = MainLine.after(server.history, server.head, local)!!
+            val stop = if (server.request?.by == p.value) null
+                else NextStop.of(server.stateAt(local), local, after, p, device(p).settings.mode)
+                    ?: NextStop.Stop(server.head, null).takeIf { asker != null && asker != p.value }
+            stop != null && (if (asker != null) asker != p.value else NextStop.waitsFor(head.engine, p, stop))
+        }
+    }
+
+    /** Whose move the game list shows [viewer] (TRN-058): themselves when the game waits for them, else the other player
+     * when it waits for them. */
+    fun serverMove(viewer: PlayerId): PlayerId? =
+        serverWaits().let { w -> if (w.getValue(viewer)) viewer else other(viewer).takeIf { w.getValue(it) } }
+
     /** [p]'s keep, or the first answer listed for [p]'s open decision. */
     fun keep(p: PlayerId): Input {
         val s = device(p).model.engine

@@ -186,7 +186,8 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
         }
         val session = device.session
         val tip = session.tip
-        val play = EngineProjection.project(base, device.model, me, tip, attention, staging, tokenArt, pictures)
+        // TRN-058 (I-D57): the move pill and the bar colours show whom the game really waits for, as the game list does
+        val play = EngineProjection.project(base, device.model, me, tip, attention, staging, tokenArt, pictures, device.move?.value)
         val local = session.indexOf(session.localHead) ?: -1
         val held = session.events.take(local + 1)
         val line = held + session.pending
@@ -220,7 +221,8 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
             is GameDevice.Status.Waiting -> device.opponent.value
             else -> null
         }
-        val play = EngineProjection.project(base, device.model, me, device.session.tip, attention, staging, tokenArt, pictures)
+        val play = EngineProjection.project(base, device.model, me, device.session.tip, attention, staging, tokenArt, pictures,
+            last.play.board.move)
         val shown = Shown(++published, play, last.status, last.locked, last.settings, last.opponent, last.behind, last.tip,
             last.localHead, last.drafting, last.request, last.indicator, last.undoTarget, last.line, last.held, last.transition,
             last.needsReload)

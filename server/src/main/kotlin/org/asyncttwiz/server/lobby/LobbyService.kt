@@ -107,13 +107,14 @@ class LobbyService(private val runtime: ServiceRuntime) {
         attentionHolder: String?, viewer: UUID? = null): GameSummary {
         val inviter = ACCOUNT.`as`("inviter")
         val recipient = ACCOUNT.`as`("recipient")
-        // I-D56 §7: for a viewer of a play whose state is the engine's, whose move it is comes from the engine seats
-        // (read in the same round trip): the viewer's own next stop first, then the other player's; the last-activity
+        // I-D56 §7, TRN-058 (I-D57): for a viewer of a play whose state is the engine's, whose move it is comes from the
+        // engine seats (read in the same round trip): the viewer when the game waits for them, else the other player when
+        // it waits for them (the record notifications use); the last-activity
         // time is the viewer's own (their next stop's, else their local head's event's: nothing past it)
         val play = game.currentPlay?.takeIf { viewer != null && game.lifecycle == "ACTIVE" }
         // Only for an active play: other summaries don't touch the engine tables (a database at an older schema has none)
         val seats = if (play == null) DSL.inline(null, String::class.java)
-            else DSL.field("(SELECT string_agg(s.account_id::text || '|' || (s.next_stop IS NOT NULL)::text || '|' || " +
+            else DSL.field("(SELECT string_agg(s.account_id::text || '|' || s.waited::text || '|' || " +
                 "coalesce(to_char(coalesce(s.next_stop_at, (SELECT e.created_at FROM engine_event e WHERE e.play_id = s.play_id " +
                 "AND e.id = s.local_head)) AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"'), ''), ',' ORDER BY s.account_id) " +
                 "FROM engine_seat s WHERE s.play_id = {0})", String::class.java, DSL.`val`(play, UUID::class.java))
@@ -188,7 +189,7 @@ class LobbyService(private val runtime: ServiceRuntime) {
         if (games.isEmpty()) return emptyList()
         val inviter = ACCOUNT.`as`("inviter")
         val recipient = ACCOUNT.`as`("recipient")
-        val seats = DSL.field("(CASE WHEN {1} = 'ACTIVE' THEN (SELECT string_agg(s.account_id::text || '|' || (s.next_stop IS NOT NULL)::text || '|' || " +
+        val seats = DSL.field("(CASE WHEN {1} = 'ACTIVE' THEN (SELECT string_agg(s.account_id::text || '|' || s.waited::text || '|' || " +
             "coalesce(to_char(coalesce(s.next_stop_at, (SELECT e.created_at FROM engine_event e WHERE e.play_id = s.play_id " +
             "AND e.id = s.local_head)) AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"'), ''), ',' ORDER BY s.account_id) " +
             "FROM engine_seat s WHERE s.play_id = {0}) END)", String::class.java, GAME.CURRENT_PLAY, GAME.LIFECYCLE)

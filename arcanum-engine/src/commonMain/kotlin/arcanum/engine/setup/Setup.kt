@@ -130,7 +130,8 @@ val GameState.started: Boolean get() = turn.number > 0
  * 2. Companions (CR 103.2b, 702.139a): in turn order, each player with a companion outside the game whose condition
  *    their starting deck meets may reveal one; the engine checks conditions it can read (`each … card in your starting
  *    deck`, unknown deck cards filled in by the host, D60) and offers the rest on trust. Sideboards are set aside from
- *    the start (CR 103.2a).
+ *    the start (CR 103.2a). A player with no companion among their cards outside the game isn't asked, even when they
+ *    don't skip choices they don't have (a companion whose condition fails is still asked about, I-D18).
  * 3. Libraries are shuffled by the host (CR 103.3, D25); each player draws their starting hand (CR 103.5).
  * 4. Mulligans (CR 103.5): the starting player, then each other player in turn order, declares keep or mulligan; then
  *    everyone who chose a mulligan takes it at once: hand shuffled back, a new hand drawn, then as many cards as
@@ -356,9 +357,9 @@ internal object Setup {
     private fun companion(act: Act, asked: List<PlayerId>): SetupStage? {
         val player = order(act.state).firstOrNull { it !in asked } ?: return null
         val candidates = companions(act, player)
-        // I-D18: whether a card outside the game is a companion is the player's to know (unknown ones are offered as
-        // they are, see [companions])
-        val hidden = act.hiddenDecides(player, null, act.state.player(player).outside, fill = false) { true }
+        // I-D18: whether a companion's condition is met is the player's to know (unknown ones are offered as they are, see
+        // [companions]); a player with no companion among their cards outside the game (a sideboard, dungeons) isn't asked
+        val hidden = act.hiddenDecides(player, null, act.state.player(player).outside, fill = false) { companionAbility(act.state.obj(it)) != null }
         val chosen = act.chooseObjects(player, null, candidates, 0, 1, "Reveal a companion (CR 103.2b)", hidden)
         chosen.singleOrNull()?.let { id ->
             // D60: a companion chosen in another player's view becomes public as it is revealed

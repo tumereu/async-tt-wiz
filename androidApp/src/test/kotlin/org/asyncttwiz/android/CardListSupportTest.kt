@@ -46,6 +46,21 @@ class CardListSupportTest {
         assertEquals("Automatum plays 1 card by hand: Odd Cub", automatumSupportTip(CardListSupport(21, listOf("Odd Cub"))))
     }
 
+    // LOB-117 (I-D52): a card that ventures or takes the initiative is by hand when the card records hold no dungeon Automatum plays
+    // fully for it (here only a plain venture's)
+    @Test fun aVenturingCardNeedsADungeonTheDeviceCanBring() {
+        fun spell(name: String, type: String, text: String) = CardDefinition(name, listOf(DefinitionFace(id(), name, typeLine = type,
+            manaCost = "{W}", rulesText = text)), printingId = id())
+        val map = spell("Torch Map", "Sorcery", "Venture into the dungeon.")
+        val claim = spell("Claim Rite", "Instant", "You take the initiative.")
+        val plainOnly = CardListSupportCheck({ submitted -> submitted.associate { item ->
+            val face = item.definition.faces.single()
+            item.digest to ParsedCard.Read(arcanum.api.CardDefinition(Layout.Normal, listOf(OracleParser.parse(OracleCard(face.name,
+                face.manaCost, face.typeLine, face.rulesText, power = face.power.ifBlank { null }, toughness = face.toughness.ifBlank { null })))), 0)
+        } }, parserVersion = 21, engineVersion = 3, dungeons = { setOf(org.asyncttwiz.protocol.game.OutsideCards.Need.Dungeon) })
+        assertEquals(CardListSupport(21, listOf("Claim Rite"), 3), plainOnly.support(submitted(map, claim, plain)))
+    }
+
     private class Worker : AbstractExecutorService() {
         val queue = mutableListOf<Runnable>()
         override fun execute(command: Runnable) { queue += command }

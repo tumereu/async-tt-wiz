@@ -72,6 +72,27 @@ class AttentionPresentationTest {
         }
     }
 
+    // TRN-058 (I-D57): on engine state the move pill, the bar colours and the field that holds the move show whom the
+    // game really waits for (the board's move), not who acts on the board shown: a decision stop of the viewer's in
+    // playback while the other player plays on is the other player's move
+    @Test fun theMovePillAndBarsFollowWhomTheGameReallyWaitsFor() {
+        val initial = TableFixture.play()
+        for (viewer in listOf("a", "b")) {
+            val other = if (viewer == "a") "b" else "a"
+            val play = initial.copy(board = initial.board.copy(attentionHolder = viewer, move = other))
+            val pill = attentionPresentation(TableFixture.game, play, viewer, false, true)
+            assertEquals(if (viewer == "a") "Waiting · Bob" else "Waiting · Alice", pill.label)
+            assertFalse(pill.own)
+            assertEquals(battlefieldColor(other, viewer, other, false), tableBarColor(play.board, viewer))
+            val scene = TablePresentation.scene(TableFixture.game, play, viewer, 412f, 892f, false)
+            assertEquals(other, scene.fields.single { it.holdsAttention }.owner)
+            // The game waits for the viewer: their move
+            val own = initial.copy(board = initial.board.copy(attentionHolder = other, move = viewer))
+            assertEquals("Your move", attentionPresentation(TableFixture.game, own, viewer, false, true).label)
+            assertEquals(battlefieldColor(viewer, viewer, viewer, false), tableBarColor(own.board, viewer))
+        }
+    }
+
     @Test fun historyPassNamesTheActualDestinationEvenWhenNonHolderTakesTheFlag() {
         val d = GameplayFixture()
         val changed = GameplayRules.change(d.initial, d.actor, d.command(PlayAction.PassAttention))

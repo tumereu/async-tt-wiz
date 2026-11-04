@@ -14,6 +14,7 @@ import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import org.asyncttwiz.protocol.game.OutsideCards
 
 /**
  * Whether Automatum plays a card fully by the rules (I-D51): a card is supported when its definition has no part done
@@ -42,17 +43,25 @@ object AutomatumSupport {
     /** Keyword actions the engine hands to the players (`Effects.keywordAction`'s `manual` call): by their JSON type. */
     private val manualKeywordActions = setOf("learn")
 
+    private const val NO_DUNGEON = "by hand: venturing into the dungeon (no dungeon Automatum plays fully in the card records)"
+
     /** Steps of a mana ability's resolution, besides adding the mana, that ask a player something: the engine can't ask
      * while a mana ability resolves (CR 605.3b), so it leaves them to the players (`Payment.finishManaAbility`). */
     private val askingSteps = setOf("choose", "may", "pay")
     private val askingEffects = setOf("scry", "surveil", "search", "look", "reorder", "two-piles", "keyword-action", "reveal-until")
 
-    /** Whether [definition] has any part Automatum leaves to the players. */
-    fun byHand(definition: CardDefinition): Boolean = handParts(definition).isNotEmpty()
+    /** Every dungeon a card may need (OutsideCards.Need). */
+    val ALL_DUNGEONS: Set<OutsideCards.Need> = setOf(OutsideCards.Need.Dungeon, OutsideCards.Need.Undercity)
 
-    /** The parts of [definition] Automatum leaves to the players, one short line each (empty: fully supported). */
-    fun handParts(definition: CardDefinition): List<String> {
+    /** Whether [definition] has any part Automatum leaves to the players, with the dungeons the device can bring ([dungeons]). */
+    fun byHand(definition: CardDefinition, dungeons: Set<OutsideCards.Need> = ALL_DUNGEONS): Boolean = handParts(definition, dungeons).isNotEmpty()
+
+    /** The parts of [definition] Automatum leaves to the players, one short line each (empty: fully supported). A card that
+     * ventures into the dungeon or takes the initiative needs a dungeon the device can bring that Automatum plays fully
+     * ([dungeons]: what its catalog provides, OutsideCards.provided): without one the card is unsupported (I-D51, I-D52). */
+    fun handParts(definition: CardDefinition, dungeons: Set<OutsideCards.Need> = ALL_DUNGEONS): List<String> {
         val found = mutableListOf<String>()
+        if (!dungeons.containsAll(OutsideCards.needs(definition))) found += NO_DUNGEON
         walk(json.encodeToJsonElement(CardDefinition.serializer(), definition), found)
         definition.faces.flatMap { it.abilities }.forEach { ability ->
             when {

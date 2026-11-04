@@ -142,7 +142,8 @@ class NightReview4AtwTest {
     }
 
     // CR 309.2, 309.2a, 701.49a, 726.2, I-D51, LOB-115, LOB-117: a card that ventures into the dungeon or takes the initiative is
-    // played by the rules (nightreview #13's fallback is gone): its player's device brings the dungeon cards to the game
+    // played by the rules (nightreview #13's fallback is gone): its player's device brings the dungeon cards to the game. I-D52:
+    // without a dungeon Automatum plays fully in the card records (a plain venture's, or the initiative's Undercity) it is by hand
     @Test fun venturingIntoTheDungeonIsPlayedByTheRules() {
         val map = Cards.invent("Night Torch Map", "{W}", "Sorcery", "Venture into the dungeon.")
         val claim = Cards.invent("Night Claim", "{W}", "Instant", "You take the initiative.")
@@ -150,6 +151,11 @@ class NightReview4AtwTest {
         assertTrue(AutomatumSupport.handParts(Cards.definition(map)).isEmpty(), "venture: ${AutomatumSupport.handParts(Cards.definition(map))}")
         assertTrue(AutomatumSupport.handParts(Cards.definition(claim)).isEmpty(), "initiative: ${AutomatumSupport.handParts(Cards.definition(claim))}")
         assertTrue(AutomatumSupport.handParts(Cards.definition(plain)).isEmpty())
+        val plainOnly = setOf(org.asyncttwiz.protocol.game.OutsideCards.Need.Dungeon)
+        assertTrue(AutomatumSupport.handParts(Cards.definition(map), plainOnly).isEmpty())
+        assertTrue(AutomatumSupport.byHand(Cards.definition(claim), plainOnly), "no Undercity to take the initiative into")
+        assertTrue(AutomatumSupport.byHand(Cards.definition(map), emptySet()), "no dungeon at all")
+        assertTrue(AutomatumSupport.handParts(Cards.definition(plain), emptySet()).isEmpty())
     }
 
     // CMB-039, CR 310.12b, 712: alice defeats her own Siege; its trigger exiles it and she casts it transformed: the back face

@@ -418,8 +418,9 @@ internal fun EngineAsyncHost(toolkit: TableToolkitController, routes: EngineTabl
                     is Input.SetupAnswer, is Input.Answer -> "took a mulligan"
                     else -> "responded"
                 } + " — your later actions were taken back"
-                // HIS-099: the other player's undo of events you had seen: your board just goes back, with this note
-                is GameDevice.Note.TakenBack -> routes.note = "${names[note.by.value] ?: opponent} undid"
+                // HIS-099, §29.4: the other player's undo of events you had seen: your board goes back the way it came,
+                // with "<name> undid: <action>" fading at the top (the transition's, EngineTableScreen)
+                is GameDevice.Note.TakenBack -> {}
                 is GameDevice.Note.RequestNeeded -> routes.rewind = EngineTableRoutes.RewindChoice(note.target)
                 is GameDevice.Note.Refused -> refusedText(note.reason)?.let { routes.note = it } ?: toolkit.dismissError()
             }
@@ -713,6 +714,16 @@ private fun EngineRequestDialog(routes: EngineTableRoutes, opponent: String, sum
     }
 }
 
+/** The Undo dialog's list (§10, HIS-099): the actions shown to the player, newest first; §29.2: passes are implied, so
+ * none is listed except the first pass of the player's own End turn ("You ended the turn"). */
+internal fun undoChoices(shown: EngineGame.Shown): List<GameEvent> = shown.held.filter { e ->
+    e.engine?.steps?.any { s -> s.input != null } == true && (!EngineEventText.pass(e) || e.id in shown.endTurns)
+}.asReversed()
+
+/** The text of an Undo dialog entry ([undoChoices]). */
+internal fun undoChoiceText(event: GameEvent, shown: EngineGame.Shown, viewer: String, names: Map<String, String>): String =
+    if (EngineEventText.pass(event)) "You ended the turn" else EngineEventText.of(event, shown.engine, viewer, names)
+
 /**
  * The rewind dialog (§10): the main line up to the viewer's local head as the target picker (newest first), an optional
  * message, then Undo: done at once when it is free, else sent to the other player as an undo request.
@@ -722,9 +733,7 @@ private fun EngineRewindDialog(routes: EngineTableRoutes, choice: EngineTableRou
     summary: GameSummary) {
     val game = routes.engine ?: return
     val published = game.shown ?: return
-    val shown = remember(game.version) {
-        published.held.filter { it.engine?.steps?.any { s -> s.input != null } == true }.asReversed()
-    }
+    val shown = remember(game.version) { undoChoices(published) }
     var target by remember(choice) { mutableStateOf(choice.target) }
     var message by remember(choice) { mutableStateOf("") }
     val needsRequest = remember(target, game.version) { target?.let { game.undoNeedsRequest(it) } }
@@ -748,7 +757,7 @@ private fun EngineRewindDialog(routes: EngineTableRoutes, choice: EngineTableRou
                     .background(if (selected) AutomatumViolet.copy(alpha = .12f) else Color.Transparent).padding(horizontal = 8.dp),
                     verticalAlignment = Alignment.CenterVertically) {
                     RadioButton(selected, onClick = null)
-                    Text(EngineEventText.of(event, published.engine, routes.viewer, names), Modifier.padding(start = 8.dp), fontSize = 14.sp)
+                    Text(undoChoiceText(event, published, routes.viewer, names), Modifier.padding(start = 8.dp), fontSize = 14.sp)
                 }
             }
         }

@@ -33,12 +33,18 @@ class EngineAsyncViewTest {
     }
 
     // HIS-091 (owner playtest 2026-11-04 #1, #2): only the assumer reads an assumed answer as assumed; the player it was
-    // assumed about reads it as their own ("You kept", "You passed"), never "(assumed)"
+    // assumed about reads it as their own ("You kept"), never "(assumed)"; §29.2: an assumed pass reads as neither, only
+    // as what it led to
     @Test fun onlyTheAssumerReadsAnAssumedAnswerAsAssumed() {
         val (alice, _) = aliceAndBob()
-        val assumed = alice.device.session.pending.filter { it.engine?.steps?.any { s -> s.assumedBy == PlayerId(f.a) } == true }
-        assertTrue(assumed.isNotEmpty())
+        val all = alice.device.session.pending.filter { it.engine?.steps?.any { s -> s.assumedBy == PlayerId(f.a) } == true }
+        val (passes, assumed) = all.partition(EngineEventText::pass)
+        assertTrue(assumed.isNotEmpty() && passes.isNotEmpty())
         val state = alice.device.model.engine
+        for (event in passes) for (viewer in listOf(f.a, f.b)) {
+            val text = EngineEventText.of(event, state, viewer, names)
+            assertTrue("passed" !in text && "assumed" !in text, text)
+        }
         for (event in assumed) {
             val hers = EngineEventText.of(event, state, f.a, names)
             val his = EngineEventText.of(event, state, f.b, names)
@@ -54,7 +60,8 @@ class EngineAsyncViewTest {
         val head = alice.device.session.tip
         val lineStart = org.asyncttwiz.protocol.game.EventBuilder(alice.device.model.copy(), "line1", head, f.a).also { it.startLine(1) }.build()
         assertTrue(EngineEventText.hidden(lineStart))
-        assertTrue(alice.device.session.pending.none(EngineEventText::hidden))
+        // (§29.2: of the other events only passes that led to nothing are hidden)
+        assertTrue(alice.device.session.pending.none { EngineEventText.hidden(it) && !EngineEventText.pass(it) })
     }
 
     // HIS-021 (§27): playback lets passes that changed nothing visible go by at once; a land play, a cast, a new turn keep

@@ -95,11 +95,12 @@ internal class EventTextFeed(worker: Executor, private val post: (() -> Unit) ->
         }
     }
 
-    /** On engine state (HIS-075, HIS-076): [text] of the event shown at [cursor] (the other player's newest). */
-    fun post(cursor: String, text: String) {
+    /** On engine state (HIS-075, HIS-076): [text] of the event shown at [cursor] (the other player's newest); [always]:
+     * shown with Event text off too (§29.4: what an undo took back). */
+    fun post(cursor: String, text: String, always: Boolean = false) {
         val generation = ++epoch; latest = generation
         shownCursor = cursor
-        if (enabled && text.isNotBlank()) chip = EventTextChip(cursor, text, generation, clock())
+        if ((enabled || always) && text.isNotBlank()) chip = EventTextChip(cursor, text, generation, clock())
     }
 
     /** On engine state: the board moved to [cursor] with nothing to tell (the chip of another board goes at once). */

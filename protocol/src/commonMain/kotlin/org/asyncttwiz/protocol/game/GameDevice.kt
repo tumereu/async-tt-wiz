@@ -121,6 +121,9 @@ class GameDevice(
     /** Who made this device's own recent events (I-D56 §10, report C9PVLM): true for the player's own action (an End
      * turn's first pass included), false for the device's automatic steps; Undo goes back past the automatic ones. */
     private val origins = LinkedHashMap<String, Boolean>()
+    /** This device's recent End turns (TRN-057) that began with a pass: the event of that first pass (§29.2: the only
+     * pass Undo targets, and the Undo dialog lists, as one "End turn" entry). */
+    private val endTurns = LinkedHashSet<String>()
     /** An End turn waits for its first event: the player's action. */
     private var endTurnMade = false
     /** The head a free undo of this player's landed on: the device makes none of their own inputs there by itself
@@ -714,6 +717,10 @@ class GameDevice(
             val first = event.engine?.steps?.firstNotNullOfOrNull { it.input }
             val ended = endTurnMade && (first == Input.PassPriority(me) || (first as? Input.DeclareAttackers)?.player == me)
             origins[event.id] = player || ended
+            if (ended && first is Input.PassPriority) {
+                endTurns += event.id
+                if (endTurns.size > MAX_ORIGINS) endTurns.remove(endTurns.first())
+            }
             if (ended) endTurnMade = false
             if (origins.size > MAX_ORIGINS) origins.remove(origins.keys.first())
         }
@@ -905,7 +912,8 @@ class GameDevice(
 
     /** The point just before the player's latest own real input shown (their later assumed inputs go with it): never
      * the device's automatic steps (its passes by the player's mode, engine-automatic answers it made) nor a rewind's
-     * line start, so a second Undo goes on back past the player's previous action (report C9PVLM). */
+     * line start, so a second Undo goes on back past the player's previous action (report C9PVLM). Passes are implied
+     * (§29.2): a pass is never the target, the player's own included, except the first pass of an End turn. */
     fun undoTarget(): String? {
         val shown = session.indexOf(session.localHead) ?: return null
         return session.events.take(shown + 1).lastOrNull(::realInput)?.parentId
@@ -918,9 +926,9 @@ class GameDevice(
         if (e.author != me.value || e.assumed != null) return false
         val input = e.engine?.steps?.firstNotNullOfOrNull { it.input }
         if (input == null) return e.table.any { it !is TableChange.LineMoved }
+        if (input is Input.PassPriority) return e.id in endTurns
         origins[e.id]?.let { return it }
         return when (input) {
-            is Input.PassPriority -> false
             is Input.PlayLand -> input.player == me
             is Input.Cast -> input.player == me
             is Input.Activate -> input.player == me
@@ -930,6 +938,9 @@ class GameDevice(
             else -> true
         }
     }
+
+    /** Whether [id] is the first pass of an End turn this device made (TRN-057; §29.2: the Undo dialog's "End turn"). */
+    fun endedTurn(id: String): Boolean = id in endTurns
 
     /** Undo (a tap) to [target] (by default [undoTarget]): sent when free, else [Undo.Request]. */
     fun undo(target: String? = undoTarget()): Undo {

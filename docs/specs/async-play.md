@@ -823,3 +823,12 @@ Decided while building (the plainest reading; owner to confirm):
 5. **One tap activates:** a permanent with exactly one ability you can activate now activates it on tap (a land adds its mana); with several, tap opens the same chip menu as hand cards; hold = Inspect; in declare attackers/blockers a tap stages combat instead; unused mana floats in the pool.
 6. **Combat in playback** uses the middle combat-area design (I-D38); playback skips steps where nothing happened (combat included) unless full control is on.
 7. Pass / End turn latency: revisit after R1–R3 (no separate fix now).
+
+Built (2026-11-04): **2** (HIS-091, HIS-084, HIS-099): a pass event reads only as what it led to, one that led to
+nothing is hidden like an old line start (`EngineEventText.hidden`); `GameDevice.undoTarget` skips every pass but an End
+turn's first (`endedTurn`), and the Undo dialog lists the same (`undoChoices`, "You ended the turn"). **4** (HIS-030,
+HIS-076, HIS-099): a rewind that took back events shown on a device is a transition of its own (`EngineGame.Transition.undone`)
+whose steps are the undone events' motion boards in reverse; its text is posted to the event chip even with Event text
+off, replacing the "<name> undid" note.
+Decided while building (owner to confirm): the other player reads "Alice undid: cast Storm Spark"; an undone End turn
+reads "Undid: End turn"; the undo text shows with Event text off.

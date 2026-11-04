@@ -127,7 +127,9 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
         /** The events shown to the player: the main line up to the local head ([held]), then their own pending events. */
         val line: List<GameEvent>, val held: List<GameEvent>, val transition: Transition?, val needsReload: Boolean,
         /** The player paused playback (§27): it goes on to the next point where Full control stops. */
-        val pausing: Boolean = false) {
+        val pausing: Boolean = false,
+        /** The first passes of the player's recent End turns (§29.2: the Undo dialog lists them as "End turn"). */
+        val endTurns: Set<String> = emptySet()) {
         val engine: GameState get() = play.board.engine!!.state
     }
 
@@ -200,7 +202,7 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
         previous = play
         val shown = Shown(++published, play, status, device.locked, device.settings, device.opponent, session.behind, tip,
             session.localHead, session.drafting, device.request, device.indicator(), device.undoTarget(), line, held, lastTransition,
-            device.needsReload, device.pausing)
+            device.needsReload, device.pausing, held.mapNotNullTo(HashSet()) { e -> e.id.takeIf(device::endedTurn) })
         lastShown = shown
         worker.main {
             this.notes.addAll(notes)
@@ -232,7 +234,7 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
         previewed = play
         val shown = Shown(++published, play, last.status, last.locked, last.settings, last.opponent, last.behind, last.tip,
             last.localHead, last.drafting, last.request, last.indicator, last.undoTarget, last.line, last.held, last.transition,
-            last.needsReload, last.pausing)
+            last.needsReload, last.pausing, last.endTurns)
         worker.main { this.shown = shown; onShown() }
     }
 
@@ -250,7 +252,17 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
         /** TBL-040 (owner playtest 2026-11-04): the boards in between, in event order, each after a step of the forward
          * events that moved, tapped, made or turned something (the board shown before and the last one left out): the
          * table plays them one after another at the card move speed, so every card goes to its place in its turn. */
-        val steps: List<PlayState> = emptyList())
+        val steps: List<PlayState> = emptyList(),
+        /** §29.4: an undo (a rewind) took back events shown here: who undid, and the first action taken back with the
+         * state it was shown on (for its words, "Undid: cast Storm Spark"); [steps] then fly the cards back. */
+        val undone: Undone? = null)
+
+    /** §29.4: what an undo took back of what this player had seen: [by] undid, [event] first (null when unknown). */
+    class Undone(val by: String, val event: GameEvent?, val state: arcanum.engine.state.GameState?)
+
+    /** A rewind arriving (engine thread): who undid, to where, and the line shown before it. */
+    private class Rewinding(val by: String, val target: String, val line: List<GameEvent>, val state: arcanum.engine.state.GameState?)
+    private var rewinding: Rewinding? = null
 
     private var transitions = 0L
     private var pt: Map<String, Pair<Int, Int>> = emptyMap()
@@ -262,6 +274,7 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
         val ptAfter = EngineChanges.powerToughness(device.model.engine)
         val from = before?.currentNodeId?.let { id -> line.indexOfFirst { it.id == id }.takeIf { it >= 0 } ?: if (id == device.session.lineStart) -1 else null }
         val to = line.indexOfFirst { it.id == tip }.takeIf { it >= 0 } ?: if (tip == device.session.lineStart) -1 else null
+        if (!loaded && before != null && from == null) rewinding?.let { r -> if (undo(r, before, after, attention, move)) return }
         val jump = loaded || before == null || from == null || to == null
         val forward = if (!jump && to!! > from!!) line.subList(from + 1, to + 1).toList() else emptyList()
         val backward = if (!jump && to!! < from!!) line.subList(to + 1, from + 1).reversed() else emptyList()
@@ -278,6 +291,36 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
     }
 
     /**
+     * §29.4 (owner 2026-11-04): an undo that took back events shown here animates backwards, quickly: the boards after
+     * each step of the events taken back (as [motionSteps] makes them, from the point gone back to), in reverse order, so
+     * the cards fly back the way they came, at the card move speed and with no playback pause; the transition names who
+     * undid and the first action taken back. False when the board shown before isn't on the line shown before (nothing
+     * of it was taken back) or the point isn't on it.
+     */
+    private fun undo(r: Rewinding, before: PlayState, after: PlayState, attention: String?, move: String?): Boolean {
+        val old = r.line
+        val from = old.indexOfFirst { it.id == before.currentNodeId }.takeIf { it >= 0 } ?: return false
+        val to = old.indexOfFirst { it.id == r.target }.takeIf { it >= 0 } ?: if (old.firstOrNull()?.parentId == r.target) -1 else return false
+        if (to >= from) return false
+        val undone = old.subList(to + 1, from + 1).toList()
+        val ptNow = EngineChanges.powerToughness(device.model.engine)
+        val changes = EngineChanges.between(before, after, pt, ptNow, undone)
+        val steps = runCatching {
+            val start = (if (device.session.tip == r.target) device.model.copy() else device.session.stateAt(r.target)) ?: return@runCatching emptyList()
+            if (undone.size > EngineMotion.MAX_EVENTS) return@runCatching emptyList()
+            val tables = start.copy().let { t -> undone.map { e -> t.apply(e); t.table } }
+            val boards = boardsAlong(start, undone, tables, after.currentNodeId, attention, move)
+            EngineMotion.trim(boards.asReversed(), before, after, null)
+        }.onFailure { AppLog.info("engine", "No undo motion: ${it.message}") }.getOrDefault(emptyList())
+        val first = undone.firstOrNull { !EngineEventText.hidden(it) || EngineEventText.pass(it) }
+        lastTransition = Transition(++transitions, after.currentNodeId, false, changes, emptySet(), emptyList(), undone.asReversed(), steps,
+            Undone(r.by, first, r.state))
+        pt = ptNow
+        loaded = false
+        return true
+    }
+
+    /**
      * TBL-040: the boards after each engine step of [forward] (the events that end at the tip) that changed what the
      * table draws ([EngineMotion.objects]), projected on [tip] with the final [attention] and [move] (the bars keep their
      * colour), the last [EngineMotion.MAX_STEPS] at most. Worked out from the tip backwards (each event reverts exactly),
@@ -291,7 +334,15 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
         val tables = ArrayList<org.asyncttwiz.protocol.game.TableState>(forward.size)
         for (e in forward.asReversed()) { tables.add(0, walk.table); walk.revert(e) }
         if (walk.stale) return emptyList()
-        val state = walk.engine
+        return boardsAlong(walk, forward, tables, tip, attention, move)
+    }
+
+    /** The boards after each engine step of [forward] from [start] (a copy, used up; [tables]: the table after each
+     * event) that changed what the table draws, projected on [tip] with [attention] and [move], the last
+     * [EngineMotion.MAX_STEPS] at most. */
+    private fun boardsAlong(start: GameModel, forward: List<GameEvent>, tables: List<org.asyncttwiz.protocol.game.TableState>,
+        tip: String, attention: String?, move: String?): List<PlayState> {
+        val state = start.engine
         var seen = EngineMotion.objects(state)
         val boards = ArrayList<PlayState>()
         forward.forEachIndexed { i, e ->
@@ -397,6 +448,10 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
             val tip = session.tip
             val local = session.localHead
             val head = session.head
+            // §29.4: an undo animates backwards from the board shown before it
+            rewinding = update?.target?.let { target ->
+                lastShown?.let { Rewinding(update.rewoundBy ?: events.firstOrNull()?.author ?: "", target, it.line, it.engine) }
+            }
             device.revision(events, update)
             // A board already shown taken back by the server's revision (owner, N7FU6Y: one line per take-back)
             if (!onLine(tip)) takenBack(when {
@@ -407,6 +462,7 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
             } + " (events ${events.joinToString(",") { it.id }})", tip, local)
             device.advance(now)
             publish()
+            rewinding = null
         }
     }
 

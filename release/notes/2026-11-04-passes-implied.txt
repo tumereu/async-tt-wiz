@@ -1,0 +1,1 @@
+mod: Passing is no longer listed: the event strip, timeline and event text show only what happened (a spell resolving, a new step or turn), and Undo goes back to your last real action instead of a pass

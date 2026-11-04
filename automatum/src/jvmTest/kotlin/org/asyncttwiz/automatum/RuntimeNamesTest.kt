@@ -24,7 +24,6 @@ class RuntimeNamesTest {
         "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/CrashReports.kt" to "latency labels, drop outer names",
         "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/game/GameDevice.kt" to "the device's debug memory",
         "protocol/src/commonMain/kotlin/org/asyncttwiz/protocol/game/GameCards.kt" to "a parse problem's text",
-        "automatum/src/commonMain/kotlin/org/asyncttwiz/automatum/AutomatumLog.kt" to "the Automatum log",
         "automatum/src/commonMain/kotlin/org/asyncttwiz/automatum/CombatFlow.kt" to "cost chip texts, drop outer names",
     )
 

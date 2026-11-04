@@ -104,45 +104,37 @@ internal class SharedFlowController(
     }
 
     /**
-     * The step button, the step arrow and the phase dialog with Automatum on (TRN-057): the player holding priority
-     * passes [until] as far as asked, whoever pressed it (TRN-004, D11), then Automatum goes on to the next point where a
-     * player can act. With attackers or blockers awaited it declares what the combat lanes hold ("End turn" and a step
-     * after combat attack with nothing instead). With something on the Stack [StepFlow.Until.Pass] is "Resolve": the
-     * holder passes as with Let it resolve (I-D46 d); anything further is refused (STK-029), as while a choice is open.
+     * The step arrow with Automatum on (TRN-057): the player holding priority passes (TRN-004, D11); with attackers or
+     * blockers awaited it declares what the combat lanes hold. With something on the Stack it is "Resolve": the holder
+     * passes as with Let it resolve (I-D46 d).
      */
-    fun step(until: StepFlow.Until): Boolean {
+    fun step(): Boolean {
         val play = current() ?: return false
-        stepRefusal(play, until)?.let { fail(it); return false }
-        return sendCall(play) { flow -> pressed(play, flow, until) }
+        stepRefusal(play)?.let { fail(it); return false }
+        return sendCall(play) { flow -> pressed(play, flow) }
     }
 
     /** Why the step button can't act on [play] at all (nothing is worked out then), or null. */
-    private fun stepRefusal(play: TableBoard, until: StepFlow.Until): String? {
+    private fun stepRefusal(play: TableBoard): String? {
         if (play.flowOpen) return BUSY
         // I-D46 d: with something on the Stack the step arrow is "Resolve": its holder passes, as Let it resolve does
         val stacked = CombatStackRules.stack(play.board).cards.isNotEmpty()
-        if (stacked && (until != StepFlow.Until.Pass || play.board.stackEffects.none { it.item != null })) return STACK_WAITING
+        if (stacked && play.board.stackEffects.none { it.item != null }) return STACK_WAITING
         // TRN-027, TRN-028: the opening (mulligans) is the host's setup; the engine's game begins after it (CR 103.8)
         if (play.board.turn.number == "1" && PlayerStatus.anyOpening(play.board)) return OPENING
         return null
     }
 
     /** The engine call a press of the step button makes on [play]'s flow. */
-    private fun pressed(play: TableBoard, flow: SharedFlow, until: StepFlow.Until): EngineRun {
+    private fun pressed(play: TableBoard, flow: SharedFlow): EngineRun {
         if (CombatStackRules.stack(play.board).cards.isNotEmpty()) {
             val holder = flow.priority ?: throw Refused(STACK_WAITING)
             return flow.pass(holder)
         }
         val holder = flow.holder
         val declaring = if (holder == null) flow.declaring else null
-        val active = flow.state.turn.active.value
         if (holder == null && declaring == null) throw Refused(NOTHING_TO_PASS)
-        val declares = holder == null && !(declaring == active && until != StepFlow.Until.Pass)
-        return when {
-            holder != null -> flow.step(holder, until)
-            !declares -> flow.step(active, until)
-            else -> flow.declare(autotap())
-        }
+        return if (holder != null) flow.step(holder) else flow.declare(autotap())
     }
 
     override fun answer(answer: Answer): Boolean = answerWith(answer, emptyList())

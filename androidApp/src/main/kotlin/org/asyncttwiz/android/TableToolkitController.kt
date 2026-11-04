@@ -98,7 +98,7 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
     /** Whether [cardId], a card in the viewer's hand, is known to have no cast or play Automatum allows now (I-D46). */
     private fun unplayable(play: TableBoard, cardId: String): Boolean {
         val plays = AutomatumBoards.cachedCardPlays(play, viewer) ?: return false
-        if (plays.unsupported.isNotEmpty() || !CastController.ownHand(play, cardId, viewer)) return false
+        if (!CastController.ownHand(play, cardId, viewer)) return false
         return plays.of(cardId).none { it.legal && (it.kind == org.asyncttwiz.automatum.CardPlay.Kind.Cast ||
             it.kind == org.asyncttwiz.automatum.CardPlay.Kind.Play) }
     }
@@ -301,7 +301,7 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
             error = null
             return when (intent) {
                 is TableActionIntent.Next -> when {
-                    declares(play) -> flows.step(org.asyncttwiz.automatum.StepFlow.Until.Pass)
+                    declares(play) -> flows.step()
                     // Smoke 2026-11-04 (TRN-057, TRN-063): an arrow that says "End turn" ends the turn; a plain pass
                     // would stop at the viewer's own main phase on the way (STK-036)
                     arrowStep(play) == AutomatumStep.EndTurn -> e.endTurn()
@@ -692,7 +692,6 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
         if (copy && play.board.combat == null) return false
         // Finalreview-combat #5: not worked out yet (the other player's event just arrived): said, never worked out here
         val choices = combat.choices(play).also { if (combat.working(it)) { error = CombatController.WORKING_OUT; return true } }.choices
-        if (choices.unsupported.isNotEmpty()) return false
         val area = play.board.combat
         val occurrence = CombatStackRules.occurrences(area).firstOrNull { it.sourceId == card }
         val attacking = occurrence != null && area!!.pairs.any { p -> p.attackers.any { it.id == occurrence.id } }

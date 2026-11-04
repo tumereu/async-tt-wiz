@@ -3,33 +3,24 @@ package org.asyncttwiz.automatum
 import arcanum.api.Ability
 import arcanum.api.CardDefinition
 import arcanum.api.Keyword
-import arcanum.api.TurnStep
 import arcanum.engine.Engine
-import arcanum.engine.change.Change
-import arcanum.engine.change.Meaning
 import arcanum.engine.decision.Answer
 import arcanum.engine.decision.Continuation
 import arcanum.engine.decision.Decision
 import arcanum.engine.input.Input
-import arcanum.engine.setup.result
 import arcanum.engine.state.GameState
-import arcanum.engine.state.LoggedChange
 import arcanum.engine.state.ObjectId
 import arcanum.engine.state.PlayerId
-import arcanum.engine.state.PriorityState
 import arcanum.engine.state.TargetRef
 import arcanum.engine.view.AbilityOrigin
 import arcanum.engine.view.View
 import org.asyncttwiz.protocol.BoardState
-import org.asyncttwiz.protocol.GameCommand
 import org.asyncttwiz.protocol.MtgRef
-import org.asyncttwiz.protocol.PlayState
-import org.asyncttwiz.protocol.TurnPosition
 
 /**
  * Casting a spell, playing a land or activating an ability (a special action too) through the engine as a **private flow** (integration spec I-D11, §3 I2): the
- * acting client keeps its engine calls on the device and sends everything as one batch ([plan]) when the cast is
- * complete; cancelling before that only drops these local steps, and nothing reaches the other player.
+ * acting client keeps its engine calls on the device and sends the player's inputs as one submission ([sending]) when the
+ * cast is complete; cancelling before that only drops these local steps, and nothing reaches the other player.
  *
  * A flow is immutable: [answer] and [change] give a new flow, replayed from [source] with [begin] and the answers so far
  * (the engine names its decisions after the state, so a replay meets the same decisions again; random results are kept
@@ -37,8 +28,7 @@ import org.asyncttwiz.protocol.TurnPosition
  * rest, so a choice made before (a target) survives a toggle above it (kicker) whenever the engine still accepts it.
  *
  * The engine state holds full information (I-D17, I-D27: the client holds every card; the cast panel shows only what
- * [player] may see), so the automatic passes after the cast ([sent]) can pass for either player; [EngineRun] answers the
- * host's decisions on the way.
+ * [player] may see); [EngineRun] answers the host's decisions on the way.
  */
 class CastFlow private constructor(
     /** Where the flow runs: the board it was begun on and its engine state. */
@@ -118,10 +108,6 @@ class CastFlow private constructor(
      * @throws IllegalArgumentException when the cast can't be begun there any more. */
     fun on(newSource: Source): CastFlow = replay(Context(newSource, player, seeds, extras), begin, answers, strict = false)
 
-    /** Today's model: [on] [newPlay]'s board rebuilt for the engine, with this flow's card definitions. */
-    fun on(newPlay: PlayState, newLog: List<LoggedChange>): CastFlow =
-        on(Source.legacy(newPlay, (source as Source.Legacy).definitions, newLog))
-
     /** The board the flow was begun on. */
     val board: BoardState get() = source.board
 
@@ -147,23 +133,8 @@ class CastFlow private constructor(
     }
 
     /**
-     * The engine call that goes out once the flow is [complete]: the cast, then the caster's automatic pass (I-D3; with
-     * their "Full control" the caster keeps priority instead, a pause of their own, I-D41) and the automatic passes after it ([StepFlow.automatic], I-D18), so with nothing
-     * to respond with the spell resolves in the same batch and the game goes on to the next point where a player can act
-     * (the steps too, I-D35), or to its first decision (a shared flow from there, I-D11).
-     * An activated ability on the Stack is passed on the same way (§3 I4), and so is a land play, mana ability or special
-     * action that put a trigger on the Stack (a landfall trigger: their own thing on top, no pause without Full control);
-     * one that put nothing there keeps priority with its player (CR 305.1, 605.3a, 116.3c). [call] stays the cast alone.
-     */
-    fun sent(): EngineRun {
-        check(complete) { "The cast isn't complete" }
-        return Sending(replay(Context(source, player, seeds, extras), begin, answers, strict = true)).sent()
-    }
-
-    /**
      * The flow completed with [payment] (the open [Decision.ManaPayment] answered with it; null when nothing is open) in
-     * one replay, ready to send (I-D47, "Autotap mana sources"): [Sending.cast] is the cast alone (the acting device's
-     * instant preview), [Sending.sent] then what follows it as [sent] does.
+     * one replay, ready to send (I-D47, "Autotap mana sources"): [Sending.cast] is the cast alone.
      * @throws IllegalArgumentException when the engine refuses [payment], or something else is still open.
      */
     fun sending(payment: List<arcanum.engine.decision.ManaUse>?): Sending {
@@ -176,33 +147,12 @@ class CastFlow private constructor(
         return Sending(done)
     }
 
-    /** A complete flow on its way out (I-D47): [cast] holds the cast alone until [sent] passes on after it. */
+    /** A complete flow on its way out (I-D47): [cast] is the engine run of the cast alone, whose own inputs go out (the
+     * device makes the passes that follow by itself). */
     class Sending internal constructor(val flow: CastFlow) {
-        private var passed = false
-        /** The engine call of the cast alone (no passes after it); [sent] goes on in the same call. */
+        /** The engine run of the cast alone. */
         val cast: EngineRun get() = flow.call
-
-        /** The cast with what follows it ([CastFlow.sent]); performed once, in [cast]'s own call. */
-        fun sent(): EngineRun {
-            val done = flow.call
-            if (passed) return done
-            passed = true
-            // Final cast review #6: a land play, mana ability or special action whose trigger went on the Stack is passed on too
-            val stacked = flow.begin is Input.Cast || done.working.stack.size > flow.stackBefore
-            if (stacked && done.pending == null && done.working.stack.isNotEmpty() && done.working.priority.holder?.value == flow.player) {
-                // I-D41: with "Full control" their own spell is a pause for the caster, who keeps priority (to cast again)
-                if (StepFlow.fullControl(done, flow.player)) return done
-                done.perform(Input.PassPriority(PlayerId(flow.player)), automatic = true)
-                StepFlow.automatic(done)
-            }
-            return done
-        }
     }
-
-    /** The batch that sends the whole flow (I-D11) with what follows it ([sent]), with [command]'s request id, as
-     * [actor]. Only once [complete]. [tokenArt] finds the picture of each token it makes. */
-    fun plan(actor: String, command: GameCommand, tokenArt: TokenArt = TokenArt.None): BatchPlan =
-        EngineBatch.plan(sent(), actor, command, tokenArt)
 
     /** The ATW reference of an engine object or player (target glow, labels). */
     fun ref(target: TargetRef): MtgRef = call.ids.ref(target)
@@ -226,19 +176,9 @@ class CastFlow private constructor(
             override fun run(seeds: () -> String): EngineRun = EngineRun.of(state, board, gameId, seeds)
         }
 
-        /** Today's model: [play]'s board rebuilt for the engine with the game's card [definitions] and its [log]. */
-        class Legacy internal constructor(val play: PlayState, val definitions: Map<String, CardDefinition>,
-            val log: List<LoggedChange>) : Source(play.board, play.gameId) {
-            override fun run(seeds: () -> String): EngineRun =
-                EngineCall(play, definitions, null, log, seeds).also(HostPriority::settle)
-        }
-
         companion object {
             /** A game on engine state: [state] shown as [board]. */
             fun engine(state: GameState, board: BoardState, gameId: String): Source = Engine(state, board, gameId)
-            /** Today's model: [play]'s board rebuilt for the engine. */
-            fun legacy(play: PlayState, definitions: Map<String, CardDefinition>, log: List<LoggedChange>): Source =
-                Legacy(play, definitions, log)
         }
     }
 
@@ -253,15 +193,10 @@ class CastFlow private constructor(
 
     companion object {
         /**
-         * Begins [begin] ([Input.Cast], [Input.PlayLand] or [Input.Activate]) for [player] on [play], then gives [answers] in order.
+         * Begins [begin] ([Input.Cast], [Input.PlayLand] or [Input.Activate]) for [player] on [source] (a game on engine
+         * state: [Source.engine]), then gives [answers] in order.
          * @throws IllegalArgumentException when the engine refuses to begin it, or one of [answers].
-         * @throws Unsupported when the board holds something the engine can't take over.
          */
-        fun start(play: PlayState, definitions: Map<String, CardDefinition>, player: String, log: List<LoggedChange>,
-            begin: Input, seeds: Seeds, answers: List<Answer> = emptyList(), extras: List<Int>? = null): CastFlow =
-            start(Source.legacy(play, definitions, log), player, begin, seeds, answers, extras)
-
-        /** [start] on [source] (a game on engine state: [Source.engine]). */
         fun start(source: Source, player: String, begin: Input, seeds: Seeds, answers: List<Answer> = emptyList(),
             extras: List<Int>? = null): CastFlow = replay(Context(source, player, seeds, extras), begin, answers, strict = true)
 
@@ -337,23 +272,11 @@ class CastFlow private constructor(
  * What a player may cast or play from their hand now (§3 I2, I-D28): the engine's [Input.Cast] and [Input.PlayLand]
  * options by ATW card id, in the engine's order (the plain way first). A card without any is not castable now.
  */
-class HandPlays private constructor(val byCard: Map<String, List<Input>>, val unsupported: List<String>) {
+class HandPlays private constructor(val byCard: Map<String, List<Input>>) {
     fun of(cardId: String): List<Input> = byCard[cardId].orEmpty()
 
     companion object {
-        val NONE = HandPlays(emptyMap(), emptyList())
-
-        /** [viewer]'s plays from their hand on [play] (blocking: one engine `options`, on full information as the cast
-         * runs, [CastFlow]). Never throws. */
-        fun of(play: PlayState, definitions: Map<String, CardDefinition>, viewer: String, log: List<LoggedChange>): HandPlays {
-            val call = try {
-                EngineCall(play, definitions, null, log) { error("No randomness while listing plays") }
-            } catch (problem: Unsupported) {
-                return HandPlays(emptyMap(), problem.reasons)
-            }
-            HostPriority.settle(call)
-            return of(call.working, call.ids, viewer, null)
-        }
+        val NONE = HandPlays(emptyMap())
 
         /**
          * [of] for a game on engine state (I-D56; engine-responsiveness R3, R4a): [state] is its own state (full
@@ -374,64 +297,8 @@ class HandPlays private constructor(val byCard: Map<String, List<Input>>, val un
                 if (card !in hand) continue
                 byCard.getOrPut(ids.atw((card as ObjectId.Card).card)) { mutableListOf() } += input
             }
-            return HandPlays(byCard, emptyList())
+            return HandPlays(byCard)
         }
     }
 }
 
-/**
- * Priority where ATW's steps and turns changed by hand (with Automatum off, or before Automatum ran the steps, I2):
- * a step changed by hand doesn't give priority (CR 117.3a), so before an engine call the host settles it as the rules
- * would have: nobody holding it, the active player gets it (no passes) — with spells or abilities on the Stack too; with
- * an empty Stack and no passes made, a priority holder other than the active player is left from a turn changed by hand
- * and the active player gets it, unless the engine left it there in this step ([kept]: a mana ability or special action
- * keeps priority with its player). Otherwise (the steps the engine runs, StepFlow) priority is kept as it is. In the untap and cleanup steps nobody gets
- * priority (CR 502.4, 514.3), nor while attackers or blockers are awaited (CR 508.1, 509.1). The change goes out with
- * the call's batch.
- */
-internal object HostPriority {
-    fun settle(call: EngineCall) {
-        // I-D56 step C: the engine's own state has no steps changed by hand
-        if (call.state.board.engine != null) return
-        val s = call.working
-        val wanted = wanted(s, kept(call.state.board)) ?: return
-        if (s.priority != wanted) call.host(Change.Priority(s.priority, wanted, listOf(Meaning.PriorityGranted)))
-    }
-
-    /**
-     * Whether an automated batch left [board]'s priority where it is in the step the board is in (the turn record's
-     * [TurnExtras.passesAt]): then a player other than the active one holding it on an empty Stack without passes is the
-     * engine's own (a player keeps priority after a mana ability or special action, CR 117.3c, final cast review #3), not
-     * left from a step changed by hand.
-     */
-    fun kept(board: BoardState): Boolean {
-        val position = TurnPosition.of(board.turn) ?: return false
-        val record = board.engineRecords.singleOrNull { it.id == EngineCodec.TURN } ?: return false
-        val extras = runCatching { EngineCodec.decode(TurnExtras.serializer(), record.data) }.getOrNull() ?: return false
-        return extras.passesAt == TurnExtras.at(board.turn.number, position)
-    }
-
-    /** The priority [s] should have (null: leave it as it is); [kept]: the board's priority is the engine's own ([kept]). */
-    fun wanted(s: GameState, kept: Boolean = false): PriorityState? = StepFlow.settledPriority(s, kept)
-
-    /**
-     * [s] rests in an untap step with nobody holding priority and nothing to decide (CR 502.4). ATW rests there before
-     * the engine's game begins: the opening (mulligans, TRN-027–TRN-029) is the host's setup, after which the first turn's
-     * untap step has nothing to do (CR 103.8, as the engine's own setup goes on to the upkeep); or after a turn changed by
-     * hand while Automatum was off, whose untapping is taken as done by hand (I-D28, best effort). The step button then
-     * ends the step ([leaveUntap]).
-     */
-    fun resting(s: GameState): Boolean = StepFlow.resting(s)
-
-    /** Ends the untap step [call] rests in ([resting]) as the rules end a step (CR 500.2): the host gives the active
-     * player priority as the last of the players to pass in succession, so their pass ends it and the upkeep begins.
-     * Nothing changes when the call doesn't rest there. */
-    fun leaveUntap(call: EngineCall) {
-        if (call.state.board.engine != null) return
-        val s = call.working
-        if (!resting(s)) return
-        val order = s.playersFrom(s.turn.active)
-        call.host(Change.Priority(s.priority, PriorityState(order.first(), order.size - 1), listOf(Meaning.PriorityGranted)))
-    }
-
-}

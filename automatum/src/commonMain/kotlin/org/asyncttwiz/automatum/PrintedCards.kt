@@ -16,8 +16,6 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import org.asyncttwiz.protocol.DefinitionFace
-import org.asyncttwiz.protocol.PlayCard
-import org.asyncttwiz.protocol.PlayState
 import org.asyncttwiz.protocol.PrintedPart
 import org.asyncttwiz.protocol.CardDefinition as AtwCard
 
@@ -28,10 +26,6 @@ import org.asyncttwiz.protocol.CardDefinition as AtwCard
  * which players carry out by hand.
  */
 object PrintedCards {
-    /** The engine definition of [card]'s printed values, from [state]'s card data; null when the game has none. */
-    fun definition(state: PlayState, card: PlayCard): CardDefinition? =
-        state.definitions.singleOrNull { it.digest == card.definition }?.definition?.let(::definition)
-
     /** The engine definition of [card]'s printed values. */
     fun definition(card: AtwCard): CardDefinition {
         val single = card.faces.singleOrNull()

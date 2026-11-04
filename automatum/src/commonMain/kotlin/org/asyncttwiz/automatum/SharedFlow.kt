@@ -1,6 +1,5 @@
 package org.asyncttwiz.automatum
 
-import arcanum.api.CardDefinition
 import arcanum.api.TurnStep
 import arcanum.engine.Engine
 import arcanum.engine.decision.Answer
@@ -9,26 +8,21 @@ import arcanum.engine.decision.ManaUse
 import arcanum.engine.input.Input
 import arcanum.engine.setup.result
 import arcanum.engine.state.GameState
-import arcanum.engine.state.LoggedChange
 import arcanum.engine.state.ObjectId
 import arcanum.engine.state.PlayerId
 import arcanum.engine.state.StackItem
 import arcanum.engine.state.TargetRef
 import org.asyncttwiz.protocol.BoardState
 import org.asyncttwiz.protocol.MtgRef
-import org.asyncttwiz.protocol.PlayState
 
 /**
  * Priority, resolution and triggers through the engine as **shared flows** (integration spec I-D8, I-D11, §3 I2): each
  * engine call is sent as its own batch as it happens, the open decision is kept in the game (the continuation record),
  * and either player may answer it (D11). Built on [board] with full information (I-D17, I-D27: the client holds
- * every card; what a player is shown is the app's business), so [Engine.shouldPassFor] can pass for either player.
+ * every card; what a player is shown is the app's business).
  *
  * [pass] ("Let it resolve"), [step] (the step button, §3 I3) and [answer] each give the [EngineRun] whose own inputs a
- * game on engine state sends ([of]; today's model plans its [EngineCall] into one batch, [EngineBatch.plan]); all then
- * pass automatically for whoever the engine says should ([StepFlow.automatic], I-D3, I-D18), so with nothing to respond
- * with a spell resolves at once, and on an empty Stack the steps go on (with their turn-based actions and triggers) up to
- * the next point where a player can act (I-D35).
+ * game on engine state sends ([of]); the device then makes the passes that follow by itself (I-D56 step C).
  */
 class SharedFlow private constructor(
     /** The board the flow is on. */
@@ -36,12 +30,6 @@ class SharedFlow private constructor(
     /** A fresh run on [board]'s engine state. */
     private val call: () -> EngineRun,
 ) {
-    /** Today's model: [play]'s board rebuilt for the engine ([EngineCall], priority settled where steps changed by hand). */
-    constructor(play: PlayState, definitions: Map<String, CardDefinition>, log: List<LoggedChange>,
-        /** Fresh seeds for random results the engine asks for (D25). */
-        seeds: () -> String) :
-        this(play.board, { EngineCall(play, definitions, EngineState.flowViewer(play.board), log, seeds).also(HostPriority::settle) })
-
     /** The board as the engine sees it (nothing of [board] is changed by looking). */
     private val view: EngineRun = call()
 
@@ -82,24 +70,19 @@ class SharedFlow private constructor(
     /** The printed text of [item]'s ability (a spell's text, an ability's line), when it has one. */
     fun text(item: StackItem): String? = CastFlow.text(item.ability)
 
-    /** [player] passes priority ("Let it resolve", CR 117.3d), then the automatic passes; both passing in a row resolves
-     * the top of the Stack (CR 117.4). Anyone may pass for [player] (D11). */
-    fun pass(player: String): EngineRun = call().apply {
-        perform(Input.PassPriority(PlayerId(player)))
-        StepFlow.automatic(this)
-    }
+    /** [player] passes priority ("Let it resolve", CR 117.3d); both passing in a row resolves the top of the Stack
+     * (CR 117.4). */
+    fun pass(player: String): EngineRun = call().apply { perform(Input.PassPriority(PlayerId(player))) }
 
     /**
-     * The step button with Automatum on (§3 I3, TRN-007): [player], who holds priority, passes as far as [until] asks
-     * ([StepFlow.pass]), then the automatic passes. Anyone may pass for the player who holds priority (D11).
+     * The step button with Automatum on (§3 I3, TRN-007): [player], who holds priority, passes ([StepFlow.pass]).
      * @throws IllegalArgumentException when [player] doesn't hold priority or a decision is open (nothing changes).
      */
-    fun step(player: String, until: StepFlow.Until): EngineRun = call().apply { StepFlow.pass(this, player, until) }
+    fun step(player: String): EngineRun = call().apply { StepFlow.pass(this, player) }
 
     /**
      * Declares what ATW's lanes hold (the step button in the declare attackers or blockers step, CR 508.1, 509.1), with
-     * the attacker's choices ([CombatFlow.withChoices]), then the automatic passes; with [autotap] the mana of costs to
-     * attack or block is paid with the engine's suggestion (CR 508.1h, 509.1d).
+     * the attacker's choices ([CombatFlow.withChoices]); with [autotap] the mana of costs to attack or block is paid with the engine's suggestion (CR 508.1h, 509.1d).
      * @throws CombatRefused when the engine refuses the declaration (nothing changes).
      */
     fun declare(autotap: Boolean = false): EngineRun = call().apply {
@@ -111,14 +94,13 @@ class SharedFlow private constructor(
     }
 
     /**
-     * Answers the open decision, then the automatic passes.
+     * Answers the open decision.
      * @throws IllegalArgumentException when the engine refuses [answer] (nothing changes).
      */
     fun answer(answer: Answer): EngineRun = answer(answer, emptyList())
 
     /**
-     * Answers the open decision and then the orders that follow from the same choice ([then], I-D48), then the automatic
-     * passes. While the engine next asks the same player to put all the offered cards of the same source in order (a
+     * Answers the open decision and then the orders that follow from the same choice ([then], I-D48). While the engine next asks the same player to put all the offered cards of the same source in order (a
      * [Decision.ChooseObjects] of all its options, as scry's "Order on top" and "Order on the bottom" after "Put on the
      * bottom", CR 701.22), the order in [then] of exactly those cards answers it in the same call. An order the engine
      * doesn't ask (one card) is left out; whatever is still asked stays open.
@@ -136,14 +118,12 @@ class SharedFlow private constructor(
                 left.remove(order)
                 perform(Input.Answer(next.id, order))
             }
-            StepFlow.automatic(this)
         }
     }
 
     /**
-     * Answers the open division of combat damage with [shares] (null: the suggestion, I-D29), then the host's automatic
-     * passes through the steps ([CombatFlow.divide]): the damage is dealt and the game goes on to the next point where a
-     * player could act. A division a player gave early for the decision after it is applied on the way (I-D33).
+     * Answers the open division of combat damage with [shares] (null: the suggestion, I-D29, [CombatFlow.divide]): the damage
+     * is dealt. A division a player gave early for the decision after it is applied on the way (I-D33).
      * @throws IllegalArgumentException when no division is open or the engine refuses [shares] (nothing changes).
      */
     fun divide(shares: Map<MtgRef, Int>?): EngineRun = call().apply { CombatFlow.divide(this, shares) }
@@ -152,7 +132,7 @@ class SharedFlow private constructor(
      * the decision was on its way); null when there is none. [answerEarly] answers with it. */
     val early: PreAnswer? by lazy { PreAnswers.forOpen(view) }
 
-    /** Answers the open decision with its [early] answer, then the automatic passes.
+    /** Answers the open decision with its [early] answer.
      * @throws IllegalArgumentException when there is none (nothing changes). */
     fun answerEarly(): EngineRun = call().apply { StepFlow.answerEarly(this) }
 

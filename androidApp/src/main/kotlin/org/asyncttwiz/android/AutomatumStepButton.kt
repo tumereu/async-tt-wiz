@@ -47,17 +47,7 @@ sealed class AutomatumStep(val label: String) {
     data class Block(val count: Int) : AutomatumStep(if (count == 0) "No blocks" else "Block ($count)")
 
     companion object {
-        /** The words of a pass on an empty Stack that lands as [landing] (owner playtest 2026-11-03 #1: read from the
-         * engine call the tap sends, [SharedFlowController.plan]). */
-        fun of(landing: org.asyncttwiz.automatum.StepFlow.Landing): AutomatumStep = when (landing) {
-            org.asyncttwiz.automatum.StepFlow.Landing.Pass -> Pass
-            org.asyncttwiz.automatum.StepFlow.Landing.ToCombat -> ToCombat
-            org.asyncttwiz.automatum.StepFlow.Landing.EndTurn -> EndTurn
-            org.asyncttwiz.automatum.StepFlow.Landing.Next -> Next
-        }
-
-        /** The step arrow on [play]'s board read from ATW's board alone: what the arrow shows until the tap's plan is
-         * worked out ([SharedFlowController.plan]), and where it can't act. */
+        /** The step arrow on [play]'s board, read from the board alone. */
         fun of(play: TableBoard): AutomatumStep {
             val board = play.board
             if (play.flowOpen) return Waiting

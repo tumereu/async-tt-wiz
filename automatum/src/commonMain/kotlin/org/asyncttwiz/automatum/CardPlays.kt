@@ -9,14 +9,12 @@ import arcanum.api.isManaAbility
 import arcanum.engine.Engine
 import arcanum.engine.input.Input
 import arcanum.engine.state.GameState
-import arcanum.engine.state.LoggedChange
 import arcanum.engine.state.ObjectId
 import arcanum.engine.state.PlayerId
 import arcanum.engine.view.AbilityInstance
 import arcanum.engine.view.AbilityOrigin
 import arcanum.engine.view.Functioning
 import arcanum.engine.view.View
-import org.asyncttwiz.protocol.PlayState
 
 /**
  * One thing the engine offers for a card (integration spec §3 I4, I-D28): casting it one way, playing it (a land),
@@ -68,27 +66,11 @@ data class CardPlay(
 class CardPlays private constructor(
     /** By ATW card id, in the order shown: casts and land plays, then abilities in printed order. */
     val byCard: Map<String, List<CardPlay>>,
-    /** Why the board can't be taken over (then nothing is offered). */
-    val unsupported: List<String>,
 ) {
     fun of(cardId: String): List<CardPlay> = byCard[cardId].orEmpty()
 
     companion object {
-        val NONE = CardPlays(emptyMap(), emptyList())
-
-        /** [viewer]'s plays on [play] (blocking: one engine `options` and `view` on full information, as casts and
-         * activations run, [CastFlow]). Never throws. */
-        fun of(play: PlayState, definitions: Map<String, CardDefinition>, viewer: String, log: List<LoggedChange>): CardPlays {
-            val call = try {
-                EngineCall(play, definitions, null, log) { error("No randomness while listing plays") }
-            } catch (problem: Unsupported) {
-                return CardPlays(emptyMap(), problem.reasons)
-            }
-            HostPriority.settle(call)
-            val state = call.working
-            val view = Engine.view(state)
-            return of(state, call.ids, viewer, view, Engine.visible(state, PlayerId(viewer), view))
-        }
+        val NONE = CardPlays(emptyMap())
 
         /**
          * [of] for a game on engine state (I-D56; engine-responsiveness R3, R4a): [state] is its own state (full
@@ -150,7 +132,7 @@ class CardPlays private constructor(
                     add(id, CardPlay(CardPlay.Kind.Special, CastFlow.abilityText(o.definition, input.ability) ?: "Special action", input))
                 }
             }
-            return CardPlays(byCard, emptyList())
+            return CardPlays(byCard)
         }
 
         private val ZONES = setOf(Zone.Hand, Zone.Battlefield, Zone.Graveyard, Zone.Exile)

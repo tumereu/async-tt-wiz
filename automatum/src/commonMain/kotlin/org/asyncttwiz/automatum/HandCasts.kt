@@ -12,9 +12,7 @@ import arcanum.engine.decision.Continuation
 import arcanum.engine.decision.Decision
 import arcanum.engine.decision.ManaUse
 import arcanum.engine.input.Input
-import arcanum.engine.state.LoggedChange
 import arcanum.engine.view.AbilityInstance
-import org.asyncttwiz.protocol.PlayState
 
 /**
  * One way to cast or play a hand card (integration spec I-D50), a "way" chip above the raised card: the regular cast
@@ -80,25 +78,19 @@ data class HandCastOptions(
  */
 object HandCasts {
     /**
-     * The chips of [cardId] for [viewer]'s choice [way] and [times], given its [plays] ([HandPlays.of]); null when the
-     * engine offers no way to cast or play it now (or [way] is out of range).
+     * The chips of [cardId] for [viewer]'s choice [way] and [times], given its [offered] plays ([HandPlays.of]), of a cast
+     * run on [source] ([CastFlow.Source.engine]); [definitions]: the game's card definitions by ATW definition digest (the
+     * chips' names and texts). Null when the engine offers no way to cast or play it now (or [way] is out of range).
      */
-    fun options(play: PlayState, definitions: Map<String, CardDefinition>, viewer: String, log: List<LoggedChange>,
-        cardId: String, offered: List<Input>, way: Int = 0, times: List<Int> = emptyList(),
-        seeds: CastFlow.Seeds = CastFlow.Seeds { error("No randomness before a cast") }): HandCastOptions? =
-        options(CastFlow.Source.legacy(play, definitions, log), definitions, viewer, cardId, offered, way, times, seeds)
-
-    /** [options] of a cast run on [source] (a game on engine state: [CastFlow.Source.engine]); [definitions]: the game's
-     * card definitions by ATW definition digest (the chips' names and texts). */
     fun options(source: CastFlow.Source, definitions: Map<String, CardDefinition>, viewer: String,
         cardId: String, offered: List<Input>, way: Int = 0, times: List<Int> = emptyList(),
         seeds: CastFlow.Seeds = CastFlow.Seeds { error("No randomness before a cast") }): HandCastOptions? {
         fun start(input: Input, chosen: List<Int>): CastFlow = CastFlow.start(source, viewer, input, seeds, extras = chosen)
         val plays = ways(source, viewer, cardId, offered) { input ->
-            try { start(input, emptyList()); true } catch (_: IllegalArgumentException) { false } catch (_: Unsupported) { false }
+            try { start(input, emptyList()); true } catch (_: IllegalArgumentException) { false }
         }
         if (plays.isEmpty() || way !in plays.indices) return null
-        val first = try { start(plays[way], times) } catch (_: IllegalArgumentException) { return null } catch (_: Unsupported) { return null }
+        val first = try { start(plays[way], times) } catch (_: IllegalArgumentException) { return null }
         val extras = extrasOf(first)
         val chosen = extras.indices.map { i -> times.getOrElse(i) { 0 }.coerceAtLeast(0).let { if (extras[i].second.repeatable) it else minOf(it, 1) } }
         val current = probe { if (chosen == times) first else start(plays[way], chosen) }
@@ -128,11 +120,7 @@ object HandCasts {
     private fun ways(source: CastFlow.Source, viewer: String, cardId: String, offered: List<Input>,
         begins: (Input) -> Boolean): List<Input> {
         if (offered.any { it is Input.PlayLand }) return offered
-        val call = try {
-            // Today's model lists them on the board as rebuilt, priority as it is
-            if (source is CastFlow.Source.Legacy) EngineCall(source.play, source.definitions, null, source.log) { error("No randomness while listing ways") }
-            else source.run { error("No randomness while listing ways") }
-        } catch (_: Unsupported) { return offered }
+        val call = source.run { error("No randomness while listing ways") }
         val state = call.working
         val card = state.players.firstOrNull { it.id.value == viewer }?.hand.orEmpty()
             .firstOrNull { (it as? arcanum.engine.state.ObjectId.Card)?.let { id -> call.ids.atw(id.card) } == cardId } ?: return offered
@@ -224,7 +212,6 @@ object HandCasts {
      * unaffordable; one whose questions can't be answered with a listed answer counts as payable (the cast says). */
     private fun probe(start: () -> CastFlow): Probe {
         var flow = try { start() } catch (_: IllegalArgumentException) { return Probe(null, emptySet(), false) }
-            catch (_: Unsupported) { return Probe(null, emptySet(), false) }
         repeat(MAX_QUESTIONS) {
             val open = flow.pending ?: return Probe(null, emptySet(), true)
             if (open is Decision.ManaPayment) {

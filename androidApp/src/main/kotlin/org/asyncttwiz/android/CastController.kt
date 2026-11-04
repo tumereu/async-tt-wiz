@@ -16,7 +16,6 @@ import arcanum.engine.state.TargetRef
 import org.asyncttwiz.automatum.AutomatumLog
 import org.asyncttwiz.automatum.CastFlow
 import org.asyncttwiz.automatum.ManaPicks
-import org.asyncttwiz.automatum.Unsupported
 import org.asyncttwiz.protocol.*
 import java.util.concurrent.Executors
 
@@ -139,14 +138,11 @@ internal class CastController(
             val offered = plays.of(cardId)
             val name = cardName(play, cardId)
             val begin = way ?: offered.firstOrNull()
-            if (begin == null) return@step Step.Drop(if (plays.unsupported.isNotEmpty()) "$TAKE_OVER ${plays.unsupported.first()}"
-                else if (land(play, cardId)) "$name can't be played now." else "$name can't be cast now.")
+            if (begin == null) return@step Step.Drop(if (land(play, cardId)) "$name can't be played now." else "$name can't be cast now.")
             val flow = try {
                 CastFlow.start(source(play), viewer, begin, seeds(), extras = extras)
             } catch (problem: IllegalArgumentException) {
                 return@step Step.Drop("$name can't be cast now.")
-            } catch (problem: Unsupported) {
-                return@step Step.Drop("$TAKE_OVER ${problem.reasons.firstOrNull()}")
             }
             // I-D50: the way was chosen with the cost chips: the panel has no "Cast as"
             settle(flow, auto = true, autotapOn, keep = null, ways = listOf(begin))
@@ -174,8 +170,6 @@ internal class CastController(
                 CastFlow.start(source(play), viewer, input, seeds())
             } catch (problem: IllegalArgumentException) {
                 return@step Step.Drop(if (input is Input.Activate) "$name: that can't be done now." else "$name can't be cast now.")
-            } catch (problem: Unsupported) {
-                return@step Step.Drop("$TAKE_OVER ${problem.reasons.firstOrNull()}")
             }
             settle(flow, auto = true, autotapOn, keep = null, ways = ways)
         }

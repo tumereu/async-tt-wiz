@@ -359,10 +359,10 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
     fun unstage() = worker.call { if (staging != null) { staging = null; publish() } }
 
     /** The player's opening: their mulligan (I-D54 §8: simultaneous mulligans), or null when they can't take one. */
-    fun mulligan(): GameDevice.Acted? = acting(STALE, after = false) { setupInput(arcanum.engine.decision.Answer.Option("Mulligan"))?.let(::act) }
+    fun mulligan(): GameDevice.Acted? = acting(STALE, after = false, sameDecision = true) { setupInput(arcanum.engine.decision.Answer.Option("Mulligan"))?.let(::act) }
 
     /** The player keeps, putting [bottom] (card ids) on the bottom of their library when cards are owed. */
-    fun keep(bottom: List<String>): GameDevice.Acted? = acting(STALE, after = false) {
+    fun keep(bottom: List<String>): GameDevice.Acted? = acting(STALE, after = false, sameDecision = true) {
         val keep = setupInput(arcanum.engine.decision.Answer.Option("Keep")) ?: return@acting null
         if (bottom.isEmpty()) return@acting act(keep)
         val objects = bottom.mapNotNull { id -> device.model.engine.player(PlayerId(me)).hand.firstOrNull { (it as? arcanum.engine.state.ObjectId.Card)?.card?.value == id } }
@@ -537,18 +537,23 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
      * false (the action calls another one that does). Switchreview #6, SYS-011: when the engine thread has published a
      * board newer than the one shown (the device's own steps after an earlier action, or a server event, not on screen
      * yet: a second tap made on the old board), [stale] instead, with SYS-012's note, so nothing acts at a point the
-     * player never saw. Checked once per action: what it does in turn (another action, staging) isn't checked again.
+     * player never saw; with [sameDecision] (a decision's answer: an opening declaration) it is made on the newer board
+     * when that is still the same decision ([stillSame]). Checked once per action: what it does in turn (another
+     * action, staging) isn't checked again.
      * [what]: the action's name for the probe (SYS-025, SYS-030), which times the wait for the engine thread, the action
      * and its board; a slow one is logged and, with reports on, recorded like every slow action.
      */
-    private fun <T> acting(stale: T, what: String? = null, after: Boolean = true, work: () -> T): T {
-        val seen = shown?.version
+    private fun <T> acting(stale: T, what: String? = null, after: Boolean = true, sameDecision: Boolean = false, work: () -> T): T {
+        val board = shown
+        val seen = board?.version
         var refused = false
         val timing = what?.let { Timing(it, System.nanoTime(), DebugLatency.begin(gameId, "engine:$it", 0)?.also { t -> t.submitted(null, predicted = true) }) }
         val result = worker.call {
             timing?.started = System.nanoTime()
             if (inAction) work()
-            else if (seen != null && seen != published) { refused = true; staleBoard(what ?: "action", seen); stale }
+            else if (seen != null && seen != published && !(sameDecision && stillSame(what ?: "action", board))) {
+                refused = true; staleBoard(what ?: "action", seen); stale
+            }
             else { inAction = true; try { work() } finally { inAction = false } }
         }.also { timing?.acted = System.nanoTime() }
         if (refused) worker.main { notes.add(GameDevice.Note.Refused(STALE_REASON)) } else if (after) after(timing)
@@ -563,12 +568,13 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
      * failure) is told as a note and the board goes back. Without the performed point (refused before it) it is [acting].
      */
     private fun early(what: String, work: (performed: () -> Unit) -> GameDevice.Acted): GameDevice.Acted {
-        val seen = shown?.version
+        val board = shown
+        val seen = board?.version
         val timing = Timing(what, System.nanoTime(), DebugLatency.begin(gameId, "engine:$what", 0)?.also { it.submitted(null, predicted = true) })
         val result = java.util.concurrent.atomic.AtomicReference<GameDevice.Acted?>(null)
         worker.early { release ->
             timing.started = System.nanoTime()
-            if (!inAction && seen != null && seen != published) {
+            if (!inAction && seen != null && seen != published && !stillSame(what, board)) {
                 staleBoard(what, seen)
                 result.set(STALE)
                 worker.main { notes.add(GameDevice.Note.Refused(STALE_REASON)) }
@@ -619,6 +625,19 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
      * the newer board shows. Engine thread. */
     private fun staleBoard(what: String, seen: Long) = AppLog.info("engine",
         "Own $what not taken: made on board v$seen, the device had published v$published (tip ${device.session.tip})")
+
+    /**
+     * Owner, 2026-11-04 (SYS-011): an own action [what] tapped on [board], older than the one published, is made on the
+     * device's board now when the same decision still waits for the player there ([GameDevice.sameDecision]: e.g. the
+     * other player's pass arrived for the one assumed, or an event that changed nothing in the game); the action then
+     * acts on the newer board, where the engine checks it again (SYS-057). Engine thread.
+     */
+    private fun stillSame(what: String, board: Shown?): Boolean {
+        val seen = board?.play?.board?.engine?.state ?: return false
+        if (device.session.drafting || !GameDevice.sameDecision(seen, device.model.engine)) return false
+        AppLog.info("engine", "Own $what made on board v$published: the same decision as on board v${board.version} it was tapped on")
+        return true
+    }
 
     /** Engine thread: an action is being worked out ([acting]). */
     private var inAction = false

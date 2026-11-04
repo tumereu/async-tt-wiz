@@ -24,7 +24,9 @@ class GameSession(private val connection: GameConnection, private val credential
     private val reviewWorker: ExecutorService = DebugJank.treeExecutor(Executors.newSingleThreadExecutor()),
     private val tableChanges: (String, TableChangeBatch) -> Unit = { _, _ -> },
     private val personalChat: GameChat = GameChat(),
-    private val openedGame: () -> String? = { null }) : AutoCloseable {
+    private val openedGame: () -> String? = { null },
+    /** Where engine games do their work (I-D56 step D2): the app's engine thread, or inline in tests. */
+    private val engineWorker: EngineWorker = EngineWorker.Direct) : AutoCloseable {
     private fun replica(gameId: String) = plays.getOrPut(gameId) { GameplayReplica { tableChanges(gameId, it) } }
     // Always traced: reports can be turned on mid-game; the default sink sends only while they are on.
     private val reconnectTrace = ReconnectRecorder(true, now, record = reconnectTelemetry)
@@ -170,7 +172,8 @@ class GameSession(private val connection: GameConnection, private val credential
         ownPodDeckNames.remove(gameId); presences.remove(gameId)
         catchUp.remove(gameId)
         inspections.remove(gameId)
-        preparations.remove(gameId); plays.remove(gameId); engineGames.remove(gameId); acceptedRevisions.remove(gameId)
+        preparations.remove(gameId); plays.remove(gameId); engineGames.remove(gameId); engineBacklog.remove(gameId); reloadAsked.remove(gameId)
+        acceptedRevisions.remove(gameId)
         chats.remove(gameId)
         resultIntents.entries.removeAll { it.value.command.scope.gameId == gameId }
         streams[gameId]?.head = false
@@ -185,9 +188,14 @@ class GameSession(private val connection: GameConnection, private val credential
 
     // ---- I-D56: games played on engine state
     private val engineGames = mutableMapOf<String, EngineGame>()
-    /** The game [game] played on engine state on this device, while it is its current active play. */
+    /** What an engine game had to send while its stream wasn't ready (sent once it is). */
+    private val engineBacklog = mutableMapOf<String, MutableList<GameAction>>()
+    /** The revision an engine game that can't follow last asked to be loaded again at. */
+    private val reloadAsked = mutableMapOf<String, String?>()
+    /** The game [game] played on engine state on this device, while it is its current active play (once it first loaded
+     * on the engine thread). */
     internal fun engineGame(game: GameSummary): EngineGame? = engineGames[game.id]?.takeIf { summary(game).let { current ->
-        current.lifecycle == GameLifecycle.ACTIVE && current.playId == it.base.id } }
+        current.lifecycle == GameLifecycle.ACTIVE && current.playId == it.base.id } && it.shown != null }
     internal fun engineGame(gameId: String): EngineGame? = summaries[gameId]?.let(::engineGame)
 
     /** Loads or reloads the engine game of [head] (a head of an active play whose state is the engine's). */
@@ -199,8 +207,10 @@ class GameSession(private val connection: GameConnection, private val credential
         // A head while the device follows the server exactly changes nothing; a new play, or a device that asked to
         // load again, loads from it
         if (existing == null || existing.needsReload) {
-            if (existing == null) engineGames[head.gameId] = EngineGame(head.gameId, me, play, snapshot)
+            if (existing == null) engineGames[head.gameId] = EngineGame(head.gameId, me, play, snapshot, worker = engineWorker,
+                onShown = { engineShown(head.gameId) })
             else existing.load(snapshot, play)
+            reloadAsked.remove(head.gameId)
         }
         engineGames.getValue(head.gameId).revision = head.revision
         acceptedRevisions[head.gameId] = head.revision
@@ -221,8 +231,19 @@ class GameSession(private val connection: GameConnection, private val credential
         acceptedRevisions[message.gameId] = message.resultRevision
         if (summaries[message.gameId]?.let { newerOrEqual(message.resultRevision, it.revision) } != false) summaries[message.gameId] = message.summary
         changed(summary(message.summary))
-        if (game.needsReload) send(SubscribeGame(message.gameId, message.resultRevision))
         pumpEngine(message.gameId)
+    }
+
+    /** [gameId]'s engine game published a new board (main thread): the table shows it, what it sends goes out, and a
+     * device that can't follow asks to load the game again (once per revision). */
+    private fun engineShown(gameId: String) {
+        val game = engineGames[gameId] ?: return
+        if (game.needsReload && gameId in streams && reloadAsked[gameId] != acceptedRevisions[gameId]) {
+            reloadAsked[gameId] = acceptedRevisions[gameId]
+            send(SubscribeGame(gameId, acceptedRevisions[gameId] ?: "0"))
+        }
+        summaries[gameId]?.let { changed(summary(it)) }
+        pumpEngine(gameId)
     }
 
     /** The opponent's presence and the time for [gameId]'s engine game: its own steps (passes, assumptions, a live wait
@@ -239,8 +260,19 @@ class GameSession(private val connection: GameConnection, private val credential
     fun pumpEngine(gameId: String) {
         val game = engineGames[gameId] ?: return
         val stream = streams[gameId] ?: return
-        val generation = stream.generation ?: stream.lastGeneration ?: return
-        for (action in game.take(now())) {
+        if ((stream.generation ?: stream.lastGeneration) == null) return
+        engineBacklog.remove(gameId)?.let { deliverEngine(gameId, game, it) }
+        // Taken on the engine thread, sent from here once it has them
+        game.take(now()) { actions -> deliverEngine(gameId, game, actions) }
+        flush()
+        statusChanged()
+    }
+    private fun deliverEngine(gameId: String, game: EngineGame, actions: List<GameAction>) {
+        if (engineGames[gameId] !== game) return
+        val stream = streams[gameId]
+        val generation = stream?.generation ?: stream?.lastGeneration
+        if (stream == null || generation == null) { engineBacklog.getOrPut(gameId) { mutableListOf() } += actions; return }
+        for (action in actions) {
             val command = GameCommand(UUID.randomUUID().toString(), GameScope(gameId, playId = game.base.id), action, stream.id, generation)
             if (!GameWire.valid(command)) { AppLog.warn("engine", "Invalid engine command ${action::class.simpleName}"); continue }
             pending[command.requestId] = command

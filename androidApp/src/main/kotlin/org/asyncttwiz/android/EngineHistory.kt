@@ -152,15 +152,12 @@ internal class EngineTimeline {
     fun clear() = texts.clear()
 
     /** The events shown to the viewer, oldest first, with the turn each was made in. */
-    fun shown(game: EngineGame): List<GameEvent> {
-        val session = game.device.session
-        val local = session.indexOf(session.localHead) ?: -1
-        return session.events.take(local + 1) + session.pending
-    }
+    fun shown(game: EngineGame): List<GameEvent> = game.shown?.line.orEmpty()
 
     fun events(game: EngineGame, names: Map<String, String>): List<HistoryTimelineEvent> {
-        val shown = shown(game)
-        val state = game.device.model.engine
+        val published = game.shown ?: return emptyList()
+        val shown = published.line
+        val state = published.engine
         val players = state.players.map { it.id.value }
         var turn = 0
         return shown.map { e ->
@@ -172,7 +169,7 @@ internal class EngineTimeline {
 
     /** The text of [event] (cached). */
     fun text(game: EngineGame, event: GameEvent, names: Map<String, String>): String =
-        texts.getOrPut(event.id) { EngineEventText.of(event, game.device.model.engine, game.me, names) }
+        texts.getOrPut(event.id) { EngineEventText.of(event, requireNotNull(game.shown).engine, game.me, names) }
 }
 
 /**

@@ -17,7 +17,9 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
     private val basicLandDefinitions: (() -> List<SubmittedDefinition>)? = null,
     clock: () -> Long = ::monotonicMillis,
     /** Runs the session's personal history reviews; null gives them their own background thread. Tests pass a worker they drain. */
-    historyReviewWorker: ExecutorService? = null) : AutoCloseable {
+    historyReviewWorker: ExecutorService? = null,
+    /** Where engine games do their work: the app's engine thread (I-D56 step D2); tests pass [EngineWorker.Direct]. */
+    engineWorker: EngineWorker = EngineWorker.Background) : AutoCloseable {
     private val holder = LobbyStateHolder()
     var state by holder
         private set
@@ -37,7 +39,7 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
             refresh(background = true)
         }, statusChanged = ::connectionState, installationId = installationId, accountId = accountId, treeCache = treeCache,
         tableChanges = { gameId, batch -> if (state.selected == gameId) tableActions.historyOwner?.liveChanges(batch) }, personalChat = personalChat,
-        openedGame = { state.selected },
+        openedGame = { state.selected }, engineWorker = engineWorker,
         reviewWorker = historyReviewWorker ?: DebugJank.treeExecutor(java.util.concurrent.Executors.newSingleThreadExecutor())) }
     private fun sessionAvailable(id: String) = session?.available(id) != false
     private val scope = object : LobbyScope {

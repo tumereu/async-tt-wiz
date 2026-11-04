@@ -37,6 +37,8 @@ internal fun EngineTableScreen(controller: LobbyController, accountId: String, h
     val game = state.detail ?: return
     val live = state.play ?: return
     val engine = controller.engineGame() ?: return
+    // What the engine thread published last (I-D56 step D2): the table reads nothing else of the device
+    val shown = engine.shown ?: return
     val interactive = game.id !in state.reconnectingGames
     val routes = remember(controller, game.id, accountId) {
         EngineTableRoutes(accountId, { controller.engineGame() }, { controller.engineSent() },
@@ -63,10 +65,10 @@ internal fun EngineTableScreen(controller: LobbyController, accountId: String, h
     SideEffect { engine.tokenArt = tokenArt }
     // LOB-113 (I-D56 §7): a new game starts with the player's defaults, which the server gives its seat from their account
     // I-D56 §13: Autotap is the player's private setting of this game; the cast flow reads it
-    SideEffect { toolkit.cast.autotap = engine.device.settings.autotap }
+    SideEffect { toolkit.cast.autotap = shown.settings.autotap }
     // The device's own steps (its passes, assumptions, a live wait turning async) and its local-head reports
     LaunchedEffect(controller, game.id) { while (true) { controller.engineTick(); delay(1_000) } }
-    val locked = engine.device.locked
+    val locked = shown.locked
     LaunchedEffect(locked) { if (locked) { toolkit.dismiss(); toolkit.closeInspection() } }
     val names = remember(game) { mapOf(game.inviter.accountId to game.inviter.username, game.recipient.accountId to game.recipient.username) }
     val playbackPreferences = rememberHistoryPlaybackPreferences(accountId)
@@ -93,7 +95,7 @@ internal fun EngineTableScreen(controller: LobbyController, accountId: String, h
             }
         } else {
             applied.reviewed = null
-            engine.transition?.takeIf { it.serial != applied.transition }?.let { t ->
+            shown.transition?.takeIf { it.serial != applied.transition }?.let { t ->
                 applied.transition = t.serial
                 changes.applyEngine(t.cursor, t.jump, t.changes, t.shuffled)
                 // HIS-076: live, only the other player's new events (playback is theirs), quiet on open, return and undo
@@ -102,14 +104,14 @@ internal fun EngineTableScreen(controller: LobbyController, accountId: String, h
             }
         }
     }
-    val status = engine.device.status
+    val status = shown.status
     val playing = status is GameDevice.Status.Playing
     val back = remember(game.id) { TableBackStateMachine() }
     val overlay = toolkit.hasBackOverlay || state.chatOpen
     BackHandler {
         if (!overlay && routes.review != null) { routes.leaveReview(); return@BackHandler }
         // §7: Back while behind plays on to the next decision point, never past it
-        if (!overlay && engine.device.session.behind) { engine.playToStop(); controller.engineSent(); return@BackHandler }
+        if (!overlay && shown.behind) { engine.playToStop(); controller.engineSent(); return@BackHandler }
         when (back.back(SystemClock.elapsedRealtime(), overlay, false)) {
             TableBackAction.CLOSE_OVERLAY -> if (state.chatOpen) controller.closeChat() else toolkit.dismissBackOverlay()
             TableBackAction.PROMPT -> Toast.makeText(context, "Press back again to leave", Toast.LENGTH_SHORT).show()
@@ -142,7 +144,7 @@ internal fun EngineTableScreen(controller: LobbyController, accountId: String, h
                         history = if (timeline.isNotEmpty()) ({ routes.enterReview(timeline.last().id) }) else null,
                         returnCurrent = when {
                             reviewPlay != null -> ({ routes.leaveReview() })
-                            engine.device.session.behind -> ({ engine.playToStop(); controller.engineSent() })
+                            shown.behind -> ({ engine.playToStop(); controller.engineSent() })
                             else -> null
                         },
                         liveTimeline = if (timeline.isEmpty()) null else ({
@@ -236,7 +238,7 @@ private fun engineEnding(routes: EngineTableRoutes, intent: TableActionIntent.En
     val me = PlayerId(routes.viewer)
     val acted = when (intent.tool) {
         EndingTool.SUGGEST_WIN -> game.suggest(GameResult.Won(me))
-        EndingTool.SUGGEST_LOSS -> game.suggest(GameResult.Won(game.device.opponent))
+        EndingTool.SUGGEST_LOSS -> game.suggest(GameResult.Won(game.shown?.opponent ?: return false))
         EndingTool.SUGGEST_DRAW -> game.suggest(GameResult.Draw)
         EndingTool.ACCEPT -> game.answerSuggestion(true)
         EndingTool.CONCEDE -> game.concede()

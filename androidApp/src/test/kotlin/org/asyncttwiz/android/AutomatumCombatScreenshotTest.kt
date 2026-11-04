@@ -74,7 +74,8 @@ class AutomatumCombatScreenshotTest {
     private val walker = Invented(DefinitionFace("walker", "Oath Seer", typeLine = "Legendary Planeswalker — Seer", manaCost = "{2}{U}{U}",
         corner = "4"), OracleCard("Oath Seer", "{2}{U}{U}", "Legendary Planeswalker — Seer", loyalty = "4"))
     private val wall = invented("wall", "Stone Wall", "{2}", "Artifact Creature — Wall", "", "0/4")
-    private val all = listOf(brute, bear, ogre, warden, spark, quash, mountain, hound, walker, wall)
+    private val elf = invented("elf", "Grove Elf", "{G}", "Creature — Elf Druid", "{T}: Add {G}.", "1/1")
+    private val all = listOf(brute, bear, ogre, warden, spark, quash, mountain, hound, walker, wall, elf)
 
     private val aHand = f.id("a/HAND")
     private val bHand = f.id("b/HAND")
@@ -287,6 +288,23 @@ class AutomatumCombatScreenshotTest {
 
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi")
     fun attackersAreStagedByTapsThenCommittedLandscape() { landscape = true; stagingFlow("combat-staging-landscape") } // CMB-028
+
+    // TBL-122, CMB-028: in Declare attackers a tap on a creature with a mana ability stages it as an attacker instead of
+    // activating the ability; in the main phase before, the same tap adds its mana
+    @Test fun aTapInDeclareAttackersStagesInsteadOfActivating() {
+        start(board(TurnPosition.PRECOMBAT_MAIN, MtgPriority(f.a), aliceField = listOf(elf), bobField = listOf(ogre)))
+        val elfCard = card(play, elf)
+        val main = toolkit(f.a)
+        tapCard(main, elfCard)
+        assertEquals(listOf("G"), play.board.players.single { it.accountId == f.a }.manaPool.map { it.color }, "main phase: its mana")
+        attackers(aliceField = listOf(elf))
+        val alice = toolkit(f.a)
+        tapCard(alice, card(play, elf))
+        assertEquals(listOf(card(play, elf)), play.board.combat!!.pairs.flatMap { it.attackers }.map { it.sourceId }, "staged")
+        assertTrue(play.board.players.single { it.accountId == f.a }.manaPool.isEmpty(), "no mana")
+        assertFalse(play.board.cards.single { it.id == card(play, elf) }.tapped)
+        assertNull(alice.abilityCard)
+    }
 
     // CMB-028, TRN-059: with Automatum on, Main 1 has no Attack quick action (the row is Automatum's toggles):
     // Next step goes on to Declare attackers through Automatum, where taps stage attackers

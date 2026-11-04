@@ -49,13 +49,18 @@ class AutomatumControlsScreenshotTest {
         OracleCard("Forest", null, "Basic Land — Forest"))
     private val mountain = Invented(DefinitionFace("mountain", "Mountain", typeLine = "Basic Land — Mountain"),
         OracleCard("Mountain", null, "Basic Land — Mountain"))
-    private val invented = listOf(druid, spark, forest, mountain)
+    private val adeptText = "{T}: Cinder Adept deals 1 damage to any target."
+    private val adept = Invented(DefinitionFace("adept", "Cinder Adept", typeLine = "Creature — Human Wizard", manaCost = "{2}{R}",
+        rulesText = adeptText, power = "1", toughness = "1"),
+        OracleCard("Cinder Adept", "{2}{R}", "Creature — Human Wizard", adeptText, "1", "1"))
+    private val invented = listOf(druid, spark, forest, mountain, adept)
 
     private val field = f.id("a/BATTLEFIELD")
     private val hand = f.initial.board.containers.single { it.id == f.id("a/HAND") }.cards
     private val sparkId = hand[1]
     private val druidId = f.id("druid")
     private val forests = (0 until 3).map { f.id("forest-$it") }
+    private val adeptId = f.id("adept")
 
     @Before fun definitions() {
         val byDigest = invented.associate { it.submitted.digest to it.definition }
@@ -65,14 +70,16 @@ class AutomatumControlsScreenshotTest {
     @After fun forget() { AutomatumBoards.reset(); AutomatumBoards.definitionSource = null }
 
     /** Alice's main phase, holding priority: Grovewatch Druid and [lands] Forests on her battlefield (her other lands
-     * Mountains), Storm Spark in hand. */
-    private fun board(lands: Int): PlayState {
+     * Mountains, tapped), Storm Spark in hand; Cinder Adept too with [withAdept]. */
+    private fun board(lands: Int, withAdept: Boolean = false): PlayState {
         val initial = f.initial
         val others = initial.board.cards.filter { it.containerId == field }.map { it.id }
         val added = listOf(PlayCard(druidId, druid.submitted.digest, f.a, field, "druid", covered = false, corner = "1/2",
             placement = PlayPlacement(BoardPosition(6, 1), druidId))) +
             forests.take(lands).mapIndexed { n, id -> PlayCard(id, forest.submitted.digest, f.a, field, "forest", covered = false,
-                placement = PlayPlacement(BoardPosition(3 + n, 0), id)) }
+                placement = PlayPlacement(BoardPosition(3 + n, 0), id)) } +
+            listOfNotNull(PlayCard(adeptId, adept.submitted.digest, f.a, field, "adept", covered = false, corner = "1/1",
+                placement = PlayPlacement(BoardPosition(8, 1), adeptId)).takeIf { withAdept })
         return initial.copy(definitions = initial.definitions + invented.map { it.submitted },
             board = initial.board.copy(priority = MtgPriority(f.a),
                 cards = initial.board.cards.map { when (it.id) {
@@ -128,7 +135,7 @@ class AutomatumControlsScreenshotTest {
         compose.onNodeWithContentDescription("Graveyard").assertDoesNotExist()
         compose.onNodeWithContentDescription("Ping / Unping").assertDoesNotExist()
         captureShot("$SCREENSHOTS/automatum/menu-abilities.png",
-            "With Automatum on, tapping Grovewatch Druid with two untapped Forests opens its menu with its abilities as rows: \"{T}: Add {G}.\" enabled and \"{2}{G}, {T}: Draw a card.\" greyed, then only Inspect, Other side and Attack →.")
+            "With Automatum on and two untapped Forests, Grovewatch Druid's menu (opened directly: a tap on it now activates its one usable ability instead) lists its abilities as rows: \"{T}: Add {G}.\" enabled and \"{2}{G}, {T}: Draw a card.\" greyed, then only Inspect, Other side and Attack →.")
         compose.ringClick("{2}{G}, {T}: Draw a card.")
         compose.runOnIdle { assertNull(toolkit.error, "a refused row only shakes") }
         compose.mainClock.advanceTimeBy(350)
@@ -162,6 +169,105 @@ class AutomatumControlsScreenshotTest {
         compose.waitForIdle()
         val (mana, manaRequest) = sent.single()
         assertEquals(listOf("G"), accepted(play, mana, manaRequest).board.players.single { it.accountId == f.a }.manaPool.map { it.color })
+    }
+
+    /** A tap on [card] on Alice's Battlefield, as the table sends it. */
+    private fun tapCard(toolkit: TableToolkitController, play: PlayState, card: String) {
+        val item = TablePresentation.scene(f.game, play, f.a, 412f, 892f, false).items
+            .first { it.cardId == card && it.zone == PlayZone.BATTLEFIELD && it.viewport != "combat" }
+        toolkit.open(TableIntent.Actions(item.id, TableScope(card, listOf(card))), item)
+    }
+
+    // TBL-122, TBL-043: one tap on a Forest (its one ability) adds {G} to Alice's pool at once: no menu, chips or panel,
+    // and she keeps priority; the second tap of a double-tap does nothing more
+    @Test fun oneTapOnALandAddsItsMana() {
+        val play = board(lands = 1)
+        val toolkit = render(play)
+        compose.runOnIdle { tapCard(toolkit, play, forests[0]) }
+        compose.waitForIdle()
+        compose.runOnIdle {
+            assertNull(toolkit.capture, "no menu")
+            assertNull(toolkit.abilityCard, "no chips")
+            assertFalse(toolkit.cast.open)
+            assertTrue(toolkit.handle(TableIntent.Rotate(TableScope(forests[0], listOf(forests[0])), true, toggle = true)))
+            assertNull(toolkit.shaking)
+        }
+        val (batch, request) = sent.single()
+        val after = accepted(play, batch, request)
+        assertTrue(after.board.cards.single { it.id == forests[0] }.tapped)
+        assertEquals(listOf("G"), after.board.players.single { it.accountId == f.a }.manaPool.map { it.color })
+        assertEquals(MtgPriority(f.a), after.board.priority, "a mana ability keeps priority")
+    }
+
+    // TBL-122, STK-023: one tap on Cinder Adept (one ability, with a target) starts activating it: the target bar asks
+    // for a target; nothing is sent until it is picked
+    @Test fun oneTapOnATargetedAbilityStartsTargeting() {
+        val play = board(lands = 0, withAdept = true)
+        val toolkit = render(play)
+        compose.runOnIdle { tapCard(toolkit, play, adeptId) }
+        compose.waitForIdle()
+        compose.runOnIdle {
+            assertTrue(toolkit.cast.open && toolkit.cast.targeting, toolkit.error)
+            assertNull(toolkit.capture, "no menu")
+            assertNull(toolkit.abilityCard, "no chips")
+            assertTrue(sent.isEmpty())
+        }
+        captureShot("$SCREENSHOTS/automatum/one-tap-targeting.png",
+            "With Automatum on, one tap on Alice's Cinder Adept, whose only ability is \"{T}: Cinder Adept deals 1 damage to any target.\", starts activating it: the target bar above her hand asks for a target and the legal targets glow violet.")
+    }
+
+    // TBL-122, ZON-080: Grovewatch Druid with three untapped Forests can use both its abilities: a tap opens their chips
+    // above it (effect and cost), holding one shows its whole text, and a tap on a chip activates it (Draw a card goes out
+    // at once, paid by Autotap)
+    @Test fun severalAbilitiesOpenChips() {
+        val play = board(lands = 3)
+        val toolkit = render(play)
+        compose.runOnIdle { tapCard(toolkit, play, druidId) }
+        compose.waitForIdle()
+        compose.runOnIdle {
+            assertEquals(druidId, toolkit.abilityCard)
+            assertNull(toolkit.capture, "no menu")
+            assertTrue(sent.isEmpty())
+        }
+        compose.onNodeWithContentDescription("{T}: Add {G}.").assertIsDisplayed()
+        compose.onNodeWithContentDescription("{2}{G}, {T}: Draw a card.").assertIsDisplayed()
+        captureShot("$SCREENSHOTS/automatum/ability-chips.png",
+            "With Automatum on and three untapped Forests, one tap on Grovewatch Druid opens a chip for each ability it can use now just above it, its effect and its cost as mana symbols: \"Add {G}\" for {T} and \"Draw a card\" for {2}{G}, {T}.")
+        compose.onNodeWithContentDescription("{2}{G}, {T}: Draw a card.")
+            .performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnLongClick)
+        compose.waitForIdle()
+        compose.onNodeWithContentDescription("Details {2}{G}, {T}: Draw a card.").assertIsDisplayed()
+        captureShot("$SCREENSHOTS/automatum/ability-chip-details.png",
+            "Holding Grovewatch Druid's \"Draw a card\" chip shows its details above the chips: the card's name and the ability's whole text \"{2}{G}, {T}: Draw a card.\"")
+        compose.onNodeWithContentDescription("{2}{G}, {T}: Draw a card.").performClick()
+        compose.waitForIdle()
+        compose.runOnIdle { assertNull(toolkit.abilityCard, "the chips close") }
+        val (batch, request) = sent.single()
+        val after = accepted(play, batch, request)
+        assertTrue(after.board.cards.single { it.id == druidId }.tapped)
+        assertEquals(hand.size + 1, after.board.containers.single { it.id == f.id("a/HAND") }.cards.size, "a card was drawn")
+    }
+
+    // TBL-122, TBL-115: a tap on a card with nothing to activate now (a tapped Mountain) opens its menu as before, its
+    // ability greyed; a tap on a card with several abilities closes it and opens their chips; a tap on that card again
+    // closes the chips
+    @Test fun nothingToActivateOpensTheMenu() {
+        val play = board(lands = 3)
+        val toolkit = render(play)
+        val tappedMountain = play.board.cards.first { it.definition == mountain.submitted.digest && it.tapped }.id
+        compose.runOnIdle { tapCard(toolkit, play, tappedMountain) }
+        compose.waitForIdle()
+        compose.runOnIdle {
+            assertEquals(emptyList(), toolkit.activatable(play, tappedMountain))
+            assertNotNull(toolkit.capture, "its menu")
+            assertNull(toolkit.abilityCard)
+        }
+        compose.runOnIdle { tapCard(toolkit, play, druidId) }
+        compose.waitForIdle()
+        compose.runOnIdle { assertEquals(druidId, toolkit.abilityCard); assertNull(toolkit.capture, "the menu closed") }
+        compose.runOnIdle { tapCard(toolkit, play, druidId) }
+        compose.runOnIdle { assertNull(toolkit.abilityCard, "a tap on the card again closes its chips") }
+        assertTrue(sent.isEmpty() && manual.isEmpty())
     }
 
     // SYS-069, I-D28: manual changes are refused with the reason, also what the tabletop used to allow (notes, colour
@@ -289,8 +395,8 @@ class AutomatumControlsScreenshotTest {
             "With Automatum on in Alice's main phase, her cards she can use now glow softly in cyan from behind: Storm Spark in her hand and Grovewatch Druid (its draw ability); her Forest and untapped Mountains, which offer only mana, don't.")
     }
 
-    // I-D46 (b), ZON-004, ZON-077: a double-tap or drag Automatum doesn't allow shakes the card instead of a message, and
-    // Inspect says why; a battlefield card's double-tap (tapping by hand) and a life drag shake too
+    // I-D46 (b), ZON-004, ZON-077, TBL-043: a double-tap or drag Automatum doesn't allow shakes the card instead of a
+    // message, and Inspect says why; the second tap of a battlefield card's double-tap does nothing (no shake)
     @Test fun refusedGesturesShake() {
         val play = board(lands = 2)
         val toolkit = render(play)
@@ -303,10 +409,10 @@ class AutomatumControlsScreenshotTest {
                 handDoubleTap = true)))
             assertEquals(sparkId, toolkit.shaking?.id)
             assertNull(toolkit.error)
-            // A tapped Mountain (no mana ability Automatum allows now, TBL-043): untapping it by hand shakes it
+            // A tapped Mountain (TBL-043): the second tap of a double-tap does no more than the first; nothing is tapped
             val tappedMountain = play.board.cards.first { it.definition == mountain.submitted.digest && it.tapped }.id
-            assertFalse(toolkit.handle(TableIntent.Rotate(TableScope(tappedMountain, listOf(tappedMountain)), false, toggle = true)))
-            assertEquals(tappedMountain, toolkit.shaking?.id)
+            assertTrue(toolkit.handle(TableIntent.Rotate(TableScope(tappedMountain, listOf(tappedMountain)), false, toggle = true)))
+            assertEquals(sparkId, toolkit.shaking?.id, "no shake")
             assertFalse(toolkit.handle(TableIntent.Move(TableScope(druidId, listOf(druidId)),
                 TableDestination.Container(f.id("a/GRAVEYARD"), PlayZone.GRAVEYARD), drag = true)))
             assertEquals(druidId, toolkit.shaking?.id)

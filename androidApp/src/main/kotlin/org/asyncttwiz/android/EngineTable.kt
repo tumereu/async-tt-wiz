@@ -310,7 +310,7 @@ private fun engineName(play: PlayState, id: ObjectId): String? {
     return state.stackItems[id]?.snapshots?.firstOrNull()?.characteristics?.name
 }
 
-/** The response mode's name and what it means (§2), for the toggle and the catch-up screen. */
+/** The response mode's name and what it means (§2), for the toggle and the response mode dialog. */
 internal fun ResponseMode.label(): String = when (this) {
     ResponseMode.FullControl -> "Full control"
     ResponseMode.Normal -> "Normal"
@@ -372,7 +372,7 @@ internal fun RowScope.EngineToggleCells(routes: EngineTableRoutes, enabled: Bool
 
 /**
  * The async play panels of a game on engine state (I-D56 §14), docked above the hand like every Automatum panel: the
- * waiting bar with its Assume button, the Assume blockers screen, the catch-up screen, the decision-stop line, the
+ * waiting bar with its Assume button, the Assume blockers screen, the decision-stop line, the
  * result line, the assumer's indicator, the notes, and the undo dialogs.
  */
 @Composable
@@ -392,7 +392,6 @@ internal fun EngineAsyncHost(toolkit: TableToolkitController, routes: EngineTabl
     if (!reviewing) when (status) {
         is GameDevice.Status.Waiting -> if (status.offer == GameDevice.Offer.AssumeBlockers && (status.blockersScreen || routes.blockersOpen == shown.tip))
                 EngineBlockersScreen(routes, scene, play, opponent)
-        GameDevice.Status.CatchUp -> EngineCatchUp(routes, opponent)
         is GameDevice.Status.Playing -> EnginePlayback(routes)
         is GameDevice.Status.Over -> AboveHand(handRow(scene, routes.viewer)) {
             val won = (status.result as? arcanum.engine.setup.GameResult.Won)?.winner
@@ -422,8 +421,9 @@ internal fun EngineAsyncHost(toolkit: TableToolkitController, routes: EngineTabl
                     is Input.SetupAnswer, is Input.Answer -> "took a mulligan"
                     else -> "responded"
                 } + " — your later actions were taken back"
-                // HIS-099: the other player's undo of events you had seen: your board just goes back, with this note
-                is GameDevice.Note.TakenBack -> routes.note = "${names[note.by.value] ?: opponent} undid"
+                // HIS-099, §29.4: the other player's undo of events you had seen: your board goes back the way it came,
+                // with "<name> undid: <action>" fading at the top (the transition's, EngineTableScreen)
+                is GameDevice.Note.TakenBack -> {}
                 is GameDevice.Note.RequestNeeded -> routes.rewind = EngineTableRoutes.RewindChoice(note.target)
                 is GameDevice.Note.Refused -> refusedText(note.reason)?.let { routes.note = it } ?: toolkit.dismissError()
             }
@@ -599,21 +599,6 @@ private const val PREVIEW_HEIGHT = 300f
 private const val PREVIEW_TABLE_WIDTH = 412f
 private const val PREVIEW_TABLE_HEIGHT = 892f
 
-/** The catch-up screen (§7): coming back with the other player's actions unseen; what each mode means, the mode, Play. */
-@Composable
-private fun EngineCatchUp(routes: EngineTableRoutes, opponent: String) {
-    val game = routes.engine ?: return
-    val settings = game.shown?.settings ?: return
-    val mode = settings.mode
-    ScreenDialog({ game.startPlayback(); routes.pump() }, title = "Catching up", actions = {
-        DialogMainButton("Play", { game.startPlayback(); routes.pump() }, Modifier.testTag("catch-up-play"), icon = "start")
-    }) {
-        Text("$opponent played on while you were away. Their actions play back, stopping wherever you decide.",
-            style = MaterialTheme.typography.bodyMedium)
-        ModeChoices(routes, "catch-up-mode")
-    }
-}
-
 /** The response mode as three choices with what each means (HIS-094, TRN-059); a tap sets it. */
 @Composable
 private fun ModeChoices(routes: EngineTableRoutes, tag: String) {
@@ -640,56 +625,72 @@ internal fun EngineModeDialog(routes: EngineTableRoutes, close: () -> Unit) {
 
 private const val QUICK_PLAYBACK_MS = 120L
 
+/** HIS-021 (§29.3): the playback delay at Card move speed 1×: about a third of the old 1 s default. */
+internal const val PLAYBACK_DELAY_MS = 330L
+
+/** HIS-021 (§29.3): the playback delay at the Card move speed [multiplier] (TBL-038): faster moves, shorter delay. */
+internal fun playbackDelay(multiplier: Float): Long = (PLAYBACK_DELAY_MS / cardMoveMultiplier(multiplier)).toLong()
+
 /**
- * HIS-021 (§27): how long playback waits after showing [shown] before the next event: nothing after an event that
- * changed nothing you can see ([EnginePlaybackPace.quiet]: only the step indicator moved), a short moment after the other
- * player's staging and card places, else the History playback pause [pause].
+ * HIS-021 (§27, §29.3, §29.6): how long playback waits after showing [shown] before the next event: nothing after an
+ * event that changed nothing you can see ([EnginePlaybackPace.quiet]: only the step indicator moved; under Full control
+ * [mode] the delay too), a short moment after the other player's staging and card places, else the playback [delay].
  */
-internal fun playbackWait(shown: GameEvent?, pause: Long): Long = when {
-    shown == null || EnginePlaybackPace.quiet(shown) -> 0L
+internal fun playbackWait(shown: GameEvent?, delay: Long, mode: ResponseMode): Long = when {
+    shown == null -> 0L
+    EnginePlaybackPace.quiet(shown) -> if (mode == ResponseMode.FullControl) delay else 0L
     shown.engine == null && shown.table.all { it is TableChange.AttackDraft || it is TableChange.BlockDraft || it is TableChange.Placed ||
         it is TableChange.EarlyAnswered } -> QUICK_PLAYBACK_MS
-    else -> pause.coerceIn(100L, 10_000L)
+    else -> delay
 }
 
 /**
- * Playback (§7, §27): the other player's actions shown one at a time; each event that changes something you can see keeps
- * its animation and the playback pause after it, the others (passes, steps where nothing happened) go by at once.
+ * Playback (§7, §27, §29): the other player's actions shown one at a time; each event that changes something you can see
+ * keeps its animation and the playback delay after it, the others (passes, steps where nothing happened, an empty
+ * combat) go by at once unless Full control is on.
  */
 @Composable
 private fun EnginePlayback(routes: EngineTableRoutes) {
     val game = routes.engine ?: return
-    val preferences = rememberHistoryPlaybackPreferences(routes.viewer)
-    val pause by preferences.pauseState()
+    val multiplier by rememberCardMovePreferences(routes.viewer).multiplierState()
     LaunchedEffect(game.version) {
         val shown = game.shown ?: return@LaunchedEffect
         val last = shown.held.lastOrNull()?.takeIf { it.id == shown.localHead }
-        val wait = playbackWait(last, pause)
+        val wait = playbackWait(last, playbackDelay(multiplier), shown.settings.mode)
         if (wait > 0) delay(wait)
         if (game.shown?.status is GameDevice.Status.Playing) { game.step(); routes.pump() }
     }
 }
 
 /**
- * HIS-021 (§27, owner 2026-11-04): which events playback lets go by at once. An event is quiet when it is only priority
- * passes and what they led to changed nothing you can see: no card moved, tapped, turned or changed, no life, counters or
- * damage, no Stack entry added or resolved, no attack or block, no new turn; only the step indicator moves.
+ * HIS-021 (§27, §29.6, owner 2026-11-04): which events playback lets go by at once. An event is quiet when it is only
+ * priority passes and declarations of no attackers or no blockers, and what they led to changed nothing you can see: no
+ * card moved, tapped, turned or changed, no life, counters or damage, no Stack entry added or resolved, no attacker or
+ * block (an empty combat beginning or ending is nothing), no new turn; only the step indicator moves.
  */
 internal object EnginePlaybackPace {
     fun quiet(event: GameEvent): Boolean {
         val part = event.engine ?: return false
         if (event.table.isNotEmpty()) return false
-        if (part.steps.any { it.input != null && it.input !is Input.PassPriority }) return false
+        if (part.steps.any { it.input?.let(::empty) == false }) return false
         return part.changes.none(::visible)
     }
+
+    private fun empty(input: Input): Boolean = input is Input.PassPriority ||
+        (input is Input.DeclareAttackers && input.attacks.isEmpty()) || (input is Input.DeclareBlockers && input.blocks.isEmpty())
+
+    /** Who attacks whom and who blocks whom: an empty combat (none, or one without attackers) shows nothing. */
+    private fun fights(combat: arcanum.engine.state.CombatState?) =
+        combat?.attackers.orEmpty().map { it.id to it.target } to combat?.blockers.orEmpty().map { it.id to it.attackers }
 
     private fun visible(change: arcanum.engine.change.Change): Boolean = when (change) {
         is arcanum.engine.change.Change.ZoneChange, is arcanum.engine.change.Change.Created, is arcanum.engine.change.Change.Removed,
         is arcanum.engine.change.Change.Status, is arcanum.engine.change.Change.Face, is arcanum.engine.change.Change.Counters,
         is arcanum.engine.change.Change.Damage, is arcanum.engine.change.Change.DamageMarked, is arcanum.engine.change.Change.Life,
         is arcanum.engine.change.Change.StackItemAdded, is arcanum.engine.change.Change.StackItemRemoved,
-        is arcanum.engine.change.Change.Attached, is arcanum.engine.change.Change.ControlStart, is arcanum.engine.change.Change.Combat,
+        is arcanum.engine.change.Change.Attached, is arcanum.engine.change.Change.ControlStart,
         is arcanum.engine.change.Change.Lost, is arcanum.engine.change.Change.Shuffle -> true
+        is arcanum.engine.change.Change.Combat -> fights(change.before) != fights(change.after)
         is arcanum.engine.change.Change.Step -> change.before.number != change.after.number
         else -> false
     }
@@ -717,6 +718,16 @@ private fun EngineRequestDialog(routes: EngineTableRoutes, opponent: String, sum
     }
 }
 
+/** The Undo dialog's list (§10, HIS-099): the actions shown to the player, newest first; §29.2: passes are implied, so
+ * none is listed except the first pass of the player's own End turn ("You ended the turn"). */
+internal fun undoChoices(shown: EngineGame.Shown): List<GameEvent> = shown.held.filter { e ->
+    e.engine?.steps?.any { s -> s.input != null } == true && (!EngineEventText.pass(e) || e.id in shown.endTurns)
+}.asReversed()
+
+/** The text of an Undo dialog entry ([undoChoices]). */
+internal fun undoChoiceText(event: GameEvent, shown: EngineGame.Shown, viewer: String, names: Map<String, String>): String =
+    if (EngineEventText.pass(event)) "You ended the turn" else EngineEventText.of(event, shown.engine, viewer, names)
+
 /**
  * The rewind dialog (§10): the main line up to the viewer's local head as the target picker (newest first), an optional
  * message, then Undo: done at once when it is free, else sent to the other player as an undo request.
@@ -726,9 +737,7 @@ private fun EngineRewindDialog(routes: EngineTableRoutes, choice: EngineTableRou
     summary: GameSummary) {
     val game = routes.engine ?: return
     val published = game.shown ?: return
-    val shown = remember(game.version) {
-        published.held.filter { it.engine?.steps?.any { s -> s.input != null } == true }.asReversed()
-    }
+    val shown = remember(game.version) { undoChoices(published) }
     var target by remember(choice) { mutableStateOf(choice.target) }
     var message by remember(choice) { mutableStateOf("") }
     val needsRequest = remember(target, game.version) { target?.let { game.undoNeedsRequest(it) } }
@@ -752,7 +761,7 @@ private fun EngineRewindDialog(routes: EngineTableRoutes, choice: EngineTableRou
                     .background(if (selected) AutomatumViolet.copy(alpha = .12f) else Color.Transparent).padding(horizontal = 8.dp),
                     verticalAlignment = Alignment.CenterVertically) {
                     RadioButton(selected, onClick = null)
-                    Text(EngineEventText.of(event, published.engine, routes.viewer, names), Modifier.padding(start = 8.dp), fontSize = 14.sp)
+                    Text(undoChoiceText(event, published, routes.viewer, names), Modifier.padding(start = 8.dp), fontSize = 14.sp)
                 }
             }
         }

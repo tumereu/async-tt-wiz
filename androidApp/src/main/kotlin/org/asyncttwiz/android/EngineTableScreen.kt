@@ -110,16 +110,25 @@ internal fun EngineTableScreen(controller: LobbyController, accountId: String, h
                 applied.transition = t.serial
                 changes.applyEngine(t.cursor, t.jump, t.changes, t.shuffled)
                 // HIS-076 (owner playtest 2026-11-04 #5): live, the newest event just shown, yours too (your own action's
-                // text fades at the top like the other player's); quiet on open, return and undo
+                // text fades at the top like the other player's); quiet on open and return. §29.4: an undo says what it
+                // took back ("Undid: cast Storm Spark", the other player "Alice undid: …"), even with Event text off
                 val told = t.forward.lastOrNull { !EngineEventText.hidden(it) }
-                if (told != null) eventText.post(t.cursor, engine.timeline.text(engine, told, names)) else eventText.moved(t.cursor)
+                val undone = t.undone
+                when {
+                    undone != null -> eventText.post(t.cursor, EngineEventText.undid(undone.event, undone.state, accountId, undone.by, names),
+                        always = true)
+                    told != null -> eventText.post(t.cursor, engine.timeline.text(engine, told, names))
+                    else -> eventText.moved(t.cursor)
+                }
             }
         }
     }
     val status = shown.status
     val playing = status is GameDevice.Status.Playing
-    // HIS-013 (§27): playback, and a stop its pause made, have the strip and the play/pause button at the bottom
-    val playback = playing || (status as? GameDevice.Status.Stopped)?.paused == true
+    // HIS-013 (§27): playback, a stop its pause made and the catch-up's paused start (HIS-094, §29.1) have the strip and
+    // the play/pause button at the bottom
+    val catchUp = status == GameDevice.Status.CatchUp
+    val playback = playing || catchUp || (status as? GameDevice.Status.Stopped)?.paused == true
     val back = remember(game.id) { TableBackStateMachine() }
     val overlay = toolkit.hasBackOverlay || state.chatOpen
     BackHandler {
@@ -133,7 +142,7 @@ internal fun EngineTableScreen(controller: LobbyController, accountId: String, h
             TableBackAction.EXIT_REVIEW -> {}
         }
     }
-    val reviewing = reviewPlay != null || playing
+    val reviewing = reviewPlay != null || playing || catchUp
     var playbackSettingsOpen by remember(game.id) { mutableStateOf(false) }
     val timeline = engine.timeline.events(engine, names)
     CompositionLocalProvider(LocalEngineRoutes provides routes) {
@@ -253,17 +262,19 @@ internal fun EngineReviewPanel(routes: EngineTableRoutes, events: List<HistoryTi
 /**
  * Playback on engine state (HIS-001, HIS-013, §27): the strip of the events shown so far, and below it, where timeline
  * mode's Auto is, the play/pause button: a tap pauses (playback goes on to the next point where Full control would stop,
- * where you may act or play on) or plays again; holding it opens the response mode dialog.
+ * where you may act or play on) or plays again; holding it opens the response mode dialog. Catching up (HIS-094, §29.1)
+ * it starts paused: Play starts the playback.
  */
 @Composable
 internal fun EnginePlaybackPanel(routes: EngineTableRoutes, events: List<HistoryTimelineEvent>, viewer: String, landscape: Boolean) {
     val game = routes.engine ?: return
     val shown = game.shown ?: return
     val stop = shown.status as? GameDevice.Status.Stopped
+    val catchUp = shown.status == GameDevice.Status.CatchUp
     val playing = shown.status is GameDevice.Status.Playing && !shown.pausing
     val label = when {
         playing -> "Pause"
-        stop != null -> "Play"
+        stop != null || catchUp -> "Play"
         else -> "Pausing"
     }
     val strip: @Composable () -> Unit = {
@@ -289,6 +300,7 @@ internal fun EnginePlaybackPanel(routes: EngineTableRoutes, events: List<History
                 }) {
                 when {
                     playing -> game.pause(true)
+                    catchUp -> game.startPlayback()
                     stop != null -> game.act(stop.assumed)
                     else -> game.pause(false)
                 }

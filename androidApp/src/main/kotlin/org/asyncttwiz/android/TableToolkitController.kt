@@ -163,6 +163,48 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
         error = null
         return cast.begin(cardId, input, play.text)
     }
+
+    /** TBL-122 (async play §29.5): the battlefield card whose ability chips are open (personal UI), null when none. */
+    var abilityCard by mutableStateOf<String?>(null); private set
+    /** The ability chip held for its details (an index of [activatable]), null when none. */
+    var heldAbility by mutableStateOf<Int?>(null)
+
+    /** TBL-122: the abilities of the battlefield card [cardId] the viewer can activate on [play] now (mana abilities and
+     * special actions included), in printed order; empty while a cast or an Automatum choice is open, null while
+     * Automatum still works the board out. */
+    internal fun activatable(play: PlayState, cardId: String): List<org.asyncttwiz.automatum.CardPlay>? {
+        if (!enabled() || cast.open || Automatum.flowOpen(play.board)) return emptyList()
+        val plays = cardPlays(play) ?: return null
+        return plays.of(cardId).filter { it.legal && it.kind != org.asyncttwiz.automatum.CardPlay.Kind.Cast &&
+            it.kind != org.asyncttwiz.automatum.CardPlay.Kind.Play }
+    }
+
+    /**
+     * TBL-122 (async play §29.5, MTG Arena): a tap on the viewer's battlefield card [cardId] activates the one ability they
+     * can activate now (as from its menu, TBL-115: a mana ability adds its mana to the pool at once; costs, targets and
+     * Autotap go through the cast flow), or opens the ability chips above it when there are several. False when it has
+     * none (or Automatum still works the board out): the tap opens the card's menu as before.
+     */
+    internal fun tapPermanent(cardId: String): Boolean {
+        val play = current() ?: return false
+        val offered = activatable(play, cardId)
+        if (offered.isNullOrEmpty()) return false
+        dismiss()
+        if (offered.size == 1) play(cardId, offered.single()) else abilityCard = cardId
+        return true
+    }
+
+    /** TBL-122: a tap on the ability chip [index] of the open chips activates that ability. */
+    internal fun activateChip(index: Int): Boolean {
+        val card = abilityCard ?: return false
+        val play = current() ?: return false
+        val chosen = activatable(play, card)?.getOrNull(index) ?: return false
+        closeAbilities()
+        return play(card, chosen)
+    }
+
+    /** Closes the ability chips (a tap elsewhere, an activation). */
+    fun closeAbilities() { abilityCard = null; heldAbility = null }
     val layoutState = mutableStateOf(TableLayoutState())
     /** I-D50 (ZON-079, ZON-080): the viewer's hand with Automatum on: a tap raises a card with its cost chips. */
     internal val hand = HandController(viewer, { acting()?.takeIf { enabled() } }, layoutState, automatumWork, ::engineTags,
@@ -398,7 +440,7 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
         return true
     }
 
-    fun dismiss() { panel = null; player = null; capture = null; popupItem = null; stackTargeting = false }
+    fun dismiss() { panel = null; player = null; capture = null; popupItem = null; stackTargeting = false; closeAbilities() }
     fun dismissTapUi() = dismiss()
     internal val hasBackOverlay get() = inspection != null || peek != null || capture != null || player != null ||
         panel != null || keeping
@@ -533,6 +575,9 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
             return
         }
         val play = current() ?: return
+        // TBL-122: a tap on anything closes open ability chips; on their own card again it does only that
+        val chips = abilityCard
+        closeAbilities()
         // ZON-079 (I-D50): a hand has no menu: a tap raises the card (or casts the raised one); a tap on anything else
         // lowers it
         if (item.zone == PlayZone.HAND && item.kind == TableItemKind.CARD) {
@@ -545,6 +590,13 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
         if (item.kind == TableItemKind.DUNGEON) { item.cardId?.let(::inspect); return }
         // CMB-028, CMB-032, CMB-034: with Automatum on a tap in combat stages, blocks or selects
         if (combatTap(play, item)) { dismiss(); return }
+        // TBL-122: one tap on a battlefield card activates its ability, or opens the chips of several; else its menu
+        if (item.kind == TableItemKind.CARD && item.zone == PlayZone.BATTLEFIELD && item.viewport != "combat" &&
+            !item.viewport.startsWith("cardPanel/") && !item.projection) {
+            val card = item.cardId?.let { CombatStackRules.liveSource(play.board, it)?.id }
+            if (card != null && card == chips) return
+            if (card != null && tapPermanent(card)) return
+        }
         // A card in a Graveyard or Exile panel: its engine menu (TBL-116)
         if (item.viewport.startsWith("cardPanel/")) {
             item.cardId?.let { openCard(TableScope(it, listOf(it))) }
@@ -643,8 +695,8 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
         if (intent is TableIntent.Move && intent.handDoubleTap) return castFromHand(intent.scope.contextId)
         // I-D36, I-D52: a drag is the engine action it means, or refused
         if (intent is TableIntent.Move && intent.drag) return automatumDrag(intent)
-        // I-D47: a double-tap on a battlefield card taps it for mana through Automatum; nothing is tapped by hand
-        if (intent is TableIntent.Rotate) return tapForMana(intent) ?: run { error = AutomatumDrags.MANUAL; false }
+        // TBL-043: a double-tap on a battlefield card does no more than its first tap (TBL-122); nothing is tapped by hand
+        if (intent is TableIntent.Rotate) return secondTap(intent)
         if (intent is TableIntent.Batch) return batchResult(intent.invocationId) {
             intent.intents.all { handle(it) }
         }
@@ -654,21 +706,15 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
         } else handleOne(intent)
     }
     /**
-     * I-D47 (TBL-043): a double-tap on a battlefield card with Automatum on activates its mana ability, the mana going to
-     * its controller's pool for the next cast (autotap pays with the pool first): the one mana ability Automatum allows
-     * now goes as from its menu (TBL-115); with several (or one asking a colour) the panel or the card's menu lets the
-     * player choose. Null when the card has no mana ability allowed now (then the double-tap is what it was).
+     * TBL-043: the second tap of a double-tap on a battlefield card does nothing: its first tap already activated the
+     * card's ability, opened its ability chips or its menu (TBL-122). Turning any other card is tapping by hand, refused.
      */
-    private fun tapForMana(intent: TableIntent.Rotate): Boolean? {
-        val play = current()?.takeIf { enabled() } ?: return null
-        val card = CombatStackRules.liveSource(play.board, intent.scope.contextId)?.id ?: return null
-        val plays = cardPlays(play) ?: run { error = WORKING_OUT; return false }
-        val mana = plays.of(card).filter { it.kind == org.asyncttwiz.automatum.CardPlay.Kind.Mana && it.legal }
-        return when (mana.size) {
-            0 -> null
-            1 -> play(card, mana.single())
-            else -> { openCard(TableScope(card, listOf(card)), intent.sources); true }
-        }
+    private fun secondTap(intent: TableIntent.Rotate): Boolean {
+        val play = current()
+        val card = play?.let { CombatStackRules.liveSource(it.board, intent.scope.contextId) }
+        if (card != null && play.board.containers.singleOrNull { it.id == card.containerId }?.zone == PlayZone.BATTLEFIELD) return true
+        error = AutomatumDrags.MANUAL
+        return false
     }
 
     /**

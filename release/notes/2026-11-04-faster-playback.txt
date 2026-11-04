@@ -1,0 +1,1 @@
+mod: Playing back your opponent's actions is about three times faster and follows your Card move speed; steps where nothing happened, such as a combat with no attackers, go by at once unless Full control is on

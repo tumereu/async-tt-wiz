@@ -26,7 +26,8 @@ internal object EngineEventText {
         fun card(id: ObjectId?): String = name(id, state, viewer) ?: "a card"
         val step = event.engine?.steps?.firstOrNull { it.input != null }
         // HIS-091 (owner playtest 2026-11-04 #1, #2): only the player who assumed an answer reads it as assumed; to the
-        // player it was assumed about it reads as their own answer, the same as if they had made it
+        // player it was assumed about it reads as their own answer, the same as if they had made it (passes read as
+        // what they led to, §29.2)
         val assumed = if (step?.assumedBy?.value == viewer) " (assumed)" else ""
         // An assumed input is the other player's (§14: "Bob passes (assumed)"); an answer names no player, its event's author made it
         fun actor(): String = step?.assumedBy?.let { by -> names.keys.firstOrNull { it != by.value }?.let { who(PlayerId(it)) } }
@@ -38,7 +39,9 @@ internal object EngineEventText {
             is Input.Cast -> "${who(input.player)} cast ${card(input.card)}"
             is Input.PlayLand -> "${who(input.player)} played ${card(input.card)}"
             is Input.Activate -> "${who(input.player)} activated ${card(input.source)}"
-            is Input.PassPriority -> "${who(input.player)} passed$assumed" + (passOutcome(event, state, viewer, names)?.let { " · $it" } ?: "")
+            // §29.2 (owner 2026-11-04): passes are implied: a pass reads only as what it led to ("Storm Spark resolved",
+            // "Turn 3 → Bob", the new step); one that led to nothing shows nowhere ([hidden])
+            is Input.PassPriority -> passOutcome(event, state, viewer, names).orEmpty()
             is Input.DeclareAttackers -> if (input.attacks.isEmpty()) "${who(input.player)}: no attack" else "${who(input.player)} attacked with ${input.attacks.size}"
             is Input.DeclareBlockers -> if (input.blocks.isEmpty()) "${who(input.player)}: no blocks$assumed" else "${who(input.player)} blocked with ${input.blocks.size}$assumed"
             is Input.SetupAnswer -> when (input.answer) {
@@ -71,10 +74,34 @@ internal object EngineEventText {
         else -> "$author acted"
     }
 
-    /** HIS-086: a rewind's line start that older games stored as an event of its own: shown nowhere (an undo only pops
-     * events; the new line starts with the next event). */
-    fun hidden(event: GameEvent): Boolean = event.engine?.steps.orEmpty().none { it.input != null } &&
-        event.table.isNotEmpty() && event.table.all { it is GameTableChange.LineMoved }
+    /** Shown nowhere (the strip, the timeline, the event chip): HIS-086: a rewind's line start that older games stored as
+     * an event of its own (an undo only pops events; the new line starts with the next event); §29.2: a pass that led to
+     * no resolution, step or turn (passes are implied). */
+    fun hidden(event: GameEvent): Boolean = (event.engine?.steps.orEmpty().none { it.input != null } &&
+        event.table.isNotEmpty() && event.table.all { it is GameTableChange.LineMoved }) ||
+        (pass(event) && passOutcome(event, null, "", emptyMap()) == null)
+
+    /** Whether [event]'s acting input is a priority pass (§29.2: passes are implied). */
+    fun pass(event: GameEvent): Boolean = event.engine?.steps?.firstOrNull { it.input != null }?.input is Input.PassPriority
+
+    /**
+     * §29.4: the fading top text of an undo: "Undid: cast Storm Spark" for the player who undid ([by] is [viewer]),
+     * "Alice undid: cast Storm Spark" for the other player, naming [event], the first action taken back, as [viewer] saw it
+     * on [state] (the board before the undo). An End turn's first pass reads "End turn"; with no event, just who undid.
+     */
+    fun undid(event: GameEvent?, state: GameState?, viewer: String, by: String, names: Map<String, String>): String {
+        val subject = if (by == viewer) "You" else names[by] ?: "The other player"
+        val head = if (by == viewer) "Undid" else "$subject undid"
+        val e = event ?: return head
+        val text = if (pass(e)) "End turn" else of(e, state, viewer, names)
+        val action = when {
+            text.startsWith("$subject: ") -> text.removePrefix("$subject: ")
+            text.startsWith("$subject ") -> text.removePrefix("$subject ")
+            text.startsWith("You") -> "you" + text.removePrefix("You")
+            else -> text
+        }
+        return "$head: $action"
+    }
 
     /** What a pass led to (the most telling of: a spell or ability resolved, a new turn, a new step). */
     private fun passOutcome(event: GameEvent, state: GameState?, viewer: String, names: Map<String, String>): String? {
@@ -166,8 +193,9 @@ internal class EngineTimeline {
         val state = published.engine
         val players = state.players.map { it.id.value }
         var turn = 0
-        return shown.filterNot(EngineEventText::hidden).map { e ->
+        return shown.mapNotNull { e ->
             e.engine?.changes?.lastOrNull { it is Change.Step }?.let { turn = (it as Change.Step).after.number }
+            if (EngineEventText.hidden(e)) return@mapNotNull null
             val text = texts.getOrPut(e.id) { EngineEventText.of(e, state, game.me, names) }
             HistoryTimelineEvent(e.id, EngineEventText.icon(e), text, EngineEventText.colourOf(e, players), "turn:$turn")
         }

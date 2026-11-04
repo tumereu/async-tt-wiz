@@ -749,7 +749,12 @@ Findings #2–#9 and #12 of the review (`SwitchReviewTest` in server, protocol a
 - **Unreadable cards:** the start is refused (`automatumUnsupported`) when the server's own parse leaves any card
   without a definition, whatever support was stored.
 - **Stale taps** (app): every own action checks the board shown against the engine thread's last published one and is
-  refused with SYS-012's note when it is older (SYS-011); conceding is always taken.
+  refused with SYS-012's note when it is older (SYS-011); conceding is always taken. Owner, 2026-11-04: a pass, a cast or
+  any other engine input, and an opening declaration, is made on the newer board instead when the game there is the same
+  apart from its record of what happened (`GameDevice.sameDecision`): the same decision still waits for the player.
+  Likewise a move of the player's own the server refused as stale because the other player's event came first
+  (`GameDevice.lostMoves`/`remake`, either reply order): once that event is shown and the device's own steps are done,
+  each lost move is made again when `sameDecision` holds against the state it was made on, else SYS-012's note, once.
 
 Decided for the owner (to confirm): **an undo request is the other player's move** (#12): while open, the requester has
 no next stop and the other player has one (at least at the head, timed from the request): listed as their move and
@@ -807,3 +812,33 @@ Decided while building (the plainest reading; owner to confirm):
    undo request, so it is also listed, shown and notified as theirs.
 2. **When the game waits for nobody** (both have seen a result not yet confirmed) the list keeps "Move not available";
    the table's pill and bars keep the board's own holder (the turn player's).
+
+
+## 29. Playtest decisions (owner, 2026-11-04 evening)
+
+1. **Catching up** shows no dialog: playback starts paused with the play/pause button at the bottom (tap = play, hold = the full control / auto-skip dialog). During the opening (mulligans) there is no playback: the current state shows directly.
+2. **Passes are implied:** "X passed" never appears in the event strip, timeline, event chips or notifications (passes stay in the data). Undo targets the last meaningful own action; a turn where nothing happened shows only as step/turn changes.
+3. **Playback delay** between events is about a third of the previous default, scaled by the animation speed setting (stops already happen exactly where you could react).
+4. **Undo animates backwards** quickly (reverse flights, no pauses) with a fading top text ("Undid: cast <card>"); the opponent who had seen the undone events sees the same.
+5. **One tap activates:** a permanent with exactly one ability you can activate now activates it on tap (a land adds its mana); with several, tap opens the same chip menu as hand cards; hold = Inspect; in declare attackers/blockers a tap stages combat instead; unused mana floats in the pool.
+6. **Combat in playback** uses the middle combat-area design (I-D38); playback skips steps where nothing happened (combat included) unless full control is on.
+7. Pass / End turn latency: revisit after R1–R3 (no separate fix now).
+
+Built (1, 3, 6; 2026-11-04): `GameDevice.catchUp` holds playback paused only past the opening (`Status.CatchUp`, the
+playback panel's Play, no dialog); in the opening `step` shows every event up to a stop or the first turn at once; any
+submission of the player's ends the catch-up. The playback delay is `PLAYBACK_DELAY_MS` (0.33 s) divided by the Card move
+speed; `EnginePlaybackPace.quiet` also takes declarations of no attackers or blockers and combat changes with no
+attacker or block, and quiet events keep the delay under Full control. HIS-006, HIS-013, HIS-021, HIS-033, HIS-035,
+HIS-094, SYS-071.
+Decided while building (owner to confirm): the History playback pause no longer paces live playback, only timeline
+mode's Auto; answering a decision in the opening (e.g. a keep the other player assumed) ends the catch-up, so playback goes
+on after it without a paused start; an attack already showed in the combat area in playback (now covered by a test).
+
+Built (2026-11-04): **2** (HIS-091, HIS-084, HIS-099): a pass event reads only as what it led to, one that led to
+nothing is hidden like an old line start (`EngineEventText.hidden`); `GameDevice.undoTarget` skips every pass but an End
+turn's first (`endedTurn`), and the Undo dialog lists the same (`undoChoices`, "You ended the turn"). **4** (HIS-030,
+HIS-076, HIS-099): a rewind that took back events shown on a device is a transition of its own (`EngineGame.Transition.undone`)
+whose steps are the undone events' motion boards in reverse; its text is posted to the event chip even with Event text
+off, replacing the "<name> undid" note.
+Decided while building (owner to confirm): the other player reads "Alice undid: cast Storm Spark"; an undone End turn
+reads "Undid: End turn"; the undo text shows with Event text off.

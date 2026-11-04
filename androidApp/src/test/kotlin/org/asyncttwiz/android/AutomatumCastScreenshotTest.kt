@@ -323,9 +323,8 @@ class AutomatumCastScreenshotTest {
 
     private fun state(tree: GameplayTree) = tree.stateAt(tree.currentNodeId)!!
     private fun tapped(tree: GameplayTree) = state(tree).board.cards.filter { it.tapped && it.definition == mountain.submitted.digest }.map { it.id }.toSet()
-    private fun rotate(card: String) = TableIntent.Rotate(TableScope(card, listOf(card)), tapped = true, toggle = true)
 
-    // TBL-043, STK-024, I-D47 (owner's flow): autotap tapped a Mountain the player didn't want: Undo, double-tap the wanted
+    // TBL-122, STK-024, I-D47 (owner's flow): autotap tapped a Mountain the player didn't want: Undo, tap the wanted
     // Mountain (its mana goes to the pool), cast again: the pool pays and the first Mountain stays untapped. Both devices
     // get the same board: the server's.
     @Test fun undoThenTapTheWantedSourceThenCast() {
@@ -339,9 +338,9 @@ class AutomatumCastScreenshotTest {
         tree = assertNotNull(HistoryContinuation.change(tree, f.a, GameCommand(f.id("undo"), GameScope(tree.initial.gameId,
             playId = tree.initial.id), GameAction.Undo, f.id("client"), "1")).tree)
         assertTrue(tapped(tree).isEmpty(), "the cast was undone")
-        // A double-tap on the wanted Mountain with Automatum on taps it for mana (not refused, no panel)
+        // A tap on the wanted Mountain (its one ability) with Automatum on taps it for mana (no menu, no panel)
         val tapping = device(tree)
-        assertTrue(tapping.handle(rotate(wanted)))
+        assertTrue(tapping.tapPermanent(wanted))
         assertFalse(tapping.cast.open)
         tree = take(tree)
         assertEquals(setOf(wanted), tapped(tree))

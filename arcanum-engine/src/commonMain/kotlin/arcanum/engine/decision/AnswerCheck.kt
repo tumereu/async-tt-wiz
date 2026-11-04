@@ -118,7 +118,7 @@ internal object AnswerCheck {
         answer as? A ?: wrongKind(decision, answer)
 
     private fun wrongKind(decision: Decision, answer: Answer): Nothing =
-        refuse("${answer::class.simpleName} doesn't answer ${decision::class.simpleName}")
+        refuse("${answer::class.simpleName} doesn't answer ${decision.kind}")
 
     private fun <T> distinct(values: List<T>, what: String) {
         if (values.distinct().size != values.size) refuse("The same $what twice: $values")

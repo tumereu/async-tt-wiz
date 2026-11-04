@@ -13,7 +13,9 @@
     <init>();
 }
 
-# Class names that end up in game data (problem report N7FU6Y): without these attributes a nested class's simpleName
-# is "Outer$Inner" on the phone and "Inner" on the server. Game ids are written out where it matters; this keeps the
-# rest (texts, logs) the same as on the JVM.
+# Class names that end up in game data (problem report N7FU6Y): without the InnerClasses attribute a nested class's
+# simpleName is "Outer$Inner" on the phone and "Inner" on the server. R8 full mode keeps these attributes only for
+# classes a -keep rule matches, so the engine's and protocol's classes still lose them (checked with dexdump on the
+# personalTest build, 2026-11-04): anything a device and a server must agree on (ids, keys, choices) writes its names
+# out (Decision.kind, Question.kind, Texts.costName); texts and logs drop the outer names themselves.
 -keepattributes InnerClasses,EnclosingMethod

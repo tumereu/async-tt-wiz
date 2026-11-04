@@ -57,7 +57,7 @@ sealed interface TraceEntry {
 @Serializable
 data class PendingShape(val decision: String, val id: DecisionId, val player: PlayerId, val continuation: String) {
     companion object {
-        fun of(pending: Pending): PendingShape = PendingShape(pending.decision::class.simpleName ?: "Decision",
+        fun of(pending: Pending): PendingShape = PendingShape(pending.decision.kind,
             pending.decision.id, pending.decision.player, pending.continuation::class.simpleName ?: "Continuation")
     }
 }

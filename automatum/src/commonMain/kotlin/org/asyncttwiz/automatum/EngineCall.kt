@@ -98,7 +98,7 @@ class EngineCall(
                     preAnswered += PreAnswers.id(early)
                     val taken = PreAnswers.answer(early, working, ids, decision)
                     AutomatumLog.preEvent(state.gameId, if (taken == null) "refused" else "used",
-                        "${PreAnswers.id(early)} for ${decision::class.simpleName} ${decision.id.value}")
+                        "${PreAnswers.id(early)} for ${decision.kind} ${decision.id.value}")
                     taken ?: return working.pending
                 }
             }
@@ -129,7 +129,7 @@ class EngineCall(
         val early = requireNotNull(PreAnswers.forOpen(this)) { "No early answer for the open decision" }
         val decision = working.pending!!.decision
         preAnswered += PreAnswers.id(early)
-        AutomatumLog.preEvent(state.gameId, "used", "${PreAnswers.id(early)} for the open ${decision::class.simpleName} ${decision.id.value}")
+        AutomatumLog.preEvent(state.gameId, "used", "${PreAnswers.id(early)} for the open ${decision.kind} ${decision.id.value}")
         return perform(Input.Answer(decision.id, PreAnswers.answer(early, working, ids, decision)!!))
     }
 

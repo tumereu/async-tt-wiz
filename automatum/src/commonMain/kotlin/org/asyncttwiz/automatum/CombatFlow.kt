@@ -450,7 +450,8 @@ object CombatFlow {
         }
     }
 
-    private fun words(name: String?): String = name.orEmpty().replace(Regex("(?<=[a-z])(?=[A-Z])"), " ").lowercase()
+    // A class's name without its outer classes: a shrunk Android build may say "KeywordAction$Exert" where the JVM says "Exert"
+    private fun words(name: String?): String = name.orEmpty().substringAfterLast('$').replace(Regex("(?<=[a-z])(?=[A-Z])"), " ").lowercase()
         .replaceFirstChar { it.uppercase() }
 
     /**

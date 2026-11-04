@@ -47,9 +47,11 @@ data class ReconnectStep(val stage: String, val elapsedMs: Long, val durationMs:
 data class ReconnectEpisode(val id: String, val gameId: String, val startedAt: String, val cause: String,
     val steps: List<ReconnectStep> = emptyList(), val durationMs: Long = 0, val complete: Boolean = false)
 
-/** Stable diagnostic labels without action payloads (chat text, card data, etc.). */
-fun GameAction.latencyType(): String = if (this is GameAction.Play) "Play.${action::class.simpleName}"
-    else this::class.simpleName ?: "Unknown"
+/** Stable diagnostic labels without action payloads (chat text, card data, etc.): the same on the phone and the server
+ * (a shrunk Android build may name a nested class "GameAction$Submit" where the JVM says "Submit"). */
+fun GameAction.latencyType(): String = if (this is GameAction.Play) "Play.${labelOf(action)}" else labelOf(this)
+
+private fun labelOf(value: Any): String = value::class.simpleName?.substringAfterLast('$') ?: "Unknown"
 
 /** Player-sent diagnostics; accepted without an account so it also works from the update gate. [automatum]: the latest
  * game's Automatum log and reproduction bundle (I-D43), at most [MAX_AUTOMATUM] characters; empty when there is none. */

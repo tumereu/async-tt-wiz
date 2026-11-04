@@ -1412,7 +1412,7 @@ internal object Effects {
             KeywordAction.Venture -> arcanum.engine.dungeon.Dungeons.venture(act, cause, scope.actor, null)
             is KeywordAction.VentureInto -> arcanum.engine.dungeon.Dungeons.venture(act, cause, scope.actor, action.dungeons)
             is KeywordAction.Meld -> meld(scope, action)
-            else -> act.manual(scope.actor, scope.self, "Do by hand: ${action::class.simpleName}")
+            else -> act.manual(scope.actor, scope.self, "Do by hand: ${arcanum.engine.decision.Texts.className(action)}")
         }
     }
 

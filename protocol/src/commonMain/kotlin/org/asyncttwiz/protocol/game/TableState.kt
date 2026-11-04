@@ -82,11 +82,11 @@ data class Placement(val x: Int, val y: Int, val pile: String? = null)
 @Serializable
 data class EarlyAnswer(val player: PlayerId, val key: String, val answer: Answer, val turn: Int? = null) {
     companion object {
-        /** The key of an early answer to [decision]: the decision's kind, its player and its source. The kind is the
-         * class's own name on every platform (a shrunk Android build names a nested class "Decision$Divide" where the
-         * JVM says "Divide"; the device and the server must make the same key). */
+        /** The key of an early answer to [decision]: the decision's kind ([arcanum.engine.decision.Decision.kind], written
+         * out: a shrunk Android build may name a nested class "Decision$Divide" where the JVM says "Divide", and the device
+         * and the server must make the same key), its player and its source. */
         fun keyOf(decision: arcanum.engine.decision.Decision): String =
-            "${decision::class.simpleName?.substringAfterLast('$')}:${decision.player.value}:${decision.source ?: "-"}"
+            "${decision.kind}:${decision.player.value}:${decision.source ?: "-"}"
     }
 }
 

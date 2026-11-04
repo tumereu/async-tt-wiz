@@ -1,6 +1,7 @@
 package arcanum.engine.decision
 
 import arcanum.api.Ability
+import arcanum.api.CostPart
 import arcanum.api.Effect
 import arcanum.api.Instructions
 import arcanum.api.Keyword
@@ -101,11 +102,48 @@ internal object Texts {
         when (s) {
             is Step.Do -> words(effectName(s.effect))
             is Step.Manual -> s.text
-            else -> words(s::class.simpleName ?: "step")
+            else -> words(className(s) ?: "step")
         }
     }.ifEmpty { "do it" }
 
-    private fun effectName(effect: Effect): String = effect::class.simpleName ?: "effect"
+    private fun effectName(effect: Effect): String = className(effect) ?: "effect"
+
+    /**
+     * [value]'s class name without its outer classes ("Draw" for `Effect.Draw`), for texts only: a shrunk Android build
+     * may name a nested class "Effect$Draw" where the JVM says "Draw". Never for ids, keys or answers: those write their
+     * names out ([costName], [arcanum.engine.decision.Decision.kind]).
+     */
+    fun className(value: Any): String? = value::class.simpleName?.substringAfterLast('$')
+
+    /**
+     * A cost part's kind in words ("TapObjects"), written out because cost descriptions are choices a player answers
+     * ([arcanum.engine.decision.Decision.ChooseOption]) and a device and a server must offer the same ones.
+     */
+    fun costName(part: CostPart): String = when (part) {
+        is CostPart.Mana -> "Mana"
+        CostPart.ItsManaCost -> "ItsManaCost"
+        CostPart.TapSelf -> "TapSelf"
+        CostPart.UntapSelf -> "UntapSelf"
+        is CostPart.TapObjects -> "TapObjects"
+        is CostPart.Sacrifice -> "Sacrifice"
+        is CostPart.Discard -> "Discard"
+        is CostPart.Exile -> "Exile"
+        is CostPart.OneOf -> "OneOf"
+        is CostPart.Action -> "Action"
+        is CostPart.ReturnToHand -> "ReturnToHand"
+        is CostPart.Reveal -> "Reveal"
+        is CostPart.PayLife -> "PayLife"
+        is CostPart.PayEnergy -> "PayEnergy"
+        is CostPart.RemoveCounters -> "RemoveCounters"
+        is CostPart.PutCounters -> "PutCounters"
+        is CostPart.Loyalty -> "Loyalty"
+        is CostPart.Mill -> "Mill"
+        is CostPart.ChoosePlayer -> "ChoosePlayer"
+        is CostPart.Choose -> "Choose"
+        is CostPart.GetCounters -> "GetCounters"
+        is CostPart.Waterbend -> "Waterbend"
+        is CostPart.Manual -> "Manual"
+    }
 
     /** "CopySpell" → "copy spell". */
     fun words(name: String): String = name.replace(Regex("([a-z])([A-Z])"), "$1 $2").lowercase()

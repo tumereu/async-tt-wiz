@@ -86,7 +86,7 @@ internal object Perform {
                     Casting.cancel(recorder, open.continuation, input.player)
                 }
                 is Input.SetupAnswer -> Setup.early(recorder, open, input)
-                else -> throw IllegalArgumentException("Waiting for ${open.decision::class.simpleName}: only its answer is accepted (D58)")
+                else -> throw IllegalArgumentException("Waiting for ${open.decision.kind}: only its answer is accepted (D58)")
             }
         } else {
             when (input) {

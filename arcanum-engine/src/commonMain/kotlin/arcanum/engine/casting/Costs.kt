@@ -259,7 +259,7 @@ internal object Costs {
         is CostPart.ChoosePlayer -> "Choose a player"
         // ecl
         is CostPart.Choose -> "Choose"
-        else -> part::class.simpleName ?: "cost"
+        else -> arcanum.engine.decision.Texts.costName(part)
     }
 
     /** Whether a creature [id] can pay its own {T}: it isn't summoning sick (CR 302.6). */

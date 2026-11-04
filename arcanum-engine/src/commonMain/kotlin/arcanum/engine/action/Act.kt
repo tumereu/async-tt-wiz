@@ -25,7 +25,7 @@ import arcanum.engine.view.View
 
 /** Thrown when a step needs a decision it has no answer for yet: the step is taken back and redone from its start
  * once the decision is answered (D29, D31). */
-internal class NeedDecision(val decision: Decision) : Exception("Waiting for ${decision::class.simpleName}")
+internal class NeedDecision(val decision: Decision) : Exception("Waiting for ${decision.kind}")
 
 /**
  * The answers given so far to the decisions of one step, handed out in the order the step asks (D29): a step asks the

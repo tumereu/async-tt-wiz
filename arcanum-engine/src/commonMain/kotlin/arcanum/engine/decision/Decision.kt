@@ -34,6 +34,35 @@ sealed interface Decision {
     val player: PlayerId
     val source: ObjectId?
 
+    /**
+     * The decision's kind in words ("Divide", "Targets"), the same on every platform, for keys a host keeps or sends.
+     * Written out, not the class's runtime name: a shrunk Android build may name a nested class "Decision$Divide" where
+     * the JVM says "Divide".
+     */
+    val kind: String get() = when (this) {
+        is Targets -> "Targets"
+        is Modes -> "Modes"
+        is Announce -> "Announce"
+        is ManaPayment -> "ManaPayment"
+        is May -> "May"
+        is ChooseObjects -> "ChooseObjects"
+        is ChooseOption -> "ChooseOption"
+        is ChooseColor -> "ChooseColor"
+        is ChooseSubtype -> "ChooseSubtype"
+        is ChooseCardType -> "ChooseCardType"
+        is ChooseCardName -> "ChooseCardName"
+        is ChooseNumber -> "ChooseNumber"
+        is ChoosePlayer -> "ChoosePlayer"
+        is Divide -> "Divide"
+        is OrderTriggers -> "OrderTriggers"
+        is ChooseReplacement -> "ChooseReplacement"
+        is LegendRule -> "LegendRule"
+        is Random -> "Random"
+        is HostFill -> "HostFill"
+        is OtherView -> "OtherView"
+        is Manual -> "Manual"
+    }
+
     /** Choose targets for slot [slot] among [options] (CR 601.2c, 603.3d): [min] to [max] (null: any number). */
     @Serializable @SerialName("targets")
     data class Targets(

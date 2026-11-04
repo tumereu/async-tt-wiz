@@ -176,4 +176,63 @@ class EnginePassesAndUndoTest {
         }
         assertEquals("HAND", where(alice.play(), herald))
     }
+
+    /** Both players' apps open on the game: each shows what arrived, answers a stop as assumed, ticks live and sends. */
+    private fun bothLive(sim: EngineAppSim, vararg games: EngineGame) {
+        for (game in games) {
+            sim.deliver(game.me)
+            if (game.device.catchUp) game.startPlayback()
+            game.playToStop()
+            (game.device.status as? GameDevice.Status.Stopped)?.let { game.act(it.assumed) }
+            game.tick(true, sim.now)
+            sim.flush(game.me)
+        }
+    }
+
+    // HIS-095 (§29.2, smoke 2026-11-04): with both apps open, Alice casts an Ember Herald and Bob's pass lets it resolve:
+    // on Alice's live table his pass shows at once (the Herald resolves), it never turns into playback
+    @Test fun theOtherPlayersPassShowsAtOnceOnALiveTable() {
+        val sim = EngineAppSim(f)
+        val alice = sim.load(f.a)
+        val bob = sim.load(f.b)
+        alice.tick(true, sim.now); bob.tick(true, sim.now)
+        alice.keep(emptyList())
+        sim.flush(f.a)
+        sim.deliver(f.b)
+        bob.playToStop()
+        bob.keep(emptyList())
+        sim.flush(f.b)
+        var guard = 0
+        while (guard++ < 40 && !(alice.device.status == GameDevice.Status.YourMove &&
+                alice.device.model.engine.turn.let { it.number >= 1 && it.active == a && it.step == arcanum.api.TurnStep.PrecombatMain })) {
+            bothLive(sim, alice, bob)
+            sim.now += 500
+        }
+        val s0 = alice.device.model.engine
+        assertEquals(arcanum.api.TurnStep.PrecombatMain to a, s0.turn.step to s0.turn.active, "Alice in her main phase")
+        val mountain = assertNotNull(s0.player(a).hand.firstOrNull { s0.obj(it)?.definition?.faces?.first()?.name == "Mountain" })
+        alice.send(listOf(Input.PlayLand(a, mountain)))
+        sim.flush(f.a)
+        val s1 = alice.device.model.engine
+        val cast = assertNotNull(Engine.options(s1, a).filterIsInstance<Input.Cast>().firstOrNull {
+            s1.obj(it.card)?.definition?.faces?.first()?.name == "Ember Herald" })
+        assertIs<GameDevice.Acted.Sent>(alice.send(EngineCombatScenario(f).cast(s1, a, cast)))
+        val herald = (cast.card as ObjectId.Card).card.value
+        alice.tick(true, sim.now)
+        sim.flush(f.a)
+        assertEquals("STACK", where(alice.play(), herald), "Alice's live device waits for Bob's answer")
+        // Bob's app passes (his own tap, or his device by his response mode)
+        sim.deliver(f.b)
+        bob.playToStop()
+        bob.tick(true, sim.now)
+        if (bob.device.status == GameDevice.Status.YourMove) assertIs<GameDevice.Acted.Sent>(bob.pass())
+        sim.flush(f.b)
+        assertTrue(sim.pending(f.a) > 0, "Bob's pass is on its way to Alice")
+        sim.deliver(f.a)
+        val shown = assertNotNull(alice.shown)
+        assertFalse(shown.status is GameDevice.Status.Playing, "no playback for Bob's pass: ${shown.status}")
+        assertFalse(shown.behind, "his pass is shown")
+        assertEquals("BATTLEFIELD", where(alice.play(), herald), "the Herald resolved on his pass")
+        assertTrue(shown.held.last { it.author == f.b }.let(EngineEventText::pass), "the last event of Bob's she was shown is his pass")
+    }
 }

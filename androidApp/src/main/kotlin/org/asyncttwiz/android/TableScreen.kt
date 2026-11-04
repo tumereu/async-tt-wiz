@@ -47,6 +47,8 @@ data class TableRuntimeHooks(val chat: (() -> Unit)? = null, val history: (() ->
     val oldBranch: Boolean = false,
     /** Null outside timeline mode; drives the centre status line and the corner play/pause flash. */
     val timelinePlayback: TimelinePlaybackStatus? = null,
+    /** The catch-up pause (HIS-094): the move pill reads "Catching up" (TRN-006). */
+    val catchingUp: Boolean = false,
     /** TRN-066: why the table waits for the other player, faint over the battlefield (never taking a touch); null when
      * it doesn't. */
     val waitingLine: String? = null)

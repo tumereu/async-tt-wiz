@@ -276,13 +276,13 @@ class EngineTwoDeviceTest {
 
     // HIS-033, HIS-097 (I-D56 §7, §8): async play: assumptions at once, catch-ups, branches
     @Test fun asyncGames() {
-        val stats = run(Mode.ASYNC, 11L..12L)
+        val stats = run(Mode.ASYNC, 11L..13L)
         assertTrue(stats.confirmations > 0 && stats.branches > 0 && stats.catchUps > 0, "$stats")
     }
 
     // HIS-099, TRN-065 (I-D56 §10, §11): players coming and going, undo requests, results
     @Test fun mixedGames() {
-        val stats = run(Mode.MIXED, 21L..23L)
+        val stats = run(Mode.MIXED, 21L..25L)
         assertTrue(stats.rewinds > 0 && stats.requests > 0 && stats.results > 0, "$stats")
     }
 }

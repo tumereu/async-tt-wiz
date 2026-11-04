@@ -167,6 +167,7 @@ internal fun EngineTableScreen(controller: LobbyController, accountId: String, h
                             playing -> TimelinePlaybackStatus.PLAYING
                             else -> null
                         },
+                        catchingUp = catchUp && reviewPlay == null,
                         history = if (timeline.isNotEmpty()) ({ routes.enterReview(timeline.last().id) }) else null,
                         returnCurrent = when {
                             reviewPlay != null -> ({ routes.leaveReview() })

@@ -26,7 +26,7 @@ import org.asyncttwiz.protocol.*
 internal fun BoxWithConstraintsScope.TableChromeHeader(game: GameSummary, play: PlayState, viewer: String, landscape: Boolean,
     runtime: TableRuntimeHooks, toolkit: TableToolkitController?, compact: Boolean, appearance: CardAppearance) {
     val turnColor = if (play.board.turn.accountId == viewer) OwnTableColor else OpponentTableColor
-    val attention = attentionPresentation(game, play, viewer, runtime.reviewing, toolkit?.enabled() == true)
+    val attention = attentionPresentation(game, play, viewer, runtime.reviewing, toolkit?.enabled() == true, runtime.catchingUp)
     val spacing = if (compact) 0.dp else 4.dp
     // Landscape shares this rail with the fixed opponent Hand (sidebar + 10dp).
     val titleWidth = if (landscape)

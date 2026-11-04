@@ -410,10 +410,10 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
     fun unstage() = worker.call { if (staging != null) { staging = null; publish() } }
 
     /** The player's opening: their mulligan (I-D54 §8: simultaneous mulligans), or null when they can't take one. */
-    fun mulligan(): GameDevice.Acted? = acting(STALE, after = false, sameDecision = true) { setupInput(arcanum.engine.decision.Answer.Option("Mulligan"))?.let(::act) }
+    fun mulligan(): GameDevice.Acted? = acting(STALE, after = false, same = GameDevice::sameDecision) { setupInput(arcanum.engine.decision.Answer.Option("Mulligan"))?.let(::act) }
 
     /** The player keeps, putting [bottom] (card ids) on the bottom of their library when cards are owed. */
-    fun keep(bottom: List<String>): GameDevice.Acted? = acting(STALE, after = false, sameDecision = true) {
+    fun keep(bottom: List<String>): GameDevice.Acted? = acting(STALE, after = false, same = GameDevice::sameDecision) {
         val keep = setupInput(arcanum.engine.decision.Answer.Option("Keep")) ?: return@acting null
         if (bottom.isEmpty()) return@acting act(keep)
         val objects = bottom.mapNotNull { id -> device.model.engine.player(PlayerId(me)).hand.firstOrNull { (it as? arcanum.engine.state.ObjectId.Card)?.card?.value == id } }
@@ -448,6 +448,9 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
             val tip = session.tip
             val local = session.localHead
             val head = session.head
+            // HIS-095 (§29.2, smoke 2026-11-04): a device that had shown everything (its live game) shows the other
+            // player's passes at once instead of playing them back
+            val live = !session.behind && !device.catchUp
             // §29.4: an undo animates backwards from the board shown before it
             rewinding = update?.target?.let { target ->
                 lastShown?.let { Rewinding(update.rewoundBy ?: events.firstOrNull()?.author ?: "", target, it.line, it.engine) }
@@ -460,6 +463,7 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
                 events.firstOrNull()?.let { it.parentId != head } == true -> "branch by ${events.first().author} at ${events.first().parentId}"
                 else -> "own pending events dropped: another event came first"
             } + " (events ${events.joinToString(",") { it.id }})", tip, local)
+            if (live) device.showPasses()
             device.advance(now)
             publish()
             rewinding = null
@@ -539,8 +543,10 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
     /** One input of the player's own (a pass, a keep, a concession). */
     fun act(input: Input): GameDevice.Acted = early("act") { performed -> device.act(input, performed = performed) }
 
-    /** The step arrow's End turn (TRN-057): the device passes for the player until the turn ends. */
-    fun endTurn() { acting(Unit, "endTurn") { device.endTurn(now) } }
+    /** The step arrow's End turn (TRN-057): the device passes for the player until the turn ends. SYS-011 (smoke
+     * 2026-11-04): tapped on a board the device has moved on from within the player's own turn (its own steps after
+     * their previous action), it ends that turn all the same ([GameDevice.sameEndTurn]). */
+    fun endTurn() { acting(Unit, "endTurn", same = { seen, moved -> GameDevice.sameEndTurn(seen, moved, PlayerId(me)) }) { device.endTurn(now) } }
 
     /** The waiting bar's Assume button (§4): the opponent's pass or keep, or [blocks] (the Assume blockers screen's). */
     fun assume(blocks: List<Block> = emptyList()): GameDevice.Acted = acting(STALE, "assume") { device.assume(blocks) }
@@ -593,13 +599,15 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
      * false (the action calls another one that does). Switchreview #6, SYS-011: when the engine thread has published a
      * board newer than the one shown (the device's own steps after an earlier action, or a server event, not on screen
      * yet: a second tap made on the old board), [stale] instead, with SYS-012's note, so nothing acts at a point the
-     * player never saw; with [sameDecision] (a decision's answer: an opening declaration) it is made on the newer board
-     * when that is still the same decision ([stillSame]). Checked once per action: what it does in turn (another
-     * action, staging) isn't checked again.
+     * player never saw; with [same] (a decision's answer: an opening declaration, [GameDevice.sameDecision]; End turn,
+     * [GameDevice.sameEndTurn]) it is made on the newer board when [same] holds for it ([stillSame]). Checked once per
+     * action: what it does in turn (another action, staging) isn't checked again. A refusal publishes its note with the
+     * board (never only queued: the table reads notes when a board arrives).
      * [what]: the action's name for the probe (SYS-025, SYS-030), which times the wait for the engine thread, the action
      * and its board; a slow one is logged and, with reports on, recorded like every slow action.
      */
-    private fun <T> acting(stale: T, what: String? = null, after: Boolean = true, sameDecision: Boolean = false, work: () -> T): T {
+    private fun <T> acting(stale: T, what: String? = null, after: Boolean = true,
+        same: ((arcanum.engine.state.GameState, arcanum.engine.state.GameState) -> Boolean)? = null, work: () -> T): T {
         val board = shown
         val seen = board?.version
         var refused = false
@@ -607,12 +615,12 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
         val result = worker.call {
             timing?.started = System.nanoTime()
             if (inAction) work()
-            else if (seen != null && seen != published && !(sameDecision && stillSame(what ?: "action", board))) {
-                refused = true; staleBoard(what ?: "action", seen); stale
+            else if (seen != null && seen != published && !(same != null && stillSame(what ?: "action", board, same))) {
+                refused = true; staleBoard(what ?: "action", seen); refusedStale(); stale
             }
             else { inAction = true; try { work() } finally { inAction = false } }
         }.also { timing?.acted = System.nanoTime() }
-        if (refused) worker.main { notes.add(GameDevice.Note.Refused(STALE_REASON)) } else if (after) after(timing)
+        if (!refused && after) after(timing)
         return result
     }
 
@@ -633,7 +641,7 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
             if (!inAction && seen != null && seen != published && !stillSame(what, board)) {
                 staleBoard(what, seen)
                 result.set(STALE)
-                worker.main { notes.add(GameDevice.Note.Refused(STALE_REASON)) }
+                refusedStale()
                 return@early
             }
             val outer = !inAction && release != null
@@ -682,15 +690,20 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
     private fun staleBoard(what: String, seen: Long) = AppLog.info("engine",
         "Own $what not taken: made on board v$seen, the device had published v$published (tip ${device.session.tip})")
 
+    /** SYS-012 (smoke 2026-11-04): a stale tap's note goes out with a board of its own, so the table, which reads notes
+     * when a board arrives, tells it at once (never left queued until something else changes). Engine thread. */
+    private fun refusedStale() = publish(listOf(GameDevice.Note.Refused(STALE_REASON)))
+
     /**
      * Owner, 2026-11-04 (SYS-011): an own action [what] tapped on [board], older than the one published, is made on the
      * device's board now when the same decision still waits for the player there ([GameDevice.sameDecision]: e.g. the
      * other player's pass arrived for the one assumed, or an event that changed nothing in the game); the action then
      * acts on the newer board, where the engine checks it again (SYS-057). Engine thread.
      */
-    private fun stillSame(what: String, board: Shown?): Boolean {
+    private fun stillSame(what: String, board: Shown?,
+        same: (arcanum.engine.state.GameState, arcanum.engine.state.GameState) -> Boolean = GameDevice::sameDecision): Boolean {
         val seen = board?.play?.board?.engine?.state ?: return false
-        if (device.session.drafting || !GameDevice.sameDecision(seen, device.model.engine)) return false
+        if (device.session.drafting || !same(seen, device.model.engine)) return false
         AppLog.info("engine", "Own $what made on board v$published: the same decision as on board v${board.version} it was tapped on")
         return true
     }

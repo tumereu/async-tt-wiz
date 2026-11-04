@@ -32,11 +32,13 @@ class SameDecisionTapTest {
      * shows the board from before (the newer one is published but hasn't reached the screen). */
     private class HeldWorker : EngineWorker {
         var holding = false
+        /** Called after each main-thread post runs (the table's view of the game after it). */
+        var observe: () -> Unit = {}
         private val main = ArrayDeque<() -> Unit>()
         override fun run(work: () -> Unit) = work()
         override fun <T> call(work: () -> T): T = work()
-        override fun main(work: () -> Unit) { if (holding) main.add(work) else work() }
-        fun release() { holding = false; while (main.isNotEmpty()) main.removeAt(0)() }
+        override fun main(work: () -> Unit) { if (holding) main.add(work) else { work(); observe() } }
+        fun release() { holding = false; while (main.isNotEmpty()) { main.removeAt(0)(); observe() } }
     }
 
     private val held = HeldWorker()
@@ -165,6 +167,60 @@ class SameDecisionTapTest {
         assertEquals(GameDevice.Acted.Refused("stale"), second)
         assertTrue(game.notes.any { it == GameDevice.Note.Refused("stale") })
         assertEquals(TurnStep.BeginningOfCombat, game.device.model.engine.turn.step, "her first pass only")
+    }
+
+    // SYS-011 (smoke 2026-11-04): Alice taps To combat (her pass in main 1), then End turn before the board her device
+    // moved on to by itself (Bob's passes assumed, past an empty combat) reaches the screen: End turn may be made at any
+    // priority of her own turn, so it is made on the newer board, not dropped
+    @Test fun endTurnTappedWhileTheDeviceStepsOnByItselfIsMade() {
+        val game = aliceInMain()
+        val turn = game.shown!!.engine.turn.number
+        held.holding = true
+        assertFalse(game.pass() is GameDevice.Acted.Refused, "To combat")
+        assertEquals(TurnStep.PrecombatMain, game.shown!!.engine.turn.step, "the table still shows main 1")
+        assertNotEquals(TurnStep.PrecombatMain, game.device.model.engine.turn.step, "her device went on by itself")
+        game.endTurn()
+        held.release()
+        assertTrue(game.notes.none { it is GameDevice.Note.Refused }, "no refusal note: ${game.notes}")
+        assertTrue(sameDecisionLogged("endTurn"), "made on the newer board")
+        val s = game.device.model.engine
+        assertTrue(s.turn.number > turn && s.turn.active != alice, "her turn ended: ${s.turn}")
+    }
+
+    // SYS-011, SYS-012 (smoke 2026-11-04): a second End turn tapped on Alice's turn after the first one already took the
+    // game into Bob's turn is another decision: not taken, and the note comes with a board of its own, so the table
+    // (which reads notes when a board arrives) tells it at once
+    @Test fun endTurnOnABoardOfAnEndedTurnIsRefusedWithTheNoteAtOnce() {
+        val game = aliceInMain()
+        held.holding = true
+        game.endTurn()
+        assertEquals(alice, game.shown!!.engine.turn.active, "the table still shows her turn")
+        assertNotEquals(alice, game.device.model.engine.turn.active, "her device is in Bob's turn")
+        val seen = mutableListOf<Pair<Long, Boolean>>()
+        held.observe = { seen += game.version to game.notes.any { it == GameDevice.Note.Refused("stale") } }
+        game.endTurn()
+        held.release()
+        assertTrue(game.notes.any { it == GameDevice.Note.Refused("stale") }, "told with SYS-012's note: ${game.notes}")
+        val told = seen.indexOfFirst { it.second }
+        assertTrue(told > 0 && seen[told].first > seen[told - 1].first, "the note arrived with a new board: $seen")
+    }
+
+    // SYS-011 (smoke 2026-11-04): End turn's sameness: the same own turn moved on (another step, the player's own Stack
+    // object) still ends it; the other player's Stack object or another turn don't
+    @Test fun endTurnIsTheSameDecisionAnywhereInTheSameOwnTurn() {
+        val game = aliceInMain(land = true)
+        val s = game.device.model.engine
+        val bob = PlayerId(f.b)
+        val combat = s.deepCopy().also { it.turn = it.turn.copy(step = TurnStep.BeginningOfCombat) }
+        assertTrue(GameDevice.sameEndTurn(s, combat, alice), "another step of her turn")
+        assertFalse(GameDevice.sameEndTurn(s, s.deepCopy().also { it.turn = it.turn.copy(number = it.turn.number + 1, active = bob) }, alice),
+            "Bob's turn")
+        assertFalse(GameDevice.sameEndTurn(s, combat, bob), "not Bob's own turn")
+        val cast = s.deepCopy().also { c -> for (input in spark(s)) Engine.perform(c, input).changes.forEach(c::apply) }
+        assertTrue(cast.stack.isNotEmpty(), "Storm Spark on the Stack")
+        assertTrue(GameDevice.sameEndTurn(s, cast, alice), "her own spell")
+        val theirs = cast.deepCopy().also { c -> c.stackItems.replaceAll { _, item -> item.copy(controller = bob) } }
+        assertFalse(GameDevice.sameEndTurn(s, theirs, alice), "a Stack object of Bob's she never saw")
     }
 
     // SYS-011: what makes a decision the same: nothing in the game differs but its record of what happened; a new Stack

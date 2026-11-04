@@ -8,12 +8,15 @@ internal data class AttentionPresentation(val label: String, val name: String, v
 }
 
 internal fun attentionPresentation(game: GameSummary, play: PlayState, viewer: String,
-    reviewing: Boolean, connected: Boolean): AttentionPresentation {
+    reviewing: Boolean, connected: Boolean, catchingUp: Boolean = false): AttentionPresentation {
     // TRN-058: the move the game list shows too (on engine state: whom the game really waits for)
     val holder = play.board.moveHolder
     val own = holder == viewer
     val name = if (game.inviter.accountId == holder) game.inviter.username else game.recipient.username
-    return AttentionPresentation(if (own) "Your move" else "Waiting · $name", name, own, !reviewing && connected)
+    // TRN-006 (smoke 2026-11-04): in the catch-up pause (HIS-094) the board is an earlier point, so the pill says so in
+    // the move's own colours
+    val label = if (catchingUp) "Catching up" else if (own) "Your move" else "Waiting · $name"
+    return AttentionPresentation(label, name, own, !reviewing && connected)
 }
 
 internal fun turnHeader(game: GameSummary, turn: TurnState, viewer: String): String {

@@ -347,6 +347,29 @@ class GameDevice(
         return shown
     }
 
+    /**
+     * HIS-095 (§29.2, smoke 2026-11-04): the other player's passes reaching a device that showed everything before them (its
+     * live game at the head) show at once instead of playing back: events that are only priority passes (what they led to
+     * included, such as a spell resolving), with no table change and nowhere playback would stop before them. Never while
+     * catching up, drafting or with the device's own events pending. True when it showed any.
+     */
+    fun showPasses(): Boolean {
+        var shown = false
+        while (!needsReload && !catchUp && !session.drafting && session.pending.isEmpty() && session.behind) {
+            val next = session.buffered.first()
+            if (!passesOnly(next) || stopAt(next) != null) break
+            session.showNext()
+            shown = true
+        }
+        if (shown && !session.behind) pausing = false
+        return shown
+    }
+
+    private fun passesOnly(event: GameEvent): Boolean {
+        val steps = event.engine?.steps ?: return false
+        return event.table.isEmpty() && steps.any { it.input != null } && steps.all { it.input == null || it.input is Input.PassPriority }
+    }
+
     /** "Return to current" and Back while behind (§7): plays on to the next decision point, never past it. */
     fun playToStop(): List<GameEvent> {
         catchUp = false
@@ -1325,6 +1348,18 @@ class GameDevice(
          */
         fun sameDecision(seen: GameState, now: GameState): Boolean =
             seen === now || seen.copy(log = mutableListOf(), timestampCounter = 0) == now.copy(log = mutableListOf(), timestampCounter = 0)
+
+        /**
+         * SYS-011 (smoke 2026-11-04): whether End turn tapped on the board [seen] still ends the same turn on [now], the
+         * board the device has moved on to: End turn may be made at any priority of the player's own turn, so the board
+         * having moved on within it by [me]'s own device (its passes and steps after their earlier action, their own
+         * triggers) is the same decision. Both [me]'s turn, the same turn, and every Stack object on [now] already on
+         * [seen] or [me]'s own; another turn, or the other player's spell or ability they never saw, is not. Or
+         * [sameDecision].
+         */
+        fun sameEndTurn(seen: GameState, now: GameState, me: PlayerId): Boolean = sameDecision(seen, now) ||
+            (seen.turn.active == me && now.turn.active == me && seen.turn.number == now.turn.number &&
+                now.stack.all { it in seen.stack || now.stackItems[it]?.controller == me })
 
         /** A device for [me] from the server's [snapshot] (and the codec of the game's definitions), at their local head
          * with the events past it buffered. */

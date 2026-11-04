@@ -210,6 +210,25 @@ class EventBuilder(private val model: GameModel, private val id: String, parentI
         if (changes.isNotEmpty()) steps += EngineStep(null, changes)
     }
 
+    /** How far the event is made: the engine steps so far, the timestamp counter and the line's random answers. */
+    class Mark internal constructor(internal val steps: Int, internal val counter: Long, internal val line: Line, internal val tables: Int)
+
+    /** Where the event is now, to [takeBack] to. */
+    fun mark(): Mark = Mark(steps.size, model.engine.timestampCounter, line, table.size)
+
+    /** Takes back everything made since [mark] (a step a device holds back, I-D56 §5); the rest stays. */
+    fun takeBack(mark: Mark) {
+        check(!done) { "The event was built or abandoned" }
+        while (table.size > mark.tables) model.applyTable(table.removeAt(table.lastIndex).inverse())
+        while (steps.size > mark.steps) {
+            val step = steps.removeAt(steps.lastIndex)
+            for (change in step.changes.asReversed()) model.engine.revert(change)
+            randomSteps.remove(steps.size)
+        }
+        model.engine.timestampCounter = mark.counter
+        line = mark.line
+    }
+
     fun table(change: TableChange) {
         check(!done) { "The event was built or abandoned" }
         model.applyTable(change)

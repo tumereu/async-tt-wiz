@@ -201,7 +201,7 @@ internal object Casting {
                 c = c.copy(choices = Answers.apply(plan, q, auto))
                 continue
             }
-            val decision = plan.decision(q, decisionId(recorder.state, "cast:${q.stage}:${q::class.simpleName}"))
+            val decision = plan.decision(q, decisionId(recorder.state, "cast:${q.stage}:${q.kind}"))
             return Progress.Waiting(Pending(decision, c.copy(stage = q.stage, made = c.made + recorder.madeSince(from))))
         }
     }

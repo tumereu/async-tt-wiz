@@ -47,6 +47,28 @@ import arcanum.engine.view.Layers
 internal sealed interface Question {
     val stage: AnnounceStage
 
+    /**
+     * The question's name in its decision id. Written out, not the class's name: a shrunk Android build names a nested
+     * class "Question$Pay" where the JVM says "Pay", and a device and a server must make the same decision ids.
+     */
+    val kind: String get() = when (this) {
+        is Modes -> "Modes"
+        is OptionalCost -> "OptionalCost"
+        is Splice -> "Splice"
+        is Announce -> "Announce"
+        is Target -> "Target"
+        is Divide -> "Divide"
+        is OneOf -> "OneOf"
+        is Objects -> "Objects"
+        is ManaColor -> "ManaColor"
+        is Player -> "Player"
+        is CostChoice -> "CostChoice"
+        is Pay -> "Pay"
+        is Assist -> "Assist"
+        is AssistAmount -> "AssistAmount"
+        is AssistPay -> "AssistPay"
+    }
+
     data class Modes(val modes: arcanum.api.Modes) : Question { override val stage get() = AnnounceStage.Modes }
     data class OptionalCost(val key: String, val mechanic: Mechanic.AdditionalCost) : Question { override val stage get() = AnnounceStage.Modes }
     /** Whether to splice [splice] onto the spell (CR 702.47a). */

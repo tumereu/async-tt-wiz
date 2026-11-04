@@ -104,6 +104,22 @@ class EngineGameTest {
             f.codec.decodeModel(s.state) }), "back to the server's state")
     }
 
+    // SYS-012 (problem report N7FU6Y): an own action the server refuses for any other reason (the engine's) is told too,
+    // never a silent snap back, and the app log says once which board was taken back and why
+    @Test fun anOwnActionTheEngineRefusesIsToldAndLogged() {
+        val game = alice()
+        game.tick(live = true, now = 1_000)
+        assertIs<GameDevice.Acted.Sent>(game.keep(emptyList()))
+        val submit = game.take(1_000).filterIsInstance<GameAction.Submit>().first()
+        val shown = game.device.session.tip
+        game.refused(submit, "refusedByEngine")
+        assertTrue(game.notes.any { it == GameDevice.Note.Refused("refusedByEngine") })
+        assertEquals(NOT_ACCEPTED, refusedText("refusedByEngine"))
+        val lines = AppLog.text().lines().filter { "Shown board taken back" in it && submit.submission.id in it }
+        assertEquals(1, lines.size, AppLog.text())
+        assertTrue("refusedByEngine" in lines.single() && "tip $shown → ${game.device.session.tip}" in lines.single(), lines.single())
+    }
+
     // SYS-025, I-D56 step D2 (engine-state-architecture §12 item 11): the device lives on one engine thread; the table
     // reads only the snapshots it publishes. The player's own action still has its local result when it returns; the
     // device's own steps, the server's events and the board follow on the engine thread, the same as inline

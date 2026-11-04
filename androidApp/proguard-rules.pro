@@ -12,3 +12,8 @@
 -keep class * extends androidx.room.RoomDatabase {
     <init>();
 }
+
+# Class names that end up in game data (problem report N7FU6Y): without these attributes a nested class's simpleName
+# is "Outer$Inner" on the phone and "Inner" on the server. Game ids are written out where it matters; this keeps the
+# rest (texts, logs) the same as on the JVM.
+-keepattributes InnerClasses,EnclosingMethod

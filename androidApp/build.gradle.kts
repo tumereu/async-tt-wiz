@@ -151,6 +151,9 @@ android {
                 (uri.scheme == "http" && uri.host == "127.0.0.1"))
     }.getOrDefault(false)) { "atwApiOrigin must be an HTTPS origin (or isolated debug IPv4 loopback)" }
     defaultConfig { buildConfigField("String", "ACCOUNT_ORIGIN", "\"$origin\"") }
+    // Plain-HTTP API on the ADB-reversed IPv4 loopback: debug only, plus the emulator smoke build below.
+    defaultConfig { buildConfigField("boolean", "LOOPBACK_API", "false") }
+    buildTypes.getByName("debug") { buildConfigField("boolean", "LOOPBACK_API", "true") }
     // Public Firebase application identifiers only, supplied explicitly. No google-services plugin/file.
     defaultConfig {
         mapOf("FCM_APPLICATION_ID" to "atwFcmApplicationId", "FCM_PROJECT" to "atwFcmProject",
@@ -234,6 +237,25 @@ android {
         buildConfigField("String", "ART_TEST_ORIGIN", "\"\"")
         buildConfigField("String", "ART_BASE", "\"https://api.scryfall.com/cards/\"")
         manifestPlaceholders["resetHost"] = "desktop-b2kalvm.tail27cccc.ts.net"
+        buildConfigField("boolean", "LOOPBACK_API", "false")
+    }
+    // Emulator smoke runs only (scripts/smoke-emulators.sh): -PatwSmokeApiOrigin=http://127.0.0.1:<port> points
+    // this same R8 build at the ADB-reversed WSL test server. Without the property personalTest is unchanged.
+    val smokeOrigin = providers.gradleProperty("atwSmokeApiOrigin").orElse("").get()
+    if (smokeOrigin.isNotEmpty()) {
+        require(runCatching {
+            val uri = URI(smokeOrigin)
+            uri.scheme == "http" && uri.host == "127.0.0.1" && uri.port in 1..65535 && uri.rawUserInfo == null &&
+                uri.rawPath.isNullOrEmpty() && uri.rawQuery == null && uri.rawFragment == null
+        }.getOrDefault(false)) { "atwSmokeApiOrigin must be an http://127.0.0.1:<port> origin" }
+        buildTypes.getByName("personalTest") {
+            buildConfigField("String", "ACCOUNT_ORIGIN", "\"$smokeOrigin\"")
+            buildConfigField("boolean", "LOOPBACK_API", "true")
+        }
+        sourceSets.getByName("personalTest") {
+            manifest.srcFile("src/smoke/AndroidManifest.xml")
+            res.srcDir("src/smoke/res")
+        }
     }
     // Release and personalTest shrink and optimize with R8 but keep names, so problem-report stack traces
     // stay readable. -PatwMinify=true applies the same setup to debug, for local device checks only.

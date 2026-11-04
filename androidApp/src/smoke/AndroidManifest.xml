@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Replaces the personalTest manifest only when -PatwSmokeApiOrigin is set (emulator smoke builds). -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools">
+    <application android:label="ATW Test" tools:replace="android:label"
+        android:networkSecurityConfig="@xml/smoke_network_security" />
+</manifest>

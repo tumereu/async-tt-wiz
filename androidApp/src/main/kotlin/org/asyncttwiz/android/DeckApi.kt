@@ -36,7 +36,7 @@ class DeckApi(private val origin: String, private val client: HttpClient = Accou
         require(origin.isEmpty() || URI(origin).let {
             it.host != null && it.rawUserInfo == null && it.rawQuery == null && it.rawFragment == null &&
                 it.rawPath.isNullOrEmpty() && (it.scheme == "https" ||
-                (BuildConfig.DEBUG && it.scheme == "http" && it.host == "127.0.0.1"))
+                (BuildConfig.LOOPBACK_API && it.scheme == "http" && it.host == "127.0.0.1"))
         })
     }
     override suspend fun submit(token: String, value: SubmitDefinitions): DefinitionsAccepted =

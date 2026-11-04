@@ -272,6 +272,39 @@ class EngineTableScreenshotTest {
         compose.runOnIdle { assertTrue(game.device.model.engine.stack.isEmpty(), "Storm Spark resolved on the assumed pass") }
     }
 
+    // STK-046 (owner playtest 2026-11-04): in Full control Alice keeps priority after her Ember Herald resolved: its enters
+    // trigger is on the Stack as an ability token (the Herald's art, the trigger marker, its name and text), not as the
+    // Herald card; the Stack list shows it as "Ember Herald's ability" with its text
+    @Test fun anAbilityOnTheStackIsDrawnAsAnAbility() {
+        val h = EngineGameFixture(heralds = true)
+        val me = PlayerId(h.a)
+        val game = EngineGame(h.game.id, h.a, h.base, h.snapshot()).apply { tick(false, 1_000); keep(emptyList()); tick(false, 2_000) }
+        game.settings(game.shown!!.settings.copy(mode = org.asyncttwiz.protocol.game.ResponseMode.FullControl))
+        fun named(name: String) = game.device.model.engine.let { s -> s.player(me).hand.first { s.obj(it)?.definition?.faces?.first()?.name == name } }
+        game.send(listOf(Input.PlayLand(me, named("Mountain"))))
+        game.tick(false, 3_000)
+        val s = game.device.model.engine
+        val cast = Engine.options(s, me).filterIsInstance<Input.Cast>().first { s.obj(it.card)?.definition?.faces?.first()?.name == "Ember Herald" }
+        assertIs<GameDevice.Acted.Sent>(game.send(EngineCombatScenario(h).cast(s, me, cast)))
+        game.tick(false, 4_000)
+        // Resolve the Herald (Bob's pass assumed): its trigger goes on the Stack and Alice keeps priority in Full control
+        game.act(Input.PassPriority(me))
+        game.tick(false, 5_000)
+        assertEquals(GameDevice.Status.YourMove, game.device.status)
+        val top = CombatStackRules.stack(game.play().board).cards.single()
+        assertEquals(MtgStackKind.Triggered, game.play().board.stackEffects.single { it.id == top }.item?.kind)
+        render(game, h.a)
+        compose.onNodeWithTag("stack-resolve").assertExists()
+        compose.onNodeWithContentDescription("Triggered ability, Ember Herald — When this creature enters", substring = true).assertExists()
+        captureShot("$SCREENSHOTS/engine/stack-ability.png",
+            "In Full control Alice's Ember Herald resolved and its enters trigger is on the Stack: it is drawn as a small dark ability token with the Herald's art, a \"!\" trigger marker, the Herald's name and the trigger's text, not as the Herald card, with Resolve under it.")
+        compose.onNodeWithContentDescription("Stack, 1 entries").performClick()
+        compose.waitForIdle()
+        compose.onNodeWithText("Top · Ember Herald's ability").assertExists()
+        captureShot("$SCREENSHOTS/engine/stack-ability-list.png",
+            "Alice tapped the Stack holding her Ember Herald's enters trigger: the list shows it as the ability token, \"Top · Ember Herald's ability\" and the trigger's text.")
+    }
+
     // HIS-095, HIS-091 (owner playtest 2026-11-04 #1, #2): Bob's playback stops at the keep Alice assumed for him: his
     // table looks like any opening of his, with no words saying it was assumed
     @Test fun aStopAtAnAssumptionLooksLikeYourOwnPoint() {

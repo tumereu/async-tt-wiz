@@ -158,7 +158,9 @@ data class TableItem(
     /** Automatum on (I1): changed types and colours, keywords gained or lost and typed counters, as one chip. */
     val automatumMarks: List<String> = emptyList(),
     /** ZON-079: a raised hand card (drawn above its hand row, not clipped by it at the top). */
-    val raised: Boolean = false
+    val raised: Boolean = false,
+    /** STK-046: a Stack entry that is a triggered or activated ability, drawn as an ability token, not as its source card. */
+    val stackAbility: StackAbilityShown? = null
 ) {
     /** The card title's colour on the table: blue while it entered this turn, else the default text colour. */
     val titleColor: Int get() = if (enteredThisTurn) EnteredThisTurnTitleColor else android.graphics.Color.DKGRAY
@@ -432,7 +434,10 @@ object TablePresentation {
             // Automatum on (I1): a Battlefield card (and its combat copies) shows the engine's P/T and marks.
             val auto = if (values && zone == PlayZone.BATTLEFIELD && !frozen) computed.cards[card.id] else null
             val autoCorner = auto?.corner
-            val label = "$title, owner ${name(card.owner)}, ${if (tapped) "tapped" else "untapped"}" +
+            // STK-046: an ability on the Stack names itself as an ability, with its text
+            val ability = if (zone == PlayZone.STACK && projection && !hidden) StackAbilities.of(play, viewId, viewer) else null
+            val label = if (ability != null) "${ability.kind}, ${ability.line}, controller ${name(CombatStackRules.controller(play.board, viewId) ?: card.owner)}"
+                else "$title, owner ${name(card.owner)}, ${if (tapped) "tapped" else "untapped"}" +
                 if (entered) ", entered this turn" else ""
             return TableItem("card/$viewId", b, if (projection) "${if (frozen) "Retained effect, read-only" else "Projection"}, $label" else label,
                  if (hidden) "" else title, if (projection && zone == PlayZone.STACK) CombatStackRules.controller(play.board, viewId) else card.owner,
@@ -448,7 +453,7 @@ object TablePresentation {
                     cornerColor = if (autoCorner != null) computedCornerColor(auto.trend) else null,
                     cornerHourglass = autoCorner != null && auto.untilEndOfTurn, automatumMarks = auto?.marks.orEmpty(),
                     frontTypeLine = if (hidden) "" else definitions[card.definition]?.faces?.firstOrNull()?.typeLine.orEmpty(),
-                    enteredThisTurn = entered, coveredTitle = coveredTitle).also { if (draw) items += it }
+                    enteredThisTurn = entered, coveredTitle = coveredTitle, stackAbility = ability).also { if (draw) items += it }
         }
         // Opponent block on top (counters/Temp row above its pile row), own block at the bottom.
         val dockRowY = if (landscape) listOf(boardTop + counterHeight + landscapeExtra[0] - sidebarScroll,

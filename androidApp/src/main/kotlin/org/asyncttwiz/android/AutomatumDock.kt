@@ -183,6 +183,7 @@ internal fun StackTargetPicker(toolkit: TableToolkitController, play: PlayState)
                 val legal = id in targets
                 val card = choiceCard(play, viewer, id, CombatStackRules.inspection(play.board, id)?.id, entry.faceVisible, entry.name)
                     .copy(own = CombatStackRules.controller(play.board, id) == viewer)
+                    .let { c -> entry.ability?.let { c.copy(name = it.name, ability = it) } ?: c }
                 ChoiceCardFace(card, Modifier.alpha(if (legal) 1f else .4f)
                     .then(if (legal) Modifier.semantics { contentDescription = "Legal target" } else Modifier)
                     .choiceCardGestures(id, tap = { if (legal) toolkit.pickStackTarget(id) }, hold = { inspector.hold(card, it) }),

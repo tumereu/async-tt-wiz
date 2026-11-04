@@ -169,6 +169,8 @@ internal class TableCardPainter(val density: Float, scene: TableScene, val cache
             fittedText(corner, x + cardWidth - 4 * z, y + cardHeight - 3 * z, badgeWidth - 4 * z, right = true)
             paint.color = previousColor
         }
+        val ability = i.stackAbility
+        if (ability != null && !i.covered) { abilityFace(i, ability, color, z); return@translate }
         val outline = cache.outline(cardWidth * density, cardHeight * density, i.token)
         drawPath(outline, if (i.covered) Color(0xff506b61) else Color.White)
         val art = i.artwork?.key?.let(artwork::get)
@@ -227,4 +229,91 @@ internal class TableCardPainter(val density: Float, scene: TableScene, val cache
         paint.textSize = 11 * density
         }
     }
+
+    /**
+     * STK-046: a triggered or activated ability on the Stack, as MTG Arena draws one: a token smaller than a card, dark,
+     * with the controller's outline, the source's art in its top part, a round marker (a "!" for a triggered ability, a
+     * bolt for an activated one, as the Activate chips), the source's name and as much of the ability's text as fits.
+     * Drawn at the origin of a card of width 28 [z].
+     */
+    private fun DrawScope.abilityFace(i: TableItem, ability: StackAbilityShown, color: Color, z: Float) {
+        val body = TableBounds(2f * z, 4f * z, 24f * z, 32f * z)
+        val radius = CornerRadius(4f * z * density)
+        val shape = androidx.compose.ui.graphics.Path().apply {
+            addRoundRect(androidx.compose.ui.geometry.RoundRect(body.x * density, body.y * density, body.right * density,
+                body.bottom * density, radius))
+        }
+        drawPath(shape, AbilityTokenColor)
+        val artBounds = TableBounds(body.x, body.y, body.width, 11f * z)
+        val art = i.artwork?.key?.let(artwork::get)
+        clipPath(shape) {
+            if (art != null) drawTableArtwork(art, artBounds)
+            else {
+                drawRect(AbilityTokenArtColor, xy(artBounds.x, artBounds.y), size(artBounds.width, artBounds.height))
+                paint.textSize = 12 * z * density; paint.color = android.graphics.Color.WHITE
+                text(i.typeIcon, artBounds.center.x - cache.measure(i.typeIcon) / density / 2, artBounds.y + 9.5f * z, i.typeIcon.length)
+            }
+        }
+        drawPath(shape, color, style = Stroke(1.5f * density * z))
+        // The marker on the art's lower left edge
+        val mark = Offset((body.x + 4.5f * z) * density, artBounds.bottom * density)
+        drawCircle(AutomatumViolet, 3.6f * z * density, mark)
+        drawCircle(Color.White, 3.6f * z * density, mark, style = Stroke(.8f * z * density))
+        val u = z * density
+        if (ability.triggered) {
+            drawRoundRect(Color.White, Offset(mark.x - .55f * u, mark.y - 2.3f * u), Size(1.1f * u, 3f * u), CornerRadius(.5f * u))
+            drawCircle(Color.White, .65f * u, Offset(mark.x, mark.y + 1.75f * u))
+        } else {
+            val bolt = androidx.compose.ui.graphics.Path().apply {
+                moveTo(mark.x + .6f * u, mark.y - 2.6f * u); lineTo(mark.x - 1.5f * u, mark.y + .4f * u)
+                lineTo(mark.x - .1f * u, mark.y + .4f * u); lineTo(mark.x - .6f * u, mark.y + 2.6f * u)
+                lineTo(mark.x + 1.5f * u, mark.y - .4f * u); lineTo(mark.x + .1f * u, mark.y - .4f * u); close()
+            }
+            drawPath(bolt, Color.White)
+        }
+        // The source's name beside the marker, then the ability's text in the rest of the token
+        paint.color = android.graphics.Color.WHITE; paint.isFakeBoldText = true
+        paint.textSize = 6f * titleScale * z * density
+        val nameLeft = body.x + 9f * z
+        fittedText(ability.source, nameLeft, artBounds.bottom + 6f * z, body.right - 1.5f * z - nameLeft)
+        paint.isFakeBoldText = false
+        paint.color = AbilityTokenTextColor.toArgb()
+        paint.textSize = 4.8f * noteScale * z * density
+        val lineHeight = 5.6f * noteScale * z
+        val top = artBounds.bottom + 7.2f * z
+        val lines = ((body.bottom - z - top) / lineHeight).toInt().coerceAtLeast(1)
+        val width = (body.width - 3f * z) * density
+        wrapped(ability.text, width, lines).forEachIndexed { n, line ->
+            text(line, body.x + 1.5f * z, top + lineHeight * (n + 1) - z, line.length)
+        }
+        paint.color = android.graphics.Color.DKGRAY
+        paint.textSize = 11 * density
+    }
+
+    /** [value] in at most [lines] lines of at most [width] px at the paint's size; the last one ends in "…" when cut. */
+    private fun wrapped(value: String, width: Float, lines: Int): List<String> {
+        val out = mutableListOf<String>()
+        var line = ""
+        for (word in value.split(' ').filter { it.isNotEmpty() }) {
+            val next = if (line.isEmpty()) word else "$line $word"
+            if (line.isEmpty() || cache.measure(next) <= width) { line = next; continue }
+            out += line
+            // More words than lines: the last line ends in "…"
+            if (out.size == lines) return out.dropLast(1) + ellipsized(out.last(), width)
+            line = word
+        }
+        if (line.isNotEmpty()) out += line
+        return out.map { if (cache.measure(it) > width) ellipsized(it, width) else it }
+    }
+
+    private fun ellipsized(value: String, width: Float): String {
+        var cut = value
+        while (cut.isNotEmpty() && cache.measure("$cut…") > width) cut = cut.dropLast(1)
+        return "${cut.trimEnd()}…"
+    }
 }
+
+/** STK-046: an ability token's body, its art band while the art is missing, and its text. */
+internal val AbilityTokenColor = Color(0xff2e2838)
+internal val AbilityTokenArtColor = Color(0xff4a4259)
+internal val AbilityTokenTextColor = Color(0xffe8e2f0)

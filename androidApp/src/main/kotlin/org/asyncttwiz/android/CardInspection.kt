@@ -217,8 +217,11 @@ internal fun GameplayCardInspection(state: PlayState, viewer: String, inspection
             open(permitted, shown, flipped)
         } }
         LaunchedEffect(permitted) { if (controller.state?.card != permitted) controller.open(permitted, shown, flipped) }
-        val annotation = remember(card, names, inspection.provisional, computed, viewer, IdentityKey(state.board)) {
-            listOfNotNull(inspectionAnnotation(card, names, inspection.provisional, computed, viewer, state).ifBlank { null },
+        val annotation = remember(card, names, inspection, computed, viewer, IdentityKey(state.board)) {
+            // STK-046: holding an ability on the Stack shows its source card under the ability's kind and text
+            listOfNotNull((inspection.stackEntryId ?: inspection.cardId).let { StackAbilities.of(state, it, viewer) }
+                ?.let { "${it.kind} of ${it.source}" + if (it.text.isEmpty()) "" else ":\n${it.text}" },
+                inspectionAnnotation(card, names, inspection.provisional, computed, viewer, state).ifBlank { null },
                 automatumReasons(state, viewer, card.id, names).joinToString("\n").ifBlank { null }).joinToString("\n") }
         if (controller.state != null) CardInspection(controller, annotation,
             token = card.token, owner = if (card.owner == viewer) OwnTableColor else OpponentTableColor,

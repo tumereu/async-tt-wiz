@@ -1,0 +1,1 @@
+mod: Triggered and activated abilities on the Stack now look like small dark ability tokens with the card's art, a marker and the ability's text, so they no longer look like the card's spell still waiting; texts call them "<card>'s ability".

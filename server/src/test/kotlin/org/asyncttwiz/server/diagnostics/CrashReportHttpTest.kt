@@ -61,7 +61,9 @@ class CrashReportHttpTest {
                     AND app_version='1.0 debug commit abc' AND device='Model; Android 15'"""))
 
                 val batch = LatencyBatch(listOf(
-                    ActionLatency(now.toString(), "game", "Play.MoveCard", 321, true, 22.5, 35.0),
+                    // SYS-030: an own action carries its parts
+                    ActionLatency(now.toString(), "game", "Play.MoveCard", 321, true, 22.5, 35.0,
+                        parts = mapOf("waitMs" to 0.5, "engineMs" to 2.0, "boardMs" to 20.0)),
                     ActionLatency(now.toString(), "game", "Undo", 321, false, serverResultMs = 99.0)),
                     taps = listOf(org.asyncttwiz.protocol.CardTapDiagnostic(now.toString(), "game", "rotated", "predictedAndQueued",
                         firstAnimationFrameMs = 21.0, droppedFrames = 2, popupOpen = true, popupClosing = true)))
@@ -70,6 +72,8 @@ class CrashReportHttpTest {
                 assertEquals(1L, f.number("SELECT count(*) FROM debug_crash_report WHERE kind='latency' AND body='$body'"))
                 assertEquals(400, post("{}", kind = "latency"))
                 assertEquals(400, post(AccountJson.format.encodeToString(batch.copy(taps = batch.taps.map { it.copy(droppedFrames = -1) })), kind = "latency"))
+                assertEquals(400, post(AccountJson.format.encodeToString(batch.copy(actions = batch.actions.map {
+                    it.copy(parts = mapOf("boardMs" to -1.0)) })), kind = "latency"))
                 assertEquals(400, post(body, kind = "other"))
                 assertEquals(413, post(" ".repeat(65_537), kind = "latency"))
 

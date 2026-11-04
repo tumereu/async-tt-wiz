@@ -282,9 +282,14 @@ internal fun rememberComputedBoard(play: PlayState, viewer: String, tags: (() ->
     val ready = AutomatumBoards.cached(play, viewer)
     LaunchedEffect(IdentityKey(play.board), viewer) {
         last = ready ?: withContext(AutomatumBoards.boardWorker) { AutomatumBoards.compute(play, viewer) }
+        // SYS-030: an own action's probe counts its board's computed values and hand plays arriving
+        OwnActionProbes.computed(play.board)
         // I2: what the viewer may cast from their hand, ready before their hand menu or a double-tap asks (the history's
         // tags read on the worker too)
-        if (tags != null) withContext(AutomatumBoards.boardWorker) { AutomatumBoards.handPlays(play, viewer, tags) }
+        if (tags != null) {
+            withContext(AutomatumBoards.boardWorker) { AutomatumBoards.handPlays(play, viewer, tags) }
+            OwnActionProbes.plays(play.board)
+        }
     }
     return ready ?: last
 }

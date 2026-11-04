@@ -38,6 +38,10 @@ interface EngineWorker {
     /** Runs [work] on the main thread. */
     fun main(work: () -> Unit)
 
+    /** On the main thread: runs [work] once the main thread's next frame is drawn (the own-action probe, SYS-030); at
+     * once by default (tests). */
+    fun frame(work: () -> Unit) = main(work)
+
     /** Runs [work] on the engine thread and waits only until it calls its release (or ends): an own action whose board
      * shows before its event is finished (SYS-025). Without a release (null: inline when already on the engine thread,
      * and [call] by default, so tests run it in order) the caller waits for all of it. */
@@ -76,6 +80,12 @@ interface EngineWorker {
             if (android.os.Looper.myLooper() == android.os.Looper.getMainLooper()) work() else handler.post(work)
         }
 
+        /** The next frame's callback posts [work], which runs once that frame's main-thread work (the recomposition and
+         * the drawing it brings) is done. */
+        override fun frame(work: () -> Unit) = main {
+            android.view.Choreographer.getInstance().postFrameCallback { handler.post(work) }
+        }
+
         override fun early(work: (release: (() -> Unit)?) -> Unit) {
             if (Thread.currentThread() === thread) { work(null); return }
             val gate = java.util.concurrent.CountDownLatch(1)
@@ -104,7 +114,9 @@ interface EngineWorker {
  */
 internal class EngineGame(val gameId: String, val me: String, base: PlayState, snapshot: EngineSnapshot,
     private val ids: () -> String = { UUID.randomUUID().toString() },
-    private val worker: EngineWorker = EngineWorker.Direct, private val onShown: () -> Unit = {}) {
+    private val worker: EngineWorker = EngineWorker.Direct, private val onShown: () -> Unit = {},
+    /** The own-action probe's clock (SYS-030), in nanoseconds. */
+    private val clock: () -> Long = System::nanoTime) {
     @Volatile var base: PlayState = base
         private set
     /** The device core: on the engine thread only. */
@@ -169,6 +181,7 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
                 takenBack("loaded again from the server's head ${snapshot.headId}", old.tip, old.localHead, loaded.session)
             }
             device = loaded; codec = json
+            device.clock = clock
             device.presence(live, now)
             this.loaded = true
             previous = null
@@ -179,8 +192,10 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
     /** The board the table shows now: the projected state at the local head and the device's own pending events. */
     fun play(): PlayState = requireNotNull(shown) { "Not loaded yet" }.play
 
-    /** Publishes what changed (engine thread): the board projected anew, the notes drained, then the main thread told. */
-    private fun publish(drained: List<GameDevice.Note> = emptyList()) {
+    /** Publishes what changed (engine thread): the board projected anew, the notes drained, then the main thread told.
+     * [timing]: the own action whose board this is (its probe times the building and hears when it is shown). */
+    private fun publish(drained: List<GameDevice.Note> = emptyList(), timing: OwnActionTiming? = null) {
+        timing?.boardStart = clock()
         val notes = drained + device.notes()
         val status = device.status
         val attention = when (status) {
@@ -204,10 +219,12 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
             session.localHead, session.drafting, device.request, device.indicator(), device.undoTarget(), line, held, lastTransition,
             device.needsReload, device.pausing, held.mapNotNullTo(HashSet()) { e -> e.id.takeIf(device::endedTurn) })
         lastShown = shown
+        timing?.let { it.boardEnd = clock(); it.version = shown.version }
         worker.main {
             this.notes.addAll(notes)
             this.shown = shown
             loadFailed = false
+            measure(shown, timing)
             onShown()
         }
     }
@@ -220,8 +237,9 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
      * itself folded in): the last published panels with the board projected anew. Engine thread, inside the action; the
      * board after it ([publish]) animates from the board before the action as usual.
      */
-    private fun preview() {
-        val last = lastShown ?: return
+    private fun preview(timing: OwnActionTiming): Boolean {
+        val last = lastShown ?: return false
+        timing.boardStart = clock()
         val attention = when (last.status) {
             GameDevice.Status.YourMove, GameDevice.Status.Drafting, is GameDevice.Status.Stopped -> me
             is GameDevice.Status.Waiting -> device.opponent.value
@@ -235,7 +253,9 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
         val shown = Shown(++published, play, last.status, last.locked, last.settings, last.opponent, last.behind, last.tip,
             last.localHead, last.drafting, last.request, last.indicator, last.undoTarget, last.line, last.held, last.transition,
             last.needsReload, last.pausing, last.endTurns)
-        worker.main { this.shown = shown; onShown() }
+        timing.boardEnd = clock(); timing.version = shown.version
+        worker.main { this.shown = shown; measure(shown, timing); onShown() }
+        return true
     }
 
     /** Runs [work] with the device on the engine thread and waits for it (a dialog's or a route's read of the device). */
@@ -603,23 +623,26 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
      * [GameDevice.sameEndTurn]) it is made on the newer board when [same] holds for it ([stillSame]). Checked once per
      * action: what it does in turn (another action, staging) isn't checked again. A refusal publishes its note with the
      * board (never only queued: the table reads notes when a board arrives).
-     * [what]: the action's name for the probe (SYS-025, SYS-030), which times the wait for the engine thread, the action
-     * and its board; a slow one is logged and, with reports on, recorded like every slow action.
+     * [what]: the action's name for the probe (SYS-025, SYS-030, [OwnActionTiming]), which splits its time into its parts;
+     * a slow one is logged and, with reports on, recorded like every slow action.
      */
     private fun <T> acting(stale: T, what: String? = null, after: Boolean = true,
         same: ((arcanum.engine.state.GameState, arcanum.engine.state.GameState) -> Boolean)? = null, work: () -> T): T {
         val board = shown
         val seen = board?.version
         var refused = false
-        val timing = what?.let { Timing(it, System.nanoTime(), DebugLatency.begin(gameId, "engine:$it", 0)?.also { t -> t.submitted(null, predicted = true) }) }
+        val timing = what?.let(::timing)
         val result = worker.call {
-            timing?.started = System.nanoTime()
-            if (inAction) work()
-            else if (seen != null && seen != published && !(same != null && stillSame(what ?: "action", board, same))) {
-                refused = true; staleBoard(what ?: "action", seen); refusedStale(); stale
-            }
-            else { inAction = true; try { work() } finally { inAction = false } }
-        }.also { timing?.acted = System.nanoTime() }
+            timing?.started = clock()
+            val info = informationNanos()
+            try {
+                if (inAction) work()
+                else if (seen != null && seen != published && !(same != null && stillSame(what ?: "action", board, same))) {
+                    refused = true; staleBoard(what ?: "action", seen); refusedStale(); stale
+                }
+                else { inAction = true; try { work() } finally { inAction = false } }
+            } finally { timing?.let { it.worked = clock(); it.info = (informationNanos() - info).coerceAtLeast(0) } }
+        }
         if (!refused && after) after(timing)
         return result
     }
@@ -634,10 +657,11 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
     private fun early(what: String, work: (performed: () -> Unit) -> GameDevice.Acted): GameDevice.Acted {
         val board = shown
         val seen = board?.version
-        val timing = Timing(what, System.nanoTime(), DebugLatency.begin(gameId, "engine:$what", 0)?.also { it.submitted(null, predicted = true) })
+        val timing = timing(what)
         val result = java.util.concurrent.atomic.AtomicReference<GameDevice.Acted?>(null)
         worker.early { release ->
-            timing.started = System.nanoTime()
+            timing.started = clock()
+            val info = informationNanos()
             if (!inAction && seen != null && seen != published && !stillSame(what, board)) {
                 staleBoard(what, seen)
                 result.set(STALE)
@@ -650,23 +674,29 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
             val wasIn = inAction
             inAction = true
             var early = false
+            var shownInfo = 0L
             val acted = try {
                 work {
                     if (outer) {
-                        preview()
-                        timing.acted = System.nanoTime(); timing.shown(timing.acted)
-                        early = true
+                        timing.worked = clock(); timing.info = (informationNanos() - info).coerceAtLeast(0)
+                        early = preview(timing)
+                        timing.early = early
+                        shownInfo = informationNanos()
                         result.set(GameDevice.Acted.Made)
                         release!!()
                     }
                 }
             } finally { if (!wasIn) inAction = false }
-            if (!early) { timing.acted = System.nanoTime(); result.set(acted) }
-            else if (acted is GameDevice.Acted.Refused) {
-                takenBack("own $what refused on the device after it showed: ${acted.reason}", tip, local)
-                worker.main { notes.add(GameDevice.Note.Refused(acted.reason)) }
+            if (!early) { timing.worked = clock(); timing.info = (informationNanos() - info).coerceAtLeast(0); result.set(acted) }
+            else {
+                // The rest of its event, worked out after its board was shown
+                timing.after(timing.boardEnd!!, clock(), informationNanos() - shownInfo)
+                if (acted is GameDevice.Acted.Refused) {
+                    takenBack("own $what refused on the device after it showed: ${acted.reason}", tip, local)
+                    worker.main { notes.add(GameDevice.Note.Refused(acted.reason)) }
+                }
             }
-            after(if (early) null else timing, shownEarly = early)
+            after(timing, shownEarly = early)
         }
         return result.get() ?: GameDevice.Acted.Refused("failed")
     }
@@ -718,16 +748,27 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
     /** After the player's own action, on the engine thread without holding the caller: its own board first (SYS-025: the
      * action shows at once, not after the steps that follow it), then the device's own steps (passes, assumptions) and,
      * if they changed anything, the board again. [timing]: the action's probe (SYS-030), told once its board is shown. */
-    private fun after(timing: Timing? = null, shownEarly: Boolean = false) = worker.run {
+    private fun after(timing: OwnActionTiming? = null, shownEarly: Boolean = false) = worker.run {
         // Owner playtest 2026-11-04: an action already shown at its performed point ([preview]) publishes once, with what
         // follows it by itself: its outcome on the way (the waiting bar, the bars' colour, the move pill) never flashes
         if (shownEarly) {
+            val start = clock()
+            val info = informationNanos()
             device.advance(now)
             publish(device.notes())
+            if (timing != null) { timing.after(start, clock(), informationNanos() - info); afterDone(timing) }
             return@run
         }
-        publish()
-        timing?.shown(System.nanoTime())
+        publish(timing = timing)
+        val info = informationNanos()
+        try { afterBoard() } finally {
+            timing?.let { it.after(it.boardEnd!!, clock(), informationNanos() - info); afterDone(it) }
+        }
+    }
+
+    /** [after] the board of an own action not shown early: the device's own steps, and the board again when they changed
+     * anything. Engine thread. */
+    private fun afterBoard() {
         val tip = device.session.tip
         val status = device.status
         val request = device.request
@@ -738,21 +779,72 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
             drained.isNotEmpty()) publish(drained)
     }
 
-    /** One own action's probe: when it was asked for (main thread), started and done on the engine thread, and shown. */
-    private inner class Timing(val what: String, val asked: Long, val trace: LatencyRecorder.Trace?) {
-        @Volatile var started = 0L
-        @Volatile var acted = 0L
-        fun shown(at: Long) = worker.main {
-            trace?.finish()
-            val total = (at - asked) / 1e6
-            if (total > SLOW_MS) AppLog.info("engine", "Slow own action %s: %.0f ms to its board (waited %.0f ms for the engine thread, acted %.0f ms, board %.0f ms)"
-                .format(what, total, (started - asked) / 1e6, (acted - started) / 1e6, (at - acted) / 1e6))
-            probe?.invoke(what, started - asked, acted - started, at - acted)
-        }
+    // ---- The own-action probe (SYS-025, SYS-030, engine-responsiveness R1)
+
+    /** A new own action [what]'s probe, asked for now. */
+    private fun timing(what: String) = OwnActionTiming(what, clock,
+        DebugLatency.begin(gameId, "engine:$what", 0)?.also { it.submitted(null, predicted = true) })
+
+    /** Engine thread: [timing]'s work after its board is done; the main thread checks whether every part is in. */
+    private fun afterDone(timing: OwnActionTiming) {
+        timing.afterDone()
+        worker.main { arrived(timing) }
     }
 
-    /** Tests and measurements: each own action's wait for the engine thread, its work and its board, in nanoseconds. */
+    /** The own action measured now, waiting for the parts after its board (main thread). */
+    private var measuring: OwnActionTiming? = null
+
+    /**
+     * Main thread, [shown] just set: the boards from an action's own one on count for its computed values; [timing]'s own
+     * board (the first) is shown now: its time to its board is known (the probe, the recorder), the next frame is
+     * awaited, and an older action still waiting is reported with the parts it has.
+     */
+    private fun measure(shown: Shown, timing: OwnActionTiming?) {
+        if (timing != null && timing !== measuring && !timing.reported) {
+            measuring?.let(::report)
+            measuring = timing
+            OwnActionProbes.add(timing, ::arrived)
+            timing.trace?.finish()
+            val parts = timing.parts()
+            probe?.invoke(timing.what, nanos(parts[OwnActionTiming.WAIT]),
+                nanos(parts[OwnActionTiming.ENGINE]) + nanos(parts[OwnActionTiming.INFO]), nanos(parts[OwnActionTiming.BOARD]))
+            worker.frame { timing.frame = clock(); arrived(timing) }
+        }
+        measuring?.boards?.add(shown.play.board)
+    }
+
+    /** Main thread: a part of [timing]'s arrived; reported once every part is in. */
+    private fun arrived(timing: OwnActionTiming) { if (timing.complete) report(timing) }
+
+    /**
+     * Main thread: [timing]'s parts, once (every part in, or a newer action's board came first): logged in test and debug
+     * builds (logcat tag `AtwOwnAction`, every own action), in the app log when slow (over SYS-025's 20 ms to its board),
+     * and to the recorder's sample (SYS-030: recorded and uploaded when slow, with reports on).
+     */
+    private fun report(timing: OwnActionTiming) {
+        if (timing.reported) return
+        timing.reported = true
+        OwnActionProbes.remove(timing)
+        if (measuring === timing) measuring = null
+        val parts = timing.parts()
+        val line = timing.line(parts)
+        if (Diagnostics.alwaysOn) try { android.util.Log.i("AtwOwnAction", "Own action $line") } catch (_: RuntimeException) {}
+        if ((parts[OwnActionTiming.TOTAL] ?: 0.0) > SLOW_MS) AppLog.info("engine", "Slow own action $line")
+        timing.trace?.parts(parts)
+        measured?.invoke(timing)
+    }
+
+    private fun nanos(ms: Double?): Long = ((ms ?: 0.0) * 1e6).toLong()
+
+    /** Engine thread: the device's information-rule time so far ([GameDevice.informationNanos]; 0 before the first load). */
+    private fun informationNanos(): Long = if (this::device.isInitialized) device.informationNanos else 0L
+
+    /** Tests and measurements: each own action's wait for the engine thread, its work and its board, in nanoseconds,
+     * told when its board is shown. */
     var probe: ((what: String, waited: Long, acted: Long, board: Long) -> Unit)? = null
+
+    /** Tests and measurements: each own action's probe once reported, with every part that arrived (main thread). */
+    var measured: ((OwnActionTiming) -> Unit)? = null
 
     // Last, once every property above is set
     init { load(snapshot, base) }

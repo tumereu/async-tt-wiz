@@ -11,6 +11,7 @@ import java.time.ZoneOffset
 import java.util.UUID
 import kotlinx.serialization.SerializationException
 import org.asyncttwiz.protocol.AccountJson
+import org.asyncttwiz.protocol.ActionLatency
 import org.asyncttwiz.protocol.CrashReport
 import org.asyncttwiz.protocol.LatencyBatch
 import org.asyncttwiz.protocol.JankBatch
@@ -72,7 +73,8 @@ class CrashReportHttp @JvmOverloads constructor(private val runtime: ServiceRunt
                 val batch = AccountJson.format.decodeFromString<LatencyBatch>(input.body)
                 if ((batch.actions.isEmpty() && batch.reconnects.isEmpty() && batch.taps.isEmpty()) || batch.actions.size > 200 || batch.actions.any { entry ->
                         entry.historyNodeCount < 0 || entry.actionType.length > 100 || entry.gameId.length > 100 ||
-                            listOfNotNull(entry.localApplyMs, entry.firstFrameMs, entry.serverResultMs).any { !it.isFinite() || it < 0 }
+                            listOfNotNull(entry.localApplyMs, entry.firstFrameMs, entry.serverResultMs).any { !it.isFinite() || it < 0 } ||
+                            entry.parts.size > ActionLatency.MAX_PARTS || entry.parts.any { (label, ms) -> label.length > 40 || !ms.isFinite() || ms < 0 }
                     } || batch.reconnects.size > 200 || batch.reconnects.any { entry ->
                         entry.id.length > 100 || entry.gameId.length > 100 || entry.cause.length > 160 ||
                             runCatching { Instant.parse(entry.startedAt) }.isFailure || entry.durationMs < 0 ||

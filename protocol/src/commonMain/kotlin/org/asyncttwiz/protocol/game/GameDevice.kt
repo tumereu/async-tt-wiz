@@ -93,6 +93,26 @@ class GameDevice(
     var catchUp: Boolean = session.buffered.any { it.author != session.me.value }
         private set
 
+    /**
+     * The measuring clock (nanoseconds; engine-responsiveness R1, SYS-030): when set, the time the information rule's
+     * work takes (§5: the state kept from before an event and the checks of what it would show this player) adds up in
+     * [informationNanos]. Null (the default, and on the server): nothing is measured.
+     */
+    var clock: (() -> Long)? = null
+
+    /** The information rule's time so far, in nanoseconds, while [clock] is set (the caller takes differences). */
+    var informationNanos: Long = 0L
+        private set
+
+    /** [work], the information rule's, timed into [informationNanos] while [clock] is set (once when nested). */
+    private inline fun <T> informationRule(work: () -> T): T {
+        val clock = clock?.takeIf { !informing } ?: return work()
+        val start = clock()
+        informing = true
+        try { return work() } finally { informing = false; informationNanos += clock() - start }
+    }
+    private var informing = false
+
     private var live = false
     private var lastLive: Long? = null
     private var now = 0L
@@ -521,17 +541,19 @@ class GameDevice(
         val key = "${session.tip}:$input"
         reveals[key]?.let { return it }
         if (reveals.size > MAX_PROBES) reveals.clear()
-        val before = model.engine.deepCopy()
-        val builder = open()
-        val shows = try {
-            builder.perform(input, assumedBy = me)
-            builder.answerRandoms()
-            fold(builder, own = false)
-            shows(before, builder)
-        } catch (_: RuntimeException) {
-            false
-        } finally {
-            session.abandon()
+        val shows = informationRule {
+            val before = model.engine.deepCopy()
+            val builder = open()
+            try {
+                builder.perform(input, assumedBy = me)
+                builder.answerRandoms()
+                fold(builder, own = false)
+                shows(before, builder)
+            } catch (_: RuntimeException) {
+                false
+            } finally {
+                session.abandon()
+            }
         }
         reveals[key] = shows
         return shows
@@ -650,7 +672,7 @@ class GameDevice(
     fun begin(): EventBuilder? {
         if (refusal(null) != null) return null
         val stop = if (session.behind) status as? Status.Stopped ?: return null else null
-        draftBefore = if (tentative()) model.engine.deepCopy() else null
+        draftBefore = informationRule { if (tentative()) model.engine.deepCopy() else null }
         val builder = open()
         openDraft = builder
         draftStop = stop
@@ -705,7 +727,7 @@ class GameDevice(
             val kind = WhoActs.kind(model, input, me, assumed)
             if (kind == WhoActs.Kind.Random) return Acted.Refused("Not the player's input")
         } catch (e: Refusal) { return Acted.Refused(e.reason) }
-        val before = if (assumed || tentative()) model.engine.deepCopy() else null
+        val before = informationRule { if (assumed || tentative()) model.engine.deepCopy() else null }
         val builder = open(newLine)
         val shift = LineShift.of(builder, model)
         try {
@@ -810,8 +832,9 @@ class GameDevice(
      * hidden card ([InformationRule.revealing]), or a random result (a coin flip deciding a look would tell the result
      * before it happens if the wait were decided by it; so any outcome with a random result waits, decided without it).
      */
-    private fun shows(before: GameState, builder: EventBuilder): Boolean =
+    private fun shows(before: GameState, builder: EventBuilder): Boolean = informationRule {
         InformationRule.revealing(before, builder.changes, me).isNotEmpty() || InformationRule.randomResult(builder.engineSteps, before)
+    }
 
     /**
      * Folds what follows the event's input by itself into it (I-D35, §6): random answers, engine-automatic answers,

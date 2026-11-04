@@ -76,6 +76,8 @@ internal class LatencyRecorder(private val enabled: Boolean, private val now: ()
         }
         private fun elapsed() = ((now() - start).coerceAtLeast(0)) / 1_000_000.0
         internal fun drawn() { sample = sample.copy(firstFrameMs = elapsed()); emit() }
+        /** An own action's parts (SYS-030, [OwnActionTiming]), in milliseconds by their labels, once they are in. */
+        fun parts(parts: Map<String, Double>) { sample = sample.copy(parts = parts); emit() }
         internal fun result() { sample = sample.copy(serverResultMs = elapsed()); emit() }
         private fun emit() { log(sample); record(id, sample) }
     }
@@ -130,7 +132,8 @@ internal object DebugLatency {
         recorder = LatencyRecorder(true, log = { entry ->
             Log.i("AtwLatency", "action=${entry.actionType} game=${entry.gameId} nodes=${entry.historyNodeCount} " +
                 "predicted=${entry.predicted} submitted=${entry.submitted} localApplyMs=${entry.localApplyMs} " +
-                "firstFrameMs=${entry.firstFrameMs} serverResultMs=${entry.serverResultMs}")
+                "firstFrameMs=${entry.firstFrameMs} serverResultMs=${entry.serverResultMs}" +
+                entry.parts.entries.joinToString("") { (label, ms) -> " $label=$ms" })
         }, record = { id, entry -> if (buffer.record(id, entry)) wake.trySend(Unit) })
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
         scope.launch {

@@ -127,4 +127,20 @@ class LatencyTelemetryTest {
         store.bufferLatency(null)
         assertNull(store.bufferedLatency())
     }
+
+    // SYS-030 (engine-responsiveness R1): a slow own action's sample carries its parts once they are in, so the recorded
+    // and uploaded report holds every part
+    @Test fun aSlowOwnActionsSampleCarriesItsParts() {
+        var now = 0L
+        val buffer = LatencyBuffer(true)
+        val recorder = LatencyRecorder(true, now = { now }, timestamp = { "now" }, log = {}, record = { id, entry -> buffer.record(id, entry) })
+        val trace = recorder.begin("game", "engine:act", 0)!!
+        trace.submitted(null, true)
+        now = 30_000_000; trace.finish()
+        val parts = mapOf("totalMs" to 30.0, "waitMs" to 1.0, "engineMs" to 4.0, "infoMs" to 0.0, "boardMs" to 25.0, "frameMs" to 9.0)
+        trace.parts(parts)
+        assertEquals(parts, buffer.snapshot().single().value.parts)
+        val body = AccountJson.format.encodeToString(LatencyBatch(buffer.snapshot().map { it.value }))
+        assertEquals(parts, AccountJson.format.decodeFromString<LatencyBatch>(body).actions.single().parts)
+    }
 }

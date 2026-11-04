@@ -25,9 +25,6 @@ import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 
 class GameChatTest {
-    // Today's model until it is deleted (I-D56 step D2): these games start without engine state
-    @org.junit.jupiter.api.BeforeEach fun oldModel() { engineDecks = false }
-    @org.junit.jupiter.api.AfterEach fun engineModel() { engineDecks = true }
     private val json = GameWire.json
     private fun id() = UUID.randomUUID().toString()
     private fun ready(runtime: ServiceRuntime) {
@@ -50,7 +47,7 @@ class GameChatTest {
                 else GameScope(game.id, game.preparationRound, if (action == GameAction.AcceptInvitation) game.invitationId else null)
             return GameCommand(UUID.randomUUID().toString(), scope, action, stream.streamId, stream.generation)
         }
-        fun admit(c: GameCommand) = games.admit(actor, hello, connection, games.boarded(actor, c))
+        fun admit(c: GameCommand) = games.admit(actor, hello, connection, c)
         fun result(c: GameCommand) = games.results(actor, game.id, listOf(c.requestId)).statuses.single().result!!
         fun execute(c: GameCommand): GameResult { admit(c); assertTrue(games.executeOne()); return result(c) }
         fun execute(a: GameAction) = execute(command(a))
@@ -203,66 +200,6 @@ class GameChatTest {
                 assertEquals(1, count(db, "game_chat")); assertEquals(before.play, games.head(actor, before.gameId).play)
                 assertEquals(original.requestId, games.chat(actor, before.gameId).messages.single().id)
                 println("PASS atomic chat/message/revision/result/outbox rollback, durable pending worker restart and original stream result recovery exactly once")
-            }
-        }
-    }
-    @Test fun `real chat board and result share one writer while baseline separates immutable chat from tree records`() {
-        FreshDatabase().start().use { db ->
-            FoundationMigrations.migrate(db.settings)
-            ServiceRuntime(db.settings).use { runtime ->
-                ready(runtime); val f = Fixture(runtime); val before = f.games.head(f.a, f.game.id)
-                val first = f.owner.command(GameAction.SendChat("before board"))
-                val edit = f.owner.command(GameAction.SendChat("scope")).copy(action = automatedPlay(
-                    PlayAction.AdjustLife(f.a.account.accountId, "2")))
-                val second = f.recipient.command(GameAction.SendChat("after board"))
-                listOf(f.owner to first, f.owner to edit, f.recipient to second).forEach { (stream, command) -> stream.admit(command) }
-                repeat(3) { assertTrue(f.games.executeOne()) }; assertFalse(f.games.executeOne())
-                var head = f.games.head(f.a, f.game.id)
-                assertEquals("22", head.play!!.board.players.first { it.accountId == f.a.account.accountId }.life)
-                assertEquals(before.play!!.root, head.play!!.root)
-                assertEquals(1, count(db, "gameplay_mutation")); assertEquals(0, count(db, "game_play_mutation"))
-                assertEquals(4, count(db, "account_activity WHERE kind='GAME'")) // Game start plus both chats and the edit, without invented board groups.
-                val activity = org.asyncttwiz.server.activity.ActivityService(runtime)
-                val groupTarget = activity.target(f.b, ActivityKind.GAME, f.game.id, head.play!!.currentGroup!!.id)
-                assertEquals(ActivityDestination.GROUP, groupTarget.destination)
-                assertEquals(before.play!!.root.id, groupTarget.boundaryNodeId)
-                val history = f.games.history(f.a, f.game.id, head.play!!.id, "0")
-                assertEquals(listOf(edit.requestId), history.mutations.map { it.requestId })
-                val undo = edit.copy(requestId = id(), action = GameAction.Undo)
-                val undone = f.owner.execute(undo)
-                assertEquals("accepted", undone.outcome)
-                assertEquals(f.owner.result(edit).mutation!!.id, undone.targetNodeId)
-                val chat = f.games.chat(f.a, f.game.id).messages
-                assertEquals(listOf(first.requestId, second.requestId), chat.map { it.id })
-                assertEquals("accepted", f.owner.execute(edit.copy(requestId = id(), action = GameAction.Redo)).outcome)
-                assertEquals(undone, f.owner.admit(undo))
-                head = f.games.head(f.a, f.game.id)
-                val manifest = f.games.baseline(f.a, f.game.id, listOf(first.requestId, edit.requestId))
-                val bytes = manifest.chunks.flatMap { chunk ->
-                    GZIPInputStream(f.games.baselineChunk(f.a, manifest.id, chunk.index).inputStream()).use { it.readAllBytes().toList() }
-                }.toByteArray()
-                val records = bytes.toString(Charsets.UTF_8).lineSequence().filter { it.isNotBlank() }
-                    .map { json.decodeFromString<TreeSyncRecord>(it) }.toList()
-                assertEquals(manifest.recordCount, records.size)
-                val snapshot = GameplaySnapshot(manifest.head!!, emptyList(), records)
-                GameplaySync.validate(snapshot)
-                assertEquals(head, snapshot.head); assertTrue(snapshot.records.all { it.chatMessage == null })
-                assertTrue(snapshot.head.chat.isEmpty()); assertEquals(head.chatSync, snapshot.head.chatSync)
-                val retained = TreeSync.decode(records.asSequence(), head.gameId, head.play!!.id).tree
-                assertEquals(listOf(edit.requestId), retained.nodes.values.map { it.requestId })
-                assertEquals(head.play, retained.stateAt(retained.currentNodeId))
-                val suggest = edit.copy(requestId = id(), action = automatedPlay(PlayAction.SuggestResult(SuggestedResult.DRAW)))
-                assertEquals("accepted", f.owner.execute(suggest).outcome)
-                val suggestion = f.games.head(f.b, f.game.id).play!!.board.resultSuggestion!!
-                val accept = f.recipient.command(GameAction.SendChat("scope")).copy(action = GameAction.AcceptResult(suggestion.id))
-                assertEquals("accepted", f.recipient.execute(accept).outcome)
-                val returned = f.games.head(f.a, f.game.id)
-                assertEquals(GameLifecycle.LOBBY, returned.summary.lifecycle); assertNull(returned.play)
-                assertEquals(chat, f.games.chat(f.a, f.game.id).messages); assertTrue(returned.preparation!!.players.none { it.ready })
-                assertEquals(ActivityDestination.CURRENT, activity.target(f.b, ActivityKind.GAME, f.game.id, groupTarget.groupId!!).destination)
-                assertEquals(2, count(db, "gameplay_mutation")); assertEquals(0, count(db, "game_play_mutation"))
-                assertEquals("accepted", f.owner.admit(first).let { it as GameResult }.outcome)
-                println("PASS actual FIFO chat/board/result: sole canonical mutation writer, immutable game-wide chat retained on return, tree records exclude chat payload, coherent baseline and private original")
             }
         }
     }

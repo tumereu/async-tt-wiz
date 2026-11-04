@@ -13,7 +13,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
-import kotlin.math.roundToLong
 
 /**
  * I-D41 (LOB-113): how Automatum's pauses behave for this player. [responseMillis]: how long a pause runs (the progress
@@ -122,58 +121,17 @@ internal fun rememberPauseSettings(accountId: String): Pair<State<PauseSettings>
     return state to preferences
 }
 
-/** Settings → Automatum (LOB-113). */
+/** Settings → Automatum (LOB-113): the play settings new games start with, kept on the server per account. */
 @Composable
 internal fun AutomatumPauseSettings(accountId: String, account: AccountSettingsState? = null) {
-    val (state, preferences) = rememberPauseSettings(accountId)
-    val settings by state
-    Column(Modifier.fillMaxWidth().testTag("automatum-settings")) {
-        SettingsLabel("Response time", "${settings.responseMillis / 1000.0} s to react when the other player does something")
-        Slider(value = settings.responseMillis.toFloat(), onValueChange = {
-                val step = PauseSettings.RESPONSE_STEP_MILLIS
-                preferences.settings = settings.copy(responseMillis = (it / step).roundToLong() * step)
-            }, valueRange = PauseSettings.MIN_RESPONSE_MILLIS.toFloat()..PauseSettings.MAX_RESPONSE_MILLIS.toFloat(),
-            steps = ((PauseSettings.MAX_RESPONSE_MILLIS - PauseSettings.MIN_RESPONSE_MILLIS) / PauseSettings.RESPONSE_STEP_MILLIS - 1).toInt(),
-            modifier = Modifier.testTag("response-time"))
-        Text("When the opponent can react", Modifier.padding(vertical = 4.dp),
-            style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        for ((label, atOnce) in listOf("Wait" to false, "Proceed at once" to true)) {
-            Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag(if (atOnce) "proceed-at-once" else "proceed-wait")
-                .selectable(settings.proceedAtOnce == atOnce, role = Role.RadioButton,
-                    onClick = { preferences.settings = settings.copy(proceedAtOnce = atOnce) }),
-                verticalAlignment = Alignment.CenterVertically) {
-                RadioButton(selected = settings.proceedAtOnce == atOnce, onClick = null)
-                Text(label, Modifier.padding(start = 12.dp), style = MaterialTheme.typography.bodyLarge)
-            }
-        }
-        Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("full-control")
-            .toggleable(settings.fullControl, role = Role.Switch, onValueChange = {
-                preferences.settings = settings.copy(fullControl = it, fullControlChanged = System.currentTimeMillis())
-            }),
-            verticalAlignment = Alignment.CenterVertically) {
-            SettingsLabel("Full control", "Also pause for your own spells and in every step in which you could act",
-                Modifier.weight(1f).padding(end = 12.dp, top = 4.dp, bottom = 4.dp))
-            Switch(checked = settings.fullControl, onCheckedChange = null)
-        }
-        // I-D47 (also a quick-actions toggle, I-D46 (c)): casting taps the mana sources by itself (mana already in your pool first)
-        Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("autotap")
-            .toggleable(settings.autotap, role = Role.Switch, onValueChange = {
-                preferences.settings = settings.copy(autotap = it)
-                // LOB-113: also the default of new games on engine state, kept on the server
-                account?.settings?.let { s -> account.setPlayDefaults(s.playDefaults.copy(autotap = it)) }
-            }),
-            verticalAlignment = Alignment.CenterVertically) {
-            SettingsLabel("Autotap mana sources", "Casting pays by itself, with mana in your pool first; off, you choose what to tap",
-                Modifier.weight(1f).padding(end = 12.dp, top = 4.dp, bottom = 4.dp))
-            Switch(checked = settings.autotap, onCheckedChange = null)
-        }
-        EngineDefaultSettings(preferences, account)
-    }
+    val context = LocalContext.current
+    val preferences = remember(context, accountId) { PausePreferences(context, accountId) }
+    Column(Modifier.fillMaxWidth().testTag("automatum-settings")) { EngineDefaultSettings(preferences, account) }
 }
 
 /**
- * I-D56 §7, §13 (LOB-113): the response mode and "Always assume resolves" new games on engine state start with (each
- * game's own are changed from its quick actions).
+ * I-D56 §7, §13 (LOB-113): the response mode, "Always assume resolves" and "Autotap mana sources" (I-D47) new games
+ * start with (each game's own are changed from its quick actions).
  */
 @Composable
 private fun EngineDefaultSettings(preferences: PausePreferences, account: AccountSettingsState?) {
@@ -201,5 +159,13 @@ private fun EngineDefaultSettings(preferences: PausePreferences, account: Accoun
         SettingsLabel("Always assume resolves", "Go on at the other player's pauses even while they are online; they can still respond later",
             Modifier.weight(1f).padding(end = 12.dp, top = 4.dp, bottom = 4.dp))
         Switch(checked = defaults.alwaysAssumeResolves, onCheckedChange = null)
+    }
+    // I-D47 (also a quick-actions toggle, I-D46 (c)): casting taps the mana sources by itself (mana already in your pool first)
+    Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("autotap")
+        .toggleable(defaults.autotap, role = Role.Switch, onValueChange = { set(defaults.copy(autotap = it)) }),
+        verticalAlignment = Alignment.CenterVertically) {
+        SettingsLabel("Autotap mana sources", "Casting pays by itself, with mana in your pool first; off, you choose what to tap",
+            Modifier.weight(1f).padding(end = 12.dp, top = 4.dp, bottom = 4.dp))
+        Switch(checked = defaults.autotap, onCheckedChange = null)
     }
 }

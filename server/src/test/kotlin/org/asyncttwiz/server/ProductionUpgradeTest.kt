@@ -29,7 +29,7 @@ import org.asyncttwiz.server.database.FreshDatabase
 import org.asyncttwiz.server.database.TestPostgres
 import org.asyncttwiz.server.decks.DeckService
 import org.asyncttwiz.server.game.GameService
-import org.asyncttwiz.server.game.boarded
+import org.asyncttwiz.server.game.concession
 import org.asyncttwiz.server.lobby.LobbyService
 import org.asyncttwiz.server.pods.PodPresetService
 import org.asyncttwiz.server.pods.PodService
@@ -78,10 +78,10 @@ class ProductionUpgradeTest {
         val stream = games.open(actor, hello, connection, gameId, UUID.randomUUID().toString())
         fun execute(action: GameAction): GameResult {
             val summary = games.head(actor, gameId).summary
-            val scope = if (action is GameAction.Play || action is GameAction.AcceptResult || action is GameAction.SendChat)
+            val scope = if (action is GameAction.Submit || action.isEngine || action is GameAction.SendChat)
                 GameScope(gameId, playId = summary.playId)
                 else GameScope(gameId, summary.preparationRound, if (action == GameAction.AcceptInvitation) summary.invitationId else null)
-            val command = games.boarded(actor, GameCommand(UUID.randomUUID().toString(), scope, action, stream.streamId, stream.generation))
+            val command = GameCommand(UUID.randomUUID().toString(), scope, action, stream.streamId, stream.generation)
             assertTrue(games.admit(actor, hello, connection, command) is GameReceipt); assertTrue(games.executeOne())
             return games.results(actor, gameId, listOf(command.requestId)).statuses.single().result!!
                 .also { assertEquals("accepted", it.outcome, "$action: ${it.reason}") }
@@ -161,21 +161,19 @@ class ProductionUpgradeTest {
             a.execute(GameAction.SelectDeck(annDeck.deck.id, annDeck.deck.revision)); b.execute(GameAction.SelectDeck(benDeck.deck.id, benDeck.deck.revision))
         }
 
-        // A started game with moves by both players and chat.
+        // A started game with settings changes by both players and chat.
         val (s1, s2) = game("Started game"); prepare(s1, s2)
         s1.execute(GameAction.SetStarter(StarterChoice(ann.account.accountId)))
         s1.execute(GameAction.Ready); s2.execute(GameAction.Ready)
-        s1.execute(org.asyncttwiz.server.game.automatedPlay(PlayAction.AdjustLife(ann.account.accountId, "-3")))
-        s2.execute(org.asyncttwiz.server.game.automatedPlay(PlayAction.AdjustLife(ben.account.accountId, "2")))
-        s1.execute(org.asyncttwiz.server.game.automatedPlay(PlayAction.PassAttention))
+        s1.execute(GameAction.EngineSettings(org.asyncttwiz.protocol.game.PlaySettings(alwaysAssumeResolves = true)))
+        s2.execute(GameAction.EngineSettings(org.asyncttwiz.protocol.game.PlaySettings(autotap = false)))
         val chat = listOf("Good luck", "You too", "Your move")
         for ((stream, text) in listOf(s1, s2, s1).zip(chat)) stream.execute(GameAction.SendChat(text))
         games.chatRead(ben, s1.gameId, ReadChat(games.chat(ben, s1.gameId).messages.first().id))
         // A game played to a result and back in its lobby, and another lobby game already holding Ann's deck.
         val (f1, f2) = game("Finished game"); prepare(f1, f2)
         f1.execute(GameAction.Ready); f2.execute(GameAction.Ready)
-        f1.execute(org.asyncttwiz.server.game.automatedPlay(PlayAction.SuggestResult(SuggestedResult.WIN)))
-        f2.execute(GameAction.AcceptResult(games.head(ann, f1.gameId).play!!.board.resultSuggestion!!.id))
+        f2.execute(games.concession(ben, f2.gameId))
         val (w1, w2) = game("Waiting game"); w2.execute(GameAction.AcceptInvitation)
         w1.execute(GameAction.SelectDeck(annDeck.deck.id, annDeck.deck.revision))
         val (pending, _) = game("Pending invitation")
@@ -235,7 +233,6 @@ class ProductionUpgradeTest {
             "started" to value(s1.gameId),
             "startedPlay" to value(started.id),
             "life" to value(started.board.players.associate { it.accountId to it.life }),
-            "mutations" to value(games.history(ann, s1.gameId, started.id, "0").mutations.size),
             "chat" to value(games.chat(ann, s1.gameId).messages.map { it.text }),
             "benUnread" to value(games.chatRead(ben, s1.gameId).unread),
             "finished" to value(f1.gameId),

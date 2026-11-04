@@ -17,7 +17,6 @@ import org.asyncttwiz.server.database.TestPostgres
 import org.asyncttwiz.server.database.UnreadableStoredData
 import org.asyncttwiz.server.decks.DeckService
 import org.asyncttwiz.server.game.GameService
-import org.asyncttwiz.server.game.boarded
 import org.asyncttwiz.server.lobby.LobbyService
 import org.asyncttwiz.server.pods.PodPresetService
 import org.asyncttwiz.server.pods.PodService
@@ -65,8 +64,7 @@ class StoredDataContainmentTest {
                 if (playId != null) GameScope(game.id, playId = playId)
                 else GameScope(game.id, game.preparationRound, if (action == GameAction.AcceptInvitation) game.invitationId else null),
                 action, stream.streamId, stream.generation)
-            fun admit(command: GameCommand) = assertTrue(games.admit(actor, hello, connection,
-                games.boarded(actor, command)) is GameReceipt)
+            fun admit(command: GameCommand) = assertTrue(games.admit(actor, hello, connection, command) is GameReceipt)
             fun execute(action: GameAction, playId: String? = null) {
                 val command = command(action, playId); admit(command); assertTrue(games.executeOne())
                 assertEquals("accepted", games.results(actor, game.id, listOf(command.requestId)).statuses.single().result!!.outcome)
@@ -81,12 +79,12 @@ class StoredDataContainmentTest {
             owner.execute(GameAction.SetStarter(StarterChoice(a.account.accountId)))
             owner.execute(GameAction.Ready); recipient.execute(GameAction.Ready)
             val play = games.head(a, game.id).play!!.id
-            owner.execute(org.asyncttwiz.server.game.automatedPlay(PlayAction.AdjustLife(a.account.accountId, "-2")), play)
+            owner.execute(GameAction.EngineSettings(org.asyncttwiz.protocol.game.PlaySettings(alwaysAssumeResolves = true)), play)
             return game to owner
         }
         val (good, goodOwner) = started("Readable game"); val (bad, _) = started("Unreadable game")
         // Left pending for the game workers of the restarted service.
-        val pending = goodOwner.command(org.asyncttwiz.server.game.automatedPlay(PlayAction.AdjustLife(a.account.accountId, "1")), games.head(a, good.id).play!!.id)
+        val pending = goodOwner.command(GameAction.EngineSettings(org.asyncttwiz.protocol.game.PlaySettings()), games.head(a, good.id).play!!.id)
         goodOwner.admit(pending)
 
         val cards = (0 until 90).map { card("Cube card $it") }

@@ -36,16 +36,9 @@ import org.jooq.impl.DSL
 
 /**
  * Test seam (I-D54, server tests only; null in the service): the engine seats of a game starting now, by its game id,
- * when it is to be played as engine state. With [engineDecks] the seats come from the game's decks instead.
+ * instead of the ones its decks make ([EngineDecks]).
  */
 @Volatile internal var engineSeats: ((gameId: UUID) -> List<Seat>?)? = null
-
-/**
- * Whether a game starting now is played as engine state with its decks parsed on the server ([EngineDecks]): always
- * since the switch-over (I-D56 step D2). Test seam: tests of today's model not yet deleted turn it off around their
- * game starts.
- */
-@Volatile internal var engineDecks: Boolean = true
 
 /** The refusals of an engine play's actions that a device tells apart (the rest are "refusedByEngine"). */
 internal val ENGINE_REASONS = setOf("stale", "revealsHidden", "rewindRequested", "requestNeeded", "newLine", "noChange",
@@ -100,6 +93,8 @@ internal class EngineGames(private val capacity: Int = 32) {
         internal val store: EngineHistoryStore? = null,
         /** A submission's real answer differed from an assumed one: the main line branched (I-D56 §8). */
         val branched: Boolean = false,
+        /** How the play ended when [ended] (LOB-111: the game-over notice reads it from the ended play). */
+        val result: org.asyncttwiz.protocol.ResultSuggestion? = null,
     ) {
         /** Whose move the game is for the stored summary: a player with a next stop (each viewer sees their own, §7). */
         val attention: String? get() = moves.entries.firstOrNull { it.value }?.key
@@ -389,12 +384,32 @@ internal class EngineGames(private val capacity: Int = 32) {
             (time ?: times[seat.head])?.let { activity[seat.account.toString()] = it.toInstant().toString() }
         }
         val result = Engine.result(state.model.engine)
-        val ended = result != null && (state.model.table.resultConfirmedBy != null ||
-            events.any { e -> e.engine?.steps.orEmpty().any { it.input is Input.Concede } })
+        val conceded = events.flatMap { e -> e.engine?.steps.orEmpty().mapNotNull { (it.input as? Input.Concede)?.player } }.firstOrNull()
+        val ended = result != null && (state.model.table.resultConfirmedBy != null || conceded != null)
         val row = playRow(sql, play)
         return Outcome(play, events.map(history.codec::encodeEvent), state, target, confirmed, ended,
             seats.associate { it.account.toString() to it.head }, moves, newStops, row.request, row.lines, stopTimes, activity,
-            history.store as? EngineHistoryStore, branched)
+            history.store as? EngineHistoryStore, branched,
+            if (ended) record(result!!, conceded, events.flatMap { e -> e.engine?.steps.orEmpty().filter { it.input is Input.AgreedResult }
+                .map { e.author } }.firstOrNull(), seats.map { it.account.toString() }) else null)
+    }
+
+    /**
+     * The ended play's result as the game-over notice reads it (LOB-111), in the form an accepted suggestion had: a
+     * concession is its author's own LOSS; an agreed result is the suggestion's author's (the other player than the one
+     * who agreed, I-D56 §11) from their side; the rules' result is byRules, told from each recipient's side.
+     */
+    private fun record(result: arcanum.engine.setup.GameResult, conceded: PlayerId?, agreedBy: String?, players: List<String>):
+        org.asyncttwiz.protocol.ResultSuggestion {
+        val id = UUID.randomUUID().toString()
+        val winner = (result as? arcanum.engine.setup.GameResult.Won)?.winner?.value
+        fun from(author: String) = when (winner) { null -> org.asyncttwiz.protocol.SuggestedResult.DRAW; author -> org.asyncttwiz.protocol.SuggestedResult.WIN
+            else -> org.asyncttwiz.protocol.SuggestedResult.LOSS }
+        if (conceded != null) return org.asyncttwiz.protocol.ResultSuggestion(id, conceded.value, org.asyncttwiz.protocol.SuggestedResult.LOSS)
+        if (agreedBy != null) players.firstOrNull { it != agreedBy }?.let { author ->
+            return org.asyncttwiz.protocol.ResultSuggestion(id, author, from(author)) }
+        val author = winner ?: players.first()
+        return org.asyncttwiz.protocol.ResultSuggestion(id, author, from(author), byRules = true)
     }
 
     /** The state at a local head [localHead] behind the head ([after] the events between): the head's state copied and

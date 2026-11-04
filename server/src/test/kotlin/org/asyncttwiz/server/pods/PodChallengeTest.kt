@@ -11,7 +11,7 @@ import org.asyncttwiz.server.database.FoundationMigrations
 import org.asyncttwiz.server.database.FreshDatabase
 import org.asyncttwiz.server.decks.DeckService
 import org.asyncttwiz.server.game.GameService
-import org.asyncttwiz.server.game.boarded
+import org.asyncttwiz.server.game.concession
 import org.asyncttwiz.server.lobby.LobbyService
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
@@ -78,10 +78,10 @@ class PodChallengeTest {
         private val stream = games.open(who, hello, connection, game.id, UUID.randomUUID().toString())
         fun execute(action: GameAction): GameResult {
             val summary = games.head(who, game.id).summary
-            val scope = if (action is GameAction.Play || action is GameAction.AcceptResult) GameScope(game.id, playId = summary.playId)
+            val scope = if (action is GameAction.Submit) GameScope(game.id, playId = summary.playId)
                 else GameScope(game.id, summary.preparationRound,
                     if (action in listOf(GameAction.AcceptInvitation, GameAction.DeclineInvitation, GameAction.Reinvite)) summary.invitationId else null)
-            val command = games.boarded(who, GameCommand(UUID.randomUUID().toString(), scope, action, stream.streamId, stream.generation))
+            val command = GameCommand(UUID.randomUUID().toString(), scope, action, stream.streamId, stream.generation)
             assertTrue(games.admit(who, hello, connection, command) is GameReceipt)
             assertTrue(games.executeOne())
             return games.results(who, game.id, listOf(command.requestId)).statuses.single().result!!
@@ -268,9 +268,7 @@ class PodChallengeTest {
         val early = f.challenge(pod, who = f.b, opponent = f.a)
         assertFalse(shown(early, f.b))
         owner.execute(GameAction.Ready); recipient.execute(GameAction.Ready)
-        owner.execute(org.asyncttwiz.server.game.automatedPlay(PlayAction.SuggestResult(SuggestedResult.WIN)))
-        val suggestion = f.games.head(f.a, first.id).play!!.board.resultSuggestion!!
-        assertEquals("accepted", recipient.execute(GameAction.AcceptResult(suggestion.id)).outcome)
+        assertEquals("accepted", recipient.execute(f.games.concession(f.b, first.id)).outcome)
         // Back in the lobby for the next play, both pod decks are shown with their names.
         assertTrue(shown(first, f.a)); assertTrue(shown(first, f.b))
         val aDeck = f.games.head(f.a, first.id).ownPodDeckName!!
@@ -379,9 +377,7 @@ class PodChallengeTest {
         assertEquals("accepted", remaining.execute(GameAction.Ready).outcome)
         assertEquals("accepted", f.stream(f.b, acceptedLobby).execute(GameAction.Ready).outcome)
         assertEquals(GameLifecycle.ACTIVE, f.games.head(f.a, acceptedLobby.id).summary.lifecycle)
-        assertEquals("accepted", owner.execute(org.asyncttwiz.server.game.automatedPlay(PlayAction.SuggestResult(SuggestedResult.DRAW))).outcome)
-        val suggestion = f.games.head(f.b, game.id).play!!.board.resultSuggestion!!
-        assertEquals("accepted", recipient.execute(GameAction.AcceptResult(suggestion.id)).outcome)
+        assertEquals("accepted", recipient.execute(f.games.concession(f.b, game.id)).outcome)
         val rematch = f.games.head(f.a, game.id)
         assertEquals(GameLifecycle.LOBBY, rematch.summary.lifecycle)
         assertEquals(PodGameRules(1), rematch.preparation!!.podRules)

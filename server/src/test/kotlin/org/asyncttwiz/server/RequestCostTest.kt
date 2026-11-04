@@ -20,7 +20,6 @@ import org.asyncttwiz.server.database.RoundTripProxy
 import org.asyncttwiz.server.decks.DeckHttp
 import org.asyncttwiz.server.decks.DeckService
 import org.asyncttwiz.server.game.GameService
-import org.asyncttwiz.server.game.boarded
 import org.asyncttwiz.server.lobby.LobbyHttp
 import org.asyncttwiz.server.lobby.LobbyService
 import org.asyncttwiz.server.pods.PodHttp

@@ -39,11 +39,11 @@ class GameResultLifecycleTest {
         val stream = games.open(actor, hello, connection, gameId, id())
         fun command(action: GameAction, scope: GameScope? = null): GameCommand {
             val summary = games.head(actor, gameId).summary
-            return games.boarded(actor, GameCommand(id(), scope ?: if (action is GameAction.Play || action is GameAction.AcceptResult)
+            return GameCommand(id(), scope ?: if (action is GameAction.Submit || action.isEngine)
                 GameScope(gameId, playId = summary.playId) else GameScope(gameId, summary.preparationRound,
-                    if (action == GameAction.AcceptInvitation) summary.invitationId else null), action, stream.streamId, stream.generation))
+                    if (action == GameAction.AcceptInvitation) summary.invitationId else null), action, stream.streamId, stream.generation)
         }
-        fun admit(command: GameCommand) = games.admit(actor, hello, connection, games.boarded(actor, command))
+        fun admit(command: GameCommand) = games.admit(actor, hello, connection, command)
         fun result(command: GameCommand) = games.results(actor, gameId, listOf(command.requestId)).statuses.single().result!!
         fun execute(command: GameCommand): GameResult { assertTrue(admit(command) is GameReceipt); assertTrue(games.executeOne()); return result(command) }
         fun execute(action: GameAction) = execute(command(action))
@@ -73,81 +73,9 @@ class GameResultLifecycleTest {
             preparation = games.head(a, game.id).preparation!!
             other.execute(GameAction.Ready); initial = games.head(a, game.id).play!!
         }
-        fun suggestion(author: Stream = owner, result: SuggestedResult = SuggestedResult.WIN) = author.command(automatedPlay(PlayAction.SuggestResult(result)))
+        /** [by]'s concession (CR 104.3a): it ends the play at once (I-D56 §11). */
+        fun concession(by: Stream = other) = by.command(games.concession(by.actor, game.id))
         override fun close() { runtime.close() }
-    }
-
-    @Test fun `first applicable suggestion wins both arrival orders and return fences old round and play while fresh start records new inputs`() {
-        for (reverse in listOf(false, true)) FreshDatabase().start().use { db ->
-            FoundationMigrations.migrate(db.settings)
-            Fixture(db).use { f ->
-                val author = if (reverse) f.other else f.owner; val accepter = if (reverse) f.owner else f.other
-                val first = f.suggestion(author); val discarded = f.suggestion(accepter, SuggestedResult.DRAW)
-                author.admit(first); accepter.admit(discarded); assertTrue(f.games.executeOne()); assertTrue(f.games.executeOne())
-                val original = author.result(first); val rejected = accepter.result(discarded)
-                assertEquals("accepted", original.outcome); assertEquals("inapplicable", rejected.reason)
-                val proposed = f.games.head(f.a, f.game.id).play!!; val suggestion = proposed.board.resultSuggestion!!
-                assertEquals(author.actor.account.accountId, suggestion.author); assertEquals(SuggestedResult.WIN, suggestion.outcome)
-                assertEquals("1", proposed.currentGroup!!.count); assertEquals(HistoryCategory.S.key, proposed.currentGroup!!.category)
-                assertEquals(rejected, accepter.admit(discarded)); assertEquals(1, count(db, "SELECT count(*) FROM gameplay_mutation"))
-                assertEquals("otherPlayerRequired", author.execute(GameAction.AcceptResult(suggestion.id)).reason)
-                assertEquals("inapplicable", accepter.execute(GameAction.AcceptResult(id())).reason)
-                // Mutate actual board state through the shared/server adapter; restoration must ignore it.
-                f.owner.execute(automatedPlay(PlayAction.SetLife(f.a.account.accountId, "1")))
-                f.owner.execute(automatedPlay(PlayAction.SetTapped(f.initial.board.cards.first().id, true)))
-                assertTrue(f.initial.board.players.all { it.status == PlayerStatus.OPENING })
-                f.owner.execute(automatedPlay(PlayAction.SetStatus("GG")))
-                val decks = DeckService(f.runtime)
-                assertEquals(200, decks.update(f.a, f.source.deck.id, UpdateDeck(id(), "Changed saved source", contents = DeckContentsImport(
-                    listOf(SavedDeckEntry(SavedDeckSection.MAINBOARD, f.source.entries[0].definition, 1))))).status)
-                val oldReady = f.owner.command(GameAction.Ready, GameScope(f.game.id, f.game.preparationRound))
-                val oldPlay = author.command(automatedPlay(PlayAction.SuggestResult(SuggestedResult.LOSS)))
-                val accept = accepter.command(GameAction.AcceptResult(suggestion.id)); val accepted = accepter.execute(accept)
-                val returned = f.games.head(f.a, f.game.id); val prepared = returned.preparation!!
-                assertEquals(GameLifecycle.LOBBY, returned.summary.lifecycle); assertNull(returned.play); assertNull(returned.summary.playId)
-                assertNotEquals(f.game.preparationRound, prepared.roundId)
-                assertTrue(prepared.players.all { !it.ready })
-                assertEquals(f.preparation.players.map { it.deck }, prepared.players.map { it.deck })
-                assertEquals(f.preparation.definitions, prepared.definitions)
-                assertEquals(returned, f.games.head(f.b, f.game.id))
-                assertEquals(accepted, accepter.admit(accept)); assertEquals(original, author.admit(first))
-                assertEquals(rejected, accepter.admit(discarded)); assertEquals(returned, f.games.head(f.a, f.game.id))
-                assertEquals("requestIdentityMismatch", assertThrows(GameProtocolFailure::class.java) {
-                    f.games.results(author.actor, f.game.id, listOf(accept.requestId)) }.code)
-                assertEquals("inapplicable", f.owner.execute(oldReady).reason)
-                assertEquals("lifecycleEnded", author.execute(oldPlay).reason)
-                assertEquals("lifecycleEnded", accepter.execute(accept.copy(requestId = id())).reason)
-                // Explicitly select Random again: cross-game starter retention is not selected by this test.
-                f.owner.execute(GameAction.SetStarter(StarterChoice())); f.owner.execute(GameAction.Ready)
-                assertNull(f.games.head(f.a, f.game.id).play)
-                val start = f.other.command(GameAction.Ready); val startResult = f.other.execute(start)
-                val freshHead = f.games.head(f.a, f.game.id); val fresh = freshHead.play!!
-                assertNotEquals(f.initial.id, fresh.id); assertNotEquals(f.initial.root, fresh.root)
-                assertEquals(fresh.root.id, fresh.currentNodeId); assertNull(fresh.currentGroup); assertNull(fresh.board.resultSuggestion)
-                assertTrue(fresh.board.players.all { it.life == "20" && it.counters.isEmpty() })
-                // A later play of the same game starts with both players mulliganing again.
-                assertTrue(fresh.board.players.all { it.status == PlayerStatus.OPENING })
-                assertTrue(fresh.board.cards.all { !it.tapped && it.covered && it.note.isEmpty() && !it.token })
-                assertTrue(fresh.board.containers.filter { it.zone != PlayZone.LIBRARY && it.zone != PlayZone.HAND }.all { it.cards.isEmpty() }) // I-D49: opening hands drawn
-                assertEquals(TurnState(fresh.starter.accountId), fresh.board.turn)
-                assertEquals(6, (f.initial.shuffles.map { it.seed } + f.initial.starter.seed!! + fresh.shuffles.map { it.seed } + fresh.starter.seed!!).distinct().size)
-                for (player in prepared.players) {
-                    val deck = player.deck!!
-                    val members = deck.entries.filter { it.section == SavedDeckSection.MAINBOARD }.flatMap { entry -> List(entry.quantity) { deck.card(entry, it).id } }
-                    val shuffle = fresh.shuffles.single { it.accountId == player.accountId }
-                    assertEquals(members.toSet(), shuffle.order.toSet()); assertEquals(RandomV1.shuffle(members, shuffle.seed), shuffle.order)
-                }
-                assertEquals(startResult, f.other.admit(start)); assertEquals(freshHead, f.games.head(f.b, f.game.id))
-                assertEquals("inapplicable", author.execute(oldPlay.copy(requestId = id())).reason)
-                assertEquals("inapplicable", accepter.execute(accept.copy(requestId = id())).reason)
-                assertEquals(freshHead, f.games.head(f.a, f.game.id))
-                assertEquals(original, author.admit(first)); assertEquals(accepted, accepter.admit(accept))
-                assertEquals(2, count(db, "SELECT count(*) FROM game_play"))
-                assertEquals(1, count(db, "SELECT count(*) FROM game_play WHERE ended_request_id IS NOT NULL"))
-                assertEquals("Changed saved source", GameWire.json.decodeFromString<SavedDeck>(decks.read(f.a, f.source.deck.id).body).deck.name)
-                println("PASS arrival reverse=$reverse: exact shared singleton/first applicable/private discarded originals; other-player exact acceptance; immutable last partition/definitions and both Ready reset; stale preparation/play/dialog fences; two new Ready and independent recorded shuffles/Random; no old-result reset or duplicate return")
-            }
-        }
     }
 
     // LOB-038, TRN-026
@@ -156,9 +84,7 @@ class GameResultLifecycleTest {
             FoundationMigrations.migrate(db.settings)
             Fixture(db).use { f ->
                 fun end(): LobbyPreparation {
-                    f.owner.execute(f.suggestion())
-                    val suggestion = f.games.head(f.a, f.game.id).play!!.board.resultSuggestion!!
-                    assertEquals("accepted", f.other.execute(GameAction.AcceptResult(suggestion.id)).outcome)
+                    assertEquals("accepted", f.other.execute(f.concession()).outcome)
                     return f.games.head(f.b, f.game.id).preparation!!
                 }
                 val accounts = listOf(f.a.account.accountId, f.b.account.accountId)
@@ -193,9 +119,7 @@ class GameResultLifecycleTest {
                     .set(player.account.accountId, AccountSettings(DeckVisibility.HIDDEN))
                 // The lobby toggle is not a gameplay action: an active game refuses it.
                 assertEquals("lifecycleEnded", f.other.execute(GameAction.ShowDeck(true)).reason)
-                f.owner.execute(f.suggestion())
-                val suggestion = f.games.head(f.a, f.game.id).play!!.board.resultSuggestion!!
-                assertEquals("accepted", f.other.execute(GameAction.AcceptResult(suggestion.id)).outcome)
+                assertEquals("accepted", f.other.execute(f.concession()).outcome)
                 assertEquals(setOf(false), shown().values.toSet(), "Hidden by default")
                 assertFalse("deckShown" in GameWire.encode(f.games.head(f.a, f.game.id)))
                 f.owner.execute(GameAction.Ready)
@@ -209,9 +133,7 @@ class GameResultLifecycleTest {
                 // Kept for the next play of the same game, through the start and the return to the lobby.
                 f.other.execute(GameAction.Ready)
                 assertEquals(GameLifecycle.ACTIVE, f.games.head(f.a, f.game.id).summary.lifecycle)
-                f.owner.execute(f.suggestion())
-                val next = f.games.head(f.a, f.game.id).play!!.board.resultSuggestion!!
-                assertEquals("accepted", f.other.execute(GameAction.AcceptResult(next.id)).outcome)
+                assertEquals("accepted", f.other.execute(f.concession()).outcome)
                 assertTrue(shown().getValue(bId))
                 // It can be switched off again.
                 assertEquals("accepted", f.other.execute(GameAction.ShowDeck(false)).outcome)
@@ -228,25 +150,23 @@ class GameResultLifecycleTest {
         }
     }
 
-    // LOB-111, LOB-075, LOB-076
-    @Test fun `accepting a result notifies the suggestion author with the outcome from their side and no reminder follows`() {
+    // LOB-111, LOB-075, LOB-076: a concession ends the game; the other player hears the outcome from their side, and no
+    // reminder follows
+    @Test fun `a concession notifies the other player with the outcome from their side and no reminder follows`() {
         FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
             Fixture(db).use { f ->
                 val activity = org.asyncttwiz.server.activity.ActivityService(f.runtime)
-                assertEquals("accepted", f.owner.execute(f.suggestion(result = SuggestedResult.LOSS)).outcome)
-                // The accepter's move arms the author's waiting reminder; the game ending must cancel it.
-                assertEquals("accepted", f.other.execute(automatedPlay(PlayAction.SetLife(f.b.account.accountId, "19"))).outcome)
-                val suggestion = f.games.head(f.a, f.game.id).play!!.board.resultSuggestion!!
-                val accept = f.other.command(GameAction.AcceptResult(suggestion.id))
-                assertEquals("accepted", f.other.execute(accept).outcome)
+                val concession = f.concession()
+                assertEquals("accepted", f.other.execute(concession).outcome)
+                assertEquals(GameLifecycle.LOBBY, f.games.head(f.a, f.game.id).summary.lifecycle)
                 val notice = activity.page(f.a, null).readyNotices!!.single { it.kind == ActivityKind.GAME && it.gameId == f.game.id }
-                assertEquals(accept.requestId, notice.identity)
+                assertEquals(concession.requestId, notice.identity)
                 assertEquals(f.b.account.accountId, notice.authorId)
-                assertEquals(GameNoticeContent(notice.notice!!.gameName, "ResultB", notice.notice!!.lastEventAt, false,
-                    gameOver = SuggestedResult.LOSS), notice.notice)
+                assertNotNull(notice.notice!!.gameOver, "the game is over")
+                assertTrue(notice.notice!!.conceded)
                 assertEquals("Result Spark", notice.notice!!.gameName)
-                assertTrue(activity.page(f.b, null).readyNotices!!.none { it.notice?.gameOver != null }, "Only the author hears it")
+                assertTrue(activity.page(f.b, null).readyNotices!!.none { it.notice?.gameOver != null }, "Only the other player hears it")
                 // Tapping it opens the game.
                 assertEquals(ActivityDestination.CURRENT, activity.target(f.a, ActivityKind.GAME, f.game.id, notice.identity).destination)
                 f.runtime.transaction { connection ->
@@ -260,164 +180,14 @@ class GameResultLifecycleTest {
         }
     }
 
-    // LOB-114, TRN-027
-    // TRN-065, LOB-111 (I-D53, pivot review #1): the result the rules gave waits for either player's OK; nobody declines or
-    // withdraws it and only Automatum records it; Undo takes it back until it is confirmed; once one player confirms it
-    // (its author too) the game is over for both and the other is told the result from their side
-    @Test fun `the rules' result is confirmed by either player and told to the other`() {
-        FreshDatabase().start().use { db ->
-            FoundationMigrations.migrate(db.settings)
-            Fixture(db).use { f ->
-                val activity = org.asyncttwiz.server.activity.ActivityService(f.runtime)
-                val play = GameScope(f.game.id, playId = f.games.head(f.a, f.game.id).summary.playId)
-                fun board() = f.games.head(f.a, f.game.id).play!!.board
-                val rules = PlayAction.SuggestResult(SuggestedResult.WIN, byRules = true)
-                assertEquals(RuleRefusals.AUTOMATUM_ONLY, f.owner.execute(GameAction.Play(rules)).reason, "only Automatum records it")
-                assertEquals("accepted", f.owner.execute(automatedPlay(rules)).outcome)
-                var suggestion = board().resultSuggestion!!
-                assertTrue(suggestion.byRules); assertEquals(f.a.account.accountId, suggestion.author)
-                assertEquals("inapplicable", f.other.execute(GameAction.Play(PlayAction.DeclineResult(suggestion.id))).reason)
-                assertEquals("inapplicable", f.owner.execute(GameAction.Play(PlayAction.WithdrawResult(suggestion.id))).reason)
-                assertEquals("inapplicable", f.other.execute(f.other.command(GameAction.Concede, play)).reason, "the game is over already")
-                // Undo takes it back until it is confirmed
-                assertEquals("accepted", f.owner.execute(f.owner.command(GameAction.Undo, play)).outcome)
-                assertNull(board().resultSuggestion)
-                assertEquals("accepted", f.owner.execute(automatedPlay(rules)).outcome)
-                suggestion = board().resultSuggestion!!
-                // Either player confirms it, its author too
-                val accept = f.owner.command(GameAction.AcceptResult(suggestion.id))
-                assertEquals("accepted", f.owner.execute(accept).outcome)
-                val head = f.games.head(f.b, f.game.id)
-                assertEquals(GameLifecycle.LOBBY, head.summary.lifecycle); assertNull(head.play)
-                val notice = activity.page(f.b, null).readyNotices!!.single { it.kind == ActivityKind.GAME && it.gameId == f.game.id }
-                assertEquals(accept.requestId, notice.identity)
-                assertEquals(SuggestedResult.LOSS, notice.notice!!.gameOver, "from Bob's side")
-                assertTrue(notice.notice!!.byRules); assertFalse(notice.notice!!.conceded)
-            }
-        }
-    }
-
-    @Test fun `setting Ready while the other player still mulligans tells them their opponent is ready`() {
-        FreshDatabase().start().use { db ->
-            FoundationMigrations.migrate(db.settings)
-            Fixture(db).use { f ->
-                val activity = org.asyncttwiz.server.activity.ActivityService(f.runtime)
-                fun notice(of: AccountService.Principal) = activity.page(of, null).readyNotices!!
-                    .single { it.kind == ActivityKind.GAME && it.gameId == f.game.id }.notice!!
-                assertTrue(f.initial.board.players.all { it.status == PlayerStatus.OPENING })
-                // An ordinary action while both still mulligan is a plain move notice.
-                assertEquals("accepted", f.other.execute(automatedPlay(PlayAction.SetLife(f.b.account.accountId, "19"))).outcome)
-                assertFalse(notice(f.a).opponentReady)
-                assertEquals("accepted", f.other.execute(automatedPlay(PlayAction.SetStatus(""))).outcome)
-                assertTrue(notice(f.a).opponentReady)
-                assertEquals("ResultB", notice(f.a).opponentName)
-                // Once both are ready nobody is told the other is ready.
-                assertEquals("accepted", f.owner.execute(automatedPlay(PlayAction.SetStatus("Keeping 7"))).outcome)
-                assertFalse(notice(f.b).opponentReady)
-                assertEquals("accepted", f.other.execute(automatedPlay(PlayAction.SetLife(f.b.account.accountId, "18"))).outcome)
-                assertFalse(notice(f.a).opponentReady)
-            }
-        }
-    }
-
-    @Test fun `opponent decline clears the shared suggestion durably and stale accept cannot end the game`() {
-        FreshDatabase().start().use { db ->
-            FoundationMigrations.migrate(db.settings)
-            Fixture(db).use { f ->
-                assertEquals("accepted", f.owner.execute(f.suggestion()).outcome)
-                val suggestion = f.games.head(f.a, f.game.id).play!!.board.resultSuggestion!!
-                assertEquals("otherPlayerRequired", f.owner.execute(automatedPlay(PlayAction.DeclineResult(suggestion.id))).reason)
-                val decline = f.other.command(automatedPlay(PlayAction.DeclineResult(suggestion.id)))
-                val result = f.other.execute(decline)
-                assertEquals("accepted", result.outcome)
-                assertEquals(result, f.other.admit(decline))
-                val head = f.games.head(f.a, f.game.id)
-                assertEquals(GameLifecycle.ACTIVE, head.summary.lifecycle)
-                assertNull(head.play!!.board.resultSuggestion)
-                assertEquals(head, f.games.head(f.b, f.game.id))
-                assertEquals("inapplicable", f.other.execute(GameAction.AcceptResult(suggestion.id)).reason)
-                assertEquals("accepted", f.owner.execute(f.suggestion(result = SuggestedResult.DRAW)).outcome)
-            }
-        }
-    }
-
-    // TRN-050
-    @Test fun `continuing from before a pending suggestion branches away and both players keep playing`() {
-        FreshDatabase().start().use { db ->
-            FoundationMigrations.migrate(db.settings)
-            Fixture(db).use { f ->
-                assertEquals("accepted", f.owner.execute(automatedPlay(PlayAction.SetLife(f.a.account.accountId, "18"))).outcome)
-                val before = f.games.head(f.a, f.game.id).play!!.currentNodeId
-                assertEquals("accepted", f.owner.execute(f.suggestion()).outcome)
-                val proposed = f.games.head(f.a, f.game.id).play!!
-                val suggestion = proposed.board.resultSuggestion!!
-                // The other player continues from the earlier point: the server does not refuse it.
-                val continued = f.other.execute(f.other.command(automatedPlay(PlayAction.SetLife(f.b.account.accountId, "15")))
-                    .copy(continuation = Continuation(before, true)))
-                assertEquals("accepted", continued.outcome, continued.reason)
-                val branch = f.games.head(f.b, f.game.id).play!!
-                assertNotEquals(proposed.currentBranchId, branch.currentBranchId)
-                assertNull(branch.board.resultSuggestion)
-                assertEquals("18", branch.board.players.single { it.accountId == f.a.account.accountId }.life)
-                // Both players keep playing on the new branch.
-                assertEquals("accepted", f.owner.execute(automatedPlay(PlayAction.SetLife(f.a.account.accountId, "17"))).outcome)
-                assertEquals("accepted", f.other.execute(automatedPlay(PlayAction.SetStatus("GG"))).outcome)
-                assertEquals("accepted", f.owner.execute(automatedPlay(PlayAction.AdjustLife(f.b.account.accountId, "-1"))).outcome)
-                val head = f.games.head(f.a, f.game.id)
-                assertEquals(GameLifecycle.ACTIVE, head.summary.lifecycle)
-                assertNull(head.play!!.board.resultSuggestion)
-                // The suggestion stays on the old branch; it is no longer the current board's, so it cannot end the game.
-                assertEquals("inapplicable", f.other.execute(GameAction.AcceptResult(suggestion.id)).reason)
-                assertEquals(GameLifecycle.ACTIVE, f.games.head(f.b, f.game.id).summary.lifecycle)
-            }
-        }
-    }
-
-    // SYS-006, TRN-048
-    @Test fun `suggester withdraws restored decline after life edit as an ordinary undoable event`() {
-        FreshDatabase().start().use { db ->
-            FoundationMigrations.migrate(db.settings)
-            Fixture(db).use { f ->
-                assertEquals("accepted", f.owner.execute(f.suggestion(result = SuggestedResult.DRAW)).outcome)
-                val suggestion = f.games.head(f.a, f.game.id).play!!.board.resultSuggestion!!
-                val withdrawal = automatedPlay(PlayAction.WithdrawResult(suggestion.id))
-                assertEquals("accessDenied", f.other.execute(withdrawal).reason)
-                assertEquals("inapplicable", f.owner.execute(automatedPlay(PlayAction.WithdrawResult(id()))).reason)
-                assertEquals("accepted", f.other.execute(automatedPlay(PlayAction.DeclineResult(suggestion.id))).outcome)
-                assertEquals("inapplicable", f.owner.execute(withdrawal).reason)
-                assertEquals("accepted", f.owner.execute(automatedPlay(PlayAction.AdjustLife(f.a.account.accountId, "-1"))).outcome)
-                val scope = GameScope(f.game.id, playId = f.initial.id)
-                assertEquals("accepted", f.other.execute(f.other.command(GameAction.Undo, scope)).outcome)
-                val restored = f.games.head(f.a, f.game.id).play!!
-                assertEquals(suggestion, restored.board.resultSuggestion)
-                assertEquals("19", restored.board.players.single { it.accountId == f.a.account.accountId }.life)
-                val command = f.owner.command(withdrawal)
-                val result = f.owner.execute(command)
-                assertEquals("accepted", result.outcome)
-                assertEquals(result, f.owner.admit(command))
-                val head = f.games.head(f.a, f.game.id)
-                assertEquals(GameLifecycle.ACTIVE, head.summary.lifecycle)
-                assertEquals(restored.board.copy(resultSuggestion = null), head.play!!.board)
-                assertEquals(HistoryCategory.S.key, head.play!!.currentGroup!!.category)
-                assertEquals(head, f.games.head(f.b, f.game.id))
-                assertEquals(1, count(db, "SELECT count(*) FROM gameplay_mutation WHERE request_id='${command.requestId}'"))
-                assertEquals("inapplicable", f.other.execute(GameAction.AcceptResult(suggestion.id)).reason)
-                assertEquals("accepted", f.owner.execute(f.owner.command(GameAction.Undo, scope)).outcome)
-                assertEquals(restored.board, f.games.head(f.a, f.game.id).play!!.board)
-                assertEquals("accepted", f.owner.execute(f.owner.command(GameAction.Redo, scope)).outcome)
-                assertEquals(head.play!!.board, f.games.head(f.a, f.game.id).play!!.board)
-            }
-        }
-    }
-
-    @Test fun `failed return rolls back atomically and admitted acceptance recovers after restart without duplicate effect`() {
+    @Test fun `failed return rolls back atomically and an admitted concession recovers after restart without duplicate effect`() {
         FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
             lateinit var accept: GameCommand; lateinit var before: GameHead; lateinit var actor: AccountService.Principal
             lateinit var author: AccountService.Principal; lateinit var hello: GameHello; lateinit var gameId: String
             Fixture(db).use { f ->
-                f.owner.execute(f.suggestion()); before = f.games.head(f.a, f.game.id)
-                accept = f.other.command(GameAction.AcceptResult(before.play!!.board.resultSuggestion!!.id))
+                before = f.games.head(f.a, f.game.id)
+                accept = f.concession()
                 actor = f.b; author = f.a; hello = f.other.hello; gameId = f.game.id
                 f.other.admit(accept)
                 sql(db, """CREATE FUNCTION fail_return() RETURNS trigger LANGUAGE plpgsql AS ${'$'}${'$'}

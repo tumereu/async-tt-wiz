@@ -32,7 +32,7 @@ import org.junit.jupiter.api.Test
 
 /**
  * I-D54 phase 3 and I-D56 step A through the game service: a play started as engine state (the test seam [engineSeats],
- * or the decks parsed on the server with [engineDecks]) takes [GameAction.Submit]s in arrival order, refuses a stale
+ * or the decks parsed on the server) takes [GameAction.Submit]s in arrival order, refuses a stale
  * parent and an impossible input, stores and broadcasts each event, confirms an assumed input by the same real answer
  * and branches on another, keeps each player's local head and next stop (whose move it is, per viewer), rewinds (free,
  * or by an approved undo request), keeps play settings private, ends the play once its result is final, and serves its
@@ -97,11 +97,10 @@ class EngineGameServiceTest {
             val seats = listOf(a, b).map { p -> PlayerId(p.account.accountId) }.map { p ->
                 Seat(p, names.mapIndexed { i, n -> DeckCard(CardId("${p.value}.$i"), Cards.definition(n)) })
             }
-            engineSeats = if (engine && !decks) { _ -> seats } else null
-            engineDecks = decks
+            engineSeats = if (!decks) { _ -> seats } else null
             try {
                 owner.execute(GameAction.Ready); recipient.execute(GameAction.Ready)
-            } finally { engineSeats = null; engineDecks = true }
+            } finally { engineSeats = null }
         }
 
         fun snapshot(actor: AccountService.Principal = a): EngineSnapshot = games.head(actor, game.id).engine!!
@@ -317,11 +316,13 @@ class EngineGameServiceTest {
         assertNull(Engine.result(model.engine))
     }
 
-    @Test fun `a play on today's model refuses engine submissions`() = withService { runtime ->
-        val f = Fixture(runtime, engine = false)
-        assertNull(f.games.head(f.a, f.game.id).engine)
-        val submission = Submission(id(), id(), listOf(Act.Perform(Input.Concede(PlayerId(f.a.account.accountId)))))
-        assertEquals("notEngineState", f.owner.execute(GameAction.Submit(submission)).reason)
+    // SYS-073 (I-D56 step D2): the server takes gameplay only as engine inputs; today's model's play actions are refused
+    @Test fun `today's model's play actions are refused`() = withService { runtime ->
+        val f = Fixture(runtime, engine = true, tag = "o")
+        val play = GameScope(f.game.id, playId = f.games.head(f.a, f.game.id).summary.playId)
+        for (action in listOf(GameAction.Undo, GameAction.Redo, GameAction.Concede, GameAction.AcceptResult(id())))
+            assertEquals("inapplicable", f.owner.execute(f.owner.command(action).copy(scope = play)).reason, "$action")
+        assertEquals(GameLifecycle.ACTIVE, f.games.head(f.a, f.game.id).summary.lifecycle)
     }
 }
 

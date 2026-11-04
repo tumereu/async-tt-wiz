@@ -42,7 +42,6 @@ class GameHub @JvmOverloads constructor(private val runtime: ServiceRuntime,
         tasks.add(workers.scheduleWithFixedDelay({ guarded(UnavailabilityBoundary.GAME_PUBLICATION) {
             sockets.forEach { it.heartbeat() }
         } }, 30, 30, TimeUnit.SECONDS))
-        tasks.add(workers.scheduleWithFixedDelay({ games.evictExpiredBaselines() }, 1, 1, TimeUnit.SECONDS))
     }
     private fun guarded(boundary: UnavailabilityBoundary, action: () -> Unit) {
         try { if (runtime.admitting()) action() }

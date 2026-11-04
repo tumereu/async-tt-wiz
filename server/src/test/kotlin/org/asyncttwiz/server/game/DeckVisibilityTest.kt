@@ -23,9 +23,9 @@ class DeckVisibilityTest {
         val stream = games.open(actor, hello, connection, gameId, UUID.randomUUID().toString())
         fun execute(action: GameAction): GameResult {
             val summary = games.head(actor, gameId).summary
-            val scope = if (action is GameAction.Play || action is GameAction.AcceptResult) GameScope(gameId, playId = summary.playId)
+            val scope = if (action is GameAction.Submit) GameScope(gameId, playId = summary.playId)
                 else GameScope(gameId, summary.preparationRound, if (action == GameAction.AcceptInvitation) summary.invitationId else null)
-            val command = games.boarded(actor, GameCommand(UUID.randomUUID().toString(), scope, action, stream.streamId, stream.generation))
+            val command = GameCommand(UUID.randomUUID().toString(), scope, action, stream.streamId, stream.generation)
             assertTrue(games.admit(actor, hello, connection, command) is GameReceipt); assertTrue(games.executeOne())
             return games.results(actor, gameId, listOf(command.requestId)).statuses.single().result!!
         }
@@ -59,13 +59,11 @@ class DeckVisibilityTest {
             GameWire.json.decodeFromString(decks.read(owner, deck.deck.id).body)
         fun shown(stream: Stream, of: AccountService.Principal = stream.actor) =
             games.head(stream.actor, stream.gameId).preparation!!.players.single { it.accountId == of.account.accountId }.deckShown
-        /** Both ready, start, and end the play with an accepted result. */
+        /** Both ready, start, and end the play with the other player's concession. */
         fun finish(owner: Stream, other: Stream) {
             owner.execute(GameAction.Ready); other.execute(GameAction.Ready)
             assertEquals(GameLifecycle.ACTIVE, games.head(owner.actor, owner.gameId).summary.lifecycle)
-            owner.execute(automatedPlay(PlayAction.SuggestResult(SuggestedResult.WIN)))
-            val suggestion = games.head(owner.actor, owner.gameId).play!!.board.resultSuggestion!!
-            assertEquals("accepted", other.execute(GameAction.AcceptResult(suggestion.id)).outcome)
+            assertEquals("accepted", other.execute(games.concession(other.actor, other.gameId)).outcome)
         }
     }
 

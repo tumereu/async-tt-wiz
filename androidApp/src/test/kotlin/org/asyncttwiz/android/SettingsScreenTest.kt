@@ -100,34 +100,22 @@ class SettingsScreenTest {
         }
     }
 
-    // LOB-113, SYS-071 (I-D41): Automatum's pause settings start at 2 s, Wait and Full control off, and are kept on the
-    // device per account
-    @Test fun automatumPauseSettings() {
+    // LOB-113 (I-D56 §7, §13): new games start in Auto-skip with Always assume resolves off and Autotap on; without an
+    // account (signed out) the device keeps them per account
+    @Test fun automatumPlayDefaults() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         compose.setContent { ScreenTheme { AutomatumPauseSettings("pauses") } }
-        compose.onNodeWithText("2.0 s to react when the other player does something").assertExists()
-        compose.onNodeWithTag("proceed-wait").assertIsSelected()
-        compose.onNodeWithTag("full-control").assertIsOff()
-        compose.onNodeWithTag("proceed-at-once").performClick()
-        compose.onNodeWithTag("full-control").performClick()
-        compose.waitForIdle()
-        val kept = PausePreferences(context, "pauses").settings
-        // pausereview #5: switching Full control records when it changed, so it goes into games once
-        assertTrue(kept.fullControlChanged > 1)
-        assertEquals(PauseSettings(proceedAtOnce = true, fullControl = true, fullControlChanged = kept.fullControlChanged), kept)
-        assertEquals(PauseSettings(), PausePreferences(context, "someone else").settings)
-        compose.onNodeWithTag("full-control").assertIsOn()
-    }
-
-    // LOB-113, STK-024 (I-D47): "Autotap mana sources" starts on and is kept on the device per account
-    @Test fun autotapSetting() {
-        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
-        compose.setContent { ScreenTheme { AutomatumPauseSettings("autotap") } }
+        compose.onNodeWithTag("response-mode-Auto-skip").assertIsSelected()
+        compose.onNodeWithTag("always-assume-resolves").assertIsOff()
         compose.onNodeWithTag("autotap").assertIsOn()
+        compose.onNodeWithTag("response-mode-Full control").performClick()
+        compose.onNodeWithTag("always-assume-resolves").performClick()
         compose.onNodeWithTag("autotap").performClick()
         compose.waitForIdle()
-        assertEquals(PauseSettings(autotap = false), PausePreferences(context, "autotap").settings)
-        assertTrue(PausePreferences(context, "someone else").settings.autotap)
+        assertEquals(org.asyncttwiz.protocol.game.PlaySettings(org.asyncttwiz.protocol.game.ResponseMode.FullControl,
+            alwaysAssumeResolves = true, autotap = false), PausePreferences(context, "pauses").engineDefaults)
+        assertEquals(org.asyncttwiz.protocol.game.PlaySettings(), PausePreferences(context, "someone else").engineDefaults)
+        compose.onNodeWithTag("response-mode-Full control").assertIsSelected()
         compose.onNodeWithTag("autotap").assertIsOff()
     }
 

@@ -266,8 +266,8 @@ class AttackTargetPresentationTest {
         }
         assertEquals(listOf("Bob", "Target 0", "Target 0", "Target 1", "Target 1"), attackTargetChoices(tableBoard(state), names, combatId(7)).map { it.second })
         // The opponent's Siege, a Battlemage and creatures are never targets, and the reducer agrees.
-        for (id in listOf(combatId(83), combatId(86), combatId(82))) assertFalse(CombatStackRules.canAttack(state, id))
-        for (id in expected.filterNotNull()) assertTrue(CombatStackRules.canAttack(state, id))
+        for (id in listOf(combatId(83), combatId(86), combatId(82))) assertFalse(CombatStackRules.canAttack(state.board, state.definitions, id))
+        for (id in expected.filterNotNull()) assertTrue(CombatStackRules.canAttack(state.board, state.definitions, id))
         // On the other player's turn the roles swap: their walkers are safe, the old attacker's Siege is protected.
         val swapped = state.copy(board = state.board.copy(turn = state.board.turn.copy(accountId = combatId(8))))
         assertEquals(listOf(null, combatId(83)), attackTargetChoices(tableBoard(swapped), emptyMap(), combatId(7)).map { it.first })

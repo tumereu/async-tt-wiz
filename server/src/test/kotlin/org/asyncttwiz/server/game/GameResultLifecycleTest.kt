@@ -236,6 +236,9 @@ class GameResultLifecycleTest {
             val play = StartRules.initialize(summary, prepared, request, mapOf(a to "A".repeat(43), b to "_".repeat(42) + "8"))
             val command = GameCommand(request, GameScope(gameId, round), GameAction.Ready, stream, "1")
             val original = GameResult(request, command.scope, "accepted", ingressOrdinal = "1", commitRevision = "1", createdIds = listOf(play.id, play.root.id))
+            // The play row as the old model wrote it, at its root (V16 reads that)
+            val stored = (GameWire.json.encodeToJsonElement(PlayState.serializer(), play) as kotlinx.serialization.json.JsonObject).let {
+                kotlinx.serialization.json.JsonObject(it + ("currentNodeId" to kotlinx.serialization.json.JsonPrimitive(play.root.id))) }.toString()
             sql(db, """INSERT INTO account(id,username,username_key,email_delivery,email_key,password_phc) VALUES
                 ('$a','A','a','a@example.invalid','a@example.invalid','retained'),('$b','B','b','b@example.invalid','b@example.invalid','retained');
                 INSERT INTO definition VALUES ('${submitted.digest}',1,'${DeckJson.canonical(definition)}');
@@ -246,14 +249,14 @@ class GameResultLifecycleTest {
                 INSERT INTO request_identity VALUES ('$request','$b','gameCommand','$gameId','${GameWire.digest(command)}');
                 INSERT INTO game_inbox VALUES ('$request','$gameId','$b',1,'$stream',1,'${GameWire.json.encodeToString<GameClientMessage>(command)}','${GameWire.json.encodeToString(original)}');
                 INSERT INTO game_play(id,game_id,preparation_round,start_request_id,root_id,payload)
-                VALUES ('${play.id}','$gameId','$round','$request','${play.root.id}','${GameWire.json.encodeToString(play)}');
+                VALUES ('${play.id}','$gameId','$round','$request','${play.root.id}','$stored');
                 UPDATE game SET lifecycle='ACTIVE', current_play='${play.id}' WHERE id='$gameId';
                 INSERT INTO game_definition VALUES ('$gameId','${submitted.digest}');""")
             for (player in players) sql(db, "INSERT INTO player_preparation VALUES ('$gameId','${player.accountId}',true,'${GameWire.json.encodeToString(player.deck)}')")
             // V14..V40 are additive: the retained play, its preparation and its request survive unchanged.
             Flyway.configure().configuration(FoundationMigrations.flyway(db.settings).configuration).target("40").load().migrate()
             fun count(statement: String): Long = db.connection().use { c -> c.createStatement().executeQuery(statement).use { it.next(); it.getLong(1) } }
-            assertEquals(1, count("SELECT count(*) FROM game_play WHERE id='${play.id}' AND payload='${GameWire.json.encodeToString(play)}'"))
+            assertEquals(1, count("SELECT count(*) FROM game_play WHERE id='${play.id}' AND payload='$stored'"))
             assertEquals(2, count("SELECT count(*) FROM player_preparation WHERE game_id='$gameId'"))
             assertEquals(1, count("SELECT count(*) FROM game_inbox WHERE request_id='$request' AND result='${GameWire.json.encodeToString(original)}'"))
             // V41 (rules v29 library layers) then deletes the started game with everything that belongs to it.

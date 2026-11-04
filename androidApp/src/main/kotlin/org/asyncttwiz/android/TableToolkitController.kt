@@ -232,27 +232,20 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
     /**
      * Why [action] can't be made now with Automatum (D32): a cast is open; a shared flow waits for an answer and the
      * action changes what Automatum reads (only Automatum's own controls and what is only shown, such as notes,
-     * statuses, marks, positions and whose move it is, go on); a step or turn change made by hand (TRN-057, I-D28: the
-     * turn moves on only through Automatum, [automatumStep]). Null when it can.
+     * statuses, marks, positions and whose move it is, go on); a change made by hand ([AutomatumDrags.allowed], I-D52).
+     * Null when it can.
      */
     private fun refusal(action: PlayAction): String? {
         if (cast.open) return CastController.BUSY
         val play = current() ?: return null
         val board = play.board
-        val own = (action as? PlayAction.Mtg)?.action.let { it is MtgAction.SetSkipWhenNoChoice || it is MtgAction.SetFullControl }
-        if (own) return null
         if (play.flowOpen && !shownOnly(play, action)) return SharedFlowController.BUSY
-        val step = action == PlayAction.NextStep || action == PlayAction.EndTurn || action is PlayAction.ChooseStep ||
-            action is PlayAction.BeginTurn
-        if (step && CombatStackRules.stack(board).cards.isNotEmpty()) return SharedFlowController.STACK_WAITING
-        if (step) return SharedFlowController.STEPS_FORWARD
         // TRN-027: the viewer's own mulligans and library bottom during their opening, the host's setup before the game
         if (AutomatumDrags.openingAction(board, viewer, action)) return null
         // I4, I-D28, I-D52: only what the rules allow; nothing changes the game by hand. The server's own check
         // (pivot review #7), so the device never shows a change the server refuses
-        if (engineRoute == 0 && !AutomatumOnly.allowed(board, viewer, action)) return when (action) {
+        if (engineRoute == 0 && !AutomatumDrags.allowed(board, viewer, action)) return when (action) {
             is PlayAction.Stack -> AutomatumDrags.STACK
-            is PlayAction.SetLife, is PlayAction.AdjustLife -> AutomatumDrags.LIFE
             else -> AutomatumDrags.MANUAL
         }
         return null

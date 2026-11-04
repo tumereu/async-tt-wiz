@@ -17,14 +17,14 @@ import kotlinx.serialization.Serializable
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val typedCounters: List<TypedCounter> = emptyList(),
     /** Rules v36: the engine's opaque player ledger (D22). */
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val ledger: String = "",
-    /** Rules v36 (I-D18): this player's "Skip when I have no choice", on unless they turned it off
-     * ([MtgAction.SetSkipWhenNoChoice]); the engine reads it whoever's client makes the call. */
+    /** Rules v36 (I-D18): this player's "Skip when I have no choice", on unless they turned it off:
+     * the engine reads it whoever's client makes the call. */
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val skipWhenNoChoice: Boolean = true,
-    /** I-D41: this player's "Full control", off unless they turned it on ([MtgAction.SetFullControl]): Automatum also
+    /** I-D41: this player's "Full control", off unless they turned it on: Automatum also
      * pauses for them where they usually wouldn't respond (their own spells, every step in which they could act); the
      * host reads it whoever's client makes the call. */
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val fullControl: Boolean = false,
-    /** I-D49: the mulligans this player took in their opening with Automatum on ([MtgAction.SetMulligans]); with
+    /** I-D49: the mulligans this player took in their opening with Automatum on; with
      * [GameRules.owed] it says how many cards they put on the bottom of their library when they keep. */
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val mulligans: Int = 0)
 
@@ -58,7 +58,7 @@ object PlayerStatus {
     /** Rules v36 ([Automatum], D21): how often this card changed zones; the engine's object id is the card plus it. */
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val zoneChanges: Int = 0,
     /** Rules v36 (CR 613.7, D34): set as it enters a zone, is attached, turns face up or down or shows another face
-     * on the Battlefield; 0 when never stamped. See [MtgFacts]. */
+     * on the Battlefield; 0 when never stamped. */
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val timestamp: Long = 0,
     /** Rules v36: typed counters (+1/+1, loyalty, …), sorted by kind, beside the manual colour [counters]. */
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val typedCounters: List<TypedCounter> = emptyList(),
@@ -82,124 +82,6 @@ object PlayerStatus {
     /** Rules v29: which of the player's Temp piles (1..4) this is. Only meaningful when [temp]; old
      * snapshots have only pile 1 and therefore omit it. */
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val tempNumber: Int = 1)
-
-/** A player's Temp piles, numbered 1..[COUNT]. Pile 1 (rules v23) is always shown and can never be
- * turned off; piles 2..4 (rules v29) exist only while turned on. Every pile is created lazily, by the
- * first move into its deterministic ID or (2..4) by an explicit [PlayAction.SetTempPile] (clients now
- * only create piles by moving cards there and only send it to close an empty pile), so old games
- * gain them without any board migration and retained events keep replaying unchanged. */
-object TempPiles {
-    const val RULES_VERSION = 29
-    /** Rules v31: closing a Search of a Temp pile no longer shuffles it; the pile keeps its order. Closing a
-     * Look with rest Top puts the looked-at cards back in place (see [lookKeepsPlace]). */
-    const val SEARCH_RULES_VERSION = 31
-    const val COUNT = 4
-    val NUMBERS = 1..COUNT
-    /** A deterministic Temp pile identity, whether created yet or not. */
-    data class Ref(val accountId: String, val number: Int)
-
-    /** Pile 1 keeps its rules v23 ID; piles 2..4 add their number. */
-    fun containerId(playId: String, accountId: String, number: Int = 1): String {
-        require(number in NUMBERS) { "Temp pile number $number" }
-        return CommandIds.uuidV5(playId, if (number == 1) "container/$accountId/TEMP" else "container/$accountId/TEMP/$number")
-    }
-    /** Owner -> deterministic Temp pile 1 ID, whether created yet or not. */
-    fun containerIds(state: PlayState): Map<String, String> = if (!DeckValidation.uuid(state.id)) emptyMap()
-        else state.board.players.associate { it.accountId to containerId(state.id, it.accountId) }
-    /** Deterministic ID -> owner and number, for every player's piles 1..4, created or not. */
-    fun refs(state: PlayState): Map<String, Ref> = if (!DeckValidation.uuid(state.id)) emptyMap()
-        else state.board.players.flatMap { p -> NUMBERS.map { n -> containerId(state.id, p.accountId, n) to Ref(p.accountId, n) } }.toMap()
-    fun container(board: BoardState, accountId: String?, number: Int = 1): PlayContainer? =
-        board.containers.firstOrNull { it.temp && it.accountId == accountId && it.tempNumber == number }
-    /** The player's created Temp piles in number order. */
-    fun containers(board: BoardState, accountId: String?): List<PlayContainer> =
-        board.containers.filter { it.temp && it.accountId == accountId }.sortedBy { it.tempNumber }
-    /** Pile 1 always, piles 2..4 while turned on, in number order. */
-    fun visibleNumbers(board: BoardState, accountId: String?): List<Int> =
-        (listOf(1) + containers(board, accountId).map { it.tempNumber }).distinct().sorted()
-
-    /** The board with the player's (possibly not yet created) empty Temp pile, for planning moves. */
-    fun ensure(board: BoardState, playId: String, accountId: String, number: Int = 1): BoardState =
-        if (container(board, accountId, number) != null) board
-        else board.copy(containers = board.containers + PlayContainer(containerId(playId, accountId, number), PlayZone.LIBRARY,
-            accountId, temp = true, tempNumber = number))
-
-    /** The state a move into a missing Temp pile executes against. The recorded delta is still taken
-     * from the original state, so it creates the container and its exact inverse removes it. */
-    internal fun prepare(state: PlayState, command: GameCommand): PlayState {
-        val move = (command.action as? GameAction.Play)?.action as? PlayAction.MoveCard ?: return state
-        val target = move.destination.containerId
-        if (state.board.containers.any { it.id == target }) return state
-        if (state.board.cards.singleOrNull { it.id == move.cardId }?.token != false) return state
-        val ref = refs(state)[target] ?: return state
-        if (ref.number != 1 && CURRENT_GAMEPLAY_RULES_VERSION < RULES_VERSION) return state
-        return state.copy(board = ensure(state.board, state.id, ref.accountId, ref.number))
-    }
-
-    /** Whether closing [display], shown from [source], leaves [source] exactly as it is (rules v31 Temp Search). */
-    fun searchKeepsOrder(source: PlayContainer, display: ContentsDisplay, rulesVersion: Int): Boolean =
-        display.search && source.temp && display.containerId == source.id && rulesVersion >= SEARCH_RULES_VERSION
-
-    /** Rules v31: closing a Look on a Temp pile with rest Top puts the looked-at cards back in the places they
-     * hold now, in the panel's (possibly reordered) order, so cards put on the pile meanwhile stay on top. */
-    fun lookKeepsPlace(source: PlayContainer, display: ContentsDisplay, rest: ContentsRest, rulesVersion: Int): Boolean =
-        !display.search && rest == ContentsRest.TOP && source.temp && display.containerId == source.id &&
-            rulesVersion >= SEARCH_RULES_VERSION
-
-    /** [cards] with the members of [shown] replaced, slot by slot, by [shown] in its order. */
-    fun inPlace(cards: List<String>, shown: List<String>): List<String> {
-        val members = shown.toSet()
-        val next = shown.iterator()
-        return cards.map { if (it in members) next.next() else it }
-    }
-
-    /** ONE batch moving the whole pile, in its current order, onto the owner's Library top or bottom. */
-    fun allToLibrary(board: BoardState, tempId: String, bottom: Boolean): List<PlayAction.MoveCard> {
-        val temp = board.containers.single { it.id == tempId && it.temp }
-        val library = board.zoneContainer(temp.accountId, PlayZone.LIBRARY) ?: return emptyList()
-        return LibraryActions.moveCaptured(board, temp.cards,
-            MoveDestination(library.id, if (bottom) MoveInsertion.BOTTOM else MoveInsertion.TOP))
-    }
-
-    /** ONE batch moving the whole pile into the owner's Graveyard or Exile. Empty when nothing would move. */
-    fun allToZone(board: BoardState, tempId: String, zone: PlayZone): List<PlayAction.MoveCard> {
-        require(zone == PlayZone.GRAVEYARD || zone == PlayZone.EXILE)
-        val temp = board.containers.singleOrNull { it.id == tempId && it.temp } ?: return emptyList()
-        val target = board.zoneContainer(temp.accountId, zone) ?: return emptyList()
-        if (temp.cards.isEmpty()) return emptyList()
-        return LibraryActions.moveCaptured(board, temp.cards, MoveDestination(target.id, MoveInsertion.UNORDERED))
-    }
-
-    /** The whole pile into the owner's Library, then that Library shuffled: the members of ONE invocation
-     * (one Undo). The fresh [seed] is a literal input. Empty when nothing would move. */
-    fun shuffleIntoLibrary(board: BoardState, tempId: String, seed: String): List<PlayAction> {
-        val temp = board.containers.singleOrNull { it.id == tempId && it.temp } ?: return emptyList()
-        val library = board.zoneContainer(temp.accountId, PlayZone.LIBRARY) ?: return emptyList()
-        val moves = allToLibrary(board, tempId, bottom = false)
-        return if (moves.isEmpty()) emptyList() else moves + PlayAction.ShuffleLibrary(library.id, seed)
-    }
-
-    /** The pile's top card onto the top of the same owner's pile [number], creating that pile if needed. */
-    fun topToPile(board: BoardState, playId: String, tempId: String, number: Int): List<PlayAction.MoveCard> {
-        val temp = board.containers.singleOrNull { it.id == tempId && it.temp } ?: return emptyList()
-        val owner = temp.accountId ?: return emptyList()
-        if (number !in NUMBERS || number == temp.tempNumber || temp.cards.isEmpty()) return emptyList()
-        val planned = ensure(board, playId, owner, number)
-        return LibraryActions.moveSlice(planned, temp.id, ContentsSelection.TOP, 1,
-            MoveDestination(container(planned, owner, number)!!.id, MoveInsertion.TOP))
-    }
-
-    /** ONE batch moving the whole pile, in its current order, onto the top of the same owner's pile
-     * [number]; the first move creates (turns on) that pile if needed. Empty when nothing would move. */
-    fun allToPile(board: BoardState, playId: String, tempId: String, number: Int): List<PlayAction.MoveCard> {
-        val temp = board.containers.singleOrNull { it.id == tempId && it.temp } ?: return emptyList()
-        val owner = temp.accountId ?: return emptyList()
-        if (number !in NUMBERS || number == temp.tempNumber || temp.cards.isEmpty()) return emptyList()
-        val planned = ensure(board, playId, owner, number)
-        return LibraryActions.moveCaptured(planned, temp.cards,
-            MoveDestination(container(planned, owner, number)!!.id, MoveInsertion.TOP))
-    }
-}
 
 /** A player's ordinary zone container; never the Temp pile, which shares the LIBRARY zone. */
 fun BoardState.zoneContainer(accountId: String?, zone: PlayZone): PlayContainer? =
@@ -226,9 +108,6 @@ object CardVisibility {
                 it.id in board.containers.singleOrNull { c -> c.zone == PlayZone.STACK }?.cards.orEmpty() }) return true
         return isVisibleFaceUp(card, container.zone, container.accountId, viewer)
     }
-
-    fun viewers(board: BoardState, card: PlayCard): List<String> = board.players.map { it.accountId }
-        .filter { isVisibleFaceUp(board, card, it) }.sorted()
 }
 @Serializable data class TurnState(val accountId: String, val number: String = "1",
     val phase: String = "BEGINNING", val step: String = "UNTAP")
@@ -247,10 +126,6 @@ object CardVisibility {
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val priority: MtgPriority? = null,
     /** Rules v36: the engine's own records (§4.3), sorted by id, each changed on its own. */
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val engineRecords: List<EngineRecord> = emptyList(),
-    /** I-D54/I-D56 step C: a board shown for a game whose state is the engine's carries that state (never serialized;
-     * equal only to itself, so board equality stays cheap): every engine reader of the board uses it instead of
-     * rebuilding one from the board ([org.asyncttwiz.protocol.game.EngineView]). */
-    @kotlinx.serialization.Transient val engine: org.asyncttwiz.protocol.game.EngineView? = null,
     /** TRN-058 (I-D57): on a board shown for a game whose state is the engine's, whose move the game is for the viewer:
      * the player it really waits for ([org.asyncttwiz.protocol.game.GameDevice.move]); null: nobody's, or a board without
      * one. Never serialized. [attentionHolder] stays who acts on the board shown (a decision stop in playback is the
@@ -265,13 +140,15 @@ object CardVisibility {
 @Serializable data class InitialStarter(val choice: StarterChoice, val accountId: String,
     val seed: String? = null, val algorithm: String? = null)
 @Serializable data class PlayRoot(val id: String, val branchId: String, val parentId: String? = null)
-/** One accepted incarnation. Initial outcomes/root are retained, not regenerated by reads/replay. */
+/**
+ * One play of a game as it started (the play row the server stores, [StartRules.initialize]): its ids, the players'
+ * containers and cards as dealt, the card data of every card, the initial shuffles and the starter. A game on engine
+ * state is played from it ([org.asyncttwiz.protocol.game]); the table draws the engine's state on its containers and
+ * players. A play row stored with the old model's fields reads with [GameWire.stored].
+ */
 @Serializable data class PlayState(val gameId: String, val id: String, val preparationRound: String,
-    val startRequestId: String, val root: PlayRoot, val currentNodeId: String, val board: BoardState,
+    val startRequestId: String, val root: PlayRoot, val board: BoardState,
     val definitions: List<SubmittedDefinition>, val shuffles: List<InitialShuffle>, val starter: InitialStarter,
-    val engineVersion: Int = 1, val readFormat: Int = 1, val currentGroup: GameplayGroup? = null,
-    val annotations: EventAnnotationState = EventAnnotationState(),
-    val currentBranchId: String = root.branchId,
     val librarySecret: String? = null)
 
 object StartRules {
@@ -376,7 +253,7 @@ object StartRules {
         containers.add(PlayContainer(CommandIds.uuidV5(playId, "container/STACK"), PlayZone.STACK))
         // The dungeon cards outside the game (CR 309.2): their card data, for the table and the choice that brings one in
         val needed = cards.map { it.definition }.toSet() + players.flatMap { it.deck!!.outside }
-        return PlayState(game.id, playId, preparation.roundId, requestId, root, root.id,
+        return PlayState(game.id, playId, preparation.roundId, requestId, root,
             BoardState(players.map { PlayPlayer(it.accountId, status = PlayerStatus.OPENING) }, cards.sortedBy { it.id }, containers,
                 TurnState(starter.accountId)),
             needed.sorted().map { definitions.getValue(it) }, shuffles, starter, librarySecret = librarySecret)

@@ -144,7 +144,7 @@ class GameSocketTest {
                     assertEquals(CURRENT_GAMEPLAY_RULES_VERSION, newer.next<GameWelcome>().gameplayRulesVersion)
                     newer.send(OpenGameStream(game.id, id()))
                     assertEquals("serverUpdatePending", newer.next<GameAdmissionError>().code)
-                    newer.send(GameCommand(id(), GameScope(game.id), GameAction.Undo, id(), "1"))
+                    newer.send(GameCommand(id(), GameScope(game.id), GameAction.AcceptInvitation, id(), "1"))
                     assertEquals("serverUpdatePending", newer.next<GameAdmissionError>().code)
                 }
             }

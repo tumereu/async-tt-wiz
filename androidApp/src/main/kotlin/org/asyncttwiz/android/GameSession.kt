@@ -381,8 +381,7 @@ class GameSession(private val connection: GameConnection, private val credential
     }
     fun submit(game: GameSummary, action: GameAction): Boolean {
         if (action == GameAction.DeleteGame) return deleteGame(game)
-        if (action.isPlay || action is GameAction.AcceptResult || action == GameAction.Concede || action is GameAction.SendChat ||
-            action == GameAction.Undo || action == GameAction.Redo || action is GameAction.SelectDeck || action is GameAction.TransferPreparedCard ||
+        if (action is GameAction.SendChat || action is GameAction.SelectDeck || action is GameAction.TransferPreparedCard ||
             action is GameAction.SetStarter || action is GameAction.SetAlternateStarter || action is GameAction.SetPodGameBasics || action is GameAction.ShowDeck ||
             action == GameAction.Ready || action == GameAction.WithdrawReady) return false
         val current = summary(game)
@@ -591,8 +590,7 @@ class GameSession(private val connection: GameConnection, private val credential
                         chats.failed(id, "Not sent. This request could not be used.")
                         pending.remove(id); preparations.forget(id); sent.remove(id)
                     }
-                    if (original != null) error = historyControlFailure(original.action, message.code)
-                        ?: "This game changed or the request could not be used. Refresh and try again."
+                    if (original != null) error = "This game changed or the request could not be used. Refresh and try again."
                 }
             }
             is GameUpgradeRequired -> incompatibleRules(clientOlder = true)
@@ -639,7 +637,7 @@ class GameSession(private val connection: GameConnection, private val credential
         preparations.settle(result) { retireSelections(original.scope.gameId) }
         // An engine game's refusals are its device's notes (I-D56 §8: a stale race is never shown as a refusal)
         error = if (result.outcome in setOf("accepted", "noOp") || original.action is GameAction.Submit || original.action.isEngine) null
-            else historyControlFailure(original.action, result.reason) ?: refusalText(result.reason)
+            else refusalText(result.reason)
         if (original.action == GameAction.AcceptInvitation && result.outcome == "accepted" &&
             summaries[original.scope.gameId]?.podId != null) {
             send(SubscribeGame(original.scope.gameId, result.commitRevision ?: "0"))

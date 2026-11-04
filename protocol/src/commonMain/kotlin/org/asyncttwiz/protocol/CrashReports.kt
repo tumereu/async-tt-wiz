@@ -56,7 +56,7 @@ data class ReconnectEpisode(val id: String, val gameId: String, val startedAt: S
 
 /** Stable diagnostic labels without action payloads (chat text, card data, etc.): the same on the phone and the server
  * (a shrunk Android build may name a nested class "GameAction$Submit" where the JVM says "Submit"). */
-fun GameAction.latencyType(): String = if (this is GameAction.Play) "Play.${labelOf(action)}" else labelOf(this)
+fun GameAction.latencyType(): String = labelOf(this)
 
 private fun labelOf(value: Any): String = value::class.simpleName?.substringAfterLast('$') ?: "Unknown"
 

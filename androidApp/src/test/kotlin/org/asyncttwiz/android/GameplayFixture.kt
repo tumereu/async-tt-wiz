@@ -8,7 +8,7 @@ internal class GameplayFixture {
     val actor = id(1); val other = id(2)
     val root = PlayRoot(id(3), id(4))
     val definition = CardDefinition("Retained", listOf(DefinitionFace(id(11), "Retained face")))
-    val initial = PlayState(id(5), id(6), id(7), id(8), root, root.id,
+    val initial = PlayState(id(5), id(6), id(7), id(8), root,
         BoardState(listOf(PlayPlayer(actor), PlayPlayer(other)),
             listOf(PlayCard(id(9), DeckJson.digest(definition), actor, id(10), id(11),
                 placement = PlayPlacement(BoardPosition(0, 0), id(40)))),
@@ -18,8 +18,6 @@ internal class GameplayFixture {
         AccountIdentity(other, "B"), initial.preparationRound, id(12), InvitationState.ACCEPTED,
         lifecycle = GameLifecycle.ACTIVE, revision = "1", playId = initial.id)
     var sequence = 100
-    fun command(action: PlayAction) = GameCommand(id(sequence++), GameScope(game.id, playId = initial.id),
-        GameAction.Play(action), id(13), "1")
     fun head(state: PlayState = initial, revision: String = "1") = GameHead(game.id, revision, game.copy(revision = revision), play = state)
     fun result(command: GameCommand, revision: String? = null, outcome: String = "accepted") =
         GameResult(command.requestId, command.scope, outcome, ingressOrdinal = "1", commitRevision = revision)

@@ -61,7 +61,7 @@ class PlayTest {
         val state = StartRules.initialize(game, preparation, id(11), seeds)
         assertEquals(game.id, state.gameId); assertEquals(game.preparationRound, state.preparationRound)
         assertNotEquals(game.id, state.id); assertNotEquals(state.id, state.root.id)
-        assertNull(state.root.parentId); assertEquals(state.root.id, state.currentNodeId)
+        assertNull(state.root.parentId)
         assertEquals(TurnState(a.accountId), state.board.turn)
         assertEquals(listOf("20", "20"), state.board.players.map { it.life })
         // Every new play starts with both players mulliganing (rules v26), until they set another status.

@@ -37,7 +37,6 @@ import org.asyncttwiz.automatum.CastExtraChip
 import org.asyncttwiz.automatum.CastWayChip
 import org.asyncttwiz.automatum.HandCastOptions
 import org.asyncttwiz.automatum.HandCasts
-import org.asyncttwiz.protocol.MtgTag
 import org.asyncttwiz.protocol.PlayZone
 
 /**

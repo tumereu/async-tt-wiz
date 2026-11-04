@@ -38,7 +38,7 @@ class TableMotionRuntimeTest {
         compose.waitForIdle()
         compose.mainClock.autoAdvance = false
         val id = "$owner/LIBRARY/0"
-        val moved = initial.copy(currentNodeId = "draw", board = initial.board.copy(
+        val moved = initial.copy(root = initial.root.copy(id = "draw"), board = initial.board.copy(
             cards = initial.board.cards.map { if (it.id == id) it.copy(containerId = "$owner/HAND") else it },
             containers = initial.board.containers.map { c -> when (c.id) {
                 "$owner/LIBRARY" -> c.copy(cards = emptyList())
@@ -98,7 +98,7 @@ class TableMotionRuntimeTest {
         compose.waitForIdle()
         compose.mainClock.autoAdvance = false
         val ids = listOf("a/LIBRARY/0", "b/LIBRARY/0")
-        val target = initial.copy(currentNodeId = "draw", board = initial.board.copy(
+        val target = initial.copy(root = initial.root.copy(id = "draw"), board = initial.board.copy(
             cards = initial.board.cards.map { if (it.id in ids) it.copy(containerId = "${it.owner}/HAND") else it },
             containers = initial.board.containers.map { c -> when (c.zone) {
                 PlayZone.LIBRARY -> c.copy(cards = emptyList())
@@ -108,7 +108,7 @@ class TableMotionRuntimeTest {
         val before = TablePresentation.scene(TableFixture.game, tableBoard(initial), "a", 412f, 892f, false)
         val after = TablePresentation.scene(TableFixture.game, tableBoard(target), "a", 412f, 892f, false)
         compose.runOnIdle {
-            changes?.apply(TableChangeBatch(jump = true))
+            changes?.applyEngine("", jump = true, emptyList(), emptySet())
             state.value = target
         }
         repeat(2) { compose.mainClock.advanceTimeByFrame(); compose.waitForIdle() }
@@ -145,7 +145,7 @@ class TableMotionRuntimeTest {
         compose.waitForIdle()
         compose.mainClock.autoAdvance = false
         for (tapped in listOf(true, false)) {
-            val target = initial.copy(currentNodeId = "tap/$tapped", board = initial.board.copy(cards = initial.board.cards.map {
+            val target = initial.copy(root = initial.root.copy(id = "tap/$tapped"), board = initial.board.copy(cards = initial.board.cards.map {
                 if (it.id == id) it.copy(tapped = tapped) else it
             }))
             val item = TablePresentation.scene(TableFixture.game, tableBoard(target), "a", 412f, 892f, false).items.single { it.cardId == id }

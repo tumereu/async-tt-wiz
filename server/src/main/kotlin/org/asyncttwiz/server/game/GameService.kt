@@ -158,7 +158,7 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
      * move it is per viewer from the engine seats, and the chat cursor. No play row or engine state is read. */
     private fun summaryHead(sql: DSLContext, principal: AccountService.Principal, gameId: String, game: GameRecord): GameHead {
         val summary = lobby.summary(sql, game, null, actor(principal))
-        return GameHead(gameId, summary.revision, summary, chatSync = ChatStore.sync(sql, uuid(gameId)), boundedEndpoint = true,
+        return GameHead(gameId, summary.revision, summary, chatSync = ChatStore.sync(sql, uuid(gameId)),
             ownPodDeckName = PreparationStore.ownPodDeckName(sql, uuid(gameId), actor(principal)))
     }
 
@@ -172,7 +172,7 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
             else if (engine != null) engine.second else play?.board?.effectiveAttentionHolder, engine?.let { actor(principal) })
         return GameHead(gameId, summary.revision, summary, preparation =
             if (play == null && canReadPreparation(summary, principal.account.accountId)) PreparationStore.read(sql, summary) else null,
-            play = play, chatSync = ChatStore.sync(sql, uuid(gameId)), boundedEndpoint = true,
+            play = play, chatSync = ChatStore.sync(sql, uuid(gameId)),
             ownPodDeckName = PreparationStore.ownPodDeckName(sql, uuid(gameId), actor(principal)),
             engine = engine?.first)
     }
@@ -215,7 +215,7 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
         val revision = if (moves == null) stored else stored.copy(engine = stored.engine?.copy(moves = null, activity = null)?.takeIf { it != EngineUpdate() },
             summary = stored.summary.copy(attentionHolder = if (moves[accountId] == true) accountId else moves.entries.firstOrNull { it.value }?.key,
                 updatedAt = stored.engine?.activity?.get(accountId) ?: stored.summary.updatedAt))
-        return if (revision.summary.lifecycle !in listOf(GameLifecycle.LOBBY, GameLifecycle.ACTIVE)) revision.copy(preparation = null, play = null, mutation = null, group = null, chatMessage = null, treeDelta = null)
+        return if (revision.summary.lifecycle !in listOf(GameLifecycle.LOBBY, GameLifecycle.ACTIVE)) revision.copy(preparation = null, play = null, chatMessage = null)
         else if (canReadPreparation(revision.summary, accountId)) revision else revision.copy(preparation = null)
     }
 
@@ -229,7 +229,7 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
             GameHead(revision.gameId, summary.revision, summary)
         } else visibleRevision(revision, principal.account.accountId).let { visible ->
             if (engine || visible.summary.lifecycle != GameLifecycle.ACTIVE) visible
-            else visible.copy(play = null, mutation = null, group = null, treeDelta = null, engineEvent = null, engine = null)
+            else visible.copy(play = null, engineEvent = null, engine = null)
         }
     }
 
@@ -256,9 +256,6 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
         var insertedChat: ChatMessage? = null
         var engineAccepted: EngineGames.Outcome? = null
         val rejection = if (game.lifecycle !in listOf("LOBBY", "ACTIVE")) "lifecycleEnded" else when (command.action) {
-            // I-D54, I-D56 step D2: the board changes only by engine inputs; today's model's play actions are gone
-            is GameAction.Play, is GameAction.PlayBatch, GameAction.Undo, GameAction.Redo, is GameAction.AcceptResult,
-            GameAction.Concede -> "inapplicable"
             GameAction.DeleteGame -> applyDeletion(sql, game, command)
             is GameAction.Submit, is GameAction.EngineSeen, is GameAction.EngineRewind, is GameAction.EngineRequestRewind,
             is GameAction.EngineAnswerRewind, GameAction.EngineCancelRewind, is GameAction.EngineSettings ->
@@ -299,8 +296,8 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
             update = GameRevision(game.id.toString(), before.toString(), revision.toString(), command.requestId,
                 inbox.accountId.toString(), command.scope, summary,
                 if (summary.lifecycle == GameLifecycle.LOBBY) PreparationStore.read(sql, summary) else null,
-                if (command.action !is GameAction.SendChat && engine == null) play else null, null, null,
-                insertedChat, null, engineEvent = engine?.events?.firstOrNull(), engine = engine?.update ?: seated)
+                if (command.action !is GameAction.SendChat && engine == null) play else null,
+                insertedChat, engineEvent = engine?.events?.firstOrNull(), engine = engine?.update ?: seated)
             encodedUpdate = GameWire.encode(update)
             sql.insertInto(GAME_REVISION).set(GAME_REVISION.GAME_ID, game.id).set(GAME_REVISION.REVISION, revision)
                 .set(GAME_REVISION.PAYLOAD, encodedUpdate).execute()

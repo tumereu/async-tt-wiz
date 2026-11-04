@@ -151,6 +151,7 @@ class AbReviewTest {
 
     // abreview #4 (I-D56 §11, CR 104.3a): conceding is taken at any time; a concession made at the device's head after
     // the server's head moved on (an event still on the wire) is refused as "newLine" and lost
+    // TRN-064: conceding is taken at once, also with an event of the other player on the wire
     @Test
     fun aConcessionCrossingAnEventIsStillTaken() {
         val sim = sim("Thought Siphon")

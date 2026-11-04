@@ -27,7 +27,6 @@ class ChatTest {
         assertFalse(GameWire.valid(command.copy(scope = GameScope(game, preparationId = play))))
         assertFalse(GameWire.valid(command.copy(scope = command.scope.copy(invitationId = play))))
         assertFalse(GameWire.valid(command.copy(scope = command.scope.copy(preparationId = play))))
-        assertFalse(GameWire.valid(command.copy(continuation = Continuation(play, true))))
     }
     @Test fun textIsPreservedNotCardNormalizedAndTransportBoundsApply() {
         assertTrue(ChatValidation.text(" \nHello\n "))

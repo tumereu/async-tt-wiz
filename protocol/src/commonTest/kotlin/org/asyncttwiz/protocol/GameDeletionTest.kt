@@ -17,7 +17,6 @@ class GameDeletionTest {
         for (scope in listOf(GameScope(game), GameScope(game, game), GameScope(game, game, game),
             GameScope(game, preparationId = game, playId = play), GameScope(game, invitationId = game, playId = play)))
             assertFalse(GameWire.valid(command.copy(scope = scope)))
-        assertFalse(GameWire.valid(command.copy(continuation = Continuation(game, true))))
         assertFalse(GameWire.valid(command.copy(action = GameAction.Ready)))
     }
 }

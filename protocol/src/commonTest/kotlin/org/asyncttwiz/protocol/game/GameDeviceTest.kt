@@ -92,6 +92,7 @@ class GameDeviceTest {
     }
 
     // I-D56 §7: playback stops follow the private response mode: Full control at every assumed pass
+    // SYS-071: Full control is a private response mode of the device
     @Test
     fun fullControlStopsAtEveryAssumedPass() {
         val sim = spells("Storm Spark")
@@ -356,6 +357,7 @@ class GameDeviceTest {
 
     // I-D56 §10: undo is free while nothing new was shown; otherwise a request: the game is frozen until it is answered,
     // the other player sees the board only up to their local head; accepting rewinds both devices
+    // HIS-089: an undo past what the other player saw needs their approval
     @Test
     fun undoIsFreeOrARequestThatFreezesTheGame() {
         val sim = spells("Glance Ahead")
@@ -674,6 +676,7 @@ class GameDeviceTest {
     // STK-036, STK-026 (owner, smoke 2026-11-04): Auto-skip never passes the player's own main phase, even with nothing
     // left to do: a land played, or a creature cast with all their mana (resolved on Alice's assumed pass), leaves Bob in
     // his first main phase with priority; his turn goes on only by his own pass
+    // SYS-063: Auto-skip runs on the player's own device and never passes their own main phase
     @Test
     fun autoSkipStaysInYourOwnMainPhase() {
         val sim = DeviceSim(EngineGames(3, List(40) { "Island" } to List(40) { if (it % 2 == 0) "Forest" else "Elvish Seer" }))

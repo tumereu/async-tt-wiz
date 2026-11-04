@@ -59,11 +59,12 @@ class TableChangesScreenshotTest {
         compose.mainClock.autoAdvance = false
     }
 
-    private fun animate(changes: TableChanges, transition: GameplayTransition, reverse: Boolean = false) {
-        compose.runOnIdle {
-            changes.apply(TableChangeBatch(listOf(TableAppliedEvent(GameplayMutation("event", "root", "branch", "request", "a", null,
-                PlayAction.PassAttention, transition), reverse))))
-        }
+    /** One change of [kind] to [target] as the engine's events give it ([TableChanges.applyEngine]). */
+    private fun change(target: String, kind: TableChangeKind, vararg delta: Int, owner: String? = null, color: CounterColor? = null,
+        line: Int? = null) = TableChange(TableChangeKey(target, kind, color, line), delta.map { it.toBigInteger() }, owner)
+
+    private fun animate(changes: TableChanges, made: List<TableChange>) {
+        compose.runOnIdle { changes.applyEngine("event", jump = false, made, emptySet()) }
         repeat(3) { compose.mainClock.advanceTimeByFrame(); compose.waitForIdle() }
         compose.mainClock.advanceTimeBy(64); compose.waitForIdle()
     }
@@ -119,11 +120,10 @@ class TableChangesScreenshotTest {
         val entry = if (projection) "an attacking card's ability effect on the Stack" else "a card cast onto the Stack"
         val before = capture("stack-changefx-$projection-before",
             "Change highlight layer alone on white for $entry, before any change plays.")
-        val owner = if (!projection) GameplayTransition(fields = listOf(GameplayFieldChange(id, GameplayField.OWNER, "a", "b")))
-            else GameplayTransition(combatStack = CombatStackTransition(effects = listOf(StackEffectChange(id,
-                play.board.stackEffects.single().copy(controller = "a"), play.board.stackEffects.single()))))
-        for (reverse in listOf(false, true)) for ((name, transition) in listOf("owner" to owner)) {
-            animate(changes, transition, reverse)
+        // The controller changes from a to the entry's controller (played backwards: back to a)
+        val to = if (!projection) "b" else play.board.stackEffects.single().controller
+        for (reverse in listOf(false, true)) for (name in listOf("owner")) {
+            animate(changes, listOf(change(id, TableChangeKind.OWNER, owner = if (reverse) "a" else to)))
             val change = "controller change"
             val played = "played ${if (reverse) "backwards" else "forward"}"
             val during = capture("stack-changefx-$projection-$name-$reverse", "Change highlight layer alone on white for $entry: " +
@@ -146,15 +146,12 @@ class TableChangesScreenshotTest {
         overlay(scene, changes)
         val before = capture("covered-changefx-before",
             "Change highlight layer alone on white for a face-down card on the Stack, before any change plays.")
-        animate(changes, GameplayTransition(fields = listOf(
-            GameplayFieldChange(id, GameplayField.NOTE, "old", "new"),
-            GameplayFieldChange(id, GameplayField.CORNER, "1/1", "2/2"),
-            GameplayFieldChange(id, GameplayField.COUNTER, "0", "1", CounterColor.BLUE)),
-            combatStack = CombatStackTransition(textMarks = listOf(StackTextMarkChange(id, emptySet(), setOf(0))))))
+        animate(changes, listOf(change(id, TableChangeKind.NOTE), change(id, TableChangeKind.CORNER, 1, 1),
+            change(id, TableChangeKind.COUNTER, 1, color = CounterColor.BLUE), change(id, TableChangeKind.TEXT_MARK, line = 0)))
         assertEquals(0, changedPixels(before, capture("covered-changefx-hidden",
             "Face-down Stack card after hidden note, P/T, counter and text mark changes: nothing is highlighted."), TableBounds(0f, 0f, 412f, 892f)))
         compose.runOnIdle { changes.clear() }
-        animate(changes, GameplayTransition(fields = listOf(GameplayFieldChange(id, GameplayField.OWNER, "a", "b"))))
+        animate(changes, listOf(change(id, TableChangeKind.OWNER, owner = "b")))
         val during = capture("covered-changefx-owner",
             "Face-down Stack card after its controller changes: only the card's border pulses.")
         assertTrue(changedPixels(before, during, drawing.bounds) > 20)
@@ -179,15 +176,11 @@ class TableChangesScreenshotTest {
         val before = capture("changefx-before", "Portrait table at the smallest card size, before any change plays.")
         compose.mainClock.autoAdvance = false
         compose.runOnIdle {
-            fun apply(vararg fields: GameplayFieldChange) = changes.apply(TableChangeBatch(listOf(TableAppliedEvent(
-                GameplayMutation("event", "root", "branch", "request", "a", null, PlayAction.PassAttention,
-                    GameplayTransition(fields = fields.toList()))))))
-            repeat(3) { apply(GameplayFieldChange("a", GameplayField.LIFE, "20", "19")) }
-            apply(GameplayFieldChange("b", GameplayField.LIFE, "20", "22"),
-                GameplayFieldChange(card.cardId!!, GameplayField.CORNER, "2/2", "3/3"),
-                GameplayFieldChange(card.cardId!!, GameplayField.COUNTER, "0", "1", CounterColor.RED),
-                GameplayFieldChange(card.cardId!!, GameplayField.NOTE, "old", "new"),
-                GameplayFieldChange("turn", GameplayField.STEP, "UPKEEP", "DRAW"))
+            fun apply(vararg made: TableChange) = changes.applyEngine("event", jump = false, made.toList(), emptySet())
+            repeat(3) { apply(change("a", TableChangeKind.LIFE, -1)) }
+            apply(change("b", TableChangeKind.LIFE, 2), change(card.cardId!!, TableChangeKind.CORNER, 1, 1),
+                change(card.cardId!!, TableChangeKind.COUNTER, 1, color = CounterColor.RED), change(card.cardId!!, TableChangeKind.NOTE),
+                change("turn", TableChangeKind.STEP))
             assertEquals("-3", changes.active.getValue(TableChangeKey("a", TableChangeKind.LIFE)).tag)
         }
         repeat(3) { compose.mainClock.advanceTimeByFrame(); compose.waitForIdle() }

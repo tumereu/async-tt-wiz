@@ -17,7 +17,7 @@ internal object TableToolFixture {
             // A card originally owned by the OTHER player is still in the tracked player's field.
             PlayCard(id(20), "def", id(8), id(10), id(25), tapped = true, placement = PlayPlacement(BoardPosition(4, 2), id(30))),
             PlayCard(id(21), "def", id(7), id(10), id(25), placement = PlayPlacement(BoardPosition(2, 1), id(31))))
-        return PlayState(id(1), id(2), id(3), id(4), PlayRoot(id(5), id(6)), id(5),
+        return PlayState(id(1), id(2), id(3), id(4), PlayRoot(id(5), id(6)),
             BoardState(listOf(PlayPlayer(id(7)), PlayPlayer(id(8))), cards, containers,
                 TurnState(turnPlayer, number, position.phase, position.step)), emptyList(), emptyList(),
             InitialStarter(StarterChoice(turnPlayer), turnPlayer))

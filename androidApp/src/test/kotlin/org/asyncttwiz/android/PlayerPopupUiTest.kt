@@ -46,7 +46,7 @@ class PlayerPopupUiTest {
         compose.onNodeWithContentDescription("Life", substring = false).assertIsDisplayed()
         val life = play.board.players.single { it.accountId == owner }.life
         compose.onNodeWithContentDescription("Life $life").assertIsDisplayed()
-        // I-D52: life changes only by the rules: no steppers, value editor or counters
+        // SYS-069 (I-D52): life changes only by the rules: no steppers, value editor or counters
         for (name in listOf("Set life", "Increase life", "Decrease life", "Counters", "Edit status"))
             compose.onNodeWithContentDescription(name).assertDoesNotExist()
         for (color in CounterColor.entries)

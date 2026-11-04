@@ -11,7 +11,7 @@ class BattlefieldPlacementTest {
 
     private fun state(cards: List<PlayCard>): PlayState {
         val zones = mapOf(id(10) to PlayZone.LIBRARY, id(12) to PlayZone.GRAVEYARD, id(13) to PlayZone.EXILE, field to PlayZone.BATTLEFIELD)
-        return PlayState(id(1), id(2), id(3), id(4), PlayRoot(id(5), id(6)), id(5),
+        return PlayState(id(1), id(2), id(3), id(4), PlayRoot(id(5), id(6)),
             BoardState(listOf(PlayPlayer(id(7)), PlayPlayer(id(8))), cards,
                 zones.map { (container, zone) -> PlayContainer(container, zone, id(7), cards.filter { it.containerId == container }.map { it.id }) } +
                     PlayContainer(id(15), PlayZone.STACK), TurnState(id(7))),

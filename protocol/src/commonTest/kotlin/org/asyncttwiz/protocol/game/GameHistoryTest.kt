@@ -28,6 +28,7 @@ class GameHistoryTest {
             }
     }
 
+    // SYS-026: a state comes from the nearest checkpoint and the events after it, never from the start
     @Test
     fun theStateAtAnyEventFromItsNearestCheckpointIsTheStateReachedDirectly() {
         val tree = Tree(11, every = 16)

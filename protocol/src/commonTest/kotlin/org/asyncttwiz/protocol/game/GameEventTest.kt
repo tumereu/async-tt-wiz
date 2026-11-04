@@ -12,6 +12,7 @@ import kotlin.test.assertTrue
 
 /** I-D54 phase 2: events (engine part + table part) apply and revert exactly, and survive their stored format. */
 class GameEventTest {
+    // SYS-027: every event stores how to apply and revert it, checked against the current values
     @Test
     fun everyEventAppliesAndRevertsExactly() {
         for (seed in listOf(1L, 2L)) {

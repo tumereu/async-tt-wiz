@@ -63,6 +63,7 @@ class AuthorityTest {
         check(state().engine.priority.holder == alice && state().engine.stack.isNotEmpty())
     }
 
+    // HIS-092, SYS-073: each event is one acting point a device made of the player's own inputs; the server takes it as made
     @Test
     fun aDevicesEventIsTheServersEvent() {
         val server = AsyncServer(EngineGames(1))
@@ -76,6 +77,7 @@ class AuthorityTest {
         assertTrue(server.state().table.line.drawn > 0)
     }
 
+    // HIS-092: a submission is taken or refused whole
     @Test
     fun aStaleSubmissionIsRefused() {
         val server = AsyncServer(EngineGames(2))
@@ -88,6 +90,7 @@ class AuthorityTest {
     }
 
     // I-D56 §6: nobody decides for the other player; random answers are the line's (§9)
+    // SYS-036, SYS-038: each player makes only their own decisions
     @Test
     fun onlyTheDeciderMakesTheirInputs() {
         val server = AsyncServer(EngineGames(3))
@@ -142,6 +145,7 @@ class AuthorityTest {
     }
 
     // I-D56 §8, §9: another answer is a branch: a new line from the counter, reshuffled; the old line is discarded
+    // HIS-043, ZON-024: the discarded line is kept and shown to nobody; the new line reshuffles
     @Test
     fun anotherAnswerBranchesAndTheDiscardedLineIsShownToNobody() {
         val server = AsyncServer(EngineGames(5))
@@ -262,6 +266,7 @@ class AuthorityTest {
     }
 
     // I-D56 §10: undo is free while everything after the target is your own and showed you nothing new
+    // HIS-087, ZON-026: undo is free until something new was shown (a scry's look makes it a request)
     @Test
     fun undoIsFreeUntilSomethingNewWasShown() {
         val server = spells("Glance Ahead")
@@ -340,6 +345,7 @@ class AuthorityTest {
         assertTrue(server.submit(confirm.copy(id = "c2"), alice).isSuccess)
     }
 
+    // TRN-048, SYS-006: a result suggestion is its own table event, not an undo
     @Test
     fun aSuggestedResultIsAgreedByTheOtherPlayer() {
         val server = AsyncServer(EngineGames(9))

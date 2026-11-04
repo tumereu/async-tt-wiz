@@ -155,4 +155,19 @@ class EngineCombatTest {
         assertEquals(3, assertNotNull(CombatFlow.preview(run(declared))).damage[siege])
         assertEquals(1, CombatStackRules.blocks(table.board(declared).combat).size)
     }
+
+    // CMB-036 (CR 702.154a): an attacker with enlist may enlist the attacking player's untapped creatures without summoning
+    // sickness; CMB-038 (CR 702.22): a creature with banding may attack in a band
+    @Test fun enlistAndBandingAreTheAttackersChoices() {
+        val sergeant = Cards.invent("Drillmaster Vey", "{1}{W}", "Creature — Human Soldier",
+            "Enlist (As this creature attacks, you may tap a nonattacking creature you control without summoning sickness. " +
+                "When you do, add its power to this creature's until end of turn.)", "2/2")
+        val knight = Cards.invent("Shieldwall Knight", "{1}{W}", "Creature — Human Knight", "Banding", "2/2")
+        val (vey, bear, shieldwall) = table.put(alice, Zone.Battlefield, sergeant, "Stout Bear", knight)
+        val choices = CombatFlow.choices(run(table.state()))
+        assertEquals(alice, choices.declaring)
+        assertEquals(1, choices.enlist[vey])
+        assertTrue(bear in choices.enlistable)
+        assertEquals(setOf(shieldwall), choices.banding)
+    }
 }

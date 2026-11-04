@@ -76,6 +76,7 @@ internal class EngineTable {
         objects = LinkedHashMap(objects),
         battlefield = objects.values.filter { it.zone == Zone.Battlefield }.map { it.id }.toMutableList(),
         exile = objects.values.filter { it.zone == Zone.Exile }.map { it.id }.toMutableList(),
+        command = objects.values.filter { it.zone == Zone.Command }.map { it.id }.toMutableList(),
         turn = TurnState(turn, PlayerId(active), step, turnStarted = mapOf(PlayerId(active) to turn,
             PlayerId(if (active == alice) bob else alice) to turn - 1)),
         priority = PriorityState(priority?.let(::PlayerId)),
@@ -89,7 +90,7 @@ internal class EngineTable {
             PlayZone.entries.filter { it != PlayZone.STACK }.map { zone -> PlayContainer(id("$p/$zone"), zone, p) }
         } + PlayContainer(id("stack"), PlayZone.STACK)
         return PlayState(gameId = "game", id = "play", preparationRound = "round", startRequestId = "start",
-            root = PlayRoot("root", "branch"), currentNodeId = "root",
+            root = PlayRoot("root", "branch"),
             board = BoardState(listOf(PlayPlayer(alice), PlayPlayer(bob)), objects.values.map { o ->
                 val digest = digests.getValue(o.card.value)
                 org.asyncttwiz.protocol.PlayCard(o.card.value, digest, o.owner.value, containers.first { it.zone == PlayZone.LIBRARY &&

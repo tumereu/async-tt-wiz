@@ -33,25 +33,6 @@ class AttentionPresentationTest {
         }
     }
 
-    @Test fun moveArrivalPulsesOnlyForLiveRemoteOrAutomaticStepArrivals() {
-        val d = GameplayFixture()
-        val waiting = d.initial.copy(board = d.initial.board.copy(attentionHolder = d.other))
-        fun arrival(author: String, action: PlayAction, reviewBefore: Boolean = false, reviewAfter: Boolean = false): Boolean {
-            val tracker = MoveArrivalTracker(d.actor)
-            assertFalse(tracker.observe(tableBoard(waiting), !reviewBefore, null))
-            val change = GameplayRules.change(waiting, author, d.command(action))
-            val next = requireNotNull(change.state)
-            val arrived = tracker.observe(tableBoard(next), !reviewAfter, change.mutation)
-            assertFalse(tracker.observe(tableBoard(next), !reviewAfter, change.mutation), "An endpoint must pulse only once")
-            return arrived
-        }
-        assertTrue(arrival(d.other, PlayAction.PassAttention))
-        assertFalse(arrival(d.actor, PlayAction.PassAttention))
-        assertTrue(arrival(d.actor, PlayAction.NextStep))
-        assertFalse(arrival(d.other, PlayAction.PassAttention, reviewBefore = true))
-        assertFalse(arrival(d.other, PlayAction.PassAttention, reviewAfter = true))
-    }
-
     // TRN-006
     @Test fun movePillIsIndependentOfTurnAndReviewDisablesPass() {
         val initial = TableFixture.play()
@@ -104,6 +85,5 @@ class AttentionPresentationTest {
             assertEquals(move == "a", pill.own)
         }
     }
-
 
 }

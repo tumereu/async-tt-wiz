@@ -25,7 +25,7 @@ internal object TableFixture {
             containers += PlayContainer(id, zone, owner, members)
         }
         containers += PlayContainer("stack", PlayZone.STACK)
-        return PlayState(gameId, playId, "round", "request", PlayRoot("root", "branch"), "root",
+        return PlayState(gameId, playId, "round", "request", PlayRoot("root", "branch"),
             BoardState(listOf(PlayPlayer("a"), PlayPlayer("b")), cards, containers, TurnState("a")), listOf(submitted),
             emptyList(), InitialStarter(StarterChoice("a"), "a"))
     }

@@ -40,7 +40,6 @@ kotlin {
             kotlin.srcDir("../arcanum-engine/src/commonTest/kotlin/arcanum/engine/cards")
             dependencies {
                 implementation(libs.kotlin.test)
-                implementation(project(":scale-fixtures"))
                 // Tests only: the shared cube cards are parsed from their oracle text.
                 implementation(project(":arcanum-parser"))
             }

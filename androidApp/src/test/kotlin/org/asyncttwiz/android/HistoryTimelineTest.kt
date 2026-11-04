@@ -24,20 +24,6 @@ class HistoryTimelineTest {
         assertEquals(999, HistoryTimelineLayout.selectedAfterDrag(999,-240f,24f,1000))
     }
 
-
-    @Test fun mergedManualAndOccurrenceIconsRenderWithoutGenericFallback() {
-        val actions = listOf(PlayAction.ResetCorner(id(1)), PlayAction.SetFace(id(1), id(2)),
-            PlayAction.SetCovered(id(1), true), PlayAction.SetCovered(id(1), false),
-            PlayAction.Link(LinkEndpoint(LinkEndpointKind.CARD, id(1)), LinkEndpoint(LinkEndpointKind.PLAYER, id(2))),
-            PlayAction.RemoveLink(id(1)), PlayAction.Combat(CombatAction.Remove(id(1), id(2))),
-            PlayAction.InspectFace(id(1), id(2), id(3)), PlayAction.CloneToken(id(1)),
-            PlayAction.Stack(StackAction.RemoveEffect(id(1))))
-        for (action in actions) assertTrue(historyIconGlyph(HistoryGrouping.classify(action).icon).isNotBlank(), "$action")
-        assertNotEquals(historyIconGlyph(HistoryIcon.LINK), historyIconGlyph(HistoryIcon.LINK_OFF))
-        assertEquals(HistoryIcon.UNKNOWN, HistoryIcon.fromWire("unknown-manual-action"))
-    }
-
-
     // HIS-005, old-model timeline branching
     @Test fun branchSplitsAfterTheSharedEventOrTheArmedPointInTheGapCentre() {
         val plain = HistoryTimelineEvent("a", HistoryIcon.FLAG, "", null, null)

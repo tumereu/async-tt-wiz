@@ -34,7 +34,7 @@ class GameDeletionTest {
     }
     private fun play(game: GameSummary): PlayState {
         val root = PlayRoot(id(), id())
-        return PlayState(game.id, game.playId!!, game.preparationRound, id(), root, root.id,
+        return PlayState(game.id, game.playId!!, game.preparationRound, id(), root,
             BoardState(listOf(PlayPlayer(a.accountId), PlayPlayer(b.accountId)), emptyList(), emptyList(), TurnState(a.accountId)),
             emptyList(), emptyList(), InitialStarter(StarterChoice(a.accountId), a.accountId))
     }

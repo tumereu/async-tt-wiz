@@ -114,15 +114,13 @@ class StackRemovalFlightTest {
 
     @Test fun liveAndPlaybackBatchesAllowMotionButJumpsAndCatchUpClearIt() {
         val changes = TableChanges()
-        val mutation = GameplayMutation("node", "parent", "branch", "request", "a", null,
-            PlayAction.SetLife("a", "19"), GameplayTransition())
         assertFalse(changes.animates("node"))
-        changes.apply(TableChangeBatch(listOf(TableAppliedEvent(mutation))))
+        changes.applyEngine("node", jump = false, emptyList(), emptySet())
         assertTrue(changes.animates("node"))
         assertFalse(changes.animates("unseen catch-up"))
-        changes.apply(TableChangeBatch(jump = true))
+        changes.applyEngine("", jump = true, emptyList(), emptySet())
         assertFalse(changes.animates("node"))
-        changes.apply(TableChangeBatch(listOf(TableAppliedEvent(mutation, reverse = true))))
+        changes.applyEngine("parent", jump = false, emptyList(), emptySet())
         assertTrue(changes.animates("parent"))
         changes.clear()
         assertFalse(changes.animates("parent"))

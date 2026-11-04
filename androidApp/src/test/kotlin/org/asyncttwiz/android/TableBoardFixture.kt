@@ -19,7 +19,7 @@ import java.util.IdentityHashMap
 /** The render model ([TableBoard]) of a test board: what the table draws of [play]'s board (no engine state, no worked-out
  * values), for the table's drawing, layout and gesture tests. */
 internal fun tableBoard(play: PlayState): TableBoard =
-    TableBoard(play.gameId, play.id, play.currentNodeId, play.board, play.definitions)
+    TableBoard(play.gameId, play.id, play.root.id, play.board, play.definitions)
 
 /**
  * The engine table of a test board, for the screenshot tests (R4b follow-up): what the app draws of [play]'s board for
@@ -56,7 +56,7 @@ internal class EngineFixture private constructor(play: PlayState, viewer: String
             val engine = EngineView(model.engine, model.table, me, visible)
             val values = EngineBoardValues.make(EngineProjection.Board(play.board, play.definitions), play.gameId, engine.state,
                 viewer, runCatching { model.view() }.getOrNull(), visible, EngineWorker.Direct)
-            board = TableBoard(play.gameId, play.id, play.currentNodeId, play.board, play.definitions, engine, values)
+            board = TableBoard(play.gameId, play.id, play.root.id, play.board, play.definitions, engine, values)
             val shown = board
             routes = routes(play, viewer, model) { shown }
         }
@@ -76,8 +76,8 @@ internal class EngineFixture private constructor(play: PlayState, viewer: String
         /** The routes of an engine game loaded from [model] on [play] (both players' local heads there) for [viewer]. */
         private fun routes(play: PlayState, viewer: String, model: GameModel, shown: () -> TableBoard): EngineTableRoutes {
             val codec = EngineJson(GameDefinitions.of(model.engine))
-            val snapshot = EngineSnapshot(codec.encodeDefinitions(), "${play.id}/root", play.currentNodeId, codec.encodeModel(model),
-                localHeads = play.board.players.associate { it.accountId to play.currentNodeId })
+            val snapshot = EngineSnapshot(codec.encodeDefinitions(), "${play.id}/root", play.root.id, codec.encodeModel(model),
+                localHeads = play.board.players.associate { it.accountId to play.root.id })
             val game = EngineGame(play.gameId, viewer, play, snapshot)
             return EngineTableRoutes(viewer, { game }, {}, shown)
         }

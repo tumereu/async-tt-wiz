@@ -283,19 +283,12 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
         val visible = runCatching { model.visible(PlayerId(viewer)) }.getOrDefault(emptySet())
         val engine = org.asyncttwiz.protocol.game.EngineView(model.engine, model.table, PlayerId(viewer), visible)
         val values = EngineBoardValues.make(projected, gameId, engine.state, viewer, runCatching { model.view() }.getOrNull(), visible, worker)
-        // R4a, until the controllers read the engine state directly: the board carries it as before
-        val board = projected.board.copy(engine = engine)
-        return TableBoard(gameId, base.id, nodeId, board, projected.definitions, engine, values,
-            legacy = legacyOf(board, projected.definitions, nodeId))
+        return TableBoard(gameId, base.id, nodeId, projected.board, projected.definitions, engine, values)
     }
 
     /** [this] board on [nodeId] with [board] (the same engine state and values). */
     private fun TableBoard.with(board: BoardState = this.board, nodeId: String = this.nodeId): TableBoard =
-        copy(board = board, nodeId = nodeId, legacy = legacyOf(board, definitions, nodeId))
-
-    /** R4a, until the controllers read the engine state directly: the board as today's model's play (the same board). */
-    private fun legacyOf(board: BoardState, definitions: List<org.asyncttwiz.protocol.SubmittedDefinition>, nodeId: String): PlayState =
-        base.copy(board = board, currentNodeId = nodeId, currentGroup = null, definitions = definitions)
+        copy(board = board, nodeId = nodeId)
 
     /**
      * SYS-025: the board with the player's own action made, while its event is still being finished (what follows by

@@ -30,7 +30,8 @@ class EngineGameTest {
     @Test fun theOpeningShowsTheEnginesHandsToEachPlayer() {
         val game = alice()
         val board = game.play().board
-        assertNotNull(board.engine)
+        // Engine-responsiveness R4a: the board drawn is plain data; the engine state is beside it in the render model
+        assertNotNull(game.play().engine)
         assertTrue(board.players.all { it.status == PlayerStatus.OPENING })
         val own = board.containers.single { it.zone == PlayZone.HAND && it.accountId == f.a }
         val other = board.containers.single { it.zone == PlayZone.HAND && it.accountId == f.b }

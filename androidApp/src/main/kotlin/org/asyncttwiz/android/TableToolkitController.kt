@@ -32,7 +32,10 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
     val engine: EngineRoutes? = null) : TableActionRoutes {
     private val identity = state()?.let { TableActionScope(it.gameId, it.playId) }
     private var draft: PlayBatchDraft? = null
-    fun current(): TableBoard? = (draft?.state?.let(TableBoard::of) ?: state())?.takeIf { TableActionScope(it.gameId, it.playId) == identity }
+    /** R4a: the batch being drafted on the board of a game on engine state ([EngineStaging]). */
+    private var engineDraft: EngineDraft? = null
+    fun current(): TableBoard? = (engineDraft?.state ?: draft?.state?.let(TableBoard::of) ?: state())
+        ?.takeIf { TableActionScope(it.gameId, it.playId) == identity }
     fun enabled() = connected() && current() != null
     /** The history's tags up to the shown board (the engine's event log, D33). */
     fun engineTags(): List<MtgTag?> = current()?.let { engineTags(playTree?.invoke(), it.nodeId) }.orEmpty()
@@ -51,7 +54,7 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
      */
     internal fun acting(): TableBoard? {
         val play = current() ?: return null
-        if (draft != null) return play
+        if (draft != null || engineDraft != null) return play
         val from = continuation()?.nodeId?.takeIf { it == play.nodeId } ?: return play
         val tree = playTree?.invoke() ?: return play
         val legacy = play.legacy ?: return play
@@ -65,7 +68,7 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
 
     /** #1, #2 (STK-039): a reaction the viewer begins at their own pause (a cast or ability, Respond) holds the pause
      * first, so it continues from there (a branch once the game went on) instead of being dropped when the game moves. */
-    private fun holdForReaction() = pause.holdForReaction(current(), viewer)
+    private fun holdForReaction() { if (engine == null) pause.holdForReaction(current(), viewer) }
 
     /** Casting from the hand through Automatum (I2a): a private flow; while it is open nothing else changes (D32). */
     internal val cast = CastController(viewer, { acting()?.takeIf { enabled() } }, automatedBatch, ::engineTags, { castMessage(it) },
@@ -259,9 +262,11 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
     }
 
     private fun batchResult(requestId: String = DeviceRandom.uuid(), block: () -> Boolean): Boolean {
-        if (draft != null) return block()
+        if (draft != null || engineDraft != null) return block()
         if (cast.open) { busyShake(); return false }
         val initial = current() ?: return block()
+        // R4a: a game on engine state drafts on the board shown
+        if (initial.engine != null) return engineBatch(initial, requestId, block)
         val legacy = requireNotNull(initial.legacy)
         val pending = if (playTree == null) PlayBatchDraft(legacy, viewer, requestId)
             else PlayBatchDraft(legacy, viewer, requestId, playTree.invoke() ?: return false, continuation())
@@ -275,10 +280,24 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
         if (!sent) error = "Action could not be queued. Reconnect and try again."
         return result && sent
     }
+    /** [batchResult] on the board of a game on engine state: its members drafted there ([EngineDraft]), then sent together. */
+    private fun engineBatch(initial: TableBoard, requestId: String, block: () -> Boolean): Boolean {
+        val pending = EngineDraft(initial, viewer, requestId)
+        engineDraft = pending; invocation = pending.requestId; error = null
+        val result = try { block() } finally { engineDraft = null; invocation = null }
+        if (pending.overflow) { error = "An action may contain at most 100 changes."; return false }
+        if (!result) return false
+        if (pending.actions.isEmpty()) return result
+        val sent = if (pending.actions.size == 1) gameplay(pending.actions.single(), pending.requestId)
+            else playBatch?.invoke(pending.actions.toList(), pending.requestId) == true
+        if (!sent) error = "Action could not be queued. Reconnect and try again."
+        return result && sent
+    }
+
     private fun enqueue(action: PlayAction, invocationId: String?): Boolean {
         if (lastInvocation != invocationId) { lastInvocation = invocationId; error = null }
         refusal(action)?.let { if (it == CastController.BUSY) busyShake() else error = it; return false }
-        return (draft?.add(action) ?: gameplay(action, invocationId)).also { sent ->
+        return (engineDraft?.add(action) ?: draft?.add(action) ?: gameplay(action, invocationId)).also { sent ->
             if (!sent) error = "Action could not be queued. Reconnect and try again."
         }
     }
@@ -407,6 +426,15 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
     /** Whether [action] changes only what is shown, nothing Automatum reads (the values an automated batch's board
      * digest covers, SYS-057). An action the rules refuse anyway counts as shown-only: its own refusal is reported. */
     private fun shownOnly(play: TableBoard, action: PlayAction): Boolean {
+        // R4a: on engine state the table's own changes are worked out on the board shown; only its combat lanes and the
+        // records other than early answers are what Automatum reads of them (the board digest's, SYS-057)
+        if (play.engine != null) {
+            if (!EngineStaging.handles(play.board, action)) return false
+            val after = try { EngineStaging.apply(play.board, play.definitions, viewer, action, DeviceRandom.uuid()) }
+                catch (_: IllegalArgumentException) { return true }
+            fun read(b: BoardState) = b.combat to b.engineRecords.filterNot { it.kind == EngineRecordKind.PreAnswer }
+            return read(after) == read(play.board)
+        }
         val command = GameCommand(DeviceRandom.uuid(), GameScope(play.gameId, playId = play.playId), GameAction.Play(action),
             DeviceRandom.uuid(), "1")
         val after = GameplayRules.preview(play.legacy ?: return true, viewer, command).state ?: return true
@@ -982,6 +1010,46 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
         sent
     }
 
+    /**
+     * Engine-responsiveness R4a: the whole-drop preflight of [place] on the board of a game on engine state, as
+     * [CombatStackController.place] makes it on today's model: every card of [selected] placed in order at [destination]
+     * on the board shown ([EngineStaging]), each member named as a batch's; throws with the reason when one is refused.
+     */
+    private fun engineProbe(initial: TableBoard, selected: List<String>, destination: CombatDestination) {
+        val requestId = DeviceRandom.uuid()
+        var board = initial.board
+        var members = 0
+        fun emit(action: PlayAction) {
+            val next = EngineStaging.apply(board, initial.definitions, viewer, action, CommandIds.uuidV5(requestId, "member/$members"))
+            if (next != board) members++
+            board = next
+        }
+        val targets = CombatStackController.orderedTargets(board, selected)
+        val sourceIds = CombatStackController.sources(targets)
+        require(sourceIds.size == targets.size && sourceIds.isNotEmpty()) { "No live source" }
+        var target = destination
+        var prefix: String? = null
+        var rightAnchor = destination.cardGap.beforeId
+        for ((index, source) in sourceIds.withIndex()) {
+            val area = requireNotNull(board.combat)
+            val occurrence = CombatStackRules.occurrences(area).find { it.sourceId == source }
+            val pending = sourceIds.drop(index + 1)
+            target = if (prefix != null) target.copy(insertion = CombatInsertion.GAP, cardGap = IdentityGap(prefix, rightAnchor),
+                pendingSourceIds = pending) else target.copy(pendingSourceIds = pending)
+            emit(PlayAction.Combat(CombatAction.Place(source, target, occurrence?.let { CombatStackRules.location(area, it.id) })))
+            val placedArea = board.combat!!
+            val placed = CombatStackRules.occurrences(placedArea).single { it.sourceId == source }
+            val location = CombatStackRules.location(placedArea, placed.id)!!
+            if (index == 0) {
+                val side = placedArea.pairs.single { it.id == location.pairId }.side(location.role)
+                val right = side.dropWhile { it.id != placed.id }.drop(1).firstOrNull { it.sourceId !in pending }?.id
+                rightAnchor = right
+                target = target.copy(pairId = location.pairId, insertion = CombatInsertion.GAP, cardGap = IdentityGap(placed.id, right))
+            }
+            prefix = placed.id
+        }
+    }
+
     /** Whole-drop structural preflight uses the existing shared helper; only real-session callbacks send.
      * Request-derived occurrence IDs are read from that session's immediate prediction, never the probe. */
     fun place(bound: ToolkitCapture, destination: CombatDestination): Boolean = batchResult {
@@ -989,7 +1057,8 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
         if (CombatStackController.retargetDrop(initial.board, bound.viewIds, destination).isNotEmpty())
             return@batchResult setAttackTarget(bound,
                 initial.board.combat?.pairs?.find { it.id == destination.pairId }?.attackTarget ?: destination.attackTarget)
-        val probe = runCatching { CombatStackController.place(requireNotNull(initial.legacy), viewer, bound.viewIds, destination) { action ->
+        val probe = if (initial.engine != null) runCatching { engineProbe(initial, bound.viewIds, destination) }
+        else runCatching { CombatStackController.place(requireNotNull(initial.legacy), viewer, bound.viewIds, destination) { action ->
             GameCommand(DeviceRandom.uuid(), GameScope(initial.gameId, playId = initial.playId),
                 GameAction.Play(action), initial.playId, "0")
         } }

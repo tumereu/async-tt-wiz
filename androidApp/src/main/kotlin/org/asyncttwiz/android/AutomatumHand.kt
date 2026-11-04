@@ -178,11 +178,18 @@ internal class HandController(
         val history = tags()
         work.run({
             try {
-                val legacy = play.legacy!!
                 val definitions = AutomatumBoards.definitions(play)
-                val log = AutomatumBoards.engineLog(legacy, definitions, history)
-                HandCasts.options(legacy, definitions, viewer, log, card, AutomatumBoards.handPlays(play, viewer) { history }.of(card),
-                    chosen.way, chosen.times, org.asyncttwiz.automatum.CastFlow.Seeds { DeviceRandom.seed() })
+                val offered = AutomatumBoards.handPlays(play, viewer) { history }.of(card)
+                val seeds = org.asyncttwiz.automatum.CastFlow.Seeds { DeviceRandom.seed() }
+                // R4a: a game on engine state works the chips out on its own state
+                val engine = play.engine
+                if (engine != null) HandCasts.options(org.asyncttwiz.automatum.CastFlow.Source.engine(engine.state, play.board, play.gameId),
+                    definitions, viewer, card, offered, chosen.way, chosen.times, seeds)
+                else {
+                    val legacy = play.legacy!!
+                    HandCasts.options(legacy, definitions, viewer, AutomatumBoards.engineLog(legacy, definitions, history), card, offered,
+                        chosen.way, chosen.times, seeds)
+                }
             } catch (problem: Exception) {
                 AppLog.warn("automatum", "Couldn't work the cost chips out: ${problem::class.java.simpleName}")
                 null

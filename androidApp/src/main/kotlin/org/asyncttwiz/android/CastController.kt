@@ -585,9 +585,11 @@ internal class CastController(
 
     private fun seeds() = CastFlow.Seeds { DeviceRandom.seed() }
 
-    /** Where a cast on [play] runs (worked out on [work]): today's model's board rebuilt for the engine with the history's
-     * tags up to it ([history], the engine's event log, D33). */
+    /** Where a cast on [play] runs (worked out on [work]): a game on engine state's own state (engine-responsiveness R4a);
+     * today's model's board rebuilt for the engine with the history's tags up to it ([history], the engine's event log,
+     * D33). */
     private fun source(play: TableBoard, history: List<MtgTag?>): CastFlow.Source {
+        play.engine?.let { return CastFlow.Source.engine(it.state, play.board, play.gameId) }
         val legacy = requireNotNull(play.legacy) { "No board to cast on" }
         val definitions = AutomatumBoards.definitions(legacy)
         return CastFlow.Source.legacy(legacy, definitions, AutomatumBoards.engineLog(legacy, definitions, history))

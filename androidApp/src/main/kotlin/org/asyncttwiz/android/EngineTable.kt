@@ -136,10 +136,9 @@ internal class EngineTableRoutes(val viewer: String, private val game: () -> Eng
         return done
     }
 
-    private fun local(g: EngineGame, device: GameDevice, shown: TableBoard, actions: List<PlayAction>, requestId: String?): Boolean {
-        val play = shown.legacy ?: return false
+    private fun local(g: EngineGame, device: GameDevice, play: TableBoard, actions: List<PlayAction>, requestId: String?): Boolean {
         val places = mutableListOf<TableChange>()
-        var staged: PlayState? = null
+        var staged: BoardState? = null
         for ((index, action) in actions.withIndex()) {
             when {
                 action is PlayAction.MoveCard && action.source.containerId == action.destination.containerId &&
@@ -151,20 +150,19 @@ internal class EngineTableRoutes(val viewer: String, private val game: () -> Eng
                         org.asyncttwiz.protocol.game.Placement(position.x, position.y))
                 }
                 action is PlayAction.Combat || (action is PlayAction.Mtg && action.action is MtgAction.SetRecord) -> {
-                    val on = staged ?: play
-                    // Each as the member of the batch the table worked it out as (PlayBatches.member): a Place names the
-                    // combat area its Open made (problem report XGN86Q: staging the first attacker was refused)
+                    val on = staged ?: play.board
+                    // Each as the member of the batch the table worked it out as (its request id): a Place names the
+                    // combat area its Open made (problem report XGN86Q: staging the first attacker was refused). Worked out on
+                    // the board shown (engine-responsiveness R4a)
                     val id = requestId?.let { org.asyncttwiz.protocol.CommandIds.uuidV5(it, "member/$index") } ?: DeviceRandom.uuid()
-                    val command = GameCommand(id, GameScope(on.gameId, playId = on.id), GameAction.Play(action), DeviceRandom.uuid(), "1")
-                    staged = GameplayRules.preview(on, viewer, command).state ?: return false
+                    staged = try { EngineStaging.apply(on, play.definitions, viewer, action, id) } catch (_: IllegalArgumentException) { return false }
                 }
                 else -> return false
             }
         }
-        staged?.let { s ->
+        staged?.let { board ->
             // I-D54 §8: the staging and the attack choices are shared as table changes at the head; at a decision stop
             // behind it (playing back assumed blocks) they stay on the device and go out only as the declaration (§12)
-            val board = s.board.copy(engine = play.board.engine)
             val drafts = EngineDrafts.changes(device.model, board, viewer)
             val acted = if (drafts.isEmpty()) null else g.table(drafts)
             if (device.session.behind || acted == GameDevice.Acted.Kept) g.stage(board)

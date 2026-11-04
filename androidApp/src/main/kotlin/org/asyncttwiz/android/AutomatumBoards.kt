@@ -74,17 +74,32 @@ internal object AutomatumBoards {
     /** Whether [play]'s board has a shared flow to show (I2): an open decision, or something on the Stack. */
     fun sharedFlowShown(play: TableBoard): Boolean = play.flowOpen || play.board.stackEffects.any { it.item != null }
 
-    /** The shared flow of [play]'s board already worked out, if any. */
-    fun cachedFlow(play: TableBoard): SharedFlow? = play.legacy?.let(::cachedFlow)
+    /** The shared flow of [play]'s board already worked out, if any (on engine state: the engine thread's). */
+    fun cachedFlow(play: TableBoard): SharedFlow? {
+        play.values?.let { return it.sharedFlow }
+        return play.legacy?.let(::cachedFlow)
+    }
 
-    /** [play]'s board as a shared flow (priority, the open decision; I2), worked out now when not yet (blocking). */
-    fun sharedFlow(play: TableBoard, tags: List<MtgTag?>): SharedFlow? = play.legacy?.let { sharedFlow(it, tags) }
+    /** [play]'s board as a shared flow (priority, the open decision; I2), worked out now when not yet (blocking; on engine
+     * state on the engine thread, R4a). */
+    fun sharedFlow(play: TableBoard, tags: List<MtgTag?>): SharedFlow? {
+        play.values?.let { return it.sharedFlow() }
+        return play.legacy?.let { sharedFlow(it, tags) }
+    }
 
-    /** What the table shows of combat on [play]'s board already worked out, if any. */
-    fun cachedCombat(play: TableBoard): CombatShown? = play.legacy?.let(::cachedCombat)
+    /** What the table shows of combat on [play]'s board already worked out, if any (on engine state: the engine thread's). */
+    fun cachedCombat(play: TableBoard): CombatShown? {
+        play.values?.let { return it.combat }
+        return play.legacy?.let(::cachedCombat)
+    }
 
-    /** What the table shows of combat on [play]'s board, worked out now when not yet (blocking). */
-    fun combat(play: TableBoard, tags: () -> List<MtgTag?>): CombatShown = play.legacy?.let { combat(it, tags) } ?: CombatShown.NONE
+    /** What the table shows of combat on [play]'s board, worked out now when not yet (blocking; on engine state on the
+     * engine thread, R4a); [CombatShown.NONE] outside combat. */
+    fun combat(play: TableBoard, tags: () -> List<MtgTag?>): CombatShown {
+        if (TurnPosition.of(play.board.turn) !in COMBAT_STEPS) return CombatShown.NONE
+        play.values?.let { return it.combat() }
+        return play.legacy?.let { combat(it, tags) } ?: CombatShown.NONE
+    }
 
     // ---- Today's model ([TableBoard.legacy])
 

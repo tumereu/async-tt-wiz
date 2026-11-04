@@ -132,7 +132,7 @@ class EngineTwoDeviceTest {
     /** What the table shows of [game] now: the board, the strip and, now and then, the board at an earlier event. */
     private fun shows(game: EngineGame, names: Map<String, String>, rnd: Random) {
         val play = game.play()
-        assertTrue(play.board.engine != null)
+        assertTrue(play.engine != null)
         val strip = game.timeline.events(game, names)
         if (strip.isNotEmpty() && rnd.nextInt(10) == 0) game.reviewPlay(strip[rnd.nextInt(strip.size)].id)
     }

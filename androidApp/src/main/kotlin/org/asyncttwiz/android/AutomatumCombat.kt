@@ -23,6 +23,7 @@ import org.asyncttwiz.automatum.DamageDivision
 import org.asyncttwiz.automatum.Divisions
 import org.asyncttwiz.automatum.EngineBatch
 import org.asyncttwiz.automatum.EngineCall
+import org.asyncttwiz.automatum.EngineRun
 import org.asyncttwiz.automatum.EngineState
 import org.asyncttwiz.automatum.LaneAttack
 import org.asyncttwiz.automatum.LaneBlock
@@ -302,18 +303,23 @@ internal class CombatController(
      * (#12, SYS-025): meanwhile [fallback] is shown, replaced by the reason once it is ready unless another message
      * replaced it.
      */
-    private fun refused(play: TableBoard, fallback: String, refusal: (EngineCall) -> String?): String {
+    private fun refused(play: TableBoard, fallback: String, refusal: (EngineRun) -> String?): String {
         if (work === AutomatumWork.Inline) return reason(play, refusal) ?: fallback
         work.run({ reason(play, refusal) }) { why -> if (why != null && error() == fallback) fail(why) }
         return fallback
     }
 
     /** The engine's reason for a refusal on [play] (blocking: one engine call); null when it gives none. */
-    private fun reason(play: TableBoard, refusal: (EngineCall) -> String?): String? = try {
-        val legacy = play.legacy!!
-        val definitions = AutomatumBoards.definitions(play)
-        refusal(EngineCall(legacy, definitions, EngineState.flowViewer(play.board),
-            AutomatumBoards.engineLog(legacy, definitions, tags())) { error("No randomness") })
+    private fun reason(play: TableBoard, refusal: (EngineRun) -> String?): String? = try {
+        // R4a: a game on engine state on its own state
+        val engine = play.engine
+        if (engine != null) refusal(EngineRun.of(engine.state, play.board, play.gameId) { error("No randomness") })
+        else {
+            val legacy = play.legacy!!
+            val definitions = AutomatumBoards.definitions(play)
+            refusal(EngineCall(legacy, definitions, EngineState.flowViewer(play.board),
+                AutomatumBoards.engineLog(legacy, definitions, tags())) { error("No randomness") })
+        }
     } catch (problem: Exception) { null }
 
     companion object {

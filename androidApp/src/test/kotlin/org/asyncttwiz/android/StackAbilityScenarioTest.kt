@@ -105,7 +105,7 @@ class StackAbilityScenarioTest {
         assertEquals("Ember Herald's ability", listed.name)
         assertEquals(shown, listed.ability)
         // The wait's words on Alice's side name the ability, not the card
-        val item = play.board.engine!!.state.stack.last()
+        val item = play.engine!!.state.stack.last()
         assertIs<ObjectId.StackItem>(item)
         assertEquals("Bob may respond to Ember Herald's ability", waitingText(GameDevice.Wait.Respond(item), play, "Bob"))
 

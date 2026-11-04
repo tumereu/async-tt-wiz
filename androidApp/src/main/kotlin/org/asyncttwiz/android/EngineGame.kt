@@ -161,6 +161,11 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
                 worker.main { loadFailed = true; onShown() }
                 return@run
             }
+            // A game loaded again (the device couldn't follow the server) replaces the board it showed
+            if (this::device.isInitialized) {
+                val old = device.session
+                takenBack("loaded again from the server's head ${snapshot.headId}", old.tip, old.localHead, loaded.session)
+            }
             device = loaded; codec = json
             device.presence(live, now)
             this.loaded = true
@@ -348,7 +353,18 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
         if (texts.isEmpty() && update == null) return
         worker.run {
             val events: List<GameEvent> = texts.map(codec::decodeEvent)
+            val session = device.session
+            val tip = session.tip
+            val local = session.localHead
+            val head = session.head
             device.revision(events, update)
+            // A board already shown taken back by the server's revision (owner, N7FU6Y: one line per take-back)
+            if (!onLine(tip)) takenBack(when {
+                device.needsReload -> "the server's main line can't be followed (reload)"
+                update?.target != null -> "rewind to ${update.target} by ${events.firstOrNull()?.author ?: "?"}"
+                events.firstOrNull()?.let { it.parentId != head } == true -> "branch by ${events.first().author} at ${events.first().parentId}"
+                else -> "own pending events dropped: another event came first"
+            } + " (events ${events.joinToString(",") { it.id }})", tip, local)
             device.advance(now)
             publish()
         }
@@ -356,7 +372,11 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
 
     /** The server refused [action] (outcome other than accepted) for [reason]. */
     fun refused(action: GameAction, reason: String?) = worker.run {
+        val tip = device.session.tip
+        val local = device.session.localHead
         device.refused(action, reason ?: "refused")
+        if (device.session.tip != tip) takenBack("server refused ${action::class.simpleName}" +
+            ((action as? GameAction.Submit)?.submission?.let { " ${it.id} on ${it.parentId}" } ?: "") + ": ${reason ?: "refused"}", tip, local)
         device.advance(now)
         publish()
     }
@@ -488,7 +508,7 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
         val result = worker.call {
             timing?.started = System.nanoTime()
             if (inAction) work()
-            else if (seen != null && seen != published) { refused = true; stale }
+            else if (seen != null && seen != published) { refused = true; staleBoard(what ?: "action", seen); stale }
             else { inAction = true; try { work() } finally { inAction = false } }
         }.also { timing?.acted = System.nanoTime() }
         if (refused) worker.main { notes.add(GameDevice.Note.Refused(STALE_REASON)) } else if (after) after(timing)
@@ -509,11 +529,14 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
         worker.early { release ->
             timing.started = System.nanoTime()
             if (!inAction && seen != null && seen != published) {
+                staleBoard(what, seen)
                 result.set(STALE)
                 worker.main { notes.add(GameDevice.Note.Refused(STALE_REASON)) }
                 return@early
             }
             val outer = !inAction && release != null
+            val tip = device.session.tip
+            val local = device.session.localHead
             val wasIn = inAction
             inAction = true
             var early = false
@@ -529,11 +552,33 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
                 }
             } finally { if (!wasIn) inAction = false }
             if (!early) { timing.acted = System.nanoTime(); result.set(acted) }
-            else if (acted is GameDevice.Acted.Refused) worker.main { notes.add(GameDevice.Note.Refused(acted.reason)) }
+            else if (acted is GameDevice.Acted.Refused) {
+                takenBack("own $what refused on the device after it showed: ${acted.reason}", tip, local)
+                worker.main { notes.add(GameDevice.Note.Refused(acted.reason)) }
+            }
             after(if (early) null else timing)
         }
         return result.get() ?: GameDevice.Acted.Refused("failed")
     }
+
+    /** Engine thread: whether [id] is still on the line the device shows (the main line it holds, or its own pending). */
+    private fun onLine(id: String): Boolean {
+        val s = device.session
+        return id == s.lineStart || s.indexOf(id) != null || s.pending.any { it.id == id }
+    }
+
+    /**
+     * Owner, problem report N7FU6Y: one info line in the app log (sent with problem reports) whenever a board already
+     * shown is taken back or replaced: [reason] (with the ids involved), the shown tip and local head before ([tip],
+     * [local]) and after ([after]). Engine thread.
+     */
+    private fun takenBack(reason: String, tip: String, local: String, after: org.asyncttwiz.protocol.game.GameSession = device.session) =
+        AppLog.info("engine", "Shown board taken back: $reason; tip $tip → ${after.tip}, local head $local → ${after.localHead}")
+
+    /** An own action [what] tapped on a board older than the one published ([seen]: its version): not taken (SYS-011),
+     * the newer board shows. Engine thread. */
+    private fun staleBoard(what: String, seen: Long) = AppLog.info("engine",
+        "Own $what not taken: made on board v$seen, the device had published v$published (tip ${device.session.tip})")
 
     /** Engine thread: an action is being worked out ([acting]). */
     private var inAction = false

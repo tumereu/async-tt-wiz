@@ -352,6 +352,20 @@ class AutomatumControlsScreenshotTest {
     }
 
 
+    // TRN-010 (problem report N7FU6Y): Table actions has Send problem report, which opens the same report as Settings'
+    // "Report a problem" without leaving the game
+    @Test fun tableActionsSendAProblemReport() {
+        val play = board(lands = 2)
+        val toolkit = TableToolkitController(f.a, { play }, { true }, { _, _ -> true })
+        compose.setContent { MaterialTheme { TableActionMenu(play, toolkit.table, {}, perform = { true }, reportToken = { null }) } }
+        captureShot("$SCREENSHOTS/automatum/table-actions-report.png",
+            "Table actions with Timeline, Suggest game end, Concede and Send problem report, each an icon and its name.")
+        compose.onNodeWithContentDescription("Send problem report").performClick()
+        compose.waitForIdle()
+        compose.onNodeWithText("Report a problem").assertExists()
+        compose.onNodeWithTag("report-description").assertExists()
+    }
+
     // TRN-062, TRN-059, I-D49, I-D48: during Alice's opening with Automatum on her quick actions are Mulligan and Keep (icon
     // and text) and her hand cards' menu has no bottom; after two mulligans Keep opens the Keep / Bottom screen: OK only
     // with one card in Bottom, then that card goes to the bottom of her library and she is Ready, in one batch

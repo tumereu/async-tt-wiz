@@ -11,17 +11,19 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import org.asyncttwiz.protocol.*
 
-/** The Table actions dialog (TRN-010): the timeline and the game's result (I-D52: nothing that changes the board by
- * hand, no tokens, combat area, dice or coins). */
+/** The Table actions dialog (TRN-010): the timeline, the game's result and a problem report (I-D52: nothing that
+ * changes the board by hand, no tokens, combat area, dice or coins). */
 @Composable
 fun TableActionMenu(play: PlayState, controller: TableActionController, onDismiss: () -> Unit,
     pendingSuggestionId: String? = null, mayAccept: Boolean = false,
     perform: (TableActionIntent) -> Boolean = controller::perform,
-    names: Map<String, String> = emptyMap(), onTimeline: (() -> Unit)? = null) {
+    names: Map<String, String> = emptyMap(), onTimeline: (() -> Unit)? = null,
+    reportToken: () -> String? = DebugCrashes::sessionToken) {
     val scope = TableActionScope(play.gameId, play.id)
     var ending by remember(scope) { mutableStateOf(false) }
     var outcome by remember(scope) { mutableStateOf<Pair<String, EndingTool>?>(null) }
     var conceding by remember(scope) { mutableStateOf(false) }
+    var reporting by remember(scope) { mutableStateOf(false) }
     val landscape = LocalConfiguration.current.screenWidthDp > LocalConfiguration.current.screenHeightDp
     val enabled = controller.enabled(scope)
     val endingEntry = if (pendingSuggestionId == null) MenuControl("Suggest game end", enabled) { ending = true }
@@ -30,8 +32,11 @@ fun TableActionMenu(play: PlayState, controller: TableActionController, onDismis
         }
     // CR 104.3a (I-D52): conceding needs nobody's agreement, also while a suggestion waits
     val entries = listOf(MenuControl("Timeline", onTimeline != null) { onDismiss(); onTimeline?.invoke() }) +
-        listOfNotNull(endingEntry.takeIf { pendingSuggestionId == null || mayAccept }) + MenuControl("Concede", enabled) { conceding = true }
-    if (!ending && !conceding) TableMenuPanel(onDismiss, width = if (landscape) 776.dp else 400.dp, title = "Table actions") {
+        listOfNotNull(endingEntry.takeIf { pendingSuggestionId == null || mayAccept }) + MenuControl("Concede", enabled) { conceding = true } +
+        // The same report as Settings' "Report a problem", without leaving the game (N7FU6Y)
+        MenuControl("Send problem report", true) { reporting = true }
+    if (reporting) ProblemReportDialog(reportToken) { reporting = false; onDismiss() }
+    if (!ending && !conceding && !reporting) TableMenuPanel(onDismiss, width = if (landscape) 776.dp else 400.dp, title = "Table actions") {
         for (row in entries.chunked(if (landscape) 3 else 2)) Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             for (entry in row) MenuButton(entry.name, Modifier.weight(1f), entry.enabled, entry.color, onClick = entry.click)
             repeat((if (landscape) 3 else 2) - row.size) { Spacer(Modifier.weight(1f)) }

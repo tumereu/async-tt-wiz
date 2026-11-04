@@ -463,3 +463,13 @@ transaction id; SYS-075), only the open game's subscription carries its play and
 heartbeat heads are summaries), a game no longer open is let go on the device, and nothing else of the list is read while
 a game is open. Engine.passCheck answers both no-choice questions from one search, and an own action's board is published
 at GameDevice.act's performed point, before what follows by itself is folded in (Acted.Made).
+
+**Problem report N7FU6Y (2026-11-04): a cast that snapped back.** The engine named a cast's question in its decision id
+by the class's runtime name; a shrunk Android build calls the nested class "Question$Pay" where the JVM says "Pay", so the
+server refused every answer to a payment a phone made ("no such decision") and the shown cast went back without a note.
+The names are written out (`Question.kind`), the early-answer key drops an outer class's name, and the app keeps the
+InnerClasses attribute. The player's own passes folded after an own action stop before one the information rule holds
+back (`EventBuilder.mark`/`takeBack`; the player keeps priority there), so that rule no longer refuses an action already
+shown at its performed point; any other refusal of an own action says
+"That wasn't taken: the game didn't accept it."; each board taken back or replaced is logged once (reason, ids, tip and
+local head before and after); Table actions has Send problem report.

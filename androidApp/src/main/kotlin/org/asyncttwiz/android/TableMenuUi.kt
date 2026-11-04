@@ -43,6 +43,7 @@ internal fun menuIcon(name: String): ImageVector {
     return when {
         n == "timeline" -> Icons.Outlined.History
         n == "concede" -> Icons.Outlined.OutlinedFlag
+        n == "send problem report" -> Icons.Outlined.BugReport
         n == "ready" -> Icons.Outlined.CheckCircleOutline
         // Automatum's quick actions (CMB-028, CMB-029, CMB-034, TRN-059): each its own icon, before the generic matches
         n == "pass" -> Icons.AutoMirrored.Outlined.ArrowForward

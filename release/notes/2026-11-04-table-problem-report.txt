@@ -1,0 +1,1 @@
+add: Table actions has Send problem report, so you can report a problem without leaving the game

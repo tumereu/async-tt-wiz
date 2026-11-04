@@ -13,6 +13,7 @@ import arcanum.engine.state.PlayerId
 import arcanum.engine.state.TargetRef
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
@@ -239,6 +240,68 @@ class GameDeviceTest {
         sim.settle()
         assertTrue(sim.device(bob).model.engine.stack.isEmpty())
         assertTrue(sim.leaks.isEmpty())
+    }
+
+    // SYS-057 (problem report N7FU6Y): the server makes an event again from its inputs, so an answer must name its
+    // decision exactly as the server's engine does. A shrunk Android build named the cast's payment "cast:Mana:
+    // Question$Pay@…" (a nested class's runtime name) where the server says "cast:Mana:Pay@…": every cast the phone
+    // showed was refused and snapped back. The names are written out now; the early-answer key is the same on both.
+    @Test
+    fun aPaymentAnswerNamesItsDecisionAsTheServerDoes() {
+        val sim = spells("Glance Ahead")
+        sim.bobToMain()
+        val bob = sim.bob
+        val bobs = sim.device(bob)
+        assertIs<GameDevice.Acted.Sent>(bobs.act(Input.PlayLand(bob, hand(bobs.model, bob, "Island"))))
+        sim.settle()
+        val head = sim.server.head
+        val model = sim.server.stateAt(head)
+        val cast = Input.Cast(bob, hand(model, bob, "Glance Ahead"))
+        val probe = model.copy()
+        EventBuilder(probe, "probe", head, bob.value).perform(cast)
+        val payment = assertIs<Decision.ManaPayment>(probe.engine.pending?.decision)
+        assertEquals("ManaPayment:${bob.value}:${payment.source ?: "-"}", EarlyAnswer.keyOf(payment))
+        assertTrue(payment.id.value.startsWith("cast:Mana:Pay@"), payment.id.value)
+        fun submission(id: String) = Submission("cast-$id", head, listOf(Act.Perform(cast),
+            Act.Perform(Input.Answer(arcanum.engine.decision.DecisionId(id), Answer.ManaPayment(payment.suggestion)))))
+        Authority.make(model.copy(), submission(payment.id.value), bob)
+        val phone = payment.id.value.replace(":Pay@", ":Question\$Pay@")
+        val refused = assertFailsWith<Refusal> { Authority.make(model.copy(), submission(phone), bob) }
+        assertTrue("no such decision" in refused.reason, refused.reason)
+    }
+
+    // TRN-067, SYS-025 (problem report N7FU6Y): an own action shows early, at its performed point, also on a tentative
+    // line; the player's own passes that follow stop before one the information rule holds back (taken back exactly to
+    // a mark), so that rule never refuses an action that already showed
+    @Test
+    fun anOwnActionShowsEarlyAndItsPassesStopBeforeAReveal() {
+        val sim = spells("Glance Ahead")
+        sim.bobToMain()
+        val bob = sim.bob
+        val bobs = sim.device(bob)
+        assertTrue(bobs.tentative(), "Bob plays on Alice's assumed keep")
+        var early = 0
+        assertIs<GameDevice.Acted.Sent>(bobs.act(Input.PlayLand(bob, hand(bobs.model, bob, "Island")), performed = { early++ }))
+        assertEquals(1, early, "shown at its performed point")
+        sim.settle()
+        // Taking back to a mark leaves exactly the state and the event made up to it
+        val head = sim.server.head
+        val model = sim.server.stateAt(head)
+        val cast = Input.Cast(bob, hand(model, bob, "Glance Ahead"))
+        val payment = assertIs<Decision.ManaPayment>(model.copy().also { m -> EventBuilder(m, "probe", head, bob.value).perform(cast) }
+            .engine.pending?.decision)
+        val answer = Input.Answer(payment.id, Answer.ManaPayment(payment.suggestion))
+        val whole = model.copy()
+        val builder = EventBuilder(whole, "e", head, bob.value)
+        builder.perform(cast); builder.perform(answer)
+        val mark = builder.mark()
+        builder.perform(Input.PassPriority(bob)); builder.answerRandoms()
+        builder.takeBack(mark)
+        val event = builder.build()
+        val part = model.copy()
+        val expected = EventBuilder(part, "e", head, bob.value).apply { perform(cast); perform(answer) }.build()
+        assertEquals(expected, event)
+        assertTrue(whole.sameAs(part))
     }
 
     // I-D56 §10: undo is free while nothing new was shown; otherwise a request: the game is frozen until it is answered,

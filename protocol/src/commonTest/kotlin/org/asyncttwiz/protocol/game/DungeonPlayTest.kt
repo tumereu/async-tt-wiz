@@ -15,6 +15,7 @@ import org.asyncttwiz.protocol.DefinitionFace
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -82,10 +83,8 @@ class DungeonPlayTest {
 
     private fun AsyncServer.toMain() {
         start(alice)
-        // CR 103.2b, I-D18: a player with cards outside the game is asked whether to reveal a companion (here there is none)
-        val companion = pending() as Decision.ChooseObjects
-        assertEquals(emptyList(), companion.options)
-        act(alice, Input.Answer(companion.id, Answer.Objects(emptyList()))).getOrThrow()
+        // CR 103.2b: dungeons aren't companions: Alice isn't asked to reveal one, the first decision is her mulligan
+        assertIs<Decision.ChooseOption>(pending())
         keepAndAssumeKeep(alice)
         repeat(20) {
             val s = state().engine
@@ -105,6 +104,16 @@ class DungeonPlayTest {
         assertEquals(setOf(OutsideCards.Need.Undercity), OutsideCards.needs(Cards.definition(claim)))
         assertTrue(OutsideCards.provides(setOf(OutsideCards.Need.Dungeon, OutsideCards.Need.Undercity), outside))
         assertFalse(OutsideCards.provides(setOf(OutsideCards.Need.Dungeon), outside.drop(1)), "the Undercity can't be entered by a plain venture")
+        // I-D52: a dungeon with a room the parser can't read would leave it to the players: not brought, not taken by the server
+        val odd = CardDefinition("Dungeon Test Odd Vault", listOf(face(5, "Dungeon Test Odd Vault", "Dungeon", """
+            Odd Door — The moon hums a slow tune. (Leads to: Odd End)
+            Odd End — You gain 1 life.
+        """.trimIndent())))
+        assertNull(OutsideCards.dungeon(odd))
+        val oddSubmitted = org.asyncttwiz.protocol.SubmittedDefinition(org.asyncttwiz.protocol.DeckJson.digest(odd), odd)
+        assertFalse(OutsideCards.valid(listOf(oddSubmitted)))
+        assertEquals(setOf(OutsideCards.Need.Dungeon, OutsideCards.Need.Undercity), OutsideCards.provided(outside))
+        assertEquals(emptySet(), OutsideCards.provided(listOfNotNull(GameCards.parse(odd).definition)))
         // A card that isn't a dungeon isn't brought
         val plain = CardDefinition("Dungeon Test Plain", listOf(face(4, "Dungeon Test Plain", "Sorcery", "Draw a card.")))
         assertNull(OutsideCards.dungeon(plain))

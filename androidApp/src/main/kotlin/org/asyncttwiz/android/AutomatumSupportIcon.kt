@@ -31,7 +31,9 @@ import java.util.concurrent.ConcurrentHashMap
  * Blocking: call on a worker only.
  */
 internal class CardListSupportCheck(private val parse: (Collection<SubmittedDefinition>) -> Map<String, ParsedCard>,
-    val parserVersion: Int = CardDefinitions.parserVersion, val engineVersion: Int = arcanum.engine.Engine.SUPPORT_VERSION) {
+    val parserVersion: Int = CardDefinitions.parserVersion, val engineVersion: Int = arcanum.engine.Engine.SUPPORT_VERSION,
+    /** The dungeons the device can bring (LOB-117): a venturing card without one is played by hand. */
+    private val dungeons: () -> Set<org.asyncttwiz.protocol.game.OutsideCards.Need> = { AutomatumSupport.ALL_DUNGEONS }) {
     private val byHand = ConcurrentHashMap<String, Boolean>()
 
     /** The list's support; throws when the device couldn't read its cards at all (storage closed), so nothing is kept. */
@@ -40,10 +42,11 @@ internal class CardListSupportCheck(private val parse: (Collection<SubmittedDefi
         val missing = cards.filterNot { byHand.containsKey(it.digest) }
         if (missing.isNotEmpty()) {
             val parsed = parse(missing)
+            val provided by lazy { dungeons() }
             check(missing.all { it.digest in parsed }) { "Card definitions unavailable" }
             parsed.forEach { (digest, card) ->
                 byHand[digest] = when (card) {
-                    is ParsedCard.Read -> AutomatumSupport.byHand(card.definition)
+                    is ParsedCard.Read -> AutomatumSupport.byHand(card.definition, provided)
                     is ParsedCard.Unreadable -> true
                 }
             }

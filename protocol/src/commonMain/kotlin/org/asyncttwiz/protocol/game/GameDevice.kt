@@ -222,6 +222,42 @@ class GameDevice(
      * open one (simultaneous mulligans in any order, I-D54 §8). */
     private fun declares(s: GameState): Boolean = NextStop.declares(s, me)
 
+    /**
+     * Whose move the game is for this player (TRN-058, I-D57): the player the game really waits for, as the server keeps
+     * it for the game list and notifications ([NextStop.waitsFor], `engine_seat.waited`), worked out on the main line's
+     * head as this device knows it (its own pending events included): the other player than the asker of an open undo
+     * request or result suggestion; else, at a result, this player when they haven't been shown it, the other player
+     * while they haven't reached it; else this player when the head is their decision or opening declaration, the other
+     * player when it is theirs. So a decision stop of this player's behind the head, while the other player plays on
+     * assumptions about them, is the other player's move. Null when the game waits for nobody (both have seen a result,
+     * or before the start). A draft of the player's own at the head is their move.
+     */
+    val move: PlayerId? get() {
+        request?.let { return if (it.by == me.value) opponent else me }
+        // The player's own flow at the head (a cast, a declaration being made)
+        if (session.drafting && !session.behind) return me
+        val facts = headFacts() ?: return me
+        facts.suggestedBy?.let { return if (it == me) opponent else me }
+        if (facts.result) return if (session.behind) me else opponent.takeIf { heads[opponent] != session.tip }
+        return if (me in facts.waiting) me else opponent.takeIf { it in facts.waiting }
+    }
+
+    /** What the main line's head says about whose move it is ([move]): its open result suggestion's author, whether it
+     * holds the game's result, the players whose decision or opening declaration it is. */
+    private class HeadFacts(val head: String, val suggestedBy: PlayerId?, val result: Boolean, val waiting: Set<PlayerId>)
+    private var behindFacts: HeadFacts? = null
+
+    /** [HeadFacts] of the head: of the shown state at the head, else of the head's state worked out once per head (the
+     * last worked out while a draft behind the head is open). */
+    private fun headFacts(): HeadFacts? {
+        fun of(head: String, m: GameModel) = HeadFacts(head, m.table.suggestion?.by, Engine.result(m.engine) != null,
+            Attention.of(m.engine).let { who -> players.filter { it == who || NextStop.declares(m.engine, it) }.toSet() })
+        if (!session.behind) return of(session.tip, model)
+        behindFacts?.takeIf { it.head == session.head }?.let { return it }
+        if (session.drafting) return behindFacts
+        return of(session.head, session.headModel()).also { behindFacts = it }
+    }
+
     /** A waiting suggestion in the shown state locks every other game action (TRN-049, I-D56 §11). */
     val locked: Boolean get() = model.table.suggestion != null
 

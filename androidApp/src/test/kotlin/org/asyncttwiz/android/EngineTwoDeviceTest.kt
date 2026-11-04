@@ -106,6 +106,8 @@ class EngineTwoDeviceTest {
                 "seed $seed $mode $p: the shown state is the server's at the local head")
             val repro = assertNotNullRepro(game)
             assertEquals(emptyList(), repro.check(), "seed $seed $mode $p: the problem report's bundle replays")
+            // TRN-058 (I-D57): the table's move pill and bar colours show whom the game really waits for
+            assertEquals(d.move?.value, game.play().board.move, "seed $seed $mode $p: the move shown (${d.status})")
             shows(game, names, rnd)
         }
         val line = sim.line()

@@ -9,7 +9,8 @@ internal data class AttentionPresentation(val label: String, val name: String, v
 
 internal fun attentionPresentation(game: GameSummary, play: PlayState, viewer: String,
     reviewing: Boolean, connected: Boolean): AttentionPresentation {
-    val holder = play.board.effectiveAttentionHolder
+    // TRN-058: the move the game list shows too (on engine state: whom the game really waits for)
+    val holder = play.board.moveHolder
     val own = holder == viewer
     val name = if (game.inviter.accountId == holder) game.inviter.username else game.recipient.username
     return AttentionPresentation(if (own) "Your move" else "Waiting · $name", name, own, !reviewing && connected)
@@ -27,7 +28,7 @@ internal fun battlefieldColor(owner: String, viewer: String, turnPlayer: String,
 
 internal val TimelineBarColor = Color(0xffe5e7e9)
 internal fun tableBarColor(board: BoardState, viewer: String, reviewing: Boolean = false) =
-    if (reviewing) TimelineBarColor else battlefieldColor(board.effectiveAttentionHolder, viewer, board.effectiveAttentionHolder, lands = false)
+    if (reviewing) TimelineBarColor else battlefieldColor(board.moveHolder, viewer, board.moveHolder, lands = false)
 
 /** Constant-size observation of displayed endpoints; never walks or replays history. */
 internal class MoveArrivalTracker(private val viewer: String) {

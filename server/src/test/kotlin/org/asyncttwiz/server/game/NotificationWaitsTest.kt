@@ -19,6 +19,7 @@ import org.asyncttwiz.server.database.FoundationMigrations
 import org.asyncttwiz.server.database.FreshDatabase
 import org.asyncttwiz.server.decks.DeckService
 import org.asyncttwiz.server.generated.tables.ActivitySummary.ACTIVITY_SUMMARY
+import org.asyncttwiz.server.generated.tables.EngineSeat.ENGINE_SEAT
 import org.asyncttwiz.server.lobby.LobbyService
 import org.jooq.SQLDialect
 import org.jooq.impl.DSL
@@ -109,6 +110,30 @@ class NotificationWaitsTest {
         /** The game in [who]'s waiting list (LOB-076's reminders), if listed. */
         fun waiting(who: AccountService.Principal) = activities.waiting(who).games.singleOrNull { it.gameId == game.id }?.notice
 
+        /**
+         * TRN-058, LOB-022, LOB-024: whose move the game is shown to [who]: the game head's summary, their games list's row
+         * and the newest revision's summary all say the same (no source disagrees); that player's account id.
+         */
+        fun move(who: AccountService.Principal): String? {
+            val head = games.head(who, game.id).summary
+            val listed = GameWire.json.decodeFromString<GameList>(LobbyService(runtime).list(who, null, false).body)
+                .games.single { it.id == game.id }
+            val revision = games.revisions(who, game.id, (head.revision.toLong() - 1).toString()).revisions.last().summary
+            assertEquals(head.attentionHolder, listed.attentionHolder, "the games list")
+            assertEquals(head.attentionHolder, revision.attentionHolder, "the newest revision")
+            return head.attentionHolder
+        }
+        /** Alice is shown [alice]'s move and Bob [bob]'s (null: nobody's), as the server's waiting record has it. */
+        fun assertMoves(alice: AccountService.Principal?, bob: AccountService.Principal?, what: String) {
+            assertEquals(alice?.account?.accountId, move(a), "$what: Alice is shown")
+            assertEquals(bob?.account?.accountId, move(b), "$what: Bob is shown")
+            assertEquals(alice == a, waited(a), "$what: the game waits for Alice")
+            assertEquals(bob == b, waited(b), "$what: the game waits for Bob")
+        }
+        private fun waited(who: AccountService.Principal) = runtime.transaction { c -> DSL.using(c, SQLDialect.POSTGRES)
+            .select(ENGINE_SEAT.WAITED).from(ENGINE_SEAT).where(ENGINE_SEAT.ACCOUNT_ID.eq(UUID.fromString(who.account.accountId)))
+            .and(ENGINE_SEAT.PLAY_ID.eq(UUID.fromString(games.head(who, game.id).summary.playId))).fetchSingle().value1()!! }
+
         fun aliceKeeps(): GameSession {
             val alice = device(a)
             assertEquals("accepted", owner.execute(GameAction.Submit(alice.act(id(), Input.Answer(alice.model.engine.pending!!.decision.id,
@@ -166,5 +191,74 @@ class NotificationWaitsTest {
         val notice = requireNotNull(f.notice(f.b)) { "the game waits for Bob again" }
         assertTrue(notice.yourMove)
         assertNotNull(f.waiting(f.b)); assertNull(f.waiting(f.a))
+    }
+
+    // TRN-058, LOB-022, LOB-024, TRN-027 (I-D57, owner 2026-11-04): whose move it is follows the waiting record everywhere.
+    // In the opening both mulligans wait at once (each player is shown their own move); Alice's real keep waits for Bob
+    // (his move for both); Alice playing on an assumed keep of his waits for nobody but her: her move for both, although
+    // Bob's playback would stop at the assumed keep; her undo of it waits for Bob again
+    @Test fun `the move follows who the game really waits for through assumptions and an undo`() = withService { runtime ->
+        val f = Fixture(runtime)
+        f.assertMoves(f.a, f.b, "the opening")
+        val alice = f.aliceKeeps()
+        f.assertMoves(f.b, f.b, "Alice waits for Bob's keep")
+        val kept = f.snapshot().headId
+        f.aliceAssumesBobsKeep(alice)
+        f.assertMoves(f.a, f.a, "Alice plays on an assumed keep")
+        assertEquals("accepted", f.owner.execute(GameAction.EngineRewind(kept)).outcome)
+        f.assertMoves(f.b, f.b, "Alice's undo")
+    }
+
+    // TRN-058, HIS-097 (I-D56 §8): Bob answers Alice's assumed keep differently (a mulligan): a branch; the new line's head
+    // is his opening declaration again, so the game waits for him: his move for both
+    @Test fun `a branch gives the move to whom the new line waits for`() = withService { runtime ->
+        val f = Fixture(runtime)
+        val bob = f.device(f.b)
+        val alice = f.aliceKeeps()
+        val aliceKeep = alice.pending.single()
+        bob.received(aliceKeep); while (bob.behind) bob.showNext()
+        f.aliceAssumesBobsKeep(alice)
+        f.assertMoves(f.a, f.a, "Alice plays on")
+        val open = bob.model.engine.pending!!.decision
+        val builder = org.asyncttwiz.protocol.game.EventBuilder(bob.model, id(), aliceKeep.id, f.b.account.accountId)
+        builder.startLine(f.snapshot().lines + 1)
+        builder.perform(Input.Answer(open.id, Answer.Option("Mulligan")))
+        builder.answerRandoms()
+        assertEquals("accepted", f.recipient.execute(GameAction.Submit(org.asyncttwiz.protocol.game.Submission.of(builder.build()))).outcome)
+        f.assertMoves(f.b, f.b, "after Bob's branch")
+    }
+
+    // TRN-058, HIS-099, switchreview #12: an open undo request waits for the other player's answer: their move for both;
+    // cancelling it gives the move back
+    @Test fun `an undo request is the answering player's move for both`() = withService { runtime ->
+        val f = Fixture(runtime)
+        f.aliceKeeps()
+        val target = f.snapshot().headId
+        val bob = f.device(f.b)
+        assertEquals("accepted", f.recipient.execute(GameAction.Submit(bob.act(id(), Input.Answer(bob.model.engine.pending!!.decision.id,
+            Answer.Option("Keep"))))).outcome)
+        f.assertMoves(f.a, f.a, "Alice's first turn")
+        assertEquals("accepted", f.owner.execute(GameAction.EngineRequestRewind(target, "misclick")).outcome)
+        f.assertMoves(f.b, f.b, "Bob answers Alice's request")
+        assertEquals("accepted", f.owner.execute(GameAction.EngineCancelRewind).outcome)
+        f.assertMoves(f.a, f.a, "cancelled")
+    }
+
+    // TRN-058, TRN-047, TRN-049, TRN-065: a result suggestion waits for the other player's answer (their move for both);
+    // the agreed result waits for Alice until she has seen it; then for nobody
+    @Test fun `a suggestion and a result not seen yet are the move of the player who must answer or see it`() = withService { runtime ->
+        val f = Fixture(runtime)
+        val draw = arcanum.engine.setup.GameResult.Draw
+        val alice = f.device(f.a)
+        val suggestion = org.asyncttwiz.protocol.game.ResultSuggestion(PlayerId(f.a.account.accountId), draw)
+        assertEquals("accepted", f.owner.execute(GameAction.Submit(alice.act(id(), null,
+            listOf(org.asyncttwiz.protocol.game.TableChange.Suggestion(null, suggestion))))).outcome)
+        f.assertMoves(f.b, f.b, "Bob answers Alice's suggestion")
+        val bob = f.device(f.b)
+        assertEquals("accepted", f.recipient.execute(GameAction.Submit(bob.act(id(), Input.AgreedResult(draw),
+            listOf(org.asyncttwiz.protocol.game.TableChange.Suggestion(suggestion, null))))).outcome)
+        f.assertMoves(f.a, f.a, "Alice hasn't seen the agreed draw")
+        assertEquals("accepted", f.owner.execute(GameAction.EngineSeen(f.snapshot().headId)).outcome)
+        f.assertMoves(null, null, "both have seen it")
     }
 }

@@ -7,9 +7,9 @@ import arcanum.engine.state.PlayerId
 
 /**
  * Where a player's playback stops next (I-D56 §7): the first point after their local head where it would stop, worked
- * out with their private response mode. Everything shown to a player about the game's progress (their move, the move
- * pill, the game list, notifications and reminders) comes from their local head and this; nothing about the line
- * beyond it.
+ * out with their private response mode. Where playback stops and what notifications name come from their local head and
+ * this; nothing about the line beyond it. Whose move it is (the game list, the move pill and bar colours, notifications
+ * and reminders) is [waitsFor]: the player the game really waits for (TRN-058, I-D57).
  */
 object NextStop {
     /** The stop at event [at] (the point the table is live at); [event]: the assumed input about the player that waits
@@ -39,7 +39,8 @@ object NextStop {
 
     /**
      * Whether the game waits for [player] (I-D57, async-play.md §24), with [stop] their next stop: the game can't go on
-     * without them, so they are told "Your move" and reminded. That is when [head] (the main line's head) is their
+     * without them, so it is their move (TRN-058: listed and shown as theirs), they are told "Your move" and reminded.
+     * (The server also gives the move to the other player than the asker of an open undo request or result suggestion.) That is when [head] (the main line's head) is their
      * decision (their turn's stops, a choice only they make, an information-rule stop, a wait instead of an assumption,
      * or the other player's line running out without them: all leave the head at their decision), their opening
      * declaration, or the game's result they haven't seen yet. Not while the other player is still playing on

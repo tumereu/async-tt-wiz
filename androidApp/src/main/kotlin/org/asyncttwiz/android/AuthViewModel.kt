@@ -7,7 +7,6 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.ViewModelStore
 import org.asyncttwiz.storage.DeckImportResolver
-import org.asyncttwiz.storage.dungeonDefinitions
 import java.util.concurrent.Executors
 
 class AuthViewModel(application: Application) : AndroidViewModel(application) {
@@ -25,7 +24,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         AutomatumBoards.definitionSource = local::cardDefinitions
     }
     /** I-D51: which cards of a deck or cube Automatum plays by hand, from the device's parsed card definitions. */
-    internal val cardListSupport = CardListSupportCheck(local::cardDefinitions)
+    internal val cardListSupport = CardListSupportCheck(local::cardDefinitions, dungeons = catalog.dungeons::provided)
     val activity = AndroidActivityDelivery.get(application)
     fun openActivity(route: ActivityRoute) {
         if (route.kind.isPodActivity()) {
@@ -106,7 +105,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                 throw failure
             }
         }, treeCache = local::treeCache, basicLandDefinitions = { podBasicDefinitions(catalog.repository) },
-        dungeonDefinitions = { catalog.repository.dungeonDefinitions() })
+        dungeonDefinitions = catalog.dungeons::definitions)
     internal val heartbeat = GameHeartbeatController { token, presence ->
         controller.sessionToken() == token && lobby.heartbeat(presence)
     }

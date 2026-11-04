@@ -55,10 +55,12 @@ import org.asyncttwiz.protocol.ResultSuggestion as AtwSuggestion
  */
 object EngineProjection {
     /** The board of [model] for [viewer], on [base] (the play as it started: its ids, containers, players, card data);
-     * [nodeId] is the shown event; [attention]: whose move it is for the viewer (TRN-013); [tokenArt] finds the engine's
-     * tokens' pictures (SYS-072), which the caller keeps in [pictures] across boards. */
+     * [nodeId] is the shown event; [attention]: who acts on it for the viewer (TRN-013); [move]: whose move the game is
+     * for the viewer (TRN-058); [tokenArt] finds the engine's tokens' pictures (SYS-072), which the caller keeps in
+     * [pictures] across boards. */
     fun project(base: PlayState, model: GameModel, viewer: String, nodeId: String, attention: String? = null,
-        staging: Staging? = null, tokenArt: TokenArt = TokenArt.None, pictures: MutableMap<ObjectId, SubmittedDefinition> = HashMap()): PlayState {
+        staging: Staging? = null, tokenArt: TokenArt = TokenArt.None, pictures: MutableMap<ObjectId, SubmittedDefinition> = HashMap(),
+        move: String? = null): PlayState {
         val state = model.engine
         val table = model.table
         val me = PlayerId(viewer)
@@ -247,7 +249,7 @@ object EngineProjection {
             schemaVersion = board0.schemaVersion, combat = if (staged != null) staged.combat else combat(state, table),
             stackEffects = effects, resultSuggestion = suggestion(table, nodeId),
             attentionHolder = attention, priority = state.priority.let { MtgPriority(it.holder?.value, it.passes) },
-            engineRecords = records, engine = engineView)
+            engineRecords = records, engine = engineView, move = move)
         return base.copy(board = board, currentNodeId = nodeId, currentGroup = null,
             definitions = definitions.values.sortedBy { it.digest })
     }

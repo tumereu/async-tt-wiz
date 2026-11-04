@@ -207,7 +207,8 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
         (accountId == summary.recipient.accountId && summary.invitationState == InvitationState.ACCEPTED)
 
     internal fun visibleRevision(stored: GameRevision, accountId: String): GameRevision {
-        // I-D56 §7: whose move an engine play is comes from each viewer's own next stop; the per-player table stays here
+        // TRN-058 (I-D57): whose move an engine play is: the viewer when the game waits for them, else the other player
+        // when it waits for them; the per-player table stays here
         val moves = stored.engine?.moves
         // ... and so does the last-activity time: nothing about the line past the viewer's next stop (§7)
         // (a revision that changed nothing of the engine's carries only these: it is sent without an engine part)

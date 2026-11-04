@@ -59,31 +59,48 @@ internal val ENGINE_REASONS = setOf("stale", "revealsHidden", "rewindRequested",
  * by the other player: an undo request) and logs async rounds (I-D56 §15).
  *
  * A warm state is taken out while a change is worked on and put back only once its transaction committed ([committed]),
- * so a rolled-back transaction leaves no state ahead of the database.
+ * so a rolled-back transaction leaves no state ahead of the database; a refused change puts it back at once (nothing
+ * changed). Each play's decoded definitions and recent events are kept too ([EngineHistoryStore.Shared]), so the work
+ * of a request doesn't grow with how far a player is behind (the main line between two events is read in one go).
  */
 internal class EngineGames(private val capacity: Int = 32) {
     private val warm = object : LinkedHashMap<UUID, LiveState>(16, 0.75f, true) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<UUID, LiveState>?) = size > capacity
     }
     private val random = SecureRandom()
+    private val plays = object : LinkedHashMap<UUID, EngineHistoryStore.Shared>(16, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<UUID, EngineHistoryStore.Shared>?) = size > capacity
+    }
 
-    /** One player's seat: their local head, private settings, next stop. */
-    class SeatRow(val account: UUID, val head: String, val settings: PlaySettings, val nextStop: String?)
+    /** [play]'s history store, reading through what earlier requests kept of it. */
+    private fun open(sql: DSLContext, play: UUID): EngineHistoryStore? {
+        val store = EngineHistoryStore.open(sql, play, synchronized(plays) { plays[play] }) ?: return null
+        synchronized(plays) { plays[play] = store.cache }
+        return store
+    }
+
+    /** One player's seat: their local head, private settings, next stop and its time. */
+    class SeatRow(val account: UUID, val head: String, val settings: PlaySettings, val nextStop: String?,
+        val nextStopAt: java.time.OffsetDateTime? = null)
 
     /**
      * What a change did, for the caller's revision, notifications and broadcast: the new [events] (encoded, in order:
      * a rewind's new line first), a rewind's [target], the assumed event a submission [confirmed], whether the game's
      * result is now final ([ended]: the play ends), each player's local head, whether each has a next stop ([moves]),
-     * the players whose next stop is new ([newStops]: their "your move" notification), the open undo request.
+     * the players whose next stop is new ([newStops]: their "your move" notification, timed from their stop's event,
+     * [stopTimes]), each player's last-activity time ([activity]: their next stop's time, else their local head's, §7),
+     * the open undo request.
      */
     class Outcome(
         val play: UUID, val events: List<String>, val live: LiveState?, val target: String? = null, val confirmed: String? = null,
         val ended: Boolean = false, val heads: Map<String, String> = emptyMap(), val moves: Map<String, Boolean> = emptyMap(),
         val newStops: Set<String> = emptySet(), val request: EngineRewindRequest? = null, val lines: Int = 0,
+        val stopTimes: Map<String, java.time.OffsetDateTime> = emptyMap(), val activity: Map<String, String> = emptyMap(),
+        internal val store: EngineHistoryStore? = null,
     ) {
         /** Whose move the game is for the stored summary: a player with a next stop (each viewer sees their own, §7). */
         val attention: String? get() = moves.entries.firstOrNull { it.value }?.key
-        val update: EngineUpdate get() = EngineUpdate(events.drop(1), target, heads, lines, request, confirmed, moves)
+        val update: EngineUpdate get() = EngineUpdate(events.drop(1), target, heads, lines, request, confirmed, moves, activity)
     }
 
     private fun take(play: UUID): LiveState? = synchronized(warm) { warm.remove(play) }
@@ -95,10 +112,20 @@ internal class EngineGames(private val capacity: Int = 32) {
     fun mayExist(sql: DSLContext): Boolean = any ?: sql.fetchExists(ENGINE_PLAY).also { any = it }
 
     /** Puts [outcome]'s state back as its play's warm state, once its transaction committed. */
-    fun committed(outcome: Outcome) = outcome.live?.let { synchronized(warm) { warm[outcome.play] = it } }
+    fun committed(outcome: Outcome) {
+        outcome.store?.let { store -> store.committed(); synchronized(plays) { plays[outcome.play] = store.cache } }
+        outcome.live?.let { synchronized(warm) { warm[outcome.play] = it } }
+    }
+
+    /** Puts [state] (refused: nothing changed) back as [play]'s warm state, moved to the head (abreview #10). */
+    private fun keepWarm(play: UUID, history: GameHistory, state: LiveState?, head: String) {
+        if (state == null) return
+        val model = history.move(state.model, state.at, head)
+        synchronized(warm) { warm[play] = LiveState(head, model) }
+    }
 
     /** Whether [play] is played as engine state. */
-    fun engine(sql: DSLContext, play: UUID): Boolean = EngineHistoryStore.open(sql, play) != null
+    fun engine(sql: DSLContext, play: UUID): Boolean = open(sql, play) != null
 
     /**
      * Starts [play]'s engine history from [seats] (account ids as players): the state before the game is the root's
@@ -128,15 +155,20 @@ internal class EngineGames(private val capacity: Int = 32) {
     /** [submission] by [author] on [play] (I-D56 §8): accepted (appended, a branch, or a confirmation), or refused
      * ([Refusal]); null when [play] isn't played as engine state. */
     fun submit(sql: DSLContext, play: UUID, author: UUID, submission: Submission, live: (UUID) -> Boolean): Outcome? {
-        val store = EngineHistoryStore.open(sql, play) ?: return null
+        val store = open(sql, play) ?: return null
         val history = GameHistory(store, store.codec)
         val row = playRow(sql, play)
         val seats = seats(sql, play)
         val head = head(sql, play, store.rootId)
         val warm = take(play)
         val me = PlayerId(author.toString())
-        val result = Acceptance.accept(history, head, warm, submission, me, seats.associate { PlayerId(it.account.toString()) to it.head },
-            row.lines + 1, rewindOpen = row.request != null)
+        val result = try {
+            Acceptance.accept(history, head, warm, submission, me, seats.associate { PlayerId(it.account.toString()) to it.head },
+                row.lines + 1, rewindOpen = row.request != null)
+        } catch (refusal: Refusal) {
+            keepWarm(play, history, refusal.state, head)
+            throw refusal
+        }
         return when (result) {
             is Acceptance.Confirmed -> {
                 setHead(sql, play, author, result.event)
@@ -163,7 +195,7 @@ internal class EngineGames(private val capacity: Int = 32) {
 
     /** [account]'s device showed the main line up to [eventId] (I-D56 §7): their local head moves forward to it. */
     fun seen(sql: DSLContext, play: UUID, account: UUID, eventId: String, live: (UUID) -> Boolean): Outcome? {
-        val store = EngineHistoryStore.open(sql, play) ?: return null
+        val store = open(sql, play) ?: return null
         val history = GameHistory(store, store.codec)
         val head = head(sql, play, store.rootId)
         val seat = seats(sql, play).single { it.account == account }
@@ -176,7 +208,7 @@ internal class EngineGames(private val capacity: Int = 32) {
 
     /** [account]'s private play settings for [play] (I-D56 §13). */
     fun settings(sql: DSLContext, play: UUID, account: UUID, settings: PlaySettings, live: (UUID) -> Boolean): Outcome? {
-        val store = EngineHistoryStore.open(sql, play) ?: return null
+        val store = open(sql, play) ?: return null
         sql.update(ENGINE_SEAT).set(ENGINE_SEAT.SETTINGS, GameWire.json.encodeToString(PlaySettings.serializer(), settings))
             .where(ENGINE_SEAT.PLAY_ID.eq(play)).and(ENGINE_SEAT.ACCOUNT_ID.eq(account)).execute().also { if (it != 1) throw Refusal("inapplicable") }
         val history = GameHistory(store, store.codec)
@@ -191,7 +223,7 @@ internal class EngineGames(private val capacity: Int = 32) {
      * added again after it while they apply; local heads past the target move to the new line.
      */
     fun rewind(sql: DSLContext, play: UUID, account: UUID, target: String, live: (UUID) -> Boolean, approved: Boolean = false): Outcome? {
-        val store = EngineHistoryStore.open(sql, play) ?: return null
+        val store = open(sql, play) ?: return null
         val history = GameHistory(store, store.codec)
         val head = head(sql, play, store.rootId)
         val after = MainLine.after(history, head, target) ?: throw Refusal("inapplicable")
@@ -203,7 +235,7 @@ internal class EngineGames(private val capacity: Int = 32) {
         val warm = take(play)
         val model = if (warm == null) history.stateAt(target) else history.move(warm.model, warm.at, target)
         if (!approved) Rewind.requestNeeded(model.copy(), target, after, me, seats.filter { it.account != account }.map { it.head })
-            ?.let { throw Refusal("requestNeeded") }
+            ?.let { keepWarm(play, history, LiveState(target, model), head); throw Refusal("requestNeeded") }
         val standing = Rewind.standing(after, me)
         store.delete(after.map { it.id })
         val line = row.lines + 1
@@ -228,7 +260,7 @@ internal class EngineGames(private val capacity: Int = 32) {
 
     /** [account] asks the other player to approve taking the main line back to just after [target] (I-D56 §10). */
     fun requestRewind(sql: DSLContext, play: UUID, account: UUID, target: String, message: String, live: (UUID) -> Boolean): Outcome? {
-        val store = EngineHistoryStore.open(sql, play) ?: return null
+        val store = open(sql, play) ?: return null
         val history = GameHistory(store, store.codec)
         val head = head(sql, play, store.rootId)
         if (playRow(sql, play).request != null) throw Refusal("rewindRequested")
@@ -240,7 +272,7 @@ internal class EngineGames(private val capacity: Int = 32) {
 
     /** The other player's answer to [play]'s open undo request: accepted, it rewinds; declined, it closes. */
     fun answerRewind(sql: DSLContext, play: UUID, account: UUID, accept: Boolean, live: (UUID) -> Boolean): Outcome? {
-        val store = EngineHistoryStore.open(sql, play) ?: return null
+        val store = open(sql, play) ?: return null
         val request = playRow(sql, play).request ?: throw Refusal("inapplicable")
         if (request.by == account.toString()) throw Refusal("otherPlayerRequired")
         if (accept) return rewind(sql, play, UUID.fromString(request.by), request.target, live, approved = true)
@@ -251,7 +283,7 @@ internal class EngineGames(private val capacity: Int = 32) {
 
     /** The requester takes their open undo request back. */
     fun cancelRewind(sql: DSLContext, play: UUID, account: UUID, live: (UUID) -> Boolean): Outcome? {
-        val store = EngineHistoryStore.open(sql, play) ?: return null
+        val store = open(sql, play) ?: return null
         val request = playRow(sql, play).request ?: throw Refusal("inapplicable")
         if (request.by != account.toString()) throw Refusal("accessDenied")
         clearRequest(sql, play)
@@ -263,7 +295,7 @@ internal class EngineGames(private val capacity: Int = 32) {
      * the viewer's own private settings, the open undo request and the line counter; and whose move it is for the viewer
      * (account id: theirs when they have a next stop, else the other player's when they have one; null once over). */
     fun snapshot(sql: DSLContext, play: UUID, viewer: UUID): Pair<EngineSnapshot, String?>? {
-        val store = EngineHistoryStore.open(sql, play) ?: return null
+        val store = open(sql, play) ?: return null
         val head = head(sql, play, store.rootId)
         val history = GameHistory(store, store.codec)
         val state = warmAt(play, history, head)
@@ -282,7 +314,7 @@ internal class EngineGames(private val capacity: Int = 32) {
 
     /** Whose move [play] is for [viewer] (I-D56 §7): null when it isn't an engine play or nobody has a next stop. */
     fun attentionFor(sql: DSLContext, play: UUID, viewer: UUID): String? =
-        if (!mayExist(sql) || EngineHistoryStore.open(sql, play) == null) null else attention(seats(sql, play), viewer)
+        if (!mayExist(sql) || open(sql, play) == null) null else attention(seats(sql, play), viewer)
 
     private fun attention(seats: List<SeatRow>, viewer: UUID): String? =
         seats.firstOrNull { it.account == viewer && it.nextStop != null }?.account?.toString()
@@ -296,8 +328,11 @@ internal class EngineGames(private val capacity: Int = 32) {
 
     /**
      * After every change: each player's next stop with their own mode (I-D56 §7), stored with its time (the event at
-     * their stop: the assumed input waiting for them, or the head's event for a real wait); a new real wait at the
-     * head of a player who isn't live counts as an async round (§15); the outcome for the caller.
+     * their stop: the assumed input waiting for them, or the head's event for a real wait); a real wait going on across
+     * table-only events (the other player arranging cards, early answers) is the same wait, kept with its time and not
+     * notified again (§18.11); a new real wait at the head of a player who isn't live counts as an async round (§15);
+     * each player's last-activity time (their next stop's, else their local head's: nothing past it, §7); the outcome for
+     * the caller.
      */
     private fun refresh(sql: DSLContext, play: UUID, history: GameHistory, state: LiveState, events: List<GameEvent>, live: (UUID) -> Boolean,
         target: String? = null, confirmed: String? = null): Outcome {
@@ -305,32 +340,51 @@ internal class EngineGames(private val capacity: Int = 32) {
         val seats = seats(sql, play)
         val newStops = mutableSetOf<String>()
         val moves = mutableMapOf<String, Boolean>()
+        val stops = mutableMapOf<SeatRow, String?>()
+        val found = mutableMapOf<SeatRow, NextStop.Stop?>()
         for (seat in seats) {
             val player = PlayerId(seat.account.toString())
             val after = MainLine.after(history, head, seat.head) ?: emptyList()
             val model = stateAtLocalHead(history, state, seat.head, after)
             val stop = NextStop.of(model, seat.head, after, player, seat.settings.mode)
-            val at = stop?.let { UUID.fromString(it.event ?: it.at) }
-            val time = at?.let { id -> sql.select(ENGINE_EVENT.CREATED_AT).from(ENGINE_EVENT).where(ENGINE_EVENT.PLAY_ID.eq(play))
-                .and(ENGINE_EVENT.ID.eq(id)).fetchOne(ENGINE_EVENT.CREATED_AT) }
-            val stopId = stop?.let { UUID.fromString(it.event ?: it.at) }
-            if (stopId?.toString() != seat.nextStop) {
-                sql.update(ENGINE_SEAT).set(ENGINE_SEAT.NEXT_STOP, stopId).set(ENGINE_SEAT.NEXT_STOP_AT, time)
+            val stored = seat.nextStop
+            val same = stop != null && stop.event == null && stored != null &&
+                MainLine.after(history, head, stored)?.all { it.engine == null } == true
+            found[seat] = stop
+            stops[seat] = if (same) stored else stop?.let { it.event ?: it.at }
+            if (stops[seat] != stored && stop != null) newStops += seat.account.toString()
+            moves[seat.account.toString()] = stop != null
+        }
+        // The times of the new stops and of the local heads, in one read
+        val wanted = (stops.filter { (seat, id) -> id != seat.nextStop }.values.filterNotNull() + seats.map { it.head })
+            .filter { it != history.store.rootId }.map(UUID::fromString).distinct()
+        val times = if (wanted.isEmpty()) emptyMap() else sql.select(ENGINE_EVENT.ID, ENGINE_EVENT.CREATED_AT).from(ENGINE_EVENT)
+            .where(ENGINE_EVENT.PLAY_ID.eq(play)).and(ENGINE_EVENT.ID.`in`(wanted)).fetch().associate { it.value1()!!.toString() to it.value2()!! }
+        val stopTimes = mutableMapOf<String, java.time.OffsetDateTime>()
+        val activity = mutableMapOf<String, String>()
+        for (seat in seats) {
+            val stopId = stops[seat]
+            val time = if (stopId == seat.nextStop) seat.nextStopAt else stopId?.let { times[it] }
+            if (stopId != seat.nextStop) {
+                sql.update(ENGINE_SEAT).set(ENGINE_SEAT.NEXT_STOP, stopId?.let(UUID::fromString)).set(ENGINE_SEAT.NEXT_STOP_AT, time)
                     .where(ENGINE_SEAT.PLAY_ID.eq(play)).and(ENGINE_SEAT.ACCOUNT_ID.eq(seat.account)).execute()
-                if (stop != null) newStops += seat.account.toString()
                 // §15: a wait for this player's real input begins at the head while they aren't live (not one going on
                 // across the other player's table-only events)
+                val stop = found[seat]
                 val waited = seat.nextStop?.let { history.store.node(it)?.event?.assumed == null } == true
-                if (stop != null && stop.event == null && !waited && !live(seat.account)) round(sql, play, seat.account, stop.at, kind(state.model, player))
+                if (stop != null && stop.event == null && !waited && !live(seat.account))
+                    round(sql, play, seat.account, stop.at, kind(state.model, PlayerId(seat.account.toString())))
             }
-            moves[seat.account.toString()] = stop != null
+            time?.let { stopTimes[seat.account.toString()] = it }
+            (time ?: times[seat.head])?.let { activity[seat.account.toString()] = it.toInstant().toString() }
         }
         val result = Engine.result(state.model.engine)
         val ended = result != null && (state.model.table.resultConfirmedBy != null ||
             events.any { e -> e.engine?.steps.orEmpty().any { it.input is Input.Concede } })
         val row = playRow(sql, play)
         return Outcome(play, events.map(history.codec::encodeEvent), state, target, confirmed, ended,
-            seats(sql, play).associate { it.account.toString() to it.head }, moves, newStops, row.request, row.lines)
+            seats.associate { it.account.toString() to it.head }, moves, newStops, row.request, row.lines, stopTimes, activity,
+            history.store as? EngineHistoryStore)
     }
 
     /** The state at a local head [localHead] behind the head ([after] the events between): the head's state copied and
@@ -338,7 +392,8 @@ internal class EngineGames(private val capacity: Int = 32) {
      * then). */
     private fun stateAtLocalHead(history: GameHistory, state: LiveState, localHead: String, after: List<GameEvent>): GameModel {
         if (after.isEmpty()) return state.model
-        if (after.size > history.every) return history.stateAt(localHead)
+        // Table-only events are cheap to take back; only engine events count against the bound
+        if (after.count { it.engine != null } > history.every) return history.stateAt(localHead)
         val model = state.model.copy()
         for (event in after.asReversed()) {
             model.revert(event)
@@ -388,10 +443,10 @@ internal class EngineGames(private val capacity: Int = 32) {
     }
 
     private fun seats(sql: DSLContext, play: UUID): List<SeatRow> =
-        sql.select(ENGINE_SEAT.ACCOUNT_ID, ENGINE_SEAT.LOCAL_HEAD, ENGINE_SEAT.SETTINGS, ENGINE_SEAT.NEXT_STOP).from(ENGINE_SEAT)
-            .where(ENGINE_SEAT.PLAY_ID.eq(play)).orderBy(ENGINE_SEAT.ACCOUNT_ID).fetch { r ->
+        sql.select(ENGINE_SEAT.ACCOUNT_ID, ENGINE_SEAT.LOCAL_HEAD, ENGINE_SEAT.SETTINGS, ENGINE_SEAT.NEXT_STOP, ENGINE_SEAT.NEXT_STOP_AT)
+            .from(ENGINE_SEAT).where(ENGINE_SEAT.PLAY_ID.eq(play)).orderBy(ENGINE_SEAT.ACCOUNT_ID).fetch { r ->
                 SeatRow(r.value1()!!, r.value2()!!.toString(), GameWire.json.decodeFromString(PlaySettings.serializer(), r.value3()!!),
-                    r.value4()?.toString())
+                    r.value4()?.toString(), r.value5())
             }
 
     private fun setHead(sql: DSLContext, play: UUID, account: UUID, event: String) {

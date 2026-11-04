@@ -178,7 +178,7 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
         val engine = game.currentPlay?.takeIf { game.lifecycle == "ACTIVE" && engineGames.mayExist(sql) }
             ?.let { engineGames.snapshot(sql, it, actor(principal)) }
         val summary = lobby.summary(sql, game, if (game.lifecycle != "ACTIVE") null
-            else if (engine != null) engine.second else play?.board?.effectiveAttentionHolder)
+            else if (engine != null) engine.second else play?.board?.effectiveAttentionHolder, engine?.let { actor(principal) })
         return GameHead(gameId, summary.revision, summary, preparation =
             if (play == null && canReadPreparation(summary, principal.account.accountId)) PreparationStore.read(sql, summary) else null,
             play = play, retainedTreeRequired = play != null, chatSync = ChatStore.sync(sql, uuid(gameId)), boundedEndpoint = true,
@@ -251,8 +251,10 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
     internal fun visibleRevision(stored: GameRevision, accountId: String): GameRevision {
         // I-D56 §7: whose move an engine play is comes from each viewer's own next stop; the per-player table stays here
         val moves = stored.engine?.moves
-        val revision = if (moves == null) stored else stored.copy(engine = stored.engine?.copy(moves = null), summary = stored.summary.copy(
-            attentionHolder = if (moves[accountId] == true) accountId else moves.entries.firstOrNull { it.value }?.key))
+        // ... and so does the last-activity time: nothing about the line past the viewer's next stop (§7)
+        val revision = if (moves == null) stored else stored.copy(engine = stored.engine?.copy(moves = null, activity = null),
+            summary = stored.summary.copy(attentionHolder = if (moves[accountId] == true) accountId else moves.entries.firstOrNull { it.value }?.key,
+                updatedAt = stored.engine?.activity?.get(accountId) ?: stored.summary.updatedAt))
         return if (revision.summary.lifecycle !in listOf(GameLifecycle.LOBBY, GameLifecycle.ACTIVE)) revision.copy(preparation = null, play = null, mutation = null, group = null, chatMessage = null, treeDelta = null)
         else if (canReadPreparation(revision.summary, accountId)) revision else revision.copy(preparation = null)
     }
@@ -419,7 +421,8 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
                 if (engine.ended) org.asyncttwiz.server.activity.ActivityService.record(sql, opponent, ActivityKind.GAME,
                     game.id!!, uuid(command.requestId), inbox.accountId)
                 else if (opponent.toString() in engine.newStops) org.asyncttwiz.server.activity.ActivityService.record(sql, opponent,
-                    ActivityKind.GAME, game.id!!, uuid(command.requestId), inbox.accountId, yourMove = true, move = true)
+                    ActivityKind.GAME, game.id!!, uuid(command.requestId), inbox.accountId,
+                    time = engine.stopTimes[opponent.toString()] ?: java.time.OffsetDateTime.now(java.time.ZoneOffset.UTC), yourMove = true, move = true)
             }
         }
         val created = when {

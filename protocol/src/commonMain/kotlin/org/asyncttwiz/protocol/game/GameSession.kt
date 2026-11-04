@@ -18,13 +18,16 @@ import arcanum.engine.state.PlayerId
  *   is buffered (the device acts at the head) or as the one answer it gave at its local head (a branch, I-D56 §8).
  * - The player's inputs go into a draft event ([begin]): a private flow (a cast being announced) stays in the draft
  *   until it is complete and is then sent as one [Submission] ([send]); [abandon] takes it back. A draft at the local
- *   head while events are buffered starts a new line (a branch at a decision stop): sending it discards the buffered
- *   events.
- * - The server's events come in through [received]: the device's own next pending event is confirmed; another event on
- *   [head] drops whatever the device had pending (the server refuses it: its parent moved) and is buffered; an event on
- *   an earlier main-line event is a branch (the line after it is discarded, and the shown state goes back to it when it
- *   was past it). A rewind ([rewound]) deletes the events after its target. What the model can't follow exactly is
- *   [Received.Reload]: the caller loads the game again.
+ *   head while events are buffered is the player's answer at a decision stop: sent as a new line (a branch), it
+ *   discards the buffered events.
+ * - The server's events come in through [received]: the device's own next pending event is confirmed; another player's
+ *   table-only event on [head] that doesn't touch what the pending events and the draft touch is slipped in under them
+ *   (shown at once; the server makes them on it the same way, [Acceptance.commutes]); any other event on [head] drops
+ *   whatever the device had pending (the server refuses it: its parent moved) and is buffered; an event on an earlier
+ *   main-line event is a branch (the line after it is discarded, and the shown state goes back to it when it was past
+ *   it). A rewind ([rewound]) deletes the events after its target. A draft dropped by any of these is abandoned
+ *   ([drafting] turns false, [EventBuilder.finished] true). What the model can't follow exactly is [Received.Reload]: the
+ *   caller loads the game again.
  */
 class GameSession(base: GameModel, baseId: String, events: List<GameEvent>, localHead: String, val me: PlayerId) {
     /** Older constructor: a session at [head] with nothing buffered. */
@@ -92,14 +95,12 @@ class GameSession(base: GameModel, baseId: String, events: List<GameEvent>, loca
 
     /**
      * Opens the draft of a new event [id] on [tip]; its inputs and table changes apply to [model] as they are made.
-     * [newLine]: the draft is made at the local head while events are buffered (a branch, I-D56 §8): it starts that line
-     * as its first step.
+     * [newLine]: the draft starts that line as its first step (a branch at the local head while events are buffered,
+     * I-D56 §8). Behind the head only a draft at the local head is made, and only one that starts a line is sent.
      */
     fun begin(id: String, newLine: Int? = null): EventBuilder {
         check(draft == null) { "A draft is open" }
-        if (behind) {
-            check(waiting.isEmpty() && newLine != null) { "Behind the head, only a branch at the local head is made" }
-        }
+        if (behind) check(waiting.isEmpty()) { "Behind the head, only a branch at the local head is made" }
         return EventBuilder(model, id, tip, me.value).also { b ->
             newLine?.let(b::startLine)
             draft = b; draftAt = tip
@@ -113,6 +114,7 @@ class GameSession(base: GameModel, baseId: String, events: List<GameEvent>, loca
     /** [send], returning the event made. */
     fun sendEvent(): GameEvent {
         val builder = checkNotNull(draft) { "No draft is open" }
+        check(!behind || builder.startsLine) { "Behind the head only a branch is sent" }
         draft = null; draftAt = null
         val event = builder.build()
         onSent?.let { hook -> hook(model.copy().also { it.revert(event) }.engine, event) }
@@ -192,6 +194,7 @@ class GameSession(base: GameModel, baseId: String, events: List<GameEvent>, loca
             return Received.Applied(emptyList(), false)
         }
         if (event.parentId == head) {
+            slip(event)?.let { return it }
             val hadDraft = draft != null
             val dropped = dropPending() ?: return Received.Reload
             line += event
@@ -203,6 +206,38 @@ class GameSession(base: GameModel, baseId: String, events: List<GameEvent>, loca
         line += event
         return changed
     }
+
+    /**
+     * Another player's [event] on [head] while the device acts there: when it is table-only and commutes with the first
+     * pending events (or, with none pending, the draft: [Acceptance.commutes]), it goes in under them (applied to the
+     * shown state and shown: it touches nothing they touch), and the first of them is now made on it, as the server
+     * makes it (I-D56 §6: such events never make an input stale). The pending events from the first that doesn't
+     * commute are dropped with the draft (the server refuses them). Null when nothing commutes (the caller drops all).
+     */
+    private fun slip(event: GameEvent): Received? {
+        val open = draft
+        if ((waiting.isEmpty() && open == null) || behind || !Acceptance.commutes(event, emptyList())) return null
+        val keep = waiting.indexOfFirst { !Acceptance.commutes(event, it.table) }.let { if (it < 0) waiting.size else it }
+        val draftKept = open != null && keep == waiting.size && Acceptance.commutes(event, open.tableChanges)
+        if (keep == 0 && !draftKept) return null
+        if (!draftKept) abandon()
+        val dropped = waiting.drop(keep)
+        for (e in dropped.asReversed()) {
+            model.revert(e)
+            if (model.stale) return Received.Reload
+        }
+        repeat(dropped.size) { waiting.removeLast() }
+        beforeShow?.invoke(model.engine, event)
+        try { model.apply(event) } catch (_: IllegalStateException) { return Received.Reload }
+        line += event
+        shown++
+        if (waiting.isNotEmpty()) waiting[0] = waiting[0].copy(parentId = event.id)
+        else if (draftKept) { open!!.parentId = event.id; draftAt = event.id }
+        return Received.Applied(dropped, open != null && !draftKept)
+    }
+
+    /** Whether [id] is an event the device's own pending branch replaced (the line it discards). */
+    fun supersedes(id: String): Boolean = id in superseded
 
     /** The server's rewind (I-D56 §10): the main line's events after [target] are deleted, then [events] (the new line's
      * first event and those added again after it) follow it. */

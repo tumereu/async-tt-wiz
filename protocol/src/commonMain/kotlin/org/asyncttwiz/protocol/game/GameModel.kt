@@ -123,13 +123,24 @@ class GameModel(val engine: GameState, table: TableState = TableState()) {
  * ([table]), each applied at once, so the model is the event's state as it is built. [build] ends the event; [abandon]
  * takes everything back. Random answers count on the state's line ([TableState.line]); [build] records how far it moved.
  */
-class EventBuilder(private val model: GameModel, private val id: String, private val parentId: String, private val author: String) {
+class EventBuilder(private val model: GameModel, private val id: String, parentId: String, private val author: String) {
+    /** The event the new one is made on; a device moves it when another player's table-only event slips in under its
+     * draft ([GameSession], I-D56 §6: they commute). */
+    var parentId: String = parentId
+        internal set
     private val timestampBefore = model.engine.timestampCounter
     private val lineBefore = model.table.line
     private var line = lineBefore
     private val steps = mutableListOf<EngineStep>()
     private val table = mutableListOf<TableChange>()
+    private val randomSteps = mutableSetOf<Int>()
     private var done = false
+
+    /** Whether the event was built or abandoned: nothing more can be made on it. */
+    val finished: Boolean get() = done
+
+    /** Whether the event starts a new line ([startLine]). */
+    val startsLine: Boolean get() = line.number != lineBefore.number
 
     /** Whether nothing was made yet. */
     val empty: Boolean get() = steps.isEmpty() && table.isEmpty() && line == lineBefore
@@ -140,16 +151,29 @@ class EventBuilder(private val model: GameModel, private val id: String, private
     /** The engine changes made so far, in order. */
     val changes: List<Change> get() = steps.flatMap { it.changes }
 
+    /** The engine steps made so far, in order. */
+    val engineSteps: List<EngineStep> get() = steps.toList()
+
+    /** The inputs performed so far that weren't answers to the engine's random decisions (those come from the line's
+     * stream): what a player's flow chose, in order. */
+    val playerInputs: List<Input> get() = steps.withIndex().mapNotNull { (i, step) -> step.input?.takeIf { i !in randomSteps } }
+
+    /** The table changes made so far, in order (without the line's move, which [build] adds). */
+    val tableChanges: List<TableChange> get() = table.toList()
+
     /** Performs [input] on the model's engine state and applies its changes; an input the engine refuses changes nothing
      * and throws ([IllegalArgumentException] for a wrong answer, [IllegalStateException] for an input it can't take).
      * [assumedBy]: the input is another player's, assumed by this one (I-D56 §3). */
     fun perform(input: Input, trace: EngineTrace = EngineTrace.None, assumedBy: PlayerId? = null): Outcome {
-        check(!done)
+        check(!done) { "The event was built or abandoned" }
         val random = model.engine.pending?.decision as? Decision.Random
         val outcome = Engine.perform(model.engine, input, trace)
         outcome.changes.forEach { model.engine.apply(it) }
         steps += EngineStep(input, outcome.changes, assumedBy)
-        if (random != null && input is Input.Answer && input.decision == random.id) line = line.copy(drawn = line.drawn + 1)
+        if (random != null && input is Input.Answer && input.decision == random.id) {
+            line = line.copy(drawn = line.drawn + 1)
+            randomSteps += steps.size - 1
+        }
         return outcome
     }
 
@@ -187,13 +211,13 @@ class EventBuilder(private val model: GameModel, private val id: String, private
     }
 
     fun table(change: TableChange) {
-        check(!done)
+        check(!done) { "The event was built or abandoned" }
         model.applyTable(change)
         table += change
     }
 
     fun build(): GameEvent {
-        check(!done)
+        check(!done) { "The event was built or abandoned" }
         if (line != lineBefore) table(TableChange.LineMoved(lineBefore, line))
         done = true
         val event = GameEvent(id, parentId, author, if (steps.isEmpty()) null else EnginePart(timestampBefore, steps.toList()), table.toList())
@@ -202,7 +226,7 @@ class EventBuilder(private val model: GameModel, private val id: String, private
     }
 
     fun abandon() {
-        check(!done)
+        check(!done) { "The event was built or abandoned" }
         done = true
         for (change in table.asReversed()) model.applyTable(change.inverse())
         for (step in steps.asReversed()) for (change in step.changes.asReversed()) model.engine.revert(change)

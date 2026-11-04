@@ -107,19 +107,24 @@ class LobbyService(private val runtime: ServiceRuntime) {
         val inviter = ACCOUNT.`as`("inviter")
         val recipient = ACCOUNT.`as`("recipient")
         // I-D56 §7: for a viewer of a play whose state is the engine's, whose move it is comes from the engine seats
-        // (read in the same round trip): the viewer's own next stop first, then the other player's
+        // (read in the same round trip): the viewer's own next stop first, then the other player's; the last-activity
+        // time is the viewer's own (their next stop's, else their local head's event's: nothing past it)
         val play = game.currentPlay?.takeIf { viewer != null && game.lifecycle == "ACTIVE" }
         // Only for an active play: other summaries don't touch the engine tables (a database at an older schema has none)
         val seats = if (play == null) DSL.inline(null, String::class.java)
-            else DSL.field("(SELECT string_agg(account_id::text || ':' || (next_stop IS NOT NULL)::text, ',' ORDER BY account_id) " +
-                "FROM engine_seat WHERE play_id = {0})", String::class.java, DSL.`val`(play, UUID::class.java))
+            else DSL.field("(SELECT string_agg(s.account_id::text || '|' || (s.next_stop IS NOT NULL)::text || '|' || " +
+                "coalesce(to_char(coalesce(s.next_stop_at, (SELECT e.created_at FROM engine_event e WHERE e.play_id = s.play_id " +
+                "AND e.id = s.local_head)) AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"'), ''), ',' ORDER BY s.account_id) " +
+                "FROM engine_seat s WHERE s.play_id = {0})", String::class.java, DSL.`val`(play, UUID::class.java))
         val identities = sql.select(INVITATION.STATE, inviter.USERNAME, recipient.USERNAME,
             inviter.AVATAR_SCRYFALL_ID, inviter.AVATAR_FACE, recipient.AVATAR_SCRYFALL_ID, recipient.AVATAR_FACE, seats).from(INVITATION)
             .join(inviter).on(inviter.ID.eq(game.inviterId)).join(recipient).on(recipient.ID.eq(game.recipientId))
             .where(INVITATION.ID.eq(game.currentInvitation)).fetchSingle()
-        val engine = identities.value8()?.split(",")?.map { it.substringBefore(":") to (it.substringAfter(":") == "true") }
+        val engine = identities.value8()?.split(",")?.map { it.split("|") }
         val holder = if (engine == null) attentionHolder
-            else engine.firstOrNull { it.first == viewer.toString() && it.second }?.first ?: engine.firstOrNull { it.second }?.first
+            else engine.firstOrNull { it[0] == viewer.toString() && it[1] == "true" }?.get(0) ?: engine.firstOrNull { it[1] == "true" }?.get(0)
+        val activity = engine?.firstOrNull { it[0] == viewer.toString() }?.getOrNull(2)?.takeIf { it.isNotEmpty() }
+            ?.let { java.time.Instant.parse(it).toString() }
         return GameSummary(game.id.toString(), game.gameName!!, game.createdAt!!.toInstant().toString(),
             AccountIdentity(game.inviterId.toString(), identities.value2()!!,
                 identities[inviter.AVATAR_SCRYFALL_ID]?.let { Avatar(it.toString(), identities[inviter.AVATAR_FACE] ?: 0) }),
@@ -128,7 +133,7 @@ class LobbyService(private val runtime: ServiceRuntime) {
             game.currentInvitation.toString(), InvitationState.valueOf(identities.value1()!!), GameLifecycle.valueOf(game.lifecycle!!),
             game.revision.toString(), game.currentPlay?.toString(),
             holder,
-            game.updatedAt!!.toInstant().toString(), game.podId?.toString(), game.podName, game.podInvitationHeld == true)
+            activity ?: game.updatedAt!!.toInstant().toString(), game.podId?.toString(), game.podName, game.podInvitationHeld == true)
     }
 
     fun list(principal: AccountService.Principal, after: String?, invitations: Boolean): Result {
@@ -159,7 +164,7 @@ class LobbyService(private val runtime: ServiceRuntime) {
                 .where(GAME.ID.eq(UUID.fromString(id))).and(GAME.LIFECYCLE.`in`("LOBBY", "ACTIVE"))
                 .and(GAME.INVITER_ID.eq(actor).or(GAME.RECIPIENT_ID.eq(actor).and(INVITATION.STATE.eq("ACCEPTED"))))
                 .forShare().fetchOneInto(GAME)
-            if (visible != null) Result(200, json.encodeToString(summary(sql, visible))) else error(404, "not_found")
+            if (visible != null) Result(200, json.encodeToString(summary(sql, visible, actor))) else error(404, "not_found")
         }
     }
 

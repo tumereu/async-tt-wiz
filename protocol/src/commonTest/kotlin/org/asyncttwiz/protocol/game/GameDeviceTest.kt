@@ -273,40 +273,66 @@ class GameDeviceTest {
         settle()
     }
 
-    // I-D56 §6: a table-only event made while behind goes at the head and doesn't move the author's local head; staging
-    // and early answers behind the head stay on the device; one refused as stale is made again at the new head
+    // I-D56 §6: a table-only event (placing your own cards) made while behind goes at the head and doesn't move the
+    // author's local head; staging and early answers behind the head stay on the device; one that crosses an engine input
+    // on the wire is refused as stale and made again at the new head; an engine input that crosses the other player's
+    // table-only event is made on it (abreview #1: it decides nothing, so it never makes an input stale)
     @Test
     fun tableOnlyEventsGoAtTheHead() {
         val sim = spells("Storm Spark")
-        sim.bobToMain()
         val alice = sim.alice; val bob = sim.bob
-        val bobs = sim.device(bob)
-        bobs.act(Input.PlayLand(bob, hand(bobs.model, bob, "Island")))
+        sim.start(alice)
+        val alices = sim.device(alice)
+        assertIs<GameDevice.Acted.Sent>(alices.act(sim.keep(alice)))
         sim.settle()
+        assertIs<GameDevice.Acted.Sent>(alices.act(Input.PlayLand(alice, hand(alices.model, alice, "Forest"))))
+        alices.endTurn(sim.now)
+        sim.settle()
+        // Bob catches up, plays an Island and ends his turn while Alice is away (nothing reaches her device)
+        sim.catchUp(bob)
+        val bobs = sim.device(bob)
+        assertTrue(sim.atMain(bob))
+        assertIs<GameDevice.Acted.Sent>(bobs.act(Input.PlayLand(bob, hand(bobs.model, bob, "Island"))))
+        bobs.endTurn(sim.now)
+        sim.settle(only = listOf(bob))
         val island = bobs.model.engine.battlefield.first { bobs.model.engine.obj(it)?.controller == bob }
-        val alices = sim.load(alice)
+        // Alice comes back behind Bob's turn: her own Forest is hers to place, at the head
+        val back = sim.load(alice)
         val aliceHead = sim.server.heads[alice]
-        assertTrue(alices.session.behind)
+        assertTrue(back.session.behind)
         assertEquals(GameDevice.Acted.Refused("behind"),
-            alices.table(listOf(TableChange.EarlyAnswered("x", null, EarlyAnswer(alice, "x", Answer.YesNo(true))))))
-        assertEquals(GameDevice.Acted.Kept, alices.table(listOf(TableChange.BlockDraft(null, emptyList()))))
-        val placed = sim.server.state().table.placements[island]
-        val sent = assertIs<GameDevice.Acted.Sent>(alices.table(listOf(TableChange.Placed(island, placed, Placement(7, 1)))))
+            back.table(listOf(TableChange.EarlyAnswered("x", null, EarlyAnswer(alice, "x", Answer.YesNo(true))))))
+        assertEquals(GameDevice.Acted.Kept, back.table(listOf(TableChange.BlockDraft(null, emptyList()))))
+        val forest = back.model.engine.battlefield.first { back.model.engine.obj(it)?.controller == alice }
+        val placed = sim.server.state().table.placements[forest]
+        val sent = assertIs<GameDevice.Acted.Sent>(back.table(listOf(TableChange.Placed(forest, placed, Placement(7, 1)))))
         assertEquals(sim.server.head, sent.event.parentId)
         sim.flush(alice)
         assertEquals(sent.event.id, sim.server.head)
         assertEquals(aliceHead, sim.server.heads[alice], "it confirms nothing: her local head stays")
-        assertEquals(Placement(7, 1), sim.server.state().table.placements[island])
-        // Both at the head: two table changes cross on the wire; Bob's is taken first, Alice's is made again on it
+        assertEquals(Placement(7, 1), sim.server.state().table.placements[forest])
+        // I-D56 §6: nobody places the other player's cards (abreview #11)
+        assertEquals("Only bob makes this change", sim.server.submit(Submission("x", sim.server.head,
+            table = listOf(TableChange.Placed(island, null, Placement(1, 1)))), alice).exceptionOrNull()?.message)
         sim.catchUp(alice)
-        assertTrue(!alices.session.behind && !bobs.session.behind)
-        val now = sim.server.state().table.placements[island]
-        bobs.table(listOf(TableChange.Placed(island, now, Placement(5, 0))))
-        alices.table(listOf(TableChange.Placed(island, now, Placement(2, 2))))
+        sim.settle()
+        assertTrue(sim.atMain(alice) && !back.session.behind && !bobs.session.behind)
+        // Alice plays a land while Bob moves his Island: her land reaches the server first; his move is made again on it
+        bobs.table(listOf(TableChange.Placed(island, sim.server.state().table.placements[island], Placement(5, 0))))
+        assertIs<GameDevice.Acted.Sent>(back.act(Input.PlayLand(alice, hand(back.model, alice, "Forest"))))
+        sim.flush(alice); sim.flush(bob)
+        sim.settle()
+        assertEquals(Placement(5, 0), sim.server.state().table.placements[island])
+        assertTrue(bobs.model.sameAs(sim.server.state()) && back.model.sameAs(sim.server.state()))
+        // Bob moves it again while Alice passes: his move first; her pass is made on it, not refused
+        bobs.table(listOf(TableChange.Placed(island, Placement(5, 0), Placement(6, 0))))
+        val pass = assertIs<GameDevice.Acted.Sent>(back.act(Input.PassPriority(alice)))
         sim.flush(bob); sim.flush(alice)
         sim.settle()
-        assertEquals(Placement(2, 2), sim.server.state().table.placements[island])
-        assertTrue(alices.model.sameAs(sim.server.state()))
+        assertEquals(emptyList(), back.notes())
+        val taken = sim.server.line().single { it.id == pass.event.id }
+        assertEquals(sim.server.line().single { it.table.any { c -> c is TableChange.Placed && c.after == Placement(6, 0) } }.id, taken.parentId)
+        assertTrue(bobs.model.sameAs(sim.server.state()) && back.model.sameAs(sim.server.stateAt(back.session.localHead)))
     }
 
     /** Forests and Elvish Seers (1/1) for both, at 1 life: Alice's turn-3 attack is lethal unless Bob blocks. */

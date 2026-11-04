@@ -10,7 +10,6 @@ import arcanum.engine.setup.GameResult
 import arcanum.engine.state.ObjectId
 import arcanum.engine.state.PlayerId
 import arcanum.engine.state.TargetRef
-import kotlin.test.Ignore
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
@@ -66,7 +65,6 @@ class AbReviewTest {
     // abreview #1 (I-D54 §3, I-D56 §6): a table-only event of the other player (placing their cards, an early answer)
     // decides nothing and never confirms or branches; an engine input made on the event before it must not be refused
     // as stale because of it, or every card the other player drags cancels what you were doing in live play
-    @Ignore("abreview #1: an engine input made on the event before the other player's table-only event is refused as stale")
     @Test
     fun theOtherPlayersTableOnlyEventDoesNotMakeAnInputStale() {
         val server = AsyncServer(EngineGames(1))
@@ -86,7 +84,6 @@ class AbReviewTest {
 
     // abreview #2 (I-D56 §6, §19.3): Bob is casting (a draft open) when Alice's table-only event arrives; the session
     // drops the draft silently while GameDevice keeps it as open, so the flow goes on outside any draft and send() fails
-    @Ignore("abreview #2: GameSession drops an open draft on another event at the head; GameDevice's draft is left dangling")
     @Test
     fun aDraftSurvivesTheOtherPlayersTableOnlyEvent() {
         val sim = sim("Thought Siphon")
@@ -119,7 +116,6 @@ class AbReviewTest {
     // pass and that goes on with her next decision (the discard the resolution asks); the server confirms (it compares
     // only the first input and drops the rest) while her device made a branch: her device waits forever for its branch
     // and ignores the line the server goes on with
-    @Ignore("abreview #3: device branches where the server confirms (same first input, more inputs): the device is stuck")
     @Test
     fun aDraftStartingWithTheAssumedInputAgreesWithTheServer() {
         val sim = sim("Crow's Larceny", land = "Swamp")
@@ -155,7 +151,6 @@ class AbReviewTest {
 
     // abreview #4 (I-D56 §11, CR 104.3a): conceding is taken at any time; a concession made at the device's head after
     // the server's head moved on (an event still on the wire) is refused as "newLine" and lost
-    @Ignore("abreview #4: a concession crossing another event on the wire is refused (newLine) and dropped")
     @Test
     fun aConcessionCrossingAnEventIsStillTaken() {
         val sim = sim("Thought Siphon")
@@ -175,7 +170,6 @@ class AbReviewTest {
     // abreview #5 (I-D56 §9, §10, §18.6): a random result seen makes undo a request (no re-roll); Rewind misses one in
     // an event that starts a line (a branch at a decision stop whose outcome flips a coin with forced passes folded:
     // both players with empty hands), so undoing it is free and the new line flips again
-    @Ignore("abreview #5: Rewind.drewRandom ignores random answers in an event that starts a line: a free re-roll")
     @Test
     fun aCoinFlipInALineStartingEventMakesUndoARequest() {
         val toss = Cards.invent("Review Toss", "{U}", "Instant", "Flip a coin. If you win the flip, you gain 6 life.")

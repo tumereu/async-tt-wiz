@@ -24,7 +24,6 @@ import org.jooq.ExecuteContext
 import org.jooq.impl.DSL
 import org.jooq.impl.DefaultExecuteListener
 import org.junit.jupiter.api.Assertions.*
-import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Test
 
 /**
@@ -114,7 +113,6 @@ class EngineAbReviewTest {
     // moves things on her side (table-only events). Bob's wait is the same one, so he is notified once and its time
     // stays that of the event it began at. Today each table-only event moves his next stop to the new head event: a
     // new "your move" notification each time and the move time (reminders) reset
-    @Disabled("abreview #6: every table-only event of the waiting player re-notifies the other player and resets the move time")
     @Test fun `a table-only event of the waiting player doesn't make the other player's wait new`() = withService { runtime ->
         val f = Fixture(runtime, "n")
         val alice = f.device(f.a)
@@ -135,7 +133,6 @@ class EngineAbReviewTest {
     // the line beyond your next stop (its length, events, timing or result) reaches you"): the game list's last-activity
     // time (GameSummary.updatedAt, the revision's summary) is the game row's, which every event of Alice's tentative line
     // moves, so Bob's list shows her playing on past his next stop
-    @Disabled("abreview #7: the game list's last-activity time moves with events beyond the viewer's next stop")
     @Test fun `the last-activity time a player sees doesn't move with events beyond their next stop`() = withService { runtime ->
         val f = Fixture(runtime, "t")
         val alice = f.device(f.a)
@@ -153,7 +150,6 @@ class EngineAbReviewTest {
     // head to a local head one event (one SELECT and one JSON decode) at a time, for every seat on every submission,
     // report and settings change; the work per request grows with how far the other player is behind (a long turn,
     // or table-only events while they are away). One recursive query (as GameHistory.stateAt uses) keeps it flat
-    @Disabled("abreview #8: statements per submission grow linearly with the other player's distance behind the head")
     @Test fun `a submission's statements don't grow with how far the other player is behind`() = withService { runtime ->
         val f = Fixture(runtime, "p")
         val alice = f.device(f.a)

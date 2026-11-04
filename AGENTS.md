@@ -18,7 +18,7 @@ build anything outside the task you were given.
 | `client-storage/` | Android SQLDelight storage, catalog/art download |
 | `androidApp/` | Compose app (`org.asyncttwiz.android`) |
 | `server/` | Spring Boot server, Flyway migrations, jOOQ |
-| `e2e/` | Device/journey tests (optional; slow) |
+| `e2e/` | End-to-end tests: feature flows and every owner-reported app bug (see Rules) |
 | `arcanum-api/`, `arcanum-parser/`, `arcanum-engine/` | Arcanum Automatum: generic MTG rules libraries (card definitions, oracle-text parser, engine); spec `docs/specs/arcanum-automatum.md` |
 | `arcanum-tools/` | JVM developer tools for Arcanum (oracle-text pattern frequencies) |
 | `docs/features/` | **Feature catalog**: every current behaviour, one line each, with IDs (`TBL-012`) |
@@ -97,6 +97,12 @@ catalog wins. Where neither says, ask rather than pick.
 - If a check fails, fix the cause. If the same failure persists after two real
   attempts, or the failure is environmental (network, Docker, emulator), stop
   and report it instead of retrying.
+- **End-to-end coverage (owner rule, 2026-11-04):** every app problem the owner reports is reproduced by an
+  end-to-end test in `e2e/` that fails before the fix, in the same commit as the fix; every new feature gets
+  end-to-end coverage of its overall flow. Not every MTG combination needs one; the feature flows and every bug
+  we've had do. E2E tests are slow: while implementing, run only your new or relevant ones. The full e2e run is
+  a prod release gate: it runs when implementation slows down and nothing is queued, and a release needs a fully
+  green run.
 - Never weaken or delete a test just to make it pass. A test may change only
   when it encodes behaviour your task names (see "Protecting existing features").
 - Only one compatible set of apps and server is maintained; do not keep old app

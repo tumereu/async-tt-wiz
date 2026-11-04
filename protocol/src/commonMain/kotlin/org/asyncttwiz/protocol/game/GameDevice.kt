@@ -102,8 +102,19 @@ class GameDevice(
     /** The player's own opening declarations (Keep, Mulligan, a bottom choice) the server took the other player's
      * declaration before (both declare at the same time, TRN-027): made again on it ([redeclare]). */
     private val redeclaring = mutableListOf<arcanum.engine.decision.Answer>()
+    /** The event those declarations were made on: they wait for the other player's event after it (a refusal can come
+     * before it). */
+    private var redeclareAfter: String? = null
     /** The events of those declarations: their "stale" refusal, still to come, isn't told. */
     private val redeclared = mutableSetOf<String>()
+    /** The player's own inputs (and table changes) of each of their recent events, as their action made them, before
+     * what followed by itself: made again when the server took the other player's event first ([lostMoves]). */
+    private val made = LinkedHashMap<String, Pair<List<Input>, List<TableChange>>>()
+    /** The player's own moves the server took the other player's event before, in order, to be made again on it when
+     * the same decision still waits for them there ([remake]). */
+    private val remaking = mutableListOf<Lost>()
+    /** The events of those moves: their "stale" refusal isn't told ([remake] tells it when it can't make one again). */
+    private val lost = mutableSetOf<String>()
     private val confirming = mutableSetOf<String>()
     /** The submissions made by the player's own actions (a refusal of one is told, even "stale"). */
     private val byPlayer = mutableSetOf<String>()
@@ -348,8 +359,12 @@ class GameDevice(
         this.now = now
         retryTable()
         redeclare()
-        repeat(MAX_AUTOMATIC_EVENTS) { if (!automaticStep()) return }
+        steps()
+        // The player's own moves lost in a race, compared where the device's own steps leave them, then what follows them
+        if (remake()) steps()
     }
+
+    private fun steps() { repeat(MAX_AUTOMATIC_EVENTS) { if (!automaticStep()) return } }
 
     private fun automaticStep(): Boolean {
         if (needsReload || session.drafting || session.behind || request != null || locked) return false
@@ -679,6 +694,7 @@ class GameDevice(
      * or a random result while [before] is given (the state before it: their line is tentative, or the event assumes):
      * then the draft is taken back unsent (§5). [player]: made by the player's own action (a refusal is told). */
     private fun finish(builder: EventBuilder, own: Boolean, before: GameState?, player: Boolean = false): Acted {
+        val inputs = if (player) builder.playerInputs to builder.tableChanges else null
         try { fold(builder, own, guard = before) } catch (e: RuntimeException) { abandon(); return Acted.Refused(e.message ?: "refusedByEngine") }
         // I-D56 §5: while the line is tentative (or this assumes), nothing may show this player a hidden card
         if (before != null && shows(before, builder)) {
@@ -690,6 +706,10 @@ class GameDevice(
         openDraft = null; draftStop = null; draftBefore = null
         val event = session.sendEvent()
         if (player) byPlayer += event.id
+        if (inputs != null && inputs.first.isNotEmpty()) {
+            made[event.id] = inputs
+            if (made.size > MAX_ORIGINS) made.remove(made.keys.first())
+        }
         if (own) {
             val first = event.engine?.steps?.firstNotNullOfOrNull { it.input }
             val ended = endTurnMade && (first == Input.PassPriority(me) || (first as? Input.DeclareAttackers)?.player == me)
@@ -972,7 +992,7 @@ class GameDevice(
                 GameSession.Received.Reload -> { needsReload = true; break }
                 is GameSession.Received.Changed -> if (r.takenBack.isNotEmpty() && r.discarded.isNotEmpty())
                     note(Note.Branched(PlayerId(event.author), r.discarded.first(), r.takenBack))
-                is GameSession.Received.Applied -> lostOpening(r.dropped)
+                is GameSession.Received.Applied -> lostOpening(r.dropped) || lostMoves(r.dropped) { it in byPlayer }
                 else -> {}
             }
         }
@@ -1000,8 +1020,11 @@ class GameDevice(
                 val refused = session.refused(submission.id)
                 if (refused == GameSession.Received.Reload) needsReload = true
                 val again = reason == "stale" &&
-                    ((refused is GameSession.Received.Applied && lostOpening(refused.dropped)) || submission.id in redeclared)
+                    ((refused is GameSession.Received.Applied && (lostOpening(refused.dropped) ||
+                        lostMoves(refused.dropped) { it == submission.id && mine || it in byPlayer })) ||
+                        submission.id in redeclared || submission.id in lost)
                 redeclared.remove(submission.id)
+                lost.remove(submission.id)
                 if (submission.acts.isEmpty() && reason == "stale") retry += Retry(submission.table, submission.parentId)
                 // The player's own action is never dropped silently (an opening declaration is made again instead); the
                 // device's own passes and assumptions lost in the expected races are (I-D56 §8)
@@ -1031,29 +1054,90 @@ class GameDevice(
                 else -> null
             }
         }.takeWhile { it.second != null }.toList()
+        if (kept.isNotEmpty() && redeclaring.isEmpty()) redeclareAfter = dropped.first().parentId
         redeclaring += kept.map { it.second!! }
         kept.forEach { redeclared += it.first.id }
         if (redeclared.size > MAX_ORIGINS) redeclared.clear()
         return kept.isNotEmpty()
     }
 
+    /** A move of the player's own ([inputs], [table]) made on [madeOn] (the engine state shown when they made it) on
+     * [parent], which the server didn't take: another event came first. */
+    private class Lost(val event: String, val parent: String, val madeOn: GameState, val inputs: List<Input>, val table: List<TableChange>)
+
+    /**
+     * Owner, 2026-11-04 (SYS-011): the player's own moves among [dropped] (their events the server didn't take because the
+     * other player's event came first; [mine]: made by the player's action, by event id) past the opening, each with the
+     * state it was made on, kept to be made again on the other player's event when the same decision still waits for the
+     * player there ([remake]). The device's own steps and assumptions among them are lost as before. Whether any were kept.
+     */
+    private fun lostMoves(dropped: List<GameEvent>, mine: (String) -> Boolean): Boolean {
+        // The model is back at the point the first of them was made on
+        val own = dropped.filter { e -> e.author == me.value && e.assumed == null && mine(e.id) && e.id in made }
+        if (own.isEmpty()) return false
+        val walk = model.copy()
+        var kept = false
+        for (e in dropped) {
+            // Opening declarations are [lostOpening]'s
+            if (e in own && walk.engine.turn.number != 0) {
+                val (inputs, table) = made.getValue(e.id)
+                remaking += Lost(e.id, dropped.first().parentId, walk.engine.deepCopy(), inputs, table)
+                lost += e.id
+                kept = true
+            }
+            try { walk.apply(e) } catch (_: IllegalStateException) { break }
+        }
+        if (lost.size > MAX_ORIGINS) lost.clear()
+        return kept
+    }
+
+    /**
+     * Makes the player's own moves the server took the other player's event before ([lostMoves]) again, once that event
+     * is in and shown: each on the board now when it is still the same decision as where they made it
+     * ([sameDecision]), as if just tapped; otherwise it isn't taken and the player is told (SYS-012's note), and the rest
+     * (made on it) are dropped with it.
+     */
+    private fun remake(): Boolean {
+        if (remaking.isEmpty() || needsReload || session.drafting || request != null) return false
+        val first = remaking.first()
+        // Wait for the event the server took instead (a refusal can come before it) and for it to be shown
+        if (session.head == first.parent || session.behind) return false
+        val moves = remaking.toList()
+        remaking.clear()
+        for ((n, move) in moves.withIndex()) {
+            val again = if (!sameDecision(move.madeOn, model.engine)) null else {
+                remember("remake ${move.inputs.firstOrNull()}")
+                val rest = ArrayDeque(move.inputs.drop(1))
+                act(move.inputs.first(), move.table, { rest.removeFirstOrNull() }, null)
+            }
+            if (again !is Acted.Sent) {
+                note(Note.Refused("stale"))
+                if (moves.size > n + 1) remember("remake dropped ${moves.size - n - 1} more")
+                return n > 0
+            }
+        }
+        return true
+    }
+
     /**
      * Makes the player's opening declarations the server took the other player's before ([lostOpening]) again: the other
      * player's opening declarations shown at once (both declare at the same time, nothing to play back), then each of
      * the player's own made on them as if just tapped (at a stop where the other player assumed it, it confirms it).
-     * Dropped when the opening no longer asks it.
+     * Waits for the event the server took instead (made again on the same event, it would only be refused again). When
+     * the opening no longer asks it (or it is refused) it isn't taken, and the player is told (SYS-012's note).
      */
     private fun redeclare() {
         if (redeclaring.isEmpty() || needsReload || session.drafting || request != null) return
+        if (session.head == redeclareAfter) return
         while (session.behind && !catchUp && model.engine.turn.number == 0 && stopAt(session.buffered.first()) == null) session.showNext()
         if (session.behind && status !is Status.Stopped) return
         val answers = redeclaring.toList()
         redeclaring.clear()
         for (answer in answers) {
-            val input = openingInput(answer) ?: return
-            remember("redeclare $answer")
-            val acted = act(input)
-            if (acted !is Acted.Sent && acted !is Acted.Confirmed) return
+            val input = openingInput(answer)
+            remember("redeclare $answer${if (input == null) ": no longer asked" else ""}")
+            val acted = input?.let { act(it) }
+            if (acted !is Acted.Sent && acted !is Acted.Confirmed) { note(Note.Refused("stale")); return }
         }
     }
 
@@ -1164,6 +1248,18 @@ class GameDevice(
         private const val MAX_RECORD = 400
         private const val MAX_ENTRY = 300
         private const val MAX_PROBES = 64
+
+        /**
+         * SYS-011 (owner, 2026-11-04): whether an own action tapped on the board [seen] is still the same decision on
+         * [now], the board the device has moved on to (the other player's event arrived, an assumption was confirmed),
+         * so it is made there instead of refused. The same when nothing the game state holds differs: the same turn and
+         * step, priority (its holder and the passes in a row), open decision and its options, Stack, combat, every
+         * object (zones, what is known of hidden cards, targets) and player; only the record of what happened
+         * ([GameState.log]) and the timestamp counter may differ. Any other change (a new Stack object, another step, a
+         * chosen target gone, a hidden card shown) is a different decision: the player never saw that point.
+         */
+        fun sameDecision(seen: GameState, now: GameState): Boolean =
+            seen === now || seen.copy(log = mutableListOf(), timestampCounter = 0) == now.copy(log = mutableListOf(), timestampCounter = 0)
 
         /** A device for [me] from the server's [snapshot] (and the codec of the game's definitions), at their local head
          * with the events past it buffered. */

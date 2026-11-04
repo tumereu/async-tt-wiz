@@ -91,17 +91,24 @@ class EngineGameTest {
     }
 
     // SYS-012 (abreview #1): the player's own action that the game moved on from before it reached the server is told
-    // ("That wasn't taken…"), never dropped silently; the table goes back to the server's
+    // ("That wasn't taken…"), never dropped silently; the table goes back to the server's. TRN-027, SYS-011 (2026-11-04):
+    // a declaration the server refused because the other player's event came first waits for that event and is made
+    // again on it while it is still asked; here Bob conceded, so it isn't, and it is told
     @Test fun aRefusedOwnActionIsTold() {
         val game = alice()
         game.tick(live = true, now = 1_000)
         assertIs<GameDevice.Acted.Sent>(game.keep(emptyList()))
         val submit = game.take(1_000).filterIsInstance<GameAction.Submit>().first()
         game.refused(submit, "stale")
-        assertTrue(game.notes.any { it == GameDevice.Note.Refused("stale") })
-        assertEquals(NOT_TAKEN, refusedText("stale"))
         assertTrue(game.device.session.pending.isEmpty() && game.device.model.sameAs(f.snapshot().let { s ->
             f.codec.decodeModel(s.state) }), "back to the server's state")
+        assertTrue(game.take(1_000).none { it is GameAction.Submit }, "not sent again on the event the server refused it on")
+        val concede = org.asyncttwiz.protocol.game.EventBuilder(f.codec.decodeModel(f.snapshot().state), "bob-concedes", f.start.id, f.b)
+            .run { perform(Input.Concede(arcanum.engine.state.PlayerId(f.b))); build() }
+        game.revision(f.revision(concede, 2, mapOf(f.a to f.start.id, f.b to concede.id)))
+        assertTrue(game.notes.any { it == GameDevice.Note.Refused("stale") }, "told: ${game.notes}")
+        assertEquals(NOT_TAKEN, refusedText("stale"))
+        assertTrue(game.device.session.pending.isEmpty(), "her keep isn't made again")
     }
 
     // SYS-012 (problem report N7FU6Y): an own action the server refuses for any other reason (the engine's) is told too,

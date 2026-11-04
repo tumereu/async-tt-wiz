@@ -19,7 +19,6 @@ Changes the owner wants but that are not built yet. The feature catalog
 ## Specified, not started
 
 Spec `docs/specs/engine-responsiveness.md` (architecture check, 2026-11-04), in this order:
-- R4: a render model instead of `PlayState`, then delete the old model (engine-state-architecture §14 items 1–5; SYS-004 and SYS-010 go (the old model's other text/batch entries are already gone); engine-path replacements for tests citing LOB-066, HIS-018–HIS-020).
 - R6 (after R2): server refreshes only the reporting seat on `EngineSeen`, warm capacity from a measured heap, fewer round trips when opening a game (no entry changes).
 - R7 (any time, docs only): close out the built specs `engine-state-architecture.md` and `async-play.md`, keeping only the choices still waiting for the owner.
 

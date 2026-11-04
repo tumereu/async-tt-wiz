@@ -76,7 +76,7 @@ internal class EngineAppSim(val f: EngineGameFixture, private val worker: (Strin
         val snapshot = EngineSnapshot(f.codec.encodeDefinitions(), store.rootId, head, f.codec.encodeModel(state()), heads.toMap(),
             settings[p], request, lines, baseId.takeIf { after.isNotEmpty() },
             if (after.isEmpty()) null else f.codec.encodeModel(history.stateAt(baseId)), after.map(f.codec::encodeEvent))
-        val game = games[p]?.also { it.load(snapshot) } ?: EngineGame(f.game.id, p, f.base, snapshot, { "$p-${++ids}" }, worker(p))
+        val game = games[p]?.also { it.load(snapshot) } ?: EngineGame(f.game.id, p, f.base, snapshot, { java.util.UUID.nameUUIDFromBytes("$p-${++ids}".encodeToByteArray()).toString() }, worker(p))
         games[p] = game
         inbox.getValue(p).clear()
         watch(game)

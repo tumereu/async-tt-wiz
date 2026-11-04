@@ -61,7 +61,7 @@ internal fun EngineTableScreen(controller: LobbyController, accountId: String, h
             { action, _ -> routes.local(listOf(action)) },
             ending = { intent -> engineEnding(routes, intent) },
             waitingForConnection = { game.id !in controller.table.value.connectedGames },
-            playBatch = { actions, _ -> routes.local(actions) },
+            playBatch = { actions, requestId -> routes.local(actions, requestId) },
             automatumWork = AutomatumWork.Background, tokenArt = tokenArt, engine = routes)
     }
     // I-D43: problem and crash reports carry this game's device bundle while it is the latest open

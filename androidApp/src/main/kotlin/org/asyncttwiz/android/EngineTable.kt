@@ -73,8 +73,10 @@ interface EngineRoutes {
     fun keep(bottom: List<String>): Boolean
     /** Table actions the controls make: a card moved on its own battlefield (its place, shared), the combat staging,
      * attack choices and early answers (shared as table changes at the head, I-D54 §8; behind it the declaring player's
-     * own until declared, I-D56 §12). False for anything else (nothing changes the game by hand). */
-    fun local(actions: List<PlayAction>): Boolean
+     * own until declared, I-D56 §12). False for anything else (nothing changes the game by hand). [requestId]: the batch's
+     * request id the table worked [actions] out with (an action may name what an earlier one of them made, the combat
+     * area its Open made); null for one action. */
+    fun local(actions: List<PlayAction>, requestId: String? = null): Boolean
 }
 
 /** The open table's engine routes and the async panels' own state (personal UI). */
@@ -124,20 +126,20 @@ internal class EngineTableRoutes(val viewer: String, private val game: () -> Eng
     override fun mulligan(): Boolean = done(game()?.mulligan())
     override fun keep(bottom: List<String>): Boolean = done(game()?.keep(bottom))
 
-    override fun local(actions: List<PlayAction>): Boolean {
+    override fun local(actions: List<PlayAction>, requestId: String?): Boolean {
         val g = game() ?: return false
         val play = shown() ?: return false
         // The device is read on the engine thread (I-D56 step D2); what goes out is sent from here after. Not on a board the
         // device has moved on from (switchreview #6)
-        val done = g.onShown(false) { device -> local(g, device, play, actions) }
+        val done = g.onShown(false) { device -> local(g, device, play, actions, requestId) }
         sent()
         return done
     }
 
-    private fun local(g: EngineGame, device: GameDevice, play: PlayState, actions: List<PlayAction>): Boolean {
+    private fun local(g: EngineGame, device: GameDevice, play: PlayState, actions: List<PlayAction>, requestId: String?): Boolean {
         val places = mutableListOf<TableChange>()
         var staged: PlayState? = null
-        for (action in actions) {
+        for ((index, action) in actions.withIndex()) {
             when {
                 action is PlayAction.MoveCard && action.source.containerId == action.destination.containerId &&
                     play.board.containers.any { it.id == action.source.containerId && it.zone == PlayZone.BATTLEFIELD } -> {
@@ -149,8 +151,10 @@ internal class EngineTableRoutes(val viewer: String, private val game: () -> Eng
                 }
                 action is PlayAction.Combat || (action is PlayAction.Mtg && action.action is MtgAction.SetRecord) -> {
                     val on = staged ?: play
-                    val command = GameCommand(DeviceRandom.uuid(), GameScope(on.gameId, playId = on.id), GameAction.Play(action),
-                        DeviceRandom.uuid(), "1")
+                    // Each as the member of the batch the table worked it out as (PlayBatches.member): a Place names the
+                    // combat area its Open made (problem report XGN86Q: staging the first attacker was refused)
+                    val id = requestId?.let { org.asyncttwiz.protocol.CommandIds.uuidV5(it, "member/$index") } ?: DeviceRandom.uuid()
+                    val command = GameCommand(id, GameScope(on.gameId, playId = on.id), GameAction.Play(action), DeviceRandom.uuid(), "1")
                     staged = GameplayRules.preview(on, viewer, command).state ?: return false
                 }
                 else -> return false

@@ -73,9 +73,11 @@ internal class EngineGames(private val capacity: Int = 32) {
         return store
     }
 
-    /** One player's seat: their local head, private settings, next stop and its time. */
+    /** One player's seat: their local head, private settings, next stop and its time, whether the game waits for them
+     * (I-D57, [NextStop.waitsFor]) and the point they would resume at (the encoded [org.asyncttwiz.protocol.ResumePoint] of
+     * their local head). */
     class SeatRow(val account: UUID, val head: String, val settings: PlaySettings, val nextStop: String?,
-        val nextStopAt: java.time.OffsetDateTime? = null)
+        val nextStopAt: java.time.OffsetDateTime? = null, val waited: Boolean = false, val resumeAt: String? = null)
 
     /**
      * What a change did, for the caller's revision, notifications and broadcast: the new [events] (encoded, in order:
@@ -99,6 +101,12 @@ internal class EngineGames(private val capacity: Int = 32) {
         val endedStops: Set<String> = emptySet(),
         /** The players whose opening is still open while the other player kept in this change (LOB-114). */
         val ready: Set<String> = emptySet(),
+        /** I-D57: whether the game waits for each player ([NextStop.waitsFor]): only they are told "Your move" and reminded. */
+        val waits: Map<String, Boolean> = emptyMap(),
+        /** The players the game waits for since this change, or at a new next stop of theirs: their "Your move" notice. */
+        val newWaits: Set<String> = emptySet(),
+        /** The players the game waited for until this change. */
+        val endedWaits: Set<String> = emptySet(),
     ) {
         /** Whose move the game is for the stored summary: a player with a next stop (each viewer sees their own, §7). */
         val attention: String? get() = moves.entries.firstOrNull { it.value }?.key
@@ -340,6 +348,13 @@ internal class EngineGames(private val capacity: Int = 32) {
             activity = seats.mapNotNull { seat -> (seat.nextStopAt ?: times[seat.head])?.let { seat.account.toString() to it.toInstant().toString() } }.toMap())
     }
 
+    /** Whether the game waits for each player of [play] (I-D57), as stored after its last change; null when [play] isn't
+     * played as engine state. */
+    fun waits(sql: DSLContext, play: UUID): Map<String, Boolean>? {
+        if (!mayExist(sql)) return null
+        return seats(sql, play).takeIf { it.isNotEmpty() }?.associate { it.account.toString() to it.waited }
+    }
+
     private fun attention(seats: List<SeatRow>, viewer: UUID): String? =
         seats.firstOrNull { it.account == viewer && it.nextStop != null }?.account?.toString()
             ?: seats.firstOrNull { it.nextStop != null }?.account?.toString()
@@ -367,12 +382,17 @@ internal class EngineGames(private val capacity: Int = 32) {
         val moves = mutableMapOf<String, Boolean>()
         val stops = mutableMapOf<SeatRow, String?>()
         val found = mutableMapOf<SeatRow, NextStop.Stop?>()
+        val waits = mutableMapOf<SeatRow, Boolean>()
+        val resume = mutableMapOf<SeatRow, String>()
         // The seats whose only stop is answering the open undo request
         val requested = mutableSetOf<SeatRow>()
         for (seat in seats) {
             val player = PlayerId(seat.account.toString())
             val after = MainLine.after(history, head, seat.head) ?: emptyList()
             val model = stateAtLocalHead(history, state, seat.head, after)
+            // I-D57: the point a notification names: the player's own local head, never the head (before NextStop uses it up)
+            resume[seat] = GameWire.json.encodeToString(org.asyncttwiz.protocol.ResumePoint.serializer(),
+                org.asyncttwiz.protocol.game.ResumePoints.of(model.engine, player))
             // switchreview #12 (owner to confirm): an open undo request is the other player's move, notified like one;
             // the requester waits (or cancels) meanwhile (§10)
             val stop = when (row.request?.by) {
@@ -385,6 +405,9 @@ internal class EngineGames(private val capacity: Int = 32) {
             val same = stop != null && stop.event == null && stored != null &&
                 MainLine.after(history, head, stored)?.all { it.engine == null } == true
             found[seat] = stop
+            // I-D57: the requester of an open undo waits for the other player's answer
+            waits[seat] = stop != null && (row.request?.by.let { it != null && it != seat.account.toString() } ||
+                NextStop.waitsFor(state.model.engine, player, stop))
             stops[seat] = if (same) stored else stop?.let { it.event ?: it.at }
             if (stops[seat] != stored && stop != null) newStops += seat.account.toString()
             moves[seat.account.toString()] = stop != null
@@ -401,9 +424,12 @@ internal class EngineGames(private val capacity: Int = 32) {
             val time = if (stopId == seat.nextStop) seat.nextStopAt
                 else if (seat in requested) java.time.OffsetDateTime.now(java.time.ZoneOffset.UTC).truncatedTo(java.time.temporal.ChronoUnit.MICROS)
                 else stopId?.let { times[it] }
-            if (stopId != seat.nextStop) {
+            // One statement for whatever of the seat changed (I-D57: whether the game waits for them, their resume point)
+            if (stopId != seat.nextStop || waits[seat] != seat.waited || resume[seat] != seat.resumeAt)
                 sql.update(ENGINE_SEAT).set(ENGINE_SEAT.NEXT_STOP, stopId?.let(UUID::fromString)).set(ENGINE_SEAT.NEXT_STOP_AT, time)
+                    .set(ENGINE_SEAT.WAITED, waits[seat]).set(ENGINE_SEAT.RESUME_AT, resume[seat])
                     .where(ENGINE_SEAT.PLAY_ID.eq(play)).and(ENGINE_SEAT.ACCOUNT_ID.eq(seat.account)).execute()
+            if (stopId != seat.nextStop) {
                 // §15: a wait for this player's real input begins at the head while they aren't live (not one going on
                 // across the other player's table-only events)
                 val stop = found[seat]
@@ -422,7 +448,11 @@ internal class EngineGames(private val capacity: Int = 32) {
             history.store as? EngineHistoryStore, branched,
             if (ended) record(result!!, conceded, if (conceded == null) agreedBy(history, head) else null, seats.map { it.account.toString() }) else null,
             seats.filter { it.nextStop != null && stops[it] == null }.map { it.account.toString() }.toSet(),
-            ready(state.model.engine, events, seats))
+            ready(state.model.engine, events, seats),
+            seats.associate { it.account.toString() to (waits[it] == true) },
+            // A wait that goes on across the other player's table-only events keeps its stop: not new (§18.11)
+            seats.filter { waits[it] == true && (!it.waited || stops[it] != it.nextStop) }.map { it.account.toString() }.toSet(),
+            seats.filter { it.waited && waits[it] != true }.map { it.account.toString() }.toSet())
     }
 
     /**
@@ -530,10 +560,11 @@ internal class EngineGames(private val capacity: Int = 32) {
     }
 
     private fun seats(sql: DSLContext, play: UUID): List<SeatRow> =
-        sql.select(ENGINE_SEAT.ACCOUNT_ID, ENGINE_SEAT.LOCAL_HEAD, ENGINE_SEAT.SETTINGS, ENGINE_SEAT.NEXT_STOP, ENGINE_SEAT.NEXT_STOP_AT)
+        sql.select(ENGINE_SEAT.ACCOUNT_ID, ENGINE_SEAT.LOCAL_HEAD, ENGINE_SEAT.SETTINGS, ENGINE_SEAT.NEXT_STOP, ENGINE_SEAT.NEXT_STOP_AT,
+            ENGINE_SEAT.WAITED, ENGINE_SEAT.RESUME_AT)
             .from(ENGINE_SEAT).where(ENGINE_SEAT.PLAY_ID.eq(play)).orderBy(ENGINE_SEAT.ACCOUNT_ID).fetch { r ->
                 SeatRow(r.value1()!!, r.value2()!!.toString(), GameWire.json.decodeFromString(PlaySettings.serializer(), r.value3()!!),
-                    r.value4()?.toString(), r.value5())
+                    r.value4()?.toString(), r.value5(), r.value6()!!, r.value7())
             }
 
     private fun setHead(sql: DSLContext, play: UUID, account: UUID, event: String) {

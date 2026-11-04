@@ -195,6 +195,22 @@ class PodChallengeTest {
         assertEquals(1, ready(f.a).size); assertEquals(1, ready(f.b).size)
     }
 
+    // DRF-137, I-D57: one notice per thing that needs you: members with a queued challenge of the pod hear of it from the
+    // challenge, not from "Decks ready" too; pod notices name the cube the pod drafts
+    @Test fun `decks ready skips members with a queued challenge`() = fixture { f ->
+        val pod = f.pod(three = true)
+        val activity = org.asyncttwiz.server.activity.ActivityService(f.runtime)
+        fun ready(who: AccountService.Principal) = activity.page(who, "0").entries.filter { it.kind == ActivityKind.POD_DECKS_READY }
+        f.submit(f.a, pod)
+        f.challenge(pod) // held until Bob submits
+        f.submit(f.b, pod)
+        assertEquals(1, activity.page(f.b, "0").entries.count { it.kind == ActivityKind.INVITATION }, "Bob is invited once")
+        f.submit(f.c, pod)
+        assertTrue(ready(f.a).isEmpty(), "Alice's challenge is queued"); assertTrue(ready(f.b).isEmpty(), "so is the one Bob got")
+        assertTrue(ready(f.c).isEmpty(), "Carol submitted last")
+        assertEquals("Cube", activity.page(f.c, "0").entries.first { it.kind.name.startsWith("POD_") }.sourceName)
+    }
+
     // DRF-125, LOB-042
     @Test fun `pod deck names are private head metadata never shared preparation or replay`() = fixture { f ->
         val pod = f.pod()

@@ -776,3 +776,11 @@ Decided while building (the plainest reading; owner to confirm):
 - Passes, step changes where nothing happened and repeated priority passes apply instantly (only the step indicator moves).
 - Playback stops for good where you must decide.
 - **Play/pause button** (bottom, where Auto was): pausing stops playback at the **next point where full control would stop** (a point where you could have acted), even with no decision waiting for you; there you can react (cast, activate) or turn on full control, and playing again continues. Holding the button opens the full control / auto-skip dialog.
+
+Built (2026-11-04, with the owner's playtest notes of that day): `GameDevice.pausing` (a pause makes playback stop where
+Full control would, `Status.Stopped.paused`; the player's answer there, Play, Return to current or reaching the head ends
+it); the app's `EnginePlaybackPace.quiet` (only priority passes and changes nothing visible: no zone, status, face,
+counter, damage, life, Stack, attachment, control, combat, loss or shuffle change, no new turn) goes by at once, the
+History playback pause follows every other event. HIS-001, HIS-013, HIS-021, HIS-095.
+Decided while building (owner to confirm): the button reads "Pausing" between the tap and the stop; at a stop the pause
+made the playback panel stays (strip and Play), while a stop by the response mode shows the live controls.

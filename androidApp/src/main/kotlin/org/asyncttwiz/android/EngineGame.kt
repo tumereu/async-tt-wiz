@@ -125,7 +125,9 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
         val settings: PlaySettings, val opponent: PlayerId, val behind: Boolean, val tip: String, val localHead: String,
         val drafting: Boolean, val request: EngineRewindRequest?, val indicator: GameDevice.Indicator?, val undoTarget: String?,
         /** The events shown to the player: the main line up to the local head ([held]), then their own pending events. */
-        val line: List<GameEvent>, val held: List<GameEvent>, val transition: Transition?, val needsReload: Boolean) {
+        val line: List<GameEvent>, val held: List<GameEvent>, val transition: Transition?, val needsReload: Boolean,
+        /** The player paused playback (§27): it goes on to the next point where Full control stops. */
+        val pausing: Boolean = false) {
         val engine: GameState get() = play.board.engine!!.state
     }
 
@@ -190,7 +192,7 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
         previous = play
         val shown = Shown(++published, play, status, device.locked, device.settings, device.opponent, session.behind, tip,
             session.localHead, session.drafting, device.request, device.indicator(), device.undoTarget(), line, held, lastTransition,
-            device.needsReload)
+            device.needsReload, device.pausing)
         lastShown = shown
         worker.main {
             this.notes.addAll(notes)
@@ -218,7 +220,7 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
         val play = EngineProjection.project(base, device.model, me, device.session.tip, attention, staging, tokenArt, pictures)
         val shown = Shown(++published, play, last.status, last.locked, last.settings, last.opponent, last.behind, last.tip,
             last.localHead, last.drafting, last.request, last.indicator, last.undoTarget, last.line, last.held, last.transition,
-            last.needsReload)
+            last.needsReload, last.pausing)
         worker.main { this.shown = shown; onShown() }
     }
 
@@ -438,6 +440,10 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
 
     /** Leaves the catch-up screen (§7): playback starts. */
     fun startPlayback() = worker.run { device.play(); publish() }
+
+    /** The play/pause button (§27): pausing makes playback stop at the next point where Full control stops; playing
+     * again ends it (at a stop the pause made, [play] answers the same as assumed and goes on). */
+    fun pause(on: Boolean) = worker.call { device.pausing = on; publish() }
 
     /** Playback: the next buffered event, unless it stops before it. */
     fun step(): GameEvent? = worker.call { device.step() }.also { if (it != null) after() }

@@ -130,11 +130,14 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
      * ([org.asyncttwiz.automatum.CardPlays], worked out off the main thread and kept per board). Empty with Automatum
      * off, while a cast or an Automatum choice is open, while the viewer can't act, and until it is worked out.
      */
-    internal fun playable(play: PlayState): Set<String> {
+    internal fun playable(play: PlayState): Set<String> = playableOrNull(play).orEmpty()
+
+    /** [playable], or null while Automatum still works the board out (the glow keeps what it showed meanwhile, TBL-117). */
+    internal fun playableOrNull(play: PlayState): Set<String>? {
         if (!enabled() || cast.open || Automatum.flowOpen(play.board)) return emptySet()
         // The game begins only once both players are Ready (TRN-062)
         if (play.board.turn.number == "1" && PlayerStatus.anyOpening(play.board)) return emptySet()
-        val plays = cardPlays(play) ?: return emptySet()
+        val plays = cardPlays(play) ?: return null
         playableCache?.takeIf { it.first === plays }?.let { return it.second }
         // A mana ability alone is no reason to glow (owner, 2026-11-03): lands and mana rocks would glow whenever you hold
         // priority

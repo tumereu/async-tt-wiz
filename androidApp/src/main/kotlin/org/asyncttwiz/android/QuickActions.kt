@@ -122,11 +122,15 @@ fun QuickActionStrip(play: PlayState, context: QuickContext, controller: TableAc
             // (UI review round 2 #1). Owner playtest 2026-11-03 #2: in the other player's turn only while the viewer holds
             // priority or must decide; its room stays, so the toggles don't move
             // I-D56 §14: on engine state only the viewer's own actions: hidden while the other player must act
+            // STK-029 (owner playtest 2026-11-04 #6): on engine state Resolve and Assume of something on the Stack sit under
+            // the Stack, not here
+            val onStack = engine?.stackHolds(play) == true
             val arrow = (toggles || visible && !QuickActions.mulliganOnly(play, context.viewer)) &&
-                (engine?.arrowShown() ?: stepArrowShown(play, context.viewer))
+                (engine?.arrowShown() ?: stepArrowShown(play, context.viewer)) &&
+                !(onStack && AutomatumStep.of(play) == AutomatumStep.Resolve)
             // TRN-066: while the other player must act, the arrow's place holds the wait's Assume (or Cancel); TRN-068: the
             // unconfirmed mark sits at its corner without moving anything
-            val wait = if (arrow) null else engine?.waitAction()
+            val wait = if (arrow) null else engine?.waitAction()?.takeIf { !(onStack && it.resolves) }
             val unconfirmed = engine?.engine?.shown?.indicator != null
             if (arrow || wait != null || toggles || unconfirmed) Box {
                 if (arrow) AutomatumStepArrow(play,

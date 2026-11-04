@@ -213,10 +213,31 @@ internal class HandController(
 internal fun RaisedCardChips(toolkit: TableToolkitController, play: PlayState, scene: TableScene?) {
     val hand = toolkit.hand
     LaunchedEffect(IdentityKey(play.board)) { hand.follow() }
-    val raised = hand.raised ?: return
-    val card = scene?.items?.firstOrNull { it.cardId == raised && it.zone == PlayZone.HAND && it.raised } ?: return
-    val options = hand.options?.takeIf { it.cardId == raised } ?: return
-    if (toolkit.cast.open) return
+    // Owner playtest 2026-11-04 #9: the chips come and go with a short fade and rise, as long as the card's own rise at
+    // the card move speed (HIS-028); the last ones shown stay drawn while they go
+    val raised = hand.raised
+    val card = raised?.let { id -> scene?.items?.firstOrNull { it.cardId == id && it.zone == PlayZone.HAND && it.raised } }
+    val options = hand.options?.takeIf { it.cardId == raised }
+    val current = if (raised != null && card != null && options != null && !toolkit.cast.open) Triple(raised, card, options) else null
+    val last = remember { arrayOfNulls<Triple<String, TableItem, HandCastOptions>>(1) }
+    if (current != null) last[0] = current
+    val (shownCard, shownItem, shownOptions) = last[0] ?: return
+    val multiplier by rememberCardMovePreferences(toolkit.viewer).multiplierState()
+    val millis = (HAND_REFLOW_DURATION_MILLIS / cardMoveMultiplier(multiplier)).toInt().coerceAtLeast(1)
+    val rise = with(androidx.compose.ui.platform.LocalDensity.current) { 10.dp.roundToPx() }
+    val spec = androidx.compose.animation.core.tween<androidx.compose.ui.unit.IntOffset>(millis)
+    androidx.compose.animation.AnimatedVisibility(current != null, Modifier.fillMaxSize(),
+        enter = androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(millis)) +
+            androidx.compose.animation.slideInVertically(spec) { rise },
+        exit = androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(millis)) +
+            androidx.compose.animation.slideOutVertically(spec) { rise }) {
+        RaisedChipsRow(hand, play, shownCard, shownItem, shownOptions)
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun RaisedChipsRow(hand: HandController, play: PlayState, raised: String, card: TableItem, options: HandCastOptions) {
     val held = hand.held
     Layout(content = {
         Column(verticalArrangement = Arrangement.spacedBy(4.dp), horizontalAlignment = Alignment.CenterHorizontally) {

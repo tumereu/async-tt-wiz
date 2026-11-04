@@ -32,8 +32,9 @@ internal fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: 
     /** Automatum cast (I-D6): legal targets glow violet: cards by card id (and their Stack entries and combat copies),
      * players by their life square's id. */
     glow: Set<String> = emptySet(),
-    /** I-D46 (a): the viewer's cards Automatum lets them do something with now glow softly from behind, by card id. */
-    playable: Set<String> = emptySet(),
+    /** I-D46 (a): the viewer's cards Automatum lets them do something with now glow softly from behind: card id to the
+     * glow's strength (0–1; it fades in and out, TBL-117). */
+    playable: Map<String, Float> = emptyMap(),
     /** I-D46 (b): the item shaken by a refused gesture (an item id, card id or "life/<account>") and its offset in dp. */
     shake: Pair<String, Float>? = null,
     /** ZON-079 (I-D50): the mana sources Autotap would tap for the raised hand card, outlined in amber, by card id. */
@@ -248,9 +249,10 @@ internal fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: 
                   rotate(transform.rotation, xy(b.center.x, b.center.y)) {
                      val x = b.center.x - cardWidth / 2; val y = b.center.y - cardHeight / 2
                       // I-D46 (a): a soft halo behind the card, fading outward within the card's outline room
-                      if (playable.isNotEmpty() && i.cardId in playable && i.zone != PlayZone.STACK) for (ring in 4 downTo 1) {
+                      val glowAlpha = if (playable.isEmpty() || i.zone == PlayZone.STACK) 0f else playable[i.cardId] ?: 0f
+                      if (glowAlpha > 0f) for (ring in 4 downTo 1) {
                           val spread = ring.toFloat()
-                          drawRoundRect(AutomatumCyan.copy(alpha = .16f), xy(x - spread, y - spread),
+                          drawRoundRect(AutomatumCyan.copy(alpha = .16f * glowAlpha), xy(x - spread, y - spread),
                               size(cardWidth + 2 * spread, cardHeight + 2 * spread), CornerRadius((2 + spread) * density))
                       }
                       scale(i.flipScale, 1f, xy(b.center.x, b.center.y)) { cardFace(i, x, y, color, i.value) }

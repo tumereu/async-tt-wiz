@@ -1,0 +1,1 @@
+mod: Resolve and Assume sit right under the Stack while a spell or ability is on it

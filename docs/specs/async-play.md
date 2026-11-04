@@ -717,6 +717,14 @@ Decided while building (the most vision-aligned reading; owner to confirm):
 Found while building (fixed in §25): LOB-114 ("<opponent> is ready" while you are still Mulliganing) was not sent on
 engine state.
 
+## 24. Notifications (owner, 2026-11-04 — I-D57)
+
+- **Two kinds of waiting.** (a) The opponent did something you *could* react to but is still playing on assumptions — **no notification**; you can still open the game, look and react (a branch). (b) **You need to act**: the game can't go on without you — your turn/main phase, a decision only you can make (non-assumable), an information-rule stop, the acting player's real wait (they chose not to assume), or the acting player's line reached the end of what they can do without you.
+- **Who is waiting for whom** is computed from the game state and assumptions, however that state came about (normal play, branch, undo/rewind). Only a player someone is actually waiting on gets a "Your move" notification, with the existing timing (10 s after it appeared when you're offline/idle, 60 s otherwise; never while the game is open).
+- **The acting player who assumed and left** (app to background with nothing waiting on the opponent) is the one still expected to act: they get the reminder notifications (15 min, 30 min, 1 h, …), the opponent gets nothing.
+- **Content:** game notifications show the game name, the opponent's name, the step/turn **you would resume at** (your own local head — never the true head, so assumptions don't leak), and your deck name. Draft/pod notifications include the set or cube name.
+- **No duplicates:** if you had a challenge queued for a pod, the "pod ready / decks ready" notification is folded into the challenge's notification (one notification per thing that needs you).
+
 ## 25. Fixed after the switch-over review (2026-11-04)
 
 Findings #2–#9 and #12 of the review (`SwitchReviewTest` in server, protocol and app; #1, #10, #11 separately):

@@ -14,13 +14,17 @@ import kotlin.test.fail
  * I-D56 step B, §13's tests: seeded whole games of two players through their devices ([GameDevice]) and the in-memory
  * server ([DeviceSim]), each player acting only through their own device the way a player would (playing back, answering
  * at decision stops: mostly the assumed answer, sometimes another, which branches; acting at their move; pressing
- * Assume buttons now and then; undoing, asking to undo and answering requests; conceding rarely), live (prompt
- * delivery, green presence) or async (players away, coming back to a catch-up), with messages crossing on the wire.
+ * Assume buttons now and then; undoing, asking to undo and answering requests; conceding rarely, also with the other
+ * player's events still on the wire), live (prompt delivery, green presence) or async (players away, coming back to a
+ * catch-up), with messages crossing on the wire. Flows are often made as drafts ([GameDevice.begin]/[GameDevice.send],
+ * at the head and at decision stops) with the server's events delivered in the middle of them, and players arrange
+ * their own cards and give early answers (table-only events) at any time.
  *
- * Oracles: the leak oracle on every event shown (nothing revealed while the player's line is tentative, §5); at the
- * end, each device's line and state equal the server's, and each device's reproduction bundle replays exactly (the
- * engine is deterministic and random answers come from the line's stream, so every event is made again identically —
- * the equivalence of device and server play).
+ * Oracles: the leak oracle on every event shown or sent (nothing revealed while the player's line is tentative, §5),
+ * worked out independently of the code under test ([DeviceSim]); at the end, each device's line and state equal the
+ * server's, each device's reproduction bundle replays exactly, and the main line replayed input by input on the bare
+ * engine gives every recorded change and the head's state ([DeviceSim.equivalence]); with no branch or rewind the game
+ * stayed on one line.
  */
 class DeviceSimulationTest {
     private enum class Mode { LIVE, ASYNC, MIXED }
@@ -28,8 +32,10 @@ class DeviceSimulationTest {
     private class Stats {
         var games = 0; var events = 0; var branches = 0; var confirmations = 0; var rewinds = 0; var requests = 0
         var assumed = 0; var assumedBlocks = 0; var results = 0; var catchUps = 0; var shown = 0
+        var drafts = 0; var draftsDropped = 0; var table = 0; var concessions = 0
         override fun toString() = "games $games, events $events, branches $branches, confirmations $confirmations, " +
-            "rewinds $rewinds, requests $requests, assumed $assumed (blocks $assumedBlocks), results $results, catch-ups $catchUps, shown $shown"
+            "rewinds $rewinds, requests $requests, assumed $assumed (blocks $assumedBlocks), results $results, catch-ups $catchUps, " +
+            "shown $shown, drafts $drafts (dropped $draftsDropped), table-only $table, concessions $concessions"
     }
 
     private fun play(seed: Long, mode: Mode, decks: Pair<List<String>, List<String>>, stats: Stats, maxEvents: Int = 260) {
@@ -79,6 +85,8 @@ class DeviceSimulationTest {
         }
         sim.settle()
         if (sim.leaks.isNotEmpty()) fail("seed $seed $mode: leaks ${sim.leaks}")
+        assertEquals(emptyList(), sim.equivalence(), "seed $seed $mode: the main line is the engine's play of its inputs")
+        if (sim.branches == 0 && sim.rewinds == 0) assertEquals(0, sim.server.lines, "seed $seed $mode: one line without branches")
         for (p in players) {
             val d = sim.device(p)
             assertTrue(!d.needsReload, "seed $seed $mode ${p.value}: reload")
@@ -105,6 +113,10 @@ class DeviceSimulationTest {
         val d = sim.device(p)
         d.advance(sim.now)
         d.notes()
+        // Conceding at any moment, also with the other player's events still on the wire (CR 104.3a, I-D56 §11)
+        if (rnd.nextInt(2_500) == 0 && d.concede() is GameDevice.Acted.Sent) { stats.concessions++; return }
+        // Arranging their own cards or giving an early answer (table-only), whatever else goes on
+        if (rnd.nextInt(10) == 0) tableOnly(d, rnd, stats)
         d.request?.let { r ->
             if (r.by != p.value && rnd.nextInt(3) == 0) { d.requestPreview(); d.answerRequest(rnd.nextBoolean()); return }
             if (r.by == p.value && rnd.nextInt(15) == 0) { d.cancelRequest(); return }
@@ -113,7 +125,7 @@ class DeviceSimulationTest {
             GameDevice.Status.Reload -> sim.load(p)
             GameDevice.Status.CatchUp -> d.play()
             is GameDevice.Status.Playing -> repeat(rnd.nextInt(1, 8)) { d.step() }
-            is GameDevice.Status.Stopped -> answer(sim, d, status, rnd)
+            is GameDevice.Status.Stopped -> answer(sim, d, status, rnd, stats)
             GameDevice.Status.YourMove -> move(sim, d, rnd, stats)
             is GameDevice.Status.Waiting -> when {
                 status.blockersScreen -> if (rnd.nextInt(4) > 0) d.assume(blocks(d, rnd)) else d.closeBlockersScreen()
@@ -132,12 +144,48 @@ class DeviceSimulationTest {
         else Engine.options(d.model.engine, d.opponent).filterIsInstance<Input.DeclareBlockers>().randomOrNull(rnd)?.blocks.orEmpty()
 
     /** At a decision stop: mostly the assumed answer (a confirmation), sometimes another one (a branch). */
-    private fun answer(sim: DeviceSim, d: GameDevice, stop: GameDevice.Status.Stopped, rnd: Random) {
+    private fun answer(sim: DeviceSim, d: GameDevice, stop: GameDevice.Status.Stopped, rnd: Random, stats: Stats) {
         val s = d.model.engine
         val others = Engine.options(s, d.me).filter { it !is Input.Concede && !Acceptance.same(it, stop.assumed) &&
             Authority.mayMake(s, it, d.me, d.model.table) }
-        if (others.isEmpty() || rnd.nextInt(10) < 7) d.act(stop.assumed)
-        else d.act(others.random(rnd), follow = sim.flow(d.me, rnd))
+        val input = if (others.isEmpty() || rnd.nextInt(10) < 7) stop.assumed else others.random(rnd)
+        // Sometimes as a flow (a draft at the stop: the same first input confirms, the rest is their next action)
+        if (rnd.nextInt(4) == 0) viaDraft(sim, d, input, rnd, stats)
+        else if (input == stop.assumed) d.act(input) else d.act(input, follow = sim.flow(d.me, rnd))
+    }
+
+    /** [input] and the flow after it made in a draft, with the server's messages delivered in the middle now and then
+     * (the other player's events crossing the flow), then sent (or, rarely, abandoned). */
+    private fun viaDraft(sim: DeviceSim, d: GameDevice, input: Input, rnd: Random, stats: Stats) {
+        val draft = d.begin() ?: return
+        stats.drafts++
+        val flow = sim.flow(d.me, rnd)
+        var made = try { draft.perform(input); true } catch (_: RuntimeException) { false }
+        var n = 0
+        while (made && n++ < 20) {
+            if (rnd.nextInt(3) == 0 && sim.pendingDeliveries(d.me) > 0) sim.deliver(d.me, 1)
+            if (!d.session.drafting) break
+            val next = flow(d.model) ?: break
+            try { draft.perform(next) } catch (_: RuntimeException) { break }
+        }
+        if (!d.session.drafting) made = false
+        if (!made || rnd.nextInt(15) == 0) { d.abandon(); if (!made) stats.draftsDropped++; return }
+        d.send()
+    }
+
+    /** The player moves one of their own permanents, or gives or takes back an early answer (I-D56 §6). */
+    private fun tableOnly(d: GameDevice, rnd: Random, stats: Stats) {
+        val s = d.model.engine
+        val own = s.battlefield.filter { s.obj(it)?.controller == d.me }
+        val change = if (own.isNotEmpty() && rnd.nextInt(3) > 0) {
+            val obj = own.random(rnd)
+            TableChange.Placed(obj, d.model.table.placements[obj], Placement(rnd.nextInt(12), rnd.nextInt(3)))
+        } else {
+            val key = "early:${d.me.value}:${rnd.nextInt(3)}"
+            val before = d.model.table.earlyAnswers[key]
+            TableChange.EarlyAnswered(key, before, if (before == null) EarlyAnswer(d.me, key, Answer.YesNo(true)) else null)
+        }
+        if (d.table(listOf(change)) is GameDevice.Acted.Sent) stats.table++
     }
 
     /** At the player's move: an action of theirs (doing something mostly, passing sometimes), an End turn, an undo. */
@@ -153,11 +201,15 @@ class DeviceSimulationTest {
         val input = if (doing.isNotEmpty() && rnd.nextInt(3) > 0) doing.random(rnd) else (listed - doing.toSet()).ifEmpty { listed }.random(rnd)
         val mulligan = input is Input.Answer && input.answer == Answer.Option("Mulligan") || input is Input.SetupAnswer && input.answer == Answer.Option("Mulligan")
         if (mulligan && rnd.nextInt(3) > 0) return
-        d.act(input, follow = sim.flow(d.me, rnd))
+        if (rnd.nextInt(3) == 0) viaDraft(sim, d, input, rnd, stats) else d.act(input, follow = sim.flow(d.me, rnd))
     }
 
+    /** Undo: a tap (just before the player's latest own event), or now and then a pick in the rewind dialog (just before
+     * their latest own engine input, past their own table-only events). */
     private fun undo(d: GameDevice, rnd: Random, stats: Stats) {
-        when (val undo = d.undo()) {
+        val picked = if (rnd.nextBoolean()) null else d.session.events.take((d.session.indexOf(d.session.localHead) ?: -1) + 1)
+            .lastOrNull { e -> e.author == d.me.value && e.assumed == null && e.engine?.steps?.any { it.input != null } == true }?.parentId
+        when (val undo = d.undo(picked ?: d.undoTarget())) {
             is GameDevice.Undo.Request -> if (rnd.nextBoolean()) { stats.requests++; d.requestUndo(undo.target, "sorry") }
             else -> {}
         }
@@ -170,11 +222,12 @@ class DeviceSimulationTest {
         return stats
     }
 
-    // I-D56 §4, §7, §8: live play: waits at pauses, prompt playback, races of assumed and real passes
+    // I-D56 §4, §6, §7, §8: live play: waits at pauses, prompt playback, races of assumed and real passes, drafts and
+    // table-only events crossing on the wire (abreview #1, #2)
     @Test
     fun liveGames() {
         val stats = run(Mode.LIVE, 1L..3L)
-        assertTrue(stats.confirmations > 0 && stats.assumed > 0, "$stats")
+        assertTrue(stats.confirmations > 0 && stats.assumed > 0 && stats.drafts > 0 && stats.table > 0, "$stats")
     }
 
     // I-D56 §4, §7, §8: async play: assumptions at once, catch-up playback stopping by mode, branches

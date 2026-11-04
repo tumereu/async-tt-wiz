@@ -526,6 +526,7 @@ class GameDevice(
     fun send(): Acted {
         val builder = openDraft ?: return Acted.Refused("noDraft")
         if (builder.finished || !session.drafting) { dropDraft(); return Acted.Refused("noDraft") }
+        if (needsReload) { abandon(); return Acted.Refused("reload") }
         val stop = draftStop ?: return finish(builder, own = true, before = draftBefore, player = true)
         // At a decision stop: the same rule as the server's (confirm, then the rest), else a branch made again with
         // its new line first
@@ -686,10 +687,12 @@ class GameDevice(
             send(GameAction.Submit(Submission.of(event)))
             return Acted.Sent(event)
         }
+        // Made at the head, with the values there as the before-values (the player sees the board at their local head)
         val model = session.headModel()
-        if (!applies(model, changes)) return Acted.Refused("inapplicable")
+        val again = rebase(model, changes)
+        if (again == null || !applies(model, again)) return Acted.Refused("inapplicable")
         val builder = EventBuilder(model, ids(), session.head, me.value)
-        try { changes.forEach(builder::table) } catch (e: RuntimeException) { return Acted.Refused("inapplicable") }
+        try { again.forEach(builder::table) } catch (e: RuntimeException) { return Acted.Refused("inapplicable") }
         val event = builder.build()
         send(GameAction.Submit(Submission.of(event)))
         return Acted.Sent(event)

@@ -17,38 +17,42 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
 class PodArtPreviewTest {
     @get:Rule val compose = createComposeRule()
 
-    // DRF-063
-    @Test fun doubleFacedHoldContentShowsOnlyTheFittedFrontLikeTheGameTable() {
+    private fun show(card: InspectedCard, width: Int, height: Int): ScrollState {
         lateinit var scroll: ScrollState
-        val card = InspectedCard(CardDefinition("Front // Back", listOf(DefinitionFace("a", "Front"),
-            DefinitionFace("b", "Back")), layout = "modal_dfc"), listOf(null, null))
         compose.setContent { MaterialTheme {
             scroll = rememberScrollState()
-            Box(Modifier.size(320.dp, 300.dp)) { PodArtPreviewContent(card, card.definition.name, scroll) }
+            Box(Modifier.size(width.dp, height.dp)) { InspectContent(inspectTiles(card, card.definition.name), scroll) }
         } }
-        compose.onNodeWithTag("pod-preview-face-0").assertIsDisplayed()
-        compose.onNodeWithTag("pod-preview-face-1").assertDoesNotExist()
-        compose.onNodeWithText("Back").assertDoesNotExist()
-        compose.runOnIdle { assertEquals(0, scroll.maxValue) }
+        return scroll
+    }
+
+    // DRF-063, TBL-106: a double-faced card held outside a game shows both faces, one under the other, scrolled by the finger
+    @Test fun doubleFacedHoldContentShowsEveryFaceStacked() {
+        val card = InspectedCard(CardDefinition("Front // Back", listOf(DefinitionFace("a", "Front"),
+            DefinitionFace("b", "Back")), layout = "modal_dfc"), listOf(null, null))
+        val scroll = show(card, 300, 400)
+        val front = compose.onNodeWithContentDescription("Card image: Front").assertIsDisplayed().fetchSemanticsNode()
+        val back = compose.onNodeWithContentDescription("Card image: Back").assertExists().fetchSemanticsNode()
+        // Unclipped: the back lies below the front, past the visible part until scrolled
+        assertTrue(front.positionInRoot.y + front.size.height <= back.positionInRoot.y)
+        compose.runOnIdle { assertTrue(scroll.maxValue > 0) }
         compose.onNodeWithContentDescription("Previous face").assertDoesNotExist()
     }
 
+    // TBL-106, TBL-108
     @Test fun splitCardKeepsOneFittedImageAndNoScrolling() {
-        lateinit var scroll: ScrollState
         val card = InspectedCard(CardDefinition("X // Y", listOf(DefinitionFace("a", "X"),
             DefinitionFace("b", "Y")), layout = "split"), listOf(null, null))
-        compose.setContent { MaterialTheme {
-            scroll = rememberScrollState()
-            Box(Modifier.size(320.dp, 300.dp)) { PodArtPreviewContent(card, card.definition.name, scroll) }
-        } }
-        compose.onNodeWithTag("pod-preview-face-0").assertIsDisplayed()
-        compose.onNodeWithTag("pod-preview-face-1").assertDoesNotExist()
+        val scroll = show(card, 320, 300)
+        compose.onNodeWithContentDescription("Card image: X // Y").assertIsDisplayed()
+        compose.onAllNodesWithContentDescription("Card image", substring = true).assertCountEquals(1)
         compose.runOnIdle { assertEquals(0, scroll.maxValue) }
     }
 }

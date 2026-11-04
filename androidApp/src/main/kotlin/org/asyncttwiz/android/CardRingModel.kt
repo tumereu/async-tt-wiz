@@ -14,15 +14,16 @@ internal object CardRingPages {
     const val capacity = 25
 
     /**
-     * TBL-116 (I-D46, I-D50, I-D52): the engine's actions for the card are rows above these cells, then only inspecting
-     * and a combat copy's Remove from combat; a hand card has no menu at all (ZON-079). No Declare and no attack target:
-     * taps stage attackers and the lanes pick their targets (CMB-028, owner 2026-11-04).
+     * TBL-116 (I-D46, I-D50, I-D52): the engine's actions for the card are rows above these cells, then only a combat
+     * copy's Remove from combat; a hand card has no menu at all (ZON-079). No Inspect and no Other side: holding a card
+     * inspects it, every face (TBL-104). No Declare and no attack target: taps stage attackers and the lanes pick their
+     * targets (CMB-028, owner 2026-11-04).
      */
     fun page(layout: CardMenuLayout): CardRingPage = when (layout) {
-        CardMenuLayout.CARD -> CardRingPage("Automatum", listOf("inspect", "otherSide"))
-        CardMenuLayout.COMBAT -> CardRingPage("Combat", listOf("inspect", "Remove from combat"))
-        CardMenuLayout.HAND -> CardRingPage("Hand", listOf("inspect"))
-        CardMenuLayout.PANEL -> CardRingPage("Card", listOf("inspect", "otherSide"))
+        CardMenuLayout.CARD -> CardRingPage("Automatum", emptyList())
+        CardMenuLayout.COMBAT -> CardRingPage("Combat", listOf("Remove from combat"))
+        CardMenuLayout.HAND -> CardRingPage("Hand", emptyList())
+        CardMenuLayout.PANEL -> CardRingPage("Card", emptyList())
     }
 
     /** Combat copies get the combat layout; a real card's zone picks the rest. Stack entries are managed in Manage Stack;

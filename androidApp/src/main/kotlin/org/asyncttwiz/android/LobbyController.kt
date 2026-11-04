@@ -27,7 +27,6 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
     @Volatile private var epoch = 0L
     private var closed = false
     private val latest = mutableMapOf<String, GameSummary>()
-    val inspection = CardInspectionController()
     internal val setupCancellation = SetupCancellation()
     private val personalChat = GameChat()
     private val session: GameSession? = gameConnection?.let { GameSession(it, credential, post, authenticationRequired,
@@ -58,12 +57,12 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
     private val invitations: LobbyInvitations = LobbyInvitations(scope, api, deckApi, credential, accountId, worker, post, session, queue,
         suggest, basicLandDefinitions)
     private val deckPicker: LobbyDeckPicker = LobbyDeckPicker(scope, deckApi, credential, accountId, worker, post, session, queue)
-    private val preparationActions: LobbyPreparationActions = LobbyPreparationActions(scope, accountId, session, queue, inspection,
+    private val preparationActions: LobbyPreparationActions = LobbyPreparationActions(scope, accountId, session, queue,
         dungeonDefinitions, worker, post)
     private val removal: LobbyGameRemoval = LobbyGameRemoval(scope, accountId, session, setupCancellation)
     private val routes: LobbyActivityRoutes = LobbyActivityRoutes(scope, api, credential, accountId, worker, post, session, openGame,
         activityTarget)
-    fun clear() { queue.clear(); epoch++; contactBook.clear(); deckPicker.clear(); routes.fence(); refresher.clear(); inspection.close(); setupCancellation.clear(); personalChat.clear(); invitations.clear(); latest.clear(); session?.clear(); state = LobbyState() }
+    fun clear() { queue.clear(); epoch++; contactBook.clear(); deckPicker.clear(); routes.fence(); refresher.clear(); setupCancellation.clear(); personalChat.clear(); invitations.clear(); latest.clear(); session?.clear(); state = LobbyState() }
     fun openChat() {
         if (state.detail?.lifecycle == GameLifecycle.ACTIVE) { state = state.copy(chatOpen = true); connectionState() }
     }
@@ -118,14 +117,14 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
             invitations = updatedGameRows(state.invitations, game, inInvites),
             detail = if (state.selected == game.id) game else state.detail)
         if (state.selected == game.id && game.lifecycle != GameLifecycle.LOBBY) {
-            closePicker(); inspection.close(); state = state.copy(preparing = false, transferFeedback = null)
+            closePicker(); state = state.copy(preparing = false, transferFeedback = null)
         }
         if (state.selected == game.id) routes.reconcileActivityTarget(game)
         if (!listed && state.selected == game.id) leaveUnavailable()
     }
     private fun leaveUnavailable() {
         routes.fence()
-        closePicker(); inspection.close(); setupCancellation.clear()
+        closePicker(); setupCancellation.clear()
         state = state.copy(selected = null, detail = null, preparing = false, acceptedPreparation = null,
             preparation = null, board = null, transferFeedback = null, queuedTransferCards = 0,
             chatOpen = false, chat = ChatPresentation(), gameContext = null, deletion = null, activityTarget = null,
@@ -162,7 +161,6 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
     internal fun preparationUndoStep(): PreparationStep? = preparationActions.preparationUndoStep()
     fun undoPreparation(): Boolean = preparationActions.undoPreparation()
     fun prepareDeck() = preparationActions.prepareDeck()
-    fun inspectPrepared(definition: String) = preparationActions.inspectPrepared(definition)
     fun captureTransfer(definition: String, source: SavedDeckSection, all: Boolean): PreparedTransfer? =
         preparationActions.captureTransfer(definition, source, all)
     fun transfer(captured: PreparedTransfer): Boolean = preparationActions.transfer(captured)
@@ -206,10 +204,10 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
     fun activityUnavailable(message: String = "This activity is no longer available. Showing your current Games.") =
         routes.activityUnavailable(message)
     fun openActivity(route: ActivityRoute, current: () -> Boolean) = routes.openActivity(route, current)
-    fun open(id: String) { if (!state.mutating) { routes.fence(); setupCancellation.clear(); queue.dropQueued(); closePicker(); inspection.close(); state = state.copy(selected = id, detail = null, activityTarget = null, acceptedPreparation = null, preparation = null, board = null, preparing = false, transferFeedback = null, chatOpen = false, chat = ChatPresentation(), gameContext = null, deletion = null, error = null); openGame(); refresh() } }
+    fun open(id: String) { if (!state.mutating) { routes.fence(); setupCancellation.clear(); queue.dropQueued(); closePicker(); state = state.copy(selected = id, detail = null, activityTarget = null, acceptedPreparation = null, preparation = null, board = null, preparing = false, transferFeedback = null, chatOpen = false, chat = ChatPresentation(), gameContext = null, deletion = null, error = null); openGame(); refresh() } }
     fun back() { if (state.deletion != null) dismissGameDeletion() else if (state.gameContext != null) dismissGameContext()
         else if (setupCancellation.confirmation != null) setupCancellation.dismiss() else if (setupCancellation.context != null) setupCancellation.dismissContext()
-        else if (state.chatOpen) closeChat() else if (inspection.state != null) inspection.close() else if (state.preparing) state = state.copy(preparing = false, transferFeedback = null)
+        else if (state.chatOpen) closeChat() else if (state.preparing) state = state.copy(preparing = false, transferFeedback = null)
         else if (state.picker != null) closePicker() else if (state.draft != null) dismiss() else { queue.dropQueued(); routes.fence(); state = state.copy(selected = null, detail = null, activityTarget = null, acceptedPreparation = null, preparation = null, board = null, transferFeedback = null, error = null); refresh() } }
     fun tick() { session?.tick() }
     fun heartbeat(presence: GamePresence): Boolean = session?.heartbeat(presence) == true

@@ -41,9 +41,6 @@ internal fun damageIsLethal(damage: String, corner: String): Boolean {
     return BigInteger(damage) >= BigInteger(toughness)
 }
 
-internal fun inspectedCorner(card: PlayCard): String = effectiveCorner(card) +
-    if (card.eotCorner.isEmpty()) "" else " (${card.eotCorner} until end of turn)"
-
 /** Rules v23: a face-down Battlefield card (morph, manifest, disguise, cloak) has public values. */
 internal fun publicFaceDown(board: BoardState, card: PlayCard): Boolean = card.isFaceDown &&
     board.containers.any { it.id == card.containerId && it.zone == PlayZone.BATTLEFIELD }

@@ -62,7 +62,7 @@ class NonGameplayScreenshotTest(private val screen: String) {
             "sign-in", "register", "register-scrolled", "reset-email", "new-password", "home", "navigation-open", "navigation-accounts",
             "play", "games-loading", "catalog-startup", "catalog-update", "catalog-checking", "records-downloading", "records-downloading-unknown", "records-indexing", "contacts", "create-game", "waiting-invite", "game-context", "delete-game", "cancel-lobby",
             "lobby-select-deck", "choose-lobby-deck", "choose-lobby-deck-automatum", "prepare-deck", "prepare-deck-faded", "ready-waiting",
-             "decks", "deck-detail", "deck-detail-columns", "draft-deck-detail", "deck-edit", "deck-edit-text", "deck-edit-cover", "deck-art", "choose-cover", "delete-deck", "import-edit", "import-errors",
+             "decks", "deck-detail", "deck-detail-columns", "draft-deck-detail", "deck-edit", "deck-edit-text", "deck-edit-cover", "choose-cover", "delete-deck", "import-edit", "import-errors",
             "import-save", "import-link", "reconnecting", "gameplay-chat")
     }
 
@@ -132,7 +132,7 @@ class NonGameplayScreenshotTest(private val screen: String) {
                                 when (screen) {
                                     "waiting-invite", "lobby-select-deck", "ready-waiting", "choose-lobby-deck", "choose-lobby-deck-automatum", "prepare-deck", "prepare-deck-faded", "cancel-lobby" ->
                                         WaitingLobby(fixtures.lobby, "a", if (landscape) null else ({}), landscape, importDeck = {})
-                                    "deck-detail", "deck-detail-columns", "draft-deck-detail", "deck-art", "choose-cover" ->
+                                    "deck-detail", "deck-detail-columns", "draft-deck-detail", "choose-cover" ->
                                         SavedDeckScreen(fixtures.library, if (landscape) null else ({}), importDeck = {})
                                      "deck-edit", "deck-edit-text", "deck-edit-cover", "delete-deck", "import-edit", "import-errors", "import-save", "import-link" ->
                                         DeckImportScreen(fixtures.importer, landscape, if (landscape) null else ({}), null)
@@ -269,13 +269,6 @@ class NonGameplayScreenshotTest(private val screen: String) {
             "cancel-lobby" -> dialogActions("Keep game", "Cancel game")
             "gameplay-chat" -> compose.onNodeWithContentDescription("Send").assertIsDisplayed()
             "reconnecting" -> compose.onNodeWithText("Back to games list").assertIsDisplayed()
-            "deck-art" -> {
-                val close = compose.onNodeWithContentDescription("Close card inspection").fetchSemanticsNode().boundsInRoot
-                // Dialog semantics use their own window coordinates, not the activity's viewport.
-                val dialog = compose.onNode(isDialog()).fetchSemanticsNode().boundsInRoot
-                assertTrue(close.right >= dialog.right - 32f && close.top <= dialog.top + 32f,
-                    "Inspection close belongs at the top right")
-            }
         }
         compose.onNodeWithContentDescription("Back").assertDoesNotExist()
         val output = File("$SCREENSHOTS/non-gameplay/$screen-${if (landscape) "landscape" else "portrait"}.png")
@@ -318,7 +311,6 @@ class NonGameplayScreenshotTest(private val screen: String) {
             "deck-edit" -> "Training deck opened for editing on its Cards tab: the link icon and a red Delete deck at the top right, Mainboard and Sideboard as pictures, a + at the right of each section header, Save and a deck cover choice"
             "deck-edit-text" -> "Training deck opened for editing and switched to its Text tab: the list as text in a full-width box with no counts, Save, a deck cover choice and Delete deck at the top right"
             "deck-edit-cover" -> "Training deck opened for editing with the Choose cover picker open"
-            "deck-art" -> "saved Training deck with a Meadow Sentinel card opened in the Inspect view"
             "choose-cover" -> "saved Training deck with the Choose deck cover dialog open"
             "delete-deck" -> "Training deck editor after tapping Delete deck: the Delete deck? confirmation with the deck name, Deletion cannot be undone., Keep deck and Delete deck"
             "import-edit" -> "deck import screen replacing the saved Training deck's list with a pasted, resolved list"
@@ -413,7 +405,6 @@ internal class ScreenFixtures(accountSwitcher: Boolean = false) {
             detail = DeckDetail(SavedDeck(shown, entries), definitions.associate { it.digest to it.definition }),
              dialog = when (screen) { "choose-cover" -> DeckDialog.COVER; else -> null },
             draftCover = definitions.first().digest))
-        if (screen == "deck-art") library.inspect(definitions.first().digest)
         val text = "Deck\n4 Meadow Sentinel\n4 Ember Adept\n4 Aegis Ward\n48 Training Land\nSideboard\n15 Quiet Grove"
         val result = DeckImportResult(text, entries.map { entry ->
             val definition = definitions.first { it.digest == entry.definition }.definition

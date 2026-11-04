@@ -6,7 +6,7 @@ import org.asyncttwiz.protocol.*
 /** LobbyController's own deck preparation in a lobby game: start settings and readiness, the
  * preparation view's card transfers and pod basic lands, and their personal undo. Main thread. */
 internal class LobbyPreparationActions(private val scope: LobbyScope, private val accountId: () -> String?,
-    private val session: GameSession?, private val queue: LobbyActionQueue, private val inspection: CardInspectionController,
+    private val session: GameSession?, private val queue: LobbyActionQueue,
     private val dungeonDefinitions: (() -> List<SubmittedDefinition>)? = null,
     private val worker: java.util.concurrent.ExecutorService? = null, private val post: ((() -> Unit) -> Unit)? = null) {
     private var state: LobbyState
@@ -91,11 +91,6 @@ internal class LobbyPreparationActions(private val scope: LobbyScope, private va
     fun prepareDeck() {
         if (state.detail?.lifecycle == GameLifecycle.LOBBY && state.preparation?.players?.any { it.accountId == accountId() && it.deck != null } == true)
             state = state.copy(preparing = true, transferFeedback = null)
-    }
-    fun inspectPrepared(definition: String) {
-        if (state.preparing) state.preparation?.definitions?.find { it.digest == definition }?.let {
-            inspection.open(InspectedCard.retained(it.digest, it.definition))
-        }
     }
     /** Capture on pointer/accessibility start; release must use this exact object, not a fresh row count. */
     fun captureTransfer(definition: String, source: SavedDeckSection, all: Boolean): PreparedTransfer? {

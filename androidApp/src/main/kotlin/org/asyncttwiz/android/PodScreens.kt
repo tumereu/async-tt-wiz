@@ -351,30 +351,27 @@ private fun PodDraftScreen(controller: PodController, detail: PodDetail, account
         }
         // DRF-160: Winston, Winchester and Grid show each opponent's picks on request.
         if (selected == PodTab.DRAFT && podHasPicksView(detail.settings.mode))
-            PodPicksButton(detail, accountId, definitions, controller.inspection)
+            PodPicksButton(detail, accountId, definitions)
         Box(Modifier.weight(1f).fillMaxWidth()) {
             when (selected) {
                 PodTab.DRAFT -> if (detail.settings.mode.limited) PodLimitedDraftView(detail, accountId, definitions,
-                    state.picking || state.uncertain, controller::turn, Modifier.fillMaxSize(), pickColumns, waiting, mainMenu,
-                    controller.inspection)
+                    state.picking || state.uncertain, controller::turn, Modifier.fillMaxSize(), pickColumns, waiting, mainMenu)
                 else if (detail.settings.mode == DraftMode.GRID) PodGridView(detail.grid, detail.settings.grids,
                     definitions, detail.members.map { it.account }, state.picking || state.uncertain,
-                    controller::gridSelect, Modifier.fillMaxSize(), waitingText = waiting, onMainMenu = mainMenu,
-                    inspection = controller.inspection)
+                    controller::gridSelect, Modifier.fillMaxSize(), waitingText = waiting, onMainMenu = mainMenu)
                 else PodPickView(detail.draft?.head, detail.settings, definitions,
                     state.uncertain, { keep, burn -> controller.pick(keep, burn) }, Modifier.fillMaxSize(),
                     librarians = detail.draft?.pool.orEmpty().filter { it.librarian }, onConfirmLibrarians = controller::pick,
                     nextPack = detail.draft?.queuedPacks?.firstOrNull(), columns = pickColumns,
                     waitingText = waiting, onMainMenu = mainMenu,
                     savedMarks = controller.marks(detail.draft?.head), onMarks = { controller.mark(detail.draft?.head, it) },
-                    orientation = podPickOrientationText(detail), inspection = controller.inspection)
+                    orientation = podPickOrientationText(detail))
                 PodTab.BUILD -> PodBuildView(build, copies, definitions, detail.settings.sideboardLimit,
                     !detail.submitted && !state.uncertain, detail.phase == PodPhase.DRAFTED && !detail.submitted,
                     controller::move, { index, delta -> controller.adjustBasic(index, delta) }, controller::submit, Modifier.fillMaxSize(),
                     detail.deckName, controller::deckName, detail.submitted, buildColumns, buildSideBySide,
                     controller.canUndoBuild, controller::undoBuild, controller::revertMove,
-                    onAdjustSideBasic = { index, delta -> controller.adjustBasic(index, delta, side = true) },
-                    inspection = controller.inspection)
+                    onAdjustSideBasic = { index, delta -> controller.adjustBasic(index, delta, side = true) })
                 PodTab.STATS -> PodStatsView(build, copies, definitions, Modifier.fillMaxSize(), controller.notes(), controller::editNotes)
                 PodTab.GAMES -> PodGamesTab(detail, accountId, lobby)
             }

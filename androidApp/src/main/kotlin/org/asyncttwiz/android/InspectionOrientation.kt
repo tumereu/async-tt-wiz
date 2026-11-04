@@ -7,9 +7,9 @@ import org.asyncttwiz.protocol.CardDefinition
 import org.asyncttwiz.protocol.DefinitionFace
 
 /**
- * How an inspection view turns a printed face's ARTWORK (personal display only; text stays upright).
- * [degrees] is the clockwise turn shown at rest; [alternate] is the clockwise turn the rotate button
- * switches to, or null when the face has no rotate button.
+ * How an inspection view turns a printed face's ARTWORK (personal display only).
+ * [degrees] is the clockwise turn shown at rest; [alternate] is the clockwise turn that reads its other
+ * half (a flip card on its flipped half shows turned so, TBL-106), or null when it has none.
  *
  * Card images come in the physical upright orientation. Split, Room, Plane/Phenomenon and Battle faces
  * are printed with their text running bottom to top, so a quarter turn clockwise reads them. An

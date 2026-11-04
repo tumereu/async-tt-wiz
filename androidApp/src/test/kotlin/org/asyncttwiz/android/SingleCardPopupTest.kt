@@ -9,7 +9,7 @@ class SingleCardPopupTest {
     @Test fun tapsOnSeveralCardsLeaveOnlyTheLatestMenuAndTwoFingerPressesOpenNone() {
         val f = TableStatesFixture
         val play = f.initial
-        val toolkit = TableToolkitController(f.a, { tableBoard(play) }, { true }, { _, _ -> true })
+        val toolkit = TableToolkitController(f.a, { engineTableBoard(play, f.a) }, { true }, { _, _ -> true })
         lateinit var gestures: TableGestureCoordinator
         val opened = mutableListOf<String?>()
         // Wired like the table host: every Actions intent opens through the one toolkit.
@@ -20,10 +20,13 @@ class SingleCardPopupTest {
                 toolkit.open(g.capturedActions ?: intent, requireNotNull(g.actionItem))
             }
         })
-        val scene = TablePresentation.scene(f.game, tableBoard(play), f.a, 412f, 892f, false)
+        val scene = TablePresentation.scene(f.game, engineTableBoard(play, f.a), f.a, 412f, 892f, false)
         gestures.update(scene, true)
+        // Bob's lands: their menus list their mana abilities, greyed (TBL-115); a card offering nothing opens no menu (TBL-116)
+        fun forest(id: String?) = play.board.cards.singleOrNull { it.id == id }?.let { card ->
+            card.owner == f.b && play.definitions.single { it.digest == card.definition }.definition.name == "Forest" } == true
         val (a, b) = scene.items.filter { item -> item.kind == TableItemKind.CARD && item.zone == PlayZone.BATTLEFIELD &&
-            play.board.cards.any { it.id == item.cardId } && scene.hit(item.bounds.center)?.id == item.id }.take(2)
+            forest(item.cardId) && scene.hit(item.bounds.center)?.id == item.id }.take(2)
 
         gestures.down(a.bounds.center, 0); gestures.up(a.bounds.center, 10)
         gestures.down(b.bounds.center, 100); gestures.up(b.bounds.center, 110)

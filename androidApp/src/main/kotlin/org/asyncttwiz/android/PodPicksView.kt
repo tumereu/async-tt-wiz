@@ -35,20 +35,18 @@ internal fun podPicksPrefetchCards(picks: List<PodOpponentPicks>): List<DraftCop
 
 /** The "Picks" button above a Winston, Winchester or Grid board; it opens [PodPicksDialog]. */
 @Composable
-internal fun PodPicksButton(detail: PodDetail, accountId: String, definitions: Map<String, CardDefinition>,
-    inspection: CardInspectionController) {
+internal fun PodPicksButton(detail: PodDetail, accountId: String, definitions: Map<String, CardDefinition>) {
     var open by remember { mutableStateOf(false) }
     Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), horizontalArrangement = Arrangement.End) {
         TextButton({ open = true }, Modifier.testTag("pod-picks")) { ButtonLabel("decks", "Picks") }
     }
-    if (open) PodPicksDialog(podOpponentPicks(detail, accountId), definitions, inspection) { open = false }
+    if (open) PodPicksDialog(podOpponentPicks(detail, accountId), definitions) { open = false }
 }
 
 /** Each opponent's picks (DRF-160): a chip per opponent, then their cards newest first, unseen ones as backs. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-internal fun PodPicksDialog(picks: List<PodOpponentPicks>, definitions: Map<String, CardDefinition>,
-    inspection: CardInspectionController, dismiss: () -> Unit) {
+internal fun PodPicksDialog(picks: List<PodOpponentPicks>, definitions: Map<String, CardDefinition>, dismiss: () -> Unit) {
     var chosen by remember { mutableStateOf(picks.firstOrNull()?.account?.accountId) }
     val preview = remember { PodLimitedPreview() }
     PodArtPrefetch(remember(picks) { podPicksPrefetchCards(picks) }, definitions, preview.tileSize)
@@ -66,10 +64,10 @@ internal fun PodPicksDialog(picks: List<PodOpponentPicks>, definitions: Map<Stri
                 itemsIndexed(cards, key = { index, _ -> index }) { index, copy ->
                     if (copy == null) PodCardBack("pod-picks-back-$index", preview)
                     else PodLimitedCard(copy, definitions[copy.definition], null, emptyList(), emptyMap(), false,
-                        "pod-picks-${copy.id}", preview) { inspection.openPodCard(copy.definition, definitions[copy.definition]) }
+                        "pod-picks-${copy.id}", preview) {}
                 }
             }
         }
     }
-    PodLimitedPreviewHost(preview, definitions, inspection)
+    PodLimitedPreviewHost(preview, definitions)
 }

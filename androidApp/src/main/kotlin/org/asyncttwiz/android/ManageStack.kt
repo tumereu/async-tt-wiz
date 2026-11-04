@@ -17,7 +17,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import org.asyncttwiz.protocol.*
 
-/** The Stack's entries in one compact, live view (STK-019): look and inspect only; the Stack changes only by the rules
+/** The Stack's entries in one compact, live view (STK-019): look and hold to inspect only; the Stack changes only by the rules
  * (I-D52). (An Automatum target on the Stack is picked in the docked [StackTargetPicker].) */
 @Composable
 internal fun ManageStackDialog(state: TableBoard, viewer: String, dismiss: () -> Unit) {
@@ -26,10 +26,8 @@ internal fun ManageStackDialog(state: TableBoard, viewer: String, dismiss: () ->
     if (order.isEmpty()) { LaunchedEffect(Unit) { dismiss() }; return }
     val entries = contentsEntries(state, PileContents(CombatStackRules.stack(state.board).id, "Stack", order, true), viewer)
     var inspection by remember { mutableStateOf<ManualInspection?>(null) }
-    var peeking by remember { mutableStateOf(false) }
-    fun inspect(id: String, hold: Boolean) {
+    fun inspect(id: String) {
         val card = CombatStackRules.inspection(state.board, id) ?: return
-        peeking = hold
         inspection = ManualInspection(state.gameId, state.playId, id,
             ManualDisclosure.permittedFaces(state.board, state.definitions, card, viewer, inspecting = true).map { it.faceId },
             snapshot = card.takeIf { CombatStackRules.liveSource(state.board, id) == null }, stackEntryId = id)
@@ -44,7 +42,7 @@ internal fun ManageStackDialog(state: TableBoard, viewer: String, dismiss: () ->
                 val owner = if (controlled) OwnTableColor else OpponentTableColor
                 Column {
                     Row(Modifier.contentsCardGestures(id, PlayZone.STACK, actions = {}, double = null,
-                        inspect = { inspect(id, false) }, peek = { held -> if (held) inspect(id, true) else if (peeking) inspection = null }),
+                        peek = { held -> if (held) inspect(id) else inspection = null }),
                         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         val definition = state.definitions.find { it.digest == card?.definition }?.definition
                         val face = definition?.faces?.indexOfFirst { it.faceId == card?.faceId } ?: -1
@@ -72,6 +70,6 @@ internal fun ManageStackDialog(state: TableBoard, viewer: String, dismiss: () ->
             }
         }
         // Attach the peek Popup to this dialog's window, not the underlying table activity.
-        inspection?.let { GameplayCardInspection(state, viewer, it, { inspection = null }, peek = peeking) }
+        inspection?.let { GameplayCardInspection(state, viewer, it, { inspection = null }) }
     }
 }

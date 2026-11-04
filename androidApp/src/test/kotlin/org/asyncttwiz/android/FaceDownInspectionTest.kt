@@ -54,36 +54,30 @@ class FaceDownInspectionTest {
         }
     }
 
-    // SYS-039, TBL-088, TBL-109, ZON-075
-    @Test fun ownerSeesTheFrontUnderAFaceDownMarkAndOnlyADeliberateInspectShowsItToTheOpponent() {
+    // SYS-039, TBL-109, ZON-075: holding shows the owner the front marked "Face down"; the opponent never sees it
+    @Test fun ownerSeesTheFrontUnderAFaceDownMarkAndTheOpponentNeverSeesIt() {
         val viewer = mutableStateOf(f.a)
         val container = mutableStateOf("a/BATTLEFIELD")
-        val explicit = mutableStateOf(false)
         compose.setContent {
             val (play, card) = state(container.value)
             MaterialTheme {
-                // Only the deliberate, logged "Inspect other side" (explicit) shows the opponent the front.
                 GameplayCardInspection(tableBoard(play), viewer.value, ManualInspection(play.gameId, play.id, card.id,
-                    listOf(card.faceId), explicit = explicit.value), {})
+                    ManualDisclosure.permittedFaces(play, card, viewer.value, inspecting = true).map { it.faceId }), {})
             }
         }
         compose.onNodeWithText("Face down").assertIsDisplayed()
-        compose.onAllNodesWithText("Secret morph").onFirst().assertExists()
+        compose.onNodeWithContentDescription("Card image: Secret morph").assertExists()
         for (place in listOf("a/BATTLEFIELD", "a/EXILE", "a/GRAVEYARD")) {
-            compose.runOnIdle { viewer.value = f.b; container.value = place; explicit.value = false }
+            compose.runOnIdle { viewer.value = f.b; container.value = place }
             compose.waitForIdle()
-            compose.onNodeWithText("Covered card").assertIsDisplayed()
+            compose.onNodeWithContentDescription("Covered card").assertIsDisplayed()
             compose.onAllNodesWithText("Secret morph", substring = true).assertCountEquals(0)
-            compose.onAllNodesWithText("Morph {3}{U}", substring = true).assertCountEquals(0)
-            compose.runOnIdle { explicit.value = true }
-            compose.waitForIdle()
-            compose.onNodeWithText("Face down").assertIsDisplayed()
-            compose.onNodeWithText("Morph {3}{U}").assertExists()
+            compose.onAllNodesWithContentDescription("Secret morph", substring = true).assertCountEquals(0)
         }
-        compose.runOnIdle { viewer.value = f.a; container.value = "a/GRAVEYARD"; explicit.value = false }
+        compose.runOnIdle { viewer.value = f.a; container.value = "a/GRAVEYARD" }
         compose.waitForIdle()
         compose.onNodeWithText("Face down").assertIsDisplayed()
-        compose.onNodeWithText("Morph {3}{U}").assertExists()
+        compose.onNodeWithContentDescription("Card image: Secret morph").assertExists()
     }
 
     // SYS-065, TBL-109, ZON-075: a face-down Stack entry's front is its hand card's holder's alone.
@@ -104,11 +98,11 @@ class FaceDownInspectionTest {
             }
         }
         compose.onNodeWithText("Face down").assertIsDisplayed()
-        compose.onNodeWithText("Morph {3}{U}").assertExists()
+        compose.onNodeWithContentDescription("Card image: Secret morph").assertExists()
         compose.runOnIdle { viewer.value = f.b }
         compose.waitForIdle()
-        compose.onNodeWithText("Covered card").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Covered card").assertIsDisplayed()
         compose.onAllNodesWithText("Secret morph", substring = true).assertCountEquals(0)
-        compose.onAllNodesWithText("Morph {3}{U}", substring = true).assertCountEquals(0)
+        compose.onAllNodesWithContentDescription("Secret morph", substring = true).assertCountEquals(0)
     }
 }

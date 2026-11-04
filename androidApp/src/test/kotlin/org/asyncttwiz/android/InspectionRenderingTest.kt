@@ -21,17 +21,13 @@ import org.robolectric.annotation.GraphicsMode
 class InspectionRenderingTest {
     @get:Rule val compose = createComposeRule()
 
-    @Test fun holdPeekRendersTypicalCards() = render(true)
-    @Test fun inspectActionRendersTypicalCards() = render(false)
+    @Test fun holdRendersTypicalCards() = render()
 
     @Test @Config(qualifiers = "w892dp-h412dp-land-xxhdpi")
-    fun landscapeHoldPeekRendersTypicalCards() = render(true)
-
-    @Test @Config(qualifiers = "w892dp-h412dp-land-xxhdpi")
-    fun landscapeInspectActionRendersTypicalCards() = render(false)
+    fun landscapeHoldRendersTypicalCards() = render()
 
     @OptIn(ExperimentalRoborazziApi::class)
-    private fun render(peek: Boolean) {
+    private fun render() {
         val f = TableStatesFixture
         val original = f.source(f.a, "1/3")
         val front = DefinitionFace("front", "Mana wizard", imageUri = "https://cards.scryfall.io/normal/front/a/b/test.jpg", manaCost = "{2}{W/U}",
@@ -53,7 +49,7 @@ class InspectionRenderingTest {
             }, board = f.initial.board.copy(cards = f.initial.board.cards.map { if (it.id == card.id) card else it }))
             MaterialTheme {
                 GameplayCardInspection(tableBoard(play), f.a, ManualInspection(play.gameId, play.id, card.id,
-                    if (index == 3) emptyList() else definition.faces.map { it.faceId }), {}, peek = peek)
+                    if (index == 3) emptyList() else definition.faces.map { it.faceId }), {})
             }
         }
         cases.indices.forEach { index ->
@@ -61,14 +57,11 @@ class InspectionRenderingTest {
             compose.waitForIdle()
             val image = java.io.File.createTempFile("inspection-", ".png")
             try { captureScreenRoboImage(image.absolutePath, ScratchCapture) } finally { image.delete() }
-            if (index == 3) compose.onNodeWithText("Covered card").assertIsDisplayed()
+            if (index == 3) compose.onNodeWithContentDescription("Covered card").assertIsDisplayed()
             else {
-                compose.onNodeWithContentDescription("Card artwork viewport").assertExists()
-                compose.onNodeWithText("{T}: Add {G}.").assertExists()
-                if (!peek && index == 1) {
-                    compose.onNodeWithContentDescription("Next face").performClick()
-                    compose.onNodeWithText("Back face").assertExists()
-                }
+                compose.onAllNodesWithContentDescription("Card image", substring = true).onFirst().assertIsDisplayed()
+                // TBL-104: pictures only, no text block
+                compose.onNodeWithText("{T}: Add {G}.").assertDoesNotExist()
             }
         }
     }

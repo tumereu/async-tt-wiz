@@ -50,14 +50,17 @@ class TableInteractionsScreenshotTest {
     private fun menu(width: Float, height: Float, font: Float) {
         val (toolkit, _) = render(width, height, font)
         compose.runOnIdle {
-            val id = f.source(f.a, "1/3").id
+            // The combat copy of the attacking Meadow Sentinel: its menu's one cell is Remove from combat (TBL-116)
+            val source = f.source(f.a, "1/3").id
+            val id = CombatStackRules.occurrences(f.combat().board.combat).first { it.sourceId == source }.id
             toolkit.openCard(TableScope(id, listOf(id)))
         }
-        compose.onNodeWithContentDescription("Inspect").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Remove from combat").assertIsDisplayed()
         val screen = "${width.toInt()}x${height.toInt()} ${if (width > height) "landscape" else "portrait"} table in combat, " +
-            "text size ${font}x: card menu on your attacking Meadow Sentinel"
+            "text size ${font}x: combat menu on your attacking Meadow Sentinel, Remove from combat its one button"
         capture("menu-${width.toInt()}x${height.toInt()}-font$font", "$screen.")
-        for (label in listOf("Inspect", "Inspect other side")) {
+        compose.onNodeWithContentDescription("Inspect").assertDoesNotExist()
+        for (label in listOf("Remove from combat")) {
             val bounds = compose.onNodeWithContentDescription(label).fetchSemanticsNode().boundsInRoot
             assertTrue(bounds.width >= 48f && bounds.height >= 48f, "$label keeps its touch target")
         }

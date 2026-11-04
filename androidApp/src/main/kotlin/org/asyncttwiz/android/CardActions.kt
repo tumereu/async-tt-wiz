@@ -22,8 +22,9 @@ import org.asyncttwiz.protocol.*
 
 /**
  * A card's menu (TBL-115, TBL-116; battlefield card, combat copy, Graveyard or Exile panel card): what Automatum offers
- * for it as rows, then only Inspect, Other side and a combat copy's Remove from combat. Nothing changes the game by hand
- * (I-D52); an attack's target is picked in the combat area's lanes only (CMB-028). A hand card has no menu (ZON-079).
+ * for it as rows, then only a combat copy's Remove from combat; holding a card inspects it (TBL-104). Nothing changes the
+ * game by hand (I-D52); an attack's target is picked in the combat area's lanes only (CMB-028). A hand card has no menu
+ * (ZON-079).
  */
 @Composable
 internal fun EngineCardMenu(toolkit: TableToolkitController, play: TableBoard, bound: ToolkitCapture, names: Map<String, String>,
@@ -33,16 +34,9 @@ internal fun EngineCardMenu(toolkit: TableToolkitController, play: TableBoard, b
     val viewer = toolkit.viewer
     val layout = CardRingPages.context(play.board, view) ?: CardMenuLayout.CARD
     if (layout == CardMenuLayout.HAND) return
-    val faces = play.definitions.singleOrNull { it.digest == card.definition }?.definition?.faces.orEmpty()
-    val other = if (card.covered) faces.singleOrNull { it.faceId == card.faceId } else faces.firstOrNull { it.faceId != card.faceId }
     val combat = bound.viewIds.filter { id -> CombatStackRules.occurrences(play.board.combat).any { it.id == id } }
     fun entry(control: MenuControl, id: String = control.name) = RingEntry(id, ringShortLabel(control.name), control)
     val entries = listOf(
-        entry(MenuControl("Inspect") { toolkit.inspect(view) }, "inspect"),
-        // The deliberate, logged way to see another face, also an opponent's face-down front (TBL-088)
-        entry(MenuControl("Inspect other side", enabled && other != null) {
-            other?.let { toolkit.submit(PlayAction.InspectFace(card.id, it.faceId, card.containerId)) }
-        }, "otherSide").copy(label = "Other side"),
         entry(MenuControl("Remove from combat", enabled && combat.isNotEmpty()) {
             if (toolkit.removeFromCombat(bound.copy(viewIds = combat))) toolkit.dismiss()
         }))

@@ -65,8 +65,7 @@ internal fun TableToolkitScreen(toolkit: TableToolkitController, play: TableBoar
         }
     }
     }
-    toolkit.inspection?.let { GameplayCardInspection(play, toolkit.viewer, it, toolkit::closeInspection, names) }
-    toolkit.peek?.let { GameplayCardInspection(play, toolkit.viewer, it, { toolkit.peek(null) }, names, peek = true, peekScroll = peekScroll) }
+    toolkit.peek?.let { GameplayCardInspection(play, toolkit.viewer, it, { toolkit.peek(null) }, names, peekScroll) }
     // I-D50: the raised hand card's cost chips
     RaisedCardChips(toolkit, play, scene)
     // TBL-122: a battlefield card's ability chips when it has several to activate

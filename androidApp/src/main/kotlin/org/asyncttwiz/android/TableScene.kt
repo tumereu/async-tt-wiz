@@ -87,7 +87,6 @@ internal fun TableSurface(game: GameSummary, play: TableBoard, accountId: String
                         if (item != null) toolkit.open(captured, item)
                     }
                 }
-                is TableIntent.Inspect -> toolkit?.inspect(intent.cardId)
                 else -> {
                     val sent = currentWritable && callback?.invoke(intent) == true
                     if (intent is TableIntent.Rotate && intent.toggle) {
@@ -336,7 +335,7 @@ internal fun TableSurface(game: GameSummary, play: TableBoard, accountId: String
 
 internal fun gameLockAllows(intent: TableIntent): Boolean = intent is TableIntent.Camera || intent is TableIntent.Scroll ||
     intent is TableIntent.Overscroll ||
-    intent == TableIntent.DismissTapUi || intent is TableIntent.Peek || intent is TableIntent.Inspect || intent is TableIntent.SearchPile
+    intent == TableIntent.DismissTapUi || intent is TableIntent.Peek || intent is TableIntent.SearchPile
 
 /** TBL-117: the playable glow of each card, fading between boards (read while drawing, so only the canvas redraws). */
 internal class PlayableGlow {

@@ -30,7 +30,7 @@ import kotlin.test.assertTrue
 /**
  * TRN-069, LOB-117 (CR 309, 701.49): a game whose deck ventures, on the app's engine path: Alice's venture brings her dungeon into
  * the command zone, the board holds it as a card in no zone's list with the card data she brought, the table draws it after her
- * piles with its room in a chip, a tap inspects it and holding shows it large; the next venture asks her for a room and the board at
+ * piles with its room in a chip, a tap does nothing and holding inspects it; the next venture asks her for a room and the board at
  * the earlier event still shows the earlier room. Invented cards and dungeons only.
  */
 @RunWith(RobolectricTestRunner::class)
@@ -80,10 +80,10 @@ class EngineDungeonTest {
         assertTrue(item.bounds.x > exile.bounds.right, "after the Exile pile")
         assertEquals("Room: Crypt Door", scene.items.single { it.id == "life/${f.a}" }.emblems.first())
         assertNull(scene.items.firstOrNull { it.kind == TableItemKind.DUNGEON && it.owner == f.b }, "Bob has no dungeon")
-        // A tap inspects it; holding shows it large
+        // A tap does nothing; holding inspects it
         val toolkit = toolkit(game)
         toolkit.open(TableIntent.Actions(item.id, null), item)
-        assertEquals(shown.cardId, toolkit.inspection?.cardId)
+        assertNull(toolkit.peek); assertNull(toolkit.capture); assertNull(toolkit.panel)
         toolkit.peek(shown.cardId)
         assertEquals(shown.cardId, toolkit.peek?.cardId)
         render(game, toolkit(game))

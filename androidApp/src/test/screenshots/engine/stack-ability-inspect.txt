@@ -1,0 +1,1 @@
+Alice holds her Ember Herald's enters trigger in the Stack list: Inspect shows a dark card-sized tile with the trigger marker, "Triggered ability", the Herald's name and the trigger's text, then the Herald's card image below it.

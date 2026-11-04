@@ -33,6 +33,7 @@ import org.asyncttwiz.automatum.StackAbilityText
 import org.asyncttwiz.storage.ArtworkReference
 import org.asyncttwiz.protocol.CardVisibility
 import org.asyncttwiz.protocol.CombatStackRules
+import org.asyncttwiz.protocol.MtgRef
 import org.asyncttwiz.protocol.MtgStackItem
 import org.asyncttwiz.protocol.MtgStackKind
 
@@ -83,6 +84,32 @@ internal object StackAbilities {
         val source = face?.name?.takeIf { it.isNotBlank() } ?: "Ability"
         val text = text(item) ?: face?.rulesText?.takeIf { frozen }.orEmpty()
         return StackAbilityShown(triggered, source, text.trim())
+    }
+
+    /**
+     * STK-046: what was chosen for the ability entry [entryId], one line each, for its Inspect tile: "Mode: …" ("Modes: …")
+     * and "Target: …" ("Targets: …"), each target named as far as [viewer] may see it ("You", the other player's name in
+     * [names], a card's name, "a hidden card"); empty when nothing was chosen.
+     */
+    fun details(play: TableBoard, entryId: String, viewer: String, names: Map<String, String>): List<String> {
+        val item = play.board.stackEffects.singleOrNull { it.id == entryId }?.item ?: return emptyList()
+        val modes = StackAbilityText.modes(item)
+        val targets = item.targets.values.flatten().map { target -> when (target) {
+            is MtgRef.Player -> if (target.accountId == viewer) "You" else names[target.accountId] ?: "Opponent"
+            is MtgRef.Card -> visibleName(play, target.cardId, viewer)
+            is MtgRef.StackItem -> of(play, target.id, viewer)?.name ?: visibleName(play, target.id, viewer)
+        } }
+        return listOfNotNull(
+            modes.takeIf { it.isNotEmpty() }?.joinToString("; ", prefix = if (modes.size == 1) "Mode: " else "Modes: "),
+            targets.takeIf { it.isNotEmpty() }?.joinToString(", ", prefix = if (targets.size == 1) "Target: " else "Targets: "))
+    }
+
+    /** The name of the card (or Stack entry) [id] as [viewer] sees it: "a hidden card" when they can't see it face up. */
+    private fun visibleName(play: TableBoard, id: String, viewer: String): String {
+        val card = CombatStackRules.inspection(play.board, id) ?: return "a hidden card"
+        if (!CardVisibility.isVisibleFaceUp(play.board, card, viewer)) return "a hidden card"
+        return play.definitions.firstOrNull { it.digest == card.definition }?.definition?.faces
+            ?.let { faces -> faces.firstOrNull { it.faceId == card.faceId } ?: faces.firstOrNull() }?.name ?: "a hidden card"
     }
 }
 

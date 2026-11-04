@@ -61,19 +61,19 @@ internal fun podSearchCard(definition: CardDefinition): CardSearchCard {
 @Composable
 internal fun PodLimitedDraftView(detail: PodDetail, accountId: String, definitions: Map<String, CardDefinition>,
     busy: Boolean, send: PodTurnSender, modifier: Modifier, columns: PodPickColumns, waitingText: String,
-    onMainMenu: (() -> Unit)?, inspection: CardInspectionController) {
+    onMainMenu: (() -> Unit)?) {
     val view = detail.limited
     val members = detail.members.map { it.account }
     when (view?.mode) {
-        DraftMode.ROTISSERIE -> PodRotisserieView(view, members, definitions, busy, send, modifier, columns, inspection)
-        DraftMode.ROCHESTER -> PodRochesterView(view, members, definitions, busy, send, modifier, columns, inspection)
-        DraftMode.WINSTON -> PodWinstonView(view, members, definitions, busy, send, modifier, columns, inspection)
-        DraftMode.WINCHESTER -> PodWinchesterView(view, members, definitions, busy, send, modifier, columns, inspection)
+        DraftMode.ROTISSERIE -> PodRotisserieView(view, members, definitions, busy, send, modifier, columns)
+        DraftMode.ROCHESTER -> PodRochesterView(view, members, definitions, busy, send, modifier, columns)
+        DraftMode.WINSTON -> PodWinstonView(view, members, definitions, busy, send, modifier, columns)
+        DraftMode.WINCHESTER -> PodWinchesterView(view, members, definitions, busy, send, modifier, columns)
         else -> Box(modifier, contentAlignment = Alignment.Center) { PodPickWaiting(waitingText, onMainMenu) }
     }
 }
 
-/** The held card's big picture and the full inspector, shared by the limited pick screens. */
+/** The held card's Inspect (every face, TBL-104), shared by the limited pick screens. */
 @Stable
 internal class PodLimitedPreview {
     var held by mutableStateOf<DraftCopy?>(null)
@@ -87,15 +87,13 @@ internal class PodLimitedPreview {
 }
 
 @Composable
-internal fun PodLimitedPreviewHost(preview: PodLimitedPreview, definitions: Map<String, CardDefinition>,
-    inspection: CardInspectionController) {
+internal fun PodLimitedPreviewHost(preview: PodLimitedPreview, definitions: Map<String, CardDefinition>) {
     preview.held?.let { PodPickArtPreview(it, definitions[it.definition], preview.scroll) }
-    DeckCardInspection(inspection)
 }
 
 /**
  * One face-up card of a limited board: a taken card stays in place, greyed, with its picker's small avatar (as in Grid,
- * DRF-085); [selected] frames it. Tap [onTap]; hold previews the front.
+ * DRF-085); [selected] frames it. Tap [onTap]; holding inspects it.
  */
 @Composable
 internal fun PodLimitedCard(copy: DraftCopy, definition: CardDefinition?, pickedBy: String?, members: List<AccountIdentity>,
@@ -200,7 +198,7 @@ internal fun podRotisserieFilter(board: List<LimitedSlot>, definitions: Map<Stri
  */
 @Composable
 internal fun PodRotisserieView(view: LimitedView, members: List<AccountIdentity>, definitions: Map<String, CardDefinition>,
-    busy: Boolean, send: PodTurnSender, modifier: Modifier, columns: PodPickColumns, inspection: CardInspectionController) {
+    busy: Boolean, send: PodTurnSender, modifier: Modifier, columns: PodPickColumns) {
     val mine = view.currentPlayer == view.player
     var selected by remember(view.turn) { mutableStateOf<String?>(null) }
     var query by rememberSaveable { mutableStateOf("") }
@@ -228,7 +226,6 @@ internal fun PodRotisserieView(view: LimitedView, members: List<AccountIdentity>
                 PodLimitedCard(copy, definitions[copy.definition], slot.pickedBy, members, colors, selected == copy.id,
                     "pod-rotisserie-${copy.id}", preview) {
                     if (mine && slot.pickedBy == null && selected != copy.id) selected = copy.id
-                    else inspection.openPodCard(copy.definition, definitions[copy.definition])
                 }
             }
         }
@@ -237,7 +234,7 @@ internal fun PodRotisserieView(view: LimitedView, members: List<AccountIdentity>
             selected?.let { send(LimitedAction.TAKE_CARD, view.turn, it, null, null) }
         }
     }
-    PodLimitedPreviewHost(preview, definitions, inspection)
+    PodLimitedPreviewHost(preview, definitions)
 }
 
 /** Rochester packs in view order: those where it is your pick first, then the rest by number. */
@@ -254,7 +251,7 @@ internal fun podRochesterHeader(pack: LimitedPackView, view: LimitedView, member
  */
 @Composable
 internal fun PodRochesterView(view: LimitedView, members: List<AccountIdentity>, definitions: Map<String, CardDefinition>,
-    busy: Boolean, send: PodTurnSender, modifier: Modifier, columns: PodPickColumns, inspection: CardInspectionController) {
+    busy: Boolean, send: PodTurnSender, modifier: Modifier, columns: PodPickColumns) {
     val packs = remember(view) { podRochesterOrder(view) }
     var selected by remember(view.packs.map { it.picks }) { mutableStateOf<Pair<String, String>?>(null) }
     val preview = remember { PodLimitedPreview() }
@@ -284,7 +281,6 @@ internal fun PodRochesterView(view: LimitedView, members: List<AccountIdentity>,
                     PodLimitedCard(copy, definitions[copy.definition], slot.pickedBy, members, colors,
                         selected == pack.id to copy.id, "pod-rochester-${copy.id}", preview) {
                         if (mine && selected != pack.id to copy.id) selected = pack.id to copy.id
-                        else inspection.openPodCard(copy.definition, definitions[copy.definition])
                     }
                 }
             }
@@ -299,7 +295,7 @@ internal fun PodRochesterView(view: LimitedView, members: List<AccountIdentity>,
             }
         }
     }
-    PodLimitedPreviewHost(preview, definitions, inspection)
+    PodLimitedPreviewHost(preview, definitions)
 }
 
 /** Whether the Winston player may pass the pile they look at: the stack still has cards, or a later pile does. */
@@ -362,13 +358,13 @@ private fun PodPiles(view: LimitedView, members: List<AccountIdentity>, definiti
  */
 @Composable
 internal fun PodWinstonView(view: LimitedView, members: List<AccountIdentity>, definitions: Map<String, CardDefinition>,
-    busy: Boolean, send: PodTurnSender, modifier: Modifier, columns: PodPickColumns, inspection: CardInspectionController) {
+    busy: Boolean, send: PodTurnSender, modifier: Modifier, columns: PodPickColumns) {
     val mine = view.currentPlayer == view.player && !view.finished
     val preview = remember { PodLimitedPreview() }
     PodLimitedBoardPrefetch(view, definitions, preview)
     Column(modifier.padding(horizontal = 8.dp)) {
         PodPiles(view, members, definitions, columns, preview, { mine && it == view.pile }, "winston", Modifier.weight(1f).fillMaxWidth(),
-            onTap = { _, copy -> inspection.openPodCard(copy.definition, definitions[copy.definition]) })
+            onTap = { _, _ -> })
         if (mine) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             val last = view.piles.drop(view.pile + 1).none { it.isNotEmpty() }
             OutlinedButton({ send(LimitedAction.PASS_PILE, view.turn, null, null, view.pile) }, Modifier.weight(1f).testTag("pod-winston-pass"),
@@ -377,7 +373,7 @@ internal fun PodWinstonView(view: LimitedView, members: List<AccountIdentity>, d
                 enabled = !busy && view.piles.getOrNull(view.pile)?.isNotEmpty() == true) { ButtonLabel("take", "Take pile ${view.pile + 1}") }
         }
     }
-    PodLimitedPreviewHost(preview, definitions, inspection)
+    PodLimitedPreviewHost(preview, definitions)
 }
 
 /**
@@ -386,18 +382,16 @@ internal fun PodWinstonView(view: LimitedView, members: List<AccountIdentity>, d
  */
 @Composable
 internal fun PodWinchesterView(view: LimitedView, members: List<AccountIdentity>, definitions: Map<String, CardDefinition>,
-    busy: Boolean, send: PodTurnSender, modifier: Modifier, columns: PodPickColumns, inspection: CardInspectionController) {
+    busy: Boolean, send: PodTurnSender, modifier: Modifier, columns: PodPickColumns) {
     val mine = view.currentPlayer == view.player && !view.finished
     var chosen by remember(view.turn) { mutableStateOf<Int?>(null) }
     val preview = remember { PodLimitedPreview() }
     PodLimitedBoardPrefetch(view, definitions, preview)
     Column(modifier.padding(horizontal = 8.dp)) {
         PodPiles(view, members, definitions, columns, preview, { it == chosen }, "winchester", Modifier.weight(1f).fillMaxWidth(),
-            onTap = { pile, copy ->
-                if (mine && chosen != pile) chosen = pile else inspection.openPodCard(copy.definition, definitions[copy.definition])
-            })
+            onTap = { pile, _ -> if (mine && chosen != pile) chosen = pile })
         if (mine) PodLimitedConfirm(chosen?.let { "Take pile ${it + 1} (${podCardCount(view.piles[it].size)})" } ?: "Confirm",
             !busy && chosen != null) { chosen?.let { send(LimitedAction.TAKE_PILE, view.turn, null, null, it) } }
     }
-    PodLimitedPreviewHost(preview, definitions, inspection)
+    PodLimitedPreviewHost(preview, definitions)
 }

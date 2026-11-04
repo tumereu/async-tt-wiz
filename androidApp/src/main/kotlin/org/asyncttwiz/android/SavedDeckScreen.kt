@@ -64,14 +64,14 @@ internal fun SavedDeckScreen(controller: DeckLibraryController, openNavigation: 
                 Text(draftDeckNote(origin), Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            // The game preparation view, read-only: every section in one scroll, tap inspects, hold previews.
+            // The game preparation view, read-only: every section in one scroll, holding a card inspects it.
             LazyColumn(Modifier.weight(1f).fillMaxWidth().testTag("deck-view"), contentPadding = PaddingValues(bottom = 16.dp)) {
                 for (section in savedListSections(SavedDeckSection.PREPARED, detail.saved.entries.map { it.section })) {
                     val title = section.sectionLabel()
                     visualDeckSection(section, detail.saved.entries.filter { it.section == section }.sumOf { it.quantity.toLong() },
                         preparationGroups(detail.saved, section, detail.definitions), columns.count) { tile ->
                         val key = "$section/${tile.digest}"
-                        VisualDeckCard(tile, key, title, { controller.inspect(tile.digest) }, onHold = { open ->
+                        VisualDeckCard(tile, key, title, onHold = { open ->
                             if (open) {
                                 previewScroll.dispatchRawDelta(-previewScroll.value.toFloat())
                                 held = key to tile
@@ -93,7 +93,6 @@ internal fun SavedDeckScreen(controller: DeckLibraryController, openNavigation: 
         }
         PodCardArtPreview(card, tile.name, previewScroll)
     }
-    DeckCardInspection(controller.inspection)
     if (state.dialog == DeckDialog.RENAME || state.dialog == DeckDialog.DELETE) {
         val deleting = state.dialog == DeckDialog.DELETE
         ScreenDialog(controller::dismiss, busyMessage = if (state.mutating) {

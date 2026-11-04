@@ -19,7 +19,7 @@ internal const val CardPeekHoldMillis = 350L
 
 /** Rows share the table's taps and release-bound peek; row scrolling wins on slop BEFORE the hold. */
 internal fun Modifier.contentsCardGestures(id: String, zone: PlayZone, actions: () -> Unit,
-    double: (() -> Unit)?, inspect: () -> Unit, peek: (Boolean) -> Unit,
+    double: (() -> Unit)?, peek: (Boolean) -> Unit,
     scrollPeek: (Float) -> Unit = {}): Modifier = composed {
     val parent = LocalTableTapRelay.current
     val density = LocalDensity.current.density
@@ -27,7 +27,6 @@ internal fun Modifier.contentsCardGestures(id: String, zone: PlayZone, actions: 
     val currentActions by rememberUpdatedState(actions)
     val currentDouble by rememberUpdatedState(double)
     val currentPeek by rememberUpdatedState(peek)
-    val currentInspect by rememberUpdatedState(inspect)
     val currentScrollPeek by rememberUpdatedState(scrollPeek)
     var origin by remember { mutableStateOf(Offset.Zero) }
     val coordinator = remember(id, density, double != null, holdMillis) {
@@ -51,7 +50,6 @@ internal fun Modifier.contentsCardGestures(id: String, zone: PlayZone, actions: 
             "Card", "", zone = zone, kind = TableItemKind.CARD, cardId = id, cards = listOf(id))), emptyList()), true)
     }.semantics(mergeDescendants = true) {
         onClick("Actions") { currentActions(); true }
-        customActions = listOf(CustomAccessibilityAction("Inspect") { currentInspect(); true })
     }.pointerInput(coordinator) {
         coroutineScope {
             awaitEachGesture {

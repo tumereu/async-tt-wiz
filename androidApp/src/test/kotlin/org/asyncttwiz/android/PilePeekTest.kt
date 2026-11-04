@@ -44,8 +44,8 @@ class PilePeekTest {
         return state to ids.map { id -> state.board.cards.single { it.id == id } }
     }
 
-    /** The previewed title of [card]; the preview names a card only when it shows it. */
-    private fun title(play: PlayState, card: PlayCard) = compose.onAllNodes(hasText(name(play, card), substring = false) and
+    /** The inspected picture of [card]; Inspect shows a card only when the viewer may see it. */
+    private fun title(play: PlayState, card: PlayCard) = compose.onAllNodes(hasContentDescription("Card image: ${name(play, card)}") and
         hasAnyAncestor(hasContentDescription("Card inspection content")), useUnmergedTree = true)
 
     private fun name(play: PlayState, card: PlayCard) = play.definitions.single { it.digest == card.definition }.definition.faces
@@ -101,13 +101,13 @@ class PilePeekTest {
         assertEquals(tops.sorted(), tops)
         compose.onNodeWithText("Face down").assertExists()
         compose.onNodeWithText("Covered card").assertDoesNotExist()
-        // Scroll down to where the top card's text ends and the face-down card under it begins.
-        compose.onNodeWithContentDescription("Shared table").performTouchInput { moveBy(Offset(0f, -120f)) }
+        // Scroll down to where the top card's picture ends and the face-down card under it begins.
+        compose.onNodeWithContentDescription("Shared table").performTouchInput { moveBy(Offset(0f, -420f)) }
         compose.waitForIdle(); compose.mainClock.advanceTimeBy(100)
         val file = File("$SCREENSHOTS/pile-preview-portrait.png")
         file.parentFile!!.mkdirs()
         captureShot(file.path, "Portrait table: holding the top card of Alice's three-card battlefield pile and moving the finger " +
-            "up a little scrolls the one preview from the top card's text down to the face-down card under it, shown to Alice " +
+            "up scrolls the one Inspect view from the top card's image down to the face-down card under it, shown to Alice " +
             "dimmed with a Face down label.")
         release(toolkit)
     }
@@ -130,7 +130,7 @@ class PilePeekTest {
         title(play, members[2]).assertCountEquals(1)
         compose.onNodeWithText("Covered card").assertExists()
         compose.onNodeWithText("Face down").assertDoesNotExist()
-        compose.onAllNodes(hasText(name(play, members[1]), substring = true) and
+        compose.onAllNodes((hasText(name(play, members[1]), substring = true) or hasContentDescription(name(play, members[1]), substring = true)) and
             hasAnyAncestor(hasContentDescription("Card inspection content")), useUnmergedTree = true).assertCountEquals(0)
         release(toolkit)
     }

@@ -86,8 +86,12 @@ class TableStatesScreenshotTest {
         compose.waitForIdle()
         when (kind) {
             "tokens-contents" -> compose.onNodeWithContentDescription("Stack, 2 entries").performClick()
-            "tokens-menu" -> compose.runOnIdle { toolkit.openCard(TableScope(f.source(f.a, "1/3").id, listOf(f.source(f.a, "1/3").id))) }
-            "tokens-inspector" -> compose.runOnIdle { toolkit.inspect(f.source(f.a, "1/3").id) }
+            // TBL-116: the attacking token's combat copy; its menu's one cell is Remove from combat
+            "tokens-menu" -> compose.runOnIdle {
+                val copy = CombatStackRules.occurrences(drawn.board.combat).first { it.sourceId == f.source(f.a, "1/3").id }.id
+                toolkit.openCard(TableScope(copy, listOf(copy)))
+            }
+            "tokens-inspector" -> compose.runOnIdle { toolkit.peek(f.source(f.a, "1/3").id) }
             "stack-contents" -> {
                 compose.onNodeWithContentDescription("Stack, 2 entries").performTouchInput { doubleClick() }
                 compose.runOnIdle { assertEquals("manageStack", toolkit.panel) }
@@ -122,8 +126,8 @@ class TableStatesScreenshotTest {
             "tokens" -> "$combat, where your attacker, the opponent's blocker and one hand card are tokens"
             "tokens-small" -> "$combat with several tokens, zoomed out as far as possible"
             "tokens-contents" -> "$combat with several tokens, after tapping the two-entry Stack"
-            "tokens-menu" -> "$combat with several tokens, card menu open on your token attacker"
-            "tokens-inspector" -> "$combat with several tokens, Inspect view open for your token attacker"
+            "tokens-menu" -> "$combat with several tokens, combat menu open on your token attacker's combat copy, Remove from combat its one button"
+            "tokens-inspector" -> "$combat with several tokens, holding your token attacker: Inspect shows only its card image"
             "tokens-stack-card" -> "$combat with several tokens, a token card on top of the Stack"
             "stack-contents" -> "$combat, after double-tapping the Stack: Manage Stack lists its two entries"
             "graveyard-contents" -> "after double-tapping your three-card graveyard: its panel lists the cards grouped by type"
@@ -223,13 +227,13 @@ class TableStatesScreenshotTest {
         compose.onNodeWithContentDescription("Card action ring").assertDoesNotExist()
         compose.onNodeWithContentDescription("Card action ring").assertDoesNotExist()
         compose.onNodeWithContentDescription("Card inspection content").assertIsDisplayed()
-        compose.onNodeWithText("Creature — Soldier", substring = false).assertExists()
+        compose.onNodeWithContentDescription("Card image: Meadow Sentinel").assertExists()
+        compose.onNodeWithText("Creature — Soldier", substring = false).assertDoesNotExist()
         assertTrue(sent.isEmpty())
         row.performTouchInput { up() }
         compose.mainClock.autoAdvance = true
         compose.onNodeWithContentDescription("Card inspection content").assertDoesNotExist()
         compose.onNodeWithContentDescription("Card action ring").assertDoesNotExist()
-        compose.onNodeWithText("Creature — Soldier", substring = false).assertDoesNotExist()
         compose.onNodeWithContentDescription("Your Graveyard panel, 3 cards").assertIsDisplayed()
         assertTrue(sent.isEmpty())
     }
@@ -245,7 +249,8 @@ class TableStatesScreenshotTest {
         row.performTouchInput { advanceEventTime(350); click() }
         compose.waitForIdle()
         compose.mainClock.advanceTimeBy(120)
-        compose.onNodeWithContentDescription("Card action ring").assertIsDisplayed()
+        // ZON-058: Automatum offers nothing for it, so its menu would be empty and doesn't open
+        compose.onNodeWithContentDescription("Card action ring").assertDoesNotExist()
         compose.onRoot().performTouchInput { click(center) }
         compose.mainClock.advanceTimeBy(400)
         compose.mainClock.autoAdvance = true

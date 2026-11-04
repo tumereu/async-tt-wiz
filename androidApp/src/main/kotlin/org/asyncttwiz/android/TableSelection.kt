@@ -25,7 +25,6 @@ sealed interface TableIntent {
     data class Batch(val intents: List<TableIntent>, val invocationId: String) : TableIntent
     data class Actions(val itemId: String, val scope: TableScope?,
         val sources: Map<String, TableMoveSource> = emptyMap(), val topId: String? = null) : TableIntent
-    data class Inspect(val cardId: String) : TableIntent
     data class Peek(val cardId: String?) : TableIntent
     data object DismissTapUi : TableIntent
     /** Personal: open the search panel of a Graveyard/Exile pile (its double-tap). */

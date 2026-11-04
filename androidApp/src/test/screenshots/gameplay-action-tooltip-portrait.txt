@@ -1,1 +1,1 @@
-Portrait table on your turn 4, main phase: card menu open on your Meadow Sentinel, holding Inspect to show its name tooltip.
+Portrait table on your turn 4, main phase: card menu open on your Forest, holding its mana ability row to show its name tooltip.

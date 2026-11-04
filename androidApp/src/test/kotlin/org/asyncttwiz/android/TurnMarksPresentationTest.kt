@@ -7,13 +7,12 @@ import kotlin.test.*
 class TurnMarksPresentationTest {
     private val card = PlayCard("card", "definition", "owner", "field", "face", corner = "1/1", eotCorner = "+2/+2")
 
-    // TBL-110
-    @Test fun effectivePowerToughnessAndInspectKeepDeltaSeparateFromPermanentValue() {
+    // TBL-023: the table's P/T adds the until-end-of-turn change to the permanent value, in its own colour
+    @Test fun effectivePowerToughnessKeepsDeltaSeparateFromPermanentValue() {
         assertEquals("3/3", effectiveCorner(card))
-        assertEquals("3/3 (+2/+2 until end of turn)", inspectedCorner(card))
         assertEquals("0/1", effectiveCorner(card.copy(eotCorner = "-1/-0")))
         assertEquals("*/3", effectiveCorner(card.copy(corner = "*/1")))
-        assertEquals("1/1", inspectedCorner(card.copy(eotCorner = "")))
+        assertEquals("1/1", effectiveCorner(card.copy(eotCorner = "")))
         assertNotEquals(ChangedPowerToughnessColor, EotPowerToughnessColor)
     }
 

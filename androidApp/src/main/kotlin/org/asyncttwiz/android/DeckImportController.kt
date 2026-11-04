@@ -181,15 +181,6 @@ class DeckImportController(private val resolve: (String) -> DeckImportResult,
             else if (state.lookupFailed || state.result?.issues?.isNotEmpty() == true) lookup()
         }
     }
-    override val inspection = CardInspectionController()
-    fun inspect(entry: org.asyncttwiz.storage.ResolvedDeckEntry) {
-        val result = state.result ?: return
-        if (!closed && state.preview && entry in result.entries) {
-            val definition = source?.definitions?.get(entry.printing.id)
-            inspection.open(if (definition == null) InspectedCard.preview(entry, result.catalog)
-                else InspectedCard.retained(DeckJson.digest(definition), definition))
-        }
-    }
     fun connectSave(action: () -> ((DeckSavePlan) -> SavedDeck)?, saved: (SavedDeck) -> Unit) {
         saveAction = action; this.saved = saved
     }
@@ -267,7 +258,7 @@ class DeckImportController(private val resolve: (String) -> DeckImportResult,
             } }
         }
     }
-    fun open() { if (!closed) { epoch++; search.reset(); undo.clear(); inspection.close(); retryPlan = null; source = null; chosenCover = null; saveAfterLookup = false; relookupAfterCurrent = false; state = DeckImportState(active = true); initial = state } }
+    fun open() { if (!closed) { epoch++; search.reset(); undo.clear(); retryPlan = null; source = null; chosenCover = null; saveAfterLookup = false; relookupAfterCurrent = false; state = DeckImportState(active = true); initial = state } }
     fun openEditor(detail: DeckDetail) {
         open()
         if (closed) return
@@ -285,7 +276,7 @@ class DeckImportController(private val resolve: (String) -> DeckImportResult,
         open()
         if (!closed) state = state.copy(target = deck.id, name = deck.name)
     }
-    fun exit() { epoch++; search.reset(); undo.clear(); inspection.close(); retryPlan = null; source = null; chosenCover = null; saveAfterLookup = false; relookupAfterCurrent = false; state = DeckImportState() }
+    fun exit() { epoch++; search.reset(); undo.clear(); retryPlan = null; source = null; chosenCover = null; saveAfterLookup = false; relookupAfterCurrent = false; state = DeckImportState() }
     fun edit(text: String) {
         if (!closed && state.active) { if (!state.saving) epoch++; retryPlan = null
             relookupAfterCurrent = false; saveAfterLookup = false; undo.clear()
@@ -318,7 +309,7 @@ class DeckImportController(private val resolve: (String) -> DeckImportResult,
         }
     }
     fun review() { if (state.result?.resolved == true && !state.busy) state = state.copy(preview = true) }
-    fun editList() { if (!state.saving) { inspection.close(); state = state.copy(preview = false, error = null) } }
+    fun editList() { if (!state.saving) { state = state.copy(preview = false, error = null) } }
     fun name(value: String) { if (value != state.name) {
         cancelUrlFetch()
         retryPlan = null; state = state.copy(name = value, error = null)
@@ -366,7 +357,7 @@ class DeckImportController(private val resolve: (String) -> DeckImportResult,
             }
         }
     }
-    fun back() { if (inspection.state != null) inspection.close() else if (state.deleteDialog) dismissDelete()
+    fun back() { if (state.deleteDialog) dismissDelete()
         else if (search.state.open) search.close()
         else if (state.linkDialog) closeLink()
         else if (state.choosingCover) closeCover()

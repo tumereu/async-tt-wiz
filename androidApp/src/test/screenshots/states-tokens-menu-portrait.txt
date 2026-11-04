@@ -1,1 +1,1 @@
-Portrait table in combat at declare attackers with several tokens, card menu open on your token attacker.
+Portrait table in combat at declare attackers with several tokens, combat menu open on your token attacker's combat copy, Remove from combat its one button.

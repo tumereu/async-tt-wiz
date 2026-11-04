@@ -42,11 +42,6 @@ internal inline fun TableSemanticNodes(game: GameSummary, play: TableBoard, scen
                      stateDescription = "Related source and projections share this source identity; selection is independent"
                 onClick("Actions") { coordinator.actions(item); true }
                 val commands = mutableListOf<CustomAccessibilityAction>()
-                if (item.cardId == null && !item.covered && item.cards.isNotEmpty())
-                    commands += CustomAccessibilityAction("Inspect") { coordinator.inspect(item); true }
-                if (item.cardId != null) {
-                    commands += CustomAccessibilityAction("Inspect") { coordinator.inspect(item); true }
-                }
                 scene.viewports.firstOrNull { it.id == item.viewport && it.maxScroll > 0 }?.let { port ->
                     commands += CustomAccessibilityAction("Scroll toward start") { layout = layout.copy(scroll = layout.scroll + (port.id to (port.scroll - port.bounds.width / 2).coerceAtLeast(0f))); true }
                     commands += CustomAccessibilityAction("Scroll toward end") { layout = layout.copy(scroll = layout.scroll + (port.id to (port.scroll + port.bounds.width / 2).coerceAtMost(port.maxScroll))); true }

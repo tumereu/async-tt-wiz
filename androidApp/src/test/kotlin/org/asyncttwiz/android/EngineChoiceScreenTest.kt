@@ -104,8 +104,9 @@ class EngineChoiceScreenTest {
         val card = kit.atw(kit.hand("Storm Spark").first())
         assertFalse(toolkit.cast.start(card))
         assertEquals(SharedFlowController.BUSY, toolkit.error)
-        toolkit.inspect(card)
-        assertNotNull(toolkit.inspection, "Inspect still works")
+        toolkit.peek(card)
+        assertNotNull(toolkit.peek, "Holding to inspect still works")
+        toolkit.peek(null)
         kit.settle()
         assertTrue(kit.bob.play().flowOpen, "Bob's table shows the open choice")
         val bobs = kit.bob.device.model.engine.let { s -> s.player(kit.other).hand.first() as ObjectId.Card }.card.value

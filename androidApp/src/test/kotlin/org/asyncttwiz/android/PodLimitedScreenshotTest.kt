@@ -120,8 +120,7 @@ class PodLimitedScreenshotTest {
         val view = LimitedView(DraftMode.ROTISSERIE, "alice", listOf("alice", "bob", "carol"), listOf(copies[7]), false,
             currentPlayer = "alice", turn = 3, turns = 135, board = board)
         show({ "pod-rotisserie-${it.id}" }, board.map { it.copy }) {
-            PodRotisserieView(view, members, definitions, false, { _, _, _, _, _ -> }, Modifier.fillMaxSize(), columns,
-                remember { CardInspectionController() })
+            PodRotisserieView(view, members, definitions, false, { _, _, _, _, _ -> }, Modifier.fillMaxSize(), columns)
         }
         shot("pod-rotisserie", "Rotisserie draft for three on Alice's turn: the whole pool sorted by colour, " +
             "with the three cards already taken greyed and marked with their picker's avatar.")
@@ -146,8 +145,7 @@ class PodLimitedScreenshotTest {
         val view = LimitedView(DraftMode.ROCHESTER, "alice", listOf("alice", "bob", "carol"), emptyList(), false,
             packs = packs, round = 1, rounds = 3)
         show({ "pod-rochester-${it.id}" }, copies) {
-            PodRochesterView(view, members, definitions, false, { _, _, _, _, _ -> }, Modifier.fillMaxSize(), columns,
-                remember { CardInspectionController() })
+            PodRochesterView(view, members, definitions, false, { _, _, _, _, _ -> }, Modifier.fillMaxSize(), columns)
         }
         compose.onNodeWithTag("pod-rochester-copy-7").performClick()
         compose.mainClock.advanceTimeBy(500)
@@ -163,8 +161,7 @@ class PodLimitedScreenshotTest {
         val view = LimitedView(DraftMode.WINSTON, "alice", listOf("alice", "bob"), emptyList(), false, currentPlayer = "alice",
             turn = 4, stack = 31, piles = piles, pile = 1)
         show({ "pod-winston-${it.id}" }, piles.flatten().filterNotNull()) {
-            PodWinstonView(view, members, definitions, false, { _, _, _, _, _ -> }, Modifier.fillMaxSize(), columns,
-                remember { CardInspectionController() })
+            PodWinstonView(view, members, definitions, false, { _, _, _, _, _ -> }, Modifier.fillMaxSize(), columns)
         }
         shot("pod-winston", "Winston draft on Alice's turn while she looks at pile 2: cards she has seen are face up, " +
             "cards added since are backs, with Pass and Take pile 2 below.")
@@ -176,8 +173,7 @@ class PodLimitedScreenshotTest {
         val view = LimitedView(DraftMode.WINCHESTER, "alice", listOf("alice", "bob"), emptyList(), false, currentPlayer = "alice",
             turn = 2, stack = 24, piles = piles)
         show({ "pod-winchester-${it.id}" }, piles.flatten()) {
-            PodWinchesterView(view, members, definitions, false, { _, _, _, _, _ -> }, Modifier.fillMaxSize(), columns,
-                remember { CardInspectionController() })
+            PodWinchesterView(view, members, definitions, false, { _, _, _, _, _ -> }, Modifier.fillMaxSize(), columns)
         }
         compose.onNodeWithTag("pod-winchester-copy-4").performClick()
         compose.mainClock.advanceTimeBy(500)
@@ -191,7 +187,7 @@ class PodLimitedScreenshotTest {
     @Test fun picksDialogShowsSeenCardsAndBacksNewestFirst() {
         val picks = listOf(PodOpponentPicks(bob, listOf(null, copies[0], copies[1], null, copies[2])), PodOpponentPicks(carol, emptyList()))
         show({ "pod-picks-${it.id}" }, copies.take(3)) {
-            PodPicksDialog(picks, definitions, remember { CardInspectionController() }) {}
+            PodPicksDialog(picks, definitions) {}
         }
         File(SCREENSHOTS).mkdirs()
         captureShot(File(SCREENSHOTS, "pod-picks.png").path, "Picks dialog of a Winston draft showing Bob's picks newest " +

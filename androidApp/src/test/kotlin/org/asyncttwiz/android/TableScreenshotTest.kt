@@ -9,6 +9,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.hasAnyAncestor
+import androidx.compose.ui.test.hasClickAction
+import androidx.compose.ui.test.hasContentDescription
+import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -180,6 +184,9 @@ class TableScreenshotTest {
         val initial = LiveTableFixture.menuPlay(kind == "token-ping-reveal").let { play ->
             if (turn == null) play else play.copy(board = play.board.copy(turn = turn)) }
         val sentinel = initial.board.cards.first { it.containerId == "a/BATTLEFIELD" && it.corner == "1/3" }
+        // TBL-116: a card's menu holds what Automatum offers for it; the Forest offers its mana ability
+        val forest = initial.board.cards.first { card -> card.containerId == "a/BATTLEFIELD" &&
+            initial.definitions.single { it.digest == card.definition }.definition.name == "Forest" }
         val occurrenceId = "00000000-0000-4000-8000-000000000777"
         val play = when (kind) {
             "stack-contents" -> initial.copy(board = initial.board.copy(
@@ -192,7 +199,7 @@ class TableScreenshotTest {
         val board = engineTableBoard(play, "a")
         val toolkit = TableToolkitController("a", { board }, { true }, { action, _ -> sent += action; submitOk })
         when (kind) {
-            "card-actions", "action-tooltip" -> toolkit.openCard(TableScope(sentinel.id, listOf(sentinel.id)))
+            "card-actions", "action-tooltip" -> toolkit.openCard(TableScope(forest.id, listOf(forest.id)))
             "player-actions" -> toolkit.open(TableIntent.Actions("life/b", null),
                 TableItem("life/b", TableBounds(0f, 0f, 48f, 48f), "Bob, life 20", "20", "b", kind = TableItemKind.LIFE))
             "table-actions" -> toolkit.tableMenu()
@@ -201,7 +208,6 @@ class TableScreenshotTest {
             "pile-contents" -> toolkit.open(TableIntent.Actions("a/GRAVEYARD", null),
                 TableItem("a/GRAVEYARD", TableBounds(0f, 0f, 48f, 48f), "Graveyard", "2", "a", PlayZone.GRAVEYARD))
             "stack-contents" -> toolkit.stackContents()
-            "card-inspection" -> toolkit.inspect(sentinel.id)
         }
         compose.setContent {
             MaterialTheme {
@@ -216,25 +222,23 @@ class TableScreenshotTest {
         compose.waitForIdle()
         if (kind == "action-tooltip") {
             compose.mainClock.advanceTimeBy(350)
-            compose.onNodeWithContentDescription("Inspect", useUnmergedTree = false).performTouchInput {
+            menuRow().performTouchInput {
                 advanceEventTime(350); down(center); advanceEventTime(700); moveBy(Offset.Zero)
             }
             compose.mainClock.advanceTimeBy(700)
-            compose.onNodeWithText("Inspect").assertExists()
         }
         compose.waitForIdle()
         val output = File("$SCREENSHOTS/gameplay-$kind${if (turn != null) "-custom-turn" else ""}-${if (landscape) "landscape" else "portrait"}.png")
         requireNotNull(output.parentFile).mkdirs()
         val shown = when (kind) {
-            "card-actions" -> "card menu open on your Meadow Sentinel"
+            "card-actions" -> "card menu open on your Forest, its mana ability as its one row"
             "player-actions" -> "the Life panel open on Bob's life square"
             "table-actions" -> "Table actions menu open"
             "phase-picker" -> "phase and step picker open"
-            "action-tooltip" -> "card menu open on your Meadow Sentinel, holding Inspect to show its name tooltip"
+            "action-tooltip" -> "card menu open on your Forest, holding its mana ability row to show its name tooltip"
             "library-actions" -> "your library menu open"
             "pile-contents" -> "actions open for your two-card graveyard"
             "stack-contents" -> "Stack contents open, holding one Meadow Sentinel effect"
-            "card-inspection" -> "Inspect view open for your Meadow Sentinel"
             else -> error("No caption for $kind")
         }
         val moment = when {
@@ -267,31 +271,31 @@ class TableScreenshotTest {
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun pileContentsLandscape() { menu("pile-contents", true) }
     @Test fun stackContentsPortrait() { menu("stack-contents", false) }
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun stackContentsLandscape() { menu("stack-contents", true) }
-    @Test fun cardInspectionPortrait() { menu("card-inspection", false) }
-    @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun cardInspectionLandscape() { menu("card-inspection", true) }
 
 
 
-    @Test fun tooltipReleaseDoesNotInspect() {
+    @Test fun tooltipReleaseDoesNotActivate() {
         val (toolkit, sent) = menu("action-tooltip", false)
-        compose.onNodeWithText("Inspect").assertExists()
-        compose.onNodeWithContentDescription("Inspect").performTouchInput { up() }
+        menuRow().performTouchInput { up() }
         compose.runOnIdle {
-            assertEquals(null, toolkit.inspection)
+            assertEquals(null, toolkit.peek)
             assertTrue(sent.isEmpty())
         }
     }
 
+    /** The first row of the open card menu (TBL-115). */
+    private fun menuRow() = compose.onAllNodes(hasClickAction() and hasAnyAncestor(hasContentDescription("Card action ring"))).onFirst()
 
 
 
-    // TBL-071, TBL-116 (I-D52): one page, Inspect and Other side; no "Attack →" (the lanes pick targets, CMB-028);
-    // nothing changes the card by hand
-    @Test fun battlefieldMenuHasOnlyInspectAndOtherSide() {
+
+    // TBL-071, TBL-116 (I-D52): one page, only what Automatum offers for the card; no Inspect or Other side (holding
+    // inspects, TBL-104), no "Attack →" (the lanes pick targets, CMB-028); nothing changes the card by hand
+    @Test fun battlefieldMenuHasOnlyAutomatumsRows() {
         val (_, sent) = menu("card-actions", false)
         compose.waitForIdle()
-        for (name in listOf("Inspect", "Inspect other side")) compose.onNodeWithContentDescription(name).assertExists()
-        for (name in listOf("Attack →", "Choose action page", "Graveyard", "Edit card note", "Clone", "Ping / Unping", "Move to Stack"))
+        compose.onNodeWithContentDescription("Card action ring").assertExists()
+        for (name in listOf("Inspect", "Inspect other side", "Other side", "Attack →", "Choose action page", "Graveyard", "Edit card note", "Clone", "Ping / Unping", "Move to Stack"))
             compose.onNodeWithContentDescription(name).assertDoesNotExist()
         assertTrue(sent.isEmpty())
     }

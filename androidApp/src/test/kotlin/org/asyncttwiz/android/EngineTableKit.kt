@@ -78,7 +78,6 @@ internal class EngineTableKit(val scenario: EngineCombatScenario = EngineCombatS
                 is TableIntent.Scroll, is TableIntent.Overscroll -> {}
                 TableIntent.EmptyTap -> { by.closeAbilities(); by.combat.clearSelection(); by.hand.lower() }
                 is TableIntent.Actions -> owner.actionItem?.let { by.open(owner.capturedActions ?: intent, it) }
-                is TableIntent.Inspect -> by.inspect(intent.cardId)
                 else -> by.handle(intent)
             }
         })

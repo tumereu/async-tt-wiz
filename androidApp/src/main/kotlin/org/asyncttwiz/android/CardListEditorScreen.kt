@@ -58,7 +58,7 @@ internal fun CardListEditorScaffold(title: String, navigation: (() -> Unit)?, la
     dismissError: () -> Unit, nameRow: @Composable () -> Unit, listField: @Composable ColumnScope.() -> Unit,
     feedback: @Composable ColumnScope.() -> Unit, deleteLabel: String? = null, delete: () -> Unit = {}, deleteEnabled: Boolean = true,
     textProblems: Boolean = false) {
-    if (search.state.open) { CardSearchPage(editor, search, landscape); DeckCardInspection(editor.inspection); return }
+    if (search.state.open) { CardSearchPage(editor, search, landscape); return }
     val keyboard = LocalSoftwareKeyboardController.current
     val focus = LocalFocusManager.current
     val columns = rememberDeckViewColumns(if (editor.kind == CardListKind.CUBE) DeckViewScreen.CUBE_EDITOR else DeckViewScreen.EDITOR)
@@ -134,7 +134,6 @@ internal fun CardListEditorScaffold(title: String, navigation: (() -> Unit)?, la
             Spacer(Modifier.width(8.dp)); Text("Save")
         }
     }
-    DeckCardInspection(editor.inspection)
 }
 
 /** Leaving an editor with unsaved changes (LOB-064). */
@@ -267,7 +266,7 @@ internal fun cardListSummary(kind: CardListKind, entries: List<ResolvedDeckEntry
     if (count == 0L && section != DeckSection.MAINBOARD) null else "$count ${section.saved().shortLabel().lowercase()}"
 }.joinToString(" · ")
 
-/** One editor tile: swipe moves one copy to the next section; tap opens +1, −1, Remove all, Move to…, Inspect. */
+/** One editor tile: swipe moves one copy to the next section; tap opens +1, −1, Remove all, Move to…; hold inspects. */
 @Composable
 private fun EditorCard(editor: CardListEditor, tile: PreparationTile, key: String, section: DeckSection, menus: PodCardMenuOwner,
     onHold: (Boolean) -> Unit, onHoldScroll: (Float) -> Unit) {
@@ -280,11 +279,10 @@ private fun EditorCard(editor: CardListEditor, tile: PreparationTile, key: Strin
         editor.applyCards(change(entries), editor.listCatalog); return true
     }
     fun moveOne() = apply { CardListEdits.move(it, tile.digest, section, next, 1) }
-    fun inspect() { tile.definition?.takeIf { it.faces.isNotEmpty() }?.let { editor.inspection.open(InspectedCard.retained(tile.digest, it)) } }
     var choosing by remember(key) { mutableStateOf(false) }
     LaunchedEffect(menus.open == key) { if (menus.open != key) choosing = false }
     SwipeDeckCard(tile, key, "editor-card-$key", section.saved().sectionLabel(), next.saved(), enabled, menus,
-        capture = { { moveOne() } }, inspect = ::inspect, onHold = onHold, onHoldScroll = onHoldScroll,
+        capture = { { moveOne() } }, onHold = onHold, onHoldScroll = onHoldScroll,
         actions = listOf(CustomAccessibilityAction("Move one $name to ${next.saved().sectionLabel()}") { enabled && moveOne() })) { close ->
         if (!choosing) {
             DropdownMenuItem(text = { Text("+1") }, enabled = enabled, onClick = {
@@ -296,7 +294,6 @@ private fun EditorCard(editor: CardListEditor, tile: PreparationTile, key: Strin
             DropdownMenuItem(text = { Text("−1") }, enabled = enabled, onClick = { close(); apply { CardListEdits.change(it, tile.digest, section, -1) } })
             DropdownMenuItem(text = { Text("Remove all") }, enabled = enabled, onClick = { close(); apply { CardListEdits.removeAll(it, tile.digest, section) } })
             DropdownMenuItem(text = { Text("Move to…") }, enabled = enabled, onClick = { choosing = true })
-            DropdownMenuItem(text = { Text("Inspect") }, onClick = { close(); inspect() })
         } else editor.kind.sections.filter { it != section }.forEach { target ->
             DropdownMenuItem(text = { Text(if (tile.quantity > 1) "All ${tile.quantity} to ${target.saved().sectionLabel()}"
                 else "To ${target.saved().sectionLabel()}", color = target.saved().sectionColor()) }, enabled = enabled,

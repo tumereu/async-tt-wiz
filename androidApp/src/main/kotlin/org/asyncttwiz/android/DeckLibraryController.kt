@@ -23,22 +23,15 @@ class DeckLibraryController(private val api: Decks, private val credential: () -
     private var closed = false
     private data class Pending(val id: String, val update: UpdateDeck? = null, val delete: DeleteDeck? = null, val copy: CopyDeck? = null)
     private var pending: Pending? = null
-    val inspection = CardInspectionController()
-    fun inspect(identity: String) {
-        val detail = state.detail ?: return
-        if (!closed && state.dialog == null && detail.saved.entries.any { it.definition == identity })
-            detail.definitions[identity]?.let { inspection.open(InspectedCard.retained(identity, it)) }
-    }
-    fun clear() { epoch++; inspection.close(); pending = null; state = DeckLibraryState() }
+    fun clear() { epoch++; pending = null; state = DeckLibraryState() }
     fun back() {
-        if (inspection.state != null) { inspection.close(); return }
         if (state.dialog != null) { dismiss(); return }
         epoch++; pending = null
         state = state.copy(selected = null, detail = null, busy = false, mutating = false, error = null)
         refresh()
     }
     fun refresh() = load(null)
-    fun open(id: String) { inspection.close(); pending = null; state = state.copy(dialog = null, section = SavedDeckSection.MAINBOARD); load(id) }
+    fun open(id: String) { pending = null; state = state.copy(dialog = null, section = SavedDeckSection.MAINBOARD); load(id) }
     fun retry() = load(state.selected)
     fun dismissError() { state = state.copy(error = null) }
     fun section(value: SavedDeckSection) { state = state.copy(section = value) }
@@ -78,7 +71,7 @@ class DeckLibraryController(private val api: Decks, private val credential: () -
             } catch (failure: Exception) {
                 post { if (!closed && generation == epoch) {
                     if (id != null && (failure as? DeckFailure)?.code == "not_found") {
-                        inspection.close(); pending = null
+                        pending = null
                         state = state.copy(selected = null, detail = null, dialog = null, busy = false,
                             decks = state.decks.filterNot { it.id == id }, draftDecks = state.draftDecks.filterNot { it.id == id },
                             error = "This saved deck was deleted on another device.")

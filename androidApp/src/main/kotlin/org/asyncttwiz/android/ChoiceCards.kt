@@ -129,7 +129,7 @@ internal fun ChoiceInspection(inspector: ChoiceInspector, play: TableBoard, view
     GameplayCardInspection(play, viewer, remember(play.playId, id) {
         ManualInspection(play.gameId, play.playId, id, faces.map { it.faceId }, explicit = true, snapshot = played,
             stackEntryId = card.key.takeIf { card.ability != null })
-    }, { inspector.hold(card, false) }, peek = true)
+    }, { inspector.hold(card, false) })
 }
 
 /**

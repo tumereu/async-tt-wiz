@@ -276,6 +276,46 @@ class EngineTableScreenshotTest {
     // trigger is on the Stack as an ability token (the Herald's art, the trigger marker, its name and text), not as the
     // Herald card; the Stack list shows it as "Ember Herald's ability" with its text
     @Test fun anAbilityOnTheStackIsDrawnAsAnAbility() {
+        val (game, h) = heraldTriggerOnStack()
+        render(game, h.a)
+        compose.onNodeWithTag("stack-resolve").assertExists()
+        compose.onNodeWithContentDescription("Triggered ability, Ember Herald — When this creature enters", substring = true).assertExists()
+        captureShot("$SCREENSHOTS/engine/stack-ability.png",
+            "In Full control Alice's Ember Herald resolved and its enters trigger is on the Stack: it is drawn as a small dark ability token with the Herald's art, a \"!\" trigger marker, the Herald's name and the trigger's text, not as the Herald card, with Resolve under it.")
+        compose.onNodeWithContentDescription("Stack, 1 entries").performClick()
+        compose.waitForIdle()
+        compose.onNodeWithText("Top · Ember Herald's ability").assertExists()
+        captureShot("$SCREENSHOTS/engine/stack-ability-list.png",
+            "Alice tapped the Stack holding her Ember Herald's enters trigger: the list shows it as the ability token, \"Top · Ember Herald's ability\" and the trigger's text.")
+    }
+
+    // STK-046, TBL-104: holding an ability's entry on the Stack shows a card-sized tile with the source's name and the
+    // ability's text, then the source card's picture, and nothing else
+    @Test fun holdingAnAbilityOnTheStackShowsItsTileThenItsSourceCard() {
+        val (game, h) = heraldTriggerOnStack()
+        render(game, h.a)
+        compose.onNodeWithContentDescription("Stack, 1 entries").performClick()
+        compose.waitForIdle()
+        val row = compose.onNodeWithText("Top · Ember Herald's ability")
+        compose.mainClock.autoAdvance = false
+        row.performTouchInput { down(center) }
+        compose.mainClock.advanceTimeBy(600)
+        val tile = compose.onNodeWithContentDescription("Triggered ability of Ember Herald").assertIsDisplayed().getBoundsInRoot()
+        compose.onNode(hasText("When this creature enters", substring = true) and
+            hasAnyAncestor(hasContentDescription("Triggered ability of Ember Herald"))).assertExists()
+        val source = compose.onNodeWithContentDescription("Card image: Ember Herald").assertExists().getBoundsInRoot()
+        assertTrue(tile.bottom <= source.top, "The tile first, then the source card")
+        assertEquals(tile.right - tile.left, source.right - source.left)
+        compose.waitForIdle(); compose.mainClock.advanceTimeBy(100)
+        captureShot("$SCREENSHOTS/engine/stack-ability-inspect.png",
+            "Alice holds her Ember Herald's enters trigger in the Stack list: Inspect shows a dark card-sized tile with the trigger marker, \"Triggered ability\", the Herald's name and the trigger's text, then the Herald's card image below it.")
+        row.performTouchInput { up() }
+        compose.mainClock.autoAdvance = true
+        compose.onNodeWithContentDescription("Card inspection content").assertDoesNotExist()
+    }
+
+    /** Alice in Full control with her Ember Herald's enters trigger on the Stack, holding priority. */
+    private fun heraldTriggerOnStack(): Pair<EngineGame, EngineGameFixture> {
         val h = EngineGameFixture(heralds = true)
         val me = PlayerId(h.a)
         val game = EngineGame(h.game.id, h.a, h.base, h.snapshot()).apply { tick(false, 1_000); keep(emptyList()); tick(false, 2_000) }
@@ -293,16 +333,7 @@ class EngineTableScreenshotTest {
         assertEquals(GameDevice.Status.YourMove, game.device.status)
         val top = CombatStackRules.stack(game.play().board).cards.single()
         assertEquals(MtgStackKind.Triggered, game.play().board.stackEffects.single { it.id == top }.item?.kind)
-        render(game, h.a)
-        compose.onNodeWithTag("stack-resolve").assertExists()
-        compose.onNodeWithContentDescription("Triggered ability, Ember Herald — When this creature enters", substring = true).assertExists()
-        captureShot("$SCREENSHOTS/engine/stack-ability.png",
-            "In Full control Alice's Ember Herald resolved and its enters trigger is on the Stack: it is drawn as a small dark ability token with the Herald's art, a \"!\" trigger marker, the Herald's name and the trigger's text, not as the Herald card, with Resolve under it.")
-        compose.onNodeWithContentDescription("Stack, 1 entries").performClick()
-        compose.waitForIdle()
-        compose.onNodeWithText("Top · Ember Herald's ability").assertExists()
-        captureShot("$SCREENSHOTS/engine/stack-ability-list.png",
-            "Alice tapped the Stack holding her Ember Herald's enters trigger: the list shows it as the ability token, \"Top · Ember Herald's ability\" and the trigger's text.")
+        return game to h
     }
 
     // HIS-095, HIS-091 (owner playtest 2026-11-04 #1, #2): Bob's playback stops at the keep Alice assumed for him: his

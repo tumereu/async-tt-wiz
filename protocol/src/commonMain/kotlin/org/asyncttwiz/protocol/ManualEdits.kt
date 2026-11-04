@@ -24,11 +24,14 @@ object ManualDisclosure {
     fun permittedFaces(state: PlayState, card: PlayCard, viewer: String, inspecting: Boolean): List<DefinitionFace> =
         permittedFaces(state.board, state.definitions, card, viewer, inspecting)
 
-    /** [permittedFaces] on [board] with its card data [definitions] (a board drawn for a game on engine state). */
+    /** [permittedFaces] on [board] with its card data [definitions] (a board drawn for a game on engine state).
+     * Inspecting a card the viewer sees face up (or one in their own region) shows every face of it (TBL-106: inspect
+     * shows every face); otherwise only the face it shows. */
     fun permittedFaces(board: BoardState, definitions: List<SubmittedDefinition>, card: PlayCard, viewer: String,
         inspecting: Boolean): List<DefinitionFace> {
         val faces = definitions.singleOrNull { it.digest == card.definition }?.definition?.faces.orEmpty()
-        return if (inspecting && ownRegion(board, card, viewer)) faces
-        else if (CardVisibility.isVisibleFaceUp(board, card, viewer)) faces.filter { it.faceId == card.faceId } else emptyList()
+        val visible = CardVisibility.isVisibleFaceUp(board, card, viewer)
+        return if (inspecting && (visible || ownRegion(board, card, viewer))) faces
+        else if (visible) faces.filter { it.faceId == card.faceId } else emptyList()
     }
 }

@@ -65,10 +65,8 @@ internal fun PreparationScreen(controller: LobbyController, actor: String, lands
                 controller.captureTransfer(digest, source, false)?.let { transfer -> { controller.transfer(transfer) } }
             override fun move(digest: String, source: SavedDeckSection, all: Boolean) =
                 controller.captureTransfer(digest, source, all)?.let(controller::transfer) == true
-            override fun inspect(digest: String) = controller.inspectPrepared(digest)
         }, undo = if (undo == null) null else ({ controller.undoPreparation() }),
-        undoEnabled = connected && (undo !is PreparationStep.Basics || !pending), inspection = controller.inspection,
-        navigation = hamburger)
+        undoEnabled = connected && (undo !is PreparationStep.Basics || !pending), navigation = hamburger)
 }
 
 /** One section of a preparation screen: its cards, the section a swipe moves them to and optional basic land steppers. */
@@ -76,11 +74,10 @@ internal class PreparationSection(val source: SavedDeckSection, val opposite: Sa
     val groups: List<PreparationGroup>, val basics: (@Composable () -> Unit)? = null)
 
 /** What a preparation card does: [capture] the one-copy move a swipe commits on release, [move] one or all copies
- * across from the menu, [inspect] the card. */
+ * across from the menu. */
 internal interface PreparationMoves {
     fun capture(digest: String, source: SavedDeckSection): (() -> Boolean)?
     fun move(digest: String, source: SavedDeckSection, all: Boolean): Boolean
-    fun inspect(digest: String)
 }
 
 /** Withholds a preparation's cards until their first read, with a retry after a failure (see [InitialLoadArea]). */
@@ -90,19 +87,19 @@ internal class PreparationLoad(val loaded: Boolean, val failed: Boolean, val ret
  * The preparation screen (LOB-047–LOB-051) shared by game deck preparation and Prepare cube (DRF-142): [title] with
  * optional [navigation] and header [actions]; a line saying what last moved, or "Disconnected · preparation is
  * read-only" while not [connected]; a columns control remembered for [columnsScreen]; one scrolling page of [sections]
- * as pictures by type with swipe, tap menu and hold preview; and a floating Undo shown while [undo] is set. [tag]
+ * as pictures by type with swipe, tap menu and hold to inspect; and a floating Undo shown while [undo] is set. [tag]
  * names the list ("preparation"), its cards ("preparation-card-…") and the Undo button ("preparation-undo").
  */
 @Composable
 internal fun PreparationLayout(title: String, tag: String, columnsScreen: DeckViewScreen, connected: Boolean,
     feedback: TransferFeedback?, sections: List<PreparationSection>?, moves: PreparationMoves, undo: (() -> Unit)?,
-    undoEnabled: Boolean, inspection: CardInspectionController, navigation: (() -> Unit)? = null,
+    undoEnabled: Boolean, navigation: (() -> Unit)? = null,
     actions: @Composable RowScope.() -> Unit = {}, load: PreparationLoad? = null, overlay: @Composable BoxScope.() -> Unit = {}) {
     val alpha = remember { Animatable(0f) }
     LaunchedEffect(feedback) {
         if (feedback != null) { alpha.snapTo(1f); alpha.animateTo(0f, tween(1500)) } else alpha.snapTo(0f)
     }
-    // One card popup at a time: the tap menu or the hold preview, whichever came last.
+    // One card popup at a time: the tap menu or the held card's Inspect, whichever came last.
     val menus = remember { PodCardMenuOwner() }
     var held by remember { mutableStateOf<Pair<String, PreparationTile>?>(null) }
     val previewScroll = rememberScrollState()
@@ -128,7 +125,6 @@ internal fun PreparationLayout(title: String, tag: String, columnsScreen: DeckVi
                     val key = "$source/${tile.digest}"
                     PreparationCard(tile, key, "$tag-card-$key", title, section.opposite, connected, menus,
                         { moves.capture(tile.digest, source) }, { all -> moves.move(tile.digest, source, all) },
-                        { moves.inspect(tile.digest) },
                         onHold = { open ->
                             if (open) {
                                 menus.open = null
@@ -162,7 +158,6 @@ internal fun PreparationLayout(title: String, tag: String, columnsScreen: DeckVi
         }
         PodCardArtPreview(card, tile.name, previewScroll)
     }
-    DeckCardInspection(inspection)
 }
 
 /** One section of the visual deck shared by game preparation, saved-deck and saved-cube viewing: a coloured "Mainboard · 60"
@@ -207,11 +202,10 @@ internal fun LazyListScope.visualDeckSection(source: SavedDeckSection, count: Lo
     }
 }
 
-/** A read-only deck tile: tap inspects, a short hold previews the card until release. Nothing moves. */
+/** A read-only deck tile: a short hold inspects the card until release (a tap does nothing). Nothing moves. */
 @Composable
-internal fun VisualDeckCard(tile: PreparationTile, key: String, title: String, inspect: () -> Unit,
+internal fun VisualDeckCard(tile: PreparationTile, key: String, title: String,
     onHold: (Boolean) -> Unit, onHoldScroll: (Float) -> Unit) {
-    val currentInspect by rememberUpdatedState(inspect)
     val currentHold by rememberUpdatedState(onHold)
     val currentHoldScroll by rememberUpdatedState(onHoldScroll)
     val name = tile.name
@@ -219,11 +213,10 @@ internal fun VisualDeckCard(tile: PreparationTile, key: String, title: String, i
         val width = with(LocalDensity.current) { maxWidth.roundToPx().coerceAtLeast(1) }
         Box(Modifier.fillMaxWidth().aspectRatio(1f / 1.4f)
             .pointerInput(key) {
-                podPickGestures(onTap = { currentInspect() }, onInspect = { currentHold(it) }, onInspectScroll = { currentHoldScroll(it) })
+                podPickGestures(onTap = {}, onInspect = { currentHold(it) }, onInspectScroll = { currentHoldScroll(it) })
             }
             .clearAndSetSemantics {
                 contentDescription = "$name, ${tile.quantity} copies, $title"
-                onClick("Inspect $name") { currentInspect(); true }
             }) { PreparationTileFace(tile, width) }
     }
 }
@@ -261,11 +254,11 @@ private fun PreparationGrid(columns: Int, gap: Dp, content: @Composable () -> Un
 /** The move captured when a swipe starts; its release commits exactly this action. */
 private class DeckCardSwipe { var tried = false; var commit: (() -> Boolean)? = null }
 
-/** Tap opens the move menu, a short hold previews the card until release, a horizontal swipe either
+/** Tap opens the move menu, a short hold inspects the card until release, a horizontal swipe either
  * way past the Build threshold moves one copy across. Only a real release commits; a cancelled gesture never moves. */
 @Composable
 private fun PreparationCard(tile: PreparationTile, key: String, tag: String, title: String, opposite: SavedDeckSection,
-    enabled: Boolean, menus: PodCardMenuOwner, capture: () -> (() -> Boolean)?, move: (Boolean) -> Boolean, inspect: () -> Unit,
+    enabled: Boolean, menus: PodCardMenuOwner, capture: () -> (() -> Boolean)?, move: (Boolean) -> Boolean,
     onHold: (Boolean) -> Unit, onHoldScroll: (Float) -> Unit) {
     val currentCapture by rememberUpdatedState(capture)
     val currentMove by rememberUpdatedState(move)
@@ -273,7 +266,7 @@ private fun PreparationCard(tile: PreparationTile, key: String, tag: String, tit
     val target = opposite.label()
     fun move(all: Boolean) = currentMove(all)
     SwipeDeckCard(tile, key, tag, title, opposite, enabled, menus,
-        capture = { currentCapture() }, inspect = inspect,
+        capture = { currentCapture() },
         onHold = onHold, onHoldScroll = onHoldScroll,
         actions = listOf(CustomAccessibilityAction("Move one $name to $target") { enabled && move(false) },
             CustomAccessibilityAction("Move all $name to $target") { enabled && move(true) })) { close ->
@@ -281,19 +274,18 @@ private fun PreparationCard(tile: PreparationTile, key: String, tag: String, tit
             onClick = { close(); move(false) })
         DropdownMenuItem(text = { Text(if (tile.quantity > 1) "Move all ${tile.quantity} to $target" else "Move to $target") },
             enabled = enabled, onClick = { close(); move(true) })
-        DropdownMenuItem(text = { Text("Inspect") }, onClick = { close(); inspect() })
     }
 }
 
 /**
- * A deck tile that moves: tap opens its [menu], a short hold previews the card until release, a horizontal swipe
+ * A deck tile that moves: tap opens its [menu], a short hold inspects the card until release, a horizontal swipe
  * either way past the Build threshold commits the action [capture] returned when the swipe started (one copy to
  * [target]). Only a real release commits; a cancelled gesture never moves. Shared by game preparation, the card list
  * editor and Prepare cube.
  */
 @Composable
 internal fun SwipeDeckCard(tile: PreparationTile, key: String, tag: String, title: String, target: SavedDeckSection,
-    enabled: Boolean, menus: PodCardMenuOwner, capture: () -> (() -> Boolean)?, inspect: () -> Unit,
+    enabled: Boolean, menus: PodCardMenuOwner, capture: () -> (() -> Boolean)?,
     onHold: (Boolean) -> Unit, onHoldScroll: (Float) -> Unit, actions: List<CustomAccessibilityAction> = emptyList(),
     menu: @Composable ColumnScope.(close: () -> Unit) -> Unit) {
     val currentCapture by rememberUpdatedState(capture)
@@ -330,7 +322,7 @@ internal fun SwipeDeckCard(tile: PreparationTile, key: String, tag: String, titl
             .clearAndSetSemantics {
                 contentDescription = "$name, ${tile.quantity} copies, $title"
                 onClick("Actions for $name") { menus.open = key; true }
-                customActions = actions + CustomAccessibilityAction("Inspect $name") { inspect(); true }
+                if (actions.isNotEmpty()) customActions = actions
             }) { PreparationTileFace(tile, width, reference) }
         if (drag != 0f) PodBuildSwipeCopy(key, reference, name, width, drag, preparationSwipeProgress(drag, threshold),
             if (target == SavedDeckSection.MAINBOARD) PodDeckCategory.MAIN else PodDeckCategory.SIDE,

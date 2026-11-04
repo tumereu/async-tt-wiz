@@ -45,7 +45,7 @@ internal fun PodCardPlaceholder(name: String) {
 }
 
 /** Physical sides only: split/adventure/flip/room parts still use their single printed image.
- * Used by the Build feed, which flips between them on tap; hold previews show the front only. */
+ * Used by the Build feed, which flips between them on tap, and by Inspect, which shows them all ([inspectFaces]). */
 internal fun podPreviewFaces(definition: CardDefinition): List<Int> {
     if (definition.faces.isEmpty()) return emptyList()
     return if (definition.layout in setOf("transform", "modal_dfc", "meld", "reversible_card", "double_faced_token") ||
@@ -53,11 +53,6 @@ internal fun podPreviewFaces(definition: CardDefinition): List<Int> {
         // A meld snapshot can include the other front component; the result is the last side.
         listOf(0, definition.faces.lastIndex).distinct()
     } else listOf(0)
-}
-
-/** Opens the full inspector (Next face, Enlarge artwork, rotate) on a pod card; nothing without its card data. */
-internal fun CardInspectionController.openPodCard(identity: String, definition: CardDefinition?) {
-    definition?.takeIf { it.faces.isNotEmpty() }?.let { open(InspectedCard.retained(identity, it)) }
 }
 
 @Composable
@@ -68,47 +63,11 @@ internal fun PodPickArtPreview(copy: DraftCopy, definition: CardDefinition?, scr
     PodCardArtPreview(card, definition?.name ?: "Card data unavailable", scroll = scroll)
 }
 
+/** Inspect outside a game (TBL-104): every face of [card] while held ([fallback] names a card without card data). */
 @Composable
 internal fun PodCardArtPreview(card: InspectedCard?, fallback: String, scroll: ScrollState = rememberScrollState()) {
     // Shown only while a finger holds a card; that finger's release closes it.
-    Popup(alignment = Alignment.Center, properties = PopupProperties(focusable = false)) {
-        PodArtPreviewContent(card, fallback, scroll)
-    }
-}
-
-@Composable
-internal fun PodArtPreviewContent(card: InspectedCard?, fallback: String, scroll: ScrollState = rememberScrollState()) {
-    // Like the in-game hold preview: one face (the front of a double-faced card), never both stacked.
-    val faces = listOf(0)
-    BoxWithConstraints(Modifier.fillMaxSize().testTag("pod-pick-art-preview"), contentAlignment = Alignment.Center) {
-        val roomWidth = maxWidth - 16.dp
-        val roomHeight = maxHeight - 16.dp
-        // A card printed sideways shows turned and as large as fits (held previews have no rotate button).
-        val turns = faces.map { card?.orientation(it)?.degrees ?: 0 }
-        val sizes = turns.map { degrees ->
-            if (degrees % 180 != 0) inspectedArtworkSize(true, roomWidth, if (faces.size == 1) roomHeight else Dp.Infinity)
-                .let { it.width to it.height }
-            else (if (faces.size == 1) minOf(roomWidth, roomHeight / 1.4f) else minOf(roomWidth, InspectedArtworkMaxWidth))
-                .let { it to it * 1.4f }
-        }
-        val density = LocalDensity.current
-        ArtworkViewport(Modifier.width(sizes.maxOf { it.first }).heightIn(max = roomHeight)
-            .semantics { contentDescription = "Card artwork viewport" }, scroll) {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                faces.forEachIndexed { position, index ->
-                    val (width, height) = sizes[position]
-                    val name = if (faces.size == 1) fallback else card?.definition?.faces?.getOrNull(index)?.name ?: fallback
-                    val reference = card?.artwork?.getOrNull(index)
-                    CardArtwork(reference?.copy(size = "large"), name,
-                        with(density) { width.roundToPx() }.coerceIn(1, 4096),
-                        with(density) { height.roundToPx() }.coerceIn(1, 4096),
-                        Modifier.requiredSize(width, height).testTag("pod-preview-face-$index"),
-                        placeholder = { PodCardPlaceholder(name) }, previewReference = reference?.copy(size = "normal"),
-                        degrees = turns[position])
-                }
-            }
-        }
-    }
+    InspectPopup(inspectTiles(card, fallback), scroll)
 }
 
 /** Screen-wide owner of the single open card menu: simultaneous taps leave only the latest open. */

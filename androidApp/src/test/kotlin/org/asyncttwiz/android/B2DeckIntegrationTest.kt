@@ -61,7 +61,7 @@ class B2DeckIntegrationTest {
     }
 
     // LOB-064
-    @Test fun acceptedImportOpensRetainedDefinitionAndSyncDoesNotRetargetInspection() {
+    @Test fun acceptedImportOpensRetainedDefinitionAndSyncKeepsTheDraftName() {
         val worker = Worker()
         val plan = DeckSavePlan.from(resolved, summary.name)
         val server = DeckServer(SavedDeck(summary, plan.deck.entries), plan.definitions.definitions)
@@ -76,10 +76,9 @@ class B2DeckIntegrationTest {
         assertEquals(1, server.creates)
         val digest = plan.deck.entries.single().definition
         assertEquals(4, library.state.detail!!.saved.entries.single().quantity)
-        library.inspect(digest)
-        val captured = library.inspection.state!!.card
+        val captured = InspectedCard.retained(digest, library.state.detail!!.definitions.getValue(digest))
         assertEquals("Exact  text 🧙", captured.definition.faces.single().rulesText)
-        assertNull(captured.artwork.single()!!.printing) // Missing art does not block text inspection.
+        assertNull(captured.artwork.single()!!.printing) // Missing art leaves the placeholder card.
         library.edit(DeckDialog.RENAME); library.name("Unfinished name")
         server.saved = server.saved.copy(deck = summary.copy(name = "Newer server name", revision = "2"),
             entries = plan.deck.entries.map { it.copy(quantity = 9) })
@@ -87,8 +86,7 @@ class B2DeckIntegrationTest {
         assertEquals(9, library.state.detail!!.saved.entries.single().quantity)
         assertEquals("Newer server name", library.state.detail!!.saved.deck.name)
         assertEquals("Unfinished name", library.state.draftName)
-        assertEquals(captured, library.inspection.state!!.card)
-        library.inspection.close(); assertEquals(DeckDialog.RENAME, library.state.dialog)
+        assertEquals(DeckDialog.RENAME, library.state.dialog)
         importer.close(); library.close(); worker.drain()
     }
 
@@ -116,7 +114,7 @@ class B2DeckIntegrationTest {
         assertIs<StoredSession.Empty>(store.value)
         assertFalse(importer.state.active); assertEquals("", importer.state.text)
         assertNull(library.state.detail); assertNull(library.state.selected)
-        assertNull(library.inspection.state); assertTrue(library.state.decks.isEmpty())
+        assertTrue(library.state.decks.isEmpty())
         importer.close(); library.close(); deckWorker.drain(); auth.close(); authWorker.drain()
     }
 

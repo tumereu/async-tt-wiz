@@ -42,34 +42,31 @@ class SidewaysInspectionUiTest {
         assertEquals(300f, bounds.width.value, .5f); assertEquals(200f, bounds.height.value, .5f)
     }
 
+    private fun show(card: InspectedCard) = compose.setContent { MaterialTheme {
+        InspectContent(inspectTiles(card, card.definition.name), androidx.compose.foundation.rememberScrollState())
+    } }
+
     // TBL-108
-    @Test fun splitCardInspectionIsLandscapeWithoutRotateButton() {
-        val controller = CardInspectionController().apply { open(card("split", "Instant")) }
-        compose.setContent { MaterialTheme { CardInspection(controller) } }
-        val viewport = compose.onNodeWithContentDescription("Card artwork viewport").getBoundsInRoot()
-        assertTrue(viewport.width > viewport.height, "$viewport")
+    @Test fun splitCardInspectionIsLandscapeAndNoTallerThanAnUprightCard() {
+        show(card("split", "Instant", "Instant"))
+        val image = compose.onNodeWithContentDescription("Card image: Sideways test").getBoundsInRoot()
+        assertTrue(image.width > image.height, "$image")
+        assertTrue(image.height.value <= 448.5f, "$image")
+        compose.onAllNodesWithContentDescription("Card image", substring = true).assertCountEquals(1)
         compose.onNodeWithContentDescription("Rotate card").assertDoesNotExist()
     }
 
     // TBL-108
-    @Test fun aftermathInspectionTurnsOnlyOnRequest() {
-        val controller = CardInspectionController().apply { open(card("aftermath", "Instant")) }
-        compose.setContent { MaterialTheme { CardInspection(controller) } }
-        fun viewport() = compose.onNodeWithContentDescription("Card artwork viewport").getBoundsInRoot()
-        assertTrue(viewport().height > viewport().width)
-        compose.onNodeWithContentDescription("Rotate card").performClick()
-        compose.onNodeWithContentDescription("Rotate back").assertExists()
-        compose.runOnIdle { assertEquals(270, controller.state!!.degrees) }
-        assertTrue(viewport().width > viewport().height)
-        compose.onNodeWithContentDescription("Rotate back").performClick()
-        compose.runOnIdle { assertEquals(0, controller.state!!.degrees) }
-    }
+    @Test fun aftermathCardsStayUprightWithoutARotateButton() = assertUpright(card("aftermath", "Instant", "Sorcery"))
 
-    @Test fun deckInspectionOffersTheTurnForFlipCards() {
-        val controller = CardInspectionController().apply { open(card("flip", "Creature — Human Soldier", "Legendary Creature — Spirit")) }
-        compose.setContent { MaterialTheme { DeckCardInspection(controller) } }
-        // Without artwork the deck inspector shows text only, so no artwork controls appear.
+    // TBL-108
+    @Test fun flipCardsStayUprightWithoutARotateButton() =
+        assertUpright(card("flip", "Creature — Human Soldier", "Legendary Creature — Spirit"))
+
+    private fun assertUpright(card: InspectedCard) {
+        show(card)
+        val image = compose.onNodeWithContentDescription("Card image: Sideways test").getBoundsInRoot()
+        assertTrue(image.height > image.width, "$image")
         compose.onNodeWithContentDescription("Rotate card").assertDoesNotExist()
-        compose.onNodeWithText("Face 0").assertExists()
     }
 }

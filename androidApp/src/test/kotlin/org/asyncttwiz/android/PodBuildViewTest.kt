@@ -135,6 +135,7 @@ class PodBuildViewTest {
         } }
         compose.onNodeWithText("×2").assertExists()
         compose.onNodeWithTag("pod-build-card-first").performClick()
+        compose.onNodeWithText("Inspect").assertDoesNotExist()
         compose.onNodeWithText("→ Side").assertIsDisplayed().performClick()
         compose.runOnIdle { assertEquals(listOf("first" to PodDeckCategory.SIDE), moves) }
         compose.onNodeWithTag("pod-build-card-first").performTouchInput { longClick() }
@@ -143,38 +144,41 @@ class PodBuildViewTest {
     }
 
     // DRF-102
-    @Test fun submittedCardsHaveNoMoveGesturesAndTheirMenuOnlyInspects() {
+    @Test fun submittedCardsHaveNoMoveGesturesAndHoldingStillInspects() {
         var inspections = 0
-        var opened = 0
         compose.setContent { MaterialTheme {
             Box(Modifier.width(160.dp)) { PodBuildCard(tile, PodDeckCategory.MAIN, false,
-                { id, destination -> moves += id to destination }, { if (it) inspections++ }, onInspectCard = { opened++ }) }
+                { id, destination -> moves += id to destination }, { if (it) inspections++ }) }
         } }
         val node = compose.onNodeWithTag("pod-build-card-first")
-        node.performClick()
-        compose.onNodeWithText("→ Side").assertIsNotEnabled()
-        compose.onNodeWithText("→ Trash").assertIsNotEnabled()
-        compose.onNodeWithText("Inspect").assertIsEnabled().performClick()
-        compose.onNodeWithText("Inspect").assertDoesNotExist()
         node.performTouchInput { swipeRight() }
         node.performTouchInput { swipeLeft() }
         node.performTouchInput { longClick() }
-        compose.runOnIdle { assertTrue(moves.isEmpty()); assertEquals(1, inspections); assertEquals(1, opened) }
+        compose.runOnIdle { assertTrue(moves.isEmpty()); assertEquals(1, inspections) }
+        node.performClick()
+        compose.onNodeWithText("→ Side").assertIsNotEnabled()
+        compose.onNodeWithText("→ Trash").assertIsNotEnabled()
+        compose.onNodeWithText("Inspect").assertDoesNotExist()
     }
 
-    // DRF-102
-    @Test fun menuInspectOpensTheFullInspectorWithTheBackFace() {
-        val double = CardDefinition("Day // Night", listOf(DefinitionFace("day", "Day Side"), DefinitionFace("night", "Night Side")),
-            layout = "transform")
+    // DRF-102, TBL-104, TBL-106: holding a double-faced card in the deck builder shows both faces, only as pictures
+    @Test fun holdingADoubleFacedCardShowsEveryFaceUntilRelease() {
+        val double = CardDefinition("Day // Night", listOf(DefinitionFace("day", "Day Side", rulesText = "Day rules."),
+            DefinitionFace("night", "Night Side", rulesText = "Night rules.")), layout = "transform")
         compose.setContent { MaterialTheme {
             PodBuildView(PodDeckBuild(listOf(PodDeckCopy("first"))), mapOf("first" to DraftCopy("first", "a")),
                 mapOf("a" to double), null, true, false, { _, _ -> }, { _, _ -> }, {})
         } }
-        compose.onNodeWithTag("pod-build-card-first").performClick()
-        compose.onNodeWithText("Inspect").performClick()
-        compose.onNodeWithText("Day Side").assertIsDisplayed()
-        compose.onNodeWithContentDescription("Next face").performClick()
-        compose.onNodeWithText("Night Side").assertIsDisplayed()
+        val card = compose.onNodeWithTag("pod-build-card-first")
+        card.performTouchInput { down(center); advanceEventTime(200) }
+        compose.mainClock.advanceTimeBy(200)
+        val day = compose.onNodeWithContentDescription("Card image: Day Side").assertExists().getBoundsInRoot()
+        val night = compose.onNodeWithContentDescription("Card image: Night Side").assertExists().getBoundsInRoot()
+        assertTrue(day.bottom <= night.top, "Portrait stacks the faces, front first")
+        compose.onNodeWithText("Day rules.").assertDoesNotExist()
+        compose.onNodeWithText("Night rules.").assertDoesNotExist()
+        card.performTouchInput { up() }
+        compose.onNodeWithTag("card-inspection").assertDoesNotExist()
     }
 
     @Test fun verticalDragOnACardScrollsInsteadOfMovingIt() {
@@ -202,12 +206,12 @@ class PodBuildViewTest {
         val first = compose.onNodeWithTag("pod-build-card-first")
         first.performTouchInput { down(center); advanceEventTime(160) }
         compose.mainClock.advanceTimeBy(160)
-        compose.onNodeWithTag("pod-preview-face-0").assertExists()
-        compose.onNodeWithTag("pod-preview-face-1").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Card image: Front").assertExists()
+        compose.onNodeWithContentDescription("Card image: Back").assertExists()
         first.performTouchInput { advanceEventTime(PodHoldSettleMillis + 20) }
         compose.mainClock.advanceTimeBy(PodHoldSettleMillis + 20)
         first.performTouchInput { up() }
-        compose.onNodeWithTag("pod-pick-art-preview").assertDoesNotExist()
+        compose.onNodeWithTag("card-inspection").assertDoesNotExist()
         val a = first.fetchSemanticsNode().boundsInRoot.center
         val b = compose.onNodeWithTag("pod-build-card-second").fetchSemanticsNode().boundsInRoot.center
         compose.onRoot().performTouchInput { down(0, a); down(1, b); up(0); up(1) }

@@ -137,7 +137,6 @@ interface CardListEditor {
     /** The latest Cards tab or search message (e.g. a refused add); null clears it. */
     val cardsError: String?
     fun cardsMessage(message: String?)
-    val inspection: CardInspectionController
 }
 
 /**

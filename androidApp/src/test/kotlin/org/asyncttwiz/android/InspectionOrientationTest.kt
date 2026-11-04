@@ -57,20 +57,6 @@ class InspectionOrientationTest {
         }
     }
 
-    @Test fun controllerTurnIsPersonalAndResetsOnFaceChange() {
-        val definition = card("flip", "Creature — Human Soldier", "Legendary Creature — Human Samurai")
-        val controller = CardInspectionController()
-        controller.open(InspectedCard(definition, listOf(null, null)))
-        assertEquals(0, controller.state!!.degrees)
-        controller.turn()
-        assertEquals(180, controller.state!!.degrees)
-        controller.face(1)
-        assertEquals(0, controller.state!!.degrees)
-        controller.open(InspectedCard(card("split", "Instant"), listOf(null)))
-        controller.turn()
-        assertEquals(90, controller.state!!.degrees)
-    }
-
     private fun assertSize(width: Float, height: Float, actual: DpSize) {
         assertEquals(width, actual.width.value, .01f, "width of $actual")
         assertEquals(height, actual.height.value, .01f, "height of $actual")

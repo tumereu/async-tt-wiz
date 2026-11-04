@@ -29,11 +29,20 @@ class DeckViewColumnsTest {
     @Before fun clear() { preferences.edit().clear().commit() }
 
     private fun tileWidth(description: String) = compose.onNodeWithContentDescription(description).fetchSemanticsNode().boundsInRoot.width
+    /** Holding [tile] shows [name]'s card image until release (LOB-056: a tap does nothing). */
+    private fun assertHoldInspects(tile: SemanticsNodeInteraction, name: String) {
+        tile.performTouchInput { down(center); advanceEventTime(200) }
+        compose.mainClock.advanceTimeBy(200)
+        compose.onNodeWithContentDescription("Card image: $name").assertExists()
+        tile.performTouchInput { up() }
+        compose.onNodeWithTag("card-inspection").assertDoesNotExist()
+    }
+
     /** 412dp less the 16dp gutters, split into [columns] with 4dp gaps. */
     private fun expected(columns: Int) = (412f - 32f - 4f * (columns - 1)) / columns
 
     // LOB-056
-    @Test fun savedDeckShowsBothSectionsAsTypeGroupedTilesThatOnlyInspect() {
+    @Test fun savedDeckShowsBothSectionsAsTypeGroupedTilesThatOnlyInspectWhenHeld() {
         val fixture = ScreenFixtures().also { it.configure("deck-detail") }
         try {
             compose.setContent { ScreenTheme { SavedDeckScreen(fixture.library, null, importDeck = {}) } }
@@ -45,8 +54,8 @@ class DeckViewColumnsTest {
             tile.performTouchInput { click() }
             compose.onNodeWithText("Move one to Sideboard").assertDoesNotExist()
             compose.onNodeWithTag("preparation-undo").assertDoesNotExist()
-            assertEquals("Meadow Sentinel", fixture.library.inspection.state?.card?.definition?.name)
-            fixture.library.inspection.close()
+            compose.onNodeWithTag("card-inspection").assertDoesNotExist()
+            assertHoldInspects(tile, "Meadow Sentinel")
             compose.onNodeWithTag("deck-view").performScrollToNode(hasText("Sideboard · 15"))
             compose.onNodeWithContentDescription("Quiet Grove, 15 copies, Sideboard").assertExists()
             // LOB-057: Edit is the only button above a saved deck.
@@ -123,7 +132,7 @@ class DeckViewColumnsTest {
     }
 
     // DRF-010, LOB-056
-    @Test fun savedCubeShowsTypeGroupedPicturesFiveWideInPortraitWithItsOwnCountAndTapInspects() {
+    @Test fun savedCubeShowsTypeGroupedPicturesFiveWideInPortraitWithItsOwnCountAndHoldInspects() {
         val cubes = cubeController()
         try {
             compose.setContent { ScreenTheme { CubeScreen(cubes, null) } }
@@ -141,10 +150,9 @@ class DeckViewColumnsTest {
             assertEquals(6, preferences.getInt(cubeKey, -1))
             assertFalse(preferences.contains(savedKey))
             compose.onNodeWithContentDescription(tile).performTouchInput { click() }
-            assertEquals("Rune Bear", cubes.inspection.state?.card?.definition?.name)
-            compose.runOnIdle { cubes.back() }
-            assertNull(cubes.inspection.state)
-            assertEquals("cube", cubes.state.selected, "Back closes the inspection first")
+            compose.onNodeWithTag("card-inspection").assertDoesNotExist()
+            assertHoldInspects(compose.onNodeWithContentDescription(tile), "Rune Bear")
+            assertEquals("cube", cubes.state.selected)
         } finally { cubes.close() }
     }
 

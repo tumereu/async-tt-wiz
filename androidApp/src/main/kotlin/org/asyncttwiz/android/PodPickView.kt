@@ -82,7 +82,6 @@ internal fun PodPickView(
     onMarks: ((PodPickMarks) -> Unit)? = null,
     /** One line above the cards, e.g. "Round 2/6 · Pick 2 · from Matti"; scrolls away with them. */
     orientation: String? = null,
-    inspection: CardInspectionController = remember { CardInspectionController() },
 ) {
     val localMarks = remember { mutableStateMapOf<DraftPrivatePack, PodPickMarks>() }
     val marks = ((if (onMarks != null) savedMarks else localMarks[pack]) ?: PodPickMarks()).forPack(pack)
@@ -94,7 +93,6 @@ internal fun PodPickView(
     val previewScroll = rememberScrollState()
     val previewScreen = holdPreviewScreenHeight()
     PodArtPrefetch(remember(pack, nextPack) { listOfNotNull(pack, nextPack).flatMap { it.cards } }, definitions, tileSize)
-    DeckCardInspection(inspection)
     if (pack == null) {
         Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) { PodPickWaiting(waitingText, onMainMenu) }
         return
@@ -137,10 +135,6 @@ internal fun PodPickView(
                         onMark = { mark(copy.id, it) }, onUnmark = { unmark(copy.id) },
                         onInspect = { inspect(copy, it) },
                         onInspectScroll = { previewScroll.holdPreviewScroll(it, previewScreen) },
-                        onInspectCard = {
-                            menuFor = null; inspected = null
-                            inspection.openPodCard(copy.definition, definitions[copy.definition])
-                        },
                         menu = menuFor == copy.id,
                         onMenu = { open ->
                             if (open) { inspected = null; menuFor = copy.id } else if (menuFor == copy.id) menuFor = null
@@ -349,8 +343,6 @@ private fun PodPickCard(
     onUnmark: () -> Unit,
     onInspect: (Boolean) -> Unit,
     onInspectScroll: (Float) -> Unit,
-    /** Opens the full inspector (all faces) from the tap menu. */
-    onInspectCard: () -> Unit,
     menu: Boolean,
     onMenu: (Boolean) -> Unit,
     onSize: (IntSize) -> Unit,
@@ -367,7 +359,6 @@ private fun PodPickCard(
     val flashAlpha = remember { Animatable(0f) }
     val currentOnMark by rememberUpdatedState(onMark)
     val currentOnInspect by rememberUpdatedState(onInspect)
-    val currentOnInspectCard by rememberUpdatedState(onInspectCard)
     val effectiveMark = mark ?: PodPickMark.BURN.takeIf { automaticBurn }
     val currentMark by rememberUpdatedState(effectiveMark)
     val selection = updateTransition(effectiveMark, label = "Pod pick selection")
@@ -399,7 +390,6 @@ private fun PodPickCard(
                     null -> "Unmarked"
                 }
                 onClick { currentOnMenu(true); true }
-                if (definition != null) customActions = listOf(CustomAccessibilityAction("Inspect") { currentOnInspectCard(); true })
             }
             .pointerInput(burnEnabled) {
                 podPickGestures(onTap = { currentOnMenu(true) }, onInspect = { currentOnInspect(it) }, onInspectScroll = onInspectScroll,
@@ -432,7 +422,6 @@ private fun PodPickCard(
             if (burnEnabled && mark != PodPickMark.BURN) DropdownMenuItem(text = { Text("Burn") }, onClick = { onMenu(false); onMark(PodPickMark.BURN) })
             if (mark != null) DropdownMenuItem(text = { Text("Unmark") }, onClick = { onMenu(false); onUnmark() })
             if (onRefund != null) DropdownMenuItem(text = { Text("Refund Librarian") }, onClick = { onMenu(false); onRefund() })
-            DropdownMenuItem(text = { Text("Inspect") }, enabled = definition != null, onClick = { onMenu(false); onInspectCard() })
         }
     }
 }

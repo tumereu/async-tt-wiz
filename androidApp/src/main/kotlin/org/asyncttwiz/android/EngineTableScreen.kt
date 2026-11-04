@@ -77,7 +77,7 @@ internal fun EngineTableScreen(controller: LobbyController, accountId: String, h
     // The device's own steps (its passes, assumptions, a live wait turning async) and its local-head reports
     LaunchedEffect(controller, game.id) { while (true) { controller.engineTick(); delay(1_000) } }
     val locked = shown.locked
-    LaunchedEffect(locked) { if (locked) { toolkit.dismiss(); toolkit.closeInspection() } }
+    LaunchedEffect(locked) { if (locked) { toolkit.dismiss(); toolkit.peek(null) } }
     val names = remember(game) { mapOf(game.inviter.accountId to game.inviter.username, game.recipient.accountId to game.recipient.username) }
     routes.opponentName = names[shown.opponent.value] ?: "The other player"
     val playbackPreferences = rememberHistoryPlaybackPreferences(accountId)

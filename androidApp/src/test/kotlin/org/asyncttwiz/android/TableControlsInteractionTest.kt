@@ -86,8 +86,7 @@ class TableControlsInteractionTest {
         compose.setContent { MaterialTheme {
             CompositionLocalProvider(LocalHapticFeedback provides haptics) {
                 Text("Card", Modifier.size(100.dp).contentsCardGestures("card", PlayZone.BATTLEFIELD,
-                    actions = { error("Peek must not open actions") }, double = null,
-                    inspect = { error("Peek must not inspect") }, peek = peeks::add))
+                    actions = { error("Peek must not open actions") }, double = null, peek = peeks::add))
             }
         } }
         compose.mainClock.autoAdvance = false

@@ -50,7 +50,6 @@ class PodCubePreparation(private val api: Pods, private val credential: () -> St
     companion object { const val RECONNECT_MILLIS = 5_000L }
     var state by mutableStateOf(PodCubePreparationState())
         private set
-    val inspection = CardInspectionController()
     @Volatile private var epoch = 0L
     private var inFlight = 0
     private var serial = 0L
@@ -85,11 +84,10 @@ class PodCubePreparation(private val api: Pods, private val credential: () -> St
     }
 
     /** Forgets the screen without refreshing the pod (sign-out, pod change). */
-    fun reset() { epoch++; inspection.close(); inFlight = 0; reconnecting = false; state = PodCubePreparationState() }
+    fun reset() { epoch++; inFlight = 0; reconnecting = false; state = PodCubePreparationState() }
 
     fun dismissError() { state = state.copy(error = null) }
 
-    fun inspect(digest: String) { state.definitions[digest]?.let { inspection.open(InspectedCard.retained(digest, it)) } }
 
     /** Moves one copy, or all copies, of a card to the other section. */
     fun move(digest: String, from: SavedDeckSection, all: Boolean): Boolean {

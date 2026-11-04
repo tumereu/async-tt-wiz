@@ -123,7 +123,7 @@ class LobbyCancellationTest {
         f.lobby.open(game.id); f.drain()
         assertEquals(prepared, f.lobby.state.acceptedPreparation); assertTrue(f.commands().isEmpty())
     }
-    @Test fun remoteCancellationClosesPickerAndFencesItsDelayedReadAndPreparationInspection() {
+    @Test fun remoteCancellationClosesPickerAndFencesItsDelayedReadAndPreparation() {
         val decks = object : Decks {
             override suspend fun list(token: String, after: String?) = DeckList(emptyList())
             override suspend fun read(token: String, id: String): SavedDeck = error("unused")
@@ -140,10 +140,10 @@ class LobbyCancellationTest {
         }
         Fixture().use { f ->
             val base = prepared(); f.head(game.copy(revision = "1"), base)
-            f.lobby.prepareDeck(); f.lobby.inspectPrepared(base.definitions.single().digest)
-            assertTrue(f.lobby.state.preparing); assertNotNull(f.lobby.inspection.state)
+            f.lobby.prepareDeck()
+            assertTrue(f.lobby.state.preparing)
             f.message(f.cancelRevision())
-            assertFalse(f.lobby.state.preparing); assertNull(f.lobby.inspection.state); assertNull(f.lobby.state.acceptedPreparation)
+            assertFalse(f.lobby.state.preparing); assertNull(f.lobby.state.acceptedPreparation)
         }
     }
     @Test fun startBeforeCancellationResultKeepsExistingBoardAndHttpRecoveryCanUnfenceNewerLiveState() = Fixture().use { f ->

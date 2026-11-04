@@ -18,7 +18,7 @@ import org.asyncttwiz.protocol.*
 @Composable
 internal fun PodCubePreparationScreen(preparation: PodCubePreparation) {
     val state = preparation.state
-    BackHandler { if (preparation.inspection.state != null) preparation.inspection.close() else preparation.close() }
+    BackHandler { preparation.close() }
     val sections = state.cube?.let { cube ->
         SavedDeckSection.CUBE.map { section ->
             val opposite = if (section == SavedDeckSection.MAINBOARD) SavedDeckSection.MAYBEBOARD else SavedDeckSection.MAINBOARD
@@ -31,9 +31,7 @@ internal fun PodCubePreparationScreen(preparation: PodCubePreparation) {
         DeckViewScreen.CUBE_PREPARATION, state.connected, state.feedback, sections, object : PreparationMoves {
             override fun capture(digest: String, source: SavedDeckSection): () -> Boolean = { preparation.move(digest, source, false) }
             override fun move(digest: String, source: SavedDeckSection, all: Boolean) = preparation.move(digest, source, all)
-            override fun inspect(digest: String) = preparation.inspect(digest)
         }, undo = if (state.undo.isEmpty()) null else preparation::undo, undoEnabled = state.connected,
-        inspection = preparation.inspection,
         actions = {
             ScreenOutlinedButton(preparation::close, Modifier.testTag("prepare-cube-done")) {
                 EntryIcon(null, "ready"); Spacer(Modifier.width(6.dp)); Text("Done")

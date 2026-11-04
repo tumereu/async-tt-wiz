@@ -1,0 +1,1 @@
+Owner holds their transformed double-faced battlefield card in landscape: Inspect shows only its card images side by side, the back it shows first.

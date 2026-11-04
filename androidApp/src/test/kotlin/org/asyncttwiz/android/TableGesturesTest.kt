@@ -336,7 +336,7 @@ class TableGesturesTest {
 
 
     // TBL-104
-    @Test fun peekEndsOnReleaseCancelAndSecondPointerButExplicitInspectPersists() {
+    @Test fun peekEndsOnReleaseCancelAndSecondPointer() {
         for (end in 0..2) {
             val f = Fixture(); val point = f.point()
             f.gestures.down(point, 0); f.gestures.tick(500)
@@ -347,8 +347,6 @@ class TableGesturesTest {
                 else -> f.gestures.transform(TablePoint(0f, 0f), 1f, point)
             }
             assertEquals(TableIntent.Peek(null), f.events.filterIsInstance<TableIntent.Peek>().last())
-            f.events.clear(); f.gestures.inspect(f.item())
-            assertEquals(listOf<TableIntent>(TableIntent.Inspect("a/BATTLEFIELD/0")), f.events)
         }
     }
 
@@ -626,7 +624,7 @@ class TableGesturesTest {
         assertTrue(f.events.filterIsInstance<TableIntent.Rotate>().single().tapped)
         assertIs<TableIntent.Actions>(f.events.first())
         assertEquals(TableIntent.DismissTapUi, f.events[1])
-        assertTrue(f.events.none { it is TableIntent.Inspect })
+        assertTrue(f.events.none { it is TableIntent.Peek })
     }
     // TBL-047, TBL-048
     @Test fun holdConsumesTapAndCannotTurnIntoDragOrExposePile() {
@@ -650,7 +648,7 @@ class TableGesturesTest {
         assertEquals(listOf("a/BATTLEFIELD/0"), move.scope.cardIds)
         assertTrue(move.destination is TableDestination.Grid)
         assertEquals("a/BATTLEFIELD", move.sources.getValue("a/BATTLEFIELD/0").containerId)
-        assertTrue(f.events.none { it is TableIntent.Actions || it is TableIntent.Rotate || it is TableIntent.Inspect })
+        assertTrue(f.events.none { it is TableIntent.Actions || it is TableIntent.Rotate || it is TableIntent.Peek })
     }
 
 

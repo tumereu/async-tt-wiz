@@ -112,9 +112,8 @@ class CardListEditorUiTest {
         }
         val ward = "editor-card-MAINBOARD/${digest("Aegis Ward")}"
         compose.onNodeWithTag(ward).performTouchInput { click() }
-        compose.onNodeWithText("Inspect").performClick()
-        compose.runOnIdle { assertEquals("Aegis Ward", editor.inspection.state?.card?.definition?.name); editor.inspection.close() }
-        compose.onNodeWithTag(ward).performTouchInput { click() }
+        // Holding a card inspects it; the menu has no Inspect
+        compose.onNodeWithText("Inspect").assertDoesNotExist()
         compose.onNodeWithText("Remove all").performClick()
         compose.runOnIdle { assertEquals(0, count(editor, "Aegis Ward", DeckSection.MAINBOARD)) }
 
@@ -649,7 +648,7 @@ class PodCubePreparationTest {
         compose.runOnIdle { assertFalse(preparation.move(bearDigest, SavedDeckSection.MAINBOARD, false)) }
         compose.onNodeWithTag("prepare-cube-card-MAINBOARD/$bearDigest").performTouchInput { click() }
         compose.onNodeWithText("Move to Maybeboard").assertIsNotEnabled()
-        compose.onNodeWithText("Inspect").assertIsEnabled()
+        compose.onNodeWithText("Inspect").assertDoesNotExist() // holding inspects (LOB-048)
         // Still unreachable: it keeps trying, one attempt per task.
         compose.runOnIdle { worker.runOne(); assertEquals(1, worker.tasks.size); assertFalse(preparation.state.connected) }
         offline = false

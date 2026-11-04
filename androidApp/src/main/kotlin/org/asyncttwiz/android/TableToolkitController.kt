@@ -165,7 +165,7 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
     /** The player whose Life panel is open (TRN-030), tapped on their life square; personal UI. */
     var player by mutableStateOf<String?>(null); private set
     var capture by mutableStateOf<ToolkitCapture?>(null); private set
-    var inspection by mutableStateOf<ManualInspection?>(null); private set
+    /** The card held to inspect it (TBL-104), shown while the finger stays; the only way to inspect a table card. */
     var peek by mutableStateOf<ManualInspection?>(null); private set
     fun peek(id: String?) {
         if (id == null) { peek = null; return }
@@ -178,8 +178,8 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
     var error by mutableStateOf<String?>(null); private set
     fun dismissError() { error = null }
 
-    /** I-D46: what Automatum doesn't allow, tried on a card or pile by a gesture, shakes it instead of a message; why
-     * shows when the card is inspected. [serial] tells one shake from the next of the same item. */
+    /** I-D46: what Automatum doesn't allow, tried on a card or pile by a gesture, shakes it instead of a message;
+     * [serial] tells one shake from the next of the same item. */
     data class Shake(val id: String, val serial: Int)
     var shaking by mutableStateOf<Shake?>(null); private set
     private var shakes = 0
@@ -197,7 +197,7 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
     private fun <T> engineRoute(block: () -> T): T { engineRoute++; try { return block() } finally { engineRoute-- } }
     private var reviewContext: String? = null
     fun reviewContext(context: String) {
-        if (reviewContext != null && reviewContext != context) { closeInspection(); dismiss() }
+        if (reviewContext != null && reviewContext != context) { peek(null); dismiss() }
         reviewContext = context
     }
 
@@ -340,28 +340,20 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
             action.copy(destination = ownerMoveDestination(play.board, action.cardId, action.destination, play.playId))) else listOf(action)
         if (!enqueue(actions.first(), group)) return false
         actions.drop(1).forEach { if (enabled()) enqueue(it, group) }
-        // This is ordinary provisional disclosure, NOT an accepted result inferred from Boolean receipt.
-        if (action is PlayAction.InspectFace) {
-            val card = current()?.board?.cards?.singleOrNull { it.id == action.cardId && it.containerId == action.containerId }
-            if (card != null) inspection = ManualInspection(play.gameId, play.playId, card.id,
-                listOf(action.faceId), explicit = true, provisional = true)
-        }
         return true
     }
 
     fun dismiss() { panel = null; player = null; capture = null; popupItem = null; stackTargeting = false; closeAbilities() }
     fun dismissTapUi() = dismiss()
-    internal val hasBackOverlay get() = inspection != null || peek != null || capture != null || player != null ||
+    internal val hasBackOverlay get() = peek != null || capture != null || player != null ||
         panel != null || keeping
     internal fun dismissBackOverlay() {
         when {
-            inspection != null -> closeInspection()
             peek != null -> peek(null)
             capture != null || player != null || panel != null -> dismiss()
             keeping -> closeKeep()
         }
     }
-    fun closeInspection() { inspection = null }
     fun tableMenu() { dismiss(); panel = "table" }
     fun phasePicker() { dismiss(); panel = "phase" }
     fun stackContents() { dismiss(); panel = "manageStack" }
@@ -433,7 +425,10 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
         val play = current() ?: return
         val bound = bind(scope, sources) ?: return
         // A combat copy whose card left play has nothing to offer (TBL-116)
-        CombatStackRules.liveSource(play.board, scope.contextId) ?: return
+        val card = CombatStackRules.liveSource(play.board, scope.contextId) ?: return
+        // TBL-116: a menu with nothing in it (no rows, no cells) doesn't open
+        val layout = CardRingPages.context(play.board, scope.contextId) ?: CardMenuLayout.CARD
+        if (CardRingPages.page(layout).actions.isEmpty() && cardPlays(play)?.of(card.id)?.isEmpty() == true) { dismiss(); return }
         dismiss(); capture = bound
     }
 
@@ -470,8 +465,8 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
             return
         }
         hand.lower()
-        // TRN-069: a tap on a dungeon inspects it (holding shows it large)
-        if (item.kind == TableItemKind.DUNGEON) { item.cardId?.let(::inspect); return }
+        // TRN-069: a tap on a dungeon does nothing (holding inspects it)
+        if (item.kind == TableItemKind.DUNGEON) return
         // CMB-028, CMB-032, CMB-034: with Automatum on a tap in combat stages, blocks or selects
         if (combatTap(play, item)) { dismiss(); return }
         // TBL-122: one tap on a battlefield card activates its ability, or opens the chips of several; else its menu
@@ -517,18 +512,9 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
         dismiss(); panel = "library/$id"
     }
 
-    fun inspect(viewId: String) {
-        val play = current() ?: return
-        val card = CombatStackRules.inspection(play.board, viewId) ?: return
-        val live = CombatStackRules.liveSource(play.board, viewId)
-        val faces = ManualDisclosure.permittedFaces(play.board, play.definitions, card, viewer, inspecting = true)
-        closeInspection()
-        inspection = ManualInspection(play.gameId, play.playId, viewId, faces.map { it.faceId }, snapshot = if (live == null) card else null,
-            stackEntryId = viewId.takeIf { it in CombatStackRules.stack(play.board).cards })
-    }
     fun handle(intent: TableIntent): Boolean {
         // I-D46: with Automatum on, a gesture Automatum doesn't allow shakes the card, pile or life square it was made on
-        // instead of saying why (Inspect says it); genuine failures (offline, still working out) keep their message
+        // instead of saying why; genuine failures (offline, still working out) keep their message
         val target = gestureTarget(intent)
         if (target == null) return handleIntent(intent)
         castGesture = target

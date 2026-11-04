@@ -120,7 +120,7 @@ internal fun CubeScreen(controller: CubeController, navigation: (() -> Unit)?, d
                     visualDeckSection(section, detail.saved.entries.filter { it.section == section }.sumOf { it.quantity.toLong() },
                         preparationGroups(detail.saved, section, detail.definitions), columns.count) { tile ->
                         val key = "$section/${tile.digest}"
-                        VisualDeckCard(tile, key, section.sectionLabel(), { controller.inspect(tile.digest) }, onHold = { open ->
+                        VisualDeckCard(tile, key, section.sectionLabel(), onHold = { open ->
                             if (open) {
                                 previewScroll.dispatchRawDelta(-previewScroll.value.toFloat())
                                 held = key to tile
@@ -138,7 +138,6 @@ internal fun CubeScreen(controller: CubeController, navigation: (() -> Unit)?, d
         }
         PodCardArtPreview(card, tile.name, previewScroll)
     }
-    DeckCardInspection(controller.inspection)
     CubeDialogs(controller)
 }
 

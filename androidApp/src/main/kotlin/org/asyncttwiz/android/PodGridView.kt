@@ -100,7 +100,6 @@ fun PodGridView(
     modifier: Modifier = Modifier,
     waitingText: String = "Waiting for other players",
     onMainMenu: (() -> Unit)? = null,
-    inspection: CardInspectionController = remember { CardInspectionController() },
 ) {
     val head = view?.publicView?.grids?.firstOrNull { it.id == view.mine.headGridId && it.currentPlayer == view.mine.player }
     val log = view?.publicView?.log.orEmpty()
@@ -143,9 +142,8 @@ fun PodGridView(
                                 if (open) { previewScroll.dispatchRawDelta(-previewScroll.value.toFloat()); inspected = copy }
                                 else if (inspected == copy) inspected = null
                             },
-                            inspectScroll = { previewScroll.holdPreviewScroll(it, previewScreen) },
-                            // Rows and columns are chosen with the arrows, so a tap on a card is free to inspect it.
-                            open = { copy -> inspected = null; inspection.openPodCard(copy.definition, definitions[copy.definition]) })
+                            // Rows and columns are chosen with the arrows; a card is inspected by holding it (DRF-084).
+                            inspectScroll = { previewScroll.holdPreviewScroll(it, previewScreen) })
                     }
                 }
             } }
@@ -158,7 +156,6 @@ fun PodGridView(
         }
     }
     inspected?.let { PodPickArtPreview(it, definitions[it.definition], previewScroll) }
-    DeckCardInspection(inspection)
 }
 
 /** Opacity of the primary tint over the selected row's or column's cards. */
@@ -186,8 +183,7 @@ internal fun podGridArtAlpha(cell: PodGridCell, live: Boolean, highlighted: Bool
 private fun PodGridBoard(board: GridPublicBoard, stage: GridBoardStage, latest: Boolean, tag: String, rules: PodGridRules?,
     arrowSpace: Boolean, selected: GridLine?, enabled: Boolean,
     onSelect: (GridLine) -> Unit, definitions: Map<String, CardDefinition>, members: List<AccountIdentity>,
-    colors: Map<String, Color>, inspect: (DraftCopy, Boolean) -> Unit, inspectScroll: (Float) -> Unit = {},
-    open: (DraftCopy) -> Unit = {}) {
+    colors: Map<String, Color>, inspect: (DraftCopy, Boolean) -> Unit, inspectScroll: (Float) -> Unit = {}) {
     val cells = podGridCells(board, stage.slots, latest)
     // Cells touch so bands run unbroken along their line; the cards keep apart by the band space around each.
     Column(Modifier.fillMaxWidth()) {
@@ -207,7 +203,7 @@ private fun PodGridBoard(board: GridPublicBoard, stage: GridBoardStage, latest: 
                     val bands = podGridBands(stage.picks, position).map { it.line!! to (colors[it.player] ?: OpponentTableColor) }
                     Box(Modifier.weight(1f).drawBehind { drawPodGridBands(bands, row, column) }.padding(PodGridBandWidth)) {
                         PodGridSlot(board, cells[position], position, tag, latest, rules, selected, definitions, members,
-                            colors, inspect, inspectScroll, open)
+                            colors, inspect, inspectScroll)
                     }
                 }
             }
@@ -234,8 +230,7 @@ private fun DrawScope.drawPodGridBands(bands: List<Pair<GridLine, Color>>, row: 
 @Composable
 private fun PodGridSlot(board: GridPublicBoard, cell: PodGridCell, position: Int, tag: String, latest: Boolean,
     rules: PodGridRules?, selected: GridLine?, definitions: Map<String, CardDefinition>, members: List<AccountIdentity>,
-    colors: Map<String, Color>, inspect: (DraftCopy, Boolean) -> Unit, inspectScroll: (Float) -> Unit,
-    open: (DraftCopy) -> Unit) {
+    colors: Map<String, Color>, inspect: (DraftCopy, Boolean) -> Unit, inspectScroll: (Float) -> Unit) {
     val copy = cell.copy
     val live = latest && board.positions.getOrNull(position) != null
     val highlighted = rules?.highlighted(position, selected) == true
@@ -257,12 +252,10 @@ private fun PodGridSlot(board: GridPublicBoard, cell: PodGridCell, position: Int
         if (copy != null) {
             val currentInspect by rememberUpdatedState(inspect)
             val currentInspectScroll by rememberUpdatedState(inspectScroll)
-            val currentOpen by rememberUpdatedState(open)
             PodGridCard(copy, definitions[copy.definition], Modifier.fillMaxSize()
                 .alpha(podGridArtAlpha(cell, live, highlighted, selecting))
-                .semantics { onClick("Inspect") { currentOpen(copy); true } }
                 .pointerInput(copy) {
-                    podPickGestures(onTap = { currentOpen(copy) }, onInspect = { currentInspect(copy, it) },
+                    podPickGestures(onTap = {}, onInspect = { currentInspect(copy, it) },
                         onInspectScroll = { currentInspectScroll(it) })
                 })
         }

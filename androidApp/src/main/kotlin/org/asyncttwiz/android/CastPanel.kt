@@ -257,7 +257,7 @@ internal fun SmallCard(toolkit: TableToolkitController, play: TableBoard, cardId
         .border(1.dp, Color(0xff1f2326), RoundedCornerShape(4.dp))
         .semantics { contentDescription = "Card $name" }
         .pointerInput(cardId) {
-            detectTapGestures(onTap = { toolkit.inspect(cardId) }, onLongPress = { toolkit.peek(cardId) }, onPress = {
+            detectTapGestures(onLongPress = { toolkit.peek(cardId) }, onPress = {
                 tryAwaitRelease()
                 if (toolkit.peek?.cardId == cardId) toolkit.peek(null)
             })

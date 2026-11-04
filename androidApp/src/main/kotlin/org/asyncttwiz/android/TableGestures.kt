@@ -358,7 +358,6 @@ class TableGestureCoordinator(
         single(Capture(item, item.bounds.center, 0, scope, null,
             sources = scene.sources.filterKeys { it in scope?.cardIds.orEmpty() }), explicit = true)
     }
-    fun inspect(item: TableItem) { peekId(item)?.let { emit(TableIntent.Inspect(it)) } }
     private fun rotatable(scope: TableScope) = scope.copy(cardIds = scope.cardIds.filter { id ->
         scene.items.any { it.cardId == id && it.zone == PlayZone.BATTLEFIELD && !it.projection }
     })

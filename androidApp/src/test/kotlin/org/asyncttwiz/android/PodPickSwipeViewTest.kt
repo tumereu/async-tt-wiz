@@ -109,6 +109,6 @@ class PodPickSwipeViewTest {
         card.performTouchInput { up() }
         compose.mainClock.advanceTimeBy(240)
         lifted.assertDoesNotExist()
-        compose.onNodeWithTag("pod-pick-art-preview").assertDoesNotExist()
+        compose.onNodeWithTag("card-inspection").assertDoesNotExist()
     }
 }

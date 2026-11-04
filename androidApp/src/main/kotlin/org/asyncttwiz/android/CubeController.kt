@@ -84,16 +84,9 @@ class CubeController(private val api: Cubes, private val credential: () -> Strin
     private var pendingDelete: DeleteCube? = null
     // Replace on logout so an in-flight old request cannot populate the new session's cache.
     @Volatile private var definitionCache = ConcurrentHashMap<String, CardDefinition>()
-    override val inspection = CardInspectionController()
-    fun inspect(identity: String) {
-        val detail = state.detail ?: return
-        if (!closed && state.dialog == null && !state.editing && detail.saved.entries.any { it.definition == identity })
-            detail.definitions[identity]?.let { inspection.open(InspectedCard.retained(identity, it)) }
-    }
-    fun clear() { inspection.close(); search.reset(); undo.clear(); epoch++; definitionCache = ConcurrentHashMap(); source = null; cobraSource = null; pendingSave = null; pendingUpdate = null; pendingDelete = null; state = CubeState() }
+    fun clear() { search.reset(); undo.clear(); epoch++; definitionCache = ConcurrentHashMap(); source = null; cobraSource = null; pendingSave = null; pendingUpdate = null; pendingDelete = null; state = CubeState() }
     fun dismissError() { state = state.copy(error = null) }
     fun back() {
-        if (inspection.state != null) { inspection.close(); return }
         if (state.busy) { epoch++; state = state.copy(busy = false, saving = false, fetching = false) }
         if (state.dialog != null) { dismiss(); return }
         if (search.state.open) { search.close(); return }
@@ -104,7 +97,7 @@ class CubeController(private val api: Cubes, private val credential: () -> Strin
         refresh()
     }
     fun refresh() = load(null)
-    fun open(id: String) { inspection.close(); load(id) }
+    fun open(id: String) { load(id) }
     fun retry() = load(state.selected)
     private fun load(id: String?) {
         if (closed || state.busy) return

@@ -119,13 +119,13 @@ class PodGridViewTest {
     private fun assertHoldPreview(target: SemanticsNodeInteraction) {
         target.performTouchInput { down(center); advanceEventTime(80) }
         compose.mainClock.advanceTimeBy(80)
-        compose.onNodeWithTag("pod-pick-art-preview").assertDoesNotExist()
+        compose.onNodeWithTag("card-inspection").assertDoesNotExist()
         target.performTouchInput { advanceEventTime(80) }
         compose.mainClock.advanceTimeBy(80)
-        compose.onNodeWithTag("pod-pick-art-preview").assertIsDisplayed()
+        compose.onNodeWithTag("card-inspection").assertIsDisplayed()
         compose.onNodeWithContentDescription("Close card inspection").assertDoesNotExist()
         target.performTouchInput { up() }
-        compose.onNodeWithTag("pod-pick-art-preview").assertDoesNotExist()
+        compose.onNodeWithTag("card-inspection").assertDoesNotExist()
     }
 
     // DRF-084
@@ -137,13 +137,10 @@ class PodGridViewTest {
     }
 
     // DRF-084
-    @Test fun tapOnAGridCardOpensTheFullInspectorWithoutSelectingALine() {
+    @Test fun tapOnAGridCardDoesNothing() {
         show()
         slot(4).performClick()
-        compose.onNodeWithContentDescription("Close card inspection").assertIsDisplayed()
-        compose.onNode(hasText("Card 4") and hasAnyAncestor(hasContentDescription("Card inspection content"))).assertIsDisplayed()
-        compose.onNodeWithContentDescription("Close card inspection").performClick()
-        compose.onNodeWithContentDescription("Close card inspection").assertDoesNotExist()
+        compose.onNodeWithTag("card-inspection").assertDoesNotExist()
         repeat(9) { assertHighlighted(it, false) }
         compose.onNodeWithText("Confirm").assertIsNotEnabled()
     }

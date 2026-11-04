@@ -98,38 +98,34 @@ class PodPickViewTest {
         assertHoldPreview(card("2"))
     }
 
-    // DRF-062
-    @Test fun tapMenuInspectOpensTheFullInspectorWithTheBackFace() {
+    // DRF-062, DRF-063: the tap menu has no Inspect; holding a double-faced card shows both faces
+    @Test fun tapMenuHasNoInspectAndHoldingShowsEveryFace() {
         val double = CardDefinition("Day // Night", listOf(DefinitionFace("day", "Day Side"), DefinitionFace("night", "Night Side")),
             layout = "transform")
         show(cardDefinitions = definitions + ("definition-1" to double))
         card("1").performClick()
-        compose.onNodeWithText("Inspect").performClick()
-        compose.onNodeWithText("Keep").assertDoesNotExist()
-        compose.onNodeWithText("Day Side").assertIsDisplayed()
-        compose.onNodeWithContentDescription("Next face").performClick()
-        compose.onNodeWithText("Night Side").assertIsDisplayed()
-        compose.onNodeWithContentDescription("Close card inspection").performClick()
-        compose.onNodeWithText("Night Side").assertDoesNotExist()
-        assertMark("1", "Unmarked")
-        // Screen readers reach it without the menu too.
-        val action = card("2").fetchSemanticsNode().config[SemanticsActions.CustomActions].single { it.label == "Inspect" }
-        compose.runOnIdle { action.action() }
-        compose.onNode(hasText("Card 2") and hasAnyAncestor(hasContentDescription("Card inspection content"))).assertIsDisplayed()
-        compose.onNodeWithContentDescription("Next face").assertDoesNotExist()
+        compose.onNodeWithText("Keep").assertIsDisplayed()
+        compose.onNodeWithText("Inspect").assertDoesNotExist()
+        compose.onNodeWithText("Keep").performClick()
+        card("1").performTouchInput { down(center); advanceEventTime(200) }
+        compose.mainClock.advanceTimeBy(200)
+        compose.onNodeWithContentDescription("Card image: Day Side").assertExists()
+        compose.onNodeWithContentDescription("Card image: Night Side").assertExists()
+        card("1").performTouchInput { up() }
+        compose.onNodeWithTag("card-inspection").assertDoesNotExist()
+        assertTrue(SemanticsActions.CustomActions !in card("2").fetchSemanticsNode().config)
     }
 
     private fun assertHoldPreview(target: SemanticsNodeInteraction) {
         target.performTouchInput { down(center); advanceEventTime(80) }
         compose.mainClock.advanceTimeBy(80)
-        compose.onNodeWithTag("pod-pick-art-preview").assertDoesNotExist()
+        compose.onNodeWithTag("card-inspection").assertDoesNotExist()
         target.performTouchInput { advanceEventTime(80) }
         compose.mainClock.advanceTimeBy(80)
-        compose.onNodeWithTag("pod-pick-art-preview").assertIsDisplayed()
+        compose.onNodeWithTag("card-inspection").assertIsDisplayed()
         compose.onNodeWithContentDescription("Close card inspection").assertDoesNotExist()
-        compose.onNodeWithText("Enlarge artwork").assertDoesNotExist()
         target.performTouchInput { up() }
-        compose.onNodeWithTag("pod-pick-art-preview").assertDoesNotExist()
+        compose.onNodeWithTag("card-inspection").assertDoesNotExist()
     }
 
     // DRF-052, DRF-054
@@ -196,7 +192,7 @@ class PodPickViewTest {
     private fun hold(target: SemanticsNodeInteraction, settle: Boolean = false) {
         target.performTouchInput { down(center); advanceEventTime(160) }
         compose.mainClock.advanceTimeBy(160)
-        compose.onNodeWithTag("pod-pick-art-preview").assertIsDisplayed()
+        compose.onNodeWithTag("card-inspection").assertIsDisplayed()
         if (settle) {
             target.performTouchInput { advanceEventTime(PodHoldSettleMillis + 20) }
             compose.mainClock.advanceTimeBy(PodHoldSettleMillis + 20)
@@ -208,7 +204,7 @@ class PodPickViewTest {
         show()
         hold(card("1"))
         card("1").performTouchInput { moveBy(Offset(width * .3f, 0f)); moveBy(Offset(width * .3f, 0f)) }
-        compose.onNodeWithTag("pod-pick-art-preview").assertDoesNotExist()
+        compose.onNodeWithTag("card-inspection").assertDoesNotExist()
         compose.onNodeWithTag("pod-pick-swipe-copy-1").assertExists()
         card("1").performTouchInput { up() }
         assertMark("1", "Keep")
@@ -221,7 +217,7 @@ class PodPickViewTest {
         val before = card("1").getUnclippedBoundsInRoot().top
         hold(card("4"))
         card("4").performTouchInput { repeat(6) { moveBy(Offset(0f, -height * .2f)) } }
-        compose.onNodeWithTag("pod-pick-art-preview").assertDoesNotExist()
+        compose.onNodeWithTag("card-inspection").assertDoesNotExist()
         card("4").performTouchInput { up() }
         assertTrue(card("1").getUnclippedBoundsInRoot().top < before)
         assertMark("4", "Unmarked")
@@ -234,10 +230,10 @@ class PodPickViewTest {
         val before = card("1").getUnclippedBoundsInRoot().top
         hold(card("4"), settle = true)
         card("4").performTouchInput { repeat(3) { moveBy(Offset(0f, -height * .2f)) }; repeat(3) { moveBy(Offset(0f, height * .2f)) } }
-        compose.onNodeWithTag("pod-pick-art-preview").assertIsDisplayed()
+        compose.onNodeWithTag("card-inspection").assertIsDisplayed()
         assertEquals(before, card("1").getUnclippedBoundsInRoot().top)
         card("4").performTouchInput { moveBy(Offset(width * .6f, 0f)) }
-        compose.onNodeWithTag("pod-pick-art-preview").assertDoesNotExist()
+        compose.onNodeWithTag("card-inspection").assertDoesNotExist()
         card("4").performTouchInput { up() }
         assertMark("4", "Unmarked")
         compose.onNodeWithText("Keep").assertDoesNotExist()
@@ -415,7 +411,7 @@ class PodPickViewTest {
         assertTrue(with(compose.onNodeWithTag("pod-pick-burn-tray").getUnclippedBoundsInRoot()) { bottom - top } <= 64.dp)
         compose.onNodeWithTag("pod-pick-tray-1").assertHeightIsEqualTo(48.dp)
         compose.onNodeWithTag("pod-pick-burn-cards").performTouchInput { swipeLeft() }
-        compose.onNodeWithTag("pod-pick-art-preview").assertDoesNotExist()
+        compose.onNodeWithTag("card-inspection").assertDoesNotExist()
         compose.onNodeWithTag("pod-pick-swipe-copy-2").assertDoesNotExist()
         assertMark("1", "Keep")
         compose.onNodeWithTag("pod-pick-tray-15").performScrollTo().assertIsDisplayed()
@@ -435,7 +431,7 @@ class PodPickViewTest {
         val firstPosition = compose.onNodeWithTag("pod-pick-tray-1").getUnclippedBoundsInRoot().left
         tray.performTouchInput { swipeLeft() }
         assertTrue(compose.onNodeWithTag("pod-pick-tray-1").getUnclippedBoundsInRoot().left < firstPosition)
-        compose.onNodeWithTag("pod-pick-art-preview").assertDoesNotExist()
+        compose.onNodeWithTag("card-inspection").assertDoesNotExist()
         compose.onAllNodes(hasTestTag("pod-pick-swipe-copy-1")).assertCountEquals(0)
         compose.onNodeWithContentDescription("Keep 14/14").assertExists()
         compose.onNodeWithText("Confirm").assertIsEnabled()

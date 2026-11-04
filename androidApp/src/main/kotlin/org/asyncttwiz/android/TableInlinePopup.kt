@@ -67,14 +67,7 @@ internal fun ringShortLabel(name: String): String = when (name) {
 }
 
 /** A layout cell nobody supplied stays visible and disabled; a layout never shows a hole. */
-internal fun ringPlaceholder(id: String): RingEntry {
-    val name = when (id) {
-        "inspect" -> "Inspect"
-        "otherSide" -> "Inspect other side"
-        else -> id
-    }
-    return RingEntry(id, ringShortLabel(name), MenuControl(name, false) {})
-}
+internal fun ringPlaceholder(id: String): RingEntry = RingEntry(id, ringShortLabel(id), MenuControl(id, false) {})
 
 /** One thing the engine offers for the card (§3 I4): a full-width row above the menu's cells, its [icon] by kind. */
 internal data class EngineRow(val control: MenuControl, val icon: androidx.compose.ui.graphics.vector.ImageVector)

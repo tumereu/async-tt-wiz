@@ -1,0 +1,1 @@
+mod: While you choose attackers, tapping your creatures only adds or removes attackers, and you pick what each attacks only in the combat area (tap a target's header, or drag the attacker there); the card menus no longer have "Attack". With Full control you can act at the beginning of combat, before attacking

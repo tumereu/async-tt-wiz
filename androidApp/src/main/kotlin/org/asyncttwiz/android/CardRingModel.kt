@@ -15,13 +15,12 @@ internal object CardRingPages {
 
     /**
      * TBL-116 (I-D46, I-D50, I-D52): the engine's actions for the card are rows above these cells, then only inspecting
-     * and the combat draft (Attack →, Remove from combat); a hand card has no menu at all (ZON-079).
+     * and a combat copy's Remove from combat; a hand card has no menu at all (ZON-079). No Declare and no attack target:
+     * taps stage attackers and the lanes pick their targets (CMB-028, owner 2026-11-04).
      */
     fun page(layout: CardMenuLayout): CardRingPage = when (layout) {
-        // UI review round 2 #5: no Declare (taps stage attackers, CMB-028); Attack → stays in its place, greyed unless
-        // the card attacks
-        CardMenuLayout.CARD -> CardRingPage("Automatum", listOf("inspect", "otherSide", "Attack →"))
-        CardMenuLayout.COMBAT -> CardRingPage("Combat", listOf("inspect", "Attack →", "Remove from combat"))
+        CardMenuLayout.CARD -> CardRingPage("Automatum", listOf("inspect", "otherSide"))
+        CardMenuLayout.COMBAT -> CardRingPage("Combat", listOf("inspect", "Remove from combat"))
         CardMenuLayout.HAND -> CardRingPage("Hand", listOf("inspect"))
         CardMenuLayout.PANEL -> CardRingPage("Card", listOf("inspect", "otherSide"))
     }

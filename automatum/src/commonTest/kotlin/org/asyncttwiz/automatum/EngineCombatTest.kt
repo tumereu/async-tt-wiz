@@ -92,8 +92,8 @@ class EngineCombatTest {
         }.working
         val area = assertNotNull(table.board(declared).combat)
         val ogreCopy = area.pairs.flatMap { it.blockers }.single { it.sourceId == ogre }
-        assertEquals("pair:$brute", area.pairs.single { p -> p.blockers.any { it.sourceId == ogre } }.id)
-        assertEquals(listOf("pair:$bear"), ogreCopy.alsoBlocks)
+        assertEquals(EngineProjection.pairId(brute), area.pairs.single { p -> p.blockers.any { it.sourceId == ogre } }.id)
+        assertEquals(listOf(EngineProjection.pairId(bear)), ogreCopy.alsoBlocks)
         assertEquals(setOf(LaneBlock(ogre, brute), LaneBlock(ogre, bear), LaneBlock(second, brute)),
             CombatFlow.lanes(area).second.toSet())
         // To the damage: Alice divides the Brute's damage first
@@ -122,7 +122,7 @@ class EngineCombatTest {
         val state = table.state()
         val staged = table.board(state).let { board ->
             board.copy(combat = org.asyncttwiz.protocol.CombatArea(EngineProjection.COMBAT_ID, listOf(
-                org.asyncttwiz.protocol.CombatPair("pair:$bear", listOf(org.asyncttwiz.protocol.CombatOccurrence("attack:$bear", bear))))))
+                org.asyncttwiz.protocol.CombatPair(EngineProjection.pairId(bear), listOf(org.asyncttwiz.protocol.CombatOccurrence(EngineProjection.attackId(bear), bear))))))
         }
         val shown = CombatFlow.shown(state, staged, "game")
         assertNull(shown.draftRefusal)

@@ -43,16 +43,6 @@ internal fun TableToolkitScreen(toolkit: TableToolkitController, play: TableBoar
     toolkit.player?.let { PlayerPanel(play, it, toolkit.viewer, toolkit::dismiss) }
 
     when (val panel = toolkit.panel) {
-        "attackTarget" -> if (bound != null) InlinePopupPanel(toolkit::dismiss, "Attack →") {
-            // Only a target shared by every selected attacker counts as current (null is the player).
-            val targets = CombatStackController.attackerPairs(play.board, bound.viewIds).map { it.attackTarget }.distinct()
-            val defender = listOf(game.inviter, game.recipient).find { it.accountId == CombatStackRules.defendingPlayer(play.board) }
-            for ((id, label) in attackTargetChoices(play, names, toolkit.viewer)) {
-                val current = targets.size == 1 && targets.single() == id
-                AttackTargetRow(play, id, label, defender, current = current, enabled = enabled && !current) {
-                if (toolkit.setAttackTarget(bound, id)) toolkit.dismiss()
-            } }
-        }
         "manageStack" -> ManageStackDialog(play, toolkit.viewer, toolkit::dismiss)
         "table" -> {
             TableActionMenu(play, toolkit.table, toolkit::dismiss, perform = toolkit::perform, names = names, onTimeline = onTimeline)
@@ -193,36 +183,3 @@ internal fun ZoneMenu(kept: @Composable () -> Unit = {}, rows: List<EngineRow> =
     }
 }
 
-/** The same targets, in the same order, as the combat area's lanes. */
-internal fun attackTargetChoices(play: TableBoard, names: Map<String, String>, viewer: String): List<Pair<String?, String>> =
-    listOf(null to (names[CombatStackRules.defendingPlayer(play.board)] ?: "Player")) +
-        CombatStackPresentation.attackTargets(play.board, play.definitions, viewer).map { id ->
-            val card = play.board.cards.single { it.id == id }
-            id to (play.definitions.find { it.digest == card.definition }?.definition?.faces
-                ?.find { it.faceId == card.faceId }?.name ?: "Card")
-        }
-
-/** Target picture (player avatar or card art) beside its full name; the current target is marked and inert. */
-@Composable
-internal fun AttackTargetRow(play: TableBoard, cardId: String?, label: String, defender: AccountIdentity?,
-    current: Boolean, enabled: Boolean, onClick: () -> Unit) {
-    val ink = MenuInk.copy(alpha = if (enabled || current) 1f else .38f)
-    // The same opaque, bordered, shadowed cell as every other floating popup control; the gaps stay outside.
-    RingPress(MenuControl("Attack $label${if (current) ", current target" else ""}", enabled, selected = current, click = onClick),
-        Modifier.fillMaxWidth().heightIn(min = 44.dp), LocalInlinePopupColor.current) {
-    Row(Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-        val card = cardId?.let { id -> play.board.cards.find { it.id == id } }
-        if (card == null) {
-            if (defender != null) Avatar(defender, size = 32.dp)
-        } else {
-            val definition = play.definitions.find { it.digest == card.definition }?.definition
-            val face = definition?.faces?.find { it.faceId == card.faceId }
-            val art = face?.tableArtwork(definition.faces.indexOf(face), card.definition)?.forTable()
-            CardArtwork(art, "", 192, 140, Modifier.size(32.dp, 32.dp).clip(MaterialTheme.shapes.extraSmall), crop = true)
-        }
-        Text(label, Modifier.weight(1f).padding(start = 8.dp), color = ink, fontSize = 13.sp, lineHeight = 15.sp,
-            fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
-        if (current) Icon(menuIcon("Accept"), null, Modifier.size(18.dp), tint = OwnTableColor)
-    }
-    }
-}

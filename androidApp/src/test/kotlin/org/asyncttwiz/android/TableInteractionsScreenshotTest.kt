@@ -57,7 +57,7 @@ class TableInteractionsScreenshotTest {
         val screen = "${width.toInt()}x${height.toInt()} ${if (width > height) "landscape" else "portrait"} table in combat, " +
             "text size ${font}x: card menu on your attacking Meadow Sentinel"
         capture("menu-${width.toInt()}x${height.toInt()}-font$font", "$screen.")
-        for (label in listOf("Inspect", "Inspect other side", "Attack →")) {
+        for (label in listOf("Inspect", "Inspect other side")) {
             val bounds = compose.onNodeWithContentDescription(label).fetchSemanticsNode().boundsInRoot
             assertTrue(bounds.width >= 48f && bounds.height >= 48f, "$label keeps its touch target")
         }

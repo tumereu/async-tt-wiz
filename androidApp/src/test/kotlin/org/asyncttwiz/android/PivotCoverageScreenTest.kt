@@ -90,18 +90,4 @@ class PivotCoverageScreenTest {
         close().assertCountEquals(0)
         compose.runOnIdle { assertEquals(null, toolkit.layoutState.value.localPileId) }
     }
-
-
-    // CMB-016: "Attack →" lists the targets, the current one marked and greyed, the others to tap
-    @Test fun theAttackTargetRowsMarkTheCurrentTarget() {
-        val play = f.initial
-        val clicks = mutableListOf<String>()
-        compose.setContent { MaterialTheme { Column {
-            AttackTargetRow(tableBoard(play), null, "Bob", f.game.recipient, current = true, enabled = false) { clicks += "Bob" }
-            AttackTargetRow(tableBoard(play), null, "Carol", null, current = false, enabled = true) { clicks += "Carol" }
-        } } }
-        compose.onNodeWithContentDescription("Attack Bob, current target").assertIsNotEnabled().performClick()
-        compose.onNodeWithContentDescription("Attack Carol").assertIsEnabled().performClick()
-        assertEquals(listOf("Carol"), clicks)
-    }
 }

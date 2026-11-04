@@ -285,12 +285,13 @@ class TableScreenshotTest {
 
 
 
-    // TBL-071, TBL-116 (I-D52): one page, Inspect, Other side and Attack →; nothing changes the card by hand
-    @Test fun battlefieldMenuHasOnlyInspectOtherSideAndAttack() {
+    // TBL-071, TBL-116 (I-D52): one page, Inspect and Other side; no "Attack →" (the lanes pick targets, CMB-028);
+    // nothing changes the card by hand
+    @Test fun battlefieldMenuHasOnlyInspectAndOtherSide() {
         val (_, sent) = menu("card-actions", false)
         compose.waitForIdle()
-        for (name in listOf("Inspect", "Inspect other side", "Attack →")) compose.onNodeWithContentDescription(name).assertExists()
-        for (name in listOf("Choose action page", "Graveyard", "Edit card note", "Clone", "Ping / Unping", "Move to Stack"))
+        for (name in listOf("Inspect", "Inspect other side")) compose.onNodeWithContentDescription(name).assertExists()
+        for (name in listOf("Attack →", "Choose action page", "Graveyard", "Edit card note", "Clone", "Ping / Unping", "Move to Stack"))
             compose.onNodeWithContentDescription(name).assertDoesNotExist()
         assertTrue(sent.isEmpty())
     }

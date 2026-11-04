@@ -287,9 +287,9 @@ object EngineProjection {
                 val attacker = card(a.id) ?: return@mapNotNull null
                 val blockers = blocking.filter { it.second.firstOrNull() == a.id }.mapNotNull { (blocker, attackers) ->
                     val id = card(blocker) ?: return@mapNotNull null
-                    CombatOccurrence("block:$id", id, alsoBlocks = attackers.drop(1).mapNotNull(::card).map { "pair:$it" })
+                    CombatOccurrence(blockId(id), id, alsoBlocks = attackers.drop(1).mapNotNull(::card).map(::pairId))
                 }
-                CombatPair("pair:$attacker", listOf(CombatOccurrence("attack:$attacker", attacker)), blockers,
+                CombatPair(pairId(attacker), listOf(CombatOccurrence(attackId(attacker), attacker)), blockers,
                     attackTarget = target(a.target), blocked = a.blocked)
             }
             return CombatArea(COMBAT_ID, pairs)
@@ -297,7 +297,7 @@ object EngineProjection {
         val staged = table.attackDraft?.takeIf { state.turn.step == arcanum.api.TurnStep.DeclareAttackers } ?: return null
         val pairs = staged.mapNotNull { a ->
             val attacker = card(a.attacker) ?: return@mapNotNull null
-            CombatPair("pair:$attacker", listOf(CombatOccurrence("attack:$attacker", attacker)), attackTarget = target(a.target))
+            CombatPair(pairId(attacker), listOf(CombatOccurrence(attackId(attacker), attacker)), attackTarget = target(a.target))
         }
         return CombatArea(COMBAT_ID, pairs).takeIf { pairs.isNotEmpty() || staged.isEmpty() }
     }
@@ -340,7 +340,12 @@ object EngineProjection {
     /** ATW's turn position of the engine's [step] (its label for the table's words). */
     fun position(step: arcanum.api.TurnStep): TurnPosition = EngineCodec.position(step)
 
-    const val COMBAT_ID = "combat"
+    /** The combat area's id, and below those of its pairs and copies, by card: UUIDs, as the table's combat controls
+     * name them in their actions ([org.asyncttwiz.protocol.CombatStackRules.valid]: unstaging, retargeting, blocking). */
+    const val COMBAT_ID = "c0b4a7a2-0000-5000-8000-00000000c0b4"
+    fun pairId(attacker: String): String = org.asyncttwiz.protocol.CommandIds.uuidV5(COMBAT_ID, "pair/$attacker")
+    fun attackId(attacker: String): String = org.asyncttwiz.protocol.CommandIds.uuidV5(COMBAT_ID, "attack/$attacker")
+    fun blockId(blocker: String): String = org.asyncttwiz.protocol.CommandIds.uuidV5(COMBAT_ID, "block/$blocker")
 
     /** Card data for an object nobody can read (no definition): shown as a nameless card. */
     private val UNKNOWN: SubmittedDefinition = run {

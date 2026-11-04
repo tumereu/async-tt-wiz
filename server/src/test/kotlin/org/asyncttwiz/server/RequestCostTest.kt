@@ -148,8 +148,9 @@ class RequestCostTest {
                     }
                     repeat(10) {
                         // Game action: socket admission, execution, then publication to both players' open tables.
-                        val command = games.boarded(pa, GameCommand(id(), GameScope(game.id, playId = play.id),
-                            org.asyncttwiz.server.game.automatedPlay(PlayAction.AdjustLife(pa.account.accountId, "1")), streamA.streamId, streamA.generation))
+                        // An engine play's private setting (I-D56 §7): a revision without engine work
+                        val command = GameCommand(id(), GameScope(game.id, playId = play.id), GameAction.EngineSettings(
+                            org.asyncttwiz.protocol.game.PlaySettings(alwaysAssumeResolves = it % 2 == 0)), streamA.streamId, streamA.generation)
                         measure("game action: admit") { socket(a.token) { games.admit(it, hello, connection, command) } }
                         measure("game action: execute") { assertTrue(games.executeOne()) }
                         measure("game action: publish") {
@@ -183,13 +184,12 @@ class RequestCostTest {
                     }
                     // Work-pool round trips per request. Before (master): admit 21, execute 32-39, publish 49,
                     // subscribe 61, head refresh 24, game head 18, pod 25, games 19, pods 20, decks 18, activity 27,
-                    // each counting the ownership-session probes that every transaction then made.
-                    val expected = mapOf("game action: admit" to 10, "game action: publish" to 18, "game open: subscribe" to 31,
-                        "game open: head refresh" to 10, "GET /v1/games/{id}/head" to 7, "GET /v1/pods/{id}" to 10,
+                    // each counting the ownership-session probes that every transaction then made. Engine plays (I-D56 step D2)
+                    // read the engine snapshot with every head: subscribe 31 -> 43 (three heads), head refresh 10 -> 14.
+                    val expected = mapOf("game action: admit" to 10, "game action: execute" to 18, "game action: publish" to 18,
+                        "game open: subscribe" to 43, "game open: head refresh" to 14, "GET /v1/games/{id}/head" to 7, "GET /v1/pods/{id}" to 10,
                         "GET /v1/games" to 7, "GET /v1/pods" to 8, "GET /v1/decks" to 7, "GET /activity" to 15)
                     for ((name, trips) in expected) assertEquals(List(10) { trips }, samples.getValue(name).map { it.work }, name)
-                    // The first execution also loads the game's history into memory.
-                    assertEquals(listOf(34) + List(9) { 27 }, samples.getValue("game action: execute").map { it.work })
                     // Requests never touch the ownership session: only its own 500 ms check does, far fewer times.
                     val requests = samples.values.sumOf { it.size }
                     assertTrue(samples.values.flatten().sumOf { it.ownership } < requests / 2, "$samples")

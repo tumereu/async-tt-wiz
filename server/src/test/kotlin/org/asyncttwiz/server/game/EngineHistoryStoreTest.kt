@@ -119,8 +119,9 @@ class EngineHistoryStoreTest {
         }
     }
 
-    /** The wipe planned for the switch to engine events (db/pending, owner accepted): every started game goes with every
-     * row of any table that names it or its plays, both histories included; a game that never started stays. */
+    /** The wipe of the switch to engine events (V59, owner accepted), run again on the latest schema: every started game
+     * goes with every row of any table that names it or its plays, both histories included; a game that never started
+     * stays. */
     @Test
     fun theWipeForTheSwitchRemovesStartedGamesWithEverythingThatNamesThem() = FreshDatabase().start().use { db ->
         FoundationMigrations.migrate(db.settings)
@@ -138,7 +139,7 @@ class EngineHistoryStoreTest {
             sql.execute("INSERT INTO invitation(id,game_id,state) VALUES (?,?,'PENDING')", invitation, waiting)
             connection.commit()
 
-            val wipe = javaClass.getResource("/db/pending/wipe_plays_for_engine_state.sql")!!.readText()
+            val wipe = javaClass.getResource("/db/migration/V59__engine_state_wipe_plays.sql")!!.readText()
             connection.createStatement().use { it.execute(wipe) }
             connection.commit()
 

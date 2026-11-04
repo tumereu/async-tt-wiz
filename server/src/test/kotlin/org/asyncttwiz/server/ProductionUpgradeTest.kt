@@ -293,7 +293,7 @@ class ProductionUpgradeTest {
             load(db, tables)
             val pending = FoundationMigrations.flyway(db.settings).info().pending().size
             assertEquals(pending, FoundationMigrations.migrate(db.settings)); assertEquals(0, FoundationMigrations.migrate(db.settings))
-            // No migration deleted anything but V54's (I-D52, owner-approved): every game that had started a play, with
+            // No migration deleted anything but V54's and V59's (I-D52, I-D54; owner-approved): every game that had started a play, with
             // everything that belongs to it.
             val wipedGames = tables["game_play"].orEmpty().map { it.jsonObject.getValue("game_id").jsonPrimitive.content }.toSet()
             val wipedPlays = tables["game_play"].orEmpty().map { it.jsonObject.getValue("id").jsonPrimitive.content }.toSet()

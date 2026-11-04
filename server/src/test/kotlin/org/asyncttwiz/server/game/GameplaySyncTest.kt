@@ -28,6 +28,9 @@ import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 
 class GameplaySyncTest {
+    // Today's model until it is deleted (I-D56 step D2): these games start without engine state
+    @org.junit.jupiter.api.BeforeEach fun oldModel() { engineDecks = false }
+    @org.junit.jupiter.api.AfterEach fun engineModel() { engineDecks = true }
     @Test fun `unchanged baselines reuse the same pinned export and compressed arrays`() {
         FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)

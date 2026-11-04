@@ -41,10 +41,11 @@ import org.jooq.impl.DSL
 @Volatile internal var engineSeats: ((gameId: UUID) -> List<Seat>?)? = null
 
 /**
- * Whether every game starting now is played as engine state, with its decks parsed on the server ([EngineDecks]): the
- * switch-over's switch (I-D54 item 1), off until then (`ATW_ENGINE_GAMES=1` turns it on).
+ * Whether a game starting now is played as engine state with its decks parsed on the server ([EngineDecks]): always
+ * since the switch-over (I-D56 step D2). Test seam: tests of today's model not yet deleted turn it off around their
+ * game starts.
  */
-@Volatile internal var engineDecks: Boolean = System.getenv("ATW_ENGINE_GAMES") == "1"
+@Volatile internal var engineDecks: Boolean = true
 
 /** The refusals of an engine play's actions that a device tells apart (the rest are "refusedByEngine"). */
 internal val ENGINE_REASONS = setOf("stale", "revealsHidden", "rewindRequested", "requestNeeded", "newLine", "noChange",

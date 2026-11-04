@@ -173,7 +173,7 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
     }
     fun inspectFace(action: PlayAction.InspectFace, lifetimeId: String, isCurrent: () -> Boolean,
         observed: (InspectionEvent) -> Unit): InspectionSubscription? = tableActions.inspectFace(action, lifetimeId, isCurrent, observed)
-    /** I-D56 step C: the open game, when it is played on engine state ([EnginePath]). */
+    /** I-D56: the open game, when it is played on engine state. */
     internal fun engineGame(): EngineGame? = state.detail?.let { session?.engineGame(it) }
     /** The open engine game's own steps and what it sends ([GameSession.engineTick]); [connectionState] republishes. */
     internal fun engineTick() { state.selected?.let { session?.engineTick(it) } }

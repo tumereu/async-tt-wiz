@@ -167,14 +167,13 @@ internal fun AutomatumPauseSettings(accountId: String, account: AccountSettingsS
                 Modifier.weight(1f).padding(end = 12.dp, top = 4.dp, bottom = 4.dp))
             Switch(checked = settings.autotap, onCheckedChange = null)
         }
-        if (BuildConfig.DEBUG) EngineDefaultSettings(preferences, account)
+        EngineDefaultSettings(preferences, account)
     }
 }
 
 /**
  * I-D56 §7, §13 (LOB-113): the response mode and "Always assume resolves" new games on engine state start with (each
- * game's own are changed from its quick actions); in debug builds also the switch that plays engine games on engine
- * state ([EnginePath], step C's test switch until the switch-over).
+ * game's own are changed from its quick actions).
  */
 @Composable
 private fun EngineDefaultSettings(preferences: PausePreferences, account: AccountSettingsState?) {
@@ -202,16 +201,5 @@ private fun EngineDefaultSettings(preferences: PausePreferences, account: Accoun
         SettingsLabel("Always assume resolves", "Go on at the other player's pauses even while they are online; they can still respond later",
             Modifier.weight(1f).padding(end = 12.dp, top = 4.dp, bottom = 4.dp))
         Switch(checked = defaults.alwaysAssumeResolves, onCheckedChange = null)
-    }
-    if (BuildConfig.DEBUG) {
-        val context = LocalContext.current
-        var on by remember { mutableStateOf(EnginePath.enabled) }
-        Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("engine-path")
-            .toggleable(on, role = Role.Switch, onValueChange = { EnginePath.set(context, it); on = it }),
-            verticalAlignment = Alignment.CenterVertically) {
-            SettingsLabel("Engine games (test)", "Play games the server runs on the engine with the new async play (debug builds only)",
-                Modifier.weight(1f).padding(end = 12.dp, top = 4.dp, bottom = 4.dp))
-            Switch(checked = on, onCheckedChange = null)
-        }
     }
 }

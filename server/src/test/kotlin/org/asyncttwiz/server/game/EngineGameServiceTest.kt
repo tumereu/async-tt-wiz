@@ -101,7 +101,7 @@ class EngineGameServiceTest {
             engineDecks = decks
             try {
                 owner.execute(GameAction.Ready); recipient.execute(GameAction.Ready)
-            } finally { engineSeats = null; engineDecks = false }
+            } finally { engineSeats = null; engineDecks = true }
         }
 
         fun snapshot(actor: AccountService.Principal = a): EngineSnapshot = games.head(actor, game.id).engine!!

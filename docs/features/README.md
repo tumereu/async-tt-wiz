@@ -18,13 +18,8 @@ text in `docs/design/` or `docs/decisions.md`, the catalog wins.
 
 ## Games on engine state (I-D54, I-D56)
 
-Gameplay entries describe games played on engine state with async play (`docs/specs/async-play.md`), which debug builds
-turn on with Settings → Automatum → "Engine games (test)". Until the switch-over (I-D56 step D) every other game still
-plays on today's model, which keeps its older pauses, passing for an away player and Hold (I-D41) until step D deletes
-them; the game tree, Redo, branching from the timeline and the auto-rewind switches are gone from both. The strip,
-timeline mode, event texts, icons and chips, change flashes, token pictures, early answers and the shared combat staging
-are built on engine state too (step D1); the entries that describe today's model's group texts (HIS-063–HIS-069) hold
-for today's model only, engine events reading as HIS-091 says.
+Every game is played on engine state with async play (`docs/specs/async-play.md`) since the switch-over (I-D56 step D2);
+games started before it were removed. Gameplay entries describe that path.
 
 ## Entry format
 

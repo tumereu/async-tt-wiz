@@ -18,28 +18,6 @@ import org.asyncttwiz.protocol.game.TableChange
 import java.util.UUID
 
 /**
- * The engine path's switch (I-D56 step C, behind the seam until step D): when on, a game whose play is engine state
- * ([org.asyncttwiz.protocol.GameHead.engine]) is played on its [EngineGame]; when off (the default), every game is
- * played on today's model. A debug/test setting (Settings → Automatum in debug builds).
- */
-internal object EnginePath {
-    @Volatile var enabled: Boolean = false
-
-    /** Reads the switch kept on this device (debug builds only; release builds always play today's model). */
-    fun load(context: android.content.Context) {
-        enabled = BuildConfig.DEBUG && context.getSharedPreferences(PREFERENCES, android.content.Context.MODE_PRIVATE).getBoolean(KEY, false)
-    }
-
-    fun set(context: android.content.Context, on: Boolean) {
-        context.getSharedPreferences(PREFERENCES, android.content.Context.MODE_PRIVATE).edit().putBoolean(KEY, on).apply()
-        enabled = on && BuildConfig.DEBUG
-    }
-
-    private const val PREFERENCES = "engine-path"
-    private const val KEY = "enabled"
-}
-
-/**
  * One game played on engine state on this device (I-D54 item 2, I-D56 step C): the device core ([GameDevice], which
  * holds the main line, playback, assumptions, undo and requests) and the board the table shows of it
  * ([EngineProjection]: the projected [PlayState] carrying the engine's state). Everything it sends is in [take]; the

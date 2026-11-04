@@ -25,7 +25,7 @@ import org.asyncttwiz.protocol.*
 import org.asyncttwiz.protocol.game.GameDevice
 
 /**
- * The table of a game played on engine state (I-D56 steps C–D, behind [EnginePath] until the switch-over): the same table
+ * The table of a game (every game is played on engine state, I-D56): the same table
  * surface, panels and controls as today's, drawn from the engine's state ([EngineGame.play]) and acting through the device
  * core ([EngineTableRoutes]), with the async play panels ([EngineAsyncHost]); the strip and timeline mode show the main
  * line up to the viewer's local head, view-only ([EngineTimeline], HIS-001–HIS-019), the change flashes and the event

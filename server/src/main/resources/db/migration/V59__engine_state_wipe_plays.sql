@@ -1,10 +1,9 @@
--- I-D54 (engine state as the game state; owner accepted wiping games for it, 2026-11-03). NOT a migration yet: it moves
--- to db/migration as the next V<n> in the release where the server switches plays to engine events (phase 3), so the
--- games testers play until then stay. Games played before that switch keep their history in today's model, which the
--- new server no longer reads: every game that ever started a play is deleted with everything that belongs to it, as
--- V54 did (plays, both histories, revisions, requests, chat, notifications, lobby copies). Games that never started a
--- play, accounts, contacts, saved decks, cubes, pods and their drafts, presets, notes, favorites, matchups and reports
--- stay. EngineWipeTest runs it against the current schema; check its table list against tables added since.
+-- Destructive owner decision (I-D54/I-D56 switch-over, accepted 2026-11-03): every game now plays on engine state, and
+-- games played before keep their history in the old model, which this server no longer reads. Every game that ever
+-- started a play is deleted with everything that belongs to it, as V54 did (plays, both histories, revisions, requests,
+-- chat, notifications, lobby copies). Games that never started a play (invitations, lobbies, pod challenges not yet
+-- started), accounts, contacts, saved decks, cubes, pods and their drafts, presets, notes, favorites, matchups and
+-- problem/crash reports stay. EngineHistoryStoreTest runs it again against the latest schema.
 CREATE TEMP TABLE wiped_game ON COMMIT DROP AS
 SELECT DISTINCT game_id FROM game_play;
 

@@ -138,8 +138,6 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // I-D56 step C: the test switch for games on engine state (debug builds only)
-        EnginePath.load(this)
         val storage = ViewModelProvider(this)[StorageViewModel::class.java]
         val auth = ViewModelProvider(this)[AuthViewModel::class.java]
         val catalog = auth.catalog

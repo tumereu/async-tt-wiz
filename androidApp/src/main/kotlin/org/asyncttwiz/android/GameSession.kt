@@ -183,7 +183,7 @@ class GameSession(private val connection: GameConnection, private val credential
         current.lifecycle == GameLifecycle.ACTIVE && current.playId == it.id } }
     fun play(game: GameSummary) = engineGame(game)?.play() ?: plays[game.id]?.display?.takeIf { acceptedPlay(game)?.id == it.id }
 
-    // ---- I-D56 step C: games played on engine state ([EnginePath], behind the seam until step D)
+    // ---- I-D56: games played on engine state
     private val engineGames = mutableMapOf<String, EngineGame>()
     /** The game [game] played on engine state on this device, while it is its current active play. */
     internal fun engineGame(game: GameSummary): EngineGame? = engineGames[game.id]?.takeIf { summary(game).let { current ->
@@ -641,8 +641,8 @@ class GameSession(private val connection: GameConnection, private val credential
                 message.ownPodDeckName?.let { ownPodDeckNames[message.gameId] = it }
                 catchUp.headArrived(message.summary)
                 chats.installChatHead(message)
-                // I-D56 step C: an active play on engine state is played on its engine game (behind the switch)
-                if (EnginePath.enabled && message.engine != null && message.play != null &&
+                // I-D56: an active play is engine state, played on its engine game
+                if (message.engine != null && message.play != null &&
                     message.summary.lifecycle == GameLifecycle.ACTIVE) engineHead(message)
                 else if (!catchUp.head(message)) {
                     install(message.summary, message.revision, message.preparation, null)

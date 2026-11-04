@@ -72,6 +72,9 @@ internal class GameplayFixture(val runtime: ServiceRuntime, deckSize: Int = 12, 
 }
 
 class GameplayDurabilityTest {
+    // Today's model until it is deleted (I-D56 step D2): these games start without engine state
+    @org.junit.jupiter.api.BeforeEach fun oldModel() { engineDecks = false }
+    @org.junit.jupiter.api.AfterEach fun engineModel() { engineDecks = true }
     private fun sql(db: TestPostgres, statement: String) { db.connection().use { it.createStatement().execute(statement) } }
     private fun number(db: TestPostgres, statement: String): Long = db.connection().use { c ->
         c.createStatement().executeQuery(statement).use { it.next(); it.getLong(1) } }

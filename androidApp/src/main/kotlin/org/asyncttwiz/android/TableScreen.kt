@@ -56,7 +56,7 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
     // Never the whole lobby state: its games-list refresh would recompose the table every few seconds.
     val state = controller.table.value
     val game = state.detail ?: return
-    // I-D56 step C: a game played on engine state has its own table screen (behind EnginePath until step D)
+    // I-D56: a game played on engine state has its own table screen
     if (controller.engineGame() != null) { EngineTableScreen(controller, accountId, hamburger, landscape); return }
     val interactive = game.id !in state.reconnectingGames
     val live = state.play

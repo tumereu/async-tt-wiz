@@ -171,4 +171,26 @@ class EngineAbReviewTest {
         val far = measured()
         assertTrue(far <= near + 3, "$near statements 3 events behind, $far statements 44 events behind")
     }
+
+    // abreview #10 (I-D54 §4, performance): a refused submission leaves the play warm: the next request loads no checkpoint
+    @Test fun `a refused submission keeps the play's state warm`() = withService { runtime ->
+        val f = Fixture(runtime, "w")
+        val alice = f.device(f.a)
+        f.aliceKeeps(alice)
+        assertEquals("accepted", f.owner.execute(f.aliceTableEvent(alice, 0)).outcome)
+        // Alice may not concede for Bob: refused by the gate, after the state was worked on
+        val bobId = PlayerId(f.b.account.accountId)
+        val refused = f.owner.execute(GameAction.Submit(org.asyncttwiz.protocol.game.Submission(id(), alice.tip,
+            listOf(org.asyncttwiz.protocol.game.Act.Perform(Input.Concede(bobId))))))
+        assertEquals("rejected", refused.outcome)
+        var checkpoints = 0
+        val listener = object : DefaultExecuteListener() {
+            override fun executeEnd(ctx: ExecuteContext) { if (ctx.sql()?.contains("engine_checkpoint") == true) checkpoints++ }
+        }
+        val command = f.aliceTableEvent(alice, 1)
+        f.owner.admit(command)
+        assertTrue(f.games.executeOne(listener))
+        assertEquals("accepted", f.owner.result(command).outcome)
+        assertEquals(0, checkpoints, "the next request read a checkpoint")
+    }
 }

@@ -314,6 +314,8 @@ class GameDeviceTest {
         // I-D56 §6: nobody places the other player's cards (abreview #11)
         assertEquals("Only bob makes this change", sim.server.submit(Submission("x", sim.server.head,
             table = listOf(TableChange.Placed(island, null, Placement(1, 1)))), alice).exceptionOrNull()?.message)
+        // Normal: her device keeps her main phase for her after her land (Auto-skip would pass it: she can do nothing more)
+        back.settings(PlaySettings(mode = ResponseMode.Normal))
         sim.catchUp(alice)
         sim.settle()
         assertTrue(sim.atMain(alice) && !back.session.behind && !bobs.session.behind)

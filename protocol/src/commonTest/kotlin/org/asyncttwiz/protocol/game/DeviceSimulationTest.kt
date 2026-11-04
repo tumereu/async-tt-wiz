@@ -33,9 +33,10 @@ class DeviceSimulationTest {
         var games = 0; var events = 0; var branches = 0; var confirmations = 0; var rewinds = 0; var requests = 0
         var assumed = 0; var assumedBlocks = 0; var results = 0; var catchUps = 0; var shown = 0
         var drafts = 0; var draftsDropped = 0; var table = 0; var concessions = 0
+        val undos = mutableMapOf<String, Int>()
         override fun toString() = "games $games, events $events, branches $branches, confirmations $confirmations, " +
             "rewinds $rewinds, requests $requests, assumed $assumed (blocks $assumedBlocks), results $results, catch-ups $catchUps, " +
-            "shown $shown, drafts $drafts (dropped $draftsDropped), table-only $table, concessions $concessions"
+            "shown $shown, drafts $drafts (dropped $draftsDropped), table-only $table, concessions $concessions, undos $undos"
     }
 
     private fun play(seed: Long, mode: Mode, decks: Pair<List<String>, List<String>>, stats: Stats, maxEvents: Int = 260) {
@@ -130,7 +131,7 @@ class DeviceSimulationTest {
             is GameDevice.Status.Waiting -> when {
                 status.blockersScreen -> if (rnd.nextInt(4) > 0) d.assume(blocks(d, rnd)) else d.closeBlockersScreen()
                 status.offer != null && rnd.nextInt(6) == 0 -> d.assume(if (status.offer == GameDevice.Offer.AssumeBlockers) blocks(d, rnd) else emptyList())
-                rnd.nextInt(30) == 0 && d.undoTarget() != null -> undo(d, rnd, stats)
+                rnd.nextInt(15) == 0 && d.undoTarget() != null -> undo(d, rnd, stats)
                 else -> {}
             }
             is GameDevice.Status.Over -> if (status.confirmable && !status.final) d.confirmResult()
@@ -191,7 +192,7 @@ class DeviceSimulationTest {
     /** At the player's move: an action of theirs (doing something mostly, passing sometimes), an End turn, an undo. */
     private fun move(sim: DeviceSim, d: GameDevice, rnd: Random, stats: Stats) {
         val s = d.model.engine
-        if (rnd.nextInt(25) == 0 && d.undoTarget() != null) return undo(d, rnd, stats)
+        if (rnd.nextInt(12) == 0 && d.undoTarget() != null) return undo(d, rnd, stats)
         if (rnd.nextInt(1_500) == 0) { d.concede(); return }
         if (s.priority.holder == d.me && s.pending == null && rnd.nextInt(12) == 0) { d.endTurn(sim.now); return }
         val listed = Engine.options(s, d.me).filter { it !is Input.Concede && Authority.mayMake(s, it, d.me, d.model.table) }
@@ -209,7 +210,10 @@ class DeviceSimulationTest {
     private fun undo(d: GameDevice, rnd: Random, stats: Stats) {
         val picked = if (rnd.nextBoolean()) null else d.session.events.take((d.session.indexOf(d.session.localHead) ?: -1) + 1)
             .lastOrNull { e -> e.author == d.me.value && e.assumed == null && e.engine?.steps?.any { it.input != null } == true }?.parentId
-        when (val undo = d.undo(picked ?: d.undoTarget())) {
+        val undo = d.undo(picked ?: d.undoTarget())
+        val kind = when (undo) { is GameDevice.Undo.Free -> "free"; is GameDevice.Undo.Request -> undo.reason; is GameDevice.Undo.Unavailable -> undo.reason }
+        stats.undos[kind] = (stats.undos[kind] ?: 0) + 1
+        when (undo) {
             is GameDevice.Undo.Request -> if (rnd.nextBoolean()) { stats.requests++; d.requestUndo(undo.target, "sorry") }
             else -> {}
         }

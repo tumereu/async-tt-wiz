@@ -1,0 +1,1 @@
+fix: When the other player moves their cards while you act, your action is no longer cancelled; an action the game had already moved past now tells you it wasn't taken.

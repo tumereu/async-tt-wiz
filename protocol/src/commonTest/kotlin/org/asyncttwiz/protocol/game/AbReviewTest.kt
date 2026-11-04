@@ -247,4 +247,111 @@ class AbReviewTest {
         assertTrue(over.final)
         assertTrue(sim.leaks.isEmpty())
     }
+
+    // abreview #9 (I-D56 §5, §9): whether going on would show the assumer something can't be decided by a random result
+    // before it happens (a flip deciding a look would tell it, and a free undo would roll it again): an assumed pass
+    // whose outcome flips a coin isn't made; the device waits for the other player's real pass, without a button
+    @Test
+    fun anAssumptionWhoseOutcomeFlipsACoinIsAWait() {
+        val toss = Cards.invent("Review Toss", "{U}", "Instant", "Flip a coin. If you win the flip, you gain 6 life.")
+        val sim = DeviceSim(EngineGames(4, List(40) { "Forest" } to (List(20) { "Island" } + List(20) { toss })))
+        sim.bobToMain()
+        val bob = sim.bob
+        val bobs = sim.device(bob)
+        assertIs<GameDevice.Acted.Sent>(bobs.act(Input.PlayLand(bob, hand(bobs.model, bob, "Island"))))
+        assertIs<GameDevice.Acted.Sent>(bobs.act(Input.Cast(bob, hand(bobs.model, bob, toss))))
+        sim.settle(only = listOf(bob))
+        assertEquals(GameDevice.Status.Waiting(GameDevice.Wait.HiddenCards), bobs.status)
+        assertTrue(sim.server.state().engine.stack.isNotEmpty(), "the toss waits on the Stack for Alice's real pass")
+    }
+
+    // abreview #10: a refused submission hands back the state it worked on (the server keeps it warm instead of loading
+    // a checkpoint for the next request)
+    @Test
+    fun aRefusalKeepsTheStateAtHand() {
+        val server = AsyncServer(EngineGames(1))
+        server.start()
+        val alice = server.alice
+        val warm = LiveState(server.head, server.state())
+        // Alice may not pass for Bob: refused by the gate, on the head's state
+        val refusal = kotlin.test.assertFailsWith<Refusal> {
+            Acceptance.accept(server.history, server.head, warm, Submission("x", server.head, listOf(Act.Perform(Input.Concede(server.bob)))),
+                alice, server.heads, server.lines + 1)
+        }
+        val kept = assertNotNull(refusal.state)
+        assertEquals(server.head, kept.at)
+        assertTrue(kept.model.sameAs(server.state()))
+    }
+
+    // abreview #11 (I-D56 §6): assumed inputs only by a player whose own local head is where they are made: never by a
+    // player who is behind (it would confirm the other player's assumptions about them unseen)
+    @Test
+    fun anAssumptionFromAPlayerWhoIsBehindIsRefused() {
+        val server = AsyncServer(EngineGames(2))
+        val alice = server.alice; val bob = server.bob
+        server.start(bob)
+        server.keepAndAssumeKeep(bob)
+        // On to a point of Bob's that Alice may assume (his priority anywhere but his own main phase)
+        repeat(40) {
+            val s = server.state().engine
+            val holder = s.priority.holder
+            if (holder == bob && s.pending == null && !Stops.stop(s, bob)) return@repeat
+            if (holder != null) server.act(bob, Input.PassPriority(holder), assumed = holder != bob).getOrThrow()
+            else server.act(bob, Engine.options(s, bob).first { it is Input.DeclareAttackers && it.attacks.isEmpty() }).getOrThrow()
+        }
+        val s = server.state().engine
+        assertTrue(s.priority.holder == bob && !Stops.stop(s, bob))
+        assertEquals("stale", server.act(alice, Input.PassPriority(bob), assumed = true).exceptionOrNull()?.message)
+        server.seen(alice, server.head)
+        assertTrue(server.act(alice, Input.PassPriority(bob), assumed = true).isSuccess)
+    }
+
+    // abreview #11 (I-D56 §11): a result is confirmed once every player saw it: the confirming player too
+    @Test
+    fun aResultIsConfirmedOnlyByAPlayerWhoSawIt() {
+        val server = AsyncServer(EngineGames(9))
+        server.start()
+        val alice = server.alice; val bob = server.bob
+        val suggestion = ResultSuggestion(alice, GameResult.Draw)
+        server.submit(Submission("r1", server.head, table = listOf(TableChange.Suggestion(null, suggestion))), alice).getOrThrow()
+        server.submit(Submission("r2", server.head, listOf(Act.Perform(Input.AgreedResult(GameResult.Draw))),
+            listOf(TableChange.Suggestion(suggestion, null))), bob).getOrThrow()
+        assertEquals(GameResult.Draw, Engine.result(server.state().engine))
+        val confirm = Submission("c1", server.head, table = listOf(TableChange.ResultConfirmed(null, alice)))
+        assertTrue(server.submit(confirm, alice).isFailure, "Alice hasn't been shown Bob's agreement")
+        server.seen(alice, server.head)
+        assertTrue(server.submit(confirm.copy(id = "c2"), alice).isSuccess)
+    }
+
+    // abreview #12 (I-D56 §5, §14): the waiting bar's "is choosing · <card>" names the card only when the viewer can
+    // see it; a choice from a card hidden from them gives no id the UI could show
+    @Test
+    fun theWaitingBarNamesOnlyACardTheViewerSees() {
+        val sim = sim("Crow's Larceny", land = "Swamp")
+        sim.bobToMain()
+        val alice = sim.alice; val bob = sim.bob
+        val bobs = sim.device(bob)
+        assertIs<GameDevice.Acted.Sent>(bobs.act(Input.PlayLand(bob, hand(bobs.model, bob, "Swamp"))))
+        assertIs<GameDevice.Acted.Sent>(bobs.act(Input.Cast(bob, hand(bobs.model, bob, "Crow's Larceny")), follow = answers(bob, alice)))
+        sim.settle(only = listOf(bob))
+        val waiting = assertIs<GameDevice.Status.Waiting>(bobs.status)
+        val choosing = assertIs<GameDevice.Wait.Choosing>(waiting.reason)
+        val state = bobs.model.engine
+        val source = assertNotNull(choosing.source, "the spell on the Stack is public")
+        assertTrue(source in Engine.visible(state, bob))
+        // The same choice as if from a card in Alice's hand (a "reveal this from your hand" trigger): no id
+        val pending = assertNotNull(state.pending)
+        val hidden = state.player(alice).hand.first()
+        val from = when (val d = pending.decision) {
+            is Decision.ChooseObjects -> d.copy(source = hidden)
+            is Decision.ChooseOption -> d.copy(source = hidden)
+            is Decision.May -> d.copy(source = hidden)
+            is Decision.Targets -> d.copy(source = hidden)
+            else -> error("unexpected decision $d")
+        }
+        state.pending = pending.copy(decision = from)
+        try {
+            assertEquals(GameDevice.Status.Waiting(GameDevice.Wait.Choosing(null)), bobs.status)
+        } finally { state.pending = pending }
+    }
 }

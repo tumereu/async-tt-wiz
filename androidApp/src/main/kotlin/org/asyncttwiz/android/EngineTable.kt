@@ -199,6 +199,17 @@ internal object EngineEventText {
     }
 }
 
+/** The note for a refusal of the player's own action (SYS-012: never dropped silently), or null for none. */
+internal fun refusedText(reason: String): String? = when (reason) {
+    GameDevice.REVEALS_HIDDEN -> CastController.WAIT_TO_CATCH_UP
+    "stale", "newLine" -> NOT_TAKEN
+    GameDevice.DRAFT_DROPPED -> NOT_TAKEN
+    else -> null
+}
+
+/** A player's own action the game moved on from before it reached the server (SYS-012). */
+internal const val NOT_TAKEN = "That wasn't taken: the game moved on first. The table shows where it is now."
+
 /** The waiting bar's words (§14) for [wait]. */
 internal fun waitingText(wait: GameDevice.Wait, play: PlayState, opponent: String): String? = when (wait) {
     is GameDevice.Wait.Respond -> "$opponent may respond to ${engineName(play, wait.to) ?: "your spell"}"
@@ -207,7 +218,7 @@ internal fun waitingText(wait: GameDevice.Wait, play: PlayState, opponent: Strin
     GameDevice.Wait.Keep -> "$opponent is deciding on a mulligan"
     is GameDevice.Wait.Choosing -> "$opponent is choosing" + (wait.source?.let { engineName(play, it) }?.let { " · $it" } ?: "")
     GameDevice.Wait.TheirTurn -> "Waiting for $opponent"
-    GameDevice.Wait.HiddenCards -> "Waiting for $opponent · going on would show you hidden cards"
+    GameDevice.Wait.HiddenCards -> "Waiting for $opponent · going on would show you hidden cards or a random result"
     GameDevice.Wait.Request -> "Waiting for the undo request to be answered"
     GameDevice.Wait.Suggestion -> "Waiting for an answer to the suggested result"
     GameDevice.Wait.Sending -> null
@@ -349,8 +360,7 @@ internal fun EngineAsyncHost(toolkit: TableToolkitController, routes: EngineTabl
                 is GameDevice.Note.TakenBack -> routes.note = "${names[note.by.value] ?: opponent} took back " +
                     (note.takenBack.firstOrNull()?.let { EngineEventText.of(it, device.model.engine, routes.viewer, names).replaceFirstChar(Char::lowercase) } ?: "an action")
                 is GameDevice.Note.RequestNeeded -> routes.rewind = EngineTableRoutes.RewindChoice(note.target)
-                is GameDevice.Note.Refused -> if (note.reason == GameDevice.REVEALS_HIDDEN) routes.note = CastController.WAIT_TO_CATCH_UP
-                    else toolkit.dismissError()
+                is GameDevice.Note.Refused -> refusedText(note.reason)?.let { routes.note = it } ?: toolkit.dismissError()
             }
         }
     }

@@ -348,3 +348,6 @@ the server still starts engine games only with `ATW_ENGINE_GAMES=1` or the test 
 13. The spec rows `async-play.md` §17 lists for `arcanum-atw-integration.md` and `arcanum-automatum.md` (they change when
     the switch-over ships), and the catalog's README note on the two paths.
 
+**Adversarial review of steps A and B (2026-11-04):** fixed; see `async-play.md` §21 (table-only events commute, drafts
+and confirmations, concession, random results, per-viewer times, batched main-line reads with a per-play event cache,
+warm state kept on refusals, server checks).

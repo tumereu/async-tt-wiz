@@ -69,7 +69,8 @@ internal class AsyncServer(val games: EngineGames, every: Int = 16) {
         }
         Result.success(result)
     } catch (refusal: Refusal) {
-        warm = null
+        // As the server: the state the refusal worked on stays warm, moved back to the head
+        warm = refusal.state?.let { LiveState(head, history.move(it.model, it.at, head)) }
         Result.failure(refusal)
     }
 

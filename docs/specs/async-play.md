@@ -603,3 +603,42 @@ Decided while building (the most vision-aligned reading; owner to confirm):
 11. **Defaults for new games** (response mode, Always assume resolves, Autotap) are kept on the device per account and
     given to a game once by the device that opens it first (not yet stored per account on the server: step D list).
 12. **Notes** (branch, take-back) show once as a dark chip at the top for 6 s.
+
+## 21. Fixed after the adversarial review of steps A and B (2026-11-04)
+
+The review (`~/projects/atw-cache/ab-review-2026-11-04.md`, 14 findings; reproductions in `AbReviewTest` and
+`EngineAbReviewTest`) is fixed in `protocol` `game`, the server and the engine table; catalog SYS-012, SYS-057, TRN-064,
+TRN-066, TRN-067, HIS-095 and HIS-096 follow. Decided while fixing (plainest reading; owner to confirm):
+1. **Table-only events commute** (#1, #2): an input made on an event followed only by other table-only events that
+   touch none of the table parts its own table changes touch (`Acceptance.commutes`) is made on the head instead (the
+   same engine state); the device slips such an event in under its pending events and open draft by the same rule.
+   Anything else still makes it stale. A player's own refused action is told ("That wasn't taken: the game moved on
+   first."); the device's own passes and assumptions lost in the expected races stay quiet (§8).
+2. **Drafts** (#2) survive events appended past them (buffered while behind, commuting at the head); a branch, a
+   rewind or a non-commuting event at the head drops them, told once (`DRAFT_DROPPED`). A draft at a decision stop is
+   made on the main line as it is there (no new line yet): sent, it confirms when its first input is the assumed one,
+   else it is made again as a branch with its new line first.
+3. **Confirmation** (#3) is one rule, `Acceptance.confirms`: only the first input is compared; what else the answer holds
+   is the player's next action after the confirmed event (at the head, or compared with the next assumption about them,
+   whatever their mode).
+4. **Concession** (#4): the server starts the line itself for a concession made without one at a local head the main
+   line has gone past (CR 104.3a).
+5. **Random results** (#5, #9): a random result in an event that starts a line makes undo past it a request; an outcome
+   with a random result counts for the device's information rule like a hidden card (an assumption isn't made, an own
+   input while tentative waits), so the waiting bar never depends on a result before it happens. The server's check
+   stays on cards (a modified client gains nothing it couldn't by waiting: undo past the result is a request).
+6. **Server per viewer** (#6, #7): a real wait going on across table-only events keeps its stop and time (no new
+   notification); move notifications carry the stop's time; the last-activity time a viewer sees is their next stop's,
+   else their local head's.
+7. **Work per request** (#8, #10): the main line between two events is read in two statements (ids, then the events not
+   decoded yet); each play's definitions and up to 256 decoded events are kept across requests; a refusal keeps the
+   play warm. The next stops are still worked out per request from each local head (in memory; table-only events cost
+   little), bounded by the engine events since.
+8. **Server checks** (#11): an assumed input only from its author's own local head; a result confirmed only by a player
+   who has seen it; a place only for a permanent of one's own.
+9. **Waiting bar** (#12): `Wait.Choosing.source` is null unless the viewer can see the card.
+10. **Reproduction bundle** (#14): it holds the full-information state and the game secret; fine per I-D27 and I-D43
+    (developer-only problem reports, never shown or copied to a player). No change.
+11. **Simulations** (#13): the leak oracle is the simulation's own (`Engine.visible` per step and what is shown or
+    revealed in passing), an equivalence oracle replays the main line's inputs on the bare engine, and the seeded games
+    make drafts (with deliveries in the middle), table-only events and concessions at any moment.

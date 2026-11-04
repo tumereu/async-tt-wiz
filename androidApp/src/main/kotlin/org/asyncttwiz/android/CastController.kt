@@ -596,7 +596,7 @@ internal class CastController(
         const val BUSY = "Finish or cancel the cast first."
         const val TABLE_CHANGED = "The table changed: cast it again."
         /** I-D56 §5: the hold text of an action refused because it would show hidden cards while the line is tentative. */
-        const val WAIT_TO_CATCH_UP = "Wait for the other player to catch up: this would show you hidden cards."
+        const val WAIT_TO_CATCH_UP = "Wait for the other player to catch up: this would show you hidden cards or a random result."
 
         /** Whether a dropped cast's [message] is shown by shaking its card (a refusal) rather than said (a failure). */
         fun visual(message: String) = message.endsWith("can't be cast now.") || message.endsWith("can't be played now.") ||

@@ -57,16 +57,20 @@ class EngineTableScreenshotTest {
                         Box(Modifier.fillMaxSize()) {
                             val reviewed = routes.review?.let { game.reviewPlay(it) }
                             val events = game.timeline.events(game, names)
+                            val status = game.shown?.status
+                            val playing = status is GameDevice.Status.Playing
+                            val playback = playing || (status as? GameDevice.Status.Stopped)?.paused == true
                             TableSurface(summary, reviewed ?: game.play(), viewer, false, Modifier.fillMaxSize(), connected = reviewed == null,
                                 onIntent = toolkit::handle, toolkit = toolkit,
                                 runtime = TableRuntimeHooks(navigation = {}, chat = {}, undo = { routes.undo() },
                                     undoHold = { routes.holdUndo() }, controlsConnected = reviewed == null, opponentPresence = presence,
-                                    reviewing = reviewed != null, liveView = reviewed == null,
-                                    timelinePlayback = if (reviewed != null) TimelinePlaybackStatus.PAUSED else null,
+                                    reviewing = reviewed != null || playing, liveView = reviewed == null && !playing,
+                                    timelinePlayback = if (reviewed != null) TimelinePlaybackStatus.PAUSED else if (playing) TimelinePlaybackStatus.PLAYING else null,
                                     waitingLine = routes.waitingLine(game.play()),
                                     returnCurrent = if (reviewed != null) ({ routes.leaveReview() }) else null,
                                     liveTimeline = if (events.isEmpty()) null else ({ EngineStrip(events, viewer, false) { routes.enterReview(events.last().id) } }),
-                                    bottomPanel = if (reviewed == null) null else ({ _ -> EngineReviewPanel(routes, events, viewer, false, 1_000) })))
+                                    bottomPanel = if (reviewed != null) ({ _ -> EngineReviewPanel(routes, events, viewer, false, 1_000) })
+                                        else if (playback) ({ _ -> EnginePlaybackPanel(routes, events, viewer, false) }) else null))
                         }
                     }
                 }
@@ -134,6 +138,125 @@ class EngineTableScreenshotTest {
         compose.onNodeWithTag("catch-up-play").assertExists()
         captureShot("$SCREENSHOTS/engine/catch-up.png",
             "Bob comes back after Alice played on: the Catching up screen explains that her actions play back and stop where he decides, with his response mode (Full control, Normal, Auto-skip) and Play.")
+    }
+
+    /** Bob coming back after [aliceAtMain]: his device holds her events past his local head. */
+    private fun bobCatchingUp(): EngineGame {
+        val alice = aliceAtMain()
+        val events = alice.device.session.pending
+        val snapshot = EngineSnapshot(f.codec.encodeDefinitions(), f.snapshot().rootId, events.last().id,
+            f.codec.encodeModel(alice.device.model), localHeads = mapOf(f.a to events.last().id, f.b to f.start.id),
+            baseId = f.start.id, base = f.snapshot().state, events = events.map(f.codec::encodeEvent))
+        return EngineGame(f.game.id, f.b, f.base, snapshot)
+    }
+
+    /** Plays [game] back until it stops. */
+    private fun playToStop(game: EngineGame) {
+        var guard = 0
+        while (game.device.status is GameDevice.Status.Playing && guard++ < 100) game.step()
+    }
+
+    /** Alice at her main phase in [mode] casts Storm Spark at Bob ([live]: Bob is online). */
+    private fun aliceCastsSpark(mode: org.asyncttwiz.protocol.game.ResponseMode, live: Boolean): EngineGame {
+        val game = EngineGame(f.game.id, f.a, f.base, f.snapshot()).apply { tick(live, 1_000); keep(emptyList()); tick(live, 2_000) }
+        if (live) { game.assume(); game.tick(live, 2_500) }
+        game.settings(game.shown!!.settings.copy(mode = mode))
+        val me = PlayerId(f.a)
+        game.send(listOf(Input.PlayLand(me, hand(game, "Mountain"))))
+        game.tick(live, 3_000)
+        val copy = game.device.model.engine.deepCopy()
+        val inputs = mutableListOf<Input>(Input.Cast(me, hand(game, "Storm Spark")))
+        var next: Input = inputs.first()
+        while (true) {
+            Engine.perform(copy, next).changes.forEach(copy::apply)
+            val d = copy.pending?.decision ?: break
+            if (d is Decision.Random || Engine.decider(copy, d.player) != me) break
+            next = if (d is Decision.ManaPayment) Input.Answer(d.id, Answer.ManaPayment(d.suggestion))
+                else Engine.options(copy, me).filterIsInstance<Input.Answer>().first { it.decision == d.id }
+            inputs += next
+        }
+        assertIs<GameDevice.Acted.Sent>(game.send(inputs))
+        game.tick(live, 4_000)
+        return game
+    }
+
+    // TRN-062 (owner playtest 2026-11-04 #3): the opening decision is only the quick actions Mulligan and Keep: nothing
+    // covers the board
+    @Test fun theOpeningHasOnlyTheQuickActions() {
+        val game = EngineGame(f.game.id, f.a, f.base, f.snapshot())
+        game.tick(false, 1_000)
+        render(game, f.a)
+        compose.onNodeWithText("Choose one").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Mulligan").assertExists()
+        compose.onNodeWithContentDescription("Keep").assertExists()
+        captureShot("$SCREENSHOTS/engine/opening.png",
+            "A new game's opening: Alice's seven cards are in her hand and her quick actions are Mulligan and Keep; nothing covers the board or asks her anything else.")
+    }
+
+    // STK-029, STK-027 (owner playtest 2026-11-04 #5, #6): in Full control Alice keeps priority after casting Storm Spark:
+    // it shows on the Stack with Resolve directly under it; no panel says she cast it, and the step arrow's place is empty
+    @Test fun resolveSitsUnderTheStack() {
+        val game = aliceCastsSpark(org.asyncttwiz.protocol.game.ResponseMode.FullControl, live = false)
+        assertEquals(GameDevice.Status.YourMove, game.device.status)
+        render(game, f.a)
+        compose.onNodeWithTag("stack-resolve").assertExists()
+        compose.onNodeWithText("You cast Storm Spark").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Respond prompt").assertDoesNotExist()
+        captureShot("$SCREENSHOTS/engine/stack-resolve.png",
+            "In Full control Alice cast Storm Spark at Bob and kept priority: the spell is on the Stack with Resolve directly under it, nothing covers the board and the step arrow's place is empty.")
+        compose.onNodeWithTag("stack-resolve").performClick()
+        compose.runOnIdle { assertTrue(game.device.model.engine.stack.isEmpty(), "she passed; Bob's pass was assumed and it resolved") }
+    }
+
+    // STK-028 (owner playtest 2026-11-04 #6): Bob is online, so after Alice's Storm Spark the game waits for him; Assume
+    // sits under the Stack (not in the step arrow's place) and assumes he lets it resolve
+    @Test fun assumeSitsUnderTheStack() {
+        val game = aliceCastsSpark(org.asyncttwiz.protocol.game.ResponseMode.Normal, live = true)
+        val waiting = assertIs<GameDevice.Status.Waiting>(game.device.status)
+        assertEquals(GameDevice.Offer.AssumeResolves, waiting.offer)
+        render(game, f.a, ReceivedPresence(OpponentPresence(PresenceState.ONLINE, idleSeconds = 0), monotonicMillis()))
+        compose.onNodeWithTag("stack-assume").assertExists()
+        compose.onNodeWithTag("engine-wait-action").assertDoesNotExist()
+        captureShot("$SCREENSHOTS/engine/stack-assume.png",
+            "Alice cast Storm Spark while Bob is online: faint words say Bob may respond to it, and Assume sits directly under the Stack, where tapping it goes on as if Bob let it resolve.")
+        compose.onNodeWithTag("stack-assume").performClick()
+        compose.runOnIdle { assertTrue(game.device.model.engine.stack.isEmpty(), "Storm Spark resolved on the assumed pass") }
+    }
+
+    // HIS-095, HIS-091 (owner playtest 2026-11-04 #1, #2): Bob's playback stops at the keep Alice assumed for him: his
+    // table looks like any opening of his, with no words saying it was assumed
+    @Test fun aStopAtAnAssumptionLooksLikeYourOwnPoint() {
+        val bob = bobCatchingUp()
+        bob.startPlayback()
+        playToStop(bob)
+        assertIs<GameDevice.Status.Stopped>(bob.device.status)
+        render(bob, f.b)
+        compose.onNodeWithText("assumed", substring = true).assertDoesNotExist()
+        compose.onNodeWithText("Your decision", substring = true).assertDoesNotExist()
+        compose.onNodeWithTag("engine-bar").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Keep").assertExists()
+        captureShot("$SCREENSHOTS/engine/decision-stop.png",
+            "Bob's playback stopped at his own opening, which Alice had played on from: his hand and the quick actions Mulligan and Keep, as in any opening; nothing says what Alice assumed.")
+    }
+
+    // HIS-013 (§27): Bob paused playback: it went on to Alice's upkeep, where Full control would have stopped for him, and
+    // stopped there with the strip and Play at the bottom; holding Play opens the response mode dialog
+    @Test fun pausedPlaybackStopsWhereFullControlWould() {
+        val bob = bobCatchingUp()
+        bob.startPlayback()
+        playToStop(bob)
+        bob.act((bob.device.status as GameDevice.Status.Stopped).assumed)
+        bob.pause(true)
+        playToStop(bob)
+        assertTrue((bob.device.status as GameDevice.Status.Stopped).paused)
+        render(bob, f.b)
+        compose.onNodeWithTag("playback-toggle").assertExists()
+        compose.onNodeWithContentDescription("Event strip").assertExists()
+        captureShot("$SCREENSHOTS/engine/playback-paused.png",
+            "Bob paused Alice's playback: it went on to her upkeep, where he could have acted, and stopped there; the event strip shows what he has seen and the button where Auto was reads Play, with holding it for the response mode.")
+        compose.onNodeWithTag("playback-toggle").performTouchInput { longClick() }
+        compose.waitForIdle()
+        compose.onNodeWithText("Where playback and your device stop for you.").assertExists()
     }
 
     // HIS-083, HIS-084 (I-D56 §10): holding Undo opens the rewind dialog; going back past what Bob saw asks him

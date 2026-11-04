@@ -1,0 +1,87 @@
+package org.asyncttwiz.android
+
+import arcanum.engine.input.Input
+import arcanum.engine.state.PlayerId
+import org.asyncttwiz.protocol.EngineSnapshot
+import org.asyncttwiz.protocol.game.GameDevice
+import org.asyncttwiz.protocol.game.GameEvent
+import org.junit.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertIs
+import kotlin.test.assertTrue
+
+/**
+ * Owner playtest 2026-11-04: what each player is shown of assumptions (only the assumer reads them as assumed), how
+ * playback paces events (§27: quiet passes go by at once) and pausing it (the next point where Full control stops).
+ */
+class EngineAsyncViewTest {
+    private val f = EngineGameFixture()
+    private val names = mapOf(f.a to "Alice", f.b to "Bob")
+
+    /** Alice kept while Bob was away (his keep and passes assumed up to her main phase), and Bob's device catching up. */
+    private fun aliceAndBob(): Pair<EngineGame, EngineGame> {
+        val alice = EngineGame(f.game.id, f.a, f.base, f.snapshot())
+        alice.tick(false, 1_000)
+        alice.keep(emptyList())
+        alice.tick(false, 2_000)
+        val events: List<GameEvent> = alice.device.session.pending
+        val snapshot = EngineSnapshot(f.codec.encodeDefinitions(), f.snapshot().rootId, events.last().id,
+            f.codec.encodeModel(alice.device.model), localHeads = mapOf(f.a to events.last().id, f.b to f.start.id),
+            baseId = f.start.id, base = f.snapshot().state, events = events.map(f.codec::encodeEvent))
+        return alice to EngineGame(f.game.id, f.b, f.base, snapshot)
+    }
+
+    // HIS-091 (owner playtest 2026-11-04 #1, #2): only the assumer reads an assumed answer as assumed; the player it was
+    // assumed about reads it as their own ("You kept", "You passed"), never "(assumed)"
+    @Test fun onlyTheAssumerReadsAnAssumedAnswerAsAssumed() {
+        val (alice, _) = aliceAndBob()
+        val assumed = alice.device.session.pending.filter { it.engine?.steps?.any { s -> s.assumedBy == PlayerId(f.a) } == true }
+        assertTrue(assumed.isNotEmpty())
+        val state = alice.device.model.engine
+        for (event in assumed) {
+            val hers = EngineEventText.of(event, state, f.a, names)
+            val his = EngineEventText.of(event, state, f.b, names)
+            assertTrue(hers.startsWith("Bob ") && "(assumed)" in hers, hers)
+            assertTrue(his.startsWith("You ") && "assumed" !in his, his)
+        }
+    }
+
+    // HIS-021 (§27): playback lets passes that changed nothing visible go by at once; a land play, a cast, a new turn keep
+    // the playback pause after them
+    @Test fun quietPassesGoByAtOnce() {
+        val (alice, _) = aliceAndBob()
+        val events = alice.device.session.pending
+        val quiet = events.filter(EnginePlaybackPace::quiet)
+        assertTrue(quiet.isNotEmpty(), "an upkeep pass changes nothing visible")
+        assertTrue(quiet.all { e -> e.engine!!.steps.all { it.input == null || it.input is Input.PassPriority } })
+        for (event in quiet) assertEquals(0L, playbackWait(event, 1_000))
+        // The keeps (an answer) and the pass into the draw step (a card drawn) aren't quiet
+        val keep = events.first { e -> e.engine?.steps?.any { it.input is Input.Answer || it.input is Input.SetupAnswer } == true }
+        assertFalse(EnginePlaybackPace.quiet(keep))
+        assertEquals(1_000L, playbackWait(keep, 1_000))
+        val draw = events.firstOrNull { e -> e.engine?.changes.orEmpty().any { it is arcanum.engine.change.Change.ZoneChange } &&
+            e.engine?.steps?.all { it.input == null || it.input is Input.PassPriority } == true }
+        if (draw != null) assertFalse(EnginePlaybackPace.quiet(draw))
+    }
+
+    // HIS-095, HIS-013 (§27): pausing playback goes on to the next point where Full control would stop (here Alice's
+    // assumed pass in her upkeep, which Bob's Auto-skip goes past), stops there for good until he plays on
+    @Test fun pausingStopsAtTheNextFullControlPoint() {
+        val (_, bob) = aliceAndBob()
+        bob.startPlayback()
+        var guard = 0
+        while (bob.device.status is GameDevice.Status.Playing && guard++ < 100) bob.step()
+        // The assumed keep always stops
+        bob.act((bob.device.status as GameDevice.Status.Stopped).assumed)
+        bob.pause(true)
+        assertTrue(bob.shown!!.pausing)
+        while (bob.device.status is GameDevice.Status.Playing && guard++ < 100) bob.step()
+        val stop = assertIs<GameDevice.Status.Stopped>(bob.device.status)
+        assertTrue(stop.paused, "Auto-skip alone wouldn't stop here")
+        assertIs<Input.PassPriority>(stop.assumed)
+        // Playing on answers the same as assumed and ends the pause
+        assertEquals(GameDevice.Acted.Confirmed, bob.act(stop.assumed))
+        assertFalse(bob.shown!!.pausing)
+    }
+}

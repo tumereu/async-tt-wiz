@@ -131,6 +131,18 @@ internal object MechanicWordings {
     /** "Undercity" (CR 205.3p, 701.49d). */
     private val undercity: ObjectFilter = ObjectFilter.Sub(arcanum.api.SubtypeRef.Literal(arcanum.api.Subtype("Undercity")))
 
+    // dungeons: the room effects of the dungeon cards (read anywhere, `Sentences.dungeonEffect`)
+    /** "Draw three cards and reveal them." */
+    val DRAW_AND_REVEAL = Regex("""Draw (\w+) cards and reveal them\.""")
+    /** "You may cast one of them without paying its mana cost." (one of the cards "them" names) */
+    val MAY_CAST_ONE_OF_THEM_FREE = Regex("""You may cast one of them without paying its mana cost\.""")
+    /** "Put a creature card from among them onto the battlefield with three +1/+1 counters on it." (exactly one, if any) */
+    val PUT_ONE_FROM_AMONG_ONTO_BATTLEFIELD = Regex("""Put an? (.+?) from among them onto the battlefield(?: with (\w+) (\S+) counters? on it)?\.""")
+    /** "Sacrifice a creature, an artifact, and a land." (one object of each kind, sacrificed at once) */
+    val SACRIFICE_LIST = Regex("""Sacrifice (an? [^,]+(?:, an? [^,]+)*,? and an? [^,]+)\.""")
+    /** "Discard a card and sacrifice a creature, an artifact, and a land." (one action, then the other) */
+    val DISCARD_AND_SACRIFICE = Regex("""(Discard .+?) and (sacrifice .+)\.""")
+
     private val ROOM = Regex("""(.+?) — (.+?)(?:\s*\((?:→|Leads to:) (.+?)\))?""")
     private val ONLY_INTO = Regex("""You can't enter this dungeon unless you ["“]venture into ([A-Z][a-z]+)\.["”]""")
 

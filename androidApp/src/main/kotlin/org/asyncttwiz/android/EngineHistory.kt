@@ -25,7 +25,9 @@ internal object EngineEventText {
         fun author() = if (event.author == viewer) "You" else names[event.author] ?: "A player"
         fun card(id: ObjectId?): String = name(id, state, viewer) ?: "a card"
         val step = event.engine?.steps?.firstOrNull { it.input != null }
-        val assumed = if (step?.assumedBy != null) " (assumed)" else ""
+        // HIS-091 (owner playtest 2026-11-04 #1, #2): only the player who assumed an answer reads it as assumed; to the
+        // player it was assumed about it reads as their own answer, the same as if they had made it
+        val assumed = if (step?.assumedBy?.value == viewer) " (assumed)" else ""
         // An assumed input is the other player's (§14: "Bob passes (assumed)"); an answer names no player, its event's author made it
         fun actor(): String = step?.assumedBy?.let { by -> names.keys.firstOrNull { it != by.value }?.let { who(PlayerId(it)) } }
             ?: author()

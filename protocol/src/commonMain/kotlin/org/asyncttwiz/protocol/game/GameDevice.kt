@@ -130,8 +130,9 @@ class GameDevice(
         /** Playback: [next] is shown next ([step]). */
         data class Playing(val next: GameEvent) : Status
         /** Playback stopped at [event], the other player's assumption of [assumed] for this player: the table is live
-         * before it, and the player's answer confirms or branches. */
-        data class Stopped(val event: GameEvent, val assumed: Input) : Status
+         * before it, and the player's answer confirms or branches. [paused]: it stops there only because the player paused
+         * playback ([pausing], §27), not by their response mode. */
+        data class Stopped(val event: GameEvent, val assumed: Input, val paused: Boolean = false) : Status
         /** A draft is open (a flow of the player's own). */
         data object Drafting : Status
         /** The game waits for this player at the head. */
@@ -211,7 +212,7 @@ class GameDevice(
         if (session.behind) {
             if (catchUp) return Status.CatchUp
             val next = session.buffered.first()
-            return stopAt(next)?.let { Status.Stopped(next, it) } ?: Status.Playing(next)
+            return stopAt(next)?.let { Status.Stopped(next, it, paused = stopAt(next, settings.mode) == null) } ?: Status.Playing(next)
         }
         val s = model.engine
         Engine.result(s)?.let { return Status.Over(it, confirmable(), final()) }
@@ -301,24 +302,34 @@ class GameDevice(
     /** Leaves the catch-up screen: playback starts. */
     fun play() { catchUp = false }
 
+    /**
+     * The player paused playback (§27, the play/pause button): it goes on to the next point where Full control would stop
+     * (an assumption about them where they could have acted) and stops there ([Status.Stopped.paused]); their answer
+     * there, or playing again, ends the pause. Personal: nothing is sent.
+     */
+    var pausing: Boolean = false
+        set(value) { field = value && session.behind }
+
     /** Shows the next buffered event unless playback stops before it: the event shown, or null. */
     fun step(): GameEvent? {
         if (needsReload || catchUp || session.drafting || !session.behind) return null
         if (stopAt(session.buffered.first()) != null) return null
-        return session.showNext()
+        return session.showNext().also { if (!session.behind) pausing = false }
     }
 
     /** "Return to current" and Back while behind (§7): plays on to the next decision point, never past it. */
     fun playToStop(): List<GameEvent> {
         catchUp = false
+        pausing = false
         return generateSequence { step() }.toList()
     }
 
-    /** The assumed input of [event] where this player's playback stops before it, else null (§7). */
-    private fun stopAt(event: GameEvent): Input? {
+    /** The assumed input of [event] where this player's playback stops before it under [mode], else null (§7); while
+     * paused ([pausing]) wherever Full control stops (§27). */
+    private fun stopAt(event: GameEvent, mode: ResponseMode = if (pausing) ResponseMode.FullControl else settings.mode): Input? {
         val step = event.assumed ?: return null
         if (step.assumedBy == me || Acceptance.assumedAbout(step, event, players) != me) return null
-        return step.input?.takeIf { NextStop.stopsAt(model.engine, it, me, settings.mode) }
+        return step.input?.takeIf { NextStop.stopsAt(model.engine, it, me, mode) }
     }
 
     // ---- The device's own steps
@@ -509,6 +520,8 @@ class GameDevice(
         refusal(input)?.let { return Acted.Refused(it) }
         if (!session.behind) return make(input, assumed = false, follow = follow, table = table, player = true, performed = performed)
         val stop = status as? Status.Stopped
+        // An answer of the player's own ends a pause (§27): playback goes on by their mode after it
+        pausing = false
         if (stop != null && Acceptance.confirms(input, stop.assumed)) return confirmThen(input, table, follow, replay)
         if (stop == null && input !is Input.Concede) return Acted.Refused("playback")
         return make(input, assumed = false, follow = follow, table = table, newLine = lines + 1, player = true)
@@ -565,6 +578,7 @@ class GameDevice(
         confirming += submission.id
         send(GameAction.Submit(submission))
         session.showNext()
+        pausing = false
     }
 
     /**

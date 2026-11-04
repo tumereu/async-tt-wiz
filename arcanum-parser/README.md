@@ -78,6 +78,13 @@ Design: `docs/specs/arcanum-automatum.md` §6.
   object ("Put a +1/+1 counter on your Ring-bearer."), haunt's modal trigger working in exile too, and a dungeon card's rooms ("[name] — [effect] (→ [room] or [room])", also as card data writes the arrows,
   "(Leads to: [room], [room])", `MechanicWordings.rooms`; a room effect it can't read is a `Step.Manual`) and its restriction
   "You can't enter this dungeon unless you "venture into [quality]."" (`Mechanic.OnlyVentureInto`, working outside the game);
+  the room effects the general rules didn't read (`Sentences.dungeonEffect`, `DungeonRoomWordingsTest`): "Draw three cards and
+  reveal them. You may cast one of them without paying its mana cost.", "Reveal the top ten cards of your library. Put a creature card
+  from among them onto the battlefield with three +1/+1 counters on it.", "Sacrifice a creature, an artifact, and a land." (three
+  different permanents) and "Discard a card and sacrifice …", plus "Target creature can't attack until your next turn.", "You may
+  play them." without a duration (for as long as they remain exiled) and "Each player loses 2 life unless they discard a card" /
+  "… sacrifice a creature, artifact, or land of their choice" — every room of the dungeons in the card data that has its arrows
+  (Baldur's Gate Wilderness's data has none, so it isn't a playable dungeon);
   in `OracleParser`, spree's and tiered's "+ [cost] — [effect]" modes and "Partner with [name]" (names with commas).
 - Mechanics the engine plays since its lanes 1–4 (regexes in `MechanicWordings.kt`, rules in the `mechanic*` functions of
   `Sentences.kt`, tried first; `EngineLaneWordingsTest`, one test per wording; played parsed in the engine's

@@ -141,7 +141,14 @@ class AutomatumCastScreenshotTest {
         compose.onNodeWithText("Storm Spark — choose any target").assertExists()
         assertTrue(sent.isEmpty(), "nothing is sent while the cast is open (I-D11)")
         compose.onRoot().captureShot("$SCREENSHOTS/automatum/cast-target-bar.png",
-            "Double-tapping Storm Spark with Automatum on: the cast panel is a slim bar just above the hand (\"Storm Spark — choose any target\" with Cancel and its icon) while the legal targets glow: the creatures on both battlefields and Bob's life square are outlined in violet; the step arrow is greyed while the cast is open.")
+            "Double-tapping Storm Spark with Automatum on: the cast panel is a slim bar just above the hand (the eye at its left, \"Storm Spark — choose any target\" with Cancel and its icon) while the legal targets glow: the creatures on both battlefields and Bob's life square are outlined in violet; the step arrow is greyed while the cast is open.")
+        // STK-044 (owner playtest 2026-11-04 #4): the bar's eye hides it and shows it again
+        compose.onNodeWithContentDescription("Hide bar").performClick()
+        compose.waitForIdle()
+        compose.onNodeWithText("Storm Spark — choose any target").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Show bar").performClick()
+        compose.waitForIdle()
+        compose.onNodeWithText("Storm Spark — choose any target").assertExists()
         // D32, STK-025, UI review round 2 #4: nothing else changes while the cast is open; the refusal shakes, no message
         compose.runOnIdle {
             assertFalse(toolkit.submit(PlayAction.AdjustLife(f.a, "-1")))

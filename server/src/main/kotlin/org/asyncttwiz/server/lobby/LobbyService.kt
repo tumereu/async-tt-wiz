@@ -208,7 +208,7 @@ class LobbyService(private val runtime: ServiceRuntime) {
         return games.mapNotNull { game -> StoredData.orSkip("game", game.id) {
             val row = identities.getValue(game.id)
             val engine = row.value9()?.split(",")?.map { it.split("|") }
-            val play = plays[game.id]?.let { payload -> StoredData.decode("game play", game.id!!) { GameWire.json.decodeFromString<PlayState>(payload) } }
+            val play = plays[game.id]?.let { payload -> StoredData.decode("game play", game.id!!) { GameWire.stored(PlayState.serializer(), payload) } }
             val holder = if (engine != null)
                 engine.firstOrNull { it[0] == viewer.toString() && it[1] == "true" }?.get(0) ?: engine.firstOrNull { it[1] == "true" }?.get(0)
             else if (game.lifecycle != "ACTIVE") null

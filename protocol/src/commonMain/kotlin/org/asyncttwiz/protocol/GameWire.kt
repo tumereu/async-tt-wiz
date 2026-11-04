@@ -177,6 +177,16 @@ object GameWire {
     /** The most engine inputs, and the most table changes, one [GameAction.Submit] may hold. */
     const val MAX_SUBMITTED = 1024
     val json = DeckJson.format
+    /** Reads what the server stored (a play, a revision, a request's result): a row written before the old model's fields
+     * went (engine-responsiveness R4d) reads without them; anything else unknown is still refused (SYS-052). */
+    fun <T> stored(deserializer: kotlinx.serialization.DeserializationStrategy<T>, text: String): T =
+        json.decodeFromJsonElement(deserializer, withoutRetired(json.parseToJsonElement(text)))
+
+    /** The old model's fields of stored plays (also a revision's [GameRevision.play]), revisions and results. */
+    private val RETIRED = setOf("currentNodeId", "engineVersion", "readFormat", "currentGroup", "annotations", "currentBranchId",
+        "mutation", "group", "treeDelta", "targetNodeId")
+    private fun withoutRetired(element: JsonElement): JsonElement = if (element !is JsonObject) element
+        else JsonObject(element.filterKeys { it !in RETIRED }.mapValues { (key, value) -> if (key == "play") withoutRetired(value) else value })
     fun decodeClient(text: String): GameClientMessage {
         require(text.encodeToByteArray().size <= MAX_MESSAGE_BYTES)
         StrictGameJson.check(text)

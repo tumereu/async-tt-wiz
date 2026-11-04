@@ -20,7 +20,7 @@ internal object PlayStore {
         val payload = sql.select(GAME_PLAY.PAYLOAD).from(GAME)
             .join(GAME_PLAY).on(GAME_PLAY.ID.eq(GAME.CURRENT_PLAY).and(GAME_PLAY.GAME_ID.eq(GAME.ID)))
             .where(GAME.ID.eq(game)).fetchOne()?.value1() ?: return null
-        return StoredData.decode("game play", game) { GameWire.json.decodeFromString<PlayState>(payload) }
+        return StoredData.decode("game play", game) { GameWire.stored(PlayState.serializer(), payload) }
     }
 
     /**

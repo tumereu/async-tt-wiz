@@ -101,7 +101,7 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
                 if (original.accountId != account || original.kind != "gameCommand" || original.scope != game.toString() || original.intentDigest != digest)
                     throw GameProtocolFailure("requestIdentityMismatch")
                 val inbox = sql.selectFrom(GAME_INBOX).where(GAME_INBOX.REQUEST_ID.eq(request)).fetchSingle()
-                return@transaction inbox.result?.let { json.decodeFromString<GameResult>(it) }
+                return@transaction inbox.result?.let { GameWire.stored(GameResult.serializer(), it) }
                     ?: GameReceipt(input.requestId, input.scope, inbox.ingressOrdinal.toString())
             }
             // Original outcomes remain private and recoverable after removal. New intent does not.
@@ -127,7 +127,7 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
         if (identity.accountId != account || identity.kind != "gameCommand" || identity.scope != game.toString())
             throw GameProtocolFailure("requestIdentityMismatch")
         val inbox = sql.selectFrom(GAME_INBOX).where(GAME_INBOX.REQUEST_ID.eq(uuid(id))).fetchSingle()
-        return inbox.result?.let { GameRequestStatus(id, "final", json.decodeFromString(it)) } ?: GameRequestStatus(id, "pending")
+        return inbox.result?.let { GameRequestStatus(id, "final", GameWire.stored(GameResult.serializer(), it)) } ?: GameRequestStatus(id, "pending")
     }
     fun results(principal: AccountService.Principal, gameId: String, ids: List<String>): GameResults {
         validateIds(ids)
@@ -184,7 +184,7 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
             val rows = sql.select(GAME_REVISION.PAYLOAD).from(GAME_REVISION).where(GAME_REVISION.GAME_ID.eq(game.id))
                 .and(GAME_REVISION.REVISION.gt(base)).orderBy(GAME_REVISION.REVISION).limit(101).fetch(GAME_REVISION.PAYLOAD)
             val revisions = rows.take(100).map {
-                visibleRevision(json.decodeFromString<GameServerMessage>(it!!) as GameRevision, principal.account.accountId) }
+                visibleRevision(GameWire.stored(GameServerMessage.serializer(), it!!) as GameRevision, principal.account.accountId) }
             GameRevisions(revisions, if (rows.size > 100) revisions.last().resultRevision else null)
         }
     }

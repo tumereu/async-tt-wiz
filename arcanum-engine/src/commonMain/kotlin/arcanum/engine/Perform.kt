@@ -60,7 +60,9 @@ internal object Perform {
         require(!GameEnd.over(state)) { "The game is over (CR 104.1)" }
         if (input is Input.Concede) return GameEnd.concede(state, input)
         if (input is Input.AgreedResult) return GameEnd.agree(state, input)
-        return runOn(Recorder(state.deepCopy(), view).also(made), input)
+        val recorder = Recorder(state.deepCopy(), view).also(made)
+        // The working copy's view, when kept to the end, is the view of the state after the changes (Outcome.view)
+        return runOn(recorder, input).also { it.view = recorder.state.viewCache?.view }
     }
 
     /** The longest refusal reason a trace keeps. */

@@ -244,6 +244,7 @@ internal class LayerRun(private val state: GameState, private val traced: Object
     private val started = LinkedHashMap<String, Started>()
 
     fun run(): View {
+        arcanum.engine.Engine.layersWorkedOut?.invoke()
         val board = WorkBoard(state, initialWork(), reads)
         initial = board.work.mapValues { it.value.chars }
         if (traced != null) base = board.work[traced]?.chars

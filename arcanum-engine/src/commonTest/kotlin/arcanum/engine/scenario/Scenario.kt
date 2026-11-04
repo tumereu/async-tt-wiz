@@ -285,6 +285,8 @@ class Scenario internal constructor(playerCount: Int, seed: Long, start: ((List<
         val outcome = Engine.perform(state, input)
         assertEquals(before, state, "Engine.perform changed the state it was given (D56)")
         outcome.changes.forEach { apply(it) }
+        // Outcome.view, the working copy's view handed back, is the view of the state after the changes
+        if (arcanum.engine.view.Layers.checkShortcuts) outcome.view?.let { assertEquals(Engine.view(state), it, "Outcome.view differs from the state's") }
         val decision = state.pending?.decision
         return when {
             decision is Decision.Random -> perform(Input.Answer(decision.id, randomAnswer(decision.what)).also { throughJson(it) })

@@ -11,20 +11,21 @@ app. Design: `docs/specs/arcanum-automatum.md` §4.1 and §7 (§7.0 is the API, 
 Engine.view(state): View                         // characteristics after layers (CR 613), rules in force
 Engine.explain(state, id): Explanation?          // where one object's characteristics come from, effect by effect
 Engine.options(state, player): List<Input>       // what a player may do now: exact (every input listed is accepted)
-Engine.perform(state, input, trace?): Outcome    // Outcome(changes, pending); never writes `state`; trace: see Tracing
+Engine.perform(state, input[, view], trace?): Outcome // Outcome(changes, pending); never writes `state`; trace: see Tracing
 Engine.newGame(seats, startingLife): GameState   // a game before it begins; Input.StartGame starts it (CR 103)
 Engine.result(state): GameResult?                // Won(player) or Draw once the game is over (CR 104)
-Engine.visible(state, player): Set<ObjectId>     // the objects whose identity a player may know now (D60)
+Engine.visible(state, player[, view]): Set<ObjectId> // the objects whose identity a player may know now (D60)
 Engine.shouldPassFor(state, player): Boolean     // a host passes priority for this player now (I-D3, I-D18)
 Engine.passCheck(state, player): PassCheck      // shouldPassFor as set and with the player's own skip on, one search
 Engine.decider(state, player): PlayerId          // who makes this player's decisions now (CR 723; see Controlling another player)
-Engine.revealed(before, changes, viewer): Set<CardId> // cards the changes show the viewer at some moment, new to them (full information)
+Engine.revealed(before, changes, viewer[, beforeView, afterView]): Set<CardId> // cards the changes show the viewer at some moment, new to them (full information)
 Engine.unknownOrder(state, player): List<List<ObjectId>> // the library's parts whose order nobody knows (CR 401.2)
 Engine.reorderUnknown(state, player, parts): Change.Reorder? // a host's new random order of those parts, known places kept
 Engine.blockCosts(state, blocks): Boolean        // whether the blocks have costs to block (CR 509.1d)
 Engine.loopKey(state): LoopKey                   // the state without ids, timestamps, history: finding loops (CR 104.4b)
 Engine.SUPPORT_VERSION                           // raised when what the engine leaves to the players changes
 Engine.otherViewDecision(state, filled)          // what a player decides in their view while this view waits (D31)
+Engine.layersWorkedOut: (() -> Unit)?            // tests and measurements: called each time the layers are worked out in full
 state.apply(change); state.revert(change)        // the only mutators (D56, D59)
 ```
 
@@ -77,7 +78,11 @@ seeded random games of cube cards, failing on any open player decision without a
   yet, abilities that stop with a `Manual` step at its natural moment (cast, enters, attacks, dies, …; an activated
   keyword's cost is paid by the engine and only its effect is by hand, saddle's excepted), so no keyword is silently ignored (D61).
   `ViewCache`: inside `perform` and `options` the engine's own working copy keeps its view until a change that can
-  make it differ (a host's state never caches; `Engine.view` works it out afresh). Within a layer, dependencies are
+  make it differ (a host's state never caches; `Engine.view` works it out afresh). A host that keeps a state's view
+  itself passes it in instead: `perform`'s `view` (the given state's), the `visible` and `revealed` overloads; and
+  `Outcome.view` hands back the working copy's view of the state after the changes when it was kept to the end (not
+  serialised, not part of equality), so a host applying the changes needn't work it out again.
+  `view/KeptViewsTest` checks each of these against `Engine.view` worked out afresh. Within a layer, dependencies are
   tried only for pairs where one can exist (CR 613.8a) and resolutions are kept until the board changes in what they read.
 - `query/` — `Evaluator`: what objects, players, filters, values and conditions of a definition
   mean in a game; `History` answers "this turn" questions from the log.

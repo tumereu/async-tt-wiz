@@ -502,7 +502,7 @@ class GameDevice(
                 if (revealing(keep)) return Point.Wait(Wait.HiddenCards)
                 return if (liveWait("$tip:keep")) Point.Wait(Wait.Keep, Offer.AssumeKeep, keep) else Point.Assume(keep)
             }
-            return Point.Wait(Wait.Choosing(d.source?.takeIf { it in Engine.visible(s, me) }))
+            return Point.Wait(Wait.Choosing(d.source?.takeIf { it in model.visible(me) }))
         }
         val holder = s.priority.holder
         if (holder != null) {
@@ -542,7 +542,7 @@ class GameDevice(
         reveals[key]?.let { return it }
         if (reveals.size > MAX_PROBES) reveals.clear()
         val shows = informationRule {
-            val before = model.engine.deepCopy()
+            val before = InformationRule.Before.of(model)
             val builder = open()
             try {
                 builder.perform(input, assumedBy = me)
@@ -672,7 +672,7 @@ class GameDevice(
     fun begin(): EventBuilder? {
         if (refusal(null) != null) return null
         val stop = if (session.behind) status as? Status.Stopped ?: return null else null
-        draftBefore = informationRule { if (tentative()) model.engine.deepCopy() else null }
+        draftBefore = informationRule { if (tentative()) InformationRule.Before.of(model) else null }
         val builder = open()
         openDraft = builder
         draftStop = stop
@@ -713,7 +713,7 @@ class GameDevice(
 
     private var openDraft: EventBuilder? = null
     private var draftStop: Status.Stopped? = null
-    private var draftBefore: GameState? = null
+    private var draftBefore: InformationRule.Before? = null
 
     /** Opens a draft at the tip: starting [newLine] (a branch), or the line a rewind left due at the head (§9). */
     private fun open(newLine: Int? = null): EventBuilder =
@@ -727,7 +727,7 @@ class GameDevice(
             val kind = WhoActs.kind(model, input, me, assumed)
             if (kind == WhoActs.Kind.Random) return Acted.Refused("Not the player's input")
         } catch (e: Refusal) { return Acted.Refused(e.reason) }
-        val before = informationRule { if (assumed || tentative()) model.engine.deepCopy() else null }
+        val before = informationRule { if (assumed || tentative()) InformationRule.Before.of(model) else null }
         val builder = open(newLine)
         val shift = LineShift.of(builder, model)
         try {
@@ -795,7 +795,7 @@ class GameDevice(
     /** Folds what follows by itself into [builder]'s event and sends it, unless it would show this player a hidden card
      * or a random result while [before] is given (the state before it: their line is tentative, or the event assumes):
      * then the draft is taken back unsent (§5). [player]: made by the player's own action (a refusal is told). */
-    private fun finish(builder: EventBuilder, own: Boolean, before: GameState?, player: Boolean = false): Acted {
+    private fun finish(builder: EventBuilder, own: Boolean, before: InformationRule.Before?, player: Boolean = false): Acted {
         val inputs = if (player) builder.playerInputs to builder.tableChanges else null
         try { fold(builder, own, guard = before) } catch (e: RuntimeException) { abandon(); return Acted.Refused(e.message ?: "refusedByEngine") }
         // I-D56 §5: while the line is tentative (or this assumes), nothing may show this player a hidden card
@@ -832,8 +832,10 @@ class GameDevice(
      * hidden card ([InformationRule.revealing]), or a random result (a coin flip deciding a look would tell the result
      * before it happens if the wait were decided by it; so any outcome with a random result waits, decided without it).
      */
-    private fun shows(before: GameState, builder: EventBuilder): Boolean = informationRule {
-        InformationRule.revealing(before, builder.changes, me).isNotEmpty() || InformationRule.randomResult(builder.engineSteps, before)
+    private fun shows(before: InformationRule.Before, builder: EventBuilder): Boolean = informationRule {
+        // The model is [before] with the builder's changes made (its builders are on it): its kept view is the after view
+        InformationRule.revealing(before, builder.changes, me, model.view()).isNotEmpty() ||
+            InformationRule.randomResult(builder.engineSteps, before.state)
     }
 
     /**
@@ -845,7 +847,7 @@ class GameDevice(
      * would show them something the information rule holds back (§5): the pass is taken back and the player holds
      * priority there, as their device's own steps leave it ([automaticStep]), instead of the whole action being refused.
      */
-    private fun fold(builder: EventBuilder, own: Boolean, guard: GameState? = null) {
+    private fun fold(builder: EventBuilder, own: Boolean, guard: InformationRule.Before? = null) {
         val start = model.engine.turn.number
         val forcedSeen = mutableSetOf<LoopKey>()
         val yielded = mutableSetOf<LoopKey>()

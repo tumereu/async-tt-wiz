@@ -84,8 +84,8 @@ internal object Knowledge {
     }
 
     /** [arcanum.engine.Engine.revealed]. */
-    fun revealed(before: GameState, changes: List<Change>, viewer: PlayerId): Set<CardId> {
-        val known = visible(before, arcanum.engine.Engine.view(before), viewer).mapNotNull { (it as? ObjectId.Card)?.card }.toSet()
+    fun revealed(before: GameState, changes: List<Change>, viewer: PlayerId, beforeView: View? = null, afterView: View? = null): Set<CardId> {
+        val known = visible(before, beforeView ?: arcanum.engine.Engine.view(before), viewer).mapNotNull { (it as? ObjectId.Card)?.card }.toSet()
         val existing = before.objects.values.map { it.card }.toSet()
         val state = before.deepCopy()
         val shown = mutableSetOf<CardId>()
@@ -105,7 +105,7 @@ internal object Knowledge {
                 else -> {}
             }
         }
-        visible(state, arcanum.engine.Engine.view(state), viewer).forEach { id -> state.obj(id)?.let { shown += it.card } }
+        visible(state, afterView ?: arcanum.engine.Engine.view(state), viewer).forEach { id -> state.obj(id)?.let { shown += it.card } }
         return shown.filterTo(mutableSetOf()) { it in existing && it !in known }
     }
 

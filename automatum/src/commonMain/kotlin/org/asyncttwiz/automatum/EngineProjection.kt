@@ -64,9 +64,10 @@ object EngineProjection {
         val state = model.engine
         val table = model.table
         val me = PlayerId(viewer)
-        val engineView = EngineView(state, table, me)
-        val visible = Engine.visible(state, me)
-        val view = runCatching { Engine.view(state) }.getOrNull()
+        // The model's view and visible set (worked out once per state, engine-responsiveness R2)
+        val visible = model.visible(me)
+        val engineView = EngineView(state, table, me, visible)
+        val view = runCatching { model.view() }.getOrNull()
         val board0 = base.board
         val definitions = base.definitions.associateBy { it.digest }.toMutableMap()
         val byCard = board0.cards.associateBy { it.id }

@@ -73,7 +73,7 @@ object Authority {
      */
     fun make(model: GameModel, submission: Submission, author: PlayerId, rules: Rules = Rules()): GameEvent {
         val assumes = submission.acts.any { it is Act.Perform && it.assumed }
-        val before = if (rules.tentative || assumes) model.engine.deepCopy() else null
+        val before = if (rules.tentative || assumes) InformationRule.Before.of(model) else null
         val builder = EventBuilder(model, submission.id, submission.parentId, author.value)
         try {
             var performed = 0
@@ -109,7 +109,9 @@ object Authority {
             }
             if (builder.empty) throw Refusal("An empty submission")
             // I-D56 §5: while the author's line is tentative, nothing may show them a card they couldn't see before
-            if (before != null && InformationRule.revealing(before, changes, author).isNotEmpty()) throw Refusal(REVEALS_HIDDEN)
+            // The model is the state after [changes] unless the event started a line (its reorder isn't among them)
+            if (before != null && InformationRule.revealing(before, changes, author, if (builder.startsLine) null else model.view())
+                    .isNotEmpty()) throw Refusal(REVEALS_HIDDEN)
             return builder.build()
         } catch (refusal: Refusal) {
             builder.abandon()
@@ -473,9 +475,22 @@ object InformationRule {
      * (protected by the reseed, §9).
      */
     fun revealing(before: GameState, changes: List<Change>, viewer: PlayerId): Set<arcanum.engine.state.CardId> =
-        Engine.revealed(before, changes, viewer).filterTo(mutableSetOf()) { card ->
-            before.current(card)?.let { !(it.zone == Zone.Library && it.owner == viewer) } ?: true
+        revealing(Before(before, null), changes, viewer, null)
+
+    /** [revealing] on [before] with the views known ([Before.view]; [after]: the view of [before]'s state with [changes]
+     * made), so the layers aren't worked out again (engine-responsiveness R2); null ones are worked out. */
+    fun revealing(before: Before, changes: List<Change>, viewer: PlayerId, after: arcanum.engine.view.View?): Set<arcanum.engine.state.CardId> =
+        Engine.revealed(before.state, changes, viewer, before.view, after).filterTo(mutableSetOf()) { card ->
+            before.state.current(card)?.let { !(it.zone == Zone.Library && it.owner == viewer) } ?: true
         }
+
+    /** The state before an event, kept for the rule's check: a copy of the model's engine state, with its view when the
+     * model had it kept (null: worked out if the check needs it). */
+    class Before(val state: GameState, val view: arcanum.engine.view.View?) {
+        companion object {
+            fun of(model: GameModel): Before = Before(model.engine.deepCopy(), model.keptView())
+        }
+    }
 
     /** Whether [event]'s random answers include a result players see (a coin flip, a die roll, a random choice; a
      * shuffle's order is hidden and a new line reshuffles it anyway). */

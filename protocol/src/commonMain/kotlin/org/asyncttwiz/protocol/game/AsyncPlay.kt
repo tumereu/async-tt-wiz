@@ -103,7 +103,7 @@ object Rewind {
             val engine = event.engine
             if (engine != null) {
                 // Your own library counts here: a draw, a look, a scry, a search are something new
-                if (Engine.revealed(model.engine, engine.changes, player).isNotEmpty()) return "shown"
+                if (Engine.revealed(model.engine, engine.changes, player, model.keptView(), null).isNotEmpty()) return "shown"
                 // Also in an event that starts a line (a branch whose outcome flips a coin): every rewind starts a new
                 // line, so a free undo past a seen result would roll it again (§9, §10)
                 if (event.table.any { it is TableChange.LineMoved } && InformationRule.randomResult(event, model.engine)) return "random"
@@ -112,7 +112,7 @@ object Rewind {
             // A wait for the other player's decision whose source you can't see (§5's hidden-source tell)
             val d = model.engine.pending?.decision
             if (d != null && Engine.decider(model.engine, d.player) != player && d.source != null &&
-                d.source !in Engine.visible(model.engine, player)) return "hiddenSource"
+                d.source !in model.visible(player)) return "hiddenSource"
             undone += event
         }
         return null

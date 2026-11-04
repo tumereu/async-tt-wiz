@@ -57,8 +57,18 @@ object Engine {
      *
      * [trace] gets one [TraceEntry] for the call (the input, what it did or why it was refused, how long it took) for a
      * host's logs and bug reports; the default records nothing and costs nothing.
+     *
+     * The [Outcome] carries the view of the state after its changes when the engine has it ([Outcome.view]).
      */
     fun perform(state: GameState, input: Input, trace: EngineTrace = EngineTrace.None): Outcome = Perform.run(state, input, trace = trace)
+
+    /**
+     * [perform] with [view], [state]'s view ([view] of [state] as it is now) when the caller already has it, so the engine
+     * doesn't work it out again (null: worked out when needed, as [perform]). The same outcome; a view of another state
+     * gives wrong results.
+     */
+    fun perform(state: GameState, input: Input, view: View?, trace: EngineTrace = EngineTrace.None): Outcome =
+        Perform.run(state, input, view = view, trace = trace)
 
     /**
      * A game before it begins (CR 103): [seats] in seat order with their decks as libraries in the order given and their
@@ -79,6 +89,11 @@ object Engine {
      */
     fun visible(state: GameState, player: PlayerId): Set<arcanum.engine.state.ObjectId> =
         arcanum.engine.action.Knowledge.visible(state, view(state), player)
+
+    /** [visible] with [view], [state]'s view ([view] of [state] as it is now) that the caller already has: the same
+     * result without working the layers out again. */
+    fun visible(state: GameState, player: PlayerId, view: View): Set<arcanum.engine.state.ObjectId> =
+        arcanum.engine.action.Knowledge.visible(state, view, player)
 
     /**
      * For a host whose [state] waits on a [arcanum.engine.decision.Decision.OtherView] (D60, D31) and that doesn't keep
@@ -140,6 +155,11 @@ object Engine {
     fun revealed(before: GameState, changes: List<Change>, viewer: PlayerId): Set<arcanum.engine.state.CardId> =
         arcanum.engine.action.Knowledge.revealed(before, changes, viewer)
 
+    /** [revealed] with the views the caller already has, the same result without working them out again: [beforeView] is
+     * [before]'s view and [afterView] the view of [before] with [changes] made; each null: worked out here. */
+    fun revealed(before: GameState, changes: List<Change>, viewer: PlayerId, beforeView: View?, afterView: View?): Set<arcanum.engine.state.CardId> =
+        arcanum.engine.action.Knowledge.revealed(before, changes, viewer, beforeView, afterView)
+
     /**
      * The parts of [player]'s library whose order no player knows (CR 401.2), each as its cards in library order: the
      * library's unknown part (every card since the last shuffle, CR 701.24, whose place nobody learned), then each group of
@@ -178,6 +198,15 @@ object Engine {
 
     /** How the game ended (CR 104): the winner or a draw; null while it goes on. */
     fun result(state: GameState): GameResult? = state.result
+
+    /**
+     * For a host's tests and measurements (changes no result): called on the calling thread each time the layers are
+     * worked out in full, whether for [view], [explain] or inside another call ([perform], [options], [visible], …); a
+     * view the engine kept or was given isn't counted. Null (the default): nothing is called. One for the whole process:
+     * set it only in tests or while measuring.
+     */
+    @kotlin.concurrent.Volatile
+    var layersWorkedOut: (() -> Unit)? = null
 }
 
 /**
@@ -185,7 +214,16 @@ object Engine {
  * for, if any. [pending] is also set in the state by the last change ([Change.PendingSet]).
  */
 @Serializable
-data class Outcome(val changes: List<Change>, val pending: Pending?)
+data class Outcome(val changes: List<Change>, val pending: Pending?) {
+    /**
+     * The view ([Engine.view]) of the state after [changes] when the engine had it at the end of the call (its working
+     * copy's), so a host that applies [changes] needn't work it out again; null when it hadn't (then work it out). Not
+     * part of equality, not serialised, and dropped by [copy].
+     */
+    @kotlinx.serialization.Transient
+    var view: View? = null
+        internal set
+}
 
 /** [Engine.passCheck]: whether a host passes priority for a player with the deciding player's "Skip when I have no
  * choice" as it is ([asSet]), and with the player's own setting on ([ownSkipOn]). */

@@ -216,9 +216,11 @@ internal class EngineTimeline {
  * and control; library shuffles for their animation. Never on a load (a jump).
  */
 internal object EngineChanges {
-    /** P/T of the battlefield's creatures by card id, as the table shows them. */
-    fun powerToughness(state: GameState): Map<String, Pair<Int, Int>> {
-        val view = runCatching { Engine.view(state) }.getOrNull() ?: return emptyMap()
+    /** P/T of the battlefield's creatures by card id, as the table shows them: from [model]'s view (worked out once per
+     * state, engine-responsiveness R2). */
+    fun powerToughness(model: org.asyncttwiz.protocol.game.GameModel): Map<String, Pair<Int, Int>> {
+        val state = model.engine
+        val view = runCatching { model.view() }.getOrNull() ?: return emptyMap()
         return state.battlefield.mapNotNull { id ->
             val v = view[id] ?: return@mapNotNull null
             val p = v.power ?: return@mapNotNull null

@@ -291,7 +291,7 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
     private var previewed: PlayState? = null
 
     private fun transition(before: PlayState?, after: PlayState, tip: String, line: List<GameEvent>, attention: String?, move: String?) {
-        val ptAfter = EngineChanges.powerToughness(device.model.engine)
+        val ptAfter = EngineChanges.powerToughness(device.model)
         val from = before?.currentNodeId?.let { id -> line.indexOfFirst { it.id == id }.takeIf { it >= 0 } ?: if (id == device.session.lineStart) -1 else null }
         val to = line.indexOfFirst { it.id == tip }.takeIf { it >= 0 } ?: if (tip == device.session.lineStart) -1 else null
         if (!loaded && before != null && from == null) rewinding?.let { r -> if (undo(r, before, after, attention, move)) return }
@@ -323,7 +323,7 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
         val to = old.indexOfFirst { it.id == r.target }.takeIf { it >= 0 } ?: if (old.firstOrNull()?.parentId == r.target) -1 else return false
         if (to >= from) return false
         val undone = old.subList(to + 1, from + 1).toList()
-        val ptNow = EngineChanges.powerToughness(device.model.engine)
+        val ptNow = EngineChanges.powerToughness(device.model)
         val changes = EngineChanges.between(before, after, pt, ptNow, undone)
         val steps = runCatching {
             val start = (if (device.session.tip == r.target) device.model.copy() else device.session.stateAt(r.target)) ?: return@runCatching emptyList()

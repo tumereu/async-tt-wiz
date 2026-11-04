@@ -20,7 +20,6 @@ Changes the owner wants but that are not built yet. The feature catalog
 
 Spec `docs/specs/engine-responsiveness.md` (architecture check, 2026-11-04), in this order:
 - R1: measure an own action properly: the probe splits engine work, information rule, board building, frame shown and the computed board's arrival (SYS-030).
-- R2: work out the layers once per state: the engine hands back / accepts a view, `GameModel` keeps view and visible sets (no entry changes).
 - R3: build the board once, on the engine thread: no repeated board, no repeated tick searches, computed values and plays published with the board instead of rebuilt from `PlayState` (SYS-025 holds again).
 - R4: a render model instead of `PlayState`, then delete the old model (engine-state-architecture §14 items 1–5; SYS-004 and SYS-010 go (the old model's other text/batch entries are already gone); engine-path replacements for tests citing LOB-066, HIS-018–HIS-020).
 - R6 (after R2): server refreshes only the reporting seat on `EngineSeen`, warm capacity from a measured heap, fewer round trips when opening a game (no entry changes).

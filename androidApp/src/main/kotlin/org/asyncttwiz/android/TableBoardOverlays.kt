@@ -29,6 +29,14 @@ internal inline fun TableBoardOverlays(game: GameSummary, play: PlayState, accou
             TimelineCentreText(runtime.opponentBranched, runtime.timelinePlayback ?: TimelinePlaybackStatus.PAUSED, runtime.oldBranch)
         }
     }
+    // TRN-066: the wait, faint like timeline mode's words; purely visual (no pointer handlers), so the board stays usable
+    if (!runtime.reviewing) runtime.waitingLine?.let { line -> scene.world?.visibleViewport?.let { board ->
+        Box(Modifier.offset(board.x.dp, board.y.dp).size(board.width.dp, board.height.dp), contentAlignment = Alignment.Center) {
+            Text(line, Modifier.padding(horizontal = 24.dp).semantics { contentDescription = line }, color = TimelineFaintInk,
+                style = androidx.compose.material3.MaterialTheme.typography.titleMedium,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+        }
+    } }
     // Outside the review condition: the end of playback (back to live) still flashes the pause.
     scene.world?.visibleViewport?.let { board ->
         PlaybackStatusFlash(runtime.timelinePlayback, Modifier.offset(board.x.dp, board.y.dp).size(board.width.dp, board.height.dp))

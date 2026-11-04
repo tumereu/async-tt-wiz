@@ -5,6 +5,10 @@ import androidx.compose.foundation.border
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -182,6 +186,70 @@ internal class EngineTableRoutes(val viewer: String, private val game: () -> Eng
 
     /** Holding Undo opens the rewind dialog to pick any earlier point (§10). */
     fun holdUndo() { rewind = RewindChoice(game()?.shown?.undoTarget) }
+
+    /** The other player's name, for the wait's words and the unconfirmed mark's tooltip (set by the table). */
+    var opponentName: String = "The other player"
+
+    /** A wait's own control in the step arrow's place (TRN-066): an Assume button, or Cancel for the viewer's own undo
+     * request. */
+    class WaitAction(val label: String, val icon: androidx.compose.ui.graphics.vector.ImageVector, val run: () -> Unit)
+
+    /** The control the step arrow's place shows while the other player must act, or null for none. */
+    fun waitAction(): WaitAction? {
+        val g = game() ?: return null
+        val shown = g.shown ?: return null
+        val status = shown.status as? GameDevice.Status.Waiting ?: return null
+        return when (status.offer) {
+            GameDevice.Offer.AssumeResolves -> WaitAction("Assume resolves", Icons.Outlined.DoneAll) { g.assume(); pump() }
+            // The screen to assume them (editable, CMB-040)
+            GameDevice.Offer.AssumeBlockers -> WaitAction("Assume blockers", Icons.Outlined.Shield) { blockersOpen = shown.tip }
+            GameDevice.Offer.AssumeKeep -> WaitAction("Assume keep", Icons.Outlined.Check) { g.assume(); pump() }
+            null -> if (status.reason == GameDevice.Wait.Request && shown.request?.by == viewer)
+                WaitAction("Cancel request", Icons.Outlined.Close) { g.cancelRequest(); pump() } else null
+        }
+    }
+
+    /** The faint words over the battlefield while the other player must act (TRN-066), or null. */
+    fun waitingLine(play: PlayState): String? {
+        val shown = game()?.shown ?: return null
+        val status = shown.status as? GameDevice.Status.Waiting ?: return null
+        if (status.offer == GameDevice.Offer.AssumeBlockers && (status.blockersScreen || blockersOpen == shown.tip)) return null
+        return waitingText(status.reason, play, opponentName)
+    }
+}
+
+/**
+ * The wait's control in the step arrow's place (TRN-066, MTG Arena-like): the same shape and size as the arrow, violet
+ * ink; holding it says what it does.
+ */
+@Composable
+internal fun EngineWaitArrow(action: EngineTableRoutes.WaitAction, compact: Boolean) {
+    ActionSquare(action.label, "", true, Modifier.width(if (compact) 68.dp else 72.dp).shadow(3.dp, AdvanceArrowShape)
+        .background(Color.White, AdvanceArrowShape).border(1.dp, AutomatumViolet, AdvanceArrowShape).clip(AdvanceArrowShape)
+        .testTag("engine-wait-action"),
+        fill = Color.White, ink = AutomatumViolet, compactContent = true, gestureKey = action.label,
+        icon = { Column(Modifier.fillMaxWidth().padding(start = 2.dp, end = 12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Icon(action.icon, null, Modifier.size(20.dp), tint = LocalContentColor.current)
+            Text(action.label, Modifier.fillMaxWidth(), fontSize = 10.sp, lineHeight = 12.sp, letterSpacing = 0.sp, maxLines = 2,
+                fontWeight = FontWeight.Medium, textAlign = TextAlign.Center)
+        } }, onClick = action.run)
+}
+
+/**
+ * TRN-068: the unconfirmed mark, a small violet dot at the step arrow's corner while actions of yours wait for the other
+ * player to see them (only you see it). A tap or hold says what it means.
+ */
+@Composable
+internal fun EngineUnconfirmedMark(opponent: String, modifier: Modifier = Modifier) {
+    var tip by remember { mutableStateOf(false) }
+    val words = "$opponent hasn't seen your last moves yet; if $opponent answers differently, they'll be taken back"
+    Box(modifier.size(24.dp).semantics { contentDescription = words }.testTag("engine-unconfirmed")
+        .pointerInput(Unit) { detectTapGestures(onPress = { tip = true; tryAwaitRelease(); tip = false }) },
+        contentAlignment = Alignment.Center) {
+        Box(Modifier.size(10.dp).background(AutomatumViolet, androidx.compose.foundation.shape.CircleShape)
+            .border(1.5.dp, Color.White, androidx.compose.foundation.shape.CircleShape))
+        if (tip) HoldTooltip(words)
+    }
 }
 
 internal val LocalEngineRoutes = staticCompositionLocalOf<EngineTableRoutes?> { null }
@@ -297,28 +365,12 @@ internal fun EngineAsyncHost(toolkit: TableToolkitController, routes: EngineTabl
     val opponent = names[shown.opponent.value] ?: "The other player"
     // Timeline mode (HIS-004) shows an earlier board, view-only: no async panels over it, only an incoming request
     val reviewing = routes.review != null
-    // §14: the assumer's indicator
-    if (!reviewing) shown.indicator?.let { EngineIndicator(it) }
+    // TRN-066, TRN-068: the wait is faint words over the battlefield (TableRuntimeHooks.waitingLine) with its Assume or
+    // Cancel in the step arrow's place, and the unconfirmed mark sits at the arrow's corner (QuickActionStrip): nothing
+    // here covers the board but the Assume blockers screen the player opens
     if (!reviewing) when (status) {
         is GameDevice.Status.Waiting -> if (status.offer == GameDevice.Offer.AssumeBlockers && (status.blockersScreen || routes.blockersOpen == shown.tip))
                 EngineBlockersScreen(routes, scene, play, opponent)
-            else waitingText(status.reason, play, opponent)?.let { text ->
-                AboveHand(handRow(scene, routes.viewer)) {
-                    EngineBar(text, presence?.let { PresenceText.line(it, monotonicMillis(), java.time.ZonedDateTime.now()) }) {
-                        when (status.offer) {
-                            GameDevice.Offer.AssumeResolves -> ChoiceButton("Assume resolves", Icons.Outlined.DoneAll, primary = true) {
-                                game.assume(); routes.pump() }
-                            // The screen to assume them (editable, CMB-040)
-                            GameDevice.Offer.AssumeBlockers -> ChoiceButton("Assume blockers", Icons.Outlined.Shield, primary = true) {
-                                routes.blockersOpen = shown.tip }
-                            GameDevice.Offer.AssumeKeep -> ChoiceButton("Assume keep", Icons.Outlined.Check, primary = true) {
-                                game.assume(); routes.pump() }
-                            null -> if (status.reason == GameDevice.Wait.Request && shown.request?.by == routes.viewer)
-                                ChoiceButton("Cancel", Icons.Outlined.Close) { game.cancelRequest(); routes.pump() }
-                        }
-                    }
-                }
-            }
         GameDevice.Status.CatchUp -> EngineCatchUp(routes, opponent)
         is GameDevice.Status.Stopped -> AboveHand(handRow(scene, routes.viewer)) {
             EngineBar("Your decision · ${EngineEventText.of(status.event, shown.engine, routes.viewer, names)}", null) {}
@@ -380,19 +432,6 @@ private fun EngineBar(text: String, presence: String?, buttons: @Composable RowS
                 }
                 buttons()
             }
-        }
-    }
-}
-
-/** §14: the assumer's indicator: how many assumptions wait to be confirmed and how many actions came since the first. */
-@Composable
-private fun EngineIndicator(indicator: GameDevice.Indicator) {
-    Box(Modifier.fillMaxSize().padding(start = 8.dp), contentAlignment = Alignment.CenterStart) {
-        Surface(shape = RoundedCornerShape(12.dp), color = Color.White, shadowElevation = 3.dp,
-            border = androidx.compose.foundation.BorderStroke(1.dp, AutomatumViolet.copy(alpha = .6f)),
-            modifier = Modifier.testTag("engine-indicator")) {
-            Text("${indicator.assumed} assumed · ${indicator.since} ${if (indicator.since == 1) "action" else "actions"} since", Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-                fontSize = 12.sp, color = AutomatumViolet, fontWeight = FontWeight.Medium)
         }
     }
 }

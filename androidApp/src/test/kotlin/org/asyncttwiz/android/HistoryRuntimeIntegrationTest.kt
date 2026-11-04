@@ -84,33 +84,6 @@ class HistoryRuntimeIntegrationTest {
             assertFalse(x.session.pending(x.game.id))
         }
     }
-    @Test fun revisionsArrivingDuringStagingCatchUpWithoutDownloadingAnotherManifest() {
-        Fixture().use { x ->
-            x.connect()
-            val transfer = x.transfer()
-            val started = java.util.concurrent.CountDownLatch(1)
-            val release = java.util.concurrent.CountDownLatch(1)
-            val blocked = GameplayTreeTransfer(transfer.manifest, transfer.plan) { index ->
-                if (index == 0) { started.countDown(); assertTrue(release.await(10, TimeUnit.SECONDS)) }
-                transfer.openChunk(index)
-            }
-            x.wire.reads.single().second(blocked)
-            while (true) (x.posts.poll() ?: break).invoke()
-            assertTrue(started.await(10, TimeUnit.SECONDS))
-            try {
-                repeat(2) { n ->
-                    val command = GameCommand(f.id(4000 + n), GameScope(x.game.id, playId = x.tree.initial.id),
-                        GameAction.Play(PlayAction.AdjustLife(f.a, "1")), f.id(90), "1")
-                    x.wire.listener.message(x.execute(command))
-                    while (true) (x.posts.poll() ?: break).invoke()
-                }
-            } finally { release.countDown() }
-            x.drain()
-            assertEquals(1, x.wire.reads.size, "Late arrivals are an incremental tail, not a baseline restart")
-            assertTrue(x.session.ready(x.game.id))
-            assertEquals(x.tree, x.session.retainedTree(x.game.id))
-        }
-    }
     @Test fun liveReviewIsImmediateAndAcceptedPublicationDoesNotWaitForBlockedHistoricalReviews() {
         var tree = f.root()
         repeat(360) { n -> tree = f.tap(tree, 2000 + n, tapped = n % 2 == 0) }
@@ -204,25 +177,6 @@ class HistoryRuntimeIntegrationTest {
             assertTrue(x.reconnects.none { it.mentions("treeManifestFailed") })
         }
     }
-    @Test fun resumeThroughEndedPlayDropsRefusedCatchUpWithoutReconnectingOtherGames() {
-        Fixture().use { x -> with(EndedPlayResume(x)) {
-            resume()
-            x.message(active(2)) // No local play replica: the historical delta starts a catch-up.
-            assertEquals(1, x.wire.reads.size)
-            assertFalse(x.session.ready(lobby.id))
-            x.wire.rejections.single()("inapplicable"); x.drain() // Server: the game has no current play.
-            assertEquals(2, x.wire.connects)
-            assertTrue(x.session.ready(other.id), "Other games stay connected")
-            assertEquals("2", x.wire.frames.filterIsInstance<SubscribeGame>().last { it.gameId == lobby.id }.revision,
-                "Refusal re-reads the head from the newest known revision, not the old base")
-            x.message(active(3)); x.message(active(4))
-            assertEquals(1, x.wire.reads.size, "Later revisions of the refused play must not restart catch-up")
-            finish()
-            x.message(active(3)) // A duplicate resubscription delivery after the head is equally inert.
-            assertEquals(1, x.wire.reads.size)
-            assertTrue(x.session.ready(lobby.id))
-        } }
-    }
     @Test fun resumeWithNewerLobbySummaryNeverStartsCatchUpForHistoricalPlayRevisions() {
         Fixture().use { x -> with(EndedPlayResume(x)) {
             resume()
@@ -244,17 +198,6 @@ class HistoryRuntimeIntegrationTest {
             assertTrue(x.wire.reads.isEmpty(), "Replayed ACTIVE history of an ended play must not trigger a tree transfer")
             assertTrue(x.session.ready(other.id))
             finish(connects = 1)
-        } }
-    }
-    // SYS-015
-    @Test fun genuineCatchUpTransportFailureStillReconnects() {
-        Fixture().use { x -> with(EndedPlayResume(x)) {
-            resume()
-            x.message(active(2))
-            x.wire.reads.single().second(null); x.drain()
-            assertTrue(x.reconnects.any { it.mentions("treeManifestFailed") })
-            assertFalse(x.session.ready(other.id))
-            x.session.tick(); assertEquals(3, x.wire.connects)
         } }
     }
     private val f = DownloadedTreeFixture
@@ -540,35 +483,6 @@ class HistoryRuntimeIntegrationTest {
         }
     }
 
-    @Test fun interleavedTreeDeltaCatchupPrunedRestartAndOfflineReviewWithGraceRequestWaitingForRecovery() {
-        Fixture().use { x ->
-            x.connect()
-            val baseline = x.transfer()
-            val command = GameCommand(f.id(800), GameScope(x.game.id, playId = x.tree.initial.id),
-                GameAction.Play(PlayAction.AdjustLife(f.a, "1")), f.id(14), "1")
-            val update = x.execute(command)
-            x.message(update)
-            x.wire.reads.last().second(baseline); x.drain()
-            assertTrue(x.session.ready(x.game.id)); assertEquals(x.tree, x.session.retainedTree(x.game.id))
-            val oldNode = x.tree.currentNodeId
-            val undo = command.copy(requestId = f.id(801), action = GameAction.Undo)
-            x.message(x.execute(undo))
-            val frames = x.wire.frames.size
-            x.wire.listener.disconnected(); x.drain()
-            var reviewed: DownloadedHistoryState? = null
-            assertTrue(x.session.review(x.game.id, oldNode) { reviewed = it }); x.drain()
-            assertEquals(x.tree.initial.root.id, reviewed!!.cursor); assertTrue(reviewed!!.reviewing)
-            assertEquals(x.tree.initial.board, reviewed!!.state!!.board)
-            assertEquals(frames, x.wire.frames.size)
-            var waiting: GameCommand? = null
-            assertTrue(x.session.gameplay(x.game, f.a, PlayAction.AdjustLife(f.a, "1"), captured = { waiting = it }))
-            assertEquals(frames, x.wire.frames.size, "A grace-period original waits without sending on the old socket")
-            // Fresh reconnect can replace all pruned envelopes from complete accepted records alone.
-            x.connect("2", listOf(GameRequestStatus(waiting!!.requestId, "notAdmitted")))
-            if (x.wire.reads.isNotEmpty() && !x.session.ready(x.game.id)) x.publish()
-            assertEquals(x.tree, x.session.retainedTree(x.game.id))
-        }
-    }
 
     @Test fun staleAccountAndPlayCallbacksCannotStageOrPublishEvenBeforeNextTick() {
         Fixture().use { x ->

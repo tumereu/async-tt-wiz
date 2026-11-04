@@ -46,7 +46,10 @@ data class TableRuntimeHooks(val chat: (() -> Unit)? = null, val history: (() ->
     /** The shown timeline point is on an old branch the player went to themselves; see [HistoryPlayback.oldBranch]. */
     val oldBranch: Boolean = false,
     /** Null outside timeline mode; drives the centre status line and the corner play/pause flash. */
-    val timelinePlayback: TimelinePlaybackStatus? = null)
+    val timelinePlayback: TimelinePlaybackStatus? = null,
+    /** TRN-066: why the table waits for the other player, faint over the battlefield (never taking a touch); null when
+     * it doesn't. */
+    val waitingLine: String? = null)
 
 /** The normal table route. No local initialization, entropy or placeholder future action handlers. */
 @Composable

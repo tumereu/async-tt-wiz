@@ -23,7 +23,7 @@ Rules that every feature follows: what the product is, who decides game state, h
 - **SYS-014** After a reconnect, actions that were already sent are recovered automatically: no duplicates and no manual resend. If the app process dies, it restarts from the server's state, and actions it had not sent yet may be lost. (r1)
 - **SYS-015** Recovery from missed updates is automatic. There is no manual "download history" or resync button. (r15)
 - **SYS-016** Losing the connection shows nothing by itself. Only when an action has waited 3 s for the server does "Reconnecting…" / "Game actions unavailable." appear, with a "Back to games list" button; from then on actions are refused until the connection is back. The dialog can be dismissed; you stay on the table and actions are still refused. (r1)
-- **SYS-017** Opening a game shows "Loading table…" until the table loads or really fails. It never flashes "Table unavailable" first. (r13)
+- **SYS-017** Opening a game shows "Loading table…" until the table loads or really fails. It never flashes "Table unavailable" first. A game this device can't load says "This game can't be opened on this device. Send a problem report from the menu." instead of reconnecting over and over. (r50)
 - **SYS-018** Lobby buttons stay enabled while the app reconnects. A tap waits for the connection and then goes through. (r21)
 - **SYS-019** Coming back from the background never bounces or jumps the layout, and the interruption itself shows no error. (r7)
 

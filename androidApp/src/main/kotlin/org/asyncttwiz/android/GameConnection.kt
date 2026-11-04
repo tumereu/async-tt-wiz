@@ -9,12 +9,8 @@ import kotlinx.serialization.encodeToString
 import java.net.URI
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.Executors
-import java.util.zip.GZIPInputStream
-import java.nio.file.Files
 import java.io.InputStream
 import java.io.ByteArrayOutputStream
-import kotlinx.serialization.json.decodeFromStream
-import org.asyncttwiz.storage.StoredPayload
 import org.asyncttwiz.storage.evictConnectionsInBackground
 
 data class GameplayTreeTransfer(val manifest: GameplayManifest, val plan: TreeDownloadPlan,
@@ -31,26 +27,14 @@ interface GameConnection : AutoCloseable {
     fun connect(token: String, listener: Listener)
     fun send(message: GameClientMessage): Boolean
     fun disconnect()
-    /** Read-only accepted transfer. No original is retried or rejected by an HTTP absence.
-     * [rejected] reports a definitive server refusal in [NO_CURRENT_PLAY] (the game has no
-     * transferable current play); [complete] with null is a transport/server failure. */
+    /** The old model's history transfers (only test doubles still answer them): the server has no such routes since
+     * I-D56 step D2 and the app's connection starts none (false), so a game that would need one can't be opened. */
     fun baseline(gameId: String, requestIds: List<String>, rejected: (String) -> Unit = {},
         complete: (GameplayBaseline?) -> Unit): Boolean = false
     fun treeTransfer(gameId: String, requestIds: List<String>, rejected: (String) -> Unit = {},
         complete: (GameplayTreeTransfer?) -> Unit): Boolean = false
     fun chatPage(gameId: String, before: String? = null, after: String? = null, complete: (ChatPage?) -> Unit): Boolean = false
     fun chatRead(gameId: String, input: ReadChat? = null, complete: (ChatReadState?) -> Unit): Boolean = false
-    companion object {
-        /** Baseline refusals that are game-state facts, not connectivity: nothing current to transfer. */
-        val NO_CURRENT_PLAY = setOf("inapplicable", "lifecycleEnded", "baselineExpired", "accessDenied")
-    }
-}
-
-private class BaselineRejected(val code: String) : Exception(code)
-private fun baselineRejection(response: Response): String? {
-    if (response.code !in listOf(400, 404, 410)) return null
-    return runCatching { GameWire.json.decodeFromString<LobbyError>(requireNotNull(response.body).byteStream()
-        .bounded(4096).toString(Charsets.UTF_8)).code }.getOrNull()?.takeIf { it in GameConnection.NO_CURRENT_PLAY }
 }
 
 class SocketGameConnection(private val origin: String) : GameConnection {
@@ -133,94 +117,6 @@ class SocketGameConnection(private val origin: String) : GameConnection {
                 }
             }.onFailure { AppLog.warn("game", "Chat page failed", it) }.getOrNull()
             complete(page)
-        }
-        return true
-    }
-    override fun treeTransfer(gameId: String, requestIds: List<String>, rejected: (String) -> Unit,
-        complete: (GameplayTreeTransfer?) -> Unit): Boolean {
-        val credential = token ?: return false
-        if (!DeckValidation.uuid(gameId)) return false
-        reads.execute {
-            val result = runCatching {
-                fun request(path: String, body: RequestBody? = null): Response {
-                    check(token == credential)
-                    val builder = Request.Builder().url(origin + path).header("Authorization", "Bearer $credential")
-                    if (body != null) builder.post(body)
-                    return client.newCall(builder.build()).execute().also { if (!it.isSuccessful) {
-                        val rejection = if (body != null) baselineRejection(it) else null
-                        it.close(); if (rejection != null) throw BaselineRejected(rejection); error("Baseline unavailable")
-                    } }
-                }
-                val manifest = request("/v1/games/$gameId/baselines", GameWire.json.encodeToString(LookupGameResults(requestIds))
-                    .toRequestBody("application/json".toMediaType())).use {
-                    GameWire.json.decodeFromString<GameplayManifest>(requireNotNull(it.body).byteStream()
-                        .bounded(GameplaySync.MAX_CHUNK_BYTES).toString(Charsets.UTF_8)) }
-                GameplaySync.validate(manifest)
-                require(manifest.gameId == gameId && manifest.head != null && manifest.recordCount > 0 &&
-                    manifest.statuses.map { it.requestId }.toSet() == requestIds.toSet())
-                val plan = TreeDownloadPlan(manifest.id, gameId, manifest.playId, GameWire.ordinal(manifest.revision),
-                    manifest.recordCount, manifest.chunks.map { TreeDownloadChunk(it.index, it.bytes, it.digest) },
-                    StoredPayload(1, GameWire.json.encodeToString(manifest)))
-                GameplayTreeTransfer(manifest, plan) { index ->
-                    request("/v1/baselines/${manifest.id}/chunks/$index").use {
-                        requireNotNull(it.body).byteStream().bounded(GameplaySync.MAX_CHUNK_BYTES).inputStream() }
-                }
-            }
-            result.exceptionOrNull()?.takeIf { it !is BaselineRejected }?.let { AppLog.warn("game", "Baseline download failed", it) }
-            val rejection = result.exceptionOrNull() as? BaselineRejected
-            if (rejection != null) rejected(rejection.code) else complete(result.getOrNull())
-        }
-        return true
-    }
-    @OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
-    override fun baseline(gameId: String, requestIds: List<String>, rejected: (String) -> Unit,
-        complete: (GameplayBaseline?) -> Unit): Boolean {
-        val credential = token ?: return false
-        if (!DeckValidation.uuid(gameId)) return false
-        reads.execute {
-            val result = runCatching {
-                fun request(path: String, body: RequestBody? = null): Response {
-                    check(token == credential)
-                    val builder = Request.Builder().url(origin + path).header("Authorization", "Bearer $credential")
-                    if (body != null) builder.post(body)
-                    return client.newCall(builder.build()).execute().also { if (!it.isSuccessful) {
-                        val rejection = if (body != null) baselineRejection(it) else null
-                        it.close(); if (rejection != null) throw BaselineRejected(rejection); error("Baseline unavailable")
-                    } }
-                }
-                val manifest = request("/v1/games/$gameId/baselines", GameWire.json.encodeToString(LookupGameResults(requestIds))
-                    .toRequestBody("application/json".toMediaType())).use { response ->
-                    val bytes = requireNotNull(response.body).byteStream().bounded(GameplaySync.MAX_CHUNK_BYTES)
-                    require(bytes.size <= GameplaySync.MAX_CHUNK_BYTES)
-                    GameWire.json.decodeFromString<GameplayManifest>(bytes.toString(Charsets.UTF_8))
-                }
-                GameplaySync.validate(manifest)
-                require(manifest.gameId == gameId && manifest.statuses.map { it.requestId }.toSet() == requestIds.toSet())
-                // Accepted-only staging on disk; an interrupted download never replaces the live generation.
-                val file = Files.createTempFile("gameplay-baseline-", ".json")
-                try {
-                    Files.newOutputStream(file).use { output ->
-                        for (chunk in manifest.chunks) request("/v1/baselines/${manifest.id}/chunks/${chunk.index}").use { response ->
-                            val compressed = requireNotNull(response.body).byteStream().bounded(GameplaySync.MAX_CHUNK_BYTES)
-                            require(compressed.size <= GameplaySync.MAX_CHUNK_BYTES)
-                            val bytes = GZIPInputStream(compressed.inputStream()).use { it.bounded(chunk.bytes) }
-                            require(bytes.size == chunk.bytes && GameplaySync.digest(bytes) == chunk.digest)
-                            output.write(bytes)
-                        }
-                    }
-                    val snapshot = if (manifest.recordCount > 0) Files.newBufferedReader(file).use { reader ->
-                        val records = reader.lineSequence().map { GameWire.json.decodeFromString<TreeSyncRecord>(it) }.toList()
-                        require(records.size == manifest.recordCount)
-                        GameplaySnapshot(requireNotNull(manifest.head), emptyList(), records)
-                    } else Files.newInputStream(file).use { GameWire.json.decodeFromStream<GameplaySnapshot>(it) }
-                    require(snapshot.head.gameId == gameId && snapshot.head.revision == manifest.revision && snapshot.head.play?.id == manifest.playId)
-                    GameplaySync.validate(snapshot)
-                    GameplayBaseline(snapshot, manifest.statuses)
-                } finally { Files.deleteIfExists(file) }
-            }
-            result.exceptionOrNull()?.takeIf { it !is BaselineRejected }?.let { AppLog.warn("game", "Baseline download failed", it) }
-            val rejection = result.exceptionOrNull() as? BaselineRejected
-            if (rejection != null) rejected(rejection.code) else complete(result.getOrNull())
         }
         return true
     }

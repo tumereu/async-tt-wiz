@@ -26,7 +26,9 @@ class GameSession(private val connection: GameConnection, private val credential
     private val personalChat: GameChat = GameChat(),
     private val openedGame: () -> String? = { null },
     /** Where engine games do their work (I-D56 step D2): the app's engine thread, or inline in tests. */
-    private val engineWorker: EngineWorker = EngineWorker.Direct) : AutoCloseable {
+    private val engineWorker: EngineWorker = EngineWorker.Direct,
+    /** Which engine games to load on the engine thread (the app: only the open one; switchreview #11). */
+    private val engineLoad: (String) -> Boolean = { true }) : AutoCloseable {
     private fun replica(gameId: String) = plays.getOrPut(gameId) { GameplayReplica { tableChanges(gameId, it) } }
     // Always traced: reports can be turned on mid-game; the default sink sends only while they are on.
     private val reconnectTrace = ReconnectRecorder(true, now, record = reconnectTelemetry)
@@ -90,6 +92,7 @@ class GameSession(private val connection: GameConnection, private val credential
         override fun flush() = this@GameSession.flush()
         override fun recoveryReady() = this@GameSession.recoveryReady()
         override fun connectionUnavailable(cause: String) = this@GameSession.connectionUnavailable(cause)
+        override fun cannotOpen(gameId: String, cause: String) = this@GameSession.cannotOpen(gameId, cause)
         override fun send(message: GameClientMessage) = this@GameSession.send(message)
     }
     private val chats = SessionChat(scope, connection, personalChat, now, openedGame,
@@ -173,6 +176,7 @@ class GameSession(private val connection: GameConnection, private val credential
         catchUp.remove(gameId)
         inspections.remove(gameId)
         preparations.remove(gameId); plays.remove(gameId); engineGames.remove(gameId); engineBacklog.remove(gameId); reloadAsked.remove(gameId)
+        engineHeads.remove(gameId); headAsked.remove(gameId); unopenable.remove(gameId)
         acceptedRevisions.remove(gameId)
         chats.remove(gameId)
         resultIntents.entries.removeAll { it.value.command.scope.gameId == gameId }
@@ -198,33 +202,92 @@ class GameSession(private val connection: GameConnection, private val credential
         current.lifecycle == GameLifecycle.ACTIVE && current.playId == it.base.id } && it.shown != null }
     internal fun engineGame(gameId: String): EngineGame? = summaries[gameId]?.let(::engineGame)
 
+    /** The newest engine head of a game that isn't loaded, kept until it opens (switchreview #11: only the open game loads
+     * on the engine thread; the list needs only the summary). */
+    private val engineHeads = mutableMapOf<String, GameHead>()
+    /** Games whose asked-for head hasn't arrived yet (asked once until it does). */
+    private val headAsked = mutableSetOf<String>()
+    /** Games this device can't open (a head without engine state, or a load that failed): an error, never a reconnect loop. */
+    private val unopenable = mutableSetOf<String>()
+
     /** Loads or reloads the engine game of [head] (a head of an active play whose state is the engine's). */
     private fun engineHead(head: GameHead) {
         val snapshot = head.engine ?: return
         val play = head.play ?: return
         val me = account ?: accountId() ?: return
         val existing = engineGames[head.gameId]?.takeIf { it.base.id == play.id }
-        // A head while the device follows the server exactly changes nothing; a new play, or a device that asked to
-        // load again, loads from it
-        if (existing == null || existing.needsReload) {
+        if (existing == null && !engineLoad(head.gameId)) {
+            // A list game: its summary is all the list needs; it loads when it opens
+            engineHeads[head.gameId] = head
+        } else if (existing == null || existing.needsReload || behind(existing, head)) {
+            // A head while the device follows the server exactly changes nothing; a new play, a device that asked to load
+            // again, or a head past the revisions the device received (a resubscription replays at most 100,
+            // switchreview #10) loads from it
+            engineHeads.remove(head.gameId); unopenable.remove(head.gameId)
             if (existing == null) engineGames[head.gameId] = EngineGame(head.gameId, me, play, snapshot, worker = engineWorker,
                 onShown = { engineShown(head.gameId) })
             else existing.load(snapshot, play)
             reloadAsked.remove(head.gameId)
         }
-        engineGames.getValue(head.gameId).revision = head.revision
+        engineGames[head.gameId]?.revision = head.revision
         acceptedRevisions[head.gameId] = head.revision
         if (summaries[head.gameId]?.let { newerOrEqual(head.revision, it.revision) } != false) summaries[head.gameId] = head.summary
         streams[head.gameId]?.head = true
         changed(summary(head.summary))
         pumpEngine(head.gameId)
     }
+    /** [head] is past the revisions [game] received, and its last event isn't among those the device shows. */
+    private fun behind(game: EngineGame, head: GameHead): Boolean {
+        val received = game.revision ?: return true
+        if (GameWire.ordinal(head.revision) <= GameWire.ordinal(received)) return false
+        val shown = game.shown ?: return false
+        val headId = head.engine?.headId ?: return false
+        return shown.tip != headId && shown.line.none { it.id == headId }
+    }
+
+    /** A revision of an active play this device has no engine game for (a game's start, or what a resubscription replays
+     * before the head): every play is engine state, so the game waits for its engine head; nothing goes through the old
+     * history catch-up, whose server routes are gone (switchreview #1). */
+    private fun awaitEngineHead(message: GameRevision) {
+        engineHeads.remove(message.gameId)
+        install(message.summary, message.resultRevision, message.preparation, null)
+        if (acceptedRevisions[message.gameId]?.let { newerOrEqual(it, message.resultRevision) } != true)
+            acceptedRevisions[message.gameId] = message.resultRevision
+        if (engineLoad(message.gameId)) askHead(message.gameId)
+    }
+    /** Asks for [gameId]'s head, once until it arrives: the server sends the revisions after the device's, then the head. */
+    private fun askHead(gameId: String) {
+        val stream = streams[gameId] ?: return
+        if (!ready || stream.generation == null || gameId in headAsked || !available(gameId)) return
+        headAsked.add(gameId)
+        send(SubscribeGame(gameId, acceptedRevisions[gameId] ?: "0"))
+    }
+    /** Each game that should be loaded but isn't (an active engine play): loads it from its kept head, or asks for one. */
+    private fun loadOpened() {
+        for ((gameId, stream) in streams) {
+            if (stream.generation == null || !engineLoad(gameId) || gameId in unopenable) continue
+            val current = summaries[gameId] ?: continue
+            if (current.lifecycle != GameLifecycle.ACTIVE || current.playId == null) continue
+            if (engineGames[gameId]?.base?.id == current.playId || plays[gameId]?.accepted?.id == current.playId) continue
+            val kept = engineHeads[gameId]
+            if (kept != null && kept.summary.playId == current.playId) engineHead(kept) else askHead(gameId)
+        }
+    }
+    /** [gameId] can't be opened on this device: a clear error instead of reconnecting. */
+    private fun cannotOpen(gameId: String, cause: String) {
+        AppLog.warn("game", "Game can't be opened: $cause")
+        unopenable.add(gameId)
+        streams[gameId]?.head = true
+        error = CANNOT_OPEN
+        statusChanged()
+    }
 
     /** An accepted revision of an engine game's play. */
     private fun engineRevision(game: EngineGame, message: GameRevision) {
         if (message.summary.lifecycle != GameLifecycle.ACTIVE || message.summary.playId != game.base.id) {
             engineGames.remove(message.gameId)
-            install(message.summary, message.resultRevision, message.preparation, null)
+            if (message.summary.lifecycle == GameLifecycle.ACTIVE && message.summary.playId != null) awaitEngineHead(message)
+            else install(message.summary, message.resultRevision, message.preparation, null)
             return
         }
         game.revision(message)
@@ -238,6 +301,7 @@ class GameSession(private val connection: GameConnection, private val credential
      * device that can't follow asks to load the game again (once per revision). */
     private fun engineShown(gameId: String) {
         val game = engineGames[gameId] ?: return
+        if (game.loadFailed) { engineGames.remove(gameId); cannotOpen(gameId, "engineLoadFailed"); return }
         if (game.needsReload && gameId in streams && reloadAsked[gameId] != acceptedRevisions[gameId]) {
             reloadAsked[gameId] = acceptedRevisions[gameId]
             send(SubscribeGame(gameId, acceptedRevisions[gameId] ?: "0"))
@@ -346,6 +410,7 @@ class GameSession(private val connection: GameConnection, private val credential
             openStreams()
             streams.keys.forEach(chats::syncChatRead)
             catchUp.checkHeadGaps()
+            loadOpened()
             // The server's traffic lease counts protocol messages, not WebSocket control pings.
             if (now() - lastPing >= 25_000) { lastPing = now(); send(GamePing(UUID.randomUUID().toString())) }
         }
@@ -657,8 +722,10 @@ class GameSession(private val connection: GameConnection, private val credential
                     }
                     else -> error("Invalid recovery status")
                 }
-                if (available(message.gameId)) send(SubscribeGame(message.gameId,
-                    plays[message.gameId]?.revision ?: acceptedRevisions[message.gameId] ?: "0"))
+                if (available(message.gameId)) {
+                    headAsked.add(message.gameId)
+                    send(SubscribeGame(message.gameId, plays[message.gameId]?.revision ?: acceptedRevisions[message.gameId] ?: "0"))
+                }
                 flush()
             }
             is GameHead -> {
@@ -666,6 +733,7 @@ class GameSession(private val connection: GameConnection, private val credential
                 if (message.gameId !in streams) return
                 // Presence is read fresh with every head; it is not revisioned state.
                 message.opponentPresence?.let { presence(message.gameId, it) }
+                headAsked.remove(message.gameId)
                 // Fence old-incarnation reads before they can create a replica or trigger recovery.
                 // A leading HTTP summary is deliberately not this accepted-state boundary.
                 if (acceptedRevisions[message.gameId]?.let { !newerOrEqual(message.revision, it) } == true) return
@@ -698,6 +766,14 @@ class GameSession(private val connection: GameConnection, private val credential
                 val engine = engineGames[message.gameId]
                 if (engine != null) {
                     engineRevision(engine, message)
+                    correlateSelections(message)
+                    flush(); statusChanged(); return
+                }
+                // I-D56: every play is engine state; one this device hasn't loaded waits for its engine head (only a play
+                // already held in the old model's replica, which nothing makes any more, still goes the old way)
+                if (message.summary.lifecycle == GameLifecycle.ACTIVE && message.summary.playId != null &&
+                    (message.engineEvent != null || message.engine != null || plays[message.gameId]?.accepted?.id != message.summary.playId)) {
+                    awaitEngineHead(message)
                     correlateSelections(message)
                     flush(); statusChanged(); return
                 }
@@ -878,13 +954,15 @@ class GameSession(private val connection: GameConnection, private val credential
         uncertainGames.addAll(pending.values.map { it.scope.gameId })
         uncertainGames.addAll(resultIntents.values.map { it.command.scope.gameId })
         epoch++; connected = false; welcome = false; resumePing = null; token = null; connection.disconnect(); sent.clear(); chats.disconnected()
-        catchUp.disconnected(); presences.clear()
+        catchUp.disconnected(); presences.clear(); headAsked.clear()
         streams.values.forEach { it.generation = null; it.head = false; it.opening = false; it.awaitingReady = false }
     }
     fun clear() { inspections.clear(); catchUp.clear(); disconnect(); reviews.clear(); pending.clear(); resultIntents.clear(); preparations.clear(); plays.clear();
         ownPodDeckNames.clear(); chats.clear(); acceptedRevisions.clear(); summaries.clear(); unavailableGames.clear(); streams.clear(); connectionDemand.clear(); uncertainGames.clear(); reconnectTrace.clear(); lastCredential = null; account = null; compatibilityError = null; compatibilityRetryAt = Long.MAX_VALUE; error = null; statusChanged() }
     override fun close() { closed = true; clear(); treeWorker.shutdown(); reviewWorker.shutdown(); connection.close() }
     companion object {
+        /** The table's line for a game this device can't open (SYS-052): never a reconnect loop. */
+        const val CANNOT_OPEN = "This game can't be opened on this device. Send a problem report from the menu."
         fun newerOrEqual(a: String, b: String) = GameWire.ordinal(a) >= GameWire.ordinal(b)
         internal fun ended(game: GameSummary) = game.lifecycle !in listOf(GameLifecycle.LOBBY, GameLifecycle.ACTIVE)
     }

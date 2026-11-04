@@ -124,12 +124,20 @@ fun QuickActionStrip(play: PlayState, context: QuickContext, controller: TableAc
             // I-D56 §14: on engine state only the viewer's own actions: hidden while the other player must act
             val arrow = (toggles || visible && !QuickActions.mulliganOnly(play, context.viewer)) &&
                 (engine?.arrowShown() ?: stepArrowShown(play, context.viewer))
-            if (arrow) AutomatumStepArrow(play,
-                controller.enabled(scope), compact, onHold = { perform(TableActionIntent.End(scope)) },
-                blocked = stepBlocked(play, context.castOpen, context.automatumCombat), planned = context.plannedStep) {
-                perform(TableActionIntent.Next(scope))
+            // TRN-066: while the other player must act, the arrow's place holds the wait's Assume (or Cancel); TRN-068: the
+            // unconfirmed mark sits at its corner without moving anything
+            val wait = if (arrow) null else engine?.waitAction()
+            val unconfirmed = engine?.engine?.shown?.indicator != null
+            if (arrow || wait != null || toggles || unconfirmed) Box {
+                if (arrow) AutomatumStepArrow(play,
+                    controller.enabled(scope), compact, onHold = { perform(TableActionIntent.End(scope)) },
+                    blocked = stepBlocked(play, context.castOpen, context.automatumCombat), planned = context.plannedStep) {
+                    perform(TableActionIntent.Next(scope))
+                }
+                else if (wait != null) EngineWaitArrow(wait, compact)
+                else Spacer(Modifier.width(if (compact) 68.dp else 72.dp).height(48.dp))
+                if (unconfirmed) EngineUnconfirmedMark(engine!!.opponentName, Modifier.align(Alignment.TopStart).offset((-10).dp, (-10).dp))
             }
-            else if (toggles) Spacer(Modifier.width(if (compact) 68.dp else 72.dp))
         }
     }
 }

@@ -449,3 +449,13 @@ Every game is an engine game; the choices are recorded in `async-play.md` §23.
 6. Measure the engine thread on a slow phone (SYS-025, SYS-030 reports); the timeline-mode board and the undo
    dialogs' boards are still worked out while the main thread waits (`EngineGame.read`/`reviewPlay`).
 7. End-to-end runs on two devices against the test environment, then the adversarial review (§12 item 12).
+
+**Playtest fixes (2026-11-04, switch-review #1, #10, #11):** a revision of an active play the device hasn't loaded (the
+start, or what a resubscription replays before the head) waits for the engine head instead of the old tree catch-up; the
+app's connection has no baseline/tree download any more, and a game that would need one says "This game can't be opened
+on this device" (SYS-017) instead of reconnecting. A head past the revisions the device received reloads it. Only the
+open game is loaded on the engine thread (list games keep their newest head until opened). An own action's board is
+published before the device's own steps that follow it, and a probe logs (and with reports on, records) an own action
+slower than 20 ms with its wait for the engine thread, its work and its board. The wait is faint words over the
+battlefield with Assume in the step arrow's place (TRN-066); the indicator is a dot at the arrow's corner (TRN-068).
+Still open: heads carry the whole engine snapshot with every 30 s heartbeat (switch-review #11, server side).

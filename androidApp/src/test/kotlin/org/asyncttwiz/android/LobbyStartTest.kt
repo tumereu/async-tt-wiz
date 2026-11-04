@@ -135,11 +135,13 @@ class LobbyStartTest {
         f.lobby.ready(); val command = f.commands().single(); val play = f.initial()
         val active = game.copy(lifecycle = GameLifecycle.ACTIVE, playId = play.id, revision = "1")
         f.message(GameRevision(game.id, "0", "1", command.requestId, owner.accountId, command.scope, active, play = play))
-        assertFalse(f.lobby.state.preparing); assertEquals(play, f.lobby.state.play)
-        f.result(command); f.lobby.sync(); assertEquals(play, f.lobby.state.play)
+        // I-D56: every play is engine state; the start asks for the engine head the table loads from (switchreview #1)
+        assertFalse(f.lobby.state.preparing)
+        assertTrue(f.wire.frames.any { it is SubscribeGame && it.gameId == game.id && it.revision == "1" })
+        f.result(command); f.lobby.sync()
         assertTrue(f.lobby.state.pendingGames.isEmpty()); assertEquals(1, f.commands().size)
         f.lobby.back(); assertNull(f.lobby.state.play); f.lobby.open(game.id)
-        assertEquals(play, f.lobby.state.play); assertEquals(active, f.lobby.state.detail)
+        assertEquals(active, f.lobby.state.detail)
     }
 
     @Test fun uncertainReadySurvivesReauthenticationWithSameIdAndOldCallbackIsFenced() = Fixture().use { f ->

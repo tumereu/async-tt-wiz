@@ -62,15 +62,16 @@ class SwitchReviewTest {
     // starts a tree recovery from the old baseline endpoint, deleted in step D2: the transfer fails and the session drops
     // the whole connection ("treeManifestFailed"), and only the reconnect's head loads the engine game. Every game start
     // seen live (and every other way into a recovery for an engine game) costs a reconnect of every open stream.
-    @Ignore("switchreview #1: a game start (an engine play's first revision) recovers through the deleted baseline endpoint and drops the connection")
     @Test fun aGameStartLoadsTheEngineGameWithoutAnOldTreeRecovery() {
         val s = Session()
         try {
             s.connect(lobby)
             s.message(GameHead(lobby.id, lobby.revision, lobby))
             val start = GameRevision(lobby.id, "1", "2", DeviceRandom.uuid(), f.b, GameScope(lobby.id, lobby.preparationRound), active, play = f.base)
+            // (the session's first tick resets the connection once before it connects)
+            val before = s.wire.disconnected
             s.message(start)
-            assertEquals(0, s.wire.disconnected, "the start doesn't drop the connection")
+            assertEquals(before, s.wire.disconnected, "the start doesn't drop the connection")
             assertEquals(0, s.wire.treeTransfers, "an engine play has no old history tree to download")
             assertTrue(s.wire.frames.any { it is SubscribeGame && it.gameId == lobby.id && it.revision == "2" },
                 "the session asks for the engine head of the new play")
@@ -82,7 +83,6 @@ class SwitchReviewTest {
     // head's revision as accepted; so when more than 100 revisions were missed (playback reports and chat count too), the
     // device stays on an older board with no event coming to tell it, and the missed revisions are fenced as old.
     // Expected: a head past what the device holds loads it (or the session pages the revisions).
-    @Ignore("switchreview #10: a head newer than the engine game's revisions is ignored while the device 'follows exactly'")
     @Test fun aHeadPastTheDevicesEventsLoadsTheEngineGame() {
         val s = Session()
         try {

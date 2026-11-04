@@ -120,6 +120,9 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
     /** Bumped whenever anything shown changes (the table and the async panels recompose on it). */
     val version: Long get() = shown?.version ?: 0L
     val needsReload: Boolean get() = shown?.needsReload == true
+    /** The server's snapshot couldn't be loaded (main thread): the game can't be opened on this device. */
+    @Volatile var loadFailed = false
+        private set
 
     // ---- Engine thread state
     private var published = 0L
@@ -135,7 +138,12 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
     fun load(snapshot: EngineSnapshot, base: PlayState = this.base) {
         this.base = base
         worker.run {
-            val (loaded, json) = GameDevice.load(snapshot, PlayerId(me), ids)
+            val (loaded, json) = try { GameDevice.load(snapshot, PlayerId(me), ids) } catch (failure: Exception) {
+                // The table says the game can't be opened instead of waiting for a board that never comes
+                AppLog.error("engine", "Engine game failed to load", failure)
+                worker.main { loadFailed = true; onShown() }
+                return@run
+            }
             device = loaded; codec = json
             device.presence(live, now)
             this.loaded = true
@@ -171,6 +179,7 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
         worker.main {
             this.notes.addAll(notes)
             this.shown = shown
+            loadFailed = false
             onShown()
         }
     }
@@ -356,7 +365,7 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
      * one acting point; the device answers the randomness and makes the passes that follow by itself. */
     fun send(inputs: List<Input>, table: List<TableChange> = emptyList()): GameDevice.Acted {
         if (inputs.isEmpty()) return GameDevice.Acted.Refused("nothing")
-        return worker.call {
+        return own("send") {
             val first = inputs.first()
             val rest = inputs.drop(1).iterator()
             // I-D54 §8: a declaration ends the shared staging of it in the same event (at the head; at a decision stop the
@@ -366,22 +375,22 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
                 t.attackDraft?.takeIf { inputs.any { it is Input.DeclareAttackers } }?.let { TableChange.AttackDraft(it, null) },
                 t.blockDraft?.takeIf { inputs.any { it is Input.DeclareBlockers } }?.let { TableChange.BlockDraft(it, null) })
             device.act(first, table + clear) { if (rest.hasNext()) rest.next() else null }
-        }.also { after() }
+        }
     }
 
     /** One input of the player's own (a pass, a keep, a concession). */
-    fun act(input: Input): GameDevice.Acted = worker.call { device.act(input) }.also { after() }
+    fun act(input: Input): GameDevice.Acted = own("act") { device.act(input) }
 
     /** The step arrow's End turn (TRN-057): the device passes for the player until the turn ends. */
-    fun endTurn() { worker.call { device.endTurn(now) }; after() }
+    fun endTurn() { own("endTurn") { device.endTurn(now) } }
 
     /** The waiting bar's Assume button (§4): the opponent's pass or keep, or [blocks] (the Assume blockers screen's). */
-    fun assume(blocks: List<Block> = emptyList()): GameDevice.Acted = worker.call { device.assume(blocks) }.also { after() }
+    fun assume(blocks: List<Block> = emptyList()): GameDevice.Acted = own("assume") { device.assume(blocks) }
 
     /** Back on the Assume blockers screen: it stays a wait. */
     fun closeBlockersScreen() = worker.run { device.closeBlockersScreen(); publish() }
 
-    fun table(changes: List<TableChange>): GameDevice.Acted = worker.call { device.table(changes) }.also { after() }
+    fun table(changes: List<TableChange>): GameDevice.Acted = own("table") { device.table(changes) }
     fun concede(): GameDevice.Acted = worker.call { device.concede() }.also { after() }
     fun suggest(result: GameResult): GameDevice.Acted = worker.call { device.suggest(result) }.also { after() }
     fun answerSuggestion(accept: Boolean): GameDevice.Acted = worker.call { device.answerSuggestion(accept) }.also { after() }
@@ -397,7 +406,7 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
     /** Return to current / Back while behind: plays on to the next decision point. */
     fun playToStop(): List<GameEvent> = worker.call { device.playToStop() }.also { after() }
 
-    fun undo(target: String? = null): GameDevice.Undo = worker.call { device.undo(target ?: device.undoTarget()) }.also { after() }
+    fun undo(target: String? = null): GameDevice.Undo = own("undo") { device.undo(target ?: device.undoTarget()) }
 
     /** Whether taking the line back to just after [target] needs the other player's approval (§10), worked out as the
      * device's undo does without sending anything; null when nothing would be undone. */
@@ -414,13 +423,58 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
     fun answerRequest(accept: Boolean) { worker.call { device.answerRequest(accept) }; after() }
     fun cancelRequest() { worker.call { device.cancelRequest() }; after() }
 
-    /** After the player's own action: the device's own steps (passes, assumptions) and the new board, on the engine
-     * thread without holding the caller. */
-    private fun after() = worker.run {
-        device.advance(now)
+    /** After the player's own action, on the engine thread without holding the caller: its own board first (SYS-025: the
+     * action shows at once, not after the steps that follow it), then the device's own steps (passes, assumptions) and,
+     * if they changed anything, the board again. [timing]: the action's probe (SYS-030), told once its board is shown. */
+    private fun after(timing: Timing? = null) = worker.run {
         publish()
+        timing?.shown(System.nanoTime())
+        val tip = device.session.tip
+        val status = device.status
+        val request = device.request
+        val pending = device.session.pending.size
+        device.advance(now)
+        val drained = device.notes()
+        if (device.session.tip != tip || device.status != status || device.request != request || device.session.pending.size != pending ||
+            drained.isNotEmpty()) publish(drained)
     }
+
+    /**
+     * The player's own action [what] (SYS-025): [work] runs on the engine thread and the caller waits for its local result;
+     * its board is published right after ([after]). The probe (SYS-030) times the wait for the engine thread, the action
+     * and its board; a slow one is logged and, with reports on, recorded like every slow action.
+     */
+    private fun <T> own(what: String, work: () -> T): T {
+        val timing = Timing(what, System.nanoTime(), DebugLatency.begin(gameId, "engine:$what", 0)?.also { it.submitted(null, predicted = true) })
+        val result = worker.call {
+            timing.started = System.nanoTime()
+            work().also { timing.acted = System.nanoTime() }
+        }
+        after(timing)
+        return result
+    }
+
+    /** One own action's probe: when it was asked for (main thread), started and done on the engine thread, and shown. */
+    private inner class Timing(val what: String, val asked: Long, val trace: LatencyRecorder.Trace?) {
+        @Volatile var started = 0L
+        @Volatile var acted = 0L
+        fun shown(at: Long) = worker.main {
+            trace?.finish()
+            val total = (at - asked) / 1e6
+            if (total > SLOW_MS) AppLog.info("engine", "Slow own action %s: %.0f ms to its board (waited %.0f ms for the engine thread, acted %.0f ms, board %.0f ms)"
+                .format(what, total, (started - asked) / 1e6, (acted - started) / 1e6, (at - acted) / 1e6))
+            probe?.invoke(what, started - asked, acted - started, at - acted)
+        }
+    }
+
+    /** Tests and measurements: each own action's wait for the engine thread, its work and its board, in nanoseconds. */
+    var probe: ((what: String, waited: Long, acted: Long, board: Long) -> Unit)? = null
 
     // Last, once every property above is set
     init { load(snapshot, base) }
+
+    private companion object {
+        /** SYS-025's budget for an action's local result. */
+        const val SLOW_MS = 20.0
+    }
 }

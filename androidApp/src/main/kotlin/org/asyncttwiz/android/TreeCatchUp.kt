@@ -32,6 +32,8 @@ internal class TreeCatchUp(private val session: Session, private val connection:
         fun flush()
         fun recoveryReady()
         fun connectionUnavailable(cause: String)
+        /** The game can't be opened on this device (no history transfer exists for it): an error, not a reconnect. */
+        fun cannotOpen(gameId: String, cause: String)
         fun send(message: GameClientMessage): Boolean
     }
 
@@ -191,7 +193,13 @@ internal class TreeCatchUp(private val session: Session, private val connection:
                 }.getOrDefault(false)
                 if (installed) { stream.head = true; session.clearError(); session.flush(); session.recoveryReady(); session.statusChanged() } else session.connectionUnavailable("baselineFailed")
             }
-        } }) { recoveries.remove(gameId); session.connectionUnavailable("baselineNotStarted") }
+        } }) {
+            // The app downloads no old history (I-D56 step D2 deleted it on the server): a game that would need it can't
+            // be opened, and reconnecting would only repeat that (switchreview #1)
+            recoveries.remove(gameId); DebugJank.catchUp(gameId, false)
+            stream.head = true
+            session.cannotOpen(gameId, "historyTransferUnavailable:$reason")
+        }
     }
 
     /** The server has no transferable current play (ended, back in the lobby, replaced or no longer

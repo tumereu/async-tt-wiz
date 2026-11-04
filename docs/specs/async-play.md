@@ -768,3 +768,11 @@ Decided while building (the plainest reading; owner to confirm):
    notification's header; a pod notification's text line is its set or cube name.
 5. **Queued challenge:** a pod game still in its lobby, never played, its invitation pending or accepted; both the
    challenger and the challenged skip "Decks ready".
+
+
+## 27. Playback pausing (owner, 2026-11-04)
+
+- Playback pauses only on events that change something visible: a card moving (cast, play, resolve, dies, draw count), life or counter changes, attacks/blocks, the opponent's choices (targets, modes), a turn change. These keep their animation plus the usual short pause at the animation speed setting.
+- Passes, step changes where nothing happened and repeated priority passes apply instantly (only the step indicator moves).
+- Playback stops for good where you must decide.
+- **Play/pause button** (bottom, where Auto was): pausing stops playback at the **next point where full control would stop** (a point where you could have acted), even with no decision waiting for you; there you can react (cast, activate) or turn on full control, and playing again continues. Holding the button opens the full control / auto-skip dialog.

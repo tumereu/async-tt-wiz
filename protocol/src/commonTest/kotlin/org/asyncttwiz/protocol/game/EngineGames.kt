@@ -20,12 +20,15 @@ import kotlin.random.Random
  * device adds (a place for each permanent that entered), and now and then a table-only event (a card moved on the
  * battlefield, a setting changed).
  */
-internal class EngineGames(seed: Long, decks: Pair<List<String>, List<String>> = CREATURES to SPELLS, life: Int = 20) {
+internal class EngineGames(seed: Long, decks: Pair<List<String>, List<String>> = CREATURES to SPELLS, life: Int = 20,
+    /** Alice's cards outside the game besides a sideboard (dungeon cards, CR 309.2). */
+    outside: List<arcanum.api.CardDefinition> = emptyList()) {
     val alice = PlayerId("alice")
     val bob = PlayerId("bob")
     val rnd = Random(seed)
     val initial: GameState = Engine.newGame(listOf(alice to decks.first, bob to decks.second).map { (p, names) ->
-        Seat(p, names.mapIndexed { i, name -> DeckCard(CardId("${p.value}.$i"), Cards.definition(name)) })
+        Seat(p, names.mapIndexed { i, name -> DeckCard(CardId("${p.value}.$i"), Cards.definition(name)) },
+            if (p == alice) outside.mapIndexed { i, d -> DeckCard(CardId("alice.outside.$i"), d) } else emptyList())
     }, startingLife = life)
     val codec = EngineJson(GameDefinitions.of(initial))
     private var inputsThisTurn = 0

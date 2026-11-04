@@ -15,6 +15,8 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
     private val activityTarget: (suspend (String, ActivityRoute) -> ActivityTarget)? = null,
     treeCache: ((String, String, String) -> org.asyncttwiz.storage.GameplayTreeStore?)? = null,
     private val basicLandDefinitions: (() -> List<SubmittedDefinition>)? = null,
+    /** The catalog's dungeon cards (blocking, on [worker]): sent with Ready when the deck ventures (OutsideCards). */
+    private val dungeonDefinitions: (() -> List<SubmittedDefinition>)? = null,
     clock: () -> Long = ::monotonicMillis,
     /** Runs the session's personal history reviews; null gives them their own background thread. Tests pass a worker they drain. */
     historyReviewWorker: ExecutorService? = null,
@@ -61,7 +63,8 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
     private val invitations: LobbyInvitations = LobbyInvitations(scope, api, deckApi, credential, accountId, worker, post, session, queue,
         suggest, basicLandDefinitions)
     private val deckPicker: LobbyDeckPicker = LobbyDeckPicker(scope, deckApi, credential, accountId, worker, post, session, queue)
-    private val preparationActions: LobbyPreparationActions = LobbyPreparationActions(scope, accountId, session, queue, inspection)
+    private val preparationActions: LobbyPreparationActions = LobbyPreparationActions(scope, accountId, session, queue, inspection,
+        dungeonDefinitions, worker, post)
     private val removal: LobbyGameRemoval = LobbyGameRemoval(scope, accountId, session, setupCancellation)
     private val routes: LobbyActivityRoutes = LobbyActivityRoutes(scope, api, credential, accountId, worker, post, session, openGame,
         activityTarget)

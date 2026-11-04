@@ -131,7 +131,6 @@ class SwitchReviewTest {
     // slow phone) acts on the device's newer state: here Alice's second Next passes her priority in beginning of combat,
     // a point her table never showed. Expected: an action made from a board that is no longer the device's (its shown
     // version) is refused, or the action's own board is published before the call returns.
-    @Ignore("switchreview #6: an action from a stale shown board acts at a newer point the player never saw")
     @Test fun aSecondTapOnTheStillShownBoardDoesNotActAtAPointNeverShown() {
         val worker = LaggingWorker()
         val game = EngineGame(f.game.id, f.a, f.base, f.snapshot(), worker = worker)

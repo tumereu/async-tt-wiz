@@ -9,7 +9,6 @@ import arcanum.engine.setup.GameResult
 import arcanum.engine.state.ObjectId
 import arcanum.engine.state.PlayerId
 import arcanum.engine.state.TargetRef
-import kotlin.test.Ignore
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
@@ -31,7 +30,6 @@ class SwitchReviewTest {
     // without any next stop for her: nobody's move, no notification (the game-over notice waits for the result's
     // confirmation, which waits for her local head). Expected: the result past her local head is a stop for her (she
     // must see it before it is final), so the server tells her.
-    @Ignore("switchreview #4: a rules result on a line that doesn't stop the loser gives them no next stop: the game hangs")
     @Test
     fun aResultReachedPastTheLosersLocalHeadIsAStopForThem() {
         val sim = DeviceSim(EngineGames(3, List(40) { "Forest" } to (List(20) { "Mountain" } + List(20) { "Storm Spark" }), life = 3))

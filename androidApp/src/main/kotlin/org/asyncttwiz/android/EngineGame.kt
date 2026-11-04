@@ -265,12 +265,12 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
     fun unstage() = worker.call { if (staging != null) { staging = null; publish() } }
 
     /** The player's opening: their mulligan (I-D54 §8: simultaneous mulligans), or null when they can't take one. */
-    fun mulligan(): GameDevice.Acted? = worker.call { setupInput(arcanum.engine.decision.Answer.Option("Mulligan")) }?.let(::act)
+    fun mulligan(): GameDevice.Acted? = acting(STALE, after = false) { setupInput(arcanum.engine.decision.Answer.Option("Mulligan"))?.let(::act) }
 
     /** The player keeps, putting [bottom] (card ids) on the bottom of their library when cards are owed. */
-    fun keep(bottom: List<String>): GameDevice.Acted? = worker.call {
-        val keep = setupInput(arcanum.engine.decision.Answer.Option("Keep")) ?: return@call null
-        if (bottom.isEmpty()) return@call act(keep)
+    fun keep(bottom: List<String>): GameDevice.Acted? = acting(STALE, after = false) {
+        val keep = setupInput(arcanum.engine.decision.Answer.Option("Keep")) ?: return@acting null
+        if (bottom.isEmpty()) return@acting act(keep)
         val objects = bottom.mapNotNull { id -> device.model.engine.player(PlayerId(me)).hand.firstOrNull { (it as? arcanum.engine.state.ObjectId.Card)?.card?.value == id } }
         send(listOf(keep)).let { first ->
             if (first !is GameDevice.Acted.Sent) first
@@ -290,9 +290,9 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
     }
 
     /** The step arrow's pass: the player's own priority (at a decision stop: their answer to what was assumed). */
-    fun pass(): GameDevice.Acted = worker.call {
-        val holder = device.model.engine.priority.holder ?: return@call GameDevice.Acted.Refused("noPriority")
-        if (arcanum.engine.Engine.decider(device.model.engine, holder).value != me) return@call GameDevice.Acted.Refused("notYours")
+    fun pass(): GameDevice.Acted = acting(STALE, after = false) {
+        val holder = device.model.engine.priority.holder ?: return@acting GameDevice.Acted.Refused("noPriority")
+        if (arcanum.engine.Engine.decider(device.model.engine, holder).value != me) return@acting GameDevice.Acted.Refused("notYours")
         act(Input.PassPriority(holder))
     }
 
@@ -365,7 +365,7 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
      * one acting point; the device answers the randomness and makes the passes that follow by itself. */
     fun send(inputs: List<Input>, table: List<TableChange> = emptyList()): GameDevice.Acted {
         if (inputs.isEmpty()) return GameDevice.Acted.Refused("nothing")
-        return own("send") {
+        return acting(STALE, "send") {
             val first = inputs.first()
             val rest = inputs.drop(1).iterator()
             // I-D54 §8: a declaration ends the shared staging of it in the same event (at the head; at a decision stop the
@@ -379,22 +379,23 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
     }
 
     /** One input of the player's own (a pass, a keep, a concession). */
-    fun act(input: Input): GameDevice.Acted = own("act") { device.act(input) }
+    fun act(input: Input): GameDevice.Acted = acting(STALE, "act") { device.act(input) }
 
     /** The step arrow's End turn (TRN-057): the device passes for the player until the turn ends. */
-    fun endTurn() { own("endTurn") { device.endTurn(now) } }
+    fun endTurn() { acting(Unit, "endTurn") { device.endTurn(now) } }
 
     /** The waiting bar's Assume button (§4): the opponent's pass or keep, or [blocks] (the Assume blockers screen's). */
-    fun assume(blocks: List<Block> = emptyList()): GameDevice.Acted = own("assume") { device.assume(blocks) }
+    fun assume(blocks: List<Block> = emptyList()): GameDevice.Acted = acting(STALE, "assume") { device.assume(blocks) }
 
     /** Back on the Assume blockers screen: it stays a wait. */
     fun closeBlockersScreen() = worker.run { device.closeBlockersScreen(); publish() }
 
-    fun table(changes: List<TableChange>): GameDevice.Acted = own("table") { device.table(changes) }
+    fun table(changes: List<TableChange>): GameDevice.Acted = acting(STALE, "table") { device.table(changes) }
+    /** Conceding is taken at any time (CR 104.3a), whatever the table showed. */
     fun concede(): GameDevice.Acted = worker.call { device.concede() }.also { after() }
-    fun suggest(result: GameResult): GameDevice.Acted = worker.call { device.suggest(result) }.also { after() }
-    fun answerSuggestion(accept: Boolean): GameDevice.Acted = worker.call { device.answerSuggestion(accept) }.also { after() }
-    fun confirmResult(): GameDevice.Acted = worker.call { device.confirmResult() }.also { after() }
+    fun suggest(result: GameResult): GameDevice.Acted = acting(STALE) { device.suggest(result) }
+    fun answerSuggestion(accept: Boolean): GameDevice.Acted = acting(STALE) { device.answerSuggestion(accept) }
+    fun confirmResult(): GameDevice.Acted = acting(STALE) { device.confirmResult() }
     fun settings(settings: PlaySettings) { worker.call { device.settings(settings) }; after() }
 
     /** Leaves the catch-up screen (§7): playback starts. */
@@ -406,7 +407,8 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
     /** Return to current / Back while behind: plays on to the next decision point. */
     fun playToStop(): List<GameEvent> = worker.call { device.playToStop() }.also { after() }
 
-    fun undo(target: String? = null): GameDevice.Undo = own("undo") { device.undo(target ?: device.undoTarget()) }
+    fun undo(target: String? = null): GameDevice.Undo =
+        acting(GameDevice.Undo.Unavailable(STALE_REASON), "undo") { device.undo(target ?: device.undoTarget()) }
 
     /** Whether taking the line back to just after [target] needs the other player's approval (§10), worked out as the
      * device's undo does without sending anything; null when nothing would be undone. */
@@ -423,6 +425,37 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
     fun answerRequest(accept: Boolean) { worker.call { device.answerRequest(accept) }; after() }
     fun cancelRequest() { worker.call { device.cancelRequest() }; after() }
 
+    /**
+     * The player's own action, made on the board shown now (called on the main thread; inline in an action already on
+     * the engine thread): [work] on the device, waiting for its local result (SYS-025), then [after] unless [after] is
+     * false (the action calls another one that does). Switchreview #6, SYS-011: when the engine thread has published a
+     * board newer than the one shown (the device's own steps after an earlier action, or a server event, not on screen
+     * yet: a second tap made on the old board), [stale] instead, with SYS-012's note, so nothing acts at a point the
+     * player never saw. Checked once per action: what it does in turn (another action, staging) isn't checked again.
+     * [what]: the action's name for the probe (SYS-025, SYS-030), which times the wait for the engine thread, the action
+     * and its board; a slow one is logged and, with reports on, recorded like every slow action.
+     */
+    private fun <T> acting(stale: T, what: String? = null, after: Boolean = true, work: () -> T): T {
+        val seen = shown?.version
+        var refused = false
+        val timing = what?.let { Timing(it, System.nanoTime(), DebugLatency.begin(gameId, "engine:$it", 0)?.also { t -> t.submitted(null, predicted = true) }) }
+        val result = worker.call {
+            timing?.started = System.nanoTime()
+            if (inAction) work()
+            else if (seen != null && seen != published) { refused = true; stale }
+            else { inAction = true; try { work() } finally { inAction = false } }
+        }.also { timing?.acted = System.nanoTime() }
+        if (refused) worker.main { notes.add(GameDevice.Note.Refused(STALE_REASON)) } else if (after) after(timing)
+        return result
+    }
+
+    /** Engine thread: an action is being worked out ([acting]). */
+    private var inAction = false
+
+    /** [work] with the device for the table's own actions worked out from the board shown now ([acting]: [stale] when
+     * the device has moved on from it), e.g. a card's place and the combat staging. */
+    fun <T> onShown(stale: T, work: (GameDevice) -> T): T = acting(stale, after = false) { work(device) }
+
     /** After the player's own action, on the engine thread without holding the caller: its own board first (SYS-025: the
      * action shows at once, not after the steps that follow it), then the device's own steps (passes, assumptions) and,
      * if they changed anything, the board again. [timing]: the action's probe (SYS-030), told once its board is shown. */
@@ -437,21 +470,6 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
         val drained = device.notes()
         if (device.session.tip != tip || device.status != status || device.request != request || device.session.pending.size != pending ||
             drained.isNotEmpty()) publish(drained)
-    }
-
-    /**
-     * The player's own action [what] (SYS-025): [work] runs on the engine thread and the caller waits for its local result;
-     * its board is published right after ([after]). The probe (SYS-030) times the wait for the engine thread, the action
-     * and its board; a slow one is logged and, with reports on, recorded like every slow action.
-     */
-    private fun <T> own(what: String, work: () -> T): T {
-        val timing = Timing(what, System.nanoTime(), DebugLatency.begin(gameId, "engine:$what", 0)?.also { it.submitted(null, predicted = true) })
-        val result = worker.call {
-            timing.started = System.nanoTime()
-            work().also { timing.acted = System.nanoTime() }
-        }
-        after(timing)
-        return result
     }
 
     /** One own action's probe: when it was asked for (main thread), started and done on the engine thread, and shown. */
@@ -476,5 +494,8 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
     private companion object {
         /** SYS-025's budget for an action's local result. */
         const val SLOW_MS = 20.0
+        /** An action made on a board the device has moved on from ([refusedText]: SYS-012's note). */
+        const val STALE_REASON = "stale"
+        val STALE = GameDevice.Acted.Refused(STALE_REASON)
     }
 }

@@ -139,7 +139,10 @@ class GameChatTest {
                 assertTrue(f.games.executeOne()); assertTrue(f.games.executeOne()); assertFalse(f.games.executeOne())
                 val accepted = f.owner.result(first); assertEquals("accepted", accepted.outcome)
                 assertEquals(listOf(first.requestId), accepted.createdIds)
-                val head = f.games.head(f.a, f.game.id); assertEquals(head, f.games.head(f.b, f.game.id))
+                // Both players see the same head apart from whose move it is: each their own opening mulligan (TRN-027,
+                // switchreview #5)
+                val head = f.games.head(f.a, f.game.id)
+                assertEquals(head.copy(summary = head.summary.copy(attentionHolder = f.b.account.accountId)), f.games.head(f.b, f.game.id))
                 assertEquals(before.play, head.play); assertEquals(before.preparation, head.preparation)
                 assertTrue(head.chat.isEmpty())
                 assertEquals(ChatSync(head.revision, second.requestId), head.chatSync)

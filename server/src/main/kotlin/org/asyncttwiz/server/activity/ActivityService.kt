@@ -389,6 +389,26 @@ class ActivityService(private val runtime: ServiceRuntime, private val clock: Cl
                 .where(SUMMARY.GAME_ID.eq(game)).and(SUMMARY.KIND.eq("GAME")).execute()
         }
 
+        /**
+         * [owner]'s move in [game] ended without the other player [other] getting a new one to be told of (on engine state:
+         * a confirmation, playback past their stop, an undo request; switchreview #3): [owner]'s row no longer says it's
+         * their move, and their waiting stretch is answered. When [other] has the move, this is [owner]'s move towards them
+         * (it re-arms [other]'s reminder as [record] does); when nobody has one, neither player's reminder stays open.
+         */
+        fun moveEnded(sql: DSLContext, owner: UUID, game: UUID, other: UUID, otherMoves: Boolean, time: OffsetDateTime) {
+            sql.update(SUMMARY).set(SUMMARY.YOUR_MOVE, false).where(SUMMARY.ACCOUNT_ID.eq(owner)).and(SUMMARY.GAME_ID.eq(game))
+                .and(SUMMARY.KIND.eq("GAME")).execute()
+            if (!otherMoves) return resetReminders(sql, game)
+            // (UPDATE expressions see the row as it was, so this compares against [owner]'s previous move, as [record] does)
+            val rearmed = sql.update(SUMMARY).set(SUMMARY.REMINDER_MOVE_AT, time)
+                .set(SUMMARY.REMINDER_ACTIVITY_ID, DSL.`when`(answered(), DSL.inline(null, SUMMARY.REMINDER_ACTIVITY_ID))
+                    .otherwise(SUMMARY.REMINDER_ACTIVITY_ID))
+                .where(SUMMARY.ACCOUNT_ID.eq(other)).and(SUMMARY.GAME_ID.eq(game)).and(SUMMARY.KIND.eq("GAME")).execute()
+            // Without a row of [other]'s there is no stretch of theirs to keep: [owner]'s own stretch just closes
+            if (rearmed == 0) sql.update(SUMMARY).setNull(SUMMARY.REMINDER_MOVE_AT).setNull(SUMMARY.REMINDER_ACTIVITY_ID)
+                .where(SUMMARY.ACCOUNT_ID.eq(owner)).and(SUMMARY.GAME_ID.eq(game)).and(SUMMARY.KIND.eq("GAME")).execute()
+        }
+
         const val REMINDER_SECONDS = 300L
 
         /** The row's recipient moved after the opponent's latest move in its stretch: the other player's row of

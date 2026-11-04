@@ -95,6 +95,10 @@ internal class EngineGames(private val capacity: Int = 32) {
         val branched: Boolean = false,
         /** How the play ended when [ended] (LOB-111: the game-over notice reads it from the ended play). */
         val result: org.asyncttwiz.protocol.ResultSuggestion? = null,
+        /** The players whose stored next stop went away with this change (their move is over: LOB-075's stretch ends). */
+        val endedStops: Set<String> = emptySet(),
+        /** The players whose opening is still open while the other player kept in this change (LOB-114). */
+        val ready: Set<String> = emptySet(),
     ) {
         /** Whose move the game is for the stored summary: a player with a next stop (each viewer sees their own, §7). */
         val attention: String? get() = moves.entries.firstOrNull { it.value }?.key
@@ -321,6 +325,21 @@ internal class EngineGames(private val capacity: Int = 32) {
     fun attentionFor(sql: DSLContext, play: UUID, viewer: UUID): String? =
         if (!mayExist(sql) || open(sql, play) == null) null else attention(seats(sql, play), viewer)
 
+    /**
+     * Whether each player of [play] has a move and their last-activity time (I-D56 §7), as stored after its last change:
+     * for a revision that changes nothing of the engine's (chat, the start) to carry as an engine revision does; null
+     * when [play] isn't played as engine state.
+     */
+    fun moves(sql: DSLContext, play: UUID): EngineUpdate? {
+        if (!mayExist(sql)) return null
+        val seats = seats(sql, play).takeIf { it.isNotEmpty() } ?: return null
+        val heads = seats.filter { it.nextStopAt == null }.map { UUID.fromString(it.head) }
+        val times = if (heads.isEmpty()) emptyMap() else sql.select(ENGINE_EVENT.ID, ENGINE_EVENT.CREATED_AT).from(ENGINE_EVENT)
+            .where(ENGINE_EVENT.PLAY_ID.eq(play)).and(ENGINE_EVENT.ID.`in`(heads)).fetch().associate { it.value1()!!.toString() to it.value2()!! }
+        return EngineUpdate(moves = seats.associate { it.account.toString() to (it.nextStop != null) },
+            activity = seats.mapNotNull { seat -> (seat.nextStopAt ?: times[seat.head])?.let { seat.account.toString() to it.toInstant().toString() } }.toMap())
+    }
+
     private fun attention(seats: List<SeatRow>, viewer: UUID): String? =
         seats.firstOrNull { it.account == viewer && it.nextStop != null }?.account?.toString()
             ?: seats.firstOrNull { it.nextStop != null }?.account?.toString()
@@ -343,15 +362,25 @@ internal class EngineGames(private val capacity: Int = 32) {
         target: String? = null, confirmed: String? = null, branched: Boolean = false): Outcome {
         val head = state.at
         val seats = seats(sql, play)
+        val row = playRow(sql, play)
         val newStops = mutableSetOf<String>()
         val moves = mutableMapOf<String, Boolean>()
         val stops = mutableMapOf<SeatRow, String?>()
         val found = mutableMapOf<SeatRow, NextStop.Stop?>()
+        // The seats whose only stop is answering the open undo request
+        val requested = mutableSetOf<SeatRow>()
         for (seat in seats) {
             val player = PlayerId(seat.account.toString())
             val after = MainLine.after(history, head, seat.head) ?: emptyList()
             val model = stateAtLocalHead(history, state, seat.head, after)
-            val stop = NextStop.of(model, seat.head, after, player, seat.settings.mode)
+            // switchreview #12 (owner to confirm): an open undo request is the other player's move, notified like one;
+            // the requester waits (or cancels) meanwhile (§10)
+            val stop = when (row.request?.by) {
+                null -> NextStop.of(model, seat.head, after, player, seat.settings.mode)
+                seat.account.toString() -> null
+                else -> NextStop.of(model, seat.head, after, player, seat.settings.mode)
+                    ?: NextStop.Stop(head, null).also { requested += seat }
+            }
             val stored = seat.nextStop
             val same = stop != null && stop.event == null && stored != null &&
                 MainLine.after(history, head, stored)?.all { it.engine == null } == true
@@ -369,7 +398,9 @@ internal class EngineGames(private val capacity: Int = 32) {
         val activity = mutableMapOf<String, String>()
         for (seat in seats) {
             val stopId = stops[seat]
-            val time = if (stopId == seat.nextStop) seat.nextStopAt else stopId?.let { times[it] }
+            val time = if (stopId == seat.nextStop) seat.nextStopAt
+                else if (seat in requested) java.time.OffsetDateTime.now(java.time.ZoneOffset.UTC).truncatedTo(java.time.temporal.ChronoUnit.MICROS)
+                else stopId?.let { times[it] }
             if (stopId != seat.nextStop) {
                 sql.update(ENGINE_SEAT).set(ENGINE_SEAT.NEXT_STOP, stopId?.let(UUID::fromString)).set(ENGINE_SEAT.NEXT_STOP_AT, time)
                     .where(ENGINE_SEAT.PLAY_ID.eq(play)).and(ENGINE_SEAT.ACCOUNT_ID.eq(seat.account)).execute()
@@ -377,7 +408,7 @@ internal class EngineGames(private val capacity: Int = 32) {
                 // across the other player's table-only events)
                 val stop = found[seat]
                 val waited = seat.nextStop?.let { history.store.node(it)?.event?.assumed == null } == true
-                if (stop != null && stop.event == null && !waited && !live(seat.account))
+                if (stop != null && stop.event == null && !waited && seat !in requested && !live(seat.account))
                     round(sql, play, seat.account, stop.at, kind(state.model, PlayerId(seat.account.toString())))
             }
             time?.let { stopTimes[seat.account.toString()] = it }
@@ -386,12 +417,43 @@ internal class EngineGames(private val capacity: Int = 32) {
         val result = Engine.result(state.model.engine)
         val conceded = events.flatMap { e -> e.engine?.steps.orEmpty().mapNotNull { (it.input as? Input.Concede)?.player } }.firstOrNull()
         val ended = result != null && (state.model.table.resultConfirmedBy != null || conceded != null)
-        val row = playRow(sql, play)
         return Outcome(play, events.map(history.codec::encodeEvent), state, target, confirmed, ended,
             seats.associate { it.account.toString() to it.head }, moves, newStops, row.request, row.lines, stopTimes, activity,
             history.store as? EngineHistoryStore, branched,
-            if (ended) record(result!!, conceded, events.flatMap { e -> e.engine?.steps.orEmpty().filter { it.input is Input.AgreedResult }
-                .map { e.author } }.firstOrNull(), seats.map { it.account.toString() }) else null)
+            if (ended) record(result!!, conceded, if (conceded == null) agreedBy(history, head) else null, seats.map { it.account.toString() }) else null,
+            seats.filter { it.nextStop != null && stops[it] == null }.map { it.account.toString() }.toSet(),
+            ready(state.model.engine, events, seats))
+    }
+
+    /**
+     * Who agreed the result at the main line's [head] (I-D56 §11): the author of the result's own event when it holds the
+     * agreement ([Input.AgreedResult]). An agreed result is final only in a later table-only event (both local heads
+     * reach it first), so the line is read back from the head to its last engine event (a few table-only events).
+     */
+    private fun agreedBy(history: GameHistory, head: String): String? {
+        var at = head
+        while (at != history.store.rootId) {
+            val event = history.store.node(at)?.event ?: return null
+            val engine = event.engine
+            if (engine != null) return event.author.takeIf { engine.steps.any { it.input is Input.AgreedResult } }
+            at = event.parentId
+        }
+        return null
+    }
+
+    /**
+     * LOB-114: the players whose own opening declaration is still open on [state] (turn 0) while the other player kept by
+     * their own real input in [events] ("<opponent> is ready").
+     */
+    private fun ready(state: arcanum.engine.state.GameState, events: List<GameEvent>, seats: List<SeatRow>): Set<String> {
+        if (state.turn.number != 0) return emptySet()
+        val keep = arcanum.engine.decision.Answer.Option("Keep")
+        return seats.map { it.account.toString() }.filter { account ->
+            val player = PlayerId(account)
+            val open = state.pending?.decision?.player == player || NextStop.declares(state, player)
+            open && events.any { e -> e.author != account && e.engine?.steps.orEmpty().any { step -> step.assumedBy == null &&
+                ((step.input as? Input.SetupAnswer)?.answer == keep || (step.input as? Input.Answer)?.answer == keep) } }
+        }.toSet()
     }
 
     /**

@@ -20,7 +20,9 @@ object NextStop {
     /**
      * [player]'s next stop: [model] is the state at their local head [localHead] (used up), [after] the main line's
      * events after it. Playback stops at an assumed input about them where [mode] stops (assumed blocks and keeps
-     * always), and at the head when the game waits for them there.
+     * always), at the game's result when it lies past their local head (they must see it before it is final, §11,
+     * TRN-065: so it is their move and they are told), and at the head when the game waits for them there (in the
+     * opening also their own mulligan declared alongside the other player's, TRN-027).
      */
     fun of(model: GameModel, localHead: String, after: List<GameEvent>, player: PlayerId, mode: ResponseMode): Stop? {
         var at = localHead
@@ -31,9 +33,15 @@ object NextStop {
                 stopsAt(model.engine, input, player, mode)) return Stop(at, event.id)
             model.apply(event)
             at = event.id
+            if (Engine.result(model.engine) != null) return Stop(at, null)
         }
-        return if (Attention.of(model.engine) == player) Stop(at, null) else null
+        return if (Attention.of(model.engine) == player || declares(model.engine, player)) Stop(at, null) else null
     }
+
+    /** Whether [player] may declare their opening mulligan (or bottom choice) on [state] while the other player's is
+     * the open decision (simultaneous mulligans, I-D54 §8): their move too. */
+    fun declares(state: GameState, player: PlayerId): Boolean =
+        state.turn.number == 0 && state.pending != null && Engine.options(state, player).any { it is Input.SetupAnswer && it.player == player }
 
     private fun aboutPlayer(state: GameState, input: Input, assumer: PlayerId?, player: PlayerId): Boolean =
         (WhoActs.playerOf(state, input) ?: state.players.firstOrNull { it.id != assumer }?.id) == player

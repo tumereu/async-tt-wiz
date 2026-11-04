@@ -1,0 +1,1 @@
+fix: A quick second tap no longer acts on a moment of the game you never saw

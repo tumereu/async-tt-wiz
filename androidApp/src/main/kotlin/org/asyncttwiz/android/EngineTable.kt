@@ -121,8 +121,9 @@ internal class EngineTableRoutes(val viewer: String, private val game: () -> Eng
     override fun local(actions: List<PlayAction>): Boolean {
         val g = game() ?: return false
         val play = shown() ?: return false
-        // The device is read on the engine thread (I-D56 step D2); what goes out is sent from here after
-        val done = g.read { device -> local(g, device, play, actions) }
+        // The device is read on the engine thread (I-D56 step D2); what goes out is sent from here after. Not on a board the
+        // device has moved on from (switchreview #6)
+        val done = g.onShown(false) { device -> local(g, device, play, actions) }
         sent()
         return done
     }

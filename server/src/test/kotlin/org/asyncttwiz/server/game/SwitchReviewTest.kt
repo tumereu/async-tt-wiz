@@ -23,13 +23,12 @@ import org.asyncttwiz.server.lobby.LobbyService
 import org.jooq.SQLDialect
 import org.jooq.impl.DSL
 import org.junit.jupiter.api.Assertions.*
-import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Test
 
 /**
  * Adversarial review of the switch-over to engine-state games (I-D56 step D2, 2026-11-04,
  * `~/projects/atw-cache/switch-review-2026-11-04.md`): two seats through the real game service, from the lobby's Ready
- * to the notifications. Each finding's reproduction is disabled with its number until fixed.
+ * to the notifications. Each finding's reproduction is disabled with its number until fixed, then kept as its test.
  */
 class SwitchReviewTest {
     private fun id() = UUID.randomUUID().toString()
@@ -125,7 +124,6 @@ class SwitchReviewTest {
     // the summary of `LobbyService.summary(sql, id)` without a viewer, whose move read from the play's starting
     // `PlayState` (its turn's player: the starter, forever). Bob's app takes that summary as the game's (the move chip and
     // game order), and Bob's chat notification says it isn't his move although he alone must act.
-    @Disabled("switchreview #2: chat (and other non-engine) revisions say whose move it is from the starting board, not the engine seats")
     @Test fun `a chat revision keeps whose move it is per viewer and the chat notice knows it is Bob's move`() = withService { runtime ->
         val f = Fixture(runtime)
         f.aliceKeeps()
@@ -144,7 +142,6 @@ class SwitchReviewTest {
     // once and the device lets the non-starting player declare at once (their move), but the server's next stop only
     // reads the engine's open decision (the starter's): Bob's game list says "Alice's move" and he is never told it is
     // his move until Alice keeps. The start revision Bob's app installs says the same (from the starting board).
-    @Disabled("switchreview #5: the server's next stop ignores the non-starting player's simultaneous mulligan")
     @Test fun `at the start the non-starting player's own mulligan is their move too`() = withService { runtime ->
         val f = Fixture(runtime)
         assertEquals(f.b.account.accountId, f.attention(f.b), "Bob's own mulligan is his move")
@@ -157,7 +154,6 @@ class SwitchReviewTest {
     // reminder is armed. Bob comes back and confirms the same keep: his move is over (Alice's first turn), but nothing
     // records it: only a new next stop of the other player answers a reminder stretch on engine state. Bob then gets
     // "<Alice> is waiting for you" five minutes later, and the app's own fallback (LOB-076) keeps listing the game.
-    @Disabled("switchreview #3: a confirmation (or a playback report) doesn't end the confirmer's reminder stretch")
     @Test fun `confirming the assumed keep ends Bob's reminder stretch`() = withService { runtime ->
         val f = Fixture(runtime)
         val alice = f.aliceKeeps()
@@ -181,7 +177,6 @@ class SwitchReviewTest {
     // refused only by the support the owner's device stored for the deck; a deck with none stored (saved before I-D51,
     // changed since, or a client that never sent it) starts with every card the server can't read as an unknown object:
     // a dead card in the library that nobody can play. Expected: the server's own parse refuses such a start.
-    @Disabled("switchreview #9: a card the server's parser can't read starts as a dead unknown card when no device support is stored")
     @Test fun `a deck with a card the server can't read doesn't start`() = withService { runtime ->
         // Card data made before parts were kept: a split card's halves only in its combined text (GameCards: unreadable)
         val split = CardDefinition("Blaze // Frost", listOf(DefinitionFace(id(), "Blaze // Frost", typeLine = "Instant // Instant",
@@ -197,7 +192,6 @@ class SwitchReviewTest {
     // AgreedResult input among the events of the request that ended the play, so it never finds it: every agreed result
     // is recorded as the rules' result, and the notice reads "Game over · Draw" instead of "<Alice> accepted the draw"
     // ("… your win", "… your loss").
-    @Disabled("switchreview #8: an agreed result is recorded and told as the rules' result")
     @Test fun `an agreed result is recorded as the suggestion's, not the rules'`() = withService { runtime ->
         val f = Fixture(runtime)
         val draw = arcanum.engine.setup.GameResult.Draw
@@ -223,9 +217,31 @@ class SwitchReviewTest {
         assertEquals(SuggestedResult.DRAW, recorded.outcome)
     }
 
+    // switchreview #12 (decided for the owner 2026-11-04, to confirm), LOB-072, HIS-099: an undo request is the other
+    // player's move: listed and notified like one ("Your move"), so a request made while they are away doesn't freeze the
+    // game unseen; the requester waits meanwhile, and cancelling it ends the other player's move again.
+    @Test fun `an undo request is the other player's move until it is cancelled`() = withService { runtime ->
+        val f = Fixture(runtime)
+        f.aliceKeeps()
+        val target = f.snapshot().headId
+        val bob = f.device(f.b)
+        assertEquals("accepted", f.recipient.execute(GameAction.Submit(bob.act(id(), Input.Answer(bob.model.engine.pending!!.decision.id,
+            Answer.Option("Keep"))))).outcome)
+        assertEquals(f.a.account.accountId, f.attention(f.b), "Alice's first turn")
+        assertEquals("requestNeeded", f.owner.execute(GameAction.EngineRewind(target)).reason)
+        assertEquals("accepted", f.owner.execute(GameAction.EngineRequestRewind(target, "misclick")).outcome)
+        val asked = requireNotNull(f.activity(f.b)) { "Bob is told of the request" }
+        assertTrue(asked.yourMove!!, "answering the request is Bob's move")
+        assertNotNull(asked.reminderMoveAt, "his waiting reminder is armed")
+        assertEquals(f.b.account.accountId, f.attention(f.b))
+        assertEquals(f.b.account.accountId, f.attention(f.a), "Alice waits for Bob's answer")
+        assertEquals("accepted", f.owner.execute(GameAction.EngineCancelRewind).outcome)
+        assertFalse(f.activity(f.b)!!.yourMove!!, "the cancelled request is no longer Bob's move")
+        assertEquals(f.a.account.accountId, f.attention(f.b))
+    }
+
     // switchreview #7, LOB-114 (also async-play.md §23, found while building): Alice keeps while Bob's opening is still
     // Mulliganing; Bob's notice should read "<Alice> is ready". The engine path never sets it.
-    @Disabled("switchreview #7: LOB-114's 'is ready' is never set on engine state")
     @Test fun `Bob's notice says Alice is ready when she keeps while he is still Mulliganing`() = withService { runtime ->
         val f = Fixture(runtime)
         f.aliceKeeps()

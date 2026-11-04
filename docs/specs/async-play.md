@@ -714,5 +714,35 @@ Decided while building (the most vision-aligned reading; owner to confirm):
 6. **Request costs:** an engine head reads its snapshot; opening a game costs 43 database round trips instead of 31,
    a head refresh 14 instead of 10 (`RequestCostTest`).
 
-Found while building (not changed; for the owner): LOB-114 ("<opponent> is ready" while you are still Mulliganing) is
-not sent on engine state: the server never set it for engine events.
+Found while building (fixed in §25): LOB-114 ("<opponent> is ready" while you are still Mulliganing) was not sent on
+engine state.
+
+## 24. Notifications (owner, 2026-11-04 — I-D57)
+
+- **Two kinds of waiting.** (a) The opponent did something you *could* react to but is still playing on assumptions — **no notification**; you can still open the game, look and react (a branch). (b) **You need to act**: the game can't go on without you — your turn/main phase, a decision only you can make (non-assumable), an information-rule stop, the acting player's real wait (they chose not to assume), or the acting player's line reached the end of what they can do without you.
+- **Who is waiting for whom** is computed from the game state and assumptions, however that state came about (normal play, branch, undo/rewind). Only a player someone is actually waiting on gets a "Your move" notification, with the existing timing (10 s after it appeared when you're offline/idle, 60 s otherwise; never while the game is open).
+- **The acting player who assumed and left** (app to background with nothing waiting on the opponent) is the one still expected to act: they get the reminder notifications (15 min, 30 min, 1 h, …), the opponent gets nothing.
+- **Content:** game notifications show the game name, the opponent's name, the step/turn **you would resume at** (your own local head — never the true head, so assumptions don't leak), and your deck name. Draft/pod notifications include the set or cube name.
+- **No duplicates:** if you had a challenge queued for a pod, the "pod ready / decks ready" notification is folded into the challenge's notification (one notification per thing that needs you).
+
+## 25. Fixed after the switch-over review (2026-11-04)
+
+Findings #2–#9 and #12 of the review (`SwitchReviewTest` in server, protocol and app; #1, #10, #11 separately):
+- **Next stops** (`NextStop.of`): a result reached on the main line past a player's local head (rules' or agreed) is
+  their stop at the result's event, so it is their move and they are notified (TRN-065); in the opening a player's own
+  mulligan declared alongside the other player's is their move (TRN-027).
+- **Revisions without an engine part** (chat, the start) carry the per-player moves and activity from `engine_seat` as
+  engine revisions do; the chat and start notices read the recipient's own move.
+- **Moves that end without the other player being told** (a confirmation, playback past a stop, an undo request):
+  `Outcome.endedStops`; the player's notice row says it isn't their move, and their reminder stretch is answered
+  (`ActivityService.moveEnded`: the other player's reminder is re-armed when they have the move, else both close).
+- **LOB-114** from the keep in the event (`Outcome.ready`); **agreed results** recorded from the main line's last engine
+  event (`AgreedResult`), not from the confirming request.
+- **Unreadable cards:** the start is refused (`automatumUnsupported`) when the server's own parse leaves any card
+  without a definition, whatever support was stored.
+- **Stale taps** (app): every own action checks the board shown against the engine thread's last published one and is
+  refused with SYS-012's note when it is older (SYS-011); conceding is always taken.
+
+Decided for the owner (to confirm): **an undo request is the other player's move** (#12): while open, the requester has
+no next stop and the other player has one (at least at the head, timed from the request): listed as their move and
+notified "Your move" like any move (LOB-072, LOB-075's reminder included); answering or cancelling ends it.

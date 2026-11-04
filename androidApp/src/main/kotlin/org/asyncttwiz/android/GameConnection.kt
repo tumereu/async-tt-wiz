@@ -46,7 +46,7 @@ class SocketGameConnection(private val origin: String) : GameConnection {
     init {
         require(origin.isEmpty() || URI(origin).let { it.host != null && it.rawUserInfo == null &&
             it.rawQuery == null && it.rawFragment == null && it.rawPath.isNullOrEmpty() &&
-            (it.scheme == "https" || (BuildConfig.DEBUG && it.scheme == "http" && it.host == "127.0.0.1")) })
+            (it.scheme == "https" || (BuildConfig.LOOPBACK_API && it.scheme == "http" && it.host == "127.0.0.1")) })
     }
     override fun connect(token: String, listener: GameConnection.Listener) {
         disconnect()

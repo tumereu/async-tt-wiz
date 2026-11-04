@@ -22,8 +22,8 @@ import org.asyncttwiz.protocol.*
 
 /**
  * A card's menu (TBL-115, TBL-116; battlefield card, combat copy, Graveyard or Exile panel card): what Automatum offers
- * for it as rows, then only Inspect, Other side and the combat draft's Attack → and Remove from combat. Nothing changes
- * the game by hand (I-D52). A hand card has no menu (ZON-079).
+ * for it as rows, then only Inspect, Other side and a combat copy's Remove from combat. Nothing changes the game by hand
+ * (I-D52); an attack's target is picked in the combat area's lanes only (CMB-028). A hand card has no menu (ZON-079).
  */
 @Composable
 internal fun EngineCardMenu(toolkit: TableToolkitController, play: TableBoard, bound: ToolkitCapture, names: Map<String, String>,
@@ -36,8 +36,6 @@ internal fun EngineCardMenu(toolkit: TableToolkitController, play: TableBoard, b
     val faces = play.definitions.singleOrNull { it.digest == card.definition }?.definition?.faces.orEmpty()
     val other = if (card.covered) faces.singleOrNull { it.faceId == card.faceId } else faces.firstOrNull { it.faceId != card.faceId }
     val combat = bound.viewIds.filter { id -> CombatStackRules.occurrences(play.board.combat).any { it.id == id } }
-    // A battlefield card's own "Attack →" retargets its attacker copies, exactly like the copy's
-    val attackers = play.board.combat?.pairs.orEmpty().flatMap { it.attackers }.filter { it.sourceId == card.id }.map { it.id }
     fun entry(control: MenuControl, id: String = control.name) = RingEntry(id, ringShortLabel(control.name), control)
     val entries = listOf(
         entry(MenuControl("Inspect") { toolkit.inspect(view) }, "inspect"),
@@ -45,10 +43,6 @@ internal fun EngineCardMenu(toolkit: TableToolkitController, play: TableBoard, b
         entry(MenuControl("Inspect other side", enabled && other != null) {
             other?.let { toolkit.submit(PlayAction.InspectFace(card.id, it.faceId, card.containerId)) }
         }, "otherSide").copy(label = "Other side"),
-        if (layout == CardMenuLayout.COMBAT)
-            entry(MenuControl("Attack →", enabled && CombatStackController.attackerPairs(play.board, bound.viewIds).isNotEmpty()) {
-                toolkit.openAttackTargets() })
-        else entry(MenuControl("Attack →", enabled && attackers.isNotEmpty()) { toolkit.openAttackTargets(attackers) }),
         entry(MenuControl("Remove from combat", enabled && combat.isNotEmpty()) {
             if (toolkit.removeFromCombat(bound.copy(viewIds = combat))) toolkit.dismiss()
         }))

@@ -25,10 +25,12 @@ import org.asyncttwiz.protocol.game.TableState
  * ([base], [TableStatesFixture]'s containers) and the server's first event ([start]: the game started, simultaneous
  * mulligans) with its [snapshot]. With [dungeons] (LOB-117) Alice's spells are Torch Maps ({0}: venture into the dungeon) and she
  * owns two invented dungeons outside the game, a plain one and an Undercity, as her device brings them. With [extraTurns]
- * (TRN-052) a third of each deck are Ember Strides ({R}, sorcery: take an extra turn after this one).
+ * (TRN-052) a third of each deck are Ember Strides ({R}, sorcery: take an extra turn after this one). With [declaring]
+ * (CMB-028) a third of Alice's deck are Cinder Hounds (2/1 for {R} with "{R}: +1/+0") and of Bob's Ash Oracles (a
+ * planeswalker for {R}, loyalty 3).
  */
 internal class EngineGameFixture(startingPlayer: String = TableStatesFixture.a, creatures: Boolean = false, dungeons: Boolean = false,
-    heralds: Boolean = false, extraTurns: Boolean = false) {
+    heralds: Boolean = false, extraTurns: Boolean = false, declaring: Boolean = false) {
     private val f = TableStatesFixture
     private class Invented(face: DefinitionFace, oracle: OracleCard) {
         val submitted = CardDefinition(face.name, listOf(face)).let { SubmittedDefinition(DeckJson.digest(it), it) }
@@ -44,6 +46,12 @@ internal class EngineGameFixture(startingPlayer: String = TableStatesFixture.a, 
     private val herald = Invented(DefinitionFace("herald", "Ember Herald", typeLine = "Creature — Elemental", manaCost = "{R}",
         rulesText = "When this creature enters, create a 1/1 red Elemental creature token.", power = "1", toughness = "1"),
         OracleCard("Ember Herald", "{R}", "Creature — Elemental", "When this creature enters, create a 1/1 red Elemental creature token.", "1", "1"))
+    private val hound = Invented(DefinitionFace("hound", "Cinder Hound", typeLine = "Creature — Elemental Dog", manaCost = "{R}",
+        rulesText = "{R}: This creature gets +1/+0 until end of turn.", power = "2", toughness = "1"),
+        OracleCard("Cinder Hound", "{R}", "Creature — Elemental Dog", "{R}: This creature gets +1/+0 until end of turn.", "2", "1"))
+    private val oracle = Invented(DefinitionFace("oracle", "Ash Oracle", typeLine = "Legendary Planeswalker — Chandra", manaCost = "{R}",
+        rulesText = "[+1]: You gain 1 life.", loyalty = "3"),
+        OracleCard("Ash Oracle", "{R}", "Legendary Planeswalker — Chandra", "[+1]: You gain 1 life.", loyalty = "3"))
     private val stride = Invented(DefinitionFace("stride", "Ember Stride", typeLine = "Sorcery", manaCost = "{R}",
         rulesText = "Take an extra turn after this one."), OracleCard("Ember Stride", "{R}", "Sorcery", "Take an extra turn after this one."))
 
@@ -77,6 +85,7 @@ internal class EngineGameFixture(startingPlayer: String = TableStatesFixture.a, 
         i % 3 == 2 -> spark
         heralds && i % 3 == 1 -> herald
         extraTurns && i % 3 == 1 -> stride
+        declaring && i % 3 == 1 -> if (p == a) hound else oracle
         creatures && i % 3 == 1 -> cub
         else -> mountain
     } } }
@@ -88,6 +97,7 @@ internal class EngineGameFixture(startingPlayer: String = TableStatesFixture.a, 
         } }
         p.copy(definitions = (listOf(spark.submitted, mountain.submitted) + listOfNotNull(cub.submitted.takeIf { creatures }) +
             listOfNotNull(herald.submitted.takeIf { heralds }) + listOfNotNull(stride.submitted.takeIf { extraTurns }) +
+            listOfNotNull(hound.submitted.takeIf { declaring }, oracle.submitted.takeIf { declaring }) +
             listOfNotNull(map.submitted.takeIf { dungeons }) + outside).sortedBy { it.digest },
             board = p.board.copy(cards = cards, stackEffects = emptyList(), combat = null, engineRecords = emptyList(),
                 containers = p.board.containers.map { c ->

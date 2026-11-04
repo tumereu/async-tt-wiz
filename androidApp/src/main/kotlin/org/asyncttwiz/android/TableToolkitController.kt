@@ -841,12 +841,8 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
         }
         sent
     }
-    /** [viewIds] re-captures attacker copies when opened from the real card's menu. */
-    fun openAttackTargets(viewIds: List<String>? = null) {
-        if (viewIds != null) capture = capture?.copy(viewIds = viewIds)
-        panel = "attackTarget"
-    }
-    fun setAttackTarget(bound: ToolkitCapture, cardId: String?): Boolean {
+    /** CMB-015: the staged attackers [bound] dropped into another lane attack its target [cardId] (null: the player). */
+    private fun setAttackTarget(bound: ToolkitCapture, cardId: String?): Boolean {
         val play = current()?.takeIf { enabled() } ?: return false
         // CMB-028: a drafted attacker attacks another target only as Automatum allows
         val sources = CombatStackController.attackerPairs(play.board, bound.viewIds).flatMap { it.attackers }.map { it.sourceId }

@@ -238,11 +238,14 @@ class AttackTargetPresentationTest {
             val result = CombatBoards(combatId(7)).place(empty, listOf(combatId(24)), drop.destination)
             assertEquals(drop.destination.attackTarget, result.board.combat!!.pairs.single().attackTarget)
         }
-        assertEquals(listOf(null, combatId(80), combatId(81)), attackTargetChoices(tableBoard(original), mapOf(combatId(8) to "Bob"), combatId(7)).map { it.first })
     }
 
+    /** The targets of the lanes the viewer sees on [state] (the defending player first, null). */
+    private fun laneTargets(state: PlayState, viewer: String): List<String?> =
+        listOf(null) + CombatStackPresentation.attackTargets(state.board, state.definitions, viewer)
+
     // CMB-012
-    @Test fun lanesAndAttackMenuListPlayerThenDefenderWalkersThenAttackerSiegesInBattlefieldOrder() {
+    @Test fun lanesListPlayerThenDefenderWalkersThenAttackerSiegesInBattlefieldOrder() {
         val original = attackTargetState()
         val battlemage = CardDefinition("Battlemage", listOf(DefinitionFace(combatId(96), "Battlemage", typeLine = "Creature — Human Battlemage")))
         val submitted = SubmittedDefinition(DeckJson.digest(battlemage), battlemage)
@@ -262,19 +265,18 @@ class AttackTargetPresentationTest {
         val names = mapOf(combatId(8) to "Bob")
         for (viewer in listOf(combatId(7), combatId(8))) {
             assertEquals(expected, CombatStackPresentation.combat(state.board, 48f, 68f, state.definitions, names, viewer).lanes.map { it.cardId })
-            assertEquals(expected, attackTargetChoices(tableBoard(state), names, viewer).map { it.first })
+            assertEquals(expected, laneTargets(state, viewer))
         }
-        assertEquals(listOf("Bob", "Target 0", "Target 0", "Target 1", "Target 1"), attackTargetChoices(tableBoard(state), names, combatId(7)).map { it.second })
         // The opponent's Siege, a Battlemage and creatures are never targets, and the reducer agrees.
         for (id in listOf(combatId(83), combatId(86), combatId(82))) assertFalse(CombatStackRules.canAttack(state.board, state.definitions, id))
         for (id in expected.filterNotNull()) assertTrue(CombatStackRules.canAttack(state.board, state.definitions, id))
         // On the other player's turn the roles swap: their walkers are safe, the old attacker's Siege is protected.
         val swapped = state.copy(board = state.board.copy(turn = state.board.turn.copy(accountId = combatId(8))))
-        assertEquals(listOf(null, combatId(83)), attackTargetChoices(tableBoard(swapped), emptyMap(), combatId(7)).map { it.first })
+        assertEquals(listOf(null, combatId(83)), laneTargets(swapped, combatId(7)))
     }
 
     // CMB-012
-    @Test fun attackTargetChoicesExcludeFaceDownWalkersAndBattlesEvenWhenKnown() {
+    @Test fun laneTargetsExcludeFaceDownWalkersAndBattlesEvenWhenKnown() {
         val original = attackTargetState()
         for (known in listOf(false, true)) {
             val hidden = original.copy(board = original.board.copy(cards = original.board.cards.map { card ->
@@ -282,12 +284,12 @@ class AttackTargetPresentationTest {
                     card.copy(covered = true, explicitlyCovered = true, knownToAll = known) else card
             }))
             for (viewer in listOf(combatId(7), combatId(8))) {
-                assertEquals(listOf(null to "Bob"), attackTargetChoices(tableBoard(hidden), mapOf(combatId(8) to "Bob"), viewer))
+                assertEquals(listOf(null), laneTargets(hidden, viewer))
             }
         }
         // Legacy covered flags in public zones are not explicit face-down state.
         val legacy = original.copy(board = original.board.copy(cards = original.board.cards.map { it.copy(covered = true) }))
-        assertEquals(listOf(null, combatId(80), combatId(81)), attackTargetChoices(tableBoard(legacy), emptyMap(), combatId(7)).map { it.first })
+        assertEquals(listOf(null, combatId(80), combatId(81)), laneTargets(legacy, combatId(7)))
     }
 
     // CMB-013

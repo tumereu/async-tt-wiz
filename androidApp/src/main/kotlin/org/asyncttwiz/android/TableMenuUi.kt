@@ -57,8 +57,6 @@ internal fun menuIcon(name: String): ImageVector {
         n == "autotap mana" -> Icons.Outlined.WaterDrop
         n == "keep" -> Icons.Outlined.CheckCircleOutline
         n == "draw + go to main" -> Icons.Outlined.Download
-        // Same crosshair as the "Choose attack target" history event (rules v34).
-        n == "attack →" -> Icons.Outlined.GpsFixed
         n == "go to attacks" -> Icons.Outlined.Gavel
         n == "skip combat" -> Icons.Outlined.FastForward
         n == "no attack" -> Icons.Outlined.Block

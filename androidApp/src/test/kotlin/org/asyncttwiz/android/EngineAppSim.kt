@@ -104,6 +104,13 @@ internal class EngineAppSim(val f: EngineGameFixture, private val worker: (Strin
 
     fun pending(p: String) = inbox.getValue(p).size
 
+    /** [p]'s refusals waiting for them go before the revisions waiting (a reply order the network may give). */
+    fun refusalsFirst(p: String) {
+        val queue = inbox.getValue(p)
+        val sorted = queue.sortedBy { it !is Delivery.Refused }
+        queue.clear(); queue.addAll(sorted)
+    }
+
     /** Delivers [p]'s next [count] messages (all when null), in order. */
     fun deliver(p: String, count: Int? = null) {
         val queue = inbox.getValue(p)

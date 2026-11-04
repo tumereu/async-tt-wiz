@@ -178,4 +178,80 @@ class SameDecisionTapTest {
         assertFalse(GameDevice.sameDecision(s, s.deepCopy().also { it.battlefield.remove(land) }), "the target gone")
         assertFalse(GameDevice.sameDecision(s, s.deepCopy().also { it.stack.add(land) }), "a new Stack object")
     }
+
+    // ---- The server's race: the other player's event taken before the player's own move
+
+    /**
+     * Alice keeps while Bob is live, so her game waits for his keep; Bob keeps (taken by the server; [bobsMove] after
+     * it) while Alice's device, his presence gone, assumes that keep and goes on to her first main phase, where she
+     * makes [move]. Her assumption and her move reach the server after his keep: refused as stale, delivered with
+     * [refusalsFirst] before his revision or after it.
+     */
+    private fun race(refusalsFirst: Boolean, bobsMove: (EngineGame) -> Unit = {}, move: (EngineGame) -> GameDevice.Acted): EngineGame {
+        val game = sim.load(f.a)
+        val bob = sim.load(f.b)
+        game.tick(live = true, now = 1_000); bob.tick(live = true, now = 1_000)
+        assertIs<GameDevice.Acted.Sent>(game.keep(emptyList()))
+        sim.flush(f.a); sim.deliver(f.b); bob.playToStop()
+        assertIs<GameDevice.Acted.Sent>(bob.keep(emptyList()))
+        bobsMove(bob)
+        sim.flush(f.b)
+        assertTrue(sim.pending(f.a) > 0, "Bob's event is on its way to Alice")
+        game.tick(live = false, now = 200_000); game.tick(live = false, now = 300_000)
+        val s = game.device.model.engine
+        assertEquals(TurnStep.PrecombatMain to f.a, s.turn.step to s.priority.holder?.value, "Alice in main 1 on Bob's assumed keep")
+        game.notes.clear()
+        assertIs<GameDevice.Acted.Sent>(move(game))
+        sim.flush(f.a)
+        if (refusalsFirst) sim.refusalsFirst(f.a)
+        sim.deliver(f.a)
+        game.playToStop()
+        game.tick(live = false, now = 201_000)
+        return game
+    }
+
+    private fun EngineGame.made(input: (Input) -> Boolean) =
+        device.session.pending.any { e -> e.engine?.steps.orEmpty().any { it.assumedBy == null && it.input?.let(input) == true } }
+
+    // SYS-011: the server took Bob's keep before Alice's own pass made on her device's assumption of it; on his keep the
+    // same decision waits for her, so her pass is made again there without a note (his revision first)
+    @Test fun aPassLostToTheOpponentsSamePassIsMadeAgainRevisionFirst() = passMadeAgain(refusalsFirst = false)
+
+    // SYS-011: as above, the refusal reaching her before Bob's revision
+    @Test fun aPassLostToTheOpponentsSamePassIsMadeAgainRefusalFirst() = passMadeAgain(refusalsFirst = true)
+
+    private fun passMadeAgain(refusalsFirst: Boolean) {
+        val game = race(refusalsFirst) { it.pass() }
+        assertTrue(game.notes.none { it is GameDevice.Note.Refused }, "no refusal note: ${game.notes}")
+        assertTrue(game.made { it == Input.PassPriority(alice) },
+            "her pass made again: ${game.device.session.pending.map { e -> e.engine?.steps?.map { it.input } }} log " +
+                game.device.repro(f.codec).log.takeLast(25))
+        assertTrue(game.device.repro(f.codec).log.any { it.startsWith("remake PassPriority") }, "made again after the race")
+        assertNotEquals(TurnStep.PrecombatMain, game.device.model.engine.turn.step, "her main 1 is over")
+    }
+
+    // SYS-011: the same with a Mountain played and Storm Spark cast on it (its target and payment as she chose them), both
+    // reply orders: each made again on the one before
+    @Test fun aCastLostToTheOpponentsSamePassIsMadeAgain() {
+        for (refusalsFirst in listOf(false, true)) {
+            val game = SameDecisionTapTest().race(refusalsFirst) {
+                val land = Engine.options(it.device.model.engine, alice).filterIsInstance<Input.PlayLand>().first()
+                assertIs<GameDevice.Acted.Sent>(it.send(listOf(land)))
+                it.send(spark(it.device.model.engine))
+            }
+            assertTrue(game.notes.none { it is GameDevice.Note.Refused }, "refusals first $refusalsFirst: no refusal note: ${game.notes}")
+            assertTrue(game.made { it is Input.PlayLand } && game.made { it is Input.Cast },
+                "refusals first $refusalsFirst: her land and cast made again: ${game.device.repro(f.codec).log.takeLast(20)}")
+        }
+    }
+
+    // SYS-011, SYS-012: Bob concedes after his keep, so the game Alice's move was made in is gone: not made again, and she
+    // is told once, both reply orders
+    @Test fun aMoveLostToAnOpponentsMoveThatChangedTheGameIsToldOnce() {
+        for (refusalsFirst in listOf(false, true)) {
+            val game = SameDecisionTapTest().race(refusalsFirst, bobsMove = { it.concede() }) { it.pass() }
+            assertEquals(1, game.notes.count { it == GameDevice.Note.Refused("stale") }, "refusals first $refusalsFirst: ${game.notes}")
+            assertFalse(game.made { it == Input.PassPriority(alice) }, "refusals first $refusalsFirst: not made again")
+        }
+    }
 }

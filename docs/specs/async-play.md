@@ -752,6 +752,9 @@ Findings #2–#9 and #12 of the review (`SwitchReviewTest` in server, protocol a
   refused with SYS-012's note when it is older (SYS-011); conceding is always taken. Owner, 2026-11-04: a pass, a cast or
   any other engine input, and an opening declaration, is made on the newer board instead when the game there is the same
   apart from its record of what happened (`GameDevice.sameDecision`): the same decision still waits for the player.
+  Likewise a move of the player's own the server refused as stale because the other player's event came first
+  (`GameDevice.lostMoves`/`remake`, either reply order): once that event is shown and the device's own steps are done,
+  each lost move is made again when `sameDecision` holds against the state it was made on, else SYS-012's note, once.
 
 Decided for the owner (to confirm): **an undo request is the other player's move** (#12): while open, the requester has
 no next stop and the other player has one (at least at the head, timed from the request): listed as their move and

@@ -107,6 +107,25 @@ class SkipWhenNoChoiceTest {
         }
     }
 
+    /** [Engine.passCheck] answers [Engine.shouldPassFor] as set and with bob's own setting on, from one search: the
+     * same as asking it twice with the setting changed in between. */
+    // I-D18, CR 117.3d
+    @Test
+    fun passCheckIsShouldPassForBothWays() = everyWay { v, on ->
+        bob.skipWhenNoChoice = on
+        bob.battlefield("Island")
+        bob.hand("Denial")
+        aliceSparksBob()
+        val check = Engine.passCheck(state, bob.id)
+        assertEquals(Engine.shouldPassFor(state, bob.id), check.asSet, "as set, on=$on viewer=$v")
+        val skip = Changes.skipWhenNoChoice(state, bob.id, true)
+        state.apply(skip)
+        val withSkip = Engine.shouldPassFor(state, bob.id)
+        state.revert(skip)
+        assertEquals(withSkip, check.ownSkipOn, "own skip on, on=$on viewer=$v")
+        assertEquals(arcanum.engine.PassCheck.NONE, Engine.passCheck(state, alice.id), "only the holder")
+    }
+
     /** With an empty hand nothing hidden decides: priority is passed for bob whatever his setting and whoever's view. */
     // I-D18, CR 117.3d
     @Test

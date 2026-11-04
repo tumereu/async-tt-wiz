@@ -102,14 +102,14 @@ internal class EngineTableRoutes(val viewer: String, private val game: () -> Eng
     /** After an action on the engine game: what it sends goes out and the table shows its new board. */
     fun pump() = sent()
 
-    private fun done(acted: GameDevice.Acted?): Boolean { sent(); return acted is GameDevice.Acted.Sent || acted == GameDevice.Acted.Confirmed }
+    private fun done(acted: GameDevice.Acted?): Boolean { sent(); return acted is GameDevice.Acted.Sent || acted == GameDevice.Acted.Confirmed || acted == GameDevice.Acted.Made }
 
     override fun send(inputs: List<Input>): String? {
         val g = game() ?: return "unavailable"
         val acted = g.send(inputs)
         sent()
         return when (acted) {
-            is GameDevice.Acted.Sent, GameDevice.Acted.Confirmed, GameDevice.Acted.Kept -> null
+            is GameDevice.Acted.Sent, GameDevice.Acted.Confirmed, GameDevice.Acted.Kept, GameDevice.Acted.Made -> null
             is GameDevice.Acted.Refused -> acted.reason
         }
     }

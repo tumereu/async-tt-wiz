@@ -1,7 +1,6 @@
 package org.asyncttwiz.protocol.game
 
 import arcanum.engine.Engine
-import arcanum.engine.change.Changes
 import arcanum.engine.input.Input
 import arcanum.engine.state.GameState
 import arcanum.engine.state.PlayerId
@@ -62,11 +61,7 @@ object NextStop {
 
     /** Whether [player]'s own device passes for them on [state] under Auto-skip: [Engine.shouldPassFor] with their
      * "Skip when I have no choice" on (the shared state keeps it off). */
-    fun passesWithOwnCards(state: GameState, player: PlayerId): Boolean {
-        val on = Changes.skipWhenNoChoice(state, player, true)
-        state.apply(on)
-        try { return Engine.shouldPassFor(state, player) } finally { state.revert(on) }
-    }
+    fun passesWithOwnCards(state: GameState, player: PlayerId): Boolean = Engine.passCheck(state, player).ownSkipOn
 }
 
 /**

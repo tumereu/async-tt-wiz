@@ -86,7 +86,7 @@ class FinalSyncReviewTest {
         rt.run(holder) { StepFlow.pass(it, holder) }
     }
 
-    // finalreview-sync #5 (fixed on master by the pausereview #10 fix, `plannedBefore`) — HIS-037, HIS-042, SYS-057 #4,
+    // finalreview-sync #5 (fixed on master by the pausereview #10 fix, `plannedBefore`) — old-model armed continuation, HIS-042, SYS-057 #4,
     // I-D41: Bob starts a branch from an earlier acting point (a status, as Hold at a pause makes one) and then undoes that
     // event. The live position is now the branch point, which has the old line after it, so the next event there starts a
     // branch again, which reseeds the libraries' unknown order. A batch planned on the live position before the reseed is

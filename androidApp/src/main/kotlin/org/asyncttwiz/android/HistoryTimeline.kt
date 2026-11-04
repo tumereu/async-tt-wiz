@@ -470,7 +470,7 @@ fun HistoryTransport(position: HistoryPosition, previousEnabled: Boolean, nextEn
                             Text(if (showsRewind) "Rewind" else if (position.playing) "Auto: on" else "Auto: off",
                                 fontSize = 16.sp, lineHeight = 20.sp)
                             // HIS-013: holding Auto is the only way to branch, so the button says so.
-                            if (!showsRewind) Text("Hold to branch", fontSize = 10.sp, lineHeight = 12.sp, color = Color(0xff66757a))
+                            if (!showsRewind && canBranch) Text("Hold to branch", fontSize = 10.sp, lineHeight = 12.sp, color = Color(0xff66757a))
                         }
                     }
                 }

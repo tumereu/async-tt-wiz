@@ -61,6 +61,8 @@ object EngineState {
      */
     fun from(state: PlayState, definitions: Map<String, CardDefinition>, viewer: String? = null,
         log: List<LoggedChange> = emptyList()): GameState {
+        // I-D56 step C: a board shown for a game on engine state carries that state ([EngineProjection])
+        state.board.engine?.let { return it.copy(viewer?.let(::PlayerId)) }
         unsupported(state, definitions, viewer).takeIf { it.isNotEmpty() }?.let { throw Unsupported(it) }
         val board = state.board
         val ids = CardIds.of(board)
@@ -226,6 +228,8 @@ object EngineState {
      */
     fun unsupported(state: PlayState, definitions: Map<String, CardDefinition>, viewer: String? = null): List<String> {
         val board = state.board
+        // I-D56 step C: the engine's own state needs no taking over
+        if (board.engine != null) return emptyList()
         val words = Words(state, viewer)
         val problems = mutableListOf<String>()
         val entries = entries(board)

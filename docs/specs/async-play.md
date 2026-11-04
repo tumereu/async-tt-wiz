@@ -565,3 +565,41 @@ Decided while building (the most vision-aligned reading; owner to confirm):
 14. **The reproduction bundle** (`GameRepro`, header `atw-engine-bundle/1 gzip+base64`): the state at the line's start,
     the line, the pending events, local heads, settings and the last 400 log entries; `check()` makes every event again
     through the server's gate and compares.
+
+## 20. Built (step C, 2026-11-04)
+
+Step C of §13 (phase 4, the app) is built behind a debug switch (Settings → Automatum → "Engine games (test)", debug
+builds only; off by default): with it on, a game whose play the server runs on engine state is played on the device
+core; every other game still plays on today's model. See `engine-state-architecture.md` §12. The catalog entries of
+§17 are changed (they describe games on engine state; `docs/features/README.md` says so), and the features §16/§17
+remove are gone from both paths where they were UI only: Redo, the game tree dialog, branching from the timeline and
+the auto-rewind switches. Today's model keeps its I-D41 pauses, passing for an away player and Hold until step D.
+
+Decided while building (the most vision-aligned reading; owner to confirm):
+1. **Rendering:** the table keeps its whole UI by drawing a board made from the engine's state
+   (`EngineProjection`: the play's own containers and card ids, hidden cards covered by `Engine.visible`, places from the
+   table state or the first free cell of the card's row); the board carries the engine state, so every existing engine
+   reader (computed P/T, card menus, the cast panel, choices, combat) works on the engine's own state, never rebuilding
+   one. A spell's card stays in the zone it was cast from (STK-001), found in the engine's log.
+2. **Sending:** the cast panel and the choice panels work as before and send only the player's own inputs of the flow
+   (the cast, its answers, the payment); the device answers the randomness and folds the passes that follow.
+3. **The step arrow** passes only the viewer's own priority, declares what the lanes hold, or (held) End turn; the phase
+   dialog is view-only. It shows only while the viewer may act (their move or a decision stop).
+4. **Combat staging** is the declaring player's own on engine state (kept on their device, sent as the declaration),
+   not the shared staging of I-D54 §8: plainest with I-D56 §12 and needs no table change; showing it to the other player
+   can come later (a list item for step D).
+5. **The waiting bar** is one line above the hand with the presence line and the Assume button (Assume resolves, Assume
+   blockers, Assume keep); it also says when an undo request or a suggestion holds the game.
+6. **Assume blockers screen:** "No blocks" only (OK assumes it, Back waits); editing assumed blocks on it is not built
+   (step D list).
+7. **The assumer's indicator** is a small violet chip at the left edge of the table, "N assumed · M actions since".
+8. **Playback** steps one event at a time with the History playback pause; Back and Return to current play on to the
+   next decision point.
+9. **Undo dialog:** the main line up to the local head as a list of short event texts, newest first, rather than the
+   timeline strip; it says when the other player must approve, with an optional message. The incoming request shows the
+   message and where the game goes back to (turn and step, "and actions you haven't seen yet"), not a board preview.
+10. **Opening:** the engine's simultaneous mulligans, with today's Mulligan/Keep controls and Keep / Bottom screen; the
+    server's start gives the first mulligan free as the game's rules say (TRN-062).
+11. **Defaults for new games** (response mode, Always assume resolves, Autotap) are kept on the device per account and
+    given to a game once by the device that opens it first (not yet stored per account on the server: step D list).
+12. **Notes** (branch, take-back) show once as a dark chip at the top for 6 s.

@@ -86,12 +86,15 @@ internal fun TableToolkitScreen(toolkit: TableToolkitController, play: PlayState
     CastPanelHost(toolkit, play, scene, names)
     // Automatum (I2b): priority, resolution and trigger choices by the Stack
     SharedFlowHost(toolkit, play, scene, names, reviewing)
-    // I-D41: a pause on an empty Stack (on the Stack the respond panel shows it)
-    PauseBarHost(toolkit, play, scene, names)
+    val engine = LocalEngineRoutes.current
+    // I-D41: a pause on an empty Stack (on the Stack the respond panel shows it); on engine state the waiting bar
+    if (engine == null) PauseBarHost(toolkit, play, scene, names)
     // I-D49: the opening's Keep / Bottom screen
     OpeningKeepHost(toolkit, play, scene)
-    // I-D40: a step that would act for the other player asks first
-    ActingForDialog(toolkit.flows, names)
+    // I-D40: a step that would act for the other player asks first (gone on engine state: nobody acts for the other)
+    if (engine == null) ActingForDialog(toolkit.flows, names)
+    // I-D56 §14: the async play panels of a game on engine state
+    if (engine != null) EngineAsyncHost(toolkit, engine, play, scene, names, LocalOpponentPresence.current)
     // Automatum (I3): what combat allows and would do on this board, worked out in the background
     AutomatumCombatHost(toolkit, play)
 }

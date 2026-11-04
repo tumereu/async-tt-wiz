@@ -299,3 +299,52 @@ applying another player's event at once (now buffered past the local head, `asyn
 **Next:** step C (app with I-D54 item 2, rendering from `GameDevice`; catalog entries per `async-play.md` §17), step D
 (switch-over: the wipe as `V<n>`, delete the old model, adversarial review).
 
+## 12. Built (I-D56 step C, 2026-11-04): the app
+
+Behind a debug switch (`EnginePath`, Settings → Automatum → "Engine games (test)", debug builds only, off by default);
+the server still starts engine games only with `ATW_ENGINE_GAMES=1` or the test seam. Choices: `async-play.md` §20.
+- **Session:** `GameSession` loads `GameHead.engine` into an `EngineGame` (the app's wrapper of `GameDevice`), feeds it
+  `GameRevision.engineEvent`/`engine` and refusals of its own actions, and sends its outbox (`Submit`, `EngineSeen`,
+  rewinds, requests, settings) on the ordinary command queue; a device that can't follow re-subscribes for a new head.
+  The open table ticks it every second (the other player's presence for the live wait and grace).
+- **Rendering:** `automatum` `EngineProjection` makes the table's board (`PlayState`) from `GameModel` for one viewer
+  (`Engine.visible`, placements, Stack entries, combat lanes or the player's own staging, players' pools and counters,
+  the opening's statuses) and attaches `protocol` `game/EngineView` (`BoardState.engine`, transient): `EngineState.from`
+  returns its state (full, or as a viewer sees it) instead of building one, `HostPriority` leaves it alone and
+  `Automatum.flowOpen` reads its pending decision. So the table, panels, menus, computed P/T and combat previews are the
+  same code as today's. `EngineCall.inputs` records the player's own inputs of a flow, which the cast and choice
+  controllers send through the device instead of planning a batch.
+- **UI:** `EngineTableScreen` (no history machinery), `EngineTableRoutes` (step arrow, opening, staging and places,
+  undo), `EngineAsyncHost` (waiting bar, Assume blockers, catch-up, playback, decision-stop line, result line,
+  indicator, notes, undo dialog, incoming request), `EngineToggleCells` (response mode, Always assume resolves,
+  Autotap), Settings defaults for new games.
+- **Tests:** `automatum` `EngineProjectionTest`; app `EngineGameTest` (opening, assumed keep and passes, echo
+  confirmation, the other player's catch-up, stop and confirmation) and `EngineTableScreenshotTest` (five screenshots).
+
+**Left for step D** (switch-over, wipe, deleting the old model) and what step C didn't build:
+1. Switch: `ATW_ENGINE_GAMES` on (test env first), the app's engine path the default (drop `EnginePath`), the wipe
+   `db/pending/wipe_plays_for_engine_state.sql` as the next `V<n>`.
+2. Delete the old model: the `automatum` mapping (`EngineState.from`'s building, `EngineBatch`, records and ledgers,
+   `StepFlow`/`PausePoints` passing for others, `HostPriority`), `PlayState`'s game fields and gameplay actions,
+   `AutomatumOnly`, the manual protocol actions for plays (`Play`, `PlayBatch`, `Undo`, `Redo`, `AcceptResult`), the
+   app's old table path (`TableScreen`'s history branch, `TableHistoryController` continuation, `HistoryPlayback`
+   branching, `HistoryExplorer`, `GameplayReplica`/`TreeCatchUp` for plays) and the I-D41 UI (`AutomatumPause`,
+   `PauseBarHost`, `ActingForDialog`, `PauseController`, the old Response time / When the opponent can react / Full
+   control / Skip settings); then slim `EngineProjection`'s `PlayState` into a render model.
+3. The timeline on engine events: the strip, timeline mode and playback panel, event texts, icons and groups
+   (HIS-001–031, HIS-061–077 on engine events; the engine table shows no strip yet), and the event text chip.
+4. Flashes and delta tags from the engine's change list (HIS-031); card motion already animates from the board.
+5. Token pictures (SYS-072) for the engine's tokens (they show the plain frame).
+6. Early answers (STK-034, I-D33) and attack choices (CMB-036–CMB-038) as table changes; today they are only staged on
+   the device. Shared attack staging if the owner wants it (choice §20.4).
+7. Assume blockers with edited blocks; a board preview in the incoming request; the Undo dialog's target picker as the
+   timeline strip.
+8. New-game defaults per account on the server (LOB-113; today per device).
+9. The branch notification (one Game activity notification per branch, §8).
+10. Problem reports with `GameDevice.repro` (I-D43) for engine games.
+11. Engine work off the main thread (the projection and the device's steps run on it now; check SYS-025 on a slow phone).
+12. End-to-end runs on two devices against a server with `ATW_ENGINE_GAMES=1` (not run in step C), then the adversarial
+    review of two-device races, branches, undo requests and reconnects.
+13. The spec rows `async-play.md` §17 lists for `arcanum-atw-integration.md` and `arcanum-automatum.md` (they change when
+    the switch-over ships), and the catalog's README note on the two paths.
+

@@ -23,7 +23,11 @@ import kotlinx.coroutines.delay
 
 /** Other runtime owners supply real routes. Null means unavailable, never a successful-looking stub. */
 data class TableRuntimeHooks(val chat: (() -> Unit)? = null, val history: (() -> Unit)? = null,
-    val undo: (() -> Boolean)? = null, val redo: (() -> Boolean)? = null, val reviewing: Boolean = false,
+    val undo: (() -> Boolean)? = null,
+    /** HIS-083: holding Undo (the rewind dialog, I-D56 §10); null: holding it only says what it is. */
+    val undoHold: (() -> Unit)? = null,
+    /** Bumped when an Undo can't do anything: the button shakes. */
+    val undoShakes: Int = 0, val reviewing: Boolean = false,
     val controlsConnected: Boolean? = null,
     val navigation: (() -> Unit)? = null,
     val returnCurrent: (() -> Unit)? = null, val chatUnread: Int = 0,
@@ -52,6 +56,8 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
     // Never the whole lobby state: its games-list refresh would recompose the table every few seconds.
     val state = controller.table.value
     val game = state.detail ?: return
+    // I-D56 step C: a game played on engine state has its own table screen (behind EnginePath until step D)
+    if (controller.engineGame() != null) { EngineTableScreen(controller, accountId, hamburger, landscape); return }
     val interactive = game.id !in state.reconnectingGames
     val live = state.play
     val history = remember(controller, game.id, live?.id, accountId) { controller.history }
@@ -261,15 +267,8 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
                                     autoPause = playbackAutoPause, board = play.board, definitions = play.definitions,
                                   onSettings = { playbackSettingsOpen = true },
                                  animationFinished = settledCursor == position?.cursorId && play.currentNodeId == position?.cursorId,
-                                  onTree = {
-                                      playback.pause()
-                                       tree?.let {
-                                           explorerOpeningCursor = it.resolveCursor(playback.position.cursorId)
-                                           explorer.opening(explorerOpeningCursor)
-                                          explorerOpen = true
-                                      }
-                                  },
-                                  continuationReady = !resultLocked && position?.cursorId?.let(history::canRequestContinuation) == true,
+                                  // I-D56 §8, §16: no game tree dialog and no branching from the timeline (HIS-010, HIS-013)
+                                  continuationReady = false,
                                  overlay = true, landscape = landscape,
                                   background = tableBarColor(play.board, accountId, reviewing = !editable),
                                    readOnly = editable, playCursorId = stripCursor,
@@ -278,7 +277,7 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
                                    // HIS-036: until its first action lands, the armed point shows the coming split.
                                    armedSplit = history.armed?.takeIf { !history.provisional })
                         }) else null, undo = { controller.historyControl(GameAction.Undo) },
-                        redo = { controller.historyControl(GameAction.Redo) }, reviewing = !editable,
+                        reviewing = !editable,
                         opponentBranched = playback?.branched == true, oldBranch = playback?.oldBranch == true,
                         timelinePlayback = if (!editable) playback?.status else null,
                         continuationArmed = history.armed != null,

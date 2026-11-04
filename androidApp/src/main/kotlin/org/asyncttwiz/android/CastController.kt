@@ -104,6 +104,9 @@ internal class CastController(
     private val tokenArt: org.asyncttwiz.automatum.TokenArt = org.asyncttwiz.automatum.TokenArt.None,
     /** UI review round 2 #4 (I-D46 b): shakes a card on the table, for a cast that can't go on ([visual]). */
     private val shake: (String) -> Unit = {},
+    /** I-D56 step C: a game on engine state sends the complete cast as the player's own inputs (null: sent; else why
+     * not), and its device does what follows by itself; no batch is planned. */
+    private val engineSend: ((List<Input>) -> String?)? = null,
 ) : FlowQuestions {
     /** The open cast, null when none. */
     var flow by mutableStateOf<CastFlow?>(null); private set
@@ -365,6 +368,8 @@ internal class CastController(
         /** I-D47: the complete cast ([sending]) on [board]: [plan] is the cast alone, shown at once as a preview with
          * [requestId] while the batch with what follows it is worked out ([finish]). */
         class Preview(val sending: CastFlow.Sending, val plan: BatchPlan, val requestId: String, val board: BoardState) : Step
+        /** I-D56 step C: the complete [flow]'s own [inputs], made on [board], for a game on engine state. */
+        class Engine(val flow: CastFlow, val inputs: List<Input>, val board: BoardState) : Step
         /** The cast is dropped with [message]. */
         class Drop(val message: String) : Step
         /** The step is refused with [message]; the cast stays as it was. */
@@ -430,6 +435,7 @@ internal class CastController(
             true
         }
         is Step.Send -> sendPlanned(outcome)
+        is Step.Engine -> sendEngine(outcome)
         is Step.Drop -> { drop(outcome.message); false }
         is Step.Refuse -> { notice = outcome.message; follow(); false }
     }
@@ -466,6 +472,31 @@ internal class CastController(
         val queued = if (shown != null) preview!!.send(planned.plan.action, planned.requestId, shown) else route(planned.plan.action, planned.requestId)
         if (!queued) { fail("Action could not be queued. Reconnect and try again."); return false }
         return true
+    }
+
+    /** I-D56 step C: sends a complete cast's own inputs on the board the player acts on now (worked out again when it
+     * moved on meanwhile); the device shows it at once (its own pending event). */
+    private fun sendEngine(planned: Step.Engine): Boolean {
+        val play = current() ?: run { showReady(planned.flow); fail(CANT_ACT); return false }
+        if (play.board !== planned.board) {
+            val history = tags()
+            val autotapOn = autotap
+            starting = null
+            return step {
+                val ready = try {
+                    planned.flow.on(play, AutomatumBoards.engineLog(play, AutomatumBoards.definitions(play), history))
+                } catch (_: Exception) { null }
+                ready?.let { complete(it, autotapOn) } ?: Step.Drop(TABLE_CHANGED)
+            }
+        }
+        val card = planned.flow.cardId
+        cancel("sent")
+        val refusal = engineSend!!(planned.inputs) ?: return true
+        AutomatumLog.refusal(play.gameId, "cast", refusal)
+        // I-D56 §5: a cast that would show hidden cards while the line is tentative waits; its card shakes
+        shake(card)
+        fail(if (refusal == org.asyncttwiz.protocol.game.GameDevice.REVEALS_HIDDEN) WAIT_TO_CATCH_UP else null)
+        return false
     }
 
     /** [done] (complete) shown ready to cast, after a send that couldn't go out yet. */
@@ -522,6 +553,7 @@ internal class CastController(
             else -> return null
         }
         val sending = try { next.sending(uses) } catch (_: IllegalArgumentException) { return null }
+        if (engineSend != null) return Step.Engine(sending.flow, sending.cast.inputs.toList(), next.play.board)
         if (preview == null || next.begin !is Input.Cast) return plan(sending)
         val requestId = DeviceRandom.uuid()
         return try {
@@ -563,6 +595,8 @@ internal class CastController(
     companion object {
         const val BUSY = "Finish or cancel the cast first."
         const val TABLE_CHANGED = "The table changed: cast it again."
+        /** I-D56 §5: the hold text of an action refused because it would show hidden cards while the line is tentative. */
+        const val WAIT_TO_CATCH_UP = "Wait for the other player to catch up: this would show you hidden cards."
 
         /** Whether a dropped cast's [message] is shown by shaking its card (a refusal) rather than said (a failure). */
         fun visual(message: String) = message.endsWith("can't be cast now.") || message.endsWith("can't be played now.") ||

@@ -132,7 +132,7 @@ class HistoryLayoutIndexTest {
         } finally { explorer.close(); history.close() }
     }
 
-    // HIS-048
+    // old-model game tree
     @Test fun midChipForkNeverSplitsOrMovesOriginalChipsAndSwitchOnlyChangesHighlight() {
         var main = GameplayTree(F.root())
         val cursors = mutableListOf<String>()
@@ -226,7 +226,7 @@ class HistoryLayoutIndexTest {
         explorer.close()
     }
 
-    // HIS-048
+    // old-model game tree
     @Test fun reparentedForkKeepsItsLaneAndUpdatesItsAncestryAfterSelectiveRemoval() {
         val initial = F.root()
         val prefix = GameplayMutation(F.id(600), initial.root.id, initial.root.branchId, F.id(700), F.a,

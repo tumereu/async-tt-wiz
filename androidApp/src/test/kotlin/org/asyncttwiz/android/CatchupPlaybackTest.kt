@@ -49,7 +49,7 @@ class CatchupPlaybackTest {
         assertFalse(player.position.playing)
     }
 
-    // HIS-038
+    // old-model Opponent branched
     @Test fun branchIsDetectedPausedOnOpenAndAutoRewindsToCommonAncestorThenPlaysForwardNormally() {
         val common = append(GameplayTree(F.root()), 100)
         val old1 = append(common, 101, F.b)
@@ -85,7 +85,7 @@ class CatchupPlaybackTest {
         assertEquals(HistoryMode.LIVE, player.position.mode)
     }
 
-    // HIS-039
+    // old-model branch lock
     @Test fun pendingBranchLocksTheStripUntilTheRewindHasPassedTheBranchPoint() {
         val common = append(GameplayTree(F.root()), 100)
         val old1 = append(common, 101, F.b)
@@ -206,7 +206,7 @@ class CatchupPlaybackTest {
         assertEquals(listOf(state.gameId to state.currentNodeId, state.gameId to state.currentNodeId), saved)
     }
 
-    // HIS-038
+    // old-model Opponent branched
     @Test fun branchArrivingWhilePausedIsDetectedAtOnceAndScrubbingEndsIt() {
         val common = append(GameplayTree(F.root()), 100)
         val old1 = append(common, 101, F.b)
@@ -229,7 +229,7 @@ class CatchupPlaybackTest {
         assertFalse(player.branched)
     }
 
-    // HIS-038
+    // old-model Opponent branched
     @Test fun resumeAfterOpponentBranchedWhileAwayPausesAtLastSeenWithBranchPending() {
         val common = append(GameplayTree(F.root()), 100)
         val seen = append(common, 101)

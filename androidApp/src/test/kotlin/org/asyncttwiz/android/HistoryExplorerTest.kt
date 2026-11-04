@@ -8,7 +8,7 @@ import java.util.concurrent.TimeUnit
 import kotlin.test.*
 
 class HistoryExplorerTest {
-    // HIS-047
+    // old-model game tree
     @Test fun turnLabelsUseTurnPlayerNotAuthorAndOnlyStartOfEachTurnIncludingForks() {
         val initial = GameplayTree(root())
         val first = play(initial, 600)
@@ -187,7 +187,7 @@ class HistoryExplorerTest {
         assertNull(updated.ranges.first().representativeId)
     }
 
-    // HIS-045
+    // old-model game tree
     @Test fun localExactSelectionSurvivesGroupGrowthAndReopeningUsesReviewCursor() {
         val queue = Queue()
         val controller = HistoryExplorerController(queue, { it() })

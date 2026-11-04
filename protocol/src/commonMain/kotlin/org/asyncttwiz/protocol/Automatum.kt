@@ -47,7 +47,8 @@ object Automatum {
     const val MAX_TIMESTAMP = 9_007_199_254_740_991L
 
     /** Whether a shared flow is open: the board holds the continuation (I-D8). */
-    fun flowOpen(board: BoardState): Boolean = board.engineRecords.any { it.id == CONTINUATION_ID }
+    fun flowOpen(board: BoardState): Boolean = board.engine?.let { it.state.pending != null }
+        ?: board.engineRecords.any { it.id == CONTINUATION_ID }
 
     /** Empty, or one JSON value of at most [MAX_DATA_BYTES] without NUL characters. */
     fun data(value: String): Boolean = value.isEmpty() || DeckValidation.text(value, MAX_DATA_BYTES) &&

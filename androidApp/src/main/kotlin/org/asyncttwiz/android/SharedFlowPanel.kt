@@ -60,6 +60,8 @@ internal fun SharedFlowHost(toolkit: TableToolkitController, play: PlayState, sc
         flows.show(next)
         // #8 (I-D33): a decision that opened with its early answer beside it (given while the batch opening it was on its
         // way) is answered with it by the client of whoever made the latest event, which is there to send it
+        // I-D56 §6: on engine state the device running the step makes these engine-automatic answers itself
+        if (flows.onEngine) return@LaunchedEffect
         if (next?.early != null && toolkit.latestAuthor() == toolkit.viewer) flows.answerEarly()
         // CMB-033: a division of combat damage whose order can't change anything is made with the suggestion at once by
         // one client (combat review #8): the one that opened it (whoever made the latest event); the dividing player's
@@ -98,6 +100,9 @@ internal fun SharedFlowHost(toolkit: TableToolkitController, play: PlayState, sc
                 else -> DecisionPanel(flows, flow, play, names, decision, forOther = decision.player.value != viewer,
                     otherName = name(decision.player.value))
             }
+            // I-D56 §14: on engine state the waiting bar ([EngineAsyncHost]) says what the other player decides; nobody
+            // chooses or passes for them (STK-031, STK-038 gone)
+            flows.onEngine && holder != viewer -> {}
             decision != null -> Column {
                 // I-D29, I-D33: meanwhile the viewer may give their own division of this damage step early
                 toolkit.combat.ready(play)?.early?.firstOrNull { it.player == viewer && askedInDialog(play, it) }?.let { early ->

@@ -47,7 +47,12 @@ internal class SharedFlowController(
     /** "Autotap mana sources" (I-D47): the mana of costs to attack or block is paid by itself as they are declared
      * (CMB-037). */
     private val autotap: () -> Boolean = { true },
+    /** I-D56 step C: a game on engine state sends a flow's step as the player's own inputs (null: sent; else why not);
+     * its device answers the randomness and makes the passes that follow (no batch is planned). */
+    private val engineSend: ((List<arcanum.engine.input.Input>) -> String?)? = null,
 ) : FlowQuestions {
+    /** Whether this table is a game on engine state ([engineSend]). */
+    val onEngine: Boolean get() = engineSend != null
     /** The flow of the shown board, null until worked out (or when there is none). */
     var view by mutableStateOf<SharedFlow?>(null); private set
     /** The eye (I-D10): the panel is hidden so the board can be looked at. */
@@ -400,6 +405,8 @@ internal class SharedFlowController(
         class Fail(val message: String?) : Outcome
         class Confirm(val acting: ActingFor) : Outcome
         data object Empty : Outcome
+        /** I-D56 step C: the viewer's own [inputs] made on [board], for a game on engine state. */
+        class Engine(val board: BoardState, val inputs: List<arcanum.engine.input.Input>) : Outcome
     }
 
     /**
@@ -409,7 +416,7 @@ internal class SharedFlowController(
      */
     private fun sendCall(play: PlayState, quiet: Boolean = false, sent: (Boolean) -> Unit = {}, perform: (SharedFlow) -> EngineCall): Boolean {
         val fail: (String?) -> Unit = if (quiet) { _ -> } else this.fail
-        val route = send ?: run { fail("Automatum isn't available here."); return false }
+        val route = send ?: if (engineSend != null) { _, _ -> false } else run { fail("Automatum isn't available here."); return false }
         if (busy) return false
         busy = true
         var result = true
@@ -423,11 +430,19 @@ internal class SharedFlowController(
     /** Works one engine call out from [play]'s flow ([perform]) and plans it as one automated batch (I-D11, SYS-010). */
     private fun outcome(play: PlayState, perform: (SharedFlow) -> EngineCall): Outcome = try {
         val call = perform(flowOf(play))
-        val requestId = DeviceRandom.uuid()
-        val command = GameCommand(requestId, GameScope(play.gameId, playId = play.id),
-            GameAction.PlayBatch(listOf(PlayAction.PassAttention)), DeviceRandom.uuid(), "1")
-        val plan = EngineBatch.plan(call, viewer, command, tokenArt)
-        if (plan.actions.isEmpty()) Outcome.Empty else Outcome.Send(play.board, plan.action, requestId)
+        // I-D56 step C: only the viewer's own inputs go out; their device folds what follows by itself (the other player's
+        // points are assumed, automatic or waited for, never passed for them)
+        if (engineSend != null) {
+            val own = call.inputs.takeWhile { it !is arcanum.engine.input.Input.MandatoryLoop &&
+                !(it is arcanum.engine.input.Input.PassPriority && it.player.value != viewer) }
+            if (own.isEmpty()) Outcome.Empty else Outcome.Engine(play.board, own)
+        } else {
+            val requestId = DeviceRandom.uuid()
+            val command = GameCommand(requestId, GameScope(play.gameId, playId = play.id),
+                GameAction.PlayBatch(listOf(PlayAction.PassAttention)), DeviceRandom.uuid(), "1")
+            val plan = EngineBatch.plan(call, viewer, command, tokenArt)
+            if (plan.actions.isEmpty()) Outcome.Empty else Outcome.Send(play.board, plan.action, requestId)
+        }
     } catch (ask: Ask) {
         Outcome.Confirm(ask.acting)
     } catch (refused: Refused) {
@@ -461,8 +476,16 @@ internal class SharedFlowController(
                 !route(outcome.batch, outcome.requestId) -> { fail("Action could not be queued. Reconnect and try again."); false }
                 else -> { fail(null); picked = emptyList(); true }
             }
+            is Outcome.Engine -> when {
+                current()?.board !== outcome.board -> { fail("The table changed: try again."); false }
+                else -> when (val refusal = engineSend!!(outcome.inputs)) {
+                    null -> { fail(null); picked = emptyList(); true }
+                    org.asyncttwiz.protocol.game.GameDevice.REVEALS_HIDDEN -> { fail(CastController.WAIT_TO_CATCH_UP); false }
+                    else -> { fail(CastController.NOT_ALLOWED); false }
+                }
+            }
         }
-        sent(outcome is Outcome.Send && result)
+        sent((outcome is Outcome.Send || outcome is Outcome.Engine) && result)
         return result
     }
 

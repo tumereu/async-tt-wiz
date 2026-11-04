@@ -146,7 +146,7 @@ class AutomatumChoicesScreenshotTest {
                     Box(Modifier.fillMaxSize()) {
                         TableSurface(f.game, play, viewer, false, Modifier.fillMaxSize(), connected = true,
                             onIntent = toolkit::handle, toolkit = toolkit,
-                            runtime = TableRuntimeHooks(navigation = {}, chat = {}, undo = { true }, redo = { true }, controlsConnected = true))
+                            runtime = TableRuntimeHooks(navigation = {}, chat = {}, undo = { true }, controlsConnected = true))
                     }
                 }
             }
@@ -185,7 +185,7 @@ class AutomatumChoicesScreenshotTest {
         assertEquals(listOf(library[0], library[2]), now.take(2), "the rest on top in their order")
     }
 
-    // STK-031, I-D27, I-D48: Bob choosing for Alice sees her scried cards only as covered cards
+    // old-model Choose for them, I-D27, I-D48: Bob choosing for Alice sees her scried cards only as covered cards
     @Test fun choosingForTheOtherPlayerShowsTheirCardsCovered() {
         val open = aliceCasts(board(divination))
         render(open, f.b)

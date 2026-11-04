@@ -163,7 +163,7 @@ class AutomatumCombatReviewTest {
                     Box(Modifier.fillMaxSize()) {
                         TableSurface(f.game, live.value!!, toolkit.viewer, false, Modifier.fillMaxSize(), connected = true,
                             onIntent = toolkit::handle, toolkit = toolkit,
-                            runtime = TableRuntimeHooks(navigation = {}, chat = {}, undo = { true }, redo = { true }, controlsConnected = true))
+                            runtime = TableRuntimeHooks(navigation = {}, chat = {}, undo = { true }, controlsConnected = true))
                     }
                 }
             }
@@ -312,7 +312,7 @@ class AutomatumCombatReviewTest {
         assertEquals(bruteCard, bob.combat.selected)
     }
 
-    // I-D40, TRN-061: Alice's step button while Bob declares blockers asks first; Bob changes his blocks meanwhile, so her
+    // I-D40, old-model acting-for confirmation: Alice's step button while Bob declares blockers asks first; Bob changes his blocks meanwhile, so her
     // confirmation is refused ("The table changed") and nothing is declared for him
     @Test fun aConfirmationAfterTheOtherPlayerActedIsRefused() {
         start(board(TurnPosition.DECLARE_ATTACKERS, null, aliceField = listOf(brute), bobField = listOf(ogre)))

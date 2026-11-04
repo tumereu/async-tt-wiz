@@ -138,7 +138,7 @@ class AutomatumResolveScreenshotTest {
                     Box(Modifier.fillMaxSize()) {
                         TableSurface(f.game, play, viewer, false, Modifier.fillMaxSize(), connected = true,
                             onIntent = toolkit::handle, toolkit = toolkit,
-                            runtime = TableRuntimeHooks(navigation = {}, chat = {}, undo = { true }, redo = { true }, controlsConnected = true))
+                            runtime = TableRuntimeHooks(navigation = {}, chat = {}, undo = { true }, controlsConnected = true))
                     }
                 }
             }
@@ -187,7 +187,7 @@ class AutomatumResolveScreenshotTest {
         assertTrue(aSpark in after.board.containers.single { it.id == f.id("a/GRAVEYARD") }.cards)
     }
 
-    // STK-028, TRN-061, D11: the player without priority sees who may respond; their step arrow's Resolve passes for them
+    // STK-028, old-model acting-for confirmation, D11: the player without priority sees who may respond; their step arrow's Resolve passes for them
     // after confirming
     @Test fun passForTheOtherPlayer() {
         val cast = aliceCasts(board(), "life/${f.b}")
@@ -236,7 +236,7 @@ class AutomatumResolveScreenshotTest {
         assertEquals(open.board.containers.single { it.id == bHand }.cards.size + 1, after.board.containers.single { it.id == bHand }.cards.size)
     }
 
-    // STK-031, D11: the other player sees "Bob is choosing · <source>" and may choose for them after confirming
+    // old-model Choose for them, D11: the other player sees "Bob is choosing · <source>" and may choose for them after confirming
     @Test fun isChoosingAndChooseForThem() {
         val open = fertileDeath()
         val toolkit = render(open, f.a)

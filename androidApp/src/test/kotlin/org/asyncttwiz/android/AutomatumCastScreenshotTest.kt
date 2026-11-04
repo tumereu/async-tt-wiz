@@ -105,7 +105,7 @@ class AutomatumCastScreenshotTest {
                     Box(Modifier.fillMaxSize()) {
                         TableSurface(f.game, play, f.a, false, Modifier.fillMaxSize(), connected = true,
                             onIntent = toolkit::handle, toolkit = toolkit,
-                            runtime = TableRuntimeHooks(navigation = {}, chat = {}, undo = { true }, redo = { true }, controlsConnected = true))
+                            runtime = TableRuntimeHooks(navigation = {}, chat = {}, undo = { true }, controlsConnected = true))
                     }
                 }
             }

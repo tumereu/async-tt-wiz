@@ -23,7 +23,7 @@ class PendingOutcomeTableTest {
         repeat(4) { compose.runOnIdle { f.worker.drain() }; compose.waitForIdle() }
     }
 
-    private fun pendingTable(opponent: Boolean, continueBefore: Boolean = false) {
+    private fun pendingTable(opponent: Boolean) {
         val f = BasicTableFixture()
         val root = f.root.copy(board = f.root.board.copy(
             cards = f.root.board.cards.map { card -> when (card.id) {
@@ -75,27 +75,11 @@ class PendingOutcomeTableTest {
                 .performSemanticsAction(SemanticsActions.OnClick) { assertTrue(it()) }
             drain(f)
             compose.onNodeWithContentDescription(resolve).assertDoesNotExist()
-            // A point before the suggestion is not locked: the player may continue from it and play on.
-            // Holding Auto offers branching here (HIS-036).
+            // HIS-019, HIS-020 (I-D56 §8): the timeline is view-only: holding Auto offers no branching
             compose.onNodeWithContentDescription("Auto advance").assertIsEnabled()
-                .assert(SemanticsMatcher("offers Continue playing from here") { node ->
-                    node.config.getOrElseNullable(SemanticsActions.CustomActions) { null }.orEmpty().any { it.label == "Continue playing from here" }
+                .assert(SemanticsMatcher("offers no Continue playing from here") { node ->
+                    node.config.getOrElseNullable(SemanticsActions.CustomActions) { null }.orEmpty().none { it.label == "Continue playing from here" }
                 })
-            if (continueBefore) {
-                val before = f.lobby.history.playback!!.position.cursorId
-                compose.onNodeWithContentDescription("Auto advance").performTouchInput { longClick() }
-                drain(f)
-                compose.runOnIdle { assertEquals(before, f.lobby.history.armed); assertFalse(f.lobby.resultLocked()) }
-                compose.onNodeWithContentDescription("Table actions").assertIsEnabled()
-                // (the table moves nothing by hand any more, I-D52: the next play goes straight to the session)
-                compose.runOnIdle { assertTrue(f.lobby.gameplay(PlayAction.AdjustLife(f.actor, "2"))) }
-                drain(f)
-                val sent = f.commands().single()
-                assertEquals(Continuation(before, true), sent.continuation)
-                assertIs<GameAction.Play>(sent.action)
-                compose.runOnIdle { assertNull(f.lobby.state.play!!.board.resultSuggestion) }
-                return
-            }
             compose.onNodeWithContentDescription("Next").assertIsEnabled()
                 .performSemanticsAction(SemanticsActions.OnClick) { assertTrue(it()) }
             drain(f)
@@ -116,5 +100,4 @@ class PendingOutcomeTableTest {
     // HIS-020, LOB-071, TRN-047, TRN-049, TRN-050
     @Test fun authorCanWithdrawOnTableWhileOtherActionsAreLockedAndTimelineAndChatWork() = pendingTable(false)
     @Test fun opponentCanDeclineOnTableWhileOtherActionsAreLockedAndTimelineAndChatWork() = pendingTable(true)
-    @Test fun continuingFromBeforeTheSuggestionUnlocksTheTableOnTheNewBranch() = pendingTable(true, continueBefore = true)
 }

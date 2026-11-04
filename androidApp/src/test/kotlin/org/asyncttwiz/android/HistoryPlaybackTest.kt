@@ -442,7 +442,7 @@ class HistoryPlaybackTest {
         assertFalse(player.oldBranch)
     }
 
-    // HIS-014
+    // old-model rewind to a branch
     @Test fun autoOnAnOldBranchRewindsToTheSplitThenPlaysTheLiveLine() {
         val player = HistoryPlayback(forked())
         player.scrub(id(9))
@@ -463,7 +463,7 @@ class HistoryPlaybackTest {
         player.next(); assertEquals(id(4), player.position.cursorId)
     }
 
-    // HIS-039
+    // old-model branch lock
     @Test fun opponentBranchedStaysLockedUntilTheRewindStarts() {
         val player = HistoryPlayback(forked())
         player.openFrom(id(3))
@@ -502,7 +502,7 @@ class HistoryPlaybackTest {
         assertFalse(player.branched)
     }
 
-    // HIS-014, HIS-038
+    // old-model rewind to a branch, old-model Opponent branched
     @Test fun liveOpponentBranchPausesTimelineAtTheShownPointLikeOpeningThere() {
         val player = liveAt3()
         player.receive(forked(), id(71), id(5))
@@ -546,7 +546,7 @@ class HistoryPlaybackTest {
         assertEquals(HistoryMode.PLAYBACK, player.position.mode)
     }
 
-    // HIS-041
+    // old-model auto-rewind
     @Test fun autoRewindDuringLivePlayStartsTheRewindByItself() {
         val player = liveAt3()
         player.autoRewindOpen = true // The other setting does not apply to live play.
@@ -562,7 +562,7 @@ class HistoryPlaybackTest {
         auto.next(true); assertEquals(id(2), auto.position.cursorId)
     }
 
-    // HIS-041
+    // old-model auto-rewind
     @Test fun autoRewindWhenOpeningAndReturningToABranchedGame() {
         val live = HistoryPlayback(forked()).apply { autoRewindLive = true; openFrom(id(3)) }
         assertTrue(live.branched); assertFalse(live.position.playing, "The live setting does not apply to opening")

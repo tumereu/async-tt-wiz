@@ -108,8 +108,11 @@ fun QuickActionStrip(play: PlayState, context: QuickContext, controller: TableAc
     BoxWithConstraints(modifier, contentAlignment = Alignment.Center) {
         val compact = maxWidth < 480.dp && (toggles || actions.size >= 3)
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            val engine = LocalEngineRoutes.current
             Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-                if (toggles) AutomatumToggleCells(play, requireNotNull(context.viewer), controller.enabled(scope), submit)
+                // I-D56 §14 (TRN-059): on engine state the toggles are the player's private settings for this game
+                if (toggles && engine != null) EngineToggleCells(engine, true)
+                else if (toggles) AutomatumToggleCells(play, requireNotNull(context.viewer), controller.enabled(scope), submit)
                 for (action in actions) key(action.intent) {
                     InlinePopupCell(MenuControl(action.name, action.enabled && controller.enabled(scope), refused = action.refused) { perform(action.intent) },
                         quickActionLabel(action.name), owner = Color.Black, modifier = Modifier.weight(1f).height(48.dp))
@@ -118,7 +121,9 @@ fun QuickActionStrip(play: PlayState, context: QuickContext, controller: TableAc
             // I-D46 d: with Automatum on the arrow says what a tap does, in a neutral colour; it is the one way to go on
             // (UI review round 2 #1). Owner playtest 2026-11-03 #2: in the other player's turn only while the viewer holds
             // priority or must decide; its room stays, so the toggles don't move
-            val arrow = (toggles || visible && !QuickActions.mulliganOnly(play, context.viewer)) && stepArrowShown(play, context.viewer)
+            // I-D56 §14: on engine state only the viewer's own actions: hidden while the other player must act
+            val arrow = (toggles || visible && !QuickActions.mulliganOnly(play, context.viewer)) &&
+                (engine?.arrowShown() ?: stepArrowShown(play, context.viewer))
             if (arrow) AutomatumStepArrow(play,
                 controller.enabled(scope), compact, onHold = { perform(TableActionIntent.End(scope)) },
                 blocked = stepBlocked(play, context.castOpen, context.automatumCombat), planned = context.plannedStep) {

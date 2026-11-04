@@ -182,7 +182,7 @@ class AutomatumI3ReviewTest {
         val bob = toolkit(f.b)
         compose.setContent { MaterialTheme { NoRipples { Box(Modifier.fillMaxSize()) {
             TableSurface(f.game, live.value!!, f.b, false, Modifier.fillMaxSize(), connected = true, onIntent = bob::handle, toolkit = bob,
-                runtime = TableRuntimeHooks(navigation = {}, chat = {}, undo = { true }, redo = { true }, controlsConnected = true))
+                runtime = TableRuntimeHooks(navigation = {}, chat = {}, undo = { true }, controlsConnected = true))
         } } } }
         compose.waitForIdle()
         compose.onNodeWithContentDescription("Respond prompt").assertExists()

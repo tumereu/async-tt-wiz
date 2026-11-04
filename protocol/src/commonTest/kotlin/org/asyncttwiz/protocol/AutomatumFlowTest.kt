@@ -137,7 +137,7 @@ class AutomatumFlowTest {
         assertFalse(rules.canMulligan(8))
     }
 
-    // SYS-062 (I-D23, I-D41 decision A): no branch starts from a point inside an open flow; a branch from before the flow
+    // old-model branch inside a flow (I-D23, I-D41 decision A): no branch starts from a point inside an open flow; a branch from before the flow
     // leaves the live line's open flow behind with that line (a late reaction, pausereview #7)
     @Test fun noBranchWhileAFlowIsOpen() {
         var tree = GameplayTree(base())

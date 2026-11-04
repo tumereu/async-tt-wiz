@@ -78,6 +78,28 @@ internal class PausePreferences(context: Context, private val accountId: String)
                 .putBoolean(autotapKey, value.autotap).apply()
         }
 
+    /** I-D56 §7, §13 (LOB-113): the response mode and "Always assume resolves" a new game on engine state starts with. */
+    var engineDefaults: org.asyncttwiz.protocol.game.PlaySettings
+        get() = org.asyncttwiz.protocol.game.PlaySettings(
+            mode = when (preferences.getString("engine-mode/$accountId", null)) {
+                "full" -> org.asyncttwiz.protocol.game.ResponseMode.FullControl
+                "normal" -> org.asyncttwiz.protocol.game.ResponseMode.Normal
+                else -> org.asyncttwiz.protocol.game.ResponseMode.AutoSkip
+            },
+            alwaysAssumeResolves = preferences.getBoolean("engine-assume/$accountId", false),
+            autotap = preferences.getBoolean(autotapKey, true))
+        set(value) {
+            preferences.edit().putString("engine-mode/$accountId", when (value.mode) {
+                org.asyncttwiz.protocol.game.ResponseMode.FullControl -> "full"
+                org.asyncttwiz.protocol.game.ResponseMode.Normal -> "normal"
+                org.asyncttwiz.protocol.game.ResponseMode.AutoSkip -> "auto-skip"
+            }).putBoolean("engine-assume/$accountId", value.alwaysAssumeResolves).putBoolean(autotapKey, value.autotap).apply()
+        }
+
+    /** Whether this device gave game [gameId] the defaults ([engineDefaults]) once. */
+    fun engineDefaultsGiven(gameId: String): Boolean = preferences.getBoolean("engine-defaults/$accountId/$gameId", false)
+    fun engineDefaultsGiven(gameId: String, given: Boolean) { preferences.edit().putBoolean("engine-defaults/$accountId/$gameId", given).apply() }
+
     override fun synced(gameId: String): Long = preferences.getLong("full-control-synced/$accountId/$gameId", 0L)
     override fun synced(gameId: String, changed: Long) {
         preferences.edit().putLong("full-control-synced/$accountId/$gameId", changed).apply()
@@ -143,6 +165,47 @@ internal fun AutomatumPauseSettings(accountId: String) {
             SettingsLabel("Autotap mana sources", "Casting pays by itself, with mana in your pool first; off, you choose what to tap",
                 Modifier.weight(1f).padding(end = 12.dp, top = 4.dp, bottom = 4.dp))
             Switch(checked = settings.autotap, onCheckedChange = null)
+        }
+        if (BuildConfig.DEBUG) EngineDefaultSettings(preferences)
+    }
+}
+
+/**
+ * I-D56 §7, §13 (LOB-113): the response mode and "Always assume resolves" new games on engine state start with (each
+ * game's own are changed from its quick actions); in debug builds also the switch that plays engine games on engine
+ * state ([EnginePath], step C's test switch until the switch-over).
+ */
+@Composable
+private fun EngineDefaultSettings(preferences: PausePreferences) {
+    var defaults by remember(preferences) { mutableStateOf(preferences.engineDefaults) }
+    fun set(next: org.asyncttwiz.protocol.game.PlaySettings) { preferences.engineDefaults = next; defaults = next }
+    Text("Response mode in new games", Modifier.padding(vertical = 4.dp),
+        style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    for (mode in listOf(org.asyncttwiz.protocol.game.ResponseMode.FullControl, org.asyncttwiz.protocol.game.ResponseMode.Normal,
+            org.asyncttwiz.protocol.game.ResponseMode.AutoSkip)) {
+        Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("response-mode-${mode.label()}")
+            .selectable(defaults.mode == mode, role = Role.RadioButton, onClick = { set(defaults.copy(mode = mode)) }),
+            verticalAlignment = Alignment.CenterVertically) {
+            RadioButton(selected = defaults.mode == mode, onClick = null)
+            SettingsLabel(mode.label(), mode.meaning(), Modifier.weight(1f).padding(start = 12.dp, top = 4.dp, bottom = 4.dp))
+        }
+    }
+    Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("always-assume-resolves")
+        .toggleable(defaults.alwaysAssumeResolves, role = Role.Switch, onValueChange = { set(defaults.copy(alwaysAssumeResolves = it)) }),
+        verticalAlignment = Alignment.CenterVertically) {
+        SettingsLabel("Always assume resolves", "Go on at the other player's pauses even while they are online; they can still respond later",
+            Modifier.weight(1f).padding(end = 12.dp, top = 4.dp, bottom = 4.dp))
+        Switch(checked = defaults.alwaysAssumeResolves, onCheckedChange = null)
+    }
+    if (BuildConfig.DEBUG) {
+        val context = LocalContext.current
+        var on by remember { mutableStateOf(EnginePath.enabled) }
+        Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("engine-path")
+            .toggleable(on, role = Role.Switch, onValueChange = { EnginePath.set(context, it); on = it }),
+            verticalAlignment = Alignment.CenterVertically) {
+            SettingsLabel("Engine games (test)", "Play games the server runs on the engine with the new async play (debug builds only)",
+                Modifier.weight(1f).padding(end = 12.dp, top = 4.dp, bottom = 4.dp))
+            Switch(checked = on, onCheckedChange = null)
         }
     }
 }

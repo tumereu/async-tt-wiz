@@ -11,10 +11,20 @@ text in `docs/design/` or `docs/decisions.md`, the catalog wins.
 | [table.md](table.md) | `TBL` Battlefield, card display, gestures, menus, inspecting cards |
 | [zones.md](zones.md) | `ZON` Hand, library, graveyard/exile and its view, hidden information |
 | [turns-combat-stack.md](turns-combat-stack.md) | `TRN` Turns, steps, whose move, life, results; `CMB` combat; `STK` Stack |
-| [history.md](history.md) | `HIS` Timeline, playback, branches, undo/redo, event texts and icons |
+| [history.md](history.md) | `HIS` Timeline, playback, catching up, assumed answers and branches, undo and undo requests, event texts and icons |
 | [lobby.md](lobby.md) | `LOB` Accounts, decks, game list, chat, notifications, settings, updates |
 | [draft.md](draft.md) | `DRF` Cubes, pods, drafting, grids, deck building |
 | [rules.md](rules.md) | `SYS` Cross-cutting rules every feature follows (authority, performance, policies) |
+
+## Games on engine state (I-D54, I-D56)
+
+Gameplay entries describe games played on engine state with async play (`docs/specs/async-play.md`), which debug builds
+turn on with Settings → Automatum → "Engine games (test)". Until the switch-over (I-D56 step D) every other game still
+plays on today's model, which keeps its older pauses, passing for an away player and Hold (I-D41) until step D deletes
+them; the game tree, Redo, branching from the timeline and the auto-rewind switches are gone from both. Not built on
+engine state yet (`docs/specs/engine-state-architecture.md` §12, step D list): the timeline strip, timeline mode and
+event texts, icons and chips (their entries hold for today's model meanwhile), the change flashes, token pictures and
+early answers.
 
 ## Entry format
 

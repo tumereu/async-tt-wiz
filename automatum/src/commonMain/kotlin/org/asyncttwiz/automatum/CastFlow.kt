@@ -344,6 +344,8 @@ class HandPlays private constructor(val byCard: Map<String, List<Input>>, val un
  */
 internal object HostPriority {
     fun settle(call: EngineCall) {
+        // I-D56 step C: the engine's own state has no steps changed by hand
+        if (call.state.board.engine != null) return
         val s = call.working
         val wanted = wanted(s, kept(call.state.board)) ?: return
         if (s.priority != wanted) call.host(Change.Priority(s.priority, wanted, listOf(Meaning.PriorityGranted)))
@@ -388,6 +390,7 @@ internal object HostPriority {
      * player priority as the last of the players to pass in succession, so their pass ends it and the upkeep begins.
      * Nothing changes when the call doesn't rest there. */
     fun leaveUntap(call: EngineCall) {
+        if (call.state.board.engine != null) return
         val s = call.working
         if (!resting(s)) return
         val order = s.playersFrom(s.turn.active)

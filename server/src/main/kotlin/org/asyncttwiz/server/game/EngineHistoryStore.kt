@@ -146,8 +146,20 @@ internal class EngineHistoryStore private constructor(
             }
             val row = sql.select(ENGINE_PLAY.ROOT_ID, ENGINE_PLAY.DEFINITIONS).from(ENGINE_PLAY).where(ENGINE_PLAY.PLAY_ID.eq(play)).fetchOne()
                 ?: return null
-            val definitions = StoredData.decode("engine definitions", play) { EngineJson.decodeDefinitions(row.value2()!!) }
-            return EngineHistoryStore(sql, play, row.value1()!!.toString(), EngineJson(definitions))
+            return of(sql, play, row.value1()!!.toString(), row.value2()!!, null)
+        }
+
+        /**
+         * [play]'s engine history from its root [rootId] and stored [definitions] the caller read (with other rows, R6):
+         * through [shared] when that is of the same root (the definitions not decoded again); null definitions are then
+         * read here only when [shared] isn't.
+         */
+        fun of(sql: DSLContext, play: UUID, rootId: String, definitions: String?, shared: Shared?): EngineHistoryStore {
+            if (shared != null && shared.rootId == rootId) return EngineHistoryStore(sql, play, rootId, shared.codec, shared)
+            val stored = definitions ?: sql.select(ENGINE_PLAY.DEFINITIONS).from(ENGINE_PLAY).where(ENGINE_PLAY.PLAY_ID.eq(play))
+                .fetchSingle(ENGINE_PLAY.DEFINITIONS)!!
+            val decoded = StoredData.decode("engine definitions", play) { EngineJson.decodeDefinitions(stored) }
+            return EngineHistoryStore(sql, play, rootId, EngineJson(decoded))
         }
     }
 

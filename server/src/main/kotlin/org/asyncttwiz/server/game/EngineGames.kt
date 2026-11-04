@@ -40,6 +40,18 @@ import org.jooq.impl.DSL
  */
 @Volatile internal var engineSeats: ((gameId: UUID) -> List<Seat>?)? = null
 
+/**
+ * How many plays [EngineGames] keeps warm (R6), for a heap of [maxHeap]. Measured (WarmGameHeapTest, 2026-11-05): a kept
+ * play holds about 1.8 MiB at turn 40 (state 0.5, its decoded definitions 0.7, 256 cached events 0.6) and up to 3.5 MiB
+ * early on (turn 10: the start's events, which carry every card, still cached). Counted at 4 MiB, an eighth of the heap
+ * keeps 128 plays (512 MiB) at the Pi's -Xmx4g; never fewer than 32 (a smaller heap, the tests' 512 MiB).
+ */
+internal fun warmCapacity(maxHeap: Long = Runtime.getRuntime().maxMemory()): Int =
+    Math.round(maxHeap / 8.0 / (4L shl 20)).toInt().coerceIn(32, 128)
+
+/** Tests only (R6): a seat a refresh leaves as stored is worked out anyway and checked to be the same. */
+@Volatile internal var checkSkipped: Boolean = false
+
 /** The refusals of an engine play's actions that a device tells apart (the rest are "refusedByEngine"). */
 internal val ENGINE_REASONS = setOf("stale", "revealsHidden", "rewindRequested", "requestNeeded", "newLine", "noChange",
     "inapplicable", "otherPlayerRequired", "accessDenied")
@@ -57,17 +69,19 @@ internal val ENGINE_REASONS = setOf("stale", "revealsHidden", "rewindRequested",
  * changed). Each play's decoded definitions and recent events are kept too ([EngineHistoryStore.Shared]), so the work
  * of a request doesn't grow with how far a player is behind (the main line between two events is read in one go).
  */
-internal class EngineGames(private val capacity: Int = 32) {
+internal class EngineGames(private val capacity: Int = warmCapacity()) {
     private val warm = object : LinkedHashMap<UUID, LiveState>(16, 0.75f, true) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<UUID, LiveState>?) = size > capacity
     }
     private val random = SecureRandom()
+    /** Seats whose next stop, wait and resume point were worked out so far (R6: tests count the work of a refresh). */
+    internal val seatsWorkedOut = java.util.concurrent.atomic.AtomicLong()
     private val plays = object : LinkedHashMap<UUID, EngineHistoryStore.Shared>(16, 0.75f, true) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<UUID, EngineHistoryStore.Shared>?) = size > capacity
     }
 
     /** [play]'s history store, reading through what earlier requests kept of it. */
-    private fun open(sql: DSLContext, play: UUID): EngineHistoryStore? {
+    internal fun open(sql: DSLContext, play: UUID): EngineHistoryStore? {
         val store = EngineHistoryStore.open(sql, play, synchronized(plays) { plays[play] }) ?: return null
         synchronized(plays) { plays[play] = store.cache }
         return store
@@ -76,7 +90,7 @@ internal class EngineGames(private val capacity: Int = 32) {
     /** One player's seat: their local head, private settings, next stop and its time, whether the game waits for them
      * (I-D57, [NextStop.waitsFor]) and the point they would resume at (the encoded [org.asyncttwiz.protocol.ResumePoint] of
      * their local head). */
-    class SeatRow(val account: UUID, val head: String, val settings: PlaySettings, val nextStop: String?,
+    data class SeatRow(val account: UUID, val head: String, val settings: PlaySettings, val nextStop: String?,
         val nextStopAt: java.time.OffsetDateTime? = null, val waited: Boolean = false, val resumeAt: String? = null)
 
     /**
@@ -222,7 +236,7 @@ internal class EngineGames(private val capacity: Int = 32) {
         val after = MainLine.after(history, head, seat.head) ?: throw Refusal("stale")
         if (after.none { it.id == eventId }) throw Refusal("stale")
         setHead(sql, play, account, eventId)
-        return refresh(sql, play, history, warmAt(play, history, head), emptyList(), live)
+        return refresh(sql, play, history, warmAt(play, history, head), emptyList(), live, only = account)
     }
 
     /** [account]'s private play settings for [play] (I-D56 §13). */
@@ -231,7 +245,7 @@ internal class EngineGames(private val capacity: Int = 32) {
         sql.update(ENGINE_SEAT).set(ENGINE_SEAT.SETTINGS, GameWire.json.encodeToString(PlaySettings.serializer(), settings))
             .where(ENGINE_SEAT.PLAY_ID.eq(play)).and(ENGINE_SEAT.ACCOUNT_ID.eq(account)).execute().also { if (it != 1) throw Refusal("inapplicable") }
         val history = GameHistory(store, store.codec)
-        return refresh(sql, play, history, warmAt(play, history, head(sql, play, store.rootId)), emptyList(), live)
+        return refresh(sql, play, history, warmAt(play, history, head(sql, play, store.rootId)), emptyList(), live, only = account)
     }
 
     /**
@@ -309,13 +323,10 @@ internal class EngineGames(private val capacity: Int = 32) {
      * the viewer's own private settings, the open undo request and the line counter; and whose move it is for the viewer
      * (account id: theirs when they have a next stop, else the other player's when they have one; null once over). */
     fun snapshot(sql: DSLContext, play: UUID, viewer: UUID): Pair<EngineSnapshot, String?>? {
-        val store = open(sql, play) ?: return null
-        val head = head(sql, play, store.rootId)
+        val (store, head, row, seats) = opened(sql, play) ?: return null
         val history = GameHistory(store, store.codec)
         val state = warmAt(play, history, head)
         synchronized(warm) { warm[play] = state }
-        val seats = seats(sql, play)
-        val row = playRow(sql, play)
         // I-D56 §7: from the earliest local head behind the head, its state and the events after it
         val behind = seats.mapNotNull { seat -> MainLine.after(history, head, seat.head)?.let { seat.head to it } }.maxByOrNull { it.second.size }
             ?.takeIf { it.second.isNotEmpty() }
@@ -369,10 +380,11 @@ internal class EngineGames(private val capacity: Int = 32) {
      * table-only events (the other player arranging cards, early answers) is the same wait, kept with its time and not
      * notified again (§18.11); a new real wait at the head of a player who isn't live counts as an async round (§15);
      * each player's last-activity time (their next stop's, else their local head's: nothing past it, §7); the outcome for
-     * the caller.
+     * the caller. [only] (R6): the change was that player's own (their local head or settings), so only their seat is
+     * worked out again.
      */
     private fun refresh(sql: DSLContext, play: UUID, history: GameHistory, state: LiveState, events: List<GameEvent>, live: (UUID) -> Boolean,
-        target: String? = null, confirmed: String? = null, branched: Boolean = false, rewoundBy: String? = null): Outcome {
+        target: String? = null, confirmed: String? = null, branched: Boolean = false, rewoundBy: String? = null, only: UUID? = null): Outcome {
         val head = state.at
         val seats = seats(sql, play)
         val row = playRow(sql, play)
@@ -381,38 +393,38 @@ internal class EngineGames(private val capacity: Int = 32) {
         val stops = mutableMapOf<SeatRow, String?>()
         val found = mutableMapOf<SeatRow, NextStop.Stop?>()
         val waits = mutableMapOf<SeatRow, Boolean>()
-        val resume = mutableMapOf<SeatRow, String>()
+        val resume = mutableMapOf<SeatRow, String?>()
         // The seats whose only stop is answering the open undo request or result suggestion
         val requested = mutableSetOf<SeatRow>()
         // I-D57 (TRN-058): the player whose open undo request (switchreview #12) or result suggestion (TRN-047, TRN-049:
         // it locks the game for both) waits for the other player's answer
         val asker = row.request?.by ?: state.model.table.suggestion?.by?.value
         for (seat in seats) {
-            val player = PlayerId(seat.account.toString())
-            val after = MainLine.after(history, head, seat.head) ?: emptyList()
-            val model = stateAtLocalHead(history, state, seat.head, after)
-            // I-D57: the point a notification names: the player's own local head, never the head (before NextStop uses it up)
-            resume[seat] = GameWire.json.encodeToString(org.asyncttwiz.protocol.ResumePoint.serializer(),
-                org.asyncttwiz.protocol.game.ResumePoints.of(model.engine, player))
-            // switchreview #12 (owner to confirm): an open undo request is the other player's move, notified like one;
-            // the requester waits (or cancels) meanwhile (§10)
-            val stop = when {
-                row.request?.by == seat.account.toString() -> null
-                asker != null && asker != seat.account.toString() -> NextStop.of(model, seat.head, after, player, seat.settings.mode)
-                    ?: NextStop.Stop(head, null).also { requested += seat }
-                else -> NextStop.of(model, seat.head, after, player, seat.settings.mode)
+            // R6: a change of [only]'s own (their local head, their settings) can't move the other player's next stop, wait
+            // or resume point (each is worked out from the head, that player's own local head and settings, and the open
+            // request, none of which changed): theirs stay as stored. A seat stored before resume points were (V60) is
+            // worked out anyway.
+            if (only != null && seat.account != only && seat.resumeAt != null) {
+                if (checkSkipped) work(history, state, seat, asker, row.request).let { w ->
+                    check(w.stopId == seat.nextStop && w.waits == seat.waited && w.resume == seat.resumeAt) {
+                        "The seat of ${seat.account} left as stored differs from working it out" }
+                }
+                stops[seat] = seat.nextStop
+                waits[seat] = seat.waited
+                resume[seat] = seat.resumeAt
+                moves[seat.account.toString()] = seat.waited
+                continue
             }
-            val stored = seat.nextStop
-            val same = stop != null && stop.event == null && stored != null &&
-                MainLine.after(history, head, stored)?.all { it.engine == null } == true
-            found[seat] = stop
-            // I-D57: the asker of an open undo request or result suggestion waits for the other player's answer
-            waits[seat] = stop != null && (if (asker != null) asker != seat.account.toString()
-                else NextStop.waitsFor(state.model.engine, player, stop))
-            stops[seat] = if (same) stored else stop?.let { it.event ?: it.at }
-            if (stops[seat] != stored && stop != null) newStops += seat.account.toString()
+            seatsWorkedOut.incrementAndGet()
+            val work = work(history, state, seat, asker, row.request)
+            if (work.requested) requested += seat
+            resume[seat] = work.resume
+            found[seat] = work.stop
+            waits[seat] = work.waits
+            stops[seat] = work.stopId
+            if (work.stopId != seat.nextStop && work.stop != null) newStops += seat.account.toString()
             // TRN-058, LOB-022, LOB-024 (I-D57): the move is the player the game really waits for, as notifications have it
-            moves[seat.account.toString()] = waits[seat] == true
+            moves[seat.account.toString()] = work.waits
         }
         // The times of the new stops and of the local heads, in one read
         val wanted = (stops.filter { (seat, id) -> id != seat.nextStop }.values.filterNotNull() + seats.map { it.head })
@@ -455,6 +467,36 @@ internal class EngineGames(private val capacity: Int = 32) {
             // A wait that goes on across the other player's table-only events keeps its stop: not new (§18.11)
             seats.filter { waits[it] == true && (!it.waited || stops[it] != it.nextStop) }.map { it.account.toString() }.toSet(),
             seats.filter { it.waited && waits[it] != true }.map { it.account.toString() }.toSet(), rewoundBy)
+    }
+
+    /** What [refresh] works out for one seat: its next stop (and whether answering the open undo request or result
+     * suggestion is all of it: [requested]), whether the game waits for the player, the stop to store and the resume point. */
+    private class SeatWork(val stop: NextStop.Stop?, val requested: Boolean, val waits: Boolean, val stopId: String?, val resume: String)
+
+    private fun work(history: GameHistory, state: LiveState, seat: SeatRow, asker: String?, request: EngineRewindRequest?): SeatWork {
+        val head = state.at
+        val player = PlayerId(seat.account.toString())
+        val after = MainLine.after(history, head, seat.head) ?: emptyList()
+        val model = stateAtLocalHead(history, state, seat.head, after)
+        // I-D57: the point a notification names: the player's own local head, never the head (before NextStop uses it up)
+        val resume = GameWire.json.encodeToString(org.asyncttwiz.protocol.ResumePoint.serializer(),
+            org.asyncttwiz.protocol.game.ResumePoints.of(model.engine, player))
+        var requested = false
+        // switchreview #12 (owner to confirm): an open undo request is the other player's move, notified like one;
+        // the requester waits (or cancels) meanwhile (§10)
+        val stop = when {
+            request?.by == seat.account.toString() -> null
+            asker != null && asker != seat.account.toString() -> NextStop.of(model, seat.head, after, player, seat.settings.mode)
+                ?: NextStop.Stop(head, null).also { requested = true }
+            else -> NextStop.of(model, seat.head, after, player, seat.settings.mode)
+        }
+        val stored = seat.nextStop
+        val same = stop != null && stop.event == null && stored != null &&
+            MainLine.after(history, head, stored)?.all { it.engine == null } == true
+        // I-D57: the asker of an open undo request or result suggestion waits for the other player's answer
+        val waits = stop != null && (if (asker != null) asker != seat.account.toString()
+            else NextStop.waitsFor(state.model.engine, player, stop))
+        return SeatWork(stop, requested, waits, if (same) stored else stop?.let { it.event ?: it.at }, resume)
     }
 
     /**
@@ -548,9 +590,40 @@ internal class EngineGames(private val capacity: Int = 32) {
         sql.select(ENGINE_ASYNC_ROUND.ACCOUNT_ID, ENGINE_ASYNC_ROUND.KIND).from(ENGINE_ASYNC_ROUND).where(ENGINE_ASYNC_ROUND.PLAY_ID.eq(play))
             .orderBy(ENGINE_ASYNC_ROUND.ORDINAL).fetch { it.value1().toString() to it.value2()!! }
 
-    private class PlayRow(val lines: Int, val request: EngineRewindRequest?)
+    internal data class PlayRow(val lines: Int, val request: EngineRewindRequest?)
 
-    private fun playRow(sql: DSLContext, play: UUID): PlayRow {
+    /** What reading [play]'s head needs: its history store, the main line's head, its row and its seats. */
+    internal data class Opened(val store: EngineHistoryStore, val head: String, val row: PlayRow, val seats: List<SeatRow>)
+
+    /**
+     * R6: [open], [head], [playRow] and [seats] in one statement (opening a game reads them all): the play's row (its
+     * definitions only when no earlier request kept them), its newest event and its seats; null when [play] isn't played
+     * as engine state.
+     */
+    internal fun opened(sql: DSLContext, play: UUID): Opened? {
+        val shared = synchronized(plays) { plays[play] }
+        val definitions = if (shared == null) ENGINE_PLAY.DEFINITIONS else DSL.inline(null, String::class.java).`as`("definitions")
+        val newest = DSL.field(DSL.select(ENGINE_EVENT.ID).from(ENGINE_EVENT).where(ENGINE_EVENT.PLAY_ID.eq(ENGINE_PLAY.PLAY_ID))
+            .orderBy(ENGINE_EVENT.ORDINAL.desc()).limit(1)).`as`("head")
+        val rows = sql.select(ENGINE_PLAY.ROOT_ID, definitions, ENGINE_PLAY.LINES, ENGINE_PLAY.REWIND_BY, ENGINE_PLAY.REWIND_TARGET,
+            ENGINE_PLAY.REWIND_MESSAGE, newest, ENGINE_SEAT.ACCOUNT_ID, ENGINE_SEAT.LOCAL_HEAD, ENGINE_SEAT.SETTINGS, ENGINE_SEAT.NEXT_STOP,
+            ENGINE_SEAT.NEXT_STOP_AT, ENGINE_SEAT.WAITED, ENGINE_SEAT.RESUME_AT)
+            .from(ENGINE_PLAY).leftJoin(ENGINE_SEAT).on(ENGINE_SEAT.PLAY_ID.eq(ENGINE_PLAY.PLAY_ID))
+            .where(ENGINE_PLAY.PLAY_ID.eq(play)).orderBy(ENGINE_SEAT.ACCOUNT_ID).fetch()
+        val first = rows.firstOrNull() ?: return null
+        val store = EngineHistoryStore.of(sql, play, first[ENGINE_PLAY.ROOT_ID]!!.toString(), first[definitions], shared)
+        synchronized(plays) { plays[play] = store.cache }
+        val row = PlayRow(first[ENGINE_PLAY.LINES]!!, first[ENGINE_PLAY.REWIND_BY]?.let {
+            EngineRewindRequest(it.toString(), first[ENGINE_PLAY.REWIND_TARGET]!!.toString(), first[ENGINE_PLAY.REWIND_MESSAGE].orEmpty()) })
+        val seats = rows.filter { it[ENGINE_SEAT.ACCOUNT_ID] != null }.map { r ->
+            SeatRow(r[ENGINE_SEAT.ACCOUNT_ID]!!, r[ENGINE_SEAT.LOCAL_HEAD]!!.toString(),
+                GameWire.json.decodeFromString(PlaySettings.serializer(), r[ENGINE_SEAT.SETTINGS]!!), r[ENGINE_SEAT.NEXT_STOP]?.toString(),
+                r[ENGINE_SEAT.NEXT_STOP_AT], r[ENGINE_SEAT.WAITED]!!, r[ENGINE_SEAT.RESUME_AT])
+        }
+        return Opened(store, first[newest]?.toString() ?: store.rootId, row, seats)
+    }
+
+    internal fun playRow(sql: DSLContext, play: UUID): PlayRow {
         val row = sql.select(ENGINE_PLAY.LINES, ENGINE_PLAY.REWIND_BY, ENGINE_PLAY.REWIND_TARGET, ENGINE_PLAY.REWIND_MESSAGE).from(ENGINE_PLAY)
             .where(ENGINE_PLAY.PLAY_ID.eq(play)).fetchSingle()
         return PlayRow(row.value1()!!, row.value2()?.let { EngineRewindRequest(it.toString(), row.value3()!!.toString(), row.value4().orEmpty()) })
@@ -561,7 +634,7 @@ internal class EngineGames(private val capacity: Int = 32) {
             .where(ENGINE_PLAY.PLAY_ID.eq(play)).execute()
     }
 
-    private fun seats(sql: DSLContext, play: UUID): List<SeatRow> =
+    internal fun seats(sql: DSLContext, play: UUID): List<SeatRow> =
         sql.select(ENGINE_SEAT.ACCOUNT_ID, ENGINE_SEAT.LOCAL_HEAD, ENGINE_SEAT.SETTINGS, ENGINE_SEAT.NEXT_STOP, ENGINE_SEAT.NEXT_STOP_AT,
             ENGINE_SEAT.WAITED, ENGINE_SEAT.RESUME_AT)
             .from(ENGINE_SEAT).where(ENGINE_SEAT.PLAY_ID.eq(play)).orderBy(ENGINE_SEAT.ACCOUNT_ID).fetch { r ->
@@ -576,7 +649,7 @@ internal class EngineGames(private val capacity: Int = 32) {
 
     /** The main line's head: the event the server accepted last (a branch or a rewind's new line becomes the main
      * line), else the root. */
-    private fun head(sql: DSLContext, play: UUID, rootId: String): String =
+    internal fun head(sql: DSLContext, play: UUID, rootId: String): String =
         sql.select(ENGINE_EVENT.ID).from(ENGINE_EVENT).where(ENGINE_EVENT.PLAY_ID.eq(play)).orderBy(ENGINE_EVENT.ORDINAL.desc()).limit(1)
             .fetchOne(ENGINE_EVENT.ID)?.toString() ?: rootId
 }

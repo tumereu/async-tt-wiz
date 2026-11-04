@@ -74,7 +74,7 @@ class EngineOnServerSpikeTest {
     }
 
     /** A random player and host on the public API only: random answers by the host, every other input from options. */
-    private class Chooser(seed: Long) {
+    internal class Chooser(seed: Long) {
         val rnd = Random(seed)
         var inputsThisTurn = 0
         fun next(state: GameState): Input {
@@ -376,7 +376,7 @@ class EngineOnServerSpikeTest {
     }
 
     /** Four themed 40-card decks of invented cube cards (as the engine's review 3 has them). */
-    private object Decks {
+    internal object Decks {
         private fun lands(a: String, b: String) = List(8) { a } + List(8) { b }
         val artifacts = lands("Island", "Mountain") + listOf(
             "Tinkered Mite", "Gearwing Glider", "Sun Band", "Lotus Frond", "Prismatic Mote", "Skull Bracer", "Bonevise",

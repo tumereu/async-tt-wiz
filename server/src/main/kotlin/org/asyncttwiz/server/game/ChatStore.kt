@@ -37,6 +37,16 @@ internal object ChatStore {
         .where(GAME_CHAT.GAME_ID.eq(game)).orderBy(GAME_CHAT.REVISION.desc()).limit(1).fetchOne()
         ?.let { ChatSync(it.value2().toString(), it.value1().toString()) } ?: ChatSync()
 
+    /** [sync] as two columns of a caller's own statement (R6: read with other rows): the newest message's id and revision. */
+    fun syncFields(game: UUID): Pair<org.jooq.Field<UUID?>, org.jooq.Field<Long?>> =
+        org.jooq.impl.DSL.field(org.jooq.impl.DSL.select(GAME_CHAT.ID).from(GAME_CHAT).where(GAME_CHAT.GAME_ID.eq(game))
+            .orderBy(GAME_CHAT.REVISION.desc()).limit(1)).`as`("chat_id") to
+        org.jooq.impl.DSL.field(org.jooq.impl.DSL.select(GAME_CHAT.REVISION).from(GAME_CHAT).where(GAME_CHAT.GAME_ID.eq(game))
+            .orderBy(GAME_CHAT.REVISION.desc()).limit(1)).`as`("chat_revision")
+
+    /** The [sync] of the newest message's [id] and [revision] (none: null). */
+    fun sync(id: UUID?, revision: Long?): ChatSync = if (id == null) ChatSync() else ChatSync(revision.toString(), id.toString())
+
     fun page(sql: DSLContext, game: UUID, before: Long? = null, after: Long? = null): ChatPage {
         require(before == null || after == null)
         val condition = GAME_CHAT.GAME_ID.eq(game)

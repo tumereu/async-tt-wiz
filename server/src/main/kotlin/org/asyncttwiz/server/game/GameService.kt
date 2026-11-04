@@ -30,7 +30,7 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
     private val json = GameWire.json
     private val lobby = LobbyService(runtime)
     /** I-D54: every play's state is the engine's (I-D56 step D2). */
-    private val engineGames = EngineGames()
+    internal val engineGames = EngineGames()
     private fun uuid(value: String): UUID {
         if (!DeckValidation.uuid(value)) throw GameProtocolFailure("invalidInput")
         return UUID.fromString(value)
@@ -164,7 +164,8 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
 
     /** [game] is the row locked by this transaction: the play is read (and checked) once, for the summary too. */
     private fun readHead(sql: DSLContext, principal: AccountService.Principal, gameId: String, game: GameRecord): GameHead {
-        val play = PlayStore.read(sql, game.id!!)
+        val reads = headReads(sql, game.id!!, actor(principal))
+        val play = reads.play
         // I-D54: a play whose state is the engine's says whose move it is from the engine, per viewer (I-D56 §7)
         val engine = game.currentPlay?.takeIf { game.lifecycle == "ACTIVE" && engineGames.mayExist(sql) }
             ?.let { engineGames.snapshot(sql, it, actor(principal)) }
@@ -172,9 +173,20 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
             else if (engine != null) engine.second else play?.board?.effectiveAttentionHolder, engine?.let { actor(principal) })
         return GameHead(gameId, summary.revision, summary, preparation =
             if (play == null && canReadPreparation(summary, principal.account.accountId)) PreparationStore.read(sql, summary) else null,
-            play = play, chatSync = ChatStore.sync(sql, uuid(gameId)),
-            ownPodDeckName = PreparationStore.ownPodDeckName(sql, uuid(gameId), actor(principal)),
-            engine = engine?.first)
+            play = play, chatSync = reads.chatSync, ownPodDeckName = reads.ownPodDeckName, engine = engine?.first)
+    }
+
+    /** What a head reads of [game]'s other tables besides the engine's (R6). */
+    internal class HeadReads(val play: PlayState?, val chatSync: ChatSync, val ownPodDeckName: String?)
+
+    /** R6: [PlayStore.read], [ChatStore.sync] and [PreparationStore.ownPodDeckName] for [viewer], in one statement. Run
+     * after the game's lock: a statement waiting for the lock would read the other tables as they were before it. */
+    internal fun headReads(sql: DSLContext, game: UUID, viewer: UUID): HeadReads {
+        val payload = PlayStore.payloadField(game)
+        val (chatId, chatRevision) = ChatStore.syncFields(game)
+        val deckName = PreparationStore.ownPodDeckNameField(game, viewer)
+        val row = sql.select(payload, chatId, chatRevision, deckName).fetchSingle()
+        return HeadReads(PlayStore.decode(game, row[payload]), ChatStore.sync(row[chatId], row[chatRevision]), row[deckName])
     }
     fun revisions(principal: AccountService.Principal, gameId: String, after: String): GameRevisions {
         val base = GameWire.ordinal(after)

@@ -16,12 +16,18 @@ internal object PlayStore {
 
     /** The current play as it started: its ids, containers, players and card data (the game's state is the engine's,
      * [EngineGames]). An unreadable one is contained like any stored data (SYS-052). */
-    fun read(sql: DSLContext, game: UUID): PlayState? {
-        val payload = sql.select(GAME_PLAY.PAYLOAD).from(GAME)
-            .join(GAME_PLAY).on(GAME_PLAY.ID.eq(GAME.CURRENT_PLAY).and(GAME_PLAY.GAME_ID.eq(GAME.ID)))
-            .where(GAME.ID.eq(game)).fetchOne()?.value1() ?: return null
-        return StoredData.decode("game play", game) { GameWire.stored(PlayState.serializer(), payload) }
-    }
+    fun read(sql: DSLContext, game: UUID): PlayState? = decode(game, sql.select(GAME_PLAY.PAYLOAD).from(GAME)
+        .join(GAME_PLAY).on(GAME_PLAY.ID.eq(GAME.CURRENT_PLAY).and(GAME_PLAY.GAME_ID.eq(GAME.ID)))
+        .where(GAME.ID.eq(game)).fetchOne()?.value1())
+
+    /** [read]'s stored payload as a column of a caller's own statement (R6: read with other rows). */
+    fun payloadField(game: UUID): org.jooq.Field<String?> = org.jooq.impl.DSL.field(org.jooq.impl.DSL.select(GAME_PLAY.PAYLOAD).from(GAME)
+        .join(GAME_PLAY).on(GAME_PLAY.ID.eq(GAME.CURRENT_PLAY).and(GAME_PLAY.GAME_ID.eq(GAME.ID)))
+        .where(GAME.ID.eq(game))).`as`("play_payload")
+
+    /** The play of [game] from its stored [payload] (none: null), contained like any stored data (SYS-052). */
+    fun decode(game: UUID, payload: String?): PlayState? =
+        payload?.let { StoredData.decode("game play", game) { GameWire.stored(PlayState.serializer(), it) } }
 
     /**
      * I-D56 §11: the play of [game] whose state is the engine's ends once its result is final (a concession, or the

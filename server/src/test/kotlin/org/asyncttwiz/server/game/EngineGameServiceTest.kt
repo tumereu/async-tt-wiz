@@ -293,6 +293,74 @@ class EngineGameServiceTest {
         assertEquals(approved.headId, approved.localHeads[f.b.account.accountId])
     }
 
+    // R6 (engine responsiveness): a player's own report (their device showed events, their settings) works out only their
+    // own seat again; a submission, an undo request or a rewind works out both. The seat left as stored is checked against
+    // working it out (checkSkipped).
+    @Test fun `a seen report or a settings change works out only the reporting seat`() = withService { runtime ->
+        val f = Fixture(runtime, engine = true, tag = "r6")
+        val work = f.games.engineGames.seatsWorkedOut
+        fun seats(block: () -> Unit): Long { val before = work.get(); block(); return work.get() - before }
+        checkSkipped = true
+        try {
+            val alice = f.device(f.a)
+            val keep = Input.Answer(alice.model.engine.pending!!.decision.id, Answer.Option("Keep"))
+            assertEquals(2, seats { assertEquals("accepted", f.owner.execute(GameAction.Submit(alice.act(id(), keep))).outcome) })
+            val head = f.snapshot().headId
+            assertNotEquals(head, f.snapshot().localHeads[f.b.account.accountId])
+            assertEquals(1, seats { assertEquals("accepted", f.recipient.execute(GameAction.EngineSeen(head)).outcome) })
+            assertEquals(head, f.snapshot().localHeads[f.b.account.accountId])
+            assertEquals(1, seats { assertEquals("accepted", f.recipient.execute(GameAction.EngineSettings(
+                PlaySettings(ResponseMode.FullControl))).outcome) })
+            val bob = f.device(f.b)
+            val bobKeep = Input.Answer(bob.model.engine.pending!!.decision.id, Answer.Option("Keep"))
+            assertEquals(2, seats { assertEquals("accepted", f.recipient.execute(GameAction.Submit(bob.act(id(), bobKeep))).outcome) })
+            val after = f.snapshot().headId
+            assertEquals(1, seats { assertEquals("accepted", f.owner.execute(GameAction.EngineSeen(after)).outcome) })
+            assertEquals(1, seats { assertEquals("accepted", f.owner.execute(GameAction.EngineSettings(PlaySettings(autotap = false))).outcome) })
+            assertEquals(2, seats { assertEquals("accepted", f.owner.execute(GameAction.EngineRequestRewind(head, "misclick")).outcome) })
+            assertEquals(2, seats { assertEquals("accepted", f.owner.execute(GameAction.EngineCancelRewind).outcome) })
+        } finally { checkSkipped = false }
+    }
+
+    // R6 (engine responsiveness): opening a game reads in one statement each what it read one by one before (the engine
+    // play's row, head and seats; the play, the chat's sync point and the own pod deck name): the same values, so the same
+    // head on the wire, warm and cold (nothing kept: the definitions read with the rest)
+    @Test fun `a head's joined reads are the separate reads`() = withService { runtime ->
+        val f = Fixture(runtime, engine = true, tag = "j")
+        val play = UUID.fromString(f.games.head(f.a, f.game.id).summary.playId!!)
+        fun same(games: GameService) = runtime.transaction { c ->
+            val sql = org.jooq.impl.DSL.using(c, org.jooq.SQLDialect.POSTGRES)
+            val engine = games.engineGames
+            val joined = engine.opened(sql, play)!!
+            val store = engine.open(sql, play)!!
+            assertEquals(store.rootId, joined.store.rootId)
+            assertEquals(store.codec.encodeDefinitions(), joined.store.codec.encodeDefinitions())
+            assertEquals(engine.head(sql, play, store.rootId), joined.head)
+            assertEquals(engine.playRow(sql, play), joined.row)
+            assertEquals(engine.seats(sql, play), joined.seats)
+            for (viewer in listOf(f.a, f.b).map { UUID.fromString(it.account.accountId) }) {
+                val reads = games.headReads(sql, UUID.fromString(f.game.id), viewer)
+                assertEquals(PlayStore.read(sql, UUID.fromString(f.game.id)), reads.play)
+                assertEquals(ChatStore.sync(sql, UUID.fromString(f.game.id)), reads.chatSync)
+                assertEquals(PreparationStore.ownPodDeckName(sql, UUID.fromString(f.game.id), viewer), reads.ownPodDeckName)
+            }
+        }
+        same(f.games); same(GameService(runtime))
+        // Bob behind the head, an open undo request, a chat message and a pod deck name of Alice's
+        val alice = f.device(f.a)
+        f.owner.execute(GameAction.Submit(alice.act(id(), Input.Answer(alice.model.engine.pending!!.decision.id, Answer.Option("Keep")))))
+        val bob = f.device(f.b)
+        f.recipient.execute(GameAction.Submit(bob.act(id(), Input.Answer(bob.model.engine.pending!!.decision.id, Answer.Option("Keep")))))
+        assertEquals("accepted", f.owner.execute(GameAction.EngineRequestRewind(alice.pending.single().id, "misclick")).outcome)
+        assertEquals("accepted", f.owner.execute(GameCommand(id(), GameScope(f.game.id, playId = play.toString()), GameAction.SendChat("hello"),
+            f.owner.stream.streamId, f.owner.stream.generation)).outcome)
+        runtime.transaction { c -> org.jooq.impl.DSL.using(c, org.jooq.SQLDialect.POSTGRES).execute(
+            "UPDATE player_preparation SET pod_deck_name = 'Pod deck' WHERE game_id = ?::uuid AND account_id = ?::uuid", f.game.id, f.a.account.accountId) }
+        same(f.games); same(GameService(runtime))
+        assertEquals("Pod deck", f.games.head(f.a, f.game.id).ownPodDeckName)
+        assertNotNull(f.snapshot(f.b).rewindRequest)
+    }
+
     // I-D56 §13: a player's play settings are their own, kept on the server, never shown to the other player
     @Test fun `play settings are private`() = withService { runtime ->
         val f = Fixture(runtime, engine = true, tag = "s")

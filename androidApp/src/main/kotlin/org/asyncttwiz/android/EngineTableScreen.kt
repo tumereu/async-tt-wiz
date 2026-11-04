@@ -110,9 +110,16 @@ internal fun EngineTableScreen(controller: LobbyController, accountId: String, h
                 applied.transition = t.serial
                 changes.applyEngine(t.cursor, t.jump, t.changes, t.shuffled)
                 // HIS-076 (owner playtest 2026-11-04 #5): live, the newest event just shown, yours too (your own action's
-                // text fades at the top like the other player's); quiet on open, return and undo
+                // text fades at the top like the other player's); quiet on open and return. §29.4: an undo says what it
+                // took back ("Undid: cast Storm Spark", the other player "Alice undid: …"), even with Event text off
                 val told = t.forward.lastOrNull { !EngineEventText.hidden(it) }
-                if (told != null) eventText.post(t.cursor, engine.timeline.text(engine, told, names)) else eventText.moved(t.cursor)
+                val undone = t.undone
+                when {
+                    undone != null -> eventText.post(t.cursor, EngineEventText.undid(undone.event, undone.state, accountId, undone.by, names),
+                        always = true)
+                    told != null -> eventText.post(t.cursor, engine.timeline.text(engine, told, names))
+                    else -> eventText.moved(t.cursor)
+                }
             }
         }
     }

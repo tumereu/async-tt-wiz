@@ -833,3 +833,12 @@ HIS-094, SYS-071.
 Decided while building (owner to confirm): the History playback pause no longer paces live playback, only timeline
 mode's Auto; answering a decision in the opening (e.g. a keep the other player assumed) ends the catch-up, so playback goes
 on after it without a paused start; an attack already showed in the combat area in playback (now covered by a test).
+
+Built (2026-11-04): **2** (HIS-091, HIS-084, HIS-099): a pass event reads only as what it led to, one that led to
+nothing is hidden like an old line start (`EngineEventText.hidden`); `GameDevice.undoTarget` skips every pass but an End
+turn's first (`endedTurn`), and the Undo dialog lists the same (`undoChoices`, "You ended the turn"). **4** (HIS-030,
+HIS-076, HIS-099): a rewind that took back events shown on a device is a transition of its own (`EngineGame.Transition.undone`)
+whose steps are the undone events' motion boards in reverse; its text is posted to the event chip even with Event text
+off, replacing the "<name> undid" note.
+Decided while building (owner to confirm): the other player reads "Alice undid: cast Storm Spark"; an undone End turn
+reads "Undid: End turn"; the undo text shows with Event text off.

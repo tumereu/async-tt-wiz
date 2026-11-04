@@ -55,7 +55,7 @@ class CatalogControlsTest {
         compose.onNodeWithText("Not now").assertDoesNotExist()
         compose.onNodeWithText("Download").performClick()
         waitForWorker(controller)
-        assertEquals(1, downloads.get())
+        assertEquals(2, downloads.get()) // LOB-091: the failed download is tried once more by itself
         assertFalse(controller.needsInitialDownloadConsent)
         assertTrue(controller.state.error)
         compose.onNodeWithText("Retry download").assertIsDisplayed()
@@ -130,7 +130,7 @@ class CatalogControlsTest {
             assertFalse(controller.needsInitialDownloadConsent)
         } finally { release.countDown() }
         waitForWorker(controller)
-        assertEquals(1, downloads.get())
+        assertEquals(2, downloads.get()) // LOB-091: the failed download is tried once more by itself
     }
 
     private fun initialCatalog(downloads: AtomicInteger, beforeSetList: () -> Unit = {}): CatalogViewModel {
@@ -199,7 +199,7 @@ class CatalogControlsTest {
         waitForWorker()
         compose.onNodeWithText("Refresh full catalog").performClick()
         waitForWorker()
-        assertEquals(1, downloads.get())
+        assertEquals(2, downloads.get()) // LOB-091: the failed download is tried once more by itself
         assertNull(controller.state.fullRefresh)
         assertTrue(controller.state.error)
         assertFalse(controller.state.busy)

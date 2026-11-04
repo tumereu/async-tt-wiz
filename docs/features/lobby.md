@@ -151,7 +151,7 @@ Everything outside the game table: accounts, profile, navigation, game list, gam
 
 ### Card records
 
-- **LOB-091** On first launch, before sign-in, "Download card records?" explains the app needs the card catalog, shows the size and metered/unmetered connection, and offers only Exit or Download. Sign-in works while it downloads, with a progress bar at the top. (r17)
+- **LOB-091** On first launch, before sign-in, "Download card records?" explains the app needs the card catalog, shows the size and metered/unmetered connection, and offers only Exit or Download. Sign-in works while it downloads, with a progress bar at the top. A failed check or download is tried once more by itself before the error shows. (r17, r50)
 - **LOB-092** Automatic updates only fetch new sets and sets released in the last 60 days, and only on unmetered connections; on a metered one the app asks first ("Update card records?" with Not now). (r9)
 - **LOB-093** Settings → Card records shows the installed date and record count, progress while working, "Check for updates" and "Refresh full catalog" (confirm dialog; the only way to re-download everything). (r9)
 - **LOB-094** Progress reads "Downloading card records: x / y MB" (KB for small updates), "Indexing card records: x / y MB processed · N cards", then "Finishing up — verifying catalog…"; the bar shows real progress where the size is known and moves without a fixed position while finishing or when the total is unknown. (r30)

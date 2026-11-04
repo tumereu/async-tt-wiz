@@ -1165,6 +1165,18 @@ class GameDevice(
         private const val MAX_ENTRY = 300
         private const val MAX_PROBES = 64
 
+        /**
+         * SYS-011 (owner, 2026-11-04): whether an own action tapped on the board [seen] is still the same decision on
+         * [now], the board the device has moved on to (the other player's event arrived, an assumption was confirmed),
+         * so it is made there instead of refused. The same when nothing the game state holds differs: the same turn and
+         * step, priority (its holder and the passes in a row), open decision and its options, Stack, combat, every
+         * object (zones, what is known of hidden cards, targets) and player; only the record of what happened
+         * ([GameState.log]) and the timestamp counter may differ. Any other change (a new Stack object, another step, a
+         * chosen target gone, a hidden card shown) is a different decision: the player never saw that point.
+         */
+        fun sameDecision(seen: GameState, now: GameState): Boolean =
+            seen === now || seen.copy(log = mutableListOf(), timestampCounter = 0) == now.copy(log = mutableListOf(), timestampCounter = 0)
+
         /** A device for [me] from the server's [snapshot] (and the codec of the game's definitions), at their local head
          * with the events past it buffered. */
         fun load(snapshot: EngineSnapshot, me: PlayerId, ids: () -> String): Pair<GameDevice, EngineJson> {

@@ -26,12 +26,12 @@ import org.asyncttwiz.protocol.game.Rewind
  * request; [Acceptance] and [Rewind] decide), exchanging only what the app and the server exchange: each game's outbox
  * ([EngineGame.take]) goes to the server in order, and each game gets the server's [GameRevision]s and its own refusals
  * in order when [deliver]ed. A player who is away gets nothing and loads the game again when they come back
- * ([load], the catch-up).
+ * ([load], the catch-up). Each game runs on [worker] (by player; inline by default).
  *
  * The leak oracle runs on every event a game shows or sends: while the player's line is tentative on the server, nothing
  * shown may reveal a card they couldn't see before (I-D56 §5).
  */
-internal class EngineAppSim(val f: EngineGameFixture) {
+internal class EngineAppSim(val f: EngineGameFixture, private val worker: (String) -> EngineWorker = { EngineWorker.Direct }) {
     private val players = listOf(f.a, f.b)
     val store = InMemoryHistory(f.snapshot().rootId, f.rootState)
     val history = GameHistory(store, f.codec, 16)
@@ -76,7 +76,7 @@ internal class EngineAppSim(val f: EngineGameFixture) {
         val snapshot = EngineSnapshot(f.codec.encodeDefinitions(), store.rootId, head, f.codec.encodeModel(state()), heads.toMap(),
             settings[p], request, lines, baseId.takeIf { after.isNotEmpty() },
             if (after.isEmpty()) null else f.codec.encodeModel(history.stateAt(baseId)), after.map(f.codec::encodeEvent))
-        val game = games[p]?.also { it.load(snapshot) } ?: EngineGame(f.game.id, p, f.base, snapshot) { "$p-${++ids}" }
+        val game = games[p]?.also { it.load(snapshot) } ?: EngineGame(f.game.id, p, f.base, snapshot, { "$p-${++ids}" }, worker(p))
         games[p] = game
         inbox.getValue(p).clear()
         watch(game)

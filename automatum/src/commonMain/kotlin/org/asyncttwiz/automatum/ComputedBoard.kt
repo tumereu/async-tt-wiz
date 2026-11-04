@@ -176,7 +176,22 @@ class ComputedBoard private constructor(
             } catch (problem: Unsupported) {
                 return ComputedBoard(emptyMap(), problem.reasons, manualAbilities, manualCards, null, null, null)
             }
-            val view = Engine.view(state)
+            return computed(play, manualAbilities, manualCards, state, Engine.view(state))
+        }
+
+        /**
+         * [of] for a board made from the engine's own state ([org.asyncttwiz.protocol.BoardState.engine], I-D56 step C):
+         * [state] is that state (full information; kept for [explain], so never changed afterwards) and [view] its view,
+         * which the caller already has (engine-responsiveness R3: the engine thread's one view of the state), so nothing
+         * is copied or worked out again. The same board as [of] gives for it.
+         */
+        fun of(play: PlayState, definitions: Map<String, CardDefinition>, viewer: String, state: GameState, view: View): ComputedBoard {
+            val (manualAbilities, manualCards) = manual(play, definitions, viewer)
+            return computed(play, manualAbilities, manualCards, state, view)
+        }
+
+        private fun computed(play: PlayState, manualAbilities: Int, manualCards: List<Pair<String, Int>>, state: GameState,
+            view: View): ComputedBoard {
             val ids = CardIds.of(play.board)
             val battlefield = play.board.containers.filter { it.zone == PlayZone.BATTLEFIELD }.flatMap { it.cards }.toSet()
             val cards = LinkedHashMap<String, ComputedCard>()

@@ -15,6 +15,7 @@ import arcanum.engine.state.PlayerId
 import arcanum.engine.view.AbilityInstance
 import arcanum.engine.view.AbilityOrigin
 import arcanum.engine.view.Functioning
+import arcanum.engine.view.View
 import org.asyncttwiz.protocol.PlayState
 
 /**
@@ -85,12 +86,24 @@ class CardPlays private constructor(
             }
             HostPriority.settle(call)
             val state = call.working
-            val me = PlayerId(viewer)
             val view = Engine.view(state)
-            val visible = Engine.visible(state, me)
-            val options = Engine.options(state, me)
+            return of(state, call.ids, viewer, view, Engine.visible(state, PlayerId(viewer), view))
+        }
+
+        /**
+         * [of] for a board made from the engine's own state ([org.asyncttwiz.protocol.BoardState.engine], I-D56 step C):
+         * [state] is that state (full information, not changed here), [view] its view and [visible] what [viewer] may see
+         * of it ([Engine.visible]), which the caller already has (engine-responsiveness R3: worked out once on the engine
+         * thread, nothing copied). The same plays as [of] gives for it.
+         */
+        fun of(play: PlayState, state: GameState, viewer: String, view: View, visible: Set<ObjectId>): CardPlays =
+            of(state, CardIds.of(play.board), viewer, view, visible)
+
+        private fun of(state: GameState, ids: CardIds, viewer: String, view: View, visible: Set<ObjectId>): CardPlays {
+            val me = PlayerId(viewer)
+            val options = Engine.options(state, me, view)
             val byCard = LinkedHashMap<String, MutableList<CardPlay>>()
-            fun add(id: ObjectId.Card, play: CardPlay) { byCard.getOrPut(call.ids.atw(id.card)) { mutableListOf() } += play }
+            fun add(id: ObjectId.Card, play: CardPlay) { byCard.getOrPut(ids.atw(id.card)) { mutableListOf() } += play }
 
             for (input in options) when (input) {
                 is Input.Cast -> (input.card as? ObjectId.Card)?.let { card ->
@@ -112,10 +125,10 @@ class CardPlays private constructor(
                 val characteristics = shown.characteristics ?: continue
                 val mine = (shown.controller ?: o.owner) == me
                 // The viewer's own hand card no cast or play is offered for: greyed, with the engine's reason
-                if (o.zone == Zone.Hand && o.owner == me && byCard[call.ids.atw(id.card)].isNullOrEmpty()) {
+                if (o.zone == Zone.Hand && o.owner == me && byCard[ids.atw(id.card)].isNullOrEmpty()) {
                     val land = CardType.Land in characteristics.types
                     val input = if (land) Input.PlayLand(me, id) else Input.Cast(me, id)
-                    add(id, CardPlay(if (land) CardPlay.Kind.Play else CardPlay.Kind.Cast, if (land) "Play" else "Cast", null, refusal(state, input)))
+                    add(id, CardPlay(if (land) CardPlay.Kind.Play else CardPlay.Kind.Cast, if (land) "Play" else "Cast", null, refusal(state, view, input)))
                 }
                 val instantOrSorcery = CardType.Instant in characteristics.types || CardType.Sorcery in characteristics.types
                 val listed = mutableSetOf<AbilityOrigin>()
@@ -128,7 +141,7 @@ class CardPlays private constructor(
                     val refusal = when {
                         legal != null -> null
                         !mine -> CardPlay.Refusal.NotYours
-                        else -> refusal(state, Input.Activate(me, id, instance.origin), ability)
+                        else -> refusal(state, view, Input.Activate(me, id, instance.origin), ability)
                     }
                     add(id, CardPlay(kind(ability), text(o.definition, instance), legal, refusal))
                 }
@@ -155,19 +168,14 @@ class CardPlays private constructor(
                 else -> if (instance.ability.isManaAbility()) "Mana ability" else "Activated ability"
             }
 
-        /** Why the engine refuses [input] now (it is tried; refusals come before anything is done). */
-        private fun refusal(state: GameState, input: Input, ability: Ability? = null): CardPlay.Refusal {
+        /** Why the engine refuses [input] now: the refusal [Engine.perform] gives before anything is done, asked without
+         * performing it ([Engine.refusal], engine-responsiveness R3, on [view], [state]'s view); one it may still begin
+         * (refused later, if at all: a target or a cost it can't have) is [CardPlay.Refusal.Other]. */
+        private fun refusal(state: GameState, view: View, input: Input, ability: Ability? = null): CardPlay.Refusal {
             val player = when (input) { is Input.Activate -> input.player; is Input.Cast -> input.player; is Input.PlayLand -> input.player; else -> null }
             // Every cast, land play, activation and special action needs priority (CR 117.1, 116.2)
             if (state.priority.holder != player) return CardPlay.Refusal.Priority(state.priority.holder?.value)
-            val message = try {
-                Engine.perform(state, input)
-                return CardPlay.Refusal.Other
-            } catch (problem: IllegalArgumentException) {
-                problem.message.orEmpty()
-            } catch (problem: IllegalStateException) {
-                problem.message.orEmpty()
-            }
+            val message = Engine.refusal(state, input, view) ?: return CardPlay.Refusal.Other
             val loyalty = (ability as? Ability.Activated)?.cost?.parts?.any { it is CostPart.Loyalty } == true
             return when {
                 loyalty && "loyalty ability" in message -> CardPlay.Refusal.Loyalty

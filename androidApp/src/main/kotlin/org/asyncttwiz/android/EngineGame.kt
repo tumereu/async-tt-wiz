@@ -141,7 +141,11 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
         /** The player paused playback (§27): it goes on to the next point where Full control stops. */
         val pausing: Boolean = false,
         /** The first passes of the player's recent End turns (§29.2: the Undo dialog lists them as "End turn"). */
-        val endTurns: Set<String> = emptySet()) {
+        val endTurns: Set<String> = emptySet(),
+        /** Engine-responsiveness R3: what the engine thread worked out with [play]'s board: its computed card values, the
+         * player's hand plays (none yet on an own action's early board: they come with the board after it) and, when
+         * first asked, the card menus' plays ([AutomatumBoards] reads them from here for the table). */
+        val values: EngineBoardValues? = null) {
         val engine: GameState get() = play.board.engine!!.state
     }
 
@@ -206,7 +210,9 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
         val session = device.session
         val tip = session.tip
         // TRN-058 (I-D57): the move pill and the bar colours show whom the game really waits for, as the game list does
-        val play = EngineProjection.project(base, device.model, me, tip, attention, staging, tokenArt, pictures, device.move?.value)
+        val play = board(tip, attention, device.move?.value)
+        // R3: the player's hand plays go out with the board (a board published again unchanged keeps them)
+        val values = EngineBoardValues.of(play.board, me)?.also { it.workedHandPlays() }
         val local = session.indexOf(session.localHead) ?: -1
         val held = session.events.take(local + 1)
         val line = held + session.pending
@@ -217,7 +223,7 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
         previous = play
         val shown = Shown(++published, play, status, device.locked, device.settings, device.opponent, session.behind, tip,
             session.localHead, session.drafting, device.request, device.indicator(), device.undoTarget(), line, held, lastTransition,
-            device.needsReload, device.pausing, held.mapNotNullTo(HashSet()) { e -> e.id.takeIf(device::endedTurn) })
+            device.needsReload, device.pausing, held.mapNotNullTo(HashSet()) { e -> e.id.takeIf(device::endedTurn) }, values)
         lastShown = shown
         timing?.let { it.boardEnd = clock(); it.version = shown.version }
         worker.main {
@@ -231,6 +237,49 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
 
     /** The last [Shown] published (engine thread). */
     private var lastShown: Shown? = null
+
+    /** What the board built last ([board]) was made from (engine thread). */
+    private class Built(val model: GameModel, val changes: Long, val table: org.asyncttwiz.protocol.game.TableState,
+        val staging: EngineProjection.Staging?, val tokenArt: org.asyncttwiz.automatum.TokenArt, val base: PlayState, val play: PlayState)
+    private var built: Built? = null
+
+    /** Tests and measurements (engine-responsiveness R3): the boards projected from the device's model to publish. */
+    var boardsBuilt = 0
+        private set
+
+    /**
+     * Engine-responsiveness R3: the board to publish on [nodeId] with [attention] and [move], built once: while the model
+     * (its engine state, [GameModel.changes], and table state), the staging, the token pictures and the base are those
+     * of the board built last (an own action's early board published again with its whole outcome when nothing followed
+     * it, or a board published again for its status alone), that board is published again with only these fields new;
+     * otherwise it is projected anew ([EngineProjection.project], a deep copy of the state) with its computed values
+     * ([EngineBoardValues], from the model's one view). Engine thread.
+     */
+    private fun board(nodeId: String, attention: String?, move: String?): PlayState {
+        val model = device.model
+        val last = built
+        if (last != null && last.model === model && last.changes == model.changes && last.table === model.table &&
+            last.staging === staging && last.tokenArt === tokenArt && last.base === base) {
+            val old = last.play
+            if (old.currentNodeId == nodeId && old.board.attentionHolder == attention && old.board.move == move) return old
+            val board = if (old.board.attentionHolder == attention && old.board.move == move) old.board
+                else old.board.copy(attentionHolder = attention, move = move)
+            return old.copy(board = board, currentNodeId = nodeId)
+                .also { built = Built(model, last.changes, last.table, last.staging, last.tokenArt, last.base, it) }
+        }
+        boardsBuilt++
+        val play = EngineProjection.project(base, model, me, nodeId, attention, staging, tokenArt, pictures, move)
+        values(play, model)
+        built = Built(model, model.changes, model.table, staging, tokenArt, base, play)
+        return play
+    }
+
+    /** R3: [play]'s computed values (and later plays), from [model]'s view and visible set: [play] was just projected from
+     * it for [viewer]. Engine thread. */
+    private fun values(play: PlayState, model: GameModel, viewer: String = me) {
+        EngineBoardValues.make(play, viewer, runCatching { model.view() }.getOrNull(),
+            runCatching { model.visible(PlayerId(viewer)) }.getOrDefault(emptySet()), worker)
+    }
 
     /**
      * SYS-025: the board with the player's own action made, while its event is still being finished (what follows by
@@ -247,12 +296,12 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
         }
         // On the board shown before (its node): the table animates it from there, and the panels stay as they were until
         // the action's whole outcome is published (owner playtest 2026-11-04: nothing else flickers)
-        val play = EngineProjection.project(base, device.model, me, last.play.currentNodeId, attention, staging, tokenArt, pictures,
-            last.play.board.move)
+        val play = board(last.play.currentNodeId, attention, last.play.board.move)
         previewed = play
+        // R3: its computed values come with it; its hand plays with the board published after it
         val shown = Shown(++published, play, last.status, last.locked, last.settings, last.opponent, last.behind, last.tip,
             last.localHead, last.drafting, last.request, last.indicator, last.undoTarget, last.line, last.held, last.transition,
-            last.needsReload, last.pausing, last.endTurns)
+            last.needsReload, last.pausing, last.endTurns, EngineBoardValues.of(play.board, me))
         timing.boardEnd = clock(); timing.version = shown.version
         worker.main { this.shown = shown; measure(shown, timing); onShown() }
         return true
@@ -364,19 +413,20 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
         tip: String, attention: String?, move: String?): List<PlayState> {
         val state = start.engine
         var seen = EngineMotion.objects(state)
-        val boards = ArrayList<PlayState>()
+        val boards = ArrayList<Pair<PlayState, GameModel>>()
         forward.forEachIndexed { i, e ->
             for (step in e.engine?.steps.orEmpty()) {
                 step.changes.forEach(state::apply)
                 val now = EngineMotion.objects(state)
                 if (now == seen) continue
                 seen = now
-                boards += EngineProjection.project(base, GameModel(state.deepCopy(), tables[i]), me, tip, attention, staging,
-                    tokenArt, pictures, move)
+                val model = GameModel(state.deepCopy(), tables[i])
+                boards += EngineProjection.project(base, model, me, tip, attention, staging, tokenArt, pictures, move) to model
                 if (boards.size > EngineMotion.MAX_STEPS) boards.removeAt(0)
             }
         }
-        return boards
+        // R3: each step kept comes with its computed values (from the view its projection worked out)
+        return boards.map { (play, model) -> play.also { values(it, model) } }
     }
 
     /** The timeline's events and texts (HIS-001–HIS-005 on engine events; main thread). */
@@ -401,12 +451,12 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
             else -> runCatching { session.stateAt(id) }.getOrNull()
         } ?: return@call null
         if (model.stale) return@call null
-        EngineProjection.project(base, model, me, id, null, null, tokenArt, pictures)
+        EngineProjection.project(base, model, me, id, null, null, tokenArt, pictures).also { values(it, model) }
     }
 
     /** The board of [model] (the point an undo goes back to) as [viewer] sees it, for a view-only preview. */
     fun preview(model: GameModel, at: String, viewer: String): PlayState? = worker.call {
-        runCatching { EngineProjection.project(base, model, viewer, at, null, null, tokenArt) }.getOrNull()
+        runCatching { EngineProjection.project(base, model, viewer, at, null, null, tokenArt).also { values(it, model, viewer) } }.getOrNull()
     }
 
     /** The token pictures for the engine's tokens (SYS-072), from the device's card records. */

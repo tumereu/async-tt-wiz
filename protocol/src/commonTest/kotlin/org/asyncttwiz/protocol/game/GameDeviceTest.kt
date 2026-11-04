@@ -172,6 +172,57 @@ class GameDeviceTest {
         assertTrue(sim.leaks.isEmpty())
     }
 
+    /** The engine searches (layer computations, [Engine.layersWorkedOut]) and points worked out while [ticks] run. */
+    private fun searches(device: GameDevice, ticks: () -> Unit): Pair<Int, Int> {
+        var layers = 0
+        val points = device.pointsWorkedOut
+        Engine.layersWorkedOut = { layers++ }
+        try { ticks() } finally { Engine.layersWorkedOut = null }
+        return layers to device.pointsWorkedOut - points
+    }
+
+    // Engine-responsiveness R3 (I-D56 §4): the device's decision at a point is worked out once: ticks at an unchanged point
+    // (the player's own move, a live wait) search nothing; the other player leaving is a new point, and so is the grace
+    // running out, so the wait still ends on time
+    @Test
+    fun aTickAtAnUnchangedPointSearchesNothingAndTheGraceStillEnds() {
+        val sim = spells("Glance Ahead")
+        sim.bobToMain()
+        val alice = sim.alice; val bob = sim.bob
+        val bobs = sim.device(bob)
+        fun tick(live: Boolean) { bobs.presence(live, sim.now); bobs.advance(sim.now); bobs.status }
+        // Bob's own main phase: his move
+        tick(live = false)
+        assertEquals(GameDevice.Status.YourMove, bobs.status)
+        assertEquals(0 to 0, searches(bobs) { repeat(5) { sim.now += 1_000; tick(live = false) } }, "ticks at his own move")
+        // Alice catches up and stops (Normal) at his spell, live: a wait with "Assume resolves"
+        val device = sim.load(alice)
+        device.settings(PlaySettings(mode = ResponseMode.Normal))
+        device.play()
+        device.playToStop()
+        device.act((device.status as GameDevice.Status.Stopped).assumed)
+        device.playToStop()
+        sim.settle()
+        bobs.presence(live = true, now = sim.now)
+        sim.bobCasts("Glance Ahead")
+        sim.settle()
+        tick(live = true)
+        assertIs<GameDevice.Status.Waiting>(bobs.status)
+        assertEquals(0 to 0, searches(bobs) { repeat(5) { sim.now += 1_000; tick(live = true) } }, "ticks while she is live")
+        // She leaves: a new point (worked out once), then nothing while the grace runs
+        sim.now += 1_000
+        val left = searches(bobs) { tick(live = false) }
+        assertTrue(left.second > 0, "her leaving is worked out: $left")
+        val since = sim.now
+        assertEquals(0 to 0, searches(bobs) { repeat(5) { sim.now += 10_000; tick(live = false) } }, "ticks while the grace runs")
+        assertIs<GameDevice.Status.Waiting>(bobs.status)
+        val before = sim.server.line().size
+        sim.now = since + GameDevice.GRACE_MS
+        sim.settle()
+        assertTrue(sim.server.line().size > before, "assumed once the grace ran out")
+        assertEquals(bob, sim.server.line()[before].assumed?.assumedBy)
+    }
+
     // I-D56 §4: a pause of the live opponent is a wait with "Assume resolves"; once they are not live for 60 s the
     // device goes on as for async; "Always assume resolves" assumes at once
     @Test

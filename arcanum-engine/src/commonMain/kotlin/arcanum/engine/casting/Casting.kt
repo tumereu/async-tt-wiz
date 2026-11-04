@@ -33,10 +33,28 @@ import arcanum.engine.state.PriorityState
  * ([arcanum.engine.change.GameEvent.Activated]). Mana abilities don't use the Stack (CR 605.3b).
  */
 internal object Casting {
+    /**
+     * Why [input] (a land play, cast or activation) can't be begun on [snap]'s state with nothing open: the refusal its
+     * flow below throws before it does anything, word for word ([arcanum.engine.Engine.refusal]); null when it may be
+     * begun, or for a card the state doesn't know (a viewer's state fills it in first, [fillPlayed]) and other inputs.
+     */
+    fun refusal(snap: Snapshot, input: Input): String? = when (input) {
+        is Input.PlayLand -> if (snap.state.obj(input.card)?.unknown == true) null
+            else Legality.cantPlayLand(snap, input.player, input.card, input.face)?.let { "Can't play that land: $it" }
+        is Input.Cast -> if (snap.state.obj(input.card)?.unknown == true) null
+            else Legality.cantCast(snap, input.player, input.card, input.way)?.let { "Can't cast that: $it" }
+        is Input.Activate -> if (!arcanum.engine.foretell.Foretell.isForetell(input.ability) && snap.state.obj(input.source)?.unknown == true) null
+            else when (val instance = Legality.instance(snap, input.source, input.ability)) {
+                null -> "${input.source} has no ability ${input.ability.key}"
+                else -> Legality.cantActivate(snap, input.player, input.source, instance)?.let { "Can't activate that: $it" }
+            }
+        else -> null
+    }
+
     fun playLand(recorder: Recorder, input: Input.PlayLand): Progress {
         fillPlayed(recorder, input, input.player, input.card, "played")?.let { return it }
         val snap = recorder.snapshot()
-        Legality.cantPlayLand(snap, input.player, input.card, input.face)?.let { throw IllegalArgumentException("Can't play that land: $it") }
+        refusal(snap, input)?.let { throw IllegalArgumentException(it) }
         val s = recorder.state
         // CR 305.1: a special action; the land simply enters the battlefield (CR 712.11: with the face played up)
         val turn = s.turn
@@ -58,7 +76,7 @@ internal object Casting {
     fun cast(recorder: Recorder, input: Input.Cast, from: Int = recorder.changes.size): Progress {
         fillPlayed(recorder, input, input.player, input.card, "cast")?.let { return it }
         val snap = recorder.snapshot()
-        Legality.cantCast(snap, input.player, input.card, input.way)?.let { throw IllegalArgumentException("Can't cast that: $it") }
+        refusal(snap, input)?.let { throw IllegalArgumentException(it) }
         val o = recorder.state.objOrThrow(input.card)
         val fromHand = o.zone == Zone.Hand && o.owner == input.player
         val permitted = if (fromHand && input.way.permission == null) null
@@ -95,9 +113,8 @@ internal object Casting {
         if (!arcanum.engine.foretell.Foretell.isForetell(input.ability))
             fillPlayed(recorder, input, input.player, input.source, "activated")?.let { return it }
         val snap = recorder.snapshot()
-        val instance = Legality.instance(snap, input.source, input.ability)
-            ?: throw IllegalArgumentException("${input.source} has no ability ${input.ability.key}")
-        Legality.cantActivate(snap, input.player, input.source, instance)?.let { throw IllegalArgumentException("Can't activate that: $it") }
+        refusal(snap, input)?.let { throw IllegalArgumentException(it) }
+        val instance = checkNotNull(Legality.instance(snap, input.source, input.ability))
         // CR 602.2a: the ability is created on the Stack (its item is added once its costs are paid)
         val id = "a${recorder.state.nextTimestamp()}.${recorder.state.stack.size}"
         val c = Continuation.Announcing(input.player, Announced.Ability(input.source, input.ability, instance.ability),

@@ -19,6 +19,7 @@ import arcanum.engine.state.PlayerId
 import arcanum.engine.state.PriorityState
 import arcanum.engine.state.TargetRef
 import arcanum.engine.view.AbilityOrigin
+import arcanum.engine.view.View
 import org.asyncttwiz.protocol.BoardState
 import org.asyncttwiz.protocol.GameCommand
 import org.asyncttwiz.protocol.MtgRef
@@ -315,17 +316,27 @@ class HandPlays private constructor(val byCard: Map<String, List<Input>>, val un
                 return HandPlays(emptyMap(), problem.reasons)
             }
             HostPriority.settle(call)
-            val state = call.working
+            return of(call.working, call.ids, viewer, null)
+        }
+
+        /**
+         * [of] for a board made from the engine's own state ([org.asyncttwiz.protocol.BoardState.engine], I-D56 step C):
+         * [state] is that state (full information, not changed here) and [view] its view when the caller already has it
+         * (engine-responsiveness R3: worked out on the engine thread, nothing copied). The same plays as [of] gives for it.
+         */
+        fun of(play: PlayState, state: GameState, viewer: String, view: View?): HandPlays = of(state, CardIds.of(play.board), viewer, view)
+
+        private fun of(state: GameState, ids: CardIds, viewer: String, view: View?): HandPlays {
             val hand = state.players.firstOrNull { it.id.value == viewer }?.hand.orEmpty().toSet()
             val byCard = LinkedHashMap<String, MutableList<Input>>()
-            for (input in Engine.options(state, PlayerId(viewer))) {
+            for (input in Engine.options(state, PlayerId(viewer), view)) {
                 val card = when (input) {
                     is Input.Cast -> input.card
                     is Input.PlayLand -> input.card
                     else -> continue
                 }
                 if (card !in hand) continue
-                byCard.getOrPut(call.ids.atw((card as ObjectId.Card).card)) { mutableListOf() } += input
+                byCard.getOrPut(ids.atw((card as ObjectId.Card).card)) { mutableListOf() } += input
             }
             return HandPlays(byCard, emptyList())
         }

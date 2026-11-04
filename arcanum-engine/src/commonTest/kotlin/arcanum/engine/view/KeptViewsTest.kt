@@ -13,8 +13,9 @@ import kotlin.test.assertTrue
 /**
  * A host that keeps a state's view (engine-responsiveness R2) gets the same results as one that has the engine work it
  * out each time: [arcanum.engine.Outcome.view] is the view of the state after the outcome's changes, [Engine.perform]
- * given the state's view gives the same outcome, and the [Engine.visible] and [Engine.revealed] overloads given views
- * give the same sets. Each is compared with [Engine.view] worked out afresh, on seeded random games of cube cards (every
+ * given the state's view gives the same outcome, the [Engine.visible] and [Engine.revealed] overloads given views
+ * give the same sets, and the option searches given the view ([Engine.options], [Engine.passCheck], [Engine.shouldPassFor],
+ * R3) the same results. Each is compared with [Engine.view] worked out afresh, on seeded random games of cube cards (every
  * input listed for any player is tried, then one is played), with [Layers.checkShortcuts] on as in [ShortcutsTest].
  */
 class KeptViewsTest {
@@ -66,6 +67,12 @@ class KeptViewsTest {
             if (Engine.result(state) != null) return@scenario
             val view = Engine.view(state)
             for (p in players) assertEquals(Engine.visible(state, p.id), Engine.visible(state, p.id, view), "visible with the view")
+            // The option searches started from the state's view: the same lists and pass checks
+            for (p in players) {
+                assertEquals(Engine.options(state, p.id), Engine.options(state, p.id, view), "options with the view")
+                assertEquals(Engine.passCheck(state, p.id), Engine.passCheck(state, p.id, view), "passCheck with the view")
+                assertEquals(Engine.shouldPassFor(state, p.id), Engine.shouldPassFor(state, p.id, view), "shouldPassFor with the view")
+            }
             val listed = players.flatMap { p -> Engine.options(state, p.id) }.distinct()
             if (listed.isEmpty()) return@scenario
             listed.forEach { input -> check(state, view, input) }

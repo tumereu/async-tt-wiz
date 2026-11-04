@@ -52,10 +52,11 @@ import arcanum.engine.view.Subtypes
  *   decisions have answers that lead to its end (looked ahead within a bound).
  */
 internal object Options {
-    fun of(state: GameState, player: PlayerId): List<Input> {
+    /** [view], when given, is [state]'s view (the caller has it: the layers aren't worked out again for the search). */
+    fun of(state: GameState, player: PlayerId, view: arcanum.engine.view.View? = null): List<Input> {
         // CR 104.1, 800.4a: nothing to do once the game is over or the player has left it
         if (arcanum.engine.setup.GameEnd.over(state) || state.player(player).lost) return emptyList()
-        val snap = Snapshot(state)
+        val snap = snapshot(state, view)
         state.pending?.let { return answers(snap, it, player) + arcanum.engine.setup.Setup.earlyAnswers(state, it, player) }
         // CR 103: a game made by Engine.newGame starts with Input.StartGame
         if (!state.started) return listOf(Input.StartGame())
@@ -74,14 +75,17 @@ internal object Options {
      * first one found and [predicate] (cheap) is asked before the trial cast or activation of each spell and ability (a
      * host asks this after every outcome, [AutoPass]).
      */
-    fun any(state: GameState, player: PlayerId, predicate: (Input) -> Boolean): Boolean {
+    fun any(state: GameState, player: PlayerId, view: arcanum.engine.view.View? = null, predicate: (Input) -> Boolean): Boolean {
         if (arcanum.engine.setup.GameEnd.over(state) || state.player(player).lost || state.pending != null || !state.started ||
-            Combat.waitingForDeclaration(state) || state.priority.holder != player) return of(state, player).any(predicate)
-        val snap = Snapshot(state)
+            Combat.waitingForDeclaration(state) || state.priority.holder != player) return of(state, player, view).any(predicate)
+        val snap = snapshot(state, view)
         return predicate(Input.PassPriority(player)) || lands(snap, player).any(predicate) ||
             spellWays(snap, player).any { predicate(it) && startable(snap, it) } ||
             abilityWays(snap, player).any { predicate(it) && startable(snap, it) }
     }
+
+    /** A snapshot of [state] with [view], its view, when the caller has it (else worked out when first needed). */
+    fun snapshot(state: GameState, view: arcanum.engine.view.View?): Snapshot = if (view == null) Snapshot(state) else Snapshot(state) { view }
 
     /** Whether [Engine.perform] accepts [input] in the snapshot's state (its view worked out once for every input tried). */
     private fun accepted(snap: Snapshot, input: Input): Boolean = performed(snap, input) != null

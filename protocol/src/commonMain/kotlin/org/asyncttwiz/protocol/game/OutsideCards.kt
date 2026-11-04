@@ -44,14 +44,29 @@ object OutsideCards {
         return found
     }
 
-    /** Whether [definition] is a dungeon the engine can play: a dungeon card whose rooms lead down to one bottommost room (CR 309.4,
-     * the rooms in order, each but the last with an arrow onward). */
+    /** Whether [definition] is a dungeon the engine plays fully (I-D52: nothing left to the players): a dungeon card whose rooms lead
+     * down to one bottommost room (CR 309.4, the rooms in order, each but the last with an arrow onward) and whose every room and
+     * line the parser read (no `Manual` step, no unread text). A device also leaves out a dungeon its fuller support check
+     * (Automatum's) finds any part of by hand. */
     fun isDungeon(definition: EngineCard?): Boolean {
         val face = definition?.faces?.singleOrNull() ?: return false
         if (CardType.Dungeon !in face.types || face.rooms.isEmpty()) return false
-        return face.rooms.withIndex().all { (n, room) ->
+        val arrows = face.rooms.withIndex().all { (n, room) ->
             if (n == face.rooms.lastIndex) room.next.isEmpty() else room.next.isNotEmpty() && room.next.all { it in (n + 1)..face.rooms.lastIndex }
         }
+        return arrows && !unread(json.encodeToJsonElement(EngineCard.serializer(), definition))
+    }
+
+    /** What [dungeons] (parsed) provide of the [Need]s: a dungeon a plain venture may enter, an Undercity. */
+    fun provided(dungeons: List<EngineCard>): Set<Need> = buildSet {
+        if (dungeons.any { isDungeon(it) && !undercity(it) }) add(Need.Dungeon)
+        if (dungeons.any { isDungeon(it) && undercity(it) }) add(Need.Undercity)
+    }
+
+    private fun unread(element: JsonElement): Boolean = when (element) {
+        is JsonArray -> element.any(::unread)
+        is JsonObject -> (element["type"] as? JsonPrimitive)?.content in setOf("manual", "unparsed") || element.values.any(::unread)
+        is JsonPrimitive -> false
     }
 
     /** Whether a parsed dungeon may be entered only by "venture into Undercity" (Undercity's own text, CR 701.49d). */
@@ -75,8 +90,7 @@ object OutsideCards {
         }
 
     /** Whether [outside] (parsed) has the dungeons a deck that [needs] them asks for. */
-    fun provides(needs: Set<Need>, outside: List<EngineCard>): Boolean =
-        (Need.Dungeon !in needs || outside.any { !undercity(it) }) && (Need.Undercity !in needs || outside.any(::undercity))
+    fun provides(needs: Set<Need>, outside: List<EngineCard>): Boolean = provided(outside).containsAll(needs)
 
     /** The game-local card id of the [index]th outside card of [deck] (the engine plays it by this id). */
     fun cardId(deck: PreparedDeck, index: Int): String = org.asyncttwiz.protocol.CommandIds.uuidV5(deck.selectionRequestId, "outside-card/$index")

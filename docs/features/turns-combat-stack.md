@@ -56,7 +56,7 @@ Turn and step tracking, whose move it is, the top and bottom game bars, life, ga
 ### Emblems
 
 - **TRN-053** With Automatum, a player's emblems (a planeswalker's ultimate, say) show as violet chips, each "Emblem: " and the emblem's text, cut after two lines. In portrait they stack, oldest first, in the free room right of the player's piles in their life row, clear of the hands; in landscape (or when that room is too narrow) by the life square: under the opponent's square, above your own, the oldest nearest. They are drawn only, so taps reach the table beneath. (r47)
-- **TRN-069** A player's dungeon in the command zone (LOB-117) shows as a small card with its picture in a fourth place after their Library, Graveyard and Exile, and the room its venture marker is on as a violet chip "Room: <room>", first among the emblem chips (TRN-053). Tapping the dungeon opens Inspect; holding it shows it large. It can't be dragged. Choosing a dungeon to venture into shows the dungeons as cards; a room's ability on the Stack shows its dungeon. (r50)
+- **TRN-069** A player's dungeon in the command zone (LOB-117) shows as a small card with its picture in a fourth place after their Library, Graveyard and Exile (in landscape, where the sidebar has no room for it, in the free row by the piles, under the Library), and the room its venture marker is on as a violet chip "Room: <room>", first among the emblem chips (TRN-053). Tapping the dungeon opens Inspect; holding it shows it large. It can't be dragged. Choosing a dungeon to venture into shows the dungeons as cards; a room's ability on the Stack shows its dungeon. (r50)
 
 ### Opponent presence
 

@@ -1,5 +1,7 @@
 package org.asyncttwiz.android
 
+import org.asyncttwiz.storage.dungeonDefinitions
+
 import android.app.Application
 import android.content.Context
 import android.net.ConnectivityManager
@@ -49,8 +51,10 @@ class CatalogViewModel(application: Application) : AndroidViewModel(application)
     private val directory = AndroidCatalogStorage.directory(application)
     internal val repository = AndroidCatalogStorage.repository(application)
     private val cadence = CatalogCadence(File(directory, "cadence.properties"))
+    /** LOB-117: the catalog's dungeons Automatum plays fully, which the device brings to games whose decks venture. */
+    internal val dungeons = CatalogDungeonCards({ repository.dungeonDefinitions() }, { repository.tokenGeneration() })
     /** I-D51 (DRF-161): draft sets' Automatum support, worked out in the background once card records are installed. */
-    internal val setSupport = CatalogSetSupport(repository, org.asyncttwiz.automatum.AutomatumSupport::byHand,
+    internal val setSupport = CatalogSetSupport(repository, { org.asyncttwiz.automatum.AutomatumSupport.byHand(it, dungeons.provided()) },
         engineVersion = arcanum.engine.Engine.SUPPORT_VERSION)
     private val supportWorker = Executors.newSingleThreadExecutor { Thread(it, "set-support").apply { priority = Thread.MIN_PRIORITY } }
     @Volatile private var supportRunning = false

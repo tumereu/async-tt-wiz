@@ -121,7 +121,7 @@ data class TableLayoutState(val camera: TableCamera = TableCamera(), val scroll:
     val raised: String? = null,
     /** ZON-081 (I-D50): a hand pulled past its end (dp, by hand viewport id), springing back on release. */
     val overscroll: Map<String, Float> = emptyMap())
-/** [DUNGEON]: a player's dungeon in the command zone (TRN-069), a small card after their piles. */
+/** [DUNGEON]: a player's dungeon in the command zone (TRN-069), a small card after their piles (landscape: in the free row). */
 enum class TableItemKind { CARD, PILE, LIFE, HAND, DUNGEON }
 data class TableItem(
     val id: String, val bounds: TableBounds, val label: String, val value: String,
@@ -512,9 +512,10 @@ object TablePresentation {
                 else if (shrink) portraitDock
                 else maxOf(width - gridWidth, minOf(portraitDock, width))
             val dock = TableBounds(0f, rowY, dockWidth, dockRow)
-            // TRN-069: the player's dungeon in the command zone takes a fourth place after the piles
+            // TRN-069: the player's dungeon in the command zone takes a fourth place after the piles in portrait; in landscape
+            // (no room beside the piles) it sits in the free row by them, under the Library
             val dungeon = org.asyncttwiz.automatum.EngineProjection.dungeon(play.board, player.accountId)
-            val places = if (dungeon != null) 4 else 3
+            val places = if (dungeon != null && !landscape) 4 else 3
             val dp = port("dock/${player.accountId}", dock, (if (landscape) landscapeDockWidth(pileWidth) else portraitDock) +
                 (places - 3) * spacing)
             // TRN-053: in portrait the emblem chips sit in the empty room right of the piles, clear of the hands
@@ -526,16 +527,6 @@ object TablePresentation {
                 player.life, player.accountId, kind = TableItemKind.LIFE, viewport = dp.id,
                 emblems = listOfNotNull(dungeon?.room?.takeIf { it.isNotEmpty() }?.let { "Room: $it" }) +
                     EmblemChips.texts(play.board, player.accountId), emblemArea = emblemArea)
-            dungeon?.let { d ->
-                val card = byId[d.cardId]
-                val b = TableBounds(PILE_START + 3 * spacing - dp.scroll, rowY + pileInsetY, pileWidth, pileHeight)
-                items += TableItem("dungeon/${player.accountId}", b, "${name(player.accountId)} dungeon ${d.name}, room ${d.room}",
-                    d.room, player.accountId, kind = TableItemKind.DUNGEON, viewport = dp.id, cardId = d.cardId, frozen = true,
-                    sourceId = null, footprint = b, faceTitle = d.name, artwork = art(card, false), faceId = card?.faceId,
-                    typeLine = face(card)?.typeLine.orEmpty(),
-                    touchBounds = if (landscape) TableBounds(b.center.x - maxOf(48f, b.width) / 2,
-                        b.center.y - maxOf(48f, b.height) / 2, maxOf(48f, b.width), maxOf(48f, b.height)) else null)
-            }
             val counterRowY = if (ownSide) rowY + dockRow else rowY - counterHeight
             for ((n, c) in listOf(PlayZone.LIBRARY, PlayZone.GRAVEYARD, PlayZone.EXILE).map { container(player.accountId, it) }.withIndex()) {
                 val zone = c.zone
@@ -555,7 +546,7 @@ object TablePresentation {
                     typeIcon = if (hidden) "" else cardTypeIcon(face(top)?.typeLine.orEmpty()), artwork = art(top, hidden),
                     changedPowerToughness = !hidden && changedPowerToughness(top?.corner.orEmpty(), face(top)))
             }
-            run {
+            val countersPort = run {
                 // The player counters' room stays, empty (I-D52: no counters by hand); it takes its own row when it
                 // doesn't fit (landscape).
                 val ownRowY = if (landscape) (if (ownSide) counterRowY + counterHeight else counterRowY - counterHeight)
@@ -567,6 +558,19 @@ object TablePresentation {
                         minOf(width, 2 * gridWidth), counterHeights[index]), minOf(width, 2 * gridWidth))
                     else port("counters/${player.accountId}",
                     TableBounds(dock.right, rowY, (width - dock.right).coerceAtLeast(0f), dockRow), portraitGrid)
+            }
+            dungeon?.let { d ->
+                val card = byId[d.cardId]
+                val port = if (landscape) countersPort else dp
+                val b = if (landscape) TableBounds(PILE_START - port.scroll,
+                        port.bounds.y + ((port.bounds.height - pileHeight) / 2).coerceAtLeast(0f), pileWidth, pileHeight)
+                    else TableBounds(PILE_START + 3 * spacing - dp.scroll, rowY + pileInsetY, pileWidth, pileHeight)
+                items += TableItem("dungeon/${player.accountId}", b, "${name(player.accountId)} dungeon ${d.name}, room ${d.room}",
+                    d.room, player.accountId, kind = TableItemKind.DUNGEON, viewport = port.id, cardId = d.cardId, frozen = true,
+                    sourceId = null, footprint = b, faceTitle = d.name, artwork = art(card, false), faceId = card?.faceId,
+                    typeLine = face(card)?.typeLine.orEmpty(),
+                    touchBounds = if (landscape) TableBounds(b.center.x - maxOf(48f, b.width) / 2,
+                        b.center.y - maxOf(48f, b.height) / 2, maxOf(48f, b.width), maxOf(48f, b.height)) else null)
             }
         }
         val stack = container(null, PlayZone.STACK)

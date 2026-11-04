@@ -273,14 +273,18 @@ class AuthorityTest {
         server.act(bob, Input.PlayLand(bob, hand(server.state(), bob, "Island"))).getOrThrow()
         assertNull(server.rewindNeeds(bob, beforeLand))
         val library = server.state().engine.player(bob).library
-        val line = server.rewind(bob, beforeLand)
-        // A new line: its first event reshuffled Bob's library's unknown part; the land is back in hand
-        assertEquals(1, line.startsLine)
+        // The rewind only pops the land's event (owner's rule 2026-11-04): it adds none of its own; a new line is due
+        assertEquals(emptyList(), server.rewind(bob, beforeLand))
+        assertEquals(beforeLand, server.head)
+        assertEquals(beforeLand, server.heads[bob])
+        assertEquals(library, server.state().engine.player(bob).library)
+        assertEquals(1, server.lines)
+        // The next event there starts it: its first step reshuffled Bob's library's unknown part
+        server.act(bob, Input.PlayLand(bob, hand(server.state(), bob, "Island"))).getOrThrow()
+        assertEquals(1, server.history.store.node(server.head)!!.event.startsLine)
         assertNotEquals(library, server.state().engine.player(bob).library)
         assertEquals(library.toSet(), server.state().engine.player(bob).library.toSet())
-        assertEquals(line.id, server.heads[bob])
         // Cast Glance Ahead, assume Alice's pass, scry the top card to the bottom, draw
-        server.act(bob, Input.PlayLand(bob, hand(server.state(), bob, "Island"))).getOrThrow()
         val beforeCast = server.head
         server.act(bob, Input.Cast(bob, hand(server.state(), bob, "Glance Ahead")), follow = server.flow(bob)).getOrThrow()
         if (server.state().engine.priority.holder == bob) server.act(bob, Input.PassPriority(bob)).getOrThrow()
@@ -297,6 +301,8 @@ class AuthorityTest {
         assertNull(server.rewindNeeds(bob, afterDraw))
         server.rewind(bob, afterDraw)
         assertEquals(2, server.lines)
+        server.act(bob, Input.PassPriority(bob)).getOrThrow()
+        assertEquals(2, server.history.store.node(server.head)!!.event.startsLine)
         assertEquals(bottom, server.state().engine.player(bob).library.last())
         val places = server.state().engine.player(bob).let { p -> p.libraryPlaces.filterKeys { it in p.library } }
         assertEquals(mapOf<ObjectId, Int>(bottom to 0), places)

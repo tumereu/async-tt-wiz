@@ -102,6 +102,14 @@ class GameDevice(
     private val confirming = mutableSetOf<String>()
     /** The submissions made by the player's own actions (a refusal of one is told, even "stale"). */
     private val byPlayer = mutableSetOf<String>()
+    /** Who made this device's own recent events (I-D56 §10, report C9PVLM): true for the player's own action (an End
+     * turn's first pass included), false for the device's automatic steps; Undo goes back past the automatic ones. */
+    private val origins = LinkedHashMap<String, Boolean>()
+    /** An End turn waits for its first event: the player's action. */
+    private var endTurnMade = false
+    /** The head a free undo of this player's landed on: the device makes none of their own inputs there by itself
+     * (their mode's passes would carry the game straight past the point again); they act there themselves. */
+    private var holdAt: String? = null
     private val outbox = mutableListOf<GameAction>()
     private val notes = mutableListOf<Note>()
     private var reported: String? = null
@@ -122,8 +130,9 @@ class GameDevice(
         /** Playback: [next] is shown next ([step]). */
         data class Playing(val next: GameEvent) : Status
         /** Playback stopped at [event], the other player's assumption of [assumed] for this player: the table is live
-         * before it, and the player's answer confirms or branches. */
-        data class Stopped(val event: GameEvent, val assumed: Input) : Status
+         * before it, and the player's answer confirms or branches. [paused]: it stops there only because the player paused
+         * playback ([pausing], §27), not by their response mode. */
+        data class Stopped(val event: GameEvent, val assumed: Input, val paused: Boolean = false) : Status
         /** A draft is open (a flow of the player's own). */
         data object Drafting : Status
         /** The game waits for this player at the head. */
@@ -203,7 +212,7 @@ class GameDevice(
         if (session.behind) {
             if (catchUp) return Status.CatchUp
             val next = session.buffered.first()
-            return stopAt(next)?.let { Status.Stopped(next, it) } ?: Status.Playing(next)
+            return stopAt(next)?.let { Status.Stopped(next, it, paused = stopAt(next, settings.mode) == null) } ?: Status.Playing(next)
         }
         val s = model.engine
         Engine.result(s)?.let { return Status.Over(it, confirmable(), final()) }
@@ -293,24 +302,34 @@ class GameDevice(
     /** Leaves the catch-up screen: playback starts. */
     fun play() { catchUp = false }
 
+    /**
+     * The player paused playback (§27, the play/pause button): it goes on to the next point where Full control would stop
+     * (an assumption about them where they could have acted) and stops there ([Status.Stopped.paused]); their answer
+     * there, or playing again, ends the pause. Personal: nothing is sent.
+     */
+    var pausing: Boolean = false
+        set(value) { field = value && session.behind }
+
     /** Shows the next buffered event unless playback stops before it: the event shown, or null. */
     fun step(): GameEvent? {
         if (needsReload || catchUp || session.drafting || !session.behind) return null
         if (stopAt(session.buffered.first()) != null) return null
-        return session.showNext()
+        return session.showNext().also { if (!session.behind) pausing = false }
     }
 
     /** "Return to current" and Back while behind (§7): plays on to the next decision point, never past it. */
     fun playToStop(): List<GameEvent> {
         catchUp = false
+        pausing = false
         return generateSequence { step() }.toList()
     }
 
-    /** The assumed input of [event] where this player's playback stops before it, else null (§7). */
-    private fun stopAt(event: GameEvent): Input? {
+    /** The assumed input of [event] where this player's playback stops before it under [mode], else null (§7); while
+     * paused ([pausing]) wherever Full control stops (§27). */
+    private fun stopAt(event: GameEvent, mode: ResponseMode = if (pausing) ResponseMode.FullControl else settings.mode): Input? {
         val step = event.assumed ?: return null
         if (step.assumedBy == me || Acceptance.assumedAbout(step, event, players) != me) return null
-        return step.input?.takeIf { NextStop.stopsAt(model.engine, it, me, settings.mode) }
+        return step.input?.takeIf { NextStop.stopsAt(model.engine, it, me, mode) }
     }
 
     // ---- The device's own steps
@@ -332,6 +351,7 @@ class GameDevice(
         if (Engine.result(s) != null) return false
         val who = Attention.of(s) ?: return false
         if (who == me || declares(s)) {
+            if (holdAt == session.tip) return false
             val input = own(s) ?: return false
             if (reveals["${session.tip}:$input"] == true) return false
             return make(input, assumed = false) is Acted.Sent
@@ -347,7 +367,10 @@ class GameDevice(
      * attackers; the other player's points are assumed, automatic or waited for as usual. */
     fun endTurn(now: Long) {
         endTurn = model.engine.turn.number
+        endTurnMade = true
+        holdAt = null
         advance(now)
+        endTurnMade = false
     }
 
     /** The player's own input the device makes at the head by itself, or null (§6, §7). */
@@ -440,7 +463,7 @@ class GameDevice(
         reveals[key]?.let { return it }
         if (reveals.size > MAX_PROBES) reveals.clear()
         val before = model.engine.deepCopy()
-        val builder = session.begin(ids())
+        val builder = open()
         val shows = try {
             builder.perform(input, assumedBy = me)
             builder.answerRandoms()
@@ -497,6 +520,8 @@ class GameDevice(
         refusal(input)?.let { return Acted.Refused(it) }
         if (!session.behind) return make(input, assumed = false, follow = follow, table = table, player = true, performed = performed)
         val stop = status as? Status.Stopped
+        // An answer of the player's own ends a pause (§27): playback goes on by their mode after it
+        pausing = false
         if (stop != null && Acceptance.confirms(input, stop.assumed)) return confirmThen(input, table, follow, replay)
         if (stop == null && input !is Input.Concede) return Acted.Refused("playback")
         return make(input, assumed = false, follow = follow, table = table, newLine = lines + 1, player = true)
@@ -553,6 +578,7 @@ class GameDevice(
         confirming += submission.id
         send(GameAction.Submit(submission))
         session.showNext()
+        pausing = false
     }
 
     /**
@@ -566,7 +592,7 @@ class GameDevice(
         if (refusal(null) != null) return null
         val stop = if (session.behind) status as? Status.Stopped ?: return null else null
         draftBefore = if (tentative()) model.engine.deepCopy() else null
-        val builder = session.begin(ids())
+        val builder = open()
         openDraft = builder
         draftStop = stop
         return builder
@@ -608,6 +634,10 @@ class GameDevice(
     private var draftStop: Status.Stopped? = null
     private var draftBefore: GameState? = null
 
+    /** Opens a draft at the tip: starting [newLine] (a branch), or the line a rewind left due at the head (§9). */
+    private fun open(newLine: Int? = null): EventBuilder =
+        session.begin(ids(), newLine ?: if (session.behind) null else Rewind.lineDue(model, lines))
+
     /** Makes [input] (assumed: the other player's, §3) as an event at the tip, or at the local head with [newLine]. */
     private fun make(input: Input, assumed: Boolean, follow: (GameModel) -> Input? = { null }, table: List<TableChange> = emptyList(),
         newLine: Int? = null, player: Boolean = false, performed: (() -> Unit)? = null): Acted {
@@ -617,7 +647,7 @@ class GameDevice(
             if (kind == WhoActs.Kind.Random) return Acted.Refused("Not the player's input")
         } catch (e: Refusal) { return Acted.Refused(e.reason) }
         val before = if (assumed || tentative()) model.engine.deepCopy() else null
-        val builder = session.begin(ids(), newLine)
+        val builder = open(newLine)
         try {
             builder.perform(input, assumedBy = if (assumed) me else null)
             builder.answerRandoms()
@@ -653,6 +683,13 @@ class GameDevice(
         openDraft = null; draftStop = null; draftBefore = null
         val event = session.sendEvent()
         if (player) byPlayer += event.id
+        if (own) {
+            val first = event.engine?.steps?.firstNotNullOfOrNull { it.input }
+            val ended = endTurnMade && (first == Input.PassPriority(me) || (first as? Input.DeclareAttackers)?.player == me)
+            origins[event.id] = player || ended
+            if (ended) endTurnMade = false
+            if (origins.size > MAX_ORIGINS) origins.remove(origins.keys.first())
+        }
         send(GameAction.Submit(Submission.of(event)))
         return Acted.Sent(event)
     }
@@ -745,7 +782,7 @@ class GameDevice(
         if (session.behind && changes.any { it is TableChange.EarlyAnswered }) return Acted.Refused("behind")
         if (session.drafting) return Acted.Refused("drafting")
         if (!session.behind) {
-            val builder = session.begin(ids())
+            val builder = open()
             try { changes.forEach(builder::table) } catch (e: RuntimeException) { session.abandon(); return Acted.Refused("inapplicable") }
             val event = session.sendEvent()
             send(GameAction.Submit(Submission.of(event)))
@@ -756,6 +793,7 @@ class GameDevice(
         val again = rebase(model, changes)
         if (again == null || !applies(model, again)) return Acted.Refused("inapplicable")
         val builder = EventBuilder(model, ids(), session.head, me.value)
+        Rewind.lineDue(model, lines)?.let(builder::startLine)
         try { again.forEach(builder::table) } catch (e: RuntimeException) { return Acted.Refused("inapplicable") }
         val event = builder.build()
         send(GameAction.Submit(Submission.of(event)))
@@ -838,12 +876,32 @@ class GameDevice(
         data class Unavailable(val reason: String) : Undo
     }
 
-    /** The point just before the player's latest own real input shown (their later assumed inputs go with it). */
+    /** The point just before the player's latest own real input shown (their later assumed inputs go with it): never
+     * the device's automatic steps (its passes by the player's mode, engine-automatic answers it made) nor a rewind's
+     * line start, so a second Undo goes on back past the player's previous action (report C9PVLM). */
     fun undoTarget(): String? {
         val shown = session.indexOf(session.localHead) ?: return null
-        return session.events.take(shown + 1).lastOrNull { e ->
-            e.author == me.value && e.assumed == null && (e.engine?.steps?.any { it.input != null } == true || (e.engine == null && e.table.isNotEmpty()))
-        }?.parentId
+        return session.events.take(shown + 1).lastOrNull(::realInput)?.parentId
+    }
+
+    /** Whether [e] is one of this player's own real inputs (an action of theirs, or a table-only event of theirs). Events
+     * made before this device was loaded are judged by their input: the player's own passes and inputs for the other
+     * player there are taken as automatic. */
+    private fun realInput(e: GameEvent): Boolean {
+        if (e.author != me.value || e.assumed != null) return false
+        val input = e.engine?.steps?.firstNotNullOfOrNull { it.input }
+        if (input == null) return e.table.any { it !is TableChange.LineMoved }
+        origins[e.id]?.let { return it }
+        return when (input) {
+            is Input.PassPriority -> false
+            is Input.PlayLand -> input.player == me
+            is Input.Cast -> input.player == me
+            is Input.Activate -> input.player == me
+            is Input.DeclareAttackers -> input.player == me
+            is Input.DeclareBlockers -> input.player == me
+            is Input.SetupAnswer -> input.player == me
+            else -> true
+        }
     }
 
     /** Undo (a tap) to [target] (by default [undoTarget]): sent when free, else [Undo.Request]. */
@@ -893,13 +951,15 @@ class GameDevice(
         if (update != null && update.lines > lines) lines = update.lines
         val target = update?.target
         if (target != null) {
-            val by = events.firstOrNull()?.author
+            val by = update?.rewoundBy ?: events.firstOrNull()?.author
             when (val r = session.rewound(target, events)) {
                 GameSession.Received.Reload -> needsReload = true
                 is GameSession.Received.Changed -> if (r.takenBack.isNotEmpty() && by != me.value && by != null)
                     note(Note.TakenBack(PlayerId(by), r.takenBack))
                 else -> {}
             }
+            // The player's own undo lands where they act next: their device waits for them there (§10)
+            holdAt = if (by == me.value) session.head else null
         } else for (event in events) {
             when (val r = session.received(event)) {
                 GameSession.Received.Reload -> { needsReload = true; break }
@@ -1033,6 +1093,7 @@ class GameDevice(
         /** Events a device keeps before the earlier local head (undo targets and request previews further back come
          * from the server). */
         const val KEPT_EVENTS = 64
+        private const val MAX_ORIGINS = 256
         private const val MAX_AUTOMATIC_EVENTS = 200
         private const val MAX_FOLDED = 500
         private const val MAX_RECORD = 400

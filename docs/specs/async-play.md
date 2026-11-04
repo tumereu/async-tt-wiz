@@ -191,7 +191,9 @@ After a branch:
   revealed, and a card looked at or revealed where it lies and left there); the rest is the unknown part. A reshuffle
   never moves a card a player legitimately knows the place of.
 - **Every line starts by reshuffling the unknown parts of both libraries**, as the first step of its first event (shown
-  nowhere). A line starts at the game's start, at every branch (§8) and at every rewind, free undo included (§10).
+  nowhere). A line starts at the game's start, at every branch (§8) and at every rewind, free undo included (§10). A
+  rewind adds no event of its own (owner, 2026-11-04): it moves the play's line counter on, and the next event made at
+  its target (by either player, or the server's re-added table-only events, §18.10) starts the new line.
 - **Random answers are deterministic per line:** the k-th random answer of a line (its reshuffle, shuffles, mulligans,
   coin flips, dice, random choices) comes from H(game secret, line number, k).
 - **Where the seed lives:** the server makes the game secret when the play starts, stores it with the play and sends it
@@ -205,7 +207,8 @@ After a branch:
 
 ## 10. Undo and rewind
 
-- **Undo (tap)** goes back to just before your latest own real input (your later assumed inputs go with it); when that
+- **Undo (tap)** goes back to just before your latest own real input (your later assumed inputs go with it; your
+  device's own automatic steps after it, its passes by your mode or End turn's, are not real inputs); when that
   undo isn't free it opens the rewind dialog with that target chosen. **Holding Undo** opens the rewind dialog to pick
   any earlier point of the main line.
 - **Free** (done at once) when everything after the target is your own (real inputs, or assumed inputs not yet
@@ -220,9 +223,12 @@ After a branch:
   inputs: answers at a decision stop (confirming or branching) wait too. Looking and playback go on, and playback still
   moves the local head (confirming the passes it doesn't stop at); the requester may cancel; a concession is still
   taken and ends the request.
-- **A rewind** (free or approved) deletes the events after the target, as Undo does today (HIS-086), and starts a new
-  line (§9). A player whose local head was past the target falls back to it; their device plays the way back with the
-  note "Alice took back Storm Spark".
+- **A rewind** (free or approved) only pops events off the tree (owner, 2026-11-04): the events after the target are
+  deleted (HIS-086) and nothing is added for the rewind itself, so no timeline event ever says the game went back; the
+  new line (§9) is kept as the line counter and starts with the next event. The undoer lands at the target and their
+  device makes no automatic step of theirs there until they act (playtest C9PVLM: their mode's passes carried the game
+  straight on). A player whose local head was past the target falls back to it with the fading note "Alice undid".
+  (Branching is unchanged: the discarded line stays in the tree, seen only by the player who made it, §8.)
 - **Redo is removed.** There is no event-count window: any earlier point (checkpoint plus at most 63 events, I-D54).
 - Undo stays a convenience (SYS-006): no flow depends on a request being accepted. Recovering from an engine bug past
   the opponent's input needs their approval; while they are away the requester waits or cancels.
@@ -491,8 +497,8 @@ Decided while building (the most vision-aligned reading; owner to confirm):
    line numbers come from one counter on the play (`engine_play.lines`). A device starting a branch names the next
    number (`Act.NewLine`); the server refuses any other as `stale`, so it never reuses a stream.
 2. **Where a line starts:** a branch's first step is the reshuffle, inside the branching event. A rewind (free or
-   approved) adds the server's own line-start event at the target (the reshuffle only), so the new line exists at once
-   for both devices.
+   approved) moves the line counter on and the next event at its target starts the line (superseded 2026-11-04: it
+   used to add the server's own line-start event, "The game went back").
 3. **Known places** live in the engine (`PlayerState.libraryPlaces`). Looks make places known through `Change.Shown`
    (a scry, a look, a search, a reveal), cards put at a place through the zone change, random-order puts become one
    group; a reorder by itself marks nothing (it always follows a look). Cards a player may look at any time are fixed
@@ -775,6 +781,14 @@ Decided while building (the plainest reading; owner to confirm):
 - Passes, step changes where nothing happened and repeated priority passes apply instantly (only the step indicator moves).
 - Playback stops for good where you must decide.
 - **Play/pause button** (bottom, where Auto was): pausing stops playback at the **next point where full control would stop** (a point where you could have acted), even with no decision waiting for you; there you can react (cast, activate) or turn on full control, and playing again continues. Holding the button opens the full control / auto-skip dialog.
+
+Built (2026-11-04, with the owner's playtest notes of that day): `GameDevice.pausing` (a pause makes playback stop where
+Full control would, `Status.Stopped.paused`; the player's answer there, Play, Return to current or reaching the head ends
+it); the app's `EnginePlaybackPace.quiet` (only priority passes and changes nothing visible: no zone, status, face,
+counter, damage, life, Stack, attachment, control, combat, loss or shuffle change, no new turn) goes by at once, the
+History playback pause follows every other event. HIS-001, HIS-013, HIS-021, HIS-095.
+Decided while building (owner to confirm): the button reads "Pausing" between the tap and the stop; at a stop the pause
+made the playback panel stays (strip and Play), while a stop by the response mode shows the live controls.
 
 ## 28. Built (owner, 2026-11-04): "Your move" everywhere follows who is waiting for whom
 

@@ -105,14 +105,34 @@ private fun DockButtonRow(hidden: Boolean, shown: Float, toggleHidden: () -> Uni
 }
 
 /** A slim Automatum bar docked above the hand ([AboveHand]): one line of [content] (a prompt, then its buttons), in the
- * dock's look. */
+ * dock's look. A choice's bar ([eye], the target bars) has the eye at its left (STK-044, owner playtest 2026-11-04 #4:
+ * every choice can be hidden to look at the board, and shown again); hidden, only the eye stays, at the same spot. */
 @Composable
-internal fun AutomatumDockBar(description: String, content: @Composable RowScope.() -> Unit) {
-    Row(Modifier.fillMaxWidth().heightIn(min = 52.dp).pointerInput(Unit) {}.semantics { contentDescription = description }
+internal fun AutomatumDockBar(description: String, eye: Boolean = false, content: @Composable RowScope.() -> Unit) {
+    if (!eye) {
+        Row(Modifier.fillMaxWidth().heightIn(min = 52.dp).pointerInput(Unit) {}.semantics { contentDescription = description }
+            .drawBehind {
+                drawRect(Color.White)
+                drawLine(AutomatumViolet, Offset(0f, 0f), Offset(size.width, 0f), 2.dp.toPx())
+            }.padding(start = 14.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically, content = content)
+        return
+    }
+    var hidden by remember(description) { mutableStateOf(false) }
+    val shown by animateFloatAsState(if (hidden) 0f else 1f, tween(180), label = description)
+    Row(Modifier.fillMaxWidth().heightIn(min = 52.dp)
+        .then(if (hidden) Modifier else Modifier.pointerInput(Unit) {}.semantics { contentDescription = description })
         .drawBehind {
-            drawRect(Color.White)
-            drawLine(AutomatumViolet, Offset(0f, 0f), Offset(size.width, 0f), 2.dp.toPx())
-        }.padding(start = 14.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically, content = content)
+            drawRect(Color.White.copy(alpha = shown))
+            drawLine(AutomatumViolet.copy(alpha = shown), Offset(0f, 0f), Offset(size.width, 0f), 2.dp.toPx())
+        }.padding(start = 4.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        Surface(shape = CircleShape, color = Color.White, border = BorderStroke(2.dp, AutomatumViolet.copy(alpha = 1f - shown)),
+            shadowElevation = if (hidden) 6.dp else 0.dp) {
+            HoldTip(if (hidden) "Show the bar" else "Hide the bar") { EyeButton(hidden = hidden, { hidden = !hidden }, "bar") }
+        }
+        AnimatedVisibility(!hidden, Modifier.weight(1f), enter = fadeIn(tween(180)), exit = fadeOut(tween(180))) {
+            Row(Modifier.fillMaxWidth().padding(start = 6.dp), verticalAlignment = Alignment.CenterVertically, content = content)
+        }
+    }
 }
 
 /** UI review round 2 N3: where an open choice in a dock panel puts its own buttons (OK, Yes / No, Keep): the panel's

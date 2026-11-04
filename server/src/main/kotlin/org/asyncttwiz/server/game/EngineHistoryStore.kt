@@ -161,6 +161,13 @@ internal class EngineHistoryStore private constructor(
         deleted += ids
     }
 
+    /** Makes the stored event [id] the newest, so it is the main line's head (the event with the highest ordinal): a
+     * rewind that adds no event leaves its target as the head (I-D56 §10). */
+    fun raise(id: String) {
+        val ordinal = (sql.select(DSL.max(ENGINE_EVENT.ORDINAL)).from(ENGINE_EVENT).where(ENGINE_EVENT.PLAY_ID.eq(play)).fetchOne(0, Long::class.java) ?: 0L) + 1
+        sql.update(ENGINE_EVENT).set(ENGINE_EVENT.ORDINAL, ordinal).where(ENGINE_EVENT.PLAY_ID.eq(play)).and(ENGINE_EVENT.ID.eq(UUID.fromString(id))).execute()
+    }
+
     /**
      * Stores [event] (applied to its parent's state, giving [state]) as the next event the server accepted, with its
      * checkpoint when its depth gets one ([GameHistory.checkpointFor]). Returns its node.

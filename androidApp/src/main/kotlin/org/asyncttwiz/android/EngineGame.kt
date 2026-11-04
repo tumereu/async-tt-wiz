@@ -125,7 +125,9 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
         val settings: PlaySettings, val opponent: PlayerId, val behind: Boolean, val tip: String, val localHead: String,
         val drafting: Boolean, val request: EngineRewindRequest?, val indicator: GameDevice.Indicator?, val undoTarget: String?,
         /** The events shown to the player: the main line up to the local head ([held]), then their own pending events. */
-        val line: List<GameEvent>, val held: List<GameEvent>, val transition: Transition?, val needsReload: Boolean) {
+        val line: List<GameEvent>, val held: List<GameEvent>, val transition: Transition?, val needsReload: Boolean,
+        /** The player paused playback (§27): it goes on to the next point where Full control stops. */
+        val pausing: Boolean = false) {
         val engine: GameState get() = play.board.engine!!.state
     }
 
@@ -192,11 +194,13 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
         val held = session.events.take(local + 1)
         val line = held + session.pending
         val before = previous
-        if (before == null || before.currentNodeId != tip || before.board.turn != play.board.turn) transition(before, play, tip, line)
+        if (before == null || before.currentNodeId != tip || before.board.turn != play.board.turn)
+            transition(before, play, tip, line, attention, device.move?.value)
+        previewed = null
         previous = play
         val shown = Shown(++published, play, status, device.locked, device.settings, device.opponent, session.behind, tip,
             session.localHead, session.drafting, device.request, device.indicator(), device.undoTarget(), line, held, lastTransition,
-            device.needsReload)
+            device.needsReload, device.pausing)
         lastShown = shown
         worker.main {
             this.notes.addAll(notes)
@@ -221,11 +225,14 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
             is GameDevice.Status.Waiting -> device.opponent.value
             else -> null
         }
-        val play = EngineProjection.project(base, device.model, me, device.session.tip, attention, staging, tokenArt, pictures,
+        // On the board shown before (its node): the table animates it from there, and the panels stay as they were until
+        // the action's whole outcome is published (owner playtest 2026-11-04: nothing else flickers)
+        val play = EngineProjection.project(base, device.model, me, last.play.currentNodeId, attention, staging, tokenArt, pictures,
             last.play.board.move)
+        previewed = play
         val shown = Shown(++published, play, last.status, last.locked, last.settings, last.opponent, last.behind, last.tip,
             last.localHead, last.drafting, last.request, last.indicator, last.undoTarget, last.line, last.held, last.transition,
-            last.needsReload)
+            last.needsReload, last.pausing)
         worker.main { this.shown = shown; onShown() }
     }
 
@@ -239,13 +246,19 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
      * nothing flashes or moves.
      */
     class Transition(val serial: Long, val cursor: String, val jump: Boolean, val changes: List<org.asyncttwiz.android.TableChange>,
-        val shuffled: Set<String>, val forward: List<GameEvent>, val backward: List<GameEvent>)
+        val shuffled: Set<String>, val forward: List<GameEvent>, val backward: List<GameEvent>,
+        /** TBL-040 (owner playtest 2026-11-04): the boards in between, in event order, each after a step of the forward
+         * events that moved, tapped, made or turned something (the board shown before and the last one left out): the
+         * table plays them one after another at the card move speed, so every card goes to its place in its turn. */
+        val steps: List<PlayState> = emptyList())
 
     private var transitions = 0L
     private var pt: Map<String, Pair<Int, Int>> = emptyMap()
     private var loaded = true
+    /** The board [preview] published last (engine thread): the next transition's steps start with it. */
+    private var previewed: PlayState? = null
 
-    private fun transition(before: PlayState?, after: PlayState, tip: String, line: List<GameEvent>) {
+    private fun transition(before: PlayState?, after: PlayState, tip: String, line: List<GameEvent>, attention: String?, move: String?) {
         val ptAfter = EngineChanges.powerToughness(device.model.engine)
         val from = before?.currentNodeId?.let { id -> line.indexOfFirst { it.id == id }.takeIf { it >= 0 } ?: if (id == device.session.lineStart) -1 else null }
         val to = line.indexOfFirst { it.id == tip }.takeIf { it >= 0 } ?: if (tip == device.session.lineStart) -1 else null
@@ -253,10 +266,46 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
         val forward = if (!jump && to!! > from!!) line.subList(from + 1, to + 1).toList() else emptyList()
         val backward = if (!jump && to!! < from!!) line.subList(to + 1, from + 1).reversed() else emptyList()
         val changes = if (jump || before == null) emptyList() else EngineChanges.between(before, after, pt, ptAfter, forward + backward)
+        // On the transition's node, so the table animates it as one of its steps
+        val shownFirst = previewed?.copy(currentNodeId = tip)
+        val steps = if (jump || forward.isEmpty()) emptyList() else runCatching {
+            EngineMotion.trim(motionSteps(forward, tip, attention, move), before, after, shownFirst)
+        }.onFailure { AppLog.info("engine", "No motion steps: ${it.message}") }.getOrDefault(emptyList())
         lastTransition = Transition(++transitions, tip, jump, changes, if (jump) emptySet() else EngineChanges.shuffled(after, forward),
-            forward, backward)
+            forward, backward, steps)
         pt = ptAfter
         loaded = false
+    }
+
+    /**
+     * TBL-040: the boards after each engine step of [forward] (the events that end at the tip) that changed what the
+     * table draws ([EngineMotion.objects]), projected on [tip] with the final [attention] and [move] (the bars keep their
+     * colour), the last [EngineMotion.MAX_STEPS] at most. Worked out from the tip backwards (each event reverts exactly),
+     * then forwards step by step on a copy: nothing is replayed from the line's start (owner rule).
+     */
+    private fun motionSteps(all: List<GameEvent>, tip: String, attention: String?, move: String?): List<PlayState> {
+        // A long run of events (a revision with many) shows its last ones step by step, what came before at once
+        val forward = all.takeLast(EngineMotion.MAX_EVENTS)
+        if (forward.sumOf { it.engine?.steps?.size ?: 0 } < 2) return emptyList()
+        val walk = device.model.copy()
+        val tables = ArrayList<org.asyncttwiz.protocol.game.TableState>(forward.size)
+        for (e in forward.asReversed()) { tables.add(0, walk.table); walk.revert(e) }
+        if (walk.stale) return emptyList()
+        val state = walk.engine
+        var seen = EngineMotion.objects(state)
+        val boards = ArrayList<PlayState>()
+        forward.forEachIndexed { i, e ->
+            for (step in e.engine?.steps.orEmpty()) {
+                step.changes.forEach(state::apply)
+                val now = EngineMotion.objects(state)
+                if (now == seen) continue
+                seen = now
+                boards += EngineProjection.project(base, GameModel(state.deepCopy(), tables[i]), me, tip, attention, staging,
+                    tokenArt, pictures, move)
+                if (boards.size > EngineMotion.MAX_STEPS) boards.removeAt(0)
+            }
+        }
+        return boards
     }
 
     /** The timeline's events and texts (HIS-001–HIS-005 on engine events; main thread). */
@@ -359,7 +408,7 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
             // A board already shown taken back by the server's revision (owner, N7FU6Y: one line per take-back)
             if (!onLine(tip)) takenBack(when {
                 device.needsReload -> "the server's main line can't be followed (reload)"
-                update?.target != null -> "rewind to ${update.target} by ${events.firstOrNull()?.author ?: "?"}"
+                update?.target != null -> "rewind to ${update.target} by ${update.rewoundBy ?: "?"}"
                 events.firstOrNull()?.let { it.parentId != head } == true -> "branch by ${events.first().author} at ${events.first().parentId}"
                 else -> "own pending events dropped: another event came first"
             } + " (events ${events.joinToString(",") { it.id }})", tip, local)
@@ -461,6 +510,10 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
     /** Leaves the catch-up screen (§7): playback starts. */
     fun startPlayback() = worker.run { device.play(); publish() }
 
+    /** The play/pause button (§27): pausing makes playback stop at the next point where Full control stops; playing
+     * again ends it (at a stop the pause made, [play] answers the same as assumed and goes on). */
+    fun pause(on: Boolean) = worker.call { device.pausing = on; publish() }
+
     /** Playback: the next buffered event, unless it stops before it. */
     fun step(): GameEvent? = worker.call { device.step() }.also { if (it != null) after() }
 
@@ -550,7 +603,7 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
                 takenBack("own $what refused on the device after it showed: ${acted.reason}", tip, local)
                 worker.main { notes.add(GameDevice.Note.Refused(acted.reason)) }
             }
-            after(if (early) null else timing)
+            after(if (early) null else timing, shownEarly = early)
         }
         return result.get() ?: GameDevice.Acted.Refused("failed")
     }
@@ -584,7 +637,14 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
     /** After the player's own action, on the engine thread without holding the caller: its own board first (SYS-025: the
      * action shows at once, not after the steps that follow it), then the device's own steps (passes, assumptions) and,
      * if they changed anything, the board again. [timing]: the action's probe (SYS-030), told once its board is shown. */
-    private fun after(timing: Timing? = null) = worker.run {
+    private fun after(timing: Timing? = null, shownEarly: Boolean = false) = worker.run {
+        // Owner playtest 2026-11-04: an action already shown at its performed point ([preview]) publishes once, with what
+        // follows it by itself: its outcome on the way (the waiting bar, the bars' colour, the move pill) never flashes
+        if (shownEarly) {
+            device.advance(now)
+            publish(device.notes())
+            return@run
+        }
         publish()
         timing?.shown(System.nanoTime())
         val tip = device.session.tip

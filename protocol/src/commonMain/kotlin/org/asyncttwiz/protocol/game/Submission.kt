@@ -335,7 +335,8 @@ object Acceptance {
 
     /**
      * Accepts [submission] by [author] on the main line ending at [head] with each player's local head [heads] (a player
-     * without one is at the root); [nextLine] is the line a branch starts; [rewindOpen]: an undo request is open, so
+     * without one is at the root); [nextLine] is the line a branch starts (one past the line counter: while the head's
+     * line is behind the counter, after a rewind, an event at the head starts the counter's line, [Rewind.lineDue]); [rewindOpen]: an undo request is open, so
      * only a concession is taken (I-D56 §10). Refused ([Refusal]), or accepted with a new event, [warm] is used up.
      */
     fun accept(history: GameHistory, head: String, warm: LiveState?, submission: Submission, author: PlayerId,
@@ -357,17 +358,24 @@ object Acceptance {
                 (if (warm == null) history.stateAt(id) else history.move(warm.model, warm.at, id)).also { used = LiveState(id, it) }
             if (rest.all { commutes(it, submission.table) } && (rest.isEmpty() || submission.acts.firstOrNull() !is Act.NewLine || concession)) {
                 // At the head, or made on the head over other table-only events (the same engine state)
-                val acts = if (concession) submission.acts.filter { it !is Act.NewLine } else submission.acts
-                if (acts.firstOrNull() is Act.NewLine) throw Refusal("stale")
                 val model = state(head)
+                // After a rewind that added no event, the next event at the head starts the new line (§9)
+                val due = Rewind.lineDue(model, nextLine - 1)
+                val acts = when {
+                    due != null && concession -> listOf(Act.NewLine(due)) + submission.acts.filter { it !is Act.NewLine }
+                    due != null -> if (submission.acts.firstOrNull() == Act.NewLine(due)) submission.acts else throw Refusal("stale")
+                    concession -> submission.acts.filter { it !is Act.NewLine }
+                    else -> submission.acts
+                }
+                if (due == null && acts.firstOrNull() is Act.NewLine) throw Refusal("stale")
                 val others = model.engine.players.map { it.id }.filter { it != author }.map { heads[it] ?: history.store.rootId }
                 val tentative = others.any { other -> tentativeFor(history, head, other, author) }
                 // A result is confirmed once every player saw it, its author too (I-D56 §11)
                 val seen = ahead.all { it.engine == null } &&
                     others.all { other -> MainLine.after(history, head, other)?.all { e -> e.engine == null } == true }
                 val event = Authority.make(model, submission.copy(parentId = head, acts = acts), author,
-                    Authority.Rules(tentative = tentative, resultSeenByAll = seen))
-                return Accepted(event, LiveState(event.id, model), authorHead = event.engine != null || parent == own)
+                    Authority.Rules(nextLine = due, tentative = tentative, resultSeenByAll = seen))
+                return Accepted(event, LiveState(event.id, model), authorHead = event.engine?.steps.orEmpty().any { it.input != null } || parent == own)
             }
             val next = rest.first()
             val first = submission.acts.filterIsInstance<Act.Perform>().firstOrNull()

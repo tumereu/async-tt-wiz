@@ -153,7 +153,7 @@ internal fun CastPanelPlacement(stack: TableBounds?, middle: Float?, dock: Table
 private fun TargetBar(cast: CastController, flow: CastFlow, play: PlayState) {
     val decision = flow.pending as Decision.Targets
     // UI review #4, #9: docked above the hand like every Automatum panel, never over it
-    AutomatumDockBar("Choose targets") {
+    AutomatumDockBar("Choose targets", eye = true) {
         Text("${spellName(flow, play)} — ${targetPrompt(decision)}", Modifier.weight(1f), fontSize = 13.sp,
             fontWeight = FontWeight.Medium, maxLines = 2, overflow = TextOverflow.Ellipsis)
         if (decision.max != 1 || decision.min == 0) TextButton(cast::confirmTargets, enabled = cast.picked.size >= decision.min) {

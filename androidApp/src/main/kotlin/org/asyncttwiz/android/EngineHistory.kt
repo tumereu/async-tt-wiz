@@ -25,7 +25,9 @@ internal object EngineEventText {
         fun author() = if (event.author == viewer) "You" else names[event.author] ?: "A player"
         fun card(id: ObjectId?): String = name(id, state, viewer) ?: "a card"
         val step = event.engine?.steps?.firstOrNull { it.input != null }
-        val assumed = if (step?.assumedBy != null) " (assumed)" else ""
+        // HIS-091 (owner playtest 2026-11-04 #1, #2): only the player who assumed an answer reads it as assumed; to the
+        // player it was assumed about it reads as their own answer, the same as if they had made it
+        val assumed = if (step?.assumedBy?.value == viewer) " (assumed)" else ""
         // An assumed input is the other player's (§14: "Bob passes (assumed)"); an answer names no player, its event's author made it
         fun actor(): String = step?.assumedBy?.let { by -> names.keys.firstOrNull { it != by.value }?.let { who(PlayerId(it)) } }
             ?: author()
@@ -56,7 +58,6 @@ internal object EngineEventText {
 
     /** What the table part of a table-only event says. */
     private fun tableText(event: GameEvent, author: String): String = when {
-        event.startsLine != null && event.table.all { it is GameTableChange.LineMoved } -> "The game went back"
         event.table.any { it is GameTableChange.AttackDraft } -> (event.table.firstNotNullOfOrNull { it as? GameTableChange.AttackDraft }!!.after
             ?.let { "$author staged ${it.size} ${if (it.size == 1) "attacker" else "attackers"}" } ?: "$author cleared the attack staging")
         event.table.any { it is GameTableChange.BlockDraft } -> (event.table.firstNotNullOfOrNull { it as? GameTableChange.BlockDraft }!!.after
@@ -67,8 +68,13 @@ internal object EngineEventText {
         event.table.any { it is GameTableChange.Suggestion && it.after != null } -> "A result was suggested"
         event.table.any { it is GameTableChange.Suggestion } -> "The suggested result was answered"
         event.table.any { it is GameTableChange.ResultConfirmed } -> "The result was confirmed"
-        else -> "The game went back"
+        else -> "$author acted"
     }
+
+    /** HIS-086: a rewind's line start that older games stored as an event of its own: shown nowhere (an undo only pops
+     * events; the new line starts with the next event). */
+    fun hidden(event: GameEvent): Boolean = event.engine?.steps.orEmpty().none { it.input != null } &&
+        event.table.isNotEmpty() && event.table.all { it is GameTableChange.LineMoved }
 
     /** What a pass led to (the most telling of: a spell or ability resolved, a new turn, a new step). */
     private fun passOutcome(event: GameEvent, state: GameState?, viewer: String, names: Map<String, String>): String? {
@@ -160,7 +166,7 @@ internal class EngineTimeline {
         val state = published.engine
         val players = state.players.map { it.id.value }
         var turn = 0
-        return shown.map { e ->
+        return shown.filterNot(EngineEventText::hidden).map { e ->
             e.engine?.changes?.lastOrNull { it is Change.Step }?.let { turn = (it as Change.Step).after.number }
             val text = texts.getOrPut(e.id) { EngineEventText.of(e, state, game.me, names) }
             HistoryTimelineEvent(e.id, EngineEventText.icon(e), text, EngineEventText.colourOf(e, players), "turn:$turn")

@@ -1,0 +1,1 @@
+mod: A hand card rises and lowers smoothly, and its cast buttons fade in and out

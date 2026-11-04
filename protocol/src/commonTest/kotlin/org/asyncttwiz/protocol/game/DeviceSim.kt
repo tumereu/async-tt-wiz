@@ -146,8 +146,9 @@ internal class DeviceSim(val games: EngineGames, every: Int = 16) {
         for (action in device(p).take(now)) handle(p, action)
     }
 
-    private fun broadcast(events: List<GameEvent>, target: String? = null, confirmed: String? = null) {
-        val update = EngineUpdate(emptyList(), target, server.heads.mapKeys { it.key.value }, server.lines, server.request, confirmed)
+    private fun broadcast(events: List<GameEvent>, target: String? = null, confirmed: String? = null, rewoundBy: String? = null) {
+        val update = EngineUpdate(emptyList(), target, server.heads.mapKeys { it.key.value }, server.lines, server.request, confirmed,
+            rewoundBy = rewoundBy)
         for (q in listOf(alice, bob)) inbox.getValue(q) += Delivery.Revision(events, update)
     }
 
@@ -190,8 +191,8 @@ internal class DeviceSim(val games: EngineGames, every: Int = 16) {
 
     private fun rewind(p: PlayerId, target: String) {
         rewinds++
-        val events = server.rewindAll(p, target)
-        broadcast(events, target = target)
+        val events = server.rewind(p, target)
+        broadcast(events, target = target, rewoundBy = p.value)
     }
 
     /** Delivers [p]'s next [count] messages (all when null), in order. */

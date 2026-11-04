@@ -304,8 +304,10 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
             sql.insertInto(GAME_REVISION).set(GAME_REVISION.GAME_ID, game.id).set(GAME_REVISION.REVISION, revision)
                 .set(GAME_REVISION.PAYLOAD, encodedUpdate).execute()
             val opponent = if (inbox.accountId == game.inviterId) game.recipientId!! else game.inviterId!!
-            // Whether it is the other player's move: on engine state from their own next stop (switchreview #2)
-            val opponentMoves = seated?.moves?.get(opponent.toString()) ?: (summary.attentionHolder == opponent.toString())
+            // Whether a notice tells the other player it is their move: on engine state only when the game waits for them
+            // (I-D57: never while this player still plays on assumptions about them)
+            val opponentMoves = (if (seated != null) summary.playId?.let { engineGames.waits(sql, UUID.fromString(it)) } else null)
+                ?.get(opponent.toString()) ?: (summary.attentionHolder == opponent.toString())
             insertedChat?.let { message ->
                 org.asyncttwiz.server.activity.ActivityService.record(sql, opponent, ActivityKind.GAME,
                     game.id!!, uuid(message.id), inbox.accountId, yourMove = opponentMoves, newMessage = true)
@@ -316,24 +318,28 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
                 org.asyncttwiz.server.activity.ActivityService.record(sql, opponent, ActivityKind.GAME,
                     game.id!!, uuid(play.id), inbox.accountId, yourMove = opponentMoves)
             }
-            // switchreview #3 (LOB-075, LOB-076): a player whose move ended without the other player being told of a new
-            // one (a confirmation, playback past their stop, an undo request) is no longer listed or reminded (a new stop
-            // of the other player's recorded below arms their reminder again, from its own time)
-            if (engine != null && !engine.ended) for (player in engine.endedStops) {
+            // switchreview #3 (LOB-075, LOB-076), I-D57: a player the game waited for until now is no longer listed or
+            // reminded: when their own move ended it (a confirmation, playback past their stop, an undo request, an action)
+            // their stretch is answered (a wait of the other player's recorded below arms their reminder again, from its own
+            // time); when the other player went on instead (assuming after all, cancelling a request) their notice is
+            // withdrawn: nothing waits for them
+            if (engine != null && !engine.ended) for (player in engine.endedWaits) {
                 val other = if (player == game.inviterId.toString()) game.recipientId!! else game.inviterId!!
-                org.asyncttwiz.server.activity.ActivityService.moveEnded(sql,
-                    UUID.fromString(player), game.id!!, other, engine.moves[other.toString()] == true, updatedAt)
+                if (player == inbox.accountId.toString()) org.asyncttwiz.server.activity.ActivityService.moveEnded(sql,
+                    UUID.fromString(player), game.id!!, other, engine.waits[other.toString()] == true, updatedAt)
+                else org.asyncttwiz.server.activity.ActivityService.waitWithdrawn(sql, UUID.fromString(player), game.id!!)
             }
-            // I-D56 §7: a player hears of an engine play only when their next stop is new ("your move", timed from that
-            // event), never of the line beyond it; LOB-111: the game's end once its result is final
+            // I-D56 §7, I-D57: a player hears of an engine play only when the game newly waits for them ("your move", timed
+            // from their next stop's event), never while the other player plays on assumptions, never of the line beyond
+            // their next stop; LOB-111: the game's end once its result is final
             if (engine != null) {
+                val waited = engine.waits[opponent.toString()] == true
                 if (engine.ended) org.asyncttwiz.server.activity.ActivityService.record(sql, opponent, ActivityKind.GAME,
                     game.id!!, uuid(command.requestId), inbox.accountId)
                 // I-D56 §8 (LOB-116): the assumer hears that the other player answered differently, once per branch
                 else if (engine.branched) org.asyncttwiz.server.activity.ActivityService.record(sql, opponent, ActivityKind.GAME,
-                    game.id!!, uuid(command.requestId), inbox.accountId, yourMove = opponent.toString() in engine.newStops,
-                    move = true, branched = true)
-                else if (opponent.toString() in engine.newStops) org.asyncttwiz.server.activity.ActivityService.record(sql, opponent,
+                    game.id!!, uuid(command.requestId), inbox.accountId, yourMove = waited, move = waited, branched = true)
+                else if (opponent.toString() in engine.newWaits) org.asyncttwiz.server.activity.ActivityService.record(sql, opponent,
                     ActivityKind.GAME, game.id!!, uuid(command.requestId), inbox.accountId,
                     time = engine.stopTimes[opponent.toString()] ?: java.time.OffsetDateTime.now(java.time.ZoneOffset.UTC), yourMove = true, move = true,
                     opponentReady = opponent.toString() in engine.ready)

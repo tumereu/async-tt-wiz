@@ -15,7 +15,9 @@ import org.asyncttwiz.server.generated.tables.ActivitySummary.ACTIVITY_SUMMARY a
 import org.asyncttwiz.server.generated.tables.ActivityInstallation.ACTIVITY_INSTALLATION as INSTALL
 import org.asyncttwiz.server.generated.tables.ActivityPush.ACTIVITY_PUSH as PUSH
 import org.asyncttwiz.server.generated.tables.ActivityPresence.ACTIVITY_PRESENCE as PRESENCE
+import org.asyncttwiz.server.generated.tables.EngineSeat.ENGINE_SEAT
 import org.asyncttwiz.server.generated.tables.Game.GAME
+import org.asyncttwiz.server.generated.tables.PlayerPreparation.PLAYER_PREPARATION
 import org.asyncttwiz.server.generated.tables.GamePlay.GAME_PLAY
 import org.asyncttwiz.server.generated.tables.Invitation.INVITATION
 import org.asyncttwiz.server.generated.tables.GameplayGroup.GAMEPLAY_GROUP
@@ -195,12 +197,14 @@ class ActivityService(private val runtime: ServiceRuntime, private val clock: Cl
         val kinds = rows.take(100).map { ActivityKind.valueOf(it[kind]!!) }
         // Pod names in one query, not one per entry.
         val pods = rows.take(100).filterIndexed { index, _ -> kinds[index].name.startsWith("POD_") }.mapNotNull { it[game] }.toSet()
-        val podNames = if (pods.isEmpty()) emptyMap() else sql.select(POD.ID, POD.NAME).from(POD).where(POD.ID.`in`(pods)).fetch()
-            .associate { it[POD.ID]!! to it[POD.NAME] }
+        val podNames = if (pods.isEmpty()) emptyMap() else sql.select(POD.ID, POD.NAME, POD.SOURCE_NAME).from(POD).where(POD.ID.`in`(pods)).fetch()
+            .associate { it[POD.ID]!! to (it[POD.NAME] to it[POD.SOURCE_NAME]) }
         val entries = rows.take(100).mapIndexed { index, row ->
             val type = kinds[index]
-            val name = if (type.name.startsWith("POD_")) podNames[row[game]] else null
-            ActivityHint(row[activity].toString(), type, row[game].toString(), row[identity].toString(), row[author]?.toString(), resourceName = name)
+            val pod = if (type.name.startsWith("POD_")) podNames[row[game]] else null
+            // I-D57: a pod's notice names the set or cube it drafts
+            ActivityHint(row[activity].toString(), type, row[game].toString(), row[identity].toString(), row[author]?.toString(),
+                resourceName = pod?.first, sourceName = pod?.second)
         }
         val more = rows.size > 100
         val next = if (more) {
@@ -213,8 +217,11 @@ class ActivityService(private val runtime: ServiceRuntime, private val clock: Cl
             .orderBy(SUMMARY.ACTIVITY_ID.desc()).fetch().asSequence().mapNotNull { row ->
                 // LOB-111: the game and, in the same query, the outcome of the result suggestion whose acceptance is this
                 // activity (the play it ended records that request); null for any other activity.
-                val joined = sql.select(GAME.fields().toList() + outcome + suggestionAuthor + suggestionByRules).from(GAME).leftJoin(GAME_PLAY)
+                val joined = sql.select(GAME.fields().toList() + outcome + suggestionAuthor + suggestionByRules + ENGINE_SEAT.RESUME_AT + ownDeckName)
+                    .from(GAME).leftJoin(GAME_PLAY)
                     .on(GAME_PLAY.GAME_ID.eq(GAME.ID)).and(GAME_PLAY.ENDED_REQUEST_ID.eq(row.identity))
+                    .leftJoin(ENGINE_SEAT).on(ENGINE_SEAT.PLAY_ID.eq(GAME.CURRENT_PLAY)).and(ENGINE_SEAT.ACCOUNT_ID.eq(owner))
+                    .leftJoin(PLAYER_PREPARATION).on(PLAYER_PREPARATION.GAME_ID.eq(GAME.ID)).and(PLAYER_PREPARATION.ACCOUNT_ID.eq(owner))
                     .where(GAME.ID.eq(row.gameId)).fetchOne() ?: return@mapNotNull null
                 val gameRow = joined.into(GAME)
                 val byRules = joined[suggestionByRules] == "true"
@@ -235,20 +242,33 @@ class ActivityService(private val runtime: ServiceRuntime, private val clock: Cl
                     authorId.toString(), GameNoticeContent(gameRow.gameName!!, opponent.username!!,
                         row.lastEventAt.toString(), row.yourMove!!, row.newMessage!!, gameOver = gameOver,
                         opponentReady = row.opponentReady!!, conceded = conceded, byRules = byRules && gameOver != null,
-                        branched = row.branched!! && gameOver == null))
+                        branched = row.branched!! && gameOver == null, resumeAt = resumePoint(joined[ENGINE_SEAT.RESUME_AT]),
+                        deckName = joined[ownDeckName]))
             }.take(50).toList()
         // A sent reminder stays listed (client watermarks dedupe it) until the recipient moves.
-        val reminders = sql.select(SUMMARY.fields().toList() + GAME.GAME_NAME + ACCOUNT.USERNAME).from(SUMMARY)
+        val reminders = sql.select(SUMMARY.fields().toList() + GAME.GAME_NAME + ACCOUNT.USERNAME + ENGINE_SEAT.RESUME_AT + ownDeckName).from(SUMMARY)
             .join(GAME).on(GAME.ID.eq(SUMMARY.GAME_ID)).join(ACCOUNT).on(ACCOUNT.ID.eq(SUMMARY.AUTHOR_ID))
+            .leftJoin(ENGINE_SEAT).on(ENGINE_SEAT.PLAY_ID.eq(GAME.CURRENT_PLAY)).and(ENGINE_SEAT.ACCOUNT_ID.eq(owner))
+            .leftJoin(PLAYER_PREPARATION).on(PLAYER_PREPARATION.GAME_ID.eq(GAME.ID)).and(PLAYER_PREPARATION.ACCOUNT_ID.eq(owner))
             .where(SUMMARY.ACCOUNT_ID.eq(owner)).and(SUMMARY.KIND.eq("GAME")).and(SUMMARY.REMINDER_ACTIVITY_ID.le(high))
             .and(GAME.LIFECYCLE.eq("ACTIVE")).andNot(answered()).orderBy(SUMMARY.REMINDER_ACTIVITY_ID.desc()).limit(50).fetch().map { row ->
                 ActivityHint(row[SUMMARY.REMINDER_ACTIVITY_ID].toString(), ActivityKind.GAME, row[SUMMARY.GAME_ID].toString(),
                     row[SUMMARY.IDENTITY].toString(), row[SUMMARY.AUTHOR_ID].toString(), GameNoticeContent(row[GAME.GAME_NAME]!!,
-                        row[ACCOUNT.USERNAME]!!, row[SUMMARY.REMINDER_MOVE_AT].toString(), row[SUMMARY.YOUR_MOVE]!!, reminder = true))
+                        row[ACCOUNT.USERNAME]!!, row[SUMMARY.REMINDER_MOVE_AT].toString(), row[SUMMARY.YOUR_MOVE]!!, reminder = true,
+                        resumeAt = resumePoint(row[ENGINE_SEAT.RESUME_AT]), deckName = row[ownDeckName]))
             }
         val notices = (ready + reminders).sortedByDescending { ActivityWire.ordinal(it.activityId) }.take(50)
         ActivityPage(entries, next, floor.toString(), reset, more, entries.filter { it.kind != ActivityKind.GAME } + notices)
     }
+
+    /** I-D57: the recipient's own deck name in the game (their private pod deck name, else the deck they selected), with
+     * [PLAYER_PREPARATION] joined for them. */
+    private val ownDeckName = DSL.coalesce(PLAYER_PREPARATION.POD_DECK_NAME,
+        DSL.field("({0})::jsonb ->> 'name'", String::class.java, PLAYER_PREPARATION.DECK)).`as`("own_deck_name")
+
+    /** I-D57: the stored point the recipient would resume at (their local head's turn and step). */
+    private fun resumePoint(encoded: String?): ResumePoint? = encoded?.let {
+        runCatching { GameWire.json.decodeFromString(ResumePoint.serializer(), it) }.getOrNull() }
 
     /** LOB-111: a suggestion's outcome as recorded in the play its acceptance ended. */
     private val outcome = DSL.field("({0})::jsonb -> 'board' -> 'resultSuggestion' ->> 'outcome'", String::class.java, GAME_PLAY.PAYLOAD)
@@ -257,19 +277,22 @@ class ActivityService(private val runtime: ServiceRuntime, private val clock: Cl
     /** I-D53: whether it was the rules' result. */
     private val suggestionByRules = DSL.field("({0})::jsonb -> 'board' -> 'resultSuggestion' ->> 'byRules'", String::class.java, GAME_PLAY.PAYLOAD)
 
-    /** The app's own fallback when push and the feed poll missed a game or a pod: games in play where the opponent made
-     * the latest event (the other player's row holds the account's own latest event), the move is the account's,
-     * and the opponent is idle by the rule that makes a push due ([ActivityTiming.due]). Read only. */
+    /** The app's own fallback when push and the feed poll missed a game or a pod: games in play that wait for the account
+     * and whose other player is idle by the rule that makes a push due ([ActivityTiming.due]). On engine state (I-D57) the
+     * game waits for the account by its seat ([engineWaiting]), also when the account itself played on and left with
+     * nothing waiting for the other player; otherwise the opponent made the latest event (the other player's row holds
+     * the account's own latest event) and the move is the account's. Read only. */
     fun waiting(principal: AccountService.Principal): WaitingGames = transaction { sql ->
         val owner = account(principal); val time = now()
         val own = SUMMARY.`as`("own")
+        val engine = DSL.exists(DSL.selectOne().from(ENGINE_SEAT).where(ENGINE_SEAT.PLAY_ID.eq(GAME.CURRENT_PLAY)))
         val rows = sql.select(SUMMARY.fields().toList() + GAME.GAME_NAME + ACCOUNT.USERNAME).from(SUMMARY)
             .join(GAME).on(GAME.ID.eq(SUMMARY.GAME_ID)).join(INVITATION).on(INVITATION.ID.eq(GAME.CURRENT_INVITATION))
             .join(ACCOUNT).on(ACCOUNT.ID.eq(SUMMARY.AUTHOR_ID))
             .where(SUMMARY.ACCOUNT_ID.eq(owner)).and(SUMMARY.KIND.eq("GAME")).and(SUMMARY.YOUR_MOVE.isTrue)
             .and(GAME.LIFECYCLE.eq("ACTIVE")).and(visible(owner, SUMMARY.KIND, SUMMARY.IDENTITY))
             .andNotExists(DSL.selectOne().from(own).where(own.GAME_ID.eq(SUMMARY.GAME_ID)).and(own.KIND.eq("GAME"))
-                .and(own.ACCOUNT_ID.ne(owner)).and(own.LAST_EVENT_AT.gt(SUMMARY.LAST_EVENT_AT)))
+                .and(own.ACCOUNT_ID.ne(owner)).and(own.LAST_EVENT_AT.gt(SUMMARY.LAST_EVENT_AT))).andNot(engine)
             .orderBy(SUMMARY.LAST_EVENT_AT.desc()).limit(50).fetch()
         val games = rows.filter { row ->
             ActivityTiming.due(ActivityTiming.leases(sql, row[SUMMARY.GAME_ID]!!, row[SUMMARY.AUTHOR_ID]!!),
@@ -279,7 +302,33 @@ class ActivityService(private val runtime: ServiceRuntime, private val clock: Cl
                 row[SUMMARY.IDENTITY].toString(), row[SUMMARY.AUTHOR_ID].toString(), GameNoticeContent(row[GAME.GAME_NAME]!!,
                     row[ACCOUNT.USERNAME]!!, row[SUMMARY.LAST_EVENT_AT].toString(), true, row[SUMMARY.NEW_MESSAGE]!!, reminder = true))
         }
-        WaitingGames(games + waitingPods(sql, owner))
+        WaitingGames((games + engineWaiting(sql, owner, time)).sortedByDescending { OffsetDateTime.parse(it.notice!!.lastEventAt) }
+            .take(50) + waitingPods(sql, owner))
+    }
+
+    /** I-D57: the engine games that wait for [owner] by their seat ([org.asyncttwiz.protocol.game.NextStop.waitsFor]), timed
+     * from their next stop's event with the other player idle by the push rule; the notice names the opponent, the point
+     * the account would resume at and its own deck. */
+    private fun engineWaiting(sql: DSLContext, owner: UUID, time: OffsetDateTime): List<ActivityHint> {
+        val other = DSL.`when`(GAME.INVITER_ID.eq(owner), GAME.RECIPIENT_ID).otherwise(GAME.INVITER_ID)
+        val rows = sql.select(GAME.ID, GAME.GAME_NAME, ACCOUNT.ID, ACCOUNT.USERNAME, ENGINE_SEAT.NEXT_STOP, ENGINE_SEAT.NEXT_STOP_AT,
+            ENGINE_SEAT.RESUME_AT, ownDeckName, SUMMARY.ACTIVITY_ID, SUMMARY.NEW_MESSAGE).from(ENGINE_SEAT)
+            .join(GAME).on(GAME.CURRENT_PLAY.eq(ENGINE_SEAT.PLAY_ID)).join(INVITATION).on(INVITATION.ID.eq(GAME.CURRENT_INVITATION))
+            .join(ACCOUNT).on(ACCOUNT.ID.eq(other))
+            .leftJoin(PLAYER_PREPARATION).on(PLAYER_PREPARATION.GAME_ID.eq(GAME.ID)).and(PLAYER_PREPARATION.ACCOUNT_ID.eq(owner))
+            .leftJoin(SUMMARY).on(SUMMARY.ACCOUNT_ID.eq(owner)).and(SUMMARY.GAME_ID.eq(GAME.ID)).and(SUMMARY.KIND.eq("GAME"))
+            .where(ENGINE_SEAT.ACCOUNT_ID.eq(owner)).and(ENGINE_SEAT.WAITED.isTrue).and(ENGINE_SEAT.NEXT_STOP_AT.isNotNull)
+            .and(GAME.LIFECYCLE.eq("ACTIVE")).and(GAME.INVITER_ID.eq(owner).or(INVITATION.STATE.eq("ACCEPTED")))
+            .orderBy(ENGINE_SEAT.NEXT_STOP_AT.desc()).limit(50).fetch()
+        return rows.filter { row ->
+            ActivityTiming.due(ActivityTiming.leases(sql, row[GAME.ID]!!, row[ACCOUNT.ID]!!),
+                ActivityTiming.leases(sql, row[GAME.ID]!!, owner), row[ENGINE_SEAT.NEXT_STOP_AT]!!, true, time)
+        }.map { row ->
+            ActivityHint((row[SUMMARY.ACTIVITY_ID] ?: 0L).toString(), ActivityKind.GAME, row[GAME.ID].toString(),
+                (row[ENGINE_SEAT.NEXT_STOP] ?: row[GAME.ID]).toString(), row[ACCOUNT.ID].toString(), GameNoticeContent(row[GAME.GAME_NAME]!!,
+                    row[ACCOUNT.USERNAME]!!, row[ENGINE_SEAT.NEXT_STOP_AT].toString(), true, row[SUMMARY.NEW_MESSAGE] == true, reminder = true,
+                    resumeAt = resumePoint(row[ENGINE_SEAT.RESUME_AT]), deckName = row[ownDeckName]))
+        }
     }
 
     /** Pods waiting for the account (DRF-136): its pick, with the hint of the pack that arrived at its empty queue,
@@ -287,13 +336,13 @@ class ActivityService(private val runtime: ServiceRuntime, private val clock: Cl
     private fun waitingPods(sql: DSLContext, owner: UUID): List<ActivityHint> {
         val unsubmitted = DSL.exists(DSL.selectOne().from(POD_MEMBER).where(POD_MEMBER.POD_ID.eq(SUMMARY.GAME_ID))
             .and(POD_MEMBER.ACCOUNT_ID.eq(owner)).and(POD_MEMBER.SUBMITTED_DECK.isNull))
-        return sql.select(SUMMARY.ACTIVITY_ID, SUMMARY.KIND, SUMMARY.GAME_ID, SUMMARY.IDENTITY, POD.NAME).from(SUMMARY)
+        return sql.select(SUMMARY.ACTIVITY_ID, SUMMARY.KIND, SUMMARY.GAME_ID, SUMMARY.IDENTITY, POD.NAME, POD.SOURCE_NAME).from(SUMMARY)
             .join(POD).on(POD.ID.eq(SUMMARY.GAME_ID))
             .where(SUMMARY.ACCOUNT_ID.eq(owner)).and(podVisible(DSL.`val`(owner), SUMMARY.KIND, SUMMARY.GAME_ID, SUMMARY.IDENTITY))
             .and(SUMMARY.KIND.eq(ActivityKind.POD_YOUR_PICK.name).or(SUMMARY.KIND.eq(ActivityKind.POD_DRAFT_COMPLETE.name).and(unsubmitted)))
             .orderBy(SUMMARY.LAST_EVENT_AT.desc(), SUMMARY.GAME_ID).limit(50).fetch().map { row ->
                 ActivityHint(row[SUMMARY.ACTIVITY_ID].toString(), ActivityKind.valueOf(row[SUMMARY.KIND]!!), row[SUMMARY.GAME_ID].toString(),
-                    row[SUMMARY.IDENTITY].toString(), resourceName = row[POD.NAME])
+                    row[SUMMARY.IDENTITY].toString(), resourceName = row[POD.NAME], sourceName = row[POD.SOURCE_NAME])
             }
     }
 
@@ -407,6 +456,23 @@ class ActivityService(private val runtime: ServiceRuntime, private val clock: Cl
             // Without a row of [other]'s there is no stretch of theirs to keep: [owner]'s own stretch just closes
             if (rearmed == 0) sql.update(SUMMARY).setNull(SUMMARY.REMINDER_MOVE_AT).setNull(SUMMARY.REMINDER_ACTIVITY_ID)
                 .where(SUMMARY.ACCOUNT_ID.eq(owner)).and(SUMMARY.GAME_ID.eq(game)).and(SUMMARY.KIND.eq("GAME")).execute()
+        }
+
+        /**
+         * I-D57: the game no longer waits for [owner] though they did nothing (the other player went on instead: assuming
+         * after all, cancelling an undo request). Their "Your move" notice not yet seen is withdrawn with its pending push
+         * (one that also tells a new message or a branch stays, no longer as their move), and their waiting stretch closes.
+         */
+        fun waitWithdrawn(sql: DSLContext, owner: UUID, game: UUID) {
+            val row = SUMMARY.ACCOUNT_ID.eq(owner).and(SUMMARY.GAME_ID.eq(game)).and(SUMMARY.KIND.eq("GAME"))
+            val kept = SUMMARY.NEW_MESSAGE.isTrue.or(SUMMARY.BRANCHED.isTrue)
+            val withdrawn = sql.update(SUMMARY).set(SUMMARY.YOUR_MOVE, false).set(SUMMARY.OPPONENT_READY, false)
+                .set(SUMMARY.SEEN_THROUGH, DSL.`when`(kept, SUMMARY.SEEN_THROUGH).otherwise(SUMMARY.ACTIVITY_ID))
+                .setNull(SUMMARY.REMINDER_MOVE_AT).setNull(SUMMARY.REMINDER_ACTIVITY_ID)
+                .where(row).returning(SUMMARY.NEW_MESSAGE, SUMMARY.BRANCHED).fetchOne() ?: return
+            if (withdrawn.newMessage == true || withdrawn.branched == true) return
+            sql.deleteFrom(PUSH).where(PUSH.GAME_ID.eq(game)).and(PUSH.KIND.eq("GAME"))
+                .and(PUSH.GENERATION.`in`(sql.select(INSTALL.GENERATION).from(INSTALL).where(INSTALL.ACCOUNT_ID.eq(owner)))).execute()
         }
 
         const val REMINDER_SECONDS = 300L

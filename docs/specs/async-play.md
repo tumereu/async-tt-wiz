@@ -746,3 +746,25 @@ Findings #2–#9 and #12 of the review (`SwitchReviewTest` in server, protocol a
 Decided for the owner (to confirm): **an undo request is the other player's move** (#12): while open, the requester has
 no next stop and the other player has one (at least at the head, timed from the request): listed as their move and
 notified "Your move" like any move (LOB-072, LOB-075's reminder included); answering or cancelling ends it.
+
+## 26. Built (I-D57, 2026-11-04): notifications by who is waiting for whom
+
+`NextStop.waitsFor`: the game waits for a player with a next stop when the main line's head is their decision
+(`Attention`), their opening declaration, a result they haven't seen, or an undo request to answer. The server keeps it
+per seat (`engine_seat.waited`, V60) after every change, with the point the player would resume at
+(`engine_seat.resume_at`: their local head's turn and step). LOB-072, LOB-073, LOB-075, LOB-076, TRN-058, DRF-135, DRF-137.
+
+Decided while building (the plainest reading; owner to confirm):
+1. **Only notifications follow it**: the game list, move pill and bar colours still show "your move" for any next stop
+   (TRN-058), so a player can still open the game and answer an assumption.
+2. **Withdrawal:** when the other player goes on before the notice went out (an assumption right after a real input,
+   cancelling an undo request) the unseen notice and its push are withdrawn and the stretch closes; one already shown
+   stays on the phone. A notice that also tells a new message or a branch stays, no longer as "Your move".
+3. **Who played on and left** gets the app's own reminders (LOB-076) with their usual text ("<opponent> is waiting for
+   you"); the server's 5-minute reminder (LOB-075) and a branch notice's reminder arm only while the game waits for the
+   recipient.
+4. **Content:** "<status> · Turn 5, Alex's turn, End step" (the turn square's words; "Mulliganing" in the opening; none
+   in a game-over notice), the recipient's deck (their private pod deck name, else the selected deck's) in the
+   notification's header; a pod notification's text line is its set or cube name.
+5. **Queued challenge:** a pod game still in its lobby, never played, its invitation pending or accepted; both the
+   challenger and the challenged skip "Decks ready".

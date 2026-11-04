@@ -581,8 +581,11 @@ class PodService(private val runtime: ServiceRuntime) {
                 DraftDeckStore.entries(build, pool, copies(row).associate { it.id to it.definition }, basics))
             releaseChallenges(sql, row.id!!, owner)
             if (members(sql, row.id!!).all { it.submittedDeck != null }) {
-                for (recipient in members(sql, row.id!!)) ActivityService.record(sql, recipient.accountId!!,
-                    ActivityKind.POD_DECKS_READY, row.id!!, row.draftAttemptId!!, owner)
+                // I-D57: one notice per thing that needs you: a member with a challenge of this pod queued (sent or received,
+                // not yet played) hears of it from the challenge, not from "Decks ready" too
+                val challenged = queuedChallengers(sql, row.id!!)
+                for (recipient in members(sql, row.id!!)) if (recipient.accountId !in challenged) ActivityService.record(sql,
+                    recipient.accountId!!, ActivityKind.POD_DECKS_READY, row.id!!, row.draftAttemptId!!, owner)
             }
             save(sql, row); detail(sql, row, owner)
         }
@@ -628,6 +631,16 @@ class PodService(private val runtime: ServiceRuntime) {
             if (!held) ActivityService.record(sql, UUID.fromString(input.opponentId), ActivityKind.INVITATION, game, invitation, owner)
             Result(201, json.encodeToString(summary))
         }
+
+    /** The players of [pod]'s queued challenges (I-D57): games of the pod still in their lobby, never played, whose
+     * invitation is pending or accepted. */
+    private fun queuedChallengers(sql: DSLContext, pod: UUID): Set<UUID> {
+        val plays = org.asyncttwiz.server.generated.tables.GamePlay.GAME_PLAY
+        return sql.select(GAME.INVITER_ID, GAME.RECIPIENT_ID).from(GAME).join(INVITATION).on(INVITATION.ID.eq(GAME.CURRENT_INVITATION))
+            .where(GAME.POD_ID.eq(pod)).and(GAME.LIFECYCLE.eq("LOBBY")).and(INVITATION.STATE.`in`("PENDING", "ACCEPTED"))
+            .andNotExists(DSL.selectOne().from(plays).where(plays.GAME_ID.eq(GAME.ID))).fetch()
+            .flatMap { listOfNotNull(it.value1(), it.value2()) }.toSet()
+    }
 
     /** Challenges sent while [recipient] was still building become ordinary pending invitations once they submit. */
     private fun releaseChallenges(sql: DSLContext, pod: UUID, recipient: UUID) {

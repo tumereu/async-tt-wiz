@@ -1,0 +1,1 @@
+add: Game notifications say where you would continue and which deck you play; draft notifications name the set or cube

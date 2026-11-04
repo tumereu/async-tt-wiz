@@ -28,7 +28,7 @@ Turn and step tracking, whose move it is, the top and bottom game bars, life, ga
 - **TRN-012** Whose TURN shows on the battlefields: only the turn player's battlefield is tinted (your own green-ish, the opponent's red-ish, the land band a little darker); the other battlefield is neutral grey. (r11)
 - **TRN-013** Whose MOVE shows on the bars: the top and bottom bars take the light colour of the player who must act as shown to you, worked out for each viewer from their local head, never part of an event. In timeline mode both bars are grey. (r48)
 - **TRN-014** The move follows who must act (TRN-058) as shown to each player; no event carries it. (r48)
-- **TRN-058** The move follows who must act, as each player is shown it: "Your move" when you have a next stop (TRN-006); the move pill, the bar colours and "your move" notifications come from it, never from an event. (r48)
+- **TRN-058** The move follows who must act, as each player is shown it: "Your move" when you have a next stop (TRN-006); the move pill and the bar colours come from it, never from an event. "Your move" notifications come only when the game waits for you (LOB-073). (r49)
 
 ### Bottom bar and quick actions
 

@@ -150,19 +150,19 @@ class SwitchReviewTest {
             "the start revision Bob's app installs says his mulligan is his move")
     }
 
-    // switchreview #3, LOB-075, LOB-076: Alice assumes Bob's keep (he is away): Bob is notified "your move" and his waiting
-    // reminder is armed. Bob comes back and confirms the same keep: his move is over (Alice's first turn), but nothing
-    // records it: only a new next stop of the other player answers a reminder stretch on engine state. Bob then gets
-    // "<Alice> is waiting for you" five minutes later, and the app's own fallback (LOB-076) keeps listing the game.
+    // switchreview #3, LOB-075, LOB-076: Alice assumes Bob's keep (he is away). Bob comes back and confirms the same keep:
+    // his move is over (Alice's first turn), but nothing recorded it: Bob then got "<Alice> is waiting for you" five
+    // minutes later, and the app's own fallback (LOB-076) kept listing the game. Since I-D57 (async-play.md §24, LOB-072)
+    // the assumed keep itself leaves nothing waiting for Bob: the notice of Alice's keep is withdrawn, no reminder armed.
     @Test fun `confirming the assumed keep ends Bob's reminder stretch`() = withService { runtime ->
         val f = Fixture(runtime)
         val alice = f.aliceKeeps()
         val bob = f.device(f.b)
         val open = alice.model.engine.pending!!.decision
         assertEquals("accepted", f.owner.execute(GameAction.Submit(alice.act(id(), Input.Answer(open.id, Answer.Option("Keep")), assumed = true))).outcome)
-        val notified = requireNotNull(f.activity(f.b)) { "Bob is notified of the assumed keep" }
-        assertTrue(notified.yourMove!!, "Bob's next stop is the assumed keep: his move")
-        assertNotNull(notified.reminderMoveAt, "his waiting reminder is armed")
+        val notified = requireNotNull(f.activity(f.b)) { "Bob was told of Alice's keep" }
+        assertFalse(notified.yourMove!!, "I-D57: Alice plays on the assumed keep: nothing waits for Bob")
+        assertNull(notified.reminderMoveAt, "no waiting reminder for Bob")
         // Bob confirms with the same answer at his local head
         assertEquals("accepted", f.recipient.execute(GameAction.Submit(bob.act(id(), Input.Answer(open.id, Answer.Option("Keep"))))).outcome)
         assertEquals(f.a.account.accountId, f.attention(f.b), "now it is Alice's move for Bob")

@@ -37,6 +37,17 @@ object NextStop {
         return if (Attention.of(model.engine) == player || declares(model.engine, player)) Stop(at, null) else null
     }
 
+    /**
+     * Whether the game waits for [player] (I-D57, async-play.md §24), with [stop] their next stop: the game can't go on
+     * without them, so they are told "Your move" and reminded. That is when [head] (the main line's head) is their
+     * decision (their turn's stops, a choice only they make, an information-rule stop, a wait instead of an assumption,
+     * or the other player's line running out without them: all leave the head at their decision), their opening
+     * declaration, or the game's result they haven't seen yet. Not while the other player is still playing on
+     * assumptions about them (the head is then the other player's), however the head came about (play, branch, rewind).
+     */
+    fun waitsFor(head: GameState, player: PlayerId, stop: Stop?): Boolean =
+        stop != null && (Engine.result(head) != null || Attention.of(head) == player || declares(head, player))
+
     /** Whether [player] may declare their opening mulligan (or bottom choice) on [state] while the other player's is
      * the open decision (simultaneous mulligans, I-D54 §8): their move too. */
     fun declares(state: GameState, player: PlayerId): Boolean =
@@ -111,4 +122,27 @@ object Rewind {
     fun standing(after: List<GameEvent>, player: PlayerId): List<GameEvent> =
         after.filter { it.author != player.value && it.engine == null && it.table.none { c -> c is TableChange.LineMoved } }
 
+}
+
+/** The point a player would resume a game at, as a notification names it (I-D57): the turn and step of [state], the state
+ * at their own local head. */
+object ResumePoints {
+    fun of(state: GameState, viewer: PlayerId): org.asyncttwiz.protocol.ResumePoint =
+        if (state.turn.number == 0) org.asyncttwiz.protocol.ResumePoint(0, false)
+        else org.asyncttwiz.protocol.ResumePoint(state.turn.number, state.turn.active == viewer, position(state.turn.step))
+
+    private fun position(step: arcanum.api.TurnStep): org.asyncttwiz.protocol.TurnPosition = when (step) {
+        arcanum.api.TurnStep.Untap -> org.asyncttwiz.protocol.TurnPosition.UNTAP
+        arcanum.api.TurnStep.Upkeep -> org.asyncttwiz.protocol.TurnPosition.UPKEEP
+        arcanum.api.TurnStep.Draw -> org.asyncttwiz.protocol.TurnPosition.DRAW
+        arcanum.api.TurnStep.PrecombatMain -> org.asyncttwiz.protocol.TurnPosition.PRECOMBAT_MAIN
+        arcanum.api.TurnStep.BeginningOfCombat -> org.asyncttwiz.protocol.TurnPosition.BEGIN_COMBAT
+        arcanum.api.TurnStep.DeclareAttackers -> org.asyncttwiz.protocol.TurnPosition.DECLARE_ATTACKERS
+        arcanum.api.TurnStep.DeclareBlockers -> org.asyncttwiz.protocol.TurnPosition.DECLARE_BLOCKERS
+        arcanum.api.TurnStep.CombatDamage -> org.asyncttwiz.protocol.TurnPosition.COMBAT_DAMAGE
+        arcanum.api.TurnStep.EndOfCombat -> org.asyncttwiz.protocol.TurnPosition.END_COMBAT
+        arcanum.api.TurnStep.PostcombatMain -> org.asyncttwiz.protocol.TurnPosition.POSTCOMBAT_MAIN
+        arcanum.api.TurnStep.End -> org.asyncttwiz.protocol.TurnPosition.END_STEP
+        arcanum.api.TurnStep.Cleanup -> org.asyncttwiz.protocol.TurnPosition.CLEANUP
+    }
 }

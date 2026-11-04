@@ -8,8 +8,11 @@ import kotlinx.serialization.json.Json
 @Serializable enum class ActivityKind { INVITATION, GAME, POD_INVITATION, POD_YOUR_PICK, POD_DRAFT_COMPLETE, POD_DECKS_READY, POD_DRAFT_CANCELLED, POD_DESTROYED, POD_AUTO_START_OFF }
 /** gameId is the pod ID for POD_* kinds; identity is the draft attempt for
  * POD_YOUR_PICK / POD_DRAFT_COMPLETE. The existing game hint shape is unchanged. */
+@OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
 @Serializable data class ActivityHint(val activityId: String, val kind: ActivityKind, val gameId: String,
-    val identity: String, val authorId: String? = null, val notice: GameNoticeContent? = null, val resourceName: String? = null)
+    val identity: String, val authorId: String? = null, val notice: GameNoticeContent? = null, val resourceName: String? = null,
+    /** POD_* kinds (I-D57): the set or cube the pod drafts. Omitted when unknown. */
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val sourceName: String? = null)
 /** Authenticated projection only; never included in the FCM data hint. [reminder]: the one-off
  * "opponent is waiting" notice after their moves went unanswered (omitted when false). [gameOver]: the opponent
  * accepted the recipient's result suggestion, which was this outcome from the recipient's (its author's) side
@@ -28,7 +31,17 @@ import kotlinx.serialization.json.Json
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val byRules: Boolean = false,
     /** I-D56 §8 (LOB-116): the opponent's real answer differed from what the recipient assumed; their later actions
      * were taken back. */
-    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val branched: Boolean = false)
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val branched: Boolean = false,
+    /** I-D57: where the recipient would resume: the turn and step at their own local head, never the main line's head. */
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val resumeAt: ResumePoint? = null,
+    /** I-D57: the recipient's own deck in this game. */
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val deckName: String? = null)
+
+/** A point of a game as a notification names it (I-D57): [turn] number (0: the opening, both players Mulliganing),
+ * whether it is the recipient's own turn ([yours]) and the [step] (null in the opening). */
+@OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
+@Serializable data class ResumePoint(val turn: Int, val yours: Boolean,
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val step: TurnPosition? = null)
 @Serializable data class ActivityPage(val entries: List<ActivityHint>, val nextCursor: String,
     val retentionFloor: String, val summaryReset: Boolean, val hasMore: Boolean,
     val readyNotices: List<ActivityHint>? = null)

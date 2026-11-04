@@ -250,8 +250,15 @@ object CardVisibility {
     /** I-D54/I-D56 step C: a board shown for a game whose state is the engine's carries that state (never serialized;
      * equal only to itself, so board equality stays cheap): every engine reader of the board uses it instead of
      * rebuilding one from the board ([org.asyncttwiz.protocol.game.EngineView]). */
-    @kotlinx.serialization.Transient val engine: org.asyncttwiz.protocol.game.EngineView? = null) {
+    @kotlinx.serialization.Transient val engine: org.asyncttwiz.protocol.game.EngineView? = null,
+    /** TRN-058 (I-D57): on a board shown for a game whose state is the engine's, whose move the game is for the viewer:
+     * the player it really waits for ([org.asyncttwiz.protocol.game.GameDevice.move]); null: nobody's, or a board without
+     * one. Never serialized. [attentionHolder] stays who acts on the board shown (a decision stop in playback is the
+     * viewer's to answer while the move is the other player's). */
+    @kotlinx.serialization.Transient val move: String? = null) {
     val effectiveAttentionHolder: String get() = attentionHolder ?: turn.accountId
+    /** Whose move the move pill, the bar colours and the fields show (TRN-058): [move], else [effectiveAttentionHolder]. */
+    val moveHolder: String get() = move ?: effectiveAttentionHolder
 }
 @Serializable data class InitialShuffle(val accountId: String, val seed: String, val order: List<String>,
     val algorithm: String = "shuffle-v1")

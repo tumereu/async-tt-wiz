@@ -162,7 +162,8 @@ const val GAME_PROTOCOL_MINOR = 7
     val localHeads: Map<String, String> = emptyMap(), val lines: Int = 0, val rewindRequest: EngineRewindRequest? = null,
     /** The assumed event a submission confirmed (it made no event of its own). */
     val confirmed: String? = null,
-    /** Server only, removed before a revision is sent: per account, whether they have a next stop (I-D56 §7). */
+    /** Server only, removed before a revision is sent: per account, whether they have the move: the game waits for them
+     * (TRN-058, I-D57). */
     val moves: Map<String, Boolean>? = null,
     /** Server only, removed before a revision is sent: per account, their last-activity time (I-D56 §7). */
     val activity: Map<String, String>? = null)

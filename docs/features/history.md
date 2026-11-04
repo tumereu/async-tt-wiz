@@ -50,7 +50,7 @@ The game timeline: the event strip, timeline mode and playback, catching up on w
 
 ### Opening and returning to a game
 
-- **HIS-032** On engine state the server keeps, per game and account, your local head: the newest event shown to you (live or in playback) or added by you; a second device opens at it. Everything shown to you (strip, timeline, chips, result panel, move pill and bar colours, game list, notifications) comes from it and your next stop (I-D56 §7). (r48)
+- **HIS-032** On engine state the server keeps, per game and account, your local head: the newest event shown to you (live or in playback) or added by you; a second device opens at it. Everything shown to you (strip, timeline, chips, result panel, game list times, notification texts) comes from it and your next stop (I-D56 §7); whose move it is follows TRN-058. (r50)
 - **HIS-033** Opening a game with the other player's events past your local head shows the catch-up screen first (HIS-094), with no count or preview of what is coming; Play then plays them back, stopping at your decision points (HIS-095). Playback never skips ahead. When everything since is your own, the game opens live. (r48)
 - **HIS-034** A new device opens a game at your local head kept on the server (HIS-032). (r48)
 - **HIS-035** Leaving the app pauses at the shown point at once; coming back with the other player's events past your local head shows the catch-up screen (HIS-094) instead of rushing through them. A return where only chat or other non-event data changed, or only your own events arrived, stays live. (r48)

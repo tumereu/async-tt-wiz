@@ -746,6 +746,44 @@ class GameDeviceTest {
         assertEquals(emptyList(), decoded.check())
         assertTrue(decoded.log.any { it.startsWith("out Submit") })
     }
+
+    // TRN-060 (CR 104.4b): Alice's Restless Wisp enters and is sacrificed, dies and returns, with only passes nobody can
+    // avoid in between (her one card cast, Bob holding none): her device stops at the position met again with the
+    // engine's loop choice for the player holding priority; Draw makes the game a draw, Continue goes on
+    @Test
+    fun aLoopOfForcedPassesAsksTheLoopChoice() {
+        val wisp = arcanum.engine.cards.Cards.invent("Restless Wisp", "{0}", "Creature — Spirit",
+            "When this creature enters, sacrifice a creature.\nWhen this creature dies, return it to the battlefield under its owner's control.",
+            "1/1")
+        for (answer in listOf(arcanum.engine.decision.LoopStop.DRAW, arcanum.engine.decision.LoopStop.CONTINUE)) {
+            val sim = DeviceSim(EngineGames(3, List(40) { wisp } to List(40) { "Island" }))
+            val alice = sim.alice
+            sim.start(alice, handSizes = mapOf(alice to 1, sim.bob to 0))
+            assertIs<GameDevice.Acted.Sent>(sim.device(alice).act(sim.keep(alice)))
+            sim.settle()
+            assertTrue(sim.atMain(alice), "Alice is at her main phase: ${sim.device(alice).model.engine.turn}")
+            val alices = sim.device(alice)
+            assertIs<GameDevice.Acted.Sent>(alices.act(Input.Cast(alice, hand(alices.model, alice, wisp))))
+            sim.settle(rounds = 5)
+            val state = sim.server.state().engine
+            val choice = assertIs<Decision.ChooseOption>(state.pending?.decision, "the loop choice")
+            assertEquals(state.priority.holder, choice.player, "asked of the player holding priority")
+            assertEquals(listOf("Continue", "Draw"), choice.options)
+            assertEquals("The game is in a loop of actions nobody can stop, which makes it a draw (CR 104.4b). End it as a draw, " +
+                "or continue?", choice.text)
+            assertTrue(sim.server.line().any { e -> e.engine?.steps.orEmpty().any { it.input == Input.MandatoryLoop } })
+            val decider = sim.device(choice.player)
+            val before = sim.server.line().size
+            assertIs<GameDevice.Acted.Sent>(decider.act(Input.Answer(choice.id, Answer.Option(answer))))
+            sim.settle(rounds = 5)
+            if (answer == arcanum.engine.decision.LoopStop.DRAW) assertEquals(GameResult.Draw, Engine.result(sim.server.state().engine))
+            else {
+                assertNull(Engine.result(sim.server.state().engine), "the game goes on")
+                assertTrue(sim.server.line().size > before)
+            }
+            assertTrue(sim.leaks.isEmpty())
+        }
+    }
 }
 
 private fun DeviceSim.take(p: PlayerId) = device(p).take(now)

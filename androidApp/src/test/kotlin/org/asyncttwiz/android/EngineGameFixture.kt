@@ -24,10 +24,11 @@ import org.asyncttwiz.protocol.game.TableState
  * invented Mountains and Storm Sparks (parsed from their oracle text, as on a device), the play's own base board
  * ([base], [TableStatesFixture]'s containers) and the server's first event ([start]: the game started, simultaneous
  * mulligans) with its [snapshot]. With [dungeons] (LOB-117) Alice's spells are Torch Maps ({0}: venture into the dungeon) and she
- * owns two invented dungeons outside the game, a plain one and an Undercity, as her device brings them.
+ * owns two invented dungeons outside the game, a plain one and an Undercity, as her device brings them. With [extraTurns]
+ * (TRN-052) a third of each deck are Ember Strides ({R}, sorcery: take an extra turn after this one).
  */
 internal class EngineGameFixture(startingPlayer: String = TableStatesFixture.a, creatures: Boolean = false, dungeons: Boolean = false,
-    heralds: Boolean = false) {
+    heralds: Boolean = false, extraTurns: Boolean = false) {
     private val f = TableStatesFixture
     private class Invented(face: DefinitionFace, oracle: OracleCard) {
         val submitted = CardDefinition(face.name, listOf(face)).let { SubmittedDefinition(DeckJson.digest(it), it) }
@@ -43,6 +44,8 @@ internal class EngineGameFixture(startingPlayer: String = TableStatesFixture.a, 
     private val herald = Invented(DefinitionFace("herald", "Ember Herald", typeLine = "Creature — Elemental", manaCost = "{R}",
         rulesText = "When this creature enters, create a 1/1 red Elemental creature token.", power = "1", toughness = "1"),
         OracleCard("Ember Herald", "{R}", "Creature — Elemental", "When this creature enters, create a 1/1 red Elemental creature token.", "1", "1"))
+    private val stride = Invented(DefinitionFace("stride", "Ember Stride", typeLine = "Sorcery", manaCost = "{R}",
+        rulesText = "Take an extra turn after this one."), OracleCard("Ember Stride", "{R}", "Sorcery", "Take an extra turn after this one."))
 
     private val map = Invented(DefinitionFace("map", "Torch Map", typeLine = "Sorcery", manaCost = "{0}",
         rulesText = "Venture into the dungeon."), OracleCard("Torch Map", "{0}", "Sorcery", "Venture into the dungeon."))
@@ -73,6 +76,7 @@ internal class EngineGameFixture(startingPlayer: String = TableStatesFixture.a, 
         dungeons && p == a -> if (i % 3 == 0) mountain else map
         i % 3 == 2 -> spark
         heralds && i % 3 == 1 -> herald
+        extraTurns && i % 3 == 1 -> stride
         creatures && i % 3 == 1 -> cub
         else -> mountain
     } } }
@@ -83,7 +87,7 @@ internal class EngineGameFixture(startingPlayer: String = TableStatesFixture.a, 
             PlayCard(id, card.submitted.digest, player, f.id("${if (player == a) "a" else "b"}/LIBRARY"), card.submitted.definition.faces.single().faceId)
         } }
         p.copy(definitions = (listOf(spark.submitted, mountain.submitted) + listOfNotNull(cub.submitted.takeIf { creatures }) +
-            listOfNotNull(herald.submitted.takeIf { heralds }) +
+            listOfNotNull(herald.submitted.takeIf { heralds }) + listOfNotNull(stride.submitted.takeIf { extraTurns }) +
             listOfNotNull(map.submitted.takeIf { dungeons }) + outside).sortedBy { it.digest },
             board = p.board.copy(cards = cards, stackEffects = emptyList(), combat = null, engineRecords = emptyList(),
                 containers = p.board.containers.map { c ->

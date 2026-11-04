@@ -107,6 +107,30 @@ class GameResultLifecycleTest {
         }
     }
 
+    // LOB-046: after a game result (here a concession, taken at once) both players are back in the same game's lobby with
+    // their last prepared decks restored, the owner's lobby partition edit included, and both Ready cleared
+    @Test fun `after a result both players return to the same lobby with their last prepared decks and Ready cleared`() {
+        FreshDatabase().start().use { db ->
+            FoundationMigrations.migrate(db.settings)
+            Fixture(db).use { f ->
+                val prepared = f.preparation.players.associate { it.accountId to it.deck }
+                assertEquals(2, prepared.values.filterNotNull().size)
+                assertEquals(GameLifecycle.ACTIVE, f.games.head(f.a, f.game.id).summary.lifecycle)
+                assertEquals("accepted", f.other.execute(f.concession()).outcome)
+                val returned = f.games.head(f.a, f.game.id)
+                assertEquals(f.game.id, returned.summary.id)
+                assertEquals(GameLifecycle.LOBBY, returned.summary.lifecycle)
+                assertNull(returned.play)
+                val lobby = returned.preparation!!
+                assertEquals(prepared, lobby.players.associate { it.accountId to it.deck }, "the last prepared decks")
+                assertTrue(lobby.players.none { it.ready }, "both Ready cleared")
+                val own = f.games.head(f.b, f.game.id).preparation!!.players.single { it.accountId == f.b.account.accountId }
+                assertEquals(prepared[f.b.account.accountId], own.deck)
+                assertFalse(own.ready)
+            }
+        }
+    }
+
     @Test fun `show deck is a per game per player lobby flag kept across plays and hidden again in a new game`() {
         FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)

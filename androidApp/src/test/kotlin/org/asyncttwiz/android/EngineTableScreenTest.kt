@@ -8,6 +8,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
 import arcanum.api.TurnStep
@@ -15,6 +16,7 @@ import arcanum.engine.Engine
 import arcanum.engine.input.Input
 import org.asyncttwiz.protocol.GameAction
 import org.asyncttwiz.protocol.PlayZone
+import org.asyncttwiz.protocol.TurnPosition
 import org.asyncttwiz.protocol.game.GameDevice
 import org.junit.After
 import org.junit.Rule
@@ -23,6 +25,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import kotlin.test.assertEquals
+import kotlin.test.assertIs
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -182,5 +185,74 @@ class EngineTableScreenTest {
         val card = kit.item(cub).bounds
         for (chip in chips) assertTrue(chip.boundsInRoot.width / compose.density.density <= card.width + .5f,
             "no wider than the card")
+    }
+
+    // TRN-009: the phase dialog only shows where the turn is: its step squares do nothing and it has no buttons but
+    // Close; a tap on a later step leaves the game where it is
+    @Test fun thePhaseDialogOnlyShowsWhereTheTurnIs() {
+        kit.opening()
+        kit.alice.take(kit.scenario.sim.now)
+        val tip = kit.alice.device.session.tip
+        val turn = kit.state().turn
+        render()
+        compose.onNodeWithContentDescription("Choose phase/step", substring = true).performClick()
+        compose.waitForIdle()
+        compose.onNode(isDialog()).assertExists()
+        fun square(label: String) = compose.onNode(hasContentDescription(label) and hasAnyAncestor(isDialog()))
+        square("Precombat main").assertIsSelected()
+        for (step in TurnPosition.MANUAL) square(step.label).assertHasNoClickAction()
+        val buttons = compose.onAllNodes(hasClickAction() and hasAnyAncestor(isDialog())).fetchSemanticsNodes()
+            .map { it.config.getOrElse(SemanticsProperties.ContentDescription) { emptyList() } + it.config.getOrElse(SemanticsProperties.Text) { emptyList() }.map { t -> t.text } }
+            .map { it.toSet() }
+        assertEquals(listOf(setOf("Close")), buttons, "no buttons but Close")
+        square("End step").performClick()
+        compose.waitForIdle()
+        assertTrue(kit.alice.take(kit.scenario.sim.now).isEmpty(), "nothing went out")
+        assertEquals(tip, kit.alice.device.session.tip)
+        assertEquals(turn, kit.state().turn)
+    }
+
+    // TRN-046: Suggest game end opens a chooser My win / Draw game, then a confirm dialog ("Suggest my win?" or "Suggest
+    // draw?") with an optional one-line Reason of at most 200 characters (placeholder "Infinite combo"); Confirm suggests
+    // it, which goes out as Alice's suggestion on engine state
+    @Test fun suggestGameEndChoosesThenConfirmsWithAnOptionalReason() {
+        kit.opening()
+        kit.alice.take(kit.scenario.sim.now)
+        val endings = mutableListOf<TableActionIntent.Ending>()
+        val tools = TableToolkitController(f.a, { kit.alice.play() }, { kit.routes.canAct() && kit.routes.review == null },
+            { action, _ -> kit.routes.local(listOf(action)) }, ending = { endings += it; true },
+            playBatch = { actions, id -> kit.routes.local(actions, id) }, engine = kit.routes)
+        render(toolkit = tools)
+        compose.onNodeWithContentDescription("Table actions").performClick()
+        compose.waitForIdle()
+        compose.onNodeWithText("Suggest game end").performClick()
+        compose.waitForIdle()
+        compose.onNodeWithText("My win").assertExists()
+        compose.onNodeWithText("Draw game").performClick()
+        compose.waitForIdle()
+        compose.onNodeWithText("Suggest draw?").assertExists()
+        compose.onNodeWithText("Cancel").performClick()
+        compose.waitForIdle()
+        compose.onNodeWithText("My win").performClick()
+        compose.waitForIdle()
+        compose.onNodeWithText("Suggest my win?").assertExists()
+        compose.onNodeWithText("Reason (optional)").assertExists()
+        compose.onNodeWithText("Infinite combo").assertExists()
+        compose.onNodeWithTag("resultNote").performTextInput("Endless\nloop " + "x".repeat(250))
+        compose.waitForIdle()
+        val typed = compose.onNodeWithTag("resultNote").fetchSemanticsNode().config[SemanticsProperties.EditableText].text
+        assertEquals(200, typed.length)
+        assertTrue(typed.startsWith("Endless loop x"), "one line: $typed")
+        assertTrue(endings.isEmpty(), "nothing before Confirm")
+        compose.onNodeWithText("Confirm").performClick()
+        compose.waitForIdle()
+        val ending = endings.single()
+        assertEquals(EndingTool.SUGGEST_WIN, ending.tool)
+        assertEquals(typed.trim(), ending.note)
+        // On engine state the suggestion is Alice's table change
+        assertIs<GameDevice.Acted.Sent>(kit.alice.suggest(arcanum.engine.setup.GameResult.Won(kit.me)))
+        val sent = kit.alice.take(kit.scenario.sim.now).filterIsInstance<GameAction.Submit>().single()
+        assertEquals(org.asyncttwiz.protocol.game.ResultSuggestion(kit.me, arcanum.engine.setup.GameResult.Won(kit.me)),
+            sent.submission.table.filterIsInstance<org.asyncttwiz.protocol.game.TableChange.Suggestion>().single().after)
     }
 }

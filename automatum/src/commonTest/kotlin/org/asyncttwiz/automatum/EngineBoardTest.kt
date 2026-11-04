@@ -8,6 +8,7 @@ import arcanum.engine.decision.Answer
 import arcanum.engine.decision.Decision
 import arcanum.engine.input.Attack
 import arcanum.engine.input.Input
+import arcanum.engine.state.CombatState
 import arcanum.engine.state.CounterEntry
 import arcanum.engine.state.GameState
 import arcanum.engine.state.PlayerId
@@ -15,6 +16,7 @@ import arcanum.engine.state.TargetRef
 import org.asyncttwiz.protocol.BoardState
 import org.asyncttwiz.protocol.EngineRecordKind
 import org.asyncttwiz.protocol.PlayZone
+import org.asyncttwiz.protocol.TurnPosition
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -140,5 +142,92 @@ class EngineBoardTest {
         assertEquals(PlayZone.BATTLEFIELD, zoneOf(board, bear), "the real card stays where it is")
         val after = table.board(resolved(cast(declared, alice, spark, at(bear))))
         assertEquals(listOf(ogre), after.combat!!.pairs.flatMap { p -> p.attackers.map { it.sourceId } })
+    }
+
+    // TRN-001: a turn has 12 positions, Untap to Cleanup: each step of the engine's turn is drawn as one of them, in order;
+    // the combat damage step is the first-strike one while its combat has one (TRN-056); passing on from the upkeep goes
+    // through them in that order into the next turn
+    @Test fun aTurnHasTwelvePositions() {
+        table.put(alice, Zone.Library, "Island", "Island")
+        table.put(bob, Zone.Library, "Island", "Island")
+        val steps = listOf(TurnStep.Untap, TurnStep.Upkeep, TurnStep.Draw, TurnStep.PrecombatMain, TurnStep.BeginningOfCombat,
+            TurnStep.DeclareAttackers, TurnStep.DeclareBlockers, TurnStep.CombatDamage, TurnStep.EndOfCombat,
+            TurnStep.PostcombatMain, TurnStep.End, TurnStep.Cleanup)
+        val drawn = steps.map { step ->
+            table.step = step
+            table.priority = alice.takeIf { step != TurnStep.Untap && step != TurnStep.Cleanup }
+            TurnPosition.of(table.board().turn)
+        }
+        assertEquals(TurnPosition.MANUAL, drawn)
+        assertEquals(12, drawn.toSet().size)
+        table.step = TurnStep.CombatDamage
+        table.priority = alice
+        assertEquals(TurnPosition.FIRST_STRIKE_DAMAGE,
+            TurnPosition.of(table.board(table.state().copy(combat = CombatState(firstStrikeStep = true))).turn))
+        table.step = TurnStep.Upkeep
+        var state = table.state()
+        val seen = mutableListOf<TurnPosition>()
+        while (state.turn.number == table.turn) {
+            TurnPosition.of(table.board(state).turn)!!.let { if (seen.lastOrNull() != it) seen += it }
+            val holder = assertNotNull(state.priority.holder, "nobody holds priority at ${state.turn.step}")
+            state = run(state).also { it.perform(Input.PassPriority(holder)) }.working
+        }
+        assertEquals(seen.sortedBy(TurnPosition.MANUAL::indexOf), seen, "in the turn's order")
+        assertEquals(bob, table.board(state).turn.accountId)
+    }
+
+    // SYS-002: an action does what the rules make of it and nothing more, and a card's name decides nothing: Alice's
+    // Storm Spark at one of Bob's two Stout Bears kills that one; the other Bear and every other card stay as they were
+    // (but the Mountain tapped to pay), and so do both players
+    @Test fun anActionChangesOnlyWhatTheRulesMakeOfIt() {
+        val (mountain) = table.put(alice, Zone.Battlefield, "Mountain")
+        val (spark) = table.put(alice, Zone.Hand, "Storm Spark")
+        val (first, second) = table.put(bob, Zone.Battlefield, "Stout Bear", "Stout Bear")
+        table.put(alice, Zone.Hand, "Stout Bear")
+        table.put(alice, Zone.Library, "Island", "Island")
+        table.put(bob, Zone.Library, "Island", "Island")
+        val start = table.state()
+        val before = table.board(start)
+        val after = table.board(resolved(cast(start, alice, spark, at(first))))
+        assertEquals(PlayZone.GRAVEYARD, zoneOf(after, first))
+        assertEquals(PlayZone.BATTLEFIELD, zoneOf(after, second))
+        assertEquals(PlayZone.GRAVEYARD, zoneOf(after, spark))
+        // A battlefield place is the table's own (the device's), not the rules': left out here
+        val changed = after.cards.filter { card -> before.cards.single { it.id == card.id }.copy(placement = null) != card.copy(placement = null) }
+        assertEquals(setOf(first, spark, mountain), changed.map { it.id }.toSet())
+        assertTrue(after.cards.single { it.id == mountain }.tapped)
+        assertEquals(before.players, after.players)
+    }
+
+    // STK-022: an ability whose source isn't on the table (the dies trigger of a token that's gone) is a Stack entry of
+    // its own: its own card, an ability token named after its source with the ability's text, its controller's
+    @Test fun anAbilityWhoseSourceIsGoneIsAnEntryOfItsOwn() {
+        val wisp = Cards.invent("Ashen Wisp", "{1}{B}", "Creature — Spirit", "When this creature dies, you gain 2 life.", "1/1")
+        table.put(alice, Zone.Battlefield, "Mountain")
+        val (spark) = table.put(alice, Zone.Hand, "Storm Spark")
+        val (token) = table.put(bob, Zone.Battlefield, wisp)
+        table.put(alice, Zone.Library, "Island")
+        table.put(bob, Zone.Library, "Island")
+        val start = table.state()
+        start.objects[table.obj(token)] = start.objects.getValue(table.obj(token)).copy(token = true)
+        val triggered = passUntil(cast(start, alice, spark, at(token))) { s ->
+            s.stack.any { s.stackItems[it]?.kind is arcanum.engine.state.StackItemKind.Triggered }
+        }
+        val projected = EngineProjection.project(table.base(), org.asyncttwiz.protocol.game.GameModel(triggered.deepCopy(),
+            org.asyncttwiz.protocol.game.TableState()), alice, "node")
+        val board = projected.board
+        assertNull(zoneOf(board, token), "the token is gone")
+        val entry = board.stackEffects.single()
+        val own = assertNotNull(entry.frozen, "an entry of its own")
+        assertEquals(own.id, entry.sourceId)
+        assertTrue(own.token)
+        assertEquals(bob, entry.controller)
+        assertEquals(org.asyncttwiz.protocol.MtgStackKind.Triggered, entry.item?.kind)
+        val face = projected.definitions.single { it.digest == own.definition }.definition.faces.single()
+        assertEquals("Ashen Wisp", face.name)
+        assertEquals("When this creature dies, you gain 2 life.", face.rulesText)
+        assertEquals(face.rulesText, StackAbilityText.of(entry.item!!))
+        assertEquals(listOf(entry.id), board.containers.single { it.zone == PlayZone.STACK }.cards)
+        assertTrue(spark in board.cards.map { it.id })
     }
 }

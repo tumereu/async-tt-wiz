@@ -46,7 +46,9 @@ import kotlin.math.roundToInt
 internal data class ChoiceCardData(val key: String, val cardId: String?, val name: String, val art: ArtworkReference?,
     val shown: Boolean, val token: Boolean = false, val own: Boolean = true, val tapped: Boolean = false,
     /** The battlefield's type glyph, shown while the art is missing. */
-    val typeIcon: String = "")
+    val typeIcon: String = "",
+    /** STK-046: a Stack entry that is an ability ([key] is the entry): drawn as its ability token, inspected with its text. */
+    val ability: StackAbilityShown? = null)
 
 /** The [ChoiceCardData] of ATW card [cardId] on [play]'s board as [viewer] may see it ([shown]); [fallback] names an
  * object that is no card. */
@@ -81,7 +83,10 @@ internal fun ChoiceCardFace(card: ChoiceCardData, modifier: Modifier = Modifier,
     // A tapped card lies sideways, taking its sideways room
     Box(modifier.size(if (card.tapped) height else width, if (card.tapped) width else height)
         .semantics { contentDescription = card.name + if (selected) ", chosen" else "" }, contentAlignment = Alignment.Center) {
-        Box(Modifier.requiredSize(width, height).then(if (card.tapped) Modifier.rotate(90f) else Modifier)
+        val ability = card.ability
+        if (ability != null && card.shown) AbilityTokenFace(ability, card.art, card.own, Modifier.requiredSize(width, height),
+            card.typeIcon, text = !small)
+        else Box(Modifier.requiredSize(width, height).then(if (card.tapped) Modifier.rotate(90f) else Modifier)
             .cardFrame(card.token, owner).then(if (card.shown) Modifier else Modifier.background(Color(0xff506b61)))) {
             if (card.shown) Column(Modifier.fillMaxSize().padding(horizontal = 3.dp, vertical = 2.dp)) {
                 Text(card.name, fontSize = if (small) 7.sp else 8.sp, lineHeight = 9.sp, fontWeight = FontWeight.Bold, maxLines = 1,
@@ -123,7 +128,8 @@ internal fun ChoiceInspection(inspector: ChoiceInspector, play: PlayState, viewe
     val played = play.board.cards.firstOrNull { it.id == id } ?: return
     val faces = play.definitions.firstOrNull { it.digest == played.definition }?.definition?.faces.orEmpty()
     GameplayCardInspection(play, viewer, remember(play.id, id) {
-        ManualInspection(play.gameId, play.id, id, faces.map { it.faceId }, explicit = true, snapshot = played)
+        ManualInspection(play.gameId, play.id, id, faces.map { it.faceId }, explicit = true, snapshot = played,
+            stackEntryId = card.key.takeIf { card.ability != null })
     }, { inspector.hold(card, false) }, peek = true)
 }
 

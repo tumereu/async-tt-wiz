@@ -7,6 +7,7 @@ import arcanum.engine.input.Input
 import arcanum.engine.state.GameState
 import arcanum.engine.state.ObjectId
 import arcanum.engine.state.PlayerId
+import arcanum.engine.state.StackItemKind
 import org.asyncttwiz.protocol.HistoryIcon
 import org.asyncttwiz.protocol.PlayState
 import org.asyncttwiz.protocol.PlayZone
@@ -38,7 +39,8 @@ internal object EngineEventText {
             is Input.StartGame -> "The game began"
             is Input.Cast -> "${who(input.player)} cast ${card(input.card)}"
             is Input.PlayLand -> "${who(input.player)} played ${card(input.card)}"
-            is Input.Activate -> "${who(input.player)} activated ${card(input.source)}"
+            // STK-046: an ability is named as its source's ability, never as if the card were cast
+            is Input.Activate -> "${who(input.player)} activated ${name(input.source, state, viewer)?.let { "$it's ability" } ?: "an ability"}"
             // §29.2 (owner 2026-11-04): passes are implied: a pass reads only as what it led to ("Storm Spark resolved",
             // "Turn 3 → Bob", the new step); one that led to nothing shows nowhere ([hidden])
             is Input.PassPriority -> passOutcome(event, state, viewer, names).orEmpty()
@@ -108,12 +110,14 @@ internal object EngineEventText {
         val changes = event.engine?.changes.orEmpty()
         changes.firstNotNullOfOrNull { it as? Change.StackItemRemoved }?.let { removed ->
             val item = removed.item
+            // STK-046: an ability resolving reads as its source's ability ("Ember Herald's ability resolved")
+            val ability = item.kind is StackItemKind.Activated || item.kind is StackItemKind.Triggered
             val shown = when (val id = item.id) {
                 is ObjectId.Card -> name(id, state, viewer)
-                else -> item.snapshots.firstOrNull { it.id == item.source }?.characteristics?.name
-                    ?: name(item.source, state, viewer)?.let { "$it's ability" }
+                else -> (item.snapshots.firstOrNull { it.id == item.source }?.characteristics?.name ?: name(item.source, state, viewer))
+                    ?.let { if (ability) "$it's ability" else it }
             }
-            return "${shown ?: "a spell"} resolved"
+            return "${shown ?: if (ability) "an ability" else "a spell"} resolved"
         }
         val steps = changes.filterIsInstance<Change.Step>()
         val last = steps.lastOrNull()?.after ?: return null

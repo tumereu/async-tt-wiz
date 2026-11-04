@@ -50,14 +50,22 @@ internal fun ManageStackDialog(state: PlayState, viewer: String, dismiss: () -> 
                         val face = definition?.faces?.indexOfFirst { it.faceId == card?.faceId } ?: -1
                         val art = if (entry.faceVisible && definition != null && face >= 0)
                             InspectedCard.retained(requireNotNull(card).definition, definition).artwork[face] else null
-                        Box(Modifier.size(32.dp * size, 44.dp * size).cardFrame(card?.token == true, owner, projection)
-                            .semantics { contentDescription = if (controlled) "Your Stack entry" else "Opponent Stack entry" },
-                            contentAlignment = Alignment.Center) {
+                        val ability = entry.ability
+                        val described = Modifier.semantics { contentDescription = if (controlled) "Your Stack entry" else "Opponent Stack entry" }
+                        // STK-046: an ability is its token (the source's art and the marker), never the source card
+                        if (ability != null) AbilityTokenFace(ability, art, controlled,
+                            Modifier.size(32.dp * size, 44.dp * size).then(described), text = false)
+                        else Box(Modifier.size(32.dp * size, 44.dp * size).cardFrame(card?.token == true, owner, projection)
+                            .then(described), contentAlignment = Alignment.Center) {
                             if (art != null) CardArtwork(art, entry.name, 64, 88, Modifier.fillMaxSize())
                             else MenuIcon("Inspect")
                         }
-                        Text("${if (index == 0) "Top" else "${index + 1}"} · ${entry.name}", Modifier.weight(1f),
-                            style = MaterialTheme.typography.bodyMedium, maxLines = 2)
+                        Column(Modifier.weight(1f)) {
+                            Text("${if (index == 0) "Top" else "${index + 1}"} · ${entry.name}",
+                                style = MaterialTheme.typography.bodyMedium, maxLines = 2)
+                            if (ability != null && ability.text.isNotEmpty()) Text(ability.text,
+                                style = MaterialTheme.typography.bodySmall, maxLines = 3)
+                        }
                     }
                     HorizontalDivider()
                 }

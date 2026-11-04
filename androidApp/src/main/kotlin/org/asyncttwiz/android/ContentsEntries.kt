@@ -3,7 +3,9 @@ package org.asyncttwiz.android
 import org.asyncttwiz.protocol.*
 
 data class ContentsEntry(val cardId: String, val name: String, val category: String, val location: String,
-    val bottommost: Boolean = false, val faceVisible: Boolean = true)
+    val bottommost: Boolean = false, val faceVisible: Boolean = true,
+    /** STK-046: a Stack entry that is a triggered or activated ability ([name] then names it as one). */
+    val ability: StackAbilityShown? = null)
 
 /** Live personal browsing; unlike ContentsDisplay this is not a shared disclosure or fixed tray. */
 data class PileContents(val containerId: String, val title: String, val cardIds: List<String>, val ordered: Boolean = false)
@@ -26,11 +28,12 @@ fun contentsEntries(state: PlayState, pile: PileContents, viewer: String, search
             ?.singleOrNull { it.faceId == card.faceId } else null
         val effect = state.board.stackEffects.singleOrNull { it.id == id }
         val location = card?.let { c -> state.board.containers.singleOrNull { it.id == c.containerId }?.zone?.name?.lowercase() } ?: "Unavailable"
-        ContentsEntry(id, if (visible) face?.name ?: "Unavailable card" else "Card back",
+        val ability = if (visible && effect != null) StackAbilities.of(state, id, viewer) else null
+        ContentsEntry(id, if (visible) ability?.name ?: face?.name ?: "Unavailable card" else "Card back",
             if (visible) contentsCategory(face?.typeLine.orEmpty()) else "Cards",
             (if (pile.ordered) "${index + 1} · " else "") + location +
                 when { effect?.frozen != null -> " · Retained effect"; effect != null -> " · Effect"; else -> "" },
-            faceVisible = visible)
+            faceVisible = visible, ability = ability)
     }.filter { !it.faceVisible || it.name.contains(search, ignoreCase = true) }
     return if (pile.ordered) entries else entries.sortedWith(contentsOrder)
 }

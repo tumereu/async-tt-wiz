@@ -49,6 +49,7 @@ import androidx.compose.foundation.horizontalScroll
 import arcanum.engine.state.GameState
 import arcanum.engine.state.ObjectId
 import arcanum.engine.state.PlayerId
+import arcanum.engine.state.StackItemKind
 import kotlinx.coroutines.delay
 import org.asyncttwiz.protocol.*
 import org.asyncttwiz.protocol.game.GameDevice
@@ -298,8 +299,16 @@ internal fun waitingText(wait: GameDevice.Wait, play: PlayState, opponent: Strin
     GameDevice.Wait.Sending -> null
 }
 
-/** The name of engine object [id] as the board's viewer may see it (a Stack item's source), or null. */
+/** The name of engine object [id] as the board's viewer may see it, or null; an ability on the Stack is named as its
+ * source's ability ("Ember Herald's ability", STK-046), a copy of a spell as its spell. */
 private fun engineName(play: PlayState, id: ObjectId): String? {
+    val item = (id as? ObjectId.StackItem)?.let { play.board.engine?.state?.stackItems?.get(it) }
+    val ability = item != null && (item.kind is StackItemKind.Activated || item.kind is StackItemKind.Triggered)
+    return sourceName(play, id)?.let { if (ability) "$it's ability" else it }
+}
+
+/** The name of engine object [id] (a Stack item's source) as the board's viewer may see it, or null. */
+private fun sourceName(play: PlayState, id: ObjectId): String? {
     val view = play.board.engine ?: return null
     val state = view.state
     val obj = when (id) {

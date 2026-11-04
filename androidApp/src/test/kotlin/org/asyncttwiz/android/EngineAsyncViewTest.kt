@@ -47,6 +47,16 @@ class EngineAsyncViewTest {
         }
     }
 
+    // HIS-086 (owner 2026-11-04): an undo adds no event; a rewind's own line start that older games stored is shown nowhere
+    // (strip, timeline, event chip)
+    @Test fun anOldRewindLineStartIsShownNowhere() {
+        val (alice, _) = aliceAndBob()
+        val head = alice.device.session.tip
+        val lineStart = org.asyncttwiz.protocol.game.EventBuilder(alice.device.model.copy(), "line1", head, f.a).also { it.startLine(1) }.build()
+        assertTrue(EngineEventText.hidden(lineStart))
+        assertTrue(alice.device.session.pending.none(EngineEventText::hidden))
+    }
+
     // HIS-021 (§27): playback lets passes that changed nothing visible go by at once; a land play, a cast, a new turn keep
     // the playback pause after them
     @Test fun quietPassesGoByAtOnce() {

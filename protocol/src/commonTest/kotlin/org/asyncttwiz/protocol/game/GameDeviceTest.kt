@@ -486,8 +486,19 @@ class GameDeviceTest {
     /** Both play a Forest and an Elvish Seer in their first turns; in Alice's third, with Bob away (nothing delivered to
      * him), she attacks with her Seer: her Seer. */
     private fun DeviceSim.seersToCombat(): ObjectId {
-        val alice = alice; val bob = bob
-        start(alice, ResponseMode.Normal)
+        val seer = seersToThirdTurn()
+        device(alice).act(Input.PassPriority(alice))
+        settle(only = listOf(alice))
+        assertEquals(GameDevice.Status.YourMove, device(alice).status)
+        device(alice).act(Input.DeclareAttackers(alice, listOf(Attack(seer, TargetRef.Player(bob)))))
+        settle(only = listOf(alice))
+        return seer
+    }
+
+    /** As [seersToCombat], up to Alice's third turn's first main phase, holding priority there: her Seer. */
+    private fun DeviceSim.seersToThirdTurn(mode: ResponseMode = ResponseMode.Normal): ObjectId {
+        val alice = alice
+        start(alice, mode)
         for (p in listOf(alice, bob)) { device(p).act(keep(p)); settle() }
         for (p in listOf(alice, bob)) {
             catchUp(p)
@@ -505,13 +516,32 @@ class GameDeviceTest {
         catchUp(alice)
         assertTrue(atMain(alice))
         val m = device(alice).model.engine
-        val seer = m.battlefield.first { m.obj(it)?.controller == alice && m.obj(it)?.definition?.faces?.first()?.name == "Elvish Seer" }
-        device(alice).act(Input.PassPriority(alice))
-        settle(only = listOf(alice))
-        assertEquals(GameDevice.Status.YourMove, device(alice).status)
-        device(alice).act(Input.DeclareAttackers(alice, listOf(Attack(seer, TargetRef.Player(bob)))))
-        settle(only = listOf(alice))
-        return seer
+        return m.battlefield.first { m.obj(it)?.controller == alice && m.obj(it)?.definition?.faces?.first()?.name == "Elvish Seer" }
+    }
+
+    // TRN-057, HIS-058 (smoke 2026-11-04): End turn passes the player's priority until the turn ends; their own main
+    // phases (which Auto-skip never passes, STK-036) don't stop it: one End turn from the first main phase or from combat
+    // (attackers awaited) reaches the other player's turn
+    @Test
+    fun endTurnPassesYourOwnMainPhases() {
+        for (fromCombat in listOf(false, true)) {
+            val sim = seers()
+            sim.seersToThirdTurn(ResponseMode.AutoSkip)
+            val alice = sim.alice; val bob = sim.bob
+            val alices = sim.device(alice)
+            assertEquals(3, alices.model.engine.turn.number)
+            if (fromCombat) {
+                alices.act(Input.PassPriority(alice))
+                sim.settle(only = listOf(alice))
+                assertEquals(arcanum.api.TurnStep.DeclareAttackers, alices.model.engine.turn.step, "attackers awaited")
+            }
+            alices.endTurn(sim.now)
+            sim.settle(only = listOf(alice))
+            val s = alices.model.engine
+            assertEquals(4, s.turn.number, "from ${if (fromCombat) "combat" else "Main 1"}: ${s.turn}")
+            assertEquals(bob, s.turn.active)
+            assertTrue(s.combat?.attackers.isNullOrEmpty())
+        }
     }
 
     /** Alice passes at her own pause in the blockers step (Normal stops there): Bob's pass is assumed, damage is dealt. */

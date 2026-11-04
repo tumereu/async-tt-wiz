@@ -53,19 +53,53 @@ class CatalogViewModel(application: Application) : AndroidViewModel(application)
     private val cadence = CatalogCadence(File(directory, "cadence.properties"))
     /** LOB-117: the catalog's dungeons Automatum plays fully, which the device brings to games whose decks venture. */
     internal val dungeons = CatalogDungeonCards({ repository.dungeonDefinitions() }, { repository.tokenGeneration() })
-    /** I-D51 (DRF-161): draft sets' Automatum support, worked out in the background once card records are installed. */
+    /** I-D51 (DRF-161): draft sets' Automatum support, worked out on the phone for the sets asked for ([requestSetSupport]). */
     internal val setSupport = CatalogSetSupport(repository, { org.asyncttwiz.automatum.AutomatumSupport.byHand(it, dungeons.provided()) },
         engineVersion = arcanum.engine.Engine.SUPPORT_VERSION)
     private val supportWorker = Executors.newSingleThreadExecutor { Thread(it, "set-support").apply { priority = Thread.MIN_PRIORITY } }
-    @Volatile private var supportRunning = false
-    private fun refreshSetSupport() {
-        if (cleared || supportRunning) return
-        supportRunning = true
-        supportWorker.execute {
-            try { setSupport.refresh { cleared } }
-            catch (failure: Exception) { AppLog.warn("Automatum", "Working out sets' Automatum support failed", failure) }
-            finally { supportRunning = false }
+    /** Sets asked for and not worked out yet, the latest asked first, each with what to tell once it is done. */
+    private val supportWanted = LinkedHashMap<String, MutableList<() -> Unit>>()
+
+    /**
+     * Smoke 2026-11-04 (DRF-161): works out the Automatum support of the draft sets [codes] (the sets a picker shows, or
+     * a chosen source) on the low-priority "set-support" thread, one set at a time with a pause after each set worked
+     * out, skipping sets already worked out for these card records and support version (kept across app updates);
+     * [done] runs on that thread once each of [codes] is done. Sets asked for again move to the front; nothing is worked
+     * out unless asked.
+     */
+    internal fun requestSetSupport(codes: Collection<String>, done: () -> Unit = {}) {
+        if (cleared || codes.isEmpty()) return
+        synchronized(supportWanted) {
+            val previous = LinkedHashMap(supportWanted)
+            supportWanted.clear()
+            for (code in codes) supportWanted.getOrPut(code) { previous.remove(code) ?: mutableListOf() }.add(done)
+            supportWanted.putAll(previous)
         }
+        supportWorker.execute(::workSetSupport)
+    }
+
+    /** The set-support thread: the wanted sets, the latest asked first, until none is left. */
+    private fun workSetSupport() {
+        while (!cleared) {
+            val (code, done) = synchronized(supportWanted) {
+                val first = supportWanted.entries.firstOrNull() ?: return
+                supportWanted.remove(first.key)
+                first.key to first.value.toList()
+            }
+            var worked = 0
+            try { worked = setSupport.refresh(listOf(code)) { cleared } }
+            catch (failure: Exception) { AppLog.warn("Automatum", "Working out set $code's Automatum support failed", failure) }
+            done.forEach { it() }
+            // A breather for the rest of the phone after each set actually worked out
+            if (worked > 0) try { Thread.sleep(SET_SUPPORT_PAUSE_MS) } catch (_: InterruptedException) { return }
+        }
+    }
+
+    /** Chosen as a source (DRF-161): works out [code]'s support now on the caller's (background) thread when it isn't
+     * known yet, so it goes with the source. Blocking. */
+    internal fun setSupportNow(code: String) {
+        try { setSupport.refresh(listOf(code)) { cleared } }
+        catch (failure: Exception) { AppLog.warn("Automatum", "Working out set $code's Automatum support failed", failure) }
     }
     private val preferences = application.getSharedPreferences("public-catalog-update", Context.MODE_PRIVATE)
     private val source: CatalogSource = if (BuildConfig.DEBUG && BuildConfig.CATALOG_TEST_ORIGIN.isNotEmpty())
@@ -221,7 +255,6 @@ class CatalogViewModel(application: Application) : AndroidViewModel(application)
     private fun publish(value: CatalogUiState) { main.post { if (!cleared) {
         state = catalogConsentPresentation(value.copy(loaded = true), initialDownloadAccepted)
         working = false
-        if (value.installed != null) refreshSetSupport()
         // Consent may arrive while the small metadata check is finishing.
         if (initialDownloadAccepted && value.installed == null && !value.error && value.plan != null) consent()
     } } }
@@ -232,6 +265,9 @@ class CatalogViewModel(application: Application) : AndroidViewModel(application)
         supportWorker.shutdownNow()
     }
 }
+
+/** The set-support thread's pause after each set it worked out (smoke 2026-11-04: light on the phone). */
+private const val SET_SUPPORT_PAUSE_MS = 1_000L
 
 internal fun catalogAutoDownload(installed: CatalogMetadata?, plan: CatalogUpdatePlan?, metered: Boolean): Boolean =
     installed != null && plan != null && CatalogUpdatePolicy.canDownload(installed, plan, metered, consent = false)

@@ -4,6 +4,8 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import kotlinx.coroutines.flow.distinctUntilChanged
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -43,29 +45,37 @@ internal fun PodSourcePickerDialog(controller: PodController, manageCubes: () ->
                     }
                 }
             }
-        } else PodSetPickerContent(picker.state, picker::query, picker::choose, picker::redownload, picker::retry)
+        } else PodSetPickerContent(picker.state, picker::query, picker::choose, picker::redownload, picker::retry, picker::showing)
     }
 }
 
 @Composable
 internal fun PodSetPickerContent(state: PodSetPickerState, query: (String) -> Unit, choose: (String) -> Unit,
-    redownload: (String) -> Unit, retry: () -> Unit) {
+    redownload: (String) -> Unit, retry: () -> Unit, showing: (List<String>) -> Unit = {}) {
     OutlinedTextField(state.query, query, Modifier.fillMaxWidth(), label = { Text("Search name, code or release date") }, singleLine = true,
         keyboardOptions = imeOptions(ImeAction.Search), keyboardActions = hideKeyboardActions())
     val rows = state.filtered
     Box(Modifier.fillMaxWidth().height(320.dp), contentAlignment = Alignment.Center) {
     if (!state.loaded && state.busy && rows.isEmpty()) CircularProgressIndicator()
     else if (rows.isEmpty()) Text("No sets found")
-    else LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    else {
+    // DRF-161 (smoke 2026-11-04): the support of the sets on screen is worked out, no others
+    val list = rememberLazyListState()
+    val shown by rememberUpdatedState(showing)
+    LaunchedEffect(list) {
+        snapshotFlow { list.layoutInfo.visibleItemsInfo.mapNotNull { it.key as? String } }.distinctUntilChanged().collect { shown(it) }
+    }
+    LazyColumn(Modifier.fillMaxSize(), list, verticalArrangement = Arrangement.spacedBy(4.dp)) {
         items(rows, key = { it.set.code }) { row ->
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 ScreenOutlinedButton({ choose(row.set.code) }, Modifier.weight(1f)) {
                     Text(row.set.name)
                 }
-                AutomatumSupportIcon(row.automatum)
+                AutomatumSupportIcon(state.support(row.set.code) ?: row.automatum)
                 if (row.cached) ScreenIconButton("Redownload ${row.set.code}", "refresh", { redownload(row.set.code) }, enabled = !state.busy)
             }
         }
+    }
     }
     if (state.error != null) ScreenIconButton("Retry source", "refresh", retry, Modifier.align(Alignment.BottomEnd), enabled = !state.busy)
     FloatingTransientError(state.error, {}, Modifier.align(Alignment.BottomCenter))

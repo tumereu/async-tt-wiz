@@ -1,0 +1,1 @@
+fix: Tapping "End turn" ends your turn in one tap again, instead of stopping in your second main phase.

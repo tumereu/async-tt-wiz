@@ -53,4 +53,28 @@ class CatalogSetSupportTest {
         assertEquals(3, engine.refresh())
         assertTrue(next.sets().isEmpty(), "the older engine version's results are dropped")
     }
+
+    // DRF-161 (smoke 2026-11-04): only the sets asked for are worked out, and an app restart or update with the same
+    // parser and engine versions (a new CatalogSetSupport on the same card records) works none out again
+    @Test fun onlyRequestedSetsAreWorkedOutAndKeptAcrossUpdates() {
+        val repository = repository()
+        repository.stage { index ->
+            index.addBatch(listOf(card("Plain Cub", "AAA", "Trample"), card("Plain Cub", "BBB", "Trample"),
+                card("Plain Pup", "CCC", "Trample")))
+            CatalogMetadata("2026-11-03", "test")
+        }
+        val read = mutableListOf<String>()
+        val support = CatalogSetSupport(repository, { read += it.faces.single().name; false }, parserVersion = 7, engineVersion = 3)
+        var pauses = 0
+        assertEquals(2, support.refresh(listOf("CCC", "AAA", "ZZZ"), between = { pauses++ }))
+        assertEquals(setOf("AAA", "CCC"), support.sets().keys, "BBB wasn't asked for, ZZZ isn't a set")
+        assertEquals(1, pauses, "a pause between the two sets")
+        assertEquals(listOf("Plain Pup", "Plain Cub"), read)
+
+        val updated = CatalogSetSupport(repository, { read += it.faces.single().name; false }, parserVersion = 7, engineVersion = 3)
+        assertEquals(setOf("AAA", "CCC"), updated.sets().keys)
+        assertEquals(0, updated.refresh(listOf("AAA", "CCC")), "nothing is worked out again")
+        assertEquals(1, updated.refresh(listOf("AAA", "BBB")))
+        assertEquals(listOf("Plain Pup", "Plain Cub"), read, "the reprint in BBB is known by its oracle id")
+    }
 }

@@ -1,0 +1,1 @@
+fix: The phone no longer stays busy for minutes after an app update checking which draft sets Automatum can play; sets are checked only when you look at them.

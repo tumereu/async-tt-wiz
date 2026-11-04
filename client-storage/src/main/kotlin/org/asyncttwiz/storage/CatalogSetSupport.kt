@@ -10,8 +10,9 @@ import kotlinx.serialization.json.Json
  * I-D51: which cards of each draft set in the installed card records Automatum plays by hand, worked out on the device
  * from the cards' rules text with [OracleParser] ([OracleParser.VERSION]) and kept in the catalog generation beside the
  * records: per card by its oracle id and support version (reprints are read once), per set as the names of its
- * unsupported cards. Sets missing a value for this support version (after an import, a parser or an engine change) are
- * worked out by [refresh]. [byHand] says whether a parsed card has parts done by hand (Automatum's rule); it is given by
+ * unsupported cards. Kept results stay across app restarts and updates while the card records and the support version
+ * stay the same. Sets missing a value for this support version (after an import, a parser or an engine change) are
+ * worked out by [refresh], only those asked for (the sets a picker shows, smoke 2026-11-04). [byHand] says whether a parsed card has parts done by hand (Automatum's rule); it is given by
  * the app, which knows the engine and its support version ([engineVersion], below 1000). Blocking: run on a background
  * worker only.
  */
@@ -28,17 +29,21 @@ class CatalogSetSupport(private val repository: CatalogRepository, private val b
         }.toMap()
     }
 
-    /** Works out every draftable set that has no value for this support version yet, one set per catalog lock so the
-     * records stay usable meanwhile; stops early when [cancelled]. Returns how many sets it worked out. */
-    fun refresh(cancelled: () -> Boolean = { false }): Int {
+    /** Works out the draftable sets of [codes] (null: every one) that have no value for this support version yet, in
+     * that order, one set per catalog lock so the records stay usable meanwhile, with [between] run before each set after
+     * the first (a pause); stops early when [cancelled]. Returns how many sets it worked out. */
+    fun refresh(codes: Collection<String>? = null, cancelled: () -> Boolean = { false }, between: () -> Unit = {}): Int {
         val missing = repository.snapshot { index ->
             if (index == null) return@snapshot emptyList()
             index.prepareSetSupport(version)
             val done = index.texts("SELECT code FROM automatum_set WHERE parser_version=$version").toSet()
-            index.draftableSets().filter { it.draftable && it.code !in done }.map { it.code }
+            val draftable = index.draftableSets().filter { it.draftable && it.code !in done }.map { it.code }
+            if (codes == null) draftable else draftable.toSet().let { wanted -> codes.distinct().filter { it in wanted } }
         }
         var count = 0
         for (code in missing) {
+            if (cancelled()) break
+            if (count > 0) between()
             if (cancelled()) break
             compute(code)
             count++

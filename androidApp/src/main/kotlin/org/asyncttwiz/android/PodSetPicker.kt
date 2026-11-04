@@ -14,14 +14,23 @@ interface PodSetRepository {
     fun redownload(code: String): SetSourceUpload
     /** I-D51: the unsupported card names of the sets worked out so far, by set code. */
     fun automatum(): Map<String, List<String>> = emptyMap()
+    /** DRF-161 (smoke 2026-11-04): asks for the support of the sets [codes] shown, worked out in the background; [done]
+     * runs (on any thread) once they are. Not blocking. */
+    fun requestAutomatum(codes: List<String>, done: () -> Unit) {}
+    /** DRF-161: works out [code]'s support now when it isn't known yet (a chosen source). */
+    fun automatumNow(code: String) {}
 }
 
 internal class StoredPodSets(factory: () -> SetSourceRepository,
-    private val support: () -> Map<String, List<String>> = { emptyMap() }) : PodSetRepository {
+    private val support: () -> Map<String, List<String>> = { emptyMap() },
+    private val request: (List<String>, () -> Unit) -> Unit = { _, _ -> },
+    private val now: (String) -> Unit = {}) : PodSetRepository {
     // Repository construction also touches the filesystem; defer it to the worker.
     private val repository by lazy(factory)
     override fun sets() = repository.sets()
     override fun automatum() = support()
+    override fun requestAutomatum(codes: List<String>, done: () -> Unit) = request(codes, done)
+    override fun automatumNow(code: String) = now(code)
     override fun isCached(code: String) = repository.isCached(code)
     override fun load(code: String) = repository.load(code)
     override fun redownload(code: String) = repository.redownload(code)
@@ -61,7 +70,7 @@ internal class PodSetPickerController(private val repository: PodSetRepository?,
         list()
     }
     fun dismiss() { generation++; retryAction = null; state = state.copy(open = false, busy = false, status = null, error = null) }
-    fun clear() { dismiss(); state = PodSetPickerState() }
+    fun clear() { dismiss(); asked.clear(); state = PodSetPickerState() }
     fun query(value: String) { state = state.copy(query = value) }
     fun retry() { if (!state.busy) retryAction?.invoke() }
     private fun list() = work("Loading installed sets…", ::list, action = {
@@ -71,9 +80,24 @@ internal class PodSetPickerController(private val repository: PodSetRepository?,
         } to support
     }) { (rows, support) -> state = state.copy(rows = rows, loaded = true, support = support) }
 
-    /** DRF-161: reads the sets' Automatum support worked out so far, for the chosen source's icon. */
-    fun loadSupport() {
+    /** Set codes asked for this session (personal, cleared with [clear]), so each is asked for once. */
+    private val asked = mutableSetOf<String>()
+
+    /** DRF-161 (smoke 2026-11-04): the picker shows the sets [codes]: those whose support isn't known are worked out in
+     * the background, and the icons show once they are. Main thread. */
+    fun showing(codes: List<String>) {
         val source = repository ?: return
+        val wanted = codes.filter { it !in state.support && it !in asked }
+        if (wanted.isEmpty()) return
+        asked += wanted
+        source.requestAutomatum(wanted) { post { loadSupport() } }
+    }
+
+    /** DRF-161: reads the sets' Automatum support worked out so far, for the chosen source's icon; [code]: that source's
+     * set, worked out in the background when it isn't known yet. */
+    fun loadSupport(code: String? = null) {
+        val source = repository ?: return
+        if (code != null) showing(listOf(code))
         worker.execute {
             val support = runCatching { source.automatum() }.getOrNull() ?: return@execute
             post { state = state.copy(support = support) }
@@ -93,8 +117,12 @@ internal class PodSetPickerController(private val repository: PodSetRepository?,
         work(if (force) "Redownloading $code and preparing card definitions…" else "Loading $code: downloading if needed and preparing card definitions…",
             { acquire(code, force) }, detached = !force, action = {
                 val source = checkNotNull(repository)
-                if (force) source.redownload(code) else source.load(code)
-            }) { upload ->
+                val upload = if (force) source.redownload(code) else source.load(code)
+                // DRF-161: the chosen set's support goes with it (I-D52), worked out now when it isn't known yet
+                if (!force) source.automatumNow(code)
+                upload to runCatching { source.automatum() }.getOrNull()
+            }) { (upload, support) ->
+            if (support != null) state = state.copy(support = support)
             state = state.copy(rows = state.rows.map { if (it.set.code == code) it.copy(cached = true) else it }, warnings = upload.warnings)
             if (!force) { dismiss(); selected(upload) }
         }
@@ -110,8 +138,11 @@ internal class PodSetPickerController(private val repository: PodSetRepository?,
         choosing(DraftableSet(code, name, "", 0))
         worker.execute {
             try {
-                val upload = checkNotNull(repository).load(code)
-                post { if (current == generation) selected(upload) }
+                val source = checkNotNull(repository)
+                val upload = source.load(code)
+                source.automatumNow(code)
+                val support = runCatching { source.automatum() }.getOrNull()
+                post { if (current == generation) { if (support != null) state = state.copy(support = support); selected(upload) } }
             } catch (_: Exception) {
                 post { if (current == generation) failed() }
             }

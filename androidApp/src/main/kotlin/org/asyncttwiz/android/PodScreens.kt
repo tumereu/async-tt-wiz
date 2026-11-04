@@ -238,7 +238,8 @@ private fun NewPodScreen(controller: PodController) {
         Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)) {
             val source = state.sourcePreview ?: draft.setSource?.podSource() ?: state.cubes.find { it.id == draft.cubeId }?.let { PodSource(it.name, it.totalCopies) }
-            LaunchedEffect(Unit) { controller.setPicker.loadSupport() }
+            val setCode = draft.setSource?.snapshot?.setCode.takeIf { draft.cubeId == null }
+            LaunchedEffect(setCode) { controller.setPicker.loadSupport(setCode) }
             val support = if (state.sourcePreview != null) null else podSourceSupport(controller, draft.cubeId, draft.setSource?.snapshot?.setCode)
             PodSettingsForm(draft.name, draft.settings, source, 2, true, controller::newName, controller::chooseSet,
                 controller::newSettings, controller::reroll, automatum = support)
@@ -277,9 +278,9 @@ private fun PodSetupScreen(controller: PodController, detail: PodDetail, account
     val source = state.sourcePreview ?: detail.source
     LaunchedEffect(detail.id, creator) { if (creator) controller.loadCubes() }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        LaunchedEffect(detail.id) { controller.setPicker.loadSupport() }
-        val support = if (state.sourcePreview != null) null else podSourceSupport(controller, edit?.cubeId,
-            edit?.setSource?.snapshot?.setCode ?: source.setCode.takeIf { edit?.cubeId == null && source.kind == PodSourceKind.SET })
+        val setCode = edit?.setSource?.snapshot?.setCode ?: source.setCode.takeIf { edit?.cubeId == null && source.kind == PodSourceKind.SET }
+        LaunchedEffect(detail.id, setCode) { controller.setPicker.loadSupport(setCode) }
+        val support = if (state.sourcePreview != null) null else podSourceSupport(controller, edit?.cubeId, setCode)
         PodSettingsForm(edit?.name ?: detail.name, settings, source, detail.members.size, enabled,
             { controller.editSetup(name = it) }, controller::chooseSet, controller::editSettings, automatum = support)
         val unsupported = support?.supported == false

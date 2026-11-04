@@ -527,6 +527,34 @@ class PodControllerTest {
         override fun isCached(code: String) = true
         override fun load(code: String): SetSourceUpload { calls += "load:$code"; if (fail) error("offline"); return upload }
         override fun redownload(code: String): SetSourceUpload { calls += "redownload:$code"; if (fail) error("offline"); return upload }
+        /** DRF-161: the support worked out so far, the background requests and the sets worked out at once. */
+        val support = mutableMapOf<String, List<String>>()
+        val requested = mutableListOf<List<String>>()
+        val requestsDone = mutableListOf<() -> Unit>()
+        val now = mutableListOf<String>()
+        /** What working a set out at once finds (none: it stays unknown). */
+        var computed = emptyMap<String, List<String>>()
+        override fun automatum(): Map<String, List<String>> = support.toMap()
+        override fun requestAutomatum(codes: List<String>, done: () -> Unit) { requested += codes; requestsDone += done }
+        override fun automatumNow(code: String) { now += code; computed[code]?.let { support[code] = it } }
+    }
+
+    // DRF-161 (smoke 2026-11-04): the picker asks for the support of the sets it shows, each once; an icon shows once
+    // the set is worked out; a chosen set is worked out at once and its result goes with the source
+    @Test fun setSupportIsWorkedOutOnlyForShownAndChosenSets() = Fixture(PodPhase.SETUP).use { f ->
+        f.controller.newPod(cube.id); f.deliver(); f.controller.chooseSet(); f.deliver()
+        assertTrue(f.sets.requested.isEmpty(), "nothing is asked for before rows show")
+        f.controller.setPicker.showing(listOf("TST", "OLD"))
+        f.controller.setPicker.showing(listOf("TST"))
+        assertEquals(listOf(listOf("TST", "OLD")), f.sets.requested)
+        f.sets.support["OLD"] = emptyList()
+        f.sets.requestsDone.forEach { it() }; f.deliver()
+        assertEquals(true, f.controller.setPicker.state.support("OLD")?.supported)
+        assertNull(f.controller.setPicker.state.support("TST"))
+        f.sets.computed = mapOf("TST" to listOf("Odd Cub"))
+        f.controller.setPicker.choose("TST"); f.deliver()
+        assertEquals(listOf("TST"), f.sets.now)
+        assertEquals(listOf("Odd Cub"), f.controller.state.creating!!.setSource!!.support?.byHand)
     }
 
     @Test fun setupFieldTransformsMergeIntoLatestPendingSettingsAndSaveTogether() = Fixture(PodPhase.SETUP).use { f ->

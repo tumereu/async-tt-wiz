@@ -90,6 +90,9 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
         val acting = acting()?.takeIf { it.currentNodeId == play.currentNodeId } ?: return null
         return flows.stepPlan?.takeIf { it.board === acting.board }?.step
     }
+
+    /** The words the step arrow shows on [play] ([AutomatumStepArrow]): its tap's plan, else the board's own. */
+    private fun arrowStep(play: PlayState): AutomatumStep = plannedStep(play) ?: AutomatumStep.of(play)
     /** Combat through Automatum (I3 on today's lanes): declarations, passing on to the damage, early divisions. */
     internal val combat = CombatController({ current()?.takeIf { enabled() } }, { submit(it) }, ::engineTags, automatumWork,
         { error }, { error = it }, board = { current() })
@@ -318,7 +321,13 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
         engine?.let { e ->
             error = null
             return when (intent) {
-                is TableActionIntent.Next -> if (flows.view?.declaring == viewer) flows.step(org.asyncttwiz.automatum.StepFlow.Until.Pass) else e.pass()
+                is TableActionIntent.Next -> when {
+                    flows.view?.declaring == viewer -> flows.step(org.asyncttwiz.automatum.StepFlow.Until.Pass)
+                    // Smoke 2026-11-04 (TRN-057, TRN-063): an arrow that says "End turn" ends the turn; a plain pass
+                    // would stop at the viewer's own main phase on the way (STK-036)
+                    arrowStep(play) == AutomatumStep.EndTurn -> e.endTurn()
+                    else -> e.pass()
+                }
                 is TableActionIntent.End -> e.endTurn()
                 else -> { error = SharedFlowController.STEPS_FORWARD; false }
             }

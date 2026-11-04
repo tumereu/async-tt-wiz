@@ -91,6 +91,19 @@ class EngineDungeonTest {
             "Alice cast Torch Map and ventured into the dungeon: her Lantern Crypt sits as a small card after her Library, Graveyard and Exile, and the violet chip beside it says the venture marker is in Room: Crypt Door.")
     }
 
+    // TRN-069, TRN-035: in landscape the dungeon fits in the sidebar, in the free row under the Library, unscrolled
+    @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun theDungeonFitsTheLandscapeSidebar() {
+        val game = ventured()
+        val scene = TablePresentation.scene(f.game, game.play(), f.a, 892f, 412f, true)
+        val item = scene.items.single { it.kind == TableItemKind.DUNGEON }
+        val dock = scene.viewports.single { it.id == item.viewport }.bounds
+        assertTrue(item.bounds.x >= dock.x && item.bounds.right <= dock.right && item.bounds.y >= dock.y && item.bounds.bottom <= dock.bottom,
+            "${item.bounds} inside $dock")
+        render(game, toolkit(game), landscape = true)
+        compose.onRoot().captureShot("$SCREENSHOTS/engine/dungeon-on-table-landscape.png",
+            "In landscape, after Alice ventured into the dungeon: her Lantern Crypt sits as a small card in the free row of the sidebar under her Library, fully visible, with the Room: Crypt Door chip above her life square.")
+    }
+
     // CR 701.49b, 309.5a: the next venture asks Alice which room to follow; the board at the earlier event shows the earlier room
     @Test fun theNextVentureChoosesARoom() {
         val game = ventured()
@@ -106,14 +119,14 @@ class EngineDungeonTest {
         assertEquals("Crypt Door", EngineProjection.dungeon(assertNotNull(game.reviewPlay(before)).board, f.a)?.room)
     }
 
-    private fun render(game: EngineGame, toolkit: TableToolkitController) {
+    private fun render(game: EngineGame, toolkit: TableToolkitController, landscape: Boolean = false) {
         val routes = EngineTableRoutes(f.a, { game }, {}, { game.play() }).apply { opponentName = "Bob" }
         compose.setContent {
             MaterialTheme {
                 NoRipples {
                     CompositionLocalProvider(LocalEngineRoutes provides routes) {
                         Box(Modifier.fillMaxSize()) {
-                            TableSurface(f.game, game.play(), f.a, false, Modifier.fillMaxSize(), connected = true,
+                            TableSurface(f.game, game.play(), f.a, landscape, Modifier.fillMaxSize(), connected = true,
                                 onIntent = toolkit::handle, toolkit = toolkit,
                                 runtime = TableRuntimeHooks(navigation = {}, chat = {}, undo = { routes.undo() },
                                     undoHold = { routes.holdUndo() }, controlsConnected = true, liveView = true,

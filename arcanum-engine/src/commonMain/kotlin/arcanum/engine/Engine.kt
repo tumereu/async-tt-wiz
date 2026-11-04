@@ -26,7 +26,7 @@ object Engine {
      * automatic, or the other way round. A host that keeps per-card "fully supported" results worked out with this
      * engine keeps them per this version (and the parser's), so a new engine works them out again.
      */
-    const val SUPPORT_VERSION: Int = 7
+    const val SUPPORT_VERSION: Int = 8
 
     /** The room of dungeon [id] its owner's venture marker is on (CR 309.4), by index into its rooms
      * ([arcanum.api.FaceDefinition.rooms]); null when it has no marker (not a dungeon in the command zone). */

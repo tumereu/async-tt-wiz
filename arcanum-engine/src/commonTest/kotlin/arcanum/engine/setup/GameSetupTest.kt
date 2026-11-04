@@ -387,6 +387,28 @@ class GameSetupTest {
         assertTrue(state.objOrThrow(state.player(alice.id).outside.single()).memory[Evaluator.REVEALED_COMPANION] == null)
     }
 
+    // CR 103.2b, I-D18: a player asked even when nothing could be chosen (Skip when I have no choice off) is asked about companions
+    // only when a card of theirs outside the game is one (a condition that fails stays their secret); with none (a sideboard of
+    // other cards) the first decision is the mulligan declaration
+    @Test
+    fun noCompanionQuestionWithoutACompanion() = scenario(start = table(swamps, mountains, sideboards = mapOf(0 to listOf("Thorough Study")))) {
+        alice.skipWhenNoChoice = false
+        startGame(StartOptions(startingPlayer = alice.id))
+        assertEquals(alice.id, decision<Decision.ChooseOption>().player)
+    }
+
+    // CR 103.2b, I-D18: with a companion whose condition fails, the question is still asked (with nothing to choose)
+    @Test
+    fun aFailedCompanionIsStillAskedWhenNoChoiceIsntSkipped() = scenario(
+        start = table(lowCurve.dropLast(1) + "Ranger-Marshal of Dawn", mountains, sideboards = velmora),
+    ) {
+        alice.skipWhenNoChoice = false
+        startGame(StartOptions(startingPlayer = alice.id))
+        val reveal = decision<Decision.ChooseObjects>()
+        assertEquals(alice.id, reveal.player)
+        assertTrue(reveal.options.isEmpty())
+    }
+
     // CR 103.2a: other sideboard cards stay outside the game and out of the library
     @Test
     fun sideboardCardsStayOutside() = scenario(start = table(swamps, mountains, sideboards = mapOf(1 to listOf("Thorough Study", "Faithless Rummage")))) {

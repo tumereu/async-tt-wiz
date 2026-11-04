@@ -112,8 +112,11 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         controller.foreground()
         if (controller.state.account != null) {
             lobby.sync()
-            refreshCardData()
-            refreshAutomatumSupport()
+            // Switch-review #11: while a game is open only the list's changes are read (badges); the rest waits
+            if (lobby.state.selected == null) {
+                refreshCardData()
+                refreshAutomatumSupport()
+            }
         }
     }, main, lobby::tick)
 

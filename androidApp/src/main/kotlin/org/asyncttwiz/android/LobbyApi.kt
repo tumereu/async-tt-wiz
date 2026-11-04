@@ -21,6 +21,9 @@ interface Lobbies : Closeable {
     suspend fun create(token: String, input: CreateInvitation): GameSummary
     suspend fun challengeFromPod(token: String, podId: String, input: ChallengeFromPod): GameSummary { throw LobbyFailure("not_configured") }
     suspend fun games(token: String, invitations: Boolean = false, after: String? = null): GameList
+    /** Switch-review #11: the games (or invitations) changed since [since], a token an earlier read answered; null when
+     * this server can't say (then the whole list is read). */
+    suspend fun gamesSince(token: String, invitations: Boolean, since: String, after: String? = null): GameList? = null
     suspend fun head(token: String, id: String): GameSummary
 }
 
@@ -43,6 +46,11 @@ class LobbyApi(private val origin: String, private val client: HttpClient = Acco
         return call(token, "/v1/pods/$podId/challenge", DeckJson.format.encodeToString(input))
     }
     override suspend fun games(token: String, invitations: Boolean, after: String?): GameList = call(token, page(if (invitations) "invitations" else "games", after))
+    override suspend fun gamesSince(token: String, invitations: Boolean, since: String, after: String?): GameList {
+        if (since.toLongOrNull()?.takeIf { it >= 0 } == null) throw LobbyFailure("invalid_request")
+        val path = page(if (invitations) "invitations" else "games", after)
+        return call(token, path + (if ('?' in path) "&" else "?") + "since=$since")
+    }
     override suspend fun head(token: String, id: String): GameSummary {
         if (!DeckValidation.uuid(id)) throw LobbyFailure("invalid_request")
         return call(token, "/v1/games/$id/head")

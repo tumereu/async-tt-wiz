@@ -72,6 +72,8 @@ class GameHub @JvmOverloads constructor(private val runtime: ServiceRuntime,
         private lateinit var session: Session
         private var hello: GameHello? = null
         private val subscriptions = ConcurrentHashMap.newKeySet<String>()
+        /** Switch-review #11: the subscriptions of the open game, whose revisions and head carry its engine state. */
+        private val engineSubscriptions = ConcurrentHashMap.newKeySet<String>()
         private val streams = ConcurrentHashMap.newKeySet<String>()
         private val outgoing = ArrayDeque<String>()
         private var bytes = 0
@@ -147,23 +149,25 @@ class GameHub @JvmOverloads constructor(private val runtime: ServiceRuntime,
                     }
                     is SubscribeGame -> {
                         if (1 !in message.readFormats) throw GameProtocolFailure("upgradeRequired")
-                        games.subscriptionHead(principal, gameId) // Authorize before enabling any publication delivery.
+                        // Authorize before enabling any publication delivery (a summary: no play or engine state is read)
+                        val authorized = games.subscriptionHead(principal, gameId, engine = false)
                         // Register before snapshot selection; duplicates/races are reconciled by revision IDs.
                         subscriptions.add(gameId)
+                        // Switch-review #11: only the open game's revisions and head carry its engine state
+                        if (message.engine) engineSubscriptions.add(gameId) else engineSubscriptions.remove(gameId)
                         try {
                             // A fresh subscription to a tombstone gets lifecycle only, no old board/history.
-                            val head = games.subscriptionHead(principal, gameId)
-                            if (head.summary.lifecycle in listOf(GameLifecycle.LOBBY, GameLifecycle.ACTIVE)) {
+                            if (authorized.summary.lifecycle in listOf(GameLifecycle.LOBBY, GameLifecycle.ACTIVE)) {
                                 try {
                                     games.revisions(principal, gameId, message.revision).revisions.forEach {
-                                        send(games.publicationState(principal, it))
+                                        send(games.publicationState(principal, it, engine = message.engine))
                                     }
                                 } catch (failure: GameProtocolFailure) {
                                     if (failure.code != "accessDenied") throw failure
                                 }
                             }
-                            send(games.subscriptionHead(principal, gameId, presence = true))
-                        } catch (failure: Exception) { subscriptions.remove(gameId); throw failure }
+                            send(games.subscriptionHead(principal, gameId, presence = true, engine = message.engine))
+                        } catch (failure: Exception) { subscriptions.remove(gameId); engineSubscriptions.remove(gameId); throw failure }
                     }
                     else -> Unit
                 }
@@ -185,7 +189,7 @@ class GameHub @JvmOverloads constructor(private val runtime: ServiceRuntime,
                     // An unreadable stored revision is skipped (the game's own reads report it); publication carries on (SYS-052).
                     StoredData.orSkip("game revision", publication.gameId) {
                         GameWire.json.decodeFromString<GameServerMessage>(publication.revision) as GameRevision
-                    }?.let { send(games.publicationState(principal, it)) }
+                    }?.let { send(games.publicationState(principal, it, engine = publication.gameId in engineSubscriptions)) }
                 }
                 if (publication.accountId == accountId) sendText(publication.result)
             } catch (failure: GameProtocolFailure) { if (failure.code == "unauthorized") stop() }
@@ -193,8 +197,10 @@ class GameHub @JvmOverloads constructor(private val runtime: ServiceRuntime,
         }
         fun heartbeat() {
             if (System.nanoTime() - lastTraffic > TimeUnit.SECONDS.toNanos(90)) { stop(); return }
+            // Switch-review #11: a summary with presence, never the play or its engine state (the open game catches up
+            // from its revisions, and asks for its engine head when one is missing)
             for (gameId in subscriptions) dispatcher.submit(gameId) {
-                send(games.subscriptionHead(principal(), gameId, presence = true))
+                send(games.subscriptionHead(principal(), gameId, presence = true, engine = false))
             }.whenComplete { _, failure -> if (failure != null) stop() }
             if (subscriptions.isEmpty()) send(GamePong("heartbeat"))
         }

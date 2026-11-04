@@ -19,7 +19,11 @@ import kotlinx.serialization.Serializable
     val podId: String? = null, val podName: String? = null,
     /** Pod challenge waiting for the opponent's deck: both players see it, the recipient can decline but not yet accept. Omitted when false. */
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val invitationHeld: Boolean = false)
-@Serializable data class GameList(val games: List<GameSummary>, val next: String? = null)
+/** A page of the games list. Read with a [token] from an earlier read ("changed since", switch-review #11): only the games
+ * changed since then, with [removed] the ids of changed games that left this list (ended, cancelled, declined, no longer
+ * visible). [token] is what to read changed games since next time (the first page's; null on an older read). */
+@Serializable data class GameList(val games: List<GameSummary>, val next: String? = null, val token: String? = null,
+    val removed: List<String> = emptyList())
 @Serializable data class LobbyError(val code: String)
 
 object LobbyValidation {

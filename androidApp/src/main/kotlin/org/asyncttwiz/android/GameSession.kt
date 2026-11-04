@@ -260,10 +260,20 @@ class GameSession(private val connection: GameConnection, private val credential
         val stream = streams[gameId] ?: return
         if (!ready || stream.generation == null || gameId in headAsked || !available(gameId)) return
         headAsked.add(gameId)
-        send(SubscribeGame(gameId, acceptedRevisions[gameId] ?: "0"))
+        send(SubscribeGame(gameId, acceptedRevisions[gameId] ?: "0", engine = true))
     }
     /** Each game that should be loaded but isn't (an active engine play): loads it from its kept head, or asks for one. */
     private fun loadOpened() {
+        // Switch-review #11: only the open game has an engine state on the device; one that is no longer open is let go
+        // (what it still has to send goes first) and its subscription becomes a summary one
+        for (gameId in engineGames.keys.filter { !engineLoad(it) }) {
+            val game = engineGames.getValue(gameId)
+            if (game.shown != null) deliverEngine(gameId, game, game.take(Long.MAX_VALUE))
+            engineGames.remove(gameId); engineBacklog.remove(gameId); reloadAsked.remove(gameId)
+            val stream = streams[gameId]
+            if (ready && stream?.generation != null && available(gameId))
+                send(SubscribeGame(gameId, acceptedRevisions[gameId] ?: "0", engine = false))
+        }
         for ((gameId, stream) in streams) {
             if (stream.generation == null || !engineLoad(gameId) || gameId in unopenable) continue
             val current = summaries[gameId] ?: continue
@@ -724,7 +734,9 @@ class GameSession(private val connection: GameConnection, private val credential
                 }
                 if (available(message.gameId)) {
                     headAsked.add(message.gameId)
-                    send(SubscribeGame(message.gameId, plays[message.gameId]?.revision ?: acceptedRevisions[message.gameId] ?: "0"))
+                    // Switch-review #11: the open game's head and revisions carry its engine state; the list's are summaries
+                    send(SubscribeGame(message.gameId, plays[message.gameId]?.revision ?: acceptedRevisions[message.gameId] ?: "0",
+                        engine = engineLoad(message.gameId)))
                 }
                 flush()
             }
@@ -744,6 +756,15 @@ class GameSession(private val connection: GameConnection, private val credential
                 // I-D56: an active play is engine state, played on its engine game
                 if (message.engine != null && message.play != null &&
                     message.summary.lifecycle == GameLifecycle.ACTIVE) engineHead(message)
+                else if (message.summary.lifecycle == GameLifecycle.ACTIVE && message.play == null) {
+                    // A summary head (switch-review #11: every heartbeat, and a game in the list): the summary and presence;
+                    // the open game asks for its engine head when this one is past what it received (switch-review #10)
+                    install(message.summary, message.revision, message.preparation, null)
+                    streams[message.gameId]?.head = true
+                    val loaded = engineGames[message.gameId]?.takeIf { it.base.id == message.summary.playId }
+                    if (engineLoad(message.gameId) && loaded?.revision?.let { GameWire.ordinal(message.revision) > GameWire.ordinal(it) } == true)
+                        askHead(message.gameId)
+                }
                 else if (!catchUp.head(message)) {
                     install(message.summary, message.revision, message.preparation, null)
                     streams[message.gameId]?.head = true

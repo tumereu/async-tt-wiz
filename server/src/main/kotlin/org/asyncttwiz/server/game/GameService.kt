@@ -140,18 +140,28 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
     fun head(principal: AccountService.Principal, gameId: String): GameHead = transaction { sql ->
         readHead(sql, principal, gameId, locked(sql, uuid(gameId), actor(principal)))
     }
-    /** A socket may learn removal and recover originals, never reopen the removed replica. */
-    fun subscriptionHead(principal: AccountService.Principal, gameId: String, presence: Boolean = false): GameHead = transaction { sql ->
+    /** A socket may learn removal and recover originals, never reopen the removed replica. [engine] (switch-review #11):
+     * the open game's head, with its play and engine state; otherwise an active play's head is its summary only. */
+    fun subscriptionHead(principal: AccountService.Principal, gameId: String, presence: Boolean = false,
+        engine: Boolean = true): GameHead = transaction { sql ->
         val game = locked(sql, uuid(gameId), actor(principal), recovery = true)
         if (game.lifecycle !in listOf("LOBBY", "ACTIVE")) {
             val summary = lobby.summary(sql, game.id!!)
             GameHead(gameId, summary.revision, summary)
-        } else readHead(sql, principal, gameId, game).let { head ->
+        } else (if (engine || game.lifecycle != "ACTIVE") readHead(sql, principal, gameId, game) else summaryHead(sql, principal, gameId, game)).let { head ->
             if (!presence) head else head.copy(opponentPresence = OpponentPresences.read(sql, game.id!!,
                 if (game.inviterId == actor(principal)) game.recipientId!! else game.inviterId!!,
                 java.time.OffsetDateTime.ofInstant(clock.instant(), java.time.ZoneOffset.UTC)))
         }
     }
+    /** An active play's head without its play or engine state (switch-review #11: a game in the list): its summary, whose
+     * move it is per viewer from the engine seats, and the chat cursor. No play row or engine state is read. */
+    private fun summaryHead(sql: DSLContext, principal: AccountService.Principal, gameId: String, game: GameRecord): GameHead {
+        val summary = lobby.summary(sql, game, null, actor(principal))
+        return GameHead(gameId, summary.revision, summary, chatSync = ChatStore.sync(sql, uuid(gameId)), boundedEndpoint = true,
+            ownPodDeckName = PreparationStore.ownPodDeckName(sql, uuid(gameId), actor(principal)))
+    }
+
     /** [game] is the row locked by this transaction: the play is read (and checked) once, for the summary too. */
     private fun readHead(sql: DSLContext, principal: AccountService.Principal, gameId: String, game: GameRecord): GameHead {
         val play = PlayStore.read(sql, game.id!!)
@@ -208,13 +218,18 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
         else if (canReadPreparation(revision.summary, accountId)) revision else revision.copy(preparation = null)
     }
 
-    /** An old unpublished board must not restore access after a later lifecycle commit. */
-    fun publicationState(principal: AccountService.Principal, revision: GameRevision): GameServerMessage = transaction { sql ->
+    /** An old unpublished board must not restore access after a later lifecycle commit. [engine] false (switch-review
+     * #11: a game in the list, not the open one): an active play's revision without its engine part or play, so the
+     * list gets its summary, chat and preparation only. */
+    fun publicationState(principal: AccountService.Principal, revision: GameRevision, engine: Boolean = true): GameServerMessage = transaction { sql ->
         val game = locked(sql, uuid(revision.gameId), actor(principal), recovery = true)
         if (game.lifecycle !in listOf("LOBBY", "ACTIVE")) {
             val summary = lobby.summary(sql, game.id!!)
             GameHead(revision.gameId, summary.revision, summary)
-        } else visibleRevision(revision, principal.account.accountId)
+        } else visibleRevision(revision, principal.account.accountId).let { visible ->
+            if (engine || visible.summary.lifecycle != GameLifecycle.ACTIVE) visible
+            else visible.copy(play = null, mutation = null, group = null, treeDelta = null, engineEvent = null, engine = null)
+        }
     }
 
     /** Candidate games are independent; every selected game executes its lowest pending ordinal. */

@@ -10,7 +10,7 @@ Changes the owner wants but that are not built yet. The feature catalog
 
 ## Ready to build
 
-(nothing right now)
+- Fix (owner bug, 2026-11-04, report YRVZNM, 0.1.12): after a spell of connection failures (Pi tunnel dropping, 12:47–12:50 UTC: `/v1/pods/<id>` timeouts and "Retrying after PodFailure"), tapping a drafting pod on the Pods list did nothing and the app stayed on the list, even after the connection came back and with the pod fine on the server; only a force stop helped. Find the stuck state, fix it, and add an e2e test that fails before the fix (pod loads failing, then recovering → the pod opens). No catalog change (DRF-012 already expects the pod to open).
 
 ## Specified, not started
 

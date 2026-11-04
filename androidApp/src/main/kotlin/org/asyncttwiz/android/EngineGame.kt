@@ -817,9 +817,9 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
     private fun arrived(timing: OwnActionTiming) { if (timing.complete) report(timing) }
 
     /**
-     * Main thread: [timing]'s parts, once (every part in, or a newer action's board came first): logged in test and debug
-     * builds (logcat tag `AtwOwnAction`, every own action), in the app log when slow (over SYS-025's 20 ms to its board),
-     * and to the recorder's sample (SYS-030: recorded and uploaded when slow, with reports on).
+     * Main thread: [timing]'s parts, once (every part in, or a newer action's board came first): in the app log (and so
+     * in problem reports) for every own action in test and debug builds, and in others when slow (over SYS-025's 20 ms to
+     * its board); and to the recorder's sample (SYS-030: recorded and uploaded when slow, with reports on).
      */
     private fun report(timing: OwnActionTiming) {
         if (timing.reported) return
@@ -828,8 +828,10 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
         if (measuring === timing) measuring = null
         val parts = timing.parts()
         val line = timing.line(parts)
-        if (Diagnostics.alwaysOn) try { android.util.Log.i("AtwOwnAction", "Own action $line") } catch (_: RuntimeException) {}
-        if ((parts[OwnActionTiming.TOTAL] ?: 0.0) > SLOW_MS) AppLog.info("engine", "Slow own action $line")
+        // Test and debug builds log every own action in the app log, so a problem report carries a whole sample, not
+        // only the slow ones
+        val slow = (parts[OwnActionTiming.TOTAL] ?: 0.0) > SLOW_MS
+        if (slow || Diagnostics.alwaysOn) AppLog.info("engine", "${if (slow) "Slow own action" else "Own action"} $line")
         timing.trace?.parts(parts)
         measured?.invoke(timing)
     }

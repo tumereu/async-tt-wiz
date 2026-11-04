@@ -268,7 +268,7 @@ rec_stop() {
         adb -s "$s" shell pkill -INT screenrecord </dev/null || true
         while kill -0 "$pid" 2>/dev/null; do sleep 0.3; done
         sleep 1
-        adb -s "$s" pull /sdcard/smoke.mp4 "$dir/$file" </dev/null >/dev/null
+        adb -s "$s" pull /sdcard/smoke.mp4 "$dir/$file" </dev/null >/dev/null 2>&1
         rm -f "$dir/.rec-$(name_of "$s")"
         echo "$dir/$file"
     done
@@ -284,15 +284,19 @@ logcat_save() {
         echo "== $n: $PKG warnings/errors (pid ${pids:-not running}), crashes and ANRs"
         # shellcheck disable=SC2086
         python3 -I - "$dir/logcat-$n.txt" "$PKG" $pids <<'PY' | tail -n 60
-import sys
+import re, sys
 path, package, pids = sys.argv[1], sys.argv[2], set(sys.argv[3:])
-for line in open(path, errors="replace"):
+lines = open(path, errors="replace").readlines()
+# Earlier processes of the app (restarts) count too.
+pids |= set(re.findall(r"Start proc (\d+):" + re.escape(package) + r"/", "".join(lines)))
+for line in lines:
     parts = line.split()
     if len(parts) < 6:
         continue
     ours = parts[2] in pids and parts[4] in ("W", "E", "F")
     crash = ("FATAL" in line or "ANR in" in line or "AndroidRuntime" in line) and package in line
-    if ours or crash:
+    noise = any(n in line for n in ("Long monitor contention", "Compiler allocated", "Verification of", "Gralloc"))
+    if (ours and not noise) or crash:
         print(line.rstrip())
 PY
     done

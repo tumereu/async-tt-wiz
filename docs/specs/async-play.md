@@ -769,10 +769,25 @@ Decided while building (the plainest reading; owner to confirm):
 5. **Queued challenge:** a pod game still in its lobby, never played, its invitation pending or accepted; both the
    challenger and the challenged skip "Decks ready".
 
-
 ## 27. Playback pausing (owner, 2026-11-04)
 
 - Playback pauses only on events that change something visible: a card moving (cast, play, resolve, dies, draw count), life or counter changes, attacks/blocks, the opponent's choices (targets, modes), a turn change. These keep their animation plus the usual short pause at the animation speed setting.
 - Passes, step changes where nothing happened and repeated priority passes apply instantly (only the step indicator moves).
 - Playback stops for good where you must decide.
 - **Play/pause button** (bottom, where Auto was): pausing stops playback at the **next point where full control would stop** (a point where you could have acted), even with no decision waiting for you; there you can react (cast, activate) or turn on full control, and playing again continues. Holding the button opens the full control / auto-skip dialog.
+
+## 28. Built (owner, 2026-11-04): "Your move" everywhere follows who is waiting for whom
+
+Replaces §26 choice 1. The game list, the move pill, the bar colours and the heads and revisions the server sends say
+"Your move" only when the game really waits for the player (`engine_seat.waited`, the record notifications use), and
+"<opponent>'s move" when it waits for them; while one player plays on assumptions the acting player has the move for
+both. The server's per-viewer move reads `waited` (`EngineGames`, `LobbyService`); the device works the same out on the
+main line's head as it knows it (`GameDevice.move`, shown as `BoardState.move`), so a decision stop in playback is still
+answered from the table while the pill says the other player's move. TRN-006, TRN-013, TRN-014, TRN-058, TRN-047,
+LOB-022, LOB-024, HIS-032.
+
+Decided while building (the plainest reading; owner to confirm):
+1. **A waiting result suggestion** (TRN-047, TRN-049: it locks the game for both) is the other player's move like an
+   undo request, so it is also listed, shown and notified as theirs.
+2. **When the game waits for nobody** (both have seen a result not yet confirmed) the list keeps "Move not available";
+   the table's pill and bars keep the board's own holder (the turn player's).

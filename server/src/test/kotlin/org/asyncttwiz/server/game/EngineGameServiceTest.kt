@@ -164,7 +164,8 @@ class EngineGameServiceTest {
         assertTrue(last.engine!!.steps.any { it.input == Input.Concede(bob.me) })
     }
 
-    // I-D56 §3, §7, §8: Alice assumes Bob's keep; each viewer sees their own move; the same real answer confirms it
+    // I-D56 §3, §7, §8, TRN-058: Alice assumes Bob's keep and plays on: her move for both viewers; the same real answer
+    // confirms it
     @Test fun `an assumed keep is confirmed by the same answer, whose move it is per viewer`() = withService { runtime ->
         val f = Fixture(runtime, engine = true, tag = "c")
         val codec = f.codec()
@@ -180,11 +181,12 @@ class EngineGameServiceTest {
         assertEquals("accepted", f.owner.execute(GameAction.Submit(alice.act(id(), Input.Answer(open.id, Answer.Option("Keep")), assumed = true))).outcome)
         val assumed = alice.pending.single()
         assertEquals(f.alice, assumed.assumed?.assumedBy)
-        // Bob's next stop is the assumed keep: his move; Alice's is her first turn: hers too (each viewer their own)
-        assertEquals(f.b.account.accountId, f.attention(f.b))
+        // TRN-058 (I-D57): Bob's next stop is the assumed keep, but Alice plays on: the game waits for her alone, so it is
+        // her move for both viewers
+        assertEquals(f.a.account.accountId, f.attention(f.b))
         assertEquals(f.a.account.accountId, f.attention(f.a))
         val stored = f.revisions(f.b, before).last()
-        assertEquals(f.b.account.accountId, stored.summary.attentionHolder)
+        assertEquals(f.a.account.accountId, stored.summary.attentionHolder)
         assertNull(stored.engine!!.moves, "the per-player table stays on the server")
         // §15: the waits for a real input that began while that player wasn't live are logged (nobody has the game open);
         // at the start both players' mulligans wait at once (switchreview #5)

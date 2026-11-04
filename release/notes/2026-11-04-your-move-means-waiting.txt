@@ -1,0 +1,1 @@
+mod: "Your move" in the games list and on the table now shows only when the game is really waiting for you; while your opponent plays on, it is their move

@@ -121,7 +121,7 @@ internal fun stepBlocked(play: PlayState, castOpen: Boolean, combat: org.asynctt
 /**
  * Owner playtest 2026-11-03 #2 (MTG Arena): whether [viewer] sees the step arrow on [play]: in their own turn, and in the
  * other player's turn only while they hold priority (a pause, Resolve) or must decide (their blockers, a choice of
- * theirs: the move is theirs, TRN-058).
+ * theirs: they act on the board shown).
  */
 internal fun stepArrowShown(play: PlayState, viewer: String?): Boolean {
     val board = play.board

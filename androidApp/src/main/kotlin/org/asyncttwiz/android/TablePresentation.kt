@@ -400,7 +400,7 @@ object TablePresentation {
             val grid = TableBounds(fieldLeft, logical.y, fieldRight - fieldLeft, logical.height)
             val bounds = grid.intersection(worldViewport) ?: grid.copy(width = 0f, height = 0f)
             TableField(bounds, player.accountId, container(player.accountId, PlayZone.BATTLEFIELD).id,
-                gridBounds = grid, rowHeight = rowHeight * zoom, holdsAttention = player.accountId == play.board.effectiveAttentionHolder,
+                gridBounds = grid, rowHeight = rowHeight * zoom, holdsAttention = player.accountId == play.board.moveHolder,
                 originX = logical.x)
         }
         val sidebarBounds = TableBounds(0f, boardTop, sidebar, (height - controlsHeight - boardTop).coerceAtLeast(0f))

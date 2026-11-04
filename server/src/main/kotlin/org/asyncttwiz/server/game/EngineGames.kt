@@ -82,8 +82,8 @@ internal class EngineGames(private val capacity: Int = 32) {
     /**
      * What a change did, for the caller's revision, notifications and broadcast: the new [events] (encoded, in order:
      * a rewind's new line first), a rewind's [target], the assumed event a submission [confirmed], whether the game's
-     * result is now final ([ended]: the play ends), each player's local head, whether each has a next stop ([moves]),
-     * the players whose next stop is new ([newStops]: their "your move" notification, timed from their stop's event,
+     * result is now final ([ended]: the play ends), each player's local head, whether the game waits for each (their
+     * move, TRN-058: [moves]), the players whose next stop is new ([newStops]: their "your move" notification, timed from their stop's event,
      * [stopTimes]), each player's last-activity time ([activity]: their next stop's time, else their local head's, §7),
      * the open undo request.
      */
@@ -108,7 +108,7 @@ internal class EngineGames(private val capacity: Int = 32) {
         /** The players the game waited for until this change. */
         val endedWaits: Set<String> = emptySet(),
     ) {
-        /** Whose move the game is for the stored summary: a player with a next stop (each viewer sees their own, §7). */
+        /** Whose move the game is for the stored summary: a player the game waits for (each viewer sees their own first). */
         val attention: String? get() = moves.entries.firstOrNull { it.value }?.key
         val update: EngineUpdate get() = EngineUpdate(events.drop(1), target, heads, lines, request, confirmed, moves, activity)
     }
@@ -329,13 +329,13 @@ internal class EngineGames(private val capacity: Int = 32) {
             attention(seats, viewer)
     }
 
-    /** Whose move [play] is for [viewer] (I-D56 §7): null when it isn't an engine play or nobody has a next stop. */
+    /** Whose move [play] is for [viewer] (TRN-058, I-D57): null when it isn't an engine play or it waits for nobody. */
     fun attentionFor(sql: DSLContext, play: UUID, viewer: UUID): String? =
         if (!mayExist(sql) || open(sql, play) == null) null else attention(seats(sql, play), viewer)
 
     /**
-     * Whether each player of [play] has a move and their last-activity time (I-D56 §7), as stored after its last change:
-     * for a revision that changes nothing of the engine's (chat, the start) to carry as an engine revision does; null
+     * Whether each player of [play] has the move (the game waits for them, TRN-058) and their last-activity time
+     * (I-D56 §7), as stored after its last change: for a revision that changes nothing of the engine's (chat, the start) to carry as an engine revision does; null
      * when [play] isn't played as engine state.
      */
     fun moves(sql: DSLContext, play: UUID): EngineUpdate? {
@@ -344,7 +344,7 @@ internal class EngineGames(private val capacity: Int = 32) {
         val heads = seats.filter { it.nextStopAt == null }.map { UUID.fromString(it.head) }
         val times = if (heads.isEmpty()) emptyMap() else sql.select(ENGINE_EVENT.ID, ENGINE_EVENT.CREATED_AT).from(ENGINE_EVENT)
             .where(ENGINE_EVENT.PLAY_ID.eq(play)).and(ENGINE_EVENT.ID.`in`(heads)).fetch().associate { it.value1()!!.toString() to it.value2()!! }
-        return EngineUpdate(moves = seats.associate { it.account.toString() to (it.nextStop != null) },
+        return EngineUpdate(moves = seats.associate { it.account.toString() to it.waited },
             activity = seats.mapNotNull { seat -> (seat.nextStopAt ?: times[seat.head])?.let { seat.account.toString() to it.toInstant().toString() } }.toMap())
     }
 
@@ -355,9 +355,10 @@ internal class EngineGames(private val capacity: Int = 32) {
         return seats(sql, play).takeIf { it.isNotEmpty() }?.associate { it.account.toString() to it.waited }
     }
 
+    /** TRN-058 (I-D57): the viewer when the game waits for them, else the other player when it waits for them. */
     private fun attention(seats: List<SeatRow>, viewer: UUID): String? =
-        seats.firstOrNull { it.account == viewer && it.nextStop != null }?.account?.toString()
-            ?: seats.firstOrNull { it.nextStop != null }?.account?.toString()
+        seats.firstOrNull { it.account == viewer && it.waited }?.account?.toString()
+            ?: seats.firstOrNull { it.waited }?.account?.toString()
 
     /** The warm state at [head], or the state there from a checkpoint (the warm one taken out). */
     private fun warmAt(play: UUID, history: GameHistory, head: String): LiveState {
@@ -384,8 +385,11 @@ internal class EngineGames(private val capacity: Int = 32) {
         val found = mutableMapOf<SeatRow, NextStop.Stop?>()
         val waits = mutableMapOf<SeatRow, Boolean>()
         val resume = mutableMapOf<SeatRow, String>()
-        // The seats whose only stop is answering the open undo request
+        // The seats whose only stop is answering the open undo request or result suggestion
         val requested = mutableSetOf<SeatRow>()
+        // I-D57 (TRN-058): the player whose open undo request (switchreview #12) or result suggestion (TRN-047, TRN-049:
+        // it locks the game for both) waits for the other player's answer
+        val asker = row.request?.by ?: state.model.table.suggestion?.by?.value
         for (seat in seats) {
             val player = PlayerId(seat.account.toString())
             val after = MainLine.after(history, head, seat.head) ?: emptyList()
@@ -395,22 +399,23 @@ internal class EngineGames(private val capacity: Int = 32) {
                 org.asyncttwiz.protocol.game.ResumePoints.of(model.engine, player))
             // switchreview #12 (owner to confirm): an open undo request is the other player's move, notified like one;
             // the requester waits (or cancels) meanwhile (§10)
-            val stop = when (row.request?.by) {
-                null -> NextStop.of(model, seat.head, after, player, seat.settings.mode)
-                seat.account.toString() -> null
-                else -> NextStop.of(model, seat.head, after, player, seat.settings.mode)
+            val stop = when {
+                row.request?.by == seat.account.toString() -> null
+                asker != null && asker != seat.account.toString() -> NextStop.of(model, seat.head, after, player, seat.settings.mode)
                     ?: NextStop.Stop(head, null).also { requested += seat }
+                else -> NextStop.of(model, seat.head, after, player, seat.settings.mode)
             }
             val stored = seat.nextStop
             val same = stop != null && stop.event == null && stored != null &&
                 MainLine.after(history, head, stored)?.all { it.engine == null } == true
             found[seat] = stop
-            // I-D57: the requester of an open undo waits for the other player's answer
-            waits[seat] = stop != null && (row.request?.by.let { it != null && it != seat.account.toString() } ||
-                NextStop.waitsFor(state.model.engine, player, stop))
+            // I-D57: the asker of an open undo request or result suggestion waits for the other player's answer
+            waits[seat] = stop != null && (if (asker != null) asker != seat.account.toString()
+                else NextStop.waitsFor(state.model.engine, player, stop))
             stops[seat] = if (same) stored else stop?.let { it.event ?: it.at }
             if (stops[seat] != stored && stop != null) newStops += seat.account.toString()
-            moves[seat.account.toString()] = stop != null
+            // TRN-058, LOB-022, LOB-024 (I-D57): the move is the player the game really waits for, as notifications have it
+            moves[seat.account.toString()] = waits[seat] == true
         }
         // The times of the new stops and of the local heads, in one read
         val wanted = (stops.filter { (seat, id) -> id != seat.nextStop }.values.filterNotNull() + seats.map { it.head })

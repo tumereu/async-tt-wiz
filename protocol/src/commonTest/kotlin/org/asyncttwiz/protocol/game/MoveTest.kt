@@ -12,7 +12,9 @@ import arcanum.engine.state.PlayerId
 import arcanum.engine.state.TargetRef
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertIs
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
@@ -160,6 +162,34 @@ class MoveTest {
         val expected = sim.serverMove(alice)
         assertEquals(expected, sim.serverMove(bob))
         sim.assertMoves(mapOf(alice to expected, bob to expected), "after the branch")
+    }
+
+    // TRN-050, HIS-097 (I-D56 §8): Bob suggests a draw on the line where Alice's keep was assumed; Alice answers the assumed
+    // keep differently (a mulligan): the main line branches, and the suggestion left behind on the discarded line locks
+    // nothing for either player
+    @Test
+    fun aSuggestionLeftOnADiscardedLineLocksNothing() {
+        val sim = spells("Storm Spark")
+        sim.bobToMain()
+        val alice = sim.alice; val bob = sim.bob
+        assertIs<GameDevice.Acted.Sent>(sim.device(bob).suggest(GameResult.Draw))
+        sim.settle(only = listOf(bob))
+        assertTrue(sim.device(bob).locked, "the suggestion waits on Bob's line")
+        val device = sim.load(alice)
+        device.play()
+        device.playToStop()
+        assertIs<GameDevice.Status.Stopped>(device.status)
+        val mulligan = Engine.options(device.model.engine, alice).first {
+            (it as? Input.Answer)?.answer == Answer.Option("Mulligan") || (it as? Input.SetupAnswer)?.answer == Answer.Option("Mulligan")
+        }
+        assertIs<GameDevice.Acted.Sent>(device.act(mulligan))
+        sim.settle()
+        assertEquals(1, sim.branches)
+        for (p in listOf(alice, bob)) {
+            assertNull(sim.device(p).model.table.suggestion, "${p.value}: gone with its line")
+            assertFalse(sim.device(p).locked, "${p.value}: nothing locked")
+        }
+        assertNull(sim.server.state().table.suggestion)
     }
 
     /** Forests and Elvish Seers (1/1) for both, at 1 life: Alice's turn-3 attack is lethal unless Bob blocks. */

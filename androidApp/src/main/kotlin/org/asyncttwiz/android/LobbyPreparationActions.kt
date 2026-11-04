@@ -6,7 +6,9 @@ import org.asyncttwiz.protocol.*
 /** LobbyController's own deck preparation in a lobby game: start settings and readiness, the
  * preparation view's card transfers and pod basic lands, and their personal undo. Main thread. */
 internal class LobbyPreparationActions(private val scope: LobbyScope, private val accountId: () -> String?,
-    private val session: GameSession?, private val queue: LobbyActionQueue, private val inspection: CardInspectionController) {
+    private val session: GameSession?, private val queue: LobbyActionQueue, private val inspection: CardInspectionController,
+    private val dungeonDefinitions: (() -> List<SubmittedDefinition>)? = null,
+    private val worker: java.util.concurrent.ExecutorService? = null, private val post: ((() -> Unit) -> Unit)? = null) {
     private var state: LobbyState
         get() = scope.state
         set(value) { scope.state = value }
@@ -15,7 +17,31 @@ internal class LobbyPreparationActions(private val scope: LobbyScope, private va
     fun alternateStarter(enabled: Boolean) = readiness(GameAction.SetAlternateStarter(enabled))
     /** Show (or hide again) the own deck's name and cover to the opponent in this game. */
     fun showDeck(shown: Boolean) = readiness(GameAction.ShowDeck(shown))
-    fun ready() = readiness(GameAction.Ready)
+    /** The catalog's dungeon cards, once read. */
+    @Volatile private var dungeons: List<SubmittedDefinition>? = null
+
+    /** Ready; a deck that ventures into the dungeon or takes the initiative brings the catalog's dungeon cards with it (LOB-117). */
+    fun ready() {
+        val actor = accountId() ?: return
+        val preparation = state.preparation
+        val deck = preparation?.players?.find { it.accountId == actor }?.deck
+        val digests = deck?.entries?.filter { it.section in SavedDeckSection.PREPARED }?.map { it.definition }?.toSet().orEmpty()
+        val venturing = preparation?.definitions.orEmpty().any { it.digest in digests &&
+            org.asyncttwiz.protocol.game.OutsideCards.mayVenture(it.definition) }
+        val load = dungeonDefinitions
+        val known = dungeons
+        val worker = worker
+        val post = post
+        when {
+            !venturing || load == null -> readiness(GameAction.Ready)
+            known != null -> readiness(GameAction.Ready, known)
+            worker == null || post == null -> readiness(GameAction.Ready, runCatching(load).getOrDefault(emptyList()))
+            else -> worker.execute {
+                val found = runCatching(load).getOrDefault(emptyList()).also { if (it.isNotEmpty()) dungeons = it }
+                post { if (!closed) readiness(GameAction.Ready, found) }
+            }
+        }
+    }
     fun withdrawReady() = readiness(GameAction.WithdrawReady)
     fun changePodBasic(land: BasicLand, delta: Int, section: SavedDeckSection = SavedDeckSection.MAINBOARD): Boolean {
         val actor = accountId() ?: return false
@@ -52,14 +78,14 @@ internal class LobbyPreparationActions(private val scope: LobbyScope, private va
         if (done) preparationUndo = preparationUndo.pop()
         return done
     }
-    private fun readiness(action: GameAction) {
+    private fun readiness(action: GameAction, outside: List<SubmittedDefinition> = emptyList()) {
         val game = state.detail ?: return
         val actor = accountId() ?: return
         if (closed) return
-        if (game.lifecycle != GameLifecycle.LOBBY) { session?.readiness(game, actor, action); return }
+        if (game.lifecycle != GameLifecycle.LOBBY) { session?.readiness(game, actor, action, outside); return }
         // Ready/Withdraw toggle one control; the latest waiting tap of each control wins.
         queue.whenReady(game.id, when (action) { is GameAction.SetStarter -> "starter"; is GameAction.SetAlternateStarter -> "alternate"; is GameAction.ShowDeck -> "showDeck"; else -> "ready" }) {
-            state.detail?.takeIf { it.id == game.id }?.let { current -> session?.readiness(current, actor, action) }
+            state.detail?.takeIf { it.id == game.id }?.let { current -> session?.readiness(current, actor, action, outside) }
         }
     }
     fun prepareDeck() {

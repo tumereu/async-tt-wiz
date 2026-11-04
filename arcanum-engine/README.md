@@ -484,7 +484,9 @@ report and replay their inputs on a saved state. The default `EngineTrace.None` 
   venture follows an arrow (the owner choosing among several) and the room's ability triggers, controlled by the owner; from the
   bottommost room venturing completes it and starts a new one, and a dungeon on its bottommost room whose room ability has left the
   Stack is completed as a state-based action (CR 309.6): back outside the game, `GameEvent.CompletedDungeon`, counted in the player's
-  ledger. "Venture into Undercity" only chooses Undercity dungeons; the initiative's three inherent triggers (CR 726.2: upkeep, combat
+  ledger. "Venture into Undercity" only chooses Undercity dungeons, and a dungeon with `Mechanic.OnlyVentureInto` ("You can't
+  enter this dungeon unless you "venture into Undercity."", CR 701.49d) is never chosen by a plain venture; `Engine.ventureRoom`
+  says which room a dungeon's marker is on (a host's display). The initiative's three inherent triggers (CR 726.2: upkeep, combat
   damage to its holder, taking it, `GameEvent.TookInitiative` also when retaken, 726.5) are sourceless waiting triggers; when
   its holder leaves the game the active player (or, the active player leaving, the next player in turn order) takes it (726.4).
   Banding (`combat/Banding`, CR 702.22, scenarios in `combat/BandingTest`): attackers declared with the same `Attack.band` form an

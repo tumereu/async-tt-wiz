@@ -432,6 +432,9 @@ sealed interface Mechanic {
     /** "Any time you could mulligan and this card is in your hand, you may [instructions]" (CR 103.5b): an action its owner may
      * take where they would declare whether they take a mulligan, then they declare; works in the hand. */
     @Serializable @SerialName("when-you-could-mulligan") data class WhenYouCouldMulligan(val instructions: Instructions) : Mechanic
+    /** A dungeon's "You can't enter this dungeon unless you "venture into [quality]."" (CR 701.49d): only venturing into [quality]
+     * brings it into the game, never a plain venture into the dungeon; works outside the game. */
+    @Serializable @SerialName("only-venture-into") data class OnlyVentureInto(val quality: ObjectFilter) : Mechanic
     /** The affected players' starting hand size is changed by [change] (CR 103.5: "some effects can modify a player's starting
      * hand size", 103.5a); read as the game starts, from objects in the command zone (a conspiracy, a vanguard). */
     @Serializable @SerialName("starting-hand-size") data class StartingHandSize(val change: Int) : Mechanic {

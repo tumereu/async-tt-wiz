@@ -412,7 +412,7 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
             val clear = if (device.session.behind) emptyList() else listOfNotNull(
                 t.attackDraft?.takeIf { inputs.any { it is Input.DeclareAttackers } }?.let { TableChange.AttackDraft(it, null) },
                 t.blockDraft?.takeIf { inputs.any { it is Input.DeclareBlockers } }?.let { TableChange.BlockDraft(it, null) })
-            device.act(first, table + clear, { if (rest.hasNext()) rest.next() else null }, performed)
+            device.act(first, table + clear, performed) { if (rest.hasNext()) rest.next() else null }
         }
     }
 

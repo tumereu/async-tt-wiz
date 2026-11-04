@@ -151,7 +151,7 @@ class LobbyService(private val runtime: ServiceRuntime) {
             val sql = if (listener == null) base else DSL.using(base.configuration().derive(listener))
             val actor = owner(principal)
             // The token first: its snapshot is older than the rows' read, so a change committed after it has a marker at
-            // or after it (V60) and the next read since it can't miss one
+            // or after it (V61) and the next read since it can't miss one
             val token = if (after == null) sql.fetchValue(DSL.field("pg_snapshot_xmin(pg_current_snapshot())::text", String::class.java)) else null
             // Held pod challenges are listed too; the recipient sees them before their deck is in.
             val listed = (if (invitations) GAME.RECIPIENT_ID.eq(actor).and(INVITATION.STATE.eq("PENDING"))

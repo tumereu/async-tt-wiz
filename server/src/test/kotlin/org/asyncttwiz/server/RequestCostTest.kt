@@ -187,7 +187,9 @@ class RequestCostTest {
                     // read the engine snapshot with every head: subscribe 31 -> 43 (three heads), head refresh 10 -> 14.
                     val expected = mapOf("game action: admit" to 10, "game action: execute" to 18, "game action: publish" to 18,
                         "game open: subscribe" to 43, "game open: head refresh" to 14, "GET /v1/games/{id}/head" to 7, "GET /v1/pods/{id}" to 10,
-                        "GET /v1/games" to 7, "GET /v1/pods" to 8, "GET /v1/decks" to 7, "GET /activity" to 15)
+                        // The games list reads its change token first (switch-review #11), and its summaries in two queries
+                        // whatever the number of games (one per game before, and each play's row decoded)
+                        "GET /v1/games" to 8, "GET /v1/pods" to 8, "GET /v1/decks" to 7, "GET /activity" to 15)
                     for ((name, trips) in expected) assertEquals(List(10) { trips }, samples.getValue(name).map { it.work }, name)
                     // Requests never touch the ownership session: only its own 500 ms check does, far fewer times.
                     val requests = samples.values.sumOf { it.size }

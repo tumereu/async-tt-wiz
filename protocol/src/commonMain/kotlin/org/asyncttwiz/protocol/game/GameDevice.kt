@@ -451,8 +451,8 @@ class GameDevice(
      * the action, so a host may show it before the event is finished. The action may still be refused after it: by the
      * information rule (what follows by itself would show a hidden card, [REVEALS_HIDDEN]) or an engine failure.
      */
-    fun act(input: Input, table: List<TableChange> = emptyList(), follow: (GameModel) -> Input? = { null },
-        performed: (() -> Unit)? = null): Acted = act(input, table, follow, null, performed)
+    fun act(input: Input, table: List<TableChange> = emptyList(), performed: (() -> Unit)? = null,
+        follow: (GameModel) -> Input? = { null }): Acted = act(input, table, follow, null, performed)
 
     private fun act(input: Input, table: List<TableChange>, follow: (GameModel) -> Input?, replay: ArrayDeque<Input>?,
         performed: (() -> Unit)? = null): Acted {

@@ -141,15 +141,14 @@ class NightReview4AtwTest {
         return rt
     }
 
-    // CR 309.2, 309.2a, 701.49a, 726.2, I-D51: venturing needs a dungeon card its player owns outside the game, which an ATW game
-    // doesn't have yet (nightreview #13, the fallback until ATW provides dungeons): a card that ventures into the dungeon or takes the
-    // initiative counts as played by hand, so a deck holding it can't start a game (LOB-115)
-    @Test fun venturingIntoTheDungeonIsLeftToThePlayers() {
+    // CR 309.2, 309.2a, 701.49a, 726.2, I-D51, LOB-115, LOB-117: a card that ventures into the dungeon or takes the initiative is
+    // played by the rules (nightreview #13's fallback is gone): its player's device brings the dungeon cards to the game
+    @Test fun venturingIntoTheDungeonIsPlayedByTheRules() {
         val map = Cards.invent("Night Torch Map", "{W}", "Sorcery", "Venture into the dungeon.")
         val claim = Cards.invent("Night Claim", "{W}", "Instant", "You take the initiative.")
         val plain = Cards.invent("Night Plain Bolt", "{R}", "Instant", "Night Plain Bolt deals 3 damage to any target.")
-        assertTrue(AutomatumSupport.handParts(Cards.definition(map)).any { "dungeon" in it }, "venture: ${AutomatumSupport.handParts(Cards.definition(map))}")
-        assertTrue(AutomatumSupport.handParts(Cards.definition(claim)).any { "initiative" in it }, "initiative: ${AutomatumSupport.handParts(Cards.definition(claim))}")
+        assertTrue(AutomatumSupport.handParts(Cards.definition(map)).isEmpty(), "venture: ${AutomatumSupport.handParts(Cards.definition(map))}")
+        assertTrue(AutomatumSupport.handParts(Cards.definition(claim)).isEmpty(), "initiative: ${AutomatumSupport.handParts(Cards.definition(claim))}")
         assertTrue(AutomatumSupport.handParts(Cards.definition(plain)).isEmpty())
     }
 

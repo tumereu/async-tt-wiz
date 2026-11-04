@@ -7,6 +7,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.ViewModelStore
 import org.asyncttwiz.storage.DeckImportResolver
+import org.asyncttwiz.storage.dungeonDefinitions
 import java.util.concurrent.Executors
 
 class AuthViewModel(application: Application) : AndroidViewModel(application) {
@@ -104,7 +105,8 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                 if (failure.status == 401) authenticationRequired(token)
                 throw failure
             }
-        }, treeCache = local::treeCache, basicLandDefinitions = { podBasicDefinitions(catalog.repository) })
+        }, treeCache = local::treeCache, basicLandDefinitions = { podBasicDefinitions(catalog.repository) },
+        dungeonDefinitions = { catalog.repository.dungeonDefinitions() })
     internal val heartbeat = GameHeartbeatController { token, presence ->
         controller.sessionToken() == token && lobby.heartbeat(presence)
     }

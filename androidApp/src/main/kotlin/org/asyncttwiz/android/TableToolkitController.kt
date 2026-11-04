@@ -526,6 +526,8 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
             return
         }
         hand.lower()
+        // TRN-069: a tap on a dungeon inspects it (holding shows it large)
+        if (item.kind == TableItemKind.DUNGEON) { item.cardId?.let(::inspect); return }
         // CMB-028, CMB-032, CMB-034: with Automatum on a tap in combat stages, blocks or selects
         if (combatTap(play, item)) { dismiss(); return }
         // A card in a Graveyard or Exile panel: its engine menu (TBL-116)

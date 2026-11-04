@@ -121,6 +121,62 @@ class VentureTest {
         assertEquals(Zone.Command, state.command.mapNotNull { state.obj(it) }.firstOrNull { it.owner == bob.id }?.zone)
     }
 
+    // CR 701.49a, d: a dungeon that "you can't enter unless you venture into Undercity" is never chosen by a plain venture, while
+    // the initiative's venture into Undercity chooses it (the rooms' arrows written as card data writes them, "(Leads to: …)")
+    @Test
+    fun undercityOnlyByVentureIntoUndercity() = scenario {
+        val restricted = Cards.invent("Venture Test Sunken City", null, "Dungeon — Undercity", """
+            You can't enter this dungeon unless you "venture into Undercity."
+            Flooded Stair — You gain 2 life. (Leads to: Coral Hall, Salt Vault)
+            Coral Hall — Each opponent loses 1 life. (Leads to: Abyss Throne)
+            Salt Vault — Draw a card. (Leads to: Abyss Throne)
+            Abyss Throne — You gain 5 life.
+        """.trimIndent())
+        alice.battlefield("Plains", "Plains", "Plains")
+        alice.hand(map, vanguard)
+        alice.library("Plains", "Plains")
+        alice.outside(restricted, crypt)
+        alice.casts(map)
+        allPass()
+        // Only the crypt could be chosen: it is entered at once, without a choice
+        assertEquals(0, dungeonOf(crypt)?.let { Dungeons.room(it) })
+        assertEquals(null, dungeonOf(restricted))
+        allPass()
+        expect { alice.life shouldBe 21 }
+        // A venture into Undercity while the crypt is in the command zone moves its marker instead (CR 701.49d)
+        alice.casts(vanguard)
+        allPass()
+        allPass()
+        allPass()
+        val d = pending
+        assertTrue(d is Decision.ChooseOption && d.options == listOf("Bone Hall", "Dark Well"), "Choose a room: $d")
+        answer(Answer.Option("Dark Well"))
+        allPass()
+        assertEquals(2, dungeonOf(crypt)?.let { Dungeons.room(it) })
+        assertEquals(null, dungeonOf(restricted))
+    }
+
+    // CR 701.49d: with no dungeon in the command zone, venturing into Undercity enters the dungeon only it may enter
+    @Test
+    fun theInitiativeEntersTheRestrictedDungeon() = scenario {
+        val restricted = Cards.invent("Venture Test Drowned Keep", null, "Dungeon — Undercity", """
+            You can't enter this dungeon unless you "venture into Undercity."
+            Flooded Stair — You gain 2 life. (Leads to: Abyss Throne)
+            Abyss Throne — You gain 5 life.
+        """.trimIndent())
+        alice.battlefield("Plains", "Plains")
+        alice.hand(vanguard)
+        alice.outside(crypt, restricted)
+        alice.casts(vanguard)
+        allPass()
+        allPass()
+        allPass()
+        allPass()
+        expect { alice.life shouldBe 22 }
+        assertEquals(0, dungeonOf(restricted)?.let { Dungeons.room(it) })
+        assertEquals(null, dungeonOf(crypt))
+    }
+
     // CR 309.2a, D60, D31: in bob's view alice's cards outside the game are unknown: she chooses her dungeon in her own view, and the
     // dungeon put into the command zone is public
     @Test

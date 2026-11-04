@@ -325,14 +325,6 @@ class EngineGameServiceTest {
         assertNull(Engine.result(model.engine))
     }
 
-    // SYS-073 (I-D56 step D2): the server takes gameplay only as engine inputs; today's model's play actions are refused
-    @Test fun `today's model's play actions are refused`() = withService { runtime ->
-        val f = Fixture(runtime, engine = true, tag = "o")
-        val play = GameScope(f.game.id, playId = f.games.head(f.a, f.game.id).summary.playId)
-        for (action in listOf(GameAction.Undo, GameAction.Redo, GameAction.Concede, GameAction.AcceptResult(id())))
-            assertEquals("inapplicable", f.owner.execute(f.owner.command(action).copy(scope = play)).reason, "$action")
-        assertEquals(GameLifecycle.ACTIVE, f.games.head(f.a, f.game.id).summary.lifecycle)
-    }
 }
 
 /** The server's [event] received and played back at once (a device that shows events as they arrive, I-D56 §7). */

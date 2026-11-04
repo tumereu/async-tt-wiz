@@ -21,17 +21,13 @@ import org.asyncttwiz.automatum.CombatRefused
 import org.asyncttwiz.automatum.CombatShown
 import org.asyncttwiz.automatum.DamageDivision
 import org.asyncttwiz.automatum.Divisions
-import org.asyncttwiz.automatum.EngineBatch
 import org.asyncttwiz.automatum.EngineRun
-import org.asyncttwiz.automatum.EngineState
 import org.asyncttwiz.automatum.LaneAttack
 import org.asyncttwiz.automatum.LaneBlock
 import org.asyncttwiz.automatum.PreAnswer
 import org.asyncttwiz.automatum.PreAnswers
 import org.asyncttwiz.automatum.PreShare
 import org.asyncttwiz.automatum.StepFlow
-import org.asyncttwiz.automatum.Unmappable
-import org.asyncttwiz.automatum.Unsupported
 import org.asyncttwiz.protocol.*
 
 /**
@@ -267,8 +263,6 @@ internal class CombatController(
     fun draftRefusal(play: TableBoard, sources: List<String>, role: CombatRole, pairId: String?, attackTarget: String?): String? {
         val shown = choices(play)
         if (working(shown)) return WORKING_OUT
-        // A board Automatum can't take over keeps its manual combat
-        if (shown.choices.unsupported.isNotEmpty()) return null
         val choices = shown.choices
         val pair = pairId?.let { id -> play.board.combat?.pairs?.singleOrNull { it.id == id } }
         choices.declaring ?: return if (AutomatumBoards.throughEngine(play.board)) DECLARED else NOT_DECLARING
@@ -352,7 +346,6 @@ internal fun automatumCombatQuickActions(play: TableBoard, context: QuickContext
     val position = TurnPosition.of(play.board.turn)
     if (position !in setOf(TurnPosition.DECLARE_ATTACKERS, TurnPosition.DECLARE_BLOCKERS, TurnPosition.FIRST_STRIKE_DAMAGE, TurnPosition.COMBAT_DAMAGE)) return null
     val shown = context.automatumCombat ?: return emptyList()
-    if (shown.choices.unsupported.isNotEmpty()) return null
     // A combat declared by hand (not through Automatum) keeps its manual quick actions (Close + next, CMB-022)
     if (position == TurnPosition.COMBAT_DAMAGE && !AutomatumBoards.throughEngine(play.board) && shown.passing == null) return null
     val viewer = context.viewer

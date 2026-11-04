@@ -63,6 +63,7 @@ class AuthorityTest {
         check(state().engine.priority.holder == alice && state().engine.stack.isNotEmpty())
     }
 
+    // HIS-092, SYS-073: each event is one acting point a device made of the player's own inputs; the server takes it as made
     @Test
     fun aDevicesEventIsTheServersEvent() {
         val server = AsyncServer(EngineGames(1))
@@ -76,6 +77,7 @@ class AuthorityTest {
         assertTrue(server.state().table.line.drawn > 0)
     }
 
+    // HIS-092: a submission is taken or refused whole
     @Test
     fun aStaleSubmissionIsRefused() {
         val server = AsyncServer(EngineGames(2))
@@ -88,6 +90,7 @@ class AuthorityTest {
     }
 
     // I-D56 §6: nobody decides for the other player; random answers are the line's (§9)
+    // SYS-036, SYS-038: each player makes only their own decisions
     @Test
     fun onlyTheDeciderMakesTheirInputs() {
         val server = AsyncServer(EngineGames(3))
@@ -142,6 +145,7 @@ class AuthorityTest {
     }
 
     // I-D56 §8, §9: another answer is a branch: a new line from the counter, reshuffled; the old line is discarded
+    // HIS-043, ZON-024: the discarded line is kept and shown to nobody; the new line reshuffles
     @Test
     fun anotherAnswerBranchesAndTheDiscardedLineIsShownToNobody() {
         val server = AsyncServer(EngineGames(5))
@@ -262,6 +266,7 @@ class AuthorityTest {
     }
 
     // I-D56 §10: undo is free while everything after the target is your own and showed you nothing new
+    // HIS-087, ZON-026: undo is free until something new was shown (a scry's look makes it a request)
     @Test
     fun undoIsFreeUntilSomethingNewWasShown() {
         val server = spells("Glance Ahead")
@@ -340,6 +345,7 @@ class AuthorityTest {
         assertTrue(server.submit(confirm.copy(id = "c2"), alice).isSuccess)
     }
 
+    // TRN-048, SYS-006: a result suggestion is its own table event, not an undo
     @Test
     fun aSuggestedResultIsAgreedByTheOtherPlayer() {
         val server = AsyncServer(EngineGames(9))
@@ -376,5 +382,152 @@ class AuthorityTest {
             assertTrue(events > 50, "seed $seed: $events events")
             assertEquals(0, server.lines)
         }
+    }
+
+    /** Bob's Mountains and Storm Sparks, Alice's Forests: Bob starts, keeps, assumes Alice's keep and plays a Mountain in
+     * his main phase. */
+    private fun sparksAtMain(): AsyncServer {
+        val server = AsyncServer(EngineGames(3, List(40) { "Forest" } to (List(20) { "Mountain" } + List(20) { "Storm Spark" })))
+        server.start(server.bob)
+        server.keepAndAssumeKeep(server.bob)
+        server.atOwnMain(server.bob)
+        server.act(server.bob, Input.PlayLand(server.bob, hand(server.state(), server.bob, "Mountain"))).getOrThrow()
+        return server
+    }
+
+    /** Bob's own answers of a Storm Spark cast: Alice as its target, else the first answer listed. */
+    private fun AsyncServer.atAlice() = flow(bob) { d, answers ->
+        if (d is Decision.Targets) answers.first { (it.answer as Answer.Targets).chosen == listOf(TargetRef.Player(alice)) } else answers.first()
+    }
+
+    // SYS-010 (HIS-092): a player action that needs several engine inputs (a Storm Spark: the cast, its target, its
+    // payment) goes to the server as one submission and becomes one event; with one of its inputs one the engine refuses,
+    // the whole submission is refused and nothing of it is taken
+    @Test
+    fun aCastWithItsChoicesIsOneSubmissionTakenOrRefusedWhole() {
+        val server = sparksAtMain()
+        val bob = server.bob
+        val head = server.head
+        val spark = hand(server.state(), bob, "Storm Spark")
+        val (submission, made) = server.make(server.state(), head, bob, Input.Cast(bob, spark), follow = server.atAlice())
+        val inputs = submission.acts.filterIsInstance<Act.Perform>().map { it.input }
+        assertIs<Input.Cast>(inputs.first())
+        assertTrue(inputs.size >= 2 && inputs.drop(1).all { it is Input.Answer }, "the cast with its choices: $inputs")
+        // Its last input changed to an answer the engine refuses: refused whole
+        val broken = submission.copy(id = "broken", acts = submission.acts.dropLast(1) +
+            Act.Perform(Input.Answer((inputs.last() as Input.Answer).decision, Answer.Option("Nothing of the kind"))))
+        assertTrue(server.submit(broken, bob).isFailure)
+        assertEquals(head, server.head, "nothing of it was taken")
+        assertTrue(spark in server.state().engine.player(bob).hand)
+        assertTrue(server.state().engine.stack.isEmpty())
+        // As made: one event holding every input
+        val accepted = assertIs<Acceptance.Accepted>(server.submit(submission, bob).getOrThrow())
+        assertEquals(made, accepted.event)
+        assertEquals(listOf(made), MainLine.after(server.history, server.head, head))
+        assertEquals(inputs, made.engine!!.steps.mapNotNull { it.input })
+        assertEquals(1, server.state().engine.stack.size)
+    }
+
+    // SYS-004 (HIS-092, HIS-085): each event is one acting point: Alice's pass is one event with everything that then
+    // happens by itself (the Storm Spark resolving, her life going down); taking it back takes all of it back at once
+    @Test
+    fun aPassIsOneEventWithWhatFollowsAndGoesBackAsOne() {
+        val server = sparksAtMain()
+        val alice = server.alice; val bob = server.bob
+        server.act(bob, Input.Cast(bob, hand(server.state(), bob, "Storm Spark")), follow = server.atAlice()).getOrThrow()
+        if (server.state().engine.priority.holder == bob) server.act(bob, Input.PassPriority(bob)).getOrThrow()
+        assertEquals(alice, server.state().engine.priority.holder)
+        val before = server.head
+        server.act(alice, Input.PassPriority(alice)).getOrThrow()
+        val event = MainLine.after(server.history, server.head, before)!!.single()
+        assertEquals(listOf<Input>(Input.PassPriority(alice)), event.engine!!.steps.mapNotNull { it.input })
+        assertTrue(event.engine!!.changes.any { it is arcanum.engine.change.Change.StackItemRemoved }, "the spell resolved in it")
+        assertTrue(server.state().engine.stack.isEmpty())
+        assertEquals(17, server.state().engine.player(alice).life)
+        server.seen(alice, server.head); server.seen(bob, server.head)
+        assertNull(server.rewindNeeds(alice, before), "her own latest action, nothing new shown")
+        server.rewind(alice, before)
+        assertEquals(before, server.head)
+        assertEquals(20, server.state().engine.player(alice).life)
+        assertEquals(1, server.state().engine.stack.size, "the spell waits on the Stack again")
+    }
+
+    // SYS-053: the server refuses an action the rules don't allow (a second land in a turn) with a message saying why,
+    // never taking it silently; the device's options, which the app offers, don't list it
+    @Test
+    fun anActionTheRulesDontAllowIsRefusedWithItsReason() {
+        val server = sparksAtMain()
+        val bob = server.bob
+        val head = server.head
+        val mountain = hand(server.state(), bob, "Mountain")
+        assertTrue(Engine.options(server.state().engine, bob).none { it is Input.PlayLand }, "not offered")
+        val refused = server.submit(Submission("second-land", head, listOf(Act.Perform(Input.PlayLand(bob, mountain)))), bob)
+            .exceptionOrNull()
+        assertIs<Refusal>(refused)
+        assertTrue(refused.reason.startsWith("Refused by the engine: ") && refused.reason.length > "Refused by the engine: ".length,
+            "a message saying why: ${refused.reason}")
+        assertEquals(head, server.head, "nothing was taken")
+        assertTrue(mountain in server.state().engine.player(bob).hand)
+    }
+
+    // TRN-002: turn numbers count both players' turns: turn 1 is only the starting player's first turn; passing on from
+    // its Cleanup gives turn 2 to the other player, at their Untap
+    @Test
+    fun turnNumbersCountBothPlayersTurns() {
+        val server = AsyncServer(EngineGames(4, List(40) { "Forest" } to List(40) { "Island" }))
+        val alice = server.alice; val bob = server.bob
+        server.start(bob)
+        server.keepAndAssumeKeep(bob)
+        assertEquals(1, server.state().engine.turn.number)
+        assertEquals(bob, server.state().engine.turn.active)
+        val start = server.head
+        server.playOn(bob) { it.engine.turn.number == 2 }
+        assertEquals(alice, server.state().engine.turn.active)
+        val steps = MainLine.after(server.history, server.head, start)!!.flatMap { it.engine?.changes.orEmpty() }
+            .filterIsInstance<arcanum.engine.change.Change.Step>()
+        val change = steps.single { it.before.number != it.after.number }
+        assertEquals(1 to TurnStep.Cleanup, change.before.number to change.before.step)
+        assertEquals(Triple(2, alice, TurnStep.Untap), Triple(change.after.number, change.after.active, change.after.step))
+    }
+
+    // TRN-060 (CR 104.4b): abilities that keep triggering without anyone getting priority (two Mirror Motes, each
+    // targeting the other whenever it becomes a target) stop after 200 rounds with the same loop choice, "Possible loop:
+    // …", for the player who would get priority; Draw makes the game a draw
+    @Test
+    fun endlessTriggersStopAtTheCapWithTheLoopChoice() {
+        val base = arcanum.engine.cards.Cards.definition(arcanum.engine.cards.Cards.invent("Mirror Mote Base", "{0}",
+            "Creature — Faerie", "Whenever this creature attacks, tap another target creature.", "1/1"))
+        val face = base.faces.single()
+        val attacks = face.abilities.single() as arcanum.api.Ability.Triggered
+        val targeted = attacks.copy(trigger = arcanum.api.Trigger.On(arcanum.api.EventPattern.BecomesTarget(
+            arcanum.api.ObjectFilter.Is(arcanum.api.Objects.Self), arcanum.api.ObjectFilter.Any)))
+        val mote = arcanum.engine.cards.Cards.define("Mirror Mote",
+            arcanum.api.CardDefinition(base.layout, listOf(face.copy(name = "Mirror Mote", abilities = listOf(targeted)))))
+        val look = arcanum.engine.cards.Cards.invent("Prying Look", "{0}", "Instant", "Tap target creature.")
+        val server = AsyncServer(EngineGames(5, List(40) { if (it % 2 == 0) mote else look } to List(40) { "Island" }))
+        val alice = server.alice
+        server.start(alice)
+        server.keepAndAssumeKeep(alice)
+        server.atOwnMain(alice)
+        repeat(2) {
+            server.act(alice, Input.Cast(alice, hand(server.state(), alice, mote)), follow = server.flow(alice)).getOrThrow()
+            server.atOwnMain(alice)
+        }
+        val motes = server.state().engine.battlefield
+        assertEquals(2, motes.size)
+        server.act(alice, Input.Cast(alice, hand(server.state(), alice, look)), follow = server.flow(alice) { d, answers ->
+            when (d) {
+                is Decision.Targets -> answers.first { (it.answer as Answer.Targets).chosen == listOf(TargetRef.Object(motes.first())) }
+                is Decision.ChooseOption -> null
+                else -> answers.first()
+            }
+        }).getOrThrow()
+        val state = server.state().engine
+        val choice = assertIs<Decision.ChooseOption>(state.pending?.decision, "the loop choice")
+        assertEquals(listOf("Continue", "Draw"), choice.options)
+        assertTrue(choice.text!!.startsWith("Possible loop: the game stopped after 200 rounds"), choice.text)
+        assertEquals(alice, choice.player, "the caster, who would get priority next")
+        server.act(alice, Input.Answer(choice.id, Answer.Option("Draw"))).getOrThrow()
+        assertEquals(GameResult.Draw, Engine.result(server.state().engine))
     }
 }

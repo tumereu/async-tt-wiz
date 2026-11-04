@@ -61,7 +61,7 @@ class PlayTest {
         val state = StartRules.initialize(game, preparation, id(11), seeds)
         assertEquals(game.id, state.gameId); assertEquals(game.preparationRound, state.preparationRound)
         assertNotEquals(game.id, state.id); assertNotEquals(state.id, state.root.id)
-        assertNull(state.root.parentId); assertEquals(state.root.id, state.currentNodeId)
+        assertNull(state.root.parentId)
         assertEquals(TurnState(a.accountId), state.board.turn)
         assertEquals(listOf("20", "20"), state.board.players.map { it.life })
         // Every new play starts with both players mulliganing (rules v26), until they set another status.
@@ -137,5 +137,23 @@ class PlayTest {
         val random = GameCommand(id(12), scope, GameAction.SetStarter(StarterChoice()), id(13), "1")
         assertNotEquals(GameWire.digest(random), GameWire.digest(random.copy(action = GameAction.SetStarter(StarterChoice(a.accountId)))))
         assertFalse(GameWire.valid(random.copy(action = GameAction.SetStarter(StarterChoice("invalid")))))
+    }
+
+    // SYS-052 (engine-responsiveness R4d): a play row stored with the old model's fields (its history node, group and
+    // annotations) still reads as the play it started as; only the old fields are left out
+    @Test fun aPlayStoredWithTheOldModelsFieldsStillReads() {
+        val state = StartRules.initialize(game, ready(), id(11), seeds)
+        val stored = GameWire.json.encodeToJsonElement(PlayState.serializer(), state).let { element ->
+            kotlinx.serialization.json.JsonObject(element as kotlinx.serialization.json.JsonObject + mapOf(
+                "currentNodeId" to kotlinx.serialization.json.JsonPrimitive(state.root.id),
+                "engineVersion" to kotlinx.serialization.json.JsonPrimitive(1),
+                "currentGroup" to kotlinx.serialization.json.JsonNull,
+                "annotations" to kotlinx.serialization.json.buildJsonObject { put("commentsById", kotlinx.serialization.json.buildJsonObject {}) },
+                "currentBranchId" to kotlinx.serialization.json.JsonPrimitive(state.root.branchId)))
+        }.toString()
+        assertFails { GameWire.json.decodeFromString(PlayState.serializer(), stored) }
+        assertEquals(state, GameWire.stored(PlayState.serializer(), stored))
+        // SYS-052: any other unknown field still makes the row unreadable
+        assertFails { GameWire.stored(PlayState.serializer(), stored.replaceFirst("{", "{\"retiredField\":true,")) }
     }
 }

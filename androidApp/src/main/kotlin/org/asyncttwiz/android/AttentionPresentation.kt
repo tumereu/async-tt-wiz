@@ -33,20 +33,3 @@ internal val TimelineBarColor = Color(0xffe5e7e9)
 internal fun tableBarColor(board: BoardState, viewer: String, reviewing: Boolean = false) =
     if (reviewing) TimelineBarColor else battlefieldColor(board.moveHolder, viewer, board.moveHolder, lands = false)
 
-/** Constant-size observation of displayed endpoints; never walks or replays history. */
-internal class MoveArrivalTracker(private val viewer: String) {
-    private var previous: TableBoard? = null
-    private var wasLive = false
-
-    fun observe(play: TableBoard, live: Boolean, event: GameplayMutation?): Boolean {
-        val before = previous
-        val arrived = live && wasLive && before != null && before.playId == play.playId &&
-            before.nodeId != play.nodeId && before.board.effectiveAttentionHolder != viewer &&
-            play.board.effectiveAttentionHolder == viewer && event?.id == play.nodeId &&
-            (event.author != viewer || event.action == PlayAction.NextStep || event.action == PlayAction.EndTurn ||
-                event.action is PlayAction.ChooseStep || event.action is PlayAction.BeginTurn)
-        previous = play
-        wasLive = live
-        return arrived
-    }
-}

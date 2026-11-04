@@ -13,9 +13,9 @@ class GameChatTest {
     private val b = AccountIdentity(id(), "B")
     private val game = GameSummary(id(), "Chat game", "2026-10-23T00:00:00Z", a, b, id(), id(),
         InvitationState.ACCEPTED, GameLifecycle.ACTIVE, playId = id())
-    private val play = PlayState(game.id, game.playId!!, game.preparationRound, id(), PlayRoot(id(), id()), id(),
+    private val play = PlayState(game.id, game.playId!!, game.preparationRound, id(), PlayRoot(id(), id()),
         BoardState(listOf(PlayPlayer(a.accountId), PlayPlayer(b.accountId)), emptyList(), emptyList(), TurnState(a.accountId)),
-        emptyList(), emptyList(), InitialStarter(StarterChoice(a.accountId), a.accountId)).let { it.copy(currentNodeId = it.root.id) }
+        emptyList(), emptyList(), InitialStarter(StarterChoice(a.accountId), a.accountId))
     private class Wire : GameConnection {
         lateinit var listener: GameConnection.Listener
         val frames = mutableListOf<GameClientMessage>()

@@ -17,7 +17,7 @@ data class GameRules(val openingHand: Int = 7, val freeMulligans: Int = 1) {
     companion object {
         /** Opening hand 7, the first mulligan free, London mulligans. */
         val STANDARD = GameRules()
-        /** At most this many mulligans are recorded ([MtgAction.SetMulligans]). */
+        /** At most this many mulligans a player takes. */
         const val MAX_MULLIGANS = 64
     }
 }

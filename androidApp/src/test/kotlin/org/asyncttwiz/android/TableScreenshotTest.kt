@@ -399,16 +399,7 @@ internal object LiveTableFixture {
         val token = PlayCard(java.util.UUID.nameUUIDFromBytes("soldier".toByteArray()).toString(), submitted.digest,
             "a", "a/BATTLEFIELD", "soldier", covered = false, corner = "1/1", token = true,
             placement = PlayPlacement(BoardPosition(3, 2), "soldier-pile"))
-        val group = "ping-group"
-        val reference = ReferencedEventContext(EventReference(play.id, play.currentNodeId), "fixture")
-        val pings = listOf(cards.first { it.containerId == "a/BATTLEFIELD" && it.corner == "1/3" }.id, token.id).mapIndexed { n, id ->
-            val target = PingTarget(PingTargetKind.CARD, id)
-            RecordedPingChange(AnnotationRecording(play.id, "branch", play.currentNodeId, "ping-$n", group, "request-$n", "a"),
-                reference, target, null, PingPresence(target, (n + 1).toString(), "ping-$n"))
-        }
-        return normalized.copy(definitions = normalized.definitions + submitted,
-            currentGroup = GameplayGroup(group, "a", play.currentNodeId, play.currentNodeId, "ping", null, "2"),
-            annotations = EventAnnotationState(pings = pings), board = normalized.board.copy(cards = cards + token,
+        return normalized.copy(definitions = normalized.definitions + submitted, board = normalized.board.copy(cards = cards + token,
                 containers = normalized.board.containers.map { if (it.id == token.containerId) it.copy(cards = it.cards + token.id) else it },
                 contentsDisplays = listOf(ContentsDisplay("reveal", "a", "a/LIBRARY", ContentsSelection.TOP, 2, true, shown))))
     }

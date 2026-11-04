@@ -24,7 +24,6 @@ val schemaTools = sourceSets.create("schemaTools") {
 }
 
 dependencies {
-    testImplementation(project(":scale-fixtures"))
     implementation(project(":core"))
     implementation(project(":protocol"))
     // I-D54: the server runs the Arcanum engine (the authoritative engine state of each game).

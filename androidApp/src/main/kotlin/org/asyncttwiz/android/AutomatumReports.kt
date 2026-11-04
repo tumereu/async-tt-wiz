@@ -12,7 +12,7 @@ import org.asyncttwiz.protocol.game.GameRepro
 /**
  * I-D43: Automatum's log in the Android log (debug level) and, in problem and crash reports, the latest game's
  * Automatum log and reproduction bundle ([AutomatumLog.bundle]) as [ReproBundle.REPORT_HEADER] and gzip+base64, cut
- * down to fit [CrashReport.MAX_AUTOMATUM]. A developer loads it with the automatum tests' `ReproBundles`.
+ * down to fit [CrashReport.MAX_AUTOMATUM] ([ReproBundle.decode] reads it back).
  */
 internal object AutomatumReports {
     /** Writes every Automatum log entry to the Android log at debug level. */
@@ -50,20 +50,14 @@ internal object AutomatumReports {
         }
     }
 
-    /** [bundle] as report text, dropping its least useful parts until it fits [maxChars]: older engine calls, then ATW's
-     * board, older log entries, the last call and the engine state. */
+    /** [bundle] as report text, dropping its older log entries until it fits [maxChars]. */
     internal fun fit(bundle: ReproBundle, maxChars: Int): String {
         var fitted = bundle
         while (true) {
             val text = encode(fitted)
             if (text.length <= maxChars) return text
             fitted = when {
-                fitted.calls.size > 1 -> fitted.copy(calls = fitted.calls.drop(1))
-                fitted.play != null -> fitted.copy(play = null)
                 fitted.entries.size > MIN_ENTRIES -> fitted.copy(entries = fitted.entries.takeLast(fitted.entries.size / 2))
-                fitted.calls.isNotEmpty() -> fitted.copy(calls = emptyList())
-                fitted.engine != null -> fitted.copy(engine = null, log = emptyList())
-                fitted.definitions.isNotEmpty() -> fitted.copy(definitions = emptyMap())
                 else -> return ""
             }
         }

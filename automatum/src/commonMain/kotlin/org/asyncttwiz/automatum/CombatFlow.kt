@@ -1,6 +1,5 @@
 package org.asyncttwiz.automatum
 
-import arcanum.api.CardDefinition
 import arcanum.api.CardType
 import arcanum.api.CostPart
 import arcanum.api.Keyword
@@ -18,7 +17,6 @@ import arcanum.engine.input.Attack
 import arcanum.engine.input.Block
 import arcanum.engine.input.Input
 import arcanum.engine.state.GameState
-import arcanum.engine.state.LoggedChange
 import arcanum.engine.state.ObjectId
 import arcanum.engine.state.PlayerId
 import arcanum.engine.state.TargetRef
@@ -26,7 +24,6 @@ import org.asyncttwiz.protocol.BoardState
 import org.asyncttwiz.protocol.CombatArea
 import org.asyncttwiz.protocol.CombatStackRules
 import org.asyncttwiz.protocol.MtgRef
-import org.asyncttwiz.protocol.PlayState
 import org.asyncttwiz.protocol.TurnPosition
 
 /** An attack as ATW's lanes hold it (CMB-012): the creature [cardId] attacks the planeswalker or battle card [target]
@@ -66,8 +63,6 @@ data class CombatChoices(
     /** How many attackers each creature that may block can block at once (CR 509.1a, "can block an additional
      * creature"): only those that can block more than one, null for any number. */
     val capacity: Map<String, Int?> = emptyMap(),
-    /** Why the engine can't take this board (then nothing is offered). */
-    val unsupported: List<String> = emptyList(),
     /** CMB-036 (CR 702.154a): each creature that may attack with enlist, with how many creatures it may enlist (one per
      * enlist ability). */
     val enlist: Map<String, Int> = emptyMap(),
@@ -172,40 +167,12 @@ data class CombatShown(
 
 /**
  * Combat through the engine (§3 I3, CR 506–511): ATW's lanes ↔ the engine's declarations, attack and block legality
- * with reasons, divisions of combat damage (I-D29) and the damage preview. Results come back to the lanes through
- * [EngineBatch] (one pair per attacker in its target's lane, blockers in the pair of the first attacker they block;
- * creatures removed from combat leave their pairs; the area closes as combat ends, CR 511.3).
+ * with reasons, divisions of combat damage (I-D29) and the damage preview. The table shows the engine's combat
+ * ([EngineProjection]: one pair per attacker in its target's lane, blockers in the pair of the first attacker they block).
  *
- * Each call works on an [EngineRun] the caller made (today's model: an [EngineCall], sent with [EngineBatch.plan]), and ends with the host's
- * automatic passes ([StepFlow.automatic]).
+ * Each call works on an [EngineRun] the caller made; only the player's own inputs of it go out.
  */
 object CombatFlow {
-    /** What may be declared on [play] now ([CombatChoices]); never throws. */
-    fun choices(play: PlayState, definitions: Map<String, CardDefinition>, log: List<LoggedChange>): CombatChoices {
-        val call = try {
-            EngineCall(play, definitions, null, log) { error("No randomness while listing declarations") }
-        } catch (problem: Unsupported) {
-            return CombatChoices.NONE.copy(unsupported = problem.reasons)
-        }
-        return choices(call)
-    }
-
-    /**
-     * What the table shows of combat on [play] now ([CombatShown]); [CombatShown.NONE] outside combat
-     * or on a board the engine can't take over. Worked out with full information (I-D17, I-D27; the app shows only what
-     * each player may see). Never throws.
-     */
-    fun shown(play: PlayState, definitions: Map<String, CardDefinition>, log: List<LoggedChange>): CombatShown {
-        if (TurnPosition.of(play.board.turn) !in COMBAT_POSITIONS) return CombatShown.NONE
-        return try {
-            shown(EngineCall(play, definitions, EngineState.flowViewer(play.board), log) { error("No randomness while looking") })
-        } catch (problem: Unsupported) {
-            CombatShown(CombatChoices.NONE.copy(unsupported = problem.reasons))
-        } catch (_: RuntimeException) {
-            CombatShown.NONE
-        }
-    }
-
     /**
      * [shown] for a game on engine state (I-D56, engine-responsiveness R4a): [state] is its own state (full information,
      * never changed here) and [board] the board the table shows of it (its lanes and records). Never throws.
@@ -322,15 +289,14 @@ object CombatFlow {
     }
 
     /**
-     * The active player declares [attacks] (CR 508.1); an empty list declares no attackers. Then the host's automatic
-     * passes. Returns what the engine waits for.
+     * The active player declares [attacks] (CR 508.1); an empty list declares no attackers. Returns what the engine waits
+     * for.
      * @throws CombatRefused when the engine refuses the declaration; nothing changes then.
      */
     fun declareAttackers(call: EngineRun, attacks: List<LaneAttack>, autotap: Boolean = false): Pending? {
         val input = attackInput(call, attacks)
         refusal(call.working, input)?.let { throw CombatRefused(reason(call, it)) }
-        paid(call, input.player, call.perform(input), autotap)?.let { return it }
-        return StepFlow.automatic(call)
+        return paid(call, input.player, call.perform(input), autotap)
     }
 
     /**
@@ -351,15 +317,13 @@ object CombatFlow {
     }
 
     /**
-     * The defending player declares [blocks] (CR 509.1); an empty list declares no blockers. Then the host's automatic
-     * passes.
+     * The defending player declares [blocks] (CR 509.1); an empty list declares no blockers.
      * @throws CombatRefused when the engine refuses the declaration; nothing changes then.
      */
     fun declareBlockers(call: EngineRun, blocks: List<LaneBlock>, autotap: Boolean = false): Pending? {
         val input = blockInput(call, blocks)
         refusal(call.working, input)?.let { throw CombatRefused(reason(call, it)) }
-        paid(call, input.player, call.perform(input), autotap)?.let { return it }
-        return StepFlow.automatic(call)
+        return paid(call, input.player, call.perform(input), autotap)
     }
 
     /**
@@ -480,16 +444,14 @@ object CombatFlow {
     fun division(call: EngineRun): DamageDivision? = division(call.working, call.ids)
 
     /**
-     * Answers the open division with [shares] (damage by ATW reference; null: the suggestion, I-D29), then the host's
-     * automatic passes. Anyone may answer for the deciding player (D11).
+     * Answers the open division with [shares] (damage by ATW reference; null: the suggestion, I-D29).
      * @throws IllegalArgumentException when the engine refuses the division.
      */
     fun divide(call: EngineRun, shares: Map<MtgRef, Int>? = null): Pending? {
         val d = call.working.pending?.decision as? Decision.Divide ?: throw IllegalArgumentException("No division is open")
         val answer = Answer.Division(shares?.map { (ref, amount) -> Share(call.ids.target(ref), amount) } ?: d.suggested)
         Engine.perform(call.working, Input.Answer(d.id, answer))
-        call.perform(Input.Answer(d.id, answer))?.let { return it }
-        return StepFlow.automatic(call)
+        return call.perform(Input.Answer(d.id, answer))
     }
 
     /**
@@ -507,8 +469,7 @@ object CombatFlow {
         if (s.combat?.attackers.isNullOrEmpty()) return null
         val ids = call.ids
         fun card(o: ObjectId) = ids.atw((o as ObjectId.Card).card)
-        // Today's model: a priority the engine left where it is in this step ([HostPriority.kept]); none on a game's own state
-        StepFlow.settledPriority(s, call is EngineCall && HostPriority.kept(call.board))?.let { if (it != s.priority) s.apply(Change.Priority(s.priority, it)) }
+        StepFlow.settledPriority(s)?.let { if (it != s.priority) s.apply(Change.Priority(s.priority, it)) }
         val dealt = mutableListOf<PreviewDamage>()
         val life = mutableMapOf<String, Int>()
         val dies = mutableListOf<String>()

@@ -145,6 +145,7 @@ class EngineBoardShownTest {
 
     // TRN-028, TRN-062, TRN-066: Alice's turn-1 controls wait while Bob (online) is still deciding on a mulligan: no step
     // arrow, Assume keep in its place; once he keeps she plays her first turn
+    // TRN-004: the step arrow shows only while the viewer may act
     @Test fun theStartingPlayersControlsWaitForTheOtherKeep() {
         val kit = EngineTableKit()
         kit.alice.tick(true, 1_000)

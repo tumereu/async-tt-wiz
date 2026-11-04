@@ -8,47 +8,25 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.*
 
 /**
- * Rules v36 (Arcanum integration spec §4, phase I0): the shared game state and events ATW keeps for the Arcanum rules
- * engine. Every game is played through it (I-D52: Automatum is always on); the server takes board changes only as
- * Automatum batches ([AutomatumOnly]).
- *
- * What ATW stores, in MTG terms the engine's `GameState` maps to one to one:
- * - per card: [PlayCard.zoneChanges] (the engine's `ObjectId.Card(card, zoneChanges)`, D21), [PlayCard.timestamp]
- *   (CR 613.7, D34), [PlayCard.typedCounters], [PlayCard.attachedTo], [PlayCard.ledger] (opaque, D22); damage is the
- *   existing [PlayCard.damage] (TBL-024);
- * - per player: [PlayPlayer.manaPool], [PlayPlayer.typedCounters], [PlayPlayer.ledger];
- * - the priority holder and passes in a row ([BoardState.priority], D57);
- * - structured Stack items on Stack entries ([StackEffect.item], D19);
- * - opaque engine records, each its own ([BoardState.engineRecords]: effect objects, delayed triggers, the game
- *   ledger, turn and combat extras, waiting triggers, the open continuation of a shared flow, D58, I-D11);
- * - MTG tags and `CausedBy` on history events ([GameplayMutation.tag], D33).
- *
- * Every [MtgAction] carries the values it expects before and sets after; it is refused when the board changed
- * underneath it, so an engine batch built on another state is never half applied (SYS-010). Its effect is recorded
- * in the ordinary sealed delta, per record, so ATW's undo rule sees one tuple per record and never one game-wide blob.
- *
- * Automatic bookkeeping of every v36 event, with or without Automatum ([MtgFacts]): zone changes count up, objects
- * get timestamps as they enter a zone, are attached or turn face up, down or to another face; a shuffle makes the
- * library's cards new objects (CR 701.20d, D38); a step or turn change empties mana pools (CR 106.4); a single-card
- * move is tagged with the meaning the move alone defines (D33, D42).
+ * The engine's values on the board the table draws of a game on engine state (Arcanum integration spec §4,
+ * [org.asyncttwiz.protocol.game]): per card its zone-change count, timestamp, typed counters and attachment; per player
+ * their mana pool and typed counters; the priority holder; structured Stack items on Stack entries; and engine records
+ * (the combat, emblems, the attacking player's choices and early answers).
  */
 object Automatum {
     const val RULES_VERSION = 36
     /** Opaque engine JSON per field, at most this many UTF-8 bytes. */
     const val MAX_DATA_BYTES = 256 * 1024
     const val MAX_NAME_LENGTH = 256
-    const val MAX_LIST = 1000
     /** An emblem's rules text ([EngineRecord.text]), at most this many UTF-8 bytes. */
     const val MAX_TEXT_BYTES = 8 * 1024
     /** The id of the one open continuation of a shared flow (D58, I-D11); private flows stay on the device. */
     const val CONTINUATION_ID = "continuation"
-    /** The highest timestamp an event may give or name (2^53 − 1, exact in JSON numbers everywhere): a stamp beyond it
-     * is refused, so no event can push the clock ([MtgFacts.clock]) to overflow. */
+    /** The highest timestamp a record may name (2^53 − 1, exact in JSON numbers everywhere). */
     const val MAX_TIMESTAMP = 9_007_199_254_740_991L
 
     /** Whether a shared flow is open: the board holds the continuation (I-D8). */
-    fun flowOpen(board: BoardState): Boolean = board.engine?.let { it.state.pending != null }
-        ?: board.engineRecords.any { it.id == CONTINUATION_ID }
+    fun flowOpen(board: BoardState): Boolean = board.engineRecords.any { it.id == CONTINUATION_ID }
 
     /** Empty, or one JSON value of at most [MAX_DATA_BYTES] without NUL characters. */
     fun data(value: String): Boolean = value.isEmpty() || DeckValidation.text(value, MAX_DATA_BYTES) &&
@@ -125,91 +103,26 @@ object Automatum {
     @Serializable @SerialName("emblem") data object Emblem : EngineRecordKind
     /** A pre-event (I-D33): an early answer to a decision that isn't open yet, by or for [EngineRecord.player], whose
      * decision it is; Automatum applies it when that decision opens, and the next automated batch removes it either
-     * way. Not part of the board an automated batch is planned on ([MtgFacts.digest]): giving or withdrawing one never
-     * refuses the batch of the decision being answered meanwhile. */
+     * way. */
     @Serializable @SerialName("pre-answer") data object PreAnswer : EngineRecordKind
 }
 
-/** One engine record ATW stores and doesn't interpret (P2, §4.3); [timestamp] for effect objects, delayed triggers
- * and emblems (CR 613.7b), so ATW's timestamp clock ([MtgFacts.clock]) sees every stamp. An [EngineRecordKind.Emblem]
+/** One engine record ATW shows and doesn't interpret (P2, §4.3); [timestamp] for effect objects, delayed triggers
+ * and emblems (CR 613.7b). An [EngineRecordKind.Emblem]
  * also says what ATW shows of it: whose it is ([player]) and its rules [text] (I-D25); other records have neither. */
 @Serializable data class EngineRecord(val id: String, val kind: EngineRecordKind,
     @EncodeDefault(EncodeDefault.Mode.NEVER) val timestamp: Long? = null, val data: String,
     @EncodeDefault(EncodeDefault.Mode.NEVER) val player: String? = null,
     @EncodeDefault(EncodeDefault.Mode.NEVER) val text: String = "")
 
-/** What made a change, for history lines ("Storm Spark dealt 3 damage to Grizzly Cub"): the spell's or ability's
- * [source], by the [name] it had then, its [controller], and the Stack [item] resolving. */
-@Serializable data class MtgCause(val controller: String,
-    @EncodeDefault(EncodeDefault.Mode.NEVER) val source: MtgRef? = null,
-    @EncodeDefault(EncodeDefault.Mode.NEVER) val name: String? = null,
-    @EncodeDefault(EncodeDefault.Mode.NEVER) val item: MtgRef? = null)
-
-/** An event's Magic meaning (D33): the engine's meaning names ("died", "cast", …), what made it ([causedBy]), and
- * [data], the engine's opaque event with its last known information. [board] (#4, SYS-057), on the first member of an
- * automated batch: the board the batch was planned on ([MtgFacts.digest]); the member is refused, and with it the whole
- * batch (SYS-010), when the board is another one, so ordinary actions in the batch never apply to values they weren't
- * planned from. [folded]: the event is shown inside its batch's visible event (I-D22, [MtgFacts.folds]). */
-@Serializable data class MtgTag(val meanings: List<String> = emptyList(),
-    @EncodeDefault(EncodeDefault.Mode.NEVER) val causedBy: MtgCause? = null,
-    @EncodeDefault(EncodeDefault.Mode.NEVER) val data: String = "",
-    @EncodeDefault(EncodeDefault.Mode.NEVER) val board: String? = null,
-    @EncodeDefault(EncodeDefault.Mode.NEVER) val folded: Boolean = false) {
-    companion object {
-        private val meaning = Regex("[a-z][a-z0-9-]{0,39}")
-        fun valid(tag: MtgTag): Boolean = tag.meanings.size <= 16 && tag.meanings.all { meaning.matches(it) } &&
-            tag.meanings.distinct().size == tag.meanings.size && Automatum.data(tag.data) &&
-            (tag.board?.let(DeckValidation::digest) ?: true) &&
-            (tag.meanings.isNotEmpty() || tag.causedBy != null || tag.data.isNotEmpty() || tag.board != null || tag.folded) &&
-            tag.causedBy?.let { cause -> DeckValidation.uuid(cause.controller) && (cause.source?.let(MtgRules::valid) ?: true) &&
-                (cause.item?.let(MtgRules::valid) ?: true) && (cause.name?.let(Automatum::name) ?: true) } ?: true
-    }
-}
-
-/** Rules v36 events of the engine's state. Each `Set…` names the value it expects ([before]) and the one it sets
- * ([after]); it is refused ("inapplicable") when the current value differs, and does nothing when they are equal. */
+/** A change the table's own controls make to the records beside the board (an early answer, I-D33). */
 @Serializable sealed interface MtgAction {
-    /** The actor's own "Skip when I have no choice" (I-D18, [PlayPlayer.skipWhenNoChoice]); only its player changes it. */
-    @Serializable @SerialName("setSkipWhenNoChoice") data class SetSkipWhenNoChoice(val on: Boolean) : MtgAction
-    /** The actor's own "Full control" (I-D41, [PlayPlayer.fullControl]); only its player changes it. */
-    @Serializable @SerialName("setFullControl") data class SetFullControl(val on: Boolean) : MtgAction
-    /** The actor's own mulligans in their opening (I-D49, [PlayPlayer.mulligans]); only its player changes it. */
-    @Serializable @SerialName("setMulligans") data class SetMulligans(val before: Int, val after: Int) : MtgAction
-    @Serializable @SerialName("setPriority") data class SetPriority(val before: MtgPriority?, val after: MtgPriority?) : MtgAction
-    @Serializable @SerialName("setManaPool") data class SetManaPool(val accountId: String, val before: List<PoolMana>,
-        val after: List<PoolMana>) : MtgAction
-    /** Counters of one [kind] on a card object or a player; null: none of that kind. */
-    @Serializable @SerialName("setCounter") data class SetCounter(val holder: MtgRef, val kind: String,
-        val before: TypedCounter?, val after: TypedCounter?) : MtgAction
-    /** Attaches a card object (Aura, Equipment, Fortification, CR 301.5) to an object or player, or unattaches it
-     * (null); attaching gives it a new timestamp (CR 613.7e). */
-    @Serializable @SerialName("attach") data class Attach(val card: MtgRef.Card, val before: MtgRef?, val after: MtgRef?) : MtgAction
-    /** Sets a card's zone-change count and timestamp as the engine made them (`Change.Restamped`, a shuffle that
-     * kept cards, stamps given in another order). */
-    @Serializable @SerialName("restamp") data class Restamp(val cardId: String, val before: MtgStamp, val after: MtgStamp) : MtgAction
-    /** The opaque ledger (D22) of a card object or player. */
-    @Serializable @SerialName("setLedger") data class SetLedger(val holder: MtgRef, val before: String, val after: String) : MtgAction
-    /** The structured item of Stack entry [entryId] (a [StackEffect] id); null: a manual entry. */
-    @Serializable @SerialName("setStackItem") data class SetStackItem(val entryId: String, val before: MtgStackItem?,
-        val after: MtgStackItem?) : MtgAction
     /** Adds (null [before]), changes or removes (null [after]) the engine record [id]. */
     @Serializable @SerialName("setRecord") data class SetRecord(val id: String, val before: EngineRecord?,
         val after: EngineRecord?) : MtgAction
-    /**
-     * Pivot review #3 (I-D52): a step the engine left to the players although every game is played by the rules (an
-     * engine gap, [text] the engine's description). Automatum answers it "Done" at once and says so in the history with
-     * this event, which changes nothing on the board; only an automated batch carries it.
-     */
-    @Serializable @SerialName("skipped") data class Skipped(val text: String) : MtgAction {
-        companion object { const val MAX_BYTES = 400 }
-    }
 }
 
-/** A card's object identity: its zone-change count (D21) and timestamp (D34). */
-@Serializable data class MtgStamp(val zoneChanges: Int, val timestamp: Long)
-
-/** Validation and execution of [MtgAction]s (P8: the server validates the actions and the new shared objects, not
- * whether an automated batch followed the rules). */
+/** Validation of the table's [MtgAction]s and the values they name. */
 object MtgRules {
     fun valid(ref: MtgRef): Boolean = when (ref) {
         is MtgRef.Card -> DeckValidation.uuid(ref.cardId) && ref.zoneChanges >= 0
@@ -220,9 +133,6 @@ object MtgRules {
     /** #8 (P8): a stamp lies within 0..[Automatum.MAX_TIMESTAMP]. */
     fun stamp(value: Long): Boolean = value in 0..Automatum.MAX_TIMESTAMP
 
-    private fun valid(counter: TypedCounter?, kind: String) = counter == null ||
-        counter.kind == kind && counter.count > 0 && stamp(counter.timestamp)
-
     private fun valid(record: EngineRecord?, id: String) = record == null || record.id == id && Automatum.data(record.data) &&
         stamp(record.timestamp ?: 0) && (record.kind == EngineRecordKind.Continuation) == (id == Automatum.CONTINUATION_ID) &&
         if (record.kind == EngineRecordKind.Emblem) record.player?.let(DeckValidation::uuid) == true &&
@@ -230,373 +140,7 @@ object MtgRules {
         else if (record.kind == EngineRecordKind.PreAnswer) record.player?.let(DeckValidation::uuid) == true && record.text.isEmpty()
         else record.player == null && record.text.isEmpty()
 
-    private fun valid(item: MtgStackItem?) = item == null || valid(item.id) && DeckValidation.uuid(item.controller) &&
-        (item.ability?.let(Automatum::name) ?: true) && (item.source?.let(::valid) ?: true) &&
-        item.targets.size <= Automatum.MAX_LIST && item.targets.all { (slot, refs) -> Automatum.name(slot) && refs.all(::valid) } &&
-        item.modes.size <= Automatum.MAX_LIST && item.modes.all { it >= 0 } &&
-        item.values.size <= Automatum.MAX_LIST && item.values.keys.all(Automatum::name) && stamp(item.timestamp) && Automatum.data(item.data)
-
-    private fun valid(priority: MtgPriority?) = priority == null || priority.passes >= 0 &&
-        (priority.holder?.let(DeckValidation::uuid) ?: true)
-
-    private fun valid(pool: List<PoolMana>) = pool.size <= Automatum.MAX_LIST &&
-        pool.all { it.color in PoolMana.COLORS && Automatum.data(it.data) }
-
     fun valid(action: MtgAction): Boolean = when (action) {
-        is MtgAction.SetSkipWhenNoChoice, is MtgAction.SetFullControl -> true
-        is MtgAction.SetMulligans -> listOf(action.before, action.after).all { it in 0..GameRules.MAX_MULLIGANS }
-        is MtgAction.SetPriority -> valid(action.before) && valid(action.after)
-        is MtgAction.SetManaPool -> DeckValidation.uuid(action.accountId) && valid(action.before) && valid(action.after)
-        is MtgAction.SetCounter -> (action.holder is MtgRef.Card || action.holder is MtgRef.Player) && valid(action.holder) &&
-            Automatum.name(action.kind) && valid(action.before, action.kind) && valid(action.after, action.kind)
-        is MtgAction.Attach -> valid(action.card) && (action.before?.let(::valid) ?: true) && (action.after?.let(::valid) ?: true)
-        is MtgAction.Restamp -> DeckValidation.uuid(action.cardId) &&
-            listOf(action.before, action.after).all { it.zoneChanges >= 0 && stamp(it.timestamp) }
-        is MtgAction.SetLedger -> (action.holder is MtgRef.Card || action.holder is MtgRef.Player) && valid(action.holder) &&
-            Automatum.data(action.before) && Automatum.data(action.after)
-        is MtgAction.SetStackItem -> DeckValidation.uuid(action.entryId) && valid(action.before) && valid(action.after)
         is MtgAction.SetRecord -> Automatum.name(action.id) && valid(action.before, action.id) && valid(action.after, action.id)
-        is MtgAction.Skipped -> action.text.isNotBlank() && DeckValidation.text(action.text, MtgAction.Skipped.MAX_BYTES)
-    }
-
-    internal fun change(state: PlayState, actor: String, command: GameCommand, action: MtgAction): GameplayChange {
-        fun reject(reason: String) = GameplayChange(reason = reason)
-        val unchanged = GameplayChange(state)
-        val board = state.board
-        fun card(ref: MtgRef.Card): PlayCard? = board.cards.singleOrNull { it.id == ref.cardId && it.zoneChanges == ref.zoneChanges }
-        fun player(id: String): PlayPlayer? = board.players.singleOrNull { it.accountId == id }
-        fun cards(id: String, change: (PlayCard) -> PlayCard) = board.copy(cards = board.cards.map { if (it.id == id) change(it) else it })
-        fun players(id: String, change: (PlayPlayer) -> PlayPlayer) =
-            board.copy(players = board.players.map { if (it.accountId == id) change(it) else it })
-        val next: BoardState = when (action) {
-            is MtgAction.SetSkipWhenNoChoice -> {
-                val player = player(actor) ?: return reject("missingReference")
-                if (player.skipWhenNoChoice == action.on) return unchanged
-                players(actor) { it.copy(skipWhenNoChoice = action.on) }
-            }
-            is MtgAction.SetFullControl -> {
-                val player = player(actor) ?: return reject("missingReference")
-                if (player.fullControl == action.on) return unchanged
-                players(actor) { it.copy(fullControl = action.on) }
-            }
-            is MtgAction.SetMulligans -> {
-                val player = player(actor) ?: return reject("missingReference")
-                if (player.mulligans != action.before) return reject("inapplicable")
-                if (action.before == action.after) return unchanged
-                players(actor) { it.copy(mulligans = action.after) }
-            }
-            is MtgAction.SetPriority -> {
-                if (board.priority != action.before) return reject("inapplicable")
-                if (action.after?.holder != null && player(action.after.holder) == null) return reject("missingReference")
-                if (action.before == action.after) return unchanged
-                board.copy(priority = action.after)
-            }
-            is MtgAction.SetManaPool -> {
-                val player = player(action.accountId) ?: return reject("missingReference")
-                if (player.manaPool != action.before) return reject("inapplicable")
-                if (action.before == action.after) return unchanged
-                players(player.accountId) { it.copy(manaPool = action.after) }
-            }
-            is MtgAction.SetCounter -> {
-                fun set(counters: List<TypedCounter>): List<TypedCounter>? {
-                    if (counters.singleOrNull { it.kind == action.kind } != action.before) return null
-                    return (counters.filterNot { it.kind == action.kind } + listOfNotNull(action.after)).sortedBy { it.kind }
-                }
-                if (action.before == action.after) {
-                    // Still checks that the holder exists.
-                    if (when (val holder = action.holder) { is MtgRef.Card -> card(holder); is MtgRef.Player -> player(holder.accountId); else -> null } == null)
-                        return reject("missingReference")
-                    return unchanged
-                }
-                when (val holder = action.holder) {
-                    is MtgRef.Card -> {
-                        val card = card(holder) ?: return reject("missingReference")
-                        val counters = set(card.typedCounters) ?: return reject("inapplicable")
-                        cards(card.id) { it.copy(typedCounters = counters) }
-                    }
-                    is MtgRef.Player -> {
-                        val player = player(holder.accountId) ?: return reject("missingReference")
-                        val counters = set(player.typedCounters) ?: return reject("inapplicable")
-                        players(player.accountId) { it.copy(typedCounters = counters) }
-                    }
-                    is MtgRef.StackItem -> return reject("invalidInput")
-                }
-            }
-            is MtgAction.Attach -> {
-                val card = card(action.card) ?: return reject("missingReference")
-                if (card.attachedTo != action.before) return reject("inapplicable")
-                if (action.before == action.after) return unchanged
-                cards(card.id) { it.copy(attachedTo = action.after) }
-            }
-            is MtgAction.Restamp -> {
-                val card = board.cards.singleOrNull { it.id == action.cardId } ?: return reject("missingReference")
-                if (MtgStamp(card.zoneChanges, card.timestamp) != action.before) return reject("inapplicable")
-                if (action.before == action.after) return unchanged
-                cards(card.id) { it.copy(zoneChanges = action.after.zoneChanges, timestamp = action.after.timestamp) }
-            }
-            is MtgAction.SetLedger -> when (val holder = action.holder) {
-                is MtgRef.Card -> {
-                    val card = card(holder) ?: return reject("missingReference")
-                    if (card.ledger != action.before) return reject("inapplicable")
-                    if (action.before == action.after) return unchanged
-                    cards(card.id) { it.copy(ledger = action.after) }
-                }
-                is MtgRef.Player -> {
-                    val player = player(holder.accountId) ?: return reject("missingReference")
-                    if (player.ledger != action.before) return reject("inapplicable")
-                    if (action.before == action.after) return unchanged
-                    players(player.accountId) { it.copy(ledger = action.after) }
-                }
-                is MtgRef.StackItem -> return reject("invalidInput")
-            }
-            is MtgAction.SetStackItem -> {
-                val entry = board.stackEffects.singleOrNull { it.id == action.entryId } ?: return reject("missingReference")
-                if (board.containers.none { it.zone == PlayZone.STACK && entry.id in it.cards }) return reject("missingReference")
-                if (entry.item != action.before) return reject("inapplicable")
-                if (action.before == action.after) return unchanged
-                board.copy(stackEffects = board.stackEffects.map { if (it.id == entry.id) it.copy(item = action.after) else it })
-            }
-            is MtgAction.SetRecord -> {
-                val current = board.engineRecords.singleOrNull { it.id == action.id }
-                if (current != action.before) return reject("inapplicable")
-                // I-D33, I-D56: an early answer is given or changed only by its own player (another player never sets the
-                // attacker's exert, enlist or band choices, CMB-036–CMB-038); Automatum's batches only drop them
-                if (action.after?.kind == EngineRecordKind.PreAnswer && action.after.player != actor) return reject("accessDenied")
-                if (action.before == action.after) return unchanged
-                board.copy(engineRecords = (board.engineRecords.filterNot { it.id == action.id } + listOfNotNull(action.after))
-                    .sortedBy { it.id })
-            }
-            // Only said in the history
-            is MtgAction.Skipped -> board
-        }
-        return GameplayRules.record(state, actor, command, next, GameplayTransition())
-    }
-}
-
-/**
- * The MTG facts ATW keeps up itself in every rules v36 event, with or without Automatum (§4.1).
- *
- * **Timestamps (D34)** come from a clock that is the highest timestamp on the board ([clock]): a new stamp is one more
- * than every stamp present before and after the event, given in card order within one event (CR 613.7m, simplified as
- * D44 allows). The clock is read, not stored, so it is never a value any event writes: undoing an earlier event never
- * clashes with a later event's stamps (ATW's undo rule compares only written and read tuples, and the clock is
- * deliberately not one), and replaying an event's sealed delta keeps the stamps it recorded. After an undo the clock
- * may be lower than a stamp once given, but only stamps of objects still on the board are ever compared (CR 613.7),
- * and every later stamp is higher than all of those; so the order of stamps is always the order of events.
- */
-object MtgFacts {
-    /** The highest timestamp on [board]: cards and their counters, players' counters, Stack items and records. */
-    fun clock(board: BoardState): Long = maxOf(
-        board.cards.maxOfOrNull { card -> maxOf(card.timestamp, card.typedCounters.maxOfOrNull { it.timestamp } ?: 0) } ?: 0,
-        board.players.maxOfOrNull { player -> player.typedCounters.maxOfOrNull { it.timestamp } ?: 0 } ?: 0,
-        board.stackEffects.maxOfOrNull { it.item?.timestamp ?: 0 } ?: 0,
-        board.engineRecords.maxOfOrNull { it.timestamp ?: 0 } ?: 0)
-
-    /** A zone change (CR 400.7): between containers, except from one Battlefield to another (a control change). */
-    fun zoneChange(from: PlayZone, fromId: String, to: PlayZone, toId: String): Boolean =
-        fromId != toId && !(from == PlayZone.BATTLEFIELD && to == PlayZone.BATTLEFIELD)
-
-    /** Libraries an action shuffles: their cards become new objects (CR 701.20d, D38). */
-    private fun shuffled(from: BoardState, action: PlayAction): Set<String> = when (action) {
-        is PlayAction.ShuffleLibrary -> setOf(action.containerId)
-        is PlayAction.DismissContents -> from.contentsDisplays.singleOrNull { it.id == action.displayId }?.let { display ->
-            val source = from.containers.singleOrNull { it.id == display.containerId } ?: return@let null
-            val shuffles = if (display.search) !TempPiles.searchKeepsOrder(source, display, CURRENT_GAMEPLAY_RULES_VERSION)
-                else action.rest == ContentsRest.SHUFFLE
-            source.id.takeIf { shuffles && source.zone == PlayZone.LIBRARY }
-        }.let(::setOfNotNull)
-        else -> emptySet()
-    }
-
-    /** #4: what an automated batch was planned on ([MtgTag.board]): the board without what is only shown (piles
-     * and positions, notes, the six colour counters, marks, statuses, panels, links, the move holder, the result
-     * suggestion, library layers) and the players' pause settings (Full control, Skip when I have no choice). */
-    fun digest(board: BoardState): String {
-        val json = GameWire.json
-        fun without(element: JsonElement, vararg keys: String) = JsonObject((element as JsonObject).filterKeys { it !in keys })
-        val shown = board.copy(contentsDisplays = emptyList(), links = emptyList(), projectionLinks = emptyList(),
-            resultSuggestion = null, stackTextMarks = emptyMap(), attentionHolder = null,
-            // I-D33: early answers wait beside the board; the batch that meets their decision reads them itself
-            engineRecords = board.engineRecords.filterNot { it.kind == EngineRecordKind.PreAnswer })
-        val element = json.encodeToJsonElement(BoardState.serializer(), shown) as JsonObject
-        val reduced = JsonObject(element + mapOf(
-            // Finalreview-combat #7: Full control and Skip when I have no choice only say where the host passes for a
-            // player, which the batch's planner already did: changing either (FullControlSync as a game opens) never
-            // refuses the other player's batch in flight
-            "players" to JsonArray(element.getValue("players").jsonArray.map { without(it, "status", "counters", "fullControl", "skipWhenNoChoice", "mulligans") }),
-            "cards" to JsonArray(element.getValue("cards").jsonArray.map { without(it, "placement", "note", "eotNote", "counters", "knownToAll") }),
-            "containers" to JsonArray(element.getValue("containers").jsonArray.map { without(it, "layers", "keepTopRevealed") }),
-            "stackEffects" to JsonArray(element.getValue("stackEffects").jsonArray.map { without(it, "note") })))
-        return "sha256:" + DeckJson.intent("mtg-board", DeckJson.canonicalElement(reduced))
-    }
-
-    /**
-     * I-D26 (#7, finalreview-sync #4): how a redo moves the stamps its event gave. Every stamp above [base] (the clock of
-     * the board before the redone event, or before the first member of a redone batch) was given by it, so all of them
-     * move up by [shift] together, the gaps between them kept: one shift for every member of a batch, so a later member
-     * that names a stamp an earlier one gave still finds it.
-     */
-    internal class StampShift(val base: Long, val shift: Long)
-
-    /**
-     * The [StampShift] for redoing [members] (an event, or a batch's members in order) on a board whose clock is [base],
-     * with the game's clock now at [above]: the stamps they gave move above [above] only when some other stamp reached
-     * them meanwhile (a redo right after its undo gives back exactly the recorded event). Null when nothing moves.
-     */
-    internal fun stampShift(members: List<GameplayMutation>, base: Long, above: Long): StampShift? {
-        val given = sortedSetOf<Long>()
-        for (member in members) {
-            if (member.transition.delta == null || member.transition.rulesVersion < Automatum.RULES_VERSION) continue
-            stamps(member.transition) { if (it > base) given += it; it }
-        }
-        if (given.isEmpty()) return null
-        val shift = maxOf(above, base) + 1 - given.first()
-        if (shift <= 0 || given.last() > Automatum.MAX_TIMESTAMP - shift) return null
-        return StampShift(base, shift)
-    }
-
-    /**
-     * I-D26: [mutation] (a recorded rules v36 event being redone) with fresh timestamps by [shift]: every stamp the event
-     * or its batch gave ([StampShift.base]) moves, so stamp order follows the real order of events although a redo puts
-     * the event back at its old place in history. The event's action and opaque engine data keep the values they were
-     * recorded with (the engine reads a stamp from ATW's own field, finalreview-sync #2); only its recorded transition
-     * (what replay applies and checks) changes, and it is sealed again.
-     */
-    internal fun freshStamps(mutation: GameplayMutation, shift: StampShift?): GameplayMutation {
-        shift ?: return mutation
-        if (mutation.transition.delta == null || mutation.transition.rulesVersion < Automatum.RULES_VERSION) return mutation
-        val transition = stamps(mutation.transition) { if (it > shift.base) it + shift.shift else it }
-        if (transition == mutation.transition) return mutation
-        val restamped = mutation.copy(transition = transition)
-        return restamped.copy(transition = restamped.transition.copy(delta = restamped.transition.delta!!.copy(
-            seal = GameplayDeltas.seal(restamped))))
-    }
-
-    /** [transition] with every timestamp in it mapped by [map]: `timestamp` fields of recorded values, delta edits of a
-     * timestamp field (from and to) and concerns on such an edit (before and after). */
-    private fun stamps(transition: GameplayTransition, map: (Long) -> Long): GameplayTransition {
-        fun stamp(element: JsonElement): JsonElement =
-            (element as? JsonPrimitive)?.longOrNull?.let { JsonPrimitive(map(it)) } ?: element
-        fun rewrite(element: JsonElement, key: String? = null): JsonElement = when (element) {
-            is JsonObject -> {
-                // A delta edit of one timestamp field: {"path": [..., "timestamp"], "from": …, "to": …}
-                val leaf = ((element["path"] as? JsonArray)?.lastOrNull() as? JsonPrimitive)?.contentOrNull == "timestamp"
-                JsonObject(element.mapValues { (k, v) -> if (leaf && (k == "from" || k == "to")) stamp(v) else rewrite(v, k) })
-            }
-            is JsonArray -> JsonArray(element.map { rewrite(it, key) })
-            is JsonPrimitive -> if (key == "timestamp") stamp(element) else element
-            else -> element
-        }
-        val json = GameWire.json
-        val rewritten = json.decodeFromJsonElement(GameplayTransition.serializer(),
-            rewrite(json.encodeToJsonElement(GameplayTransition.serializer(), transition)))
-        // A concern on a written timestamp field witnesses its values themselves.
-        val entities = rewritten.delta?.entities.orEmpty()
-        return rewritten.copy(concerns = rewritten.concerns?.let { set -> set.copy(fields = set.fields.map { tuple ->
-            val field = tuple.field as? ConcernField.Written ?: return@map tuple
-            if (entities.getOrNull(field.entity)?.values?.getOrNull(field.value)?.path?.lastOrNull() != "timestamp") tuple
-            else tuple.copy(before = stamp(tuple.before), after = stamp(tuple.after))
-        }) })
-    }
-
-    /** [to] (the board after [action]) with zone-change counts, timestamps, the fresh facts of new objects and
-     * emptied mana pools; null when a stamp would pass [Automatum.MAX_TIMESTAMP] (#8). */
-    internal fun after(from: BoardState, to: BoardState, action: PlayAction): BoardState? {
-        val zones = (from.containers + to.containers).associate { it.id to it.zone }
-        val shuffled = shuffled(from, action)
-        // clock(to) but for the cards the event left as they were (the very same objects), which clock(from) counts
-        var clock = maxOf(clock(from), clock(to.copy(cards = buildList { CardChanges.each(from.cards, to.cards) { _, _, card -> add(card) } })))
-        // A mulligan returns the shown hand, shuffles the library and draws (CR 103.5): each step counts as the same
-        // moves made one by one would (returns in their move order, then draws from the top), so one Mulligan event
-        // ends exactly where its single moves and shuffle end.
-        val mulligan = action as? PlayAction.Mulligan
-        val mulliganStamps = mutableMapOf<String, Long>()
-        val mulliganed = mulligan?.let {
-            val library = from.containers.singleOrNull { it.id == mulligan.libraryId }?.cards.orEmpty()
-            val returns = runCatching { LibraryActions.moveCaptured(from, mulligan.displayedHand,
-                MoveDestination(mulligan.libraryId, MoveInsertion.TOP)).map { it.cardId } }.getOrElse { mulligan.displayedHand }
-            val draws = RandomV1.shuffle(mulligan.displayedHand + library, mulligan.seed).take(mulligan.drawCount)
-            for (id in returns + draws) mulliganStamps[id] = ++clock
-            (library + mulligan.displayedHand).toSet()
-        }.orEmpty()
-        fun restamped(before: PlayCard?, card: PlayCard): PlayCard =
-            when {
-                before != null && card.id in mulliganed -> {
-                    val drawn = card.containerId == mulligan!!.handId
-                    val steps = (if (card.id in mulligan.displayedHand) 1 else 0) + 1 + (if (drawn) 1 else 0)
-                    if (steps == 1) card.copy(zoneChanges = before.zoneChanges + 1)
-                    else card.copy(zoneChanges = before.zoneChanges + steps, timestamp = mulliganStamps[card.id] ?: ++clock,
-                        typedCounters = emptyList(), attachedTo = null, ledger = "")
-                }
-                // A new object: a token created or cloned.
-                before == null -> card.copy(zoneChanges = 0, timestamp = ++clock, typedCounters = emptyList(),
-                    attachedTo = null, ledger = "")
-                zoneChange(zones.getValue(before.containerId), before.containerId, zones.getValue(card.containerId), card.containerId) ->
-                    card.copy(zoneChanges = before.zoneChanges + 1, timestamp = ++clock, typedCounters = emptyList(),
-                        attachedTo = null, ledger = "")
-                card.containerId in shuffled -> card.copy(zoneChanges = before.zoneChanges + 1)
-                // CR 613.7: attached, turned face up or down, transformed (another face shown on the Battlefield).
-                card.attachedTo != null && card.attachedTo != before.attachedTo ||
-                    card.isFaceDown != before.isFaceDown ||
-                    card.faceId != before.faceId && zones.getValue(card.containerId) == PlayZone.BATTLEFIELD ->
-                    card.copy(timestamp = ++clock)
-                else -> card
-            }
-        // Without a shuffle or a mulligan only a card the event changed can be restamped (an untouched one is the same
-        // object, in the same container): the others are skipped without hashing the board's cards.
-        val cards = if (mulligan == null && shuffled.isEmpty()) {
-            var changed: MutableList<PlayCard>? = null
-            CardChanges.each(from.cards, to.cards) { index, before, card ->
-                val next = restamped(before, card)
-                if (next !== card) (changed ?: to.cards.toMutableList().also { changed = it })[index] = next
-            }
-            changed ?: to.cards
-        } else {
-            val old = from.cards.associateBy { it.id }
-            to.cards.map { card -> restamped(old[card.id], card) }
-        }
-        val turnChanged = from.turn != to.turn
-        val players = if (!turnChanged) to.players else to.players.map { if (it.manaPool.isEmpty()) it else it.copy(manaPool = emptyList()) }
-        // #8: the clock can't run past its end (a stamp above it would never be valid again).
-        if (clock > Automatum.MAX_TIMESTAMP) return null
-        return to.copy(cards = cards, players = players)
-    }
-
-    /**
-     * Whether [command]'s event is folded into its batch's visible event (I-D22, I-D35: history events are natural
-     * branching points, one per point where a player can act): any member of an automated batch after its first, tagged
-     * [MtgTag.folded] by the client that planned the batch. The batch's first member (the player's own action) is the
-     * visible event; what Automatum then did by itself, up to the next point where a player can act, is folded into
-     * it. Never the batch's first member, so every automated batch keeps a visible event, and never an untagged event:
-     * manual history is unchanged.
-     */
-    fun folds(command: GameCommand): Boolean {
-        if ((command.action as? GameAction.Play)?.tag?.folded != true) return false
-        val invocation = command.invocationId ?: return false
-        return command.requestId != CommandIds.uuidV5(invocation, "member/0")
-    }
-
-    /** What a single-card move means by itself (D33, D42; the engine's `Meanings.implied`), from zone [from] to [to]. */
-    fun implied(from: PlayZone, to: PlayZone): List<String> = buildList {
-        if (to == PlayZone.BATTLEFIELD && from != PlayZone.BATTLEFIELD) add("entered")
-        if (from == PlayZone.BATTLEFIELD && to != PlayZone.BATTLEFIELD) add("left-battlefield")
-        // CR 700.4: "dies" means put into a graveyard from the battlefield
-        if (from == PlayZone.BATTLEFIELD && to == PlayZone.GRAVEYARD) add("died")
-        if (to == PlayZone.GRAVEYARD && from != PlayZone.GRAVEYARD) add("put-into-graveyard")
-        if (to == PlayZone.EXILE && from != PlayZone.EXILE) add("exiled")
-    }
-
-    /** The tag of a rules v36 event: [given] by the client, else for a manual single-card zone change its implied
-     * meaning; null when there is none. */
-    internal fun tag(from: BoardState, to: BoardState, action: PlayAction, given: MtgTag?): MtgTag? {
-        if (given != null) return given
-        val move = action as? PlayAction.MoveCard ?: return null
-        val before = from.cards.singleOrNull { it.id == move.cardId } ?: return null
-        val after = to.cards.singleOrNull { it.id == move.cardId } ?: return null
-        val zones = (from.containers + to.containers).associate { it.id to it.zone }
-        val source = zones[before.containerId] ?: return null
-        val target = zones[after.containerId] ?: return null
-        if (!zoneChange(source, before.containerId, target, after.containerId)) return null
-        return implied(source, target).takeIf { it.isNotEmpty() }?.let { MtgTag(it) }
     }
 }

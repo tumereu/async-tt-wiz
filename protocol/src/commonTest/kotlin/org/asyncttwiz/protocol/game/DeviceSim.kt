@@ -53,8 +53,8 @@ internal class DeviceSim(val games: EngineGames, every: Int = 16) {
     fun device(p: PlayerId): GameDevice = devices.getValue(p)
 
     /** Starts the game (the server's own first event) and loads both devices. */
-    fun start(starter: PlayerId = alice, mode: ResponseMode = ResponseMode.AutoSkip) {
-        server.start(starter)
+    fun start(starter: PlayerId = alice, mode: ResponseMode = ResponseMode.AutoSkip, handSizes: Map<PlayerId, Int> = emptyMap()) {
+        server.start(starter, handSizes)
         for (p in listOf(alice, bob)) { settings[p] = PlaySettings(mode = mode); live[p] = false; load(p) }
     }
 

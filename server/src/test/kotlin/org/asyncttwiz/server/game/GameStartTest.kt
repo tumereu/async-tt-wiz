@@ -184,7 +184,7 @@ class GameStartTest {
     private fun assertInitial(game: GameSummary, preparation: LobbyPreparation, state: PlayState) {
         assertEquals(game.id, state.gameId); assertEquals(game.preparationRound, state.preparationRound)
         assertNotEquals(game.preparationRound, state.id); assertNotEquals(state.id, state.root.id)
-        assertEquals(state.root.id, state.currentNodeId); assertNull(state.root.parentId)
+        assertNull(state.root.parentId)
         assertEquals(TurnState(state.starter.accountId), state.board.turn)
         assertEquals(listOf("20", "20"), state.board.players.map { it.life })
         assertTrue(state.board.players.all { it.counters.isEmpty() })

@@ -188,7 +188,7 @@ class GameHub @JvmOverloads constructor(private val runtime: ServiceRuntime,
                 if (publication.revision != null && publication.gameId in subscriptions) {
                     // An unreadable stored revision is skipped (the game's own reads report it); publication carries on (SYS-052).
                     StoredData.orSkip("game revision", publication.gameId) {
-                        GameWire.json.decodeFromString<GameServerMessage>(publication.revision) as GameRevision
+                        GameWire.stored(GameServerMessage.serializer(), publication.revision) as GameRevision
                     }?.let { send(games.publicationState(principal, it, engine = publication.gameId in engineSubscriptions)) }
                 }
                 if (publication.accountId == accountId) sendText(publication.result)

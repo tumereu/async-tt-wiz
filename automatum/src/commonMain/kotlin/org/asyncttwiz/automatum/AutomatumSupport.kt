@@ -24,7 +24,7 @@ import org.asyncttwiz.protocol.game.OutsideCards
  * that is "its mana cost" or has an X nothing defines, a mana ability with another step that asks something, a special
  * action with a step besides turning itself face up, unlocking its door or moving itself. Worked out from the parsed
  * definition, so it follows the parser and engine of this app version; a run-time step the engine still leaves to the
- * players is skipped and reported ([EngineCall.perform]). Venturing into the dungeon and the initiative are played by the rules: the
+ * players is skipped and reported ([EngineRun.perform]). Venturing into the dungeon and the initiative are played by the rules: the
  * player's device brings its catalog's dungeon cards to the game ([org.asyncttwiz.protocol.game.OutsideCards]).
  */
 object AutomatumSupport {

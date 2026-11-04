@@ -23,9 +23,7 @@ import org.asyncttwiz.protocol.SubmittedDefinition
 import org.asyncttwiz.protocol.CardDefinition as AtwCard
 
 /**
- * ATW card data for an engine definition: what ATW shows of a token the engine creates (D35). The engine keeps the
- * token's own definition in its ledger ([CardLedger.definition]); this card data shows it and carries it for manual play
- * and manual copies (I-D2): one ATW face per engine face where ATW shows faces separately (transform, modal
+ * ATW card data for an engine definition: what ATW shows of a token the engine creates (D35): one ATW face per engine face where ATW shows faces separately (transform, modal
  * double-faced), one face otherwise, with its printed values and rules text ([rulesText]).
  */
 internal object AtwTokens {

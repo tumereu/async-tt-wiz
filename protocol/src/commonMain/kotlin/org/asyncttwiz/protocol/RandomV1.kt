@@ -89,9 +89,4 @@ object RandomV1 {
         val sorted = canonical(participants); require(sorted.size == 2)
         return sorted[sample(2, Words(seed, "starter-v1")::next)]
     }
-    fun handPick(ids: List<String>, seed: String): String {
-        val sorted = canonical(ids)
-        require(sorted.isNotEmpty())
-        return sorted[sample(sorted.size, Words(seed, "hand-pick-v1")::next)]
-    }
 }

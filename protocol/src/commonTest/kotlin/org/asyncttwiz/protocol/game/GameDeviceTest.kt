@@ -92,6 +92,7 @@ class GameDeviceTest {
     }
 
     // I-D56 §7: playback stops follow the private response mode: Full control at every assumed pass
+    // SYS-071: Full control is a private response mode of the device
     @Test
     fun fullControlStopsAtEveryAssumedPass() {
         val sim = spells("Storm Spark")
@@ -356,6 +357,7 @@ class GameDeviceTest {
 
     // I-D56 §10: undo is free while nothing new was shown; otherwise a request: the game is frozen until it is answered,
     // the other player sees the board only up to their local head; accepting rewinds both devices
+    // HIS-089: an undo past what the other player saw needs their approval
     @Test
     fun undoIsFreeOrARequestThatFreezesTheGame() {
         val sim = spells("Glance Ahead")
@@ -674,6 +676,7 @@ class GameDeviceTest {
     // STK-036, STK-026 (owner, smoke 2026-11-04): Auto-skip never passes the player's own main phase, even with nothing
     // left to do: a land played, or a creature cast with all their mana (resolved on Alice's assumed pass), leaves Bob in
     // his first main phase with priority; his turn goes on only by his own pass
+    // SYS-063: Auto-skip runs on the player's own device and never passes their own main phase
     @Test
     fun autoSkipStaysInYourOwnMainPhase() {
         val sim = DeviceSim(EngineGames(3, List(40) { "Island" } to List(40) { if (it % 2 == 0) "Forest" else "Elvish Seer" }))
@@ -742,6 +745,44 @@ class GameDeviceTest {
         assertEquals(bundle, decoded)
         assertEquals(emptyList(), decoded.check())
         assertTrue(decoded.log.any { it.startsWith("out Submit") })
+    }
+
+    // TRN-060 (CR 104.4b): Alice's Restless Wisp enters and is sacrificed, dies and returns, with only passes nobody can
+    // avoid in between (her one card cast, Bob holding none): her device stops at the position met again with the
+    // engine's loop choice for the player holding priority; Draw makes the game a draw, Continue goes on
+    @Test
+    fun aLoopOfForcedPassesAsksTheLoopChoice() {
+        val wisp = arcanum.engine.cards.Cards.invent("Restless Wisp", "{0}", "Creature — Spirit",
+            "When this creature enters, sacrifice a creature.\nWhen this creature dies, return it to the battlefield under its owner's control.",
+            "1/1")
+        for (answer in listOf(arcanum.engine.decision.LoopStop.DRAW, arcanum.engine.decision.LoopStop.CONTINUE)) {
+            val sim = DeviceSim(EngineGames(3, List(40) { wisp } to List(40) { "Island" }))
+            val alice = sim.alice
+            sim.start(alice, handSizes = mapOf(alice to 1, sim.bob to 0))
+            assertIs<GameDevice.Acted.Sent>(sim.device(alice).act(sim.keep(alice)))
+            sim.settle()
+            assertTrue(sim.atMain(alice), "Alice is at her main phase: ${sim.device(alice).model.engine.turn}")
+            val alices = sim.device(alice)
+            assertIs<GameDevice.Acted.Sent>(alices.act(Input.Cast(alice, hand(alices.model, alice, wisp))))
+            sim.settle(rounds = 5)
+            val state = sim.server.state().engine
+            val choice = assertIs<Decision.ChooseOption>(state.pending?.decision, "the loop choice")
+            assertEquals(state.priority.holder, choice.player, "asked of the player holding priority")
+            assertEquals(listOf("Continue", "Draw"), choice.options)
+            assertEquals("The game is in a loop of actions nobody can stop, which makes it a draw (CR 104.4b). End it as a draw, " +
+                "or continue?", choice.text)
+            assertTrue(sim.server.line().any { e -> e.engine?.steps.orEmpty().any { it.input == Input.MandatoryLoop } })
+            val decider = sim.device(choice.player)
+            val before = sim.server.line().size
+            assertIs<GameDevice.Acted.Sent>(decider.act(Input.Answer(choice.id, Answer.Option(answer))))
+            sim.settle(rounds = 5)
+            if (answer == arcanum.engine.decision.LoopStop.DRAW) assertEquals(GameResult.Draw, Engine.result(sim.server.state().engine))
+            else {
+                assertNull(Engine.result(sim.server.state().engine), "the game goes on")
+                assertTrue(sim.server.line().size > before)
+            }
+            assertTrue(sim.leaks.isEmpty())
+        }
     }
 }
 

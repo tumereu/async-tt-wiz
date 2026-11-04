@@ -4,34 +4,18 @@ import arcanum.engine.state.CardId
 import arcanum.engine.state.ObjectId
 import arcanum.engine.state.PlayerId
 import arcanum.engine.state.TargetRef
-import org.asyncttwiz.protocol.BoardState
 import org.asyncttwiz.protocol.MtgRef
 
 /**
- * ATW's card ids and the engine's (D21, D35). They are the same card id except where the engine names a card itself:
- * a token, whose id the engine derives (ATW's token keeps it in its ledger, [CardLedger.card]), and, inside one call on
- * a viewer's state, the new ids a shuffle gives the cards hidden from the viewer ([RandomKind.Objects.newIds], D60),
- * whose zone-change counts start again at 0 ([offset]).
+ * ATW's card ids and the engine's (D21, D35): a game on engine state plays the prepared cards by their own ids, and the
+ * table names the engine's tokens by the engine's ids ([EngineProjection]), so the two are the same card id.
  */
 class CardIds internal constructor() {
-    private val toEngine = mutableMapOf<String, CardId>()
-    private val toAtw = mutableMapOf<CardId, String>()
-    private val offsets = mutableMapOf<CardId, Int>()
-
-    internal fun alias(atw: String, engine: CardId, offset: Int = 0) {
-        toEngine[atw] = engine
-        toAtw[engine] = atw
-        if (offset != 0) offsets[engine] = offset else offsets.remove(engine)
-    }
-
-    /** Whether [engine] is a card id only this call knows (a viewer's shuffle): not kept in ATW. */
-    internal fun transient(engine: CardId): Boolean = engine in offsets
-
-    fun engine(atw: String): CardId = toEngine[atw] ?: CardId(atw)
-    fun atw(engine: CardId): String = toAtw[engine] ?: engine.value
+    fun engine(atw: String): CardId = CardId(atw)
+    fun atw(engine: CardId): String = engine.value
 
     /** ATW's zone-change count for the engine object [id]. */
-    fun zoneChanges(id: ObjectId.Card): Int = id.zoneChanges + (offsets[id.card] ?: 0)
+    fun zoneChanges(id: ObjectId.Card): Int = id.zoneChanges
 
     fun ref(id: ObjectId): MtgRef = when (id) {
         is ObjectId.Card -> MtgRef.Card(atw(id.card), zoneChanges(id))
@@ -44,7 +28,7 @@ class CardIds internal constructor() {
     }
 
     fun obj(ref: MtgRef): ObjectId? = when (ref) {
-        is MtgRef.Card -> engine(ref.cardId).let { ObjectId.Card(it, ref.zoneChanges - (offsets[it] ?: 0)) }
+        is MtgRef.Card -> ObjectId.Card(engine(ref.cardId), ref.zoneChanges)
         is MtgRef.StackItem -> ObjectId.StackItem(ref.id)
         is MtgRef.Player -> null
     }
@@ -52,12 +36,5 @@ class CardIds internal constructor() {
     fun target(ref: MtgRef): TargetRef = when (ref) {
         is MtgRef.Player -> TargetRef.Player(PlayerId(ref.accountId))
         else -> TargetRef.Object(obj(ref)!!)
-    }
-
-    companion object {
-        /** The ids of [board]: tokens by the engine id their ledger keeps. */
-        fun of(board: BoardState): CardIds = CardIds().also { ids ->
-            board.cards.forEach { card -> CardLedger.of(card.ledger).card?.let { ids.alias(card.id, CardId(it)) } }
-        }
     }
 }

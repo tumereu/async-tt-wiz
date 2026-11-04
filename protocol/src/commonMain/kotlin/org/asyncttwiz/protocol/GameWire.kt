@@ -5,12 +5,12 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.*
 
-/** Highest recorded-transition rules understood by this build; also used when recording new events. */
+/** The game rules this build plays by (SYS-033: apps and server agree on it as they connect). */
 const val CURRENT_GAMEPLAY_RULES_VERSION = 36
 /** The socket protocol version of this build (SYS-033: one compatible set of apps and server). Apps offer it
  *  as [GameHello.maxMinor] and the server welcomes with its own: a lower offer gets [GameUpgradeRequired] (the app
  *  is older), and an app welcomed with a lower minor waits for the server update. Bump it with any socket wire change. */
-const val GAME_PROTOCOL_MINOR = 7
+const val GAME_PROTOCOL_MINOR = 8
 
 @Serializable enum class PresenceState { ONLINE, IDLE, OFFLINE }
 /** The opponent's presence in this game. Ages are whole seconds as of sending, so the clocks never need to agree.
@@ -20,14 +20,7 @@ const val GAME_PROTOCOL_MINOR = 7
 
 @Serializable data class GameScope(val gameId: String, val preparationId: String? = null,
     val invitationId: String? = null, val playId: String? = null)
-@Serializable data class Continuation(val nodeId: String, val explicit: Boolean)
 @Serializable sealed interface GameAction {
-    @Serializable @SerialName("undo") data object Undo : GameAction
-    @Serializable @SerialName("redo") data object Redo : GameAction
-    @Serializable @SerialName("acceptResult") data class AcceptResult(val suggestionId: String) : GameAction
-    /** CR 104.3a (I-D52): the actor concedes and loses at once, no agreement needed: their loss is recorded as the play's
-     * result (a waiting suggestion withdrawn or declined first) and the play ends as an accepted result ends it. */
-    @Serializable @SerialName("concede") data object Concede : GameAction
     /** I-D54 phase 3: one acting point of a game whose state is the engine's ([org.asyncttwiz.protocol.game]): engine
      * inputs (with the line's random answers) and table changes on the event it was made on. The server makes the event
      * ([org.asyncttwiz.protocol.game.Authority]) at the head, confirms or branches at an assumed input about the author
@@ -48,15 +41,6 @@ const val GAME_PROTOCOL_MINOR = 7
     @Serializable @SerialName("engineCancelRewind") data object EngineCancelRewind : GameAction
     /** I-D56 §13: the actor's private play settings for this game (response mode, Always assume resolves, Autotap). */
     @Serializable @SerialName("engineSettings") data class EngineSettings(val settings: org.asyncttwiz.protocol.game.PlaySettings) : GameAction
-    /** [tag] (rules v36): the Magic meaning of the event, made by the engine (D33); absent only for what a player may
-     * send outside Automatum ([AutomatumOnly]). */
-    @OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
-    @Serializable @SerialName("play") data class Play(val action: PlayAction,
-        @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val tag: MtgTag? = null) : GameAction
-    /** [tags] (rules v36): the tag of each member by index, as [Play.tag]; at most one per member. */
-    @OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
-    @Serializable @SerialName("playBatch") data class PlayBatch(val actions: List<PlayAction>,
-        @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val tags: List<MtgTag?> = emptyList()) : GameAction
     @Serializable @SerialName("acceptInvitation") data object AcceptInvitation : GameAction
     @Serializable @SerialName("declineInvitation") data object DeclineInvitation : GameAction
     @Serializable @SerialName("reinvite") data object Reinvite : GameAction
@@ -90,18 +74,11 @@ const val GAME_PROTOCOL_MINOR = 7
  * carry only their summary, chat and preparation, and every head is a summary. Sent again it switches between the two. */
 @Serializable @SerialName("subscribe") data class SubscribeGame(val gameId: String, val revision: String = "0",
     val readFormats: List<Int> = listOf(1), val engine: Boolean = true) : GameClientMessage
-/** [expectedSelection] (ordinary play only): the active line the client acted on, as the
- *  tree's selection control id ([GameplayTree.selectionKey]). It changes only when a continuation forks and
- *  becomes active, never by Undo/Redo or play on the same line. If it no longer matches, the action raced
- *  with a deliberate branch and is refused ("branched"), never moved to another line. Absent: no check. */
-@OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
 @Serializable @SerialName("command") data class GameCommand(val requestId: String, val scope: GameScope,
     val action: GameAction, val streamId: String, val generation: String, val commandVersion: Int = 1,
-    val invocationId: String? = null, val continuation: Continuation? = null,
+    val invocationId: String? = null,
     /** Only with [GameAction.Ready]: the player's dungeon cards outside the game ([org.asyncttwiz.protocol.game.OutsideCards]). */
-    val inlineDefinitions: List<SubmittedDefinition> = emptyList(),
-    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER)
-    val expectedSelection: String? = null) : GameClientMessage
+    val inlineDefinitions: List<SubmittedDefinition> = emptyList()) : GameClientMessage
 @Serializable @SerialName("ping") data class GamePing(val correlationId: String, val presence: GamePresence? = null) : GameClientMessage
 
 @Serializable sealed interface GameServerMessage
@@ -118,16 +95,15 @@ const val GAME_PROTOCOL_MINOR = 7
     val ingressOrdinal: String) : GameServerMessage
 @Serializable @SerialName("result") data class GameResult(val requestId: String, val scope: GameScope,
     val outcome: String, val reason: String? = null, val ingressOrdinal: String,
-    val commitRevision: String? = null, val createdIds: List<String> = emptyList(),
-    val mutation: GameplayMutation? = null, val targetNodeId: String? = null) : GameServerMessage
+    val commitRevision: String? = null, val createdIds: List<String> = emptyList()) : GameServerMessage
 @Serializable @SerialName("admissionError") data class GameAdmissionError(val code: String,
     val retryable: Boolean, val requestId: String? = null, val gameId: String? = null) : GameServerMessage
 @OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
 @Serializable @SerialName("head") data class GameHead(val gameId: String, val revision: String,
     val summary: GameSummary, val minimumResumableRevision: String = "0", val engineVersion: Int = 1,
     val readFormat: Int = 1, val preparation: LobbyPreparation? = null, val play: PlayState? = null,
-    val chat: List<ChatMessage> = emptyList(), val retainedTreeRequired: Boolean = false,
-    val chatSync: ChatSync? = null, val boundedEndpoint: Boolean = false,
+    val chat: List<ChatMessage> = emptyList(),
+    val chatSync: ChatSync? = null,
     /** Authorized caller's private pod deck name; not replay state or revision data. */
     val ownPodDeckName: String? = null,
     /** Socket heads only; omitted otherwise. Not replay state or revision data. */
@@ -173,8 +149,7 @@ const val GAME_PROTOCOL_MINOR = 7
 @Serializable @SerialName("revision") data class GameRevision(val gameId: String, val baseRevision: String,
     val resultRevision: String, val requestId: String, val author: String, val scope: GameScope,
     val summary: GameSummary, val preparation: LobbyPreparation? = null, val play: PlayState? = null,
-    val mutation: GameplayMutation? = null, val group: GameplayGroup? = null,
-    val chatMessage: ChatMessage? = null, val treeDelta: GameplayTreeDelta? = null,
+    val chatMessage: ChatMessage? = null,
     /** I-D54: the engine event this revision accepted, in the play's engine format
      * ([org.asyncttwiz.protocol.game.EngineJson.encodeEvent], definitions by reference to [GameHead.engine]'s). */
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER)
@@ -197,12 +172,21 @@ val GameAction.isEngine: Boolean get() = this is GameAction.EngineSeen || this i
 
 /** Future actions extend this same typed envelope, not a second lifecycle/gameplay queue. */
 object GameWire {
-    /** The largest game socket message either way (I-D14): an automated batch of [PlayBatches.MAX_AUTOMATED] members
-     * and the revision that answers it, at a few KB per member. */
+    /** The largest game socket message either way (I-D14). */
     const val MAX_MESSAGE_BYTES = 8 * 1024 * 1024
     /** The most engine inputs, and the most table changes, one [GameAction.Submit] may hold. */
     const val MAX_SUBMITTED = 1024
     val json = DeckJson.format
+    /** Reads what the server stored (a play, a revision, a request's result): a row written before the old model's fields
+     * went (engine-responsiveness R4d) reads without them; anything else unknown is still refused (SYS-052). */
+    fun <T> stored(deserializer: kotlinx.serialization.DeserializationStrategy<T>, text: String): T =
+        json.decodeFromJsonElement(deserializer, withoutRetired(json.parseToJsonElement(text)))
+
+    /** The old model's fields of stored plays (also a revision's [GameRevision.play]), revisions and results. */
+    private val RETIRED = setOf("currentNodeId", "engineVersion", "readFormat", "currentGroup", "annotations", "currentBranchId",
+        "mutation", "group", "treeDelta", "targetNodeId")
+    private fun withoutRetired(element: JsonElement): JsonElement = if (element !is JsonObject) element
+        else JsonObject(element.filterKeys { it !in RETIRED }.mapValues { (key, value) -> if (key == "play") withoutRetired(value) else value })
     fun decodeClient(text: String): GameClientMessage {
         require(text.encodeToByteArray().size <= MAX_MESSAGE_BYTES)
         StrictGameJson.check(text)
@@ -214,10 +198,6 @@ object GameWire {
         // A Ready carries its player's dungeon cards outside the game (OutsideCards), nothing else carries definitions
         require(command.commandVersion == 1 && (command.inlineDefinitions.isEmpty() || command.action == GameAction.Ready &&
             command.inlineDefinitions.size <= org.asyncttwiz.protocol.game.OutsideCards.MAX))
-        command.continuation?.let {
-            require(command.action.isPlay && it.explicit && DeckValidation.uuid(it.nodeId))
-        }
-        command.expectedSelection?.let { require(command.action.isPlay && command.continuation == null && DeckValidation.uuid(it)) }
         require(listOfNotNull(command.requestId, command.scope.gameId, command.scope.preparationId,
             command.scope.invitationId, command.scope.playId, command.streamId, command.invocationId).all(DeckValidation::uuid))
         if (command.action == GameAction.DeleteGame || command.action is GameAction.SendChat) {
@@ -237,16 +217,6 @@ object GameWire {
                 is GameAction.EngineRequestRewind -> require(DeckValidation.uuid(action.target) && action.message.length <= 500)
                 else -> {}
             }
-        } else if (command.action is GameAction.AcceptResult || command.action == GameAction.Concede) {
-            require(command.scope.playId != null && command.scope.preparationId == null && command.scope.invitationId == null)
-            if (command.action is GameAction.AcceptResult) require(DeckValidation.uuid(command.action.suggestionId))
-        } else if (command.action.isPlay || command.action == GameAction.Undo || command.action == GameAction.Redo) {
-            require(command.scope.playId != null && command.scope.preparationId == null && command.scope.invitationId == null)
-            if (command.action is GameAction.Play) require(GameplayRules.valid(command.action.action) &&
-                command.action.tag?.let(MtgTag::valid) != false)
-            if (command.action is GameAction.PlayBatch) require(command.action.actions.size in 1..PlayBatches.limit(command.action) &&
-                command.action.actions.all(GameplayRules::valid) && command.action.tags.size <= command.action.actions.size &&
-                command.action.tags.all { it?.let(MtgTag::valid) != false })
         } else {
             require(command.scope.preparationId != null && command.scope.playId == null)
             when (val action = command.action) {

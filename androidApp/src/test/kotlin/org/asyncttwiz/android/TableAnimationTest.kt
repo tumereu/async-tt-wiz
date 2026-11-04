@@ -130,40 +130,6 @@ class TableAnimationTest {
         assertEquals(120f, animation.frame(1f).single().bounds.x)
     }
 
-    @Test fun shuffleWigglesOnlyRecordedForwardStepsIncludingSearchCloseAndExplicitShuffle() {
-        val f = BasicTableFixture()
-        var tree = GameplayTree(f.root)
-        var request = 5000
-        fun step(action: PlayAction): GameplayMutation {
-            val command = GameCommand(f.id(request++), GameScope(f.root.gameId, playId = f.root.id),
-                GameAction.Play(action), f.id(9000), "1")
-            tree = assertNotNull(HistoryContinuation.change(tree, f.actor, command).tree)
-            return tree.nodes.getValue(tree.currentNodeId)
-        }
-        step(PlayAction.ShowContents(f.container(PlayZone.LIBRARY), ContentsSelection.ALL))
-        val display = tree.stateAt(tree.currentNodeId)!!.board.contentsDisplays.single()
-        val closed = step(PlayAction.DismissContents(display.id))
-        val shuffled = step(PlayAction.ShuffleLibrary(display.containerId, RandomV1.encodeSeed(ByteArray(32))))
-        for (node in listOf(closed, shuffled)) {
-            val changes = TableChanges()
-            changes.apply(TableChangeBatch(listOf(TableAppliedEvent(node))))
-            assertEquals(setOf(display.containerId), changes.shuffles(node.id))
-            for (viewer in listOf(f.actor, f.other)) {
-                val scene = TablePresentation.scene(f.game, tableBoard(f.root), viewer, 412f, 892f, false)
-                val pile = scene.items.single { it.id == display.containerId }
-                val animation = HistorySceneAnimation(scene)
-                assertTrue(animation.retarget(scene, 1f, shuffles = changes.shuffles(node.id), shuffleCursor = node.id))
-                assertNotEquals(pile.bounds, animation.frame(.1f).single { it.item.id == pile.id }.bounds)
-                assertEquals(pile.bounds, animation.frame(1f).single { it.item.id == pile.id }.bounds)
-                assertFalse(animation.retarget(scene, .5f, shuffles = changes.shuffles(node.id), shuffleCursor = node.id))
-            }
-            changes.apply(TableChangeBatch(listOf(TableAppliedEvent(node, reverse = true))))
-            assertTrue(changes.shuffles(node.parentId).isEmpty())
-            changes.apply(TableChangeBatch(jump = true))
-            assertTrue(changes.shuffles(node.id).isEmpty())
-        }
-    }
-
     @Test fun libraryArrivalsAndDeparturesStayFaceDownUntilClearOfPile() {
         val inLibrary = TableFixture.play(library = 1)
         val id = "a/LIBRARY/0"
@@ -344,7 +310,6 @@ class TableAnimationTest {
             placement = if (destination.endsWith("BATTLEFIELD")) PlayPlacement(BoardPosition(2, 2), it.id) else null) else it },
         containers = play.board.containers.map { c -> c.copy(cards = c.cards.filterNot { it in ids } + if (c.id == destination) ids else emptyList()) }))
 
-
     // SYS-009
     @Test fun matchingConfirmationDoesNotRestartEvenMidFlightOrChangeCardIdentity() {
         val initial = TableFixture.play(hand = 1)
@@ -423,7 +388,6 @@ class TableAnimationTest {
         assertEquals(source.items.single { it.cardId == id }.bounds, cards.single().bounds)
         assertEquals(1f, cards.single().alpha)
     }
-
 
     /** Every flight of [ids] from [from] to [to]: present, in transit early on, and gone once landed. */
     private fun pileFlights(from: PlayState, to: PlayState, ids: List<String>, landscape: Boolean = false): List<HistoryAnimatedItem> {

@@ -9,7 +9,7 @@ internal fun combatState(): PlayState {
     val cards = (20..25).map { n -> PlayCard(combatId(n), "definition", combatId(7), combatId(10), combatId(11),
         covered = n == 25, corner = "1/2", note = "source", token = n == 25,
         placement = PlayPlacement(BoardPosition((n - 20) % 2, (n - 20) / 2), combatId(n + 100))) }
-    return PlayState(combatId(1), combatId(2), combatId(3), combatId(4), PlayRoot(combatId(5), combatId(6)), combatId(5),
+    return PlayState(combatId(1), combatId(2), combatId(3), combatId(4), PlayRoot(combatId(5), combatId(6)),
         BoardState(listOf(PlayPlayer(combatId(7)), PlayPlayer(combatId(8))), cards,
             listOf(PlayContainer(combatId(10), PlayZone.BATTLEFIELD, combatId(7), cards.map { it.id }),
                 PlayContainer(combatId(12), PlayZone.STACK), PlayContainer(combatId(13), PlayZone.GRAVEYARD, combatId(7))),

@@ -27,11 +27,12 @@ internal class AsyncServer(val games: EngineGames, every: Int = 16) {
     val alice get() = games.alice
     val bob get() = games.bob
 
-    /** The game's start, made by the server itself: both local heads at it (each player is shown their opening). */
-    fun start(starter: PlayerId = alice): GameEvent {
+    /** The game's start, made by the server itself: both local heads at it (each player is shown their opening);
+     * [handSizes]: opening hands other than seven cards. */
+    fun start(starter: PlayerId = alice, handSizes: Map<PlayerId, Int> = emptyMap()): GameEvent {
         val model = history.stateAt("root")
         val builder = EventBuilder(model, "start", "root", starter.value)
-        builder.perform(Input.StartGame(StartOptions(startingPlayer = starter, simultaneousMulligans = true)))
+        builder.perform(Input.StartGame(StartOptions(startingPlayer = starter, simultaneousMulligans = true, handSizes = handSizes)))
         builder.answerRandoms()
         val event = builder.build()
         add(event, model)

@@ -48,6 +48,7 @@ class UndoRuleTest {
         assertTrue(model.sameAs(snapshot), "a refused undo changes nothing")
     }
 
+    // SYS-058: the other player's table-only events on other things stay when an undo goes past them
     @Test
     fun tableEventsOnOtherThingsDoNotBlockAnEngineEvent() {
         val land = untilALandCanBePlayed()

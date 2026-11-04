@@ -36,7 +36,6 @@ class GameWireTest {
         assertEquals(GameWire.digest(command), GameWire.digest(command.copy(generation = "99", streamId = id.replace("001", "002"))))
         assertNotEquals(GameWire.digest(command), GameWire.digest(command.copy(action = GameAction.DeclineInvitation)))
         assertNotEquals(GameWire.digest(command), GameWire.digest(command.copy(scope = command.scope.copy(preparationId = id.replace("001", "003")))))
-        assertTrue(GameWire.canonical(command).contains("\"continuation\":null"))
         assertTrue(GameWire.canonical(command).contains("\"invocationId\":null"))
         assertFalse(GameWire.canonical(command).contains("generation"))
         val minimal = """{"type":"command","requestId":"$id","scope":{"gameId":"$id","preparationId":"$id","invitationId":"$id"},"action":{"type":"acceptInvitation"},"streamId":"$id","generation":"1"}"""
@@ -53,7 +52,6 @@ class GameWireTest {
             "[".repeat(34) + "0" + "]".repeat(34), encoded + "x")) assertFails { GameWire.decodeClient(bad) }
         assertFalse(GameWire.valid(command().copy(commandVersion = 2)))
         assertFalse(GameWire.valid(command().copy(scope = GameScope(id))))
-        assertFalse(GameWire.valid(command().copy(continuation = Continuation(id, true))))
         assertFalse(GameWire.valid(command().copy(requestId = id.uppercase().replace('0', 'A'))))
     }
     @Test fun canonicalDecimalOrdinalsNeverRoundOrCoerce() {
@@ -62,15 +60,13 @@ class GameWireTest {
         assertFails { GameWire.decodeClient(GameWire.json.encodeToString<GameClientMessage>(command()).replace("\"generation\":\"1\"", "\"generation\":1")) }
     }
     @Test fun gameplayScopesAndNestedIntentStayDistinctFromLifecycleAndTransport() {
-        val command = command().copy(scope = GameScope(id, playId = id), action = GameAction.Play(PlayAction.SetTapped(id, true)))
+        val command = command().copy(scope = GameScope(id, playId = id), action = GameAction.EngineSeen(id))
         assertTrue(GameWire.valid(command))
         for (scope in listOf(GameScope(id), GameScope(id, preparationId = id), GameScope(id, id, playId = id),
             GameScope(id, invitationId = id, playId = id))) assertFalse(GameWire.valid(command.copy(scope = scope)))
-        assertNotEquals(GameWire.digest(command), GameWire.digest(command.copy(action = GameAction.Play(PlayAction.SetTapped(id, false)))))
+        assertNotEquals(GameWire.digest(command), GameWire.digest(command.copy(action = GameAction.EngineSeen(id.replace("001", "003")))))
         assertEquals(GameWire.digest(command), GameWire.digest(command.copy(streamId = id.replace("001", "002"), generation = "2")))
         val encoded = GameWire.json.encodeToString<GameClientMessage>(command)
-        assertFails { GameWire.decodeClient(encoded.replace("\"tapped\":true", "\"tapped\":true,\"previousTapped\":false")) }
-        assertTrue(GameWire.valid(command.copy(continuation = Continuation(id, true))))
-        assertFalse(GameWire.valid(command.copy(continuation = Continuation(id, false))))
+        assertFails { GameWire.decodeClient(encoded.replace("\"eventId\":", "\"previous\":null,\"eventId\":")) }
     }
 }

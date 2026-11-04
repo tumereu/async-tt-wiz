@@ -33,9 +33,7 @@ import kotlinx.serialization.Serializable
     /** Rules v36: the structured Stack item (D19) when the engine made this entry; null for a manual entry (STK-016). */
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val item: MtgStackItem? = null)
 /** D-120 projection-to-projection links, not the source relationship and not selection. */
-@Serializable data class ProjectionEndpoint(val occurrenceId: String)
 @Serializable data class ProjectionLink(val id: String, val first: String, val second: String)
-@Serializable data class ProjectionLinkChange(val from: ProjectionLink?, val to: ProjectionLink?)
 @Serializable data class IdentityGap(val afterId: String? = null, val beforeId: String? = null)
 @Serializable enum class CombatInsertion { APPEND, GAP }
 /** A null pair names a new pair at pairGap. No empty shared pair is created ahead of placement. */
@@ -64,49 +62,14 @@ import kotlinx.serialization.Serializable
         val pairIds: List<String>, val expected: List<String> = emptyList()) : CombatAction
 }
 @Serializable sealed interface StackAction {
-    @Serializable @SerialName("markText") data class MarkText(val entryId: String, val optionIndex: Int?) : StackAction
-    @Serializable @SerialName("toggleTextMark") data class ToggleTextMark(val entryId: String, val optionIndex: Int) : StackAction
     /** [faceDown] (STK-005) adds a face-down entry; only a hand card may be cast face down. */
     @Serializable @SerialName("addEffect") data class AddEffect(val sourceId: String, val expectedStackDigest: String,
         @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val faceDown: Boolean? = null) : StackAction
-    /** Rules v36 (I-D13): an ability-only entry, for an ability whose source isn't a card on the table (a delayed
-     * trigger of a spell copy, an emblem's trigger, an ability of a token that ceased to exist). The entry shows
-     * [definition] (one token face: the source's name and the ability's text as its rules text) as a card that
-     * already left (`StackEffect.frozen`), controlled by [controller]. */
-    @Serializable @SerialName("addAbility") data class AddAbility(val definition: SubmittedDefinition, val controller: String,
-        val expectedStackDigest: String) : StackAction
-    @Serializable @SerialName("copyEffect") data class CopyEffect(val entryId: String, val expectedStackDigest: String) : StackAction
-    @Serializable @SerialName("setController") data class SetController(val occurrenceId: String, val accountId: String) : StackAction
     @Serializable @SerialName("removeEffect") data class RemoveEffect(val occurrenceId: String) : StackAction
-    // Legacy: retained history replay/undo only; the server rejects new reorder commands.
-    @Serializable @SerialName("reorderEffect") data class ReorderEffect(val occurrenceId: String,
-        val expected: IdentityGap, val destination: IdentityGap) : StackAction
 }
 
 @Serializable data class CombatLocation(val areaId: String, val pairId: String, val role: CombatRole,
     val gap: IdentityGap)
-@Serializable data class CombatOccurrenceState(val occurrence: CombatOccurrence, val location: CombatLocation)
-@Serializable data class CombatOccurrenceChange(val id: String, val from: CombatOccurrenceState?, val to: CombatOccurrenceState?)
-@Serializable data class CombatPairPosition(val areaId: String, val gap: IdentityGap)
-@Serializable data class CombatPairChange(val id: String, val from: CombatPairPosition?, val to: CombatPairPosition?)
-@Serializable data class CombatAttackTargetChange(val pairId: String, val from: String?, val to: String?)
-@Serializable data class CombatBlockedChange(val pairId: String, val from: Boolean, val to: Boolean)
-@Serializable data class CombatAreaChange(val from: String?, val to: String?)
-@Serializable data class StackEffectChange(val id: String, val from: StackEffect?, val to: StackEffect?)
-@Serializable data class StackOrderChange(val id: String, val from: IdentityGap?, val to: IdentityGap?)
-@Serializable data class StackGuardChange(val from: String, val to: String)
-@Serializable data class StackTextMarkChange(val entryId: String, val from: StackTextMarks?, val to: StackTextMarks?)
-/** Exact relevant tuples: no unrelated card fields, full board, or surviving pair contents. */
-@Serializable data class CombatStackTransition(val area: CombatAreaChange? = null,
-    val occurrences: List<CombatOccurrenceChange> = emptyList(), val pairs: List<CombatPairChange> = emptyList(),
-    val effects: List<StackEffectChange> = emptyList(), val order: List<StackOrderChange> = emptyList(),
-    val removedLinks: List<ProjectionLink> = emptyList(), val stackGuard: StackGuardChange? = null,
-    val addedLinks: List<ProjectionLink> = emptyList(),
-    val textMarks: List<StackTextMarkChange> = emptyList(),
-    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER)
-    val attackTargets: List<CombatAttackTargetChange> = emptyList(),
-    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER)
-    val blocked: List<CombatBlockedChange> = emptyList())
 
 @Serializable data class StackIdentity(val kind: String, val id: String, val sourceId: String)
 @Serializable private data class StackProjection(val playId: String, val entries: List<StackIdentity>)
@@ -135,10 +98,8 @@ object CombatStackRules {
     fun defendingPlayer(board: BoardState): String? = board.players.firstOrNull { it.accountId != board.turn.accountId }?.accountId
     /** The player whose combat it is (the turn player), derived like [defendingPlayer]. */
     fun attackingPlayer(board: BoardState): String? = board.players.firstOrNull { it.accountId == board.turn.accountId }?.accountId
-    fun canAttack(state: PlayState, cardId: String, rulesVersion: Int = CURRENT_GAMEPLAY_RULES_VERSION): Boolean =
-        canAttack(state.board, state.definitions, cardId, rulesVersion)
-
-    /** [canAttack] on [board] with its card data [definitions]. */
+    /** Whether the card [cardId] may be attacked this combat (a face-up planeswalker of the defending player, a battle
+     * of the attacking player's), with [board]'s card data [definitions]. */
     fun canAttack(board: BoardState, definitions: List<SubmittedDefinition>, cardId: String,
         rulesVersion: Int = CURRENT_GAMEPLAY_RULES_VERSION): Boolean {
         val card = board.cards.singleOrNull { it.id == cardId } ?: return false
@@ -162,17 +123,12 @@ object CombatStackRules {
     fun stage(board: BoardState, definitions: List<SubmittedDefinition>, requestId: String, action: CombatAction,
         rulesVersion: Int = CURRENT_GAMEPLAY_RULES_VERSION): BoardState {
         require(valid(action)) { "invalidInput" }
-        val next = when (val result = lanes(board, definitions, requestId, action, rulesVersion)) {
-            is BoardState -> result
-            else -> throw IllegalArgumentException((result as GameplayChange).reason ?: "inapplicable")
-        }
+        val next = lanes(board, definitions, requestId, action, rulesVersion)
         return if (next == board) board else closeInvariants(board, next, rulesVersion) ?: throw IllegalArgumentException("invalidStructure")
     }
 
     /** A face-down cast's entry (STK-005): shown as a card back to both players; only its holder may inspect it. */
     fun faceDownEntry(board: BoardState, id: String): Boolean = board.stackEffects.any { it.id == id && it.faceDown }
-    fun projectionNote(board: BoardState, id: String): String? = board.stackEffects.singleOrNull { it.id == id }?.note
-        ?: occurrences(board.combat).singleOrNull { it.id == id }?.note
     fun occurrences(area: CombatArea?): List<CombatOccurrence> = area?.pairs.orEmpty().flatMap { it.blockers + it.attackers }
     /** CMB-031: the pairs whose attackers the blocker copy [occurrenceId] blocks, its own pair first; empty when it isn't
      * a blocker in [area]. */
@@ -192,7 +148,6 @@ object CombatStackRules {
     }
     fun projectionIds(board: BoardState): Set<String> =
         (occurrences(board.combat).map { it.id } + board.stackEffects.map { it.id }).toSet()
-    fun exists(board: BoardState, endpoint: ProjectionEndpoint) = endpoint.occurrenceId in projectionIds(board)
     fun projectionPair(first: String, second: String) = if (first <= second) first to second else second to first
     fun stack(board: BoardState) = board.containers.single { it.zone == PlayZone.STACK }
     fun canProject(board: BoardState, card: PlayCard, rulesVersion: Int = CURRENT_GAMEPLAY_RULES_VERSION): Boolean {
@@ -213,7 +168,6 @@ object CombatStackRules {
     }
     fun stackDigest(playId: String, board: BoardState): String = "sha256:" +
         DeckJson.intent("stack", DeckJson.canonical(StackProjection(playId, identities(board))))
-    fun stackDigest(state: PlayState) = stackDigest(state.id, state.board)
 
     /** Bind source once when the menu opens. A frozen occurrence can never redirect to another card. */
     fun liveSource(board: BoardState, viewId: String): PlayCard? {
@@ -227,12 +181,6 @@ object CombatStackRules {
         board.stackEffects.singleOrNull { it.id == viewId }?.frozen ?: liveSource(board, viewId)
     fun controller(board: BoardState, viewId: String): String? =
         board.stackEffects.singleOrNull { it.id == viewId }?.controller ?: inspection(board, viewId)?.owner
-    fun relatedViews(board: BoardState, viewId: String): Set<String> {
-        val source = board.cards.find { it.id == viewId }?.id ?: board.stackEffects.find { it.id == viewId }?.sourceId
-            ?: occurrences(board.combat).find { it.id == viewId }?.sourceId ?: return emptySet()
-        return (listOf(source) + occurrences(board.combat).filter { it.sourceId == source }.map { it.id } +
-            board.stackEffects.filter { it.sourceId == source }.map { it.id }).toSet()
-    }
 
     private fun valid(gap: IdentityGap) = listOfNotNull(gap.afterId, gap.beforeId).all(DeckValidation::uuid) &&
         (gap.afterId == null || gap.afterId != gap.beforeId)
@@ -255,129 +203,11 @@ object CombatStackRules {
                 (attackTarget == null || DeckValidation.uuid(attackTarget))
         }
     }
-    fun valid(action: StackAction): Boolean = when (action) {
-        is StackAction.MarkText -> DeckValidation.uuid(action.entryId) && (action.optionIndex == null || action.optionIndex >= 0)
-        is StackAction.ToggleTextMark -> DeckValidation.uuid(action.entryId) && action.optionIndex >= 0
-        is StackAction.AddEffect -> DeckValidation.uuid(action.sourceId) && DeckValidation.digest(action.expectedStackDigest) &&
-            action.faceDown != false
-        is StackAction.AddAbility -> TokenLinkRules.validDefinition(action.definition) && action.definition.definition.faces.size == 1 &&
-            DeckValidation.uuid(action.controller) && DeckValidation.digest(action.expectedStackDigest)
-        is StackAction.CopyEffect -> DeckValidation.uuid(action.entryId) && DeckValidation.digest(action.expectedStackDigest)
-        is StackAction.SetController -> DeckValidation.uuid(action.occurrenceId) && DeckValidation.uuid(action.accountId)
-        is StackAction.RemoveEffect -> DeckValidation.uuid(action.occurrenceId)
-        is StackAction.ReorderEffect -> DeckValidation.uuid(action.occurrenceId) && valid(action.expected) && valid(action.destination)
-    }
-
-    /** Same indivisible compare/construct function for server execution and provisional prediction.
-     * The server's existing transaction/arrival-order processor must call this on its selected state.
-     */
-    internal fun change(state: PlayState, actor: String, command: GameCommand,
-        rulesVersion: Int = CURRENT_GAMEPLAY_RULES_VERSION): GameplayChange {
-        fun reject(reason: String) = GameplayChange(reason = reason)
-        val board = state.board
-        val playAction = (command.action as GameAction.Play).action
-        val next = when (playAction) {
-            // A refusal or no-op is returned as it is; otherwise the next board
-            is PlayAction.Combat -> when (val result = lanes(board, state.definitions, command.requestId, playAction.action, rulesVersion)) {
-                is GameplayChange -> return result
-                else -> result as BoardState
-            }
-            is PlayAction.Stack -> when (val action = playAction.action) {
-                is StackAction.MarkText, is StackAction.ToggleTextMark -> {
-                    val entryId = if (action is StackAction.MarkText) action.entryId else (action as StackAction.ToggleTextMark).entryId
-                    val index = if (action is StackAction.MarkText) action.optionIndex else (action as StackAction.ToggleTextMark).optionIndex
-                    if (entryId !in stack(board).cards) return reject("missingReference")
-                    if (index != null && index !in StackText.options(state, entryId).indices)
-                        return reject("invalidInput")
-                    val old = board.stackTextMarks[entryId].orEmpty()
-                    val marks = if (action is StackAction.MarkText) setOfNotNull(index)
-                        else if (index in old) old - index!! else old + index!!
-                    board.copy(stackTextMarks = if (marks.isEmpty()) board.stackTextMarks - entryId
-                        else board.stackTextMarks + (entryId to marks))
-                }
-                is StackAction.AddEffect -> {
-                    if (stackDigest(state) != action.expectedStackDigest) return reject("stackChanged")
-                    val source = board.cards.singleOrNull { it.id == action.sourceId } ?: return reject("missingReference")
-                    if (!canProject(board, source, rulesVersion)) return reject("inapplicable")
-                    val faceDown = action.faceDown == true
-                    // STK-005: only a hand card is cast face down.
-                    if (faceDown && board.containers.none { it.id == source.containerId && it.zone == PlayZone.HAND })
-                        return reject("inapplicable")
-                    val effect = StackEffect(CommandIds.uuidV5(command.requestId, "stack-effect/0"), source.id,
-                        revealsLibrarySource = rulesVersion >= 21 && board.containers.any {
-                            it.id == source.containerId && it.zone == PlayZone.LIBRARY }, faceDown = faceDown)
-                    if (effect.id in stack(board).cards || board.cards.any { it.id == effect.id }) return reject("invalidStructure")
-                    board.copy(stackEffects = board.stackEffects + effect,
-                        containers = board.containers.map { if (it.zone == PlayZone.STACK) it.copy(cards = listOf(effect.id) + it.cards) else it })
-                }
-                is StackAction.AddAbility -> {
-                    if (stackDigest(state) != action.expectedStackDigest) return reject("stackChanged")
-                    if (board.players.none { it.accountId == action.controller }) return reject("missingReference")
-                    val retained = state.definitions.singleOrNull { it.digest == action.definition.digest }
-                    if (retained != null && retained != action.definition) return reject("invalidInput")
-                    val stack = stack(board)
-                    // The ability's own shown card: a token that already left, so nothing can move or point at it.
-                    val shown = PlayCard(CommandIds.uuidV5(command.requestId, "stack-ability/0"), action.definition.digest,
-                        action.controller, stack.id, action.definition.definition.faces.single().faceId, covered = false, token = true)
-                    val effect = StackEffect(CommandIds.uuidV5(command.requestId, "stack-effect/0"), shown.id, frozen = shown,
-                        controller = action.controller)
-                    if (listOf(effect.id, shown.id).any { id -> id in stack.cards || board.cards.any { it.id == id } ||
-                            board.stackEffects.any { it.id == id || it.sourceId == id } }) return reject("invalidStructure")
-                    val next = board.copy(stackEffects = board.stackEffects + effect,
-                        containers = board.containers.map { if (it.zone == PlayZone.STACK) it.copy(cards = listOf(effect.id) + it.cards) else it })
-                    return GameplayRules.record(state.copy(definitions = (state.definitions + action.definition).distinctBy { it.digest }
-                        .sortedBy { it.digest }), actor, command, next, GameplayTransition(), rulesVersion = rulesVersion)
-                }
-                is StackAction.RemoveEffect -> {
-                    if (board.stackEffects.none { it.id == action.occurrenceId }) return reject("missingReference")
-                    board.copy(stackEffects = board.stackEffects.filterNot { it.id == action.occurrenceId },
-                        containers = board.containers.map { if (it.zone == PlayZone.STACK)
-                            it.copy(cards = it.cards - action.occurrenceId) else it })
-                }
-                is StackAction.CopyEffect -> {
-                    if (stackDigest(state) != action.expectedStackDigest) return reject("stackChanged")
-                    if (action.entryId !in stack(board).cards) return reject("missingReference")
-                    val source = inspection(board, action.entryId) ?: return reject("missingReference")
-                    val original = board.stackEffects.singleOrNull { it.id == action.entryId }
-                    val effect = StackEffect(CommandIds.uuidV5(command.requestId, "stack-effect/0"), source.id,
-                        original?.frozen, controller(board, action.entryId), isCopy = true,
-                        revealsLibrarySource = rulesVersion >= 21 && original?.revealsLibrarySource == true,
-                        faceDown = original?.faceDown == true)
-                    board.copy(stackEffects = board.stackEffects + effect,
-                        containers = board.containers.map { if (it.zone == PlayZone.STACK) it.copy(cards = listOf(effect.id) + it.cards) else it })
-                }
-                is StackAction.SetController -> {
-                    if (board.players.none { it.accountId == action.accountId }) return reject("missingReference")
-                    val effect = board.stackEffects.singleOrNull { it.id == action.occurrenceId } ?: return reject("missingReference")
-                    if (controller(board, effect.id) == action.accountId) board else
-                        board.copy(stackEffects = board.stackEffects.map { if (it.id == effect.id) it.copy(controller = action.accountId) else it })
-                }
-                is StackAction.ReorderEffect -> {
-                    if (board.stackEffects.none { it.id == action.occurrenceId }) return reject("missingReference")
-                    val stack = stack(board)
-                    if (gap(stack.cards, action.occurrenceId) != action.expected) return reject("sourceChanged")
-                    val remaining = stack.cards - action.occurrenceId
-                    val index = gapIndex(remaining, action.destination) ?: return reject("destinationChanged")
-                    val order = remaining.toMutableList().apply { add(index, action.occurrenceId) }
-                    board.copy(containers = board.containers.map { if (it.id == stack.id) it.copy(cards = order) else it })
-                }
-            }
-            else -> return reject("inapplicable")
-        }
-        if (next == board) return GameplayChange(state)
-        val source = ((playAction as? PlayAction.Stack)?.action as? StackAction.AddEffect)?.sourceId
-            ?.let { id -> board.cards.singleOrNull { it.id == id } }
-        val viewers = source?.let { CardVisibility.viewers(next, it) - CardVisibility.viewers(board, it).toSet() }.orEmpty()
-        return GameplayRules.record(state, actor, command, next, GameplayTransition(disclosures =
-            if (source != null && viewers.isNotEmpty()) listOf(GameplayDisclosure(source.id, source.faceId, source.containerId, viewers))
-            else emptyList()), rulesVersion = rulesVersion)
-    }
-
-    /** [change]'s next board for a [PlayAction.Combat] ([action] on [board], [requestId] naming what it makes), [board]
-     * itself for a no-op, or a [GameplayChange] when refused (its own method, so the JVM compiles [change]). */
+    /** The next board of [action] on [board] ([requestId] naming what it makes), [board] itself for a no-op.
+     * @throws IllegalArgumentException with the reason when refused. */
     private fun lanes(board: BoardState, definitions: List<SubmittedDefinition>, requestId: String, action: CombatAction,
-        rulesVersion: Int): Any {
-        fun reject(reason: String) = GameplayChange(reason = reason)
+        rulesVersion: Int): BoardState {
+        fun reject(reason: String): Nothing = throw IllegalArgumentException(reason)
         val area = board.combat
         return when (action) {
             CombatAction.Open -> if (area != null) board else board.copy(
@@ -488,7 +318,6 @@ object CombatStackRules {
         return null
     }
 
-    /** Called by the shared record boundary, including future real-move/token reducers. */
     /** The cards of [before] that are gone from [after]; the lists are hashed only when they don't line up by id. */
     private fun vanished(before: List<PlayCard>, after: List<PlayCard>): List<PlayCard> {
         if (before === after) return emptyList()
@@ -554,61 +383,5 @@ object CombatStackRules {
             return null
         return candidate.copy(combat = combat, stackEffects = effects, projectionLinks = links,
             stackTextMarks = candidate.stackTextMarks.filterKeys { it in stack?.cards.orEmpty() })
-    }
-
-    internal fun transition(state: PlayState, next: BoardState, action: PlayAction): CombatStackTransition? {
-        val before = state.board
-        val oldOccurrences = occurrences(before.combat).associateBy { it.id }
-        val newOccurrences = occurrences(next.combat).associateBy { it.id }
-        val movedSource = ((action as? PlayAction.Combat)?.action as? CombatAction.Place)?.sourceId
-            ?: ((action as? PlayAction.Combat)?.action as? CombatAction.Declare)?.sourceId
-        val changed = (oldOccurrences.keys + newOccurrences.keys).filter { id ->
-            oldOccurrences[id] != newOccurrences[id] || oldOccurrences[id]?.sourceId == movedSource
-        }
-        fun occurrence(board: BoardState, id: String) = occurrences(board.combat).find { it.id == id }?.let {
-            CombatOccurrenceState(it, location(board.combat!!, id)!!)
-        }
-        val occurrenceChanges = changed.map { CombatOccurrenceChange(it, occurrence(before, it), occurrence(next, it)) }
-            .filter { it.from != it.to }
-        val oldPairs = before.combat?.pairs.orEmpty().map { it.id }
-        val newPairs = next.combat?.pairs.orEmpty().map { it.id }
-        fun pairPosition(board: BoardState, id: String) = board.combat?.takeIf { area -> area.pairs.any { it.id == id } }?.let {
-            CombatPairPosition(it.id, gap(it.pairs.map { pair -> pair.id }, id))
-        }
-        val pairChanges = (oldPairs + newPairs).distinct().filter { (it in oldPairs) != (it in newPairs) }
-            .map { CombatPairChange(it, pairPosition(before, it), pairPosition(next, it)) }
-        val oldEffects = before.stackEffects.associateBy { it.id }; val newEffects = next.stackEffects.associateBy { it.id }
-        val effectChanges = (oldEffects.keys + newEffects.keys).filter { oldEffects[it] != newEffects[it] }
-            .map { StackEffectChange(it, oldEffects[it], newEffects[it]) }
-        val oldOrder = before.containers.singleOrNull { it.zone == PlayZone.STACK }?.cards.orEmpty()
-        val newOrder = next.containers.singleOrNull { it.zone == PlayZone.STACK }?.cards.orEmpty()
-        val reordered = ((action as? PlayAction.Stack)?.action as? StackAction.ReorderEffect)?.occurrenceId
-        val orderChanges = (oldOrder + newOrder).distinct().filter { (it in oldOrder) != (it in newOrder) || it == reordered }
-            .map { StackOrderChange(it, if (it in oldOrder) gap(oldOrder, it) else null, if (it in newOrder) gap(newOrder, it) else null) }
-            .filter { it.from != it.to }
-        val links = before.projectionLinks.filter { it !in next.projectionLinks }
-        val addedLinks = next.projectionLinks.filter { it !in before.projectionLinks }
-        val marks = (before.stackTextMarks.keys + next.stackTextMarks.keys).sorted().mapNotNull { id ->
-            val from = before.stackTextMarks[id]; val to = next.stackTextMarks[id]
-            if (from == to) null else StackTextMarkChange(id, from, to)
-        }
-        val area = if (before.combat?.id == next.combat?.id) null else CombatAreaChange(before.combat?.id, next.combat?.id)
-        val attackTargets = (oldPairs + newPairs).distinct().mapNotNull { id ->
-            val from = before.combat?.pairs?.find { it.id == id }?.attackTarget
-            val to = next.combat?.pairs?.find { it.id == id }?.attackTarget
-            if (from == to) null else CombatAttackTargetChange(id, from, to)
-        }
-        val blocked = (oldPairs + newPairs).distinct().mapNotNull { id ->
-            val from = before.combat?.pairs?.find { it.id == id }?.blocked ?: false
-            val to = next.combat?.pairs?.find { it.id == id }?.blocked ?: false
-            if (from == to) null else CombatBlockedChange(id, from, to)
-        }
-        val guard = if ((action as? PlayAction.Stack)?.action.let { it is StackAction.AddEffect || it is StackAction.CopyEffect ||
-                it is StackAction.AddAbility })
-            StackGuardChange(stackDigest(state), stackDigest(state.id, next)) else null
-        return if (area == null && occurrenceChanges.isEmpty() && pairChanges.isEmpty() && effectChanges.isEmpty() &&
-            orderChanges.isEmpty() && links.isEmpty() && addedLinks.isEmpty() && marks.isEmpty() && attackTargets.isEmpty() && blocked.isEmpty() && guard == null) null else
-            CombatStackTransition(area, occurrenceChanges, pairChanges, effectChanges, orderChanges, links.sortedBy { it.id }, guard,
-                addedLinks.sortedBy { it.id }, marks, attackTargets, blocked)
     }
 }

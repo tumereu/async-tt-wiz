@@ -32,9 +32,8 @@ import org.asyncttwiz.protocol.RandomV1
  *
  * The run ends when the engine waits for a player ([pending]) or is done. [inputs] are the player's own inputs, what a
  * game on engine state sends (its device answers the randomness and makes the passes that follow by itself).
- * [EngineCall] is the same run on a board rebuilt from ATW's own state (today's model).
  */
-open class EngineRun(
+class EngineRun(
     /** The engine state the run starts from. */
     val start: GameState,
     /** The board shown of [start]: its combat lanes and records. */
@@ -47,26 +46,16 @@ open class EngineRun(
     /** The state after [changes]. */
     val working: GameState = start.deepCopy()
     val changes = mutableListOf<Change>()
-    internal val shuffles = mutableListOf<ShuffleAnswer>()
     /** Card ids a viewer's shuffle made (D60), by the ATW card each one is. */
     internal val hidden = mutableMapOf<CardId, String>()
 
     /** What the engine waits for now: a player's decision, or another player's view ([Decision.OtherView]). */
     val pending: Pending? get() = working.pending
 
-    /** The [changes] (by index) that are a player's own priority pass: the history shows them; other priority changes
-     * (a pass the host made, priority given) are folded into the visible event of their batch (I-D22). */
-    val ownPasses: Set<Int> get() = passes
-    private val passes = mutableSetOf<Int>()
-
-    /**
-     * Performs [input] and answers the host's decisions that follow; returns what the engine then waits for.
-     * [automatic]: the host makes the input for a player, as a priority pass when `Engine.shouldPassFor` says so
-     * (I-D3, I-D18); the history then folds it into its batch's visible event (I-D22).
-     */
-    fun perform(input: Input, automatic: Boolean = false): Pending? {
-        if (!automatic) own += input
-        run(input, automatic)
+    /** Performs [input] and answers the host's decisions that follow; returns what the engine then waits for. */
+    fun perform(input: Input): Pending? {
+        own += input
+        run(input)
         while (true) {
             val decision = working.pending?.decision ?: return null
             val answer = when (decision) {
@@ -105,8 +94,8 @@ open class EngineRun(
         }
     }
 
-    /** The inputs a player made in this run, in order ([perform] without `automatic`): what a game on engine state sends
-     * (I-D56 step C), where the device answers the randomness and makes the automatic passes itself. */
+    /** The inputs a player made in this run, in order ([perform]): what a game on engine state sends (I-D56 step C), where
+     * the device answers the randomness and makes the automatic passes itself. */
     val inputs: List<Input> get() = own
     private val own = mutableListOf<Input>()
 
@@ -133,24 +122,16 @@ open class EngineRun(
     /** The identities of [decision]'s objects, for the player who decides in their own view (D31). */
     fun otherView(decision: Decision.OtherView): List<FilledObject> = decision.objects.map(::filled)
 
-    /** The engine's outcome of [input] on [working], nothing applied yet ([EngineCall] records it for reports). */
-    protected open fun performed(input: Input): Outcome = Engine.perform(working, input)
+    /** The engine's outcome of [input] on [working], nothing applied yet. */
+    private fun performed(input: Input): Outcome = Engine.perform(working, input)
 
-    private fun run(input: Input, automatic: Boolean = true) {
+    private fun run(input: Input) {
         val outcome = performed(input)
-        if (input is Input.PassPriority && !automatic)
-            outcome.changes.indexOfFirst { it is Change.Priority }.takeIf { it >= 0 }?.let { passes += changes.size + it }
         outcome.changes.forEach { working.apply(it); changes += it }
     }
 
-    /** A change made before the run's first input (today's model settles priority with it, [EngineCall]). */
-    protected fun applyHost(change: Change) {
-        working.apply(change)
-        changes += change
-    }
-
     /** The identity of [id]: the object's own definition in the state the run started from (full information). */
-    protected open fun filled(id: ObjectId): FilledObject {
+    private fun filled(id: ObjectId): FilledObject {
         val definition = (start.objects[id] ?: working.objects[id])?.definition ?: error("No definition to fill $id")
         return FilledObject(id, definition)
     }
@@ -179,7 +160,6 @@ open class EngineRun(
             // D60: new ids for cards whose order the viewer doesn't know; this host knows which card each one is
             CardId(CommandIds.uuidV5(HIDDEN_NAMESPACE, "$seed/$i")).also { hidden[it] = real }.let { ObjectId.Card(it, 0) }
         }
-        if (owner != null) shuffles += ShuffleAnswer(owner, seed, order)
         return Answer.RandomObjects(chosen)
     }
 

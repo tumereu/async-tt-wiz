@@ -69,10 +69,9 @@ data class ComputedCard(
 }
 
 /**
- * The engine's view of an ATW board while Automatum is on (I1): built afresh from [PlayState] (I-D7) with the game's
- * card definitions; [cards] by ATW card id for the Battlefield cards the engine gives values. When the board holds
- * something the engine can't take over ([unsupported], [EngineState.unsupported]) nothing is computed and every card
- * keeps its manual display. [explain] says where a card's values come from (Inspect).
+ * The engine's view of a game's board (I1): [cards] by ATW card id for the Battlefield cards the engine gives values,
+ * from the game's own engine state and view ([of]). When the device couldn't work the board out ([failed], the reason in
+ * [unsupported]) nothing is computed and every card keeps its plain display. [explain] says where a card's values come from (Inspect).
  */
 class ComputedBoard private constructor(
     val cards: Map<String, ComputedCard>,
@@ -164,24 +163,6 @@ class ComputedBoard private constructor(
         fun failed(reason: String) = ComputedBoard(emptyMap(), listOf(reason), 0, emptyList(), null, null, null)
 
         /**
-         * The engine's view of [play] with the game's card [definitions] (by ATW definition digest; a card missing
-         * from it plays with its printed values, I-D21), as [viewer] is shown it. Blocking work: one engine view.
-         */
-        fun of(play: PlayState, definitions: Map<String, CardDefinition>, viewer: String): ComputedBoard {
-            val (manualAbilities, manualCards) = manual(play.board, play.definitions, definitions, viewer)
-            val unsupported = EngineState.unsupported(play, definitions, viewer)
-            if (unsupported.isNotEmpty()) return ComputedBoard(emptyMap(), unsupported, manualAbilities, manualCards, null, null, null)
-            // Full information (I-D27): only Battlefield cards are shown, each as anyone may see it (a face-down
-            // permanent is a nameless 2/2, CR 708.2a).
-            val state = try {
-                EngineState.from(play, definitions)
-            } catch (problem: Unsupported) {
-                return ComputedBoard(emptyMap(), problem.reasons, manualAbilities, manualCards, null, null, null)
-            }
-            return computed(play.board, manualAbilities, manualCards, state, Engine.view(state))
-        }
-
-        /**
          * [of] for a game on engine state (I-D56; engine-responsiveness R3, R4a): [board] is the board shown of [state]
          * ([EngineProjection]) with its card data [submitted], [state] the game's own state (full information; kept for
          * [explain], so never changed afterwards) and [view] its view, which the caller already has (the engine thread's
@@ -195,7 +176,7 @@ class ComputedBoard private constructor(
 
         private fun computed(board: BoardState, manualAbilities: Int, manualCards: List<Pair<String, Int>>, state: GameState,
             view: View): ComputedBoard {
-            val ids = CardIds.of(board)
+            val ids = CardIds()
             val battlefield = board.containers.filter { it.zone == PlayZone.BATTLEFIELD }.flatMap { it.cards }.toSet()
             val cards = LinkedHashMap<String, ComputedCard>()
             for (card in board.cards) {

@@ -365,10 +365,17 @@ class GameDeviceTest {
         sim.bobCasts("Storm Spark", land = false)
         sim.settle()
         val beforeCast = sim.server.line().first { e -> e.engine?.steps?.firstOrNull()?.input is Input.Cast }.parentId
+        // His main phase waits for him after the spark resolved (STK-036): his End turn is his own action there
+        val beforeEnd = sim.server.head
+        assertTrue(sim.atMain(bob))
         bobs.endTurn(sim.now)
         sim.settle()
-        val after = MainLine.after(sim.server.history, sim.server.head, beforeCast)!!
-        assertTrue(after.size > 2, "his device passed on by itself after the cast: ${after.size}")
+        val after = MainLine.after(sim.server.history, sim.server.head, beforeEnd)!!
+        assertTrue(after.size > 2, "his device passed on by itself after his End turn: ${after.size}")
+        assertEquals(GameDevice.Undo.Free(beforeEnd), bobs.undo())
+        sim.settle()
+        assertEquals(beforeEnd, sim.server.head)
+        assertEquals(GameDevice.Status.YourMove, bobs.status)
         assertEquals(GameDevice.Undo.Free(beforeCast), bobs.undo())
         sim.settle()
         fun inHand(name: String) = bobs.model.engine.player(bob).hand.count { bobs.model.engine.obj(it)?.definition?.faces?.first()?.name == name }
@@ -386,11 +393,11 @@ class GameDeviceTest {
         assertEquals(beforeLand, sim.server.head)
         assertEquals(sparks, inHand("Storm Spark"))
         assertTrue(inHand("Mountain") > 0 && bobs.model.engine.battlefield.isEmpty(), "the Mountain is back in his hand")
-        assertEquals(2, sim.rewinds)
+        assertEquals(3, sim.rewinds)
         // Played again: that event starts the new line
         assertIs<GameDevice.Acted.Sent>(bobs.act(Input.PlayLand(bob, hand(bobs.model, bob, "Mountain"))))
         sim.settle()
-        assertEquals(2, sim.server.line().single { it.parentId == beforeLand }.startsLine)
+        assertEquals(3, sim.server.line().single { it.parentId == beforeLand }.startsLine)
         assertTrue(bobs.model.sameAs(sim.server.stateAt(bobs.session.localHead)))
         // Alice comes back: her board is the server's, and her strip has no rewind event to show
         val alices = sim.load(alice)
@@ -582,6 +589,65 @@ class GameDeviceTest {
         assertNull(Engine.result(sim.device(alice).model.engine))
         assertNull(Engine.result(sim.server.state().engine))
         assertTrue(sim.leaks.isEmpty())
+    }
+
+    // STK-036, STK-026 (owner, smoke 2026-11-04): Auto-skip never passes the player's own main phase, even with nothing
+    // left to do: a land played, or a creature cast with all their mana (resolved on Alice's assumed pass), leaves Bob in
+    // his first main phase with priority; his turn goes on only by his own pass
+    @Test
+    fun autoSkipStaysInYourOwnMainPhase() {
+        val sim = DeviceSim(EngineGames(3, List(40) { "Island" } to List(40) { if (it % 2 == 0) "Forest" else "Elvish Seer" }))
+        sim.bobToMain()
+        val bob = sim.bob
+        val bobs = sim.device(bob)
+        assertEquals(ResponseMode.AutoSkip, bobs.settings.mode)
+        assertIs<GameDevice.Acted.Sent>(bobs.act(Input.PlayLand(bob, hand(bobs.model, bob, "Forest"))))
+        sim.settle()
+        assertTrue(sim.atMain(bob), "after the land: ${bobs.model.engine.turn}")
+        assertEquals(GameDevice.Status.YourMove, bobs.status)
+        assertIs<GameDevice.Acted.Sent>(bobs.act(Input.Cast(bob, hand(bobs.model, bob, "Elvish Seer")), follow = { m ->
+            m.engine.pending?.decision?.takeIf { it.player == bob && it !is Decision.Random }?.let { open ->
+                Engine.options(m.engine, bob).filterIsInstance<Input.Answer>().first { it.decision == open.id } }
+        }))
+        sim.settle()
+        val m = bobs.model.engine
+        assertTrue(m.battlefield.any { m.obj(it)?.definition?.faces?.first()?.name == "Elvish Seer" }, "the Seer resolved")
+        assertTrue(sim.atMain(bob), "after the cast: ${m.turn}")
+        assertEquals(1, m.turn.number)
+        assertEquals(GameDevice.Status.YourMove, bobs.status)
+        assertEquals(sim.server.head, bobs.session.tip, "the server's head is there too")
+    }
+
+    // TRN-027 (smoke 2026-11-04): both players keep at the same moment and the server takes Bob's first, refusing
+    // Alice's as stale: her device shows his keep and makes hers again on it at once, without telling her of a refusal
+    // (the refusal or his keep reaching her first alike); each keep is on the main line once
+    @Test
+    fun simultaneousKeepsAreBothTaken() {
+        for (refusalFirst in listOf(false, true)) {
+            val sim = spells("Storm Spark")
+            val alice = sim.alice; val bob = sim.bob
+            sim.start(alice)
+            val alices = sim.device(alice); val bobs = sim.device(bob)
+            assertIs<GameDevice.Acted.Sent>(alices.act(sim.keep(alice)))
+            assertIs<GameDevice.Acted.Sent>(bobs.act(assertNotNull(bobs.openingInput(Answer.Option("Keep")))))
+            sim.flush(bob)
+            sim.flush(alice)
+            val bobsKeep = sim.server.head
+            if (refusalFirst) sim.deliverRefusalsFirst(alice) else sim.deliver(alice)
+            alices.advance(sim.now)
+            assertEquals(false, alices.session.behind, "his keep is shown")
+            assertEquals(bobsKeep, alices.session.pending.first().parentId, "hers is made again on his")
+            assertTrue(alices.notes().none { it is GameDevice.Note.Refused }, "no refusal told")
+            sim.settle()
+            fun keeps(p: PlayerId) = sim.server.line().count { e -> e.author == p.value && e.assumed == null &&
+                e.engine?.steps?.firstNotNullOfOrNull { it.input }.let { input ->
+                    (input is Input.Answer && input.answer == Answer.Option("Keep")) ||
+                        (input is Input.SetupAnswer && input.answer == Answer.Option("Keep")) } }
+            assertEquals(1, keeps(alice), "refusal first: $refusalFirst")
+            assertEquals(1, keeps(bob))
+            assertTrue(sim.atMain(alice), "Alice is in her first main phase: ${alices.model.engine.turn}")
+            assertEquals(emptyList(), sim.equivalence())
+        }
     }
 
     // I-D43: the reproduction bundle replays every event of the device's line exactly

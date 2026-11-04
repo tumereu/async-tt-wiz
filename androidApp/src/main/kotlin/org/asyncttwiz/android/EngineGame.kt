@@ -374,14 +374,7 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
 
     /** The input answering the player's own setup decision with [answer]: the open decision when it is theirs, else their
      * declaration ahead of it ([Input.SetupAnswer]); null when the engine lists neither. Engine thread. */
-    private fun setupInput(answer: arcanum.engine.decision.Answer): Input? {
-        val s = device.model.engine
-        val d = s.pending?.decision
-        val player = PlayerId(me)
-        if (d != null && arcanum.engine.Engine.decider(s, d.player) == player) return Input.Answer(d.id, answer)
-        val listed = arcanum.engine.Engine.options(s, player)
-        return Input.SetupAnswer(player, answer).takeIf { listed.any { it is Input.SetupAnswer && it.player == player } }
-    }
+    private fun setupInput(answer: arcanum.engine.decision.Answer): Input? = device.openingInput(answer)
 
     /** The step arrow's pass: the player's own priority (at a decision stop: their answer to what was assumed). */
     fun pass(): GameDevice.Acted = early("pass") { performed ->

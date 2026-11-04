@@ -56,7 +56,7 @@ internal object DebugJank {
 
     @Synchronized fun action(name: String) {
         if (!Diagnostics.enabled) return
-        actions.addLast(name.take(100)); while (actions.size > 8) actions.removeFirst()
+        actions.addLast(name.take(100)); while (actions.size > 8) actions.removeAt(0)
     }
 
     fun beginWork(kind: String): Long {
@@ -68,7 +68,7 @@ internal object DebugJank {
         // Paired with beginWork, not the current switch: a change in between must not leave work counted.
         if (start == 0L) return
         (if (kind == "tree") treeWork else localApply).decrementAndGet()
-        work.addLast(Triple(start, System.nanoTime(), kind)); while (work.size > 128) work.removeFirst()
+        work.addLast(Triple(start, System.nanoTime(), kind)); while (work.size > 128) work.removeAt(0)
     }
 
     fun treeExecutor(delegate: ExecutorService): ExecutorService = object : AbstractExecutorService() {

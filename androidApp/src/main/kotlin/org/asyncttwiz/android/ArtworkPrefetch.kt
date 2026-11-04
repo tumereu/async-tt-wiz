@@ -50,7 +50,7 @@ internal class ArtworkPrefetchQueue(private val scope: CoroutineScope, private v
         try {
             while (true) {
                 val (batch, reference) = synchronized(this) {
-                    batches.firstOrNull { it.queue.isNotEmpty() }?.let { it to it.queue.removeFirst() }
+                    batches.firstOrNull { it.queue.isNotEmpty() }?.let { it to it.queue.removeAt(0) }
                         ?: run { workers--; null }
                 } ?: return
                 try { load(reference) } catch (cancelled: CancellationException) { throw cancelled } catch (_: Exception) { }

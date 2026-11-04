@@ -26,7 +26,7 @@ internal class HistoryIndex(val boundaries: PersistentMap<String, HistoryBoundar
             val affected = mutableSetOf<String>()
             val pending = ArrayDeque<String>(); changed.forEach(pending::addLast)
             while (pending.isNotEmpty()) {
-                val id = pending.removeFirst()
+                val id = pending.removeAt(0)
                 if (!affected.add(id)) continue
                 previous?.children?.get(id)?.forEach(pending::addLast)
                 children[id]?.forEach(pending::addLast)
@@ -43,7 +43,7 @@ internal class HistoryIndex(val boundaries: PersistentMap<String, HistoryBoundar
                     chain.addLast(cursor); cursor = checkNotNull(nodes[cursor]) { "Unavailable retained ancestry" }.parentId
                 }
                 while (chain.isNotEmpty()) {
-                    val next = chain.removeLast(); val node = nodes.getValue(next)
+                    val next = chain.removeAt(chain.lastIndex); val node = nodes.getValue(next)
                     val parent = boundaries.getValue(node.parentId)
                     val group = GameplayHistory.append(parent.group, node, containers)
                     val ends = if (parent.group?.id == group.id) parent.groupEnds.removeAt(parent.groupEnds.lastIndex) else parent.groupEnds

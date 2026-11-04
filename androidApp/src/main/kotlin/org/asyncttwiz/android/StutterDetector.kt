@@ -26,7 +26,7 @@ internal class StutterDetector(private val timestamp: (Long) -> String,
             episode += frame
             if (frame.isJank || frame.ms > 50) lastBad = frame.end
         } else {
-            while (window.isNotEmpty() && frame.startNanos - window.first().startNanos > second) window.removeFirst()
+            while (window.isNotEmpty() && frame.startNanos - window.first().startNanos > second) window.removeAt(0)
             window += frame
             if (frame.ms > 50 || window.count { it.isJank } >= 3) {
                 episode.addAll(window); window.clear(); lastBad = frame.end
@@ -59,7 +59,7 @@ internal class StutterDetector(private val timestamp: (Long) -> String,
 internal class JankBuffer(private val capacity: Int = 30) {
     private val episodes = ArrayDeque<JankEpisode>()
     fun restore(values: List<JankEpisode>) { values.takeLast(capacity).forEach(::add) }
-    fun add(value: JankEpisode) { episodes.addLast(value); while (episodes.size > capacity) episodes.removeFirst() }
+    fun add(value: JankEpisode) { episodes.addLast(value); while (episodes.size > capacity) episodes.removeAt(0) }
     fun snapshot() = episodes.toList()
     fun batch() = if (episodes.size >= 5 || episodes.any { it.frozen })
         episodes.sortedByDescending { it.frozen }.take(10) else emptyList()

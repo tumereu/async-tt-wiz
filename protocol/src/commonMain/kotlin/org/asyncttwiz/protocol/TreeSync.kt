@@ -373,7 +373,7 @@ object TreeSync {
         if (previous?.initial == root) unchanged.add(root.root.id)
         val changed = mutableListOf<GameplayMutation>()
         while (pending.isNotEmpty()) {
-            val (node, parent) = pending.removeLast()
+            val (node, parent) = pending.removeAt(pending.lastIndex)
             require(visited.add(node.id)) { "Cyclic retained topology" }
             val same = node.parentId in unchanged && previous?.nodes?.get(node.id) == node
             if (same) unchanged.add(node.id) else changed.add(node)

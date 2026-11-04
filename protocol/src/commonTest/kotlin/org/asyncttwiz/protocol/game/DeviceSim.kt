@@ -208,6 +208,15 @@ internal class DeviceSim(val games: EngineGames, every: Int = 16) {
         }
     }
 
+    /** Delivers [p]'s messages with their refusals first (a response overtaking revisions already on the stream). */
+    fun deliverRefusalsFirst(p: PlayerId) {
+        val queue = inbox.getValue(p)
+        val refusals = queue.filterIsInstance<Delivery.Refusal>()
+        queue.removeAll(refusals)
+        queue.addAll(0, refusals)
+        deliver(p)
+    }
+
     fun pendingDeliveries(p: PlayerId) = inbox.getValue(p).size
 
     /** Both devices advanced, flushed and delivered until nothing moves (live play with prompt delivery; playback

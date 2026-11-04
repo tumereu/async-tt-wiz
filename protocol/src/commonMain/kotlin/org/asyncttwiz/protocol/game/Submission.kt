@@ -214,13 +214,13 @@ object WhoActs {
     /**
      * §6's engine-automatic answers: (a) a pass of a player who could only pass, judged without cards only they can see
      * (the shared state keeps every player's "Skip when I have no choice" off, so [Engine.shouldPassFor] is that public
-     * judgement); (b) an order-free division of combat damage answered with the engine's suggestion (CMB-033: one
+     * judgement), never at their own main phase ([Stops.forcedPass]); (b) an order-free division of combat damage answered with the engine's suggestion (CMB-033: one
      * creature, or enough for lethal damage to each); (c) the decider's own early answer (I-D33), applied as its decision
      * opens. Choices with one legal answer that depend on nothing hidden the engine makes itself (P5).
      */
     private fun automatic(model: GameModel, input: Input, player: PlayerId, decision: Decision?): Boolean {
         val state = model.engine
-        if (input is Input.PassPriority) return Engine.shouldPassFor(state, player)
+        if (input is Input.PassPriority) return Stops.forcedPass(state, player)
         if (input !is Input.Answer || decision == null || decision.player != player) return false
         return input == earlyAnswer(model, decision) || input == orderFree(decision)
     }
@@ -283,6 +283,11 @@ object Stops {
     /** [player]'s stop on [state]: their own main phase with an empty Stack (CR 505). */
     fun stop(state: GameState, player: PlayerId): Boolean = state.turn.active == player && state.stack.isEmpty() &&
         (state.turn.step == arcanum.api.TurnStep.PrecombatMain || state.turn.step == arcanum.api.TurnStep.PostcombatMain)
+
+    /** Whether [player]'s pass on [state] is engine-automatic (§6 a): they could only pass ([Engine.shouldPassFor], the
+     * public judgement), and it isn't their [stop]: their own main phases wait for them even with nothing to do (owner,
+     * smoke 2026-11-04: a turn is never passed away without its player, STK-036). */
+    fun forcedPass(state: GameState, player: PlayerId): Boolean = Engine.shouldPassFor(state, player) && !stop(state, player)
 
     /** [player]'s pause on [state]: the other player's spell or ability on top of the Stack, the other player's attack,
      * blocks (both players), the other player's end step. */

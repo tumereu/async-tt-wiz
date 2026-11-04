@@ -46,7 +46,7 @@ class RetainedIndex(
     fun descendants(ids: Collection<String>): Set<String> {
         val result = ids.toMutableSet()
         val pending = ArrayDeque(ids.toList())
-        while (pending.isNotEmpty()) for (id in children[pending.removeFirst()].orEmpty())
+        while (pending.isNotEmpty()) for (id in children[pending.removeAt(0)].orEmpty())
             if (result.add(id)) pending.add(id)
         return result
     }
@@ -61,7 +61,7 @@ class RetainedIndex(
         // Parent-first, even when a delta's records arrive in UUID rather than ancestry order.
         val pending = ArrayDeque(affected.filter { next[it]?.parentId in result.positions })
         while (pending.isNotEmpty()) {
-            val id = pending.removeFirst()
+            val id = pending.removeAt(0)
             val node = next[id] ?: continue
             val parent = result.positions[node.parentId] ?: continue
             result.positions = result.positions.putShared(id, RetainedPosition(parent.depth + 1,
@@ -103,7 +103,7 @@ class RetainedIndex(
             for (node in tree.nodes.values) result.edge(node, true)
             val pending = ArrayDeque(result.children[tree.initial.root.id].orEmpty().toList())
             while (pending.isNotEmpty()) {
-                val id = pending.removeFirst()
+                val id = pending.removeAt(0)
                 if (id in result.positions) continue
                 val node = tree.nodes[id] ?: continue
                 val parent = result.positions[node.parentId] ?: continue

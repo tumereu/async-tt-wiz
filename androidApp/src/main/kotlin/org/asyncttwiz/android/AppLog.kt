@@ -32,7 +32,7 @@ internal class LogBuffer(private val file: File?, private val maxBytes: Int = 25
         val stored = runCatching { file?.takeIf { it.isFile }?.readLines(Charsets.UTF_8) }.getOrNull().orEmpty()
         // Indented lines continue the entry above (stack traces).
         for (line in stored) if (line.startsWith(INDENT) && lines.isNotEmpty()) {
-            val entry = lines.removeLast(); bytes -= size(entry); keep(entry + "\n" + line)
+            val entry = lines.removeAt(lines.lastIndex); bytes -= size(entry); keep(entry + "\n" + line)
         } else if (line.isNotEmpty()) keep(line)
         trim(maxBytes)
     }
@@ -49,7 +49,7 @@ internal class LogBuffer(private val file: File?, private val maxBytes: Int = 25
     @Synchronized fun text(): String = lines.joinToString("\n")
 
     private fun keep(line: String) { lines.addLast(line); bytes += size(line) }
-    private fun trim(limit: Int) { while (bytes > limit && lines.isNotEmpty()) bytes -= size(lines.removeFirst()) }
+    private fun trim(limit: Int) { while (bytes > limit && lines.isNotEmpty()) bytes -= size(lines.removeAt(0)) }
     private fun size(line: String) = line.toByteArray(Charsets.UTF_8).size + 1
 
     private fun append(line: String) {

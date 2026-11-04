@@ -418,8 +418,8 @@ internal fun EngineAsyncHost(toolkit: TableToolkitController, routes: EngineTabl
                     is Input.SetupAnswer, is Input.Answer -> "took a mulligan"
                     else -> "responded"
                 } + " — your later actions were taken back"
-                is GameDevice.Note.TakenBack -> routes.note = "${names[note.by.value] ?: opponent} took back " +
-                    (note.takenBack.firstOrNull()?.let { EngineEventText.of(it, shown.engine, routes.viewer, names).replaceFirstChar(Char::lowercase) } ?: "an action")
+                // HIS-099: the other player's undo of events you had seen: your board just goes back, with this note
+                is GameDevice.Note.TakenBack -> routes.note = "${names[note.by.value] ?: opponent} undid"
                 is GameDevice.Note.RequestNeeded -> routes.rewind = EngineTableRoutes.RewindChoice(note.target)
                 is GameDevice.Note.Refused -> refusedText(note.reason)?.let { routes.note = it } ?: toolkit.dismissError()
             }

@@ -254,7 +254,8 @@ class EngineGameServiceTest {
         assertEquals("stale", f.owner.execute(GameAction.Submit(late)).reason)
     }
 
-    // I-D56 §10: a free undo rewinds at once and starts a new line; past the other player's input it is a request
+    // I-D56 §10, HIS-086: a free undo rewinds at once: it only pops events (owner's rule 2026-11-04), and the next event
+    // there starts the new line; past the other player's input it is a request
     @Test fun `free undo, an undo request and its answer`() = withService { runtime ->
         val f = Fixture(runtime, engine = true, tag = "u")
         val alice = f.device(f.a)
@@ -265,12 +266,15 @@ class EngineGameServiceTest {
         assertEquals("accepted", undo.outcome)
         val after = f.snapshot()
         assertEquals(1, after.lines)
-        assertNotEquals(start, after.headId)
+        assertEquals(start, after.headId, "nothing of the rewind's own is added")
         val rewind = f.revisions(f.a, undo.commitRevision!!.let { (it.toLong() - 1).toString() }).single()
         assertEquals(start, rewind.engine!!.target)
-        // Both keep; Alice's undo past Bob's keep needs his approval
+        assertNull(rewind.engineEvent)
+        // Both keep; Alice's undo past Bob's keep needs his approval. Her keep made again must start the new line
         val fresh = f.device(f.a)
-        f.owner.execute(GameAction.Submit(fresh.act(id(), Input.Answer(fresh.model.engine.pending!!.decision.id, Answer.Option("Keep")))))
+        val keep = Input.Answer(fresh.model.engine.pending!!.decision.id, Answer.Option("Keep"))
+        assertEquals("stale", f.owner.execute(GameAction.Submit(f.device(f.a).act(id(), keep))).reason)
+        assertEquals("accepted", f.owner.execute(GameAction.Submit(fresh.act(id(), keep, newLine = 1))).outcome)
         val target = f.snapshot().headId
         val bob = f.device(f.b)
         f.recipient.execute(GameAction.Submit(bob.act(id(), Input.Answer(bob.model.engine.pending!!.decision.id, Answer.Option("Keep")))))
@@ -285,8 +289,8 @@ class EngineGameServiceTest {
         val approved = f.snapshot()
         assertNull(approved.rewindRequest)
         assertEquals(2, approved.lines)
+        assertEquals(target, approved.headId)
         assertEquals(approved.headId, approved.localHeads[f.b.account.accountId])
-        assertEquals(target, f.codec().decodeEvent(f.revisions(f.a, "0").last { it.engine?.target != null }.engineEvent!!).parentId)
     }
 
     // I-D56 §13: a player's play settings are their own, kept on the server, never shown to the other player

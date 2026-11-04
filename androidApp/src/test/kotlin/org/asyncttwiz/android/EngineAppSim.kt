@@ -115,7 +115,8 @@ internal class EngineAppSim(val f: EngineGameFixture) {
     }
 
     private fun broadcast(events: List<GameEvent>, author: String, target: String? = null, confirmed: String? = null) {
-        val update = EngineUpdate(events.drop(1).map(f.codec::encodeEvent), target, heads.toMap(), lines, request, confirmed)
+        val update = EngineUpdate(events.drop(1).map(f.codec::encodeEvent), target, heads.toMap(), lines, request, confirmed,
+            rewoundBy = author.takeIf { target != null })
         val n = revision++
         for (p in players) inbox.getValue(p) += Delivery.Revision(GameRevision(f.game.id, "$n", "${n + 1}", DeviceRandom.uuid(), author,
             GameScope(f.game.id, playId = f.base.id), f.game, engineEvent = events.firstOrNull()?.let(f.codec::encodeEvent), engine = update))
@@ -181,20 +182,15 @@ internal class EngineAppSim(val f: EngineGameFixture) {
     private fun rewind(p: String, target: String) {
         rewinds++
         val after = MainLine.after(history, head, target)!!
-        val standing = Rewind.standing(after, PlayerId(p))
         val gone = after.map { it.id }.toSet()
         store.remove(gone)
         val model = history.stateAt(target)
         lines++
-        val events = mutableListOf(EventBuilder(model, "line$lines", target, p).also { it.startLine(lines) }.build())
-        add(events.last(), model)
-        for ((n, kept) in standing.withIndex()) {
-            val again = EventBuilder(model, "line${lines}s$n", events.last().id, kept.author)
-            try { kept.table.forEach(again::table) } catch (_: IllegalStateException) { again.abandon(); continue }
-            events += again.build()
-            add(events.last(), model)
-        }
-        heads.replaceAll { _, h -> if (h in gone || h == target) events.last().id else h }
+        head = target
+        warm = LiveState(target, model)
+        var n = 0
+        val events = Rewind.again(model, target, after, PlayerId(p), lines, { "line${lines}s${n++}" }) { add(it, model) }
+        heads.replaceAll { _, h -> if (h in gone || h == target) head else h }
         request = null
         broadcast(events, p, target = target)
     }

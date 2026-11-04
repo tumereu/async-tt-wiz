@@ -107,10 +107,12 @@ internal class EngineGames(private val capacity: Int = 32) {
         val newWaits: Set<String> = emptySet(),
         /** The players the game waited for until this change. */
         val endedWaits: Set<String> = emptySet(),
+        /** Whose undo a rewind is (the requester's when approved): their device waits for them at [target]. */
+        val rewoundBy: String? = null,
     ) {
         /** Whose move the game is for the stored summary: a player the game waits for (each viewer sees their own first). */
         val attention: String? get() = moves.entries.firstOrNull { it.value }?.key
-        val update: EngineUpdate get() = EngineUpdate(events.drop(1), target, heads, lines, request, confirmed, moves, activity)
+        val update: EngineUpdate get() = EngineUpdate(events.drop(1), target, heads, lines, request, confirmed, moves, activity, rewoundBy)
     }
 
     private fun take(play: UUID): LiveState? = synchronized(warm) { warm.remove(play) }
@@ -235,9 +237,10 @@ internal class EngineGames(private val capacity: Int = 32) {
     /**
      * Takes [play]'s main line back to just after [target] by [account] (I-D56 §10): at once when that is free for them
      * ([Rewind.requestNeeded]), or [approved] (the other player accepted their request); else refused
-     * ("requestNeeded"). The events after the target are deleted; a new line starts there with the server's own event
-     * (its first step reshuffles the libraries' unknown parts); the other player's table-only events that may stand are
-     * added again after it while they apply; local heads past the target move to the new line.
+     * ("requestNeeded"). The events after the target are deleted (popped off the main line: nothing is added for the
+     * rewind itself); a new line is due (the line counter moves on; the next event made there starts it with its
+     * reshuffle, [Rewind.lineDue]); the other player's table-only events that may stand are added again after it while
+     * they apply, the first starting the line; local heads past the target move to the new head.
      */
     fun rewind(sql: DSLContext, play: UUID, account: UUID, target: String, live: (UUID) -> Boolean, approved: Boolean = false): Outcome? {
         val store = open(sql, play) ?: return null
@@ -245,6 +248,8 @@ internal class EngineGames(private val capacity: Int = 32) {
         val head = head(sql, play, store.rootId)
         val after = MainLine.after(history, head, target) ?: throw Refusal("inapplicable")
         if (after.isEmpty()) throw Refusal("noChange")
+        // The game's start is never taken back (the head is always a stored event)
+        if (target == store.rootId) throw Refusal("inapplicable")
         val row = playRow(sql, play)
         if (row.request != null && !approved) throw Refusal("rewindRequested")
         val seats = seats(sql, play)
@@ -253,26 +258,18 @@ internal class EngineGames(private val capacity: Int = 32) {
         val model = if (warm == null) history.stateAt(target) else history.move(warm.model, warm.at, target)
         if (!approved) Rewind.requestNeeded(model.copy(), target, after, me, seats.filter { it.account != account }.map { it.head })
             ?.let { keepWarm(play, history, LiveState(target, model), head); throw Refusal("requestNeeded") }
-        val standing = Rewind.standing(after, me)
         store.delete(after.map { it.id })
+        // A new line (§9), kept as the line counter: no event of the rewind's own (owner's rule 2026-11-04)
         val line = row.lines + 1
         sql.update(ENGINE_PLAY).set(ENGINE_PLAY.LINES, line).where(ENGINE_PLAY.PLAY_ID.eq(play)).execute()
-        val builder = EventBuilder(model, UUID.randomUUID().toString(), target, account.toString())
-        builder.startLine(line)
-        val start = builder.build()
-        store.append(history, start, account, model)
-        val events = mutableListOf(start)
-        for (kept in standing) {
-            val again = EventBuilder(model, UUID.randomUUID().toString(), events.last().id, kept.author)
-            try { kept.table.forEach(again::table) } catch (_: IllegalStateException) { again.abandon(); continue }
-            val event = again.build()
-            store.append(history, event, UUID.fromString(kept.author), model)
-            events += event
+        val events = Rewind.again(model, target, after, me, line, { UUID.randomUUID().toString() }) { event ->
+            store.append(history, event, UUID.fromString(event.author), model)
         }
         val gone = after.map { it.id }.toSet() + target
-        for (seat in seats) if (seat.head in gone) setHead(sql, play, seat.account, events.last().id)
+        val newHead = events.lastOrNull()?.id ?: target.also(store::raise)
+        for (seat in seats) if (seat.head in gone) setHead(sql, play, seat.account, newHead)
         if (approved || row.request != null) clearRequest(sql, play)
-        return refresh(sql, play, history, LiveState(events.last().id, model), events, live, target = target)
+        return refresh(sql, play, history, LiveState(newHead, model), events, live, target = target, rewoundBy = account.toString())
     }
 
     /** [account] asks the other player to approve taking the main line back to just after [target] (I-D56 §10). */
@@ -375,7 +372,7 @@ internal class EngineGames(private val capacity: Int = 32) {
      * the caller.
      */
     private fun refresh(sql: DSLContext, play: UUID, history: GameHistory, state: LiveState, events: List<GameEvent>, live: (UUID) -> Boolean,
-        target: String? = null, confirmed: String? = null, branched: Boolean = false): Outcome {
+        target: String? = null, confirmed: String? = null, branched: Boolean = false, rewoundBy: String? = null): Outcome {
         val head = state.at
         val seats = seats(sql, play)
         val row = playRow(sql, play)
@@ -457,7 +454,7 @@ internal class EngineGames(private val capacity: Int = 32) {
             seats.associate { it.account.toString() to (waits[it] == true) },
             // A wait that goes on across the other player's table-only events keeps its stop: not new (§18.11)
             seats.filter { waits[it] == true && (!it.waited || stops[it] != it.nextStop) }.map { it.account.toString() }.toSet(),
-            seats.filter { it.waited && waits[it] != true }.map { it.account.toString() }.toSet())
+            seats.filter { it.waited && waits[it] != true }.map { it.account.toString() }.toSet(), rewoundBy)
     }
 
     /**

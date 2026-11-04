@@ -26,7 +26,8 @@ import org.asyncttwiz.protocol.game.TableState
  * mulligans) with its [snapshot]. With [dungeons] (LOB-117) Alice's spells are Torch Maps ({0}: venture into the dungeon) and she
  * owns two invented dungeons outside the game, a plain one and an Undercity, as her device brings them.
  */
-internal class EngineGameFixture(startingPlayer: String = TableStatesFixture.a, creatures: Boolean = false, dungeons: Boolean = false) {
+internal class EngineGameFixture(startingPlayer: String = TableStatesFixture.a, creatures: Boolean = false, dungeons: Boolean = false,
+    heralds: Boolean = false) {
     private val f = TableStatesFixture
     private class Invented(face: DefinitionFace, oracle: OracleCard) {
         val submitted = CardDefinition(face.name, listOf(face)).let { SubmittedDefinition(DeckJson.digest(it), it) }
@@ -39,6 +40,9 @@ internal class EngineGameFixture(startingPlayer: String = TableStatesFixture.a, 
         OracleCard("Mountain", null, "Basic Land — Mountain"))
     private val cub = Invented(DefinitionFace("cub", "Ember Cub", typeLine = "Creature — Elemental Cat", manaCost = "{R}",
         power = "2", toughness = "1"), OracleCard("Ember Cub", "{R}", "Creature — Elemental Cat", "", "2", "1"))
+    private val herald = Invented(DefinitionFace("herald", "Ember Herald", typeLine = "Creature — Elemental", manaCost = "{R}",
+        rulesText = "When this creature enters, create a 1/1 red Elemental creature token.", power = "1", toughness = "1"),
+        OracleCard("Ember Herald", "{R}", "Creature — Elemental", "When this creature enters, create a 1/1 red Elemental creature token.", "1", "1"))
 
     private val map = Invented(DefinitionFace("map", "Torch Map", typeLine = "Sorcery", manaCost = "{0}",
         rulesText = "Venture into the dungeon."), OracleCard("Torch Map", "{0}", "Sorcery", "Venture into the dungeon."))
@@ -62,11 +66,13 @@ internal class EngineGameFixture(startingPlayer: String = TableStatesFixture.a, 
     val a = f.a
     val b = f.b
     val game: GameSummary = f.game
-    /** Mountains and Storm Sparks; with [creatures] also Ember Cubs (2/1 for {R}), a third each; with [dungeons] Alice's are two
+    /** Mountains and Storm Sparks; with [creatures] also Ember Cubs (2/1 for {R}), a third each (with [heralds] Ember
+     * Heralds instead: 1/1 for {R} whose enters trigger makes a 1/1 token); with [dungeons] Alice's are two
      * thirds Torch Maps. */
     private val decks = listOf(a, b).associateWith { p -> List(30) { i -> f.id("$p/card/$i") to when {
         dungeons && p == a -> if (i % 3 == 0) mountain else map
         i % 3 == 2 -> spark
+        heralds && i % 3 == 1 -> herald
         creatures && i % 3 == 1 -> cub
         else -> mountain
     } } }
@@ -77,6 +83,7 @@ internal class EngineGameFixture(startingPlayer: String = TableStatesFixture.a, 
             PlayCard(id, card.submitted.digest, player, f.id("${if (player == a) "a" else "b"}/LIBRARY"), card.submitted.definition.faces.single().faceId)
         } }
         p.copy(definitions = (listOf(spark.submitted, mountain.submitted) + listOfNotNull(cub.submitted.takeIf { creatures }) +
+            listOfNotNull(herald.submitted.takeIf { heralds }) +
             listOfNotNull(map.submitted.takeIf { dungeons }) + outside).sortedBy { it.digest },
             board = p.board.copy(cards = cards, stackEffects = emptyList(), combat = null, engineRecords = emptyList(),
                 containers = p.board.containers.map { c ->

@@ -130,9 +130,10 @@ class GameSession(base: GameModel, baseId: String, events: List<GameEvent>, loca
     }
 
     /** One acting point at once: [input] (the other player's, assumed, when [assumed]: I-D56 §3), the random answers
-     * from the line's stream that follow it, and [table] changes (I-D35). */
-    fun act(id: String, input: Input?, table: List<TableChange> = emptyList(), assumed: Boolean = false): Submission {
-        val builder = begin(id)
+     * from the line's stream that follow it, and [table] changes (I-D35); starting [newLine] first when given (a
+     * branch, or the line a rewind left due, [Rewind.lineDue]). */
+    fun act(id: String, input: Input?, table: List<TableChange> = emptyList(), assumed: Boolean = false, newLine: Int? = null): Submission {
+        val builder = begin(id, newLine)
         try {
             if (input != null) {
                 builder.perform(input, assumedBy = if (assumed) me else null)

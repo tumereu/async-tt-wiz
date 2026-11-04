@@ -20,6 +20,13 @@ import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 
 class GameSocketTest {
+    // TRN-027, TRN-058, LOB-022, LOB-024 (I-D57, async-play §28): while both openings are open the game waits for both
+    // players, so each viewer's head names them as the move; the heads are otherwise the same
+    private fun assertSameStart(first: GameHead, firstViewer: String, second: GameHead, secondViewer: String) {
+        assertEquals(firstViewer, first.summary.attentionHolder); assertEquals(secondViewer, second.summary.attentionHolder)
+        assertEquals(first, second.copy(summary = second.summary.copy(attentionHolder = firstViewer)))
+    }
+
     private val json = GameWire.json
     private val client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(3)).build()
     private fun id() = UUID.randomUUID().toString()
@@ -454,7 +461,7 @@ class GameSocketTest {
                 } }
                 Socket(settings, a.token).use { returning ->
                     returning.negotiate(); returning.send(SubscribeGame(game.id, accepted.revision))
-                    assertEquals(accepted, returning.next<GameHead>())
+                    assertSameStart(accepted, b.account.accountId, returning.next<GameHead>(), a.account.accountId)
                 }
             }
             SpringService(config).use { service ->
@@ -465,7 +472,8 @@ class GameSocketTest {
                     resumed.send(start.copy(generation = ready.generation)); assertEquals(original, resumed.result(start.requestId))
                     resumed.send(SubscribeGame(game.id, accepted.revision)); assertEquals(accepted, resumed.next<GameHead>())
                 }
-                assertEquals(accepted.summary, json.decodeFromString<GameSummary>(request(settings, "GET", "/v1/games/${game.id}/head", a.token).body()))
+                // TRN-027, TRN-058: A's own head names A as the move while both openings are open
+                assertEquals(accepted.summary.copy(attentionHolder = a.account.accountId), json.decodeFromString<GameSummary>(request(settings, "GET", "/v1/games/${game.id}/head", a.token).body()))
                 assertEquals(accepted.play, json.decodeFromString<GameRevisions>(request(settings, "GET", "/v1/games/${game.id}/revisions?after=${accepted.revision.toLong()-1}", a.token).body()).revisions.single().play)
             }
             db.connection().use { c -> c.createStatement().executeQuery("SELECT (SELECT count(*) FROM game_play), (SELECT count(*) FROM game_inbox WHERE result IS NULL)").use {

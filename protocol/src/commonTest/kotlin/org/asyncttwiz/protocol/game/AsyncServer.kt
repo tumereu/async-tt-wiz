@@ -93,30 +93,21 @@ internal class AsyncServer(val games: EngineGames, every: Int = 16) {
         return Rewind.requestNeeded(stateAt(target), target, after, player, heads.filterKeys { it != player }.values.toList())
     }
 
-    /** Takes the main line back to just after [target] (free or approved): its events go, a new line starts there with
-     * a reshuffle of the unknown library parts, and local heads past the target move to the new line's first event. */
-    fun rewind(player: PlayerId, target: String): GameEvent = rewindAll(player, target).first()
-
-    /** [rewind]'s events: the new line's first, then the other players' table-only events added again while they apply
-     * (as the server does); local heads past the target move to the last. Closes an open undo request. */
-    fun rewindAll(player: PlayerId, target: String): List<GameEvent> {
+    /** Takes the main line back to just after [target] (free or approved), as the server does: its events go, a new
+     * line is due there (the next event starts it), and local heads past the target move to the new head; the other
+     * players' table-only events that may stand are added again (the first starting the line). Closes an open undo
+     * request. Returns the events added. */
+    fun rewind(player: PlayerId, target: String): List<GameEvent> {
         val after = MainLine.after(history, head, target)!!
-        val standing = Rewind.standing(after, player)
         val gone = after.map { it.id }.toSet()
         store.remove(gone)
         val model = history.stateAt(target)
         lines++
-        val builder = EventBuilder(model, "line$lines", target, player.value)
-        builder.startLine(lines)
-        val events = mutableListOf(builder.build())
-        add(events.last(), model)
-        for ((n, kept) in standing.withIndex()) {
-            val again = EventBuilder(model, "line${lines}s$n", events.last().id, kept.author)
-            try { kept.table.forEach(again::table) } catch (_: IllegalStateException) { again.abandon(); continue }
-            events += again.build()
-            add(events.last(), model)
-        }
-        heads.replaceAll { _, h -> if (h in gone || h == target) events.last().id else h }
+        head = target
+        warm = LiveState(target, model)
+        var n = 0
+        val events = Rewind.again(model, target, after, player, lines, { "line${lines}s${n++}" }) { add(it, model) }
+        heads.replaceAll { _, h -> if (h in gone || h == target) head else h }
         request = null
         return events
     }
@@ -150,7 +141,8 @@ internal class AsyncServer(val games: EngineGames, every: Int = 16) {
     /** [author]'s own input at the head, made on a copy of the head's state and submitted. */
     fun act(author: PlayerId, input: Input, assumed: Boolean = false, follow: (GameModel) -> Input? = { null }): Result<Acceptance.Result> {
         // A device's engine refuses what the server's would: nothing is sent
-        val (submission, made) = try { make(state(), head, author, input, assumed, follow = follow) }
+        val model = state()
+        val (submission, made) = try { make(model, head, author, input, assumed, newLine = Rewind.lineDue(model, lines), follow = follow) }
             catch (e: IllegalArgumentException) { return Result.failure(e) } catch (e: IllegalStateException) { return Result.failure(e) }
         return submit(submission, author).also { r ->
             val accepted = r.getOrNull() as? Acceptance.Accepted

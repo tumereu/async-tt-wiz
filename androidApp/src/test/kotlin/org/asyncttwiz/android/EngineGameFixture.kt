@@ -23,9 +23,10 @@ import org.asyncttwiz.protocol.game.TableState
  * I-D56 step C: a game on engine state as the server starts it, for the app's engine path: Alice's and Bob's decks of
  * invented Mountains and Storm Sparks (parsed from their oracle text, as on a device), the play's own base board
  * ([base], [TableStatesFixture]'s containers) and the server's first event ([start]: the game started, simultaneous
- * mulligans) with its [snapshot].
+ * mulligans) with its [snapshot]. With [dungeons] (LOB-117) Alice's spells are Torch Maps ({0}: venture into the dungeon) and she
+ * owns two invented dungeons outside the game, a plain one and an Undercity, as her device brings them.
  */
-internal class EngineGameFixture(startingPlayer: String = TableStatesFixture.a, creatures: Boolean = false) {
+internal class EngineGameFixture(startingPlayer: String = TableStatesFixture.a, creatures: Boolean = false, dungeons: Boolean = false) {
     private val f = TableStatesFixture
     private class Invented(face: DefinitionFace, oracle: OracleCard) {
         val submitted = CardDefinition(face.name, listOf(face)).let { SubmittedDefinition(DeckJson.digest(it), it) }
@@ -39,11 +40,32 @@ internal class EngineGameFixture(startingPlayer: String = TableStatesFixture.a, 
     private val cub = Invented(DefinitionFace("cub", "Ember Cub", typeLine = "Creature — Elemental Cat", manaCost = "{R}",
         power = "2", toughness = "1"), OracleCard("Ember Cub", "{R}", "Creature — Elemental Cat", "", "2", "1"))
 
+    private val map = Invented(DefinitionFace("map", "Torch Map", typeLine = "Sorcery", manaCost = "{0}",
+        rulesText = "Venture into the dungeon."), OracleCard("Torch Map", "{0}", "Sorcery", "Venture into the dungeon."))
+    /** The dungeons as Alice's device brings them (OutsideCards), parsed as the server parses them. */
+    val outside: List<SubmittedDefinition> = if (!dungeons) emptyList() else listOf(
+        CardDefinition("Lantern Crypt", listOf(DefinitionFace("00000000-0000-5000-8000-0000000000d1", "Lantern Crypt", typeLine = "Dungeon",
+            rulesText = """
+                Crypt Door — You gain 1 life. (Leads to: Bone Hall, Dark Well)
+                Bone Hall — Each opponent loses 1 life. (Leads to: Final Vault)
+                Dark Well — You gain 2 life. (Leads to: Final Vault)
+                Final Vault — You gain 3 life.
+            """.trimIndent())), provider = "test"),
+        CardDefinition("Sunken City", listOf(DefinitionFace("00000000-0000-5000-8000-0000000000d2", "Sunken City", typeLine = "Dungeon — Undercity",
+            rulesText = """
+                You can't enter this dungeon unless you "venture into Undercity."
+                Flooded Stair — You gain 4 life. (Leads to: Abyss Throne)
+                Abyss Throne — You gain 5 life.
+            """.trimIndent())), provider = "test"),
+    ).map { requireNotNull(org.asyncttwiz.protocol.game.OutsideCards.dungeon(it)) }
+
     val a = f.a
     val b = f.b
     val game: GameSummary = f.game
-    /** Mountains and Storm Sparks; with [creatures] also Ember Cubs (2/1 for {R}), a third each. */
+    /** Mountains and Storm Sparks; with [creatures] also Ember Cubs (2/1 for {R}), a third each; with [dungeons] Alice's are two
+     * thirds Torch Maps. */
     private val decks = listOf(a, b).associateWith { p -> List(30) { i -> f.id("$p/card/$i") to when {
+        dungeons && p == a -> if (i % 3 == 0) mountain else map
         i % 3 == 2 -> spark
         creatures && i % 3 == 1 -> cub
         else -> mountain
@@ -54,7 +76,8 @@ internal class EngineGameFixture(startingPlayer: String = TableStatesFixture.a, 
         val cards = decks.flatMap { (player, deck) -> deck.map { (id, card) ->
             PlayCard(id, card.submitted.digest, player, f.id("${if (player == a) "a" else "b"}/LIBRARY"), card.submitted.definition.faces.single().faceId)
         } }
-        p.copy(definitions = (listOf(spark.submitted, mountain.submitted) + listOfNotNull(cub.submitted.takeIf { creatures })).sortedBy { it.digest },
+        p.copy(definitions = (listOf(spark.submitted, mountain.submitted) + listOfNotNull(cub.submitted.takeIf { creatures }) +
+            listOfNotNull(map.submitted.takeIf { dungeons }) + outside).sortedBy { it.digest },
             board = p.board.copy(cards = cards, stackEffects = emptyList(), combat = null, engineRecords = emptyList(),
                 containers = p.board.containers.map { c ->
                     if (c.zone == PlayZone.LIBRARY && !c.temp) c.copy(cards = cards.filter { it.containerId == c.id }.map { it.id }, layers = emptyList())
@@ -64,7 +87,9 @@ internal class EngineGameFixture(startingPlayer: String = TableStatesFixture.a, 
 
     /** As the server starts it: every player's Skip when I have no choice off in the shared state (I-D56 §13). */
     val model: GameModel = GameModel(Engine.newGame(listOf(a, b).map { p ->
-        Seat(PlayerId(p), decks.getValue(p).map { (id, card) -> DeckCard(CardId(id), card.definition) })
+        Seat(PlayerId(p), decks.getValue(p).map { (id, card) -> DeckCard(CardId(id), card.definition) },
+            if (p != a) emptyList() else outside.mapIndexed { i, d ->
+                DeckCard(CardId(f.id("$p/outside/$i")), org.asyncttwiz.protocol.game.GameCards.parse(d.definition).definition) })
     }).also { s -> s.players.toList().forEach { p -> s.apply(arcanum.engine.change.Changes.skipWhenNoChoice(s, p.id, false)) } },
         TableState(secret = LineRandom.secret(ByteArray(32) { 3 })))
     val codec = EngineJson(GameDefinitions.of(model.engine))

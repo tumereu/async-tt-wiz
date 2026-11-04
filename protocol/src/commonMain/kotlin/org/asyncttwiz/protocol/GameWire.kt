@@ -98,6 +98,7 @@ const val GAME_PROTOCOL_MINOR = 7
 @Serializable @SerialName("command") data class GameCommand(val requestId: String, val scope: GameScope,
     val action: GameAction, val streamId: String, val generation: String, val commandVersion: Int = 1,
     val invocationId: String? = null, val continuation: Continuation? = null,
+    /** Only with [GameAction.Ready]: the player's dungeon cards outside the game ([org.asyncttwiz.protocol.game.OutsideCards]). */
     val inlineDefinitions: List<SubmittedDefinition> = emptyList(),
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER)
     val expectedSelection: String? = null) : GameClientMessage
@@ -208,7 +209,9 @@ object GameWire {
     fun encode(message: GameServerMessage): String = json.encodeToString(message)
     fun ordinal(value: String): Long = ScalarCodecs.decodeRevision(JsonPrimitive(value).toString())
     fun valid(command: GameCommand): Boolean = runCatching {
-        require(command.commandVersion == 1 && command.inlineDefinitions.isEmpty())
+        // A Ready carries its player's dungeon cards outside the game (OutsideCards), nothing else carries definitions
+        require(command.commandVersion == 1 && (command.inlineDefinitions.isEmpty() || command.action == GameAction.Ready &&
+            command.inlineDefinitions.size <= org.asyncttwiz.protocol.game.OutsideCards.MAX))
         command.continuation?.let {
             require(command.action.isPlay && it.explicit && DeckValidation.uuid(it.nodeId))
         }

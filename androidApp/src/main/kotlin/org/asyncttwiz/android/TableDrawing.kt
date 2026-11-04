@@ -241,6 +241,8 @@ internal fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: 
                     }
                 }
             }
+            // TRN-069: a player's dungeon, drawn like a pile's top card
+            TableItemKind.DUNGEON -> cardFace(i, b.x, b.y, color, i.faceTitle)
              TableItemKind.CARD -> {
                    val transform = if (i.viewport == "combat") TableCardTransform(b.width, b.height, 0f) else i.faceTransform()
                   val z = transform.width / 28f

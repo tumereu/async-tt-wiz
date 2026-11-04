@@ -312,6 +312,15 @@ object StartRules {
             else -> error("Not a readiness action")
         }
     }
+    /** [actor]'s Ready with the cards they own outside the game ([outside], checked by [org.asyncttwiz.protocol.game.OutsideCards.valid]):
+     * kept with their prepared deck, replacing the ones of an earlier Ready. */
+    fun withOutside(preparation: LobbyPreparation, actor: String, outside: List<SubmittedDefinition>): LobbyPreparation {
+        val players = preparation.players.map { p ->
+            if (p.accountId == actor) p.copy(deck = p.deck?.copy(outside = outside.map { it.digest })) else p
+        }
+        val definitions = (preparation.definitions + outside).associateBy { it.digest }.values.sortedBy { it.digest }
+        return preparation.copy(players = players, definitions = definitions)
+    }
     fun canStart(game: GameSummary, preparation: LobbyPreparation) = game.lifecycle == GameLifecycle.LOBBY &&
         game.invitationState == InvitationState.ACCEPTED &&
         preparation.players.size == 2 && preparation.players.all { it.ready && it.deck != null }
@@ -365,7 +374,8 @@ object StartRules {
             for (index in cards.indices) if (cards[index].id in inHand) cards[index] = cards[index].copy(containerId = hand)
         }
         containers.add(PlayContainer(CommandIds.uuidV5(playId, "container/STACK"), PlayZone.STACK))
-        val needed = cards.map { it.definition }.toSet()
+        // The dungeon cards outside the game (CR 309.2): their card data, for the table and the choice that brings one in
+        val needed = cards.map { it.definition }.toSet() + players.flatMap { it.deck!!.outside }
         return PlayState(game.id, playId, preparation.roundId, requestId, root, root.id,
             BoardState(players.map { PlayPlayer(it.accountId, status = PlayerStatus.OPENING) }, cards.sortedBy { it.id }, containers,
                 TurnState(starter.accountId)),

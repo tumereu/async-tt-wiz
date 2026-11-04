@@ -346,6 +346,24 @@ class MechanicWordingsTest {
         kotlin.test.assertEquals(Instructions(steps = listOf(drawCards(1))), face.rooms[3].instructions)
     }
 
+    // CR 309.4, 701.49d: the rooms' arrows as card data writes them ("(Leads to: [room], [room])"), and a dungeon only "venture into
+    // Undercity" may enter
+    @Test
+    fun dungeonRoomsAsCardDataWritesThem() {
+        val face = OracleParser.parse(OracleCard("Test Sunken City", null, "Dungeon — Undercity", """
+            You can't enter this dungeon unless you "venture into Undercity."
+            Flooded Stair — Scry 1. (Leads to: Coral Hall, Salt Vault)
+            Coral Hall — Draw a card. (Leads to: Abyss Throne)
+            Salt Vault — Draw a card. (Leads to: Abyss Throne)
+            Abyss Throne — Draw a card.
+        """.trimIndent()))
+        kotlin.test.assertEquals(listOf("Flooded Stair", "Coral Hall", "Salt Vault", "Abyss Throne"), face.rooms.map { it.name })
+        kotlin.test.assertEquals(listOf(listOf(1, 2), listOf(3), listOf(3), emptyList()), face.rooms.map { it.next })
+        kotlin.test.assertEquals(listOf(Ability.Static(listOf(Mechanic.OnlyVentureInto(ObjectFilter.Sub(arcanum.api.SubtypeRef.Literal(
+            arcanum.api.Subtype("Undercity"))))), Affected.Objects(Objects.Self), functionsIn = listOf(Zone.Outside),
+            text = "You can't enter this dungeon unless you \"venture into Undercity.\"")), face.abilities)
+    }
+
     // CR 702.55c: a modal "When this creature enters or the creature it haunts dies, choose one —" works on the battlefield and in exile
     @Test
     fun modalHauntTrigger() {

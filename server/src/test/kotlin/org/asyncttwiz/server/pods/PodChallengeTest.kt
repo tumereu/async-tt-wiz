@@ -87,6 +87,13 @@ class PodChallengeTest {
             return games.results(who, game.id, listOf(command.requestId)).statuses.single().result!!
         }
     }
+    // TRN-027, TRN-058, LOB-022, LOB-024 (I-D57, async-play §28): while both openings are open the game waits for both
+    // players, so each viewer's head names them as the move; the heads are otherwise the same
+    private fun assertSameStart(first: GameHead, firstViewer: String, second: GameHead, secondViewer: String) {
+        assertEquals(firstViewer, first.summary.attentionHolder); assertEquals(secondViewer, second.summary.attentionHolder)
+        assertEquals(first, second.copy(summary = second.summary.copy(attentionHolder = firstViewer)))
+    }
+
     private fun fixture(uniqueCards: Boolean = false, test: (Fixture) -> Unit) = FreshDatabase().start().use { db ->
         FoundationMigrations.migrate(db.settings)
         ServiceRuntime(db.settings).use { runtime ->
@@ -384,7 +391,7 @@ class PodChallengeTest {
         assertEquals(GameLifecycle.ACTIVE, started.summary.lifecycle)
         assertEquals(82, started.play!!.board.cards.size)
         assertEquals(200, f.pods.destroy(f.a, pod, PodRequest(id())).status)
-        assertEquals(started, f.games.head(f.b, game.id))
+        assertSameStart(started, f.a.account.accountId, f.games.head(f.b, game.id), f.b.account.accountId)
         assertEquals(GameLifecycle.LOBBY, f.games.head(f.b, acceptedLobby.id).summary.lifecycle)
         assertEquals("Surviving pod name", f.games.head(f.b, acceptedLobby.id).summary.podName)
         assertEquals(404, f.lobby.head(f.a, fresh.id).status)

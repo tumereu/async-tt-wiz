@@ -131,6 +131,13 @@ class GameStartTest {
         }
     }
 
+    // TRN-027, TRN-058, LOB-022, LOB-024 (I-D57, async-play §28): while both openings are open the game waits for both
+    // players, so each viewer's head names them as the move; the heads are otherwise the same
+    private fun assertSameStart(first: GameHead, firstViewer: String, second: GameHead, secondViewer: String) {
+        assertEquals(firstViewer, first.summary.attentionHolder); assertEquals(secondViewer, second.summary.attentionHolder)
+        assertEquals(first, second.copy(summary = second.summary.copy(attentionHolder = firstViewer)))
+    }
+
     private val json = GameWire.json
     private fun id() = UUID.randomUUID().toString()
     private fun sql(db: TestPostgres, statement: String) { db.connection().use { it.createStatement().execute(statement) } }
@@ -250,7 +257,7 @@ class GameStartTest {
                 assertNull(head.preparation) // Sideboard is retained for return, not an in-play contents path.
                 assertEquals(a.account.accountId, state.starter.accountId); assertNull(state.starter.seed)
                 assertEquals(listOf(state.id, state.root.id), result.createdIds)
-                assertEquals(head, games.head(b, game.id)); assertEquals(game.gameName, head.summary.gameName); assertEquals(game.createdAt, head.summary.createdAt)
+                assertSameStart(head, a.account.accountId, games.head(b, game.id), b.account.accountId); assertEquals(game.gameName, head.summary.gameName); assertEquals(game.createdAt, head.summary.createdAt)
                 val revision = games.revisions(b, game.id, (result.commitRevision!!.toLong() - 1).toString()).revisions.single()
                 assertEquals(state, revision.play); assertNull(revision.preparation)
                 assertEquals(result, recipient.admit(last))
@@ -356,7 +363,7 @@ class GameStartTest {
                     val resumed = hub.games.open(b, hello, connection, game.id, pending.streamId, listOf(pending.requestId))
                     assertEquals(original, resumed.statuses.single().result)
                     assertEquals(original, hub.games.admit(b, hello, connection, pending.copy(generation = resumed.generation)))
-                    assertEquals(accepted, hub.games.head(b, game.id))
+                    assertSameStart(accepted, a.account.accountId, hub.games.head(b, game.id), b.account.accountId)
                 } finally { hub.close() }
             }
             ServiceRuntime(db.settings).use { runtime ->

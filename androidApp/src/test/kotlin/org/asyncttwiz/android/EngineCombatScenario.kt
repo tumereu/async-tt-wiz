@@ -23,6 +23,8 @@ internal class EngineCombatScenario(val f: EngineGameFixture = EngineGameFixture
     val me = PlayerId(f.a)
     val other = PlayerId(f.b)
     val online = mutableMapOf(f.a to true, f.b to true)
+    /** Whether [settle] answers a player's decision stop with the assumed input (their device left alone otherwise). */
+    val confirmStops = mutableMapOf(f.a to true, f.b to true)
     /** Every transition each table showed (its board made after every step). */
     val shown = mutableMapOf<String, MutableList<EngineGame.Transition>>()
 
@@ -33,7 +35,7 @@ internal class EngineCombatScenario(val f: EngineGameFixture = EngineGameFixture
             sim.deliver(p)
             game.playToStop()
             game.tick(online[sim.other(p)] != false, sim.now)
-            (game.device.status as? GameDevice.Status.Stopped)?.let { game.act(it.assumed) }
+            if (confirmStops[p] != false) (game.device.status as? GameDevice.Status.Stopped)?.let { game.act(it.assumed) }
             sim.flush(p)
             game.play()
             game.transition?.let { t -> shown.getOrPut(p) { mutableListOf() }.let { if (it.lastOrNull()?.serial != t.serial) it += t } }

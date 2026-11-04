@@ -1,6 +1,6 @@
 # Engine state as the game state — proposal (I-D54)
 
-Status: **approved by the owner** (2026-11-03), queued. Not to be started until the current round is done and deployed to
+Status: **approved by the owner** (2026-11-03); built through the switch-over (I-D56 step D2, §14), the rest of the deletion left. Originally: not to be started until the current round is done and deployed to
 the test environment, so UI testing can go on while this is built. Follows from I-D52 (Automatum always on).
 
 ## 1. Why
@@ -397,3 +397,48 @@ Still behind the debug switch (`EnginePath`); today's model stays the default an
 - The Undo dialog's target picker as the timeline strip (§10 says so; it is still the list of short texts).
 - An early division can't tell the first-strike damage step from the regular one (`EarlyAnswer.keyOf` has no step):
   given in the first-strike step it would answer the regular step's division too if it still fits.
+
+## 14. Built (I-D56 step D2, 2026-11-04): the switch-over
+
+Every game is an engine game; the choices are recorded in `async-play.md` §23.
+- **Switch (§12 item 1):** the server starts every play as engine state, its decks parsed on the server (`EngineDecks`;
+  lobby games, pod challenges and draft games all start through readiness); `ATW_ENGINE_GAMES` and the `engineDecks`
+  seam are gone (`engineSeats` stays for tests that give their own seats). The app plays every engine head on its
+  `EngineGame` (`EnginePath` removed); Settings → Automatum shows only the play defaults of new games.
+- **Wipe:** `V59__engine_state_wipe_plays.sql` (the parked wipe): every game that started a play goes with everything
+  that names it; accounts, decks, cubes, pods and drafts stay. Test environment first; production only when approved.
+- **Deleted on the server (§12 item 2, server part):** the old gameplay path (`GameplayStore`, `GameplayEndpoint`'s
+  checks, `GameplayMaintenance` and the `checkpoint-gameplay` command, `EndpointCollections`, baseline export and the
+  history pages, the Automatum-only gate and its `automated` test seam, the old concession and result acceptance).
+  `Play`, `PlayBatch`, `Undo`, `Redo`, `AcceptResult` and `Concede` are refused as `inapplicable`. `PlayStore` keeps the
+  play row (its starting `PlayState`: ids, containers, players, card data), reads it without the old integrity checks,
+  and records how an engine play ended in it (LOB-111's notice reads it). The old model's tests are deleted; lobby, pod
+  and result tests end games by an engine concession (`EngineTestActions.concession`).
+- **Engine work off the main thread (§12 item 11):** `EngineWorker.Background` is one engine thread that owns every
+  `GameDevice`: the server's events, the device's own steps after an action (passes, assumptions with their probes),
+  loads and the projection run there, and each change publishes an immutable `EngineGame.Shown` the table reads. The
+  player's own action waits for its local result on the engine thread (SYS-025); dialogs read the device with
+  `EngineGame.read`. Tests and simulations run `EngineWorker.Direct`. Not measured on a slow phone yet.
+
+**Left after step D2** (deleting what nothing reaches any more but is still woven into code the engine path uses):
+1. *App, today's table path:* `TableScreen`'s old body (shown only for the moment before an engine game first loads),
+   `TableHistoryController`, `HistoryPlayback`, `HistoryExplorer`, `TreeAnnotationProjection`, the play replica in
+   `GameSession` (`GameplayReplica`, `TreeCatchUp`'s play part, `TreeDownload`, `SessionHistoryReview`), the old
+   gameplay and result actions of `LobbyTableActions`, the I-D41 UI (`AutomatumPause`, `PauseBarHost`,
+   `ActingForDialog`, `PauseController`, `PauseSettings`/`FullControlSync`), the old history texts (`HistoryText`) and
+   their ~40 test files (some cite entries that still hold on engine state, e.g. LOB-066, HIS-018–HIS-020: they need
+   engine-path replacements, not just deletion).
+2. *Protocol:* the old play actions above (refused by the server, still built by the app's old path), the manual
+   `PlayAction`s, `GameplayRules`/`HistoryContinuation`/`AutomatumOnly`/`GameplayTree`/`TreeSync`/`RetainedIndex`
+   and the rest of the old history model. `GameplayRules.preview` still stages combat lanes for the engine table
+   (`EngineTableRoutes.local`), and the table renders `PlayState`: both go once `EngineProjection`'s `PlayState` is
+   slimmed into a render model.
+3. *automatum:* `EngineBatch`, `StepFlow`/`PausePoints` passing for others, `HostPriority`, `EngineState.from`'s
+   building (the flows still branch on `BoardState.engine`).
+4. *Database:* the old model's tables (`gameplay_mutation`, `gameplay_group`, `gameplay_tree_control`,
+   `gameplay_endpoint_*`, `game_play_mutation`) stay empty after V59; a later migration can drop them.
+5. *Catalog:* HIS-063–HIS-069, SYS-004, SYS-010 and SYS-061 describe today's model's texts and batches; they go with
+   the code and tests above.
+6. Measure the engine thread on a slow phone (SYS-025, SYS-030 reports); the timeline-mode board and the undo
+   dialogs' boards are still worked out while the main thread waits (`EngineGame.read`/`reviewPlay`).
+7. End-to-end runs on two devices against the test environment, then the adversarial review (§12 item 12).

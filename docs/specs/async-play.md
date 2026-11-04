@@ -686,3 +686,29 @@ Decided while building (the most vision-aligned reading, MTG Arena as the refere
     the log, then dropping the oldest events (and the base). A device that can no longer reach its line's start exactly
     starts the bundle at the earliest event it can reach.
 15. **No release notes**: nothing of it reaches a release build before the switch-over (the debug switch).
+
+## 23. Built (step D2, 2026-11-04): the switch-over
+
+Every game is played on engine state with async play; games started before were removed (V59). See
+`engine-state-architecture.md` §14 for what and where, and what is left to delete.
+
+Decided while building (the most vision-aligned reading; owner to confirm):
+1. **One commit per step:** the switch and the wipe together, then the server's old path and the old Automatum
+   settings, then the engine thread; the app's and protocol's old model stay where the engine path still uses them
+   (§14's list).
+2. **Old play actions** (`Play`, `PlayBatch`, `Undo`, `Redo`, `AcceptResult`, `Concede`) are refused as `inapplicable`
+   rather than removed from the protocol, so an old app gets a plain refusal (one compatible set is maintained anyway).
+3. **The game-over notice (LOB-111)** reads how an engine play ended from the ended play's row, in the form an accepted
+   suggestion had: a concession is the conceder's own loss ("<opponent> conceded"), an agreed result is the suggestion
+   author's, the rules' result is told from each player's side. It was missing on engine state (the notice said
+   nothing of the end).
+4. **Settings → Automatum** keeps only the defaults of new games (response mode, Always assume resolves, Autotap mana
+   sources), all kept on the server; the I-D41 Response time, When the opponent can react and Full control are gone.
+5. **Engine thread:** one thread for all games; the player's own action waits for its local result there (so it never
+   runs on a stale state), everything after it doesn't hold the main thread. Until an engine game first loaded, the
+   table shows its loading state.
+6. **Request costs:** an engine head reads its snapshot; opening a game costs 43 database round trips instead of 31,
+   a head refresh 14 instead of 10 (`RequestCostTest`).
+
+Found while building (not changed; for the owner): LOB-114 ("<opponent> is ready" while you are still Mulliganing) is
+not sent on engine state: the server never set it for engine events.

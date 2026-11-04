@@ -102,6 +102,9 @@ class GameDevice(
     /** The player's own opening declarations (Keep, Mulligan, a bottom choice) the server took the other player's
      * declaration before (both declare at the same time, TRN-027): made again on it ([redeclare]). */
     private val redeclaring = mutableListOf<arcanum.engine.decision.Answer>()
+    /** The event those declarations were made on: they wait for the other player's event after it (a refusal can come
+     * before it). */
+    private var redeclareAfter: String? = null
     /** The events of those declarations: their "stale" refusal, still to come, isn't told. */
     private val redeclared = mutableSetOf<String>()
     /** The player's own inputs (and table changes) of each of their recent events, as their action made them, before
@@ -1051,6 +1054,7 @@ class GameDevice(
                 else -> null
             }
         }.takeWhile { it.second != null }.toList()
+        if (kept.isNotEmpty() && redeclaring.isEmpty()) redeclareAfter = dropped.first().parentId
         redeclaring += kept.map { it.second!! }
         kept.forEach { redeclared += it.first.id }
         if (redeclared.size > MAX_ORIGINS) redeclared.clear()
@@ -1119,19 +1123,21 @@ class GameDevice(
      * Makes the player's opening declarations the server took the other player's before ([lostOpening]) again: the other
      * player's opening declarations shown at once (both declare at the same time, nothing to play back), then each of
      * the player's own made on them as if just tapped (at a stop where the other player assumed it, it confirms it).
-     * Dropped when the opening no longer asks it.
+     * Waits for the event the server took instead (made again on the same event, it would only be refused again). When
+     * the opening no longer asks it (or it is refused) it isn't taken, and the player is told (SYS-012's note).
      */
     private fun redeclare() {
         if (redeclaring.isEmpty() || needsReload || session.drafting || request != null) return
+        if (session.head == redeclareAfter) return
         while (session.behind && !catchUp && model.engine.turn.number == 0 && stopAt(session.buffered.first()) == null) session.showNext()
         if (session.behind && status !is Status.Stopped) return
         val answers = redeclaring.toList()
         redeclaring.clear()
         for (answer in answers) {
-            val input = openingInput(answer) ?: return
-            remember("redeclare $answer")
-            val acted = act(input)
-            if (acted !is Acted.Sent && acted !is Acted.Confirmed) return
+            val input = openingInput(answer)
+            remember("redeclare $answer${if (input == null) ": no longer asked" else ""}")
+            val acted = input?.let { act(it) }
+            if (acted !is Acted.Sent && acted !is Acted.Confirmed) { note(Note.Refused("stale")); return }
         }
     }
 

@@ -751,7 +751,8 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
             val info = informationNanos()
             try {
                 if (inAction) work()
-                else if (seen != null && seen != published && !(same != null && stillSame(what ?: "action", board, same))) {
+                else if (seen != null && seen != published && !unchanged(what ?: "action", board) &&
+                    !(same != null && stillSame(what ?: "action", board, same))) {
                     refused = true; staleBoard(what ?: "action", seen); refusedStale(); stale
                 }
                 else { inAction = true; try { work() } finally { inAction = false } }
@@ -853,6 +854,20 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
         val seen = board?.board?.engine?.state ?: return false
         if (device.session.drafting || !same(seen, device.model.engine)) return false
         AppLog.info("engine", "Own $what made on board v$published: the same decision as on board v${board.version} it was tapped on")
+        return true
+    }
+
+    /**
+     * SYS-011 (analysis 2026-11-05): whether the board published since [board] (the one the action was tapped on) shows the
+     * same game: the same engine and table state, only published again (the server confirming the player's own event, a
+     * status or token picture change). Such a board was never "moved past", so an action without a sameness rule of its
+     * own (Assume, Assume blockers, a table change, Undo) is made, not refused as stale (before, an Assume tapped while the
+     * server's confirmation of the player's attack arrived was refused with SYS-012's note). Engine thread.
+     */
+    private fun unchanged(what: String, board: Shown?): Boolean {
+        val engine = board?.board?.engine ?: return false
+        if (lastShown?.board?.engine !== engine || device.session.drafting) return false
+        AppLog.info("engine", "Own $what made on board v$published: nothing changed since board v${board.version} it was tapped on")
         return true
     }
 

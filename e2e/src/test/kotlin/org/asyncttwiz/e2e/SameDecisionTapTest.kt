@@ -128,6 +128,35 @@ class SameDecisionTapTest : E2e() {
             .any { e -> e.engine?.steps.orEmpty().any { it.input is Input.Cast } } }
     }
 
+    // SYS-011, TRN-070 (analysis 2026-11-05; flaky AssumeBySettingTest): Alice casts Storm Spark while Bob is away, so her
+    // table waits for him with Assume; the server's confirmation of her cast reaches her phone's engine (a board published
+    // again, the same game) but not her screen yet when she taps Assume: the board she tapped on was never moved past, so
+    // her Assume is made, with no note
+    @Test fun anAssumeTappedWhileHerOwnCastIsConfirmedIsMade() {
+        start()
+        aliceInMain(land = true)
+        alice.link.holdIncoming()
+        assertFalse(alice.game!!.send(spark(alice.state)) is GameDevice.Acted.Refused)
+        waitUntil("Alice waiting for Bob with Assume, her cast on its way") {
+            (alice.status as? GameDevice.Status.Waiting)?.offer == GameDevice.Offer.AssumeResolves &&
+                alice.engine { device.session.pending.isNotEmpty() }
+        }
+        fun assumed() = alice.engine { (device.session.events + device.session.pending).count { it.assumed?.assumedBy == alice.me } }
+        val before = assumed()
+        val shown = alice.shown
+        held.holding = true
+        alice.link.releaseIncoming()
+        waitUntil("the server's confirmation of her cast on her phone") { alice.engine { device.session.pending.isEmpty() } }
+        assertEquals(shown.version, alice.shown.version, "the table still shows the board from before the confirmation")
+        alice.tap("Assume")
+        held.release()
+        assertTrue(notes.none { it is GameDevice.Note.Refused }, "no refusal note: $notes")
+        waitUntil("the Spark resolved on her assumption of Bob's pass") {
+            alice.state.stack.isEmpty() && assumed() > before
+        }
+        assertFalse(alice.refusalSeen)
+    }
+
     // SYS-011, SYS-012: Alice casts Storm Spark on her main phase while Bob's real answer arrives instead of a pass her
     // phone assumed for him (he casts an Idle Glimmer there): a branch, the board she tapped on is gone; refused with the note
     @Test fun aCastOnABoardThatChangedInAWayThatMattersIsRefusedWithTheNote() {

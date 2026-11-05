@@ -93,10 +93,10 @@ class EngineOwnActionPartsTest {
         // A computed board of the board shown before the action isn't this action's
         OwnActionProbes.computed(before); OwnActionProbes.plays(before)
         assertTrue(reported.isEmpty())
+        // The hand plays came already: worked out on the engine thread right after the early board, before its follow-up
+        // work (smoke 2026-11-05)
         val after = game.shown!!.board.board
         OwnActionProbes.computed(after)
-        assertTrue(reported.isEmpty(), "the hand plays haven't arrived yet")
-        OwnActionProbes.plays(after)
 
         val timing = reported.single()
         assertTrue(timing.early)
@@ -156,7 +156,7 @@ class EngineOwnActionPartsTest {
         val first = reported.single()
         assertEquals("act", first.what)
         assertNull(first.parts()[COMPUTED])
-        assertTrue(" computedMs=- playsMs=- " in first.line(), first.line())
+        assertTrue(" computedMs=- " in first.line(), first.line())
         assertTrue(first.parts().getValue(FRAME) > 0, first.line())
         // The second action waits for its own parts
         worker.frames()

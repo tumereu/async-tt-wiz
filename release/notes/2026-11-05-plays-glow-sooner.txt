@@ -1,0 +1,1 @@
+fix: After you play a card or pass, the glow on the cards you can play and the costs on a raised card show up sooner, without waiting for the game to move on.

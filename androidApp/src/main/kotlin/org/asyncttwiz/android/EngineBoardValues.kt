@@ -17,8 +17,10 @@ import org.asyncttwiz.automatum.SharedFlow
  * - [computed]: the computed card values ([ComputedBoard]: P/T, keywords, type and colour changes, until-end-of-turn
  *   marks), made with the board: the table never shows the previous board's with it;
  * - the player's hand plays ([HandPlays]): worked out on the engine thread with the board it publishes as the result of
- *   an action ([EngineGame.Shown]; an own action's early board gets them with the board published after it), or on the
- *   engine thread when asked first;
+ *   an action ([EngineGame.Shown]), or on the engine thread when asked first. An own action's board (its early board, or
+ *   its whole outcome's) gets them and its card menus' plays right after it is published, before the engine thread's
+ *   follow-up work (the rest of the action's event, the device's own steps): they are promised ([promisePlays]) before
+ *   the board goes out, so a reader on another thread (the table's) waits for them alone, not for that work;
  * - the card menus' plays ([CardPlays]), the shared flow ([SharedFlow]: priority, the open decision) and what the table
  *   shows of combat ([CombatShown]): lazy, on the engine thread when first asked, once per board (a board published again
  *   unchanged keeps them).
@@ -43,8 +45,9 @@ class EngineBoardValues internal constructor(
     @Volatile var cardPlays: CardPlays? = null
         private set
 
-    /** The hand plays, worked out on the engine thread now when not yet (waits for it; inline on it). */
-    fun handPlays(): HandPlays = handPlays ?: engine.call { workedHandPlays() }
+    /** The hand plays, worked out on the engine thread now when not yet (waits for it; inline on it), or, when promised
+     * ([promisePlays]), as soon as the engine thread has them. */
+    fun handPlays(): HandPlays = handPlays ?: promised()?.handPlays ?: engine.call { workedHandPlays() }
 
     /** Engine thread: the hand plays, worked out now when not yet. Never throws (as the table's did: none on failure). */
     fun workedHandPlays(): HandPlays = handPlays ?: try {
@@ -54,14 +57,42 @@ class EngineBoardValues internal constructor(
         HandPlays.NONE
     }.also { handPlays = it }
 
-    /** The card menus' plays, worked out on the engine thread when not yet (waits for it; inline on it). */
-    fun cardPlays(): CardPlays = cardPlays ?: engine.call {
-        cardPlays ?: try {
-            CardPlays.of(state, viewer, view ?: arcanum.engine.Engine.view(state), visible)
-        } catch (problem: Exception) {
-            AppLog.warn("automatum", "Couldn't list card plays: ${problem::class.java.simpleName}")
-            CardPlays.NONE
-        }.also { cardPlays = it }
+    /** The card menus' plays, worked out on the engine thread when not yet (waits for it; inline on it), or, when
+     * promised ([promisePlays]), as soon as the engine thread has them. */
+    fun cardPlays(): CardPlays = cardPlays ?: promised()?.cardPlays ?: engine.call { workedCardPlays() }
+
+    /** Engine thread: the card menus' plays, worked out now when not yet. Never throws (none on failure). */
+    private fun workedCardPlays(): CardPlays = cardPlays ?: try {
+        CardPlays.of(state, viewer, view ?: arcanum.engine.Engine.view(state), visible)
+    } catch (problem: Exception) {
+        AppLog.warn("automatum", "Couldn't list card plays: ${problem::class.java.simpleName}")
+        CardPlays.NONE
+    }.also { cardPlays = it }
+
+    /** An open promise of the plays ([promisePlays]) and the thread that made it (the engine thread). */
+    private class Promise(val kept: java.util.concurrent.CountDownLatch, val by: Thread)
+    @Volatile private var promise: Promise? = null
+
+    /**
+     * Engine thread, before an own action's board goes out: its hand plays and card menus' plays are worked out next
+     * ([workPlays]), before any other engine work, so a reader on another thread waits for them alone instead of
+     * queueing behind the engine thread's follow-up work. Nothing when both are already worked out.
+     */
+    fun promisePlays() {
+        if (handPlays == null || cardPlays == null) promise = Promise(java.util.concurrent.CountDownLatch(1), Thread.currentThread())
+    }
+
+    /** Engine thread: the hand plays and card menus' plays worked out now (when not yet); keeps [promisePlays]. */
+    fun workPlays() {
+        try { workedHandPlays(); workedCardPlays() } finally { promise?.kept?.countDown(); promise = null }
+    }
+
+    /** Waits for an open promise of the plays (never on the thread that made it): this, or null when none is open. */
+    private fun promised(): EngineBoardValues? {
+        val open = promise ?: return null
+        if (open.by === Thread.currentThread()) return null
+        open.kept.await()
+        return this
     }
 
     /** The shared flow once worked out ([sharedFlow]); null until then (and when there is none). */

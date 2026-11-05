@@ -126,10 +126,14 @@ internal val LocalComputedBoard = staticCompositionLocalOf { ComputedBoard.NONE 
 @Composable
 internal fun rememberComputedBoard(play: TableBoard, viewer: String): ComputedBoard {
     val values = play.values?.takeIf { it.viewer == viewer } ?: return ComputedBoard.NONE
-    SideEffect {
-        // SYS-030: an own action's probe counts its board's computed values and hand plays arriving
-        OwnActionProbes.computed(play.board)
-        if (values.handPlays != null) OwnActionProbes.plays(play.board)
-    }
+    SideEffect { drawnForProbe(play, viewer) }
     return values.computed
+}
+
+/** SYS-030: the table drew [play] for [viewer]: an own action's probe counts its board's computed values and hand plays
+ * (once worked out) arriving. */
+internal fun drawnForProbe(play: TableBoard, viewer: String) {
+    val values = play.values?.takeIf { it.viewer == viewer } ?: return
+    OwnActionProbes.computed(play.board)
+    if (values.handPlays != null) OwnActionProbes.plays(play.board)
 }

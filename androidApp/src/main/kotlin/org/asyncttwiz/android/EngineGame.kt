@@ -145,8 +145,9 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
         val endTurns: Set<String> = emptySet()) {
         val engine: GameState get() = board.engine!!.state
         /** Engine-responsiveness R3: what the engine thread worked out with [board]: its computed card values, the player's
-         * hand plays (none yet on an own action's early board: they come with the board after it) and, when first asked,
-         * the card menus' plays, the shared flow and combat. */
+         * hand plays (on an own action's early board right after it is published, before the action's follow-up work,
+         * [EngineBoardValues.promisePlays]) and, when first asked, the card menus' plays (on an own action's board with its
+         * hand plays), the shared flow and combat. */
         val values: EngineBoardValues? get() = board.values
     }
 
@@ -197,9 +198,11 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
     /** The board the table shows now: the projected state at the local head and the device's own pending events. */
     fun play(): TableBoard = requireNotNull(shown) { "Not loaded yet" }.board
 
-    /** Publishes what changed (engine thread): the board projected anew, the notes drained, then the main thread told.
-     * [timing]: the own action whose board this is (its probe times the building and hears when it is shown). */
-    private fun publish(drained: List<GameDevice.Note> = emptyList(), timing: OwnActionTiming? = null) {
+    /** Publishes what changed (engine thread): the board projected anew, the notes drained, then the main thread told;
+     * the board published. [timing]: the own action whose board this is (its probe times the building and hears when it
+     * is shown); the board's plays are then promised ([EngineBoardValues.promisePlays]): the caller works them out next
+     * ([playsOf]). */
+    private fun publish(drained: List<GameDevice.Note> = emptyList(), timing: OwnActionTiming? = null): TableBoard {
         timing?.boardStart = clock()
         val notes = drained + device.notes()
         val status = device.status
@@ -226,7 +229,7 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
             session.localHead, session.drafting, device.request, device.indicator(), device.undoTarget(), line, held, lastTransition,
             device.needsReload, device.pausing, held.mapNotNullTo(HashSet()) { e -> e.id.takeIf(device::endedTurn) })
         lastShown = shown
-        timing?.let { it.boardEnd = clock(); it.version = shown.version }
+        timing?.let { it.boardEnd = clock(); it.version = shown.version; play.values?.promisePlays() }
         worker.main {
             this.notes.addAll(notes)
             this.shown = shown
@@ -234,6 +237,19 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
             measure(shown, timing)
             onShown()
         }
+        return play
+    }
+
+    /**
+     * Engine thread, right after an own action's board [play] is published with its plays promised ([publish],
+     * [preview]), before the action's follow-up work: the player's hand plays and card menus' plays on it worked out
+     * (the hand's glow and cost chips need not wait for that work), and the action's probe told they arrived (SYS-030).
+     * They are [play]'s own: a board published after it brings its own.
+     */
+    private fun playsOf(play: TableBoard) {
+        val values = play.values ?: return
+        values.workPlays()
+        worker.main { OwnActionProbes.plays(play.board) }
     }
 
     /** The last [Shown] published (engine thread). */
@@ -293,10 +309,11 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
     /**
      * SYS-025: the board with the player's own action made, while its event is still being finished (what follows by
      * itself folded in): the last published panels with the board projected anew. Engine thread, inside the action; the
-     * board after it ([publish]) animates from the board before the action as usual.
+     * board after it ([publish]) animates from the board before the action as usual. The board published (its plays
+     * promised: the caller works them out next, [playsOf]), or null when none was.
      */
-    private fun preview(timing: OwnActionTiming): Boolean {
-        val last = lastShown ?: return false
+    private fun preview(timing: OwnActionTiming): TableBoard? {
+        val last = lastShown ?: return null
         timing.boardStart = clock()
         val attention = when (last.status) {
             GameDevice.Status.YourMove, GameDevice.Status.Drafting, is GameDevice.Status.Stopped -> me
@@ -307,13 +324,14 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
         // the action's whole outcome is published (owner playtest 2026-11-04: nothing else flickers)
         val play = board(last.board.nodeId, attention, last.board.board.move)
         previewed = play
-        // R3: its computed values come with it; its hand plays with the board published after it
+        // R3: its computed values come with it; its plays right after it, before what follows the action ([playsOf])
         val shown = Shown(++published, play, last.status, last.locked, last.settings, last.opponent, last.behind, last.tip,
             last.localHead, last.drafting, last.request, last.indicator, last.undoTarget, last.line, last.held, last.transition,
             last.needsReload, last.pausing, last.endTurns)
         timing.boardEnd = clock(); timing.version = shown.version
+        play.values?.promisePlays()
         worker.main { this.shown = shown; measure(shown, timing); onShown() }
-        return true
+        return play
     }
 
     /** Runs [work] with the device on the engine thread and waits for it (a dialog's or a route's read of the device). */
@@ -738,11 +756,15 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
                 work {
                     if (outer) {
                         timing.worked = clock(); timing.info = (informationNanos() - info).coerceAtLeast(0)
-                        early = preview(timing)
+                        val shownBoard = preview(timing)
+                        early = shownBoard != null
                         timing.early = early
                         shownInfo = informationNanos()
                         result.set(GameDevice.Acted.Made)
-                        release!!()
+                        try { release!!() } finally {
+                            // Its plays now, before the rest of its event and the device's own steps
+                            shownBoard?.let(::playsOf)
+                        }
                     }
                 }
             } finally { if (!wasIn) inAction = false }
@@ -818,9 +840,13 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
             if (timing != null) { timing.after(start, clock(), informationNanos() - info); afterDone(timing) }
             return@run
         }
-        publish(timing = timing)
+        val shownBoard = publish(timing = timing)
         val info = informationNanos()
-        try { afterBoard() } finally {
+        try {
+            // Its plays now, before the device's own steps
+            if (timing != null) playsOf(shownBoard)
+            afterBoard()
+        } finally {
             timing?.let { it.after(it.boardEnd!!, clock(), informationNanos() - info); afterDone(it) }
         }
     }
@@ -888,9 +914,10 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
         val parts = timing.parts()
         val line = timing.line(parts)
         // Test and debug builds log every own action in the app log, so a problem report carries a whole sample, not
-        // only the slow ones
+        // only the slow ones; every line reads alike (smoke 2026-11-05: a search for "Own action" missed the slow ones,
+        // then logged as "Slow own action"), its totalMs telling a slow one
         val slow = (parts[OwnActionTiming.TOTAL] ?: 0.0) > SLOW_MS
-        if (slow || Diagnostics.alwaysOn) AppLog.info("engine", "${if (slow) "Slow own action" else "Own action"} $line")
+        if (slow || Diagnostics.alwaysOn) AppLog.info("engine", "$OWN_ACTION$line")
         timing.trace?.parts(parts)
         measured?.invoke(timing)
     }
@@ -913,6 +940,8 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
     private companion object {
         /** SYS-025's budget for an action's local result. */
         const val SLOW_MS = 20.0
+        /** The start of every own action's line in the app log (SYS-030): "Own action what=… path=… totalMs=…". */
+        const val OWN_ACTION = "Own action "
         /** An action made on a board the device has moved on from ([refusedText]: SYS-012's note). */
         const val STALE_REASON = "stale"
         val STALE = GameDevice.Acted.Refused(STALE_REASON)

@@ -1,0 +1,1 @@
+mod: Notes on the table now show one after another: a later note waits until the earlier one is done instead of replacing it at once.

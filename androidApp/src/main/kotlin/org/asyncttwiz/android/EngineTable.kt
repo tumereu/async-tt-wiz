@@ -91,8 +91,21 @@ internal class EngineTableRoutes(val viewer: String, private val game: () -> Eng
 
     /** The rewind dialog (hold Undo, or an undo that needs the other player's approval): its chosen target. */
     var rewind by mutableStateOf<RewindChoice?>(null)
-    /** A note shown once (§8 branch note, §10 take-back note). */
+    /** The note shown now (§8's branch note, SYS-012's refusal note, …), each told once. */
     var note by mutableStateOf<String?>(null)
+        private set
+    /** SYS-078 (owner, 2026-11-05): the notes told while another one shows, in order: each shows when the one before is
+     * done, never replacing it at once. */
+    private val waitingNotes = ArrayDeque<String>()
+
+    /** Tells [text]: at once when no note shows, else after the notes before it (the same text twice in a row: once). */
+    fun tell(text: String) {
+        if (note == null) note = text
+        else if ((waitingNotes.lastOrNull() ?: note) != text) waitingNotes.addLast(text)
+    }
+
+    /** The note shown is done (its time is up, or the player tapped it): the next one shows. */
+    fun noteDone() { note = waitingNotes.removeFirstOrNull() }
     /** Bumped when an Undo can't do anything: the button shakes (I-D46 b). */
     var undoShake by mutableIntStateOf(0)
 
@@ -451,25 +464,25 @@ internal fun EngineAsyncHost(toolkit: TableToolkitController, routes: EngineTabl
     LaunchedEffect(game.version) {
         while (game.notes.isNotEmpty()) {
             when (val note = game.notes.removeAt(0)) {
-                is GameDevice.Note.Branched -> routes.note = "${names[note.by.value] ?: opponent} " + when (note.discarded.assumed?.input) {
+                is GameDevice.Note.Branched -> routes.tell("${names[note.by.value] ?: opponent} " + when (note.discarded.assumed?.input) {
                     is Input.DeclareBlockers -> "blocked differently"
                     is Input.SetupAnswer, is Input.Answer -> "took a mulligan"
                     else -> "responded"
-                } + " — your later actions were taken back"
+                } + " — your later actions were taken back")
                 // HIS-099, §29.4: the other player's undo of events you had seen: your board goes back the way it came,
                 // with "<name> undid: <action>" fading at the top (the transition's, EngineTableScreen)
                 is GameDevice.Note.TakenBack -> {}
                 is GameDevice.Note.RequestNeeded -> routes.rewind = EngineTableRoutes.RewindChoice(note.target)
-                is GameDevice.Note.Refused -> refusedText(note.reason)?.let { routes.note = it } ?: toolkit.dismissError()
+                is GameDevice.Note.Refused -> refusedText(note.reason)?.let(routes::tell) ?: toolkit.dismissError()
             }
         }
     }
     routes.note?.let { text ->
         RecordShown(text)
-        LaunchedEffect(text) { delay(6_000); if (routes.note == text) routes.note = null }
+        LaunchedEffect(text) { delay(6_000); if (routes.note == text) routes.noteDone() }
         Box(Modifier.fillMaxWidth().padding(top = 56.dp), contentAlignment = Alignment.TopCenter) {
             Surface(shape = RoundedCornerShape(8.dp), color = Color(0xff2f3a37), shadowElevation = 6.dp,
-                modifier = Modifier.padding(horizontal = 24.dp).clickable { routes.note = null }.testTag("engine-note")) {
+                modifier = Modifier.padding(horizontal = 24.dp).clickable { routes.noteDone() }.testTag("engine-note")) {
                 Text(text, Modifier.padding(horizontal = 14.dp, vertical = 10.dp), color = Color.White, fontSize = 14.sp)
             }
         }

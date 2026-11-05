@@ -10,17 +10,16 @@ Changes the owner wants but that are not built yet. The feature catalog
 
 ## Build order (owner, 2026-11-05: one implementor at a time, small items batched, full suites after each batch)
 
-1. Stable decision identity + one "same board" rule + notes one after another + e2e records notes.
-2. The Undo item (see its notes from the Analysis: target worked out after confirmation, stale-check path, hold by event id, clear re-made moves on undo, keep the End-turn clearing).
-3. Choice panels show their source card.
-4. Combat band.
-5. Battlefield placement (Arena style).
-6. Hold pauses playback, Reconnecting…, remove the auto-pause switches (re-check against the built catch-up playback first: HIS-094, HIS-095).
-7. Countering a spell lower on the Stack (e2e scenario).
+1. The Undo item (see its notes from the Analysis: target worked out after confirmation, stale-check path, hold by event id, clear re-made moves on undo, keep the End-turn clearing).
+2. Choice panels show their source card.
+3. Combat band.
+4. Battlefield placement (Arena style).
+5. Hold pauses playback, Reconnecting…, remove the auto-pause switches (re-check against the built catch-up playback first: HIS-094, HIS-095).
+6. Countering a spell lower on the Stack (e2e scenario).
 
 ## Ready to build
 
-- Notes one after another (owner, 2026-11-05, from the Analysis): a later table note no longer replaces an earlier one at once ("Bob responded …" overwritten by "That wasn't taken"); notes show in turn (name the catalog entry for table notes and update it).
+(none)
 
 ## Ready after the e2e framework (owner playtest, 2026-11-05)
 

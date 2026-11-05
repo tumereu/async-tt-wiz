@@ -22,7 +22,6 @@ Changes the owner wants but that are not built yet. The feature catalog
 ## Ready to build
 
 - Analysis (owner, 2026-11-04): adversarial review of the event-based state changes on device and server — undo/rewind, branches, assumptions, re-made and same-decision actions, anything cached per line/event/decision id (autotap plans, early answers), line reseeding — for inconsistency bugs like "cast → undo → recast refused" (decision ids include the engine change-log size; the new line's reshuffle rides in the next event); reproduce each in e2e, propose simplifications (stable decision identity) before building them.
-- Fix (owner bug, 2026-11-04, report YRVZNM, 0.1.12): after a spell of connection failures (Pi tunnel dropping, 12:47–12:50 UTC: `/v1/pods/<id>` timeouts and "Retrying after PodFailure"), tapping a drafting pod on the Pods list did nothing and the app stayed on the list, even after the connection came back and with the pod fine on the server; only a force stop helped. Find the stuck state, fix it, and add an e2e test that fails before the fix (pod loads failing, then recovering → the pod opens). No catalog change (DRF-012 already expects the pod to open).
 
 ## Ready after the e2e framework (owner playtest, 2026-11-05)
 
@@ -38,11 +37,8 @@ Start none of these until the E2E framework above works. Each owner-reported bug
 - Countering a spell lower on the Stack: e2e scenario: Alice (Full control) casts spell A, keeps priority, casts B; Bob, at his pause with both on the Stack, counters A with a single-target counterspell; B resolves, A is countered. Variant: Bob offline, Alice's device assumes his passes and A and B resolve; Bob later counters A → branch and take-back (needs the branch fix above). With two or more legal Stack targets the Stack opens in place as its list with the legal entries glowing and tappable, if that is clean and possible; otherwise keep the docked picker (STK-044, STK-018). Screenshot test of the multi-target pick for the owner.
 - Choice panels name their source by the card, not by text: titles say only the choice ("Choose a target"), and the source sits at the panel's right as an inspectable card (an ability as its Stack ability token, STK-046), the same place in every Automatum panel and target bar, the cast panel included (changes STK-023, STK-030, STK-044). Screenshot tests.
 - Stack ability token (STK-046): its art is clipped with black at the bottom; the owner describes it later (holding it to inspect is covered by e2e StackAbilityTest).
-- Fix: a token that is a copy of a card (offspring "create a token that's a copy of this", and other copy-token makers: populate, embalm, eternalize, myriad, encore, …) shows the copied card's picture, not a token picture; tokens already show by their clipped corners (changes SYS-072).
 
 - Battlefield placement, MTG Arena style (owner, 2026-11-05; spec `docs/specs/battlefield-placement.md`): automatic rows (creatures nearest the middle, lands and other permanents in the back row), identical permanents stacked (lands fanned, tokens ×N, tapped members rotate inside), attachments and mutate behind their card, no dragging on the battlefield; a tap on a stack or a card with attachments acts at once when it can mean only one thing, else the first tap expands the group and the second picks; the group's glow colour tells which a tap will do (changes TBL-002, TBL-003, TBL-004, TBL-006, TBL-007, TBL-008, TBL-012, TBL-053, TBL-054, TBL-101, TBL-102, TBL-111, TBL-117, TBL-121, TBL-122, TBL-124, SYS-041, SYS-074, ZON-077, STK-032). Screenshot tests for the owner.
-- Fix: the loop-draw choice (TRN-060) is offered when the loop can't be stopped by what players can actually do; a hand of only lands must not count as able to act.
-- Fix: the reason typed into Suggest game end reaches the other player (TRN-046).
 
 ## Specified, not started
 

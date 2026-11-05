@@ -142,7 +142,7 @@ class CoreLoopTest : E2e() {
         // CMB-028, problem report XGN86Q: a tap on each ready Cub stages it in the lanes (the first one opens the combat
         // area in the same batch, its Place naming the area the Open made)
         for ((n, attacker) in ready.withIndex()) {
-            alice.battlefieldCard("Ember Cub", index = n).performClick()
+            alice.stageAttacker("Ember Cub", this, index = n)
             waitUntil("the Cub staged") { alice.shown.board.engine!!.table.attackDraft.orEmpty().size == n + 1 }
             assertFalse(alice.refusalSeen, "the Cub is staged")
         }

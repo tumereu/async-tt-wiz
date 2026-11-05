@@ -928,12 +928,16 @@ class GameDevice(
             val yields = mine && !forced && modePasses(s, holder, check)
             if (!forced && !yields) return
             if (s.turn.number >= start + 2 && Stops.stop(s, s.turn.active)) return
-            if (yields && !yielded.add(Engine.loopKey(s))) return
-            if (!forced) forcedSeen.clear()
-            else if (s.stack.isNotEmpty() && !forcedSeen.add(Engine.loopKey(s))) {
+            // TRN-060 (CR 104.4b): a pass nobody could avoid is a forced one, or the player's own where they can do nothing
+            // but pass: what they hold can't stop the loop (a hand of only lands, owner 2026-11-05)
+            val unavoidable = forced || (yields && check.ownSkipOn)
+            val key = if (yields || s.stack.isNotEmpty() && unavoidable) Engine.loopKey(s) else null
+            if (!unavoidable) forcedSeen.clear()
+            else if (key != null && s.stack.isNotEmpty() && !forcedSeen.add(key)) {
                 builder.perform(Input.MandatoryLoop)
                 return@repeat
             }
+            if (yields && !yielded.add(key!!)) return
             val mark = builder.mark()
             builder.perform(Input.PassPriority(holder))
             builder.answerRandoms()
@@ -1025,8 +1029,9 @@ class GameDevice(
     /** Concedes (CR 104.3a): at any time; behind the head a branch at the local head (§11). */
     fun concede(): Acted = act(Input.Concede(me))
 
-    /** Suggests ending the game with [result] (TRN-046), at the head. */
-    fun suggest(result: GameResult): Acted = table(listOf(TableChange.Suggestion(model.table.suggestion, ResultSuggestion(me, result))))
+    /** Suggests ending the game with [result] (TRN-046) and the optional reason [note], at the head. */
+    fun suggest(result: GameResult, note: String = ""): Acted =
+        table(listOf(TableChange.Suggestion(model.table.suggestion, ResultSuggestion(me, result, note))))
 
     /** Answers the other player's waiting suggestion: [accept] agrees the result (an engine input), else declines it. */
     fun answerSuggestion(accept: Boolean): Acted {

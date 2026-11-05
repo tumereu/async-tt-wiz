@@ -13,9 +13,9 @@ import java.util.UUID
  */
 object TestCards {
     private fun card(name: String, typeLine: String, manaCost: String = "", rulesText: String = "", power: String = "",
-        toughness: String = "", loyalty: String = ""): SubmittedDefinition {
+        toughness: String = "", loyalty: String = "", scryfallId: String? = null): SubmittedDefinition {
         val face = DefinitionFace(UUID.nameUUIDFromBytes("e2e/$name".encodeToByteArray()).toString(), name, typeLine = typeLine,
-            manaCost = manaCost, rulesText = rulesText, power = power, toughness = toughness, loyalty = loyalty)
+            manaCost = manaCost, rulesText = rulesText, power = power, toughness = toughness, loyalty = loyalty, scryfallId = scryfallId)
         val definition = CardDefinition(name, listOf(face))
         return SubmittedDefinition(DeckJson.digest(definition), definition)
     }
@@ -29,6 +29,15 @@ object TestCards {
     val stride = card("Ember Stride", "Sorcery", "{R}", "Take an extra turn after this one.")
     /** A free instant: casting it gives the other player a pause (their answer may be assumed) without using mana. */
     val glimmer = card("Idle Glimmer", "Instant", "{0}", "Draw a card.")
+    /** A loop of mandatory actions on its own (CR 104.4b): it enters and is sacrificed, dies and comes back, again and again. */
+    val wisp = card("Restless Wisp", "Creature — Spirit", "{0}",
+        "When this creature enters, sacrifice a creature.\nWhen this creature dies, return it to the battlefield under its owner's control.",
+        "1", "1")
+    /** Makes a token copy of itself as it enters (when cast), drawn with a picture of its own (an invented art id). */
+    val twin = card("Ember Twin", "Creature — Elemental", "{R}", "When this creature enters, if you cast it, create a token that's a copy of it.",
+        "2", "1", scryfallId = UUID.nameUUIDFromBytes("e2e/art/Ember Twin".encodeToByteArray()).toString())
+    /** Empties its caster's hand for free. */
+    val thoughts = card("Empty Thoughts", "Sorcery", "{0}", "Discard your hand.")
 }
 
 /** A deck: [entries] of cards, in this order (the library's order before the opening shuffle). */

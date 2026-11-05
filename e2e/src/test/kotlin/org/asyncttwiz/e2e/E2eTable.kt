@@ -95,6 +95,19 @@ internal fun E2ePlayer.battlefieldCard(name: String, owner: E2ePlayer = this, in
     return node(byId(cards[index]))
 }
 
+/**
+ * Taps this player's [index]th [name] on their battlefield to stage it as an attacker (CMB-028), once their table has
+ * worked out what combat allows on the board it shows: until then a tap only says Automatum is still working the combat
+ * out (CombatController.WORKING_OUT) and stages nothing.
+ */
+internal fun E2ePlayer.stageAttacker(name: String, e2e: E2e, index: Int = 0) {
+    e2e.waitUntil("${this.name}'s table working out the combat") {
+        org.asyncttwiz.android.AutomatumBoards.cachedCombat(shown.board) != null && stepArrow()?.startsWith("No attack") == true ||
+            stepArrow()?.startsWith("Attack (") == true
+    }
+    battlefieldCard(name, index = index).performClick()
+}
+
 /** Whether the screen shows a card [name] of [owner]'s on their battlefield. */
 internal fun E2ePlayer.showsOnBattlefield(name: String, owner: E2ePlayer = this): Boolean = runCatching {
     val field = battlefieldBounds(owner)

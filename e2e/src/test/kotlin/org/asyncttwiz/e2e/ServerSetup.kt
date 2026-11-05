@@ -54,13 +54,29 @@ object ServerSetup {
         TestAccount(username, email, session.token, session.account)
     } }
 
-    private fun rename(account: TestAccount, name: String, username: String): TestAccount = AccountApi(origin).use { api ->
-        runBlocking { TestAccount(name, account.email, account.token, api.changeUsername(account.token, username)) }
+    private fun rename(account: TestAccount, name: String, username: String): TestAccount = accountCall("rename ${account.name}") { api ->
+        TestAccount(name, account.email, account.token, api.changeUsername(account.token, username))
     }
 
     /** [account]'s play defaults for new games (LOB-113): how their device responds and stops. */
-    fun playDefaults(account: TestAccount, settings: org.asyncttwiz.protocol.game.PlaySettings) = AccountApi(origin).use { api ->
-        runBlocking { api.setAccountSettings(account.token, api.accountSettings(account.token).copy(playDefaults = settings)) }
+    fun playDefaults(account: TestAccount, settings: org.asyncttwiz.protocol.game.PlaySettings) = accountCall("play defaults of ${account.name}") { api ->
+        api.setAccountSettings(account.token, api.accountSettings(account.token).copy(playDefaults = settings))
+    }
+
+    /**
+     * An account request of the setup ([what]): again after a connection failure (the app's AccountApi says only
+     * "network"; a test's setup was seen failing once with "Account request failed"), at most three times; a refusal
+     * fails at once, naming its code.
+     */
+    private fun <T> accountCall(what: String, call: suspend (AccountApi) -> T): T {
+        repeat(3) { attempt ->
+            try { return AccountApi(origin).use { api -> runBlocking { call(api) } } }
+            catch (failure: org.asyncttwiz.android.AccountFailure) {
+                if (failure.code != "network" || attempt == 2) error("$what: ${failure.code} ${failure.field.orEmpty()}")
+                Thread.sleep(200)
+            }
+        }
+        error("unreachable")
     }
 
     fun deck(account: TestAccount, deck: TestDeck): SavedDeck = DeckApi(origin).use { api ->
@@ -68,6 +84,27 @@ object ServerSetup {
             api.submit(account.token, SubmitDefinitions(UUID.randomUUID().toString(), deck.entries.map { it.first }.distinctBy { it.digest }))
             api.create(account.token, CreateDeck(UUID.randomUUID().toString(), deck.name,
                 deck.entries.map { (card, n) -> SavedDeckEntry(SavedDeckSection.MAINBOARD, card.digest, n) }))
+        }
+    }
+
+    /**
+     * A pod [name] of [a] (its creator) and [b] drafting: a cube of [TestCards] (a booster draft of three packs of two
+     * cards each), [b] invited and accepted, the draft started. Returns the pod's id.
+     */
+    fun draftingPod(a: TestAccount, b: TestAccount, name: String): String = runBlocking {
+        fun id() = UUID.randomUUID().toString()
+        LobbyApi(origin).use { it.add(a.token, AddContact(id(), b.id)) }
+        val cards = listOf(TestCards.mountain, TestCards.cub, TestCards.spark)
+        val cube = DeckApi(origin).use { api ->
+            api.submit(a.token, SubmitDefinitions(id(), cards))
+            api.create(a.token, CreateCube(id(), "E2E cube", cards.map { SavedCubeEntry(it.digest, 4) }))
+        }
+        org.asyncttwiz.android.PodApi(origin).use { api ->
+            val pod = api.create(a.token, CreatePod(id(), name, cube.cube.id)).id
+            api.invite(a.token, pod, InviteToPod(id(), b.id))
+            api.accept(b.token, pod, PodRequest(id()))
+            api.update(a.token, pod, UpdatePod(id(), settings = DraftSettings(packsPerPlayer = 3, cardsPerPack = 2)))
+            api.start(a.token, pod, PodRequest(id())).also { check(it.phase == PodPhase.DRAFTING) { "the draft didn't start: $it" } }.id
         }
     }
 

@@ -354,9 +354,9 @@ private fun engineEnding(routes: EngineTableRoutes, intent: TableActionIntent.En
     val game = routes.engine ?: return false
     val me = PlayerId(routes.viewer)
     val acted = when (intent.tool) {
-        EndingTool.SUGGEST_WIN -> game.suggest(GameResult.Won(me))
-        EndingTool.SUGGEST_LOSS -> game.suggest(GameResult.Won(game.shown?.opponent ?: return false))
-        EndingTool.SUGGEST_DRAW -> game.suggest(GameResult.Draw)
+        EndingTool.SUGGEST_WIN -> game.suggest(GameResult.Won(me), intent.note)
+        EndingTool.SUGGEST_LOSS -> game.suggest(GameResult.Won(game.shown?.opponent ?: return false), intent.note)
+        EndingTool.SUGGEST_DRAW -> game.suggest(GameResult.Draw, intent.note)
         EndingTool.ACCEPT -> game.answerSuggestion(true)
         EndingTool.CONCEDE -> game.concede()
     }

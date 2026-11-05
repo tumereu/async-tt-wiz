@@ -16,6 +16,7 @@ import arcanum.engine.decision.Decision
 import arcanum.engine.input.Block
 import arcanum.engine.input.Input
 import arcanum.engine.state.ObjectId
+import org.asyncttwiz.protocol.PlayZone
 import org.asyncttwiz.protocol.game.GameDevice
 import org.junit.After
 import org.junit.Rule
@@ -27,6 +28,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
@@ -63,18 +65,7 @@ class EngineChoiceScreenTest {
         compose.waitForIdle()
     }
 
-    /** Alice keeps seven and plays nothing; in her second turn she has eight cards at her cleanup step: discard one. */
-    private fun toDiscard(): Decision.ChooseObjects {
-        kit.opening()
-        assertTrue(toolkit.automatumStep(TableActionIntent.End(kit.scope)), "End turn")
-        kit.playOn("Alice's second Main 1") { kit.aliceMain() && kit.state().turn.number >= 3 }
-        assertEquals(8, kit.state().player(kit.me).hand.size)
-        assertTrue(toolkit.automatumStep(TableActionIntent.End(kit.scope)), "End turn")
-        kit.playOn("Alice's discard") { kit.state().pending?.decision is Decision.ChooseObjects }
-        val decision = assertIs<Decision.ChooseObjects>(kit.state().pending?.decision)
-        assertEquals(kit.me, decision.player)
-        return decision
-    }
+    private fun toDiscard(): Decision.ChooseObjects = kit.toAliceDiscard()
 
     // STK-043, CR 514.1: discarding is one screen of two labelled areas with a count, Hand and Discard; the cards start in
     // Hand, a tap moves one to Discard, OK is enabled once exactly the number asked is there and sends the choice
@@ -96,14 +87,22 @@ class EngineChoiceScreenTest {
         assertEquals(1, kit.state().player(kit.me).graveyard.size)
     }
 
-    // STK-032: while Automatum's choice is open, casting is refused ("Automatum is waiting for a choice. Answer it first."
-    // on the deciding player's device; on the other player's, whose table waits for the choice, without a message);
-    // looking and holding to inspect still work
+    // STK-032, TBL-118: while Automatum's choice is open, casting is refused on both devices without a message: on the
+    // deciding player's device the card shakes (their own table never says they are choosing); on the other player's,
+    // whose table waits for the choice, the card shakes and the event text saying "Alice is choosing" flashes (R4c: the
+    // waiting device's cast was refused silently); looking and holding to inspect still work
     @Test fun whileAChoiceIsOpenCastingIsRefused() {
         toDiscard()
         val card = kit.atw(kit.hand("Storm Spark").first())
         assertFalse(toolkit.cast.start(card))
-        assertEquals(SharedFlowController.BUSY, toolkit.error)
+        assertNull(toolkit.error, "no message")
+        val (gestures, _) = kit.gestures()
+        kit.doubleTap(gestures, kit.item(card, PlayZone.HAND).bounds.center)
+        assertFalse(toolkit.cast.open)
+        assertEquals(card, toolkit.shaking?.id, "the card shakes")
+        assertNull(toolkit.error, "no message")
+        assertNull(kit.routes.choosingText(kit.alice.play()), "Alice's own table doesn't say she is choosing")
+        assertEquals(0, toolkit.choiceFlashes)
         toolkit.peek(card)
         assertNotNull(toolkit.peek, "Holding to inspect still works")
         toolkit.peek(null)
@@ -111,8 +110,15 @@ class EngineChoiceScreenTest {
         assertTrue(kit.bob.play().flowOpen, "Bob's table shows the open choice")
         val bobs = kit.bob.device.model.engine.let { s -> s.player(kit.other).hand.first() as ObjectId.Card }.card.value
         assertIs<GameDevice.Status.Waiting>(kit.bob.device.status)
+        assertEquals("Alice is choosing", kit.bobRoutes.choosingText(kit.bob.play()))
         assertFalse(kit.bobToolkit.cast.start(bobs), "refused on Bob's device too")
         assertFalse(kit.bobToolkit.cast.open)
+        val (bobGestures, _) = kit.gestures(kit.bobToolkit, f.b)
+        kit.doubleTap(bobGestures, kit.item(bobs, PlayZone.HAND, f.b).bounds.center)
+        assertFalse(kit.bobToolkit.cast.open)
+        assertEquals(bobs, kit.bobToolkit.shaking?.id, "Bob's card shakes")
+        assertTrue(kit.bobToolkit.choiceFlashes > 0, "and his event text flashes")
+        assertNull(kit.bobToolkit.error, "no message")
     }
 
     // STK-033, CMB-033, CR 510.1c: a division of combat damage Automatum asks for is its open choice, made in the division

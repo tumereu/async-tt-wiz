@@ -37,11 +37,22 @@ internal fun shakeKeyframes(): KeyframesSpec<Float> = keyframes {
     for ((n, at) in SHAKE_OFFSETS.withIndex()) at at (n + 1) * SHAKE_MILLIS / (SHAKE_OFFSETS.size + 1)
 }
 
+/** TBL-118, HIS-075: told of each refused control's shake ([shaken]); the game table's makes the event text flash while
+ * the other player's choice is open ([TableToolkitController.refusedTap]). */
+internal val LocalRefusedTap = staticCompositionLocalOf<() -> Unit> { {} }
+
 /** Shakes the element each time [shakes] goes up (I-D46: a refused control says why on hold, never by a message). */
 @Composable
 internal fun Modifier.shaken(shakes: Int): Modifier {
     val offset = remember { Animatable(0f) }
-    LaunchedEffect(shakes) { if (shakes > 0) offset.animateTo(0f, shakeKeyframes()) }
+    val refused by rememberUpdatedState(LocalRefusedTap.current)
+    val start = remember { shakes }
+    LaunchedEffect(shakes) {
+        if (shakes > 0) {
+            if (shakes != start) refused()
+            offset.animateTo(0f, shakeKeyframes())
+        }
+    }
     return graphicsLayer { translationX = offset.value * density }
 }
 

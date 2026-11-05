@@ -145,7 +145,10 @@ internal fun EngineTableScreen(controller: LobbyController, accountId: String, h
     val reviewing = reviewPlay != null || playing || catchUp
     var playbackSettingsOpen by remember(game.id) { mutableStateOf(false) }
     val timeline = engine.timeline.events(engine, names)
-    CompositionLocalProvider(LocalEngineRoutes provides routes) {
+    // HIS-075: while the other player makes a choice the event text says so (also with Event text off, never in timeline
+    // mode); TBL-118: a refused control's shake meanwhile flashes it
+    val choosing = if (reviewPlay == null) routes.choosingText(play) else null
+    CompositionLocalProvider(LocalEngineRoutes provides routes, LocalRefusedTap provides toolkit::refusedTap) {
         Column(Modifier.fillMaxSize().background(Color(0xfff3f5f5))) {
             BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
                 TableSurface(game, play, accountId, landscape, Modifier.fillMaxSize(), connected = interactive && !locked && reviewPlay == null,
@@ -185,7 +188,8 @@ internal fun EngineTableScreen(controller: LobbyController, accountId: String, h
                             else -> null
                         }))
                 // Over the top row (whose move/step/turn), never taking its taps.
-                EventTextOverlay(eventText, playbackPause, Modifier.align(Alignment.TopCenter))
+                EventTextOverlay(eventText, playbackPause, Modifier.align(Alignment.TopCenter), status = choosing,
+                    flashes = toolkit.choiceFlashes)
             }
         }
     }

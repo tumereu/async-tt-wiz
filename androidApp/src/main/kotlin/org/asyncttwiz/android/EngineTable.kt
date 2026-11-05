@@ -77,6 +77,10 @@ interface EngineRoutes {
      * request id the table worked [actions] out with (an action may name what an earlier one of them made, the combat
      * area its Open made); null for one action. */
     fun local(actions: List<PlayAction>, requestId: String? = null): Boolean
+    /** Whether the game waits for the other player's choice now (nobody holds priority: a choice while resolving, a
+     * trigger's targets or modes, their blockers, their mulligan): what the viewer tries meanwhile is refused with a shake
+     * and the event text's flash (HIS-075, TBL-118). */
+    fun othersChoice(): Boolean = false
 }
 
 /** The open table's engine routes and the async panels' own state (personal UI). */
@@ -223,6 +227,16 @@ internal class EngineTableRoutes(val viewer: String, private val game: () -> Eng
     /** STK-029 (owner playtest 2026-11-04 #6): something is on [play]'s Stack, so letting it resolve (Resolve) or
      * assuming the other player lets it (Assume) is the button directly under the Stack, not the step arrow's. */
     fun stackHolds(play: TableBoard): Boolean = CombatStackRules.stack(play.board).cards.isNotEmpty()
+
+    /** The wait of [othersChoice], or null: the other player is choosing, declaring blockers or deciding on a mulligan. */
+    private fun choiceWait(): GameDevice.Wait? = (status() as? GameDevice.Status.Waiting)?.reason
+        ?.takeIf { it is GameDevice.Wait.Choosing || it == GameDevice.Wait.Blockers || it == GameDevice.Wait.Keep }
+
+    override fun othersChoice(): Boolean = choiceWait() != null
+
+    /** HIS-075: the event text's status while the other player makes a choice, in the wait's words (TRN-066: "Bob is
+     * choosing · Ember Divination", "Bob is deciding on a mulligan"), or null when the game doesn't wait for one. */
+    fun choosingText(play: TableBoard): String? = choiceWait()?.let { waitingText(it, play, opponentName) }
 
     /** The faint words over the battlefield while the other player must act (TRN-066), or null. */
     fun waitingLine(play: TableBoard): String? {

@@ -113,19 +113,40 @@ internal fun EventTextSetting(accountId: String) {
     }
 }
 
-/** Overlays the table's top row. Purely visual (no pointer handlers), so taps reach the controls below. */
+/** How long the event text's warning flash takes to fade back (TBL-118: once, short). */
+internal const val EVENT_TEXT_FLASH_MILLIS = 450
+
+/** The event text's own colour. */
+private val EventTextFill = Color(0xf0253d44)
+
+/**
+ * Overlays the table's top row. Purely visual (no pointer handlers), so taps reach the controls below. [status]: the
+ * other player's open choice in the wait's words (HIS-075, TRN-066), shown instead of the event chips, also with Event
+ * text off, without fading while it lasts; each rise of [flashes] (a refusal meanwhile, TBL-118) flashes it once in the
+ * warning colour.
+ */
 @Composable
-internal fun EventTextOverlay(feed: EventTextFeed, pauseMillis: Long, modifier: Modifier = Modifier) {
+internal fun EventTextOverlay(feed: EventTextFeed, pauseMillis: Long, modifier: Modifier = Modifier,
+    status: String? = null, flashes: Int = 0) {
     val chip = feed.chip
     LaunchedEffect(chip?.serial, pauseMillis) {
         if (chip == null) return@LaunchedEffect
         delay(feed.remainingMillis(pauseMillis))
         feed.expire(chip.serial)
     }
+    val flash = remember { Animatable(0f) }
+    val firstFlashes = remember { flashes }
+    LaunchedEffect(flashes) {
+        if (flashes != firstFlashes && status != null) { flash.snapTo(1f); flash.animateTo(0f, tween(EVENT_TEXT_FLASH_MILLIS)) }
+    }
+    val warning = MaterialTheme.colorScheme.error
+    val shownChip = status?.let { EventTextChip(STATUS_CURSOR, it, -1, 0) } ?: chip
     Box(modifier.fillMaxWidth().height(48.dp), contentAlignment = Alignment.Center) {
-        InstantShowFadeOut(chip) { shown ->
+        InstantShowFadeOut(shownChip) { shown ->
+            val fill = if (shown.cursorId == STATUS_CURSOR) androidx.compose.ui.graphics.lerp(EventTextFill, warning, flash.value)
+                else EventTextFill
             Box(Modifier.padding(horizontal = 8.dp, vertical = 3.dp).widthIn(max = 420.dp)
-                .background(Color(0xf0253d44), RoundedCornerShape(8.dp))
+                .background(fill, RoundedCornerShape(8.dp))
                 .padding(horizontal = 10.dp, vertical = 3.dp)
                 .testTag("event-text")
                 .clearAndSetSemantics { contentDescription = shown.text; liveRegion = LiveRegionMode.Polite },
@@ -136,6 +157,9 @@ internal fun EventTextOverlay(feed: EventTextFeed, pauseMillis: Long, modifier: 
         }
     }
 }
+
+/** The cursor of [EventTextOverlay]'s status (no event's). */
+private const val STATUS_CURSOR = "status"
 
 /** Shows [value] at once and swaps a new value in at once; only its going away (to null) fades out.
  * Purely visual: no pointer handlers. */

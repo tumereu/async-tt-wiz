@@ -158,6 +158,20 @@ internal class EngineTableKit(val scenario: EngineCombatScenario = EngineCombatS
         playOn("Alice's Main 1") { aliceMain() }
     }
 
+    /** Alice keeps seven and plays nothing; in her second turn she has eight cards at her cleanup step: her discard, an
+     * Automatum choice of hers Bob's table waits for. */
+    fun toAliceDiscard(): arcanum.engine.decision.Decision.ChooseObjects {
+        opening()
+        assertTrue(toolkit.automatumStep(TableActionIntent.End(scope)), "End turn")
+        playOn("Alice's second Main 1") { aliceMain() && state().turn.number >= 3 }
+        kotlin.test.assertEquals(8, state().player(me).hand.size)
+        assertTrue(toolkit.automatumStep(TableActionIntent.End(scope)), "End turn")
+        playOn("Alice's discard") { state().pending?.decision is arcanum.engine.decision.Decision.ChooseObjects }
+        val decision = kotlin.test.assertIs<arcanum.engine.decision.Decision.ChooseObjects>(state().pending?.decision)
+        kotlin.test.assertEquals(me, decision.player)
+        return decision
+    }
+
     /** Alice plays a Mountain from her hand. */
     fun playLand(): String {
         val mountain = atw(hand("Mountain").first())

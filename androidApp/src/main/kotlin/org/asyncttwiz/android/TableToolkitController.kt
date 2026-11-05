@@ -33,7 +33,8 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
         automatumWork, tokenArt = tokenArt, shake = { shake(it) }, engineSend = engine?.let { e -> e::send })
     /** Priority, responding, resolution and triggers through Automatum (I2b): shared flows; while one waits for an
      * answer nothing else changes (D32). */
-    internal val flows = SharedFlowController(viewer, { current()?.takeIf { enabled() } }, { error = it },
+    internal val flows = SharedFlowController(viewer, { current()?.takeIf { enabled() } },
+        { if (it == SharedFlowController.BUSY) busyShake() else error = it },
         automatumWork, tokenArt = tokenArt, autotap = { cast.autotap }, engineSend = engine?.let { e -> e::send })
     private val automatumWork = automatumWork
 
@@ -183,10 +184,17 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
     data class Shake(val id: String, val serial: Int)
     var shaking by mutableStateOf<Shake?>(null); private set
     private var shakes = 0
-    fun shake(id: String) { error = null; shaking = Shake(id, ++shakes) }
+    fun shake(id: String) { error = null; shaking = Shake(id, ++shakes); refusedTap() }
+
+    /** TBL-118, HIS-075: bumped by every refusal (a shake, a greyed control's tap) while the game waits for the other
+     * player's choice ([EngineRoutes.othersChoice]): the event text saying so flashes once in the warning colour. */
+    var choiceFlashes by mutableIntStateOf(0); private set
+    /** A refused tap or gesture: the event text flashes while the other player's choice is open. */
+    fun refusedTap() { if (othersChoice()) choiceFlashes++ }
+    private fun othersChoice(): Boolean = engine?.othersChoice() == true
     /** UI review round 2 #4 (I-D46 b): an action refused because the viewer's own cast is open ("Finish or cancel the cast
-     * first.") shakes what it was made on (the card or pile whose menu it came from), else the card being cast, instead
-     * of a message. */
+     * first.") or Automatum's choice is open (STK-032) shakes what it was made on (the card or pile whose menu it came
+     * from), else the card being cast, instead of a message. */
     private fun busyShake() {
         val target = capture?.contextViewId ?: popupItem?.id ?: cast.castCard
         if (target != null) shake(target) else error = null
@@ -223,7 +231,7 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
 
     private fun enqueue(action: PlayAction, invocationId: String?): Boolean {
         if (lastInvocation != invocationId) { lastInvocation = invocationId; error = null }
-        refusal(action)?.let { if (it == CastController.BUSY) busyShake() else error = it; return false }
+        refusal(action)?.let { if (it == CastController.BUSY || it == SharedFlowController.BUSY) busyShake() else error = it; return false }
         return (engineDraft?.add(action) ?: gameplay(action, invocationId)).also { sent ->
             if (!sent) error = "Action could not be queued. Reconnect and try again."
         }
@@ -461,7 +469,10 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
         // lowers it
         if (item.zone == PlayZone.HAND && item.kind == TableItemKind.CARD) {
             dismiss()
-            item.cardId?.let(hand::tap)
+            // TBL-118: while the other player's choice is open the viewer's own hand card only shakes
+            val card = item.cardId
+            if (card != null && othersChoice() && CastController.ownHand(play, card, viewer)) { hand.lower(); shake(card); return }
+            card?.let(hand::tap)
             return
         }
         hand.lower()
@@ -517,6 +528,9 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
         // instead of saying why; genuine failures (offline, still working out) keep their message
         val target = gestureTarget(intent)
         if (target == null) return handleIntent(intent)
+        // TBL-118, HIS-075: while the other player's choice is open a double-tap or drag of a card is refused: it shakes
+        // and the event text flashes (a card dropped back where it was only goes back)
+        if (othersChoice() && intent is TableIntent.Move && !stays(intent)) { shake(target); return false }
         castGesture = target
         error = null
         val result = try { handleIntent(intent) } finally { if (!cast.open) castGesture = null }
@@ -524,6 +538,10 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
         if (!result && message != null && refusal(message)) shake(target)
         return result
     }
+
+    /** Whether [intent] is a drag that leaves the card where it was ([AutomatumDrags.Route.Stay]). */
+    private fun stays(intent: TableIntent.Move): Boolean =
+        intent.drag && current()?.let { AutomatumDrags.route(it, intent) } == AutomatumDrags.Route.Stay
 
     /** The item a refused gesture shakes (I-D46): a double-tapped or dragged card; null for anything else. */
     private fun gestureTarget(intent: TableIntent): String? = when (intent) {
@@ -555,6 +573,8 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
     private fun castMessage(message: String?) {
         val card = castGesture
         castGesture = null
+        // STK-032 (I-D46 b): a cast refused while Automatum's choice is open says nothing: its card shakes
+        if (message == SharedFlowController.BUSY) { if (card != null) shake(card) else busyShake(); return }
         val unplayable = message != null && !message.startsWith("The table changed") &&
             (message.endsWith("can't be cast now.") || message.endsWith("can't be played now."))
         if (unplayable && card != null) shake(card) else error = message

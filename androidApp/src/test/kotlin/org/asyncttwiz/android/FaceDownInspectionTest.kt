@@ -39,7 +39,7 @@ class FaceDownInspectionTest {
         return play to play.board.cards.single { it.id == card.id }
     }
 
-    // TBL-109, ZON-075
+    // TBL-109
     @Test fun onlyTheOwnerMayInspectAFaceDownFrontWhereverItLies() {
         // A real card is never in the Stack itself (STK-003).
         for (container in listOf("a/BATTLEFIELD", "a/EXILE", "a/GRAVEYARD")) {
@@ -54,7 +54,7 @@ class FaceDownInspectionTest {
         }
     }
 
-    // SYS-039, TBL-109, ZON-075: holding shows the owner the front marked "Face down"; the opponent never sees it
+    // SYS-039, TBL-109: holding shows the owner the front marked "Face down"; the opponent never sees it
     @Test fun ownerSeesTheFrontUnderAFaceDownMarkAndTheOpponentNeverSeesIt() {
         val viewer = mutableStateOf(f.a)
         val container = mutableStateOf("a/BATTLEFIELD")
@@ -80,7 +80,7 @@ class FaceDownInspectionTest {
         compose.onNodeWithContentDescription("Card image: Secret morph").assertExists()
     }
 
-    // SYS-065, TBL-109, ZON-075: a face-down Stack entry's front is its hand card's holder's alone.
+    // SYS-065, TBL-109: a face-down Stack entry's front is its hand card's holder's alone.
     @Test fun aFaceDownStackEntryShowsItsHolderTheMarkedFrontAndTheOpponentNothing() {
         val (base, held) = state("a/HAND")
         val card = held.copy(explicitlyCovered = false)

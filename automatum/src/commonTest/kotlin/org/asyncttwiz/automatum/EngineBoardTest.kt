@@ -62,8 +62,8 @@ class EngineBoardTest {
     private fun zoneOf(board: BoardState, card: String) =
         board.cards.singleOrNull { it.id == card }?.let { c -> board.containers.single { it.id == c.containerId }.zone }
 
-    // TBL-093, ZON-071, ZON-030: a creature leaving the Battlefield untaps and loses its counters and damage; the
-    // graveyard shows its newest card on top; ZON-074: a hand card cast is shown to both players while on the Stack
+    // ZON-071, ZON-030: a creature leaving the Battlefield untaps and loses its counters and damage; the
+    // graveyard shows its newest card on top; STK-002: a hand card cast is shown to both players while on the Stack
     @Test fun aCreatureThatDiesLeavesItsStateBehind() {
         table.put(alice, Zone.Battlefield, "Mountain", "Mountain")
         val (spark, second) = table.put(alice, Zone.Hand, "Storm Spark", "Storm Spark")

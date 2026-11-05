@@ -124,7 +124,7 @@ class EngineChoiceScreenTest {
     // STK-033, CMB-033, CR 510.1c: a division of combat damage Automatum asks for is its open choice, made in the division
     // panel: a row per creature that may get damage, filled in with Automatum's suggestion (lethal damage to each in
     // turn); OK deals the combat damage. Alice's Ember Cub (2/1) is blocked by three of Bob's (with two, lethal damage to
-    // each is the only in-order result: made without asking, CMB-033)
+    // each is the only in-order result: made without asking, STK-033)
     @Test fun aDivisionOfCombatDamageIsMadeInItsPanel() {
         val other = kit.other
         kit.scenario.confirmStops[f.b] = false

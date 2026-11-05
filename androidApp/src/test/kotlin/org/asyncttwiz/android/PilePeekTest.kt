@@ -122,7 +122,7 @@ class PilePeekTest {
         release(toolkit)
     }
 
-    // TBL-111, ZON-075
+    // TBL-111, TBL-109
     @Test fun theOpponentSeesAFaceDownPileCardOnlyAsCovered() {
         val (play, members) = pile()
         val toolkit = hold(play, f.b, members.first().id)

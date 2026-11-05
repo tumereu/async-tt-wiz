@@ -477,7 +477,7 @@ class TablePresentationTest {
         }
     }
 
-    // TBL-109, ZON-075
+    // TBL-109
     @Test fun automaticInspectionUsesCurrentRegionNotOwnerAndNeverGrantsOpponentHiddenSide() {
         val p = TableFixture.play(hand = 1)
         val changed = p.copy(board = p.board.copy(cards = p.board.cards.map { c -> c.copy(owner = if (c.owner == "a") "b" else "a") }))

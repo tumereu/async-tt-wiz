@@ -6,7 +6,7 @@ import org.junit.Test
 import kotlin.test.*
 
 class TableChromeTest {
-    // SYS-017, TRN-011
+    // SYS-017
     @Test fun initialAdmissionAndCatchupAreLoadingNotUnavailable() {
         val game = TableFixture.game.id
         val connecting = LobbyState()

@@ -91,7 +91,7 @@ class EngineGameTest {
     }
 
     // SYS-012 (abreview #1): the player's own action that the game moved on from before it reached the server is told
-    // ("That wasn't taken…"), never dropped silently; the table goes back to the server's. TRN-027, SYS-011 (2026-11-04):
+    // ("That wasn't taken…"), never dropped silently; the table goes back to the server's. TRN-027, SYS-077 (2026-11-04):
     // a declaration the server refused because the other player's event came first waits for that event and is made
     // again on it while it is still asked; here Bob conceded, so it isn't, and it is told
     @Test fun aRefusedOwnActionIsTold() {

@@ -84,7 +84,7 @@ class EngineDeclaringAttackersTest {
         return hound to kit.atw(kit.field("Ash Oracle", kit.other).single())
     }
 
-    // CMB-028, STK-036, TBL-122, CMB-015, CMB-012: Full control stops at the beginning of combat (the arrow reads Next)
+    // CMB-028, CMB-047, STK-036, TBL-122, CMB-015, CMB-012: Full control stops at the beginning of combat (the arrow reads Next)
     // and one tap there activates the Hound's ability; while attackers are chosen nothing can be activated and a tap on
     // the Hound only stages or unstages it (at the lane made active by its header); dragging its copy between lanes
     // retargets it; the arrow attacks the Oracle

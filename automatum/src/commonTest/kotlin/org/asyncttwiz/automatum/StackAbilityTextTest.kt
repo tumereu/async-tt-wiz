@@ -25,7 +25,7 @@ class StackAbilityTextTest {
                 modes = modes, timestamp = 1)) { MtgRef.StackItem("S1") }
         }
 
-    // STK-046: holding an ability on the Stack names its chosen modes on the ability's tile (Inspect shows every face)
+    // STK-050: holding an ability on the Stack names its chosen modes on the ability's tile (Inspect shows every face)
     @Test fun aTriggeredAbilityNamesItsChosenModes() {
         assertEquals(listOf("Untap target nonland permanent."), StackAbilityText.modes(entry(listOf(1))))
         assertTrue(StackAbilityText.modes(entry(emptyList())).isEmpty())

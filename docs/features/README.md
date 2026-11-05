@@ -16,13 +16,11 @@ text in `docs/design/` or `docs/decisions.md`, the catalog wins.
 | [draft.md](draft.md) | `DRF` Cubes, pods, drafting, grids, deck building |
 | [rules.md](rules.md) | `SYS` Cross-cutting rules every feature follows (authority, performance, policies) |
 
-## Games on engine state (I-D54, I-D56)
+## Games on engine state
 
-Every game is played on engine state with async play (`docs/specs/async-play.md`) since the switch-over (I-D56 step D2);
-games started before it were removed. The entries describe that path. The entries of the old model's history texts,
-icons, groups, reveal-panel holds and batches (HIS-029, HIS-051–HIS-057, HIS-059, HIS-060, HIS-063–HIS-069,
-HIS-071–HIS-073, SYS-056, SYS-061) were removed with it, and so were its code and tests
-(engine-responsiveness R4).
+Every game is played on engine state with async play (each player acts only for themselves; the other player's
+answers may be assumed and are confirmed or branched by their real answer). The entries describe that; the old
+model, where the table was changed by hand, is gone with its entries.
 
 ## Entry format
 

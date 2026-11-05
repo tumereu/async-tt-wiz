@@ -67,7 +67,7 @@ class TableInteractionsScreenshotTest {
         assertTrue(sent.isEmpty())
     }
 
-    // TBL-063
+    // SYS-042
     @Test fun contextMenuNormal() { menu(412f, 892f, 1f) }
     @Test @Config(qualifiers = "w360dp-h640dp-port-mdpi") fun contextMenuSmallLargeFont() { menu(360f, 640f, 1.3f) }
     @Test @Config(qualifiers = "w640dp-h360dp-land-mdpi") fun contextMenuLandscapeLargeFont() { menu(640f, 360f, 1.3f) }

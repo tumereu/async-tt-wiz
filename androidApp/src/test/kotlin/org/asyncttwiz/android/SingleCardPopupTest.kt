@@ -22,7 +22,7 @@ class SingleCardPopupTest {
         })
         val scene = TablePresentation.scene(f.game, engineTableBoard(play, f.a), f.a, 412f, 892f, false)
         gestures.update(scene, true)
-        // Bob's lands: their menus list their mana abilities, greyed (TBL-115); a card offering nothing opens no menu (TBL-116)
+        // Bob's lands: their menus list their mana abilities, greyed (TBL-115, TBL-123); a card offering nothing opens no menu (TBL-116)
         fun forest(id: String?) = play.board.cards.singleOrNull { it.id == id }?.let { card ->
             card.owner == f.b && play.definitions.single { it.digest == card.definition }.definition.name == "Forest" } == true
         val (a, b) = scene.items.filter { item -> item.kind == TableItemKind.CARD && item.zone == PlayZone.BATTLEFIELD &&

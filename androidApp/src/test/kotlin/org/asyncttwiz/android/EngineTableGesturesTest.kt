@@ -62,7 +62,7 @@ class EngineTableGesturesTest {
         }
     }
 
-    // TBL-045, ZON-004, ZON-006: double-tapping a hand card plays it through Automatum (a land onto the battlefield,
+    // ZON-004, TBL-044: double-tapping a hand card plays it through Automatum (a land onto the battlefield,
     // untapped); a hand card is never turned
     @Test fun aHandDoubleTapPlaysThroughAutomatumAndNeverTaps() {
         kit.opening()

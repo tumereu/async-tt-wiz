@@ -161,7 +161,7 @@ class LobbyPreparationTest {
         }
     }
 
-    // DRF-133, LOB-040, LOB-055
+    // LOB-040, LOB-055
     @Test fun draftDecksArePlayableAndListedAfterOrdinaryDecksUnderTheirOwnHeading() = Fixture().use { f ->
         val draft = source.copy(deck = source.deck.copy(id = id(), name = "Friday pod draft", draft = DraftDeckOrigin(id(), "Friday pod")))
         f.decks = listOf(source); f.draftDecks = listOf(draft)
@@ -198,7 +198,7 @@ class LobbyPreparationTest {
         f.lobby.closePicker(); assertFalse(f.lobby.importedForPicker(imported.deck))
     }
 
-    // LOB-045, SYS-018
+    // SYS-018
     @Test fun chooseDeckWorksWhileReconnectingAndTheSelectionIsSentOnceConnected() {
         for (leave in listOf(false, true)) Fixture().use { f ->
             f.wire.listener.disconnected(false); f.drain()

@@ -12,7 +12,7 @@ state and the server runs the engine (I-D54), and each player decides only for
 themselves, with a few answers assumed (I-D56). So §1's "optional layer on a manual
 table", the non-goal "not a rules referee", D1, D2's and D7's switch, D4, D11, D20,
 D32, P1, P2's manual fixes, P4, P7, P8, §7.9, §8, §9, §10, §11 and the switch rows of
-§13 no longer describe ATW; `arcanum-atw-integration.md` and `async-play.md` do. They
+§13 no longer describe ATW; `arcanum-atw-integration.md` and the feature catalog do. They
 are marked where they stand.
 
 ## 1. What it is
@@ -493,7 +493,7 @@ kept in a visible **mana pool** until it empties at the end of the step (P2).
 
 ### 7.9 Deciding for another player (D11)
 
-*Superseded by I-D56: nobody decides for the other player; see `async-play.md` §3, §6.*
+*Superseded by I-D56: nobody decides for the other player; see the catalog (SYS-036, HIS-096).*
 
 Every pending decision is shown to the player it belongs to, and the other player can
 open and answer it too, like any manual action:
@@ -562,7 +562,7 @@ catalog entries.
 
 ## 9. Turns and priority
 
-*Decided by I-D56 (`async-play.md`): response modes, assumed answers and decision stops; no response windows.*
+*Decided by I-D56 (now in the catalog): response modes, assumed answers and decision stops; no response windows.*
 
 - **Async play (D4):** today's Stack and attention flow. No new priority system.
 - **Live play: open.** Options discussed:
@@ -586,7 +586,7 @@ catalog entries.
 
 ## 11. Fit with existing rules
 
-*Historical: history, undo and player access are now `async-play.md` §8–§10 and the catalog (SYS-036, HIS-098).*
+*Historical: history, undo and player access are now in the catalog (SYS-036, HIS-087, HIS-097).*
 
 - **History, undo, branches:** unchanged, because results are ordinary actions (P1).
   Undo of an automated batch is one Undo (SYS-004, SYS-010).

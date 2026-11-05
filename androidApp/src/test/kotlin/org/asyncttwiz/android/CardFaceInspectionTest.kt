@@ -132,7 +132,7 @@ class CardFaceInspectionTest {
         assertEquals(listOf("Nightfall horror", "Daylight healer"), inspectFaces(InspectedCard(definition, listOf(null, null)), 1).map { it.name })
     }
 
-    // SYS-039, TBL-109, ZON-075
+    // SYS-039, TBL-109
     @Test fun opponentSeesEveryFaceOfAFaceUpCardAndNothingOfAHiddenOne() {
         val (play, card) = transformedFixture()
         show(play, card, f.b)

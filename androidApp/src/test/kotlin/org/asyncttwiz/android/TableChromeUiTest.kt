@@ -152,7 +152,7 @@ class TableChromeUiTest {
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi")
     fun landscapeMaxLengthOpponentNameDoesNotCoverHandOrStep() = maxLengthOpponentNameDoesNotCoverControls(true)
 
-    // SYS-017, TRN-011
+    // SYS-017
     @Test fun loadingHasSpinnerAndOnlyFailureOffersReconnect() {
         var state by mutableStateOf(LobbyState())
         compose.setContent { MaterialTheme {

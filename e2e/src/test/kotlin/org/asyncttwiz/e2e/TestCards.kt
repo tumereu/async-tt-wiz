@@ -45,6 +45,18 @@ object TestCards {
             "Flying, haste\nEnchanted creature gets +1/+1 and has flying and haste.", "1", "1")
     /** Empties its caster's hand for free. */
     val thoughts = card("Empty Thoughts", "Sorcery", "{0}", "Discard your hand.")
+
+    /** A split card ({2}{G} // {1}{R}{R}) as a catalog import keeps it (PhysicalCardFaces): one face holding both halves,
+     * the front half's catalog record (its cost only) as the face's source data. */
+    val trailBlaze: SubmittedDefinition = run {
+        val halves = listOf(
+            DefinitionFace(UUID.nameUUIDFromBytes("e2e/Trail".encodeToByteArray()).toString(), "Trail", typeLine = "Instant", manaCost = "{2}{G}", rulesText = "Draw a card.",
+                sourceData = """{"manaCost":"{2}{G}"}"""),
+            DefinitionFace(UUID.nameUUIDFromBytes("e2e/Blaze".encodeToByteArray()).toString(), "Blaze", typeLine = "Instant", manaCost = "{1}{R}{R}", rulesText = "Blaze deals 3 damage to any target."))
+        val definition = org.asyncttwiz.protocol.PhysicalCardFaces.normalize(
+            CardDefinition("Trail // Blaze", halves, provider = "mtgjson", layout = "split"))
+        SubmittedDefinition(DeckJson.digest(definition), definition)
+    }
 }
 
 /** A deck: [entries] of cards, in this order (the library's order before the opening shuffle). */

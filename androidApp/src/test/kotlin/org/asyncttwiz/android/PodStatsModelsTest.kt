@@ -134,6 +134,30 @@ class PodStatsModelsTest {
         assertEquals(0, stats.missingDefinitions)
     }
 
+    /** A multi-part card as the catalog import keeps it: one face, both parts in its rules text, the front record's cost. */
+    private fun twoPart(layout: String, front: Pair<String, String>, back: Pair<String, String>, type: String) =
+        PhysicalCardFaces.normalize(CardDefinition("${front.first} // ${back.first}", listOf(
+            DefinitionFace("a", front.first, typeLine = type, manaCost = front.second, rulesText = "Draw a card.",
+                sourceData = """{"manaCost":"${front.second}"}"""),
+            DefinitionFace("b", back.first, typeLine = if (layout == "adventure") "Instant — Adventure" else type,
+                manaCost = back.second, rulesText = "Draw a card.")), provider = "mtgjson", layout = layout))
+
+    // DRF-114, DRF-116: a split card (fuse too) and an aftermath card count both halves' pips (CR 709.4: outside the
+    // Stack a split card's mana cost is its halves' combined); an adventurer card counts its creature's, as its mana value.
+    @Test fun splitAndAftermathCardsCountBothHalvesPipsAdventurersTheirCreatures() {
+        val definitions = mapOf(
+            "split" to twoPart("split", "Trail" to "{2}{G}", "Blaze" to "{1}{R}{R}", "Instant"),
+            "after" to twoPart("aftermath", "Dig" to "{1}{B}", "Bury" to "{3}{W}", "Sorcery"),
+            "adv" to twoPart("adventure", "Woodland Knight" to "{1}{W}", "Charge" to "{U}", "Creature — Human Knight"))
+        assertEquals("{2}{G}{1}{R}{R}", podStatsPipCost(definitions.getValue("split")))
+        assertEquals("{1}{W}", podStatsPipCost(definitions.getValue("adv")))
+        val copies = definitions.keys.associateWith { DraftCopy(it, it) }
+        val stats = podStats(PodDeckBuild(copies.keys.map { PodDeckCopy(it) }), copies, definitions)
+        assertEquals(mapOf(DraftColor.W to 2.0, DraftColor.U to 0.0, DraftColor.B to 1.0, DraftColor.R to 2.0, DraftColor.G to 1.0), stats.pips)
+        assertEquals(listOf("{B}{W}" to 1, "{G}{R}{R}" to 1, "{W}" to 1), stats.pipPatterns)
+        assertEquals(mapOf(2.0 to PodStatsCurveBucket(creatures = 1), 6.0 to PodStatsCurveBucket(noncreatures = 2)), stats.curve)
+    }
+
     @Test fun normalizedCostFallsBackToSourceDataAndOnlyFrontAffectsCurvePipsAndLandType() {
         val card = CardDefinition("Front", listOf(
             DefinitionFace("front", "Front", typeLine = "Sorcery", sourceData = """{"manaCost":"{X}{3}{U/P}{W/U}"}"""),

@@ -112,15 +112,15 @@ object ServerSetup {
 
     /**
      * A pod [name] of [a] (its creator) and [b] drafting: a cube of [TestCards] (a booster draft of three packs of two
-     * cards each), [b] invited and accepted, the draft started. Returns the pod's id.
+     * cards each), [b] invited and accepted, the draft started. [cards]: the cube's cards, twelve in all, evenly. Returns the pod's id.
      */
-    fun draftingPod(a: TestAccount, b: TestAccount, name: String): String = runBlocking {
+    fun draftingPod(a: TestAccount, b: TestAccount, name: String,
+        cards: List<SubmittedDefinition> = listOf(TestCards.mountain, TestCards.cub, TestCards.spark)): String = runBlocking {
         fun id() = UUID.randomUUID().toString()
         LobbyApi(origin).use { it.add(a.token, AddContact(id(), b.id)) }
-        val cards = listOf(TestCards.mountain, TestCards.cub, TestCards.spark)
         val cube = DeckApi(origin).use { api ->
             api.submit(a.token, SubmitDefinitions(id(), cards))
-            api.create(a.token, CreateCube(id(), "E2E cube", cards.map { SavedCubeEntry(it.digest, 4) }))
+            api.create(a.token, CreateCube(id(), "E2E cube", cards.map { SavedCubeEntry(it.digest, 12 / cards.size) }))
         }
         org.asyncttwiz.android.PodApi(origin).use { api ->
             val pod = api.create(a.token, CreatePod(id(), name, cube.cube.id)).id

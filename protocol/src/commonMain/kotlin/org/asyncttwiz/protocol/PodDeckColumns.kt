@@ -36,14 +36,20 @@ object PodDeckManaCost {
      * Split and aftermath cards count both halves, whose costs survive only in the combined rules text. */
     fun front(card: CardDefinition): PodDeckMana {
         val face = card.faces.firstOrNull() ?: return PodDeckMana(0.0, emptySet())
-        if (face.manaCost.isEmpty() && card.layout in setOf("split", "aftermath") && card.faces.size == 1) {
-            val halves = face.rulesText.split("────────").mapNotNull { half ->
-                half.lines().map(String::trim).firstOrNull { it.isNotEmpty() && costLine.matches(it) }?.let(::parse)
-            }
-            if (halves.isNotEmpty()) return PodDeckMana(halves.sumOf { it.value }, halves.flatMap { it.colors }.toSet())
-        }
+        val halves = splitHalfCosts(card).map(::parse)
+        if (halves.isNotEmpty()) return PodDeckMana(halves.sumOf { it.value }, halves.flatMap { it.colors }.toSet())
         val cost = face.manaCost.ifEmpty { record(face)?.get("manaCost")?.jsonPrimitive?.content.orEmpty() }
         return parse(cost)
+    }
+
+    /** A split (fuse included) or aftermath card's halves' costs in printed order, read from the combined rules text
+     * the catalog keeps; empty for any other card, or one whose face keeps its own cost. */
+    fun splitHalfCosts(card: CardDefinition): List<String> {
+        val face = card.faces.singleOrNull() ?: return emptyList()
+        if (face.manaCost.isNotEmpty() || card.layout !in setOf("split", "aftermath")) return emptyList()
+        return face.rulesText.split("────────").mapNotNull { half ->
+            half.lines().map(String::trim).firstOrNull { it.isNotEmpty() && costLine.matches(it) }
+        }
     }
 
     /** The catalog's own colors (devoid, color indicators) when retained; null when unknown. */

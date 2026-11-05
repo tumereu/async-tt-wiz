@@ -88,8 +88,10 @@ object EngineProjection {
             if (prepared != null && !obj.token && !obj.copyOfCard) return@getOrPut prepared.definition
             val definition = obj.definition ?: return@getOrPut prepared?.definition ?: UNKNOWN.digest.also { definitions[it] = UNKNOWN }
             val made = AtwTokens.submitted(definition, token = true)
-            // Once found, a token keeps its picture ([pictures], kept by the caller) after the log forgets what made it
-            val shown = if (!obj.token || tokenArt === TokenArt.None) made else pictures.getOrPut(obj.id) { pictured(made, madeBy[obj.id], base, byCard, tokenArt) }
+            // Once found, a token keeps its picture ([pictures], kept by the caller) after the log forgets what made it;
+            // a copy of a card (offspring, embalm, myriad, …) is drawn with that card's own picture
+            val shown = copied(made, base)
+                ?: if (!obj.token || tokenArt === TokenArt.None) made else pictures.getOrPut(obj.id) { pictured(made, madeBy[obj.id], base, byCard, tokenArt) }
             shown.also { definitions[it.digest] = it }.digest
         }
         fun faceIdOf(obj: GameObject, digest: String): String {
@@ -254,6 +256,22 @@ object EngineProjection {
             attentionHolder = attention, priority = state.priority.let { MtgPriority(it.holder?.value, it.passes) },
             engineRecords = records, move = move)
         return Board(board, definitions.values.sortedBy { it.digest })
+    }
+
+    /**
+     * SYS-072 (owner, 2026-11-05): [made], the card data of a copy of a card (a token copy: offspring, populate, embalm,
+     * eternalize, myriad, encore, …; or a copy that is no card), drawn with the copied card's own picture: each face takes
+     * the picture of the game's card face of its name (the game's cards, not tokens). Null when no face is named so.
+     */
+    private fun copied(made: SubmittedDefinition, base: PlayState): SubmittedDefinition? {
+        val pictures = base.definitions.asSequence().filter { !it.definition.token }.flatMap { it.definition.faces }
+            .filter { it.scryfallId != null || it.imageUri != null }
+        val faces = made.definition.faces.map { face ->
+            pictures.firstOrNull { it.name == face.name }?.let { face.copy(scryfallId = it.scryfallId, imageUri = it.imageUri) } ?: face
+        }
+        if (faces == made.definition.faces) return null
+        val card = made.definition.copy(faces = faces)
+        return SubmittedDefinition(org.asyncttwiz.protocol.DeckJson.digest(card), card)
     }
 
     /** [token] drawn with the picture [tokenArt] finds for it and the card whose effect made it ([by]); as it is when

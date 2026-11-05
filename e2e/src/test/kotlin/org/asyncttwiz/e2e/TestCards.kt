@@ -13,9 +13,9 @@ import java.util.UUID
  */
 object TestCards {
     private fun card(name: String, typeLine: String, manaCost: String = "", rulesText: String = "", power: String = "",
-        toughness: String = "", loyalty: String = ""): SubmittedDefinition {
+        toughness: String = "", loyalty: String = "", scryfallId: String? = null): SubmittedDefinition {
         val face = DefinitionFace(UUID.nameUUIDFromBytes("e2e/$name".encodeToByteArray()).toString(), name, typeLine = typeLine,
-            manaCost = manaCost, rulesText = rulesText, power = power, toughness = toughness, loyalty = loyalty)
+            manaCost = manaCost, rulesText = rulesText, power = power, toughness = toughness, loyalty = loyalty, scryfallId = scryfallId)
         val definition = CardDefinition(name, listOf(face))
         return SubmittedDefinition(DeckJson.digest(definition), definition)
     }
@@ -33,6 +33,9 @@ object TestCards {
     val wisp = card("Restless Wisp", "Creature — Spirit", "{0}",
         "When this creature enters, sacrifice a creature.\nWhen this creature dies, return it to the battlefield under its owner's control.",
         "1", "1")
+    /** Makes a token copy of itself as it enters (when cast), drawn with a picture of its own (an invented art id). */
+    val twin = card("Ember Twin", "Creature — Elemental", "{R}", "When this creature enters, if you cast it, create a token that's a copy of it.",
+        "2", "1", scryfallId = UUID.nameUUIDFromBytes("e2e/art/Ember Twin".encodeToByteArray()).toString())
     /** Empties its caster's hand for free. */
     val thoughts = card("Empty Thoughts", "Sorcery", "{0}", "Discard your hand.")
 }

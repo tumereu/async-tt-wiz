@@ -19,7 +19,7 @@ Changes the owner wants but that are not built yet. The feature catalog
 
 ## Ready to build
 
-- Analysis (owner, 2026-11-04): adversarial review of the event-based state changes on device and server — undo/rewind, branches, assumptions, re-made and same-decision actions, anything cached per line/event/decision id (autotap plans, early answers), line reseeding — for inconsistency bugs like "cast → undo → recast refused" (decision ids include the engine change-log size; the new line's reshuffle rides in the next event); reproduce each in e2e, propose simplifications (stable decision identity) before building them.
+- Analysis done (2026-11-05): proposals pending owner.
 
 ## Ready after the e2e framework (owner playtest, 2026-11-05)
 

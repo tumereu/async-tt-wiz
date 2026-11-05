@@ -1,0 +1,1 @@
+Alice began casting Ember Burst ({X}) with one Mountain and tapped + once: the cast panel shows X at 1 with + greyed at the most her mana pays, and only the eye and Cast below, no OK and no Cancel.

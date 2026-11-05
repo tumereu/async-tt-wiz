@@ -141,6 +141,34 @@ object HandCasts {
         return all + offered.filter { it !in all }
     }
 
+    /**
+     * STK-023 (owner playtest 2026-11-05 evening): the most the announcement open in [flow] ([Decision.Announce], an X)
+     * may be so that the cast can still be paid with what the player has now, each value tried as far as the payment as
+     * the chips are ([probe]: the later questions answered with the engine's first listed answers); one less than its
+     * least when even that can't be paid; at most [cap] (and the decision's own most). Null when no announcement is open.
+     * Blocking (a few replays per value tried); the app runs it on the Automatum worker.
+     */
+    fun mostAnnounced(flow: CastFlow, cap: Int = MAX_ANNOUNCED): Int? {
+        val open = flow.pending as? Decision.Announce ?: return null
+        val top = minOf(open.max ?: cap, cap).coerceAtLeast(open.min)
+        fun pays(value: Int) = probe { flow.answer(Answer.Number(value)) }.affordable
+        if (!pays(open.min)) return open.min - 1
+        // Doubling steps up to the first value that can't be paid, then halving between it and the last that can
+        var good = open.min
+        var bad: Int? = null
+        var step = 1
+        while (good < top) {
+            val next = minOf(good + step, top)
+            if (pays(next)) { good = next; step *= 2 } else { bad = next; break }
+        }
+        var high = bad ?: return good
+        while (high - good > 1) {
+            val middle = (good + high) / 2
+            if (pays(middle)) good = middle else high = middle
+        }
+        return good
+    }
+
     /** The spell's optional additional costs as it is cast in [flow] (CR 601.2b), in the order the engine asks them. */
     internal fun extrasOf(flow: CastFlow): List<Pair<AbilityInstance, Mechanic.AdditionalCost>> {
         if (flow.begin !is Input.Cast) return emptyList()
@@ -242,5 +270,7 @@ object HandCasts {
     private const val OPTIONAL_KEY = "opt:"
     private const val MAX_EXTRAS = 16
     private const val MAX_QUESTIONS = 12
+    /** The most an X is ever offered ([mostAnnounced]). */
+    const val MAX_ANNOUNCED = 99
     private val SYMBOL = Regex("""\{[^{}]+\}""")
 }

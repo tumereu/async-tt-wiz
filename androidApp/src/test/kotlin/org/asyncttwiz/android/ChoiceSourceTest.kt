@@ -106,7 +106,7 @@ class ChoiceSourceTest {
     }
 
     // STK-047, STK-044: choosing the Charm's damage mode turns the panel into the target bar: "Choose any target", with
-    // the Charm at its right, after Cancel
+    // the Charm at its right
     @Test fun theTargetBarShowsTheSpellAtItsRight() {
         val kit = kit(Choices.CHARM, "Mountain")
         kit.opening()
@@ -118,7 +118,7 @@ class ChoiceSourceTest {
         compose.onNode(hasText("Choose any target") and isHeading()).assertExists()
         sourceAtTheRight("Choose targets", "Choose any target", Choices.CHARM)
         compose.onRoot().captureShot("$SCREENSHOTS/choice-source/target-bar.png",
-            "Alice chose Cinder Charm's damage mode: the slim bar above her hand says only \"Choose any target\" with Cancel, and the Charm sits at the bar's right as a small card while the legal targets glow.")
+            "Alice chose Cinder Charm's damage mode: the slim bar above her hand says only \"Choose any target\" beside its eye, and the Charm sits at the bar's right as a small card while the legal targets glow.")
         holdingTheSourceInspects(Choices.CHARM)
     }
 

@@ -64,6 +64,8 @@ internal class EngineGameFixture(val startingPlayer: String = TableStatesFixture
         const val SEER = "Spark Seer"
         const val QUENCH = "Quench Spark"
         const val TOTEM = "Spark Totem"
+        /** {X}: X damage to any target (STK-023: the X stepper, bounded by the mana). */
+        const val BURST = "Ember Burst"
     }
     private fun free(id: String, name: String, typeLine: String, text: String, power: String = "", toughness: String = "") =
         Invented(DefinitionFace(id, name, typeLine = typeLine, manaCost = "{0}", rulesText = text, power = power, toughness = toughness),
@@ -74,6 +76,8 @@ internal class EngineGameFixture(val startingPlayer: String = TableStatesFixture
         free("seer", Choices.SEER, "Creature — Elemental", "When this creature enters, it deals 1 damage to any target.", "1", "1"),
         free("quench", Choices.QUENCH, "Instant", "Counter target spell."),
         free("totem", Choices.TOTEM, "Artifact", "{T}: This artifact deals 1 damage to any target."),
+        Invented(DefinitionFace("burst", Choices.BURST, typeLine = "Sorcery", manaCost = "{X}", rulesText = "Ember Burst deals X damage to any target."),
+            OracleCard(Choices.BURST, "{X}", "Sorcery", "Ember Burst deals X damage to any target.")),
     ).associateBy { it.submitted.definition.name }
     private val aliceChoices = aliceCards.map { choiceCards[it] ?: if (it == "Mountain") mountain else error("no card $it") }
 

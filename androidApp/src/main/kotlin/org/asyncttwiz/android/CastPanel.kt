@@ -62,8 +62,8 @@ import org.asyncttwiz.protocol.*
  * alternative costs, targets; with Autotap off also the mana). It spans the table's width docked exactly above the
  * viewer's hand, with the card small at its right as in every Automatum panel (STK-044; hold: Inspect) and its
  * sections in the rules order (CR 601.2b–h). Targets are chosen on the table: the panel shrinks to a slim bar while legal
- * targets glow. The eye (I-D10) stays where it is: the rest of the panel fades away around it and comes back. "Cancel"
- * and Back drop the whole cast.
+ * targets glow. The eye (I-D10) stays where it is: the rest of the panel fades away around it and comes back. Back and
+ * Undo drop the whole cast (STK-025); there is no Cancel.
  */
 @Composable
 internal fun CastPanelHost(toolkit: TableToolkitController, play: TableBoard, scene: TableScene?, names: Map<String, String>) {
@@ -131,6 +131,44 @@ internal interface FlowQuestions {
     val paid: Boolean
     fun toggleMana(group: List<ManaUse>)
     fun shown(id: ObjectId): Boolean = true
+    /** The most a number asked ([Decision.Announce], [Decision.ChooseNumber]) may be: the decision's own most, or (an X
+     * of a cast, STK-023) the most the cast can still be paid with, below its least when even that can't be paid; null
+     * when there is no most. */
+    fun most(decision: Decision): Int? = when (decision) {
+        is Decision.Announce -> decision.max
+        is Decision.ChooseNumber -> decision.max
+        else -> null
+    }
+}
+
+/**
+ * STK-023 (owner playtest 2026-11-05 evening): in the cast panel a choice built up in place (X, several modes, a
+ * division) has no OK of its own: the panel's Cast answers it and goes on ([ChoiceOk]). [answer] answers the open
+ * decision [decision], null while the choice isn't complete.
+ */
+internal class CastOk(
+    /** The panel's main button ("Cast", "Activate", "Play"), named in the choices' hints instead of OK. */
+    val label: String = "Cast",
+) {
+    var decision by mutableStateOf<arcanum.engine.decision.DecisionId?>(null); private set
+    var answer by mutableStateOf<(() -> Unit)?>(null); private set
+    fun set(decision: arcanum.engine.decision.DecisionId, answer: (() -> Unit)?) { this.decision = decision; this.answer = answer }
+    fun clear(decision: arcanum.engine.decision.DecisionId) { if (this.decision == decision) { this.decision = null; answer = null } }
+}
+
+/** The cast panel the composed choice sits in ([CastOk]), null elsewhere. */
+internal val LocalCastOk = compositionLocalOf<CastOk?> { null }
+
+/**
+ * A choice's OK: its own button (enabled when [enabled]) answering with [answer]; in the cast panel ([LocalCastOk]) no
+ * button: the panel's Cast answers it (STK-023).
+ */
+@Composable
+internal fun ChoiceOk(decision: Decision, enabled: Boolean, answer: () -> Unit) {
+    val ok = LocalCastOk.current
+    if (ok == null) { ChoiceButton("OK", Icons.Outlined.Check, enabled = enabled, primary = true, onClick = answer); return }
+    SideEffect { ok.set(decision.id, answer.takeIf { enabled }) }
+    DisposableEffect(ok, decision.id) { onDispose { ok.clear(decision.id) } }
 }
 
 /** Left of the Stack (or of the table's right edge), centred on it vertically (or on [middle], dp), inside the table.
@@ -173,7 +211,6 @@ private fun TargetBar(cast: CastController, flow: CastFlow, play: TableBoard, so
         if (decision.max != 1 || decision.min == 0) TextButton(cast::confirmTargets, enabled = cast.picked.size >= decision.min) {
             IconText(Icons.Outlined.Check, if (cast.picked.isEmpty()) "None" else "Done")
         }
-        TextButton(cast::cancel, Modifier.semantics { contentDescription = "Cancel cast" }) { IconText(Icons.Outlined.Close, "Cancel") }
         ChoiceSource(source, inspector, Modifier.padding(start = 4.dp, end = 6.dp, top = 2.dp, bottom = 2.dp))
         ChoiceInspection(inspector, play, viewer)
     }
@@ -197,6 +234,8 @@ internal fun IconText(icon: ImageVector, text: String) {
 @Composable
 private fun CastPanel(cast: CastController, flow: CastFlow, play: TableBoard, names: Map<String, String>, source: ChoiceCardData) {
     val inspector = remember { ChoiceInspector() }
+    // STK-023: a choice built up in place is answered by Cast (no OK of its own)
+    val ok = remember(flow.activation, flow.begin is Input.PlayLand) { CastOk(actionLabel(flow)) }
     val shown by animateFloatAsState(if (cast.hidden) 0f else 1f, tween(180), label = "Cast panel")
     Column(Modifier.fillMaxWidth()
         .then(if (cast.hidden) Modifier else Modifier.pointerInput(Unit) {}.semantics { contentDescription = "Cast panel" })
@@ -224,7 +263,7 @@ private fun CastPanel(cast: CastController, flow: CastFlow, play: TableBoard, na
                     // I-D47: with Autotap on the panel has no mana selection (its sources are tapped as Cast goes out)
                     is Decision.ManaPayment -> if (!cast.autotap) ManaSection(cast, cast, play, open)
                         else Text("Ready to cast: Autotap pays ${open.cost}.", fontSize = 12.sp)
-                    else -> OpenSection(cast, cast, play, names, open)
+                    else -> CompositionLocalProvider(LocalCastOk provides ok) { OpenSection(cast, cast, play, names, open) }
                 }
                 // UI review round 2 #4 (I-D46 b): why the last step was refused, inside the panel rather than over the table
                 cast.notice?.let { Text(it, fontSize = 12.sp, fontWeight = FontWeight.Medium, color = Color(0xffb3261e)) }
@@ -239,8 +278,11 @@ private fun CastPanel(cast: CastController, flow: CastFlow, play: TableBoard, na
             Spacer(Modifier.weight(1f))
             AnimatedVisibility(!cast.hidden, enter = fadeIn(tween(180)), exit = fadeOut(tween(180))) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    TextButton(cast::cancel, Modifier.semantics { contentDescription = "Cancel cast" }) { IconText(Icons.Outlined.Close, "Cancel") }
-                    Button(cast::cast, enabled = !cast.busy && (cast.paid || flow.complete || (cast.autotap && flow.pending is Decision.ManaPayment)),
+                    // STK-023, STK-052 (owner playtest 2026-11-05 evening): no Cancel (Undo and Back drop the cast); Cast also
+                    // answers a choice built up in place (X) and goes on
+                    val answering = ok.answer.takeIf { ok.decision != null && ok.decision == flow.pending?.id }
+                    Button({ answering?.invoke() ?: cast.cast() }, enabled = !cast.busy && (answering != null || cast.paid || flow.complete ||
+                        (cast.autotap && flow.pending is Decision.ManaPayment)),
                         colors = ButtonDefaults.buttonColors(containerColor = AutomatumViolet)) {
                         IconText(if (flow.activation) Icons.Outlined.Bolt else Icons.Outlined.AutoAwesome, actionLabel(flow))
                     }
@@ -267,7 +309,7 @@ internal fun Section(title: String, hint: String? = null, content: @Composable C
         if (!headed) {
             HorizontalDivider(color = AutomatumViolet.copy(alpha = .25f))
             Text(title, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = AutomatumViolet)
-            hint?.let { ChoiceHintText(it) }
+            (LocalCastOk.current?.let { ok -> hint?.replace("then OK.", "then ${ok.label}.") } ?: hint)?.let { ChoiceHintText(it) }
         }
         content()
     }
@@ -287,10 +329,10 @@ private fun AnsweredSection(cast: CastController, flow: CastFlow, play: TableBoa
             }
         }
         decision is Decision.Announce && answer is Answer.Number -> Section(decision.name) {
-            Stepper(answer.value, decision.min, decision.max) { cast.change(index, Answer.Number(it)) }
+            Stepper(answer.value, decision.min, cast.most(decision)?.coerceAtLeast(answer.value)) { cast.change(index, Answer.Number(it)) }
         }
         decision is Decision.ChooseNumber && answer is Answer.Number -> Section("Number") {
-            Stepper(answer.value, decision.min, decision.max) { cast.change(index, Answer.Number(it)) }
+            Stepper(answer.value, decision.min, cast.most(decision)) { cast.change(index, Answer.Number(it)) }
         }
         decision is Decision.Modes && answer is Answer.Modes && decision.max == 1 -> Section("Mode") {
             FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -327,11 +369,15 @@ internal fun OpenSection(cast: FlowQuestions, flow: FlowQuestions, play: TableBo
         }
         is Decision.Announce, is Decision.ChooseNumber -> {
             val min = (decision as? Decision.Announce)?.min ?: (decision as Decision.ChooseNumber).min
-            val max = (decision as? Decision.Announce)?.max ?: (decision as? Decision.ChooseNumber)?.max
+            // STK-023 (owner playtest 2026-11-05 evening): − / + stop at the least and the most Automatum allows (an X:
+            // the most the cast can be paid with)
+            val max = cast.most(decision)
             var value by remember(decision.id) { mutableIntStateOf(min) }
+            val payable = max == null || max >= min
             Section(choiceWhat(decision), choiceHint(decision)) {
-                Stepper(value, min, max) { value = it }
-                DockButtons { ChoiceButton("OK", Icons.Outlined.Check, primary = true) { cast.answer(Answer.Number(value)) } }
+                Stepper(value, min, max?.coerceAtLeast(min)) { value = it }
+                if (!payable) Text("It can't be paid now.", fontSize = 11.sp, color = Color(0xff4b5a5f))
+                OkRow(decision, payable) { cast.answer(Answer.Number(value)) }
             }
         }
         is Decision.Modes -> ModesSection(cast, decision)
@@ -368,10 +414,8 @@ internal fun OpenSection(cast: FlowQuestions, flow: FlowQuestions, play: TableBo
                         Modifier.weight(1f), fontSize = 12.sp)
                     Stepper(shares.getValue(target), decision.minEach, decision.amount) { shares = shares + (target to it) }
                 }
-                DockButtons {
-                    ChoiceButton("OK", Icons.Outlined.Check, enabled = shares.values.sum() == decision.amount, primary = true) {
-                        cast.answer(Answer.Division(shares.map { arcanum.engine.decision.Share(it.key, it.value) }))
-                    }
+                OkRow(decision, shares.values.sum() == decision.amount) {
+                    cast.answer(Answer.Division(shares.map { arcanum.engine.decision.Share(it.key, it.value) }))
                 }
             }
         }
@@ -399,9 +443,7 @@ internal fun OpenSection(cast: FlowQuestions, flow: FlowQuestions, play: TableBo
                 }
                 DockButtons {
                     ChoiceButton("Clear", Icons.Outlined.ClearAll, enabled = order.isNotEmpty()) { order = emptyList() }
-                    ChoiceButton("OK", Icons.Outlined.Check, enabled = order.size == decision.triggers.size, primary = true) {
-                        cast.answer(Answer.Order(order))
-                    }
+                    ChoiceOk(decision, order.size == decision.triggers.size) { cast.answer(Answer.Order(order)) }
                 }
             }
         }
@@ -417,11 +459,7 @@ internal fun OpenSection(cast: FlowQuestions, flow: FlowQuestions, play: TableBo
                             selected = chosen == option.index) { chosen = option.index }
                     }
                 }
-                DockButtons {
-                    ChoiceButton("OK", Icons.Outlined.Check, enabled = chosen != null, primary = true) {
-                        chosen?.let { cast.answer(Answer.Replacement(it)) }
-                    }
-                }
+                OkRow(decision, chosen != null) { chosen?.let { cast.answer(Answer.Replacement(it)) } }
             }
         }
         is Decision.ChoosePlayer -> Section(choiceWhat(decision), choiceHint(decision)) {
@@ -439,6 +477,12 @@ internal fun OpenSection(cast: FlowQuestions, flow: FlowQuestions, play: TableBo
         else -> ListedSection(cast, flow, play, names, decision)
     }
     ChoiceInspection(inspector, play, viewer)
+}
+
+/** A choice's OK alone ([ChoiceOk]): in a row of buttons of its own, or in the cast panel none (its Cast answers it). */
+@Composable
+internal fun OkRow(decision: Decision, enabled: Boolean, answer: () -> Unit) {
+    if (LocalCastOk.current != null) ChoiceOk(decision, enabled, answer) else DockButtons { ChoiceOk(decision, enabled, answer) }
 }
 
 /** Choices the panel has no control of its own for: the engine's listed answers (a card type, a basic land type). */
@@ -489,11 +533,12 @@ private fun ModesSection(cast: FlowQuestions, decision: Decision.Modes) {
         decision.pawprintLimit?.let { limit ->
             Text("Pawprints: $pawprints of $limit", fontSize = 11.sp, color = if (overLimit) Color(0xffb3261e) else Color(0xff4b5a5f))
         }
-        if (decision.max != 1) DockButtons {
-            if (decision.repeatable) ChoiceButton("Clear", Icons.Outlined.ClearAll, enabled = chosen.isNotEmpty()) { chosen = emptyList() }
-            ChoiceButton("OK", Icons.Outlined.Check, enabled = chosen.size in decision.min..decision.max && !overLimit, primary = true) {
-                cast.answer(Answer.Modes(chosen))
-            }
+        if (decision.max != 1) {
+            val fits = chosen.size in decision.min..decision.max && !overLimit
+            if (decision.repeatable) DockButtons {
+                ChoiceButton("Clear", Icons.Outlined.ClearAll, enabled = chosen.isNotEmpty()) { chosen = emptyList() }
+                ChoiceOk(decision, fits) { cast.answer(Answer.Modes(chosen)) }
+            } else OkRow(decision, fits) { cast.answer(Answer.Modes(chosen)) }
         }
     }
 }

@@ -183,13 +183,11 @@ internal fun ObjectsSection(cast: FlowQuestions, flow: FlowQuestions, play: Tabl
                     shape.second?.takeIf { places }?.let { ChoiceArea(it, areaIcon(it), ordered = shape.orderSecond) }, inspector)
                 val chosen = (if (!places || shape.chosenFirst) state.first else state.second).map(ids::getValue)
                 val fits = chosen.size >= decision.min && (decision.max == null || chosen.size <= decision.max!!)
-                DockButtons {
-                    ChoiceButton("OK", Icons.Outlined.Check, enabled = fits, primary = true) {
-                        val then = listOfNotNull(state.first.takeIf { places && shape.orderFirst && it.size > 1 },
-                            state.second.takeIf { places && shape.orderSecond && it.size > 1 })
-                            .map { area -> Answer.Objects(area.map(ids::getValue)) }
-                        cast.answerWith(Answer.Objects(chosen), then)
-                    }
+                OkRow(decision, fits) {
+                    val then = listOfNotNull(state.first.takeIf { places && shape.orderFirst && it.size > 1 },
+                        state.second.takeIf { places && shape.orderSecond && it.size > 1 })
+                        .map { area -> Answer.Objects(area.map(ids::getValue)) }
+                    cast.answerWith(Answer.Objects(chosen), then)
                 }
             }
             ObjectsShape.Shape.Pick -> {
@@ -201,11 +199,8 @@ internal fun ObjectsSection(cast: FlowQuestions, flow: FlowQuestions, play: Tabl
                         else -> chosen + key
                     }
                 }
-                DockButtons {
-                    ChoiceButton("OK", Icons.Outlined.Check, enabled = chosen.size >= decision.min &&
-                        (decision.max == null || chosen.size <= decision.max!!), primary = true) {
-                        cast.answer(Answer.Objects(chosen.map(ids::getValue)))
-                    }
+                OkRow(decision, chosen.size >= decision.min && (decision.max == null || chosen.size <= decision.max!!)) {
+                    cast.answer(Answer.Objects(chosen.map(ids::getValue)))
                 }
             }
         }

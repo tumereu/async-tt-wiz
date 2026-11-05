@@ -6,6 +6,7 @@ import arcanum.engine.input.Input
 import org.asyncttwiz.protocol.PresenceState
 import org.asyncttwiz.protocol.game.GameDevice
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.hasContentDescription
 import org.junit.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -59,7 +60,7 @@ class CoreLoopTest : E2e() {
         var panel = false
         alice.playFromHand("Ember Cub", this)
         waitUntil("the Cub leaving Alice's hand") {
-            panel = panel || alice.showsControl("Cancel cast")
+            panel = panel || alice.shows(hasContentDescription("Cast panel")) || alice.shows(hasContentDescription("Choose targets"))
             cub !in alice.hand("Ember Cub").map(::atw)
         }
         assertFalse(panel, "the cast went out without asking anything")

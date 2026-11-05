@@ -36,6 +36,8 @@ object TestCards {
     /** Makes a token copy of itself as it enters (when cast), drawn with a picture of its own (an invented art id). */
     val twin = card("Ember Twin", "Creature — Elemental", "{R}", "When this creature enters, if you cast it, create a token that's a copy of it.",
         "2", "1", scryfallId = UUID.nameUUIDFromBytes("e2e/art/Ember Twin".encodeToByteArray()).toString())
+    /** An X spell (STK-023): X damage to any target, X paid by its caster's mana. */
+    val burst = card("Ember Burst", "Sorcery", "{X}", "Ember Burst deals X damage to any target.")
     /** Empties its caster's hand for free. */
     val thoughts = card("Empty Thoughts", "Sorcery", "{0}", "Discard your hand.")
 }
@@ -51,6 +53,9 @@ data class TestDeck(val name: String, val entries: List<Pair<SubmittedDefinition
 
         /** 40 cards: Mountains and Idle Glimmers (a free instant: its holder can always respond). */
         fun glimmers() = TestDeck("Glimmers", listOf(TestCards.mountain to 20, TestCards.glimmer to 20))
+
+        /** 40 cards: Mountains and Ember Bursts (an X spell). */
+        fun bursts() = TestDeck("Bursts", listOf(TestCards.mountain to 20, TestCards.burst to 20))
 
         /** 40 cards: Mountains and Storm Sparks. */
         fun sparks() = TestDeck("Sparks", listOf(TestCards.mountain to 20, TestCards.spark to 20))

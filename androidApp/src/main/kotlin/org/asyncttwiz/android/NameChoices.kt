@@ -71,9 +71,7 @@ internal fun CardNameSection(cast: FlowQuestions, decision: Decision.ChooseCardN
             for (name in shown) SuggestionChip({ text = name }, label = { Text(name, fontSize = 12.sp) },
                 icon = { Icon(androidx.compose.material.icons.Icons.Outlined.Style, null, Modifier.size(16.dp)) })
         }
-        DockButtons {
-            ChoiceButton("OK", androidx.compose.material.icons.Icons.Outlined.Check, enabled = text.isNotBlank(), primary = true) { cast.answer(Answer.CardName(text.trim())) }
-        }
+        OkRow(decision, text.isNotBlank()) { cast.answer(Answer.CardName(text.trim())) }
     }
 }
 

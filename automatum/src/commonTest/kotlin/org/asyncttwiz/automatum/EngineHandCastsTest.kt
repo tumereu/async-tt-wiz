@@ -85,4 +85,26 @@ class EngineHandCastsTest {
         assertFalse(chips.affordable)
         assertTrue(chips.sources.isEmpty())
     }
+
+    // STK-023 (owner playtest 2026-11-05 evening): X can't be set past what the player can pay: with four Mountains
+    // Doomfire ({X}{R}) goes up to X = 3; with none even X = 0 can't be paid (one less than its least)
+    @Test fun theMostXIsWhatTheManaPays() {
+        table.put(alice, Zone.Battlefield, "Mountain", "Mountain", "Mountain", "Mountain")
+        val (doomfire) = table.put(alice, Zone.Hand, "Doomfire")
+        val state = table.state()
+        val flow = CastFlow.start(table.source(state), alice, HandPlays.of(state, alice, null).of(doomfire).first(), CastFlow.Seeds(table::seed))
+        val open = assertIs<Decision.Announce>(flow.pending)
+        assertEquals(0, open.min)
+        assertEquals(3, HandCasts.mostAnnounced(flow))
+    }
+
+    // STK-023: X counted twice ({X}{X}{G}): five Mountains and a Forest pay up to X = 2
+    @Test fun aDoubleXCountsTwice() {
+        table.put(alice, Zone.Battlefield, "Mountain", "Mountain", "Mountain", "Mountain", "Mountain", "Forest")
+        val (outbreak) = table.put(alice, Zone.Hand, "Vermin Outbreak")
+        val state = table.state()
+        val flow = CastFlow.start(table.source(state), alice, HandPlays.of(state, alice, null).of(outbreak).first(), CastFlow.Seeds(table::seed))
+        assertIs<Decision.Announce>(flow.pending)
+        assertEquals(2, HandCasts.mostAnnounced(flow))
+    }
 }

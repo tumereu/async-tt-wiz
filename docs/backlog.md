@@ -10,10 +10,9 @@ Changes the owner wants but that are not built yet. The feature catalog
 
 ## Build order (owner, 2026-11-05: one implementor at a time, small items batched, full suites after each batch)
 
-1. Playtest 2026-11-05 evening, batch B: Stack ability look, library search panel, draft split-card pips, assume when they have no mana, hand abilities as chips.
-2. Battlefield placement (Arena style).
-3. Hold pauses playback, Reconnecting…, remove the auto-pause switches (re-check against the built catch-up playback first: HIS-094, HIS-095).
-4. Countering a spell lower on the Stack (e2e scenario).
+1. Battlefield placement (Arena style).
+2. Hold pauses playback, Reconnecting…, remove the auto-pause switches (re-check against the built catch-up playback first: HIS-094, HIS-095).
+3. Countering a spell lower on the Stack (e2e scenario).
 
 ## Ready to build
 

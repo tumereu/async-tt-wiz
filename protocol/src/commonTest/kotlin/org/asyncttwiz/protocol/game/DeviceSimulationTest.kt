@@ -219,7 +219,7 @@ class DeviceSimulationTest {
         val picked = if (rnd.nextBoolean()) null else d.session.events.take((d.session.indexOf(d.session.localHead) ?: -1) + 1)
             .lastOrNull { e -> e.author == d.me.value && e.assumed == null && e.engine?.steps?.any { it.input != null } == true }?.parentId
         val undo = d.undo(picked ?: d.undoTarget())
-        val kind = when (undo) { is GameDevice.Undo.Free -> "free"; is GameDevice.Undo.Request -> undo.reason; is GameDevice.Undo.Unavailable -> undo.reason }
+        val kind = when (undo) { is GameDevice.Undo.Free -> "free"; is GameDevice.Undo.Request -> undo.reason; is GameDevice.Undo.Unavailable -> undo.reason; is GameDevice.Undo.Queued -> "queued" }
         stats.undos[kind] = (stats.undos[kind] ?: 0) + 1
         when (undo) {
             is GameDevice.Undo.Request -> if (rnd.nextBoolean()) { stats.requests++; d.requestUndo(undo.target, "sorry") }

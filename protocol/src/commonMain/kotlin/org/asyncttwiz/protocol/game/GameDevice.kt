@@ -1029,8 +1029,9 @@ class GameDevice(
     /** Concedes (CR 104.3a): at any time; behind the head a branch at the local head (§11). */
     fun concede(): Acted = act(Input.Concede(me))
 
-    /** Suggests ending the game with [result] (TRN-046), at the head. */
-    fun suggest(result: GameResult): Acted = table(listOf(TableChange.Suggestion(model.table.suggestion, ResultSuggestion(me, result))))
+    /** Suggests ending the game with [result] (TRN-046) and the optional reason [note], at the head. */
+    fun suggest(result: GameResult, note: String = ""): Acted =
+        table(listOf(TableChange.Suggestion(model.table.suggestion, ResultSuggestion(me, result, note))))
 
     /** Answers the other player's waiting suggestion: [accept] agrees the result (an engine input), else declines it. */
     fun answerSuggestion(accept: Boolean): Acted {

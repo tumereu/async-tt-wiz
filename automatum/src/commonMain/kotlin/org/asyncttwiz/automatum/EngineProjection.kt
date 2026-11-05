@@ -308,7 +308,7 @@ object EngineProjection {
             is arcanum.engine.setup.GameResult.Won -> if (r.winner == s.by) SuggestedResult.WIN else SuggestedResult.LOSS
             arcanum.engine.setup.GameResult.Draw -> SuggestedResult.DRAW
         }
-        return AtwSuggestion("suggestion:${s.by.value}:$outcome", s.by.value, outcome)
+        return AtwSuggestion("suggestion:${s.by.value}:$outcome", s.by.value, outcome, note = s.note)
     }
 
     /**

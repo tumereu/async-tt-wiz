@@ -90,9 +90,14 @@ data class EarlyAnswer(val player: PlayerId, val key: String, val answer: Answer
     }
 }
 
-/** [by] suggests ending the game with [result] (a draw, or a win of either player); the other player answers. */
+/** [by] suggests ending the game with [result] (a draw, or a win of either player), with their optional reason [note]
+ * (TRN-046, [org.asyncttwiz.protocol.ResultNotes]); the other player answers. */
+@OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
 @Serializable
-data class ResultSuggestion(val by: PlayerId, val result: GameResult)
+data class ResultSuggestion(val by: PlayerId, val result: GameResult,
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val note: String = "") {
+    init { require(org.asyncttwiz.protocol.ResultNotes.valid(note)) { "Invalid result reason" } }
+}
 
 /** One reversible change of the [TableState]: it holds the values before and after, and applies only on a table that
  * holds its before-values (as the engine's changes, D59). */

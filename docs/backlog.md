@@ -28,7 +28,6 @@ Start none of these until the E2E framework above works. Each owner-reported bug
 - Fix: a token that is a copy of a card (offspring "create a token that's a copy of this", and other copy-token makers: populate, embalm, eternalize, myriad, encore, …) shows the copied card's picture, not a token picture; tokens already show by their clipped corners (changes SYS-072).
 
 - Battlefield placement, MTG Arena style (owner, 2026-11-05; spec `docs/specs/battlefield-placement.md`): automatic rows (creatures nearest the middle, lands and other permanents in the back row), identical permanents stacked (lands fanned, tokens ×N, tapped members rotate inside), attachments and mutate behind their card, no dragging on the battlefield; a tap on a stack or a card with attachments acts at once when it can mean only one thing, else the first tap expands the group and the second picks; the group's glow colour tells which a tap will do (changes TBL-002, TBL-003, TBL-004, TBL-006, TBL-007, TBL-008, TBL-012, TBL-053, TBL-054, TBL-101, TBL-102, TBL-111, TBL-117, TBL-121, TBL-122, TBL-124, SYS-041, SYS-074, ZON-077, STK-032). Screenshot tests for the owner.
-- Fix: the reason typed into Suggest game end reaches the other player (TRN-046).
 
 ## Specified, not started
 

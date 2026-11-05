@@ -669,7 +669,7 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
     fun table(changes: List<TableChange>): GameDevice.Acted = acting(STALE, "table") { device.table(changes) }
     /** Conceding is taken at any time (CR 104.3a), whatever the table showed. */
     fun concede(): GameDevice.Acted = worker.call { device.concede() }.also { after() }
-    fun suggest(result: GameResult): GameDevice.Acted = acting(STALE) { device.suggest(result) }
+    fun suggest(result: GameResult, note: String = ""): GameDevice.Acted = acting(STALE) { device.suggest(result, note) }
     fun answerSuggestion(accept: Boolean): GameDevice.Acted = acting(STALE) { device.answerSuggestion(accept) }
     fun confirmResult(): GameDevice.Acted = acting(STALE) { device.confirmResult() }
     fun settings(settings: PlaySettings) { worker.call { device.settings(settings) }; after() }

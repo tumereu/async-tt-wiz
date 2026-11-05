@@ -38,6 +38,11 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
         automatumWork, tokenArt = tokenArt, autotap = { cast.autotap }, engineSend = engine?.let { e -> e::send })
     private val automatumWork = automatumWork
 
+    init {
+        // STK-025, HIS-084: Undo with a cast or activation open drops it (the interaction's undo point is its start)
+        (engine as? EngineTableRoutes)?.dropInteraction = { cast.open.also { open -> if (open) cast.cancel("undone") } }
+    }
+
     /** The words the step arrow shows on [play] ([AutomatumStepArrow]): the board's own. */
     private fun arrowStep(play: TableBoard): AutomatumStep = AutomatumStep.of(play)
     /** Combat through Automatum (I3 on today's lanes): declarations, passing on to the damage, early divisions. */

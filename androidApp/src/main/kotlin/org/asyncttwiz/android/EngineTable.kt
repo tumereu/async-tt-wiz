@@ -272,6 +272,9 @@ internal class EngineTableRoutes(val viewer: String, private val game: () -> Eng
      * declaration, a cast's step: [SharedFlowController.busy], [CastController.busy]), before it reaches it. Set by the
      * table. */
     var working: () -> Boolean = { false }
+    /** Drops the player's open cast or activation (STK-025: nothing of it sent yet); true when there was one. Set by the
+     * table's toolkit. */
+    var dropInteraction: () -> Boolean = { false }
     /** HIS-107: an Undo tapped while [working]: made once that work is done ([workDone]). */
     private var undoAfterWork = false
 
@@ -279,6 +282,9 @@ internal class EngineTableRoutes(val viewer: String, private val game: () -> Eng
      * player's own action, while it is still being worked out or on its way, it waits for it and then takes it back
      * (HIS-107; the dialog opens then when it isn't free, [GameDevice.Note.RequestNeeded]). */
     fun undo(): Boolean {
+        // STK-025, HIS-084 (owner playtest 2026-11-05 evening): an interaction's undo point is its start: with a cast or
+        // activation open (nothing sent yet) Undo drops it, landing just before it began, where it would after it was made
+        if (dropInteraction()) { AppLog.info("engine", "Undo dropped the open cast"); return true }
         val g = game() ?: return false
         // Owner problem report 2026-11-05: Attack is worked out off the main thread first; an Undo tapped meanwhile was
         // made before it (taking back what came before, then the attack refused)

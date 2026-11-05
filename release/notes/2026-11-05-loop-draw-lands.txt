@@ -1,0 +1,1 @@
+fix: A loop that nobody can stop now offers the draw even when a player holds only lands.

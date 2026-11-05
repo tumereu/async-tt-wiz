@@ -29,6 +29,12 @@ object TestCards {
     val stride = card("Ember Stride", "Sorcery", "{R}", "Take an extra turn after this one.")
     /** A free instant: casting it gives the other player a pause (their answer may be assumed) without using mana. */
     val glimmer = card("Idle Glimmer", "Instant", "{0}", "Draw a card.")
+    /** A loop of mandatory actions on its own (CR 104.4b): it enters and is sacrificed, dies and comes back, again and again. */
+    val wisp = card("Restless Wisp", "Creature — Spirit", "{0}",
+        "When this creature enters, sacrifice a creature.\nWhen this creature dies, return it to the battlefield under its owner's control.",
+        "1", "1")
+    /** Empties its caster's hand for free. */
+    val thoughts = card("Empty Thoughts", "Sorcery", "{0}", "Discard your hand.")
 }
 
 /** A deck: [entries] of cards, in this order (the library's order before the opening shuffle). */

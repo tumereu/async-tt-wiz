@@ -928,12 +928,16 @@ class GameDevice(
             val yields = mine && !forced && modePasses(s, holder, check)
             if (!forced && !yields) return
             if (s.turn.number >= start + 2 && Stops.stop(s, s.turn.active)) return
-            if (yields && !yielded.add(Engine.loopKey(s))) return
-            if (!forced) forcedSeen.clear()
-            else if (s.stack.isNotEmpty() && !forcedSeen.add(Engine.loopKey(s))) {
+            // TRN-060 (CR 104.4b): a pass nobody could avoid is a forced one, or the player's own where they can do nothing
+            // but pass: what they hold can't stop the loop (a hand of only lands, owner 2026-11-05)
+            val unavoidable = forced || (yields && check.ownSkipOn)
+            val key = if (yields || s.stack.isNotEmpty() && unavoidable) Engine.loopKey(s) else null
+            if (!unavoidable) forcedSeen.clear()
+            else if (key != null && s.stack.isNotEmpty() && !forcedSeen.add(key)) {
                 builder.perform(Input.MandatoryLoop)
                 return@repeat
             }
+            if (yields && !yielded.add(key!!)) return
             val mark = builder.mark()
             builder.perform(Input.PassPriority(holder))
             builder.answerRandoms()

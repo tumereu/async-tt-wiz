@@ -103,21 +103,18 @@ internal class EngineTableRoutes(val viewer: String, private val game: () -> Eng
     /** Timeline mode's Auto (HIS-013). */
     var reviewPlaying by mutableStateOf(false)
 
-    /** The Assume blockers screen opened from the waiting bar at this point (CMB-040), personal. */
+    /** The Assume blockers screen opened from the main button at this point (CMB-040), personal. */
     var blockersOpen by mutableStateOf<String?>(null)
-
-    /** The response mode dialog, opened by holding the playback button (HIS-013, §27), personal. */
-    var modeDialog by mutableStateOf(false)
 
     /** Whether the table is still animating a published board's steps (the motion queue), for the take-back's playback
      * to wait for its rewind (HIS-097). Set by the table. */
     var motionBusy: () -> Boolean = { false }
 
-    /** The board version Play was tapped on while catching up: the button reads Pause at once, before the engine thread
-     * publishes the playing board (owner playtest 2026-11-05), personal. */
-    var playTappedAt by mutableStateOf<Long?>(null)
-
-    fun enterReview(at: String) { reviewPlaying = false; review = at }
+    /** Enters timeline mode at [at] (HIS-004); playback running meanwhile waits paused for the centre text (HIS-006). */
+    fun enterReview(at: String) {
+        game()?.takeIf { it.shown?.status is GameDevice.Status.Playing }?.holdPlayback()
+        reviewPlaying = false; review = at
+    }
     fun leaveReview() { reviewPlaying = false; review = null }
 
     /** After an action on the engine game: what it sends goes out and the table shows its new board. */
@@ -213,28 +210,34 @@ internal class EngineTableRoutes(val viewer: String, private val game: () -> Eng
     /** The other player's name, for the wait's words and the unconfirmed mark's tooltip (set by the table). */
     var opponentName: String = "The other player"
 
-    /** A wait's own control in the step arrow's place (TRN-066): an Assume button, or Cancel for the viewer's own undo
-     * request. [resolves]: it assumes a pass (under the Stack while something is on it, STK-028). */
-    class WaitAction(val label: String, val icon: androidx.compose.ui.graphics.vector.ImageVector, val resolves: Boolean = false,
+    /** A wait's own control on the main button (TRN-066, TRN-070): an Assume button, or Cancel for the viewer's own
+     * undo request; holding it says [tooltip]. */
+    class WaitAction(val label: String, val icon: androidx.compose.ui.graphics.vector.ImageVector, val tooltip: String? = null,
         val run: () -> Unit)
 
-    /** The control the step arrow's place shows while the other player must act, or null for none. */
+    /** The control the main button shows while the other player must act, or null for none: "Assume" with something on
+     * the Stack (STK-028), else "Assume resolves" (TRN-070); "Assume blockers" opens its screen (CMB-040). */
     fun waitAction(): WaitAction? {
         val g = game() ?: return null
         val shown = g.shown ?: return null
         val status = shown.status as? GameDevice.Status.Waiting ?: return null
+        val name = opponentName
         return when (status.offer) {
-            GameDevice.Offer.AssumeResolves -> WaitAction("Assume resolves", Icons.Outlined.DoneAll, resolves = true) { g.assume(); pump() }
+            GameDevice.Offer.AssumeResolves -> if (shown.engine.stack.isNotEmpty())
+                WaitAction("Assume", Icons.Outlined.DoneAll,
+                    "Assume $name lets it resolve and go on; if they respond when they come back, the game goes back there") { g.assume(); pump() }
+                else WaitAction("Assume resolves", Icons.Outlined.DoneAll,
+                    "Assume $name lets the game go on; if they act here when they come back, the game goes back there") { g.assume(); pump() }
             // The screen to assume them (editable, CMB-040)
-            GameDevice.Offer.AssumeBlockers -> WaitAction("Assume blockers", Icons.Outlined.Shield) { blockersOpen = shown.tip }
+            GameDevice.Offer.AssumeBlockers -> WaitAction("Assume blockers", Icons.Outlined.Shield,
+                "Choose the blocks to assume for $name and go on") { blockersOpen = shown.tip }
             null -> if (status.reason == GameDevice.Wait.Request && shown.request?.by == viewer)
                 WaitAction("Cancel request", Icons.Outlined.Close) { g.cancelRequest(); pump() } else null
         }
     }
 
-    /** STK-029 (owner playtest 2026-11-04 #6): something is on [play]'s Stack, so letting it resolve (Resolve) or
-     * assuming the other player lets it (Assume) is the button directly under the Stack, not the step arrow's. */
-    fun stackHolds(play: TableBoard): Boolean = CombatStackRules.stack(play.board).cards.isNotEmpty()
+    /** How many toggles the quick-actions row holds now ([EngineToggleCells]): live play's three, playback's two. */
+    fun toggleCount(): Int = if (game()?.shown?.behind == true) 2 else 3
 
     /** The wait of [othersChoice], or null: the other player is choosing, declaring blockers or deciding on a mulligan. */
     private fun choiceWait(): GameDevice.Wait? = (status() as? GameDevice.Status.Waiting)?.reason
@@ -250,26 +253,23 @@ internal class EngineTableRoutes(val viewer: String, private val game: () -> Eng
     fun waitingLine(play: TableBoard): String? {
         val shown = game()?.shown ?: return null
         val status = shown.status as? GameDevice.Status.Waiting ?: return null
-        if (status.offer == GameDevice.Offer.AssumeBlockers && (status.blockersScreen || blockersOpen == shown.tip)) return null
+        if (status.offer == GameDevice.Offer.AssumeBlockers && blockersOpen == shown.tip) return null
         return waitingText(status.reason, play, opponentName)
     }
 }
 
 /**
- * The wait's control in the step arrow's place (TRN-066, MTG Arena-like): the same shape and size as the arrow, violet
- * ink; holding it says what it does.
+ * The wait's control on the main button (TRN-066, TRN-070, MTG Arena-like): the same shape and size, violet ink;
+ * holding it says what it does.
  */
 @Composable
-internal fun EngineWaitArrow(action: EngineTableRoutes.WaitAction, compact: Boolean) {
-    ActionSquare(action.label, "", true, Modifier.width(if (compact) 68.dp else 72.dp).shadow(3.dp, AdvanceArrowShape)
+internal fun EngineWaitArrow(action: EngineTableRoutes.WaitAction, modifier: Modifier) {
+    ActionSquare(action.label, "", true, modifier.shadow(3.dp, AdvanceArrowShape)
         .background(Color.White, AdvanceArrowShape).border(1.dp, AutomatumViolet, AdvanceArrowShape).clip(AdvanceArrowShape)
         .testTag("engine-wait-action"),
-        fill = Color.White, ink = AutomatumViolet, compactContent = true, gestureKey = action.label,
-        icon = { Column(Modifier.fillMaxWidth().padding(start = 2.dp, end = 12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Icon(action.icon, null, Modifier.size(20.dp), tint = LocalContentColor.current)
-            Text(action.label, Modifier.fillMaxWidth(), fontSize = 10.sp, lineHeight = 12.sp, letterSpacing = 0.sp, maxLines = 2,
-                fontWeight = FontWeight.Medium, textAlign = TextAlign.Center)
-        } }, onClick = action.run)
+        fill = Color.White, ink = AutomatumViolet, compactContent = true, gestureKey = action.label, tooltip = action.tooltip,
+        icon = { MainButtonContent(icon = { Icon(action.icon, null, Modifier.size(20.dp), tint = LocalContentColor.current) },
+            label = action.label) }, onClick = action.run)
 }
 
 /**
@@ -356,28 +356,37 @@ internal fun ResponseMode.meaning(): String = when (this) {
 private val MODES = listOf(ResponseMode.FullControl, ResponseMode.Normal, ResponseMode.AutoSkip)
 
 /**
- * The quick-actions row's toggles on engine state (I-D56 §14, TRN-059): the response mode (a tap goes to the next of
- * Full control, Normal and Auto-skip), "Always assume resolves" and "Autotap mana", each private to the player (§7).
+ * The quick-actions row's toggles on engine state (I-D56 §14, TRN-059): in live play the response mode (a tap goes to
+ * the next of Full control, Normal and Auto-skip), "Always assume resolves" and "Autotap mana"; in catch-up playback
+ * (HIS-095) "Full control" (on: playback stops wherever you get priority) and "Autotap mana"; each private to the player.
  */
 @Composable
 internal fun RowScope.EngineToggleCells(routes: EngineTableRoutes, enabled: Boolean) {
     val game = routes.engine ?: return
-    val settings = game.shown?.settings ?: return
+    val shown = game.shown ?: return
+    val settings = shown.settings
     fun set(next: PlaySettings) { game.settings(next); routes.pump() }
-    val cells = listOf(
+    val autotap = Triple("Autotap mana", "Autotap\nmana", Icons.Outlined.WaterDrop) to
+        ({ set(settings.copy(autotap = !settings.autotap)) } to settings.autotap)
+    val cells = if (shown.behind) listOf(
+        Triple("Full control", "Full\ncontrol", Icons.Outlined.Tune) to
+            ({ set(settings.copy(playbackFullControl = !settings.playbackFullControl)) } to settings.playbackFullControl),
+        autotap)
+    else listOf(
         Triple("Response mode", "${settings.mode.label()}\n(mode)", Icons.Outlined.Tune) to
             ({ set(settings.copy(mode = MODES[(MODES.indexOf(settings.mode) + 1) % MODES.size])) } to null),
         Triple("Always assume resolves", "Always\nassume", Icons.Outlined.FastForward) to
             ({ set(settings.copy(alwaysAssumeResolves = !settings.alwaysAssumeResolves)) } to settings.alwaysAssumeResolves),
-        Triple("Autotap mana", "Autotap\nmana", Icons.Outlined.WaterDrop) to
-            ({ set(settings.copy(autotap = !settings.autotap)) } to settings.autotap))
+        autotap)
     for ((what, action) in cells) key(what.first) {
         val (name, label, icon) = what
         val (toggle, on) = action
         val filled = on == true
         val tooltip = when (name) {
             "Response mode" -> "Response mode: ${settings.mode.label()}. ${settings.mode.meaning()} Tap for the next mode."
-            "Always assume resolves" -> "Always assume resolves: go on at the other player's pauses even while they are online"
+            "Always assume resolves" -> "Always assume resolves: go on at the other player's pauses at once, assuming they let things " +
+                "resolve, instead of waiting with Assume"
+            "Full control" -> "Full control: playback stops wherever you get priority; off, only where you could respond"
             else -> "Autotap mana sources: casting pays by itself, with mana in your pool first"
         }
         val control = MenuControl(name, enabled, selected = filled, color = AutomatumViolet) { toggle() }
@@ -420,7 +429,7 @@ internal fun EngineAsyncHost(toolkit: TableToolkitController, routes: EngineTabl
     // HIS-095 (owner playtest 2026-11-04 #1): a stop at the other player's assumption about you looks like any point
     // where you may act: no words over the board say it was assumed
     if (!reviewing) when (status) {
-        is GameDevice.Status.Waiting -> if (status.offer == GameDevice.Offer.AssumeBlockers && (status.blockersScreen || routes.blockersOpen == shown.tip))
+        is GameDevice.Status.Waiting -> if (status.offer == GameDevice.Offer.AssumeBlockers && routes.blockersOpen == shown.tip)
                 EngineBlockersScreen(routes, scene, play, opponent)
         is GameDevice.Status.Playing -> EnginePlayback(routes)
         is GameDevice.Status.Over -> AboveHand(handRow(scene, routes.viewer)) {
@@ -434,10 +443,6 @@ internal fun EngineAsyncHost(toolkit: TableToolkitController, routes: EngineTabl
         GameDevice.Status.Reload -> AboveHand(handRow(scene, routes.viewer)) { EngineBar("Loading the game again…", "loading line") {} }
         else -> {}
     }
-    // STK-029, STK-028 (owner playtest 2026-11-04 #6): Resolve or Assume directly under the Stack
-    if (!reviewing && status !is GameDevice.Status.Playing) EngineStackButton(toolkit, routes, play, scene)
-    // HIS-013 (§27): holding the playback button opens the response mode dialog
-    if (routes.modeDialog) EngineModeDialog(routes) { routes.modeDialog = false }
     // Incoming undo request (§10): Accept / Deny; the game is frozen meanwhile
     val request = shown.request
     if (request != null && request.by != routes.viewer) EngineRequestDialog(routes, opponent, summary)
@@ -483,61 +488,8 @@ private fun EngineBar(text: String, what: String, buttons: @Composable RowScope.
 }
 
 /**
- * STK-029, STK-028 (owner playtest 2026-11-04 #6, MTG Arena): while something is on the Stack, the one button that lets
- * it go on sits directly under the Stack: "Resolve" when you hold priority (a tap passes it, as the step arrow did),
- * "Assume" while the other player may respond and their pass may be assumed (HIS-096). Nothing else covers the board for
- * it; none while your cast or a choice is open.
- */
-@Composable
-private fun EngineStackButton(toolkit: TableToolkitController, routes: EngineTableRoutes, play: TableBoard, scene: TableScene?) {
-    if (!routes.stackHolds(play) || toolkit.cast.open) return
-    val stack = scene?.stackRegion ?: scene?.items?.firstOrNull { it.zone == PlayZone.STACK && it.kind == TableItemKind.PILE }?.bounds ?: return
-    val scope = TableActionScope(play.gameId, play.playId)
-    val resolve = routes.arrowShown() && AutomatumStep.of(play) == AutomatumStep.Resolve && toolkit.enabled()
-    val assume = if (resolve) null else routes.waitAction()?.takeIf { it.resolves }
-    if (!resolve && assume == null) return
-    val opponent = routes.opponentName
-    Box(Modifier.fillMaxSize()) {
-        Layout(content = {
-            if (resolve) ActionSquare("Resolve", "", true, Modifier.width(STACK_BUTTON_WIDTH).shadow(3.dp, RoundedCornerShape(8.dp))
-                .background(Color.White, RoundedCornerShape(8.dp)).border(1.dp, AutomatumStepOutline, RoundedCornerShape(8.dp))
-                .clip(RoundedCornerShape(8.dp)).testTag("stack-resolve"), fill = Color.White, ink = AutomatumStepInk, compactContent = true,
-                tooltip = "Resolve: pass, so the top of the Stack resolves once $opponent passes too", gestureKey = "resolve",
-                icon = { StackButtonContent(Icons.Outlined.PlayArrow, "Resolve") }) {
-                toolkit.perform(TableActionIntent.Next(scope))
-            }
-            else if (assume != null) ActionSquare("Assume", "", true, Modifier.width(STACK_BUTTON_WIDTH).shadow(3.dp, RoundedCornerShape(8.dp))
-                .background(Color.White, RoundedCornerShape(8.dp)).border(1.dp, AutomatumViolet, RoundedCornerShape(8.dp))
-                .clip(RoundedCornerShape(8.dp)).testTag("stack-assume"), fill = Color.White, ink = AutomatumViolet, compactContent = true,
-                tooltip = "Assume $opponent lets it resolve and go on; if they respond when they come back, the game goes back there",
-                gestureKey = "assume", icon = { StackButtonContent(Icons.Outlined.DoneAll, "Assume") }, onClick = assume.run)
-        }, modifier = Modifier.fillMaxSize()) { measurables, constraints ->
-            val placeable = measurables.firstOrNull()?.measure(Constraints())
-            layout(constraints.maxWidth, constraints.maxHeight) {
-                placeable?.let { p ->
-                    // Right-aligned under the Stack, inside the table
-                    val x = (stack.right.dp.roundToPx() - p.width).coerceIn(0, (constraints.maxWidth - p.width).coerceAtLeast(0))
-                    val y = (stack.bottom.dp.roundToPx() + 6.dp.roundToPx()).coerceIn(0, (constraints.maxHeight - p.height).coerceAtLeast(0))
-                    p.place(x, y)
-                }
-            }
-        }
-    }
-}
-
-private val STACK_BUTTON_WIDTH = 72.dp
-
-@Composable
-private fun StackButtonContent(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String) {
-    Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-        Icon(icon, null, Modifier.size(20.dp), tint = LocalContentColor.current)
-        Text(label, fontSize = 11.sp, lineHeight = 12.sp, letterSpacing = 0.sp, maxLines = 1, fontWeight = FontWeight.Medium)
-    }
-}
-
-/**
- * The Assume blockers screen (§4, §14, CMB-040): on the attacker's device only, opening with "No blocks" while the
- * defender is away (or from the waiting bar's Assume blockers while they are online). The blocks may be edited first:
+ * The Assume blockers screen (§4, §14, CMB-040): on the attacker's device only, opened from Assume blockers in the step
+ * arrow's place (never by itself, whether the defender is online or away), with "No blocks". The blocks may be edited first:
  * under each attacker, the defender's untapped creatures as cards; tapping one makes it block that attacker (again: not),
  * holding one inspects it. OK assumes the blocks (the engine checks them, CR 509.1b–c; blocks with a cost to block aren't
  * assumed, CR 509.1d); Back leaves it a wait with "Assume blockers" on the waiting bar. Nothing of it is shared (§12).
@@ -563,7 +515,7 @@ private fun EngineBlockersScreen(routes: EngineTableRoutes, scene: TableScene?, 
     fun objectOf(card: String) = s.battlefield.firstOrNull { cardOf(it) == card }
     AboveHand(handRow(scene, routes.viewer)) {
         AutomatumDockPanel("Assume blockers", hidden, { hidden = !hidden }, "blockers panel", buttons = {
-            ChoiceButton("Back", Icons.Outlined.Close) { routes.blockersOpen = null; game.closeBlockersScreen(); routes.pump() }
+            ChoiceButton("Back", Icons.Outlined.Close) { routes.blockersOpen = null }
             ChoiceButton("OK", Icons.Outlined.Check, primary = true) {
                 val chosen = blocks.mapNotNull { (b, a) -> Block(objectOf(b) ?: return@mapNotNull null, objectOf(a) ?: return@mapNotNull null) }
                 when (val acted = game.assume(chosen)) {
@@ -629,30 +581,6 @@ private const val PREVIEW_HEIGHT = 300f
 private const val PREVIEW_TABLE_WIDTH = 412f
 private const val PREVIEW_TABLE_HEIGHT = 892f
 
-/** The response mode as three choices with what each means (HIS-094, TRN-059); a tap sets it. */
-@Composable
-private fun ModeChoices(routes: EngineTableRoutes, tag: String) {
-    val game = routes.engine ?: return
-    val settings = game.shown?.settings ?: return
-    for (m in MODES) Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable(role = Role.RadioButton) {
-            game.settings(settings.copy(mode = m)); routes.pump() }.testTag("$tag-${m.label()}"),
-        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        RadioButton(m == settings.mode, onClick = null)
-        SettingsLabel(m.label(), m.meaning(), Modifier.weight(1f).padding(vertical = 4.dp))
-    }
-}
-
-/** HIS-013 (§27): holding the playback button: where playback and your device stop for you (Full control … Auto-skip). */
-@Composable
-internal fun EngineModeDialog(routes: EngineTableRoutes, close: () -> Unit) {
-    ScreenDialog(close, title = "Response mode", actions = {
-        DialogMainButton("Done", close, Modifier.testTag("mode-done"), icon = "ready")
-    }) {
-        Text("Where playback and your device stop for you.", style = MaterialTheme.typography.bodyMedium)
-        ModeChoices(routes, "playback-mode")
-    }
-}
-
 private const val QUICK_PLAYBACK_MS = 120L
 
 /** HIS-021 (§29.3): the playback delay at Card move speed 1×: about a third of the old 1 s default. */
@@ -663,8 +591,8 @@ internal fun playbackDelay(multiplier: Float): Long = (PLAYBACK_DELAY_MS / cardM
 
 /**
  * HIS-021 (§27, §29.3, §29.6): how long playback waits after showing [shown] before the next event: nothing after an
- * event that changed nothing you can see ([EnginePlaybackPace.quiet]: only the step indicator moved; under Full control
- * [mode] the delay too), a short moment after the other player's staging and card places, else the playback [delay].
+ * event that changed nothing you can see ([EnginePlaybackPace.quiet]: only the step indicator moved; with playback's Full
+ * control on, [mode], the delay too), a short moment after the other player's staging and card places, else the playback [delay].
  */
 internal fun playbackWait(shown: GameEvent?, delay: Long, mode: ResponseMode): Long = when {
     shown == null -> 0L
@@ -689,7 +617,7 @@ private fun EnginePlayback(routes: EngineTableRoutes) {
         // has played
         if (shown.takingBack) snapshotFlow { routes.motionBusy() }.first { !it }
         val last = shown.held.lastOrNull()?.takeIf { it.id == shown.localHead }
-        val wait = playbackWait(last, playbackDelay(multiplier), shown.settings.mode)
+        val wait = playbackWait(last, playbackDelay(multiplier), shown.settings.playbackMode)
         if (wait > 0) delay(wait)
         if (game.shown?.status is GameDevice.Status.Playing) { game.step(); routes.pump() }
     }

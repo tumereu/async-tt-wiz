@@ -18,9 +18,9 @@ class EngineOwnActionProbeTest {
     private val f = EngineGameFixture()
 
     private fun mainPhase(game: EngineGame, drain: () -> Unit = {}) {
-        game.tick(live = false, now = 1_000); drain()
+        game.tick(1_000); drain()
         assertIs<GameDevice.Acted.Sent>(game.keep(emptyList())); drain()
-        game.tick(live = false, now = 2_000); drain()
+        game.tick(2_000); drain()
         assertEquals(GameDevice.Status.YourMove, game.shown!!.status)
     }
 

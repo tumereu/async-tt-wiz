@@ -73,7 +73,7 @@ object Authority {
      */
     fun make(model: GameModel, submission: Submission, author: PlayerId, rules: Rules = Rules()): GameEvent {
         val assumes = submission.acts.any { it is Act.Perform && it.assumed }
-        val before = if (rules.tentative || assumes) InformationRule.Before.of(model) else null
+        var before = if (rules.tentative || assumes) InformationRule.Before.of(model) else null
         val builder = EventBuilder(model, submission.id, submission.parentId, author.value)
         try {
             var performed = 0
@@ -84,6 +84,8 @@ object Authority {
                     if (index != 0 || rules.nextLine == null) throw Refusal("A line starts only at a branch, as its first act")
                     if (act.number != rules.nextLine) throw Refusal("stale")
                     builder.startLine(act.number)
+                    // The checked changes are made on the reordered libraries (the reorder itself shows nobody anything)
+                    if (before != null) before = InformationRule.Before.of(model)
                 }
                 is Act.Perform -> {
                     val kind = WhoActs.kind(model, act.input, author, act.assumed)
@@ -109,9 +111,9 @@ object Authority {
             }
             if (builder.empty) throw Refusal("An empty submission")
             // I-D56 §5: while the author's line is tentative, nothing may show them a card they couldn't see before
-            // The model is the state after [changes] unless the event started a line (its reorder isn't among them)
-            if (before != null && InformationRule.revealing(before, changes, author, if (builder.startsLine) null else model.view())
-                    .isNotEmpty()) throw Refusal(REVEALS_HIDDEN)
+            // The model is the state after [changes] ([before] is after the line's reorder when the event starts one)
+            val checked = before
+            if (checked != null && InformationRule.revealing(checked, changes, author, model.view()).isNotEmpty()) throw Refusal(REVEALS_HIDDEN)
             return builder.build()
         } catch (refusal: Refusal) {
             builder.abandon()

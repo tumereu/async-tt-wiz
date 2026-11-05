@@ -334,6 +334,17 @@ internal fun AutomatumCombatHost(toolkit: TableToolkitController, play: TableBoa
  * stay (Automatum off, outside these steps, or a board Automatum can't take over). Empty until what the engine allows
  * is worked out.
  */
+/** CMB-048: the defending player's name (the player whose turn it isn't) for "Rest → <name>", from the game's players,
+ * so it is there before any lane is drawn; null when the board names no such player. */
+internal fun defendingPlayerName(game: GameSummary, play: TableBoard): String? {
+    val defender = play.board.players.firstOrNull { it.accountId != play.board.turn.accountId }?.accountId ?: return null
+    return when (defender) {
+        game.inviter.accountId -> game.inviter.username
+        game.recipient.accountId -> game.recipient.username
+        else -> null
+    }
+}
+
 /** CMB-028: [this] context with the viewer's active attack target lane and its name ([playerName]: the defending
  * player's). */
 internal fun QuickContext.withCombatTarget(combat: CombatController, play: TableBoard, playerName: String?): QuickContext {

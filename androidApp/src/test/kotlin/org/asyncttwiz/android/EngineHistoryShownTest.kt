@@ -46,13 +46,15 @@ class EngineHistoryShownTest {
         sim.deliver(game.me)
         game.playToStop()
         (game.device.status as? GameDevice.Status.Stopped)?.let { game.act(it.assumed) }
-        game.tick(false, sim.now)
+        game.tick(sim.now)
         sim.flush(game.me)
         sim.now += 1_000
     }
 
     /** Both keep (all delivered, Bob sees the opening end); then Bob goes away and Alice plays on to her first main phase. */
     private fun bothKeepThenBobAway(sim: EngineAppSim): Pair<EngineGame, EngineGame> {
+        // HIS-096: Alice plays on while Bob is away
+        sim.settings[f.a] = PLAYS_ON
         val alice = sim.load(f.a)
         val bob = sim.load(f.b)
         assertIs<GameDevice.Acted.Sent>(bob.keep(emptyList()))
@@ -62,7 +64,7 @@ class EngineHistoryShownTest {
         assertIs<GameDevice.Acted.Sent>(alice.keep(emptyList()))
         sim.flush(f.a)
         // Bob sees the opening end, then goes away
-        sim.deliver(f.b); bob.playToStop(); bob.tick(true, sim.now); sim.flush(f.b)
+        sim.deliver(f.b); bob.playToStop(); bob.tick(sim.now); sim.flush(f.b)
         repeat(5) { alone(sim, alice) }
         assertEquals(GameDevice.Status.YourMove, alice.device.status)
         return alice to bob
@@ -113,7 +115,7 @@ class EngineHistoryShownTest {
         val routes = EngineTableRoutes(f.b, { bob }, {}, { bob.play() })
         bob.keep(emptyList()); sim.flush(f.b)
         sim.deliver(f.a); alice.playToStop(); alice.keep(emptyList()); sim.flush(f.a)
-        repeat(6) { for (g in listOf(alice, bob)) { sim.deliver(g.me); g.playToStop(); g.tick(true, sim.now); sim.flush(g.me) }; sim.now += 500 }
+        repeat(6) { for (g in listOf(alice, bob)) { sim.deliver(g.me); g.playToStop(); g.tick(sim.now); sim.flush(g.me) }; sim.now += 500 }
         assertEquals(GameDevice.Status.YourMove, alice.device.status)
         val land = playLand(sim, alice)
         val card = (land as ObjectId.Card).card
@@ -126,14 +128,14 @@ class EngineHistoryShownTest {
         assertFalse(bob.device.session.behind)
     }
 
-    // HIS-093, HIS-095: playback stops at Bob's decision point by his response mode, whatever the auto-pause switches
-    // say (all off here), and waits there with no time limit
+    // HIS-093, HIS-095: playback stops at Bob's decision point (playback's Full control on here), whatever the auto-pause
+    // switches say (all off here), and waits there with no time limit
     @Test fun playbackStopsAtADecisionPointWhateverTheSwitchesSay() {
         val preferences = HistoryPlaybackPreferences(ApplicationProvider.getApplicationContext(), f.b)
         for (trigger in PlaybackAutoPause.entries) preferences.setAutoPause(trigger, false)
         val sim = EngineAppSim(f)
         val (alice, bob) = bothKeepThenBobAway(sim)
-        bob.settings(PlaySettings(mode = ResponseMode.Normal)); sim.flush(f.b)
+        bob.settings(PlaySettings(playbackFullControl = true)); sim.flush(f.b)
         playLand(sim, alice)
         // Alice casts a Storm Spark (at the first target the engine lists): Bob may respond
         val s = alice.device.model.engine
@@ -145,12 +147,17 @@ class EngineHistoryShownTest {
         assertEquals(GameDevice.Status.CatchUp, again.device.status)
         again.startPlayback()
         var guard = 0
-        while (again.device.status is GameDevice.Status.Playing && guard++ < 100) again.step()
+        while (guard++ < 100) {
+            while (again.device.status is GameDevice.Status.Playing && guard++ < 100) again.step()
+            val at = again.device.status as? GameDevice.Status.Stopped ?: break
+            if (again.device.model.engine.stack.isNotEmpty()) break
+            again.act(at.assumed)
+        }
         val stop = assertIs<GameDevice.Status.Stopped>(again.device.status, "playback stops at the Spark for Bob")
         assertEquals(Input.PassPriority(b), stop.assumed)
         assertTrue(again.device.model.engine.stack.isNotEmpty())
         // No time limit: an hour later it still waits
-        again.tick(false, sim.now + 3_600_000)
+        again.tick(sim.now + 3_600_000)
         again.playToStop()
         assertIs<GameDevice.Status.Stopped>(again.device.status)
     }
@@ -202,7 +209,7 @@ class EngineHistoryShownTest {
         val bob = sim.load(f.b)
         bob.keep(emptyList()); sim.flush(f.b)
         sim.deliver(f.a); alice.playToStop(); alice.keep(emptyList()); sim.flush(f.a)
-        repeat(6) { for (g in listOf(alice, bob)) { sim.deliver(g.me); g.playToStop(); g.tick(true, sim.now); sim.flush(g.me) }; sim.now += 500 }
+        repeat(6) { for (g in listOf(alice, bob)) { sim.deliver(g.me); g.playToStop(); g.tick(sim.now); sim.flush(g.me) }; sim.now += 500 }
         // Alice is away; Bob suggests a draw
         sim.deliver(f.b); bob.playToStop()
         assertIs<GameDevice.Acted.Sent>(bob.suggest(GameResult.Draw))

@@ -6,7 +6,6 @@ import org.asyncttwiz.protocol.MtgStackKind
 import org.asyncttwiz.protocol.PresenceState
 import org.asyncttwiz.protocol.game.GameEvent
 import org.asyncttwiz.protocol.game.PlaySettings
-import org.asyncttwiz.protocol.game.ResponseMode
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 
@@ -47,14 +46,15 @@ internal class HeraldCast(val herald: String, val cast: GameEvent, val line: Lis
 }
 
 /**
- * The interim simulations' Herald game (EngineGameFixture(heralds = true): Mountains, Ember Heralds and Storm Sparks):
- * Bob in Normal (his playback stops at Alice's spell whatever his hand holds), both keep, Bob goes away; Alice plays a
- * Mountain and casts an Ember Herald, her phone assuming Bob lets it resolve; the Herald and its token reach her
- * battlefield. With [endTurn] she then ends her turn.
+ * The interim simulations' Herald game (EngineGameFixture(heralds = true): Alice's Mountains, Ember Heralds and Storm
+ * Sparks): Bob holds an Idle Glimmer (so his playback, Auto-skip, stops at Alice's spell and her trigger: he could
+ * respond, HIS-095), both keep, Bob goes away; Alice plays a Mountain and casts an Ember Herald, her phone assuming Bob
+ * lets it resolve ("Always assume resolves" on, HIS-096); the Herald and its token reach her battlefield. With [endTurn]
+ * she then ends her turn.
  */
 internal fun E2e.aliceCastsAHeraldWhileBobIsAway(endTurn: Boolean = true): HeraldCast {
-    startGame(TestDeck.thirds(TestCards.herald), TestDeck.thirds(TestCards.herald), bobSettings = PlaySettings(mode = ResponseMode.Normal),
-        deal = { a, _ -> "Mountain" in hand(a) && "Ember Herald" in hand(a) })
+    startGame(TestDeck.thirds(TestCards.herald), TestDeck.glimmers(), aliceSettings = PlaySettings(alwaysAssumeResolves = true),
+        deal = { a, b -> "Mountain" in hand(a) && "Ember Herald" in hand(a) && "Idle Glimmer" in hand(b) })
     bothOpen()
     bothKeep(bobAway = true)
     alice.playFromHand("Mountain", this)

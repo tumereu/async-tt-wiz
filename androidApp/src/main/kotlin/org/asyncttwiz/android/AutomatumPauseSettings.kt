@@ -75,7 +75,7 @@ private fun EngineDefaultSettings(preferences: PausePreferences, account: Accoun
     Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("always-assume-resolves")
         .toggleable(defaults.alwaysAssumeResolves, role = Role.Switch, onValueChange = { set(defaults.copy(alwaysAssumeResolves = it)) }),
         verticalAlignment = Alignment.CenterVertically) {
-        SettingsLabel("Always assume resolves", "Go on at the other player's pauses even while they are online; they can still respond later",
+        SettingsLabel("Always assume resolves", "Go on at the other player's pauses at once instead of waiting; they can still respond later",
             Modifier.weight(1f).padding(end = 12.dp, top = 4.dp, bottom = 4.dp))
         Switch(checked = defaults.alwaysAssumeResolves, onCheckedChange = null)
     }

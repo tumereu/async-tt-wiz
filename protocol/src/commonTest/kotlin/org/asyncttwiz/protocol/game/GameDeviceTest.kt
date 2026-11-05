@@ -36,9 +36,10 @@ class GameDeviceTest {
         it.turn.active == p && it.turn.step == TurnStep.PrecombatMain && it.stack.isEmpty() && it.priority.holder == p
     }
 
-    /** Bob starts and keeps; Alice keeps and is away, so his device assumes her passes up to his main phase. */
-    private fun DeviceSim.bobToMain() {
-        start(bob)
+    /** Bob starts and keeps; Alice keeps and is away, so his device assumes her passes up to his main phase ([alwaysAssume]:
+     * "Always assume resolves" for both). */
+    private fun DeviceSim.bobToMain(alwaysAssume: Boolean = true) {
+        start(bob, alwaysAssume = alwaysAssume)
         keepWhileAway(bob)
         assertTrue(atMain(bob), "Bob is at his main phase: ${device(bob).model.engine.turn}")
         assertEquals(GameDevice.Status.YourMove, device(bob).status)
@@ -85,21 +86,18 @@ class GameDeviceTest {
     }
 
     // TRN-027, HIS-096 (owner, 2026-11-05): the starting player's device never assumes the other player's opening keep,
-    // whether they are away or online: it waits for it with no Assume button, and turn 1 begins on their own keep
+    // with "Always assume resolves" on or off: it waits for it with no Assume button, and turn 1 begins on their own keep
     @Test
     fun theOpeningKeepIsNeverAssumed() {
-        for (live in listOf(false, true)) {
+        for (always in listOf(false, true)) {
             val sim = spells("Storm Spark")
             val alice = sim.alice; val bob = sim.bob
-            sim.start(bob)
-            sim.live[alice] = live
-            sim.device(bob).presence(live, sim.now)
+            sim.start(bob, alwaysAssume = always)
             assertIs<GameDevice.Acted.Sent>(sim.device(bob).act(sim.keep(bob)))
             sim.settle(only = listOf(bob))
-            sim.now += 10 * GameDevice.GRACE_MS
-            sim.device(bob).presence(false, sim.now)
+            sim.now += 600_000
             sim.settle(only = listOf(bob))
-            assertEquals(GameDevice.Status.Waiting(GameDevice.Wait.Keep), sim.device(bob).status, "live: $live")
+            assertEquals(GameDevice.Status.Waiting(GameDevice.Wait.Keep), sim.device(bob).status, "always assume: $always")
             assertEquals(GameDevice.Acted.Refused("noOffer"), sim.device(bob).assume())
             assertEquals(0, sim.server.state().engine.turn.number)
             assertTrue(sim.server.line().none { it.assumed != null })
@@ -111,14 +109,15 @@ class GameDeviceTest {
         }
     }
 
-    // I-D56 §7: playback stops follow the private response mode: Full control at every assumed pass
-    // SYS-071: Full control is a private response mode of the device
+    // HIS-095 (owner, 2026-11-05): playback's own Full control toggle stops it at every assumed pass, whatever the live
+    // response mode (Auto-skip here); it is a private setting of the player's for the game
     @Test
     fun fullControlStopsAtEveryAssumedPass() {
         val sim = spells("Storm Spark")
         sim.bobToMain()
         val device = sim.load(sim.alice)
-        device.settings(PlaySettings(mode = ResponseMode.FullControl))
+        assertEquals(ResponseMode.AutoSkip, device.settings.mode)
+        device.settings(device.settings.copy(playbackFullControl = true))
         device.play()
         device.playToStop()
         var stops = 0
@@ -206,84 +205,63 @@ class GameDeviceTest {
     }
 
     // Engine-responsiveness R3 (I-D56 §4): the device's decision at a point is worked out once: ticks at an unchanged point
-    // (the player's own move, a live wait) search nothing; the other player leaving is a new point, and so is the grace
-    // running out, so the wait still ends on time
+    // (the player's own move, a wait at the other player's pause) search nothing; a changed setting is a new point
     @Test
-    fun aTickAtAnUnchangedPointSearchesNothingAndTheGraceStillEnds() {
+    fun aTickAtAnUnchangedPointSearchesNothing() {
         val sim = spells("Glance Ahead")
-        sim.bobToMain()
+        sim.bobToMain(alwaysAssume = false)
         val alice = sim.alice; val bob = sim.bob
         val bobs = sim.device(bob)
-        fun tick(live: Boolean) { bobs.presence(live, sim.now); bobs.advance(sim.now); bobs.status }
+        fun tick() { bobs.advance(sim.now); bobs.status }
         // Bob's own main phase: his move
-        tick(live = false)
+        tick()
         assertEquals(GameDevice.Status.YourMove, bobs.status)
-        assertEquals(0 to 0, searches(bobs) { repeat(5) { sim.now += 1_000; tick(live = false) } }, "ticks at his own move")
-        // Alice catches up and stops (Normal) at his spell, live: a wait with "Assume resolves"
+        assertEquals(0 to 0, searches(bobs) { repeat(5) { sim.now += 1_000; tick() } }, "ticks at his own move")
+        // Alice catches up (Normal keeps her live device at Bob's spell); his spell is her pause: a wait with "Assume resolves"
         val device = sim.load(alice)
         device.settings(PlaySettings(mode = ResponseMode.Normal))
         device.play()
         device.playToStop()
         sim.settle()
-        bobs.presence(live = true, now = sim.now)
         sim.bobCasts("Glance Ahead")
         sim.settle()
-        tick(live = true)
+        tick()
         assertIs<GameDevice.Status.Waiting>(bobs.status)
-        assertEquals(0 to 0, searches(bobs) { repeat(5) { sim.now += 1_000; tick(live = true) } }, "ticks while she is live")
-        // She leaves: a new point (worked out once), then nothing while the grace runs
-        sim.now += 1_000
-        val left = searches(bobs) { tick(live = false) }
-        assertTrue(left.second > 0, "her leaving is worked out: $left")
-        val since = sim.now
-        assertEquals(0 to 0, searches(bobs) { repeat(5) { sim.now += 10_000; tick(live = false) } }, "ticks while the grace runs")
-        assertIs<GameDevice.Status.Waiting>(bobs.status)
+        assertEquals(0 to 0, searches(bobs) { repeat(5) { sim.now += 60_000; tick() } }, "ticks at the wait")
+        assertIs<GameDevice.Status.Waiting>(bobs.status, "a wait has no timeout")
+        // "Always assume resolves" turned on: a new point, assumed at once
         val before = sim.server.line().size
-        sim.now = since + GameDevice.GRACE_MS
+        bobs.settings(PlaySettings(alwaysAssumeResolves = true))
         sim.settle()
-        assertTrue(sim.server.line().size > before, "assumed once the grace ran out")
+        assertTrue(sim.server.line().size > before, "assumed once the setting is on")
         assertEquals(bob, sim.server.line()[before].assumed?.assumedBy)
     }
 
-    // I-D56 §4: a pause of the live opponent is a wait with "Assume resolves"; once they are not live for 60 s the
-    // device goes on as for async; "Always assume resolves" assumes at once
+    // HIS-096 (owner, 2026-11-05): the other player's pause is a wait with "Assume resolves" (a tap assumes it) unless
+    // "Always assume resolves" is on, which assumes it at once; their presence never decides it
     @Test
-    fun aLivePauseWaitsWithGraceAndAlwaysAssumeResolves() {
+    fun aPauseWaitsWithAssumeUnlessAlwaysAssumeResolves() {
         val sim = spells("Glance Ahead")
-        sim.bobToMain()
+        sim.bobToMain(alwaysAssume = false)
         val alice = sim.alice; val bob = sim.bob
-        // Alice catches up and is live; Normal stops her at Bob's spell (Auto-skip would pass: she holds only Forests)
-        val device = sim.load(alice)
-        device.settings(PlaySettings(mode = ResponseMode.Normal))
-        device.play()
-        device.playToStop()
-        sim.settle()
-        sim.device(bob).presence(live = true, now = sim.now)
+        // Alice is away (her device gets nothing); Bob's spell is her pause
         sim.bobCasts("Glance Ahead")
-        sim.settle()
+        sim.settle(only = listOf(bob))
         val waiting = assertIs<GameDevice.Status.Waiting>(sim.device(bob).status)
         assertIs<GameDevice.Wait.Respond>(waiting.reason)
         assertEquals(GameDevice.Offer.AssumeResolves, waiting.offer)
-        // She leaves: still a wait for 60 s, then assumed
-        sim.now += 1_000
-        sim.device(bob).presence(live = false, now = sim.now)
-        sim.now += GameDevice.GRACE_MS - 1
-        sim.device(bob).advance(sim.now)
-        assertIs<GameDevice.Status.Waiting>(sim.device(bob).status)
+        sim.now += 3_600_000
+        sim.settle(only = listOf(bob))
+        assertIs<GameDevice.Status.Waiting>(sim.device(bob).status, "away for an hour: still a wait")
         val before = sim.server.line().size
-        sim.now += 1
-        sim.settle()
-        assertTrue(sim.server.line().size > before, "assumed after the grace")
-        assertEquals(bob, sim.server.line()[before].assumed?.assumedBy)
-        // With "Always assume resolves" a live pause is assumed at once
+        assertIs<GameDevice.Acted.Sent>(sim.device(bob).assume())
+        sim.settle(only = listOf(bob))
+        assertEquals(bob, sim.server.line()[before].assumed?.assumedBy, "Assume assumed her pass")
+        // With "Always assume resolves" her pause is assumed at once
         val sim2 = spells("Glance Ahead")
-        sim2.bobToMain()
-        sim2.load(alice).let { d -> d.play(); d.playToStop() }
-        sim2.settle()
-        sim2.device(bob).presence(live = true, now = 0)
-        sim2.device(bob).settings(PlaySettings(alwaysAssumeResolves = true))
+        sim2.bobToMain(alwaysAssume = true)
         sim2.bobCasts("Glance Ahead")
-        sim2.settle()
+        sim2.settle(only = listOf(bob))
         assertTrue(sim2.server.line().any { it.assumed?.assumedBy == bob && sim2.server.stateAt(it.parentId).engine.stack.isNotEmpty() },
             "the pass at Alice's pause was assumed at once")
     }
@@ -631,8 +609,8 @@ class GameDeviceTest {
         }
     }
 
-    // I-D56 §3, §4, §11, §12: opponent async: declaring attackers opens the Assume blockers screen with "No blocks";
-    // OK assumes it; the lethal damage's result waits for Bob to catch up (OK greyed); his playback always stops at
+    // I-D56 §3, §4, §11, §12, CMB-040: declaring attackers leaves a wait with Assume blockers (the screen it opens, with
+    // "No blocks", assumes them); the lethal damage's result waits for Bob to catch up (OK greyed); his playback always stops at
     // assumed blocks, and the same blocks confirm; OK once both local heads reached the result
     @Test
     fun assumedBlockersAndAResultOnATentativeLine() {
@@ -642,7 +620,6 @@ class GameDeviceTest {
         val waiting = assertIs<GameDevice.Status.Waiting>(sim.device(alice).status)
         assertEquals(GameDevice.Wait.Blockers, waiting.reason)
         assertEquals(GameDevice.Offer.AssumeBlockers, waiting.offer)
-        assertTrue(waiting.blockersScreen, "async: the screen opens with No blocks")
         assertIs<GameDevice.Acted.Sent>(sim.device(alice).assume())
         sim.settle(only = listOf(alice))
         sim.passToDamage()

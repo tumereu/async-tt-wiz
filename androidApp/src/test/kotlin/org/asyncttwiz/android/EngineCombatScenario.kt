@@ -34,7 +34,7 @@ internal class EngineCombatScenario(val f: EngineGameFixture = EngineGameFixture
             val game = sim.game(p)
             sim.deliver(p)
             game.playToStop()
-            game.tick(online[sim.other(p)] != false, sim.now)
+            game.tick(sim.now)
             if (confirmStops[p] != false) (game.device.status as? GameDevice.Status.Stopped)?.let { game.act(it.assumed) }
             sim.flush(p)
             game.play()

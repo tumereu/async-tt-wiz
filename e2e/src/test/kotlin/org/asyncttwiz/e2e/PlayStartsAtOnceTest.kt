@@ -1,6 +1,5 @@
 package org.asyncttwiz.e2e
 
-import androidx.compose.ui.test.performClick
 import org.asyncttwiz.protocol.game.GameDevice
 import org.junit.Test
 import kotlin.test.assertEquals
@@ -15,10 +14,10 @@ import kotlin.test.assertTrue
 class PlayStartsAtOnceTest : E2e() {
     private val deck = TestDeck("Mountains", listOf(TestCards.mountain to 28, TestCards.spark to 12))
 
-    // HIS-013, HIS-094, HIS-103, HIS-023: Bob comes back to Alice's first turn played while he was away: paused; one tap
-    // on Play reads Pause in the next frame, before his engine thread has answered, and the first board his engine
+    // HIS-094, HIS-023: Bob comes back to Alice's first turn played while he was away: paused with the centre text; one
+    // tap on it takes it away in the next frame, before his engine thread has answered, and the first board his engine
     // publishes after it already shows Alice's first event
-    @Test fun playTurnsToPauseAtOnceAndTheFirstEventShowsWithTheFirstBoard() {
+    @Test fun theCentreTextGoesAtOnceAndTheFirstEventShowsWithTheFirstBoard() {
         startGame(deck, deck, deal = { a, _ -> "Mountain" in hand(a) })
         bothOpen()
         bob.tap("Keep")
@@ -35,7 +34,7 @@ class PlayStartsAtOnceTest : E2e() {
         bob = restart(bob, held)
         bob.openGame(game, this)
         waitUntil("Bob's catch-up") { bob.status == GameDevice.Status.CatchUp }
-        assertEquals("Play", bob.playbackLabel())
+        assertTrue(bob.showsWatch())
         val head = bob.shown.localHead
         // Every board Bob's engine publishes from here on, as it reaches his screen
         val boards = mutableListOf<Pair<GameDevice.Status, String?>>()
@@ -43,9 +42,9 @@ class PlayStartsAtOnceTest : E2e() {
 
         // His engine thread is busy: nothing it publishes reaches the screen yet
         held.holding = true
-        bob.playbackButton().performClick()
+        bob.tapToWatch()
         run()
-        assertEquals("Pause", bob.playbackLabel(), "the button turns at once")
+        assertTrue(!bob.showsWatch(), "the centre text goes at once")
         held.release()
         waitUntil("the first board after Play") { boards.isNotEmpty() }
         val (status, shown) = boards.first()

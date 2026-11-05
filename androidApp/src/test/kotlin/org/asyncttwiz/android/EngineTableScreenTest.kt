@@ -152,9 +152,9 @@ class EngineTableScreenTest {
         assertTrue(sent.single().settings.alwaysAssumeResolves, "$sent")
     }
 
-    // STK-037, STK-029, TRN-063: with Bob's Storm Spark on the Stack the table is Alice's to act on: Resolve under the
-    // Stack, no time limit and no Hold; Resolve lets it resolve
-    @Test fun atAStopResolveSitsUnderTheStack() {
+    // STK-037, STK-029, TRN-063: with Bob's Storm Spark on the Stack the table is Alice's to act on: Resolve on the main
+    // button, no time limit and no Hold; Resolve lets it resolve
+    @Test fun atAStopResolveIsTheMainButton() {
         kit.opening()
         // A Mountain and a Storm Spark in hand: Alice can respond, so the Spark is a point where she acts
         kit.playLand()
@@ -165,10 +165,11 @@ class EngineTableScreenTest {
             kit.state().stack.isNotEmpty() && kit.state().priority.holder == kit.me && kit.routes.arrowShown()
         }
         render()
-        compose.onNodeWithTag("stack-resolve").assertExists()
+        compose.onNodeWithTag("main-button").assert(hasContentDescription("Resolve"))
+        compose.onNodeWithTag("stack-resolve").assertDoesNotExist()
         compose.onNodeWithText("Hold").assertDoesNotExist()
         assertEquals(AutomatumStep.Resolve, AutomatumStep.of(kit.alice.play()))
-        compose.onNodeWithTag("stack-resolve").performClick()
+        compose.onNodeWithTag("main-button").performClick()
         compose.waitForIdle()
         kit.playOn("the Spark resolving") { kit.state().stack.isEmpty() }
         assertTrue(kit.scenario.cards(kit.state(), kit.other, kit.state().player(kit.other).graveyard, "Storm Spark").isNotEmpty(), "it resolved")
@@ -186,6 +187,16 @@ class EngineTableScreenTest {
         val card = kit.item(cub).bounds
         for (chip in chips) assertTrue(chip.boundsInRoot.width / compose.density.density <= card.width + .5f,
             "no wider than the card")
+    }
+
+    // CMB-048: while attackers are declared, before anything is staged, the quick action names the defending player:
+    // "Rest → Bob", never "the player"
+    @Test fun restNamesTheDefendingPlayer() {
+        kit.toReadyCub()
+        kit.toAttacks()
+        render()
+        compose.onNodeWithContentDescription("Rest → Bob").assertExists()
+        compose.onNodeWithContentDescription("Rest → the player").assertDoesNotExist()
     }
 
     // TRN-009: the phase dialog only shows where the turn is: its step squares do nothing and it has no buttons but

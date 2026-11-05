@@ -28,10 +28,6 @@ once nothing is left.
 
 ## Assumptions, confirmation and branches
 
-7. Live = the green presence dot; a wait begun while the other player was live turns async 60 s after they were last
-   live (HIS-096). Open: whether this definition holds up in playtesting.
-8. "Always assume resolves" (off by default) covers passes only, never blocks or keeps; blocks are never assumed by the
-   device alone (the Assume blockers screen opens, CMB-040).
 9. One-answer questions that depend on the other player's hidden cards are real waits for the acting device; the other
    player's own device answers them under Auto-skip (STK-036, SYS-063).
 10. Order-free combat damage divisions are made automatically for every player, whatever their response mode
@@ -59,8 +55,6 @@ once nothing is left.
 20. The move is never passed by hand: it is whom the game waits for (TRN-006, TRN-058). A waiting result suggestion is
     the answerer's move like an undo request. When the game waits for nobody (both have seen a result not yet
     confirmed) the list says "Move not available" and the table's pill and bars show the turn player's.
-21. Pausing playback: the button reads "Pausing" between the tap and the stop; at a stop the pause made, the playback
-    panel stays (strip and Play), while a stop by the response mode shows the live controls (HIS-103).
 22. Staging is shared, but behind the newest event (a decision stop in playback) it stays on the device and goes out
     only as the declaration; the other player's staging, card places and early answers play back in 0.12 s (CMB-043,
     HIS-104).

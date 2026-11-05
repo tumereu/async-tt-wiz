@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -11,6 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -35,6 +37,12 @@ internal inline fun TableBoardOverlays(game: GameSummary, play: TableBoard, acco
             Text(line, Modifier.padding(horizontal = 24.dp).semantics { contentDescription = line }, color = TimelineFaintInk,
                 style = androidx.compose.material3.MaterialTheme.typography.titleMedium,
                 textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+        }
+    } }
+    // HIS-094: the catch-up's centre text, a tap resumes playback
+    if (!runtime.reviewing) runtime.centreAction?.let { action -> scene.world?.visibleViewport?.let { board ->
+        Box(Modifier.offset(board.x.dp, board.y.dp).size(board.width.dp, board.height.dp), contentAlignment = Alignment.Center) {
+            TableCentreButton(action)
         }
     } }
     // Outside the review condition: the end of playback (back to live) still flashes the pause.
@@ -91,6 +99,26 @@ internal fun ManaPoolRows(play: TableBoard, scene: TableScene) {
                 Text("×$n", Modifier.padding(start = 1.dp, end = 3.dp), color = MenuInk, fontSize = 11.sp, lineHeight = 12.sp,
                     fontWeight = FontWeight.Medium)
             }
+        }
+    }
+}
+
+/**
+ * HIS-094: the large text in the board's centre that a tap acts on ("Bob has made moves · Tap to watch"), with a play
+ * icon, white over the board.
+ */
+@Composable
+internal fun TableCentreButton(action: TableCentreAction) {
+    val shape = RoundedCornerShape(14.dp)
+    androidx.compose.material3.Surface(onClick = action.run, shape = shape, color = Color.White.copy(alpha = .94f), shadowElevation = 6.dp,
+        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xffb7bcbf)),
+        modifier = Modifier.padding(horizontal = 24.dp).testTag("centre-action").semantics { contentDescription = action.text }) {
+        Row(Modifier.padding(horizontal = 18.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.Outlined.PlayArrow, null, Modifier.size(28.dp),
+                tint = Color(0xff5b896c))
+            Text(action.text, color = MenuInk, fontSize = 18.sp, lineHeight = 23.sp, fontWeight = FontWeight.Medium,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center)
         }
     }
 }

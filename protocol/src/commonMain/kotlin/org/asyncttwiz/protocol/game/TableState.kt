@@ -51,12 +51,17 @@ data class Line(val number: Int = 0, val drawn: Int = 0)
 /**
  * A player's own play settings for one game (I-D56 §2, §13): private, kept on the server for that player and game,
  * never an event or part of the table or engine state, never sent to the other player. [mode] says where the player's
- * own device stops for them; [alwaysAssumeResolves] assumes the other player's passes at their pauses even while they
- * are live (§4); [autotap] pays mana costs with the engine's suggestion (I-D47, private: I-D56 choice 12).
+ * own device stops for them in live play; [alwaysAssumeResolves] assumes the other player's passes at their pauses at
+ * once instead of waiting with Assume (HIS-096); [autotap] pays mana costs with the engine's suggestion (I-D47, private:
+ * I-D56 choice 12); [playbackFullControl] makes catch-up playback stop wherever the player gets priority (HIS-095).
  */
 @Serializable
 data class PlaySettings(val mode: ResponseMode = ResponseMode.AutoSkip, val alwaysAssumeResolves: Boolean = false,
-    val autotap: Boolean = true)
+    val autotap: Boolean = true, val playbackFullControl: Boolean = false) {
+    /** Where catch-up playback stops for the player (HIS-095): Auto-skip whatever their live [mode], or Full control
+     * with [playbackFullControl] on. */
+    val playbackMode: ResponseMode get() = if (playbackFullControl) ResponseMode.FullControl else ResponseMode.AutoSkip
+}
 
 /** Where a player's own device (and their playback) stops for them (I-D56 §2). */
 @Serializable

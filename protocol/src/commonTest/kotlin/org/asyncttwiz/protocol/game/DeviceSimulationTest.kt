@@ -44,7 +44,12 @@ class DeviceSimulationTest {
         val rnd = Random(seed * 1_000_003 + mode.ordinal)
         val players = listOf(sim.alice, sim.bob)
         val online = players.associateWith { true }.toMutableMap()
-        sim.start(if (rnd.nextBoolean()) sim.alice else sim.bob, if (rnd.nextInt(4) == 0) ResponseMode.Normal else ResponseMode.AutoSkip)
+        // HIS-096: whether the other player's pauses are assumed at once is each player's setting, never their presence:
+        // live play waits at them (with Assume), async play goes on
+        sim.start(if (rnd.nextBoolean()) sim.alice else sim.bob, if (rnd.nextInt(4) == 0) ResponseMode.Normal else ResponseMode.AutoSkip,
+            alwaysAssume = when (mode) { Mode.LIVE -> false; Mode.ASYNC -> true; Mode.MIXED -> seed % 2 == 0L },
+            // HIS-095: some players' playback stops wherever they get priority
+            playbackFullControl = seed % 3 == 0L)
         var quiet = 0
         var lastProgress = ""
         var ticks = 0
@@ -52,7 +57,6 @@ class DeviceSimulationTest {
             if (players.all { (sim.device(it).status as? GameDevice.Status.Over)?.final == true }) break
             if (sim.server.store.size > maxEvents) break
             val p = players[rnd.nextInt(2)]
-            val q = sim.other(p)
             // Presence: async players come and go; a player coming back loads the game (catch-up)
             if (mode != Mode.LIVE) {
                 if (!online.getValue(p)) {
@@ -62,7 +66,6 @@ class DeviceSimulationTest {
                     } else { sim.now += rnd.nextLong(0, 30_000); continue }
                 } else if (rnd.nextInt(if (mode == Mode.ASYNC) 8 else 25) == 0) { online[p] = false; continue }
             }
-            sim.device(p).presence(online.getValue(q), sim.now)
             if (sim.pendingDeliveries(p) > 0) sim.deliver(p, if (rnd.nextBoolean()) null else rnd.nextInt(1, 4))
             turn(sim, p, rnd, stats)
             sim.flush(p)
@@ -74,7 +77,7 @@ class DeviceSimulationTest {
                 "server ${sim.server.state().engine.turn} pending ${sim.server.state().engine.pending?.decision} holder ${sim.server.state().engine.priority.holder}")
         }
         // Everyone comes back and plays on to the head, confirming what waits for them
-        for (p in players) { online[p] = true; sim.device(p).presence(true, sim.now) }
+        for (p in players) online[p] = true
         repeat(60) {
             sim.settle()
             for (p in players) {
@@ -132,7 +135,9 @@ class DeviceSimulationTest {
             is GameDevice.Status.Stopped -> answer(sim, d, status, rnd, stats)
             GameDevice.Status.YourMove -> move(sim, d, rnd, stats)
             is GameDevice.Status.Waiting -> when {
-                status.blockersScreen -> if (rnd.nextInt(4) > 0) d.assume(blocks(d, rnd)) else d.closeBlockersScreen()
+                // CMB-040: the Assume blockers screen the player opens, OK or Back
+                status.offer == GameDevice.Offer.AssumeBlockers && sim.settings.getValue(p).alwaysAssumeResolves ->
+                    if (rnd.nextInt(4) > 0) d.assume(blocks(d, rnd))
                 status.offer != null && rnd.nextInt(6) == 0 -> d.assume(if (status.offer == GameDevice.Offer.AssumeBlockers) blocks(d, rnd) else emptyList())
                 rnd.nextInt(15) == 0 && d.undoTarget() != null -> undo(d, rnd, stats)
                 else -> {}

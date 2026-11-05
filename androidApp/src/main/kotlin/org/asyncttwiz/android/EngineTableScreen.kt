@@ -6,15 +6,8 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.foundation.border
 import androidx.compose.material.icons.outlined.History
-import androidx.compose.material.icons.outlined.Pause
-import androidx.compose.material.icons.outlined.PlayArrow
-import androidx.compose.material3.Text
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.semantics.stateDescription
-import androidx.compose.ui.unit.sp
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -135,18 +128,19 @@ internal fun EngineTableScreen(controller: LobbyController, accountId: String, h
     }
     val status = shown.status
     val playing = status is GameDevice.Status.Playing
-    // HIS-013 (§27): playback, a stop its pause made and the catch-up's paused start (HIS-094, §29.1) have the strip and
-    // the play/pause button at the bottom
+    // HIS-094, HIS-095 (owner 2026-11-05): catch-up playback looks like live play: its paused start and a stop its pause
+    // made show only the centre text that resumes it; a tap on the table while it runs pauses it
     val catchUp = status == GameDevice.Status.CatchUp
-    val playback = playing || catchUp || (status as? GameDevice.Status.Stopped)?.paused == true
+    val pausedStop = (status as? GameDevice.Status.Stopped)?.paused == true
+    // HIS-023 (owner playtest 2026-11-05): the centre text goes at once when tapped, before the engine thread publishes
+    // the playing board
+    var watchTappedAt by remember(game.id) { mutableStateOf<Long?>(null) }
     val back = remember(game.id) { TableBackStateMachine() }
     val overlay = toolkit.hasBackOverlay || state.chatOpen
     BackHandler {
         // HIS-097: a branch's take-back can't be skipped or left
         if (takingBack) return@BackHandler
         if (!overlay && routes.review != null) { routes.leaveReview(); return@BackHandler }
-        // §7: Back while behind plays on to the next decision point, never past it
-        if (!overlay && shown.behind) { engine.playToStop(); controller.engineSent(); return@BackHandler }
         when (back.back(SystemClock.elapsedRealtime(), overlay, false)) {
             TableBackAction.CLOSE_OVERLAY -> if (state.chatOpen) controller.closeChat() else toolkit.dismissBackOverlay()
             TableBackAction.PROMPT -> Toast.makeText(context, "Press back again to leave", Toast.LENGTH_SHORT).show()
@@ -154,7 +148,8 @@ internal fun EngineTableScreen(controller: LobbyController, accountId: String, h
             TableBackAction.EXIT_REVIEW -> {}
         }
     }
-    val reviewing = reviewPlay != null || playing || catchUp
+    // HIS-008: timeline mode's look, also while a branch's take-back goes back (HIS-106)
+    val reviewing = reviewPlay != null || rewindingBranch
     var playbackSettingsOpen by remember(game.id) { mutableStateOf(false) }
     val timeline = engine.timeline.events(engine, names)
     // HIS-075: while the other player makes a choice the event text says so (also with Event text off, never in timeline
@@ -182,27 +177,26 @@ internal fun EngineTableScreen(controller: LobbyController, accountId: String, h
                         timelinePlayback = when {
                             rewindingBranch -> TimelinePlaybackStatus.REWINDING
                             reviewPlay != null -> if (routes.reviewPlaying) TimelinePlaybackStatus.PLAYING else TimelinePlaybackStatus.PAUSED
-                            playing -> TimelinePlaybackStatus.PLAYING
                             else -> null
                         },
-                        catchingUp = catchUp && reviewPlay == null,
                         history = if (timeline.isNotEmpty() && !takingBack) ({ routes.enterReview(timeline.last().id) }) else null,
-                        returnCurrent = when {
-                            takingBack -> null
-                            reviewPlay != null -> ({ routes.leaveReview() })
-                            shown.behind -> ({ engine.playToStop(); controller.engineSent() })
-                            else -> null
-                        },
+                        returnCurrent = if (reviewPlay != null) ({ routes.leaveReview() }) else null,
                         liveTimeline = if (timeline.isEmpty()) null else ({
-                            EngineStrip(timeline, accountId, landscape) { routes.enterReview(timeline.last().id) }
+                            EngineStrip(timeline, accountId, landscape) { if (!takingBack) routes.enterReview(timeline.last().id) }
                         }),
                         bottomPanel = when {
                             reviewPlay != null && timeline.isNotEmpty() -> ({ _ ->
                                 EngineReviewPanel(routes, timeline, accountId, landscape, playbackPause) { playbackSettingsOpen = true }
                             })
-                            playback -> ({ _ -> EnginePlaybackPanel(routes, timeline, accountId, landscape) })
+                            rewindingBranch -> ({ _ -> EngineRewindPanel(timeline, accountId, landscape) })
                             else -> null
-                        }))
+                        },
+                        centreAction = if (reviewPlay == null && (catchUp || pausedStop) && watchTappedAt != shown.version)
+                            TableCentreAction("${routes.opponentName} has made moves · Tap to watch") {
+                                watchTappedAt = shown.version; engine.startPlayback(); controller.engineSent() }
+                            else null,
+                        boardTap = if (reviewPlay == null && playing && !shown.pausing && !takingBack) ({
+                            engine.pause(); controller.engineSent() }) else null))
                 // Over the top row (whose move/step/turn), never taking its taps.
                 EventTextOverlay(eventText, playbackPause, Modifier.align(Alignment.TopCenter), status = choosing,
                     flashes = toolkit.choiceFlashes)
@@ -281,67 +275,17 @@ internal fun EngineReviewPanel(routes: EngineTableRoutes, events: List<HistoryTi
 }
 
 /**
- * Playback on engine state (HIS-001, HIS-013, §27): the strip of the events shown so far, and below it, where timeline
- * mode's Auto is, the play/pause button: a tap pauses (playback goes on to the next point where Full control would stop,
- * where you may act or play on) or plays again; holding it opens the response mode dialog. Catching up (HIS-094, §29.1)
- * it starts paused: Play starts the playback.
+ * HIS-106: while a branch's take-back goes back to the branch point, the bottom bar has timeline mode's grey look with the
+ * strip of the events shown, which doesn't open timeline mode.
  */
 @Composable
-internal fun EnginePlaybackPanel(routes: EngineTableRoutes, events: List<HistoryTimelineEvent>, viewer: String, landscape: Boolean) {
-    val game = routes.engine ?: return
-    val shown = game.shown ?: return
-    val stop = shown.status as? GameDevice.Status.Stopped
-    val catchUp = shown.status == GameDevice.Status.CatchUp
-    // HIS-097: a branch's take-back plays to its end: no pause, no timeline mode
-    val takingBack = shown.takingBack
-    // Play tapped on this board: Pause at once, the engine's playing board on its way
-    val starting = catchUp && routes.playTappedAt == shown.version
-    val playing = (shown.status is GameDevice.Status.Playing && !shown.pausing) || starting
-    val label = when {
-        playing -> "Pause"
-        stop != null || catchUp -> "Play"
-        else -> "Pausing"
-    }
-    val strip: @Composable () -> Unit = {
-        if (events.isNotEmpty()) EngineStrip(events, viewer, landscape) { if (!takingBack) routes.enterReview(events.last().id) }
-    }
-    val button: @Composable () -> Unit = {
-        Box(Modifier.fillMaxSize().padding(horizontal = 56.dp), contentAlignment = Alignment.Center) {
-            ActionSquare("Playback", "", !takingBack, Modifier.fillMaxWidth().height(48.dp).testTag("playback-toggle")
-                .background(Color.White, androidx.compose.foundation.shape.RoundedCornerShape(4.dp))
-                .border(1.dp, MenuBorder, androidx.compose.foundation.shape.RoundedCornerShape(4.dp))
-                .semantics { stateDescription = label },
-                fill = Color.White, ink = Color(0xff253d44), compactContent = true, holdName = "Response mode",
-                onHold = { routes.modeDialog = true }, gestureKey = label,
-                icon = {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Icon(if (playing) Icons.Outlined.Pause else Icons.Outlined.PlayArrow, null, Modifier.size(20.dp),
-                            tint = if (playing) Color(0xffb57d45) else Color(0xff5b896c))
-                        Column {
-                            Text(label, fontSize = 16.sp, lineHeight = 20.sp)
-                            Text("Hold: response mode", fontSize = 10.sp, lineHeight = 12.sp, color = Color(0xff66757a))
-                        }
-                    }
-                }) {
-                when {
-                    starting -> Unit
-                    playing -> game.pause(true)
-                    catchUp -> { routes.playTappedAt = shown.version; game.startPlayback() }
-                    stop != null -> game.act(stop.assumed)
-                    else -> game.pause(false)
-                }
-                routes.pump()
-            }
-        }
-    }
+internal fun EngineRewindPanel(events: List<HistoryTimelineEvent>, viewer: String, landscape: Boolean) {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
-        if (landscape) Row(Modifier.fillMaxWidth().height(tableBottomHeight(true).dp).background(TimelineBarColor),
-            verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.weight(1f).height(TableTimelineHeight.dp)) { strip() }
-            Box(Modifier.weight(1f).height(TableControlsHeight.dp)) { button() }
-        } else Column(Modifier.fillMaxWidth().height(tableBottomHeight(false).dp).background(TimelineBarColor)) {
-            Box(Modifier.height(TableTimelineHeight.dp)) { strip() }
-            Box(Modifier.fillMaxWidth().height(TableControlsHeight.dp)) { button() }
+        Box(Modifier.fillMaxWidth(if (landscape) .5f else 1f).height(tableBottomHeight(landscape).dp).background(TimelineBarColor)
+            .testTag("rewind-panel"), contentAlignment = Alignment.TopCenter) {
+            if (events.isNotEmpty()) Box(Modifier.fillMaxWidth().height(TableTimelineHeight.dp)) {
+                HistoryTimeline(events, events.last().id, viewer, {}, {}, Modifier.fillMaxWidth(), readOnly = true)
+            }
         }
     }
 }

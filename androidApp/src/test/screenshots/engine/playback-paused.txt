@@ -1,1 +1,1 @@
-Bob paused Alice's playback: it went on to her upkeep, where he could have acted, and stopped there; the event strip shows what he has seen and the button where Auto was reads Play, with holding it for the response mode.
+Bob tapped the table during Alice's playback: it went on to her upkeep, where he could have acted, and stopped there; his table is live with the strip and his main button, and "Alice has made moves · Tap to watch" in the middle resumes it.

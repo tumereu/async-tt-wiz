@@ -48,7 +48,7 @@ class PlaybackStopTest : E2e() {
         val played = recordShown { bob }
         bob.back()
         waitUntil("Bob's playback stopping") {
-            if (bob.status == GameDevice.Status.CatchUp) bob.once { bob.playbackButton().performClick() }
+            if (bob.status == GameDevice.Status.CatchUp) bob.once { bob.tapToWatch() }
             bob.status is GameDevice.Status.Stopped
         }
         val stop = assertIs<GameDevice.Status.Stopped>(bob.status)
@@ -69,7 +69,7 @@ class PlaybackStopTest : E2e() {
         }
 
         // Resolve: the same as assumed, so it confirms and playback goes on to the Herald on the battlefield
-        bob.node(hasTestTag("stack-resolve")).performClick()
+        bob.tap("Resolve")
         waitUntil("the server taking Bob's confirmation") {
             serverGame()?.localHeads?.get(bob.id).let { it != null && it != castEvent.id &&
                 line.indexOfFirst { e -> e.id == it } >= line.indexOf(assumed) }

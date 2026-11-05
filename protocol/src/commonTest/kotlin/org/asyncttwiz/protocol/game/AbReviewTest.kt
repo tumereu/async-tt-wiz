@@ -125,15 +125,15 @@ class AbReviewTest {
         assertIs<GameDevice.Acted.Sent>(bobs.act(Input.Cast(bob, hand(bobs.model, bob, "Crow's Larceny")), follow = answers(bob, alice)))
         sim.settle()
         assertEquals(alice, sim.server.state().engine.pending?.decision?.player, "Alice's pass was assumed: her discard waits")
-        // Alice comes back with Normal: playback stops at the assumed pass (her pause)
+        // Alice comes back with playback's Full control on: playback stops at the assumed pass at Bob's spell (her pause)
         val alices = sim.load(alice)
-        alices.settings(PlaySettings(mode = ResponseMode.Normal))
+        alices.settings(PlaySettings(playbackFullControl = true))
         alices.play()
         var stop: GameDevice.Status.Stopped
         while (true) {
             alices.playToStop()
             stop = assertIs(alices.status)
-            if (stop.assumed is Input.PassPriority) break
+            if (stop.assumed is Input.PassPriority && alices.model.engine.stack.isNotEmpty()) break
             alices.act(stop.assumed)
         }
         // Her answer as one flow: the same pass, then the discard it leads to

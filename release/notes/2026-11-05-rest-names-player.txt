@@ -1,0 +1,1 @@
+fix: While choosing attackers, the "Rest →" quick action now names the defending player instead of "the player".

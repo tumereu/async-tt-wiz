@@ -1,0 +1,1 @@
+mod: Your opponent's chance to respond is assumed only when "Always assume resolves" is on, whether they are online or away; otherwise you wait with Assume, and blocks are assumed only from Assume blockers.

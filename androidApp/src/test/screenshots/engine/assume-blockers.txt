@@ -1,1 +1,1 @@
-Bob is away when Alice attacks with her Ember Cub: the Assume blockers screen lists her attacker with Bob's untapped creatures beside it, and she tapped his Cub to assume it blocks (1 block) before pressing OK; Back would wait for him.
+Bob is away when Alice attacks with her Ember Cub; she tapped Assume blockers on the main button: the Assume blockers screen lists her attacker with Bob's untapped creatures beside it, and she tapped his Cub to assume it blocks (1 block) before pressing OK; Back would wait for him.

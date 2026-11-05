@@ -287,14 +287,13 @@ class GameSession(private val connection: GameConnection, private val credential
         pumpEngine(gameId)
     }
 
-    /** The opponent's presence and the time for [gameId]'s engine game: its own steps (passes, assumptions, a live wait
-     * turning async), then what it sends. Called by the open table every second and after every action. */
+    /** The time for [gameId]'s engine game: its own steps (passes, assumptions), then what it sends. Called by the open
+     * table every second and after every action. */
     fun engineTick(gameId: String) {
         val game = engineGame(gameId) ?: return
         // HIS-035, HIS-006: back, with everything the server had: live again unless there is something to catch up on
         if (game.awayPaused && caughtUp(gameId)) game.returned()
-        val live = presences[gameId]?.let { PresenceText.dot(it, now()) == PresenceDot.ONLINE } == true
-        game.tick(live, now())
+        game.tick(now())
         pumpEngine(gameId)
         statusChanged()
     }

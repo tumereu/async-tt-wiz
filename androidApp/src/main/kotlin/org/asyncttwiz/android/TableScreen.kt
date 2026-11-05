@@ -42,11 +42,17 @@ data class TableRuntimeHooks(val chat: (() -> Unit)? = null, val history: (() ->
     val gameActionsBlocked: Boolean = false, val resultControls: TableResultControls? = null,
     /** Null outside timeline mode; drives the centre status line and the corner play/pause flash. */
     val timelinePlayback: TimelinePlaybackStatus? = null,
-    /** The catch-up pause (HIS-094): the move pill reads "Catching up" (TRN-006). */
-    val catchingUp: Boolean = false,
     /** TRN-066: why the table waits for the other player, faint over the battlefield (never taking a touch); null when
      * it doesn't. */
-    val waitingLine: String? = null)
+    val waitingLine: String? = null,
+    /** HIS-094: the large text in the board's centre that a tap acts on ("Bob has made moves · Tap to watch"); null: none. */
+    val centreAction: TableCentreAction? = null,
+    /** HIS-095: a tap on the table (a card, a pile or the empty table) does only this (pausing playback); null: taps act
+     * as usual. */
+    val boardTap: (() -> Unit)? = null)
+
+/** A large text in the board's centre that a tap acts on ([TableRuntimeHooks.centreAction]). */
+data class TableCentreAction(val text: String, val run: () -> Unit)
 
 /** The table route: a game played on engine state has its table ([EngineTableScreen], I-D56); until it first loads on
  * this device, a placeholder without cards that says it is loading (or why it can't). */

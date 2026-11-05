@@ -57,9 +57,9 @@ class EngineCastAnimationTest {
         lateinit var game: EngineGame
         game = EngineGame(f.game.id, f.a, f.base, f.snapshot(otherKept = true), worker = EarlyDirect, onShown = { if (open) published += game.shown!! })
         open = true
-        game.tick(live = false, now = 1_000)
+        game.tick(1_000)
         assertIs<GameDevice.Acted.Sent>(game.keep(emptyList()))
-        game.tick(live = false, now = 2_000)
+        game.tick(2_000)
         val me = PlayerId(f.a)
         val hand = game.read { d -> d.model.engine.player(me).hand.toList() }
         assertTrue(hand.any { game.act(Input.PlayLand(me, it)).let { a -> a is GameDevice.Acted.Sent || a == GameDevice.Acted.Made } })
@@ -149,9 +149,9 @@ class EngineCastAnimationTest {
         lateinit var game: EngineGame
         game = EngineGame(f.game.id, f.a, f.base, f.snapshot(otherKept = true), worker = EarlyDirect, onShown = { if (open) published += game.shown!! })
         open = true
-        game.tick(live = false, now = 1_000)
+        game.tick(1_000)
         game.keep(emptyList())
-        game.tick(live = false, now = 2_000)
+        game.tick(2_000)
         val me = PlayerId(f.a)
         val hand = game.read { d -> d.model.engine.player(me).hand.toList() }
         assertTrue(hand.any { game.act(Input.PlayLand(me, it)).let { a -> a is GameDevice.Acted.Sent || a == GameDevice.Acted.Made } })

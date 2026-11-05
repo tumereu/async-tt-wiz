@@ -139,8 +139,9 @@ internal class EngineGameFixture(val startingPlayer: String = TableStatesFixture
     val kept: GameModel get() = model.copy().also { it.apply(keep) }
 
     /** The snapshot a device loads at the start (both local heads at the start event); with [otherKept], after the other
-     * player's [keep] (both local heads there): the starting player's keep then begins the first turn. */
-    fun snapshot(settings: org.asyncttwiz.protocol.game.PlaySettings? = null, otherKept: Boolean = false): EngineSnapshot =
+     * player's [keep] (both local heads there): the starting player's keep then begins the first turn. By default the
+     * player plays on while the other is away: "Always assume resolves" on (HIS-096). */
+    fun snapshot(settings: org.asyncttwiz.protocol.game.PlaySettings? = PLAYS_ON, otherKept: Boolean = false): EngineSnapshot =
         if (otherKept) EngineSnapshot(codec.encodeDefinitions(), f.id("root"), keep.id, codec.encodeModel(kept),
             localHeads = mapOf(a to keep.id, b to keep.id), settings = settings)
         else EngineSnapshot(codec.encodeDefinitions(), f.id("root"), start.id, codec.encodeModel(model),
@@ -158,3 +159,6 @@ internal class EngineGameFixture(val startingPlayer: String = TableStatesFixture
         DeviceRandom.uuid(), event.author, GameScope(game.id, playId = base.id), game, engineEvent = codec.encodeEvent(event),
         engine = EngineUpdate(localHeads = heads))
 }
+
+/** A player who plays on while the other is away (HIS-096: the other player's pauses assumed at once). */
+internal val PLAYS_ON = org.asyncttwiz.protocol.game.PlaySettings(alwaysAssumeResolves = true)

@@ -70,7 +70,16 @@ internal fun TableSurface(game: GameSummary, play: TableBoard, accountId: String
                 is TableIntent.Scroll -> layout = if (intent.vertical)
                     layout.copy(scrollY = layout.scrollY + (intent.viewportId to intent.offset))
                     else layout.copy(scroll = layout.scroll + (intent.viewportId to intent.offset))
-                TableIntent.EmptyTap -> {
+                TableIntent.EmptyTap, is TableIntent.Actions -> if (currentRuntime.boardTap != null) {
+                    // HIS-095: while playback runs a tap on the table only pauses it
+                    currentRuntime.boardTap?.invoke()
+                } else if (intent is TableIntent.Actions) {
+                    val captured = owner.capturedActions ?: intent
+                    if (toolkit != null) {
+                        val item = owner.actionItem
+                        if (item != null) toolkit.open(captured, item)
+                    }
+                } else {
                     // TBL-122: a tap on the empty table closes a battlefield card's ability chips
                     toolkit?.closeAbilities()
                     if (!currentRuntime.reviewing) {
@@ -78,13 +87,6 @@ internal fun TableSurface(game: GameSummary, play: TableBoard, accountId: String
                         toolkit?.combat?.clearSelection()
                         // ZON-079: tapping anywhere else lowers a raised hand card
                         toolkit?.hand?.lower()
-                    }
-                }
-                is TableIntent.Actions -> {
-                    val captured = owner.capturedActions ?: intent
-                    if (toolkit != null) {
-                        val item = owner.actionItem
-                        if (item != null) toolkit.open(captured, item)
                     }
                 }
                 else -> {
@@ -319,7 +321,7 @@ internal fun TableSurface(game: GameSummary, play: TableBoard, accountId: String
         TableBoardOverlays(game, play, accountId, runtime, scene, rendered)
         TableChromeHeader(game, play, accountId, landscape, runtime, toolkit, compactHeader, scene.appearance)
         CardPanelHeaders(scene, accountId, toolkit)
-        TableControlsLayer(play, accountId, landscape, connected, runtime, toolkit, scene, { gestureError }, { gestureError = null })
+        TableControlsLayer(game, play, accountId, landscape, connected, runtime, toolkit, scene, { gestureError }, { gestureError = null })
         // TBL-067: table popups keep off both hands where they fit elsewhere
         val hands = remember(scene) { scene.items.filter { it.kind == TableItemKind.HAND }.map { it.bounds } }
         AnimatedCardRingAnchors(rendered, toolkit?.capture != null) {

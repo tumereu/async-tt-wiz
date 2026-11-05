@@ -21,7 +21,8 @@ import org.asyncttwiz.protocol.GameAction
  * says comes in through [revision] (accepted events and what else changed) and [refused].
  *
  * - **Playback** (§7): events past the local head are buffered and shown one at a time ([step], paced by the UI);
- *   playback stops before an assumed input about the player where their private response mode stops ([Status.Stopped],
+ *   playback stops before an assumed input about the player where Auto-skip stops, or Full control with the player's
+ *   playback toggle on ([PlaySettings.playbackMode], HIS-095; never their live response mode) ([Status.Stopped],
  *   [NextStop.stopsAt]): the table is live there, and their answer ([act]) confirms the assumption (its first input the
  *   same, [Acceptance.confirms]: the rest is their next action after it) or branches the game (anything else, a new
  *   line). Elsewhere showing the assumed pass confirms it. Coming back with the other player's events buffered starts
@@ -33,10 +34,10 @@ import org.asyncttwiz.protocol.GameAction
  *   event, as do engine-automatic answers ([WhoActs.automaticAnswer], public forced passes). Under Auto-skip it also
  *   answers questions with only one answer.
  * - **Assume or wait** (§3, §4) at the other player's points: engine-automatic answers at once; their pauses (judged as
- *   if their Auto-skip were off) assumed at once while they are async, a wait while they are live (green presence, with
- *   [GRACE_MS] grace) unless "Always assume resolves"; every other priority point assumed at once; never at their own
- *   main phase; blockers (async: the Assume blockers screen with "No blocks", OK assumes); anything else a real wait,
- *   the opening keep included (TRN-027: never assumed). An assumption whose outcome would show the player a hidden card, or a random
+ *   if their Auto-skip were off) assumed at once with "Always assume resolves" on, else a wait with Assume, whether they
+ *   are online or away (HIS-096: presence never decides it); every other priority point assumed at once; never at their
+ *   own main phase; blockers a wait with Assume blockers ([assume]); anything else a real wait, the opening keep
+ *   included (TRN-027: never assumed). An assumption whose outcome would show the player a hidden card, or a random
  *   result (whether it would show one can't be told before the result), is not sent (the information rule, §5): a
  *   wait with no button.
  * - **Branches and rewinds** (§8, §10): when the server's main line changes behind the shown state, the device goes
@@ -52,7 +53,7 @@ import org.asyncttwiz.protocol.GameAction
  *   assumptions refused in the expected races are not); a draft dropped because the main line changed under it is told
  *   once ([Note.Refused] with [DRAFT_DROPPED]) and [send] then answers "noDraft".
  *
- * Times are the caller's ([advance], [presence], [take] take `now` in milliseconds), so simulations are deterministic.
+ * Times are the caller's ([advance], [take] take `now` in milliseconds), so simulations are deterministic.
  */
 class GameDevice(
     val session: GameSession,
@@ -113,12 +114,8 @@ class GameDevice(
     }
     private var informing = false
 
-    private var live = false
-    private var lastLive: Long? = null
     private var now = 0L
-    private var wait: WaitState? = null
     private var endTurn: Int? = null
-    private var blockersClosed: String? = null
     private val reveals = mutableMapOf<String, Boolean>()
     private val retry = mutableListOf<Retry>()
     /** The player's own opening declarations (Keep, Mulligan, a bottom choice) the server took the other player's
@@ -157,7 +154,6 @@ class GameDevice(
     private var reportedAt = Long.MIN_VALUE / 2
     private val record = ArrayDeque<String>()
 
-    private class WaitState(val key: String, val beganLive: Boolean)
     private class Retry(val table: List<TableChange>, val parent: String)
 
     // ---- What the player sees
@@ -178,9 +174,8 @@ class GameDevice(
         data object Drafting : Status
         /** The game waits for this player at the head. */
         data object YourMove : Status
-        /** Waiting for the other player: [reason] for the waiting bar, [offer] its Assume button (null: none);
-         * [blockersScreen]: the Assume blockers screen is open (async, "No blocks" pre-filled). */
-        data class Waiting(val reason: Wait, val offer: Offer? = null, val blockersScreen: Boolean = false) : Status
+        /** Waiting for the other player: [reason] for the waiting bar, [offer] its Assume button (null: none). */
+        data class Waiting(val reason: Wait, val offer: Offer? = null) : Status
         /** The game's [result] (from the shown state): [confirmable] once both local heads reached it (OK, TRN-065);
          * [final] once confirmed, or after a concession. */
         data class Over(val result: GameResult, val confirmable: Boolean, val final: Boolean) : Status
@@ -252,7 +247,7 @@ class GameDevice(
         if (session.behind) {
             if (catchUp && !opening) return Status.CatchUp
             val next = session.buffered.first()
-            return stopAt(next)?.let { Status.Stopped(next, it, paused = stopAt(next, settings.mode) == null) } ?: Status.Playing(next)
+            return stopAt(next)?.let { Status.Stopped(next, it, paused = stopAt(next, settings.playbackMode) == null) } ?: Status.Playing(next)
         }
         val s = model.engine
         Engine.result(s)?.let { return Status.Over(it, confirmable(), final()) }
@@ -267,7 +262,7 @@ class GameDevice(
             who == null -> Status.Idle
             who == me || declares(s) -> Status.YourMove
             else -> when (val point = point(s)) {
-                is Point.Wait -> Status.Waiting(point.reason, point.offer, point.screen)
+                is Point.Wait -> Status.Waiting(point.reason, point.offer)
                 else -> Status.Waiting(Wait.Sending)
             }
         }
@@ -278,23 +273,19 @@ class GameDevice(
     /**
      * Engine-responsiveness R3: what the device's decisions at the head read besides the engine state at the tip (the
      * tip names it: the state at an event is the same however it was reached, and nothing is decided while a draft is
-     * open; its open decision is compared too, by identity, as a cheap guard against a state changed in place): the table state (the other player's table-only events slip in under the device's own pending events without
-     * moving the tip), the player's settings, the other player's liveness and whether the live wait's grace still runs,
-     * an End turn going on, the head a free undo held at and the Assume blockers screen closed there. While none of it
-     * changes, the status at the head ([status]) and the device's own step there ([automaticStep]) stay the same, so each
-     * is worked out once per point: a tick at an unchanged point does no engine search. The grace running out is such a
-     * change (the first tick after it works the point out again), so a live wait still ends on time.
+     * open; its open decision is compared too, by identity, as a cheap guard against a state changed in place): the table
+     * state (the other player's table-only events slip in under the device's own pending events without moving the tip),
+     * the player's settings, an End turn going on and the head a free undo held at. While none of it changes, the status
+     * at the head ([status]) and the device's own step there ([automaticStep]) stay the same, so each is worked out once
+     * per point: a tick at an unchanged point does no engine search.
      */
-    private class PointKey(val tip: String, val pending: Any?, val table: TableState, val settings: PlaySettings, val live: Boolean,
-        val grace: Boolean, val endTurn: Int?, val holdAt: String?, val blockersClosed: String?) {
+    private class PointKey(val tip: String, val pending: Any?, val table: TableState, val settings: PlaySettings,
+        val endTurn: Int?, val holdAt: String?) {
         fun same(other: PointKey?): Boolean = other != null && tip == other.tip && pending === other.pending && table === other.table &&
-            settings == other.settings &&
-            live == other.live && grace == other.grace && endTurn == other.endTurn && holdAt == other.holdAt &&
-            blockersClosed == other.blockersClosed
+            settings == other.settings && endTurn == other.endTurn && holdAt == other.holdAt
     }
 
-    private fun pointKey() = PointKey(session.tip, model.engine.pending, model.table, settings, live, lastLive?.let { now - it < GRACE_MS } ?: false, endTurn,
-        holdAt, blockersClosed)
+    private fun pointKey() = PointKey(session.tip, model.engine.pending, model.table, settings, endTurn, holdAt)
 
     /** The status at the head worked out last, with its point ([PointKey]). */
     private var headStatus: Pair<PointKey, Status>? = null
@@ -382,6 +373,9 @@ class GameDevice(
     /** Ends the catch-up pause: playback starts. */
     fun play() { catchUp = false }
 
+    /** HIS-006: the player entered timeline mode while playback ran: it waits paused ([Status.CatchUp]) until [play]. */
+    fun holdPlayback() { if (session.behind && !opening && status is Status.Playing) catchUp = true }
+
     /**
      * HIS-035 (owner playtest 2026-11-05): the player left the app. Playback pauses at the shown point at once, and what
      * arrives meanwhile waits: coming back with the other player's events past the local head starts paused
@@ -397,7 +391,7 @@ class GameDevice(
     private val opening: Boolean get() = model.engine.turn.number == 0
 
     /**
-     * The player paused playback (§27, the play/pause button): it goes on to the next point where Full control would stop
+     * The player paused playback (HIS-095, a tap on the table): it goes on to the next point where Full control would stop
      * (an assumption about them where they could have acted) and stops there ([Status.Stopped.paused]); their answer
      * there, or playing again, ends the pause. Personal: nothing is sent.
      */
@@ -440,16 +434,16 @@ class GameDevice(
         return event.table.isEmpty() && steps.any { it.input != null } && steps.all { it.input == null || it.input is Input.PassPriority }
     }
 
-    /** "Return to current" and Back while behind (§7): plays on to the next decision point, never past it. */
+    /** Plays on at once to the next decision point, never past it (tests and simulations). */
     fun playToStop(): List<GameEvent> {
         catchUp = false
         pausing = false
         return generateSequence { step() }.toList()
     }
 
-    /** The assumed input of [event] where this player's playback stops before it under [mode], else null (§7); while
-     * paused ([pausing]) wherever Full control stops (§27). */
-    private fun stopAt(event: GameEvent, mode: ResponseMode = if (pausing) ResponseMode.FullControl else settings.mode): Input? {
+    /** The assumed input of [event] where this player's playback stops before it under [mode] (HIS-095: their playback's,
+     * [PlaySettings.playbackMode]), else null (§7); while paused ([pausing]) wherever Full control stops (§27). */
+    private fun stopAt(event: GameEvent, mode: ResponseMode = if (pausing) ResponseMode.FullControl else settings.playbackMode): Input? {
         val step = event.assumed ?: return null
         if (step.assumedBy == me || Acceptance.assumedAbout(step, event, players) != me) return null
         return step.input?.takeIf { NextStop.stopsAt(model.engine, it, me, mode) }
@@ -460,7 +454,7 @@ class GameDevice(
     /**
      * Makes the events the device makes by itself at the head (its player's passes by their mode, engine-automatic
      * answers, assumptions), until the game waits for a player or the server, and re-makes table-only events refused as
-     * stale. [now]: the time, for the live wait's grace.
+     * stale. [now]: the time.
      */
     fun advance(now: Long) {
         this.now = now
@@ -548,11 +542,10 @@ class GameDevice(
     private sealed interface Point {
         data class Automatic(val input: Input) : Point
         data class Assume(val input: Input) : Point
-        data class Wait(val reason: GameDevice.Wait, val offer: Offer? = null, val input: Input? = null, val screen: Boolean = false) : Point
+        data class Wait(val reason: GameDevice.Wait, val offer: Offer? = null, val input: Input? = null) : Point
     }
 
     private fun point(s: GameState): Point {
-        val tip = session.tip
         val d = s.pending?.decision
         if (d != null) {
             if (d !is Decision.Random) WhoActs.automaticAnswer(model, d)?.let { return Point.Automatic(it) }
@@ -569,14 +562,15 @@ class GameDevice(
             if (!Stops.pause(s, holder)) return Point.Assume(pass)
             val top = s.stack.lastOrNull()
             val reason = if (top != null) Wait.Respond(top) else Wait.MayAct(s.turn.step)
-            return if (!settings.alwaysAssumeResolves && liveWait("$tip:pass")) Point.Wait(reason, Offer.AssumeResolves, pass) else Point.Assume(pass)
+            // HIS-096 (owner, 2026-11-05): only the player's setting decides, never the other player's presence
+            return if (settings.alwaysAssumeResolves) Point.Assume(pass) else Point.Wait(reason, Offer.AssumeResolves, pass)
         }
         val blocks = Engine.options(s, opponent, model.keptView()).filterIsInstance<Input.DeclareBlockers>()
         if (blocks.isNotEmpty()) {
             val none = Input.DeclareBlockers(opponent, emptyList())
             if (!assumable(none)) return Point.Wait(Wait.Blockers)
-            val live = liveWait("$tip:blocks")
-            return Point.Wait(Wait.Blockers, Offer.AssumeBlockers, none, screen = !live && blockersClosed != tip)
+            // CMB-040: assumed only from the Assume blockers screen the player opens
+            return Point.Wait(Wait.Blockers, Offer.AssumeBlockers, none)
         }
         return Point.Wait(Wait.TheirTurn)
     }
@@ -613,24 +607,6 @@ class GameDevice(
         }
         reveals[key] = shows
         return shows
-    }
-
-    /**
-     * Whether a wait for the live other player at point [key] goes on (§4): it began while they were live and they are
-     * still live, or not live for less than [GRACE_MS]; a point first met while they aren't live is never a wait.
-     */
-    private fun liveWait(key: String): Boolean {
-        val w = wait
-        if (w?.key == key) return w.beganLive && (live || (lastLive?.let { now - it < GRACE_MS } ?: false))
-        wait = WaitState(key, live)
-        return live
-    }
-
-    /** The other player's presence (TRN-042's green dot: [live]) at [now]. */
-    fun presence(live: Boolean, now: Long) {
-        if (live || this.live) lastLive = now
-        this.live = live
-        this.now = now
     }
 
     // ---- The player's actions
@@ -961,9 +937,6 @@ class GameDevice(
         }
         return make(input, assumed = true)
     }
-
-    /** Back on the Assume blockers screen: the point stays a wait (the waiting bar still offers Assume blockers). */
-    fun closeBlockersScreen() { blockersClosed = session.tip }
 
     /**
      * Table-only [changes] (placing your own cards, early answers, suggestions, confirming the result): made at the head
@@ -1404,8 +1377,6 @@ class GameDevice(
     }
 
     companion object {
-        /** The other player's live wait turns async after they have not been live this long (§4). */
-        const val GRACE_MS = 60_000L
         /** Local-head reports while playback runs go out at most this often. */
         const val SEEN_EVERY_MS = 2_000L
         /** The refusal of an input that would show the player hidden cards while their line is tentative (§5). */

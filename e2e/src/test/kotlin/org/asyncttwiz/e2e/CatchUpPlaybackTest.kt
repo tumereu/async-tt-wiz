@@ -22,17 +22,19 @@ import kotlin.test.assertTrue
 
 /**
  * Owner playtest decisions 2026-11-04 evening (async-play §29.1, §29.3, §29.6; moved from the interim
- * EngineCatchUpPlaybackTest) on two phones and the server: coming back, playback waits paused for Play with no dialog;
- * the opening (mulligans) is never played back; an empty combat goes by at once; an attack plays back in the combat area.
+ * EngineCatchUpPlaybackTest) on two phones and the server: coming back, playback waits paused for the centre text with no
+ * dialog; the opening (mulligans) is never played back; an empty combat goes by at once; an attack plays back in the
+ * combat area.
  */
 class CatchUpPlaybackTest : E2e() {
     /** Mountains and Storm Sparks, as the interim fixture's decks. */
     private val deck = TestDeck("Mountains", listOf(TestCards.mountain to 28, TestCards.spark to 12))
 
     /** Bob keeps and closes the app; Alice takes a mulligan, keeps with a card to the bottom and plays on to her first
-     * main phase, where she plays a Mountain. */
+     * main phase, where she plays a Mountain. Her phone assumes his passes at his pauses ("Always assume resolves",
+     * HIS-096). */
     private fun aliceMulligansAndPlaysOn() {
-        startGame(deck, deck)
+        startGame(deck, deck, aliceSettings = org.asyncttwiz.protocol.game.PlaySettings(alwaysAssumeResolves = true))
         bothOpen()
         bob.tap("Keep")
         waitUntil("Bob's keep on Alice's table") { alice.shown.held.any { it.author == bob.id } }
@@ -69,8 +71,8 @@ class CatchUpPlaybackTest : E2e() {
     }
 
     // HIS-033, HIS-094 (§29.1): coming back during the other player's opening, there is no playback of it: Alice's
-    // mulligan and keep with its bottom card show at once (one board); past the opening the catch-up starts paused, no dialog,
-    // nothing played until Play
+    // mulligan and keep with its bottom card show at once (one board); past the opening the catch-up starts paused, no
+    // dialog, nothing played until the centre text is tapped
     @Test fun theOpeningShowsAtOnceThenTheCatchUpWaitsPausedForPlay() {
         aliceMulligansAndPlaysOn()
         val keep = alice.shown.line.first { it.author == bob.id }
@@ -85,21 +87,22 @@ class CatchUpPlaybackTest : E2e() {
         assertTrue(opening.any { e -> e.engine?.steps.orEmpty().any { (it.input as? Input.Answer)?.answer == Answer.Option("Mulligan") ||
             (it.input as? Input.SetupAnswer)?.answer == Answer.Option("Mulligan") } }, "her mulligan among them")
         assertEquals(1, openingBoard.engine.turn.number, "the first turn reached at once")
-        // Past the opening: paused until Play
+        // Past the opening: paused until the centre text
         val head = bob.shown.localHead
         repeat(3) { run(skip = java.time.Duration.ofSeconds(2)) }
         assertEquals(GameDevice.Status.CatchUp, bob.status)
         assertEquals(head, bob.shown.localHead, "nothing played while paused")
         assertTrue(bob.shown.behind)
-        bob.playbackButton().performClick()
-        waitUntil("Play playing") { bob.status.let { it is GameDevice.Status.Playing || it is GameDevice.Status.Stopped } || bob.shown.localHead != head }
+        assertTrue(bob.showsWatch())
+        bob.tapToWatch()
+        waitUntil("playing") { bob.status.let { it is GameDevice.Status.Playing || it is GameDevice.Status.Stopped } || bob.shown.localHead != head }
         waitUntil("the playback done or stopped") { bob.status !is GameDevice.Status.Playing }
-        assertTrue(bob.shown.localHead != head, "Play played Alice's turn back")
+        assertTrue(bob.shown.localHead != head, "the tap played Alice's turn back")
         assertTrue(bob.leaks.leaks.isEmpty() && alice.leaks.leaks.isEmpty())
     }
 
     // HIS-104 (§29.6): Alice's combat with no attackers changes nothing Bob can see: its events go by at once in his
-    // playback; under Full control they keep the playback delay
+    // playback; with playback's Full control on they keep the playback delay
     @Test fun anEmptyCombatIsSkipped() {
         aliceMulligansAndPlaysOn()
         alice.hold("To combat")
@@ -107,7 +110,7 @@ class CatchUpPlaybackTest : E2e() {
         bobComesBack()
         waitUntil("Bob's catch-up") { bob.status == GameDevice.Status.CatchUp }
         val from = bob.shown.localHead
-        bob.playbackButton().performClick()
+        bob.tapToWatch()
         waitUntil("Bob caught up") {
             val s = bob.shown
             if (s.status is GameDevice.Status.Stopped) bob.playAlong()
@@ -129,10 +132,12 @@ class CatchUpPlaybackTest : E2e() {
         }
     }
 
-    // HIS-021, CMB-007 (§29.6): Alice attacks while Bob is away; his catch-up shows the attack in the combat area (the
-    // panel in the middle of the table, as in live combat) and keeps the playback delay after it
+    // HIS-021, CMB-007 (§29.6): Alice attacks while Bob is away (her phone assuming his pause after it, "Always assume
+    // resolves"); his catch-up shows the attack in the combat area (the panel in the middle of the table, as in live
+    // combat) and keeps the playback delay after it
     @Test fun anAttackPlaysBackInTheCombatArea() {
-        startGame(TestDeck.thirds(TestCards.cub), deck, deal = { a, b -> "Mountain" in hand(a) && "Ember Cub" in hand(a) && "Mountain" in hand(b) })
+        startGame(TestDeck.thirds(TestCards.cub), deck, aliceSettings = org.asyncttwiz.protocol.game.PlaySettings(alwaysAssumeResolves = true),
+            deal = { a, b -> "Mountain" in hand(a) && "Ember Cub" in hand(a) && "Mountain" in hand(b) })
         bothOpen()
         bothKeep(bobAway = false)
         alice.playFromHand("Mountain", this)
@@ -155,7 +160,7 @@ class CatchUpPlaybackTest : E2e() {
         val boards = bobComesBack()
         waitUntil("Bob's catch-up") { bob.status == GameDevice.Status.CatchUp }
         val shown = recordShown { bob }
-        bob.playbackButton().performClick()
+        bob.tapToWatch()
         fun attack(): GameEvent? = shown.firstOrNull { e ->
             e.engine?.steps.orEmpty().any { (it.input as? Input.DeclareAttackers)?.attacks?.isNotEmpty() == true } }
         waitUntil("the attack played back") { attack() != null && boards.any { it.board.board.combat?.pairs?.isNotEmpty() == true } }

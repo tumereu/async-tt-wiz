@@ -68,7 +68,7 @@ internal class EngineLobbyFixture(val me: String = TableStatesFixture.a) : AutoC
     /** [me] keeps their opening hand (Bob's keep assumed while he is away): the timeline then has events to look at. */
     fun keep() {
         val game = assertNotNull(lobby.engineGame())
-        game.tick(false, 1_000); game.keep(emptyList()); game.tick(false, 2_000)
+        game.tick(1_000); game.keep(emptyList()); game.tick(2_000)
         lobby.engineSent(); worker.drain()
     }
 

@@ -148,16 +148,16 @@ class EngineBoardShownTest {
     // TRN-004: the step arrow shows only while the viewer may act
     @Test fun theStartingPlayersControlsWaitForTheOtherKeep() {
         val kit = EngineTableKit()
-        kit.alice.tick(true, 1_000)
+        kit.alice.tick(1_000)
         assertTrue(kit.toolkit.opening(TableActionIntent.Keep(kit.scope)), "Alice keeps")
-        kit.alice.tick(true, 2_000)
+        kit.alice.tick(2_000)
         val waiting = assertIs<GameDevice.Status.Waiting>(kit.alice.device.status)
         assertEquals(GameDevice.Wait.Keep, waiting.reason)
         assertEquals(null, waiting.offer)
         assertFalse(kit.routes.arrowShown(), "no step arrow")
         assertEquals(null, kit.routes.waitAction(), "no Assume keep")
         // Long after Bob left: still his keep to make
-        kit.alice.tick(false, 2_000 + 10 * GameDevice.GRACE_MS)
+        kit.alice.tick(2_000 + 600_000)
         assertEquals(GameDevice.Status.Waiting(GameDevice.Wait.Keep), kit.alice.device.status)
         assertFalse(kit.routes.canAct())
         kit.bob.keep(emptyList())

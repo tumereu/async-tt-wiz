@@ -22,7 +22,7 @@ Hand, library, graveyard and exile, the graveyard/exile view, and who sees what 
 
 ### Library order
 
-- **ZON-023** Library order is hidden: cards put on top or bottom keep a known place, top-end actions (draw, mill, look, reveal) take the known top first and bottom-end actions the known bottom; a shuffle makes it all unknown. (r29)
+- **ZON-023** Library order is hidden: a card put on top or bottom of a library, or looked at and left in place, keeps that place until the library is shuffled, so draws and other top-end actions take it first. Nothing on the table shows which places are known (ZON-012). (r53)
 - **ZON-024** Every line of play reshuffles the unknown parts of both libraries, known places kept (HIS-042): drawing, undoing and drawing again gives a new card. (r48)
 - **ZON-026** Undoing your own look, scry or reveal needs the other player's approval (an undo request, HIS-087). (r48)
 

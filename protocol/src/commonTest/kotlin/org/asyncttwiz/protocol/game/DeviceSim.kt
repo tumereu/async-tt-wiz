@@ -256,6 +256,23 @@ internal class DeviceSim(val games: EngineGames, every: Int = 16) {
     fun serverMove(viewer: PlayerId): PlayerId? =
         serverWaits().let { w -> if (w.getValue(viewer)) viewer else other(viewer).takeIf { w.getValue(it) } }
 
+    /**
+     * The opening with [away] away (TRN-027: an opening keep is never assumed): [starter] keeps, [away] keeps on their
+     * device (on [starter]'s keep) and leaves; [starter]'s device then plays on alone, assuming [away]'s passes, up to
+     * where it waits. [away]'s app is then closed: their device is loaded again from the server, waiting paused for
+     * their Play (catching up) while the other player's events are past their keep, so it makes nothing by itself.
+     */
+    fun keepWhileAway(starter: PlayerId, away: PlayerId = other(starter)) {
+        check(device(starter).act(keep(starter)) is GameDevice.Acted.Sent)
+        flush(starter)
+        deliver(away)
+        device(away).playToStop()
+        check(device(away).act(keep(away)) is GameDevice.Acted.Sent)
+        flush(away)
+        settle(only = listOf(starter))
+        load(away)
+    }
+
     /** [p]'s keep, or the first answer listed for [p]'s open decision. */
     fun keep(p: PlayerId): Input {
         val s = device(p).model.engine

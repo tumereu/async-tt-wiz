@@ -35,8 +35,8 @@ import org.asyncttwiz.protocol.GameAction
  * - **Assume or wait** (§3, §4) at the other player's points: engine-automatic answers at once; their pauses (judged as
  *   if their Auto-skip were off) assumed at once while they are async, a wait while they are live (green presence, with
  *   [GRACE_MS] grace) unless "Always assume resolves"; every other priority point assumed at once; never at their own
- *   main phase; blockers (async: the Assume blockers screen with "No blocks", OK assumes) and the opening keep (async:
- *   at once); anything else a real wait. An assumption whose outcome would show the player a hidden card, or a random
+ *   main phase; blockers (async: the Assume blockers screen with "No blocks", OK assumes); anything else a real wait,
+ *   the opening keep included (TRN-027: never assumed). An assumption whose outcome would show the player a hidden card, or a random
  *   result (whether it would show one can't be told before the result), is not sent (the information rule, §5): a
  *   wait with no button.
  * - **Branches and rewinds** (§8, §10): when the server's main line changes behind the shown state, the device goes
@@ -216,7 +216,6 @@ class GameDevice(
     sealed interface Offer {
         data object AssumeResolves : Offer
         data object AssumeBlockers : Offer
-        data object AssumeKeep : Offer
     }
 
     /** Something to tell the player once. */
@@ -546,11 +545,8 @@ class GameDevice(
         val d = s.pending?.decision
         if (d != null) {
             if (d !is Decision.Random) WhoActs.automaticAnswer(model, d)?.let { return Point.Automatic(it) }
-            val keep = Engine.options(s, d.player, model.keptView()).firstOrNull { keep(it) }
-            if (keep != null && assumable(keep)) {
-                if (revealing(keep)) return Point.Wait(Wait.HiddenCards)
-                return if (liveWait("$tip:keep")) Point.Wait(Wait.Keep, Offer.AssumeKeep, keep) else Point.Assume(keep)
-            }
+            // TRN-027, HIS-096 (owner, 2026-11-05): the other player's opening keep is never assumed: their opening is waited for
+            if (Engine.options(s, d.player, model.keptView()).any { keep(it) }) return Point.Wait(Wait.Keep)
             return Point.Wait(Wait.Choosing(d.source?.takeIf { it in model.visible(me) }))
         }
         val holder = s.priority.holder
@@ -937,7 +933,7 @@ class GameDevice(
         }
     }
 
-    /** Assumes the other player's answer offered on the waiting bar (§4): their pass, their keep, or [blocks] (the
+    /** Assumes the other player's answer offered on the waiting bar (§4): their pass, or [blocks] (the
      * Assume blockers screen's, "No blocks" when empty). */
     fun assume(blocks: List<Block> = emptyList()): Acted {
         refusal(null)?.let { return Acted.Refused(it) }

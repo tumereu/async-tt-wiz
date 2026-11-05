@@ -218,7 +218,6 @@ internal class EngineTableRoutes(val viewer: String, private val game: () -> Eng
             GameDevice.Offer.AssumeResolves -> WaitAction("Assume resolves", Icons.Outlined.DoneAll, resolves = true) { g.assume(); pump() }
             // The screen to assume them (editable, CMB-040)
             GameDevice.Offer.AssumeBlockers -> WaitAction("Assume blockers", Icons.Outlined.Shield) { blockersOpen = shown.tip }
-            GameDevice.Offer.AssumeKeep -> WaitAction("Assume keep", Icons.Outlined.Check) { g.assume(); pump() }
             null -> if (status.reason == GameDevice.Wait.Request && shown.request?.by == viewer)
                 WaitAction("Cancel request", Icons.Outlined.Close) { g.cancelRequest(); pump() } else null
         }

@@ -1,5 +1,6 @@
 package org.asyncttwiz.e2e
 
+import androidx.compose.ui.test.performClick
 import arcanum.api.TurnStep
 import arcanum.engine.Engine
 import arcanum.engine.decision.Answer
@@ -31,18 +32,24 @@ import kotlin.test.assertTrue
  */
 class SameDecisionTapTest : E2e() {
     private val held = HeldWorker()
-    private val deck = TestDeck("Sparks", listOf(TestCards.mountain to 26, TestCards.spark to 14))
+    private val deck = TestDeck("Sparks", listOf(TestCards.mountain to 22, TestCards.spark to 12, TestCards.glimmer to 6))
 
-    private fun start(alice: PlaySettings? = null) {
+    /** With [bobGlimmer] Bob holds an Idle Glimmer too, and plays in Full control (his playback stops at every pass
+     * assumed for him). */
+    private fun start(alice: PlaySettings? = null, bobGlimmer: Boolean = false) {
         startGame(deck, deck, aliceSettings = alice, aliceWorker = held,
-            deal = { a, b -> "Mountain" in hand(a) && "Storm Spark" in hand(a) && "Mountain" in hand(b) })
+            bobSettings = if (bobGlimmer) PlaySettings(mode = ResponseMode.FullControl) else null,
+            deal = { a, b -> "Mountain" in hand(a) && "Storm Spark" in hand(a) && "Idle Glimmer" in hand(a) && "Mountain" in hand(b) &&
+                (!bobGlimmer || "Idle Glimmer" in hand(b)) })
         held.observe = ::watchNotes
         bothOpen()
     }
 
-    /** Bob away, Alice keeps (his keep assumed) and stands in her first main phase with priority, after playing a
-     * Mountain when [land]. */
+    /** Bob keeps and goes away, Alice keeps (his passes assumed) and stands in her first main phase with priority, after
+     * playing a Mountain when [land]. */
     private fun aliceInMain(land: Boolean = false) {
+        bob.tap("Keep")
+        waitUntil("Bob's keep on Alice's table") { alice.shown.held.any { it.author == bob.id } }
         away(bob, alice)
         alice.tap("Keep")
         waitUntil("Alice's Main 1") { alice.inOwnMain() }
@@ -54,14 +61,14 @@ class SameDecisionTapTest : E2e() {
         assertEquals(GameDevice.Status.YourMove, alice.status)
     }
 
-    /** Bob comes back and confirms what Alice's phone assumed for him (his keep): the server takes his confirmation,
+    /** Bob comes back and is shown what Alice's phone assumed for him (his passes): the server takes his local head,
      * which reaches Alice's engine as a revision that changes nothing in the game (her table holds its board). */
     private fun bobConfirms() {
         waitUntil("all of Alice's on the server") { alice.engine { device.session.pending.isEmpty() } }
         val heads = alice.engine { device.localHeads[bob.me] }
         bob = restart(bob)
         bob.openGame(game, this)
-        waitUntil("Bob confirming his assumed keep", along = listOf(bob)) { alice.engine { device.localHeads[bob.me] } != heads }
+        waitUntil("Bob confirming his assumed passes", along = listOf(bob)) { alice.engine { device.localHeads[bob.me] } != heads }
     }
 
     /** Spark's cast with Alice's own answers (its first target, the suggested payment), as the cast panel makes it. */
@@ -88,7 +95,7 @@ class SameDecisionTapTest : E2e() {
     private fun watchNotes() { (alice.game ?: alice.last)?.notes?.forEach { if (seenNotes.add(it)) told += it } }
     private val notes: List<GameDevice.Note> get() { watchNotes(); return told.toList() }
 
-    // SYS-011: Alice taps To combat (her pass) in her main phase while Bob's confirmation of the keep assumed for him
+    // SYS-011: Alice taps To combat (her pass) in her main phase while Bob's confirmation of the passes assumed for him
     // arrives and rebuilds her board: the same decision still waits for her there, so her pass is made on the newer board
     @Test fun aPassTappedWhileTheOpponentsPassArrivesIsMade() {
         start()
@@ -122,10 +129,10 @@ class SameDecisionTapTest : E2e() {
             .any { e -> e.engine?.steps.orEmpty().any { it.input is Input.Cast } } }
     }
 
-    // SYS-011, SYS-012: Alice casts Storm Spark on her main phase while Bob's real mulligan arrives instead of the keep
-    // her phone assumed: the game is back in the opening, the board she tapped on is gone; refused with the note
+    // SYS-011, SYS-012: Alice casts Storm Spark on her main phase while Bob's real answer arrives instead of a pass her
+    // phone assumed for him (he casts an Idle Glimmer there): a branch, the board she tapped on is gone; refused with the note
     @Test fun aCastOnABoardThatChangedInAWayThatMattersIsRefusedWithTheNote() {
-        start()
+        start(bobGlimmer = true)
         aliceInMain(land = true)
         val inputs = spark(alice.state)
         waitUntil("all of Alice's on the server") { alice.engine { device.session.pending.isEmpty() } }
@@ -133,9 +140,12 @@ class SameDecisionTapTest : E2e() {
         held.holding = true
         bob = restart(bob)
         bob.openGame(game, this)
-        waitUntil("Bob's playback stopping at his assumed keep") { bob.status is GameDevice.Status.Stopped && bob.showsControl("Mulligan") }
-        bob.tap("Mulligan")
-        waitUntil("Bob's mulligan on Alice's phone") { alice.engine { device.session.events.none { it.id == tip } } }
+        waitUntil("Bob's playback stopping at a pass assumed for him") {
+            if (bob.status == GameDevice.Status.CatchUp) bob.once { bob.playbackButton().performClick() }
+            bob.status is GameDevice.Status.Stopped
+        }
+        assertIs<GameDevice.Acted.Sent>(bob.game!!.send(listOf(Input.Cast(bob.me, bob.hand("Idle Glimmer").first()))))
+        waitUntil("Bob's branch on Alice's phone") { alice.engine { device.session.events.none { it.id == tip } } }
         val acted = alice.game!!.send(inputs)
         held.release()
         assertEquals(GameDevice.Acted.Refused("stale"), acted)
@@ -201,21 +211,27 @@ class SameDecisionTapTest : E2e() {
     // ---- The server's race: the other player's event taken before the player's own move
 
     /**
-     * Both live; Alice keeps, so her game waits for Bob's keep. What the server sends Alice's phone is held in the
-     * network; Bob keeps (taken by the server) while Alice's phone, hearing nothing from him for two
-     * minutes, assumes that keep and goes on to her first main phase, where she makes [move]. Her assumption and her move
-     * reach the server after his keep: refused as stale, delivered after his revision (one socket keeps the server's order).
+     * Both live; both keep and Alice casts Idle Glimmer (free) in her first main phase, so her game waits for Bob at his
+     * pause. What the server sends Alice's phone is held in the network; Bob passes (taken by the server) while Alice's
+     * phone, hearing nothing from him for two minutes, assumes that pass, the Glimmer resolves and she is back in her
+     * main phase, where she makes [move]. Her assumption and her move reach the server after his pass: refused as stale,
+     * delivered after his revision (one socket keeps the server's order).
      */
     private fun race(move: () -> Unit) {
         start()
-        alice.tap("Keep")
-        waitUntil("Alice's keep on the server") { alice.engine { device.session.pending.isEmpty() } && alice.status !is GameDevice.Status.YourMove }
+        bothKeep(bobAway = false)
+        alice.playFromHand("Idle Glimmer", this)
+        waitUntil("Alice waiting for Bob at her Glimmer") {
+            alice.engine { device.session.pending.isEmpty() } && alice.status is GameDevice.Status.Waiting && alice.state.stack.isNotEmpty()
+        }
         alice.link.holdIncoming()
-        bob.tap("Keep")
-        waitUntil("Bob's keep on the server") { bob.engine { device.session.pending.isEmpty() && device.session.events.size > 1 } }
-        // Two minutes with no word from Bob: Alice's phone no longer counts him as there, and after the grace assumes his keep
+        val before = bob.engine { device.session.events.size }
+        waitUntil("Bob's pass on the server", along = listOf(bob)) {
+            bob.engine { device.session.pending.isEmpty() && device.session.events.size > before && device.model.engine.stack.isEmpty() }
+        }
+        // Two minutes with no word from Bob: Alice's phone no longer counts him as there, and after the grace assumes his pass
         repeat(4) { run(skip = Duration.ofSeconds(60)) }
-        waitUntil("Alice in main 1 on Bob's assumed keep") { alice.inOwnMain() }
+        waitUntil("Alice in main 1 on Bob's assumed pass") { alice.inOwnMain() }
         told.clear()
         move()
         waitUntil("Alice's move sent") { alice.engine { device.session.pending.isNotEmpty() } }
@@ -226,7 +242,7 @@ class SameDecisionTapTest : E2e() {
     private fun made(input: (Input) -> Boolean): Boolean = alice.engine { device.session.events + device.session.pending }
         .any { e: GameEvent -> e.author == alice.id && e.engine?.steps.orEmpty().any { it.assumedBy == null && it.input?.let(input) == true } }
 
-    // SYS-077: the server took Bob's keep before Alice's own pass made on her phone's assumption of it; on his keep the
+    // SYS-077: the server took Bob's pass before Alice's own pass made on her phone's assumption of it; on his pass the
     // same decision waits for her, so her pass is made again there without a note (his revision first)
     @Test fun aPassLostToTheOpponentsSamePassIsMadeAgain() {
         race { alice.tap("To combat") }

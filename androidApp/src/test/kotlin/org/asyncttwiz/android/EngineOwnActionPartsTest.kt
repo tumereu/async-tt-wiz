@@ -47,7 +47,7 @@ class EngineOwnActionPartsTest {
     }
 
     private fun game(worker: QueuedWorker): EngineGame {
-        val game = EngineGame(f.game.id, f.a, f.base, f.snapshot(), worker = worker, clock = clock)
+        val game = EngineGame(f.game.id, f.a, f.base, f.snapshot(otherKept = true), worker = worker, clock = clock)
         worker.frames()
         game.tick(live = false, now = 1_000); worker.frames()
         assertIs<GameDevice.Acted.Sent>(game.keep(emptyList())); worker.frames()

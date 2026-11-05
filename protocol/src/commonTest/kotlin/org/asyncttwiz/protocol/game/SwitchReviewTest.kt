@@ -35,9 +35,8 @@ class SwitchReviewTest {
         val sim = DeviceSim(EngineGames(3, List(40) { "Forest" } to (List(20) { "Mountain" } + List(20) { "Storm Spark" }), life = 3))
         val alice = sim.alice; val bob = sim.bob
         sim.start(bob)
-        assertIs<GameDevice.Acted.Sent>(sim.device(bob).act(sim.keep(bob)))
-        sim.settle(only = listOf(bob))
-        // Alice comes back once, confirms the assumed keep and catches up to Bob's main phase
+        sim.keepWhileAway(bob)
+        // Alice comes back once and catches up to Bob's main phase, confirming what her playback stops at
         val a = sim.load(alice)
         a.play()
         while (true) {

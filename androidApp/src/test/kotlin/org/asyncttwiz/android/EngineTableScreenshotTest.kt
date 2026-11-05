@@ -81,8 +81,8 @@ class EngineTableScreenshotTest {
         return routes
     }
 
-    /** Alice kept while Bob is away: his keep and passes are assumed up to her first main phase. */
-    private fun aliceAtMain(): EngineGame = EngineGame(f.game.id, f.a, f.base, f.snapshot()).apply {
+    /** Alice kept after Bob's keep while he is away: his passes are assumed up to her first main phase. */
+    private fun aliceAtMain(): EngineGame = EngineGame(f.game.id, f.a, f.base, f.snapshot(otherKept = true)).apply {
         tick(false, 1_000); keep(emptyList()); tick(false, 2_000)
     }
 
@@ -106,24 +106,20 @@ class EngineTableScreenshotTest {
             "Alice kept while Bob was away and is in her first main phase: a small violet dot at the step arrow's corner says Bob hasn't seen her last moves yet (no count, nothing over the board), the strip above the quick actions shows the events so far in each player's colour, and the quick actions are her own Response mode (Auto-skip), Always assume resolves and Autotap mana.")
     }
 
-    // TRN-066, TRN-070, TRN-062, I-D56 §4, §14: Bob is online, so after Alice's keep the game waits for his; faint words over the
-    // battlefield say so (nothing covers the board) and Assume keep takes the step arrow's place while he must act
-    @Test fun waitingBarOffersAssumeKeep() {
+    // TRN-066, TRN-070, TRN-062, TRN-027, I-D56 §4, §14: after Alice's keep the game waits for Bob's; faint words over the
+    // battlefield say so (nothing covers the board) and nothing stands in the step arrow's place: his keep is never assumed
+    @Test fun waitingBarWaitsForTheOtherKeep() {
         val game = EngineGame(f.game.id, f.a, f.base, f.snapshot())
         game.tick(live = true, now = 1_000)
         assertIs<GameDevice.Acted.Sent>(game.keep(emptyList()))
         game.tick(live = true, now = 2_000)
-        val waiting = assertIs<GameDevice.Status.Waiting>(game.device.status)
-        assertEquals(GameDevice.Offer.AssumeKeep, waiting.offer)
+        assertEquals(GameDevice.Status.Waiting(GameDevice.Wait.Keep), game.device.status)
         render(game, f.a, ReceivedPresence(OpponentPresence(PresenceState.ONLINE, idleSeconds = 0), monotonicMillis()))
         compose.onNodeWithText("Bob is deciding on a mulligan").assertExists()
         compose.onNodeWithTag("engine-bar").assertDoesNotExist()
-        compose.onNodeWithTag("engine-wait-action").assertExists()
+        compose.onNodeWithTag("engine-wait-action").assertDoesNotExist()
         compose.onRoot().captureShot("$SCREENSHOTS/engine/waiting-bar.png",
-            "Alice kept while Bob is online: faint words over the battlefield say Bob is deciding on a mulligan, nothing covers the board or her hand, and Assume keep stands where the step arrow would be.")
-        // One tap assumes it: the game goes on to Alice's first main phase
-        compose.onNodeWithTag("engine-wait-action").performClick()
-        compose.runOnIdle { assertEquals(GameDevice.Status.YourMove, game.device.status) }
+            "Alice kept while Bob is online: faint words over the battlefield say Bob is deciding on a mulligan, nothing covers the board or her hand, and nothing stands where the step arrow would be (his keep is never assumed).")
     }
 
     // HIS-033, HIS-094 (§29.1): coming back after the opening, Bob's playback of what Alice did starts paused: no dialog,
@@ -193,10 +189,7 @@ class EngineTableScreenshotTest {
     private fun bobCatchingUp(): EngineGame {
         val alice = aliceAtMain()
         val events = alice.device.session.pending
-        val snapshot = EngineSnapshot(f.codec.encodeDefinitions(), f.snapshot().rootId, events.last().id,
-            f.codec.encodeModel(alice.device.model), localHeads = mapOf(f.a to events.last().id, f.b to f.start.id),
-            baseId = f.start.id, base = f.snapshot().state, events = events.map(f.codec::encodeEvent))
-        return EngineGame(f.game.id, f.b, f.base, snapshot)
+        return EngineGame(f.game.id, f.b, f.base, f.behind(events, alice.device.model))
     }
 
     /** Plays [game] back until it stops. */
@@ -207,7 +200,7 @@ class EngineTableScreenshotTest {
 
     /** Alice at her main phase in [mode] casts Storm Spark at Bob ([live]: Bob is online). */
     private fun aliceCastsSpark(mode: org.asyncttwiz.protocol.game.ResponseMode, live: Boolean): EngineGame {
-        val game = EngineGame(f.game.id, f.a, f.base, f.snapshot()).apply { tick(live, 1_000); keep(emptyList()); tick(live, 2_000) }
+        val game = EngineGame(f.game.id, f.a, f.base, f.snapshot(otherKept = true)).apply { tick(live, 1_000); keep(emptyList()); tick(live, 2_000) }
         if (live) { game.assume(); game.tick(live, 2_500) }
         game.settings(game.shown!!.settings.copy(mode = mode))
         val me = PlayerId(f.a)
@@ -318,7 +311,7 @@ class EngineTableScreenshotTest {
     private fun heraldTriggerOnStack(): Pair<EngineGame, EngineGameFixture> {
         val h = EngineGameFixture(heralds = true)
         val me = PlayerId(h.a)
-        val game = EngineGame(h.game.id, h.a, h.base, h.snapshot()).apply { tick(false, 1_000); keep(emptyList()); tick(false, 2_000) }
+        val game = EngineGame(h.game.id, h.a, h.base, h.snapshot(otherKept = true)).apply { tick(false, 1_000); keep(emptyList()); tick(false, 2_000) }
         game.settings(game.shown!!.settings.copy(mode = org.asyncttwiz.protocol.game.ResponseMode.FullControl))
         fun named(name: String) = game.device.model.engine.let { s -> s.player(me).hand.first { s.obj(it)?.definition?.faces?.first()?.name == name } }
         game.send(listOf(Input.PlayLand(me, named("Mountain"))))
@@ -336,20 +329,21 @@ class EngineTableScreenshotTest {
         return game to h
     }
 
-    // HIS-095, HIS-091 (owner playtest 2026-11-04 #1, #2): Bob's playback stops at the keep Alice assumed for him: his
-    // table looks like any opening of his, with no words saying it was assumed
+    // HIS-095, HIS-091, HIS-105 (owner playtest 2026-11-04 #1, #2): Bob's playback (Full control) stops at a pass Alice
+    // assumed for him in her upkeep: his table looks like any point of his, with no words saying it was assumed
     @Test fun aStopAtAnAssumptionLooksLikeYourOwnPoint() {
         val bob = bobCatchingUp()
+        bob.settings(org.asyncttwiz.protocol.game.PlaySettings(mode = org.asyncttwiz.protocol.game.ResponseMode.FullControl))
         bob.startPlayback()
         playToStop(bob)
-        assertIs<GameDevice.Status.Stopped>(bob.device.status)
+        val stop = assertIs<GameDevice.Status.Stopped>(bob.device.status)
+        assertIs<Input.PassPriority>(stop.assumed)
         render(bob, f.b)
         compose.onNodeWithText("assumed", substring = true).assertDoesNotExist()
         compose.onNodeWithText("Your decision", substring = true).assertDoesNotExist()
         compose.onNodeWithTag("engine-bar").assertDoesNotExist()
-        compose.onNodeWithContentDescription("Keep").assertExists()
         captureShot("$SCREENSHOTS/engine/decision-stop.png",
-            "Bob's playback stopped at his own opening, which Alice had played on from: his hand and the quick actions Mulligan and Keep, as in any opening; nothing says what Alice assumed.")
+            "Bob's playback (Full control) stopped at Alice's upkeep, where she had assumed his pass: his table is live there with his step arrow, as at any point of his; nothing says what Alice assumed.")
     }
 
     // HIS-103 (§27): Bob paused playback: it went on to Alice's upkeep, where Full control would have stopped for him, and
@@ -357,8 +351,6 @@ class EngineTableScreenshotTest {
     @Test fun pausedPlaybackStopsWhereFullControlWould() {
         val bob = bobCatchingUp()
         bob.startPlayback()
-        playToStop(bob)
-        bob.act((bob.device.status as GameDevice.Status.Stopped).assumed)
         bob.pause(true)
         playToStop(bob)
         assertTrue((bob.device.status as GameDevice.Status.Stopped).paused)
@@ -376,7 +368,7 @@ class EngineTableScreenshotTest {
     @Test fun rewindDialogPicksAnEarlierPoint() {
         val game = aliceAtMain()
         val pending = game.device.session.pending
-        pending.forEachIndexed { n, event -> game.revision(f.revision(event, n + 2, mapOf(f.a to event.id, f.b to f.start.id))) }
+        pending.forEachIndexed { n, event -> game.revision(f.revision(event, n + 2, mapOf(f.a to event.id, f.b to f.keep.id))) }
         val routes = render(game, f.a)
         compose.runOnIdle { routes.holdUndo() }
         compose.waitForIdle()

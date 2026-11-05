@@ -129,7 +129,7 @@ class SwitchReviewTest {
     // version) is refused, or the action's own board is published before the call returns.
     @Test fun aSecondTapOnTheStillShownBoardDoesNotActAtAPointNeverShown() {
         val worker = LaggingWorker()
-        val game = EngineGame(f.game.id, f.a, f.base, f.snapshot(), worker = worker)
+        val game = EngineGame(f.game.id, f.a, f.base, f.snapshot(otherKept = true), worker = worker)
         worker.drain()
         game.tick(live = false, now = 1_000); worker.drain()
         assertIs<GameDevice.Acted.Sent>(game.keep(emptyList())); worker.drain()

@@ -28,8 +28,6 @@ once nothing is left.
 
 ## Assumptions, confirmation and branches
 
-6. Assume keep is offered only to the starting player, after their own keep and while the other player owes no card to
-   the bottom; it is automatic when the other player is away (TRN-027, HIS-096).
 7. Live = the green presence dot; a wait begun while the other player was live turns async 60 s after they were last
    live (HIS-096). Open: whether this definition holds up in playtesting.
 8. "Always assume resolves" (off by default) covers passes only, never blocks or keeps; blocks are never assumed by the

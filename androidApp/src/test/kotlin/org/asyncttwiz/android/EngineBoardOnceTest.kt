@@ -43,7 +43,7 @@ class EngineBoardOnceTest {
     /** Alice at her first main phase after her keep (Bob's keep assumed), every board published kept in [shown]. */
     private fun game(early: Boolean = true): EngineGame {
         var made: EngineGame? = null
-        val game = EngineGame(f.game.id, f.a, f.base, f.snapshot(), worker = Inline(early), onShown = { made?.shown?.let { shown += it } })
+        val game = EngineGame(f.game.id, f.a, f.base, f.snapshot(otherKept = true), worker = Inline(early), onShown = { made?.shown?.let { shown += it } })
         made = game
         game.tick(live = false, now = 1_000)
         assertIs<GameDevice.Acted.Sent>(game.keep(emptyList()))

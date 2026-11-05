@@ -645,7 +645,7 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
      * their previous action), it ends that turn all the same ([GameDevice.sameEndTurn]). */
     fun endTurn() { acting(Unit, "endTurn", same = { seen, moved -> GameDevice.sameEndTurn(seen, moved, PlayerId(me)) }) { device.endTurn(now) } }
 
-    /** The waiting bar's Assume button (§4): the opponent's pass or keep, or [blocks] (the Assume blockers screen's). */
+    /** The waiting bar's Assume button (§4): the opponent's pass, or [blocks] (the Assume blockers screen's). */
     fun assume(blocks: List<Block> = emptyList()): GameDevice.Acted = acting(STALE, "assume") { device.assume(blocks) }
 
     /** Back on the Assume blockers screen: it stays a wait. */

@@ -41,10 +41,10 @@ class EngineGameTest {
         assertEquals(GameDevice.Status.YourMove, game.device.status)
     }
 
-    // I-D56 §3, §4, §14: with Bob away the starting player keeps and plays on assumed answers: his keep and passes are
+    // I-D56 §3, §4, §14: with Bob away (he kept) the starting player keeps and plays on assumed answers: his passes are
     // assumed (the indicator counts them), everything goes out as submissions in order and shows at once
     @Test fun keepingWhileTheOtherPlayerIsAwayPlaysOnAssumedAnswers() {
-        val game = alice()
+        val game = EngineGame(f.game.id, f.a, f.base, f.snapshot(otherKept = true))
         game.tick(live = false, now = 1_000)
         assertIs<GameDevice.Acted.Sent>(game.keep(emptyList()))
         game.tick(live = false, now = 2_000)
@@ -61,33 +61,9 @@ class EngineGameTest {
         assertEquals(f.a, board.turn.accountId)
         // The server takes them in order: each echo confirms her own pending event
         val pending = game.device.session.pending
-        pending.forEachIndexed { n, event -> game.revision(f.revision(event, n + 2, mapOf(f.a to event.id, f.b to f.start.id))) }
+        pending.forEachIndexed { n, event -> game.revision(f.revision(event, n + 2, mapOf(f.a to event.id, f.b to f.keep.id))) }
         assertTrue(game.device.session.pending.isEmpty())
         assertNotNull(game.device.indicator(), "still tentative: Bob hasn't seen them")
-    }
-
-    // I-D56 §7, §8, HIS-033 (§29.1): coming back in the opening, Bob isn't caught up with a paused playback: the opening
-    // shows at once up to the keep assumed for him, where playback stops; his same answer confirms it and playback goes on
-    @Test fun theOtherPlayerCatchesUpAndConfirmsTheAssumedKeep() {
-        val alice = alice()
-        alice.tick(false, 1_000)
-        alice.keep(emptyList())
-        alice.tick(false, 2_000)
-        val events: List<GameEvent> = alice.device.session.pending
-        val snapshot = EngineSnapshot(f.codec.encodeDefinitions(), f.snapshot().rootId, events.last().id,
-            f.codec.encodeModel(alice.device.model), localHeads = mapOf(f.a to events.last().id, f.b to f.start.id),
-            baseId = f.start.id, base = f.snapshot().state, events = events.map(f.codec::encodeEvent))
-        val bob = EngineGame(f.game.id, f.b, f.base, snapshot)
-        assertIs<GameDevice.Status.Playing>(bob.device.status)
-        var guard = 0
-        while (bob.device.status is GameDevice.Status.Playing && guard++ < 100) bob.step()
-        val stop = assertIs<GameDevice.Status.Stopped>(bob.device.status)
-        assertTrue(stop.assumed.let { it is Input.SetupAnswer || it is Input.Answer })
-        // The table is live before it: his opening hand, still Mulliganing
-        assertTrue(bob.play().board.players.single { it.accountId == f.b }.status == PlayerStatus.OPENING)
-        assertEquals(GameDevice.Acted.Confirmed, bob.keep(emptyList()))
-        assertNull((bob.device.status as? GameDevice.Status.Stopped)?.takeIf { it.event.id == stop.event.id })
-        assertTrue(bob.take(3_000).any { it is GameAction.Submit })
     }
 
     // SYS-012 (abreview #1): the player's own action that the game moved on from before it reached the server is told

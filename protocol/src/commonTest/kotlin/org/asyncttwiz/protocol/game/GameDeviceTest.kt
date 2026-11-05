@@ -36,19 +36,18 @@ class GameDeviceTest {
         it.turn.active == p && it.turn.step == TurnStep.PrecombatMain && it.stack.isEmpty() && it.priority.holder == p
     }
 
-    /** Bob starts and keeps; Alice is away, so his device assumes her keep and her passes up to his main phase. */
+    /** Bob starts and keeps; Alice keeps and is away, so his device assumes her passes up to his main phase. */
     private fun DeviceSim.bobToMain() {
         start(bob)
-        assertIs<GameDevice.Acted.Sent>(device(bob).act(keep(bob)))
-        settle()
+        keepWhileAway(bob)
         assertTrue(atMain(bob), "Bob is at his main phase: ${device(bob).model.engine.turn}")
         assertEquals(GameDevice.Status.YourMove, device(bob).status)
     }
 
     /** Bob plays an Island and casts [spell] (at Alice when it targets); his device passes for him after the cast. */
-    private fun DeviceSim.bobCasts(spell: String, land: Boolean = true) {
+    private fun DeviceSim.bobCasts(spell: String, land: Boolean = true, landName: String = "Island") {
         val bob = bob
-        if (land) assertIs<GameDevice.Acted.Sent>(device(bob).act(Input.PlayLand(bob, hand(device(bob).model, bob, "Island"))))
+        if (land) assertIs<GameDevice.Acted.Sent>(device(bob).act(Input.PlayLand(bob, hand(device(bob).model, bob, landName))))
         val cast = device(bob).act(Input.Cast(bob, hand(device(bob).model, bob, spell))) { m ->
             val d = m.engine.pending?.decision
             if (d == null || d is Decision.Random || d.player != bob) null
@@ -59,36 +58,57 @@ class GameDeviceTest {
         assertIs<GameDevice.Acted.Sent>(cast)
     }
 
-    // I-D56 §3, §4, §7, §8: async: the starting player plays on an assumed keep; the other player's catch-up playback
-    // stops at it whatever their mode, and their same answer confirms it; their Auto-skip confirms the passes it doesn't
-    // stop at, and the indicator empties
+    // I-D56 §3, §4, §7, HIS-096, TRN-027: async: the starting player plays on the other player's own keep, assuming only
+    // their passes (an opening keep is never assumed); the other player's catch-up starts paused past the opening, and
+    // their Auto-skip, which doesn't stop at passes they couldn't respond to, confirms them; the indicator empties
     @Test
-    fun anAsyncKeepIsAssumedAndConfirmedOnCatchUp() {
+    fun anAwayPlayersPassesAreAssumedAndConfirmedOnCatchUp() {
         val sim = spells("Storm Spark")
         sim.bobToMain()
         val bob = sim.bob; val alice = sim.alice
         val assumed = sim.server.line().filter { it.assumed?.assumedBy == bob }
-        assertTrue(assumed.first().assumed!!.input.let { it is Input.Answer || it is Input.SetupAnswer }, "the keep first")
-        assertTrue(assumed.drop(1).all { it.assumed!!.input is Input.PassPriority }, "then Alice's passes in his turn")
+        assertTrue(assumed.isNotEmpty())
+        assertTrue(assumed.all { it.assumed!!.input is Input.PassPriority }, "only Alice's passes in his turn")
+        assertTrue(sim.server.line().any { e -> e.author == alice.value && e.assumed == null }, "Alice's own keep")
         assertEquals(GameDevice.Indicator(assumed.size, sim.server.line().size - sim.server.line().indexOf(assumed.first()) - 1),
             sim.device(bob).indicator())
-        // Alice comes back in the opening: no paused catch-up there (§29.1), the opening shows at once up to the assumed keep
         val device = sim.load(alice)
-        assertIs<GameDevice.Status.Stopped>(device.status, "the assumed keep at once, no paused catch-up")
-        device.playToStop()
-        val stop = assertIs<GameDevice.Status.Stopped>(device.status)
-        assertEquals(assumed.first().id, stop.event.id)
-        assertNull(device.step(), "playback never shows past a decision stop")
-        assertEquals(GameDevice.Acted.Confirmed, device.act(stop.assumed))
-        // Her Auto-skip doesn't stop at Bob's upkeep passes she can't respond to: playback runs to the head
+        assertEquals(GameDevice.Status.CatchUp, device.status, "past the opening: paused until Play")
+        device.play()
         device.playToStop()
         assertEquals(sim.server.head, device.session.localHead)
         sim.settle()
-        assertEquals(1, sim.confirmations)
         assertEquals(sim.server.head, sim.server.heads[alice])
         assertNull(sim.device(bob).indicator())
         assertEquals(GameDevice.Status.Waiting(GameDevice.Wait.TheirTurn), device.status)
         assertTrue(sim.leaks.isEmpty())
+    }
+
+    // TRN-027, HIS-096 (owner, 2026-11-05): the starting player's device never assumes the other player's opening keep,
+    // whether they are away or online: it waits for it with no Assume button, and turn 1 begins on their own keep
+    @Test
+    fun theOpeningKeepIsNeverAssumed() {
+        for (live in listOf(false, true)) {
+            val sim = spells("Storm Spark")
+            val alice = sim.alice; val bob = sim.bob
+            sim.start(bob)
+            sim.live[alice] = live
+            sim.device(bob).presence(live, sim.now)
+            assertIs<GameDevice.Acted.Sent>(sim.device(bob).act(sim.keep(bob)))
+            sim.settle(only = listOf(bob))
+            sim.now += 10 * GameDevice.GRACE_MS
+            sim.device(bob).presence(false, sim.now)
+            sim.settle(only = listOf(bob))
+            assertEquals(GameDevice.Status.Waiting(GameDevice.Wait.Keep), sim.device(bob).status, "live: $live")
+            assertEquals(GameDevice.Acted.Refused("noOffer"), sim.device(bob).assume())
+            assertEquals(0, sim.server.state().engine.turn.number)
+            assertTrue(sim.server.line().none { it.assumed != null })
+            sim.deliver(alice)
+            sim.device(alice).playToStop()
+            assertIs<GameDevice.Acted.Sent>(sim.device(alice).act(sim.keep(alice)))
+            sim.settle()
+            assertTrue(sim.atMain(bob), "turn 1 on her own keep")
+        }
     }
 
     // I-D56 §7: playback stops follow the private response mode: Full control at every assumed pass
@@ -101,7 +121,6 @@ class GameDeviceTest {
         device.settings(PlaySettings(mode = ResponseMode.FullControl))
         device.play()
         device.playToStop()
-        device.act((device.status as GameDevice.Status.Stopped).assumed)
         var stops = 0
         while (device.session.behind) {
             device.playToStop()
@@ -124,8 +143,6 @@ class GameDeviceTest {
         sim.bobToMain()
         val device = sim.load(sim.alice)
         device.play()
-        device.playToStop()
-        device.act((device.status as GameDevice.Status.Stopped).assumed)
         assertEquals(ResponseMode.AutoSkip, device.settings.mode)
         device.pausing = true
         while (device.step() != null) Unit
@@ -143,17 +160,23 @@ class GameDeviceTest {
     // point with a note, and plays the opponent's event back
     @Test
     fun anotherAnswerBranchesAndTheAssumerGoesBack() {
-        val sim = spells("Storm Spark")
+        // Alice holds a free instant, so her Auto-skip stops at the assumed pass of hers at Bob's spell (she could respond)
+        val glimmer = arcanum.engine.cards.Cards.invent("Idle Glimmer", "{0}", "Instant", "Draw a card.")
+        val sim = DeviceSim(EngineGames(3, (List(10) { "Forest" } + List(30) { glimmer }) to (List(20) { "Mountain" } + List(20) { "Storm Spark" })))
         sim.bobToMain()
         val alice = sim.alice; val bob = sim.bob
+        sim.bobCasts("Storm Spark", landName = "Mountain")
+        sim.settle(only = listOf(bob))
         val device = sim.load(alice)
         device.play()
         device.playToStop()
         val stop = assertIs<GameDevice.Status.Stopped>(device.status)
-        val mulligan = Engine.options(device.model.engine, alice).first {
-            (it as? Input.Answer)?.answer == Answer.Option("Mulligan") || (it as? Input.SetupAnswer)?.answer == Answer.Option("Mulligan")
+        assertIs<Input.PassPriority>(stop.assumed)
+        val cast = device.act(Input.Cast(alice, hand(device.model, alice, glimmer))) { m ->
+            m.engine.pending?.decision?.takeIf { it.player == alice && it !is Decision.Random }?.let { open ->
+                Engine.options(m.engine, alice).filterIsInstance<Input.Answer>().first { it.decision == open.id } }
         }
-        assertIs<GameDevice.Acted.Sent>(device.act(mulligan))
+        assertIs<GameDevice.Acted.Sent>(cast)
         assertTrue(!device.session.behind, "the discarded line is gone from her device")
         sim.flush(alice)
         assertEquals(1, sim.branches)
@@ -163,7 +186,7 @@ class GameDeviceTest {
         assertEquals(alice, note.by)
         assertEquals(stop.event.id, note.discarded.id)
         assertTrue(note.takenBack.isNotEmpty())
-        // Bob's table is back at the branch point; Alice's mulligan is buffered and played back
+        // Bob's table is back at the branch point; Alice's cast is buffered and played back
         assertEquals(stop.event.parentId, sim.device(bob).session.localHead)
         assertIs<GameDevice.Status.Playing>(sim.device(bob).status)
         sim.device(bob).playToStop()
@@ -201,8 +224,6 @@ class GameDeviceTest {
         device.settings(PlaySettings(mode = ResponseMode.Normal))
         device.play()
         device.playToStop()
-        device.act((device.status as GameDevice.Status.Stopped).assumed)
-        device.playToStop()
         sim.settle()
         bobs.presence(live = true, now = sim.now)
         sim.bobCasts("Glance Ahead")
@@ -236,8 +257,6 @@ class GameDeviceTest {
         device.settings(PlaySettings(mode = ResponseMode.Normal))
         device.play()
         device.playToStop()
-        device.act((device.status as GameDevice.Status.Stopped).assumed)
-        device.playToStop()
         sim.settle()
         sim.device(bob).presence(live = true, now = sim.now)
         sim.bobCasts("Glance Ahead")
@@ -259,7 +278,7 @@ class GameDeviceTest {
         // With "Always assume resolves" a live pause is assumed at once
         val sim2 = spells("Glance Ahead")
         sim2.bobToMain()
-        sim2.load(alice).let { d -> d.play(); d.playToStop(); d.act((d.status as GameDevice.Status.Stopped).assumed); d.playToStop() }
+        sim2.load(alice).let { d -> d.play(); d.playToStop() }
         sim2.settle()
         sim2.device(bob).presence(live = true, now = 0)
         sim2.device(bob).settings(PlaySettings(alwaysAssumeResolves = true))
@@ -283,8 +302,6 @@ class GameDeviceTest {
         // Alice catches up and passes for real: the spell resolves, Bob looks at her hand as the rules allow
         val device = sim.load(alice)
         device.play()
-        device.playToStop()
-        device.act((device.status as GameDevice.Status.Stopped).assumed)
         device.playToStop()
         assertEquals(GameDevice.Status.YourMove, device.status)
         assertIs<GameDevice.Acted.Sent>(device.act(Input.PassPriority(alice)))
@@ -330,7 +347,7 @@ class GameDeviceTest {
         sim.bobToMain()
         val bob = sim.bob
         val bobs = sim.device(bob)
-        assertTrue(bobs.tentative(), "Bob plays on Alice's assumed keep")
+        assertTrue(bobs.tentative(), "Bob plays on Alice's assumed passes")
         var early = 0
         assertIs<GameDevice.Acted.Sent>(bobs.act(Input.PlayLand(bob, hand(bobs.model, bob, "Island")), performed = { early++ }))
         assertEquals(1, early, "shown at its performed point")
@@ -478,8 +495,7 @@ class GameDeviceTest {
         val alice = sim.alice; val bob = sim.bob
         sim.start(alice)
         val alices = sim.device(alice)
-        assertIs<GameDevice.Acted.Sent>(alices.act(sim.keep(alice)))
-        sim.settle()
+        sim.keepWhileAway(alice)
         assertIs<GameDevice.Acted.Sent>(alices.act(Input.PlayLand(alice, hand(alices.model, alice, "Forest"))))
         alices.endTurn(sim.now)
         sim.settle()

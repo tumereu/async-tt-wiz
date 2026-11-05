@@ -20,27 +20,39 @@ class EngineAsyncViewTest {
     private val f = EngineGameFixture()
     private val names = mapOf(f.a to "Alice", f.b to "Bob")
 
-    /** Alice kept while Bob was away (his keep and passes assumed up to her main phase), and Bob's device catching up. */
+    /** Alice kept after Bob's keep while he was away (his passes assumed up to her main phase), and Bob's device catching
+     * up. */
     private fun aliceAndBob(): Pair<EngineGame, EngineGame> {
-        val alice = EngineGame(f.game.id, f.a, f.base, f.snapshot())
+        val alice = EngineGame(f.game.id, f.a, f.base, f.snapshot(otherKept = true))
         alice.tick(false, 1_000)
         alice.keep(emptyList())
         alice.tick(false, 2_000)
         val events: List<GameEvent> = alice.device.session.pending
-        val snapshot = EngineSnapshot(f.codec.encodeDefinitions(), f.snapshot().rootId, events.last().id,
-            f.codec.encodeModel(alice.device.model), localHeads = mapOf(f.a to events.last().id, f.b to f.start.id),
-            baseId = f.start.id, base = f.snapshot().state, events = events.map(f.codec::encodeEvent))
+        val snapshot = f.behind(events, alice.device.model)
         return alice to EngineGame(f.game.id, f.b, f.base, snapshot)
     }
 
     // HIS-091 (owner playtest 2026-11-04 #1, #2): only the assumer reads an assumed answer as assumed; the player it was
-    // assumed about reads it as their own ("You kept"), never "(assumed)"; §29.2: an assumed pass reads as neither, only
-    // as what it led to
+    // assumed about reads it as their own ("You: no blocks"), never "(assumed)"; §29.2: an assumed pass reads as neither,
+    // only as what it led to. Alice attacks with an Ember Cub while Bob is away and assumes his "No blocks".
     @Test fun onlyTheAssumerReadsAnAssumedAnswerAsAssumed() {
-        val (alice, _) = aliceAndBob()
-        val all = alice.device.session.pending.filter { it.engine?.steps?.any { s -> s.assumedBy == PlayerId(f.a) } == true }
+        val scenario = EngineCombatScenario()
+        scenario.until(scenario::bothHaveCubs)
+        scenario.online[f.b] = false
+        val alice = scenario.alice
+        val me = PlayerId(f.a)
+        val cub = scenario.creatures(alice.device.model.engine, me, ready = true).first()
+        assertIs<GameDevice.Acted.Sent>(alice.send(listOf(Input.DeclareAttackers(me,
+            listOf(arcanum.engine.input.Attack(cub, arcanum.engine.state.TargetRef.Player(PlayerId(f.b))))))))
+        // Bob's pass at her attack (he was online until now), then his blocks: "No blocks"
+        var guard = 0
+        while ((alice.device.status as? GameDevice.Status.Waiting)?.offer != null && guard++ < 5) assertIs<GameDevice.Acted.Sent>(alice.assume())
+        val line = alice.device.session.events + alice.device.session.pending
+        val all = line.filter { it.engine?.steps?.any { s -> s.assumedBy == me } == true }
         val (passes, assumed) = all.partition(EngineEventText::pass)
-        assertTrue(assumed.isNotEmpty() && passes.isNotEmpty())
+        assertTrue(assumed.isNotEmpty(), "the assumed blocks")
+        assertTrue(passes.isNotEmpty(), "assumed passes")
+        assertTrue(assumed.all { e -> e.assumed?.input is Input.DeclareBlockers }, "only blocks and passes are assumed")
         val state = alice.device.model.engine
         for (event in passes) for (viewer in listOf(f.a, f.b)) {
             val text = EngineEventText.of(event, state, viewer, names)
@@ -49,8 +61,8 @@ class EngineAsyncViewTest {
         for (event in assumed) {
             val hers = EngineEventText.of(event, state, f.a, names)
             val his = EngineEventText.of(event, state, f.b, names)
-            assertTrue(hers.startsWith("Bob ") && "(assumed)" in hers, hers)
-            assertTrue(his.startsWith("You ") && "assumed" !in his, his)
+            assertEquals("Bob: no blocks (assumed)", hers)
+            assertTrue(his.startsWith("You") && "assumed" !in his, his)
         }
     }
 
@@ -97,9 +109,6 @@ class EngineAsyncViewTest {
         val (_, bob) = aliceAndBob()
         bob.startPlayback()
         var guard = 0
-        while (bob.device.status is GameDevice.Status.Playing && guard++ < 100) bob.step()
-        // The assumed keep always stops
-        bob.act((bob.device.status as GameDevice.Status.Stopped).assumed)
         bob.pause(true)
         assertTrue(bob.shown!!.pausing)
         while (bob.device.status is GameDevice.Status.Playing && guard++ < 100) bob.step()

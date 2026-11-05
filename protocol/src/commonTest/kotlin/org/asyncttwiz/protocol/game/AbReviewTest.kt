@@ -33,11 +33,10 @@ class AbReviewTest {
         it.turn.active == p && it.turn.step == TurnStep.PrecombatMain && it.stack.isEmpty() && it.priority.holder == p
     }
 
-    /** Bob starts and keeps; Alice is away, so his device assumes her keep and her passes up to his main phase. */
+    /** Bob starts and keeps; Alice keeps and is away, so his device assumes her passes up to his main phase. */
     private fun DeviceSim.bobToMain() {
         start(bob)
-        assertIs<GameDevice.Acted.Sent>(device(bob).act(keep(bob)))
-        settle()
+        keepWhileAway(bob)
         assertTrue(atMain(bob), "Bob is at his main phase")
     }
 
@@ -126,7 +125,7 @@ class AbReviewTest {
         assertIs<GameDevice.Acted.Sent>(bobs.act(Input.Cast(bob, hand(bobs.model, bob, "Crow's Larceny")), follow = answers(bob, alice)))
         sim.settle()
         assertEquals(alice, sim.server.state().engine.pending?.decision?.player, "Alice's pass was assumed: her discard waits")
-        // Alice comes back with Normal: playback stops at the assumed keep, then at the assumed pass (her pause)
+        // Alice comes back with Normal: playback stops at the assumed pass (her pause)
         val alices = sim.load(alice)
         alices.settings(PlaySettings(mode = ResponseMode.Normal))
         alices.play()

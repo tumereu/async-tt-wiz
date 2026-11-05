@@ -82,7 +82,7 @@ class EngineOwnActionSequenceTest {
 
     /** Alice at her first main phase after her keep (Bob not live: his answers assumed), everything settled. */
     private fun ready(threads: Threads, worker: EngineWorker = threads): EngineGame {
-        val made = EngineGame(f.game.id, f.a, f.base, f.snapshot(), worker = worker, clock = clock)
+        val made = EngineGame(f.game.id, f.a, f.base, f.snapshot(otherKept = true), worker = worker, clock = clock)
         val draw: () -> Unit = { made.shown?.let { drawnForProbe(it.board, f.a) } }
         threads.settle(draw)
         made.tick(live = false, now = 1_000); threads.settle(draw)

@@ -102,9 +102,8 @@ abstract class E2e {
     }
 
     /**
-     * Both players open the game, Bob first: Alice's phone opens it with Bob already there, so it waits for him while he is
-     * (a phone that opened the game before the other player was there assumes their opening keep at once: a point first
-     * met while they aren't live is never a wait, I-D56 §4). Each holds the hand the deal worked out and sees the other.
+     * Both players open the game (Bob first; either order is fine: an opening keep is never assumed, TRN-027,
+     * OpeningKeepTest). Each holds the hand the deal worked out and sees the other.
      */
     internal fun bothOpen() {
         for (player in listOf(bob, alice)) {

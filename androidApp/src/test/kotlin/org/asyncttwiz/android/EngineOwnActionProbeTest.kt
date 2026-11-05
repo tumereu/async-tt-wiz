@@ -40,7 +40,7 @@ class EngineOwnActionProbeTest {
     // SYS-025: the land shows on the board that is published right after the action, before the device's own steps that
     // follow it; the probe hears of it once
     @Test fun aLandPlayShowsAtOnceAndIsTimed() {
-        val game = EngineGame(f.game.id, f.a, f.base, f.snapshot())
+        val game = EngineGame(f.game.id, f.a, f.base, f.snapshot(otherKept = true))
         mainPhase(game)
         val timed = mutableListOf<String>()
         val boards = mutableListOf<Int>()
@@ -59,7 +59,7 @@ class EngineOwnActionProbeTest {
     @Test fun aLandPlayBehindAnotherGamesLoadIsMeasured() {
         val worker = ThreadWorker()
         try {
-            val game = EngineGame(f.game.id, f.a, f.base, f.snapshot(), worker = worker)
+            val game = EngineGame(f.game.id, f.a, f.base, f.snapshot(otherKept = true), worker = worker)
             worker.drain()
             mainPhase(game, worker::drain)
             var measured: String? = null
@@ -85,7 +85,7 @@ class EngineOwnActionProbeTest {
             repeat(rounds) {
                 val worker = ThreadWorker(early)
                 try {
-                    val game = EngineGame(f.game.id, f.a, f.base, f.snapshot(), worker = worker)
+                    val game = EngineGame(f.game.id, f.a, f.base, f.snapshot(otherKept = true), worker = worker)
                     worker.drain()
                     mainPhase(game, worker::drain)
                     val before = lands(game)

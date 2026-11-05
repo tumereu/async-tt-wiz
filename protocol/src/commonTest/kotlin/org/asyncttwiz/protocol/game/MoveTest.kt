@@ -42,13 +42,45 @@ class MoveTest {
         start(bob)
         // TRN-027: both openings are open at once: each player's own mulligan is their move
         assertMoves(mapOf(alice to alice, bob to bob), "the opening")
-        assertIs<GameDevice.Acted.Sent>(device(bob).act(keep(bob)))
-        settle()
+        keepWhileAway(bob)
     }
 
-    // TRN-058 (I-D57): Bob plays on an assumed keep of Alice's (she is away) up to his main phase: the game waits for Bob
-    // only, so it is Bob's move for both; Alice's catch-up playback stopping at the assumed keep (her decision stop) is
-    // still Bob's move, and stays his once she confirms and reaches the head
+    /** Alice's Forests and a free instant (her Auto-skip stops at Bob's assumed passes of hers: she could respond), Bob's
+     * Islands and Storm Sparks. */
+    private fun glimmers() = DeviceSim(EngineGames(3, (List(10) { "Forest" } + List(30) { GLIMMER }) to
+        (List(20) { "Mountain" } + List(20) { "Storm Spark" })))
+
+    /** Bob plays a Mountain and casts Storm Spark at Alice; she is away: her pass is assumed and it resolves. */
+    private fun DeviceSim.bobSparksAlice() {
+        val d = device(bob)
+        assertIs<GameDevice.Acted.Sent>(d.act(Input.PlayLand(bob, hand(d.model, bob, "Mountain"))))
+        assertIs<GameDevice.Acted.Sent>(d.act(Input.Cast(bob, hand(d.model, bob, "Storm Spark"))) { model ->
+            val open = model.engine.pending?.decision
+            if (open == null || open is Decision.Random || open.player != bob) null
+            else Engine.options(model.engine, bob).filterIsInstance<Input.Answer>().filter { it.decision == open.id }.let { answers ->
+                if (open is Decision.Targets) answers.first { (it.answer as Answer.Targets).chosen == listOf(TargetRef.Player(alice)) } else answers.first()
+            }
+        })
+        settle(only = listOf(bob))
+        assertTrue(server.line().any { it.assumed?.input == Input.PassPriority(alice) }, "Alice's pass at the spell assumed")
+    }
+
+    /** Alice comes back and, at her playback's first stop (an assumed pass of hers: she could respond to Bob's spell),
+     * casts her free instant instead: a branch (HIS-097). */
+    private fun DeviceSim.aliceAnswersDifferently() {
+        val device = load(alice)
+        device.play()
+        device.playToStop()
+        assertIs<Input.PassPriority>(assertIs<GameDevice.Status.Stopped>(device.status).assumed)
+        assertIs<GameDevice.Acted.Sent>(device.act(Input.Cast(alice, hand(device.model, alice, GLIMMER))) { m ->
+            m.engine.pending?.decision?.takeIf { it.player == alice && it !is Decision.Random }?.let { open ->
+                Engine.options(m.engine, alice).filterIsInstance<Input.Answer>().first { it.decision == open.id } }
+        })
+    }
+
+    // TRN-058 (I-D57): Bob plays on assumed passes of Alice's (she kept and is away) up to his main phase: the game waits
+    // for Bob only, so it is Bob's move for both; Alice's catch-up playback stopping at an assumed pass (her decision stop,
+    // Full control) is still Bob's move, and stays his once she confirms and reaches the head
     @Test
     fun anAssumedLineIsTheMoveOfThePlayerWhoPlaysOn() {
         val sim = spells("Storm Spark")
@@ -57,14 +89,18 @@ class MoveTest {
         assertEquals(GameDevice.Status.YourMove, sim.device(bob).status)
         sim.assertMoves(mapOf(alice to bob, bob to bob), "Bob plays on")
         val device = sim.load(alice)
-        // HIS-033 (§29.1): coming back in the opening there is no paused catch-up: it shows at once up to the assumed keep
-        assertIs<GameDevice.Status.Stopped>(device.status, "the assumed keep at once, no paused catch-up")
+        assertEquals(GameDevice.Status.CatchUp, device.status)
         assertEquals(bob, device.move)
+        device.settings(PlaySettings(mode = ResponseMode.FullControl))
+        device.play()
         device.playToStop()
         val stop = assertIs<GameDevice.Status.Stopped>(device.status)
         assertEquals(bob, device.move, "a decision stop behind the head while Bob plays on is Bob's move")
         assertEquals(GameDevice.Acted.Confirmed, device.act(stop.assumed))
-        device.playToStop()
+        while (device.session.behind) {
+            device.playToStop()
+            (device.status as? GameDevice.Status.Stopped)?.let { device.act(it.assumed) }
+        }
         sim.settle()
         sim.assertMoves(mapOf(alice to bob, bob to bob), "Alice caught up")
     }
@@ -89,9 +125,11 @@ class MoveTest {
         assertEquals(GameDevice.Status.Waiting(GameDevice.Wait.HiddenCards), sim.device(bob).status)
         sim.assertMoves(mapOf(alice to alice, bob to alice), "Bob waits for Alice")
         val device = sim.load(alice)
+        assertTrue(device.session.behind)
+        assertEquals(alice, device.move, "the game waits for her while she is behind")
         device.play()
         device.playToStop()
-        assertIs<GameDevice.Status.Stopped>(device.status)
+        assertEquals(GameDevice.Status.YourMove, device.status)
         assertEquals(alice, device.move, "the game waits for her at the head")
     }
 
@@ -142,21 +180,15 @@ class MoveTest {
         sim.assertMoves(mapOf(alice to bob, bob to bob), "declined: Bob's main phase")
     }
 
-    // TRN-058, HIS-097 (I-D56 §8): Alice answers the assumed keep differently (a mulligan): the main line branches and
-    // whose move it is follows the new line on both devices and the server alike
+    // TRN-058, HIS-097 (I-D56 §8): Alice answers an assumed pass differently (she casts an instant): the main line branches
+    // and whose move it is follows the new line on both devices and the server alike
     @Test
     fun aBranchMovesTheMoveWithTheNewLine() {
-        val sim = spells("Storm Spark")
+        val sim = glimmers()
         sim.bobToMain()
         val alice = sim.alice; val bob = sim.bob
-        val device = sim.load(alice)
-        device.play()
-        device.playToStop()
-        assertIs<GameDevice.Status.Stopped>(device.status)
-        val mulligan = Engine.options(device.model.engine, alice).first {
-            (it as? Input.Answer)?.answer == Answer.Option("Mulligan") || (it as? Input.SetupAnswer)?.answer == Answer.Option("Mulligan")
-        }
-        assertIs<GameDevice.Acted.Sent>(device.act(mulligan))
+        sim.bobSparksAlice()
+        sim.aliceAnswersDifferently()
         sim.settle()
         assertEquals(1, sim.branches)
         val expected = sim.serverMove(alice)
@@ -164,25 +196,19 @@ class MoveTest {
         sim.assertMoves(mapOf(alice to expected, bob to expected), "after the branch")
     }
 
-    // TRN-050, HIS-097 (I-D56 §8): Bob suggests a draw on the line where Alice's keep was assumed; Alice answers the assumed
-    // keep differently (a mulligan): the main line branches, and the suggestion left behind on the discarded line locks
-    // nothing for either player
+    // TRN-050, HIS-097 (I-D56 §8): Bob suggests a draw on the line where Alice's passes were assumed; Alice answers an
+    // assumed pass differently (she casts an instant): the main line branches, and the suggestion left behind on the
+    // discarded line locks nothing for either player
     @Test
     fun aSuggestionLeftOnADiscardedLineLocksNothing() {
-        val sim = spells("Storm Spark")
+        val sim = glimmers()
         sim.bobToMain()
         val alice = sim.alice; val bob = sim.bob
+        sim.bobSparksAlice()
         assertIs<GameDevice.Acted.Sent>(sim.device(bob).suggest(GameResult.Draw))
         sim.settle(only = listOf(bob))
         assertTrue(sim.device(bob).locked, "the suggestion waits on Bob's line")
-        val device = sim.load(alice)
-        device.play()
-        device.playToStop()
-        assertIs<GameDevice.Status.Stopped>(device.status)
-        val mulligan = Engine.options(device.model.engine, alice).first {
-            (it as? Input.Answer)?.answer == Answer.Option("Mulligan") || (it as? Input.SetupAnswer)?.answer == Answer.Option("Mulligan")
-        }
-        assertIs<GameDevice.Acted.Sent>(device.act(mulligan))
+        sim.aliceAnswersDifferently()
         sim.settle()
         assertEquals(1, sim.branches)
         for (p in listOf(alice, bob)) {
@@ -258,3 +284,6 @@ class MoveTest {
         settle()
     }
 }
+
+/** A free instant of Alice's (an invented card). */
+private val GLIMMER: String by lazy { arcanum.engine.cards.Cards.invent("Idle Glimmer", "{0}", "Instant", "Draw a card.") }

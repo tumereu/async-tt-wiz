@@ -55,7 +55,7 @@ class EngineCastAnimationTest {
         val published = mutableListOf<EngineGame.Shown>()
         var open = false
         lateinit var game: EngineGame
-        game = EngineGame(f.game.id, f.a, f.base, f.snapshot(), worker = EarlyDirect, onShown = { if (open) published += game.shown!! })
+        game = EngineGame(f.game.id, f.a, f.base, f.snapshot(otherKept = true), worker = EarlyDirect, onShown = { if (open) published += game.shown!! })
         open = true
         game.tick(live = false, now = 1_000)
         assertIs<GameDevice.Acted.Sent>(game.keep(emptyList()))
@@ -147,7 +147,7 @@ class EngineCastAnimationTest {
         val published = mutableListOf<EngineGame.Shown>()
         var open = false
         lateinit var game: EngineGame
-        game = EngineGame(f.game.id, f.a, f.base, f.snapshot(), worker = EarlyDirect, onShown = { if (open) published += game.shown!! })
+        game = EngineGame(f.game.id, f.a, f.base, f.snapshot(otherKept = true), worker = EarlyDirect, onShown = { if (open) published += game.shown!! })
         open = true
         game.tick(live = false, now = 1_000)
         game.keep(emptyList())

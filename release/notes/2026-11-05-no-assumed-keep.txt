@@ -1,0 +1,1 @@
+mod: At the start of a game, the first player always waits for the other player to keep their hand (or take a mulligan) before turn 1 begins; there is no Assume keep any more.

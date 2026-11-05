@@ -27,6 +27,8 @@ object TestCards {
         power = "1", toughness = "1")
     val hound = card("Cinder Hound", "Creature — Elemental Dog", "{R}", "{R}: This creature gets +1/+0 until end of turn.", "2", "1")
     val stride = card("Ember Stride", "Sorcery", "{R}", "Take an extra turn after this one.")
+    /** A free instant: casting it gives the other player a pause (their answer may be assumed) without using mana. */
+    val glimmer = card("Idle Glimmer", "Instant", "{0}", "Draw a card.")
 }
 
 /** A deck: [entries] of cards, in this order (the library's order before the opening shuffle). */

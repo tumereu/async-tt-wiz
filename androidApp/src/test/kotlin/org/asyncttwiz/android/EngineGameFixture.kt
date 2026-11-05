@@ -29,7 +29,7 @@ import org.asyncttwiz.protocol.game.TableState
  * (CMB-028) a third of Alice's deck are Cinder Hounds (2/1 for {R} with "{R}: +1/+0") and of Bob's Ash Oracles (a
  * planeswalker for {R}, loyalty 3).
  */
-internal class EngineGameFixture(startingPlayer: String = TableStatesFixture.a, creatures: Boolean = false, dungeons: Boolean = false,
+internal class EngineGameFixture(val startingPlayer: String = TableStatesFixture.a, creatures: Boolean = false, dungeons: Boolean = false,
     heralds: Boolean = false, extraTurns: Boolean = false, declaring: Boolean = false) {
     private val f = TableStatesFixture
     private class Invented(face: DefinitionFace, oracle: OracleCard) {
@@ -124,10 +124,34 @@ internal class EngineGameFixture(startingPlayer: String = TableStatesFixture.a, 
         build()
     }
 
-    /** The snapshot a device loads at the start (both local heads at the start event). */
-    fun snapshot(settings: org.asyncttwiz.protocol.game.PlaySettings? = null): EngineSnapshot =
-        EngineSnapshot(codec.encodeDefinitions(), f.id("root"), start.id, codec.encodeModel(model),
+    /** The player who doesn't start. */
+    val other: String = if (startingPlayer == a) b else a
+
+    /** The other player's keep, the server's next event after [start] (TRN-027: the starting player's device waits for
+     * it; an opening keep is never assumed). */
+    val keep: GameEvent = EventBuilder(model.copy(), f.id("keep/$other"), start.id, other).run {
+        perform(Input.SetupAnswer(PlayerId(other), arcanum.engine.decision.Answer.Option("Keep")))
+        answerRandoms()
+        build()
+    }
+
+    /** The state after [keep]. */
+    val kept: GameModel get() = model.copy().also { it.apply(keep) }
+
+    /** The snapshot a device loads at the start (both local heads at the start event); with [otherKept], after the other
+     * player's [keep] (both local heads there): the starting player's keep then begins the first turn. */
+    fun snapshot(settings: org.asyncttwiz.protocol.game.PlaySettings? = null, otherKept: Boolean = false): EngineSnapshot =
+        if (otherKept) EngineSnapshot(codec.encodeDefinitions(), f.id("root"), keep.id, codec.encodeModel(kept),
+            localHeads = mapOf(a to keep.id, b to keep.id), settings = settings)
+        else EngineSnapshot(codec.encodeDefinitions(), f.id("root"), start.id, codec.encodeModel(model),
             localHeads = mapOf(a to start.id, b to start.id), settings = settings)
+
+    /** The snapshot the other player's device loads after [events] made on [snapshot] (otherKept) up to [state]: their
+     * local head at [keep], the events past it buffered. */
+    fun behind(events: List<GameEvent>, state: GameModel): EngineSnapshot =
+        EngineSnapshot(codec.encodeDefinitions(), f.id("root"), events.last().id, codec.encodeModel(state),
+            localHeads = mapOf(startingPlayer to events.last().id, other to keep.id),
+            baseId = keep.id, base = codec.encodeModel(kept), events = events.map(codec::encodeEvent))
 
     /** The revision the server sends for [event] (accepted), with the local heads after it. */
     fun revision(event: GameEvent, n: Int, heads: Map<String, String>): GameRevision = GameRevision(game.id, "$n", "${n + 1}",

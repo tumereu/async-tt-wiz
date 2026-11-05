@@ -130,7 +130,9 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
     }
     fun dismissError() { state = state.copy(error = null, notice = null) }
     fun open(id: String) {
-        if (state.uncertain) return
+        // Problem report YRVZNM: a request left unconfirmed by a connection failure never keeps a pod from opening; opening
+        // retries it (with its original request id) and the pod loads after it
+        if (state.uncertain) retry()
         flushSetup()
         setPicker.dismiss()
         presets.dismiss()
@@ -682,7 +684,10 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
                         writes.removeAt(0)
                         if (write.setupRevision == state.setup?.revision) state = state.copy(setup = null)
                         state = state.copy(confirmation = null)
-                        if (write.exit) { accepted = null; state = state.copy(selected = null, detail = null, setup = null) }
+                        // Leaving a pod closes it, not another pod opened while the request was retried (open())
+                        if (write.exit && (state.selected == null || state.selected == write.pod)) {
+                            accepted = null; state = state.copy(selected = null, detail = null, setup = null)
+                        }
                         if (write.select && result.first != null) {
                             // Creation leaves the form live too. Carry edits made in flight into setup.
                             val newer = write.createdFrom?.let { sent -> state.creating?.takeIf { it != sent } }

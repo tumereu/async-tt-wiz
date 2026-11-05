@@ -1,0 +1,1 @@
+fix: A draft pod opens again when tapped after a spell of connection trouble.

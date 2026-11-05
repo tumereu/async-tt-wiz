@@ -86,6 +86,15 @@ abstract class E2e {
         if (ready) ready()
     }
 
+    /** Alice and Bob with their phones (the app launched, signed in, on the main menu), and no game set up (say, for a
+     * pod: [ServerSetup.draftingPod]). */
+    internal fun launchPlayers() {
+        val (a, b) = ServerSetup.accounts()
+        alice = E2ePlayer(a, compose).also(players::add)
+        bob = E2ePlayer(b, compose).also(players::add)
+        alice.launch(); bob.launch()
+    }
+
     /**
      * [player]'s app closes (the process ends: its game says it left) and starts again, signed in on the main menu with
      * nothing of before in memory: opening the game loads it from the server. [engineWorker] for the new app.

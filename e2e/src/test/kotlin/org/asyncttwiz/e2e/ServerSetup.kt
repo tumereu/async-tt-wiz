@@ -87,6 +87,27 @@ object ServerSetup {
         }
     }
 
+    /**
+     * A pod [name] of [a] (its creator) and [b] drafting: a cube of [TestCards] (a booster draft of three packs of two
+     * cards each), [b] invited and accepted, the draft started. Returns the pod's id.
+     */
+    fun draftingPod(a: TestAccount, b: TestAccount, name: String): String = runBlocking {
+        fun id() = UUID.randomUUID().toString()
+        LobbyApi(origin).use { it.add(a.token, AddContact(id(), b.id)) }
+        val cards = listOf(TestCards.mountain, TestCards.cub, TestCards.spark)
+        val cube = DeckApi(origin).use { api ->
+            api.submit(a.token, SubmitDefinitions(id(), cards))
+            api.create(a.token, CreateCube(id(), "E2E cube", cards.map { SavedCubeEntry(it.digest, 4) }))
+        }
+        org.asyncttwiz.android.PodApi(origin).use { api ->
+            val pod = api.create(a.token, CreatePod(id(), name, cube.cube.id)).id
+            api.invite(a.token, pod, InviteToPod(id(), b.id))
+            api.accept(b.token, pod, PodRequest(id()))
+            api.update(a.token, pod, UpdatePod(id(), settings = DraftSettings(packsPerPlayer = 3, cardsPerPack = 2)))
+            api.start(a.token, pod, PodRequest(id())).also { check(it.phase == PodPhase.DRAFTING) { "the draft didn't start: $it" } }.id
+        }
+    }
+
     /** A game set up up to both players' Ready ([ready] starts it): invited, accepted, decks chosen, starter set. */
     class Prepared(val a: TestAccount, val b: TestAccount, val invitation: GameSummary, private val decks: Map<TestAccount, TestDeck>,
         private val starter: TestAccount, private val wanted: (Deal) -> Boolean) {

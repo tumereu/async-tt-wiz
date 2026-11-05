@@ -146,7 +146,7 @@ class CatchUpPlaybackTest : E2e() {
         val attacker = alice.field("Ember Cub").first()
         alice.tap("To combat")
         waitUntil("Alice declaring attackers") { alice.state.turn.step == TurnStep.DeclareAttackers }
-        alice.battlefieldCard("Ember Cub").performClick()
+        alice.stageAttacker("Ember Cub", this)
         waitUntil("the Cub staged") { alice.stepArrow() == "Attack (1)" }
         alice.tap("Attack (1)")
         waitUntil("the attack on the server") {

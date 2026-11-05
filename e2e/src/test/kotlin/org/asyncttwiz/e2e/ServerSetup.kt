@@ -54,13 +54,29 @@ object ServerSetup {
         TestAccount(username, email, session.token, session.account)
     } }
 
-    private fun rename(account: TestAccount, name: String, username: String): TestAccount = AccountApi(origin).use { api ->
-        runBlocking { TestAccount(name, account.email, account.token, api.changeUsername(account.token, username)) }
+    private fun rename(account: TestAccount, name: String, username: String): TestAccount = accountCall("rename ${account.name}") { api ->
+        TestAccount(name, account.email, account.token, api.changeUsername(account.token, username))
     }
 
     /** [account]'s play defaults for new games (LOB-113): how their device responds and stops. */
-    fun playDefaults(account: TestAccount, settings: org.asyncttwiz.protocol.game.PlaySettings) = AccountApi(origin).use { api ->
-        runBlocking { api.setAccountSettings(account.token, api.accountSettings(account.token).copy(playDefaults = settings)) }
+    fun playDefaults(account: TestAccount, settings: org.asyncttwiz.protocol.game.PlaySettings) = accountCall("play defaults of ${account.name}") { api ->
+        api.setAccountSettings(account.token, api.accountSettings(account.token).copy(playDefaults = settings))
+    }
+
+    /**
+     * An account request of the setup ([what]): again after a connection failure (the app's AccountApi says only
+     * "network"; a test's setup was seen failing once with "Account request failed"), at most three times; a refusal
+     * fails at once, naming its code.
+     */
+    private fun <T> accountCall(what: String, call: suspend (AccountApi) -> T): T {
+        repeat(3) { attempt ->
+            try { return AccountApi(origin).use { api -> runBlocking { call(api) } } }
+            catch (failure: org.asyncttwiz.android.AccountFailure) {
+                if (failure.code != "network" || attempt == 2) error("$what: ${failure.code} ${failure.field.orEmpty()}")
+                Thread.sleep(200)
+            }
+        }
+        error("unreachable")
     }
 
     fun deck(account: TestAccount, deck: TestDeck): SavedDeck = DeckApi(origin).use { api ->

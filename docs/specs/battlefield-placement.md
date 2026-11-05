@@ -31,18 +31,30 @@ Arena does. "Try the Arena way first" — details may change after playtesting.
 
 - **No dragging on the battlefield.** A drag that starts on a battlefield card pans the table (or does nothing); casting
   by dragging a hand card and dragging into the combat band stay.
-- **Tap on a stack** (activating, one-tap mana, staging an attacker, selecting a blocker) acts on ONE member: an untapped
-  one first (one that can do it). Holding a stack inspects its members, one after another (as TBL-111 does for piles).
-- **Targeting and choices on a stack** (a target, "choose a creature", a blocker's attacker): the first tap expands the
-  stack in place so its members sit side by side; the second tap picks the member. Tapping elsewhere collapses it.
+- **Groups.** A stack of identical permanents and a permanent with the cards attached to it (auras, equipment, a
+  merged mutate creature's other cards) are both a group; one tap rule covers both. An attachment's peeking strip is
+  never a touch target on its own (too small on a phone).
+- **One meaning: act at once.** When a tap on a group can mean only one thing, it does it at once: exactly one member
+  can do what the tap would do now (activate, one-tap mana, stage an attacker, select a blocker), or exactly one member
+  is a legal pick while targeting or choosing. In a stack of identical cards that are all usable, the members count as
+  one meaning: the tap acts on one of them, an untapped one first. Examples: tapping a land stack taps one land; tapping
+  an equipped creature when only the creature has something usable activates the creature.
+- **Several meanings: expand first.** When it could mean more than one thing (the creature and its equipment both have
+  usable abilities; several members are legal targets that differ), the first tap expands the group in place, its
+  members side by side with the usable or pickable ones glowing; the second tap acts on the member tapped. Tapping
+  elsewhere, or acting, collapses it. A member with several usable abilities then opens its ability chips as a single
+  card does (TBL-124).
+- **Glow.** A collapsed group glows (TBL-117) when any member is usable or pickable now.
+- **Holding** a group inspects all its members, one after another (as TBL-111 does for piles).
 - **Animations.** Cards still fly to and from their spot (TBL-040); joining or leaving a stack, and a row closing a gap,
   animate.
 
 ## Catalog entries this changes
 
 TBL-002 (column pitch → groups), TBL-003, TBL-004, TBL-006, TBL-007, TBL-008, TBL-012 (fit), TBL-053, TBL-054,
-TBL-101, TBL-102, TBL-111, TBL-121 ("column 0"), SYS-041 (drags into any column), SYS-074, ZON-077 (moves within your
-own Battlefield), STK-032 ("positions on the table still change": gone).
+TBL-101, TBL-102, TBL-111, TBL-117 (group glow), TBL-121 ("column 0"), TBL-122 and TBL-124 (taps on groups), SYS-041
+(drags into any column), SYS-074, ZON-077 (moves within your own Battlefield), STK-032 ("positions on the table still
+change": gone).
 
 ## Open, decide while building (plainest option, list under "choices made")
 

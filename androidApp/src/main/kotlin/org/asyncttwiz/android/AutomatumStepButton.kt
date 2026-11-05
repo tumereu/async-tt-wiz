@@ -109,13 +109,14 @@ internal fun stepBlocked(play: TableBoard, castOpen: Boolean, combat: org.asynct
 }
 
 /**
- * Owner playtest 2026-11-03 #2 (MTG Arena): whether [viewer] sees the step arrow on [play]: in their own turn, and in the
- * other player's turn only while they hold priority (a pause, Resolve) or must decide (their blockers, a choice of
- * theirs: they act on the board shown).
+ * Owner playtest 2026-11-03 #2 (MTG Arena), TRN-015: whether [viewer] sees the step arrow on [play] (a table without
+ * an engine game's own rule, [EngineTableRoutes.arrowShown]): only while they hold priority (a pause, Resolve) or must
+ * act (their move, their blockers, a choice of theirs: they act on the board shown), in either player's turn; while the
+ * other player must act its place stays empty, in the viewer's own turn too.
  */
 internal fun stepArrowShown(play: TableBoard, viewer: String?): Boolean {
     val board = play.board
-    if (viewer == null || board.turn.accountId == viewer) return true
+    if (viewer == null) return true
     return board.priority?.holder == viewer || board.effectiveAttentionHolder == viewer
 }
 

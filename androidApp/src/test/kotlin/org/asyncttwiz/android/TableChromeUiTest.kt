@@ -50,9 +50,9 @@ class TableChromeUiTest {
                     turn = initial.board.turn.copy(accountId = turn, phase = position.phase, step = position.step)))
             }
             val prefix = "chrome-${if (landscape) "landscape" else "portrait"}-$who-turn-$turn-move-$move"
-            // TRN-015, TRN-059, TRN-063: the toggles show on either player's turn, the step arrow in your own turn and in the
-            // other player's only while you must act (the move is yours: your blockers here)
-            val shown = who == turn || who == move
+            // TRN-015, TRN-059, TRN-063: the toggles show on either player's turn, the step arrow only while you must act (the
+            // move is yours: your blockers in the other player's turn), in your own turn too
+            val shown = who == move
             assertEquals(shown, stepArrowShown(tableBoard(play), who))
             val next = compose.onNodeWithContentDescription(AutomatumStep.of(tableBoard(play)).label)
             if (shown) next.assertIsDisplayed() else next.assertDoesNotExist()

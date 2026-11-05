@@ -273,24 +273,25 @@ class EngineTableScreenshotTest {
     }
 
     // STK-046 (owner playtest 2026-11-04): in Full control Alice keeps priority after her Ember Herald resolved: its enters
-    // trigger is on the Stack as an ability token (the Herald's art, the trigger marker, its name and text), not as the
-    // Herald card; the Stack list shows it as "Ember Herald's ability" with its text
+    // trigger is on the Stack as an ability token (the Herald's art and a "T" chip, no text), not as the Herald card; the
+    // Stack list shows it as "Ember Herald's ability" with its text
     @Test fun anAbilityOnTheStackIsDrawnAsAnAbility() {
         val (game, h) = heraldTriggerOnStack()
         render(game, h.a)
         compose.onNodeWithTag("main-button").assert(hasContentDescription("Resolve"))
         compose.onNodeWithContentDescription("Triggered ability, Ember Herald — When this creature enters", substring = true).assertExists()
         captureShot("$SCREENSHOTS/engine/stack-ability.png",
-            "In Full control Alice's Ember Herald resolved and its enters trigger is on the Stack: it is drawn as a small dark ability token with the Herald's art, a \"!\" trigger marker, the Herald's name and the trigger's text, not as the Herald card, and the main button reads Resolve.")
+            "In Full control Alice's Ember Herald resolved and its enters trigger is on the Stack: it is drawn as a small dark ability token filled with the Herald's art and a \"T\" chip at its bottom, with no text, not as the Herald card, and the main button reads Resolve.")
         compose.onNodeWithContentDescription("Stack, 1 entries").performClick()
         compose.waitForIdle()
         compose.onNodeWithText("Top · Ember Herald's ability").assertExists()
         captureShot("$SCREENSHOTS/engine/stack-ability-list.png",
-            "Alice tapped the Stack holding her Ember Herald's enters trigger: the list shows it as the ability token, \"Top · Ember Herald's ability\" and the trigger's text.")
+            "Alice tapped the Stack holding her Ember Herald's enters trigger: the list shows it as the ability token with its \"T\" chip, \"Top · Ember Herald's ability\" and the trigger's text.")
     }
 
-    // STK-050, TBL-104: holding an ability's entry on the Stack shows a card-sized tile with the source's name and the
-    // ability's text, then the source card's picture, and nothing else
+    // STK-050, TBL-104: holding an ability's entry on the Stack shows a dark rounded panel, not card-shaped (shorter than
+    // the card), with the source's art and under it the source's name and the ability's text, then the source card's
+    // picture, and nothing else
     @Test fun holdingAnAbilityOnTheStackShowsItsTileThenItsSourceCard() {
         val (game, h) = heraldTriggerOnStack()
         render(game, h.a)
@@ -306,9 +307,11 @@ class EngineTableScreenshotTest {
         val source = compose.onNodeWithContentDescription("Card image: Ember Herald").assertExists().getBoundsInRoot()
         assertTrue(tile.bottom <= source.top, "The tile first, then the source card")
         assertEquals(tile.right - tile.left, source.right - source.left)
+        assertTrue(tile.bottom - tile.top < (tile.right - tile.left) * 1.3f,
+            "The panel is shorter than a card of its width: not card-shaped (${tile.right - tile.left} × ${tile.bottom - tile.top})")
         compose.waitForIdle(); compose.mainClock.advanceTimeBy(100)
         captureShot("$SCREENSHOTS/engine/stack-ability-inspect.png",
-            "Alice holds her Ember Herald's enters trigger in the Stack list: Inspect shows a dark card-sized tile with the trigger marker, \"Triggered ability\", the Herald's name and the trigger's text, then the Herald's card image below it.")
+            "Alice holds her Ember Herald's enters trigger in the Stack list: Inspect shows a dark rounded panel, not card-shaped, with the Herald's art on top and under it the \"T\" chip, \"Triggered ability\", the Herald's name and the trigger's text, then the Herald's card image below it.")
         row.performTouchInput { up() }
         compose.mainClock.autoAdvance = true
         compose.onNodeWithContentDescription("Card inspection content").assertDoesNotExist()

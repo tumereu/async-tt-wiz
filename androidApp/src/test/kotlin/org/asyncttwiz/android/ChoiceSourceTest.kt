@@ -123,7 +123,7 @@ class ChoiceSourceTest {
     }
 
     // STK-047, STK-044, STK-046: activating Spark Totem's ability ({T}: 1 damage to any target) asks for its target in the
-    // target bar, its source the ability as its token (the Totem's art with the activated marker), not the card
+    // target bar, its source the ability as its token (the Totem's art with the "A" chip), not the card
     @Test fun anActivationsTargetBarShowsItsAbilityToken() {
         val kit = kit(Choices.TOTEM, "Mountain")
         kit.opening()
@@ -136,7 +136,7 @@ class ChoiceSourceTest {
         sourceAtTheRight("Choose targets", "Choose any target", Choices.TOTEM)
         sourceIsAnAbilityToken("Activated ability")
         compose.onRoot().captureShot("$SCREENSHOTS/choice-source/target-bar-ability.png",
-            "Alice tapped her Spark Totem to activate its ability: the bar above her hand says only \"Choose any target\", and at its right is the ability as a small dark token with the Totem's art and the bolt marker, not the Totem card.")
+            "Alice tapped her Spark Totem to activate its ability: the bar above her hand says only \"Choose any target\", and at its right is the ability as a small dark token filled with the Totem's art and an \"A\" chip at its bottom, not the Totem card.")
         holdingTheSourceInspects(Choices.TOTEM)
     }
 
@@ -173,7 +173,7 @@ class ChoiceSourceTest {
     }
 
     // STK-030, STK-044, STK-046: Alice's Spark Seer enters; its trigger's target is her open choice, in the target bar:
-    // "Choose any target" with the trigger as its ability token (the Seer's art, the trigger marker) at the right
+    // "Choose any target" with the trigger as its ability token (the Seer's art, the "T" chip) at the right
     @Test fun aTriggersTargetBarShowsItsAbilityToken() {
         val kit = kit(Choices.SEER, "Mountain")
         kit.opening()
@@ -184,7 +184,7 @@ class ChoiceSourceTest {
         sourceAtTheRight("Choose targets", "Choose any target", Choices.SEER)
         sourceIsAnAbilityToken("Triggered ability")
         compose.onRoot().captureShot("$SCREENSHOTS/choice-source/trigger-target-bar.png",
-            "Alice's Spark Seer entered and its trigger asks for a target: the bar above her hand says only \"Choose any target\", and at its right is the trigger as a small dark ability token with the Seer's art and the \"!\" marker.")
+            "Alice's Spark Seer entered and its trigger asks for a target: the bar above her hand says only \"Choose any target\", and at its right is the trigger as a small dark ability token filled with the Seer's art and a \"T\" chip at its bottom.")
         holdingTheSourceInspects(Choices.SEER)
     }
 

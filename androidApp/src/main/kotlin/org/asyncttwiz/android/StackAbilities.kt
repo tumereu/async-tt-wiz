@@ -4,28 +4,21 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Bolt
-import androidx.compose.material.icons.outlined.PriorityHigh
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.BiasAlignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -49,6 +42,8 @@ data class StackAbilityShown(val triggered: Boolean, val source: String, val tex
     val line: String get() = if (text.isEmpty()) source else "$source — $text"
     /** The marker's words: "Triggered ability" or "Activated ability". */
     val kind: String get() = if (triggered) "Triggered ability" else "Activated ability"
+    /** The kind chip's letter (STK-046): "T" for a triggered ability, "A" for an activated one. */
+    val letter: String get() = if (triggered) "T" else "A"
 }
 
 internal object StackAbilities {
@@ -113,46 +108,39 @@ internal object StackAbilities {
     }
 }
 
-/** STK-046: the round marker of an ability: a "!" for a triggered ability, a bolt (as the Activate chips) for an activated one. */
+/** STK-046: the kind chip of an ability: "T" for a triggered ability, "A" for an activated one, white on violet; it
+ * reads as [StackAbilityShown.kind]. [height] sets its size. */
 @Composable
-internal fun AbilityMarker(ability: StackAbilityShown, size: Dp, modifier: Modifier = Modifier) {
-    Box(modifier.size(size).background(AutomatumViolet, CircleShape).border(1.dp, Color.White, CircleShape),
-        contentAlignment = Alignment.Center) {
-        Icon(if (ability.triggered) Icons.Outlined.PriorityHigh else Icons.Outlined.Bolt, contentDescription = ability.kind,
-            tint = Color.White, modifier = Modifier.size(size * .72f))
+internal fun AbilityKindChip(ability: StackAbilityShown, height: Dp, modifier: Modifier = Modifier) {
+    val shape = RoundedCornerShape(height * .28f)
+    Box(modifier.size(height * 1.15f, height).background(AutomatumViolet, shape).border(1.dp, Color.White, shape)
+        .semantics { contentDescription = ability.kind }, contentAlignment = Alignment.Center) {
+        Text(ability.letter, color = Color.White, fontWeight = FontWeight.Bold, fontSize = (height.value * .62f).sp,
+            lineHeight = (height.value * .62f).sp)
     }
 }
 
 /**
- * STK-046: an ability on the Stack outside the table (the Stack list, the Stack target picker), drawn as the table draws
- * it: a dark token smaller than a card with the controller's outline ([own]), the source's [art] in its top part (its
- * type glyph [typeIcon] while there is none), the marker, and with [text] the source's name and the ability's text.
+ * STK-046: an ability on the Stack outside the table (the Stack list, the Stack target picker, a panel's source), drawn
+ * as the table draws it: a dark token smaller than a card with the controller's outline ([own]), the source's [art]
+ * filling it (its type glyph [typeIcon] while there is none) and the kind chip at its bottom; no name or text.
  */
 @Composable
 internal fun AbilityTokenFace(ability: StackAbilityShown, art: ArtworkReference?, own: Boolean, modifier: Modifier = Modifier,
-    typeIcon: String = "", text: Boolean = true) {
+    typeIcon: String = "") {
     val owner = if (own) OwnTableColor else OpponentTableColor
     val shape = RoundedCornerShape(5.dp)
     BoxWithConstraints(modifier, contentAlignment = Alignment.Center) {
-        val markerSize = minOf(maxWidth * .3f, 14.dp)
+        val chipHeight = minOf(maxHeight * .2f, 16.dp)
         Box(Modifier.fillMaxWidth(.86f).fillMaxHeight(.8f)) {
-            Column(Modifier.fillMaxSize().clip(shape).background(AbilityTokenColor).border(1.5.dp, owner, shape)) {
-                Box(Modifier.fillMaxWidth().weight(if (text) .45f else 1f).background(AbilityTokenArtColor)) {
-                    CardArtwork(art, "", 192, 140, Modifier.fillMaxSize(), crop = true, placeholder = {
-                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            Text(typeIcon, fontSize = 14.sp, color = Color.White)
-                        }
-                    })
-                }
-                if (text) Column(Modifier.fillMaxWidth().weight(.55f).padding(start = 3.dp, end = 3.dp, top = markerSize / 2)) {
-                    Text(ability.source, fontSize = 7.sp, lineHeight = 8.sp, maxLines = 1, fontWeight = FontWeight.Bold,
-                        color = Color.White, overflow = TextOverflow.Ellipsis)
-                    CardText(ability.text, color = AbilityTokenTextColor, style = androidx.compose.ui.text.TextStyle(fontSize = 6.sp, lineHeight = 7.sp),
-                        overflow = TextOverflow.Ellipsis)
-                }
+            Box(Modifier.fillMaxSize().clip(shape).background(AbilityTokenArtColor).border(1.5.dp, owner, shape)) {
+                CardArtwork(art, "", 192, 260, Modifier.fillMaxSize(), crop = true, placeholder = {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text(typeIcon, fontSize = 14.sp, color = Color.White)
+                    }
+                })
             }
-            AbilityMarker(ability, markerSize, Modifier
-                .align(if (text) BiasAlignment(-1f, -.12f) else Alignment.BottomStart).offset(x = (-2).dp))
+            AbilityKindChip(ability, chipHeight, Modifier.align(Alignment.BottomCenter).offset(y = -chipHeight * .3f))
         }
     }
 }

@@ -84,7 +84,7 @@ internal fun ChoiceCardFace(card: ChoiceCardData, modifier: Modifier = Modifier,
         .semantics { contentDescription = card.name + if (selected) ", chosen" else "" }, contentAlignment = Alignment.Center) {
         val ability = card.ability
         if (ability != null && card.shown) AbilityTokenFace(ability, card.art, card.own, Modifier.requiredSize(width, height),
-            card.typeIcon, text = !small)
+            card.typeIcon)
         else Box(Modifier.requiredSize(width, height).then(if (card.tapped) Modifier.rotate(90f) else Modifier)
             .cardFrame(card.token, owner).then(if (card.shown) Modifier else Modifier.background(Color(0xff506b61)))) {
             if (card.shown) Column(Modifier.fillMaxSize().padding(horizontal = 3.dp, vertical = 2.dp)) {

@@ -10,14 +10,13 @@ Changes the owner wants but that are not built yet. The feature catalog
 
 ## Build order (owner, 2026-11-05: one implementor at a time, small items batched, full suites after each batch)
 
-1. Quick fixes batch 2 (running): Stack-ability hold flake, TRN-060, TRN-046, copy-token art, YRVZNM.
-2. Catch-up playback + main button + assumptions by setting (with the "Rest → <name>" label fix).
-3. Analysis (undo/branch/assumption review), then the Undo item.
-4. Choice panels show their source card.
-5. Combat band.
-6. Battlefield placement (Arena style).
-7. Hold pauses playback, Reconnecting…, remove the auto-pause switches (re-check against step 2 first).
-8. Countering a spell lower on the Stack (e2e scenario).
+1. Catch-up playback + main button + assumptions by setting (with the "Rest → <name>" label fix).
+2. Analysis (undo/branch/assumption review), then the Undo item.
+3. Choice panels show their source card.
+4. Combat band.
+5. Battlefield placement (Arena style).
+6. Hold pauses playback, Reconnecting…, remove the auto-pause switches (re-check against step 1 first).
+7. Countering a spell lower on the Stack (e2e scenario).
 
 ## Ready to build
 

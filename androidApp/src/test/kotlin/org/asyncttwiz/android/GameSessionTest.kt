@@ -82,6 +82,34 @@ class GameSessionTest {
             }
         }
     }
+    // Analysis 2026-11-05 (a phone without a connection retried the socket, and logged it, every second or faster): the
+    // background ticks back off after failed attempts (1 s, doubling, at most 10 s); a lost connection that had worked is
+    // tried again at once; SYS-013: anything that asks for the connection (here coming back to the app) tries at once
+    @Test fun aSocketThatKeepsFailingIsRetriedWithBackoffInTheBackground() {
+        val f = Fixture(); val game = game()
+        try {
+            f.connect(listOf(game))
+            assertEquals(1, f.wire.tokens.size)
+            f.wire.listener.disconnected(false, "socketFailure"); f.drain()
+            // Every background tick for a minute, each attempt failing before the server's welcome
+            val attemptsAt = mutableListOf<Long>()
+            repeat(60) {
+                f.now += 1_000
+                val before = f.wire.tokens.size
+                f.session.poll()
+                if (f.wire.tokens.size > before) { attemptsAt.add(f.now); f.wire.listener.disconnected(false, "socketFailure"); f.drain() }
+            }
+            assertEquals(listOf(1_000L, 2_000L, 4_000L, 8_000L, 16_000L, 26_000L, 36_000L, 46_000L, 56_000L), attemptsAt)
+            // Coming back to the app tries at once, and a connection that works resets the wait
+            val before = f.wire.tokens.size
+            f.now += 1_000; f.session.foreground()
+            assertEquals(before + 1, f.wire.tokens.size)
+            f.wire.listener.opened(); f.drain(); f.message(GameWelcome(gameplayRulesVersion = CURRENT_GAMEPLAY_RULES_VERSION))
+            f.wire.listener.disconnected(false, "socketFailure"); f.drain()
+            f.now += 1_000; f.session.poll()
+            assertEquals(before + 2, f.wire.tokens.size, "a connection that had worked is tried again at once")
+        } finally { f.session.close() }
+    }
     // SYS-032
     @Test fun olderClientIsPersistentlyBlockedWithoutReconnectOrCommandSubmission() {
         val f = Fixture(); val game = game()

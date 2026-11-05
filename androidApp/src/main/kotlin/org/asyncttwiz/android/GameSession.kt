@@ -94,6 +94,11 @@ class GameSession(private val connection: GameConnection, private val credential
     private var lastCredential: String? = null
     private var lastPing = 0L
     private val connectionDemand = mutableMapOf<String, Long>()
+    /** Socket attempts in a row that failed before the server's welcome, and when [poll] may try the next one. */
+    private var failedConnects = 0
+    private var nextConnectAt = 0L
+    private fun reconnectDelay(failures: Int): Long =
+        if (failures <= 0) 0L else minOf(1_000L shl minOf(failures - 1, 10), MAX_RECONNECT_DELAY_MS)
     private val uncertainGames = mutableSetOf<String>()
     @Volatile private var closed = false
     var error: String? = null
@@ -311,6 +316,8 @@ class GameSession(private val connection: GameConnection, private val credential
     }
     private fun deliverEngine(gameId: String, game: EngineGame, actions: List<GameAction>) {
         if (engineGames[gameId] !== game) return
+        // SYS-013: the player's own game action waits for the connection: the next background attempt doesn't wait longer
+        if (!ready && actions.any { it !is GameAction.EngineSeen }) nextConnectAt = 0L
         val stream = streams[gameId]
         val generation = stream?.generation ?: stream?.lastGeneration
         if (stream == null || generation == null) { engineBacklog.getOrPut(gameId) { mutableListOf() } += actions; return }
@@ -331,6 +338,17 @@ class GameSession(private val connection: GameConnection, private val credential
             install(game, game.revision, null)
             streams.getOrPut(game.id) { SessionStream() }
         }
+        tick()
+    }
+    /**
+     * The background maintenance's tick (every second): [tick], except that while the socket is down after failed
+     * attempts the next attempt waits ([reconnectDelay]: 1 s, doubling, at most [MAX_RECONNECT_DELAY_MS]) instead of
+     * retrying every second (analysis 2026-11-05: a phone without a connection retried, and logged, without a pause).
+     * Everything else that asks for the connection ([tick]: a tap, coming back to the app, a lobby read that worked, an
+     * own game action to send) tries at once.
+     */
+    fun poll() {
+        if (!closed && !connected && compatibilityError == null && now() < nextConnectAt) { statusChanged(); return }
         tick()
     }
     fun tick() {
@@ -367,6 +385,9 @@ class GameSession(private val connection: GameConnection, private val credential
                 }
                 override fun disconnected(unauthorized: Boolean) = disconnected(unauthorized, "socketDisconnected")
                 override fun disconnected(unauthorized: Boolean, cause: String) = deliver {
+                    // A socket that never got the server's welcome failed: the next background attempt waits longer
+                    failedConnects = if (welcome) 0 else failedConnects + 1
+                    nextConnectAt = now() + reconnectDelay(failedConnects)
                     AppLog.warn("game", "Connection lost: $cause")
                     connectionUnavailable(cause)
                     if (unauthorized) authenticationRequired(current)
@@ -485,7 +506,7 @@ class GameSession(private val connection: GameConnection, private val credential
                 }
                 compatibilityError = null; compatibilityRetryAt = Long.MAX_VALUE
                 reconnectTrace.stepAll("protocolWelcome")
-                welcome = true; error = null; resumePending = false; resumePing = null; openStreams()
+                welcome = true; error = null; resumePending = false; resumePing = null; failedConnects = 0; openStreams()
             }
             is GameStreamReady -> {
                 val stream = streams[message.gameId] ?: return
@@ -714,6 +735,8 @@ class GameSession(private val connection: GameConnection, private val credential
     companion object {
         /** The table's line for a game this device can't open (SYS-052): never a reconnect loop. */
         const val CANNOT_OPEN = "This game can't be opened on this device. Send a problem report from the menu."
+        /** The longest wait between background socket attempts after failures ([poll]). */
+        const val MAX_RECONNECT_DELAY_MS = 10_000L
         fun newerOrEqual(a: String, b: String) = GameWire.ordinal(a) >= GameWire.ordinal(b)
         internal fun ended(game: GameSummary) = game.lifecycle !in listOf(GameLifecycle.LOBBY, GameLifecycle.ACTIVE)
     }

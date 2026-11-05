@@ -209,7 +209,8 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
         else if (setupCancellation.confirmation != null) setupCancellation.dismiss() else if (setupCancellation.context != null) setupCancellation.dismissContext()
         else if (state.chatOpen) closeChat() else if (state.preparing) state = state.copy(preparing = false, transferFeedback = null)
         else if (state.picker != null) closePicker() else if (state.draft != null) dismiss() else { queue.dropQueued(); routes.fence(); state = state.copy(selected = null, detail = null, activityTarget = null, acceptedPreparation = null, preparation = null, board = null, transferFeedback = null, error = null); refresh() } }
-    fun tick() { session?.tick() }
+    /** The background maintenance's tick: the socket's background attempts back off after failures ([GameSession.poll]). */
+    fun tick() { session?.poll() }
     fun heartbeat(presence: GamePresence): Boolean = session?.heartbeat(presence) == true
     fun sync() { tick(); if (refresher.inForeground && !state.busy && !state.mutating) refresh(background = true) }
     fun refresh(background: Boolean = false) = refresher.refresh(background)

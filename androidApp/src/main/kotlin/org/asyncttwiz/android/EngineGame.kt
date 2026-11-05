@@ -142,7 +142,10 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
         /** The player paused playback (§27): it goes on to the next point where Full control stops. */
         val pausing: Boolean = false,
         /** The first passes of the player's recent End turns (§29.2: the Undo dialog lists them as "End turn"). */
-        val endTurns: Set<String> = emptySet()) {
+        val endTurns: Set<String> = emptySet(),
+        /** HIS-097 (owner playtest 2026-11-05): a branch is being shown: the rewind back to the branch point, then the
+         * playback of the other player's new events; it can't be paused, skipped or left until it ends. */
+        val takingBack: Boolean = false) {
         val engine: GameState get() = board.engine!!.state
         /** Engine-responsiveness R3: what the engine thread worked out with [board]: its computed card values, the player's
          * hand plays (on an own action's early board right after it is published, before the action's follow-up work,
@@ -225,9 +228,11 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
             transition(before, play, tip, line, attention, device.move?.value)
         previewed = null
         previous = play
+        // HIS-097: a branch's take-back lasts while its playback does
+        if (takingBack && (!session.behind || status !is GameDevice.Status.Playing)) takingBack = false
         val shown = Shown(++published, play, status, device.locked, device.settings, device.opponent, session.behind, tip,
             session.localHead, session.drafting, device.request, device.indicator(), device.undoTarget(), line, held, lastTransition,
-            device.needsReload, device.pausing, held.mapNotNullTo(HashSet()) { e -> e.id.takeIf(device::endedTurn) })
+            device.needsReload, device.pausing, held.mapNotNullTo(HashSet()) { e -> e.id.takeIf(device::endedTurn) }, takingBack)
         lastShown = shown
         timing?.let { it.boardEnd = clock(); it.version = shown.version; play.values?.promisePlays() }
         worker.main {
@@ -327,7 +332,7 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
         // R3: its computed values come with it; its plays right after it, before what follows the action ([playsOf])
         val shown = Shown(++published, play, last.status, last.locked, last.settings, last.opponent, last.behind, last.tip,
             last.localHead, last.drafting, last.request, last.indicator, last.undoTarget, last.line, last.held, last.transition,
-            last.needsReload, last.pausing, last.endTurns)
+            last.needsReload, last.pausing, last.endTurns, last.takingBack)
         timing.boardEnd = clock(); timing.version = shown.version
         play.values?.promisePlays()
         worker.main { this.shown = shown; measure(shown, timing); onShown() }
@@ -353,12 +358,16 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
          * state it was shown on (for its words, "Undid: cast Storm Spark"); [steps] then fly the cards back. */
         val undone: Undone? = null)
 
-    /** §29.4: what an undo took back of what this player had seen: [by] undid, [event] first (null when unknown). */
-    class Undone(val by: String, val event: GameEvent?, val state: arcanum.engine.state.GameState?)
+    /** §29.4: what an undo took back of what this player had seen: [by] undid, [event] first (null when unknown). With
+     * [branch] (HIS-097) it is a branch's take-back: [by] answered differently than assumed, the note says so. */
+    class Undone(val by: String, val event: GameEvent?, val state: arcanum.engine.state.GameState?, val branch: Boolean = false)
 
-    /** A rewind arriving (engine thread): who undid, to where, and the line shown before it. */
-    private class Rewinding(val by: String, val target: String, val line: List<GameEvent>, val state: arcanum.engine.state.GameState?)
+    /** A rewind arriving (engine thread): who undid (or branched, [branch]), to where, and the line shown before it. */
+    private class Rewinding(val by: String, val target: String, val line: List<GameEvent>, val state: arcanum.engine.state.GameState?,
+        val branch: Boolean = false)
     private var rewinding: Rewinding? = null
+    /** HIS-097: a branch's take-back is being shown (engine thread; [Shown.takingBack]). */
+    private var takingBack = false
 
     private var transitions = 0L
     private var pt: Map<String, Pair<Int, Int>> = emptyMap()
@@ -410,7 +419,7 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
         }.onFailure { AppLog.info("engine", "No undo motion: ${it.message}") }.getOrDefault(emptyList())
         val first = undone.firstOrNull { !EngineEventText.hidden(it) || EngineEventText.pass(it) }
         lastTransition = Transition(++transitions, after.nodeId, false, changes, emptySet(), emptyList(), undone.asReversed(), steps,
-            Undone(r.by, first, r.state))
+            Undone(r.by, first, r.state, r.branch))
         pt = ptNow
         loaded = false
         return true
@@ -548,11 +557,17 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
             // HIS-095 (§29.2, smoke 2026-11-04): a device that had shown everything (its live game) shows the other
             // player's passes at once instead of playing them back
             val live = !session.behind && !device.catchUp
-            // §29.4: an undo animates backwards from the board shown before it
+            // §29.4: an undo animates backwards from the board shown before it; HIS-097 (owner playtest 2026-11-05): so does
+            // the other player's branch, back to the branch point, before their new events play back
+            val branch = update?.target == null && events.firstOrNull()?.let { it.parentId != head && it.author != me } == true
             rewinding = update?.target?.let { target ->
                 lastShown?.let { Rewinding(update.rewoundBy ?: events.firstOrNull()?.author ?: "", target, it.line, it.engine) }
+            } ?: events.firstOrNull()?.takeIf { branch }?.let { first ->
+                lastShown?.let { Rewinding(first.author, first.parentId, it.line, it.engine, branch = true) }
             }
             device.revision(events, update)
+            val drained = device.notes()
+            if (branch && device.session.behind && drained.any { it is GameDevice.Note.Branched }) takingBack = true
             // A board already shown taken back by the server's revision (owner, N7FU6Y: one line per take-back)
             if (!onLine(tip)) takenBack(when {
                 device.needsReload -> "the server's main line can't be followed (reload)"
@@ -562,7 +577,7 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
             } + " (events ${events.joinToString(",") { it.id }})", tip, local)
             if (live) device.showPasses()
             device.advance(now)
-            publish()
+            publish(drained)
             rewinding = null
         }
     }

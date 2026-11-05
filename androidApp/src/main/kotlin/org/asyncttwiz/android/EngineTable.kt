@@ -51,6 +51,7 @@ import arcanum.engine.state.ObjectId
 import arcanum.engine.state.PlayerId
 import arcanum.engine.state.StackItemKind
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import org.asyncttwiz.protocol.*
 import org.asyncttwiz.protocol.game.GameDevice
 import org.asyncttwiz.protocol.game.GameEvent
@@ -107,6 +108,10 @@ internal class EngineTableRoutes(val viewer: String, private val game: () -> Eng
 
     /** The response mode dialog, opened by holding the playback button (HIS-013, §27), personal. */
     var modeDialog by mutableStateOf(false)
+
+    /** Whether the table is still animating a published board's steps (the motion queue), for the take-back's playback
+     * to wait for its rewind (HIS-097). Set by the table. */
+    var motionBusy: () -> Boolean = { false }
 
     /** The board version Play was tapped on while catching up: the button reads Pause at once, before the engine thread
      * publishes the playing board (owner playtest 2026-11-05), personal. */
@@ -680,6 +685,9 @@ private fun EnginePlayback(routes: EngineTableRoutes) {
     val multiplier by rememberCardMovePreferences(routes.viewer).multiplierState()
     LaunchedEffect(game.version) {
         val shown = game.shown ?: return@LaunchedEffect
+        // HIS-097: a branch's playback of the other player's new events starts once the rewind back to the branch point
+        // has played
+        if (shown.takingBack) snapshotFlow { routes.motionBusy() }.first { !it }
         val last = shown.held.lastOrNull()?.takeIf { it.id == shown.localHead }
         val wait = playbackWait(last, playbackDelay(multiplier), shown.settings.mode)
         if (wait > 0) delay(wait)

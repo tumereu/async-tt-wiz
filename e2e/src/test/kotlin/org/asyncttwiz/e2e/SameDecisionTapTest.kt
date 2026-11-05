@@ -150,7 +150,8 @@ class SameDecisionTapTest : E2e() {
         held.release()
         assertEquals(GameDevice.Acted.Refused("stale"), acted)
         waitUntil("told with SYS-012's note") { notes.any { it == GameDevice.Note.Refused("stale") } }
-        assertTrue(alice.state.stack.isEmpty(), "nothing cast")
+        assertTrue(alice.engine { device.session.events + device.session.pending }.none { e -> e.author == alice.id &&
+            e.engine?.steps.orEmpty().any { it.input is Input.Cast } }, "her Storm Spark not cast")
     }
 
     // SYS-011 (switchreview #6 kept): a fast second tap of the arrow on the still-shown board would pass at a point Alice

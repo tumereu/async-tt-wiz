@@ -29,6 +29,7 @@ import androidx.compose.ui.window.DialogProperties
 import arcanum.engine.setup.GameResult
 import arcanum.engine.state.PlayerId
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import org.asyncttwiz.protocol.*
 import org.asyncttwiz.protocol.game.GameDevice
 
@@ -96,6 +97,13 @@ internal fun EngineTableScreen(controller: LobbyController, accountId: String, h
     // TBL-040 (owner playtest 2026-11-04): what a published board changed plays step by step, in event order
     val motion = remember(game.id, playId) { EngineMotionQueue() }
     val play = reviewPlay ?: motion.board(shown.version, shown.transition, live)
+    SideEffect { routes.motionBusy = { motion.playing } }
+    // HIS-097, HIS-022 (owner playtest 2026-11-05): a branch's rewind back to the branch point waits the Rewind pause
+    // after each step
+    val rewindPause by playbackPreferences.rewindPauseState()
+    val takingBack = shown.takingBack && reviewPlay == null
+    val rewindingBranch = takingBack && shown.transition?.undone?.branch == true && motion.playing
+    val scope = rememberCoroutineScope()
     SideEffect {
         if (reviewPlay != null) {
             if (applied.reviewed != reviewPlay.nodeId) {
@@ -115,6 +123,8 @@ internal fun EngineTableScreen(controller: LobbyController, accountId: String, h
                 val told = t.forward.lastOrNull { !EngineEventText.hidden(it) }
                 val undone = t.undone
                 when {
+                    // HIS-097: a branch's take-back has its note instead
+                    undone != null && undone.branch -> eventText.moved(t.cursor)
                     undone != null -> eventText.post(t.cursor, EngineEventText.undid(undone.event, undone.state, accountId, undone.by, names),
                         always = true)
                     told != null -> eventText.post(t.cursor, engine.timeline.text(engine, told, names))
@@ -132,6 +142,8 @@ internal fun EngineTableScreen(controller: LobbyController, accountId: String, h
     val back = remember(game.id) { TableBackStateMachine() }
     val overlay = toolkit.hasBackOverlay || state.chatOpen
     BackHandler {
+        // HIS-097: a branch's take-back can't be skipped or left
+        if (takingBack) return@BackHandler
         if (!overlay && routes.review != null) { routes.leaveReview(); return@BackHandler }
         // §7: Back while behind plays on to the next decision point, never past it
         if (!overlay && shown.behind) { engine.playToStop(); controller.engineSent(); return@BackHandler }
@@ -153,7 +165,7 @@ internal fun EngineTableScreen(controller: LobbyController, accountId: String, h
             BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
                 TableSurface(game, play, accountId, landscape, Modifier.fillMaxSize(), connected = interactive && !locked && reviewPlay == null,
                     onIntent = toolkit::handle, toolkit = toolkit,
-                    runtime = TableRuntimeHooks(chat = controller::openChat, navigation = hamburger, chatUnread = state.chatUnread,
+                    runtime = TableRuntimeHooks(chat = controller::openChat, navigation = hamburger.takeIf { !takingBack }, chatUnread = state.chatUnread,
                         undo = { routes.undo() }, undoHold = { routes.holdUndo() }, undoShakes = routes.undoShake,
                         opponentPresence = state.opponentPresence, gameActionsBlocked = locked,
                         errorMessage = state.connectionMessage ?: state.error, dismissError = controller::dismissSessionError,
@@ -162,17 +174,21 @@ internal fun EngineTableScreen(controller: LobbyController, accountId: String, h
                             accept = { engine.answerSuggestion(true); controller.engineSent() }),
                         controlsConnected = interactive && !locked && reviewPlay == null,
                         reviewing = reviewing, liveView = !reviewing, changes = changes,
-                        onSceneSettled = if (reviewPlay != null) null else ({ _ -> motion.settled() }),
+                        onSceneSettled = if (reviewPlay != null) null else ({ _ ->
+                            if (rewindingBranch) scope.launch { delay(rewindPause); motion.settled() } else motion.settled()
+                        }),
                         sceneVersion = if (reviewPlay != null) null else motion.key(),
                         waitingLine = routes.waitingLine(play),
                         timelinePlayback = when {
+                            rewindingBranch -> TimelinePlaybackStatus.REWINDING
                             reviewPlay != null -> if (routes.reviewPlaying) TimelinePlaybackStatus.PLAYING else TimelinePlaybackStatus.PAUSED
                             playing -> TimelinePlaybackStatus.PLAYING
                             else -> null
                         },
                         catchingUp = catchUp && reviewPlay == null,
-                        history = if (timeline.isNotEmpty()) ({ routes.enterReview(timeline.last().id) }) else null,
+                        history = if (timeline.isNotEmpty() && !takingBack) ({ routes.enterReview(timeline.last().id) }) else null,
                         returnCurrent = when {
+                            takingBack -> null
                             reviewPlay != null -> ({ routes.leaveReview() })
                             shown.behind -> ({ engine.playToStop(); controller.engineSent() })
                             else -> null
@@ -276,6 +292,8 @@ internal fun EnginePlaybackPanel(routes: EngineTableRoutes, events: List<History
     val shown = game.shown ?: return
     val stop = shown.status as? GameDevice.Status.Stopped
     val catchUp = shown.status == GameDevice.Status.CatchUp
+    // HIS-097: a branch's take-back plays to its end: no pause, no timeline mode
+    val takingBack = shown.takingBack
     // Play tapped on this board: Pause at once, the engine's playing board on its way
     val starting = catchUp && routes.playTappedAt == shown.version
     val playing = (shown.status is GameDevice.Status.Playing && !shown.pausing) || starting
@@ -285,11 +303,11 @@ internal fun EnginePlaybackPanel(routes: EngineTableRoutes, events: List<History
         else -> "Pausing"
     }
     val strip: @Composable () -> Unit = {
-        if (events.isNotEmpty()) EngineStrip(events, viewer, landscape) { routes.enterReview(events.last().id) }
+        if (events.isNotEmpty()) EngineStrip(events, viewer, landscape) { if (!takingBack) routes.enterReview(events.last().id) }
     }
     val button: @Composable () -> Unit = {
         Box(Modifier.fillMaxSize().padding(horizontal = 56.dp), contentAlignment = Alignment.Center) {
-            ActionSquare("Playback", "", true, Modifier.fillMaxWidth().height(48.dp).testTag("playback-toggle")
+            ActionSquare("Playback", "", !takingBack, Modifier.fillMaxWidth().height(48.dp).testTag("playback-toggle")
                 .background(Color.White, androidx.compose.foundation.shape.RoundedCornerShape(4.dp))
                 .border(1.dp, MenuBorder, androidx.compose.foundation.shape.RoundedCornerShape(4.dp))
                 .semantics { stateDescription = label },

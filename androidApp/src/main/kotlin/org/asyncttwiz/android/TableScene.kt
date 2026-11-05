@@ -321,7 +321,7 @@ internal fun TableSurface(game: GameSummary, play: TableBoard, accountId: String
         TableBoardOverlays(game, play, accountId, runtime, scene, rendered)
         TableChromeHeader(game, play, accountId, landscape, runtime, toolkit, compactHeader, scene.appearance)
         CardPanelHeaders(scene, accountId, toolkit)
-        TableControlsLayer(play, accountId, landscape, connected, runtime, toolkit, scene, { gestureError }, { gestureError = null })
+        TableControlsLayer(game, play, accountId, landscape, connected, runtime, toolkit, scene, { gestureError }, { gestureError = null })
         // TBL-067: table popups keep off both hands where they fit elsewhere
         val hands = remember(scene) { scene.items.filter { it.kind == TableItemKind.HAND }.map { it.bounds } }
         AnimatedCardRingAnchors(rendered, toolkit?.capture != null) {

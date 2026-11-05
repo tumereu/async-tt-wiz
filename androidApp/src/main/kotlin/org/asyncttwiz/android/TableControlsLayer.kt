@@ -14,7 +14,7 @@ import org.asyncttwiz.protocol.*
 /** The screen-fixed controls: quick actions and Undo, the live timeline or review panel and transient errors. Inline,
  * so it stays part of TableSurface's own recomposition scope. */
 @Composable
-internal inline fun BoxWithConstraintsScope.TableControlsLayer(play: TableBoard, accountId: String, landscape: Boolean,
+internal inline fun BoxWithConstraintsScope.TableControlsLayer(game: GameSummary, play: TableBoard, accountId: String, landscape: Boolean,
     connected: Boolean, runtime: TableRuntimeHooks, toolkit: TableToolkitController?, scene: TableScene,
     crossinline gestureError: () -> String?, crossinline clearGestureError: () -> Unit) {
     val playControls: @Composable () -> Unit = {
@@ -23,7 +23,7 @@ internal inline fun BoxWithConstraintsScope.TableControlsLayer(play: TableBoard,
                 val endingColor = if (play.board.turn.accountId == accountId) OwnTableColor else OpponentTableColor
                 QuickActionStrip(play, toolkitQuickContext(play, accountId)
                     .copy(automatumCombat = toolkit.combat.ready(play), castOpen = toolkit.cast.open)
-                    .withCombatTarget(toolkit.combat, play, scene.combatLabels.firstOrNull { it.cardId == null }?.label?.removePrefix("→ ")),
+                    .withCombatTarget(toolkit.combat, play, defendingPlayerName(game, play)),
                     toolkit.table, endingColor,
                     Modifier.fillMaxSize().padding(start = 60.dp, end = 8.dp), perform = toolkit::perform, submit = { toolkit.submit(it) })
                 // HIS-083 (I-D56 §10): holding Undo opens the rewind dialog to pick an earlier point; there is no Redo

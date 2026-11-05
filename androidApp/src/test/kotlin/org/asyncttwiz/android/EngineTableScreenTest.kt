@@ -189,6 +189,16 @@ class EngineTableScreenTest {
             "no wider than the card")
     }
 
+    // CMB-048: while attackers are declared, before anything is staged, the quick action names the defending player:
+    // "Rest → Bob", never "the player"
+    @Test fun restNamesTheDefendingPlayer() {
+        kit.toReadyCub()
+        kit.toAttacks()
+        render()
+        compose.onNodeWithContentDescription("Rest → Bob").assertExists()
+        compose.onNodeWithContentDescription("Rest → the player").assertDoesNotExist()
+    }
+
     // TRN-009: the phase dialog only shows where the turn is: its step squares do nothing and it has no buttons but
     // Close; a tap on a later step leaves the game where it is
     @Test fun thePhaseDialogOnlyShowsWhereTheTurnIs() {

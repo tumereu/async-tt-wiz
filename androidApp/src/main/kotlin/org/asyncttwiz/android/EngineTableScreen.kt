@@ -276,7 +276,9 @@ internal fun EnginePlaybackPanel(routes: EngineTableRoutes, events: List<History
     val shown = game.shown ?: return
     val stop = shown.status as? GameDevice.Status.Stopped
     val catchUp = shown.status == GameDevice.Status.CatchUp
-    val playing = shown.status is GameDevice.Status.Playing && !shown.pausing
+    // Play tapped on this board: Pause at once, the engine's playing board on its way
+    val starting = catchUp && routes.playTappedAt == shown.version
+    val playing = (shown.status is GameDevice.Status.Playing && !shown.pausing) || starting
     val label = when {
         playing -> "Pause"
         stop != null || catchUp -> "Play"
@@ -304,8 +306,9 @@ internal fun EnginePlaybackPanel(routes: EngineTableRoutes, events: List<History
                     }
                 }) {
                 when {
+                    starting -> Unit
                     playing -> game.pause(true)
-                    catchUp -> game.startPlayback()
+                    catchUp -> { routes.playTappedAt = shown.version; game.startPlayback() }
                     stop != null -> game.act(stop.assumed)
                     else -> game.pause(false)
                 }

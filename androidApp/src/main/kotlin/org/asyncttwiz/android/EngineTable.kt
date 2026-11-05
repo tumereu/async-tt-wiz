@@ -108,6 +108,10 @@ internal class EngineTableRoutes(val viewer: String, private val game: () -> Eng
     /** The response mode dialog, opened by holding the playback button (HIS-013, §27), personal. */
     var modeDialog by mutableStateOf(false)
 
+    /** The board version Play was tapped on while catching up: the button reads Pause at once, before the engine thread
+     * publishes the playing board (owner playtest 2026-11-05), personal. */
+    var playTappedAt by mutableStateOf<Long?>(null)
+
     fun enterReview(at: String) { reviewPlaying = false; review = at }
     fun leaveReview() { reviewPlaying = false; review = null }
 

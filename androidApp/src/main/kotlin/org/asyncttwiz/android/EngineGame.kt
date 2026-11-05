@@ -659,8 +659,14 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
     fun confirmResult(): GameDevice.Acted = acting(STALE) { device.confirmResult() }
     fun settings(settings: PlaySettings) { worker.call { device.settings(settings) }; after() }
 
-    /** Leaves the catch-up screen (§7): playback starts. */
-    fun startPlayback() = worker.run { device.play(); publish() }
+    /** Leaves the catch-up screen (§7): playback starts, its first step right away (HIS-023): the first board published
+     * after it already shows the first event (owner playtest 2026-11-05: nothing waited for after Play). */
+    fun startPlayback() = worker.run {
+        device.play()
+        val first = device.step()
+        publish()
+        if (first != null) afterBoard()
+    }
 
     /** The play/pause button (§27): pausing makes playback stop at the next point where Full control stops; playing
      * again ends it (at a stop the pause made, [play] answers the same as assumed and goes on). */

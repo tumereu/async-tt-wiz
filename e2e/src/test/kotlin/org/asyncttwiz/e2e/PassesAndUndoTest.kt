@@ -144,6 +144,7 @@ class PassesAndUndoTest : E2e() {
             val undone = assertNotNull(t.undone, "${player.name}: the transition is the undo")
             assertFalse(t.jump, "${player.name}: an undo animates, never jumps")
             assertEquals(text, EngineEventText.undid(undone.event, undone.state, player.id, undone.by, names()))
+            waitUntil("\"$text\" shown on ${player.name}'s table") { player.told(text) }
             assertTrue(t.forward.isEmpty() && t.backward.isNotEmpty())
             // The steps fly the Herald back the way it came: off the battlefield, onto the Stack, then the hand
             val path = t.steps.map { where(it, herald) }

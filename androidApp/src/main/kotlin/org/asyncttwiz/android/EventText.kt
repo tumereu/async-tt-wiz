@@ -136,11 +136,17 @@ internal fun EventTextOverlay(feed: EventTextFeed, pauseMillis: Long, modifier: 
     }
     val flash = remember { Animatable(0f) }
     val firstFlashes = remember { flashes }
+    val record = LocalShownTexts.current
     LaunchedEffect(flashes) {
-        if (flashes != firstFlashes && status != null) { flash.snapTo(1f); flash.animateTo(0f, tween(EVENT_TEXT_FLASH_MILLIS)) }
+        if (flashes != firstFlashes && status != null) {
+            // The flash shows the status again, as a warning
+            record(status)
+            flash.snapTo(1f); flash.animateTo(0f, tween(EVENT_TEXT_FLASH_MILLIS))
+        }
     }
     val warning = MaterialTheme.colorScheme.error
     val shownChip = status?.let { EventTextChip(STATUS_CURSOR, it, -1, 0) } ?: chip
+    RecordShown(shownChip?.text, shownChip)
     Box(modifier.fillMaxWidth().height(48.dp), contentAlignment = Alignment.Center) {
         InstantShowFadeOut(shownChip) { shown ->
             val fill = if (shown.cursorId == STATUS_CURSOR) androidx.compose.ui.graphics.lerp(EventTextFill, warning, flash.value)

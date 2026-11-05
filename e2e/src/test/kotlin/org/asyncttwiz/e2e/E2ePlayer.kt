@@ -9,6 +9,7 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -38,6 +39,7 @@ import org.asyncttwiz.android.EngineWorker
 import org.asyncttwiz.android.GameConnectionMaintenance
 import org.asyncttwiz.android.GameHeartbeatController
 import org.asyncttwiz.android.LobbyApi
+import org.asyncttwiz.android.LocalShownTexts
 import org.asyncttwiz.android.LobbyController
 import org.asyncttwiz.android.PodApi
 import org.asyncttwiz.android.PodController
@@ -112,8 +114,18 @@ internal class E2ePlayer(val account: TestAccount, private val compose: ComposeT
     /** The leak oracle on this phone's device (see [LeakWatch]). */
     val leaks = LeakWatch(this)
 
+    /**
+     * Every short-lived text this phone's screen showed, in order, as it appeared (the app's [LocalShownTexts]: table
+     * notes, refusals' messages, the event text and its warning flash): a test reads them here, never missing one its
+     * skippable clock ran past.
+     */
+    val shownTexts = mutableListOf<String>()
+
+    /** Whether the screen showed a short-lived text containing [text] ([shownTexts]). */
+    fun told(text: String): Boolean = shownTexts.any { text in it }
+
     /** Whether the screen showed SYS-012's refusal note ("That wasn't taken: ...") or a refused action's error. */
-    var refusalSeen = false
+    val refusalSeen: Boolean get() = told("wasn't taken")
 
     private var onceAt = -1L
 
@@ -136,7 +148,9 @@ internal class E2ePlayer(val account: TestAccount, private val compose: ComposeT
                 val game = lobby.state.selected.takeIf { state.destination == ShellDestination.GAMES }
                 val shown = foreground
                 SideEffect { heartbeat.display(game?.takeIf { shown }, token) }
-                Surface(Modifier.fillMaxSize()) { AccountEntry(auth, reset, lobby = lobby, pods = pods) }
+                CompositionLocalProvider(LocalShownTexts provides { text: String -> shownTexts += text }) {
+                    Surface(Modifier.fillMaxSize()) { AccountEntry(auth, reset, lobby = lobby, pods = pods) }
+                }
             }
         }
     }

@@ -173,10 +173,7 @@ abstract class E2e {
         shadowOf(Looper.getMainLooper()).idleFor(step + skip)
         compose.waitForIdle()
         everyRun.forEach { it() }
-        players.forEach {
-            it.leaks.install()
-            if (it.game != null && it.showsText("wasn't taken", substring = true)) it.refusalSeen = true
-        }
+        players.forEach { it.leaks.install() }
     }
 
     /** The game as the server holds it now, read by Alice's account at most every few hundred milliseconds (the

@@ -18,6 +18,7 @@ import kotlinx.coroutines.delay
 internal fun FloatingTransientError(message: String?, dismiss: () -> Unit, modifier: Modifier = Modifier) {
     val onDismiss by rememberUpdatedState(dismiss)
     LaunchedEffect(message) { if (message != null) { delay(7_000); onDismiss() } }
+    RecordShown(message)
     if (message != null) Snackbar(
         modifier = modifier.padding(horizontal = 12.dp, vertical = 8.dp).widthIn(max = 560.dp)
             .semantics { liveRegion = LiveRegionMode.Assertive },

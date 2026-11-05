@@ -72,15 +72,13 @@ class CatchUpLiveTest : E2e() {
         bobWatchesToAStop("Bob's playback stopping at Alice's spell")
         assertEquals("STACK", where(bob.shown.board, cast.herald))
         val glimmer = atw(bob.hand("Idle Glimmer").first())
-        // HIS-097's note on Alice's table (shown for a few seconds)
-        var told = false
-        everyRun += { if (alice.showsText("responded — your later actions were taken back", substring = true)) told = true }
         bob.playFromHand("Idle Glimmer", this)
         waitUntil("Bob's Glimmer on the server's main line") {
             serverGame() != null && alice.engine { device.session.events }.any { e -> e.author == bob.id &&
                 e.engine?.steps.orEmpty().any { (it.input as? Input.Cast)?.card?.let(::atw) == glimmer } }
         }
-        waitUntil("Alice told") { told }
+        // HIS-097's note on Alice's table (shown for a few seconds)
+        waitUntil("Alice told") { alice.told("responded — your later actions were taken back") }
         assertTrue(alice.engine { device.session.events }.none { it.id == cast.next.id }, "the assumed line is discarded")
         // HIS-097 (analysis 2026-11-05): her End turn was on the discarded line, so it is taken back with it: the game goes
         // on from Bob's answer to her own main phase and waits for her there (it went on to Bob's turn by itself, the

@@ -465,6 +465,7 @@ internal fun EngineAsyncHost(toolkit: TableToolkitController, routes: EngineTabl
         }
     }
     routes.note?.let { text ->
+        RecordShown(text)
         LaunchedEffect(text) { delay(6_000); if (routes.note == text) routes.note = null }
         Box(Modifier.fillMaxWidth().padding(top = 56.dp), contentAlignment = Alignment.TopCenter) {
             Surface(shape = RoundedCornerShape(8.dp), color = Color(0xff2f3a37), shadowElevation = 6.dp,

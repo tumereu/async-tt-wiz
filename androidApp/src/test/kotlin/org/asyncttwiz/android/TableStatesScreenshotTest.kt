@@ -144,8 +144,9 @@ class TableStatesScreenshotTest {
             val scene = TablePresentation.scene(f.game, engineTableBoard(current(), f.a), f.a, image.width.toFloat(), image.height.toFloat(), landscape,
                 landscapeHome = true)
             if (kind == "combat") assertRenderedLandsBands(image, scene, f.a, turnPlayer = current().board.turn.accountId)
-            // the title size of the area's cards, never smaller than COMBAT_MIN_CARD (combat review #12)
-            assertTrue(scene.combatLabels.all { it.fontSize in 10.5f..11.5f })
+            // CMB-042: the title size of the band's cards (never narrower than COMBAT_MIN_CARD at zoom 1), zooming with the band
+            val zoom = scene.camera.zoom
+            assertTrue(scene.combatLabels.all { it.fontSize in 10.5f * zoom..11.5f * zoom })
             val cards = scene.items.filter { it.projection && it.viewport == "combat" }
             assertTrue(cards.isNotEmpty())
             assertTrue(scene.combatLabels.all { label -> cards.all { label.bounds.bottom < it.bounds.y } })

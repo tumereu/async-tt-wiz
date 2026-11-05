@@ -130,7 +130,10 @@ internal fun stepArrowShown(play: TableBoard, viewer: String?): Boolean {
  */
 @Composable
 internal fun AutomatumStepArrow(play: TableBoard, enabled: Boolean, modifier: Modifier, onHold: () -> Unit,
-    blocked: String? = null, resolveTip: String? = null, onClick: () -> Unit) {
+    blocked: String? = null, resolveTip: String? = null,
+    /** CMB-033 (owner, 2026-11-05): the go-on action of an open combat choice (the damage division's OK) in its place. */
+    main: MainAction? = null, onClick: () -> Unit) {
+    if (main != null) { MainActionArrow(main, enabled, modifier); return }
     val step = AutomatumStep.of(play)
     val usable = enabled && blocked == null && step != AutomatumStep.Waiting
     val ink = AutomatumStepInk.copy(alpha = if (usable) 1f else .38f)
@@ -145,6 +148,26 @@ internal fun AutomatumStepArrow(play: TableBoard, enabled: Boolean, modifier: Mo
             if (step.swords) Icon(painterResource(R.drawable.swords_outlined), null, Modifier.size(20.dp), tint = LocalContentColor.current)
             else Icon(step.icon, null, Modifier.size(20.dp), tint = LocalContentColor.current)
         }, label = step.label) }, onClick = { if (blocked != null) shakes++ else onClick() })
+}
+
+/**
+ * A go-on action of an open choice on the main button (TRN-063, owner 2026-11-05): [label] under [icon]; [refusal] greys
+ * it (a tap shakes it, holding it says why); [tooltip] is what holding it says otherwise.
+ */
+class MainAction(val label: String, val icon: ImageVector, val refusal: String? = null, val tooltip: String? = null,
+    val run: () -> Unit)
+
+/** The main button holding [action] ([MainAction]): the step arrow's look, no hold command. */
+@Composable
+internal fun MainActionArrow(action: MainAction, enabled: Boolean, modifier: Modifier) {
+    var shakes by remember { mutableIntStateOf(0) }
+    val ink = AutomatumStepInk.copy(alpha = if (enabled && action.refusal == null) 1f else .38f)
+    ActionSquare(action.label, "", enabled, modifier.testTag("main-button").shaken(shakes).shadow(3.dp, AdvanceArrowShape)
+        .background(Color.White, AdvanceArrowShape).border(1.dp, AutomatumStepOutline, AdvanceArrowShape).clip(AdvanceArrowShape),
+        fill = Color.White, ink = ink, compactContent = true, tooltip = action.refusal ?: action.tooltip,
+        gestureKey = action.label to action.refusal,
+        icon = { MainButtonContent(icon = { Icon(action.icon, null, Modifier.size(20.dp), tint = LocalContentColor.current) },
+            label = action.label) }, onClick = { if (action.refusal != null) shakes++ else action.run() })
 }
 
 /** The main button's face: an icon above the words of what a tap does, clear of the arrow's tip. */

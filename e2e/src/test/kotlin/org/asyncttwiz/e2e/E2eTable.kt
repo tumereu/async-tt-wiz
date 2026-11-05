@@ -95,6 +95,23 @@ internal fun E2ePlayer.battlefieldCard(name: String, owner: E2ePlayer = this, in
     return node(byId(cards[index]))
 }
 
+/** The combat copy of [owner]'s card [name] (the other player's) in the combat band between the battlefields (CMB-007) on this player's
+ * screen (the [index]th from the left). */
+internal fun E2ePlayer.bandCard(name: String, owner: E2ePlayer, index: Int = 0): SemanticsNodeInteraction {
+    require(owner !== this) { "the other player's copies" }
+    val fields = listOf(battlefieldBounds(owner), battlefieldBounds()).sortedBy { it.top }
+    val top = fields.first().bottom
+    val bottom = fields.last().top
+    // A combat copy is a projection of its real card
+    val cards = nodes(hasContentDescription("Projection, $name, owner ${owner.name}, ", substring = true)).fetchSemanticsNodes()
+        .filter { it.boundsInRoot.center.y in top..bottom }.sortedBy { it.boundsInRoot.left }
+    check(cards.size > index) { "$name: no copy of ${owner.name}'s in the combat band on the screen: ${screen()}" }
+    return node(byId(cards[index]))
+}
+
+/** Whether the combat band is the thin strip that pulses while attackers are declared with none staged (CMB-001). */
+internal fun E2ePlayer.showsCombatStrip(): Boolean = shows(hasTestTag("combat-strip"))
+
 /**
  * Taps this player's [index]th [name] on their battlefield to stage it as an attacker (CMB-028), once their table has
  * worked out what combat allows on the board it shows: until then a tap only says Automatum is still working the combat

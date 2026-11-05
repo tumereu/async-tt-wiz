@@ -32,7 +32,12 @@ data class QuickContext(val combatAreaId: String? = null,
     /** CMB-028: the active attack target lane (null: the defending player) and its name, for "Rest → <target>". */
     val combatTarget: String? = null, val combatTargetName: String = "",
     /** UI review round 2 #3: the viewer's own cast is open, so the step arrow can't act ([stepBlocked]). */
-    val castOpen: Boolean = false)
+    val castOpen: Boolean = false,
+    /** CMB-040 (owner, 2026-11-05): how many of the defender's creatures the viewer placed as assumed blockers while
+     * waiting for their blocks; null when not waiting for them. */
+    val assumedBlockers: Int? = null,
+    /** CMB-033 (owner, 2026-11-05): the go-on action of an open combat choice, shown on the main button. */
+    val mainAction: MainAction? = null)
 
 /** A disabled action stays in place, greyed and inert; one [refused] says why on tap (Automatum on, I-D28). */
 data class QuickAction(val name: String, val glyph: String, val intent: TableActionIntent, val badge: String? = null,
@@ -112,7 +117,9 @@ fun QuickActionStrip(play: TableBoard, context: QuickContext, controller: TableA
                 // I-D56 §14 (TRN-059): on engine state the toggles are the player's private settings for this game
                 if (toggles && engine != null) EngineToggleCells(engine, true)
                 for (action in actions) key(action.intent) {
-                    InlinePopupCell(MenuControl(action.name, action.enabled && controller.enabled(scope), refused = action.refused) { perform(action.intent) },
+                    // CMB-040: Clear of the assumed blocks works while the viewer waits for the defender
+                    val assumed = (action.intent as? TableActionIntent.Combat)?.tool == CombatTool.ASSUME_CLEAR
+                    InlinePopupCell(MenuControl(action.name, action.enabled && (assumed || controller.enabled(scope)), refused = action.refused) { perform(action.intent) },
                         quickActionLabel(action.name), owner = Color.Black, modifier = Modifier.weight(1f).height(48.dp))
                 }
             }
@@ -127,12 +134,14 @@ fun QuickActionStrip(play: TableBoard, context: QuickContext, controller: TableA
             // unconfirmed mark sits at its corner without moving anything
             val wait = if (arrow) null else engine?.waitAction()
             val unconfirmed = engine?.engine?.shown?.indicator != null
-            RecordShown(bottomBarRecord(if (arrow) AutomatumStep.of(play).label else wait?.label, if (toggles) null else actions.map { it.name }))
+            val main = context.mainAction.takeIf { arrow }
+            RecordShown(bottomBarRecord(if (arrow) main?.label ?: AutomatumStep.of(play).label else wait?.label, if (toggles) null else actions.map { it.name }))
             Box(Modifier.weight(2f)) {
                 if (arrow) AutomatumStepArrow(play, controller.enabled(scope), Modifier.fillMaxWidth(),
                     onHold = { perform(TableActionIntent.End(scope)) },
                     blocked = stepBlocked(play, context.castOpen, context.automatumCombat),
-                    resolveTip = "Resolve: pass, so the top of the Stack resolves once ${engine?.opponentName ?: "the other player"} passes too") {
+                    resolveTip = "Resolve: pass, so the top of the Stack resolves once ${engine?.opponentName ?: "the other player"} passes too",
+                    main = main) {
                     perform(TableActionIntent.Next(scope))
                 }
                 else if (wait != null) EngineWaitArrow(wait, Modifier.fillMaxWidth())

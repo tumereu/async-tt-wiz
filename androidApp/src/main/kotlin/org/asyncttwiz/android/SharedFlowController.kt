@@ -1,5 +1,7 @@
 package org.asyncttwiz.android
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Check
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -84,6 +86,19 @@ internal class SharedFlowController(
     val targeting: Boolean get() = answering is Decision.Targets && view?.board === current()?.board
 
     fun toggleHidden() { hidden = !hidden }
+
+    /** CMB-033 (owner, 2026-11-05): the division of combat damage open in the band now, with its decision; its OK is the
+     * main button ([divisionAction]). Set by its panel. */
+    var division by mutableStateOf<Pair<Decision.Divide, DivisionDraft>?>(null)
+
+    /** CMB-033: the open division's OK on the main button (greyed with the reason while the division isn't complete), or
+     * null without one. */
+    fun divisionAction(): MainAction? {
+        val (decision, draft) = division ?: return null
+        if (answering?.id != decision.id) return null
+        return MainAction("OK", Icons.Outlined.Check, refusal = draft.refusal ?: BUSY.takeIf { busy },
+            tooltip = "Deal the damage as divided") { answer(Answer.Division(engineShares(decision, draft.division, draft.shares))) }
+    }
 
     /** "Respond": the prompt shrinks to a bar while the player casts from the hand. */
     fun respond(play: TableBoard) { responding = play.nodeId; hidden = false }

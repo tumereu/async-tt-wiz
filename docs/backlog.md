@@ -10,12 +10,11 @@ Changes the owner wants but that are not built yet. The feature catalog
 
 ## Build order (owner, 2026-11-05: one implementor at a time, small items batched, full suites after each batch)
 
-1. Combat band.
-2. Playtest 2026-11-05 evening, batch A (cast flow): undo during an interaction, cast panel without OK/Cancel, every way to cast shown, ability chips + mana symbols, main button names.
-3. Playtest 2026-11-05 evening, batch B: Stack ability look, library search panel, draft split-card pips, assume when they have no mana.
-4. Battlefield placement (Arena style).
-5. Hold pauses playback, Reconnecting…, remove the auto-pause switches (re-check against the built catch-up playback first: HIS-094, HIS-095).
-6. Countering a spell lower on the Stack (e2e scenario).
+1. Playtest 2026-11-05 evening, batch A (cast flow): undo during an interaction, cast panel without OK/Cancel, every way to cast shown, ability chips + mana symbols, main button names.
+2. Playtest 2026-11-05 evening, batch B: Stack ability look, library search panel, draft split-card pips, assume when they have no mana.
+3. Battlefield placement (Arena style).
+4. Hold pauses playback, Reconnecting…, remove the auto-pause switches (re-check against the built catch-up playback first: HIS-094, HIS-095).
+5. Countering a spell lower on the Stack (e2e scenario).
 
 ## Ready to build
 
@@ -37,7 +36,6 @@ Start none of these until the E2E framework above works. Each owner-reported bug
 
 - Build on the engine path (owner, 2026-11-05): holding a card pauses timeline playback (HIS-017, TBL-105), and "Reconnecting…" after a game action has waited 3 s for the server (SYS-016); no entry change.
 - Remove the auto-pause switches, which nothing reads since the engine switch-over (owner, 2026-11-05): delete HIS-024, HIS-025, HIS-026, HIS-027, HIS-090; HIS-028 and LOB-082 keep only History playback pause, Rewind pause and Card move speed.
-- Combat band (changes CMB-001, CMB-007, CMB-033, CMB-040, STK-044, TBL-117): the combat area opens from the centre as a band between the battlefields, pushing them apart and scaling with the battlefield zoom like the old yellow area (TBL-001), not a panel floating over them. While no attacker is staged it stays a thin strip that pulses; tapping it opens it, and so does staging the first attacker (planeswalker lanes cost that extra tap; judge in playtest). While attackers are being declared, the creatures that can attack glow red-orange (cyan stays "can activate"). Assume blockers is edited on the lanes and divisions of combat damage open in the band; the go-on actions (Attack (N), No blocks, Assume blockers, OK) are the main button (TRN-063, owner 2026-11-05). No panel over the hand during combat. Screenshot tests for the owner's review.
 - Fix: the "Rest → <target>" combat quick action declares the attack; it must only stage the remaining attackers (CMB-028; no entry change). It did not reproduce in 3 scenarios: keep it until it happens again with more detail.
 - Countering a spell lower on the Stack: e2e scenario: Alice (Full control) casts spell A, keeps priority, casts B; Bob, at his pause with both on the Stack, counters A with a single-target counterspell; B resolves, A is countered. Variant: Bob offline, Alice's device assumes his passes and A and B resolve; Bob later counters A → branch and take-back (needs the branch fix above). With two or more legal Stack targets the Stack opens in place as its list with the legal entries glowing and tappable, if that is clean and possible; otherwise keep the docked picker (STK-044, STK-018). Screenshot test of the multi-target pick for the owner.
 - Stack ability token (STK-046): its art is clipped with black at the bottom; the owner describes it later (holding it to inspect is covered by e2e StackAbilityTest).

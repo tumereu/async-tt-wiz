@@ -12,10 +12,13 @@ import androidx.compose.material.icons.outlined.CheckBox
 import androidx.compose.material.icons.outlined.CheckBoxOutlineBlank
 import androidx.compose.material.icons.outlined.Link
 import androidx.compose.material.icons.outlined.PersonAddAlt
-import androidx.compose.material.icons.outlined.UnfoldLess
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
@@ -57,18 +60,15 @@ private val COMBAT_KEYWORDS = listOf("Flying", "Reach", "Menace", "Trample", "Fi
  */
 @Composable
 internal fun CombatAreaOverlay(combat: CombatController?, play: TableBoard, scene: TableScene, viewer: String, writable: Boolean,
-    /** CMB-007: folds the combat area away (true) to see the battlefield under it, or brings it back. */
-    fold: ((Boolean) -> Unit)? = null, bounds: (TableItem) -> TableBounds) {
-    val area = play.board.combat
-    // CMB-007: the folded-away area is a button where it was, bringing it back
-    val folded = scene.combatFolded
-    if (area != null && folded != null && fold != null) {
-        Box(Modifier.offset { IntOffset(folded.x.dp.roundToPx(), folded.y.dp.roundToPx()) }.offset((-48).dp, (-16).dp)
-            .size(96.dp, 32.dp).background(Color.White, RoundedCornerShape(16.dp)).border(1.5.dp, ArrowColor, RoundedCornerShape(16.dp))
-            .semantics { contentDescription = "Show the combat area" }.clickable { fold(false) }, contentAlignment = Alignment.Center) {
-            Text("Combat ▴", color = Color(0xff263238), fontSize = 13.sp, fontWeight = FontWeight.Bold)
-        }
-    }
+    /** CMB-001 (owner, 2026-11-05): opens the band from the thin strip before any attacker is staged. */
+    openBand: (() -> Unit)? = null, bounds: (TableItem) -> TableBounds) {
+    // CMB-001: a band tapped open before any attacker is staged shows its empty lanes (an area drawn only)
+    val area = play.board.combat ?: CombatArea(TablePresentation.OPENED_COMBAT_AREA).takeIf { scene.combatPanel != null }
+    // CMB-001: while the viewer declares attackers with none staged the band is a thin strip that pulses; a tap opens it
+    // ... short of the Stack at its right, which keeps its own taps
+    val strip = scene.combatStrip?.let { b -> scene.stackRegion?.takeIf { it.intersection(b) != null && it.x > b.x }
+        ?.let { b.copy(width = it.x - 4f - b.x) } ?: b }
+    if (strip != null && strip.height > 0f) CombatStrip(strip, writable && openBand != null) { openBand?.invoke() }
     val port = scene.viewports.firstOrNull { it.id == "combat" }?.bounds
     val shown = if (combat != null) combat.readyOrLast(play) ?: CombatShown.NONE else CombatShown.NONE
     val choices = shown.choices
@@ -257,23 +257,13 @@ internal fun CombatAreaOverlay(combat: CombatController?, play: TableBoard, scen
             .semantics { contentDescription = "Attack ${lane.label.removePrefix("→ ")}" }
             .clickable { combat.chooseTarget(play, lane.cardId) })
     }
-    // Just right of the panel's top-right corner: the fold button (CMB-007), then the eye hiding and showing the preview's
-    // numbers (CMB-029)
+    // Just right of the panel's top-right corner: the eye hiding and showing the preview's numbers (CMB-029)
     val panel = scene.combatPanel ?: return
-    // Icon-only, so holding either says what it does (I-D48)
-    if (fold != null) Box(Modifier.offset { IntOffset((panel.right + 3f).dp.roundToPx(), panel.y.dp.roundToPx()) }) {
-        HoldTip("Hide the combat area") {
-            Box(Modifier.size(30.dp).background(Color.White, CircleShape).border(1.dp, ArrowColor, CircleShape)
-                .semantics { contentDescription = "Hide the combat area" }.clickable { fold(true) }, contentAlignment = Alignment.Center) {
-                Icon(Icons.Outlined.UnfoldLess, null, Modifier.size(18.dp), tint = Color(0xff263238))
-            }
-        }
-    }
     // Finalreview-combat #4 (CMB-029): the way to the damage needs a choice, which the preview took as suggested
     if (preview?.assumed == true) Box(Modifier.offset { IntOffset((panel.x + 2f).dp.roundToPx(), (panel.bottom + 3f).dp.roundToPx()) }) {
         PreviewChip("Depends on a choice", PreviewRed, Modifier, "The preview assumes the suggested answer to a choice on the way")
     }
-    val eyeY = panel.y + if (fold != null) 34f else 0f
+    val eyeY = panel.y
     if (shown.preview != null && combat != null) {
         Box(Modifier.offset { IntOffset((panel.right + 3f).dp.roundToPx(), eyeY.dp.roundToPx()) }) {
             HoldTip(if (combat.numbersHidden) "Show the damage preview" else "Hide the damage preview") {
@@ -284,6 +274,28 @@ internal fun CombatAreaOverlay(combat: CombatController?, play: TableBoard, scen
             }
         }
     }
+}
+
+/** The colour of the thin combat strip's pulse and of the creatures that may attack (CMB-001, owner 2026-11-05). */
+internal val AttackOrange = Color(0xffe8590c)
+
+/**
+ * CMB-001 (owner, 2026-11-05): the thin strip between the battlefields while the viewer declares attackers with none
+ * staged, at [bounds] on the screen: it pulses in the attack's red-orange; a tap ([enabled]) opens the band ([open]).
+ */
+@Composable
+private fun CombatStrip(bounds: TableBounds, enabled: Boolean, open: () -> Unit) {
+    val pulse by androidx.compose.animation.core.rememberInfiniteTransition(label = "Combat strip").animateFloat(.18f, .5f,
+        androidx.compose.animation.core.infiniteRepeatable(androidx.compose.animation.core.tween(900),
+            androidx.compose.animation.core.RepeatMode.Reverse), label = "Combat strip pulse")
+    Box(Modifier.offset { IntOffset(bounds.x.dp.roundToPx(), bounds.y.dp.roundToPx()) }.size(bounds.width.dp, bounds.height.dp)
+        .testTag("combat-strip").semantics { contentDescription = "Open the combat area" }
+        .let { if (enabled) it.clickable(onClick = open) else it }
+        .drawBehind {
+            drawRect(AttackOrange.copy(alpha = pulse))
+            drawLine(AttackOrange, Offset(0f, 0f), Offset(size.width, 0f), 1.5f * density)
+            drawLine(AttackOrange, Offset(0f, size.height), Offset(size.width, size.height), 1.5f * density)
+        })
 }
 
 /** A chip of a staged attacker or drafted blocker (CMB-036–CMB-038): [onTap] null when the viewer can't change it (the

@@ -21,6 +21,7 @@ import androidx.compose.material.icons.outlined.DoneAll
 import androidx.compose.material.icons.outlined.FastForward
 import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material.icons.outlined.RadioButtonUnchecked
+import androidx.compose.material.icons.outlined.RemoveModerator
 import androidx.compose.material.icons.outlined.Shield
 import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material.icons.outlined.WaterDrop
@@ -82,6 +83,46 @@ interface EngineRoutes {
      * trigger's targets or modes, their blockers, their mulligan): what the viewer tries meanwhile is refused with a shake
      * and the event text's flash (HIS-075, TBL-118). */
     fun othersChoice(): Boolean = false
+
+    /** CMB-040 (owner, 2026-11-05): the defender's blocks the viewer places on the lanes while waiting for them (null when
+     * not waiting for the defender's blocks); assumed only by the main button. */
+    fun assuming(): AssumedBlocks? = null
+}
+
+/**
+ * CMB-040 (owner, 2026-11-05): the defender's blocks the attacker places on the lanes while waiting for them, at the
+ * event [tip]: by blocker (the defender's creature's card id), the attacker pairs it blocks, its own first. Personal and
+ * drawn only: nothing is shared, nothing assumed until the main button's Assume.
+ */
+class AssumedBlocks(val tip: String) {
+    var blocks by mutableStateOf<Map<String, List<String>>>(emptyMap())
+        private set
+    private var cache: Triple<BoardState, Map<String, List<String>>, TableBoard>? = null
+
+    /** [blocker] blocks exactly the attackers of [pairs] (none: it blocks nothing). */
+    fun set(blocker: String, pairs: List<String>) { blocks = if (pairs.isEmpty()) blocks - blocker else blocks + (blocker to pairs) }
+    fun clear() { blocks = emptyMap() }
+
+    /** [play] with these blocks drawn on its lanes (the same board while they are unchanged). */
+    fun board(play: TableBoard): TableBoard {
+        val placed = blocks
+        cache?.takeIf { it.first === play.board && it.second == placed }?.let { return it.third }
+        var board = play.board
+        for ((blocker, pairs) in placed) {
+            val area = board.combat ?: break
+            board = runCatching { CombatStackRules.stage(board, play.definitions,
+                org.asyncttwiz.protocol.CommandIds.uuidV5(blocker, "assumed-block"), CombatAction.SetBlocks(area.id, blocker,
+                    pairs.filter { id -> area.pairs.any { it.id == id } }, emptyList())) }.getOrDefault(board)
+        }
+        val shown = if (board === play.board) play else play.copy(board = board, values = play.values?.onLanes(board))
+        cache = Triple(play.board, placed, shown)
+        return shown
+    }
+
+    /** The blocks to assume on [board] (the board without them): each blocker with each attacker of its pairs. */
+    fun inputs(board: BoardState): List<Pair<String, String>> = blocks.flatMap { (blocker, pairs) ->
+        pairs.flatMap { id -> board.combat?.pairs?.firstOrNull { it.id == id }?.attackers.orEmpty().map { blocker to it.sourceId } }
+    }
 }
 
 /** The open table's engine routes and the async panels' own state (personal UI). */
@@ -116,8 +157,28 @@ internal class EngineTableRoutes(val viewer: String, private val game: () -> Eng
     /** Timeline mode's Auto (HIS-013). */
     var reviewPlaying by mutableStateOf(false)
 
-    /** The Assume blockers screen opened from the main button at this point (CMB-040), personal. */
-    var blockersOpen by mutableStateOf<String?>(null)
+    /** CMB-040: the blocks being placed to assume while waiting for the defender's (personal). */
+    private var assumed: AssumedBlocks? = null
+
+    override fun assuming(): AssumedBlocks? {
+        val shown = game()?.shown ?: return null
+        val status = shown.status as? GameDevice.Status.Waiting ?: return null
+        if (status.offer != GameDevice.Offer.AssumeBlockers || review != null) return null
+        return assumed?.takeIf { it.tip == shown.tip } ?: AssumedBlocks(shown.tip).also { assumed = it }
+    }
+
+    /** CMB-040: assumes the blocks placed (none: no blocks); a refusal is told with the engine's reason. */
+    private fun assumeBlocks(g: EngineGame, placed: AssumedBlocks) {
+        val s = g.shown?.engine ?: return
+        val board = shown()?.board ?: return
+        fun objectOf(card: String) = s.battlefield.firstOrNull { (it as? ObjectId.Card)?.card?.value == card }
+        val chosen = placed.inputs(board).mapNotNull { (b, a) -> Block(objectOf(b) ?: return@mapNotNull null, objectOf(a) ?: return@mapNotNull null) }
+        when (val acted = g.assume(chosen)) {
+            is GameDevice.Acted.Refused -> tell("These blocks can't be assumed: ${acted.reason}")
+            else -> placed.clear()
+        }
+        pump()
+    }
 
     /** Whether the table is still animating a published board's steps (the motion queue), for the take-back's playback
      * to wait for its rewind (HIS-097). Set by the table. */
@@ -245,7 +306,8 @@ internal class EngineTableRoutes(val viewer: String, private val game: () -> Eng
         val run: () -> Unit)
 
     /** The control the main button shows while the other player must act, or null for none: "Assume" with something on
-     * the Stack (STK-028), else "Assume resolves" (TRN-070); "Assume blockers" opens its screen (CMB-040). */
+     * the Stack (STK-028), else "Assume resolves" (TRN-070); while their blocks are awaited "Assume no blockers", or
+     * "Assume blockers" once blockers are placed on the lanes (CMB-040). */
     fun waitAction(): WaitAction? {
         val g = game() ?: return null
         val shown = g.shown ?: return null
@@ -257,9 +319,15 @@ internal class EngineTableRoutes(val viewer: String, private val game: () -> Eng
                     "Assume $name lets it resolve and go on; if they respond when they come back, the game goes back there") { g.assume(); pump() }
                 else WaitAction("Assume resolves", Icons.Outlined.DoneAll,
                     "Assume $name lets the game go on; if they act here when they come back, the game goes back there") { g.assume(); pump() }
-            // The screen to assume them (editable, CMB-040)
-            GameDevice.Offer.AssumeBlockers -> WaitAction("Assume blockers", Icons.Outlined.Shield,
-                "Choose the blocks to assume for $name and go on") { blockersOpen = shown.tip }
+            // CMB-040 (owner, 2026-11-05): the blocks placed on the lanes, assumed only by this button
+            GameDevice.Offer.AssumeBlockers -> assuming()?.let { placed ->
+                if (placed.blocks.isEmpty()) WaitAction("Assume no blockers", Icons.Outlined.RemoveModerator,
+                    "Assume $name doesn't block and go on; if they block when they come back, the game goes back there. " +
+                        "Tap or drag their creatures onto your attackers to assume blocks instead.") { assumeBlocks(g, placed) }
+                else WaitAction("Assume blockers", Icons.Outlined.Shield,
+                    "Assume $name blocks as placed on the lanes and go on; if they block differently when they come back, the game goes back there") {
+                    assumeBlocks(g, placed) }
+            }
             null -> if (status.reason == GameDevice.Wait.Request && shown.request?.by == viewer)
                 WaitAction("Cancel request", Icons.Outlined.Close) { g.cancelRequest(); pump() } else null
         }
@@ -282,7 +350,6 @@ internal class EngineTableRoutes(val viewer: String, private val game: () -> Eng
     fun waitingLine(play: TableBoard): String? {
         val shown = game()?.shown ?: return null
         val status = shown.status as? GameDevice.Status.Waiting ?: return null
-        if (status.offer == GameDevice.Offer.AssumeBlockers && blockersOpen == shown.tip) return null
         return waitingText(status.reason, play, opponentName)
     }
 }
@@ -454,12 +521,10 @@ internal fun EngineAsyncHost(toolkit: TableToolkitController, routes: EngineTabl
     val reviewing = routes.review != null
     // TRN-066, TRN-068: the wait is faint words over the battlefield (TableRuntimeHooks.waitingLine) with its Assume or
     // Cancel in the step arrow's place, and the unconfirmed mark sits at the arrow's corner (QuickActionStrip): nothing
-    // here covers the board but the Assume blockers screen the player opens
+    // here covers the board (CMB-040: assumed blocks are placed on the lanes)
     // HIS-095 (owner playtest 2026-11-04 #1): a stop at the other player's assumption about you looks like any point
     // where you may act: no words over the board say it was assumed
     if (!reviewing) when (status) {
-        is GameDevice.Status.Waiting -> if (status.offer == GameDevice.Offer.AssumeBlockers && routes.blockersOpen == shown.tip)
-                EngineBlockersScreen(routes, scene, play, opponent)
         is GameDevice.Status.Playing -> EnginePlayback(routes)
         is GameDevice.Status.Over -> AboveHand(handRow(scene, routes.viewer)) {
             val won = (status.result as? arcanum.engine.setup.GameResult.Won)?.winner
@@ -515,74 +580,6 @@ private fun EngineBar(text: String, what: String, buttons: @Composable RowScope.
             Text(text, fontWeight = FontWeight.Medium, fontSize = 14.sp, lineHeight = 17.sp)
         }
     }
-}
-
-/**
- * The Assume blockers screen (§4, §14, CMB-040): on the attacker's device only, opened from Assume blockers in the step
- * arrow's place (never by itself, whether the defender is online or away), with "No blocks". The blocks may be edited first:
- * under each attacker, the defender's untapped creatures as cards; tapping one makes it block that attacker (again: not),
- * holding one inspects it. OK assumes the blocks (the engine checks them, CR 509.1b–c; blocks with a cost to block aren't
- * assumed, CR 509.1d); Back leaves it a wait with "Assume blockers" on the waiting bar. Nothing of it is shared (§12).
- */
-@Composable
-private fun EngineBlockersScreen(routes: EngineTableRoutes, scene: TableScene?, play: TableBoard, opponent: String) {
-    val game = routes.engine ?: return
-    val shownGame = game.shown ?: return
-    var hidden by remember { mutableStateOf(false) }
-    val tip = shownGame.tip
-    var blocks by remember(tip) { mutableStateOf<List<Pair<String, String>>>(emptyList()) }
-    var refusal by remember(tip) { mutableStateOf<String?>(null) }
-    val inspector = remember { ChoiceInspector() }
-    val s = shownGame.engine
-    fun cardOf(id: ObjectId) = (id as? ObjectId.Card)?.card?.value
-    val attackers = s.combat?.attackers.orEmpty().mapNotNull { cardOf(it.id) }
-    val creatures = remember(tip) {
-        val view = runCatching { arcanum.engine.Engine.view(s) }.getOrNull()
-        s.battlefield.filter { id -> val o = s.obj(id); val v = view?.get(id)
-            o != null && !o.tapped && v?.controller == shownGame.opponent && v.characteristics?.isType(arcanum.api.CardType.Creature) == true
-        }.mapNotNull(::cardOf)
-    }
-    fun objectOf(card: String) = s.battlefield.firstOrNull { cardOf(it) == card }
-    AboveHand(handRow(scene, routes.viewer)) {
-        AutomatumDockPanel("Assume blockers", hidden, { hidden = !hidden }, "blockers panel", buttons = {
-            ChoiceButton("Back", Icons.Outlined.Close) { routes.blockersOpen = null }
-            ChoiceButton("OK", Icons.Outlined.Check, primary = true) {
-                val chosen = blocks.mapNotNull { (b, a) -> Block(objectOf(b) ?: return@mapNotNull null, objectOf(a) ?: return@mapNotNull null) }
-                when (val acted = game.assume(chosen)) {
-                    is GameDevice.Acted.Refused -> refusal = "These blocks can't be assumed: ${acted.reason}"
-                    else -> routes.blockersOpen = null
-                }
-                routes.pump()
-            }
-        }) {
-            Text("Assume $opponent's blockers", fontWeight = FontWeight.Bold, fontSize = 15.sp)
-            ChoiceHintText("Go on assuming how $opponent blocks; if they block differently when they come back, the game " +
-                "goes back to their blocks. Tap their creatures under an attacker to block it.")
-            Text(if (blocks.isEmpty()) "No blocks" else "${blocks.size} ${if (blocks.size == 1) "block" else "blocks"}",
-                Modifier.testTag("assumed-blocks"), fontSize = 14.sp, fontWeight = FontWeight.Medium)
-            refusal?.let { Text(it, color = MaterialTheme.colorScheme.error, fontSize = 13.sp) }
-            Column(Modifier.heightIn(max = 260.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                for (attacker in attackers) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    val shownAttacker = choiceCard(play, routes.viewer, "attacker:$attacker", attacker, true, "Attacker")
-                    ChoiceCardFace(shownAttacker, Modifier.choiceCardGestures(shownAttacker.key, {}, { inspector.hold(shownAttacker, it) }), small = true)
-                    Icon(androidx.compose.material.icons.Icons.Outlined.Shield, null, Modifier.size(16.dp), tint = MenuInk.copy(alpha = .6f))
-                    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        if (creatures.isEmpty()) Text("No creatures to block", fontSize = 12.sp, color = MenuInk.copy(alpha = .7f))
-                        for (blocker in creatures) {
-                            val pair = blocker to attacker
-                            val chosen = pair in blocks
-                            val shown = choiceCard(play, routes.viewer, "block:$blocker:$attacker", blocker, true, "Creature")
-                            ChoiceCardFace(shown, Modifier.testTag("assume-block-$blocker-$attacker").choiceCardGestures(shown.key, {
-                                refusal = null
-                                blocks = if (chosen) blocks - pair else blocks + pair
-                            }, { inspector.hold(shown, it) }), selected = chosen, small = true)
-                        }
-                    }
-                }
-            }
-        }
-    }
-    ChoiceInspection(inspector, play, routes.viewer)
 }
 
 /**

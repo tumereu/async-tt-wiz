@@ -38,7 +38,10 @@ internal fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: 
     /** I-D46 (b): the item shaken by a refused gesture (an item id, card id or "life/<account>") and its offset in dp. */
     shake: Pair<String, Float>? = null,
     /** ZON-079 (I-D50): the mana sources Autotap would tap for the raised hand card, outlined in amber, by card id. */
-    sources: Set<String> = emptySet()) {
+    sources: Set<String> = emptySet(),
+    /** CMB-028 (owner, 2026-11-05): while the viewer declares attackers, their creatures that may attack glow red-orange
+     * from behind, by card id (cyan stays "can activate", TBL-117). */
+    attackable: Set<String> = emptySet()) {
     val density = density
     with(TableCardPainter(density, scene, cache, artwork)) {
     scene.viewports.firstOrNull { it.id == "sidebar" }?.bounds?.let { b ->
@@ -58,7 +61,8 @@ internal fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: 
     scene.world?.let { world -> world.horizontalBand(TableBounds(0f, scene.fields.first().gridBounds.bottom,
         0f, scene.fields.last().gridBounds.y - scene.fields.first().gridBounds.bottom)) }?.let { b ->
         clipRect(b.x * density, b.y * density, b.right * density, b.bottom * density) {
-            // The narrow band between the battlefields: with combat open, each half in its battlefield's colour
+            // The band between the battlefields: narrow without combat; open (CMB-007), each half in its battlefield's colour
+            // around the combat panel
             val upper = scene.fields.first(); val lower = scene.fields.last()
             if (scene.combatLabels.isEmpty()) drawRect(Color(0xfff5f1df), xy(b.x, b.y), size(b.width, b.height)) else {
                 drawRect(battlefieldColor(upper.owner, viewer, turnPlayer, lands = false), xy(b.x, b.y), size(b.width, b.height / 2))
@@ -66,8 +70,8 @@ internal fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: 
             }
         }
     }
-    // CMB-007: the combat area is a white panel floating over the middle of the table, sized to its content; the
-    // battlefields show around it
+    // CMB-007 (owner, 2026-11-05): the combat band's white panel, sized to its lanes, in the middle of the band that
+    // pushed the battlefields apart
     val panel = scene.combatPanel
     val table = scene.world?.visibleViewport
     if (panel != null && table != null) {
@@ -255,6 +259,11 @@ internal fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: 
                       if (glowAlpha > 0f) for (ring in 4 downTo 1) {
                           val spread = ring.toFloat()
                           drawRoundRect(AutomatumCyan.copy(alpha = .16f * glowAlpha), xy(x - spread, y - spread),
+                              size(cardWidth + 2 * spread, cardHeight + 2 * spread), CornerRadius((2 + spread) * density))
+                      }
+                      if (i.viewport != "combat" && !i.projection && i.cardId in attackable) for (ring in 4 downTo 1) {
+                          val spread = ring.toFloat()
+                          drawRoundRect(AttackOrange.copy(alpha = .3f), xy(x - spread, y - spread),
                               size(cardWidth + 2 * spread, cardHeight + 2 * spread), CornerRadius((2 + spread) * density))
                       }
                       scale(i.flipScale, 1f, xy(b.center.x, b.center.y)) { cardFace(i, x, y, color, i.value) }

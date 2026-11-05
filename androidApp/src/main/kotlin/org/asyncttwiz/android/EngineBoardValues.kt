@@ -126,6 +126,13 @@ class EngineBoardValues internal constructor(
         }.also { combat = it }
     }
 
+    /** CMB-040 (owner, 2026-11-05): these values for [next], the board with more drawn on its lanes (the blocks the
+     * attacker places to assume): its combat worked out anew on it, the rest shared. */
+    fun onLanes(next: org.asyncttwiz.protocol.BoardState): EngineBoardValues =
+        EngineBoardValues(viewer, computed, board.copy(board = next), gameId, state, view, visible, engine).also {
+            it.handPlays = handPlays; it.cardPlays = cardPlays
+        }
+
     companion object {
         /** Tests and measurements: how many computed boards the engine thread made with its boards. */
         @Volatile var made = 0

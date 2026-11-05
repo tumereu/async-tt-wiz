@@ -18,7 +18,7 @@ import kotlin.test.assertTrue
 /**
  * Owner playtest decisions 2026-11-04 (async-play.md §29.2, §29.4; moved from the interim EnginePassesAndUndoTest) on
  * two phones and the server: passes are implied (no "passed" line anywhere, Undo never targets or lists a pass), and an
- * undo animates backwards on both phones with "Undid: <action>" at the top.
+ * undo animates backwards on both phones, in one go (owner 2026-11-05), with "Undid: <action>" at the top.
  */
 class PassesAndUndoTest : E2e() {
     /** Bob comes back and plays everything back (Play, his answers at the stops as Alice assumed them) until he is at
@@ -120,9 +120,10 @@ class PassesAndUndoTest : E2e() {
         assertEquals(GameDevice.Status.YourMove, alice.status)
     }
 
-    // HIS-030, HIS-099, TBL-040 (§29.4, owner 2026-11-04): Alice undoes her cast that Bob had seen (he accepts her request):
-    // on both phones the board goes back the way it came (the Herald from the battlefield through the Stack back to her
-    // hand, step by step, no jump) with "Undid: cast Ember Herald" for her and "Alice undid: cast Ember Herald" for Bob
+    // HIS-030, HIS-108, HIS-099, TBL-040 (§29.4, owner 2026-11-04 and 2026-11-05): Alice undoes her cast that Bob had seen
+    // (he accepts her request): on both phones the board goes back in one animation (the Herald from the battlefield
+    // straight back to her hand, no board in between, no jump) with "Undid: cast Ember Herald" for her and "Alice undid:
+    // cast Ember Herald" for Bob
     @Test fun undoAnimatesBackwardsOnBothDevicesWithItsText() {
         val cast = aliceCastsAHeraldWhileBobIsAway(endTurn = false)
         val herald = cast.herald
@@ -146,11 +147,8 @@ class PassesAndUndoTest : E2e() {
             assertEquals(text, EngineEventText.undid(undone.event, undone.state, player.id, undone.by, names()))
             waitUntil("\"$text\" shown on ${player.name}'s table") { player.told(text) }
             assertTrue(t.forward.isEmpty() && t.backward.isNotEmpty())
-            // The steps fly the Herald back the way it came: off the battlefield, onto the Stack, then the hand
-            val path = t.steps.map { where(it, herald) }
-            assertTrue(t.steps.isNotEmpty(), "${player.name}: steps in between")
-            assertTrue("STACK" in path, "${player.name}: back through the Stack: $path")
-            assertTrue(path.indexOf("STACK") >= path.indexOfFirst { it == "BATTLEFIELD" }, "${player.name}: battlefield before Stack: $path")
+            // One animation: the Herald flies from the battlefield straight back to the hand, no board in between
+            assertTrue(t.steps.isEmpty(), "${player.name}: no boards in between: ${t.steps.map { where(it, herald) }}")
             val now = where(player.shown.board, herald)
             assertTrue(now != "STACK" && now != "BATTLEFIELD", "${player.name}: the Herald back in Alice's hand: $now")
         }

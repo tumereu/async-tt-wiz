@@ -353,7 +353,8 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
          * table plays them one after another at the card move speed, so every card goes to its place in its turn. */
         val steps: List<TableBoard> = emptyList(),
         /** §29.4: an undo (a rewind) took back events shown here: who undid, and the first action taken back with the
-         * state it was shown on (for its words, "Undid: cast Storm Spark"); [steps] then fly the cards back. */
+         * state it was shown on (for its words, "Undid: cast Storm Spark"); an undo has no [steps] (HIS-108: one animation), a branch's take-back flies the cards back
+         * step by step (HIS-106). */
         val undone: Undone? = null)
 
     /** §29.4: what an undo took back of what this player had seen: [by] undid, [event] first (null when unknown). With
@@ -394,11 +395,12 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
     }
 
     /**
-     * §29.4 (owner 2026-11-04): an undo that took back events shown here animates backwards, quickly: the boards after
-     * each step of the events taken back (as [motionSteps] makes them, from the point gone back to), in reverse order, so
-     * the cards fly back the way they came, at the card move speed and with no playback pause; the transition names who
-     * undid and the first action taken back. False when the board shown before isn't on the line shown before (nothing
-     * of it was taken back) or the point isn't on it.
+     * §29.4, HIS-030: an undo that took back events shown here animates backwards once, from the board shown before to the
+     * board after (owner, 2026-11-05: no boards in between); a branch's take-back (HIS-106) instead goes back step by step:
+     * the boards after each step of the events taken back (as [motionSteps] makes them, from the point gone back to), in
+     * reverse order, so the cards fly back the way they came. The transition names who undid and the first action taken
+     * back. False when the board shown before isn't on the line shown before (nothing of it was taken back) or the point
+     * isn't on it.
      */
     private fun undo(r: Rewinding, before: TableBoard, after: TableBoard, attention: String?, move: String?): Boolean {
         val old = r.line
@@ -408,7 +410,10 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
         val undone = old.subList(to + 1, from + 1).toList()
         val ptNow = EngineChanges.powerToughness(device.model)
         val changes = EngineChanges.between(before, after, pt, ptNow, undone)
-        val steps = runCatching {
+        // HIS-030 (owner, 2026-11-05): an undo shows its whole result at once and animates once, straight from the board
+        // before to the board after, with no boards in between (their step texts, main button and quick actions flickered
+        // by); a branch's take-back (HIS-106) still goes back step by step
+        val steps = if (!r.branch) emptyList() else runCatching {
             val start = (if (device.session.tip == r.target) device.model.copy() else device.session.stateAt(r.target)) ?: return@runCatching emptyList()
             if (undone.size > EngineMotion.MAX_EVENTS) return@runCatching emptyList()
             val tables = start.copy().let { t -> undone.map { e -> t.apply(e); t.table } }
@@ -728,8 +733,15 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
     /** Plays on at once to the next stop (tests and simulations). */
     fun playToStop(): List<GameEvent> = worker.call { device.playToStop() }.also { after() }
 
+    /**
+     * Undo (HIS-084): the button's tap ([GameDevice.undoTap]: right after the player's own action, while it is still being
+     * worked out or sent, it waits for it and then takes it back), or the Undo dialog's [target]. SYS-011: tapped on a
+     * board the device has moved on from only by the player's own events (their action's whole outcome, their device's
+     * own steps after it) and table-only ones, it still takes back what the player last did ([ownSince]); the other
+     * player's input in between makes it stale unless the same decision waits there.
+     */
     fun undo(target: String? = null): GameDevice.Undo =
-        acting(GameDevice.Undo.Unavailable(STALE_REASON), "undo") { device.undo(target ?: device.undoTarget()) }
+        acting(GameDevice.Undo.Unavailable(STALE_REASON), "undo", own = true) { if (target == null) device.undoTap() else device.undo(target) }
 
     /** Whether taking the line back to just after [target] needs the other player's approval (§10), worked out as the
      * device's undo does without sending anything; null when nothing would be undone. */
@@ -764,7 +776,7 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
      */
     private fun <T> acting(stale: T, what: String? = null, after: Boolean = true,
         same: (arcanum.engine.state.GameState, arcanum.engine.state.GameState) -> Boolean = GameDevice::sameDecision,
-        done: ((Shown) -> T?)? = null, work: () -> T): T {
+        done: ((Shown) -> T?)? = null, own: Boolean = false, work: () -> T): T {
         val board = shown
         val seen = board?.version
         var refused = false
@@ -775,7 +787,7 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
             try {
                 if (inAction) work()
                 else if (seen != null && seen != published && !unchanged(what ?: "action", board) &&
-                    !stillSame(what ?: "action", board, same)) {
+                    !(own && ownSince(what ?: "action", board)) && !stillSame(what ?: "action", board, same)) {
                     refused = true
                     // What the tap meant already happened on the newer board: nothing to do and nothing to tell
                     done?.invoke(board!!)?.also { AppLog.info("engine", "Own ${what ?: "action"} on board v$seen: already done on board v$published") }
@@ -896,6 +908,23 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
         val engine = board?.board?.engine ?: return false
         if (lastShown?.board?.engine !== engine || device.session.drafting) return false
         AppLog.info("engine", "Own $what made on board v$published: nothing changed since board v${board.version} it was tapped on")
+        return true
+    }
+
+    /**
+     * HIS-084, SYS-011 (owner problem report 2026-11-05): whether everything on the device's line after the tip of [board]
+     * (the one the action was tapped on) is the player's own (their actions and their device's own steps and assumptions)
+     * or table-only: an Undo tapped there (right after Attack, while the attack's outcome was still being published) still
+     * means the player's latest action, so it is made. Engine thread.
+     */
+    private fun ownSince(what: String, board: Shown?): Boolean {
+        val tip = board?.tip ?: return false
+        val s = device.session
+        if (s.drafting) return false
+        val line = s.events + s.pending
+        val at = if (tip == s.lineStart) -1 else line.indexOfFirst { it.id == tip }.takeIf { it >= 0 } ?: return false
+        if (!line.drop(at + 1).all { e -> e.author == me || e.engine?.steps.orEmpty().none { it.input != null } }) return false
+        AppLog.info("engine", "Own $what made on board v$published: only the player's own and table-only events since board v${board.version}")
         return true
     }
 

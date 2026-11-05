@@ -207,15 +207,31 @@ internal class EngineTableRoutes(val viewer: String, private val game: () -> Eng
     /** Whether the viewer may act on the table now (their move, or a decision stop in playback). */
     fun canAct(): Boolean = arrowShown()
 
-    /** Undo (a tap, I-D56 §10): free at once, else the rewind dialog with that target chosen. */
+    /** Whether an own action of the player's is still being worked out off the engine game (the main button's step or
+     * declaration, a cast's step: [SharedFlowController.busy], [CastController.busy]), before it reaches it. Set by the
+     * table. */
+    var working: () -> Boolean = { false }
+    /** HIS-107: an Undo tapped while [working]: made once that work is done ([workDone]). */
+    private var undoAfterWork = false
+
+    /** Undo (a tap, I-D56 §10, HIS-084): free at once, else the rewind dialog with that target chosen; right after the
+     * player's own action, while it is still being worked out or on its way, it waits for it and then takes it back
+     * (HIS-107; the dialog opens then when it isn't free, [GameDevice.Note.RequestNeeded]). */
     fun undo(): Boolean {
         val g = game() ?: return false
+        // Owner problem report 2026-11-05: Attack is worked out off the main thread first; an Undo tapped meanwhile was
+        // made before it (taking back what came before, then the attack refused)
+        if (working()) { undoAfterWork = true; AppLog.info("engine", "Undo waits for the action being worked out"); return true }
         return when (val u = g.undo()) {
-            is GameDevice.Undo.Free -> { sent(); true }
+            is GameDevice.Undo.Free, is GameDevice.Undo.Queued -> { sent(); true }
             is GameDevice.Undo.Request -> { sent(); rewind = RewindChoice(u.target); true }
-            is GameDevice.Undo.Unavailable -> { undoShake++; false }
+            is GameDevice.Undo.Unavailable -> { AppLog.info("engine", "Undo not taken: ${u.reason}"); undoShake++; false }
         }
     }
+
+    /** The work [working] watched is done (main thread, after its result was handed on): an Undo tapped meanwhile is made
+     * now. */
+    fun workDone() { if (undoAfterWork && !working()) { undoAfterWork = false; undo() } }
 
     /** Holding Undo opens the rewind dialog to pick any earlier point (§10). */
     fun holdUndo() { rewind = RewindChoice(game()?.shown?.undoTarget) }

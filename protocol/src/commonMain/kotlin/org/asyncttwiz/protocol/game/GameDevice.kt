@@ -44,7 +44,8 @@ import org.asyncttwiz.protocol.GameAction
  *   back to the point and says so ([Note.Branched], [Note.TakenBack]); events on the discarded line are gone.
  * - **Undo** ([undo]): free undo is sent at once, else the caller opens the request dialog ([requestUndo]); the other
  *   player answers ([answerRequest], [requestPreview]); while a request is open the game is frozen for both (no inputs
- *   but a concession; playback goes on).
+ *   but a concession; playback goes on). An Undo tapped while the player's own action is still on its way waits for it,
+ *   then takes it back ([undoTap]).
  * - **Table-only events** ([table]) are made at the head while they apply there, re-made after a stale refusal, else
  *   dropped; staging behind the head stays on the device. Early answers only at the head. A waiting suggestion locks
  *   every other game action once the shown state includes it (TRN-049). The other player's table-only events never
@@ -150,8 +151,11 @@ class GameDevice(
     /** An End turn waits for its first event: the player's action. */
     private var endTurnMade = false
     /** The head a free undo of this player's landed on: the device makes none of their own inputs there by itself
-     * (their mode's passes would carry the game straight past the point again); they act there themselves. */
+     * (their mode's passes would carry the game straight past the point again); they act there themselves ([held]). */
     private var holdAt: String? = null
+    /** HIS-107 (owner problem report 2026-11-05): an Undo tapped while something of the player's was still on its way
+     * ([undoTap]): the event of the action it takes back. Meanwhile the device makes nothing of its own. */
+    private var queuedUndo: String? = null
     private val outbox = mutableListOf<GameAction>()
     private val notes = mutableListOf<Note>()
     private var reported: String? = null
@@ -462,6 +466,7 @@ class GameDevice(
      */
     fun advance(now: Long) {
         this.now = now
+        settleQueuedUndo()
         retryTable()
         redeclare()
         steps()
@@ -472,7 +477,7 @@ class GameDevice(
     private fun steps() { repeat(MAX_AUTOMATIC_EVENTS) { if (!automaticStep()) return } }
 
     private fun automaticStep(): Boolean {
-        if (needsReload || session.drafting || session.behind || request != null || locked) return false
+        if (needsReload || session.drafting || session.behind || request != null || locked || queuedUndo != null) return false
         // R3: nothing to make here was already found at this point (no search again while it lasts)
         val key = pointKey()
         if (key.same(idleAt)) return false
@@ -486,7 +491,7 @@ class GameDevice(
         if (Engine.result(s) != null) return false
         val who = Attention.of(s) ?: return false
         if (who == me || declares(s)) {
-            if (holdAt == session.tip) return false
+            if (held()) return false
             val input = own(s) ?: return false
             if (reveals["${session.tip}:$input"] == true) return false
             return make(input, assumed = false) is Acted.Sent
@@ -1029,6 +1034,9 @@ class GameDevice(
         data class Request(val target: String, val reason: String) : Undo
         /** Nothing to undo now ([reason]). */
         data class Unavailable(val reason: String) : Undo
+        /** Waits for the player's own action [event] (and whatever else of theirs is on its way) to reach the server,
+         * then takes it back ([undoTap]). */
+        data class Queued(val event: String) : Undo
     }
 
     /** The point just before the player's latest own real input shown (their later assumed inputs go with it): never
@@ -1063,7 +1071,9 @@ class GameDevice(
     /** Whether [id] is the first pass of an End turn this device made (TRN-057; §29.2: the Undo dialog's "End turn"). */
     fun endedTurn(id: String): Boolean = id in endTurns
 
-    /** Undo (a tap) to [target] (by default [undoTarget]): sent when free, else [Undo.Request]. */
+    /** Undo to [target] (by default [undoTarget]): sent when free, else [Undo.Request]. A free undo ends the player's
+     * moves waiting to be made again after a lost race ([remake]) and table changes waiting to be re-made: they were made
+     * on the line it takes back. */
     fun undo(target: String? = undoTarget()): Undo {
         if (target == null) return Undo.Unavailable("nothing")
         if (request != null) return Undo.Unavailable(REWIND_REQUESTED)
@@ -1072,8 +1082,76 @@ class GameDevice(
         if (after.isEmpty()) return Undo.Unavailable("nothing")
         val at = session.stateAt(target) ?: return Undo.Request(target, "unknown")
         val reason = Rewind.requestNeeded(at, target, after, me, heads.filterKeys { it != me }.values.toList())
-            ?: return Undo.Free(target).also { send(GameAction.EngineRewind(target)) }
-        return Undo.Request(target, reason)
+        if (reason != null) return Undo.Request(target, reason)
+        forgetRemakes()
+        send(GameAction.EngineRewind(target))
+        return Undo.Free(target)
+    }
+
+    /**
+     * The Undo button's tap (HIS-084, HIS-107): [undo] back to just before the player's latest own action. While
+     * something of theirs is still on its way to the server (their action's event, their device's own steps after it, a
+     * move waiting to be made again after a lost race, SYS-077), the undo waits for it instead ([Undo.Queued]; owner
+     * problem report 2026-11-05: an Undo right after Attack was refused): it takes back the action the player last made
+     * when they tapped, by its event, never one made or arriving after the tap; the device makes nothing of its own
+     * meanwhile. Once everything of theirs is in, the undo is made ([settleQueuedUndo]): free at once, else
+     * [Note.RequestNeeded] (the Undo dialog with that point chosen). A move still waiting to be made again is simply not
+     * made again.
+     */
+    fun undoTap(): Undo {
+        if (request != null) return Undo.Unavailable(REWIND_REQUESTED)
+        if (session.drafting) return Undo.Unavailable("drafting")
+        if (session.pending.isEmpty() && remaking.isEmpty()) return undo()
+        val shown = session.indexOf(session.localHead) ?: -1
+        val latest = session.pending.lastOrNull(::realInput)?.id ?: remaking.lastOrNull()?.event
+            ?: session.events.take(shown + 1).lastOrNull(::realInput)?.id ?: return Undo.Unavailable("nothing")
+        remember("undo queued after $latest")
+        queuedUndo = latest
+        settleQueuedUndo()
+        return Undo.Queued(latest)
+    }
+
+    /**
+     * The queued Undo ([undoTap]) made once nothing of the player's is on its way any more: the line taken back to just
+     * before its action's event (wherever the line went meanwhile: the other player's later input makes it a request, the
+     * Undo dialog), or, when the action is a move waiting to be made again ([remake]), that move and those after it not
+     * made again. An action that is gone (refused, taken back) leaves nothing to undo: it ends quietly (its refusal was
+     * told).
+     */
+    private fun settleQueuedUndo() {
+        val id = queuedUndo ?: return
+        if (needsReload) { queuedUndo = null; return }
+        val lost = remaking.indexOfFirst { it.event == id }
+        if (lost >= 0) {
+            remember("undo: ${remaking.size - lost} move(s) not made again")
+            repeat(remaking.size - lost) { remaking.removeAt(remaking.lastIndex) }
+            queuedUndo = null
+            return
+        }
+        if (session.pending.isNotEmpty() || session.drafting || request != null) return
+        queuedUndo = null
+        val event = session.events.firstOrNull { it.id == id } ?: run { remember("undo queued: $id gone"); return }
+        when (val undo = undo(event.parentId)) {
+            is Undo.Request -> note(Note.RequestNeeded(undo.target))
+            else -> remember("undo queued: $undo")
+        }
+    }
+
+    /** The player's moves waiting to be made again ([remake]) and table changes waiting to be re-made ([retryTable])
+     * are dropped: their line is being taken back. */
+    private fun forgetRemakes() {
+        if (remaking.isNotEmpty()) remember("undo: ${remaking.size} move(s) not made again")
+        remaking.clear()
+        retry.clear()
+    }
+
+    /** Whether the device holds at a free undo's point ([holdAt]): only table-only events (the other player's card places
+     * or early answers, the player's own) came after it, on the line or pending; any input there ends the hold. */
+    private fun held(): Boolean {
+        val at = holdAt ?: return false
+        if (at == session.tip) return true
+        val after = (session.after(at) ?: return false) + session.pending
+        return after.all { e -> e.engine?.steps.orEmpty().none { it.input != null } }
     }
 
     /** Asks the other player to approve taking the line back to just after [target], with [message]. */
@@ -1119,8 +1197,10 @@ class GameDevice(
                 }
                 else -> {}
             }
-            // The player's own undo lands where they act next: their device waits for them there (§10)
+            // The player's own undo lands where they act next: their device waits for them there (§10); what it took back
+            // isn't made again
             holdAt = if (by == me.value) session.head else null
+            if (by == me.value) forgetRemakes()
         } else for (event in events) {
             when (val r = session.received(event)) {
                 GameSession.Received.Reload -> { needsReload = true; break }
@@ -1144,6 +1224,7 @@ class GameDevice(
         if (needsReload) return
         followServer()
         trim()
+        settleQueuedUndo()
     }
 
     /** The server refused [action] for [reason]. */
@@ -1173,6 +1254,7 @@ class GameDevice(
             is GameAction.EngineSeen -> if (reported == action.eventId) reported = null
             else -> note(Note.Refused(reason))
         }
+        settleQueuedUndo()
     }
 
     /**
@@ -1236,7 +1318,7 @@ class GameDevice(
      * (made on it) are dropped with it.
      */
     private fun remake(): Boolean {
-        if (remaking.isEmpty() || needsReload || session.drafting || request != null) return false
+        if (remaking.isEmpty() || needsReload || session.drafting || request != null || queuedUndo != null) return false
         val first = remaking.first()
         // Wait for the event the server took instead (a refusal can come before it) and for it to be shown; also while the
         // point the moves were made after is still one of the device's own events on its way (a refusal can come before

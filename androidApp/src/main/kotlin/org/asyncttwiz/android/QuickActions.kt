@@ -127,6 +127,7 @@ fun QuickActionStrip(play: TableBoard, context: QuickContext, controller: TableA
             // unconfirmed mark sits at its corner without moving anything
             val wait = if (arrow) null else engine?.waitAction()
             val unconfirmed = engine?.engine?.shown?.indicator != null
+            RecordShown(bottomBarRecord(if (arrow) AutomatumStep.of(play).label else wait?.label, if (toggles) null else actions.map { it.name }))
             Box(Modifier.weight(2f)) {
                 if (arrow) AutomatumStepArrow(play, controller.enabled(scope), Modifier.fillMaxWidth(),
                     onHold = { perform(TableActionIntent.End(scope)) },
@@ -153,6 +154,14 @@ internal val AdvanceArrowShape = GenericShape { size, _ ->
 }
 
 internal fun quickActionLabel(name: String) = ringShortLabel(name)
+
+/** What the bottom bar shows, for the record of shown texts ([LocalShownTexts], the e2e tests' phones): the main button's
+ * words ([main]; null: none) and the quick actions besides the settings toggles ([actions]; null: the toggles). */
+internal fun bottomBarRecord(main: String?, actions: List<String>?): String =
+    "$BOTTOM_BAR${main ?: "none"} · quick actions: ${actions?.joinToString(", ") ?: "settings"}"
+
+/** The start of every [bottomBarRecord]. */
+internal const val BOTTOM_BAR = "Bottom bar: main button "
 
 /** Name-only hold tooltip, unless a real hold command is assigned. Never invokes click on release. */
 @Composable

@@ -10,12 +10,11 @@ Changes the owner wants but that are not built yet. The feature catalog
 
 ## Build order (owner, 2026-11-05: one implementor at a time, small items batched, full suites after each batch)
 
-1. The Undo item (see its notes from the Analysis: target worked out after confirmation, stale-check path, hold by event id, clear re-made moves on undo, keep the End-turn clearing).
-2. Choice panels show their source card.
-3. Combat band.
-4. Battlefield placement (Arena style).
-5. Hold pauses playback, Reconnecting…, remove the auto-pause switches (re-check against the built catch-up playback first: HIS-094, HIS-095).
-6. Countering a spell lower on the Stack (e2e scenario).
+1. Choice panels show their source card.
+2. Combat band.
+3. Battlefield placement (Arena style).
+4. Hold pauses playback, Reconnecting…, remove the auto-pause switches (re-check against the built catch-up playback first: HIS-094, HIS-095).
+5. Countering a spell lower on the Stack (e2e scenario).
 
 ## Ready to build
 
@@ -29,7 +28,6 @@ Start none of these until the E2E framework above works. Each owner-reported bug
 - Remove the auto-pause switches, which nothing reads since the engine switch-over (owner, 2026-11-05): delete HIS-024, HIS-025, HIS-026, HIS-027, HIS-090; HIS-028 and LOB-082 keep only History playback pause, Rewind pause and Card move speed.
 - Combat band (changes CMB-001, CMB-007, CMB-033, CMB-040, STK-044, TBL-117): the combat area opens from the centre as a band between the battlefields, pushing them apart and scaling with the battlefield zoom like the old yellow area (TBL-001), not a panel floating over them. While no attacker is staged it stays a thin strip that pulses; tapping it opens it, and so does staging the first attacker (planeswalker lanes cost that extra tap; judge in playtest). While attackers are being declared, the creatures that can attack glow red-orange (cyan stays "can activate"). Assume blockers is edited on the lanes and divisions of combat damage open in the band; the go-on actions (Attack (N), No blocks, Assume blockers, OK) are the main button (TRN-063, owner 2026-11-05). No panel over the hand during combat. Screenshot tests for the owner's review.
 - Fix: the "Rest → <target>" combat quick action declares the attack; it must only stage the remaining attackers (CMB-028; no entry change). It did not reproduce in 3 scenarios: keep it until it happens again with more detail.
-- Undo, AFTER the Analysis item above (prerequisite: undo logic may hide more bugs): (1) an undo applies its whole result at once, then animates once from the start board to the end board, with no in-between texts, boards, step-button or quick-action states; (2) an Undo tapped while your own action is still being worked out (e.g. right after Attack) waits for it and then takes it back, instead of being refused (owner problem report on 2026-11-05: attack then quick undo). Changes HIS-084/HIS-086 (add entries for both).
 - Countering a spell lower on the Stack: e2e scenario: Alice (Full control) casts spell A, keeps priority, casts B; Bob, at his pause with both on the Stack, counters A with a single-target counterspell; B resolves, A is countered. Variant: Bob offline, Alice's device assumes his passes and A and B resolve; Bob later counters A → branch and take-back (needs the branch fix above). With two or more legal Stack targets the Stack opens in place as its list with the legal entries glowing and tappable, if that is clean and possible; otherwise keep the docked picker (STK-044, STK-018). Screenshot test of the multi-target pick for the owner.
 - Choice panels name their source by the card, not by text: titles say only the choice ("Choose a target"), and the source sits at the panel's right as an inspectable card (an ability as its Stack ability token, STK-046), the same place in every Automatum panel and target bar, the cast panel included (changes STK-023, STK-030, STK-044). Screenshot tests.
 - Stack ability token (STK-046): its art is clipped with black at the bottom; the owner describes it later (holding it to inspect is covered by e2e StackAbilityTest).

@@ -172,6 +172,30 @@ class SameBoardRuleTest {
         assertEquals(0, refusedNotes(game), "no note: ${game.notes}")
     }
 
+    // SYS-011, HIS-107 (owner problem report 2026-11-05): Undo tapped on the board of her own cast while her device had
+    // published its later outcome (the server's confirmation, then Bob's pass assumed: the Spark resolved): moved on only
+    // by her own events, so it takes back her cast, with no note
+    @Test fun anUndoOnABoardMovedOnOnlyByHerOwnEventsTakesBackHerAction() {
+        val game = aliceInMainWithBobsLand()
+        game.settings(org.asyncttwiz.protocol.game.PlaySettings(alwaysAssumeResolves = true))
+        sim.flush(f.a)
+        assertFalse(game.send(spark(game.device.model.engine, alice)) is GameDevice.Acted.Refused)
+        val cast = (game.device.session.events + game.device.session.pending).last { e ->
+            e.author == f.a && e.engine?.steps.orEmpty().any { it.input is Input.Cast } }
+        val shown = assertNotNull(game.shown).version
+        held.holding = true
+        sim.flush(f.a); sim.deliver(f.a); game.tick(sim.now)
+        assertTrue(game.device.model.engine.stack.isEmpty(), "her device went on: Bob's pass assumed, the Spark resolved")
+        assertEquals(shown, game.shown!!.version, "Alice's table still shows the board of her cast")
+        val undo = game.undo()
+        assertTrue(undo is GameDevice.Undo.Free || undo is GameDevice.Undo.Queued, "$undo")
+        held.release()
+        repeat(3) { sim.flush(f.a); sim.deliver(f.a); game.tick(sim.now) }
+        assertEquals(0, refusedNotes(game), "no note: ${game.notes}")
+        assertTrue((game.device.session.events + game.device.session.pending).none { it.id == cast.id }, "her cast taken back")
+        assertEquals(cast.parentId, sim.head)
+    }
+
     // SYS-011, SYS-012: Undo tapped while Bob's Spark arrived (an input): another decision, not taken, with the note
     @Test fun anUndoOnABoardWhereAnInputArrivedIsRefusedWithTheNote() {
         val game = aliceWaitsWithAssume()

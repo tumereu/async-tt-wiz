@@ -91,6 +91,9 @@ internal fun EngineTableScreen(controller: LobbyController, accountId: String, h
     val motion = remember(game.id, playId) { EngineMotionQueue() }
     val play = reviewPlay ?: motion.board(shown.version, shown.transition, live)
     SideEffect { routes.motionBusy = { motion.playing } }
+    // HIS-107: an Undo tapped while the player's own action is still being worked out waits for it
+    SideEffect { routes.working = { toolkit.flows.busy || toolkit.cast.busy } }
+    LaunchedEffect(routes, toolkit) { snapshotFlow { toolkit.flows.busy || toolkit.cast.busy }.collect { if (!it) routes.workDone() } }
     // HIS-097, HIS-022 (owner playtest 2026-11-05): a branch's rewind back to the branch point waits the Rewind pause
     // after each step
     val rewindPause by playbackPreferences.rewindPauseState()

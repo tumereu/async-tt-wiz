@@ -10,13 +10,12 @@ Changes the owner wants but that are not built yet. The feature catalog
 
 ## Build order (owner, 2026-11-05: one implementor at a time, small items batched, full suites after each batch)
 
-1. Catch-up playback + main button + assumptions by setting (with the "Rest → <name>" label fix).
-2. Analysis (undo/branch/assumption review), then the Undo item.
-3. Choice panels show their source card.
-4. Combat band.
-5. Battlefield placement (Arena style).
-6. Hold pauses playback, Reconnecting…, remove the auto-pause switches (re-check against step 1 first).
-7. Countering a spell lower on the Stack (e2e scenario).
+1. Analysis (undo/branch/assumption review), then the Undo item.
+2. Choice panels show their source card.
+3. Combat band.
+4. Battlefield placement (Arena style).
+5. Hold pauses playback, Reconnecting…, remove the auto-pause switches (re-check against the built catch-up playback first: HIS-094, HIS-095).
+6. Countering a spell lower on the Stack (e2e scenario).
 
 ## Ready to build
 
@@ -26,10 +25,9 @@ Changes the owner wants but that are not built yet. The feature catalog
 
 Start none of these until the E2E framework above works. Each owner-reported bug gets an e2e test that fails before the fix.
 
-- Catch-up playback, the main button, assumptions by setting only (owner, 2026-11-05; spec `docs/specs/catch-up-playback.md`): live / catch-up playback (looks live, centre "Tap to watch", Auto-skip + a Full control toggle, live at stops, tap pauses) / read-only timeline; Resolve, Assume and Assume blockers move into a wider main button in the step arrow's place; the other player's presence no longer decides assuming, only "Always assume resolves" (changes HIS-006, HIS-008, HIS-013, HIS-035, HIS-094, HIS-095, HIS-096, HIS-103, HIS-104, HIS-105, HIS-106, STK-027, STK-028, STK-029, STK-036, STK-037, TRN-016, TRN-059, TRN-063, TRN-066, TRN-070, CMB-040).
 - Build on the engine path (owner, 2026-11-05): holding a card pauses timeline playback (HIS-017, TBL-105), and "Reconnecting…" after a game action has waited 3 s for the server (SYS-016); no entry change.
 - Remove the auto-pause switches, which nothing reads since the engine switch-over (owner, 2026-11-05): delete HIS-024, HIS-025, HIS-026, HIS-027, HIS-090; HIS-028 and LOB-082 keep only History playback pause, Rewind pause and Card move speed.
-- Combat band (changes CMB-001, CMB-007, CMB-033, CMB-040, STK-044, TBL-117): the combat area opens from the centre as a band between the battlefields, pushing them apart and scaling with the battlefield zoom like the old yellow area (TBL-001), not a panel floating over them. While no attacker is staged it stays a thin strip that pulses; tapping it opens it, and so does staging the first attacker (planeswalker lanes cost that extra tap; judge in playtest). While attackers are being declared, the creatures that can attack glow red-orange (cyan stays "can activate"). Assume blockers is edited on the lanes and divisions of combat damage open in the band; the go-on actions (Attack (N), No blocks, Assume blockers, OK) are the main button in the step arrow's place (`docs/specs/catch-up-playback.md` §4, owner 2026-11-05). No panel over the hand during combat. Screenshot tests for the owner's review.
+- Combat band (changes CMB-001, CMB-007, CMB-033, CMB-040, STK-044, TBL-117): the combat area opens from the centre as a band between the battlefields, pushing them apart and scaling with the battlefield zoom like the old yellow area (TBL-001), not a panel floating over them. While no attacker is staged it stays a thin strip that pulses; tapping it opens it, and so does staging the first attacker (planeswalker lanes cost that extra tap; judge in playtest). While attackers are being declared, the creatures that can attack glow red-orange (cyan stays "can activate"). Assume blockers is edited on the lanes and divisions of combat damage open in the band; the go-on actions (Attack (N), No blocks, Assume blockers, OK) are the main button (TRN-063, owner 2026-11-05). No panel over the hand during combat. Screenshot tests for the owner's review.
 - Fix: the "Rest → <target>" combat quick action declares the attack; it must only stage the remaining attackers (CMB-028; no entry change).
 - Fix: the "Rest → <target>" quick action names the defending player as "the player" instead of their name ("Rest → Bob"); found by an implementor, owner OK 2026-11-05 (CMB-048; no entry change). The "declares the attack" item above did not reproduce in 3 scenarios: keep it until it happens again with more detail.
 - Undo, AFTER the Analysis item above (prerequisite: undo logic may hide more bugs): (1) an undo applies its whole result at once, then animates once from the start board to the end board, with no in-between texts, boards, step-button or quick-action states; (2) an Undo tapped while your own action is still being worked out (e.g. right after Attack) waits for it and then takes it back, instead of being refused (owner problem report on 2026-11-05: attack then quick undo). Changes HIS-084/HIS-086 (add entries for both).

@@ -1,1 +1,1 @@
-Bob comes back after Alice played on past the opening: no dialog; his table shows where he left it, dimmed as in playback with "Paused" in the middle, and Play at the bottom; nothing plays until he taps it.
+Bob comes back after Alice played on past the opening: no dialog and no timeline look; his table shows where he left it, as in live play, with "Alice has made moves · Tap to watch" in the middle of the board, and his playback quick actions Full control and Autotap mana; nothing plays until he taps the text.

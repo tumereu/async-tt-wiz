@@ -49,6 +49,9 @@ data class TestDeck(val name: String, val entries: List<Pair<SubmittedDefinition
         fun thirds(creature: SubmittedDefinition = TestCards.cub) =
             TestDeck("Thirds", listOf(TestCards.mountain to 14, creature to 13, TestCards.spark to 13))
 
+        /** 40 cards: Mountains and Idle Glimmers (a free instant: its holder can always respond). */
+        fun glimmers() = TestDeck("Glimmers", listOf(TestCards.mountain to 20, TestCards.glimmer to 20))
+
         /** 40 cards: Mountains and Storm Sparks. */
         fun sparks() = TestDeck("Sparks", listOf(TestCards.mountain to 20, TestCards.spark to 20))
     }

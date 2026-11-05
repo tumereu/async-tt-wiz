@@ -496,9 +496,9 @@ internal class EngineGames(private val capacity: Int = warmCapacity()) {
         // the requester waits (or cancels) meanwhile (§10)
         val stop = when {
             request?.by == seat.account.toString() -> null
-            asker != null && asker != seat.account.toString() -> NextStop.of(model, seat.head, after, player, seat.settings.mode)
+            asker != null && asker != seat.account.toString() -> NextStop.of(model, seat.head, after, player, seat.settings.playbackMode)
                 ?: NextStop.Stop(head, null).also { requested = true }
-            else -> NextStop.of(model, seat.head, after, player, seat.settings.mode)
+            else -> NextStop.of(model, seat.head, after, player, seat.settings.playbackMode)
         }
         val stored = seat.nextStop
         val same = stop != null && stop.event == null && stored != null &&

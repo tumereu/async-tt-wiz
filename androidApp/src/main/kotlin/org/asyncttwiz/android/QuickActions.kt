@@ -103,11 +103,12 @@ fun QuickActionStrip(play: TableBoard, context: QuickContext, controller: TableA
     }
     val actions = if (toggles) emptyList() else QuickActions.contextual(play, context)
     val scope = TableActionScope(play.gameId, play.playId)
-    BoxWithConstraints(modifier, contentAlignment = Alignment.Center) {
-        val compact = maxWidth < 480.dp && (toggles || actions.size >= 3)
+    Box(modifier, contentAlignment = Alignment.Center) {
+        val engine = LocalEngineRoutes.current
+        // TRN-016 (owner, 2026-11-05): the quick actions share the row left of the main button, which is twice as wide as one
+        val cells = if (toggles && engine != null) engine.toggleCount() else actions.size
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            val engine = LocalEngineRoutes.current
-            Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+            Row(Modifier.weight(cells.coerceAtLeast(1).toFloat()), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
                 // I-D56 §14 (TRN-059): on engine state the toggles are the player's private settings for this game
                 if (toggles && engine != null) EngineToggleCells(engine, true)
                 for (action in actions) key(action.intent) {
@@ -115,28 +116,26 @@ fun QuickActionStrip(play: TableBoard, context: QuickContext, controller: TableA
                         quickActionLabel(action.name), owner = Color.Black, modifier = Modifier.weight(1f).height(48.dp))
                 }
             }
-            // I-D46 d: with Automatum on the arrow says what a tap does, in a neutral colour; it is the one way to go on
-            // (UI review round 2 #1). Owner playtest 2026-11-03 #2: in the other player's turn only while the viewer holds
-            // priority or must decide; its room stays, so the toggles don't move
-            // I-D56 §14: on engine state only the viewer's own actions: hidden while the other player must act
-            // STK-029 (owner playtest 2026-11-04 #6): on engine state Resolve and Assume of something on the Stack sit under
-            // the Stack, not here
-            val onStack = engine?.stackHolds(play) == true
+            // I-D46 d: with Automatum on the main button (the step arrow, TRN-063) says what a tap does, in a neutral colour;
+            // it is the one way to go on (UI review round 2 #1), Resolve included (STK-029, owner 2026-11-05). Owner playtest
+            // 2026-11-03 #2: in the other player's turn only while the viewer holds priority or must decide; its room stays,
+            // so the toggles don't move. I-D56 §14: on engine state only the viewer's own actions: hidden while the other
+            // player must act
             val arrow = (toggles || visible && !QuickActions.mulliganOnly(play, context.viewer)) &&
-                (engine?.arrowShown() ?: stepArrowShown(play, context.viewer)) &&
-                !(onStack && AutomatumStep.of(play) == AutomatumStep.Resolve)
-            // TRN-066: while the other player must act, the arrow's place holds the wait's Assume (or Cancel); TRN-068: the
+                (engine?.arrowShown() ?: stepArrowShown(play, context.viewer))
+            // TRN-066, TRN-070: while the other player must act, its place holds the wait's Assume (or Cancel); TRN-068: the
             // unconfirmed mark sits at its corner without moving anything
-            val wait = if (arrow) null else engine?.waitAction()?.takeIf { !(onStack && it.resolves) }
+            val wait = if (arrow) null else engine?.waitAction()
             val unconfirmed = engine?.engine?.shown?.indicator != null
-            if (arrow || wait != null || toggles || unconfirmed) Box {
-                if (arrow) AutomatumStepArrow(play,
-                    controller.enabled(scope), compact, onHold = { perform(TableActionIntent.End(scope)) },
-                    blocked = stepBlocked(play, context.castOpen, context.automatumCombat)) {
+            Box(Modifier.weight(2f)) {
+                if (arrow) AutomatumStepArrow(play, controller.enabled(scope), Modifier.fillMaxWidth(),
+                    onHold = { perform(TableActionIntent.End(scope)) },
+                    blocked = stepBlocked(play, context.castOpen, context.automatumCombat),
+                    resolveTip = "Resolve: pass, so the top of the Stack resolves once ${engine?.opponentName ?: "the other player"} passes too") {
                     perform(TableActionIntent.Next(scope))
                 }
-                else if (wait != null) EngineWaitArrow(wait, compact)
-                else Spacer(Modifier.width(if (compact) 68.dp else 72.dp).height(48.dp))
+                else if (wait != null) EngineWaitArrow(wait, Modifier.fillMaxWidth())
+                else Spacer(Modifier.fillMaxWidth().height(48.dp))
                 if (unconfirmed) EngineUnconfirmedMark(engine!!.opponentName, Modifier.align(Alignment.TopStart).offset((-10).dp, (-10).dp))
             }
         }

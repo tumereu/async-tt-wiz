@@ -49,9 +49,9 @@ class EngineDungeonTest {
 
     /** Alice kept while Bob is away and ventured once: her Torch Map resolved and Crypt Door's ability too. */
     private fun ventured(): EngineGame = EngineGame(f.game.id, f.a, f.base, f.snapshot(otherKept = true)).apply {
-        tick(false, 1_000); keep(emptyList()); tick(false, 2_000)
+        tick(1_000); keep(emptyList()); tick(2_000)
         assertIs<GameDevice.Acted.Sent>(send(listOf(Input.Cast(alice, map(this)))))
-        tick(false, 3_000)
+        tick(3_000)
     }
 
     private fun toolkit(game: EngineGame): TableToolkitController {
@@ -109,11 +109,11 @@ class EngineDungeonTest {
         val game = ventured()
         val before = game.device.session.pending.lastOrNull()?.id ?: game.device.session.localHead
         assertIs<GameDevice.Acted.Sent>(game.send(listOf(Input.Cast(alice, map(game)))))
-        game.tick(false, 4_000)
+        game.tick(4_000)
         val choice = assertIs<Decision.ChooseOption>(game.device.model.engine.pending?.decision)
         assertEquals(listOf("Bone Hall", "Dark Well"), choice.options)
         assertIs<GameDevice.Acted.Sent>(game.act(Input.Answer(choice.id, Answer.Option("Dark Well"))))
-        game.tick(false, 5_000)
+        game.tick(5_000)
         assertEquals("Dark Well", EngineProjection.dungeon(assertNotNull(game.play().engine).state, f.a)?.room)
         assertEquals("23", game.play().board.players.single { it.accountId == f.a }.life)
         assertEquals("Crypt Door", EngineProjection.dungeon(assertNotNull(assertNotNull(game.reviewPlay(before)).engine).state, f.a)?.room)

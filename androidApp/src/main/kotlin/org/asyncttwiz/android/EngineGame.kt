@@ -166,7 +166,6 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
 
     // ---- Engine thread state
     private var published = 0L
-    private var live = false
     private var now = 0L
     private var previous: TableBoard? = null
     private var lastTransition: Transition? = null
@@ -191,7 +190,6 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
             }
             device = loaded; codec = json
             device.clock = clock
-            device.presence(live, now)
             this.loaded = true
             previous = null
             publish()
@@ -593,14 +591,13 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
         publish()
     }
 
-    /** The opponent's presence (the green dot, TRN-042) at [now]; makes the device's own steps (passes, assumptions,
-     * a live wait turning async after the grace). */
-    fun tick(live: Boolean, now: Long) = worker.run {
-        this.live = live; this.now = now
+    /** The time [now]; makes the device's own steps (passes, assumptions). The other player's presence never decides
+     * an assumption (HIS-096). */
+    fun tick(now: Long) = worker.run {
+        this.now = now
         val before = device.status
         val tip = device.session.tip
         val request = device.request
-        device.presence(live, now)
         device.advance(now)
         val drained = device.notes()
         if (device.status != before || device.session.tip != tip || device.request != request || drained.isNotEmpty()) publish(drained)
@@ -663,9 +660,6 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
     /** The waiting bar's Assume button (§4): the opponent's pass, or [blocks] (the Assume blockers screen's). */
     fun assume(blocks: List<Block> = emptyList()): GameDevice.Acted = acting(STALE, "assume") { device.assume(blocks) }
 
-    /** Back on the Assume blockers screen: it stays a wait. */
-    fun closeBlockersScreen() = worker.run { device.closeBlockersScreen(); publish() }
-
     fun table(changes: List<TableChange>): GameDevice.Acted = acting(STALE, "table") { device.table(changes) }
     /** Conceding is taken at any time (CR 104.3a), whatever the table showed. */
     fun concede(): GameDevice.Acted = worker.call { device.concede() }.also { after() }
@@ -691,23 +685,28 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
     var awayPaused = false
         private set
 
-    /** Leaves the catch-up screen (§7): playback starts, its first step right away (HIS-023): the first board published
-     * after it already shows the first event (owner playtest 2026-11-05: nothing waited for after Play). */
+    /** The centre text "<name> has made moves · Tap to watch" (HIS-094): the catch-up's paused start, or a stop the
+     * player's pause made, ends and playback goes on, its first step right away (HIS-023): the first board published
+     * after it already shows the next event (owner playtest 2026-11-05: nothing waited for after the tap). */
     fun startPlayback() = worker.run {
         device.play()
+        device.pausing = false
         val first = device.step()
         publish()
         if (first != null) afterBoard()
     }
 
-    /** The play/pause button (§27): pausing makes playback stop at the next point where Full control stops; playing
-     * again ends it (at a stop the pause made, [play] answers the same as assumed and goes on). */
-    fun pause(on: Boolean) = worker.call { device.pausing = on; publish() }
+    /** A tap on the table while playback runs (HIS-095): it goes on to the next point where Full control stops and stops
+     * there ([GameDevice.pausing]). */
+    fun pause() = worker.call { device.pausing = true; publish() }
+
+    /** Timeline mode entered while playback runs (HIS-006): playback waits paused for the centre text. */
+    fun holdPlayback() = worker.call { device.holdPlayback(); publish() }
 
     /** Playback: the next buffered event, unless it stops before it. */
     fun step(): GameEvent? = worker.call { device.step() }.also { if (it != null) after() }
 
-    /** Return to current / Back while behind: plays on to the next decision point. */
+    /** Plays on at once to the next stop (tests and simulations). */
     fun playToStop(): List<GameEvent> = worker.call { device.playToStop() }.also { after() }
 
     fun undo(target: String? = null): GameDevice.Undo =

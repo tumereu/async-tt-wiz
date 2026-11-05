@@ -45,9 +45,9 @@ class EngineBoardOnceTest {
         var made: EngineGame? = null
         val game = EngineGame(f.game.id, f.a, f.base, f.snapshot(otherKept = true), worker = Inline(early), onShown = { made?.shown?.let { shown += it } })
         made = game
-        game.tick(live = false, now = 1_000)
+        game.tick(1_000)
         assertIs<GameDevice.Acted.Sent>(game.keep(emptyList()))
-        game.tick(live = false, now = 2_000)
+        game.tick(2_000)
         assertEquals(GameDevice.Status.YourMove, game.shown!!.status)
         return game
     }
@@ -84,9 +84,9 @@ class EngineBoardOnceTest {
     // R3 item 2: ticks at an unchanged point (Alice's own main phase) build no board and search nothing
     @Test fun aTickAtAnUnchangedPointBuildsAndSearchesNothing() {
         val game = game()
-        game.tick(live = false, now = 3_000)
+        game.tick(3_000)
         shown.clear()
-        assertEquals(Triple(0, 0, 0), counted(game) { for (now in 4_000L..9_000L step 1_000) game.tick(live = false, now = now) })
+        assertEquals(Triple(0, 0, 0), counted(game) { for (now in 4_000L..9_000L step 1_000) game.tick(now) })
         assertTrue(shown.isEmpty())
     }
 

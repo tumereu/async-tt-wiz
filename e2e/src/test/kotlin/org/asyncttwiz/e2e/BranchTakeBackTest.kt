@@ -1,12 +1,9 @@
 package org.asyncttwiz.e2e
 
-import androidx.compose.ui.test.assertIsNotEnabled
-import androidx.compose.ui.test.performClick
 import arcanum.engine.input.Input
 import org.asyncttwiz.android.EngineGame
 import org.asyncttwiz.protocol.game.GameDevice
 import org.asyncttwiz.protocol.game.PlaySettings
-import org.asyncttwiz.protocol.game.ResponseMode
 import org.junit.Test
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
@@ -18,14 +15,13 @@ import kotlin.test.assertTrue
  * stop, skip or leave.
  */
 class BranchTakeBackTest : E2e() {
-    private val glimmers = TestDeck("Glimmers", listOf(TestCards.mountain to 20, TestCards.glimmer to 20))
-
-    // HIS-097, HIS-022, HIS-106: Alice casts an Ember Herald while Bob is away and plays on; Bob comes back and, at his
-    // playback's stop at her spell, casts an Idle Glimmer instead of letting it resolve: Alice's table rewinds to the
-    // branch point (a backward transition with its steps, the note), then plays Bob's Glimmer back; meanwhile Play/Pause
-    // is disabled and Back does nothing; then her table is live at the new head
+    // HIS-097, HIS-022, HIS-106: Alice casts an Ember Herald while Bob is away and plays on ("Always assume resolves");
+    // Bob comes back and, at his playback's stop at her spell (he could respond), casts an Idle Glimmer instead of
+    // letting it resolve: Alice's table rewinds to the branch point with timeline mode's look (a backward transition with
+    // its steps, the note), then plays Bob's Glimmer back as playback that looks like live play; meanwhile a tap on the
+    // table doesn't pause it and Back does nothing; then her table is live at the new head
     @Test fun aBranchRewindsThenPlaysTheNewEventsBackAndCantBeLeft() {
-        startGame(TestDeck.thirds(TestCards.herald), glimmers, bobSettings = PlaySettings(mode = ResponseMode.Normal),
+        startGame(TestDeck.thirds(TestCards.herald), TestDeck.glimmers(), aliceSettings = PlaySettings(alwaysAssumeResolves = true),
             deal = { a, b -> "Mountain" in hand(a) && "Ember Herald" in hand(a) && "Idle Glimmer" in hand(b) })
         bothOpen()
         bothKeep(bobAway = true)
@@ -38,9 +34,12 @@ class BranchTakeBackTest : E2e() {
         // Every board Alice's table shows from here on
         val boards = mutableListOf<EngineGame.Shown>()
         everyRun += { alice.game?.shown?.let { s -> if (boards.lastOrNull()?.version != s.version) boards += s } }
+        // HIS-106: going back has timeline mode's look
+        var timelineLook = false
+        everyRun += { if (alice.game?.shown?.takingBack == true && alice.showsTimelineLook()) timelineLook = true }
         bob.back()
         waitUntil("Bob's playback stopping at Alice's Herald") {
-            if (bob.status == GameDevice.Status.CatchUp) bob.once { bob.playbackButton().performClick() }
+            if (bob.status == GameDevice.Status.CatchUp) bob.once { bob.tapToWatch() }
             bob.status is GameDevice.Status.Stopped && bob.state.stack.isNotEmpty()
         }
         val glimmer = bob.hand("Idle Glimmer").first()
@@ -56,14 +55,17 @@ class BranchTakeBackTest : E2e() {
         assertTrue(alice.showsText("responded — your later actions were taken back", substring = true), "HIS-097's note")
         // While it plays: no pause, no leaving
         assertTrue(alice.shown.behind, "Bob's new events still to play back")
-        alice.playbackButton().assertIsNotEnabled()
+        alice.tapTable()
         alice.activity.onBackPressedDispatcher.onBackPressed()
         run()
         assertNotNull(alice.game, "still at the table")
+        assertTrue(!alice.shown.pausing, "a tap on the table doesn't pause the take-back")
         assertTrue(boards.drop(takeBack()).none { it.status is GameDevice.Status.Stopped && it.behind }, "nothing stopped it")
         waitUntil("Bob's Glimmer played back on Alice's table") { bobsCast() >= 0 }
         assertTrue(bobsCast() > takeBack(), "the rewind first, then Bob's new events")
         waitUntil("Alice's table live at the new head") { !alice.shown.behind && alice.status !is GameDevice.Status.Playing }
+        assertTrue(timelineLook, "the take-back went back with timeline mode's look")
+        assertTrue(!alice.showsTimelineLook(), "live again: no timeline look")
         assertTrue(alice.leaks.leaks.isEmpty() && bob.leaks.leaks.isEmpty())
     }
 }

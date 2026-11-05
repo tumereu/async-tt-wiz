@@ -37,9 +37,9 @@ class EngineLayersOnceTest {
     /** Alice at her first main phase after her keep (Bob's keep assumed: her line is tentative). */
     private fun game(early: Boolean): EngineGame {
         val game = EngineGame(f.game.id, f.a, f.base, f.snapshot(otherKept = true), worker = Inline(early))
-        game.tick(live = false, now = 1_000)
+        game.tick(1_000)
         assertIs<GameDevice.Acted.Sent>(game.keep(emptyList()))
-        game.tick(live = false, now = 2_000)
+        game.tick(2_000)
         assertEquals(GameDevice.Status.YourMove, game.shown!!.status)
         return game
     }

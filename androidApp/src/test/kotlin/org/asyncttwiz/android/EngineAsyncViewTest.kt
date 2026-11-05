@@ -24,9 +24,9 @@ class EngineAsyncViewTest {
      * up. */
     private fun aliceAndBob(): Pair<EngineGame, EngineGame> {
         val alice = EngineGame(f.game.id, f.a, f.base, f.snapshot(otherKept = true))
-        alice.tick(false, 1_000)
+        alice.tick(1_000)
         alice.keep(emptyList())
-        alice.tick(false, 2_000)
+        alice.tick(2_000)
         val events: List<GameEvent> = alice.device.session.pending
         val snapshot = f.behind(events, alice.device.model)
         return alice to EngineGame(f.game.id, f.b, f.base, snapshot)
@@ -103,13 +103,13 @@ class EngineAsyncViewTest {
         assertEquals(1_320L, playbackDelay(.25f))
     }
 
-    // HIS-095, HIS-103 (§27): pausing playback goes on to the next point where Full control would stop (here Alice's
-    // assumed pass in her upkeep, which Bob's Auto-skip goes past), stops there for good until he plays on
+    // HIS-095 (§27): pausing playback (a tap on the table) goes on to the next point where Full control would stop (here
+    // Alice's assumed pass in her upkeep, which Bob's Auto-skip goes past), stops there for good until he plays on
     @Test fun pausingStopsAtTheNextFullControlPoint() {
         val (_, bob) = aliceAndBob()
         bob.startPlayback()
         var guard = 0
-        bob.pause(true)
+        bob.pause()
         assertTrue(bob.shown!!.pausing)
         while (bob.device.status is GameDevice.Status.Playing && guard++ < 100) bob.step()
         val stop = assertIs<GameDevice.Status.Stopped>(bob.device.status)

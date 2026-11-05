@@ -74,16 +74,4 @@ class AttentionPresentationTest {
         }
     }
 
-    // TRN-006, HIS-094 (smoke 2026-11-04): in the catch-up pause the board is an earlier point: the pill reads "Catching up"
-    // in the move's colours (TRN-058: the move itself stays whom the game waits for)
-    @Test fun theCatchUpPauseReadsCatchingUpInTheMovesColours() {
-        val initial = TableFixture.play()
-        for (move in listOf("a", "b")) {
-            val play = initial.copy(board = initial.board.copy(attentionHolder = move, move = move))
-            val pill = attentionPresentation(TableFixture.game, tableBoard(play), "a", false, true, catchingUp = true)
-            assertEquals("Catching up", pill.label)
-            assertEquals(move == "a", pill.own)
-        }
-    }
-
 }

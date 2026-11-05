@@ -20,6 +20,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -121,27 +122,37 @@ internal fun stepArrowShown(play: TableBoard, viewer: String?): Boolean {
 }
 
 /**
- * The step arrow with Automatum on (I-D46 d, I-D48): neutral, an icon above the label that says what a tap does
- * ([AutomatumStep]); tap = that, hold = End turn as before (TRN-017). The one control that moves the game on with
- * Automatum on (UI review round 2 #1): panels and quick actions have no Pass, Let it resolve or Commit of their own.
- * [blocked] ([stepBlocked]): greyed; a tap shakes it and holding it says why (I-D46 b).
+ * The step arrow with Automatum on (I-D46 d, I-D48), the main button (owner 2026-11-05): neutral, an icon above the label
+ * that says what a tap does ([AutomatumStep]); tap = that, hold = End turn as before (TRN-017), except Resolve (STK-029),
+ * whose hold says what it does ([resolveTip]). The one control that moves the game on with Automatum on (UI review round
+ * 2 #1): panels and quick actions have no Pass, Let it resolve or Commit of their own. [blocked] ([stepBlocked]): greyed;
+ * a tap shakes it and holding it says why (I-D46 b).
  */
 @Composable
-internal fun AutomatumStepArrow(play: TableBoard, enabled: Boolean, compact: Boolean, onHold: () -> Unit,
-    blocked: String? = null, onClick: () -> Unit) {
+internal fun AutomatumStepArrow(play: TableBoard, enabled: Boolean, modifier: Modifier, onHold: () -> Unit,
+    blocked: String? = null, resolveTip: String? = null, onClick: () -> Unit) {
     val step = AutomatumStep.of(play)
     val usable = enabled && blocked == null && step != AutomatumStep.Waiting
     val ink = AutomatumStepInk.copy(alpha = if (usable) 1f else .38f)
     var shakes by remember { mutableIntStateOf(0) }
-    ActionSquare(step.label, "↦", enabled, Modifier.width(if (compact) 68.dp else 72.dp).shaken(shakes).shadow(3.dp, AdvanceArrowShape)
+    val endTurn = blocked == null && step != AutomatumStep.Resolve
+    ActionSquare(step.label, "↦", enabled, modifier.testTag("main-button").shaken(shakes).shadow(3.dp, AdvanceArrowShape)
         .background(Color.White, AdvanceArrowShape).border(1.dp, AutomatumStepOutline, AdvanceArrowShape).clip(AdvanceArrowShape),
-        fill = Color.White, ink = ink, compactContent = true, holdName = if (blocked == null) "End turn" else null,
-        onHold = if (blocked == null) onHold else null, tooltip = blocked,
+        fill = Color.White, ink = ink, compactContent = true, holdName = if (endTurn) "End turn" else null,
+        onHold = if (endTurn) onHold else null, tooltip = blocked ?: resolveTip.takeIf { step == AutomatumStep.Resolve },
         gestureKey = step.label to blocked,
-        icon = { Column(Modifier.fillMaxWidth().padding(start = 2.dp, end = 12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        icon = { MainButtonContent(icon = {
             if (step.swords) Icon(painterResource(R.drawable.swords_outlined), null, Modifier.size(20.dp), tint = LocalContentColor.current)
             else Icon(step.icon, null, Modifier.size(20.dp), tint = LocalContentColor.current)
-            Text(step.label, Modifier.fillMaxWidth(), fontSize = 10.sp, lineHeight = 12.sp, letterSpacing = 0.sp, maxLines = 2,
-                fontWeight = FontWeight.Medium, textAlign = TextAlign.Center)
-        } }, onClick = { if (blocked != null) shakes++ else onClick() })
+        }, label = step.label) }, onClick = { if (blocked != null) shakes++ else onClick() })
+}
+
+/** The main button's face: an icon above the words of what a tap does, clear of the arrow's tip. */
+@Composable
+internal fun MainButtonContent(icon: @Composable () -> Unit, label: String) {
+    Column(Modifier.fillMaxWidth().padding(start = 4.dp, end = 14.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        icon()
+        Text(label, Modifier.fillMaxWidth(), fontSize = 11.sp, lineHeight = 12.sp, letterSpacing = 0.sp, maxLines = 2,
+            fontWeight = FontWeight.Medium, textAlign = TextAlign.Center)
+    }
 }

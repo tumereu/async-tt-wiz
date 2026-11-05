@@ -35,8 +35,6 @@ internal class DeviceSim(val games: EngineGames, every: Int = 16) {
     var now = 0L
     private var ids = 0
     val settings = mutableMapOf<PlayerId, PlaySettings>()
-    /** Each player's presence as the other's device sees it (the green dot). */
-    val live = mutableMapOf<PlayerId, Boolean>()
     /** How many events each oracle looked at, and leaks found. */
     var shownChecked = 0
     val leaks = mutableListOf<String>()
@@ -52,10 +50,16 @@ internal class DeviceSim(val games: EngineGames, every: Int = 16) {
     fun other(p: PlayerId) = if (p == alice) bob else alice
     fun device(p: PlayerId): GameDevice = devices.getValue(p)
 
-    /** Starts the game (the server's own first event) and loads both devices. */
-    fun start(starter: PlayerId = alice, mode: ResponseMode = ResponseMode.AutoSkip, handSizes: Map<PlayerId, Int> = emptyMap()) {
+    /** Starts the game (the server's own first event) and loads both devices. Each player plays on while the other is
+     * away: "Always assume resolves" on, unless [alwaysAssume] is false (HIS-096: then the other player's pauses wait,
+     * with Assume). */
+    fun start(starter: PlayerId = alice, mode: ResponseMode = ResponseMode.AutoSkip, handSizes: Map<PlayerId, Int> = emptyMap(),
+        alwaysAssume: Boolean = true, playbackFullControl: Boolean = false) {
         server.start(starter, handSizes)
-        for (p in listOf(alice, bob)) { settings[p] = PlaySettings(mode = mode); live[p] = false; load(p) }
+        for (p in listOf(alice, bob)) {
+            settings[p] = PlaySettings(mode = mode, alwaysAssumeResolves = alwaysAssume, playbackFullControl = playbackFullControl)
+            load(p)
+        }
     }
 
     /** [p]'s device (re)loaded from the server's snapshot, as the app opening the game: at their local head with the
@@ -69,7 +73,6 @@ internal class DeviceSim(val games: EngineGames, every: Int = 16) {
             baseId.takeIf { after.isNotEmpty() }, if (after.isEmpty()) null else codec.encodeModel(server.stateAt(baseId)),
             after.map(codec::encodeEvent))
         val (device, _) = GameDevice.load(snapshot, p) { "${p.value}-${++ids}" }
-        device.presence(live[other(p)] == true, now)
         watch(device)
         devices[p] = device
         inbox[p] = ArrayDeque()
@@ -245,7 +248,7 @@ internal class DeviceSim(val games: EngineGames, every: Int = 16) {
             val local = server.heads.getValue(p)
             val after = MainLine.after(server.history, server.head, local)!!
             val stop = if (server.request?.by == p.value) null
-                else NextStop.of(server.stateAt(local), local, after, p, device(p).settings.mode)
+                else NextStop.of(server.stateAt(local), local, after, p, device(p).settings.playbackMode)
                     ?: NextStop.Stop(server.head, null).takeIf { asker != null && asker != p.value }
             stop != null && (if (asker != null) asker != p.value else NextStop.waitsFor(head.engine, p, stop))
         }

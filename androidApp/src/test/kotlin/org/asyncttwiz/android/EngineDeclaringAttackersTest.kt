@@ -7,7 +7,6 @@ import arcanum.engine.state.ObjectId
 import arcanum.engine.state.TargetRef
 import org.asyncttwiz.protocol.CombatRole
 import org.asyncttwiz.protocol.game.GameDevice
-import org.asyncttwiz.protocol.game.PlaySettings
 import org.asyncttwiz.protocol.game.ResponseMode
 import org.junit.After
 import org.junit.Test
@@ -90,7 +89,8 @@ class EngineDeclaringAttackersTest {
     // retargets it; the arrow attacks the Oracle
     @Test fun fullControlActsBeforeAttacksAndTapsOnlyStageAtTheLanesTarget() {
         val (hound, oracle) = toReadyHound()
-        kit.alice.settings(PlaySettings(mode = ResponseMode.FullControl))
+        // HIS-096: with Bob away, Alice plays on
+        kit.alice.settings(kit.alice.shown!!.settings.copy(mode = ResponseMode.FullControl, alwaysAssumeResolves = true))
         kit.scenario.online[f.b] = false
         assertEquals(AutomatumStep.ToCombat, AutomatumStep.of(kit.alice.play()))
         assertTrue(toolkit.automatumStep(TableActionIntent.Next(kit.scope)), "To combat")
@@ -169,7 +169,7 @@ class EngineDeclaringAttackersTest {
     // STK-036, CMB-028: in Normal there is no stop at the beginning of combat: To combat goes on to declaring attackers
     @Test fun normalGoesStraightToDeclaringAttackers() {
         toReadyHound()
-        kit.alice.settings(PlaySettings(mode = ResponseMode.Normal))
+        kit.alice.settings(kit.alice.shown!!.settings.copy(mode = ResponseMode.Normal))
         kit.scenario.online[f.b] = false
         assertTrue(toolkit.automatumStep(TableActionIntent.Next(kit.scope)), "To combat")
         kit.settle(bobActs = false)

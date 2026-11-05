@@ -129,10 +129,16 @@ internal val STEP_LABELS = listOf("Pass", "Next", "To combat", "End turn", "Reso
 internal fun E2ePlayer.stepArrow(): String? = nodes(hasClickAction()).fetchSemanticsNodes().map { it.description() }
     .firstOrNull { it in STEP_LABELS || it.matches(Regex("(Attack|Block) \\([0-9]+\\)")) }
 
-/** The playback button (Play / Pause, HIS-013). */
-internal fun E2ePlayer.playbackButton(): SemanticsNodeInteraction = node(hasTestTag("playback-toggle"))
-internal fun E2ePlayer.playbackLabel(): String? = nodes(hasTestTag("playback-toggle")).fetchSemanticsNodes().firstOrNull()
-    ?.config?.getOrNull(SemanticsProperties.StateDescription)
+/** HIS-094: the centre text that starts or resumes catch-up playback ("<name> has made moves · Tap to watch"). */
+internal fun E2ePlayer.watchText(): String? = nodes(hasTestTag("centre-action")).fetchSemanticsNodes().firstOrNull()?.description()
+internal fun E2ePlayer.showsWatch(): Boolean = shows(hasTestTag("centre-action"))
+internal fun E2ePlayer.tapToWatch() { node(hasTestTag("centre-action")).performClick() }
+
+/** A tap on the middle of this player's own battlefield (HIS-095: while playback runs it pauses it). */
+internal fun E2ePlayer.tapTable() { node(hasContentDescription("$name Battlefield,", substring = true)).performClick() }
+
+/** Whether the table has timeline mode's look (HIS-008: grey bars, the dimmed board's "Timeline mode" label). */
+internal fun E2ePlayer.showsTimelineLook(): Boolean = showsText("Timeline mode")
 
 /** Plays (or casts) the hand card [name]: a tap raises it, a tap on the raised card plays it (ZON-079). */
 internal fun E2ePlayer.playFromHand(name: String, e2e: E2e) {
@@ -152,9 +158,9 @@ internal fun E2ePlayer.raisedInHand(): String? = runCatching {
 
 /**
  * The other player playing along by themselves, as the interim simulations' Bob did: on their table they keep their
- * opening hand, pass (the step arrow's Pass / Next / Resolve), declare no attacks and no blocks, end their own turn
- * (holding the arrow) in their main phases, press Play on a catch-up and Resolve at a playback stop. One action per board
- * shown; nothing while the app is away.
+ * opening hand, pass (the main button's Pass / Next / Resolve), declare no attacks and no blocks, end their own turn
+ * (holding the main button) in their main phases, tap the centre text on a catch-up and answer at a playback stop as the
+ * main button says. One action per board shown; nothing while the app is away.
  */
 internal fun E2ePlayer.playAlong() {
     val shown = game?.shown ?: return
@@ -163,10 +169,9 @@ internal fun E2ePlayer.playAlong() {
     if (!foreground || shown.version == alongAt) return
     val acted = runCatching {
         when (val status = shown.status) {
-            GameDevice.Status.CatchUp -> { playbackButton().performClick(); true }
+            GameDevice.Status.CatchUp -> { tapToWatch(); true }
             is GameDevice.Status.Stopped ->
                 if (showsControl("Keep")) { tap("Keep"); true }
-                else if (shows(hasTestTag("stack-resolve"))) { node(hasTestTag("stack-resolve")).performClick(); true }
                 else stepArrow()?.let { tap(it); true } ?: false
             GameDevice.Status.YourMove -> when {
                 showsControl("Keep") -> { tap("Keep"); true }

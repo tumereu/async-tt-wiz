@@ -40,9 +40,9 @@ class SameDecisionRulesTest {
         val bob = sim.load(f.b)
         assertIs<GameDevice.Acted.Sent>(bob.keep(emptyList()))
         sim.flush(f.b); sim.deliver(f.a); game.playToStop()
-        game.tick(live = false, now = 1_000)
+        game.tick(1_000)
         assertIs<GameDevice.Acted.Sent>(game.keep(emptyList()))
-        game.tick(live = false, now = 2_000)
+        game.tick(2_000)
         if (land) {
             val s = game.device.model.engine
             val mountain = assertNotNull(Engine.options(s, alice).filterIsInstance<Input.PlayLand>().firstOrNull(), "a Mountain in hand")
@@ -107,7 +107,7 @@ class SameDecisionRulesTest {
     /** Both devices live: each gets what the server sent, shows it and makes its own steps, until nothing moves. */
     private fun settle() = repeat(20) {
         for (p in listOf(f.a, f.b)) {
-            sim.deliver(p); sim.game(p).playToStop(); sim.game(p).tick(live = true, now = sim.now); sim.flush(p)
+            sim.deliver(p); sim.game(p).playToStop(); sim.game(p).tick(sim.now); sim.flush(p)
         }
     }
 
@@ -116,7 +116,7 @@ class SameDecisionRulesTest {
     private fun bothLiveTo(there: (GameState) -> Boolean): EngineGame {
         val game = sim.load(f.a)
         val bob = sim.load(f.b)
-        game.tick(live = true, now = 1_000); bob.tick(live = true, now = 1_000)
+        game.tick(1_000); bob.tick(1_000)
         assertIs<GameDevice.Acted.Sent>(bob.keep(emptyList()))
         settle()
         assertIs<GameDevice.Acted.Sent>(game.keep(emptyList()))
@@ -144,9 +144,8 @@ class SameDecisionRulesTest {
 
     /**
      * Both live, in Alice's main phase (her first, or where [there] holds) after her land: she casts Storm Spark at Bob, so her game
-     * waits for him (his pause, live). Bob passes (taken by the server; [bobsMove] after it) while Alice's device, his
-     * presence gone, assumes that pass after the grace, the spark resolves and she is back in her main phase, where she
-     * makes [move]. Her assumption and her move reach the server after his pass: refused as stale, delivered with
+     * waits for him (his pause, live). Bob passes (taken by the server; [bobsMove] after it) while Alice, hearing nothing
+     * from him, turns "Always assume resolves" on and her device assumes that pass, the spark resolves and she is back in her main phase, where she makes [move]. Her assumption and her move reach the server after his pass: refused as stale, delivered with
      * [refusalsFirst] before his revision or after it.
      */
     private fun race(refusalsFirst: Boolean, there: (GameState) -> Boolean = { true }, bobsMove: (EngineGame) -> Unit = {},
@@ -154,13 +153,15 @@ class SameDecisionRulesTest {
         val game = bothLiveTo(there)
         val bob = sim.game(f.b)
         assertIs<GameDevice.Acted.Sent>(game.send(spark(game.device.model.engine)))
-        sim.flush(f.a); sim.deliver(f.b); bob.playToStop(); bob.tick(live = true, now = sim.now)
+        sim.flush(f.a); sim.deliver(f.b); bob.playToStop(); bob.tick(sim.now)
         if (bob.device.model.engine.priority.holder?.value == f.b) assertIs<GameDevice.Acted.Sent>(bob.pass())
         bobsMove(bob)
         sim.flush(f.b)
         assertTrue(sim.pending(f.a) > 0, "Bob's event is on its way to Alice")
         assertIs<GameDevice.Status.Waiting>(game.device.status, "Alice waits for Bob at his pause")
-        game.tick(live = false, now = sim.now + 1_000); game.tick(live = false, now = sim.now + 2_000 + GameDevice.GRACE_MS)
+        game.tick(sim.now + 1_000)
+        game.settings(game.shown!!.settings.copy(alwaysAssumeResolves = true))
+        game.tick(sim.now + 2_000)
         val s = game.device.model.engine
         assertEquals(TurnStep.PrecombatMain to f.a, s.turn.step to s.priority.holder?.value, "Alice in main 1 on Bob's assumed pass")
         assertTrue(s.stack.isEmpty(), "the spark resolved")
@@ -170,7 +171,7 @@ class SameDecisionRulesTest {
         if (refusalsFirst) sim.refusalsFirst(f.a)
         sim.deliver(f.a)
         game.playToStop()
-        game.tick(live = false, now = sim.now + 3_000 + GameDevice.GRACE_MS)
+        game.tick(sim.now + 3_000)
         return game
     }
 

@@ -13,7 +13,6 @@ import org.asyncttwiz.protocol.game.GameEvent
 import org.asyncttwiz.protocol.game.PlaySettings
 import org.asyncttwiz.protocol.game.ResponseMode
 import org.junit.Test
-import java.time.Duration
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
@@ -34,11 +33,11 @@ class SameDecisionTapTest : E2e() {
     private val held = HeldWorker()
     private val deck = TestDeck("Sparks", listOf(TestCards.mountain to 22, TestCards.spark to 12, TestCards.glimmer to 6))
 
-    /** With [bobGlimmer] Bob holds an Idle Glimmer too, and plays in Full control (his playback stops at every pass
-     * assumed for him). */
+    /** With [bobGlimmer] Bob holds an Idle Glimmer too, and his playback's Full control is on (it stops at every pass
+     * assumed for him, HIS-095). */
     private fun start(alice: PlaySettings? = null, bobGlimmer: Boolean = false) {
         startGame(deck, deck, aliceSettings = alice, aliceWorker = held,
-            bobSettings = if (bobGlimmer) PlaySettings(mode = ResponseMode.FullControl) else null,
+            bobSettings = if (bobGlimmer) PlaySettings(playbackFullControl = true) else null,
             deal = { a, b -> "Mountain" in hand(a) && "Storm Spark" in hand(a) && "Idle Glimmer" in hand(a) && "Mountain" in hand(b) &&
                 (!bobGlimmer || "Idle Glimmer" in hand(b)) })
         held.observe = ::watchNotes
@@ -141,7 +140,7 @@ class SameDecisionTapTest : E2e() {
         bob = restart(bob)
         bob.openGame(game, this)
         waitUntil("Bob's playback stopping at a pass assumed for him") {
-            if (bob.status == GameDevice.Status.CatchUp) bob.once { bob.playbackButton().performClick() }
+            if (bob.status == GameDevice.Status.CatchUp) bob.once { bob.tapToWatch() }
             bob.status is GameDevice.Status.Stopped
         }
         assertIs<GameDevice.Acted.Sent>(bob.game!!.send(listOf(Input.Cast(bob.me, bob.hand("Idle Glimmer").first()))))
@@ -176,7 +175,8 @@ class SameDecisionTapTest : E2e() {
     // board her phone moved on to by itself (Bob's passes assumed, past an empty combat) reaches the screen: End turn may
     // be made at any priority of her own turn, so it is made on the newer board, not dropped
     @Test fun endTurnTappedWhileTheDeviceStepsOnByItselfIsMade() {
-        start()
+        // HIS-096: her phone goes on past Bob's pause at her end step
+        start(PlaySettings(alwaysAssumeResolves = true))
         aliceInMain()
         val turn = alice.state.turn.number
         held.holding = true
@@ -194,7 +194,8 @@ class SameDecisionTapTest : E2e() {
     // Bob's turn is another decision: not taken, and the note comes with a board of its own, so the table (which reads
     // notes when a board arrives) tells it at once
     @Test fun endTurnOnABoardOfAnEndedTurnIsRefusedWithTheNoteAtOnce() {
-        start()
+        // HIS-096: her phone goes on past Bob's pause at her end step
+        start(PlaySettings(alwaysAssumeResolves = true))
         aliceInMain()
         held.holding = true
         alice.hold("To combat")
@@ -213,8 +214,8 @@ class SameDecisionTapTest : E2e() {
 
     /**
      * Both live; both keep and Alice casts Idle Glimmer (free) in her first main phase, so her game waits for Bob at his
-     * pause. What the server sends Alice's phone is held in the network; Bob passes (taken by the server) while Alice's
-     * phone, hearing nothing from him for two minutes, assumes that pass, the Glimmer resolves and she is back in her
+     * pause. What the server sends Alice's phone is held in the network; Bob passes (taken by the server) while Alice,
+     * hearing nothing from him, turns "Always assume resolves" on and her phone assumes that pass, the Glimmer resolves and she is back in her
      * main phase, where she makes [move]. Her assumption and her move reach the server after his pass: refused as stale,
      * delivered after his revision (one socket keeps the server's order).
      */
@@ -230,8 +231,8 @@ class SameDecisionTapTest : E2e() {
         waitUntil("Bob's pass on the server", along = listOf(bob)) {
             bob.engine { device.session.pending.isEmpty() && device.session.events.size > before && device.model.engine.stack.isEmpty() }
         }
-        // Two minutes with no word from Bob: Alice's phone no longer counts him as there, and after the grace assumes his pass
-        repeat(4) { run(skip = Duration.ofSeconds(60)) }
+        // No word from Bob: Alice turns "Always assume resolves" on and her phone assumes his pass
+        alice.tap("Always assume resolves")
         waitUntil("Alice in main 1 on Bob's assumed pass") { alice.inOwnMain() }
         told.clear()
         move()

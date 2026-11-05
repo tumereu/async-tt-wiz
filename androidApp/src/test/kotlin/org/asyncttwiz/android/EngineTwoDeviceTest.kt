@@ -52,6 +52,9 @@ class EngineTwoDeviceTest {
         val players = listOf(f.a, f.b)
         val names = mapOf(f.a to "Alice", f.b to "Bob")
         val online = players.associateWith { true }.toMutableMap()
+        // HIS-096: whether the other player's pauses are assumed at once is each player's setting, never their presence
+        for (p in players) sim.settings[p] = org.asyncttwiz.protocol.game.PlaySettings(alwaysAssumeResolves = when (mode) {
+            Mode.LIVE -> false; Mode.ASYNC -> true; Mode.MIXED -> seed % 2 == 0L })
         for (p in players) sim.load(p)
         var ticks = 0
         var quiet = 0
@@ -60,7 +63,6 @@ class EngineTwoDeviceTest {
             if (players.all { (sim.game(it).device.status as? GameDevice.Status.Over)?.final == true }) break
             if (sim.store.size > maxEvents) break
             val p = players[rnd.nextInt(2)]
-            val q = sim.other(p)
             if (mode != Mode.LIVE) {
                 if (!online.getValue(p)) {
                     if (rnd.nextInt(if (mode == Mode.ASYNC) 6 else 3) == 0) {
@@ -71,7 +73,7 @@ class EngineTwoDeviceTest {
             }
             val game = sim.game(p)
             if (sim.pending(p) > 0) sim.deliver(p, if (rnd.nextBoolean()) null else rnd.nextInt(1, 4))
-            game.tick(online.getValue(q), sim.now)
+            game.tick(sim.now)
             turn(sim, game, rnd)
             sim.flush(p)
             shows(game, names, rnd)
@@ -90,7 +92,7 @@ class EngineTwoDeviceTest {
                 sim.deliver(p)
                 if (game.device.catchUp) game.startPlayback()
                 game.playToStop()
-                game.tick(true, sim.now)
+                game.tick(sim.now)
                 (game.device.status as? GameDevice.Status.Stopped)?.let { game.act(it.assumed) }
                 sim.flush(p)
             }
@@ -152,7 +154,9 @@ class EngineTwoDeviceTest {
             is GameDevice.Status.Stopped -> answer(game, status, rnd)
             GameDevice.Status.YourMove -> move(game, rnd)
             is GameDevice.Status.Waiting -> when {
-                status.blockersScreen -> if (rnd.nextInt(4) > 0) game.assume(blocks(d.model.engine, d.opponent, rnd)) else game.closeBlockersScreen()
+                // CMB-040: a player who plays on opens the Assume blockers screen and mostly OKs it
+                status.offer == GameDevice.Offer.AssumeBlockers && d.settings.alwaysAssumeResolves ->
+                    if (rnd.nextInt(4) > 0) game.assume(blocks(d.model.engine, d.opponent, rnd))
                 status.offer != null && rnd.nextInt(6) == 0 ->
                     game.assume(if (status.offer == GameDevice.Offer.AssumeBlockers) blocks(d.model.engine, d.opponent, rnd) else emptyList())
                 rnd.nextInt(30) == 0 && d.undoTarget() != null -> undo(game, rnd)

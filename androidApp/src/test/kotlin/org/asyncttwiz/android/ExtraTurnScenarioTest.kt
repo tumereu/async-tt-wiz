@@ -30,7 +30,7 @@ class ExtraTurnScenarioTest {
         sim.deliver(f.a)
         alice.playToStop()
         (alice.device.status as? GameDevice.Status.Stopped)?.let { alice.act(it.assumed) }
-        alice.tick(false, sim.now)
+        alice.tick(sim.now)
         sim.flush(f.a)
         sim.now += 1_000
     }
@@ -55,7 +55,8 @@ class ExtraTurnScenarioTest {
     // TRN-052 (CR 500.7), HIS-091: the turn change Automatum makes names whose turn begins, so Alice's extra turn is hers
     // again: turn number up by one, at Untap; the event that begins it reads "Turn 2 → you" to her, "Turn 2 → Alice" to Bob
     @Test fun anExtraTurnGoesToTheSamePlayer() {
-        val sim = EngineAppSim(f)
+        // HIS-096: Alice plays on while Bob is away
+        val sim = EngineAppSim(f).apply { settings[f.a] = PLAYS_ON }
         val alice = sim.load(f.a)
         val bob = sim.load(f.b)
         alice.keep(emptyList())

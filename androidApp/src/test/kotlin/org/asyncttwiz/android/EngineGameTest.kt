@@ -45,9 +45,9 @@ class EngineGameTest {
     // assumed (the indicator counts them), everything goes out as submissions in order and shows at once
     @Test fun keepingWhileTheOtherPlayerIsAwayPlaysOnAssumedAnswers() {
         val game = EngineGame(f.game.id, f.a, f.base, f.snapshot(otherKept = true))
-        game.tick(live = false, now = 1_000)
+        game.tick(1_000)
         assertIs<GameDevice.Acted.Sent>(game.keep(emptyList()))
-        game.tick(live = false, now = 2_000)
+        game.tick(2_000)
         val sent = game.take(2_000)
         assertTrue(sent.isNotEmpty() && sent.all { it is GameAction.Submit || it is GameAction.EngineSeen })
         val state = game.device.model.engine
@@ -72,7 +72,7 @@ class EngineGameTest {
     // again on it while it is still asked; here Bob conceded, so it isn't, and it is told
     @Test fun aRefusedOwnActionIsTold() {
         val game = alice()
-        game.tick(live = true, now = 1_000)
+        game.tick(1_000)
         assertIs<GameDevice.Acted.Sent>(game.keep(emptyList()))
         val submit = game.take(1_000).filterIsInstance<GameAction.Submit>().first()
         game.refused(submit, "stale")
@@ -91,7 +91,7 @@ class EngineGameTest {
     // never a silent snap back, and the app log says once which board was taken back and why
     @Test fun anOwnActionTheEngineRefusesIsToldAndLogged() {
         val game = alice()
-        game.tick(live = true, now = 1_000)
+        game.tick(1_000)
         assertIs<GameDevice.Acted.Sent>(game.keep(emptyList()))
         val submit = game.take(1_000).filterIsInstance<GameAction.Submit>().first()
         val shown = game.device.session.tip
@@ -115,9 +115,9 @@ class EngineGameTest {
             assertEquals("test-engine", threaded.read { Thread.currentThread().name })
             val inline = alice()
             for (game in listOf(threaded, inline)) {
-                game.tick(live = false, now = 1_000)
+                game.tick(1_000)
                 assertIs<GameDevice.Acted.Sent>(game.keep(emptyList()))
-                game.tick(live = false, now = 2_000)
+                game.tick(2_000)
             }
             worker.drain()
             val shown = assertNotNull(threaded.shown)

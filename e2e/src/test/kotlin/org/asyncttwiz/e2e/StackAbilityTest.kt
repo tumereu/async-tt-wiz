@@ -34,9 +34,9 @@ class StackAbilityTest : E2e() {
 
     private fun top(play: TableBoard): String? = CombatStackRules.stack(play.board).cards.firstOrNull()
 
-    /** Bob's playback goes on (Play on the catch-up) until it stops. */
+    /** Bob's playback goes on (the centre text's tap on the catch-up) until it stops. */
     private fun bobPlaysToAStop(what: String) = waitUntil(what) {
-        if (bob.status == GameDevice.Status.CatchUp) bob.once { bob.playbackButton().performClick() }
+        if (bob.status == GameDevice.Status.CatchUp) bob.once { bob.tapToWatch() }
         bob.status is GameDevice.Status.Stopped
     }
 
@@ -56,9 +56,9 @@ class StackAbilityTest : E2e() {
         bob.back()
         bobPlaysToAStop("Bob's playback stopping at the spell")
         val spellStop = bob.status
-        bob.node(hasTestTag("stack-resolve")).performClick()
+        bob.tap("Resolve")
         waitUntil("Bob's playback stopping at the trigger") {
-            if (bob.status == GameDevice.Status.CatchUp) bob.once { bob.playbackButton().performClick() }
+            if (bob.status == GameDevice.Status.CatchUp) bob.once { bob.tapToWatch() }
             bob.status.let { it is GameDevice.Status.Stopped && it != spellStop }
         }
         val token = bob.node(hasContentDescription("Triggered ability, Ember Herald — $heraldText", substring = true))
@@ -84,11 +84,11 @@ class StackAbilityTest : E2e() {
         assertNull(StackAbilities.of(spellBoard, spell, bob.id), "a spell is drawn as its card")
         assertEquals("Ember Herald", contentsEntries(spellBoard, PileContents("stack", "Stack", listOf(spell), true), bob.id).single().name)
         val spellStop = bob.status
-        bob.node(hasTestTag("stack-resolve")).performClick()
+        bob.tap("Resolve")
 
         // Then at the trigger: the Herald's ability, drawn as an ability token with its text, for both players
         waitUntil("Bob's playback stopping at the trigger") {
-            if (bob.status == GameDevice.Status.CatchUp) bob.once { bob.playbackButton().performClick() }
+            if (bob.status == GameDevice.Status.CatchUp) bob.once { bob.tapToWatch() }
             bob.status.let { it is GameDevice.Status.Stopped && it != spellStop }
         }
         assertIs<GameDevice.Status.Stopped>(bob.status)

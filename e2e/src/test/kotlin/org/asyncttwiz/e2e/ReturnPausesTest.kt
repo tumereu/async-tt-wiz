@@ -1,7 +1,7 @@
 package org.asyncttwiz.e2e
 
-import androidx.compose.ui.test.performClick
 import org.asyncttwiz.protocol.game.GameDevice
+import org.asyncttwiz.protocol.game.PlaySettings
 import org.junit.Test
 import java.time.Duration
 import kotlin.test.assertEquals
@@ -14,10 +14,11 @@ import kotlin.test.assertTrue
  */
 class ReturnPausesTest : E2e() {
     // HIS-035, HIS-006, HIS-094: Bob leaves the app with the game open; Alice plays a Mountain and casts an Ember Herald
-    // and ends her turn; Bob's app comes back (nothing reloaded): his table waits paused for Play. He plays, leaves in the
-    // middle of the playback: it pauses at once; back again, still paused until Play
+    // and ends her turn (her phone assuming his passes, "Always assume resolves"); Bob's app comes back (nothing
+    // reloaded): his table waits paused with the centre text. He taps it, leaves in the middle of the playback: it pauses
+    // at once; back again, still paused until the centre text
     @Test fun returningToAnOpenGameStartsTheCatchUpPausedAndLeavingPauses() {
-        startGame(TestDeck.thirds(TestCards.herald), TestDeck.thirds(TestCards.herald),
+        startGame(TestDeck.thirds(TestCards.herald), TestDeck.thirds(TestCards.herald), aliceSettings = PlaySettings(alwaysAssumeResolves = true),
             deal = { a, _ -> "Mountain" in hand(a) && "Ember Herald" in hand(a) })
         bothOpen()
         bothKeep(bobAway = false)
@@ -37,11 +38,12 @@ class ReturnPausesTest : E2e() {
         assertTrue(bob.game === open, "the game still open in memory, not loaded again")
         val head = bob.shown.localHead
         repeat(3) { run(skip = Duration.ofSeconds(2)) }
-        assertEquals(GameDevice.Status.CatchUp, bob.status, "paused until Play")
+        assertEquals(GameDevice.Status.CatchUp, bob.status, "paused until the centre text")
+        assertEquals("${alice.name} has made moves · Tap to watch", bob.watchText())
         assertEquals(head, bob.shown.localHead, "nothing played back")
 
-        // Play, then away in the middle of the playback: it stops at once
-        bob.playbackButton().performClick()
+        // The centre text, then away in the middle of the playback: it stops at once
+        bob.tapToWatch()
         waitUntil("the playback going") { bob.shown.localHead != head }
         bob.away()
         run()
@@ -52,7 +54,8 @@ class ReturnPausesTest : E2e() {
         repeat(3) { run(skip = Duration.ofSeconds(2)) }
         assertEquals(left, bob.shown.localHead, "still paused after coming back")
         assertEquals(GameDevice.Status.CatchUp, bob.status)
-        bob.playbackButton().performClick()
+        assertTrue(bob.showsWatch())
+        bob.tapToWatch()
         waitUntil("Bob caught up") {
             if (bob.status is GameDevice.Status.Stopped) bob.playAlong()
             !bob.shown.behind && bob.status !is GameDevice.Status.Playing

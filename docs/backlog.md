@@ -11,11 +11,23 @@ Changes the owner wants but that are not built yet. The feature catalog
 ## Build order (owner, 2026-11-05: one implementor at a time, small items batched, full suites after each batch)
 
 1. Combat band.
-2. Battlefield placement (Arena style).
-3. Hold pauses playback, Reconnecting…, remove the auto-pause switches (re-check against the built catch-up playback first: HIS-094, HIS-095).
-4. Countering a spell lower on the Stack (e2e scenario).
+2. Playtest 2026-11-05 evening, batch A (cast flow): undo during an interaction, cast panel without OK/Cancel, every way to cast shown, ability chips + mana symbols, main button names.
+3. Playtest 2026-11-05 evening, batch B: Stack ability look, library search panel, draft split-card pips, assume when they have no mana.
+4. Battlefield placement (Arena style).
+5. Hold pauses playback, Reconnecting…, remove the auto-pause switches (re-check against the built catch-up playback first: HIS-094, HIS-095).
+6. Countering a spell lower on the Stack (e2e scenario).
 
 ## Ready to build
+
+- Undo during an interaction (owner playtest 2026-11-05 evening): the undo point of an interaction is its start: once you begin casting or activating (the cast panel or a target bar is open, nothing sent yet), Undo takes you back to just before you began, exactly where Undo would take you after it completed. Changes STK-025 (and HIS-084 if needed).
+- Cast panel without OK or Cancel (owner playtest 2026-11-05 evening): an X cast has no separate OK before Cast; X can't be set past its bounds (− / + stop at the least and most Automatum allows; Cast greyed only when it really can't be paid); no Cancel button: Undo (above) and Back drop the open cast. Check every cast/activation panel and target bar for the same extra steps and remove them the same way. Changes STK-023, STK-047, STK-052, STK-025.
+- Fix: every way to cast a hand card shows as a chip above it, greyed when it can't be paid or done now (ZON-080 already says so): a bestow creature whose bestow needed collect evidence showed no Bestow chip at all. Check all alternate and additional ways (bestow, evoke, dash, blitz, overload, foretell, plot, disguise, prototype, mutate, …) show above the card and never only in the cast panel or not at all; e2e for bestow. No entry change.
+- Ability chips and mana symbols (owner playtest 2026-11-05 evening): a battlefield card's ability chips (TBL-124) and a hand card's way chips (ZON-080) wrap long texts onto more rows instead of cutting them; mana and tap symbols ({G}, {T}, {X}, hybrid, Phyrexian) are drawn as symbols everywhere text shows them (chips, menus, panels, event texts, inspect tiles, hold texts). Changes TBL-124, ZON-080.
+- Main button names (owner playtest 2026-11-05 evening): the main button has room for two lines; give each action a clear name: "Assume resolves" (something on the Stack), "Assume no response" (the other player may act with nothing on the Stack, e.g. at their end step), "Assume no blockers" / "Assume blockers" (combat band), and check the step names read clearly on two lines. Changes TRN-063, TRN-070.
+- Stack ability look (owner playtest 2026-11-05 evening): inspecting an ability on the Stack shows the source's art panel with the ability's text under it, wrapped in a dark rounded rectangle (the current tile's look), not card-shaped; on the Stack the ability token keeps its look but drops its text and bubbles, and shows a small chip at its bottom: "T" for a triggered ability, "A" for an activated one. Changes STK-046, STK-050.
+- Library search panel (owner playtest 2026-11-05 evening, a fetch land): the search shows the effect causing it (its source, as other choice panels do) and what is being searched ("Search your library for a basic land card"); the selection survives hiding and showing the panel with the eye; and the searched zone's other cards (not of the searched kind) show in a second, unselectable section ("Other cards"), which matters when searching an opponent's library. Changes the search choice's entry in turns-combat-stack.md (STK-030 or its own) and STK-044 if needed.
+- Fix: draft Stats don't count both halves' pips of split cards: Road // Ruin's red pips were missing (DRF-114, DRF-116; no entry change). Check other multi-part cards (adventure, MDFC back faces per the existing rule, fuse, aftermath).
+- Assume when they have no mana (owner playtest 2026-11-05 evening): "Always assume resolves" becomes a choice: Never, "When they have no mana" (the other player has no untapped mana source, no mana in their pool and no ability they could activate, judged on what the table shows), Always. Changes TRN-059, LOB-113, HIS-096.
 
 (none)
 
@@ -37,6 +49,10 @@ Start none of these until the E2E framework above works. Each owner-reported bug
 (none)
 
 ## Needs discussion
+
+- Catalog import's "Finishing up — verifying catalog…" step is slow (owner, 2026-11-05: why verify at all?). Found: it mostly isn't verifying; it counts records, then builds the card search index, token search, avatar choices and token choices (CatalogDatabase.stage). Options: build these during indexing, build search lazily, or only relabel. Decide with the owner.
+- Which points need an assumption (owner, 2026-11-05): the other player's end step needs "Assume resolves" today, which felt excessive. Review every point where the other player gets priority and what Arena does at step starts/ends (tied to Full control?); maybe part of the finer assume setting.
+- Inspect richness (owner, 2026-11-05): besides card images, show counters, temporary effects and other modifications, and attached cards (equipment, auras) as separate cards in the scrolling view, keeping hold-to-inspect / release-to-close and single-tap-to-activate; or a gesture (drag sideways) for a modifications overlay or a pinned inspect. Decide with the owner.
 
 - Arcanum engine: a streaming `perform` — called with a state, it returns a channel/stream of updates (changes in order, decisions as they come) instead of one finished `Outcome`, so the host can show the quick first results at once and keep the UI responsive while a long chain (many triggers, state-based actions, loops) resolves. A candidate fix for UI-feels-slow cases; keep every update reversible (D59) and the engine stateless; undo mid-stream = discard the stream's remaining updates and revert the applied ones (owner, 2026-11-04). Architecture check (2026-11-04) recommends not now: it speeds up only long chains; if R1's measurements after R2–R3 still show chains as the slow cases, a plain callback on `perform` rather than a channel (`engine-responsiveness.md`, last section). Owner to decide.
 - R5 of `engine-responsiveness.md` (optional, decided later): while the player looks at the board, the idle engine thread works out their step-arrow pass on a probe, so the tap only applies the result (frame-fast passes, some battery cost). Decide after R1–R3's measurements.

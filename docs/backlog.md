@@ -10,17 +10,15 @@ Changes the owner wants but that are not built yet. The feature catalog
 
 ## Build order (owner, 2026-11-05: one implementor at a time, small items batched, full suites after each batch)
 
-1. E2E test isolation.
-2. Analysis (undo/branch/assumption review), then the Undo item.
-3. Choice panels show their source card.
-4. Combat band.
-5. Battlefield placement (Arena style).
-6. Hold pauses playback, Reconnecting…, remove the auto-pause switches (re-check against the built catch-up playback first: HIS-094, HIS-095).
-7. Countering a spell lower on the Stack (e2e scenario).
+1. Analysis (undo/branch/assumption review), then the Undo item.
+2. Choice panels show their source card.
+3. Combat band.
+4. Battlefield placement (Arena style).
+5. Hold pauses playback, Reconnecting…, remove the auto-pause switches (re-check against the built catch-up playback first: HIS-094, HIS-095).
+6. Countering a spell lower on the Stack (e2e scenario).
 
 ## Ready to build
 
-- E2E test isolation (owner, 2026-11-05): every e2e test starts from the same state, whatever ran before: a base dataset (accounts, decks, settings) may be created once and reused, but games, pods, invitations, notifications, chat and each app's local storage are reset between tests (e.g. delete them in the test database and give each app instance fresh storage). No test may depend on another's leftovers; today games pile up in the shared Alice/Bob Games list and a long list made a setup step time out. No catalog change.
 - Analysis (owner, 2026-11-04): adversarial review of the event-based state changes on device and server — undo/rewind, branches, assumptions, re-made and same-decision actions, anything cached per line/event/decision id (autotap plans, early answers), line reseeding — for inconsistency bugs like "cast → undo → recast refused" (decision ids include the engine change-log size; the new line's reshuffle rides in the next event); reproduce each in e2e, propose simplifications (stable decision identity) before building them.
 
 ## Ready after the e2e framework (owner playtest, 2026-11-05)

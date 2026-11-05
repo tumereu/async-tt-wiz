@@ -14,7 +14,7 @@ import java.util.concurrent.TimeUnit
  * The full stack the e2e tests play on, started once per test JVM and stopped when it exits: a PostgreSQL container
  * (the server's pinned image, through the Docker CLI) and the installed server (`server/build/install`, as deployed:
  * `migrate`, then `serve` on free ports). The apps reach it at [origin] over plain loopback HTTP, as the debug build
- * allows. Every test makes its own accounts, so they share one server.
+ * allows. The tests share one server; [reset] brings its database back to the base dataset before each test.
  *
  * Robolectric loads test classes once per sandbox; the running stack is found again through system properties, so a
  * second sandbox never starts a second one.
@@ -22,6 +22,8 @@ import java.util.concurrent.TimeUnit
 object E2eStack {
     private const val ORIGIN = "atw.e2e.origin"
     private const val SECRET = "atw.e2e.secretFile"
+    private const val CONTAINER = "atw.e2e.container"
+    private const val BASE = "atw.e2e.base"
 
     /** The server's public origin, e.g. `http://127.0.0.1:41234`. */
     val origin: String get() = System.getProperty(ORIGIN) ?: start()
@@ -85,7 +87,53 @@ object E2eStack {
         }
         println("E2E stack: server log ${log.path}")
         System.setProperty(SECRET, secret.path)
+        System.setProperty(CONTAINER, name)
         return "http://127.0.0.1:${ports["public"]}".also { System.setProperty(ORIGIN, it) }
+    }
+
+    /**
+     * The database as it is now becomes the base dataset [reset] brings back (made once per run: the accounts, their
+     * sessions and settings). Its sequences aren't part of it: ids keep growing across resets, never reused.
+     */
+    @Synchronized fun keepBase() {
+        val dump = exec(null, "pg_dump", "-U", "atw_e2e", "-d", "atw_e2e", "--data-only", "--disable-triggers",
+            "--exclude-table=flyway_schema_history").lines().filterNot { it.startsWith("SELECT pg_catalog.setval(") }
+        val file = File(secretFile.parentFile, "base.sql")
+        file.writeText(dump.joinToString("\n"))
+        System.setProperty(BASE, file.path)
+    }
+
+    /**
+     * Brings the database back to the base dataset ([keepBase]), in one transaction: every table emptied (games, pods,
+     * invitations, contacts, decks, notifications, chat, problem reports, sessions, settings, ...) and the base's rows
+     * put back. Again on failure (a deadlock with a write of the server's, say), at most three times.
+     */
+    @Synchronized fun reset() {
+        val base = File(requireNotNull(System.getProperty(BASE)) { "no base dataset kept" })
+        val script = buildString {
+            appendLine("BEGIN;")
+            appendLine("DO \$\$ BEGIN EXECUTE (SELECT 'TRUNCATE ' || string_agg(format('%I.%I', schemaname, tablename), ', ') " +
+                "FROM pg_tables WHERE schemaname = 'public' AND tablename <> 'flyway_schema_history'); END \$\$;")
+            appendLine(base.readText())
+            appendLine("COMMIT;")
+        }
+        repeat(3) { attempt ->
+            try { exec(script, "psql", "-q", "-U", "atw_e2e", "-d", "atw_e2e", "-v", "ON_ERROR_STOP=1"); return }
+            catch (failure: IllegalStateException) { if (attempt == 2) throw failure; Thread.sleep(200) }
+        }
+    }
+
+    /** [command] in the database's container ([input] its standard input); its standard output. */
+    private fun exec(input: String?, vararg command: String): String {
+        val name = requireNotNull(System.getProperty(CONTAINER)) { "the stack isn't running" }
+        val process = ProcessBuilder(listOf("docker", "exec", "-i", name) + command).start()
+        val errors = StringBuilder()
+        val reader = Thread { errors.append(process.errorStream.bufferedReader().readText()) }.apply { start() }
+        process.outputStream.use { stream -> input?.let { stream.write(it.toByteArray()) } }
+        val output = process.inputStream.bufferedReader().readText()
+        reader.join(TimeUnit.SECONDS.toMillis(120))
+        check(process.waitFor(120, TimeUnit.SECONDS) && process.exitValue() == 0) { "${command.first()} failed: $errors" }
+        return output
     }
 
     private fun docker(vararg args: String): String {

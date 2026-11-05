@@ -2,6 +2,7 @@ package org.asyncttwiz.e2e
 
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import org.asyncttwiz.android.AccountApi
 import org.asyncttwiz.android.DeckApi
 import org.asyncttwiz.android.LobbyApi
@@ -33,17 +34,39 @@ object ServerSetup {
     private const val PASSWORD = "e2e password 1"
 
     private var pair: Pair<TestAccount, TestAccount>? = null
+    private const val ACCOUNTS = "atw.e2e.accounts"
 
     /**
-     * Alice's and Bob's accounts, made once per test run (the server allows few sign-ups and sign-ins per address an
-     * hour, and every e2e request comes from this machine); each test plays its own new game with them. Alice's account
-     * id sorts first (the server seats players by account id, so the deal depends on it).
+     * Alice's and Bob's accounts, made once per test run as the base dataset ([E2eStack.keepBase]; the server allows
+     * few sign-ups and sign-ins per address an hour, and every e2e request comes from this machine); each test plays its
+     * own new game with them. Alice's account id sorts first (the server seats players by account id, so the deal
+     * depends on it). Kept in a system property, as [E2eStack] keeps the stack, so another Robolectric sandbox finds the
+     * same pair.
      */
     @Synchronized fun accounts(): Pair<TestAccount, TestAccount> = pair ?: run {
+        val stored = System.getProperty(ACCOUNTS)?.lines()?.map { line ->
+            val (name, email, token, identity) = line.split('\t')
+            TestAccount(name, email, token, Json.decodeFromString(AccountIdentity.serializer(), identity))
+        }
+        stored?.let { (a, b) -> a to b } ?: made().also { (a, b) ->
+            E2eStack.keepBase()
+            System.setProperty(ACCOUNTS, listOf(a, b).joinToString("\n") {
+                listOf(it.name, it.email, it.token, Json.encodeToString(AccountIdentity.serializer(), it.identity)).joinToString("\t")
+            })
+        }
+    }.also { pair = it }
+
+    /**
+     * The server as at the start of the run, with [accounts] (the base dataset): whatever earlier tests made on it
+     * (games, pods, invitations, contacts, decks, notifications, chat, problem reports, changed settings) is gone.
+     */
+    fun fresh(): Pair<TestAccount, TestAccount> = accounts().also { E2eStack.reset() }
+
+    private fun made(): Pair<TestAccount, TestAccount> {
         val tag = UUID.randomUUID().toString().take(8)
         val (x, y) = account("e2e${tag}x") to account("e2e${tag}y")
         val (a, b) = if (x.identity.accountId < y.identity.accountId) x to y else y to x
-        (rename(a, "Alice", "Alice$tag") to rename(b, "Bob", "Bob$tag")).also { pair = it }
+        return rename(a, "Alice", "Alice$tag") to rename(b, "Bob", "Bob$tag")
     }
 
     private fun account(username: String): TestAccount = AccountApi(origin).use { api -> runBlocking {

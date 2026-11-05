@@ -8,6 +8,7 @@ import org.asyncttwiz.android.AutomatumBoards
 import org.asyncttwiz.android.EngineWorker
 import org.asyncttwiz.protocol.GameSummary
 import org.asyncttwiz.protocol.game.PlaySettings
+import org.junit.Before
 import org.junit.Rule
 import org.junit.rules.RuleChain
 import org.junit.rules.TestWatcher
@@ -28,6 +29,11 @@ import kotlin.test.fail
  * ([E2eStack]), a game between them set up as the test chooses ([startGame]: decks, the starting player, each player's
  * play defaults), and [waitUntil] for whatever the test waits for (a server round trip, the other phone's table, a
  * playback): never a fixed sleep, never an elapsed-time assert (owner rule), only a condition and a generous timeout.
+ *
+ * Every test starts from the same state, whatever ran before, and depends on no other test's leftovers: before each
+ * test the server's database goes back to the base dataset (Alice's and Bob's accounts, made once per run:
+ * [ServerSetup.fresh]), and each test's phones are new apps (Robolectric's fresh application and storage, new
+ * controllers, nothing in memory).
  *
  * When a test fails, each phone's screen (picture, semantics tree, visible texts) and the app log are written to
  * `e2e/build/e2e/failures/<Test>.<method>/`.
@@ -61,6 +67,12 @@ abstract class E2e {
     /** The game's deal: each player's opening hand and library. */
     lateinit var deal: Deal
     private lateinit var prepared: ServerSetup.Prepared
+
+    /** The same start for every test: the server's base dataset only, no engine boards of an earlier test's tables. */
+    @Before fun freshStart() {
+        ServerSetup.fresh()
+        AutomatumBoards.reset()
+    }
 
     /**
      * Alice and Bob with their phones (the app launched, signed in, on the main menu), each player's play defaults

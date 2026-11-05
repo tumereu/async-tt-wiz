@@ -30,7 +30,9 @@ import org.asyncttwiz.protocol.game.TableState
  * planeswalker for {R}, loyalty 3).
  */
 internal class EngineGameFixture(val startingPlayer: String = TableStatesFixture.a, creatures: Boolean = false, dungeons: Boolean = false,
-    heralds: Boolean = false, extraTurns: Boolean = false, declaring: Boolean = false) {
+    heralds: Boolean = false, extraTurns: Boolean = false, declaring: Boolean = false,
+    /** Alice's deck made of these cards in turn instead (by name: [Choices]), each free, for Automatum's choice panels. */
+    aliceCards: List<String> = emptyList()) {
     private val f = TableStatesFixture
     private class Invented(face: DefinitionFace, oracle: OracleCard) {
         val submitted = CardDefinition(face.name, listOf(face)).let { SubmittedDefinition(DeckJson.digest(it), it) }
@@ -54,6 +56,26 @@ internal class EngineGameFixture(val startingPlayer: String = TableStatesFixture
         OracleCard("Ash Oracle", "{R}", "Legendary Planeswalker — Chandra", "[+1]: You gain 1 life.", loyalty = "3"))
     private val stride = Invented(DefinitionFace("stride", "Ember Stride", typeLine = "Sorcery", manaCost = "{R}",
         rulesText = "Take an extra turn after this one."), OracleCard("Ember Stride", "{R}", "Sorcery", "Take an extra turn after this one."))
+
+    /** Free cards whose casting, resolving or triggers ask Automatum's choices (STK-030, STK-044), by name. */
+    object Choices {
+        const val DIVINATION = "Ember Divination"
+        const val CHARM = "Cinder Charm"
+        const val SEER = "Spark Seer"
+        const val QUENCH = "Quench Spark"
+        const val TOTEM = "Spark Totem"
+    }
+    private fun free(id: String, name: String, typeLine: String, text: String, power: String = "", toughness: String = "") =
+        Invented(DefinitionFace(id, name, typeLine = typeLine, manaCost = "{0}", rulesText = text, power = power, toughness = toughness),
+            OracleCard(name, "{0}", typeLine, text, power.ifEmpty { null }, toughness.ifEmpty { null }))
+    private val choiceCards = listOf(
+        free("divination", Choices.DIVINATION, "Sorcery", "Scry 2."),
+        free("charm", Choices.CHARM, "Instant", "Choose one —\n• Cinder Charm deals 1 damage to any target.\n• You gain 2 life."),
+        free("seer", Choices.SEER, "Creature — Elemental", "When this creature enters, it deals 1 damage to any target.", "1", "1"),
+        free("quench", Choices.QUENCH, "Instant", "Counter target spell."),
+        free("totem", Choices.TOTEM, "Artifact", "{T}: This artifact deals 1 damage to any target."),
+    ).associateBy { it.submitted.definition.name }
+    private val aliceChoices = aliceCards.map { choiceCards[it] ?: if (it == "Mountain") mountain else error("no card $it") }
 
     private val map = Invented(DefinitionFace("map", "Torch Map", typeLine = "Sorcery", manaCost = "{0}",
         rulesText = "Venture into the dungeon."), OracleCard("Torch Map", "{0}", "Sorcery", "Venture into the dungeon."))
@@ -81,6 +103,7 @@ internal class EngineGameFixture(val startingPlayer: String = TableStatesFixture
      * Heralds instead: 1/1 for {R} whose enters trigger makes a 1/1 token); with [dungeons] Alice's are two
      * thirds Torch Maps. */
     private val decks = listOf(a, b).associateWith { p -> List(30) { i -> f.id("$p/card/$i") to when {
+        aliceChoices.isNotEmpty() && p == a -> aliceChoices[i % aliceChoices.size]
         dungeons && p == a -> if (i % 3 == 0) mountain else map
         i % 3 == 2 -> spark
         heralds && i % 3 == 1 -> herald
@@ -98,7 +121,8 @@ internal class EngineGameFixture(val startingPlayer: String = TableStatesFixture
         p.copy(definitions = (listOf(spark.submitted, mountain.submitted) + listOfNotNull(cub.submitted.takeIf { creatures }) +
             listOfNotNull(herald.submitted.takeIf { heralds }) + listOfNotNull(stride.submitted.takeIf { extraTurns }) +
             listOfNotNull(hound.submitted.takeIf { declaring }, oracle.submitted.takeIf { declaring }) +
-            listOfNotNull(map.submitted.takeIf { dungeons }) + outside).sortedBy { it.digest },
+            listOfNotNull(map.submitted.takeIf { dungeons }) + aliceChoices.map { it.submitted } + outside)
+            .distinctBy { it.digest }.sortedBy { it.digest },
             board = p.board.copy(cards = cards, stackEffects = emptyList(), combat = null, engineRecords = emptyList(),
                 containers = p.board.containers.map { c ->
                     if (c.zone == PlayZone.LIBRARY && !c.temp) c.copy(cards = cards.filter { it.containerId == c.id }.map { it.id }, layers = emptyList())

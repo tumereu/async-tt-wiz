@@ -16,15 +16,20 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import arcanum.engine.decision.Answer
+import arcanum.engine.decision.Announced
+import arcanum.engine.decision.Continuation
 import arcanum.engine.decision.Decision
+import org.asyncttwiz.automatum.CastFlow
 import arcanum.engine.state.ObjectId
 import arcanum.engine.state.TargetRef
+import arcanum.engine.state.StackItem
 import arcanum.engine.state.StackItemKind
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -78,8 +83,10 @@ internal fun SharedFlowHost(toolkit: TableToolkitController, play: TableBoard, s
         CompositionLocalProvider(LocalChoiceFrame provides ChoiceFrame(viewer)) {
         when {
             decision != null && flows.answering != null -> when {
-                flows.targeting -> if (toolkit.stackTargeting) StackTargetPicker(toolkit, play)
-                    else FlowTargetBar(flows, flow, play, decision as Decision.Targets)
+                flows.targeting -> decisionSource(flows, flow, play, viewer, decision).let { source ->
+                    if (toolkit.stackTargeting) StackTargetPicker(toolkit, play, source)
+                    else FlowTargetBar(flows, flow, play, decision as Decision.Targets, source)
+                }
                 // UI review round 2 #7: docked above the hand like every Automatum panel
                 dialog -> if (dividingInDialog(flow)) flow.division?.let { division ->
                     CombatDivisionPanel(flows, play, names, decision as Decision.Divide, division, toolkit.combat.divisionCount(play, division))
@@ -179,34 +186,67 @@ private fun observedCard(flows: SharedFlowController, flow: SharedFlow, play: Ta
 private fun commonSource(decision: Decision): ObjectId? = decision.source
     ?: (decision as? Decision.OrderTriggers)?.triggers?.map { it.source }?.distinct()?.singleOrNull()
 
+/** The Stack item an open choice belongs to: named by the decision, or the resolving top of the Stack from its source. */
+private fun decisionItem(flow: SharedFlow, decision: Decision): StackItem? =
+    decision.source?.let { source -> flow.state.stackItems[source] ?: flow.top?.takeIf { it.source == source || it.id == source } }
+
+/**
+ * Where an open choice comes from (STK-044), drawn at the right of its panel or target bar: an ability as its Stack token
+ * (STK-046: its source's art, its marker; holding it inspects its tile when it is on the Stack, then the source card), a
+ * spell or permanent as its card (covered when the viewer may not see it), the one source all the triggers to order share
+ * (UI review round 2 N10); null when it has none (a discard to hand size, the legend rule).
+ */
+internal fun decisionSource(flows: FlowQuestions, flow: SharedFlow, play: TableBoard, viewer: String, decision: Decision): ChoiceCardData? {
+    if (decision is Decision.OrderTriggers) return commonSource(decision)?.let { choiceCardOf(flows, play, viewer, it) }?.takeIf { it.cardId != null }
+    val item = decisionItem(flow, decision)
+    val source = item?.source ?: decision.source?.takeIf { it !is ObjectId.StackItem } ?: return null
+    val card = choiceCardOf(flows, play, viewer, source).takeIf { it.cardId != null } ?: return null
+    if (!card.shown) return card
+    if (item == null) {
+        // An ability being put on the Stack (a trigger's targets and modes, CR 603.3d): its source's card asks
+        val ability = when (val c = flow.state.pending?.continuation) {
+            is Continuation.PlacingTriggers -> (c.current?.what as? Announced.Ability)?.takeIf { it.source == source }?.ability
+                ?: c.waiting.firstOrNull { it.source == source && it.controller == decision.player }?.ability
+            is Continuation.Announcing -> (c.what as? Announced.Ability)?.takeIf { it.source == source }?.ability
+            else -> null
+        }
+        val triggered = ability is arcanum.api.Ability.Triggered
+        if (!triggered && ability !is arcanum.api.Ability.Activated) return card
+        return card.copy(key = "ability/$source", ability = StackAbilityShown(triggered, card.name, CastFlow.text(ability).orEmpty().trim()))
+    }
+    val triggered = when (item.kind) {
+        is StackItemKind.Triggered -> true
+        is StackItemKind.Activated -> false
+        else -> return card
+    }
+    // Its entry on the Stack, when the ability is there yet (its Inspect tile, STK-050)
+    val ref = flow.ref(TargetRef.Object(item.id))
+    val entry = play.board.stackEffects.firstOrNull { it.item?.id == ref }?.id
+    return card.copy(key = entry ?: "ability/${item.id}", ability = StackAbilityShown(triggered, card.name, flow.text(item).orEmpty().trim()))
+}
+
 /** An open choice of a resolution or a trigger, for the player answering it, docked above the hand (UI review #4): the
- * source's card beside the title saying what the choice is and where it comes from (I-D47), an ability's own line, the
- * cards it is about (what it triggered on, its targets; UI review #5), a short instruction, then the choice. */
+ * title saying only what the choice is (I-D47, STK-030) with the source at the right (STK-044), an ability's own line,
+ * the cards it is about (what it triggered on, its targets; UI review #5), a short instruction, then the choice. */
 @Composable
 private fun DecisionPanel(flows: SharedFlowController, flow: SharedFlow, play: TableBoard, names: Map<String, String>,
     decision: Decision, forOther: Boolean, otherName: String) {
     val viewer = LocalChoiceFrame.current.viewer
     val inspector = remember(decision.id) { ChoiceInspector() }
-    // The Stack item the choice belongs to: named by the decision, or the resolving top of the Stack from its source
-    val item = decision.source?.let { source -> flow.state.stackItems[source] ?: flow.top?.takeIf { it.source == source || it.id == source } }
+    val item = decisionItem(flow, decision)
     val sourceCard = item?.source ?: decision.source?.takeIf { it !is ObjectId.StackItem }
+    val source = decisionSource(flows, flow, play, viewer, decision)
     // UI review round 2 N3: the choice's own buttons sit in the dock's bottom row beside the eye, as in the cast panel
     val slot = remember(decision.id) { DockSlot() }
     AutomatumDockPanel("Automatum choice", flows.hidden, flows::toggleHidden, "Automatum panel", buttons = { slot.buttons?.invoke(this) }) {
         CompositionLocalProvider(LocalDockSlot provides slot) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            sourceCard?.let { choiceCardOf(flows, play, viewer, it) }?.takeIf { it.cardId != null }?.let { card ->
-                ChoiceCardFace(card, Modifier.choiceCardGestures(card.key, tap = {}, hold = { inspector.hold(card, it) }), small = true)
-            }
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                // I-D47: what the choice is and where it comes from ("Scry 2 · Carrot Cake")
-                Text(choiceTitle(flows, flow, play, decision), fontWeight = FontWeight.Bold, fontSize = 15.sp)
-                if (forOther) Text("Choosing for $otherName", fontSize = 12.sp, fontWeight = FontWeight.Medium, color = AutomatumViolet)
-                // An ability's own line (a spell is its card: hold it to read it)
-                if (!hasOwnText(decision) && item != null && (item.kind is StackItemKind.Activated || item.kind is StackItemKind.Triggered) &&
-                    sourceCard?.let(flows::shown) != false) flow.text(item)?.let {
-                    Text(it, fontSize = 11.sp, lineHeight = 14.sp, color = Color(0xff4b5a5f))
-                }
+        // I-D47, STK-030: the title says only what the choice is ("Scry 2"); its source is the card at the right
+        ChoiceHead(choiceWhat(decision), source, inspector) {
+            if (forOther) Text("Choosing for $otherName", fontSize = 12.sp, fontWeight = FontWeight.Medium, color = AutomatumViolet)
+            // An ability's own line (a spell is its card: hold it to read it)
+            if (!hasOwnText(decision) && item != null && (item.kind is StackItemKind.Activated || item.kind is StackItemKind.Triggered) &&
+                sourceCard?.let(flows::shown) != false) flow.text(item)?.let {
+                Text(it, fontSize = 11.sp, lineHeight = 14.sp, color = Color(0xff4b5a5f))
             }
         }
         // UI review #5: which objects the choice is about, e.g. the creature that died
@@ -230,25 +270,25 @@ private fun DecisionPanel(flows: SharedFlowController, flow: SharedFlow, play: T
                 else -> OpenSection(flows, flows, play, names, decision)
             }
         }
+        ChoiceInspection(inspector, play, viewer)
         }
     }
-    ChoiceInspection(inspector, play, viewer)
 }
 
-/** A choice's title (I-D47): what it is and, when it has one, the card it comes from: "Scry 2 · Carrot Cake", "Order
- * triggers · Peak Ascendancy" (the source all the triggers share, UI review round 2 N10). */
-internal fun choiceTitle(flows: SharedFlowController, flow: SharedFlow, play: TableBoard, decision: Decision): String =
-    listOfNotNull(choiceWhat(decision), commonSource(decision)?.let { sourceName(flows, flow, play, decision, it) }).joinToString(" · ")
-
-/** Targets of a trigger, picked on the table as for a cast (I-D5, I-D6); there is no cancelling a shared flow. */
+/** Targets of a trigger, picked on the table as for a cast (I-D5, I-D6); there is no cancelling a shared flow. The title
+ * says only the choice, the [source] sits at the right (STK-044). */
 @Composable
-private fun FlowTargetBar(flows: SharedFlowController, flow: SharedFlow, play: TableBoard, decision: Decision.Targets) {
+private fun FlowTargetBar(flows: SharedFlowController, flow: SharedFlow, play: TableBoard, decision: Decision.Targets,
+    source: ChoiceCardData?) {
+    val inspector = remember(decision.id) { ChoiceInspector() }
     AutomatumDockBar("Choose targets", eye = true) {
-        Text("${sourceName(flows, flow, play, decision)} — ${targetPrompt(decision)}", Modifier.weight(1f), fontSize = 13.sp,
+        Text(targetTitle(decision), Modifier.weight(1f).semantics { heading() }, fontSize = 13.sp,
             fontWeight = FontWeight.Medium, maxLines = 2, overflow = TextOverflow.Ellipsis)
         if (decision.max != 1 || decision.min == 0) BarButton(if (flows.picked.isEmpty()) "None" else "Done",
             if (flows.picked.isEmpty()) Icons.Outlined.Block else Icons.Outlined.Check, enabled = flows.picked.size >= decision.min,
             onClick = flows::confirmTargets)
+        if (source != null) ChoiceSource(source, inspector, Modifier.padding(start = 4.dp, end = 6.dp, top = 2.dp, bottom = 2.dp))
+        ChoiceInspection(inspector, play, LocalChoiceFrame.current.viewer)
     }
 }
 

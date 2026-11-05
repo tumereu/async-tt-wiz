@@ -39,6 +39,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -59,7 +60,7 @@ import org.asyncttwiz.protocol.*
 /**
  * The cast panel (integration spec I-D6, §3 I2, I-D47): shown only while a cast has a real choice (modes, X, optional or
  * alternative costs, targets; with Autotap off also the mana). It spans the table's width docked exactly above the
- * viewer's hand, with the card small as on the battlefield (tap: Inspect; hold: the large Inspect overlay) and its
+ * viewer's hand, with the card small at its right as in every Automatum panel (STK-044; hold: Inspect) and its
  * sections in the rules order (CR 601.2b–h). Targets are chosen on the table: the panel shrinks to a slim bar while legal
  * targets glow. The eye (I-D10) stays where it is: the rest of the panel fades away around it and comes back. "Cancel"
  * and Back drop the whole cast.
@@ -76,15 +77,26 @@ internal fun CastPanelHost(toolkit: TableToolkitController, play: TableBoard, sc
     val stack = scene?.stackRegion ?: scene?.items?.firstOrNull { it.zone == PlayZone.STACK && it.kind == TableItemKind.PILE }?.bounds
     // The slim bar sits over the own hand row (hand cards are never targets), so the battlefield stays free to tap
     val handRow = scene?.items?.firstOrNull { it.kind == TableItemKind.HAND && it.owner == toolkit.viewer }?.bounds
+    // STK-044: the card cast (an ability as its token) at the right of the panel and of its target bar
+    val source = castSource(play, toolkit.viewer, flow, cast.abilityText)
     if (cast.targeting) {
         // Picking a target on the Stack: its picker stands in for the bar until it closes
-        AboveHand(handRow) { if (toolkit.stackTargeting) StackTargetPicker(toolkit, play) else TargetBar(cast, flow, play) }
+        AboveHand(handRow) {
+            if (toolkit.stackTargeting) StackTargetPicker(toolkit, play, source) else TargetBar(cast, flow, play, source, toolkit.viewer)
+        }
         return
     }
     // I-D48: the choices' cards know who looks at them (outlines, Inspect)
     DockedAboveHand(handRow) {
-        CompositionLocalProvider(LocalChoiceFrame provides ChoiceFrame(toolkit.viewer)) { CastPanel(toolkit, cast, flow, play, names) }
+        CompositionLocalProvider(LocalChoiceFrame provides ChoiceFrame(toolkit.viewer)) { CastPanel(cast, flow, play, names, source) }
     }
+}
+
+/** The source of a cast (STK-044): the card cast, or for an activation ([abilityText] its text) the ability as its
+ * Stack token would show it (STK-046), the source's art with the marker. */
+internal fun castSource(play: TableBoard, viewer: String, flow: CastFlow, abilityText: String?): ChoiceCardData {
+    val card = choiceCard(play, viewer, "source/${flow.cardId}", flow.cardId, shown = true, fallback = CastController.cardName(play, flow.cardId))
+    return if (abilityText == null) card else card.copy(ability = StackAbilityShown(triggered = false, source = card.name, text = abilityText))
 }
 
 /** I-D47: the table's full width, its bottom exactly on the top of the viewer's hand row [hand] (the table's bottom
@@ -150,16 +162,20 @@ internal fun CastPanelPlacement(stack: TableBounds?, middle: Float?, dock: Table
 }
 
 @Composable
-private fun TargetBar(cast: CastController, flow: CastFlow, play: TableBoard) {
+private fun TargetBar(cast: CastController, flow: CastFlow, play: TableBoard, source: ChoiceCardData, viewer: String) {
     val decision = flow.pending as Decision.Targets
-    // UI review #4, #9: docked above the hand like every Automatum panel, never over it
+    val inspector = remember { ChoiceInspector() }
+    // UI review #4, #9: docked above the hand like every Automatum panel, never over it; STK-044: the title says only the
+    // choice, the card it is for sits at the right
     AutomatumDockBar("Choose targets", eye = true) {
-        Text("${spellName(flow, play)} — ${targetPrompt(decision)}", Modifier.weight(1f), fontSize = 13.sp,
+        Text(targetTitle(decision), Modifier.weight(1f).semantics { heading() }, fontSize = 13.sp,
             fontWeight = FontWeight.Medium, maxLines = 2, overflow = TextOverflow.Ellipsis)
         if (decision.max != 1 || decision.min == 0) TextButton(cast::confirmTargets, enabled = cast.picked.size >= decision.min) {
             IconText(Icons.Outlined.Check, if (cast.picked.isEmpty()) "None" else "Done")
         }
         TextButton(cast::cancel, Modifier.semantics { contentDescription = "Cancel cast" }) { IconText(Icons.Outlined.Close, "Cancel") }
+        ChoiceSource(source, inspector, Modifier.padding(start = 4.dp, end = 6.dp, top = 2.dp, bottom = 2.dp))
+        ChoiceInspection(inspector, play, viewer)
     }
 }
 
@@ -172,13 +188,15 @@ internal fun IconText(icon: ImageVector, text: String) {
 }
 
 /**
- * The panel docked above the hand (I-D47): the card small as on the battlefield beside its name (an ability's text for
- * an activation), the sections, then a bottom row with the eye at its left and Cancel and Cast at its right. The eye
- * never moves: hiding fades the panel (its background, sections and buttons) away around it, leaving only the eye.
+ * The panel docked above the hand (I-D47): its title saying what is done ([castTitle]; an ability's text
+ * under it) with the card at the right as in every Automatum panel ([source], STK-044), the sections, then a bottom row
+ * with the eye at its left and Cancel and Cast at its right. The eye never moves: hiding fades the panel (its
+ * background, sections and buttons) away around it, leaving only the eye.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun CastPanel(toolkit: TableToolkitController, cast: CastController, flow: CastFlow, play: TableBoard, names: Map<String, String>) {
+private fun CastPanel(cast: CastController, flow: CastFlow, play: TableBoard, names: Map<String, String>, source: ChoiceCardData) {
+    val inspector = remember { ChoiceInspector() }
     val shown by animateFloatAsState(if (cast.hidden) 0f else 1f, tween(180), label = "Cast panel")
     Column(Modifier.fillMaxWidth()
         .then(if (cast.hidden) Modifier else Modifier.pointerInput(Unit) {}.semantics { contentDescription = "Cast panel" })
@@ -190,13 +208,10 @@ private fun CastPanel(toolkit: TableToolkitController, cast: CastController, flo
             exit = fadeOut(tween(180)) + shrinkVertically(tween(180), shrinkTowards = Alignment.Bottom)) {
             Column(Modifier.padding(start = 10.dp, end = 10.dp, top = 8.dp).heightIn(max = 360.dp).verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    SmallCard(toolkit, play, flow.cardId, spellName(flow, play))
-                    Column(Modifier.weight(1f)) {
-                        Text(spellName(flow, play), fontWeight = FontWeight.Bold, fontSize = 15.sp)
-                        cast.abilityText?.let { Text(it, fontSize = 11.sp, lineHeight = 14.sp, color = Color(0xff4b5a5f)) }
-                    }
+                ChoiceHead(castTitle(flow), source, inspector) {
+                    cast.abilityText?.let { Text(it, fontSize = 11.sp, lineHeight = 14.sp, color = Color(0xff4b5a5f)) }
                 }
+                ChoiceInspection(inspector, play, LocalChoiceFrame.current.viewer)
                 if (cast.ways.size > 1) Section("Cast as") {
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         for (way in cast.ways) FilterChip(way == flow.begin, { if (way != flow.begin) cast.way(way) },
@@ -241,32 +256,6 @@ private fun CastPanel(toolkit: TableToolkitController, cast: CastController, flo
 internal fun HoldTip(description: String, content: @Composable () -> Unit) {
     TooltipBox(positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
         tooltip = { PlainTooltip { Text(description) } }, state = rememberTooltipState()) { content() }
-}
-
-/**
- * I-D48: a card in a panel looks like a battlefield card: small, its art, its name under it while the art is missing; a
- * tap opens Inspect and holding it shows the large Inspect overlay until released.
- */
-@Composable
-internal fun SmallCard(toolkit: TableToolkitController, play: TableBoard, cardId: String, name: String) {
-    val card = play.board.cards.singleOrNull { it.id == cardId }
-    val definition = card?.let { c -> play.definitions.singleOrNull { it.digest == c.definition }?.definition }
-    val face = definition?.faces?.let { faces -> faces.singleOrNull { it.faceId == card.faceId } ?: faces.firstOrNull() }
-    val art = face?.takeIf { it.scryfallId != null || it.imageUri != null }?.tableArtwork(definition.faces.indexOf(face), card.definition)?.forTable()
-    Box(Modifier.size(44.dp, 62.dp).clip(RoundedCornerShape(4.dp)).background(Color(0xff2f3437))
-        .border(1.dp, Color(0xff1f2326), RoundedCornerShape(4.dp))
-        .semantics { contentDescription = "Card $name" }
-        .pointerInput(cardId) {
-            detectTapGestures(onLongPress = { toolkit.peek(cardId) }, onPress = {
-                tryAwaitRelease()
-                if (toolkit.peek?.cardId == cardId) toolkit.peek(null)
-            })
-        }, contentAlignment = Alignment.Center) {
-        CardArtwork(art, "", 192, 140, Modifier.fillMaxSize(), crop = true, placeholder = {
-            Text(name, Modifier.padding(2.dp), color = Color.White, fontSize = 8.sp, lineHeight = 9.sp, maxLines = 4,
-                overflow = TextOverflow.Ellipsis)
-        })
-    }
 }
 
 /** A section of a choice: what it is ([title]) and a short instruction ([hint], I-D47); in a panel whose own title says
@@ -596,19 +585,18 @@ internal fun EyeButton(hidden: Boolean, toggle: () -> Unit, what: String = "cast
 
 // ---- Words
 
+/** The cast panel's title (STK-023, STK-044): only what is done, the card being at the panel's right. */
+internal fun castTitle(flow: CastFlow) = when {
+    flow.begin is Input.PlayLand -> "Play a land"
+    flow.activation -> "Activate an ability"
+    else -> "Cast a spell"
+}
+
 /** The panel's main button: Play for a land, Activate for an ability or special action (§3 I4), else Cast. */
 private fun actionLabel(flow: CastFlow) = when {
     flow.begin is Input.PlayLand -> "Play"
     flow.activation -> "Activate"
     else -> "Cast"
-}
-
-private fun spellName(flow: CastFlow, play: TableBoard): String {
-    val cast = flow.begin as? Input.Cast
-    val definition = cast?.let { flow.state.obj(it.card)?.definition ?: flow.state.objects.values.firstOrNull { o ->
-        (o.id as? ObjectId.Card)?.card == (it.card as ObjectId.Card).card }?.definition }
-    if (cast?.way?.fused == true) CastFlow.fusedName(definition)?.let { return it }
-    return definition?.faces?.getOrNull(cast.way.face)?.name ?: CastController.cardName(play, flow.cardId)
 }
 
 internal fun cardText(play: TableBoard, cardId: String): String? {
@@ -623,6 +611,9 @@ private fun wayLabel(play: TableBoard, flow: CastFlow, way: Input): String = whe
     is Input.PlayLand -> if (way.face == 0) "Play" else "Play back face"
     else -> "Cast"
 }
+
+/** A target bar's title (STK-044, STK-047): only the choice, "Choose any target", "Choose up to 2 target creature". */
+internal fun targetTitle(d: Decision.Targets): String = targetPrompt(d).replaceFirstChar { it.uppercase() }
 
 internal fun targetPrompt(d: Decision.Targets): String {
     val slot = d.slot.substringBefore(':').substringBefore('@')

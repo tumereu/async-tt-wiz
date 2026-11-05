@@ -24,6 +24,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import org.robolectric.annotation.GraphicsMode
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
@@ -37,6 +38,7 @@ import kotlin.test.assertTrue
  * as [EngineTableScreen] draws it.
  */
 @RunWith(RobolectricTestRunner::class)
+@GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(sdk = [35], qualifiers = "w412dp-h892dp-port-mdpi")
 class EngineChoiceScreenTest {
     @get:Rule val compose = createComposeRule()
@@ -121,7 +123,7 @@ class EngineChoiceScreenTest {
         assertNull(kit.bobToolkit.error, "no message")
     }
 
-    // STK-033, CMB-033, CR 510.1c: a division of combat damage Automatum asks for is its open choice, made in the division
+    // STK-033, CMB-033, STK-044, CR 510.1c: a division of combat damage Automatum asks for is its open choice, made in the division
     // panel: a row per creature that may get damage, filled in with Automatum's suggestion (lethal damage to each in
     // turn); OK deals the combat damage. Alice's Ember Cub (2/1) is blocked by three of Bob's (with two, lethal damage to
     // each is the only in-order result: made without asking, STK-033)
@@ -175,6 +177,14 @@ class EngineChoiceScreenTest {
         assertEquals(2, compose.onAllNodesWithContentDescription("Ember Cub: 1").fetchSemanticsNodes().size,
             "a row per blocker, lethal damage to each in turn")
         assertEquals(1, compose.onAllNodesWithContentDescription("Ember Cub: 0").fetchSemanticsNodes().size)
+        // STK-044: the title says only the choice; the attacking Cub is the small card at the panel's right
+        compose.onNode(hasText("Divide 2 damage") and isHeading()).assertExists()
+        val panel = compose.onNodeWithContentDescription("Division of combat damage").fetchSemanticsNode().boundsInRoot
+        val source = compose.onNodeWithTag(CHOICE_SOURCE_TAG, useUnmergedTree = true).assert(hasContentDescription("Ember Cub"))
+            .fetchSemanticsNode().boundsInRoot
+        assertTrue(panel.right - source.right < 20f, "the attacker at the panel's right: $source in $panel")
+        compose.onRoot().captureShot("$SCREENSHOTS/choice-source/division.png",
+            "Alice's Ember Cub is blocked by three of Bob's Cubs: the division panel above her hand is titled only \"Divide 2 damage\", her attacking Cub sits at its right as a small card, and the rows give lethal damage to two blockers in turn.")
         compose.onNodeWithText("OK").assertIsEnabled().performClick()
         compose.waitForIdle()
         kit.playOn("the combat damage") { kit.state().turn.step != TurnStep.CombatDamage || kit.state().pending == null }

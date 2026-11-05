@@ -40,6 +40,36 @@ class StackAbilityTest : E2e() {
         bob.status is GameDevice.Status.Stopped
     }
 
+    /** What the hold shows: Inspect with the ability's tile and the Herald's picture (one read of Bob's screen: while a
+     * finger is down the screen never idles, so each read is costly). */
+    private fun inspectsTheHeraldsAbility(where: String) {
+        val shown = bob.screen()
+        for (part in listOf("Card inspection content", "Triggered ability of Ember Herald", "Card image: Ember Herald"))
+            assertTrue(part in shown, "$where: $part: $shown")
+    }
+
+    // TBL-104, STK-050, STK-046 (owner, 2026-11-05: not yet seen working on the phone): Bob's playback stops at Alice's
+    // Herald trigger; holding the ability token on the Stack inspects it (its tile, then the Herald's picture); lifting
+    // closes it; the Stack list names it as the Herald's ability
+    @Test fun holdingAnAbilityOnTheStackInspectsIt() {
+        aliceCastsAHeraldWhileBobIsAway()
+        bob.back()
+        bobPlaysToAStop("Bob's playback stopping at the spell")
+        val spellStop = bob.status
+        bob.node(hasTestTag("stack-resolve")).performClick()
+        waitUntil("Bob's playback stopping at the trigger") {
+            if (bob.status == GameDevice.Status.CatchUp) bob.once { bob.playbackButton().performClick() }
+            bob.status.let { it is GameDevice.Status.Stopped && it != spellStop }
+        }
+        val token = bob.node(hasContentDescription("Triggered ability, Ember Herald — $heraldText", substring = true))
+        holding(token) { inspectsTheHeraldsAbility("the Stack") }
+        assertTrue(!bob.shows(hasContentDescription("Card inspection content")), "closed on release")
+        // The Stack list's row is the same hold (EngineTableScreenshotTest.holdingAnAbilityOnTheStackShowsItsTileThenItsSourceCard);
+        // here only that the list names it so
+        bob.node(hasContentDescription("Stack, 1 entries")).performClick()
+        waitUntil("the Stack list") { bob.showsText("Top · Ember Herald's ability") }
+    }
+
     // STK-046, HIS-091, TRN-066 (owner playtest 2026-11-04): an enters trigger on the Stack is drawn and named as its
     // source's ability, for both players; the spell itself stays a card
     @Test fun anEntersTriggerShowsAsTheSourcesAbilityOnBothDevices() {

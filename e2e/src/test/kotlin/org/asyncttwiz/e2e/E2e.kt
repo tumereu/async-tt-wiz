@@ -2,6 +2,7 @@ package org.asyncttwiz.e2e
 
 import android.os.Looper
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
+import androidx.compose.ui.test.performTouchInput
 import org.asyncttwiz.android.AppLog
 import org.asyncttwiz.android.AutomatumBoards
 import org.asyncttwiz.android.EngineWorker
@@ -169,6 +170,21 @@ abstract class E2e {
     }
     private var serverRead: org.asyncttwiz.protocol.EngineSnapshot? = null
     private var serverReadAt = 0L
+
+    /**
+     * A finger held on [node] (TBL-047's hold): down, the phones' clock moved on by [millis] with nothing else let run
+     * (the table stays as it is while the finger is down), [held] (what the screen shows meanwhile), then up.
+     */
+    internal fun holding(node: androidx.compose.ui.test.SemanticsNodeInteraction, millis: Long = 600, held: () -> Unit) {
+        compose.mainClock.autoAdvance = false
+        try {
+            node.performTouchInput { down(center) }
+            compose.mainClock.advanceTimeBy(millis)
+            held()
+            node.performTouchInput { up() }
+        } finally { compose.mainClock.autoAdvance = true }
+        run()
+    }
 
     /** Called after every round of [run] (say, to record each board a table shows). */
     internal val everyRun = mutableListOf<() -> Unit>()

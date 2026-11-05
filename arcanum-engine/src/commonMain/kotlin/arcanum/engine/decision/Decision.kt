@@ -17,7 +17,13 @@ import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
 import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
 
-/** Names one decision; an [arcanum.engine.input.Input.Answer] quotes it. Serialised as the plain string. */
+/**
+ * Names one decision; an [arcanum.engine.input.Input.Answer] quotes it. Serialised as the plain string. It depends only
+ * on what is asked, of whom, and how many inputs the game has had before it on its line
+ * ([arcanum.engine.state.GameState.inputCount]): state-based actions, triggers, timestamps and a host's reorder of a
+ * library never change it, so the same question asked again after an undo is the same decision on every host, and
+ * any input in between makes it another.
+ */
 @Serializable(with = DecisionIdSerializer::class)
 data class DecisionId(val value: String) {
     override fun toString(): String = value

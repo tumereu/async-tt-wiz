@@ -123,7 +123,14 @@ class EngineHistoryStoreTest {
      * goes with every row of any table that names it or its plays, both histories included; a game that never started
      * stays. */
     @Test
-    fun theWipeForTheSwitchRemovesStartedGamesWithEverythingThatNamesThem() = FreshDatabase().start().use { db ->
+    fun theWipeForTheSwitchRemovesStartedGamesWithEverythingThatNamesThem() = wipeRemovesStartedGames("V59__engine_state_wipe_plays.sql")
+
+    /** The wipe of the stable decision ids (V63, owner 2026-11-05), the same way. */
+    @Test
+    fun theWipeForStableDecisionIdsRemovesStartedGamesWithEverythingThatNamesThem() =
+        wipeRemovesStartedGames("V63__engine_decision_ids_wipe_plays.sql")
+
+    private fun wipeRemovesStartedGames(migration: String) = FreshDatabase().start().use { db ->
         FoundationMigrations.migrate(db.settings)
         db.connection().use { connection ->
             connection.autoCommit = false
@@ -141,7 +148,7 @@ class EngineHistoryStoreTest {
 
             // V62 dropped the old model's tables V59 also emptied: its statements for them have nothing left to do
             val dropped = Regex("\\b(game_play_mutation|gameplay_endpoint_edge|gameplay_endpoint_record|gameplay_tree_control|gameplay_mutation|gameplay_group)\\b")
-            val wipe = javaClass.getResource("/db/migration/V59__engine_state_wipe_plays.sql")!!.readText()
+            val wipe = javaClass.getResource("/db/migration/$migration")!!.readText()
                 .lines().filterNot { dropped.containsMatchIn(it) }.joinToString("\n")
             connection.createStatement().use { it.execute(wipe) }
             connection.commit()

@@ -20,7 +20,6 @@ Changes the owner wants but that are not built yet. The feature catalog
 
 ## Ready to build
 
-- Stable decision identity (owner, 2026-11-05, from the Analysis): an engine decision's id no longer depends on the timestamp counter or the change-log size (`decisionId` in arcanum-engine `casting/Flow.kt`), only on what is asked, for whom, and how many decisions (inputs) the game has had before it on its line, so the same question asked again after an undo, a branch or a new line's reshuffle has the same id, and any player's real input in between changes it. Non-decision changes (reshuffles, state-based actions, triggers, table-only events) never change an id. Simplify what this makes unnecessary (the new line's reshuffle riding in the next event, version-only staleness), keeping SYS-011/SYS-076/SYS-077 behaviour. Phone and server must derive identical ids (e2e). Existing engine games may be wiped (owner: wipes are fine until Automatum is first deployed to prod). No catalog change unless a behaviour changes (then stop and ask).
 - Notes one after another (owner, 2026-11-05, from the Analysis): a later table note no longer replaces an earlier one at once ("Bob responded …" overwritten by "That wasn't taken"); notes show in turn (name the catalog entry for table notes and update it).
 - One "same board" rule for every action (owner, 2026-11-05, from the Analysis): Assume, Undo and table actions use the same staleness / same-decision check as casts and passes (SYS-011, SYS-076, SYS-077); fold into the stable identity work where it collapses.
 

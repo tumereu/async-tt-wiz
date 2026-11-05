@@ -54,7 +54,10 @@ class SameDecisionTapTest : E2e() {
         waitUntil("Alice's Main 1") { alice.inOwnMain() }
         if (land) {
             alice.playFromHand("Mountain", this)
-            waitUntil("the Mountain on the battlefield") { alice.field("Mountain").isNotEmpty() && alice.inOwnMain() }
+            // On the server too: what her phone sends while its table is held ([HeldWorker]) would wait for the release
+            waitUntil("the Mountain on the battlefield, on the server") {
+                alice.field("Mountain").isNotEmpty() && alice.inOwnMain() && alice.engine { device.session.pending.isEmpty() }
+            }
         }
         assertEquals(TurnStep.PrecombatMain, alice.state.turn.step)
         assertEquals(GameDevice.Status.YourMove, alice.status)

@@ -74,6 +74,7 @@ internal object GameEnd {
      */
     fun concede(state: GameState, input: Input.Concede): Outcome {
         val recorder = Recorder(state.deepCopy())
+        arcanum.engine.Perform.countInput(recorder)
         val s = recorder.state
         val player = input.player
         require(!s.player(player).lost) { "$player has left the game already" }
@@ -133,6 +134,7 @@ internal object GameEnd {
      */
     fun agree(state: GameState, input: Input.AgreedResult): Outcome {
         val recorder = Recorder(state.deepCopy())
+        arcanum.engine.Perform.countInput(recorder)
         val s = recorder.state
         require(s.players.size >= 2) { "A game of one player has no result to agree on" }
         val left = s.players.filterNot { it.lost }.map { it.id }

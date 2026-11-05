@@ -100,6 +100,13 @@ class SameDecisionRulesTest {
         val land: ObjectId = s.battlefield.first()
         assertFalse(GameDevice.sameDecision(s, s.deepCopy().also { it.battlefield.remove(land) }), "the target gone")
         assertFalse(GameDevice.sameDecision(s, s.deepCopy().also { it.stack.add(land) }), "a new Stack object")
+        // Stable decision identity (owner, 2026-11-05): a new line's reshuffle of a library's unknown part is no new
+        // decision; an input in between is
+        val parts = Engine.unknownOrder(s, alice)
+        assertTrue(parts.any { it.size > 1 }, "an unknown part to reorder")
+        val reorder = assertNotNull(Engine.reorderUnknown(s, alice, parts.map { it.reversed() }))
+        assertTrue(GameDevice.sameDecision(s, s.deepCopy().also { it.apply(reorder) }), "the library reshuffled")
+        assertFalse(GameDevice.sameDecision(s, s.deepCopy().also { it.inputCount += 1 }), "an input in between")
     }
 
     // ---- The server's race: the other player's event taken before the player's own move

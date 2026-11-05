@@ -222,6 +222,10 @@ internal object Applier {
                 check(state.triggered == change.before) { "Waiting triggers aren't as expected" }
                 state.triggered = change.after.toMutableList()
             }
+            is Change.InputCounted -> {
+                check(state.inputCount == change.before) { "The input count isn't ${change.before}" }
+                state.inputCount = change.after
+            }
             is Change.PendingSet -> {
                 check(state.pending == change.before) { "Pending isn't as expected" }
                 state.pending = change.after

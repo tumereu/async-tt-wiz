@@ -33,7 +33,7 @@ data class GameEvent(
  *
  * [timestampBefore] is the engine's timestamp counter before the event ([arcanum.engine.state.GameState.timestampCounter],
  * which the engine never moves back): reverting the event puts it back, so the state at an event is the same however it
- * was reached (the engine's decision ids read the counter).
+ * was reached (new objects' timestamps and ids read the counter).
  */
 @Serializable
 data class EnginePart(val timestampBefore: Long, val steps: List<EngineStep>) {

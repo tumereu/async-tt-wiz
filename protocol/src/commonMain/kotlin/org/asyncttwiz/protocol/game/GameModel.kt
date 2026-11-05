@@ -18,7 +18,8 @@ import arcanum.engine.view.View
  * [apply], [revert] and an [EventBuilder] change it.
  *
  * **The state at an event is the same however it was reached** (from the root, a checkpoint, or another event's state
- * by reverting and applying), because the engine's own decision ids read its timestamp counter and log size:
+ * by reverting and applying), because new objects' timestamps and ids read the engine's timestamp counter and the
+ * rules' "this turn" questions read its log (decision ids read neither: what is asked, of whom, after how many inputs):
  * - reverting an event puts the timestamp counter back ([EnginePart.timestampBefore]);
  * - after each event, logged changes older than last turn are dropped ([GameState.forgetOlderTurns]: the rules ask only
  *   about this and last turn, D33), which keeps checkpoints and the engine's log lookups small in long games. Reverting

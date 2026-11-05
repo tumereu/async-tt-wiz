@@ -350,7 +350,7 @@ internal object Combat {
         }
         // CR 702.22j, k: banding gives the assignment to the other player
         val player = Banding.assigner(snap, recorder.state.combat!!, next) ?: snap.board.controller(next) ?: recorder.state.turn.active
-        val decision = Decision.Divide(decisionId(recorder.state, "combat-damage:$next"), player, next, plan.amount, plan.among,
+        val decision = Decision.Divide(decisionId(recorder.state, player, "combat-damage:$next"), player, next, plan.amount, plan.among,
             minEach = 0, lethal = plan.lethal, suggested = plan.suggested)
         return Progress.Waiting(Pending(decision, Continuation.TurnBased(action)))
     }

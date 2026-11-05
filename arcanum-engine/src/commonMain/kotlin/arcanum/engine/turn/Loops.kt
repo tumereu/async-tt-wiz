@@ -77,7 +77,7 @@ internal object Loops {
     /** The loop choice: [player] (or another player for them) chooses [LoopStop.CONTINUE] or [LoopStop.DRAW], told why
      * by [text]. */
     private fun choice(s: GameState, player: arcanum.engine.state.PlayerId, text: String, stop: LoopStop) = Progress.Waiting(Pending(
-        Decision.ChooseOption(decisionId(s, "loop"), player, null, listOf(LoopStop.CONTINUE, LoopStop.DRAW), text),
+        Decision.ChooseOption(decisionId(s, player, "loop"), player, null, listOf(LoopStop.CONTINUE, LoopStop.DRAW), text),
         Continuation.Loop(stop),
     ))
 
@@ -106,7 +106,8 @@ internal object Loops {
     private fun id(id: ObjectId): String = json.encodeToJsonElement(ObjectId.serializer(), id).jsonPrimitive.content
 
     /**
-     * [arcanum.engine.Engine.loopKey]: [state] in JSON without its log, ledgers, per-turn counts and timestamps, cards'
+     * [arcanum.engine.Engine.loopKey]: [state] in JSON without its log, ledgers, per-turn counts, input count and
+     * timestamps, cards'
      * definitions by name, every object, Stack item, effect and delayed trigger id replaced by its place (zones in
      * order first: libraries, hands, graveyards, outside the game, the battlefield, the Stack, exile, the command zone;
      * the unordered zones by timestamp), then hashed.
@@ -127,6 +128,7 @@ internal object Loops {
             ledger = mutableMapOf(),
             log = mutableListOf(),
             timestampCounter = 0,
+            inputCount = 0,
         )
         val canon = Canon()
         state.players.forEach { p -> (p.library + p.hand + p.graveyard + p.outside).forEach { canon.known(id(it)) } }

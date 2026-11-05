@@ -269,7 +269,7 @@ internal object Setup {
         var answers = given
         while (stage != null) {
             val mark = recorder.changes.size
-            val act = Act(recorder, Asker(answers, "setup:${key(stage)}@${recorder.state.log.size}"))
+            val act = Act(recorder, Asker(answers, arcanum.engine.casting.askerPrefix(recorder.state, "setup:${key(stage)}")))
             val next = try {
                 step(act, stage, options)
             } catch (n: NeedDecision) {

@@ -44,6 +44,11 @@ data class GameState(
     /** The game-wide timestamp counter (CR 613.7, D34): the highest timestamp given so far. Never goes back, also not
      * on [revert]. */
     var timestampCounter: Long = 0,
+    /** How many inputs the game has had on its line so far ([arcanum.engine.input.Input]s performed, every player's;
+     * [arcanum.engine.change.Change.InputCounted] each, taken back with the input): the engine names each decision by
+     * what it asks, for whom, and this count, so the same question asked again after an undo has the same id and any
+     * input in between gives it another. Nothing else moves it (state-based actions, triggers, a host's reorder). */
+    var inputCount: Int = 0,
     /** Triggered abilities that triggered and wait to be put on the Stack the next time a player would get priority
      * (CR 603.3, D42), in the order they triggered. */
     var triggered: MutableList<arcanum.engine.decision.WaitingTrigger> = mutableListOf(),

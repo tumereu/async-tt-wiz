@@ -407,7 +407,7 @@ internal object Triggers {
         val waiting = recorder.state.triggered.toList()
         if (waiting.isEmpty()) return Progress.Done
         val mark = recorder.changes.size
-        val act = Act(recorder, Asker(answers, "triggers@${recorder.state.nextTimestamp()}"))
+        val act = Act(recorder, Asker(answers, arcanum.engine.casting.askerPrefix(recorder.state, "triggers")))
         return try {
             // CR 610.3: an "until" return not done yet (its event happened outside the event pipeline) happens first;
             // state-based actions are checked again before triggers go on the Stack (Perform.checks goes round)

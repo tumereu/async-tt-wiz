@@ -61,13 +61,22 @@ internal class Snapshot(val state: GameState, private val viewOf: () -> View = {
 
 internal fun Recorder.snapshot(): Snapshot = Snapshot(state)
 
-/** A decision id that names what is asked and where the game is, so an answer to an old decision is refused. */
-internal fun decisionId(state: GameState, what: String): DecisionId =
-    DecisionId("$what@${state.timestampCounter}.${state.log.size}")
+/**
+ * A decision's id: [what] is asked of [player] after the game's [GameState.inputCount] inputs. Nothing but an input
+ * changes it (not state-based actions, triggers, timestamps or a host's reorder of a library), so the same question asked
+ * again after an undo is the same decision, and a question asked after another input is a new one.
+ */
+internal fun decisionId(state: GameState, player: PlayerId, what: String): DecisionId =
+    DecisionId("$what@${player.value}#${state.inputCount}")
 
-/** The changes recorded since [from] that a cancel would take back: everything but the open decision's bookkeeping. */
+/** The prefix of the ids an [arcanum.engine.action.Asker] gives its questions in a step: [what], after the game's
+ * [GameState.inputCount] inputs ([decisionId]'s rule; the questions of one step are numbered in the order asked). */
+internal fun askerPrefix(state: GameState, what: String): String = "$what#${state.inputCount}"
+
+/** The changes recorded since [from] that a cancel would take back: everything but the open decision's bookkeeping
+ * and the input count. */
 internal fun Recorder.madeSince(from: Int): List<Change> =
-    changes.subList(from, changes.size).filterNot { it is Change.PendingSet }
+    changes.subList(from, changes.size).filterNot { it is Change.PendingSet || it is Change.InputCounted }
 
 /** Shorthand for a finished flow. */
 internal val done: Progress get() = Progress.Done

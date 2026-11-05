@@ -68,7 +68,7 @@ internal object Payment {
 
     fun finish(recorder: Recorder, c: Continuation.Announcing, uses: List<ManaUse>, from: Int, answers: List<Answer> = emptyList()): Progress {
         val mark = recorder.changes.size
-        val act = Act(recorder, Asker(answers, "pay@${recorder.state.nextTimestamp()}"))
+        val act = Act(recorder, Asker(answers, askerPrefix(recorder.state, "pay")))
         return try {
             pay(act, c, uses)
         } catch (n: NeedDecision) {
@@ -689,7 +689,7 @@ internal object Payment {
     /** Stops with a [Decision.Manual] for what the engine doesn't do yet (D61); answered Done, it's finished. */
     private fun manual(recorder: Recorder, plan: Plan, text: String): Progress {
         val c = plan.c.copy(choices = plan.c.choices.copy(names = plan.c.choices.names.with(Plan.MANUAL, NamedValue.Number(1))), made = emptyList())
-        return Progress.Waiting(Pending(Decision.Manual(decisionId(recorder.state, "manual"), plan.player, plan.sourceId, text), c))
+        return Progress.Waiting(Pending(Decision.Manual(decisionId(recorder.state, plan.player, "manual"), plan.player, plan.sourceId, text), c))
     }
 
     /** The name the flashback-like replacement uses for the spell. */

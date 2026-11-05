@@ -48,7 +48,8 @@ seeded random games of cube cards, failing on any open player decision without a
   attachment, timestamp (D34), control start (CR 302.6), card memory and per-instance facts
   (D22/D41); unknown objects have no definition (D60); Stack items with targets, modes, X,
   names and snapshots; effect objects and delayed triggers (D19, D26); turn, step, priority;
-  ledgers; the tagged event log (D33); the open `Pending`. `TokenIds`: v5 UUID ids of tokens, emblems and card copies, from
+  ledgers; the tagged event log (D33); the open `Pending`; `inputCount`, the inputs performed so far (`Change.InputCounted`,
+  the first change of every input's outcome, taken back with it). `TokenIds`: v5 UUID ids of tokens, emblems and card copies, from
   the creation's timestamp, so every player's view (D60) derives the same ones.
   Each library's known places (`PlayerState.libraryPlaces`, CR 401.2): cards put at a known place, looked at or
   revealed where they lie, and random-order groups; a shuffle forgets them. Kept by the engine as it records changes
@@ -65,7 +66,10 @@ seeded random games of cube cards, failing on any open player decision without a
   `SetupAnswer(player, answer)` (see Starting and ending a game), and the host's `MandatoryLoop` (see Loops) and
   `AgreedResult(result)`. Each names the acting player (answers excepted: anyone may answer, P7); only the player
   casting or activating may cancel.
-- `decision/` — `Decision` (data only, with id and deciding player) and its `Answer`;
+- `decision/` — `Decision` (data only, with id and deciding player) and its `Answer`. A `DecisionId` names what is
+  asked, of whom, and the input count before it, nothing else: state-based actions, triggers, timestamps and a host's
+  reorder of a library don't change it, so the same question asked again after an undo (the changes reverted) has the
+  same id on every host, and any input in between gives it another;
   `Continuation`, the open flow the host stores opaquely (D58). Decisions carry text for people (`Texts`): a "you
   may", a choice or a cost to pay reads as the sentence of the ability's printed text, modes and triggers to order
   as their printed lines (with the trigger's `AbilityOrigin`), replacements to order as their ability's text; plain
@@ -138,7 +142,7 @@ all (CR 800.4f–h, see Status).
   and every remaining player leaves the game together (`GameResult.Draw`, CR 104.4b).
 - **Mandatory loops (CR 104.4b, 732.4):** the engine can't see what happens between calls, so the host finds them. A
   host passing for players (`shouldPassFor`) keeps `Engine.loopKey` of each state it passes in with something on the
-  Stack (the state as JSON without its log, ledgers, "this turn" counts of uses and timestamps, cards by name, ids
+  Stack (the state as JSON without its log, ledgers, "this turn" counts of uses, the input count and timestamps, cards by name, ids
   replaced by their place in the zones; hashed); meeting a key again with only such passes since, it performs
   `Input.MandatoryLoop`. The engine waits on the loop choice saying the game is in a loop that makes it a draw
   (`LoopStop.Mandatory(key)`). A loop through an optional action (a pass with something else to do, a decision

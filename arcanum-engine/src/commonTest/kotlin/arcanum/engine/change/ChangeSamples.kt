@@ -139,6 +139,7 @@ internal object ChangeSamples {
             on(base, Change.Forgotten(base.objOrThrow(spark), unknown)),
             on(base, Change.Happened(GameEvent.CoinFlipped(alice, won = true))),
             on(base, Changes.pending(base, pending)),
+            on(base, Change.InputCounted(base.inputCount, base.inputCount + 1)),
             on(base, Change.TriggersWaiting(emptyList(), listOf(arcanum.engine.decision.WaitingTrigger(alice,
                 arcanum.api.Ability.Unparsed("When this enters, draw a card."), origin = null, source = druid)))),
             on(after(Changes.tap(base, forest)), Change.Reverted(Changes.tap(base, forest))),

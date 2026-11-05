@@ -73,7 +73,7 @@ internal object Events {
     /** Performs [event]; [then] is what goes on afterwards (D58). */
     fun run(recorder: Recorder, event: PlannedEvent, then: Continuation? = null, answers: List<Answer> = emptyList()): Progress {
         val mark = recorder.changes.size
-        val act = Act(recorder, Asker(answers, "event@${recorder.state.nextTimestamp()}"))
+        val act = Act(recorder, Asker(answers, arcanum.engine.casting.askerPrefix(recorder.state, "event")))
         return try {
             perform(act, event)
             Progress.Done

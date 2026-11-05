@@ -133,7 +133,7 @@ internal object Casting {
     private fun fillPlayed(recorder: Recorder, input: Input, player: arcanum.engine.state.PlayerId, card: ObjectId, reason: String): Progress? {
         val o = recorder.state.obj(card) ?: return null
         if (!o.unknown) return null
-        val decision = Decision.HostFill(decisionId(recorder.state, "played"), player, card, listOf(card), reason, public = true)
+        val decision = Decision.HostFill(decisionId(recorder.state, player, "played"), player, card, listOf(card), reason, public = true)
         return Progress.Waiting(Pending(decision, Continuation.Played(input)))
     }
 
@@ -218,7 +218,7 @@ internal object Casting {
                 c = c.copy(choices = Answers.apply(plan, q, auto))
                 continue
             }
-            val decision = plan.decision(q, decisionId(recorder.state, "cast:${q.stage}:${q.kind}"))
+            val decision = plan.decision(q, decisionId(recorder.state, c.player, "cast:${q.stage}:${q.kind}"))
             return Progress.Waiting(Pending(decision, c.copy(stage = q.stage, made = c.made + recorder.madeSince(from))))
         }
     }

@@ -322,7 +322,7 @@ internal object Steps {
         val excess = s.player(active).hand.size - maxHandSize(s, active)
         if (excess <= 0) return Progress.Done
         val mark = recorder.changes.size
-        val act = arcanum.engine.action.Act(recorder, arcanum.engine.action.Asker(answers, decisionId(s, "cleanup-discard").value))
+        val act = arcanum.engine.action.Act(recorder, arcanum.engine.action.Asker(answers, decisionId(s, active, "cleanup-discard").value))
         return try {
             val hand = s.player(active).hand
             val chosen = act.chooseObjects(active, null, hand, excess, excess, "Discard down to ${maxHandSize(s, active)} cards (CR 514.1)")

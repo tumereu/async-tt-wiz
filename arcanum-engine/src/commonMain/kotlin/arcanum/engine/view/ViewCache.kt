@@ -40,14 +40,14 @@ internal class ViewCache(view: View? = null) {
     }
 
     /**
-     * [change] was applied or taken back. The view reads neither priority, the open decision, the triggers waiting to be
-     * put on the Stack nor mana pools; an event that changes nothing else (mana, a damage event, a game event) only adds
+     * [change] was applied or taken back. The view reads neither priority, the open decision, the input count, the
+     * triggers waiting to be put on the Stack nor mana pools; an event that changes nothing else (mana, a damage event, a game event) only adds
      * to the tagged events, which this view may not have read. Every other change may change it.
      */
     fun changed(change: Change) {
         provisionalItem = null
         provisionalView = null
-        val keeps = change is Change.Priority || change is Change.PendingSet || change is Change.TriggersWaiting ||
+        val keeps = change is Change.Priority || change is Change.PendingSet || change is Change.InputCounted || change is Change.TriggersWaiting ||
             (!readsLog && (change is Change.ManaPool || change is Change.Damage || change is Change.Happened))
         if (!keeps) view = null
     }

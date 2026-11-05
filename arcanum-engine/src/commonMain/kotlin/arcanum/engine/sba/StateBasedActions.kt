@@ -41,7 +41,7 @@ internal object StateBasedActions {
 
     private fun run(recorder: Recorder, answers: List<Answer>): Progress {
         val mark = recorder.changes.size
-        val act = Act(recorder, Asker(answers, "sba@${recorder.state.nextTimestamp()}"))
+        val act = Act(recorder, Asker(answers, arcanum.engine.casting.askerPrefix(recorder.state, "sba")))
         return try {
             once(act)
             Progress.Done

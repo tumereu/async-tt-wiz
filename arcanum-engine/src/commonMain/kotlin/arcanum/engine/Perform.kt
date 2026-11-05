@@ -83,6 +83,7 @@ internal object Perform {
         require(!GameEnd.over(recorder.state)) { "The game is over (CR 104.1)" }
         require(input !is Input.Concede && input !is Input.AgreedResult) { "Ending the game works on its own copy" }
         val open = recorder.state.pending
+        countInput(recorder)
         val progress = if (open != null) {
             when (input) {
                 is Input.Answer -> {
@@ -123,6 +124,13 @@ internal object Perform {
         }
         if (final is Progress.Waiting) recorder.record(Changes.pending(recorder.state, final.pending))
         return Outcome(recorder.changes.toList(), (final as? Progress.Waiting)?.pending)
+    }
+
+    /** Counts the input being performed ([GameState.inputCount]): the first change of its outcome. A refused input
+     * records nothing, as its whole outcome is dropped. */
+    fun countInput(recorder: Recorder) {
+        val count = recorder.state.inputCount
+        recorder.record(arcanum.engine.change.Change.InputCounted(count, count + 1))
     }
 
     /** Goes on with [continuation] given [answer]; each part goes on with [Continuation.then] itself when its flow ends. */

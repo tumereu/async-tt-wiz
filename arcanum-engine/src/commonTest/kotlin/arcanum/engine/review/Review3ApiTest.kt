@@ -20,7 +20,9 @@ import kotlin.test.assertTrue
  * its costs were paid (D58), conceding while another player's decision is open, and what decisions tell a UI.
  */
 class Review3ApiTest {
-    private fun GameState.normalized() = deepCopy().also { it.timestampCounter = 0 }
+    // The timestamp counter never goes back (D34), and the input count counts every input, a cancel too (stable
+    // decision ids, owner 2026-11-05): bookkeeping, not game state a player sees
+    private fun GameState.normalized() = deepCopy().also { it.timestampCounter = 0; it.inputCount = 0 }
 
     /** Undo of the last batch (the mana payment) gives back the state before it; another payment is then accepted and
      * gives the same game as choosing it in the first place, timestamps aside (D34). */

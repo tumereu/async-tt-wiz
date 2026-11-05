@@ -277,6 +277,15 @@ sealed interface Change {
      * [before] and [after]. Recorded by the engine as places become known (cards put into the library at a known place,
      * looked at or revealed where they lie, reordered) or unknown (a shuffle); bookkeeping, not an event.
      */
+    /** An input was performed: the game's count of inputs ([arcanum.engine.state.GameState.inputCount]) goes from
+     * [before] to [after], the first change of each input's outcome. Bookkeeping, not an event; stored in short form
+     * (every input's outcome has one). */
+    @Serializable @SerialName("inputs")
+    data class InputCounted(@SerialName("b") val before: Int, @SerialName("a") val after: Int) : Change {
+        override fun inverse() = copy(before = after, after = before)
+        override val isEvent: Boolean get() = false
+    }
+
     @Serializable @SerialName("library-places")
     data class LibraryPlaces(val player: PlayerId, val before: Map<ObjectId, Int>, val after: Map<ObjectId, Int>) : Change {
         override fun inverse() = copy(before = after, after = before)

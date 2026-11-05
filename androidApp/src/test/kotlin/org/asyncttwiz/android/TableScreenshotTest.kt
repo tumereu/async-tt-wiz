@@ -290,7 +290,7 @@ class TableScreenshotTest {
 
 
     // TBL-071, TBL-116 (I-D52): one page, only what Automatum offers for the card; no Inspect or Other side (holding
-    // inspects, TBL-104), no "Attack →" (the lanes pick targets, CMB-028); nothing changes the card by hand
+    // inspects, TBL-104), no "Attack →" (the lanes pick targets, CMB-048); nothing changes the card by hand
     @Test fun battlefieldMenuHasOnlyAutomatumsRows() {
         val (_, sent) = menu("card-actions", false)
         compose.waitForIdle()

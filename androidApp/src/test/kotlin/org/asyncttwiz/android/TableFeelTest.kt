@@ -10,7 +10,7 @@ class TableFeelTest {
 
 
 
-    // SYS-050, TBL-050
+    // SYS-050
     @Test fun backDismissesLayersBeforeReviewAndDoubleBackExit() {
         val back = TableBackStateMachine()
         assertEquals(TableBackAction.CLOSE_OVERLAY, back.back(0, true, true))

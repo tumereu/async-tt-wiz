@@ -106,7 +106,7 @@ class EngineTableScreenshotTest {
             "Alice kept while Bob was away and is in her first main phase: a small violet dot at the step arrow's corner says Bob hasn't seen her last moves yet (no count, nothing over the board), the strip above the quick actions shows the events so far in each player's colour, and the quick actions are her own Response mode (Auto-skip), Always assume resolves and Autotap mana.")
     }
 
-    // TRN-066, TRN-062, I-D56 §4, §14: Bob is online, so after Alice's keep the game waits for his; faint words over the
+    // TRN-066, TRN-070, TRN-062, I-D56 §4, §14: Bob is online, so after Alice's keep the game waits for his; faint words over the
     // battlefield say so (nothing covers the board) and Assume keep takes the step arrow's place while he must act
     @Test fun waitingBarOffersAssumeKeep() {
         val game = EngineGame(f.game.id, f.a, f.base, f.snapshot())
@@ -289,7 +289,7 @@ class EngineTableScreenshotTest {
             "Alice tapped the Stack holding her Ember Herald's enters trigger: the list shows it as the ability token, \"Top · Ember Herald's ability\" and the trigger's text.")
     }
 
-    // STK-046, TBL-104: holding an ability's entry on the Stack shows a card-sized tile with the source's name and the
+    // STK-050, TBL-104: holding an ability's entry on the Stack shows a card-sized tile with the source's name and the
     // ability's text, then the source card's picture, and nothing else
     @Test fun holdingAnAbilityOnTheStackShowsItsTileThenItsSourceCard() {
         val (game, h) = heraldTriggerOnStack()
@@ -352,7 +352,7 @@ class EngineTableScreenshotTest {
             "Bob's playback stopped at his own opening, which Alice had played on from: his hand and the quick actions Mulligan and Keep, as in any opening; nothing says what Alice assumed.")
     }
 
-    // HIS-013 (§27): Bob paused playback: it went on to Alice's upkeep, where Full control would have stopped for him, and
+    // HIS-103 (§27): Bob paused playback: it went on to Alice's upkeep, where Full control would have stopped for him, and
     // stopped there with the strip and Play at the bottom; holding Play opens the response mode dialog
     @Test fun pausedPlaybackStopsWhereFullControlWould() {
         val bob = bobCatchingUp()
@@ -418,7 +418,7 @@ class EngineTableScreenshotTest {
             "Alice tapped the history button at the end of the strip and stepped back to her keep: the bars turn grey, the board shows the opening as it was then, and the timeline panel has the strip with Previous, Auto and Next; nothing on it acts.")
     }
 
-    // CMB-040 (I-D56 §4, §14): the Assume blockers screen while Bob is away: Alice edits the blocks before assuming them
+    // CMB-040, CMB-049 (I-D56 §4, §14): the Assume blockers screen while Bob is away: Alice edits the blocks before assuming them
     @Test fun assumeBlockersScreenEditsTheBlocks() {
         val scenario = EngineCombatScenario()
         scenario.until(scenario::bothHaveCubs)
@@ -449,7 +449,7 @@ class EngineTableScreenshotTest {
         }
     }
 
-    // CMB-028 (I-D54 §8): Alice's attack staging is shared: Bob's table shows her staged Cub in the lane while she decides
+    // CMB-043 (I-D54 §8): Alice's attack staging is shared: Bob's table shows her staged Cub in the lane while she decides
     @Test fun theOtherPlayersStagingShows() {
         val scenario = EngineCombatScenario()
         scenario.until(scenario::bothHaveCubs)

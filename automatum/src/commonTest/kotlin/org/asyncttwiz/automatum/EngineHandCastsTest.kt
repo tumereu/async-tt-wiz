@@ -25,7 +25,7 @@ class EngineHandCastsTest {
             CastFlow.Seeds(table::seed))
     }
 
-    // ZON-080: the regular cast with its mana, chosen; the kicker an extra, unaffordable with two Mountains ({4}{R}); the
+    // ZON-080, ZON-082: the regular cast with its mana, chosen; the kicker an extra, unaffordable with two Mountains ({4}{R}); the
     // sources Autotap would tap follow the chosen way
     @Test fun regularCastAndAnUnaffordableKicker() {
         val mountains = table.put(alice, Zone.Battlefield, "Mountain", "Mountain")
@@ -42,7 +42,7 @@ class EngineHandCastsTest {
         assertTrue(chips.sources.single() in mountains)
     }
 
-    // ZON-080: with the kicker chosen the sources follow the extras (five Mountains for {4}{R}); the way keeps its own cost
+    // ZON-082: with the kicker chosen the sources follow the extras (five Mountains for {4}{R}); the way keeps its own cost
     @Test fun sourcesFollowTheChosenExtras() {
         val mountains = table.put(alice, Zone.Battlefield, "Mountain", "Mountain", "Mountain", "Mountain", "Mountain")
         val (surge) = table.put(alice, Zone.Hand, "Flash Surge")
@@ -52,7 +52,7 @@ class EngineHandCastsTest {
         assertEquals("{R}", kicked.chosen.cost)
     }
 
-    // ZON-080, STK-023: a cast begun with the chosen kicker never asks it: the cast asks only for its target, then pays
+    // ZON-082, STK-051: a cast begun with the chosen kicker never asks it: the cast asks only for its target, then pays
     @Test fun aCastWithTheChosenKickerAsksOnlyTheTarget() {
         table.put(alice, Zone.Battlefield, "Mountain", "Mountain", "Mountain", "Mountain", "Mountain")
         val (surge) = table.put(alice, Zone.Hand, "Flash Surge")

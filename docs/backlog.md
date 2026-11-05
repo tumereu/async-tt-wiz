@@ -16,8 +16,7 @@ Changes the owner wants but that are not built yet. The feature catalog
 
 ## Specified, not started
 
-Spec `docs/specs/engine-responsiveness.md` (architecture check, 2026-11-04), in this order:
-- R7 (any time, docs only): close out the built specs `engine-state-architecture.md` and `async-play.md`, keeping only the choices still waiting for the owner.
+(none)
 
 ## Needs discussion
 

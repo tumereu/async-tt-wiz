@@ -82,7 +82,7 @@ class EnginePassesAndUndoTest {
         return shown
     }
 
-    // HIS-091, HIS-001, HIS-075, HIS-099, HIS-084 (§29.2, owner 2026-11-04): across turns full of passes no strip, timeline
+    // HIS-101, HIS-001, HIS-075, HIS-099, HIS-084 (§29.2, owner 2026-11-04): across turns full of passes no strip, timeline
     // or event chip text says anyone passed (assumed or not): a pass reads only as what it led to, one that led to nothing
     // shows nowhere; the Undo dialog lists no pass (an End turn's first pass is "You ended the turn"), and Undo goes back
     // past the player's own Next tap to their cast
@@ -188,7 +188,7 @@ class EnginePassesAndUndoTest {
         }
     }
 
-    // HIS-095 (§29.2, smoke 2026-11-04): with both apps open, Alice casts an Ember Herald and Bob's pass lets it resolve:
+    // HIS-102 (§29.2, smoke 2026-11-04): with both apps open, Alice casts an Ember Herald and Bob's pass lets it resolve:
     // on Alice's live table his pass shows at once (the Herald resolves), it never turns into playback
     @Test fun theOtherPlayersPassShowsAtOnceOnALiveTable() {
         val sim = EngineAppSim(f)

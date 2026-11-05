@@ -126,7 +126,7 @@ class CardListEditorUiTest {
         compose.onNodeWithText("Discard unsaved changes?").assertIsDisplayed()
     }
 
-    // LOB-105, LOB-106, LOB-107
+    // LOB-105, LOB-106, LOB-122
     @Test fun searchAddsToTheChosenSectionSquaresRemoveAndDoneKeepsTheChanges() {
         val editor = editor()
         connectSearch(editor, "Meadow Sentinel", "Rune Bear")
@@ -191,7 +191,7 @@ class CardListEditorUiTest {
         compose.onNodeWithTag("destination-main").assertIsSelected()
     }
 
-    // LOB-105, LOB-049: a round Undo at the bottom left, shown only when there is something to undo, takes back Cards tab and
+    // LOB-120, LOB-049: a round Undo at the bottom left, shown only when there is something to undo, takes back Cards tab and
     // search changes one at a time.
     @Test fun undoTakesBackCardsTabAndSearchChangesOneAtATime() {
         val editor = editor()
@@ -245,7 +245,7 @@ class CardListEditorUiTest {
         compose.onNodeWithTag("card-list-undo").assertDoesNotExist()
     }
 
-    // LOB-106: Main, Side and Maybe squares in that order, each only while its section holds copies; a tap on a square removes
+    // LOB-121: Main, Side and Maybe squares in that order, each only while its section holds copies; a tap on a square removes
     // one copy from that section, whichever section is chosen.
     @Test fun searchSquaresShowEachSectionInOrderAndRemoveFromTheirOwnSection() {
         val editor = editor()
@@ -286,7 +286,7 @@ class CardListEditorUiTest {
         assertEquals(2, count(editor, "Rune Bear", DeckSection.MAYBEBOARD))
     }
 
-    // LOB-106, DRF-003: a cube's results show only Main and Maybe squares; the chosen section's square counts up.
+    // LOB-121, DRF-003: a cube's results show only Main and Maybe squares; the chosen section's square counts up.
     @Test fun cubeSearchSquaresShowMainAndMaybe() {
         val bear = CardDefinition("Rune Bear", listOf(DefinitionFace("rune-bear", "Rune Bear", typeLine = "Creature — Bear")))
         val digest = DeckJson.digest(bear)
@@ -326,7 +326,7 @@ class CardListEditorUiTest {
         } finally { cubes.close() }
     }
 
-    // LOB-107: colour and mana value chips are mana symbols; every chip is 32 dp tall and 4 dp from the next, rows too;
+    // LOB-119: colour and mana value chips are mana symbols; every chip is 32 dp tall and 4 dp from the next, rows too;
     // a chosen chip shows as selected.
     @Test fun searchChipsAreManaSymbols32DpTall4DpApart() {
         val editor = editor()
@@ -347,7 +347,7 @@ class CardListEditorUiTest {
         assertEquals(setOf(SearchManaValue.SIX), editor.search.state.values)
     }
 
-    // LOB-063, LOB-107: adding past the limit is refused with a reason.
+    // LOB-063, LOB-122: adding past the limit is refused with a reason.
     @Test fun searchRefusesCardsPastTheLimit() {
         val editor = editor()
         val full = editor.entries!!.map { if (it.printing.name == "Training Land") it.copy(quantity = 1000 - 60 - 15 + 48) else it }
@@ -448,7 +448,7 @@ class CardListEditorUiTest {
             compose.runOnIdle { assertEquals(listOf(DeckSection.MAINBOARD to 2, DeckSection.MAYBEBOARD to 1),
                 cubes.entries!!.map { it.section to it.quantity }) }
             compose.onNodeWithText("2 main · 1 maybe").assertIsDisplayed()
-            // LOB-105: the cube editor's Undo takes the swipe back.
+            // LOB-120: the cube editor's Undo takes the swipe back.
             compose.onNodeWithTag("card-list-undo").performClick()
             compose.onNodeWithText("3 main").assertIsDisplayed()
             compose.onNodeWithTag("card-list-undo").assertDoesNotExist()

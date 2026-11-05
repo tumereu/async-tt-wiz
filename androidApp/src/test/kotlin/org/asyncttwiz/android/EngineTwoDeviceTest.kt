@@ -204,7 +204,7 @@ class EngineTwoDeviceTest {
         }
     }
 
-    /** CMB-028 (I-D54 §8): the attacker stages some creatures (a shared draft, sometimes changed once), then declares. */
+    /** CMB-043 (I-D54 §8): the attacker stages some creatures (a shared draft, sometimes changed once), then declares. */
     private fun declareAttackers(game: EngineGame, s: GameState, me: PlayerId, rnd: Random) {
         val defender = s.players.first { it.id != me }.id
         val view = Engine.view(s)
@@ -218,7 +218,7 @@ class EngineTwoDeviceTest {
         if (game.send(listOf(Input.DeclareAttackers(me, attacks))) is GameDevice.Acted.Refused) game.send(listOf(Input.DeclareAttackers(me, emptyList())))
     }
 
-    /** CMB-034 (I-D54 §8): the defender arranges blocks (a shared draft), then declares them. */
+    /** CMB-034, CMB-043 (I-D54 §8): the defender arranges blocks (a shared draft), then declares them. */
     private fun declareBlockers(game: EngineGame, s: GameState, me: PlayerId, rnd: Random) {
         val blocks = blocks(s, me, rnd)
         if (blocks.isNotEmpty() && rnd.nextBoolean()) game.table(listOf(TableChange.BlockDraft(game.device.model.table.blockDraft, blocks)))
@@ -280,7 +280,7 @@ class EngineTwoDeviceTest {
         assertTrue(stats.confirmations > 0 && stats.branches > 0 && stats.catchUps > 0, "$stats")
     }
 
-    // HIS-099, TRN-065 (I-D56 §10, §11): players coming and going, undo requests, results
+    // HIS-099, HIS-100, TRN-065 (I-D56 §10, §11): players coming and going, undo requests, results
     @Test fun mixedGames() {
         val stats = run(Mode.MIXED, 21L..25L)
         assertTrue(stats.rewinds > 0 && stats.requests > 0 && stats.results > 0, "$stats")

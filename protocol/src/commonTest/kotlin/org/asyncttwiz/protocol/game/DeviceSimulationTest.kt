@@ -97,7 +97,7 @@ class DeviceSimulationTest {
                 "seed $seed $mode ${p.value}: the shown state is the server's at the local head")
             val repro = GameRepro.decode(d.repro(sim.server.history.codec).encode())
             assertEquals(emptyList(), repro.check(), "seed $seed $mode ${p.value}: the bundle replays")
-            // TRN-058, TRN-014 (I-D57): the device's move (pill, bar colours) is the server's (game list, notifications)
+            // TRN-058, TRN-013 (I-D57): the device's move (pill, bar colours) is the server's (game list, notifications)
             if (d.session.pending.isEmpty() && !d.session.drafting && sim.pendingDeliveries(p) == 0)
                 assertEquals(sim.serverMove(p), d.move, "seed $seed $mode ${p.value}: whose move it is (${d.status})")
         }

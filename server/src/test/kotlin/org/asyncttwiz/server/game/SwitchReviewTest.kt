@@ -217,7 +217,7 @@ class SwitchReviewTest {
         assertEquals(SuggestedResult.DRAW, recorded.outcome)
     }
 
-    // switchreview #12 (decided for the owner 2026-11-04, to confirm), LOB-072, HIS-099: an undo request is the other
+    // switchreview #12 (decided for the owner 2026-11-04, to confirm), LOB-072, HIS-100: an undo request is the other
     // player's move: listed and notified like one ("Your move"), so a request made while they are away doesn't freeze the
     // game unseen; the requester waits meanwhile, and cancelling it ends the other player's move again.
     @Test fun `an undo request is the other player's move until it is cancelled`() = withService { runtime ->

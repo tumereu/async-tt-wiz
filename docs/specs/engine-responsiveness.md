@@ -69,7 +69,7 @@ rules engine's own work is a small part of that (a typical `Engine.perform` was 
   plays) instead of `EngineProjection`'s `PlayState` with `BoardState.engine` attached. The cast, choice and combat
   controllers read the engine state and table state directly, not through `EngineState.from` / `EngineCall` /
   `HostPriority`.
-- Then delete what only the old model reached (engine-state-architecture §14 "Left after step D2", items 1–5): the app's
+- Then delete what only the old model reached: the app's
   old table path and history machinery, the I-D41 UI, `HistoryText`, the play replica in `GameSession`; protocol's old
   play actions, `GameplayRules`/`HistoryContinuation`/`AutomatumOnly`/`GameplayTree`/`TreeSync`/`RetainedIndex` and
   `PlayState`'s game fields; automatum's `EngineBatch`, `StepFlow`/`PausePoints` passing for others, `HostPriority`,
@@ -94,10 +94,8 @@ rules engine's own work is a small part of that (a typical `Engine.perform` was 
 
 ## R7. Close out the built specs
 
-- `engine-state-architecture.md` and `async-play.md` are built (their §9–§14 and §18–§27 are build logs). Move any
-  behaviour the catalog doesn't hold yet into the catalog, keep only the choices still waiting for the owner's
-  confirmation (moved to one short list, e.g. in this spec or `docs/backlog.md` "Needs discussion"), and delete the
-  rest per AGENTS ("deleted once built"). Docs only; the owner reviews the catalog changes.
+- Built (2026-11-05): `engine-state-architecture.md` is deleted, and `async-play.md` holds only the choices still
+  waiting for the owner's confirmation.
 
 ## Not in this spec
 

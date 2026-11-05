@@ -69,7 +69,7 @@ class EngineTableScreenTest {
 
     private fun redraw() { compose.runOnIdle { version++ }; compose.waitForIdle() }
 
-    // STK-044, STK-023: the target bar of a Storm Spark cast is the table's full width with its bottom on the top of
+    // STK-044, STK-047: the target bar of a Storm Spark cast is the table's full width with its bottom on the top of
     // Alice's hand row, white; its eye hides it and shows it again (only the eye stays). STK-025: nothing reaches Bob
     // while the cast is open; the step arrow refuses with the card being cast shaking; Cancel drops it without a trace
     @Test fun theTargetBarSitsAboveTheHandWithItsEye() {
@@ -125,7 +125,7 @@ class EngineTableScreenTest {
 
     // TBL-119, TRN-010: no virtual-tabletop controls: Table actions hold the timeline and the result (no dice, coins,
     // tokens or combat areas); card menus keep only a combat copy's Remove from combat below Automatum's rows (TBL-116: no
-    // Inspect or Other side, holding inspects; no "Attack →", the lanes pick targets, CMB-028)
+    // Inspect or Other side, holding inspects; no "Attack →", the lanes pick targets, CMB-048)
     @Test fun noVirtualTabletopControls() {
         assertEquals(emptyList(), CardRingPages.page(CardMenuLayout.CARD).actions)
         assertEquals(listOf("Remove from combat"), CardRingPages.page(CardMenuLayout.COMBAT).actions)

@@ -44,7 +44,7 @@ class EngineCardPlaysTest {
         assertEquals(CardPlay.Refusal.Priority(alice), table.plays(viewer = bob).of(bobSeer).single().refusal)
     }
 
-    // SYS-067, TBL-115 (CR 605.3a, 117.3c): a mana ability outside a payment goes out at once and its player keeps priority
+    // SYS-067, TBL-126 (CR 605.3a, 117.3c): a mana ability outside a payment goes out at once and its player keeps priority
     @Test fun aManaAbilityKeepsPriority() {
         val (seer) = table.put(alice, Zone.Battlefield, "Elvish Seer")
         val state = table.state()
@@ -64,7 +64,7 @@ class EngineCardPlaysTest {
         assertEquals(CardPlay.Refusal.Used, greyed.refusal)
     }
 
-    // TBL-115 (CR 602.2): an ability with a cost to pay opens the cast panel's payment, and the activation goes out
+    // TBL-126 (CR 602.2): an ability with a cost to pay opens the cast panel's payment, and the activation goes out
     // with the suggested payment
     @Test fun activatingAsksThePayment() {
         table.put(alice, Zone.Battlefield, "Mountain", "Mountain")

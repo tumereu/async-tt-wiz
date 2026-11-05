@@ -87,7 +87,7 @@ class EngineCatchUpPlaybackTest {
         assertTrue(sim.leaks.isEmpty())
     }
 
-    // HIS-021 (§29.6): Alice's combat with no attackers changes nothing Bob can see: its events go by at once in his
+    // HIS-104 (§29.6): Alice's combat with no attackers changes nothing Bob can see: its events go by at once in his
     // playback; under Full control they keep the playback delay
     @Test fun anEmptyCombatIsSkipped() {
         val sim = EngineAppSim(f)

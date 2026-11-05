@@ -169,7 +169,7 @@ class SameDecisionTapTest {
         assertEquals(TurnStep.BeginningOfCombat, game.device.model.engine.turn.step, "her first pass only")
     }
 
-    // SYS-011 (smoke 2026-11-04): Alice taps To combat (her pass in main 1), then End turn before the board her device
+    // SYS-076 (smoke 2026-11-04): Alice taps To combat (her pass in main 1), then End turn before the board her device
     // moved on to by itself (Bob's passes assumed, past an empty combat) reaches the screen: End turn may be made at any
     // priority of her own turn, so it is made on the newer board, not dropped
     @Test fun endTurnTappedWhileTheDeviceStepsOnByItselfIsMade() {
@@ -187,7 +187,7 @@ class SameDecisionTapTest {
         assertTrue(s.turn.number > turn && s.turn.active != alice, "her turn ended: ${s.turn}")
     }
 
-    // SYS-011, SYS-012 (smoke 2026-11-04): a second End turn tapped on Alice's turn after the first one already took the
+    // SYS-076, SYS-012 (smoke 2026-11-04): a second End turn tapped on Alice's turn after the first one already took the
     // game into Bob's turn is another decision: not taken, and the note comes with a board of its own, so the table
     // (which reads notes when a board arrives) tells it at once
     @Test fun endTurnOnABoardOfAnEndedTurnIsRefusedWithTheNoteAtOnce() {
@@ -205,7 +205,7 @@ class SameDecisionTapTest {
         assertTrue(told > 0 && seen[told].first > seen[told - 1].first, "the note arrived with a new board: $seen")
     }
 
-    // SYS-011 (smoke 2026-11-04): End turn's sameness: the same own turn moved on (another step, the player's own Stack
+    // SYS-076 (smoke 2026-11-04): End turn's sameness: the same own turn moved on (another step, the player's own Stack
     // object) still ends it; the other player's Stack object or another turn don't
     @Test fun endTurnIsTheSameDecisionAnywhereInTheSameOwnTurn() {
         val game = aliceInMain(land = true)
@@ -269,11 +269,11 @@ class SameDecisionTapTest {
     private fun EngineGame.made(input: (Input) -> Boolean) =
         device.session.pending.any { e -> e.engine?.steps.orEmpty().any { it.assumedBy == null && it.input?.let(input) == true } }
 
-    // SYS-011: the server took Bob's keep before Alice's own pass made on her device's assumption of it; on his keep the
+    // SYS-077: the server took Bob's keep before Alice's own pass made on her device's assumption of it; on his keep the
     // same decision waits for her, so her pass is made again there without a note (his revision first)
     @Test fun aPassLostToTheOpponentsSamePassIsMadeAgainRevisionFirst() = passMadeAgain(refusalsFirst = false)
 
-    // SYS-011: as above, the refusal reaching her before Bob's revision
+    // SYS-077: as above, the refusal reaching her before Bob's revision
     @Test fun aPassLostToTheOpponentsSamePassIsMadeAgainRefusalFirst() = passMadeAgain(refusalsFirst = true)
 
     private fun passMadeAgain(refusalsFirst: Boolean) {
@@ -286,7 +286,7 @@ class SameDecisionTapTest {
         assertNotEquals(TurnStep.PrecombatMain, game.device.model.engine.turn.step, "her main 1 is over")
     }
 
-    // SYS-011: the same with a Mountain played and Storm Spark cast on it (its target and payment as she chose them), both
+    // SYS-077: the same with a Mountain played and Storm Spark cast on it (its target and payment as she chose them), both
     // reply orders: each made again on the one before
     @Test fun aCastLostToTheOpponentsSamePassIsMadeAgain() {
         for (refusalsFirst in listOf(false, true)) {
@@ -301,7 +301,7 @@ class SameDecisionTapTest {
         }
     }
 
-    // SYS-011, SYS-012: Bob concedes after his keep, so the game Alice's move was made in is gone: not made again, and she
+    // SYS-077, SYS-012: Bob concedes after his keep, so the game Alice's move was made in is gone: not made again, and she
     // is told once, both reply orders
     @Test fun aMoveLostToAnOpponentsMoveThatChangedTheGameIsToldOnce() {
         for (refusalsFirst in listOf(false, true)) {

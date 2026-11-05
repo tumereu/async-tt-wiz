@@ -17,7 +17,7 @@ import org.asyncttwiz.server.startBound
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 
-/** I-D51 (LOB-115): a deck's or cube's Automatum support is stored for the revision it was worked out for. */
+/** I-D51 (LOB-124): a deck's or cube's Automatum support is stored for the revision it was worked out for. */
 class CardListSupportHttpTest {
     private val json = DeckJson.format
     private val client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(2)).build()
@@ -38,7 +38,7 @@ class CardListSupportHttpTest {
         return SubmittedDefinition(DeckJson.digest(card), card)
     }
 
-    // LOB-115, DRF-161
+    // LOB-124, DRF-161
     @Test fun `support is stored per revision, kept by renames and copies and dropped when the cards change`() {
         FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)

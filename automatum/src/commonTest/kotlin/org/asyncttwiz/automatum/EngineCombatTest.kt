@@ -111,7 +111,7 @@ class EngineCombatTest {
             divided.working.objects[it]?.zone == Zone.Battlefield }, "the Bear took the Ogre's 3 damage")
     }
 
-    // CMB-037 (CR 508.1h): a cost to attack shows on the staged attacker ("{2}"); declared with Autotap its mana is paid
+    // CMB-044 (CR 508.1h): a cost to attack shows on the staged attacker ("{2}"); declared with Autotap its mana is paid
     // by itself, otherwise the payment is the attacker's open choice
     @Test fun aManaCostToAttackIsShownAndAutotapped() {
         val prison = Cards.invent("Mistward Prison", "{2}{W}", "Enchantment",

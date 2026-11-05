@@ -417,7 +417,7 @@ class GameDeviceTest {
         sim.bobCasts("Storm Spark", land = false)
         sim.settle()
         val beforeCast = sim.server.line().first { e -> e.engine?.steps?.firstOrNull()?.input is Input.Cast }.parentId
-        // His main phase waits for him after the spark resolved (STK-036): his End turn is his own action there
+        // His main phase waits for him after the spark resolved (STK-053): his End turn is his own action there
         val beforeEnd = sim.server.head
         assertTrue(sim.atMain(bob))
         bobs.endTurn(sim.now)
@@ -572,7 +572,7 @@ class GameDeviceTest {
     }
 
     // TRN-057, HIS-058 (smoke 2026-11-04): End turn passes the player's priority until the turn ends; their own main
-    // phases (which Auto-skip never passes, STK-036) don't stop it: one End turn from the first main phase or from combat
+    // phases (which Auto-skip never passes, STK-053) don't stop it: one End turn from the first main phase or from combat
     // (attackers awaited) reaches the other player's turn
     @Test
     fun endTurnPassesYourOwnMainPhases() {
@@ -673,7 +673,7 @@ class GameDeviceTest {
         assertTrue(sim.leaks.isEmpty())
     }
 
-    // STK-036, STK-026 (owner, smoke 2026-11-04): Auto-skip never passes the player's own main phase, even with nothing
+    // STK-053, STK-026 (owner, smoke 2026-11-04): Auto-skip never passes the player's own main phase, even with nothing
     // left to do: a land played, or a creature cast with all their mana (resolved on Alice's assumed pass), leaves Bob in
     // his first main phase with priority; his turn goes on only by his own pass
     // SYS-063: Auto-skip runs on the player's own device and never passes their own main phase

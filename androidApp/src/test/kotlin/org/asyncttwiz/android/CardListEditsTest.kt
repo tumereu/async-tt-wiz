@@ -90,7 +90,7 @@ class CardListEditsTest {
         assertEquals("Deck\n2 Rune Bear (TST) 1", CardListEdits.text(CardListKind.CUBE, listOf(entry("Rune Bear", 2))))
     }
 
-    // LOB-107: quick chips: any chosen chip of one kind, all kinds and the typed text together.
+    // LOB-119: quick chips: any chosen chip of one kind, all kinds and the typed text together.
     @Test fun quickChipsBecomeOneQuery() {
         assertEquals("", cardSearchQuery(" ", emptySet(), emptySet(), emptySet()))
         assertEquals("goblin (c:r or c:g) t:creature (mv=1 or mv>=6)", cardSearchQuery(" goblin ", setOf(SearchColor.G, SearchColor.R),

@@ -263,7 +263,7 @@ class DeckHttpTest {
         }
     }
 
-    // DRF-134, LOB-055
+    // LOB-055
     @Test fun `draft deck listing and Save as deck copy routes`() {
         FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)

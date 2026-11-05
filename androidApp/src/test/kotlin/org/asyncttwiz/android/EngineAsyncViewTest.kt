@@ -65,7 +65,7 @@ class EngineAsyncViewTest {
         assertTrue(alice.device.session.pending.none { EngineEventText.hidden(it) && !EngineEventText.pass(it) })
     }
 
-    // HIS-021 (§27, §29.3): playback lets passes that changed nothing visible go by at once (under Full control they keep
+    // HIS-104 (§27, §29.3): playback lets passes that changed nothing visible go by at once (under Full control they keep
     // the delay); a land play, a cast, a new turn keep the playback delay after them
     @Test fun quietPassesGoByAtOnce() {
         val (alice, _) = aliceAndBob()
@@ -91,7 +91,7 @@ class EngineAsyncViewTest {
         assertEquals(1_320L, playbackDelay(.25f))
     }
 
-    // HIS-095, HIS-013 (§27): pausing playback goes on to the next point where Full control would stop (here Alice's
+    // HIS-095, HIS-103 (§27): pausing playback goes on to the next point where Full control would stop (here Alice's
     // assumed pass in her upkeep, which Bob's Auto-skip goes past), stops there for good until he plays on
     @Test fun pausingStopsAtTheNextFullControlPoint() {
         val (_, bob) = aliceAndBob()

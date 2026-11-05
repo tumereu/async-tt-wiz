@@ -212,11 +212,11 @@ class TableStatesScreenshotTest {
     @Test fun tokenMenuPreviewPortrait() { render("tokens-menu", false) }
     @Test fun tokenInspectorPreviewPortrait() { render("tokens-inspector", false) }
     @Test fun realTokenOnStackPortrait() { render("tokens-stack-card", false) }
-    // CMB-008, STK-018, TBL-046, ZON-058
+    // CMB-008, STK-018, ZON-035, ZON-058
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun combatLandscape() { render("combat", true) }
     @Test fun stackPortrait() { render("stack-contents", false) }
     @Test fun graveyardBrowserPortrait() { render("graveyard-contents", false) }
-    // ZON-057
+    // TBL-104
     @Test fun graveyardHoldInspectsWithoutOpeningActionsOrLogging() {
         val sent = render("graveyard-contents", false)
         compose.mainClock.autoAdvance = false

@@ -46,7 +46,7 @@ class PreparationPresentationTest {
         assertEquals(cover, gameDeckCover(actor, actor, cover, shown = false))
     }
 
-    // DRF-129, LOB-048
+    // LOB-048
     @Test fun swipeMovesOnlyPastTheThresholdInEitherDirection() {
         val threshold = 60f
         assertFalse(preparationSwipeCommits(59f, threshold)); assertFalse(preparationSwipeCommits(-59f, threshold))
@@ -55,7 +55,7 @@ class PreparationPresentationTest {
         assertEquals(.5f, preparationSwipeProgress(-30f, threshold)); assertEquals(1f, preparationSwipeProgress(900f, threshold))
     }
 
-    // DRF-127
+    // LOB-047
     @Test fun cardTypesUseTheFirstMatchingGroupFromTheFrontTypeLineOnly() {
         assertEquals(CardTypeGroup.CREATURES, cardTypeGroup("Artifact Creature — Golem"))
         assertEquals(CardTypeGroup.CREATURES, cardTypeGroup("Enchantment Creature - God"))
@@ -72,7 +72,7 @@ class PreparationPresentationTest {
         assertEquals(CardTypeGroup.OTHER, cardTypeGroup("Tribal — Landfall Creature")) // Subtypes never decide.
     }
 
-    // DRF-127, LOB-047, SYS-051
+    // LOB-047, SYS-051
     @Test fun groupsFollowTypeOrderSkipEmptyGroupsSortByNameAndLeaveSuppliedBasicsToSteppers() {
         fun card(name: String, type: String) = CardDefinition(name, listOf(DefinitionFace(id(), name, typeLine = type)))
             .let { SubmittedDefinition(DeckJson.digest(it), it) }
@@ -119,7 +119,7 @@ class PreparationPresentationTest {
             preparationGroups(saved, SavedDeckSection.SIDEBOARD, definitions))
     }
 
-    // DRF-131, LOB-049
+    // LOB-049
     @Test fun undoInvertsTheExactCopiesAndBasicsAndIsScopedToTheShownRoundAndDeck() {
         val one = capture(false)
         val moved = PreparationRules.previewTransfer(base, actor, one)
@@ -142,7 +142,7 @@ class PreparationPresentationTest {
         assertEquals(PreparationStep.Basics(SavedDeckSection.MAINBOARD, PodDeckBasics(plains = 11)), full.steps.first())
     }
 
-    // DRF-130, LOB-050
+    // LOB-050
     @Test fun actualDisplayedPartialTransferAndRollbackReplaceFeedbackButReceiptsAndIdenticalReadsDoNot() {
         val one = capture(false)
         val moved = PreparationRules.previewTransfer(base, actor, one)

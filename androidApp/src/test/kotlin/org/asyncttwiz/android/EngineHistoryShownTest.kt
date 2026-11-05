@@ -75,7 +75,7 @@ class EngineHistoryShownTest {
         return land.card
     }
 
-    // HIS-034: a new device opens the game at the player's local head kept on the server
+    // HIS-032: a new device opens the game at the player's local head kept on the server
     @Test fun aNewDeviceOpensAtTheLocalHeadKeptOnTheServer() {
         val sim = EngineAppSim(f)
         playLand(sim, bothKeepThenBobAway(sim).first)

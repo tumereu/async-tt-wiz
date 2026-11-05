@@ -40,7 +40,7 @@ class CardListScreenshotTest {
     private fun printing(name: String) = CatalogPrinting("p-$name", name, "NEW", "9", "English", "", placeholderPrinting(name), false, emptyList(),
         "{\"type\":\"${types.getValue(name)}\"}")
 
-    // LOB-106, LOB-107, SYS-054
+    // LOB-106, LOB-119, SYS-054
     @Test fun searchPortrait() = search(false)
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun searchLandscape() = search(true)
 

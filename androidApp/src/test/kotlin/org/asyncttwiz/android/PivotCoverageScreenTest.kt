@@ -50,7 +50,7 @@ class PivotCoverageScreenTest {
             compose.onAllNodes(hasText(gone, substring = true) or hasContentDescription(gone, substring = true)).assertCountEquals(0)
     }
 
-    // ZON-033, TBL-070, SYS-040 (I-D52): a graveyard's menu has one cell, Search, shown (greyed) also while the pile is
+    // ZON-033, SYS-040 (I-D52): a graveyard's menu has one cell, Search, shown (greyed) also while the pile is
     // empty; nothing in it moves the pile's cards
     @Test fun anEmptyPilesMenuShowsSearchGreyed() {
         val graveyard = f.initial.board.containers.first { it.zone == PlayZone.GRAVEYARD && it.accountId == f.a }

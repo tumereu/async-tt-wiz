@@ -12,7 +12,7 @@ import org.junit.Test
 class AutomatumQuickActionIconsTest {
     private val fallback = Icons.AutoMirrored.Outlined.DriveFileMove
 
-    /** Automatum's quick actions (CMB-028, CMB-034) and toggles (TRN-059) each have their own icon, none the generic
+    /** Automatum's quick actions (CMB-048, CMB-034) and toggles (TRN-059) each have their own icon, none the generic
      * fallback (UI review 2026-11-03 #8). */
     @Test fun everyAutomatumQuickActionHasItsOwnIcon() {
         val vectors = listOf("Clear", "Full control", "Skip if no choice", "Autotap mana", "Keep", "Mull N")

@@ -5,7 +5,7 @@ import org.junit.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
-/** STK-046: the Inspect tile of an ability on the Stack names what was chosen for it, as far as the viewer may see. */
+/** STK-050: the Inspect tile of an ability on the Stack names what was chosen for it, as far as the viewer may see. */
 class StackAbilityInspectTest {
     private val f = TableStatesFixture
 
@@ -17,7 +17,7 @@ class StackAbilityInspectTest {
             stackEffects = listOf(StackEffect("entry", source.id, item = item)))))
     }
 
-    // STK-046
+    // STK-050
     @Test fun anAbilitysTileNamesItsTargetsAsTheViewerSeesThem() {
         val blocker = f.source(f.b, "2/3")
         val name = f.initial.definitions.single { it.digest == blocker.definition }.definition.faces

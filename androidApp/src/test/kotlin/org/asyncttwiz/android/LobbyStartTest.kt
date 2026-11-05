@@ -187,7 +187,7 @@ class LobbyStartTest {
         assertNull(f.lobby.state.board); assertNull(f.lobby.state.preparation); assertTrue(f.lobby.state.pendingGames.isEmpty())
     }
 
-    // LOB-045, SYS-018
+    // SYS-018
     @Test fun lobbyTapsWhileReconnectingRunOnceInOrderWhenTheConnectionIsReady() = Fixture().use { f ->
         f.wire.listener.disconnected(false)
         assertFalse(game.id in f.lobby.state.connectedGames)

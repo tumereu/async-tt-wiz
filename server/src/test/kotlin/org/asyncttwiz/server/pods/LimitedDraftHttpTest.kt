@@ -106,7 +106,7 @@ class LimitedDraftHttpTest {
         Fixture(db).use(test)
     }
 
-    // DRF-035, DRF-036, DRF-037, DRF-150: Start, arming and settings changes follow the engine's player limit.
+    // DRF-035, DRF-036, DRF-037, DRF-150, DRF-163: Start, arming and settings changes follow the engine's player limit.
     @Test fun `player limits refuse start and arming and a settings change over the limit disarms auto start`() = fixture { f ->
         val pod = f.create(DraftSettings.booster().copy(packsPerPlayer = 1, cardsPerPack = 10))
         f.join(pod, f.b, f.c, f.players[3], f.players[4])

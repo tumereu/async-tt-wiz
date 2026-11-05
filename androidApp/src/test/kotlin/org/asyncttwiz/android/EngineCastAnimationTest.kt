@@ -48,7 +48,7 @@ class EngineCastAnimationTest {
 
     private fun scene(play: TableBoard) = TablePresentation.scene(f.game, play, f.a, 412f, 892f, false)
 
-    // TBL-040, STK-006, STK-045 (owner playtest 2026-11-04): one cast plays as the player can follow it: the card flies from
+    // TBL-125, STK-006, STK-045 (owner playtest 2026-11-04): one cast plays as the player can follow it: the card flies from
     // the hand to the Stack, then from the Stack to its place, then the trigger's token flies out to its place, one after
     // another in event order; the Herald is drawn exactly once all the way (no ghost left in the hand, no copy popping in)
     @Test fun aCastCreatureAndItsTriggerPlayInEventOrder() {
@@ -141,7 +141,7 @@ class EngineCastAnimationTest {
         }
     }
 
-    // TBL-040 (owner playtest 2026-11-04): a cast publishes its own board at once and then one more with all that followed;
+    // TBL-125 (owner playtest 2026-11-04): a cast publishes its own board at once and then one more with all that followed;
     // the panels (whose move, the waiting bar) change once, never to an in-between state
     @Test fun aCastShowsItsOutcomeWithoutAnInBetweenWait() {
         val published = mutableListOf<EngineGame.Shown>()

@@ -24,7 +24,7 @@ import kotlin.test.fail
 
 /**
  * I-D56 step D on two of the app's engine games and the simulated server, both players online: the attack staging and
- * the block staging are shared table changes (I-D54 §8, CMB-028, CMB-034): the other player's table shows them as they
+ * the block staging are shared table changes (I-D54 §8, CMB-043): the other player's table shows them as they
  * are made, the declaration ends them in its own event; the strip's texts and icons and the change flashes come from the
  * engine's events (HIS-031, HIS-061, HIS-070).
  */
@@ -41,7 +41,7 @@ class EngineSharedStagingTest {
     private fun creatures(s: GameState, player: PlayerId, ready: Boolean) = scenario.creatures(s, player, ready)
     private fun until(done: (GameState) -> Boolean) = scenario.until(done)
 
-    // CMB-028, CMB-034 (I-D54 §8): the staging is shared as the declaring player makes it and ends with the declaration
+    // CMB-043 (I-D54 §8): the staging is shared as the declaring player makes it and ends with the declaration
     @Test fun attackAndBlockStagingAreShared() {
         val me = PlayerId(f.a)
         val other = PlayerId(f.b)

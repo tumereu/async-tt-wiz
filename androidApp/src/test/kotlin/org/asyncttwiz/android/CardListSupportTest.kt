@@ -46,7 +46,7 @@ class CardListSupportTest {
         assertEquals("Automatum plays 1 card by hand: Odd Cub", automatumSupportTip(CardListSupport(21, listOf("Odd Cub"))))
     }
 
-    // LOB-117 (I-D52): a card that ventures or takes the initiative is by hand when the card records hold no dungeon Automatum plays
+    // LOB-123 (I-D52): a card that ventures or takes the initiative is by hand when the card records hold no dungeon Automatum plays
     // fully for it (here only a plain venture's)
     @Test fun aVenturingCardNeedsADungeonTheDeviceCanBring() {
         fun spell(name: String, type: String, text: String) = CardDefinition(name, listOf(DefinitionFace(id(), name, typeLine = type,
@@ -114,7 +114,7 @@ class CardListSupportTest {
         SavedDeck(DeckSummary(id(), name, revision, "2026-11-03T00:00:00Z", automatum = support),
             definitions.map { SavedDeckEntry(SavedDeckSection.MAINBOARD, DeckJson.digest(it), 4) })
 
-    // LOB-115: a deck gets its support when it is saved, stored for the saved revision
+    // LOB-124: a deck gets its support when it is saved, stored for the saved revision
     @Test fun savingADeckStoresItsSupport() {
         val server = Server()
         val worker = Worker()
@@ -133,7 +133,7 @@ class CardListSupportTest {
         assertEquals(CardListSupport(21, listOf("Odd Cub"), 3), saved!!.deck.automatum)
     }
 
-    // LOB-115, DRF-161: lists without support for this parser and engine version (none yet, or an older version's) get it in
+    // LOB-124, DRF-161: lists without support for this parser and engine version (none yet, or an older version's) get it in
     // the background
     @Test fun theBackgroundRunWorksOutMissingAndOlderSupportOnly() {
         val server = Server()

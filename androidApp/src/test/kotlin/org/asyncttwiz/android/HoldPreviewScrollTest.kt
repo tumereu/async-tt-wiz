@@ -6,7 +6,7 @@ import kotlin.test.*
 class HoldPreviewScrollTest {
     private val screen = 1000f
 
-    // TBL-104, SYS-049
+    // TBL-127, SYS-049
     @Test fun shortPreviewsScrollOneToOneAndLongOnesCoverTheirWholeRangeIn90PercentOfTheScreen() {
         assertEquals(1f, HoldPreviewScroll.gain(0f, screen))
         assertEquals(1f, HoldPreviewScroll.gain(500f, screen))
@@ -21,7 +21,7 @@ class HoldPreviewScrollTest {
         assertEquals(1f, HoldPreviewScroll.gain(800f, 0f))
     }
 
-    // TBL-104
+    // TBL-127
     @Test fun movementPastEitherEndIsNotStoredSoTurningBackScrollsAtOnce() {
         val range = 1800f
         var value = HoldPreviewScroll.target(0f, range, 5_000f, screen)

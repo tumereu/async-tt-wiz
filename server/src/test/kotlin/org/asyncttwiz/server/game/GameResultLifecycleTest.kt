@@ -78,7 +78,7 @@ class GameResultLifecycleTest {
         override fun close() { runtime.close() }
     }
 
-    // LOB-038, TRN-026
+    // LOB-038
     @Test fun `alternate starter hands the next play to whoever did not start the last one and can be switched off`() {
         FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)

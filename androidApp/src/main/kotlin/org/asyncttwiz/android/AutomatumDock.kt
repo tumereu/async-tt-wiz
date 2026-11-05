@@ -35,7 +35,9 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
@@ -157,14 +159,44 @@ internal fun DockButtons(content: @Composable RowScope.() -> Unit) {
     DisposableEffect(slot) { onDispose { slot.buttons = null } }
 }
 
+/** The test tag of a choice's source card ([ChoiceSource]). */
+internal const val CHOICE_SOURCE_TAG = "choice-source"
+
 /**
- * Picking a Stack entry as a target (STK-023, UI review round 2 #7): docked above the hand like every Automatum panel,
+ * STK-044 (owner 2026-11-05): where the choice comes from, at the right of every Automatum panel and target bar: its card,
+ * small (an ability as its Stack ability token, STK-046); holding it inspects it (TBL-104) through [inspector].
+ */
+@Composable
+internal fun ChoiceSource(card: ChoiceCardData, inspector: ChoiceInspector, modifier: Modifier = Modifier) {
+    ChoiceCardFace(card, modifier.testTag(CHOICE_SOURCE_TAG)
+        .choiceCardGestures(card.key, tap = {}, hold = { inspector.hold(card, it) }), small = true)
+}
+
+/**
+ * The head of an Automatum panel (STK-044): its [title], saying only what the choice is ("Scry 2", "Choose a target · 2"),
+ * the lines [below] it, then at the right [trailing] (a count) and the choice's [source] ([ChoiceSource]), when it has one.
+ */
+@Composable
+internal fun ChoiceHead(title: String, source: ChoiceCardData?, inspector: ChoiceInspector,
+    trailing: @Composable RowScope.() -> Unit = {}, below: @Composable ColumnScope.() -> Unit = {}) {
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(title, Modifier.semantics { heading() }, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+            below()
+        }
+        trailing()
+        if (source != null) ChoiceSource(source, inspector)
+    }
+}
+
+/**
+ * Picking a Stack entry as a target (STK-048, UI review round 2 #7): docked above the hand like every Automatum panel,
  * the Stack's entries top first drawn as cards (hold: Inspect), the legal ones ringed in violet, the others dimmed; a tap
- * on a legal one picks it. Back returns to picking on the table.
+ * on a legal one picks it. Back returns to picking on the table. [source]: what the target is chosen for (STK-044).
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-internal fun StackTargetPicker(toolkit: TableToolkitController, play: TableBoard) {
+internal fun StackTargetPicker(toolkit: TableToolkitController, play: TableBoard, source: ChoiceCardData?) {
     val viewer = toolkit.viewer
     val targets = toolkit.stackTargets(play)
     val stack = CombatStackRules.stack(play.board)
@@ -174,8 +206,9 @@ internal fun StackTargetPicker(toolkit: TableToolkitController, play: TableBoard
     AutomatumDockPanel("Stack target picker", hidden, { hidden = !hidden }, "target picker", buttons = {
         ChoiceButton("Back", Icons.AutoMirrored.Outlined.ArrowBack, onClick = toolkit::closeStackTargets)
     }) {
-        Text("Choose a target · ${targets.size}", fontWeight = FontWeight.Bold, fontSize = 15.sp)
-        ChoiceHintText("Tap a spell or ability ringed in violet (1 is the top of the Stack).")
+        ChoiceHead("Choose a target · ${targets.size}", source, inspector) {
+            ChoiceHintText("Tap a spell or ability ringed in violet (1 is the top of the Stack).")
+        }
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             entries.forEachIndexed { index, entry ->
                 val id = entry.cardId
@@ -189,6 +222,6 @@ internal fun StackTargetPicker(toolkit: TableToolkitController, play: TableBoard
                     selected = legal, badge = "${index + 1}")
             }
         }
+        ChoiceInspection(inspector, play, viewer)
     }
-    ChoiceInspection(inspector, play, viewer)
 }

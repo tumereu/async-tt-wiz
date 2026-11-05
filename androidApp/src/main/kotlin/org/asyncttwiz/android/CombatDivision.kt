@@ -152,16 +152,19 @@ internal fun CombatDivisionPanel(flows: SharedFlowController, play: TableBoard, 
             flows.answer(Answer.Division(engineShares(decision, division, draft.shares)))
         }
     }) {
-        val card = play.board.cards.firstOrNull { it.id == division.source }
-        val corner = LocalComputedBoard.current.cards[division.source]?.corner ?: card?.let(::effectiveCorner).orEmpty()
-        Row(verticalAlignment = Alignment.Top) {
-            Text(listOfNotNull(refName(play, names, MtgRef.Card(division.source, card?.zoneChanges ?: 0)) +
-                corner.takeIf { it.isNotEmpty() }?.let { " $it" }.orEmpty(), "trample".takeIf { division.trampleTo != null })
-                .joinToString(" · "), Modifier.weight(1f), fontWeight = FontWeight.Bold, fontSize = 15.sp)
+        // STK-044: the title says only the choice; the creature dealing the damage is the card at the right (its own: only
+        // the creature's controller divides, STK-033)
+        val viewer = LocalChoiceFrame.current.viewer
+        val inspector = remember(decision.id) { ChoiceInspector() }
+        val source = choiceCard(play, viewer, "source/${division.source}", division.source, shown = true, fallback = "Attacker")
+        ChoiceHead("Divide ${division.amount} damage", source, inspector, trailing = {
             if (count != null) Text("${count.first} of ${count.second}", color = Color(0xff78909c), fontSize = 13.sp)
+        }) {
+            Text("${division.amount} damage to divide among what it fights" + if (division.trampleTo != null) " · trample" else "",
+                fontSize = 12.sp, color = Color(0xff4b5a5f))
         }
-        Text("${division.amount} damage to divide among what it fights", fontSize = 12.sp, color = Color(0xff4b5a5f))
         DivisionRows(draft, play, names)
+        ChoiceInspection(inspector, play, viewer)
     }
 }
 

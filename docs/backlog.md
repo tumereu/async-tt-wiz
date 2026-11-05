@@ -10,13 +10,14 @@ Changes the owner wants but that are not built yet. The feature catalog
 
 ## Build order (owner, 2026-11-05: one implementor at a time, small items batched, full suites after each batch)
 
-1. Playtest 2026-11-05 evening, batch B: Stack ability look, library search panel, draft split-card pips, assume when they have no mana.
+1. Playtest 2026-11-05 evening, batch B: Stack ability look, library search panel, draft split-card pips, assume when they have no mana, hand abilities as chips.
 2. Battlefield placement (Arena style).
 3. Hold pauses playback, Reconnecting…, remove the auto-pause switches (re-check against the built catch-up playback first: HIS-094, HIS-095).
 4. Countering a spell lower on the Stack (e2e scenario).
 
 ## Ready to build
 
+- Hand abilities as chips (Claude, from batch A 2026-11-06, extending the owner's "every way shows above the card"): abilities used from the hand (cycling and its variants, channel, ninjutsu-style and other hand-activated abilities Automatum supports) show as chips above the raised hand card like plot and foretell, greyed when not possible now; today they can't be used at all because the hand has no menu. Also: another face cast with an alternative cost and fused split halves show their chips even when the engine wouldn't begin them now (greyed). Changes ZON-080.
 - Stack ability look (owner playtest 2026-11-05 evening): inspecting an ability on the Stack shows the source's art panel with the ability's text under it, wrapped in a dark rounded rectangle (the current tile's look), not card-shaped; on the Stack the ability token keeps its look but drops its text and bubbles, and shows a small chip at its bottom: "T" for a triggered ability, "A" for an activated one. Changes STK-046, STK-050.
 - Library search panel (owner playtest 2026-11-05 evening, a fetch land): the search shows the effect causing it (its source, as other choice panels do) and what is being searched ("Search your library for a basic land card"); the selection survives hiding and showing the panel with the eye; and the searched zone's other cards (not of the searched kind) show in a second, unselectable section ("Other cards"), which matters when searching an opponent's library. Changes the search choice's entry in turns-combat-stack.md (STK-030 or its own) and STK-044 if needed.
 - Fix: draft Stats don't count both halves' pips of split cards: Road // Ruin's red pips were missing (DRF-114, DRF-116; no entry change). Check other multi-part cards (adventure, MDFC back faces per the existing rule, fuse, aftermath).

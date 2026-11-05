@@ -1,0 +1,1 @@
+add: Cycling, channel and other abilities you use from your hand show as buttons above the raised card; other ways to cast a card (another half with its own cost, both halves together) always show, greyed when they can't be used now.

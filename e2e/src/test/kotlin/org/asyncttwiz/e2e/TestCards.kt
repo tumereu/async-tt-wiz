@@ -45,6 +45,8 @@ object TestCards {
             "Flying, haste\nEnchanted creature gets +1/+1 and has flying and haste.", "1", "1")
     /** Empties its caster's hand for free. */
     val thoughts = card("Empty Thoughts", "Sorcery", "{0}", "Discard your hand.")
+    /** A sorcery too dear for one Mountain that cycles for {R} (ZON-080: its Cycling chip). */
+    val musing = card("Ember Musing", "Sorcery", "{3}{R}", "Draw two cards.\nCycling {R} ({R}, Discard this card: Draw a card.)")
     /** A fetch-style land (owner playtest 2026-11-05 evening): its ability searches its controller's library for a basic land. */
     val cinderTrail = card("Cinder Trail", "Land",
         rulesText = "{T}, Pay 1 life, Sacrifice this land: Search your library for a basic land card, put it onto the battlefield, then shuffle.")
@@ -82,6 +84,9 @@ data class TestDeck(val name: String, val entries: List<Pair<SubmittedDefinition
 
         /** 40 cards: Mountains and Storm Sparks. */
         fun sparks() = TestDeck("Sparks", listOf(TestCards.mountain to 20, TestCards.spark to 20))
+
+        /** 40 cards: Mountains and Ember Musings (cycling). */
+        fun musings() = TestDeck("Musings", listOf(TestCards.mountain to 20, TestCards.musing to 20))
 
         /** 40 cards: Mountains, Cinder Trails (a fetch-style land) and Storm Sparks. */
         fun trails() = TestDeck("Trails", listOf(TestCards.mountain to 14, TestCards.cinderTrail to 13, TestCards.spark to 13))

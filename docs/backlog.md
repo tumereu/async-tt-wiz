@@ -17,8 +17,6 @@ Changes the owner wants but that are not built yet. The feature catalog
 
 ## Ready to build
 
-- Hand abilities as chips (Claude, from batch A 2026-11-06, extending the owner's "every way shows above the card"): abilities used from the hand (cycling and its variants, channel, ninjutsu-style and other hand-activated abilities Automatum supports) show as chips above the raised hand card like plot and foretell, greyed when not possible now; today they can't be used at all because the hand has no menu. Also: another face cast with an alternative cost and fused split halves show their chips even when the engine wouldn't begin them now (greyed). Changes ZON-080.
-
 (none)
 
 ## Ready after the e2e framework (owner playtest, 2026-11-05)

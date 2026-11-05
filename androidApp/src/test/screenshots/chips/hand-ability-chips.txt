@@ -1,0 +1,1 @@
+A raised hand card's chips: Cast {3}{R} chosen but greyed (not enough mana), then Cycling {1}, which can be paid now, and Channel {2}{R}, greyed.

@@ -90,6 +90,28 @@ class ChipTextTest {
         assertTrue(lines("Cast") == 1)
     }
 
+    // ZON-080 (batch B 2026-11-06): abilities used from the hand are chips after the casts, as plot and foretell are: Cycling
+    // that can be paid now, Channel greyed
+    @OptIn(ExperimentalLayoutApi::class)
+    @Test fun handAbilitiesAreChips() {
+        val card = ObjectId.Card(CardId("c"), 0)
+        val cast = Input.Cast(PlayerId("a"), card)
+        fun ability(index: Int) = Input.Activate(PlayerId("a"), card, arcanum.engine.view.AbilityOrigin.Printed(0, index))
+        compose.setContent {
+            MaterialTheme {
+                FlowRow(Modifier.testTag("chips").width(412.dp).background(Color(0xffe6ece9)).padding(8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    WayChip(CastWayChip(cast, "Cast", "{3}{R}", null, false), true, {}, {})
+                    WayChip(CastWayChip(ability(1), "Cycling", "{1}", "Cycling {1}", true), false, {}, {})
+                    WayChip(CastWayChip(ability(2), "Channel", "{2}{R}", "Channel — {2}{R}, Discard this card: Draw two cards.", false), false, {}, {})
+                }
+            }
+        }
+        compose.onNodeWithText("Cycling").assertExists()
+        compose.onNodeWithTag("chips").captureShot("$SCREENSHOTS/chips/hand-ability-chips.png",
+            "A raised hand card's chips: Cast {3}{R} chosen but greyed (not enough mana), then Cycling {1}, which can be paid now, and Channel {2}{R}, greyed.")
+    }
+
     // TBL-126, TBL-123: a card menu's rows draw the abilities' symbols; a greyed row too
     @Test fun menuRowsDrawSymbols() {
         compose.setContent {

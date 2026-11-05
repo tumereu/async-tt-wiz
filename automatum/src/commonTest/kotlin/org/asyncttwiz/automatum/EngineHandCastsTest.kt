@@ -160,4 +160,62 @@ class EngineHandCastsTest {
         assertFalse(chips.ways[1].affordable)
         assertEquals("{3}{R}", chips.ways[1].cost)
     }
+
+    // ZON-080 (batch B 2026-11-06): an ability used from the hand is a chip after the casts: Cycling with its cost, paid
+    // with one Mountain while the cast ({3}{R}) is greyed; with no Mountain it is greyed too
+    @Test fun cyclingIsAChipFromTheHand() {
+        val musing = arcanum.engine.cards.Cards.invent("Ember Musing", "{3}{R}", "Sorcery", "Draw two cards.\nCycling {1}")
+        val (card) = table.put(alice, Zone.Hand, musing)
+        val none = assertNotNull(options(card))
+        assertEquals(listOf("Cast", "Cycling"), none.ways.map { it.name })
+        assertFalse(none.ways[1].affordable)
+        assertEquals("{1}", none.ways[1].cost)
+        table.put(alice, Zone.Battlefield, "Mountain")
+        val chips = assertNotNull(options(card))
+        assertFalse(chips.ways[0].affordable)
+        assertTrue(chips.ways[1].affordable)
+        assertIs<Input.Activate>(chips.ways[1].input)
+    }
+
+    // ZON-080: channel (an ability word over "{1}, Discard this card: …") is a chip named Channel
+    @Test fun channelIsAChipFromTheHand() {
+        val sprout = arcanum.engine.cards.Cards.invent("Ember Sprout", "{2}{R}", "Creature — Elemental",
+            "Channel — {1}, Discard this card: Draw a card.", "2/2")
+        table.put(alice, Zone.Battlefield, "Mountain")
+        val (card) = table.put(alice, Zone.Hand, sprout)
+        val chips = assertNotNull(options(card))
+        assertEquals(listOf("Cast", "Channel"), chips.ways.map { it.name })
+        assertTrue(chips.ways[1].affordable)
+    }
+
+    // ZON-080: a land with cycling: Play, then Cycling; in the other player's turn Play is greyed and Cycling (any time)
+    // can still be paid
+    @Test fun aCyclingLandPlaysOrCycles() {
+        val flats = arcanum.engine.cards.Cards.invent("Ash Flats", null, "Land", "{T}: Add {R}.\nCycling {2}")
+        table.put(alice, Zone.Battlefield, "Mountain", "Mountain")
+        val (card) = table.put(alice, Zone.Hand, flats)
+        val chips = assertNotNull(options(card))
+        assertEquals(listOf("Play", "Cycling"), chips.ways.map { it.name })
+        assertTrue(chips.ways.all { it.affordable })
+        table.active = table.bob; table.priority = table.alice
+        val later = assertNotNull(options(card))
+        assertEquals(listOf("Play", "Cycling"), later.ways.map { it.name })
+        assertFalse(later.ways[0].affordable)
+        assertTrue(later.ways[1].affordable)
+    }
+
+    // ZON-080 (batch B 2026-11-06): a split card's fused halves show as a chip even while they can't be cast (greyed)
+    @Test fun fusedHalvesShowGreyed() {
+        val fuse = "Fuse (You may cast one or both halves of this card from your hand.)"
+        val split = arcanum.engine.cards.Cards.inventFaces("Split",
+            arcanum.parser.OracleCard("Spark", "{R}", "Instant", "Spark deals 1 damage to any target.\n$fuse"),
+            arcanum.parser.OracleCard("Ember", "{2}{R}", "Instant", "Ember deals 2 damage to any target.\n$fuse"))
+        table.put(alice, Zone.Battlefield, "Mountain")
+        val (card) = table.put(alice, Zone.Hand, split)
+        val chips = assertNotNull(options(card))
+        assertEquals(listOf("Cast", "Ember", "Spark // Ember (fused)"), chips.ways.map { it.name })
+        assertTrue(chips.ways[0].affordable)
+        assertFalse(chips.ways[1].affordable)
+        assertFalse(chips.ways[2].affordable)
+    }
 }

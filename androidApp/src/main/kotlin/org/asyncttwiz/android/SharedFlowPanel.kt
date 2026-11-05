@@ -77,6 +77,24 @@ internal fun SharedFlowHost(toolkit: TableToolkitController, play: TableBoard, s
     if (decision == null && holder == viewer) return
     // CMB-033: a division of combat damage has a panel of its own; one made by itself shows nothing meanwhile
     val dialog = decision is Decision.Divide && flow.division != null
+    // CMB-033 (owner, 2026-11-05): divisions open attached to the combat band, never above the hand
+    if (decision != null && flows.answering != null && !flows.targeting && dialog) {
+        if (dividingInDialog(flow)) flow.division?.let { division ->
+            BandAttached(scene) {
+                CompositionLocalProvider(LocalChoiceFrame provides ChoiceFrame(viewer)) {
+                    CombatDivisionPanel(flows, play, names, decision as Decision.Divide, division, toolkit.combat.divisionCount(play, division))
+                }
+            }
+        }
+        return
+    }
+    val early = if (decision != null && flows.answering == null && holder == viewer)
+        toolkit.combat.ready(play)?.early?.firstOrNull { it.player == viewer && askedInDialog(play.board, it) } else null
+    if (early != null) BandAttached(scene) {
+        CompositionLocalProvider(LocalChoiceFrame provides ChoiceFrame(viewer)) {
+            EarlyDivisionPanel(toolkit.combat, play, early, names, toolkit.enabled())
+        }
+    }
     // UI review #4 (decided for the owner): every Automatum panel docks full width exactly above the viewer's hand, like
     // the cast panel, the eye always at the same spot
     AboveHand(handRow(scene, viewer)) {
@@ -87,10 +105,6 @@ internal fun SharedFlowHost(toolkit: TableToolkitController, play: TableBoard, s
                     if (toolkit.stackTargeting) StackTargetPicker(toolkit, play, source)
                     else FlowTargetBar(flows, flow, play, decision as Decision.Targets, source)
                 }
-                // UI review round 2 #7: docked above the hand like every Automatum panel
-                dialog -> if (dividingInDialog(flow)) flow.division?.let { division ->
-                    CombatDivisionPanel(flows, play, names, decision as Decision.Divide, division, toolkit.combat.divisionCount(play, division))
-                }
                 else -> DecisionPanel(flows, flow, play, names, decision, forOther = decision.player.value != viewer,
                     otherName = name(decision.player.value))
             }
@@ -98,10 +112,8 @@ internal fun SharedFlowHost(toolkit: TableToolkitController, play: TableBoard, s
             // for them (STK-031, STK-038 gone)
             holder != viewer -> {}
             decision != null -> Column {
-                // I-D29, I-D33: meanwhile the viewer may give their own division of this damage step early
-                toolkit.combat.ready(play)?.early?.firstOrNull { it.player == viewer && askedInDialog(play.board, it) }?.let { early ->
-                    EarlyDivisionPanel(toolkit.combat, play, early, names, toolkit.enabled())
-                }
+                // I-D29, I-D33: meanwhile the viewer may give their own division of this damage step early, attached to
+                // the combat band (CMB-033)
                 // UI review round 2 #2 (decided for the owner): the observer's own words on one line, "Bob is choosing ·
                 // Fertile Passing", the source drawn as a card (I-D48)
                 WaitingBar(play, "${name(decision.player.value)} ${if (decision.player.value == viewer) "are" else "is"} choosing · " +

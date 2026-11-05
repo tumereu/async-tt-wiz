@@ -478,6 +478,8 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
         hand.lower()
         // TRN-069: a tap on a dungeon does nothing (holding inspects it)
         if (item.kind == TableItemKind.DUNGEON) return
+        // CMB-040 (owner, 2026-11-05): while waiting for the defender's blocks, taps place blocks to assume as they would
+        engine?.assuming()?.let { placed -> if (assumeTap(placed, play, item)) { dismiss(); return } }
         // CMB-028, CMB-032, CMB-034: with Automatum on a tap in combat stages, blocks or selects
         if (combatTap(play, item)) { dismiss(); return }
         // TBL-122: one tap on a battlefield card activates its ability, or opens the chips of several; else its menu
@@ -527,6 +529,10 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
         // I-D46: with Automatum on, a gesture Automatum doesn't allow shakes the card, pile or life square it was made on
         // instead of saying why; genuine failures (offline, still working out) keep their message
         val target = gestureTarget(intent)
+        // CMB-040: one of the defender's creatures dragged onto an attacker's pair while waiting for their blocks
+        val placed = engine?.assuming()
+        if (placed != null && intent is TableIntent.Move && intent.drag && intent.destination is TableDestination.Combat)
+            return assumeDrag(placed, intent).also { if (!it && target != null) shake(target) }
         if (target == null) return handleIntent(intent)
         // TBL-118, HIS-075: while the other player's choice is open a double-tap or drag of a card is refused: it shakes
         // and the event text flashes (a card dropped back where it was only goes back)
@@ -625,6 +631,9 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
             AutomatumDrags.Route.Combat -> {
                 val destination = (intent.destination as TableDestination.Combat).destination
                 val bound = bind(intent.scope, intent.sources) ?: return false
+                // CMB-001: a creature dropped into a band tapped open before any attacker was staged is staged in that lane
+                if (destination.areaId == TablePresentation.OPENED_COMBAT_AREA && play.board.combat == null)
+                    return destination.role == CombatRole.ATTACKER && stage(play, bound.sourceIds, destination.attackTarget)
                 // CMB-034: one of the defender's creatures dropped on an attacker's pair blocks it, as tapping does
                 val choices = combat.choices(play).also { if (combat.working(it)) { error = CombatController.WORKING_OUT; return false } }.choices
                 val card = bound.sourceIds.singleOrNull()
@@ -734,6 +743,66 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
         return true
     }
 
+    /**
+     * CMB-040 (owner, 2026-11-05): a tap while the viewer waits for the defender's blocks ([placed]), as the defender's own
+     * taps (CMB-034) on the lanes showing the blocks placed: one of the defender's creatures is picked as the blocker to
+     * place, and an attacker tapped then is blocked by it (again: not). False when the tap does something else.
+     */
+    private fun assumeTap(placed: AssumedBlocks, live: TableBoard, item: TableItem): Boolean {
+        if (item.kind != TableItemKind.CARD) return false
+        val card = item.sourceId ?: return false
+        if (item.viewport != "combat" && (item.zone != PlayZone.BATTLEFIELD || item.projection)) return false
+        val play = placed.board(live)
+        val area = play.board.combat ?: return false
+        val choices = combat.choices(play).also { if (combat.working(it)) { error = CombatController.WORKING_OUT; return true } }.choices
+        val defender = choices.declaring ?: return false
+        val occurrence = CombatStackRules.occurrences(area).firstOrNull { it.sourceId == card }
+        val attacking = occurrence != null && area.pairs.any { p -> p.attackers.any { it.id == occurrence.id } }
+        if (!attacking && controllerOf(play, card) == defender) {
+            if (card !in choices.blocks) {
+                if (!creature(play, card)) return false
+                error = "${combatName(play, card)} can't block now."; return true
+            }
+            combat.select(if (combat.selected == card) null else card)
+            return true
+        }
+        val blocker = combat.selected?.takeIf { it in choices.blocks } ?: return false
+        if (!attacking) return false
+        assumeBlock(placed, play, blocker, area.pairs.first { p -> p.attackers.any { it.id == occurrence!!.id } }.id, toggle = true)
+        return true
+    }
+
+    /** CMB-040: one of the defender's creatures dragged onto an attacker's pair blocks it (to assume); elsewhere refused. */
+    private fun assumeDrag(placed: AssumedBlocks, intent: TableIntent.Move): Boolean {
+        val live = current() ?: return false
+        val play = placed.board(live)
+        val destination = (intent.destination as TableDestination.Combat).destination
+        val card = intent.scope.cardIds.singleOrNull()?.let { CombatStackRules.liveSource(play.board, it)?.id } ?: return false
+        val pair = destination.pairId ?: return false
+        val choices = combat.choices(play).also { if (combat.working(it)) { error = CombatController.WORKING_OUT; return false } }.choices
+        if (controllerOf(play, card) != choices.declaring) return false
+        return assumeBlock(placed, play, card, pair, toggle = false)
+    }
+
+    /** CMB-040: [blocker] blocks the attackers of [pairId] too (with [toggle], no longer when it does), as [block] does. */
+    private fun assumeBlock(placed: AssumedBlocks, play: TableBoard, blocker: String, pairId: String, toggle: Boolean): Boolean {
+        val choices = combat.choices(play).choices
+        val now = placed.blocks[blocker].orEmpty()
+        val capacity = if (blocker in choices.capacity) choices.capacity[blocker] else 1
+        val next = if (pairId in now) { if (toggle) now - pairId else return true } else {
+            combat.draftRefusal(play, listOf(blocker), CombatRole.BLOCKER, pairId, null)?.let { error = it; return false }
+            when {
+                capacity == null || now.size < capacity -> now + pairId
+                capacity == 1 -> listOf(pairId)
+                else -> { error = "${combatName(play, blocker)} can block only $capacity attackers."; return false }
+            }
+        }
+        error = null
+        placed.set(blocker, next)
+        if (pairId !in now && capacity != null && next.size >= capacity) combat.clearSelection()
+        return true
+    }
+
     /** CMB-028: stages [cards] as attackers of [target] (null: the defending player), each in a pair of its own at the end,
      * opening the combat area first when needed; one Undo step. Refused with Automatum's reason when one can't attack it. */
     internal fun stage(play: TableBoard, cards: List<String>, target: String?): Boolean {
@@ -800,6 +869,9 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
     }
 
     fun perform(intent: TableActionIntent): Boolean {
+        // CMB-040: Clear of the blocks placed to assume, while waiting for the defender (the viewer can't act otherwise)
+        if (intent is TableActionIntent.Combat && intent.tool == CombatTool.ASSUME_CLEAR)
+            return engine?.assuming()?.let { combat.clearSelection(); it.clear(); true } ?: false
         // Automatum on (CMB-028, CMB-034): staging and clearing the declaration's draft
         if (intent is TableActionIntent.Combat && intent.tool in setOf(CombatTool.AUTOMATUM_STAGE, CombatTool.AUTOMATUM_CLEAR)) {
             if (!table.enabled(intent.scope)) return false

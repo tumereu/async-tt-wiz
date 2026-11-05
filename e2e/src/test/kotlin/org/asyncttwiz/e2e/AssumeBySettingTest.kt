@@ -14,7 +14,8 @@ import kotlin.test.assertTrue
 /**
  * Owner, 2026-11-05: assumptions depend only on the player's setting, never on the other player's presence. With "Always
  * assume resolves" off (the default) the other player's pause is a wait with Assume on the main button, also while they
- * are away; on, it is assumed at once. Blocks are assumed only from the main button's Assume blockers screen.
+ * are away; on, it is assumed at once. Blocks are assumed only by the main button ("Assume no blockers" / "Assume
+ * blockers", the blocks placed on the lanes).
  */
 class AssumeBySettingTest : E2e() {
     /** Every wait with an Assume button Alice's table shows from now on. */
@@ -68,9 +69,9 @@ class AssumeBySettingTest : E2e() {
         assertTrue(alice.leaks.leaks.isEmpty())
     }
 
-    // CMB-040, HIS-096, TRN-070: Alice attacks while Bob is away: his pause after her attack waits with Assume resolves,
-    // then his blockers wait with Assume blockers on the main button; the Assume blockers screen never opens by itself,
-    // only from that button, and its OK assumes "No blocks"
+    // CMB-040, HIS-096, TRN-070 (owner, 2026-11-05): Alice attacks while Bob is away: his pause after her attack waits
+    // with Assume resolves, then his blockers wait in assume mode on the lanes with "Assume no blockers" on the main
+    // button; nothing is assumed by itself, however long he stays away; the button assumes no blocks
     @Test fun blocksAreAssumedOnlyFromTheMainButton() {
         startGame(TestDeck.thirds(TestCards.cub), TestDeck.thirds(TestCards.herald),
             deal = { a, b -> "Mountain" in hand(a) && "Ember Cub" in hand(a) && "Mountain" in hand(b) && "Ember Herald" in hand(b) })
@@ -105,13 +106,13 @@ class AssumeBySettingTest : E2e() {
         waitUntil("Alice waiting for Bob's blockers") {
             (alice.status as? GameDevice.Status.Waiting)?.let { it.reason == GameDevice.Wait.Blockers && it.offer == GameDevice.Offer.AssumeBlockers } == true
         }
+        fun assumedBlocks() = alice.engine { device.session.events + device.session.pending }
+            .count { e -> e.assumed?.assumedBy == alice.me && e.assumed?.input is Input.DeclareBlockers }
         repeat(3) { run(skip = Duration.ofMinutes(1)) }
-        assertTrue(!alice.showsText("Assume ${bob.name}'s blockers"), "the screen doesn't open by itself")
+        assertEquals(0, assumedBlocks(), "nothing assumed by itself")
         assertTrue(alice.showsText("${bob.name} is declaring blockers"), alice.screen())
-        alice.tap("Assume blockers")
-        waitUntil("the Assume blockers screen") { alice.showsText("Assume ${bob.name}'s blockers") }
-        assertTrue(alice.showsText("No blocks"))
-        alice.text("OK").performClick()
+        assertTrue(!alice.showsText("Assume ${bob.name}'s blockers"), "no screen: the lanes are the assume mode")
+        alice.tap("Assume no blockers")
         waitUntil("the blocks assumed") {
             alice.engine { device.session.events + device.session.pending }.any { e ->
                 e.assumed?.assumedBy == alice.me && (e.assumed?.input as? Input.DeclareBlockers)?.blocks?.isEmpty() == true }

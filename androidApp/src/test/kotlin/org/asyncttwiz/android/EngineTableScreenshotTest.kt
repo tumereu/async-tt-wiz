@@ -29,8 +29,8 @@ import kotlin.test.assertTrue
 /**
  * I-D56 steps C–D (§14): the table of a game on engine state: the private toggles and the unconfirmed mark, the
  * wait's faint words with Assume in the step arrow's place, the catch-up screen, the rewind dialog and the incoming undo request with the board
- * they go back to, the strip and timeline mode on engine events, the Assume blockers screen with edited blocks, and the
- * other player's shared attack staging.
+ * they go back to, the strip and timeline mode on engine events, and the other player's shared attack staging (the
+ * combat band itself: [CombatBandTest]).
  */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
@@ -167,8 +167,8 @@ class EngineTableScreenshotTest {
         }
     }
 
-    // HIS-021, CMB-007 (§29.6): Alice attacked while Bob was away; his playback shows the attack in the combat area, the
-    // panel in the middle of the table, as in live combat
+    // HIS-021, CMB-007 (§29.6): Alice attacked while Bob was away; his playback shows the attack in the combat band
+    // between the battlefields, as in live combat
     @Test fun anAttackPlaysBackInTheCombatArea() {
         val scenario = EngineCombatScenario()
         scenario.until(scenario::bothHaveCubs)
@@ -189,7 +189,7 @@ class EngineTableScreenshotTest {
         assertTrue(bob.play().board.combat?.pairs.orEmpty().isNotEmpty(), "the attack shown")
         render(bob, f.b, summary = scenario.f.game)
         captureShot("$SCREENSHOTS/engine/playback-attack.png",
-            "Bob's playback of Alice's attack while he was away, stopped at his blocks: her Ember Cub attacks him in the combat area, the white panel in the middle of the table, as in live combat, with No blocks in the step arrow's place.")
+            "Bob's playback of Alice's attack while he was away, stopped at his blocks: her Ember Cub attacks him in the combat band between the battlefields, as in live combat, with No blocks on the main button.")
     }
 
     /** Bob coming back after [aliceAtMain]: his device holds her events past his local head. */
@@ -416,45 +416,6 @@ class EngineTableScreenshotTest {
         compose.onNodeWithContentDescription("Return to current").assertExists()
         captureShot("$SCREENSHOTS/engine/timeline-mode.png",
             "Alice tapped the history button at the end of the strip and stepped back to her keep: the bars turn grey, the board shows the opening as it was then, and the timeline panel has the strip with Previous, Auto and Next; nothing on it acts.")
-    }
-
-    // CMB-040, CMB-049 (I-D56 §4, §14, owner 2026-11-05): Bob is away; Alice opens the Assume blockers screen from the main
-    // button and edits the blocks before assuming them
-    @Test fun assumeBlockersScreenEditsTheBlocks() {
-        val scenario = EngineCombatScenario()
-        scenario.until(scenario::bothHaveCubs)
-        val alice = scenario.alice
-        val s = alice.device.model.engine
-        val attacker = scenario.creatures(s, scenario.me, ready = true).first()
-        scenario.online[f.b] = false
-        alice.tick(scenario.sim.now + 120_000)
-        assertIs<GameDevice.Acted.Sent>(alice.send(listOf(arcanum.engine.input.Input.DeclareAttackers(scenario.me,
-            listOf(arcanum.engine.input.Attack(attacker, TargetRef.Player(scenario.other)))))))
-        alice.tick(scenario.sim.now + 121_000)
-        // Bob's pause after her attack, then his blockers: waits with Assume on the main button
-        if ((alice.device.status as? GameDevice.Status.Waiting)?.offer == GameDevice.Offer.AssumeResolves) {
-            alice.assume(); alice.tick(scenario.sim.now + 122_000)
-        }
-        val waiting = assertIs<GameDevice.Status.Waiting>(alice.device.status)
-        assertEquals(GameDevice.Offer.AssumeBlockers, waiting.offer)
-        alice.notes.clear()
-        render(alice, f.a)
-        compose.onNodeWithText("Assume Bob's blockers").assertDoesNotExist()
-        compose.onNodeWithTag("engine-wait-action").assert(hasContentDescription("Assume blockers")).performClick()
-        compose.waitForIdle()
-        compose.onNodeWithText("Assume Bob's blockers").assertExists()
-        val blocker = scenario.creatures(s, scenario.other, ready = false).first { s.obj(it)?.tapped == false } as ObjectId.Card
-        compose.onNodeWithTag("assume-block-${blocker.card.value}-${(attacker as ObjectId.Card).card.value}").performClick()
-        compose.waitForIdle()
-        compose.onNodeWithText("1 block").assertExists()
-        captureShot("$SCREENSHOTS/engine/assume-blockers.png",
-            "Bob is away when Alice attacks with her Ember Cub; she tapped Assume blockers on the main button: the Assume blockers screen lists her attacker with Bob's untapped creatures beside it, and she tapped his Cub to assume it blocks (1 block) before pressing OK; Back would wait for him.")
-        // OK assumes exactly those blocks
-        compose.onNodeWithText("OK").performClick()
-        compose.runOnIdle {
-            val assumed = alice.device.session.pending.firstNotNullOf { it.assumed?.input as? arcanum.engine.input.Input.DeclareBlockers }
-            assertEquals(listOf(arcanum.engine.input.Block(blocker, attacker)), assumed.blocks)
-        }
     }
 
     // CMB-043 (I-D54 §8): Alice's attack staging is shared: Bob's table shows her staged Cub in the lane while she decides

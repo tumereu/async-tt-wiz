@@ -91,17 +91,12 @@ class TableWorldTest {
                 }
                 val homeGap = home.fields.last().gridBounds.y - home.fields.first().gridBounds.bottom
                 assertEquals(homeGap * zoom, next.fields.last().gridBounds.y - next.fields.first().gridBounds.bottom, .001f)
-                // CMB-042: the combat panel is screen-level when zoomed out: it stays centred where the world puts it,
-                // but its cards stay COMBAT_MIN_CARD wide on screen instead of shrinking with the world
-                val homePanel = transformed(home.combatPanel!!)
-                assertEquals(homePanel.center.x, next.combatPanel!!.center.x, .001f)
-                assertEquals(homePanel.center.y, next.combatPanel!!.center.y, .001f)
+                // CMB-007, CMB-042 (owner, 2026-11-05): the combat band is world content: its panel and cards zoom with
+                // the battlefields
+                assertEquals(transformed(home.combatPanel!!), next.combatPanel)
                 for (item in home.items) {
                     val other = next.items.single { it.id == item.id }
-                    if (item.viewport == "combat" && zoom < 1f) {
-                        assertEquals(maxOf(item.bounds.width * zoom, TablePresentation.COMBAT_MIN_CARD), other.bounds.width, .001f, item.id)
-                        assertEquals(other.bounds.width * item.bounds.height / item.bounds.width, other.bounds.height, .001f, item.id)
-                    } else if (item.zone == PlayZone.BATTLEFIELD) {
+                    if (item.zone == PlayZone.BATTLEFIELD) {
                         val expected = transformed(item.bounds)
                         assertEquals(expected.x, other.bounds.x, .001f, item.id)
                         assertEquals(expected.y, other.bounds.y, .001f, item.id)
@@ -116,18 +111,24 @@ class TableWorldTest {
         }
     }
 
-    // CMB-007 (combat review #1): the combat area floats over the battlefields; opening it moves no field, row or HUD
-    @Test fun openingCombatMovesNoFieldsRowsOrHud() {
+    // CMB-007 (owner, 2026-11-05): opening the combat band pushes the battlefields apart by its height; no row height or
+    // HUD changes
+    @Test fun openingCombatPushesTheFieldsApartButMovesNoHud() {
         val initial = TableFixture.play(board = 1)
         val play = initial.copy(board = initial.board.copy(combat = CombatArea("combat")))
         for (landscape in listOf(false, true)) {
             val (w, h) = if (landscape) 892f to 412f else 412f to 892f
             val closed = TablePresentation.scene(TableFixture.game, tableBoard(initial), "a", w, h, landscape)
             val open = TablePresentation.scene(TableFixture.game, tableBoard(play), "a", w, h, landscape)
-            assertEquals(closed.fields, open.fields)
+            val panel = assertNotNull(open.combatPanel)
+            assertTrue(open.fields.first().gridBounds.bottom <= panel.y && open.fields.last().gridBounds.y >= panel.bottom)
+            for ((a, b) in closed.fields.zip(open.fields)) {
+                assertEquals(a.gridBounds.height, b.gridBounds.height, .001f)
+                assertEquals(a.rowHeight, b.rowHeight, .001f)
+            }
             assertEquals(closed.stackRegion, open.stackRegion)
-            assertNotNull(open.combatPanel)
-            for (item in closed.items) assertEquals(item.bounds, open.items.single { it.id == item.id }.bounds)
+            for (item in closed.items.filter { it.zone != PlayZone.BATTLEFIELD })
+                assertEquals(item.bounds, open.items.single { it.id == item.id }.bounds, item.id)
         }
     }
 

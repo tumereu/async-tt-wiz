@@ -107,4 +107,57 @@ class EngineHandCastsTest {
         assertIs<Decision.Announce>(flow.pending)
         assertEquals(2, HandCasts.mostAnnounced(flow))
     }
+
+    // ZON-080 (owner playtest 2026-11-05 evening, fix): a bestow creature whose bestow needs collect evidence it can't
+    // collect showed no Bestow chip at all: every way the card has is a chip, the engine only greys it
+    @Test fun aBestowNeedingEvidenceStillShowsGreyed() {
+        table.put(alice, Zone.Battlefield, "Mountain", "Mountain", "Mountain")
+        val (firebird) = table.put(alice, Zone.Hand, "Inspector's Firebird")
+        val chips = assertNotNull(options(firebird))
+        assertEquals(listOf("Cast", "Bestow"), chips.ways.map { it.name })
+        assertTrue(chips.ways[0].affordable)
+        assertFalse(chips.ways[1].affordable)
+        assertEquals("{R}", chips.ways[1].cost)
+    }
+
+    // ZON-080 (owner playtest 2026-11-05 evening): the card's special actions from the hand are ways of their own, after its
+    // casts: Plot with its cost; with two Mountains the plain cast ({3}{R}) is greyed and Plot ({1}{R}) can be paid
+    @Test fun plotIsAWayFromTheHand() {
+        val schemer = arcanum.engine.cards.Cards.invent("Ember Schemer", "{3}{R}", "Sorcery", "Ember Schemer deals 2 damage to any target.\nPlot {1}{R}")
+        table.put(alice, Zone.Battlefield, "Mountain", "Mountain")
+        val (card) = table.put(alice, Zone.Hand, schemer)
+        val chips = assertNotNull(options(card))
+        assertEquals(listOf("Cast", "Plot"), chips.ways.map { it.name })
+        assertFalse(chips.ways[0].affordable)
+        assertTrue(chips.ways[1].affordable)
+        assertEquals("{1}{R}", chips.ways[1].cost)
+        assertIs<Input.Activate>(chips.ways[1].input)
+    }
+
+    // ZON-080: foretell (CR 702.143b) is a way from the hand during its owner's turn ({2}), greyed in the other player's
+    @Test fun foretellIsAWayInYourTurn() {
+        val omen = arcanum.engine.cards.Cards.invent("Ember Omen", "{3}{R}", "Instant", "Ember Omen deals 3 damage to any target.\nForetell {1}{R}")
+        table.put(alice, Zone.Battlefield, "Mountain", "Mountain")
+        val (card) = table.put(alice, Zone.Hand, omen)
+        val chips = assertNotNull(options(card))
+        assertEquals(listOf("Cast", "Foretell"), chips.ways.map { it.name })
+        assertTrue(chips.ways[1].affordable)
+        assertEquals("{2}", chips.ways[1].cost)
+        table.active = table.bob; table.priority = table.bob
+        val theirs = assertNotNull(options(card))
+        assertEquals(listOf("Cast", "Foretell"), theirs.ways.map { it.name })
+        assertFalse(theirs.ways[1].affordable)
+    }
+
+    // ZON-080: dash (an alternative cost) is a way, greyed when its mana can't be paid
+    @Test fun dashShowsGreyedWhenUnpaid() {
+        val raider = arcanum.engine.cards.Cards.invent("Ember Raider", "{R}", "Creature — Human Warrior", "Dash {3}{R}", "2/1")
+        table.put(alice, Zone.Battlefield, "Mountain")
+        val (card) = table.put(alice, Zone.Hand, raider)
+        val chips = assertNotNull(options(card))
+        assertEquals(listOf("Cast", "Dash"), chips.ways.map { it.name })
+        assertTrue(chips.ways[0].affordable)
+        assertFalse(chips.ways[1].affordable)
+        assertEquals("{3}{R}", chips.ways[1].cost)
+    }
 }

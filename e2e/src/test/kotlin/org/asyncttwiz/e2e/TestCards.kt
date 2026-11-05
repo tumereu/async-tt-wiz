@@ -38,6 +38,11 @@ object TestCards {
         "2", "1", scryfallId = UUID.nameUUIDFromBytes("e2e/art/Ember Twin".encodeToByteArray()).toString())
     /** An X spell (STK-023): X damage to any target, X paid by its caster's mana. */
     val burst = card("Ember Burst", "Sorcery", "{X}", "Ember Burst deals X damage to any target.")
+    /** A bestow creature whose bestow needs collect evidence (owner playtest 2026-11-05 evening: its Bestow chip was missing
+     * while the evidence couldn't be collected). */
+    val lark = card("Cinder Lark", "Enchantment Creature — Elemental Bird", "{R}",
+        "Bestow—{R}, Collect evidence 6. (To pay this bestow cost, pay {R} and exile cards with total mana value 6 or greater from your graveyard.)\n" +
+            "Flying, haste\nEnchanted creature gets +1/+1 and has flying and haste.", "1", "1")
     /** Empties its caster's hand for free. */
     val thoughts = card("Empty Thoughts", "Sorcery", "{0}", "Discard your hand.")
 }
@@ -56,6 +61,9 @@ data class TestDeck(val name: String, val entries: List<Pair<SubmittedDefinition
 
         /** 40 cards: Mountains and Ember Bursts (an X spell). */
         fun bursts() = TestDeck("Bursts", listOf(TestCards.mountain to 20, TestCards.burst to 20))
+
+        /** 40 cards: Mountains and Cinder Larks (bestow with collect evidence). */
+        fun larks() = TestDeck("Larks", listOf(TestCards.mountain to 20, TestCards.lark to 20))
 
         /** 40 cards: Mountains and Storm Sparks. */
         fun sparks() = TestDeck("Sparks", listOf(TestCards.mountain to 20, TestCards.spark to 20))

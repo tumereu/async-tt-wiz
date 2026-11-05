@@ -90,16 +90,23 @@ object HandCasts {
             try { start(input, emptyList()); true } catch (_: IllegalArgumentException) { false }
         }
         if (plays.isEmpty() || way !in plays.indices) return null
-        val first = try { start(plays[way], times) } catch (_: IllegalArgumentException) { return null }
-        val extras = extrasOf(first)
+        // A way the engine won't begin now (a cost it can't pay, not now) is still a chip, greyed (ZON-080)
+        val first = try { start(plays[way], times) } catch (_: IllegalArgumentException) { null }
+        val extras = first?.let(::extrasOf).orEmpty()
         val chosen = extras.indices.map { i -> times.getOrElse(i) { 0 }.coerceAtLeast(0).let { if (extras[i].second.repeatable) it else minOf(it, 1) } }
-        val current = probe { if (chosen == times) first else start(plays[way], chosen) }
+        val current = probe { if (chosen == times && first != null) first else start(plays[way], chosen) }
+        // The card's names and texts: the game's card data, else the engine's own object (its definition is always there)
         val cardDefinition = source.board.cards.singleOrNull { it.id == cardId }?.let { definitions[it.definition] }
+            ?: plays.firstNotNullOfOrNull { input ->
+                val obj = when (input) { is Input.Cast -> input.card; is Input.Activate -> input.source; else -> null }
+                obj?.let { source.run { error("No randomness while naming ways") }.working.obj(it)?.definition }
+            }
+        val printed = printedCosts(source, plays)
         val ways = plays.mapIndexed { i, input ->
             val probe = if (i == way) current else probe { start(input, emptyList()) }
             val plain = if (i == way && chosen.any { it > 0 }) probe { start(input, emptyList()) } else probe
-            CastWayChip(input, wayName(cardDefinition, input), plain.cost, (input as? Input.Cast)?.way?.alternative
-                ?.let { CastFlow.abilityText(cardDefinition, it) }, probe.affordable)
+            CastWayChip(input, wayName(cardDefinition, input), plain.cost ?: printed[i].takeIf { !plain.affordable }, wayText(cardDefinition, input),
+                probe.affordable)
         }
         val extraChips = extras.mapIndexed { i, (instance, mechanic) ->
             val more = chosen.toMutableList().also { it[i] = if (mechanic.repeatable) it[i] + 1 else 1 }
@@ -112,10 +119,14 @@ object HandCasts {
     }
 
     /**
-     * Every way to cast [cardId] the engine would begin now ([begins]): the ways it [offered] (those it can pay), and the
-     * ways it can't pay now, worked out as the engine lists them (CR 601.3: the castable faces, each plainly and with each
-     * of its alternative costs, then both halves fused), so a way the player can't afford still shows, greyed. In the
-     * engine's order, the plain cast of the front face first; a land's ways are only those offered.
+     * Every way to cast [cardId] the card has (ZON-080, owner playtest 2026-11-05 evening: the list comes from the card, the
+     * engine only greys a way it can't begin or pay now), worked out as the engine lists them (CR 601.3: the castable
+     * faces, each plainly and with each of its alternative costs, then both halves fused): each face that isn't a land,
+     * plainly, and the front face with each of its alternative costs (bestow, evoke, dash, blitz, overload, disguise,
+     * prototype, mutate, …), always; another face with an alternative cost and both halves fused only when the engine
+     * would begin them ([begins]) or [offered] them. Then the card's special actions from the hand (foretell, plot), each
+     * a way of its own. In the engine's order, the plain cast of the front face first; a land's ways are only those
+     * offered.
      */
     private fun ways(source: CastFlow.Source, viewer: String, cardId: String, offered: List<Input>,
         begins: (Input) -> Boolean): List<Input> {
@@ -129,16 +140,57 @@ object HandCasts {
             arcanum.api.Layout.Split, arcanum.api.Layout.Adventure, arcanum.api.Layout.ModalDoubleFaced, arcanum.api.Layout.Omen ->
                 definition.faces.indices.toList()
             else -> listOf(0)
-        }
-        val alternatives = listOf(null) + Engine.view(state)[card]?.characteristics?.abilities.orEmpty()
+        }.filter { face -> arcanum.api.CardType.Land !in definition.faces.getOrNull(face)?.types.orEmpty() }
+        val abilities = Engine.view(state)[card]?.characteristics?.abilities.orEmpty()
+        val alternatives = listOf(null) + abilities
             .filter { instance -> (instance.ability as? Ability.Static)?.mechanics.orEmpty().any { it is Mechanic.AlternativeCost } }
             .map { it.origin }
         val player = arcanum.engine.state.PlayerId(viewer)
         // Fused only for a split card (no refused probe, "it has no fuse", for every other card's menu)
         val listed = faces.flatMap { face -> alternatives.map { Input.Cast(player, card, arcanum.engine.input.CastWay(face, it)) } } +
             listOfNotNull(Input.Cast(player, card, arcanum.engine.input.CastWay(fused = true)).takeIf { definition.layout == arcanum.api.Layout.Split })
-        val all = listed.filter { it in offered || begins(it) }
-        return all + offered.filter { it !in all }
+        fun has(input: Input.Cast) = !input.way.fused && (input.way.face == faces.firstOrNull() || input.way.alternative == null)
+        val all = listed.filter { it in offered || has(it) || begins(it) }
+        // The special actions the card offers from the hand: its own (plot) and foretell (a rule of the engine's for a
+        // card with foretell, CR 702.143b)
+        val actions = abilities.filter { (it.ability as? Ability.SpecialAction)?.functionsIn.orEmpty().contains(arcanum.api.Zone.Hand) }
+            .map { it.origin } +
+            listOfNotNull(FORETELL.takeIf { abilities.any { it.ability is arcanum.api.Keyword.Foretell } })
+        return all + offered.filter { it !in all } + actions.map { Input.Activate(player, card, it) }
+    }
+
+    /** The engine's foretell special action (CR 702.143b), a rule rather than an ability of the card. */
+    private val FORETELL = arcanum.engine.view.AbilityOrigin.Rule("foretell")
+
+    /** The printed mana of each of [plays] (its alternative cost's, its face's, its special action's), shown on a way the
+     * engine won't begin now (so no payment says it). */
+    private fun printedCosts(source: CastFlow.Source, plays: List<Input>): List<String?> {
+        val state = source.run { error("No randomness while listing ways") }.working
+        return plays.map { input ->
+            when (input) {
+                is Input.Cast -> {
+                    val o = state.obj(input.card)
+                    val alternative = input.way.alternative
+                    if (alternative != null) Engine.view(state)[input.card]?.characteristics?.abilities.orEmpty()
+                        .firstOrNull { it.origin == alternative }?.let { (it.ability as? Ability.Static)?.mechanics.orEmpty()
+                            .filterIsInstance<Mechanic.AlternativeCost>().firstOrNull()?.cost }?.let(::manaOf)
+                    else o?.definition?.faces?.getOrNull(input.way.face)?.manaCost?.toString()?.ifEmpty { null }
+                }
+                is Input.Activate -> if (input.ability == FORETELL) "{2}" else Engine.view(state)[input.source]?.characteristics?.abilities.orEmpty()
+                    .firstOrNull { it.origin == input.ability }?.let { (it.ability as? Ability.SpecialAction)?.cost }?.let(::manaOf)
+                else -> null
+            }
+        }
+    }
+
+    private fun manaOf(cost: arcanum.api.Cost): String? = cost.parts.filterIsInstance<CostPart.Mana>().joinToString("") { it.cost.toString() }.ifEmpty { null }
+
+    /** The printed text of a way, for its chip's details: its alternative cost's or special action's; null for a face. */
+    private fun wayText(definition: CardDefinition?, input: Input): String? = when (input) {
+        is Input.Cast -> input.way.alternative?.let { CastFlow.abilityText(definition, it) }
+        is Input.Activate -> CastFlow.abilityText(definition, input.ability)
+            ?: if (input.ability == FORETELL) "Foretell (During your turn, you may pay {2} and exile this card from your hand face down.)" else null
+        else -> null
     }
 
     /**
@@ -222,6 +274,9 @@ object HandCasts {
             if (way.permission != null) parts += "With permission"
             parts.joinToString(" · ").ifEmpty { "Cast" }
         }
+        // A special action from the hand: its keyword ("Plot", "Foretell")
+        is Input.Activate -> if (input.ability == FORETELL) "Foretell"
+            else CastFlow.abilityText(definition, input.ability)?.let(::withoutSymbols)?.ifBlank { null } ?: "Special action"
         else -> "Cast"
     }
 
@@ -230,8 +285,7 @@ object HandCasts {
     internal fun withoutSymbols(text: String): String =
         text.substringBefore('(').substringBefore('—').replace(SYMBOL, "").trim().trimEnd('.', ',', ' ', '-')
 
-    private fun manaOf(mechanic: Mechanic.AdditionalCost): String? =
-        mechanic.cost.parts.filterIsInstance<CostPart.Mana>().joinToString("") { it.cost.toString() }.ifEmpty { null }
+    private fun manaOf(mechanic: Mechanic.AdditionalCost): String? = manaOf(mechanic.cost)
 
     /** What trying a choice as far as its payment found. */
     private class Probe(val cost: String?, val sources: Set<String>, val affordable: Boolean)

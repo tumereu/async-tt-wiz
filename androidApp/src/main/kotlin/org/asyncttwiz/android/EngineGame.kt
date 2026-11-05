@@ -674,6 +674,23 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
     fun confirmResult(): GameDevice.Acted = acting(STALE) { device.confirmResult() }
     fun settings(settings: PlaySettings) { worker.call { device.settings(settings) }; after() }
 
+    /** HIS-035: the app left ([GameDevice.away]): playback pauses at once, and the return starts paused until Play. */
+    fun away() {
+        awayPaused = true
+        worker.run { device.away(); publish() }
+    }
+
+    /** HIS-035, HIS-006: back, with everything the server had received ([GameDevice.returned]). */
+    fun returned() {
+        if (!awayPaused) return
+        awayPaused = false
+        worker.run { val before = device.status; device.returned(); if (device.status != before) publish() }
+    }
+
+    /** Whether the app left since the game was last told it returned (main thread). */
+    var awayPaused = false
+        private set
+
     /** Leaves the catch-up screen (§7): playback starts, its first step right away (HIS-023): the first board published
      * after it already shows the first event (owner playtest 2026-11-05: nothing waited for after Play). */
     fun startPlayback() = worker.run {

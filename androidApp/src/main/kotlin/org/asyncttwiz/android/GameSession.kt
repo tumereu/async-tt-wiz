@@ -101,7 +101,11 @@ class GameSession(private val connection: GameConnection, private val credential
     val ready get() = connected && welcome
     fun reconnecting(gameId: String) = compatibilityError == null && !ready(gameId) && connectionDemand[gameId]?.let { now() - it >= 3_000 } == true
     fun dismissError() { error = compatibilityError; statusChanged() }
-    fun background() { backgrounded = true; resumePending = true; resumePing = null; reconnectTrace.stepAll("lifecycleBackground") }
+    fun background() {
+        backgrounded = true; resumePending = true; resumePing = null; reconnectTrace.stepAll("lifecycleBackground")
+        // HIS-035: leaving the app pauses every open table's playback at once
+        engineGames.values.forEach { it.away() }
+    }
     fun foreground() {
         reconnectTrace.stepAll("lifecycleForeground"); connectionDemand.clear()
         // A socket kept open while away may still hold undelivered events (a frozen process reads
@@ -287,6 +291,8 @@ class GameSession(private val connection: GameConnection, private val credential
      * turning async), then what it sends. Called by the open table every second and after every action. */
     fun engineTick(gameId: String) {
         val game = engineGame(gameId) ?: return
+        // HIS-035, HIS-006: back, with everything the server had: live again unless there is something to catch up on
+        if (game.awayPaused && caughtUp(gameId)) game.returned()
         val live = presences[gameId]?.let { PresenceText.dot(it, now()) == PresenceDot.ONLINE } == true
         game.tick(live, now())
         pumpEngine(gameId)

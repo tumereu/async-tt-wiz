@@ -382,6 +382,17 @@ class GameDevice(
     /** Ends the catch-up pause: playback starts. */
     fun play() { catchUp = false }
 
+    /**
+     * HIS-035 (owner playtest 2026-11-05): the player left the app. Playback pauses at the shown point at once, and what
+     * arrives meanwhile waits: coming back with the other player's events past the local head starts paused
+     * ([Status.CatchUp]) until [play], as a fresh load does; [returned] ends it when there is nothing to catch up on.
+     */
+    fun away() { catchUp = true }
+
+    /** The player is back and the device has everything the server had: with nothing of the other player's past the
+     * local head the game is live again (HIS-006); else it stays paused for Play. */
+    fun returned() { if (session.buffered.none { it.author != session.me.value }) catchUp = false }
+
     /** Whether the shown state is in the opening (mulligans, turn 0): never played back (§29.1). */
     private val opening: Boolean get() = model.engine.turn.number == 0
 

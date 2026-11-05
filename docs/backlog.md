@@ -35,6 +35,8 @@ Start none of these until the E2E framework above works. Each owner-reported bug
 - Fix: the loop-draw choice (TRN-060) is offered when the loop can't be stopped by what players can actually do; a hand of only lands must not count as able to act.
 - Fix: the reason typed into Suggest game end reaches the other player (TRN-046).
 
+- Drop the assumed opening keep (owner, 2026-11-05): the device never assumes the other player's opening keep, and there is no Assume keep button; the starting player waits for the other player's keep (or mulligans) before playing turn 1. Today a phone that opens the game before the opponent has arrived assumes their keep at once, even after they come (found by the e2e framework). Changes HIS-096, TRN-027, TRN-070; async-play.md choice 6 goes.
+
 ## Specified, not started
 
 (none)
@@ -45,5 +47,7 @@ Start none of these until the E2E framework above works. Each owner-reported bug
 - R5 of `engine-responsiveness.md` (optional, decided later): while the player looks at the board, the idle engine thread works out their step-arrow pass on a probe, so the tap only applies the result (frame-fast passes, some battery cost). Decide after R1–R3's measurements.
 
 ## Later (nice to have)
+
+- Play your first turn while the opponent is still deciding on mulligans, without rollbacks when they mulligan, as long as nothing you do interacts with their hand or library (owner, 2026-11-05; replaces the dropped assumed keep). Not high priority.
 
 - Choose a card's printing (art) in decks and cubes.

@@ -51,16 +51,52 @@ data class Line(val number: Int = 0, val drawn: Int = 0)
 /**
  * A player's own play settings for one game (I-D56 §2, §13): private, kept on the server for that player and game,
  * never an event or part of the table or engine state, never sent to the other player. [mode] says where the player's
- * own device stops for them in live play; [alwaysAssumeResolves] assumes the other player's passes at their pauses at
- * once instead of waiting with Assume (HIS-096); [autotap] pays mana costs with the engine's suggestion (I-D47, private:
- * I-D56 choice 12); [playbackFullControl] makes catch-up playback stop wherever the player gets priority (HIS-095).
+ * own device stops for them in live play; [assume] says when the other player's passes at their pauses are assumed at once
+ * instead of waiting with Assume (HIS-096), kept as [alwaysAssumeResolves] (Always) and [assumeWhenNoMana] (When they have
+ * no mana), so settings stored before the choice had three answers read as they were (on: Always, off: Never); [autotap]
+ * pays mana costs with the engine's suggestion (I-D47, private: I-D56 choice 12); [playbackFullControl] makes catch-up
+ * playback stop wherever the player gets priority (HIS-095).
  */
 @Serializable
 data class PlaySettings(val mode: ResponseMode = ResponseMode.AutoSkip, val alwaysAssumeResolves: Boolean = false,
-    val autotap: Boolean = true, val playbackFullControl: Boolean = false) {
+    val autotap: Boolean = true, val playbackFullControl: Boolean = false, val assumeWhenNoMana: Boolean = false) {
     /** Where catch-up playback stops for the player (HIS-095): Auto-skip whatever their live [mode], or Full control
      * with [playbackFullControl] on. */
     val playbackMode: ResponseMode get() = if (playbackFullControl) ResponseMode.FullControl else ResponseMode.AutoSkip
+
+    /** When the other player's passes at their pauses are assumed at once (TRN-059, LOB-113, HIS-096). */
+    val assume: AssumeResolves get() = when {
+        alwaysAssumeResolves -> AssumeResolves.Always
+        assumeWhenNoMana -> AssumeResolves.WhenNoMana
+        else -> AssumeResolves.Never
+    }
+
+    /** These settings with [assume] as [value]. */
+    fun assuming(value: AssumeResolves): PlaySettings =
+        copy(alwaysAssumeResolves = value == AssumeResolves.Always, assumeWhenNoMana = value == AssumeResolves.WhenNoMana)
+}
+
+/** When a player's device assumes the other player's passes at their pauses at once (HIS-096), instead of waiting with
+ * Assume on the main button (TRN-070). */
+sealed interface AssumeResolves {
+    /** Never: each pause waits (the default). */
+    data object Never : AssumeResolves
+    /** When the table shows the other player no untapped mana source, no mana in their pool and no ability they could
+     * activate. */
+    data object WhenNoMana : AssumeResolves
+    /** Always. */
+    data object Always : AssumeResolves
+
+    /** Never, When they have no mana, Always: the order a tap on the quick action goes through. */
+    val next: AssumeResolves get() = when (this) {
+        Never -> WhenNoMana
+        WhenNoMana -> Always
+        Always -> Never
+    }
+
+    companion object {
+        val all: List<AssumeResolves> get() = listOf(Never, WhenNoMana, Always)
+    }
 }
 
 /** Where a player's own device (and their playback) stops for them (I-D56 §2). */

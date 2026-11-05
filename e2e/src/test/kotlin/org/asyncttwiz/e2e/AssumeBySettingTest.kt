@@ -26,14 +26,14 @@ class AssumeBySettingTest : E2e() {
     }
 
     // HIS-096, TRN-070, STK-028: Bob is away; Alice's Ember Herald waits for him with Assume on the main button (nothing
-    // under the Stack), however long he stays away; Assume goes on (her trigger waits the same way); with "Always assume
-    // resolves" turned on from her quick actions her End turn goes past his pause at her end step at once
+    // under the Stack), however long he stays away; Assume goes on (her trigger waits the same way); with "Assume
+    // resolves" set to Always from her quick actions her End turn goes past his pause at her end step at once
     @Test fun aPauseWaitsWithAssumeUnlessAlwaysAssumeResolves() {
         startGame(TestDeck.thirds(TestCards.herald), TestDeck.thirds(TestCards.herald),
             deal = { a, _ -> "Mountain" in hand(a) && "Ember Herald" in hand(a) })
         bothOpen()
         bothKeep(bobAway = true)
-        assertTrue(!alice.shown.settings.alwaysAssumeResolves, "off by default")
+        assertEquals(org.asyncttwiz.protocol.game.AssumeResolves.Never, alice.shown.settings.assume, "Never by default")
         alice.playFromHand("Mountain", this)
         waitUntil("the Mountain on the battlefield") { alice.field("Mountain").isNotEmpty() && alice.inOwnMain() }
         val herald = atw(alice.hand("Ember Herald").first())
@@ -59,9 +59,12 @@ class AssumeBySettingTest : E2e() {
         waitUntil("the token, Alice in her Main 1") { alice.state.battlefield.any { alice.state.obj(it)?.token == true } && alice.inOwnMain() }
         assertTrue(assumedCount() >= assumed + 2, "her two Assume taps")
 
-        // "Always assume resolves" on: her end step (his pause) goes by at once
-        alice.tap("Always assume resolves")
-        waitUntil("the setting on") { alice.shown.settings.alwaysAssumeResolves }
+        // "Assume resolves" set to Always (a tap goes Never → When they have no mana → Always): her end step (his pause)
+        // goes by at once
+        alice.tap("Assume resolves setting")
+        waitUntil("the setting at When they have no mana") { alice.shown.settings.assume == org.asyncttwiz.protocol.game.AssumeResolves.WhenNoMana }
+        alice.tap("Assume resolves setting")
+        waitUntil("the setting at Always") { alice.shown.settings.assume == org.asyncttwiz.protocol.game.AssumeResolves.Always }
         val offers = assumeOffers()
         alice.hold("To combat")
         waitUntil("Bob's turn on Alice's table") { alice.state.turn.active == bob.me && alice.engine { device.session.pending.isEmpty() } }

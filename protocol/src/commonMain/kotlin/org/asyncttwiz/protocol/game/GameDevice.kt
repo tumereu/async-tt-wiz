@@ -595,7 +595,7 @@ class GameDevice(
             val top = s.stack.lastOrNull()
             val reason = if (top != null) Wait.Respond(top) else Wait.MayAct(s.turn.step)
             // HIS-096 (owner, 2026-11-05): only the player's setting decides, never the other player's presence
-            return if (settings.alwaysAssumeResolves) Point.Assume(pass) else Point.Wait(reason, Offer.AssumeResolves, pass)
+            return if (assumesAtOnce(s, holder)) Point.Assume(pass) else Point.Wait(reason, Offer.AssumeResolves, pass)
         }
         val blocks = Engine.options(s, opponent, model.keptView()).filterIsInstance<Input.DeclareBlockers>()
         if (blocks.isNotEmpty()) {
@@ -605,6 +605,19 @@ class GameDevice(
             return Point.Wait(Wait.Blockers, Offer.AssumeBlockers, none)
         }
         return Point.Wait(Wait.TheirTurn)
+    }
+
+    /**
+     * HIS-096: whether this player's setting assumes [holder]'s pass at their pause at once: Always, or When they have no
+     * mana and [s] (what this player's table shows) gives them none: nothing in their mana pool and nothing they could
+     * activate (no untapped mana source, mana abilities being activations too, and no other ability usable now). The cards
+     * in their hand are hidden and don't count.
+     */
+    private fun assumesAtOnce(s: GameState, holder: PlayerId): Boolean = when (settings.assume) {
+        AssumeResolves.Always -> true
+        AssumeResolves.Never -> false
+        AssumeResolves.WhenNoMana -> s.player(holder).manaPool.isEmpty() &&
+            Engine.options(s, holder, model.keptView()).none { it is Input.Activate }
     }
 
     private fun keep(input: Input): Boolean = when (input) {

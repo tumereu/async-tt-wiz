@@ -20,7 +20,7 @@ internal class PausePreferences(context: Context, private val accountId: String)
     private val preferences = context.applicationContext.getSharedPreferences("automatum-pauses", Context.MODE_PRIVATE)
     private val autotapKey = "autotap/$accountId"
 
-    /** I-D56 §7, §13 (LOB-113): the response mode and "Always assume resolves" a new game on engine state starts with. */
+    /** I-D56 §7, §13 (LOB-113): the response mode, "Assume resolves" and Autotap a new game on engine state starts with. */
     var engineDefaults: org.asyncttwiz.protocol.game.PlaySettings
         get() = org.asyncttwiz.protocol.game.PlaySettings(
             mode = when (preferences.getString("engine-mode/$accountId", null)) {
@@ -29,13 +29,15 @@ internal class PausePreferences(context: Context, private val accountId: String)
                 else -> org.asyncttwiz.protocol.game.ResponseMode.AutoSkip
             },
             alwaysAssumeResolves = preferences.getBoolean("engine-assume/$accountId", false),
+            assumeWhenNoMana = preferences.getBoolean("engine-assume-no-mana/$accountId", false),
             autotap = preferences.getBoolean(autotapKey, true))
         set(value) {
             preferences.edit().putString("engine-mode/$accountId", when (value.mode) {
                 org.asyncttwiz.protocol.game.ResponseMode.FullControl -> "full"
                 org.asyncttwiz.protocol.game.ResponseMode.Normal -> "normal"
                 org.asyncttwiz.protocol.game.ResponseMode.AutoSkip -> "auto-skip"
-            }).putBoolean("engine-assume/$accountId", value.alwaysAssumeResolves).putBoolean(autotapKey, value.autotap).apply()
+            }).putBoolean("engine-assume/$accountId", value.alwaysAssumeResolves)
+                .putBoolean("engine-assume-no-mana/$accountId", value.assumeWhenNoMana).putBoolean(autotapKey, value.autotap).apply()
         }
 
 }
@@ -49,7 +51,7 @@ internal fun AutomatumPauseSettings(accountId: String, account: AccountSettingsS
 }
 
 /**
- * I-D56 §7, §13 (LOB-113): the response mode, "Always assume resolves" and "Autotap mana sources" (I-D47) new games
+ * I-D56 §7, §13 (LOB-113): the response mode, "Assume resolves" and "Autotap mana sources" (I-D47) new games
  * start with (each game's own are changed from its quick actions).
  */
 @Composable
@@ -72,12 +74,16 @@ private fun EngineDefaultSettings(preferences: PausePreferences, account: Accoun
             SettingsLabel(mode.label(), mode.meaning(), Modifier.weight(1f).padding(start = 12.dp, top = 4.dp, bottom = 4.dp))
         }
     }
-    Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("always-assume-resolves")
-        .toggleable(defaults.alwaysAssumeResolves, role = Role.Switch, onValueChange = { set(defaults.copy(alwaysAssumeResolves = it)) }),
-        verticalAlignment = Alignment.CenterVertically) {
-        SettingsLabel("Always assume resolves", "Go on at the other player's pauses at once instead of waiting; they can still respond later",
-            Modifier.weight(1f).padding(end = 12.dp, top = 4.dp, bottom = 4.dp))
-        Switch(checked = defaults.alwaysAssumeResolves, onCheckedChange = null)
+    // HIS-096: when the other player's passes at their pauses are assumed at once: Never, When they have no mana, Always
+    Text("Assume resolves in new games", Modifier.padding(top = 8.dp, bottom = 4.dp),
+        style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    for (choice in org.asyncttwiz.protocol.game.AssumeResolves.all) {
+        Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("assume-resolves-${choice.short().lowercase().replace(' ', '-')}")
+            .selectable(defaults.assume == choice, role = Role.RadioButton, onClick = { set(defaults.assuming(choice)) }),
+            verticalAlignment = Alignment.CenterVertically) {
+            RadioButton(selected = defaults.assume == choice, onClick = null)
+            SettingsLabel(choice.label(), choice.meaning(), Modifier.weight(1f).padding(start = 12.dp, top = 4.dp, bottom = 4.dp))
+        }
     }
     // I-D47 (also a quick-actions toggle, I-D46 (c)): casting taps the mana sources by itself (mana already in your pool first)
     Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("autotap")

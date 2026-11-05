@@ -54,6 +54,7 @@ import arcanum.engine.state.StackItemKind
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import org.asyncttwiz.protocol.*
+import org.asyncttwiz.protocol.game.AssumeResolves
 import org.asyncttwiz.protocol.game.GameDevice
 import org.asyncttwiz.protocol.game.GameEvent
 import org.asyncttwiz.protocol.game.PlaySettings
@@ -457,9 +458,30 @@ internal fun ResponseMode.meaning(): String = when (this) {
 
 private val MODES = listOf(ResponseMode.FullControl, ResponseMode.Normal, ResponseMode.AutoSkip)
 
+/** "Assume resolves" (HIS-096): the choice's name, its short form for the quick action, and what it means. */
+internal fun AssumeResolves.label(): String = when (this) {
+    AssumeResolves.Never -> "Never"
+    AssumeResolves.WhenNoMana -> "When they have no mana"
+    AssumeResolves.Always -> "Always"
+}
+
+internal fun AssumeResolves.short(): String = when (this) {
+    AssumeResolves.Never -> "Never"
+    AssumeResolves.WhenNoMana -> "No mana"
+    AssumeResolves.Always -> "Always"
+}
+
+internal fun AssumeResolves.meaning(): String = when (this) {
+    AssumeResolves.Never -> "Wait at the other player's pauses, with Assume on the main button."
+    AssumeResolves.WhenNoMana -> "Go on at once at the other player's pauses while the table shows them no untapped mana source, " +
+        "no mana in their pool and no ability they could activate; otherwise wait."
+    AssumeResolves.Always -> "Go on at once at the other player's pauses, assuming they let things resolve; they can still respond later."
+}
+
 /**
  * The quick-actions row's toggles on engine state (I-D56 §14, TRN-059): in live play the response mode (a tap goes to
- * the next of Full control, Normal and Auto-skip), "Always assume resolves" and "Autotap mana"; in catch-up playback
+ * the next of Full control, Normal and Auto-skip), "Assume resolves" (a tap goes to the next of Never, When they have no
+ * mana and Always) and "Autotap mana"; in catch-up playback
  * (HIS-095) "Full control" (on: playback stops wherever you get priority) and "Autotap mana"; each private to the player.
  */
 @Composable
@@ -467,40 +489,44 @@ internal fun RowScope.EngineToggleCells(routes: EngineTableRoutes, enabled: Bool
     val game = routes.engine ?: return
     val shown = game.shown ?: return
     val settings = shown.settings
-    fun set(next: PlaySettings) { game.settings(next); routes.pump() }
+    // Each change is made on the settings as they are at the tap (a second tap before the row is drawn again goes on from
+    // the first's)
+    fun set(change: (PlaySettings) -> PlaySettings) { game.settings(change(game.shown?.settings ?: settings)); routes.pump() }
     val autotap = Triple("Autotap mana", "Autotap\nmana", Icons.Outlined.WaterDrop) to
-        ({ set(settings.copy(autotap = !settings.autotap)) } to settings.autotap)
+        ({ set { it.copy(autotap = !it.autotap) } } to settings.autotap)
     val cells = if (shown.behind) listOf(
         Triple("Full control", "Full\ncontrol", Icons.Outlined.Tune) to
-            ({ set(settings.copy(playbackFullControl = !settings.playbackFullControl)) } to settings.playbackFullControl),
+            ({ set { it.copy(playbackFullControl = !it.playbackFullControl) } } to settings.playbackFullControl),
         autotap)
     else listOf(
         Triple("Response mode", "${settings.mode.label()}\n(mode)", Icons.Outlined.Tune) to
-            ({ set(settings.copy(mode = MODES[(MODES.indexOf(settings.mode) + 1) % MODES.size])) } to null),
-        Triple("Always assume resolves", "Always\nassume", Icons.Outlined.FastForward) to
-            ({ set(settings.copy(alwaysAssumeResolves = !settings.alwaysAssumeResolves)) } to settings.alwaysAssumeResolves),
+            ({ set { it.copy(mode = MODES[(MODES.indexOf(it.mode) + 1) % MODES.size]) } } to null),
+        // TRN-059: a tap goes on to the next of Never, When they have no mana and Always; filled unless Never
+        Triple("Assume resolves setting", "Assume:\n${settings.assume.short()}", Icons.Outlined.FastForward) to
+            ({ set { it.assuming(it.assume.next) } } to (settings.assume != AssumeResolves.Never)),
         autotap)
     for ((what, action) in cells) key(what.first) {
         val (name, label, icon) = what
         val (toggle, on) = action
         val filled = on == true
+        val choice = name == "Assume resolves setting"
         val tooltip = when (name) {
             "Response mode" -> "Response mode: ${settings.mode.label()}. ${settings.mode.meaning()} Tap for the next mode."
-            "Always assume resolves" -> "Always assume resolves: go on at the other player's pauses at once, assuming they let things " +
-                "resolve, instead of waiting with Assume"
+            "Assume resolves setting" -> "Assume resolves: ${settings.assume.label()}. ${settings.assume.meaning()} Tap for the next choice."
             "Full control" -> "Full control: playback stops wherever you get priority; off, only where you could respond"
             else -> "Autotap mana sources: casting pays by itself, with mana in your pool first"
         }
         val control = MenuControl(name, enabled, selected = filled, color = AutomatumViolet) { toggle() }
-        RingPress(control, Modifier.weight(1f).height(48.dp).semantics { stateDescription = if (on == null) settings.mode.label() else if (filled) "On" else "Off" },
-            AutomatumViolet, fill = if (filled) AutomatumViolet else Color.White, role = if (on == null) Role.Button else Role.Switch,
+        RingPress(control, Modifier.weight(1f).height(48.dp).semantics {
+                stateDescription = if (on == null) settings.mode.label() else if (choice) settings.assume.label() else if (filled) "On" else "Off" },
+            AutomatumViolet, fill = if (filled) AutomatumViolet else Color.White, role = if (on == null || choice) Role.Button else Role.Switch,
             tooltip = tooltip) {
             val ink = (if (filled) Color.White else MenuInk).let { it.copy(alpha = if (enabled) 1f else .45f) }
             Column(Modifier.fillMaxSize().padding(horizontal = 3.dp), horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
                     Icon(icon, null, Modifier.size(16.dp), tint = ink)
-                    if (on != null) Icon(if (filled) Icons.Outlined.CheckCircle else Icons.Outlined.RadioButtonUnchecked, null,
+                    if (on != null && !choice) Icon(if (filled) Icons.Outlined.CheckCircle else Icons.Outlined.RadioButtonUnchecked, null,
                         Modifier.size(13.dp), tint = ink)
                 }
                 Text(if (on == null) settings.mode.label() else label, color = ink, fontSize = 11.sp, lineHeight = 12.sp, letterSpacing = 0.sp,

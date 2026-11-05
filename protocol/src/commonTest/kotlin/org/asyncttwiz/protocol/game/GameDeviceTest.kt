@@ -266,6 +266,37 @@ class GameDeviceTest {
             "the pass at Alice's pause was assumed at once")
     }
 
+    // HIS-096, TRN-059 (owner playtest 2026-11-05 evening): with "When they have no mana" the other player's pause is
+    // assumed at once while the table shows them no mana: nothing in their pool, nothing they could activate (Alice has
+    // no permanent yet)
+    @Test
+    fun aPauseIsAssumedAtOnceWhenTheyHaveNoMana() {
+        val sim = spells("Glance Ahead")
+        sim.bobToMain(alwaysAssume = false)
+        val bob = sim.bob
+        sim.device(bob).settings(PlaySettings().assuming(AssumeResolves.WhenNoMana))
+        sim.settle(only = listOf(bob))
+        assertTrue(sim.device(bob).model.engine.battlefield.none { sim.device(bob).model.engine.obj(it)?.controller == sim.alice })
+        sim.bobCasts("Glance Ahead")
+        sim.settle(only = listOf(bob))
+        assertTrue(sim.server.line().any { it.assumed?.assumedBy == bob && sim.server.stateAt(it.parentId).engine.stack.isNotEmpty() },
+            "the pass at Alice's pause was assumed at once")
+    }
+
+    // LOB-113, HIS-096: "Assume resolves" stored before it had three choices reads as it was (on: Always, off: Never); a
+    // choice is stored so
+    @Test
+    fun assumeResolvesSettingsMapFromTheirStoredForm() {
+        val json = org.asyncttwiz.protocol.GameWire.json
+        val on = json.decodeFromString(PlaySettings.serializer(), json.encodeToString(PlaySettings.serializer(), PlaySettings(alwaysAssumeResolves = true))
+            .replace(",\"assumeWhenNoMana\":false", ""))
+        assertEquals(AssumeResolves.Always, on.assume)
+        assertEquals(AssumeResolves.Never, PlaySettings().assume)
+        for (choice in AssumeResolves.all) assertEquals(choice,
+            json.decodeFromString(PlaySettings.serializer(), json.encodeToString(PlaySettings.serializer(), PlaySettings().assuming(choice))).assume)
+        assertEquals(listOf(AssumeResolves.WhenNoMana, AssumeResolves.Always, AssumeResolves.Never), AssumeResolves.all.map { it.next })
+    }
+
     // I-D56 §5: an assumption whose outcome would show the assumer the other player's hand isn't sent: a wait with no
     // button; the other player's real pass goes on
     @Test

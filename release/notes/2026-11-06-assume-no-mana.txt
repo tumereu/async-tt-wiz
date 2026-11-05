@@ -1,0 +1,1 @@
+mod: "Always assume resolves" is now "Assume resolves" with three choices: Never, When they have no mana, or Always; your earlier setting stays as it was.

@@ -1,0 +1,1 @@
+Alice's Assume resolves quick action set to Never: white, it reads "Assume: Never": her device waits at each of Bob's pauses.

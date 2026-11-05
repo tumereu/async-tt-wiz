@@ -105,10 +105,35 @@ class EngineTableScreenshotTest {
         compose.onNodeWithContentDescription("Event strip").assertExists()
         compose.onNodeWithContentDescription("Timeline mode").assertExists()
         compose.onNodeWithContentDescription("Response mode", substring = true).assertExists()
-        compose.onNodeWithContentDescription("Always assume resolves").assertExists()
+        compose.onNodeWithContentDescription("Assume resolves setting").assertExists()
         compose.onRoot().captureShot("$SCREENSHOTS/engine/assumed-main.png",
-            "Alice kept while Bob was away and is in her first main phase: a small violet dot at the corner of the main button (To combat, twice as wide as a quick action) says Bob hasn't seen her last moves yet (no count, nothing over the board), the strip above the quick actions shows the events so far in each player's colour, and the quick actions are her own Response mode (Auto-skip), Always assume resolves and Autotap mana.")
+            "Alice kept while Bob was away and is in her first main phase: a small violet dot at the corner of the main button (To combat, twice as wide as a quick action) says Bob hasn't seen her last moves yet (no count, nothing over the board), the strip above the quick actions shows the events so far in each player's colour, and the quick actions are her own Response mode (Auto-skip), Assume resolves (Always, as the fixture sets it) and Autotap mana.")
     }
+
+    /** Alice at her main phase with "Assume resolves" set to [choice]: the quick action shows [state] and is captured as [file]. */
+    private fun assumeCell(choice: org.asyncttwiz.protocol.game.AssumeResolves, state: String, file: String, caption: String) {
+        val game = aliceAtMain()
+        game.settings(game.shown!!.settings.assuming(choice))
+        val routes = EngineTableRoutes(f.a, { game }, {}, { game.play() }).apply { opponentName = "Bob" }
+        render(game, f.a, routes = routes)
+        val cell = compose.onNodeWithContentDescription("Assume resolves setting")
+        cell.assert(SemanticsMatcher.expectValue(androidx.compose.ui.semantics.SemanticsProperties.StateDescription, state))
+        cell.captureShot("$SCREENSHOTS/engine/$file.png", "Alice's Assume resolves quick action set to $state: $caption")
+    }
+
+    // TRN-059, HIS-096 (owner playtest 2026-11-05 evening): the Assume resolves quick action shows its choice of Never,
+    // When they have no mana and Always (filled violet unless Never)
+    @Test fun theAssumeQuickActionShowsNever() = assumeCell(org.asyncttwiz.protocol.game.AssumeResolves.Never, "Never",
+        "assume-never", "white, it reads \"Assume: Never\": her device waits at each of Bob's pauses.")
+
+    // TRN-059, HIS-096
+    @Test fun theAssumeQuickActionShowsNoMana() = assumeCell(org.asyncttwiz.protocol.game.AssumeResolves.WhenNoMana,
+        "When they have no mana", "assume-no-mana",
+        "filled violet, it reads \"Assume: No mana\": her device goes on at Bob's pauses while the table shows him no mana.")
+
+    // TRN-059, HIS-096
+    @Test fun theAssumeQuickActionShowsAlways() = assumeCell(org.asyncttwiz.protocol.game.AssumeResolves.Always, "Always",
+        "assume-always", "filled violet, it reads \"Assume: Always\": her device goes on at each of Bob's pauses.")
 
     // TRN-066, TRN-070, TRN-062, TRN-027, I-D56 §4, §14: after Alice's keep the game waits for Bob's; faint words over the
     // battlefield say so (nothing covers the board) and nothing stands in the step arrow's place: his keep is never assumed
@@ -158,7 +183,7 @@ class EngineTableScreenshotTest {
         compose.onNodeWithTag("playback-toggle").assertDoesNotExist()
         compose.onNodeWithContentDescription("Alice has made moves · Tap to watch").assertExists()
         compose.onNodeWithContentDescription("Full control").assertExists()
-        compose.onNodeWithContentDescription("Always assume resolves").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Assume resolves setting").assertDoesNotExist()
         captureShot("$SCREENSHOTS/engine/catch-up.png",
             "Bob comes back after Alice played on past the opening: no dialog and no timeline look; his table shows where he left it, as in live play, with \"Alice has made moves · Tap to watch\" in the middle of the board, and his playback quick actions Full control and Autotap mana; nothing plays until he taps the text.")
         compose.onNodeWithTag("centre-action").performClick()
@@ -257,7 +282,7 @@ class EngineTableScreenshotTest {
         compose.runOnIdle { assertTrue(game.device.model.engine.stack.isEmpty(), "she passed; Bob's pass was assumed and it resolved") }
     }
 
-    // STK-028, TRN-070, HIS-096 (owner 2026-11-05): with "Always assume resolves" off, after Alice's Storm Spark the game
+    // STK-028, TRN-070, HIS-096 (owner 2026-11-05): with "Assume resolves" Never, after Alice's Storm Spark the game
     // waits for Bob (away or online); "Assume resolves" is the main button and assumes he lets it resolve
     @Test fun assumeIsTheMainButton() {
         val game = aliceCastsSpark(org.asyncttwiz.protocol.game.ResponseMode.Normal, alwaysAssume = false)
@@ -267,7 +292,7 @@ class EngineTableScreenshotTest {
         compose.onNodeWithTag("engine-wait-action").assert(hasContentDescription("Assume resolves"))
         compose.onNodeWithTag("stack-assume").assertDoesNotExist()
         captureShot("$SCREENSHOTS/engine/stack-assume.png",
-            "Alice cast Storm Spark while Bob is away and Always assume resolves is off: faint words say Bob may respond to it, and the main button reads Assume resolves, where tapping it goes on as if Bob let it resolve.")
+            "Alice cast Storm Spark while Bob is away and Assume resolves is Never: faint words say Bob may respond to it, and the main button reads Assume resolves, where tapping it goes on as if Bob let it resolve.")
         compose.onNodeWithTag("engine-wait-action").performClick()
         compose.runOnIdle { assertTrue(game.device.model.engine.stack.isEmpty(), "Storm Spark resolved on the assumed pass") }
     }

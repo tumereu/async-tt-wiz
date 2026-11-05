@@ -10,16 +10,20 @@ Changes the owner wants but that are not built yet. The feature catalog
 
 ## Build order (owner, 2026-11-05: one implementor at a time, small items batched, full suites after each batch)
 
-1. Analysis (undo/branch/assumption review), then the Undo item.
-2. Choice panels show their source card.
-3. Combat band.
-4. Battlefield placement (Arena style).
-5. Hold pauses playback, Reconnecting…, remove the auto-pause switches (re-check against the built catch-up playback first: HIS-094, HIS-095).
-6. Countering a spell lower on the Stack (e2e scenario).
+1. Stable decision identity + one "same board" rule + notes one after another + e2e records notes.
+2. The Undo item (see its notes from the Analysis: target worked out after confirmation, stale-check path, hold by event id, clear re-made moves on undo, keep the End-turn clearing).
+3. Choice panels show their source card.
+4. Combat band.
+5. Battlefield placement (Arena style).
+6. Hold pauses playback, Reconnecting…, remove the auto-pause switches (re-check against the built catch-up playback first: HIS-094, HIS-095).
+7. Countering a spell lower on the Stack (e2e scenario).
 
 ## Ready to build
 
-- Analysis done (2026-11-05): proposals pending owner.
+- Stable decision identity (owner, 2026-11-05, from the Analysis): an engine decision's id no longer depends on the timestamp counter or the change-log size (`decisionId` in arcanum-engine `casting/Flow.kt`), only on what is asked, for whom, and how many decisions (inputs) the game has had before it on its line, so the same question asked again after an undo, a branch or a new line's reshuffle has the same id, and any player's real input in between changes it. Non-decision changes (reshuffles, state-based actions, triggers, table-only events) never change an id. Simplify what this makes unnecessary (the new line's reshuffle riding in the next event, version-only staleness), keeping SYS-011/SYS-076/SYS-077 behaviour. Phone and server must derive identical ids (e2e). Existing engine games may be wiped (owner: wipes are fine until Automatum is first deployed to prod). No catalog change unless a behaviour changes (then stop and ask).
+- Notes one after another (owner, 2026-11-05, from the Analysis): a later table note no longer replaces an earlier one at once ("Bob responded …" overwritten by "That wasn't taken"); notes show in turn (name the catalog entry for table notes and update it).
+- One "same board" rule for every action (owner, 2026-11-05, from the Analysis): Assume, Undo and table actions use the same staleness / same-decision check as casts and passes (SYS-011, SYS-076, SYS-077); fold into the stable identity work where it collapses.
+- E2E records the notes shown (owner, 2026-11-05, from the Analysis): the harness records every note/flash a phone shows instead of polling the screen, so the skippable test clock can't skip past short-lived texts. No catalog change.
 
 ## Ready after the e2e framework (owner playtest, 2026-11-05)
 

@@ -44,7 +44,10 @@ Arena does. "Try the Arena way first" — details may change after playtesting.
   members side by side with the usable or pickable ones glowing; the second tap acts on the member tapped. Tapping
   elsewhere, or acting, collapses it. A member with several usable abilities then opens its ability chips as a single
   card does (TBL-124).
-- **Glow.** A collapsed group glows (TBL-117) when any member is usable or pickable now.
+- **Glow.** A collapsed group glows when any member is usable or pickable now, in a colour that says what a tap will
+  do (owner, 2026-11-05): the usual cyan (TBL-117) when the tap acts at once, a different colour when it expands the
+  group (proposed: white; distinct from cyan, the red-orange attack glow and violet selection; owner decides from the
+  screenshot tests).
 - **Holding** a group inspects all its members, one after another (as TBL-111 does for piles).
 - **Animations.** Cards still fly to and from their spot (TBL-040); joining or leaving a stack, and a row closing a gap,
   animate.

@@ -172,14 +172,30 @@ abstract class E2e {
     private var serverReadAt = 0L
 
     /**
-     * A finger held on [node] (TBL-047's hold): down, the phones' clock moved on by [millis] with nothing else let run
-     * (the table stays as it is while the finger is down), [held] (what the screen shows meanwhile), then up.
+     * A finger held on [node] (TBL-047's hold): down, then [millis] of the phones' time in frame steps, [held] (what the
+     * screen shows meanwhile), then up.
+     *
+     * The phones have two clocks that must agree while a finger is down: the input's (the Compose test clock, which stamps
+     * the injected touches and runs the frames) and the main thread's (Robolectric's, which stamps the move Compose
+     * resends after a layout under a held finger, and runs the window traversals a popup such as the inspection needs).
+     * Before the down the main thread's clock catches up with the input's; during the hold both move on together. Apart, a
+     * resent move restarted the hold's timer at an older time (it fired late or never), and a popup's window waited for a
+     * traversal that never came (the screen never got idle).
      */
     internal fun holding(node: androidx.compose.ui.test.SemanticsNodeInteraction, millis: Long = 600, held: () -> Unit) {
+        val looper = shadowOf(Looper.getMainLooper())
+        val behind = compose.mainClock.currentTime - android.os.SystemClock.uptimeMillis()
+        if (behind > 0) looper.idleFor(Duration.ofMillis(behind))
         compose.mainClock.autoAdvance = false
         try {
             node.performTouchInput { down(center) }
-            compose.mainClock.advanceTimeBy(millis)
+            var left = millis
+            while (left > 0) {
+                val step = minOf(left, FRAME_MILLIS)
+                compose.mainClock.advanceTimeBy(step)
+                looper.idleFor(Duration.ofMillis(step))
+                left -= step
+            }
             held()
             node.performTouchInput { up() }
         } finally { compose.mainClock.autoAdvance = true }
@@ -189,6 +205,10 @@ abstract class E2e {
     /** Called after every round of [run] (say, to record each board a table shows). */
     internal val everyRun = mutableListOf<() -> Unit>()
 
-    private companion object { val MAX_STEP: Duration = Duration.ofMillis(200) }
+    private companion object {
+        val MAX_STEP: Duration = Duration.ofMillis(200)
+        /** A frame at 60 Hz, rounded. */
+        const val FRAME_MILLIS = 16L
+    }
 
 }

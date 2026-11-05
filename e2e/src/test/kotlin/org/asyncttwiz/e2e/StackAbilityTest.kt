@@ -40,8 +40,8 @@ class StackAbilityTest : E2e() {
         bob.status is GameDevice.Status.Stopped
     }
 
-    /** What the hold shows: Inspect with the ability's tile and the Herald's picture (one read of Bob's screen: while a
-     * finger is down the screen never idles, so each read is costly). */
+    /** What the hold shows: Inspect with the ability's tile and the Herald's picture (one read of Bob's screen while the finger
+     * is down). */
     private fun inspectsTheHeraldsAbility(where: String) {
         val shown = bob.screen()
         for (part in listOf("Card inspection content", "Triggered ability of Ember Herald", "Card image: Ember Herald"))

@@ -258,7 +258,7 @@ private fun DecisionPanel(flows: SharedFlowController, flow: SharedFlow, play: T
             // An ability's own line (a spell is its card: hold it to read it)
             if (!hasOwnText(decision) && item != null && (item.kind is StackItemKind.Activated || item.kind is StackItemKind.Triggered) &&
                 sourceCard?.let(flows::shown) != false) flow.text(item)?.let {
-                Text(it, fontSize = 11.sp, lineHeight = 14.sp, color = Color(0xff4b5a5f))
+                CardText(it, color = Color(0xff4b5a5f), style = androidx.compose.ui.text.TextStyle(fontSize = 11.sp, lineHeight = 14.sp))
             }
         }
         // UI review #5: which objects the choice is about, e.g. the creature that died

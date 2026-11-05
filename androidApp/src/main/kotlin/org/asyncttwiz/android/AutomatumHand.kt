@@ -274,7 +274,7 @@ internal fun Modifier.chipGestures(tap: () -> Unit, hold: (Boolean) -> Unit) = p
 }
 
 @Composable
-private fun WayChip(chip: CastWayChip, chosen: Boolean, tap: () -> Unit, hold: (Boolean) -> Unit) {
+internal fun WayChip(chip: CastWayChip, chosen: Boolean, tap: () -> Unit, hold: (Boolean) -> Unit) {
     val ink = if (chosen) Color.White else AutomatumViolet
     Surface(shape = RoundedCornerShape(14.dp), color = if (chosen) AutomatumViolet else Color.White,
         border = BorderStroke(1.5.dp, if (chip.affordable || chosen) AutomatumViolet else Color(0xffb7bcbf)), shadowElevation = 2.dp,
@@ -285,10 +285,11 @@ private fun WayChip(chip: CastWayChip, chosen: Boolean, tap: () -> Unit, hold: (
             onClick { tap(); true }
             onLongClick { hold(true); true }
         }.chipGestures(tap, hold)) {
-        Row(Modifier.heightIn(min = 32.dp).padding(horizontal = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(chip.name, color = if (chip.affordable || chosen) ink else Color(0xff59656a), fontSize = 12.sp,
-                fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.widthIn(max = 120.dp))
-            chip.cost?.let { Spacer(Modifier.width(4.dp)); CardText(it, style = TextStyle(fontSize = 13.sp), maxLines = 1) }
+        // Owner playtest 2026-11-05 evening: a long name wraps onto more rows instead of being cut
+        Row(Modifier.heightIn(min = 32.dp).padding(horizontal = 10.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            CardText(chip.name, Modifier.weight(1f, fill = false).widthIn(max = CHIP_TEXT_WIDTH), color = if (chip.affordable || chosen) ink else Color(0xff59656a),
+                style = TextStyle(fontSize = 12.sp, lineHeight = 15.sp, fontWeight = FontWeight.Bold))
+            chip.cost?.let { Spacer(Modifier.width(4.dp)); CardText(it, Modifier.widthIn(max = CHIP_COST_WIDTH), style = TextStyle(fontSize = 13.sp, lineHeight = 16.sp)) }
         }
     }
 }
@@ -307,14 +308,14 @@ private fun ExtraChip(chip: CastExtraChip, times: Int, tap: () -> Unit, less: ()
             onClick { tap(); true }
             onLongClick { hold(true); true }
         }.chipGestures(tap, hold)) {
-        Row(Modifier.heightIn(min = 32.dp).padding(start = 6.dp, end = if (chip.repeatable && on) 2.dp else 10.dp),
+        Row(Modifier.heightIn(min = 32.dp).padding(start = 6.dp, end = if (chip.repeatable && on) 2.dp else 10.dp, top = 4.dp, bottom = 4.dp),
             verticalAlignment = Alignment.CenterVertically) {
             Icon(if (on) Icons.Outlined.CheckBox else Icons.Outlined.CheckBoxOutlineBlank, null, Modifier.size(16.dp),
                 tint = if (chip.affordable || on) AutotapAmber else Color(0xff8a9296))
             Spacer(Modifier.width(3.dp))
-            Text("+ ${chip.name}", color = ink, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1,
-                overflow = TextOverflow.Ellipsis, modifier = Modifier.widthIn(max = 110.dp))
-            chip.cost?.let { Spacer(Modifier.width(4.dp)); CardText(it, style = TextStyle(fontSize = 13.sp), maxLines = 1) }
+            CardText("+ ${chip.name}", Modifier.weight(1f, fill = false).widthIn(max = CHIP_TEXT_WIDTH), color = ink,
+                style = TextStyle(fontSize = 12.sp, lineHeight = 15.sp, fontWeight = FontWeight.Bold))
+            chip.cost?.let { Spacer(Modifier.width(4.dp)); CardText(it, Modifier.widthIn(max = CHIP_COST_WIDTH), style = TextStyle(fontSize = 13.sp, lineHeight = 16.sp)) }
             if (chip.repeatable && on) {
                 Spacer(Modifier.width(4.dp))
                 Text("×$times", color = ink, fontSize = 12.sp, fontWeight = FontWeight.Bold)

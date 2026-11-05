@@ -43,6 +43,7 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -248,7 +249,7 @@ private fun CastPanel(cast: CastController, flow: CastFlow, play: TableBoard, na
             Column(Modifier.padding(start = 10.dp, end = 10.dp, top = 8.dp).heightIn(max = 360.dp).verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 ChoiceHead(castTitle(flow), source, inspector) {
-                    cast.abilityText?.let { Text(it, fontSize = 11.sp, lineHeight = 14.sp, color = Color(0xff4b5a5f)) }
+                    cast.abilityText?.let { CardText(it, color = Color(0xff4b5a5f), style = TextStyle(fontSize = 11.sp, lineHeight = 14.sp)) }
                 }
                 ChoiceInspection(inspector, play, LocalChoiceFrame.current.viewer)
                 if (cast.ways.size > 1) Section("Cast as") {
@@ -262,11 +263,11 @@ private fun CastPanel(cast: CastController, flow: CastFlow, play: TableBoard, na
                     null -> Text(if (flow.activation) "Ready." else "Ready to cast.", fontSize = 12.sp)
                     // I-D47: with Autotap on the panel has no mana selection (its sources are tapped as Cast goes out)
                     is Decision.ManaPayment -> if (!cast.autotap) ManaSection(cast, cast, play, open)
-                        else Text("Ready to cast: Autotap pays ${open.cost}.", fontSize = 12.sp)
+                        else CardText("Ready to cast: Autotap pays ${open.cost}.", style = TextStyle(fontSize = 12.sp))
                     else -> CompositionLocalProvider(LocalCastOk provides ok) { OpenSection(cast, cast, play, names, open) }
                 }
                 // UI review round 2 #4 (I-D46 b): why the last step was refused, inside the panel rather than over the table
-                cast.notice?.let { Text(it, fontSize = 12.sp, fontWeight = FontWeight.Medium, color = Color(0xffb3261e)) }
+                cast.notice?.let { CardText(it, color = Color(0xffb3261e), style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Medium)) }
             }
         }
         // A fixed height: the eye stays exactly where it is whether the buttons beside it show or not
@@ -297,7 +298,7 @@ private fun CastPanel(cast: CastController, flow: CastFlow, play: TableBoard, na
 @Composable
 internal fun HoldTip(description: String, content: @Composable () -> Unit) {
     TooltipBox(positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
-        tooltip = { PlainTooltip { Text(description) } }, state = rememberTooltipState()) { content() }
+        tooltip = { PlainTooltip { CardText(description) } }, state = rememberTooltipState()) { content() }
 }
 
 /** A section of a choice: what it is ([title]) and a short instruction ([hint], I-D47); in a panel whose own title says
@@ -308,7 +309,7 @@ internal fun Section(title: String, hint: String? = null, content: @Composable C
     Column(verticalArrangement = Arrangement.spacedBy(if (headed) 6.dp else 2.dp)) {
         if (!headed) {
             HorizontalDivider(color = AutomatumViolet.copy(alpha = .25f))
-            Text(title, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = AutomatumViolet)
+            CardText(title, color = AutomatumViolet, style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.Bold))
             (LocalCastOk.current?.let { ok -> hint?.replace("then OK.", "then ${ok.label}.") } ?: hint)?.let { ChoiceHintText(it) }
         }
         content()
@@ -324,7 +325,7 @@ private fun AnsweredSection(cast: CastController, flow: CastFlow, play: TableBoa
     when {
         decision is Decision.May && answer is Answer.YesNo -> Section(mayTitle(decision)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(decision.text, Modifier.weight(1f), fontSize = 12.sp)
+                CardText(decision.text, Modifier.weight(1f), style = TextStyle(fontSize = 12.sp))
                 Switch(answer.yes, { cast.change(index, Answer.YesNo(it)) }, Modifier.semantics { contentDescription = decision.text })
             }
         }
@@ -337,7 +338,7 @@ private fun AnsweredSection(cast: CastController, flow: CastFlow, play: TableBoa
         decision is Decision.Modes && answer is Answer.Modes && decision.max == 1 -> Section("Mode") {
             FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 for (mode in decision.options) FilterChip(mode.index in answer.chosen, { cast.change(index, Answer.Modes(listOf(mode.index))) },
-                    enabled = mode.available, label = { Text(mode.text ?: "Mode ${mode.index + 1}", fontSize = 12.sp) })
+                    enabled = mode.available, label = { CardText(mode.text ?: "Mode ${mode.index + 1}", style = TextStyle(fontSize = 12.sp)) })
             }
         }
         else -> Section(sectionTitle(decision)) {
@@ -360,7 +361,7 @@ internal fun OpenSection(cast: FlowQuestions, flow: FlowQuestions, play: TableBo
     fun card(id: ObjectId?) = id?.let { choiceCardOf(flow, play, viewer, it) }
     when (decision) {
         is Decision.May -> Section(mayTitle(decision)) {
-            Text(decision.text, fontSize = 12.sp)
+            CardText(decision.text, style = TextStyle(fontSize = 12.sp))
             DockButtons {
                 ChoiceButton("No", Icons.Outlined.Close) { cast.answer(Answer.YesNo(false)) }
                 ChoiceButton("Yes", Icons.Outlined.Check, enabled = decision.payable, primary = true) { cast.answer(Answer.YesNo(true)) }
@@ -420,7 +421,7 @@ internal fun OpenSection(cast: FlowQuestions, flow: FlowQuestions, play: TableBo
             }
         }
         is Decision.Manual -> Section(choiceWhat(decision), choiceHint(decision)) {
-            Text(decision.text, fontSize = 12.sp)
+            CardText(decision.text, style = TextStyle(fontSize = 12.sp))
             // UI review round 2 #1: in a dock panel the step arrow's "Done" answers it (TRN-063); elsewhere its own button
             if (LocalDockSlot.current == null) ChoiceButton("Done", Icons.Outlined.Check, primary = true) { cast.answer(Answer.Done) }
         }
@@ -550,7 +551,7 @@ private fun ModeLabel(mode: arcanum.engine.decision.ModeOption, count: Int) {
     val text = modeText(mode)
     Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
         if (mode.pawprints > 0 && !text.startsWith("{P}")) Text("{P}".repeat(mode.pawprints), fontSize = 12.sp, fontWeight = FontWeight.Bold)
-        Text(text, Modifier.weight(1f, fill = false), fontSize = 12.sp)
+        CardText(text, Modifier.weight(1f, fill = false), style = TextStyle(fontSize = 12.sp))
         if (count > 1) Text("×$count", fontSize = 12.sp, fontWeight = FontWeight.Bold)
     }
 }

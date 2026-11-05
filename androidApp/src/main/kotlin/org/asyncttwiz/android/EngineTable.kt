@@ -570,7 +570,8 @@ internal fun EngineAsyncHost(toolkit: TableToolkitController, routes: EngineTabl
         Box(Modifier.fillMaxWidth().padding(top = 56.dp), contentAlignment = Alignment.TopCenter) {
             Surface(shape = RoundedCornerShape(8.dp), color = Color(0xff2f3a37), shadowElevation = 6.dp,
                 modifier = Modifier.padding(horizontal = 24.dp).clickable { routes.noteDone() }.testTag("engine-note")) {
-                Text(text, Modifier.padding(horizontal = 14.dp, vertical = 10.dp), color = Color.White, fontSize = 14.sp)
+                CardText(text, Modifier.padding(horizontal = 14.dp, vertical = 10.dp), color = Color.White,
+                    style = androidx.compose.ui.text.TextStyle(fontSize = 14.sp))
             }
         }
     }

@@ -131,8 +131,9 @@ internal fun EngineActionRow(row: EngineRow, color: Color) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
             androidx.compose.material3.Icon(row.icon, null, Modifier.size(20.dp),
                 tint = AutomatumViolet.copy(alpha = if (control.enabled) 1f else .35f))
-            Text(control.name, Modifier.weight(1f).padding(start = 8.dp), color = MenuInk.copy(alpha = if (control.enabled) 1f else .38f),
-                fontSize = 12.sp, lineHeight = 14.sp, fontWeight = FontWeight.Medium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            CardText(control.name, Modifier.weight(1f).padding(start = 8.dp), color = MenuInk.copy(alpha = if (control.enabled) 1f else .38f),
+                style = androidx.compose.ui.text.TextStyle(fontSize = 12.sp, lineHeight = 14.sp, fontWeight = FontWeight.Medium),
+                maxLines = 2, overflow = TextOverflow.Ellipsis)
         }
     }
 }

@@ -147,7 +147,8 @@ internal fun AbilityTokenFace(ability: StackAbilityShown, art: ArtworkReference?
                 if (text) Column(Modifier.fillMaxWidth().weight(.55f).padding(start = 3.dp, end = 3.dp, top = markerSize / 2)) {
                     Text(ability.source, fontSize = 7.sp, lineHeight = 8.sp, maxLines = 1, fontWeight = FontWeight.Bold,
                         color = Color.White, overflow = TextOverflow.Ellipsis)
-                    Text(ability.text, fontSize = 6.sp, lineHeight = 7.sp, color = AbilityTokenTextColor, overflow = TextOverflow.Ellipsis)
+                    CardText(ability.text, color = AbilityTokenTextColor, style = androidx.compose.ui.text.TextStyle(fontSize = 6.sp, lineHeight = 7.sp),
+                        overflow = TextOverflow.Ellipsis)
                 }
             }
             AbilityMarker(ability, markerSize, Modifier

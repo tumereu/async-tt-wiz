@@ -258,8 +258,8 @@ internal fun LabelledChoiceCard(card: ChoiceCardData?, key: String, name: String
     Column(Modifier.width(maxOf(width * 1.5f, 84.dp)).choiceCardGestures(key, tap = tap, hold = { inspector.hold(face, it) }),
         horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(2.dp)) {
         ChoiceCardFace(face, selected = selected, badge = badge)
-        Text(line, fontSize = 10.sp, lineHeight = 12.sp, maxLines = 3, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-            textAlign = androidx.compose.ui.text.style.TextAlign.Center, color = Color(0xff4b5a5f))
+        CardText(line, color = Color(0xff4b5a5f), style = androidx.compose.ui.text.TextStyle(fontSize = 10.sp, lineHeight = 12.sp,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center), maxLines = 3, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
     }
 }
 
@@ -272,5 +272,6 @@ internal fun colorSwatch(symbol: Char): Color = when (symbol) {
 /** The hint under a section's title, when the panel's own title doesn't carry it ([ChoiceFrame.headed]). */
 @Composable
 internal fun ChoiceHintText(text: String) {
-    Text(text, Modifier.semantics { contentDescription = text }, fontSize = 11.sp, lineHeight = 14.sp, color = Color(0xff4b5a5f))
+    CardText(text, Modifier.semantics { contentDescription = text }, color = Color(0xff4b5a5f),
+        style = androidx.compose.ui.text.TextStyle(fontSize = 11.sp, lineHeight = 14.sp))
 }

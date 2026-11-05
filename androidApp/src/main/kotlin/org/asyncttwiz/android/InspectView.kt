@@ -174,7 +174,7 @@ private fun AbilityTile(tile: InspectTile.Ability, size: DpSize) {
                 }
                 Text(tile.ability.source, style = MaterialTheme.typography.titleLarge)
                 if (tile.ability.text.isNotEmpty()) CardText(tile.ability.text, style = MaterialTheme.typography.bodyLarge)
-                tile.details.forEach { Text(it, style = MaterialTheme.typography.bodyMedium) }
+                tile.details.forEach { CardText(it, style = MaterialTheme.typography.bodyMedium) }
             }
         }
     }

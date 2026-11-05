@@ -258,16 +258,16 @@ class EngineTableScreenshotTest {
     }
 
     // STK-028, TRN-070, HIS-096 (owner 2026-11-05): with "Always assume resolves" off, after Alice's Storm Spark the game
-    // waits for Bob (away or online); Assume is the main button and assumes he lets it resolve
+    // waits for Bob (away or online); "Assume resolves" is the main button and assumes he lets it resolve
     @Test fun assumeIsTheMainButton() {
         val game = aliceCastsSpark(org.asyncttwiz.protocol.game.ResponseMode.Normal, alwaysAssume = false)
         val waiting = assertIs<GameDevice.Status.Waiting>(game.device.status)
         assertEquals(GameDevice.Offer.AssumeResolves, waiting.offer)
         render(game, f.a, ReceivedPresence(OpponentPresence(PresenceState.OFFLINE, idleSeconds = 0), monotonicMillis()))
-        compose.onNodeWithTag("engine-wait-action").assert(hasContentDescription("Assume"))
+        compose.onNodeWithTag("engine-wait-action").assert(hasContentDescription("Assume resolves"))
         compose.onNodeWithTag("stack-assume").assertDoesNotExist()
         captureShot("$SCREENSHOTS/engine/stack-assume.png",
-            "Alice cast Storm Spark while Bob is away and Always assume resolves is off: faint words say Bob may respond to it, and the main button reads Assume, where tapping it goes on as if Bob let it resolve.")
+            "Alice cast Storm Spark while Bob is away and Always assume resolves is off: faint words say Bob may respond to it, and the main button reads Assume resolves, where tapping it goes on as if Bob let it resolve.")
         compose.onNodeWithTag("engine-wait-action").performClick()
         compose.runOnIdle { assertTrue(game.device.model.engine.stack.isEmpty(), "Storm Spark resolved on the assumed pass") }
     }

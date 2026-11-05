@@ -170,12 +170,26 @@ internal fun MainActionArrow(action: MainAction, enabled: Boolean, modifier: Mod
             label = action.label) }, onClick = { if (action.refusal != null) shakes++ else action.run() })
 }
 
-/** The main button's face: an icon above the words of what a tap does, clear of the arrow's tip. */
+/**
+ * The main button's face: an icon above the words of what a tap does, clear of the arrow's tip. TRN-063 (owner playtest
+ * 2026-11-05 evening): the words have room for two lines, wrapped between words ("Assume no / response"); where two lines
+ * don't fit under the icon (large system text) or a word is wider than the button, they are drawn smaller rather than cut.
+ */
 @Composable
 internal fun MainButtonContent(icon: @Composable () -> Unit, label: String) {
     Column(Modifier.fillMaxWidth().padding(start = 4.dp, end = 14.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         icon()
-        Text(label, Modifier.fillMaxWidth(), fontSize = 11.sp, lineHeight = 12.sp, letterSpacing = 0.sp, maxLines = 2,
-            fontWeight = FontWeight.Medium, textAlign = TextAlign.Center)
+        BoxWithConstraints(Modifier.fillMaxWidth().heightIn(max = MAIN_LABEL_ROOM), contentAlignment = Alignment.Center) {
+            val measurer = androidx.compose.ui.text.rememberTextMeasurer()
+            val style = androidx.compose.material3.LocalTextStyle.current.merge(MainLabelStyle)
+            val scale = remember(label, style, constraints, measurer) { cellLabelScale(measurer, label, style, constraints) }
+            Text(label, Modifier.fillMaxWidth(), maxLines = 2, textAlign = TextAlign.Center,
+                style = style.copy(fontSize = style.fontSize * scale, lineHeight = style.lineHeight * scale))
+        }
     }
 }
+
+/** The main button's words: 11 sp on up to two lines of 12 sp under its 20 dp icon, in the 48 dp button. */
+private val MainLabelStyle = androidx.compose.ui.text.TextStyle(fontSize = 11.sp, lineHeight = 12.sp, letterSpacing = 0.sp,
+    fontWeight = FontWeight.Medium)
+private val MAIN_LABEL_ROOM = 27.dp

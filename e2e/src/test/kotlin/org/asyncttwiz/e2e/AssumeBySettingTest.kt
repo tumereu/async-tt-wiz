@@ -42,7 +42,7 @@ class AssumeBySettingTest : E2e() {
             (alice.status as? GameDevice.Status.Waiting)?.offer == GameDevice.Offer.AssumeResolves
         }
         assertTrue(alice.showsText("${bob.name} may respond to Ember Herald"), alice.screen())
-        assertTrue(alice.shows(hasTestTag("engine-wait-action")) && alice.showsControl("Assume"), "Assume on the main button: ${alice.screen()}")
+        assertTrue(alice.shows(hasTestTag("engine-wait-action")) && alice.showsControl("Assume resolves"), "Assume on the main button: ${alice.screen()}")
         assertTrue(!alice.shows(hasTestTag("stack-assume")) && !alice.shows(hasTestTag("stack-resolve")), "nothing under the Stack")
         // Away for minutes: still a wait, nothing more assumed (his passes in her upkeep, not pauses, were assumed at once)
         fun assumedCount() = alice.engine { (device.session.events + device.session.pending).count { it.assumed?.assumedBy == alice.me } }
@@ -51,11 +51,11 @@ class AssumeBySettingTest : E2e() {
         assertIs<GameDevice.Status.Waiting>(alice.status)
         assertEquals(assumed, assumedCount(), "nothing more assumed")
         assertEquals("STACK", where(alice.shown.board, herald))
-        alice.tap("Assume")
+        alice.tap("Assume resolves")
         waitUntil("Alice waiting for Bob at her trigger") {
             where(alice.shown.board, herald) == "BATTLEFIELD" && (alice.status as? GameDevice.Status.Waiting)?.offer == GameDevice.Offer.AssumeResolves
         }
-        alice.tap("Assume")
+        alice.tap("Assume resolves")
         waitUntil("the token, Alice in her Main 1") { alice.state.battlefield.any { alice.state.obj(it)?.token == true } && alice.inOwnMain() }
         assertTrue(assumedCount() >= assumed + 2, "her two Assume taps")
 
@@ -70,7 +70,7 @@ class AssumeBySettingTest : E2e() {
     }
 
     // CMB-040, HIS-096, TRN-070 (owner, 2026-11-05): Alice attacks while Bob is away: his pause after her attack waits
-    // with Assume resolves, then his blockers wait in assume mode on the lanes with "Assume no blockers" on the main
+    // with "Assume no response" (nothing on the Stack), then his blockers wait in assume mode on the lanes with "Assume no blockers" on the main
     // button; nothing is assumed by itself, however long he stays away; the button assumes no blocks
     @Test fun blocksAreAssumedOnlyFromTheMainButton() {
         startGame(TestDeck.thirds(TestCards.cub), TestDeck.thirds(TestCards.herald),
@@ -102,7 +102,7 @@ class AssumeBySettingTest : E2e() {
         waitUntil("Alice waiting for Bob after her attack") {
             (alice.status as? GameDevice.Status.Waiting)?.offer == GameDevice.Offer.AssumeResolves
         }
-        alice.tap("Assume resolves")
+        alice.tap("Assume no response")
         waitUntil("Alice waiting for Bob's blockers") {
             (alice.status as? GameDevice.Status.Waiting)?.let { it.reason == GameDevice.Wait.Blockers && it.offer == GameDevice.Offer.AssumeBlockers } == true
         }

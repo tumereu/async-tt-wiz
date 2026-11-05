@@ -311,9 +311,9 @@ internal class EngineTableRoutes(val viewer: String, private val game: () -> Eng
     class WaitAction(val label: String, val icon: androidx.compose.ui.graphics.vector.ImageVector, val tooltip: String? = null,
         val run: () -> Unit)
 
-    /** The control the main button shows while the other player must act, or null for none: "Assume" with something on
-     * the Stack (STK-028), else "Assume resolves" (TRN-070); while their blocks are awaited "Assume no blockers", or
-     * "Assume blockers" once blockers are placed on the lanes (CMB-040). */
+    /** The control the main button shows while the other player must act, or null for none: "Assume resolves" with
+     * something on the Stack (STK-028), else "Assume no response" (TRN-070, owner playtest 2026-11-05 evening); while their
+     * blocks are awaited "Assume no blockers", or "Assume blockers" once blockers are placed on the lanes (CMB-040). */
     fun waitAction(): WaitAction? {
         val g = game() ?: return null
         val shown = g.shown ?: return null
@@ -321,9 +321,9 @@ internal class EngineTableRoutes(val viewer: String, private val game: () -> Eng
         val name = opponentName
         return when (status.offer) {
             GameDevice.Offer.AssumeResolves -> if (shown.engine.stack.isNotEmpty())
-                WaitAction("Assume", Icons.Outlined.DoneAll,
+                WaitAction("Assume resolves", Icons.Outlined.DoneAll,
                     "Assume $name lets it resolve and go on; if they respond when they come back, the game goes back there") { g.assume(); pump() }
-                else WaitAction("Assume resolves", Icons.Outlined.DoneAll,
+                else WaitAction("Assume no response", Icons.Outlined.DoneAll,
                     "Assume $name lets the game go on; if they act here when they come back, the game goes back there") { g.assume(); pump() }
             // CMB-040 (owner, 2026-11-05): the blocks placed on the lanes, assumed only by this button
             GameDevice.Offer.AssumeBlockers -> assuming()?.let { placed ->

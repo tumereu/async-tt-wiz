@@ -511,16 +511,24 @@ class GameDevice(
     }
 
     /**
-     * HIS-097, HIS-084: the main line changed behind the shown state (a branch, a rewind). An End turn going on whose own
-     * first event (or, before it made one, the point it was tapped at) is no longer on the line was taken back with it:
-     * it ends, so the device passes nothing more for it on the new line (before, it carried the new line to the end of
-     * the turn by itself, with the player's later actions "taken back").
+     * HIS-097, HIS-084: the main line changed after [at] (a branch there, a rewind to it). An End turn going on was taken
+     * back with it when the point it was tapped at is gone or is [at] itself, or its own first event is gone: it ends, so
+     * the device passes nothing more for it on the new line (before, it carried the new line to the end of the turn by
+     * itself, with the player's later actions "taken back"). A change after its start (an answer at its end step) leaves
+     * it going on, as live.
      */
-    private fun endTurnTakenBack() {
+    private fun endTurnTakenBack(at: String) {
         if (endTurn == null) return
-        val id = endTurnFirst ?: endTurnAt ?: return
-        if (session.knows(id) || session.pending.any { it.id == id }) return
+        fun gone(id: String) = !session.knows(id) && session.pending.none { it.id == id }
+        val tapped = endTurnAt
+        if (tapped != null && !gone(tapped) && tapped != at && endTurnFirst?.let(::gone) != true) return
         endTurn = null; endTurnAt = null; endTurnFirst = null
+    }
+
+    /** The End turn's first event among [dropped] (the server took another event first; it goes on as SYS-076 says): no
+     * longer its first event. */
+    private fun endTurnDropped(dropped: List<GameEvent>) {
+        if (endTurnFirst != null && dropped.any { it.id == endTurnFirst }) endTurnFirst = null
     }
 
     /** The player's own input the device makes at the head by itself, or null (§6, §7). */
@@ -1149,7 +1157,7 @@ class GameDevice(
                 GameSession.Received.Reload -> needsReload = true
                 is GameSession.Received.Changed -> {
                     if (r.takenBack.isNotEmpty() && by != me.value && by != null) note(Note.TakenBack(PlayerId(by), r.takenBack))
-                    endTurnTakenBack()
+                    endTurnTakenBack(target)
                 }
                 else -> {}
             }
@@ -1161,9 +1169,9 @@ class GameDevice(
                 is GameSession.Received.Changed -> {
                     if (r.takenBack.isNotEmpty() && r.discarded.isNotEmpty())
                         note(Note.Branched(PlayerId(event.author), r.discarded.first(), r.takenBack))
-                    endTurnTakenBack()
+                    endTurnTakenBack(event.parentId)
                 }
-                is GameSession.Received.Applied -> lostOpening(r.dropped) || lostMoves(r.dropped) { it in byPlayer }
+                is GameSession.Received.Applied -> { endTurnDropped(r.dropped); lostOpening(r.dropped) || lostMoves(r.dropped) { it in byPlayer } }
                 else -> {}
             }
         }
@@ -1190,6 +1198,7 @@ class GameDevice(
                 val mine = byPlayer.remove(submission.id)
                 val refused = session.refused(submission.id)
                 if (refused == GameSession.Received.Reload) needsReload = true
+                if (refused is GameSession.Received.Applied) endTurnDropped(refused.dropped)
                 val again = reason == "stale" &&
                     ((refused is GameSession.Received.Applied && (lostOpening(refused.dropped) ||
                         lostMoves(refused.dropped) { it == submission.id && mine || it in byPlayer })) ||

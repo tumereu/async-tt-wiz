@@ -1,0 +1,1 @@
+fix: Tapping Assume just as the other player answers the same way no longer says "That wasn't taken".

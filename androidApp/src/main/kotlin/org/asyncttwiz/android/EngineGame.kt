@@ -658,7 +658,26 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
     fun endTurn() { acting(Unit, "endTurn", same = { seen, moved -> GameDevice.sameEndTurn(seen, moved, PlayerId(me)) }) { device.endTurn(now) } }
 
     /** The waiting bar's Assume button (§4): the opponent's pass, or [blocks] (the Assume blockers screen's). */
-    fun assume(blocks: List<Block> = emptyList()): GameDevice.Acted = acting(STALE, "assume") { device.assume(blocks) }
+    fun assume(blocks: List<Block> = emptyList()): GameDevice.Acted =
+        acting(STALE, "assume", done = { seen -> GameDevice.Acted.Confirmed.takeIf { answeredAsAssumed(seen, blocks) } }) { device.assume(blocks) }
+
+    /**
+     * SYS-012 (analysis 2026-11-05): whether the other player's own answer on the line right after the board [seen] (where
+     * the player tapped Assume) is the input that Assume offered there ([blocks]: Assume blockers'): their real answer took
+     * its place, as when the device's own assumption loses that race on the server, so the tap goes quietly. Engine thread.
+     */
+    private fun answeredAsAssumed(seen: Shown, blocks: List<Block>): Boolean {
+        val state = seen.board.engine?.state ?: return false
+        val offered: Input = when ((seen.status as? GameDevice.Status.Waiting)?.offer) {
+            GameDevice.Offer.AssumeResolves -> Input.PassPriority(state.priority.holder ?: return false)
+            GameDevice.Offer.AssumeBlockers -> Input.DeclareBlockers(device.opponent, blocks)
+            null -> return false
+        }
+        val next = device.session.after(seen.tip)?.firstOrNull() ?: return false
+        if (next.author != device.opponent.value || next.assumed != null) return false
+        val input = next.engine?.steps?.firstNotNullOfOrNull { it.input } ?: return false
+        return org.asyncttwiz.protocol.game.Acceptance.same(input, offered)
+    }
 
     fun table(changes: List<TableChange>): GameDevice.Acted = acting(STALE, "table") { device.table(changes) }
     /** Conceding is taken at any time (CR 104.3a), whatever the table showed. */
@@ -737,11 +756,14 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
      * [GameDevice.sameEndTurn]) it is made on the newer board when [same] holds for it ([stillSame]). Checked once per
      * action: what it does in turn (another action, staging) isn't checked again. A refusal publishes its note with the
      * board (never only queued: the table reads notes when a board arrives).
+     * [done]: on a board moved past, what the action answers when what it meant has already happened there (nothing is
+     * done or told), else null (refused as stale).
      * [what]: the action's name for the probe (SYS-025, SYS-030, [OwnActionTiming]), which splits its time into its parts;
      * a slow one is logged and, with reports on, recorded like every slow action.
      */
     private fun <T> acting(stale: T, what: String? = null, after: Boolean = true,
-        same: ((arcanum.engine.state.GameState, arcanum.engine.state.GameState) -> Boolean)? = null, work: () -> T): T {
+        same: ((arcanum.engine.state.GameState, arcanum.engine.state.GameState) -> Boolean)? = null,
+        done: ((Shown) -> T?)? = null, work: () -> T): T {
         val board = shown
         val seen = board?.version
         var refused = false
@@ -753,7 +775,10 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
                 if (inAction) work()
                 else if (seen != null && seen != published && !unchanged(what ?: "action", board) &&
                     !(same != null && stillSame(what ?: "action", board, same))) {
-                    refused = true; staleBoard(what ?: "action", seen); refusedStale(); stale
+                    refused = true
+                    // What the tap meant already happened on the newer board: nothing to do and nothing to tell
+                    done?.invoke(board!!)?.also { AppLog.info("engine", "Own ${what ?: "action"} on board v$seen: already done on board v$published") }
+                        ?: run { staleBoard(what ?: "action", seen); refusedStale(); stale }
                 }
                 else { inAction = true; try { work() } finally { inAction = false } }
             } finally { timing?.let { it.worked = clock(); it.info = (informationNanos() - info).coerceAtLeast(0) } }

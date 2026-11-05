@@ -157,6 +157,33 @@ class SameDecisionTapTest : E2e() {
         assertFalse(alice.refusalSeen)
     }
 
+    // SYS-012, TRN-070 (analysis 2026-11-05): both live; Alice casts Storm Spark and waits for Bob with Assume; Bob's own
+    // pass (Resolve) reaches her phone's engine but not her screen yet when she taps Assume: what she meant to assume is
+    // what he did, so her tap goes quietly, like her phone's own assumption losing that race (it said "That wasn't taken")
+    @Test fun anAssumeTappedAsTheSameRealPassArrivesGoesQuietly() {
+        start(bobGlimmer = true)
+        bothKeep(bobAway = false)
+        alice.playFromHand("Mountain", this)
+        waitUntil("the Mountain on the battlefield", along = listOf(bob)) { alice.field("Mountain").isNotEmpty() && alice.inOwnMain() }
+        assertFalse(alice.game!!.send(spark(alice.state)) is GameDevice.Acted.Refused)
+        waitUntil("Alice waiting for Bob with Assume") {
+            (alice.status as? GameDevice.Status.Waiting)?.offer == GameDevice.Offer.AssumeResolves && alice.engine { device.session.pending.isEmpty() }
+        }
+        waitUntil("Bob may respond to her Spark") { bob.stepArrow() == "Resolve" && bob.state.stack.isNotEmpty() }
+        fun assumed() = alice.engine { (device.session.events + device.session.pending).count { it.assumed?.assumedBy == alice.me } }
+        val before = assumed()
+        held.holding = true
+        bob.tap("Resolve")
+        waitUntil("Bob's pass on Alice's phone") { alice.engine { device.model.engine.stack.isEmpty() } }
+        assertTrue(alice.state.stack.isNotEmpty(), "her table still shows the Spark waiting for Bob")
+        alice.tap("Assume")
+        held.release()
+        repeat(5) { run(skip = java.time.Duration.ofMillis(500)) }
+        assertTrue(notes.none { it is GameDevice.Note.Refused } && !alice.refusalSeen, "no refusal note: $notes")
+        assertEquals(before, assumed(), "nothing assumed: Bob's own pass took its place")
+        assertTrue(alice.state.stack.isEmpty(), "the Spark resolved on his pass")
+    }
+
     // SYS-011, SYS-012: Alice casts Storm Spark on her main phase while Bob's real answer arrives instead of a pass her
     // phone assumed for him (he casts an Idle Glimmer there): a branch, the board she tapped on is gone; refused with the note
     @Test fun aCastOnABoardThatChangedInAWayThatMattersIsRefusedWithTheNote() {
@@ -244,7 +271,7 @@ class SameDecisionTapTest : E2e() {
     /**
      * Both live; both keep and Alice casts Idle Glimmer (free) in her first main phase, so her game waits for Bob at his
      * pause. What the server sends Alice's phone is held in the network; Bob passes (taken by the server) while Alice,
-     * hearing nothing from him, turns "Always assume resolves" on and her phone assumes that pass, the Glimmer resolves and she is back in her
+     * hearing nothing from him, taps Assume and her phone assumes that pass, the Glimmer resolves and she is back in her
      * main phase, where she makes [move]. Her assumption and her move reach the server after his pass: refused as stale,
      * delivered after his revision (one socket keeps the server's order).
      */
@@ -260,8 +287,8 @@ class SameDecisionTapTest : E2e() {
         waitUntil("Bob's pass on the server", along = listOf(bob)) {
             bob.engine { device.session.pending.isEmpty() && device.session.events.size > before && device.model.engine.stack.isEmpty() }
         }
-        // No word from Bob: Alice turns "Always assume resolves" on and her phone assumes his pass
-        alice.tap("Always assume resolves")
+        // No word from Bob: Alice taps Assume on the main button
+        alice.tap("Assume")
         waitUntil("Alice in main 1 on Bob's assumed pass") { alice.inOwnMain() }
         told.clear()
         move()

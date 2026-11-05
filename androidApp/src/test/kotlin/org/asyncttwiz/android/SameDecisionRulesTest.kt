@@ -145,7 +145,7 @@ class SameDecisionRulesTest {
     /**
      * Both live, in Alice's main phase (her first, or where [there] holds) after her land: she casts Storm Spark at Bob, so her game
      * waits for him (his pause, live). Bob passes (taken by the server; [bobsMove] after it) while Alice, hearing nothing
-     * from him, turns "Always assume resolves" on and her device assumes that pass, the spark resolves and she is back in her main phase, where she makes [move]. Her assumption and her move reach the server after his pass: refused as stale, delivered with
+     * from him, taps Assume (the main button) and her device assumes that pass, the spark resolves and she is back in her main phase, where she makes [move]. Her assumption and her move reach the server after his pass: refused as stale, delivered with
      * [refusalsFirst] before his revision or after it.
      */
     private fun race(refusalsFirst: Boolean, there: (GameState) -> Boolean = { true }, bobsMove: (EngineGame) -> Unit = {},
@@ -160,7 +160,7 @@ class SameDecisionRulesTest {
         assertTrue(sim.pending(f.a) > 0, "Bob's event is on its way to Alice")
         assertIs<GameDevice.Status.Waiting>(game.device.status, "Alice waits for Bob at his pause")
         game.tick(sim.now + 1_000)
-        game.settings(game.shown!!.settings.copy(alwaysAssumeResolves = true))
+        assertIs<GameDevice.Acted.Sent>(game.assume())
         game.tick(sim.now + 2_000)
         val s = game.device.model.engine
         assertEquals(TurnStep.PrecombatMain to f.a, s.turn.step to s.priority.holder?.value, "Alice in main 1 on Bob's assumed pass")

@@ -1182,7 +1182,7 @@ class GameDevice(
 
     /** The server refused [action] for [reason]. */
     fun refused(action: GameAction, reason: String) {
-        remember("refused ${action::class.simpleName} $reason")
+        remember("refused ${action::class.simpleName} ${(action as? GameAction.Submit)?.submission?.id} $reason")
         when (action) {
             is GameAction.Submit -> {
                 val submission = action.submission
@@ -1271,8 +1271,10 @@ class GameDevice(
     private fun remake(): Boolean {
         if (remaking.isEmpty() || needsReload || session.drafting || request != null) return false
         val first = remaking.first()
-        // Wait for the event the server took instead (a refusal can come before it) and for it to be shown
-        if (session.head == first.parent || session.behind) return false
+        // Wait for the event the server took instead (a refusal can come before it) and for it to be shown; also while the
+        // point the moves were made after is still one of the device's own events on its way (a refusal can come before
+        // its confirmation too): compared on the board there, before the other player's event, they were dropped
+        if (session.head == first.parent || session.behind || session.pending.any { it.id == first.parent }) return false
         val moves = remaking.toList()
         remaking.clear()
         for ((n, move) in moves.withIndex()) {

@@ -82,6 +82,11 @@ class CatchUpLiveTest : E2e() {
         }
         waitUntil("Alice told") { told }
         assertTrue(alice.engine { device.session.events }.none { it.id == cast.next.id }, "the assumed line is discarded")
+        // HIS-097 (analysis 2026-11-05): her End turn was on the discarded line, so it is taken back with it: the game goes
+        // on from Bob's answer to her own main phase and waits for her there (it went on to Bob's turn by itself, the
+        // long run of animations hiding the note)
+        waitUntil("Alice in her own main phase on the new line") { alice.inOwnMain() && alice.status == GameDevice.Status.YourMove }
+        assertEquals(1, alice.state.turn.number, "still her first turn")
         assertTrue(bob.leaks.leaks.isEmpty() && alice.leaks.leaks.isEmpty())
     }
 

@@ -116,6 +116,10 @@ class GameDevice(
 
     private var now = 0L
     private var endTurn: Int? = null
+    /** Where the End turn going on ([endTurn]) was tapped, and the first event it made (null until it makes one): a
+     * branch or a rewind that takes it back ends it ([endTurnTakenBack]). */
+    private var endTurnAt: String? = null
+    private var endTurnFirst: String? = null
     private val reveals = mutableMapOf<String, Boolean>()
     private val retry = mutableListOf<Retry>()
     /** The player's own opening declarations (Keep, Mulligan, a bottom choice) the server took the other player's
@@ -498,10 +502,25 @@ class GameDevice(
      * attackers; the other player's points are assumed, automatic or waited for as usual. */
     fun endTurn(now: Long) {
         endTurn = model.engine.turn.number
+        endTurnAt = session.tip
+        endTurnFirst = null
         endTurnMade = true
         holdAt = null
         advance(now)
         endTurnMade = false
+    }
+
+    /**
+     * HIS-097, HIS-084: the main line changed behind the shown state (a branch, a rewind). An End turn going on whose own
+     * first event (or, before it made one, the point it was tapped at) is no longer on the line was taken back with it:
+     * it ends, so the device passes nothing more for it on the new line (before, it carried the new line to the end of
+     * the turn by itself, with the player's later actions "taken back").
+     */
+    private fun endTurnTakenBack() {
+        if (endTurn == null) return
+        val id = endTurnFirst ?: endTurnAt ?: return
+        if (session.knows(id) || session.pending.any { it.id == id }) return
+        endTurn = null; endTurnAt = null; endTurnFirst = null
     }
 
     /** The player's own input the device makes at the head by itself, or null (§6, §7). */
@@ -852,7 +871,7 @@ class GameDevice(
                 endTurns += event.id
                 if (endTurns.size > MAX_ORIGINS) endTurns.remove(endTurns.first())
             }
-            if (ended) endTurnMade = false
+            if (ended) { endTurnMade = false; endTurnFirst = event.id }
             if (origins.size > MAX_ORIGINS) origins.remove(origins.keys.first())
         }
         send(GameAction.Submit(Submission.of(event)))
@@ -1128,8 +1147,10 @@ class GameDevice(
             val by = update?.rewoundBy ?: events.firstOrNull()?.author
             when (val r = session.rewound(target, events)) {
                 GameSession.Received.Reload -> needsReload = true
-                is GameSession.Received.Changed -> if (r.takenBack.isNotEmpty() && by != me.value && by != null)
-                    note(Note.TakenBack(PlayerId(by), r.takenBack))
+                is GameSession.Received.Changed -> {
+                    if (r.takenBack.isNotEmpty() && by != me.value && by != null) note(Note.TakenBack(PlayerId(by), r.takenBack))
+                    endTurnTakenBack()
+                }
                 else -> {}
             }
             // The player's own undo lands where they act next: their device waits for them there (§10)
@@ -1137,8 +1158,11 @@ class GameDevice(
         } else for (event in events) {
             when (val r = session.received(event)) {
                 GameSession.Received.Reload -> { needsReload = true; break }
-                is GameSession.Received.Changed -> if (r.takenBack.isNotEmpty() && r.discarded.isNotEmpty())
-                    note(Note.Branched(PlayerId(event.author), r.discarded.first(), r.takenBack))
+                is GameSession.Received.Changed -> {
+                    if (r.takenBack.isNotEmpty() && r.discarded.isNotEmpty())
+                        note(Note.Branched(PlayerId(event.author), r.discarded.first(), r.takenBack))
+                    endTurnTakenBack()
+                }
                 is GameSession.Received.Applied -> lostOpening(r.dropped) || lostMoves(r.dropped) { it in byPlayer }
                 else -> {}
             }

@@ -96,6 +96,30 @@ class PassesAndUndoTest : E2e() {
         assertTrue(texts.count { it == "You ended the turn" } <= 1, texts.toString())
     }
 
+    // HIS-084, TRN-057 (analysis 2026-11-05): Alice ends her turn (Bob away, "Always assume resolves"), then Undo takes the
+    // End turn back: she lands in her main phase, and her next action there (a Mountain played) is only that; her
+    // taken-back End turn passes nothing more for her (it carried the game on to Bob's turn after the Mountain)
+    @Test fun anUndoneEndTurnPassesNothingAfterTheNextAction() {
+        startGame(TestDeck.thirds(TestCards.herald), TestDeck.thirds(TestCards.herald),
+            aliceSettings = org.asyncttwiz.protocol.game.PlaySettings(alwaysAssumeResolves = true),
+            deal = { a, _ -> "Mountain" in hand(a) })
+        bothOpen()
+        bothKeep(bobAway = true)
+        alice.hold("To combat")
+        waitUntil("Alice's turn ended, all of it on the server") {
+            alice.state.turn.active == bob.me && alice.engine { device.session.pending.isEmpty() }
+        }
+        alice.tap("Undo")
+        waitUntil("Alice back in her main phase") { alice.state.turn.number == 1 && alice.inOwnMain() && alice.status == GameDevice.Status.YourMove }
+        alice.playFromHand("Mountain", this)
+        waitUntil("the Mountain played, on the server") {
+            alice.field("Mountain").isNotEmpty() && alice.engine { device.session.pending.isEmpty() }
+        }
+        repeat(5) { run(skip = java.time.Duration.ofSeconds(1)) }
+        assertEquals(1 to TurnStep.PrecombatMain, alice.state.turn.let { it.number to it.step }, "still her main phase")
+        assertEquals(GameDevice.Status.YourMove, alice.status)
+    }
+
     // HIS-030, HIS-099, TBL-040 (§29.4, owner 2026-11-04): Alice undoes her cast that Bob had seen (he accepts her request):
     // on both phones the board goes back the way it came (the Herald from the battlefield through the Stack back to her
     // hand, step by step, no jump) with "Undid: cast Ember Herald" for her and "Alice undid: cast Ember Herald" for Bob

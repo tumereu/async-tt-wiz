@@ -266,6 +266,9 @@ android {
         it.isShrinkResources = true
         it.proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
     }
+    // End-to-end tests (e2e/) compile with these JVM tests (they drive this app's Compose UI and internal classes) but
+    // run only in :e2e:test, against a real server; the ordinary test tasks leave them out (below).
+    sourceSets.getByName("test").kotlin.directories.add("../e2e/src/test/kotlin")
     // One retained fixture shared with host migration verification; never packaged in the app.
     sourceSets.getByName("androidTest").assets.srcDir("../client-storage/src/main/sqldelight/databases")
 }
@@ -335,6 +338,7 @@ dependencies {
 }
 
 tasks.withType<Test>().configureEach {
+    exclude("org/asyncttwiz/e2e/**")
     // Screenshots compare against the committed images in src/test/screenshots; -Pscreenshots=record rewrites them.
     val recordScreenshots = providers.gradleProperty("screenshots").orNull == "record"
     systemProperty(if (recordScreenshots) "roborazzi.test.record" else "roborazzi.test.verify", "true")

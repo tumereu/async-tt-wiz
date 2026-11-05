@@ -63,6 +63,8 @@ tasks.register("verifyModuleBoundaries") {
             ":arcanum-tools" to setOf(":arcanum-parser"),
             // ATW's side of the integration: depends on both sides; nothing in Arcanum depends on it.
             ":automatum" to setOf(":protocol", ":arcanum-api", ":arcanum-engine"),
+            // End-to-end tests run :androidApp's compiled tests against an installed :server; no project dependencies.
+            ":e2e" to emptySet(),
         )
         // Project dependencies allowed only in test configurations: these tests parse the invented cube cards.
         val testOnly = mapOf(

@@ -34,7 +34,7 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
             if (command.action == GameAction.AcceptInvitation && result.outcome == "accepted" &&
                 latest[command.scope.gameId]?.lifecycle == GameLifecycle.LOBBY && sessionAvailable(command.scope.gameId)) open(command.scope.gameId)
             refresh(background = true)
-        }, statusChanged = ::connectionState, installationId = installationId, accountId = accountId,
+        }, statusChanged = ::connectionState, installationId = installationId, accountId = accountId, now = clock,
         personalChat = personalChat,
         openedGame = { state.selected }, engineWorker = engineWorker, engineLoad = { it == state.selected }) }
     private fun sessionAvailable(id: String) = session?.available(id) != false

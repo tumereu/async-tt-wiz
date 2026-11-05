@@ -74,6 +74,16 @@ internal class EngineGames(private val capacity: Int = warmCapacity()) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<UUID, LiveState>?) = size > capacity
     }
     private val random = SecureRandom()
+    /** End-to-end tests only (e2e/): a file holding the next games' random secret (64 hex digits), so a test game deals
+     * the hands its test chose. Unset in every deployment: each game's secret is random. */
+    private val testSecretFile: java.nio.file.Path? = System.getenv("TEST_GAME_SECRET_FILE")?.takeIf(String::isNotBlank)
+        ?.let { java.nio.file.Path.of(it) }
+
+    private fun secret(): ByteArray {
+        val fixed = testSecretFile?.takeIf(java.nio.file.Files::isRegularFile)?.let { java.nio.file.Files.readString(it).trim() }
+        if (fixed != null) return java.util.HexFormat.of().parseHex(fixed).also { require(it.size == 32) { "TEST_GAME_SECRET_FILE: 32 bytes" } }
+        return ByteArray(32).also(random::nextBytes)
+    }
     /** Seats whose next stop, wait and resume point were worked out so far (R6: tests count the work of a refresh). */
     internal val seatsWorkedOut = java.util.concurrent.atomic.AtomicLong()
     private val plays = object : LinkedHashMap<UUID, EngineHistoryStore.Shared>(16, 0.75f, true) {
@@ -163,7 +173,7 @@ internal class EngineGames(private val capacity: Int = warmCapacity()) {
         any = true
         val engine = Engine.newGame(seats)
         for (p in engine.players) engine.apply(Changes.skipWhenNoChoice(engine, p.id, false))
-        val initial = GameModel(engine, TableState(secret = LineRandom.secret(ByteArray(32).also(random::nextBytes))))
+        val initial = GameModel(engine, TableState(secret = LineRandom.secret(secret())))
         val rootId = UUID.randomUUID()
         val store = EngineHistoryStore.create(sql, play, rootId, GameDefinitions.of(initial.engine), initial)
         val history = GameHistory(store, store.codec)

@@ -90,7 +90,8 @@ catalog wins. Where neither says, ask rather than pick.
 - Build/test with `./scripts/gradle.sh <tasks>` (wraps gradlew for WSL). Useful
   tasks: `:protocol:jvmTest`, `:core:jvmTest`, `:client-storage:test`,
   `:server:test`, `:androidApp:testDebugUnitTest`, `:androidApp:assembleDebug`,
-  `:arcanum-parser:jvmTest`, `:arcanum-engine:jvmTest`.
+  `:arcanum-parser:jvmTest`, `:arcanum-engine:jvmTest`, `:e2e:test` (slow, Docker;
+  see End-to-end coverage).
   While implementing, run the tasks relevant to what you changed. After a batch
   of implementations is merged, all the tasks above run together on the merged
   result, and failures are fixed before the batch is done.
@@ -102,7 +103,9 @@ catalog wins. Where neither says, ask rather than pick.
   end-to-end coverage of its overall flow. Not every MTG combination needs one; the feature flows and every bug
   we've had do. E2E tests are slow: while implementing, run only your new or relevant ones. The full e2e run is
   a prod release gate: it runs when implementation slows down and nothing is queued, and a release needs a fully
-  green run.
+  green run. One test: `./scripts/gradle.sh :e2e:test --tests '*CoreLoopTest*'` (a failure leaves both phones'
+  screens and the app log in `e2e/build/e2e/failures/`). The two-emulator smoke (`scripts/smoke-emulators.sh`) is
+  its short half on the shrunk build.
 - Never weaken or delete a test just to make it pass. A test may change only
   when it encodes behaviour your task names (see "Protecting existing features").
 - Only one compatible set of apps and server is maintained; do not keep old app

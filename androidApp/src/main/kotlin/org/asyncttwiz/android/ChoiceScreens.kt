@@ -11,6 +11,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import arcanum.engine.decision.Answer
@@ -44,6 +46,8 @@ internal data class ObjectsShape(
     /** The order of the first or second area answers the engine's next question about them (CR 701.22, 701.25). */
     val orderFirst: Boolean = false,
     val orderSecond: Boolean = false,
+    /** A search (STK-056): the searched zones' other cards show in an unselectable "Other cards" section. */
+    val search: Boolean = false,
 ) {
     enum class Shape { Places, Order, Pick }
 
@@ -72,9 +76,17 @@ internal data class ObjectsShape(
                 text.startsWith("Order") -> ObjectsShape(Shape.Order, "Order",
                     "Drag the cards into order, or tap them in order: 1 goes on top.",
                     if ("on the bottom" in text) "Bottom" else "Top")
+                // STK-056: a search is titled by what is searched, up to the sentence's first comma ("Search your
+                // library for a basic land card"), an activated ability's cost left out
+                SEARCH.find(text) != null -> ObjectsShape(Shape.Pick, SEARCH.find(text)!!.groupValues[1].trim(),
+                    "Tap ${pickCount(d.min, d.max, n)}, then OK.", "Cards", search = true)
                 else -> ObjectsShape(Shape.Pick, pickTitle(text), "Tap ${pickCount(d.min, d.max, n)}, then OK.", "Cards")
             }
         }
+
+        /** A search instruction in the engine's sentence: "Search …" up to its first comma or full stop, at the start or
+         * after an activated ability's cost ("{T}, Sacrifice this land: Search your library for …"). */
+        private val SEARCH = Regex("""(?:^|:\s+)(Search\b[^,.;]*)""")
 
         /** The engine's sentence without its rules references: "Discard down to 7 cards (CR 514.1)" → "Discard down to 7 cards". */
         fun plainText(text: String) = text.replace(Regex("""\s*\(CR [^)]*\)"""), "").trim()
@@ -191,13 +203,18 @@ internal fun ObjectsSection(cast: FlowQuestions, flow: FlowQuestions, play: Tabl
                 }
             }
             ObjectsShape.Shape.Pick -> {
-                var chosen by remember(decision.id) { mutableStateOf(listOf<String>()) }
+                // Saved, so the picks survive hiding the panel with the eye and showing it again (STK-044, STK-056)
+                var chosen by androidx.compose.runtime.saveable.rememberSaveable(decision.id.toString()) { mutableStateOf(listOf<String>()) }
                 CardPicks(decision.options.map { cards.getValue(it.toString()) }, chosen, inspector) { key ->
                     chosen = when {
                         key in chosen -> chosen - key
                         decision.max == 1 -> listOf(key)
                         else -> chosen + key
                     }
+                }
+                if (shape.search) {
+                    val others = remember(decision.id, flow.engine) { searchedOthers(flow.engine, decision) }
+                    if (others.isNotEmpty()) OtherCards(others.map { choiceCardOf(flow, play, viewer, it) }.sortedBy { it.name }, inspector)
                 }
                 OkRow(decision, chosen.size >= decision.min && (decision.max == null || chosen.size <= decision.max!!)) {
                     cast.answer(Answer.Objects(chosen.map(ids::getValue)))
@@ -206,6 +223,27 @@ internal fun ObjectsSection(cast: FlowQuestions, flow: FlowQuestions, play: Tabl
         }
     }
     ChoiceInspection(inspector, play, viewer)
+}
+
+/** STK-056: the cards of the zones a search looks through (the options' zones) that it can't find: the rest of [decision]'s
+ * searched library (and any other searched zone). */
+internal fun searchedOthers(state: arcanum.engine.state.GameState, decision: Decision.ChooseObjects): List<ObjectId> {
+    val zones = decision.options.mapNotNull { id -> state.obj(id)?.let { it.zone to it.owner } }.distinct()
+    return zones.flatMap { (zone, owner) -> state.zone(zone, owner) }.distinct() - decision.options.toSet()
+}
+
+/** STK-056: a search's "Other cards": the searched zone's cards it can't find, drawn as cards, dimmed and not selectable
+ * (a tap does nothing); holding one inspects it. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun OtherCards(cards: List<ChoiceCardData>, inspector: ChoiceInspector) {
+    Text("Other cards", Modifier.semantics { heading() }, fontSize = 12.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Medium,
+        color = Color(0xff4b5a5f))
+    FlowRow(Modifier.semantics { contentDescription = "Other cards, ${cards.size}" }, horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        for (card in cards) ChoiceCardFace(card, Modifier.alpha(.55f).choiceCardGestures(card.key, tap = {},
+            hold = { inspector.hold(card, it) }))
+    }
 }
 
 /** The legend rule (CR 704.5j) as cards: tap the one to keep, then Keep. */

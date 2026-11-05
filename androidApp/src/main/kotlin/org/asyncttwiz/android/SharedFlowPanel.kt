@@ -212,8 +212,10 @@ internal fun decisionSource(flows: FlowQuestions, flow: SharedFlow, play: TableB
     if (decision is Decision.OrderTriggers) return commonSource(decision)?.let { choiceCardOf(flows, play, viewer, it) }?.takeIf { it.cardId != null }
     val item = decisionItem(flow, decision)
     val source = item?.source ?: decision.source?.takeIf { it !is ObjectId.StackItem } ?: return null
-    val card = choiceCardOf(flows, play, viewer, source).takeIf { it.cardId != null } ?: return null
-    if (!card.shown) return card
+    val card = choiceCardOf(flows, play, viewer, source).takeIf { it.cardId != null && it.shown }
+        // An ability whose source has left since (a fetch land sacrificed to activate it, STK-056): its Stack entry
+        ?: return stackEntrySource(flow, play, viewer, item)
+            ?: choiceCardOf(flows, play, viewer, source).takeIf { it.cardId != null }
     if (item == null) {
         // An ability being put on the Stack (a trigger's targets and modes, CR 603.3d): its source's card asks
         val ability = when (val c = flow.state.pending?.continuation) {
@@ -235,6 +237,17 @@ internal fun decisionSource(flows: FlowQuestions, flow: SharedFlow, play: TableB
     val ref = flow.ref(TargetRef.Object(item.id))
     val entry = play.board.stackEffects.firstOrNull { it.item?.id == ref }?.id
     return card.copy(key = entry ?: "ability/${item.id}", ability = StackAbilityShown(triggered, card.name, flow.text(item).orEmpty().trim()))
+}
+
+/** The ability [item] as its entry on the Stack shows it (STK-046: its source card as the table keeps it, the
+ * ability's text), or null when it is no ability on the Stack or [viewer] may not see its source. */
+private fun stackEntrySource(flow: SharedFlow, play: TableBoard, viewer: String, item: StackItem?): ChoiceCardData? {
+    if (item == null || (item.kind !is StackItemKind.Triggered && item.kind !is StackItemKind.Activated)) return null
+    val ref = flow.ref(TargetRef.Object(item.id))
+    val entry = play.board.stackEffects.firstOrNull { it.item?.id == ref }?.id ?: return null
+    val ability = StackAbilities.of(play, entry, viewer) ?: return null
+    val card = CombatStackRules.inspection(play.board, entry) ?: return null
+    return choiceCard(play, viewer, entry, card.id, true, ability.source).copy(ability = ability)
 }
 
 /** An open choice of a resolution or a trigger, for the player answering it, docked above the hand (UI review #4): the

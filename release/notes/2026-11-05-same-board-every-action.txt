@@ -1,0 +1,1 @@
+fix: Tapping Assume, Undo or a table action while the other player only moved a card on the table is no longer refused with "That wasn't taken".

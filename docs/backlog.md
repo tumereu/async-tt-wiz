@@ -21,7 +21,6 @@ Changes the owner wants but that are not built yet. The feature catalog
 ## Ready to build
 
 - Notes one after another (owner, 2026-11-05, from the Analysis): a later table note no longer replaces an earlier one at once ("Bob responded …" overwritten by "That wasn't taken"); notes show in turn (name the catalog entry for table notes and update it).
-- One "same board" rule for every action (owner, 2026-11-05, from the Analysis): Assume, Undo and table actions use the same staleness / same-decision check as casts and passes (SYS-011, SYS-076, SYS-077); fold into the stable identity work where it collapses.
 
 ## Ready after the e2e framework (owner playtest, 2026-11-05)
 

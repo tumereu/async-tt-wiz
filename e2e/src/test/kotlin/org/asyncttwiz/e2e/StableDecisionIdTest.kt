@@ -86,6 +86,10 @@ class StableDecisionIdTest : E2e() {
 
     /** Bob moves his Mountain on his battlefield (a table-only event), on his phone and the server. */
     private fun bobMovesHisMountain(x: Int) {
+        // He moves it on the board his table shows: the newest his phone has
+        waitUntil("Bob's table showing his phone's newest board") {
+            bob.engine { device.session.tip to device.session.behind } == (bob.shown.tip to false)
+        }
         val mountain = bob.field("Mountain").first()
         val before = bob.engine { device.model.table.placements[mountain] }
         assertIs<GameDevice.Acted.Sent>(bob.game!!.table(listOf(TableChange.Placed(mountain, before, Placement(x, 0)))))

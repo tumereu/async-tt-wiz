@@ -38,6 +38,13 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
         automatumWork, tokenArt = tokenArt, autotap = { cast.autotap }, engineSend = engine?.let { e -> e::send })
     private val automatumWork = automatumWork
 
+    /**
+     * Runs [work] for the table's shown board as [automatumWork] says: off the main thread on [dispatcher] in the app
+     * (SYS-025), at once with [AutomatumWork.Inline] (tests: what the board shows is worked out before the screen is idle).
+     */
+    internal suspend fun <T> boardWork(dispatcher: kotlinx.coroutines.CoroutineDispatcher, work: () -> T): T =
+        if (automatumWork === AutomatumWork.Inline) work() else kotlinx.coroutines.withContext(dispatcher) { work() }
+
     init {
         // STK-025, HIS-084: Undo with a cast or activation open drops it (the interaction's undo point is its start)
         (engine as? EngineTableRoutes)?.dropInteraction = { cast.open.also { open -> if (open) cast.cancel("undone") } }

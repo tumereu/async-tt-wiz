@@ -217,6 +217,62 @@ class SameDecisionRulesTest {
         }
     }
 
+    // SYS-077 (e2e DamageDivisionTest, 2026-11-06: her pass To combat, then her attack): two moves of Alice's lost to Bob's
+    // same pass, her device's own steps between them (after her first it assumed his pass and went on): both are made
+    // again, each where those steps leave it, without a note
+    @Test fun twoMovesWithTheDevicesOwnStepsBetweenAreBothMadeAgain() {
+        val game = race(refusalsFirst = true) { g ->
+            assertIs<GameDevice.Acted.Sent>(g.pass())
+            g.tick(sim.now + 2_500)
+            val s = g.device.model.engine
+            assertEquals(f.a to GameDevice.Status.YourMove, s.priority.holder?.value to g.device.status, "her move again: ${s.turn}")
+            assertNotEquals(TurnStep.PrecombatMain, s.turn.step, "on from her main 1 by her device's own steps")
+            g.pass()
+        }
+        val log = game.device.repro(f.codec).log
+        assertTrue(game.notes.none { it is GameDevice.Note.Refused }, "no refusal note: ${game.notes} log ${log.takeLast(25)}")
+        assertEquals(2, log.count { it.startsWith("remake PassPriority") }, "both made again: ${log.takeLast(25)}")
+    }
+
+    // SYS-077, HIS-096 (e2e CombatBandTest, 2026-11-06): Bob passes at Alice's spell just as her device assumes that pass
+    // for him (her Assume) and the server takes her assumption first: his pass is made already, so his device makes
+    // nothing again and tells nothing, both reply orders
+    @Test fun aPassTheOtherPlayerAssumedFirstIsMadeAlready() {
+        for (refusalsFirst in listOf(false, true)) SameDecisionRulesTest().assumedFirst(refusalsFirst)
+    }
+
+    private fun assumedFirst(refusalsFirst: Boolean) {
+        // Bob can respond (an untapped Mountain and a Storm Spark of his), so his device leaves the pass to him
+        val bobId = PlayerId(f.b)
+        val game = bothLiveTo { s ->
+            s.battlefield.any { s.obj(it)?.controller == bobId && s.obj(it)?.tapped == false } &&
+                s.player(bobId).hand.any { s.obj(it)?.definition?.faces?.first()?.name == "Storm Spark" }
+        }
+        val bob = sim.game(f.b)
+        assertIs<GameDevice.Acted.Sent>(game.send(spark(game.device.model.engine)))
+        // Her own pass on it goes out; Bob's table shows the spark with his priority
+        for (round in 1..5) {
+            game.tick(sim.now); sim.flush(f.a); sim.deliver(f.b); bob.playToStop(); bob.tick(sim.now)
+            if (bob.device.model.engine.priority.holder?.value == f.b) break
+        }
+        assertEquals(f.b, bob.device.model.engine.priority.holder?.value, "Bob's priority at her spark")
+        assertTrue(bob.device.model.engine.stack.isNotEmpty(), "her spark on the Stack")
+        assertIs<GameDevice.Acted.Sent>(bob.pass())
+        // Alice, hearing nothing from him yet, assumes his pass; hers reaches the server first
+        game.tick(sim.now + 1_000)
+        assertIs<GameDevice.Acted.Sent>(game.assume())
+        sim.flush(f.a)
+        bob.notes.clear()
+        sim.flush(f.b)
+        if (refusalsFirst) sim.refusalsFirst(f.b)
+        sim.deliver(f.b)
+        bob.playToStop()
+        bob.tick(sim.now + 3_000)
+        val log = bob.device.repro(f.codec).log
+        assertTrue(bob.notes.none { it is GameDevice.Note.Refused }, "refusals first $refusalsFirst: no note: ${bob.notes} ${log.takeLast(12)}")
+        assertTrue(log.any { it.endsWith("assumed already") }, "refusals first $refusalsFirst: ${log.takeLast(12)}")
+    }
+
     // SYS-077, SYS-012: Bob concedes after his pass, so the game Alice's move was made in is gone: not made again, and she
     // is told once, both reply orders
     @Test fun aMoveLostToAnOpponentsMoveThatChangedTheGameIsToldOnce() {

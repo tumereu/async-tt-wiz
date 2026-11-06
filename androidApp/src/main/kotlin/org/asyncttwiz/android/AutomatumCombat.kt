@@ -332,7 +332,7 @@ internal class CombatController(
 internal fun AutomatumCombatHost(toolkit: TableToolkitController, play: TableBoard) {
     LaunchedEffect(IdentityKey(play.board)) {
         val shown = AutomatumBoards.cachedCombat(play)
-            ?: kotlinx.coroutines.withContext(AutomatumBoards.boardWorker) { AutomatumBoards.combat(play) }
+            ?: toolkit.boardWork(AutomatumBoards.boardWorker) { AutomatumBoards.combat(play) }
         toolkit.combat.show(play, shown)
     }
 }

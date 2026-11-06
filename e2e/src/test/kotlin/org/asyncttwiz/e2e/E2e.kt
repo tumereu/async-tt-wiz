@@ -35,7 +35,8 @@ import kotlin.test.fail
  * [ServerSetup.fresh]), and each test's phones are new apps (Robolectric's fresh application and storage, new
  * controllers, nothing in memory).
  *
- * When a test fails, each phone's screen (picture, semantics tree, visible texts) and the app log are written to
+ * When a test fails, each phone's screen (picture, semantics tree, visible texts), its device's record of what it sent
+ * and received with the end of its line, every short-lived text it showed, and the app log are written to
  * `e2e/build/e2e/failures/<Test>.<method>/`.
  */
 @RunWith(RobolectricTestRunner::class)
@@ -55,6 +56,14 @@ abstract class E2e {
 
         // After failed(): the phones stay up until their evidence is taken
         override fun finished(description: Description) {
+            // A phone that had to load its game again (it couldn't follow the server) is rare and worth a look even when the
+            // test passed: the app log with the device's record goes to e2e/build/e2e/reloads/
+            runCatching {
+                AppLog.text().takeIf { "before loading again" in it }?.let { log ->
+                    File(E2eStack.output, "reloads/${description.testClass.simpleName}.${description.methodName}.log")
+                        .apply { parentFile.mkdirs() }.writeText(log)
+                }
+            }
             players.forEach { runCatching { it.close() } }
             AutomatumBoards.reset()
         }
@@ -174,6 +183,17 @@ abstract class E2e {
         compose.waitForIdle()
         everyRun.forEach { it() }
         players.forEach { it.leaks.install() }
+    }
+
+    /**
+     * Whether nothing of the game is on its way between the phones and the server: each phone that is online (its network
+     * up, the app in the foreground, the game open) has all its own events on the server, and their lines end at the same
+     * event (the other's events have reached it too).
+     */
+    internal fun quiet(): Boolean {
+        val online = players.filter { it.link.up && it.foreground && it.game != null }
+        if (online.any { p -> p.engine { device.session.pending.isNotEmpty() } }) return false
+        return online.map { p -> p.engine { device.session.head } }.distinct().size <= 1
     }
 
     /** The game as the server holds it now, read by Alice's account at most every few hundred milliseconds (the

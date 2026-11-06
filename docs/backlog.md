@@ -10,11 +10,10 @@ Changes the owner wants but that are not built yet. The feature catalog
 
 ## Build order (owner, 2026-11-05: one implementor at a time, small items batched, full suites after each batch)
 
-Running: worker H = stable test runs.
+Nothing running.
 
 ## Ready to build
 
-- Stable test runs (2026-11-06, release gate): tests that pass alone but fail now and then in full runs: e2e DamageDivisionTest (times out waiting for blockers; failed in 3 full runs), LibrarySearchTest ("the game moved on first"), CombatBandTest (stale Pass tap in a helper), CombatCopyTapTest (cast not reaching Bob); unit OffspringForageWalkthroughTest ("could not find node … unmerged tree contains 1"), LibrarySearchPanelTest, PendingOutcomeTableTest. Find each cause (order dependence, shared state, races in helpers, load) and fix it so full runs are green; never weaken an assertion. The full e2e run is the prod release gate.
 
 ## Ready after the e2e framework (owner playtest, 2026-11-05)
 

@@ -197,6 +197,8 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
             if (this::device.isInitialized) {
                 val old = device.session
                 takenBack("loaded again from the server's head ${snapshot.headId}", old.tip, old.localHead, loaded.session)
+                // Why the device couldn't follow (its own record goes with it)
+                AppLog.info("engine", "Device record before loading again: ${device.recentRecord(12).joinToString(" | ")}")
             }
             device = loaded; codec = json
             device.clock = clock
@@ -550,7 +552,10 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
     private fun setupInput(answer: arcanum.engine.decision.Answer): Input? = device.openingInput(answer)
 
     /** The step arrow's pass: the player's own priority (at a decision stop: their answer to what was assumed). */
-    fun pass(): GameDevice.Acted = early("pass") { performed ->
+    fun pass(): GameDevice.Acted = early("pass", done = { seen ->
+        // SYS-077: tapped as the other player's device assumed this very pass (right after their attack, HIS-096)
+        GameDevice.Acted.Confirmed.takeIf { device.assumedAlready(seen.tip, listOf(Input.PassPriority(PlayerId(me)))) }
+    }) { performed ->
         val holder = device.model.engine.priority.holder ?: return@early GameDevice.Acted.Refused("noPriority")
         if (arcanum.engine.Engine.decider(device.model.engine, holder).value != me) return@early GameDevice.Acted.Refused("notYours")
         device.act(Input.PassPriority(holder), performed = performed)
@@ -852,7 +857,8 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
      * A refusal after that (what follows by itself would show a hidden card on a tentative line, TRN-067, or an engine
      * failure) is told as a note and the board goes back. Without the performed point (refused before it) it is [acting].
      */
-    private fun early(what: String, work: (performed: () -> Unit) -> GameDevice.Acted): GameDevice.Acted {
+    private fun early(what: String, done: ((Shown) -> GameDevice.Acted?)? = null,
+        work: (performed: () -> Unit) -> GameDevice.Acted): GameDevice.Acted {
         val board = shown
         val seen = board?.version
         val timing = timing(what)
@@ -861,6 +867,13 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
             timing.started = clock()
             val info = informationNanos()
             if (!inAction && seen != null && seen != published && !stillSame(what, board)) {
+                // What the tap meant already happened on the newer board ([acting]'s done): nothing to do or tell
+                val already = done?.invoke(board!!)
+                if (already != null) {
+                    AppLog.info("engine", "Own $what on board v$seen: already done on board v$published")
+                    result.set(already)
+                    return@early
+                }
                 staleBoard(what, seen)
                 result.set(STALE)
                 refusedStale()

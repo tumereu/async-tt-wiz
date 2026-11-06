@@ -996,6 +996,19 @@ class GameDevice(
     private fun applies(model: GameModel, changes: List<TableChange>): Boolean =
         changes.all { it !is TableChange.Placed || it.after == null || it.obj in model.engine.battlefield }
 
+    /** Whether a staging among [changes] (an attack or block draft) is of a declaration [model]'s game still awaits (as
+     * the table stages only those): a staging lost in a race and made again after its declaration (made again first,
+     * [remake]) stages nothing. */
+    private fun staging(model: GameModel, changes: List<TableChange>): Boolean {
+        val drafts = changes.filter { it is TableChange.AttackDraft && it.after != null || it is TableChange.BlockDraft && it.after != null }
+        if (drafts.isEmpty()) return true
+        val s = model.engine
+        val options = runCatching { s.players.flatMap { Engine.options(s, it.id) } }.getOrDefault(emptyList())
+        return drafts.all { c ->
+            if (c is TableChange.AttackDraft) options.any { it is Input.DeclareAttackers } else options.any { it is Input.DeclareBlockers }
+        }
+    }
+
     private fun retryTable() {
         if (retry.isEmpty() || session.drafting || needsReload) return
         val ready = retry.filter { it.parent != session.head }
@@ -1003,7 +1016,7 @@ class GameDevice(
         for (r in ready) {
             val at = if (session.behind) session.headModel() else model.copy()
             val fixed = rebase(at, r.table) ?: continue
-            if (applies(at, fixed)) table(fixed)
+            if (applies(at, fixed) && staging(at, fixed)) table(fixed)
         }
     }
 
@@ -1223,7 +1236,7 @@ class GameDevice(
         if (target != null) {
             val by = update?.rewoundBy ?: events.firstOrNull()?.author
             when (val r = session.rewound(target, events)) {
-                GameSession.Received.Reload -> needsReload = true
+                GameSession.Received.Reload -> { needsReload = true; remember("reload at rewind $target: ${followed()}") }
                 is GameSession.Received.Changed -> {
                     if (r.takenBack.isNotEmpty() && by != me.value && by != null) note(Note.TakenBack(PlayerId(by), r.takenBack))
                     endTurnTakenBack(target)
@@ -1236,7 +1249,7 @@ class GameDevice(
             if (by == me.value) forgetRemakes()
         } else for (event in events) {
             when (val r = session.received(event)) {
-                GameSession.Received.Reload -> { needsReload = true; break }
+                GameSession.Received.Reload -> { needsReload = true; remember("reload at ${event.id} on ${event.parentId}: ${followed()}"); break }
                 is GameSession.Received.Changed -> {
                     if (r.takenBack.isNotEmpty() && r.discarded.isNotEmpty())
                         note(Note.Branched(PlayerId(event.author), r.discarded.first(), r.takenBack))
@@ -1250,7 +1263,7 @@ class GameDevice(
             for ((account, head) in update.localHeads) heads[PlayerId(account)] = head
             request = update.rewindRequest
             // The server confirmed where this device branched: it can't follow (the rules agree, so only after a fault)
-            if (update.confirmed?.let(session::supersedes) == true) needsReload = true
+            if (update.confirmed?.let(session::supersedes) == true) { needsReload = true; remember("reload: ${update.confirmed} superseded") }
         }
         events.forEach { byPlayer.remove(it.id) }
         checkDraft()
@@ -1269,7 +1282,7 @@ class GameDevice(
                 if (confirming.remove(submission.id)) return
                 val mine = byPlayer.remove(submission.id)
                 val refused = session.refused(submission.id)
-                if (refused == GameSession.Received.Reload) needsReload = true
+                if (refused == GameSession.Received.Reload) { needsReload = true; remember("reload at refused ${submission.id}: ${followed()}") }
                 if (refused is GameSession.Received.Applied) endTurnDropped(refused.dropped)
                 val again = reason == "stale" &&
                     ((refused is GameSession.Received.Applied && (lostOpening(refused.dropped) ||
@@ -1315,8 +1328,10 @@ class GameDevice(
     }
 
     /** A move of the player's own ([inputs], [table]) made on [madeOn] (the engine state shown when they made it) on
-     * [parent], which the server didn't take: another event came first. */
-    private class Lost(val event: String, val parent: String, val madeOn: GameState, val inputs: List<Input>, val table: List<TableChange>)
+     * [parent], which the server didn't take: another event came first. [first]: made right on [parent], the point where
+     * the server took the other player's event instead. */
+    private class Lost(val event: String, val parent: String, val madeOn: GameState, val inputs: List<Input>, val table: List<TableChange>,
+        val first: Boolean)
 
     /**
      * Owner, 2026-11-04 (SYS-011): the player's own moves among [dropped] (their events the server didn't take because the
@@ -1334,7 +1349,7 @@ class GameDevice(
             // Opening declarations are [lostOpening]'s
             if (e in own && walk.engine.turn.number != 0) {
                 val (inputs, table) = made.getValue(e.id)
-                remaking += Lost(e.id, dropped.first().parentId, walk.engine.deepCopy(), inputs, table)
+                remaking += Lost(e.id, dropped.first().parentId, walk.engine.deepCopy(), inputs, table, first = e === dropped.first())
                 lost += e.id
                 kept = true
             }
@@ -1360,10 +1375,22 @@ class GameDevice(
         val moves = remaking.toList()
         remaking.clear()
         for ((n, move) in moves.withIndex()) {
-            val again = if (!sameDecision(move.madeOn, model.engine)) null else {
+            // Each later move is compared where the device's own steps after the one before leave it, as they did on the
+            // line it was made on (the other player's passes it assumed, the player's own passes by their mode): a pass
+            // To combat and the attack after it are both made again (e2e DamageDivisionTest)
+            if (n > 0) steps()
+            // The event the server took instead is the other player's device assuming this very answer of the player's
+            // (their pass right after an attack, HIS-096): the move is made already; nothing to make again or tell
+            if (n == 0 && move.first && assumedAlready(move.parent, move.inputs)) { remember("remake ${move.inputs.first()}: assumed already"); continue }
+            // Its table changes on the table now: a declaration ends the staging as it stands here (the staging, an event of
+            // its own lost with it, may not be made again yet: then there is nothing to end)
+            val table = rebase(model, move.table)?.filterNot { c ->
+                c is TableChange.AttackDraft && c.before == c.after || c is TableChange.BlockDraft && c.before == c.after
+            }
+            val again = if (table == null || !sameDecision(move.madeOn, model.engine)) null else {
                 remember("remake ${move.inputs.firstOrNull()}")
                 val rest = ArrayDeque(move.inputs.drop(1))
-                act(move.inputs.first(), move.table, { rest.removeFirstOrNull() }, null)
+                act(move.inputs.first(), table, { rest.removeFirstOrNull() }, null)
             }
             if (again !is Acted.Sent) {
                 note(Note.Refused("stale"))
@@ -1372,6 +1399,19 @@ class GameDevice(
             }
         }
         return true
+    }
+
+    /**
+     * SYS-077: whether the main line's event right after [parent] is the other player's device's assumption (HIS-096) of
+     * [inputs], the player's own one-input answer there (the same input, [Acceptance.same]): what the player meant to do
+     * there is done.
+     */
+    fun assumedAlready(parent: String, inputs: List<Input>): Boolean {
+        val input = inputs.singleOrNull() ?: return false
+        val next = session.after(parent)?.firstOrNull() ?: return false
+        val step = next.assumed ?: return false
+        if (next.author != opponent.value || step.assumedBy != opponent || Acceptance.assumedAbout(step, next, players) != me) return false
+        return step.input?.let { Acceptance.same(it, input) } == true
     }
 
     /**
@@ -1469,6 +1509,12 @@ class GameDevice(
         session.events.any { e -> e.engine?.steps.orEmpty().any { it.input is Input.Concede } }
 
     // ---- Reproduction (I-D43)
+
+    /** Where the device's line stands, for the record of a reload. */
+    private fun followed() = "head ${session.head}, tip ${session.tip}, pending ${session.pending.map { it.id }}, behind ${session.behind}"
+
+    /** The last [count] entries of the device's record (what it sent, received and did), for the app log. */
+    fun recentRecord(count: Int): List<String> = record.takeLast(count)
 
     private fun remember(entry: String) {
         record.addLast(entry.take(MAX_ENTRY))

@@ -32,7 +32,6 @@ import arcanum.engine.state.TargetRef
 import arcanum.engine.state.StackItem
 import arcanum.engine.state.StackItemKind
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import org.asyncttwiz.automatum.Divisions
 import org.asyncttwiz.automatum.SharedFlow
 import org.asyncttwiz.automatum.StepFlow
@@ -57,7 +56,7 @@ internal fun SharedFlowHost(toolkit: TableToolkitController, play: TableBoard, s
         val ready = AutomatumBoards.cachedFlow(play)
         // SYS-025: the flow worked out off the main thread (with the open decision and its early answer, I-D33)
         val next = if (ready != null && play.board.engineRecords.none { it.kind == EngineRecordKind.PreAnswer }) ready
-            else withContext(Dispatchers.Default) {
+            else toolkit.boardWork(Dispatchers.Default) {
                 (ready ?: AutomatumBoards.sharedFlow(play))?.also { it.decision; it.early }
             }
         // I-D56 §6: the device running the step makes the engine-automatic answers itself

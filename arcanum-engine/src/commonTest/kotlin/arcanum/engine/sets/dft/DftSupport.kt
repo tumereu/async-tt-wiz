@@ -116,3 +116,16 @@ internal fun Scenario.activateCopy(player: arcanum.engine.scenario.ScenarioPlaye
     perform(arcanum.engine.input.Input.Activate(player.id, id, origin))
     (pending as? Decision.ManaPayment)?.let { answer(Answer.ManaPayment(it.suggestion)) }
 }
+
+/** Answers an optional cost ("you may sacrifice an artifact"): yes, paying it with the named objects, then resolves on. */
+internal fun Scenario.payYesOrChoose(vararg names: String) {
+    if (pending is Decision.May) answer(Answer.YesNo(true))
+    if (pending is Decision.ChooseObjects) {
+        val options = (pending as Decision.ChooseObjects).options
+        val taken = mutableListOf<arcanum.engine.state.ObjectId>()
+        names.forEach { taken += preferred(it, listOf { o -> o.id in options }, taken) }
+        answer(Answer.Objects(taken))
+    }
+    (pending as? Decision.ManaPayment)?.let { answer(Answer.ManaPayment(it.suggestion)) }
+    resolveAll()
+}

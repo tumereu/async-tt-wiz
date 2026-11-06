@@ -96,8 +96,9 @@ class DftChunk12BlackTest {
         triggered(on(EventPattern.Cast(not(ObjectFilter.OwnedBy(PlayerFilter.Is(Players.ControllerOf(Objects.Tested)))), PlayerFilter.Any)),
             doing(Effect.CreateToken(treasure, n(1), Players.EventPlayer))),
         run {
-            val controller = Players.ControllerOf(Objects.EventObject(EventRole.Source))
+            val controller = Players.ControllerOf(Objects.Bound("creature"))
             triggered(on(EventPattern.Damage(creature, RecipientFilter(players = PlayerFilter.Opponent), combat = true)),
+                Step.Bind(Objects.EventObject(EventRole.Source), "creature"),
                 doing(Effect.LookAt(Objects.LibraryCards(Players.EventPlayer, n(1), fromTop = true), controller, bind = "looked")),
                 doing(Effect.Move(Objects.Bound("looked"), Destination(Zone.Exile, faceDown = true), postBind = "exiled")),
                 doing(Effect.ApplyMechanics(listOf(Mechanic.MayPlay(Zone.Exile, PlayKind.Play, holder = PlayerFilter.Is(controller), manaAsAnyColor = true)),

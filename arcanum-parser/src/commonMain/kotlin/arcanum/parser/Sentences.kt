@@ -627,8 +627,10 @@ internal class Sentences(
         // dft chunk 12: "Its controller looks at the top card of that opponent's library and exiles it face down. They may play that card for as long as
         // it remains exiled. Mana of any type can be spent to cast a spell this way." (the damaging creature's controller, CR 406.3)
         if (Dft.LOOKS_AT_TOP_EXILES_FACE_DOWN_MAY_PLAY.matches(text) && context.event is EventPattern.Damage) {
-            val controller = Players.ControllerOf(Objects.EventObject(EventRole.Source))
-            return listOf(Step.Do(Effect.LookAt(Objects.LibraryCards(Players.EventPlayer, Value.Fixed(1), fromTop = true), controller, bind = "looked")),
+            // the creature named now, so the permission (an effect that lasts) knows whose it is (CR 611.2c)
+            val controller = Players.ControllerOf(Objects.Bound("creature"))
+            return listOf(Step.Bind(Objects.EventObject(EventRole.Source), "creature"),
+                Step.Do(Effect.LookAt(Objects.LibraryCards(Players.EventPlayer, Value.Fixed(1), fromTop = true), controller, bind = "looked")),
                 Step.Do(Effect.Move(Objects.Bound("looked"), Destination(Zone.Exile, faceDown = true), postBind = "exiled")),
                 Step.Do(Effect.ApplyMechanics(listOf(Mechanic.MayPlay(Zone.Exile, PlayKind.Play, holder = PlayerFilter.Is(controller), manaAsAnyColor = true)),
                     Affected.Objects(Objects.Bound("exiled")), arcanum.api.Duration.Indefinitely)))

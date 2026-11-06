@@ -31,7 +31,7 @@ import org.asyncttwiz.protocol.*
 internal fun TableToolkitScreen(toolkit: TableToolkitController, play: TableBoard, game: GameSummary,
     landscape: Boolean,
     peekScroll: ScrollState? = null, scene: TableScene? = null, peekSwipe: InspectSwipe? = null,
-    onTimeline: (() -> Unit)? = null, reviewing: Boolean = false) {
+    onTimeline: (() -> Unit)? = null, reviewing: Boolean = false, gameActionsBlocked: Boolean = false) {
     val names = mapOf(game.inviter.accountId to game.inviter.username, game.recipient.accountId to game.recipient.username)
     val enabled = toolkit.enabled()
     val endingColor = if (play.board.turn.accountId == toolkit.viewer) OwnTableColor else OpponentTableColor
@@ -48,7 +48,8 @@ internal fun TableToolkitScreen(toolkit: TableToolkitController, play: TableBoar
     when (val panel = toolkit.panel) {
         "manageStack" -> ManageStackDialog(play, toolkit.viewer, toolkit::dismiss)
         "table" -> {
-            TableActionMenu(play, toolkit.table, toolkit::dismiss, perform = toolkit::perform, names = names, onTimeline = onTimeline)
+            TableActionMenu(play, toolkit.table, toolkit::dismiss, perform = toolkit::perform, names = names, onTimeline = onTimeline,
+                blocked = gameActionsBlocked)
         }
         "phase" -> PhaseStepPicker(play, toolkit.viewer, endingColor, toolkit::dismiss, names = names)
         else -> if (panel?.startsWith("library/") == true) {

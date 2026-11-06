@@ -38,7 +38,6 @@ class TableChromeUiTest {
                 connected = true, onIntent = toolkit::handle, toolkit = toolkit,
                 runtime = TableRuntimeHooks(navigation = {}, chat = {}, undo = { true }, reviewing = review,
                     history = { review = true }, returnCurrent = { review = false },
-                    liveTimeline = { EngineStrip(events, viewer, landscape) { review = true } },
                     bottomPanel = if (review) ({ _ -> LiveTableFixture.ReviewPanel(viewer, landscape, events) }) else null))
         } }
         var arrow: androidx.compose.ui.geometry.Rect? = null
@@ -81,20 +80,22 @@ class TableChromeUiTest {
             val handLabel = TablePresentation.scene(TableFixture.game, tableBoard(play), who, pixels.width.toFloat(), pixels.height.toFloat(), landscape)
                 .items.single { it.cardId == "$who/HAND/0" }.label
             val handBefore = compose.onAllNodesWithContentDescription(handLabel).fetchSemanticsNodes().map { it.boundsInRoot }
-            // Only the strip's toggle enters timeline mode; event taps describe without scrubbing.
-            val latest = compose.onNodeWithContentDescription(events.last().description, useUnmergedTree = true)
-            latest.assertIsSelected()
-            val latestBefore = latest.fetchSemanticsNode().boundsInRoot
-            compose.onNodeWithContentDescription("Timeline mode").performClick()
+            // HIS-001: no event strip in play mode; HIS-004: Table actions → Timeline is the way in
+            compose.onNodeWithContentDescription(events.last().description, useUnmergedTree = true).assertDoesNotExist()
+            compose.onNodeWithContentDescription("Timeline mode").assertDoesNotExist()
+            compose.onNodeWithContentDescription("Table actions").performClick()
+            compose.onNodeWithText("Timeline").assertIsDisplayed().performClick()
             compose.onNodeWithContentDescription("Auto advance").assertIsDisplayed()
+            compose.onNode(hasContentDescription(events.last().description) and hasClickAction(), useUnmergedTree = true).assertIsSelected()
             val handAfter = compose.onAllNodesWithContentDescription(handLabel).fetchSemanticsNodes().map { it.boundsInRoot }
-            assertEquals(handBefore, handAfter, "HUD must not move on mode change")
-            assertEquals(latestBefore, compose.onNode(hasContentDescription(events.last().description) and isSelected(), useUnmergedTree = true)
-                .assertIsSelected().fetchSemanticsNode().boundsInRoot, "The strip must not jump on mode change")
+            // HIS-007: in landscape nothing moves; in portrait the hand moves up to sit above the taller timeline panel
+            if (landscape) assertEquals(handBefore, handAfter, "HUD must not move on mode change")
+            else assertTrue(handAfter.maxOf { it.bottom } <= pixels.height - tableBottomHeight(false, timeline = true),
+                "the HUD sits above the timeline panel: $handAfter")
             val transport = compose.onNodeWithContentDescription("Auto advance").fetchSemanticsNode().boundsInRoot
             assertEquals(pixels.height - 4f, transport.bottom)
             val reviewOutput = "$SCREENSHOTS/$prefix-review.png"
-            compose.onRoot().captureShot(reviewOutput, "$situation, after tapping Timeline mode: history at the latest event.")
+            compose.onRoot().captureShot(reviewOutput, "$situation, after choosing Table actions → Timeline: history at the latest event.")
             val reviewPixels = ImageIO.read(File(reviewOutput))
             assertEquals(TimelineBarColor.toArgb(), reviewPixels.getRGB(2, 35))
             assertEquals(TimelineBarColor.toArgb(), reviewPixels.getRGB(reviewPixels.width - 2, 35))
@@ -107,7 +108,8 @@ class TableChromeUiTest {
         compose.onNodeWithContentDescription("Auto advance").assertIsDisplayed()
     }
 
-    // HIS-001, HIS-004, HIS-007, HIS-008, TRN-013, TRN-015, TRN-016
+    // HIS-001, HIS-004, HIS-007, HIS-008, TRN-013, TRN-015, TRN-016: no strip in play mode, Table actions → Timeline enters
+    // timeline mode, whose panel the HUD sits above
     @Test fun portraitBothPlayersTurnAndMoveMatrix() = chrome(false)
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun landscapeBothPlayersTurnAndMoveMatrix() = chrome(true)
 
@@ -167,20 +169,18 @@ class TableChromeUiTest {
         compose.onNodeWithText("Reconnect").assertIsDisplayed()
     }
 
-    @Test fun holdingTimelineEventShowsDescriptionWithoutSelectingOrEntering() {
+    // HIS-011, HIS-061: holding an event shows its text without moving the review cursor
+    @Test fun holdingTimelineEventShowsDescriptionWithoutSelecting() {
         val events = listOf(HistoryTimelineEvent("root", HistoryIcon.FLAG, "The game started", "a", null))
         var selected = 0
         compose.setContent { MaterialTheme {
-            HistoryTimeline(events, "root", "a", {}, { selected++ }, readOnly = true)
+            HistoryTimeline(events, "root", "a", {}, { selected++ })
         } }
-        val event = compose.onNodeWithContentDescription("The game started", useUnmergedTree = true)
+        val event = compose.onNode(hasContentDescription("The game started") and hasClickAction(), useUnmergedTree = true)
         event.performTouchInput { down(center) }
         compose.mainClock.advanceTimeBy(650)
         compose.onNodeWithText("The game started").assertIsDisplayed()
         event.performTouchInput { up() }
-        assertEquals(0, selected)
-        event.performTouchInput { click() }
-        compose.onNodeWithText("The game started").assertIsDisplayed()
         assertEquals(0, selected)
     }
 

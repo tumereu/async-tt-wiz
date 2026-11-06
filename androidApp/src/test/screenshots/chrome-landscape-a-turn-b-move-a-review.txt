@@ -1,1 +1,1 @@
-Landscape table seen by player A: player B's turn, player A to move, declare blockers step, after tapping Timeline mode: history at the latest event.
+Landscape table seen by player A: player B's turn, player A to move, declare blockers step, after choosing Table actions → Timeline: history at the latest event.

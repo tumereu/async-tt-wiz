@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.material.icons.Icons
@@ -34,8 +33,6 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.res.painterResource
 import kotlin.math.abs
 import kotlin.math.roundToInt
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import org.asyncttwiz.protocol.HistoryIcon
 
 data class HistoryTimelineEvent(val id: String, val icon: HistoryIcon, val description: String,
@@ -66,7 +63,7 @@ object HistoryTimelineLayout {
 @Composable
 fun HistoryTimeline(events: List<HistoryTimelineEvent>, selectedId: String, viewer: String,
     onPause: () -> Unit, onSelect: (String) -> Unit, modifier: Modifier = Modifier,
-    readOnly: Boolean = false, armedSplit: String? = null,
+    armedSplit: String? = null,
     eventIcon: @Composable (HistoryIcon) -> Unit = { HistoryEventIcon(it) }) {
     val positions = remember(IdentityKey(events)) { events.withIndex().associate { it.value.id to it.index } }
     val selected = positions[selectedId] ?: -1
@@ -75,37 +72,24 @@ fun HistoryTimeline(events: List<HistoryTimelineEvent>, selectedId: String, view
     val selectedNow by rememberUpdatedState(selected)
     val density = androidx.compose.ui.platform.LocalDensity.current.density
     val pitch = 24f
-    // Panning the live strip is presentation only: never scrub the board/review cursor.
-    val liveCenter = remember(readOnly) { Animatable(selected.toFloat()) }
-    val scope = rememberCoroutineScope()
-    LaunchedEffect(readOnly, selectedId, events.last().id) {
-        if (readOnly) liveCenter.animateTo(selected.toFloat(), tween(180))
-    }
-    val windowCenter = if (readOnly) liveCenter.value.coerceIn(0f, events.lastIndex.toFloat()) else selected.toFloat()
-    BoxWithConstraints(modifier.fillMaxWidth().height(TableTimelineHeight.dp).clipToBounds()
-        .then(if (readOnly) Modifier else Modifier.pointerInput(Unit) {
+    val windowCenter = selected.toFloat()
+    BoxWithConstraints(modifier.fillMaxWidth().height(TableTimelineHeight.dp).clipToBounds().pointerInput(Unit) {
         awaitEachGesture { awaitFirstDown(requireUnconsumed = false); pause(); waitForUpOrCancellation() }
-    }).pointerInput(IdentityKey(events), density, readOnly) {
-        var start = 0f; var delta = 0f
-        detectHorizontalDragGestures(onDragStart = {
-            if (!readOnly) pause()
-            start = if (readOnly) liveCenter.value else selectedNow.toFloat(); delta = 0f
-        }) { change, amount ->
+    }.pointerInput(IdentityKey(events), density) {
+        var start = 0; var delta = 0f
+        detectHorizontalDragGestures(onDragStart = { pause(); start = selectedNow; delta = 0f }) { change, amount ->
             change.consume(); delta += amount / density
-            if (readOnly) scope.launch { liveCenter.snapTo((start - delta / pitch).coerceIn(0f, events.lastIndex.toFloat())) }
-            else select(events[HistoryTimelineLayout.selectedAfterDrag(start.roundToInt(), delta, pitch, events.size)].id)
+            select(events[HistoryTimelineLayout.selectedAfterDrag(start, delta, pitch, events.size)].id)
         }
     }) {
         val width = maxWidth.value
         Box(Modifier.fillMaxSize().semantics {
-            contentDescription = if (readOnly) "Event strip" else events[selected].description
-            if (!readOnly) {
-                progressBarRangeInfo = ProgressBarRangeInfo(selected.toFloat(), 0f..events.lastIndex.toFloat(), maxOf(0, events.size - 2))
-                setProgress { value -> pause(); select(events[value.roundToInt().coerceIn(events.indices)].id); true }
-                customActions = listOf(
-                    CustomAccessibilityAction("Previous event") { pause(); select(events[maxOf(0, selected - 1)].id); true },
-                    CustomAccessibilityAction("Next event") { pause(); select(events[minOf(events.lastIndex, selected + 1)].id); true })
-            }
+            contentDescription = events[selected].description
+            progressBarRangeInfo = ProgressBarRangeInfo(selected.toFloat(), 0f..events.lastIndex.toFloat(), maxOf(0, events.size - 2))
+            setProgress { value -> pause(); select(events[value.roundToInt().coerceIn(events.indices)].id); true }
+            customActions = listOf(
+                CustomAccessibilityAction("Previous event") { pause(); select(events[maxOf(0, selected - 1)].id); true },
+                CustomAccessibilityAction("Next event") { pause(); select(events[minOf(events.lastIndex, selected + 1)].id); true })
         })
         Canvas(Modifier.fillMaxSize()) {
             val first = HistoryTimelineLayout.x(0, windowCenter, size.width / density, pitch).dp.toPx()
@@ -125,7 +109,7 @@ fun HistoryTimeline(events: List<HistoryTimelineEvent>, selectedId: String, view
                 Modifier.offset(HistoryTimelineLayout.splitGapX(x, pitch).dp).width(BranchMarkerWidth.dp).fillMaxHeight()
                     .semantics { testTag = BranchMarkerTag })
             TimelineEventChip(event, authorColor, i == selected,
-                Modifier.align(Alignment.CenterStart).offset((x - 10f).dp), eventIcon, describeOnTap = readOnly) {
+                Modifier.align(Alignment.CenterStart).offset((x - 10f).dp), eventIcon) {
                 pause(); select(event.id)
             }
             if (i > 0 && event.groupId != events[i - 1].groupId) Canvas(Modifier.offset((x - 12f).dp).width(1.dp).fillMaxHeight()) {
@@ -157,20 +141,14 @@ private fun BranchSplitMarker(modifier: Modifier) = Canvas(modifier) {
 /** A recognized hold describes the event and consumes the tap; it never moves the review cursor. */
 @Composable
 private fun TimelineEventChip(event: HistoryTimelineEvent, color: Color, selected: Boolean, modifier: Modifier,
-    eventIcon: @Composable (HistoryIcon) -> Unit, describeOnTap: Boolean, onClick: () -> Unit) {
+    eventIcon: @Composable (HistoryIcon) -> Unit, onClick: () -> Unit) {
     var held by remember(event.id) { mutableStateOf(false) }
-    var tapped by remember(event.id) { mutableStateOf(false) }
-    var tapSerial by remember(event.id) { mutableIntStateOf(0) }
-    LaunchedEffect(tapSerial) {
-        if (tapSerial > 0) { delay(1_650); tapped = false }
-    }
-    val alpha by animateFloatAsState(if (held || tapped) 1f else 0f, tween(150), label = "Event description")
+    val alpha by animateFloatAsState(if (held) 1f else 0f, tween(150), label = "Event description")
     val click by rememberUpdatedState(onClick)
-    val tap = { if (describeOnTap) { tapped = true; tapSerial++ } else click() }
-    HistoryEventChip(event, color, selected, modifier.semantics { onClick { tap(); true } }
-        .pointerInput(event.id, describeOnTap) {
-            detectTapGestures(onPress = { tapped = false; try { tryAwaitRelease() } finally { held = false } },
-                onTap = { tap() }, onLongPress = { held = true })
+    HistoryEventChip(event, color, selected, modifier.semantics { onClick { click(); true } }
+        .pointerInput(event.id) {
+            detectTapGestures(onPress = { try { tryAwaitRelease() } finally { held = false } },
+                onTap = { click() }, onLongPress = { held = true })
         }) { icon ->
         eventIcon(icon)
         if (alpha > 0f) {

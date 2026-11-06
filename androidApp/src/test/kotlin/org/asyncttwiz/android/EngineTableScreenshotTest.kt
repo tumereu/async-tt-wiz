@@ -44,7 +44,7 @@ class EngineTableScreenshotTest {
     private val names = mapOf(TableStatesFixture.a to "Alice", TableStatesFixture.b to "Bob")
 
     /** [game]'s table as [EngineTableScreen] draws it: the board (or the board at [routes]' review cursor in timeline
-     * mode), the strip of the events shown, the change flashes. */
+     * mode), the change flashes. */
     private fun render(game: EngineGame, viewer: String, presence: ReceivedPresence? = null,
         routes: EngineTableRoutes = EngineTableRoutes(viewer, { game }, {}, { game.play() }), summary: GameSummary = f.game): EngineTableRoutes {
         routes.opponentName = names.entries.first { it.key != viewer }.value
@@ -70,7 +70,6 @@ class EngineTableScreenshotTest {
                                     timelinePlayback = if (reviewed != null) TimelinePlaybackStatus.PAUSED else null,
                                     waitingLine = routes.waitingLine(game.play()),
                                     returnCurrent = if (reviewed != null) ({ routes.leaveReview() }) else null,
-                                    liveTimeline = if (events.isEmpty()) null else ({ EngineStrip(events, viewer, false) { routes.enterReview(events.last().id) } }),
                                     bottomPanel = if (reviewed != null) ({ _ -> EngineReviewPanel(routes, events, viewer, false, 1_000) }) else null,
                                     centreAction = if (reviewed == null && watch)
                                         TableCentreAction("${routes.opponentName} has made moves · Tap to watch") { game.startPlayback() } else null,
@@ -101,13 +100,13 @@ class EngineTableScreenshotTest {
         render(game, f.a, routes = routes)
         compose.onNodeWithTag("engine-unconfirmed").assertExists()
         compose.onNodeWithContentDescription("Bob hasn't seen your last moves yet", substring = true).assertExists()
-        // HIS-001: the strip shows the events up to her local head (her keep, Bob's assumed keep and passes)
-        compose.onNodeWithContentDescription("Event strip").assertExists()
-        compose.onNodeWithContentDescription("Timeline mode").assertExists()
+        // HIS-001: no event strip in play mode
+        compose.onNodeWithContentDescription("Event strip").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Timeline mode").assertDoesNotExist()
         compose.onNodeWithContentDescription("Response mode", substring = true).assertExists()
         compose.onNodeWithContentDescription("Assume resolves setting").assertExists()
         compose.onRoot().captureShot("$SCREENSHOTS/engine/assumed-main.png",
-            "Alice kept while Bob was away and is in her first main phase: a small violet dot at the corner of the main button (To combat, twice as wide as a quick action) says Bob hasn't seen her last moves yet (no count, nothing over the board), the strip above the quick actions shows the events so far in each player's colour, and the quick actions are her own Response mode (Auto-skip), Assume resolves (Always, as the fixture sets it) and Autotap mana.")
+            "Alice kept while Bob was away and is in her first main phase: a small violet dot at the corner of the main button (To combat, twice as wide as a quick action) says Bob hasn't seen her last moves yet (no count, nothing over the board), no event strip, and the quick actions are her own Response mode (Auto-skip), Assume resolves (Always, as the fixture sets it) and Autotap mana.")
     }
 
     /** Alice at her main phase with "Assume resolves" set to [choice]: the quick action shows [state] and is captured as [file]. */
@@ -323,6 +322,8 @@ class EngineTableScreenshotTest {
         compose.onNodeWithContentDescription("Stack, 1 entries").performClick()
         compose.waitForIdle()
         val row = compose.onNodeWithText("Top · Ember Herald's ability")
+        // A press right after a popup opens is ignored (CardRingInputGuard): hold once that has passed
+        compose.mainClock.advanceTimeBy(400)
         compose.mainClock.autoAdvance = false
         row.performTouchInput { down(center) }
         compose.mainClock.advanceTimeBy(600)
@@ -390,11 +391,12 @@ class EngineTableScreenshotTest {
         assertTrue((bob.device.status as GameDevice.Status.Stopped).paused)
         render(bob, f.b)
         compose.onNodeWithTag("playback-toggle").assertDoesNotExist()
-        compose.onNodeWithContentDescription("Event strip").assertExists()
+        // HIS-001: playback has no event strip either
+        compose.onNodeWithContentDescription("Event strip").assertDoesNotExist()
         compose.onNodeWithTag("main-button").assertExists()
         compose.onNodeWithContentDescription("Alice has made moves · Tap to watch").assertExists()
         captureShot("$SCREENSHOTS/engine/playback-paused.png",
-            "Bob tapped the table during Alice's playback: it went on to her upkeep, where he could have acted, and stopped there; his table is live with the strip and his main button, and \"Alice has made moves · Tap to watch\" in the middle resumes it.")
+            "Bob tapped the table during Alice's playback: it went on to her upkeep, where he could have acted, and stopped there; his table is live with his main button, and \"Alice has made moves · Tap to watch\" in the middle resumes it.")
         compose.onNodeWithTag("centre-action").performClick()
         compose.runOnIdle { assertTrue(bob.device.status.let { it !is GameDevice.Status.Stopped || !it.paused }, "the tap resumed it") }
     }

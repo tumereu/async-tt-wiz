@@ -18,14 +18,16 @@ fun TableActionMenu(play: TableBoard, controller: TableActionController, onDismi
     pendingSuggestionId: String? = null, mayAccept: Boolean = false,
     perform: (TableActionIntent) -> Boolean = controller::perform,
     names: Map<String, String> = emptyMap(), onTimeline: (() -> Unit)? = null,
-    reportToken: () -> String? = DebugCrashes::sessionToken) {
+    reportToken: () -> String? = DebugCrashes::sessionToken,
+    /** TRN-049: a waiting suggestion blocks every entry but Timeline (HIS-020). */
+    blocked: Boolean = false) {
     val scope = TableActionScope(play.gameId, play.playId)
     var ending by remember(scope) { mutableStateOf(false) }
     var outcome by remember(scope) { mutableStateOf<Pair<String, EndingTool>?>(null) }
     var conceding by remember(scope) { mutableStateOf(false) }
     var reporting by remember(scope) { mutableStateOf(false) }
     val landscape = LocalConfiguration.current.screenWidthDp > LocalConfiguration.current.screenHeightDp
-    val enabled = controller.enabled(scope)
+    val enabled = controller.enabled(scope) && !blocked
     val endingEntry = if (pendingSuggestionId == null) MenuControl("Suggest game end", enabled) { ending = true }
         else MenuControl("Accept result", enabled && mayAccept) {
             if (perform(TableActionIntent.Ending(scope, EndingTool.ACCEPT, pendingSuggestionId))) onDismiss()
@@ -34,7 +36,7 @@ fun TableActionMenu(play: TableBoard, controller: TableActionController, onDismi
     val entries = listOf(MenuControl("Timeline", onTimeline != null) { onDismiss(); onTimeline?.invoke() }) +
         listOfNotNull(endingEntry.takeIf { pendingSuggestionId == null || mayAccept }) + MenuControl("Concede", enabled) { conceding = true } +
         // The same report as Settings' "Report a problem", without leaving the game (N7FU6Y)
-        MenuControl("Send problem report", true) { reporting = true }
+        MenuControl("Send problem report", !blocked) { reporting = true }
     if (reporting) ProblemReportDialog(reportToken) { reporting = false; onDismiss() }
     if (!ending && !conceding && !reporting) TableMenuPanel(onDismiss, width = if (landscape) 776.dp else 400.dp, title = "Table actions") {
         for (row in entries.chunked(if (landscape) 3 else 2)) Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {

@@ -180,10 +180,10 @@ internal fun TableSurface(game: GameSummary, play: TableBoard, accountId: String
         val cardAppearance = rememberCardAppearance()
         val logicalPositions = remember(IdentityKey(play.board)) { TablePresentation.logicalPlacements(play) }
         val computed = LocalComputedBoard.current
-        val targetScene = remember(game, IdentityKey(play), accountId, maxWidth, maxHeight, landscape, layout, placements, toolbarWidth, runtime.reviewing, cardAppearance, computed) {
+        val targetScene = remember(game, IdentityKey(play), accountId, maxWidth, maxHeight, landscape, layout, placements, toolbarWidth, runtime.reviewing, runtime.timelineOpen, cardAppearance, computed) {
             TablePresentation.scene(game, play, accountId, maxWidth.value.coerceAtLeast(1f),
                 maxHeight.value.coerceAtLeast(1f), landscape, layout, placements, toolbarWidth, runtime.reviewing, cardAppearance, logicalPositions,
-                computed, landscapeHome = true)
+                computed, landscapeHome = true, timeline = runtime.timelineOpen)
         }
         var previousLayout by remember { mutableStateOf(layout) }
         var previousSize by remember { mutableStateOf(maxWidth to maxHeight) }
@@ -321,7 +321,7 @@ internal fun TableSurface(game: GameSummary, play: TableBoard, accountId: String
             val groupTaps = if (toolkit == null || runtime.reviewing) emptyMap() else scene.battlefieldGroups
                 .filter { it.members.size > 1 && it.key != scene.expandedGroup }.associate { it.key to toolkit.groupTap(play, it) }
             Box(Modifier.fillMaxWidth().height(48.dp).background(barColor))
-            Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(tableBottomHeight(landscape).dp)
+            Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(tableBottomHeight(landscape, runtime.timelineOpen).dp)
                 .background(barColor))
             Canvas(Modifier.fillMaxSize()) {
                 DebugLatency.tapFrame(game.id, progress.value, refreshRate)
@@ -349,7 +349,7 @@ internal fun TableSurface(game: GameSummary, play: TableBoard, accountId: String
          if (toolkit != null) CompositionLocalProvider(LocalPopupAvoid provides hands) {
              TableToolkitScreen(toolkit, play, game, landscape,
               peekScroll = peekScroll, scene = scene, peekSwipe = peekSwipe, onTimeline = runtime.history,
-              reviewing = runtime.reviewing)
+              reviewing = runtime.reviewing, gameActionsBlocked = runtime.gameActionsBlocked)
          }
         }
     }

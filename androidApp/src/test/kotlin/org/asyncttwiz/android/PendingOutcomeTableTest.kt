@@ -39,9 +39,14 @@ class PendingOutcomeTableTest {
             // TRN-049: every other game action is blocked while the suggestion waits (at the opening the step arrow's place
             // is the opening's quick actions)
             val play = assertNotNull(f.lobby.state.board)
-            for (label in listOf("Table actions", "Undo")) {
-                compose.onNodeWithContentDescription(label).assertIsNotEnabled().performClick()
-            }
+            compose.onNodeWithContentDescription("Undo").assertIsNotEnabled().performClick()
+            // HIS-020: Table actions still opens for its Timeline (aPendingSuggestionNeverBlocksTheTimeline enters it);
+            // its other entries are greyed
+            compose.onNodeWithContentDescription("Table actions").assertIsEnabled().performClick()
+            compose.onNodeWithText("Timeline").assertExists()
+            for (entry in listOf("Suggest game end", "Concede", "Send problem report")) compose.onNodeWithText(entry).assertIsNotEnabled()
+            androidx.test.espresso.Espresso.pressBack()
+            drain(f)
             compose.onNodeWithContentDescription("Choose phase/step", substring = true).assertIsNotEnabled().performClick()
             val scene = TablePresentation.scene(f.game, play, f.me, 412f, 892f, false)
             val hand = scene.items.first { it.kind == TableItemKind.CARD && it.zone == PlayZone.HAND && it.owner == f.me }.visible.first().center
@@ -76,8 +81,8 @@ class PendingOutcomeTableTest {
             compose.setContent { MaterialTheme { TableScreen(f.lobby, f.me, {}, false) } }
             drain(f)
             assertNotNull(f.lobby.state.board?.board?.resultSuggestion)
-            compose.onAllNodesWithContentDescription("Timeline mode").onFirst().assertIsEnabled()
-                .performSemanticsAction(SemanticsActions.OnClick) { assertTrue(it()) }
+            compose.onNodeWithContentDescription("Table actions").performClick()
+            compose.onNodeWithText("Timeline").assertIsEnabled().performClick()
             drain(f)
             compose.onNodeWithContentDescription("Return to current").assertExists().performClick()
             drain(f)

@@ -104,10 +104,10 @@ class TableScreenshotTest {
             assertEquals(if (landscape) 412 else 892, image.height)
             if (!controls) {
                 val normal = TablePresentation.scene(LiveTableFixture.game, board, "a",
-                    image.width.toFloat(), image.height.toFloat(), landscape, reviewing = paused, landscapeHome = true)
+                    image.width.toFloat(), image.height.toFloat(), landscape, reviewing = paused, landscapeHome = true, timeline = paused)
                 val scene = normal
                 assertRenderedLandsBands(image, scene, "a",
-                    overlayTop = image.height - tableBottomHeight(landscape).toInt(), reviewing = paused,
+                    overlayTop = image.height - tableBottomHeight(landscape, paused).toInt(), reviewing = paused,
                     turnPlayer = play.board.turn.accountId)
             }
         }

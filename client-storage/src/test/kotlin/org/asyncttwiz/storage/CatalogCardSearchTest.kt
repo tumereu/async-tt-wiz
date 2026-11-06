@@ -304,7 +304,7 @@ class CatalogCardSearchTest {
                     org.asyncttwiz.protocol.CardSearchRules.FORMATS.filterIndexed { bit, _ -> legal and (1L shl bit) != 0L }.toSet())
                 assertEquals(id("oracle", "Lightning Bolt"), rows.getString(4))
             }
-            assertEquals(3, connection.createStatement().executeQuery("PRAGMA user_version").use { it.next(); it.getInt(1) })
+            assertEquals(CATALOG_INDEX_VERSION, connection.createStatement().executeQuery("PRAGMA user_version").use { it.next(); it.getInt(1) })
         }
     }
 

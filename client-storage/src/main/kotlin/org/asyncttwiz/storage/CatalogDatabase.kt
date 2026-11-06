@@ -12,7 +12,8 @@ import java.util.UUID
 import java.util.logging.Logger
 
 // 3: printings keep rarity, colour identity and legal formats for card search (search_card is built when finishing).
-internal const val CATALOG_INDEX_VERSION = 3
+// 4 (LOB-125): token_relation holds every set's card→token links (SYS-072); every older catalog downloads again once.
+internal const val CATALOG_INDEX_VERSION = 4
 data class CatalogMetadata(val date: String, val version: String, val checksum: String = "", val records: Long = 0,
     val indexVersion: Int = CATALOG_INDEX_VERSION)
 
@@ -273,8 +274,8 @@ class CatalogIndex internal constructor(driver: SqlDriver) : app.cash.sqldelight
         }
     }
 
-    // Optional enrichment like set names, not an index-version change: a catalog imported before it has no rows, and
-    // token pictures then come from the tokens' characteristics alone.
+    // Part of index version 4 (LOB-125). Without rows for a card, its tokens' pictures come from their characteristics
+    // alone.
     private var tokenRelationsReady = false
     /** A card's related tokens: (a card's printing id, a token's printing id) from the card's own links, and (a card
      * name in lower case, a token's printing id) from the token's list of the cards that make it. */

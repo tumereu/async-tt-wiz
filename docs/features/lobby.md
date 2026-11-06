@@ -164,6 +164,7 @@ Everything outside the game table: accounts, profile, navigation, game list, gam
 - **LOB-095** If the app needs a new catalog format, it deletes the old catalog and downloads it again at startup. (r17)
 - **LOB-096** While the first catalog downloads, deck and game screens show its progress in a bar at the bottom, with the screen laid out above it so the bar never covers the screen's buttons; the menu, Settings and an open game do not. A failed download is tried once more by itself before the player is asked to retry. (r17)
 - **LOB-110** Card records include rarity, format legalities and colour identity for search (LOB-108); records downloaded before search are downloaded again once, asked as for any card records update. (r35)
+- **LOB-125** Card records include which tokens each card makes, for token pictures (SYS-072); records downloaded without them are downloaded again once, asked as for any card records update, and kept in use until the new ones are installed; every phone with records from an earlier version downloads them again once. (r57)
 
 ### Card pictures
 

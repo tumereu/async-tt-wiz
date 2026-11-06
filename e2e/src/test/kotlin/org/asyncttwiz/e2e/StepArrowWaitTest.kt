@@ -1,6 +1,8 @@
 package org.asyncttwiz.e2e
 
 import org.asyncttwiz.protocol.game.GameDevice
+import org.asyncttwiz.protocol.game.PlaySettings
+import org.asyncttwiz.protocol.game.ResponseMode
 import org.junit.Test
 import java.time.Duration
 import kotlin.test.assertEquals
@@ -13,7 +15,8 @@ class StepArrowWaitTest : E2e() {
     // TRN-015, TRN-004: in Alice's own turn she casts an Ember Herald while Bob is online: the game waits for him (his
     // pause) and her step arrow isn't shown; once he lets it resolve it is back
     @Test fun theStepArrowIsHiddenInYourOwnTurnWhileTheOtherPlayerMustAct() {
-        startGame(TestDeck.thirds(TestCards.herald), TestDeck.thirds(TestCards.herald),
+        // Bob in Normal: his pauses wait for him (owner 2026-11-06: in Quick, unable to respond, his pass is assumed at once)
+        startGame(TestDeck.thirds(TestCards.herald), TestDeck.thirds(TestCards.herald), bobSettings = PlaySettings(mode = ResponseMode.Normal),
             deal = { a, _ -> "Mountain" in hand(a) && "Ember Herald" in hand(a) })
         bothOpen()
         bothKeep(bobAway = false)

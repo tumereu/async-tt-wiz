@@ -50,6 +50,7 @@ class EngineBoardShownTest {
         kit.opening()
         kit.playLand()
         val herald = kit.atw(kit.hand("Ember Herald").first())
+        kit.bobKnownAsNormal()
         assertTrue(kit.toolkit.cast.start(herald), "${kit.toolkit.error}")
         val copy = kit.scene().items.filter { it.kind == TableItemKind.CARD && it.zone == PlayZone.STACK && it.sourceId == herald }
         assertTrue(copy.isNotEmpty() && copy.all { it.projection }, "its Stack copy is dashed: $copy")
@@ -91,6 +92,7 @@ class EngineBoardShownTest {
         val kit = EngineTableKit()
         kit.opening()
         kit.playLand()
+        kit.bobKnownAsNormal()
         val cub = kit.castCub()
         val game = edited(kit, kit.f.a) { s ->
             val id = battlefieldObject(s, cub)
@@ -128,6 +130,7 @@ class EngineBoardShownTest {
         kit.opening()
         val mountain = kit.playLand()
         val cub = kit.atw(kit.hand("Ember Cub").first())
+        kit.bobKnownAsNormal()
         val head = kit.scenario.sim.head
         assertTrue(kit.toolkit.cast.start(cub), "${kit.toolkit.error}")
         val shown = kit.alice.play().board

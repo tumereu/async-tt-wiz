@@ -5,6 +5,8 @@ import androidx.compose.ui.test.performClick
 import arcanum.api.TurnStep
 import arcanum.engine.input.Input
 import org.asyncttwiz.protocol.game.GameDevice
+import org.asyncttwiz.protocol.game.PlaySettings
+import org.asyncttwiz.protocol.game.ResponseMode
 import org.junit.Test
 import java.time.Duration
 import kotlin.test.assertEquals
@@ -12,10 +14,10 @@ import kotlin.test.assertIs
 import kotlin.test.assertTrue
 
 /**
- * Owner, 2026-11-05: assumptions depend only on the player's setting, never on the other player's presence. With "Always
- * assume resolves" off (the default) the other player's pause is a wait with Assume on the main button, also while they
- * are away; on, it is assumed at once. Blocks are assumed only by the main button ("Assume no blockers" / "Assume
- * blockers", the blocks placed on the lanes).
+ * Owner, 2026-11-05: assumptions depend only on the settings and modes, never on the other player's presence. With "Assume
+ * resolves" Normal (the default) the other player's pause is a wait with Assume on the main button (their own mode, Normal
+ * here, stops there too), also while they are away; with Always it is assumed at once. Blocks are assumed only by the main
+ * button ("Assume no blockers" / "Assume blockers", the blocks placed on the lanes).
  */
 class AssumeBySettingTest : E2e() {
     /** Every wait with an Assume button Alice's table shows from now on. */
@@ -29,7 +31,8 @@ class AssumeBySettingTest : E2e() {
     // under the Stack), however long he stays away; Assume goes on (her trigger waits the same way); with "Assume
     // resolves" set to Always from her quick actions her End turn goes past his pause at her end step at once
     @Test fun aPauseWaitsWithAssumeUnlessAlwaysAssumeResolves() {
-        startGame(TestDeck.thirds(TestCards.herald), TestDeck.thirds(TestCards.herald),
+        // Bob in Normal: his pauses wait for him (owner 2026-11-06: in Quick, unable to respond, his pass is assumed at once)
+        startGame(TestDeck.thirds(TestCards.herald), TestDeck.thirds(TestCards.herald), bobSettings = PlaySettings(mode = ResponseMode.Normal),
             deal = { a, _ -> "Mountain" in hand(a) && "Ember Herald" in hand(a) })
         bothOpen()
         bothKeep(bobAway = true)
@@ -59,7 +62,7 @@ class AssumeBySettingTest : E2e() {
         waitUntil("the token, Alice in her Main 1") { alice.state.battlefield.any { alice.state.obj(it)?.token == true } && alice.inOwnMain() }
         assertTrue(assumedCount() >= assumed + 2, "her two Assume taps")
 
-        // "Assume resolves" set to Always (a tap goes Never → When they have no mana → Always): her end step (his pause)
+        // "Assume resolves" set to Always (a tap goes Normal → When they have no mana → Always): her end step (his pause)
         // goes by at once
         alice.tap("Assume resolves setting")
         waitUntil("the setting at When they have no mana") { alice.shown.settings.assume == org.asyncttwiz.protocol.game.AssumeResolves.WhenNoMana }
@@ -73,12 +76,13 @@ class AssumeBySettingTest : E2e() {
     }
 
     // CMB-040, HIS-096, TRN-070 (owner, 2026-11-05, 2026-11-06): Alice attacks while Bob is away, "Assume resolves"
-    // Never: his pause right after her attack is assumed at once and his blockers wait in assume mode on the lanes with
+    // Normal (the default): his pause right after her attack is assumed at once and his blockers wait in assume mode on the lanes with
     // "Assume no blockers" on the main button; nothing is assumed by itself, however long he stays away; the button
     // assumes no blocks; his priority after the blocks waits with "Assume no response" (the setting); her End turn then
     // goes past his pause at her end step at once
     @Test fun blocksAreAssumedOnlyFromTheMainButton() {
-        startGame(TestDeck.thirds(TestCards.cub), TestDeck.thirds(TestCards.herald),
+        // Bob in Normal: his pauses wait for him (owner 2026-11-06: in Quick, unable to respond, his pass is assumed at once)
+        startGame(TestDeck.thirds(TestCards.cub), TestDeck.thirds(TestCards.herald), bobSettings = PlaySettings(mode = ResponseMode.Normal),
             deal = { a, b -> "Mountain" in hand(a) && "Ember Cub" in hand(a) && "Mountain" in hand(b) && "Ember Herald" in hand(b) })
         bothOpen()
         bothKeep(bobAway = false)
@@ -88,7 +92,11 @@ class AssumeBySettingTest : E2e() {
         waitUntil("the Cub on the battlefield", along = listOf(bob)) { alice.field("Ember Cub").isNotEmpty() && alice.inOwnMain() }
         alice.hold("To combat")
         // Bob's turn: a Mountain and an Ember Herald, so he has creatures that may block
-        waitUntil("Bob's Main 1", along = listOf(alice)) { bob.inOwnMain() }
+        waitUntil("Bob's Main 1", along = listOf(alice)) {
+            // HIS-095: in Normal his playback stops at her assumption of his pass at her end step (his pause): he lets it stand
+            if (bob.status is GameDevice.Status.Stopped) bob.once { bob.stepArrow()?.let(bob::tap) }
+            bob.inOwnMain()
+        }
         bob.playFromHand("Mountain", this)
         waitUntil("Bob's Mountain", along = listOf(alice)) { bob.field("Mountain").isNotEmpty() && bob.inOwnMain() }
         bob.playFromHand("Ember Herald", this)

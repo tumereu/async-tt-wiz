@@ -77,8 +77,9 @@ class GameDevice(
         private set
 
     /** The other player's current response mode (owner 2026-11-06), as the server last said ([modes]) or their latest
-     * event recorded it: the device assumes their pass wherever it would pass. Quick until known. */
-    var opponentMode: ResponseMode = ResponseMode.AutoSkip
+     * event recorded it: the device assumes their pass wherever it would pass. Until known (the server always says it),
+     * Normal: nothing assumed beyond what Normal mode passes, and nothing judged on their hand. */
+    var opponentMode: ResponseMode = ResponseMode.Normal
         private set
 
     /** Each player's current response mode by account, as the server says it ([EngineSnapshot.modes], [EngineUpdate.modes]):
@@ -208,9 +209,10 @@ class GameDevice(
 
     /** Why the device waits for the other player (the waiting bar, §14). */
     sealed interface Wait {
-        /** They may respond to [to] (yours, on top of the Stack). */
+        /** They may respond to [to], on top of the Stack (yours, or their own while they hold priority over it). */
         data class Respond(val to: ObjectId) : Wait
-        /** They may act at their pause in [step] (after their blocks; your attack and your end step are assumed at once). */
+        /** They may act at their priority in [step] with nothing of yours on top of the Stack (a pause, such as after their
+         * blocks, or any point where your Assume setting and their mode don't assume their pass, HIS-096). */
         data class MayAct(val step: TurnStep) : Wait
         /** They are declaring blockers. */
         data object Blockers : Wait

@@ -37,7 +37,9 @@ class SameDecisionTapTest : E2e() {
      * assumed for him, HIS-095). */
     private fun start(alice: PlaySettings? = null, bobGlimmer: Boolean = false) {
         startGame(deck, deck, aliceSettings = alice, aliceWorker = held,
-            bobSettings = if (bobGlimmer) PlaySettings(mode = ResponseMode.FullControl) else null,
+            // Bob in Normal without a Glimmer: his pause at her spell waits for him (owner 2026-11-06: in Quick, unable to
+            // respond, his pass would be assumed at once)
+            bobSettings = PlaySettings(mode = if (bobGlimmer) ResponseMode.FullControl else ResponseMode.Normal),
             deal = { a, b -> "Mountain" in hand(a) && "Storm Spark" in hand(a) && "Idle Glimmer" in hand(a) && "Mountain" in hand(b) &&
                 (!bobGlimmer || "Idle Glimmer" in hand(b)) })
         held.observe = ::watchNotes
@@ -172,7 +174,11 @@ class SameDecisionTapTest : E2e() {
         waitUntil("Alice waiting for Bob with Assume") {
             (alice.status as? GameDevice.Status.Waiting)?.offer == GameDevice.Offer.AssumeResolves && alice.engine { device.session.pending.isEmpty() }
         }
-        waitUntil("Bob may respond to her Spark") { bob.stepArrow() == "Resolve" && bob.state.stack.isNotEmpty() }
+        waitUntil("Bob may respond to her Spark") {
+            // HIS-095: in Control his playback also stops at her earlier assumptions about him: he lets them stand
+            if (bob.status is GameDevice.Status.Stopped) bob.once { bob.stepArrow()?.let(bob::tap) }
+            bob.stepArrow() == "Resolve" && bob.state.stack.isNotEmpty() && bob.status == GameDevice.Status.YourMove
+        }
         fun assumed() = alice.engine { (device.session.events + device.session.pending).count { it.assumed?.assumedBy == alice.me } }
         val before = assumed()
         held.holding = true

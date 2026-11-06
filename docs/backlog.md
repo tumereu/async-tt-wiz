@@ -24,7 +24,7 @@ Start none of these until the E2E framework above works. Each owner-reported bug
 
 ## Specified, not started
 
-- Control mode and assumptions (owner, 2026-11-06): the other phone reads your response mode, Assume settings mirror the modes (Never / Normal, the new default / No mana / Always), automation acts as button presses, so a late differing move branches. Spec `docs/specs/control-and-assumptions.md`; changes STK-036, HIS-095, HIS-096, TRN-059, TRN-070, SYS-071, SYS-077, LOB-113.
+(none)
 
 ## Needs discussion
 

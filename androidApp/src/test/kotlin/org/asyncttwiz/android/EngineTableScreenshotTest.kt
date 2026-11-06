@@ -310,9 +310,11 @@ class EngineTableScreenshotTest {
         while (game.device.status is GameDevice.Status.Playing && guard++ < 100) game.step()
     }
 
-    /** Alice at her main phase in [mode] casts Storm Spark at Bob ([alwaysAssume]: "Always assume resolves"). */
+    /** Alice at her main phase in [mode] casts Storm Spark at Bob ([alwaysAssume]: "Always assume resolves"). Bob is in
+     * Normal (HIS-096: in Quick, with nothing to respond with, his own mode would pass and her phone would assume it). */
     private fun aliceCastsSpark(mode: org.asyncttwiz.protocol.game.ResponseMode, alwaysAssume: Boolean): EngineGame {
         val game = EngineGame(f.game.id, f.a, f.base, f.snapshot(otherKept = true)).apply { tick(1_000); keep(emptyList()); tick(2_000) }
+        game.device.modes(mapOf(f.b to org.asyncttwiz.protocol.game.ResponseMode.Normal))
         game.settings(game.shown!!.settings.copy(mode = mode, alwaysAssumeResolves = alwaysAssume))
         val me = PlayerId(f.a)
         game.send(listOf(Input.PlayLand(me, hand(game, "Mountain"))))
@@ -362,7 +364,7 @@ class EngineTableScreenshotTest {
         compose.runOnIdle { assertTrue(game.device.model.engine.stack.isEmpty(), "she passed; Bob's pass was assumed and it resolved") }
     }
 
-    // STK-028, TRN-070, HIS-096 (owner 2026-11-05): with "Assume resolves" Never, after Alice's Storm Spark the game
+    // STK-028, TRN-070, HIS-096 (owner 2026-11-05): with "Assume resolves" Normal, after Alice's Storm Spark the game
     // waits for Bob (away or online); "Assume resolves" is the main button and assumes he lets it resolve
     @Test fun assumeIsTheMainButton() {
         val game = aliceCastsSpark(org.asyncttwiz.protocol.game.ResponseMode.Normal, alwaysAssume = false)
@@ -372,7 +374,7 @@ class EngineTableScreenshotTest {
         compose.onNodeWithTag("engine-wait-action").assert(hasContentDescription("Assume resolves"))
         compose.onNodeWithTag("stack-assume").assertDoesNotExist()
         captureShot("$SCREENSHOTS/engine/stack-assume.png",
-            "Alice cast Storm Spark while Bob is away and Assume resolves is Never: faint words say Bob may respond to it, and the main button reads Assume resolves, where tapping it goes on as if Bob let it resolve.")
+            "Alice cast Storm Spark while Bob is away and Assume resolves is Normal: faint words say Bob may respond to it, and the main button reads Assume resolves, where tapping it goes on as if Bob let it resolve.")
         compose.onNodeWithTag("engine-wait-action").performClick()
         compose.runOnIdle { assertTrue(game.device.model.engine.stack.isEmpty(), "Storm Spark resolved on the assumed pass") }
     }

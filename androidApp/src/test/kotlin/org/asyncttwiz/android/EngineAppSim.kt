@@ -75,8 +75,7 @@ internal class EngineAppSim(val f: EngineGameFixture, private val worker: (Strin
         val after = MainLine.after(history, head, baseId)!!
         val snapshot = EngineSnapshot(f.codec.encodeDefinitions(), store.rootId, head, f.codec.encodeModel(state()), heads.toMap(),
             settings[p], request, lines, baseId.takeIf { after.isNotEmpty() },
-            if (after.isEmpty()) null else f.codec.encodeModel(history.stateAt(baseId)), after.map(f.codec::encodeEvent),
-            modes = settings.mapValues { it.value.mode })
+            if (after.isEmpty()) null else f.codec.encodeModel(history.stateAt(baseId)), after.map(f.codec::encodeEvent))
         val game = games[p]?.also { it.load(snapshot) } ?: EngineGame(f.game.id, p, f.base, snapshot, { java.util.UUID.nameUUIDFromBytes("$p-${++ids}".encodeToByteArray()).toString() }, worker(p))
         games[p] = game
         inbox.getValue(p).clear()
@@ -124,7 +123,7 @@ internal class EngineAppSim(val f: EngineGameFixture, private val worker: (Strin
 
     private fun broadcast(events: List<GameEvent>, author: String, target: String? = null, confirmed: String? = null) {
         val update = EngineUpdate(events.drop(1).map(f.codec::encodeEvent), target, heads.toMap(), lines, request, confirmed,
-            rewoundBy = author.takeIf { target != null }, modes = settings.mapValues { it.value.mode })
+            rewoundBy = author.takeIf { target != null })
         val n = revision++
         for (p in players) inbox.getValue(p) += Delivery.Revision(GameRevision(f.game.id, "$n", "${n + 1}", DeviceRandom.uuid(), author,
             GameScope(f.game.id, playId = f.base.id), f.game, engineEvent = events.firstOrNull()?.let(f.codec::encodeEvent), engine = update))
@@ -180,7 +179,7 @@ internal class EngineAppSim(val f: EngineGameFixture, private val worker: (Strin
             }
             GameAction.EngineCancelRewind ->
                 if (request?.by != p) refuse(p, action, "accessDenied") else { request = null; broadcast(emptyList(), p) }
-            is GameAction.EngineSettings -> { settings[p] = action.settings; broadcast(emptyList(), p) }
+            is GameAction.EngineSettings -> settings[p] = action.settings
             else -> error("not an engine action: $action")
         }
     }

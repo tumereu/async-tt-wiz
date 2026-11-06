@@ -82,7 +82,9 @@ class OffspringForageWalkthroughTest {
             val turn = kit.state().turn.number
             assertTrue(toolkit.automatumStep(TableActionIntent.End(kit.scope)), "End turn")
             kit.playOn("Alice's next Main 1", rounds = 40) {
-                if (kit.state().priority.holder == kit.me && pending() == null && kit.state().turn.active != kit.me) go()
+                // HIS-095: her playback in Control also stops at Bob's assumed passes in her own turn
+                if (kit.alice.device.status is GameDevice.Status.Stopped ||
+                    kit.state().priority.holder == kit.me && pending() == null && kit.state().turn.active != kit.me) go()
                 kit.aliceMain() && kit.state().turn.number > turn
             }
         }

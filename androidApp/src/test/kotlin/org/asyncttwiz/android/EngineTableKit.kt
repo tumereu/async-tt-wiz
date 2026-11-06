@@ -141,6 +141,11 @@ internal class EngineTableKit(val scenario: EngineCombatScenario = EngineCombatS
         }
     }
 
+    /** HIS-096 (owner 2026-11-06): Alice's phone takes Bob for Normal until his next event says his mode (the simulated
+     * server sends no modes): his pause at her next spell waits for him, where his Quick, unable to respond, would let her
+     * phone assume it at once. */
+    fun bobKnownAsNormal() = alice.device.modes(mapOf(f.b to org.asyncttwiz.protocol.game.ResponseMode.Normal))
+
     /** Settles until [done] (at most [rounds] times), failing with [what] when it never holds. */
     fun playOn(what: String, rounds: Int = 20, bobActs: Boolean = true, done: () -> Boolean) {
         repeat(rounds) { if (done()) return; settle(bobActs) }

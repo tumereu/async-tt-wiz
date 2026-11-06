@@ -158,6 +158,9 @@ class SameDecisionRulesTest {
      */
     private fun race(refusalsFirst: Boolean, there: (GameState) -> Boolean = { true }, bobsMove: (EngineGame) -> Unit = {},
         move: (EngineGame) -> GameDevice.Acted): EngineGame {
+        // Bob in Normal: his pause at her spark waits on her phone (HIS-096: in Quick, unable to respond, his own mode
+        // would pass it and her phone would assume that at once)
+        sim.settings[f.b] = PlaySettings(mode = ResponseMode.Normal)
         val game = bothLiveTo(there)
         val bob = sim.game(f.b)
         assertIs<GameDevice.Acted.Sent>(game.send(spark(game.device.model.engine)))
@@ -235,8 +238,8 @@ class SameDecisionRulesTest {
     }
 
     // SYS-077, HIS-096 (e2e CombatBandTest, 2026-11-06): Bob passes at Alice's spell just as her device assumes that pass
-    // for him (her Assume) and the server takes her assumption first: his pass is made already, so his device makes
-    // nothing again and tells nothing, both reply orders
+    // for him (her Assume) and the server takes her assumption first: his pass is his answer at it (HIS-109), confirming
+    // it, and tells nothing, both reply orders
     @Test fun aPassTheOtherPlayerAssumedFirstIsMadeAlready() {
         for (refusalsFirst in listOf(false, true)) SameDecisionRulesTest().assumedFirst(refusalsFirst)
     }
@@ -270,7 +273,7 @@ class SameDecisionRulesTest {
         bob.tick(sim.now + 3_000)
         val log = bob.device.repro(f.codec).log
         assertTrue(bob.notes.none { it is GameDevice.Note.Refused }, "refusals first $refusalsFirst: no note: ${bob.notes} ${log.takeLast(12)}")
-        assertTrue(log.any { it.endsWith("assumed already") }, "refusals first $refusalsFirst: ${log.takeLast(12)}")
+        assertTrue(log.any { it.contains("answers the assumption") }, "refusals first $refusalsFirst: ${log.takeLast(12)}")
     }
 
     // SYS-077, SYS-012: Bob concedes after his pass, so the game Alice's move was made in is gone: not made again, and she

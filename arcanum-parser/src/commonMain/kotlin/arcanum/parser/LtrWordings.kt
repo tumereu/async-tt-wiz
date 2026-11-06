@@ -82,6 +82,43 @@ internal object Ltr {
     val GUESSING_GAME = Regex("""Look at the top two cards of your library, put them back in any order, then choose land or nonland\. An opponent guesses whether the top card of your library is the chosen kind\. Reveal that card\. If they guessed right, remove (.+?) from combat\. Otherwise, you draw a card and (.+?) can't be blocked this turn\.""")
     val WHEN_ENTERS_AND_WHENEVER = Regex("""When (.+?) enters and whenever (.+?), (.+)""")
     val COPY_TOKEN_EXCEPT_EXILE_UNLESS_BEARER = Regex("""Exile (target .+?)\. Create a tapped and attacking token that's a copy of that card, except it's an? (\d+)/(\d+) (\w+) ([A-Z]\w+) with (\w+)\. At the beginning of the next end step, exile that token unless (.+?) is your Ring-bearer\.""")
+    // ltr chunks 07-09
+    val TARGET_DEALS_DAMAGE_TO_ANOTHER_THAT_PLAYER = Regex("""Target creature an opponent controls deals damage equal to its power to another target creature that player controls\.""")
+    val DAMAGE_CANT_BE_PREVENTED_THIS_TURN = Regex("""Damage can't be prevented this turn\.""")
+    val X_DAMAGE_AND_ONE_TO_EACH_OTHER_SAME_CONTROLLER = Regex("""(.+?) deals (\w+) damage to target creature and (\w+) damage to each other creature with the same controller\.""")
+    val IT_DEALS_DAMAGE_TO_EACH_BLOCKING_IT = Regex("""[Ii]t deals (\w+) damage to each creature blocking it\.""")
+    val CONTROL_CREATURE_WITH_GREATEST_POWER = Regex("""you control a creature with the greatest power among creatures on the battlefield""")
+    val COPY_ANY_NUMBER_OF_TARGET_SPELLS = Regex("""Copy any number of target (.+?) spells\. You may choose new targets for the copies\.""")
+    val AMASS_WHEN_YOU_DO = Regex("""Amass (\w+) (\w+)\. When you do, (.+)""")
+    val UNTIL_EOT_GAIN_CONTROL_OF_TARGET = Regex("""[Uu]ntil end of turn, gain control of (target .+?)\. (.+)""")
+    val DEALS_DAMAGE_TO_EACH_OF_UP_TO = Regex("""(.+?) deals (\w+) damage to each of up to (\w+) target (.+)\.""")
+    val IF_ITS_A_IT_ALSO_GAINS = Regex("""If it's (legendary|an? .+?), it also gains (.+) until end of turn\.""")
+    val IS_DEALT_EXCESS_NONCOMBAT_DAMAGE = Regex("""an? (.+?) is dealt excess noncombat damage""")
+    val THAT_EXCESS_DAMAGE = "that excess damage"
+    val AS_LONG_AS_EQUIPPED_IS_IT_HAS = Regex("""As long as equipped creature is (legendary|an? .+?), it has (.+)\.""")
+    val TARGET_CANT_BLOCK_UNTIL_EOT = Regex("""(Up to one target .+?|Target .+?) can't block until end of turn\.""")
+    val RETURN_IT_TO_HAND_IF_YOU_DO_EQUAL_TO_TOUGHNESS = Regex("""Return it to its owner's hand\. If you do, create a number of (.+? tokens) equal to its toughness\.""")
+    val ATTACKED_THIS_TURN = Regex("""(.+?) attacked this turn""")
+    val DAMAGE_THEN_DESTROY_EQUIPMENT_ATTACHED = Regex("""(?:It|(.+?)) deals (\w+) damage to (target .+?)\. Destroy all Equipment attached to that creature\.""")
+    val EXILE_TOP_PLAY_WHEN_YOU_PLAY = Regex("""Exile the top card of your library\. You may play that card this turn\. When you play a card this way, (.+)""")
+    val CANT_BLOCK_UNLESS_YOU_CONTROL = Regex("""(.+?) can't block unless you control (.+)\.""")
+    val LOSES_UNTIL_EOT_IF_WOULD_DIE_EXILE = Regex("""That creature loses (\w+) until end of turn\. If that creature would die this turn, exile it instead\.""")
+    val FELL_THE_FOREST = Regex("""Sacrifice any number of lands\. Reveal the top X cards of your library, where X is the number of lands sacrificed this way\. Choose any number of (.+?) cards revealed this way\. Put all nonland cards chosen this way onto the battlefield, then put all land cards chosen this way onto the battlefield tapped, then put the rest on the bottom of your library in a random order\.""")
+    val SACRIFICE_A_LAND_SEARCH_INSTEAD = Regex("""Sacrifice a land\. Search your library for up to (\w+) (.+?) cards, put them onto the battlefield tapped, then shuffle\. If (.+?), instead search your library for up to (\w+) \2 cards, put them onto the battlefield tapped, then shuffle\.""")
+    val SPEND_ONLY_AND_CANT_BE_COUNTERED = Regex("""(.+?) Spend this mana only to cast an? (.+?) spell, and that spell can't be countered\.""")
+    val CHOOSE_ONE_AND_GETS = Regex("""(Whenever .+?), choose one and (.+?) gets ([+-]\d+)/([+-]\d+) until end of turn\.""")
+    val SCRY_THEN_MAY_REVEAL_IF_REVEALED_DRAW = Regex("""Scry (\w+), then you may reveal the top card of your library\. If an? (.+?) card is revealed this way, (.+)""")
+    val COUNTER_IF_POWER_THEN_PUMP_FIGHT = Regex("""Put a \+1/\+1 counter on (target .+?) if its power is (\d+) or greater\. Then that creature gets ([+-]\d+)/([+-]\d+) until end of turn and fights (target .+)\.""")
+    val UNTIL_EOT_GAINS_QUOTED_THEN_FIGHTS = Regex("""Until end of turn, (target .+?) gains "(.+?)" Then that creature fights (up to one other target .+)\.""")
+    val ADD_TWICE_THAT_MUCH = Regex("""[Aa]dd twice that much (\{[WUBRGC]\})\.""")
+    val YOU_CAST_A_SPELL_THAT_TARGETS = Regex("""you cast a spell that targets (.+)""")
+    val GETS_PER_CARD_LOOKED_AT_SCRYING = Regex("""(.+?) gets \+1/\+1 until end of turn for each card looked at while scrying this way\.""")
+    val THAT_CREATURE_LOSES_UNTIL_EOT = Regex("""That creature loses (\w+) until end of turn\.""")
+    val MUST_BE_BLOCKED_THIS_TURN = Regex("""(.+?) must be blocked this turn if able\.""")
+    val CANT_BE_BLOCKED_BY_MORE_THAN_ONE_THIS_TURN = Regex("""(.+?) can't be blocked by more than one creature each combat this turn\.""")
+    val DEALS_DAMAGE_EQUAL_TO_ITS_POWER_TO = Regex("""(.+?) deals damage equal to its power to (up to one target .+|target .+)\.""")
+    val CREATE_NAMED_TOKEN_WITH_QUOTED = Regex("""Create ([A-Z][\w']+), an? (legendary )?(\d+)/(\d+) (\w+) ([A-Z]\w+) creature token with (.+?), and "(.+)"\.?""")
+    val CREATE_N_PREDEFINED_TOKENS = Regex("""[Cc]reate (\w+) (Treasure|Food|Clue|Blood) tokens\.""")
     val TARGETS_EACH_GAIN = Regex("""((?:Up to )?(?:two|three|Two|Three) target .+?) (?:each )?(gain|get) (.+)""")
 }
 
@@ -95,6 +132,7 @@ internal object LtrPhrases {
     private val DEALT_DAMAGE_THIS_TURN = Regex("""(.+?) that was dealt damage this turn""")
     private val FROM_AN_OPPONENTS_GRAVEYARD = Regex("""(.+? cards?) from an opponent's graveyard""")
     private val AND_OR = Regex("""(\w+?)s? and/or (\w+?)s?""")
+    private val POWER_AT_MOST_AMASSED = Regex("""(.+?) with power less than or equal to the amassed Army's power""")
 
     fun noun(phrase: String): ObjectFilter? {
         // ltr chunk 02: "permanent card in your graveyard that was put there from the battlefield this turn" (the new object, CR 400.7)
@@ -129,8 +167,15 @@ internal object LtrPhrases {
         }
         // ltr chunk 05: "Goblins and/or Orcs" (either subtype)
         AND_OR.matchEntire(phrase)?.let { m ->
-            val types = listOf(m.groupValues[1], m.groupValues[2]).map { t -> t.takeIf { it in RulesWords.subtypes } ?: return@let }
-            return ObjectFilter.Or(types.map { ObjectFilter.Sub(arcanum.api.SubtypeRef.Literal(arcanum.api.Subtype(it))) })
+            // also card types: "instant and/or sorcery", "artifact and/or land"
+            val parts = listOf(m.groupValues[1], m.groupValues[2]).map { t ->
+                if (t in RulesWords.subtypes) ObjectFilter.Sub(arcanum.api.SubtypeRef.Literal(arcanum.api.Subtype(t))) else Filters.noun(t) ?: return@let }
+            return ObjectFilter.Or(parts)
+        }
+        // ltr chunk 07: "… with power less than or equal to the amassed Army's power" (CR 701.47c)
+        POWER_AT_MOST_AMASSED.matchEntire(phrase)?.let { m ->
+            val base = Filters.noun(m.groupValues[1]) ?: return null
+            return Filters.all(base, ObjectFilter.Power(Comparison.AtMost, Value.Of(arcanum.api.NumericProperty.Power, arcanum.api.Objects.Bound(AMASSED_ARMY), arcanum.api.Combine.Single)))
         }
         // ltr chunk 04: "creature with lesser power" (than this creature)
         WITH_LESSER_POWER.matchEntire(phrase)?.let { m ->
@@ -141,12 +186,29 @@ internal object LtrPhrases {
     }
 
     /** ltr: a value "where X is …" defines. */
-    fun value(text: String): Value? = when (text) {
+    fun value(text: String, event: EventPattern? = null): Value? = when (text) {
         // ltr chunk 04: the Army chosen as the amass instruction was followed (CR 701.47c), named by [Sentences]
         "the amassed Army's power" -> Value.Of(arcanum.api.NumericProperty.Power, arcanum.api.Objects.Bound(AMASSED_ARMY), arcanum.api.Combine.Single)
         // ltr chunk 04: the scry event's number of cards (CR 701.22a)
         "the number of cards looked at while scrying this way" -> Value.EventAmount
+        // ltr chunk 07: the excess damage of the damage event (CR 120.4a)
+        "that excess damage" -> Value.EventAmount.takeIf { event is EventPattern.Damage && event.excess }
         else -> null
+    }
+
+    /** ltr: a condition. */
+    fun condition(text: String): arcanum.api.Condition? {
+        // ltr chunk 07: "you control a creature with the greatest power among creatures on the battlefield" (ties count, CR 208.1)
+        if (Ltr.CONTROL_CREATURE_WITH_GREATEST_POWER.matches(text)) {
+            val creature = ObjectFilter.Type(arcanum.api.CardType.Creature)
+            return arcanum.api.Condition.Exists(Filters.all(creature, ObjectFilter.ControlledBy(arcanum.api.PlayerFilter.You), ObjectFilter.Power(Comparison.AtLeast,
+                Value.Of(arcanum.api.NumericProperty.Power, arcanum.api.Objects.Each(creature), arcanum.api.Combine.Greatest))), atLeast = 1)
+        }
+        // ltr chunk 08: "this creature attacked this turn"
+        Ltr.ATTACKED_THIS_TURN.matchEntire(text)?.takeIf { it.groupValues[1] == "this creature" }?.let {
+            return arcanum.api.Condition.ObjectMatches(arcanum.api.Objects.Self, ObjectFilter.ThisTurn(EventPattern.Attack(ObjectFilter.Is(arcanum.api.Objects.Self))))
+        }
+        return null
     }
 
     /** The name the amassed Army is bound to (CR 701.47c). */

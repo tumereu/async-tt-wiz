@@ -929,6 +929,7 @@ internal object Events {
 internal object Conditions {
     fun condition(text: String, self: Set<String> = emptySet()): Condition? {
         MechanicWordings.condition(text, self)?.let { return it }
+        LtrPhrases.condition(text)?.let { return it } // ltr
         Mh2Phrases.condition(text, self)?.let { return it } // mh2
         DftPhrases.condition(text)?.let { return it } // dft
         TdmPhrases.condition(text)?.let { return it } // tdm

@@ -86,7 +86,8 @@ internal class EngineCombatScenario(val f: EngineGameFixture = EngineGameFixture
         repeat(400) {
             settle()
             for (game in listOf(alice, bob)) {
-                if (game.device.status != GameDevice.Status.YourMove) continue
+                // HIS-095, HIS-096: a stop at the other side's assumption about them (live too) is answered like their move
+                if (game.device.status != GameDevice.Status.YourMove && game.device.status !is GameDevice.Status.Stopped) continue
                 val s = game.device.model.engine
                 val me = game.device.me
                 val options = Engine.options(s, me)

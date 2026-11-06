@@ -25,8 +25,9 @@ internal fun attackTargetState(): PlayState {
 }
 
 class AttackTargetPresentationTest {
-    // CMB-013
-    @Test fun readableLabelsReserveOneRowAndFollowCardAndTitleSettings() {
+    // CMB-013 (owner playtest 2026-11-06): a target's chip keeps its own size whatever the card and title sizes (it zooms
+    // with the band); the chip and the value row under it sit above the area's cards
+    @Test fun chipsKeepTheirSizeAboveTheCards() {
         val initial = TableFixture.play(board = 1, library = 0)
         val state = initial.copy(board = initial.board.copy(combat = CombatArea("combat", listOf(
             CombatPair("pair", attackers = listOf(CombatOccurrence("attacker", "a/BATTLEFIELD/0")),
@@ -37,12 +38,13 @@ class AttackTargetPresentationTest {
             val scene = TablePresentation.scene(TableFixture.game, tableBoard(state), "a",
                 if (landscape) 892f else 412f, if (landscape) 412f else 892f, landscape, appearance = appearance)
             val lane = scene.combatLabels.single { it.cardId == "b/BATTLEFIELD/0" }
-            // the title size of the area's cards, never smaller than COMBAT_MIN_CARD (combat review #12)
-            assertEquals(7f * maxOf(cardScale, TablePresentation.COMBAT_MIN_CARD / 28f) * textScale, lane.fontSize, .001f)
-            assertEquals(lane.lineHeight, lane.artworkHeight)
-            assertEquals(listOf(lane.label), lane.lines)
-            assertTrue(lane.bounds.height >= lane.lineHeight)
-            assertTrue(lane.bounds.width >= CombatStackPresentation.laneWidth(lane) - .001f)
+            val zoom = scene.camera.zoom
+            assertEquals(CombatStackPresentation.CHIP_FONT * zoom, lane.fontSize, .001f)
+            assertEquals(CombatStackPresentation.CHIP_HEIGHT * zoom, lane.chip.height, .001f)
+            assertEquals(CombatStackPresentation.chipWidth(lane.label) * zoom, lane.chip.width, .01f)
+            assertTrue(lane.chip.x >= lane.bounds.x && lane.chip.right <= lane.bounds.right + .001f)
+            val value = assertNotNull(lane.valueBounds)
+            assertTrue(lane.chip.bottom <= value.y + .001f && value.bottom <= lane.bounds.bottom + .001f)
             val card = scene.items.single { it.cardId == "attacker" }
             assertTrue(lane.bounds.bottom < card.bounds.y)
         }
@@ -58,7 +60,7 @@ class AttackTargetPresentationTest {
         val scene = CombatStackPresentation.combat(state.board, 48f, 68f, state.definitions, mapOf(combatId(8) to "Bob"))
         // The player lane first, then every possible target in battlefield order (the empty battle lane too).
         assertEquals(listOf(null, combatId(80), combatId(81)), scene.lanes.map { it.cardId })
-        assertEquals(listOf("→ Bob", "Target 0"), scene.lanes.take(2).map { it.label })
+        assertEquals(listOf("Bob", "Target 0"), scene.lanes.take(2).map { it.label })
         assertEquals(2, scene.laneDividers.size)
         val displayed = scene.cards.filter { CombatStackRules.location(state.board.combat!!, it.viewId)!!.role == CombatRole.ATTACKER }
         assertEquals(listOf(combatId(21), combatId(20), combatId(22)), displayed.map { it.card.id })
@@ -74,8 +76,10 @@ class AttackTargetPresentationTest {
         }
     }
 
-    // CMB-013
-    @Test fun everyLaneFitsItsIconAndFullNameOnOneRowAndPlayerLanesUseTheAvatar() {
+    // CMB-013 (owner playtest 2026-11-06): every chip shows the swords, the round avatar (the player's, or the card's
+    // art) and the name cut to its letters with "…" (the full name is kept for holding it); it fits its lane, which
+    // widens rather than the chip shrinking
+    @Test fun everyChipFitsItsLaneWithTheNameCutToItsLetters() {
         val original = attackTargetState()
         val area = original.board.combat!!
         val long = "Nicol Bolas, Dragon-God of the Multiverse Who Walks Very Far"
@@ -85,29 +89,33 @@ class AttackTargetPresentationTest {
         }, board = original.board.copy(combat = area.copy(pairs = area.pairs.mapIndexed { n, pair ->
             pair.copy(attackTarget = if (n == 1) null else combatId(80)) })))
         val bob = "Bob the Exceedingly Long-Named Defender"
-        for (cardWidth in listOf(28f, 48f)) for (titleScale in listOf(.5f, 1f, 2f)) {
+        for (cardWidth in listOf(28f, 48f)) {
             val plain = CombatStackPresentation.combat(state.board, cardWidth, cardWidth * 1.4f, state.definitions,
-                mapOf(combatId(8) to bob), titleScale = titleScale)
-            assertEquals(listOf("→ $bob", long), plain.lanes.take(2).map { it.label })
+                mapOf(combatId(8) to bob))
+            assertEquals(listOf(bob, long), plain.lanes.take(2).map { it.label })
+            assertEquals(listOf("Bob the Exc…", "Nicol Bolas…"), plain.lanes.take(2).map { it.chipText })
             assertNull(plain.lanes.first().artwork)
+            assertEquals(combatId(8), plain.lanes.first().accountId, "the player's round avatar (their initial without art)")
             val avatar = Avatar("scryfall-avatar", 0)
             val scene = CombatStackPresentation.combat(state.board, cardWidth, cardWidth * 1.4f, state.definitions,
-                mapOf(combatId(8) to bob), titleScale = titleScale, avatars = mapOf(combatId(8) to avatar))
+                mapOf(combatId(8) to bob), avatars = mapOf(combatId(8) to avatar))
             val player = scene.lanes.first()
             assertEquals(bob, player.label)
             assertEquals(combatId(8), player.accountId)
             assertEquals("scryfall-avatar", player.artwork?.printing)
-            assertEquals(player.artworkHeight, player.artworkWidth)
-            for (lanes in listOf(plain.lanes, scene.lanes)) for (lane in lanes.take(2)) {
-                assertEquals(listOf(lane.label), lane.lines)
+            for (lanes in listOf(plain.lanes, scene.lanes)) for (lane in lanes) {
+                assertTrue(lane.chipText.length <= CombatStackPresentation.CHIP_LETTERS)
                 assertTrue(lane.bounds.width + .001f >= CombatStackPresentation.laneWidth(lane))
-                assertTrue(lane.textInset + CombatStackPresentation.laneTextWidth(lane.label, lane.fontSize) <= lane.bounds.width + .001f)
+                assertTrue(lane.chip.x >= lane.bounds.x + lane.inset - .001f && lane.chip.right <= lane.bounds.right - lane.inset + .001f)
+                assertEquals(CombatStackPresentation.CHIP_HEIGHT, lane.chip.height)
             }
             // Lanes tile the whole area without shrinking: the area widens (and pans) instead.
             assertEquals(scene.width, scene.lanes.sumOf { it.bounds.width.toDouble() }.toFloat(), .01f)
             assertTrue(scene.lanes.zipWithNext().all { (a, b) -> kotlin.math.abs(a.bounds.right - b.bounds.x) < .01f })
-            assertTrue(scene.labelHeight >= scene.lanes.maxOf { it.lineHeight })
+            assertEquals(CombatStackPresentation.CHIP_ROW + CombatStackPresentation.VALUE_ROW, scene.labelHeight)
         }
+        // A name up to the chip's letters shows whole
+        assertEquals("Ember Herald", CombatStackPresentation.chipText("Ember Herald"))
         // Wider text needs a wider estimate; narrow glyphs need less than wide ones.
         assertTrue(CombatStackPresentation.laneTextWidth("WWWW", 10f) > CombatStackPresentation.laneTextWidth("iiii", 10f))
         assertTrue(CombatStackPresentation.laneTextWidth(long, 10f) > CombatStackPresentation.laneTextWidth("Bob", 10f))
@@ -146,7 +154,7 @@ class AttackTargetPresentationTest {
             // Icon and name start and end the stroke half plus the clearance away from the lane edges.
             for (lane in scene.lanes) {
                 assertEquals(p.laneDividerStroke(cardWidth) / 2 + clearance, lane.inset, .001f)
-                assertTrue(p.laneTextWidth(lane.label, lane.fontSize) <= lane.textWidth + .001f)
+                assertTrue(lane.chip.x >= lane.bounds.x + lane.inset - .001f && lane.chip.right <= lane.bounds.right - lane.inset + .001f)
             }
         }
     }
@@ -199,8 +207,9 @@ class AttackTargetPresentationTest {
         assertEquals(defender, lane.accountId)
         assertEquals(org.asyncttwiz.storage.ArtworkReference("avatar-print", 1, "avatar-v1", "art_crop"), lane.artwork)
         val plain = TablePresentation.scene(TableFixture.game, tableBoard(state), "a", 412f, 892f, false).combatLabels.single()
-        assertNull(plain.accountId)
-        assertTrue(plain.label.startsWith("→ "))
+        // CMB-013 (owner playtest 2026-11-06): without a profile avatar the chip shows the player's initial in their colour
+        assertEquals(defender, plain.accountId)
+        assertNull(plain.artwork)
     }
 
     // CMB-012, CMB-013
@@ -209,19 +218,20 @@ class AttackTargetPresentationTest {
         val empty = original.copy(board = original.board.copy(combat = original.board.combat!!.copy(pairs = emptyList())))
         val labels = CombatStackPresentation.combat(empty.board, 48f, 68f, empty.definitions, mapOf(combatId(8) to "Bob")).lanes
         assertEquals(listOf(null, combatId(80), combatId(81)), labels.map { it.cardId })
-        assertEquals("→ Bob", labels.first().label)
+        assertEquals("Bob", labels.first().label)
         assertTrue(labels.drop(1).all { it.label.startsWith("Tar") })
-        // Empty lanes are at least one card slot wide and always show their full name on one row,
-        // widening the area (which then pans) rather than shortening the name.
+        // Empty lanes are at least one card slot wide and always hold their whole chip,
+        // widening the area (which then pans) rather than shrinking the chip.
         val long = CombatStackPresentation.combat(empty.board, 28f, 40f, empty.definitions,
             mapOf(combatId(8) to "Bartholomew the Long-Named"))
         val slot = 28f + 2 * CombatStackPresentation.slotMargin(28f)
-        assertEquals("→ Bartholomew the Long-Named", long.lanes.first().label)
+        assertEquals("Bartholomew the Long-Named", long.lanes.first().label)
+        assertEquals("Bartholomew…", long.lanes.first().chipText)
         assertTrue(long.lanes.first().bounds.width > slot)
         for (lane in long.lanes) {
             assertFalse(lane.label.endsWith("…"))
             assertEquals(maxOf(slot, CombatStackPresentation.laneWidth(lane)), lane.bounds.width, .001f)
-            assertTrue(CombatStackPresentation.laneTextWidth(lane.label, lane.fontSize) <= lane.textWidth + .001f)
+            assertTrue(lane.chip.right <= lane.bounds.right - lane.inset + .001f)
         }
         assertEquals(long.lanes.sumOf { it.bounds.width.toDouble() }.toFloat(), long.width, .001f)
         // Each empty lane's drop covers that whole (widened) lane in both card rows.
@@ -317,8 +327,8 @@ class AttackTargetPresentationTest {
                     val scene = TablePresentation.scene(TableFixture.game, tableBoard(state), viewer,
                         if (landscape) 900f else 412f, if (landscape) 412f else 820f, landscape)
                     val lane = scene.combatLabels.single { it.cardId == targetId }
-                    assertEquals(if (visible) "Secret face" else "→ Face-down card", lane.label)
-                    assertEquals(lane.label, lane.lines.joinToString(""))
+                    assertEquals(if (visible) "Secret face" else "Face-down card", lane.label)
+                    assertEquals(!visible, lane.hidden)
                     if (visible) assertNotNull(lane.artwork) else assertNull(lane.artwork)
                 }
             }

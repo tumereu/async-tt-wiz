@@ -38,6 +38,9 @@ internal fun TableSurface(game: GameSummary, play: TableBoard, accountId: String
     var layout by layoutState
     var gestureError by remember(play.playId, accountId) { mutableStateOf<String?>(null) }
     val peekScroll = rememberScrollState()
+    // TBL-104 (owner 2026-11-06): a drag to the left while inspecting pins the Inspect
+    val peekSwipe = remember { InspectSwipe() }
+    SideEffect { peekSwipe.onClose = { toolkit?.peek(null) } }
     val peekScreenHeight by rememberUpdatedState(holdPreviewScreenHeight())
     var screenOrigin by remember { mutableStateOf(Offset.Zero) }
     val currentPlay by rememberUpdatedState(play)
@@ -60,7 +63,9 @@ internal fun TableSurface(game: GameSummary, play: TableBoard, accountId: String
                     toolkit?.dismissTapUi()
                 }
                 is TableIntent.Peek -> {
-                    if (intent.cardId != null) peekScroll.dispatchRawDelta(-peekScroll.value.toFloat())
+                    if (intent.cardId != null) { peekScroll.dispatchRawDelta(-peekScroll.value.toFloat()); peekSwipe.begin() }
+                    // Lifting the finger after the pinned swipe keeps the Inspect open
+                    else if (intent.released && peekSwipe.released()) return@TableGestureCoordinator
                     // TBL-111: holding a collapsed group inspects all its members, its top card first
                     val group = presentation?.invoke()?.let { shown -> shown.groupOf(intent.cardId)
                         ?.takeIf { it.members.size > 1 && it.key != shown.expandedGroup } }
@@ -73,7 +78,10 @@ internal fun TableSurface(game: GameSummary, play: TableBoard, accountId: String
                 is TableIntent.Scroll -> layout = if (intent.vertical)
                     layout.copy(scrollY = layout.scrollY + (intent.viewportId to intent.offset))
                     else layout.copy(scroll = layout.scroll + (intent.viewportId to intent.offset))
-                TableIntent.EmptyTap, is TableIntent.Actions -> if (currentRuntime.boardTap != null) {
+                TableIntent.EmptyTap, is TableIntent.Actions -> if (currentRuntime.centreAction != null && !owner.tapOnHand) {
+                    // HIS-094: with the catch-up's centre text showing, a tap on the table (not the hand) starts the playback
+                    currentRuntime.centreAction?.run?.invoke()
+                } else if (currentRuntime.boardTap != null) {
                     // HIS-095: while playback runs a tap on the table only pauses it
                     currentRuntime.boardTap?.invoke()
                 } else if (intent is TableIntent.Actions) {
@@ -104,7 +112,8 @@ internal fun TableSurface(game: GameSummary, play: TableBoard, accountId: String
                     }
                 }
             }
-        }, density = density, onPeekScroll = { peekScroll.holdPreviewScroll(it * density, peekScreenHeight) }, diagnostic = { event ->
+        }, density = density, onPeekScroll = { peekScroll.holdPreviewScroll(it * density, peekScreenHeight) },
+            onPeekSwipe = peekSwipe::moved, diagnostic = { event ->
             if (event.startsWith("dropped:")) gestureError = "Rotation not queued (${event.substringAfter(':')}). Reconnect and try again."
             DebugLatency.tap(game.id, event, toolkit?.popupItem != null)
         })
@@ -314,6 +323,9 @@ internal fun TableSurface(game: GameSummary, play: TableBoard, accountId: String
             // TBL-117, TBL-122: what a tap on each collapsed group of several does, for its glow's colour (live table only)
             val groupTaps = if (toolkit == null || runtime.reviewing) emptyMap() else scene.battlefieldGroups
                 .filter { it.members.size > 1 && it.key != scene.expandedGroup }.associate { it.key to toolkit.groupTap(play, it) }
+            // TBL-117 (owner playtest 2026-11-06): the glow of the card a finger is down on grows a little and brightens
+            val pressedId by remember(coordinator) { derivedStateOf { preview.pressedId } }
+            val pressGlow = rememberPressGlow(pressedId)
             Box(Modifier.fillMaxWidth().height(48.dp).background(barColor))
             Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(tableBottomHeight(landscape).dp)
                 .background(barColor))
@@ -323,14 +335,14 @@ internal fun TableSurface(game: GameSummary, play: TableBoard, accountId: String
                 val glows = TableGlows.of(frame.scene.battlefieldGroups, groupTaps, glow.alphas(), castGlow, attackGlow)
                 drawTable(frame.scene, accountId, play.board.turn.accountId, preview, frame.alphas, artwork, drawCache,
                     presenceDot, glows.targets, glows.playable, shaking?.let { it.id to shakeOffset.value }?.takeIf { it.second != 0f }, raisedSources,
-                    attackable = glows.attack, expandGlow = glows.expand)
+                    attackable = glows.attack, expandGlow = glows.expand, pressed = pressGlow.value)
             }
             TableSemanticNodes(game, play, scene, semanticItems, rendered, runtime, { currentRuntime }, coordinator, writable, toolkit,
                 { preview }, layoutState)
             // Automatum (I3, I-D29): the damage preview and blockers blocking several attackers, for both players
             // I-D32: arrows of every block, and with Automatum the staging, selection, preview and badges
             CombatAreaOverlay(toolkit?.combat, play, scene, accountId, writable && !runtime.reviewing,
-                    openBand = { layout = layout.copy(combatOpened = combatBandKey(play.board)) }) { item ->
+                    pressed = { pressGlow.value }) { item ->
                     rendered.value.items[item.id]?.bounds ?: item.bounds }
         }
         TableBoardOverlays(game, play, accountId, runtime, scene, rendered)
@@ -342,7 +354,7 @@ internal fun TableSurface(game: GameSummary, play: TableBoard, accountId: String
         AnimatedCardRingAnchors(rendered, toolkit?.capture != null) {
          if (toolkit != null) CompositionLocalProvider(LocalPopupAvoid provides hands) {
              TableToolkitScreen(toolkit, play, game, landscape,
-              peekScroll = peekScroll, scene = scene, onTimeline = runtime.history,
+              peekScroll = peekScroll, scene = scene, peekSwipe = peekSwipe, onTimeline = runtime.history,
               reviewing = runtime.reviewing)
          }
         }
@@ -360,6 +372,19 @@ internal class PlayableGlow {
     var shown: Set<String> = emptySet()
     var containers: Map<String, String> = emptyMap()
     fun alphas(): Map<String, Float> = levels.mapValues { it.value.value }.filterValues { it > 0f }
+}
+
+/**
+ * TBL-117 (owner playtest 2026-11-06): the item a finger is down on ([pressed]) and how far its glow has grown (0–1),
+ * growing in and shrinking back after the release; null when nothing is pressed.
+ */
+@Composable
+internal fun rememberPressGlow(pressed: String?): State<Pair<String, Float>?> {
+    var last by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(pressed) { if (pressed != null) last = pressed }
+    val current = rememberUpdatedState(pressed)
+    val level = animateFloatAsState(if (pressed != null) 1f else 0f, tween(PRESS_GLOW_MILLIS), label = "Press glow")
+    return remember { derivedStateOf { (current.value ?: last)?.let { id -> (id to level.value).takeIf { it.second > 0f } } } }
 }
 
 /** How long a card's playable glow takes to fade in or out (TBL-117). */

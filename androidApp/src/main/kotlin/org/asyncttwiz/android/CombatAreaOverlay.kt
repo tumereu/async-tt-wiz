@@ -14,11 +14,21 @@ import androidx.compose.material.icons.outlined.Link
 import androidx.compose.material.icons.outlined.PersonAddAlt
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.animation.core.animateFloat
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
@@ -43,8 +53,6 @@ import org.asyncttwiz.protocol.*
 internal val ArrowColor = Color(0xff5f7a87)
 internal val FightsColor = Color(0xffe8890c)
 internal val PreviewRed = Color(0xffb3261e)
-/** The combat area's panel, under its lane header pills. */
-internal val CombatPanelColor = Color(0xfffbfcfb)
 
 /** The keywords whose badges combat copies show with Automatum on (CMB-035), lowercase, in this order. */
 private val COMBAT_KEYWORDS = listOf("Flying", "Reach", "Menace", "Trample", "First strike", "Double strike", "Deathtouch",
@@ -60,15 +68,9 @@ private val COMBAT_KEYWORDS = listOf("Flying", "Reach", "Menace", "Trample", "Fi
  */
 @Composable
 internal fun CombatAreaOverlay(combat: CombatController?, play: TableBoard, scene: TableScene, viewer: String, writable: Boolean,
-    /** CMB-001 (owner, 2026-11-05): opens the band from the thin strip before any attacker is staged. */
-    openBand: (() -> Unit)? = null, bounds: (TableItem) -> TableBounds) {
-    // CMB-001: a band tapped open before any attacker is staged shows its empty lanes (an area drawn only)
-    val area = play.board.combat ?: CombatArea(TablePresentation.OPENED_COMBAT_AREA).takeIf { scene.combatPanel != null }
-    // CMB-001: while the viewer declares attackers with none staged the band is a thin strip that pulses; a tap opens it
-    // ... short of the Stack at its right, which keeps its own taps
-    val strip = scene.combatStrip?.let { b -> scene.stackRegion?.takeIf { it.intersection(b) != null && it.x > b.x }
-        ?.let { b.copy(width = it.x - 4f - b.x) } ?: b }
-    if (strip != null && strip.height > 0f) CombatStrip(strip, writable && openBand != null) { openBand?.invoke() }
+    /** TBL-117, CMB-034 (owner playtest 2026-11-06): the item a finger is down on and how far its glow has grown (0–1). */
+    pressed: () -> Pair<String, Float>? = { null }, bounds: (TableItem) -> TableBounds) {
+    val area = play.board.combat
     val port = scene.viewports.firstOrNull { it.id == "combat" }?.bounds
     val shown = if (combat != null) combat.readyOrLast(play) ?: CombatShown.NONE else CombatShown.NONE
     val choices = shown.choices
@@ -86,7 +88,8 @@ internal fun CombatAreaOverlay(combat: CombatController?, play: TableBoard, scen
     // The creatures that deal the next combat damage, when the combat has first-strike damage (I-D31)
     val dealers = shown.preview?.dealt?.takeIf { d -> d.any { it.firstStrike } || AutomatumBoards.hadFirstStrikeStep(play.board) }
         ?.let { d -> d.filter { it.firstStrike == d.first().firstStrike }.map { it.source }.toSet() }.orEmpty()
-    val activeLane = if (staging && combat != null) scene.combatLabels.firstOrNull { it.cardId == combat.activeTarget(play) } else null
+    val active = if (staging && combat != null) combat.activeTarget(play) else null
+    val activeLane = if (staging && scene.combatPanel != null) scene.combatLabels.firstOrNull { it.cardId == active } else null
     // CMB-036–CMB-038: the attacker's choices with the staged attackers, which only the attacking player changes
     val staged = area?.pairs.orEmpty().flatMap { it.attackers }.map { it.sourceId }.toSet()
     val attackChoices = if (staging) CombatFlow.attackChoices(play.board).filterKeys { it in staged } else emptyMap()
@@ -100,8 +103,9 @@ internal fun CombatAreaOverlay(combat: CombatController?, play: TableBoard, scen
         val d = density
         fun Offset(x: Float, y: Float) = androidx.compose.ui.geometry.Offset(x * d, y * d)
         clipRect(port.x * d, port.y * d, port.right * d, port.bottom * d) {
-            if (activeLane != null) drawRoundRect(AutomatumViolet, Offset(activeLane.bounds.x + 1.5f, port.y + 1.5f),
-                Size((activeLane.bounds.width - 3f) * d, (port.height - 3f) * d), CornerRadius(6 * d), style = Stroke(2.5f * d))
+            // CMB-028: the active target's lane, framed in violet under its chip
+            if (activeLane != null) drawRoundRect(AutomatumViolet.copy(alpha = .7f), Offset(activeLane.bounds.x + 2f, port.y + 1f),
+                Size((activeLane.bounds.width - 4f) * d, (port.height - 2f) * d), CornerRadius(6 * d), style = Stroke(1.5f * d))
             for ((blocker, attacker) in blocks) {
                 val from = byOccurrence[blocker.id]?.let(bounds) ?: continue
                 val to = byOccurrence[attacker.id]?.let(bounds) ?: continue
@@ -117,7 +121,9 @@ internal fun CombatAreaOverlay(combat: CombatController?, play: TableBoard, scen
                     Size((b.width + 2 * out) * d, (b.height + 2 * out) * d), CornerRadius(3 * d), style = Stroke(width * d))
                 if (card in dealers) frame(PreviewRed.copy(alpha = .8f), 1.5f, 1f)
                 if (card in glowing && item.cardId?.let { id -> area.pairs.any { p -> p.attackers.any { it.id == id } } } == true) {
-                    frame(AutomatumViolet.copy(alpha = .25f), 6f, 3f)
+                    // TBL-117 (owner playtest 2026-11-06): under a finger the glow grows a little and brightens
+                    val press = pressed()?.takeIf { it.first == item.id }?.second ?: 0f
+                    frame(AutomatumViolet.copy(alpha = .25f + .25f * press), 6f + 3f * press, 3f + 1.5f * press)
                     frame(AutomatumViolet, 1.5f, 1.5f)
                 }
                 if (card in fights) frame(FightsColor, 2.5f, 1.5f)
@@ -139,8 +145,10 @@ internal fun CombatAreaOverlay(combat: CombatController?, play: TableBoard, scen
             if (item.kind != TableItemKind.CARD || item.viewport == "combat" || item.zone != PlayZone.BATTLEFIELD || item.projection) continue
             if (item.sourceId !in enlistable || item.visible.isEmpty()) continue
             val b = bounds(item)
-            drawRoundRect(AutomatumViolet.copy(alpha = .25f), Offset(b.x - 3f, b.y - 3f), Size((b.width + 6f) * d, (b.height + 6f) * d),
-                CornerRadius(4 * d), style = Stroke(6f * d))
+            val press = pressed()?.takeIf { it.first == item.id }?.second ?: 0f
+            val out = 3f + 1.5f * press
+            drawRoundRect(AutomatumViolet.copy(alpha = .25f + .25f * press), Offset(b.x - out, b.y - out),
+                Size((b.width + 2 * out) * d, (b.height + 2 * out) * d), CornerRadius(4 * d), style = Stroke((6f + 3f * press) * d))
             drawRoundRect(AutomatumViolet, Offset(b.x - 1.5f, b.y - 1.5f), Size((b.width + 3f) * d, (b.height + 3f) * d),
                 CornerRadius(3 * d), style = Stroke(1.5f * d))
         }
@@ -219,25 +227,21 @@ internal fun CombatAreaOverlay(combat: CombatController?, play: TableBoard, scen
             }
         }
     }
-    // The target's header: "16 → 11" over its value at the right end
-    if (preview != null) for (lane in scene.combatLabels) {
+    // CMB-013 (owner playtest 2026-11-06): under each chip inside its lane, the target's life, loyalty or defense, and
+    // with the damage preview what it would become ("20 → 17")
+    for (lane in scene.combatLabels) {
+        val b = lane.valueBounds ?: continue
         if (lane.value.isEmpty()) continue
-        val now = lane.value.toIntOrNull() ?: continue
-        val change = if (lane.cardId == null) CombatStackRules.defendingPlayer(play.board)?.let { preview.life[it] } ?: 0
-            else -(damage[lane.cardId] ?: 0)
-        if (change == 0) continue
-        val b = lane.bounds
-        val tint = if (lane.side == viewer) OwnTableColor else OpponentTableColor
+        val now = lane.value.toIntOrNull()
+        val change = if (preview == null || now == null) 0 else if (lane.cardId == null)
+            CombatStackRules.defendingPlayer(play.board)?.let { preview.life[it] } ?: 0 else -(damage[lane.cardId] ?: 0)
+        val text = if (change == 0) lane.value else "$now → ${now!! + change}"
         Box(Modifier.offset { IntOffset(b.x.dp.roundToPx(), b.y.dp.roundToPx()) }.size(b.width.dp, b.height.dp)
-            .semantics { contentDescription = "Header would go from $now to ${now + change}" }) {
-            // The tag is the header pill's right end (same height, tint and rounding), covering the value drawn there
-            Box(Modifier.align(Alignment.CenterEnd).padding(end = lane.inset.dp, top = (lane.padding / 2).dp,
-                bottom = (lane.padding / 2).dp).fillMaxHeight()
-                .background(androidx.compose.ui.graphics.lerp(CombatPanelColor, tint, .13f), RoundedCornerShape(50))
-                .padding(start = 4.dp, end = lane.padding.dp), contentAlignment = Alignment.Center) {
-                Text("$now → ${now + change}", color = PreviewRed, fontWeight = FontWeight.Bold, fontSize = lane.fontSize.sp,
-                    lineHeight = (lane.fontSize * 1.2f).sp, maxLines = 1, softWrap = false)
-            }
+            .semantics { contentDescription = if (change == 0) "${lane.label}: ${lane.value}" else
+                "${lane.label} would go from $now to ${now!! + change}" }, contentAlignment = Alignment.Center) {
+            Text(text, color = if (change == 0) CombatValueInk else PreviewRed, fontWeight = FontWeight.Bold, letterSpacing = 0.sp,
+                fontSize = (lane.fontSize * CombatStackPresentation.VALUE_FONT / CombatStackPresentation.CHIP_FONT).sp,
+                lineHeight = (lane.fontSize * 1.1f).sp, maxLines = 1, softWrap = false)
         }
     }
     for ((player, change) in preview?.life.orEmpty()) {
@@ -249,15 +253,13 @@ internal fun CombatAreaOverlay(combat: CombatController?, play: TableBoard, scen
                 Modifier.align(Alignment.BottomEnd).offset(x = 10.dp, y = 6.dp), "Life would change by $change")
         }
     }
+    // CMB-001, CMB-013, CMB-028 (owner playtest 2026-11-06): the target chips fade in (once per declare attackers step);
+    // while the viewer declares attackers a tap on one makes its target the active one; holding one shows its full name
+    // and highlights the target's card or the player's life square
+    TargetChips(scene, play, viewer, active, chooser = if (staging && writable && combat != null && viewer == choices.declaring)
+        ({ target -> combat.chooseTarget(play, target) }) else null, bounds)
     if (area == null || port == null || scene.combatLabels.isEmpty()) return
-    // CMB-028: tapping a target's header makes its lane the active one
-    if (staging && writable && combat != null) for (lane in scene.combatLabels) {
-        val b = lane.bounds
-        Box(Modifier.offset { IntOffset(b.x.dp.roundToPx(), b.y.dp.roundToPx()) }.size(b.width.dp, b.height.dp)
-            .semantics { contentDescription = "Attack ${lane.label.removePrefix("→ ")}" }
-            .clickable { combat.chooseTarget(play, lane.cardId) })
-    }
-    // Just right of the panel's top-right corner: the eye hiding and showing the preview's numbers (CMB-029)
+    // Just right of the lanes' top-right corner: the eye hiding and showing the preview's numbers (CMB-029)
     val panel = scene.combatPanel ?: return
     // Finalreview-combat #4 (CMB-029): the way to the damage needs a choice, which the preview took as suggested
     if (preview?.assumed == true) Box(Modifier.offset { IntOffset((panel.x + 2f).dp.roundToPx(), (panel.bottom + 3f).dp.roundToPx()) }) {
@@ -276,27 +278,138 @@ internal fun CombatAreaOverlay(combat: CombatController?, play: TableBoard, scen
     }
 }
 
-/** The colour of the thin combat strip's pulse and of the creatures that may attack (CMB-001, owner 2026-11-05). */
+/** The colour of the creatures that may attack (CMB-028, owner 2026-11-05). */
 internal val AttackOrange = Color(0xffe8590c)
+/** CMB-007 (owner playtest 2026-11-06): the combat band's colour, the old combat area's cream. */
+internal val CombatBandColor = Color(0xfff5f1df)
+/** The ink of a target's value under its chip (CMB-013). */
+private val CombatValueInk = Color(0xff4a4636)
 
 /**
- * CMB-001 (owner, 2026-11-05): the thin strip between the battlefields while the viewer declares attackers with none
- * staged, at [bounds] on the screen: it pulses in the attack's red-orange; a tap ([enabled]) opens the band ([open]).
+ * The target chips of the combat band ([TableScene.combatLabels], CMB-013), clipped to the table: each fades in, the
+ * [active] target's filled violet; with [chooser] (the viewer declaring attackers) each glows softly as something to tap,
+ * more while a finger is down on it (TBL-117), and a tap makes its target the active one (CMB-028). Holding one shows its
+ * full name over it and highlights its target: the card on the battlefield, or the player's life square.
  */
 @Composable
-private fun CombatStrip(bounds: TableBounds, enabled: Boolean, open: () -> Unit) {
-    val pulse by androidx.compose.animation.core.rememberInfiniteTransition(label = "Combat strip").animateFloat(.18f, .5f,
-        androidx.compose.animation.core.infiniteRepeatable(androidx.compose.animation.core.tween(900),
-            androidx.compose.animation.core.RepeatMode.Reverse), label = "Combat strip pulse")
-    Box(Modifier.offset { IntOffset(bounds.x.dp.roundToPx(), bounds.y.dp.roundToPx()) }.size(bounds.width.dp, bounds.height.dp)
-        .testTag("combat-strip").semantics { contentDescription = "Open the combat area" }
-        .let { if (enabled) it.clickable(onClick = open) else it }
-        .drawBehind {
-            drawRect(AttackOrange.copy(alpha = pulse))
-            drawLine(AttackOrange, Offset(0f, 0f), Offset(size.width, 0f), 1.5f * density)
-            drawLine(AttackOrange, Offset(0f, size.height), Offset(size.width, size.height), 1.5f * density)
-        })
+private fun TargetChips(scene: TableScene, play: TableBoard, viewer: String, active: String?, chooser: ((String?) -> Unit)?,
+    bounds: (TableItem) -> TableBounds) {
+    val lanes = scene.combatLabels
+    // The table, short of the Stack where it lies over the chips (portrait: at the table's right edge), which keeps its taps
+    val table = scene.world?.visibleViewport?.let { t ->
+        val stack = scene.stackRegion
+        val row = lanes.firstOrNull()?.chip
+        if (stack != null && row != null && stack.y < row.bottom && stack.bottom > row.y && stack.x > t.x && stack.x < t.right)
+            t.copy(width = stack.x - t.x) else t
+    } ?: return
+    // CMB-001: the chips fade in when they first show in a step (staging's opening keeps them)
+    val key = if (lanes.isEmpty()) null else combatBandKey(play.board)
+    val appear = remember(key) { androidx.compose.animation.core.Animatable(0f) }
+    LaunchedEffect(key) { if (key != null) appear.animateTo(1f, androidx.compose.animation.core.tween(CHIP_FADE_MILLIS)) }
+    if (lanes.isEmpty()) return
+    var held by remember(key) { mutableStateOf<CombatLaneLabel?>(null) }
+    // The target of the held chip, highlighted where it is on the table
+    held?.let { lane ->
+        val item = if (lane.cardId == null) scene.items.firstOrNull { it.id == "life/${lane.accountId}" }
+            else scene.items.firstOrNull { it.cardId == lane.cardId && it.zone == PlayZone.BATTLEFIELD && !it.projection && it.viewport != "combat" }
+        item?.takeIf { it.visible.isNotEmpty() }?.let(bounds)?.let { b ->
+            Canvas(Modifier.fillMaxSize()) {
+                val d = density
+                for (ring in 3 downTo 1) drawRoundRect(AutomatumViolet.copy(alpha = .22f), Offset((b.x - 2f - ring * 1.5f) * d, (b.y - 2f - ring * 1.5f) * d),
+                    Size((b.width + 4f + ring * 3f) * d, (b.height + 4f + ring * 3f) * d), CornerRadius((4f + ring) * d), style = Stroke(2.5f * d))
+                drawRoundRect(AutomatumViolet, Offset((b.x - 2f) * d, (b.y - 2f) * d), Size((b.width + 4f) * d, (b.height + 4f) * d),
+                    CornerRadius(4f * d), style = Stroke(2.5f * d))
+            }
+        }
+    }
+    Box(Modifier.offset { IntOffset(table.x.dp.roundToPx(), table.y.dp.roundToPx()) }.size(table.width.dp, table.height.dp)
+        .clipToBounds().graphicsLayer { alpha = appear.value }) {
+        for (lane in lanes) key(lane.cardId) {
+            TargetChip(lane, viewer, lane.cardId == active && chooser != null, chooser?.let { choose -> { choose(lane.cardId) } },
+                held = { held = if (it) lane else held?.takeIf { h -> h.cardId != lane.cardId } },
+                Modifier.offset { IntOffset((lane.chip.x - table.x).dp.roundToPx(), (lane.chip.y - table.y).dp.roundToPx()) })
+        }
+    }
+    held?.let { lane ->
+        // The full name, just above the chip
+        val c = lane.chip
+        // Centred over the chip, its bottom 6 dp above it
+        val width = CombatStackPresentation.laneTextWidth(lane.label, 12f) + 16f
+        Box(Modifier.offset { IntOffset((c.center.x - width / 2).dp.roundToPx(), (c.y - 29f).dp.roundToPx()) }
+            .size(width.dp, 23.dp).semantics { contentDescription = "Target: ${lane.label}" }
+            .background(Color(0xe6263238), RoundedCornerShape(6.dp)), contentAlignment = Alignment.Center) {
+            Text(lane.label, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold, lineHeight = 15.sp,
+                maxLines = 1, softWrap = false)
+        }
+    }
 }
+
+/** How long the target chips take to fade in (CMB-001). */
+internal const val CHIP_FADE_MILLIS = 300
+
+/** One target chip at its place in the band: crossed swords, the round avatar, the name cut to the chip's letters. */
+@Composable
+private fun TargetChip(lane: CombatLaneLabel, viewer: String, active: Boolean, onTap: (() -> Unit)?, held: (Boolean) -> Unit,
+    modifier: Modifier) {
+    val c = lane.chip
+    val zoom = c.height / CombatStackPresentation.CHIP_HEIGHT
+    var down by remember { mutableStateOf(false) }
+    // TBL-117 (owner playtest 2026-11-06): under a finger the glow grows a little and brightens
+    val press by androidx.compose.animation.core.animateFloatAsState(if (down) 1f else 0f,
+        androidx.compose.animation.core.tween(PRESS_GLOW_MILLIS), label = "Chip press")
+    val tint = if (lane.side == viewer) OwnTableColor else OpponentTableColor
+    val shape = RoundedCornerShape(50)
+    val fill = if (active) AutomatumViolet else Color.White
+    val ink = if (active) Color.White else Color(0xff2b3437)
+    val currentTap by androidx.compose.runtime.rememberUpdatedState(onTap)
+    val currentHeld by androidx.compose.runtime.rememberUpdatedState(held)
+    Row(modifier.size(c.width.dp, c.height.dp)
+        .testTag("combat-target-chip")
+        .semantics {
+            contentDescription = if (onTap != null) "Attack ${lane.label}" else lane.label
+            if (active) stateDescription = "active"
+            if (onTap != null) onClick { onTap(); true }
+        }
+        .drawBehind {
+            if (onTap == null) return@drawBehind
+            val r = size.height / 2
+            for (ring in 4 downTo 1) {
+                val spread = ring * (1f + .6f * press) * zoom * density
+                drawRoundRect(AutomatumViolet.copy(alpha = .12f + .1f * press), Offset(-spread, -spread),
+                    Size(size.width + 2 * spread, size.height + 2 * spread), CornerRadius(r + spread))
+            }
+        }
+        .background(fill, shape).border((if (active) 1.5f else 1.2f).dp * zoom, if (active) AutomatumViolet else tint.copy(alpha = .75f), shape)
+        .pointerInput(lane.cardId) {
+            detectTapGestures(
+                onPress = { down = true; tryAwaitRelease(); down = false; currentHeld(false) },
+                onLongPress = { currentHeld(true) },
+                onTap = { currentTap?.invoke() })
+        },
+        verticalAlignment = Alignment.CenterVertically) {
+        Spacer(Modifier.width((CombatStackPresentation.CHIP_SIDE * zoom).dp))
+        Icon(androidx.compose.ui.res.painterResource(R.drawable.swords_outlined), null,
+            Modifier.size((CombatStackPresentation.CHIP_ICON * zoom).dp), tint = if (active) Color.White else tint)
+        Spacer(Modifier.width((CombatStackPresentation.CHIP_GAP * zoom).dp))
+        val avatar = (CombatStackPresentation.CHIP_AVATAR * zoom).dp
+        Box(Modifier.size(avatar).clip(CircleShape).background(if (lane.accountId != null) avatarColor(lane.accountId) else Color(0xff9e9a8c))
+            .border(1.dp * zoom, Color.White.copy(alpha = .8f), CircleShape), contentAlignment = Alignment.Center) {
+            val initial = if (lane.hidden) "?" else avatarInitial(lane.label)
+            androidx.compose.runtime.CompositionLocalProvider(androidx.compose.material3.LocalContentColor provides Color.White) {
+                if (lane.artwork != null) CardArtwork(lane.artwork, initial, 64, 64, Modifier.fillMaxSize(), crop = true)
+                else Text(initial, color = Color.White, fontSize = (9f * zoom).sp, fontWeight = FontWeight.Bold, lineHeight = (10f * zoom).sp)
+            }
+        }
+        Spacer(Modifier.width((CombatStackPresentation.CHIP_GAP * zoom).dp))
+        Text(lane.chipText, Modifier.weight(1f), color = ink, fontSize = lane.fontSize.sp, fontWeight = FontWeight.Bold,
+            lineHeight = (lane.fontSize * 1.15f).sp, maxLines = 1, softWrap = false,
+            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+        Spacer(Modifier.width((CombatStackPresentation.CHIP_SIDE * zoom).dp))
+    }
+}
+
+/** How fast a pressed glow grows and shrinks back (TBL-117, owner playtest 2026-11-06). */
+internal const val PRESS_GLOW_MILLIS = 90
 
 /** A chip of a staged attacker or drafted blocker (CMB-036–CMB-038): [onTap] null when the viewer can't change it (the
  * other player sees the choices); [cost] an amber cost to pay (CMB-037). Holding it says [hold]. */

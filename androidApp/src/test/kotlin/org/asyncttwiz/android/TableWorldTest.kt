@@ -99,7 +99,10 @@ class TableWorldTest {
                 assertEquals(homeGap * zoom, next.fields.last().gridBounds.y - next.fields.first().gridBounds.bottom, .001f)
                 // CMB-007, CMB-042 (owner, 2026-11-05): the combat band is world content: its panel and cards zoom with
                 // the battlefields
-                assertEquals(transformed(home.combatPanel!!), next.combatPanel)
+                val panel = transformed(home.combatPanel!!)
+                val moved = assertNotNull(next.combatPanel)
+                assertEquals(panel.x, moved.x, .001f); assertEquals(panel.y, moved.y, .001f)
+                assertEquals(panel.width, moved.width, .001f); assertEquals(panel.height, moved.height, .001f)
                 for (item in home.items) {
                     val other = next.items.single { it.id == item.id }
                     if (item.zone == PlayZone.BATTLEFIELD) {
@@ -121,7 +124,7 @@ class TableWorldTest {
     // HUD changes
     @Test fun openingCombatPushesTheFieldsApartButMovesNoHud() {
         val initial = TableFixture.play(board = 1)
-        val play = initial.copy(board = initial.board.copy(combat = CombatArea("combat")))
+        val play = initial.copy(board = initial.board.copy(combat = CombatArea("combat", listOf(CombatPair("pair", attackers = listOf(CombatOccurrence("attacker", "a/BATTLEFIELD/0")))))))
         for (landscape in listOf(false, true)) {
             val (w, h) = if (landscape) 892f to 412f else 412f to 892f
             val closed = TablePresentation.scene(TableFixture.game, tableBoard(initial), "a", w, h, landscape)

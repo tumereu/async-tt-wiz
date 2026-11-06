@@ -30,7 +30,7 @@ import org.asyncttwiz.protocol.*
 @Composable
 internal fun TableToolkitScreen(toolkit: TableToolkitController, play: TableBoard, game: GameSummary,
     landscape: Boolean,
-    peekScroll: ScrollState? = null, scene: TableScene? = null,
+    peekScroll: ScrollState? = null, scene: TableScene? = null, peekSwipe: InspectSwipe? = null,
     onTimeline: (() -> Unit)? = null, reviewing: Boolean = false) {
     val names = mapOf(game.inviter.accountId to game.inviter.username, game.recipient.accountId to game.recipient.username)
     val enabled = toolkit.enabled()
@@ -68,7 +68,10 @@ internal fun TableToolkitScreen(toolkit: TableToolkitController, play: TableBoar
         }
     }
     }
-    toolkit.peek?.let { GameplayCardInspection(play, toolkit.viewer, it, { toolkit.peek(null) }, names, peekScroll) }
+    toolkit.peek?.let { GameplayCardInspection(play, toolkit.viewer, it, { toolkit.peek(null) }, names, peekScroll, peekSwipe) }
+    // TBL-104: the panels' Inspect is drawn here, outside their layout
+    val inspectHost = remember { InspectHost() }
+    CompositionLocalProvider(LocalInspectHost provides inspectHost) {
     // I-D50: the raised hand card's cost chips
     RaisedCardChips(toolkit, play, scene)
     // TBL-122: a battlefield card's ability chips when it has several to activate
@@ -84,6 +87,8 @@ internal fun TableToolkitScreen(toolkit: TableToolkitController, play: TableBoar
     if (engine != null) EngineAsyncHost(toolkit, engine, play, scene, names, LocalOpponentPresence.current, game)
     // Automatum (I3): what combat allows and would do on this board, worked out in the background
     AutomatumCombatHost(toolkit, play)
+    }
+    HostedInspectionView(inspectHost)
 }
 
 internal fun toolkitQuickContext(play: TableBoard, viewer: String? = null): QuickContext =

@@ -572,7 +572,7 @@ internal fun ManaSection(cast: FlowQuestions, flow: FlowQuestions, play: TableBo
                 val source = (group.first() as? ManaUse.Ability)?.source
                 if (source != null) {
                     val card = choiceCardOf(flow, play, viewer, source, tapped = used != null)
-                    ChoiceCardFace(card, Modifier.choiceCardGestures(card.key, tap = { cast.toggleMana(group) }, hold = { inspector.hold(card, it) })
+                    ChoiceCardFace(card, Modifier.choiceCardGestures(card.key, tap = { cast.toggleMana(group) }, hold = { inspector.hold(card, it) }, moved = inspector::moved)
                         .semantics { contentDescription = "Mana source $label${if (used != null) ", tapped" else ""}" },
                         badge = label.substringAfterLast(' '))
                 } else FilterChip(used != null, { cast.toggleMana(group) },

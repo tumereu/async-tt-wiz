@@ -47,6 +47,6 @@ class CardMenuLayoutTest {
         val point = card.visible.first().center
         events.clear()
         gesture.down(point, 1000); gesture.tick(1700); gesture.up(point, 1750)
-        assertEquals(listOf<TableIntent>(TableIntent.Peek(card.cardId), TableIntent.Peek(null)), events)
+        assertEquals(listOf<TableIntent>(TableIntent.Peek(card.cardId), TableIntent.Peek(null, released = true)), events)
     }
 }

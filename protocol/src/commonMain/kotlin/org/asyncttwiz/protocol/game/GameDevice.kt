@@ -34,8 +34,10 @@ import org.asyncttwiz.protocol.GameAction
  *   event, as do engine-automatic answers ([WhoActs.automaticAnswer], public forced passes). Under Auto-skip it also
  *   answers questions with only one answer.
  * - **Assume or wait** (§3, §4) at the other player's points: engine-automatic answers at once; their pauses (judged as
- *   if their Auto-skip were off) assumed at once with "Always assume resolves" on, else a wait with Assume, whether they
- *   are online or away (HIS-096: presence never decides it); every other priority point assumed at once; never at their
+ *   if their Auto-skip were off) assumed at once with "Always assume resolves" on (or with no mana shown, by the
+ *   setting), else a wait with Assume, whether they
+ *   are online or away (HIS-096: presence never decides it); their pause at the player's end step and right after the
+ *   player's attack, and every other priority point, assumed at once; never at their
  *   own main phase; blockers a wait with Assume blockers ([assume]); anything else a real wait, the opening keep
  *   included (TRN-027: never assumed). An assumption whose outcome would show the player a hidden card, or a random
  *   result (whether it would show one can't be told before the result), is not sent (the information rule, §5): a
@@ -195,7 +197,7 @@ class GameDevice(
     sealed interface Wait {
         /** They may respond to [to] (yours, on top of the Stack). */
         data class Respond(val to: ObjectId) : Wait
-        /** They may act at their pause in [step] (your attack, blocks, your end step). */
+        /** They may act at their pause in [step] (after their blocks; your attack and your end step are assumed at once). */
         data class MayAct(val step: TurnStep) : Wait
         /** They are declaring blockers. */
         data object Blockers : Wait
@@ -593,6 +595,11 @@ class GameDevice(
             if (revealing(pass)) return Point.Wait(Wait.HiddenCards)
             if (!Stops.pause(s, holder)) return Point.Assume(pass)
             val top = s.stack.lastOrNull()
+            // HIS-096, TRN-070 (owner, 2026-11-06): their pause at your end step and right after you attack is assumed at
+            // once whatever the setting: nothing of yours follows before their next real answer, so it never takes
+            // anything back (their playback still stops there, HIS-095)
+            if (top == null && s.turn.active == me && (s.turn.step == TurnStep.End || s.turn.step == TurnStep.DeclareAttackers))
+                return Point.Assume(pass)
             val reason = if (top != null) Wait.Respond(top) else Wait.MayAct(s.turn.step)
             // HIS-096 (owner, 2026-11-05): only the player's setting decides, never the other player's presence
             return if (assumesAtOnce(s, holder)) Point.Assume(pass) else Point.Wait(reason, Offer.AssumeResolves, pass)

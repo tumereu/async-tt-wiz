@@ -314,10 +314,10 @@ class EngineTableScreenshotTest {
             "Alice tapped the Stack holding her Ember Herald's enters trigger: the list shows it as the ability token with its \"T\" chip, \"Top · Ember Herald's ability\" and the trigger's text.")
     }
 
-    // STK-050, TBL-104: holding an ability's entry on the Stack shows a dark rounded panel, not card-shaped (shorter than
-    // the card), with the source's art and under it the source's name and the ability's text, then the source card's
-    // picture, and nothing else
-    @Test fun holdingAnAbilityOnTheStackShowsItsTileThenItsSourceCard() {
+    // STK-050, TBL-104 (owner playtest 2026-11-06): holding an ability's entry on the Stack shows a dark rounded panel,
+    // not card-shaped (shorter than a card of its width), with the source's art crop and under it the source's name and
+    // the ability's text, and nothing else: no source card picture after it
+    @Test fun holdingAnAbilityOnTheStackShowsOnlyItsTile() {
         val (game, h) = heraldTriggerOnStack()
         render(game, h.a)
         compose.onNodeWithContentDescription("Stack, 1 entries").performClick()
@@ -329,14 +329,13 @@ class EngineTableScreenshotTest {
         val tile = compose.onNodeWithContentDescription("Triggered ability of Ember Herald").assertIsDisplayed().getBoundsInRoot()
         compose.onNode(hasText("When this creature enters", substring = true) and
             hasAnyAncestor(hasContentDescription("Triggered ability of Ember Herald"))).assertExists()
-        val source = compose.onNodeWithContentDescription("Card image: Ember Herald").assertExists().getBoundsInRoot()
-        assertTrue(tile.bottom <= source.top, "The tile first, then the source card")
-        assertEquals(tile.right - tile.left, source.right - source.left)
+        compose.onNodeWithContentDescription("Art of Ember Herald").assertExists()
+        compose.onNodeWithContentDescription("Card image: Ember Herald").assertDoesNotExist()
         assertTrue(tile.bottom - tile.top < (tile.right - tile.left) * 1.3f,
             "The panel is shorter than a card of its width: not card-shaped (${tile.right - tile.left} × ${tile.bottom - tile.top})")
         compose.waitForIdle(); compose.mainClock.advanceTimeBy(100)
         captureShot("$SCREENSHOTS/engine/stack-ability-inspect.png",
-            "Alice holds her Ember Herald's enters trigger in the Stack list: Inspect shows a dark rounded panel, not card-shaped, with the Herald's art on top and under it the \"T\" chip, \"Triggered ability\", the Herald's name and the trigger's text, then the Herald's card image below it.")
+            "Alice holds her Ember Herald's enters trigger in the Stack list: Inspect shows only a dark rounded panel, not card-shaped, with the Herald's art crop on top and under it the \"T\" chip, \"Triggered ability\", the Herald's name and the trigger's text; no card image of the Herald.")
         row.performTouchInput { up() }
         compose.mainClock.autoAdvance = true
         compose.onNodeWithContentDescription("Card inspection content").assertDoesNotExist()

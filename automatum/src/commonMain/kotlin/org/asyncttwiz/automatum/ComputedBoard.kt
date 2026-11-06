@@ -68,6 +68,10 @@ data class ComputedCard(
     val marks: List<String> get() = listOfNotNull(typeLine, colors) + gained + lost.map { "no $it" } + counters
 }
 
+/** One continuous effect on a card as Inspect lists it ([ComputedBoard.effects]): what it does ("+3/+3 until end of
+ * turn") and, when known, the name of what it comes from ([source]). */
+data class EffectChange(val text: String, val source: String? = null)
+
 /**
  * The engine's view of a game's board (I1): [cards] by ATW card id for the Battlefield cards the engine gives values,
  * from the game's own engine state and view ([of]). When the device couldn't work the board out ([failed], the reason in
@@ -143,6 +147,72 @@ class ComputedBoard private constructor(
             lines += "$change — ${source(step)}"
         }
         return lines
+    }
+
+    /**
+     * TBL-104 (owner, 2026-11-06): what continuous effects changed on each of [cardIds] (Battlefield cards the board
+     * computes), one [EffectChange] per effect in the order applied ("+3/+3, trample until end of turn", "Flying",
+     * "Becomes blue"), each with its source's name as [viewer] may see it; counters and a card's own characteristic-
+     * defining ability aren't changes here. [names] names the players by account. Cards with no changes are left out;
+     * one run of the layers for all of them.
+     */
+    fun effects(cardIds: List<String>, viewer: String, names: Map<String, String> = emptyMap()): Map<String, List<EffectChange>> {
+        val state = state ?: return emptyMap()
+        val view = view ?: return emptyMap()
+        val objects = cardIds.filter { it in cards }.mapNotNull { card -> objectOf(card)?.let { card to it } }
+        if (objects.isEmpty()) return emptyMap()
+        val explanations = Engine.explain(state, objects.map { it.second })
+        return objects.mapNotNull { (card, id) ->
+            val explanation = explanations[id] ?: return@mapNotNull null
+            val changes = explanation.effects.mapNotNull { effect ->
+                val source = effect.source
+                if (source is EffectSource.Counters) return@mapNotNull null
+                if (source is EffectSource.StaticAbility && source.characteristicDefining && source.obj == id) return@mapNotNull null
+                val parts = effect.steps.flatMap { step -> stepParts(step, viewer, names) }.distinct()
+                if (parts.isEmpty()) return@mapNotNull null
+                val text = (parts.joinToString(", ") + (effect.duration?.let(::duration)?.let { " $it" } ?: ""))
+                    .replaceFirstChar { it.uppercase() }
+                val from = when {
+                    source is EffectSource.StaticAbility && source.obj == id -> "Its own ability"
+                    else -> visibleName(state, view, effect.madeBy)
+                }
+                EffectChange(text, from)
+            }
+            changes.takeIf { it.isNotEmpty() }?.let { card to it }
+        }.toMap()
+    }
+
+    /** What one layer step changed, in a few words each ("+3/+3", "trample", "loses flying", "becomes blue"). */
+    private fun stepParts(step: ExplainedEffect, viewer: String, names: Map<String, String>): List<String> = when (step.layer) {
+        Layer.PowerToughnessDefining, Layer.PowerToughnessSet -> listOf("base ${pt(step.after.power, step.after.toughness)}")
+        Layer.PowerToughnessModify -> listOf("${signed((step.after.power ?: 0) - (step.before.power ?: 0))}/" +
+            signed((step.after.toughness ?: 0) - (step.before.toughness ?: 0)))
+        Layer.PowerToughnessSwitch -> listOf("power and toughness switched")
+        Layer.Type -> listOf("becomes ${typeLine(step.after)}")
+        Layer.Color -> listOf("becomes ${colors(step.after)}")
+        Layer.Ability -> {
+            val (gained, lost) = keywordChange(step.before, step.after)
+            (gained.map { it.lowercase() } + lost.map { "loses ${it.lowercase()}" }).ifEmpty {
+                listOf(when {
+                    step.after.abilities.isEmpty() -> "loses all abilities"
+                    step.after.abilities.size > step.before.abilities.size -> "gains an ability"
+                    else -> "loses an ability"
+                })
+            }
+        }
+        Layer.Control -> listOf("controlled by " + (step.controllerAfter?.value?.let { if (it == viewer) "you" else names[it] ?: "the opponent" }
+            ?: "nobody"))
+        Layer.Text -> listOf("text changed")
+        else -> emptyList()
+    }
+
+    /** The name of [source] (an object or its card's latest object) as [viewer] may see it: "a card" when hidden. */
+    private fun visibleName(state: GameState, view: View, source: ObjectId?): String? {
+        if (source == null) return null
+        val obj = state.obj(source) ?: (source as? ObjectId.Card)?.let { c ->
+            state.objects.values.lastOrNull { (it.id as? ObjectId.Card)?.card == c.card } } ?: return null
+        if (obj.faceDown || obj.zone !in PUBLIC) return "a card"
+        return view[obj.id]?.name ?: obj.definition?.faces?.getOrNull(obj.face)?.name
     }
 
     private fun objectOf(cardId: String): ObjectId? {

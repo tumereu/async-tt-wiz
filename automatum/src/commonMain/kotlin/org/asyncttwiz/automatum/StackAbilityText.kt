@@ -17,14 +17,16 @@ object StackAbilityText {
     fun of(item: StackItem): String? = item.ability?.let { AtwTokens.text(it) ?: CastFlow.text(it) }?.trim()?.takeIf { it.isNotEmpty() }
 
     /**
-     * The modes chosen for the ability [item] (CR 700.2), in order, each as its printed text ("Mode 2" when it has none);
-     * empty for a spell, an ability without modes or an item without the engine's data.
+     * The modes chosen for [item] (CR 700.2), a spell's (STK-050's lines under it, owner 2026-11-06) or an ability's, in
+     * order, each as its printed text ("Mode 2" when it has none); empty without modes or without the engine's data.
      */
     fun modes(item: MtgStackItem): List<String> {
-        val engine = engine(item) ?: return emptyList()
+        if (item.modes.isEmpty() || item.data.isEmpty()) return emptyList()
+        val engine = runCatching { EngineCodec.stackItem(item) }.getOrNull() ?: return emptyList()
         val options = when (val ability = engine.ability) {
             is Ability.Activated -> ability.instructions.modes
             is Ability.Triggered -> ability.instructions.modes
+            is Ability.Spell -> ability.instructions.modes
             else -> null
         }?.options ?: return emptyList()
         return engine.modes.map { index -> options.getOrNull(index)?.text?.trim()?.takeIf { it.isNotEmpty() } ?: "Mode ${index + 1}" }

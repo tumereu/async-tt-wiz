@@ -221,6 +221,20 @@ abstract class E2e {
     }
 
     /**
+     * Inside [holding]'s `held`: the held finger moves by [by] (px) over [steps] frames, both clocks moving on together as
+     * while it was held still.
+     */
+    internal fun moveHeldFinger(node: androidx.compose.ui.test.SemanticsNodeInteraction, by: androidx.compose.ui.geometry.Offset,
+        steps: Int = 10) {
+        val looper = shadowOf(Looper.getMainLooper())
+        repeat(steps) {
+            node.performTouchInput { moveBy(by / steps.toFloat()) }
+            compose.mainClock.advanceTimeBy(FRAME_MILLIS)
+            looper.idleFor(Duration.ofMillis(FRAME_MILLIS))
+        }
+    }
+
+    /**
      * The input clock (Compose's, which stamps the injected touches) caught up with the main thread's: a panel that opened
      * just now takes no touch for its first moments (its input guard, read on the main thread's clock), and a touch stamped
      * from a clock left behind would fall in them however long the test waited.

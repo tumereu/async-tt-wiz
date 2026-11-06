@@ -25,7 +25,9 @@ sealed interface TableIntent {
     data class Batch(val intents: List<TableIntent>, val invocationId: String) : TableIntent
     data class Actions(val itemId: String, val scope: TableScope?,
         val sources: Map<String, TableMoveSource> = emptyMap(), val topId: String? = null) : TableIntent
-    data class Peek(val cardId: String?) : TableIntent
+    /** Inspect [cardId] while held; null closes it. [released]: closed by the holding finger lifting (a pinned Inspect,
+     * TBL-104, stays open then), not by a cancel. */
+    data class Peek(val cardId: String?, val released: Boolean = false) : TableIntent
     data object DismissTapUi : TableIntent
     /** Personal: open the search panel of a Graveyard/Exile pile (its double-tap). */
     data class SearchPile(val containerId: String) : TableIntent

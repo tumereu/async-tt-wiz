@@ -562,8 +562,10 @@ class GameDeviceTest {
 
     /** Both play a Forest and an Elvish Seer in their first turns; in Alice's third, with Bob away (nothing delivered to
      * him), she attacks with her Seer: her Seer. */
-    private fun DeviceSim.seersToCombat(): ObjectId {
+    private fun DeviceSim.seersToCombat(alwaysAssume: Boolean = true): ObjectId {
         val seer = seersToThirdTurn()
+        // "Assume resolves" Never from her third turn on (her earlier turns assume Bob's pauses as both play on)
+        if (!alwaysAssume) device(alice).settings(PlaySettings(mode = ResponseMode.Normal))
         device(alice).act(Input.PassPriority(alice))
         settle(only = listOf(alice))
         assertEquals(GameDevice.Status.YourMove, device(alice).status)
@@ -594,6 +596,65 @@ class GameDeviceTest {
         assertTrue(atMain(alice))
         val m = device(alice).model.engine
         return m.battlefield.first { m.obj(it)?.controller == alice && m.obj(it)?.definition?.faces?.first()?.name == "Elvish Seer" }
+    }
+
+    // HIS-096, TRN-070 (owner, 2026-11-06): with "Assume resolves" Never, the other player's pause right after your
+    // attack is assumed at once (no wait with Assume before their blocks); the priority after their blocks keeps the
+    // setting (a wait with Assume); their catch-up playback still stops at the pass assumed after the attack (HIS-095)
+    @Test
+    fun theirPauseAfterYourAttackIsAssumedAtOnce() {
+        val sim = seers()
+        sim.seersToCombat(alwaysAssume = false)
+        val alice = sim.alice; val bob = sim.bob
+        assertEquals(AssumeResolves.Never, sim.device(alice).settings.assume)
+        val afterAttack = sim.server.line().single { e ->
+            val before = sim.server.stateAt(e.parentId).engine
+            e.assumed?.assumedBy == alice && before.turn.step == TurnStep.DeclareAttackers && before.turn.number == 3
+        }
+        assertEquals(Input.PassPriority(bob), afterAttack.assumed?.input)
+        val blocks = assertIs<GameDevice.Status.Waiting>(sim.device(alice).status)
+        assertEquals(GameDevice.Wait.Blockers, blocks.reason, "straight on to his blocks")
+        assertIs<GameDevice.Acted.Sent>(sim.device(alice).assume())
+        sim.settle(only = listOf(alice))
+        sim.passToDamage()
+        val afterBlocks = assertIs<GameDevice.Status.Waiting>(sim.device(alice).status, "his priority after the blocks waits")
+        assertEquals(GameDevice.Wait.MayAct(TurnStep.DeclareBlockers), afterBlocks.reason)
+        assertEquals(GameDevice.Offer.AssumeResolves, afterBlocks.offer)
+        // Bob comes back with playback's Full control: his playback stops at the pass assumed after her attack
+        val bobs = sim.load(bob)
+        bobs.settings(PlaySettings(playbackFullControl = true))
+        bobs.play()
+        val stops = mutableListOf<GameDevice.Status.Stopped>()
+        while (true) {
+            bobs.playToStop()
+            val stop = bobs.status as? GameDevice.Status.Stopped ?: break
+            stops += stop
+            if (stop.assumed is Input.DeclareBlockers) break
+            bobs.act(stop.assumed)
+        }
+        assertTrue(stops.any { it.event.id == afterAttack.id }, "playback stopped at the assumed pass after the attack: $stops")
+        assertTrue(sim.leaks.isEmpty())
+    }
+
+    // HIS-096, TRN-070 (owner, 2026-11-06): with "Assume resolves" Never, the other player's pause at your end step is
+    // assumed at once: Alice's End turn goes on into Bob's turn while he is away
+    @Test
+    fun theirPauseAtYourEndStepIsAssumedAtOnce() {
+        val sim = seers()
+        sim.seersToThirdTurn()
+        val alice = sim.alice; val bob = sim.bob
+        val alices = sim.device(alice)
+        alices.settings(PlaySettings(mode = ResponseMode.Normal))
+        assertEquals(AssumeResolves.Never, alices.settings.assume)
+        alices.endTurn(sim.now)
+        sim.settle(only = listOf(alice))
+        assertEquals(4, alices.model.engine.turn.number, "into Bob's turn: ${alices.model.engine.turn}")
+        assertEquals(bob, alices.model.engine.turn.active)
+        assertTrue(sim.server.line().any { e ->
+            val before = sim.server.stateAt(e.parentId).engine
+            e.assumed?.assumedBy == alice && e.assumed?.input == Input.PassPriority(bob) && before.turn.step == TurnStep.End && before.turn.number == 3
+        }, "his pass at her end step assumed")
+        assertEquals(GameDevice.Wait.TheirTurn, assertIs<GameDevice.Status.Waiting>(alices.status).reason)
     }
 
     // TRN-057, HIS-058 (smoke 2026-11-04): End turn passes the player's priority until the turn ends; their own main

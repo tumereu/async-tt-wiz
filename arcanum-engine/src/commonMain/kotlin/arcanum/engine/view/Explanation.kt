@@ -1,6 +1,7 @@
 package arcanum.engine.view
 
 import arcanum.api.CounterKind
+import arcanum.api.Duration
 import arcanum.api.Layer
 import arcanum.engine.state.EffectId
 import arcanum.engine.state.ObjectId
@@ -12,7 +13,7 @@ import kotlinx.serialization.Serializable
  * Where an object's characteristics come from ([arcanum.engine.Engine.explain], spec §7.1 "Inspect"): its values
  * after layer 1 ([base]: printed, copied or face down, CR 613.2), then every continuous effect that changed them, in
  * the order the layer system applied them (CR 613.1–613.8). [characteristics] is the result, as
- * [arcanum.engine.Engine.view] gives it.
+ * [arcanum.engine.Engine.view] gives it. [effects] lists the same steps by the effect that made them.
  */
 @Serializable
 data class Explanation(
@@ -20,6 +21,25 @@ data class Explanation(
     val base: Characteristics,
     val steps: List<ExplainedEffect>,
     val characteristics: Characteristics,
+    /** The continuous effects that changed the object, one entry each with its steps in every layer, in the order each
+     * was first applied: what a host lists as "+3/+3 and trample until end of turn". */
+    val effects: List<AppliedEffect> = emptyList(),
+)
+
+/**
+ * One continuous effect that changed an explained object ([Explanation.effects]): its [source], the object that made
+ * it ([madeBy]: the static ability's object, the source of the spell or ability that created an effect object, the
+ * object with the counters; null when not known), how long it lasts ([duration]: an effect object's, CR 611.2; null for
+ * a static ability or counters, which apply while they are there, CR 611.3a), its [timestamp] (CR 613.7) and its
+ * [steps], one per layer it changed something in, in the order applied.
+ */
+@Serializable
+data class AppliedEffect(
+    val source: EffectSource,
+    val madeBy: ObjectId?,
+    val duration: Duration?,
+    val timestamp: Long,
+    val steps: List<ExplainedEffect>,
 )
 
 /**

@@ -52,6 +52,41 @@ class ExplanationTest {
         assertEquals(emptyList(), Engine.explain(state, card("Lineage Druid"))!!.steps)
     }
 
+    // CR 611.2, 611.3a, 613.1f, 613.4c: one effect changing two layers is one applied effect with both steps, with the
+    // object that made it and how long it lasts; a static ability's lasts while it is there (no duration)
+    @Test
+    fun appliedEffectsGroupAnEffectsStepsWithWhatMadeIt() = scenario {
+        alice.battlefield("Elvish Hierophant", "Elvish Seer", "Lineage Druid")
+        val growth = effect(alice, modify(3, 3), Mechanic.GainAbilities(listOf(Keyword.Trample)), on = listOf("Elvish Seer"),
+            duration = Duration.EndOfTurn)
+        state.effects[growth] = state.effects.getValue(growth).copy(source = card("Lineage Druid"))
+        val explanation = Engine.explain(state, card("Elvish Seer"))!!
+        assertEquals(3, explanation.steps.size)
+        // In the order first applied: the pump's trample in layer 6 before the anthem in 7c
+        val (pump, anthem) = explanation.effects
+        assertEquals(card("Elvish Hierophant"), anthem.madeBy)
+        assertNull(anthem.duration)
+        assertEquals(listOf(Layer.PowerToughnessModify), anthem.steps.map { it.layer })
+        assertEquals(EffectSource.EffectObject(growth), pump.source)
+        assertEquals(card("Lineage Druid"), pump.madeBy)
+        assertEquals(Duration.EndOfTurn, pump.duration)
+        assertEquals(listOf(Layer.Ability, Layer.PowerToughnessModify), pump.steps.map { it.layer })
+        assertEquals(explanation.steps.toSet(), explanation.effects.flatMap { it.steps }.toSet())
+    }
+
+    // CR 613: several objects explained from one run of the layers, each as when explained alone; one without
+    // characteristics is left out
+    @Test
+    fun severalObjectsAtOnceAsEachAlone() = scenario {
+        alice.battlefield("Elvish Hierophant", "Elvish Seer", "Lineage Druid")
+        effect(alice, Mechanic.GainAbilities(listOf(Keyword.Flying)), on = listOf("Lineage Druid"))
+        val ids = listOf(card("Elvish Hierophant"), card("Elvish Seer"), card("Lineage Druid"))
+        val nobody = arcanum.engine.state.ObjectId.Card(arcanum.engine.state.CardId("nobody"), 0)
+        val all = Engine.explain(state, ids + nobody)
+        assertEquals(ids.toSet(), all.keys)
+        ids.forEach { id -> assertEquals(Engine.explain(state, id), all[id]) }
+    }
+
     @Test
     fun noObjectNoExplanation() = scenario {
         alice.battlefield("Elvish Seer")

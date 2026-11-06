@@ -33,6 +33,15 @@ class StackAbilityInspectTest {
         assertTrue(StackAbilities.details(board(emptyList()), "entry", f.a, names).isEmpty())
     }
 
+    // STK-050, TBL-104 (owner 2026-11-06): a spell on the Stack shows what was chosen for it as abilities do: X, then targets
+    @Test fun aSpellsChosenXAndTargetsAreListed() {
+        val spell = f.source(f.a, "1/3")
+        val item = MtgStackItem(MtgRef.Card(spell.id, 0), MtgStackKind.Spell, f.a, targets = mapOf("target" to listOf(MtgRef.Player(f.b))),
+            values = mapOf("X" to 3), timestamp = 1)
+        val play = tableBoard(f.initial.copy(board = f.initial.board.copy(stackEffects = listOf(StackEffect(spell.id, spell.id, item = item)))))
+        assertEquals(listOf("X = 3", "Target: Bob"), StackAbilities.details(play, spell.id, f.a, mapOf(f.b to "Bob")))
+    }
+
     // STK-046: the token's chip reads "T" for a triggered ability, "A" for an activated one
     @Test fun theKindChipSaysTriggeredOrActivated() {
         assertEquals("T", StackAbilityShown(triggered = true, source = "Herald", text = "").letter)

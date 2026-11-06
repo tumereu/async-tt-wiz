@@ -45,6 +45,13 @@ object Engine {
      */
     fun explain(state: GameState, id: arcanum.engine.state.ObjectId): arcanum.engine.view.Explanation? = Layers.explain(state, id)
 
+    /**
+     * [explain] for several objects at once (a host inspecting a group of cards), from one run of the layers: the
+     * explanation of each of [ids] that has characteristics, by id; the others are left out.
+     */
+    fun explain(state: GameState, ids: Collection<arcanum.engine.state.ObjectId>): Map<arcanum.engine.state.ObjectId, arcanum.engine.view.Explanation> =
+        Layers.explain(state, ids)
+
     /** What [player] may do now: play a land, cast, activate, pass, declare, or answer the open decision. */
     fun options(state: GameState, player: PlayerId): List<Input> = Options.of(state, player)
 

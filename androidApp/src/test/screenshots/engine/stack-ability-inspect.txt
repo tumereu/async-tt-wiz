@@ -1,1 +1,1 @@
-Alice holds her Ember Herald's enters trigger in the Stack list: Inspect shows a dark rounded panel, not card-shaped, with the Herald's art on top and under it the "T" chip, "Triggered ability", the Herald's name and the trigger's text, then the Herald's card image below it.
+Alice holds her Ember Herald's enters trigger in the Stack list: Inspect shows only a dark rounded panel, not card-shaped, with the Herald's art crop on top and under it the "T" chip, "Triggered ability", the Herald's name and the trigger's text; no card image of the Herald.

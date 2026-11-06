@@ -7,38 +7,55 @@ import androidx.compose.runtime.*
 import org.asyncttwiz.protocol.*
 
 /**
- * Inspect in a game (TBL-104): what holding a card (or an ability's entry on the Stack) shows while the finger stays, only
- * pictures: an ability's tile first (STK-046), then every face the viewer may see of the card (TBL-106), then the other
- * members of its battlefield group held with it (TBL-111). A face-down card stays hidden from the opponent (TBL-109).
+ * Inspect in a game (TBL-104): what holding a card (or an ability's entry on the Stack) shows while the finger stays: an
+ * ability's tile alone (STK-050), else every face the viewer may see of the card (TBL-106) with what changed on it, then
+ * the other members of its battlefield group held with it (TBL-111), each with its own changes. A face-down card stays
+ * hidden from the opponent (TBL-109). [swipe]: its pinned mode, when the hold can pin it.
  */
 @Composable
 internal fun GameplayCardInspection(state: TableBoard, viewer: String, inspection: ManualInspection, close: () -> Unit,
-    names: Map<String, String> = emptyMap(), scroll: ScrollState? = null) {
+    names: Map<String, String> = emptyMap(), scroll: ScrollState? = null, swipe: InspectSwipe? = null) {
     if (inspection.gameId != state.gameId || inspection.playId != state.playId) return
-    BackHandler(onBack = close)
-    val card = inspection.snapshot ?: CombatStackRules.inspection(state.board, inspection.cardId) ?: return
-    val tiles = remember(state, viewer, inspection, names) { gameInspectTiles(state, viewer, inspection, card, names) }
-    InspectPopup(tiles, scroll ?: rememberScrollState())
+    BackHandler(onBack = { if (swipe?.pinned == true) swipe.close() else close() })
+    val card = inspection.snapshot ?: CombatStackRules.inspection(state.board, inspection.cardId) ?: run {
+        // A pinned Inspect whose card is gone closes
+        if (swipe?.pinned == true) LaunchedEffect(swipe) { swipe.close() }
+        return
+    }
+    val groups = remember(state, viewer, inspection, names) { gameInspectGroups(state, viewer, inspection, card, names) }
+    InspectPopup(groups, scroll ?: rememberScrollState(), swipe)
 }
 
 /** The pictures [GameplayCardInspection] shows of [card], held as [inspection] says. */
 internal fun gameInspectTiles(state: TableBoard, viewer: String, inspection: ManualInspection, card: PlayCard,
-    names: Map<String, String>): List<InspectTile> {
+    names: Map<String, String>): List<InspectTile> = gameInspectGroups(state, viewer, inspection, card, names).flatMap { it.tiles }
+
+/** What [GameplayCardInspection] shows of [card], held as [inspection] says: one group per card, with its changes. */
+internal fun gameInspectGroups(state: TableBoard, viewer: String, inspection: ManualInspection, card: PlayCard,
+    names: Map<String, String>): List<InspectGroup> {
     val entry = inspection.stackEntryId ?: inspection.cardId
-    // STK-050: an ability on the Stack is its panel first (the source's art, the ability's text), then its source card
-    val ability = StackAbilities.of(state, entry, viewer)?.let { shown ->
+    // STK-050 (owner playtest 2026-11-06): an ability on the Stack is its panel alone (the source's art crop, the
+    // ability's text and what was chosen), not its source card's picture
+    StackAbilities.of(state, entry, viewer)?.let { shown ->
         val definition = state.definitions.firstOrNull { it.digest == card.definition }?.definition?.takeIf { it.faces.isNotEmpty() }
         val face = definition?.faces?.indexOfFirst { it.faceId == card.faceId }?.takeIf { it >= 0 } ?: 0
-        val art = definition?.let { InspectedCard.retained(card.definition, it).artwork.getOrNull(face) }
-        InspectTile.Ability("ability/$entry", shown, StackAbilities.details(state, entry, viewer, names),
-            CombatStackRules.controller(state.board, entry) == viewer, art)
+        val art = definition?.let { InspectedCard.retained(card.definition, it).artwork.getOrNull(face) }?.forTable()
+        return listOf(InspectGroup("ability/$entry", listOf(InspectTile.Ability("ability/$entry", shown,
+            StackAbilities.details(state, entry, viewer, names), CombatStackRules.controller(state.board, entry) == viewer, art))))
     }
     // TBL-111: holding a battlefield group shows each of its members in turn
     val below = if (inspection.snapshot == null) inspection.group.mapNotNull { id -> state.board.cards.firstOrNull { it.id == id } }
         else emptyList()
     val faceDown = CombatStackRules.faceDownEntry(state.board, inspection.cardId)
-    return listOfNotNull(ability) + cardTiles(state, viewer, card, inspection, faceDown, inspection.cardId in CombatStackRules.projectionIds(state.board)) +
-        below.flatMap { cardTiles(state, viewer, it, null, false, false) }
+    val held = cardTiles(state, viewer, card, inspection, faceDown, inspection.cardId in CombatStackRules.projectionIds(state.board))
+    val others = below.map { it to cardTiles(state, viewer, it, null, false, false) }
+    val changes = InspectChanges.of(state, viewer, (listOf(card to held) + others).filter { (_, tiles) -> tiles.none { it is InspectTile.Covered } }
+        .map { it.first }, names)
+    // STK-050 (owner 2026-11-06): a spell on the Stack shows what was chosen for it (modes, X, targets), as abilities do
+    val chosen = if (state.board.stackEffects.any { it.id == entry } && held.none { it is InspectTile.Covered })
+        StackAbilities.details(state, entry, viewer, names).map { InspectChange(it) } else emptyList()
+    return listOf(InspectGroup(card.id, held, chosen + changes[card.id].orEmpty())) +
+        others.map { (member, tiles) -> InspectGroup(member.id, tiles, changes[member.id].orEmpty()) }
 }
 
 /** [card]'s faces as its inspection shows them to [viewer], or one covered tile when they may see none of it. */

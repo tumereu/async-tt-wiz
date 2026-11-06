@@ -1,6 +1,14 @@
 package org.asyncttwiz.android
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.AnimationVector2D
+import androidx.compose.animation.core.Easing
+import androidx.compose.animation.core.VectorConverter
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ScrollState
+import androidx.compose.ui.graphics.graphicsLayer
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -62,23 +70,22 @@ internal fun choiceCard(play: TableBoard, viewer: String, key: String, cardId: S
         card.owner == viewer, tapped, if (shown) TablePresentation.cardTypeIcon(face?.typeLine.orEmpty()) else "")
 }
 
-/** The width and height of a choice's card (the battlefield's 28 × 40 shape), scaled by the Panels card size. */
+/** STK-044 (owner playtest 2026-11-06): the width and height of a choice's card: the 28 × 40 dp base the hand, piles and
+ * Stack use, scaled by the Panels card size. */
 @Composable
 internal fun choiceCardSize(): Pair<androidx.compose.ui.unit.Dp, androidx.compose.ui.unit.Dp> {
     val scale = rememberCardAppearance().size(CardArea.PANELS)
-    return 56.dp * scale to 80.dp * scale
+    return 28.dp * scale to 40.dp * scale
 }
 
 /** A choice's card face, as the battlefield draws it: the name on top, the art below, the owner's outline; covered
- * when hidden. [badge]: a small number in its corner (its place in an order); [selected]: a violet ring. */
+ * when hidden. [badge]: a small number in its corner (its place in an order); [selected]: a violet ring. [small] (a
+ * panel's source, the cards a choice is about) draws its name smaller; every panel card has the same size. */
 @Composable
 internal fun ChoiceCardFace(card: ChoiceCardData, modifier: Modifier = Modifier, selected: Boolean = false, badge: String? = null,
     small: Boolean = false) {
-    val (fullWidth, fullHeight) = choiceCardSize()
-    val factor = if (small) .7f else 1f
+    val (width, height) = choiceCardSize()
     val owner = if (card.own) OwnTableColor else OpponentTableColor
-    val width = fullWidth * factor
-    val height = fullHeight * factor
     // A tapped card lies sideways, taking its sideways room
     Box(modifier.size(if (card.tapped) height else width, if (card.tapped) width else height)
         .semantics { contentDescription = card.name + if (selected) ", chosen" else "" }, contentAlignment = Alignment.Center) {
@@ -87,24 +94,26 @@ internal fun ChoiceCardFace(card: ChoiceCardData, modifier: Modifier = Modifier,
             card.typeIcon)
         else Box(Modifier.requiredSize(width, height).then(if (card.tapped) Modifier.rotate(90f) else Modifier)
             .cardFrame(card.token, owner).then(if (card.shown) Modifier else Modifier.background(Color(0xff506b61)))) {
-            if (card.shown) Column(Modifier.fillMaxSize().padding(horizontal = 3.dp, vertical = 2.dp)) {
-                Text(card.name, fontSize = if (small) 7.sp else 8.sp, lineHeight = 9.sp, fontWeight = FontWeight.Bold, maxLines = 1,
+            // The battlefield card's proportions at any Panels size: the name a quarter of the width high
+            val name = (width.value * if (small) .24f else .26f).sp
+            if (card.shown) Column(Modifier.fillMaxSize().padding(horizontal = width * .07f, vertical = height * .04f)) {
+                Text(card.name, fontSize = name, lineHeight = name * 1.15f, fontWeight = FontWeight.Bold, maxLines = 1,
                     overflow = TextOverflow.Ellipsis, color = MenuInk)
-                Box(Modifier.fillMaxWidth().weight(1f).padding(vertical = 2.dp)) {
+                Box(Modifier.fillMaxWidth().weight(1f).padding(vertical = height * .04f)) {
                     // As on the battlefield: the type glyph while there is no art
                     CardArtwork(card.art, "", 192, 140, Modifier.fillMaxSize(), crop = true, placeholder = {
                         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            Text(card.typeIcon, fontSize = if (small) 14.sp else 20.sp, color = MenuInk)
+                            Text(card.typeIcon, fontSize = (width.value * .45f).sp, color = MenuInk)
                         }
                     })
                 }
-                Spacer(Modifier.height(6.dp))
+                Spacer(Modifier.height(height * .12f))
             }
         }
         if (selected) Box(Modifier.fillMaxSize().border(3.dp, AutomatumViolet, RoundedCornerShape(4.dp)))
-        if (badge != null) Surface(Modifier.align(Alignment.BottomStart).padding(2.dp), shape = CircleShape,
+        if (badge != null) Surface(Modifier.align(Alignment.BottomStart).padding(1.dp), shape = CircleShape,
             color = AutomatumViolet, contentColor = Color.White) {
-            Text(badge, Modifier.padding(horizontal = 5.dp), fontSize = 9.sp, fontWeight = FontWeight.Bold)
+            Text(badge, Modifier.padding(horizontal = 4.dp), fontSize = 8.sp, lineHeight = 10.sp, fontWeight = FontWeight.Bold)
         }
     }
 }
@@ -115,33 +124,103 @@ internal fun ChoiceCardFace(card: ChoiceCardData, modifier: Modifier = Modifier,
  */
 internal class ChoiceInspector {
     var held by mutableStateOf<ChoiceCardData?>(null); private set
+    /** TBL-127: the held card's Inspect scrolls with the holding finger. */
+    val scroll = ScrollState(0)
+    /** TBL-104: a drag to the left pins the held card's Inspect. */
+    val swipe = InspectSwipe()
+    /** The screen height in px the finger's movement is measured against ([holdPreviewScroll]). */
+    var screenHeight = 0f
+
+    init { swipe.onClose = { held = null } }
+
     fun hold(card: ChoiceCardData, holding: Boolean) {
-        if (holding) { if (card.shown && card.cardId != null) held = card } else if (held?.key == card.key) held = null
+        if (holding) {
+            if (!card.shown || card.cardId == null) return
+            held = card
+            scroll.dispatchRawDelta(-scroll.value.toFloat())
+            swipe.begin()
+        } else if (held?.key == card.key && !swipe.released()) held = null
     }
+
+    /** The holding finger is [dx], [dy] dp from where the hold began and moved [step] px up or down just now (positive
+     * reveals lower content): the pinned swipe's, or else the scroll's (TBL-127). */
+    fun moved(dx: Float, dy: Float, step: Float) {
+        if (held == null) return
+        if (!swipe.moved(dx, dy)) scroll.holdPreviewScroll(step, screenHeight)
+    }
+
+    /** Closes the Inspect, pinned or not. */
+    fun close() {
+        swipe.begin()
+        held = null
+    }
+}
+
+/**
+ * Where an in-game panel's Inspect shows (TBL-104): the table screen's host draws it, outside the panel's own layout, so
+ * opening it never moves anything in the panel (owner playtest 2026-11-06: holding a revealed card made the panel jump).
+ */
+@Stable
+internal class InspectHost {
+    var shown by mutableStateOf<HostedInspection?>(null); private set
+    fun show(inspection: HostedInspection) { shown = inspection }
+    fun hide(inspection: HostedInspection) { if (shown == inspection) shown = null }
+}
+
+/** One panel's Inspect for [InspectHost]. */
+internal data class HostedInspection(val play: TableBoard, val viewer: String, val inspection: ManualInspection,
+    val inspector: ChoiceInspector)
+
+/** The table screen's [InspectHost]; null outside it (a panel then draws its Inspect itself). */
+internal val LocalInspectHost = staticCompositionLocalOf<InspectHost?> { null }
+
+/** Draws what [host] shows. */
+@Composable
+internal fun HostedInspectionView(host: InspectHost) {
+    val shown = host.shown ?: return
+    GameplayCardInspection(shown.play, shown.viewer, shown.inspection, shown.inspector::close,
+        scroll = shown.inspector.scroll, swipe = shown.inspector.swipe)
 }
 
 @Composable
 internal fun ChoiceInspection(inspector: ChoiceInspector, play: TableBoard, viewer: String) {
-    val card = inspector.held ?: return
-    val id = card.cardId ?: return
-    val played = play.board.cards.firstOrNull { it.id == id } ?: return
-    val faces = play.definitions.firstOrNull { it.digest == played.definition }?.definition?.faces.orEmpty()
-    GameplayCardInspection(play, viewer, remember(play.playId, id) {
-        ManualInspection(play.gameId, play.playId, id, faces.map { it.faceId }, explicit = true, snapshot = played,
+    val screenHeight = holdPreviewScreenHeight()
+    SideEffect { inspector.screenHeight = screenHeight }
+    val card = inspector.held
+    val played = card?.cardId?.let { id -> play.board.cards.firstOrNull { it.id == id } }
+    val inspection = if (card == null || played == null) null else remember(play.playId, played.id, card.key) {
+        val faces = play.definitions.firstOrNull { it.digest == played.definition }?.definition?.faces.orEmpty()
+        ManualInspection(play.gameId, play.playId, played.id, faces.map { it.faceId }, explicit = true, snapshot = played,
             stackEntryId = card.key.takeIf { card.ability != null })
-    }, { inspector.hold(card, false) })
+    }
+    val host = LocalInspectHost.current
+    if (host != null) {
+        // Drawn by the host: nothing of it is laid out here
+        val hosted = inspection?.let { HostedInspection(play, viewer, it, inspector) }
+        DisposableEffect(host, hosted) {
+            if (hosted != null) host.show(hosted)
+            onDispose { if (hosted != null) host.hide(hosted) }
+        }
+        return
+    }
+    if (inspection != null) GameplayCardInspection(play, viewer, inspection, inspector::close, scroll = inspector.scroll,
+        swipe = inspector.swipe)
 }
 
 /**
  * A choice's card's gestures (I-D48): tap, hold (Inspect while held), and drag (positions in the root's coordinates).
- * Hold wins after [CardPeekHoldMillis] without moving; moving past the touch slop first drags.
+ * Hold wins after [CardPeekHoldMillis] without moving; moving past the touch slop first drags. While held, the finger's
+ * movement goes to [moved] (TBL-127's scroll, the pinned swipe: [ChoiceInspector.moved]).
  */
 internal fun Modifier.choiceCardGestures(key: Any, tap: () -> Unit, hold: (Boolean) -> Unit,
-    drag: ((DragPhase, Offset) -> Unit)? = null): Modifier = composed {
+    drag: ((DragPhase, Offset) -> Unit)? = null,
+    moved: ((dx: Float, dy: Float, step: Float) -> Unit)? = null): Modifier = composed {
     var coordinates by remember { mutableStateOf<LayoutCoordinates?>(null) }
     val currentTap by rememberUpdatedState(tap)
     val currentHold by rememberUpdatedState(hold)
     val currentDrag by rememberUpdatedState(drag)
+    val currentMoved by rememberUpdatedState(moved)
+    val density = LocalDensity.current.density
     onGloballyPositioned { coordinates = it }.pointerInput(key) {
         awaitEachGesture {
             val down = awaitFirstDown()
@@ -183,9 +262,16 @@ internal fun Modifier.choiceCardGestures(key: Any, tap: () -> Unit, hold: (Boole
                 }
                 Gesture.Hold -> {
                     currentHold(true)
+                    var start: Offset? = null
                     try {
                         while (true) {
                             val event = awaitPointerEvent()
+                            event.changes.firstOrNull { it.id == down.id }?.takeIf { it.pressed }?.let { change ->
+                                val from = start ?: change.previousPosition.also { start = it }
+                                val step = -change.positionChange().y
+                                if (change.positionChange() != Offset.Zero) currentMoved?.invoke((change.position.x - from.x) / density,
+                                    (change.position.y - from.y) / density, step)
+                            }
                             event.changes.forEach { it.consume() }
                             if (event.changes.none { it.pressed }) break
                         }
@@ -199,6 +285,9 @@ internal fun Modifier.choiceCardGestures(key: Any, tap: () -> Unit, hold: (Boole
 internal enum class DragPhase { Start, Move, End, Cancel }
 
 private enum class Gesture { Hold, Tap, Drag, Cancel }
+
+/** TBL-038's quadratic ease-out: a moving card starts at once and slows into place. */
+private val EaseOutQuadratic = Easing { 1f - (1f - it) * (1f - it) }
 
 /** One area of a choice between two places (I-D48): its [label], its [icon] (on "All to …"), and whether the order
  * of its cards matters ([ordered]: a number on each card, first = top). */
@@ -253,7 +342,26 @@ internal fun TwoAreaChoice(state: TwoAreas, cards: Map<String, ChoiceCardData>, 
     var origin by remember { mutableStateOf(Offset.Zero) }
     val (width, height) = choiceCardSize()
     val half = with(LocalDensity.current) { height.toPx() / 2 }
+    // STK-044 (owner playtest 2026-11-06): a card that moves (a tap, a drop, "All to …") slides from where it was to its
+    // new place and the others slide to close the gap, at the card move speed (TBL-038)
+    val density = LocalDensity.current.density
+    val multiplier by rememberCardMovePreferences(LocalChoiceFrame.current.viewer).multiplierState()
+    val scope = rememberCoroutineScope()
+    val slides = remember { mutableStateMapOf<String, Animatable<Offset, AnimationVector2D>>() }
+    val placed = remember { HashMap<String, Offset>() }
+    var box by remember { mutableStateOf<LayoutCoordinates?>(null) }
+    fun placedAt(key: String, at: Offset) {
+        val before = placed.put(key, at) ?: return
+        if (before == at) return
+        val slide = slides.getOrPut(key) { Animatable(Offset.Zero, Offset.VectorConverter) }
+        val from = before + slide.value - at
+        val millis = cardMoveDurationMillis(from.getDistance() / density, DEFAULT_CARD_MOVE_SPEED * multiplier)
+        scope.launch { slide.snapTo(from); slide.animateTo(Offset.Zero, tween(millis, easing = EaseOutQuadratic)) }
+    }
     fun drop(key: String, at: Offset) {
+        // The dropped card slides from under the finger
+        placed[key] = at - origin - Offset(width.value * density / 2, height.value * density / 2)
+        slides[key]?.let { scope.launch { it.snapTo(Offset.Zero) } }
         val toSecond = second != null && (areas[true]?.contains(at) == true ||
             areas[false]?.contains(at) != true && areas[true]?.let { abs(it.center.y - at.y) } ?: Float.MAX_VALUE <
                 (areas[false]?.let { abs(it.center.y - at.y) } ?: Float.MAX_VALUE))
@@ -264,7 +372,7 @@ internal fun TwoAreaChoice(state: TwoAreas, cards: Map<String, ChoiceCardData>, 
         }
         state.place(key, toSecond, index)
     }
-    Box(modifier.onGloballyPositioned { origin = it.boundsInRoot().topLeft }) {
+    Box(modifier.onGloballyPositioned { origin = it.boundsInRoot().topLeft; box = it }) {
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             for (isSecond in listOfNotNull(false, second?.let { true })) {
                 val area = if (isSecond) second!! else first
@@ -284,10 +392,17 @@ internal fun TwoAreaChoice(state: TwoAreas, cards: Map<String, ChoiceCardData>, 
                         verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         keys.forEachIndexed { index, key ->
                             val card = cards[key] ?: return@forEachIndexed
-                            ChoiceCardFace(card, Modifier.alpha(if (dragged == key) .3f else 1f)
-                                .onGloballyPositioned { bounds[key] = it.boundsInRoot() }
+                            key(key) {
+                            ChoiceCardFace(card, Modifier
+                                .onGloballyPositioned { c ->
+                                    bounds[key] = c.boundsInRoot()
+                                    box?.takeIf { it.isAttached && c.isAttached }?.let { placedAt(key, it.localPositionOf(c, Offset.Zero)) }
+                                }
+                                .graphicsLayer { slides[key]?.value?.let { translationX = it.x; translationY = it.y } }
+                                .zIndex(if (slides[key]?.isRunning == true) 1f else 0f)
+                                .alpha(if (dragged == key) .3f else 1f)
                                 .choiceCardGestures(key, tap = { state.tap(key, single = second == null) },
-                                    hold = { inspector.hold(card, it) }, drag = { phase, at ->
+                                    hold = { inspector.hold(card, it) }, moved = inspector::moved, drag = { phase, at ->
                                         when (phase) {
                                             DragPhase.Start -> { dragged = key; pointer = at }
                                             DragPhase.Move -> pointer = at
@@ -296,7 +411,7 @@ internal fun TwoAreaChoice(state: TwoAreas, cards: Map<String, ChoiceCardData>, 
                                         }
                                     }),
                                 badge = if (area.ordered && keys.size > 1) "${index + 1}" else null)
-                        }
+                        } }
                         if (keys.isEmpty()) Text(if (second == null) "" else "Tap a card to move it here", Modifier.align(Alignment.CenterVertically),
                             fontSize = 11.sp, color = Color(0xff4b5a5f))
                     }

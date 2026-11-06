@@ -1,0 +1,1 @@
+mod: Cards in choice panels (scry, surveil, searches) are the size of your hand cards, and a card you tap there slides to its new place.

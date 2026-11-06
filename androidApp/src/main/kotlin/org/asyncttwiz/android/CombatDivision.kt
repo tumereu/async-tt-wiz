@@ -115,7 +115,7 @@ internal fun DivisionRows(draft: DivisionDraft, play: TableBoard, names: Map<Str
                     val played = play.board.cards.singleOrNull { it.id == card.cardId }
                     val face = choiceCard(play, LocalChoiceFrame.current.viewer, card.cardId, card.cardId, played?.isFaceDown == false, name)
                     ChoiceCardFace(face, Modifier.padding(end = 8.dp, top = 2.dp, bottom = 2.dp)
-                        .choiceCardGestures(card.cardId, tap = {}, hold = { inspector.hold(face, it) }), small = true)
+                        .choiceCardGestures(card.cardId, tap = {}, hold = { inspector.hold(face, it) }, moved = inspector::moved), small = true)
                 }
                 Text(if (draft.inOrder && creature) "${index + 1}. $name" else name, Modifier.weight(1f), fontSize = 14.sp, maxLines = 2)
                 if (draft.inOrder) Text("$amount", fontWeight = FontWeight.Bold, fontSize = 16.sp)

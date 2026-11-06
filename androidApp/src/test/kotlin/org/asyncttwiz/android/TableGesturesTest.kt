@@ -152,7 +152,7 @@ class TableGesturesTest {
             gestures.update(scene, true)
             val p = pile.bounds.center
             gestures.down(p, 0); gestures.tick(1000); gestures.up(p, 1050); gestures.tick(2000)
-            assertEquals(listOf<TableIntent>(TableIntent.Peek("$owner/$zone/pile0"), TableIntent.Peek(null)), events, pile.id)
+            assertEquals(listOf<TableIntent>(TableIntent.Peek("$owner/$zone/pile0"), TableIntent.Peek(null, released = true)), events, pile.id)
         }
     }
 
@@ -352,7 +352,7 @@ class TableGesturesTest {
                 1 -> f.gestures.cancel()
                 else -> f.gestures.transform(TablePoint(0f, 0f), 1f, point)
             }
-            assertEquals(TableIntent.Peek(null), f.events.filterIsInstance<TableIntent.Peek>().last())
+            assertEquals(TableIntent.Peek(null, released = end == 0), f.events.filterIsInstance<TableIntent.Peek>().last())
         }
     }
 
@@ -380,7 +380,41 @@ class TableGesturesTest {
             assertEquals(2, scrolls.size)
             assertEquals(40f, scrolls[0], .001f)
             assertEquals(-20f, scrolls[1], .001f)
-            assertEquals(listOf<TableIntent>(TableIntent.Peek("a/BATTLEFIELD/0"), TableIntent.Peek(null)), events)
+            assertEquals(listOf<TableIntent>(TableIntent.Peek("a/BATTLEFIELD/0"), TableIntent.Peek(null, released = true)), events)
+        }
+    }
+
+    // TBL-131 (owner 2026-11-06): while inspecting, a drag to the left is the pinned swipe's (measured in dp from where the
+    // hold began, nothing scrolls meanwhile); once the finger has scrolled up or down, sideways movement stays the scroll's
+    @Test fun aHeldDragToTheLeftIsThePinnedSwipeUnlessScrollingBegan() {
+        for (scrollFirst in listOf(false, true)) {
+            val events = mutableListOf<TableIntent>()
+            val scrolls = mutableListOf<Float>()
+            val swipe = InspectSwipe()
+            val scene = TableFixture.scene()
+            val gestures = TableGestureCoordinator(events::add, density = 2f, onPeekScroll = scrolls::add, onPeekSwipe = swipe::moved)
+            gestures.update(scene, false)
+            val start = scene.items.single { it.cardId == "a/BATTLEFIELD/0" }.visible.first().center
+            fun point(dx: Float = 0f, dy: Float = 0f) = gestures.pointFromPixels((start.x + dx) * 2f, (start.y + dy) * 2f)
+            gestures.down(point(), 0)
+            gestures.tick(400)
+            swipe.begin()
+            if (scrollFirst) gestures.move(point(dy = -40f), 420)
+            val scrolled = scrolls.size
+            gestures.move(point(dx = -60f, dy = if (scrollFirst) -42f else -4f), 440)
+            gestures.move(point(dx = -140f, dy = if (scrollFirst) -44f else -6f), 460)
+            gestures.up(point(dx = -140f, dy = if (scrollFirst) -44f else -6f), 480)
+            if (scrollFirst) {
+                assertEquals(0f, swipe.progress)
+                assertTrue(scrolls.size > scrolled, "still scrolling: $scrolls")
+                assertFalse(swipe.released())
+            } else {
+                assertEquals(scrolled, scrolls.size, "nothing scrolls during the swipe")
+                assertEquals(1f, swipe.progress)
+                assertTrue(swipe.released())
+                assertTrue(swipe.pinned)
+            }
+            assertEquals(TableIntent.Peek(null, released = true), events.last())
         }
     }
 
@@ -471,7 +505,7 @@ class TableGesturesTest {
         assertTrue(events.none { it is TableIntent.Rotate || it is TableIntent.Actions })
         events.clear()
         gesture.down(p, 500); gesture.tick(1100); gesture.up(p, 1150)
-        assertEquals(listOf<TableIntent>(TableIntent.Peek(card.cardId), TableIntent.Peek(null)), events)
+        assertEquals(listOf<TableIntent>(TableIntent.Peek(card.cardId), TableIntent.Peek(null, released = true)), events)
     }
 
     // CMB-009, CMB-007 (combat review #1: only the panel takes combat drops; its end drops reach its edges, no further)
@@ -634,7 +668,7 @@ class TableGesturesTest {
         val f = Fixture(); val p = f.point()
         f.gestures.down(p, 0); f.gestures.tick(500)
         f.gestures.move(TablePoint(p.x + 150, p.y - 80), 600); f.gestures.up(p, 700); f.gestures.tick(1100)
-        assertEquals(listOf<TableIntent>(TableIntent.Peek("a/BATTLEFIELD/0"), TableIntent.Peek(null)), f.events)
+        assertEquals(listOf<TableIntent>(TableIntent.Peek("a/BATTLEFIELD/0"), TableIntent.Peek(null, released = true)), f.events)
         val pile = f.scene.items.single { it.id == "a/LIBRARY" }.visible.first().center
         f.events.clear(); f.gestures.down(pile, 1200); f.gestures.tick(1800); f.gestures.up(pile, 1810)
         assertTrue(f.events.isEmpty())

@@ -21104,6 +21104,15 @@ internal class Sentences(
 
     /** mh2: lines of more than one ability. */
     private fun mh2Multi(line: String): List<Ability>? {
+        // mh2 chunk 13: "Each creature you control has vigilance if it's white, hexproof if it's blue, …": one rule for each colour
+        Mh2.EACH_CREATURE_HAS_KEYWORD_IF_ITS_COLOR.matchEntire(line)?.takeIf { it.groupValues[1].contains(" if it's ") }?.let { m ->
+            val parts = m.groupValues[1].split(", ").map { Mh2.KEYWORD_IF_ITS_COLOR.matchEntire(it) ?: return@let }
+            return parts.map { p ->
+                val keyword = OracleParser.keyword(p.groupValues[1].replaceFirstChar { it.uppercase() }) ?: return@let
+                Ability.Static(listOf(Mechanic.GainAbilities(listOf(keyword))), affects = Affected.Objects(Objects.Each(Filters.all(ObjectFilter.Type(CardType.Creature),
+                    ObjectFilter.ControlledBy(PlayerFilter.You), mh2Color(p.groupValues[2]) ?: return@let))))
+            }
+        }
         // mh2 chunk 02: "You and creatures you control have protection from the chosen card type." (you, CR 702.16k, and the creatures)
         Mh2.YOU_AND_HAVE_PROTECTION_FROM_CHOSEN_CARD_TYPE.matchEntire(line)?.let { m ->
             val objects = Filters.objects(m.groupValues[1]) ?: return null
@@ -21129,6 +21138,45 @@ internal class Sentences(
 
     /** mh2: static abilities. */
     private fun mh2Static(line: String): Ability? {
+        // mh2 chunk 13: "Equipped creature gets +5/+5 and has first strike, trample, indestructible, haste, and "Whenever this creature …"" (layer 6, 7c)
+        Mh2.GETS_AND_HAS_KEYWORDS_AND_QUOTED.matchEntire(line)?.takeIf { it.groupValues[1] == "Equipped creature" }?.let { m ->
+            val keywords = m.groupValues[4].split(", ").map { OracleParser.keyword(it.trim().replaceFirstChar { c -> c.uppercase() }) ?: return@let }
+            val quoted = Sentences(setOf("this creature")).line(m.groupValues[5]) ?: return@let
+            return Ability.Static(listOf(Mechanic.ModifyPowerToughness(Value.Fixed(m.groupValues[2].toInt()), Value.Fixed(m.groupValues[3].toInt())),
+                Mechanic.GainAbilities(keywords + quoted)), affects = Affected.Objects(Objects.AttachedTo(Objects.Self)))
+        }
+        // mh2 chunk 13: "Equipped creature gets +2/+2 and has protection from green and from white." (CR 702.16g)
+        Mh2.GETS_AND_HAS_PROTECTION_FROM_TWO.matchEntire(line)?.takeIf { it.groupValues[1] == "Equipped creature" }?.let { m ->
+            val keywords = listOf(arcanum.api.Keyword.Protection(mh2Color(m.groupValues[4]) ?: return@let), arcanum.api.Keyword.Protection(mh2Color(m.groupValues[5]) ?: return@let))
+            return Ability.Static(listOf(Mechanic.ModifyPowerToughness(Value.Fixed(m.groupValues[2].toInt()), Value.Fixed(m.groupValues[3].toInt())),
+                Mechanic.GainAbilities(keywords)), affects = Affected.Objects(Objects.AttachedTo(Objects.Self)))
+        }
+        // mh2 chunk 13: "If you would create a Clue, Food, or Treasure token, instead create one of each." (CR 614.1a: each of the three adds the other two)
+        if (Mh2.CREATE_CLUE_FOOD_TREASURE_INSTEAD_ONE_OF_EACH.matches(line)) {
+            val kinds = listOf("Clue", "Food", "Treasure")
+            return mh2SelfStatic(*kinds.map { kind ->
+                Mechanic.Replacement(EventPattern.CreateToken(Filters.all(ObjectFilter.Sub(arcanum.api.SubtypeRef.Literal(Subtype(kind))), ObjectFilter.ControlledBy(PlayerFilter.You))),
+                    modify = kinds.filter { it != kind }.map { Modification.AlsoCreate(arcanum.api.TokenSpec.Predefined(it), Value.EventAmount) })
+            }.toTypedArray())
+        }
+        // mh2 chunk 13: "Domain — This spell costs {2} less to cast for each basic land type among lands you control." (CR 601.2f)
+        Mh2.SPELL_COSTS_LESS_FOR_EACH_BASIC_LAND_TYPE.matchEntire(line)?.let { m ->
+            return mh2SelfStatic(Mechanic.CostChange(ObjectFilter.Is(Objects.Self), arcanum.api.CostChange.Less(ManaCost.parse(m.groupValues[1]) ?: return@let,
+                Mh2Phrases.value("the number of basic land types among lands you control", null) ?: return@let)))
+        }
+        // mh2 chunk 13: "This creature doesn't untap during your untap step if it has a +1/+1 counter on it."
+        Mh2.DOESNT_UNTAP_IF_HAS_COUNTER.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            return Ability.Static(listOf(Mechanic.DoesntUntap), affects = Affected.Objects(Objects.Self),
+                condition = arcanum.api.Condition.ObjectMatches(Objects.Self, ObjectFilter.HasCounter(Counters.kind(m.groupValues[2]) ?: return@let, atLeast = 1)))
+        }
+        // mh2 chunk 13: "Imprint — As this Vehicle enters, exile a creature card from a graveyard." (the card kept as this permanent's memory, CR 607.2a)
+        Mh2.AS_ENTERS_EXILE_A_CARD_FROM_A_GRAVEYARD.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            val noun = Filters.noun(m.groupValues[2]) ?: return@let
+            val exile = CostPart.Exile(CostObjects.Choose(Filters.all(noun, ObjectFilter.InZone(Zone.Graveyard)), count = Value.Fixed(1)), from = Zone.Graveyard,
+                postBind = "exiled", remember = EXILED_WITH)
+            return mh2SelfStatic(Mechanic.Replacement(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), to = Zone.Battlefield), modify = listOf(Modification.AsEnters(listOf(
+                Step.Pay(Cost(listOf(exile)), payer = Players.You, mandatory = true, bind = "paid"))))))
+        }
         // mh2 chunk 12: "Territorial Kavu's power and toughness are each equal to the number of basic land types among lands you control." (CR 604.3)
         Mh2.PT_EACH_EQUAL_TO.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
             val value = Mh2Phrases.value(m.groupValues[2], null) ?: return@let
@@ -21249,6 +21297,11 @@ internal class Sentences(
 
     /** mh2: trigger events. */
     private fun mh2Trigger(text: String): Pair<arcanum.api.Trigger.On, arcanum.api.Condition?>? {
+        // mh2 chunk 13: "this creature deals combat damage to a creature"
+        Mh2.DEALS_COMBAT_DAMAGE_TO_A_CREATURE.matchEntire(text)?.takeIf { isSelf(it.groupValues[1]) }?.let {
+            return arcanum.api.Trigger.On(EventPattern.Damage(ObjectFilter.Is(Objects.Self), arcanum.api.RecipientFilter(objects = ObjectFilter.Type(CardType.Creature)),
+                combat = true)) to null
+        }
         // mh2 chunk 11: "Carth enters or a planeswalker you control dies" (one ability, two events, CR 603.2)
         Mh2.SELF_ENTERS_OR_DIES.matchEntire(text)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
             val noun = Filters.noun(m.groupValues[2].removePrefix("a ").removePrefix("an ")) ?: return@let
@@ -21285,6 +21338,18 @@ internal class Sentences(
 
     /** mh2: instructions of several sentences read as a whole. */
     private fun mh2Whole(text: String, context: Context): List<Step>? {
+        // mh2 chunk 13: "exile up to one target creature you own, then search your library for a basic land card. Put both cards onto the battlefield
+        // under your control, then shuffle." (one event, CR 608.2c)
+        Mh2.EXILE_UP_TO_ONE_YOU_OWN_THEN_SEARCH_PUT_BOTH.matchEntire(text)?.let { m ->
+            val noun = Filters.noun(m.groupValues[1]) ?: return null
+            val searched = Filters.noun(m.groupValues[2]) ?: return null
+            val name = mh2NewSlotName(context, Filters.slotName(m.groupValues[1]))
+            context.targets += mh2Slot(name, Filters.all(noun, ObjectFilter.OwnedBy(PlayerFilter.You)), min = 0)
+            return listOf(Step.Do(Effect.Move(Objects.Target(name), Destination(Zone.Exile), postBind = "exiled")),
+                Step.Do(Effect.Search(Players.You, searched, max = Value.Fixed(1), zones = listOf(Zone.Library), bind = "found", searcher = Players.You)),
+                Step.Do(Effect.Move(Objects.Union(listOf(Objects.Bound("exiled"), Objects.Bound("found"))), Destination(Zone.Battlefield, controller = Players.You))),
+                Step.Do(Effect.Shuffle(Players.You)))
+        }
         // mh2 chunk 12: "Look at the top four cards of your library. Put one of them into your hand and the rest on the bottom of your library in a
         // random order."
         Mh2.LOOK_TOP_ONE_HAND_REST_BOTTOM.matchEntire(text)?.let { m ->
@@ -21633,6 +21698,28 @@ internal class Sentences(
         Mh2.EACH_OPPONENT_LOSES_LIFE_EQUAL_TO.matchEntire(sentence)?.let { m ->
             val amount = Values.value(m.groupValues[1]) ?: return@let
             return listOf(Step.Do(Effect.LoseLife(Players.Each(PlayerFilter.Opponent), amount)))
+        }
+        // mh2 chunk 13: "exile that creature." after damage to it; "counter that spell." after it was cast (the event's object)
+        if (sentence == "Exile that creature." && context.event is EventPattern.Damage)
+            return listOf(Step.Do(Effect.Move(Objects.EventObject(EventRole.Object), Destination(Zone.Exile))))
+        if (sentence == "Counter that spell." && context.event is EventPattern.Cast)
+            return listOf(Step.Do(Effect.Counter(Objects.EventObject(EventRole.Object))))
+        // mh2 chunk 13: "Target nonland permanent becomes an artifact in addition to its other types until end of turn." (layer 4)
+        Mh2.TARGET_BECOMES_TYPE_IN_ADDITION_UNTIL_EOT.matchEntire(sentence)?.let { m ->
+            val type = mapOf("artifact" to CardType.Artifact, "creature" to CardType.Creature, "enchantment" to CardType.Enchantment)[m.groupValues[2]] ?: return@let
+            val noun = Filters.noun(m.groupValues[1]) ?: return@let
+            val name = mh2NewSlotName(context, Filters.slotName(m.groupValues[1]))
+            context.targets += mh2Slot(name, noun)
+            return listOf(mh2UntilEndOfTurn(Objects.Target(name), Mechanic.SetTypes(add = listOf(type))))
+        }
+        // mh2 chunk 13: "Until end of turn, this Vehicle becomes a copy of the exiled card, except it's a Vehicle artifact in addition to its other
+        // types." (CR 707.9b)
+        Mh2.UNTIL_EOT_BECOMES_COPY_OF_EXILED_EXCEPT.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            val exiled = exiledCard ?: return@let
+            val type = mapOf("artifact" to CardType.Artifact, "creature" to CardType.Creature)[m.groupValues[3]] ?: return@let
+            if (m.groupValues[2] !in RulesWords.subtypes) return@let
+            return listOf(mh2UntilEndOfTurn(Objects.Self, Mechanic.CopyOf(exiled, except = listOf(arcanum.api.CopyException.Types(add = listOf(type),
+                addSubtypes = listOf(arcanum.api.SubtypeRef.Literal(Subtype(m.groupValues[2]))))))))
         }
         // mh2 chunk 04: "Put enchanted creature into its owner's library third from the top." (CR 401.4: from 0 at the top)
         Mh2.PUT_INTO_OWNERS_LIBRARY_NTH_FROM_TOP.matchEntire(sentence)?.let { m ->

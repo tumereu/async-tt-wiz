@@ -534,6 +534,11 @@ object OracleParser {
         }
         // mh2 chunk 12: "Echo—Discard a card." (CR 702.30a): a cost that isn't mana
         Mh2.ECHO_COST.matchEntire(part)?.let { m -> return Keyword.Echo(Sentences(setOf("this card")).cost(m.groupValues[1]) ?: return null) }
+        // mh2 chunk 13: "artifact landwalk" (CR 702.14c); "Artifact landcycling {2}" (CR 702.29e)
+        if (Mh2.ARTIFACT_LANDWALK.matches(part))
+            return Keyword.Landwalk(Filters.all(arcanum.api.ObjectFilter.Type(arcanum.api.CardType.Artifact), arcanum.api.ObjectFilter.Type(arcanum.api.CardType.Land)), part)
+        if (part.startsWith("Artifact landcycling ")) return Keyword.Typecycling(Filters.all(arcanum.api.ObjectFilter.Type(arcanum.api.CardType.Artifact),
+            arcanum.api.ObjectFilter.Type(arcanum.api.CardType.Land)), "Artifact landcycling", Cost.mana(ManaCost.parse(part.removePrefix("Artifact landcycling ")) ?: return null))
         // mh2 chunk 10: "Reinforce X—{X}{G}{G}" (CR 702.77a)
         if (part.startsWith("Reinforce X—")) return Keyword.ReinforceX(Cost.mana(ManaCost.parse(part.removePrefix("Reinforce X—")) ?: return null))
         // tdm chunk 12: "hexproof from monocolored" (CR 702.11d)

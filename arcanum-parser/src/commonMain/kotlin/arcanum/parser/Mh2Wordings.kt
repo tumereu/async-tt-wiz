@@ -112,6 +112,20 @@ internal object Mh2 {
     val EACH_OPPONENT_LOSES_LIFE_EQUAL_TO = Regex("""Each opponent loses life equal to (.+)\.""")
     val CHOOSE_NUMBER_FLIP_THAT_MANY = Regex("""Choose a number between (\d+) and (\d+)\. Flip that many coins\. For each flip you win, draw a card\. For each flip you lose, (.+?) deals (\d+) damage to you\. If you won (\w+) flips this way, you may cast spells from your hand this turn without paying their mana costs\.""")
     val LOOK_TOP_ONE_HAND_REST_BOTTOM = Regex("""Look at the top (\w+) cards of your library\. Put one of them into your hand and the rest on the bottom of your library in a random order\.""")
+    // mh2 chunk 13
+    val GETS_AND_HAS_KEYWORDS_AND_QUOTED = Regex("""(.+?) gets ([+-]\d+)/([+-]\d+) and has (.+), and "(.+)"""")
+    val GETS_AND_HAS_PROTECTION_FROM_TWO = Regex("""(.+?) gets ([+-]\d+)/([+-]\d+) and has protection from (\w+) and from (\w+)\.""")
+    val CREATE_CLUE_FOOD_TREASURE_INSTEAD_ONE_OF_EACH = Regex("""If you would create a Clue, Food, or Treasure token, instead create one of each\.""")
+    val SPELL_COSTS_LESS_FOR_EACH_BASIC_LAND_TYPE = Regex("""This spell costs (\{\d+\}) less to cast for each basic land type among lands you control\.""")
+    val EACH_CREATURE_HAS_KEYWORD_IF_ITS_COLOR = Regex("""Each creature you control has (.+)\.""")
+    val KEYWORD_IF_ITS_COLOR = Regex("""(?:and )?([a-z ]+) if it's (\w+)""")
+    val EXILE_UP_TO_ONE_YOU_OWN_THEN_SEARCH_PUT_BOTH = Regex("""Exile up to one target (.+?) you own, then search your library for an? (.+?) card\. Put both cards onto the battlefield under your control, then shuffle\.""")
+    val DOESNT_UNTAP_IF_HAS_COUNTER = Regex("""(.+) doesn't untap during your untap step if it has an? (\S+) counter on it\.""")
+    val TARGET_BECOMES_TYPE_IN_ADDITION_UNTIL_EOT = Regex("""Target (.+?) becomes an? (\w+) in addition to its other types until end of turn\.""")
+    val AS_ENTERS_EXILE_A_CARD_FROM_A_GRAVEYARD = Regex("""As (.+?) enters, exile an? (.+?) card from a graveyard\.""")
+    val UNTIL_EOT_BECOMES_COPY_OF_EXILED_EXCEPT = Regex("""Until end of turn, (.+?) becomes a copy of the exiled card, except it's an? (\w+) (\w+) in addition to its other types\.""")
+    val ARTIFACT_LANDWALK = Regex("""[Aa]rtifact landwalk""")
+    val DEALS_COMBAT_DAMAGE_TO_A_CREATURE = Regex("""(.+) deals combat damage to a creature""")
 }
 
 /** Values, conditions and nouns of Modern Horizons 2 (mh2) wordings. */
@@ -126,6 +140,9 @@ internal object Mh2Phrases {
             val noun = Filters.noun(m.groupValues[1]) ?: return@let
             return Condition.Exists(Filters.all(noun, ObjectFilter.ControlledBy(PlayerFilter.Opponent)), atLeast = 1)
         }
+        // mh2 chunk 13: "no colored mana was spent to cast it" (CR 601.2h)
+        if (text == "no colored mana was spent to cast it")
+            return Condition.Compare(Value.ManaSpent(distinctColors = true, of = Objects.EventObject(arcanum.api.EventRole.Object)), Comparison.Equal, Value.Fixed(0))
         // mh2 chunk 02: "Skyblade's Boon is on the battlefield or in your graveyard" (the zones it works in, CR 113.6b)
         Mh2.IS_ON_BATTLEFIELD_OR_IN_YOUR_GRAVEYARD.matchEntire(text)?.takeIf { isSelf(it.groupValues[1]) }?.let {
             return Condition.ObjectMatches(Objects.Self, ObjectFilter.Or(listOf(ObjectFilter.InZone(Zone.Battlefield), ObjectFilter.InZone(Zone.Graveyard))))

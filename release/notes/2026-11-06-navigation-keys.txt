@@ -1,0 +1,1 @@
+mod: On phones with navigation buttons, the back, home and recents buttons now show on every screen except the game table.

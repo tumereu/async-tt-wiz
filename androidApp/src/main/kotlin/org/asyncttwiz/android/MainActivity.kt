@@ -90,13 +90,24 @@ class MainActivity : ComponentActivity() {
         consumeActivityIntent(intent)
         consumeResetIntent(intent)
     }
+    /** Whether the game table is shown: it hides the navigation bar too (SYS-079). Set from composition. */
+    private var tableShown = false
+    private fun tableShown(shown: Boolean) {
+        if (shown == tableShown) return
+        tableShown = shown
+        fullscreen()
+    }
     private fun fullscreen() {
         // API29 can retain a visible status bar after rotation despite the decor FULLSCREEN bit.
         if (android.os.Build.VERSION.SDK_INT < 30)
             window.addFlags(android.view.WindowManager.LayoutParams.FLAG_FULLSCREEN)
+        val buttons = SystemBars.buttonNavigation(this)
         WindowInsetsControllerCompat(window, window.decorView).apply {
-            hide(WindowInsetsCompat.Type.systemBars())
             systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            hide(WindowInsetsCompat.Type.statusBars())
+            // The screens outside the table leave room for it (safe drawing insets).
+            if (SystemBars.navigationShown(tableShown, buttons)) show(WindowInsetsCompat.Type.navigationBars())
+            else hide(WindowInsetsCompat.Type.navigationBars())
         }
     }
 
@@ -216,7 +227,7 @@ class MainActivity : ComponentActivity() {
                         // I-D51: Automatum support icons work lists out with the device's card definitions.
                         androidx.compose.runtime.CompositionLocalProvider(LocalCardListSupport provides auth.cardListSupport) {
                         AccountEntry(auth.controller, auth.reset, catalog, auth.deckImport, auth.decks, auth.lobby, auth.cubes, exit = ::finish, pods = auth.pods,
-                            catalogPrompts = whatsNew.isEmpty())
+                            catalogPrompts = whatsNew.isEmpty(), tableShown = ::tableShown)
                         }
                     }
                     else Column(

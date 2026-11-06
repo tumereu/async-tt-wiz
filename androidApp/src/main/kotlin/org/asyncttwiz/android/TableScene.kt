@@ -61,7 +61,10 @@ internal fun TableSurface(game: GameSummary, play: TableBoard, accountId: String
                 }
                 is TableIntent.Peek -> {
                     if (intent.cardId != null) peekScroll.dispatchRawDelta(-peekScroll.value.toFloat())
-                    toolkit?.peek(intent.cardId)
+                    // TBL-111: holding a collapsed group inspects all its members, its top card first
+                    val group = presentation?.invoke()?.let { shown -> shown.groupOf(intent.cardId)
+                        ?.takeIf { it.members.size > 1 && it.key != shown.expandedGroup } }
+                    toolkit?.peek(intent.cardId, group?.inspectOrder)
                 }
                 is TableIntent.SearchPile -> toolkit?.openPublicPile(intent.containerId, toggle = false)
                 is TableIntent.Camera -> layout = layout.copy(camera = intent.camera)
@@ -77,11 +80,14 @@ internal fun TableSurface(game: GameSummary, play: TableBoard, accountId: String
                     val captured = owner.capturedActions ?: intent
                     if (toolkit != null) {
                         val item = owner.actionItem
-                        if (item != null) toolkit.open(captured, item)
+                        val shown = presentation?.invoke()
+                        // TBL-122: a battlefield card's tap is its group's (acts at once, or opens the group)
+                        if (item != null) { if (shown != null) toolkit.tap(captured, item, shown) else toolkit.open(captured, item) }
                     }
                 } else {
-                    // TBL-122: a tap on the empty table closes a battlefield card's ability chips
+                    // TBL-122: a tap on the empty table closes a battlefield card's ability chips and an opened group
                     toolkit?.closeAbilities()
+                    toolkit?.collapse()
                     if (!currentRuntime.reviewing) {
                         // CMB-032, CMB-034: a tap on the empty table clears the combat selection (a blocker finishes early)
                         toolkit?.combat?.clearSelection()
@@ -175,9 +181,11 @@ internal fun TableSurface(game: GameSummary, play: TableBoard, accountId: String
         }
         var previousLayout by remember { mutableStateOf(layout) }
         var previousSize by remember { mutableStateOf(maxWidth to maxHeight) }
-        // ZON-079 (owner playtest 2026-11-04 #9): raising or lowering a hand card is the only layout change that animates,
-        // at the card move speed; any other layout change (camera, panels) or a new size jumps
-        val raiseOnly = previousLayout != layout && previousLayout.copy(raised = layout.raised) == layout
+        // ZON-079 (owner playtest 2026-11-04 #9): raising or lowering a hand card and opening or closing a battlefield group
+        // (TBL-122) are the only layout changes that animate, at the card move speed; any other layout change (camera,
+        // panels) or a new size jumps
+        val raiseOnly = previousLayout != layout &&
+            previousLayout.copy(raised = layout.raised, expandedGroup = layout.expandedGroup) == layout
         val navigation = previousLayout != layout && !raiseOnly || previousSize != (maxWidth to maxHeight)
         // One interpolated scene feeds Canvas, hit testing AND semantic nodes. No destination-only overlays.
         val animation = remember(play.playId, accountId) { HistorySceneAnimation(targetScene) }
@@ -301,14 +309,19 @@ internal fun TableSurface(game: GameSummary, play: TableBoard, accountId: String
             val raisedSources = if (runtime.reviewing) emptySet() else toolkit?.hand?.sources(play).orEmpty()
             val shakeOffset = remember(shaking) { androidx.compose.animation.core.Animatable(0f) }
             LaunchedEffect(shaking) { if (shaking != null) shakeOffset.animateTo(0f, shakeKeyframes()) }
+            // TBL-117, TBL-122: what a tap on each collapsed group of several does, for its glow's colour (live table only)
+            val groupTaps = if (toolkit == null || runtime.reviewing) emptyMap() else scene.battlefieldGroups
+                .filter { it.members.size > 1 && it.key != scene.expandedGroup }.associate { it.key to toolkit.groupTap(play, it) }
             Box(Modifier.fillMaxWidth().height(48.dp).background(barColor))
             Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(tableBottomHeight(landscape).dp)
                 .background(barColor))
             Canvas(Modifier.fillMaxSize()) {
                 DebugLatency.tapFrame(game.id, progress.value, refreshRate)
                 val frame = rendered.value
+                val glows = TableGlows.of(frame.scene.battlefieldGroups, groupTaps, glow.alphas(), castGlow)
                 drawTable(frame.scene, accountId, play.board.turn.accountId, preview, frame.alphas, artwork, drawCache,
-                    presenceDot, castGlow, glow.alphas(), shaking?.let { it.id to shakeOffset.value }?.takeIf { it.second != 0f }, raisedSources)
+                    presenceDot, glows.targets, glows.playable, shaking?.let { it.id to shakeOffset.value }?.takeIf { it.second != 0f }, raisedSources,
+                    expandGlow = glows.expand)
             }
             TableSemanticNodes(game, play, scene, semanticItems, rendered, runtime, { currentRuntime }, coordinator, writable, toolkit,
                 { preview }, layoutState)

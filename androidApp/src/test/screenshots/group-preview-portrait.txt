@@ -1,0 +1,1 @@
+Portrait table: holding Alice's face-down creature with two cards attached to it and moving the finger up scrolls the one Inspect view of the whole group from the face-down creature (shown to Alice dimmed with a Face down label) down to the first card attached to it.

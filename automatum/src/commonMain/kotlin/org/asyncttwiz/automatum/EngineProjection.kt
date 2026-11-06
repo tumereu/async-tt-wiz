@@ -44,6 +44,7 @@ import org.asyncttwiz.protocol.ResultSuggestion as AtwSuggestion
  *   controller), exile (by the owner) and the Stack (entries top first). A spell's card stays in the zone it was cast
  *   from with a Stack entry pointing at it (STK-001, STK-045).
  * - What [viewer] may not see is covered (a card in a hidden zone they may see, looked at or revealed, is known to them).
+ * - A merged permanent's other cards (mutate, CR 730.2) lie on its Battlefield as cards attached to it (SYS-074).
  * - Battlefield places come from the table state, else the first free cell of the card's normal row
  *   ([org.asyncttwiz.protocol.BattlefieldPlacement]), in timestamp order.
  * - The combat lanes show the engine's combat (a pair per attacker), or the shared attack and block staging before they are
@@ -160,7 +161,27 @@ object EngineProjection {
                 typedCounters = EngineCodec.counters(obj.counters),
                 attachedTo = obj.attachedTo?.let(::ref),
             )
-            add(target.id, obj, card)
+            // SYS-074 (Arena style, TBL-053): a merged permanent's other cards lie on its Battlefield behind it, as cards
+            // attached to it (no permanents of their own). The card in front shows the top card's picture: merged on top,
+            // the permanent's own card and its top component swap pictures
+            val parts = if (playZone == PlayZone.BATTLEFIELD) obj.mergedAbove + obj.mergedBelow else emptyList()
+            fun partShown(part: arcanum.engine.state.MergedPart): Pair<String, String> {
+                val prepared = byCard[part.id.card.value]
+                val partDigest = if (prepared != null && !part.token && !part.copyOfCard) prepared.definition
+                    else part.definition?.let { AtwTokens.submitted(it, token = true).also { d -> definitions[d.digest] = d }.digest }
+                        ?: prepared?.definition ?: UNKNOWN.digest.also { definitions[it] = UNKNOWN }
+                val faces = definitions[partDigest]?.definition?.faces.orEmpty()
+                return partDigest to ((faces.getOrNull(part.face) ?: faces.firstOrNull())?.faceId ?: "")
+            }
+            val top = obj.mergedAbove.firstOrNull()?.takeIf { playZone == PlayZone.BATTLEFIELD }
+            add(target.id, obj, top?.let { partShown(it).let { (d, f) -> card.copy(definition = d, faceId = f) } } ?: card)
+            for (part in parts) {
+                val (partDigest, partFace) = if (part == top) card.definition to card.faceId else partShown(part)
+                add(target.id, obj, PlayCard(id = part.id.card.value, definition = partDigest, owner = part.owner.value,
+                    containerId = target.id, faceId = partFace, covered = card.covered, tapped = obj.tapped,
+                    token = part.token || part.copyOfCard, zoneChanges = part.id.zoneChanges, timestamp = part.timestamp,
+                    attachedTo = ref(obj.id)))
+            }
         }
 
         // Battlefield places: the table state's, else the first free cell of the card's row, in timestamp order

@@ -189,26 +189,17 @@ class TableAnimationTest {
     }
 
     // TBL-002
-    @Test fun adjacentColumnsKeepFixedCentersThroughoutRotationsAndEndpointsDoNotIntersect() {
-        // Null placement is the old-game fallback; retained integer and fractional presentation
-        // anchors must behave identically. All columns remain one grid unit apart.
-        for (landscape in listOf(false, true)) for (zoom in listOf(.65f, 1f, 1.37f, 2f))
-            for (placementKind in 0..2) for (pileIndex in 0..2) {
-                val initial = TableFixture.play(board = 3)
+    @Test fun adjacentGroupsKeepFixedCentersThroughoutRotationsAndEndpointsDoNotIntersect() {
+        // Three different cards, each a group of its own one slot apart (the back row from the right: the first rightmost);
+        // tapping never moves a group
+        for (landscape in listOf(false, true)) for (zoom in listOf(.65f, 1f, 1.37f, 2f)) {
+                val initial = TableFixture.apart(TableFixture.play(board = 3))
                 fun scene(mask: Int): TableScene {
                     val play = initial.copy(board = initial.board.copy(cards = initial.board.cards.map { card ->
-                        if (!card.containerId.endsWith("BATTLEFIELD")) card else {
-                            val column = card.id.last().digitToInt()
-                            card.copy(tapped = mask and (1 shl column) != 0,
-                                placement = if (placementKind == 1) PlayPlacement(BoardPosition(column, 0), card.id) else null)
-                        }
+                        if (!card.containerId.endsWith("BATTLEFIELD")) card
+                        else card.copy(tapped = mask and (1 shl card.id.last().digitToInt()) != 0)
                     }))
-                    val placements = if (placementKind == 1 && pileIndex == 0) emptyMap() else
-                        play.board.cards.filter { it.containerId.endsWith("BATTLEFIELD") }.associate { card ->
-                            card.id to TablePlacement(card.id.last().digitToInt() + if (placementKind == 2) .35f else 0f,
-                                0f, pileIndex)
-                        }
-                    return TableFixture.scene(play, landscape, TableLayoutState(TableCamera(zoom = zoom)), placements)
+                    return TableFixture.scene(play, landscape, TableLayoutState(TableCamera(zoom = zoom)))
                 }
                 val scenes = (0..7).map(::scene)
                 for (from in 0..7) for (to in 0..7) {
@@ -231,7 +222,7 @@ class TableAnimationTest {
                                 assertTrue(b.width <= 49f * zoom && b.height <= 49f * zoom)
                                 b
                             }
-                            drawn.zipWithNext().forEach { (a, b) -> assertEquals(42f * zoom, b.center.x - a.center.x, .001f) }
+                            drawn.zipWithNext().forEach { (a, b) -> assertEquals(42f * zoom, a.center.x - b.center.x, .001f) }
                             if (step == 0 || step == 20) for (a in drawn.indices) for (b in a + 1 until drawn.size)
                                 assertNull(drawn[a].intersection(drawn[b]), "Overlapping endpoints: $from->$to frame $step zoom $zoom")
                         }

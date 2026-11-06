@@ -5,18 +5,24 @@ import org.junit.Test
 import kotlin.test.*
 
 class TableWorldTest {
-    // TBL-013
-    @Test fun panExposesThreeEmptyColumnsBeyondBothBattlefieldsWithoutChangingFitBounds() {
+    // TBL-013: the pan area reaches 3 card slots past the outermost cards on the left and right; Fit table (the world's
+    // bounds) doesn't count them
+    @Test fun panExposesThreeEmptySlotsBeyondBothBattlefieldsWithoutChangingFitBounds() {
         val f = TableStatesFixture
-        val play = f.combat()
-        val cards = play.board.cards.filter { c -> play.board.containers.any { it.id == c.containerId && it.zone == PlayZone.BATTLEFIELD } }
-        val positions = cards.mapIndexed { i, c -> c.id to TablePlacement(if (i % 2 == 0) -4 else 12, 0) }.toMap()
+        // Twenty more creatures of Alice's, each different: her creature row is wider than either screen
+        val combat = f.combat()
+        val creature = f.source(f.a, "1/3")
+        val extra = (0 until 20).map { n -> creature.copy(id = f.id("extra$n"), corner = "$n/$n", placement = null) }
+        val play = combat.copy(board = combat.board.copy(cards = combat.board.cards + extra, containers = combat.board.containers.map {
+            if (it.id == creature.containerId) it.copy(cards = it.cards + extra.map(PlayCard::id)) else it }))
+        val pitch = TablePresentation.COLUMN_PITCH
         for (landscape in listOf(false, true)) {
             val scene = TablePresentation.scene(f.game, tableBoard(play), f.a, if (landscape) 892f else 412f,
-                if (landscape) 412f else 892f, landscape, placements = positions)
+                if (landscape) 412f else 892f, landscape)
             val world = scene.world!!
-            assertTrue(world.panBounds.x <= -7 * TablePresentation.COLUMN_PITCH)
-            assertTrue(world.panBounds.right >= 16 * TablePresentation.COLUMN_PITCH)
+            assertEquals(world.bounds.x - 3 * pitch, world.panBounds.x, .001f)
+            assertEquals(world.bounds.right + 3 * pitch, world.panBounds.right, .001f)
+            assertTrue(scene.items.any { it.battlefieldCard })
             for (zoom in listOf(.65f, 1f, 2f)) {
                 val left = world.clamp(TableCamera(-10000f, zoom = zoom))
                 val right = world.clamp(TableCamera(10000f, zoom = zoom))

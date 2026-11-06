@@ -25,7 +25,7 @@ model, where the table was changed by hand, is gone with its entries.
 ## Entry format
 
 ```
-- **TBL-012** A double tap on empty battlefield without dragging zooms to fit the whole table (empty columns are not counted). (r2)
+- **TBL-012** A double tap on empty battlefield without dragging zooms to fit the whole table: both battlefields' rows and every card on them. (r53)
 ```
 
 - One line, plain words, what a player sees or can do. Exact numbers the owner

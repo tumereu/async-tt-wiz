@@ -308,7 +308,11 @@ class TableGesturesTest {
     }
 
     @Test fun closingSameCardRingSuppressesOnlySingleTapAndStillAllowsDoubleDragAndPeek() {
-        val f = Fixture()
+        // The battlefield cards are creatures: their stack lies at the left of the row nearest the middle, away from the Stack
+        // pinned at the right edge (its first card's strip is what is pressed)
+        val creatures = TableFixture.play(board = 3, hand = 2).let { p -> p.copy(definitions = p.definitions.map { d -> d.copy(
+            definition = d.definition.copy(faces = d.definition.faces.map { it.copy(typeLine = "Creature — Test") })) }) }
+        val f = Fixture(TableFixture.scene(creatures))
         val point = f.point()
         f.tap(0); f.gestures.tick(400); f.events.clear()
         f.gestures.down(point, 500, f.item().cardId); f.gestures.up(point, 520)
@@ -317,14 +321,16 @@ class TableGesturesTest {
         assertEquals(1, f.events.filterIsInstance<TableIntent.Rotate>().size)
         assertTrue(f.events.none { it is TableIntent.Actions })
         f.events.clear()
+        // ZON-077: a drag from the battlefield card pans the table
         val end = TablePoint(350f, f.scene.fields.last().bounds.center.y)
         f.gestures.down(point, 1000, f.item().cardId); f.gestures.move(end, 1080); f.gestures.up(end, 1100)
-        assertEquals(1, f.events.filterIsInstance<TableIntent.Move>().size)
-        f.events.clear()
+        assertTrue(f.events.any { it is TableIntent.Camera } && f.events.none { it is TableIntent.Move })
+        // The pan springs back to its bounds meanwhile (Camera); only the hold's own intents count
+        f.gestures.tick(1400); f.events.clear()
         f.gestures.down(point, 1500, f.item().cardId); f.gestures.tick(1849)
-        assertTrue(f.events.isEmpty())
+        assertTrue(f.events.none { it !is TableIntent.Camera })
         f.gestures.tick(1850)
-        assertEquals(listOf<TableIntent>(TableIntent.Peek(f.item().cardId)), f.events)
+        assertEquals(listOf<TableIntent>(TableIntent.Peek(f.item().cardId)), f.events.filter { it !is TableIntent.Camera })
     }
 
     @Test fun dismissingRingDoesNotSuppressAnotherCardsActions() {
@@ -387,11 +393,8 @@ class TableGesturesTest {
             val d = TableDestination.Grid("a/BATTLEFIELD", 5, row)
             val preview = TableGesturePreview(scope = scope, destination = d)
             val landing = tableDragLanding(scene, preview)
-            assertEquals(2, landing.outlines.size)
-            assertNotEquals(landing.outlines[0], landing.outlines[1])
-            val field = scene.fields.last()
-            assertTrue(landing.outlines.all { it.intersection(field.bounds) == it })
-            if (row == 0) assertTrue(landing.outlines.all { it.intersection(field.landsBounds(true, scene.camera)) != null })
+            // TBL-004: the battlefield lays itself out: the drop lights up the battlefield it lands on
+            assertEquals(listOf(scene.fields.last().bounds), landing.outlines)
         }
         for (zone in listOf(PlayZone.LIBRARY, PlayZone.GRAVEYARD, PlayZone.EXILE, PlayZone.STACK)) {
             val item = scene.items.first { it.kind == TableItemKind.PILE && it.zone == zone }
@@ -581,19 +584,19 @@ class TableGesturesTest {
             assertEquals(1, events.count { it == TableIntent.DismissTapUi })
         }
     }
-    @Test fun battlefieldDragOntoHandFaceTargetsHandContainer() {
+    // ZON-077: nothing is placed by hand: a drag that starts on a battlefield card pans the table, even onto a hand
+    @Test fun battlefieldDragPansTheTableInsteadOfMovingTheCard() {
         val scene = TableFixture.scene(TableFixture.play(board = 1, hand = 2))
         val events = mutableListOf<TableIntent>()
         val gestures = TableGestureCoordinator(events::add)
         gestures.update(scene, true)
         val start = scene.items.single { it.cardId == "a/BATTLEFIELD/0" }.visible.first().center
         val end = scene.items.single { it.cardId == "a/HAND/1" }.visible.first().center
-        gestures.down(start, 0); gestures.move(end, 80); gestures.up(end, 100)
-        val d = assertIs<TableDestination.Container>(events.filterIsInstance<TableIntent.Move>().single().destination)
-        assertEquals("a/HAND", d.id)
-        assertEquals(PlayZone.HAND, d.zone)
-        assertNotNull(d.handGap)
-        assertTrue(events.none { it is TableIntent.Actions || it is TableIntent.Rotate })
+        gestures.down(start, 0); gestures.move(end, 80)
+        assertNull(gestures.preview.scope, "no card lifted")
+        gestures.up(end, 100)
+        assertTrue(events.any { it is TableIntent.Camera })
+        assertTrue(events.none { it is TableIntent.Move || it is TableIntent.Actions || it is TableIntent.Rotate })
     }
     private class Fixture(val scene: TableScene = TableFixture.scene(), writable: Boolean = true) {
         val events = mutableListOf<TableIntent>()
@@ -639,15 +642,15 @@ class TableGesturesTest {
     // TBL-051
     @Test fun dragCapturesIdsDuringReflowAndEmitsOnlyOnceOnValidRelease() {
         val f = Fixture()
-        val start = f.point(); val dest = TablePoint(350f, f.scene.fields.last().bounds.center.y)
+        val start = f.point("a/HAND/0"); val dest = TablePoint(start.x, f.scene.fields.last().bounds.center.y)
         f.gestures.down(start, 0); f.gestures.move(dest, 100)
         assertTrue(f.events.isEmpty()); assertNotNull(f.gestures.preview.destination)
         f.gestures.update(f.scene.copy(items = f.scene.items.reversed()), true)
         f.gestures.up(dest, 200); f.gestures.tick(1000)
         val move = f.events.filterIsInstance<TableIntent.Move>().single()
-        assertEquals(listOf("a/BATTLEFIELD/0"), move.scope.cardIds)
+        assertEquals(listOf("a/HAND/0"), move.scope.cardIds)
         assertTrue(move.destination is TableDestination.Grid)
-        assertEquals("a/BATTLEFIELD", move.sources.getValue("a/BATTLEFIELD/0").containerId)
+        assertEquals("a/HAND", move.sources.getValue("a/HAND/0").containerId)
         assertTrue(f.events.none { it is TableIntent.Actions || it is TableIntent.Rotate || it is TableIntent.Peek })
     }
 

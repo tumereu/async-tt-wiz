@@ -1,0 +1,1 @@
+mod: The battlefield now arranges itself, like MTG Arena: creatures in the row toward the middle, lands and other permanents in the back row, identical cards in one stack, and Auras and Equipment tucked behind the creature they're on. Cards are no longer moved by hand; dragging on the battlefield moves the view.

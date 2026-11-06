@@ -38,7 +38,10 @@ internal fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: 
     /** I-D46 (b): the item shaken by a refused gesture (an item id, card id or "life/<account>") and its offset in dp. */
     shake: Pair<String, Float>? = null,
     /** ZON-079 (I-D50): the mana sources Autotap would tap for the raised hand card, outlined in amber, by card id. */
-    sources: Set<String> = emptySet()) {
+    sources: Set<String> = emptySet(),
+    /** TBL-117, TBL-122: the members of the battlefield groups a tap opens, glowing in [GroupExpandGlow] from behind: card
+     * id to the glow's strength. */
+    expandGlow: Map<String, Float> = emptyMap()) {
     val density = density
     with(TableCardPainter(density, scene, cache, artwork)) {
     scene.viewports.firstOrNull { it.id == "sidebar" }?.bounds?.let { b ->
@@ -257,14 +260,27 @@ internal fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: 
                           drawRoundRect(AutomatumCyan.copy(alpha = .16f * glowAlpha), xy(x - spread, y - spread),
                               size(cardWidth + 2 * spread, cardHeight + 2 * spread), CornerRadius((2 + spread) * density))
                       }
+                      // TBL-122: a group a tap opens glows in its own colour, a thin grey edge setting it off the table
+                      val expandAlpha = if (expandGlow.isEmpty()) 0f else expandGlow[i.cardId] ?: 0f
+                      if (expandAlpha > 0f) {
+                          for (ring in 4 downTo 1) {
+                              val spread = ring.toFloat()
+                              drawRoundRect(GroupExpandGlow.copy(alpha = .75f * expandAlpha), xy(x - spread, y - spread),
+                                  size(cardWidth + 2 * spread, cardHeight + 2 * spread), CornerRadius((2 + spread) * density))
+                          }
+                          drawRoundRect(GroupExpandEdge.copy(alpha = .9f * expandAlpha), xy(x - 4f, y - 4f),
+                              size(cardWidth + 8f, cardHeight + 8f), CornerRadius(6f * density), style = Stroke(1.2f * density))
+                      }
                       scale(i.flipScale, 1f, xy(b.center.x, b.center.y)) { cardFace(i, x, y, color, i.value) }
                       if (i.copies > 1) {
                           val label = "×${i.copies}"
-                          paint.textSize = 11 * density
-                          val badgeWidth = cache.measure(label) / density + 6f
-                          drawRoundRect(color, xy(x, y + cardHeight - 16f), size(badgeWidth, 16f), CornerRadius(3 * density))
+                          // TBL-053: a battlefield stack's count badge is sized with its card (a panel's keeps its size)
+                          val s = if (i.zone == PlayZone.BATTLEFIELD && i.viewport != "combat") z * .7f else 1f
+                          paint.textSize = 11 * s * density
+                          val badgeWidth = cache.measure(label) / density + 6f * s
+                          drawRoundRect(color, xy(x, y + cardHeight - 16f * s), size(badgeWidth, 16f * s), CornerRadius(3 * s * density))
                           paint.color = android.graphics.Color.WHITE
-                          text(label, x + 3f, y + cardHeight - 4f, label.length)
+                          text(label, x + 3f * s, y + cardHeight - 4f * s, label.length)
                           paint.color = android.graphics.Color.DKGRAY
                       }
                      paint.textSize = 11 * density

@@ -97,8 +97,8 @@ class EngineTableGesturesTest {
         assertEquals("pile/${graveyard.id}", toolkit.panel, "the Graveyard's menu: only Search")
     }
 
-    // ZON-077, ZON-004, TBL-118: a hand card dragged onto the Battlefield is played as with a double-tap; a Battlefield
-    // card dragged to the Graveyard goes back and shakes, without a message, and nothing is sent
+    // ZON-077, ZON-004: a hand card dragged onto the Battlefield is played as with a double-tap; a drag that starts on a
+    // Battlefield card (toward the Graveyard) pans the table: nothing is lifted, said or sent
     @Test fun aDragIsWhatItMeansToAutomatum() {
         kit.opening()
         val land = kit.atw(kit.hand("Mountain").first())
@@ -112,9 +112,9 @@ class EngineTableGesturesTest {
         val tip = kit.alice.device.session.tip
         kit.gestures().let { (gestures, emitted) ->
             kit.drag(gestures, kit.item(land).bounds.center, kit.pile(PlayZone.GRAVEYARD).bounds.center)
-            assertTrue(emitted.any { it is TableIntent.Move && it.drag }, "$emitted")
+            assertTrue(emitted.none { it is TableIntent.Move } && emitted.any { it is TableIntent.Camera }, "$emitted")
         }
-        assertEquals(land, toolkit.shaking?.id, "the card shakes")
+        assertNull(toolkit.shaking, "nothing shakes")
         assertNull(toolkit.error, "no message")
         kit.settle()
         assertEquals(tip, kit.alice.device.session.tip, "nothing was sent")

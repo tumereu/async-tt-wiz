@@ -20,39 +20,12 @@ fun tableDragLanding(scene: TableScene, preview: TableGesturePreview): TableDrag
         val hands = landings.flatMap { landing -> listOfNotNull(landing.hand?.let { it to landing.insertionX }) + landing.additionalHands }
         return TableDragLanding(landings.flatMap { it.outlines }, hands.firstOrNull()?.first, hands.firstOrNull()?.second, hands.drop(1))
     }
-    val zoom = scene.camera.zoom
-    val fieldScale = scene.cardWidth / 28f
     val ids = scope.cardIds
-    fun outline(id: String, x: Float, y: Float): TableBounds {
-        val item = scene.items.firstOrNull { it.cardId == id }
-        val source = if (item?.viewport == "combat") scene.items.firstOrNull { it.cardId == item.sourceId && !it.projection } else item
-        val tapped = source?.tapped == true
-        return TableBounds(x, y, if (tapped) scene.cardHeight else scene.cardWidth,
-            if (tapped) scene.cardWidth else scene.cardHeight)
-    }
     return when (destination) {
-        is TableDestination.Grid -> {
-            val field = scene.fields.firstOrNull { it.containerId == destination.containerId } ?: return TableDragLanding()
-            val context = scene.sources[scope.contextId]?.placement
-            val positions = ids.mapIndexed { index, id ->
-                val old = scene.sources[id]?.placement
-                id to if (context != null && old != null) TablePoint(destination.column + old.column - context.column,
-                    destination.row + old.row - context.row) else TablePoint((destination.column + index).toFloat(), destination.row.toFloat())
-            }
-            if (positions.groupBy { it.second }.any { (p, members) -> members.size > 3 || scene.items.any {
-                it.cardId !in ids && it.viewport == field.containerId && scene.sources[it.cardId]?.placement?.let { old ->
-                    old.column == p.x && old.row == p.y } == true } }) return TableDragLanding()
-            val slots = positions.groupBy { it.second }.flatMap { (p, members) -> members.mapIndexed { n, (id, _) ->
-                val x = field.originX + p.x * scene.columnPitch + 16 * fieldScale
-                val dy = p.y * field.rowHeight
-                val rowY = if (field == scene.fields.last()) field.gridBounds.bottom - field.rowHeight - dy else field.gridBounds.y + dy
-                val baseY = rowY + (field.rowHeight - scene.footprint) / 2
-                val b = outline(id, 0f, 0f)
-                battlefieldCardBounds(TableBounds(x, baseY, scene.columnPitch, scene.footprint), b.width, b.height, n, fieldScale)
-                    .intersection(field.bounds)
-            } }.filterNotNull()
-            TableDragLanding(slots)
-        }
+        // TBL-052, TBL-004: the battlefield lays itself out, so a card dropped on it lights up the battlefield it lands on
+        is TableDestination.Grid -> TableDragLanding(listOfNotNull(scene.fields.firstOrNull { it.containerId == destination.containerId }?.bounds))
+        is TableDestination.CardPile -> TableDragLanding(listOfNotNull(scene.items.firstOrNull { it.cardId == destination.cardId }
+            ?.let { card -> scene.fields.firstOrNull { it.containerId == card.viewport } }?.bounds))
         is TableDestination.Container -> {
             val item = scene.items.firstOrNull { it.id == destination.id } ?: return TableDragLanding()
             if (destination.zone == PlayZone.HAND) {
@@ -68,13 +41,6 @@ fun tableDragLanding(scene: TableScene, preview: TableGesturePreview): TableDrag
                 TableDragLanding(ids.take(3).mapIndexedNotNull { n, _ -> TableBounds(x - n * step, y - n * step,
                     item.bounds.width, item.bounds.height).intersection(port) })
             }
-        }
-        is TableDestination.CardPile -> {
-            val target = scene.items.firstOrNull { it.cardId == destination.cardId } ?: return TableDragLanding()
-            TableDragLanding(ids.mapIndexed { n, id ->
-                val b = outline(id, 0f, 0f)
-                battlefieldCardBounds(target.footprint, b.width, b.height, n, fieldScale)
-            })
         }
         is TableDestination.Combat -> {
             val target = destination.destination

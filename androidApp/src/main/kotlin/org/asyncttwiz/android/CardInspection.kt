@@ -8,8 +8,8 @@ import org.asyncttwiz.protocol.*
 
 /**
  * Inspect in a game (TBL-104): what holding a card (or an ability's entry on the Stack) shows while the finger stays, only
- * pictures: an ability's tile first (STK-046), then every face the viewer may see of the card (TBL-106), then each card
- * under it in its battlefield pile (TBL-111). A face-down card stays hidden from the opponent (TBL-109).
+ * pictures: an ability's tile first (STK-046), then every face the viewer may see of the card (TBL-106), then the other
+ * members of its battlefield group held with it (TBL-111). A face-down card stays hidden from the opponent (TBL-109).
  */
 @Composable
 internal fun GameplayCardInspection(state: TableBoard, viewer: String, inspection: ManualInspection, close: () -> Unit,
@@ -30,8 +30,9 @@ internal fun gameInspectTiles(state: TableBoard, viewer: String, inspection: Man
         InspectTile.Ability("ability/$entry", shown, StackAbilities.details(state, entry, viewer, names),
             CombatStackRules.controller(state.board, entry) == viewer)
     }
-    // TBL-111: holding a battlefield card that lies on others shows it and every card under it
-    val below = if (inspection.snapshot == null) battlefieldPileBelow(state.board, inspection.cardId) else emptyList()
+    // TBL-111: holding a battlefield group shows each of its members in turn
+    val below = if (inspection.snapshot == null) inspection.group.mapNotNull { id -> state.board.cards.firstOrNull { it.id == id } }
+        else emptyList()
     val faceDown = CombatStackRules.faceDownEntry(state.board, inspection.cardId)
     return listOfNotNull(ability) + cardTiles(state, viewer, card, inspection, faceDown, inspection.cardId in CombatStackRules.projectionIds(state.board)) +
         below.flatMap { cardTiles(state, viewer, it, null, false, false) }
@@ -58,15 +59,4 @@ private fun cardTiles(state: TableBoard, viewer: String, card: PlayCard, inspect
     val faceDown = ManualDisclosure.faceDownOutsideHiddenZones(state.board, card) || faceDownEntry
     return inspectFaces(shown, faces.indexOfFirst { it.faceId == card.faceId }, flippedOnTable(definition, card.faceId), card.id,
         if (card.owner == viewer) OwnTableColor else OpponentTableColor, card.token, projection, faceDown)
-}
-
-/** TBL-111: the cards under [cardId] in its battlefield pile (TBL-053), top first; empty when nothing lies under it. */
-internal fun battlefieldPileBelow(board: BoardState, cardId: String): List<PlayCard> {
-    val card = board.cards.singleOrNull { it.id == cardId } ?: return emptyList()
-    val placement = card.placement ?: return emptyList()
-    val field = board.containers.singleOrNull { it.id == card.containerId && it.zone == PlayZone.BATTLEFIELD } ?: return emptyList()
-    val byId = board.cards.associateBy { it.id }
-    // The container order is the pile order, top first (TablePresentation.logicalPlacements).
-    val pile = field.cards.mapNotNull { byId[it] }.filter { it.placement == placement }
-    return pile.drop(pile.indexOfFirst { it.id == cardId } + 1)
 }

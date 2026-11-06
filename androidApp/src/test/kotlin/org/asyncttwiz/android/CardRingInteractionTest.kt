@@ -89,9 +89,10 @@ class CardRingInteractionTest {
         compose.onNodeWithContentDescription("Inspect other side").assertDoesNotExist()
     }
 
-    // SYS-042, TBL-068
-    @Test fun outsideDragSurvivesRingDismissalAndMovesCard() {
-        render(contextId = copy)
+    // SYS-042, TBL-068: a drag outside the menu closes it and still goes through to the table (here the card, lifted with
+    // the combat area open, goes back where the layout puts it: nothing is placed by hand on the battlefield, ZON-077)
+    @Test fun outsideDragSurvivesRingDismissalAndReachesTheTable() {
+        val toolkit = render(contextId = copy)
         compose.mainClock.advanceTimeBy(600)
         val point = sourcePoint()
         val field = TablePresentation.scene(f.game, tableBoard(f.combat()), f.a, 412f, 892f, false).fields.last().bounds
@@ -99,7 +100,7 @@ class CardRingInteractionTest {
             swipe(point, Offset(field.right - 24f, field.center.y), 160)
         }
         compose.onNodeWithContentDescription("Card action ring").assertDoesNotExist()
-        compose.runOnIdle { assertIs<PlayAction.MoveCard>(sent.single()) }
+        compose.runOnIdle { assertNull(toolkit.capture); assertTrue(sent.isEmpty()) }
     }
 
 }

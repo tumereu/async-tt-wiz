@@ -4,16 +4,15 @@ import org.asyncttwiz.protocol.*
 
 /**
  * What a drag means (integration spec I-D36, I-D28, I-D52): the engine action it stands for, or a refusal with the
- * reason. Life and zone moves by hand are refused; only moving a card within its own Battlefield, which changes nothing
- * Automatum reads, stays as it is. A hand is never reordered (I-D50, ZON-081).
+ * reason. Life and zone moves by hand are refused. Nothing is placed by hand: a hand is never reordered (I-D50, ZON-081)
+ * and the battlefield lays itself out (ZON-077, TBL-004).
  */
 internal object AutomatumDrags {
     sealed interface Route {
         /** A hand card onto the Battlefield or the Stack: played (a land) or cast through the engine (ZON-004). */
         data object Cast : Route
-        /** Within its own Battlefield: only its place changes. */
-        data object Place : Route
-        /** Within its own hand (I-D50, ZON-081): no reordering; the card goes back, nothing is said. */
+        /** Within its own hand or Battlefield (I-D50, ZON-081, ZON-077): no reordering and no placing by hand (the
+         * battlefield lays itself out); the card goes back, nothing is said. */
         data object Stay : Route
         /** Into the combat area: the draft of the declaration the engine awaits ([CombatController.draftRefusal]). */
         data object Combat : Route
@@ -40,8 +39,8 @@ internal object AutomatumDrags {
         val from = ids.map { id -> board.cards.singleOrNull { it.id == id }?.containerId
             ?.let { c -> board.containers.singleOrNull { it.id == c } } ?: return Route.Refused(MANUAL_MOVE) }
         if (from.all { it.zone == PlayZone.HAND } && target.zone in setOf(PlayZone.BATTLEFIELD, PlayZone.STACK)) return Route.Cast
-        if (from.all { it.id == target.id } && target.zone == PlayZone.HAND) return Route.Stay
-        if (from.all { it.id == target.id } && target.zone == PlayZone.BATTLEFIELD) return Route.Place
+        // ZON-077: within its own hand or Battlefield the card goes back, nothing said (no reordering, no placing by hand)
+        if (from.all { it.id == target.id } && (target.zone == PlayZone.HAND || target.zone == PlayZone.BATTLEFIELD)) return Route.Stay
         return Route.Refused(MANUAL_MOVE)
     }
 

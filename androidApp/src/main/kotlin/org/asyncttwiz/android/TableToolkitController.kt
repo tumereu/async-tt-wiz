@@ -147,7 +147,67 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
         val play = current() ?: return false
         val chosen = activatable(play, card)?.getOrNull(index) ?: return false
         closeAbilities()
+        collapse()
         return play(card, chosen)
+    }
+
+    /**
+     * TBL-122 (Arena style): whether a tap on the battlefield card [cardId] could do something on [play] now, as [open]
+     * would: be picked while a cast or choice picks targets, be staged as an attacker or picked as a blocker while those are
+     * declared, else activate an ability (a mana ability or special action too).
+     */
+    internal fun tapUsable(play: TableBoard, cardId: String): Boolean {
+        if (cast.targeting || flows.targeting) return cardId in cast.glow(play) + flows.glow(play)
+        val shown = combat.choices(play)
+        if (!combat.working(shown)) {
+            val choices = shown.choices
+            val declaring = choices.declaring
+            if (declaring != null && enabled() && controllerOf(play, cardId) == declaring)
+                return if (choices.attackers) cardId in choices.attacks else cardId in choices.blocks
+        }
+        return !activatable(play, cardId).isNullOrEmpty()
+    }
+
+    /** TBL-122: what a tap on the collapsed battlefield [group] does on [play] now ([GroupTap.of]). */
+    internal fun groupTap(play: TableBoard, group: BattlefieldGroup): GroupTap =
+        GroupTap.of(group, { tapUsable(play, it) }, { id -> play.board.cards.firstOrNull { it.id == id }?.tapped == true })
+
+    /** TBL-122: the battlefield group the viewer opened (personal UI), null when none. */
+    val expandedGroup: String? get() = layoutState.value.expandedGroup
+    /** TBL-122: closes the opened battlefield group (a tap elsewhere, or acting). */
+    fun collapse() { if (layoutState.value.expandedGroup != null) layoutState.value = layoutState.value.copy(expandedGroup = null) }
+
+    /**
+     * TBL-122 (Arena style): a tap on [item] of [scene]. A battlefield card in a collapsed group of several is the group's
+     * tap: it acts at once on the one member it can mean ([GroupTap.Act]), opens the group with its members side by side
+     * when it could mean several ([GroupTap.Expand]), else is a tap on the group's top card. In an opened group the tap is
+     * the member's own, and acting closes the group; a tap anywhere else closes it too.
+     */
+    fun tap(captured: TableIntent.Actions, item: TableItem, scene: TableScene) {
+        val group = if (item.battlefieldCard) scene.groupOf(item.cardId) else null
+        val opened = scene.expandedGroup
+        if (opened != null && group?.key != opened) collapse()
+        val play = current()
+        if (play == null || group == null || group.members.size < 2 || group.key == opened) {
+            open(captured, item)
+            // Acting closes the group; its member's chips or menu keep it open
+            if (opened != null && group?.key == opened && abilityCard == null && capture == null) collapse()
+            return
+        }
+        fun member(id: String) {
+            val shown = scene.items.firstOrNull { it.cardId == id && it.battlefieldCard } ?: return open(captured, item)
+            open(TableIntent.Actions(shown.id, TableScope(id, listOf(id)), scene.sources.filterKeys { it == id }), shown)
+        }
+        when (val tap = groupTap(play, group)) {
+            GroupTap.Expand -> {
+                // The first tap of a group that could mean several things only opens it
+                dismiss(); hand.lower()
+                if (!cast.targeting && !flows.targeting) combat.clearSelection()
+                layoutState.value = layoutState.value.copy(expandedGroup = group.key)
+            }
+            is GroupTap.Act -> member(tap.cardId)
+            GroupTap.Top -> member(group.top)
+        }
     }
 
     /** Closes the ability chips (a tap elsewhere, an activation). */
@@ -168,13 +228,15 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
     var capture by mutableStateOf<ToolkitCapture?>(null); private set
     /** The card held to inspect it (TBL-104), shown while the finger stays; the only way to inspect a table card. */
     var peek by mutableStateOf<ManualInspection?>(null); private set
-    fun peek(id: String?) {
+    /** Holds [id] to inspect it; [group]: a battlefield group's members held together (TBL-111), the first shown first. */
+    fun peek(id: String?, group: List<String>? = null) {
         if (id == null) { peek = null; return }
         val play = current() ?: return
-        val card = CombatStackRules.inspection(play.board, id) ?: return
-        peek = ManualInspection(play.gameId, play.playId, id,
+        val first = group?.firstOrNull() ?: id
+        val card = CombatStackRules.inspection(play.board, first) ?: return
+        peek = ManualInspection(play.gameId, play.playId, first,
             ManualDisclosure.permittedFaces(play.board, play.definitions, card, viewer, inspecting = true).map { it.faceId },
-            stackEntryId = id.takeIf { it in CombatStackRules.stack(play.board).cards })
+            stackEntryId = first.takeIf { it in CombatStackRules.stack(play.board).cards }, group = group.orEmpty().drop(1))
     }
     var error by mutableStateOf<String?>(null); private set
     fun dismissError() { error = null }
@@ -610,8 +672,8 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
     /**
      * A drag with Automatum on (I-D36): a hand card dropped on the Battlefield or the Stack is played or cast (the cast
      * panel, as a double-tap, ZON-004); a creature dropped into the combat area joins the draft of the declaration the
-     * engine awaits ([CombatController.draftRefusal]); a card moved within its own Battlefield or hand only changes its
-     * place. Everything else would change the game by hand and is refused with the reason (I-D28).
+     * engine awaits ([CombatController.draftRefusal]); a card dropped within its own Battlefield or hand goes back
+     * (ZON-077). Everything else would change the game by hand and is refused with the reason (I-D28).
      */
     private fun automatumDrag(intent: TableIntent.Move): Boolean {
         val play = current()?.takeIf { enabled() } ?: return false
@@ -620,7 +682,6 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
                 if (intent.scope.cardIds.distinct().size > 1) { error = AutomatumDrags.ONE_AT_A_TIME; return false }
                 return castFromHand(intent.scope.contextId)
             }
-            AutomatumDrags.Route.Place -> return engineRoute { handle(intent.copy(drag = false)) }
             AutomatumDrags.Route.Stay -> return false
             AutomatumDrags.Route.Combat -> {
                 val destination = (intent.destination as TableDestination.Combat).destination

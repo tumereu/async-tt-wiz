@@ -4,7 +4,9 @@ import org.asyncttwiz.protocol.*
 
 data class ManualInspection(val gameId: String, val playId: String, val cardId: String,
     val faceIds: List<String>, val explicit: Boolean = false, val snapshot: PlayCard? = null,
-    val provisional: Boolean = false, val stackEntryId: String? = null)
+    val provisional: Boolean = false, val stackEntryId: String? = null,
+    /** TBL-111: the other members of the battlefield group held with [cardId], shown after it in this order. */
+    val group: List<String> = emptyList())
 
 /** Shared gesture decision used by the production square; a recognized hold always consumes click. */
 internal class ManualActionPress {

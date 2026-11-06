@@ -92,15 +92,15 @@ data class TablePlacement(val column: Float, val row: Float, val pileIndex: Int 
     constructor(column: Int, row: Int, pileIndex: Int = 0, pileId: String? = null) : this(column.toFloat(), row.toFloat(), pileIndex, pileId)
 }
 
-/** Rotate in place; lower pile members peek left/up without changing the column pitch. */
-internal fun battlefieldCardBounds(footprint: TableBounds, width: Float, height: Float, pileIndex: Int, zoom: Float): TableBounds {
-    val peek = pileIndex.coerceIn(0, 2) * 4f
-    return TableBounds(footprint.center.x - width / 2 - peek * zoom,
-        footprint.center.y - height / 2 + (4f - peek) * zoom, width, height)
-}
+/** A battlefield card centred in its [footprint] (tapped cards rotate in place), [dy] lower (an attached card peeking out
+ * above its host is higher, TBL-053). */
+internal fun battlefieldCardBounds(footprint: TableBounds, width: Float, height: Float, dy: Float = 0f): TableBounds =
+    TableBounds(footprint.center.x - width / 2, footprint.center.y - height / 2 + dy, width, height)
 
-/** Ten percent above/below every face, plus the +/-4dp offsets of a three-card pile. */
-internal fun battlefieldRowHeight(cardHeight: Float, scale: Float) = cardHeight * 1.2f + 8f * scale
+/** TBL-003: ten percent above/below every face, plus room for the attached cards peeking out above their hosts ([lifts]
+ * peek steps, at least one). */
+internal fun battlefieldRowHeight(cardHeight: Float, scale: Float, lifts: Int = 1) =
+    cardHeight * 1.2f + maxOf(1, lifts) * BattlefieldLayout.PEEK * scale
 /** [localPileTargets]: the local pile is open to pick targets from (Automatum, I-D6): its cards one by one, not grouped. */
 data class TableLayoutState(val camera: TableCamera = TableCamera(), val scroll: Map<String, Float> = emptyMap(),
     val scrollY: Map<String, Float> = emptyMap(), val localPileId: String? = null, val localPileTargets: Boolean = false,
@@ -109,7 +109,10 @@ data class TableLayoutState(val camera: TableCamera = TableCamera(), val scroll:
     /** ZON-079 (I-D50): the viewer's hand card raised by a tap with Automatum on; the viewer's own. */
     val raised: String? = null,
     /** ZON-081 (I-D50): a hand pulled past its end (dp, by hand viewport id), springing back on release. */
-    val overscroll: Map<String, Float> = emptyMap())
+    val overscroll: Map<String, Float> = emptyMap(),
+    /** TBL-122: the battlefield group the viewer opened with a tap ([BattlefieldGroup.key]), its members side by side;
+     * the viewer's own. */
+    val expandedGroup: String? = null)
 /** [DUNGEON]: a player's dungeon in the command zone (TRN-069), a small card after their piles (landscape: in the free row). */
 enum class TableItemKind { CARD, PILE, LIFE, HAND, DUNGEON }
 data class TableItem(
@@ -149,7 +152,9 @@ data class TableItem(
     /** ZON-079: a raised hand card (drawn above its hand row, not clipped by it at the top). */
     val raised: Boolean = false,
     /** STK-046: a Stack entry that is a triggered or activated ability, drawn as an ability token, not as its source card. */
-    val stackAbility: StackAbilityShown? = null
+    val stackAbility: StackAbilityShown? = null,
+    /** TBL-053: a battlefield card's group ([BattlefieldGroup.key]); null off the battlefield. */
+    val group: String? = null
 ) {
     /** The card title's colour on the table: blue while it entered this turn, else the default text colour. */
     val titleColor: Int get() = if (enteredThisTurn) EnteredThisTurnTitleColor else android.graphics.Color.DKGRAY
@@ -209,7 +214,13 @@ data class TableScene(val items: List<TableItem>, val fields: List<TableField>,
     val combatCardWidth: Float = cardWidth, val combatCardHeight: Float = cardHeight,
     /** The undrawn face-up (or covered, when face down) drawing of a Graveyard/Exile member: the look of a
      * card flying from or to a public pile. Library and Temp pile members fly face down. */
-    val pileCards: PileCardDrawings = PileCardDrawings.NONE) {
+    val pileCards: PileCardDrawings = PileCardDrawings.NONE,
+    /** TBL-053: the groups on both battlefields (stacks, cards with attachments, cards alone), in arrival order. */
+    val battlefieldGroups: List<BattlefieldGroup> = emptyList(),
+    /** TBL-122: the group the viewer opened ([TableLayoutState.expandedGroup]), while it is on the table. */
+    val expandedGroup: String? = null) {
+    /** TBL-053: the group of the battlefield card [cardId], null for a card in no group. */
+    fun groupOf(cardId: String?): BattlefieldGroup? = cardId?.let { id -> battlefieldGroups.firstOrNull { id in it.members } }
     fun worldInput(point: TablePoint) = world?.visibleViewport?.contains(point) == true &&
         stackRegion?.contains(point) != true && items.none { it.zone == PlayZone.STACK && it.kind == TableItemKind.PILE && it.stackBadge.contains(point) } &&
         cardPanels.none { it.bounds.contains(point) }
@@ -313,12 +324,6 @@ object TablePresentation {
         val pileInsetY = if (landscape) maxOf(12f, (48f - pileHeight) / 2) else 12f
         val stackWidth = hudWidth * appearance.size(CardArea.STACK)
         val stackHeight = hudHeight * appearance.size(CardArea.STACK)
-        val logicalLeft = play.board.containers.filter { it.zone == PlayZone.BATTLEFIELD }.minOfOrNull { c ->
-            c.cards.mapIndexed { n, id -> positions[id]?.column ?: n.toFloat() }.minOrNull() ?: 0f
-        } ?: 0f
-        val logicalRight = play.board.containers.filter { it.zone == PlayZone.BATTLEFIELD }.maxOfOrNull { c ->
-            c.cards.mapIndexed { n, id -> (positions[id]?.column ?: n.toFloat()) + 1f }.maxOrNull() ?: 4f
-        } ?: 4f
         // CMB-007: the combat area is a panel floating over the battlefields, folded away by the viewer on request
         val folded = play.board.combat?.id?.let { it == ui.combatHidden } == true
         val railHeight = (if (landscape) 48f else 52f) + handHeight - hudHeight
@@ -343,12 +348,19 @@ object TablePresentation {
             (worldBottom - worldTop).coerceAtLeast(1f))
         val panelArea = worldViewport.copy(x = sidebar, width = width - sidebar)
         val panels = cardPanelGeometry(play, viewer, ui, panelArea, appearance.size(CardArea.PANELS))
-        // Rows are world content, not fractions of the remaining screen. Small viewports pan.
-        val rowHeight = battlefieldRowHeight(hudHeight * battlefieldScale, battlefieldScale)
-        val fieldHeights = players.map { player ->
-            val rows = container(player.accountId, PlayZone.BATTLEFIELD).cards.maxOfOrNull { positions[it]?.row ?: 0f } ?: 0f
-            max(3f, rows + 1f) * rowHeight
-        }
+        // TBL-004, TBL-053 (Arena style): each battlefield lays itself out from the game state: its groups (stacks, cards with
+        // what is attached to them) in its back and creature rows; the group the viewer opened lies with its members side by side
+        val groups = BattlefieldLayout.groups(BattlefieldLayout.cards(play.board, definitions, computed))
+        val expanded = ui.expandedGroup?.takeIf { key -> groups.any { it.key == key && it.members.size > 1 } }
+        // The back row's right end at 1×: the battlefield's own width on the screen (others lie from there leftwards)
+        val rowWidth = (worldViewport.width / battlefieldScale - 32f).coerceAtLeast(BattlefieldLayout.SLOT)
+        val spots = players.associate { player -> container(player.accountId, PlayZone.BATTLEFIELD).id.let { id ->
+            id to BattlefieldLayout.place(groups.filter { it.field == id }, rowWidth, expanded) } }
+        val logicalRight = spots.values.flatMap { it.values }.maxOfOrNull { it.x + BattlefieldLayout.SLOT } ?: (4 * BattlefieldLayout.SLOT)
+        // Rows are world content, not fractions of the remaining screen. Small viewports pan. TBL-003: three rows each (the back row,
+        // a free row where the combat area floats, CMB-007, and the creature row)
+        val rowHeight = battlefieldRowHeight(hudHeight * battlefieldScale, battlefieldScale, BattlefieldLayout.lifts(groups))
+        val fieldHeights = players.map { 3 * rowHeight }
         // CMB-007: opening combat never moves the battlefields; the area floats over them
         val bandHeight = 12f
         val bandY = worldViewport.height / 2 - bandHeight / 2
@@ -366,8 +378,8 @@ object TablePresentation {
             appearance.text(CardTextScalePart.TITLE), avatars = listOf(game.inviter, game.recipient)
                 .mapNotNull { player -> player.avatar?.let { player.accountId to it } }.toMap())
         val combatX = (worldViewport.width - combat.width) / 2
-        val worldLeft = minOf(0f, logicalLeft * columnPitch, combatX)
-        val worldRight = maxOf(worldViewport.width, logicalRight * columnPitch + 32f * battlefieldScale, combatX + combat.width)
+        val worldLeft = minOf(0f, combatX)
+        val worldRight = maxOf(worldViewport.width, (logicalRight + 32f) * battlefieldScale, combatX + combat.width)
         val contentBounds = TableBounds(worldLeft, logicalFields.first().y,
             worldRight - worldLeft,
             logicalFields.last().bottom - logicalFields.first().y)
@@ -478,22 +490,22 @@ object TablePresentation {
             } }
             val field = fields[index]
             val battlefield = container(player.accountId, PlayZone.BATTLEFIELD)
-            // Stable sorting retains container order and the fallback column without indexOf scans.
-            battlefield.cards.withIndex().sortedByDescending { positions[it.value]?.pileIndex ?: 0 }
-                .forEach { (order, id) -> byId[id]?.let { c ->
-                    val p = positions[id] ?: TablePlacement(order, 0)
-                    val x = field.originX + p.column * columnPitch * zoom + 16f * fieldScale
-                    val rowHeight = field.rowHeight
-                    val dy = p.row * rowHeight
-                    val rowY = if (ownSide) field.gridBounds.bottom - rowHeight - dy else field.gridBounds.y + dy
-                    val y = rowY + (rowHeight - envelope) / 2
-                    val cardHeight = if (c.tapped) cw else ch
-                    val footprint = TableBounds(x, y, columnPitch * zoom, envelope)
-                    val b = battlefieldCardBounds(footprint, if (c.tapped) ch else cw, cardHeight, p.pileIndex, fieldScale)
-                    card(c, b, footprint, player.accountId, PlayZone.BATTLEFIELD, battlefield.id)
-                } }
-            val logicalWidth = max(4f, battlefield.cards.mapIndexed { n, id -> (positions[id]?.column ?: n.toFloat()) + 1f }.maxOrNull() ?: 4f) * columnPitch
-            port(battlefield.id, field.bounds, logicalWidth * zoom)
+            // TBL-004, TBL-053: each card where its group puts it, drawn behind to front; an attached card peeks out above
+            // its host (on both sides, so its name shows), wherever the host lies
+            for ((id, spot) in spots[battlefield.id].orEmpty().entries.sortedBy { it.value.order }) byId[id]?.let { c ->
+                val x = field.originX + spot.x * fieldScale + 16f * fieldScale
+                val rowHeight = field.rowHeight
+                val dy = spot.row * rowHeight
+                val rowY = if (ownSide) field.gridBounds.bottom - rowHeight - dy else field.gridBounds.y + dy
+                val y = rowY + (rowHeight - envelope) / 2
+                val footprint = TableBounds(x, y, columnPitch * zoom, envelope)
+                val lift = (spot.lifts / 2f - spot.lift) * BattlefieldLayout.PEEK * fieldScale
+                val b = battlefieldCardBounds(footprint, if (c.tapped) ch else cw, if (c.tapped) cw else ch, lift)
+                card(c, b, footprint, player.accountId, PlayZone.BATTLEFIELD, battlefield.id)
+                items[items.lastIndex] = items.last().copy(group = spot.group, copies = maxOf(1, spot.copies),
+                    label = if (spot.copies > 1) items.last().label + ", stack of ${spot.copies}" else items.last().label)
+            }
+            port(battlefield.id, field.bounds, (logicalRight + 32f) * fieldScale)
             // Mirror the player blocks: counters face the outside, piles face the Stack.
             val rowY = dockRowY[index]
             val spacing = dockSpacing
@@ -662,7 +674,7 @@ object TablePresentation {
                     ?: return@PileCardDrawings null
                 val at = TableBounds(0f, 0f, pileWidth, pileHeight)
                 card(member, at, at, pile.accountId, pile.zone, "", draw = false)
-            }), play, viewer, panels), width, height)
+            }, battlefieldGroups = groups, expandedGroup = expanded), play, viewer, panels), width, height)
     }
 
     /** Used after animation too: rendered bounds own drawing, targeting and accessibility. */

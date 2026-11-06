@@ -85,8 +85,8 @@ class TableInteractionsScreenshotTest {
         }
         compose.waitForIdle(); compose.mainClock.advanceTimeByFrame(); compose.mainClock.advanceTimeByFrame()
         try {
-            capture("landing-lands", "Portrait table in combat, dragging a hand card onto your battlefield's lands row: " +
-                "landing placeholders show where it would go.")
+            capture("landing-lands", "Portrait table in combat, dragging a hand card onto your battlefield's back row: your " +
+                "whole battlefield lights up with a dashed outline (it lays itself out, so no single slot is shown).")
             assertTrue(sent.isEmpty(), "A preview never submits a move")
         } finally {
             compose.onNodeWithContentDescription("Shared table").performTouchInput { cancel() }

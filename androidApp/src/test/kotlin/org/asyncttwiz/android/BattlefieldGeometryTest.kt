@@ -5,26 +5,29 @@ import org.junit.Test
 import kotlin.test.*
 
 class BattlefieldGeometryTest {
-    // TBL-003
+    // TBL-003: three rows each (a free one between the back row and the creature row), a row the card height with
+    // margins; every card inside its row, and both rows of both battlefields can be panned into view
     @Test fun rowsFollowRenderedCardHeightWithMarginsAndOverflowIsReachable() {
-        val initial = TableFixture.play(board = 15)
-        val positions = initial.board.cards.filter { it.containerId.endsWith("BATTLEFIELD") }.associate { card ->
-            val n = card.id.substringAfterLast('/').toInt()
-            card.id to TablePlacement(n % 3, n / 3, n % 3)
-        }
+        val base = TableFixture.apart(TableFixture.play(board = 15))
+        val creature = TableFixture.definition.copy(name = "Creature card", faces = TableFixture.definition.faces.map { it.copy(typeLine = "Creature — Test") })
+        val submitted = SubmittedDefinition(DeckJson.digest(creature), creature)
+        // Odd cards are creatures (the row nearest the middle), even ones lie in the back row
+        val initial = base.copy(definitions = base.definitions + submitted, board = base.board.copy(cards = base.board.cards.map { card ->
+            if (card.containerId.endsWith("BATTLEFIELD") && card.id.substringAfterLast('/').toInt() % 2 == 1) card.copy(definition = submitted.digest) else card }))
         for (landscape in listOf(false, true)) for (scale in listOf(.5f, 1f, 3f))
             for (zoom in listOf(.65f, 1f, 2f)) for (tapped in listOf(false, true)) {
             val play = initial.copy(board = initial.board.copy(cards = initial.board.cards.map { it.copy(tapped = tapped) }))
             val width = if (landscape) 892f else 412f
             val height = if (landscape) 412f else 892f
             fun scene(camera: TableCamera) = TablePresentation.scene(TableFixture.game, tableBoard(play), "a", width, height,
-                landscape, TableLayoutState(camera), positions, appearance = CardAppearance(cardSize = scale))
+                landscape, TableLayoutState(camera), appearance = CardAppearance(cardSize = scale))
             val home = scene(TableCamera(zoom = zoom))
             val world = home.world!!
             for (field in home.fields) {
                 assertEquals(56f * scale * zoom, field.rowHeight, .001f)
+                assertEquals(3 * field.rowHeight, field.gridBounds.height, .001f)
                 for (card in home.items.filter { it.viewport == field.containerId }) {
-                    val row = positions.getValue(card.cardId!!).row
+                    val row = home.groupOf(card.cardId)!!.row.index
                     val rowY = if (field.owner == "a") field.gridBounds.bottom - (row + 1f) * field.rowHeight
                         else field.gridBounds.y + row * field.rowHeight
                     val margin = 40f * scale * zoom * .1f
@@ -32,9 +35,9 @@ class BattlefieldGeometryTest {
                     assertTrue(card.bounds.bottom <= rowY + field.rowHeight - margin + .001f)
                     assertTrue(card.bounds.y >= field.gridBounds.y && card.bounds.bottom <= field.gridBounds.bottom)
                 }
-                // Both extreme edges of both halves can be panned fully into view.
-                for (row in listOf(0, 4)) {
-                    val id = "${field.owner}/BATTLEFIELD/${row * 3}"
+                // Both rows of both halves can be panned fully into view.
+                for (n in listOf(0, 1)) {
+                    val id = "${field.owner}/BATTLEFIELD/$n"
                     val card = home.items.single { it.cardId == id }
                     val centered = world.clamp(TableCamera(y = (card.bounds.center.y - world.viewport.center.y) / zoom, zoom = zoom))
                     val reached = scene(centered).items.single { it.cardId == id }

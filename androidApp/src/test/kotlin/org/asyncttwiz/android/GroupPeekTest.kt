@@ -16,31 +16,31 @@ import org.robolectric.annotation.GraphicsMode
 import java.io.File
 import kotlin.test.*
 
+/** TBL-111: holding a battlefield group inspects all its members, its top card first. */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(sdk = [35], qualifiers = "w412dp-h892dp-port-mdpi")
-class PilePeekTest {
+class GroupPeekTest {
     @get:Rule val compose = createComposeRule()
     private val f = TableStatesFixture
 
-    /** Three of Alice's battlefield cards with different names made into one pile, top first; the middle one face down. */
-    private fun pile(): Pair<PlayState, List<PlayCard>> {
+    /** Three of Alice's battlefield cards with different names made into one group: the second and third attached to the
+     * first, which is face down. */
+    private fun group(): Pair<PlayState, List<PlayCard>> {
         val play = f.initial
         val field = play.board.containers.single { it.id == f.id("a/BATTLEFIELD") }
         val names = play.definitions.associate { it.digest to it.definition.name }
         val members = field.cards.map { id -> play.board.cards.single { it.id == id } }
             .filter { !it.token }.distinctBy { names[it.definition] }.take(3)
         assertEquals(3, members.size)
-        val placement = assertNotNull(members.first().placement)
-        val middle = members[1].id
+        val host = members.first()
         val ids = members.map { it.id }
         val cards = play.board.cards.map { card -> when {
-            card.id == middle -> card.copy(placement = placement, covered = true, explicitlyCovered = true)
-            card.id in ids -> card.copy(placement = placement)
+            card.id == host.id -> card.copy(covered = true, explicitlyCovered = true)
+            card.id in ids -> card.copy(attachedTo = MtgRef.Card(host.id, host.zoneChanges))
             else -> card
         } }
-        val state = play.copy(board = play.board.copy(cards = cards, containers = play.board.containers.map {
-            if (it.id == field.id) it.copy(cards = ids + (it.cards - ids.toSet())) else it }))
+        val state = play.copy(board = play.board.copy(cards = cards))
         return state to ids.map { id -> state.board.cards.single { it.id == id } }
     }
 
@@ -51,22 +51,8 @@ class PilePeekTest {
     private fun name(play: PlayState, card: PlayCard) = play.definitions.single { it.digest == card.definition }.definition.faces
         .single { it.faceId == card.faceId }.name
 
-    // TBL-053, TBL-111
-    @Test fun cardsUnderAPileCardFollowInPileOrder() {
-        val (play, members) = pile()
-        val (top, middle, bottom) = members
-        assertEquals(listOf(middle.id, bottom.id), battlefieldPileBelow(play.board, top.id).map { it.id })
-        assertEquals(listOf(bottom.id), battlefieldPileBelow(play.board, middle.id).map { it.id })
-        assertEquals(emptyList(), battlefieldPileBelow(play.board, bottom.id))
-        // A lone battlefield card, a combat copy and a card elsewhere have nothing under them.
-        val lone = play.board.cards.first { it.containerId == f.id("a/BATTLEFIELD") && it.id !in members.map(PlayCard::id) }
-        assertEquals(emptyList(), battlefieldPileBelow(play.board, lone.id))
-        assertEquals(emptyList(), battlefieldPileBelow(f.combat().board, f.id("attacker1")))
-        val hand = play.board.containers.single { it.id == f.id("a/HAND") }.cards.first()
-        assertEquals(emptyList(), battlefieldPileBelow(play.board, hand))
-    }
-
-    private fun hold(play: PlayState, viewer: String, cardId: String): TableToolkitController {
+    /** Holds [viewer]'s finger on [cardId]'s drawing: Inspect opens on the group's top card [shown]. */
+    private fun hold(play: PlayState, viewer: String, cardId: String, shown: String): TableToolkitController {
         val toolkit = TableToolkitController(viewer, { engineTableBoard(play, viewer) }, { true }, { _, _ -> true })
         compose.setContent { MaterialTheme { NoRipples {
             EngineFixtureTable(play, viewer) {
@@ -79,7 +65,7 @@ class PilePeekTest {
         compose.mainClock.autoAdvance = false
         compose.onNodeWithContentDescription("Shared table").performTouchInput { down(Offset(point.x, point.y)) }
         compose.waitForIdle(); compose.mainClock.advanceTimeBy(CardPeekHoldMillis + 250)
-        compose.runOnIdle { assertEquals(cardId, toolkit.peek?.cardId) }
+        compose.runOnIdle { assertEquals(shown, toolkit.peek?.cardId) }
         return toolkit
     }
 
@@ -90,47 +76,45 @@ class PilePeekTest {
         compose.onNodeWithContentDescription("Card inspection content").assertDoesNotExist()
     }
 
-    // TBL-109, TBL-111
-    @Test fun holdingThePileTopPreviewsEveryCardUnderItAndShowsTheOwnerTheirFaceDownCardMarked() {
-        val (play, members) = pile()
-        val toolkit = hold(play, f.a, members.first().id)
+    // TBL-109, TBL-111, TBL-053
+    @Test fun holdingAGroupPreviewsEveryMemberAndShowsTheOwnerTheirFaceDownCardMarked() {
+        val (play, members) = group()
+        val toolkit = hold(play, f.a, members.first().id, members.first().id)
         compose.onNodeWithContentDescription("Card inspection content").assertExists()
         for (card in members) title(play, card).assertCountEquals(1)
-        // The pile order, top first, one below the other.
+        // The host first, then what is attached to it, one below the other.
         val tops = members.map { title(play, it)[0].fetchSemanticsNode().positionInRoot.y }
         assertEquals(tops.sorted(), tops)
         compose.onNodeWithText("Face down").assertExists()
         compose.onNodeWithText("Covered card").assertDoesNotExist()
-        // Scroll down to where the top card's picture ends and the face-down card under it begins.
+        // Scroll down to where the face-down creature's picture ends and the first attached card begins.
         compose.onNodeWithContentDescription("Shared table").performTouchInput { moveBy(Offset(0f, -420f)) }
         compose.waitForIdle(); compose.mainClock.advanceTimeBy(100)
-        val file = File("$SCREENSHOTS/pile-preview-portrait.png")
+        val file = File("$SCREENSHOTS/group-preview-portrait.png")
         file.parentFile!!.mkdirs()
-        captureShot(file.path, "Portrait table: holding the top card of Alice's three-card battlefield pile and moving the finger " +
-            "up scrolls the one Inspect view from the top card's image down to the face-down card under it, shown to Alice " +
-            "dimmed with a Face down label.")
+        captureShot(file.path, "Portrait table: holding Alice's face-down creature with two cards attached to it and moving " +
+            "the finger up scrolls the one Inspect view of the whole group from the face-down creature (shown to Alice dimmed " +
+            "with a Face down label) down to the first card attached to it.")
         release(toolkit)
     }
 
-    // TBL-111
-    @Test fun holdingAMiddleCardPreviewsOnlyTheCardsUnderIt() {
-        val (play, members) = pile()
-        val toolkit = hold(play, f.a, members[1].id)
-        title(play, members[0]).assertCountEquals(0)
-        title(play, members[1]).assertCountEquals(1)
-        title(play, members[2]).assertCountEquals(1)
+    // TBL-111, TBL-053: an attached card's strip is no target of its own: holding it inspects the whole group, host first
+    @Test fun holdingAnAttachedCardInspectsTheWholeGroup() {
+        val (play, members) = group()
+        val toolkit = hold(play, f.a, members[2].id, members.first().id)
+        for (card in members) title(play, card).assertCountEquals(1)
         release(toolkit)
     }
 
     // TBL-111, TBL-109
-    @Test fun theOpponentSeesAFaceDownPileCardOnlyAsCovered() {
-        val (play, members) = pile()
-        val toolkit = hold(play, f.b, members.first().id)
-        title(play, members[0]).assertCountEquals(1)
+    @Test fun theOpponentSeesAFaceDownGroupCardOnlyAsCovered() {
+        val (play, members) = group()
+        val toolkit = hold(play, f.b, members.first().id, members.first().id)
+        title(play, members[1]).assertCountEquals(1)
         title(play, members[2]).assertCountEquals(1)
         compose.onNodeWithText("Covered card").assertExists()
         compose.onNodeWithText("Face down").assertDoesNotExist()
-        compose.onAllNodes((hasText(name(play, members[1]), substring = true) or hasContentDescription(name(play, members[1]), substring = true)) and
+        compose.onAllNodes((hasText(name(play, members[0]), substring = true) or hasContentDescription(name(play, members[0]), substring = true)) and
             hasAnyAncestor(hasContentDescription("Card inspection content")), useUnmergedTree = true).assertCountEquals(0)
         release(toolkit)
     }

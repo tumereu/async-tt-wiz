@@ -191,6 +191,10 @@ class TableGestureCoordinator(
                 // TBL-011 (I-D52): a one-finger drag starting on empty table pans it (there is no selection rectangle)
                 c.item?.kind == TableItemKind.HAND || c.item == null ->
                     if (c.panRegion == WORLD_PAN_REGION) Phase.PAN else Phase.HOLD
+                // ZON-077 (Arena style): nothing is placed by hand on the battlefield: a drag that starts on a battlefield
+                // card pans the table, unless the combat area is there to take it (CMB-028, CMB-034)
+                c.item?.battlefieldCard == true && scene.combatDrops.isEmpty() ->
+                    if (c.panRegion == WORLD_PAN_REGION) Phase.PAN else Phase.HOLD
                 c.scope != null && scene.canDrag(c.item) -> Phase.DRAG
                 else -> Phase.HOLD // non-draggable control consumes movement, not a release-time click
             }
@@ -409,6 +413,9 @@ class TableGestureCoordinator(
         if (scene.worldInput(p)) scene.combatDestination(p, scope)?.let { return TableDestination.Combat(it) }
         // CMB-007: the rest of the combat panel (its headers, its margins) takes no drop; the battlefield under it is hidden
         if (scene.worldInput(p) && scene.combatPanel?.contains(p) == true) return null
+        // ZON-077: a battlefield card dropped anywhere on the battlefields stays where the layout puts it (no move)
+        if (scope != null && scope.cardIds.all { id -> scene.items.any { it.cardId == id && it.battlefieldCard } } &&
+            scene.worldInput(p) && scene.fields.any { it.bounds.contains(p) }) return null
         val hit = scene.items.asReversed().firstOrNull { i -> i.cardId !in (scope?.cardIds ?: emptyList()) && i.visible.any { it.contains(p) } }
         if (hit != null) {
             // A face inside a Hand is still a drop onto that Hand, not an ordinary battlefield pile.
@@ -416,11 +423,8 @@ class TableGestureCoordinator(
                 return TableDestination.Container(hit.viewport, PlayZone.HAND)
             if (hit.kind == TableItemKind.PILE || hit.kind == TableItemKind.HAND)
                 return hit.zone?.let { TableDestination.Container(hit.id, it) }
-            if (hit.kind == TableItemKind.CARD && hit.zone == PlayZone.BATTLEFIELD && !hit.projection) {
-                val members = scene.items.filter { it.viewport == hit.viewport && it.footprint == hit.footprint }.mapNotNull { it.cardId }
-                if ((members + scope?.cardIds.orEmpty()).distinct().size > 3) return null
+            if (hit.kind == TableItemKind.CARD && hit.zone == PlayZone.BATTLEFIELD && !hit.projection)
                 return TableDestination.CardPile(requireNotNull(hit.cardId), scene.sources[hit.cardId])
-            }
             if (hit.kind != TableItemKind.CARD) return null
         }
         if (!scene.worldInput(p)) return null
@@ -434,6 +438,9 @@ class TableGestureCoordinator(
 }
 
 private val String?.isCardPanel get() = this?.startsWith("cardPanel/") == true
+/** A real card on a battlefield (not a combat copy, a Stack drawing or a panel card). */
+internal val TableItem.battlefieldCard get() = kind == TableItemKind.CARD && zone == PlayZone.BATTLEFIELD && !projection &&
+    viewport != "combat" && !viewport.startsWith("cardPanel/")
 /** A Graveyard or Exile pile control (not a card inside a panel). */
 internal val TableItem.publicPile get() = kind == TableItemKind.PILE && zone in PublicPiles.zones
 /** The same semantic destination and Move intent as a drag; no special mutation/animation path. */

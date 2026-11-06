@@ -8,7 +8,10 @@ class SingleCardPopupTest {
     // SYS-043
     @Test fun tapsOnSeveralCardsLeaveOnlyTheLatestMenuAndTwoFingerPressesOpenNone() {
         val f = TableStatesFixture
-        val play = f.initial
+        // Bob's two Forests told apart (one damaged), so each lies alone rather than in one stack (TBL-053)
+        val play = f.initial.let { p -> p.copy(board = p.board.copy(cards = p.board.cards.map { card ->
+            if (card.containerId == f.id("b/BATTLEFIELD") && card.id == p.board.containers.single { it.id == f.id("b/BATTLEFIELD") }.cards.first())
+                card.copy(damage = "1") else card })) }
         val toolkit = TableToolkitController(f.a, { engineTableBoard(play, f.a) }, { true }, { _, _ -> true })
         lateinit var gestures: TableGestureCoordinator
         val opened = mutableListOf<String?>()

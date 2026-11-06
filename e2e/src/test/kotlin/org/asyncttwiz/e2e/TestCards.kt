@@ -38,6 +38,14 @@ object TestCards {
         "2", "1", scryfallId = UUID.nameUUIDFromBytes("e2e/art/Ember Twin".encodeToByteArray()).toString())
     /** Empties its caster's hand for free. */
     val thoughts = card("Empty Thoughts", "Sorcery", "{0}", "Discard your hand.")
+    /** A free mana rock: identical ones lie in one stack (TBL-053). */
+    val shard = card("Ember Shard", "Artifact", "{0}", "{T}: Add {R}.")
+    /** A free creature with a pump ability. */
+    val ashHound = card("Ash Hound", "Creature — Elemental Dog", "{0}", "{R}: This creature gets +1/+0 until end of turn.", "1", "1")
+    /** A free creature with nothing to do. */
+    val pup = card("Ash Pup", "Creature — Elemental Dog", "{0}", power = "1", toughness = "1")
+    /** Free Equipment with a free equip. */
+    val blade = card("Ember Blade", "Artifact — Equipment", "{0}", "Equipped creature gets +1/+0.\nEquip {0}")
 }
 
 /** A deck: [entries] of cards, in this order (the library's order before the opening shuffle). */

@@ -88,8 +88,8 @@ class EngineBoardTest {
             .filter { it == ogre || it == bear }, "the newest card on top")
     }
 
-    // TBL-103: a token that leaves the Battlefield stops existing; TBL-102: tokens appear in their normal row (land
-    // tokens in the land row, others in the main row)
+    // TBL-103: a token that leaves the Battlefield stops existing; tokens get a place in their normal row (land tokens in
+    // the land row, others in the main row; the table lays them out itself, TBL-004)
     @Test fun tokensStartInTheirRowAndStopExistingWhenTheyLeave() {
         table.put(alice, Zone.Battlefield, "Mountain")
         val (spark) = table.put(alice, Zone.Hand, "Storm Spark")
@@ -101,6 +101,27 @@ class EngineBoardTest {
         assertEquals(0, board.cards.single { it.id == land }.placement!!.position.y)
         val after = table.board(resolved(cast(start, alice, spark, at(soldier))))
         assertNull(zoneOf(after, soldier), "the token is gone")
+    }
+
+    // SYS-074, TBL-053: a merged permanent's other card (mutate, CR 730.2) lies on its Battlefield as a card attached to it;
+    // merged on top, the card in front shows the top card's picture
+    @Test fun aMergedPermanentsOtherCardLiesAttachedToIt() {
+        val (bear, ogre) = table.put(alice, Zone.Battlefield, "Stout Bear", "Hill Ogre")
+        val start = table.state()
+        val digests = table.board(start).cards.associate { it.id to it.definition }
+        val host = start.objects.getValue(table.obj(bear))
+        val merging = start.objects.getValue(table.obj(ogre))
+        start.objects[host.id] = host.copy(mergedAbove = listOf(arcanum.engine.state.MergedPart(merging.id as arcanum.engine.state.ObjectId.Card,
+            merging.owner, merging.definition, timestamp = 99)))
+        start.objects.remove(merging.id)
+        start.battlefield.remove(merging.id)
+        val board = table.board(start)
+        val part = board.cards.single { it.id == ogre }
+        assertEquals(board.cards.single { it.id == bear }.containerId, part.containerId)
+        assertEquals(org.asyncttwiz.protocol.MtgRef.Card(bear, host.id.zoneChanges), part.attachedTo)
+        assertTrue(ogre in board.containers.single { it.id == part.containerId }.cards)
+        assertEquals(digests.getValue(ogre), board.cards.single { it.id == bear }.definition, "the top card in front")
+        assertEquals(digests.getValue(bear), part.definition)
     }
 
     // TBL-095, TRN-003: damage on a creature clears when the turn passes

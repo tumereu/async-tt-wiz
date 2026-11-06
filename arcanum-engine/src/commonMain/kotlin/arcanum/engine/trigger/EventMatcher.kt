@@ -220,7 +220,7 @@ internal object EventMatcher {
         is EventPattern.Cycle -> moves(change).filter {
             Meaning.Cycled in it.meanings && e.matches(pattern.players, it.before.owner) &&
                 (e.matches(pattern.cards, it.before.id) || e.matches(pattern.cards, it.after.id))
-        }.map { m -> moveEvent(e, m, proposed, Zone.Hand, EventRole.Before) }
+        }.map { m -> moveEvent(e, m, proposed, Zone.Hand, EventRole.Before).copy(x = m.meanings.filterIsInstance<Meaning.CostX>().firstOrNull()?.x) }
         // CR 702.122e: "becomes crewed" is a crew ability of it resolving
         is EventPattern.Crewed -> (change as? Change.StackItemRemoved)?.takeIf { Meaning.Resolved in it.meanings }?.item
             ?.takeIf { it.kind == arcanum.engine.state.StackItemKind.Activated }?.let { item ->

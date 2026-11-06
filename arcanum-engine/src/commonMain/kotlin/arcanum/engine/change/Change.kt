@@ -526,6 +526,9 @@ sealed interface Meaning {
     @Serializable @SerialName("discarded") data object Discarded : Meaning
     /** A card discarded to pay the cost of a cycling ability: it was cycled (CR 702.29c, 702.29f). */
     @Serializable @SerialName("cycled") data object Cycled : Meaning
+    // dft
+    /** Done to pay the cost of an ability whose X was announced as [x] ("Cycling {X}{2}{W}", read by "When you cycle this card, create X tokens"). */
+    @Serializable @SerialName("cost-x") data class CostX(val x: Int) : Meaning
     @Serializable @SerialName("drew") data object Drew : Meaning
     @Serializable @SerialName("milled") data object Milled : Meaning
     @Serializable @SerialName("exiled") data object Exiled : Meaning

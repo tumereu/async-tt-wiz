@@ -630,6 +630,8 @@ internal class Evaluator(val board: Board, val ctx: Context) {
         is Value.MostSharing -> mostSharing(value.quality, objects(value.objects))
         // dft: a player's speed, 0 without speed (CR 702.179f)
         is Value.Speed -> players(value.players).sumOf { arcanum.engine.turn.Speed.of(state, it) }
+        // dft: the X of the cycling that triggered this ability (CR 107.3a, 702.29c)
+        Value.EventX -> ctx.event?.x ?: 0
         is Value.Of -> combine(value.how, objects(value.objects).map { property(value.property, it) })
         is Value.PlayerCounters -> players(value.players).sumOf { state.player(it).counters(value.kind) }
         is Value.LifeOf -> players(value.players).sumOf { state.player(it).life }

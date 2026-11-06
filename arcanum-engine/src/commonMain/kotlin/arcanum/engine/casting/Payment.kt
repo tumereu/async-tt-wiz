@@ -311,7 +311,9 @@ internal object Payment {
                 check(ids, Zone.Hand)
                 // CR 702.29c: discarding the card to pay a cycling (or typecycling) cost is cycling it
                 val cycled = part.what == CostObjects.Self && plan.keyword().let { it is Keyword.Cycling || it is Keyword.Typecycling }
-                move(ids, Zone.Graveyard, listOf(Meaning.Discarded) + listOfNotNull(Meaning.Cycled.takeIf { cycled }), part.preBind, part.postBind)
+                // dft: the X of a cycling {X} cost, for "When you cycle this card, … X …" (CR 107.3a)
+                val costX = plan.item.announced["X"]?.takeIf { cycled }?.let { Meaning.CostX(it) }
+                move(ids, Zone.Graveyard, listOf(Meaning.Discarded) + listOfNotNull(Meaning.Cycled.takeIf { cycled }, costX), part.preBind, part.postBind)
             }
             is CostPart.Exile -> {
                 val ids = objects(part.what)

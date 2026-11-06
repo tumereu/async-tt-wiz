@@ -72,10 +72,15 @@ internal object Casts {
             }
             if (m.options.size - used.size < m.min) return null
             val options = m.options.mapIndexed { i, mode -> ModeOption(i, mode.text, available = i !in used, pawprints = mode.pawprints) }
+            val ev = act.evaluator(arcanum.engine.query.Context(controller, source, names, event = event))
+            // mh2: "choose one. If …, choose both instead" on a triggered ability, judged as it is put on the Stack (CR 700.2, 603.3c)
+            val raised = m.maxIf?.let { ev.holds(it) } == true
+            val printed = if (raised) m.maxIfCount ?: m.max else m.max
             // msh: "choose up to X": at most that many
-            val max = m.maxCount?.let { minOf(m.max, maxOf(m.min, act.evaluator(arcanum.engine.query.Context(controller, source, names, event = event)).value(it))) } ?: m.max
-            val chosen = if (used.isEmpty() && m.min == max && max == m.options.size && !m.repeatable) options.map { it.index }
-                else (act.ask { Decision.Modes(it, controller, source, options, m.min, max, m.repeatable, m.pawprintLimit) } as Answer.Modes).chosen
+            val max = m.maxCount?.let { minOf(printed, maxOf(m.min, ev.value(it))) } ?: printed
+            val min = if (raised && m.min == m.max && !m.upToMaxIf) max else m.min
+            val chosen = if (used.isEmpty() && min == max && max == m.options.size && !m.repeatable) options.map { it.index }
+                else (act.ask { Decision.Modes(it, controller, source, options, min, max, m.repeatable, m.pawprintLimit) } as Answer.Modes).chosen
             require(chosen.size <= max) { "At most $max modes" }
             require(chosen.none { it in used }) { "Mode already chosen: $chosen" }
             if (o != null && (m.onlyUnchosen || m.onlyUnchosenThisTurn) && chosen.isNotEmpty()) {

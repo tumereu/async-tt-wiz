@@ -71,8 +71,8 @@ class Mh2Chunk12MulticoloredTest {
         activated(cost(CostPart.Loyalty(n(1))), Step.RepeatWhile(listOf(
             create(creatureToken("Insect", listOf(Color.Black, Color.Green), 1, 1)),
             mill(1, postBind = "milled"),
-            Step.If(Condition.Exists(and(sub("Insect"), ObjectFilter.Is(Objects.Bound("milled"))), atLeast = 1), then = listOf(counters(Objects.Self, 1, CounterKind.Loyalty))),
-        ), Condition.Exists(and(sub("Insect"), ObjectFilter.Is(Objects.Bound("milled"))), atLeast = 1))),
+            Step.If(Condition.ObjectMatches(Objects.Bound("milled"), sub("Insect")), then = listOf(counters(Objects.Self, 1, CounterKind.Loyalty))),
+        ), Condition.ObjectMatches(Objects.Bound("milled"), sub("Insect")))),
         activated(cost(CostPart.Loyalty(n(-2))),
             Step.Pay(Cost(listOf(CostPart.Sacrifice(CostObjects.Choose(creature, count = n(1))))), payer = Players.You, bind = "paid"),
             Step.If(Condition.Did("paid"), then = listOf(reflexive(destroy(target("permanent")), targets = listOf(slot("permanent", or(creature, planeswalker))))))),

@@ -21429,8 +21429,8 @@ internal class Sentences(
             val created = effect("Create ${m.groupValues[1]}.", context) ?: return null
             val kind = Counters.kind(m.groupValues[3]) ?: return null
             if (m.groupValues[2] !in RulesWords.subtypes) return null
-            val milledOne = arcanum.api.Condition.Exists(Filters.all(ObjectFilter.Sub(arcanum.api.SubtypeRef.Literal(Subtype(m.groupValues[2]))),
-                ObjectFilter.Is(Objects.Bound("milled"))), atLeast = 1)
+            // the milled card, wherever it went
+            val milledOne = arcanum.api.Condition.ObjectMatches(Objects.Bound("milled"), ObjectFilter.Sub(arcanum.api.SubtypeRef.Literal(Subtype(m.groupValues[2]))))
             return listOf(Step.RepeatWhile(created + listOf(Step.Do(Effect.Mill(Players.You, Value.Fixed(1), postBind = "milled")),
                 Step.If(milledOne, then = listOf(Step.Do(Effect.PutCounters(Objects.Self, kind, Value.Fixed(1)))))), milledOne))
         }

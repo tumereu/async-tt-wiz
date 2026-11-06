@@ -511,4 +511,58 @@ internal object LtrSet {
     val gorthaurTheLidlessEye = Cards.invent("Gorthaur, the Lidless Eye", "{3}{B}{R}", "Legendary Creature — Avatar Horror", "When Gorthaur enters, gain control of target creature an opponent controls until end of turn. Untap it. It gains haste until end of turn.\n{1}{B}{R}: Creatures you control get +2/+0 until end of turn. Each opponent loses 2 life.", "4/4")
     // chunk 13
     val theFireDemonFlameOfUdun = Cards.invent("The Fire Demon, Flame of Udûn", "{3}{B}{R}", "Legendary Creature — Avatar Demon", "Trample\nWhen a legendary creature an opponent controls dies, put The Fire Demon on the bottom of its owner's library.", "7/7")
+    // chunk 14
+    val theRulingRing = Cards.invent("The Ruling Ring", "{4}", "Legendary Artifact", "Indestructible\nWhen The Ruling Ring enters, if you cast it, you gain protection from everything until your next turn.\nAt the beginning of your upkeep, you lose 1 life for each burden counter on The Ruling Ring.\n{T}: Put a burden counter on The Ruling Ring, then draw a card for each burden counter on The Ruling Ring.")
+    // chunk 14
+    val narsilFlameOfTheWest = Cards.invent("Narsil, Flame of the West", "{3}", "Legendary Artifact — Equipment", "Equipped creature gets +3/+1.\nWhenever equipped creature attacks, create two tapped 1/1 white Spirit creature tokens with flying. If that creature is legendary, instead create two of those tokens that are tapped and attacking.\nEquip {2}")
+    // chunk 14
+    val barrowDagger = Cards.invent("Barrow-Dagger", "{1}", "Artifact — Equipment", "Equipped creature gets +1/+1.\nWhenever equipped creature blocks or becomes blocked by a creature, that creature loses all abilities until end of turn.\nEquip {1} ({1}: Attach to target creature you control. Equip only as a sorcery.)")
+    // chunk 14
+    val entWaterBasin = Cards.invent("Ent-Water Basin", "{2}", "Artifact", "{X}, {T}: Put a +1/+1 counter on target creature with power X. Activate only as a sorcery.")
+    // chunk 14
+    val orcrist = Cards.invent("Orcrist", "{2}", "Legendary Artifact — Equipment", "Equipped creature has first strike and gets +1/+0 for each instant and sorcery card in your graveyard.\nWhenever equipped creature deals combat damage to a player, you may cast an instant or sorcery spell from your hand with mana value less than or equal to that damage without paying its mana cost.\nEquip {3}")
+    // chunk 14
+    val hornOfTheSteward = Cards.invent("Horn of the Steward", "{3}", "Legendary Artifact", "When Horn of the Steward enters, create a 1/1 white Human Soldier creature token.\n{3}, {T}: Create X 1/1 white Human Soldier creature tokens, where X is the number of Humans you control.")
+    // chunk 14
+    val hornOfTheRiders = Cards.invent("Horn of the Riders", "{2}", "Legendary Artifact", "Whenever two or more creatures you control attack a player, look at the top five cards of your library. You may reveal a creature card from among them and put it into your hand. Put the rest on the bottom of your library in a random order.")
+    // chunk 14
+    val inheritedParcel = Cards.invent("Inherited Parcel", "{3}", "Artifact", "When this artifact enters, the Ring tempts you.\n{T}: Add one mana of any color.")
+    // chunk 14
+    val waybread = Cards.invent("Waybread", "{2}", "Artifact — Food", "When this artifact enters, scry 1, then draw a card.\n{2}, {T}, Sacrifice this artifact: You gain 3 life.\nWhen this artifact is put into a graveyard from the battlefield, its owner shuffles it into their library.")
+    // chunk 14
+    val mirrorOfTheLady = Cards.invent("Mirror of the Lady", "{2}", "Legendary Artifact", "{5}, {T}: Scry 1, then draw a card. This ability costs {1} less to activate for each legendary creature you control.")
+    // chunk 14
+    val mithrilShirt = Cards.invent("Mithril Shirt", "{3}", "Legendary Artifact — Equipment", "Flash\nIndestructible\nWhen Mithril Shirt enters, attach it to target legendary creature you control.\nEquipped creature has indestructible.\nEquip {3}")
+    // chunk 14
+    val seeingStoneOfTheTower = Cards.invent("Seeing-Stone of the Tower", "{3}", "Legendary Artifact", "At the beginning of your end step, put an influence counter on Seeing-Stone of the Tower and scry 2. Then target opponent may have you draw a card. If that player doesn't, you mill X cards, where X is the number of influence counters on Seeing-Stone of the Tower, and that player loses life equal to the total mana value of those cards.")
+    // chunk 14
+    val phialOfTheLady = Cards.invent("Phial of the Lady", "{3}", "Legendary Artifact", "If you would draw a card while you have no cards in hand, draw two cards instead.\nIf you would gain life while you have 5 or less life, you gain twice that much life instead.\n{T}: Add one mana of any color.")
+    // chunk 14
+    val farmsteadScarecrow = Cards.invent("Farmstead Scarecrow", "{2}", "Artifact Creature — Scarecrow", "Defender\n{1}: Add one mana of any color. Activate only once each turn.", "0/3")
+    // chunk 14
+    val dartbladeTheGlintingDagger = Cards.invent("Dartblade, the Glinting Dagger", "{2}", "Legendary Artifact — Equipment", "Equipped creature gets +1/+1 and has haste.\nAt the beginning of each combat, untap equipped creature.\nEquipped creature has first strike as long as it's blocking or blocked by a Goblin or Orc.\nEquip {2}")
+    // chunk 14
+    val stoneOfTheOath = Cards.invent("Stone of the Oath", "{1}", "Legendary Artifact", "If a creature an opponent controls would die, exile it instead.\n{2}, {T}, Sacrifice Stone of the Oath: Exile target player's graveyard. Draw a card.")
+    // chunk 14
+    val bungosRing = Cards.invent("Bungo's Ring", "{3}", "Legendary Artifact — Equipment", "During your turn, equipped creature has hexproof and can't be blocked.\nWhenever equipped creature attacks alone, you draw a card and you lose 1 life.\nEquip Halfling {1} ({1}: Attach to target Halfling you control. Equip only as a sorcery.)\nEquip {4} ({4}: Attach to target creature you control. Equip only as a sorcery.)")
+    // chunk 14
+    val pathfindersBoots = Cards.invent("Pathfinder's Boots", "{2}", "Artifact — Equipment", "Equipped creature has nonbasic landwalk. (It can't be blocked as long as defending player controls a nonbasic land.)\nEquip {2}")
+    // chunk 14
+    val darkTowerKeep = Cards.invent("Dark Tower Keep", null, "Legendary Land", "Dark Tower Keep enters tapped unless you control a legendary creature.\n{T}: Add {B}.\n{X}{X}{B}, {T}: Amass Orcs X. Activate only if a creature died this turn.")
+    // chunk 14
+    val greatHallOfTheTower = Cards.invent("Great Hall of the Tower", null, "Land", "{T}: Add {C}.\n{1}, {T}: Add two mana in any combination of colors. Spend this mana only to cast legendary spells.")
+    // chunk 14
+    val theWesternHavens = Cards.invent("The Western Havens", null, "Legendary Land", "When The Western Havens enters, scry 1.\n{T}: Add {C}.\n{T}: Add one mana of any color among legendary creature cards in your graveyard.")
+    // chunk 14
+    val whiteTowerCity = Cards.invent("White Tower City", null, "Legendary Land", "White Tower City enters tapped unless you control a legendary creature.\n{T}: Add {W}.\n{1}{W}, {T}: Draw a card. Activate only if you attacked with two or more creatures this turn.")
+    // chunk 14
+    val minesOfTheDeep = Cards.invent("Mines of the Deep", null, "Legendary Land", "Mines of the Deep enters tapped unless you control a legendary creature.\n{T}: Add {R}.\n{3}{R}, {T}, Exile three cards from your graveyard: Create two Treasure tokens.")
+    // chunk 14
+    val mountainOfFire = Cards.invent("Mountain of Fire", null, "Legendary Land", "{T}, Pay 1 life: Add {B} or {R}.\n{1}{B}{R}, {T}: Mountain of Fire deals 1 damage to each opponent.\n{5}{B}{R}, {T}, Sacrifice Mountain of Fire and a legendary artifact: Choose up to two creatures, then destroy the rest. Activate only as a sorcery.")
+    // chunk 14
+    val hiddenValleyHaven = Cards.invent("Hidden Valley Haven", null, "Legendary Land", "Hidden Valley Haven enters tapped unless you control a legendary creature.\n{T}: Add {U}.\n{1}{U}, {T}: Scry 2. Activate only if you control a legendary creature.")
+    // chunk 14
+    val theGreenShire = Cards.invent("The Green Shire", null, "Legendary Land", "The Green Shire enters tapped unless you control a legendary creature.\n{T}: Add {G}.\n{1}{G}, {T}, Tap an untapped creature you control: Create a Food token.")
+    // chunk 14
+    val hillsideTerrace = Cards.invent("Hillside Terrace", null, "Land", "{T}: Add {C}.\n{1}, {T}, Sacrifice this land: Search your library for a basic land card, put it onto the battlefield tapped, then shuffle.")
 }

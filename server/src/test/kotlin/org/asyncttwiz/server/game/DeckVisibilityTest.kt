@@ -176,7 +176,7 @@ class DeckVisibilityTest {
         fun sql(statement: String) = f.db.connection().use { it.createStatement().execute(statement) }
         sql("UPDATE player_preparation SET deck_shown = false")
         f.settings.set(f.b.account.accountId, AccountSettings(DeckVisibility.HIDDEN))
-        // Back to the V45 schema: undo V63 (games with plays wiped: nothing to undo here), V62 (the old model's tables dropped: V49 below needs its gameplay_mutation
+        // Back to the V45 schema: undo V64 (engine seat take-back position: its table goes below), V63 (games with plays wiped: nothing to undo here), V62 (the old model's tables dropped: V49 below needs its gameplay_mutation
         // constraint back), V61 (games' change marker), V60 (engine seat waits: the table goes below), V59 (games with plays wiped: nothing to undo here), V58 (play defaults, branch notices), V57 (engine async play), V56 (engine history tables), V55 (pods' Automatum support), V54 (games with plays wiped, game Automatum dropped: nothing to undo here), V53 (lists' Automatum support), V52 (opponent ready notices), V51 (game Automatum), V50 (Automatum reports), V49 (automated batch members), V48 (prepared
         // cube), V47 (Maybe sections) and V46, then migrate forward again.
         sql("""
@@ -196,7 +196,7 @@ class DeckVisibilityTest {
             ALTER TABLE cube_entry ADD CONSTRAINT cube_entry_cube_id_definition_digest_key UNIQUE (cube_id, definition_digest);
             ALTER TABLE deck_entry DROP CONSTRAINT deck_entry_section_check;
             ALTER TABLE deck_entry ADD CONSTRAINT deck_entry_section_check CHECK (section IN ('MAINBOARD', 'SIDEBOARD'));
-            ALTER TABLE player_preparation DROP COLUMN deck_shown_chosen; DELETE FROM flyway_schema_history WHERE version IN ('46', '47', '48', '49', '50', '51', '52', '53', '54', '55', '56', '57', '58', '59', '60', '61', '62', '63')
+            ALTER TABLE player_preparation DROP COLUMN deck_shown_chosen; DELETE FROM flyway_schema_history WHERE version IN ('46', '47', '48', '49', '50', '51', '52', '53', '54', '55', '56', '57', '58', '59', '60', '61', '62', '63', '64')
         """.trimIndent())
         // Up to V53: V54 would remove the finished game this checks
         assertEquals(8, org.flywaydb.core.Flyway.configure().configuration(FoundationMigrations.flyway(f.db.settings).configuration)

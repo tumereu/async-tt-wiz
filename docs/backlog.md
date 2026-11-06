@@ -10,7 +10,7 @@ Changes the owner wants but that are not built yet. The feature catalog
 
 ## Build order (owner, 2026-11-05: one implementor at a time, small items batched, full suites after each batch)
 
-Running: Gallery round (owner, 2026-11-06): worker E = combat and table items; worker F = question panels + information-rule button; worker G = timeline separators + undo points + Undo dialog, then emblem text.
+Running: worker G = timeline separators + undo points + Undo dialog, then emblem text; worker H = stable test runs.
 
 ## Ready to build
 

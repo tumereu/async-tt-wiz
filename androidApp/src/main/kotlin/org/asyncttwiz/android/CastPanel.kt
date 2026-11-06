@@ -723,7 +723,7 @@ private fun answerLabel(flow: FlowQuestions, play: TableBoard, names: Map<String
     is Answer.Player -> names[answer.player.value] ?: "A player"
     is Answer.Division -> answer.shares.joinToString { "${it.amount} to ${targetName(flow, play, names, it.target)}" }
     is Answer.Keep -> objectName(flow, play, answer.kept)
-    is Answer.SubtypeChoice -> answer.subtype.toString()
+    is Answer.SubtypeChoice -> answer.subtype.name
     is Answer.CardTypeChoice -> answer.cardType.toString()
     is Answer.CardName -> answer.name
     is Answer.Replacement -> (decision as? Decision.ChooseReplacement)?.options?.firstOrNull { it.index == answer.index }?.text ?: "Replacement ${answer.index + 1}"

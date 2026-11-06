@@ -1,0 +1,1 @@
+Which replacement effect applies first: the panel is titled "Which applies first" with its instruction and a full-width row per effect, its card at the left and its whole text beside it, then OK.

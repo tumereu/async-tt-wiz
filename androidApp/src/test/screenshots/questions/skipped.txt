@@ -1,0 +1,1 @@
+A step Automatum can't do yet: the panel is titled "Skipped", says "Automatum can't do this part yet: it is skipped." and shows the step's own text, with Done.

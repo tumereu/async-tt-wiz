@@ -107,3 +107,12 @@ internal fun Scenario.speedOf(player: arcanum.engine.scenario.ScenarioPlayer): I
 /** [player]'s speed becomes [speed] (CR 702.179). */
 internal fun Scenario.setSpeed(player: arcanum.engine.scenario.ScenarioPlayer, speed: Int) =
     change(arcanum.engine.change.Change.Ledger(player.id, arcanum.engine.turn.Speed.KEY, speedOf(player), speed))
+
+/** [player] activates the [ability]th activated ability of the [index]th card named [name] (from 0, in setup order): for two cards of one
+ * name in different zones. */
+internal fun Scenario.activateCopy(player: arcanum.engine.scenario.ScenarioPlayer, name: String, index: Int, ability: Int) {
+    val id = card(name, index)
+    val origin = view()[id]!!.characteristics!!.abilities.filter { it.ability is arcanum.api.Ability.Activated }[ability].origin
+    perform(arcanum.engine.input.Input.Activate(player.id, id, origin))
+    (pending as? Decision.ManaPayment)?.let { answer(Answer.ManaPayment(it.suggestion)) }
+}

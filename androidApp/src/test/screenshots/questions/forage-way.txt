@@ -1,0 +1,1 @@
+After Yes, the panel asks "Choose one" under the trigger's sentence, saying "To forage, exile three cards from your graveyard or sacrifice a Food.", with Exile and Sacrifice buttons.

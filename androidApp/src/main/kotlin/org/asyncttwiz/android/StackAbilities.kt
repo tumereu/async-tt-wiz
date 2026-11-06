@@ -51,9 +51,10 @@ internal object StackAbilities {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, String>?) = size > 64
     }
 
-    /** The engine's text of [item]'s ability, decoded once per item. */
-    private fun text(item: MtgStackItem): String? = synchronized(texts) {
-        texts[item.data] ?: StackAbilityText.of(item)?.also { texts[item.data] = it }
+    /** The engine's text of [item]'s ability (a keyword's trigger as the keyword's line of [rulesText]), decoded once
+     * per item. */
+    private fun text(item: MtgStackItem, rulesText: String?): String? = synchronized(texts) {
+        texts[item.data] ?: StackAbilityText.of(item, rulesText)?.also { texts[item.data] = it }
     }
 
     /**
@@ -77,7 +78,7 @@ internal object StackAbilities {
         val frozen = effect.frozen != null
         if (!frozen && !CardVisibility.isVisibleFaceUp(play.board, card, viewer)) return null
         val source = face?.name?.takeIf { it.isNotBlank() } ?: "Ability"
-        val text = text(item) ?: face?.rulesText?.takeIf { frozen }.orEmpty()
+        val text = text(item, face?.rulesText) ?: face?.rulesText?.takeIf { frozen }.orEmpty()
         return StackAbilityShown(triggered, source, text.trim())
     }
 

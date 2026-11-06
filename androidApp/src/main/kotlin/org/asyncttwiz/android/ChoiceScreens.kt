@@ -1,5 +1,6 @@
 package org.asyncttwiz.android
 
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.*
@@ -123,10 +124,11 @@ internal fun choiceWhat(decision: Decision): String = when (decision) {
     }
     is Decision.Announce -> "Choose ${decision.name}"
     is Decision.ManaPayment -> "Pay ${decision.cost}"
-    is Decision.May -> if (decision.cost != null) "Optional cost" else "You may"
+    is Decision.May -> if (decision.cost != null) "You may pay" else "You may"
     is Decision.ChooseObjects -> ObjectsShape.of(decision).title
     // I-D52: the engine's own question says what it is about (the loop choice: Continue / Draw)
-    is Decision.ChooseOption -> if (decision.text != null) "Loop" else "Choose one"
+    is Decision.ChooseOption -> if (decision.options == listOf(arcanum.engine.decision.LoopStop.CONTINUE, arcanum.engine.decision.LoopStop.DRAW)) "Loop"
+        else "Choose one"
     is Decision.ChooseColor -> "Choose a colour"
     is Decision.ChooseSubtype -> if (decision.among == null) "Choose a creature type" else "Choose a type"
     is Decision.ChooseCardType -> "Choose a card type"
@@ -158,6 +160,41 @@ internal fun choiceHint(decision: Decision): String? = when (decision) {
     is Decision.LegendRule -> "Tap the ${decision.name} to keep; the others go to the graveyard."
     is Decision.Manual -> "Automatum can't do this part yet: it is skipped."
     is Decision.Targets, is Decision.May, is Decision.Random, is Decision.HostFill, is Decision.OtherView -> null
+}
+
+/**
+ * The sentence of a spell's printed [text] an open [decision] asks about (STK-030, owner playtest 2026-11-06: every
+ * question shows what it asks without holding): its sentences that name what is chosen ("target", the X announced, a
+ * colour, a number, a player, …), else the whole text; null without text.
+ */
+internal fun askedSentence(text: String?, decision: Decision): String? {
+    val plain = text?.lines()?.map { it.trim() }?.filter { it.isNotEmpty() }?.joinToString(" ")?.takeIf { it.isNotEmpty() } ?: return null
+    val words: List<String> = when (decision) {
+        is Decision.Targets -> listOf("target")
+        is Decision.Announce -> listOf(decision.name)
+        is Decision.Divide -> listOf("divide", "distribute")
+        is Decision.ChooseNumber -> listOf("number")
+        is Decision.ChooseColor -> listOf("color", "colour")
+        is Decision.ChooseSubtype -> listOf("type")
+        is Decision.ChooseCardType -> listOf("card type")
+        is Decision.ChooseCardName -> listOf("name")
+        is Decision.ChoosePlayer -> listOf("player", "opponent")
+        is Decision.ManaPayment -> listOf("pay")
+        else -> listOf("choose")
+    }
+    val sentences = plain.split(Regex("""(?<=[.!?])\s+(?=[A-Z•])"""))
+    val asked = sentences.filter { sentence -> words.any { Regex("""\b${Regex.escape(it)}""", RegexOption.IGNORE_CASE).containsMatchIn(sentence) } }
+    return asked.joinToString(" ").ifEmpty { plain }
+}
+
+/** A cost in a few words with its mana and tap symbols ("{2}", "{T}", "Forage", "2 life"), for a question that asks to
+ * pay it (STK-030); [CardText] draws the symbols. */
+internal fun costText(cost: arcanum.api.Cost): String = cost.parts.joinToString(", ") { part ->
+    when (part) {
+        arcanum.api.CostPart.TapSelf -> "{T}"
+        arcanum.api.CostPart.UntapSelf -> "{Q}"
+        else -> org.asyncttwiz.automatum.CombatFlow.costLabel(arcanum.api.Cost(listOf(part)))
+    }
 }
 
 /** The icon of a choice area by its label. */
@@ -285,19 +322,23 @@ internal fun CardRow(card: ChoiceCardData?, inspector: ChoiceInspector, modifier
     }
 }
 
-/** A card of a choice with its own short [line] under it (a trigger's text, a replacement effect's), I-D48: a tap
- * ([tap]) chooses it, holding inspects it; [card] null: a card-shaped [name] (an ability whose source isn't a card). */
+/** A card of a choice with its own [line] beside it (a trigger's text, a replacement effect's), I-D48, as one full-width
+ * row so the whole line shows (STK-030, owner playtest 2026-11-06: what is asked shows without holding): a tap ([tap])
+ * chooses it, holding inspects it; [card] null: a card-shaped [name] (an ability whose source isn't a card). */
 @Composable
 internal fun LabelledChoiceCard(card: ChoiceCardData?, key: String, name: String, line: String, inspector: ChoiceInspector,
     selected: Boolean, badge: String? = null, tap: () -> Unit) {
     val face = (card ?: ChoiceCardData(key, null, name, null, shown = true)).copy(key = key)
-    val (width, _) = choiceCardSize()
+    val shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp)
     // The card and its line are one target
-    Column(Modifier.width(maxOf(width * 1.5f, 84.dp)).choiceCardGestures(key, tap = tap, hold = { inspector.hold(face, it) }, moved = inspector::moved),
-        horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(2.dp)) {
+    Row(Modifier.fillMaxWidth()
+        .border(if (selected) 2.dp else 1.dp, if (selected) AutomatumViolet else Color(0x22000000), shape)
+        .choiceCardGestures(key, tap = tap, hold = { inspector.hold(face, it) }, moved = inspector::moved)
+        .padding(horizontal = 6.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         ChoiceCardFace(face, selected = selected, badge = badge)
-        CardText(line, color = Color(0xff4b5a5f), style = androidx.compose.ui.text.TextStyle(fontSize = 10.sp, lineHeight = 12.sp,
-            textAlign = androidx.compose.ui.text.style.TextAlign.Center), maxLines = 3, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+        CardText(line, Modifier.weight(1f), color = Color(0xff26343a),
+            style = androidx.compose.ui.text.TextStyle(fontSize = 11.sp, lineHeight = 14.sp))
     }
 }
 

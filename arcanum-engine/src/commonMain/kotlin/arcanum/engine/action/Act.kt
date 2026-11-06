@@ -265,8 +265,8 @@ internal class Act(val recorder: Recorder, val asker: Asker) {
     }
 
     /** [naming]: the object an option names ([Decision.ChooseOption.naming]). */
-    fun chooseOption(player: PlayerId, source: ObjectId?, options: List<String>, naming: Map<String, ObjectId> = emptyMap()): String =
-        if (options.size == 1) options.single() else (ask { Decision.ChooseOption(it, player, source, options, naming = naming) } as Answer.Option).chosen
+    fun chooseOption(player: PlayerId, source: ObjectId?, options: List<String>, naming: Map<String, ObjectId> = emptyMap(), text: String? = null): String =
+        if (options.size == 1) options.single() else (ask { Decision.ChooseOption(it, player, source, options, text, naming) } as Answer.Option).chosen
 
     fun chooseSubtype(player: PlayerId, source: ObjectId?, among: List<Subtype>?): Subtype =
         (ask { Decision.ChooseSubtype(it, player, source, among) } as Answer.SubtypeChoice).subtype

@@ -1,0 +1,1 @@
+The main button's names on a narrow phone with large system text: each reads whole on at most two lines (Assume no response and Assume no blockers on two), drawn a little smaller where needed.

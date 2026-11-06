@@ -157,8 +157,8 @@ internal fun EventTextOverlay(feed: EventTextFeed, pauseMillis: Long, modifier: 
                 .testTag("event-text")
                 .clearAndSetSemantics { contentDescription = shown.text; liveRegion = LiveRegionMode.Polite },
                 contentAlignment = Alignment.Center) {
-                Text(shown.text, color = Color.White, fontSize = 13.sp, lineHeight = 16.sp, fontWeight = FontWeight.Medium,
-                    maxLines = 2, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
+                CardText(shown.text, color = Color.White, style = androidx.compose.ui.text.TextStyle(fontSize = 13.sp, lineHeight = 16.sp,
+                    fontWeight = FontWeight.Medium, textAlign = TextAlign.Center), maxLines = 2, overflow = TextOverflow.Ellipsis)
             }
         }
     }

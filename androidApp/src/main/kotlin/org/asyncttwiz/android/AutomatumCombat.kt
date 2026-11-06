@@ -166,6 +166,14 @@ internal class CombatController(
     }
     fun chooseTarget(play: TableBoard, target: String?) { lane = play.board.turn.number to target }
 
+    /** CMB-028 (owner, 2026-11-05): while [viewer] declares attackers on [play]'s board, their creatures that may attack
+     * something (staged ones too), once worked out; empty otherwise. */
+    fun attackable(play: TableBoard, viewer: String): Set<String> {
+        val choices = readyOrLast(play)?.choices ?: return emptySet()
+        if (choices.declaring != viewer || !choices.attackers) return emptySet()
+        return choices.attacks.filterValues { it.isNotEmpty() }.keys
+    }
+
     /** CMB-033: the divisions with a choice asked in a damage step, as first seen (turn, first-strike step) → sources,
      * so the dialog can say "2 of 3" after the first ones were answered. */
     private var stepDivisions: Pair<Pair<String, Boolean>, List<String>>? = null
@@ -356,6 +364,12 @@ internal fun QuickContext.withCombatTarget(combat: CombatController, play: Table
 internal fun automatumCombatQuickActions(play: TableBoard, context: QuickContext, scope: TableActionScope): List<QuickAction>? {
     val position = TurnPosition.of(play.board.turn)
     if (position !in setOf(TurnPosition.DECLARE_ATTACKERS, TurnPosition.DECLARE_BLOCKERS, TurnPosition.FIRST_STRIKE_DAMAGE, TurnPosition.COMBAT_DAMAGE)) return null
+    // CMB-040 (owner, 2026-11-05): while the attacker waits for the defender's blocks they place assumed ones on the lanes,
+    // with Clear as the defender has (CMB-034)
+    context.assumedBlockers?.let { placed ->
+        return listOf(QuickAction("Clear", "", TableActionIntent.Combat(scope, CombatTool.ASSUME_CLEAR, context.combatAreaId),
+            enabled = placed > 0, refused = if (placed > 0) null else "Nothing blocks yet."))
+    }
     val shown = context.automatumCombat ?: return emptyList()
     // A combat declared by hand (not through Automatum) keeps its manual quick actions (Close + next, CMB-022)
     if (position == TurnPosition.COMBAT_DAMAGE && !AutomatumBoards.throughEngine(play.board) && shown.passing == null) return null

@@ -100,16 +100,16 @@ class SettingsScreenTest {
         }
     }
 
-    // LOB-113 (I-D56 §7, §13): new games start in Auto-skip with Always assume resolves off and Autotap on; without an
+    // LOB-113 (I-D56 §7, §13): new games start in Auto-skip with Assume resolves Never and Autotap on; without an
     // account (signed out) the device keeps them per account
     @Test fun automatumPlayDefaults() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         compose.setContent { ScreenTheme { AutomatumPauseSettings("pauses") } }
         compose.onNodeWithTag("response-mode-Auto-skip").assertIsSelected()
-        compose.onNodeWithTag("always-assume-resolves").assertIsOff()
+        compose.onNodeWithTag("assume-resolves-never").assertIsSelected()
         compose.onNodeWithTag("autotap").assertIsOn()
         compose.onNodeWithTag("response-mode-Full control").performClick()
-        compose.onNodeWithTag("always-assume-resolves").performClick()
+        compose.onNodeWithTag("assume-resolves-always").performClick()
         compose.onNodeWithTag("autotap").performClick()
         compose.waitForIdle()
         assertEquals(org.asyncttwiz.protocol.game.PlaySettings(org.asyncttwiz.protocol.game.ResponseMode.FullControl,
@@ -117,6 +117,11 @@ class SettingsScreenTest {
         assertEquals(org.asyncttwiz.protocol.game.PlaySettings(), PausePreferences(context, "someone else").engineDefaults)
         compose.onNodeWithTag("response-mode-Full control").assertIsSelected()
         compose.onNodeWithTag("autotap").assertIsOff()
+        // "When they have no mana" is the third choice; one choice at a time
+        compose.onNodeWithTag("assume-resolves-no-mana").performClick()
+        compose.waitForIdle()
+        compose.onNodeWithTag("assume-resolves-always").assertIsNotSelected()
+        assertEquals(org.asyncttwiz.protocol.game.AssumeResolves.WhenNoMana, PausePreferences(context, "pauses").engineDefaults.assume)
     }
 
     // LOB-079, LOB-113

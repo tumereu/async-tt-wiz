@@ -8,7 +8,7 @@ Rules that every feature follows: what the product is, who decides game state, h
 - **SYS-002** Change only what was requested: a player's action does what the rules make of it and nothing more, and a card's name never decides anything. (r49)
 - **SYS-003** Finished edits save and sync automatically. There is no Send button (chat messages excepted), no required explanation and no routine confirmation. (r1)
 - **SYS-004** Each history event is one acting point (HIS-092): one player action with everything that then happens by itself; it undoes as one (HIS-085). (r49)
-- **SYS-005** Personal UI state stays on the device and is never shared: camera, open menus, timeline review position, playback and card-size settings. Kept on the server for you alone: your local head (HIS-032) and your response mode, Always assume resolves, playback's Full control and Autotap (TRN-059). (r53)
+- **SYS-005** Personal UI state stays on the device and is never shared: camera, open menus, timeline review position, playback and card-size settings. Kept on the server for you alone: your local head (HIS-032) and your response mode, Assume resolves, playback's Full control and Autotap (TRN-059). (r53)
 - **SYS-006** Undo is only a convenience. No feature works by undoing something (withdrawing a result suggestion, for example, is its own event), so a refused undo never blocks a feature. (r18)
 
 ### Server authority and sync

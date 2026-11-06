@@ -1,0 +1,1 @@
+mod: Long ability and casting choices above a card now wrap onto more lines instead of being cut off, and mana and tap symbols are drawn as symbols in menus, panels, event texts and hold texts too.

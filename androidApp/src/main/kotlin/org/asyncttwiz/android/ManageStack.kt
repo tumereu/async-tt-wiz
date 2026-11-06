@@ -52,7 +52,7 @@ internal fun ManageStackDialog(state: TableBoard, viewer: String, dismiss: () ->
                         val described = Modifier.semantics { contentDescription = if (controlled) "Your Stack entry" else "Opponent Stack entry" }
                         // STK-046: an ability is its token (the source's art and the marker), never the source card
                         if (ability != null) AbilityTokenFace(ability, art, controlled,
-                            Modifier.size(32.dp * size, 44.dp * size).then(described), text = false)
+                            Modifier.size(32.dp * size, 44.dp * size).then(described))
                         else Box(Modifier.size(32.dp * size, 44.dp * size).cardFrame(card?.token == true, owner, projection)
                             .then(described), contentAlignment = Alignment.Center) {
                             if (art != null) CardArtwork(art, entry.name, 64, 88, Modifier.fillMaxSize())

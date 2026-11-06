@@ -29,8 +29,8 @@ import kotlin.test.assertTrue
 /**
  * I-D56 steps C–D (§14): the table of a game on engine state: the private toggles and the unconfirmed mark, the
  * wait's faint words with Assume in the step arrow's place, the catch-up screen, the rewind dialog and the incoming undo request with the board
- * they go back to, the strip and timeline mode on engine events, the Assume blockers screen with edited blocks, and the
- * other player's shared attack staging.
+ * they go back to, the strip and timeline mode on engine events, and the other player's shared attack staging (the
+ * combat band itself: [CombatBandTest]).
  */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
@@ -105,10 +105,35 @@ class EngineTableScreenshotTest {
         compose.onNodeWithContentDescription("Event strip").assertExists()
         compose.onNodeWithContentDescription("Timeline mode").assertExists()
         compose.onNodeWithContentDescription("Response mode", substring = true).assertExists()
-        compose.onNodeWithContentDescription("Always assume resolves").assertExists()
+        compose.onNodeWithContentDescription("Assume resolves setting").assertExists()
         compose.onRoot().captureShot("$SCREENSHOTS/engine/assumed-main.png",
-            "Alice kept while Bob was away and is in her first main phase: a small violet dot at the corner of the main button (To combat, twice as wide as a quick action) says Bob hasn't seen her last moves yet (no count, nothing over the board), the strip above the quick actions shows the events so far in each player's colour, and the quick actions are her own Response mode (Auto-skip), Always assume resolves and Autotap mana.")
+            "Alice kept while Bob was away and is in her first main phase: a small violet dot at the corner of the main button (To combat, twice as wide as a quick action) says Bob hasn't seen her last moves yet (no count, nothing over the board), the strip above the quick actions shows the events so far in each player's colour, and the quick actions are her own Response mode (Auto-skip), Assume resolves (Always, as the fixture sets it) and Autotap mana.")
     }
+
+    /** Alice at her main phase with "Assume resolves" set to [choice]: the quick action shows [state] and is captured as [file]. */
+    private fun assumeCell(choice: org.asyncttwiz.protocol.game.AssumeResolves, state: String, file: String, caption: String) {
+        val game = aliceAtMain()
+        game.settings(game.shown!!.settings.assuming(choice))
+        val routes = EngineTableRoutes(f.a, { game }, {}, { game.play() }).apply { opponentName = "Bob" }
+        render(game, f.a, routes = routes)
+        val cell = compose.onNodeWithContentDescription("Assume resolves setting")
+        cell.assert(SemanticsMatcher.expectValue(androidx.compose.ui.semantics.SemanticsProperties.StateDescription, state))
+        cell.captureShot("$SCREENSHOTS/engine/$file.png", "Alice's Assume resolves quick action set to $state: $caption")
+    }
+
+    // TRN-059, HIS-096 (owner playtest 2026-11-05 evening): the Assume resolves quick action shows its choice of Never,
+    // When they have no mana and Always (filled violet unless Never)
+    @Test fun theAssumeQuickActionShowsNever() = assumeCell(org.asyncttwiz.protocol.game.AssumeResolves.Never, "Never",
+        "assume-never", "white, it reads \"Assume: Never\": her device waits at each of Bob's pauses.")
+
+    // TRN-059, HIS-096
+    @Test fun theAssumeQuickActionShowsNoMana() = assumeCell(org.asyncttwiz.protocol.game.AssumeResolves.WhenNoMana,
+        "When they have no mana", "assume-no-mana",
+        "filled violet, it reads \"Assume: No mana\": her device goes on at Bob's pauses while the table shows him no mana.")
+
+    // TRN-059, HIS-096
+    @Test fun theAssumeQuickActionShowsAlways() = assumeCell(org.asyncttwiz.protocol.game.AssumeResolves.Always, "Always",
+        "assume-always", "filled violet, it reads \"Assume: Always\": her device goes on at each of Bob's pauses.")
 
     // TRN-066, TRN-070, TRN-062, TRN-027, I-D56 §4, §14: after Alice's keep the game waits for Bob's; faint words over the
     // battlefield say so (nothing covers the board) and nothing stands in the step arrow's place: his keep is never assumed
@@ -158,7 +183,7 @@ class EngineTableScreenshotTest {
         compose.onNodeWithTag("playback-toggle").assertDoesNotExist()
         compose.onNodeWithContentDescription("Alice has made moves · Tap to watch").assertExists()
         compose.onNodeWithContentDescription("Full control").assertExists()
-        compose.onNodeWithContentDescription("Always assume resolves").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Assume resolves setting").assertDoesNotExist()
         captureShot("$SCREENSHOTS/engine/catch-up.png",
             "Bob comes back after Alice played on past the opening: no dialog and no timeline look; his table shows where he left it, as in live play, with \"Alice has made moves · Tap to watch\" in the middle of the board, and his playback quick actions Full control and Autotap mana; nothing plays until he taps the text.")
         compose.onNodeWithTag("centre-action").performClick()
@@ -167,8 +192,8 @@ class EngineTableScreenshotTest {
         }
     }
 
-    // HIS-021, CMB-007 (§29.6): Alice attacked while Bob was away; his playback shows the attack in the combat area, the
-    // panel in the middle of the table, as in live combat
+    // HIS-021, CMB-007 (§29.6): Alice attacked while Bob was away; his playback shows the attack in the combat band
+    // between the battlefields, as in live combat
     @Test fun anAttackPlaysBackInTheCombatArea() {
         val scenario = EngineCombatScenario()
         scenario.until(scenario::bothHaveCubs)
@@ -189,7 +214,7 @@ class EngineTableScreenshotTest {
         assertTrue(bob.play().board.combat?.pairs.orEmpty().isNotEmpty(), "the attack shown")
         render(bob, f.b, summary = scenario.f.game)
         captureShot("$SCREENSHOTS/engine/playback-attack.png",
-            "Bob's playback of Alice's attack while he was away, stopped at his blocks: her Ember Cub attacks him in the combat area, the white panel in the middle of the table, as in live combat, with No blocks in the step arrow's place.")
+            "Bob's playback of Alice's attack while he was away, stopped at his blocks: her Ember Cub attacks him in the combat band between the battlefields, as in live combat, with No blocks on the main button.")
     }
 
     /** Bob coming back after [aliceAtMain]: his device holds her events past his local head. */
@@ -257,40 +282,41 @@ class EngineTableScreenshotTest {
         compose.runOnIdle { assertTrue(game.device.model.engine.stack.isEmpty(), "she passed; Bob's pass was assumed and it resolved") }
     }
 
-    // STK-028, TRN-070, HIS-096 (owner 2026-11-05): with "Always assume resolves" off, after Alice's Storm Spark the game
-    // waits for Bob (away or online); Assume is the main button and assumes he lets it resolve
+    // STK-028, TRN-070, HIS-096 (owner 2026-11-05): with "Assume resolves" Never, after Alice's Storm Spark the game
+    // waits for Bob (away or online); "Assume resolves" is the main button and assumes he lets it resolve
     @Test fun assumeIsTheMainButton() {
         val game = aliceCastsSpark(org.asyncttwiz.protocol.game.ResponseMode.Normal, alwaysAssume = false)
         val waiting = assertIs<GameDevice.Status.Waiting>(game.device.status)
         assertEquals(GameDevice.Offer.AssumeResolves, waiting.offer)
         render(game, f.a, ReceivedPresence(OpponentPresence(PresenceState.OFFLINE, idleSeconds = 0), monotonicMillis()))
-        compose.onNodeWithTag("engine-wait-action").assert(hasContentDescription("Assume"))
+        compose.onNodeWithTag("engine-wait-action").assert(hasContentDescription("Assume resolves"))
         compose.onNodeWithTag("stack-assume").assertDoesNotExist()
         captureShot("$SCREENSHOTS/engine/stack-assume.png",
-            "Alice cast Storm Spark while Bob is away and Always assume resolves is off: faint words say Bob may respond to it, and the main button reads Assume, where tapping it goes on as if Bob let it resolve.")
+            "Alice cast Storm Spark while Bob is away and Assume resolves is Never: faint words say Bob may respond to it, and the main button reads Assume resolves, where tapping it goes on as if Bob let it resolve.")
         compose.onNodeWithTag("engine-wait-action").performClick()
         compose.runOnIdle { assertTrue(game.device.model.engine.stack.isEmpty(), "Storm Spark resolved on the assumed pass") }
     }
 
     // STK-046 (owner playtest 2026-11-04): in Full control Alice keeps priority after her Ember Herald resolved: its enters
-    // trigger is on the Stack as an ability token (the Herald's art, the trigger marker, its name and text), not as the
-    // Herald card; the Stack list shows it as "Ember Herald's ability" with its text
+    // trigger is on the Stack as an ability token (the Herald's art and a "T" chip, no text), not as the Herald card; the
+    // Stack list shows it as "Ember Herald's ability" with its text
     @Test fun anAbilityOnTheStackIsDrawnAsAnAbility() {
         val (game, h) = heraldTriggerOnStack()
         render(game, h.a)
         compose.onNodeWithTag("main-button").assert(hasContentDescription("Resolve"))
         compose.onNodeWithContentDescription("Triggered ability, Ember Herald — When this creature enters", substring = true).assertExists()
         captureShot("$SCREENSHOTS/engine/stack-ability.png",
-            "In Full control Alice's Ember Herald resolved and its enters trigger is on the Stack: it is drawn as a small dark ability token with the Herald's art, a \"!\" trigger marker, the Herald's name and the trigger's text, not as the Herald card, and the main button reads Resolve.")
+            "In Full control Alice's Ember Herald resolved and its enters trigger is on the Stack: it is drawn as a small dark ability token filled with the Herald's art and a \"T\" chip at its bottom, with no text, not as the Herald card, and the main button reads Resolve.")
         compose.onNodeWithContentDescription("Stack, 1 entries").performClick()
         compose.waitForIdle()
         compose.onNodeWithText("Top · Ember Herald's ability").assertExists()
         captureShot("$SCREENSHOTS/engine/stack-ability-list.png",
-            "Alice tapped the Stack holding her Ember Herald's enters trigger: the list shows it as the ability token, \"Top · Ember Herald's ability\" and the trigger's text.")
+            "Alice tapped the Stack holding her Ember Herald's enters trigger: the list shows it as the ability token with its \"T\" chip, \"Top · Ember Herald's ability\" and the trigger's text.")
     }
 
-    // STK-050, TBL-104: holding an ability's entry on the Stack shows a card-sized tile with the source's name and the
-    // ability's text, then the source card's picture, and nothing else
+    // STK-050, TBL-104: holding an ability's entry on the Stack shows a dark rounded panel, not card-shaped (shorter than
+    // the card), with the source's art and under it the source's name and the ability's text, then the source card's
+    // picture, and nothing else
     @Test fun holdingAnAbilityOnTheStackShowsItsTileThenItsSourceCard() {
         val (game, h) = heraldTriggerOnStack()
         render(game, h.a)
@@ -306,9 +332,11 @@ class EngineTableScreenshotTest {
         val source = compose.onNodeWithContentDescription("Card image: Ember Herald").assertExists().getBoundsInRoot()
         assertTrue(tile.bottom <= source.top, "The tile first, then the source card")
         assertEquals(tile.right - tile.left, source.right - source.left)
+        assertTrue(tile.bottom - tile.top < (tile.right - tile.left) * 1.3f,
+            "The panel is shorter than a card of its width: not card-shaped (${tile.right - tile.left} × ${tile.bottom - tile.top})")
         compose.waitForIdle(); compose.mainClock.advanceTimeBy(100)
         captureShot("$SCREENSHOTS/engine/stack-ability-inspect.png",
-            "Alice holds her Ember Herald's enters trigger in the Stack list: Inspect shows a dark card-sized tile with the trigger marker, \"Triggered ability\", the Herald's name and the trigger's text, then the Herald's card image below it.")
+            "Alice holds her Ember Herald's enters trigger in the Stack list: Inspect shows a dark rounded panel, not card-shaped, with the Herald's art on top and under it the \"T\" chip, \"Triggered ability\", the Herald's name and the trigger's text, then the Herald's card image below it.")
         row.performTouchInput { up() }
         compose.mainClock.autoAdvance = true
         compose.onNodeWithContentDescription("Card inspection content").assertDoesNotExist()
@@ -416,45 +444,6 @@ class EngineTableScreenshotTest {
         compose.onNodeWithContentDescription("Return to current").assertExists()
         captureShot("$SCREENSHOTS/engine/timeline-mode.png",
             "Alice tapped the history button at the end of the strip and stepped back to her keep: the bars turn grey, the board shows the opening as it was then, and the timeline panel has the strip with Previous, Auto and Next; nothing on it acts.")
-    }
-
-    // CMB-040, CMB-049 (I-D56 §4, §14, owner 2026-11-05): Bob is away; Alice opens the Assume blockers screen from the main
-    // button and edits the blocks before assuming them
-    @Test fun assumeBlockersScreenEditsTheBlocks() {
-        val scenario = EngineCombatScenario()
-        scenario.until(scenario::bothHaveCubs)
-        val alice = scenario.alice
-        val s = alice.device.model.engine
-        val attacker = scenario.creatures(s, scenario.me, ready = true).first()
-        scenario.online[f.b] = false
-        alice.tick(scenario.sim.now + 120_000)
-        assertIs<GameDevice.Acted.Sent>(alice.send(listOf(arcanum.engine.input.Input.DeclareAttackers(scenario.me,
-            listOf(arcanum.engine.input.Attack(attacker, TargetRef.Player(scenario.other)))))))
-        alice.tick(scenario.sim.now + 121_000)
-        // Bob's pause after her attack, then his blockers: waits with Assume on the main button
-        if ((alice.device.status as? GameDevice.Status.Waiting)?.offer == GameDevice.Offer.AssumeResolves) {
-            alice.assume(); alice.tick(scenario.sim.now + 122_000)
-        }
-        val waiting = assertIs<GameDevice.Status.Waiting>(alice.device.status)
-        assertEquals(GameDevice.Offer.AssumeBlockers, waiting.offer)
-        alice.notes.clear()
-        render(alice, f.a)
-        compose.onNodeWithText("Assume Bob's blockers").assertDoesNotExist()
-        compose.onNodeWithTag("engine-wait-action").assert(hasContentDescription("Assume blockers")).performClick()
-        compose.waitForIdle()
-        compose.onNodeWithText("Assume Bob's blockers").assertExists()
-        val blocker = scenario.creatures(s, scenario.other, ready = false).first { s.obj(it)?.tapped == false } as ObjectId.Card
-        compose.onNodeWithTag("assume-block-${blocker.card.value}-${(attacker as ObjectId.Card).card.value}").performClick()
-        compose.waitForIdle()
-        compose.onNodeWithText("1 block").assertExists()
-        captureShot("$SCREENSHOTS/engine/assume-blockers.png",
-            "Bob is away when Alice attacks with her Ember Cub; she tapped Assume blockers on the main button: the Assume blockers screen lists her attacker with Bob's untapped creatures beside it, and she tapped his Cub to assume it blocks (1 block) before pressing OK; Back would wait for him.")
-        // OK assumes exactly those blocks
-        compose.onNodeWithText("OK").performClick()
-        compose.runOnIdle {
-            val assumed = alice.device.session.pending.firstNotNullOf { it.assumed?.input as? arcanum.engine.input.Input.DeclareBlockers }
-            assertEquals(listOf(arcanum.engine.input.Block(blocker, attacker)), assumed.blocks)
-        }
     }
 
     // CMB-043 (I-D54 §8): Alice's attack staging is shared: Bob's table shows her staged Cub in the lane while she decides

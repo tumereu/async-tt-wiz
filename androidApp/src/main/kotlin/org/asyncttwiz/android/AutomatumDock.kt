@@ -81,10 +81,15 @@ internal fun AutomatumDockPanel(description: String, hidden: Boolean, toggleHidd
             drawRect(Color.White.copy(alpha = shown))
             drawLine(AutomatumViolet.copy(alpha = shown), Offset(0f, 0f), Offset(size.width, 0f), 2.dp.toPx())
         }) {
-        AnimatedVisibility(!hidden, enter = fadeIn(tween(180)) + expandVertically(tween(180), expandFrom = Alignment.Bottom),
+        // What the content saves (rememberSaveable: a choice's picks) outlives hiding it with the eye (STK-044)
+        val saved = androidx.compose.runtime.saveable.rememberSaveableStateHolder()
+        // Measured after the button row, so a panel given little room (attached to the combat band) scrolls inside
+        AnimatedVisibility(!hidden, Modifier.weight(1f, fill = false), enter = fadeIn(tween(180)) + expandVertically(tween(180), expandFrom = Alignment.Bottom),
             exit = fadeOut(tween(180)) + shrinkVertically(tween(180), shrinkTowards = Alignment.Bottom)) {
-            Column(Modifier.padding(start = 10.dp, end = 10.dp, top = 8.dp).heightIn(max = 440.dp).verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(6.dp), content = content)
+            saved.SaveableStateProvider(description) {
+                Column(Modifier.padding(start = 10.dp, end = 10.dp, top = 8.dp).heightIn(max = 440.dp).verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(6.dp), content = content)
+            }
         }
         DockButtonRow(hidden, shown, toggleHidden, what, buttons)
     }

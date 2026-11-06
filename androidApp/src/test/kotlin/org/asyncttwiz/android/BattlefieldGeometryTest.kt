@@ -5,7 +5,7 @@ import org.junit.Test
 import kotlin.test.*
 
 class BattlefieldGeometryTest {
-    // TBL-003: three rows each (a free one between the back row and the creature row), a row the card height with
+    // TBL-003: two rows each (the back row and the creature row), a row the card height with
     // margins; every card inside its row, and both rows of both battlefields can be panned into view
     @Test fun rowsFollowRenderedCardHeightWithMarginsAndOverflowIsReachable() {
         val base = TableFixture.apart(TableFixture.play(board = 15))
@@ -25,7 +25,7 @@ class BattlefieldGeometryTest {
             val world = home.world!!
             for (field in home.fields) {
                 assertEquals(56f * scale * zoom, field.rowHeight, .001f)
-                assertEquals(3 * field.rowHeight, field.gridBounds.height, .001f)
+                assertEquals(2 * field.rowHeight, field.gridBounds.height, .001f)
                 for (card in home.items.filter { it.viewport == field.containerId }) {
                     val row = home.groupOf(card.cardId)!!.row.index
                     val rowY = if (field.owner == "a") field.gridBounds.bottom - (row + 1f) * field.rowHeight

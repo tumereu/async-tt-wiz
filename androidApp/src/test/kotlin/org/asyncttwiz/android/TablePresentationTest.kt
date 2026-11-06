@@ -39,13 +39,13 @@ internal object TableFixture {
 }
 
 class TablePresentationTest {
-    // TBL-121: landscape opens zoomed out so both battlefields' rows fit between the hands, the rows' left ends where
-    // they were; portrait, and a camera the player moved, are left alone
+    // TBL-121: landscape opens zoomed out so both battlefields' rows fit between the hands (large cards: at 1× they don't),
+    // the rows' left ends where they were; portrait, and a camera the player moved, are left alone
     @Test fun landscapeOpensOnBothBattlefieldsWholeHeight() {
         val play = TableFixture.play(board = 3, hand = 2)
         fun scene(landscape: Boolean, ui: TableLayoutState = TableLayoutState(), home: Boolean = true) =
             TablePresentation.scene(TableFixture.game, tableBoard(play), "a", if (landscape) 892f else 412f, if (landscape) 412f else 892f,
-                landscape, ui, landscapeHome = home)
+                landscape, ui, landscapeHome = home, appearance = CardAppearance(cardSize = 1.25f))
         val plain = scene(true, home = false)
         val opened = scene(true)
         val viewport = assertNotNull(opened.world).viewport
@@ -176,10 +176,10 @@ class TablePresentationTest {
                 val lane = scene.viewports.single { it.id == "combat" }.bounds
                 for (field in scene.fields) {
                     val lands = field.landsBounds(field.owner == "a")
-                    // TBL-003: three rows, the back row by the player's own edge
-                    assertEquals(field.gridBounds.height / 3, lands.height, .001f)
+                    // TBL-003: two rows, the back row by the player's own edge
+                    assertEquals(field.gridBounds.height / 2, lands.height, .001f)
                     assertEquals(lands, lands.intersection(field.gridBounds))
-                    // CMB-007: the combat area floats over the battlefields' middle, never over their outer lands rows
+                    // CMB-007: the combat band lies between the battlefields, never over their outer lands rows
                     assertNull(lands.intersection(lane))
                     val camera = scene.world!!.clamp(TableCamera(y = if (field.owner == "a") 10000f else -10000f))
                     val panned = TablePresentation.scene(LiveTableFixture.game, tableBoard(play), "a", w, h, true,
@@ -187,7 +187,9 @@ class TablePresentationTest {
                     val land = panned.items.single { it.cardId == "${field.owner}/BATTLEFIELD/0" }
                     val pannedLands = panned.fields.single { it.owner == field.owner }.landsBounds(field.owner == "a")
                     assertTrue(land.visible.any { it.intersection(pannedLands) != null })
-                    assertTrue(scene.items.single { it.cardId == "${field.owner}/BATTLEFIELD/2" }.visible.isNotEmpty())
+                    // CMB-007 (owner, 2026-11-05): an open band pushes the battlefields apart, so on a low screen they are
+                    // panned to (above); without combat their middle shows at once
+                    if (!combat) assertTrue(scene.items.single { it.cardId == "${field.owner}/BATTLEFIELD/2" }.visible.isNotEmpty())
                 }
             }
         }
@@ -456,9 +458,9 @@ class TablePresentationTest {
         }
     }
 
-    // CMB-007 (combat review #1): the open combat area is a panel over the middle of the table, sized to its content; the
-    // battlefields don't move for it
-    @Test fun anOpenCombatAreaFloatsOverTheBattlefields() {
+    // CMB-007 (owner, 2026-11-05): the open combat area is a band between the battlefields pushing them apart, its panel
+    // sized to its content between them
+    @Test fun anOpenCombatAreaIsABandBetweenTheBattlefields() {
         val initial = TableFixture.play()
         val play = initial.copy(board = initial.board.copy(combat = CombatArea("combat")))
         val scene = TableFixture.scene(play)
@@ -469,9 +471,12 @@ class TablePresentationTest {
             2 * TablePresentation.COMBAT_PANEL_PAD, lane.height, .001f)
         assertEquals(scene.combatPanel, lane)
         val closed = TableFixture.scene(initial)
-        assertEquals(closed.fields, scene.fields)
-        assertTrue(scene.fields.first().gridBounds.bottom > lane.y)
-        assertTrue(scene.fields.last().gridBounds.y < lane.bottom)
+        assertTrue(scene.fields.first().gridBounds.bottom <= lane.y)
+        assertTrue(scene.fields.last().gridBounds.y >= lane.bottom)
+        val pushed = scene.fields.last().gridBounds.y - scene.fields.first().gridBounds.bottom
+        val narrow = closed.fields.last().gridBounds.y - closed.fields.first().gridBounds.bottom
+        assertTrue(pushed > lane.height && narrow < lane.height, "the band holds the panel; without combat it is narrow")
+        assertEquals(closed.fields.first().gridBounds.height, scene.fields.first().gridBounds.height, .001f)
         assertEquals(closed.stackRegion, scene.stackRegion)
         assertEquals(closed.viewports.filter { it.id.startsWith("dock/") }, scene.viewports.filter { it.id.startsWith("dock/") })
     }

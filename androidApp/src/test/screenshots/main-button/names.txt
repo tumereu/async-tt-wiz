@@ -1,0 +1,1 @@
+Every name the main button can show, each on a button as wide as on a phone in portrait, its words whole under the icon (the room has two lines).

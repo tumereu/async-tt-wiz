@@ -71,7 +71,8 @@ class EngineTableScreenTest {
 
     // STK-044, STK-047: the target bar of a Storm Spark cast is the table's full width with its bottom on the top of
     // Alice's hand row, white; its eye hides it and shows it again (only the eye stays). STK-025: nothing reaches Bob
-    // while the cast is open; the step arrow refuses with the card being cast shaking; Cancel drops it without a trace
+    // while the cast is open; the step arrow refuses with the card being cast shaking; the bar has no Cancel, Undo drops
+    // the cast without a trace
     @Test fun theTargetBarSitsAboveTheHandWithItsEye() {
         kit.opening()
         kit.playLand()
@@ -90,7 +91,6 @@ class EngineTableScreenTest {
         compose.onNodeWithContentDescription("Hide bar").performClick()
         compose.waitForIdle()
         compose.onNodeWithContentDescription("Choose targets").assertDoesNotExist()
-        compose.onNodeWithContentDescription("Cancel cast").assertDoesNotExist()
         compose.onNodeWithContentDescription("Show bar").performClick()
         compose.waitForIdle()
         compose.onNodeWithContentDescription("Choose targets").assertExists()
@@ -103,11 +103,12 @@ class EngineTableScreenTest {
             assertEquals(spark, toolkit.shaking?.id)
             assertEquals(CastController.BUSY, stepBlocked(kit.alice.play(), toolkit.cast.open, null), "the step arrow is greyed and says why")
         }
-        compose.onNodeWithContentDescription("Cancel cast").performClick()
+        compose.onNodeWithText("Cancel").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Undo").performClick()
         compose.waitForIdle()
         compose.onNodeWithContentDescription("Choose targets").assertDoesNotExist()
         kit.settle()
-        assertEquals(tip, kit.alice.device.session.tip, "Cancel left no trace")
+        assertEquals(tip, kit.alice.device.session.tip, "Undo left no trace")
         assertTrue(spark in kit.hand("Storm Spark").map(kit::atw))
     }
 
@@ -144,12 +145,19 @@ class EngineTableScreenTest {
         kit.opening()
         kit.alice.take(kit.scenario.sim.now)
         render()
-        compose.onNodeWithContentDescription("Always assume resolves").performClick()
+        // TRN-059: a tap on Assume resolves goes from Never to When they have no mana
+        compose.onNodeWithContentDescription("Assume resolves setting").performClick()
         compose.waitForIdle()
         compose.onNode(isDialog()).assertDoesNotExist()
         compose.onNodeWithText("Send").assertDoesNotExist()
         val sent = kit.alice.take(kit.scenario.sim.now).filterIsInstance<GameAction.EngineSettings>()
-        assertTrue(sent.single().settings.alwaysAssumeResolves, "$sent")
+        assertEquals(org.asyncttwiz.protocol.game.AssumeResolves.WhenNoMana, sent.single().settings.assume, "$sent")
+        // Then Always, then Never again
+        for (next in listOf(org.asyncttwiz.protocol.game.AssumeResolves.Always, org.asyncttwiz.protocol.game.AssumeResolves.Never)) {
+            compose.onNodeWithContentDescription("Assume resolves setting").performClick()
+            compose.waitForIdle()
+            assertEquals(next, kit.alice.take(kit.scenario.sim.now).filterIsInstance<GameAction.EngineSettings>().single().settings.assume)
+        }
     }
 
     // STK-037, STK-029, TRN-063: with Bob's Storm Spark on the Stack the table is Alice's to act on: Resolve on the main

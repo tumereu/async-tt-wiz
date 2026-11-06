@@ -36,6 +36,13 @@ object TestCards {
     /** Makes a token copy of itself as it enters (when cast), drawn with a picture of its own (an invented art id). */
     val twin = card("Ember Twin", "Creature — Elemental", "{R}", "When this creature enters, if you cast it, create a token that's a copy of it.",
         "2", "1", scryfallId = UUID.nameUUIDFromBytes("e2e/art/Ember Twin".encodeToByteArray()).toString())
+    /** An X spell (STK-023): X damage to any target, X paid by its caster's mana. */
+    val burst = card("Ember Burst", "Sorcery", "{X}", "Ember Burst deals X damage to any target.")
+    /** A bestow creature whose bestow needs collect evidence (owner playtest 2026-11-05 evening: its Bestow chip was missing
+     * while the evidence couldn't be collected). */
+    val lark = card("Cinder Lark", "Enchantment Creature — Elemental Bird", "{R}",
+        "Bestow—{R}, Collect evidence 6. (To pay this bestow cost, pay {R} and exile cards with total mana value 6 or greater from your graveyard.)\n" +
+            "Flying, haste\nEnchanted creature gets +1/+1 and has flying and haste.", "1", "1")
     /** Empties its caster's hand for free. */
     val thoughts = card("Empty Thoughts", "Sorcery", "{0}", "Discard your hand.")
     /** A free mana rock: identical ones lie in one stack (TBL-053). */
@@ -46,6 +53,23 @@ object TestCards {
     val pup = card("Ash Pup", "Creature — Elemental Dog", "{0}", power = "1", toughness = "1")
     /** Free Equipment with a free equip. */
     val blade = card("Ember Blade", "Artifact — Equipment", "{0}", "Equipped creature gets +1/+0.\nEquip {0}")
+    /** A sorcery too dear for one Mountain that cycles for {R} (ZON-080: its Cycling chip). */
+    val musing = card("Ember Musing", "Sorcery", "{3}{R}", "Draw two cards.\nCycling {R} ({R}, Discard this card: Draw a card.)")
+    /** A fetch-style land (owner playtest 2026-11-05 evening): its ability searches its controller's library for a basic land. */
+    val cinderTrail = card("Cinder Trail", "Land",
+        rulesText = "{T}, Pay 1 life, Sacrifice this land: Search your library for a basic land card, put it onto the battlefield, then shuffle.")
+
+    /** A split card ({2}{G} // {1}{R}{R}) as a catalog import keeps it (PhysicalCardFaces): one face holding both halves,
+     * the front half's catalog record (its cost only) as the face's source data. */
+    val trailBlaze: SubmittedDefinition = run {
+        val halves = listOf(
+            DefinitionFace(UUID.nameUUIDFromBytes("e2e/Trail".encodeToByteArray()).toString(), "Trail", typeLine = "Instant", manaCost = "{2}{G}", rulesText = "Draw a card.",
+                sourceData = """{"manaCost":"{2}{G}"}"""),
+            DefinitionFace(UUID.nameUUIDFromBytes("e2e/Blaze".encodeToByteArray()).toString(), "Blaze", typeLine = "Instant", manaCost = "{1}{R}{R}", rulesText = "Blaze deals 3 damage to any target."))
+        val definition = org.asyncttwiz.protocol.PhysicalCardFaces.normalize(
+            CardDefinition("Trail // Blaze", halves, provider = "mtgjson", layout = "split"))
+        SubmittedDefinition(DeckJson.digest(definition), definition)
+    }
 }
 
 /** A deck: [entries] of cards, in this order (the library's order before the opening shuffle). */
@@ -60,7 +84,19 @@ data class TestDeck(val name: String, val entries: List<Pair<SubmittedDefinition
         /** 40 cards: Mountains and Idle Glimmers (a free instant: its holder can always respond). */
         fun glimmers() = TestDeck("Glimmers", listOf(TestCards.mountain to 20, TestCards.glimmer to 20))
 
+        /** 40 cards: Mountains and Ember Bursts (an X spell). */
+        fun bursts() = TestDeck("Bursts", listOf(TestCards.mountain to 20, TestCards.burst to 20))
+
+        /** 40 cards: Mountains and Cinder Larks (bestow with collect evidence). */
+        fun larks() = TestDeck("Larks", listOf(TestCards.mountain to 20, TestCards.lark to 20))
+
         /** 40 cards: Mountains and Storm Sparks. */
         fun sparks() = TestDeck("Sparks", listOf(TestCards.mountain to 20, TestCards.spark to 20))
+
+        /** 40 cards: Mountains and Ember Musings (cycling). */
+        fun musings() = TestDeck("Musings", listOf(TestCards.mountain to 20, TestCards.musing to 20))
+
+        /** 40 cards: Mountains, Cinder Trails (a fetch-style land) and Storm Sparks. */
+        fun trails() = TestDeck("Trails", listOf(TestCards.mountain to 14, TestCards.cinderTrail to 13, TestCards.spark to 13))
     }
 }

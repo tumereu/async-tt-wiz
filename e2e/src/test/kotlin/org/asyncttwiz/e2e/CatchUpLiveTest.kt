@@ -37,7 +37,7 @@ class CatchUpLiveTest : E2e() {
         assertTrue(!bob.showsTimelineLook(), "no timeline look")
         assertTrue(!bob.showsText("Catching up"), "no catching-up label")
         assertTrue(bob.showsControl("Full control") && bob.showsControl("Autotap mana"), bob.screen())
-        assertTrue(!bob.showsControl("Always assume resolves") && !bob.showsControl("Response mode"), bob.screen())
+        assertTrue(!bob.showsControl("Assume resolves setting") && !bob.showsControl("Response mode"), bob.screen())
 
         bobWatchesToAStop("Bob's playback stopping at Alice's spell")
         assertTrue(!bob.showsTimelineLook(), "playback has no timeline look")
@@ -59,7 +59,7 @@ class CatchUpLiveTest : E2e() {
             if (bob.status is GameDevice.Status.Stopped) bob.once { bob.stepArrow()?.let(bob::tap) }
             !bob.shown.behind && bob.status !is GameDevice.Status.Playing && bob.status !is GameDevice.Status.Stopped
         }
-        assertTrue(bob.showsControl("Always assume resolves") && bob.showsControl("Response mode"), "live play's toggles: ${bob.screen()}")
+        assertTrue(bob.showsControl("Assume resolves setting") && bob.showsControl("Response mode"), "live play's toggles: ${bob.screen()}")
         assertTrue(bob.leaks.leaks.isEmpty() && alice.leaks.leaks.isEmpty())
     }
 

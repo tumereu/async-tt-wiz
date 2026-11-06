@@ -23,13 +23,18 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 
-/** Original letter badges, not Magic artwork, a symbol font, or official symbol shapes. */
+/**
+ * Text with its mana and tap symbols ({G}, {T}, {X}, hybrid, Phyrexian, snow, energy) drawn as symbols (TBL-124, owner
+ * playtest 2026-11-05 evening: everywhere text shows them): original letter badges, not Magic artwork, a symbol font, or
+ * official symbol shapes. Its text (semantics, tests) stays the printed words with their braces.
+ */
 @Composable
 internal fun CardText(text: String, modifier: Modifier = Modifier, style: TextStyle = LocalTextStyle.current,
-    maxLines: Int = Int.MAX_VALUE) {
+    maxLines: Int = Int.MAX_VALUE, overflow: TextOverflow = TextOverflow.Clip, color: Color = Color.Unspecified) {
     val parts = remember(text) { parseCardText(text) }
     val annotated = remember(parts) { buildAnnotatedString {
         for (part in parts) when (part) {
@@ -41,7 +46,7 @@ internal fun CardText(text: String, modifier: Modifier = Modifier, style: TextSt
     val inline = symbols.associate { symbol -> symbol.token to InlineTextContent(
         Placeholder(1.em, 1.em, PlaceholderVerticalAlign.TextCenter)
     ) { CardSymbol(symbol.token) } }
-    Text(annotated, modifier, style = style, maxLines = maxLines, inlineContent = inline)
+    Text(annotated, modifier, color = color, style = style, maxLines = maxLines, overflow = overflow, inlineContent = inline)
 }
 
 /** One symbol as drawn in card text, filling its parent (e.g. "G", "3", "W/U"); search chips use it at their own size. */

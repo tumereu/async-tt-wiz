@@ -89,7 +89,8 @@ internal fun EngineTableScreen(controller: LobbyController, accountId: String, h
     LaunchedEffect(reviewId, reviewPlay == null) { if (reviewId != null && reviewPlay == null) routes.leaveReview() }
     // TBL-040 (owner playtest 2026-11-04): what a published board changed plays step by step, in event order
     val motion = remember(game.id, playId) { EngineMotionQueue() }
-    val play = reviewPlay ?: motion.board(shown.version, shown.transition, live)
+    // CMB-040 (owner, 2026-11-05): while waiting for the defender's blocks the attacker's lanes show the blocks placed to assume
+    val play = reviewPlay ?: motion.board(shown.version, shown.transition, live).let { b -> routes.assuming()?.board(b) ?: b }
     SideEffect { routes.motionBusy = { motion.playing } }
     // HIS-107: an Undo tapped while the player's own action is still being worked out waits for it
     SideEffect { routes.working = { toolkit.flows.busy || toolkit.cast.busy } }

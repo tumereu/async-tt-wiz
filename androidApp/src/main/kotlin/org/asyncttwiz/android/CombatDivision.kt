@@ -136,9 +136,9 @@ internal fun engineShares(decision: Decision.Divide, division: DamageDivision, s
     division.among.zip(decision.among).map { (ref, target) -> Share(target, shares[ref] ?: 0) }
 
 /**
- * The division of combat damage (CMB-033) open for the player who divides (or chooses for them), docked above the hand
- * like every Automatum panel (UI review round 2 #7): filled in with Automatum's suggestion, so OK alone accepts it; the
- * eye hides it to look at the table.
+ * The division of combat damage (CMB-033) open for the player who divides (or chooses for them), attached to the combat
+ * band ([BandAttached], owner 2026-11-05): filled in with Automatum's suggestion, so the main button's OK alone accepts it
+ * ([SharedFlowController.divisionAction]); the eye hides it to look at the table.
  */
 @Composable
 internal fun CombatDivisionPanel(flows: SharedFlowController, play: TableBoard, names: Map<String, String>,
@@ -147,11 +147,11 @@ internal fun CombatDivisionPanel(flows: SharedFlowController, play: TableBoard, 
     val start = division.among.zip(decision.among).associate { (ref, target) ->
         ref to (decision.suggested.firstOrNull { it.target == target }?.amount ?: 0) }
     val draft = remember(decision.id) { DivisionDraft(division, start, free = Divisions.orderFree(division)) }
-    AutomatumDockPanel("Division of combat damage", flows.hidden, flows::toggleHidden, "division", buttons = {
-        ChoiceButton("OK", Icons.Outlined.Check, enabled = draft.refusal == null && !flows.busy, primary = true) {
-            flows.answer(Answer.Division(engineShares(decision, division, draft.shares)))
-        }
-    }) {
+    DisposableEffect(decision.id, draft) {
+        flows.division = decision to draft
+        onDispose { if (flows.division?.second === draft) flows.division = null }
+    }
+    AutomatumDockPanel("Division of combat damage", flows.hidden, flows::toggleHidden, "division") {
         // STK-044: the title says only the choice; the creature dealing the damage is the card at the right (its own: only
         // the creature's controller divides, STK-033)
         val viewer = LocalChoiceFrame.current.viewer
@@ -167,6 +167,50 @@ internal fun CombatDivisionPanel(flows: SharedFlowController, play: TableBoard, 
         ChoiceInspection(inspector, play, viewer)
     }
 }
+
+/**
+ * CMB-033 (owner, 2026-11-05): [content] attached to the combat band of [scene], centred on its panel, at most
+ * [BAND_PANEL_WIDTH] wide: under the band when there is room for it there (it scrolls inside when longer), else above it,
+ * else over the lower part of the table. Never docked above the hand.
+ */
+@Composable
+internal fun BandAttached(scene: TableScene?, content: @Composable () -> Unit) {
+    androidx.compose.ui.layout.Layout(content = content, modifier = Modifier.fillMaxSize()) { measurables, constraints ->
+        val table = scene?.world?.visibleViewport
+        val band = scene?.combatPanel ?: table?.let { TableBounds(it.x, it.center.y, it.width, 0f) }
+        val width = minOf(BAND_PANEL_WIDTH.roundToPx(), constraints.maxWidth)
+        val top = (table?.y ?: 0f).dp.roundToPx().coerceIn(0, constraints.maxHeight)
+        val bottom = (table?.bottom?.dp?.roundToPx() ?: constraints.maxHeight).coerceIn(top, constraints.maxHeight)
+        val gap = 4.dp.roundToPx()
+        val below = ((band?.bottom ?: 0f).dp.roundToPx() + gap).coerceIn(top, bottom)
+        val above = ((band?.y ?: 0f).dp.roundToPx() - gap).coerceIn(top, bottom)
+        val least = BAND_PANEL_LEAST.roundToPx()
+        val (room, under) = when {
+            bottom - below >= least -> (bottom - below) to true
+            above - top >= least -> (above - top) to false
+            else -> ((bottom - top) * 3 / 5) to true
+        }
+        val placeable = measurables.firstOrNull()?.measure(androidx.compose.ui.unit.Constraints(minWidth = width, maxWidth = width,
+            maxHeight = room.coerceAtLeast(1)))
+        layout(constraints.maxWidth, constraints.maxHeight) {
+            if (placeable == null) return@layout
+            val centre = band?.center?.x?.dp?.roundToPx() ?: (constraints.maxWidth / 2)
+            val x = (centre - placeable.width / 2).coerceIn(0, (constraints.maxWidth - placeable.width).coerceAtLeast(0))
+            val y = when {
+                !under -> above - placeable.height
+                bottom - below >= least -> below
+                else -> bottom - placeable.height
+            }
+            placeable.place(x, y)
+        }
+    }
+}
+
+/** The least room under or above the combat band a panel attached to it takes there ([BandAttached]). */
+internal val BAND_PANEL_LEAST = 160.dp
+
+/** The widest a panel attached to the combat band is ([BandAttached]). */
+internal val BAND_PANEL_WIDTH = 400.dp
 
 /**
  * The viewer's division still to come in this damage step (I-D29, I-D33, STK-034): while another division is open, they

@@ -25,7 +25,7 @@ class BattlefieldLayoutTest {
         assertEquals(BattlefieldRow.Others, BattlefieldRow.of("Legendary Planeswalker — Vess", false))
         assertEquals(BattlefieldRow.Others, BattlefieldRow.of("Battle — Siege", false))
         assertEquals(BattlefieldRow.Creatures, BattlefieldRow.of("Basic Land — Forest", true))
-        assertEquals(2, BattlefieldRow.Creatures.index)
+        assertEquals(1, BattlefieldRow.Creatures.index)
         assertEquals(0, BattlefieldRow.Lands.index)
         assertEquals(0, BattlefieldRow.Others.index)
     }
@@ -70,7 +70,7 @@ class BattlefieldLayoutTest {
             card("t3", identity = same.copy(definition = "token"))))
         val spots = BattlefieldLayout.place(groups, rowWidth = 400f)
         val slot = BattlefieldLayout.SLOT
-        assertEquals(0f, spots.getValue("cub").x); assertEquals(2, spots.getValue("cub").row)
+        assertEquals(0f, spots.getValue("cub").x); assertEquals(1, spots.getValue("cub").row)
         assertEquals(slot, spots.getValue("bear").x)
         assertEquals(2 * slot, spots.getValue("t1").x)
         assertEquals(2 * slot + BattlefieldLayout.TIGHT, spots.getValue("t2").x)
@@ -101,7 +101,7 @@ class BattlefieldLayoutTest {
         val spots = BattlefieldLayout.place(groups, 400f)
         assertEquals(listOf("aura", "blade", "bear"), spots.entries.sortedBy { it.value.order }.map { it.key })
         assertEquals(listOf(0, 1, 2), listOf("bear", "blade", "aura").map { spots.getValue(it).lift })
-        assertTrue(listOf("bear", "blade", "aura").all { spots.getValue(it).x == 0f && spots.getValue(it).row == 2 && spots.getValue(it).lifts == 2 })
+        assertTrue(listOf("bear", "blade", "aura").all { spots.getValue(it).x == 0f && spots.getValue(it).row == 1 && spots.getValue(it).lifts == 2 })
     }
 
     // TBL-122: an opened group lies with its members side by side and pushes the rest of its row along

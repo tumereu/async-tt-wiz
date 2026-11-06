@@ -178,7 +178,7 @@ private fun TimelineEventChip(event: HistoryTimelineEvent, color: Color, selecte
             androidx.compose.ui.window.Popup(popupPositionProvider = remember(gap) { HoldTooltipPosition(gap) }) {
                 Surface(Modifier.graphicsLayer { this.alpha = alpha }, color = MenuInk, contentColor = Color.White,
                     shape = MaterialTheme.shapes.extraSmall) {
-                    Text(event.description, Modifier.widthIn(max = 240.dp).padding(8.dp), style = MaterialTheme.typography.labelMedium)
+                    CardText(event.description, Modifier.widthIn(max = 240.dp).padding(8.dp), style = MaterialTheme.typography.labelMedium)
                 }
             }
         }

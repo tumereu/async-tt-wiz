@@ -7,3 +7,4 @@ Things to revisit before release. Entries are added only with the owner's approv
 - Event descriptions: timeline/event texts never reveal information hidden from the viewer at that event (hand, library, face-down, other players' looks); tests cover each case.
 - Memory: measure client and server memory for a long, realistic game tree (10k+ events), in case recorded event details (e.g. concerned-field sets) cost too much.
 - Keep top card revealed: the revealed top card is always known, so branch reseeds (and other re-rolls of the unknown order) never change it, while a real shuffle (also search and mulligan) re-randomizes it. Check the automated tests still cover this.
+- Alternate ways to cast: every alternate or additional way (bestow, evoke, dash, overload, foretell, plot, disguise, prototype, mutate, kicker, …) shows as a chip above the hand card (greyed when not possible now), never only in the cast panel or not at all (owner, 2026-11-05).

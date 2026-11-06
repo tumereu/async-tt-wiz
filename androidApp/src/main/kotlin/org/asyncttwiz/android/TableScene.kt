@@ -307,6 +307,8 @@ internal fun TableSurface(game: GameSummary, play: TableBoard, accountId: String
             val shaking = toolkit?.shaking
             // ZON-079 (I-D50): what Autotap would tap for the raised hand card (live table only)
             val raisedSources = if (runtime.reviewing) emptySet() else toolkit?.hand?.sources(play).orEmpty()
+            // CMB-028 (owner, 2026-11-05): while the viewer declares attackers, the creatures that may attack glow red-orange
+            val attackGlow = if (runtime.reviewing || !writable) emptySet() else toolkit?.combat?.attackable(play, accountId).orEmpty()
             val shakeOffset = remember(shaking) { androidx.compose.animation.core.Animatable(0f) }
             LaunchedEffect(shaking) { if (shaking != null) shakeOffset.animateTo(0f, shakeKeyframes()) }
             // TBL-117, TBL-122: what a tap on each collapsed group of several does, for its glow's colour (live table only)
@@ -318,17 +320,17 @@ internal fun TableSurface(game: GameSummary, play: TableBoard, accountId: String
             Canvas(Modifier.fillMaxSize()) {
                 DebugLatency.tapFrame(game.id, progress.value, refreshRate)
                 val frame = rendered.value
-                val glows = TableGlows.of(frame.scene.battlefieldGroups, groupTaps, glow.alphas(), castGlow)
+                val glows = TableGlows.of(frame.scene.battlefieldGroups, groupTaps, glow.alphas(), castGlow, attackGlow)
                 drawTable(frame.scene, accountId, play.board.turn.accountId, preview, frame.alphas, artwork, drawCache,
                     presenceDot, glows.targets, glows.playable, shaking?.let { it.id to shakeOffset.value }?.takeIf { it.second != 0f }, raisedSources,
-                    expandGlow = glows.expand)
+                    attackable = glows.attack, expandGlow = glows.expand)
             }
             TableSemanticNodes(game, play, scene, semanticItems, rendered, runtime, { currentRuntime }, coordinator, writable, toolkit,
                 { preview }, layoutState)
             // Automatum (I3, I-D29): the damage preview and blockers blocking several attackers, for both players
             // I-D32: arrows of every block, and with Automatum the staging, selection, preview and badges
             CombatAreaOverlay(toolkit?.combat, play, scene, accountId, writable && !runtime.reviewing,
-                    fold = { hide -> layout = layout.copy(combatHidden = if (hide) play.board.combat?.id else null) }) { item ->
+                    openBand = { layout = layout.copy(combatOpened = combatBandKey(play.board)) }) { item ->
                     rendered.value.items[item.id]?.bounds ?: item.bounds }
         }
         TableBoardOverlays(game, play, accountId, runtime, scene, rendered)

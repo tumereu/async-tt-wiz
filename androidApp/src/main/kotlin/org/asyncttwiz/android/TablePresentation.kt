@@ -104,8 +104,9 @@ internal fun battlefieldRowHeight(cardHeight: Float, scale: Float, lifts: Int = 
 /** [localPileTargets]: the local pile is open to pick targets from (Automatum, I-D6): its cards one by one, not grouped. */
 data class TableLayoutState(val camera: TableCamera = TableCamera(), val scroll: Map<String, Float> = emptyMap(),
     val scrollY: Map<String, Float> = emptyMap(), val localPileId: String? = null, val localPileTargets: Boolean = false,
-    /** CMB-007: the combat area (by its id) the viewer folded away to see the battlefield under it; the viewer's own. */
-    val combatHidden: String? = null,
+    /** CMB-001 (owner, 2026-11-05): the declare attackers step ([combatBandKey]) in which the viewer tapped the thin strip
+     * open before staging an attacker; the viewer's own. */
+    val combatOpened: String? = null,
     /** ZON-079 (I-D50): the viewer's hand card raised by a tap with Automatum on; the viewer's own. */
     val raised: String? = null,
     /** ZON-081 (I-D50): a hand pulled past its end (dp, by hand viewport id), springing back on release. */
@@ -203,14 +204,14 @@ data class TableScene(val items: List<TableItem>, val fields: List<TableField>,
     val appearance: CardAppearance = CardAppearance(),
     val combatLabels: List<CombatLaneLabel> = emptyList(),
     val combatLaneDividers: List<Pair<TablePoint, TablePoint>> = emptyList(),
-    /** CMB-007: the combat area's panel on the screen (not clipped to the table), floating over the battlefields; null
-     * without one shown. Only it takes combat drops, and it covers the battlefield cards under it. */
+    /** CMB-007: the combat band's white panel on the screen (not clipped to the table), sized to its lanes in the band
+     * between the battlefields; null without an open band. Only it takes combat drops. */
     val combatPanel: TableBounds? = null,
-    /** CMB-007: where the folded-away combat area's "Combat ▴" button sits (the middle of the table), when the viewer
-     * folded it away. */
-    val combatFolded: TablePoint? = null,
-    /** The size of the combat area's cards on the screen: the battlefield's, but never below
-     * [TablePresentation.COMBAT_MIN_CARD] (combat review #12). */
+    /** CMB-001 (owner, 2026-11-05): the thin strip between the battlefields on the screen while the viewer declares
+     * attackers with none staged; a tap opens the band. Null otherwise. */
+    val combatStrip: TableBounds? = null,
+    /** The size of the combat band's cards on the screen: the battlefield's at the same zoom, but never below
+     * [TablePresentation.COMBAT_MIN_CARD] at zoom 1 (CMB-042). */
     val combatCardWidth: Float = cardWidth, val combatCardHeight: Float = cardHeight,
     /** The undrawn face-up (or covered, when face down) drawing of a Graveyard/Exile member: the look of a
      * card flying from or to a public pile. Library and Temp pile members fly face down. */
@@ -267,10 +268,19 @@ object TablePresentation {
     /** ZON-079: how far a raised hand card rises, in its own heights. */
     const val RAISE = .25f
     const val COLUMN_PITCH = 42f
-    /** Combat review #12: the smallest card width in the combat area (dp at zoom 1), whatever the card size. */
+    /** CMB-042: the smallest card width in the combat band (dp at zoom 1), whatever the card size; it zooms with the
+     * battlefields. */
     const val COMBAT_MIN_CARD = 44f
     /** The combat panel's margin around its lanes. */
     const val COMBAT_PANEL_PAD = 3f
+    /** The narrow band between the battlefields without combat (dp at zoom 1). */
+    const val BAND = 12f
+    /** CMB-001: the thin strip that pulses while the viewer declares attackers with none staged (dp at zoom 1). */
+    const val COMBAT_STRIP = 24f
+    /** The band's margin around its panel. */
+    private const val COMBAT_BAND_PAD = 4f
+    /** CMB-001: the id of the empty combat area the viewer opened by tapping the strip (drawn only, never shared). */
+    const val OPENED_COMBAT_AREA = "opened"
     const val MIN_ZOOM = .65f
     const val MAX_ZOOM = 2f
     const val HEADER = 48f
@@ -324,8 +334,12 @@ object TablePresentation {
         val pileInsetY = if (landscape) maxOf(12f, (48f - pileHeight) / 2) else 12f
         val stackWidth = hudWidth * appearance.size(CardArea.STACK)
         val stackHeight = hudHeight * appearance.size(CardArea.STACK)
-        // CMB-007: the combat area is a panel floating over the battlefields, folded away by the viewer on request
-        val folded = play.board.combat?.id?.let { it == ui.combatHidden } == true
+        // CMB-001, CMB-007 (owner, 2026-11-05): the combat band between the battlefields: open while the board has a combat
+        // area or the viewer tapped the strip open; while the viewer declares attackers with none staged, a thin strip
+        val declaring = !reviewing && combatStripStep(play.board, viewer)
+        val opened = declaring && ui.combatOpened == combatBandKey(play.board)
+        val strip = declaring && !opened
+        val bandBoard = if (opened) play.board.copy(combat = CombatArea(OPENED_COMBAT_AREA)) else play.board
         val railHeight = (if (landscape) 48f else 52f) + handHeight - hudHeight
         // Both modes reserve the very same timeline and controls; review never reframes the camera.
         val controlsHeight = tableBottomHeight(landscape)
@@ -357,26 +371,28 @@ object TablePresentation {
         val spots = players.associate { player -> container(player.accountId, PlayZone.BATTLEFIELD).id.let { id ->
             id to BattlefieldLayout.place(groups.filter { it.field == id }, rowWidth, expanded) } }
         val logicalRight = spots.values.flatMap { it.values }.maxOfOrNull { it.x + BattlefieldLayout.SLOT } ?: (4 * BattlefieldLayout.SLOT)
-        // Rows are world content, not fractions of the remaining screen. Small viewports pan. TBL-003: three rows each (the back row,
-        // a free row where the combat area floats, CMB-007, and the creature row)
+        // Rows are world content, not fractions of the remaining screen. Small viewports pan. TBL-003: two rows each, the back
+        // row by the player's own edge, the creature row by the middle (the combat band pushes the battlefields apart, CMB-007)
         val rowHeight = battlefieldRowHeight(hudHeight * battlefieldScale, battlefieldScale, BattlefieldLayout.lifts(groups))
-        val fieldHeights = players.map { 3 * rowHeight }
-        // CMB-007: opening combat never moves the battlefields; the area floats over them
-        val bandHeight = 12f
+        val fieldHeights = players.map { 2 * rowHeight }
+        // CMB-042 (owner, 2026-11-05): the band is world content, zooming with the battlefields: its cards are the
+        // battlefield's, never narrower than COMBAT_MIN_CARD at zoom 1, so names and badges stay readable
+        val combatCard = maxOf(hudWidth * battlefieldScale, COMBAT_MIN_CARD)
+        val combat = CombatStackPresentation.combat(bandBoard, combatCard,
+            combatCard * hudHeight / hudWidth, play.definitions, mapOf(game.inviter.accountId to game.inviter.username, game.recipient.accountId to game.recipient.username), viewer,
+            appearance.text(CardTextScalePart.TITLE), avatars = listOf(game.inviter, game.recipient)
+                .mapNotNull { player -> player.avatar?.let { player.accountId to it } }.toMap())
+        // CMB-007 (owner, 2026-11-05): an open band pushes the battlefields apart to hold its panel
+        val bandHeight = when {
+            combat.lanes.isNotEmpty() -> combat.height + 2 * (COMBAT_PANEL_PAD + COMBAT_BAND_PAD)
+            strip -> COMBAT_STRIP
+            else -> BAND
+        }
         val bandY = worldViewport.height / 2 - bandHeight / 2
         val logicalFields = listOf(TableBounds(0f, bandY - fieldHeights[0], worldViewport.width, fieldHeights[0]),
             TableBounds(0f, bandY + bandHeight, worldViewport.width, fieldHeights[1]))
         // TBL-121: an untouched camera in landscape opens on the battlefields' whole height
         val opening = landscape && landscapeHome && ui.camera == TableCamera()
-        val viewZoom = if (opening) (worldViewport.height / (logicalFields.last().bottom - logicalFields.first().y)).coerceIn(MIN_ZOOM, 1f)
-            else ui.camera.zoom.takeIf { it.isFinite() }?.coerceIn(MIN_ZOOM, MAX_ZOOM) ?: 1f
-        // Combat review #12, CMB-007: its cards are never narrower than COMBAT_MIN_CARD on screen, so names and badges stay
-        // readable; the panel is screen-level, so a table zoomed out (the landscape opening, a pinch) doesn't shrink them
-        val combatCard = maxOf(hudWidth * battlefieldScale, COMBAT_MIN_CARD / minOf(viewZoom, 1f))
-        val combat = CombatStackPresentation.combat(if (folded) play.board.copy(combat = null) else play.board, combatCard,
-            combatCard * hudHeight / hudWidth, play.definitions, mapOf(game.inviter.accountId to game.inviter.username, game.recipient.accountId to game.recipient.username), viewer,
-            appearance.text(CardTextScalePart.TITLE), avatars = listOf(game.inviter, game.recipient)
-                .mapNotNull { player -> player.avatar?.let { player.accountId to it } }.toMap())
         val combatX = (worldViewport.width - combat.width) / 2
         val worldLeft = minOf(0f, combatX)
         val worldRight = maxOf(worldViewport.width, (logicalRight + 32f) * battlefieldScale, combatX + combat.width)
@@ -613,10 +629,11 @@ object TablePresentation {
                 projection = effect != null, frozen = effect?.frozen != null, draw = false).copy(id = "stackDrawing/$entryId")
         }
         val combatY = worldViewport.height / 2 - combat.height / 2
-        // The panel: the area with a small margin around it, sized to its content, over the middle of the table
+        // The panel: the area with a small margin around it, sized to its content, in the middle of the band
         val combatPanel = if (combat.lanes.isEmpty()) null else world.screen(TableBounds(combatX - COMBAT_PANEL_PAD,
             combatY - COMBAT_PANEL_PAD, combat.width + 2 * COMBAT_PANEL_PAD, combat.height + 2 * COMBAT_PANEL_PAD), camera)
-        val combatFolded = if (!folded) null else world.screen(TablePoint(worldViewport.width / 2, worldViewport.height / 2), camera)
+        val combatStrip = if (!strip) null else world.screen(TableBounds(world.panBounds.x, bandY, world.panBounds.width, bandHeight), camera)
+            .let { it.intersection(worldViewport) ?: it.copy(height = 0f) }
         val combatBounds = combatPanel ?: world.screen(TableBounds(combatX, combatY, 0f, 0f), camera)
         val cp = port("combat", combatBounds.intersection(worldViewport) ?: combatBounds.copy(height = 0f), combatBounds.width)
         fun translated(b: TableBounds) = world.screen(b.copy(x = b.x + combatX, y = b.y + combatY), camera)
@@ -663,7 +680,7 @@ object TablePresentation {
             item.cardId!! to realSources.getValue(item.sourceId!!).copy(sourceId = item.sourceId) }
         return clip(cardPanels(TableScene(items, fields, clippedPorts, cw, ch, envelope, camera, sources, drops, dividers,
              stackRegion = if (landscape) stackRegion.intersection(sidebarBounds) else stackRegion, world = world, appearance = appearance,
-            combatLabels = labels, combatLaneDividers = laneDividers, combatPanel = combatPanel, combatFolded = combatFolded,
+            combatLabels = labels, combatLaneDividers = laneDividers, combatPanel = combatPanel, combatStrip = combatStrip,
             combatCardWidth = combatCard * zoom, combatCardHeight = combatCard * hudHeight / hudWidth * zoom,
             stackProjections = stackProjections, cardOwners = play.board.cards.associate { it.id to it.owner } +
                 items.filter { it.cardId != null && it.owner != null }.associate { it.cardId!! to it.owner!! },
@@ -683,18 +700,13 @@ object TablePresentation {
         val ordered = scene.items.filter { it.zone == PlayZone.BATTLEFIELD && !it.viewport.startsWith("cardPanel/") } +
             scene.items.filter { it.zone != PlayZone.BATTLEFIELD && !it.viewport.startsWith("cardPanel/") } + scene.items.filter { it.viewport.startsWith("cardPanel/") }
         val viewports = scene.viewports.associateBy { it.id }
-        val panel = scene.combatPanel
         val clipped = ordered.map { i ->
             val viewport = viewports[i.viewport]
             // ZON-079: a raised hand card shows whole above its row
             val port = viewport?.bounds?.let { b -> if (i.raised && i.bounds.y < b.y) b.copy(y = i.bounds.y, height = b.bottom - i.bounds.y) else b }
-            val clippedRegions = listOfNotNull((if (i.inTransit) {
+            val regions = listOfNotNull((if (i.inTransit) {
                 if (i.zone == PlayZone.BATTLEFIELD) scene.world?.visibleViewport ?: screen else screen
             } else port)?.let(i.bounds::intersection)?.intersection(screen))
-            // CMB-007: the combat area's panel covers the battlefield cards under it
-            val regions = if (panel == null || i.inTransit || i.zone != PlayZone.BATTLEFIELD || i.viewport == "combat" ||
-                i.viewport.startsWith("cardPanel/") || i.bounds.intersection(panel) == null) clippedRegions
-                else clippedRegions.flatMap { it.subtract(panel) }
             val panelClipped = if (i.viewport.startsWith("cardPanel/") || i.inTransit) regions else
                 scene.cardPanels.fold(regions) { parts, panel -> parts.flatMap { it.subtract(panel.bounds) } }
             i.copy(visible = if (i.zone == PlayZone.BATTLEFIELD && scene.stackRegion != null)
@@ -763,3 +775,11 @@ object TablePresentation {
 /** The cards whose spell Automatum has on the Stack (UI review round 2 #9: not drawn in their hand meanwhile). */
 internal fun castSpellSources(board: BoardState): Set<String> =
     board.stackEffects.filter { it.item?.kind == MtgStackKind.Spell }.mapTo(HashSet()) { it.sourceId }
+
+/** CMB-001 (owner, 2026-11-05): whether [viewer] declares attackers on [board] with none staged yet (no combat area): the
+ * band between the battlefields is then the thin strip that pulses until tapped open or the first attacker is staged. */
+internal fun combatStripStep(board: BoardState, viewer: String): Boolean = board.combat == null &&
+    board.turn.accountId == viewer && board.priority?.holder == null && TurnPosition.of(board.turn) == TurnPosition.DECLARE_ATTACKERS
+
+/** CMB-001: the declare attackers step of [board] the viewer's opened strip belongs to ([TableLayoutState.combatOpened]). */
+internal fun combatBandKey(board: BoardState): String = "${board.turn.number}/${board.turn.phase}/${board.turn.step}"

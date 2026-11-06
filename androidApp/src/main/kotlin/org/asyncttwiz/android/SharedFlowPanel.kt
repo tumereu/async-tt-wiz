@@ -77,6 +77,24 @@ internal fun SharedFlowHost(toolkit: TableToolkitController, play: TableBoard, s
     if (decision == null && holder == viewer) return
     // CMB-033: a division of combat damage has a panel of its own; one made by itself shows nothing meanwhile
     val dialog = decision is Decision.Divide && flow.division != null
+    // CMB-033 (owner, 2026-11-05): divisions open attached to the combat band, never above the hand
+    if (decision != null && flows.answering != null && !flows.targeting && dialog) {
+        if (dividingInDialog(flow)) flow.division?.let { division ->
+            BandAttached(scene) {
+                CompositionLocalProvider(LocalChoiceFrame provides ChoiceFrame(viewer)) {
+                    CombatDivisionPanel(flows, play, names, decision as Decision.Divide, division, toolkit.combat.divisionCount(play, division))
+                }
+            }
+        }
+        return
+    }
+    val early = if (decision != null && flows.answering == null && holder == viewer)
+        toolkit.combat.ready(play)?.early?.firstOrNull { it.player == viewer && askedInDialog(play.board, it) } else null
+    if (early != null) BandAttached(scene) {
+        CompositionLocalProvider(LocalChoiceFrame provides ChoiceFrame(viewer)) {
+            EarlyDivisionPanel(toolkit.combat, play, early, names, toolkit.enabled())
+        }
+    }
     // UI review #4 (decided for the owner): every Automatum panel docks full width exactly above the viewer's hand, like
     // the cast panel, the eye always at the same spot
     AboveHand(handRow(scene, viewer)) {
@@ -87,10 +105,6 @@ internal fun SharedFlowHost(toolkit: TableToolkitController, play: TableBoard, s
                     if (toolkit.stackTargeting) StackTargetPicker(toolkit, play, source)
                     else FlowTargetBar(flows, flow, play, decision as Decision.Targets, source)
                 }
-                // UI review round 2 #7: docked above the hand like every Automatum panel
-                dialog -> if (dividingInDialog(flow)) flow.division?.let { division ->
-                    CombatDivisionPanel(flows, play, names, decision as Decision.Divide, division, toolkit.combat.divisionCount(play, division))
-                }
                 else -> DecisionPanel(flows, flow, play, names, decision, forOther = decision.player.value != viewer,
                     otherName = name(decision.player.value))
             }
@@ -98,10 +112,8 @@ internal fun SharedFlowHost(toolkit: TableToolkitController, play: TableBoard, s
             // for them (STK-031, STK-038 gone)
             holder != viewer -> {}
             decision != null -> Column {
-                // I-D29, I-D33: meanwhile the viewer may give their own division of this damage step early
-                toolkit.combat.ready(play)?.early?.firstOrNull { it.player == viewer && askedInDialog(play.board, it) }?.let { early ->
-                    EarlyDivisionPanel(toolkit.combat, play, early, names, toolkit.enabled())
-                }
+                // I-D29, I-D33: meanwhile the viewer may give their own division of this damage step early, attached to
+                // the combat band (CMB-033)
                 // UI review round 2 #2 (decided for the owner): the observer's own words on one line, "Bob is choosing ·
                 // Fertile Passing", the source drawn as a card (I-D48)
                 WaitingBar(play, "${name(decision.player.value)} ${if (decision.player.value == viewer) "are" else "is"} choosing · " +
@@ -200,8 +212,10 @@ internal fun decisionSource(flows: FlowQuestions, flow: SharedFlow, play: TableB
     if (decision is Decision.OrderTriggers) return commonSource(decision)?.let { choiceCardOf(flows, play, viewer, it) }?.takeIf { it.cardId != null }
     val item = decisionItem(flow, decision)
     val source = item?.source ?: decision.source?.takeIf { it !is ObjectId.StackItem } ?: return null
-    val card = choiceCardOf(flows, play, viewer, source).takeIf { it.cardId != null } ?: return null
-    if (!card.shown) return card
+    val card = choiceCardOf(flows, play, viewer, source).takeIf { it.cardId != null && it.shown }
+        // An ability whose source has left since (a fetch land sacrificed to activate it, STK-056): its Stack entry
+        ?: return stackEntrySource(flow, play, viewer, item)
+            ?: choiceCardOf(flows, play, viewer, source).takeIf { it.cardId != null }
     if (item == null) {
         // An ability being put on the Stack (a trigger's targets and modes, CR 603.3d): its source's card asks
         val ability = when (val c = flow.state.pending?.continuation) {
@@ -225,6 +239,17 @@ internal fun decisionSource(flows: FlowQuestions, flow: SharedFlow, play: TableB
     return card.copy(key = entry ?: "ability/${item.id}", ability = StackAbilityShown(triggered, card.name, flow.text(item).orEmpty().trim()))
 }
 
+/** The ability [item] as its entry on the Stack shows it (STK-046: its source card as the table keeps it, the
+ * ability's text), or null when it is no ability on the Stack or [viewer] may not see its source. */
+private fun stackEntrySource(flow: SharedFlow, play: TableBoard, viewer: String, item: StackItem?): ChoiceCardData? {
+    if (item == null || (item.kind !is StackItemKind.Triggered && item.kind !is StackItemKind.Activated)) return null
+    val ref = flow.ref(TargetRef.Object(item.id))
+    val entry = play.board.stackEffects.firstOrNull { it.item?.id == ref }?.id ?: return null
+    val ability = StackAbilities.of(play, entry, viewer) ?: return null
+    val card = CombatStackRules.inspection(play.board, entry) ?: return null
+    return choiceCard(play, viewer, entry, card.id, true, ability.source).copy(ability = ability)
+}
+
 /** An open choice of a resolution or a trigger, for the player answering it, docked above the hand (UI review #4): the
  * title saying only what the choice is (I-D47, STK-030) with the source at the right (STK-044), an ability's own line,
  * the cards it is about (what it triggered on, its targets; UI review #5), a short instruction, then the choice. */
@@ -246,7 +271,7 @@ private fun DecisionPanel(flows: SharedFlowController, flow: SharedFlow, play: T
             // An ability's own line (a spell is its card: hold it to read it)
             if (!hasOwnText(decision) && item != null && (item.kind is StackItemKind.Activated || item.kind is StackItemKind.Triggered) &&
                 sourceCard?.let(flows::shown) != false) flow.text(item)?.let {
-                Text(it, fontSize = 11.sp, lineHeight = 14.sp, color = Color(0xff4b5a5f))
+                CardText(it, color = Color(0xff4b5a5f), style = androidx.compose.ui.text.TextStyle(fontSize = 11.sp, lineHeight = 14.sp))
             }
         }
         // UI review #5: which objects the choice is about, e.g. the creature that died

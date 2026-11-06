@@ -167,8 +167,9 @@ class TableMotionRuntimeTest {
         compose.mainClock.autoAdvance = true
     }
 
-    // CMB-007 (combat review #1): the combat area floats over the battlefields, so opening and closing it moves nothing
-    @Test fun combatOpeningAndClosingMovesNoWorldGeometryOrHud() {
+    // CMB-007 (owner, 2026-11-05): the combat band opens between the battlefields, pushing them apart and back when it
+    // closes; nothing fixed-size (hands, the Stack) moves
+    @Test fun combatOpeningAndClosingPushesTheBattlefieldsApartButMovesNoHud() {
         val initial = TableFixture.play(board = 1, hand = 1).let { play ->
             val hand = CardDefinition("Hand card", listOf(DefinitionFace("face", "Hand face")))
             play.copy(definitions = play.definitions + SubmittedDefinition(DeckJson.digest(hand), hand), board = play.board.copy(
@@ -189,13 +190,16 @@ class TableMotionRuntimeTest {
         compose.runOnIdle { state.value = opened }
         for (step in 0..3) {
             compose.mainClock.advanceTimeBy(80); compose.waitForIdle()
-            assertEquals(cardBefore, bounds("card/a/BATTLEFIELD/0"))
             assertEquals(handBefore, bounds("card/a/HAND/0"))
             assertEquals(stackBefore, bounds("stack"))
         }
+        compose.mainClock.advanceTimeBy(5_000); compose.waitForIdle()
+        // The own battlefield, below the band, moved down for it
+        assertTrue(bounds("card/a/BATTLEFIELD/0").top > cardBefore.top)
+        assertEquals(handBefore, bounds("card/a/HAND/0"))
         compose.runOnIdle { state.value = initial }
         compose.mainClock.advanceTimeByFrame(); compose.waitForIdle()
-        compose.mainClock.advanceTimeBy(80); compose.waitForIdle()
+        compose.mainClock.advanceTimeBy(5_000); compose.waitForIdle()
         assertEquals(cardBefore, bounds("card/a/BATTLEFIELD/0"))
         compose.mainClock.autoAdvance = true
     }

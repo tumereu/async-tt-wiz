@@ -25,10 +25,13 @@ internal fun GameplayCardInspection(state: TableBoard, viewer: String, inspectio
 internal fun gameInspectTiles(state: TableBoard, viewer: String, inspection: ManualInspection, card: PlayCard,
     names: Map<String, String>): List<InspectTile> {
     val entry = inspection.stackEntryId ?: inspection.cardId
-    // STK-046: an ability on the Stack is its tile first, then its source card
+    // STK-050: an ability on the Stack is its panel first (the source's art, the ability's text), then its source card
     val ability = StackAbilities.of(state, entry, viewer)?.let { shown ->
+        val definition = state.definitions.firstOrNull { it.digest == card.definition }?.definition?.takeIf { it.faces.isNotEmpty() }
+        val face = definition?.faces?.indexOfFirst { it.faceId == card.faceId }?.takeIf { it >= 0 } ?: 0
+        val art = definition?.let { InspectedCard.retained(card.definition, it).artwork.getOrNull(face) }
         InspectTile.Ability("ability/$entry", shown, StackAbilities.details(state, entry, viewer, names),
-            CombatStackRules.controller(state.board, entry) == viewer)
+            CombatStackRules.controller(state.board, entry) == viewer, art)
     }
     // TBL-111: holding a battlefield group shows each of its members in turn
     val below = if (inspection.snapshot == null) inspection.group.mapNotNull { id -> state.board.cards.firstOrNull { it.id == id } }

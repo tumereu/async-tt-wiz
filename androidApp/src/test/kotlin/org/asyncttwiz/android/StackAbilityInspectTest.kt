@@ -32,4 +32,10 @@ class StackAbilityInspectTest {
             StackAbilities.details(board(listOf(MtgRef.Card(hidden.id, 0))), "entry", f.a, names))
         assertTrue(StackAbilities.details(board(emptyList()), "entry", f.a, names).isEmpty())
     }
+
+    // STK-046: the token's chip reads "T" for a triggered ability, "A" for an activated one
+    @Test fun theKindChipSaysTriggeredOrActivated() {
+        assertEquals("T", StackAbilityShown(triggered = true, source = "Herald", text = "").letter)
+        assertEquals("A", StackAbilityShown(triggered = false, source = "Totem", text = "").letter)
+    }
 }

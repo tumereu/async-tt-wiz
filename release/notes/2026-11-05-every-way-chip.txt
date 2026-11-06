@@ -1,0 +1,1 @@
+fix: Every way to cast a card in your hand now shows as a chip above it, greyed when you can't use it now: Bestow no longer goes missing when its extra cost can't be paid, and Plot and Foretell show there too.

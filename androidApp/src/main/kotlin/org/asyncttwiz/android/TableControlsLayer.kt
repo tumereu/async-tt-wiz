@@ -22,7 +22,9 @@ internal inline fun BoxWithConstraintsScope.TableControlsLayer(game: GameSummary
             if (toolkit != null) {
                 val endingColor = if (play.board.turn.accountId == accountId) OwnTableColor else OpponentTableColor
                 QuickActionStrip(play, toolkitQuickContext(play, accountId)
-                    .copy(automatumCombat = toolkit.combat.ready(play), castOpen = toolkit.cast.open)
+                    .copy(automatumCombat = toolkit.combat.ready(play), castOpen = toolkit.cast.open,
+                        assumedBlockers = LocalEngineRoutes.current?.assuming()?.blocks?.size,
+                        mainAction = toolkit.flows.divisionAction())
                     .withCombatTarget(toolkit.combat, play, defendingPlayerName(game, play)),
                     toolkit.table, endingColor,
                     Modifier.fillMaxSize().padding(start = 60.dp, end = 8.dp), perform = toolkit::perform, submit = { toolkit.submit(it) })

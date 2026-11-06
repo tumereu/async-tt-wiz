@@ -15,6 +15,7 @@ import arcanum.engine.state.PlayerId
 import arcanum.engine.state.TargetRef
 import org.asyncttwiz.automatum.AutomatumLog
 import org.asyncttwiz.automatum.CastFlow
+import org.asyncttwiz.automatum.HandCasts
 import org.asyncttwiz.automatum.ManaPicks
 import org.asyncttwiz.protocol.*
 import java.util.concurrent.Executors
@@ -56,7 +57,7 @@ interface AutomatumWork {
 
 /**
  * Casting from the hand through Automatum (integration spec §3 I2a): one private flow at a time (I-D11). Its engine
- * calls stay on this device ([CastFlow]) and go out as the player's own inputs ([engineSend]) when the cast is complete; "Cancel" or Back
+ * calls stay on this device ([CastFlow]) and go out as the player's own inputs ([engineSend]) when the cast is complete; Undo or Back
  * drops it, sending nothing. While it is open nothing else changes the game ([open] blocks the toolkit's actions, D32);
  * looking stays free (I-D10).
  *
@@ -99,6 +100,17 @@ internal class CastController(
     /** "Autotap mana sources" (I-D47, Settings → Automatum, on by default): a payment is made with the engine's suggestion
      * (mana in the pool first) and never asked; off, the mana section lets the player choose the sources. */
     var autotap by mutableStateOf(true)
+
+    /** STK-023 (owner playtest 2026-11-05 evening): the most each announced number of the open cast (an X, open or
+     * answered) may be so that the cast can still be paid now, by decision ([HandCasts.mostAnnounced]: below its least
+     * when even that can't be paid). */
+    private var announcedMost by mutableStateOf<Map<arcanum.engine.decision.DecisionId, Int>>(emptyMap())
+
+    override fun most(decision: Decision): Int? {
+        val own = super.most(decision)
+        val payable = announcedMost[decision.id] ?: return own
+        return own?.let { minOf(it, payable) } ?: payable
+    }
 
     /** The text of the ability being activated (§3 I4), shown in the panel instead of the card's whole text; null for
      * a cast or land play. */
@@ -240,8 +252,6 @@ internal class CastController(
         return step { complete(f, autotapOn, picked) ?: Step.Refuse(NOT_ALLOWED) }
     }
 
-    /** "Cancel" or Back: the whole cast is dropped; nothing was sent (I-D11). A step still being worked out is dropped
-     * with it. */
     /**
      * Drops the cast with [message]: one saying the card can't be cast, played or paid for now, or that the table changed
      * under it, shakes the card instead of a message (UI review round 2 #4, I-D46 b: Inspect says why); genuine failures
@@ -253,6 +263,8 @@ internal class CastController(
         if (card != null && visual(message)) { fail(null); shake(card) } else fail(message)
     }
 
+    /** Undo or Back (STK-025): the whole cast is dropped; nothing was sent (I-D11). A step still being worked out is
+     * dropped with it. */
     fun cancel(how: String = "cancelled") {
         notice = null
         // I-D43: how each cast flow ended
@@ -262,6 +274,7 @@ internal class CastController(
         generation++
         busy = false; starting = null
         flow = null; ways = emptyList(); mana = emptyList(); paid = false; picked = emptyList(); hidden = false; abilityText = null
+        announcedMost = emptyMap()
         listed = emptyList(); visible = emptySet()
     }
 
@@ -309,7 +322,8 @@ internal class CastController(
     private sealed interface Step {
         /** [flow] with its open question shown; [ways] set when the cast was just begun. */
         class Show(val flow: CastFlow, val mana: List<ManaUse>, val paid: Boolean, val listed: List<Answer>,
-            val visible: Set<ObjectId>, val ways: List<Input>?, val clear: Boolean) : Step
+            val visible: Set<ObjectId>, val ways: List<Input>?, val clear: Boolean,
+            val most: Map<arcanum.engine.decision.DecisionId, Int>) : Step
         class Mana(val flow: CastFlow, val mana: List<ManaUse>, val paid: Boolean) : Step
         /** I-D56 step C: the complete [flow]'s own [inputs], made on [board]. */
         class Engine(val flow: CastFlow, val inputs: List<Input>, val board: BoardState) : Step
@@ -345,7 +359,7 @@ internal class CastController(
             outcome.ways?.let { ways = it }
             if (outcome.ways != null) AutomatumLog.flow(outcome.flow.source.gameId, "cast", "started", outcome.flow.cardId)
             listed = outcome.listed; visible = outcome.visible
-            flow = outcome.flow; mana = outcome.mana; paid = outcome.paid; picked = emptyList()
+            flow = outcome.flow; mana = outcome.mana; paid = outcome.paid; picked = emptyList(); announcedMost = outcome.most
             if (outcome.clear) fail(null)
             follow()
             true
@@ -420,7 +434,18 @@ internal class CastController(
         val mana = keep?.takeIf { k -> payment != null && k.isNotEmpty() && k.all { it in payment.options } } ?: payment?.suggestion.orEmpty()
         val pending = next.pending
         val listed = if (pending != null && pending !is Decision.Targets && pending !is Decision.ManaPayment) next.listedAnswers() else emptyList()
-        return Step.Show(next, mana, payment != null && next.pays(mana), listed, Engine.visible(next.state, PlayerId(viewer)), ways, clear)
+        return Step.Show(next, mana, payment != null && next.pays(mana), listed, Engine.visible(next.state, PlayerId(viewer)), ways, clear,
+            mostAnnounced(next))
+    }
+
+    /** STK-023: the most each announcement of [flow] (open or answered) may be ([announcedMost]). */
+    private fun mostAnnounced(flow: CastFlow): Map<arcanum.engine.decision.DecisionId, Int> {
+        val most = mutableMapOf<arcanum.engine.decision.DecisionId, Int>()
+        (flow.pending as? Decision.Announce)?.let { open -> HandCasts.mostAnnounced(flow)?.let { most[open.id] = it } }
+        flow.steps.forEachIndexed { index, (decision, _) ->
+            if (decision is Decision.Announce) runCatching { HandCasts.mostAnnounced(flow.back(index)) }.getOrNull()?.let { most[decision.id] = it }
+        }
+        return most
     }
 
     /**
@@ -460,7 +485,7 @@ internal class CastController(
     }
 
     companion object {
-        const val BUSY = "Finish or cancel the cast first."
+        const val BUSY = "Finish the cast first, or drop it with Undo."
         const val TABLE_CHANGED = "The table changed: cast it again."
         /** I-D56 §5: the hold text of an action refused because it would show hidden cards while the line is tentative. */
         const val WAIT_TO_CATCH_UP = "Wait for the other player to catch up: this would show you hidden cards or a random result."

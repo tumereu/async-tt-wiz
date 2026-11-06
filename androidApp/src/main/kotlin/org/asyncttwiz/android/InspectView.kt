@@ -49,10 +49,11 @@ internal sealed interface InspectTile {
     /** A card the viewer may not see, or whose card data is missing: a card-shaped tile with [text]. */
     data class Covered(override val key: String, val text: String) : InspectTile
 
-    /** STK-046: a triggered or activated ability on the Stack: a card-shaped tile with the source's name, the ability's
-     * text and [details] (its chosen modes and targets), outlined in its controller's colour ([own]). */
+    /** STK-050: a triggered or activated ability on the Stack: a dark rounded panel with the source's [art] and under it
+     * the source's name, the ability's text and [details] (its chosen modes and targets), outlined in its controller's
+     * colour ([own]). */
     data class Ability(override val key: String, val ability: StackAbilityShown, val details: List<String>,
-        val own: Boolean) : InspectTile
+        val own: Boolean, val art: ArtworkReference? = null) : InspectTile
 }
 
 /**
@@ -158,27 +159,40 @@ private fun InspectFacePlaceholder(reference: ArtworkReference?, name: String) {
     }
 }
 
-/** STK-046: an ability on the Stack as a card-shaped tile: its kind, the source's name, the ability's text and its
- * chosen modes and targets, dark with the controller's outline as its ability token. */
+/** STK-050: an ability on the Stack as a dark rounded panel as wide as an inspected card and as tall as its content (never
+ * card-shaped): the source's art, then the kind chip with "Triggered ability" (or "Activated ability"), the source's
+ * name, the ability's text and what was chosen for it, outlined in the controller's colour. */
 @Composable
 private fun AbilityTile(tile: InspectTile.Ability, size: DpSize) {
     val shape = RoundedCornerShape(12.dp)
-    Box(Modifier.size(size).clip(shape).background(AbilityTokenColor)
+    val density = LocalDensity.current
+    val artHeight = size.width / ABILITY_ART_RATIO
+    Box(Modifier.width(size.width).heightIn(max = size.height).clip(shape).background(AbilityTokenColor)
         .border(2.dp, if (tile.own) OwnTableColor else OpponentTableColor, shape)
         .semantics { contentDescription = "${tile.ability.kind} of ${tile.ability.source}" }) {
         CompositionLocalProvider(LocalContentColor provides Color.White) {
-            Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    AbilityMarker(tile.ability, 28.dp)
-                    Text(tile.ability.kind, style = MaterialTheme.typography.labelLarge)
+            Column(Modifier.fillMaxWidth()) {
+                Box(Modifier.fillMaxWidth().height(artHeight).background(AbilityTokenArtColor)) {
+                    CardArtwork(tile.art, "", with(density) { size.width.roundToPx() }.coerceIn(1, 4096),
+                        with(density) { artHeight.roundToPx() }.coerceIn(1, 4096), Modifier.fillMaxSize(), crop = true,
+                        placeholder = {})
                 }
-                Text(tile.ability.source, style = MaterialTheme.typography.titleLarge)
-                if (tile.ability.text.isNotEmpty()) CardText(tile.ability.text, style = MaterialTheme.typography.bodyLarge)
-                tile.details.forEach { Text(it, style = MaterialTheme.typography.bodyMedium) }
+                Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        AbilityKindChip(tile.ability, 24.dp)
+                        Text(tile.ability.kind, style = MaterialTheme.typography.labelLarge)
+                    }
+                    Text(tile.ability.source, style = MaterialTheme.typography.titleLarge)
+                    if (tile.ability.text.isNotEmpty()) CardText(tile.ability.text, style = MaterialTheme.typography.bodyLarge)
+                    tile.details.forEach { CardText(it, style = MaterialTheme.typography.bodyMedium) }
+                }
             }
         }
     }
 }
+
+/** The source's art in an ability's Inspect panel (STK-050): an art crop's width to height. */
+private const val ABILITY_ART_RATIO = 1.37f
 
 /** The fallback tile of a card without card data: its [name] on the placeholder card. */
 internal fun placeholderFace(key: String, name: String): InspectTile.Face = InspectTile.Face(key, null, name)

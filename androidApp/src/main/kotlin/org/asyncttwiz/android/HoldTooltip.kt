@@ -32,7 +32,7 @@ internal fun HoldTooltip(name: String) {
     Popup(popupPositionProvider = remember(gap) { HoldTooltipPosition(gap) }) {
         Surface(color = MenuInk, contentColor = Color.White, shadowElevation = 4.dp,
             shape = MaterialTheme.shapes.extraSmall) {
-            Text(name, Modifier.widthIn(max = 240.dp).padding(8.dp), style = MaterialTheme.typography.labelMedium)
+            CardText(name, Modifier.widthIn(max = 240.dp).padding(8.dp), style = MaterialTheme.typography.labelMedium)
         }
     }
 }

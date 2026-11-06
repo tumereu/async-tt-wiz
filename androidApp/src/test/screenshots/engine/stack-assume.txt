@@ -1,1 +1,1 @@
-Alice cast Storm Spark while Bob is away and Always assume resolves is off: faint words say Bob may respond to it, and the main button reads Assume, where tapping it goes on as if Bob let it resolve.
+Alice cast Storm Spark while Bob is away and Assume resolves is Never: faint words say Bob may respond to it, and the main button reads Assume resolves, where tapping it goes on as if Bob let it resolve.

@@ -1,0 +1,1 @@
+mod: Undo while you are casting or activating (its panel or target bar open) just drops that cast, putting you back right before you began it; it no longer takes back what you did before.

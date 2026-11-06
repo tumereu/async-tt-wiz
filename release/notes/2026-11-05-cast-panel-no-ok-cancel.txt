@@ -1,0 +1,1 @@
+mod: Casting has fewer steps: X is set right in the cast panel and Cast goes on (no separate OK), X can't go above what your mana pays, and there is no Cancel button: Undo or Back drops a cast you began.

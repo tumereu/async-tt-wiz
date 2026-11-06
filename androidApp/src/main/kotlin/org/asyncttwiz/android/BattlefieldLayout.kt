@@ -12,9 +12,9 @@ sealed interface BattlefieldRow {
     /** The back row, from the right: artifacts, enchantments, planeswalkers, battles and any other permanent. */
     data object Others : BattlefieldRow
 
-    /** The row counted from the player's own edge: 0 the back row, 2 the creature row (a free row between, where the combat
-     * area floats, CMB-007). */
-    val index: Int get() = if (this == Creatures) 2 else 0
+    /** The row counted from the player's own edge: 0 the back row, 1 the creature row (nearest the middle, where the combat
+     * band opens between the battlefields, CMB-007). */
+    val index: Int get() = if (this == Creatures) 1 else 0
 
     companion object {
         /** TBL-004: the row of a permanent with [typeLine] (the type line it has now): the first type in the shared order
@@ -219,33 +219,39 @@ object BattlefieldLayout {
 }
 
 /** The glows the table draws (TBL-117): [playable] the cyan glow's strength by card, [targets] the legal targets framed in
- * violet, [expand] the strength of the glow of the groups a tap opens (white). */
-data class TableGlows(val playable: Map<String, Float>, val targets: Set<String>, val expand: Map<String, Float> = emptyMap()) {
+ * violet, [attack] the creatures that may attack glowing red-orange (CMB-028), [expand] the strength of the glow of the
+ * groups a tap opens (white). */
+data class TableGlows(val playable: Map<String, Float>, val targets: Set<String>, val expand: Map<String, Float> = emptyMap(),
+    val attack: Set<String> = emptySet()) {
     companion object {
         /**
          * TBL-117 for groups: a collapsed group of several ([taps]: what a tap on each does) glows as a whole when any member
          * glows: in the usual colours when the tap acts at once (every member as strong as its strongest; a legal target
-         * framed whole), in the expand colour when the tap opens it. Cards alone and the opened group's members glow as
-         * themselves.
+         * framed whole, a stack that may attack red-orange whole), in the expand colour when the tap opens it. Cards alone
+         * and the opened group's members glow as themselves.
          */
-        fun of(groups: List<BattlefieldGroup>, taps: Map<String, GroupTap>, playable: Map<String, Float>, targets: Set<String>): TableGlows {
-            if (taps.isEmpty()) return TableGlows(playable, targets)
+        fun of(groups: List<BattlefieldGroup>, taps: Map<String, GroupTap>, playable: Map<String, Float>, targets: Set<String>,
+            attack: Set<String> = emptySet()): TableGlows {
+            if (taps.isEmpty()) return TableGlows(playable, targets, attack = attack)
             val cyan = playable.toMutableMap()
             val violet = targets.toMutableSet()
+            val orange = attack.toMutableSet()
             val white = HashMap<String, Float>()
             for (group in groups) {
                 val tap = taps[group.key] ?: continue
                 val strength = group.members.maxOf { playable[it] ?: 0f }
                 val target = group.members.any { it in targets }
-                if (strength <= 0f && !target) continue
+                val attacks = group.members.any { it in attack }
+                if (strength <= 0f && !target && !attacks) continue
                 if (tap == GroupTap.Expand) for (id in group.members) {
-                    white[id] = if (target) 1f else strength; cyan -= id; violet -= id
+                    white[id] = if (target || attacks) 1f else strength; cyan -= id; violet -= id; orange -= id
                 } else {
                     if (strength > 0f) for (id in group.members) cyan[id] = strength
                     if (target && tap is GroupTap.Act) violet += group.members
+                    if (attacks && tap is GroupTap.Act) orange += group.members
                 }
             }
-            return TableGlows(cyan, violet, white)
+            return TableGlows(cyan, violet, white, orange)
         }
     }
 }

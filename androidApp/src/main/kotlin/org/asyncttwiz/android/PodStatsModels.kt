@@ -67,6 +67,12 @@ internal fun podStatsFrontCost(card: CardDefinition): String {
     }.substringBefore("//")
 }
 
+/** The cost whose coloured symbols Stats counts (DRF-114, DRF-116): a split (fuse included) or aftermath card's two
+ * halves together, as its mana cost is outside the Stack (CR 709.4); any other card's front cost as [podStatsFrontCost]
+ * reads it (an adventurer or flip card's main part, never a back face). */
+internal fun podStatsPipCost(card: CardDefinition): String =
+    PodDeckManaCost.splitHalfCosts(card).takeIf { it.isNotEmpty() }?.joinToString("") ?: podStatsFrontCost(card)
+
 internal fun podStatsPips(cost: String): Map<DraftColor, Double> {
     val result = DraftColor.entries.associateWith { 0.0 }.toMutableMap()
     for (symbol in podStatsSymbols.findAll(cost.substringBefore("//"))) {
@@ -168,10 +174,10 @@ internal fun podStats(build: PodDeckBuild, copies: Map<String, DraftCopy>, defin
                 else bucket.copy(noncreatures = bucket.noncreatures + 1)
             val color = podStatsColorIdentity(card, copy?.colors.orEmpty())
             colors[color] = colors.getValue(color) + 1
-            val pattern = podStatsPipPattern(podStatsFrontCost(card))
+            val pattern = podStatsPipPattern(podStatsPipCost(card))
             patterns[pattern] = (patterns[pattern] ?: 0) + 1
         }
-        for ((color, count) in podStatsPips(podStatsFrontCost(card))) pips[color] = pips.getValue(color) + count
+        for ((color, count) in podStatsPips(podStatsPipCost(card))) pips[color] = pips.getValue(color) + count
     }
     val listed = patterns.filterKeys { it.isNotEmpty() }.toList()
         .sortedWith(compareByDescending<Pair<String, Int>> { it.second }.thenBy { it.first })

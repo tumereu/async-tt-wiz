@@ -151,7 +151,7 @@ class SameDecisionTapTest : E2e() {
         alice.link.releaseIncoming()
         waitUntil("the server's confirmation of her cast on her phone") { alice.engine { device.session.pending.isEmpty() } }
         assertEquals(shown.version, alice.shown.version, "the table still shows the board from before the confirmation")
-        alice.tap("Assume")
+        alice.tap("Assume resolves")
         held.release()
         assertTrue(notes.none { it is GameDevice.Note.Refused }, "no refusal note: $notes")
         waitUntil("the Spark resolved on her assumption of Bob's pass") {
@@ -179,7 +179,7 @@ class SameDecisionTapTest : E2e() {
         bob.tap("Resolve")
         waitUntil("Bob's pass on Alice's phone") { alice.engine { device.model.engine.stack.isEmpty() } }
         assertTrue(alice.state.stack.isNotEmpty(), "her table still shows the Spark waiting for Bob")
-        alice.tap("Assume")
+        alice.tap("Assume resolves")
         held.release()
         repeat(5) { run(skip = java.time.Duration.ofMillis(500)) }
         assertTrue(notes.none { it is GameDevice.Note.Refused } && !alice.refusalSeen, "no refusal note: $notes")
@@ -291,7 +291,7 @@ class SameDecisionTapTest : E2e() {
             bob.engine { device.session.pending.isEmpty() && device.session.events.size > before && device.model.engine.stack.isEmpty() }
         }
         // No word from Bob: Alice taps Assume on the main button
-        alice.tap("Assume")
+        alice.tap("Assume resolves")
         waitUntil("Alice in main 1 on Bob's assumed pass") { alice.inOwnMain() }
         told.clear()
         move()

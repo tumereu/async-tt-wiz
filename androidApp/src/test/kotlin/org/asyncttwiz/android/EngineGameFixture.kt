@@ -64,7 +64,12 @@ internal class EngineGameFixture(val startingPlayer: String = TableStatesFixture
         const val SEER = "Spark Seer"
         const val QUENCH = "Quench Spark"
         const val TOTEM = "Spark Totem"
+        /** {X}: X damage to any target (STK-023: the X stepper, bounded by the mana). */
+        const val BURST = "Ember Burst"
+        /** A fetch-style land: its ability searches its controller's library for a basic land card. */
+        const val TRAIL = "Cinder Trail"
     }
+    private val TRAIL_TEXT = "{T}, Pay 1 life, Sacrifice this land: Search your library for a basic land card, put it onto the battlefield, then shuffle."
     private fun free(id: String, name: String, typeLine: String, text: String, power: String = "", toughness: String = "") =
         Invented(DefinitionFace(id, name, typeLine = typeLine, manaCost = "{0}", rulesText = text, power = power, toughness = toughness),
             OracleCard(name, "{0}", typeLine, text, power.ifEmpty { null }, toughness.ifEmpty { null }))
@@ -74,6 +79,10 @@ internal class EngineGameFixture(val startingPlayer: String = TableStatesFixture
         free("seer", Choices.SEER, "Creature — Elemental", "When this creature enters, it deals 1 damage to any target.", "1", "1"),
         free("quench", Choices.QUENCH, "Instant", "Counter target spell."),
         free("totem", Choices.TOTEM, "Artifact", "{T}: This artifact deals 1 damage to any target."),
+        Invented(DefinitionFace("burst", Choices.BURST, typeLine = "Sorcery", manaCost = "{X}", rulesText = "Ember Burst deals X damage to any target."),
+            OracleCard(Choices.BURST, "{X}", "Sorcery", "Ember Burst deals X damage to any target.")),
+        Invented(DefinitionFace("trail", Choices.TRAIL, typeLine = "Land", rulesText = TRAIL_TEXT),
+            OracleCard(Choices.TRAIL, null, "Land", TRAIL_TEXT)),
     ).associateBy { it.submitted.definition.name }
     private val aliceChoices = aliceCards.map { choiceCards[it] ?: if (it == "Mountain") mountain else error("no card $it") }
 

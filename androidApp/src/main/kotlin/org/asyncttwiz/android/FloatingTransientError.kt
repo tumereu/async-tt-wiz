@@ -24,7 +24,7 @@ internal fun FloatingTransientError(message: String?, dismiss: () -> Unit, modif
             .semantics { liveRegion = LiveRegionMode.Assertive },
         shape = MaterialTheme.shapes.medium,
         dismissAction = { IconButton(onClick = dismiss) { EntryIcon("Dismiss message", "close") } },
-    ) { Text(message, style = MaterialTheme.typography.bodyMedium) }
+    ) { CardText(message, style = MaterialTheme.typography.bodyMedium) }
 }
 
 /** Calm, non-dismissable status while automatic refreshes keep failing; it disappears on the next success.

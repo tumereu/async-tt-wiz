@@ -74,7 +74,7 @@ internal fun abilityParts(text: String): Pair<String, String?> {
 }
 
 @Composable
-private fun AbilityChip(text: String, tap: () -> Unit, hold: (Boolean) -> Unit) {
+internal fun AbilityChip(text: String, tap: () -> Unit, hold: (Boolean) -> Unit) {
     val (effect, cost) = abilityParts(text)
     Surface(shape = RoundedCornerShape(14.dp), color = Color.White, border = BorderStroke(1.5.dp, AutomatumViolet),
         shadowElevation = 2.dp, modifier = Modifier.semantics {
@@ -83,13 +83,18 @@ private fun AbilityChip(text: String, tap: () -> Unit, hold: (Boolean) -> Unit) 
             onClick { tap(); true }
             onLongClick { hold(true); true }
         }.chipGestures(tap, hold)) {
-        Row(Modifier.heightIn(min = 32.dp).padding(horizontal = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-            CardText(effect, Modifier.widthIn(max = 140.dp),
-                style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Bold, color = AutomatumViolet), maxLines = 1)
-            cost?.let { Spacer(Modifier.width(4.dp)); CardText(it, style = TextStyle(fontSize = 13.sp), maxLines = 1) }
+        // Owner playtest 2026-11-05 evening: a long effect wraps onto more rows instead of being cut
+        Row(Modifier.heightIn(min = 32.dp).padding(horizontal = 10.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            CardText(effect, Modifier.weight(1f, fill = false).widthIn(max = CHIP_TEXT_WIDTH),
+                style = TextStyle(fontSize = 12.sp, lineHeight = 15.sp, fontWeight = FontWeight.Bold, color = AutomatumViolet))
+            cost?.let { Spacer(Modifier.width(4.dp)); CardText(it, Modifier.widthIn(max = CHIP_COST_WIDTH), style = TextStyle(fontSize = 13.sp, lineHeight = 16.sp)) }
         }
     }
 }
+
+/** The most a chip's words take before they wrap (TBL-124, ZON-080), and its cost's. */
+internal val CHIP_TEXT_WIDTH = 170.dp
+internal val CHIP_COST_WIDTH = 120.dp
 
 /** The held ability chip's details, card-like: the card's name and the ability's whole printed text. */
 @Composable

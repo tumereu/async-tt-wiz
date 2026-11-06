@@ -183,9 +183,14 @@ class EngineChoiceScreenTest {
         val source = compose.onNodeWithTag(CHOICE_SOURCE_TAG, useUnmergedTree = true).assert(hasContentDescription("Ember Cub"))
             .fetchSemanticsNode().boundsInRoot
         assertTrue(panel.right - source.right < 20f, "the attacker at the panel's right: $source in $panel")
+        // CMB-033 (owner, 2026-11-05): the panel opens attached to the combat band, not above the hand; its OK is the
+        // main button
+        assertNotNull(kit.scene().combatPanel, "the band is open")
+        val hand = kit.scene().items.single { it.kind == TableItemKind.HAND && it.owner == f.a }.bounds
+        assertTrue(panel.bottom <= hand.y + 1f, "not over the hand: $panel, $hand")
         compose.onRoot().captureShot("$SCREENSHOTS/choice-source/division.png",
-            "Alice's Ember Cub is blocked by three of Bob's Cubs: the division panel above her hand is titled only \"Divide 2 damage\", her attacking Cub sits at its right as a small card, and the rows give lethal damage to two blockers in turn.")
-        compose.onNodeWithText("OK").assertIsEnabled().performClick()
+            "Alice's Ember Cub is blocked by three of Bob's Cubs: the division panel opens attached to the combat band, titled only \"Divide 2 damage\", her attacking Cub at its right as a small card, the rows giving lethal damage to two blockers in turn, and OK on the main button.")
+        compose.onNodeWithTag("main-button").assert(hasContentDescription("OK")).assertIsEnabled().performClick()
         compose.waitForIdle()
         kit.playOn("the combat damage") { kit.state().turn.step != TurnStep.CombatDamage || kit.state().pending == null }
         kit.settle()

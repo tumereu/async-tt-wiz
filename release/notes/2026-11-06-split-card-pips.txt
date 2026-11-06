@@ -1,0 +1,1 @@
+fix: Draft Stats count the pips of both halves of a split card.

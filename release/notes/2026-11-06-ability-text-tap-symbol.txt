@@ -1,0 +1,1 @@
+mod: Ability chips read like the card, cost first and then what the ability does, and the tap symbol is drawn as a turning arrow.

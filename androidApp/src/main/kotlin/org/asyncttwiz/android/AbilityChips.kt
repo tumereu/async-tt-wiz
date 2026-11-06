@@ -66,7 +66,7 @@ internal fun PermanentAbilityChips(toolkit: TableToolkitController, play: TableB
 }
 
 /** An ability's printed text split into what it does and its cost ("{2}{G}, {T}: Draw a card." → "Draw a card", "{2}{G},
- * {T}"); text without a cost (a special action's) is all effect. */
+ * {T}"); text without a cost (a special action's) is all effect. A chip shows the cost first ([AbilityChipText]). */
 internal fun abilityParts(text: String): Pair<String, String?> {
     val colon = text.indexOf(": ")
     val effect = (if (colon > 0) text.substring(colon + 2) else text).trim().removeSuffix(".")
@@ -85,11 +85,18 @@ internal fun AbilityChip(text: String, tap: () -> Unit, hold: (Boolean) -> Unit)
         }.chipGestures(tap, hold)) {
         // Owner playtest 2026-11-05 evening: a long effect wraps onto more rows instead of being cut
         Row(Modifier.heightIn(min = 32.dp).padding(horizontal = 10.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-            CardText(effect, Modifier.weight(1f, fill = false).widthIn(max = CHIP_TEXT_WIDTH),
-                style = TextStyle(fontSize = 12.sp, lineHeight = 15.sp, fontWeight = FontWeight.Bold, color = AutomatumViolet))
-            cost?.let { Spacer(Modifier.width(4.dp)); CardText(it, Modifier.widthIn(max = CHIP_COST_WIDTH), style = TextStyle(fontSize = 13.sp, lineHeight = 16.sp)) }
+            AbilityChipText(effect, cost, AutomatumViolet)
         }
     }
+}
+
+/** An ability chip's words as on a card, cost first, then the effect (owner playtest 2026-11-06): "{2}{G}, {T}:" in
+ * symbols and "Draw a card" in [ink] after it, each wrapping onto more rows rather than being cut. */
+@Composable
+internal fun RowScope.AbilityChipText(effect: String, cost: String?, ink: Color) {
+    cost?.let { CardText("$it:", Modifier.widthIn(max = CHIP_COST_WIDTH), style = TextStyle(fontSize = 13.sp, lineHeight = 16.sp)); Spacer(Modifier.width(4.dp)) }
+    CardText(effect, Modifier.weight(1f, fill = false).widthIn(max = CHIP_TEXT_WIDTH),
+        style = TextStyle(fontSize = 12.sp, lineHeight = 15.sp, fontWeight = FontWeight.Bold, color = ink))
 }
 
 /** The most a chip's words take before they wrap (TBL-124, ZON-080), and its cost's. */

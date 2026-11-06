@@ -1,1 +1,1 @@
-A forest card's three ability chips: "Add" with the tap and G symbols, a long search ability wrapped onto several rows with its cost ({2}{G}, {T}, sacrifice) drawn with symbols beside it, and an untap ability with Phyrexian and snow symbols.
+A forest card's three ability chips, each cost first as on the card: the tap arrow then "Add" G, a long search ability whose cost ({2}{G}, tap arrow, sacrifice) comes before its effect wrapped onto several rows, and an untap ability with Phyrexian and snow symbols.

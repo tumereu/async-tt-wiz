@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Bolt
@@ -51,7 +52,8 @@ class ChipTextTest {
 
     private val long = "{2}{G}, {T}, Sacrifice this artifact: Search your library for a basic land card, put it onto the battlefield tapped, then shuffle."
 
-    // TBL-124: a long ability's chip wraps its whole effect onto more rows (none of it cut), its cost in symbols beside it
+    // TBL-124: an ability's chip reads as on the card, cost first in symbols ({T} a turning arrow), then the effect; a long
+    // effect wraps onto more rows (none of it cut)
     @OptIn(ExperimentalLayoutApi::class)
     @Test fun aLongAbilityChipWraps() {
         compose.setContent {
@@ -67,9 +69,11 @@ class ChipTextTest {
         val effect = "Search your library for a basic land card, put it onto the battlefield tapped, then shuffle"
         compose.onNodeWithText(effect).assertExists()
         assertTrue(lines(effect) >= 3, "the long effect wraps onto more rows: ${lines(effect)}")
-        compose.onNodeWithText("{2}{G}, {T}, Sacrifice this artifact").assertExists()
+        val cost = compose.onNodeWithText("{2}{G}, {T}, Sacrifice this artifact:").assertExists().getUnclippedBoundsInRoot()
+        assertTrue(cost.left < compose.onNodeWithText(effect).getUnclippedBoundsInRoot().left, "the cost comes first")
+        compose.onNodeWithText("{T}:").assertExists()
         compose.onNodeWithTag("chips").captureShot("$SCREENSHOTS/chips/ability-chips-wrapped.png",
-            "A forest card's three ability chips: \"Add\" with the tap and G symbols, a long search ability wrapped onto several rows with its cost ({2}{G}, {T}, sacrifice) drawn with symbols beside it, and an untap ability with Phyrexian and snow symbols.")
+            "A forest card's three ability chips, each cost first as on the card: the tap arrow then \"Add\" G, a long search ability whose cost ({2}{G}, tap arrow, sacrifice) comes before its effect wrapped onto several rows, and an untap ability with Phyrexian and snow symbols.")
     }
 
     // ZON-080: a long way name wraps too
@@ -104,12 +108,16 @@ class ChipTextTest {
                     WayChip(CastWayChip(cast, "Cast", "{3}{R}", null, false), true, {}, {})
                     WayChip(CastWayChip(ability(1), "Cycling", "{1}", "Cycling {1}", true), false, {}, {})
                     WayChip(CastWayChip(ability(2), "Channel", "{2}{R}", "Channel — {2}{R}, Discard this card: Draw two cards.", false), false, {}, {})
+                    WayChip(CastWayChip(ability(3), "Activate", "{1}", "{1}, Discard this card: You gain 2 life.", true), false, {}, {})
                 }
             }
         }
         compose.onNodeWithText("Cycling").assertExists()
+        // ZON-080: a plain "cost: effect" ability reads as on the card, cost first
+        compose.onNodeWithText("{1}, Discard this card:").assertExists()
+        compose.onNodeWithText("You gain 2 life").assertExists()
         compose.onNodeWithTag("chips").captureShot("$SCREENSHOTS/chips/hand-ability-chips.png",
-            "A raised hand card's chips: Cast {3}{R} chosen but greyed (not enough mana), then Cycling {1}, which can be paid now, and Channel {2}{R}, greyed.")
+            "A raised hand card's chips: Cast {3}{R} chosen but greyed (not enough mana), then Cycling {1}, which can be paid now, Channel {2}{R}, greyed, and a plain ability reading as on the card: \"{1}, Discard this card:\" then \"You gain 2 life\".")
     }
 
     // TBL-126, TBL-123: a card menu's rows draw the abilities' symbols; a greyed row too
@@ -129,6 +137,20 @@ class ChipTextTest {
         }
         compose.onNodeWithText("{T}: Add {G}.").assertExists()
         compose.onNodeWithTag("rows").captureShot("$SCREENSHOTS/chips/menu-rows-symbols.png",
-            "Three card menu rows whose ability texts draw their mana and tap symbols as symbols: tap for G, an X damage ability with a red-green hybrid, and a greyed one with a blue Phyrexian and the untap symbol.")
+            "Three card menu rows whose ability texts draw their mana and tap symbols as symbols: the tap arrow for G, an X damage ability with a red-green hybrid and the tap arrow, and a greyed one with a blue Phyrexian and the untap symbol, the arrow mirrored.")
+    }
+
+    // TBL-124: {T} is drawn as a turning arrow, as printed, and {Q} as the same arrow mirrored
+    @Test fun tapAndUntapSymbolsAreArrows() {
+        compose.setContent {
+            MaterialTheme {
+                androidx.compose.foundation.layout.Row(Modifier.testTag("symbols").background(Color.White).padding(8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    for (token in listOf("T", "Q", "G", "2")) androidx.compose.foundation.layout.Box(Modifier.size(48.dp)) { CardSymbol(token) }
+                }
+            }
+        }
+        compose.onNodeWithTag("symbols").captureShot("$SCREENSHOTS/chips/tap-symbols.png",
+            "The tap symbol drawn large as a clockwise turning arrow, the untap symbol as the same arrow mirrored, then the G and 2 badges for comparison.")
     }
 }

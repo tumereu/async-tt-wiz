@@ -14,7 +14,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.scale
+import kotlin.math.cos
+import kotlin.math.sin
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.Placeholder
@@ -29,8 +35,8 @@ import androidx.compose.ui.unit.sp
 
 /**
  * Text with its mana and tap symbols ({G}, {T}, {X}, hybrid, Phyrexian, snow, energy) drawn as symbols (TBL-124, owner
- * playtest 2026-11-05 evening: everywhere text shows them): original letter badges, not Magic artwork, a symbol font, or
- * official symbol shapes. Its text (semantics, tests) stays the printed words with their braces.
+ * playtest 2026-11-05 evening: everywhere text shows them): original letter badges and a drawn turning arrow for tap and
+ * untap, not Magic artwork, a symbol font, or official symbol shapes. Its text (semantics, tests) stays the printed words with their braces.
  */
 @Composable
 internal fun CardText(text: String, modifier: Modifier = Modifier, style: TextStyle = LocalTextStyle.current,
@@ -49,10 +55,13 @@ internal fun CardText(text: String, modifier: Modifier = Modifier, style: TextSt
     Text(annotated, modifier, color = color, style = style, maxLines = maxLines, overflow = overflow, inlineContent = inline)
 }
 
-/** One symbol as drawn in card text, filling its parent (e.g. "G", "3", "W/U"); search chips use it at their own size. */
+/** One symbol as drawn in card text, filling its parent (e.g. "G", "3", "W/U"); search chips use it at their own size.
+ * The tap symbol {T} is a turning arrow, as printed (owner playtest 2026-11-06), and the untap symbol {Q} the same arrow
+ * mirrored; the others are letter badges. */
 @Composable
 internal fun CardSymbol(token: String) {
     val parts = token.split('/')
+    val arrow = token == "T" || token == "Q"
     BoxWithConstraints(Modifier.fillMaxSize().clearAndSetSemantics {}, contentAlignment = Alignment.Center) {
         val textSize = with(LocalDensity.current) { maxHeight.toSp() }
         Canvas(Modifier.fillMaxSize()) {
@@ -61,13 +70,38 @@ internal fun CardSymbol(token: String) {
             if (parts.size > 1) drawArc(symbolColor(parts[1]), -90f, 180f, useCenter = true,
                 topLeft = center - Offset(radius, radius), size = Size(radius * 2, radius * 2))
             drawCircle(Color(0xff536066), radius, style = Stroke(size.minDimension * .045f))
+            if (arrow) scale(if (token == "Q") -1f else 1f, 1f) { turningArrow(radius) }
         }
-        Text(token, color = Color(0xff182329), fontWeight = FontWeight.Bold,
+        if (!arrow) Text(token, color = Color(0xff182329), fontWeight = FontWeight.Bold,
             fontSize = textSize * (when (token.length) { 1 -> .66f; 2 -> .57f; 3 -> .43f; else -> .31f }),
             letterSpacing = 0.sp, textAlign = TextAlign.Center, maxLines = 1,
             // Use the inherited text size, but not its potentially much taller paragraph line height.
             style = TextStyle(lineHeight = textSize))
     }
+}
+
+/** A clockwise arrow around the circle's centre: from the left, over the top, its head pointing down at the lower right. */
+private fun DrawScope.turningArrow(radius: Float) {
+    val ink = Color(0xff182329)
+    val arc = radius * .52f
+    val width = radius * .2f
+    val start = 160f
+    val sweep = 225f
+    drawArc(ink, start, sweep, useCenter = false, topLeft = center - Offset(arc, arc), size = Size(arc * 2, arc * 2),
+        style = Stroke(width, cap = StrokeCap.Butt))
+    val end = Math.toRadians((start + sweep).toDouble())
+    val tip = center + Offset((arc * cos(end)).toFloat(), (arc * sin(end)).toFloat())
+    // Clockwise, the arrow runs a quarter turn ahead of its angle; its head reaches past the arc's end
+    val ahead = Offset(-sin(end).toFloat(), cos(end).toFloat())
+    val across = Offset(cos(end).toFloat(), sin(end).toFloat())
+    val head = width * 1.9f
+    drawPath(Path().apply {
+        val point = tip + ahead * head
+        moveTo(point.x, point.y)
+        (tip + across * head * .85f).let { lineTo(it.x, it.y) }
+        (tip - across * head * .85f).let { lineTo(it.x, it.y) }
+        close()
+    }, ink)
 }
 
 private fun symbolColor(part: String): Color = when (part) {

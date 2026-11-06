@@ -377,4 +377,44 @@ internal object LtrSet {
     val finalMarchOfTheEnts = Cards.invent("Final March of the Ents", "{6}{G}{G}", "Sorcery", "This spell can't be countered.\nDraw cards equal to the greatest toughness among creatures you control, then put any number of creature cards from your hand onto the battlefield.")
     // chunk 09
     val haldirMasterArcher = Cards.invent("Haldir, Master Archer", "{1}{G}{G}", "Legendary Creature — Elf Archer", "Reach\nWhenever you cast a spell that targets Haldir, put a +1/+1 counter on Haldir.\nWhenever you cast a spell that targets a creature you don't control, Haldir deals damage equal to its power to up to one target creature.", "1/4")
+    // chunk 10
+    val longRollOfTheEnts = Cards.invent("Long Roll of the Ents", "{G}", "Enchantment — Saga", "(As this Saga enters and after your draw step, add a lore counter. Sacrifice after VI.)\nI, II, III, IV, V, VI — Note a creature type that hasn't been noted for this Saga. When you next cast a creature spell of that type this turn, that creature enters with an additional +1/+1 counter on it.")
+    // chunk 10
+    val goldenWoodLookout = Cards.invent("Golden Wood Lookout", "{1}{G}", "Creature — Elf Scout", "Whenever this creature attacks, scry 1.", "1/3")
+    // chunk 10
+    val manyFarewells = Cards.invent("Many Farewells", "{G}", "Sorcery", "Search your library for a basic land card, reveal it, put it into your hand, then shuffle. Create a Food token. (It's an artifact with \"{2}, {T}, Sacrifice this token: You gain 3 life.\")")
+    // chunk 10
+    val fredegarTheSteady = Cards.invent("Fredegar the Steady", "{1}{G}", "Legendary Creature — Halfling Citizen", "Whenever one or more Halflings you control attack a player, create a Food token. (It's an artifact with \"{2}, {T}, Sacrifice this token: You gain 3 life.\")", "2/2")
+    // chunk 10
+    val gloomwoodSpider = Cards.invent("Gloomwood Spider", "{G}", "Creature — Spider", "Deathtouch\nWhenever this creature attacks, target legendary creature you control gains deathtouch until end of turn.", "1/1")
+    // chunk 10
+    val stillLakeGuardian = Cards.invent("Still-Lake Guardian", "{2}{G}", "Creature — Dwarf Soldier", "When this creature dies, the Ring tempts you.", "4/2")
+    // chunk 10
+    val mushroomHounds = Cards.invent("Mushroom Hounds", "{1}{G}", "Creature — Dog", "Sacrifice a Food: Put a +1/+1 counter on this creature. It gains vigilance until end of turn. Activate only as a sorcery.", "2/2")
+    // chunk 10
+    val paladinTook = Cards.invent("Paladin Took", "{2}{G}", "Legendary Creature — Halfling Citizen", "If one or more tokens would be created under your control, those tokens plus an additional Food token are created instead. (It's an artifact with \"{2}, {T}, Sacrifice this token: You gain 3 life.\")\nSacrifice three Foods: Draw a card.", "2/3")
+    // chunk 10
+    val halflingsBravery = Cards.invent("Halfling's Bravery", "{G}", "Instant", "You may sacrifice a Food. If you do, target creature gets +4/+4 until end of turn. Otherwise, that creature gets +2/+2 until end of turn.")
+    // chunk 10
+    val leaflockUpstartEnt = Cards.invent("Leaflock, Upstart Ent", "{4}{G}{G}", "Legendary Creature — Treefolk", "Whenever Leaflock or another Treefolk you control enters, up to two target creatures each get +2/+2 and gain trample until end of turn.", "5/6")
+    // chunk 10
+    val aiwendilTheBrown = Cards.invent("Aiwendil the Brown", "{2}{G}{G}", "Legendary Creature — Avatar Wizard", "Whenever Aiwendil or another nontoken creature you control enters, look at the top X cards of your library, where X is that creature's mana value. You may reveal a creature card that doesn't share a creature type with a creature you control from among those cards and put it into your hand. Put the rest on the bottom of your library in a random order.", "2/5")
+    // chunk 10
+    val restoreTheShire = Cards.invent("Restore the Shire", "{1}{G}", "Sorcery", "Return target permanent card from your graveyard to your hand. Create a Food token. (It's an artifact with \"{2}, {T}, Sacrifice this token: You gain 3 life.\")")
+    // chunk 10
+    val theRingGoesEast = Cards.invent("The Ring Goes East", "{3}{G}", "Sorcery", "The Ring tempts you. Then reveal cards from the top of your library until you reveal X land cards, where X is the number of legendary creatures you control. Put those land cards onto the battlefield tapped and the rest on the bottom of your library in a random order.")
+    // chunk 10
+    val shortcutToTheFerry = Cards.invent("Shortcut to the Ferry", "{1}{G}", "Enchantment", "When this enchantment enters, the Ring tempts you.\nAt the beginning of your end step, if a permanent you controlled left the battlefield this turn, put a +1/+1 counter on target creature you control.")
+    // chunk 10
+    val volleyOfArrows = Cards.invent("Volley of Arrows", "{2}{G}", "Instant", "Destroy target artifact, enchantment, or creature with flying. Scry 1.")
+    // chunk 10
+    val roastTheConeys = Cards.invent("Roast the Coneys", "{2}{G}", "Instant", "Target creature you control deals damage equal to its power to target creature you don't control. Create a Food token. (It's an artifact with \"{2}, {T}, Sacrifice this token: You gain 3 life.\")")
+    // chunk 10
+    val woodwosePathfinder = Cards.invent("Woodwose Pathfinder", "{1}{G}", "Creature — Human Shaman", "{T}: Add one mana of any color.\n{6}{G}, {T}: Another target creature gets +3/+3 and gains trample until end of turn.", "1/1")
+    // chunk 10
+    val rosamundGardner = Cards.invent("Rosamund Gardner", "{3}{G}", "Legendary Creature — Halfling Scout", "When Rosamund enters, create a Food token.\nAt the beginning of your end step, if you sacrificed a Food this turn, you may search your library for a basic land card, put that card onto the battlefield tapped, then shuffle.", "2/4")
+    // chunk 10
+    val nimrodelGiftGiver = Cards.invent("Nimrodel, Gift-Giver", "{3}{G}{G}", "Legendary Creature — Elf Noble", "Whenever Nimrodel enters or attacks, choose one —\n• Put a +1/+1 counter on another target creature.\n• Create a Food token. (It's an artifact with \"{2}, {T}, Sacrifice this token: You gain 3 life.\")\n• Create a Treasure token. (It's an artifact with \"{T}, Sacrifice this token: Add one mana of any color.\")", "4/4")
+    // chunk 10
+    val greenwoodChanneler = Cards.invent("Greenwood Channeler", "{3}{G}", "Creature — Elf Druid", "At the beginning of combat on your turn, target Elf you control gains trample and gets +X/+X until end of turn, where X is the number of Forests you control.", "3/3")
 }

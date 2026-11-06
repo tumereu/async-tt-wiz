@@ -62,6 +62,13 @@ internal fun Scenario.targets(vararg names: String) {
 /** Answers an open yes/no decision, then resolves on. */
 internal fun Scenario.yes(answer: Boolean = true) { answer(Answer.YesNo(answer)); resolveAll() }
 
+/** Answers an open yes/no decision with yes and pays its cost as the engine suggests, then resolves on. */
+internal fun Scenario.payYes() {
+    answer(Answer.YesNo(true))
+    (pending as? Decision.ManaPayment)?.let { answer(Answer.ManaPayment(it.suggestion)) }
+    resolveAll()
+}
+
 /** Chooses objects for the open decision by name, then resolves on. */
 internal fun Scenario.choose(vararg names: String) {
     val options = (pending as? Decision.ChooseObjects)?.options ?: return resolveAll()

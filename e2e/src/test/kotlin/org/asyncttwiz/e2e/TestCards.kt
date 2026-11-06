@@ -107,5 +107,11 @@ data class TestDeck(val name: String, val entries: List<Pair<SubmittedDefinition
 
         /** 40 cards: Mountains, Cinder Trails (a fetch-style land) and Storm Sparks. */
         fun trails() = TestDeck("Trails", listOf(TestCards.mountain to 14, TestCards.cinderTrail to 13, TestCards.spark to 13))
+
+        /** Two of each of the [TestCards] (21 different cards): a deck with as many different cards as a real one has. */
+        fun everyCard() = TestDeck("Every card", with(TestCards) {
+            listOf(mountain, spark, cub, herald, hound, stride, glimmer, glint, quench, wisp, twin, burst, lark, thoughts, shard,
+                ashHound, pup, brute, blade, musing, cinderTrail).map { it to 2 }
+        })
     }
 }

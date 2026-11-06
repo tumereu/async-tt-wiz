@@ -219,7 +219,7 @@ class ChoiceSourceTest {
         holdingTheSourceInspects(Choices.SEER)
     }
 
-    // STK-048, STK-018, STK-044: in Full control Alice casts two Cinder Charms, then Quench Spark: the lower Charm is a legal
+    // STK-048, STK-018, STK-044: in the Control response mode Alice casts two Cinder Charms, then Quench Spark: the lower Charm is a legal
     // target, so tapping the Stack opens it in place as its list, both Charms glowing as legal targets, while the target bar
     // stays above her hand with the Quench at its right; tapping the lower Charm picks it
     @Test fun theStackOpensAsItsListToPickATargetBelowTheTop() {

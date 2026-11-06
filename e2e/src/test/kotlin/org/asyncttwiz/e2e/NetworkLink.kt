@@ -35,13 +35,28 @@ class NetworkLink(target: String) : AutoCloseable {
     private val gate = Object()
     @Volatile private var holding = false
 
+    /** Every HTTP request this device sent through the link, as "METHOD /path" in the order sent (a test counts the
+     * ones it cares about, say the deck service's). */
+    val requests: MutableList<String> = Collections.synchronizedList(mutableListOf<String>())
+    private val requestLine = Regex("(?:^|\\n)(GET|POST|PUT|DELETE|PATCH) (/\\S*) HTTP/1\\.[01]\\r\\n")
+
     private fun pump(from: Socket, to: Socket, incoming: Boolean) = Thread({
         try {
             val input = from.getInputStream(); val output = to.getOutputStream()
             val buffer = ByteArray(16 * 1024)
+            var carry = ""
             while (true) {
                 val n = input.read(buffer)
                 if (n < 0) break
+                if (!incoming) {
+                    // A request line may be split between reads: the unmatched tail is looked at again with the next read
+                    val text = carry + String(buffer, 0, n, Charsets.ISO_8859_1)
+                    var end = 0
+                    for (match in requestLine.findAll(text)) {
+                        requests += "${match.groupValues[1]} ${match.groupValues[2]}"; end = match.range.last + 1
+                    }
+                    carry = text.substring(maxOf(end, text.length - 512))
+                }
                 if (incoming) synchronized(gate) { while (holding) gate.wait() }
                 output.write(buffer, 0, n); output.flush()
             }

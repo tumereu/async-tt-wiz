@@ -58,7 +58,7 @@ internal fun Modifier.shaken(shakes: Int): Modifier {
 
 
 internal object AutomatumToggles {
-    const val FULL_CONTROL = "Full control"
+    const val CONTROL = "Control"
     const val SKIP = "Skip if no choice"
     const val AUTOTAP = "Autotap mana"
 

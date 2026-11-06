@@ -42,7 +42,7 @@ class DeckHttp(private val runtime: ServiceRuntime) {
                 path == "/v1/definitions" -> "POST"
                 path == "/v1/decks" || path == "/v1/cubes" -> "GET, POST"
                 parts.size == 2 -> "GET, PUT, DELETE"
-                cube && parts.size == 3 && parts[2] == "definitions" -> "POST"
+                parts.size == 3 && parts[2] == "definitions" -> "POST"
                 parts.size == 4 && parts[2] == "definitions" -> "GET"
                 !cube && parts.size == 3 && parts[2] == "copy" -> "POST"
                 parts.size == 3 && parts[2] == "automatum" -> "PUT"
@@ -66,6 +66,8 @@ class DeckHttp(private val runtime: ServiceRuntime) {
                     }
                     else if (request.method == "PUT") decks.update(principal, parts[1], json.decodeFromString<UpdateDeck>(text))
                     else if (request.method == "DELETE") decks.delete(principal, parts[1], json.decodeFromString<DeleteDeck>(text))
+                    else if (parts.size == 3 && parts[2] == "definitions")
+                        decks.definitions(principal, parts[1], json.decodeFromString<ReadCubeDefinitions>(text))
                     else if (parts.size == 3) decks.copy(principal, parts[1], json.decodeFromString<CopyDeck>(text))
                     else if (path == "/v1/definitions") decks.submit(principal, json.decodeFromString<SubmitDefinitions>(text))
                     else decks.create(principal, json.decodeFromString<CreateDeck>(text))

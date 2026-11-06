@@ -285,6 +285,30 @@ class DeckService(private val runtime: ServiceRuntime) {
         }
     }
 
+    /**
+     * The card data of [input]'s digests in deck [id] (owned by the caller), in one request: up to
+     * [CubeValidation.MAX_DEFINITIONS_PER_READ] at a time, as a cube's read (owner playtest 2026-11-06: one request per
+     * card ran into the deck service's per-account limit). Not found when any digest isn't in the deck.
+     */
+    fun definitions(principal: AccountService.Principal, id: String, input: ReadCubeDefinitions): Result {
+        if (!DeckValidation.uuid(id)) return error(404, "not_found")
+        if (!CubeValidation.definitionRead(input.digests)) return error(400, "invalid_request")
+        return runtime.transaction { connection ->
+            val sql = DSL.using(connection, SQLDialect.POSTGRES)
+            val row = sql.selectFrom(SAVED_DECK).where(SAVED_DECK.ID.eq(UUID.fromString(id)))
+                .and(SAVED_DECK.ACCOUNT_ID.eq(UUID.fromString(principal.account.accountId))).forShare().fetchOne()
+                ?: return@transaction error(404, "not_found")
+            val definitions = sql.select(DEFINITION.DIGEST, DEFINITION.PAYLOAD).from(DECK_ENTRY).join(DEFINITION)
+                .on(DEFINITION.DIGEST.eq(DECK_ENTRY.DEFINITION_DIGEST))
+                .where(DECK_ENTRY.DECK_ID.eq(row.id)).and(DEFINITION.DIGEST.`in`(input.digests))
+                .fetch().associate { it.get(DEFINITION.DIGEST)!! to it.get(DEFINITION.PAYLOAD)!! }
+            if (definitions.keys != input.digests.toSet()) return@transaction error(404, "not_found")
+            Result(200, json.encodeToString(SubmittedDefinitions(input.digests.distinct().map { digest ->
+                SubmittedDefinition(digest, json.decodeFromString<CardDefinition>(definitions.getValue(digest)))
+            })))
+        }
+    }
+
     fun read(principal: AccountService.Principal, id: String, digest: String? = null): Result {
         // Unknown and foreign selectors have the same safe response, including definition attachment reads.
         if (!DeckValidation.uuid(id) || (digest != null && !DeckValidation.digest(digest))) return error(404, "not_found")

@@ -96,6 +96,8 @@ class DeckReauthenticationTest {
                     val path = request.url.encodedPath
                     val body = when {
                         path == "/v1/definitions" -> DeckJson.format.encodeToString(DefinitionsAccepted(plan.definitions.definitions.map { it.digest }))
+                        // A deck's card data, read in one request (owner playtest 2026-11-06)
+                        path.endsWith("/definitions") -> DeckJson.format.encodeToString(SubmittedDefinitions(plan.definitions.definitions))
                         request.method == HttpMethod.Post || request.method == HttpMethod.Put -> {
                             val text = request.body.toByteArray().decodeToString(); mutationBodies.add(text)
                             if (identities.add(text)) {
@@ -152,12 +154,12 @@ class DeckReauthenticationTest {
             var reject = false; val mutationBodies = mutableListOf<String>()
             val api = DeckApi("https://review.example", HttpClient(MockEngine { request ->
                 val route = if (request.method == HttpMethod.Put) "update" else if (request.method == HttpMethod.Delete) "delete"
-                    else if (request.url.encodedPath.contains("/definitions/")) "definition"
+                    else if (request.url.encodedPath.endsWith("/definitions")) "definition"
                     else if (request.url.encodedPath == "/v1/decks") "list" else "read"
                 if (route == "update" || route == "delete") mutationBodies.add(request.body.toByteArray().decodeToString())
                 if (reject && route == rejectedRoute) respond("revoked", HttpStatusCode.Unauthorized)
                 else respond(when (route) {
-                    "definition" -> DeckJson.format.encodeToString(plan.definitions.definitions.single())
+                    "definition" -> DeckJson.format.encodeToString(SubmittedDefinitions(plan.definitions.definitions))
                     "delete" -> DeckJson.format.encodeToString(DeckDeleted(summary.id))
                     "list" -> DeckJson.format.encodeToString(DeckList(emptyList()))
                     else -> DeckJson.format.encodeToString(saved)

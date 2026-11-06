@@ -71,8 +71,8 @@ class TableChromeUiTest {
             run {
                 // Hidden, the arrow's room stays empty: the toggles don't move
                 val b = if (shown) next.fetchSemanticsNode().boundsInRoot.also { arrow = it } else requireNotNull(arrow)
-                // TRN-016, TRN-017 (owner 2026-11-05): the main button is twice as wide as a quick action
-                assertTrue(b.width > 96f, "${b.width}"); assertEquals(48f, b.height)
+                // TRN-016, TRN-017 (owner playtest 2026-11-06): the main button keeps one width, 112 dp
+                assertEquals(112f, b.width, .5f); assertEquals(48f, b.height)
                 assertEquals(pixels.width - 8f, b.right, "Step button belongs in the right corner")
                 // R4b: the toggles are the engine game's own (EngineToggleCells); their row is checked on an engine game
                 // (EngineTableScreenshotTest), this table has none

@@ -73,8 +73,10 @@ class BattlefieldGroupsTest : E2e() {
         alice.battlefieldCard("Ember Blade").performClick()
         waitUntil("the Equip asking for its target") { alice.shows(hasContentDescription("Choose targets")) }
         alice.battlefieldCard("Ash Hound").performClick()
+        // ... and the Equip on the server: activated() counts confirmed events only, and Bob's own pass racing Alice's
+        // assumed one can make her Equip be sent again later (counted after the snapshot below otherwise)
         waitUntil("the Blade on the Hound", along = listOf(bob)) { alice.state.obj(blade)?.attachedTo?.let { (it as? arcanum.engine.state.TargetRef.Object)?.id == hound } == true &&
-            alice.inOwnMain() }
+            alice.inOwnMain() && alice.engine { device.session.pending.isEmpty() } }
         val activations = activated().size
         fun bounds(name: String) = alice.battlefieldCard(name).fetchSemanticsNode().boundsInRoot
         waitUntil("the Blade peeking out above the Hound") { bounds("Ember Blade").top < bounds("Ash Hound").top }

@@ -424,6 +424,11 @@ internal object Effects {
             is Effect.IncreaseSpeed -> scope.players(effect.players).forEach { p ->
                 arcanum.engine.turn.Speed.set(act, p, arcanum.engine.turn.Speed.of(act.state, p) + scope.value(effect.amount))
             }
+            // dft: speed goes down, not below the floor; no speed stays none (CR 702.179)
+            is Effect.ReduceSpeed -> scope.players(effect.players).forEach { p ->
+                val speed = arcanum.engine.turn.Speed.of(act.state, p)
+                if (speed > effect.atLeast) arcanum.engine.turn.Speed.set(act, p, maxOf(effect.atLeast, speed - scope.value(effect.amount)))
+            }
             is Effect.PutCountersOf -> {
                 val board = scope.eval().board
                 val counters = scope.objects(effect.of).flatMap { id -> act.state.obj(id)?.counters ?: board.snapshot(id)?.counters.orEmpty() }

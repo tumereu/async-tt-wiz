@@ -388,7 +388,7 @@ object KeywordExpansions {
         is Keyword.Crew -> listOf(Ability.Activated(
             Cost(listOf(CostPart.TapObjects(CostObjects.Choose(ObjectFilter.And(listOf(ObjectFilter.Type(CardType.Creature),
                 ObjectFilter.Not(ObjectFilter.Is(Objects.Self)))), count = null,
-                total = Total(NumericProperty.Power, Value.Fixed(keyword.amount)))))),
+                total = Total(NumericProperty.PowerFor(Keyword.Crew.Kind), Value.Fixed(keyword.amount)))))),
             steps(Effect.ApplyMechanics(listOf(Mechanic.SetTypes(add = listOf(CardType.Artifact, CardType.Creature))),
                 Affected.Objects(Objects.Self), Duration.EndOfTurn)), rules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You)))
         // CR 702.37a: cast face down as a 2/2 for {3}; turning it face up for its morph cost is a special action (116.2b)

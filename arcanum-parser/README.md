@@ -54,6 +54,11 @@ Design: `docs/specs/arcanum-automatum.md` §6.
   Avatar: The Last Airbender (`tla`): all 286 cards parse (the Sagas that transform as two faces, the five basic lands untested); its
   rules are in `TlaWordings.kt` (`Tla`, and `TlaPhrases` for conditions and values) and the `tla*` functions of `Sentences.kt`, tried
   first; names with " and " ("Kiro and Tide") are read with singular verbs, and "waterbend {X}" as an additional cost announces X.
+  Aetherdrift (`dft`): all 276 cards parse (the five basic lands untested); its rules are in `DftWordings.kt` (`Dft`, and `DftPhrases` for
+  values, conditions and nouns) and the `dft*` functions of `Sentences.kt`, tried first, with two fix-ups in `OracleParser` (the spell's
+  target a cost reduction "if it targets a … you control" names, and the additional cost's sacrificed permanent a spell reads); "this
+  creature attacks while saddled" is an attack by this creature while saddled (so "When this creature enters and whenever it attacks while
+  saddled" is one ability), X in "when you cycle this card" is the cycling's X, and "Sacrifice one or more artifacts" announces X (at least 1).
   Edge of Eternities (`eoe`): all 261 cards parse (the five basic lands untested); its rules are in `EoeWordings.kt` (`Eoe`, and
   `EoePhrases` for values, conditions, nouns and events) and the `eoe*` functions of `Sentences.kt`, tried first; station symbol lines
   ("N+ | abilities") become statics of the Spacecraft or Planet with N or more charge counters, and the printed power and toughness

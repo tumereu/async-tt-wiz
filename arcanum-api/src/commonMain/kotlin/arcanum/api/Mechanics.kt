@@ -173,6 +173,9 @@ sealed interface Mechanic {
     @Serializable @SerialName("can-attach-to") data class CanAttachTo(val what: ObjectFilter) : Mechanic
 
     // ---- Combat restrictions and requirements (CR 508, 509) ----
+    // dft
+    /** The affected permanents can't be attacked ("The Aetherspark can't be attacked", CR 508.1b: not chosen as what an attacker attacks). */
+    @Serializable @SerialName("cant-be-attacked") data object CantBeAttacked : Mechanic
     /** Can't attack ([target]); [fromDefender]: this restriction is defender's, the one "as though it didn't have
      * defender" lifts (CR 702.3b). */
     @Serializable @SerialName("cant-attack") data class CantAttack(val target: Recipients? = null, val fromDefender: Boolean = false) : Mechanic
@@ -235,6 +238,19 @@ sealed interface Mechanic {
     // eoe
     /** Stations permanents using its toughness rather than its power (CR 702.184c): what [NumericProperty.Stationing] reads. */
     @Serializable @SerialName("stations-with-toughness") data object StationsWithToughness : Mechanic
+    // dft
+    /** Counts its toughness rather than its power as it is tapped to pay [keyword]'s cost ("This creature saddles Mounts and crews Vehicles
+     * using its toughness rather than its power", CR 702.122a, 702.171a): what [NumericProperty.PowerFor] reads. */
+    @Serializable @SerialName("uses-toughness-for") data class UsesToughnessFor(
+        @Serializable(with = KeywordKindSerializer::class) val keyword: KeywordKind,
+    ) : Mechanic
+    /** Counts as though its power were [amount] greater as it is tapped to pay [keyword]'s cost ("This creature saddles Mounts and crews
+     * Vehicles as though its power were 2 greater"): what [NumericProperty.PowerFor] reads; instances add up. */
+    @Serializable @SerialName("power-greater-for") data class PowerGreaterFor(
+        @Serializable(with = KeywordKindSerializer::class) val keyword: KeywordKind, val amount: Int,
+    ) : Mechanic {
+        override val stacking: Stacking get() = Stacking.Additive
+    }
 
     // ---- Permissions, costs and casting (CR 601, 117, 118) ----
     /** May be cast (or activated) at any time it could cast an instant (flash, CR 702.8): the affected objects. */
@@ -340,6 +356,10 @@ sealed interface Mechanic {
     /** [label] abilities of the affected objects that may be activated only once (power-up, exhaust) may be activated [count]
      * more times ("Each power-up ability of permanents you control can be activated an additional time"). */
     @Serializable @SerialName("label-additional-uses") data class LabelAdditionalUses(val label: AbilityLabel, val count: Int) : Mechanic
+    // dft
+    /** [label] abilities of the affected objects may be activated as though they hadn't been activated ("you may activate exhaust abilities
+     * as though they haven't been activated", CR 702.177b): their "activate only once" doesn't stop them while this applies. */
+    @Serializable @SerialName("as-though-not-activated") data class AsThoughNotActivated(val label: AbilityLabel) : Mechanic
     /** Spells or abilities matching [what] cost more or less by [change] (CR 601.2f, 118.7); abilities by keyword with
      * [ObjectFilter.HasKeyword] ("equip abilities cost {1} less"). [minimum]: the generic mana a reduction can't go
      * below (0: no minimum). */

@@ -32,7 +32,9 @@ internal object CombatRules {
         val opponents = snap.state.opponents(player)
         val walkers = snap.state.battlefield.filter { id ->
             onBattlefield(snap, id) && snap.view[id]?.characteristics?.isType(CardType.Planeswalker) == true &&
-                snap.board.controller(id) in opponents
+                snap.board.controller(id) in opponents &&
+                // dft: "can't be attacked" (CR 508.1b)
+                snap.view[id]?.has { it == Mechanic.CantBeAttacked } != true
         }
         val battles = snap.state.battlefield.filter { id ->
             onBattlefield(snap, id) && snap.view[id]?.characteristics?.isType(CardType.Battle) == true &&

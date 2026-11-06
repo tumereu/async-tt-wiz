@@ -67,6 +67,9 @@ internal interface Board {
 
     /** eoe: whether a rule matching [mechanic] applies to [id] in the finished view (false part-way through the layers). */
     fun hasMechanic(id: ObjectId, mechanic: (arcanum.api.Mechanic) -> Boolean): Boolean = false
+
+    /** dft: the rules that apply to [id] in the finished view (none part-way through the layers). */
+    fun mechanicsOf(id: ObjectId): List<arcanum.api.Mechanic> = emptyList()
 }
 
 /**
@@ -399,6 +402,8 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             ObjectFilter.XInManaCost -> c?.manaCost?.symbols.orEmpty().any { it is arcanum.api.ManaSymbol.Variable && it.name == 'X' }
             is ObjectFilter.NthSpellThisTurn -> History.isNthSpell(this, filter, id)
             // CR 115.7: one target in all ("with a single target"), of [target] when given
+            // dft: no abilities at all (CR 113.1)
+            ObjectFilter.NoAbilities -> c?.abilities.orEmpty().isEmpty()
             // spm: modified (CR 700.9): a counter on it, an Equipment attached, or an Aura its controller controls attached
             ObjectFilter.Modified -> (counterList(id)?.any { it.count > 0 } == true) || state.battlefield.any { other ->
                 val a = state.obj(other)?.attachedTo
@@ -623,6 +628,10 @@ internal class Evaluator(val board: Board, val ctx: Context) {
         is Value.RingTemptations -> players(value.players).sumOf { arcanum.engine.ring.TheRing.temptations(state, it) }
         is Value.DungeonsCompleted -> players(value.players).sumOf { arcanum.engine.dungeon.Dungeons.completed(state, it) }
         is Value.MostSharing -> mostSharing(value.quality, objects(value.objects))
+        // dft: a player's speed, 0 without speed (CR 702.179f)
+        is Value.Speed -> players(value.players).sumOf { arcanum.engine.turn.Speed.of(state, it) }
+        // dft: the X of the cycling that triggered this ability (CR 107.3a, 702.29c)
+        Value.EventX -> ctx.event?.x ?: 0
         is Value.Of -> combine(value.how, objects(value.objects).map { property(value.property, it) })
         is Value.PlayerCounters -> players(value.players).sumOf { state.player(it).counters(value.kind) }
         is Value.LifeOf -> players(value.players).sumOf { state.player(it).life }
@@ -691,6 +700,13 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             // eoe: what it stations with: its power, or its toughness when a rule says so (CR 702.184a, c)
             NumericProperty.Stationing -> property(if (board.hasMechanic(id) { it == arcanum.api.Mechanic.StationsWithToughness })
                 NumericProperty.Toughness else NumericProperty.Power, id)
+            // dft: what it crews or saddles with: its power or toughness, and "as though its power were N greater" (CR 702.122a, 702.171a)
+            is NumericProperty.PowerFor -> {
+                val rules = board.mechanicsOf(id)
+                val toughness = rules.any { it is arcanum.api.Mechanic.UsesToughnessFor && it.keyword == property.keyword }
+                property(if (toughness) NumericProperty.Toughness else NumericProperty.Power, id) +
+                    rules.filterIsInstance<arcanum.api.Mechanic.PowerGreaterFor>().filter { it.keyword == property.keyword }.sumOf { it.amount }
+            }
             // tla: how many creature types it has (every one for a changeling, CR 702.73a)
             NumericProperty.CreatureTypes -> c?.let { if (it.allCreatureTypes) Subtypes.creatureTypeCount else creatureTypes(it).distinct().size } ?: 0
             // CR 709.5c

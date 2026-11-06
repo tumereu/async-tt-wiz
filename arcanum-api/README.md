@@ -162,6 +162,12 @@ The definition model (overview in `Definitions.kt`):
   control enter untapped"), `Mechanic.DamageNotRemovedInCleanup` (CR 514.2), `Mechanic.LoseAllLandTypes` (layer 4), events
   `EventPattern.LoseGame`, `ControlChange(objects, from, to)` (CR 613.1b), `Mill` (for replacements of a mill) and `Tap.producing` ("tap
   a land for {C}"), and `ObjectFilter.CrewedBy` ("a Vehicle crewed by [this] this turn").
+- Aetherdrift (set `dft`): crew and saddle count `NumericProperty.PowerFor(keyword)` (CR 702.122a, 702.171a: power, or toughness with
+  `Mechanic.UsesToughnessFor`, plus `Mechanic.PowerGreaterFor` for "as though its power were 2 greater"); `EventPattern.Tap` with
+  `forCost` of crew or saddle has the source role (the Vehicle or Mount, "whenever this creature saddles a Mount or crews a Vehicle");
+  `EventPattern.Activate.label` ("whenever you activate an exhaust ability"); `Mechanic.AsThoughNotActivated` (CR 702.177b);
+  `Value.Speed` and `Effect.ReduceSpeed` (CR 702.179); `Value.EventX` (the X of a cycling {X} in "when you cycle this card", CR 107.3a);
+  `Mechanic.CantBeAttacked` (CR 508.1b) and `ObjectFilter.NoAbilities` (CR 113.1).
 - Engine lane 4 (2026-11-03): `Mechanic.BlockCost` ("creatures can't block unless their controller pays …", CR 509.1d), beside
   `Mechanic.AttackCost` (any cost parts now, CR 508.1h) and `Mechanic.AsAttacks` (exert, CR 701.43d); `Effect.Cast.transformed`
   ("cast it transformed", a Siege's intrinsic trigger, CR 310.12b); `Mechanic.WhenYouCouldMulligan` ("any time you could

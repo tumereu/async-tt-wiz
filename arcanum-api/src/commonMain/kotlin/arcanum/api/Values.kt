@@ -102,6 +102,12 @@ sealed interface Value {
     /** How many dungeons [players] have completed this game (CR 309.7: "if you've completed a dungeon"). */
     @Serializable @SerialName("dungeons-completed") data class DungeonsCompleted(val players: Players) : Value
     @Serializable @SerialName("most-sharing") data class MostSharing(val objects: Objects, val quality: SharedQuality) : Value
+    // dft
+    /** The speed of [players] (one player): 0 for a player with no speed (CR 702.179f; "where X is your speed"). */
+    @Serializable @SerialName("speed") data class Speed(val players: Players) : Value
+    /** In a triggered ability, the X announced for the ability whose cost the triggering event paid ("Cycling {X}{2}{W}" … "When you cycle
+     * this card, create X tokens": the X of that cycling, CR 107.3a, 702.29c); 0 when there was none. */
+    @Serializable @SerialName("event-x") data object EventX : Value
 }
 
 /**
@@ -143,6 +149,13 @@ sealed interface NumericProperty {
     /** The number of charge counters it stations a permanent with (CR 702.184a): its power, or its toughness while it has
      * [Mechanic.StationsWithToughness] (CR 702.184c). */
     @Serializable @SerialName("stationing") data object Stationing : NumericProperty
+    // dft
+    /** What it counts for as it is tapped to pay the cost of a [keyword] ability, crew (CR 702.122a) or saddle (702.171a): its power, or
+     * its toughness while it has [Mechanic.UsesToughnessFor] that keyword, plus the amounts of its [Mechanic.PowerGreaterFor] that keyword
+     * ("crews Vehicles as though its power were 2 greater"). The crew and saddle expansions total it. */
+    @Serializable @SerialName("power-for") data class PowerFor(
+        @Serializable(with = KeywordKindSerializer::class) val keyword: KeywordKind,
+    ) : NumericProperty
 }
 
 /** How [Value.Of] turns the objects' numbers into one. */

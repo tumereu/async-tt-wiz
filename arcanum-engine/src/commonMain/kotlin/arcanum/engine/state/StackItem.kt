@@ -81,6 +81,9 @@ data class TriggerEvent(
     val objects: List<RoleObjects> = emptyList(),
     val players: List<PlayerId> = emptyList(),
     val amount: Int? = null,
+    // dft
+    /** The X announced for the ability whose cost the event paid (a cycling {X}). */
+    val x: Int? = null,
 )
 
 /** The objects of an event in one [role] ("it", "that creature"). */

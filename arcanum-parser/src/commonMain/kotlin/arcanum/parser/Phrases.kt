@@ -46,6 +46,7 @@ internal object Filters {
     fun noun(phrase: String): ObjectFilter? {
         // CR 701.54e: "your Ring-bearer"
         if (phrase == "your Ring-bearer" || phrase == "Your Ring-bearer") return MechanicWordings.yourRingBearer
+        DftPhrases.noun(phrase)?.let { return it } // dft
         FinPhrases.noun(phrase)?.let { return it } // fin
         TdmPhrases.noun(phrase)?.let { return it } // tdm
         EoePhrases.noun(phrase)?.let { return it } // eoe
@@ -926,6 +927,7 @@ internal object Events {
 internal object Conditions {
     fun condition(text: String, self: Set<String> = emptySet()): Condition? {
         MechanicWordings.condition(text, self)?.let { return it }
+        DftPhrases.condition(text)?.let { return it } // dft
         TdmPhrases.condition(text)?.let { return it } // tdm
         EoePhrases.condition(text, self)?.let { return it } // eoe
         FinPhrases.condition(text, self)?.let { return it } // fin
@@ -1395,6 +1397,7 @@ internal const val EXILED_WITH = "exiled"
 internal object Values {
     /** [exiled]: what "the exiled card" refers to on this card (linked abilities, CR 607.2a). */
     fun value(text: String, exiled: Objects? = null): Value? {
+        DftPhrases.value(text)?.let { return it } // dft
         TdmPhrases.value(text)?.let { return it } // tdm
         EoePhrases.value(text)?.let { return it } // eoe
         FinPhrases.value(text)?.let { return it } // fin

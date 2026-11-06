@@ -77,7 +77,9 @@ internal object EventMatcher {
                 arcanum.api.AbilityKind.Mana -> a.manaAbility
                 else -> true
             } && (pattern.removedLoyaltyAtLeast == null || (a.loyalty ?: 0) <= -pattern.removedLoyaltyAtLeast!!)
-            if (kindMatches && (pattern.manaAbilities || !a.manaAbility) && e.matches(pattern.source, a.source) && e.matches(pattern.by, a.player))
+            // dft: only abilities with the label ("an exhaust ability", CR 702.177a)
+            val labelMatches = pattern.label == null || pattern.label == a.label
+            if (kindMatches && labelMatches && (pattern.manaAbilities || !a.manaAbility) && e.matches(pattern.source, a.source) && e.matches(pattern.by, a.player))
                 // gtc backfill: the activated ability is the event's object ("copy that ability", like the spell of a cast
                 // event); its source is the source (CR 113.7)
                 listOf(TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(a.item ?: a.source)), RoleObjects(EventRole.Source, listOf(a.source))),
@@ -129,9 +131,12 @@ internal object EventMatcher {
             else (change as? Change.Status)?.takeIf { it.flag == StatusFlag.Tapped && !it.before && it.after }?.let { c ->
             val forMana = Meaning.ManaAdded in c.meanings
             // msh: tapped to pay a keyword's cost (CR 702.194a)
-            val forCost = pattern.forCost == null || c.meanings.any { it is Meaning.PaidFor && it.keyword == pattern.forCost }
+            val paid = c.meanings.firstOrNull { it is Meaning.PaidFor && it.keyword == pattern.forCost } as? Meaning.PaidFor
+            val forCost = pattern.forCost == null || paid != null
+            // dft: the Vehicle crewed or the Mount saddled is the event's source ("that Mount or Vehicle", CR 702.122b, 702.171c)
             if ((pattern.forMana == null || pattern.forMana == forMana) && forCost && e.matches(pattern.objects, c.id))
-                listOf(TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(c.id))), listOfNotNull(e.controllerOf(c.id)))) else null
+                listOf(TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(c.id))) + listOfNotNull(paid?.source?.let { RoleObjects(EventRole.Source, listOf(it)) }),
+                    listOfNotNull(e.controllerOf(c.id)))) else null
         }.orEmpty()
         is EventPattern.Untap -> (change as? Change.Status)?.takeIf { it.flag == StatusFlag.Tapped && it.before && !it.after }?.let { c ->
             if (e.matches(pattern.objects, c.id)) listOf(TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(c.id))))) else null
@@ -215,7 +220,7 @@ internal object EventMatcher {
         is EventPattern.Cycle -> moves(change).filter {
             Meaning.Cycled in it.meanings && e.matches(pattern.players, it.before.owner) &&
                 (e.matches(pattern.cards, it.before.id) || e.matches(pattern.cards, it.after.id))
-        }.map { m -> moveEvent(e, m, proposed, Zone.Hand, EventRole.Before) }
+        }.map { m -> moveEvent(e, m, proposed, Zone.Hand, EventRole.Before).copy(x = m.meanings.filterIsInstance<Meaning.CostX>().firstOrNull()?.x) }
         // CR 702.122e: "becomes crewed" is a crew ability of it resolving
         is EventPattern.Crewed -> (change as? Change.StackItemRemoved)?.takeIf { Meaning.Resolved in it.meanings }?.item
             ?.takeIf { it.kind == arcanum.engine.state.StackItemKind.Activated }?.let { item ->

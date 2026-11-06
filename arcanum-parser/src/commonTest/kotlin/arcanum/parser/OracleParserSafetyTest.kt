@@ -14,8 +14,8 @@ class OracleParserSafetyTest {
     // CR 608.2b: a spell resolves as one object, so if one of its lines can't be read none of them is automated.
     @Test
     fun spellWithOneUnreadLineStaysWhollyUnparsed() {
-        val abilities = parse("Sorcery", "Exchange control of target creature and target artifact.\nDraw a card.")
-        assertEquals(listOf(Ability.Unparsed("Exchange control of target creature and target artifact."), Ability.Unparsed("Draw a card.")), abilities)
+        val abilities = parse("Sorcery", "Each player passes a creature they control to the player on their left.\nDraw a card.")
+        assertEquals(listOf(Ability.Unparsed("Each player passes a creature they control to the player on their left."), Ability.Unparsed("Draw a card.")), abilities)
     }
 
     // CR 608.2b, 601.2f: the effect isn't automated while its additional cost stays manual.

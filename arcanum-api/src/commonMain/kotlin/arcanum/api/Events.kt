@@ -37,6 +37,9 @@ sealed interface EventPattern {
         /** Only a loyalty ability whose cost removed at least this many loyalty counters ("if you removed two or more loyalty
          * counters to activate it": its cost can't change once paid, so it is part of the event, CR 606.4, 603.4). */
         val removedLoyaltyAtLeast: Int? = null,
+        // dft
+        /** Only abilities with this label ("whenever you activate an exhaust ability", CR 702.177a). */
+        val label: AbilityLabel? = null,
     ) : EventPattern
     /** Damage from [source] to [to]; [combat] true = combat damage only, false = noncombat only, null = any; [excess]:
      * only damage over lethal (CR 120.4a). Roles source, object (the recipient); amount = the damage. */
@@ -87,7 +90,9 @@ sealed interface EventPattern {
         val players: PlayerFilter, val kind: CounterKind? = null, val causedBy: ObjectFilter? = null,
     ) : EventPattern
     /** An object matching [objects] becomes tapped; [forMana]: only (true) or never (false) for mana; [forCost]: only when
-     * tapped to pay that keyword's cost ("becomes tapped to pay a teamwork cost", CR 702.194a). */
+     * tapped to pay that keyword's cost ("becomes tapped to pay a teamwork cost", CR 702.194a; dft: "whenever this creature saddles a Mount
+     * or crews a Vehicle", CR 702.171c, 702.122b). Role object (the tapped one); with [forCost] of a crew or saddle ability, role source is the
+     * permanent whose ability it paid for ("that Mount or Vehicle"). */
     @Serializable @SerialName("tap") data class Tap(
         val objects: ObjectFilter, val forMana: Boolean? = null,
         // msh

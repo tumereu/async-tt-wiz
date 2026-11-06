@@ -126,6 +126,7 @@ class CatalogViewModel(application: Application) : AndroidViewModel(application)
             var size: Long? = null
             var pending: CatalogUpdatePlan? = null
             try {
+                repository.upgradeIndex() // LOB-125: only catalogs without their token links download again
                 installed = repository.metadata()
                 val local = installed
                 main.post { if (!cleared) state = state.copy(installed = local, loaded = true) }

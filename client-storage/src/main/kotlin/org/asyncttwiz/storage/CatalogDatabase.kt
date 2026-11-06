@@ -12,7 +12,9 @@ import java.util.UUID
 import java.util.logging.Logger
 
 // 3: printings keep rarity, colour identity and legal formats for card search (search_card is built when finishing).
-internal const val CATALOG_INDEX_VERSION = 3
+// 4 (LOB-125): token_relation holds every set's card→token links (SYS-072); a version 3 catalog imported with them
+// becomes 4 in place ([CatalogRepository.upgradeIndex]), the others download again once.
+internal const val CATALOG_INDEX_VERSION = 4
 data class CatalogMetadata(val date: String, val version: String, val checksum: String = "", val records: Long = 0,
     val indexVersion: Int = CATALOG_INDEX_VERSION)
 
@@ -99,6 +101,15 @@ class CatalogRepository(private val directory: File, private val openDriver: (Fi
 
     /** Worker-only, including pointer IO. Identity is the installed file, not its possibly repeated metadata. */
     fun tokenGeneration(): String? = synchronized(lock) { activeFile()?.name }
+
+    /**
+     * LOB-125: a version 3 catalog imported with its card→token links (every import since they were kept) becomes the
+     * current version in place, so only catalogs without them download again. Startup worker only, before [metadata]
+     * is compared with the available records.
+     */
+    fun upgradeIndex(): Boolean = synchronized(lock) {
+        activeFile()?.let { file -> CatalogIndex(openDriver(file)).use { it.upgradeIndex() } } ?: false
+    }
 
     /** Startup/import worker only. Compatibility preparation must never be called by a dialog. */
     fun prepareTokens() = synchronized(lock) {
@@ -273,14 +284,28 @@ class CatalogIndex internal constructor(driver: SqlDriver) : app.cash.sqldelight
         }
     }
 
-    // Optional enrichment like set names, not an index-version change: a catalog imported before it has no rows, and
-    // token pictures then come from the tokens' characteristics alone.
+    // Part of index version 4 (LOB-125). Without rows for a card, its tokens' pictures come from their characteristics
+    // alone.
     private var tokenRelationsReady = false
     /** A card's related tokens: (a card's printing id, a token's printing id) from the card's own links, and (a card
      * name in lower case, a token's printing id) from the token's list of the cards that make it. */
     private fun createTokenRelations() = sql("CREATE TABLE IF NOT EXISTS token_relation (source TEXT NOT NULL, " +
         "token TEXT NOT NULL, PRIMARY KEY(source, token)) WITHOUT ROWID")
     private fun hasTokenRelations() = long("SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE name='token_relation')") != 0L
+
+    /**
+     * Version 3 to 4 in place when the links came with the catalog's full import, not only with later set updates
+     * (LOB-092 refreshes only sets new to the catalog or released in the last 60 days): some link's token is in a set
+     * installed within a day of the catalog's first set and released over 60 days before that.
+     */
+    internal fun upgradeIndex(): Boolean {
+        if (long("PRAGMA user_version") != 3L || !hasTokenRelations()) return false
+        val imported = long("SELECT EXISTS(SELECT 1 FROM token_relation r JOIN printing p ON p.id=r.token " +
+            "JOIN catalog_set s ON s.code=p.set_code JOIN (SELECT min(installed_at) AS first FROM catalog_set) f " +
+            "WHERE s.installed_at < f.first + 86400000 AND s.release_date < date(f.first / 1000, 'unixepoch', '-60 days'))") != 0L
+        if (imported) sql("PRAGMA user_version=4")
+        return imported
+    }
 
     /**
      * The token printing a token Automatum makes is drawn with ([TokenArtMatch.best]): among the related tokens of the

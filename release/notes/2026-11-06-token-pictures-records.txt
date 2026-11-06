@@ -1,0 +1,1 @@
+mod: Card records installed before token pictures are downloaded again once, so the tokens you make show their matching pictures. Like any card records update, it happens by itself on Wi-Fi and asks first on mobile data.

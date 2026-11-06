@@ -1,0 +1,1 @@
+mod: The playback settings no longer list the auto-pause switches; they had no effect any more.

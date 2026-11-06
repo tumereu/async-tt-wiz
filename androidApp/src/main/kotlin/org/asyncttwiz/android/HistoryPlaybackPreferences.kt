@@ -11,9 +11,6 @@ class HistoryPlaybackPreferences(context: Context, accountId: String) {
     internal val key = "pause/$accountId"
     private val rewindKey = "rewind-pause/$accountId"
     private val seenPrefix = "last-seen/$accountId/"
-    private val triggerPrefix = "auto-pause/$accountId/"
-    private val autoRewindLiveKey = "auto-rewind-live/$accountId"
-    private val autoRewindOpenKey = "auto-rewind-open/$accountId"
 
     init {
         // Older releases stored no distinction between the original default and an explicit 1.5s.
@@ -22,23 +19,6 @@ class HistoryPlaybackPreferences(context: Context, accountId: String) {
         if (!preferences.getBoolean(migrated, false)) {
             val edit = preferences.edit().putBoolean(migrated, true)
             if (preferences.getLong(key, 1_500L) == 1_500L) edit.remove(key)
-            edit.apply()
-        }
-        // An explicit old opt-out applies to both halves. Otherwise take the new defaults.
-        if (preferences.contains(triggerPrefix + "STACK")) {
-            val edit = preferences.edit().remove(triggerPrefix + "STACK")
-            if (!preferences.getBoolean(triggerPrefix + "STACK", true)) {
-                for (trigger in listOf(PlaybackAutoPause.STACK_ADDED, PlaybackAutoPause.STACK_REMOVED)) {
-                    if (!preferences.contains(triggerPrefix + trigger.name)) edit.putBoolean(triggerPrefix + trigger.name, false)
-                }
-            }
-            edit.apply()
-        }
-        // "Your life / cards hit" split in two (HIS-090): an explicit old choice carries over to "Your cards hit" only.
-        if (preferences.contains(triggerPrefix + "YOURS")) {
-            val edit = preferences.edit().remove(triggerPrefix + "YOURS")
-            if (!preferences.contains(triggerPrefix + PlaybackAutoPause.CARDS_HIT.name))
-                edit.putBoolean(triggerPrefix + PlaybackAutoPause.CARDS_HIT.name, preferences.getBoolean(triggerPrefix + "YOURS", true))
             edit.apply()
         }
     }
@@ -58,27 +38,9 @@ class HistoryPlaybackPreferences(context: Context, accountId: String) {
         get() = preferences.getLong(rewindKey, DEFAULT_REWIND_PAUSE_MILLIS).coerceIn(MIN_REWIND_PAUSE_MILLIS, MAX_REWIND_PAUSE_MILLIS)
         set(value) { preferences.edit().putLong(rewindKey, value.coerceIn(MIN_REWIND_PAUSE_MILLIS, MAX_REWIND_PAUSE_MILLIS)).apply() }
 
-    val autoPause: Set<PlaybackAutoPause> get() = PlaybackAutoPause.entries.filter {
-        preferences.getBoolean(triggerPrefix + it.name, it.defaultEnabled)
-    }.toSet()
-
-    fun setAutoPause(trigger: PlaybackAutoPause, enabled: Boolean) {
-        preferences.edit().putBoolean(triggerPrefix + trigger.name, enabled).apply()
-    }
-
-    /** An opponent's branch found while playing live starts the rewind by itself (default: wait for Rewind). */
-    var autoRewindLive: Boolean
-        get() = preferences.getBoolean(autoRewindLiveKey, false)
-        set(value) { preferences.edit().putBoolean(autoRewindLiveKey, value).apply() }
-    /** The same when opening (or returning to) a game. */
-    var autoRewindOpen: Boolean
-        get() = preferences.getBoolean(autoRewindOpenKey, false)
-        set(value) { preferences.edit().putBoolean(autoRewindOpenKey, value).apply() }
-
     fun observe(onChange: () -> Unit): () -> Unit {
         val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, changed ->
-            if (changed == null || changed == key || changed == rewindKey || changed.startsWith(triggerPrefix) ||
-                changed == autoRewindLiveKey || changed == autoRewindOpenKey) onChange()
+            if (changed == null || changed == key || changed == rewindKey) onChange()
         }
         preferences.registerOnSharedPreferenceChangeListener(listener)
         return { preferences.unregisterOnSharedPreferenceChangeListener(listener) }
@@ -121,17 +83,3 @@ internal fun HistoryPlaybackPreferences.rewindPauseState(): State<Long> {
     }
     return state
 }
-
-@Composable
-internal fun HistoryPlaybackPreferences.autoPauseState(): State<Set<PlaybackAutoPause>> {
-    val state = remember(this) { mutableStateOf(autoPause) }
-    DisposableEffect(this) {
-        val stop = observe { state.value = autoPause }
-        state.value = autoPause
-        onDispose { stop() }
-    }
-    return state
-}
-
-
-

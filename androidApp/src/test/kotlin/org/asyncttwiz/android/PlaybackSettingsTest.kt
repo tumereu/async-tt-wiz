@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.*
 import androidx.compose.ui.test.*
+import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModelStore
@@ -37,19 +38,20 @@ class PlaybackSettingsTest {
     }
 
     // LOB-081
-    @Test fun togglesPersistAndNotifyOnlyTheirAccountAndAnimationSpeedIsAccountScoped() {
+    @Test fun pausesPersistAndNotifyOnlyTheirAccountAndAnimationSpeedIsAccountScoped() {
         val a = HistoryPlaybackPreferences(context, "options-a")
         val b = HistoryPlaybackPreferences(context, "options-b")
-        assertEquals(PlaybackAutoPause.defaults, a.autoPause)
+        assertEquals(HistoryPlaybackPreferences.DEFAULT_PAUSE_MILLIS, a.pauseMillis)
         var aChanges = 0
         var bChanges = 0
         val stopA = a.observe { aChanges++ }
         val stopB = b.observe { bChanges++ }
-        a.setAutoPause(PlaybackAutoPause.REVEAL, false)
-        a.setAutoPause(PlaybackAutoPause.ATTACKERS, true)
-        assertFalse(PlaybackAutoPause.REVEAL in HistoryPlaybackPreferences(context, "options-a").autoPause)
-        assertTrue(PlaybackAutoPause.ATTACKERS in a.autoPause)
-        assertEquals(PlaybackAutoPause.defaults, b.autoPause)
+        a.pauseMillis = 2_000
+        a.rewindPauseMillis = 500
+        assertEquals(2_000L, HistoryPlaybackPreferences(context, "options-a").pauseMillis)
+        assertEquals(500L, a.rewindPauseMillis)
+        assertEquals(HistoryPlaybackPreferences.DEFAULT_PAUSE_MILLIS, b.pauseMillis)
+        assertEquals(HistoryPlaybackPreferences.DEFAULT_REWIND_PAUSE_MILLIS, b.rewindPauseMillis)
         assertEquals(2, aChanges)
         assertEquals(0, bChanges)
         stopA(); stopB()
@@ -67,13 +69,15 @@ class PlaybackSettingsTest {
     }
 
 
-    // HIS-028, LOB-082
-    @Test fun settingsShowsSameTogglesAndDelay() {
-        val settings = HistoryPlaybackPreferences(context, "settings")
+    // HIS-028, LOB-082: Timeline playback holds only the two pauses; there are no auto-pause switches
+    @Test fun settingsShowsThePlaybackPausesOnly() {
+        HistoryPlaybackPreferences(context, "settings")
         compose.setContent { MaterialTheme { SettingsContent(null, "settings") {} } }
         compose.onNodeWithText("Timeline playback").performScrollTo().assertIsDisplayed()
-        compose.onNodeWithTag("auto-pause-ATTACKERS").performScrollTo().assertIsOff().performClick().assertIsOn()
-        compose.runOnIdle { assertTrue(PlaybackAutoPause.ATTACKERS in settings.autoPause) }
+        compose.onNodeWithText("Stop Auto after an opponent’s matching action").assertDoesNotExist()
+        compose.onAllNodes(isToggleable()).fetchSemanticsNodes().forEach { node ->
+            assertTrue(node.config.getOrNull(androidx.compose.ui.semantics.SemanticsProperties.TestTag)?.startsWith("auto-pause") != true)
+        }
         compose.onNodeWithTag("history-playback-pause").performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("1.0 s after each group").assertExists()
         compose.onNodeWithTag("history-rewind-pause").performScrollTo().assertIsDisplayed()
@@ -81,50 +85,6 @@ class PlaybackSettingsTest {
     }
 
 
-
-    @Test fun legacyStackPreferenceMigratesOptOutAndOtherwiseUsesNewDefaultsOnlyOnce() {
-        val stored = context.getSharedPreferences("history-playback", Context.MODE_PRIVATE)
-        stored.edit().putBoolean("auto-pause/off/STACK", false).putBoolean("auto-pause/on/STACK", true).commit()
-        val off = HistoryPlaybackPreferences(context, "off")
-        assertFalse(PlaybackAutoPause.STACK_ADDED in off.autoPause)
-        assertFalse(PlaybackAutoPause.STACK_REMOVED in off.autoPause)
-        for (account in listOf("on", "unset")) {
-            assertTrue(PlaybackAutoPause.STACK_ADDED in HistoryPlaybackPreferences(context, account).autoPause)
-            assertFalse(PlaybackAutoPause.STACK_REMOVED in HistoryPlaybackPreferences(context, account).autoPause)
-        }
-        off.setAutoPause(PlaybackAutoPause.STACK_ADDED, true)
-        off.setAutoPause(PlaybackAutoPause.STACK_REMOVED, true)
-        assertTrue(PlaybackAutoPause.STACK_ADDED in HistoryPlaybackPreferences(context, "off").autoPause)
-        assertTrue(PlaybackAutoPause.STACK_REMOVED in HistoryPlaybackPreferences(context, "off").autoPause)
-    }
-
-    // HIS-090: each device's earlier "Your life / cards hit" choice carries over to "Your cards hit"; "Your life hit" starts off.
-    @Test fun earlierLifeOrCardsHitChoiceCarriesOverToCardsHit() {
-        val stored = context.getSharedPreferences("history-playback", Context.MODE_PRIVATE)
-        stored.edit().putBoolean("auto-pause/hit-off/YOURS", false).putBoolean("auto-pause/hit-on/YOURS", true).commit()
-        val off = HistoryPlaybackPreferences(context, "hit-off")
-        assertFalse(PlaybackAutoPause.CARDS_HIT in off.autoPause)
-        assertFalse(stored.contains("auto-pause/hit-off/YOURS"))
-        for (account in listOf("hit-on", "hit-unset")) {
-            assertTrue(PlaybackAutoPause.CARDS_HIT in HistoryPlaybackPreferences(context, account).autoPause)
-        }
-        for (account in listOf("hit-off", "hit-on", "hit-unset"))
-            assertFalse(PlaybackAutoPause.LIFE_HIT in HistoryPlaybackPreferences(context, account).autoPause)
-        // Migrated once: a later choice sticks.
-        off.setAutoPause(PlaybackAutoPause.CARDS_HIT, true)
-        assertTrue(PlaybackAutoPause.CARDS_HIT in HistoryPlaybackPreferences(context, "hit-off").autoPause)
-    }
-
-    // HIS-025, LOB-082
-    @Test fun settingsListBothHitSwitchesWithTheirDefaults() {
-        HistoryPlaybackPreferences(context, "hits")
-        compose.setContent { MaterialTheme { SettingsContent(null, "hits") {} } }
-        compose.onNodeWithTag("auto-pause-LIFE_HIT").performScrollTo().assertIsOff()
-        compose.onNodeWithText("Your life hit").assertExists()
-        compose.onNodeWithTag("auto-pause-CARDS_HIT").performScrollTo().assertIsOn()
-        compose.onNodeWithText("Your cards hit").assertExists()
-        compose.onNodeWithText("Your life / cards hit").assertDoesNotExist()
-    }
 
     @Test fun catalogSectionReservesNoSpaceAndKeepsPreferencesStableInPortrait() = assertCatalogGeometry()
 

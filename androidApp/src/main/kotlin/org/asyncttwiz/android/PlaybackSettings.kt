@@ -1,13 +1,11 @@
 package org.asyncttwiz.android
 
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import kotlin.math.roundToInt
 
@@ -17,21 +15,8 @@ internal fun PlaybackSettings(preferences: HistoryPlaybackPreferences, accountId
     moveSpeed: Boolean = true) {
     val pause by preferences.pauseState()
     val rewind by preferences.rewindPauseState()
-    val enabled by preferences.autoPauseState()
     Column(Modifier.fillMaxWidth().testTag("playback-settings")) {
         if (heading) Text("Playback", style = MaterialTheme.typography.titleMedium)
-        Text("Stop Auto after an opponent’s matching action", Modifier.padding(vertical = 4.dp),
-            style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        for (trigger in PlaybackAutoPause.entries) {
-            Row(Modifier.fillMaxWidth().heightIn(min = 48.dp)
-                .testTag("auto-pause-${trigger.name}")
-                .toggleable(trigger in enabled, role = Role.Switch, onValueChange = { preferences.setAutoPause(trigger, it) }),
-                verticalAlignment = Alignment.CenterVertically) {
-                Text(trigger.label, Modifier.weight(1f).padding(end = 12.dp), style = MaterialTheme.typography.bodyLarge)
-                Switch(checked = trigger in enabled, onCheckedChange = null)
-            }
-        }
-        Spacer(Modifier.height(8.dp))
         SettingsLabel("History playback pause", "${pause / 1000.0} s after each group")
         Slider(value = pause.toFloat(), onValueChange = { preferences.pauseMillis = (it / 100).roundToInt() * 100L },
             valueRange = HistoryPlaybackPreferences.MIN_PAUSE_MILLIS.toFloat()..HistoryPlaybackPreferences.MAX_PAUSE_MILLIS.toFloat(),

@@ -295,7 +295,7 @@ class TableGesturesTest {
         val world = scene.world!!
         val f = Fixture(scene)
         val centroid = TablePoint(world.viewport.center.x - 60, world.viewport.center.y + 12)
-        val pan = TablePoint(20f, -15f)
+        val pan = TablePoint(20f, -5f)
         f.gestures.transform(pan, 1.5f, centroid)
         val camera = f.events.filterIsInstance<TableIntent.Camera>().single().camera
         val anchor = TablePoint(world.viewport.width / 2 + centroid.x - pan.x - world.viewport.center.x,
@@ -508,7 +508,8 @@ class TableGesturesTest {
         assertEquals(listOf<TableIntent>(TableIntent.Peek(card.cardId), TableIntent.Peek(null, released = true)), events)
     }
 
-    // CMB-009, CMB-007 (combat review #1: only the panel takes combat drops; its end drops reach its edges, no further)
+    // CMB-009, CMB-007 (owner playtest 2026-11-06: the band takes combat drops; its end drops reach past the lanes to the
+    // band's ends)
     @Test fun combatDropEndsReachThePanelsEdgesDividersAreLenientAndPreviewIsUprightAtLanding() {
         val f = TableStatesFixture
         val play = f.combat()
@@ -523,16 +524,16 @@ class TableGesturesTest {
             val gesture = TableGestureCoordinator(events::add)
             gesture.update(scene, true)
             val panel = assertNotNull(scene.combatPanel)
-            fun edge(r: CombatDropRegion) = kotlin.math.abs(r.bounds.x - panel.x) < .01f || kotlin.math.abs(r.bounds.right - panel.right) < .01f
+            fun edge(r: CombatDropRegion) = r.bounds.x < panel.x + .01f || r.bounds.right > panel.right - .01f
             val regions = scene.combatDrops.filter { it.destination.role == org.asyncttwiz.protocol.CombatRole.ATTACKER }
-            val left = regions.single { it.destination.pairId == null && kotlin.math.abs(it.bounds.x - panel.x) < .01f }
-            val right = regions.single { it.destination.pairId == null && kotlin.math.abs(it.bounds.right - panel.right) < .01f }
+            val left = regions.single { it.destination.pairId == null && it.bounds.x < panel.x + .01f }
+            val right = regions.single { it.destination.pairId == null && it.bounds.right > panel.right - .01f }
             val divider = regions.single { it.destination.pairId == null && !edge(it) }
             val lowerDivider = scene.combatDrops.single { it.destination.role == org.asyncttwiz.protocol.CombatRole.BLOCKER &&
                 it.destination.pairId == null && !edge(it) }
-            // Beside the panel is no combat drop
-            assertNull(scene.combatDestination(TablePoint(panel.x - 1f, left.bounds.center.y), null))
-            assertNull(scene.combatDestination(TablePoint(panel.right + 1f, right.bounds.center.y), null))
+            // Beside the lanes, still in the band, the end drops take it
+            assertEquals(left.destination, scene.combatDestination(TablePoint(panel.x - 1f, left.bounds.center.y), null))
+            assertEquals(right.destination, scene.combatDestination(TablePoint(panel.right + 1f, right.bounds.center.y), null))
             // CMB-027: covering half of a neighbouring card goes beside it, so between two attackers the divider
             // only takes drops within a slot margin; the blocker row has a card on one side only and stays lenient.
             val near = CombatStackPresentation.slotMargin(scene.combatCardWidth) * .5f
@@ -556,7 +557,7 @@ class TableGesturesTest {
                 assertEquals(TableDestination.Combat(region.destination), events.filterIsInstance<TableIntent.Move>().single().destination)
             }
             val last = scene.items.single { it.cardId == f.id("attacker2") }
-            val end = TablePoint(panel.right - .5f, right.bounds.bottom - .1f)
+            val end = TablePoint(panel.right - .5f, right.bounds.center.y)
             gesture.down(last.bounds.center, 200); gesture.move(end, 280)
             assertEquals(TableDestination.Combat(right.destination), gesture.preview.destination)
             // The old last group vanishes, so its replacement lands at that same packed position.

@@ -157,7 +157,8 @@ class EngineChoiceScreenTest {
         assertTrue(toolkit.automatumStep(TableActionIntent.Next(kit.scope)), "Attack (1)")
         fun bobBlocks() = Engine.options(kit.bob.device.model.engine, other).any { it is Input.DeclareBlockers }
         kit.playOn("Bob declaring blockers", bobActs = false) {
-            // Bob lets the attack go on to his blocks
+            // Bob lets the attack go on to his blocks (his pass after it was assumed at once: he confirms it, HIS-096)
+            (kit.bob.device.status as? GameDevice.Status.Stopped)?.let { kit.bob.act(it.assumed) }
             if (kit.bob.device.status == GameDevice.Status.YourMove && !bobBlocks() &&
                 kit.bob.device.model.engine.priority.holder == other) kit.bob.pass()
             kit.bob.device.status == GameDevice.Status.YourMove && bobBlocks()

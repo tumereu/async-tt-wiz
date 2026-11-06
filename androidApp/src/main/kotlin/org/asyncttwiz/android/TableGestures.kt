@@ -62,6 +62,8 @@ class TableGestureCoordinator(
     var preview = TableGesturePreview(); private set
     var capturedActions: TableIntent.Actions? = null; private set
     var actionItem: TableItem? = null; private set
+    /** Whether the last tap (an [TableIntent.EmptyTap] or [TableIntent.Actions]) was on the hand row or a hand card. */
+    var tapOnHand: Boolean = false; private set
     val busy get() = capture != null || pending != null || spring != null || handSpring != null
     // The hand row background previews nothing; its cards have their own items.
     private fun peekId(item: TableItem?) = item?.cardId ?: item?.cards?.firstOrNull()?.takeIf { !item.covered && item.kind != TableItemKind.HAND }
@@ -378,7 +380,9 @@ class TableGestureCoordinator(
         if (!explicit && c.suppressTapUi) {
             // Closing this card's ring is the single-tap action, but still seeds a normal double tap.
             return
-        } else if (item == null || item.kind == TableItemKind.HAND) {
+        }
+        tapOnHand = item?.kind == TableItemKind.HAND || item?.zone == PlayZone.HAND
+        if (item == null || item.kind == TableItemKind.HAND) {
             emit(TableIntent.EmptyTap)
         } else if (c.scope == null || targetsExist(c.scope)) {
             val event = TableIntent.Actions(item.id, if (item.kind == TableItemKind.CARD) c.scope else null)

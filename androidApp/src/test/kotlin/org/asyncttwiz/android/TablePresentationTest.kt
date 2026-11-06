@@ -435,7 +435,7 @@ class TablePresentationTest {
                     assertEquals(64f, region.height, .001f)
                     assertEquals(region.x + 1.5f, stack.stackBadge.center.x, .001f)
                     assertEquals(region.y + 1.5f, stack.stackBadge.center.y, .001f)
-                    assertEquals(12f * zoom, scene.fields.last().gridBounds.y - scene.fields.first().gridBounds.bottom, .001f)
+                    assertEquals(CombatStackPresentation.CHIP_ROW * zoom, scene.fields.last().gridBounds.y - scene.fields.first().gridBounds.bottom, .001f)
                     assertEquals(topHand.bottom, scene.world!!.viewport.y, .001f)
                     assertEquals(bottomHand.y, scene.world.viewport.bottom, .001f)
                     for (port in scene.viewports.filter { it.id.startsWith("dock/") || it.id.startsWith("counters/") }) {
@@ -458,24 +458,34 @@ class TablePresentationTest {
         }
     }
 
-    // CMB-007 (owner, 2026-11-05): the open combat area is a band between the battlefields pushing them apart, its panel
-    // sized to its content between them
-    @Test fun anOpenCombatAreaIsABandBetweenTheBattlefields() {
-        val initial = TableFixture.play()
-        val play = initial.copy(board = initial.board.copy(combat = CombatArea("combat")))
+    // CMB-001, CMB-007 (owner playtest 2026-11-06): the band between the battlefields is always there, collapsed to its
+    // chip row (also with a combat area nobody attacks in); once an attacker is in the area it opens by itself, pushing
+    // the battlefields apart to hold its lanes
+    @Test fun theCombatBandIsAlwaysThereAndOpensWithAnAttacker() {
+        val initial = TableFixture.play(board = 1)
+        val play = initial.copy(board = initial.board.copy(combat = CombatArea("combat", listOf(
+            CombatPair("pair", attackers = listOf(CombatOccurrence("attacker", "a/BATTLEFIELD/0")))))))
         val scene = TableFixture.scene(play)
         val lane = scene.viewports.single { it.id == "combat" }.bounds
         assertEquals(CombatStackPresentation.combat(play.board, scene.combatCardWidth, scene.combatCardHeight, play.definitions,
             mapOf(TableFixture.game.inviter.accountId to TableFixture.game.inviter.username,
-                TableFixture.game.recipient.accountId to TableFixture.game.recipient.username)).height +
-            2 * TablePresentation.COMBAT_PANEL_PAD, lane.height, .001f)
+                TableFixture.game.recipient.accountId to TableFixture.game.recipient.username)).height, lane.height, .001f)
         assertEquals(scene.combatPanel, lane)
+        val band = assertNotNull(scene.combatBand)
+        assertTrue(band.y <= lane.y && band.bottom >= lane.bottom)
         val closed = TableFixture.scene(initial)
+        val unattacked = TableFixture.scene(initial.copy(board = initial.board.copy(combat = CombatArea("combat"))))
+        for (collapsed in listOf(closed, unattacked)) {
+            assertNull(collapsed.combatPanel)
+            assertTrue(collapsed.combatLabels.isEmpty(), "no chips outside the declaration of attackers")
+            assertEquals(CombatStackPresentation.CHIP_ROW * collapsed.camera.zoom,
+                collapsed.fields.last().gridBounds.y - collapsed.fields.first().gridBounds.bottom, .001f)
+        }
         assertTrue(scene.fields.first().gridBounds.bottom <= lane.y)
         assertTrue(scene.fields.last().gridBounds.y >= lane.bottom)
         val pushed = scene.fields.last().gridBounds.y - scene.fields.first().gridBounds.bottom
         val narrow = closed.fields.last().gridBounds.y - closed.fields.first().gridBounds.bottom
-        assertTrue(pushed > lane.height && narrow < lane.height, "the band holds the panel; without combat it is narrow")
+        assertTrue(pushed > lane.height && narrow < lane.height, "the band holds the lanes; collapsed it is the chip row")
         assertEquals(closed.fields.first().gridBounds.height, scene.fields.first().gridBounds.height, .001f)
         assertEquals(closed.stackRegion, scene.stackRegion)
         assertEquals(closed.viewports.filter { it.id.startsWith("dock/") }, scene.viewports.filter { it.id.startsWith("dock/") })

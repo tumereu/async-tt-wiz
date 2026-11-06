@@ -11,6 +11,8 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.hasStateDescription
 import arcanum.engine.Engine
 import arcanum.engine.input.Block
 import arcanum.engine.input.Input
@@ -30,9 +32,10 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
- * The combat band (owner, 2026-11-05): the thin strip that pulses while attackers are declared with none staged, opened by
- * a tap or by staging the first attacker; the band between the battlefields holding the lanes; the creatures that may
- * attack glowing red-orange; the defender's blocks with their arrows; the attacker placing blocks to assume on the lanes.
+ * The combat band (owner playtest 2026-11-06): always between the battlefields, collapsed to the row of target chips while
+ * attackers are declared with none staged, opened by staging the first attacker, its lanes under the chips; the creatures
+ * that may attack glowing red-orange (more under a finger); the defender's blocks with their arrows; the attacker placing
+ * blocks to assume on the lanes.
  */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
@@ -92,49 +95,88 @@ class CombatBandTest {
         return attacker
     }
 
-    // CMB-001, CMB-028 (owner, 2026-11-05): with no attacker staged the band is a thin strip that pulses; the creatures
-    // that may attack glow red-orange; a tap on the strip opens the band with its empty lanes, pushing the battlefields
-    // apart
-    @Test fun theStripPulsesUntilATapOpensTheBand() {
+    /** The defending player's name, as their chip says it. */
+    private fun bobName() = listOf(k.f.game.inviter, k.f.game.recipient).single { it.accountId == k.f.b }.username
+
+    // CMB-001, CMB-013, CMB-028 (owner playtest 2026-11-06): while Alice declares attackers with none staged the band
+    // stays collapsed at its chip row and shows a chip for Bob (crossed swords, his round avatar, his name), the active
+    // target filled violet; the creatures that may attack glow red-orange; a tap on the chip keeps its target active and
+    // stages nothing
+    @Test fun theCollapsedBandShowsTheTargetChips() {
         val attacker = aliceDeclaring()
         render()
-        assertNull(k.scene().combatPanel)
-        val strip = assertNotNull(k.scene().combatStrip)
+        val scene = k.scene()
+        assertNull(scene.combatPanel, "collapsed")
+        val band = assertNotNull(scene.combatBand)
+        assertEquals(CombatStackPresentation.CHIP_ROW * scene.camera.zoom, band.height, .001f)
+        val chip = scene.combatLabels.single()
+        assertEquals(null, chip.cardId)
+        assertEquals(bobName(), chip.label)
+        assertTrue(band.y <= chip.chip.y && band.bottom >= chip.chip.bottom)
         assertTrue(attacker in k.toolkit.combat.attackable(k.alice.play(), k.f.a), "the Cub may attack")
-        captureShot("$SCREENSHOTS/combat-band/strip.png",
-            "Alice declares attackers with nothing staged: the band between the battlefields is a thin red-orange strip that pulses, and her Ember Cub, which may attack, glows red-orange; the main button reads No attack.")
-        val fieldBefore = k.scene().fields.last().gridBounds.y
-        compose.onNodeWithTag("combat-strip").assert(hasContentDescription("Open the combat area")).performClick()
+        compose.onNodeWithTag("combat-target-chip").assert(hasContentDescription("Attack ${bobName()}"))
+            .assert(hasStateDescription("active"))
+        captureShot("$SCREENSHOTS/combat-band/chips.png",
+            "Alice declares attackers with nothing staged: the band between the battlefields stays collapsed at its chip row and shows Bob's target chip (crossed swords, his avatar, his name) filled violet as the active target; her Ember Cub, which may attack, glows red-orange and the main button reads No attack.")
+        compose.onNodeWithTag("combat-target-chip").performClick()
         compose.waitForIdle()
-        val panel = assertNotNull(k.scene().combatPanel, "the band opened")
-        assertNull(k.scene().combatStrip)
-        assertTrue(k.scene().fields.last().gridBounds.y > fieldBefore + strip.height, "her battlefield pushed down")
-        assertTrue(panel.bottom <= k.scene().fields.last().gridBounds.y)
-        assertEquals(null, k.alice.play().board.combat, "opening the band stages nothing")
-        captureShot("$SCREENSHOTS/combat-band/attack-glow.png",
-            "Alice tapped the strip open before staging anything: the band between the battlefields shows the empty lane aimed at Bob, and her Ember Cub, which may attack, glows red-orange from behind.")
-        // A tap on the Cub stages it in the open band
-        k.tap(k.item(attacker))
-        k.settle()
-        assertEquals(1, k.alice.play().board.combat?.pairs?.size)
+        assertEquals(null, k.toolkit.combat.activeTarget(k.alice.play()))
+        assertEquals(null, k.alice.play().board.combat, "a chip stages nothing")
+        assertNull(k.scene().combatPanel)
     }
 
-    // CMB-001 (owner, 2026-11-05): staging the first attacker opens the band at once, holding its copy in the lane
+    // CMB-013 (owner playtest 2026-11-06): holding a chip shows the target's full name over it and highlights the
+    // player's life square while held
+    @Test fun holdingAChipShowsTheFullNameAndHighlightsTheTarget() {
+        aliceDeclaring()
+        render()
+        compose.onNodeWithTag("combat-target-chip").performTouchInput { down(center) }
+        compose.mainClock.advanceTimeBy(1_000)
+        compose.onNodeWithContentDescription("Target: ${bobName()}").assertExists()
+        captureShot("$SCREENSHOTS/combat-band/chip-held.png",
+            "Alice holds Bob's target chip while declaring attackers: his full name shows over the chip and his life square is framed violet while she holds it.")
+        compose.onNodeWithTag("combat-target-chip").performTouchInput { up() }
+        compose.waitForIdle()
+        compose.onNodeWithContentDescription("Target: ${bobName()}").assertDoesNotExist()
+    }
+
+    // TBL-117, CMB-028 (owner playtest 2026-11-06): while a finger is down on a glowing card its glow grows a little and
+    // brightens
+    @Test fun aFingerOnAGlowingCardGrowsItsGlow() {
+        val attacker = aliceDeclaring()
+        render()
+        val card = k.item(attacker)
+        val table = compose.onNodeWithContentDescription("Shared table")
+        // The table runs a frame clock while a finger is down: the test's clock is moved by hand meanwhile
+        compose.mainClock.autoAdvance = false
+        table.performTouchInput { down(androidx.compose.ui.geometry.Offset(card.bounds.center.x, card.bounds.center.y)) }
+        compose.mainClock.advanceTimeBy(150)
+        captureShot("$SCREENSHOTS/combat-band/pressed.png",
+            "Alice's finger is down on her Ember Cub while she declares attackers: its red-orange glow has grown a little and brightened, so it feels pressable.")
+        table.performTouchInput { cancel() }
+        compose.mainClock.autoAdvance = true
+    }
+
+    // CMB-001, CMB-042 (owner playtest 2026-11-06): staging the first attacker opens the band by itself, its copy in the
+    // lane under Bob's chip, exactly the battlefield cards' size, Bob's life under his chip
     @Test fun stagingTheFirstAttackerOpensTheBand() {
         val attacker = aliceDeclaring()
-        assertNotNull(k.scene().combatStrip)
+        assertNull(k.scene().combatPanel)
         k.tap(k.item(attacker))
         k.settle()
-        assertNull(k.scene().combatStrip)
         val panel = assertNotNull(k.scene().combatPanel)
         val copy = k.scene().items.single { it.viewport == "combat" && it.sourceId == attacker }
         assertTrue(panel.contains(copy.bounds.center))
-        // CMB-042: the band's cards are no smaller than the battlefield's at the same zoom
-        assertTrue(copy.bounds.width >= k.item(attacker).bounds.width)
+        val real = k.item(attacker)
+        assertEquals(minOf(real.bounds.width, real.bounds.height), copy.bounds.width, .001f)
+        assertEquals(maxOf(real.bounds.width, real.bounds.height), copy.bounds.height, .001f)
+        val lane = k.scene().combatLabels.single()
+        assertTrue(lane.chip.bottom < copy.bounds.y && lane.valueBounds!!.y >= lane.chip.bottom - .001f)
         render()
         compose.onNodeWithTag("main-button").assert(hasContentDescription("Attack (1)"))
+        compose.onNodeWithContentDescription("${bobName()}: ${lane.value}").assertExists()
         captureShot("$SCREENSHOTS/combat-band/staged.png",
-            "Alice tapped her ready Ember Cub: the band opened between the battlefields, pushing them apart, with the Cub's copy in the lane aimed at Bob and the main button reading Attack (1).")
+            "Alice tapped her ready Ember Cub: the band opened by itself between the battlefields, pushing them apart, with the Cub's copy at battlefield size in the lane under Bob's chip, his life under the chip, and the main button reading Attack (1).")
     }
 
     // CMB-001, CMB-007 (owner, 2026-11-05): the open band in landscape
@@ -183,10 +225,8 @@ class CombatBandTest {
         assertTrue(k.toolkit.automatumStep(TableActionIntent.Next(k.scope)), "Attack (1)")
         k.settle()
         k.alice.tick(k.scenario.sim.now + 121_000)
-        // Bob's pause after her attack, then his blockers: a wait with Assume on the main button
-        if ((k.alice.device.status as? GameDevice.Status.Waiting)?.offer == GameDevice.Offer.AssumeResolves) {
-            k.alice.assume(); k.alice.tick(k.scenario.sim.now + 122_000)
-        }
+        // HIS-096 (owner, 2026-11-06): Bob's pause after her attack is assumed at once; his blockers are a wait with Assume
+        // on the main button
         val waiting = assertIs<GameDevice.Status.Waiting>(k.alice.device.status)
         assertEquals(GameDevice.Offer.AssumeBlockers, waiting.offer)
         k.alice.notes.clear()

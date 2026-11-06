@@ -185,7 +185,7 @@ class TableMotionRuntimeTest {
         val cardBefore = bounds("card/a/BATTLEFIELD/0")
         val handBefore = bounds("card/a/HAND/0")
         val stackBefore = bounds("stack")
-        val opened = initial.copy(board = initial.board.copy(combat = CombatArea("combat")))
+        val opened = initial.copy(board = initial.board.copy(combat = CombatArea("combat", listOf(CombatPair("pair", attackers = listOf(CombatOccurrence("attacker", "a/BATTLEFIELD/0")))))))
         compose.mainClock.autoAdvance = false
         compose.runOnIdle { state.value = opened }
         for (step in 0..3) {

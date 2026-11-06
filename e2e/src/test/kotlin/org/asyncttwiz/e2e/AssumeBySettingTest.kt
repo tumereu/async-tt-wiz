@@ -19,7 +19,7 @@ import kotlin.test.assertTrue
  */
 class AssumeBySettingTest : E2e() {
     /** Every wait with an Assume button Alice's table shows from now on. */
-    private fun assumeOffers(): List<GameDevice.Offer> {
+    private fun assumeOffers(): MutableList<GameDevice.Offer> {
         val offers = mutableListOf<GameDevice.Offer>()
         everyRun += { (alice.game?.shown?.status as? GameDevice.Status.Waiting)?.offer?.let(offers::add) }
         return offers
@@ -72,9 +72,11 @@ class AssumeBySettingTest : E2e() {
         assertTrue(alice.leaks.leaks.isEmpty())
     }
 
-    // CMB-040, HIS-096, TRN-070 (owner, 2026-11-05): Alice attacks while Bob is away: his pause after her attack waits
-    // with "Assume no response" (nothing on the Stack), then his blockers wait in assume mode on the lanes with "Assume no blockers" on the main
-    // button; nothing is assumed by itself, however long he stays away; the button assumes no blocks
+    // CMB-040, HIS-096, TRN-070 (owner, 2026-11-05, 2026-11-06): Alice attacks while Bob is away, "Assume resolves"
+    // Never: his pause right after her attack is assumed at once and his blockers wait in assume mode on the lanes with
+    // "Assume no blockers" on the main button; nothing is assumed by itself, however long he stays away; the button
+    // assumes no blocks; his priority after the blocks waits with "Assume no response" (the setting); her End turn then
+    // goes past his pause at her end step at once
     @Test fun blocksAreAssumedOnlyFromTheMainButton() {
         startGame(TestDeck.thirds(TestCards.cub), TestDeck.thirds(TestCards.herald),
             deal = { a, b -> "Mountain" in hand(a) && "Ember Cub" in hand(a) && "Mountain" in hand(b) && "Ember Herald" in hand(b) })
@@ -100,12 +102,9 @@ class AssumeBySettingTest : E2e() {
         waitUntil("Alice declaring attackers") { alice.state.turn.step == TurnStep.DeclareAttackers }
         alice.stageAttacker("Ember Cub", this)
         waitUntil("the Cub staged") { alice.stepArrow() == "Attack (1)" }
+        val offers = assumeOffers()
         alice.tap("Attack (1)")
-        // Bob's pause after her attack
-        waitUntil("Alice waiting for Bob after her attack") {
-            (alice.status as? GameDevice.Status.Waiting)?.offer == GameDevice.Offer.AssumeResolves
-        }
-        alice.tap("Assume no response")
+        // Bob's pause after her attack is assumed at once: straight on to his blockers
         waitUntil("Alice waiting for Bob's blockers") {
             (alice.status as? GameDevice.Status.Waiting)?.let { it.reason == GameDevice.Wait.Blockers && it.offer == GameDevice.Offer.AssumeBlockers } == true
         }
@@ -120,7 +119,19 @@ class AssumeBySettingTest : E2e() {
             alice.engine { device.session.events + device.session.pending }.any { e ->
                 e.assumed?.assumedBy == alice.me && (e.assumed?.input as? Input.DeclareBlockers)?.blocks?.isEmpty() == true }
         }
+        assertTrue(offers.none { it == GameDevice.Offer.AssumeResolves }, "no wait with Assume after her attack: $offers")
         waitUntil("the game on past Bob's assumed blocks") { alice.status == GameDevice.Status.YourMove && alice.stepArrow() != null }
+        // Her own priority after the blocks, then his: a wait with Assume (the setting)
+        alice.tap(alice.stepArrow()!!)
+        waitUntil("Alice waiting for Bob after his blocks") {
+            (alice.status as? GameDevice.Status.Waiting)?.offer == GameDevice.Offer.AssumeResolves
+        }
+        alice.tap("Assume no response")
+        waitUntil("Alice in her second main phase") { alice.inOwnMain(TurnStep.PostcombatMain) }
+        offers.clear()
+        alice.hold(alice.stepArrow()!!)
+        waitUntil("Bob's turn on Alice's table") { alice.state.turn.active == bob.me && alice.engine { device.session.pending.isEmpty() } }
+        assertTrue(offers.isEmpty(), "no wait with Assume at her end step: $offers")
         assertTrue(alice.leaks.leaks.isEmpty())
     }
 }

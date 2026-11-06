@@ -10,9 +10,10 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 /**
- * The combat band (owner, 2026-11-05): while Alice declares attackers with none staged the band between the battlefields
- * is a thin strip; she taps it open, stages two attackers by tapping her creatures (nothing covers them), declares with
- * the main button; Bob blocks one of them on the band's lanes; the combat damage is dealt.
+ * The combat band (owner playtest 2026-11-06): while Alice declares attackers with none staged the band between the
+ * battlefields stays collapsed with Bob's target chip; she stages two attackers by tapping her creatures (nothing covers
+ * them), which opens it, and declares with the main button; Bob blocks one of them on the band's lanes; the combat damage
+ * is dealt.
  */
 class CombatBandTest : E2e() {
     /** Alice's Ember Cubs that can attack: untapped, not summoning sick. */
@@ -21,9 +22,10 @@ class CombatBandTest : E2e() {
         alice.field("Ember Cub").filter { s.obj(it)?.tapped == false && view[it]?.summoningSick == false }
     }
 
-    /** Taps [player]'s main button while it passes or goes on (not a declaration). */
+    /** Taps [player]'s main button while it passes or goes on (not a declaration); also at a stop at the other
+     * player's assumption about them (HIS-095: Bob's pass after Alice's attack is assumed at once, HIS-096). */
     private fun goOn(player: E2ePlayer) = player.once {
-        if (player.status == GameDevice.Status.YourMove) player.stepArrow()?.takeIf { it in listOf("Pass", "Next", "Resolve") }?.let(player::tap)
+        if (player.status == GameDevice.Status.YourMove || player.status is GameDevice.Status.Stopped) player.stepArrow()?.takeIf { it in listOf("Pass", "Next", "Resolve") }?.let(player::tap)
     }
 
     /** Alice casts an Ember Cub from her hand (Autotap) and is back in her Main 1 with it on the battlefield. */
@@ -33,7 +35,7 @@ class CombatBandTest : E2e() {
         waitUntil("the Cub on Alice's battlefield", along = listOf(bob)) { alice.field("Ember Cub").size == before + 1 && alice.inOwnMain() }
     }
 
-    // CMB-001, CMB-007, CMB-028, CMB-031, CMB-034, TRN-063
+    // CMB-001, CMB-007, CMB-013, CMB-028, CMB-031, CMB-034, TRN-063
     @Test fun attackersAreStagedInTheBandAndBlockedOnItsLanes() {
         startGame(TestDeck.thirds(TestCards.cub), TestDeck.thirds(TestCards.herald),
             deal = { a, b -> "Mountain" in hand(a) && hand(a).count { it == "Ember Cub" } >= 2 && "Mountain" in hand(b) &&
@@ -63,11 +65,14 @@ class CombatBandTest : E2e() {
         waitUntil("Alice declaring attackers", along = listOf(bob)) {
             alice.state.turn.step == TurnStep.DeclareAttackers && alice.stepArrow() == "No attack"
         }
-        // CMB-001: the thin strip, opened by a tap; opening it stages nothing
-        waitUntil("the thin strip") { alice.showsCombatStrip() }
-        alice.tagged("combat-strip").performClick()
-        waitUntil("the band open") { !alice.showsCombatStrip() }
+        // CMB-001, CMB-013, CMB-028 (owner playtest 2026-11-06): the collapsed band shows Bob's target chip; a tap on it
+        // keeps him the active target and stages nothing; the band stays collapsed until an attacker is staged
+        waitUntil("Bob's target chip in the band") { alice.showsControl("Attack ${bob.name}") }
+        assertFalse(alice.bandOpen(), "collapsed")
+        alice.tap("Attack ${bob.name}")
+        run()
         assertEquals("No attack", alice.stepArrow())
+        assertFalse(alice.bandOpen(), "a chip opens nothing")
         // CMB-028: a tap on each ready Cub stages it in the band's lane; nothing covers them
         for (n in 0..1) {
             alice.stageAttacker("Ember Cub", this, index = n)
@@ -75,6 +80,7 @@ class CombatBandTest : E2e() {
             assertFalse(alice.refusalSeen, "the Cub is staged")
         }
         assertEquals("Attack (2)", alice.stepArrow())
+        assertTrue(alice.bandOpen(), "the band opened by itself with the first attacker")
         val life = alice.state.player(bob.me).life
         alice.tap("Attack (2)")
         // Bob reaches his blocks (passing where he may respond to the attack)

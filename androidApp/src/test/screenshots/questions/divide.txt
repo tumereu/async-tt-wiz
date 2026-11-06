@@ -1,0 +1,1 @@
+Dividing a spell's damage: the panel is titled "Divide 3" with the sentence under it, a row for Bob with 2 and one for Alice with 1, each with − and +, and OK.

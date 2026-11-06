@@ -8,7 +8,8 @@ import androidx.compose.runtime.setValue
 import kotlin.math.abs
 
 /**
- * Pinned Inspect (TBL-104, owner 2026-11-06): while a finger holds a card's Inspect, a drag to the left ([moved]) slides
+ * Pinned Inspect (TBL-131, owner 2026-11-06): while a finger holds a card's Inspect, a sideways drag either way ([moved];
+ * to the right too, for a card at the table's side) slides
  * it into its pinned look by [progress] (0 to 1); lifting the finger past half way ([released]) keeps it open, [pinned],
  * until [close]. Once the finger has scrolled the view up or down, sideways movement never starts the swipe, and a swipe
  * once started takes every movement (nothing scrolls). Distances are in the caller's units (dp).
@@ -35,10 +36,10 @@ internal class InspectSwipe {
         if (pinned) return true
         if (!swiping && !scrolled) when {
             abs(dy) > SLOP && abs(dy) >= abs(dx) -> scrolled = true
-            -dx > SLOP && abs(dx) > abs(dy) -> swiping = true
+            abs(dx) > SLOP && abs(dx) > abs(dy) -> swiping = true
         }
         if (!swiping) return false
-        progress = ((-dx - SLOP) / DISTANCE).coerceIn(0f, 1f)
+        progress = ((abs(dx) - SLOP) / DISTANCE).coerceIn(0f, 1f)
         return true
     }
 
@@ -59,7 +60,7 @@ internal class InspectSwipe {
     companion object {
         /** How far the finger moves before the swipe or the scroll takes it. */
         const val SLOP = 12f
-        /** How far left the finger drags the swipe from start to end. */
+        /** How far sideways the finger drags the swipe from start to end. */
         const val DISTANCE = 120f
     }
 }

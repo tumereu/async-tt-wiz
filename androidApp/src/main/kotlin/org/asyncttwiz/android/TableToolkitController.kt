@@ -623,7 +623,6 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
     /** The item a refused gesture shakes (I-D46): a double-tapped or dragged card; null for anything else. */
     private fun gestureTarget(intent: TableIntent): String? = when (intent) {
         is TableIntent.Move -> intent.scope.contextId.takeIf { intent.handDoubleTap || intent.drag }
-        is TableIntent.Rotate -> intent.scope.contextId
         else -> null
     }
 
@@ -662,8 +661,6 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
         if (intent is TableIntent.Move && intent.handDoubleTap) return castFromHand(intent.scope.contextId)
         // I-D36, I-D52: a drag is the engine action it means, or refused
         if (intent is TableIntent.Move && intent.drag) return automatumDrag(intent)
-        // TBL-043: a double-tap on a battlefield card does no more than its first tap (TBL-122); nothing is tapped by hand
-        if (intent is TableIntent.Rotate) return secondTap(intent)
         if (intent is TableIntent.Batch) return batchResult(intent.invocationId) {
             intent.intents.all { handle(it) }
         }
@@ -672,18 +669,6 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
             handleOne(intent)
         } else handleOne(intent)
     }
-    /**
-     * TBL-043: the second tap of a double-tap on a battlefield card does nothing: its first tap already activated the
-     * card's ability, opened its ability chips or its menu (TBL-122). Turning any other card is tapping by hand, refused.
-     */
-    private fun secondTap(intent: TableIntent.Rotate): Boolean {
-        val play = current()
-        val card = play?.let { CombatStackRules.liveSource(it.board, intent.scope.contextId) }
-        if (card != null && play.board.containers.singleOrNull { it.id == card.containerId }?.zone == PlayZone.BATTLEFIELD) return true
-        error = AutomatumDrags.MANUAL
-        return false
-    }
-
     /**
      * A drag with Automatum on (I-D36): a hand card dropped on the Battlefield or the Stack is played or cast (the cast
      * panel, as a double-tap, ZON-004); a creature dropped into the combat area joins the draft of the declaration the

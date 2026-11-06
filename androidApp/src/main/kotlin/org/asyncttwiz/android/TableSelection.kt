@@ -31,8 +31,6 @@ sealed interface TableIntent {
     data object DismissTapUi : TableIntent
     /** Personal: open the search panel of a Graveyard/Exile pile (its double-tap). */
     data class SearchPile(val containerId: String) : TableIntent
-    data class Rotate(val scope: TableScope, val tapped: Boolean, val sources: Map<String, TableMoveSource> = emptyMap(),
-        val toggle: Boolean = false) : TableIntent
     data class Move(val scope: TableScope, val destination: TableDestination,
         val sources: Map<String, TableMoveSource> = emptyMap(), val invocationId: String? = null,
         val handDoubleTap: Boolean = false,

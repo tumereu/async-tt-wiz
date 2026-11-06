@@ -249,8 +249,8 @@ class TableGestureCoordinator(
                 // I-D52: nothing is drawn by hand; the single tap already opened (or shook) the Library
                 Unit
             } else if (c.double && c.item?.viewport == "combat") {
-                // Combat has no double-tap source action or ordinary card menu.
-                diagnostic("dropped:combatHasNoRotation")
+                // CMB-003: a combat copy's double tap does nothing (its taps select it and open its Combat menu, CMB-032)
+                Unit
             } else if (c.double && c.item?.zone == PlayZone.STACK) {
                 single(c, explicit = true)
             } else if (c.double && c.item?.kind == TableItemKind.CARD && c.item.zone == PlayZone.HAND) {
@@ -260,18 +260,10 @@ class TableGestureCoordinator(
                 if (writable && id != null && destination != null) {
                     emit(TableIntent.Move(TableScope(id, listOf(id)), destination, c.sources.filterKeys { it == id }, handDoubleTap = true))
                 }
-            } else if (c.double && c.item?.kind == TableItemKind.CARD && c.item.zone != PlayZone.BATTLEFIELD) {
-                // Non-Battlefield cards have no orientation gesture, including legacy tapped cards.
-                Unit
             } else if (c.double && c.item?.kind == TableItemKind.CARD) {
-                // TBL-043: Automatum taps it for mana (nothing is tapped by hand)
-                if (writable && c.scope != null && targetsExist(c.scope)) {
-                    emit(TableIntent.Rotate(rotatable(c.scope), !c.item.tapped, c.sources, toggle = true))
-                } else diagnostic("dropped:" + when {
-                    !writable -> "writable"
-                    c.scope == null -> "scopeMissing"
-                    else -> "targetMissing"
-                })
+                // TBL-043: the second tap of a card's double tap does nothing more than its first did (TBL-122); nothing is
+                // turned by hand
+                Unit
             } else if (doubleTapEnabled && (c.item?.kind == TableItemKind.CARD ||
                 c.item?.zone in listOf(PlayZone.LIBRARY, PlayZone.STACK) || c.item?.publicPile == true)) {
                 // Opening personal UI never waits for double-tap recognition. The second gesture
@@ -370,9 +362,6 @@ class TableGestureCoordinator(
         single(Capture(item, item.bounds.center, 0, scope, null,
             sources = scene.sources.filterKeys { it in scope?.cardIds.orEmpty() }), explicit = true)
     }
-    private fun rotatable(scope: TableScope) = scope.copy(cardIds = scope.cardIds.filter { id ->
-        scene.items.any { it.cardId == id && it.zone == PlayZone.BATTLEFIELD && !it.projection }
-    })
     private fun targetsExist(scope: TableScope) = scope.cardIds.all { id -> scene.items.any { it.cardId == id || id in it.cards } }
     private fun single(c: Capture, explicit: Boolean = false) {
         val item = c.item

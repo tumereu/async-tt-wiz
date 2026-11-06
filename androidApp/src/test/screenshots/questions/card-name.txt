@@ -1,0 +1,1 @@
+Naming a card: the panel is titled "Name a card" with the sentence under it (its {2} drawn as a symbol), the field to write any card name and OK.

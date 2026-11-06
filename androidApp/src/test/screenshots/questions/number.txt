@@ -1,0 +1,1 @@
+Choosing a number: the panel is titled "Choose a number" with the sentence under it, − 0 + and OK.

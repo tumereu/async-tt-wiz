@@ -32,9 +32,14 @@ internal object Costs {
         when (part) {
             is CostPart.Mana -> part.cost.toString()
             is CostPart.PayLife -> "life"
+            // "Pay forage?" rather than "Pay action?" for a definition without printed text
+            is CostPart.Action -> arcanum.engine.decision.Texts.words(arcanum.engine.decision.Texts.className(part.action) ?: "action")
             else -> arcanum.engine.decision.Texts.words(arcanum.engine.decision.Texts.costName(part))
         }
     }
+
+    /** blb: the forage question's sentence (CR 701.61a). */
+    const val FORAGE_TEXT = "To forage, exile three cards from your graveyard or sacrifice a Food."
 
     fun canPay(scope: Scope, payer: PlayerId, cost: Cost): Boolean = cost.parts.all { canPay(scope, payer, it) }
 
@@ -203,7 +208,9 @@ internal object Costs {
             is CostPart.Mill -> Actions.mill(act, cause, payer, scope.value(part.count))
             is CostPart.OneOf -> {
                 val payable = part.options.filter { canPay(scope, payer, it) }
-                val chosen = act.chooseOption(payer, scope.self, payable.map { describe(it) })
+                // blb: the question says what foraging is (CR 701.61a), so its two ways read as a choice of how to forage
+                val text = if (part == arcanum.engine.casting.Costs.forage) FORAGE_TEXT else null
+                val chosen = act.chooseOption(payer, scope.self, payable.map { describe(it) }, text = text)
                 payable.firstOrNull { describe(it) == chosen }?.let { pay(scope, payer, it) }
             }
             is CostPart.Action -> Effects.perform(scope, arcanum.api.Effect.Action(part.action, part.bind))

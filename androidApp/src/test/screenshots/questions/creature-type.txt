@@ -1,0 +1,1 @@
+Choosing a creature type: the panel is titled "Choose a creature type" with the sentence under it, a field to narrow the list and the rules' creature types to tap.

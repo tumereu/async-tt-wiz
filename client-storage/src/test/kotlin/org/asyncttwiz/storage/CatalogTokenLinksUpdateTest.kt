@@ -13,8 +13,8 @@ import java.security.MessageDigest
 import java.time.LocalDate
 import java.util.zip.GZIPOutputStream
 
-/** LOB-125: card records installed before they kept the card→token links (SYS-072) are downloaded again once, through
- * the card records update of LOB-092 / LOB-110; records imported with the links are not. Every card here is invented. */
+/** LOB-125: card records installed before index version 4 kept the card→token links (SYS-072) are downloaded again
+ * once, through the card records update of LOB-092 / LOB-110. Every card here is invented. */
 class CatalogTokenLinksUpdateTest {
     @TempDir lateinit var temporary: Path
     private val repository by lazy {
@@ -61,10 +61,9 @@ class CatalogTokenLinksUpdateTest {
     private fun links() = repository.snapshot { it!!.long("SELECT count(*) FROM token_relation") }
 
     // LOB-125, LOB-092
-    @Test fun recordsInstalledWithoutTokenLinksDownloadAgainOnceAskedAsAnyUpdate() {
+    @Test fun olderRecordsDownloadAgainOnceAskedAsAnyUpdate() {
         install()
-        sql("DROP TABLE token_relation", "PRAGMA user_version=3") // as installed before the links were kept
-        assertFalse(repository.upgradeIndex())
+        sql("PRAGMA user_version=3") // any catalog from before version 4, with or without links
         val installed = repository.metadata()!!
         assertEquals(3, installed.indexVersion)
         val plan = plan()!!
@@ -75,30 +74,6 @@ class CatalogTokenLinksUpdateTest {
 
         assertEquals(CATALOG_INDEX_VERSION, install(plan).indexVersion)
         assertEquals(2L, links())
-        assertFalse(repository.upgradeIndex())
         assertNull(plan(), "once: the new records need nothing more")
-    }
-
-    // LOB-125, LOB-092: set updates since the links were kept fill them only for the sets they refresh
-    @Test fun linksOnlyFromLaterSetUpdatesStillDownloadAgain() {
-        install()
-        sql("DELETE FROM token_relation WHERE token='${id(2)}'", "UPDATE catalog_set SET installed_at=installed_at+2*86400000 WHERE code='NEW'",
-            "PRAGMA user_version=3")
-        assertFalse(repository.upgradeIndex())
-        assertEquals(3, repository.metadata()!!.indexVersion)
-        assertTrue(plan()!!.full)
-    }
-
-    // LOB-125
-    @Test fun recordsImportedWithTokenLinksAreKeptWithoutDownloading() {
-        install()
-        sql("PRAGMA user_version=3") // imported with the links before the version that asks for them
-        val generation = repository.tokenGeneration()
-        assertTrue(repository.upgradeIndex())
-        assertEquals(CATALOG_INDEX_VERSION, repository.metadata()!!.indexVersion)
-        assertEquals(sets.map { it.code }.toSet(), repository.installedSets().map { it.code }.toSet())
-        assertNull(plan())
-        assertFalse(repository.upgradeIndex())
-        assertEquals(generation, repository.tokenGeneration())
     }
 }

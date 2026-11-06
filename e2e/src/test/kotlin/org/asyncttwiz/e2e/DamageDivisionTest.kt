@@ -44,7 +44,7 @@ class DamageDivisionTest : E2e() {
         waitUntil("Alice declaring attackers", along = listOf(bob)) { alice.state.turn.step == TurnStep.DeclareAttackers }
         alice.stageAttacker("Cinder Brute", this)
         waitUntil("the Brute staged") { alice.stepArrow() == "Attack (1)" }
-        alice.tap("Attack (1)")
+        alice.declare("Attack (1)", this)
         waitUntil("Bob declaring blockers") {
             goOn(alice); goOn(bob)
             bob.status == GameDevice.Status.YourMove && bob.stepArrow() == "No blocks"
@@ -56,7 +56,7 @@ class DamageDivisionTest : E2e() {
             bob.bandCard("Cinder Brute", owner = alice).performClick()
             waitUntil("Pup ${n + 1} blocking") { bob.stepArrow() == "Block (${n + 1})" }
         }
-        bob.tap("Block (3)")
+        bob.declare("Block (3)", this)
         // CMB-033: Alice's division opens attached to the band: a row per Pup (lethal 1 each in turn: two red, one grey)
         // and what tramples over to Bob on the bottom line
         waitUntil("Alice's division", along = listOf(bob)) {

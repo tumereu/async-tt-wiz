@@ -58,6 +58,18 @@ internal fun E2ePlayer.hand(name: String): List<ObjectId> = state.let { s -> nam
 internal fun E2ePlayer.field(name: String, owner: PlayerId = me): List<ObjectId> =
     state.let { s -> s.battlefield.filter { s.obj(it)?.controller == owner && cardName(s, it) == name } }
 
+/**
+ * Whether this player's game has settled for a tap: the board shown is the newest ([E2ePlayer.current]) and, while the
+ * game reaches the server, nothing of theirs is still on its way to it. Until then their device's own passes may still
+ * lose their race with the other device's assumptions about them (HIS-096, SYS-077), and the board taken back by that
+ * comes after the tap instead of before it.
+ */
+internal fun E2ePlayer.settled(): Boolean {
+    if (!current()) return false
+    val id = game?.gameId ?: return false
+    return id !in lobby.state.connectedGames || engine { device.session.pending.isEmpty() }
+}
+
 /** The player's own Main 1 with priority and the Stack empty, as the table shows it. */
 internal fun E2ePlayer.inOwnMain(main: TurnStep = TurnStep.PrecombatMain): Boolean = game?.shown?.let { shown ->
     val s = shown.engine
@@ -119,7 +131,7 @@ internal fun E2ePlayer.bandOpen(): Boolean = shows(hasContentDescription("Projec
  */
 internal fun E2ePlayer.stageAttacker(name: String, e2e: E2e, index: Int = 0) {
     e2e.waitUntil("${this.name}'s table working out the combat") {
-        current() && (org.asyncttwiz.android.AutomatumBoards.cachedCombat(shown.board) != null && stepArrow()?.startsWith("No attack") == true ||
+        settled() && (org.asyncttwiz.android.AutomatumBoards.cachedCombat(shown.board) != null && stepArrow()?.startsWith("No attack") == true ||
             stepArrow()?.startsWith("Attack (") == true)
     }
     battlefieldCard(name, index = index).performClick()
@@ -132,10 +144,21 @@ internal fun E2ePlayer.stageAttacker(name: String, e2e: E2e, index: Int = 0) {
  */
 internal fun E2ePlayer.pickBlocker(name: String, e2e: E2e, index: Int = 0) {
     e2e.waitUntil("${this.name}'s table working out the blocks") {
-        current() && org.asyncttwiz.android.AutomatumBoards.cachedCombat(shown.board) != null &&
+        settled() && org.asyncttwiz.android.AutomatumBoards.cachedCombat(shown.board) != null &&
             stepArrow()?.let { it == "No blocks" || it.startsWith("Block (") } == true
     }
     battlefieldCard(name, index = index).performClick()
+}
+
+/**
+ * Taps the main button's declaration [label] ("Attack (2)", "Block (1)", CMB-028, CMB-034) once the game has [settled]
+ * (the staging that made it on the server) and the table has worked out the combat on the board it shows.
+ */
+internal fun E2ePlayer.declare(label: String, e2e: E2e) {
+    e2e.waitUntil("${this.name}'s $label ready") {
+        settled() && org.asyncttwiz.android.AutomatumBoards.cachedCombat(shown.board) != null && stepArrow() == label
+    }
+    tap(label)
 }
 
 /** Whether the screen shows a card [name] of [owner]'s on their battlefield. */
@@ -179,8 +202,10 @@ internal fun E2ePlayer.openTimeline(e2e: E2e) {
 
 /** Plays (or casts) the hand card [name]: a tap raises it, a tap on the raised card plays it (ZON-079). */
 internal fun E2ePlayer.playFromHand(name: String, e2e: E2e) {
+    // On a settled game: a board taken back between the two taps lowers the raised card, and the second tap only raises it
+    e2e.waitUntil("${this.name}'s game settled") { settled() }
     handCard(name).performClick()
-    e2e.waitUntil("$name raised in ${this.name}'s hand") { raisedInHand() == name }
+    e2e.waitUntil("$name raised in ${this.name}'s hand") { raisedInHand() == name && settled() }
     handCard(name).performClick()
 }
 

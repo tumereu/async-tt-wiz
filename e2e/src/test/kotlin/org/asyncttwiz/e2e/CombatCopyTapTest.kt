@@ -105,7 +105,7 @@ class CombatCopyTapTest : E2e() {
         run(skip = Duration.ofSeconds(1))
         alice.stageAttacker("Ember Cub", this)
         waitUntil("the Cub staged again") { alice.stepArrow() == "Attack (1)" }
-        alice.tap("Attack (1)")
+        alice.declare("Attack (1)", this)
         waitUntil("Bob declaring blockers, Alice assuming") {
             // Bob passes where he may respond to the attack, as his main button says
             bob.once {

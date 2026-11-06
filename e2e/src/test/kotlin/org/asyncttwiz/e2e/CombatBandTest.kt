@@ -82,7 +82,7 @@ class CombatBandTest : E2e() {
         assertEquals("Attack (2)", alice.stepArrow())
         assertTrue(alice.bandOpen(), "the band opened by itself with the first attacker")
         val life = alice.state.player(bob.me).life
-        alice.tap("Attack (2)")
+        alice.declare("Attack (2)", this)
         // Bob reaches his blocks (passing where he may respond to the attack)
         waitUntil("Bob declaring blockers") {
             goOn(alice); goOn(bob)
@@ -93,7 +93,7 @@ class CombatBandTest : E2e() {
         run(skip = java.time.Duration.ofSeconds(1)) // past the double-tap window: the tap is a single tap
         bob.bandCard("Ember Cub", owner = alice).performClick()
         waitUntil("Bob's block staged") { bob.stepArrow() == "Block (1)" }
-        bob.tap("Block (1)")
+        bob.declare("Block (1)", this)
         waitUntil("the combat damage", along = listOf(bob)) {
             goOn(alice)
             alice.state.player(bob.me).life < life

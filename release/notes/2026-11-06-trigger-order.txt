@@ -1,0 +1,1 @@
+mod: When two or more of your different triggers happen at once you are now always asked their order, in every response mode.

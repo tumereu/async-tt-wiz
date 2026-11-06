@@ -21101,10 +21101,31 @@ internal class Sentences(
     }
 
     /** mh2: whole lines. */
-    private fun mh2Line(@Suppress("UNUSED_PARAMETER") line: String): Ability? = null
+    private fun mh2Line(line: String): Ability? {
+        // mh2 chunk 11: "Whenever this creature or another creature you control enters, if that creature entered from a graveyard or you cast it from a
+        // graveyard, [effect]": two events, a creature you control entering from a graveyard and one cast from a graveyard (CR 603.2, 601.2a)
+        Mh2.THIS_OR_ANOTHER_ENTERS_FROM_GRAVEYARD_OR_CAST_FROM.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            val noun = Filters.noun(m.groupValues[2]) ?: return@let
+            val instructions = instructions(m.groupValues[3].replaceFirstChar { it.uppercase() }) ?: return@let
+            return Ability.Triggered(arcanum.api.Trigger.On(listOf(
+                EventPattern.ZoneChange(noun, from = Zone.Graveyard, to = Zone.Battlefield),
+                EventPattern.ZoneChange(Filters.all(noun, ObjectFilter.WasCast(from = Zone.Graveyard)), to = Zone.Battlefield))), instructions)
+        }
+        return null
+    }
 
     /** mh2: static abilities. */
     private fun mh2Static(line: String): Ability? {
+        // mh2 chunk 11: "Planeswalkers' loyalty abilities you activate cost an additional [+1] to activate." (CR 606.4)
+        Mh2.LOYALTY_ABILITIES_COST_ADDITIONAL.matchEntire(line)?.let { m ->
+            return Ability.Static(listOf(Mechanic.AdditionalLoyaltyCost(m.groupValues[1].toInt())), affects = Affected.Players(Players.You))
+        }
+        // mh2 chunk 11: "Each spell you cast that's red or green costs {1} less to cast." (CR 601.2f)
+        Mh2.EACH_SPELL_YOU_CAST_THATS_COSTS_LESS.matchEntire(line)?.let { m ->
+            val colors = ObjectFilter.Or(listOf(mh2Color(m.groupValues[1]) ?: return@let, mh2Color(m.groupValues[2]) ?: return@let))
+            return mh2SelfStatic(Mechanic.CostChange(Filters.all(ObjectFilter.Category(arcanum.api.ObjectCategory.Spell), colors, ObjectFilter.ControlledBy(PlayerFilter.You)),
+                arcanum.api.CostChange.Less(ManaCost.parse(m.groupValues[3]) ?: return@let, Value.Fixed(1))))
+        }
         // mh2 chunk 10: "This spell costs {3} less to cast for each other spell cast this turn." (by any player, CR 601.2f)
         Mh2.COSTS_LESS_FOR_EACH_OTHER_SPELL_CAST_THIS_TURN.matchEntire(line)?.let { m ->
             val per = ManaCost.parse(m.groupValues[1]) ?: return@let
@@ -21197,6 +21218,12 @@ internal class Sentences(
 
     /** mh2: trigger events. */
     private fun mh2Trigger(text: String): Pair<arcanum.api.Trigger.On, arcanum.api.Condition?>? {
+        // mh2 chunk 11: "Carth enters or a planeswalker you control dies" (one ability, two events, CR 603.2)
+        Mh2.SELF_ENTERS_OR_DIES.matchEntire(text)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            val noun = Filters.noun(m.groupValues[2].removePrefix("a ").removePrefix("an ")) ?: return@let
+            return arcanum.api.Trigger.On(listOf(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), to = Zone.Battlefield),
+                EventPattern.ZoneChange(noun, from = Zone.Battlefield, to = Zone.Graveyard))) to null
+        }
         // mh2 chunk 08: "you win a coin flip" (CR 705.2)
         if (Mh2.YOU_WIN_A_COIN_FLIP.matches(text)) return arcanum.api.Trigger.On(EventPattern.FlipCoin(PlayerFilter.You, won = true)) to null
         // mh2 chunk 07: "you cast a spell other than your first spell each turn" (every spell but the first one that player cast this turn)
@@ -21227,6 +21254,32 @@ internal class Sentences(
 
     /** mh2: instructions of several sentences read as a whole. */
     private fun mh2Whole(text: String, context: Context): List<Step>? {
+        // mh2 chunk 11: "Look at the top seven cards of your library. You may reveal a planeswalker card from among them and put it into your hand. Put
+        // the rest on the bottom of your library in a random order."
+        Mh2.LOOK_TOP_MAY_REVEAL_PUT_INTO_HAND_REST_BOTTOM.matchEntire(text)?.let { m ->
+            val count = Numbers.count(m.groupValues[1]) ?: return null
+            val noun = Filters.noun(m.groupValues[2] + " card") ?: return null
+            val seen = Objects.Bound("seen")
+            val chosen = Objects.Bound("chosen")
+            return listOf(Step.Do(Effect.LookAt(Objects.LibraryCards(Players.You, Value.Fixed(count), fromTop = true), Players.You, bind = "seen")),
+                Step.Choose(arcanum.api.Choice.Objects(noun, Value.Fixed(0), Value.Fixed(1), from = seen), bind = "chosen", chooser = Players.You),
+                Step.Do(Effect.Reveal(chosen)),
+                Step.Do(Effect.Move(chosen, Destination(Zone.Hand))),
+                Step.Do(Effect.Move(Objects.Except(seen, chosen), Destination(Zone.Library, libraryPosition = -1, randomOrder = true))))
+        }
+        // mh2 chunk 11: "Reveal the top two cards of your library. Put one of them into your hand and the other into your graveyard. If you put an
+        // artifact card into your hand this way, you gain 3 life."
+        Mh2.REVEAL_TOP_TWO_ONE_HAND_OTHER_GRAVEYARD_IF.matchEntire(text)?.let { m ->
+            val noun = Filters.noun(m.groupValues[1]) ?: return null
+            val then = effect(m.groupValues[2].replaceFirstChar { it.uppercase() }, context) ?: return null
+            val revealed = Objects.Bound("revealed")
+            val kept = Objects.Bound("kept")
+            return listOf(Step.Do(Effect.Reveal(Objects.LibraryCards(Players.You, Value.Fixed(2), fromTop = true), bind = "revealed")),
+                Step.Choose(arcanum.api.Choice.Objects(ObjectFilter.Any, Value.Fixed(1), Value.Fixed(1), from = revealed), bind = "kept", chooser = Players.You),
+                Step.Do(Effect.Move(kept, Destination(Zone.Hand))),
+                Step.Do(Effect.Move(Objects.Except(revealed, kept), Destination(Zone.Graveyard))),
+                Step.If(arcanum.api.Condition.ObjectMatches(kept, noun), then = then))
+        }
         // mh2 chunk 09: "Choose land or nonland. Reveal cards from the top of your library until you reveal a card of the chosen kind. Put that card
         // into your hand and the rest on the bottom of your library in a random order." (CR 701.20a)
         if (Mh2.CHOOSE_LAND_OR_NONLAND_REVEAL_UNTIL.matches(text)) {
@@ -21502,6 +21555,14 @@ internal class Sentences(
             context.targets += mh2Slot(name, ObjectFilter.AbilityOf(kind = arcanum.api.AbilityKind.Loyalty))
             return listOf(Step.Do(Effect.Counter(Objects.Target(name))))
         }
+        // mh2 chunk 11: "Gain control of each permanent with a corruption counter on it." (no duration: for good, CR 611.2a)
+        Mh2.GAIN_CONTROL_OF_EACH.matchEntire(sentence)?.let { m ->
+            val objects = Filters.objects(m.groupValues[1]) ?: return@let
+            return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.ControlledBy(Players.You)), Affected.Objects(objects), arcanum.api.Duration.Indefinitely)))
+        }
+        // mh2 chunk 11: "You gain life equal to the number of cards you've discarded this turn."
+        if (Mh2.GAIN_LIFE_EQUAL_TO_CARDS_DISCARDED_THIS_TURN.matches(sentence))
+            return listOf(Step.Do(Effect.GainLife(Players.You, Value.EventsThisTurn(EventPattern.Discard(ObjectFilter.Any, PlayerFilter.You), arcanum.api.Measure.Objects))))
         // mh2 chunk 04: "Put enchanted creature into its owner's library third from the top." (CR 401.4: from 0 at the top)
         Mh2.PUT_INTO_OWNERS_LIBRARY_NTH_FROM_TOP.matchEntire(sentence)?.let { m ->
             val objects = if (m.groupValues[1] == "enchanted creature") Objects.AttachedTo(Objects.Self) else mh2Objects(m.groupValues[1], context) ?: return@let

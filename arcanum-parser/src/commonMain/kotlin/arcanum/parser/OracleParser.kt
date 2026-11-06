@@ -526,6 +526,11 @@ object OracleParser {
     fun keyword(part: String): Keyword? {
         // mh2 chunk 02: "Vanishing" without a number (CR 702.63b), read as 0
         if (part == "Vanishing") return Keyword.Vanishing(0)
+        // mh2 chunk 11: "Protection from permanents with corruption counters on them" (CR 702.16a)
+        Mh2.PROTECTION_FROM_WITH_COUNTERS.matchEntire(part)?.let { m ->
+            val noun = Filters.noun(m.groupValues[1].removeSuffix("s")) ?: return null
+            return Keyword.Protection(Filters.all(noun, arcanum.api.ObjectFilter.HasCounter(Counters.kind(m.groupValues[2]) ?: return null, atLeast = 1)))
+        }
         // mh2 chunk 10: "Reinforce X—{X}{G}{G}" (CR 702.77a)
         if (part.startsWith("Reinforce X—")) return Keyword.ReinforceX(Cost.mana(ManaCost.parse(part.removePrefix("Reinforce X—")) ?: return null))
         // tdm chunk 12: "hexproof from monocolored" (CR 702.11d)

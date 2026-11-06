@@ -168,6 +168,15 @@ The definition model (overview in `Definitions.kt`):
   player"), `Mechanic.SetTypes.removeSupertypes` ("isn't legendary"), `Mechanic.AdditionalLoyaltyCost` ("cost an additional [+1]"),
   and `Choice.CardNameAmong` with `Effect.CopyNamedCard` ("choose a card name that hasn't been chosen from among …; create a copy of
   the card with the chosen name", the card supplied by the host, CR 707.12).
+- The Lord of the Rings: Tales of Middle-earth (set `ltr`): `Mechanic.ActivateAtInstantSpeed` (a player may activate matching
+  abilities any time they could cast an instant: "you may activate equip abilities … as though they had flash"),
+  `Mechanic.UntapReplacedByRemovingCounter` ("if it would untap, remove a [kind] counter from it instead", CR 614.1a),
+  `Mechanic.UpToInDeck` ("a deck can have up to nine cards named …", CR 100.2a), `Mechanic.GainAbilitiesOf.exceptMana` ("all activated
+  abilities of lands your opponents control except mana abilities"), `CopyException.Types.replaceTypes` ("it's a Food artifact … and it
+  loses all other card types", CR 707.9b), `Effect.MoveCounters.exceptKindsOn`/`chosen`/`bind` (a chosen number of each kind, kinds
+  already on the destination excepted, the number moved named), `Effect.PutEventCounterKinds` ("put one of each kind of counter put
+  this way on …"), `Choice.CreatureTypeUnchosen` ("a creature type that hasn't been noted for [this]"), `EventPattern.PhaseIn` (CR
+  702.26c) and `EventPattern.FinalChapterResolves` ("the final chapter ability of a Saga you control resolves", CR 714.2c).
 - Final Fantasy (set `fin`): `Effect.EndTurn` (CR 724.1) and `Effect.AdditionalStep` ("an additional end step after this step", CR
   500.9), `KeywordAction.Meld(objects, into)` with the existing `Layout.Meld` (CR 701.42), `Effect.Cast.manaAsAnyType` (CR 609.4b),
   `ActivationRules.cantBeCopied` ("this ability can't be copied", CR 707.10), `Modification.AsTransforms` ("as this creature transforms

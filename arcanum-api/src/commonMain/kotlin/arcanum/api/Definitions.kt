@@ -449,6 +449,10 @@ sealed interface Choice {
      * [ColorRef.Remembered] stand for each of them ("one of the chosen colors"). */
     @Serializable @SerialName("colors") data class Colors(val count: Int) : Choice
     @Serializable @SerialName("creature-type") data object CreatureType : Choice
+    // ltr chunk 10
+    /** A creature type this choice of the same source hasn't chosen before, the source keeping the ones chosen ("Note a creature type that
+     * hasn't been noted for this Saga"). */
+    @Serializable @SerialName("creature-type-unchosen") data object CreatureTypeUnchosen : Choice
     // ecl
     /** One creature type of [among] ("choose Elemental, Elf, Faerie, Giant, Goblin, Kithkin, Merfolk, or Treefolk", CR 205.3m); read as
      * [SubtypeRef.Chosen] or, kept, [SubtypeRef.Remembered] like [CreatureType]. */

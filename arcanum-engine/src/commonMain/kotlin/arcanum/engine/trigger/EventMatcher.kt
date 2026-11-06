@@ -57,7 +57,9 @@ internal object EventMatcher {
                 (pattern.from == null || m.from == pattern.from) && (pattern.to == null || m.to == pattern.to) &&
                     (pattern.notTo == null || m.to != pattern.notTo) &&
                     (!pattern.resolving || Meaning.Resolved in m.meanings) &&
-                    back.matches(pattern.objects, tested(m, pattern.from, proposed))
+                    (back.matches(pattern.objects, tested(m, pattern.from, proposed)) ||
+                    // ltr chunk 08: a named object ("When you play a card this way") is the object that moved, before it moved (CR 400.7)
+                    (pattern.objects is ObjectFilter.Is && !proposed && back.matches(pattern.objects, m.before.id)))
             }.map { moveEvent(e, it, proposed, pattern.from) }
         }
         is EventPattern.Cast -> if (isCast(change)) {
@@ -86,14 +88,15 @@ internal object EventMatcher {
                     listOf(a.player))) else null
         }.orEmpty()
         is EventPattern.Damage -> (change as? Change.Damage)?.dealt.orEmpty().filter { d ->
-            !pattern.excess && (pattern.combat == null || pattern.combat == d.combat) &&
+            // ltr chunk 07: "is dealt excess damage" (CR 120.4a): only the part over lethal, its amount the excess
+            (!pattern.excess || d.excess > 0) && (pattern.combat == null || pattern.combat == d.combat) &&
                 e.matches(pattern.source, d.source) && recipient(e, pattern.to, d.recipient)
         }.map { d ->
             TriggerEvent(
                 objects = listOf(RoleObjects(EventRole.Source, listOf(d.source))) +
                     listOfNotNull((d.recipient as? TargetRef.Object)?.let { RoleObjects(EventRole.Object, listOf(it.id)) }),
                 players = listOfNotNull((d.recipient as? TargetRef.Player)?.id),
-                amount = d.amount,
+                amount = if (pattern.excess) d.excess else d.amount,
             )
         }
         is EventPattern.GainLife -> life(e, change, pattern.players, Meaning.LifeGained)
@@ -144,6 +147,13 @@ internal object EventMatcher {
             if ((pattern.forMana == null || pattern.forMana == forMana) && forCost && e.matches(pattern.objects, c.id))
                 listOf(TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(c.id))) + listOfNotNull(paid?.source?.let { RoleObjects(EventRole.Source, listOf(it)) }),
                     listOfNotNull(e.controllerOf(c.id)))) else null
+        }.orEmpty()
+        // ltr chunk 13: CR 714.2c
+        is EventPattern.FinalChapterResolves -> ((change as? Change.Happened)?.event as? GameEvent.FinalChapterResolved)
+            ?.takeIf { e.matches(pattern.sagas, it.saga) }?.let { listOf(TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(it.saga))), listOfNotNull(e.controllerOf(it.saga)))) }.orEmpty()
+        // ltr chunk 12: a permanent phasing in (CR 702.26c)
+        is EventPattern.PhaseIn -> (change as? Change.Status)?.takeIf { it.flag == StatusFlag.PhasedOut && it.before && !it.after }?.let { c ->
+            if (e.matches(pattern.objects, c.id)) listOf(TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(c.id))), listOfNotNull(e.controllerOf(c.id)))) else null
         }.orEmpty()
         is EventPattern.Untap -> (change as? Change.Status)?.takeIf { it.flag == StatusFlag.Tapped && it.before && !it.after }?.let { c ->
             if (e.matches(pattern.objects, c.id)) listOf(TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(c.id))))) else null
@@ -356,7 +366,7 @@ internal object EventMatcher {
         if (last && c.after != null) return emptyList()
         if (!e.matches(objects, holder.id)) return emptyList()
         return listOf(TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(holder.id))), listOfNotNull(e.controllerOf(holder.id)),
-            kotlin.math.abs(delta)))
+            kotlin.math.abs(delta), counterKinds = listOf(c.kind)))
     }
 
     /** msh: whether the counters put make the count reach [reaching] ("the fourth plan counter is put"): fewer before, at least that

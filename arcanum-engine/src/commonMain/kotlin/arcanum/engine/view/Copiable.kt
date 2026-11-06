@@ -185,8 +185,10 @@ internal class Copiable(private val state: GameState, val reads: ViewReads = Vie
             when (e) {
                 is CopyException.Name -> f.copy(name = e.name)
                 is CopyException.Types -> f.copy(
-                    types = (f.types + e.add).distinct(),
-                    subtypes = (if (e.replaceSubtypes) f.subtypes.filter { Subtypes.kindOf(it) != SubtypeKind.Creature } else f.subtypes) +
+                    // ltr chunk 13: "it loses all other card types": only the added types and the subtypes that go with them (CR 205.1b)
+                    types = if (e.replaceTypes) e.add.distinct() else (f.types + e.add).distinct(),
+                    subtypes = (if (e.replaceTypes) f.subtypes.filter { s -> Subtypes.kindOf(s).types.any { it in e.add } }
+                        else if (e.replaceSubtypes) f.subtypes.filter { Subtypes.kindOf(it) != SubtypeKind.Creature } else f.subtypes) +
                         e.addSubtypes.mapNotNull { (it as? arcanum.api.SubtypeRef.Literal)?.subtype },
                     supertypes = ((f.supertypes + e.addSupertypes).distinct() - e.removeSupertypes.toSet()),
                 )

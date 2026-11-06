@@ -460,6 +460,14 @@ report and replay their inputs on a saved state. The default `EngineTrace.None` 
   naming the owner) kept as the permanent's memory, a keyword ability of a source that left read as it last existed (modular), the
   creature types each player chose in one loop gathered, and a copy of a card by a chosen name: the host fills it in
   (`Decision.HostFill.named`), it is made in exile and may be cast.
+- Done, The Lord of the Rings: Tales of Middle-earth (scenarios in `commonTest/…/sets/ltr/`): every non-trivial card plays (each file
+  names the cards that only repeat a played template). The Ring as the player's emblem (CR 701.54) in many shapes; equip at instant
+  speed by a player's permission; a legendary instant or sorcery needing a legendary creature or planeswalker (CR 205.4e); an untap
+  replaced by removing a counter; counters moved by a chosen number of each kind; excess damage (CR 120.4a: lethal damage the toughness
+  less marked damage, 1 with deathtouch, a planeswalker's loyalty) with "is dealt excess damage" triggers; a delayed trigger on a
+  named object moved to the battlefield; a creature type noted once per source; the kinds of counters an event put; permanents phasing
+  in seeing their own phase-in event; the final chapter ability of a Saga resolving as an event; abilities gained except mana
+  abilities; and copies that lose their other card types.
 - Done, Final Fantasy (scenarios in `commonTest/…/sets/fin/`): every card plays (templates repeated elsewhere in the set played once in
   `FinTemplatesScenariosTest`). Ending the turn (CR 724.1: the Stack exiled, straight to cleanup); additional steps after the current one
   (CR 500.9); meld (the two exiled cards one permanent, back face up, both cards leaving together; its mana value the total of the

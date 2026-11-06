@@ -25,7 +25,7 @@ object OracleParser {
      * wording newly read, a definition shaped differently, a fix), so stored definitions made by an older parser are
      * parsed again.
      */
-    const val VERSION: Int = 37
+    const val VERSION: Int = 38
 
     /**
      * Every subtype the pinned Comprehensive Rules list (CR 205.3g–m, 205.3q), as the parser reads them: what a host
@@ -293,7 +293,8 @@ object OracleParser {
             }
             // chunk 21: a triggered ability with modes ("Whenever …, choose one that hasn't been chosen this turn —", CR 700.2)
             // tmt chunk 02: "…, choose one that hasn't been chosen this turn." with a period before the modes
-            if (!isSpell && (line.endsWith(" —") || line.endsWith(" hasn't been chosen this turn.") || line.endsWith(", choose both instead.") /* mh2 chunk 12 */) &&
+            if (!isSpell && (line.endsWith(" —") || line.endsWith(" hasn't been chosen this turn.") || line.endsWith(", choose both instead.") /* mh2 chunk 12 */ ||
+                    Ltr.CHOOSE_ONE_AND_GETS.matches(line) /* ltr chunk 09 */) &&
                 i < lines.size && lines[i].startsWith("• ")) {
                 val modeLines = mutableListOf<String>()
                 while (i < lines.size && lines[i].startsWith("• ")) modeLines += REMINDER.replace(lines[i++].removePrefix("• "), "").trim()
@@ -535,6 +536,9 @@ object OracleParser {
         }
         // mh2 chunk 12: "Echo—Discard a card." (CR 702.30a): a cost that isn't mana
         Mh2.ECHO_COST.matchEntire(part)?.let { m -> return Keyword.Echo(Sentences(setOf("this card")).cost(m.groupValues[1]) ?: return null) }
+        // ltr chunk 14: "nonbasic landwalk" (CR 702.14c)
+        if (Ltr.NONBASIC_LANDWALK.matches(part))
+            return Keyword.Landwalk(Filters.all(arcanum.api.ObjectFilter.Not(arcanum.api.ObjectFilter.Super(arcanum.api.Supertype.Basic)), arcanum.api.ObjectFilter.Type(arcanum.api.CardType.Land)), part)
         // mh2 chunk 13: "artifact landwalk" (CR 702.14c); "Artifact landcycling {2}" (CR 702.29e)
         if (Mh2.ARTIFACT_LANDWALK.matches(part))
             return Keyword.Landwalk(Filters.all(arcanum.api.ObjectFilter.Type(arcanum.api.CardType.Artifact), arcanum.api.ObjectFilter.Type(arcanum.api.CardType.Land)), part)

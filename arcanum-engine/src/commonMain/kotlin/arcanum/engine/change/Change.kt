@@ -409,11 +409,18 @@ data class DamageDealt(
     val combat: Boolean = false,
     /** The source as it was when it dealt the damage (CR 120.3, 608.2h). */
     val sourceSeen: ObjectSnapshot? = null,
+    // ltr chunk 07
+    /** The part of [amount] over lethal damage for a creature, or over a planeswalker's loyalty (CR 120.4a): "is dealt excess damage". */
+    val excess: Int = 0,
 )
 
 /** Events without state of their own ([Change.Happened]). */
 @Serializable
 sealed interface GameEvent {
+    // ltr chunk 13
+    /** The final chapter ability of the Saga [saga] resolved (CR 714.2c). */
+    @Serializable @SerialName("final-chapter-resolved")
+    data class FinalChapterResolved(val saga: ObjectId) : GameEvent
     /** [player] activated an ability of [source] (CR 602); mana abilities too (CR 605). */
     @Serializable @SerialName("activated")
     data class Activated(

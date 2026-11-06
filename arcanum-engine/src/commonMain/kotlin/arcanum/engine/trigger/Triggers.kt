@@ -83,9 +83,11 @@ internal object Triggers {
         }
         // Objects that didn't exist before the event (they entered with it) trigger as they are now, on the parts of a
         // look-back event that don't look back
-        sources(state, now).filter { "${it.id}/${it.origin.key}" !in seen && (before == null || before.obj(it.id) == null) }
+        sources(state, now).filter { "${it.id}/${it.origin.key}" !in seen && (before == null || before.obj(it.id) == null || before.obj(it.id)?.phasedOut == true) }
             .forEach { s ->
-                val part = if (before == null) change else seenByNewObject(change, s) ?: return@forEach
+                // ltr chunk 12: a permanent that phased in with the event ("whenever … phases in", CR 702.26c) sees the whole event
+                val phasedIn = before?.obj(s.id)?.phasedOut == true
+                val part = if (before == null || phasedIn) change else seenByNewObject(change, s) ?: return@forEach
                 found += check(state, ViewBoard(state, now), now, part, s, lookBack = false, whole = change)
             }
         found += discardedFromHand(state, now, change, seen)
@@ -352,7 +354,7 @@ internal object Triggers {
         val roles = instances.flatMap { it.objects }.groupBy { it.role }.map { (role, list) -> RoleObjects(role, list.flatMap { it.ids }.distinct()) }
         // fin: a batch of events without amounts counts its events ("whenever one or more Birds you control attack, look at that many cards")
         return TriggerEvent(roles, instances.flatMap { it.players }.distinct(), instances.mapNotNull { it.amount }.takeIf { it.isNotEmpty() }?.sum()
-            ?: instances.size)
+            ?: instances.size, counterKinds = instances.flatMap { it.counterKinds }.distinct())
     }
 
     /** fra: [change] without the parts [Mechanic.EventDoesntTrigger] mutes ("Artifacts and creatures entering the battlefield

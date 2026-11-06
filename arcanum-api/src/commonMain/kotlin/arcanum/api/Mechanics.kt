@@ -260,6 +260,11 @@ sealed interface Mechanic {
     /** The affected players may cast spells matching [spells] as though they had flash, from wherever they could cast
      * them (Aluren-style); a permission of players, not of objects. */
     @Serializable @SerialName("cast-as-though-flash") data class CastAsThoughFlash(val spells: ObjectFilter) : Mechanic
+    // ltr chunk 01
+    /** The affected players may activate their abilities matching [abilities] any time they could cast an instant ("you may
+     * activate equip abilities any time you could cast an instant", lifting "only as a sorcery", CR 602.5d); a permission of
+     * players, like [CastAsThoughFlash]. */
+    @Serializable @SerialName("activate-at-instant-speed") data class ActivateAtInstantSpeed(val abilities: ObjectFilter) : Mechanic
     /**
      * The permission to play or cast cards from [from] ("you may cast ~ from your graveyard", "until end of turn, you may
      * play those cards", "you may look at and play the top card of your library"). [how]: play (lands too, using a land
@@ -348,6 +353,9 @@ sealed interface Mechanic {
         val objects: Objects, val exceptLoyalty: Boolean = false,
         // tla
         val triggered: Boolean = false,
+        // ltr chunk 13
+        /** Not their mana abilities ("all activated abilities of lands your opponents control except mana abilities", CR 605.1a). */
+        val exceptMana: Boolean = false,
     ) : Mechanic {
         override val layer: Layer get() = Layer.Ability
         override val stacking: Stacking get() = Stacking.Independent
@@ -430,6 +438,11 @@ sealed interface Mechanic {
         override val stacking: Stacking get() = Stacking.Independent
     }
     @Serializable @SerialName("doesnt-untap") data object DoesntUntap : Mechanic
+    // ltr chunk 03
+    /** In its controller's untap step the affected permanent doesn't untap as usual: a counter of [kind] is removed from it instead, and
+     * if one was, it untaps ("If this creature would untap during your untap step, remove a +1/+1 counter from it instead. If you do,
+     * untap it.", CR 614.1a, 502.3). */
+    @Serializable @SerialName("untap-replaced-by-removing-counter") data class UntapReplacedByRemovingCounter(val kind: CounterKind) : Mechanic
     // fin
     /** "Damage isn't removed from this creature during cleanup steps" (CR 514.2): the affected permanents keep their marked damage. */
     @Serializable @SerialName("keeps-damage") data object DamageNotRemovedInCleanup : Mechanic
@@ -465,6 +478,9 @@ sealed interface Mechanic {
     // fra
     /** "A deck can have any number of cards named ~" (CR 100.2a): a deck-construction rule, nothing during a game. */
     @Serializable @SerialName("any-number-in-deck") data object AnyNumberInDeck : Mechanic
+    // ltr chunk 06
+    /** "A deck can have up to [count] cards named ~" (CR 100.2a): a deck-construction rule, nothing during a game. */
+    @Serializable @SerialName("up-to-in-deck") data class UpToInDeck(val count: Int) : Mechanic
     /** The affected planeswalkers aren't put into their owners' graveyards for having 0 loyalty (CR 704.5i doesn't apply to
      * them). */
     @Serializable @SerialName("no-graveyard-for-zero-loyalty") data object NoGraveyardForZeroLoyalty : Mechanic
@@ -546,6 +562,10 @@ sealed interface CopyException {
         val addSupertypes: List<Supertype> = emptyList(), val removeSupertypes: List<Supertype> = emptyList(),
         /** Replaces the creature types ("except it's a Bird"). */
         val replaceSubtypes: Boolean = false,
+        // ltr chunk 13
+        /** The copy has only the card types in [add] ("except it's a Food artifact … and it loses all other card types"), and only the
+         * subtypes that go with them (CR 205.1b). */
+        val replaceTypes: Boolean = false,
     ) : CopyException
     /** Its colours become [colors], or also [colors] when [add] ("in addition to its other colors"). */
     @Serializable @SerialName("colors") data class Colors(val colors: List<ColorRef>, val add: Boolean = false) : CopyException

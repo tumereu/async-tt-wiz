@@ -291,6 +291,12 @@ internal object Steps {
             if (!o.tapped || o.phasedOut) return@forEach
             if (after.board.controller(id) != active && after.view[id]?.has { it == Mechanic.UntapsDuringOtherUntapSteps } != true) return@forEach
             if (after.view[id]?.has { it == Mechanic.DoesntUntap || it == Mechanic.CantBecomeUntapped } == true) return@forEach
+            // ltr chunk 03: "remove a +1/+1 counter from it instead. If you do, untap it." (CR 614.1a; without one it stays tapped)
+            val instead = after.view[id]?.mechanics.orEmpty().firstNotNullOfOrNull { it.mechanic as? Mechanic.UntapReplacedByRemovingCounter }
+            if (instead != null) {
+                if (o.counters(instead.kind) == 0) return@forEach
+                recorder.record(Changes.counters(recorder.state, TargetRef.Object(id), instead.kind, -1))
+            }
             if (o.counters(CounterKind.Stun) > 0) {
                 recorder.record(Changes.counters(recorder.state, TargetRef.Object(id), CounterKind.Stun, -1))
             } else {

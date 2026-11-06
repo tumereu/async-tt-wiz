@@ -286,13 +286,39 @@ internal object Effects {
                         Actions.putCounters(act, cause, TargetRef.Object(to), c.kind, minOf(c.count, scope.value(effect.amount)))
                     }
                 }
+                // ltr chunk 03: "of each kind not on Goldberry"
+                val except = effect.exceptKindsOn?.let { onBattlefield(scope, it) }.orEmpty()
+                    .flatMap { id -> act.state.obj(id)?.counters.orEmpty().filter { it.count > 0 }.map { it.kind } }.toSet()
+                var moved = 0
                 onBattlefield(scope, effect.from).forEach { from ->
-                    val kinds = effect.kind?.let { listOf(it) } ?: act.state.objOrThrow(from).counters.map { it.kind }
-                    kinds.forEach { k ->
+                    val kinds = (effect.kind?.let { listOf(it) } ?: act.state.objOrThrow(from).counters.filter { it.count > 0 }.map { it.kind })
+                        .filter { it !in except }
+                    if (effect.chosen) {
+                        // ltr chunk 03: "Move one or more counters": how many of each kind, at least [amount] in all (CR 122.5)
+                        val atLeast = scope.value(effect.amount)
+                        kinds.forEachIndexed { i, k ->
+                            val have = act.state.objOrThrow(from).counters(k)
+                            val laterHave = kinds.drop(i + 1).sumOf { act.state.objOrThrow(from).counters(it) }
+                            val min = (atLeast - moved - laterHave).coerceIn(0, have)
+                            val n = if (have == min) have else act.chooseNumber(cause?.controller ?: act.state.turn.active, cause?.source, min, have)
+                            if (n > 0) {
+                                val removed = Actions.removeCounters(act, TargetRef.Object(from), k, n)
+                                Actions.putCounters(act, cause, TargetRef.Object(to), k, removed)
+                                moved += removed
+                            }
+                        }
+                    } else kinds.forEach { k ->
                         val n = Actions.removeCounters(act, TargetRef.Object(from), k, scope.value(effect.amount))
                         Actions.putCounters(act, cause, TargetRef.Object(to), k, n)
+                        moved += n
                     }
                 }
+                effect.bind?.let { scope.bind(it, arcanum.engine.state.NamedValue.Number(moved)) }
+            }
+            // ltr chunk 11: one counter of each kind the triggering event put
+            is Effect.PutEventCounterKinds -> {
+                val kinds = scope.event?.counterKinds.orEmpty()
+                onBattlefield(scope, effect.objects).forEach { id -> kinds.forEach { k -> Actions.putCounters(act, cause, TargetRef.Object(id), k, 1) } }
             }
             is Effect.ChangeTargets -> changeTargets(scope, effect)
             is Effect.SeparatePiles -> separatePiles(scope, effect)

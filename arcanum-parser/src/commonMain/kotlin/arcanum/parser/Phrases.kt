@@ -46,6 +46,7 @@ internal object Filters {
     fun noun(phrase: String): ObjectFilter? {
         // CR 701.54e: "your Ring-bearer"
         if (phrase == "your Ring-bearer" || phrase == "Your Ring-bearer") return MechanicWordings.yourRingBearer
+        LtrPhrases.noun(phrase)?.let { return it } // ltr
         Mh2Phrases.noun(phrase)?.let { return it } // mh2
         DftPhrases.noun(phrase)?.let { return it } // dft
         FinPhrases.noun(phrase)?.let { return it } // fin
@@ -928,6 +929,7 @@ internal object Events {
 internal object Conditions {
     fun condition(text: String, self: Set<String> = emptySet()): Condition? {
         MechanicWordings.condition(text, self)?.let { return it }
+        LtrPhrases.condition(text)?.let { return it } // ltr
         Mh2Phrases.condition(text, self)?.let { return it } // mh2
         DftPhrases.condition(text)?.let { return it } // dft
         TdmPhrases.condition(text)?.let { return it } // tdm

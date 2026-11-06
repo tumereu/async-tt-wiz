@@ -443,7 +443,25 @@ internal object Actions {
         }
         val view = act.view()
         val board = act.board()
-        val dealt = after.map { it.copy(sourceSeen = it.sourceSeen ?: act.snapshot(it.source)) }
+        // ltr chunk 07: the excess of each part (CR 120.4a), parts to the same permanent counted in order
+        val marked = mutableMapOf<ObjectId, Int>()
+        val dealt = after.map { d ->
+            val excess = (d.recipient as? TargetRef.Object)?.let { r ->
+                val c = view[r.id]?.characteristics ?: return@let 0
+                val deathtouch = board.characteristics(d.source)?.keywords.orEmpty().any { it.kind == Keyword.Deathtouch }
+                val already = marked[r.id] ?: (act.obj(r.id)?.damage ?: 0)
+                marked[r.id] = already + d.amount
+                when {
+                    c.isType(CardType.Creature) -> {
+                        val lethal = ((c.toughness ?: 0) - already).coerceAtLeast(0)
+                        (d.amount - (if (deathtouch) minOf(1, lethal) else lethal)).coerceAtLeast(0)
+                    }
+                    c.isType(CardType.Planeswalker) -> (d.amount - (act.obj(r.id)?.counters(CounterKind.Loyalty) ?: 0)).coerceAtLeast(0)
+                    else -> 0
+                }
+            } ?: 0
+            d.copy(sourceSeen = d.sourceSeen ?: act.snapshot(d.source), excess = excess)
+        }
         act.record(Change.Damage(dealt))
         // fra: what has dealt combat damage remembers it ("as long as they haven't dealt combat damage yet")
         // tdm: and what has dealt any damage ("as long as it hasn't dealt damage yet")

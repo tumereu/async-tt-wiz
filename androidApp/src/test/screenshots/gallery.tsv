@@ -1,0 +1,72 @@
+number	item	screenshot	catalog	decisions
+1	Cast panel with a mode to choose	choice-source/cast-panel.png	STK-023 STK-044	Modes
+2	Announced number (X) in the cast panel	cast-panel/x-cast.png	STK-023 STK-052	Announce
+3	Target bar of a spell	choice-source/target-bar.png	STK-044 STK-047	Targets
+4	Target bar of an activated ability	choice-source/target-bar-ability.png	STK-046 STK-047
+5	Target bar of a trigger	choice-source/trigger-target-bar.png	STK-030 STK-046
+6	Stack list as a target list	choice-source/stack-target-list.png	STK-018 STK-048 TBL-068
+7	Stack list	engine/stack-ability-list.png	STK-046
+8	Ability token on the Stack	engine/stack-ability.png	STK-046
+9	Ability token's Inspect	engine/stack-ability-inspect.png	STK-050 TBL-104
+10	Open choice panel (scry)	choice-source/open-choice.png	STK-030 STK-044	ChooseObjects
+11	Library search panel	choice-source/library-search.png	STK-044 STK-056	ChooseObjects
+12	Inspect with a card's changes	inspect/changes-portrait.png	TBL-104 TBL-111
+13	Pinned Inspect	inspect/changes-pinned.png	TBL-131
+14	Pinned Inspect of an unchanged card	inspect/no-changes-pinned.png	TBL-131
+15	Combat band target chips	combat-band/chips.png	CMB-001 CMB-013 CMB-028
+16	Held target chip	combat-band/chip-held.png	CMB-013
+17	Staged attacker in its lane	combat-band/staged.png	CMB-001 CMB-042
+18	Declared blocks	combat-band/blocks.png	CMB-031 CMB-034
+19	Assumed blockers	combat-band/assume.png	CMB-040 CMB-049 HIS-096
+20	Combat damage division	combat-division/trample.png	CMB-033 STK-033	Divide
+21	Damage preview badges	combat-band/damage-badges.png	CMB-029
+22	Main button names	main-button/names.png	TRN-063 TRN-070
+23	Main button working sign	engine/main-button-working.png	TRN-063
+24	Main button reading Resolve	engine/stack-resolve.png	STK-029 TRN-017 TRN-063
+25	Response mode quick action: Control	engine/mode-control.png	TRN-059
+26	Response mode quick action: Normal	engine/mode-normal.png	TRN-059
+27	Response mode quick action: Quick	engine/mode-quick.png	TRN-059
+28	Assume resolves quick action: Never	engine/assume-never.png	TRN-059 HIS-096
+29	Assume resolves quick action: No mana	engine/assume-no-mana.png	TRN-059 HIS-096
+30	Assume resolves quick action: Always	engine/assume-always.png	TRN-059 HIS-096
+31	Quick actions row and the unconfirmed mark	engine/assumed-main.png	TRN-016 TRN-059 TRN-068
+32	Opening: Mulligan and Keep	engine/opening.png	TRN-062
+33	Wait text over the battlefield	engine/waiting-bar.png	TRN-066 TRN-070
+34	Event text while the other player chooses	engine/event-text-choosing.png	HIS-075 STK-032 TRN-066
+35	Assume resolves on the main button	engine/stack-assume.png	STK-028 TRN-070 HIS-096
+36	Catch-up: has made moves	engine/catch-up.png	HIS-094
+37	Playback paused by a tap	engine/playback-paused.png	HIS-095
+38	Playback stop at an assumed pass	engine/decision-stop.png	HIS-091 HIS-095 HIS-105
+39	Playback of an attack	engine/playback-attack.png	CMB-007 HIS-021
+40	The other player's staging	engine/shared-staging.png	CMB-043
+41	Timeline mode	engine/timeline-mode.png	HIS-004 HIS-010
+42	Undo dialog	engine/rewind-dialog.png	HIS-083 HIS-084
+43	Undo request	engine/undo-request.png	SYS-025
+44	Hand card way chips	chips/hand-ability-chips.png	ZON-080
+45	Ability chips with cost symbols	chips/ability-chips-wrapped.png	TBL-124
+46	Tap and untap symbols	chips/tap-symbols.png	TBL-124
+47	Card menu rows with symbols	chips/menu-rows-symbols.png	TBL-123 TBL-126
+48	Battlefield groups and their glows	battlefield/both-sides.png	TBL-053 TBL-117 TBL-122
+49	Opened battlefield group	battlefield/group-opened.png	TBL-122 TBL-130
+50	Press feedback on a glowing card	combat-band/pressed.png	CMB-028 TBL-117
+51	Dungeon on the table	engine/dungeon-on-table.png	TRN-035 TRN-069
+52	Emblem chips	emblem-chips-portrait.png	TRN-053
+53	Question: you may pay a cost	questions/may-forage.png	STK-030 ZON-082	May
+54	Question: choose one way	questions/forage-way.png	STK-050 ZON-082	ChooseOption
+55	Question: choose cards	questions/forage-exile.png	STK-050	ChooseObjects
+56	Question: order triggers	questions/offspring-order-triggers.png	STK-030 STK-050	OrderTriggers
+57	A trigger waiting under an open question	questions/offspring-stack-inspect.png	STK-050
+58	Question: colour	questions/color.png	STK-030	ChooseColor
+59	Question: creature type	questions/creature-type.png	STK-030 STK-041	ChooseSubtype
+60	Question: basic land type	questions/land-type.png	STK-030	ChooseSubtype
+61	Question: card type	questions/card-type.png	STK-030	ChooseCardType
+62	Question: card name	questions/card-name.png	STK-030 STK-041	ChooseCardName
+63	Question: number	questions/number.png	STK-030	ChooseNumber
+64	Question: player	questions/player.png	STK-030	ChoosePlayer
+65	Question: divide a spell's damage	questions/divide.png	STK-030 STK-033	Divide
+66	Question: which replacement applies first	questions/replacement.png	STK-030	ChooseReplacement
+67	Question: legend rule	questions/legend-rule.png	STK-030	LegendRule
+68	Question: pay while resolving	questions/mana-payment.png	STK-030 STK-049	ManaPayment
+69	A step Automatum can't do yet	questions/skipped.png	STK-030 SYS-064	Manual
+70	A deck Automatum can't fully play	non-gameplay/choose-lobby-deck-automatum-portrait.png	LOB-115 LOB-118
+71	Automatum settings for new games	settings/settings-portrait-full-automatum-settings.png	LOB-113

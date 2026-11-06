@@ -40,17 +40,18 @@ class StackAbilityTest : E2e() {
         bob.status is GameDevice.Status.Stopped
     }
 
-    /** What the hold shows: Inspect with the ability's tile and the Herald's picture (one read of Bob's screen while the finger
-     * is down). */
+    /** What the hold shows: Inspect with the ability's tile only, the Herald's art crop in it, no picture of the Herald (one
+     * read of Bob's screen while the finger is down). */
     private fun inspectsTheHeraldsAbility(where: String) {
         val shown = bob.screen()
-        for (part in listOf("Card inspection content", "Triggered ability of Ember Herald", "Card image: Ember Herald"))
+        for (part in listOf("Card inspection content", "Triggered ability of Ember Herald", "Art of Ember Herald"))
             assertTrue(part in shown, "$where: $part: $shown")
+        assertTrue("Card image: Ember Herald" !in shown, "$where: no picture of the Herald: $shown")
     }
 
-    // TBL-104, STK-050, STK-046 (owner, 2026-11-05: not yet seen working on the phone): Bob's playback stops at Alice's
-    // Herald trigger; holding the ability token on the Stack inspects it (its tile, then the Herald's picture); lifting
-    // closes it; the Stack list names it as the Herald's ability
+    // TBL-104, STK-050, STK-046 (owner, 2026-11-05: not yet seen working on the phone; 2026-11-06: the tile alone): Bob's
+    // playback stops at Alice's Herald trigger; holding the ability token on the Stack inspects it (its tile only);
+    // lifting closes it; the Stack list names it as the Herald's ability
     @Test fun holdingAnAbilityOnTheStackInspectsIt() {
         aliceCastsAHeraldWhileBobIsAway()
         bob.back()
@@ -64,7 +65,7 @@ class StackAbilityTest : E2e() {
         val token = bob.node(hasContentDescription("Triggered ability, Ember Herald — $heraldText", substring = true))
         holding(token) { inspectsTheHeraldsAbility("the Stack") }
         assertTrue(!bob.shows(hasContentDescription("Card inspection content")), "closed on release")
-        // The Stack list's row is the same hold (EngineTableScreenshotTest.holdingAnAbilityOnTheStackShowsItsTileThenItsSourceCard);
+        // The Stack list's row is the same hold (EngineTableScreenshotTest.holdingAnAbilityOnTheStackShowsOnlyItsTile);
         // here only that the list names it so
         bob.node(hasContentDescription("Stack, 1 entries")).performClick()
         waitUntil("the Stack list") { bob.showsText("Top · Ember Herald's ability") }

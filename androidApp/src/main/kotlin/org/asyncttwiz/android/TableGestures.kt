@@ -16,6 +16,8 @@ class TableGestureCoordinator(
     private val slopDp: Float = 8f, private val doubleMillis: Long = 400, private val holdMillis: Long = CardPeekHoldMillis,
     private val density: Float = 1f, private val doubleTapEnabled: Boolean = true,
     private val onPeekScroll: (Float) -> Unit = {}, // Incremental content scroll in dp; positive reveals lower text.
+    // TBL-104: the held finger dx, dy dp from where the hold began; true when it is the pinned swipe's (no scroll then).
+    private val onPeekSwipe: (Float, Float) -> Boolean = { _, _ -> false },
     private val diagnostic: (String) -> Unit = {}
 ) {
     init { require(density.isFinite() && density > 0f) }
@@ -27,7 +29,9 @@ class TableGestureCoordinator(
         var destination: TableDestination? = null, var replacingLocal: Boolean = false,
         val suppressTapUi: Boolean = false, val camera: TableCamera = TableCamera(), val panRegion: String? = null,
         /** ZON-081: where a hand pan started (its scroll plus the pull past its end shown then). */
-        var handStart: Float = 0f)
+        var handStart: Float = 0f,
+        /** TBL-104: where the finger was when the hold began. */
+        var holdStart: TablePoint? = null)
     private data class Tap(val capture: Capture, val deadline: Long, val shown: Boolean)
     private var capture: Capture? = null
     private var transformRegion: String? = null
@@ -156,6 +160,7 @@ class TableGestureCoordinator(
         if (c.phase == Phase.PRESS && !(c.double && c.item == null) && time - c.time >= holdMillis) {
             if (c.double && c.item?.kind == TableItemKind.CARD) diagnostic("nearMiss:becameHold")
             c.phase = Phase.HOLD
+            c.holdStart = c.point
             // Covered pile controls never implicitly View a Library.
             peekId(c.item)?.let { emit(TableIntent.Peek(it)) }
             preview = TableGesturePreview()
@@ -167,7 +172,8 @@ class TableGestureCoordinator(
         val scrollDelta = c.point.y - point.y
         c.point = point
         if (c.phase == Phase.HOLD) {
-            if (peeking && scrollDelta != 0f) onPeekScroll(scrollDelta)
+            val from = c.holdStart ?: c.start
+            if (peeking && changed && !onPeekSwipe(point.x - from.x, point.y - from.y) && scrollDelta != 0f) onPeekScroll(scrollDelta)
             return
         }
         if (c.phase == Phase.TRANSFORM) return
@@ -281,7 +287,7 @@ class TableGestureCoordinator(
                 if (writable && c.scope != null && targetsExist(c.scope) && c.item?.let(scene::canDrag) == true)
                     c.destination?.let { d -> emit(TableIntent.Move(c.scope, d, c.sources, drag = true)) }
             }
-            Phase.HOLD -> if (peekId(c.item) != null) emit(TableIntent.Peek(null))
+            Phase.HOLD -> if (peekId(c.item) != null) emit(TableIntent.Peek(null, released = true))
             else -> Unit
         }
         settleCamera()

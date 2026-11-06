@@ -161,6 +161,35 @@ class ChoiceSourceTest {
         holdingTheSourceInspects(Choices.DIVINATION)
     }
 
+    // STK-044, TBL-038 (owner playtest 2026-11-06): panel cards have the hand's 28 × 40 dp base size; a tapped card slides
+    // from Top to Bottom at the card move speed instead of jumping there, and the card left behind slides into the gap
+    @Test fun aTappedPanelCardSlidesToItsNewPlace() {
+        val kit = kit(Choices.DIVINATION, "Mountain")
+        scry(kit)
+        render(kit)
+        fun inArea(area: String) = hasAnyAncestor(hasContentDescription("$area area"))
+        fun card(name: String) = compose.onNode(hasContentDescription(name) and (inArea("Top") or inArea("Bottom")), useUnmergedTree = true)
+        // The first card in Top moves; the second slides into its place
+        val (moved, stays) = listOf(Choices.DIVINATION, "Mountain").sortedBy { bounds(card(it)).left }
+        val before = bounds(card(moved))
+        val left = bounds(card(stays))
+        assertEquals(28f, before.width, .5f)
+        assertEquals(40f, before.height, .5f)
+        compose.mainClock.autoAdvance = false
+        card(moved).performClick()
+        // Frame by frame: where the card is drawn on the way
+        val path = List(30) { compose.mainClock.advanceTimeBy(16); bounds(card(moved)).top }
+        compose.mainClock.advanceTimeBy(600)
+        compose.mainClock.autoAdvance = true
+        compose.waitForIdle()
+        val after = bounds(card(moved))
+        compose.onNode(hasContentDescription(moved) and inArea("Bottom"), useUnmergedTree = true).assertExists()
+        assertTrue(after.top > before.top + 40f, "now in Bottom: $before → $after")
+        assertTrue(path.any { it > before.top + 1f && it < after.top - 1f }, "drawn between its places on the way: $before, $path, $after")
+        // The card left in Top ends where the moved one was, if it was after it, or stays
+        assertTrue(bounds(card(stays)).left <= left.left, "closed the gap")
+    }
+
     // STK-044: in landscape the panel is at most 420 dp wide from the left edge; the source is at its right all the same
     @Config(qualifiers = "w892dp-h412dp-land-mdpi")
     @Test fun anOpenChoiceShowsItsSpellAtTheRightInLandscape() {

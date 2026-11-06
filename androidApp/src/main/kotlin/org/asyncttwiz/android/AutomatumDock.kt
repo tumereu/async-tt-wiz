@@ -174,7 +174,7 @@ internal const val CHOICE_SOURCE_TAG = "choice-source"
 @Composable
 internal fun ChoiceSource(card: ChoiceCardData, inspector: ChoiceInspector, modifier: Modifier = Modifier) {
     ChoiceCardFace(card, modifier.testTag(CHOICE_SOURCE_TAG)
-        .choiceCardGestures(card.key, tap = {}, hold = { inspector.hold(card, it) }), small = true)
+        .choiceCardGestures(card.key, tap = {}, hold = { inspector.hold(card, it) }, moved = inspector::moved), small = true)
 }
 
 /**

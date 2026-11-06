@@ -242,7 +242,7 @@ private fun OtherCards(cards: List<ChoiceCardData>, inspector: ChoiceInspector) 
     FlowRow(Modifier.semantics { contentDescription = "Other cards, ${cards.size}" }, horizontalArrangement = Arrangement.spacedBy(6.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp)) {
         for (card in cards) ChoiceCardFace(card, Modifier.alpha(.55f).choiceCardGestures(card.key, tap = {},
-            hold = { inspector.hold(card, it) }))
+            hold = { inspector.hold(card, it) }, moved = inspector::moved))
     }
 }
 
@@ -270,7 +270,7 @@ internal fun LegendRuleSection(cast: FlowQuestions, flow: FlowQuestions, play: T
 internal fun CardPicks(cards: List<ChoiceCardData>, chosen: List<String>, inspector: ChoiceInspector, toggle: (String) -> Unit) {
     FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         for (card in cards) ChoiceCardFace(card, Modifier.choiceCardGestures(card.key, tap = { toggle(card.key) },
-            hold = { inspector.hold(card, it) }), selected = card.key in chosen,
+            hold = { inspector.hold(card, it) }, moved = inspector::moved), selected = card.key in chosen,
             badge = chosen.indexOf(card.key).takeIf { it >= 0 && chosen.size > 1 }?.let { "${it + 1}" })
     }
 }
@@ -280,7 +280,7 @@ internal fun CardPicks(cards: List<ChoiceCardData>, chosen: List<String>, inspec
 @Composable
 internal fun CardRow(card: ChoiceCardData?, inspector: ChoiceInspector, modifier: Modifier = Modifier, content: @Composable RowScope.() -> Unit) {
     Row(modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        if (card != null) ChoiceCardFace(card, Modifier.choiceCardGestures(card.key, tap = {}, hold = { inspector.hold(card, it) }), small = true)
+        if (card != null) ChoiceCardFace(card, Modifier.choiceCardGestures(card.key, tap = {}, hold = { inspector.hold(card, it) }, moved = inspector::moved), small = true)
         content()
     }
 }
@@ -293,7 +293,7 @@ internal fun LabelledChoiceCard(card: ChoiceCardData?, key: String, name: String
     val face = (card ?: ChoiceCardData(key, null, name, null, shown = true)).copy(key = key)
     val (width, _) = choiceCardSize()
     // The card and its line are one target
-    Column(Modifier.width(maxOf(width * 1.5f, 84.dp)).choiceCardGestures(key, tap = tap, hold = { inspector.hold(face, it) }),
+    Column(Modifier.width(maxOf(width * 1.5f, 84.dp)).choiceCardGestures(key, tap = tap, hold = { inspector.hold(face, it) }, moved = inspector::moved),
         horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(2.dp)) {
         ChoiceCardFace(face, selected = selected, badge = badge)
         CardText(line, color = Color(0xff4b5a5f), style = androidx.compose.ui.text.TextStyle(fontSize = 10.sp, lineHeight = 12.sp,

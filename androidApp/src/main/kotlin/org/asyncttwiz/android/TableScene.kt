@@ -38,6 +38,9 @@ internal fun TableSurface(game: GameSummary, play: TableBoard, accountId: String
     var layout by layoutState
     var gestureError by remember(play.playId, accountId) { mutableStateOf<String?>(null) }
     val peekScroll = rememberScrollState()
+    // TBL-104 (owner 2026-11-06): a drag to the left while inspecting pins the Inspect
+    val peekSwipe = remember { InspectSwipe() }
+    SideEffect { peekSwipe.onClose = { toolkit?.peek(null) } }
     val peekScreenHeight by rememberUpdatedState(holdPreviewScreenHeight())
     var screenOrigin by remember { mutableStateOf(Offset.Zero) }
     val currentPlay by rememberUpdatedState(play)
@@ -60,7 +63,9 @@ internal fun TableSurface(game: GameSummary, play: TableBoard, accountId: String
                     toolkit?.dismissTapUi()
                 }
                 is TableIntent.Peek -> {
-                    if (intent.cardId != null) peekScroll.dispatchRawDelta(-peekScroll.value.toFloat())
+                    if (intent.cardId != null) { peekScroll.dispatchRawDelta(-peekScroll.value.toFloat()); peekSwipe.begin() }
+                    // Lifting the finger after the pinned swipe keeps the Inspect open
+                    else if (intent.released && peekSwipe.released()) return@TableGestureCoordinator
                     // TBL-111: holding a collapsed group inspects all its members, its top card first
                     val group = presentation?.invoke()?.let { shown -> shown.groupOf(intent.cardId)
                         ?.takeIf { it.members.size > 1 && it.key != shown.expandedGroup } }
@@ -104,7 +109,8 @@ internal fun TableSurface(game: GameSummary, play: TableBoard, accountId: String
                     }
                 }
             }
-        }, density = density, onPeekScroll = { peekScroll.holdPreviewScroll(it * density, peekScreenHeight) }, diagnostic = { event ->
+        }, density = density, onPeekScroll = { peekScroll.holdPreviewScroll(it * density, peekScreenHeight) },
+            onPeekSwipe = peekSwipe::moved, diagnostic = { event ->
             if (event.startsWith("dropped:")) gestureError = "Rotation not queued (${event.substringAfter(':')}). Reconnect and try again."
             DebugLatency.tap(game.id, event, toolkit?.popupItem != null)
         })
@@ -342,7 +348,7 @@ internal fun TableSurface(game: GameSummary, play: TableBoard, accountId: String
         AnimatedCardRingAnchors(rendered, toolkit?.capture != null) {
          if (toolkit != null) CompositionLocalProvider(LocalPopupAvoid provides hands) {
              TableToolkitScreen(toolkit, play, game, landscape,
-              peekScroll = peekScroll, scene = scene, onTimeline = runtime.history,
+              peekScroll = peekScroll, scene = scene, peekSwipe = peekSwipe, onTimeline = runtime.history,
               reviewing = runtime.reviewing)
          }
         }

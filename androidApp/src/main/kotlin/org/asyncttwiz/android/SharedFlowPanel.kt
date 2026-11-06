@@ -152,7 +152,7 @@ private fun AboutRow(label: String, items: List<AboutItem>, inspector: ChoiceIns
         Text("$label:", Modifier.align(Alignment.CenterVertically), fontSize = 12.sp, color = Color(0xff4b5a5f))
         for (item in items) when (item) {
             is AboutItem.Card -> ChoiceCardFace(item.card, Modifier.choiceCardGestures(item.card.key, tap = {},
-                hold = { inspector.hold(item.card, it) }), small = true)
+                hold = { inspector.hold(item.card, it) }, moved = inspector::moved), small = true)
             is AboutItem.Player -> Row(Modifier.align(Alignment.CenterVertically), verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Outlined.Person, null, Modifier.size(18.dp), tint = MenuInk)
                 Text(item.name, fontSize = 12.sp)
@@ -168,7 +168,7 @@ private fun WaitingBar(play: TableBoard, text: String, card: ChoiceCardData?, ac
     val inspector = remember(card?.key) { ChoiceInspector() }
     AutomatumDockBar("Automatum waiting") {
         if (card != null) ChoiceCardFace(card, Modifier.padding(end = 8.dp, top = 2.dp, bottom = 2.dp)
-            .choiceCardGestures(card.key, tap = {}, hold = { inspector.hold(card, it) }), small = true)
+            .choiceCardGestures(card.key, tap = {}, hold = { inspector.hold(card, it) }, moved = inspector::moved), small = true)
         if (progress == null) Text(text, Modifier.weight(1f), fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
         else Column(Modifier.weight(1f).padding(vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(text, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -202,7 +202,7 @@ private fun decisionItem(flow: SharedFlow, decision: Decision): StackItem? =
 
 /**
  * Where an open choice comes from (STK-044), drawn at the right of its panel or target bar: an ability as its Stack token
- * (STK-046: its source's art, its marker; holding it inspects its tile when it is on the Stack, then the source card), a
+ * (STK-046: its source's art, its marker; holding it inspects its tile alone when it is on the Stack, STK-050), a
  * spell or permanent as its card (covered when the viewer may not see it), the one source all the triggers to order share
  * (UI review round 2 N10); null when it has none (a discard to hand size, the legend rule).
  */

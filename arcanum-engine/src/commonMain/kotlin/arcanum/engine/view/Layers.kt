@@ -74,13 +74,32 @@ internal object Layers {
     }
 
     /** [Explanation] of object [id] (spec §7.1): the layers worked out afresh, recording each effect that changed it. */
-    fun explain(state: GameState, id: ObjectId): Explanation? {
-        val run = LayerRun(state, traced = id)
+    fun explain(state: GameState, id: ObjectId): Explanation? = explain(state, listOf(id))[id]
+
+    /** [Explanation]s of the objects [ids] that have characteristics, from one run of the layers. */
+    fun explain(state: GameState, ids: Collection<ObjectId>): Map<ObjectId, Explanation> {
+        if (ids.isEmpty()) return emptyMap()
+        val run = LayerRun(state, traced = ids.toSet())
         val view = run.run()
-        val base = run.base ?: return null
-        val characteristics = view[id]?.characteristics ?: return null
-        return Explanation(id, base, run.trace.toList(), characteristics)
+        return ids.distinct().mapNotNull { id ->
+            val base = run.base[id] ?: return@mapNotNull null
+            val characteristics = view[id]?.characteristics ?: return@mapNotNull null
+            val steps = run.trace[id].orEmpty().toList()
+            id to Explanation(id, base, steps, characteristics, applied(state, steps))
+        }.toMap()
     }
+
+    /** [steps] by the effect that made them, in the order each was first applied, with what made it and how long it
+     * lasts. */
+    private fun applied(state: GameState, steps: List<ExplainedEffect>): List<AppliedEffect> =
+        steps.groupBy { it.source }.map { (source, own) ->
+            val (madeBy, duration) = when (source) {
+                is EffectSource.StaticAbility -> source.obj to null
+                is EffectSource.Counters -> source.obj to null
+                is EffectSource.EffectObject -> state.effects[source.effect].let { it?.source to it?.duration }
+            }
+            AppliedEffect(source, madeBy, duration, own.first().timestamp, own)
+        }
 
     /** The layer a mechanic applies in; a characteristic-defining P/T applies in 7a (CR 613.4a). */
     fun layerOf(mechanic: Mechanic, characteristicDefining: Boolean): Layer? = when {
@@ -231,13 +250,13 @@ private sealed interface Op {
 
 private class Started(val effect: ContinuousEffect, val affected: Set<ObjectId>)
 
-internal class LayerRun(private val state: GameState, private val traced: ObjectId? = null) {
+internal class LayerRun(private val state: GameState, private val traced: Set<ObjectId> = emptySet()) {
     /** What this run read beyond objects and characteristics (kept with the view, [ViewCache]). */
     val reads = ViewReads()
-    /** For [Layers.explain]: [traced]'s characteristics after layer 1, and each effect that changed them. */
-    var base: Characteristics? = null
+    /** For [Layers.explain]: each [traced] object's characteristics after layer 1, and each effect that changed them. */
+    var base: Map<ObjectId, Characteristics> = emptyMap()
         private set
-    val trace = mutableListOf<ExplainedEffect>()
+    val trace = HashMap<ObjectId, MutableList<ExplainedEffect>>()
     /** Every object's characteristics after layer 1 ([ObjectView.base]). */
     private var initial: Map<ObjectId, Characteristics> = emptyMap()
     private val copiable = Copiable(state, reads)
@@ -247,7 +266,7 @@ internal class LayerRun(private val state: GameState, private val traced: Object
         arcanum.engine.Engine.layersWorkedOut?.invoke()
         val board = WorkBoard(state, initialWork(), reads)
         initial = board.work.mapValues { it.value.chars }
-        if (traced != null) base = board.work[traced]?.chars
+        if (traced.isNotEmpty()) base = traced.mapNotNull { id -> board.work[id]?.chars?.let { id to it } }.toMap()
         Layers.ORDER.forEach { layer ->
             runLayer(board, layer)
             if (layer == Layer.Type) afterTypes(board)
@@ -292,9 +311,9 @@ internal class LayerRun(private val state: GameState, private val traced: Object
             val result = resolved[next]
             if (next.key !in started && result.exists) started[next.key] = Started(next, result.affected)
             val changed = changesBoard(board, result)
-            val before = traced?.let { board.work[it] }
+            val before = if (traced.isEmpty()) null else traced.mapNotNull { id -> board.work[id]?.let { id to it } }
             apply(board, result)
-            if (before != null) record(layer, next, before, board.work.getValue(traced!!))
+            before?.forEach { (id, partial) -> record(layer, next, id, partial, board.work.getValue(id)) }
             applied += next.key
             // What was worked out on the board before stays true unless it read what this effect changed
             if (changed) {
@@ -305,7 +324,7 @@ internal class LayerRun(private val state: GameState, private val traced: Object
         }
     }
 
-    private fun record(layer: Layer, e: ContinuousEffect, before: Partial, after: Partial) {
+    private fun record(layer: Layer, e: ContinuousEffect, id: ObjectId, before: Partial, after: Partial) {
         if (before == after) return
         val instance = e.instance
         val source = when {
@@ -317,7 +336,7 @@ internal class LayerRun(private val state: GameState, private val traced: Object
             e.holder != null && instance != null -> EffectSource.StaticAbility(e.holder, instance.origin, e.cda)
             else -> return
         }
-        trace += ExplainedEffect(layer, source, e.timestamp, before.chars, after.chars,
+        trace.getOrPut(id) { mutableListOf() } += ExplainedEffect(layer, source, e.timestamp, before.chars, after.chars,
             before.controller.takeIf { before.controller != after.controller },
             after.controller.takeIf { before.controller != after.controller })
     }

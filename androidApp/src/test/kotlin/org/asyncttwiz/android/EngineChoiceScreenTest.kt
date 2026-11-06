@@ -178,19 +178,22 @@ class EngineChoiceScreenTest {
         assertEquals(2, compose.onAllNodesWithContentDescription("Ember Cub: 1").fetchSemanticsNodes().size,
             "a row per blocker, lethal damage to each in turn")
         assertEquals(1, compose.onAllNodesWithContentDescription("Ember Cub: 0").fetchSemanticsNodes().size)
-        // STK-044: the title says only the choice; the attacking Cub is the small card at the panel's right
+        // CMB-033 (owner playtest 2026-11-06): the title says only the choice; the attacking Cub is the small card at the
+        // panel's top left; every row shows whole in the panel
         compose.onNode(hasText("Divide 2 damage") and isHeading()).assertExists()
         val panel = compose.onNodeWithContentDescription("Division of combat damage").fetchSemanticsNode().boundsInRoot
         val source = compose.onNodeWithTag(CHOICE_SOURCE_TAG, useUnmergedTree = true).assert(hasContentDescription("Ember Cub"))
             .fetchSemanticsNode().boundsInRoot
-        assertTrue(panel.right - source.right < 20f, "the attacker at the panel's right: $source in $panel")
+        assertTrue(source.left - panel.left < 20f && source.top - panel.top < 20f, "the attacker at the panel's top left: $source in $panel")
+        for (row in compose.onAllNodesWithContentDescription("Ember Cub: ", substring = true).fetchSemanticsNodes())
+            assertTrue(row.boundsInRoot.bottom <= panel.bottom + .5f, "the row shows: ${row.boundsInRoot} in $panel")
         // CMB-033 (owner, 2026-11-05): the panel opens attached to the combat band, not above the hand; its OK is the
         // main button
         assertNotNull(kit.scene().combatPanel, "the band is open")
         val hand = kit.scene().items.single { it.kind == TableItemKind.HAND && it.owner == f.a }.bounds
         assertTrue(panel.bottom <= hand.y + 1f, "not over the hand: $panel, $hand")
         compose.onRoot().captureShot("$SCREENSHOTS/choice-source/division.png",
-            "Alice's Ember Cub is blocked by three of Bob's Cubs: the division panel opens attached to the combat band, titled only \"Divide 2 damage\", her attacking Cub at its right as a small card, the rows giving lethal damage to two blockers in turn, and OK on the main button.")
+            "Alice's Ember Cub is blocked by three of Bob's Cubs: the division panel opens attached to the combat band, titled only \"Divide 2 damage\", her attacking Cub at its top left as a small card with its power, the rows giving lethal damage to two blockers in turn as red ☠ chips and 0 to the third as a grey chip, and OK on the main button.")
         compose.onNodeWithTag("main-button").assert(hasContentDescription("OK")).assertIsEnabled().performClick()
         compose.waitForIdle()
         kit.playOn("the combat damage") { kit.state().turn.step != TurnStep.CombatDamage || kit.state().pending == null }

@@ -11,7 +11,13 @@ import androidx.compose.material.icons.automirrored.outlined.Undo
 import androidx.compose.material.icons.outlined.CallSplit
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.ZoomIn
+import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.Remove
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -68,39 +74,52 @@ internal class DivisionDraft(val division: DamageDivision, start: Map<MtgRef, In
     fun set(target: MtgRef, amount: Int) { free = free + (target to amount.coerceIn(0, division.amount)) }
 }
 
-/** The rows of a division (CMB-033): the switch, one row per recipient and the hint line. */
+/**
+ * The rows of a division (CMB-033, owner playtest 2026-11-06): the In order / Free switch with the hint beside it, then a
+ * row per creature (its card and name, its damage as a chip: red with ☠ when it is lethal, grey when not), and with
+ * trample a last row for the attacked player, planeswalker or battle that never moves, with its own damage chip.
+ */
 @Composable
 internal fun DivisionRows(draft: DivisionDraft, play: TableBoard, names: Map<String, String>) {
     val division = draft.division
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Row(Modifier.background(Color(0xffeceff1), RoundedCornerShape(50)).padding(3.dp)) {
-            for ((name, mode) in listOf("In order" to true, "Free" to false)) {
-                val on = draft.inOrder == mode
-                Box(Modifier.background(if (on) AutomatumViolet else Color.Transparent, RoundedCornerShape(50))
-                    .semantics { contentDescription = "$name${if (on) ", chosen" else ""}" }
-                    .pointerInput(mode) { detectTapGestures { draft.mode(mode) } }
-                    .padding(horizontal = 18.dp, vertical = 6.dp)) {
-                    Text(name, color = if (on) Color.White else Color(0xff263238), fontSize = 14.sp, fontWeight = if (on) FontWeight.Bold else FontWeight.Normal)
+    Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(Modifier.background(Color(0xffeceff1), RoundedCornerShape(50)).padding(2.dp)) {
+                for ((name, mode) in listOf("In order" to true, "Free" to false)) {
+                    val on = draft.inOrder == mode
+                    Box(Modifier.background(if (on) AutomatumViolet else Color.Transparent, RoundedCornerShape(50))
+                        .semantics { contentDescription = "$name${if (on) ", chosen" else ""}" }
+                        .pointerInput(mode) { detectTapGestures { draft.mode(mode) } }
+                        .padding(horizontal = 12.dp, vertical = 5.dp)) {
+                        Text(name, color = if (on) Color.White else Color(0xff263238), fontSize = 13.sp,
+                            fontWeight = if (on) FontWeight.Bold else FontWeight.Normal)
+                    }
                 }
             }
+            Text(draft.refusal ?: if (draft.inOrder) "Drag to reorder: each gets lethal damage in turn, the rest goes on."
+                else "Any division of all ${division.amount} damage.", Modifier.weight(1f), fontSize = 11.sp, lineHeight = 13.sp,
+                maxLines = 2, color = if (draft.refusal != null) PreviewRed else Color(0xff4b5a5f))
         }
-        val step = with(LocalDensity.current) { 66.dp.toPx() }
+        val step = with(LocalDensity.current) { 46.dp.toPx() }
         val inspector = remember(division.source) { ChoiceInspector() }
-        ChoiceInspection(inspector, play, LocalChoiceFrame.current.viewer)
+        val viewer = LocalChoiceFrame.current.viewer
+        ChoiceInspection(inspector, play, viewer)
         val shares = draft.shares
         for ((index, ref) in draft.rows.withIndex()) {
             val creature = ref != division.trampleTo
             val amount = shares[ref] ?: 0
-            val lethal = division.lethal[ref]
-            val name = refName(play, names, ref) + if (!creature) " (trample)" else ""
+            val lethal = lethal(play, division, ref, amount)
+            val name = refName(play, names, ref)
             val actions = if (!draft.inOrder || !creature) emptyList() else listOfNotNull(
                 CustomAccessibilityAction("Move up") { draft.move(index, index - 1); true }.takeIf { index > 0 },
                 CustomAccessibilityAction("Move down") { draft.move(index, index + 1); true }.takeIf { index < draft.order.lastIndex })
-            Row(Modifier.fillMaxWidth().heightIn(min = 44.dp).border(1.dp, Color(0xffcfd8dc), RoundedCornerShape(8.dp))
-                .background(Color(0xfff7f9f9), RoundedCornerShape(8.dp)).padding(horizontal = 8.dp)
-                .semantics { contentDescription = "$name: $amount"; customActions = actions },
-                verticalAlignment = Alignment.CenterVertically) {
-                if (draft.inOrder && creature) Text("≡", Modifier.padding(end = 8.dp).pointerInput(ref) {
+            Row(Modifier.fillMaxWidth().heightIn(min = 44.dp)
+                .border(1.dp, if (creature) Color(0xffcfd8dc) else AutomatumViolet.copy(alpha = .35f), RoundedCornerShape(8.dp))
+                .background(if (creature) Color(0xfff7f9f9) else Color(0xfff6f3fb), RoundedCornerShape(8.dp)).padding(horizontal = 6.dp)
+                .semantics { contentDescription = "$name: $amount"; if (lethal) stateDescription = "lethal"; customActions = actions },
+                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                // In order, a creature's place in the order and the handle that moves it; the trample row never moves
+                if (draft.inOrder && creature) Text("≡", Modifier.pointerInput(ref) {
                     var moved = 0f
                     detectVerticalDragGestures(onDragStart = { moved = 0f }) { change, dy ->
                         change.consume()
@@ -110,24 +129,106 @@ internal fun DivisionRows(draft: DivisionDraft, play: TableBoard, names: Map<Str
                         else if (moved < -step / 2 && at > 0) { draft.move(at, at - 1); moved += step }
                     }
                 }.semantics { contentDescription = "Drag to reorder" }, color = Color(0xff78909c), fontSize = 20.sp)
-                // I-D48: a creature or planeswalker shows as its card (a face-down one covered); holding it inspects it
-                (ref as? MtgRef.Card)?.let { card ->
-                    val played = play.board.cards.singleOrNull { it.id == card.cardId }
-                    val face = choiceCard(play, LocalChoiceFrame.current.viewer, card.cardId, card.cardId, played?.isFaceDown == false, name)
-                    ChoiceCardFace(face, Modifier.padding(end = 8.dp, top = 2.dp, bottom = 2.dp)
-                        .choiceCardGestures(card.cardId, tap = {}, hold = { inspector.hold(face, it) }, moved = inspector::moved), small = true)
+                // I-D48: a creature or planeswalker shows as its card (a face-down one covered); holding it inspects it;
+                // a player as their round avatar
+                when (ref) {
+                    is MtgRef.Card -> {
+                        val played = play.board.cards.singleOrNull { it.id == ref.cardId }
+                        val face = choiceCard(play, viewer, ref.cardId, ref.cardId, played?.isFaceDown == false, name)
+                        ChoiceCardFace(face, Modifier.padding(vertical = 2.dp)
+                            .choiceCardGestures(ref.cardId, tap = {}, hold = { inspector.hold(face, it) }, moved = inspector::moved), small = true)
+                    }
+                    is MtgRef.Player -> Box(Modifier.size(28.dp).clip(CircleShape).background(avatarColor(ref.accountId)),
+                        contentAlignment = Alignment.Center) {
+                        Text(avatarInitial(name), color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    }
+                    else -> {}
                 }
-                Text(if (draft.inOrder && creature) "${index + 1}. $name" else name, Modifier.weight(1f), fontSize = 14.sp, maxLines = 2)
-                if (draft.inOrder) Text("$amount", fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                else Stepper(amount, 0, division.amount) { draft.set(ref, it) }
-                Box(Modifier.width(54.dp), contentAlignment = Alignment.CenterEnd) {
-                    if (lethal != null && lethal > 0 && amount >= lethal) Text("lethal ☠", color = PreviewRed, fontSize = 11.sp)
+                Column(Modifier.weight(1f)) {
+                    Text(if (draft.inOrder && creature) "${index + 1}. $name" else name, fontSize = 13.sp, lineHeight = 15.sp,
+                        maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, color = Color(0xff263238))
+                    if (!creature) Text("Trample: what is left after lethal damage", fontSize = 10.sp, lineHeight = 12.sp,
+                        color = AutomatumViolet, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                }
+                if (draft.inOrder) DamageChip(amount, lethal)
+                else Row(verticalAlignment = Alignment.CenterVertically) {
+                    TipIconButton(Icons.Outlined.Remove, "One less", Modifier.size(32.dp), enabled = amount > 0) { draft.set(ref, amount - 1) }
+                    DamageChip(amount, lethal)
+                    TipIconButton(Icons.Outlined.Add, "One more", Modifier.size(32.dp), enabled = amount < division.amount) {
+                        draft.set(ref, amount + 1) }
                 }
             }
         }
-        Text(draft.refusal ?: if (draft.inOrder) "Drag to change the order: each gets lethal damage in turn, the rest goes on."
-            else "Any division of all ${division.amount} damage.", fontSize = 11.sp, lineHeight = 14.sp,
-            color = if (draft.refusal != null) PreviewRed else Color(0xff4b5a5f))
+    }
+}
+
+
+/**
+ * Whether [amount] of [division]'s damage to [ref] is lethal (CMB-033): for a creature at least its lethal damage
+ * (deathtouch makes 1 lethal, CR 702.2c); for the player at least their life; for a planeswalker or battle at least its
+ * loyalty or defense.
+ */
+internal fun lethal(play: TableBoard, division: DamageDivision, ref: MtgRef, amount: Int): Boolean {
+    if (amount <= 0) return false
+    division.lethal[ref]?.let { return it in 1..amount }
+    return when (ref) {
+        is MtgRef.Player -> play.board.players.firstOrNull { it.accountId == ref.accountId }?.life?.toIntOrNull()?.let { amount >= it } == true
+        is MtgRef.Card -> play.board.cards.firstOrNull { it.id == ref.cardId }?.typedCounters
+            ?.firstOrNull { it.kind == "loyalty" || it.kind == "defense" }?.count?.let { amount >= it } == true
+        else -> false
+    }
+}
+
+/** A recipient's damage as a chip (CMB-033): red with ☠ when it is lethal, grey when not. */
+@Composable
+private fun DamageChip(amount: Int, lethal: Boolean) {
+    Row(Modifier.heightIn(min = 26.dp).widthIn(min = 42.dp)
+        .background(if (lethal) PreviewRed else Color(0xffe3e7e9), RoundedCornerShape(50)).padding(horizontal = 9.dp),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
+        if (lethal) Text("☠", color = Color.White, fontSize = 12.sp, lineHeight = 14.sp, modifier = Modifier.padding(end = 3.dp))
+        Text("$amount", color = if (lethal) Color.White else Color(0xff37474f), fontSize = 15.sp, lineHeight = 17.sp,
+            fontWeight = FontWeight.Bold)
+    }
+}
+
+/** The keyword abilities that change what combat damage does (CMB-033), in this order. */
+private val DAMAGE_KEYWORDS = listOf("First strike", "Double strike", "Trample", "Deathtouch", "Lifelink", "Infect", "Wither")
+
+/**
+ * The head of a division (CMB-033, owner playtest 2026-11-06): the creature dealing the damage at the top left as its
+ * card with its [power], the title "Divide N damage" (and "1 of 2" when the step has more), whose damage it is, and chips
+ * for its [keywords] that change what the damage does.
+ */
+@Composable
+internal fun DivisionHead(division: DamageDivision, play: TableBoard, names: Map<String, String>, count: Pair<Int, Int>?,
+    power: Int?, keywords: List<String>, inspector: ChoiceInspector) {
+    val viewer = LocalChoiceFrame.current.viewer
+    val source = choiceCard(play, viewer, "source/${division.source}", division.source, shown = true, fallback = "Attacker")
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Box {
+            ChoiceSource(source, inspector, Modifier.padding(end = 6.dp, bottom = 6.dp))
+            if (power != null) Box(Modifier.align(Alignment.BottomEnd).size(20.dp).background(Color(0xff37474f), CircleShape)
+                .border(1.5.dp, Color.White, CircleShape).semantics { contentDescription = "Power $power" },
+                contentAlignment = Alignment.Center) {
+                Text("$power", color = Color.White, fontSize = 11.sp, lineHeight = 12.sp, fontWeight = FontWeight.Bold)
+            }
+        }
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Divide ${division.amount} damage", Modifier.weight(1f).semantics { heading() }, fontWeight = FontWeight.Bold,
+                    fontSize = 15.sp)
+                if (count != null) Text("${count.first} of ${count.second}", color = Color(0xff78909c), fontSize = 13.sp)
+            }
+            Text("Among what it fights" + if (division.firstStrike) " · first-strike damage step" else "",
+                fontSize = 12.sp, lineHeight = 14.sp, color = Color(0xff4b5a5f),
+                maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+            val shown = DAMAGE_KEYWORDS.filter { k -> keywords.any { it.equals(k, ignoreCase = true) } }
+            if (shown.isNotEmpty()) Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                for (keyword in shown) Text(keyword.lowercase(), Modifier.border(1.2.dp, AutomatumViolet, RoundedCornerShape(50))
+                    .padding(horizontal = 7.dp, vertical = 1.dp), color = AutomatumViolet, fontSize = 11.sp, lineHeight = 14.sp,
+                    fontWeight = FontWeight.Bold)
+            }
+        }
     }
 }
 
@@ -152,26 +253,28 @@ internal fun CombatDivisionPanel(flows: SharedFlowController, play: TableBoard, 
         onDispose { if (flows.division?.second === draft) flows.division = null }
     }
     AutomatumDockPanel("Division of combat damage", flows.hidden, flows::toggleHidden, "division") {
-        // STK-044: the title says only the choice; the creature dealing the damage is the card at the right (its own: only
-        // the creature's controller divides, STK-033)
-        val viewer = LocalChoiceFrame.current.viewer
-        val inspector = remember(decision.id) { ChoiceInspector() }
-        val source = choiceCard(play, viewer, "source/${division.source}", division.source, shown = true, fallback = "Attacker")
-        ChoiceHead("Divide ${division.amount} damage", source, inspector, trailing = {
-            if (count != null) Text("${count.first} of ${count.second}", color = Color(0xff78909c), fontSize = 13.sp)
-        }) {
-            Text("${division.amount} damage to divide among what it fights" + if (division.trampleTo != null) " · trample" else "",
-                fontSize = 12.sp, color = Color(0xff4b5a5f))
-        }
-        DivisionRows(draft, play, names)
-        ChoiceInspection(inspector, play, viewer)
+        val computed = LocalComputedBoard.current.cards[division.source]
+        DivisionContent(draft, play, names, count, computed?.power, computed?.keywords.orEmpty())
     }
 }
 
+/** A division panel's content (CMB-033): its head (the dealing creature at the top left, STK-033: only its controller
+ * divides) and its rows. */
+@Composable
+internal fun DivisionContent(draft: DivisionDraft, play: TableBoard, names: Map<String, String>, count: Pair<Int, Int>?,
+    power: Int?, keywords: List<String>) {
+    val viewer = LocalChoiceFrame.current.viewer
+    val inspector = remember(draft) { ChoiceInspector() }
+    DivisionHead(draft.division, play, names, count, power, keywords, inspector)
+    DivisionRows(draft, play, names)
+    ChoiceInspection(inspector, play, viewer)
+}
+
 /**
- * CMB-033 (owner, 2026-11-05): [content] attached to the combat band of [scene], centred on its panel, at most
- * [BAND_PANEL_WIDTH] wide: under the band when there is room for it there (it scrolls inside when longer), else above it,
- * else over the lower part of the table. Never docked above the hand.
+ * CMB-033 (owner, 2026-11-05, 2026-11-06): [content] attached to the combat band of [scene], centred on its lanes, at most
+ * [BAND_PANEL_WIDTH] wide: under the band when it fits there whole, else above it when it fits there, else over the lower
+ * part of the table as tall as it needs (at most the table's height: then it scrolls inside), so its rows are seen. Never
+ * docked above the hand.
  */
 @Composable
 internal fun BandAttached(scene: TableScene?, content: @Composable () -> Unit) {
@@ -184,21 +287,15 @@ internal fun BandAttached(scene: TableScene?, content: @Composable () -> Unit) {
         val gap = 4.dp.roundToPx()
         val below = ((band?.bottom ?: 0f).dp.roundToPx() + gap).coerceIn(top, bottom)
         val above = ((band?.y ?: 0f).dp.roundToPx() - gap).coerceIn(top, bottom)
-        val least = BAND_PANEL_LEAST.roundToPx()
-        val (room, under) = when {
-            bottom - below >= least -> (bottom - below) to true
-            above - top >= least -> (above - top) to false
-            else -> ((bottom - top) * 3 / 5) to true
-        }
         val placeable = measurables.firstOrNull()?.measure(androidx.compose.ui.unit.Constraints(minWidth = width, maxWidth = width,
-            maxHeight = room.coerceAtLeast(1)))
+            maxHeight = (bottom - top).coerceAtLeast(1)))
         layout(constraints.maxWidth, constraints.maxHeight) {
             if (placeable == null) return@layout
             val centre = band?.center?.x?.dp?.roundToPx() ?: (constraints.maxWidth / 2)
             val x = (centre - placeable.width / 2).coerceIn(0, (constraints.maxWidth - placeable.width).coerceAtLeast(0))
             val y = when {
-                !under -> above - placeable.height
-                bottom - below >= least -> below
+                bottom - below >= placeable.height -> below
+                above - top >= placeable.height -> above - placeable.height
                 else -> bottom - placeable.height
             }
             placeable.place(x, y)
@@ -206,8 +303,6 @@ internal fun BandAttached(scene: TableScene?, content: @Composable () -> Unit) {
     }
 }
 
-/** The least room under or above the combat band a panel attached to it takes there ([BandAttached]). */
-internal val BAND_PANEL_LEAST = 160.dp
 
 /** The widest a panel attached to the combat band is ([BandAttached]). */
 internal val BAND_PANEL_WIDTH = 400.dp

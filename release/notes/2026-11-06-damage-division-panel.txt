@@ -1,0 +1,1 @@
+mod: The damage division panel is clearer: the creature dealing the damage shows at its top left with its power and keywords like trample or deathtouch, each creature's damage is a red skull chip when it is lethal and grey when not, and with trample the player you attack has their own last row.

@@ -89,7 +89,7 @@ class CombatBandTest : E2e() {
             bob.status == GameDevice.Status.YourMove && bob.stepArrow() == "No blocks"
         }
         // CMB-034: his Herald picked as the blocker, then Alice's first attacking Cub's copy in the band blocks it
-        bob.battlefieldCard("Ember Herald").performClick()
+        bob.pickBlocker("Ember Herald", this)
         run(skip = java.time.Duration.ofSeconds(1)) // past the double-tap window: the tap is a single tap
         bob.bandCard("Ember Cub", owner = alice).performClick()
         waitUntil("Bob's block staged") { bob.stepArrow() == "Block (1)" }

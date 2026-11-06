@@ -35,7 +35,8 @@ import kotlin.test.fail
  * [ServerSetup.fresh]), and each test's phones are new apps (Robolectric's fresh application and storage, new
  * controllers, nothing in memory).
  *
- * When a test fails, each phone's screen (picture, semantics tree, visible texts) and the app log are written to
+ * When a test fails, each phone's screen (picture, semantics tree, visible texts), its device's record of what it sent
+ * and received with the end of its line, every short-lived text it showed, and the app log are written to
  * `e2e/build/e2e/failures/<Test>.<method>/`.
  */
 @RunWith(RobolectricTestRunner::class)

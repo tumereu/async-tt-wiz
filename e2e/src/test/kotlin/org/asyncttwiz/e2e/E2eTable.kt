@@ -119,8 +119,21 @@ internal fun E2ePlayer.bandOpen(): Boolean = shows(hasContentDescription("Projec
  */
 internal fun E2ePlayer.stageAttacker(name: String, e2e: E2e, index: Int = 0) {
     e2e.waitUntil("${this.name}'s table working out the combat") {
-        org.asyncttwiz.android.AutomatumBoards.cachedCombat(shown.board) != null && stepArrow()?.startsWith("No attack") == true ||
-            stepArrow()?.startsWith("Attack (") == true
+        current() && (org.asyncttwiz.android.AutomatumBoards.cachedCombat(shown.board) != null && stepArrow()?.startsWith("No attack") == true ||
+            stepArrow()?.startsWith("Attack (") == true)
+    }
+    battlefieldCard(name, index = index).performClick()
+}
+
+/**
+ * Taps this player's [index]th [name] on their battlefield to pick it as a blocker (CMB-034), once their table has worked
+ * out what combat allows on the board it shows ([stageAttacker]'s wait: until then a tap only says Automatum is still
+ * working the combat out and picks nothing).
+ */
+internal fun E2ePlayer.pickBlocker(name: String, e2e: E2e, index: Int = 0) {
+    e2e.waitUntil("${this.name}'s table working out the blocks") {
+        current() && org.asyncttwiz.android.AutomatumBoards.cachedCombat(shown.board) != null &&
+            stepArrow()?.let { it == "No blocks" || it.startsWith("Block (") } == true
     }
     battlefieldCard(name, index = index).performClick()
 }
@@ -190,7 +203,7 @@ internal fun E2ePlayer.playAlong() {
     val shown = game?.shown ?: return
     // Played and shown, nothing more of theirs going out: their next action waits for the board after it
     if (engine { device.session.pending.isNotEmpty() }) return
-    if (!foreground || shown.version == alongAt) return
+    if (!foreground || shown.version == alongAt || !current()) return
     val acted = runCatching {
         when (val status = shown.status) {
             GameDevice.Status.CatchUp -> { tapToWatch(); true }

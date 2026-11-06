@@ -129,10 +129,28 @@ internal class E2ePlayer(val account: TestAccount, private val compose: ComposeT
 
     private var onceAt = -1L
 
-    /** Runs [action] once per board shown (a tap inside a wait's loop that mustn't repeat before the board changes). */
+    /** Runs [action] once per board shown (a tap inside a wait's loop that mustn't repeat before the board changes), once
+     * that board is [current]. */
     fun once(action: () -> Unit) {
         val version = game?.shown?.version ?: return
-        if (version != onceAt) { onceAt = version; action() }
+        if (version != onceAt && current()) { onceAt = version; action() }
+    }
+
+    /**
+     * Whether the board on the screen is the newest one of the game: the engine thread's queued work done (an own
+     * action's follow-up, the server's events the main thread handed it) and every board it published taken in by the
+     * main thread, none of them newer. A tap on a board the engine thread has already moved on from is not taken
+     * (SYS-011, SYS-012's "That wasn't taken: the game moved on first"), as a person's tap on a board just replaced: a
+     * helper that taps by itself waits for this rather than tapping a board on its way out.
+     */
+    fun current(): Boolean {
+        val before = game?.shown?.version ?: return false
+        // Twice: the main thread's handing on of a server event queues engine work that publishes in turn
+        repeat(2) {
+            engine { }
+            org.robolectric.Shadows.shadowOf(Looper.getMainLooper()).idle()
+        }
+        return game?.shown?.version == before
     }
 
     /** The board version [playAlong] last acted on. */
@@ -227,6 +245,15 @@ internal class E2ePlayer(val account: TestAccount, private val compose: ComposeT
         }
         runCatching { File(dir, "${account.name}-tree.txt").writeText(nodes(SemanticsMatcher("any") { true }).printToString()) }
         runCatching { File(dir, "${account.name}-screen.txt").writeText(screen()) }
+        // What the device did (its record, as a problem report's bundle holds it) and every short-lived text it showed
+        runCatching {
+            val open = game ?: last
+            val line = open?.let { g -> engineWorker.call { g.device.session.let { s -> s.events.takeLast(60) + s.pending } } }.orEmpty()
+                .joinToString("\n") { e -> "${e.id.take(8)} on ${e.parentId.take(8)} by ${e.author.take(8)}${if (e.assumed != null) " (assumed)" else ""}: " +
+                    e.engine?.steps?.mapNotNull { it.input }?.joinToString().orEmpty() + if (e.table.isNotEmpty()) " table ${e.table.map { it::class.simpleName }}" else "" }
+            File(dir, "${account.name}-device.txt").writeText(open?.repro()?.log.orEmpty().joinToString("\n") + "\n\n-- line (last 60, then pending)\n" + line)
+        }
+        runCatching { File(dir, "${account.name}-shown.txt").writeText(shownTexts.joinToString("\n")) }
     }
 
     override fun close() {

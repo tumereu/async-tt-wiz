@@ -115,6 +115,10 @@ class CombatCopyTapTest : E2e() {
             alice.showsControl("Assume no blockers") && bob.status == GameDevice.Status.YourMove && bob.stepArrow() == "No blocks"
         }
         // CMB-040: Alice places Bob's Cub as a blocker to assume, then removes it by its copy: selected first, then gone
+        // Once her table has worked out what combat allows on the board it shows (a tap before only says it is still working)
+        waitUntil("Alice's table working out the blocks to assume") {
+            alice.current() && org.asyncttwiz.android.AutomatumBoards.cachedCombat(alice.shown.board) != null
+        }
         singleTap(alice.battlefieldCard("Ember Cub", owner = bob))
         singleTap(copyOf(alice, "Ember Cub", alice))
         waitUntil("the block placed to assume") { alice.showsControl("Assume blockers") }
@@ -124,7 +128,9 @@ class CombatCopyTapTest : E2e() {
         waitUntil("the assumed block removed") { alice.showsControl("Assume no blockers") }
         assertFalse(alice.shows(hasContentDescription("Card action ring")), "no Combat menu")
         // CMB-034: Bob blocks with his Cub, then removes it by its copy the same way
-        singleTap(bob.battlefieldCard("Ember Cub"))
+        run(skip = Duration.ofSeconds(1))
+        bob.pickBlocker("Ember Cub", this)
+        run(skip = Duration.ofSeconds(1))
         singleTap(bob.bandCard("Ember Cub", owner = alice))
         waitUntil("Bob's block staged") { bob.stepArrow() == "Block (1)" }
         singleTap(copyOf(bob, "Ember Cub", bob))

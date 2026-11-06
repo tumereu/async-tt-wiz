@@ -1,0 +1,1 @@
+fix: When the other player's move reaches the game just before yours, your moves made one after another (going to combat, then attacking) are all kept, and a pass their phone had already made for you no longer says "That wasn't taken".

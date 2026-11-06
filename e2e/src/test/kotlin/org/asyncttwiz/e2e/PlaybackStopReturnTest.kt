@@ -78,6 +78,9 @@ class PlaybackStopReturnTest : E2e() {
         bob.activity.onBackPressedDispatcher.onBackPressed()
         bob.activity.onBackPressedDispatcher.onBackPressed()
         waitUntil("Bob back on the Games list") { bob.lobby.state.selected == null && bob.showsText(game.gameName) }
+        // The phone lets go of a game no longer open at its next connection tick (once a second, switch-review #11); opened
+        // again before it, the game still in memory would show on
+        run(skip = Duration.ofSeconds(1))
         bob.text(game.gameName).performScrollTo().performClick()
         waitUntil("Bob's table") { bob.game?.shown != null }
         assertTrue(bob.game !== open, "loaded anew")

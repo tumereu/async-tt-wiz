@@ -51,7 +51,7 @@ class DamageDivisionTest : E2e() {
         }
         // CMB-034: each Pup picked as the blocker, then the Brute's copy in the band
         for (n in 0..2) {
-            bob.battlefieldCard("Ash Pup", index = n).performClick()
+            bob.pickBlocker("Ash Pup", this, index = n)
             run(skip = java.time.Duration.ofSeconds(1))
             bob.bandCard("Cinder Brute", owner = alice).performClick()
             waitUntil("Pup ${n + 1} blocking") { bob.stepArrow() == "Block (${n + 1})" }

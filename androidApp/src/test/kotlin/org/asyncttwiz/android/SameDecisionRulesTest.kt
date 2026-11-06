@@ -133,7 +133,8 @@ class SameDecisionRulesTest {
             val inMain = s.turn.active == alice && s.turn.step == TurnStep.PrecombatMain && s.stack.isEmpty() && s.priority.holder == alice
             if (inMain && (s.turn.landsPlayed[alice] ?: 0) > 0 && there(s)) return game
             for (g in listOf(game, bob)) {
-                if (g.device.status != GameDevice.Status.YourMove) continue
+                // HIS-095, HIS-096: a stop at the other side's assumption about them (live too) is answered like their move
+                if (g.device.status != GameDevice.Status.YourMove && g.device.status !is GameDevice.Status.Stopped) continue
                 val m = g.device.model.engine
                 val me = g.device.me
                 val land = Engine.options(m, me).filterIsInstance<Input.PlayLand>().firstOrNull()

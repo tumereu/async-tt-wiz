@@ -109,8 +109,8 @@ internal fun E2ePlayer.bandCard(name: String, owner: E2ePlayer, index: Int = 0):
     return node(byId(cards[index]))
 }
 
-/** Whether the combat band is the thin strip that pulses while attackers are declared with none staged (CMB-001). */
-internal fun E2ePlayer.showsCombatStrip(): Boolean = shows(hasTestTag("combat-strip"))
+/** Whether the combat band is open (CMB-001): it holds lanes with combat copies, not only the collapsed row of chips. */
+internal fun E2ePlayer.bandOpen(): Boolean = shows(hasContentDescription("Projection, ", substring = true))
 
 /**
  * Taps this player's [index]th [name] on their battlefield to stage it as an attacker (CMB-028), once their table has

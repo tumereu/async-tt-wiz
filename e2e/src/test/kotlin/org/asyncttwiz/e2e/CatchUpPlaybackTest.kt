@@ -18,6 +18,7 @@ import org.asyncttwiz.protocol.game.ResponseMode
 import org.junit.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
@@ -102,12 +103,13 @@ class CatchUpPlaybackTest : E2e() {
     }
 
     // HIS-104 (§29.6): Alice's combat with no attackers changes nothing Bob can see: its events go by at once in his
-    // playback; with playback's Full control on they keep the playback delay
+    // playback; with playback's Full control on they keep the playback delay. CMB-001 (owner playtest 2026-11-06): the
+    // combat band never opens in it (nobody attacked)
     @Test fun anEmptyCombatIsSkipped() {
         aliceMulligansAndPlaysOn()
         alice.hold("To combat")
         waitUntil("Alice's turn over") { alice.state.turn.active == bob.me && alice.engine { device.session.pending.isEmpty() } }
-        bobComesBack()
+        val boards = bobComesBack()
         waitUntil("Bob's catch-up") { bob.status == GameDevice.Status.CatchUp }
         val from = bob.shown.localHead
         bob.tapToWatch()
@@ -130,11 +132,13 @@ class CatchUpPlaybackTest : E2e() {
             assertEquals(0L, playbackWait(event, playbackDelay(1f), ResponseMode.AutoSkip))
             assertEquals(playbackDelay(1f), playbackWait(event, playbackDelay(1f), ResponseMode.FullControl))
         }
+        for (board in boards) assertNull(TablePresentation.scene(game, board.board, bob.id, 412f, 892f, false, reviewing = true).combatPanel,
+            "the band stayed collapsed")
     }
 
-    // HIS-021, CMB-007 (§29.6): Alice attacks while Bob is away (her phone assuming his pause after it, "Always assume
-    // resolves"); his catch-up shows the attack in the combat area (the panel in the middle of the table, as in live
-    // combat) and keeps the playback delay after it
+    // HIS-021, CMB-001, CMB-007 (§29.6): Alice attacks while Bob is away (her phone assuming his pause after it); his
+    // catch-up shows the attack in the combat band, which opens for it as in live combat, and keeps the playback delay
+    // after it
     @Test fun anAttackPlaysBackInTheCombatArea() {
         startGame(TestDeck.thirds(TestCards.cub), deck, aliceSettings = org.asyncttwiz.protocol.game.PlaySettings(alwaysAssumeResolves = true),
             deal = { a, b -> "Mountain" in hand(a) && "Ember Cub" in hand(a) && "Mountain" in hand(b) })
@@ -174,6 +178,6 @@ class CatchUpPlaybackTest : E2e() {
         val scene = TablePresentation.scene(game, play, bob.id, 412f, 892f, false, reviewing = true)
         val copy = assertNotNull(scene.items.firstOrNull { it.viewport == "combat" && it.sourceId == id }, "the attacker in the combat area")
         assertTrue(copy.visible.isNotEmpty(), "the attacker's copy shows")
-        assertNotNull(scene.combatPanel, "the combat area's panel floats over the middle of the table")
+        assertNotNull(scene.combatPanel, "the combat band opened with the attack")
     }
 }

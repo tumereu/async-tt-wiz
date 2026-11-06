@@ -20,7 +20,6 @@ internal fun tableArtwork(scene: TableScene): Map<String, ImageBitmap> {
     for (item in scene.items) if (item.visible.isNotEmpty() && !item.covered) item.artwork?.let { reference ->
          extents[reference] = maxOf(extents[reference] ?: 0f, item.bounds.width, item.bounds.height)
      }
-    for (label in scene.combatLabels) label.artwork?.let { extents[it] = maxOf(extents[it] ?: 0f, label.bounds.height) }
     for ((reference, extent) in extents) key(reference) {
         val width = with(LocalDensity.current) { extent.dp.roundToPx() }.coerceIn(1, 4096)
         val height = width

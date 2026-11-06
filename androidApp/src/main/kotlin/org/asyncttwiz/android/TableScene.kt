@@ -317,6 +317,9 @@ internal fun TableSurface(game: GameSummary, play: TableBoard, accountId: String
             // TBL-117, TBL-122: what a tap on each collapsed group of several does, for its glow's colour (live table only)
             val groupTaps = if (toolkit == null || runtime.reviewing) emptyMap() else scene.battlefieldGroups
                 .filter { it.members.size > 1 && it.key != scene.expandedGroup }.associate { it.key to toolkit.groupTap(play, it) }
+            // TBL-117 (owner playtest 2026-11-06): the glow of the card a finger is down on grows a little and brightens
+            val pressedId by remember(coordinator) { derivedStateOf { preview.pressedId } }
+            val pressGlow = rememberPressGlow(pressedId)
             Box(Modifier.fillMaxWidth().height(48.dp).background(barColor))
             Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(tableBottomHeight(landscape).dp)
                 .background(barColor))
@@ -326,14 +329,14 @@ internal fun TableSurface(game: GameSummary, play: TableBoard, accountId: String
                 val glows = TableGlows.of(frame.scene.battlefieldGroups, groupTaps, glow.alphas(), castGlow, attackGlow)
                 drawTable(frame.scene, accountId, play.board.turn.accountId, preview, frame.alphas, artwork, drawCache,
                     presenceDot, glows.targets, glows.playable, shaking?.let { it.id to shakeOffset.value }?.takeIf { it.second != 0f }, raisedSources,
-                    attackable = glows.attack, expandGlow = glows.expand)
+                    attackable = glows.attack, expandGlow = glows.expand, pressed = pressGlow.value)
             }
             TableSemanticNodes(game, play, scene, semanticItems, rendered, runtime, { currentRuntime }, coordinator, writable, toolkit,
                 { preview }, layoutState)
             // Automatum (I3, I-D29): the damage preview and blockers blocking several attackers, for both players
             // I-D32: arrows of every block, and with Automatum the staging, selection, preview and badges
             CombatAreaOverlay(toolkit?.combat, play, scene, accountId, writable && !runtime.reviewing,
-                    openBand = { layout = layout.copy(combatOpened = combatBandKey(play.board)) }) { item ->
+                    pressed = { pressGlow.value }) { item ->
                     rendered.value.items[item.id]?.bounds ?: item.bounds }
         }
         TableBoardOverlays(game, play, accountId, runtime, scene, rendered)
@@ -363,6 +366,19 @@ internal class PlayableGlow {
     var shown: Set<String> = emptySet()
     var containers: Map<String, String> = emptyMap()
     fun alphas(): Map<String, Float> = levels.mapValues { it.value.value }.filterValues { it > 0f }
+}
+
+/**
+ * TBL-117 (owner playtest 2026-11-06): the item a finger is down on ([pressed]) and how far its glow has grown (0–1),
+ * growing in and shrinking back after the release; null when nothing is pressed.
+ */
+@Composable
+internal fun rememberPressGlow(pressed: String?): State<Pair<String, Float>?> {
+    var last by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(pressed) { if (pressed != null) last = pressed }
+    val current = rememberUpdatedState(pressed)
+    val level = animateFloatAsState(if (pressed != null) 1f else 0f, tween(PRESS_GLOW_MILLIS), label = "Press glow")
+    return remember { derivedStateOf { (current.value ?: last)?.let { id -> (id to level.value).takeIf { it.second > 0f } } } }
 }
 
 /** How long a card's playable glow takes to fade in or out (TBL-117). */

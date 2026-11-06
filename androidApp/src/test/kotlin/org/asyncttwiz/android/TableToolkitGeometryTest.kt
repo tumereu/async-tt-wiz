@@ -27,9 +27,9 @@ class TableToolkitGeometryTest {
             val real = scene.items.single { it.cardId == f.id(40) && !it.projection }
             val combat = scene.items.single { it.cardId == f.id(301) }
             assertEquals(40f, real.bounds.width); assertEquals(28f, real.bounds.height)
-            // The combat area's cards are never smaller than COMBAT_MIN_CARD (combat review #12)
-            assertEquals(TablePresentation.COMBAT_MIN_CARD, combat.bounds.width, .001f)
-            assertEquals(TablePresentation.COMBAT_MIN_CARD * 40f / 28f, combat.bounds.height, .001f)
+            // CMB-042 (owner playtest 2026-11-06): the combat area's cards are exactly the battlefield's (upright)
+            assertEquals(real.bounds.height, combat.bounds.width, .001f)
+            assertEquals(real.bounds.width, combat.bounds.height, .001f)
             assertFalse(combat.tapped)
             assertEquals(TablePresentation.GRID, scene.footprint)
             assertTrue(combat.projection); assertEquals(real.sourceId, combat.sourceId)

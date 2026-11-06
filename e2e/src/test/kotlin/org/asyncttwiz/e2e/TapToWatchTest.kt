@@ -1,6 +1,9 @@
 package org.asyncttwiz.e2e
 
+import androidx.compose.ui.test.click
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTouchInput
 import org.asyncttwiz.protocol.game.GameDevice
 import org.asyncttwiz.protocol.game.PlaySettings
 import org.junit.Test
@@ -44,6 +47,18 @@ class TapToWatchTest : E2e() {
         bob.tapTable()
         bobWatches()
         waitUntil("Alice's cast played back") { bob.shown.localHead != head }
+    }
+
+    // HIS-094 (owner playtest 2026-11-06): a tap on the combat band between the battlefields starts the playback
+    @Test fun aTapOnTheCombatBandStartsThePlayback() {
+        bobComesBackToTheCatchUp()
+        val fields = listOf(bob.battlefieldBounds(alice), bob.battlefieldBounds()).sortedBy { it.top }
+        val table = bob.node(hasContentDescription("Shared table"))
+        val origin = table.fetchSemanticsNode().boundsInRoot
+        val band = androidx.compose.ui.geometry.Offset(fields.first().left + fields.first().width / 4 - origin.left,
+            (fields.first().bottom + fields.last().top) / 2 - origin.top)
+        table.performTouchInput { click(band) }
+        bobWatches()
     }
 
     // HIS-094 (owner playtest 2026-11-06): a tap on a battlefield card (Alice's Mountain) starts the playback; a tap on a

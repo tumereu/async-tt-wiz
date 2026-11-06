@@ -112,12 +112,12 @@ class CombatDragGeometryTest {
             for (x in listOf(divider, divider - margin * .5f, divider + margin * .5f)) assertNull(at(x).pairId, "zoom $zoom, x $x")
             // Half a card or more: beside that card, on the side of the dragged card's centre, winning over the divider.
             assertEquals(CombatDestination(area, CombatRole.ATTACKER, pairs[1].id, insertion = CombatInsertion.GAP,
-                cardGap = IdentityGap(null, f.id("attacker2"))), at(divider + margin + .01f), "zoom $zoom")
-            assertEquals(IdentityGap(f.id("attacker1"), null), at(divider - margin - .01f).cardGap, "zoom $zoom")
-            assertEquals(pairs[0].id, at(divider - margin - .01f).pairId, "zoom $zoom")
+                cardGap = IdentityGap(null, f.id("attacker2"))), at(second.bounds.x + .01f), "zoom $zoom")
+            assertEquals(IdentityGap(f.id("attacker1"), null), at(first.bounds.right - .01f).cardGap, "zoom $zoom")
+            assertEquals(pairs[0].id, at(first.bounds.right - .01f).pairId, "zoom $zoom")
             assertEquals(IdentityGap(f.id("attacker2"), null), at(second.bounds.center.x + w * .45f).cardGap, "zoom $zoom")
             assertEquals(IdentityGap(null, f.id("attacker1")), at(first.bounds.center.x - w * .45f).cardGap, "zoom $zoom")
-            val joined = predict(play, scope.cardIds, at(divider + margin + .01f)).board.combat!!.pairs.single { it.id == pairs[1].id }
+            val joined = predict(play, scope.cardIds, at(second.bounds.x + .01f)).board.combat!!.pairs.single { it.id == pairs[1].id }
             assertEquals(listOf(lantern, second.sourceId), joined.attackers.map { it.sourceId }, "zoom $zoom")
             // The blocker row works the same way.
             val blocker = scene.items.single { it.cardId == f.id("blocker") }

@@ -135,9 +135,9 @@ class CombatStackPresentationTest {
         val area = initial.board.combat!!
         for (landscape in listOf(false, true)) for (pairs in listOf(area.pairs, area.pairs.take(1), emptyList())) {
             val state = initial.copy(board = initial.board.copy(combat = area.copy(pairs = pairs)))
-            // Lanes fit their full target name, so the geometry uses the scene's player names.
-            // The area's cards are never smaller than COMBAT_MIN_CARD (combat review #12)
-            val card = TablePresentation.COMBAT_MIN_CARD
+            // Lanes fit their target's chip, so the geometry uses the scene's player names.
+            // CMB-042: the area's cards are the battlefield's (28 dp at the default card size)
+            val card = 28f
             val geometry = CombatStackPresentation.combat(state.board, card, card * 40f / 28f, state.definitions,
                 listOf(f.game.inviter, f.game.recipient).associate { it.accountId to it.username }, f.a)
             val home = TablePresentation.scene(f.game, tableBoard(state), f.a, if (landscape) 892f else 412f,

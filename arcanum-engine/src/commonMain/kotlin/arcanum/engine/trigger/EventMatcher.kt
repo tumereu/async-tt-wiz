@@ -57,7 +57,9 @@ internal object EventMatcher {
                 (pattern.from == null || m.from == pattern.from) && (pattern.to == null || m.to == pattern.to) &&
                     (pattern.notTo == null || m.to != pattern.notTo) &&
                     (!pattern.resolving || Meaning.Resolved in m.meanings) &&
-                    back.matches(pattern.objects, tested(m, pattern.from, proposed))
+                    (back.matches(pattern.objects, tested(m, pattern.from, proposed)) ||
+                    // ltr chunk 08: a named object ("When you play a card this way") is the object that moved, before it moved (CR 400.7)
+                    (pattern.objects is ObjectFilter.Is && !proposed && back.matches(pattern.objects, m.before.id)))
             }.map { moveEvent(e, it, proposed, pattern.from) }
         }
         is EventPattern.Cast -> if (isCast(change)) {
@@ -86,14 +88,15 @@ internal object EventMatcher {
                     listOf(a.player))) else null
         }.orEmpty()
         is EventPattern.Damage -> (change as? Change.Damage)?.dealt.orEmpty().filter { d ->
-            !pattern.excess && (pattern.combat == null || pattern.combat == d.combat) &&
+            // ltr chunk 07: "is dealt excess damage" (CR 120.4a): only the part over lethal, its amount the excess
+            (!pattern.excess || d.excess > 0) && (pattern.combat == null || pattern.combat == d.combat) &&
                 e.matches(pattern.source, d.source) && recipient(e, pattern.to, d.recipient)
         }.map { d ->
             TriggerEvent(
                 objects = listOf(RoleObjects(EventRole.Source, listOf(d.source))) +
                     listOfNotNull((d.recipient as? TargetRef.Object)?.let { RoleObjects(EventRole.Object, listOf(it.id)) }),
                 players = listOfNotNull((d.recipient as? TargetRef.Player)?.id),
-                amount = d.amount,
+                amount = if (pattern.excess) d.excess else d.amount,
             )
         }
         is EventPattern.GainLife -> life(e, change, pattern.players, Meaning.LifeGained)

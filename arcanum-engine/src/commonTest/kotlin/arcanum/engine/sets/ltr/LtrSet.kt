@@ -253,4 +253,128 @@ internal object LtrSet {
     val witchLordBringerOfRuin = Cards.invent("Witch-lord, Bringer of Ruin", "{4}{B}{B}", "Legendary Creature — Wraith Noble", "Flying\nWhenever Witch-lord attacks, defending player sacrifices a creature with the least power among creatures they control.", "5/3")
     // chunk 06
     val wolfRider = Cards.invent("Wolf Rider", "{4}{B}", "Creature — Orc Warrior", "Menace\nOther Orcs and Goblins you control have menace.\nAt the beginning of combat on your turn, amass Orcs 2. (Put two +1/+1 counters on an Army you control. It's also an Orc. If you don't control an Army, create a 0/0 black Orc Army creature token first.)", "4/3")
+    // chunk 07
+    val battleWornGoblin = Cards.invent("Battle-Worn Goblin", "{1}{R}", "Creature — Goblin Warrior", "Whenever this creature becomes blocked, it deals 1 damage to each creature blocking it.", "2/2")
+    // chunk 07
+    val bookOfTheDeepRecords = Cards.invent("Book of the Deep Records", "{2}{R}", "Enchantment — Saga", "(As this Saga enters and after your draw step, add a lore counter. Sacrifice after III.)\nI — Amass Orcs 1. (Put a +1/+1 counter on an Army you control. It's also an Orc. If you don't control an Army, create a 0/0 black Orc Army creature token first.)\nII — Amass Orcs 2.\nIII — Creatures you control get +1/+0 and gain menace until end of turn.")
+    // chunk 07
+    val sunderingOfTheCompany = Cards.invent("Sundering of the Company", "{1}{R}", "Sorcery", "Target creature an opponent controls deals damage equal to its power to another target creature that player controls. The Ring tempts you.")
+    // chunk 07
+    val thrownIntoTheFlame = Cards.invent("Thrown into the Flame", "{1}{R}", "Instant", "Choose one —\n• Thrown into the Flame deals 1 damage to each of up to two target creatures.\n• Exile target artifact.")
+    // chunk 07
+    val showOfPower = Cards.invent("Show of Power", "{1}{R}{R}", "Instant", "This spell can't be copied.\nCopy any number of target instant and/or sorcery spells. You may choose new targets for the copies.")
+    // chunk 07
+    val eothainMarshalOfThePlains = Cards.invent("Eothain, Marshal of the Plains", "{2}{R}{R}", "Legendary Creature — Human Knight", "Haste\nWhenever one or more other attacking legendary creatures you control die, untap all creatures you control. After this phase, there is an additional combat phase. This ability triggers only once each turn.", "4/4")
+    // chunk 07
+    val elfhelmOfTheRiddermark = Cards.invent("Elfhelm of the Riddermark", "{4}{R}", "Legendary Creature — Human Knight", "Haste\nWhenever Elfhelm attacks, if you control a creature with the greatest power among creatures on the battlefield, create a 1/1 white Human Soldier creature token.", "5/4")
+    // chunk 07
+    val ironHillsFlamesmith = Cards.invent("Iron Hills Flamesmith", "{1}{R}", "Creature — Dwarf Artificer", "Whenever you cast an instant or sorcery spell, this creature deals 1 damage to each opponent.", "2/1")
+    // chunk 07
+    val grimboldLordOfWestfold = Cards.invent("Grimbold, Lord of Westfold", "{3}{R}", "Legendary Creature — Human Soldier", "Whenever Grimbold or another Human you control enters, creatures you control get +1/+0 until end of turn.", "3/3")
+    // chunk 07
+    val fallOfTheRiverIsle = Cards.invent("Fall of the River Isle", "{2}{R}", "Enchantment", "Whenever a creature an opponent controls is dealt excess noncombat damage, amass Orcs X, where X is that excess damage. (Put X +1/+1 counters on an Army you control. It's also an Orc. If you don't control an Army, create a 0/0 black Orc Army creature token first.)\n{7}{R}: This enchantment deals 7 damage to target creature.")
+    // chunk 07
+    val flameFuryFoes = Cards.invent("Flame, Fury, Foes!", "{X}{R}", "Sorcery", "Damage can't be prevented this turn. Flame, Fury, Foes! deals X damage to target creature and 1 damage to each other creature with the same controller.")
+    // chunk 07
+    val burningInscription = Cards.invent("Burning Inscription", "{2}{R}", "Enchantment", "When this enchantment enters, the Ring tempts you.\nWhenever you cast an instant or sorcery spell, this enchantment deals 2 damage to each opponent.")
+    // chunk 07
+    val fireOfTheWhiteTower = Cards.invent("Fire of the White Tower", "{3}{R}", "Sorcery", "Destroy target artifact or land. Creatures without flying can't block this turn.")
+    // chunk 07
+    val raidOfOrcs = Cards.invent("Raid of Orcs", "{3}{R}", "Sorcery", "Amass Orcs 2. When you do, Raid of Orcs deals X damage to target creature an opponent controls, where X is the amassed Army's power. (To amass Orcs 2, put two +1/+1 counters on an Army you control. It's also an Orc. If you don't control an Army, create a 0/0 black Orc Army creature token first.)")
+    // chunk 07
+    val doriCounterOfKills = Cards.invent("Dori, Counter of Kills", "{3}{R}", "Legendary Creature — Dwarf Warrior", "Trample\nWhenever a creature an opponent controls dies, Dori deals 1 damage to that creature's controller.", "4/3")
+    // chunk 07
+    val dorisAxe = Cards.invent("Dori's Axe", "{2}{R}", "Artifact — Equipment", "Equipped creature gets +3/+0.\nAs long as equipped creature is legendary, it has menace. (It can't be blocked except by two or more creatures.)\nEquip {2} ({2}: Attach to target creature you control. Equip only as a sorcery.)")
+    // chunk 07
+    val dorisFury = Cards.invent("Dori's Fury", "{1}{R}", "Instant", "Target creature gets +3/+2 until end of turn. If it's legendary, it also gains trample until end of turn.")
+    // chunk 07
+    val noriDwarfEmissary = Cards.invent("Nori, Dwarf Emissary", "{2}{R}", "Legendary Creature — Dwarf Advisor", "Whenever you cast a historic spell, create a Treasure token. This ability triggers only once each turn. (Artifacts, legendaries, and Sagas are historic.)\n{T}, Sacrifice a Treasure: Goad target creature. (Until your next turn, that creature attacks each combat if able and attacks a player other than you if able.)", "3/3")
+    // chunk 07
+    val goblinFlameleaper = Cards.invent("Goblin Flameleaper", "{1}{R}", "Creature — Goblin Warrior", "{1}{R}: This creature gets +1/+0 until end of turn.\nWhen this creature dies, it deals damage equal to its power to target creature an opponent controls.", "1/1")
+    // chunk 07
+    val ugrakBrashInstigator = Cards.invent("Ugrak, Brash Instigator", "{2}{R}", "Legendary Creature — Goblin Soldier", "When Ugrak enters, amass Orcs 2. When you do, until end of turn, gain control of target nonlegendary creature an opponent controls with power less than or equal to the amassed Army's power. Untap that creature. It gains haste until end of turn.", "1/1")
+    // chunk 07
+    val southronSpearmaster = Cards.invent("Southron Spearmaster", "{2}{R}", "Creature — Human Warrior", "Reach\nAt the beginning of combat on your turn, another target creature you control gets +1/+0 until end of turn.", "2/3")
+    // chunk 08
+    val fellTheOldForest = Cards.invent("Fell the Old Forest", "{3}{R}{R}", "Sorcery", "Sacrifice any number of lands. Reveal the top X cards of your library, where X is the number of lands sacrificed this way. Choose any number of artifact and/or land cards revealed this way. Put all nonland cards chosen this way onto the battlefield, then put all land cards chosen this way onto the battlefield tapped, then put the rest on the bottom of your library in a random order.")
+    // chunk 08
+    val makeshiftClub = Cards.invent("Makeshift Club", "{1}{R}", "Instant", "As an additional cost to cast this spell, sacrifice an artifact or creature.\nMakeshift Club deals 4 damage to any target.")
+    // chunk 08
+    val deepMineMarauder = Cards.invent("Deep Mine Marauder", "{R}{R}", "Creature — Goblin Warrior", "Double strike\nWhenever a Goblin or Orc you control deals combat damage to a player, exile the top card of your library. You may play that card this turn.", "1/1")
+    // chunk 08
+    val southernMumak = Cards.invent("Southern Mumak", "{5}{R}", "Creature — Elephant", "Trample\nWhenever this creature attacks, another target creature you control gets +2/+0 and gains trample until end of turn.\nMountaincycling {1} ({1}, Discard this card: Search your library for a Mountain card, reveal it, put it into your hand, then shuffle.)", "6/4")
+    // chunk 08
+    val hillTrollCrusher = Cards.invent("Hill-troll Crusher", "{3}{R}", "Creature — Troll Soldier", "Trample\nThis creature can't block unless you control a Goblin or Orc.", "4/4")
+    // chunk 08
+    val feudsEnd = Cards.invent("Feud's End", "{2}{R}", "Sorcery", "As an additional cost to cast this spell, discard a card.\nDraw two cards and create a 1/1 white Human Soldier creature token.")
+    // chunk 08
+    val rallyAtTheDeepKeep = Cards.invent("Rally at the Deep Keep", "{1}{R}", "Sorcery", "Create two 1/1 white Human Soldier creature tokens. Humans you control gain haste until end of turn.")
+    // chunk 08
+    val wanderersFirebrand = Cards.invent("Wanderer's Firebrand", "{R}", "Sorcery", "Wanderer's Firebrand deals 2 damage to any target. The Ring tempts you.")
+    // chunk 08
+    val relentlessHorselords = Cards.invent("Relentless Horselords", "{3}{R}", "Creature — Human Knight", "When this creature enters, the Ring tempts you.", "4/3")
+    // chunk 08
+    val risingOfTheDawn = Cards.invent("Rising of the Dawn", "{2}{R}", "Enchantment", "Creatures you control have haste.\nLegendary creatures you control get +1/+0.")
+    // chunk 08
+    val horselordLancer = Cards.invent("Horselord Lancer", "{R}", "Creature — Human Knight", "Menace (This creature can't be blocked except by two or more creatures.)\nWhen this creature dies, the Ring tempts you.", "1/1")
+    // chunk 08
+    val stormTheHall = Cards.invent("Storm the Hall", "{R}", "Instant", "Target creature gets +1/+0 and gains first strike until end of turn. If it's a Goblin or Orc, it also gains haste until end of turn.")
+    // chunk 08
+    val smiteTheUndying = Cards.invent("Smite the Undying", "{1}{R}", "Instant", "Smite the Undying deals 3 damage to target creature. That creature loses indestructible until end of turn. If that creature would die this turn, exile it instead.")
+    // chunk 08
+    val spitefulThievery = Cards.invent("Spiteful Thievery", "{X}{R}{R}", "Enchantment", "When this enchantment enters, it deals X damage to each creature.\nWhenever one or more creatures your opponents control die, you create a Treasure token. This ability triggers only once each turn.")
+    // chunk 08
+    val swarmingOfTheDeepMines = Cards.invent("Swarming of the Deep Mines", "{2}{R}", "Sorcery", "Create a Treasure token. (It's an artifact with \"{T}, Sacrifice this token: Add one mana of any color.\")\nAmass Orcs 2. (Put two +1/+1 counters on an Army you control. It's also an Orc. If you don't control an Army, create a 0/0 black Orc Army creature token first.)")
+    // chunk 08
+    val outAndHomeAgain = Cards.invent("Out and Home Again", "{3}{R}{R}", "Enchantment — Saga", "(As this Saga enters and after your draw step, add a lore counter. Sacrifice after III.)\nI — Up to one target creature can't block for as long as you control this Saga. The Ring tempts you.\nII — Search your library for a Mountain card, put it onto the battlefield, then shuffle.\nIII — Create Smaug, a legendary 6/6 red Dragon creature token with flying, haste, and \"When Smaug dies, create fourteen Treasure tokens.\"")
+    // chunk 08
+    val warbeastOfTheAshPlain = Cards.invent("Warbeast of the Ash Plain", "{4}{R}", "Creature — Beast", "Whenever this creature or another creature you control with power 4 or greater dies, amass Orcs 2. (Put two +1/+1 counters on an Army you control. It's also an Orc. If you don't control an Army, create a 0/0 black Orc Army creature token first.)", "5/4")
+    // chunk 08
+    val assaultOnTheRiverCity = Cards.invent("Assault on the River City", "{X}{R}{R}{R}", "Sorcery", "Amass Orcs X, then Goblins and Orcs you control gain double strike and haste until end of turn. (To amass Orcs X, put X +1/+1 counters on an Army you control. It's also an Orc. If you don't control an Army, create a 0/0 black Orc Army creature token first.)")
+    // chunk 08
+    val firesOfTheBurningPeak = Cards.invent("Fires of the Burning Peak", "{2}{R}", "Legendary Enchantment", "When Fires of the Burning Peak enters, it deals 2 damage to target creature an opponent controls. Destroy all Equipment attached to that creature.\n{2}{R}: Exile the top card of your library. You may play that card this turn. When you play a card this way, Fires of the Burning Peak deals 2 damage to each player.")
+    // chunk 08
+    val ridersOfThePlains = Cards.invent("Riders of the Plains", "{6}{R}", "Creature — Human Knight", "Affinity for Humans (This spell costs {1} less to cast for each Human you control.)\nTrample, haste\nAt the beginning of your end step, if this creature attacked this turn, return it to its owner's hand. If you do, create a number of 1/1 white Human Soldier creature tokens equal to its toughness.", "7/4")
+    // chunk 09
+    val hillHolePorter = Cards.invent("Hill Hole Porter", "{3}{G}", "Creature — Dwarf", "Whenever this creature attacks, it gets +X/+X until end of turn, where X is the number of legendary creatures you control.", "4/4")
+    // chunk 09
+    val oldSingersSong = Cards.invent("Old Singer's Song", "{1}{G}", "Instant", "Target creature you control gets +1/+1 and gains hexproof until end of turn. The Ring tempts you. (A creature with hexproof can't be the target of spells or abilities your opponents control.)")
+    // chunk 09
+    val riverbankFarmer = Cards.invent("Riverbank Farmer", "{2}{G}", "Creature — Halfling Peasant", "When this creature enters or leaves the battlefield, create a Food token. (It's an artifact with \"{2}, {T}, Sacrifice this token: You gain 3 life.\")", "1/1")
+    // chunk 09
+    val amrothTheWise = Cards.invent("Amroth the Wise", "{3}{G}", "Legendary Creature — Elf Noble", "Whenever you attack with one or more Elves, scry 1.\nWhenever you scry, Amroth gets +1/+1 until end of turn for each card looked at while scrying this way.", "3/3")
+    // chunk 09
+    val wanderingCompanyElves = Cards.invent("Wandering Company Elves", "{2}{G}", "Creature — Elf Warrior", "Whenever you scry, put a +1/+1 counter on this creature. This ability triggers only once each turn.", "3/2")
+    // chunk 09
+    val merryHeartedHalfling = Cards.invent("Merry-Hearted Halfling", "{G}", "Creature — Halfling Citizen", "{T}: Add {C}.\n{T}: Add one mana of any color. Spend this mana only to cast a legendary spell, and that spell can't be countered.", "1/2")
+    // chunk 09
+    val northernRangers = Cards.invent("Northern Rangers", "{3}{G}", "Creature — Human Ranger", "Landfall — Whenever a land you control enters, if you don't control a Ring-bearer, the Ring tempts you.", "4/4")
+    // chunk 09
+    val elvenChoir = Cards.invent("Elven Choir", "{3}{G}", "Enchantment", "You may look at the top card of your library any time.\nYou may cast creature spells from the top of your library.\nCreatures you control have \"{T}: Add one mana of any color.\"")
+    // chunk 09
+    val elvenForesight = Cards.invent("Elven Foresight", "{G}", "Sorcery", "Scry 3, then you may reveal the top card of your library. If a creature card is revealed this way, draw a card.")
+    // chunk 09
+    val wrathfulHuorn = Cards.invent("Wrathful Huorn", "{4}{G}", "Creature — Treefolk", "Trample\nWhen this creature enters, the Ring tempts you.", "4/5")
+    // chunk 09
+    val entishRenewal = Cards.invent("Entish Renewal", "{2}{G}", "Instant", "Sacrifice a land. Search your library for up to two basic land cards, put them onto the battlefield tapped, then shuffle. If you control a creature with power 4 or greater, instead search your library for up to three basic land cards, put them onto the battlefield tapped, then shuffle.")
+    // chunk 09
+    val entsWrath = Cards.invent("Ent's Wrath", "{1}{G}", "Sorcery", "Put a +1/+1 counter on target creature you control if its power is 4 or greater. Then that creature gets +1/+1 until end of turn and fights target creature you don't control.")
+    // chunk 09
+    val fallOfTheElvenKing = Cards.invent("Fall of the Elven King", "{1}{G}", "Enchantment — Saga", "(As this Saga enters and after your draw step, add a lore counter. Sacrifice after III.)\nI — Scry 2.\nII — Put two +1/+1 counters on target creature you control.\nIII — Until end of turn, target creature you control gains \"When this creature dies, draw two cards.\" Then that creature fights up to one other target creature.")
+    // chunk 09
+    val bregaladTreeShepherd = Cards.invent("Bregalad, Tree Shepherd", "{4}{G}{G}{G}", "Legendary Creature — Treefolk", "Treefolk you control have vigilance.\nWhenever one or more Treefolk you control attack, add twice that much {G}.\nYou don't lose unspent green mana as steps and phases end.", "4/10")
+    // chunk 09
+    val woodlandElfBow = Cards.invent("Woodland Elf Bow", "{2}{G}", "Artifact — Equipment", "Flash\nWhen this Equipment enters, attach it to target creature you control. Untap that creature.\nEquipped creature gets +1/+2 and has reach.\nEquip {2} ({2}: Attach to target creature you control. Equip only as a sorcery.)")
+    // chunk 09
+    val woodlandElfGuide = Cards.invent("Woodland Elf Guide", "{3}{G}", "Creature — Elf Scout", "When this creature enters, scry 2.", "3/4")
+    // chunk 09
+    val kindlyEnt = Cards.invent("Kindly Ent", "{5}{G}", "Creature — Treefolk", "Reach\nWhen this creature enters, create a Food token. (It's an artifact with \"{2}, {T}, Sacrifice this token: You gain 3 life.\")\nForestcycling {1} ({1}, Discard this card: Search your library for a Forest card, reveal it, put it into your hand, then shuffle.)", "5/7")
+    // chunk 09
+    val giftOfGoldenStrands = Cards.invent("Gift of Golden Strands", "{3}{G}", "Enchantment — Aura", "Flash\nEnchant creature\nWhen this Aura enters, scry 2.\nEnchanted creature gets +3/+3.")
+    // chunk 09
+    val erestorDauntlessRescuer = Cards.invent("Erestor, Dauntless Rescuer", "{2}{G}", "Legendary Creature — Elf Noble", "Whenever you scry, choose one and Erestor gets +1/+1 until end of turn.\n• Erestor must be blocked this turn if able.\n• Erestor can't be blocked by more than one creature each combat this turn.", "3/2")
+    // chunk 09
+    val finalMarchOfTheEnts = Cards.invent("Final March of the Ents", "{6}{G}{G}", "Sorcery", "This spell can't be countered.\nDraw cards equal to the greatest toughness among creatures you control, then put any number of creature cards from your hand onto the battlefield.")
+    // chunk 09
+    val haldirMasterArcher = Cards.invent("Haldir, Master Archer", "{1}{G}{G}", "Legendary Creature — Elf Archer", "Reach\nWhenever you cast a spell that targets Haldir, put a +1/+1 counter on Haldir.\nWhenever you cast a spell that targets a creature you don't control, Haldir deals damage equal to its power to up to one target creature.", "1/4")
 }

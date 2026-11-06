@@ -243,3 +243,5 @@ val creatureDiedUnderYourControl: Condition = Condition.HappenedThisTurn(
 /** "Whenever two or more creatures you control attack a player" (CR 508.1: once per player attacked by that many) */
 val twoOrMoreAttackAPlayer: Trigger = Trigger.On(listOf(EventPattern.Attack(creatureYouControl, target = RecipientFilter(players = PlayerFilter.Any))),
     oneOrMore = true, atLeast = 2, batchPerPlayer = true)
+/** "Draw [count] cards" for a computed number. */
+fun draw(count: Value, players: Players = Players.You): Step = Step.Do(Effect.Draw(players, count))

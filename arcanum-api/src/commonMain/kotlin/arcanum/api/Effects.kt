@@ -197,7 +197,17 @@ sealed interface Effect {
     /** Exchange control of [first] and [second] (CR 701.12); nothing happens unless both can be exchanged (701.12a). */
     @Serializable @SerialName("exchange-control") data class ExchangeControl(val first: Objects, val second: Objects) : Effect
     /** Move [amount] counters of [kind] (any kind when null) from [from] onto [to]. */
-    @Serializable @SerialName("move-counters") data class MoveCounters(val from: Objects, val to: Objects, val kind: CounterKind?, val amount: Value) : Effect
+    @Serializable @SerialName("move-counters") data class MoveCounters(
+        val from: Objects, val to: Objects, val kind: CounterKind?, val amount: Value,
+        // ltr chunk 03
+        /** Kinds of counter already on these objects aren't moved ("a counter of each kind not on Goldberry", CR 122.5). */
+        val exceptKindsOn: Objects? = null,
+        /** The effect's controller chooses which counters on [from] to move, at least [amount] of them in all ("Move one or more
+         * counters from …"); [amount] is then that minimum. */
+        val chosen: Boolean = false,
+        /** Names the number of counters moved ("If you do": at least one, CR 608.2c). */
+        val bind: String? = null,
+    ) : Effect
     /** "Change the target of target spell or ability" / "you may choose new targets for it" (CR 115.7). */
     @Serializable @SerialName("change-targets") data class ChangeTargets(
         val objects: Objects, val chooser: Players, val optional: Boolean,

@@ -34,6 +34,28 @@ internal object Ltr {
     val OTHER_THAN_SELF = Regex("""(.*?)\btarget (.+?) other than (.+?)(\.|,.*)""")
     val THEY_GAIN_UNTIL_EOT = Regex("""They gain (.+?) until end of turn\.""")
     val YOU_CREATE_A_TOKEN = Regex("""you create a token""")
+    // ltr chunk 03
+    val MOVE_COUNTER_OF_EACH_KIND_NOT_ON = Regex("""Move a counter of each kind not on (.+?) from (.+?) onto (.+)\.""")
+    val MOVE_ONE_OR_MORE_COUNTERS_IF_YOU_DO = Regex("""Move one or more counters from (.+?) onto (.+?)\. If you do, (.+)""")
+    val UNTAP_REPLACED_BY_REMOVING_COUNTER = Regex("""If (.+?) would untap during your untap step, remove an? (\S+) counter from it instead\. If you do, untap it\.""")
+    val IF_MAY_EXILE_THIS_FROM_GRAVEYARD = Regex("""(Whenever .+?), if (.+?), you may exile this card from your graveyard\. If you do, (.+)""")
+    val SHUFFLE_TARGET_CARDS_INTO_LIBRARY = Regex("""Shuffle (any number of target .+?) from your graveyard into your library\.(?: (.+))?""")
+    val CAST_SPELLS_THIS_TURN_AS_THOUGH_FLASH = Regex("""You may cast spells this turn as though they had flash\.""")
+    val UNTAP_N_OTHER_TARGET = Regex("""Untap (two|three) other target (.+)\.""")
+    val IF_IT_WAS_A_SPELL = Regex("""If it was an? (.+?) spell, (.+)""")
+    val TARGET_OPPONENT_GAINS_CONTROL_IF_THEY_DO = Regex("""Target opponent gains control of (target .+?)\. If they do, (.+)""")
+    val REMOVE_FROM_COMBAT = Regex("""[Rr]emove (.+?) from combat\.""")
+    // ltr chunk 04
+    val DRAW_DURING_OPPONENTS_TURN = Regex("""you draw a card during an opponent's turn""")
+    val UNTAP_AND_PUT = Regex("""(Untap .+?) and (put .+)\.""")
+    val RETURN_SPELL_OR_NONLAND_PERMANENT = Regex("""Return target spell or nonland permanent an opponent controls to its owner's hand\.""")
+    val MAY_CAST_EQUAL_OR_LESSER_FREE = Regex("""You may cast an? (.+?) spell with equal or lesser mana value from your hand without paying its mana cost\.""")
+    val MAY_TAP_ANY_NUMBER_DRAW_FOR_EACH = Regex("""You may tap any number of untapped (.+?)\. Draw a card for each (\w+) tapped this way\.""")
+    val IF_IT_HAD_N_OR_MORE_COUNTERS = Regex("""If it had (\w+) or more (\S+) counters on it, (.+)""")
+    val COPY_IT_NOT_LEGENDARY_NEW_TARGETS = Regex("""Copy it, except the copy isn't legendary\. You may choose new targets for the copy\.""")
+    val TAP_UP_TO_X_TARGET = Regex("""Tap up to X target (.+)\.""")
+    val GAIN_CONTROL_OF_UP_TO_ONE_UNTIL_EOT = Regex("""Gain control of (up to one target .+?) until end of turn\.""")
+    val DRAW_FOR_EACH_TARGET_OPPONENT_CONTROLS = Regex("""Draw a card for each (.+?) target opponent controls\.""")
     val TARGETS_EACH_GAIN = Regex("""((?:Up to )?(?:two|three|Two|Three) target .+?) (?:each )?(gain|get) (.+)""")
 }
 
@@ -43,6 +65,7 @@ internal object LtrPhrases {
     private val BLOCKED_OR_WAS_BLOCKED_BY = Regex("""(.+?) that blocked or was blocked by an? (.+?) this turn""")
     private val WITH_MANA_VALUE_N_OR_M = Regex("""(.+?) with mana value (\d+) or (\d+)""")
     private val IN_YOUR_GRAVEYARD = Regex("""(.+? cards?) in your graveyard""")
+    private val WITH_LESSER_POWER = Regex("""(.+?) with lesser power""")
 
     fun noun(phrase: String): ObjectFilter? {
         // ltr chunk 02: "permanent card in your graveyard that was put there from the battlefield this turn" (the new object, CR 400.7)
@@ -65,6 +88,23 @@ internal object LtrPhrases {
             return Filters.all(base, ObjectFilter.Or(listOf(ObjectFilter.ManaValue(Comparison.Equal, Value.Fixed(m.groupValues[2].toInt())),
                 ObjectFilter.ManaValue(Comparison.Equal, Value.Fixed(m.groupValues[3].toInt())))))
         }
+        // ltr chunk 04: "creature with lesser power" (than this creature)
+        WITH_LESSER_POWER.matchEntire(phrase)?.let { m ->
+            val base = Filters.noun(m.groupValues[1]) ?: return null
+            return Filters.all(base, ObjectFilter.Power(Comparison.Less, Value.Of(arcanum.api.NumericProperty.Power, arcanum.api.Objects.Self, arcanum.api.Combine.Single)))
+        }
         return null
     }
+
+    /** ltr: a value "where X is …" defines. */
+    fun value(text: String): Value? = when (text) {
+        // ltr chunk 04: the Army chosen as the amass instruction was followed (CR 701.47c), named by [Sentences]
+        "the amassed Army's power" -> Value.Of(arcanum.api.NumericProperty.Power, arcanum.api.Objects.Bound(AMASSED_ARMY), arcanum.api.Combine.Single)
+        // ltr chunk 04: the scry event's number of cards (CR 701.22a)
+        "the number of cards looked at while scrying this way" -> Value.EventAmount
+        else -> null
+    }
+
+    /** The name the amassed Army is bound to (CR 701.47c). */
+    const val AMASSED_ARMY: String = "army"
 }

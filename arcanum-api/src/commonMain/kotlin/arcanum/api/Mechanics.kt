@@ -435,6 +435,11 @@ sealed interface Mechanic {
         override val stacking: Stacking get() = Stacking.Independent
     }
     @Serializable @SerialName("doesnt-untap") data object DoesntUntap : Mechanic
+    // ltr chunk 03
+    /** In its controller's untap step the affected permanent doesn't untap as usual: a counter of [kind] is removed from it instead, and
+     * if one was, it untaps ("If this creature would untap during your untap step, remove a +1/+1 counter from it instead. If you do,
+     * untap it.", CR 614.1a, 502.3). */
+    @Serializable @SerialName("untap-replaced-by-removing-counter") data class UntapReplacedByRemovingCounter(val kind: CounterKind) : Mechanic
     // fin
     /** "Damage isn't removed from this creature during cleanup steps" (CR 514.2): the affected permanents keep their marked damage. */
     @Serializable @SerialName("keeps-damage") data object DamageNotRemovedInCleanup : Mechanic

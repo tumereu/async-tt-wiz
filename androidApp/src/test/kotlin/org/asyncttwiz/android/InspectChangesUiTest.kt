@@ -91,13 +91,34 @@ class InspectChangesUiTest {
         val card = compose.onNodeWithContentDescription("Card image: Meadow Sentinel").getBoundsInRoot()
         val panel = changes()[0].getBoundsInRoot()
         assertTrue(panel.left >= card.right && panel.top < card.bottom, "beside the card: $panel, card $card")
+        // TBL-131 (owner playtest 2026-11-06): the card at the left edge; each change its own block
+        assertTrue(card.left.value <= 12f, "at the left edge: $card")
+        compose.onAllNodes(hasText("+1/+1 counter ×2") or hasText("1 damage"), useUnmergedTree = true).assertCountEquals(2)
         compose.onNodeWithText("+3/+3 until end of turn").performClick()
         compose.onNodeWithText("From Wild Surge").assertExists()
         captureShot("$SCREENSHOTS/inspect/changes-pinned.png", "Portrait Inspect pinned by a drag to the left: the Meadow " +
-            "Sentinel's picture takes a little over half the width with its changes in a dark panel at its right, the " +
-            "+3/+3 change tapped shows \"From Wild Surge\" under it, and a round close button sits at the top right.")
+            "Sentinel's picture takes a little over half the width at the left edge with its changes at its right, each in a " +
+            "dark block of its own, the +3/+3 change tapped shows \"From Wild Surge\" under it, and a round close button " +
+            "sits at the top right.")
         compose.onNodeWithContentDescription("Close inspection").performClick()
         compose.runOnIdle { assertTrue(closed) }
+    }
+
+    // TBL-131 (owner playtest 2026-11-06): pinned by a drag to the right, an unchanged card goes to the left edge with a faded
+    // "No changes" in the middle of the room beside it
+    @Test fun pinnedAnUnchangedCardSaysNoChanges() {
+        val swipe = InspectSwipe()
+        compose.setContent { MaterialTheme { NoRipples { InspectContent(listOf(InspectGroup("adept", faces("River Adept"))), ScrollState(0), swipe) } } }
+        compose.onNodeWithContentDescription("No changes").assertDoesNotExist()
+        compose.runOnIdle { swipe.moved(200f, 0f); assertTrue(swipe.released()) }
+        compose.waitForIdle()
+        val card = compose.onNodeWithContentDescription("Card image: River Adept").getBoundsInRoot()
+        val note = compose.onNodeWithContentDescription("No changes").assertIsDisplayed().getBoundsInRoot()
+        assertTrue(card.left.value <= 12f, "at the left edge: $card")
+        assertTrue(note.left >= card.right, "beside the card: $note, card $card")
+        captureShot("$SCREENSHOTS/inspect/no-changes-pinned.png", "Portrait Inspect of an unchanged River Adept pinned by a " +
+            "drag to the right: the picture at the left edge, a faded \"No changes\" centred in the room at its right, and the " +
+            "round close button at the top right.")
     }
 
     // TBL-104: in landscape the cards stand side by side, each card's changes beside it, a line between cards

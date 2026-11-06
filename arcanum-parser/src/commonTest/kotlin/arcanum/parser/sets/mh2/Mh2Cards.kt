@@ -272,3 +272,27 @@ val countersPutOnSelf: Trigger = Trigger.On(EventPattern.CountersPut(isSelf, p1p
 val playerHexproof: Mechanic = Mechanic.CantBeTargeted(by = ObjectFilter.ControlledBy(PlayerFilter.Opponent))
 /** "that creature", "it": the event's object (the creature a trigger is about). */
 val thatCreature: Objects = Objects.EventObject(arcanum.api.EventRole.Object)
+val nontoken: ObjectFilter = ObjectFilter.Not(token)
+/** Your graveyard's cards. */
+val yourGraveyardCards: Objects = Objects.Each(ObjectFilter.And(yourGraveyard))
+/** "Delirium — … as long as there are four or more card types among cards in your graveyard" (CR 207.2c). */
+val delirium: Condition = Condition.Compare(Value.CountDistinct(yourGraveyardCards, arcanum.api.SharedQuality.CardType), arcanum.api.Comparison.AtLeast, n(4))
+/** "Threshold — … as long as there are seven or more cards in your graveyard". */
+val threshold: Condition = Condition.Exists(ObjectFilter.And(yourGraveyard), atLeast = 7)
+/** "Hellbent — … as long as you have no cards in hand". */
+val hellbent: Condition = Condition.Compare(Value.HandSize(Players.You), arcanum.api.Comparison.Equal, n(0))
+/** "Discard a card" as a cost. */
+val discardACard: CostPart = CostPart.Discard(CostObjects.Choose(cardFilter, count = n(1)))
+val investigate: Step = Step.Do(Effect.Action(KeywordAction.Investigate(n(1))))
+val crab: TokenSpec = creatureToken("Crab", listOf(Color.Blue), 0, 3)
+val squirrel: TokenSpec = creatureToken("Squirrel", listOf(Color.Green), 1, 1)
+val food: TokenSpec = TokenSpec.Predefined("Food")
+val clue: TokenSpec = TokenSpec.Predefined("Clue")
+val eachOpponentPlayers: Players = Players.Each(PlayerFilter.Opponent)
+/** "Counter target spell unless its controller pays [cost]" (CR 118.12a). */
+fun counterUnless(cost: String, slotName: String = "spell"): List<Step> = listOf(
+    Step.Pay(manaCost(cost), payer = Players.ControllerOf(target(slotName)), bind = "paid"),
+    Step.If(Condition.Not(Condition.Did("paid")), then = listOf(Step.Do(Effect.Counter(target(slotName))))))
+/** "It doesn't untap during its controller's next untap step." */
+fun doesntUntapNext(objects: Objects): Step = Step.Do(Effect.ApplyMechanics(listOf(Mechanic.DoesntUntap), Affected.Objects(objects),
+    Duration.ThroughNextStep(TurnStep.Untap, Players.ControllerOf(objects))))

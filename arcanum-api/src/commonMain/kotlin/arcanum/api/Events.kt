@@ -228,6 +228,10 @@ sealed interface EventPattern {
      * attacking causes a triggered ability of that creature to trigger", CR 603.2). Roles object (the triggered ability, once it is
      * put on the Stack) and source (its source). */
     @Serializable @SerialName("ability-triggers") data class AbilityTriggers(val source: ObjectFilter, val cause: EventPattern) : EventPattern
+    // mh2
+    /** A creature matching [exploiter] exploits a creature: the controller of its exploit ability sacrifices a creature as that ability
+     * resolves (CR 702.110b). Roles object (the sacrificed creature, as it last existed) and source (the exploiting creature). */
+    @Serializable @SerialName("exploits") data class Exploits(val exploiter: ObjectFilter) : EventPattern
 }
 
 /** Who received damage or is attacked: objects matching [objects], players matching [players]. Both null = any. */

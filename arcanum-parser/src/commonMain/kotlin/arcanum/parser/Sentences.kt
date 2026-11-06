@@ -21094,6 +21094,28 @@ internal class Sentences(
 
     /** mh2: static abilities. */
     private fun mh2Static(line: String): Ability? {
+        // mh2 chunk 05: "If a card would be put into an opponent's graveyard from anywhere, instead exile it with a void counter on it." (CR 614.1a,
+        // 122.1)
+        Mh2.CARD_TO_OPPONENTS_GRAVEYARD_EXILE_WITH_COUNTER.matchEntire(line)?.let { m ->
+            val kind = Counters.kind(m.groupValues[1]) ?: return@let
+            return mh2SelfStatic(Mechanic.Replacement(EventPattern.ZoneChange(Filters.all(ObjectFilter.Category(arcanum.api.ObjectCategory.Card),
+                ObjectFilter.OwnedBy(PlayerFilter.Opponent)), to = Zone.Graveyard),
+                modify = listOf(Modification.ChangeDestination(Destination(Zone.Exile, counters = listOf(arcanum.api.CountersToPut(kind, Value.Fixed(1))))))))
+        }
+        // mh2 chunk 03: "Creatures lose all abilities." (layer 6, CR 613.1f)
+        Mh2.LOSE_ALL_ABILITIES.matchEntire(line)?.let { m ->
+            val objects = Filters.objects(m.groupValues[1].replaceFirstChar { it.lowercase() }.removeSuffix("s")) ?: return@let
+            return Ability.Static(listOf(Mechanic.LoseAbilities()), affects = Affected.Objects(objects))
+        }
+        // mh2 chunk 03: "This creature enters with a +1/+1 counter on it for each instant and sorcery card exiled with it." (the cards
+        // exiled to pay for delve, CR 702.66a; CR 614.1c)
+        Mh2.ENTERS_WITH_COUNTER_FOR_EACH_EXILED_WITH_IT.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            val kind = Counters.kind(m.groupValues[2]) ?: return@let
+            val cards = Filters.noun(m.groupValues[3].replace(" and ", " or ")) ?: return@let
+            val exiled = Objects.Where(Objects.PaidWith(arcanum.api.ManaPaymentWay.ExileFromGraveyard, Objects.Self), cards)
+            return mh2SelfStatic(Mechanic.Replacement(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), to = Zone.Battlefield),
+                modify = listOf(Modification.EntersWithCounters(kind, Value.Count(exiled)))))
+        }
         // mh2 chunk 02: "If a black or red permanent, spell, or card not on the battlefield would be put into a graveyard, exile it instead." (any
         // object of those colours, CR 614.1a)
         Mh2.TWO_COLORS_WOULD_BE_PUT_INTO_GRAVEYARD_EXILE.matchEntire(line)?.let { m ->
@@ -21110,7 +21132,17 @@ internal class Sentences(
     }
 
     /** mh2: trigger events. */
-    private fun mh2Trigger(@Suppress("UNUSED_PARAMETER") text: String): Pair<arcanum.api.Trigger.On, arcanum.api.Condition?>? = null
+    private fun mh2Trigger(text: String): Pair<arcanum.api.Trigger.On, arcanum.api.Condition?>? {
+        // mh2 chunk 05: "this creature exploits a creature" (CR 702.110b)
+        Mh2.EXPLOITS_A_CREATURE.matchEntire(text)?.takeIf { isSelf(it.groupValues[1]) }?.let {
+            return arcanum.api.Trigger.On(EventPattern.Exploits(ObjectFilter.Is(Objects.Self))) to null
+        }
+        // mh2 chunk 03: "this creature becomes the target of a spell or ability" (any spell or ability, CR 115.10)
+        Mh2.BECOMES_THE_TARGET_OF_A_SPELL_OR_ABILITY.matchEntire(text)?.takeIf { isSelf(it.groupValues[1]) }?.let {
+            return arcanum.api.Trigger.On(EventPattern.BecomesTarget(ObjectFilter.Is(Objects.Self), by = ObjectFilter.Any)) to null
+        }
+        return null
+    }
 
     /** mh2: cost parts. */
     private fun mh2CostPart(text: String): List<CostPart>? {
@@ -21125,7 +21157,95 @@ internal class Sentences(
     }
 
     /** mh2: instructions of several sentences read as a whole. */
-    private fun mh2Whole(text: String, @Suppress("UNUSED_PARAMETER") context: Context): List<Step>? {
+    private fun mh2Whole(text: String, context: Context): List<Step>? {
+        // mh2 chunk 05: "target opponent sacrifices a creature or planeswalker of their choice, discards a card, and loses 3 life. You draw a card
+        // and gain 3 life." (in the order written, CR 608.2c)
+        Mh2.OPPONENT_SACRIFICES_DISCARDS_LOSES_YOU_DRAW_GAIN.matchEntire(text)?.let { m ->
+            val noun = Filters.noun(m.groupValues[1]) ?: return null
+            context.targets += TargetSlot("opponent", TargetKind.Players(PlayerFilter.Opponent), min = Value.Fixed(1), max = Value.Fixed(1))
+            val opponent = Players.Target("opponent")
+            return listOf(
+                Step.Choose(arcanum.api.Choice.Objects(Filters.all(noun, ObjectFilter.ControlledBy(PlayerFilter.Is(opponent))), Value.Fixed(1), Value.Fixed(1)),
+                    bind = "sacrificed", chooser = opponent),
+                Step.Do(Effect.Sacrifice(Objects.Bound("sacrificed"))),
+                Step.Do(Effect.Discard(opponent, Value.Fixed(1), ObjectFilter.Any)),
+                Step.Do(Effect.LoseLife(opponent, Value.Fixed(m.groupValues[2].toInt()))),
+                Step.Do(Effect.Draw(Players.You, Value.Fixed(1))),
+                Step.Do(Effect.GainLife(Players.You, Value.Fixed(m.groupValues[3].toInt()))))
+        }
+        // mh2 chunk 05: "Look at the top four cards of your library. Put one of them into your hand and the rest into your graveyard. You gain life
+        // equal to the greatest power among creature cards put into your graveyard this way." (as they are there, CR 608.2h)
+        Mh2.LOOK_TOP_ONE_HAND_REST_GRAVEYARD_GAIN_GREATEST_POWER.matchEntire(text)?.let { m ->
+            val count = Numbers.count(m.groupValues[1]) ?: return null
+            return listOf(Step.Do(Effect.LookAt(Objects.LibraryCards(Players.You, Value.Fixed(count), fromTop = true), Players.You, bind = "seen")),
+                Step.Choose(arcanum.api.Choice.Objects(ObjectFilter.Any, Value.Fixed(1), Value.Fixed(1), from = Objects.Bound("seen")), bind = "kept", chooser = Players.You),
+                Step.Do(Effect.Move(Objects.Bound("kept"), Destination(Zone.Hand))),
+                Step.Do(Effect.Move(Objects.Except(Objects.Bound("seen"), Objects.Bound("kept")), Destination(Zone.Graveyard), postBind = "milled")),
+                Step.Do(Effect.GainLife(Players.You, Value.Of(arcanum.api.NumericProperty.Power,
+                    Objects.Where(Objects.Bound("milled"), ObjectFilter.Type(CardType.Creature)), arcanum.api.Combine.Greatest))))
+        }
+        // mh2 chunk 05: "Choose an exiled card an opponent owns with a void counter on it. You may play it this turn without paying its mana cost."
+        // (CR 601.2a, 305.1)
+        Mh2.CHOOSE_EXILED_CARD_OPPONENT_OWNS_WITH_COUNTER_MAY_PLAY_FREE.matchEntire(text)?.let { m ->
+            val kind = Counters.kind(m.groupValues[1]) ?: return null
+            return listOf(Step.Choose(arcanum.api.Choice.Objects(Filters.all(ObjectFilter.Category(arcanum.api.ObjectCategory.Card), ObjectFilter.InZone(Zone.Exile),
+                ObjectFilter.OwnedBy(PlayerFilter.Opponent), ObjectFilter.HasCounter(kind, atLeast = 1)), Value.Fixed(1), Value.Fixed(1)), bind = "chosen", chooser = Players.You),
+                Step.Do(Effect.ApplyMechanics(listOf(Mechanic.MayPlay(Zone.Exile, PlayKind.Play, withoutPaying = true, holder = PlayerFilter.You)),
+                    Affected.Objects(Objects.Bound("chosen")), arcanum.api.Duration.EndOfTurn)))
+        }
+        // mh2 chunk 04: "Choose up to one target creature spell or planeswalker spell. Its owner puts it on their choice of the top or bottom of their
+        // library." (CR 401.4)
+        Mh2.CHOOSE_TARGET_OWNER_PUTS_TOP_OR_BOTTOM.matchEntire(text)?.let { m ->
+            val noun = Filters.noun(m.groupValues[1]) ?: return null
+            val name = mh2NewSlotName(context, Filters.slotName(m.groupValues[1]))
+            context.targets += mh2Slot(name, noun, min = 0)
+            val it = Objects.Target(name)
+            return listOf(Step.Choose(arcanum.api.Choice.Option(listOf("top", "bottom")), bind = "position", chooser = Players.OwnerOf(it)),
+                Step.If(arcanum.api.Condition.Chose("position", "top"), then = listOf(Step.Do(Effect.Move(it, Destination(Zone.Library, libraryPosition = 0)))),
+                    otherwise = listOf(Step.Do(Effect.Move(it, Destination(Zone.Library, libraryPosition = -1))))))
+        }
+        // mh2 chunk 04: "Target noncreature artifact you control becomes a 0/0 artifact creature. Put four +1/+1 counters on each artifact that became a
+        // creature this way." (and its overloaded "Each …"; the affected artifacts are fixed as it resolves, CR 611.2c)
+        Mh2.BECOMES_ARTIFACT_CREATURE_PUT_COUNTERS_ON_EACH_THAT_BECAME.matchEntire(text)?.let { m ->
+            val noun = Filters.noun(m.groupValues[2]) ?: return null
+            val kind = Counters.kind(m.groupValues[6]) ?: return null
+            val amount = Numbers.count(m.groupValues[5]) ?: return null
+            val objects = if (m.groupValues[1] == "Each") Objects.Each(noun) else {
+                val name = mh2NewSlotName(context, Filters.slotName(m.groupValues[2]))
+                context.targets += mh2Slot(name, noun)
+                Objects.Target(name)
+            }
+            val became = Objects.Bound("became")
+            return listOf(Step.Bind(objects, "became"),
+                Step.Do(Effect.ApplyMechanics(listOf(Mechanic.SetTypes(add = listOf(CardType.Artifact, CardType.Creature)),
+                    Mechanic.SetPowerToughness(Value.Fixed(m.groupValues[3].toInt()), Value.Fixed(m.groupValues[4].toInt()))),
+                    Affected.Objects(became), arcanum.api.Duration.Indefinitely)),
+                Step.Do(Effect.PutCounters(became, kind, Value.Fixed(amount))))
+        }
+        // mh2 chunk 04: "Exile target creature and put two time counters on it. If it doesn't have suspend, it gains suspend." (CR 702.62b: a
+        // suspend gained this way has no cost and no number; only its abilities in exile matter)
+        Mh2.EXILE_TARGET_PUT_TIME_COUNTERS_GAINS_SUSPEND.matchEntire(text)?.let { m ->
+            val noun = Filters.noun(m.groupValues[1]) ?: return null
+            val count = Numbers.count(m.groupValues[2]) ?: return null
+            val name = mh2NewSlotName(context, Filters.slotName(m.groupValues[1]))
+            context.targets += mh2Slot(name, noun)
+            val exiled = Objects.Bound("exiled")
+            return listOf(Step.Do(Effect.Move(Objects.Target(name), Destination(Zone.Exile), postBind = "exiled")),
+                Step.Do(Effect.PutCounters(exiled, arcanum.api.CounterKind.Time, Value.Fixed(count))),
+                Step.If(arcanum.api.Condition.Not(arcanum.api.Condition.ObjectMatches(exiled, ObjectFilter.HasKeyword(arcanum.api.Keyword.Suspend.Kind))), then = listOf(
+                    Step.Do(Effect.ApplyMechanics(listOf(Mechanic.GainAbilities(listOf(arcanum.api.Keyword.Suspend(0, Cost(emptyList()))))),
+                        Affected.Objects(exiled), arcanum.api.Duration.Indefinitely)))))
+        }
+        // mh2 chunk 03: "Search target opponent's library for a creature card and put that card onto the battlefield under your control. Then
+        // that player shuffles." (CR 701.23a)
+        Mh2.SEARCH_OPPONENTS_LIBRARY_PUT_UNDER_YOUR_CONTROL.matchEntire(text)?.let { m ->
+            val cards = Filters.noun(m.groupValues[1]) ?: return null
+            context.targets += TargetSlot("opponent", TargetKind.Players(PlayerFilter.Opponent), min = Value.Fixed(1), max = Value.Fixed(1))
+            val opponent = Players.Target("opponent")
+            return listOf(Step.Do(Effect.Search(opponent, cards, max = Value.Fixed(1), zones = listOf(Zone.Library), bind = "found", searcher = Players.You)),
+                Step.Do(Effect.Move(Objects.Bound("found"), Destination(Zone.Battlefield, controller = Players.You))),
+                Step.Do(Effect.Shuffle(opponent)))
+        }
         // mh2 chunk 02: "Untap all creatures, then those creatures phase out until this enchantment leaves the battlefield. Put a time counter on
         // this enchantment for each creature that phased out this way." (CR 702.26, 610.3)
         Mh2.UNTAP_ALL_THEN_PHASE_OUT_COUNTER_EACH.matchEntire(text)?.takeIf { isSelf(it.groupValues[2]) && isSelf(it.groupValues[4]) }?.let { m ->
@@ -21141,6 +21261,12 @@ internal class Sentences(
 
     /** mh2: sentences that change the steps before them. */
     private fun mh2Modify(sentence: String, steps: List<Step>, context: Context): List<Step>? {
+        // mh2 chunk 04: "Those creatures don't untap during their controller's next untap step." after tapping targets
+        Mh2.THOSE_DONT_UNTAP_DURING_NEXT.matchEntire(sentence)?.let { m ->
+            val tapped = ((steps.lastOrNull() as? Step.Do)?.effect as? Effect.Tap)?.objects ?: return@let
+            return steps + Step.Do(Effect.ApplyMechanics(listOf(Mechanic.DoesntUntap), Affected.Objects(tapped),
+                arcanum.api.Duration.ThroughNextStep(arcanum.api.TurnStep.Untap, Players.ControllerOf(tapped))))
+        }
         // mh2 chunk 01: "If it's an artifact creature, it gets +2/+2 until end of turn." after an effect on a target: whether the target is one
         // as the spell resolves (CR 608.2h)
         Mh2.IF_ITS_A_THEN.matchEntire(sentence)?.let { m ->
@@ -21157,6 +21283,68 @@ internal class Sentences(
 
     /** mh2: effect sentences. */
     private fun mh2Effect(sentence: String, context: Context): List<Step>? {
+        // mh2 chunk 05: "You gain life equal to the number of counters on it." (the last target, as it last existed, CR 608.2h)
+        if (Mh2.GAIN_LIFE_EQUAL_TO_COUNTERS_ON_IT.matches(sentence)) {
+            val it = context.targets.lastOrNull()?.takeIf { it.what is TargetKind.Objects }?.let { Objects.Target(it.name) } ?: return null
+            return listOf(Step.Do(Effect.GainLife(Players.You, Value.Of(arcanum.api.NumericProperty.Counters(null), it, arcanum.api.Combine.Single))))
+        }
+        // mh2 chunk 05: "Return target creature card and all other cards with the same name as that card from your graveyard to your hand."
+        Mh2.RETURN_TARGET_AND_ALL_SAME_NAME.matchEntire(sentence)?.let { m ->
+            val noun = Filters.noun(m.groupValues[1]) ?: return@let
+            val inYourGraveyard = listOf(ObjectFilter.InZone(Zone.Graveyard), ObjectFilter.OwnedBy(PlayerFilter.You))
+            val name = mh2NewSlotName(context, "card")
+            context.targets += mh2Slot(name, Filters.all(noun, *inYourGraveyard.toTypedArray()))
+            val target = Objects.Target(name)
+            val others = Objects.Each(Filters.all(ObjectFilter.Category(arcanum.api.ObjectCategory.Card), ObjectFilter.Not(ObjectFilter.Is(target)),
+                ObjectFilter.SameNameAs(target), *inYourGraveyard.toTypedArray()))
+            return listOf(Step.Do(Effect.Move(Objects.Union(listOf(target, others)), Destination(Zone.Hand))))
+        }
+        // mh2 chunk 04: "Put enchanted creature into its owner's library third from the top." (CR 401.4: from 0 at the top)
+        Mh2.PUT_INTO_OWNERS_LIBRARY_NTH_FROM_TOP.matchEntire(sentence)?.let { m ->
+            val objects = if (m.groupValues[1] == "enchanted creature") Objects.AttachedTo(Objects.Self) else mh2Objects(m.groupValues[1], context) ?: return@let
+            val position = mapOf("second" to 1, "third" to 2, "fourth" to 3)[m.groupValues[2]] ?: return@let
+            return listOf(Step.Do(Effect.Move(objects, Destination(Zone.Library, libraryPosition = position))))
+        }
+        // mh2 chunk 04: "Return two target creatures to their owners' hands."
+        Mh2.RETURN_N_TARGETS_TO_OWNERS_HANDS.matchEntire(sentence)?.let { m ->
+            val count = Numbers.count(m.groupValues[1]) ?: return@let
+            val singular = m.groupValues[2].removeSuffix("s")
+            val noun = Filters.noun(singular) ?: return@let
+            val name = mh2NewSlotName(context, Filters.slotName(singular) + "s")
+            context.targets += mh2Slot(name, noun, min = count, max = count)
+            return listOf(Step.Do(Effect.Move(Objects.Target(name), Destination(Zone.Hand))))
+        }
+        // mh2 chunk 04: "Create a 1/1 colorless Thopter artifact creature token with flying for each color of mana spent to cast this spell."
+        // (converge, CR 601.2h)
+        Mh2.CREATE_FOR_EACH_COLOR_SPENT.matchEntire(sentence)?.let { m ->
+            val created = effect("Create ${m.groupValues[1]}.", context) ?: return@let
+            val create = (created.singleOrNull() as? Step.Do)?.effect as? Effect.CreateToken ?: return@let
+            return listOf(Step.Do(create.copy(count = Value.ManaSpent(distinctColors = true, of = Objects.Self))))
+        }
+        // mh2 chunk 04: "target land becomes an Island for as long as this creature remains on the battlefield." (CR 305.7, 611.2b)
+        Mh2.TARGET_BECOMES_LAND_TYPE_AS_LONG_AS_REMAINS.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[3]) }?.let { m ->
+            if (m.groupValues[2] !in RulesWords.subtypes) return@let
+            val noun = Filters.noun(m.groupValues[1]) ?: return@let
+            val name = mh2NewSlotName(context, m.groupValues[1])
+            context.targets += mh2Slot(name, noun)
+            return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.SetTypes(addSubtypes = listOf(arcanum.api.SubtypeRef.Literal(Subtype(m.groupValues[2]))),
+                replaceSubtypes = true)), Affected.Objects(Objects.Target(name)), arcanum.api.Duration.UntilLeaves(Objects.Self))))
+        }
+        // mh2 chunk 03: "X target creatures gain flying until end of turn." (X announced, CR 107.3a)
+        Mh2.X_TARGET_GAIN_UNTIL_EOT.matchEntire(sentence)?.takeIf { announcedX }?.let { m ->
+            val noun = Filters.noun(m.groupValues[1].removeSuffix("s")) ?: return@let
+            val keywords = m.groupValues[2].split(Regex(""",? and |, """)).map { OracleParser.keyword(it.trim().replaceFirstChar { c -> c.uppercase() }) ?: return@let }
+            val name = mh2NewSlotName(context, Filters.slotName(m.groupValues[1].removeSuffix("s")) + "s")
+            context.targets += TargetSlot(name, TargetKind.Objects(noun), min = Value.Announced(name = "X"), max = Value.Announced(name = "X"))
+            return listOf(mh2UntilEndOfTurn(Objects.Target(name), Mechanic.GainAbilities(keywords)))
+        }
+        // mh2 chunk 03: "sacrifice it." when this permanent becomes the target of a spell or ability: this permanent
+        if (sentence == "Sacrifice it." && (context.event as? EventPattern.BecomesTarget)?.objects == ObjectFilter.Is(Objects.Self))
+            return listOf(Step.Do(Effect.Sacrifice(Objects.Self)))
+        // mh2 chunk 03: "Switch this creature's power and toughness until end of turn." (layer 7d, CR 613.4d)
+        Mh2.SWITCH_PT_UNTIL_EOT.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let {
+            return listOf(mh2UntilEndOfTurn(Objects.Self, Mechanic.SwitchPowerToughness))
+        }
         // mh2 chunk 01: "create a 1/1 colorless Thopter artifact creature token with flying, then attach this Equipment to it." (CR 701.3a)
         Mh2.THEN_ATTACH_SELF_TO_IT.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[2]) }?.let { m ->
             val first = effect(m.groupValues[1].replaceFirstChar { it.uppercase() } + ".", context) ?: return@let

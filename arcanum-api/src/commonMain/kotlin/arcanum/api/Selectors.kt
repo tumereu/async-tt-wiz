@@ -235,6 +235,10 @@ sealed interface ObjectFilter {
     /** It has no abilities (CR 113.1: no spell, activated, triggered or static ability, keywords included; "a creature card with no
      * abilities"). */
     @Serializable @SerialName("no-abilities") data object NoAbilities : ObjectFilter
+    // mh2
+    /** It could produce mana of [mana]'s kind, a single symbol ("{C}", "{R}"): one of its mana abilities, those its land types give
+     * included, adds mana of that colour or colourless mana, whatever its costs (CR 106.7: "a land that could produce {C}"). */
+    @Serializable @SerialName("could-produce") data class CouldProduce(val mana: ManaCost) : ObjectFilter
 }
 
 /** A subtype written out, or the one chosen under [Chosen.key] (a choice of this resolution or remembered on the source,

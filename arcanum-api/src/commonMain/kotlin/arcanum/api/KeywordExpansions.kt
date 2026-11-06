@@ -871,6 +871,9 @@ object KeywordExpansions {
             AbilityLabel.Solved -> ability.copy(rules = ability.rules.copy(condition = and(ability.rules.condition, solved)))
             AbilityLabel.MaxSpeed -> ability.copy(rules = ability.rules.copy(condition = and(ability.rules.condition, Condition.MaxSpeed)))
             AbilityLabel.Infinity -> ability.copy(rules = ability.rules.copy(condition = and(ability.rules.condition, harnessed)))
+            // mh2: CR 702.57b
+            AbilityLabel.Forecast -> ability.copy(rules = ability.rules.copy(perTurn = 1, condition = and(ability.rules.condition, yourUpkeep)),
+                functionsIn = ability.functionsIn ?: listOf(Zone.Hand))
         }
         is Ability.Triggered -> when (ability.label) {
             AbilityLabel.Solved -> ability.copy(triggersOnlyIf = and(ability.triggersOnlyIf, solved))
@@ -888,6 +891,8 @@ object KeywordExpansions {
     }
 
     private val attackedThisTurn = Condition.ObjectMatches(Objects.Self, ObjectFilter.ThisTurn(EventPattern.Attack(ObjectFilter.Is(Objects.Self))))
+    // mh2: "during your upkeep" (CR 702.57b: its owner's, who holds it in their hand)
+    private val yourUpkeep = Condition.And(listOf(Condition.YourTurn, Condition.StepIs(TurnStep.Upkeep)))
     private val solved = Condition.ObjectMatches(Objects.Self, ObjectFilter.HasStatus(Status.Marked(ObjectMark.Solved)))
     // msh: CR 702.186b, 701.64b
     private val harnessed = Condition.ObjectMatches(Objects.Self, ObjectFilter.HasStatus(Status.Marked(ObjectMark.Harnessed)))

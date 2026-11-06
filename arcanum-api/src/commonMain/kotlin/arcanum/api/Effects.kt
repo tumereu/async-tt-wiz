@@ -109,7 +109,10 @@ sealed interface Effect {
     /** Turn [objects] face up, putting [counters] on as it is turned (megamorph, CR 702.37b). */
     @Serializable @SerialName("turn-face-up") data class TurnFaceUp(val objects: Objects, val counters: List<CountersToPut> = emptyList()) : Effect
     @Serializable @SerialName("turn-face-down") data class TurnFaceDown(val objects: Objects) : Effect
-    @Serializable @SerialName("phase-out") data class PhaseOut(val objects: Objects) : Effect
+    /** [objects] phase out (CR 702.26); mh2: [untilLeaves], "phase out until this enchantment leaves the battlefield": they don't phase in
+     * during untap steps but when that object leaves the battlefield, and if it has already left, nothing phases out (CR 610.3,
+     * 702.26b); [bind] names those that phased out ("for each creature that phased out this way"). */
+    @Serializable @SerialName("phase-out") data class PhaseOut(val objects: Objects, val untilLeaves: Objects? = null, val bind: String? = null) : Effect
     /** Put [mark] on [objects], or take it off ([remove], "is no longer suspected"). Saddled ends at end of turn or when
      * it leaves the battlefield (CR 702.171b). */
     @Serializable @SerialName("mark") data class Mark(val objects: Objects, val mark: ObjectMark, val remove: Boolean = false) : Effect

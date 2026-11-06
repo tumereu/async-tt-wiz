@@ -25,7 +25,7 @@ object OracleParser {
      * wording newly read, a definition shaped differently, a fix), so stored definitions made by an older parser are
      * parsed again.
      */
-    const val VERSION: Int = 35
+    const val VERSION: Int = 36
 
     /**
      * Every subtype the pinned Comprehensive Rules list (CR 205.3g–m, 205.3q), as the parser reads them: what a host
@@ -501,12 +501,12 @@ object OracleParser {
             line.contains('—') -> listOf(line)
             else -> line.split(", ")
         }
-        val first = keyword(parts.first()) ?: return null
-        // dgm: "protection from white and from black" is two protection abilities (CR 702.16g)
-        val split = parts.drop(1).flatMap { p ->
+        // dgm: "protection from white and from black" is two protection abilities (CR 702.16g); mh2 chunk 02: also first on its line
+        val split = parts.flatMap { p ->
             PROTECTION_FROM_AND_FROM.matchEntire(p)?.let { m -> listOf("protection from " + m.groupValues[1], "protection from " + m.groupValues[2]) } ?: listOf(p)
         }
-        return listOf(first) + split.map { keyword(it) ?: Ability.Unparsed(it) }
+        val first = keyword(split.first()) ?: return null
+        return listOf(first) + split.drop(1).map { keyword(it) ?: Ability.Unparsed(it) }
     }
 
     /** fin: "Gae Bolg — Equip {4}": a keyword line after a flavor word (CR 207.2d), which has no rules meaning. */
@@ -524,6 +524,8 @@ object OracleParser {
 
     /** One keyword with its values, or null when [part] isn't exactly a known keyword written in its form. */
     fun keyword(part: String): Keyword? {
+        // mh2 chunk 02: "Vanishing" without a number (CR 702.63b), read as 0
+        if (part == "Vanishing") return Keyword.Vanishing(0)
         // tdm chunk 12: "hexproof from monocolored" (CR 702.11d)
         Tdm.HEXPROOF_FROM.matchEntire(part)?.let { m ->
             return Keyword.HexproofFrom(when (m.groupValues[1]) {

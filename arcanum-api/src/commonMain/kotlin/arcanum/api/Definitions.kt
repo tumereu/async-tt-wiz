@@ -262,6 +262,10 @@ sealed interface AbilityLabel {
     // msh
     /** "∞ — [ability]": "As long as this permanent is harnessed, it has [ability]" (CR 702.186b, 701.64). */
     @Serializable @SerialName("infinity") data object Infinity : AbilityLabel
+    // mh2
+    /** "Forecast — [activated ability]": activated only from its owner's hand, only during their upkeep and only once each turn
+     * (CR 702.57a, b). */
+    @Serializable @SerialName("forecast") data object Forecast : AbilityLabel
 }
 
 /**

@@ -13,8 +13,9 @@ class KeywordKindCompletenessTest {
             type.objectInstance?.kind ?: type.companionObjectInstance as? KeywordKind
         }
         // Variants have no kind of their own: typecycling is cycling (CR 702.29f), multikicker is kicker (702.33c),
-        // megamorph is morph (702.37b), hexproof from is hexproof (702.11d-e); tla: firebending X is firebending (702.189a).
-        assertEquals(Keyword::class.sealedSubclasses.size - 5, kinds.size)
+        // megamorph is morph (702.37b), hexproof from is hexproof (702.11d-e); tla: firebending X is firebending (702.189a);
+        // mh2: reinforce X is reinforce (702.77a).
+        assertEquals(Keyword::class.sealedSubclasses.size - 6, kinds.size)
         assertEquals(kinds.map { it.id }.sorted(), KeywordKind.all.map { it.id }.sorted())
         assertEquals(KeywordKind.all.size, KeywordKind.all.map { it.id }.toSet().size)
     }

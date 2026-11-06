@@ -10,7 +10,7 @@ Changes the owner wants but that are not built yet. The feature catalog
 
 ## Build order (owner, 2026-11-05: one implementor at a time, small items batched, full suites after each batch)
 
-2026-11-06 playtest round 2: worker A = playback stop on return, assumed blocks branch; worker B = Bushy Bodyguard walkthrough + question panel audit, then pinned inspect, damage preview badge, rotation leftover.
+2026-11-06 playtest round 2: worker A = playback stop on return, assumed blocks branch; worker B = Bushy Bodyguard walkthrough + question panel audit, then pinned inspect, damage preview badge, rotation leftover; worker A follow-up = undo after combat back-and-forth; worker C (after B) = response mode names/colours, main button width, Automatum screenshot gallery.
 
 ## Ready to build
 
@@ -21,6 +21,10 @@ Changes the owner wants but that are not built yet. The feature catalog
 - Pinned inspect (owner playtest, 2026-11-06): opens by swiping either way (right too, for cards at the side of the table); the card always ends at the left edge with the change lines right of it; an unchanged card shows a faded centred "No changes"; each change is its own chip/line block (no change split confusingly over lines), slightly smaller text; shrinking reuses the loaded picture, scaled while drawing, never "Downloading artwork". Changes TBL-131.
 - Combat damage preview badge (owner playtest, 2026-11-06): one badge per creature so it fits at any zoom: a red splash with the damage number ("3", no minus) when it survives, a black skull with the number inside when it dies. Changes CMB-029.
 - Rotation leftover (owner playtest, 2026-11-06, bug): tapping a combat copy shows "Rotation not queued. Reconnect and try again." — the old by-hand rotate path still runs; remove it entirely so taps do only what CMB-003/CMB-032 say. E2e first.
+- Undo after combat back-and-forth (owner playtest, 2026-11-06, bug, report KWKB3Y on the test server): after several undos back and forth during combat, every further Undo logs "Undo not taken: nothing" though the player's own earlier actions remain. E2e first. No entry change expected (HIS-107, HIS-030).
+- Response modes and colours (owner playtest, 2026-11-06): rename Full control / Normal / Auto-skip to Control / Normal / Quick everywhere (quick action, Settings, texts; playback's "Full control" toggle becomes "Control"); the response mode and Assume resolves cells each fill in a colour by how much control you keep: deep blue = Control / Assume: Never, violet = Normal / Assume: No mana, amber = Quick / Assume: Always, white text with the icon. Changes TRN-059, STK-036, HIS-095, LOB-113 and entries naming the modes.
+- Main button width (owner playtest, 2026-11-06): the bottom-right main button keeps one fixed width (e.g. 112 dp) whatever quick actions show; the quick actions share the rest equally. Changes TRN-017.
+- Automatum screenshot gallery (owner, 2026-11-06): a phone-friendly page at https://desktop-b2kalvm.tail27cccc.ts.net/aa-gallery/ with one representative screenshot per Automatum UI item (number, name, caption, catalog IDs; items changed since the screenshots-approved tag first with a "changed" badge; tap for full size; page shows its commit). A list file next to the screenshots names each item and its shot; a build check fails when a listed shot is missing or any engine decision kind has no entry; AGENTS.md gains the rule that new Automatum UI gets an entry. A script rebuilds the page; the coordinator runs it after merges. Complements, never replaces, the screenshot review.
 
 ## Ready after the e2e framework (owner playtest, 2026-11-05)
 

@@ -205,8 +205,8 @@ private fun TargetBar(cast: CastController, flow: CastFlow, play: TableBoard, so
     // UI review #4, #9: docked above the hand like every Automatum panel, never over it; STK-044: the title says only the
     // choice, the card it is for sits at the right
     AutomatumDockBar("Choose targets", eye = true) {
-        Text(targetTitle(decision), Modifier.weight(1f).semantics { heading() }, fontSize = 13.sp,
-            fontWeight = FontWeight.Medium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        // STK-047 (owner playtest 2026-11-06): the sentence the targets are for, under the title
+        TargetBarTitle(targetTitle(decision), cast.abilityText ?: askedSentence(rulesTextOf(play, flow.cardId), decision))
         if (decision.max != 1 || decision.min == 0) TextButton(cast::confirmTargets, enabled = cast.picked.size >= decision.min) {
             IconText(Icons.Outlined.Check, if (cast.picked.isEmpty()) "None" else "Done")
         }
@@ -248,7 +248,13 @@ private fun CastPanel(cast: CastController, flow: CastFlow, play: TableBoard, na
                 verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 // A long name wraps onto a second line, then is cut with …
                 ChoiceHead(castTitle(flow, source.name), source, inspector, titleLines = 2) {
-                    cast.abilityText?.let { CardText(it, color = Color(0xff4b5a5f), style = TextStyle(fontSize = 11.sp, lineHeight = 14.sp)) }
+                    // STK-023 (owner playtest 2026-11-06): an ability's text; for a spell the sentence its open choice asks
+                    // about (an X, a division, a colour), never its modes' (they are the chips) or the payment's
+                    (cast.abilityText ?: flow.pending?.takeIf { it !is Decision.Modes && it !is Decision.ManaPayment && it !is Decision.May }
+                        ?.let { askedSentence(rulesTextOf(play, flow.cardId), it) })?.let {
+                        CardText(it, Modifier.semantics { contentDescription = "Question: $it" }, color = Color(0xff4b5a5f),
+                            style = TextStyle(fontSize = 11.sp, lineHeight = 14.sp))
+                    }
                 }
                 ChoiceInspection(inspector, play, LocalChoiceFrame.current.viewer)
                 if (cast.ways.size > 1) Section("Cast as") {
@@ -324,7 +330,10 @@ private fun AnsweredSection(cast: CastController, flow: CastFlow, play: TableBoa
     when {
         decision is Decision.May && answer is Answer.YesNo -> Section(mayTitle(decision)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                CardText(decision.text, Modifier.weight(1f), style = TextStyle(fontSize = 12.sp))
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    CardText(decision.text, style = TextStyle(fontSize = 12.sp))
+                    decision.cost?.let { CostLine(it) }
+                }
                 Switch(answer.yes, { cast.change(index, Answer.YesNo(it)) }, Modifier.semantics { contentDescription = decision.text })
             }
         }
@@ -360,7 +369,9 @@ internal fun OpenSection(cast: FlowQuestions, flow: FlowQuestions, play: TableBo
     fun card(id: ObjectId?) = id?.let { choiceCardOf(flow, play, viewer, it) }
     when (decision) {
         is Decision.May -> Section(mayTitle(decision)) {
-            CardText(decision.text, style = TextStyle(fontSize = 12.sp))
+            // STK-030 (owner playtest 2026-11-06): the sentence asked about and the cost, without holding anything
+            CardText(decision.text, Modifier.semantics { contentDescription = "Question: ${decision.text}" }, style = TextStyle(fontSize = 12.sp))
+            decision.cost?.let { CostLine(it) }
             DockButtons {
                 ChoiceButton("No", Icons.Outlined.Close) { cast.answer(Answer.YesNo(false)) }
                 ChoiceButton("Yes", Icons.Outlined.Check, enabled = decision.payable, primary = true) { cast.answer(Answer.YesNo(true)) }
@@ -429,13 +440,16 @@ internal fun OpenSection(cast: FlowQuestions, flow: FlowQuestions, play: TableBo
             // trigger is its source's card, numbered in the order tapped, its own short line under it
             var order by remember(decision.id) { mutableStateOf(listOf<Int>()) }
             Section(choiceWhat(decision), choiceHint(decision)) {
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     for (trigger in decision.triggers) {
                         val place = order.indexOf(trigger.index)
                         val shown = trigger.source?.let(flow::shown) != false
                         LabelledChoiceCard(card(trigger.source), "trigger/${trigger.index}",
                             trigger.source?.let { objectName(flow, play, it) } ?: "Trigger ${trigger.index + 1}",
-                            trigger.text?.takeIf { shown } ?: "Trigger ${trigger.index + 1}", inspector, selected = place >= 0,
+                            // A keyword's trigger ("Offspring") reads as the keyword's printed line on its source
+                            trigger.text?.takeIf { shown }?.let { text ->
+                                org.asyncttwiz.automatum.StackAbilityText.keywordLine(text, trigger.source?.let { rulesTextOf(play, flow.atwCard(it)) }) ?: text
+                            } ?: "Trigger ${trigger.index + 1}", inspector, selected = place >= 0,
                             badge = (place + 1).takeIf { place >= 0 }?.toString()) {
                             order = if (place >= 0) order - trigger.index else order + trigger.index
                         }
@@ -452,7 +466,7 @@ internal fun OpenSection(cast: FlowQuestions, flow: FlowQuestions, play: TableBo
             // UI review round 2 #7 (I-D48): each replacement effect is its source's card with its short line; tap one, OK
             var chosen by remember(decision.id) { mutableStateOf<Int?>(null) }
             Section(choiceWhat(decision), choiceHint(decision)) {
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     for (option in decision.options) {
                         val name = option.source?.let { objectName(flow, play, it) } ?: "Replacement ${option.index + 1}"
                         LabelledChoiceCard(card(option.source), "replacement/${option.index}", name, option.text ?: name, inspector,
@@ -672,7 +686,20 @@ internal fun targetPrompt(d: Decision.Targets): String {
     }
 }
 
-private fun mayTitle(d: Decision.May) = if (d.cost != null) "Optional cost" else "Choice"
+private fun mayTitle(d: Decision.May) = choiceWhat(d)
+
+/** STK-030: "Cost" and the cost a question asks to pay, as a chip with its symbols ("{2}", "Forage"). */
+@Composable
+internal fun CostLine(cost: arcanum.api.Cost) {
+    val text = costText(cost)
+    Row(Modifier.semantics(mergeDescendants = true) { contentDescription = "Cost: $text" }, verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text("Cost", fontSize = 11.sp, color = Color(0xff4b5a5f))
+        Surface(shape = RoundedCornerShape(10.dp), color = Color(0xfffff4e0), border = BorderStroke(1.dp, Color(0xffd08a1e))) {
+            CardText(text, Modifier.padding(horizontal = 8.dp, vertical = 2.dp), style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Medium))
+        }
+    }
+}
 
 private fun sectionTitle(d: Decision): String = when (d) {
     is Decision.Targets -> "Target"
@@ -696,7 +723,7 @@ private fun answerLabel(flow: FlowQuestions, play: TableBoard, names: Map<String
     is Answer.Player -> names[answer.player.value] ?: "A player"
     is Answer.Division -> answer.shares.joinToString { "${it.amount} to ${targetName(flow, play, names, it.target)}" }
     is Answer.Keep -> objectName(flow, play, answer.kept)
-    is Answer.SubtypeChoice -> answer.subtype.toString()
+    is Answer.SubtypeChoice -> answer.subtype.name
     is Answer.CardTypeChoice -> answer.cardType.toString()
     is Answer.CardName -> answer.name
     is Answer.Replacement -> (decision as? Decision.ChooseReplacement)?.options?.firstOrNull { it.index == answer.index }?.text ?: "Replacement ${answer.index + 1}"

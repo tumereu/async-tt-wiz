@@ -1,0 +1,1 @@
+Choosing a basic land type: the panel is titled "Choose a type" with the sentence under it and a button for each of the five basic land types.

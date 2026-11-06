@@ -331,7 +331,7 @@ internal object Steps {
         val payer = scope.players(step.payer).firstOrNull() ?: scope.actor
         val cost = step.cost
         val outcome = if (cost != null) {
-            val text = arcanum.engine.decision.Texts.sentence(scope.cause.item?.ability, "pay", "Pay ${Costs.describe(cost)}?")
+            val text = arcanum.engine.decision.Texts.pay(scope.cause.item?.ability, "Pay ${Costs.describe(cost)}?")
             // I-D18: whether cards only the payer sees decide if it can be paid (filled in first when unknown)
             val hidden = Costs.hiddenDecides(scope, payer, cost)
             when {

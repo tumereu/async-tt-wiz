@@ -36,7 +36,7 @@ class CatchUpLiveTest : E2e() {
         assertEquals("${alice.name} has made moves · Tap to watch", bob.watchText())
         assertTrue(!bob.showsTimelineLook(), "no timeline look")
         assertTrue(!bob.showsText("Catching up"), "no catching-up label")
-        assertTrue(bob.showsControl("Full control") && bob.showsControl("Autotap mana"), bob.screen())
+        assertTrue(bob.showsControl("Control") && bob.showsControl("Autotap mana"), bob.screen())
         assertTrue(!bob.showsControl("Assume resolves setting") && !bob.showsControl("Response mode"), bob.screen())
 
         bobWatchesToAStop("Bob's playback stopping at Alice's spell")

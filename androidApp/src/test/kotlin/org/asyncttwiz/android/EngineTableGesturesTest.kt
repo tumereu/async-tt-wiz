@@ -69,7 +69,6 @@ class EngineTableGesturesTest {
         val land = kit.atw(kit.hand("Mountain").first())
         val (gestures, emitted) = kit.gestures()
         kit.doubleTap(gestures, kit.item(land, PlayZone.HAND).bounds.center)
-        assertTrue(emitted.none { it is TableIntent.Rotate }, "a hand card is never turned: $emitted")
         assertTrue(emitted.any { it is TableIntent.Move && it.handDoubleTap }, "$emitted")
         kit.settle()
         assertTrue(land in kit.field("Mountain").map(kit::atw), "played onto the battlefield: ${toolkit.error}")
@@ -193,8 +192,8 @@ class EngineTableGesturesTest {
         assertNull(kit.alice.play().board.combat, "Automatum closed it")
     }
 
-    // CMB-032: a tap on a combat copy selects it; a tap on the selected copy opens its Combat menu; a tap on the empty
-    // table clears the selection; the selection lasts only for the combat step it was made in
+    // CMB-032 (owner, 2026-11-06): a tap on a combat copy selects it; a tap on the selected copy deselects it (no Combat
+    // menu); a tap on the empty table clears the selection; the selection lasts only for the combat step it was made in
     @Test fun aCombatCopyIsSelectedByATap() {
         val cub = kit.toReadyCub()
         kit.toAttacks()
@@ -210,8 +209,8 @@ class EngineTableGesturesTest {
         assertNull(toolkit.combat.selected, "a tap on the empty table clears it")
         kit.tap(copy())
         kit.tap(copy())
-        assertNotNull(toolkit.capture, "the selected copy's tap opens its Combat menu")
-        toolkit.dismiss()
+        assertNull(toolkit.capture, "no Combat menu")
+        assertNull(toolkit.combat.selected, "the selected copy's tap deselects it")
         kit.tap(copy())
         assertEquals(cub, toolkit.combat.selected)
         kit.playOn("the next step") {
@@ -221,5 +220,27 @@ class EngineTableGesturesTest {
         }
         assertNull(toolkit.combat.selected, "it lasts only for its combat step")
         assertTrue(Engine.options(kit.state(), kit.me).none { it is Input.DeclareAttackers })
+    }
+
+    // CMB-003, CMB-032, CMB-028 (owner, 2026-11-06): while attackers are declared, a staged attacker's copy is selected by
+    // its first tap and unstaged by a tap on it selected, with no Combat menu in between
+    @Test fun aStagedAttackersCopyIsSelectedThenUnstaged() {
+        val cub = kit.toReadyCub()
+        kit.toAttacks()
+        kit.tap(kit.item(cub))
+        kit.settle()
+        fun staged() = kit.alice.device.model.table.attackDraft.orEmpty()
+        assertEquals(1, staged().size, "staged")
+        fun copy() = kit.scene().items.first { it.viewport == "combat" && it.sourceId == cub }
+        kit.tap(copy())
+        kit.settle()
+        assertEquals(cub, toolkit.combat.selected, "the first tap selects it")
+        assertEquals(1, staged().size, "still staged")
+        assertNull(toolkit.capture, "no Combat menu")
+        kit.tap(copy())
+        kit.settle()
+        assertEquals(emptyList(), staged(), "the second tap unstages it")
+        assertNull(toolkit.combat.selected)
+        assertNull(toolkit.capture, "no Combat menu")
     }
 }

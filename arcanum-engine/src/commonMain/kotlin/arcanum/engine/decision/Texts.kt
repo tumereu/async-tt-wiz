@@ -56,6 +56,28 @@ internal object Texts {
         return mays.singleOrNull() ?: text
     }
 
+    private val PAY = Regex("""\bpay""", RegexOption.IGNORE_CASE)
+
+    /** A sentence telling what follows a choice to pay ("If you do, …", "When you do, …", "If they don't, …"). */
+    private val FOLLOW = Regex("""^(If|When)\s+(you|they|that player)\s+(do|does|don't|doesn't|did|didn't)\b""")
+
+    /** A triggered ability's trigger condition before its first comma ("When this creature enters, "). */
+    private val CONDITION = Regex("""^(When|Whenever|At)\b[^,]*,\s+""")
+
+    /**
+     * The prompt of a cost paid on resolution (CR 118.12): the sentence of [ability]'s text that says "pay", else its
+     * "may" sentence ("you may forage"), a triggered ability's trigger condition left out, followed by the sentences
+     * that say what paying does ("If you do, put two +1/+1 counters on it."): "You may forage. If you do, put two +1/+1
+     * counters on it." [otherwise] when the text has neither.
+     */
+    fun pay(ability: Ability?, otherwise: String): String {
+        val all = sentences(of(ability) ?: return otherwise)
+        val at = all.indexOfFirst { PAY.containsMatchIn(it) }.takeIf { it >= 0 }
+            ?: all.indexOfFirst { MAY.containsMatchIn(it) }.takeIf { it >= 0 } ?: return otherwise
+        val first = all[at].let { if (ability is Ability.Triggered) it.replace(CONDITION, "").replaceFirstChar(Char::uppercaseChar) else it }
+        return (listOf(first) + all.drop(at + 1).takeWhile { FOLLOW.containsMatchIn(it) }).joinToString(" ")
+    }
+
     /** The sentence of [ability]'s text that says [verb] ("search", "choose"), else [otherwise]. */
     fun sentence(ability: Ability?, verb: String, otherwise: String): String {
         val text = of(ability) ?: return otherwise

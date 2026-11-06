@@ -36,7 +36,6 @@ internal fun TableSurface(game: GameSummary, play: TableBoard, accountId: String
     PrefetchGameArtwork(play, accountId)
     val layoutState: MutableState<TableLayoutState> = toolkit?.layoutState ?: remember(play.playId, accountId) { mutableStateOf(TableLayoutState()) }
     var layout by layoutState
-    var gestureError by remember(play.playId, accountId) { mutableStateOf<String?>(null) }
     val peekScroll = rememberScrollState()
     // TBL-104 (owner 2026-11-06): a drag to the left while inspecting pins the Inspect
     val peekSwipe = remember { InspectSwipe() }
@@ -103,20 +102,10 @@ internal fun TableSurface(game: GameSummary, play: TableBoard, accountId: String
                         toolkit?.hand?.lower()
                     }
                 }
-                else -> {
-                    val sent = currentWritable && callback?.invoke(intent) == true
-                    if (intent is TableIntent.Rotate && intent.toggle) {
-                        gestureError = if (sent) null else "Rotation not queued. Reconnect and try again."
-                        DebugLatency.tap(game.id, if (sent) "rotated" else if (!currentWritable) "dropped:sceneNotWritable" else "dropped:controllerRefused",
-                            cardId = intent.scope.contextId)
-                    }
-                }
+                else -> if (currentWritable) callback?.invoke(intent)
             }
         }, density = density, onPeekScroll = { peekScroll.holdPreviewScroll(it * density, peekScreenHeight) },
-            onPeekSwipe = peekSwipe::moved, diagnostic = { event ->
-            if (event.startsWith("dropped:")) gestureError = "Rotation not queued (${event.substringAfter(':')}). Reconnect and try again."
-            DebugLatency.tap(game.id, event, toolkit?.popupItem != null)
-        })
+            onPeekSwipe = peekSwipe::moved, diagnostic = { event -> DebugLatency.tap(game.id, event, toolkit?.popupItem != null) })
         owner
     }
     var preview by remember(coordinator) { mutableStateOf(TableGesturePreview()) }
@@ -348,7 +337,7 @@ internal fun TableSurface(game: GameSummary, play: TableBoard, accountId: String
         TableBoardOverlays(game, play, accountId, runtime, scene, rendered)
         TableChromeHeader(game, play, accountId, landscape, runtime, toolkit, compactHeader, scene.appearance)
         CardPanelHeaders(scene, accountId, toolkit)
-        TableControlsLayer(game, play, accountId, landscape, connected, runtime, toolkit, scene, { gestureError }, { gestureError = null })
+        TableControlsLayer(game, play, accountId, landscape, connected, runtime, toolkit, scene)
         // TBL-067: table popups keep off both hands where they fit elsewhere
         val hands = remember(scene) { scene.items.filter { it.kind == TableItemKind.HAND }.map { it.bounds } }
         AnimatedCardRingAnchors(rendered, toolkit?.capture != null) {

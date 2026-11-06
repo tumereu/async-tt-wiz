@@ -164,6 +164,18 @@ internal fun DockButtons(content: @Composable RowScope.() -> Unit) {
     DisposableEffect(slot) { onDispose { slot.buttons = null } }
 }
 
+/** A target bar's title ("Choose any target") over the sentence it asks about ([line], STK-047), in the bar's room. */
+@Composable
+internal fun RowScope.TargetBarTitle(title: String, line: String?) {
+    Column(Modifier.weight(1f).padding(vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(1.dp)) {
+        Text(title, Modifier.semantics { heading() }, fontSize = 13.sp, fontWeight = FontWeight.Medium, maxLines = 2,
+            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+        if (line != null) CardText(line, Modifier.semantics { contentDescription = "Question: $line" }, color = Color(0xff4b5a5f),
+            style = androidx.compose.ui.text.TextStyle(fontSize = 11.sp, lineHeight = 13.sp), maxLines = 2,
+            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+    }
+}
+
 /** The test tag of a choice's source card ([ChoiceSource]). */
 internal const val CHOICE_SOURCE_TAG = "choice-source"
 
@@ -186,8 +198,9 @@ internal fun ChoiceHead(title: String, source: ChoiceCardData?, inspector: Choic
     trailing: @Composable RowScope.() -> Unit = {}, titleLines: Int = Int.MAX_VALUE, below: @Composable ColumnScope.() -> Unit = {}) {
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(title, Modifier.semantics { heading() }, fontWeight = FontWeight.Bold, fontSize = 15.sp, maxLines = titleLines,
-                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+            // A cost in the title ("Pay {2}{G}") shows its symbols (STK-030)
+            CardText(title, Modifier.semantics { heading() }, style = androidx.compose.ui.text.TextStyle(fontWeight = FontWeight.Bold, fontSize = 15.sp),
+                maxLines = titleLines, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
             below()
         }
         trailing()

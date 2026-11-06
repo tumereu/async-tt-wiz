@@ -92,6 +92,10 @@ class GameDevice(
     var needsReload: Boolean = false
         private set
 
+    /** HIS-106: the main line's events after the branch point when [load] opened the game where the player left it on a
+     * line another player's branch discarded; the caller receives them ([revision]) once it showed the table there. */
+    var branchOnLoad: List<GameEvent> = emptyList()
+
     /** Whether playback waits, paused, for the player's Play before it starts ([play] ends it; §29.1). Past the opening
      * only: the opening shows at once ([opening]); any submission of the player's ends it. */
     var catchUp: Boolean = session.buffered.any { it.author != session.me.value }
@@ -255,9 +259,14 @@ class GameDevice(
         if (needsReload) return Status.Reload
         if (session.drafting) return Status.Drafting
         if (session.behind) {
-            if (catchUp && !opening) return Status.CatchUp
             val next = session.buffered.first()
-            return stopAt(next)?.let { Status.Stopped(next, it, paused = stopAt(next, settings.playbackMode) == null) } ?: Status.Playing(next)
+            val decision = stopAt(next, settings.playbackMode)
+            // HIS-094, HIS-095 (owner playtest 2026-11-06): playback standing at a decision of the player's own has nothing
+            // to watch before it: leaving the app, coming back or loading the game again never pauses it for the centre
+            // text there ("has made moves"), whatever of the other player's follows; the stop shows, live
+            if (catchUp && !opening && decision == null) return Status.CatchUp
+            val stop = if (pausing) stopAt(next) else decision
+            return stop?.let { Status.Stopped(next, it, paused = decision == null) } ?: Status.Playing(next)
         }
         val s = model.engine
         Engine.result(s)?.let { return Status.Over(it, confirmable(), final()) }
@@ -556,8 +565,9 @@ class GameDevice(
         return null
     }
 
-    /** Under Auto-skip, the only answer to [d] (§2). */
-    private fun oneAnswer(s: GameState, d: Decision): Input? = if (settings.mode != ResponseMode.AutoSkip) null
+    /** Under Auto-skip, the only answer to [d] (§2). Never the order of triggers (STK-030, owner 2026-11-06): the engine
+     * lists one order of the many there are, and asks only when the triggers differ, so their player always orders them. */
+    private fun oneAnswer(s: GameState, d: Decision): Input? = if (settings.mode != ResponseMode.AutoSkip || d is Decision.OrderTriggers) null
         else Engine.options(s, d.player, model.keptView()).filterIsInstance<Input.Answer>().filter { it.decision == d.id }.singleOrNull()
 
     /** Whether this player's device passes for [player] (theirs to decide) on [s] by their mode (§2) or an End turn. */
@@ -1520,16 +1530,26 @@ class GameDevice(
                 now.stack.all { it in seen.stack || now.stackItems[it]?.controller == me })
 
         /** A device for [me] from the server's [snapshot] (and the codec of the game's definitions), at their local head
-         * with the events past it buffered. */
-        fun load(snapshot: EngineSnapshot, me: PlayerId, ids: () -> String): Pair<GameDevice, EngineJson> {
+         * with the events past it buffered. With [takenBack] (HIS-106), when another player's branch took the player's
+         * local head back ([EngineSnapshot.takenBack]), it is instead where they left it, on the discarded line, and the
+         * main line's events after the branch point wait in [branchOnLoad] for the caller to receive as a revision (the
+         * branch then shows as it does live: the take-back with its note, then the other player's new events). */
+        fun load(snapshot: EngineSnapshot, me: PlayerId, takenBack: Boolean = false, ids: () -> String): Pair<GameDevice, EngineJson> {
             val codec = EngineJson(EngineJson.decodeDefinitions(snapshot.definitions))
             val baseId = snapshot.baseId ?: snapshot.headId
             val base = codec.decodeModel(snapshot.base ?: snapshot.state)
             val events = snapshot.events.map(codec::decodeEvent)
             val heads = snapshot.localHeads.mapKeys { PlayerId(it.key) }
             val local = heads[me]?.takeIf { it == baseId || events.any { e -> e.id == it } } ?: snapshot.headId
-            val session = GameSession(base, baseId, events, local, me)
-            return GameDevice(session, snapshot.settings ?: PlaySettings(), heads, snapshot.lines, snapshot.rewindRequest, ids) to codec
+            fun device(session: GameSession) =
+                GameDevice(session, snapshot.settings ?: PlaySettings(), heads, snapshot.lines, snapshot.rewindRequest, ids)
+            val gone = if (takenBack) snapshot.takenBack.map(codec::decodeEvent) else emptyList()
+            if (gone.isNotEmpty() && gone.first().parentId == local) {
+                val at = if (local == baseId) 0 else events.indexOfFirst { it.id == local } + 1
+                return device(GameSession(base, baseId, events.take(at) + gone, gone.last().id, me))
+                    .also { it.branchOnLoad = events.drop(at) } to codec
+            }
+            return device(GameSession(base, baseId, events, local, me)) to codec
         }
     }
 }

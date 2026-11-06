@@ -68,7 +68,18 @@ internal class EngineGameFixture(val startingPlayer: String = TableStatesFixture
         const val BURST = "Ember Burst"
         /** A fetch-style land: its ability searches its controller's library for a basic land card. */
         const val TRAIL = "Cinder Trail"
+        /** Offspring {R} and "When this creature enters, you may forage. If you do, put two +1/+1 counters on it." (owner
+         * playtest 2026-11-06: worded as a real offspring-and-forage creature). */
+        const val SENTRY = "Hollowroot Sentry"
+        /** A free Food. */
+        const val PIE = "Hedge Pie"
+        /** A free "Draw a card." sorcery: casting it fills the graveyard. */
+        const val STUDY = "Hedge Study"
+        /** A free instant without targets: its holder can always respond. */
+        const val GLINT = "Ember Glint"
     }
+    private val SENTRY_TEXT = "Offspring {R} (You may pay an additional {R} as you cast this spell. If you do, when this creature enters, create a 1/1 token copy of it.)\n" +
+        "When this creature enters, you may forage. If you do, put two +1/+1 counters on it. (To forage, exile three cards from your graveyard or sacrifice a Food.)"
     private val TRAIL_TEXT = "{T}, Pay 1 life, Sacrifice this land: Search your library for a basic land card, put it onto the battlefield, then shuffle."
     private fun free(id: String, name: String, typeLine: String, text: String, power: String = "", toughness: String = "") =
         Invented(DefinitionFace(id, name, typeLine = typeLine, manaCost = "{0}", rulesText = text, power = power, toughness = toughness),
@@ -83,6 +94,10 @@ internal class EngineGameFixture(val startingPlayer: String = TableStatesFixture
             OracleCard(Choices.BURST, "{X}", "Sorcery", "Ember Burst deals X damage to any target.")),
         Invented(DefinitionFace("trail", Choices.TRAIL, typeLine = "Land", rulesText = TRAIL_TEXT),
             OracleCard(Choices.TRAIL, null, "Land", TRAIL_TEXT)),
+        free("sentry", Choices.SENTRY, "Creature — Squirrel Warrior", SENTRY_TEXT, "2", "2"),
+        free("pie", Choices.PIE, "Artifact — Food", "{2}, {T}, Sacrifice this artifact: You gain 3 life."),
+        free("study", Choices.STUDY, "Sorcery", "Draw a card."),
+        free("glint", Choices.GLINT, "Instant", "You gain 2 life."),
     ).associateBy { it.submitted.definition.name }
     private val aliceChoices = aliceCards.map { choiceCards[it] ?: if (it == "Mountain") mountain else error("no card $it") }
 

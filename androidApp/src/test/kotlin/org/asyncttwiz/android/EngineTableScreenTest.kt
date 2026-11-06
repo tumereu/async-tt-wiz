@@ -87,7 +87,9 @@ class EngineTableScreenTest {
         val density = compose.density.density
         assertEquals(hand.y, bar.bottom / density, 1f, "its bottom on the top of the hand row")
         assertEquals(0f, bar.left, 1f); assertEquals(412f, bar.right / density, 1f)
-        compose.onNodeWithText("Storm Spark", substring = true).assertExists()
+        // STK-047 (owner playtest 2026-11-06): the Spark at the bar's right and the sentence its targets are for under the title
+        compose.onNodeWithTag(CHOICE_SOURCE_TAG, useUnmergedTree = true).assert(hasContentDescription("Storm Spark"))
+        compose.onNodeWithContentDescription("Question: Storm Spark deals 3 damage to any target.").assertExists()
         compose.onNodeWithContentDescription("Hide bar").performClick()
         compose.waitForIdle()
         compose.onNodeWithContentDescription("Choose targets").assertDoesNotExist()

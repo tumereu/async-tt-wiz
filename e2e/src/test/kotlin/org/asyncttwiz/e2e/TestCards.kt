@@ -40,6 +40,9 @@ object TestCards {
     /** Makes a token copy of itself as it enters (when cast), drawn with a picture of its own (an invented art id). */
     val twin = card("Ember Twin", "Creature — Elemental", "{R}", "When this creature enters, if you cast it, create a token that's a copy of it.",
         "2", "1", scryfallId = UUID.nameUUIDFromBytes("e2e/art/Ember Twin".encodeToByteArray()).toString())
+    /** Two different enters triggers (STK-030: their order is always asked). */
+    val twinherald = card("Ember Twinherald", "Creature — Elemental", "{R}",
+        "When this creature enters, you gain 1 life.\nWhen this creature enters, draw a card.", "1", "1")
     /** An X spell (STK-023): X damage to any target, X paid by its caster's mana. */
     val burst = card("Ember Burst", "Sorcery", "{X}", "Ember Burst deals X damage to any target.")
     /** A bestow creature whose bestow needs collect evidence (owner playtest 2026-11-05 evening: its Bestow chip was missing
@@ -104,5 +107,11 @@ data class TestDeck(val name: String, val entries: List<Pair<SubmittedDefinition
 
         /** 40 cards: Mountains, Cinder Trails (a fetch-style land) and Storm Sparks. */
         fun trails() = TestDeck("Trails", listOf(TestCards.mountain to 14, TestCards.cinderTrail to 13, TestCards.spark to 13))
+
+        /** Two of each of the [TestCards] (21 different cards): a deck with as many different cards as a real one has. */
+        fun everyCard() = TestDeck("Every card", with(TestCards) {
+            listOf(mountain, spark, cub, herald, hound, stride, glimmer, glint, quench, wisp, twin, burst, lark, thoughts, shard,
+                ashHound, pup, brute, blade, musing, cinderTrail).map { it to 2 }
+        })
     }
 }

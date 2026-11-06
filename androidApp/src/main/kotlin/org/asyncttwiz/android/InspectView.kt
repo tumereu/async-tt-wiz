@@ -137,21 +137,24 @@ internal fun InspectContent(groups: List<InspectGroup>, scroll: ScrollState, swi
         .semantics { paneTitle = "Card inspection" }, contentAlignment = Alignment.Center) {
         val landscape = maxWidth > maxHeight
         val room = DpSize(maxWidth - 16.dp, maxHeight - 16.dp)
-        val content = Modifier.semantics { contentDescription = "Card inspection content" }
+        // TBL-131: pinned, the cards end a little from the left edge
+        val content = Modifier.padding(start = 8.dp * progress).semantics { contentDescription = "Card inspection content" }
         // Pinned, the close button keeps its own room at the top
         val buttonRoom = CLOSE_BUTTON_ROOM * progress
-        if (landscape) Row(content.padding(top = buttonRoom).widthIn(max = room.width).horizontalScroll(scroll),
+        // TBL-131: the cards slide to the left edge as the swipe goes on, their changes right of them
+        val toStart = androidx.compose.ui.BiasAlignment(-progress, 0f)
+        if (landscape) Row(content.align(toStart).padding(top = buttonRoom).widthIn(max = room.width).horizontalScroll(scroll),
             horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
             val cardsRoom = DpSize(room.width, room.height - buttonRoom)
             val changesWidth = if (pinned) pinnedChangesWidth(groups, cardsRoom, room.width) else SIDE_CHANGES_WIDTH
             groups.forEachIndexed { index, group ->
                 key(group.key) {
                     if (index > 0) GroupSeparator(Modifier.padding(horizontal = 4.dp).width(1.dp).height(cardsRoom.height * .7f))
-                    LandscapeGroup(group, cardsRoom, changesWidth, pinned)
+                    LandscapeGroup(group, cardsRoom, changesWidth, pinned, progress)
                 }
             }
-        } else Column(content.heightIn(max = room.height).verticalScroll(scroll).padding(top = buttonRoom),
-            verticalArrangement = Arrangement.spacedBy(8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        } else Column(content.align(toStart).heightIn(max = room.height).verticalScroll(scroll).padding(top = buttonRoom),
+            verticalArrangement = Arrangement.spacedBy(8.dp), horizontalAlignment = androidx.compose.ui.BiasAlignment.Horizontal(-progress)) {
             groups.forEachIndexed { index, group ->
                 key(group.key) {
                     if (index > 0) GroupSeparator(Modifier.padding(vertical = 4.dp).height(1.dp).width(room.width * .8f))
@@ -209,25 +212,69 @@ private fun PortraitGroup(group: InspectGroup, room: DpSize, progress: Float, pi
     val width = group.tiles.maxOfOrNull { inspectTileSize(it, cardsRoom).width } ?: cardsRoom.width
     Row(verticalAlignment = Alignment.Top) {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            group.tiles.forEach { tile -> key(tile.key) { InspectTileView(tile, cardsRoom) } }
+            // TBL-131: shrinking draws the picture already loaded at its full size scaled down, so it never loads again
+            group.tiles.forEach { tile ->
+                key(tile.key) {
+                    val full = inspectTileSize(tile, room)
+                    InspectTileView(tile, room, modifier = Modifier.scaledTo(inspectTileSize(tile, cardsRoom).width / full.width))
+                }
+            }
             if (group.changes.isNotEmpty() && progress < .5f) {
                 val left = 1f - progress * 2f
                 ChangesPanel(group.changes, false, Modifier.width(width).folded(left).graphicsLayer { alpha = left })
             }
         }
-        if (group.changes.isNotEmpty() && progress > 0f) Box(Modifier.width((beside + gap) * progress).clipToBounds()) {
-            ChangesPanel(group.changes, pinned, Modifier.wrapContentWidth(Alignment.Start, unbounded = true).padding(start = gap).width(beside)
-                .graphicsLayer { alpha = progress; translationX = (1f - progress) * 32.dp.toPx() })
+        // TBL-131: beside the card, each change its own block; an unchanged card says "No changes", faded
+        if (progress > 0f) Box(Modifier.width((beside + gap) * progress).clipToBounds()) {
+            val sliding = Modifier.wrapContentWidth(Alignment.Start, unbounded = true).padding(start = gap).width(beside)
+                .graphicsLayer { alpha = progress; translationX = (1f - progress) * 32.dp.toPx() }
+            if (group.changes.isNotEmpty()) ChangeBlocks(group.changes, pinned, sliding)
+            else NoChanges(sliding.height(width * 1.4f))
         }
+    }
+}
+
+/** Lays this out drawn at [scale] of its own size, from its top left: what it shows is measured (and loaded) once. */
+private fun Modifier.scaledTo(scale: Float): Modifier = layout { measurable, constraints ->
+    val placeable = measurable.measure(constraints.copy(minWidth = 0, minHeight = 0))
+    val s = scale.coerceIn(.05f, 1f)
+    layout((placeable.width * s).roundToInt(), (placeable.height * s).roundToInt()) {
+        placeable.placeWithLayer(0, 0) { scaleX = s; scaleY = s; transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0f, 0f) }
+    }
+}
+
+/** TBL-131: pinned Inspect's changes, each its own dark rounded block, a little smaller than the panel's lines;
+ * [interactive]: tapping or holding one with a source shows where it comes from. */
+@Composable
+private fun ChangeBlocks(changes: List<InspectChange>, interactive: Boolean, modifier: Modifier = Modifier) {
+    Column(modifier.semantics { contentDescription = "Card changes" }, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        changes.forEach { change ->
+            Box(Modifier.clip(RoundedCornerShape(10.dp)).background(InspectChangesColor).padding(horizontal = 12.dp, vertical = 7.dp)) {
+                ChangeLine(change, interactive, 13.sp, 17.sp)
+            }
+        }
+    }
+}
+
+/** TBL-131: an unchanged card's pinned Inspect: a faded "No changes" in the middle of the room beside it. */
+@Composable
+private fun NoChanges(modifier: Modifier) {
+    Box(modifier.semantics { contentDescription = "No changes" }, contentAlignment = Alignment.Center) {
+        Text("No changes", color = Color.White.copy(alpha = .45f), fontSize = 14.sp)
     }
 }
 
 /** A card in landscape Inspect: its pictures side by side, its changes beside them, [changesWidth] wide. */
 @Composable
-private fun LandscapeGroup(group: InspectGroup, room: DpSize, changesWidth: Dp, pinned: Boolean) {
+private fun LandscapeGroup(group: InspectGroup, room: DpSize, changesWidth: Dp, pinned: Boolean, progress: Float) {
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
         group.tiles.forEach { tile -> key(tile.key) { InspectTileView(tile, room, fit = true) } }
-        if (group.changes.isNotEmpty()) ChangesPanel(group.changes, pinned, Modifier.align(Alignment.Top).width(changesWidth))
+        // TBL-131: pinned (and on the way there), each change its own block; an unchanged card says "No changes", faded
+        when {
+            group.changes.isNotEmpty() && progress > 0f -> ChangeBlocks(group.changes, pinned, Modifier.align(Alignment.Top).width(changesWidth))
+            group.changes.isNotEmpty() -> ChangesPanel(group.changes, false, Modifier.align(Alignment.Top).width(changesWidth))
+            progress > 0f -> NoChanges(Modifier.width(changesWidth).fillMaxHeight().graphicsLayer { alpha = progress })
+        }
     }
 }
 
@@ -249,14 +296,15 @@ private fun ChangesPanel(changes: List<InspectChange>, interactive: Boolean, mod
 }
 
 @Composable
-private fun ChangeLine(change: InspectChange, interactive: Boolean) {
+private fun ChangeLine(change: InspectChange, interactive: Boolean, size: androidx.compose.ui.unit.TextUnit = 15.sp,
+    lineHeight: androidx.compose.ui.unit.TextUnit = 20.sp) {
     var open by remember(change) { mutableStateOf(false) }
     var pressed by remember(change) { mutableStateOf(false) }
     val source = change.source.takeIf { interactive }
     Column(if (source == null) Modifier else Modifier.fillMaxWidth().pointerInput(change) {
         detectTapGestures(onPress = { pressed = true; tryAwaitRelease(); pressed = false }, onTap = { open = !open })
     }) {
-        CardText(change.text, color = Color.White, style = MaterialTheme.typography.bodyLarge.copy(fontSize = 15.sp, lineHeight = 20.sp))
+        CardText(change.text, color = Color.White, style = MaterialTheme.typography.bodyLarge.copy(fontSize = size, lineHeight = lineHeight))
         if (source != null && (open || pressed)) Text("From $source", color = InspectSourceColor, fontSize = 13.sp, lineHeight = 17.sp)
     }
 }
@@ -281,25 +329,25 @@ internal fun inspectTileSize(tile: InspectTile, room: DpSize): DpSize =
     else minOf(room.width, room.height / 1.4f).let { DpSize(it, it * 1.4f) }
 
 @Composable
-private fun InspectTileView(tile: InspectTile, room: DpSize, fit: Boolean = false) {
+private fun InspectTileView(tile: InspectTile, room: DpSize, fit: Boolean = false, modifier: Modifier = Modifier) {
     val size = inspectTileSize(tile, room)
     when (tile) {
-        is InspectTile.Face -> InspectFaceView(tile, size)
-        is InspectTile.Covered -> Surface(Modifier.size(size).semantics { contentDescription = tile.text },
+        is InspectTile.Face -> InspectFaceView(tile, size, modifier)
+        is InspectTile.Covered -> Surface(modifier.size(size).semantics { contentDescription = tile.text },
             shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceVariant) {
             Box(Modifier.padding(16.dp), contentAlignment = Alignment.Center) {
                 Text(tile.text, style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center)
             }
         }
-        is InspectTile.Ability -> AbilityTile(tile, size, fit)
+        is InspectTile.Ability -> AbilityTile(tile, size, fit, modifier)
     }
 }
 
 @Composable
-private fun InspectFaceView(tile: InspectTile.Face, size: DpSize) {
+private fun InspectFaceView(tile: InspectTile.Face, size: DpSize, modifier: Modifier = Modifier) {
     val density = LocalDensity.current
     val (width, height) = size
-    Box(Modifier.size(width, height).semantics { contentDescription = "Card image: ${tile.name}" }) {
+    Box(modifier.size(width, height).semantics { contentDescription = "Card image: ${tile.name}" }) {
         CardArtwork(tile.reference?.copy(size = "large"), tile.name,
             with(density) { width.roundToPx() }.coerceIn(1, 4096), with(density) { height.roundToPx() }.coerceIn(1, 4096),
             Modifier.requiredSize(width, height)
@@ -332,12 +380,12 @@ private fun InspectFacePlaceholder(reference: ArtworkReference?, name: String) {
  * in the controller's colour. Taller than the screen it scrolls with the rest (TBL-127); where it can't ([fit]: side by
  * side in landscape) the art gives way first. */
 @Composable
-private fun AbilityTile(tile: InspectTile.Ability, size: DpSize, fit: Boolean) {
+private fun AbilityTile(tile: InspectTile.Ability, size: DpSize, fit: Boolean, modifier: Modifier = Modifier) {
     val shape = RoundedCornerShape(12.dp)
     val density = LocalDensity.current
     val artHeight = size.width / ABILITY_ART_RATIO
     val bounded = if (fit) Modifier.heightIn(max = size.height) else Modifier
-    Box(Modifier.width(size.width).then(bounded).clip(shape).background(AbilityTokenColor)
+    Box(modifier.width(size.width).then(bounded).clip(shape).background(AbilityTokenColor)
         .border(2.dp, if (tile.own) OwnTableColor else OpponentTableColor, shape)
         .semantics { contentDescription = "${tile.ability.kind} of ${tile.ability.source}" }) {
         CompositionLocalProvider(LocalContentColor provides Color.White) {

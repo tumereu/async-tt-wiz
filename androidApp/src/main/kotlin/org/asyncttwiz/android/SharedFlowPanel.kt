@@ -234,7 +234,7 @@ internal fun decisionSource(flows: FlowQuestions, flow: SharedFlow, play: TableB
     // Its entry on the Stack, when the ability is there yet (its Inspect tile, STK-050)
     val ref = flow.ref(TargetRef.Object(item.id))
     val entry = play.board.stackEffects.firstOrNull { it.item?.id == ref }?.id
-    return card.copy(key = entry ?: "ability/${item.id}", ability = StackAbilityShown(triggered, card.name, flow.text(item).orEmpty().trim()))
+    return card.copy(key = entry ?: "ability/${item.id}", ability = StackAbilityShown(triggered, card.name, itemText(flows, play, item).orEmpty().trim()))
 }
 
 /** The ability [item] as its entry on the Stack shows it (STK-046: its source card as the table keeps it, the
@@ -259,38 +259,69 @@ private fun DecisionPanel(flows: SharedFlowController, flow: SharedFlow, play: T
     val item = decisionItem(flow, decision)
     val sourceCard = item?.source ?: decision.source?.takeIf { it !is ObjectId.StackItem }
     val source = decisionSource(flows, flow, play, viewer, decision)
+    // UI review #5: which objects the choice is about, e.g. the creature that died
+    val about = item?.let { (it.event?.objects.orEmpty().flatMap { r -> r.ids } +
+        it.targets.values.flatten().filterIsInstance<TargetRef.Object>().map { t -> t.id }).distinct() - setOfNotNull(sourceCard) }.orEmpty()
+        // One card once: an object that changed zones is the same card (its earlier object can't be shown any more)
+        .groupBy { flows.atwCard(it) ?: it.toString() }.filterKeys { it != sourceCard?.let(flows::atwCard) }
+        .values.map { same -> same.firstOrNull(flows::shown) ?: same.first() }
+    DecisionPanelContent(flows, flows.hidden, flows::toggleHidden, play, names, decision, source,
+        askedLine(flows, flow, play, decision, source), about, otherName.takeIf { forOther })
+}
+
+/**
+ * STK-030 (owner playtest 2026-11-06): the sentence an open question of a resolution or a trigger asks about, shown under
+ * its title without holding: an ability's whole text (a keyword's trigger as its keyword's printed line), a spell's
+ * sentence of what is chosen ([askedSentence]); null where the question's own words are that sentence ([hasOwnText]) or
+ * the viewer may not see the source.
+ */
+private fun askedLine(flows: FlowQuestions, flow: SharedFlow, play: TableBoard, decision: Decision, source: ChoiceCardData?): String? {
+    if (hasOwnText(decision)) return null
+    val item = decisionItem(flow, decision)
+    val sourceCard = item?.source ?: decision.source?.takeIf { it !is ObjectId.StackItem }
+    if (sourceCard?.let(flows::shown) == false) return null
+    if (item != null && (item.kind is StackItemKind.Activated || item.kind is StackItemKind.Triggered)) return itemText(flows, play, item)
+    // An ability being put on the Stack (its targets and modes, CR 603.3d): its token carries its text
+    source?.ability?.text?.takeIf { it.isNotBlank() }?.let { return it }
+    return askedSentence(sourceCard?.let { rulesTextOf(play, flows.atwCard(it)) }, decision)
+}
+
+/**
+ * An open choice's panel docked above the hand ([DecisionPanel]): its title saying only what the choice is (I-D47,
+ * STK-030) with its [source] at the right (STK-044), "Choosing for <name>" when [forOther] names the player chosen for,
+ * the sentence it asks about ([line]), the cards it is about ([about]), a short instruction, then the choice itself.
+ */
+@Composable
+internal fun DecisionPanelContent(questions: FlowQuestions, hidden: Boolean, toggleHidden: () -> Unit, play: TableBoard,
+    names: Map<String, String>, decision: Decision, source: ChoiceCardData?, line: String?, about: List<ObjectId> = emptyList(),
+    forOther: String? = null) {
+    val viewer = LocalChoiceFrame.current.viewer
+    val inspector = remember(decision.id) { ChoiceInspector() }
     // UI review round 2 N3: the choice's own buttons sit in the dock's bottom row beside the eye, as in the cast panel
     val slot = remember(decision.id) { DockSlot() }
-    AutomatumDockPanel("Automatum choice", flows.hidden, flows::toggleHidden, "Automatum panel", buttons = { slot.buttons?.invoke(this) }) {
+    AutomatumDockPanel("Automatum choice", hidden, toggleHidden, "Automatum panel", buttons = { slot.buttons?.invoke(this) }) {
         CompositionLocalProvider(LocalDockSlot provides slot) {
         // I-D47, STK-030: the title says only what the choice is ("Scry 2"); its source is the card at the right
         ChoiceHead(choiceWhat(decision), source, inspector) {
-            if (forOther) Text("Choosing for $otherName", fontSize = 12.sp, fontWeight = FontWeight.Medium, color = AutomatumViolet)
-            // An ability's own line (a spell is its card: hold it to read it)
-            if (!hasOwnText(decision) && item != null && (item.kind is StackItemKind.Activated || item.kind is StackItemKind.Triggered) &&
-                sourceCard?.let(flows::shown) != false) flow.text(item)?.let {
-                CardText(it, color = Color(0xff4b5a5f), style = androidx.compose.ui.text.TextStyle(fontSize = 11.sp, lineHeight = 14.sp))
+            if (forOther != null) Text("Choosing for $forOther", fontSize = 12.sp, fontWeight = FontWeight.Medium, color = AutomatumViolet)
+            line?.let {
+                CardText(it, Modifier.semantics { contentDescription = "Question: $it" }, color = Color(0xff4b5a5f),
+                    style = androidx.compose.ui.text.TextStyle(fontSize = 11.sp, lineHeight = 14.sp))
             }
         }
-        // UI review #5: which objects the choice is about, e.g. the creature that died
-        val about = item?.let { (it.event?.objects.orEmpty().flatMap { r -> r.ids } +
-            it.targets.values.flatten().filterIsInstance<TargetRef.Object>().map { t -> t.id }).distinct() - setOfNotNull(sourceCard) }.orEmpty()
-            // One card once: an object that changed zones is the same card (its earlier object can't be shown any more)
-            .groupBy { flows.atwCard(it) ?: it.toString() }.filterKeys { it != sourceCard?.let(flows::atwCard) }
-            .values.map { same -> same.firstOrNull(flows::shown) ?: same.first() }
-        if (about.isNotEmpty()) AboutRow("About", about.map { AboutItem.Card(choiceCardOf(flows, play, viewer, it)) }, inspector)
+        if (about.isNotEmpty()) AboutRow("About", about.map { AboutItem.Card(choiceCardOf(questions, play, viewer, it)) }, inspector)
         choiceHint(decision)?.let { ChoiceHintText(it) }
         CompositionLocalProvider(LocalChoiceFrame provides LocalChoiceFrame.current.copy(headed = true)) {
             when (decision) {
                 is Decision.ManaPayment -> {
-                    ManaSection(flows, flows, play, decision)
+                    ManaSection(questions, questions, play, decision)
                     DockButtons {
-                        ChoiceButton("Pay", Icons.Outlined.Check, enabled = flows.paid, primary = true) {
-                            flows.answer(Answer.ManaPayment(flows.mana))
+                        ChoiceButton("Pay", Icons.Outlined.Check, enabled = questions.paid, primary = true) {
+                            questions.answer(Answer.ManaPayment(questions.mana))
                         }
                     }
                 }
-                else -> OpenSection(flows, flows, play, names, decision)
+                else -> OpenSection(questions, questions, play, names, decision)
             }
         }
         ChoiceInspection(inspector, play, viewer)
@@ -305,8 +336,8 @@ private fun FlowTargetBar(flows: SharedFlowController, flow: SharedFlow, play: T
     source: ChoiceCardData?) {
     val inspector = remember(decision.id) { ChoiceInspector() }
     AutomatumDockBar("Choose targets", eye = true) {
-        Text(targetTitle(decision), Modifier.weight(1f).semantics { heading() }, fontSize = 13.sp,
-            fontWeight = FontWeight.Medium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        // STK-047 (owner playtest 2026-11-06): the sentence the targets are for, under the title
+        TargetBarTitle(targetTitle(decision), askedLine(flows, flow, play, decision, source))
         if (decision.max != 1 || decision.min == 0) BarButton(if (flows.picked.isEmpty()) "None" else "Done",
             if (flows.picked.isEmpty()) Icons.Outlined.Block else Icons.Outlined.Check, enabled = flows.picked.size >= decision.min,
             onClick = flows::confirmTargets)
@@ -321,6 +352,18 @@ private fun FlowTargetBar(flows: SharedFlowController, flow: SharedFlow, play: T
 
 
 
+/** The text of ability [item] (STK-046, STK-050): a keyword's trigger as its keyword's printed line on its source
+ * ([org.asyncttwiz.automatum.StackAbilityText.of]). */
+internal fun itemText(flows: FlowQuestions, play: TableBoard, item: StackItem): String? =
+    org.asyncttwiz.automatum.StackAbilityText.of(item, item.source?.let { rulesTextOf(play, flows.atwCard(it)) })
+
+/** The printed rules text of ATW card [cardId]'s face on [play]'s board, when it has one. */
+internal fun rulesTextOf(play: TableBoard, cardId: String?): String? {
+    val card = play.board.cards.firstOrNull { it.id == cardId } ?: return null
+    return play.definitions.firstOrNull { it.digest == card.definition }?.definition?.faces
+        ?.let { faces -> faces.firstOrNull { it.faceId == card.faceId } ?: faces.firstOrNull() }?.rulesText
+}
+
 private fun faceName(play: TableBoard, card: PlayCard): String? =
     play.definitions.singleOrNull { it.digest == card.definition }?.definition?.faces
         ?.let { faces -> faces.singleOrNull { it.faceId == card.faceId } ?: faces.firstOrNull() }?.name
@@ -333,8 +376,12 @@ private fun sourceName(flows: SharedFlowController, flow: SharedFlow, play: Tabl
     return objectName(flows, play, source)
 }
 
+/** Whether [decision]'s panel shows the sentence it asks about itself (STK-030): a "you may" its sentence, a search its
+ * title (STK-056), a skipped step its text, triggers to order their own lines; every other question of an ability shows
+ * the ability's text under its title. */
 private fun hasOwnText(decision: Decision) =
-    decision is Decision.May || decision is Decision.ChooseObjects || decision is Decision.Manual || decision is Decision.OrderTriggers
+    decision is Decision.May || decision is Decision.Manual || decision is Decision.OrderTriggers ||
+        (decision is Decision.ChooseObjects && ObjectsShape.of(decision).search)
 
 /** What the decision asks, in a few words: the card's sentence when it has one. */
 private fun prompt(flows: SharedFlowController, flow: SharedFlow, play: TableBoard, decision: Decision): String = when (decision) {

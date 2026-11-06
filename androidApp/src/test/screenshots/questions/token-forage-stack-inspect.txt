@@ -1,0 +1,1 @@
+The offspring trigger made a 1/1 token copy of the Sentry and only the token's forage ability triggered: while its question is open, holding it on the Stack shows its forage sentence.

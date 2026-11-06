@@ -84,9 +84,10 @@ internal class LobbyDeckPicker(private val scope: LobbyScope, private val deckAp
                 if (generation != epoch || version != pickerVersion) return@runBlocking null
                 val saved = serviceRetry(current = { generation == epoch && version == pickerVersion }) { api.read(token, source.id) }
                 if (saved.deck.revision != source.revision) throw DeckFailure("source_changed")
-                val definitions = saved.entries.map { it.definition }.distinct().map { digest ->
-                    if (generation != epoch || version != pickerVersion) return@runBlocking null
-                    serviceRetry(current = { generation == epoch && version == pickerVersion }) { api.definition(token, source.id, digest) }
+                if (generation != epoch || version != pickerVersion) return@runBlocking null
+                // Owner playtest 2026-11-06: the cards' data in one request, not one per card (the deck service's limit)
+                val definitions = serviceRetry(current = { generation == epoch && version == pickerVersion }) {
+                    api.definitions(token, source.id, saved.entries.map { it.definition })
                 }
                 saved to definitions
             } }

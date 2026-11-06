@@ -292,6 +292,36 @@ class DeckHttpTest {
         }
     }
 
+    // LOB-040 (owner playtest 2026-11-06): a deck's card data is read in one request, not one per card (the deck
+    // service's per-account limit); only the owner's deck, only its own cards
+    @Test fun `a deck's card data is read in one request`() {
+        FreshDatabase().start().use { db ->
+            FoundationMigrations.migrate(db.settings)
+            val config = settings(db)
+            SpringService(config).use { service ->
+                val settings = service.startBound(config); ready(settings)
+                val owner = account(settings, "batch-owner"); val other = account(settings, "batch-stranger")
+                val cards = List(3) { submitted(card("Batch card $it", id())) }
+                val outside = submitted(card("Not in the deck", id()))
+                assertEquals(200, post(settings, "/v1/definitions", SubmitDefinitions(id(), cards + outside), owner.token).statusCode())
+                val deck = json.decodeFromString<SavedDeck>(post(settings, "/v1/decks", CreateDeck(id(), "Batch", listOf(
+                    SavedDeckEntry(SavedDeckSection.MAINBOARD, cards[0].digest, 20), SavedDeckEntry(SavedDeckSection.MAINBOARD, cards[1].digest, 20),
+                    SavedDeckEntry(SavedDeckSection.SIDEBOARD, cards[1].digest, 2), SavedDeckEntry(SavedDeckSection.SIDEBOARD, cards[2].digest, 3))),
+                    owner.token).body())
+                val path = "/v1/decks/${deck.deck.id}/definitions"
+                val read = post(settings, path, ReadCubeDefinitions(cards.map { it.digest }), owner.token)
+                assertEquals(200, read.statusCode(), read.body())
+                assertEquals(SubmittedDefinitions(cards), json.decodeFromString<SubmittedDefinitions>(read.body()))
+                val denied = post(settings, path, ReadCubeDefinitions(listOf(cards[0].digest)), other.token)
+                assertEquals(404, denied.statusCode()); assertFalse(denied.body().contains("Batch card"))
+                assertEquals(404, post(settings, path, ReadCubeDefinitions(listOf(cards[0].digest, outside.digest)), owner.token).statusCode())
+                assertEquals(400, post(settings, path, ReadCubeDefinitions(emptyList()), owner.token).statusCode())
+                assertEquals(404, post(settings, "/v1/decks/${id()}/definitions", ReadCubeDefinitions(listOf(cards[0].digest)), owner.token).statusCode())
+                assertEquals(405, request(settings, "GET", path, token = owner.token).statusCode())
+            }
+        }
+    }
+
     // LOB-058
     @Test fun `owned metadata deletion serialization privacy and original retries never upsert or rewrite definitions`() {
         FreshDatabase().start().use { db ->

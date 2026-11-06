@@ -41,8 +41,9 @@ object E2eStack {
         val dir = Files.createTempDirectory(output.toPath(), "stack-").toFile()
         val password = UUID.randomUUID().toString()
         val name = "atw-e2e-${ProcessHandle.current().pid()}"
-        // Containers of e2e runs that died without their shutdown hook
-        docker("ps", "-aq", "--filter", "label=org.asyncttwiz.owner=e2e").lines().filter(String::isNotBlank)
+        // Containers of e2e runs that died without their shutdown hook; never another run still going (parallel worktrees)
+        docker("ps", "-a", "--format", "{{.Names}}", "--filter", "label=org.asyncttwiz.owner=e2e").lines().filter(String::isNotBlank)
+            .filter { stale -> stale.removePrefix("atw-e2e-").toLongOrNull()?.let { ProcessHandle.of(it).isPresent } != true }
             .forEach { runCatching { docker("rm", "-f", it) } }
         docker("run", "-d", "--rm", "--name", name, "--label", "org.asyncttwiz.owner=e2e", "-e", "POSTGRES_USER=atw_e2e",
             "-e", "POSTGRES_PASSWORD=$password", "-e", "POSTGRES_DB=atw_e2e", "--tmpfs", "/var/lib/postgresql/data", image)

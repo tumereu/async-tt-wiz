@@ -1,0 +1,1 @@
+fix: When the other player answered differently from what you assumed while you were away (for example other blocks), coming back shows your later actions being taken back with a note, instead of saying they have made moves.

@@ -195,6 +195,35 @@ class GameDeviceTest {
         assertTrue(sim.leaks.isEmpty())
     }
 
+    // HIS-094, HIS-095, HIS-035, HIS-033 (owner playtest 2026-11-06): at a stop for the player's own decision there is
+    // nothing to watch before it: leaving the app and coming back, and loading the game again, show that same stop live,
+    // never the catch-up's paused start ("has made moves"), though the other player's events follow it
+    @Test
+    fun aStopIsLiveAgainAfterLeavingAndLoading() {
+        val glimmer = arcanum.engine.cards.Cards.invent("Idle Glimmer", "{0}", "Instant", "Draw a card.")
+        val sim = DeviceSim(EngineGames(3, (List(10) { "Forest" } + List(30) { glimmer }) to (List(20) { "Mountain" } + List(20) { "Storm Spark" })))
+        sim.bobToMain()
+        val alice = sim.alice; val bob = sim.bob
+        sim.bobCasts("Storm Spark", landName = "Mountain")
+        sim.settle(only = listOf(bob))
+        // He plays on past it: his End turn
+        sim.device(bob).endTurn(sim.now)
+        sim.settle(only = listOf(bob))
+        val device = sim.load(alice)
+        device.play()
+        device.playToStop()
+        val stop = assertIs<GameDevice.Status.Stopped>(device.status)
+        assertTrue(device.session.buffered.size > 1, "Bob's events after the stop")
+        device.away()
+        assertEquals(stop, device.status, "away")
+        device.returned()
+        assertEquals(stop, device.status, "back")
+        sim.now += 600_000
+        sim.flush(alice)
+        assertEquals(stop.event.parentId, sim.server.heads[alice], "her local head reported at the stop")
+        assertEquals(stop, sim.load(alice).status, "loaded again")
+    }
+
     /** The engine searches (layer computations, [Engine.layersWorkedOut]) and points worked out while [ticks] run. */
     private fun searches(device: GameDevice, ticks: () -> Unit): Pair<Int, Int> {
         var layers = 0
@@ -784,6 +813,27 @@ class GameDeviceTest {
         assertEquals(1, m.turn.number)
         assertEquals(GameDevice.Status.YourMove, bobs.status)
         assertEquals(sim.server.head, bobs.session.tip, "the server's head is there too")
+    }
+
+    // STK-036, STK-030, SYS-063, CR 603.3b (owner 2026-11-06): two different triggers of Bob's that go on the Stack at the
+    // same time are his to order in every response mode: his Auto-skip device asks him rather than ordering them itself
+    @Test
+    fun autoSkipAsksTheOrderOfTwoTriggers() {
+        val herald = arcanum.engine.cards.Cards.invent("Twinbloom Herald", "{G}", "Creature — Elf Druid",
+            "When this creature enters, you gain 1 life.\nWhen this creature enters, draw a card.", "1/1")
+        val sim = DeviceSim(EngineGames(3, List(40) { "Island" } to List(40) { if (it % 2 == 0) "Forest" else herald }))
+        sim.bobToMain()
+        val bob = sim.bob
+        val bobs = sim.device(bob)
+        assertEquals(ResponseMode.AutoSkip, bobs.settings.mode)
+        assertIs<GameDevice.Acted.Sent>(bobs.act(Input.PlayLand(bob, hand(bobs.model, bob, "Forest"))))
+        sim.settle()
+        assertIs<GameDevice.Acted.Sent>(bobs.act(Input.Cast(bob, hand(bobs.model, bob, herald))))
+        sim.settle()
+        val order = assertIs<Decision.OrderTriggers>(bobs.model.engine.pending?.decision, "the order is asked: ${bobs.model.engine.turn}")
+        assertEquals(bob, order.player)
+        assertEquals(2, order.triggers.size)
+        assertEquals(GameDevice.Status.YourMove, bobs.status)
     }
 
     // TRN-027 (smoke 2026-11-04): both players keep at the same moment and the server takes Bob's first, refusing

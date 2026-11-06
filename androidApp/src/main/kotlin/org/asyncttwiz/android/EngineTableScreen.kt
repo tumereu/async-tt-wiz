@@ -202,7 +202,7 @@ internal fun EngineTableScreen(controller: LobbyController, accountId: String, h
                             rewindingBranch -> ({ _ -> EngineRewindPanel(landscape) })
                             else -> null
                         },
-                        centreAction = if (reviewPlay == null && (catchUp || pausedStop) && watchTappedAt != shown.version)
+                        centreAction = if (reviewPlay == null && (catchUp || pausedStop) && !takingBack && watchTappedAt != shown.version)
                             TableCentreAction("${routes.opponentName} has made moves · Tap to watch") {
                                 watchTappedAt = shown.version; engine.startPlayback(); controller.engineSent() }
                             else null,

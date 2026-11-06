@@ -121,6 +121,10 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         }
     }, main, lobby::tick)
 
+    /** Owner playtest 2026-11-06: the background runs over every saved list read one list a second (three requests or so),
+     * well inside the deck service's 600 requests a minute, so a deck chosen meanwhile is never refused as busy. */
+    private suspend fun paceSavedLists() = kotlinx.coroutines.delay(1_000)
+
     // I-D21: saved decks' and cubes' card data made before it kept split halves and colour indicators is rebuilt from
     // the installed catalog, once per account (CardDataRefreshRun); a failed run is tried again on a later return.
     private val cardDataWork by lazy { Executors.newSingleThreadExecutor { Thread(it, "card-data-refresh") } }
@@ -136,7 +140,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                 val repository = catalog.repository
                 val api = DeckApi(BuildConfig.ACCOUNT_ORIGIN, authenticationRequired = ::authenticationRequired)
                 val outcome = api.use {
-                    kotlinx.coroutines.runBlocking { CardDataRefreshRun(it, it, org.asyncttwiz.storage.CardDataRefresh::stale) { definition ->
+                    kotlinx.coroutines.runBlocking { CardDataRefreshRun(it, it, org.asyncttwiz.storage.CardDataRefresh::stale, pace = ::paceSavedLists) { definition ->
                         org.asyncttwiz.storage.CardDataRefresh.rebuild(definition, repository) }.run(token) }
                 }
                 AppLog.info("CardData", "Card data refreshed: ${outcome.decksUpdated} decks, ${outcome.cubesUpdated} cubes" +
@@ -161,7 +165,8 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         cardDataWork.execute {
             try {
                 val outcome = DeckApi(BuildConfig.ACCOUNT_ORIGIN, authenticationRequired = ::authenticationRequired).use { api ->
-                    kotlinx.coroutines.runBlocking { AutomatumSupportRun(api, api, cardListSupport.parserVersion, cardListSupport.engineVersion, cardListSupport::support).run(token) }
+                    kotlinx.coroutines.runBlocking { AutomatumSupportRun(api, api, cardListSupport.parserVersion, cardListSupport.engineVersion, cardListSupport::support,
+                        pace = ::paceSavedLists).run(token) }
                 }
                 if (outcome.decks + outcome.cubes > 0)
                     AppLog.info("Automatum", "Automatum support worked out: ${outcome.decks} decks, ${outcome.cubes} cubes")

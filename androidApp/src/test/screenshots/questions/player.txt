@@ -1,0 +1,1 @@
+Choosing a player: the panel is titled "Choose a player" with the sentence under it and a button for Alice and one for Bob.

@@ -20,7 +20,7 @@ import kotlin.test.assertTrue
 /**
  * Declaring attackers (owner, 2026-11-04) through Alice's table on the simulated server with Bob's game beside it
  * ([EngineTableKit]): her Cinder Hound has an ability ("{R}: +1/+0"), Bob has an Ash Oracle (a planeswalker) to attack.
- * Full control stops at the beginning of combat, where one tap pumps the Hound; while attackers are chosen a tap on the
+ * Control stops at the beginning of combat, where one tap pumps the Hound; while attackers are chosen a tap on the
  * Hound only stages or unstages it, nothing can be activated, and its target is picked in the lanes alone.
  */
 @RunWith(RobolectricTestRunner::class)
@@ -83,7 +83,7 @@ class EngineDeclaringAttackersTest {
         return hound to kit.atw(kit.field("Ash Oracle", kit.other).single())
     }
 
-    // CMB-028, CMB-047, STK-036, TBL-122, CMB-015, CMB-012: Full control stops at the beginning of combat (the arrow reads Next)
+    // CMB-028, CMB-047, STK-036, TBL-122, CMB-015, CMB-012: Control stops at the beginning of combat (the arrow reads Next)
     // and one tap there activates the Hound's ability; while attackers are chosen nothing can be activated and a tap on
     // the Hound only stages or unstages it (at the lane made active by its header); dragging its copy between lanes
     // retargets it; the arrow attacks the Oracle
@@ -95,7 +95,7 @@ class EngineDeclaringAttackersTest {
         assertEquals(AutomatumStep.ToCombat, AutomatumStep.of(kit.alice.play()))
         assertTrue(toolkit.automatumStep(TableActionIntent.Next(kit.scope)), "To combat")
         kit.settle(bobActs = false)
-        assertEquals(TurnStep.BeginningOfCombat, kit.state().turn.step, "Full control stops at the beginning of combat")
+        assertEquals(TurnStep.BeginningOfCombat, kit.state().turn.step, "Control stops at the beginning of combat")
         assertEquals(kit.me, kit.state().priority.holder)
         assertEquals(GameDevice.Status.YourMove, kit.alice.device.status)
         assertEquals(AutomatumStep.Next, AutomatumStep.of(kit.alice.play()))
@@ -106,7 +106,7 @@ class EngineDeclaringAttackersTest {
         assertNull(toolkit.error)
         kit.settle(bobActs = false)
         assertEquals(1, kit.state().stack.size, "the pump is on the Stack")
-        // Full control: Alice keeps priority after activating (STK-036); the arrow lets it resolve
+        // Control: Alice keeps priority after activating (STK-036); the arrow lets it resolve
         kit.playOn("the pump resolving", bobActs = false) {
             if (kit.alice.device.status == GameDevice.Status.YourMove && kit.state().priority.holder == kit.me && kit.state().stack.isNotEmpty())
                 assertTrue(toolkit.automatumStep(TableActionIntent.Next(kit.scope)), "Resolve")
@@ -127,10 +127,15 @@ class EngineDeclaringAttackersTest {
         assertEquals(listOf(TargetRef.Player(kit.other)), attackDraft().map { it.target }, "staged at Bob")
         assertTrue(kit.state().stack.isEmpty() && power(hound) == 3, "no ability activated")
         assertNull(toolkit.abilityCard, "no ability chips")
-        // The Oracle has its lane; its header's tap makes it the active lane; a tap unstages the Hound, the next stages it there
+        // The Oracle has its lane; its header's tap makes it the active lane; the Hound's copy is selected by a tap and
+        // unstaged by the next (CMB-003, CMB-032, owner 2026-11-06), the tap after that stages it there
         val lane = kit.scene().combatLabels.single { it.cardId == oracle }
         toolkit.combat.chooseTarget(kit.alice.play(), lane.cardId)
         assertEquals(oracle, toolkit.combat.activeTarget(kit.alice.play()))
+        tapSeen(hound)
+        kit.settle(bobActs = false)
+        assertEquals(hound, toolkit.combat.selected, "selected")
+        assertEquals(1, attackDraft().size, "still staged")
         tapSeen(hound)
         kit.settle(bobActs = false)
         assertEquals(emptyList(), attackDraft(), "unstaged")

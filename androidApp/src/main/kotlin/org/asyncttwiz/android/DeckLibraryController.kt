@@ -148,10 +148,11 @@ class DeckLibraryController(private val api: Decks, private val credential: () -
     }
     private suspend fun detail(token: String, id: String, known: Map<String, CardDefinition>, generation: Long): DeckDetail? {
         val saved = api.read(token, id)
-        val definitions = saved.entries.map { it.definition }.distinct().associateWith {
-            if (generation != epoch) return null
-            known[it] ?: api.definition(token, id, it).definition
-        }
+        val digests = saved.entries.map { it.definition }.distinct()
+        if (generation != epoch) return null
+        val read = digests.filterNot(known::containsKey).takeIf { it.isNotEmpty() }
+            ?.let { missing -> api.definitions(token, id, missing).associate { it.digest to it.definition } }.orEmpty()
+        val definitions = digests.associateWith { known[it] ?: read.getValue(it) }
         return DeckDetail(saved, definitions)
     }
     override fun close() { closed = true; clear(); worker.execute { api.close() }; worker.shutdown() }

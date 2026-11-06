@@ -148,6 +148,10 @@ internal object EventMatcher {
                 listOf(TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(c.id))) + listOfNotNull(paid?.source?.let { RoleObjects(EventRole.Source, listOf(it)) }),
                     listOfNotNull(e.controllerOf(c.id)))) else null
         }.orEmpty()
+        // ltr chunk 12: a permanent phasing in (CR 702.26c)
+        is EventPattern.PhaseIn -> (change as? Change.Status)?.takeIf { it.flag == StatusFlag.PhasedOut && it.before && !it.after }?.let { c ->
+            if (e.matches(pattern.objects, c.id)) listOf(TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(c.id))), listOfNotNull(e.controllerOf(c.id)))) else null
+        }.orEmpty()
         is EventPattern.Untap -> (change as? Change.Status)?.takeIf { it.flag == StatusFlag.Tapped && it.before && !it.after }?.let { c ->
             if (e.matches(pattern.objects, c.id)) listOf(TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(c.id))))) else null
         }.orEmpty()

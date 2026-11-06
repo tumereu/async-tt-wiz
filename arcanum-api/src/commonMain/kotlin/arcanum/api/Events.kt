@@ -102,6 +102,13 @@ sealed interface EventPattern {
         val producing: ManaCost? = null,
     ) : EventPattern
     @Serializable @SerialName("untap") data class Untap(val objects: ObjectFilter) : EventPattern
+    // ltr chunk 13
+    /** The final chapter ability of a Saga matching [sagas] resolves (CR 714.2c, the chapter ability with the highest number). Role object:
+     * the Saga. */
+    @Serializable @SerialName("final-chapter-resolves") data class FinalChapterResolves(val sagas: ObjectFilter) : EventPattern
+    // ltr chunk 12
+    /** A permanent matching [objects] phases in (CR 702.26c). Role object: the permanent. */
+    @Serializable @SerialName("phase-in") data class PhaseIn(val objects: ObjectFilter) : EventPattern
     /** A creature attacks; [alone] for "attacks alone"; [target] narrows what it attacks. Roles object (the attacker),
      * defender (a planeswalker or battle attacked); [Players.EventPlayer] is the player attacked. */
     @Serializable @SerialName("attack") data class Attack(

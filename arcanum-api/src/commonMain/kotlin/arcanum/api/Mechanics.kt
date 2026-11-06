@@ -353,6 +353,9 @@ sealed interface Mechanic {
         val objects: Objects, val exceptLoyalty: Boolean = false,
         // tla
         val triggered: Boolean = false,
+        // ltr chunk 13
+        /** Not their mana abilities ("all activated abilities of lands your opponents control except mana abilities", CR 605.1a). */
+        val exceptMana: Boolean = false,
     ) : Mechanic {
         override val layer: Layer get() = Layer.Ability
         override val stacking: Stacking get() = Stacking.Independent
@@ -559,6 +562,10 @@ sealed interface CopyException {
         val addSupertypes: List<Supertype> = emptyList(), val removeSupertypes: List<Supertype> = emptyList(),
         /** Replaces the creature types ("except it's a Bird"). */
         val replaceSubtypes: Boolean = false,
+        // ltr chunk 13
+        /** The copy has only the card types in [add] ("except it's a Food artifact … and it loses all other card types"), and only the
+         * subtypes that go with them (CR 205.1b). */
+        val replaceTypes: Boolean = false,
     ) : CopyException
     /** Its colours become [colors], or also [colors] when [add] ("in addition to its other colors"). */
     @Serializable @SerialName("colors") data class Colors(val colors: List<ColorRef>, val add: Boolean = false) : CopyException

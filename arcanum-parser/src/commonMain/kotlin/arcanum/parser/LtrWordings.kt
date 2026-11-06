@@ -137,6 +137,32 @@ internal object Ltr {
     val CHOOSE_OPPONENT_NEXT_END_STEP = Regex("""Choose an opponent\. At the beginning of that player's next end step, (.+?) if they didn't attack you that turn\. Otherwise, (.+)""")
     val COSTS_LESS_FOR_EACH_SACRIFICED_THIS_TURN = Regex("""This spell costs (\{\d+\}) less to cast for each (\w+) sacrificed this turn\.""")
     val COUNTER_ON_EACH_OF_UP_TO_X = Regex("""[Pp]ut an? (\S+) counter on each of up to X target (.+)\.""")
+    // ltr chunk 12
+    val EACH_PLAYER_SACRIFICES_IF_YOU_DID_RETURN = Regex("""Each player sacrifices an? (\w+) of their choice\. If you sacrificed an? \1 this way, you may return another (.+?) from your graveyard to the battlefield\.""")
+    val TARGET_PLAYER_MILLS_THEN_AMASS_X = Regex("""Target player mills (\w+) cards\. Then amass (\w+) X(?:, where X is the number of (.+?) cards in that player's graveyard)?\.""")
+    val DEALS_X_EXCESS_TO_CONTROLLER = Regex("""(.+?) deals X damage to (target .+?)(?:, where X is (.+?))?\. Excess damage is dealt to that creature's controller instead\.""")
+    val GAINS_PROTECTION_FROM_CHOSEN_CARD_TYPE = Regex("""(.+?) gains protection from the card type of your choice until end of turn\.""")
+    val BECOMES_TARGET_OF_A_SPELL_PHASES_OUT = Regex("""(.+?) becomes the target of a spell, it phases out\.""")
+    val PHASES_IN = Regex("""(.+?) phases in""")
+    val SHARES_A_COLOR_WITH = Regex("""(.+?) that shares a color with an? (.+)""")
+    val ATTACK_WITH_SELF_AND_ANOTHER = Regex("""you attack with (.+?) and another (.+)""")
+    val N_OR_MORE_CREATURES_DIED_UNDER_YOUR_CONTROL = Regex("""(\w+) or more creatures died under your control this turn""")
+    val RESOLVES_FOR_THE_NTH_TIME = Regex("""When this ability resolves for the (\w+) time this turn, (.+)""")
+    // ltr chunk 13
+    val ATTACH_UP_TO_ONE_THEN_AMASS_ATTACHED = Regex("""Attach (up to one target Equipment) to it\. Then amass (\w+) X(?:, where X is the number of Equipment attached to (.+?))?\.""")
+    val IF_THAT_CREATURE_WAS_PUT_COUNTERS_INSTEAD = Regex("""If that creature was an? (.+?), put (\w+) (\S+) counters on (.+?) instead\.""")
+    val OPPONENT_SEPARATES_PILES = Regex("""Choose an opponent\. They look at the top (\w+) cards of your library and separate them into a face-down pile and a face-up pile\. Put one pile into your hand and the other into your graveyard\.(?: (.+))?""")
+    val IF_THAT_CREATURE_HAS_POWER_IT_GAINS = Regex("""If that creature has power (\d+) or greater, it gains (.+) until end of turn\.""")
+    val COPY_THAT_DIED_EXCEPT_FOOD = Regex("""Whenever (another creature) dealt damage this turn by an? (\w+) you controlled dies, create a token that's a copy of that creature, except it's a (\w+) artifact with "(.+?)," and it loses all other card types\.""")
+    val TARGET_OPPONENT_REVEALS_UNTIL_UNDER_YOUR_CONTROL = Regex("""Target opponent reveals cards from the top of their library until they reveal an? (.+?) card\. Put that card onto the battlefield tapped under your control and the rest into their graveyard\.""")
+    val LORE_COUNTERS_AMONG_SAGAS = Regex("""there are (\w+) or more lore counters among Sagas you control""")
+    val FINAL_CHAPTER_OF_A_SAGA_RESOLVES = Regex("""the final chapter ability of an? (.+?) resolves""")
+    val REVEAL_UNTIL_PUT_ONTO_BATTLEFIELD_REST_BOTTOM = Regex("""Reveal cards from the top of your library until you reveal an? (.+?) card\. Put that card onto the battlefield and the rest on the bottom of your library in a random order\.""")
+    val PUT_SELF_ON_BOTTOM = Regex("""[Pp]ut (.+?) on the bottom of its owner's library\.""")
+    val LANDS_ABILITIES_CANT_BE_ACTIVATED_UNLESS_MANA = Regex("""Activated abilities of (.+?) can't be activated unless they're mana abilities\.""")
+    val HAS_ALL_ACTIVATED_ABILITIES_EXCEPT_MANA = Regex("""(.+?) has all activated abilities of (.+?) except mana abilities\.""")
+    val MANA_OF_ANY_TYPE_TO_ACTIVATE_SELFS = Regex("""Mana of any type can be spent to activate (.+?)'s abilities\.""")
+    val OPPONENTS_MILL_WHEN_MILLED_EXILE_COPY_CAST = Regex("""Each opponent mills (\w+) cards\. When one or more cards are milled this way, exile (target .+?) with equal or lesser mana value than that spell from an opponent's graveyard\. Copy the exiled card\. You may cast the copy without paying its mana cost\.""")
     val TARGETS_EACH_GAIN = Regex("""((?:Up to )?(?:two|three|Two|Three) target .+?) (?:each )?(gain|get) (.+)""")
 }
 
@@ -172,6 +198,12 @@ internal object LtrPhrases {
             val base = Filters.noun(m.groupValues[1]) ?: return null
             return Filters.all(base, ObjectFilter.Or(listOf(ObjectFilter.ManaValue(Comparison.Equal, Value.Fixed(m.groupValues[2].toInt())),
                 ObjectFilter.ManaValue(Comparison.Equal, Value.Fixed(m.groupValues[3].toInt())))))
+        }
+        // ltr chunk 12: "card that shares a color with a legendary creature you control" (CR 105.4)
+        Ltr.SHARES_A_COLOR_WITH.matchEntire(phrase)?.let { m ->
+            val other = Filters.noun(m.groupValues[2]) ?: return null
+            val shares = ObjectFilter.Shares(arcanum.api.SharedQuality.Color, arcanum.api.Objects.Each(other))
+            return if (m.groupValues[1] == "card") shares else Filters.all(Filters.noun(m.groupValues[1]) ?: return null, shares)
         }
         // ltr chunk 05: "creature that was dealt damage this turn" (CR 120.3)
         DEALT_DAMAGE_THIS_TURN.matchEntire(phrase)?.let { m ->
@@ -222,6 +254,19 @@ internal object LtrPhrases {
             val creature = ObjectFilter.Type(arcanum.api.CardType.Creature)
             return arcanum.api.Condition.Exists(Filters.all(creature, ObjectFilter.ControlledBy(arcanum.api.PlayerFilter.You), ObjectFilter.Power(Comparison.AtLeast,
                 Value.Of(arcanum.api.NumericProperty.Power, arcanum.api.Objects.Each(creature), arcanum.api.Combine.Greatest))), atLeast = 1)
+        }
+        // ltr chunk 13: "there are four or more lore counters among Sagas you control"
+        Ltr.LORE_COUNTERS_AMONG_SAGAS.matchEntire(text)?.let { m ->
+            val n = Numbers.count(m.groupValues[1]) ?: return@let
+            return arcanum.api.Condition.Compare(Value.Of(arcanum.api.NumericProperty.Counters(arcanum.api.CounterKind.Lore), arcanum.api.Objects.Each(Filters.all(
+                ObjectFilter.Sub(arcanum.api.SubtypeRef.Literal(arcanum.api.Subtype("Saga"))), ObjectFilter.ControlledBy(arcanum.api.PlayerFilter.You))),
+                arcanum.api.Combine.Total), Comparison.AtLeast, Value.Fixed(n))
+        }
+        // ltr chunk 12: "two or more creatures died under your control this turn"
+        Ltr.N_OR_MORE_CREATURES_DIED_UNDER_YOUR_CONTROL.matchEntire(text)?.let { m ->
+            val n = Numbers.count(m.groupValues[1]) ?: return@let
+            return arcanum.api.Condition.HappenedThisTurn(EventPattern.ZoneChange(Filters.all(ObjectFilter.Type(arcanum.api.CardType.Creature),
+                ObjectFilter.ControlledBy(arcanum.api.PlayerFilter.You)), from = Zone.Battlefield, to = Zone.Graveyard), atLeast = n, measure = arcanum.api.Measure.Events)
         }
         // ltr chunk 10: "a permanent you controlled left the battlefield this turn" (as it last existed, CR 603.10a)
         if (Ltr.PERMANENT_YOU_CONTROLLED_LEFT.matches(text))

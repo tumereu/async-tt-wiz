@@ -319,6 +319,10 @@ sealed interface Effect {
      * target creature"), read as [of] last existed when it has left (CR 608.2h). Nothing is removed from [of]; moving
      * counters is [MoveCounters]. */
     @Serializable @SerialName("put-counters-of") data class PutCountersOf(val objects: Objects, val of: Objects) : Effect
+    // ltr chunk 11
+    /** Put on each of [objects] one counter of each kind the triggering event put ("put one of each of those kinds of counters on up to
+     * one other target creature", CR 122.1). */
+    @Serializable @SerialName("put-event-counter-kinds") data class PutEventCounterKinds(val objects: Objects) : Effect
     // msh
     /** For each kind of counter on each of [recipients], give it another counter of that kind ("For each kind of counter on
      * target permanent or player, give that permanent or player another counter of that kind"; as proliferate does for

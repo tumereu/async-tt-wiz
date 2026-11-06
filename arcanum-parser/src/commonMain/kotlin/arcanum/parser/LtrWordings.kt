@@ -125,6 +125,18 @@ internal object Ltr {
     val NOTE_A_CREATURE_TYPE_NEXT_CAST = Regex("""Note a creature type that hasn't been noted for this Saga\. When you next cast a creature spell of that type this turn, that creature enters with an additional (\S+) counter on it\.""")
     val PERMANENT_YOU_CONTROLLED_LEFT = Regex("""a permanent you controlled left the battlefield this turn""")
     val RING_TEMPTS_REVEAL_UNTIL_X_LANDS = Regex("""The Ring tempts you\. Then reveal cards from the top of your library until you reveal X (\w+) cards(?:, where X is (.+?))?\. Put those \1 cards onto the battlefield tapped and the rest on the bottom of your library in a random order\.""")
+    // ltr chunk 11
+    val MAY_REVEAL_TOP_IF_REVEALED = Regex("""You may reveal the top card of your library\. If an? (.+?) card is revealed this way, (.+)""")
+    val GAIN_PROTECTION_FROM_EACH_OF_COLORS = Regex("""(.+?) gains? protection from each of that creature's colors until end of turn\.""")
+    val SCRY_REVEAL_ATTACKING_UNTIL_NEXT_TURN = Regex("""Scry (\w+), then you may reveal the top card of your library\. If an? (.+?) card is revealed this way, put it onto the battlefield tapped and attacking\. Until your next turn, it gains (\w+) if you control an? (\w+) and (\w+) if you control an? (\w+)\.""")
+    val EACH_DEAL_DAMAGE_EQUAL_TO_THEIR_POWER = Regex("""(Target .+?) and (up to one other target .+?) each deal damage equal to their power to (target .+)\.""")
+    val CHOOSE_COUNTER_FROM_AMONG = Regex("""[Pp]ut your choice of a counter from among (.+) on (.+)\.""")
+    val PUT_ONE_OF_EACH_OF_THOSE_KINDS = Regex("""[Pp]ut one of each of those kinds of counters on (.+)\.""")
+    val YOU_PUT_COUNTERS_ON = Regex("""you put one or more counters on (.+)""")
+    val PUT_COUNTER_AND_COUNTER_ON_THAT_AND_SELF = Regex("""Put an? (\S+) counter and an? (\S+) counter on that creature and an? \1 counter and an? \2 counter on (.+)\.""")
+    val CHOOSE_OPPONENT_NEXT_END_STEP = Regex("""Choose an opponent\. At the beginning of that player's next end step, (.+?) if they didn't attack you that turn\. Otherwise, (.+)""")
+    val COSTS_LESS_FOR_EACH_SACRIFICED_THIS_TURN = Regex("""This spell costs (\{\d+\}) less to cast for each (\w+) sacrificed this turn\.""")
+    val COUNTER_ON_EACH_OF_UP_TO_X = Regex("""[Pp]ut an? (\S+) counter on each of up to X target (.+)\.""")
     val TARGETS_EACH_GAIN = Regex("""((?:Up to )?(?:two|three|Two|Three) target .+?) (?:each )?(gain|get) (.+)""")
 }
 
@@ -134,7 +146,7 @@ internal object LtrPhrases {
     private val BLOCKED_OR_WAS_BLOCKED_BY = Regex("""(.+?) that blocked or was blocked by an? (.+?) this turn""")
     private val WITH_MANA_VALUE_N_OR_M = Regex("""(.+?) with mana value (\d+) or (\d+)""")
     private val IN_YOUR_GRAVEYARD = Regex("""(.+? cards?) in your graveyard""")
-    private val WITH_LESSER_POWER = Regex("""(.+?) with lesser power""")
+    private val WITH_LESSER_POWER = Regex("""(.+?) with (lesser|greater) power""")
     private val DEALT_DAMAGE_THIS_TURN = Regex("""(.+?) that was dealt damage this turn""")
     private val FROM_AN_OPPONENTS_GRAVEYARD = Regex("""(.+? cards?) from an opponent's graveyard""")
     private val AND_OR = Regex("""(\w+?)s? and/or (\w+?)s?""")
@@ -186,7 +198,8 @@ internal object LtrPhrases {
         // ltr chunk 04: "creature with lesser power" (than this creature)
         WITH_LESSER_POWER.matchEntire(phrase)?.let { m ->
             val base = Filters.noun(m.groupValues[1]) ?: return null
-            return Filters.all(base, ObjectFilter.Power(Comparison.Less, Value.Of(arcanum.api.NumericProperty.Power, arcanum.api.Objects.Self, arcanum.api.Combine.Single)))
+            return Filters.all(base, ObjectFilter.Power(if (m.groupValues[2] == "lesser") Comparison.Less else Comparison.Greater,
+                Value.Of(arcanum.api.NumericProperty.Power, arcanum.api.Objects.Self, arcanum.api.Combine.Single)))
         }
         return null
     }

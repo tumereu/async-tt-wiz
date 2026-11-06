@@ -22049,6 +22049,13 @@ internal class Sentences(
 
     /** ltr: static abilities. */
     private fun ltrStatic(line: String): Ability? {
+        // ltr chunk 10: "If one or more tokens would be created under your control, those tokens plus an additional Food token are created instead."
+        // (CR 614.1a)
+        Ltr.TOKENS_PLUS_ADDITIONAL.matchEntire(line)?.let { m ->
+            val token = (((effect("Create a ${m.groupValues[1]} token.", Context())?.singleOrNull() as? Step.Do)?.effect) as? Effect.CreateToken)?.token ?: return@let
+            return ltrSelfStatic(Mechanic.Replacement(EventPattern.CreateToken(ObjectFilter.ControlledBy(PlayerFilter.You)),
+                modify = listOf(Modification.AlsoCreate(token, Value.Fixed(1)))))
+        }
         // ltr chunk 07: "As long as equipped creature is legendary, it has menace."
         Ltr.AS_LONG_AS_EQUIPPED_IS_IT_HAS.matchEntire(line)?.let { m ->
             val filter = if (m.groupValues[1] == "legendary") ObjectFilter.Super(Supertype.Legendary) else Filters.noun(m.groupValues[1].removeArticle()) ?: return@let
@@ -22169,6 +22176,39 @@ internal class Sentences(
 
     /** ltr: an ability's whole text, read before its sentences. */
     private fun ltrWhole(body: String, context: Context): List<Step>? {
+        // ltr chunk 10: "Look at the top X cards of your library, where X is that creature's mana value. You may reveal a creature card that doesn't share
+        // a creature type with a creature you control from among those cards and put it into your hand. Put the rest on the bottom …" (CR 700.8)
+        Ltr.LOOK_TOP_X_MANA_VALUE_REVEAL_NOT_SHARING.matchEntire(body)?.let { m ->
+            val noun = Filters.noun(m.groupValues[1]) ?: return@let
+            val looked = Objects.LibraryCards(Players.You, Value.Of(arcanum.api.NumericProperty.ManaValue, Objects.EventObject(EventRole.After), arcanum.api.Combine.Single), fromTop = true)
+            val yours = Filters.all(ObjectFilter.Type(CardType.Creature), ObjectFilter.ControlledBy(PlayerFilter.You))
+            return listOf(Step.Do(Effect.LookAt(looked, Players.You, bind = "looked")),
+                Step.Choose(arcanum.api.Choice.Objects(Filters.all(noun, ObjectFilter.Not(ObjectFilter.Shares(arcanum.api.SharedQuality.CreatureType, Objects.Each(yours)))),
+                    Value.Fixed(0), Value.Fixed(1), from = Objects.Bound("looked")), bind = "chosen", chooser = Players.You),
+                Step.Do(Effect.Reveal(Objects.Bound("chosen"))), Step.Do(Effect.Move(Objects.Bound("chosen"), Destination(Zone.Hand))),
+                Step.Do(Effect.Move(Objects.Except(Objects.Bound("looked"), Objects.Bound("chosen")), Destination(Zone.Library, libraryPosition = -1, randomOrder = true))))
+        }
+        // ltr chunk 10: "Note a creature type that hasn't been noted for this Saga. When you next cast a creature spell of that type this turn, that
+        // creature enters with an additional +1/+1 counter on it." (CR 603.7: a delayed trigger until end of turn)
+        Ltr.NOTE_A_CREATURE_TYPE_NEXT_CAST.matchEntire(body)?.let { m ->
+            val kind = Counters.kind(m.groupValues[1]) ?: return@let
+            return listOf(Step.Choose(arcanum.api.Choice.CreatureTypeUnchosen, bind = "type", chooser = Players.You),
+                Step.Do(Effect.CreateDelayedTrigger(arcanum.api.Trigger.On(EventPattern.Cast(Filters.all(ObjectFilter.Type(CardType.Creature),
+                    ObjectFilter.Sub(arcanum.api.SubtypeRef.Chosen("type"))), PlayerFilter.You)),
+                    Instructions(steps = listOf(Step.Do(Effect.SpellGets(Objects.EventObject(EventRole.Object), listOf(Mechanic.Replacement(
+                        EventPattern.ZoneChange(ObjectFilter.Is(Objects.Affected), to = Zone.Battlefield), modify = listOf(Modification.EntersWithCounters(kind, Value.Fixed(1))))))))),
+                    duration = arcanum.api.Duration.EndOfTurn)))
+        }
+        // ltr chunk 10: "The Ring tempts you. Then reveal cards from the top of your library until you reveal X land cards, where X is the number of
+        // legendary creatures you control. Put those land cards onto the battlefield tapped and the rest on the bottom …" (CR 701.20)
+        Ltr.RING_TEMPTS_REVEAL_UNTIL_X_LANDS.matchEntire(body)?.let { m ->
+            val noun = Filters.noun(m.groupValues[1]) ?: return@let
+            val x = if (m.groupValues[2].isEmpty()) Value.Announced(name = "X") else Values.value(m.groupValues[2]) ?: return@let
+            return listOf(Step.Do(Effect.Action(arcanum.api.KeywordAction.TheRingTemptsYou)),
+                Step.Do(Effect.RevealUntil(noun, Players.You, x, reveal = true, foundBind = "found", restBind = "rest")),
+                Step.Do(Effect.Move(Objects.Bound("found"), Destination(Zone.Battlefield, tapped = true))),
+                Step.Do(Effect.Move(Objects.Bound("rest"), Destination(Zone.Library, libraryPosition = -1, randomOrder = true))))
+        }
         // ltr chunk 07: "Target creature an opponent controls deals damage equal to its power to another target creature that player controls." (CR 120.3)
         if (Ltr.TARGET_DEALS_DAMAGE_TO_ANOTHER_THAT_PLAYER.matches(body.substringBefore(". ") + ".")) {
             val rest = body.substringAfter(". ", "")

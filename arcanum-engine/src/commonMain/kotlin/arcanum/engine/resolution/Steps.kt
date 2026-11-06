@@ -260,6 +260,15 @@ internal object Steps {
                 NamedValue.Colors(chosen)
             }
             Choice.CreatureType -> NamedValue.SubtypeValue(act.chooseSubtype(chooser, source, null))
+            // ltr chunk 10: "a creature type that hasn't been noted for this Saga": the types noted before are kept by the source
+            Choice.CreatureTypeUnchosen -> {
+                val key = CHOSEN_NAMES + step.bind
+                val before = (source?.let { act.state.obj(it) }?.memory?.get(key) as? NamedValue.Subtypes)?.subtypes.orEmpty()
+                val chosen = act.chooseSubtype(chooser, source, null)
+                require(chosen !in before) { "$chosen was noted before" }
+                source?.let { act.state.obj(it) }?.let { o -> act.record(Change.Memory(o.id, key, o.memory[key], NamedValue.Subtypes(before + chosen))) }
+                NamedValue.SubtypeValue(chosen)
+            }
             // ecl: one of the listed creature types
             is Choice.CreatureTypeAmong -> NamedValue.SubtypeValue(act.chooseSubtype(chooser, source, choice.among))
             Choice.BasicLandType -> NamedValue.SubtypeValue(act.chooseSubtype(chooser, source, Subtypes.basicLandTypes.keys.toList()))

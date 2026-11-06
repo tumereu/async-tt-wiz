@@ -119,6 +119,12 @@ internal object Ltr {
     val DEALS_DAMAGE_EQUAL_TO_ITS_POWER_TO = Regex("""(.+?) deals damage equal to its power to (up to one target .+|target .+)\.""")
     val CREATE_NAMED_TOKEN_WITH_QUOTED = Regex("""Create ([A-Z][\w']+), an? (legendary )?(\d+)/(\d+) (\w+) ([A-Z]\w+) creature token with (.+?), and "(.+)"\.?""")
     val CREATE_N_PREDEFINED_TOKENS = Regex("""[Cc]reate (\w+) (Treasure|Food|Clue|Blood) tokens\.""")
+    // ltr chunk 10
+    val LOOK_TOP_X_MANA_VALUE_REVEAL_NOT_SHARING = Regex("""Look at the top X cards of your library(?:, where X is that creature's mana value)?\. You may reveal an? (.+?) card that doesn't share a creature type with a creature you control from among those cards and put it into your hand\. Put the rest on the bottom of your library in a random order\.""")
+    val TOKENS_PLUS_ADDITIONAL = Regex("""If one or more tokens would be created under your control, those tokens plus an additional (.+?) token are created instead\.""")
+    val NOTE_A_CREATURE_TYPE_NEXT_CAST = Regex("""Note a creature type that hasn't been noted for this Saga\. When you next cast a creature spell of that type this turn, that creature enters with an additional (\S+) counter on it\.""")
+    val PERMANENT_YOU_CONTROLLED_LEFT = Regex("""a permanent you controlled left the battlefield this turn""")
+    val RING_TEMPTS_REVEAL_UNTIL_X_LANDS = Regex("""The Ring tempts you\. Then reveal cards from the top of your library until you reveal X (\w+) cards(?:, where X is (.+?))?\. Put those \1 cards onto the battlefield tapped and the rest on the bottom of your library in a random order\.""")
     val TARGETS_EACH_GAIN = Regex("""((?:Up to )?(?:two|three|Two|Three) target .+?) (?:each )?(gain|get) (.+)""")
 }
 
@@ -204,6 +210,10 @@ internal object LtrPhrases {
             return arcanum.api.Condition.Exists(Filters.all(creature, ObjectFilter.ControlledBy(arcanum.api.PlayerFilter.You), ObjectFilter.Power(Comparison.AtLeast,
                 Value.Of(arcanum.api.NumericProperty.Power, arcanum.api.Objects.Each(creature), arcanum.api.Combine.Greatest))), atLeast = 1)
         }
+        // ltr chunk 10: "a permanent you controlled left the battlefield this turn" (as it last existed, CR 603.10a)
+        if (Ltr.PERMANENT_YOU_CONTROLLED_LEFT.matches(text))
+            return arcanum.api.Condition.HappenedThisTurn(EventPattern.ZoneChange(Filters.all(ObjectFilter.Category(arcanum.api.ObjectCategory.Permanent),
+                ObjectFilter.ControlledBy(arcanum.api.PlayerFilter.You)), from = Zone.Battlefield), atLeast = 1, measure = arcanum.api.Measure.Events)
         // ltr chunk 08: "this creature attacked this turn"
         Ltr.ATTACKED_THIS_TURN.matchEntire(text)?.takeIf { it.groupValues[1] == "this creature" }?.let {
             return arcanum.api.Condition.ObjectMatches(arcanum.api.Objects.Self, ObjectFilter.ThisTurn(EventPattern.Attack(ObjectFilter.Is(arcanum.api.Objects.Self))))

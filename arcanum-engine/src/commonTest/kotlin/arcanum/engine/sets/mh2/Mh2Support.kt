@@ -58,7 +58,8 @@ internal fun Scenario.playOut(vararg picks: String, may: Boolean = true, options
     var guard = 80
     while (guard-- > 0) {
         when (val d = pending) {
-            null -> if (state.stack.isEmpty()) return else allPass()
+            // without priority (a step begun by the harness): the Stack resolves on its own
+            null -> if (state.stack.isEmpty()) return else if (state.priority.holder == null) resolve() else allPass()
             is Decision.OrderTriggers -> answer(Answer.Order(d.triggers.map { it.index }))
             is Decision.May -> answer(Answer.YesNo(may && d.payable))
             is Decision.ChooseOption -> {

@@ -132,7 +132,7 @@ class Mh2Chunk07RedTest {
         pt = "3/1",
     ) parsesTo abilities(
         static(Mechanic.CantBlock(ObjectFilter.Any)),
-        static(has(Keyword.Cascade), condition = delirium).copy(abilityWord = "Delirium"),
+        static(has(Keyword.Cascade), condition = delirium).copy(abilityWord = "Delirium", functionsIn = listOf(Zone.Stack)),
     )
 
     // CR 700.2: an activated ability with modes

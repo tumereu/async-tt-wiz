@@ -21144,6 +21144,13 @@ internal class Sentences(
 
     /** mh2: static abilities. */
     private fun mh2Static(line: String): Ability? {
+        // mh2 chunk 07: "This spell has cascade as long as there are four or more card types among cards in your graveyard." Cascade triggers as the
+        // spell is cast (CR 702.85a), so the rule works on the Stack (CR 113.6b)
+        Mh2.THIS_SPELL_HAS_CASCADE_AS_LONG_AS.matchEntire(line)?.let { m ->
+            val condition = Conditions.condition(m.groupValues[1], self) ?: return@let
+            return Ability.Static(listOf(Mechanic.GainAbilities(listOf(arcanum.api.Keyword.Cascade))), affects = Affected.Objects(Objects.Self),
+                condition = condition, functionsIn = listOf(Zone.Stack))
+        }
         // mh2 chunk 16: "As this creature enters, choose a number." (CR 614.12, 607.2d)
         Mh2.AS_ENTERS_CHOOSE_A_NUMBER.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let {
             return mh2SelfStatic(Mechanic.Replacement(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), to = Zone.Battlefield), modify = listOf(Modification.AsEnters(listOf(

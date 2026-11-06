@@ -147,6 +147,8 @@ internal object Mh2 {
     val ADD_ONE_MANA_OF_ANY_TYPE_THAT_LAND_PRODUCED = Regex("""[Aa]dd one mana of any type that land produced\.""")
     val AS_ENTERS_CHOOSE_A_NUMBER = Regex("""As (.+) enters, choose a number\.""")
     val SPELLS_WITH_MV_EQUAL_TO_CHOSEN_NUMBER_CANT_BE_CAST = Regex("""(\w+) spells with mana value equal to the chosen number can't be cast\.""")
+    // mh2 engine: "This spell has cascade as long as …"
+    val THIS_SPELL_HAS_CASCADE_AS_LONG_AS = Regex("""This spell has cascade as long as (.+)\.""")
 }
 
 /** Values, conditions and nouns of Modern Horizons 2 (mh2) wordings. */

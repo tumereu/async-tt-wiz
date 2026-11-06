@@ -1172,12 +1172,26 @@ internal object Effects {
                     val ref = TargetRef.Object(fixed)
                     if (Targeting.legal(act, s, ref, item.controller, item.source, item.names)) listOf(ref) else chosen
                 } else {
-                    val options = Targeting.options(act, s, item.controller, item.source, item.names, self = id)
+                    val legal = Targeting.options(act, s, item.controller, item.source, item.names, self = id)
+                    // mh2: "The new targets can't be you or a permanent you control"
+                    val options = effect.notTo?.let { not -> legal.filter { ref -> !excluded(scope, not, ref) } } ?: legal
                     if (options.isEmpty() || (effect.optional && !act.yesNo(chooser, id, "Choose new targets?"))) chosen
+                    // mh2: "reselect the targets at random" (CR 115.7d): the host picks, a die with a side for each legal target
+                    else if (effect.atRandom) List(minOf(chosen.size, options.size)) { options[(act.random(chooser, id,
+                        arcanum.engine.decision.RandomKind.Die(options.size, 1)) as Answer.DieRolls).results.single() - 1] }.distinct()
                     else act.chooseTargets(chooser, id, slot, options, chosen.size, chosen.size)
                 }
             }
             if (targets != item.targets) act.record(Change.StackItemUpdated(item, item.copy(targets = targets)))
+        }
+    }
+
+    /** mh2: whether [ref] matches [filter] (an object its objects, a player its players). */
+    private fun excluded(scope: Scope, filter: arcanum.api.RecipientFilter, ref: TargetRef): Boolean {
+        val e = scope.eval()
+        return when (ref) {
+            is TargetRef.Object -> filter.objects?.let { e.matches(it, ref.id) } == true
+            is TargetRef.Player -> filter.players?.let { e.matches(it, ref.id) } == true
         }
     }
 

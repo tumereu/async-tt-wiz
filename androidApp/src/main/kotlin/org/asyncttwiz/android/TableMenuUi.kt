@@ -52,7 +52,7 @@ internal fun menuIcon(name: String): ImageVector {
         n == "clear" -> Icons.Outlined.ClearAll
         n.startsWith("rest →") -> Icons.Outlined.GpsFixed
         n.startsWith("commit attack") -> Icons.Outlined.TaskAlt
-        n == "full control" -> Icons.Outlined.Tune
+        n == "control" -> Icons.Outlined.Tune
         n == "skip if no choice" -> Icons.Outlined.FastForward
         n == "autotap mana" -> Icons.Outlined.WaterDrop
         n == "keep" -> Icons.Outlined.CheckCircleOutline

@@ -69,7 +69,7 @@ class OffspringForageWalkthroughTest {
 
     private fun pending(): Decision? = kit.state().pending?.decision
 
-    /** Alice lets the game go on: her stop's own action (STK-036, Full control) or a pass. */
+    /** Alice lets the game go on: her stop's own action (STK-036, Control) or a pass. */
     private fun go() {
         (kit.alice.device.status as? GameDevice.Status.Stopped)?.let { kit.alice.act(it.assumed); return }
         kit.alice.pass()
@@ -130,7 +130,7 @@ class OffspringForageWalkthroughTest {
     // which cards; the token copy's own forage trigger shows its text on the Stack and declining it puts nothing on it
     @Test fun anOffspringAndForageCreatureStepByStep() {
         kit.opening()
-        // Full control: Automatum asks her the order of her triggers rather than putting them on in the order offered
+        // Control: Automatum asks her the order of her triggers rather than putting them on in the order offered
         kit.alice.settings(kit.alice.shown!!.settings.copy(mode = org.asyncttwiz.protocol.game.ResponseMode.FullControl))
         kit.scenario.confirmStops[kit.f.a] = false
         toHand("Mountain")

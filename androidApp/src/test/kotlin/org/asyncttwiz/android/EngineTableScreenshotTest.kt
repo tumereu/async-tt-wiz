@@ -106,7 +106,7 @@ class EngineTableScreenshotTest {
         compose.onNodeWithContentDescription("Response mode", substring = true).assertExists()
         compose.onNodeWithContentDescription("Assume resolves setting").assertExists()
         compose.onRoot().captureShot("$SCREENSHOTS/engine/assumed-main.png",
-            "Alice kept while Bob was away and is in her first main phase: a small violet dot at the corner of the main button (To combat, twice as wide as a quick action) says Bob hasn't seen her last moves yet (no count, nothing over the board), no event strip, and the quick actions are her own Response mode (Auto-skip), Assume resolves (Always, as the fixture sets it) and Autotap mana.")
+            "Alice kept while Bob was away and is in her first main phase: a small violet dot at the corner of the main button (To combat, twice as wide as a quick action) says Bob hasn't seen her last moves yet (no count, nothing over the board), no event strip, and the quick actions are her own Response mode (Quick), Assume resolves (Always, as the fixture sets it) and Autotap mana.")
     }
 
     /** Alice at her main phase with "Assume resolves" set to [choice]: the quick action shows [state] and is captured as [file]. */
@@ -120,19 +120,43 @@ class EngineTableScreenshotTest {
         cell.captureShot("$SCREENSHOTS/engine/$file.png", "Alice's Assume resolves quick action set to $state: $caption")
     }
 
-    // TRN-059, HIS-096 (owner playtest 2026-11-05 evening): the Assume resolves quick action shows its choice of Never,
-    // When they have no mana and Always (filled violet unless Never)
+    // TRN-059, HIS-096 (owner playtest 2026-11-05 evening, 2026-11-06): the Assume resolves quick action shows its choice
+    // of Never, When they have no mana and Always, filled deep blue, violet or amber by how much control she keeps
     @Test fun theAssumeQuickActionShowsNever() = assumeCell(org.asyncttwiz.protocol.game.AssumeResolves.Never, "Never",
-        "assume-never", "white, it reads \"Assume: Never\": her device waits at each of Bob's pauses.")
+        "assume-never", "filled deep blue with white words, it reads \"Assume: Never\": her device waits at each of Bob's pauses.")
 
     // TRN-059, HIS-096
     @Test fun theAssumeQuickActionShowsNoMana() = assumeCell(org.asyncttwiz.protocol.game.AssumeResolves.WhenNoMana,
         "When they have no mana", "assume-no-mana",
-        "filled violet, it reads \"Assume: No mana\": her device goes on at Bob's pauses while the table shows him no mana.")
+        "filled violet with white words, it reads \"Assume: No mana\": her device goes on at Bob's pauses while the table shows him no mana.")
 
     // TRN-059, HIS-096
     @Test fun theAssumeQuickActionShowsAlways() = assumeCell(org.asyncttwiz.protocol.game.AssumeResolves.Always, "Always",
-        "assume-always", "filled violet, it reads \"Assume: Always\": her device goes on at each of Bob's pauses.")
+        "assume-always", "filled amber with white words, it reads \"Assume: Always\": her device goes on at each of Bob's pauses.")
+
+    /** Alice at her main phase in response mode [mode]: the quick action shows its name and is captured as [file]. */
+    private fun modeCell(mode: org.asyncttwiz.protocol.game.ResponseMode, file: String, caption: String) {
+        val game = aliceAtMain()
+        game.settings(game.shown!!.settings.copy(mode = mode))
+        val routes = EngineTableRoutes(f.a, { game }, {}, { game.play() }).apply { opponentName = "Bob" }
+        render(game, f.a, routes = routes)
+        val cell = compose.onNodeWithContentDescription("Response mode")
+        cell.assert(SemanticsMatcher.expectValue(androidx.compose.ui.semantics.SemanticsProperties.StateDescription, mode.label()))
+        cell.captureShot("$SCREENSHOTS/engine/$file.png", "Alice's response mode quick action set to ${mode.label()}: $caption")
+    }
+
+    // TRN-059 (owner playtest 2026-11-06): the response mode quick action reads Control, Normal or Quick, filled deep blue,
+    // violet or amber by how much control she keeps
+    @Test fun theModeQuickActionShowsControl() = modeCell(org.asyncttwiz.protocol.game.ResponseMode.FullControl, "mode-control",
+        "filled deep blue with a white icon and \"Control\": her device stops wherever she gets priority.")
+
+    // TRN-059
+    @Test fun theModeQuickActionShowsNormal() = modeCell(org.asyncttwiz.protocol.game.ResponseMode.Normal, "mode-normal",
+        "filled violet with a white icon and \"Normal\": her device stops at her stops and pauses.")
+
+    // TRN-059
+    @Test fun theModeQuickActionShowsQuick() = modeCell(org.asyncttwiz.protocol.game.ResponseMode.AutoSkip, "mode-quick",
+        "filled amber with a white icon and \"Quick\": her device also goes on where she can't respond.")
 
     // TRN-066, TRN-070, TRN-062, TRN-027, I-D56 §4, §14: after Alice's keep the game waits for Bob's; faint words over the
     // battlefield say so (nothing covers the board) and nothing stands in the step arrow's place: his keep is never assumed
@@ -181,10 +205,10 @@ class EngineTableScreenshotTest {
         compose.onNodeWithText("Timeline mode").assertDoesNotExist()
         compose.onNodeWithTag("playback-toggle").assertDoesNotExist()
         compose.onNodeWithContentDescription("Alice has made moves · Tap to watch").assertExists()
-        compose.onNodeWithContentDescription("Full control").assertExists()
+        compose.onNodeWithContentDescription("Control").assertExists()
         compose.onNodeWithContentDescription("Assume resolves setting").assertDoesNotExist()
         captureShot("$SCREENSHOTS/engine/catch-up.png",
-            "Bob comes back after Alice played on past the opening: no dialog and no timeline look; his table shows where he left it, as in live play, with \"Alice has made moves · Tap to watch\" in the middle of the board, and his playback quick actions Full control and Autotap mana; nothing plays until he taps the text.")
+            "Bob comes back after Alice played on past the opening: no dialog and no timeline look; his table shows where he left it, as in live play, with \"Alice has made moves · Tap to watch\" in the middle of the board, and his playback quick actions Control and Autotap mana; nothing plays until he taps the text.")
         compose.onNodeWithTag("centre-action").performClick()
         compose.runOnIdle {
             assertTrue(bob.device.status.let { it is GameDevice.Status.Playing || it is GameDevice.Status.Stopped }, "the tap started it")
@@ -265,7 +289,7 @@ class EngineTableScreenshotTest {
             "A new game's opening: Alice's seven cards are in her hand and her quick actions are Mulligan and Keep; nothing covers the board or asks her anything else.")
     }
 
-    // STK-029, STK-027, TRN-063 (owner 2026-11-05): in Full control Alice keeps priority after casting Storm Spark: it
+    // STK-029, STK-027, TRN-063 (owner 2026-11-05): in the Control response mode Alice keeps priority after casting Storm Spark: it
     // shows on the Stack and Resolve is the main button; nothing sits under the Stack and no panel says she cast it
     @Test fun resolveIsTheMainButton() {
         val game = aliceCastsSpark(org.asyncttwiz.protocol.game.ResponseMode.FullControl, alwaysAssume = true)
@@ -276,7 +300,7 @@ class EngineTableScreenshotTest {
         compose.onNodeWithText("You cast Storm Spark").assertDoesNotExist()
         compose.onNodeWithContentDescription("Respond prompt").assertDoesNotExist()
         captureShot("$SCREENSHOTS/engine/stack-resolve.png",
-            "In Full control Alice cast Storm Spark at Bob and kept priority: the spell is on the Stack, nothing covers the board or sits under the Stack, and the main button in the bottom-right corner, twice as wide as a quick action, reads Resolve.")
+            "In the Control response mode Alice cast Storm Spark at Bob and kept priority: the spell is on the Stack, nothing covers the board or sits under the Stack, and the main button in the bottom-right corner, twice as wide as a quick action, reads Resolve.")
         compose.onNodeWithTag("main-button").performClick()
         compose.runOnIdle { assertTrue(game.device.model.engine.stack.isEmpty(), "she passed; Bob's pass was assumed and it resolved") }
     }
@@ -296,7 +320,7 @@ class EngineTableScreenshotTest {
         compose.runOnIdle { assertTrue(game.device.model.engine.stack.isEmpty(), "Storm Spark resolved on the assumed pass") }
     }
 
-    // STK-046 (owner playtest 2026-11-04): in Full control Alice keeps priority after her Ember Herald resolved: its enters
+    // STK-046 (owner playtest 2026-11-04): in the Control response mode Alice keeps priority after her Ember Herald resolved: its enters
     // trigger is on the Stack as an ability token (the Herald's art and a "T" chip, no text), not as the Herald card; the
     // Stack list shows it as "Ember Herald's ability" with its text
     @Test fun anAbilityOnTheStackIsDrawnAsAnAbility() {
@@ -305,7 +329,7 @@ class EngineTableScreenshotTest {
         compose.onNodeWithTag("main-button").assert(hasContentDescription("Resolve"))
         compose.onNodeWithContentDescription("Triggered ability, Ember Herald — When this creature enters", substring = true).assertExists()
         captureShot("$SCREENSHOTS/engine/stack-ability.png",
-            "In Full control Alice's Ember Herald resolved and its enters trigger is on the Stack: it is drawn as a small dark ability token filled with the Herald's art and a \"T\" chip at its bottom, with no text, not as the Herald card, and the main button reads Resolve.")
+            "In the Control response mode Alice's Ember Herald resolved and its enters trigger is on the Stack: it is drawn as a small dark ability token filled with the Herald's art and a \"T\" chip at its bottom, with no text, not as the Herald card, and the main button reads Resolve.")
         compose.onNodeWithContentDescription("Stack, 1 entries").performClick()
         compose.waitForIdle()
         compose.onNodeWithText("Top · Ember Herald's ability").assertExists()
@@ -342,7 +366,7 @@ class EngineTableScreenshotTest {
         compose.onNodeWithContentDescription("Card inspection content").assertDoesNotExist()
     }
 
-    /** Alice in Full control with her Ember Herald's enters trigger on the Stack, holding priority. */
+    /** Alice in Control with her Ember Herald's enters trigger on the Stack, holding priority. */
     private fun heraldTriggerOnStack(): Pair<EngineGame, EngineGameFixture> {
         val h = EngineGameFixture(heralds = true)
         val me = PlayerId(h.a)
@@ -355,7 +379,7 @@ class EngineTableScreenshotTest {
         val cast = Engine.options(s, me).filterIsInstance<Input.Cast>().first { s.obj(it.card)?.definition?.faces?.first()?.name == "Ember Herald" }
         assertIs<GameDevice.Acted.Sent>(game.send(EngineCombatScenario(h).cast(s, me, cast)))
         game.tick(4_000)
-        // Resolve the Herald (Bob's pass assumed): its trigger goes on the Stack and Alice keeps priority in Full control
+        // Resolve the Herald (Bob's pass assumed): its trigger goes on the Stack and Alice keeps priority in Control
         game.act(Input.PassPriority(me))
         game.tick(5_000)
         assertEquals(GameDevice.Status.YourMove, game.device.status)
@@ -364,7 +388,7 @@ class EngineTableScreenshotTest {
         return game to h
     }
 
-    // HIS-095, HIS-091, HIS-105 (owner playtest 2026-11-04 #1, #2): Bob's playback (its Full control on) stops at a pass
+    // HIS-095, HIS-091, HIS-105 (owner playtest 2026-11-04 #1, #2): Bob's playback (its Control on) stops at a pass
     // Alice assumed for him in her upkeep: his table looks like any point of his, with no words saying it was assumed
     @Test fun aStopAtAnAssumptionLooksLikeYourOwnPoint() {
         val bob = bobCatchingUp()
@@ -378,10 +402,10 @@ class EngineTableScreenshotTest {
         compose.onNodeWithText("Your decision", substring = true).assertDoesNotExist()
         compose.onNodeWithTag("engine-bar").assertDoesNotExist()
         captureShot("$SCREENSHOTS/engine/decision-stop.png",
-            "Bob's playback (Full control on) stopped at Alice's upkeep, where she had assumed his pass: his table is live there with his main button, as at any point of his; nothing says what Alice assumed.")
+            "Bob's playback (Control on) stopped at Alice's upkeep, where she had assumed his pass: his table is live there with his main button, as at any point of his; nothing says what Alice assumed.")
     }
 
-    // HIS-095 (owner 2026-11-05): Bob tapped the table while playback ran: it went on to Alice's upkeep, where Full control
+    // HIS-095 (owner 2026-11-05): Bob tapped the table while playback ran: it went on to Alice's upkeep, where Control
     // would have stopped for him, and stopped there, live, with the centre text that resumes it
     @Test fun pausedPlaybackStopsWhereFullControlWould() {
         val bob = bobCatchingUp()

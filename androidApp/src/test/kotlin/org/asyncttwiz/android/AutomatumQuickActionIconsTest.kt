@@ -15,7 +15,7 @@ class AutomatumQuickActionIconsTest {
     /** Automatum's quick actions (CMB-048, CMB-034) and toggles (TRN-059) each have their own icon, none the generic
      * fallback (UI review 2026-11-03 #8). */
     @Test fun everyAutomatumQuickActionHasItsOwnIcon() {
-        val vectors = listOf("Clear", "Full control", "Skip if no choice", "Autotap mana", "Keep", "Mull N")
+        val vectors = listOf("Clear", "Control", "Skip if no choice", "Autotap mana", "Keep", "Mull N")
         vectors.forEach { assertNotEquals(it, fallback, menuIcon(it)) }
         assertEquals(vectors.size, vectors.map(::menuIcon).toSet().size)
         // The attack's own crossed swords, badged differently from Declare

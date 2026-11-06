@@ -445,9 +445,23 @@ private fun sourceName(play: TableBoard, id: ObjectId): String? {
 
 /** The response mode's name and what it means (§2), for the toggle and the response mode dialog. */
 internal fun ResponseMode.label(): String = when (this) {
-    ResponseMode.FullControl -> "Full control"
+    ResponseMode.FullControl -> "Control"
     ResponseMode.Normal -> "Normal"
-    ResponseMode.AutoSkip -> "Auto-skip"
+    ResponseMode.AutoSkip -> "Quick"
+}
+
+/** TRN-059: the colour the response mode's cell fills with, by how much control you keep. */
+internal fun ResponseMode.color(): Color = when (this) {
+    ResponseMode.FullControl -> ControlBlue
+    ResponseMode.Normal -> AutomatumViolet
+    ResponseMode.AutoSkip -> QuickAmber
+}
+
+/** TRN-059: the colour the Assume resolves cell fills with, as the response mode that keeps as much control. */
+internal fun AssumeResolves.color(): Color = when (this) {
+    AssumeResolves.Never -> ControlBlue
+    AssumeResolves.WhenNoMana -> AutomatumViolet
+    AssumeResolves.Always -> QuickAmber
 }
 
 internal fun ResponseMode.meaning(): String = when (this) {
@@ -480,9 +494,9 @@ internal fun AssumeResolves.meaning(): String = when (this) {
 
 /**
  * The quick-actions row's toggles on engine state (I-D56 §14, TRN-059): in live play the response mode (a tap goes to
- * the next of Full control, Normal and Auto-skip), "Assume resolves" (a tap goes to the next of Never, When they have no
+ * the next of Control, Normal and Quick), "Assume resolves" (a tap goes to the next of Never, When they have no
  * mana and Always) and "Autotap mana"; in catch-up playback
- * (HIS-095) "Full control" (on: playback stops wherever you get priority) and "Autotap mana"; each private to the player.
+ * (HIS-095) "Control" (on: playback stops wherever you get priority) and "Autotap mana"; each private to the player.
  */
 @Composable
 internal fun RowScope.EngineToggleCells(routes: EngineTableRoutes, enabled: Boolean) {
@@ -495,41 +509,48 @@ internal fun RowScope.EngineToggleCells(routes: EngineTableRoutes, enabled: Bool
     val autotap = Triple("Autotap mana", "Autotap\nmana", Icons.Outlined.WaterDrop) to
         ({ set { it.copy(autotap = !it.autotap) } } to settings.autotap)
     val cells = if (shown.behind) listOf(
-        Triple("Full control", "Full\ncontrol", Icons.Outlined.Tune) to
+        Triple("Control", "Control", Icons.Outlined.Tune) to
             ({ set { it.copy(playbackFullControl = !it.playbackFullControl) } } to settings.playbackFullControl),
         autotap)
     else listOf(
         Triple("Response mode", "${settings.mode.label()}\n(mode)", Icons.Outlined.Tune) to
             ({ set { it.copy(mode = MODES[(MODES.indexOf(it.mode) + 1) % MODES.size]) } } to null),
-        // TRN-059: a tap goes on to the next of Never, When they have no mana and Always; filled unless Never
+        // TRN-059: a tap goes on to the next of Never, When they have no mana and Always
         Triple("Assume resolves setting", "Assume:\n${settings.assume.short()}", Icons.Outlined.FastForward) to
-            ({ set { it.assuming(it.assume.next) } } to (settings.assume != AssumeResolves.Never)),
+            ({ set { it.assuming(it.assume.next) } } to null),
         autotap)
     for ((what, action) in cells) key(what.first) {
         val (name, label, icon) = what
         val (toggle, on) = action
-        val filled = on == true
         val choice = name == "Assume resolves setting"
+        // TRN-059 (owner playtest 2026-11-06): the mode and Assume cells always fill in their choice's colour; the
+        // toggles fill violet when on
+        val fillColor = when {
+            name == "Response mode" -> settings.mode.color()
+            choice -> settings.assume.color()
+            else -> AutomatumViolet
+        }
+        val filled = on == true || on == null
         val tooltip = when (name) {
             "Response mode" -> "Response mode: ${settings.mode.label()}. ${settings.mode.meaning()} Tap for the next mode."
             "Assume resolves setting" -> "Assume resolves: ${settings.assume.label()}. ${settings.assume.meaning()} Tap for the next choice."
-            "Full control" -> "Full control: playback stops wherever you get priority; off, only where you could respond"
+            "Control" -> "Control: playback stops wherever you get priority; off, only where you could respond"
             else -> "Autotap mana sources: casting pays by itself, with mana in your pool first"
         }
-        val control = MenuControl(name, enabled, selected = filled, color = AutomatumViolet) { toggle() }
+        val control = MenuControl(name, enabled, selected = on == true, color = fillColor) { toggle() }
         RingPress(control, Modifier.weight(1f).height(48.dp).semantics {
-                stateDescription = if (on == null) settings.mode.label() else if (choice) settings.assume.label() else if (filled) "On" else "Off" },
-            AutomatumViolet, fill = if (filled) AutomatumViolet else Color.White, role = if (on == null || choice) Role.Button else Role.Switch,
+                stateDescription = if (choice) settings.assume.label() else if (on == null) settings.mode.label() else if (filled) "On" else "Off" },
+            fillColor, fill = if (filled) fillColor else Color.White, role = if (on == null) Role.Button else Role.Switch,
             tooltip = tooltip) {
             val ink = (if (filled) Color.White else MenuInk).let { it.copy(alpha = if (enabled) 1f else .45f) }
             Column(Modifier.fillMaxSize().padding(horizontal = 3.dp), horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
                     Icon(icon, null, Modifier.size(16.dp), tint = ink)
-                    if (on != null && !choice) Icon(if (filled) Icons.Outlined.CheckCircle else Icons.Outlined.RadioButtonUnchecked, null,
+                    if (on != null) Icon(if (filled) Icons.Outlined.CheckCircle else Icons.Outlined.RadioButtonUnchecked, null,
                         Modifier.size(13.dp), tint = ink)
                 }
-                Text(if (on == null) settings.mode.label() else label, color = ink, fontSize = 11.sp, lineHeight = 12.sp, letterSpacing = 0.sp,
+                Text(if (on == null && !choice) settings.mode.label() else label, color = ink, fontSize = 11.sp, lineHeight = 12.sp, letterSpacing = 0.sp,
                     maxLines = 2, textAlign = TextAlign.Center, fontWeight = if (filled) FontWeight.Bold else FontWeight.Medium,
                     overflow = TextOverflow.Ellipsis)
             }
@@ -665,7 +686,7 @@ internal fun playbackWait(shown: GameEvent?, delay: Long, mode: ResponseMode): L
 /**
  * Playback (§7, §27, §29): the other player's actions shown one at a time; each event that changes something you can see
  * keeps its animation and the playback delay after it, the others (passes, steps where nothing happened, an empty
- * combat) go by at once unless Full control is on.
+ * combat) go by at once unless Control is on.
  */
 @Composable
 private fun EnginePlayback(routes: EngineTableRoutes) {

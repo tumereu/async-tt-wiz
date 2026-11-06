@@ -10,7 +10,7 @@ Changes the owner wants but that are not built yet. The feature catalog
 
 ## Build order (owner, 2026-11-05: one implementor at a time, small items batched, full suites after each batch)
 
-Running: End turn engine speed (worker D). Gallery round (owner, 2026-11-06): worker E = combat and table items; worker F = question panels + information-rule button; worker G (after E or F) = timeline separators + undo points + Undo dialog.
+Running: End turn engine speed (worker D). Gallery round (owner, 2026-11-06): worker E = combat and table items; worker F = question panels + information-rule button; worker G = timeline separators + undo points + Undo dialog, then emblem text.
 
 ## Ready to build
 
@@ -24,6 +24,7 @@ Running: End turn engine speed (worker D). Gallery round (owner, 2026-11-06): wo
 - No "plays by hand" (owner gallery review): wording for decks/cubes with unsupported cards becomes "Automatum can't play 3 cards yet: A, B, C"; a cube or set with unsupported cards can't be drafted (e2e if missing). Changes LOB-115, LOB-118 and draft entries.
 - Information-rule Assume (owner gallery review): where assuming would show you hidden information or a random result (TRN-067, TRN-071), the wait's Assume button shows greyed; holding it says why ("Assuming this would show you hidden cards or a random result: wait for <name>."). E2e + gallery item. Changes TRN-067, TRN-070, TRN-071.
 - Timeline separators and undo points (owner, 2026-11-06): the timeline shows a labelled vertical line between events where the turn or step changed ("T3 · Combat"; the latest change when several fall between two events); the timeline's events (your own and the other player's, no passes, HIS-101) are exactly the undo points; undoing past the other player's event stays an undo request. The Undo dialog becomes the board preview at the chosen point (may update after a short delay) above a horizontal timeline scroller with the chosen event centred, dragged left/right to choose, its text shown, then Undo / Ask <name>. Also delete the unreachable old branch code in `HistoryTimeline.kt` (BranchSplitMarker, "Hold to branch", the continue-from-here action, `alternatives`/`armedSplit`): no branch lines ever show next to the separators (owner). Changes HIS-005, HIS-083, HIS-084, HIS-099 and the timeline entries.
+- Emblem text (found 2026-11-06, worker E, bug): the parser doesn't keep the printed text of the quoted ability in "You get an emblem with …", so real emblems have empty text: the emblem chips' inspect shows no text and the emblem art lookup (matching rules text) can't match. Keep the emblem's ability text through parsing so TRN-053's inspect shows it. Test with an invented planeswalker. No entry change.
 
 ## Ready after the e2e framework (owner playtest, 2026-11-05)
 

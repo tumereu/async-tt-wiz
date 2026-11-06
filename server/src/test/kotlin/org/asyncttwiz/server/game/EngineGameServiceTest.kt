@@ -242,6 +242,16 @@ class EngineGameServiceTest {
         assertEquals(listOf(branch), opened.session.buffered)
         opened.playToStop()
         assertTrue(opened.model.sameAs(bob.model))
+        // HIS-106 (owner playtest 2026-11-06): the snapshot also holds what of the discarded line she had been shown, so a
+        // device opening the game shows the branch: where she left it, then Bob's branch received as it is live
+        assertEquals(listOf(discarded), snapshot.takenBack.map(f.codec()::decodeEvent))
+        val (left, _) = org.asyncttwiz.protocol.game.GameDevice.load(snapshot, f.alice, takenBack = true) { id() }
+        assertEquals(discarded.id, left.session.localHead)
+        assertEquals(listOf(branch), left.branchOnLoad)
+        left.revision(left.branchOnLoad, null)
+        assertTrue(left.notes().any { it is org.asyncttwiz.protocol.game.GameDevice.Note.Branched }, "the branch's note")
+        assertEquals(aliceKeep.id, left.session.localHead)
+        assertEquals(listOf(branch), left.session.buffered)
         // A table-only event of hers at the head while she is behind doesn't move her local head (it confirms nothing)
         val behind = org.asyncttwiz.protocol.game.GameDevice.load(f.snapshot(), f.alice) { id() }.first
         val early = behind.session.headModel().let { m -> EventBuilder(m, id(), snapshot.headId, f.a.account.accountId).also {
@@ -252,6 +262,10 @@ class EngineGameServiceTest {
         // Her later input on the discarded line is stale
         val late = Submission(id(), discarded.id, listOf(Act.Perform(Input.PassPriority(f.alice))))
         assertEquals("stale", f.owner.execute(GameAction.Submit(late)).reason)
+        // HIS-106: shown Bob's branch, her local head moves on and the take-back is no longer sent
+        assertEquals(listOf(discarded.id), f.snapshot().takenBack.map { f.codec().decodeEvent(it).id })
+        assertEquals("accepted", f.owner.execute(GameAction.EngineSeen(branch.id)).outcome)
+        assertEquals(emptyList<String>(), f.snapshot().takenBack)
     }
 
     // I-D56 §10, HIS-086: a free undo rewinds at once: it only pops events (owner's rule 2026-11-04), and the next event

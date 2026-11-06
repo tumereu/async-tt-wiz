@@ -195,6 +195,35 @@ class GameDeviceTest {
         assertTrue(sim.leaks.isEmpty())
     }
 
+    // HIS-094, HIS-095, HIS-035, HIS-033 (owner playtest 2026-11-06): at a stop for the player's own decision there is
+    // nothing to watch before it: leaving the app and coming back, and loading the game again, show that same stop live,
+    // never the catch-up's paused start ("has made moves"), though the other player's events follow it
+    @Test
+    fun aStopIsLiveAgainAfterLeavingAndLoading() {
+        val glimmer = arcanum.engine.cards.Cards.invent("Idle Glimmer", "{0}", "Instant", "Draw a card.")
+        val sim = DeviceSim(EngineGames(3, (List(10) { "Forest" } + List(30) { glimmer }) to (List(20) { "Mountain" } + List(20) { "Storm Spark" })))
+        sim.bobToMain()
+        val alice = sim.alice; val bob = sim.bob
+        sim.bobCasts("Storm Spark", landName = "Mountain")
+        sim.settle(only = listOf(bob))
+        // He plays on past it: his End turn
+        sim.device(bob).endTurn(sim.now)
+        sim.settle(only = listOf(bob))
+        val device = sim.load(alice)
+        device.play()
+        device.playToStop()
+        val stop = assertIs<GameDevice.Status.Stopped>(device.status)
+        assertTrue(device.session.buffered.size > 1, "Bob's events after the stop")
+        device.away()
+        assertEquals(stop, device.status, "away")
+        device.returned()
+        assertEquals(stop, device.status, "back")
+        sim.now += 600_000
+        sim.flush(alice)
+        assertEquals(stop.event.parentId, sim.server.heads[alice], "her local head reported at the stop")
+        assertEquals(stop, sim.load(alice).status, "loaded again")
+    }
+
     /** The engine searches (layer computations, [Engine.layersWorkedOut]) and points worked out while [ticks] run. */
     private fun searches(device: GameDevice, ticks: () -> Unit): Pair<Int, Int> {
         var layers = 0

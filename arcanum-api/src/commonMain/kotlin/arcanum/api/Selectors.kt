@@ -244,6 +244,8 @@ sealed interface ObjectFilter {
     /** It could produce mana of [mana]'s kind, a single symbol ("{C}", "{R}"): one of its mana abilities, those its land types give
      * included, adds mana of that colour or colourless mana, whatever its costs (CR 106.7: "a land that could produce {C}"). */
     @Serializable @SerialName("could-produce") data class CouldProduce(val mana: ManaCost) : ObjectFilter
+    /** Its mana cost is exactly [cost] ("an artifact card with mana cost {0} or {1}", CR 202.1); a card with no mana cost has none. */
+    @Serializable @SerialName("has-mana-cost") data class HasManaCost(val cost: ManaCost) : ObjectFilter
 }
 
 /** A subtype written out, or the one chosen under [Chosen.key] (a choice of this resolution or remembered on the source,

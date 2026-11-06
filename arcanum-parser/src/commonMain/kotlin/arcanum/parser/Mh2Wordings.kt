@@ -126,6 +126,10 @@ internal object Mh2 {
     val UNTIL_EOT_BECOMES_COPY_OF_EXILED_EXCEPT = Regex("""Until end of turn, (.+?) becomes a copy of the exiled card, except it's an? (\w+) (\w+) in addition to its other types\.""")
     val ARTIFACT_LANDWALK = Regex("""[Aa]rtifact landwalk""")
     val DEALS_COMBAT_DAMAGE_TO_A_CREATURE = Regex("""(.+) deals combat damage to a creature""")
+    // mh2 chunk 14
+    val TOKEN_WITH_SINGLE_QUOTED = Regex("""(.+ token) with '(.+)'\.""")
+    val WITH_MANA_COST_OR = Regex("""(.+?) with mana cost (\{[^}]+\}) or (\{[^}]+\})""")
+    val EACH_IS_A_TYPE_IN_ADDITION = Regex("""Each (\w+) is an? (\w+) in addition to its other (?:land )?types\.""")
 }
 
 /** Values, conditions and nouns of Modern Horizons 2 (mh2) wordings. */
@@ -163,6 +167,12 @@ internal object Mh2Phrases {
     }
 
     fun noun(phrase: String): ObjectFilter? {
+        // mh2 chunk 14: "artifact card with mana cost {0} or {1}" (CR 202.1)
+        Mh2.WITH_MANA_COST_OR.matchEntire(phrase)?.let { m ->
+            val noun = Filters.noun(m.groupValues[1]) ?: return null
+            return Filters.all(noun, ObjectFilter.Or(listOf(ObjectFilter.HasManaCost(arcanum.api.ManaCost.parse(m.groupValues[2]) ?: return null),
+                ObjectFilter.HasManaCost(arcanum.api.ManaCost.parse(m.groupValues[3]) ?: return null))))
+        }
         // mh2 chunk 11: "other creature you control without a +1/+1 counter on it"
         Mh2.WITHOUT_COUNTER_ON_IT.matchEntire(phrase)?.let { m ->
             val noun = Filters.noun(m.groupValues[1]) ?: return null

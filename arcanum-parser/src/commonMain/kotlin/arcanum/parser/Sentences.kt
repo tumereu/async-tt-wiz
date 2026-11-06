@@ -6695,7 +6695,7 @@ internal class Sentences(
                 "unlock doors", "unlock a door" -> ObjectFilter.AbilityOf(kind = arcanum.api.AbilityKind.Unlock)
                 "turn permanents face up", "turn a permanent face up" -> ObjectFilter.AbilityOf(kind = arcanum.api.AbilityKind.TurnFaceUp)
                 // as "Spend this mana only to cast artifact spells" reads (chunk 03)
-                else -> eoeSpendUse(use) ?: spmSpendUse(use) ?: eclSpendUse(use) ?: tmtSpendUse(use) ?: mshSpendUse(use) ?: CAST_SPELLS.matchEntire(use)?.let { m -> Filters.noun(m.groupValues[1])?.let { Filters.all(ObjectFilter.Category(arcanum.api.ObjectCategory.Spell), it) } } ?: return null
+                else -> mh2SpendUse(use) /* mh2 */ ?: eoeSpendUse(use) ?: spmSpendUse(use) ?: eclSpendUse(use) ?: tmtSpendUse(use) ?: mshSpendUse(use) ?: CAST_SPELLS.matchEntire(use)?.let { m -> Filters.noun(m.groupValues[1])?.let { Filters.all(ObjectFilter.Category(arcanum.api.ObjectCategory.Spell), it) } } ?: return null
             }
         }
         return uses.singleOrNull() ?: ObjectFilter.Or(uses)
@@ -21080,6 +21080,12 @@ internal class Sentences(
         return Value.Of(arcanum.api.NumericProperty.Counters(kind), Objects.Each(objects), arcanum.api.Combine.Total)
     }
 
+    /** mh2 chunk 14: a use of restricted mana: "activate abilities of artifacts" (CR 106.6). */
+    private fun mh2SpendUse(use: String): ObjectFilter? = when (use) {
+        "activate abilities of artifacts" -> ObjectFilter.AbilityOf(kind = arcanum.api.AbilityKind.Activated, source = ObjectFilter.Type(CardType.Artifact))
+        else -> null
+    }
+
     /** mh2: a value "where X is …" defines. */
     private fun mh2Value(text: String): Value? {
         // mh2 chunk 02: "the exiled card's toughness" in a spell that exiled it (the card it moved, as it last was, CR 608.2h)
@@ -21138,6 +21144,13 @@ internal class Sentences(
 
     /** mh2: static abilities. */
     private fun mh2Static(line: String): Ability? {
+        // mh2 chunk 14: "Each land is a Forest in addition to its other land types." (layer 4, CR 305.7)
+        Mh2.EACH_IS_A_TYPE_IN_ADDITION.matchEntire(line)?.let { m ->
+            if (m.groupValues[2] !in RulesWords.subtypes) return@let
+            val noun = Filters.noun(m.groupValues[1]) ?: return@let
+            return Ability.Static(listOf(Mechanic.SetTypes(addSubtypes = listOf(arcanum.api.SubtypeRef.Literal(Subtype(m.groupValues[2]))))),
+                affects = Affected.Objects(Objects.Each(noun)))
+        }
         // mh2 chunk 13: "Equipped creature gets +5/+5 and has first strike, trample, indestructible, haste, and "Whenever this creature …"" (layer 6, 7c)
         Mh2.GETS_AND_HAS_KEYWORDS_AND_QUOTED.matchEntire(line)?.takeIf { it.groupValues[1] == "Equipped creature" }?.let { m ->
             val keywords = m.groupValues[4].split(", ").map { OracleParser.keyword(it.trim().replaceFirstChar { c -> c.uppercase() }) ?: return@let }
@@ -21698,6 +21711,11 @@ internal class Sentences(
         Mh2.EACH_OPPONENT_LOSES_LIFE_EQUAL_TO.matchEntire(sentence)?.let { m ->
             val amount = Values.value(m.groupValues[1]) ?: return@let
             return listOf(Step.Do(Effect.LoseLife(Players.Each(PlayerFilter.Opponent), amount)))
+        }
+        // mh2 chunk 14: "Create a 0/0 colorless Construct artifact creature token with 'This token gets +1/+1 for each artifact you control.'" (a
+        // quoted ability inside a quoted ability uses single quotes)
+        Mh2.TOKEN_WITH_SINGLE_QUOTED.matchEntire(sentence)?.let { m ->
+            return effect("${m.groupValues[1]} with \"${m.groupValues[2]}\".", context)
         }
         // mh2 chunk 13: "exile that creature." after damage to it; "counter that spell." after it was cast (the event's object)
         if (sentence == "Exile that creature." && context.event is EventPattern.Damage)

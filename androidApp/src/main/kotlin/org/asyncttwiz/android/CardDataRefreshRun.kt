@@ -14,7 +14,10 @@ import java.util.UUID
  * [stale] says whether a card's data needs it; [rebuild] gives the rebuilt card data (null: the catalog can't).
  */
 internal class CardDataRefreshRun(private val decks: Decks, private val cubes: Cubes,
-    private val stale: (CardDefinition) -> Boolean, private val rebuild: (CardDefinition) -> CardDefinition?) {
+    private val stale: (CardDefinition) -> Boolean,
+    /** Waits before each list is read (owner playtest 2026-11-06: within the deck service's per-account limit). */
+    private val pace: suspend () -> Unit = {},
+    private val rebuild: (CardDefinition) -> CardDefinition?) {
     data class Outcome(val decksUpdated: Int = 0, val cubesUpdated: Int = 0, val notRebuilt: List<String> = emptyList())
 
     /** Runs over every ordinary deck and cube of the signed-in player. Throws on a service failure (retry later). */
@@ -26,9 +29,10 @@ internal class CardDataRefreshRun(private val decks: Decks, private val cubes: C
         do {
             val page = decks.list(token, after)
             for (summary in page.decks.filter { it.draft == null }) {
+                pace()
                 val saved = decks.read(token, summary.id)
-                val digests = saved.entries.map { it.definition }.distinct()
-                val definitions = digests.associateWith { decks.definition(token, summary.id, it).definition }
+                val definitions = decks.definitions(token, summary.id, saved.entries.map { it.definition })
+                    .associate { it.digest to it.definition }
                 val replaced = replacements(definitions, summary.name, notRebuilt)
                 if (replaced.isEmpty()) continue
                 submit(token, replaced.values)
@@ -44,6 +48,7 @@ internal class CardDataRefreshRun(private val decks: Decks, private val cubes: C
         do {
             val page = cubes.listCubes(token, after)
             for (summary in page.cubes) {
+                pace()
                 val saved = cubes.readCube(token, summary.id)
                 val digests = saved.entries.map { it.definition }.distinct()
                 val definitions = digests.chunked(CubeValidation.MAX_DEFINITIONS_PER_READ).flatMap { chunk ->

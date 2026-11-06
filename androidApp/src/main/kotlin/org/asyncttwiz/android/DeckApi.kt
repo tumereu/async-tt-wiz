@@ -19,6 +19,10 @@ interface Decks : Closeable {
     suspend fun list(token: String, after: String? = null): DeckList
     suspend fun read(token: String, id: String): SavedDeck
     suspend fun definition(token: String, id: String, digest: String): SubmittedDefinition
+    /** The card data of [digests] in deck [id], in one request per [CubeValidation.MAX_DEFINITIONS_PER_READ] cards, never
+     * one per card (owner playtest 2026-11-06: that ran into the deck service's per-account limit). */
+    suspend fun definitions(token: String, id: String, digests: List<String>): List<SubmittedDefinition> =
+        digests.distinct().map { definition(token, id, it) }
     suspend fun update(token: String, id: String, value: UpdateDeck): SavedDeck
     suspend fun delete(token: String, id: String, value: DeleteDeck): DeckDeleted
     /** Draft decks, newest first. */
@@ -110,6 +114,18 @@ class DeckApi(private val origin: String, private val client: HttpClient = Accou
         return call<SubmittedDefinition>(token, HttpMethod.Get, "/v1/decks/$id/definitions/$digest").also {
             if (it.digest != digest || !DeckValidation.definition(it.definition) || DeckJson.digest(it.definition) != digest)
                 throw DeckFailure("invalid_response")
+        }
+    }
+    override suspend fun definitions(token: String, id: String, digests: List<String>): List<SubmittedDefinition> {
+        if (!DeckValidation.uuid(id)) throw DeckFailure("invalid_response")
+        return digests.distinct().chunked(CubeValidation.MAX_DEFINITIONS_PER_READ).flatMap { batch ->
+            val value = ReadCubeDefinitions(batch)
+            if (!CubeValidation.definitionRead(batch)) throw DeckFailure("invalid_response")
+            call<SubmittedDefinitions>(token, HttpMethod.Post, "/v1/decks/$id/definitions", DeckJson.format.encodeToString(value)).also {
+                if (it.definitions.size != batch.size || it.definitions.map { item -> item.digest }.toSet() != batch.toSet() ||
+                    it.definitions.any { item -> !DeckValidation.definition(item.definition) || DeckJson.digest(item.definition) != item.digest })
+                    throw DeckFailure("invalid_response")
+            }.definitions
         }
     }
     private suspend inline fun <reified T> call(token: String, method: HttpMethod, path: String, body: String? = null): T {

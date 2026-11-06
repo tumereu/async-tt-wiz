@@ -131,6 +131,18 @@ object ServerSetup {
         }
     }
 
+    /** A game [name] of [a] (the inviter) and [b], invited and accepted, in its lobby with no deck chosen yet. */
+    fun invitation(a: TestAccount, b: TestAccount, name: String): GameSummary {
+        val invitation = LobbyApi(origin).use { api ->
+            runBlocking {
+                api.add(a.token, AddContact(UUID.randomUUID().toString(), b.id))
+                api.create(a.token, CreateInvitation(UUID.randomUUID().toString(), b.id, name))
+            }
+        }
+        Socket(b).use { recipient -> recipient.execute(invitation, recipient.open(invitation), GameAction.AcceptInvitation) }
+        return invitation
+    }
+
     /** A game set up up to both players' Ready ([ready] starts it): invited, accepted, decks chosen, starter set. */
     class Prepared(val a: TestAccount, val b: TestAccount, val invitation: GameSummary, private val decks: Map<TestAccount, TestDeck>,
         private val starter: TestAccount, private val wanted: (Deal) -> Boolean) {

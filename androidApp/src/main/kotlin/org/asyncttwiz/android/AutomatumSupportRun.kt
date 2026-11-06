@@ -12,7 +12,10 @@ import org.asyncttwiz.protocol.*
  */
 internal class AutomatumSupportRun(private val decks: Decks, private val cubes: Cubes,
     private val parserVersion: Int, private val engineVersion: Int,
-    private val support: (Collection<SubmittedDefinition>) -> CardListSupport) {
+    private val support: (Collection<SubmittedDefinition>) -> CardListSupport,
+    /** Waits before each list is read (owner playtest 2026-11-06: the run keeps well inside the deck service's
+     * per-account limit, so a deck chosen meanwhile is never refused as busy). */
+    private val pace: suspend () -> Unit = {}) {
     data class Outcome(val decks: Int = 0, val cubes: Int = 0)
 
     private fun needed(value: CardListSupport?) = value == null || value.parserVersion != parserVersion || value.engineVersion != engineVersion
@@ -28,8 +31,9 @@ internal class AutomatumSupportRun(private val decks: Decks, private val cubes: 
         } while (after != null)
         summaries += decks.drafts(token).decks
         for (summary in summaries.filter { needed(it.automatum) }.distinctBy { it.id }) {
+            pace()
             val saved = decks.read(token, summary.id)
-            val definitions = saved.entries.map { it.definition }.distinct().map { decks.definition(token, summary.id, it) }
+            val definitions = decks.definitions(token, summary.id, saved.entries.map { it.definition })
             if (decks.setSupport(token, summary.id, SetCardListSupport(saved.deck.revision, support(definitions))).stored) deckCount++
         }
         var cubeCount = 0
@@ -37,6 +41,7 @@ internal class AutomatumSupportRun(private val decks: Decks, private val cubes: 
         do {
             val page = cubes.listCubes(token, after)
             for (summary in page.cubes.filter { needed(it.automatum) }) {
+                pace()
                 val saved = cubes.readCube(token, summary.id)
                 val definitions = saved.entries.map { it.definition }.distinct().chunked(CubeValidation.MAX_DEFINITIONS_PER_READ)
                     .flatMap { cubes.cubeDefinitions(token, summary.id, ReadCubeDefinitions(it)).definitions }

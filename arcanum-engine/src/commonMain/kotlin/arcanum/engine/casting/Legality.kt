@@ -206,6 +206,20 @@ internal object Legality {
     }
 
 
+    /** ltr: "you may activate equip abilities any time you could cast an instant" ([Mechanic.ActivateAtInstantSpeed]): the ability is the
+     * expansion of a keyword the filter names, or of an ability of a source the filter's source matches (CR 602.5d). */
+    private fun activatesAtInstantSpeed(snap: Snapshot, player: PlayerId, source: ObjectId, instance: AbilityInstance): Boolean =
+        snap.view.players[player]?.mechanics.orEmpty().any { applied ->
+            val m = applied.mechanic as? Mechanic.ActivateAtInstantSpeed ?: return@any false
+            val filter = m.abilities as? ObjectFilter.AbilityOf ?: return@any false
+            val keywordOk = filter.keyword?.let { kind ->
+                val root = (instance.origin as? arcanum.engine.view.AbilityOrigin.Expansion)?.let { instance.origin.root } ?: return@any false
+                snap.view[source]?.characteristics?.abilities.orEmpty().any { it.origin == root && (it.ability as? arcanum.api.Keyword)?.kind == kind }
+            } ?: true
+            val sourceOk = filter.source?.let { snap.evaluator(applied.controller, self = applied.source, holder = player).matches(it, source) } ?: true
+            keywordOk && sourceOk
+        }
+
     private fun castsAsThoughFlash(snap: Snapshot, player: PlayerId, card: ObjectId): Boolean =
         snap.view.players[player]?.mechanics.orEmpty().any { applied ->
             val m = applied.mechanic as? Mechanic.CastAsThoughFlash ?: return@any false
@@ -322,7 +336,7 @@ internal object Legality {
             if (n < 0 && (snap.state.obj(source)?.counters(arcanum.api.CounterKind.Loyalty) ?: 0) < -n) return "not enough loyalty (CR 606.6)"
         }
         when (ability.rules.timing) {
-            Timing.Sorcery -> if (!sorceryTiming(snap, player)) return "only as a sorcery (CR 602.5d)"
+            Timing.Sorcery -> if (!sorceryTiming(snap, player) && !activatesAtInstantSpeed(snap, player, source, instance)) return "only as a sorcery (CR 602.5d)"
             Timing.AsThisCard -> if (cantCast(snap, player, source, CastWay()) != null) return "only when this card could be cast"
             Timing.Any, Timing.Instant -> Unit
         }

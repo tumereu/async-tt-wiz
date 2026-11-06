@@ -352,7 +352,9 @@ internal class EngineGames(private val capacity: Int = warmCapacity()) {
         val earliest = seats.mapNotNull { seat -> MainLine.after(history, head, seat.head)?.let { seat.head to it.size } }
             .maxByOrNull { it.second }?.first ?: head
         val depth = if (earliest == store.rootId) 0 else store.node(earliest)?.depth ?: 0
-        val start = store.ancestors(earliest, (depth - GameDevice.KEPT_EVENTS).coerceAtLeast(0)).lastOrNull()?.event?.parentId ?: earliest
+        // Never further back than the game's first event (e2e OpeningKeepTest): a snapshot based at the root gave a device
+        // opening the game in its opening a wrong board (turn 1 with its keep decision still open, its Keep doing nothing)
+        val start = store.ancestors(earliest, (depth - GameDevice.KEPT_EVENTS).coerceAtLeast(1)).lastOrNull()?.event?.parentId ?: earliest
         val after = MainLine.after(history, head, start).orEmpty()
         val base = if (after.isEmpty()) null else store.codec.encodeModel(stateAtLocalHead(history, state, start, after))
         val seat = seats.singleOrNull { it.account == viewer }

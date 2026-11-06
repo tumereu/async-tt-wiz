@@ -77,6 +77,11 @@ Design: `docs/specs/arcanum-automatum.md` §6.
   `Mh2Wordings.kt` (`Mh2`, and `Mh2Phrases` for conditions, values and nouns) and the `mh2*` functions of `Sentences.kt`, tried first;
   `OracleParser` also reads "Vanishing" without a number, echo and reinforce X with a cost after a dash ("Echo—Discard a card."),
   artifact landwalk and landcycling, protection from permanents with counters, and a modal trigger's "choose both instead".
+  The Lord of the Rings: Tales of Middle-earth (`ltr`): all 289 cards parse (the basic lands and two vanilla creatures untested; Stern
+  Scolding, Samwise Gamgee and Wizard's Rockets tested in the cube); its rules are in `LtrWordings.kt` (`Ltr`, and `LtrPhrases` for
+  nouns, values and conditions) and the `ltr*` functions of `Sentences.kt`, tried first; "the amassed Army" names the Army the amass
+  step chose, "whenever you scry" makes "it" the source, a modal trigger's header may be "choose one and [this] gets +1/+1 until end of
+  turn" (the pump in each mode), and `OracleParser` also reads nonbasic landwalk.
 - Mechanics that used to be by hand (`MechanicWordings.kt`, tried first; `MechanicWordingsTest`, one test per wording): the Ring tempting
   you (the effect, "whenever the Ring tempts you", "[this] is your Ring-bearer", "you don't control a Ring-bearer", "you chose a creature
   other than [this] as your Ring-bearer"), soulbond's "As long as [this] is paired with another creature, both creatures have …" /

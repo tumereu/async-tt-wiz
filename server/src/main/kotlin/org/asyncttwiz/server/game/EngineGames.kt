@@ -15,6 +15,7 @@ import org.asyncttwiz.protocol.GameWire
 import org.asyncttwiz.protocol.game.Acceptance
 import org.asyncttwiz.protocol.game.EventBuilder
 import org.asyncttwiz.protocol.game.GameDefinitions
+import org.asyncttwiz.protocol.game.GameDevice
 import org.asyncttwiz.protocol.game.GameEvent
 import org.asyncttwiz.protocol.game.GameHistory
 import org.asyncttwiz.protocol.game.GameModel
@@ -344,17 +345,23 @@ internal class EngineGames(private val capacity: Int = warmCapacity()) {
         val history = GameHistory(store, store.codec)
         val state = warmAt(play, history, head)
         synchronized(warm) { warm[play] = state }
-        // I-D56 §7: from the earliest local head behind the head, its state and the events after it
-        val behind = seats.mapNotNull { seat -> MainLine.after(history, head, seat.head)?.let { seat.head to it } }.maxByOrNull { it.second.size }
-            ?.takeIf { it.second.isNotEmpty() }
-        val base = behind?.let { (at, after) -> store.codec.encodeModel(stateAtLocalHead(history, state, at, after)) }
+        // I-D56 §7: from the earliest local head (behind the head, else the head), its state and the events after it; and,
+        // as a device that kept the game open holds them (GameDevice.KEPT_EVENTS), the line's events before it (owner
+        // problem report KWKB3Y, HIS-084: else a device that opened the game knew none of the player's earlier actions,
+        // and Undo said there was nothing to undo)
+        val earliest = seats.mapNotNull { seat -> MainLine.after(history, head, seat.head)?.let { seat.head to it.size } }
+            .maxByOrNull { it.second }?.first ?: head
+        val depth = if (earliest == store.rootId) 0 else store.node(earliest)?.depth ?: 0
+        val start = store.ancestors(earliest, (depth - GameDevice.KEPT_EVENTS).coerceAtLeast(0)).lastOrNull()?.event?.parentId ?: earliest
+        val after = MainLine.after(history, head, start).orEmpty()
+        val base = if (after.isEmpty()) null else store.codec.encodeModel(stateAtLocalHead(history, state, start, after))
         val seat = seats.singleOrNull { it.account == viewer }
         // HIS-106: what of the discarded line the viewer had been shown, when another player's branch took it back
         val takenBack = seat?.takenBackFrom?.let { from -> MainLine.after(history, from, seat.head) }
-            ?.takeIf { it.isNotEmpty() && it.size <= MAX_TAKEN_BACK && behind != null }.orEmpty()
+            ?.takeIf { it.isNotEmpty() && it.size <= MAX_TAKEN_BACK && seat.head != head }.orEmpty()
         return EngineSnapshot(store.codec.encodeDefinitions(), store.rootId, head, store.codec.encodeModel(state.model),
             seats.associate { it.account.toString() to it.head }, seat?.settings, row.request, row.lines,
-            behind?.first, base, behind?.second.orEmpty().map(store.codec::encodeEvent), takenBack.map(store.codec::encodeEvent)) to
+            start.takeIf { after.isNotEmpty() }, base, after.map(store.codec::encodeEvent), takenBack.map(store.codec::encodeEvent)) to
             attention(seats, viewer)
     }
 

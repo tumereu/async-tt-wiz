@@ -230,13 +230,14 @@ class EngineGameServiceTest {
         assertTrue(f.codec().decodeModel(snapshot.state).sameAs(bob.model))
         assertNotEquals(discarded.id, snapshot.headId)
         // I-D56 §7 (step B): the snapshot also holds the state at the earliest local head and the events after it, so
-        // her device opens at her local head with Bob's branch buffered
-        assertEquals(aliceKeep.id, snapshot.baseId)
+        // her device opens at her local head with Bob's branch buffered; KWKB3Y (HIS-084): and the line before it, up to
+        // GameDevice.KEPT_EVENTS events (here from the start), as a device that kept the game open holds it, for Undo
+        assertEquals(snapshot.rootId, snapshot.baseId)
         // LOB-116 (I-D56 §8): Alice, whose assumption Bob answered differently, gets a Game activity that says so
         assertEquals(true, runtime.transaction { c -> org.jooq.impl.DSL.using(c, org.jooq.SQLDialect.POSTGRES)
             .select(ACTIVITY_SUMMARY.BRANCHED).from(ACTIVITY_SUMMARY).where(ACTIVITY_SUMMARY.ACCOUNT_ID.eq(UUID.fromString(f.a.account.accountId)))
             .and(ACTIVITY_SUMMARY.GAME_ID.eq(UUID.fromString(f.game.id))).and(ACTIVITY_SUMMARY.KIND.eq("GAME")).fetchOne(ACTIVITY_SUMMARY.BRANCHED) })
-        assertEquals(listOf(branch), snapshot.events.map(f.codec()::decodeEvent))
+        assertEquals(listOf(aliceKeep, branch), snapshot.events.map(f.codec()::decodeEvent).takeLast(2))
         val (opened, _) = org.asyncttwiz.protocol.game.GameDevice.load(snapshot, f.alice) { id() }
         assertEquals(aliceKeep.id, opened.session.localHead)
         assertEquals(listOf(branch), opened.session.buffered)

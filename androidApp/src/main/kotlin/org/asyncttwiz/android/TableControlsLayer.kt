@@ -15,8 +15,7 @@ import org.asyncttwiz.protocol.*
  * so it stays part of TableSurface's own recomposition scope. */
 @Composable
 internal inline fun BoxWithConstraintsScope.TableControlsLayer(game: GameSummary, play: TableBoard, accountId: String, landscape: Boolean,
-    connected: Boolean, runtime: TableRuntimeHooks, toolkit: TableToolkitController?, scene: TableScene,
-    crossinline gestureError: () -> String?, crossinline clearGestureError: () -> Unit) {
+    connected: Boolean, runtime: TableRuntimeHooks, toolkit: TableToolkitController?, scene: TableScene) {
     val playControls: @Composable () -> Unit = {
         Box(Modifier.fillMaxWidth().height(TableControlsHeight.dp)) {
             if (toolkit != null) {
@@ -40,8 +39,8 @@ internal inline fun BoxWithConstraintsScope.TableControlsLayer(game: GameSummary
     // HIS-001: no event strip in play mode
     else if (!runtime.reviewing) Box(Modifier.align(if (landscape) Alignment.BottomEnd else Alignment.BottomCenter)
         .fillMaxWidth(if (landscape) .5f else 1f)) { playControls() }
-    FloatingTransientError(runtime.errorMessage ?: toolkit?.error ?: gestureError(),
-        { if (runtime.errorMessage != null) runtime.dismissError?.invoke() else if (toolkit?.error != null) toolkit.dismissError() else clearGestureError() },
+    FloatingTransientError(runtime.errorMessage ?: toolkit?.error,
+        { if (runtime.errorMessage != null) runtime.dismissError?.invoke() else toolkit?.dismissError() },
         // Above the own hand row, clear of the own life square, hand and quick actions
         Modifier.align(Alignment.BottomCenter).padding(bottom = scene.items.firstOrNull { it.kind == TableItemKind.HAND && it.owner == accountId }
             ?.let { (maxHeight.value - it.bounds.y).coerceAtLeast(64f) }?.dp ?: 64.dp))

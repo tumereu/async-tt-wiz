@@ -16,7 +16,6 @@ Changes the owner wants but that are not built yet. The feature catalog
 
 - Playback stop on return (owner playtest, 2026-11-06, bug): when your catch-up playback is stopped at a decision of yours and you leave the app (background, or reopen the game), coming back shows that same stop, live, without "<name> has made moves", also when the other player has events after it. E2e first (foreground and reopen, with and without their later events). Changes nothing in HIS-094/HIS-095 (they already say so).
 - Assumed blocks answered differently (owner playtest, 2026-11-06, bug): after you assumed blocks (CMB-040) and the defender declared different ones, your table shows the branch (HIS-097: take-back animation, "Bob blocked differently — your later actions were taken back"), not "<name> has made moves". E2e first.
-- Rotation leftover (owner playtest, 2026-11-06, bug): tapping a combat copy shows "Rotation not queued. Reconnect and try again." — the old by-hand rotate path still runs; remove it entirely so taps do only what CMB-003/CMB-032 say. E2e first.
 
 ## Ready after the e2e framework (owner playtest, 2026-11-05)
 

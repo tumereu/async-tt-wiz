@@ -293,7 +293,8 @@ object OracleParser {
             }
             // chunk 21: a triggered ability with modes ("Whenever …, choose one that hasn't been chosen this turn —", CR 700.2)
             // tmt chunk 02: "…, choose one that hasn't been chosen this turn." with a period before the modes
-            if (!isSpell && (line.endsWith(" —") || line.endsWith(" hasn't been chosen this turn.")) && i < lines.size && lines[i].startsWith("• ")) {
+            if (!isSpell && (line.endsWith(" —") || line.endsWith(" hasn't been chosen this turn.") || line.endsWith(", choose both instead.") /* mh2 chunk 12 */) &&
+                i < lines.size && lines[i].startsWith("• ")) {
                 val modeLines = mutableListOf<String>()
                 while (i < lines.size && lines[i].startsWith("• ")) modeLines += REMINDER.replace(lines[i++].removePrefix("• "), "").trim()
                 val printed = (listOf(raw.trim()) + modeLines.map { "• $it" }).joinToString("\n")
@@ -531,6 +532,8 @@ object OracleParser {
             val noun = Filters.noun(m.groupValues[1].removeSuffix("s")) ?: return null
             return Keyword.Protection(Filters.all(noun, arcanum.api.ObjectFilter.HasCounter(Counters.kind(m.groupValues[2]) ?: return null, atLeast = 1)))
         }
+        // mh2 chunk 12: "Echo—Discard a card." (CR 702.30a): a cost that isn't mana
+        Mh2.ECHO_COST.matchEntire(part)?.let { m -> return Keyword.Echo(Sentences(setOf("this card")).cost(m.groupValues[1]) ?: return null) }
         // mh2 chunk 10: "Reinforce X—{X}{G}{G}" (CR 702.77a)
         if (part.startsWith("Reinforce X—")) return Keyword.ReinforceX(Cost.mana(ManaCost.parse(part.removePrefix("Reinforce X—")) ?: return null))
         // tdm chunk 12: "hexproof from monocolored" (CR 702.11d)

@@ -101,6 +101,17 @@ internal object Mh2 {
     val REVEAL_TOP_TWO_ONE_HAND_OTHER_GRAVEYARD_IF = Regex("""Reveal the top two cards of your library\. Put one of them into your hand and the other into your graveyard\. If you put an? (.+?) card into your hand this way, (.+)""")
     val THIS_OR_ANOTHER_ENTERS_FROM_GRAVEYARD_OR_CAST_FROM = Regex("""Whenever (.+?) or another (.+?) enters, if that creature entered from a graveyard or you cast it from a graveyard, (.+)""")
     val SELF_ENTERS_OR_DIES = Regex("""(.+?) enters or (.+?) dies""")
+    // mh2 chunk 12
+    val ECHO_COST = Regex("""Echo—(.+?)\.?""")
+    val PT_EACH_EQUAL_TO = Regex("""(.+)'s power and toughness are each equal to (.+)\.""")
+    val CHOOSE_ONE_IF_CHOOSE_BOTH_INSTEAD = Regex("""choose one\. If (.+), choose both instead\.""")
+    val INVESTIGATE_TWICE = Regex("""[Ii]nvestigate twice\.""")
+    val CANT_CAST_MORE_THAN_ONE_SPELL_EACH_TURN = Regex("""You can't cast more than one spell each turn\.""")
+    val AS_LONG_AS_NOT_ON_BATTLEFIELD_ITS_A_CREATURE = Regex("""As long as (.+?) isn't on the battlefield, it's an? (\d+)/(\d+) (\w+) creature in addition to its other types\.""")
+    val CREATE_THEN_MILL_IF_MILLED_COUNTER_REPEAT = Regex("""Create (.+? token), then mill a card\. If an? (\w+) card was milled this way, put an? (\S+) counter on (.+?) and repeat this process\.""")
+    val EACH_OPPONENT_LOSES_LIFE_EQUAL_TO = Regex("""Each opponent loses life equal to (.+)\.""")
+    val CHOOSE_NUMBER_FLIP_THAT_MANY = Regex("""Choose a number between (\d+) and (\d+)\. Flip that many coins\. For each flip you win, draw a card\. For each flip you lose, (.+?) deals (\d+) damage to you\. If you won (\w+) flips this way, you may cast spells from your hand this turn without paying their mana costs\.""")
+    val LOOK_TOP_ONE_HAND_REST_BOTTOM = Regex("""Look at the top (\w+) cards of your library\. Put one of them into your hand and the rest on the bottom of your library in a random order\.""")
 }
 
 /** Values, conditions and nouns of Modern Horizons 2 (mh2) wordings. */
@@ -124,6 +135,10 @@ internal object Mh2Phrases {
 
     /** [exiled]: what "the exiled card" means on this card, when an ability links to it (CR 607.2a). */
     fun value(text: String, @Suppress("UNUSED_PARAMETER") exiled: Objects?): Value? {
+        // mh2 chunk 12: "the number of basic land types among lands you control" (domain, CR 305.6)
+        if (text == "the number of basic land types among lands you control")
+            return Value.CountDistinct(Objects.Each(Filters.all(ObjectFilter.Type(arcanum.api.CardType.Land), ObjectFilter.ControlledBy(PlayerFilter.You))),
+                arcanum.api.SharedQuality.BasicLandType)
         // mh2 chunk 08: "the number of card types the discarded card has" (a card discarded as the ability resolves, CR 205.2a)
         if (text == "the number of card types the discarded card has")
             return Value.CountDistinct(Objects.Bound("discarded"), arcanum.api.SharedQuality.CardType)

@@ -108,6 +108,11 @@ sealed interface Value {
     /** In a triggered ability, the X announced for the ability whose cost the triggering event paid ("Cycling {X}{2}{W}" … "When you cycle
      * this card, create X tokens": the X of that cycling, CR 107.3a, 702.29c); 0 when there was none. */
     @Serializable @SerialName("event-x") data object EventX : Value
+    // mh2
+    /** How many of the coin flips named [name] ([Effect.FlipCoin.bind]) its player won ("For each flip you win, draw a card", CR 705.2). */
+    @Serializable @SerialName("flips-won") data class FlipsWon(val name: String) : Value
+    /** How many of the coin flips named [name] its player lost ("For each flip you lose, …", CR 705.2). */
+    @Serializable @SerialName("flips-lost") data class FlipsLost(val name: String) : Value
 }
 
 /**

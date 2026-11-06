@@ -180,7 +180,13 @@ sealed interface Effect {
      * (D25). */
     @Serializable @SerialName("roll-die") data class RollDie(val sides: Int, val count: Int, val players: Players, val bind: String? = null) : Effect
     /** Flip a coin; [bind] names whether it was won ([Condition.WonFlip]). Answered by the host (D25). */
-    @Serializable @SerialName("flip-coin") data class FlipCoin(val players: Players, val bind: String? = null) : Effect
+    @Serializable @SerialName("flip-coin") data class FlipCoin(
+        val players: Players, val bind: String? = null,
+        // mh2
+        /** Flip this many coins at once ("Flip that many coins", CR 705); null: one. [bind] then names all of them, read with
+         * [Value.FlipsWon] and [Value.FlipsLost]. */
+        val count: Value? = null,
+    ) : Effect
     /** Exchange control of [first] and [second] (CR 701.12); nothing happens unless both can be exchanged (701.12a). */
     @Serializable @SerialName("exchange-control") data class ExchangeControl(val first: Objects, val second: Objects) : Effect
     /** Move [amount] counters of [kind] (any kind when null) from [from] onto [to]. */

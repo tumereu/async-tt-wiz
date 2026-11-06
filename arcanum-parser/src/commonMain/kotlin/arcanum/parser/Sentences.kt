@@ -2212,6 +2212,7 @@ internal class Sentences(
         ABILITY_WORD.matchEntire(header)?.takeIf { RulesWords.isAbilityOrFlavorWord(it.groupValues[1]) }?.let { w ->
             return (modalTrigger(w.groupValues[2], modeLines) as? Ability.Triggered)?.copy(abilityWord = w.groupValues[1])
         }
+        mh2ModalTrigger(header, modeLines)?.let { return it } // mh2
         eoeModalTrigger(header, modeLines)?.let { return it } // eoe
         spmModalTrigger(header, modeLines)?.let { return it } // spm
         tlaModalTrigger(header, modeLines)?.let { return it } // tla
@@ -21089,6 +21090,18 @@ internal class Sentences(
         return null
     }
 
+    /** mh2 chunk 12: "When this creature enters, choose one. If [condition], choose both instead." with its modes (CR 700.2). */
+    private fun mh2ModalTrigger(header: String, modeLines: List<String>): Ability? {
+        val m = WHENEVER.matchEntire(header) ?: return null
+        val choose = Mh2.CHOOSE_ONE_IF_CHOOSE_BOTH_INSTEAD.matchEntire(m.groupValues[3]) ?: return null
+        val (trigger, onlyIf) = trigger(m.groupValues[2]) ?: return null
+        val condition = Conditions.condition(choose.groupValues[1], self) ?: return null
+        val options = modeLines.map { arcanum.api.Mode(instructions(modeBody(it), that = that(trigger)) ?: return null, text = it) }
+        if (options.size != 2) return null
+        return Ability.Triggered(trigger, Instructions(modes = arcanum.api.Modes(options, min = 1, max = 1, maxIf = condition, maxIfCount = 2,
+            chooser = Players.You)), triggersOnlyIf = onlyIf)
+    }
+
     /** mh2: lines of more than one ability. */
     private fun mh2Multi(line: String): List<Ability>? {
         // mh2 chunk 02: "You and creatures you control have protection from the chosen card type." (you, CR 702.16k, and the creatures)
@@ -21116,6 +21129,24 @@ internal class Sentences(
 
     /** mh2: static abilities. */
     private fun mh2Static(line: String): Ability? {
+        // mh2 chunk 12: "Territorial Kavu's power and toughness are each equal to the number of basic land types among lands you control." (CR 604.3)
+        Mh2.PT_EACH_EQUAL_TO.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            val value = Mh2Phrases.value(m.groupValues[2], null) ?: return@let
+            return Ability.Static(listOf(Mechanic.SetPowerToughness(value, value)), affects = Affected.Objects(Objects.Self), characteristicDefining = true)
+        }
+        // mh2 chunk 12: "You can't cast more than one spell each turn." (CR 101.2: none once one was cast this turn)
+        if (Mh2.CANT_CAST_MORE_THAN_ONE_SPELL_EACH_TURN.matches(line))
+            return Ability.Static(listOf(Mechanic.CantCast(ObjectFilter.Any)), affects = Affected.Players(Players.You),
+                condition = arcanum.api.Condition.HappenedThisTurn(EventPattern.Cast(ObjectFilter.Any, PlayerFilter.You), atLeast = 1, measure = arcanum.api.Measure.Events))
+        // mh2 chunk 12: "As long as Grist isn't on the battlefield, it's a 1/1 Insect creature in addition to its other types." (works in every other
+        // zone, CR 113.6b)
+        Mh2.AS_LONG_AS_NOT_ON_BATTLEFIELD_ITS_A_CREATURE.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            if (m.groupValues[4] !in RulesWords.subtypes) return@let
+            return Ability.Static(listOf(Mechanic.SetTypes(add = listOf(CardType.Creature), addSubtypes = listOf(arcanum.api.SubtypeRef.Literal(Subtype(m.groupValues[4])))),
+                Mechanic.SetPowerToughness(Value.Fixed(m.groupValues[2].toInt()), Value.Fixed(m.groupValues[3].toInt()))), affects = Affected.Objects(Objects.Self),
+                condition = arcanum.api.Condition.Not(arcanum.api.Condition.ObjectMatches(Objects.Self, ObjectFilter.InZone(Zone.Battlefield))),
+                functionsIn = listOf(Zone.Library, Zone.Hand, Zone.Graveyard, Zone.Exile, Zone.Stack, Zone.Command))
+        }
         // mh2 chunk 11: "Planeswalkers' loyalty abilities you activate cost an additional [+1] to activate." (CR 606.4)
         Mh2.LOYALTY_ABILITIES_COST_ADDITIONAL.matchEntire(line)?.let { m ->
             return Ability.Static(listOf(Mechanic.AdditionalLoyaltyCost(m.groupValues[1].toInt())), affects = Affected.Players(Players.You))
@@ -21254,6 +21285,39 @@ internal class Sentences(
 
     /** mh2: instructions of several sentences read as a whole. */
     private fun mh2Whole(text: String, context: Context): List<Step>? {
+        // mh2 chunk 12: "Look at the top four cards of your library. Put one of them into your hand and the rest on the bottom of your library in a
+        // random order."
+        Mh2.LOOK_TOP_ONE_HAND_REST_BOTTOM.matchEntire(text)?.let { m ->
+            val count = Numbers.count(m.groupValues[1]) ?: return null
+            return listOf(Step.Do(Effect.LookAt(Objects.LibraryCards(Players.You, Value.Fixed(count), fromTop = true), Players.You, bind = "seen")),
+                Step.Choose(arcanum.api.Choice.Objects(ObjectFilter.Any, Value.Fixed(1), Value.Fixed(1), from = Objects.Bound("seen")), bind = "kept", chooser = Players.You),
+                Step.Do(Effect.Move(Objects.Bound("kept"), Destination(Zone.Hand))),
+                Step.Do(Effect.Move(Objects.Except(Objects.Bound("seen"), Objects.Bound("kept")), Destination(Zone.Library, libraryPosition = -1, randomOrder = true))))
+        }
+        // mh2 chunk 12: "Create a 1/1 black and green Insect creature token, then mill a card. If an Insect card was milled this way, put a loyalty
+        // counter on Grist and repeat this process." (CR 608.2c)
+        Mh2.CREATE_THEN_MILL_IF_MILLED_COUNTER_REPEAT.matchEntire(text)?.takeIf { isSelf(it.groupValues[4]) }?.let { m ->
+            val created = effect("Create ${m.groupValues[1]}.", context) ?: return null
+            val kind = Counters.kind(m.groupValues[3]) ?: return null
+            if (m.groupValues[2] !in RulesWords.subtypes) return null
+            val milledOne = arcanum.api.Condition.Exists(Filters.all(ObjectFilter.Sub(arcanum.api.SubtypeRef.Literal(Subtype(m.groupValues[2]))),
+                ObjectFilter.Is(Objects.Bound("milled"))), atLeast = 1)
+            return listOf(Step.RepeatWhile(created + listOf(Step.Do(Effect.Mill(Players.You, Value.Fixed(1), postBind = "milled")),
+                Step.If(milledOne, then = listOf(Step.Do(Effect.PutCounters(Objects.Self, kind, Value.Fixed(1)))))), milledOne))
+        }
+        // mh2 chunk 12: "Choose a number between 1 and 5. Flip that many coins. For each flip you win, draw a card. For each flip you lose, Yusri deals
+        // 2 damage to you. If you won five flips this way, you may cast spells from your hand this turn without paying their mana costs." (CR 705)
+        Mh2.CHOOSE_NUMBER_FLIP_THAT_MANY.matchEntire(text)?.takeIf { isSelf(it.groupValues[3]) }?.let { m ->
+            val flips = "flips"
+            val all = Numbers.count(m.groupValues[5]) ?: return null
+            return listOf(Step.Choose(arcanum.api.Choice.Number(Value.Fixed(m.groupValues[1].toInt()), Value.Fixed(m.groupValues[2].toInt())), bind = "number", chooser = Players.You),
+                Step.Do(Effect.FlipCoin(Players.You, bind = flips, count = Value.Bound("number"))),
+                Step.Do(Effect.Draw(Players.You, Value.FlipsWon(flips))),
+                Step.Do(Effect.DealDamage(Recipients(players = Players.You), Value.Times(Value.FlipsLost(flips), m.groupValues[4].toInt()), Objects.Self)),
+                Step.If(arcanum.api.Condition.Compare(Value.FlipsWon(flips), arcanum.api.Comparison.AtLeast, Value.Fixed(all)), then = listOf(
+                    Step.Do(Effect.ApplyMechanics(listOf(Mechanic.MayPlay(Zone.Hand, PlayKind.Cast, withoutPaying = true, holder = PlayerFilter.You)),
+                        Affected.Objects(Objects.Each(Filters.all(ObjectFilter.InZone(Zone.Hand), ObjectFilter.OwnedBy(PlayerFilter.You)))), arcanum.api.Duration.EndOfTurn)))))
+        }
         // mh2 chunk 11: "Look at the top seven cards of your library. You may reveal a planeswalker card from among them and put it into your hand. Put
         // the rest on the bottom of your library in a random order."
         Mh2.LOOK_TOP_MAY_REVEAL_PUT_INTO_HAND_REST_BOTTOM.matchEntire(text)?.let { m ->
@@ -21563,6 +21627,13 @@ internal class Sentences(
         // mh2 chunk 11: "You gain life equal to the number of cards you've discarded this turn."
         if (Mh2.GAIN_LIFE_EQUAL_TO_CARDS_DISCARDED_THIS_TURN.matches(sentence))
             return listOf(Step.Do(Effect.GainLife(Players.You, Value.EventsThisTurn(EventPattern.Discard(ObjectFilter.Any, PlayerFilter.You), arcanum.api.Measure.Objects))))
+        // mh2 chunk 12: "investigate twice." (CR 701.16a)
+        if (Mh2.INVESTIGATE_TWICE.matches(sentence)) return listOf(Step.Do(Effect.Action(arcanum.api.KeywordAction.Investigate(Value.Fixed(2)))))
+        // mh2 chunk 12: "Each opponent loses life equal to the number of creature cards in your graveyard."
+        Mh2.EACH_OPPONENT_LOSES_LIFE_EQUAL_TO.matchEntire(sentence)?.let { m ->
+            val amount = Values.value(m.groupValues[1]) ?: return@let
+            return listOf(Step.Do(Effect.LoseLife(Players.Each(PlayerFilter.Opponent), amount)))
+        }
         // mh2 chunk 04: "Put enchanted creature into its owner's library third from the top." (CR 401.4: from 0 at the top)
         Mh2.PUT_INTO_OWNERS_LIBRARY_NTH_FROM_TOP.matchEntire(sentence)?.let { m ->
             val objects = if (m.groupValues[1] == "enchanted creature") Objects.AttachedTo(Objects.Self) else mh2Objects(m.groupValues[1], context) ?: return@let

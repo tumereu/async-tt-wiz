@@ -1,1 +1,0 @@
-mod: The table now plays only by the rules: the hand-made tools are gone (notes, counters, pings, marks, links, tokens, dice and coins, Temp piles, selection and the select mode, manual card and Stack moves, life buttons and the old mulligan buttons). Card menus keep Inspect and what the card can do, and dragging on an empty part of the table moves the view.

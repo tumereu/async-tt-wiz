@@ -1,1 +1,0 @@
-mod: Holding an ability on the Stack shows only its picture, text and choices, without the full card it comes from.

@@ -1,1 +1,0 @@
-fix: After an Undo you can cast the same card again right away; it no longer refuses until you tap mana by hand.

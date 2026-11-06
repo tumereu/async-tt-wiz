@@ -1,1 +1,0 @@
-add: With Automatum on, you now get a short pause in your opponent's end step, so you can cast "at the end of turn" instants without Full control.

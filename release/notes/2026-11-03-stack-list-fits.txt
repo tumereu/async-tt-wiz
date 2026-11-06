@@ -1,1 +1,0 @@
-fix: The Stack list is only as tall as its entries.

@@ -1,1 +1,0 @@
-fix: Decks, cubes and draft sets with cards Automatum can't play yet can no longer start a game or draft, even when chosen earlier.

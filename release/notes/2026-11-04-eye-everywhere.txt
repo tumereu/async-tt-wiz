@@ -1,1 +1,0 @@
-add: Every choice, target bar and result panel has the eye to hide it and show it again

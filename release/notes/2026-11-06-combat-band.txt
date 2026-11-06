@@ -1,1 +1,0 @@
-mod: The combat area is now part of the table between the battlefields: while you choose attackers it shows a button for each player or card you can attack, and it opens by itself when your first creature joins the attack; combat cards are the same size as on the battlefield.

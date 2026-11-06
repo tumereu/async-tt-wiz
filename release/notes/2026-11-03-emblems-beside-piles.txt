@@ -1,1 +1,0 @@
-fix: Emblems show beside your piles instead of over the hands.

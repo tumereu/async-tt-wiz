@@ -1,1 +1,0 @@
-add: Catching up has a play/pause button and the event strip; pausing stops where you could have acted, and holding it sets your response mode

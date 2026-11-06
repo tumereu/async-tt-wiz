@@ -1,1 +1,0 @@
-fix: Coming back to the app with a game still open, your opponent's new moves now wait paused for Play, and leaving the app pauses a playback at once.

@@ -1,1 +1,0 @@
-fix: In landscape the table opens zoomed out so both battlefields fit, lands included.

@@ -1,1 +1,0 @@
-mod: With Automatum off, combat damage is no longer worked out for you: deal it by hand.

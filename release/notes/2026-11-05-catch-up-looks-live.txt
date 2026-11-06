@@ -1,1 +1,0 @@
-mod: Coming back to a game, your table looks just like live play: tap "<name> has made moves · Tap to watch" to see their moves, tap the table to pause at your next chance to act, and a "Full control" quick action makes it stop wherever you could act.

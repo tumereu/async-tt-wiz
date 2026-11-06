@@ -1,1 +1,0 @@
-fix: While looking back in the timeline, Respond is greyed and the panel says to hold Auto to respond on a branch.

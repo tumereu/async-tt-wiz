@@ -1,1 +1,0 @@
-mod: Automatum's choices say what they are and which card they come from, and show cards as cards; scry, surveil and discarding sort cards between two areas with a tap or a drag.

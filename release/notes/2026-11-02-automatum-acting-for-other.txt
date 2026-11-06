@@ -1,1 +1,0 @@
-mod: With Automatum on, moving the turn on, ending the turn or declaring attackers or blockers for the other player now asks you first.

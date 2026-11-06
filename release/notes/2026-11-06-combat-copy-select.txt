@@ -1,1 +1,0 @@
-mod: In the combat area a first tap on an attacker or blocker only selects it; tapping it again takes it out of combat.

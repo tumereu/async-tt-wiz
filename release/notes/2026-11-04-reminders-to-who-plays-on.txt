@@ -1,1 +1,0 @@
-mod: If you play on and leave with nothing for your opponent to do, the reminders come to you instead of them

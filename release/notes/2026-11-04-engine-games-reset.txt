@@ -1,1 +1,0 @@
-mod: Games that were already started before this update are removed: every game now runs on the new rules engine

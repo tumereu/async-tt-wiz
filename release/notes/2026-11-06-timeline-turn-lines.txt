@@ -1,1 +1,0 @@
-mod: The timeline shows a labelled line wherever the turn or step changed between events ("T3 · Combat").

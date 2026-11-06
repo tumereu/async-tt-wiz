@@ -1,1 +1,0 @@
-mod: Searching your library shows the card that searches and what you look for, lists the other cards of the library under the ones you can take, and keeps your pick when you hide the panel.

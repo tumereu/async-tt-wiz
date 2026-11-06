@@ -1,1 +1,0 @@
-mod: With Automatum on, the combat damage preview also shows when a choice is needed on the way, marked "Depends on a choice".

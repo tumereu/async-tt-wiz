@@ -1,1 +1,0 @@
-fix: Automatum combat: attackers can be blocked one by one, early damage divisions wait for their turn, face-down cards stay hidden in its panels, and quick edits work while something is done by hand.

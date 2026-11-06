@@ -1,1 +1,0 @@
-mod: With Automatum on, sliding sideways on your hand scrolls it instead of moving cards around.

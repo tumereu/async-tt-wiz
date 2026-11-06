@@ -1,1 +1,0 @@
-mod: With Automatum on, notes, pings, text marks, links, colour counters, statuses, dice and coins are hidden; they come back when Automatum is off.

@@ -1,1 +1,0 @@
-mod: The other player's passes show at once on your open game instead of switching it to playback.

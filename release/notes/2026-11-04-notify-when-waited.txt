@@ -1,1 +1,0 @@
-mod: You get a "Your move" notification only when the game really waits for you, not while your opponent is still playing on what they expect you to do

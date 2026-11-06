@@ -1,1 +1,0 @@
-add: A tap on a stack uses one of its cards at once. When a tap could mean more than one thing (say a creature and its Equipment can both be used), the first tap spreads the group out and the second uses the card you tap; such groups glow white instead of blue. Holding a stack or group shows all its cards.

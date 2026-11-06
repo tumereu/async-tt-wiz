@@ -1,1 +1,0 @@
-mod: The combat area's fold and eye buttons say what they do when you hold them.

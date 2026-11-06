@@ -1,1 +1,0 @@
-fix: Tapping Undo right after an action (like Attack or casting a spell) now waits for it and takes it back, instead of shaking or saying "That wasn't taken".

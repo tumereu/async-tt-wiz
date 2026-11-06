@@ -1,1 +1,0 @@
-mod: With Automatum on, ordering triggers, choosing which effect applies first, dividing combat damage and picking a spell on the Stack as a target now show cards in a panel above your hand, with the buttons beside the eye.

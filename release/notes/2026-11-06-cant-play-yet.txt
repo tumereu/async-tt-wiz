@@ -1,1 +1,0 @@
-mod: Decks, cubes and sets with cards Automatum can't play yet say so: "Automatum can't play 3 cards yet: …".

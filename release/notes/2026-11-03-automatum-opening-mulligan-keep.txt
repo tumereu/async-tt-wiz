@@ -1,1 +1,0 @@
-mod: With Automatum on, a new game deals both opening hands at once; choose Mulligan or Keep, and after a second mulligan pick the cards to put on the bottom of your library.

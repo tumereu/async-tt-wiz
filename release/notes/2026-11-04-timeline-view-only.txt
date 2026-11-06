@@ -1,1 +1,0 @@
-mod: Holding Undo no longer redoes, and the game tree and continuing from an earlier point of the timeline are gone; the timeline is for looking back

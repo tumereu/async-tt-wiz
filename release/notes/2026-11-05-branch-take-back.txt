@@ -1,1 +1,0 @@
-fix: When your opponent answers differently than your game assumed, your table now rewinds step by step to that point and then plays their new moves, instead of jumping there.

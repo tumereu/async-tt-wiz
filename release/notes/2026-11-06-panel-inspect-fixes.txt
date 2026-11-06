@@ -1,1 +1,0 @@
-fix: Holding a card in a choice panel no longer makes the panel jump, and a tall card view opened from a panel now scrolls with your finger.

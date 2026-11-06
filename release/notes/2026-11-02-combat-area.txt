@@ -1,1 +1,0 @@
-mod: The combat area is a panel with an arrow for every block: with Automatum you tap creatures to stage attackers and to assign blockers (one blocker can block several attackers), see the damage before it happens, and divide damage in a dialog, in order or freely.

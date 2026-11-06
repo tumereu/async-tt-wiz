@@ -1,1 +1,0 @@
-mod: With Automatum on, in portrait your pause panel during combat sits just above your hand so the combat stays in view, and pause panels have an eye to hide them.

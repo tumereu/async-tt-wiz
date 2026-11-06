@@ -1,1 +1,0 @@
-add: More cards can now be played: Tarkir: Dragonstorm's endure, mobilize, renew, flurry, harmonize, behold, Omen and Siege cards are handled for you.

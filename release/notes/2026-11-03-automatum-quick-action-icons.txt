@@ -1,1 +1,0 @@
-mod: Automatum's combat buttons (Pass, No blocks, Commit blocks, Commit attack, Clear, Rest →) each have their own icon.

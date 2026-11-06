@@ -1,1 +1,0 @@
-mod: Turning Automatum on forgets a combat, waiting abilities and early answers left over from before, so the game goes on from the table as it is.

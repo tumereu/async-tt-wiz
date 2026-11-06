@@ -1,1 +1,0 @@
-fix: When you declare attackers, the step arrow declares your attack (or no attack) instead of showing an error.

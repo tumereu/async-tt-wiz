@@ -1,1 +1,0 @@
-add: With Automatum on, spells now resolve by themselves: the other player gets a Respond / Let it resolve choice when they could answer, choices like "you may draw a card" are asked in a panel by the Stack, and either player may answer for the other.

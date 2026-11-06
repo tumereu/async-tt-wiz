@@ -1,1 +1,0 @@
-fix: With Automatum on, Undo after your device passed for an away opponent now stays undone, your device no longer passes for you while you are casting, and when your opponent has left the game goes on once your pause runs out.

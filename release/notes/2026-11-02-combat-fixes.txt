@@ -1,1 +1,0 @@
-fix: Combat with Automatum: a planeswalker shows its real loyalty, damage and keyword tags no longer overlap, face-down creatures stay unnamed in messages, a creature you picked to block no longer blocks in a later combat, and the early division can be folded away to see the table.

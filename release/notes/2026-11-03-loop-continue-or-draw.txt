@@ -1,1 +1,0 @@
-mod: When a game seems stuck in a loop, Automatum now asks whether to continue or to end the game as a draw.

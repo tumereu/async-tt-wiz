@@ -1,1 +1,0 @@
-fix: End turn tapped right after To combat is no longer ignored.

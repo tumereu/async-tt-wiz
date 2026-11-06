@@ -1,1 +1,0 @@
-fix: Undo and Redo of an Automatum step now give back exactly that step, and a redone effect counts as newer than what happened in between.

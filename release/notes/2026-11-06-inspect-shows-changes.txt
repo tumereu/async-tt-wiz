@@ -1,1 +1,0 @@
-add: Holding a card in a game shows under it what has changed on it: counters, damage, effects like "+3/+3 until end of turn", what it is attached to and whether it came in this turn; a spell on the Stack shows its targets, X and modes. Drag left while holding to keep the view open and tap a line to see where it comes from.

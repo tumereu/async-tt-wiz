@@ -1,1 +1,0 @@
-fix: Switching Automatum off and on again during combat keeps the attackers and blockers already declared, and declaring the same blocks again no longer counts them twice.

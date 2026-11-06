@@ -1,1 +1,0 @@
-mod: With Automatum on, a card you can't play or use now just shakes instead of showing a message; hold it to see why.

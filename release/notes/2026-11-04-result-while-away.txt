@@ -1,1 +1,0 @@
-fix: A game the rules ended while you were away now tells you, instead of waiting until you happen to open it

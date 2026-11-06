@@ -1,1 +1,0 @@
-add: When one of your moves takes a moment, a soft band sweeps across the main button until it is done.

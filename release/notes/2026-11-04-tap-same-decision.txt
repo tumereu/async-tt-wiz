@@ -1,1 +1,0 @@
-fix: A tap made just as the other player's move arrives is no longer lost when you still have the same choice to make.

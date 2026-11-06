@@ -1,1 +1,0 @@
-add: With Automatum on, copies of cards that a card lets you cast (like a Saga copying cards in exile) show as token cards in exile, and such copies can use "pay {0} rather than" costs from your other cards.

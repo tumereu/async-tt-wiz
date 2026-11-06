@@ -1,1 +1,0 @@
-fix: Tapping Play to catch up now turns the button to Pause at once and shows the first move right away.

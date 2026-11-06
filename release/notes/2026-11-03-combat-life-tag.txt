@@ -1,1 +1,0 @@
-fix: The life change in a combat lane's header ("17 → 13") is no longer cut off at its edge.

@@ -1,1 +1,0 @@
-add: With Automatum on, the Library menu lets you play or cast its top card when a card allows it.

@@ -1,1 +1,0 @@
-fix: A started game opens on the second phone too, instead of reconnecting again and again; a game that really can't be opened now says so

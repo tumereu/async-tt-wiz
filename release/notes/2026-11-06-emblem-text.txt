@@ -1,1 +1,0 @@
-fix: Holding an emblem now shows its text (it was empty), and emblems find their pictures by it.

@@ -1,1 +1,0 @@
-mod: If Automatum meets a step it can't do yet, it skips it and says so in the timeline instead of asking you to do it on the table.

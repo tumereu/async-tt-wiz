@@ -1,1 +1,0 @@
-mod: While the other player is making a choice, the text at the top of the table says so until they are done, and anything you try meanwhile makes it blink.

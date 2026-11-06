@@ -1,1 +1,0 @@
-mod: The ability buttons above a card take as few rows as they can.

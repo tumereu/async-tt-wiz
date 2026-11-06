@@ -1,1 +1,0 @@
-fix: A "you may" question now shows what it asks and what it costs (for example "You may forage. If you do, put two +1/+1 counters on it."), and holding an offspring ability on the Stack shows what it does.

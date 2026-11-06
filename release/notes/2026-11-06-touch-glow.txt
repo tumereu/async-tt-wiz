@@ -1,1 +1,0 @@
-add: A glowing card (or an attack target button) glows a little brighter and larger while your finger is on it.

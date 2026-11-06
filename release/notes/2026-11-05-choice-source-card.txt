@@ -1,1 +1,0 @@
-mod: Choice panels and target bars show the card a choice comes from at their right, where you can hold it to look at it; their titles now say only what to choose.

@@ -1,1 +1,0 @@
-mod: An undo now shows its result at once with one quick animation straight back, without the steps in between (and their buttons) flickering by.

@@ -1,1 +1,0 @@
-mod: Undo takes back your own actions at once; going back past something the other player did, or past a card or roll you already saw, asks them first

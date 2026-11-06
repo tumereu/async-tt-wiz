@@ -1,1 +1,0 @@
-mod: The cast panel now appears only when a spell has something to choose, sits right above your hand across the whole table, and shows the card's picture (hold it to see it large); its eye button stays put when you hide the panel.

@@ -1,1 +1,0 @@
-fix: Your turn no longer ends by itself: it always waits for you in your main phases, also after you cast your last spell or play a land

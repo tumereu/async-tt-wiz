@@ -1,1 +1,0 @@
-fix: After you undo an End turn, or the other player answers differently than assumed before it, your phone no longer ends that turn again by itself.

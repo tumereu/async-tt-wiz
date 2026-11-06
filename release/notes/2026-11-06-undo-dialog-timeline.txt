@@ -1,1 +1,0 @@
-mod: The Undo dialog shows the board at the chosen point above a timeline you drag left and right to choose how far back to go; its points are exactly the timeline's events.

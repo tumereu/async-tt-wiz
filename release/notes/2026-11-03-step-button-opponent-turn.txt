@@ -1,1 +1,0 @@
-mod: In your opponent's turn the step button shows only when you can act: when you may respond or must block or choose.

@@ -1,1 +1,0 @@
-fix: Tapping a creature in the combat area no longer shows "Rotation not queued. Reconnect and try again."

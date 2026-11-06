@@ -1,1 +1,0 @@
-mod: Emblems show as small round pictures by the life total; hold one to read all of that player's emblems.

@@ -1,1 +1,0 @@
-fix: When the other player has made moves, a tap anywhere on the table starts watching them, not only a tap on the text.

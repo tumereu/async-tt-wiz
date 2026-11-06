@@ -1,1 +1,0 @@
-fix: Undo takes back your last action and stays there, so you can act again or undo further; it no longer adds a "The game went back" line to the history.

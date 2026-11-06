@@ -1,1 +1,0 @@
-mod: Combat opens as a band between the battlefields that pushes them apart and zooms with them, instead of a panel over them: a pulsing strip until you tap it or pick your first attacker, creatures that can attack glow red-orange, assumed blocks are placed right on the lanes, and damage is divided next to the band with OK on the main button.

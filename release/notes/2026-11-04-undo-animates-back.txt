@@ -1,1 +1,0 @@
-mod: Undo now plays backwards: the cards fly quickly back to where they were and "Undid: <action>" shows at the top, for your opponent too if they had seen it

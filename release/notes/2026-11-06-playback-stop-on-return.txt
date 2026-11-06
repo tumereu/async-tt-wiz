@@ -1,1 +1,0 @@
-fix: Coming back to a game where the replay stopped for your decision shows that decision at once, instead of saying the other player has made moves.

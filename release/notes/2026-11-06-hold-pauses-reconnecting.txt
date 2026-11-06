@@ -1,1 +1,0 @@
-fix: Holding a card to look at it pauses the playback again, and "Reconnecting…" shows again when your move has waited 3 seconds for the server.

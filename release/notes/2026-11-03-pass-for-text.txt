@@ -1,1 +1,0 @@
-mod: The timeline now reads "alice passed for bob" when a device passed for the other player after their pause, and playback stops only once at a pause.

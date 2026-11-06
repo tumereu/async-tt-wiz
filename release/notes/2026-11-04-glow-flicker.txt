@@ -1,1 +1,0 @@
-fix: Cards that stay playable no longer blink their glow when you play another card

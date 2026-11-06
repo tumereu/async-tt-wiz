@@ -1,1 +1,0 @@
-fix: With Automatum on, an extra combat phase (such as "after this phase, there is an additional combat phase") now happens, and an attack that leads into it can be sent.

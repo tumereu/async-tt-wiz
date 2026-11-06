@@ -1,1 +1,0 @@
-add: Cards with mutate, epic, assist, banding, hidden agenda, venturing into the dungeon or the initiative can now be played

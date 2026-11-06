@@ -1,1 +1,0 @@
-fix: A token that is a copy of a card now shows that card's picture.

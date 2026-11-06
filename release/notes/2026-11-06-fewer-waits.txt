@@ -1,1 +1,0 @@
-mod: The game no longer waits for the other player at your end step or right after you attack: it goes on at once, whatever "Assume resolves" says.

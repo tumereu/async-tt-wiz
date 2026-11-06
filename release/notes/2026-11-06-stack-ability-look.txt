@@ -1,1 +1,0 @@
-mod: An ability on the Stack shows only its card's art and a small T (triggered) or A (activated) mark; holding it shows the art with the ability's text under it.

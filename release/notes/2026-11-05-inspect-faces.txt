@@ -1,1 +1,0 @@
-mod: Hold a card to look at it: you now see only its card pictures, every face of a double-faced card (one under another, or side by side when the phone is turned), and holding an ability on the Stack shows what it does and the card it comes from. "Inspect" and "Other side" are gone from the card menus, and tapping a card no longer opens it large.

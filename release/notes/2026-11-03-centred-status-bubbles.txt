@@ -1,1 +1,0 @@
-fix: Short status texts are centred in their speech bubble.

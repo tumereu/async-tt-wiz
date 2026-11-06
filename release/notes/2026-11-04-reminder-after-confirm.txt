@@ -1,1 +1,0 @@
-fix: No more "is waiting for you" reminder after you already confirmed your move

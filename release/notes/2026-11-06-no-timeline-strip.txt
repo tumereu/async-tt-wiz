@@ -1,1 +1,0 @@
-mod: The row of event icons at the bottom of the game is gone, giving the board more room; the timeline opens from Table actions → Timeline.

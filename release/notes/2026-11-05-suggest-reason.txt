@@ -1,1 +1,0 @@
-fix: The reason you type when suggesting a game end now reaches the other player.

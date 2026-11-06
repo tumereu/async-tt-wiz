@@ -1,1 +1,0 @@
-fix: With Automatum on, both players can mulligan (also putting cards on the bottom of their library) and get Ready at the start of a game, and the first turn then begins through Automatum.

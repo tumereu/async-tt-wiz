@@ -1,1 +1,0 @@
-mod: Your opponent's game no longer tells you when they went on assuming your answer; it looks the same as if they had waited for you

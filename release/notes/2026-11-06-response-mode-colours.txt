@@ -1,1 +1,0 @@
-mod: The response modes are now called Control, Normal and Quick, and the response mode and Assume quick actions are coloured by how much control you keep: deep blue, violet or amber.

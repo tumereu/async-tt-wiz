@@ -1,1 +1,0 @@
-mod: The combat damage preview shows one badge per creature: a red splash with the damage when it survives, a black skull with the damage when it dies.

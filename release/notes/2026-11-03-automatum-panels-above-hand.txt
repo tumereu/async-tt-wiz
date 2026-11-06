@@ -1,1 +1,0 @@
-mod: Automatum's panels all sit just above your hand, with the hide button always in the same spot.

@@ -1,1 +1,0 @@
-add: With Automatum on, tap a card in your hand to lift it and see which lands will pay for it, then tap it again to cast it.

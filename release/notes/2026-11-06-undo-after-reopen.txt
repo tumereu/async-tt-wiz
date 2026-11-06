@@ -1,1 +1,0 @@
-fix: After opening a game again, Undo can again take back your earlier actions instead of doing nothing.

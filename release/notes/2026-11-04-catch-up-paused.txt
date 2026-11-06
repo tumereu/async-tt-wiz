@@ -1,1 +1,0 @@
-mod: Coming back to a game no longer opens a "Catching up" window: what your opponent did waits, paused, until you tap Play at the bottom; mulligans are not played back, you see the result at once

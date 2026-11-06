@@ -1,1 +1,0 @@
-add: New way to play while the other player is away: the game goes on by assuming they let your spells resolve or don't block, and if they answer differently your later actions are taken back; choose how often the game stops for you (Full control, Normal or Auto-skip) from the quick actions or Settings

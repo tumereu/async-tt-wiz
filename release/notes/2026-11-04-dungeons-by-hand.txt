@@ -1,1 +1,0 @@
-mod: Cards that venture into the dungeon or take the initiative now count as played by hand, as games have no dungeons yet

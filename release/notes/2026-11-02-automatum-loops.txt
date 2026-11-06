@@ -1,1 +1,0 @@
-add: With Automatum on, abilities that keep triggering each other without end no longer run on: Automatum stops and says the game is a draw.

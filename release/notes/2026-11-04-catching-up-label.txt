@@ -1,1 +1,0 @@
-mod: While you catch up on a game, the move label at the top reads "Catching up".

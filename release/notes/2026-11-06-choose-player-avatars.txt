@@ -1,1 +1,0 @@
-fix: Choosing a player shows each player's picture.

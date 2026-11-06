@@ -1,1 +1,0 @@
-fix: Casting a spell that needs mana no longer shows for a moment and then snaps back; an action the game refuses now always says so

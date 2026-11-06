@@ -1,1 +1,0 @@
-fix: Two of your devices with different Full control settings no longer switch it back and forth in a game: a game takes your setting when you change it, and otherwise keeps its own.

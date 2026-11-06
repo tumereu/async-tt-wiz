@@ -1,1 +1,0 @@
-mod: Every game is now played with Automatum: the Automatum switch and its option in New game are gone. Games started before this update were removed.

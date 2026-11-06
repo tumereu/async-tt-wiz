@@ -177,6 +177,7 @@ internal object Legality {
             // tdm: an additional cost whose payment lets it be cast as though it had flash (the cast then pays it)
             chars?.abilities.orEmpty().any { inst -> (inst.ability as? arcanum.api.Ability.Static)?.mechanics.orEmpty().any { it is Mechanic.AdditionalCost && it.flash } })
         if (!instant && !sorceryTiming(snap, player)) return "only as a sorcery: your main phase, empty Stack (CR 307.1)"
+        legendarySpellWithoutLegend(snap, player, face, types)?.let { return it }
         restriction(snap, player, card)?.let { return it }
         if (cantCastBy(snap, player, card)) return "$player can't cast it"
         return null
@@ -205,6 +206,17 @@ internal object Legality {
         else -> null
     }
 
+
+    /** ltr chunk 05: a legendary instant or sorcery is cast only by a player who controls a legendary creature or planeswalker (CR 205.4e). */
+    private fun legendarySpellWithoutLegend(snap: Snapshot, player: PlayerId, face: FaceDefinition, types: List<CardType>): String? {
+        if (arcanum.api.Supertype.Legendary !in face.supertypes || (CardType.Instant !in types && CardType.Sorcery !in types)) return null
+        val has = snap.state.battlefield.any { id ->
+            val v = snap.view[id] ?: return@any false
+            val c = v.characteristics ?: return@any false
+            v.controller == player && arcanum.api.Supertype.Legendary in c.supertypes && (c.isType(CardType.Creature) || c.isType(CardType.Planeswalker))
+        }
+        return if (has) null else "a legendary instant or sorcery needs a legendary creature or planeswalker (CR 205.4e)"
+    }
 
     /** ltr: "you may activate equip abilities any time you could cast an instant" ([Mechanic.ActivateAtInstantSpeed]): the ability is the
      * expansion of a keyword the filter names, or of an ability of a source the filter's source matches (CR 602.5d). */

@@ -169,4 +169,88 @@ internal object LtrSet {
     val elvishSailwright = Cards.invent("Elvish Sailwright", "{2}{U}", "Creature — Elf Pilot", "Whenever this creature attacks, scry 1.\nWhenever you scry, tap up to X target nonland permanents, where X is the number of cards looked at while scrying this way.", "3/2")
     // chunk 04
     val whiteCityGarrison = Cards.invent("White City Garrison", "{3}{U}", "Creature — Human Soldier", "White City Garrison's power is equal to the number of cards in your hand.\nWhenever this creature attacks, you may tap any number of untapped Humans you control. Draw a card for each Human tapped this way.", "*/5")
+    // chunk 05
+    val bitterUndoing = Cards.invent("Bitter Undoing", "{3}{B}", "Instant", "This spell costs {3} less to cast if it targets a creature that was dealt damage this turn.\nDestroy target creature. Its controller loses 2 life.")
+    // chunk 05
+    val theDarkBreath = Cards.invent("The Dark Breath", "{2}{B}", "Sorcery", "Creatures your opponents control get -1/-1 until end of turn. The Ring tempts you.")
+    // chunk 05
+    val lureOfTheRing = Cards.invent("Lure of the Ring", "{1}{B}", "Enchantment", "At the beginning of your upkeep, the Ring tempts you.\nWhenever you choose a creature as your Ring-bearer, you may pay 2 life. If you do, draw a card.")
+    // chunk 05
+    val spiderPassPatrol = Cards.invent("Spider Pass Patrol", "{4}{B}", "Creature — Orc Soldier", "{1}, {T}, Sacrifice another creature: Draw a card, then create a Food token. (It's an artifact with \"{2}, {T}, Sacrifice this token: You gain 3 life.\")", "4/5")
+    // chunk 05
+    val graspThePrecious = Cards.invent("Grasp the Precious", "{1}{B}{B}", "Sorcery", "Destroy target creature. The Ring tempts you.")
+    // chunk 05
+    val fenlandCrebain = Cards.invent("Fenland Crebain", "{2}{B}", "Creature — Bird Horror", "Flying\nWhen this creature enters, amass Orcs 2. (Put two +1/+1 counters on an Army you control. It's also an Orc. If you don't control an Army, create a 0/0 black Orc Army creature token first.)", "1/1")
+    // chunk 05
+    val southronVanguard = Cards.invent("Southron Vanguard", "{1}{B}", "Creature — Human Warrior", "When this creature dies, amass Orcs 1. (Put a +1/+1 counter on an Army you control. It's also an Orc. If you don't control an Army, create a 0/0 black Orc Army creature token first.)", "2/1")
+    // chunk 05
+    val smeagorPatientPlotter = Cards.invent("Smeagor, Patient Plotter", "{1}{B}", "Legendary Creature — Halfling Horror", "When Smeagor leaves the battlefield, the Ring tempts you.\n{B}, Sacrifice a creature: Return this card from your graveyard to your hand. Activate only as a sorcery.", "3/1")
+    // chunk 05
+    val wretchsBite = Cards.invent("Wretch's Bite", "{B}", "Instant", "Target creature gets -2/-2 until end of turn.\n{3}{B}, Exile this card from your graveyard: The Ring tempts you. Activate only as a sorcery.")
+    // chunk 05
+    val shagulOfTheDeadTower = Cards.invent("Shagul of the Dead Tower", "{1}{B}", "Legendary Creature — Orc Soldier", "Whenever a Goblin or Orc you control deals combat damage to a player, you may sacrifice it. When you do, choose one —\n• Draw a card.\n• Create a Treasure token. (It's an artifact with \"{T}, Sacrifice this token: Add one mana of any color.\")", "2/2")
+    // chunk 05
+    val gorthakMorgulLieutenant = Cards.invent("Gorthak, Morgul Lieutenant", "{3}{B}", "Legendary Creature — Human Soldier", "When Gorthak enters, amass Orcs 1. (Put a +1/+1 counter on an Army you control. It's also an Orc. If you don't control an Army, create a 0/0 black Orc Army creature token first.)\nCreature tokens you control have deathtouch.", "3/3")
+    // chunk 05
+    val wormwoodTheWhisperer = Cards.invent("Wormwood the Whisperer", "{2}{B}", "Legendary Creature — Human Advisor", "Your opponents can't gain life.\n{T}, Sacrifice another creature: Target player loses 1 life. If the sacrificed creature was legendary, amass Orcs 2.", "1/4")
+    // chunk 05
+    val grundorTheGatebreaker = Cards.invent("Grundor, the Gatebreaker", "{3}{B}", "Legendary Artifact — Vehicle", "Trample\nAs long as it's your turn and you control an Army, Grundor is an artifact creature.\nCrew 3 (Tap any number of creatures you control with total power 3 or more: This Vehicle becomes an artifact creature until end of turn.)", "5/5")
+    // chunk 05
+    val hauntOfTheMereOfGhosts = Cards.invent("Haunt of the Mere of Ghosts", "{B}", "Creature — Nightmare Elf", "When this creature enters, scry 1.\n{2}{B}: Return this card from your graveyard to the battlefield tapped. Activate only if you control a legendary creature.", "1/1")
+    // chunk 05
+    val theKingsFatefulStrike = Cards.invent("The King's Fateful Strike", "{2}{B}{B}", "Legendary Instant", "(You may cast a legendary instant only if you control a legendary creature or planeswalker.)\nDestroy target creature. If its controller has more than four cards in hand, they exile cards from their hand equal to the difference.")
+    // chunk 05
+    val lashOfTheFireDemon = Cards.invent("Lash of the Fire Demon", "{B}", "Sorcery", "As an additional cost to cast this spell, sacrifice a creature or pay {4}.\nDestroy target creature.")
+    // chunk 05
+    val hildaBracegirdlePott = Cards.invent("Hilda Bracegirdle-Pott", "{2}{B}", "Legendary Creature — Halfling Citizen", "Flash\nMenace\nWhen Hilda enters, exile target creature card from an opponent's graveyard that was put there from the battlefield this turn, then create X Treasure tokens, where X is the exiled card's power.", "2/3")
+    // chunk 05
+    val marchFromTheDarkGate = Cards.invent("March from the Dark Gate", "{1}{B}", "Enchantment", "When this enchantment enters and whenever an Army you control attacks, amass Orcs 1. (Put a +1/+1 counter on an Army you control. It's also an Orc. If you don't control an Army, create a 0/0 black Orc Army creature token first.)")
+    // chunk 05
+    val gloomwoodBats = Cards.invent("Gloomwood Bats", "{3}{B}", "Creature — Bat", "Flying\nWhenever you create or sacrifice a token, each opponent loses 1 life.", "2/3")
+    // chunk 05
+    val darkLandMuster = Cards.invent("Dark Land Muster", "{1}{B}", "Sorcery", "You draw a card and you lose 1 life.\nAmass Orcs 1. (Put a +1/+1 counter on an Army you control. It's also an Orc. If you don't control an Army, create a 0/0 black Orc Army creature token first.)")
+    // chunk 05
+    val darkLandTrebuchet = Cards.invent("Dark Land Trebuchet", "{2}{B}", "Artifact Creature — Wall", "Defender\nWhenever you attack with one or more Goblins and/or Orcs, create a 2/1 colorless Construct artifact creature token with flying named Ballistic Boulder that's tapped and attacking. Sacrifice that token at end of combat.", "1/4")
+    // chunk 06
+    val witchBladeWound = Cards.invent("Witch-Blade Wound", "{1}{B}", "Enchantment — Aura", "Enchant creature\nEnchanted creature gets -3/-0 and has \"At the beginning of your upkeep, exile this creature unless you pay 2 life.\"")
+    // chunk 06
+    val wretchedEnd = Cards.invent("Wretched End", "{1}{B}", "Instant", "As an additional cost to cast this spell, sacrifice a creature.\nDraw two cards. If the sacrificed creature was legendary, draw three cards instead.")
+    // chunk 06
+    val ringwight = Cards.invent("Ringwight", "{2}{B}", "Creature — Wraith Knight", "Deathtouch\nWhen this creature enters, the Ring tempts you.\nWhenever the Ring tempts you, put a +1/+1 counter on each Wraith you control.\nA deck can have up to nine cards named Ringwight.", "1/2")
+    // chunk 06
+    val oathOfTheSilentHost = Cards.invent("Oath of the Silent Host", "{3}{B}", "Enchantment — Saga", "(As this Saga enters and after your draw step, add a lore counter. Sacrifice after III.)\nI — You and target opponent each create a Food token.\nII — Each opponent loses 3 life. Create a Treasure token.\nIII — Create three tapped 1/1 white Spirit creature tokens with flying.")
+    // chunk 06
+    val oneRingToBindThemAll = Cards.invent("One Ring to Bind Them All", "{2}{B}{B}", "Enchantment — Saga", "(As this Saga enters and after your draw step, add a lore counter. Sacrifice after III.)\nI — The Ring tempts you, then each player mills cards equal to your Ring-bearer's power.\nII — Destroy all nonlegendary creatures.\nIII — Each opponent loses 1 life for each creature card in that player's graveyard.")
+    // chunk 06
+    val orcishArrowmasters = Cards.invent("Orcish Arrowmasters", "{1}{B}", "Creature — Orc Archer", "Flash\nWhen this creature enters and whenever an opponent draws a card except the first one they draw in each of their draw steps, this creature deals 1 damage to any target. Then amass Orcs 1.", "1/1")
+    // chunk 06
+    val orcishPoultice = Cards.invent("Orcish Poultice", "{1}{B}", "Instant", "Target creature gains your choice of lifelink or indestructible until end of turn.\nAmass Orcs 1. (Put a +1/+1 counter on an Army you control. It's also an Orc. If you don't control an Army, create a 0/0 black Orc Army creature token first.)")
+    // chunk 06
+    val hamfastsDesperateRescue = Cards.invent("Hamfast's Desperate Rescue", "{B}", "Sorcery", "Return target creature card from your graveyard to your hand. The Ring tempts you.")
+    // chunk 06
+    val gorthaurTheNecromancer = Cards.invent("Gorthaur, the Necromancer", "{3}{B}{B}", "Legendary Creature — Avatar Horror", "Menace\nWhenever Gorthaur attacks, exile target creature card from your graveyard. Create a tapped and attacking token that's a copy of that card, except it's a 3/3 black Wraith with menace. At the beginning of the next end step, exile that token unless Gorthaur is your Ring-bearer.", "4/4")
+    // chunk 06
+    val shadowOfTheFoe = Cards.invent("Shadow of the Foe", "{3}{B}{B}{B}", "Sorcery", "Exile all creature cards from target player's graveyard. You may cast spells from among those cards for as long as they remain exiled, and mana of any type can be spent to cast them.")
+    // chunk 06
+    val spidersAmbush = Cards.invent("Spider's Ambush", "{B}", "Instant", "Target creature gets +1/+2 and gains deathtouch until end of turn. Create a Food token. (It's an artifact with \"{2}, {T}, Sacrifice this token: You gain 3 life.\")")
+    // chunk 06
+    val snarlingWolfHound = Cards.invent("Snarling Wolf-Hound", "{3}{B}", "Creature — Wolf", "Menace (This creature can't be blocked except by two or more creatures.)\nAs long as you control a Goblin or Orc, this creature gets +1/+0.", "3/4")
+    // chunk 06
+    val theTormentOfTheWretch = Cards.invent("The Torment of the Wretch", "{3}{B}", "Sorcery", "Target opponent reveals their hand. You choose a nonland card from it. That player discards that card.\nAmass Orcs 2. (Put two +1/+1 counters on an Army you control. It's also an Orc. If you don't control an Army, create a 0/0 black Orc Army creature token first.)")
+    // chunk 06
+    val trollOfTheDeepHalls = Cards.invent("Troll of the Deep Halls", "{5}{B}", "Creature — Troll", "This creature can't be blocked except by three or more creatures.\nSwampcycling {1} ({1}, Discard this card: Search your library for a Swamp card, reveal it, put it into your hand, then shuffle.)", "6/5")
+    // chunk 06
+    val urukBerserker = Cards.invent("Uruk Berserker", "{2}{B}", "Creature — Orc Berserker", "When this creature enters, the Ring tempts you.", "3/2")
+    // chunk 06
+    val ravenousFellSteed = Cards.invent("Ravenous Fell Steed", "{4}{B}{B}", "Creature — Drake Beast", "Flying\nWhen this creature enters, each opponent sacrifices a creature of their choice. Create a Food token for each creature sacrificed this way. (It's an artifact with \"{2}, {T}, Sacrifice this token: You gain 3 life.\")", "4/4")
+    // chunk 06
+    val witchLordOfTheNorth = Cards.invent("Witch-lord of the North", "{3}{B}{B}", "Legendary Creature — Wraith Noble", "Flying\nWhenever one or more creatures deal combat damage to you, each opponent sacrifices a creature of their choice that dealt combat damage to you this turn. The Ring tempts you.\nDiscard a card: Witch-lord of the North gains indestructible until end of turn. Tap him.", "5/3")
+    // chunk 06
+    val ringboundWraiths = Cards.invent("Ringbound Wraiths", "{4}{B}{B}", "Creature — Wraith Knight", "When this creature enters, target creature an opponent controls gets -3/-3 until end of turn. If that creature is legendary, its controller loses 3 life.\nWhen the Ring tempts you, return this card from your graveyard to your hand.", "5/5")
+    // chunk 06
+    val smeagorSchemingGuide = Cards.invent("Smeagor, Scheming Guide", "{1}{B}", "Legendary Creature — Halfling Horror", "Whenever Smeagor attacks, look at the top two cards of your library, put them back in any order, then choose land or nonland. An opponent guesses whether the top card of your library is the chosen kind. Reveal that card. If they guessed right, remove Smeagor from combat. Otherwise, you draw a card and Smeagor can't be blocked this turn.", "2/1")
+    // chunk 06
+    val witchLordBringerOfRuin = Cards.invent("Witch-lord, Bringer of Ruin", "{4}{B}{B}", "Legendary Creature — Wraith Noble", "Flying\nWhenever Witch-lord attacks, defending player sacrifices a creature with the least power among creatures they control.", "5/3")
+    // chunk 06
+    val wolfRider = Cards.invent("Wolf Rider", "{4}{B}", "Creature — Orc Warrior", "Menace\nOther Orcs and Goblins you control have menace.\nAt the beginning of combat on your turn, amass Orcs 2. (Put two +1/+1 counters on an Army you control. It's also an Orc. If you don't control an Army, create a 0/0 black Orc Army creature token first.)", "4/3")
 }

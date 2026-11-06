@@ -20,6 +20,8 @@ sealed interface NamedValue {
     @Serializable @SerialName("number") data class Number(val value: Int) : NamedValue
     @Serializable @SerialName("colors") data class Colors(val colors: List<Color>) : NamedValue
     @Serializable @SerialName("subtype") data class SubtypeValue(val subtype: Subtype) : NamedValue
+    /** mh2: card names chosen one after another ("a card name that hasn't been chosen"). */
+    @Serializable @SerialName("names") data class Names(val names: List<String>) : NamedValue
     /** mh2: the subtypes several players chose in one loop ("a type chosen this way", CR 608.2c). */
     @Serializable @SerialName("subtypes") data class Subtypes(val subtypes: List<Subtype>) : NamedValue
     @Serializable @SerialName("card-type") data class CardTypeValue(val cardType: CardType) : NamedValue

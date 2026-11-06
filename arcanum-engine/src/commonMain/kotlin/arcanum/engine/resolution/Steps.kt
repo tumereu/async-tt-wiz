@@ -141,6 +141,9 @@ internal object Steps {
         }
     }
 
+    /** The memory key prefix of the names a [Choice.CardNameAmong] chose before (mh2). */
+    private const val CHOSEN_NAMES = "\$chosen-names:"
+
     /** The most times a [Step.RepeatWhile] repeats in one resolution. */
     private const val REPEAT_LIMIT = 1000
 
@@ -294,6 +297,19 @@ internal object Steps {
                 NamedValue.Objects(chosen)
             }
             is Choice.Option -> NamedValue.Option(act.chooseOption(chooser, source, choice.options))
+            // mh2: "Choose a card name that hasn't been chosen from among …": the names chosen before are kept by the source
+            is Choice.CardNameAmong -> {
+                val key = CHOSEN_NAMES + step.bind
+                val before = (source?.let { act.state.obj(it) }?.memory?.get(key) as? NamedValue.Names)?.names.orEmpty()
+                val options = if (choice.unchosen) choice.names.filter { it !in before } else choice.names
+                if (options.isEmpty()) return
+                val name = act.chooseOption(chooser, source, options)
+                require(name in options) { "Not one of $options" }
+                if (choice.unchosen) source?.let { act.state.obj(it) }?.let { o ->
+                    act.record(Change.Memory(o.id, key, o.memory[key], NamedValue.Names(before + name)))
+                }
+                NamedValue.Name(name)
+            }
         }
         scope.bind(step.bind, value)
         if (step.remember) {

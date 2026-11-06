@@ -149,6 +149,8 @@ internal object Mh2 {
     val SPELLS_WITH_MV_EQUAL_TO_CHOSEN_NUMBER_CANT_BE_CAST = Regex("""(\w+) spells with mana value equal to the chosen number can't be cast\.""")
     // mh2 engine: "This spell has cascade as long as …"
     val THIS_SPELL_HAS_CASCADE_AS_LONG_AS = Regex("""This spell has cascade as long as (.+)\.""")
+    // mh2 chunk 11
+    val CHOOSE_NAME_UNCHOSEN_COPY_MAY_CAST = Regex("""Choose a card name that hasn't been chosen from among (.+), and (.+?)\. Create a copy of the card with the chosen name\. You may cast the copy\.(?: \(You still pay its costs\.\))?""")
 }
 
 /** Values, conditions and nouns of Modern Horizons 2 (mh2) wordings. */

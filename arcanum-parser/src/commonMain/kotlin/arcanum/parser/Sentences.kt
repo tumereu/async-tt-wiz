@@ -21388,6 +21388,16 @@ internal class Sentences(
 
     /** mh2: instructions of several sentences read as a whole. */
     private fun mh2Whole(text: String, context: Context): List<Step>? {
+        // mh2 chunk 11: "Choose a card name that hasn't been chosen from among A, B, …, and F. Create a copy of the card with the chosen name. You may
+        // cast the copy." The copy is made in exile from the card the host supplies (CR 707.12), then may be cast, paying its costs
+        Mh2.CHOOSE_NAME_UNCHOSEN_COPY_MAY_CAST.matchEntire(text)?.let { m ->
+            val names = m.groupValues[1].split(", ") + m.groupValues[2]
+            return listOf(
+                Step.Choose(arcanum.api.Choice.CardNameAmong(names, unchosen = true), bind = "name", chooser = Players.You),
+                Step.Do(Effect.CopyNamedCard("name", Players.You, bind = "copy")),
+                Step.May(listOf(Step.Do(Effect.Cast(Objects.Bound("copy"), arcanum.api.PlayKind.Cast, caster = Players.You))), player = Players.You),
+            )
+        }
         // mh2 chunk 16: "This land becomes a 2/2 Assembly-Worker artifact creature until end of turn. It's still a land." (layer 4, 7b)
         Mh2.BECOMES_PT_SUBTYPE_ARTIFACT_CREATURE_STILL_LAND.matchEntire(text)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
             val subtypes = m.groupValues[4].split(' ').map { if (it in RulesWords.subtypes) arcanum.api.SubtypeRef.Literal(Subtype(it)) else return null }

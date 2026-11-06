@@ -480,4 +480,8 @@ sealed interface Choice {
     @Serializable data class TotalLimit(val property: NumericProperty, val atMost: Value)
     /** Choose one of named options ("odd or even", "left or right"). */
     @Serializable @SerialName("option") data class Option(val options: List<String>) : Choice
+    // mh2
+    /** "Choose a card name … from among [names]": bound as the chosen name; with [unchosen] ("that hasn't been chosen"), not one
+     * this object chose before for this choice (it keeps the names it chose as its memory, CR 607.2a). */
+    @Serializable @SerialName("card-name-among") data class CardNameAmong(val names: List<String>, val unchosen: Boolean) : Choice
 }

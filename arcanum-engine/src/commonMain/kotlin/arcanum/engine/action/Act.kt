@@ -306,7 +306,7 @@ internal class Act(val recorder: Recorder, val asker: Asker) {
 
     /** Makes sure the identities of [ids] are known, asking the host for exactly the unknown ones (D60): [player] looks
      * at them, or everyone sees them when [public] ([Decision.HostFill]). */
-    fun fill(player: PlayerId, source: ObjectId?, ids: List<ObjectId>, reason: String, public: Boolean = false, shown: Boolean = true) {
+    fun fill(player: PlayerId, source: ObjectId?, ids: List<ObjectId>, reason: String, public: Boolean = false, shown: Boolean = true, named: String? = null) {
         // With full information nothing is filled: what the player looks at is said by a Change.Shown
         if (state.viewer == null && shown) {
             val hidden = ids.distinct().filter { id -> state.obj(id)?.let { !Knowledge.public(it) } == true }
@@ -331,7 +331,7 @@ internal class Act(val recorder: Recorder, val asker: Asker) {
             return
         }
         if (othersOnly && asker.mayAskOtherView) throw NeedOtherView(player, source, unknown, reason)
-        val filled = (ask { Decision.HostFill(it, player, source, unknown, reason, public) } as Answer.Filled).objects
+        val filled = (ask { Decision.HostFill(it, player, source, unknown, reason, public, named) } as Answer.Filled).objects
         // Checked against the decision when answered (AnswerCheck): exactly the asked objects, each once
         record(unknown, filled)
     }

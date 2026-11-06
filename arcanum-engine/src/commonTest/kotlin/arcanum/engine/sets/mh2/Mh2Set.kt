@@ -404,6 +404,8 @@ internal object Mh2Set {
     val goblinChaosmonger = Cards.invent("Goblin Chaosmonger", "{R}{G}", "Creature — Goblin Shaman", "Each spell you cast that's red or green costs {1} less to cast.", "2/2")
     // chunk 11
     val gentleRestoration = Cards.invent("Gentle Restoration", "{3}{W}{B}", "Sorcery", "Choose one —\n• Return target creature card from your graveyard to the battlefield with an additional +1/+1 counter on it.\n• Return up to two target creature cards with power 2 or less from your graveyard to the battlefield.")
+    // chunk 11
+    val gorvanHalfEye = Cards.invent("Gorvan Half-Eye", "{W}{U}{B}{R}{G}", "Legendary Creature — Human Wizard", "{T}: Choose a card name that hasn't been chosen from among Horizon Unmaking, Horizon Torrent, Horizon Dread, Horizon Wyrm, Horizon Regrowth, and Horizon Lotus. Create a copy of the card with the chosen name. You may cast the copy. (You still pay its costs.)", "5/5")
     // chunk 12
     val grastTheRavenousTide = Cards.invent("Grast, the Ravenous Tide", "{1}{B}{G}", "Legendary Planeswalker — Grist", "As long as Grast isn't on the battlefield, it's a 1/1 Insect creature in addition to its other types.\n[+1]: Create a 1/1 black and green Insect creature token, then mill a card. If an Insect card was milled this way, put a loyalty counter on Grast and repeat this process.\n[−2]: You may sacrifice a creature. When you do, destroy target creature or planeswalker.\n[−5]: Each opponent loses life equal to the number of creature cards in your graveyard.", null, loyalty = "3")
     // chunk 12

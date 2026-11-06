@@ -291,7 +291,7 @@ class Scenario internal constructor(playerCount: Int, seed: Long, start: ((List<
         return when {
             decision is Decision.Random -> perform(Input.Answer(decision.id, randomAnswer(decision.what)).also { throughJson(it) })
             decision is Decision.HostFill -> perform(Input.Answer(decision.id, Answer.Filled(decision.objects.map { id ->
-                FilledObject(id, hostKnows(id))
+                FilledObject(id, decision.named?.let { arcanum.engine.cards.Cards.definition(it) } ?: hostKnows(id))
             })).also { throughJson(it) })
             decision is Decision.OtherView -> hostOtherView(decision)?.let { perform(Input.Answer(decision.id, it).also { a -> throughJson(a) }) } ?: outcome
             else -> outcome
@@ -402,7 +402,7 @@ class Scenario internal constructor(playerCount: Int, seed: Long, start: ((List<
         return when {
             decision is Decision.Random -> driveAnswer(Input.Answer(decision.id, randomAnswer(decision.what)))
             decision is Decision.HostFill -> driveAnswer(Input.Answer(decision.id, Answer.Filled(decision.objects.map { id ->
-                FilledObject(id, hostKnows(id))
+                FilledObject(id, decision.named?.let { arcanum.engine.cards.Cards.definition(it) } ?: hostKnows(id))
             })))
             decision is Decision.OtherView -> hostOtherView(decision)?.let { driveAnswer(Input.Answer(decision.id, it)) } ?: outcome
             else -> outcome

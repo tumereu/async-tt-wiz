@@ -360,4 +360,20 @@ class Mh2Chunk11MulticoloredTest {
             mode(move(target("card"), Zone.Battlefield), targets = listOf(slot("card", inYourGraveyard(creature, power(Comparison.AtMost, 2)), min = 0, max = 2))),
         ),
     )
+
+    // CR 707.12: a copy of a card that needn't be in the game, cast paying its costs
+    @Test
+    fun gorvanHalfEye() = card(
+        name = "Gorvan Half-Eye",
+        cost = "{W}{U}{B}{R}{G}",
+        type = "Legendary Creature — Human Wizard",
+        text = "{T}: Choose a card name that hasn't been chosen from among Horizon Unmaking, Horizon Torrent, Horizon Dread, Horizon Wyrm, Horizon Regrowth, and Horizon Lotus. Create a copy of the card with the chosen name. You may cast the copy. (You still pay its costs.)",
+        pt = "5/5",
+    ) parsesTo abilities(
+        activated(cost(tap),
+            Step.Choose(Choice.CardNameAmong(listOf("Horizon Unmaking", "Horizon Torrent", "Horizon Dread", "Horizon Wyrm", "Horizon Regrowth", "Horizon Lotus"),
+                unchosen = true), bind = "name", chooser = Players.You),
+            doing(Effect.CopyNamedCard("name", Players.You, bind = "copy")),
+            Step.May(listOf(doing(Effect.Cast(Objects.Bound("copy"), arcanum.api.PlayKind.Cast, caster = Players.You))), player = Players.You)),
+    )
 }

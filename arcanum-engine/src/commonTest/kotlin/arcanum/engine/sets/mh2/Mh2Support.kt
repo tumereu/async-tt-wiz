@@ -35,6 +35,8 @@ internal object Mh2Plain {
     val counterspell = Cards.invent("Horizon Denial", "{U}{U}", "Instant", "Counter target spell.")
     val walker = Cards.invent("Horizon Walker", "{2}{W}", "Legendary Planeswalker — Ajani", "[+1]: You gain 1 life.", loyalty = "3")
     val wastes = Cards.invent("Horizon Wastes", null, "Land", "{T}: Add {C}.")
+    /** Named by Gorvan Half-Eye, a card the host supplies. */
+    val unmaking = Cards.invent("Horizon Unmaking", "{1}{W}", "Instant", "Destroy target artifact or enchantment.")
 }
 
 /** Passes priority until the Stack is empty or a decision other than ordering triggers is open; triggers put on the Stack at once are

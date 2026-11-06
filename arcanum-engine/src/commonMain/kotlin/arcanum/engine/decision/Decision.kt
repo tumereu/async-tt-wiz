@@ -222,6 +222,8 @@ sealed interface Decision {
     data class HostFill(
         override val id: DecisionId, override val player: PlayerId, override val source: ObjectId?,
         val objects: List<ObjectId>, val reason: String, val public: Boolean = false,
+        /** mh2: the card is the one with this name, not one in the game ("create a copy of the card with the chosen name"). */
+        val named: String? = null,
     ) : Decision
 
     /**

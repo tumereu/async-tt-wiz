@@ -132,6 +132,11 @@ sealed interface Effect {
      * [owner], the player instructed to create it (CR 112.2a); named [bind] for the "cast the copies" that follows. A
      * copy of a card isn't a card; in any zone other than the Stack or the battlefield it ceases to exist (CR 704.5e). */
     @Serializable @SerialName("copy-card") data class CopyCard(val objects: Objects, val owner: Players, val bind: String) : Effect
+    // mh2
+    /** "Create a copy of the card with the chosen name" (CR 707.12): a copy of the card named by the name choice bound as [name],
+     * a card that needn't be in the game, so the host supplies it; made in exile and owned by [owner], named [bind] for "you may
+     * cast the copy". Not cast, it ceases to exist (CR 704.5e). */
+    @Serializable @SerialName("copy-named-card") data class CopyNamedCard(val name: String, val owner: Players, val bind: String) : Effect
     /** Copy a spell or ability on the Stack (CR 707.10); [newTargets] lets the copy's controller choose new ones. */
     @Serializable @SerialName("copy-spell") data class CopySpell(
         val objects: Objects, val controller: Players, val newTargets: Boolean, val bind: String? = null,

@@ -253,6 +253,26 @@ class Mh2MulticoloredScenariosTest {
         }
     }
 
+    /** A copy of the named card is made and cast, paying its costs; the name can't be chosen again. */
+    // CR 707.12
+    @Test
+    fun gorvanHalfEyeCopiesANamedCard() = scenario {
+        alice.battlefield("Plains", "Plains", "Forest", s.gorvanHalfEye, s.quirionWarden)
+        bob.battlefield(p.trinket)
+        alice.activates(s.gorvanHalfEye)
+        playOut(p.trinket, options = listOf(p.unmaking))
+        expect {
+            bob.graveyard has p.trinket
+            s.gorvanHalfEye.tapped shouldBe true
+        }
+        alice.activates(s.quirionWarden, target = s.gorvanHalfEye, choosing = listOf("Forest"))
+        playOut()
+        alice.activates(s.gorvanHalfEye)
+        playOut(may = false)
+        val d = decision<Decision.ChooseOption>()
+        kotlin.test.assertTrue(p.unmaking !in d.options && d.options.size == 5, "${d.options}")
+    }
+
     // ---- Chunk 12
 
     /** A red spell costs {1} less. */

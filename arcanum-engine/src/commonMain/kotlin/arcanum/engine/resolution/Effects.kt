@@ -244,6 +244,7 @@ internal object Effects {
             is Effect.CreateToken -> createToken(scope, effect)
             is Effect.CopySpell -> copySpell(scope, effect)
             is Effect.CopyCard -> copyCards(scope, effect)
+            is Effect.CopyNamedCard -> copyNamedCard(scope, effect)
             is Effect.Counter -> counter(scope, scope.objects(effect.objects))
             is Effect.AddMana -> scope.players(effect.players).forEach { p -> addMana(scope, p, effect.mana) }
             is Effect.ApplyMechanics -> applyMechanics(scope, effect.mechanics, effect.affects, effect.duration, effect.uses)
@@ -539,6 +540,19 @@ internal object Effects {
      * are named for the "cast the copies" after it; those not cast cease to exist when state-based actions are next
      * checked (CR 704.5e).
      */
+    /** mh2: a copy of a card by name, made in exile with its identity unknown and filled in by the host (D60), everyone seeing it. */
+    private fun copyNamedCard(scope: Scope, effect: Effect.CopyNamedCard) {
+        val act = scope.act
+        val name = (scope.names[effect.name] as? NamedValue.Name)?.name ?: return scope.bind(effect.bind, NamedValue.Objects(emptyList()))
+        val owner = scope.players(effect.owner).firstOrNull() ?: scope.actor
+        val creator = TokenIds.created("named-copy", act.state.nextTimestamp())
+        val copy = GameObject(id = ObjectId.Card(TokenIds.token(creator, 0), 0), owner = owner, zone = Zone.Exile, definition = null,
+            copyOfCard = true, timestamp = act.state.nextTimestamp())
+        act.record(Change.Created(listOf(Placed(copy, act.state.exile.size)), listOf(Meaning.CardCopied)))
+        act.fill(owner, scope.self, listOf(copy.id), "a copy of the card named $name", public = true, named = name)
+        scope.bind(effect.bind, NamedValue.Objects(listOf(copy.id)))
+    }
+
     private fun copyCards(scope: Scope, effect: Effect.CopyCard) {
         val act = scope.act
         val owner = scope.players(effect.owner).firstOrNull() ?: scope.actor

@@ -556,8 +556,9 @@ class GameDevice(
         return null
     }
 
-    /** Under Auto-skip, the only answer to [d] (§2). */
-    private fun oneAnswer(s: GameState, d: Decision): Input? = if (settings.mode != ResponseMode.AutoSkip) null
+    /** Under Auto-skip, the only answer to [d] (§2). Never the order of triggers (STK-030, owner 2026-11-06): the engine
+     * lists one order of the many there are, and asks only when the triggers differ, so their player always orders them. */
+    private fun oneAnswer(s: GameState, d: Decision): Input? = if (settings.mode != ResponseMode.AutoSkip || d is Decision.OrderTriggers) null
         else Engine.options(s, d.player, model.keptView()).filterIsInstance<Input.Answer>().filter { it.decision == d.id }.singleOrNull()
 
     /** Whether this player's device passes for [player] (theirs to decide) on [s] by their mode (§2) or an End turn. */

@@ -786,6 +786,27 @@ class GameDeviceTest {
         assertEquals(sim.server.head, bobs.session.tip, "the server's head is there too")
     }
 
+    // STK-036, STK-030, SYS-063, CR 603.3b (owner 2026-11-06): two different triggers of Bob's that go on the Stack at the
+    // same time are his to order in every response mode: his Auto-skip device asks him rather than ordering them itself
+    @Test
+    fun autoSkipAsksTheOrderOfTwoTriggers() {
+        val herald = arcanum.engine.cards.Cards.invent("Twinbloom Herald", "{G}", "Creature — Elf Druid",
+            "When this creature enters, you gain 1 life.\nWhen this creature enters, draw a card.", "1/1")
+        val sim = DeviceSim(EngineGames(3, List(40) { "Island" } to List(40) { if (it % 2 == 0) "Forest" else herald }))
+        sim.bobToMain()
+        val bob = sim.bob
+        val bobs = sim.device(bob)
+        assertEquals(ResponseMode.AutoSkip, bobs.settings.mode)
+        assertIs<GameDevice.Acted.Sent>(bobs.act(Input.PlayLand(bob, hand(bobs.model, bob, "Forest"))))
+        sim.settle()
+        assertIs<GameDevice.Acted.Sent>(bobs.act(Input.Cast(bob, hand(bobs.model, bob, herald))))
+        sim.settle()
+        val order = assertIs<Decision.OrderTriggers>(bobs.model.engine.pending?.decision, "the order is asked: ${bobs.model.engine.turn}")
+        assertEquals(bob, order.player)
+        assertEquals(2, order.triggers.size)
+        assertEquals(GameDevice.Status.YourMove, bobs.status)
+    }
+
     // TRN-027 (smoke 2026-11-04): both players keep at the same moment and the server takes Bob's first, refusing
     // Alice's as stale: her device shows his keep and makes hers again on it at once, without telling her of a refusal
     // (the refusal or his keep reaching her first alike); each keep is on the main line once

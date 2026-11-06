@@ -29,7 +29,7 @@ class InspectSwipeTest {
     }
 
     // TBL-131, TBL-104, TBL-127 (owner 2026-11-06): once the finger has scrolled up or down, small sideways movement never starts
-    // the swipe; nor does a drag to the right
+    // the swipe
     @Test fun scrollingFirstNeverSwipes() {
         val swipe = InspectSwipe()
         assertFalse(swipe.moved(-2f, 20f))
@@ -37,9 +37,16 @@ class InspectSwipeTest {
         assertFalse(swipe.moved(-200f, 30f))
         assertEquals(0f, swipe.progress)
         assertFalse(swipe.released())
+    }
+
+    // TBL-131 (owner playtest 2026-11-06): a drag to the right pins it as well, for a card at the table's side
+    @Test fun aDragRightPinsToo() {
         val right = InspectSwipe()
-        assertFalse(right.moved(60f, 0f))
-        assertEquals(0f, right.progress)
+        assertTrue(right.moved(60f, 0f))
+        assertEquals((60f - InspectSwipe.SLOP) / InspectSwipe.DISTANCE, right.progress, .001f)
+        right.moved(200f, 4f)
+        assertTrue(right.released())
+        assertTrue(right.pinned)
     }
 
     // TBL-131, TBL-104: Close (or Back) closes a pinned Inspect; a new hold starts unpinned

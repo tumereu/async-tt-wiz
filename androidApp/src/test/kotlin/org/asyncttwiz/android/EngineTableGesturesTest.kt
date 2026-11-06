@@ -69,7 +69,6 @@ class EngineTableGesturesTest {
         val land = kit.atw(kit.hand("Mountain").first())
         val (gestures, emitted) = kit.gestures()
         kit.doubleTap(gestures, kit.item(land, PlayZone.HAND).bounds.center)
-        assertTrue(emitted.none { it is TableIntent.Rotate }, "a hand card is never turned: $emitted")
         assertTrue(emitted.any { it is TableIntent.Move && it.handDoubleTap }, "$emitted")
         kit.settle()
         assertTrue(land in kit.field("Mountain").map(kit::atw), "played onto the battlefield: ${toolkit.error}")

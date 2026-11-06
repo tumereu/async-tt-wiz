@@ -1,0 +1,1 @@
+Choosing a card type: the panel is titled "Choose a card type" with the sentence under it and a button for each type offered.

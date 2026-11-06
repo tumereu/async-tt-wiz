@@ -1,0 +1,1 @@
+mod: Every Automatum question now shows the sentence it asks about, and choosing among triggers or effects shows each one's whole text.

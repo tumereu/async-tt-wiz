@@ -1,0 +1,1 @@
+Choosing a colour: the panel is titled "Choose a colour" with the sentence under it, "Tap one.", and a button with a swatch for each of the five colours.

@@ -20,11 +20,11 @@ class TableGesturesTest {
         g.update(scene.copy(items = listOf(item.copy(tapped = true))), true)
         first(100)
         assertEquals(listOf("recognized"), diagnostics)
-        assertTrue(events.filterIsInstance<TableIntent.Rotate>().single().toggle)
+        // TBL-043: the second tap adds nothing to the first tap's actions
+        assertEquals(1, events.count { it is TableIntent.Actions }, "$events")
         diagnostics.clear(); events.clear()
         first(1000); g.update(scene, false); first(1100)
-        assertEquals(listOf("recognized", "dropped:writable"), diagnostics)
-        assertTrue(events.none { it is TableIntent.Rotate })
+        assertEquals(listOf("recognized"), diagnostics)
         g.update(scene, true); diagnostics.clear()
         first(2000); first(2450)
         assertTrue("nearMiss:deadline" in diagnostics)
@@ -256,7 +256,7 @@ class TableGesturesTest {
         assertEquals(1, f.events.count { it == TableIntent.EmptyTap })
         f.gestures.down(point, 100); f.gestures.up(point, 120)
         assertEquals(scene.world.fit(), f.events.filterIsInstance<TableIntent.Camera>().single().camera)
-        assertTrue(f.events.none { it is TableIntent.Move || it is TableIntent.Rotate })
+        assertTrue(f.events.none { it is TableIntent.Move })
 
         f.gestures.update(scene, true)
         f.events.clear()
@@ -318,7 +318,6 @@ class TableGesturesTest {
         f.gestures.down(point, 500, f.item().cardId); f.gestures.up(point, 520)
         assertTrue(f.events.isEmpty())
         f.gestures.down(point, 600); f.gestures.up(point, 620)
-        assertEquals(1, f.events.filterIsInstance<TableIntent.Rotate>().size)
         assertTrue(f.events.none { it is TableIntent.Actions })
         f.events.clear()
         // ZON-077: a drag from the battlefield card pans the table
@@ -481,7 +480,7 @@ class TableGesturesTest {
             assertEquals(TableDestination.Combat(gap.destination), move.destination)
             assertEquals(f.source(f.a, "1/2").id, move.sources.getValue(occurrence.cardId!!).sourceId)
             assertEquals(2, play.board.combat!!.pairs.size)
-            assertTrue(events.none { it is TableIntent.Rotate || it is TableIntent.Actions })
+            assertTrue(events.none { it is TableIntent.Actions })
             events.clear()
             gesture.down(occurrence.visible.first().center, 200); gesture.move(gap.bounds.center, 280); gesture.cancel()
             assertTrue(events.isEmpty())
@@ -502,7 +501,9 @@ class TableGesturesTest {
         assertEquals(card.id, events.filterIsInstance<TableIntent.Actions>().single().itemId)
         events.clear()
         gesture.down(p, 60); gesture.up(p, 80); gesture.tick(400)
-        assertTrue(events.none { it is TableIntent.Rotate || it is TableIntent.Actions })
+        // Owner playtest 2026-11-06: nothing but closing what the first tap opened, no message (the old by-hand rotation
+        // said "Rotation not queued")
+        assertTrue(events.all { it == TableIntent.DismissTapUi || it is TableIntent.Camera }, "$events")
         events.clear()
         gesture.down(p, 500); gesture.tick(1100); gesture.up(p, 1150)
         assertEquals(listOf<TableIntent>(TableIntent.Peek(card.cardId), TableIntent.Peek(null, released = true)), events)
@@ -574,8 +575,8 @@ class TableGesturesTest {
         for (density in listOf(1f, 2.625f)) for (delay in listOf(399L, 401L)) for (distance in listOf(31f, 33f)) {
             val card = TableItem("card/a", TableBounds(0f, 0f, 100f, 100f), "Card", "",
                 kind = TableItemKind.CARD, cardId = "a", zone = PlayZone.BATTLEFIELD)
-            val events = mutableListOf<TableIntent>()
-            val gestures = TableGestureCoordinator(events::add, density = density)
+            val diagnostics = mutableListOf<String>()
+            val gestures = TableGestureCoordinator({}, density = density, diagnostic = diagnostics::add)
             gestures.update(TableScene(listOf(card), emptyList()), true)
             val first = gestures.pointFromPixels(10 * density, 10 * density)
             val second = gestures.pointFromPixels((10 + distance) * density, 10 * density)
@@ -583,10 +584,10 @@ class TableGesturesTest {
             val expected = delay <= 400 && distance <= 32
             assertEquals(expected, gestures.replacesTap(second, 20 + delay))
             gestures.down(second, 20 + delay); gestures.up(second, 40 + delay)
-            assertEquals(if (expected) 1 else 0, events.filterIsInstance<TableIntent.Rotate>().size)
+            assertEquals(expected, "recognized" in diagnostics)
         }
     }
-    @Test fun handDragTargetsViewerBattlefieldAtRealDeviceViewportsAndDoubleTapRotates() {
+    @Test fun handDragTargetsViewerBattlefieldAtRealDeviceViewportsAndDoubleTapAddsNothing() {
         for ((width, height, landscape) in listOf(Triple(412f, 892f, false), Triple(892f, 412f, true),
             Triple(360f, 640f, false), Triple(640f, 360f, true))) {
             val play = LiveTableFixture.play()
@@ -608,12 +609,11 @@ class TableGesturesTest {
             assertEquals("a/BATTLEFIELD", (move.destination as TableDestination.Grid).containerId)
             assertEquals(listOf("a/HAND/2"), move.scope.cardIds)
             assertEquals("a/HAND", move.sources.getValue("a/HAND/2").containerId)
-            assertTrue(events.none { it is TableIntent.Rotate || it is TableIntent.Actions })
+            assertTrue(events.none { it is TableIntent.Actions })
             events.clear()
             val card = scene.items.single { it.cardId == "a/BATTLEFIELD/2" }.visible.first().center
             coordinator.down(card, 200); coordinator.up(card, 220)
             coordinator.down(card, 300); coordinator.up(card, 320); coordinator.tick(1000)
-            assertEquals(listOf("a/BATTLEFIELD/2"), events.filterIsInstance<TableIntent.Rotate>().single().scope.cardIds)
             assertTrue(events.none { it is TableIntent.Move })
             assertEquals(1, events.filterIsInstance<TableIntent.Actions>().size)
             assertEquals(1, events.count { it == TableIntent.DismissTapUi })
@@ -631,7 +631,7 @@ class TableGesturesTest {
         assertNull(gestures.preview.scope, "no card lifted")
         gestures.up(end, 100)
         assertTrue(events.any { it is TableIntent.Camera })
-        assertTrue(events.none { it is TableIntent.Move || it is TableIntent.Actions || it is TableIntent.Rotate })
+        assertTrue(events.none { it is TableIntent.Move || it is TableIntent.Actions })
     }
     private class Fixture(val scene: TableScene = TableFixture.scene(), writable: Boolean = true) {
         val events = mutableListOf<TableIntent>()
@@ -650,19 +650,15 @@ class TableGesturesTest {
         f.gestures.tick(420)
         val action = f.events.single() as TableIntent.Actions
         assertEquals(listOf("a/BATTLEFIELD/0"), action.scope!!.cardIds)
-        assertTrue(f.events.none { it is TableIntent.Rotate })
     }
-    // TBL-043
-    @Test fun doubleTapRotatesOnceUsingTriggerOrientationAndFirstCapturedScope() {
+    // TBL-043 (owner playtest 2026-11-06: the by-hand rotation is gone): the second tap of a battlefield card's double tap
+    // only dismisses what the first tap opened; nothing is turned
+    @Test fun aDoubleTapsSecondTapAddsNothing() {
         val f = Fixture()
         f.tap(0); f.gestures.update(f.scene, true); f.tap(100)
         f.gestures.tick(1000)
-        assertEquals(1, f.events.filterIsInstance<TableIntent.Rotate>().size)
-        assertEquals(listOf("a/BATTLEFIELD/0"), f.events.filterIsInstance<TableIntent.Rotate>().single().scope.cardIds)
-        assertTrue(f.events.filterIsInstance<TableIntent.Rotate>().single().tapped)
         assertIs<TableIntent.Actions>(f.events.first())
-        assertEquals(TableIntent.DismissTapUi, f.events[1])
-        assertTrue(f.events.none { it is TableIntent.Peek })
+        assertEquals(listOf<TableIntent>(TableIntent.DismissTapUi), f.events.drop(1))
     }
     // TBL-047, TBL-048
     @Test fun holdConsumesTapAndCannotTurnIntoDragOrExposePile() {
@@ -686,7 +682,7 @@ class TableGesturesTest {
         assertEquals(listOf("a/HAND/0"), move.scope.cardIds)
         assertTrue(move.destination is TableDestination.Grid)
         assertEquals("a/HAND", move.sources.getValue("a/HAND/0").containerId)
-        assertTrue(f.events.none { it is TableIntent.Actions || it is TableIntent.Rotate || it is TableIntent.Peek })
+        assertTrue(f.events.none { it is TableIntent.Actions || it is TableIntent.Peek })
     }
 
 

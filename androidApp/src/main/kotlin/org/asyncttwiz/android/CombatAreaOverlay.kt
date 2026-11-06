@@ -220,11 +220,9 @@ internal fun CombatAreaOverlay(combat: CombatController?, play: TableBoard, scen
                     if (!below) for (chip in actions.asReversed()) StagingChipView(chip, b.width)
                 }
             }
-            // The preview's badges sit over the card's middle, clear of its name (combat review #12)
-            if (dealt != null || dying) Row(Modifier.align(Alignment.Center), horizontalArrangement = Arrangement.spacedBy(1.dp)) {
-                if (dying) Badge("☠", Color(0xff263238), Modifier, if (dealt == null) "Would die" else "Dies")
-                if (dealt != null) Badge("−$dealt", PreviewRed, Modifier, "Would take $dealt damage${if (dying) " and die" else ""}")
-            }
+            // CMB-029 (owner playtest 2026-11-06): one badge over the card's middle, clear of its name (combat review #12), sized
+            // to the card so it fits at any zoom
+            if (dealt != null || dying) DamageBadge(dealt, dying, (b.width * .6f).coerceIn(12f, 26f), Modifier.align(Alignment.Center))
         }
     }
     // CMB-013 (owner playtest 2026-11-06): under each chip inside its lane, the target's life, loyalty or defense, and
@@ -518,10 +516,62 @@ internal fun PreviewChip(text: String, color: Color, modifier: Modifier, descrip
     }
 }
 
+/**
+ * CMB-029 (owner playtest 2026-11-06): what combat damage would do to a creature, as one badge [size] dp wide: a red
+ * splash with the damage ("3", no minus) when it survives, a black skull with the damage inside when it dies (without a
+ * number when it dies without damage).
+ */
 @Composable
-private fun Badge(text: String, color: Color, modifier: Modifier, description: String) {
-    Box(modifier.size(18.dp).semantics { contentDescription = description }.background(color, CircleShape)
-        .border(1.dp, Color.White, CircleShape), contentAlignment = Alignment.Center) {
-        Text(text, color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Bold, lineHeight = 10.sp, maxLines = 1, softWrap = false)
+internal fun DamageBadge(dealt: Int?, dying: Boolean, size: Float, modifier: Modifier = Modifier) {
+    val description = when {
+        dying && dealt != null -> "Would take $dealt damage and die"
+        dying -> "Would die"
+        else -> "Would take $dealt damage"
+    }
+    Box(modifier.size(size.dp).semantics { contentDescription = description }, contentAlignment = Alignment.Center) {
+        Canvas(Modifier.fillMaxSize()) { if (dying) skull() else splash() }
+        if (dealt != null) Text("$dealt", Modifier.offset(y = if (dying) (-size * .1f).dp else 0.dp), color = Color.White,
+            fontSize = (size * (if (dying) .42f else .46f)).sp, fontWeight = FontWeight.Black, lineHeight = (size * .5f).sp,
+            letterSpacing = 0.sp, maxLines = 1, softWrap = false)
     }
 }
+
+/** A red splash filling the canvas: a ragged star with a thin white edge. */
+private fun DrawScope.splash() {
+    val points = 11
+    val c = center
+    val outer = size.minDimension / 2f
+    val path = Path()
+    for (i in 0 until points * 2) {
+        val angle = Math.PI * i / points - Math.PI / 2
+        // Uneven spikes read as a splash, not a star
+        val r = if (i % 2 == 0) outer * (if (i % 4 == 0) .98f else .86f) else outer * .66f
+        val x = c.x + (r * kotlin.math.cos(angle)).toFloat()
+        val y = c.y + (r * kotlin.math.sin(angle)).toFloat()
+        if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
+    }
+    path.close()
+    drawPath(path, PreviewRed)
+    drawPath(path, Color.White, style = Stroke(size.minDimension * .05f))
+}
+
+/** A black skull filling the canvas: a round cranium over a narrower jaw with teeth gaps, a thin white edge. */
+private fun DrawScope.skull() {
+    val w = size.width
+    val h = size.height
+    val ink = Color(0xff1d2326)
+    val edge = Stroke(size.minDimension * .05f)
+    val cranium = Path().apply {
+        addOval(androidx.compose.ui.geometry.Rect(w * .04f, h * .02f, w * .96f, h * .78f))
+    }
+    val jaw = Path().apply {
+        addRoundRect(androidx.compose.ui.geometry.RoundRect(w * .24f, h * .6f, w * .76f, h * .98f, CornerRadius(w * .08f)))
+    }
+    drawPath(cranium, Color.White, style = edge)
+    drawPath(jaw, Color.White, style = edge)
+    drawPath(cranium, ink)
+    drawPath(jaw, ink)
+    // Teeth gaps
+    for (x in listOf(.42f, .58f)) drawLine(Color.White.copy(alpha = .7f), Offset(w * x, h * .82f), Offset(w * x, h * .97f), w * .035f)
+}
+

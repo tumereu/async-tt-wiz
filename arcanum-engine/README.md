@@ -430,6 +430,13 @@ report and replay their inputs on a saved state. The default `EngineTrace.None` 
   some attackers, mana of any type spent through a permission, a spell's own "as though it had flash" from the hand, the spell being
   cast counted as the next one cast ("the first … spell you cast each turn costs less"), what a sacrificed Aura enchanted and the
   counters of a permanent that left read as they last were, and a {T} cost's source not suggested for its mana.
+- Done, Aetherdrift (scenarios in `commonTest/…/sets/dft/`): every non-trivial card plays (each file names the cards that only repeat a
+  played template). Crew and saddle counted with `NumericProperty.PowerFor` (toughness or "as though its power were 2 greater"), creatures
+  tapped for a crew or saddle cost recorded with the permanent they paid for (`Meaning.PaidFor.source`, the event's source role: "that Mount
+  or Vehicle"), attacking while saddled, activations recorded with their ability's label ("whenever you activate an exhaust ability") and
+  exhaust abilities activated again while `Mechanic.AsThoughNotActivated` applies, speed read (`Value.Speed`) and reduced, the X of a
+  cycling {X} kept on the discard (`Meaning.CostX`) for "when you cycle this card" (`Value.EventX`), planeswalkers that can't be attacked,
+  and creature cards with no abilities.
 - Done, Edge of Eternities (scenarios in `commonTest/…/sets/eoe/`): all 261 cards play. Warp (from the hand only, unless a permission
   says so: cast from the graveyard, or a warp another permanent gives the spell, which the spell keeps once cast), the warped card's
   later permission from exile, "a spell was warped this turn" and void; station (the creature's power or toughness) and striations;

@@ -25,7 +25,7 @@ internal fun catalogSizes(done: Long, total: Long?): String {
     return catalogAmount(done, scale) + (total?.let { " / ${catalogAmount(it, scale)}" } ?: "") + " " + catalogUnit(scale)
 }
 internal fun CatalogProgress.label(): String {
-    if (phase == CatalogPhase.FINISHING) return "Finishing up — verifying catalog…"
+    if (phase == CatalogPhase.FINISHING) return "Finishing up — preparing card search…"
     val bytes = catalogSizes(done, total)
     return if (phase == CatalogPhase.DOWNLOADING) "Downloading card records: $bytes"
     else "Indexing card records: $bytes processed · ${String.format(Locale.US, "%,d", records)} cards"

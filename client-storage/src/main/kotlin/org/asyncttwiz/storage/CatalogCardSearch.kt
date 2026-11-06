@@ -48,9 +48,10 @@ internal fun CatalogIndex.hasCardSearch(): Boolean =
 /**
  * Rebuilt on the unpublished generation in the finishing transaction, from installed printings only: one row per
  * card with its preferred printing (the deck import default) and every printing's set and rarity. Reads bounded
- * batches in oracle order, never the whole catalog.
+ * batches in oracle order, never the whole catalog. [onPrinting] sees every installed printing on the way (enrich-free:
+ * no other faces or release date), so other finishing data can be built in the same pass.
  */
-internal fun CatalogIndex.rebuildCardSearch() {
+internal fun CatalogIndex.rebuildCardSearch(onPrinting: (CatalogPrinting) -> Unit = {}) {
     listOf("search_ready", "search_card", "search_data", "search_printing").forEach { sql("DROP TABLE IF EXISTS $it") }
     // Filter columns stay narrow so scans are cheap; the matcher's card data is fetched only for prefiltered rows.
     sql("""CREATE TABLE search_card (oracle TEXT NOT NULL PRIMARY KEY, name_key TEXT NOT NULL, printing_id TEXT NOT NULL,
@@ -66,14 +67,16 @@ internal fun CatalogIndex.rebuildCardSearch() {
     var afterId = ""
     while (true) {
         check(!Thread.currentThread().isInterrupted)
-        val batch = select("""SELECT id, name, set_code, number, language, side, token, json, oracle, rarity, identity, legal
+        val batch = select("""SELECT id, name, set_code, number, language, side, token, json, oracle, rarity, identity, legal, scryfall
             FROM printing WHERE (oracle, id) > (?, ?) ORDER BY oracle, id LIMIT 512""", listOf(afterOracle, afterId), SEARCH_BATCH) { cursor ->
             SearchRow(cursor.getString(0)!!, cursor.getString(1)!!, cursor.getString(2)!!, cursor.getString(3)!!,
                 cursor.getString(4)!!, cursor.getString(5)!!, cursor.getLong(6) == 1L, cursor.getString(7)!!,
-                cursor.getString(8)!!, cursor.getString(9)!!, cursor.getLong(10)?.toInt(), cursor.getLong(11)!!)
+                cursor.getString(8)!!, cursor.getString(9)!!, cursor.getLong(10)?.toInt(), cursor.getLong(11)!!, cursor.getString(12))
         }
         if (batch.isEmpty()) break
         for (row in batch) {
+            onPrinting(CatalogPrinting(row.id, row.name, row.set, row.number, row.language, row.side, row.scryfall, row.token,
+                emptyList(), row.raw))
             if (group.isNotEmpty() && group.first().oracle != row.oracle) { addSearchCard(group); group.clear() }
             if (!row.token && row.side in setOf("", "a") && row.layout !in NON_CARD_LAYOUTS) group += row
         }
@@ -98,7 +101,8 @@ private const val SEARCH_PRINTING = 0x5EA4C005
 private const val SEARCH_DATA = 0x5EA4C006
 
 private class SearchRow(val id: String, val name: String, val set: String, val number: String, val language: String,
-    val side: String, val token: Boolean, val raw: String, val oracle: String, val rarity: String, val identity: Int?, val legal: Long) {
+    val side: String, val token: Boolean, val raw: String, val oracle: String, val rarity: String, val identity: Int?, val legal: Long,
+    val scryfall: String?) {
     val json: JsonObject by lazy { JsonParser.parseString(raw).asJsonObject }
     val layout: String get() = text(json, "layout") ?: "normal"
     val english get() = language.equals("English", ignoreCase = true)

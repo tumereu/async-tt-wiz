@@ -1,0 +1,1 @@
+mod: The last step of downloading card records is faster and now says what it does: "Finishing up — preparing card search…"

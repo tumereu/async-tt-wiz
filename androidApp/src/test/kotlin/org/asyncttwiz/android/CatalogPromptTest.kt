@@ -63,7 +63,7 @@ class CatalogPromptTest {
         assertEquals("Indexing card records: 160 / 450 MB processed · 45,123 cards",
             CatalogProgress(CatalogPhase.INDEXING, 160_000_000, 450_000_000, 45_123).label())
         assertEquals("Downloading card records: 120 MB", CatalogProgress(CatalogPhase.DOWNLOADING, 120_000_000, null).label())
-        assertEquals("Finishing up — verifying catalog…", CatalogProgress(CatalogPhase.FINISHING, 0, null).label())
+        assertEquals("Finishing up — preparing card search…", CatalogProgress(CatalogPhase.FINISHING, 0, null).label())
     }
 
     // LOB-094

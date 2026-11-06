@@ -1,1 +1,1 @@
-Landscape Inspect pinned by a drag to the left: the same cards and changes, a little smaller under a round close button at the top right.
+Landscape Inspect pinned by a drag to the left: the same cards, a little smaller under a round close button at the top right, their changes in narrower panels whose lines wrap so that all of them stay on the screen.

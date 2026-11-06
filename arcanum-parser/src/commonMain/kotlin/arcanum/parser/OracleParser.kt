@@ -343,7 +343,20 @@ object OracleParser {
         // tdm chunk 02: "exile … until this creature leaves the battlefield" and a later "the exiled card": the exile keeps the card as card memory
         // (linked abilities, CR 607.2a)
         val linked = if (sentences.exiledCard == arcanum.api.Objects.Remembered(EXILED_WITH)) result.map(::rememberUntilLeaves) else result
-        return dftSacrificedCost(finCostTargets(linked)).mapIndexed { index, ability -> ability.withText(raws[index]) }
+        return dftCostTargetYouControl(dftSacrificedCost(finCostTargets(linked))).mapIndexed { index, ability -> ability.withText(raws[index]) }
+    }
+
+    /** dft chunk 14: "This spell costs {1} less to cast if it targets a Mount or Vehicle you control": the spell's first target you control. */
+    private fun dftCostTargetYouControl(abilities: List<Ability>): List<Ability> {
+        val slots = abilities.filterIsInstance<Ability.Spell>().flatMap { it.instructions.targets }
+        val yours = arcanum.api.ObjectFilter.ControlledBy(arcanum.api.PlayerFilter.You)
+        val slot = slots.firstOrNull { s -> ((s.what as? arcanum.api.TargetKind.Objects)?.filter as? arcanum.api.ObjectFilter.And)?.all?.contains(yours) == true }
+        return abilities.map { ability ->
+            val static = ability as? Ability.Static ?: return@map ability
+            val condition = static.condition as? arcanum.api.Condition.ObjectMatches ?: return@map ability
+            if ((condition.objects as? arcanum.api.Objects.Target)?.slot != "dft: target you control") return@map ability
+            static.copy(condition = condition.copy(objects = arcanum.api.Objects.Target(slot?.name ?: return@map ability)))
+        }
     }
 
     /** dft chunk 12: a spell that reads "the sacrificed permanent" names the permanent its additional cost sacrifices (CR 608.2h). */

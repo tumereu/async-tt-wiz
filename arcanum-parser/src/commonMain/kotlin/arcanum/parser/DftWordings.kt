@@ -90,6 +90,30 @@ internal object Dft {
     val CHOOSE_TARGET_MAY_SACRIFICE_RETURN_CHOSEN = Regex("""Choose target (.+?)\. You may sacrifice an? (.+?)\. If you do, return the chosen card to the battlefield\.""")
     val AFTER_THIS_MAIN_PHASE_COMBATS = Regex("""After this main phase, there are (\w+) additional combat phases\.""")
     val EACH_COMBAT_THIS_TURN_UNTAP_ATTACKED = Regex("""At the beginning of each combat this turn, untap all (.+?) that attacked this turn\.""")
+    // dft chunk 14
+    val UNTAP_ENCHANTED_PERMANENT = Regex("""Untap enchanted (permanent|creature)\.""")
+    val MAY_SEARCH_LIBRARY_AND_OR_GRAVEYARD_REVEAL_HAND = Regex("""You may search your library and/or graveyard for an? (.+?), reveal it, and put it into your hand\. If you search your library this way, shuffle\.""")
+    val EACH_ATTACKING_AN_OPPONENT_HAS = Regex("""Each (\w+) that's attacking one of your opponents has ([a-z ,]+)\.""")
+    val MAY_PUT_FROM_HAND_IF_ARTIFACT_COUNTERS = Regex("""You may put an? (.+?) card from your hand onto the battlefield\. If you put an artifact onto the battlefield this way, put (\w+) (\S+) counters on it\.""")
+    val COSTS_LESS_IF_TARGETS_YOU_CONTROL = Regex("""This spell costs (\{\d+\}) less to cast if it targets an? (.+?) you control\.""")
+    val RETURN_UP_TO_ONE_EACH_TO_HAND = Regex("""Return (up to one target .+) from your graveyard to your hand\.""")
+    val HAVE_BASE_PT_AND_ARE_IN_ADDITION = Regex("""(.+?) have base power and toughness (\d+)/(\d+) and are (\w+?)s in addition to their other types\.""")
+    // dft chunk 15
+    val PUT_FROM_GRAVEYARD_FINALITY_GAINS_EXILE_NEXT_END = Regex("""Put target (.+?) from a graveyard onto the battlefield under your control with a finality counter on it\. That creature gains ([a-z ,]+)\. At the beginning of your next end step, exile that creature\.""")
+    val AS_ENTERS_EXILE_UP_TO_X_COUNTERS_FOR_EACH = Regex("""As (.+?) enters, exile up to X (.+?) cards from your graveyard\. It enters with (\w+) (\S+) counters on it for each \2 card exiled this way\.""")
+    val BECOMES_COPY_OF_EXILED_WITH_EXCEPT = Regex("""(.+?) becomes a copy of target (.+?) card exiled with it, except it's (\d+)/(\d+) and has this ability\.""")
+    val CHOOSE_TARGET_OPPONENT_CREATE_THEN_DRAIN_X = Regex("""Choose target opponent\. (Create .+?\.) Then the chosen player loses X life and you gain X life\.""")
+    val LOOK_AT_HAND_MAY_CHOOSE_DISCARDS_DRAWS = Regex("""Look at target player's hand\. You may choose a card from it\. If you do, that player discards that card, then draws a card\.""")
+    val CARDS_PUT_INTO_EXILE_FROM_DURING_YOUR_TURN = Regex("""one or more cards are put into exile from graveyards and/or the battlefield during your turn""")
+    val GETS_FOR_EACH_DISCARDED_THEN_WHENEVER_DAMAGE = Regex("""Target creature gets \+(\d+)/\+0 until end of turn for each card discarded this way\. Whenever that creature deals combat damage to a player this turn, you draw a card\.""")
+    val FOR_EACH_OPPONENT_PUT_THIRD_FROM_TOP = Regex("""For each opponent, put up to one target (.+?) that player controls into its owner's library (\w+) from the top\.""")
+    // dft chunk 16
+    val ATTACHED_CANT_BE_ATTACKED_AND_HAS = Regex("""As long as (.+?) is attached to a creature, (.+?) can't be attacked and has "(.+)"\.?""")
+    val ATTACH_TO_UP_TO_ONE_PUT_COUNTER = Regex("""Attach (.+?) to up to one target (.+?)\. Put an? (\S+) counter on that creature\.""")
+    val SACRIFICE_ONE_OR_MORE = Regex("""Sacrifice one or more (.+)""")
+    val CHOOSE_COLOR_TARGET_PLAYER_ADDS_FOR_EACH_SACRIFICED = Regex("""Choose a color\. Target player adds (\w+) mana of the chosen color for each (\w+) sacrificed this way\.""")
+    val DESTROY_ANOTHER_TARGET = Regex("""Destroy another target (.+)\.""")
+    val PUT_THAT_MANY_COUNTERS_ON = Regex("""[Pp]ut that many (\S+) counters on (.+)\.""")
 }
 
 /** Aetherdrift (dft) values and conditions read in [Values] and [Conditions]. */
@@ -121,6 +145,16 @@ internal object DftPhrases {
     fun condition(text: String): Condition? {
         // dft chunk 07: "you have max speed" (CR 702.179e)
         if (text == "you have max speed") return Condition.MaxSpeed
+        // dft chunk 15: "it has an even number of counters on it" (zero is even), "… an odd number …"
+        EVEN_OR_ODD_COUNTERS.matchEntire(text)?.let { m ->
+            val odd = Condition.Odd(Value.Of(arcanum.api.NumericProperty.Counters(null), Objects.Self, arcanum.api.Combine.Single))
+            return if (m.groupValues[1] == "odd") odd else Condition.Not(odd)
+        }
+        // dft chunk 15: "there are seven or more cards in exile"
+        CARDS_IN_EXILE.matchEntire(text)?.let { m ->
+            return Condition.Exists(Filters.all(ObjectFilter.Category(arcanum.api.ObjectCategory.Card), ObjectFilter.InZone(arcanum.api.Zone.Exile)),
+                atLeast = Numbers.count(m.groupValues[1]) ?: return null)
+        }
         // dft chunk 12: "the sacrificed permanent was a Vehicle" (the cost's permanent as it last existed, CR 608.2h)
         Dft.SACRIFICED_WAS.matchEntire(text)?.let { m -> return Condition.ObjectMatches(Objects.Bound(SACRIFICED), Filters.noun(m.groupValues[1]) ?: return null) }
         // dft chunk 08: "it's not their turn" (the player of the event isn't the active player)
@@ -149,6 +183,8 @@ internal object DftPhrases {
         return null
     }
 
+    private val EVEN_OR_ODD_COUNTERS = Regex("""it has an (even|odd) number of counters on it""")
+    private val CARDS_IN_EXILE = Regex("""there are (\w+) or more cards in exile""")
     private val MANA_VALUE_N_OR_M = Regex("""(.+) with mana value (\d+)(?: or (\d+))?""")
     private val WITH_NO_ABILITIES = Regex("""(.+) with no abilities""")
     private val PERMANENTS_YOU_CONTROL_THAT_ARE = Regex("""the number of permanents you control that are (.+)""")

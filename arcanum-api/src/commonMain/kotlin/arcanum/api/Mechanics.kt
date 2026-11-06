@@ -173,6 +173,9 @@ sealed interface Mechanic {
     @Serializable @SerialName("can-attach-to") data class CanAttachTo(val what: ObjectFilter) : Mechanic
 
     // ---- Combat restrictions and requirements (CR 508, 509) ----
+    // dft
+    /** The affected permanents can't be attacked ("The Aetherspark can't be attacked", CR 508.1b: not chosen as what an attacker attacks). */
+    @Serializable @SerialName("cant-be-attacked") data object CantBeAttacked : Mechanic
     /** Can't attack ([target]); [fromDefender]: this restriction is defender's, the one "as though it didn't have
      * defender" lifts (CR 702.3b). */
     @Serializable @SerialName("cant-attack") data class CantAttack(val target: Recipients? = null, val fromDefender: Boolean = false) : Mechanic

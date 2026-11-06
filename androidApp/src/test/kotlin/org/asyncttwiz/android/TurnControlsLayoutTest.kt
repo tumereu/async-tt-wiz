@@ -73,8 +73,8 @@ class TurnControlsLayoutTest {
             val label = AutomatumStep.of(tableBoard(state.value)).label
             val text = assertFits(label)
             val arrow = compose.onNodeWithContentDescription(label).fetchSemanticsNode().boundsInRoot
-            // TRN-017 (owner 2026-11-05): the main button is twice as wide as a quick action, no longer a 72dp arrow
-            assertTrue(arrow.width > 96f, "$label: ${arrow.width}")
+            // TRN-017 (owner playtest 2026-11-06): the main button keeps one width, 112 dp, on a small phone too
+            assertEquals(112f, arrow.width, .5f, label)
             assertTrue(text.left >= arrow.left && text.right <= arrow.right - 12f, label)
             assertTrue(text.top >= arrow.top + 20f && text.bottom <= arrow.bottom, label)
         }

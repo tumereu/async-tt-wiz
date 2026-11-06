@@ -110,10 +110,10 @@ fun QuickActionStrip(play: TableBoard, context: QuickContext, controller: TableA
     val scope = TableActionScope(play.gameId, play.playId)
     Box(modifier, contentAlignment = Alignment.Center) {
         val engine = LocalEngineRoutes.current
-        // TRN-016 (owner, 2026-11-05): the quick actions share the row left of the main button, which is twice as wide as one
-        val cells = if (toggles && engine != null) engine.toggleCount() else actions.size
+        // TRN-016, TRN-017 (owner playtest 2026-11-06): the main button keeps one width whatever quick actions show; they
+        // share the rest of the row equally
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            Row(Modifier.weight(cells.coerceAtLeast(1).toFloat()), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+            Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
                 // I-D56 §14 (TRN-059): on engine state the toggles are the player's private settings for this game
                 if (toggles && engine != null) EngineToggleCells(engine, true)
                 for (action in actions) key(action.intent) {
@@ -136,7 +136,7 @@ fun QuickActionStrip(play: TableBoard, context: QuickContext, controller: TableA
             val unconfirmed = engine?.engine?.shown?.indicator != null
             val main = context.mainAction.takeIf { arrow }
             RecordShown(bottomBarRecord(if (arrow) main?.label ?: AutomatumStep.of(play).label else wait?.label, if (toggles) null else actions.map { it.name }))
-            Box(Modifier.weight(2f)) {
+            Box(Modifier.width(MainButtonWidth)) {
                 if (arrow) AutomatumStepArrow(play, controller.enabled(scope), Modifier.fillMaxWidth(),
                     onHold = { perform(TableActionIntent.End(scope)) },
                     blocked = stepBlocked(play, context.castOpen, context.automatumCombat),
@@ -151,6 +151,9 @@ fun QuickActionStrip(play: TableBoard, context: QuickContext, controller: TableA
         }
     }
 }
+
+/** TRN-017: the main button's one width, whatever quick actions show beside it. */
+internal val MainButtonWidth = 112.dp
 
 internal val AdvanceArrowShape = GenericShape { size, _ ->
     val tip = size.height / 4f

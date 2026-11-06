@@ -92,8 +92,8 @@ class EngineTableScreenshotTest {
         s.player(PlayerId(f.a)).hand.first { s.obj(it)?.definition?.faces?.first()?.name == name }
     }
 
-    // TRN-059, TRN-068, TRN-016: the private toggles, and the unconfirmed mark at the main button's corner (no count); the
-    // main button is twice as wide as a quick action
+    // TRN-059, TRN-068, TRN-016, TRN-017: the private toggles, and the unconfirmed mark at the main button's corner (no
+    // count); the main button is 112 dp wide and the three toggles share the rest of the row equally
     @Test fun assumedAnswersAndPrivateToggles() {
         val game = aliceAtMain()
         val routes = EngineTableRoutes(f.a, { game }, {}, { game.play() }).apply { opponentName = "Bob" }
@@ -105,8 +105,13 @@ class EngineTableScreenshotTest {
         compose.onNodeWithContentDescription("Timeline mode").assertDoesNotExist()
         compose.onNodeWithContentDescription("Response mode", substring = true).assertExists()
         compose.onNodeWithContentDescription("Assume resolves setting").assertExists()
+        // TRN-017 (owner playtest 2026-11-06): one width for the main button, the rest shared equally (mdpi: px = dp)
+        assertEquals(112f, compose.onNodeWithContentDescription("To combat").fetchSemanticsNode().boundsInRoot.width, .5f)
+        val cells = listOf("Response mode", "Assume resolves setting", "Autotap mana")
+            .map { compose.onNodeWithContentDescription(it).fetchSemanticsNode().boundsInRoot.width }
+        assertTrue(cells.all { kotlin.math.abs(it - cells.first()) <= 1.5f } && cells.first() > 48f, "$cells")
         compose.onRoot().captureShot("$SCREENSHOTS/engine/assumed-main.png",
-            "Alice kept while Bob was away and is in her first main phase: a small violet dot at the corner of the main button (To combat, twice as wide as a quick action) says Bob hasn't seen her last moves yet (no count, nothing over the board), no event strip, and the quick actions are her own Response mode (Quick), Assume resolves (Always, as the fixture sets it) and Autotap mana.")
+            "Alice kept while Bob was away and is in her first main phase: a small violet dot at the corner of the main button (To combat, 112 dp wide) says Bob hasn't seen her last moves yet (no count, nothing over the board), no event strip, and the quick actions are her own Response mode (Quick), Assume resolves (Always, as the fixture sets it) and Autotap mana.")
     }
 
     /** Alice at her main phase with "Assume resolves" set to [choice]: the quick action shows [state] and is captured as [file]. */
@@ -300,7 +305,7 @@ class EngineTableScreenshotTest {
         compose.onNodeWithText("You cast Storm Spark").assertDoesNotExist()
         compose.onNodeWithContentDescription("Respond prompt").assertDoesNotExist()
         captureShot("$SCREENSHOTS/engine/stack-resolve.png",
-            "In the Control response mode Alice cast Storm Spark at Bob and kept priority: the spell is on the Stack, nothing covers the board or sits under the Stack, and the main button in the bottom-right corner, twice as wide as a quick action, reads Resolve.")
+            "In the Control response mode Alice cast Storm Spark at Bob and kept priority: the spell is on the Stack, nothing covers the board or sits under the Stack, and the main button in the bottom-right corner, 112 dp wide, reads Resolve.")
         compose.onNodeWithTag("main-button").performClick()
         compose.runOnIdle { assertTrue(game.device.model.engine.stack.isEmpty(), "she passed; Bob's pass was assumed and it resolved") }
     }

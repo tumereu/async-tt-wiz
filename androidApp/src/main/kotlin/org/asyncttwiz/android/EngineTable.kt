@@ -340,9 +340,6 @@ internal class EngineTableRoutes(val viewer: String, private val game: () -> Eng
         }
     }
 
-    /** How many toggles the quick-actions row holds now ([EngineToggleCells]): live play's three, playback's two. */
-    fun toggleCount(): Int = if (game()?.shown?.behind == true) 2 else 3
-
     /** The wait of [othersChoice], or null: the other player is choosing, declaring blockers or deciding on a mulligan. */
     private fun choiceWait(): GameDevice.Wait? = (status() as? GameDevice.Status.Waiting)?.reason
         ?.takeIf { it is GameDevice.Wait.Choosing || it == GameDevice.Wait.Blockers || it == GameDevice.Wait.Keep }

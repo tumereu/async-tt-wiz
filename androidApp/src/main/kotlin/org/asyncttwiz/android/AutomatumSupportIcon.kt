@@ -72,12 +72,13 @@ internal fun rememberCardListSupport(definitions: List<SubmittedDefinition>?): C
     return support
 }
 
-/** "Automatum plays 3 cards by hand: A, B, C" (at most [shown] names, then "and N more"). */
+/** LOB-115 (owner gallery review, 2026-11-06): "Automatum can't play 3 cards yet: A, B, C" (at most [shown] names, then
+ * "and N more"). */
 internal fun automatumSupportTip(support: CardListSupport, shown: Int = 12): String {
     val names = support.byHand
     val count = if (names.size == 1) "1 card" else "${names.size} cards"
     val listed = names.take(shown).joinToString(", ") + if (names.size > shown) " and ${names.size - shown} more" else ""
-    return "Automatum plays $count by hand: $listed"
+    return "Automatum can't play $count yet: $listed"
 }
 
 internal val AutomatumWarning = Color(0xffc77700)

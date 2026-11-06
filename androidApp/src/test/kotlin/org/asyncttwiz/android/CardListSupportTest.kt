@@ -42,8 +42,8 @@ class CardListSupportTest {
         assertEquals(CardListSupport(21, engineVersion = 3), check.support(submitted(plain)))
         assertEquals(CardListSupport(21, listOf("Banded Cub", "Broken Cub", "Odd Cub"), 3), check.support(submitted(plain, odd, banded, unreadable)))
         assertEquals(listOf("Banded Cub", "Broken Cub", "Odd Cub", "Plain Cub"), parsed.sorted())
-        assertEquals("Automatum plays 3 cards by hand: Banded Cub, Broken Cub, Odd Cub", automatumSupportTip(check.support(submitted(odd, banded, unreadable))))
-        assertEquals("Automatum plays 1 card by hand: Odd Cub", automatumSupportTip(CardListSupport(21, listOf("Odd Cub"))))
+        assertEquals("Automatum can't play 3 cards yet: Banded Cub, Broken Cub, Odd Cub", automatumSupportTip(check.support(submitted(odd, banded, unreadable))))
+        assertEquals("Automatum can't play 1 card yet: Odd Cub", automatumSupportTip(CardListSupport(21, listOf("Odd Cub"))))
     }
 
     // LOB-123 (I-D52): a card that ventures or takes the initiative is by hand when the card records hold no dungeon Automatum plays

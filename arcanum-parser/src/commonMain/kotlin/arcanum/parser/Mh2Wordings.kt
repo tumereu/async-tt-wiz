@@ -138,6 +138,15 @@ internal object Mh2 {
     val PREVENT_ALL_DAMAGE_TO_YOU = Regex("""Prevent all damage that would be dealt to you\.""")
     val THATS_ATTACKING_YOU_OR_YOUR_PLANESWALKER = Regex("""(.+?) that's attacking you or a planeswalker you control""")
     val EACH_PLAYER_CHOOSES_CREATURE_TYPE_RETURNS = Regex("""Each player chooses a creature type\. Each player returns all (.+?) cards of a type chosen this way from their graveyard to the battlefield\.""")
+    // mh2 chunk 16
+    val BECOMES_PT_SUBTYPE_ARTIFACT_CREATURE_STILL_LAND = Regex("""(.+?) becomes an? (\d+)/(\d+) ([A-Z][\w-]+(?: [A-Z][\w-]+)*) artifact creature until end of turn\. It's still a land\.""")
+    val MAY_CAST_A_SPELL_FROM_YOUR_GRAVEYARD_THIS_TURN = Regex("""You may cast an? (\w+) spell from your graveyard this turn\.""")
+    val YOU_DIDNT_CAST_IT_FROM_YOUR_HAND = Regex("""you didn't cast it from your hand""")
+    val IT_GAINS_UNTIL_YOUR_NEXT_TURN = Regex("""[Ii]t gains ([a-z ]+) until your next turn\.""")
+    val DESTROY_ALL_THREE_KINDS = Regex("""Destroy all (\w+)s, (\w+)s, and (\w+)s\.""")
+    val ADD_ONE_MANA_OF_ANY_TYPE_THAT_LAND_PRODUCED = Regex("""[Aa]dd one mana of any type that land produced\.""")
+    val AS_ENTERS_CHOOSE_A_NUMBER = Regex("""As (.+) enters, choose a number\.""")
+    val SPELLS_WITH_MV_EQUAL_TO_CHOSEN_NUMBER_CANT_BE_CAST = Regex("""(\w+) spells with mana value equal to the chosen number can't be cast\.""")
 }
 
 /** Values, conditions and nouns of Modern Horizons 2 (mh2) wordings. */
@@ -155,6 +164,9 @@ internal object Mh2Phrases {
         // mh2 chunk 13: "no colored mana was spent to cast it" (CR 601.2h)
         if (text == "no colored mana was spent to cast it")
             return Condition.Compare(Value.ManaSpent(distinctColors = true, of = Objects.EventObject(arcanum.api.EventRole.Object)), Comparison.Equal, Value.Fixed(0))
+        // mh2 chunk 16: "you didn't cast it from your hand" (the creature that entered, CR 601.2a)
+        if (Mh2.YOU_DIDNT_CAST_IT_FROM_YOUR_HAND.matches(text))
+            return Condition.Not(Condition.CastFrom(Zone.Hand, Objects.EventObject(arcanum.api.EventRole.After)))
         // mh2 chunk 02: "Skyblade's Boon is on the battlefield or in your graveyard" (the zones it works in, CR 113.6b)
         Mh2.IS_ON_BATTLEFIELD_OR_IN_YOUR_GRAVEYARD.matchEntire(text)?.takeIf { isSelf(it.groupValues[1]) }?.let {
             return Condition.ObjectMatches(Objects.Self, ObjectFilter.Or(listOf(ObjectFilter.InZone(Zone.Battlefield), ObjectFilter.InZone(Zone.Graveyard))))

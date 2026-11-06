@@ -21144,6 +21144,17 @@ internal class Sentences(
 
     /** mh2: static abilities. */
     private fun mh2Static(line: String): Ability? {
+        // mh2 chunk 16: "As this creature enters, choose a number." (CR 614.12, 607.2d)
+        Mh2.AS_ENTERS_CHOOSE_A_NUMBER.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let {
+            return mh2SelfStatic(Mechanic.Replacement(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), to = Zone.Battlefield), modify = listOf(Modification.AsEnters(listOf(
+                Step.Choose(arcanum.api.Choice.Number(Value.Fixed(0)), bind = "number", chooser = Players.You, remember = true))))))
+        }
+        // mh2 chunk 16: "Noncreature spells with mana value equal to the chosen number can't be cast." (by any player, CR 101.2)
+        Mh2.SPELLS_WITH_MV_EQUAL_TO_CHOSEN_NUMBER_CANT_BE_CAST.matchEntire(line)?.let { m ->
+            val noun = Filters.noun(m.groupValues[1].lowercase()) ?: return@let
+            return Ability.Static(listOf(Mechanic.CantCast(Filters.all(noun, ObjectFilter.ManaValue(arcanum.api.Comparison.Equal, Value.Remembered("number"))))),
+                affects = Affected.Players(Players.Each(PlayerFilter.Any)))
+        }
         // mh2 chunk 15: "If an opponent controls an Island and you control a Mountain, you may cast this spell without paying its mana cost." (an
         // alternative cost of nothing, CR 118.9)
         Mh2.IF_MAY_CAST_WITHOUT_PAYING.matchEntire(line)?.let { m ->
@@ -21368,6 +21379,12 @@ internal class Sentences(
 
     /** mh2: instructions of several sentences read as a whole. */
     private fun mh2Whole(text: String, context: Context): List<Step>? {
+        // mh2 chunk 16: "This land becomes a 2/2 Assembly-Worker artifact creature until end of turn. It's still a land." (layer 4, 7b)
+        Mh2.BECOMES_PT_SUBTYPE_ARTIFACT_CREATURE_STILL_LAND.matchEntire(text)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            val subtypes = m.groupValues[4].split(' ').map { if (it in RulesWords.subtypes) arcanum.api.SubtypeRef.Literal(Subtype(it)) else return null }
+            return listOf(mh2UntilEndOfTurn(Objects.Self, Mechanic.SetTypes(add = listOf(CardType.Artifact, CardType.Creature), addSubtypes = subtypes),
+                Mechanic.SetPowerToughness(Value.Fixed(m.groupValues[2].toInt()), Value.Fixed(m.groupValues[3].toInt()))))
+        }
         // mh2 chunk 15: "Each player chooses a creature type. Each player returns all creature cards of a type chosen this way from their graveyard to
         // the battlefield." (in turn order, CR 101.4; each puts their own cards onto the battlefield)
         Mh2.EACH_PLAYER_CHOOSES_CREATURE_TYPE_RETURNS.matchEntire(text)?.let { m ->
@@ -21750,6 +21767,26 @@ internal class Sentences(
             return listOf(Step.Choose(arcanum.api.Choice.Objects(Filters.all(noun, ObjectFilter.ControlledBy(PlayerFilter.Is(Players.Active))), Value.Fixed(1), Value.Fixed(1)),
                 bind = "sacrificed", chooser = Players.Active), Step.Do(Effect.Sacrifice(Objects.Bound("sacrificed"))))
         }
+        // mh2 chunk 16: "You may cast a creature spell from your graveyard this turn." (one spell, CR 601.2a)
+        Mh2.MAY_CAST_A_SPELL_FROM_YOUR_GRAVEYARD_THIS_TURN.matchEntire(sentence)?.let { m ->
+            val noun = Filters.noun(m.groupValues[1]) ?: return@let
+            return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.MayPlay(Zone.Graveyard, PlayKind.Cast, perTurn = 1, holder = PlayerFilter.You)),
+                Affected.Objects(Objects.Each(Filters.all(noun, ObjectFilter.InZone(Zone.Graveyard), ObjectFilter.OwnedBy(PlayerFilter.You)))), arcanum.api.Duration.EndOfTurn)))
+        }
+        // mh2 chunk 16: "it gains haste until your next turn." in an enters trigger of another creature: that creature
+        Mh2.IT_GAINS_UNTIL_YOUR_NEXT_TURN.matchEntire(sentence)?.takeIf { (context.event as? EventPattern.ZoneChange)?.to == Zone.Battlefield }?.let { m ->
+            val keyword = OracleParser.keyword(m.groupValues[1].replaceFirstChar { it.uppercase() }) ?: return@let
+            return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.GainAbilities(listOf(keyword))), Affected.Objects(Objects.EventObject(EventRole.After)),
+                arcanum.api.Duration.UntilYourNextTurn)))
+        }
+        // mh2 chunk 16: "Destroy all artifacts, creatures, and enchantments."
+        Mh2.DESTROY_ALL_THREE_KINDS.matchEntire(sentence)?.let { m ->
+            val kinds = (1..3).map { Filters.noun(m.groupValues[it]) ?: return@let }
+            return listOf(Step.Do(Effect.Destroy(Objects.Each(ObjectFilter.Or(kinds)))))
+        }
+        // mh2 chunk 16: "add one mana of any type that land produced." (CR 106.12)
+        if (Mh2.ADD_ONE_MANA_OF_ANY_TYPE_THAT_LAND_PRODUCED.matches(sentence) && (context.event as? EventPattern.Tap)?.forMana == true)
+            return listOf(Step.Do(Effect.AddMana(ManaProduction(ManaKind.SameAsProduced(Value.Fixed(1))), Players.You)))
         // mh2 chunk 13: "exile that creature." after damage to it; "counter that spell." after it was cast (the event's object)
         if (sentence == "Exile that creature." && context.event is EventPattern.Damage)
             return listOf(Step.Do(Effect.Move(Objects.EventObject(EventRole.Object), Destination(Zone.Exile))))

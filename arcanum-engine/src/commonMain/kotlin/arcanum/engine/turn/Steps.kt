@@ -278,7 +278,7 @@ internal object Steps {
         s.battlefield.toList().forEach { id ->
             val o = s.obj(id) ?: return@forEach
             val controller = o.controller ?: o.owner
-            if (o.phasedOut && controller == active) {
+            if (o.phasedOut && controller == active && !o.facts.heldPhasedOut /* mh2 */) {
                 recorder.record(Change.Status(id, StatusFlag.PhasedOut, true, false, listOf(Meaning.PhasedIn)))
             } else if (!o.phasedOut && snap.board.controller(id) == active && hasPhasing(snap, id)) {
                 recorder.record(Change.Status(id, StatusFlag.PhasedOut, false, true, listOf(Meaning.PhasedOut)))

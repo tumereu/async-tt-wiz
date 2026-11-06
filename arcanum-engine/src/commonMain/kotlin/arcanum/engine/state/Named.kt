@@ -29,6 +29,8 @@ sealed interface NamedValue {
     @Serializable @SerialName("payment") data class Payment(val outcome: PayOutcome) : NamedValue
     /** Whether a coin flip was won (D25). */
     @Serializable @SerialName("flip") data class Flip(val won: Boolean) : NamedValue
+    /** mh2: several coins flipped at once, how many were won and lost (CR 705). */
+    @Serializable @SerialName("flips") data class Flips(val won: Int, val lost: Int) : NamedValue
     /** Die results, in rolling order. */
     @Serializable @SerialName("rolls") data class Rolls(val results: List<Int>) : NamedValue
     /** A spell as it last was on the Stack, with its choices and what it looked like ([StackItem.snapshots]): epic copies it each

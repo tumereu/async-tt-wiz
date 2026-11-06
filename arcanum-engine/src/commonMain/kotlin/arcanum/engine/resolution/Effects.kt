@@ -211,8 +211,26 @@ internal object Effects {
                 // D60: face down where the viewer can't look, it is forgotten
                 act.state.objOrThrow(id).let { now -> if (arcanum.engine.action.Knowledge.forgets(act.state, now)) act.record(Change.Forgotten(now, arcanum.engine.action.Knowledge.forgotten(now))) }
             }
-            is Effect.PhaseOut -> onBattlefield(scope, effect.objects).forEach {
-                Actions.tapStatus(act, it, StatusFlag.PhasedOut, true, listOf(Meaning.PhasedOut))
+            is Effect.PhaseOut -> {
+                // mh2: "until this enchantment leaves the battlefield": if it already left, nothing phases out (CR 610.3)
+                val until = effect.untilLeaves?.let { scope.objects(it) }
+                if (until != null && until.none { act.state.obj(it)?.zone == Zone.Battlefield }) { scope.bind(effect.bind, NamedValue.Objects(emptyList())); return }
+                val phased = onBattlefield(scope, effect.objects).filter { act.state.obj(it)?.phasedOut == false }
+                phased.forEach {
+                    Actions.tapStatus(act, it, StatusFlag.PhasedOut, true, listOf(Meaning.PhasedOut))
+                    if (until != null) act.state.objOrThrow(it).let { o -> act.record(Change.Facts(it, o.facts, o.facts.copy(heldPhasedOut = true))) }
+                }
+                scope.bind(effect.bind, NamedValue.Objects(phased))
+                if (until != null && phased.isNotEmpty()) createDelayed(scope,
+                    Trigger.On(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Bound(UNTIL_SOURCE)), from = Zone.Battlefield)),
+                    Instructions(steps = listOf(Step.Do(Effect.PhaseIn(Objects.Bound(UNTIL_RETURNED))))),
+                    duration = null, repeats = false,
+                    extra = mapOf(UNTIL_SOURCE to NamedValue.Objects(until), UNTIL_RETURNED to NamedValue.Objects(phased)), oneShot = true)
+            }
+            // mh2: phasing in (CR 702.26c)
+            is Effect.PhaseIn -> scope.objects(effect.objects).filter { act.state.obj(it)?.phasedOut == true }.forEach {
+                Actions.tapStatus(act, it, StatusFlag.PhasedOut, false, listOf(Meaning.PhasedIn))
+                act.state.objOrThrow(it).let { o -> if (o.facts.heldPhasedOut) act.record(Change.Facts(it, o.facts, o.facts.copy(heldPhasedOut = false))) }
             }
             // eoe: a warped card is marked in exile (CR 702.185b)
             is Effect.Mark -> (if (effect.mark == arcanum.api.ObjectMark.Warped) scope.objects(effect.objects).filter { act.state.obj(it)?.zone == Zone.Exile }
@@ -244,16 +262,17 @@ internal object Effects {
             }
             is Effect.FlipCoin -> {
                 val player = scope.players(effect.players).firstOrNull() ?: scope.actor
-                // fin: "those coins come up heads and you win those flips": a replacement of the flip (CR 705.2, 614.1a)
-                val linked = mutableListOf<arcanum.engine.decision.WaitingTrigger>()
-                val wins = arcanum.engine.action.Replacements.apply(act, cause, false, player, null,
-                    proposed = { w -> if (w) null else Change.Happened(GameEvent.CoinFlipped(player, false)) },
-                    modify = { w, r, _ -> w || r.mechanic.modify.any { it == arcanum.api.Modification.WinFlips } },
-                    instead = { r, instance -> Actions.runInstead(act, r, instance) }, linked = linked) ?: false
-                arcanum.engine.action.Replacements.addLinked(act, linked)
-                val won = wins || (act.random(player, scope.self, RandomKind.CoinFlip) as Answer.CoinFlip).won
-                act.record(Change.Happened(GameEvent.CoinFlipped(player, won)))
-                scope.bind(effect.bind, NamedValue.Flip(won))
+                // mh2: "Flip that many coins": each flipped in turn, the wins and losses counted (CR 705)
+                if (effect.count != null) {
+                    var won = 0
+                    var lost = 0
+                    repeat(scope.value(effect.count!!).coerceAtLeast(0)) {
+                        if (flipOne(scope, player)) won++ else lost++
+                    }
+                    scope.bind(effect.bind, NamedValue.Flips(won, lost))
+                    return
+                }
+                scope.bind(effect.bind, NamedValue.Flip(flipOne(scope, player)))
             }
             is Effect.ExchangeControl -> exchangeControl(scope, effect)
             is Effect.MoveCounters -> {
@@ -437,6 +456,21 @@ internal object Effects {
                 }
             }
         }
+    }
+
+    /** One coin flip by [player] (CR 705): whether they won it. */
+    private fun flipOne(scope: Scope, player: PlayerId): Boolean {
+        val act = scope.act
+        // fin: "those coins come up heads and you win those flips": a replacement of the flip (CR 705.2, 614.1a)
+        val linked = mutableListOf<arcanum.engine.decision.WaitingTrigger>()
+        val wins = arcanum.engine.action.Replacements.apply(act, scope.cause, false, player, null,
+            proposed = { w -> if (w) null else Change.Happened(GameEvent.CoinFlipped(player, false)) },
+            modify = { w, r, _ -> w || r.mechanic.modify.any { it == arcanum.api.Modification.WinFlips } },
+            instead = { r, instance -> Actions.runInstead(act, r, instance) }, linked = linked) ?: false
+        arcanum.engine.action.Replacements.addLinked(act, linked)
+        val won = wins || (act.random(player, scope.self, RandomKind.CoinFlip) as Answer.CoinFlip).won
+        act.record(Change.Happened(GameEvent.CoinFlipped(player, won)))
+        return won
     }
 
     private fun chooseDoor(scope: Scope, chooser: Players, id: ObjectId, doors: List<arcanum.api.Door>, text: String): arcanum.api.Door {

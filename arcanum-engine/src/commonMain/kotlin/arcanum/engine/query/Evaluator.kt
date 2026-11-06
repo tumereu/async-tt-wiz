@@ -413,8 +413,14 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             }
             is ObjectFilter.SingleTarget -> {
                 val targets = state.stackItems[id]?.targets?.values?.flatten().orEmpty()
-                targets.size == 1 && filter.target.let { f -> f == null || (targets[0] as? TargetRef.Object)?.id?.let { matches(f, it) } == true }
+                targets.size == 1 && (filter.target.let { f -> f == null || (targets[0] as? TargetRef.Object)?.id?.let { matches(f, it) } == true } ||
+                    // mh2: "a single permanent or player"
+                    filter.players?.let { p -> (targets[0] as? TargetRef.Player)?.id?.let { matches(p, it) } } == true)
             }
+            // mh2: one of its mana abilities could add mana of that kind (CR 106.7)
+            is ObjectFilter.CouldProduce -> c != null && couldProduce(c, filter.mana)
+            // mh2: its mana cost is exactly that (CR 202.1)
+            is ObjectFilter.HasManaCost -> c?.manaCost == filter.cost
         }
     }
 
@@ -593,6 +599,29 @@ internal class Evaluator(val board: Board, val ctx: Context) {
         is CardTypeRef.Remembered -> listOfNotNull((selfMemory(ref.key) as? NamedValue.CardTypeValue)?.cardType)
     }
 
+    /** mh2: whether one of [c]'s mana abilities (those its basic land types give included, CR 305.6) adds mana of [mana]'s kind, one symbol:
+     * a colour or colourless (CR 106.7). */
+    private fun couldProduce(c: Characteristics, mana: arcanum.api.ManaCost): Boolean {
+        val symbol = mana.symbols.singleOrNull() ?: return false
+        val color = (symbol as? arcanum.api.ManaSymbol.Colored)?.color
+        val colorless = symbol is arcanum.api.ManaSymbol.Colorless
+        return c.abilities.any { inst ->
+            val a = inst.ability as? arcanum.api.Ability.Activated ?: return@any false
+            if (!a.isManaAbility()) return@any false
+            a.instructions.steps.mapNotNull { (it as? arcanum.api.Step.Do)?.effect as? arcanum.api.Effect.AddMana }.any { add ->
+                when (val kind = add.mana.kind) {
+                    is arcanum.api.ManaKind.Fixed -> kind.mana.symbols.any { s ->
+                        (colorless && (s is arcanum.api.ManaSymbol.Colorless || s is arcanum.api.ManaSymbol.Generic)) ||
+                            (color != null && s is arcanum.api.ManaSymbol.Colored && s.color == color)
+                    }
+                    is arcanum.api.ManaKind.Choose -> color != null && (kind.colors == null || kind.colors!!.flatMap { colors(it) }.contains(color))
+                    is arcanum.api.ManaKind.EachColorAmong -> color != null
+                    is arcanum.api.ManaKind.AsCouldProduce, is arcanum.api.ManaKind.SameAsProduced -> false
+                }
+            }
+        }
+    }
+
     // ---- Values
 
     fun value(value: Value): Int = when (value) {
@@ -632,6 +661,9 @@ internal class Evaluator(val board: Board, val ctx: Context) {
         is Value.Speed -> players(value.players).sumOf { arcanum.engine.turn.Speed.of(state, it) }
         // dft: the X of the cycling that triggered this ability (CR 107.3a, 702.29c)
         Value.EventX -> ctx.event?.x ?: 0
+        // mh2: coin flips won and lost (CR 705.2)
+        is Value.FlipsWon -> when (val f = ctx.names[value.name]) { is NamedValue.Flip -> if (f.won) 1 else 0; is NamedValue.Flips -> f.won; else -> 0 }
+        is Value.FlipsLost -> when (val f = ctx.names[value.name]) { is NamedValue.Flip -> if (f.won) 0 else 1; is NamedValue.Flips -> f.lost; else -> 0 }
         is Value.Of -> combine(value.how, objects(value.objects).map { property(value.property, it) })
         is Value.PlayerCounters -> players(value.players).sumOf { state.player(it).counters(value.kind) }
         is Value.LifeOf -> players(value.players).sumOf { state.player(it).life }
@@ -819,7 +851,7 @@ internal class Evaluator(val board: Board, val ctx: Context) {
         is Condition.StepIs -> state.turn.step == condition.step
         is Condition.Did -> (ctx.names[condition.name] as? NamedValue.Payment)?.outcome == PayOutcome.Paid
         is Condition.CouldNot -> (ctx.names[condition.name] as? NamedValue.Payment)?.outcome == PayOutcome.CouldNotPay
-        is Condition.WonFlip -> (ctx.names[condition.name] as? NamedValue.Flip)?.won == true
+        is Condition.WonFlip -> (ctx.names[condition.name] as? NamedValue.Flip)?.won == true || ((ctx.names[condition.name] as? NamedValue.Flips)?.won ?: 0) > 0
         is Condition.Paid -> objects(condition.of).any { id ->
             val facts = facts(id) ?: return@any false
             val paid = (facts.paid + listOfNotNull(facts.alternative))

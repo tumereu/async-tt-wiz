@@ -176,6 +176,9 @@ data class ObjectFacts(
     val plottedTurn: Int? = null,
     /** How many Phyrexian mana symbols of its cost were paid with life as it was cast (compleated, CR 702.150a). */
     val phyrexianPaidWithLife: Int = 0,
+    // mh2
+    /** Phased out until another object leaves the battlefield (CR 702.26, 610.3): it doesn't phase in during untap steps. */
+    val heldPhasedOut: Boolean = false,
 )
 
 /** Mana of one kind spent: a colour, or colourless when [color] is null. */

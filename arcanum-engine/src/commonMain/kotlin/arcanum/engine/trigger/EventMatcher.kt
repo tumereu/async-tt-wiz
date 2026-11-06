@@ -106,6 +106,13 @@ internal object EventMatcher {
         }.filter { causedBy(e, change, pattern.causedBy) }.map { m -> moveEvent(e, m, proposed, Zone.Hand, EventRole.Before) }
         is EventPattern.Sacrifice -> moves(change).filter { Meaning.Sacrificed in it.meanings && e.matches(pattern.objects, it.before.id) }
             .map { m -> moveEvent(e, m, proposed, Zone.Battlefield, EventRole.Before) }
+        // mh2: a creature sacrificed as an exploit ability of an object matching [exploiter] resolves (CR 702.110b)
+        is EventPattern.Exploits -> (change as? Change.ZoneChange)?.takeIf { c -> exploitedBy(e, c, pattern.exploiter) }?.let { c ->
+            moves(c).filter { Meaning.Sacrificed in it.meanings }.map { m ->
+                val event = moveEvent(e, m, proposed, Zone.Battlefield, EventRole.Before)
+                event.copy(objects = event.objects + RoleObjects(EventRole.Source, listOfNotNull(c.by?.source)))
+            }
+        }.orEmpty()
         is EventPattern.Destroyed -> moves(change).filter { Meaning.Destroyed in it.meanings && e.matches(pattern.objects, it.before.id) }
             .map { m -> moveEvent(e, m, proposed, Zone.Battlefield, EventRole.Before) }
         is EventPattern.Countered -> moves(change).filter { Meaning.Countered in it.meanings && e.matches(pattern.objects, it.before.id) }
@@ -215,7 +222,7 @@ internal object EventMatcher {
         is EventPattern.RollDie -> ((change as? Change.Happened)?.event as? GameEvent.DieRolled)
             ?.takeIf { e.matches(pattern.players, it.player) }?.let { listOf(TriggerEvent(players = listOf(it.player), amount = it.results.sum())) }.orEmpty()
         is EventPattern.FlipCoin -> ((change as? Change.Happened)?.event as? GameEvent.CoinFlipped)
-            ?.takeIf { e.matches(pattern.players, it.player) }?.let { listOf(TriggerEvent(players = listOf(it.player))) }.orEmpty()
+            ?.takeIf { e.matches(pattern.players, it.player) && (!pattern.won || it.won) /* mh2 */ }?.let { listOf(TriggerEvent(players = listOf(it.player))) }.orEmpty()
         // CR 702.29c: the card discarded to pay a cycling cost, seen as it was in the hand
         is EventPattern.Cycle -> moves(change).filter {
             Meaning.Cycled in it.meanings && e.matches(pattern.players, it.before.owner) &&
@@ -362,6 +369,16 @@ internal object EventMatcher {
 
     /** blb: whether counters were put by an effect of a spell or ability matching [filter] (its Stack item; "you put": one
      * you control). Counters with no cause (a cost, a rule) match no filter. */
+    /** mh2: [change] is made by an exploit triggered ability (CR 702.110a) whose source matches [exploiter]. */
+    private fun exploitedBy(e: Evaluator, change: Change.ZoneChange, exploiter: arcanum.api.ObjectFilter): Boolean {
+        val by = change.by ?: return false
+        val item = by.item ?: return false
+        if (e.board.state.stackItems[item] == null) return false
+        if (!e.matches(arcanum.api.ObjectFilter.AbilityOf(kind = arcanum.api.AbilityKind.Triggered, keyword = arcanum.api.Keyword.Exploit), item)) return false
+        val source = by.source ?: return false
+        return e.matches(exploiter, source) || e.board.state.obj(source) == null && exploiter == arcanum.api.ObjectFilter.Is(arcanum.api.Objects.Self) && source == e.ctx.self
+    }
+
     private fun causedBy(e: Evaluator, change: Change, filter: arcanum.api.ObjectFilter?): Boolean {
         if (filter == null) return true
         // rtr chunk 06: also a move's cause (a discard caused by a spell or ability)

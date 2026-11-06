@@ -386,11 +386,7 @@ internal class LayerRun(private val state: GameState, private val traced: Set<Ob
         val dependsOn = pool.associate { b ->
             val bAlone = resolved[b]
             b.key to (if (resolved.readsPowerToughness(b)) changes else beyondPowerToughness).filter { a ->
-                a !== b && run {
-                    val after = board.copy()
-                    apply(after, resolved[a])
-                    resolve(after, b, layer) != bAlone
-                }
+                a !== b && tried(board, resolved[a]) { resolve(board, b, layer) } != bAlone
             }.map { it.key }.toSet()
         }
         if (Layers.checkShortcuts) {
@@ -417,6 +413,24 @@ internal class LayerRun(private val state: GameState, private val traced: Set<Ob
         }
         val ready = byTimestamp.filter { b -> dependsOn[b.key].orEmpty().all { a -> reaches(a, b.key) } }
         return ready.firstOrNull() ?: byTimestamp.first()
+    }
+
+    /**
+     * [block] on [board] with [resolved] applied, as on a copy of it with it applied (the dependency check, CR 613.8a):
+     * applied in place and taken back after, so nothing is copied; the board, and whether it read a power or toughness,
+     * are as before afterwards.
+     */
+    private inline fun <T> tried(board: WorkBoard, resolved: Resolved, block: () -> T): T {
+        val saved = resolved.ops.keys.mapNotNull { id -> board.work[id]?.let { id to it } }
+        val read = board.powerToughnessRead
+        board.powerToughnessRead = false
+        try {
+            apply(board, resolved)
+            return block()
+        } finally {
+            for ((id, partial) in saved) board.work[id] = partial
+            board.powerToughnessRead = read
+        }
     }
 
     /** [Layers.checkShortcuts]: the effects gathered for [layer] earlier are those gathered now. */

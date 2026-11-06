@@ -223,8 +223,7 @@ object WhoActs {
      * opens. Choices with one legal answer that depend on nothing hidden the engine makes itself (P5).
      */
     private fun automatic(model: GameModel, input: Input, player: PlayerId, decision: Decision?): Boolean {
-        val state = model.engine
-        if (input is Input.PassPriority) return Stops.forcedPass(state, player)
+        if (input is Input.PassPriority) return Stops.forcedPass(model, player)
         if (input !is Input.Answer || decision == null || decision.player != player) return false
         return input == earlyAnswer(model, decision) || input == orderFree(decision)
     }
@@ -293,6 +292,9 @@ object Stops {
      * smoke 2026-11-04: a turn is never passed away without its player, STK-036). */
     fun forcedPass(state: GameState, player: PlayerId, view: arcanum.engine.view.View? = null): Boolean =
         Engine.shouldPassFor(state, player, view) && !stop(state, player)
+
+    /** [forcedPass] on [model]'s engine state, with the pass check it keeps for the state ([GameModel.passCheck]). */
+    fun forcedPass(model: GameModel, player: PlayerId): Boolean = model.passCheck(player).asSet && !stop(model.engine, player)
 
     /** [player]'s pause on [state]: the other player's spell or ability on top of the Stack, the other player's attack,
      * blocks (both players), the other player's end step. */

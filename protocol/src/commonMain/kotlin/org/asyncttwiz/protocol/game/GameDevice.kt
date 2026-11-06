@@ -556,8 +556,10 @@ class GameDevice(
         }
         val holder = s.priority.holder
         if (holder != null) {
+            // An End turn going on passes whatever they could do: no search of their options
+            if (endTurn == s.turn.number) return Input.PassPriority(holder)
             // One search of the player's options answers both (the engine's own pass and their mode's)
-            val check = Engine.passCheck(s, holder, model.keptView())
+            val check = model.passCheck(holder)
             return Input.PassPriority(holder).takeIf { (check.asSet && !Stops.stop(s, holder)) || modePasses(s, holder, check) }
         }
         if (endTurn == s.turn.number && s.turn.active == me)
@@ -599,7 +601,7 @@ class GameDevice(
         }
         val holder = s.priority.holder
         if (holder != null) {
-            if (Stops.forcedPass(s, holder, model.keptView())) return Point.Automatic(Input.PassPriority(holder))
+            if (Stops.forcedPass(model, holder)) return Point.Automatic(Input.PassPriority(holder))
             val pass = Input.PassPriority(holder)
             if (Stops.stop(s, holder) || !assumable(pass)) return Point.Wait(Wait.TheirTurn)
             if (revealing(pass)) return Point.Wait(Wait.HiddenCards)
@@ -918,8 +920,9 @@ class GameDevice(
             val mine = Engine.decider(s, holder) == me
             // After an assumed input only engine-automatic answers fold: the player's own inputs are their own event
             if (mine && !own) return
-            // One search of the holder's options answers both the forced pass and their own mode's (playtest 2026-11-04)
-            val check = Engine.passCheck(s, holder, model.keptView())
+            // One search of the holder's options answers both the forced pass and their own mode's (playtest 2026-11-04),
+            // kept with the state (the device's next point there reads it again)
+            val check = model.passCheck(holder)
             val forced = check.asSet && !Stops.stop(s, holder)
             val yields = mine && !forced && modePasses(s, holder, check)
             if (!forced && !yields) return

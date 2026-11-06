@@ -70,6 +70,21 @@ internal object Mh2 {
     val GAIN_CONTROL_OF_SPELL_COPY_RESELECT_AT_RANDOM = Regex("""Gain control of target (.+?)\. Copy it, then reselect the targets at random for the spell and the copy\. The new targets can't be you or a permanent you control\.""")
     val SPELL_THAT_TARGETS_ONLY_SINGLE_PERMANENT_OR_PLAYER = Regex("""spell that targets only a single permanent or player""")
     val REVEAL_UNTIL_NONLAND_BOTTOM_WHEN_YOU_REVEAL_DEALS_MV = Regex("""Reveal cards from the top of your library until you reveal an? (.+?) card\. Put the revealed cards on the bottom of your library in a random order\. When you reveal an? \1 card this way, (.+?) deals damage equal to that card's mana value to any target\.""")
+    // mh2 chunk 08
+    val MAY_DISCARD_WHEN_YOU_DO = Regex("""You may discard a card\. When you do, (.+)""")
+    val THAT_COULD_PRODUCE = Regex("""(.+?) that could produce (\{[A-Z]\})""")
+    val YOU_WIN_A_COIN_FLIP = Regex("""you win a coin flip""")
+    val TREASURE_AND_EXILE_TOP_OF_THAT_PLAYERS_LIBRARY_MAY_CAST = Regex("""Create a Treasure token and exile the top card of that player's library\. Until end of turn, you may cast that card\.""")
+    val FLIP_COINS_FOR_EACH_WIN_CREATE = Regex("""Flip (\w+) coins\. For each flip you win, create (.+?) that's tapped and attacking\.""")
+    val SHUFFLE_PERMANENTS_REVEAL_THAT_MANY_PUT_NON_AURA_THEN_AURA = Regex("""Shuffle all permanents you own into your library, then reveal that many cards from the top of your library\. Put all non-Aura permanent cards revealed this way onto the battlefield, then do the same for Aura cards, then put the rest on the bottom of your library in a random order\.""")
+    // mh2 chunk 09
+    val COUNTER_ON_CREATURES = Regex("""(\S+) counter on (.+?)""")
+    val GET_PT_FOR_EACH_COUNTER_ON_SELF = Regex("""(.+) get \+(\d+)/\+(\d+) for each (\S+) counter on (.+)\.""")
+    val ISNT_LEGENDARY_IF_TOKEN = Regex("""(.+) isn't legendary if it's a token\.""")
+    val CHOOSE_LAND_OR_NONLAND_REVEAL_UNTIL = Regex("""Choose land or nonland\. Reveal cards from the top of your library until you reveal a card of the chosen kind\. Put that card into your hand and the rest on the bottom of your library in a random order\.""")
+    val ENTERS_WITH_N_COUNTERS_FOR_EACH_COLOR_SPENT = Regex("""(.+) enters with (\w+) (\S+) counters on it for each color of mana spent to cast it\.""")
+    val TARGET_PLAYER_SHUFFLES_GRAVEYARD_INTO_LIBRARY = Regex("""Target player shuffles their graveyard into their library\.""")
+    val PREVENT_ALL_COMBAT_DAMAGE_THIS_TURN = Regex("""Prevent all combat damage that would be dealt this turn\.""")
 }
 
 /** Values, conditions and nouns of Modern Horizons 2 (mh2) wordings. */
@@ -92,9 +107,19 @@ internal object Mh2Phrases {
     }
 
     /** [exiled]: what "the exiled card" means on this card, when an ability links to it (CR 607.2a). */
-    fun value(@Suppress("UNUSED_PARAMETER") text: String, @Suppress("UNUSED_PARAMETER") exiled: Objects?): Value? = null
+    fun value(text: String, @Suppress("UNUSED_PARAMETER") exiled: Objects?): Value? {
+        // mh2 chunk 08: "the number of card types the discarded card has" (a card discarded as the ability resolves, CR 205.2a)
+        if (text == "the number of card types the discarded card has")
+            return Value.CountDistinct(Objects.Bound("discarded"), arcanum.api.SharedQuality.CardType)
+        return null
+    }
 
     fun noun(phrase: String): ObjectFilter? {
+        // mh2 chunk 08: "land your opponents control that could produce {C}" (CR 106.7)
+        Mh2.THAT_COULD_PRODUCE.matchEntire(phrase)?.let { m ->
+            val noun = Filters.noun(m.groupValues[1]) ?: return null
+            return Filters.all(noun, ObjectFilter.CouldProduce(arcanum.api.ManaCost.parse(m.groupValues[2]) ?: return null))
+        }
         // mh2 chunk 07: "spell that targets only a single permanent or player" (CR 115.7)
         if (Mh2.SPELL_THAT_TARGETS_ONLY_SINGLE_PERMANENT_OR_PLAYER.matches(phrase))
             return Filters.all(ObjectFilter.Category(arcanum.api.ObjectCategory.Spell),

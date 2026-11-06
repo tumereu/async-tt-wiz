@@ -173,7 +173,8 @@ sealed interface EventPattern {
      * (the attachment). */
     @Serializable @SerialName("attach") data class Attach(val objects: ObjectFilter, val to: ObjectFilter) : EventPattern
     @Serializable @SerialName("roll-die") data class RollDie(val players: PlayerFilter) : EventPattern
-    @Serializable @SerialName("flip-coin") data class FlipCoin(val players: PlayerFilter) : EventPattern
+    /** A player matching [players] flips a coin (CR 705); mh2: [won], only a flip that player wins ("whenever you win a coin flip", CR 705.2). */
+    @Serializable @SerialName("flip-coin") data class FlipCoin(val players: PlayerFilter, val won: Boolean = false) : EventPattern
     /** A Vehicle matching [objects] becomes crewed (CR 702.122). Roles object (the Vehicle), other combatant unused. */
     @Serializable @SerialName("crewed") data class Crewed(val objects: ObjectFilter) : EventPattern
     /** A Mount matching [objects] becomes saddled (CR 702.171). */

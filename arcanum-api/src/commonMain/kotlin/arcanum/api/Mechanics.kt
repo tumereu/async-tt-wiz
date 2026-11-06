@@ -74,11 +74,13 @@ sealed interface Mechanic {
     /** Add or replace types. [replaceSubtypes]: the new subtypes replace the old ones **of the same kind** only
      * ("becomes a Zombie" replaces creature types, not land types, CR 205.1a). When new basic land types replace a
      * land's old land types, it also loses all abilities from its rules text and old land types (CR 305.7, Blood Moon);
-     * gaining a land type "in addition to its other types" keeps them. */
+     * gaining a land type "in addition to its other types" keeps them. mh2: [removeSupertypes], "isn't legendary" (CR 205.4). */
     @Serializable @SerialName("types") data class SetTypes(
         val add: List<CardType> = emptyList(), val addSubtypes: List<SubtypeRef> = emptyList(),
         val addSupertypes: List<Supertype> = emptyList(), val remove: List<CardType> = emptyList(),
         val replaceTypes: Boolean = false, val replaceSubtypes: Boolean = false,
+        // mh2
+        val removeSupertypes: List<Supertype> = emptyList(),
     ) : Mechanic {
         override val layer: Layer get() = Layer.Type
         override val stacking: Stacking get() = Stacking.Independent

@@ -475,6 +475,9 @@ sealed interface Mechanic {
     // fra
     /** "A deck can have any number of cards named ~" (CR 100.2a): a deck-construction rule, nothing during a game. */
     @Serializable @SerialName("any-number-in-deck") data object AnyNumberInDeck : Mechanic
+    // ltr chunk 06
+    /** "A deck can have up to [count] cards named ~" (CR 100.2a): a deck-construction rule, nothing during a game. */
+    @Serializable @SerialName("up-to-in-deck") data class UpToInDeck(val count: Int) : Mechanic
     /** The affected planeswalkers aren't put into their owners' graveyards for having 0 loyalty (CR 704.5i doesn't apply to
      * them). */
     @Serializable @SerialName("no-graveyard-for-zero-loyalty") data object NoGraveyardForZeroLoyalty : Mechanic

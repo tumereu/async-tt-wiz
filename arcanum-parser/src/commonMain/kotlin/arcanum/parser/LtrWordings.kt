@@ -66,6 +66,22 @@ internal object Ltr {
     val AS_LONG_AS_YOUR_TURN_AND_IS_ARTIFACT_CREATURE = Regex("""As long as it's your turn and (.+?), (.+?) is an artifact creature\.""")
     val HAND_OVER_N_EXILE_DIFFERENCE = Regex("""If its controller has more than (\w+) cards in hand, they exile cards from their hand equal to the difference\.""")
     val COSTS_LESS_IF_TARGETS_DEALT_DAMAGE = Regex("""This spell costs ((?:\{[^}]+\})+) less to cast if it targets an? (\w+) that was dealt damage this turn\.""")
+    // ltr chunk 06
+    val IF_THAT_CREATURE_IS_ITS_CONTROLLER = Regex("""If that creature is (legendary|an? .+?), (its controller .+)""")
+    val IF_THE_SACRIFICED_WAS_INSTEAD = Regex("""If the sacrificed (creature|permanent) was (.+?), (.+) instead\.""")
+    val RING_TEMPTS_THEN = Regex("""The Ring tempts you, then (.+)""")
+    val EACH_PLAYER_MILLS_EQUAL_TO = Regex("""[Ee]ach player mills cards equal to (.+)\.""")
+    val EACH_OPPONENT_LOSES_FOR_EACH_IN_THAT_PLAYERS = Regex("""Each opponent loses (\w+) life for each (.+?) in that player's graveyard\.""")
+    val DEFENDING_SACRIFICES_LEAST_POWER = Regex("""[Dd]efending player sacrifices an? (\w+) with the least power among (\w+) they control\.""")
+    val EXILE_ALL_CAST_FROM_AMONG_ANY_MANA = Regex("""Exile all (.+?) from target player's graveyard\. You may cast spells from among those cards for as long as they remain exiled, and mana of any type can be spent to cast them\.""")
+    val UP_TO_N_IN_DECK = Regex("""A deck can have up to (\w+) cards named (.+)\.""")
+    val EACH_OPPONENT_SACRIFICES_FOOD_FOR_EACH = Regex("""Each opponent sacrifices an? (\w+) of their choice\. Create an? (.+?) token for each (\w+) sacrificed this way\.""")
+    val YOU_AND_TARGET_OPPONENT_EACH_CREATE = Regex("""You and target opponent each create (an? .+? token)\.""")
+    val CREATURES_DEAL_COMBAT_DAMAGE_TO_YOU_SACRIFICE = Regex("""Whenever one or more creatures deal combat damage to you, each opponent sacrifices a creature of their choice that dealt combat damage to you this turn\. (.+)""")
+    val GAINS_UNTIL_EOT_TAP_HIM = Regex("""(.+?) gains (.+?) until end of turn\. Tap (?:him|her)\.""")
+    val GUESSING_GAME = Regex("""Look at the top two cards of your library, put them back in any order, then choose land or nonland\. An opponent guesses whether the top card of your library is the chosen kind\. Reveal that card\. If they guessed right, remove (.+?) from combat\. Otherwise, you draw a card and (.+?) can't be blocked this turn\.""")
+    val WHEN_ENTERS_AND_WHENEVER = Regex("""When (.+?) enters and whenever (.+?), (.+)""")
+    val COPY_TOKEN_EXCEPT_EXILE_UNLESS_BEARER = Regex("""Exile (target .+?)\. Create a tapped and attacking token that's a copy of that card, except it's an? (\d+)/(\d+) (\w+) ([A-Z]\w+) with (\w+)\. At the beginning of the next end step, exile that token unless (.+?) is your Ring-bearer\.""")
     val TARGETS_EACH_GAIN = Regex("""((?:Up to )?(?:two|three|Two|Three) target .+?) (?:each )?(gain|get) (.+)""")
 }
 

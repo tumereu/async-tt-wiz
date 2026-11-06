@@ -114,8 +114,10 @@ class GameModelViewsTest {
         assertNull(model.keptView(), "taking back drops the view")
         assertEquals(Engine.view(model.engine), model.view())
         builder.perform(input)
+        // End turn engine speed: abandoning puts back what was kept of the state the builder began on (it is that state
+        // again), never the view of the state it made
         builder.abandon()
-        assertNull(model.keptView(), "abandoning drops the view")
+        model.keptView()?.let { assertEquals(Engine.view(model.engine), it, "abandoning keeps only the view of the state it began on") }
         assertEquals(Engine.view(model.engine), model.view())
         val line = EventBuilder(model, "y", events.last().id, model.engine.players[0].id.value)
         model.view()
@@ -127,6 +129,40 @@ class GameModelViewsTest {
         }
         line.abandon()
         assertEquals(Engine.view(model.engine), model.view())
+    }
+
+    // End turn engine speed: a pass check is kept with the state; a builder taken back puts back what was kept of the
+    // state it began on, its first input's outcome included, so the same input made again there is applied without the
+    // engine (the outcome equal to the engine's, the state after it the same); a change drops all of it
+    @Test
+    fun passChecksAndAProbesOutcomeAreKeptForTheStateTheyAreOf() {
+        val games = EngineGames(4)
+        val model = games.model()
+        var parent = "root"
+        var probed = 0
+        repeat(120) {
+            if (games.over(model)) return@repeat
+            val holder = model.engine.priority.holder
+            if (holder != null && model.engine.pending == null) {
+                assertEquals(Engine.passCheck(model.engine, holder), model.passCheck(holder))
+                assertEquals(0, layers { model.passCheck(holder) }, "kept")
+                val input = Input.PassPriority(holder)
+                val probe = EventBuilder(model, "probe$it", parent, holder.value)
+                val outcome = try { probe.perform(input) } catch (_: RuntimeException) { null }
+                val after = model.copy()
+                probe.abandon()
+                assertEquals(0, layers { model.passCheck(holder) }, "kept again once the probe is taken back")
+                if (outcome != null) {
+                    probed++
+                    val again = EventBuilder(model, "again$it", parent, holder.value)
+                    assertEquals(0, layers { assertEquals(outcome, again.perform(input)) }, "the probe's outcome applied again")
+                    assertTrue(after.sameAs(model), "the same state as the probe made")
+                    again.abandon()
+                }
+            }
+            parent = games.next(model, parent).id
+        }
+        assertTrue(probed > 5, "$probed probes")
     }
 
     @Test

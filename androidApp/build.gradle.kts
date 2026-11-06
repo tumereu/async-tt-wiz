@@ -345,6 +345,10 @@ tasks.withType<Test>().configureEach {
     inputs.property("screenshotMode", recordScreenshots)
     inputs.dir("src/test/screenshots").withPathSensitivity(PathSensitivity.RELATIVE).optional()
     systemProperty("robolectric.dependency.repo.url", "https://repo.maven.apache.org/maven2")
+    // -Patw.bench=true runs the engine speed benchmark (EndTurnBenchmark; prints numbers, never asserts on time).
+    listOf("atw.bench", "atw.bench.runs", "atw.bench.profile").forEach { key ->
+        providers.gradleProperty(key).orNull?.let { systemProperty(key, it) }
+    }
     // Test classes run in parallel JVMs (also capped by org.gradle.workers.max); -PatwTestForks=<n> overrides.
     // Each keeps the default heap: a larger one doesn't speed the suite up, but four Robolectric JVMs with
     // 2 GB heaps plus a concurrent build overran the build slice's memory cap.

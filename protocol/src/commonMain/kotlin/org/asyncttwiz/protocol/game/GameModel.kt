@@ -3,6 +3,7 @@ package org.asyncttwiz.protocol.game
 import arcanum.engine.Engine
 import arcanum.engine.EngineTrace
 import arcanum.engine.Outcome
+import arcanum.engine.PassCheck
 import arcanum.engine.change.Change
 import arcanum.engine.decision.Answer
 import arcanum.engine.decision.Decision
@@ -29,7 +30,10 @@ import arcanum.engine.view.View
  *
  * **The layers are worked out once per state** (engine-responsiveness R2): [view] and each player's [visible] set are
  * kept until the engine state next changes through this model ([apply], [revert], an [EventBuilder] on it, an event's
- * drop of older log entries), counted by [changes]. Change [engine] only through those; a [copy] keeps nothing.
+ * drop of older log entries), counted by [changes]. Change [engine] only through those; a [copy] keeps nothing. So are
+ * each player's [passCheck] and the outcome of an [EventBuilder]'s first input (End turn engine speed): an abandoned
+ * builder ([EventBuilder.abandon], a probe taken back) puts back what was kept of the state it began on, so the same
+ * input made again there (the probed assumption sent) is applied without the engine working it out again.
  */
 class GameModel(val engine: GameState, table: TableState = TableState()) {
     var table: TableState = table
@@ -52,6 +56,8 @@ class GameModel(val engine: GameState, table: TableState = TableState()) {
         private set
     private var keptView: View? = null
     private val keptVisible = HashMap<PlayerId, Set<ObjectId>>()
+    private val keptPasses = HashMap<PlayerId, PassCheck>()
+    private val keptOutcomes = HashMap<Input, Outcome>()
 
     /** The engine state's view ([Engine.view]), worked out once per state: kept until the next change ([changes]). */
     fun view(): View {
@@ -68,6 +74,37 @@ class GameModel(val engine: GameState, table: TableState = TableState()) {
         return Engine.visible(engine, player, view()).also { if (keepViews) keptVisible[player] = it }
     }
 
+    /** [Engine.passCheck] of [player] on the engine state (with [view]), kept until the next change. */
+    fun passCheck(player: PlayerId): PassCheck {
+        keptPasses[player]?.let { kept ->
+            if (checkKept) check(kept == Engine.passCheck(engine, player)) { "A kept pass check differs from the state's" }
+            return kept
+        }
+        return Engine.passCheck(engine, player, view()).also { if (keepViews) keptPasses[player] = it }
+    }
+
+    /** The kept outcome of [input] performed on the engine state as it is now ([EventBuilder.perform]), or null. */
+    internal fun keptOutcome(input: Input): Outcome? = keptOutcomes[input]?.also { kept ->
+        if (checkKept) check(kept == Engine.perform(engine.deepCopy(), input)) { "A kept outcome differs from the state's" }
+    }
+
+    /** What is kept of the engine state as it is now ([restore] puts it back). */
+    internal class Kept(val view: View?, val visible: Map<PlayerId, Set<ObjectId>>, val passes: Map<PlayerId, PassCheck>,
+        val outcomes: MutableMap<Input, Outcome>)
+
+    internal fun kept(): Kept = Kept(keptView, HashMap(keptVisible), HashMap(keptPasses), HashMap(keptOutcomes))
+
+    /** The engine state is again the one [kept] was taken of (everything since taken back): what was kept of it is
+     * kept again. [changes] still counts on. */
+    internal fun restore(kept: Kept) {
+        changing()
+        if (!keepViews) return
+        keptView = kept.view
+        keptVisible.putAll(kept.visible)
+        keptPasses.putAll(kept.passes)
+        keptOutcomes.putAll(kept.outcomes)
+    }
+
     /** The kept [view], or null when it isn't worked out for this state (nothing is worked out here). */
     internal fun keptView(): View? = keptView?.let(::checked)
 
@@ -81,6 +118,8 @@ class GameModel(val engine: GameState, table: TableState = TableState()) {
         changes++
         keptView = null
         keptVisible.clear()
+        keptPasses.clear()
+        keptOutcomes.clear()
     }
 
     /** [view] is the view of [engine] as it is now (an [Outcome.view] of the changes just applied); null: none known. */
@@ -195,6 +234,10 @@ class EventBuilder(private val model: GameModel, private val id: String, parentI
     private val table = mutableListOf<TableChange>()
     private val randomSteps = mutableSetOf<Int>()
     private var done = false
+    /** What the model kept of the state this builder began on, while its engine state is still that one ([pristine]):
+     * [abandon] puts it back, with the outcome of the first input performed. */
+    private val keptBefore = model.kept()
+    private var pristine = true
 
     /** Whether the event was built or abandoned: nothing more can be made on it. */
     val finished: Boolean get() = done
@@ -228,7 +271,10 @@ class EventBuilder(private val model: GameModel, private val id: String, parentI
         check(!done) { "The event was built or abandoned" }
         val random = model.engine.pending?.decision as? Decision.Random
         // The layers once per state (R2): the model's view of the state given, the outcome's of the state after it
-        val outcome = Engine.perform(model.engine, input, model.keptView(), trace)
+        val kept = if (trace == EngineTrace.None) model.keptOutcome(input) else null
+        val outcome = kept ?: Engine.perform(model.engine, input, model.keptView(), trace)
+        if (pristine && trace == EngineTrace.None) keptBefore.outcomes[input] = outcome
+        pristine = false
         model.changing()
         outcome.changes.forEach { model.engine.apply(it) }
         model.keep(outcome.view)
@@ -266,6 +312,7 @@ class EventBuilder(private val model: GameModel, private val id: String, parentI
                 LineRandom.order(model.table.secret, line.number, line.drawn, part).also { line = line.copy(drawn = line.drawn + 1) }
             }
             Engine.reorderUnknown(model.engine, player.id, parts)?.let { reorder ->
+                pristine = false
                 model.changing()
                 model.engine.apply(reorder)
                 changes += reorder
@@ -316,5 +363,7 @@ class EventBuilder(private val model: GameModel, private val id: String, parentI
         for (change in table.asReversed()) model.applyTable(change.inverse())
         for (step in steps.asReversed()) for (change in step.changes.asReversed()) model.engine.revert(change)
         model.engine.timestampCounter = timestampBefore
+        // The engine state is the one it began on again
+        model.restore(keptBefore)
     }
 }

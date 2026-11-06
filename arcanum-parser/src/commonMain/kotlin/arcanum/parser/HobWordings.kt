@@ -16,7 +16,8 @@ internal object Hob {
     // hob chunk 01: storied (CR 702.195)
     val AS_LONG_AS_ENDURING = Regex("""As long as you have an enduring story, (.+)""")
     val DOESNT_UNTAP_UNLESS = Regex("""(.+?) doesn't untap during your untap step unless (.+)\.""")
-    val PAY_ZERO_RATHER_THAN_EQUIP = Regex("""[Yy]ou may pay (\{\d+\}) rather than pay the equip cost of the first equip ability you activate each turn\.""")
+    // ltr chunk 01: also "… you activate during each of your turns."
+    val PAY_ZERO_RATHER_THAN_EQUIP = Regex("""[Yy]ou may pay (\{\d+\}) rather than pay the equip cost of the first equip ability you activate (each turn|during each of your turns)\.""")
     val MAY_DISCARD_HAND_DRAW_X = Regex("""You may discard your hand\. Draw X cards, where X is the number of cards discarded this way\.""")
     val IF_ENDURING_DEALS_X = Regex("""If you have an enduring story, (.+?) deals X damage to each opponent\.""")
 

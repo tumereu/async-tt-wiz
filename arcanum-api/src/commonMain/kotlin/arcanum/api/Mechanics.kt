@@ -260,6 +260,11 @@ sealed interface Mechanic {
     /** The affected players may cast spells matching [spells] as though they had flash, from wherever they could cast
      * them (Aluren-style); a permission of players, not of objects. */
     @Serializable @SerialName("cast-as-though-flash") data class CastAsThoughFlash(val spells: ObjectFilter) : Mechanic
+    // ltr chunk 01
+    /** The affected players may activate their abilities matching [abilities] any time they could cast an instant ("you may
+     * activate equip abilities any time you could cast an instant", lifting "only as a sorcery", CR 602.5d); a permission of
+     * players, like [CastAsThoughFlash]. */
+    @Serializable @SerialName("activate-at-instant-speed") data class ActivateAtInstantSpeed(val abilities: ObjectFilter) : Mechanic
     /**
      * The permission to play or cast cards from [from] ("you may cast ~ from your graveyard", "until end of turn, you may
      * play those cards", "you may look at and play the top card of your library"). [how]: play (lands too, using a land

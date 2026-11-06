@@ -171,6 +171,7 @@ internal class Sentences(
     }
 
     fun line(line: String): Ability? {
+        ltrLine(line)?.let { return it } // ltr
         mh2Line(line)?.let { return it } // mh2
         dftLine(line)?.let { return it } // dft
         finLine(line)?.let { return it } // fin
@@ -1253,6 +1254,7 @@ internal class Sentences(
     /** "As this land enters, you may pay 2 life. If you don't, it enters tapped." (CR 614.12, 118.12a) */
     private fun static(line: String): Ability? {
         mechanicStatic(line)?.let { return it }
+        ltrStatic(line)?.let { return it } // ltr
         mh2Static(line)?.let { return it } // mh2
         tdmStatic(line)?.let { return it } // tdm
         eoeStatic(line)?.let { return it } // eoe
@@ -2241,6 +2243,7 @@ internal class Sentences(
     /** A trigger's events. "One or more …" triggers once per batch; "during your turn" is checked as it would trigger. */
     // chunk 21
     private fun trigger(text: String): Pair<arcanum.api.Trigger.On, arcanum.api.Condition?>? {
+        ltrTrigger(text)?.let { return it to null } // ltr
         mh2Trigger(text)?.let { return it } // mh2
         dftTrigger(text)?.let { return it } // dft
         spmTrigger(text)?.let { return it } // spm
@@ -2588,6 +2591,7 @@ internal class Sentences(
             val wholeFrom = context.targets.size
             // eoe chunk 09: also a quoted ability's own period before the next sentence ('gains "…." That creature's controller …')
             val whole = (if (body.contains(".\" ")) eoeWhole(body.replaceFirstChar { it.uppercase() }, context) else null) // eoe
+                ?: ltrWhole(body.replaceFirstChar { it.uppercase() }, context) // ltr
                 ?: mh2Whole(body.replaceFirstChar { it.uppercase() }, context) // mh2
                 ?: if (body.contains(". ")) dftWhole(body.replaceFirstChar { it.uppercase() }, context) // dft
                 ?: eoeWhole(body.replaceFirstChar { it.uppercase() }, context) // eoe
@@ -2624,6 +2628,7 @@ internal class Sentences(
     /** Sentences that change the step before them ("If this spell was kicked, it deals 4 damage instead.", "It can't be
      * regenerated."). */
     private fun modify(sentence: String, steps: List<Step>, context: Context): List<Step>? {
+        ltrModify(sentence, steps, context)?.let { return it } // ltr
         mh2Modify(sentence, steps, context)?.let { return it } // mh2
         dftModify(sentence, steps, context)?.let { return it } // dft
         tdmModify(sentence, steps, context)?.let { return it } // tdm
@@ -3857,6 +3862,7 @@ internal class Sentences(
         MechanicWordings.effect(sentence)?.let { return it }
         mechanicEffect(sentence, context)?.let { return it }
         dungeonEffect(sentence, context)?.let { return it } // dungeons
+        ltrEffect(sentence, context)?.let { return it } // ltr
         mh2Effect(sentence, context)?.let { return it } // mh2
         dftEffect(sentence, context)?.let { return it } // dft
         tdmEffect(sentence, context)?.let { return it } // tdm
@@ -11378,7 +11384,8 @@ internal class Sentences(
         // hob chunk 01: "You may pay {0} rather than pay the equip cost of the first equip ability you activate each turn." (CR 118.9)
         Hob.PAY_ZERO_RATHER_THAN_EQUIP.matchEntire(line)?.let { m ->
             return Ability.Static(listOf(Mechanic.AbilityAlternativeCost(ObjectFilter.AbilityOf(keyword = arcanum.api.Keyword.Equip.Kind),
-                Cost.mana(ManaCost.parse(m.groupValues[1]) ?: return null), firstEachTurn = true)), affects = Affected.Players(Players.You))
+                Cost.mana(ManaCost.parse(m.groupValues[1]) ?: return null), firstEachTurn = true)), affects = Affected.Players(Players.You),
+                condition = if (m.groupValues[2] == "during each of your turns") arcanum.api.Condition.YourTurn else null) // ltr chunk 01
         }
         // hob chunk 06: "Equip abilities you activate that target this creature cost {2} less to activate." (CR 601.2f, 602.2b)
         Hob.EQUIP_ABILITIES_TARGETING_SELF_COST_LESS.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
@@ -16220,9 +16227,10 @@ internal class Sentences(
     private fun spmLine(line: String): Ability? {
         // spm chunk 08: "Whenever Spider-Slayer deals damage to a Spider, destroy that creature." (the creature dealt damage, CR 120.3)
         Spm.DEALS_DAMAGE_TO_SUBTYPE_DESTROY.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
-            val subtype = m.groupValues[2].takeIf { it in RulesWords.subtypes } ?: return null
+            val subtypes = m.groupValues[2].split(" or ").map { it.takeIf { it in RulesWords.subtypes } ?: return null }
+            val filter = subtypes.map { ObjectFilter.Sub(Subtype(it)) }.let { if (it.size == 1) it[0] else ObjectFilter.Or(it) } // ltr chunk 01
             return Ability.Triggered(arcanum.api.Trigger.On(EventPattern.Damage(ObjectFilter.Is(Objects.Self),
-                arcanum.api.RecipientFilter(objects = ObjectFilter.Sub(Subtype(subtype))))),
+                arcanum.api.RecipientFilter(objects = filter))),
                 Instructions(steps = listOf(Step.Do(Effect.Destroy(Objects.EventObject(EventRole.Object))))))
         }
         // spm chunk 08: "At the beginning of each player's first main phase, that player may put a +1/+1 counter on this creature. If they do,
@@ -21833,7 +21841,7 @@ internal class Sentences(
         // mh2 chunk 04: "Put enchanted creature into its owner's library third from the top." (CR 401.4: from 0 at the top)
         Mh2.PUT_INTO_OWNERS_LIBRARY_NTH_FROM_TOP.matchEntire(sentence)?.let { m ->
             val objects = if (m.groupValues[1] == "enchanted creature") Objects.AttachedTo(Objects.Self) else mh2Objects(m.groupValues[1], context) ?: return@let
-            val position = mapOf("second" to 1, "third" to 2, "fourth" to 3)[m.groupValues[2]] ?: return@let
+            val position = mapOf("second" to 1, "third" to 2, "fourth" to 3, "fifth" to 4 /* ltr chunk 02 */)[m.groupValues[2]] ?: return@let
             return listOf(Step.Do(Effect.Move(objects, Destination(Zone.Library, libraryPosition = position))))
         }
         // mh2 chunk 04: "Return two target creatures to their owners' hands."
@@ -21917,6 +21925,241 @@ internal class Sentences(
         return null
     }
     // ---- mh2 end
+
+    // ---- ltr: The Lord of the Rings: Tales of Middle-earth wordings (the set's parser tests, sets/ltr/LtrChunk*Test.kt); regexes in [Ltr].
+
+    private fun ltrNewSlotName(context: Context, base: String) = if (context.targets.none { it.name == base }) base else nextTargetName(base, context.targets.map { it.name })
+    private fun ltrUntilEndOfTurn(objects: Objects, vararg mechanics: Mechanic) =
+        Step.Do(Effect.ApplyMechanics(mechanics.toList(), Affected.Objects(objects), arcanum.api.Duration.EndOfTurn))
+    private fun ltrSelfStatic(vararg mechanics: Mechanic) = Ability.Static(mechanics.toList(), affects = Affected.Objects(Objects.Self))
+    private val ltrEquipAbilities get() = ObjectFilter.AbilityOf(keyword = arcanum.api.Keyword.Equip.Kind)
+
+    /** ltr: the objects a subject names: a target phrase (its slot added to [context]), "it", this object, "enchanted creature". */
+    private fun ltrObjects(subject: String, context: Context): Objects? =
+        ltrTarget(subject.replaceFirstChar { it.lowercase() }, context) ?: mshObjects(subject, context)
+
+    /** ltr: a target phrase ("up to one target creature you own", "another target creature you control"): its slot added to [context], named
+     * after its noun without "you own" / "you control". */
+    private fun ltrTarget(phrase: String, context: Context): Objects? {
+        val m = Tla.TARGET_PHRASE.matchEntire(phrase) ?: return null
+        val (min, max) = when (m.groupValues[1].trim()) {
+            "" -> 1 to 1; "up to one" -> 0 to 1; "up to two" -> 0 to 2; "any number of" -> 0 to null; "one or two" -> 1 to 2; else -> return null
+        }
+        val noun = m.groupValues[3]
+        val base = Filters.noun(noun) ?: return null
+        val filter = if (m.groupValues[2].isNotEmpty()) Filters.all(ObjectFilter.Not(ObjectFilter.Is(Objects.Self)), base) else base
+        val name = ltrNewSlotName(context, Filters.slotName(noun.removeSuffix(" you own").removeSuffix(" you control")))
+        context.targets += tlaSlot(name, filter, min, max)
+        return Objects.Target(name)
+    }
+
+    /** ltr: "a Goblin or Orc", "a legendary permanent or an artifact": each noun of an "or" list. */
+    private fun ltrNouns(phrase: String): ObjectFilter? {
+        Filters.noun(phrase)?.let { return it }
+        val parts = phrase.split(" or ").map { it.removePrefix("a ").removePrefix("an ") }
+        if (parts.size < 2) return null
+        return ObjectFilter.Or(parts.map { Filters.noun(it) ?: return null })
+    }
+
+    /** ltr: whole lines read before the other rules. */
+    private fun ltrLine(line: String): Ability? {
+        // ltr chunk 01: "Whenever an opponent casts a spell, if no mana was spent to cast it, counter that spell." (CR 601.2h, 603.4)
+        Ltr.WHENEVER_IF_NO_MANA_SPENT.matchEntire(line)?.let { m ->
+            val inner = triggered("${m.groupValues[1]}, ${m.groupValues[2]}") as? Ability.Triggered ?: return@let
+            if ((inner.trigger as? arcanum.api.Trigger.On)?.events?.singleOrNull() !is EventPattern.Cast || inner.interveningIf != null) return@let
+            return inner.copy(interveningIf = arcanum.api.Condition.Compare(Value.ManaSpent(of = Objects.EventObject(EventRole.Object)),
+                arcanum.api.Comparison.Equal, Value.Fixed(0)))
+        }
+        return null
+    }
+
+    /** ltr: static abilities. */
+    private fun ltrStatic(line: String): Ability? {
+        // ltr chunk 01: "Enchanted creature is a Spirit and can't attack or block." (a new creature type replaces the others, CR 205.1b)
+        Ltr.IS_A_SUBTYPE_AND.matchEntire(line)?.let { m ->
+            if (m.groupValues[2] !in RulesWords.subtypes) return@let
+            val rest = static("${m.groupValues[1]} ${m.groupValues[3]}.") as? Ability.Static ?: return@let
+            return Ability.Static(listOf(Mechanic.SetTypes(addSubtypes = listOf(arcanum.api.SubtypeRef.Literal(Subtype(m.groupValues[2]))), replaceSubtypes = true)) +
+                rest.mechanics, affects = rest.affects)
+        }
+        // ltr chunk 01: "Equip abilities you activate cost {1} less to activate." (CR 601.2f, 602.2b)
+        Ltr.EQUIP_ABILITIES_COST_LESS.matchEntire(line)?.let { m ->
+            return ltrSelfStatic(Mechanic.CostChange(Filters.all(ltrEquipAbilities, ObjectFilter.ControlledBy(PlayerFilter.You)),
+                arcanum.api.CostChange.Less(ManaCost.parse(m.groupValues[1]) ?: return@let, Value.Fixed(1))))
+        }
+        // ltr chunk 01: "During your turn, you may activate equip abilities any time you could cast an instant." (CR 602.5d)
+        Ltr.DURING_YOUR_TURN_ACTIVATE_AT_INSTANT_SPEED.matchEntire(line)?.takeIf { it.groupValues[1] == "equip" }?.let {
+            return Ability.Static(listOf(Mechanic.ActivateAtInstantSpeed(ltrEquipAbilities)), affects = Affected.Players(Players.You),
+                condition = arcanum.api.Condition.YourTurn)
+        }
+        // ltr chunk 01: "If a legendary permanent or an artifact entering or leaving the battlefield causes a triggered ability of a permanent you
+        // control to trigger, that ability triggers an additional time." (CR 603.2d: either event)
+        Ltr.ENTERING_OR_LEAVING_TRIGGERS_ADDITIONAL.matchEntire(line)?.let { m ->
+            val objects = ltrNouns(m.groupValues[1]) ?: return@let
+            val sources = Filters.noun(m.groupValues[2].removePrefix("a ").removePrefix("an ")) ?: return@let
+            return ltrSelfStatic(
+                Mechanic.TriggersAdditionalTime(EventPattern.ZoneChange(objects, to = Zone.Battlefield), sources),
+                Mechanic.TriggersAdditionalTime(EventPattern.ZoneChange(objects, from = Zone.Battlefield), sources))
+        }
+        return null
+    }
+
+    /** ltr: trigger events. */
+    private fun ltrTrigger(events: String): arcanum.api.Trigger.On? {
+        // ltr chunk 02: "Whenever you create a token" (each token created, CR 111.1, 603.2)
+        if (Ltr.YOU_CREATE_A_TOKEN.matches(events)) return arcanum.api.Trigger.On(EventPattern.CreateToken(ObjectFilter.ControlledBy(PlayerFilter.You)))
+        // ltr chunk 01: "Whenever two or more creatures you control attack a player" (once for each player attacked by that many, CR 508.1)
+        Ltr.N_OR_MORE_ATTACK_A_PLAYER.matchEntire(events)?.let { m ->
+            val attackers = Filters.noun(m.groupValues[2]) ?: return@let
+            return arcanum.api.Trigger.On(listOf(EventPattern.Attack(attackers, target = RecipientFilter(players = PlayerFilter.Any))),
+                oneOrMore = true, atLeast = Numbers.count(m.groupValues[1]) ?: return@let, batchPerPlayer = true)
+        }
+        return null
+    }
+
+    /** ltr: an ability's whole text, read before its sentences. */
+    private fun ltrWhole(body: String, context: Context): List<Step>? {
+        // ltr chunk 01: "If Pell is a Citizen, it becomes a Halfling Scout with base power and toughness 2/3 and lifelink." (CR 205.1b: the new creature
+        // types replace the old; CR 613.4b: new base power and toughness; for as long as the permanent stays, CR 611.2a)
+        Ltr.IF_SELF_IS_A_IT_BECOMES.matchEntire(body)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            if (m.groupValues[2] !in RulesWords.subtypes) return@let
+            val subtypes = m.groupValues[3].split(' ').map { it.takeIf { s -> s in RulesWords.subtypes } ?: return@let }
+            val mechanics = mutableListOf<Mechanic>(Mechanic.SetTypes(addSubtypes = subtypes.map { arcanum.api.SubtypeRef.Literal(Subtype(it)) }, replaceSubtypes = true))
+            var with = m.groupValues[4]
+            Ltr.BASE_PT_AND.matchEntire(with)?.let { pt ->
+                mechanics += Mechanic.SetPowerToughness(Value.Fixed(pt.groupValues[1].toInt()), Value.Fixed(pt.groupValues[2].toInt()))
+                with = pt.groupValues[3]
+            }
+            if (with.isNotEmpty()) {
+                val quoted = with.removeSurrounding("\"")
+                val gained = if (quoted != with) listOf(Sentences(setOf("this creature")).line(quoted) ?: return@let)
+                    else keywords(with) ?: return@let
+                mechanics += Mechanic.GainAbilities(gained)
+            }
+            return listOf(Step.If(arcanum.api.Condition.ObjectMatches(Objects.Self, ObjectFilter.Sub(Subtype(m.groupValues[2]))), then = listOf(
+                Step.Do(Effect.ApplyMechanics(mechanics, Affected.Objects(Objects.Self), arcanum.api.Duration.Indefinitely)))))
+        }
+        // ltr chunk 01: "That player loses the game if the Ring has tempted you four or more times this game. Otherwise, the Ring tempts you." (CR 701.54c)
+        Ltr.LOSES_THE_GAME_IF_RING_OTHERWISE.matchEntire(body)?.let { m ->
+            val player = playersIn(m.groupValues[1], context) ?: return@let
+            val times = Numbers.count(m.groupValues[2]) ?: return@let
+            val otherwise = effect(m.groupValues[3].replaceFirstChar { it.uppercase() }, context) ?: return@let
+            return listOf(Step.If(arcanum.api.Condition.Compare(Value.RingTemptations(Players.You), arcanum.api.Comparison.AtLeast, Value.Fixed(times)),
+                then = listOf(Step.Do(Effect.LoseGame(player))), otherwise = otherwise))
+        }
+        // ltr chunk 01: "Remove a hope counter from this enchantment. If you do, draw a card. Then if this enchantment has no hope counters on it,
+        // sacrifice it and you gain 4 life." (a removal that may fail, CR 118.12; "If you do" only if removed)
+        Ltr.REMOVE_COUNTER_IF_YOU_DO.matchEntire(body)?.takeIf { isSelf(it.groupValues[2]) }?.let { m ->
+            val kind = Counters.kind(m.groupValues[1]) ?: return@let
+            val rest = sentences(m.groupValues[3].replaceFirstChar { it.uppercase() })
+            val then = effect(rest.first(), context) ?: return@let
+            val steps = mutableListOf(Step.Pay(Cost(listOf(CostPart.RemoveCounters(kind, Value.Fixed(1), CostObjects.Self))), payer = Players.You, mandatory = true, bind = "paid"),
+                Step.If(arcanum.api.Condition.Did("paid"), then = then))
+            for (sentence in rest.drop(1)) {
+                val none = Ltr.THEN_IF_NO_COUNTERS.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) && it.groupValues[2] == m.groupValues[1] } ?: return@let
+                val body2 = effect(none.groupValues[3].replaceFirstChar { it.uppercase() }.let { if (it.endsWith(".")) it else "$it." }, context) ?: return@let
+                steps += Step.If(arcanum.api.Condition.Not(arcanum.api.Condition.ObjectMatches(Objects.Self, ObjectFilter.HasCounter(kind, atLeast = 1))), then = body2)
+            }
+            return steps
+        }
+        return null
+    }
+
+    /** ltr: sentences that change the steps before them. */
+    private fun ltrModify(sentence: String, steps: List<Step>, context: Context): List<Step>? {
+        // ltr chunk 02: "Put a +1/+1 counter on each creature you control. They gain vigilance until end of turn." (the same creatures)
+        Ltr.THEY_GAIN_UNTIL_EOT.matchEntire(sentence)?.let { m ->
+            val counters = (steps.lastOrNull() as? Step.Do)?.effect as? Effect.PutCounters ?: return@let
+            if (counters.objects !is Objects.Each) return@let
+            return steps + ltrUntilEndOfTurn(counters.objects, Mechanic.GainAbilities(tdmKeywords(m.groupValues[1]) ?: return@let))
+        }
+        // ltr chunk 01: "If that creature is equipped, it gains first strike and vigilance until end of turn instead." (the last sentence's steps
+        // replaced when the condition holds)
+        Ltr.IF_THAT_CREATURE_IS_INSTEAD.matchEntire(sentence)?.let { m ->
+            val (from, stepsFrom) = context.previous ?: return@let
+            val target = context.targets.getOrNull(from)?.let { Objects.Target(it.name) } ?: context.targets.lastOrNull()?.let { Objects.Target(it.name) } ?: return@let
+            val filter = when (val what = m.groupValues[2]) {
+                "equipped" -> ObjectFilter.Attached(attachments = ObjectFilter.Sub(Subtype("Equipment")))
+                else -> ltrNouns(what.removePrefix("a ").removePrefix("an ")) ?: return@let
+            }
+            val previous = steps.drop(stepsFrom)
+            if (previous.isEmpty()) return@let
+            val instead = effect("${m.groupValues[3].replaceFirstChar { it.uppercase() }}.", context.also { it.it = target }) ?: return@let
+            return steps.take(stepsFrom) + Step.If(arcanum.api.Condition.ObjectMatches(target, filter), then = instead, otherwise = previous)
+        }
+        return null
+    }
+
+    /** ltr: one sentence's effect. */
+    private fun ltrEffect(sentence: String, context: Context): List<Step>? {
+        // ltr chunk 02: "target creature you control other than Daisy": another target creature you control (CR 115.10)
+        Ltr.OTHER_THAN_SELF.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[3]) }?.let { m ->
+            return effect("${m.groupValues[1]}another target ${m.groupValues[2]}${m.groupValues[4]}", context)
+        }
+        // ltr chunk 02: "Exile target creature you own, then return it to the battlefield under your control." (a new object, CR 400.7)
+        Ltr.EXILE_THEN_RETURN_UNDER_YOUR_CONTROL.matchEntire(sentence)?.let { m ->
+            val objects = ltrObjects(m.groupValues[1], context) ?: return@let
+            return listOf(Step.Do(Effect.Move(objects, Destination(Zone.Exile), postBind = "exiled")),
+                Step.Do(Effect.Move(Objects.Bound("exiled"), Destination(Zone.Battlefield, controller = Players.You))))
+        }
+        // ltr chunk 02: "Attach target Equipment you control with mana value 2 or 3 to Bingo." (CR 701.3a)
+        Ltr.ATTACH_TARGET_TO_SELF.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[2]) }?.let { m ->
+            val objects = ltrObjects(m.groupValues[1], context) ?: return@let
+            return listOf(Step.Do(Effect.Attach(objects, Recipients(objects = Objects.Self))))
+        }
+        // ltr chunk 02: "Target creature you control gains indestructible for as long as you control this Saga." (CR 611.2b): the effect read as
+        // lasting until end of turn, its duration then replaced
+        Ltr.FOR_AS_LONG_AS_YOU_CONTROL.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[2]) }?.let { m ->
+            val asLong = arcanum.api.Duration.AsLongAs(arcanum.api.Condition.ObjectMatches(Objects.Self, ObjectFilter.ControlledBy(PlayerFilter.You)))
+            val steps = effect("${m.groupValues[1]} until end of turn.", context) ?: return@let
+            var replaced = 0
+            val result = steps.map { step ->
+                val apply = (step as? Step.Do)?.effect as? Effect.ApplyMechanics
+                if (apply != null && apply.duration == arcanum.api.Duration.EndOfTurn) { replaced++; Step.Do(apply.copy(duration = asLong)) } else step
+            }
+            if (replaced == 1) return result
+        }
+        // ltr chunk 02: "Choose up to one target permanent card in your graveyard that was put there from the battlefield this turn." (only the target;
+        // "it" in the next sentence is that card)
+        Ltr.CHOOSE_TARGET.matchEntire(sentence)?.let { m ->
+            val objects = ltrObjects(m.groupValues[1], context) ?: return@let
+            context.it = objects
+            return emptyList()
+        }
+        // ltr chunk 02: "Up to two target creatures you control each gain lifelink until end of turn." (each of them)
+        Ltr.TARGETS_EACH_GAIN.matchEntire(sentence)?.let { m ->
+            val objects = ltrObjects(m.groupValues[1], context) ?: return@let
+            val outer = context.it
+            context.it = objects
+            val steps = effect("It ${m.groupValues[2]}s ${m.groupValues[3]}", context)
+            context.it = outer
+            return steps ?: return@let
+        }
+        // ltr chunk 02: "Draw a card if that creature's power is 2 or less." (checked as it resolves)
+        Ltr.TRAILING_IF_POWER.matchEntire(sentence)?.let { m ->
+            val objects = context.targets.lastOrNull()?.let { Objects.Target(it.name) } ?: context.it ?: return@let
+            val then = effect("${m.groupValues[1]}.", context) ?: return@let
+            val comparison = if (m.groupValues[4] == "less") arcanum.api.Comparison.AtMost else arcanum.api.Comparison.AtLeast
+            return listOf(Step.If(arcanum.api.Condition.ObjectMatches(objects, ObjectFilter.Power(comparison, Value.Fixed(m.groupValues[3].toInt()))), then = then))
+        }
+        // ltr chunk 01: "Put a card from your hand on the bottom of your library." (CR 401.4)
+        if (Ltr.PUT_A_CARD_FROM_HAND_ON_BOTTOM.matches(sentence))
+            return listOf(Step.Choose(arcanum.api.Choice.Objects(ObjectFilter.Any, Value.Fixed(1), Value.Fixed(1),
+                from = Objects.Each(Filters.all(ObjectFilter.InZone(Zone.Hand), ObjectFilter.OwnedBy(PlayerFilter.You)))),
+                bind = "put", chooser = Players.You),
+                Step.Do(Effect.Move(Objects.Bound("put"), Destination(Zone.Library, libraryPosition = -1))))
+        // ltr chunk 01: "Until end of turn, target creature you control assigns combat damage equal to its toughness rather than its power." (CR 510.1c)
+        Ltr.UNTIL_EOT_PREFIX.matchEntire(sentence)?.let { m ->
+            Ltr.ASSIGNS_DAMAGE_BY_TOUGHNESS.matchEntire(m.groupValues[1])?.let { a ->
+                val objects = ltrObjects(a.groupValues[1], context) ?: return null
+                return listOf(ltrUntilEndOfTurn(objects, Mechanic.AssignsDamageByToughness))
+            }
+            return effect("${m.groupValues[1].replaceFirstChar { it.uppercase() }} until end of turn.", context)
+        }
+        return null
+    }
+
+    // ---- ltr end
 }
 
 /** rtr chunk 08: "second [name]" ("third …"), the first such name not in [taken] (CR 115.3: another instance of "target"). */

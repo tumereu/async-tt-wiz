@@ -105,7 +105,8 @@ internal object Spm {
     val COUNTER_TARGET_SPELLS_OR_TRIGGERED = Regex("""Counter target instant spell, sorcery spell, or triggered ability\.""")
     val MAXIMUM_CARNAGE = Regex("""Until your next turn, each creature attacks each combat if able and attacks a player other than you if able\.""")
     val OTHER_PLURAL_LIST_GET = Regex("""Other ((?:[A-Z]\w+, )+and [A-Z]\w+) you control get ([+-]\d+)/([+-]\d+)\.""")
-    val DEALS_DAMAGE_TO_SUBTYPE_DESTROY = Regex("""Whenever (.+?) deals damage to an? ([A-Z]\w+), destroy that creature\.""")
+    // ltr chunk 01: also "a Goblin or Orc"
+    val DEALS_DAMAGE_TO_SUBTYPE_DESTROY = Regex("""Whenever (.+?) deals damage to an? ([A-Z]\w+(?: or [A-Z]\w+)?), destroy that creature\.""")
 }
 
 /** Phrases (nouns, conditions) of Marvel's Spider-Man (spm) read by [Filters] and [Conditions]. */

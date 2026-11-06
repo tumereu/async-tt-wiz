@@ -136,16 +136,22 @@ fun QuickActionStrip(play: TableBoard, context: QuickContext, controller: TableA
             val unconfirmed = engine?.engine?.shown?.indicator != null
             val main = context.mainAction.takeIf { arrow }
             RecordShown(bottomBarRecord(if (arrow) main?.label ?: AutomatumStep.of(play).label else wait?.label, if (toggles) null else actions.map { it.name }))
+            // TRN-063 (owner, 2026-11-06): a main button action is the player's own action, whose result the working sign
+            // waits for; one not taken drops it
+            fun own(action: () -> Boolean) { engine?.ownAction(); if (!action()) engine?.ownActionDropped() }
+            val working = rememberSlowActionSign { engine?.ownActionPending(play) == true } && (arrow || wait != null)
             Box(Modifier.width(MainButtonWidth)) {
                 if (arrow) AutomatumStepArrow(play, controller.enabled(scope), Modifier.fillMaxWidth(),
-                    onHold = { perform(TableActionIntent.End(scope)) },
+                    onHold = { own { perform(TableActionIntent.End(scope)) } },
                     blocked = stepBlocked(play, context.castOpen, context.automatumCombat),
                     resolveTip = "Resolve: pass, so the top of the Stack resolves once ${engine?.opponentName ?: "the other player"} passes too",
-                    main = main) {
-                    perform(TableActionIntent.Next(scope))
+                    main = main?.let { m -> MainAction(m.label, m.icon, m.refusal, m.tooltip) { own { m.run(); true } } }) {
+                    own { perform(TableActionIntent.Next(scope)) }
                 }
-                else if (wait != null) EngineWaitArrow(wait, Modifier.fillMaxWidth())
+                else if (wait != null) EngineWaitArrow(EngineTableRoutes.WaitAction(wait.label, wait.icon, wait.tooltip) {
+                    own { wait.run(); true } }, Modifier.fillMaxWidth())
                 else Spacer(Modifier.fillMaxWidth().height(48.dp))
+                if (working) SlowActionShimmer(Modifier.matchParentSize().clip(AdvanceArrowShape))
                 if (unconfirmed) EngineUnconfirmedMark(engine!!.opponentName, Modifier.align(Alignment.TopStart).offset((-10).dp, (-10).dp))
             }
         }

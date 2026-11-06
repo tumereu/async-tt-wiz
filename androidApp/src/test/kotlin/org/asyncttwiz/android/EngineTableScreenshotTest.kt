@@ -163,6 +163,52 @@ class EngineTableScreenshotTest {
     @Test fun theModeQuickActionShowsQuick() = modeCell(org.asyncttwiz.protocol.game.ResponseMode.AutoSkip, "mode-quick",
         "filled amber with a white icon and \"Quick\": her device also goes on where she can't respond.")
 
+    // TRN-063 (owner, 2026-11-06): an own action whose result arrives at once looks as before: no working sign, frame by
+    // frame on the test clock
+    @Test fun anInstantActionShowsNoWorkingSign() {
+        val game = aliceAtMain()
+        render(game, f.a)
+        compose.mainClock.autoAdvance = false
+        compose.onNodeWithContentDescription("To combat").performClick()
+        repeat(40) {
+            compose.mainClock.advanceTimeBy(16)
+            compose.onNodeWithTag("main-button-working").assertDoesNotExist()
+        }
+        assertTrue(game.shown!!.engine.turn.step != arcanum.api.TurnStep.PrecombatMain, "the action was made")
+    }
+
+    // TRN-063 (owner, 2026-11-06): an own action still being worked out 150 ms after the press shows the working sign on the
+    // main button until its result arrives, at least 300 ms
+    @Test fun aSlowActionShowsTheWorkingSign() {
+        val game = aliceAtMain()
+        // The main button's step is worked out off the engine game for a while (its result not there yet)
+        val slow = androidx.compose.runtime.mutableStateOf(false)
+        render(game, f.a, routes = EngineTableRoutes(f.a, { game }, {}, { game.play() }).apply { working = { slow.value } })
+        compose.mainClock.autoAdvance = false
+        compose.runOnIdle { slow.value = true }; compose.waitForIdle()
+        compose.mainClock.advanceTimeBy(100)
+        compose.onNodeWithTag("main-button-working").assertDoesNotExist()
+        compose.mainClock.advanceTimeBy(100)
+        compose.onNodeWithTag("main-button-working").assertExists()
+        compose.mainClock.advanceTimeBy(400)
+        compose.onNodeWithTag("main-button").captureShot("$SCREENSHOTS/engine/main-button-working.png",
+            "Alice's main button (To combat) while her action is still being worked out 150 ms after she tapped it: a soft " +
+                "violet band sweeps across it and a thin violet line runs along its bottom, until the result shows.")
+        // The result arrives: the sign has shown over 300 ms, so it goes at once
+        compose.runOnIdle { slow.value = false }; compose.waitForIdle()
+        compose.mainClock.advanceTimeBy(32)
+        compose.onNodeWithTag("main-button-working").assertDoesNotExist()
+        // A result that arrives just after the sign showed: it stays its least 300 ms
+        compose.runOnIdle { slow.value = true }; compose.waitForIdle()
+        compose.mainClock.advanceTimeBy(200)
+        compose.onNodeWithTag("main-button-working").assertExists()
+        compose.runOnIdle { slow.value = false }; compose.waitForIdle()
+        compose.mainClock.advanceTimeBy(150)
+        compose.onNodeWithTag("main-button-working").assertExists()
+        compose.mainClock.advanceTimeBy(200)
+        compose.onNodeWithTag("main-button-working").assertDoesNotExist()
+    }
+
     // TRN-066, TRN-070, TRN-062, TRN-027, I-D56 §4, §14: after Alice's keep the game waits for Bob's; faint words over the
     // battlefield say so (nothing covers the board) and nothing stands in the step arrow's place: his keep is never assumed
     @Test fun waitingBarWaitsForTheOtherKeep() {

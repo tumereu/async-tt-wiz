@@ -199,7 +199,9 @@ internal class EngineTableRoutes(val viewer: String, private val game: () -> Eng
 
     override fun send(inputs: List<Input>): String? {
         val g = game() ?: return "unavailable"
+        ownAction()
         val acted = g.send(inputs)
+        if (acted is GameDevice.Acted.Refused) ownActionDropped()
         sent()
         return when (acted) {
             is GameDevice.Acted.Sent, GameDevice.Acted.Confirmed, GameDevice.Acted.Kept, GameDevice.Acted.Made -> null
@@ -273,6 +275,28 @@ internal class EngineTableRoutes(val viewer: String, private val game: () -> Eng
      * declaration, a cast's step: [SharedFlowController.busy], [CastController.busy]), before it reaches it. Set by the
      * table. */
     var working: () -> Boolean = { false }
+    /** TRN-063 (owner, 2026-11-06): the board version an own action (a main button press, a cast or answer sent) was
+     * made on while its result hasn't arrived; null when none. */
+    private var awaiting by mutableStateOf<Long?>(null)
+
+    /** The player's own action is made now ([send], the main button): its result is the next board published. */
+    fun ownAction() { awaiting = game()?.shown?.version }
+
+    /** The own action made last wasn't taken (nothing will be published for it). */
+    fun ownActionDropped() { awaiting = null }
+
+    /**
+     * TRN-063: whether an own action of the player's waits for its result: worked out off the engine game ([working]) or
+     * made and no newer board published since. [board]: the board the table shows, read so that a reader following
+     * snapshot state sees each new one.
+     */
+    @Suppress("UNUSED_PARAMETER")
+    fun ownActionPending(board: TableBoard?): Boolean {
+        if (working()) return true
+        val made = awaiting ?: return false
+        return (game()?.shown?.version ?: return false) <= made
+    }
+
     /** Drops the player's open cast or activation (STK-025: nothing of it sent yet); true when there was one. Set by the
      * table's toolkit. */
     var dropInteraction: () -> Boolean = { false }

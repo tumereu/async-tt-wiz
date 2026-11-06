@@ -21199,13 +21199,14 @@ internal class Sentences(
             return Ability.Static(listOf(Mechanic.ModifyPowerToughness(Value.Fixed(m.groupValues[2].toInt()), Value.Fixed(m.groupValues[3].toInt())),
                 Mechanic.GainAbilities(keywords)), affects = Affected.Objects(Objects.AttachedTo(Objects.Self)))
         }
-        // mh2 chunk 13: "If you would create a Clue, Food, or Treasure token, instead create one of each." (CR 614.1a: each of the three adds the other two)
+        // mh2 chunk 13: "If you would create a Clue, Food, or Treasure token, instead create one of each." One replacement effect, applied once to
+        // an event (CR 614.5): the matching tokens become Clues, and as many Foods and Treasures come with them (CR 614.1a)
         if (Mh2.CREATE_CLUE_FOOD_TREASURE_INSTEAD_ONE_OF_EACH.matches(line)) {
             val kinds = listOf("Clue", "Food", "Treasure")
-            return mh2SelfStatic(*kinds.map { kind ->
-                Mechanic.Replacement(EventPattern.CreateToken(Filters.all(ObjectFilter.Sub(arcanum.api.SubtypeRef.Literal(Subtype(kind))), ObjectFilter.ControlledBy(PlayerFilter.You))),
-                    modify = kinds.filter { it != kind }.map { Modification.AlsoCreate(arcanum.api.TokenSpec.Predefined(it), Value.EventAmount) })
-            }.toTypedArray())
+            return mh2SelfStatic(Mechanic.Replacement(EventPattern.CreateToken(Filters.all(
+                ObjectFilter.Or(kinds.map { ObjectFilter.Sub(arcanum.api.SubtypeRef.Literal(Subtype(it))) }), ObjectFilter.ControlledBy(PlayerFilter.You))),
+                modify = listOf(Modification.CreateInstead(arcanum.api.TokenSpec.Predefined("Clue"))) +
+                    kinds.drop(1).map { Modification.AlsoCreate(arcanum.api.TokenSpec.Predefined(it), Value.EventAmount) }))
         }
         // mh2 chunk 13: "Domain — This spell costs {2} less to cast for each basic land type among lands you control." (CR 601.2f)
         Mh2.SPELL_COSTS_LESS_FOR_EACH_BASIC_LAND_TYPE.matchEntire(line)?.let { m ->
@@ -21220,7 +21221,8 @@ internal class Sentences(
         // mh2 chunk 13: "Imprint — As this Vehicle enters, exile a creature card from a graveyard." (the card kept as this permanent's memory, CR 607.2a)
         Mh2.AS_ENTERS_EXILE_A_CARD_FROM_A_GRAVEYARD.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
             val noun = Filters.noun(m.groupValues[2]) ?: return@let
-            val exile = CostPart.Exile(CostObjects.Choose(Filters.all(noun, ObjectFilter.InZone(Zone.Graveyard)), count = Value.Fixed(1)), from = Zone.Graveyard,
+            // "a graveyard": any player's, so the owner is named
+            val exile = CostPart.Exile(CostObjects.Choose(Filters.all(noun, ObjectFilter.InZone(Zone.Graveyard), ObjectFilter.OwnedBy(arcanum.api.PlayerFilter.Any)), count = Value.Fixed(1)), from = Zone.Graveyard,
                 postBind = "exiled", remember = EXILED_WITH)
             return mh2SelfStatic(Mechanic.Replacement(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), to = Zone.Battlefield), modify = listOf(Modification.AsEnters(listOf(
                 Step.Pay(Cost(listOf(exile)), payer = Players.You, mandatory = true, bind = "paid"))))))

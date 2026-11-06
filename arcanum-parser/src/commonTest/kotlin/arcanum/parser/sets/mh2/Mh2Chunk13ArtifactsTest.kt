@@ -66,10 +66,10 @@ class Mh2Chunk13ArtifactsTest {
         text = "If you would create a Clue, Food, or Treasure token, instead create one of each.",
         pt = "1/3",
     ) parsesTo abilities(
+        // CR 614.5: one replacement effect, applied once to an event
         static(
-            Mechanic.Replacement(EventPattern.CreateToken(and(sub("Clue"), you)), modify = listOf(Modification.AlsoCreate(food, Value.EventAmount), Modification.AlsoCreate(treasure, Value.EventAmount))),
-            Mechanic.Replacement(EventPattern.CreateToken(and(sub("Food"), you)), modify = listOf(Modification.AlsoCreate(clue, Value.EventAmount), Modification.AlsoCreate(treasure, Value.EventAmount))),
-            Mechanic.Replacement(EventPattern.CreateToken(and(sub("Treasure"), you)), modify = listOf(Modification.AlsoCreate(clue, Value.EventAmount), Modification.AlsoCreate(food, Value.EventAmount))),
+            Mechanic.Replacement(EventPattern.CreateToken(and(ObjectFilter.Or(listOf(sub("Clue"), sub("Food"), sub("Treasure"))), you)),
+                modify = listOf(Modification.CreateInstead(clue), Modification.AlsoCreate(food, Value.EventAmount), Modification.AlsoCreate(treasure, Value.EventAmount))),
         ),
     )
 
@@ -140,7 +140,7 @@ class Mh2Chunk13ArtifactsTest {
         pt = "0/0",
     ) parsesTo abilities(
         static(Mechanic.Replacement(EventPattern.ZoneChange(isSelf, to = Zone.Battlefield), modify = listOf(Modification.AsEnters(listOf(
-            Step.Pay(Cost(listOf(CostPart.Exile(CostObjects.Choose(and(creature, inZone(Zone.Graveyard)), count = n(1)), from = Zone.Graveyard,
+            Step.Pay(Cost(listOf(CostPart.Exile(CostObjects.Choose(and(creature, inZone(Zone.Graveyard), ObjectFilter.OwnedBy(PlayerFilter.Any)), count = n(1)), from = Zone.Graveyard,
                 postBind = "exiled", remember = "exiled"))), payer = Players.You, mandatory = true, bind = "paid"),
         ))))).copy(abilityWord = "Imprint"),
         activated(cost(CostPart.TapObjects(CostObjects.Choose(creature, count = n(2)))), untilEndOfTurn(Objects.Self, Mechanic.CopyOf(Objects.Remembered("exiled"),

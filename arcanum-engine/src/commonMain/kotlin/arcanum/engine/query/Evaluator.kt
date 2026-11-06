@@ -451,8 +451,9 @@ internal class Evaluator(val board: Board, val ctx: Context) {
         } ?: true
         val keywordOk = filter.keyword?.let { kind ->
             val root = item.origin?.root
+            // mh2: a source that left (modular's "when it dies") is read as it last existed (CR 608.2h)
             item.origin is AbilityOrigin.Expansion && root != null &&
-                item.source?.let { s -> characteristics(s)?.abilities?.any { it.origin == root && (it.ability as? Keyword)?.kind == kind } } == true
+                item.source?.let { s -> (characteristics(s) ?: lki(s)?.characteristics)?.abilities?.any { it.origin == root && (it.ability as? Keyword)?.kind == kind } } == true
         } ?: true
         return kindOk && sourceOk && labelOk && keywordOk
     }

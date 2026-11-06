@@ -60,7 +60,13 @@ internal object Costs {
     private fun poolDecides(scope: Scope, payer: PlayerId, what: CostObjects, zone: Zone): Boolean {
         val choose = what as? CostObjects.Choose ?: return false
         val e = scope.eval()
-        return scope.act.hiddenDecides(payer, scope.self, pool(scope, payer, zone)) { e.identityDecides(choose.filter, it) }
+        return scope.act.hiddenDecides(payer, scope.self, pool(scope, payer, zone, choose.filter)) { e.identityDecides(choose.filter, it) }
+    }
+
+    private fun namesOwner(filter: arcanum.api.ObjectFilter): Boolean = when (filter) {
+        is arcanum.api.ObjectFilter.OwnedBy -> true
+        is arcanum.api.ObjectFilter.And -> filter.all.any { namesOwner(it) }
+        else -> false
     }
 
     private fun canPay(scope: Scope, payer: PlayerId, part: CostPart): Boolean {
@@ -169,6 +175,13 @@ internal object Costs {
                 scope.bind(part.preBind, NamedValue.Objects(chosen))
                 val moved = Actions.moveTo(act, cause, chosen, Zone.Exile, listOf(Meaning.Paid))
                 scope.bind(part.postBind, NamedValue.Objects(moved.values.toList()))
+                // mh2: "as this enters, exile a card": kept as the permanent's memory (CR 607.2a), as a remembered choice is
+                part.remember?.let { key ->
+                    val value = NamedValue.Objects(moved.values.toList())
+                    val entering = scope.entering
+                    if (entering != null) scope.entering = entering.copy(memory = entering.memory.with(key, value))
+                    else scope.self?.let { id -> act.state.obj(id)?.let { o -> act.record(arcanum.engine.change.Change.Memory(id, key, o.memory[key], value)) } }
+                }
             }
             is CostPart.ReturnToHand -> {
                 val chosen = choose(scope, payer, part.what, Zone.Battlefield, "return")
@@ -256,14 +269,17 @@ internal object Costs {
             is CostObjects.These -> scope.objects(what.objects).filter { state.obj(it)?.zone == zone }
             is CostObjects.Choose -> {
                 val e = scope.eval()
-                pool(scope, payer, zone).filter { e.matches(what.filter, it) }
+                pool(scope, payer, zone, what.filter).filter { e.matches(what.filter, it) }
             }
         }.filter(extra)
     }
 
-    /** What [payer] may choose from for a cost in [zone]: their own permanents, or cards they own there. */
-    private fun pool(scope: Scope, payer: PlayerId, zone: Zone): List<ObjectId> {
+    /** What [payer] may choose from for a cost in [zone]: their own permanents, or cards they own there; mh2: cards of any player there
+     * when the filter names their owner ("exile a creature card from a graveyard"). */
+    private fun pool(scope: Scope, payer: PlayerId, zone: Zone, filter: arcanum.api.ObjectFilter? = null): List<ObjectId> {
         val state = scope.act.state
+        if (zone != Zone.Battlefield && filter != null && namesOwner(filter))
+            return if (zone == Zone.Exile || zone == Zone.Stack || zone == Zone.Command) state.zone(zone, null) else state.players.flatMap { state.zone(zone, it.id) }
         return when (zone) {
             Zone.Battlefield -> state.battlefield.filter { scope.eval().controllerOf(it) == payer }
             Zone.Exile, Zone.Stack, Zone.Command -> state.zone(zone, null).filter { state.obj(it)?.owner == payer }

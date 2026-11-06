@@ -41,7 +41,7 @@ internal object Mh2 {
     val CHOOSE_TARGET_OWNER_PUTS_TOP_OR_BOTTOM = Regex("""Choose up to one target (.+?)\. Its owner puts it on their choice of the top or bottom of their library\.""")
     val BECOMES_ARTIFACT_CREATURE_PUT_COUNTERS_ON_EACH_THAT_BECAME = Regex("""(Target|Each) (.+?) becomes an? (\d+)/(\d+) artifact creature\. Put (\w+) (\S+) counters on each artifact that became a creature this way\.""")
     val PUT_INTO_OWNERS_LIBRARY_NTH_FROM_TOP = Regex("""Put (.+?) into its owner's library (\w+) from the top\.""")
-    val RETURN_N_TARGETS_TO_OWNERS_HANDS = Regex("""Return (two|three) target (.+?) to their owners' hands\.""")
+    val RETURN_N_TARGETS_TO_OWNERS_HANDS = Regex("""[Rr]eturn (two|three) target (.+?) to their (?:owners' hands|owner's hand)\.""")
     val EXILE_TARGET_PUT_TIME_COUNTERS_GAINS_SUSPEND = Regex("""Exile target (.+?) and put (\w+) time counters on it\. If it doesn't have suspend, it gains suspend\.""")
     val CREATE_FOR_EACH_COLOR_SPENT = Regex("""Create (an? .+? token(?: with .+?)?) for each color of mana spent to cast this spell\.""")
     val THOSE_DONT_UNTAP_DURING_NEXT = Regex("""Those (\w+) don't untap during their controller's next untap step\.""")
@@ -130,6 +130,14 @@ internal object Mh2 {
     val TOKEN_WITH_SINGLE_QUOTED = Regex("""(.+ token) with '(.+)'\.""")
     val WITH_MANA_COST_OR = Regex("""(.+?) with mana cost (\{[^}]+\}) or (\{[^}]+\})""")
     val EACH_IS_A_TYPE_IN_ADDITION = Regex("""Each (\w+) is an? (\w+) in addition to its other (?:land )?types\.""")
+    // mh2 chunk 15
+    val IF_MAY_CAST_WITHOUT_PAYING = Regex("""If (.+), you may cast this spell without paying its mana cost\.""")
+    val THAT_PLAYER_SACRIFICES_OF_THEIR_CHOICE = Regex("""[Tt]hat player sacrifices an? (.+) of their choice\.""")
+    val SKIP_YOUR_STEP = Regex("""Skip your (\w+) step\.""")
+    val YOU_HAVE_SHROUD = Regex("""You have shroud\.""")
+    val PREVENT_ALL_DAMAGE_TO_YOU = Regex("""Prevent all damage that would be dealt to you\.""")
+    val THATS_ATTACKING_YOU_OR_YOUR_PLANESWALKER = Regex("""(.+?) that's attacking you or a planeswalker you control""")
+    val EACH_PLAYER_CHOOSES_CREATURE_TYPE_RETURNS = Regex("""Each player chooses a creature type\. Each player returns all (.+?) cards of a type chosen this way from their graveyard to the battlefield\.""")
 }
 
 /** Values, conditions and nouns of Modern Horizons 2 (mh2) wordings. */
@@ -167,6 +175,12 @@ internal object Mh2Phrases {
     }
 
     fun noun(phrase: String): ObjectFilter? {
+        // mh2 chunk 15: "creature that's attacking you or a planeswalker you control" (you are its defending player, CR 506.2)
+        Mh2.THATS_ATTACKING_YOU_OR_YOUR_PLANESWALKER.matchEntire(phrase)?.let { m ->
+            val noun = Filters.noun(m.groupValues[1]) ?: return null
+            return Filters.all(noun, ObjectFilter.HasStatus(arcanum.api.Status.Attacking),
+                ObjectFilter.Where(Condition.PlayerMatches(Players.DefendingPlayerOf(Objects.Tested), PlayerFilter.You)))
+        }
         // mh2 chunk 14: "artifact card with mana cost {0} or {1}" (CR 202.1)
         Mh2.WITH_MANA_COST_OR.matchEntire(phrase)?.let { m ->
             val noun = Filters.noun(m.groupValues[1]) ?: return null

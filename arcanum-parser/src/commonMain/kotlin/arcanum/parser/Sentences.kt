@@ -21144,6 +21144,23 @@ internal class Sentences(
 
     /** mh2: static abilities. */
     private fun mh2Static(line: String): Ability? {
+        // mh2 chunk 15: "If an opponent controls an Island and you control a Mountain, you may cast this spell without paying its mana cost." (an
+        // alternative cost of nothing, CR 118.9)
+        Mh2.IF_MAY_CAST_WITHOUT_PAYING.matchEntire(line)?.let { m ->
+            val parts = m.groupValues[1].split(" and ").map { Conditions.condition(it, self) ?: return@let }
+            return Ability.Static(listOf(Mechanic.MayPlay(Zone.Hand, PlayKind.Cast, withoutPaying = true, holder = PlayerFilter.You)), affects = Affected.Objects(Objects.Self),
+                condition = parts.singleOrNull() ?: arcanum.api.Condition.And(parts))
+        }
+        // mh2 chunk 15: "Skip your draw step." (CR 614.10)
+        Mh2.SKIP_YOUR_STEP.matchEntire(line)?.let { m ->
+            val step = mapOf("draw" to arcanum.api.TurnStep.Draw, "untap" to arcanum.api.TurnStep.Untap, "upkeep" to arcanum.api.TurnStep.Upkeep)[m.groupValues[1]] ?: return@let
+            return Ability.Static(listOf(Mechanic.SkipStep(step)), affects = Affected.Players(Players.You))
+        }
+        // mh2 chunk 15: "You have shroud." (CR 702.18: for a player, no spell or ability can target them)
+        if (Mh2.YOU_HAVE_SHROUD.matches(line)) return Ability.Static(listOf(Mechanic.CantBeTargeted(by = ObjectFilter.Any)), affects = Affected.Players(Players.You))
+        // mh2 chunk 15: "Prevent all damage that would be dealt to you." (CR 615.1)
+        if (Mh2.PREVENT_ALL_DAMAGE_TO_YOU.matches(line))
+            return mh2SelfStatic(Mechanic.Prevention(EventPattern.Damage(ObjectFilter.Any, arcanum.api.RecipientFilter(players = PlayerFilter.You))))
         // mh2 chunk 14: "Each land is a Forest in addition to its other land types." (layer 4, CR 305.7)
         Mh2.EACH_IS_A_TYPE_IN_ADDITION.matchEntire(line)?.let { m ->
             if (m.groupValues[2] !in RulesWords.subtypes) return@let
@@ -21351,6 +21368,16 @@ internal class Sentences(
 
     /** mh2: instructions of several sentences read as a whole. */
     private fun mh2Whole(text: String, context: Context): List<Step>? {
+        // mh2 chunk 15: "Each player chooses a creature type. Each player returns all creature cards of a type chosen this way from their graveyard to
+        // the battlefield." (in turn order, CR 101.4; each puts their own cards onto the battlefield)
+        Mh2.EACH_PLAYER_CHOOSES_CREATURE_TYPE_RETURNS.matchEntire(text)?.let { m ->
+            val noun = Filters.noun(m.groupValues[1]) ?: return null
+            val player = Players.Bound("player")
+            val everyone = arcanum.api.Each.Players(Players.Each(PlayerFilter.Any))
+            return listOf(Step.ForEach(everyone, "player", listOf(Step.Choose(arcanum.api.Choice.CreatureType, bind = "type", chooser = player)), together = true),
+                Objects.Each(Filters.all(noun, ObjectFilter.Sub(arcanum.api.SubtypeRef.Chosen("type")), ObjectFilter.InZone(Zone.Graveyard))).let { cards ->
+                    Step.Do(Effect.Move(cards, Destination(Zone.Battlefield, controller = Players.OwnerOf(cards)))) })
+        }
         // mh2 chunk 13: "exile up to one target creature you own, then search your library for a basic land card. Put both cards onto the battlefield
         // under your control, then shuffle." (one event, CR 608.2c)
         Mh2.EXILE_UP_TO_ONE_YOU_OWN_THEN_SEARCH_PUT_BOTH.matchEntire(text)?.let { m ->
@@ -21717,6 +21744,12 @@ internal class Sentences(
         Mh2.TOKEN_WITH_SINGLE_QUOTED.matchEntire(sentence)?.let { m ->
             return effect("${m.groupValues[1]} with \"${m.groupValues[2]}\".", context)
         }
+        // mh2 chunk 15: "that player sacrifices an artifact, creature, or land of their choice." at the beginning of each player's upkeep
+        Mh2.THAT_PLAYER_SACRIFICES_OF_THEIR_CHOICE.matchEntire(sentence)?.takeIf { context.event is EventPattern.StepBegins }?.let { m ->
+            val noun = Filters.noun(m.groupValues[1]) ?: return@let
+            return listOf(Step.Choose(arcanum.api.Choice.Objects(Filters.all(noun, ObjectFilter.ControlledBy(PlayerFilter.Is(Players.Active))), Value.Fixed(1), Value.Fixed(1)),
+                bind = "sacrificed", chooser = Players.Active), Step.Do(Effect.Sacrifice(Objects.Bound("sacrificed"))))
+        }
         // mh2 chunk 13: "exile that creature." after damage to it; "counter that spell." after it was cast (the event's object)
         if (sentence == "Exile that creature." && context.event is EventPattern.Damage)
             return listOf(Step.Do(Effect.Move(Objects.EventObject(EventRole.Object), Destination(Zone.Exile))))
@@ -21748,7 +21781,7 @@ internal class Sentences(
         // mh2 chunk 04: "Return two target creatures to their owners' hands."
         Mh2.RETURN_N_TARGETS_TO_OWNERS_HANDS.matchEntire(sentence)?.let { m ->
             val count = Numbers.count(m.groupValues[1]) ?: return@let
-            val singular = m.groupValues[2].removeSuffix("s")
+            val singular = m.groupValues[2].substringBefore(' ').removeSuffix("s") + m.groupValues[2].removePrefix(m.groupValues[2].substringBefore(' '))
             val noun = Filters.noun(singular) ?: return@let
             val name = mh2NewSlotName(context, Filters.slotName(singular) + "s")
             context.targets += mh2Slot(name, noun, min = count, max = count)

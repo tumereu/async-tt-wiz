@@ -1,0 +1,1 @@
+A tap on the number of "Choose a number" opens the numeric input in its place: 1234 written in its field, a check and a cross beside it and "0 or more" under it.

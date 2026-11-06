@@ -1,0 +1,1 @@
+Naming a card in landscape while typing: the panel at the table's left holds the search field with "sp" and the names to tap: Storm Spark from Alice's library with a card-stack icon first, then every card's names; OK waits for a tap.

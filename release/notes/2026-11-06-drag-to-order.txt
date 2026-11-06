@@ -1,0 +1,1 @@
+mod: Triggers and replacement effects are put in order by dragging them; replacements then follow your order.

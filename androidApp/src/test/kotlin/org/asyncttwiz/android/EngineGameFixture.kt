@@ -77,6 +77,8 @@ internal class EngineGameFixture(val startingPlayer: String = TableStatesFixture
         const val STUDY = "Hedge Study"
         /** A free instant without targets: its holder can always respond. */
         const val GLINT = "Ember Glint"
+        /** A free "Look at target player's hand." sorcery: its resolving shows its caster the target's hidden hand (TRN-067). */
+        const val GLANCE = "Ember Glance"
     }
     private val SENTRY_TEXT = "Offspring {R} (You may pay an additional {R} as you cast this spell. If you do, when this creature enters, create a 1/1 token copy of it.)\n" +
         "When this creature enters, you may forage. If you do, put two +1/+1 counters on it. (To forage, exile three cards from your graveyard or sacrifice a Food.)"
@@ -98,6 +100,7 @@ internal class EngineGameFixture(val startingPlayer: String = TableStatesFixture
         free("pie", Choices.PIE, "Artifact — Food", "{2}, {T}, Sacrifice this artifact: You gain 3 life."),
         free("study", Choices.STUDY, "Sorcery", "Draw a card."),
         free("glint", Choices.GLINT, "Instant", "You gain 2 life."),
+        free("glance", Choices.GLANCE, "Sorcery", "Look at target player's hand."),
     ).associateBy { it.submitted.definition.name }
     private val aliceChoices = aliceCards.map { choiceCards[it] ?: if (it == "Mountain") mountain else error("no card $it") }
 

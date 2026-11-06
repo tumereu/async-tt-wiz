@@ -1,0 +1,1 @@
+mod: Naming a card is a search: names from your own library come first, then cards you've seen this game, then every card; only real card names can be chosen.

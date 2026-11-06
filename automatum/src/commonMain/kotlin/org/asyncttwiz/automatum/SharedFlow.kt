@@ -122,6 +122,27 @@ class SharedFlow private constructor(
     }
 
     /**
+     * Answers the open "which replacement applies first" (CR 616.1) with the player's preference list [preference] (its
+     * options, the first applying first): the first of them applies, and while the engine asks the same player again
+     * (CR 616.1f) among effects all in the list, the earliest of them in the list applies in the same call; a new one
+     * stays asked ([ReplacementPreference]).
+     * @throws IllegalArgumentException when the engine refuses an answer (nothing changes).
+     */
+    fun answerReplacements(preference: List<arcanum.engine.decision.ReplacementOption>): EngineRun {
+        val open = requireNotNull(decision as? Decision.ChooseReplacement) { "No replacement to choose" }
+        val first = requireNotNull(ReplacementPreference.preferred(open.options, preference)) { "Not a preference of these effects" }
+        return call().apply {
+            perform(Input.Answer(open.id, Answer.Replacement(first.index)))
+            while (true) {
+                val next = pending?.decision as? Decision.ChooseReplacement ?: break
+                if (next.player != open.player) break
+                val pick = ReplacementPreference.preferred(next.options, preference) ?: break
+                perform(Input.Answer(next.id, Answer.Replacement(pick.index)))
+            }
+        }
+    }
+
+    /**
      * Answers the open division of combat damage with [shares] (null: the suggestion, I-D29, [CombatFlow.divide]): the damage
      * is dealt. A division a player gave early for the decision after it is applied on the way (I-D33).
      * @throws IllegalArgumentException when no division is open or the engine refuses [shares] (nothing changes).
@@ -156,13 +177,46 @@ class SharedFlow private constructor(
             Engine.options(state, open.player).filterIsInstance<Input.Answer>().filter { it.decision == open.id }.map { it.answer })
     }
 
-    /** Whether paying the open [Decision.ManaPayment] with [uses] completes it; the latest answer is kept, so asking
-     * again for the same tapping costs no engine call (#9). */
+    /**
+     * STK-049 (owner gallery review, 2026-11-06): the payment the open "you may pay" of a mana cost goes on to (CR 118.12:
+     * "unless … pays {R}", "you may pay {2}"), asked with it in one panel whose "Don't pay" answers no; null when the open
+     * decision is no such question, its cost can't be paid, or paying it asks nothing (worked out once per flow).
+     */
+    val payment: Decision.ManaPayment? by lazy {
+        val open = decision as? Decision.May ?: return@lazy null
+        val cost = open.cost ?: return@lazy null
+        if (!open.payable || cost.parts.isEmpty() || cost.parts.any { it !is arcanum.api.CostPart.Mana }) return@lazy null
+        try {
+            call().run {
+                perform(Input.Answer(open.id, Answer.YesNo(true)))
+                (pending?.decision as? Decision.ManaPayment)?.takeIf { it.player == open.player }
+            }
+        } catch (_: IllegalArgumentException) {
+            null
+        } catch (_: IllegalStateException) {
+            null
+        }
+    }
+
+    /** Says yes to the open "you may pay" and pays its [payment] with [uses], as one step.
+     * @throws IllegalArgumentException when the engine refuses either answer (nothing changes). */
+    fun payMay(uses: List<ManaUse>): EngineRun {
+        val open = requireNotNull(decision as? Decision.May) { "No payment to make" }
+        return call().apply {
+            perform(Input.Answer(open.id, Answer.YesNo(true)))
+            val asked = requireNotNull(pending?.decision as? Decision.ManaPayment) { "No payment asked" }
+            perform(Input.Answer(asked.id, Answer.ManaPayment(uses)))
+        }
+    }
+
+    /** Whether paying the open [Decision.ManaPayment] (or the open "you may pay"'s [payment]) with [uses] completes it; the
+     * latest answer is kept, so asking again for the same tapping costs no engine call (#9). */
     fun pays(uses: List<ManaUse>): Boolean {
         lastPays?.takeIf { it.first == uses }?.let { return it.second }
-        val open = decision as? Decision.ManaPayment ?: return false
+        val open = decision as? Decision.ManaPayment
+        if (open == null && payment == null) return false
         val pays = try {
-            Engine.perform(state, Input.Answer(open.id, Answer.ManaPayment(uses)))
+            if (open != null) Engine.perform(state, Input.Answer(open.id, Answer.ManaPayment(uses))) else payMay(uses)
             true
         } catch (_: IllegalArgumentException) {
             false
@@ -181,6 +235,7 @@ class SharedFlow private constructor(
         val open = decision
         listedAnswers()
         if (open is Decision.ManaPayment) pays(open.suggestion)
+        payment?.let { pays(it.suggestion) }
     }
 
     /** The objects whose identity [player] may be shown now (D60, I-D27): public cards and their own. */

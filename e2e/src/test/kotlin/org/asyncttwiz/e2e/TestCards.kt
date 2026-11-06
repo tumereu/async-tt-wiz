@@ -68,6 +68,23 @@ object TestCards {
     val cinderTrail = card("Cinder Trail", "Land",
         rulesText = "{T}, Pay 1 life, Sacrifice this land: Search your library for a basic land card, put it onto the battlefield, then shuffle.")
 
+    /** A free creature whose enters trigger asks to pay {1} or not (STK-049: Pay or Don't pay). */
+    val tollkeeper = card("Ember Tollkeeper", "Creature — Elemental", "{0}", "When this creature enters, you may pay {1}. If you do, draw a card.", "1", "1")
+    /** A free legendary creature: a second one makes its controller keep one (CR 704.5j). */
+    val sovereign = card("Ember Sovereign", "Legendary Creature — Elemental Noble", "{0}", power = "1", toughness = "1")
+    /** A free creature that names a nonland card as it enters (STK-041, CR 201.4). */
+    val muzzle = card("Ember Muzzle", "Artifact Creature — Construct", "{0}",
+        "As this creature enters, choose a nonland card name.\nActivated abilities of sources with the chosen name can't be activated.", "1", "1")
+    /** A free enchantment doubling its controller's damage (a replacement effect, CR 614.1a). */
+    val amplifier = card("Ember Amplifier", "Enchantment", "{0}",
+        "If a source you control would deal damage to a permanent or player, it deals double that damage instead.")
+    /** A free enchantment preventing its controller's damage to an opponent, who mills that many cards instead (a prevention
+     * effect with an additional effect, CR 615.5). */
+    val mindtrap = card("Ember Mindtrap", "Enchantment", "{0}",
+        "If a source you control would deal damage to an opponent, prevent that damage and each opponent mills that many cards.")
+    /** A free sorcery whose resolving shows its caster the target player's hidden hand (TRN-067). */
+    val glance = card("Ember Glance", "Sorcery", "{0}", "Look at target player's hand.")
+
     /** A split card ({2}{G} // {1}{R}{R}) as a catalog import keeps it (PhysicalCardFaces): one face holding both halves,
      * the front half's catalog record (its cost only) as the face's source data. */
     val trailBlaze: SubmittedDefinition = run {

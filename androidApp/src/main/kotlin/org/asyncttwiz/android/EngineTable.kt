@@ -35,6 +35,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.disabled
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
@@ -332,9 +333,10 @@ internal class EngineTableRoutes(val viewer: String, private val game: () -> Eng
     var opponentName: String = "The other player"
 
     /** A wait's own control on the main button (TRN-066, TRN-070): an Assume button, or Cancel for the viewer's own
-     * undo request; holding it says [tooltip]. */
+     * undo request; holding it says [tooltip]. [refusal]: greyed (TRN-071: assuming would show hidden information), a tap
+     * shakes it and holding it says why. */
     class WaitAction(val label: String, val icon: androidx.compose.ui.graphics.vector.ImageVector, val tooltip: String? = null,
-        val run: () -> Unit)
+        val refusal: String? = null, val run: () -> Unit)
 
     /** The control the main button shows while the other player must act, or null for none: "Assume resolves" with
      * something on the Stack (STK-028), else "Assume no response" (TRN-070, owner playtest 2026-11-05 evening); while their
@@ -359,8 +361,16 @@ internal class EngineTableRoutes(val viewer: String, private val game: () -> Eng
                     "Assume $name blocks as placed on the lanes and go on; if they block differently when they come back, the game goes back there") {
                     assumeBlocks(g, placed) }
             }
-            null -> if (status.reason == GameDevice.Wait.Request && shown.request?.by == viewer)
-                WaitAction("Cancel request", Icons.Outlined.Close) { g.cancelRequest(); pump() } else null
+            null -> when {
+                status.reason == GameDevice.Wait.Request && shown.request?.by == viewer ->
+                    WaitAction("Cancel request", Icons.Outlined.Close) { g.cancelRequest(); pump() }
+                // TRN-067, TRN-071 (owner gallery review, 2026-11-06): where assuming their answer would show hidden
+                // information or a random result, Assume shows greyed; holding it says why
+                status.reason == GameDevice.Wait.HiddenCards -> WaitAction(
+                    if (shown.engine.stack.isNotEmpty()) "Assume resolves" else "Assume no response", Icons.Outlined.DoneAll,
+                    refusal = "Assuming this would show you hidden cards or a random result: wait for $name.") {}
+                else -> null
+            }
         }
     }
 
@@ -388,12 +398,17 @@ internal class EngineTableRoutes(val viewer: String, private val game: () -> Eng
  */
 @Composable
 internal fun EngineWaitArrow(action: EngineTableRoutes.WaitAction, modifier: Modifier) {
-    ActionSquare(action.label, "", true, modifier.shadow(3.dp, AdvanceArrowShape)
-        .background(Color.White, AdvanceArrowShape).border(1.dp, AutomatumViolet, AdvanceArrowShape).clip(AdvanceArrowShape)
-        .testTag("engine-wait-action"),
-        fill = Color.White, ink = AutomatumViolet, compactContent = true, gestureKey = action.label, tooltip = action.tooltip,
+    // TRN-071: a refused Assume is greyed; a tap shakes it, holding it says why
+    var shakes by remember { mutableIntStateOf(0) }
+    val refused = action.refusal != null
+    ActionSquare(action.label, "", true, modifier.shaken(shakes).shadow(3.dp, AdvanceArrowShape)
+        .background(Color.White, AdvanceArrowShape)
+        .border(1.dp, if (refused) AutomatumStepOutline else AutomatumViolet, AdvanceArrowShape).clip(AdvanceArrowShape)
+        .testTag("engine-wait-action").semantics { if (refused) disabled() },
+        fill = Color.White, ink = if (refused) AutomatumStepInk.copy(alpha = .38f) else AutomatumViolet, compactContent = true,
+        gestureKey = action.label to action.refusal, tooltip = action.refusal ?: action.tooltip,
         icon = { MainButtonContent(icon = { Icon(action.icon, null, Modifier.size(20.dp), tint = LocalContentColor.current) },
-            label = action.label) }, onClick = action.run)
+            label = action.label) }, onClick = { if (refused) shakes++ else action.run() })
 }
 
 /**

@@ -371,6 +371,42 @@ class EngineTableScreenshotTest {
         compose.runOnIdle { assertTrue(game.device.model.engine.stack.isEmpty(), "Storm Spark resolved on the assumed pass") }
     }
 
+    // TRN-067, TRN-070, TRN-071 (owner gallery review, 2026-11-06): Alice casts Ember Glance ("Look at target player's
+    // hand.") at Bob; assuming his pass would show her his hidden hand, so the wait's Assume is greyed: a tap does nothing,
+    // holding it says why
+    @Test fun assumeIsGreyedWhereItWouldShowHiddenCards() {
+        val glance = EngineGameFixture(aliceCards = listOf("Mountain", EngineGameFixture.Choices.GLANCE))
+        val game = EngineGame(glance.game.id, glance.a, glance.base, glance.snapshot(otherKept = true)).apply { tick(1_000); keep(emptyList()); tick(2_000) }
+        val me = PlayerId(glance.a)
+        val card = game.device.model.engine.let { s -> s.player(me).hand.first { s.obj(it)?.definition?.faces?.first()?.name == EngineGameFixture.Choices.GLANCE } }
+        val copy = game.device.model.engine.deepCopy()
+        val inputs = mutableListOf<Input>(Input.Cast(me, card))
+        var next: Input = inputs.first()
+        while (true) {
+            Engine.perform(copy, next).changes.forEach(copy::apply)
+            val d = copy.pending?.decision ?: break
+            if (d is Decision.Random || Engine.decider(copy, d.player) != me) break
+            next = if (d is Decision.Targets) Input.Answer(d.id, Answer.Targets(listOf(arcanum.engine.state.TargetRef.Player(PlayerId(glance.b)))))
+                else Engine.options(copy, me).filterIsInstance<Input.Answer>().first { it.decision == d.id }
+            inputs += next
+        }
+        assertIs<GameDevice.Acted.Sent>(game.send(inputs))
+        game.tick(4_000)
+        val waiting = assertIs<GameDevice.Status.Waiting>(game.device.status)
+        assertEquals(GameDevice.Wait.HiddenCards, waiting.reason)
+        render(game, glance.a, ReceivedPresence(OpponentPresence(PresenceState.OFFLINE, idleSeconds = 0), monotonicMillis()))
+        compose.onNodeWithTag("engine-wait-action").assert(hasContentDescription("Assume resolves")).assertIsNotEnabled()
+        compose.onNodeWithTag("engine-wait-action").performClick()
+        compose.runOnIdle { assertEquals(1, game.device.model.engine.stack.size, "nothing assumed: the Glance waits on the Stack") }
+        compose.onNodeWithTag("engine-wait-action").performTouchInput { down(center) }
+        compose.mainClock.advanceTimeBy(1_000)
+        compose.waitForIdle()
+        compose.onNodeWithText("Assuming this would show you hidden cards or a random result: wait for Bob.").assertExists()
+        captureShot("$SCREENSHOTS/engine/assume-greyed.png",
+            "Alice cast Ember Glance at Bob, who is away: assuming his pass would show her his hidden hand, so faint words say she waits for Bob because going on would show hidden cards, and the main button's Assume resolves is greyed; held, it says why.")
+        compose.onNodeWithTag("engine-wait-action").performTouchInput { up() }
+    }
+
     // STK-046 (owner playtest 2026-11-04): in the Control response mode Alice keeps priority after her Ember Herald resolved: its enters
     // trigger is on the Stack as an ability token (the Herald's art and a "T" chip, no text), not as the Herald card; the
     // Stack list shows it as "Ember Herald's ability" with its text

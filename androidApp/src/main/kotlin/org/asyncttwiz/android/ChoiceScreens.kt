@@ -152,11 +152,11 @@ internal fun choiceHint(decision: Decision): String? = when (decision) {
     is Decision.ChooseOption -> decision.text ?: "Tap one."
     is Decision.ChooseColor, is Decision.ChoosePlayer, is Decision.ChooseCardType -> "Tap one."
     is Decision.ChooseSubtype -> if (decision.among == null) "Find a type and tap it." else "Tap one."
-    is Decision.ChooseCardName -> "Write any card name, then OK."
+    is Decision.ChooseCardName -> "Find the card and tap its name, then OK."
     is Decision.ChooseNumber -> "Set the number, then OK."
     is Decision.Divide -> "Give each its share; all ${decision.amount} must be divided."
-    is Decision.OrderTriggers -> "Tap them in the order they go on the Stack (the first goes on first and resolves last), then OK."
-    is Decision.ChooseReplacement -> "Tap the one that applies first, then OK."
+    is Decision.OrderTriggers -> "Drag them by their handles into the order they resolve, the top one first, then OK."
+    is Decision.ChooseReplacement -> "Drag them by their handles into the order they apply, the top one first, then OK."
     is Decision.LegendRule -> "Tap the ${decision.name} to keep; the others go to the graveyard."
     is Decision.Manual -> "Automatum can't do this part yet: it is skipped."
     is Decision.Targets, is Decision.May, is Decision.Random, is Decision.HostFill, is Decision.OtherView -> null
@@ -319,26 +319,6 @@ internal fun CardRow(card: ChoiceCardData?, inspector: ChoiceInspector, modifier
     Row(modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         if (card != null) ChoiceCardFace(card, Modifier.choiceCardGestures(card.key, tap = {}, hold = { inspector.hold(card, it) }, moved = inspector::moved), small = true)
         content()
-    }
-}
-
-/** A card of a choice with its own [line] beside it (a trigger's text, a replacement effect's), I-D48, as one full-width
- * row so the whole line shows (STK-030, owner playtest 2026-11-06: what is asked shows without holding): a tap ([tap])
- * chooses it, holding inspects it; [card] null: a card-shaped [name] (an ability whose source isn't a card). */
-@Composable
-internal fun LabelledChoiceCard(card: ChoiceCardData?, key: String, name: String, line: String, inspector: ChoiceInspector,
-    selected: Boolean, badge: String? = null, tap: () -> Unit) {
-    val face = (card ?: ChoiceCardData(key, null, name, null, shown = true)).copy(key = key)
-    val shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp)
-    // The card and its line are one target
-    Row(Modifier.fillMaxWidth()
-        .border(if (selected) 2.dp else 1.dp, if (selected) AutomatumViolet else Color(0x22000000), shape)
-        .choiceCardGestures(key, tap = tap, hold = { inspector.hold(face, it) }, moved = inspector::moved)
-        .padding(horizontal = 6.dp, vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        ChoiceCardFace(face, selected = selected, badge = badge)
-        CardText(line, Modifier.weight(1f), color = Color(0xff26343a),
-            style = androidx.compose.ui.text.TextStyle(fontSize = 11.sp, lineHeight = 14.sp))
     }
 }
 

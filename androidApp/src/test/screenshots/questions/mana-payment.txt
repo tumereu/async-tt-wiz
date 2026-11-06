@@ -1,1 +1,1 @@
-A cost to pay as something resolves: the panel is titled "Pay" with the red mana symbol, the sentence asking for it under the title, and Alice's Mountain tapped sideways to pay, "Paid" under it and Pay in the bottom row.
+A cost to pay as something resolves: the panel is titled "Pay" with the red mana symbol, the sentence asking for it under the title, Alice's Mountain already tapped sideways by Autotap, "Paid" under it, and Don't pay beside Pay in the bottom row.

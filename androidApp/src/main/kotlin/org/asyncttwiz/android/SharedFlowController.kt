@@ -71,7 +71,8 @@ internal class SharedFlowController(
             shownDecision = id
             picked = emptyList()
             hidden = false
-            mana = (next?.decision as? Decision.ManaPayment)?.suggestion.orEmpty()
+            // STK-049 (owner gallery review, 2026-11-06): with Autotap on a payment opens with its sources picked, off none
+            mana = if (autotap()) ((next?.decision as? Decision.ManaPayment) ?: next?.payment)?.suggestion.orEmpty() else emptyList()
             if (choosingFor != id) choosingFor = null
         }
         visible = null
@@ -156,16 +157,33 @@ internal class SharedFlowController(
 
     /** I-D48: a two-area choice's answer and the orders the engine then asks of the same cards, as one step
      * ([SharedFlow.answer]). */
-    override fun answerWith(answer: Answer, then: List<Answer.Objects>): Boolean {
+    override fun answerWith(answer: Answer, then: List<Answer.Objects>): Boolean = answerOpen { flow ->
+        // A division of combat damage (I-D29): the damage is dealt and the game goes on through the steps (I3)
+        if (answer is Answer.Division && flow.division != null) flow.divide(answer.shares.associate { flow.ref(it.target) to it.amount })
+        else flow.answer(answer, then)
+    }
+
+    /** STK-030, CR 616.1: the replacement preference list as one step ([SharedFlow.answerReplacements]). */
+    override fun answerReplacements(decision: Decision.ChooseReplacement, preference: List<arcanum.engine.decision.ReplacementOption>): Boolean =
+        answerOpen { flow -> flow.answerReplacements(preference) }
+
+    override fun paymentAfter(decision: Decision): Decision.ManaPayment? = view?.takeIf { it.decision?.id == decision.id }?.payment
+
+    /** STK-049: the open payment with the sources picked, or "yes" to the open "you may pay" and its payment, as one step. */
+    override fun payMana(): Boolean {
+        val uses = mana
+        return answerOpen { flow -> if (flow.decision is Decision.May) flow.payMay(uses) else flow.answer(Answer.ManaPayment(uses)) }
+    }
+
+    /** Sends [perform] on the open decision the panel shows, unless the table changed meanwhile. */
+    private fun answerOpen(perform: (SharedFlow) -> org.asyncttwiz.automatum.EngineRun): Boolean {
         val play = current() ?: return false
         val open = view?.takeIf { it.board === play.board }?.decision
         if (open != null && open.id.value != shownDecision) { fail("The table changed: look at the choice again."); return false }
         return sendCall(play) { flow ->
             val decision = flow.decision ?: throw Refused(null)
             if (decision.id.value != shownDecision) throw Refused("The table changed: look at the choice again.")
-            // A division of combat damage (I-D29): the damage is dealt and the game goes on through the steps (I3)
-            if (answer is Answer.Division && flow.division != null) flow.divide(answer.shares.associate { flow.ref(it.target) to it.amount })
-            else flow.answer(answer, then)
+            perform(flow)
         }
     }
 
@@ -231,7 +249,7 @@ internal class SharedFlowController(
      * (SYS-025: up to a few dozen engine calls). */
     override fun toggleMana(group: List<ManaUse>) {
         val flow = view ?: return
-        val decision = flow.decision as? Decision.ManaPayment ?: return
+        val decision = flow.decision as? Decision.ManaPayment ?: flow.payment ?: return
         if (busy) return
         val current = mana
         busy = true

@@ -1,1 +1,1 @@
-Alice's Hollowroot Sentry, cast with offspring, has entered: the panel above her hand is titled "Order triggers" and shows the Sentry twice, one with its offspring line and one with its forage line, to tap in the order they go on the Stack.
+Alice's Hollowroot Sentry, cast with offspring, has entered: the panel above her hand is titled "Order triggers" and lists the Sentry twice as rows numbered 1 and 2, each with a drag handle, one with its offspring line and one with its forage line, the top one resolving first.

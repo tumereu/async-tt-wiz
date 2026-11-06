@@ -1,0 +1,1 @@
+add: Where assuming the other player's answer would show you hidden cards or a random result, Assume is greyed; hold it to see why.

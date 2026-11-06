@@ -97,7 +97,7 @@ class AutomatumFinalCastReviewTest {
             override fun answer(answer: Answer): Boolean { given += answer; return true }
             override fun listedAnswers(): List<Answer> = listOf(Answer.CardName("Velvet Secret"))
         }
-        val catalog = CardNameSuggestions { text -> listOf("Velvet Fern", "Velvet Hollow").filter { it.contains(text, ignoreCase = true) } }
+        val catalog = CardNameSuggestions { text, _ -> listOf("Velvet Fern", "Velvet Hollow").filter { it.contains(text, ignoreCase = true) } }
         val naming = Decision.ChooseCardName(DecisionId("name"), PlayerId("alice"), null, arcanum.api.ObjectFilter.Any)
         compose.setContent { MaterialTheme { CompositionLocalProvider(LocalCardNameSuggestions provides catalog) {
             OpenSection(answers, answers, tableBoard(TableStatesFixture.initial), emptyMap(), naming)

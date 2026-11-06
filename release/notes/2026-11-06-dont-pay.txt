@@ -1,0 +1,1 @@
+fix: A cost you may pay while something resolves can be declined with Don't pay, and with Autotap on its lands are already picked.

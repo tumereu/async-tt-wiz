@@ -126,6 +126,16 @@ internal interface FlowQuestions {
      * two-area choice's order); where that isn't possible, only [answer] (the orders are then asked as usual). */
     fun answerWith(answer: Answer, then: List<Answer.Objects>): Boolean = answer(answer)
     fun listedAnswers(): List<Answer>
+    /** CR 616.1 (STK-030): answers which replacement applies first with the player's preference list [preference] (all of
+     * [decision]'s options, the first applying first; [org.asyncttwiz.automatum.ReplacementPreference]); where later
+     * questions can't be answered with it in the same step, only the first. */
+    fun answerReplacements(decision: Decision.ChooseReplacement, preference: List<arcanum.engine.decision.ReplacementOption>): Boolean =
+        answer(Answer.Replacement(preference.first().index))
+    /** STK-049: the payment a "you may pay {mana}" question [decision] goes on to, asked in one panel with "Don't pay"; null
+     * when it has none (or isn't such a question). */
+    fun paymentAfter(decision: Decision): Decision.ManaPayment? = null
+    /** Pays the open payment (or says yes to the open "you may pay" and pays its [paymentAfter]) with [mana]. */
+    fun payMana(): Boolean = answer(Answer.ManaPayment(mana))
     val mana: List<ManaUse>
     val paid: Boolean
     fun toggleMana(group: List<ManaUse>)
@@ -435,50 +445,14 @@ internal fun OpenSection(cast: FlowQuestions, flow: FlowQuestions, play: TableBo
             // UI review round 2 #1: in a dock panel the step arrow's "Done" answers it (TRN-063); elsewhere its own button
             if (LocalDockSlot.current == null) ChoiceButton("Done", Icons.Outlined.Check, primary = true) { cast.answer(Answer.Done) }
         }
-        is Decision.OrderTriggers -> {
-            // CR 603.3b: the first tapped goes on the Stack first (and resolves last). UI review round 2 #7 (I-D48): each
-            // trigger is its source's card, numbered in the order tapped, its own short line under it
-            var order by remember(decision.id) { mutableStateOf(listOf<Int>()) }
-            Section(choiceWhat(decision), choiceHint(decision)) {
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    for (trigger in decision.triggers) {
-                        val place = order.indexOf(trigger.index)
-                        val shown = trigger.source?.let(flow::shown) != false
-                        LabelledChoiceCard(card(trigger.source), "trigger/${trigger.index}",
-                            trigger.source?.let { objectName(flow, play, it) } ?: "Trigger ${trigger.index + 1}",
-                            // A keyword's trigger ("Offspring") reads as the keyword's printed line on its source
-                            trigger.text?.takeIf { shown }?.let { text ->
-                                org.asyncttwiz.automatum.StackAbilityText.keywordLine(text, trigger.source?.let { rulesTextOf(play, flow.atwCard(it)) }) ?: text
-                            } ?: "Trigger ${trigger.index + 1}", inspector, selected = place >= 0,
-                            badge = (place + 1).takeIf { place >= 0 }?.toString()) {
-                            order = if (place >= 0) order - trigger.index else order + trigger.index
-                        }
-                    }
-                }
-                DockButtons {
-                    ChoiceButton("Clear", Icons.Outlined.ClearAll, enabled = order.isNotEmpty()) { order = emptyList() }
-                    ChoiceOk(decision, order.size == decision.triggers.size) { cast.answer(Answer.Order(order)) }
-                }
-            }
-        }
+        // STK-030 (owner gallery review, 2026-11-06): drag-to-reorder lists in a suggested order, then OK
+        is Decision.OrderTriggers -> OrderTriggersSection(cast, flow, play, decision)
         is Decision.LegendRule -> LegendRuleSection(cast, flow, play, decision)
-        is Decision.ChooseReplacement -> {
-            // UI review round 2 #7 (I-D48): each replacement effect is its source's card with its short line; tap one, OK
-            var chosen by remember(decision.id) { mutableStateOf<Int?>(null) }
-            Section(choiceWhat(decision), choiceHint(decision)) {
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    for (option in decision.options) {
-                        val name = option.source?.let { objectName(flow, play, it) } ?: "Replacement ${option.index + 1}"
-                        LabelledChoiceCard(card(option.source), "replacement/${option.index}", name, option.text ?: name, inspector,
-                            selected = chosen == option.index) { chosen = option.index }
-                    }
-                }
-                OkRow(decision, chosen != null) { chosen?.let { cast.answer(Answer.Replacement(it)) } }
-            }
-        }
+        is Decision.ChooseReplacement -> ReplacementOrderSection(cast, flow, play, decision)
+        // Owner gallery review (2026-11-06, bug): each player as their avatar beside their name, as on their life square
         is Decision.ChoosePlayer -> Section(choiceWhat(decision), choiceHint(decision)) {
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                for (player in decision.options) ChoiceButton(names[player.value] ?: "A player", Icons.Outlined.Person) {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                for (player in decision.options) PlayerChoiceButton(player.value, names[player.value] ?: "A player") {
                     cast.answer(Answer.Player(player))
                 }
             }
@@ -600,17 +574,6 @@ internal fun ManaSection(cast: FlowQuestions, flow: FlowQuestions, play: TableBo
         Text(if (cast.paid) "Paid" else "Not paid yet", fontSize = 11.sp,
             color = if (cast.paid) Color(0xff237d68) else Color(0xffb3261e))
         ChoiceInspection(inspector, play, viewer)
-    }
-}
-
-/** − value + (I-D48: icon buttons, which say "One less" / "One more" on hold). */
-@Composable
-internal fun Stepper(value: Int, min: Int, max: Int?, set: (Int) -> Unit) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        val ring = Modifier.size(36.dp).border(1.dp, AutomatumViolet.copy(alpha = .5f), CircleShape)
-        TipIconButton(Icons.Outlined.Remove, "One less", ring, enabled = value > min) { set(value - 1) }
-        Text("$value", Modifier.padding(horizontal = 10.dp).semantics { contentDescription = "Value $value" }, fontWeight = FontWeight.Bold)
-        TipIconButton(Icons.Outlined.Add, "One more", ring, enabled = max == null || value < max) { set(value + 1) }
     }
 }
 

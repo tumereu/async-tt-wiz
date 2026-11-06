@@ -473,3 +473,19 @@ internal fun ChoiceButton(text: String, icon: ImageVector, modifier: Modifier = 
     else OutlinedButton(onClick, modifier, enabled = enabled, contentPadding = padding,
         border = BorderStroke(1.dp, if (enabled) AutomatumViolet.copy(alpha = .6f) else Color(0x1f000000)), content = content)
 }
+
+/** The players of the game shown, by account id, for their avatars in Automatum's panels (a player choice). */
+internal val LocalPlayerAccounts = staticCompositionLocalOf<Map<String, org.asyncttwiz.protocol.AccountIdentity>> { emptyMap() }
+
+/** A player to choose: their round avatar (their initial on their colour without one) and their [name]. */
+@Composable
+internal fun PlayerChoiceButton(accountId: String, name: String, onClick: () -> Unit) {
+    val account = LocalPlayerAccounts.current[accountId] ?: org.asyncttwiz.protocol.AccountIdentity(accountId, name)
+    OutlinedButton(onClick, Modifier.heightIn(min = 44.dp),
+        contentPadding = PaddingValues(start = 6.dp, end = 16.dp),
+        border = BorderStroke(1.dp, AutomatumViolet.copy(alpha = .6f))) {
+        Avatar(account.copy(username = name), size = 30.dp)
+        Spacer(Modifier.width(8.dp))
+        Text(name, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    }
+}

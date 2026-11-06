@@ -299,26 +299,34 @@ internal fun DecisionPanelContent(questions: FlowQuestions, hidden: Boolean, tog
     val inspector = remember(decision.id) { ChoiceInspector() }
     // UI review round 2 N3: the choice's own buttons sit in the dock's bottom row beside the eye, as in the cast panel
     val slot = remember(decision.id) { DockSlot() }
+    // STK-049 (owner gallery review, 2026-11-06): a "you may pay" of mana is its payment, with "Don't pay" beside Pay
+    val payment = questions.paymentAfter(decision)
+    val shownLine = if (payment != null && decision is Decision.May) decision.text else line
     AutomatumDockPanel("Automatum choice", hidden, toggleHidden, "Automatum panel", buttons = { slot.buttons?.invoke(this) }) {
         CompositionLocalProvider(LocalDockSlot provides slot) {
         // I-D47, STK-030: the title says only what the choice is ("Scry 2"); its source is the card at the right
-        ChoiceHead(choiceWhat(decision), source, inspector) {
+        ChoiceHead(payment?.let(::choiceWhat) ?: choiceWhat(decision), source, inspector) {
             if (forOther != null) Text("Choosing for $forOther", fontSize = 12.sp, fontWeight = FontWeight.Medium, color = AutomatumViolet)
-            line?.let {
+            shownLine?.let {
                 CardText(it, Modifier.semantics { contentDescription = "Question: $it" }, color = Color(0xff4b5a5f),
                     style = androidx.compose.ui.text.TextStyle(fontSize = 11.sp, lineHeight = 14.sp))
             }
         }
         if (about.isNotEmpty()) AboutRow("About", about.map { AboutItem.Card(choiceCardOf(questions, play, viewer, it)) }, inspector)
-        choiceHint(decision)?.let { ChoiceHintText(it) }
+        (if (payment != null) PAY_OR_DECLINE else choiceHint(decision))?.let { ChoiceHintText(it) }
         CompositionLocalProvider(LocalChoiceFrame provides LocalChoiceFrame.current.copy(headed = true)) {
-            when (decision) {
-                is Decision.ManaPayment -> {
+            when {
+                decision is Decision.ManaPayment -> {
                     ManaSection(questions, questions, play, decision)
                     DockButtons {
-                        ChoiceButton("Pay", Icons.Outlined.Check, enabled = questions.paid, primary = true) {
-                            questions.answer(Answer.ManaPayment(questions.mana))
-                        }
+                        ChoiceButton("Pay", Icons.Outlined.Check, enabled = questions.paid, primary = true) { questions.payMana() }
+                    }
+                }
+                payment != null -> {
+                    ManaSection(questions, questions, play, payment)
+                    DockButtons {
+                        ChoiceButton("Don't pay", Icons.Outlined.Close) { questions.answer(Answer.YesNo(false)) }
+                        ChoiceButton("Pay", Icons.Outlined.Check, enabled = questions.paid, primary = true) { questions.payMana() }
                     }
                 }
                 else -> OpenSection(questions, questions, play, names, decision)
@@ -397,3 +405,6 @@ private fun prompt(flows: SharedFlowController, flow: SharedFlow, play: TableBoa
     is Decision.Divide -> "how to divide ${decision.amount}."
     else -> "a choice for ${sourceName(flows, flow, play, decision)}."
 }
+
+/** STK-049: the instruction of a cost one may pay or decline. */
+internal const val PAY_OR_DECLINE = "Tap the sources to pay with, then Pay; or Don't pay."

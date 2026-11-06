@@ -155,10 +155,15 @@ class OffspringForageWalkthroughTest {
         compose.onNodeWithText(offspring, substring = true).assertExists()
         compose.onNodeWithText(forage).assertExists()
         captureShot("$SCREENSHOTS/questions/offspring-order-triggers.png",
-            "Alice's Hollowroot Sentry, cast with offspring, has entered: the panel above her hand is titled \"Order triggers\" and shows the Sentry twice, one with its offspring line and one with its forage line, to tap in the order they go on the Stack.")
-        // Offspring first on the Stack (it resolves last), forage on top (it resolves first)
-        compose.onNodeWithText(offspring, substring = true).performClick()
-        compose.onNodeWithText(forage).performClick()
+            "Alice's Hollowroot Sentry, cast with offspring, has entered: the panel above her hand is titled \"Order triggers\" and lists the Sentry twice as rows numbered 1 and 2, each with a drag handle, one with its offspring line and one with its forage line, the top one resolving first.")
+        // STK-030 (owner gallery review, 2026-11-06): a drag-to-reorder list; forage moves to the top (it resolves first),
+        // offspring below it (first on the Stack, resolves last)
+        val forageRow = compose.onNodeWithContentDescription("Trigger: $forage")
+        forageRow.fetchSemanticsNode().config.getOrElse(androidx.compose.ui.semantics.SemanticsActions.CustomActions) { emptyList() }
+            ?.firstOrNull { it.label == "Move up" }?.let { up -> compose.runOnIdle { up.action() } }
+        compose.waitForIdle()
+        assertTrue(compose.onNodeWithContentDescription("Trigger: $forage").fetchSemanticsNode().boundsInRoot.top <
+            compose.onNodeWithContentDescription("Trigger: $offspring", substring = true).fetchSemanticsNode().boundsInRoot.top, "forage on top")
         compose.onNodeWithText("OK").performClick()
         refresh()
 

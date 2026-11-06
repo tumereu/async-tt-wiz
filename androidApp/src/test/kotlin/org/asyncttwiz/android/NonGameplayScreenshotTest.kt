@@ -158,7 +158,7 @@ class NonGameplayScreenshotTest(private val screen: String) {
         if (screen == "prepare-deck") { compose.mainClock.advanceTimeByFrame(); compose.waitForIdle() }
         if (screen == "register-scrolled") compose.onNodeWithText("Sign in").performScrollTo()
         if (screen == "deck-edit-text") compose.onNodeWithTag("card-list-tab-text").performClick()
-        // LOB-115: holding the warning icon names the cards Automatum plays by hand.
+        // LOB-115: holding the warning icon names the cards Automatum can't play yet.
         if (screen == "choose-lobby-deck-automatum") {
             // Held, not released: the tooltip shows while the finger stays down.
             compose.onNodeWithContentDescription(automatumSupportTip(ScreenFixtures.byHand), useUnmergedTree = true)
@@ -300,7 +300,7 @@ class NonGameplayScreenshotTest(private val screen: String) {
             "cancel-lobby" -> "game lobby with the Cancel game confirmation, with Keep game and Cancel game"
             "lobby-select-deck" -> "game lobby where riley is ready and you have not chosen a deck yet"
             "choose-lobby-deck" -> "game lobby with the deck picker open on three saved decks, the first selected"
-            "choose-lobby-deck-automatum" -> "deck picker where Woodland practice has the amber Automatum warning icon, held to show the tooltip naming the 3 cards Automatum plays by hand"
+            "choose-lobby-deck-automatum" -> "deck picker where Woodland practice has the amber Automatum warning icon, held to show the tooltip naming the 3 cards Automatum can't play yet"
             "prepare-deck" -> "deck preparation in the game lobby just after moving one Meadow Sentinel to the sideboard"
             "prepare-deck-faded" -> "deck preparation in the game lobby in its 3-column picture view, no recent move"
             "ready-waiting" -> "game lobby with your deck chosen and you ready, waiting for riley"

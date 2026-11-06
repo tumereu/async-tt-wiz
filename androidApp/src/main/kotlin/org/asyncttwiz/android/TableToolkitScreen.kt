@@ -38,7 +38,8 @@ internal fun TableToolkitScreen(toolkit: TableToolkitController, play: TableBoar
     val bound = toolkit.capture
     val popup = toolkit.popupItem
     CompositionLocalProvider(LocalInlinePopupAnchor provides InlinePopupAnchor(popup?.id ?: "table",
-        popup?.bounds, popup?.owner == null || popup.owner == toolkit.viewer)) {
+        popup?.bounds, popup?.owner == null || popup.owner == toolkit.viewer),
+        LocalPlayerAccounts provides listOf(game.inviter, game.recipient).associateBy { it.accountId }) {
     if (bound != null && toolkit.panel == null) EngineCardMenu(toolkit, play, bound, names, enabled)
     toolkit.player?.let { PlayerPanel(play, it, toolkit.viewer, toolkit::dismiss) }
 

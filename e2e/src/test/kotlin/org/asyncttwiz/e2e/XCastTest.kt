@@ -8,6 +8,7 @@ import androidx.compose.ui.test.isEnabled
 import androidx.compose.ui.test.isHeading
 import androidx.compose.ui.test.isNotEnabled
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTextReplacement
 import org.junit.Test
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
@@ -47,6 +48,34 @@ class XCastTest : E2e() {
         waitUntil("the Burst dealing 1 to Bob, on the server", along = listOf(bob)) {
             alice.state.player(bob.me).life == 19 && alice.engine { device.session.pending.isEmpty() }
         }
+        assertFalse(alice.refusalSeen, "no refusal: ${alice.shownTexts}")
+    }
+
+    // STK-023, STK-052 (owner gallery review, 2026-11-06): a tap on X opens a numeric input; a value past what the mana pays
+    // isn't taken (its check greyed, the reason shown), one it pays is; Cast goes on with it
+    @Test fun xIsTypedInTheNumericInput() {
+        startGame(TestDeck.bursts(), deal = { a, _ -> "Mountain" in hand(a) && "Ember Burst" in hand(a) })
+        bothOpen()
+        bothKeep(bobAway = false)
+        alice.playFromHand("Mountain", this)
+        waitUntil("the Mountain on the battlefield", along = listOf(bob)) { alice.field("Mountain").isNotEmpty() && alice.inOwnMain() }
+        alice.playFromHand("Ember Burst", this)
+        waitUntil("Alice's cast panel with X at 0") { alice.shows(hasContentDescription("Cast panel")) && alice.shows(hasContentDescription("Value 0")) }
+        alice.described("Value 0").performClick()
+        waitUntil("the numeric input") { alice.shows(hasContentDescription("Number")) }
+        alice.described("Number").performTextReplacement("5")
+        waitUntil("5 refused") { alice.showsText("At most 1.") }
+        val ok = hasClickAction() and hasContentDescription("Use this number")
+        assertTrue(alice.shows(ok and isNotEnabled()), "the check greyed past what the mana pays")
+        alice.described("Number").performTextReplacement("1")
+        waitUntil("1 taken") { alice.shows(ok and isEnabled()) }
+        alice.node(ok and isEnabled()).performClick()
+        waitUntil("X at 1") { alice.shows(hasContentDescription("Value 1")) && !alice.shows(hasContentDescription("Number")) }
+        val cast = alice.castButton()
+        alice.node(androidx.compose.ui.test.SemanticsMatcher("Cast button") { it.id == cast.id }).performClick()
+        waitUntil("Alice's target bar") { alice.shows(hasText("Choose any target") and isHeading()) }
+        alice.node(hasContentDescription("${bob.name}, life 20", substring = true)).performClick()
+        waitUntil("the Burst dealing 1 to Bob", along = listOf(bob)) { alice.state.player(bob.me).life == 19 }
         assertFalse(alice.refusalSeen, "no refusal: ${alice.shownTexts}")
     }
 }

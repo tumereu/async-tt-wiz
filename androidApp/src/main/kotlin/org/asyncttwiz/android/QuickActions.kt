@@ -148,7 +148,7 @@ fun QuickActionStrip(play: TableBoard, context: QuickContext, controller: TableA
                     main = main?.let { m -> MainAction(m.label, m.icon, m.refusal, m.tooltip) { own { m.run(); true } } }) {
                     own { perform(TableActionIntent.Next(scope)) }
                 }
-                else if (wait != null) EngineWaitArrow(EngineTableRoutes.WaitAction(wait.label, wait.icon, wait.tooltip) {
+                else if (wait != null) EngineWaitArrow(EngineTableRoutes.WaitAction(wait.label, wait.icon, wait.tooltip, wait.refusal) {
                     own { wait.run(); true } }, Modifier.fillMaxWidth())
                 else Spacer(Modifier.fillMaxWidth().height(48.dp))
                 if (working) SlowActionShimmer(Modifier.matchParentSize().clip(AdvanceArrowShape))

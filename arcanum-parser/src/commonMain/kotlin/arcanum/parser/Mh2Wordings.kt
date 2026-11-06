@@ -85,6 +85,11 @@ internal object Mh2 {
     val ENTERS_WITH_N_COUNTERS_FOR_EACH_COLOR_SPENT = Regex("""(.+) enters with (\w+) (\S+) counters on it for each color of mana spent to cast it\.""")
     val TARGET_PLAYER_SHUFFLES_GRAVEYARD_INTO_LIBRARY = Regex("""Target player shuffles their graveyard into their library\.""")
     val PREVENT_ALL_COMBAT_DAMAGE_THIS_TURN = Regex("""Prevent all combat damage that would be dealt this turn\.""")
+    // mh2 chunk 10
+    val COSTS_LESS_FOR_EACH_OTHER_SPELL_CAST_THIS_TURN = Regex("""This spell costs (\{\d+\}) less to cast for each other spell cast this turn\.""")
+    val HAS_AS_LONG_AS_IT_ENTERED_THIS_TURN = Regex("""(.+?) has ([a-z ]+) as long as it entered this turn\.""")
+    val TARGET_PLAYER_CREATES_TOKENS = Regex("""Target player creates (\w+) (tapped )?(.+? tokens?)\.""")
+    val COUNTER_TARGET_LOYALTY_ABILITY = Regex("""Counter target loyalty ability of a planeswalker\.""")
 }
 
 /** Values, conditions and nouns of Modern Horizons 2 (mh2) wordings. */

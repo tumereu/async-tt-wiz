@@ -94,6 +94,13 @@ sealed interface Keyword : Ability {
         override val kind: KeywordKind get() = this; override val id: String get() = "trample"
         override val text: String get() = "Trample"; override val rule: String get() = "702.19"
     }
+    // mh2
+    /** Trample over planeswalkers (CR 702.19c): trample whose excess damage to a planeswalker it attacks may go to that planeswalker's
+     * controller. */
+    @Serializable @SerialName("trample-over-planeswalkers") data object TrampleOverPlaneswalkers : Keyword, KeywordKind {
+        override val kind: KeywordKind get() = this; override val id: String get() = "trample-over-planeswalkers"
+        override val text: String get() = "Trample over planeswalkers"; override val rule: String get() = "702.19c"
+    }
     /** Vigilance (CR 702.20) */
     @Serializable @SerialName("vigilance") data object Vigilance : Keyword, KeywordKind {
         override val kind: KeywordKind get() = this; override val id: String get() = "vigilance"
@@ -925,6 +932,13 @@ sealed interface Keyword : Ability {
         override val kind: KeywordKind get() = Kind
         companion object Kind : KeywordKind { override val id: String get() = "reinforce"; override val text: String get() = "Reinforce"; override val rule: String get() = "702.77" }
     }
+    // mh2
+    /** "Reinforce X—[cost]": the X counters are the X paid in [cost] as the ability is activated (CR 702.77a, 107.3a). A reinforce ability, so its
+     * [kind] is reinforce's. */
+    @Serializable @SerialName("reinforce-x") data class ReinforceX(override val cost: Cost) : Keyword, HasCost {
+        override val kind: KeywordKind get() = Reinforce.Kind
+        override val text: String get() = "Reinforce X"; override val rule: String get() = "702.77a"
+    }
     /** Awaken (CR 702.113) */
     @Serializable @SerialName("awaken") data class Awaken(override val amount: Int, override val cost: Cost) : Keyword, HasAmount, HasCost {
         init { requireAmount(amount) }
@@ -1105,6 +1119,8 @@ interface KeywordKind {
                 Keyword.Cascade,
                 Keyword.Rebound,
                 Keyword.UmbraArmor,
+                // mh2
+                Keyword.TrampleOverPlaneswalkers,
                 Keyword.Infect,
                 Keyword.BattleCry,
                 Keyword.LivingWeapon,

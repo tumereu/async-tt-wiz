@@ -19,6 +19,8 @@ object KeywordExpansions {
         Keyword.FirstStrike -> static(Mechanic.FirstStrike)
         Keyword.DoubleStrike -> static(Mechanic.DoubleStrike)
         Keyword.Trample -> static(Mechanic.Trample())
+        // mh2: CR 702.19c
+        Keyword.TrampleOverPlaneswalkers -> static(Mechanic.Trample(overPlaneswalkers = true))
         Keyword.Haste -> static(Mechanic.IgnoresSummoningSickness)
         Keyword.Vigilance -> static(Mechanic.AttacksWithoutTapping)
         Keyword.Indestructible -> static(Mechanic.Indestructible)
@@ -579,6 +581,12 @@ object KeywordExpansions {
             steps(Effect.PutCounters(Objects.Self, CounterKind.PowerToughness(1, 1), Value.Fixed(1))),
             ActivationRules(timing = Timing.Sorcery, activatedBy = PlayerFilter.You)))
         // CR 702.77a: from the hand, "[Cost], Discard this card: Put N +1/+1 counters on target creature."
+        // mh2: CR 702.77a, 107.3a: X counters, the X announced for its cost
+        is Keyword.ReinforceX -> listOf(Ability.Activated(Cost(keyword.cost.parts + CostPart.Discard(CostObjects.Self)), Instructions(
+            targets = listOf(TargetSlot("creature", TargetKind.Objects(ObjectFilter.Type(CardType.Creature)), min = Value.Fixed(1), max = Value.Fixed(1))),
+            steps = listOf(Step.Do(Effect.PutCounters(Objects.Target("creature"), CounterKind.PowerToughness(1, 1), Value.Announced(name = "X")))),
+            announced = listOf("X")),
+            rules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You)))
         is Keyword.Reinforce -> listOf(Ability.Activated(Cost(keyword.cost.parts + CostPart.Discard(CostObjects.Self)), Instructions(
             targets = listOf(TargetSlot("creature", TargetKind.Objects(ObjectFilter.Type(CardType.Creature)), min = Value.Fixed(1), max = Value.Fixed(1))),
             steps = listOf(Step.Do(Effect.PutCounters(Objects.Target("creature"), CounterKind.PowerToughness(1, 1), Value.Fixed(keyword.amount))))),

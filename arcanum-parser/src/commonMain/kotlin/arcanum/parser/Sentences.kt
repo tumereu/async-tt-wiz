@@ -21105,6 +21105,18 @@ internal class Sentences(
 
     /** mh2: static abilities. */
     private fun mh2Static(line: String): Ability? {
+        // mh2 chunk 10: "This spell costs {3} less to cast for each other spell cast this turn." (by any player, CR 601.2f)
+        Mh2.COSTS_LESS_FOR_EACH_OTHER_SPELL_CAST_THIS_TURN.matchEntire(line)?.let { m ->
+            val per = ManaCost.parse(m.groupValues[1]) ?: return@let
+            return mh2SelfStatic(Mechanic.CostChange(ObjectFilter.Is(Objects.Self), arcanum.api.CostChange.Less(per,
+                Value.EventsThisTurn(EventPattern.Cast(ObjectFilter.Not(ObjectFilter.Is(Objects.Self)), PlayerFilter.Any), arcanum.api.Measure.Events))))
+        }
+        // mh2 chunk 10: "Thrasta has hexproof as long as it entered this turn."
+        Mh2.HAS_AS_LONG_AS_IT_ENTERED_THIS_TURN.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            val keyword = OracleParser.keyword(m.groupValues[2].replaceFirstChar { it.uppercase() }) ?: return@let
+            return Ability.Static(listOf(Mechanic.GainAbilities(listOf(keyword))), affects = Affected.Objects(Objects.Self),
+                condition = arcanum.api.Condition.ObjectMatches(Objects.Self, ObjectFilter.ThisTurn(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), to = Zone.Battlefield))))
+        }
         // mh2 chunk 09: "Squirrels you control get +1/+1 for each acorn counter on this artifact." (layer 7c)
         Mh2.GET_PT_FOR_EACH_COUNTER_ON_SELF.matchEntire(line)?.takeIf { isSelf(it.groupValues[5]) }?.let { m ->
             val objects = Filters.objects(m.groupValues[1].replaceFirstChar { it.lowercase() }.let { p -> p.substringBefore(' ').removeSuffix("s") + " " + p.substringAfter(' ') })
@@ -21225,8 +21237,9 @@ internal class Sentences(
                 Step.Do(Effect.Move(Objects.Bound("found"), Destination(Zone.Hand))),
                 Step.Do(Effect.Move(Objects.Bound("rest"), Destination(Zone.Library, libraryPosition = -1, randomOrder = true))))
         }
-        // mh2 chunk 08: "You may discard a card. When you do, [effect]" (a reflexive trigger, CR 603.12; "the discarded card" is the card discarded)
-        Mh2.MAY_DISCARD_WHEN_YOU_DO.matchEntire(text)?.let { m ->
+        // mh2 chunk 08: "You may discard a card. When you do, [effect]" when the effect reads the discarded card (directly or by an X "where X is"
+        // defines from it): a reflexive trigger, CR 603.12
+        Mh2.MAY_DISCARD_WHEN_YOU_DO.matchEntire(text)?.takeIf { it.groupValues[1].contains("the discarded card") || it.groupValues[1].contains(" X ") }?.let { m ->
             val reflexive = instructions(m.groupValues[1].replaceFirstChar { it.uppercase() }) ?: return null
             return listOf(Step.Pay(Cost(listOf(CostPart.Discard(CostObjects.Choose(ObjectFilter.Category(arcanum.api.ObjectCategory.Card), count = Value.Fixed(1)),
                 preBind = "discarded"))), payer = Players.You, bind = "paid"),
@@ -21474,6 +21487,21 @@ internal class Sentences(
         if (Mh2.PREVENT_ALL_COMBAT_DAMAGE_THIS_TURN.matches(sentence))
             return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.Prevention(EventPattern.Damage(ObjectFilter.Any, arcanum.api.RecipientFilter(), combat = true))),
                 null, arcanum.api.Duration.EndOfTurn)))
+        // mh2 chunk 10: "Target player creates two tapped 1/1 green Squirrel creature tokens."
+        Mh2.TARGET_PLAYER_CREATES_TOKENS.matchEntire(sentence)?.let { m ->
+            val count = Numbers.count(m.groupValues[1]) ?: (if (m.groupValues[1] == "a" || m.groupValues[1] == "an") 1 else return@let)
+            val created = effect("Create a ${m.groupValues[3].removeSuffix("s")}.", context) ?: return@let
+            val create = (created.singleOrNull() as? Step.Do)?.effect as? Effect.CreateToken ?: return@let
+            val name = mh2NewSlotName(context, "player")
+            context.targets += TargetSlot(name, TargetKind.Players(PlayerFilter.Any), min = Value.Fixed(1), max = Value.Fixed(1))
+            return listOf(Step.Do(create.copy(count = Value.Fixed(count), controller = Players.Target(name), tapped = m.groupValues[2].isNotEmpty())))
+        }
+        // mh2 chunk 10: "Counter target loyalty ability of a planeswalker." (CR 606)
+        if (Mh2.COUNTER_TARGET_LOYALTY_ABILITY.matches(sentence)) {
+            val name = mh2NewSlotName(context, "ability")
+            context.targets += mh2Slot(name, ObjectFilter.AbilityOf(kind = arcanum.api.AbilityKind.Loyalty))
+            return listOf(Step.Do(Effect.Counter(Objects.Target(name))))
+        }
         // mh2 chunk 04: "Put enchanted creature into its owner's library third from the top." (CR 401.4: from 0 at the top)
         Mh2.PUT_INTO_OWNERS_LIBRARY_NTH_FROM_TOP.matchEntire(sentence)?.let { m ->
             val objects = if (m.groupValues[1] == "enchanted creature") Objects.AttachedTo(Objects.Self) else mh2Objects(m.groupValues[1], context) ?: return@let

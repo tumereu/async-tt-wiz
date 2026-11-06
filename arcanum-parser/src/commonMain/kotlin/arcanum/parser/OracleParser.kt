@@ -526,6 +526,8 @@ object OracleParser {
     fun keyword(part: String): Keyword? {
         // mh2 chunk 02: "Vanishing" without a number (CR 702.63b), read as 0
         if (part == "Vanishing") return Keyword.Vanishing(0)
+        // mh2 chunk 10: "Reinforce X—{X}{G}{G}" (CR 702.77a)
+        if (part.startsWith("Reinforce X—")) return Keyword.ReinforceX(Cost.mana(ManaCost.parse(part.removePrefix("Reinforce X—")) ?: return null))
         // tdm chunk 12: "hexproof from monocolored" (CR 702.11d)
         Tdm.HEXPROOF_FROM.matchEntire(part)?.let { m ->
             return Keyword.HexproofFrom(when (m.groupValues[1]) {

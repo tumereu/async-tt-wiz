@@ -58,6 +58,8 @@ internal sealed class KeywordSyntax(val text: String) {
             none(Keyword.Cascade),
             none(Keyword.Rebound),
             none(Keyword.UmbraArmor),
+            // mh2 chunk 10
+            none(Keyword.TrampleOverPlaneswalkers),
             none(Keyword.Infect),
             none(Keyword.BattleCry),
             none(Keyword.LivingWeapon),

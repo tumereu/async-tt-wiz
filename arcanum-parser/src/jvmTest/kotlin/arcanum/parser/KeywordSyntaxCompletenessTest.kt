@@ -13,7 +13,9 @@ class KeywordSyntaxCompletenessTest {
         // blb: read by their own rules (a gift's kind, a Class's level section)
         "Gift", "ClassLevel",
         // tla: "Firebending X, where X is …" is read by its own rule
-        "FirebendingX")
+        "FirebendingX",
+        // mh2: "Reinforce X—{X}{G}{G}" is read by its own rule
+        "ReinforceX")
 
     @Test
     fun parserReadsEveryKeywordTypeExactlyOnce() {

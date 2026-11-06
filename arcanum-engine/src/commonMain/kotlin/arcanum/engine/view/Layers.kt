@@ -217,6 +217,9 @@ internal class ContinuousEffect(
     val effect: EffectId?,
 ) {
     fun mechanicsIn(layer: Layer) = mechanics.withIndex().filter { Layers.layerOf(it.value, cda) == layer }
+
+    /** Everything it is made of, for [Layers.checkShortcuts]'s comparisons. */
+    fun parts() = listOf(key, timestamp, cda, mechanics, you, self, names, affects, locked, condition, holder, instance, effect)
 }
 
 /** What applying an effect would do in one layer: whether it exists, what it applies to, and to each what. */
@@ -263,6 +266,11 @@ internal class LayerRun(private val state: GameState, private val traced: Set<Ob
     private var initial: Map<ObjectId, Characteristics> = emptyMap()
     private val copiable = Copiable(state, reads)
     private val started = LinkedHashMap<String, Started>()
+    private val withCounters: List<arcanum.engine.state.GameObject> by lazy { state.objects.values.filter { it.counters.isNotEmpty() } }
+    /** The suspected permanents, not phased out (spm), in the battlefield's order. */
+    private val suspected: List<ObjectId> by lazy {
+        state.battlefield.filter { id -> state.obj(id)?.let { !it.phasedOut && arcanum.api.ObjectMark.Suspected in it.marks } == true }
+    }
 
     fun run(): View {
         arcanum.engine.Engine.layersWorkedOut?.invoke()
@@ -436,7 +444,6 @@ internal class LayerRun(private val state: GameState, private val traced: Set<Ob
     /** [Layers.checkShortcuts]: the effects gathered for [layer] earlier are those gathered now. */
     private fun checkGathered(kept: List<ContinuousEffect>, board: WorkBoard, layer: Layer) {
         val read = board.powerToughnessRead
-        fun ContinuousEffect.parts() = listOf(key, timestamp, cda, mechanics, you, self, names, affects, locked, condition, holder, instance, effect)
         val now = gather(board, layer)
         board.powerToughnessRead = read
         check(kept.map { it.parts() }.toSet() == now.map { it.parts() }.toSet()) { "The effects kept for $layer differ from the board's" }
@@ -465,12 +472,30 @@ internal class LayerRun(private val state: GameState, private val traced: Set<Ob
         return found.values.toList()
     }
 
+    /** [staticEffects] of each object, with the characteristics (by identity) they were found from in this run: an
+     * object's effects change only with its own characteristics or controller, as its [Partial] does. */
+    private val staticsOf = HashMap<ObjectId, Pair<Partial, List<ContinuousEffect>>>()
+
     /** Static abilities of objects where they function (CR 113.6), not phased out (CR 702.26b). */
     private fun staticEffects(board: WorkBoard): List<ContinuousEffect> = board.work.flatMap { (id, partial) ->
-        val o = state.obj(id) ?: return@flatMap emptyList()
-        if (o.phasedOut) return@flatMap emptyList()
+        // Most objects have no static ability: nothing to look up for them
+        if (partial.chars.abilities.none { it.ability is Ability.Static }) return@flatMap emptyList()
+        staticsOf[id]?.let { (from, effects) ->
+            if (from === partial) {
+                if (Layers.checkShortcuts) check(effects.map { it.parts() } == staticEffects(board, id, partial).map { it.parts() }) {
+                    "The static effects kept for $id differ from the board's"
+                }
+                return@flatMap effects
+            }
+        }
+        staticEffects(board, id, partial).also { staticsOf[id] = partial to it }
+    }
+
+    private fun staticEffects(board: WorkBoard, id: ObjectId, partial: Partial): List<ContinuousEffect> {
+        val o = state.obj(id) ?: return emptyList()
+        if (o.phasedOut) return emptyList()
         val you = board.controller(id) ?: o.owner
-        partial.chars.abilities.mapNotNull { instance ->
+        return partial.chars.abilities.mapNotNull { instance ->
             val ability = instance.ability as? Ability.Static ?: return@mapNotNull null
             // blb gaps 2: emblems' abilities work in the command zone (CR 114.4), static ones too
             if (o.zone != Zone.Command && o.zone !in Functioning.zones(ability, partial.chars.isInstantOrSorcery())) return@mapNotNull null
@@ -500,7 +525,7 @@ internal class LayerRun(private val state: GameState, private val traced: Set<Ob
     /** spm: a suspected permanent has menace (CR 701.60c), whatever its abilities: not from an ability, so "loses all abilities"
      * before it doesn't remove it; its "can't block" is a rule ([collect]). */
     private fun suspectedEffects(board: WorkBoard, layer: Layer): List<ContinuousEffect> = if (layer != Layer.Ability) emptyList() else
-        state.battlefield.filter { id -> id in board.work && state.obj(id)?.let { !it.phasedOut && arcanum.api.ObjectMark.Suspected in it.marks } == true }.map { id ->
+        suspected.filter { id -> id in board.work }.map { id ->
             val o = state.obj(id)!!
             ContinuousEffect(
                 key = "suspected:$id", timestamp = o.timestamp, cda = false, mechanics = listOf(Mechanic.GainAbilities(listOf(Keyword.Menace))),
@@ -509,9 +534,11 @@ internal class LayerRun(private val state: GameState, private val traced: Set<Ob
             )
         }
 
-    private fun counterEffects(board: WorkBoard, layer: Layer): List<ContinuousEffect> = board.work.keys.flatMap { id ->
-        val o = state.obj(id) ?: return@flatMap emptyList()
-        if (o.phasedOut) return@flatMap emptyList()
+    // The objects with counters, in the board's order (the work's keys are the state's objects in order, then the copies
+    // of spells on the Stack, which have no counters); only they are looked at
+    private fun counterEffects(board: WorkBoard, layer: Layer): List<ContinuousEffect> = withCounters.flatMap { o ->
+        val id = o.id
+        if (id !in board.work || o.phasedOut) return@flatMap emptyList()
         o.counters.mapNotNull { entry ->
             val mechanic = when (val kind = entry.kind) {
                 is CounterKind.PowerToughness -> if (layer == Layer.PowerToughnessModify && o.zone == Zone.Battlefield) {

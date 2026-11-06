@@ -160,6 +160,7 @@ class EndTurnBenchmark {
         recording.dump(file)
         recording.close()
         val leaves = HashMap<String, Int>()
+        val owners = HashMap<String, Int>()
         var flight = 0
         for (event in jdk.jfr.consumer.RecordingFile.readAllEvents(file)) {
             if (event.eventType.name != "jdk.ExecutionSample") continue
@@ -167,10 +168,17 @@ class EndTurnBenchmark {
             val frames = event.stackTrace?.frames ?: continue
             flight++
             frames.firstOrNull()?.let { f -> leaves.merge(f.method.type.name.substringAfterLast('.') + "." + f.method.name, 1, Int::plus) }
+            // The first two of the engine's or the app's own methods, from the top: who the library time is spent for
+            // (ids' equality and the state's object lookup are everyone's: their callers are named instead)
+            frames.filter { val t = it.method.type.name; (t.startsWith("arcanum.") || t.startsWith("org.asyncttwiz.")) &&
+                t != "arcanum.engine.state.CardId" && !t.startsWith("arcanum.engine.state.ObjectId") && it.method.name != "obj" }.take(2)
+                .joinToString(" < ") { f -> f.method.type.name.substringAfterLast('.') + "." + f.method.name + ":" + f.lineNumber }
+                .takeIf { it.isNotEmpty() }?.let { owners.merge(it, 1, Int::plus) }
         }
         java.nio.file.Files.deleteIfExists(file)
         println("BENCH flight recorder ${board.name} $name: $flight samples, top frames")
         leaves.entries.sortedByDescending { it.value }.take(40).forEach { (k, v) -> println("BENCH   top %5.1f%% %s".format(100.0 * v / flight.coerceAtLeast(1), k)) }
+        owners.entries.sortedByDescending { it.value }.take(40).forEach { (k, v) -> println("BENCH   own %5.1f%% %s".format(100.0 * v / flight.coerceAtLeast(1), k)) }
         val own = { e: StackTraceElement -> e.className.startsWith("arcanum.") || e.className.startsWith("org.asyncttwiz.") }
         fun key(e: StackTraceElement) = e.className.substringAfterLast('.').substringBefore('$') + "." + e.methodName.substringBefore('$')
         val inclusive = HashMap<String, Int>()

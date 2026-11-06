@@ -10,11 +10,11 @@ Changes the owner wants but that are not built yet. The feature catalog
 
 ## Build order (owner, 2026-11-05: one implementor at a time, small items batched, full suites after each batch)
 
-Next: End turn engine speed.
+Next: nothing queued.
 
 ## Ready to build
 
-- End turn engine speed (owner, 2026-11-06): End turn takes ~660–700 ms on the owner's phone, ~490–540 ms of it in the engine (report KWKB3Y, "Own action what=endTurn"). Profile End turn and step passes on a realistic board (JVM benchmark/profiler; desktop numbers relative), find the biggest costs (e.g. recomputing layers at every step) and take the easy gains, keeping behaviour identical (all arcanum/protocol suites green); report before/after numbers. R5 (precomputing passes while idle) stays a later option, not now.
+(none)
 
 ## Ready after the e2e framework (owner playtest, 2026-11-05)
 

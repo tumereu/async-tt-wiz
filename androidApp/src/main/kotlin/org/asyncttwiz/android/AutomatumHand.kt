@@ -287,9 +287,16 @@ internal fun WayChip(chip: CastWayChip, chosen: Boolean, tap: () -> Unit, hold: 
         }.chipGestures(tap, hold)) {
         // Owner playtest 2026-11-05 evening: a long name wraps onto more rows instead of being cut
         Row(Modifier.heightIn(min = 32.dp).padding(horizontal = 10.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-            CardText(chip.name, Modifier.weight(1f, fill = false).widthIn(max = CHIP_TEXT_WIDTH), color = if (chip.affordable || chosen) ink else Color(0xff59656a),
-                style = TextStyle(fontSize = 12.sp, lineHeight = 15.sp, fontWeight = FontWeight.Bold))
-            chip.cost?.let { Spacer(Modifier.width(4.dp)); CardText(it, Modifier.widthIn(max = CHIP_COST_WIDTH), style = TextStyle(fontSize = 13.sp, lineHeight = 16.sp)) }
+            val text = chip.text
+            // A plain "cost: effect" ability from the hand reads as on the card, cost first (owner playtest 2026-11-06)
+            if (chip.input is arcanum.engine.input.Input.Activate && chip.name == "Activate" && text != null && ": " in text) {
+                val (effect, cost) = abilityParts(text)
+                AbilityChipText(effect, cost, if (chip.affordable || chosen) ink else Color(0xff59656a))
+            } else {
+                CardText(chip.name, Modifier.weight(1f, fill = false).widthIn(max = CHIP_TEXT_WIDTH), color = if (chip.affordable || chosen) ink else Color(0xff59656a),
+                    style = TextStyle(fontSize = 12.sp, lineHeight = 15.sp, fontWeight = FontWeight.Bold))
+                chip.cost?.let { Spacer(Modifier.width(4.dp)); CardText(it, Modifier.widthIn(max = CHIP_COST_WIDTH), style = TextStyle(fontSize = 13.sp, lineHeight = 16.sp)) }
+            }
         }
     }
 }

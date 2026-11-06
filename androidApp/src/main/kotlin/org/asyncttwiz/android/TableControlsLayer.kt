@@ -11,7 +11,7 @@ import androidx.compose.ui.semantics.*
 import androidx.compose.ui.unit.dp
 import org.asyncttwiz.protocol.*
 
-/** The screen-fixed controls: quick actions and Undo, the live timeline or review panel and transient errors. Inline,
+/** The screen-fixed controls: quick actions and Undo, or the timeline panel, and transient errors. Inline,
  * so it stays part of TableSurface's own recomposition scope. */
 @Composable
 internal inline fun BoxWithConstraintsScope.TableControlsLayer(game: GameSummary, play: TableBoard, accountId: String, landscape: Boolean,
@@ -37,13 +37,9 @@ internal inline fun BoxWithConstraintsScope.TableControlsLayer(game: GameSummary
         }
     }
     if (runtime.bottomPanel != null) runtime.bottomPanel.invoke(playControls)
-    else {
-        if (!runtime.reviewing) Box(Modifier.align(if (landscape) Alignment.BottomStart else Alignment.BottomCenter)
-            .padding(bottom = if (landscape) 4.dp else TableControlsHeight.dp)
-            .fillMaxWidth(if (landscape) .5f else 1f).height(TableTimelineHeight.dp)) { runtime.liveTimeline?.invoke() }
-        if (!runtime.reviewing) Box(Modifier.align(if (landscape) Alignment.BottomEnd else Alignment.BottomCenter)
-            .fillMaxWidth(if (landscape) .5f else 1f)) { playControls() }
-    }
+    // HIS-001: no event strip in play mode
+    else if (!runtime.reviewing) Box(Modifier.align(if (landscape) Alignment.BottomEnd else Alignment.BottomCenter)
+        .fillMaxWidth(if (landscape) .5f else 1f)) { playControls() }
     FloatingTransientError(runtime.errorMessage ?: toolkit?.error ?: gestureError(),
         { if (runtime.errorMessage != null) runtime.dismissError?.invoke() else if (toolkit?.error != null) toolkit.dismissError() else clearGestureError() },
         // Above the own hand row, clear of the own life square, hand and quick actions

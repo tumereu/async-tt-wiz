@@ -157,6 +157,13 @@ internal fun E2ePlayer.tapTable() { node(hasContentDescription("$name Battlefiel
 /** Whether the table has timeline mode's look (HIS-008: grey bars, the dimmed board's "Timeline mode" label). */
 internal fun E2ePlayer.showsTimelineLook(): Boolean = showsText("Timeline mode")
 
+/** HIS-004: enters timeline mode the only way there is, Table actions → Timeline. */
+internal fun E2ePlayer.openTimeline(e2e: E2e) {
+    tap("Table actions")
+    e2e.waitUntil("${name}'s table actions") { showsText("Timeline") }
+    text("Timeline").performClick()
+}
+
 /** Plays (or casts) the hand card [name]: a tap raises it, a tap on the raised card plays it (ZON-079). */
 internal fun E2ePlayer.playFromHand(name: String, e2e: E2e) {
     handCard(name).performClick()

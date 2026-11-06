@@ -1,0 +1,1 @@
+fix: A pinned card inspection in landscape keeps the lines about what changed on each card on the screen, wrapping them if needed.

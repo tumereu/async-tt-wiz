@@ -24,6 +24,7 @@ class CatalogIncrementalTest {
     @TempDir lateinit var temporary: Path
     private val directory get() = temporary.resolve("catalog").toFile()
     private fun repo() = CatalogRepository(directory) { JdbcSqliteDriver("jdbc:sqlite:${it.absolutePath}") }
+    private fun tokenPrintings() = repo().snapshot { it!!.rows("SELECT * FROM printing WHERE token=1 ORDER BY normalized, id", emptyList()) }
     private fun root() = JsonParser.parseString(File(System.getProperty("catalog.fixtures"), "prism/v1/AllPrintings.json").readText()).asJsonObject
     private fun gzip(text: String) = ByteArrayOutputStream().apply { GZIPOutputStream(this).use { it.write(text.toByteArray()) } }.toByteArray()
     private val today = LocalDate.parse("2026-10-25")
@@ -192,7 +193,7 @@ class CatalogIncrementalTest {
             assertEquals(originalGeneration, repo().tokenGeneration())
             assertEquals(originalSets, repo().installedSets())
             assertTrue(DeckImportResolver(repo()).resolve("1 Velvet Prism Engine").resolved)
-            val tokensBefore = repo().searchTokens("").tokens
+            val tokensBefore = tokenPrintings()
             val events = mutableListOf<CatalogProgress>()
             val installed = installer.install(plan, progress = events::add)
             assertEquals(installed, repo().metadata())
@@ -203,7 +204,7 @@ class CatalogIncrementalTest {
             originalSets.filter { it.code != "ZPA" }.forEach { old -> assertEquals(old, repo().installedSets().single { it.code == old.code }) }
             assertTrue(repo().installedSets().single { it.code == "ZPA" }.installedAt >= originalSets.single { it.code == "ZPA" }.installedAt)
             assertEquals(hash(files["/ZPA.json.gz"]!!), repo().installedSets().single { it.code == "ZPA" }.checksum)
-            assertEquals(tokensBefore.filter { it.printing.set != "ZPA" }.map { it.printing.id }, repo().searchTokens("").tokens.map { it.printing.id })
+            assertEquals(tokensBefore.filter { it.set != "ZPA" }.map { it.id }, tokenPrintings().filter { it.set != "ZPA" }.map { it.id })
             assertEquals(CatalogPhase.FINISHING, events.last().phase)
             // One bar for the whole update: totals cover every set and progress never restarts per set.
             val downloadTotal = files["/ZPA.json.gz"]!!.size.toLong() + files["/CON_.json.gz"]!!.size

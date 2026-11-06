@@ -182,6 +182,44 @@ object ServerSetup {
         return Prepared(a, b, invitation, mapOf(a to aDeck, b to bDeck), starter, deal)
     }
 
+    /** The five basic lands a device supplies with a pod deck (LOB-052, DRF-104): invented cards of the basic land types. */
+    val basics: List<SubmittedDefinition> = BasicLand.entries.map { land ->
+        val face = DefinitionFace(UUID.nameUUIDFromBytes("e2e/basic/${land.cardName}".encodeToByteArray()).toString(), land.cardName,
+            typeLine = "Basic Land — ${land.cardName}")
+        CardDefinition(land.cardName, listOf(face)).let { SubmittedDefinition(DeckJson.digest(it), it) }
+    }
+
+    /**
+     * A pod game of [a] (the pod's creator, who challenges) and [b] from a finished draft of [draftingPod]: each picks the
+     * first card of every pack, adds [mainPlains] Plains to Main (an unlimited sideboard: 17 of each basic in Side, DRF-104)
+     * and submits; [a] challenges [b], who accepts. Returns the game, in its lobby (decks prepared from the pod decks).
+     */
+    fun podGame(a: TestAccount, b: TestAccount, name: String, mainPlains: Int = 40): GameSummary = runBlocking {
+        fun id() = UUID.randomUUID().toString()
+        val pod = draftingPod(a, b, "$name pod")
+        // As the app does, the basics' card data goes up before the pod deck and the challenge that name them
+        DeckApi(origin).use { api -> for (who in listOf(a, b)) api.submit(who.token, SubmitDefinitions(id(), basics)) }
+        org.asyncttwiz.android.PodApi(origin).use { api ->
+            var picks = 0
+            while (api.detail(a.token, pod).phase != PodPhase.DRAFTED) {
+                check(picks++ < 50) { "the draft didn't finish" }
+                for (who in listOf(a, b)) {
+                    val detail = api.detail(who.token, pod)
+                    val pack = detail.draft?.head ?: continue
+                    api.pick(who.token, pod, PickPod(id(), detail.draftAttemptId!!, pack.id, listOf(pack.cards.first().id)))
+                }
+            }
+            for (who in listOf(a, b)) {
+                val attempt = api.detail(who.token, pod).draftAttemptId!!
+                api.basics(who.token, pod, SetPodBasics(id(), attempt, PodDeckBasics(plains = mainPlains)))
+                api.submit(who.token, pod, SubmitPodDeck(id(), attempt, basics))
+            }
+        }
+        val invitation = LobbyApi(origin).use { it.challengeFromPod(a.token, pod, ChallengeFromPod(id(), b.id, name, basics)) }
+        Socket(b).use { recipient -> recipient.execute(invitation, recipient.open(invitation), GameAction.AcceptInvitation) }
+        invitation
+    }
+
     /** The game as the server holds it now, as [account] reads it (its engine snapshot: the main line's head, each
      * player's local head). */
     fun head(account: TestAccount, gameId: String): GameHead = Socket(account).use { it.head(gameId) }

@@ -114,7 +114,11 @@ class InspectChangesUiTest {
         compose.runOnIdle { swipe.moved(-200f, 0f); assertTrue(swipe.released()) }
         compose.waitForIdle()
         compose.onNodeWithContentDescription("Close inspection").assertIsDisplayed()
+        // TBL-131: pinned, the changes narrow and wrap to stay on the screen
+        val screen = compose.onRoot().getBoundsInRoot()
+        for (index in 0 until 2) changes()[index].getBoundsInRoot().let { assertTrue(it.right <= screen.right, "on the screen: $it") }
         captureShot("$SCREENSHOTS/inspect/changes-landscape-pinned.png", "Landscape Inspect pinned by a drag to the left: " +
-            "the same cards and changes, a little smaller under a round close button at the top right.")
+            "the same cards, a little smaller under a round close button at the top right, their changes in narrower panels " +
+            "whose lines wrap so that all of them stay on the screen.")
     }
 }

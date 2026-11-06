@@ -36,7 +36,9 @@ fun AccountEntry(controller: AuthController, reset: ResetController, catalog: Ca
     deckImport: DeckImportController? = null, decks: DeckLibraryController? = null, lobby: LobbyController? = null,
     cubes: CubeController? = null, exit: () -> Unit = {}, pods: PodController? = null,
     /** False while What's new is pending: visible catalog dialogs wait; background checks do not. */
-    catalogPrompts: Boolean = true) {
+    catalogPrompts: Boolean = true,
+    /** Told whether the game table is shown, which keeps the navigation bar hidden (SYS-079). */
+    tableShown: (Boolean) -> Unit = {}) {
     val state = controller.state
     val context = androidx.compose.ui.platform.LocalContext.current
     val avatarMemory = remember { AvatarPromptMemory(context) }
@@ -48,6 +50,7 @@ fun AccountEntry(controller: AuthController, reset: ResetController, catalog: Ca
     val landscape = LocalConfiguration.current.screenWidthDp > LocalConfiguration.current.screenHeightDp
     val tabletop = state.account != null && state.destination == ShellDestination.GAMES && lobby?.state?.selected != null &&
         lobby?.state?.detail?.lifecycle == org.asyncttwiz.protocol.GameLifecycle.ACTIVE
+    SideEffect { tableShown(tabletop) }
     val theme: @Composable (@Composable () -> Unit) -> Unit = { content ->
         if (tabletop) MaterialTheme(content = content) else ScreenTheme(content)
     }

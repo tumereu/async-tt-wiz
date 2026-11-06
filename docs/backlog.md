@@ -10,16 +10,11 @@ Changes the owner wants but that are not built yet. The feature catalog
 
 ## Build order (owner, 2026-11-05: one implementor at a time, small items batched, full suites after each batch)
 
-2026-11-06 (owner: delegate the whole batch; at most two workers build at once, WSL memory): worker 1 = combat band, touch feedback, tap anywhere to watch, fewer waits; worker 2 = inspect shows changes, Automatum panels, ability inspect; worker 3 (after the first of them merges) = catalog finishing step, prepare deck basics, navigation keys, ability text and tap symbol, cast panel title, no timeline strip; worker 1 follow-up after its merge = damage division panel.
+(none)
 
 ## Ready to build
 
-- Catalog import's last step (owner, 2026-11-06): rename "Finishing up — verifying catalog…" (it mostly builds search data, it verifies little) and speed it up: drop the token name search (no caller since hand-made tokens went, TBL-119) and build token choices only for what still uses them (dungeons). The card search index stays. Emulator smoke 2026-11-04: the step took 341 s / 843 s, token search + avatar choices ~176 s / ~586 s of it. No entry change beyond the label's test.
-- Prepare deck basics (owner playtest, 2026-11-06): remove the basic land −/+ steppers; basics are just cards, moved between Main and Side like any card (a limited-sideboard pod uses the basics added while building). Changes LOB-052, DRF-124, LOB-049.
-- Navigation keys (owner playtest, 2026-11-06): on a phone that uses button navigation, the navigation bar (back, home, recents) shows on every screen except the game, which keeps hiding it (a swipe shows it); gesture navigation unchanged; the status bar stays hidden. New entry (SYS).
-- Ability text and tap symbol (owner playtest, 2026-11-06): abilities read cost first, then effect, as on a card ("{2}{G}, {T}: Draw a card") in chips, menu rows, the cast panel's ability line and hold texts; {T} is drawn as a turning-arrow icon instead of a "T" badge, {Q} as the same arrow mirrored. Changes TBL-124, ZON-080 and entries quoting ability texts.
-- Cast panel title (owner playtest, 2026-11-06): "Cast <card>", "Play <land>", "Activate <source>" (e.g. "Cast Storm Spark", "Activate Ember Herald") instead of "Cast a spell" / "Play a land" / "Activate an ability"; other choice panels keep unnamed titles ("Scry 2"). Changes STK-023, STK-044 (the cast panel names its card).
-- No timeline strip (owner playtest, 2026-11-06): the bottom bar has no event strip in live play or playback, its room goes to the board; timeline mode opens from Table actions → Timeline only (tapping an event for its text goes with the strip); timeline mode itself unchanged. Changes HIS-001, HIS-002, HIS-003, HIS-004 and entries naming the strip (HIS-058, HIS-091, HIS-101, HIS-094, TRN-010 …).
+(none)
 
 ## Ready after the e2e framework (owner playtest, 2026-11-05)
 

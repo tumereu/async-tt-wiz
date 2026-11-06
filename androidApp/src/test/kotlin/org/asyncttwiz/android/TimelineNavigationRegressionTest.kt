@@ -21,14 +21,14 @@ class TimelineNavigationRegressionTest {
         repeat(4) { compose.runOnIdle { f.worker.drain() }; compose.waitForIdle() }
     }
 
-    /** Opens the table and enters timeline mode from the strip's history button. */
+    /** Opens the table and enters timeline mode from Table actions → Timeline (HIS-004). */
     private fun review(f: EngineLobbyFixture) {
         f.connect()
         f.keep()
         compose.setContent { MaterialTheme { TableScreen(f.lobby, f.me, {}, false) } }
         drain(f)
-        compose.onAllNodesWithContentDescription("Timeline mode").onFirst()
-            .performSemanticsAction(SemanticsActions.OnClick) { assertTrue(it()) }
+        compose.onNodeWithContentDescription("Table actions").performClick()
+        compose.onNodeWithText("Timeline").assertIsEnabled().performClick()
         drain(f)
         compose.onNodeWithContentDescription("Return to current").assertExists()
     }

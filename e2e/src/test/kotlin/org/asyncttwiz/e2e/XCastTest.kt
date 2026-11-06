@@ -31,6 +31,7 @@ class XCastTest : E2e() {
         waitUntil("the Mountain on the battlefield", along = listOf(bob)) { alice.field("Mountain").isNotEmpty() && alice.inOwnMain() }
         alice.playFromHand("Ember Burst", this)
         waitUntil("Alice's cast panel with X at 0") { alice.shows(hasContentDescription("Cast panel")) && alice.shows(hasContentDescription("Value 0")) }
+        assertTrue(alice.shows(hasText("Cast Ember Burst") and isHeading()), "the panel's title names the card (STK-023)")
         assertTrue(alice.shows(hasContentDescription("One less") and isNotEnabled()), "X at its least")
         alice.tap("One more")
         waitUntil("X at 1") { alice.shows(hasContentDescription("Value 1")) }

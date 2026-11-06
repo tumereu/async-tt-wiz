@@ -56,7 +56,8 @@ object PreparationRules {
     fun capture(current: LobbyPreparation, actor: String, definition: String, section: SavedDeckSection,
         all: Boolean): PreparedTransfer? {
         val deck = current.players.find { it.accountId == actor }?.deck ?: return null
-        val entries = deck.entries.filter { it.definition == definition && it.section == section && it.suppliedBasic == null }
+        // A pod game's supplied basics are cards like any other here (DRF-124).
+        val entries = deck.entries.filter { it.definition == definition && it.section == section }
         if (entries.isEmpty()) return null
         return PreparedTransfer(current.gameId, current.roundId, deck.id, deck.selectionRequestId, section,
             if (all) entries.toList() else listOf(entries.first().copy(quantity = 1)))
@@ -77,7 +78,6 @@ object PreparationRules {
         val entry = deck.entries.find { index >= GameWire.ordinal(it.firstIndex) &&
             index - GameWire.ordinal(it.firstIndex) < it.quantity } ?: return reject("copyUnavailable")
         if (entry.section != action.source) return reject("sourceSectionChanged")
-        if (entry.suppliedBasic != null) return reject("useBasicStepper")
         val captured = PreparedTransfer(game.id, current.roundId, deck.id, deck.selectionRequestId, action.source,
             listOf(entry.copy(firstIndex = index.toString(), quantity = 1)))
         return PreparationChange(previewTransfer(current, actor, captured))
@@ -96,7 +96,7 @@ object PreparationRules {
                     entries = entries.flatMap { entry ->
                         val first = GameWire.ordinal(entry.firstIndex); val last = first + entry.quantity
                         val low = maxOf(first, start); val high = minOf(last, end)
-                        if (entry.suppliedBasic != null || entry.section != captured.source || entry.definition != range.definition || low >= high) listOf(entry)
+                        if (entry.section != captured.source || entry.definition != range.definition || low >= high) listOf(entry)
                         else {
                             moved = true
                             buildList {

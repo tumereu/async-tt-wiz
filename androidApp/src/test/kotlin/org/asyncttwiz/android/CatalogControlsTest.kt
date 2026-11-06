@@ -36,7 +36,7 @@ class CatalogControlsTest {
         val progress = CatalogProgress(CatalogPhase.FINISHING, 450, 450)
         compose.setContent { ScreenTheme { CatalogProgressBar(progress) } }
         compose.onAllNodes(hasProgressBarRangeInfo(ProgressBarRangeInfo.Indeterminate)).assertCountEquals(1)
-        assertEquals("Finishing up — verifying catalog…", progress.label())
+        assertEquals("Finishing up — preparing card search…", progress.label())
     }
 
     // LOB-091

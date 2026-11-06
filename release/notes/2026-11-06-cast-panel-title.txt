@@ -1,0 +1,1 @@
+mod: The cast panel's title names the card, such as "Cast Storm Spark", "Play Mountain" or "Activate Ember Herald".

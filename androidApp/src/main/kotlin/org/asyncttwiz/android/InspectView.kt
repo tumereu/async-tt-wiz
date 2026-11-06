@@ -43,6 +43,7 @@ import androidx.compose.ui.semantics.paneTitle
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.IntOffset
@@ -142,10 +143,11 @@ internal fun InspectContent(groups: List<InspectGroup>, scroll: ScrollState, swi
         if (landscape) Row(content.padding(top = buttonRoom).widthIn(max = room.width).horizontalScroll(scroll),
             horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
             val cardsRoom = DpSize(room.width, room.height - buttonRoom)
+            val changesWidth = if (pinned) pinnedChangesWidth(groups, cardsRoom, room.width) else SIDE_CHANGES_WIDTH
             groups.forEachIndexed { index, group ->
                 key(group.key) {
                     if (index > 0) GroupSeparator(Modifier.padding(horizontal = 4.dp).width(1.dp).height(cardsRoom.height * .7f))
-                    LandscapeGroup(group, cardsRoom, pinned)
+                    LandscapeGroup(group, cardsRoom, changesWidth, pinned)
                 }
             }
         } else Column(content.heightIn(max = room.height).verticalScroll(scroll).padding(top = buttonRoom),
@@ -176,6 +178,23 @@ private const val PINNED_CARD_SHARE = .56f
 
 /** In landscape a card's changes sit beside it, this wide. */
 private val SIDE_CHANGES_WIDTH = 220.dp
+/** Pinned landscape Inspect narrows the changes down to this, wrapping their lines, to keep them on the screen. */
+private val MIN_SIDE_CHANGES_WIDTH = 120.dp
+
+/**
+ * Pinned landscape Inspect: how wide each card's changes may be so that the row of [groups] fits [width] (TBL-131: the
+ * lines wrap rather than run off the screen); never wider than [SIDE_CHANGES_WIDTH] or narrower than
+ * [MIN_SIDE_CHANGES_WIDTH] (then the row scrolls).
+ */
+internal fun pinnedChangesWidth(groups: List<InspectGroup>, room: DpSize, width: Dp): Dp {
+    val panels = groups.count { it.changes.isNotEmpty() }
+    if (panels == 0) return SIDE_CHANGES_WIDTH
+    val gap = 8.dp
+    // The pictures and the gaps between everything in the row (a separator is 1 dp with 4 dp on each side)
+    val fixed = groups.fold(0.dp) { total, group -> total + group.tiles.fold(0.dp) { sum, tile -> sum + inspectTileSize(tile, room).width } +
+        gap * (group.tiles.size - 1 + if (group.changes.isNotEmpty()) 1 else 0) } + (gap * 2 + 9.dp) * (groups.size - 1)
+    return ((width - fixed) / panels).coerceIn(MIN_SIDE_CHANGES_WIDTH, SIDE_CHANGES_WIDTH)
+}
 
 /**
  * A card in portrait Inspect: its pictures, then its changes under them. At [progress] of the pinned swipe the pictures
@@ -203,12 +222,12 @@ private fun PortraitGroup(group: InspectGroup, room: DpSize, progress: Float, pi
     }
 }
 
-/** A card in landscape Inspect: its pictures side by side, its changes beside them. */
+/** A card in landscape Inspect: its pictures side by side, its changes beside them, [changesWidth] wide. */
 @Composable
-private fun LandscapeGroup(group: InspectGroup, room: DpSize, pinned: Boolean) {
+private fun LandscapeGroup(group: InspectGroup, room: DpSize, changesWidth: Dp, pinned: Boolean) {
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
         group.tiles.forEach { tile -> key(tile.key) { InspectTileView(tile, room, fit = true) } }
-        if (group.changes.isNotEmpty()) ChangesPanel(group.changes, pinned, Modifier.align(Alignment.Top).width(SIDE_CHANGES_WIDTH))
+        if (group.changes.isNotEmpty()) ChangesPanel(group.changes, pinned, Modifier.align(Alignment.Top).width(changesWidth))
     }
 }
 

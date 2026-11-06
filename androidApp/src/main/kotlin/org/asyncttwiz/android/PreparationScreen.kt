@@ -47,17 +47,11 @@ internal fun PreparationScreen(controller: LobbyController, actor: String, lands
     val preparation = state.preparation ?: return
     val deck = preparation.players.find { it.accountId == actor }?.deck ?: return
     val connected = state.detail?.id in state.connectedGames
-    val pending = state.detail?.id in state.pendingGames
     val undo = controller.preparationUndoStep()
     val definitions = remember(preparation.definitions) { preparation.definitions.associate { it.digest to it.definition } }
     val sections = SavedDeckSection.PREPARED.map { source ->
         val opposite = if (source == SavedDeckSection.MAINBOARD) SavedDeckSection.SIDEBOARD else SavedDeckSection.MAINBOARD
-        PreparationSection(source, opposite, deck.count(source), preparationGroups(deck, source, definitions),
-            basics = if (preparation.podRules == null) null else ({
-                PodBasicSteppers(PodGamePreparation.basics(deck, source), connected && !pending,
-                    deck.entries.sumOf { it.quantity.toLong() } < DeckValidation.MAX_CARDS,
-                    if (source == SavedDeckSection.SIDEBOARD) source.label() else null) { land, delta -> controller.changePodBasic(land, delta, source) }
-            }))
+        PreparationSection(source, opposite, deck.count(source), preparationGroups(deck, source, definitions))
     }
     PreparationLayout(state.ownPodDeckName ?: "Prepare deck", "preparation", DeckViewScreen.PREPARATION, connected,
         state.transferFeedback, sections, object : PreparationMoves {
@@ -66,12 +60,12 @@ internal fun PreparationScreen(controller: LobbyController, actor: String, lands
             override fun move(digest: String, source: SavedDeckSection, all: Boolean) =
                 controller.captureTransfer(digest, source, all)?.let(controller::transfer) == true
         }, undo = if (undo == null) null else ({ controller.undoPreparation() }),
-        undoEnabled = connected && (undo !is PreparationStep.Basics || !pending), navigation = hamburger)
+        undoEnabled = connected, navigation = hamburger)
 }
 
-/** One section of a preparation screen: its cards, the section a swipe moves them to and optional basic land steppers. */
+/** One section of a preparation screen: its cards and the section a swipe moves them to. */
 internal class PreparationSection(val source: SavedDeckSection, val opposite: SavedDeckSection, val count: Long,
-    val groups: List<PreparationGroup>, val basics: (@Composable () -> Unit)? = null)
+    val groups: List<PreparationGroup>)
 
 /** What a preparation card does: [capture] the one-copy move a swipe commits on release, [move] one or all copies
  * across from the menu. */
@@ -121,7 +115,7 @@ internal fun PreparationLayout(title: String, tag: String, columnsScreen: DeckVi
             for (section in sections.orEmpty()) {
                 val source = section.source
                 val title = source.label()
-                visualDeckSection(source, section.count, section.groups, columns.count, basics = section.basics) { tile ->
+                visualDeckSection(source, section.count, section.groups, columns.count) { tile ->
                     val key = "$source/${tile.digest}"
                     PreparationCard(tile, key, "$tag-card-$key", title, section.opposite, connected, menus,
                         { moves.capture(tile.digest, source) }, { all -> moves.move(tile.digest, source, all) },
@@ -161,10 +155,10 @@ internal fun PreparationLayout(title: String, tag: String, columnsScreen: DeckVi
 }
 
 /** One section of the visual deck shared by game preparation, saved-deck and saved-cube viewing: a coloured "Mainboard · 60"
- * [header] (a cube has no sections) with an optional [headerAction] at its right end, optional [basics] steppers, then type
+ * [header] (a cube has no sections) with an optional [headerAction] at its right end, then type
  * groups of card tiles [columns] wide drawn by [tile]. */
 internal fun LazyListScope.visualDeckSection(source: SavedDeckSection, count: Long, groups: List<PreparationGroup>, columns: Int,
-    basics: (@Composable () -> Unit)? = null, header: Boolean = true, headerAction: (@Composable () -> Unit)? = null,
+    header: Boolean = true, headerAction: (@Composable () -> Unit)? = null,
     tile: @Composable (PreparationTile) -> Unit) {
     val title = source.label()
     val color = source.preparationColor()
@@ -180,10 +174,6 @@ internal fun LazyListScope.visualDeckSection(source: SavedDeckSection, count: Lo
                 headerAction()
             }
         }
-    }
-    if (basics != null) item("basics-$source") {
-        Box(Modifier.animateItem(fadeInSpec = null, fadeOutSpec = null, placementSpec = tween(180))
-            .padding(horizontal = PreparationGutter - 4.dp, vertical = 4.dp)) { basics() }
     }
     if (groups.isEmpty() && count == 0L) item("empty-$source") {
         Text("Empty", Modifier.padding(horizontal = PreparationGutter, vertical = 12.dp),
@@ -335,21 +325,3 @@ internal fun SwipeDeckCard(tile: PreparationTile, key: String, tag: String, titl
 
 private fun SavedDeckSection.label() = sectionLabel()
 
-@Composable
-internal fun PodBasicSteppers(basics: PodDeckBasics, enabled: Boolean, canAdd: Boolean,
-    section: String? = null, change: (BasicLand, Int) -> Boolean) {
-    Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-        for (land in BasicLand.entries) Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Center) {
-            val count = land.count(basics)
-            Text(when (land) {
-                BasicLand.PLAINS -> "W"; BasicLand.ISLAND -> "U"; BasicLand.SWAMP -> "B"
-                BasicLand.MOUNTAIN -> "R"; BasicLand.FOREST -> "G"
-            }, fontSize = 11.sp, modifier = Modifier.semantics { contentDescription = land.cardName })
-            PodSmallButton("Remove ${land.cardName}${section?.let { " from $it" }.orEmpty()}", "−", enabled && count > 0, width = 22.dp) { change(land, -1) }
-            Text(count.toString(), Modifier.weight(1f).semantics { contentDescription = "${land.cardName}${section?.let { " in $it" }.orEmpty()} count: $count" },
-                fontSize = 11.sp, maxLines = 1, textAlign = TextAlign.Center, overflow = TextOverflow.Ellipsis)
-            PodSmallButton("Add ${land.cardName}${section?.let { " to $it" }.orEmpty()}", "+", enabled && canAdd, width = 22.dp) { change(land, 1) }
-        }
-    }
-}

@@ -29,7 +29,7 @@ import org.asyncttwiz.protocol.game.GameDevice
 /**
  * The table of a game (every game is played on engine state, I-D56): the same table
  * surface, panels and controls as today's, drawn from the engine's state ([EngineGame.play]) and acting through the device
- * core ([EngineTableRoutes]), with the async play panels ([EngineAsyncHost]); the strip and timeline mode show the main
+ * core ([EngineTableRoutes]), with the async play panels ([EngineAsyncHost]); timeline mode shows the main
  * line up to the viewer's local head, view-only ([EngineTimeline], HIS-001–HIS-019), the change flashes and the event
  * chip come from the shown events ([EngineGame.Transition], HIS-031, HIS-075).
  */
@@ -195,14 +195,11 @@ internal fun EngineTableScreen(controller: LobbyController, accountId: String, h
                         },
                         history = if (timeline.isNotEmpty() && !takingBack) ({ routes.enterReview(timeline.last().id) }) else null,
                         returnCurrent = if (reviewPlay != null) ({ routes.leaveReview() }) else null,
-                        liveTimeline = if (timeline.isEmpty()) null else ({
-                            EngineStrip(timeline, accountId, landscape) { if (!takingBack) routes.enterReview(timeline.last().id) }
-                        }),
                         bottomPanel = when {
                             reviewPlay != null && timeline.isNotEmpty() -> ({ _ ->
                                 EngineReviewPanel(routes, timeline, accountId, landscape, playbackPause) { playbackSettingsOpen = true }
                             })
-                            rewindingBranch -> ({ _ -> EngineRewindPanel(timeline, accountId, landscape) })
+                            rewindingBranch -> ({ _ -> EngineRewindPanel(landscape) })
                             else -> null
                         },
                         centreAction = if (reviewPlay == null && (catchUp || pausedStop) && watchTappedAt != shown.version)
@@ -226,19 +223,6 @@ internal fun EngineTableScreen(controller: LobbyController, accountId: String, h
             Box(Modifier.fillMaxSize()) {
                 ChatPanel(controller, accountId, Modifier.align(Alignment.CenterEnd).fillMaxWidth(if (landscape) .5f else 1f))
             }
-        }
-    }
-}
-
-/** HIS-001–HIS-004 on engine state: the read-only strip of the events shown to the viewer, newest centred, with the
- * history button that enters timeline mode at its end. */
-@Composable
-internal fun EngineStrip(events: List<HistoryTimelineEvent>, viewer: String, landscape: Boolean, onEnter: () -> Unit) {
-    Box(Modifier.fillMaxWidth().height(TableTimelineHeight.dp)) {
-        HistoryTimeline(events, events.last().id, viewer, {}, {}, Modifier.fillMaxWidth(), readOnly = true)
-        IconButton(onClick = onEnter, modifier = Modifier.align(Alignment.CenterEnd).background(TimelineBarColor)
-            .size(if (landscape) 36.dp else 40.dp)) {
-            Icon(Icons.Outlined.History, contentDescription = "Timeline mode")
         }
     }
 }
@@ -277,11 +261,11 @@ internal fun EngineReviewPanel(routes: EngineTableRoutes, events: List<HistoryTi
         }
     }
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
-        if (landscape) Row(Modifier.fillMaxWidth().height(tableBottomHeight(true).dp).background(TimelineBarColor),
+        if (landscape) Row(Modifier.fillMaxWidth().height(tableBottomHeight(true, timeline = true).dp).background(TimelineBarColor),
             verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.weight(1f).height(TableTimelineHeight.dp)) { strip() }
             Box(Modifier.weight(1f).height(TableControlsHeight.dp)) { transport() }
-        } else Column(Modifier.fillMaxWidth().height(tableBottomHeight(false).dp).background(TimelineBarColor)) {
+        } else Column(Modifier.fillMaxWidth().height(tableBottomHeight(false, timeline = true).dp).background(TimelineBarColor)) {
             Box(Modifier.height(TableTimelineHeight.dp)) { strip() }
             Box(Modifier.fillMaxWidth().height(TableControlsHeight.dp)) { transport() }
         }
@@ -289,18 +273,14 @@ internal fun EngineReviewPanel(routes: EngineTableRoutes, events: List<HistoryTi
 }
 
 /**
- * HIS-106: while a branch's take-back goes back to the branch point, the bottom bar has timeline mode's grey look with the
- * strip of the events shown, which doesn't open timeline mode.
+ * HIS-106: while a branch's take-back goes back to the branch point, the bottom bar has timeline mode's grey look, at play
+ * mode's height and without the controls (no event strip, HIS-001).
  */
 @Composable
-internal fun EngineRewindPanel(events: List<HistoryTimelineEvent>, viewer: String, landscape: Boolean) {
+internal fun EngineRewindPanel(landscape: Boolean) {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
         Box(Modifier.fillMaxWidth(if (landscape) .5f else 1f).height(tableBottomHeight(landscape).dp).background(TimelineBarColor)
-            .testTag("rewind-panel"), contentAlignment = Alignment.TopCenter) {
-            if (events.isNotEmpty()) Box(Modifier.fillMaxWidth().height(TableTimelineHeight.dp)) {
-                HistoryTimeline(events, events.last().id, viewer, {}, {}, Modifier.fillMaxWidth(), readOnly = true)
-            }
-        }
+            .testTag("rewind-panel"))
     }
 }
 

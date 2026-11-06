@@ -54,7 +54,7 @@ class HoldPausesPlaybackTest : E2e() {
         if (stop.paused) assertTrue(bob.showsWatch(), "the centre text back at a stop the pause made")
 
         // Timeline mode: back a few events, Auto on, then a hold stops it
-        bob.described("Timeline mode").performClick()
+        bob.openTimeline(this)
         waitUntil("Bob in timeline mode") { bob.showsTimelineLook() && bob.showsControl("Previous") }
         repeat(4) { bob.tap("Previous"); run() }
         bob.tap("Auto advance")

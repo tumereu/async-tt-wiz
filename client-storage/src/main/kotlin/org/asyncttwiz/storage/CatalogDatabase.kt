@@ -24,18 +24,13 @@ data class CatalogPrinting(val id: String, val name: String, val set: String, va
     val language: String, val side: String, val scryfallId: String?, val token: Boolean,
     val otherFaces: List<String>, val json: String, val releaseDate: String = "")
 
-/** A page retains every exact face on one installed generation; no later per-face lookup is needed. */
-data class CatalogToken(val printing: CatalogPrinting, val faces: List<CatalogPrinting>)
-data class CatalogTokenCursor(val generation: String, val query: String, val normalized: String, val id: String)
-data class CatalogTokenPage(val generation: String, val metadata: CatalogMetadata,
-    val tokens: List<CatalogToken>, val next: CatalogTokenCursor?)
 class CatalogNotInstalledException : IllegalStateException("Card records are not installed. Download card records, then retry.")
 class CatalogGenerationChangedException : IllegalStateException("Card records changed. Search again.")
 
 /** Public, replaceable catalog only. Never opens or edits the account/accepted-replica database. */
 class CatalogRepository(private val directory: File, private val openDriver: (File) -> SqlDriver) {
     init { check(directory.isDirectory || directory.mkdirs()) }
-    // Token search and deck import may use separate repository objects for the same public DB.
+    // Workers (deck import, card search, dungeons) may use separate repository objects for the same public DB.
     // Publication/reclamation must share their read lock, not just this object's monitor.
     private val lock = locks.computeIfAbsent(directory.canonicalPath) { Any() }
     private val tokenCache = tokenCaches.computeIfAbsent(directory.canonicalPath) { TokenCache() }
@@ -103,7 +98,6 @@ class CatalogRepository(private val directory: File, private val openDriver: (Fi
     fun prepareTokens() = synchronized(lock) {
         val file = activeFile() ?: return@synchronized
         CatalogIndex(openDriver(file)).use { index ->
-            index.prepareTokenSearch()
             if (!index.hasTokenChoices()) {
                 index.transaction { index.rebuildTokenChoices(index.metadata()) }
                 tokenCache.list = null
@@ -111,38 +105,13 @@ class CatalogRepository(private val directory: File, private val openDriver: (Fi
         }
     }
 
-    /** Loads a prepared table once per generation; never builds provider data on demand. */
+    /** Loads a prepared table once per generation; never builds provider data on demand. Holds the dungeons only
+     * (their one use left, [dungeonDefinitions]); a generation installed before that may hold every token. */
     fun loadTokens(): CatalogTokenList = synchronized(lock) {
         val file = activeFile() ?: throw CatalogNotInstalledException()
         tokenCache.list?.takeIf { it.generation == file.name } ?: CatalogIndex(openDriver(file)).use { index ->
             if (!index.hasTokenChoices()) throw CatalogTokensNotReadyException()
             CatalogTokenList(file.name, index.tokenChoices()).also { tokenCache.list = it }
-        }
-    }
-
-    /** Provider-printing search for import tooling, not the Create token dialog. Preparation is worker-only. */
-    fun searchTokens(query: String, cursor: CatalogTokenCursor? = null, limit: Int = 40): CatalogTokenPage = synchronized(lock) {
-        require(limit in 1..100)
-        val normalized = query.trim().lowercase(Locale.ROOT)
-        require(normalized.length <= 512) { "Search is too long." }
-        val file = activeFile() ?: throw CatalogNotInstalledException()
-        if (cursor != null) {
-            if (cursor.generation != file.name) throw CatalogGenerationChangedException()
-            require(cursor.query == normalized) { "Page belongs to a different search." }
-        }
-        return CatalogIndex(openDriver(file)).use { index ->
-            val found = index.searchTokens(normalized, cursor, limit + 1)
-            val visible = found.take(limit)
-            val tokens = visible.map { printing ->
-                val faces = (printing.otherFaces + printing.id).distinct().map { id ->
-                    checkNotNull(index.printing(id)) { "Token face is unavailable." }
-                }.sortedWith(compareBy<CatalogPrinting> { it.side }.thenBy { it.id })
-                CatalogToken(printing, faces)
-            }
-            val last = visible.lastOrNull()
-            CatalogTokenPage(file.name, index.metadata(), tokens,
-                if (found.size > limit && last != null) CatalogTokenCursor(file.name, normalized,
-                    last.name.lowercase(Locale.ROOT), last.id) else null)
         }
     }
 
@@ -178,9 +147,9 @@ class CatalogRepository(private val directory: File, private val openDriver: (Fi
                 var completed = result
                 index.transaction {
                     val records = index.validate()
-                    index.prepareTokenSearch()
-                    index.prepareAvatarChoices(rebuild = true)
-                    index.rebuildCardSearch()
+                    index.dropTokenSearch()
+                    index.createAvatarChoices()
+                    index.rebuildCardSearch(onPrinting = index::offerAvatarChoice)
                     completed = result.copy(records = records)
                     tokenChoices = index.rebuildTokenChoices(completed)
                     index.finish(completed)
@@ -270,10 +239,6 @@ class CatalogIndex internal constructor(driver: SqlDriver) : app.cash.sqldelight
         val ids = "SELECT id FROM printing WHERE set_code=?"
         sql("DELETE FROM import_name WHERE printing_id IN ($ids)", listOf(code))
         sql("DELETE FROM face WHERE source IN ($ids)", listOf(code))
-        if (long("SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE name='token_search')") != 0L) {
-            sql("DELETE FROM token_search WHERE printing_id IN ($ids)", listOf(code))
-            sql("DELETE FROM token_search_ready")
-        }
         if (hasTokenRelations()) sql("DELETE FROM token_relation WHERE token IN ($ids) OR source IN ($ids)", listOf(code, code))
         sql("DELETE FROM printing WHERE set_code=?", listOf(code))
         sql("DELETE FROM catalog_set WHERE code=?", listOf(code))
@@ -374,7 +339,8 @@ class CatalogIndex internal constructor(driver: SqlDriver) : app.cash.sqldelight
             long("SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE name='token_choice_ready')") != 0L &&
             long("SELECT count(*) FROM token_choice_ready WHERE version=2") == 1L
 
-    /** Rebuilt on the unpublished generation, in the transaction that commits its metadata. */
+    /** Rebuilt on the unpublished generation, in the transaction that commits its metadata: the dungeons only (CR 309;
+     * token records in card data), the one use left of the token choices. */
     internal fun rebuildTokenChoices(meta: CatalogMetadata): List<CatalogTokenChoice> {
         sql("DROP TABLE IF EXISTS token_choice")
         sql("CREATE TABLE token_choice (gameplay_key TEXT NOT NULL PRIMARY KEY, identity TEXT NOT NULL, name TEXT NOT NULL, detail TEXT NOT NULL, search_names TEXT NOT NULL, definition_json TEXT NOT NULL, digest TEXT NOT NULL)")
@@ -385,18 +351,21 @@ class CatalogIndex internal constructor(driver: SqlDriver) : app.cash.sqldelight
         var afterId = ""
         while (true) {
             check(!Thread.currentThread().isInterrupted)
-            val batch = rows("SELECT * FROM printing WHERE token=1 AND (normalized,id) > (?,?) ORDER BY normalized,id LIMIT 256", listOf(afterName, afterId))
+            // A coarse prefilter on the retained record; the faces' type lines decide.
+            val batch = rows("SELECT * FROM printing WHERE token=1 AND (normalized,id) > (?,?) AND json LIKE '%Dungeon%' ORDER BY normalized,id LIMIT 256", listOf(afterName, afterId))
             if (batch.isEmpty()) break
             for (printing in batch) {
                 val faces = (printing.otherFaces + printing.id).distinct().map { checkNotNull(printing(it)) }
                     .sortedWith(compareBy<CatalogPrinting> { it.side }.thenBy { it.id })
-                if (printing.id != faces.first().id) continue
+                // A dungeon on a back face is reached from that face; the card is still read from its front.
+                val front = faces.first()
                 val definition = ResolvedDeckEntry(DeckSection.MAINBOARD, 1, faces, emptyList()).definition(meta)
+                if (definition.faces.none { it.typeLine.removePrefix("Token ").startsWith("Dungeon") }) continue
                 val submitted = SubmittedDefinition(DeckJson.digest(definition), definition)
                 if (!TokenLinkRules.validDefinition(submitted)) continue
                 val candidate = Candidate(CatalogTokenChoice.from(submitted), definition.faces.any {
                     !it.scryfallId.isNullOrBlank() || !it.imageUri.isNullOrBlank()
-                }, printing.releaseDate, printing.id)
+                }, front.releaseDate, front.id)
                 val key = tokenGameplayIdentity(definition)
                 val previous = distinct[key]
                 if (previous == null || compareValuesBy(candidate, previous, { it.artwork }, { it.release }, { it.id }) > 0) distinct[key] = candidate
@@ -454,23 +423,33 @@ class CatalogIndex internal constructor(driver: SqlDriver) : app.cash.sqldelight
             names, enrich = false).mapNotNull { it.avatarChoice(true) }
     }
 
-    /** Backfills existing installations once; refreshes rebuild on the unpublished generation. */
-    internal fun prepareAvatarChoices(rebuild: Boolean = false) = transaction {
-        if (rebuild) sql("DROP TABLE IF EXISTS avatar_choice")
+    /** Backfills an installation from before the table once; finishing builds it during the card search pass. */
+    internal fun prepareAvatarChoices() = transaction {
         if (long("SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE name='avatar_choice')") != 0L) return@transaction
-        sql("CREATE TABLE avatar_choice (normalized TEXT NOT NULL PRIMARY KEY, printing_id TEXT NOT NULL)")
+        createAvatarChoices()
         var after = ""
         while (true) {
             check(!Thread.currentThread().isInterrupted)
-            // This is only a coarse prefilter; eligibility uses the retained type line, not rules text.
             val batch = rows("SELECT * FROM printing WHERE id>? AND token=0 AND scryfall IS NOT NULL AND json LIKE '%Legendary%' AND (json LIKE '%Creature%' OR json LIKE '%Planeswalker%') ORDER BY id LIMIT 256",
                 listOf(after), enrich = false)
             if (batch.isEmpty()) break
-            batch.filter { it.avatarChoice(true) != null }.forEach {
-                sql("INSERT OR IGNORE INTO avatar_choice VALUES (?, ?)", listOf(it.name.lowercase(Locale.ROOT), it.id))
-            }
+            batch.forEach(::offerAvatarChoice)
             after = batch.last().id
         }
+    }
+
+    /** An empty table of random avatar choices, one printing per card name. */
+    internal fun createAvatarChoices() {
+        sql("DROP TABLE IF EXISTS avatar_choice")
+        sql("CREATE TABLE avatar_choice (normalized TEXT NOT NULL PRIMARY KEY, printing_id TEXT NOT NULL)")
+    }
+
+    /** Adds [printing] to the avatar choices when eligible; the first eligible printing of a name stays. */
+    internal fun offerAvatarChoice(printing: CatalogPrinting) {
+        // A cheap prefilter before parsing; eligibility uses the retained type line, not rules text.
+        if (printing.token || printing.scryfallId == null || "Legendary" !in printing.json) return
+        if (printing.avatarChoice(true) == null) return
+        sql("INSERT OR IGNORE INTO avatar_choice VALUES (?, ?)", listOf(printing.name.lowercase(Locale.ROOT), printing.id))
     }
     fun find(name: String, set: String?, number: String?, limit: Int, afterId: String? = null): List<CatalogPrinting> {
         require(limit in 1..1000)
@@ -517,54 +496,10 @@ class CatalogIndex internal constructor(driver: SqlDriver) : app.cash.sqldelight
         }, 0).value
     }
 
-    /** Only the separate public generation is extended. A crash rolls back both postings and ready marker.
-     * Backfill reads bounded batches, not an in-memory catalog; old printing/face/metadata rows stay intact.
-     */
-    internal fun prepareTokenSearch() = transaction {
-        sql("CREATE TABLE IF NOT EXISTS token_search_ready (version INTEGER NOT NULL PRIMARY KEY)")
-        if (long("SELECT count(*) FROM token_search_ready WHERE version=1") == 0L) {
-            sql("CREATE INDEX IF NOT EXISTS token_name_lookup ON printing(token, normalized, id)")
-            sql("CREATE TABLE IF NOT EXISTS token_search (gram TEXT NOT NULL, normalized TEXT NOT NULL, printing_id TEXT NOT NULL, PRIMARY KEY(gram, normalized, printing_id))")
-            var afterName = ""
-            var afterId = ""
-            while (true) {
-                check(!Thread.currentThread().isInterrupted)
-                val batch = rows("SELECT * FROM printing WHERE token=1 AND (normalized, id) > (?, ?) ORDER BY normalized, id LIMIT 256",
-                    listOf(afterName, afterId))
-                if (batch.isEmpty()) break
-                batch.forEach { record ->
-                    val name = record.name.lowercase(Locale.ROOT)
-                    val grams = (1..minOf(3, name.length)).flatMap { size -> name.windowed(size) }.toSet()
-                    grams.forEach { gram -> sql("INSERT OR IGNORE INTO token_search VALUES (?, ?, ?)", listOf(gram, name, record.id)) }
-                }
-                val last = batch.last()
-                afterName = last.name.lowercase(Locale.ROOT)
-                afterId = last.id
-            }
-            sql("INSERT INTO token_search_ready VALUES (1)")
-        }
-    }
-
-    internal fun searchTokens(query: String, cursor: CatalogTokenCursor?, limit: Int): List<CatalogPrinting> {
-        val args = mutableListOf<String>()
-        val from: String
-        var where: String
-        if (query.isEmpty()) {
-            from = "printing p INDEXED BY token_name_lookup"
-            where = "p.token=1"
-        } else {
-            // One/two-character searches also use postings. '%'/'_' are literal, never LIKE wildcards.
-            from = "token_search s JOIN printing p ON p.id=s.printing_id"
-            where = "s.gram=? AND instr(p.normalized, ?) > 0"
-            args += query.take(3); args += query
-        }
-        val prefix = if (query.isEmpty()) "p" else "s"
-        val id = if (query.isEmpty()) "id" else "printing_id"
-        if (cursor != null) {
-            where += " AND ($prefix.normalized, $prefix.$id) > (?, ?)"
-            args += cursor.normalized; args += cursor.id
-        }
-        return rows("SELECT p.* FROM $from WHERE $where ORDER BY $prefix.normalized, $prefix.$id LIMIT $limit", args)
+    /** The token name search went with hand-made tokens; a generation copied for an update may still hold its tables. */
+    internal fun dropTokenSearch() {
+        sql("DROP TABLE IF EXISTS token_search")
+        sql("DROP TABLE IF EXISTS token_search_ready")
     }
 
     internal fun rows(query: String, args: List<String>, enrich: Boolean = true): List<CatalogPrinting> = driver.executeQuery(null, query, { cursor ->

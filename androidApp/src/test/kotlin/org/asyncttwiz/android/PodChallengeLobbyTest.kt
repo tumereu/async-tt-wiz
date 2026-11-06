@@ -148,8 +148,8 @@ class PodChallengeLobbyTest {
         assertTrue(f.calls.isEmpty()); assertNull(f.controller.state.selected)
     }
 
-    // DRF-124, LOB-052
-    @Test fun basicsUseServerCommandOwnReadyClearsAndSavedPickerIsUnavailable() = Fixture().use { f ->
+    // DRF-124, LOB-052: a supplied basic moves like any card; the own Ready clears; the saved picker is unavailable
+    @Test fun basicsMoveAsOrdinaryTransfersOwnReadyClearsAndSavedPickerIsUnavailable() = Fixture().use { f ->
         f.challenge()
         val selection = id()
         val deck = PreparedDeck(id(), pod, "1", "Limited pod", null, selection,
@@ -159,21 +159,21 @@ class PodChallengeLobbyTest {
             PlayerPreparation(b.accountId, true, deck.copy(id = id()))), definitions, podRules = PodGameRules(1))
         f.head(preparation)
         f.controller.chooseDeck(); assertNull(f.controller.state.picker)
-        assertFalse(f.controller.changePodBasic(BasicLand.FOREST, -1))
-        assertTrue(f.controller.changePodBasic(BasicLand.PLAINS, -1))
+        assertNull(f.controller.captureTransfer(definitions[4].digest, SavedDeckSection.MAINBOARD, false))
+        assertTrue(f.controller.transfer(f.controller.captureTransfer(definitions[0].digest, SavedDeckSection.MAINBOARD, false)!!))
         val command = f.wire.frames.filterIsInstance<GameCommand>().single()
-        assertIs<GameAction.SetPodGameBasics>(command.action); assertTrue(GameWire.valid(command))
-        assertEquals(39, (command.action as GameAction.SetPodGameBasics).basics.plains)
+        assertIs<GameAction.TransferPreparedCard>(command.action); assertTrue(GameWire.valid(command))
+        assertEquals(39, PodGamePreparation.basics(f.controller.state.preparation!!.players[0].deck!!).plains)
+        assertEquals(1, PodGamePreparation.basics(f.controller.state.preparation!!.players[0].deck!!, SavedDeckSection.SIDEBOARD).plains)
         assertEquals(preparation, f.controller.state.acceptedPreparation)
         assertFalse(f.controller.state.preparation!!.players[0].ready); assertTrue(f.controller.state.preparation!!.players[1].ready)
         assertTrue(readyReason(f.controller.state.preparation, a.accountId)!!.contains("40"))
-        f.wire.listener.message(GameResult(command.requestId, command.scope, "rejected", "invalidBasics", "1"))
+        f.wire.listener.message(GameResult(command.requestId, command.scope, "rejected", "copyUnavailable", "1"))
         assertEquals(preparation, f.controller.state.preparation)
-        f.wire.listener.disconnected(); assertFalse(f.controller.changePodBasic(BasicLand.ISLAND, 1))
     }
 
     // LOB-049
-    @Test fun sideBasicsAndTransfersUndoAsOrdinaryInverseRequestsUntilTheRoundChanges() = Fixture().use { f ->
+    @Test fun basicAndOtherTransfersUndoAsOrdinaryInverseRequestsUntilTheRoundChanges() = Fixture().use { f ->
         f.challenge()
         val card = CardDefinition("Pool card", listOf(DefinitionFace(id(), "Pool card")))
         val pool = SubmittedDefinition(DeckJson.digest(card), card)
@@ -184,21 +184,21 @@ class PodChallengeLobbyTest {
             PlayerPreparation(b.accountId, deck = deck.copy(id = id()))), definitions + pool, podRules = PodGameRules())
         f.head(preparation)
         assertNull(f.controller.preparationUndoStep())
-        assertTrue(f.controller.changePodBasic(BasicLand.ISLAND, 1, SavedDeckSection.SIDEBOARD))
+        val basic = f.controller.captureTransfer(definitions[0].digest, SavedDeckSection.MAINBOARD, false)!!
+        assertTrue(f.controller.transfer(basic))
         val side = f.wire.frames.filterIsInstance<GameCommand>().single()
-        assertEquals(SavedDeckSection.SIDEBOARD, (side.action as GameAction.SetPodGameBasics).section)
-        assertEquals(PodDeckBasics(island = 1), (side.action as GameAction.SetPodGameBasics).basics)
-        assertEquals(PreparationStep.Basics(SavedDeckSection.SIDEBOARD, PodDeckBasics()), f.controller.preparationUndoStep())
-        f.wire.listener.message(GameResult(side.requestId, side.scope, "rejected", "invalidBasics", "1"))
+        assertEquals(PreparationStep.Moved(basic), f.controller.preparationUndoStep())
+        f.wire.listener.message(GameResult(side.requestId, side.scope, "rejected", "copyUnavailable", "1"))
         assertTrue(f.controller.undoPreparation()); assertNull(f.controller.preparationUndoStep())
-        val undone = f.wire.frames.filterIsInstance<GameCommand>().last().action as GameAction.SetPodGameBasics
-        assertEquals(SavedDeckSection.SIDEBOARD, undone.section); assertEquals(PodDeckBasics(), undone.basics)
-        f.wire.listener.message(GameResult(f.wire.frames.filterIsInstance<GameCommand>().last().requestId, side.scope, "rejected", "invalidBasics", "1"))
+        val undone = f.wire.frames.filterIsInstance<GameCommand>().last().action as GameAction.TransferPreparedCard
+        assertEquals(SavedDeckSection.SIDEBOARD, undone.source)
+        assertEquals((side.action as GameAction.TransferPreparedCard).cardId, undone.cardId)
+        f.wire.listener.message(GameResult(f.wire.frames.filterIsInstance<GameCommand>().last().requestId, side.scope, "rejected", "copyUnavailable", "1"))
         val captured = f.controller.captureTransfer(pool.digest, SavedDeckSection.MAINBOARD, false)!!
         assertTrue(f.controller.transfer(captured))
         assertEquals(PreparationStep.Moved(captured), f.controller.preparationUndoStep())
         assertTrue(f.controller.undoPreparation()); assertNull(f.controller.preparationUndoStep())
-        val back = f.wire.frames.filterIsInstance<GameCommand>().map { it.action }.filterIsInstance<GameAction.TransferPreparedCard>()
+        val back = f.wire.frames.filterIsInstance<GameCommand>().map { it.action }.filterIsInstance<GameAction.TransferPreparedCard>().takeLast(2)
         assertEquals(listOf(SavedDeckSection.MAINBOARD, SavedDeckSection.SIDEBOARD), back.map { it.source }.distinct())
         assertEquals(1, back.map { it.cardId }.distinct().size) // The same copy goes back.
     }

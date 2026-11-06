@@ -188,7 +188,7 @@ Cubes, pods of 2–8 players drafting asynchronously, the pick and grid screens,
 - **DRF-121** The Games tab lists members as "deck submitted" or "building" and, once yours is submitted, a crossed-swords Challenge button beside every other member, then this pod's games. (r24)
 - **DRF-122** Challenging a member who is still building is allowed: they see the invitation at once and can decline it, but can accept only after submitting; you can prepare and get Ready meanwhile. (r30)
 - **DRF-123** A challenge is a normal game invitation; incoming ones are answered in place in the Games tab. Any two members may play any number of games. (r30)
-- **DRF-124** In a pod game's lobby each deck is fixed to its pod deck (no saved-deck choice); Main and Side each get basic land steppers; Ready checks 40 Main cards and the sideboard limit. (r23)
+- **DRF-124** In a pod game's lobby each deck is fixed to its pod deck (no saved-deck choice); its basics move between Main and Side like other cards (LOB-052); Ready checks 40 Main cards and the sideboard limit. (r55)
 - **DRF-125** A pod deck's name is shown only to its owner unless they switch on "Show deck name & art" for that game. (r31)
 
 ### Notifications

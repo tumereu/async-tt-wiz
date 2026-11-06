@@ -183,10 +183,11 @@ internal fun ChoiceSource(card: ChoiceCardData, inspector: ChoiceInspector, modi
  */
 @Composable
 internal fun ChoiceHead(title: String, source: ChoiceCardData?, inspector: ChoiceInspector,
-    trailing: @Composable RowScope.() -> Unit = {}, below: @Composable ColumnScope.() -> Unit = {}) {
+    trailing: @Composable RowScope.() -> Unit = {}, titleLines: Int = Int.MAX_VALUE, below: @Composable ColumnScope.() -> Unit = {}) {
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(title, Modifier.semantics { heading() }, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+            Text(title, Modifier.semantics { heading() }, fontWeight = FontWeight.Bold, fontSize = 15.sp, maxLines = titleLines,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
             below()
         }
         trailing()

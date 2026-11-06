@@ -69,10 +69,10 @@ Everything outside the game table: accounts, profile, navigation, game list, gam
 
 - **LOB-047** "Prepare deck" opens one scrolling page with green Mainboard · N and blue Sideboard · N headers, cards as pictures grouped by type in the shared order (SYS-051; empty groups left out, cards sorted by name) and ×N badges for copies. A deck's Maybe cards are not shown there and never reach a game. (r35)
 - **LOB-048** Swipe a card sideways (20 dp) to move one copy to the other section; hold to inspect it; tap for "Move one to…" and "Move all N to…". (r52)
-- **LOB-049** A round floating Undo button at the bottom left, shown only when there is something to undo, takes back moved cards and basic land changes one at a time. (r23)
+- **LOB-049** A round floating Undo button at the bottom left, shown only when there is something to undo, takes back moved cards one at a time. (r55)
 - **LOB-050** A short fading line under the title says what you last moved ("2× Opt → Sideboard"); while disconnected it reads "Disconnected · preparation is read-only". (r21)
 - **LOB-051** The prepare screen and saved deck view have a columns control (1–10, 3 by default), remembered per screen, device and orientation. (r31)
-- **LOB-052** In pod games each section has basic land −/+ steppers (W U B R G); Ready is blocked with a reason if Main has fewer than 40 cards including basics or Side is over the pod's sideboard limit. (r23)
+- **LOB-052** In pod games the basic lands are cards like any other: the ones added while building (and an unlimited sideboard's Side basics, DRF-104) show as tiles and move between Main and Side as other cards do (no basic land steppers); Ready is blocked with a reason if Main has fewer than 40 cards including basics or Side is over the pod's sideboard limit. (r55)
 - **LOB-053** Lobby deck changes never change the saved deck, and saved deck edits or deletion never change a deck already chosen in a lobby or game. (r1)
 
 ### Deck library
@@ -160,7 +160,7 @@ Everything outside the game table: accounts, profile, navigation, game list, gam
 - **LOB-091** On first launch, before sign-in, "Download card records?" explains the app needs the card catalog, shows the size and metered/unmetered connection, and offers only Exit or Download. Sign-in works while it downloads, with a progress bar at the top. A failed check or download is tried once more by itself before the error shows. (r17, r50)
 - **LOB-092** Automatic updates only fetch new sets and sets released in the last 60 days, and only on unmetered connections; on a metered one the app asks first ("Update card records?" with Not now). (r9)
 - **LOB-093** Settings → Card records shows the installed date and record count, progress while working, "Check for updates" and "Refresh full catalog" (confirm dialog; the only way to re-download everything). (r9)
-- **LOB-094** Progress reads "Downloading card records: x / y MB" (KB for small updates), "Indexing card records: x / y MB processed · N cards", then "Finishing up — verifying catalog…"; the bar shows real progress where the size is known and moves without a fixed position while finishing or when the total is unknown. (r30)
+- **LOB-094** Progress reads "Downloading card records: x / y MB" (KB for small updates), "Indexing card records: x / y MB processed · N cards", then "Finishing up — preparing card search…"; the bar shows real progress where the size is known and moves without a fixed position while finishing or when the total is unknown. (r55)
 - **LOB-095** If the app needs a new catalog format, it deletes the old catalog and downloads it again at startup. (r17)
 - **LOB-096** While the first catalog downloads, deck and game screens show its progress in a bar at the bottom, with the screen laid out above it so the bar never covers the screen's buttons; the menu, Settings and an open game do not. A failed download is tried once more by itself before the player is asked to retry. (r17)
 - **LOB-110** Card records include rarity, format legalities and colour identity for search (LOB-108); records downloaded before search are downloaded again once, asked as for any card records update. (r35)

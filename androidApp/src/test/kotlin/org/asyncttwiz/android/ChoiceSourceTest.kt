@@ -2,6 +2,8 @@ package org.asyncttwiz.android
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.width
+import androidx.compose.ui.unit.dp
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
@@ -91,17 +93,17 @@ class ChoiceSourceTest {
         compose.onNodeWithContentDescription("Card inspection content").assertDoesNotExist()
     }
 
-    // STK-023, STK-044: Alice casts Cinder Charm (a mode to choose): the cast panel's title says only what is done, "Cast a
-    // spell", and the Charm is the small card at the panel's right; holding it inspects it
+    // STK-023, STK-044: Alice casts Cinder Charm (a mode to choose): the cast panel's title says what is done with which
+    // card, "Cast Cinder Charm", and the Charm is the small card at the panel's right; holding it inspects it
     @Test fun theCastPanelShowsTheCardAtItsRight() {
         val kit = kit(Choices.CHARM, "Mountain")
         kit.opening()
         assertTrue(kit.toolkit.cast.start(kit.atw(kit.hand(Choices.CHARM).first())), "the cast begins: ${kit.toolkit.error}")
         render(kit)
-        compose.onNode(hasText("Cast a spell") and isHeading()).assertExists()
-        sourceAtTheRight("Cast panel", "Cast a spell", Choices.CHARM)
+        compose.onNode(hasText("Cast Cinder Charm") and isHeading()).assertExists()
+        sourceAtTheRight("Cast panel", "Cast Cinder Charm", Choices.CHARM)
         compose.onRoot().captureShot("$SCREENSHOTS/choice-source/cast-panel.png",
-            "Alice cast Cinder Charm, which asks for a mode: the cast panel above her hand is titled only \"Cast a spell\", and the Charm sits at the panel's right as a small card she can hold to inspect.")
+            "Alice cast Cinder Charm, which asks for a mode: the cast panel above her hand is titled \"Cast Cinder Charm\", and the Charm sits at the panel's right as a small card she can hold to inspect.")
         holdingTheSourceInspects(Choices.CHARM)
     }
 
@@ -255,5 +257,20 @@ class ChoiceSourceTest {
         val quench = kit.state().stack.last()
         assertEquals(listOf<arcanum.engine.state.TargetRef>(arcanum.engine.state.TargetRef.Object(lower)),
             kit.state().stackItems.getValue(quench).targets.values.flatten(), "the Quench targets the lower Charm")
+    }
+
+    // STK-023: a long card name in the cast panel's title wraps onto a second line and is then cut with …
+    @Test fun aLongCastTitleWrapsOnceThenEllipsizes() {
+        val title = "Cast Thalindra, Keeper of the Unending Ember Archive of the Western Wastes and Beyond"
+        compose.setContent {
+            MaterialTheme {
+                Box(Modifier.width(300.dp)) { ChoiceHead(title, null, ChoiceInspector(), titleLines = 2) }
+            }
+        }
+        val results = mutableListOf<androidx.compose.ui.text.TextLayoutResult>()
+        compose.onNode(hasText(title) and isHeading()).fetchSemanticsNode()
+            .config[androidx.compose.ui.semantics.SemanticsActions.GetTextLayoutResult].action!!(results)
+        assertEquals(2, results.single().lineCount)
+        assertTrue(results.single().isLineEllipsized(1), "the second line ends in …")
     }
 }

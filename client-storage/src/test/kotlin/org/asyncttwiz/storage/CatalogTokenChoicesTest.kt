@@ -30,27 +30,29 @@ class CatalogTokenChoicesTest {
         JdbcSqliteDriver("jdbc:sqlite:${it.absolutePath}")
     }
     private fun id(n: Int) = "00000000-0000-4000-8000-${n.toString().padStart(12, '0')}"
-    private fun token(n: Int, set: String = "OLD", name: String = "Spirit", text: String = "Flying", power: String = "1",
-        colors: String = "[\"W\"]", type: String = "Token Creature — Spirit", art: Boolean = true,
-        side: String = "", others: List<String> = emptyList(), keywords: String = "[]") =
+    private fun token(n: Int, set: String = "OLD", name: String = "Lantern Crypt", text: String = "Crypt Door — You gain 1 life.",
+        type: String = "Dungeon", art: Boolean = true, side: String = "", others: List<String> = emptyList(), power: String = "") =
         CatalogPrinting(id(n), name, set, "$n", "English", side, if (art) id(n + 1000) else null, true, others,
-            """{"faceName":"$name","type":"$type","text":"$text","power":"$power","toughness":"1","colors":$colors,"keywords":$keywords,"layout":"transform"}""")
+            """{"faceName":"$name","type":"$type","text":"$text","power":"$power","toughness":"","colors":[],"layout":"token"}""")
 
-    @Test fun publicationPrecomputesGameplayDistinctRowsAndPrefersNewestArtwork() {
+    // Token choices are built for the dungeons only, their one use left (LOB-117).
+    @Test fun publicationPrecomputesDungeonRowsOnlyAndPrefersNewestArtwork() {
         val repository = repo()
         repository.stage { index ->
             index.addSet("OLD", "2020-01-01"); index.addSet("NEW", "2026-01-01"); index.addSet("NOART", "2026-10-01")
-            index.addBatch(listOf(token(1), token(2, "NEW", keywords = "[\"Flying\"]"), token(3, "NOART", art = false),
-                token(4, text = "Vigilance"), token(5, power = "2"), token(6, colors = "[\"B\"]"),
-                token(7, type = "Token Enchantment Creature — Spirit"), token(8, name = "Soldier"),
+            index.addBatch(listOf(token(1), token(2, "NEW"), token(3, "NOART", art = false),
+                token(4, text = "Vault Door — You gain 2 life."), token(5, type = "Dungeon — Undercity"),
+                token(6, name = "Spirit", text = "Flying", type = "Token Creature — Spirit", power = "1"),
+                token(7, name = "Treasure", text = "{T}, Sacrifice this token: Add one mana of any color.", type = "Token Artifact — Treasure"),
+                token(8, name = "Dungeon Delver", type = "Token Creature — Human", power = "2"),
                 token(9).copy(token = false)))
             CatalogMetadata("2026-10-26", "5")
         }
         val list = repository.loadTokens()
-        assertEquals(6, list.choices.size)
+        assertEquals(3, list.choices.size)
+        assertEquals(setOf("Lantern Crypt"), list.choices.map { it.name }.toSet())
         val chosen = list.choices.single { it.submitted.definition.printingId == id(2) }
-        assertEquals("Spirit", chosen.name)
-        assertEquals("1/1 · Flying", chosen.detail)
+        assertEquals("Crypt Door — You gain 1 life.", chosen.detail)
         assertEquals(id(1002), chosen.submitted.definition.faces.single().scryfallId)
         assertEquals(DeckJson.digest(chosen.submitted.definition), chosen.submitted.digest)
         assertEquals("2026-10-26/5", chosen.submitted.definition.sourceVersion)
@@ -61,13 +63,13 @@ class CatalogTokenChoicesTest {
         }
         val reads = opens
         repeat(10) { assertSame(list, repo().loadTokens()) }
-        assertEquals(reads, opens, "Reopening dialogs/repositories reuses the generation without SQL or decoding")
+        assertEquals(reads, opens, "Reopening workers/repositories reuses the generation without SQL or decoding")
     }
 
     @Test fun incrementalAndFullUpdatesRebuildAllFacesAndKeepFailedPublicationIsolated() {
         val repository = repo()
         fun pair(n: Int, set: String) = listOf(token(n, set, side = "a", others = listOf(id(n + 1))),
-            token(n + 1, set, name = "Night Spirit", side = "b", others = listOf(id(n))))
+            token(n + 1, set, name = "The Claim", text = "(You can take the initiative.)", type = "Card", side = "b", others = listOf(id(n))))
         repository.stage { index ->
             index.addSet("OLD", "2020-01-01"); index.addSet("NEW", "2026-01-01")
             index.addBatch(pair(10, "OLD") + pair(20, "NEW"))
@@ -78,55 +80,36 @@ class CatalogTokenChoicesTest {
         assertEquals(listOf(id(20), id(21)), before.choices.single().submitted.definition.faces.map { it.faceId })
         repository.stage(copyInstalled = true) { index ->
             index.removeSet("NEW"); index.addSet("NEW", "2026-10-01")
-            index.addBatch(pair(30, "NEW") + token(40, "NEW", name = "Food"))
+            index.addBatch(pair(30, "NEW") + token(40, "NEW", name = "Sunken City"))
             CatalogMetadata("two", "5")
         }
         val after = repository.loadTokens()
         assertNotEquals(before.generation, after.generation)
-        assertEquals(setOf("Spirit", "Food"), after.choices.map { it.name }.toSet())
-        assertEquals(id(30), after.choices.single { it.name == "Spirit" }.submitted.definition.printingId)
+        assertEquals(setOf("Lantern Crypt", "Sunken City"), after.choices.map { it.name }.toSet())
+        assertEquals(id(30), after.choices.single { it.name == "Lantern Crypt" }.submitted.definition.printingId)
         assertThrows(IllegalStateException::class.java) { repository.stage(copyInstalled = true) { index ->
             index.removeSet("NEW"); error("Interrupted import")
         } }
         assertSame(after, repository.loadTokens())
-        repository.stage { index -> index.addBatch(listOf(token(50, name = "Treasure"))); CatalogMetadata("three", "5") }
-        assertEquals(listOf("Treasure"), repository.loadTokens().choices.map { it.name })
+        repository.stage { index -> index.addBatch(listOf(token(50, name = "Mossy Maze"))); CatalogMetadata("three", "5") }
+        assertEquals(listOf("Mossy Maze"), repository.loadTokens().choices.map { it.name })
         assertEquals(1, before.choices.size, "Retained old snapshots stay immutable")
     }
 
-    @Test fun gameplayIdentityChecksEveryFaceAndIgnoresColorOrderAndPrintingMetadata() {
+    @Test fun gameplayIdentityChecksEveryFaceAndIgnoresPrintingMetadata() {
         val repository = repo()
         fun pair(n: Int, text: String) = listOf(token(n, side = "a", others = listOf(id(n + 1))),
-            token(n + 1, name = "Night Spirit", text = text, side = "b", others = listOf(id(n))))
+            token(n + 1, name = "The Claim", text = text, type = "Card", side = "b", others = listOf(id(n))))
         repository.stage { index ->
-            index.addBatch(pair(10, "Flying") + pair(20, "Vigilance") + listOf(
-                token(30, name = "Soldier", colors = "[\"W\",\"B\"]"),
-                token(31, name = "Soldier", colors = "[\"B\",\"W\"]"),
-                token(40, name = "Food", text = "Pay 2, sacrifice this token: You gain 3 life.", keywords = "[\"Sacrifice\"]")))
+            index.addBatch(pair(10, "(You can take the initiative.)") + pair(20, "(Venture into Undercity.)") + listOf(
+                token(30, name = "Sunken City"), token(31, name = "Sunken City").copy(set = "NEW", number = "99")))
             CatalogMetadata("test", "5")
         }
         val choices = repository.loadTokens().choices
-        assertEquals(4, choices.size)
-        assertEquals(setOf("Flying", "Vigilance"), choices.filter { it.name == "Spirit" }
+        assertEquals(3, choices.size)
+        assertEquals(setOf("(You can take the initiative.)", "(Venture into Undercity.)"), choices.filter { it.name == "Lantern Crypt" }
             .map { it.submitted.definition.faces[1].rulesText }.toSet())
-        assertEquals("1/1 · Pay 2, sacrifice this token: You gain 3 life.", choices.single { it.name == "Food" }.detail)
-    }
-
-    @Test fun realImporterRetainsColorsAndKeepsOtherwiseIdenticalSoldiersDistinct() {
-        val repository = repo()
-        val metadata = CatalogMetadata("2026-10-26", "5.2.2")
-        val tokens = listOf("W", "R", "W").mapIndexed { n, color ->
-            """{"uuid":"${id(n + 1)}","name":"Soldier","number":"${n + 1}","type":"Token Creature — Soldier","text":"","power":"1","toughness":"1","colors":["$color"]}"""
-        }.joinToString(",")
-        val json = """{"meta":{"date":"${metadata.date}","version":"${metadata.version}"},"data":{"SYN":{"cards":[],"tokens":[$tokens]}}}"""
-        repository.stage { index -> MtgJsonCatalog().import(json.byteInputStream(), index, metadata) }
-        val choices = repository.loadTokens().choices
-        assertEquals(2, choices.size, "Same-color reprints collapse, but white and red Soldiers must not")
-        assertEquals(setOf("[\"W\"]", "[\"R\"]"), choices.map {
-            com.google.gson.JsonParser.parseString(it.submitted.definition.faces.single().sourceData)
-                .asJsonObject.getAsJsonArray("colors").toString()
-        }.toSet())
-        assertEquals(2, choices.map { it.identity }.distinct().size)
+        assertEquals(1, choices.count { it.name == "Sunken City" })
     }
 
     @Test fun legacyPreparationIsExplicitAndNeverTriggeredByLoading() {
@@ -141,7 +124,7 @@ class CatalogTokenChoicesTest {
         assertThrows(CatalogTokensNotReadyException::class.java) { reopened.loadTokens() }
         reopened.prepareTokens()
         val prepared = reopened.loadTokens()
-        assertEquals(listOf("Spirit"), prepared.choices.map { it.name })
+        assertEquals(listOf("Lantern Crypt"), prepared.choices.map { it.name })
         val bytes = file.readBytes()
         reopened.prepareTokens()
         assertArrayEquals(bytes, file.readBytes(), "Startup compatibility preparation only happens once")
@@ -149,12 +132,12 @@ class CatalogTokenChoicesTest {
         assertThrows(CatalogNotInstalledException::class.java) { repo("missing").loadTokens() }
     }
 
-    @Test fun realImporterIncludesPlayerDesignationsAndPreservesTheirPhysicalFacesAcrossStartupPreparation() {
+    @Test fun realImporterKeepsADungeonsPhysicalFacesAcrossStartupPreparationAndLeavesOtherDesignations() {
         val repository = repo()
         val metadata = CatalogMetadata("2026-10-26", "5.2.2")
         fun face(n: Int, name: String, face: String = name, type: String = "Card", side: String = "", other: Int? = null,
             layout: String = "token") = """{"uuid":"${id(n)}","name":"$name","faceName":"$face","number":"$n","type":"$type","text":"{T}: Add {G}.","layout":"$layout","side":"$side","otherFaceIds":[${other?.let { "\"${id(it)}\"" }.orEmpty()}]}"""
-        val names = setOf("The Monarch", "City's Blessing", "Undercity // The Initiative", "Day // Night")
+        val names = setOf("Undercity // The Initiative")
         val records = listOf(face(1, "The Monarch"), face(2, "City's Blessing"),
             face(3, "Undercity // The Initiative", "Undercity", "Dungeon", "a", 4, "double_faced_token"),
             face(4, "Undercity // The Initiative", "The Initiative", "Card", "b", 3, "double_faced_token"),
@@ -166,12 +149,10 @@ class CatalogTokenChoicesTest {
             val choices = repository.loadTokens().choices
             assertEquals(names, choices.map { it.name }.toSet())
             assertTrue(choices.all { TokenLinkRules.validDefinition(it.submitted) })
-            assertEquals(listOf("Undercity", "The Initiative"), choices.single { it.name.startsWith("Undercity") }
-                .submitted.definition.faces.map { it.name })
-            val day = choices.single { it.name == "Day // Night" }.submitted.definition
-            assertEquals(listOf("Day", "Night"), day.faces.map { it.name })
-            assertEquals(listOf(id(6)), day.faces.first().otherFaceIds)
-            assertEquals("{T}: Add {G}.", day.faces.last().rulesText)
+            val undercity = choices.single().submitted.definition
+            assertEquals(listOf("Undercity", "The Initiative"), undercity.faces.map { it.name })
+            assertEquals(listOf(id(4)), undercity.faces.first().otherFaceIds)
+            assertEquals("{T}: Add {G}.", undercity.faces.last().rulesText)
         }
         verify()
         // An installed pre-fix prepared list must be rebuilt from retained provider records at startup.

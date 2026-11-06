@@ -1,1 +1,1 @@
-Three card menu rows whose ability texts draw their mana and tap symbols as symbols: tap for G, an X damage ability with a red-green hybrid, and a greyed one with a blue Phyrexian and the untap symbol.
+Three card menu rows whose ability texts draw their mana and tap symbols as symbols: the tap arrow for G, an X damage ability with a red-green hybrid and the tap arrow, and a greyed one with a blue Phyrexian and the untap symbol, the arrow mirrored.

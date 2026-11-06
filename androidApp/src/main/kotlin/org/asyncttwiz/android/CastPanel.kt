@@ -224,7 +224,7 @@ internal fun IconText(icon: ImageVector, text: String) {
 }
 
 /**
- * The panel docked above the hand (I-D47): its title saying what is done ([castTitle]; an ability's text
+ * The panel docked above the hand (I-D47): its title saying what is done with which card ([castTitle]; an ability's text
  * under it) with the card at the right as in every Automatum panel ([source], STK-044), the sections, then a bottom row
  * with the eye at its left and Cancel and Cast at its right. The eye never moves: hiding fades the panel (its
  * background, sections and buttons) away around it, leaving only the eye.
@@ -246,7 +246,8 @@ private fun CastPanel(cast: CastController, flow: CastFlow, play: TableBoard, na
             exit = fadeOut(tween(180)) + shrinkVertically(tween(180), shrinkTowards = Alignment.Bottom)) {
             Column(Modifier.padding(start = 10.dp, end = 10.dp, top = 8.dp).heightIn(max = 360.dp).verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                ChoiceHead(castTitle(flow), source, inspector) {
+                // A long name wraps onto a second line, then is cut with …
+                ChoiceHead(castTitle(flow, source.name), source, inspector, titleLines = 2) {
                     cast.abilityText?.let { CardText(it, color = Color(0xff4b5a5f), style = TextStyle(fontSize = 11.sp, lineHeight = 14.sp)) }
                 }
                 ChoiceInspection(inspector, play, LocalChoiceFrame.current.viewer)
@@ -629,11 +630,12 @@ internal fun EyeButton(hidden: Boolean, toggle: () -> Unit, what: String = "cast
 
 // ---- Words
 
-/** The cast panel's title (STK-023, STK-044): only what is done, the card being at the panel's right. */
-internal fun castTitle(flow: CastFlow) = when {
-    flow.begin is Input.PlayLand -> "Play a land"
-    flow.activation -> "Activate an ability"
-    else -> "Cast a spell"
+/** The cast panel's title (STK-023, STK-044): what is done and the card it is done with, [name] ("Cast Storm Spark",
+ * "Play Mountain", "Activate Ember Herald": an ability by its source's name), the card also at the panel's right. */
+internal fun castTitle(flow: CastFlow, name: String) = when {
+    flow.begin is Input.PlayLand -> "Play $name"
+    flow.activation -> "Activate $name"
+    else -> "Cast $name"
 }
 
 /** The panel's main button: Play for a land, Activate for an ability or special action (§3 I4), else Cast. */

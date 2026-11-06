@@ -293,7 +293,9 @@ object TablePresentation {
         appearance: CardAppearance = CardAppearance(),
         logicalPositions: Map<String, TablePlacement> = logicalPlacements(play),
         computed: org.asyncttwiz.automatum.ComputedBoard = org.asyncttwiz.automatum.ComputedBoard.NONE,
-        landscapeHome: Boolean = false): TableScene {
+        landscapeHome: Boolean = false,
+        /** Timeline mode: its panel is taller than play mode's bottom bar in portrait ([tableBottomHeight]). */
+        timeline: Boolean = false): TableScene {
         require(play.gameId == game.id && play.playId == game.playId)
         require(width > 0 && height > 0 && width.isFinite() && height.isFinite())
         val positions = logicalPositions + placements
@@ -333,8 +335,8 @@ object TablePresentation {
             else -> play.board.copy(combat = null)
         }
         val railHeight = (if (landscape) 48f else 52f) + handHeight - hudHeight
-        // Both modes reserve the very same timeline and controls; review never reframes the camera.
-        val controlsHeight = tableBottomHeight(landscape)
+        // HIS-001, HIS-007: play mode's bottom bar has only the controls; timeline mode's panel adds its strip in portrait
+        val controlsHeight = tableBottomHeight(landscape, timeline)
         val dockRow = maxOf(64f, 68f + pileHeight - hudHeight)
         val counterHeight = 48f
         val dockSpacing = if (landscape) landscapePileSpacing(pileWidth) else pileWidth + 12f

@@ -31,7 +31,6 @@ data class TableRuntimeHooks(val chat: (() -> Unit)? = null, val history: (() ->
     val controlsConnected: Boolean? = null,
     val navigation: (() -> Unit)? = null,
     val returnCurrent: (() -> Unit)? = null, val chatUnread: Int = 0,
-    val liveTimeline: (@Composable () -> Unit)? = null,
     val bottomPanel: (@Composable (@Composable () -> Unit) -> Unit)? = null,
     val errorMessage: String? = null, val dismissError: (() -> Unit)? = null,
     val onSceneSettled: ((String) -> Unit)? = null, val sceneVersion: String? = null,
@@ -50,7 +49,10 @@ data class TableRuntimeHooks(val chat: (() -> Unit)? = null, val history: (() ->
     val centreAction: TableCentreAction? = null,
     /** HIS-095: a tap on the table (a card, a pile or the empty table) does only this (pausing playback); null: taps act
      * as usual. */
-    val boardTap: (() -> Unit)? = null)
+    val boardTap: (() -> Unit)? = null) {
+    /** Timeline mode itself (not a branch's take-back, which only looks like it): its panel is taller (HIS-001, HIS-007). */
+    val timelineOpen: Boolean get() = reviewing && timelinePlayback != TimelinePlaybackStatus.REWINDING
+}
 
 /** A large text in the board's centre that a tap acts on ([TableRuntimeHooks.centreAction]). */
 data class TableCentreAction(val text: String, val run: () -> Unit)

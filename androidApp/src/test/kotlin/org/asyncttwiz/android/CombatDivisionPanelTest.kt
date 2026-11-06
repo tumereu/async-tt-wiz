@@ -9,6 +9,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.hasStateDescription
 import androidx.compose.ui.test.hasText
@@ -63,9 +64,7 @@ class CombatDivisionPanelTest {
                 CompositionLocalProvider(LocalChoiceFrame provides ChoiceFrame(viewer)) {
                     Box(Modifier.fillMaxSize().background(CombatBandColor), contentAlignment = Alignment.Center) {
                         Box(Modifier.width(400.dp)) {
-                            AutomatumDockPanel("Division of combat damage", false, {}, "division") {
-                                DivisionContent(draft, play, names, null, power, keywords)
-                            }
+                            DivisionDock(draft, play, names, null, power, keywords, hidden = false, toggleHidden = {})
                         }
                     }
                 }
@@ -75,26 +74,40 @@ class CombatDivisionPanelTest {
         return draft
     }
 
-    // CMB-033, STK-033, CR 702.19b (owner playtest 2026-11-06): Alice's 3-power trampler blocked by two of Bob's
-    // creatures: in order the first gets lethal damage (a red ☠ chip), the second only what is left (grey), and the last
-    // row, Bob, which never moves, gets what tramples over (none here)
-    @Test fun aTrampleDivisionEndsWithTheAttackedPlayersRow() {
+    // CMB-033, STK-033, CR 702.19b (owner playtest 2026-11-06): Alice's 4-power trampler blocked by two of Bob's
+    // creatures: in order each gets lethal damage (red ☠ chips); what tramples over is no row but a chip on the panel's
+    // bottom line by the eye, "Tramples 1 → Bob", grey (not lethal to him)
+    @Test fun whatTramplesOverShowsOnTheBottomLine() {
         val blockers = field(f.b).take(2)
         val attacker = dealer(f.a, blockers)
         val among = blockers.map { ref(it.id) } + MtgRef.Player(f.b)
-        val lethal: Map<MtgRef, Int> = blockers.map { ref(it.id) }.zip(listOf(1, 3)).toMap()
-        val division = DamageDivision(f.a, attacker.id, 3, among, lethal,
-            mapOf(among[0] to 1, among[1] to 2, among[2] to 0), MtgRef.Player(f.b))
-        render(division, f.a, power = 3, keywords = listOf("Trample"))
-        compose.onNode(hasText("Divide 3 damage") and isHeading()).assertExists()
-        compose.onNodeWithContentDescription("Power 3").assertExists()
+        val lethal: Map<MtgRef, Int> = blockers.map { ref(it.id) }.zip(listOf(1, 2)).toMap()
+        val division = DamageDivision(f.a, attacker.id, 4, among, lethal,
+            mapOf(among[0] to 1, among[1] to 2, among[2] to 1), MtgRef.Player(f.b))
+        render(division, f.a, power = 4, keywords = listOf("Trample"))
+        compose.onNode(hasText("Divide 4 damage") and isHeading()).assertExists()
+        compose.onNodeWithContentDescription("Power 4").assertExists()
         compose.onNode(hasText("trample")).assertExists()
-        compose.onAllNodes(hasStateDescription("lethal")).assertCountEquals(1)
-        compose.onNodeWithContentDescription("Bob: 0").assertExists()
-        // The trample row has no handle: only the two creatures can be reordered
+        compose.onAllNodes(hasStateDescription("lethal")).assertCountEquals(2)
+        compose.onNodeWithContentDescription("Tramples 1 to Bob").assertExists()
+        compose.onAllNodesWithContentDescription("Bob: ", substring = true).assertCountEquals(0)
         compose.onAllNodesWithContentDescription("Drag to reorder").assertCountEquals(2)
         captureShot("$SCREENSHOTS/combat-division/trample.png",
-            "Alice divides her 3-power trampler's damage between Bob's two blockers: her creature at the top left with its power 3 and a trample chip, the title Divide 3 damage, in order the first blocker gets lethal damage as a red ☠ chip, the second the 2 left as a grey chip, and Bob's own last row, which never moves, gets 0.")
+            "Alice divides her 4-power trampler's damage between Bob's two blockers: her creature at the top left with its power 4 and a trample chip, the title Divide 4 damage, in order both blockers get lethal damage as red ☠ chips, and on the bottom line by the eye a grey chip says it tramples 1 over to Bob.")
+    }
+
+    // CMB-033 (owner playtest 2026-11-06): trample lethal to the defender: the bottom line's chip is red with ☠
+    @Test fun tramplingOverLethalDamageShowsARedChip() {
+        val blockers = field(f.b).take(1)
+        val attacker = dealer(f.a, blockers)
+        val among = blockers.map { ref(it.id) } + MtgRef.Player(f.b)
+        val life = play.board.players.single { it.accountId == f.b }.life.toInt()
+        val division = DamageDivision(f.a, attacker.id, life + 1, among, mapOf(among[0] to 1),
+            mapOf(among[0] to 1, among[1] to life), MtgRef.Player(f.b))
+        render(division, f.a, power = life + 1, keywords = listOf("Trample", "Lifelink"))
+        compose.onNodeWithContentDescription("Tramples $life to Bob").assert(hasStateDescription("lethal"))
+        captureShot("$SCREENSHOTS/combat-division/trample-lethal.png",
+            "Alice's trampler with lifelink deals 1 to its one blocker (a red ☠ chip) and tramples over the rest, as much as Bob's life: the bottom line's chip is red with ☠, \"Tramples $life → Bob\".")
     }
 
     // CMB-033, STK-033, CR 702.2c (owner playtest 2026-11-06): with deathtouch 1 damage is lethal: a 1-power attacker

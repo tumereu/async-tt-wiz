@@ -55,12 +55,16 @@ internal class DivisionDraft(val division: DamageDivision, start: Map<MtgRef, In
     var order by mutableStateOf(creatures); private set
     var free by mutableStateOf(division.among.associateWith { start[it] ?: 0 }); private set
 
-    /** The damage each recipient gets now. */
-    val shares: Map<MtgRef, Int> get() = if (inOrder) Divisions.inOrder(division, order) else free
+    /** The damage each recipient gets now; with trample, in Free too, the attacked player, planeswalker or battle gets
+     * what the creatures don't (CMB-033: it is shown, not chosen). */
+    val shares: Map<MtgRef, Int> get() = if (inOrder) Divisions.inOrder(division, order) else free.let { given ->
+        val trample = division.trampleTo ?: return@let given
+        given + (trample to (division.amount - given.filterKeys { it != trample }.values.sum()).coerceAtLeast(0))
+    }
     /** Why OK can't be pressed yet (CR 510.1c, 702.19b), or null. */
     val refusal: String? get() = Divisions.refusal(division, shares)
-    /** The rows in their shown order: the creatures, then the player or planeswalker with trample. */
-    val rows: List<MtgRef> get() = order + listOfNotNull(division.trampleTo)
+    /** The rows in their shown order: the creatures (what tramples over shows on the panel's bottom line, CMB-033). */
+    val rows: List<MtgRef> get() = order
 
     fun mode(inOrder: Boolean) {
         if (inOrder == this.inOrder) return
@@ -71,13 +75,18 @@ internal class DivisionDraft(val division: DamageDivision, start: Map<MtgRef, In
         if (from !in order.indices || to !in order.indices || from == to) return
         order = order.toMutableList().apply { add(to, removeAt(from)) }
     }
-    fun set(target: MtgRef, amount: Int) { free = free + (target to amount.coerceIn(0, division.amount)) }
+    fun set(target: MtgRef, amount: Int) {
+        // With trample the creatures share at most all of it; the rest tramples over
+        val others = free.filterKeys { it != target && it != division.trampleTo }.values.sum()
+        val most = if (division.trampleTo != null) division.amount - others else division.amount
+        free = free + (target to amount.coerceIn(0, most.coerceAtLeast(0)))
+    }
 }
 
 /**
  * The rows of a division (CMB-033, owner playtest 2026-11-06): the In order / Free switch with the hint beside it, then a
- * row per creature (its card and name, its damage as a chip: red with ☠ when it is lethal, grey when not), and with
- * trample a last row for the attacked player, planeswalker or battle that never moves, with its own damage chip.
+ * row per creature (its card and name, its damage as a chip: red with ☠ when it is lethal, grey when not). What tramples
+ * over shows as a chip on the panel's bottom line ([TrampleChip]).
  */
 @Composable
 internal fun DivisionRows(draft: DivisionDraft, play: TableBoard, names: Map<String, String>) {
@@ -138,18 +147,11 @@ internal fun DivisionRows(draft: DivisionDraft, play: TableBoard, names: Map<Str
                         ChoiceCardFace(face, Modifier.padding(vertical = 2.dp)
                             .choiceCardGestures(ref.cardId, tap = {}, hold = { inspector.hold(face, it) }, moved = inspector::moved), small = true)
                     }
-                    is MtgRef.Player -> Box(Modifier.size(28.dp).clip(CircleShape).background(avatarColor(ref.accountId)),
-                        contentAlignment = Alignment.Center) {
-                        Text(avatarInitial(name), color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                    }
                     else -> {}
                 }
-                Column(Modifier.weight(1f)) {
-                    Text(if (draft.inOrder && creature) "${index + 1}. $name" else name, fontSize = 13.sp, lineHeight = 15.sp,
-                        maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, color = Color(0xff263238))
-                    if (!creature) Text("Trample: what is left after lethal damage", fontSize = 10.sp, lineHeight = 12.sp,
-                        color = AutomatumViolet, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
-                }
+                Text(if (draft.inOrder && creature) "${index + 1}. $name" else name, Modifier.weight(1f), fontSize = 13.sp,
+                    lineHeight = 15.sp, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                    color = Color(0xff263238))
                 if (draft.inOrder) DamageChip(amount, lethal)
                 else Row(verticalAlignment = Alignment.CenterVertically) {
                     TipIconButton(Icons.Outlined.Remove, "One less", Modifier.size(32.dp), enabled = amount > 0) { draft.set(ref, amount - 1) }
@@ -176,6 +178,47 @@ internal fun lethal(play: TableBoard, division: DamageDivision, ref: MtgRef, amo
         is MtgRef.Card -> play.board.cards.firstOrNull { it.id == ref.cardId }?.typedCounters
             ?.firstOrNull { it.kind == "loyalty" || it.kind == "defense" }?.count?.let { amount >= it } == true
         else -> false
+    }
+}
+
+/**
+ * CMB-033 (owner playtest 2026-11-06): with trample, what tramples over as a compact chip on the panel's bottom line
+ * ("Tramples 2 → Bob" with the defender's round avatar, or the planeswalker's or battle's tiny art), red with ☠ when it is
+ * lethal to them, grey when not. Nothing to choose: it is what the creatures don't get.
+ */
+@Composable
+internal fun TrampleChip(draft: DivisionDraft, play: TableBoard, names: Map<String, String>) {
+    val division = draft.division
+    val target = division.trampleTo ?: return
+    val amount = draft.shares[target] ?: 0
+    val lethal = lethal(play, division, target, amount)
+    val name = refName(play, names, target)
+    val ink = if (lethal) Color.White else Color(0xff37474f)
+    Row(Modifier.heightIn(min = 30.dp).background(if (lethal) PreviewRed else Color(0xffe3e7e9), RoundedCornerShape(50))
+        .padding(start = 10.dp, end = 4.dp).semantics(mergeDescendants = true) {
+            contentDescription = "Tramples $amount to $name"; if (lethal) stateDescription = "lethal" },
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+        if (lethal) Text("☠", color = ink, fontSize = 12.sp, lineHeight = 14.sp)
+        Text("Tramples", color = ink, fontSize = 12.sp, lineHeight = 14.sp)
+        Text("$amount", color = ink, fontSize = 15.sp, lineHeight = 17.sp, fontWeight = FontWeight.Bold)
+        Text("→", color = ink, fontSize = 13.sp, lineHeight = 15.sp)
+        when (target) {
+            is MtgRef.Player -> Box(Modifier.size(22.dp).clip(CircleShape).background(avatarColor(target.accountId))
+                .border(1.dp, Color.White, CircleShape), contentAlignment = Alignment.Center) {
+                Text(avatarInitial(name), color = Color.White, fontSize = 11.sp, lineHeight = 12.sp, fontWeight = FontWeight.Bold)
+            }
+            is MtgRef.Card -> {
+                val viewer = LocalChoiceFrame.current.viewer
+                val card = play.board.cards.singleOrNull { it.id == target.cardId }
+                val face = choiceCard(play, viewer, "trample/${target.cardId}", target.cardId, card?.isFaceDown == false, name)
+                Box(Modifier.size(22.dp).clip(CircleShape).background(Color(0xff9e9a8c)).border(1.dp, Color.White, CircleShape)) {
+                    CardArtwork(face.art, "", 64, 64, Modifier.fillMaxSize(), crop = true)
+                }
+            }
+            else -> {}
+        }
+        Text(name, color = ink, fontSize = 12.sp, lineHeight = 14.sp, fontWeight = FontWeight.Bold, maxLines = 1,
+            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.widthIn(max = 110.dp).padding(end = 6.dp))
     }
 }
 
@@ -252,9 +295,17 @@ internal fun CombatDivisionPanel(flows: SharedFlowController, play: TableBoard, 
         flows.division = decision to draft
         onDispose { if (flows.division?.second === draft) flows.division = null }
     }
-    AutomatumDockPanel("Division of combat damage", flows.hidden, flows::toggleHidden, "division") {
-        val computed = LocalComputedBoard.current.cards[division.source]
-        DivisionContent(draft, play, names, count, computed?.power, computed?.keywords.orEmpty())
+    val computed = LocalComputedBoard.current.cards[division.source]
+    DivisionDock(draft, play, names, count, computed?.power, computed?.keywords.orEmpty(), flows.hidden, flows::toggleHidden)
+}
+
+/** The division panel in the dock's look (CMB-033): its content, and on the bottom line by the eye what tramples over. */
+@Composable
+internal fun DivisionDock(draft: DivisionDraft, play: TableBoard, names: Map<String, String>, count: Pair<Int, Int>?,
+    power: Int?, keywords: List<String>, hidden: Boolean, toggleHidden: () -> Unit) {
+    AutomatumDockPanel("Division of combat damage", hidden, toggleHidden, "division",
+        buttons = { TrampleChip(draft, play, names) }) {
+        DivisionContent(draft, play, names, count, power, keywords)
     }
 }
 
@@ -336,6 +387,7 @@ internal fun EarlyDivisionPanel(combat: CombatController, play: TableBoard, divi
             DivisionRows(draft, play, names)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
                 BarButton("Inspect", Icons.Outlined.ZoomIn, Modifier.semantics { contentDescription = "Inspect the table" }) { hidden = true }
+                TrampleChip(draft, play, names)
                 Spacer(Modifier.weight(1f))
                 if (given != null) BarButton("Withdraw", Icons.AutoMirrored.Outlined.Undo, enabled = enabled) { combat.withdrawEarly(division) }
                 ChoiceButton("Ready", Icons.Outlined.Check, enabled = enabled && draft.refusal == null &&

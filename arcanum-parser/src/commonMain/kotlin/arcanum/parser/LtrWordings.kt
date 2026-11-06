@@ -56,6 +56,16 @@ internal object Ltr {
     val TAP_UP_TO_X_TARGET = Regex("""Tap up to X target (.+)\.""")
     val GAIN_CONTROL_OF_UP_TO_ONE_UNTIL_EOT = Regex("""Gain control of (up to one target .+?) until end of turn\.""")
     val DRAW_FOR_EACH_TARGET_OPPONENT_CONTROLS = Regex("""Draw a card for each (.+?) target opponent controls\.""")
+    // ltr chunk 05
+    val YOUR_OPPONENTS_CANT_GAIN_LIFE = Regex("""Your opponents can't gain life\.""")
+    val IF_THE_SACRIFICED_WAS = Regex("""If the sacrificed (creature|permanent) was (.+?), (.+)""")
+    val MAY_SACRIFICE_IT_WHEN_YOU_DO = Regex("""(Whenever .+?), you may sacrifice it\. When you do, (.+)""")
+    val YOU_CREATE_OR_SACRIFICE_A_TOKEN = Regex("""you create or sacrifice a token""")
+    val CREATE_TAPPED_AND_ATTACKING_SACRIFICE_AT_END_OF_COMBAT = Regex("""Create (.+? tokens?(?: with [^.]+?)?)(?: named (.+?))? that's tapped and attacking\. Sacrifice that token at end of combat\.""")
+    val EXILE_TARGET_THEN_CREATE_X = Regex("""Exile (target .+?), then create X (.+?), where X is the exiled card's (power|toughness)\.""")
+    val AS_LONG_AS_YOUR_TURN_AND_IS_ARTIFACT_CREATURE = Regex("""As long as it's your turn and (.+?), (.+?) is an artifact creature\.""")
+    val HAND_OVER_N_EXILE_DIFFERENCE = Regex("""If its controller has more than (\w+) cards in hand, they exile cards from their hand equal to the difference\.""")
+    val COSTS_LESS_IF_TARGETS_DEALT_DAMAGE = Regex("""This spell costs ((?:\{[^}]+\})+) less to cast if it targets an? (\w+) that was dealt damage this turn\.""")
     val TARGETS_EACH_GAIN = Regex("""((?:Up to )?(?:two|three|Two|Three) target .+?) (?:each )?(gain|get) (.+)""")
 }
 
@@ -66,6 +76,9 @@ internal object LtrPhrases {
     private val WITH_MANA_VALUE_N_OR_M = Regex("""(.+?) with mana value (\d+) or (\d+)""")
     private val IN_YOUR_GRAVEYARD = Regex("""(.+? cards?) in your graveyard""")
     private val WITH_LESSER_POWER = Regex("""(.+?) with lesser power""")
+    private val DEALT_DAMAGE_THIS_TURN = Regex("""(.+?) that was dealt damage this turn""")
+    private val FROM_AN_OPPONENTS_GRAVEYARD = Regex("""(.+? cards?) from an opponent's graveyard""")
+    private val AND_OR = Regex("""(\w+?)s? and/or (\w+?)s?""")
 
     fun noun(phrase: String): ObjectFilter? {
         // ltr chunk 02: "permanent card in your graveyard that was put there from the battlefield this turn" (the new object, CR 400.7)
@@ -87,6 +100,21 @@ internal object LtrPhrases {
             val base = Filters.noun(m.groupValues[1]) ?: return null
             return Filters.all(base, ObjectFilter.Or(listOf(ObjectFilter.ManaValue(Comparison.Equal, Value.Fixed(m.groupValues[2].toInt())),
                 ObjectFilter.ManaValue(Comparison.Equal, Value.Fixed(m.groupValues[3].toInt())))))
+        }
+        // ltr chunk 05: "creature that was dealt damage this turn" (CR 120.3)
+        DEALT_DAMAGE_THIS_TURN.matchEntire(phrase)?.let { m ->
+            val base = Filters.noun(m.groupValues[1]) ?: return null
+            return Filters.all(base, ObjectFilter.ThisTurn(EventPattern.Damage(ObjectFilter.Any, arcanum.api.RecipientFilter()), role = EventRole.Object))
+        }
+        // ltr chunk 05: "creature card from an opponent's graveyard"
+        FROM_AN_OPPONENTS_GRAVEYARD.matchEntire(phrase)?.let { m ->
+            val base = Filters.noun(m.groupValues[1]) ?: return null
+            return Filters.all(base, ObjectFilter.InZone(Zone.Graveyard), ObjectFilter.OwnedBy(arcanum.api.PlayerFilter.Opponent))
+        }
+        // ltr chunk 05: "Goblins and/or Orcs" (either subtype)
+        AND_OR.matchEntire(phrase)?.let { m ->
+            val types = listOf(m.groupValues[1], m.groupValues[2]).map { t -> t.takeIf { it in RulesWords.subtypes } ?: return@let }
+            return ObjectFilter.Or(types.map { ObjectFilter.Sub(arcanum.api.SubtypeRef.Literal(arcanum.api.Subtype(it))) })
         }
         // ltr chunk 04: "creature with lesser power" (than this creature)
         WITH_LESSER_POWER.matchEntire(phrase)?.let { m ->

@@ -197,6 +197,8 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
             if (this::device.isInitialized) {
                 val old = device.session
                 takenBack("loaded again from the server's head ${snapshot.headId}", old.tip, old.localHead, loaded.session)
+                // Why the device couldn't follow (its own record goes with it)
+                AppLog.info("engine", "Device record before loading again: ${device.recentRecord(12).joinToString(" | ")}")
             }
             device = loaded; codec = json
             device.clock = clock

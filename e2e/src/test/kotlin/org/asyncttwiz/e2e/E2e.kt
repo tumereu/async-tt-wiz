@@ -56,6 +56,14 @@ abstract class E2e {
 
         // After failed(): the phones stay up until their evidence is taken
         override fun finished(description: Description) {
+            // A phone that had to load its game again (it couldn't follow the server) is rare and worth a look even when the
+            // test passed: the app log with the device's record goes to e2e/build/e2e/reloads/
+            runCatching {
+                AppLog.text().takeIf { "before loading again" in it }?.let { log ->
+                    File(E2eStack.output, "reloads/${description.testClass.simpleName}.${description.methodName}.log")
+                        .apply { parentFile.mkdirs() }.writeText(log)
+                }
+            }
             players.forEach { runCatching { it.close() } }
             AutomatumBoards.reset()
         }

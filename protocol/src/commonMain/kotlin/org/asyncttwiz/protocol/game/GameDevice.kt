@@ -1236,7 +1236,7 @@ class GameDevice(
         if (target != null) {
             val by = update?.rewoundBy ?: events.firstOrNull()?.author
             when (val r = session.rewound(target, events)) {
-                GameSession.Received.Reload -> needsReload = true
+                GameSession.Received.Reload -> { needsReload = true; remember("reload at rewind $target: ${followed()}") }
                 is GameSession.Received.Changed -> {
                     if (r.takenBack.isNotEmpty() && by != me.value && by != null) note(Note.TakenBack(PlayerId(by), r.takenBack))
                     endTurnTakenBack(target)
@@ -1249,7 +1249,7 @@ class GameDevice(
             if (by == me.value) forgetRemakes()
         } else for (event in events) {
             when (val r = session.received(event)) {
-                GameSession.Received.Reload -> { needsReload = true; break }
+                GameSession.Received.Reload -> { needsReload = true; remember("reload at ${event.id} on ${event.parentId}: ${followed()}"); break }
                 is GameSession.Received.Changed -> {
                     if (r.takenBack.isNotEmpty() && r.discarded.isNotEmpty())
                         note(Note.Branched(PlayerId(event.author), r.discarded.first(), r.takenBack))
@@ -1263,7 +1263,7 @@ class GameDevice(
             for ((account, head) in update.localHeads) heads[PlayerId(account)] = head
             request = update.rewindRequest
             // The server confirmed where this device branched: it can't follow (the rules agree, so only after a fault)
-            if (update.confirmed?.let(session::supersedes) == true) needsReload = true
+            if (update.confirmed?.let(session::supersedes) == true) { needsReload = true; remember("reload: ${update.confirmed} superseded") }
         }
         events.forEach { byPlayer.remove(it.id) }
         checkDraft()
@@ -1282,7 +1282,7 @@ class GameDevice(
                 if (confirming.remove(submission.id)) return
                 val mine = byPlayer.remove(submission.id)
                 val refused = session.refused(submission.id)
-                if (refused == GameSession.Received.Reload) needsReload = true
+                if (refused == GameSession.Received.Reload) { needsReload = true; remember("reload at refused ${submission.id}: ${followed()}") }
                 if (refused is GameSession.Received.Applied) endTurnDropped(refused.dropped)
                 val again = reason == "stale" &&
                     ((refused is GameSession.Received.Applied && (lostOpening(refused.dropped) ||
@@ -1509,6 +1509,12 @@ class GameDevice(
         session.events.any { e -> e.engine?.steps.orEmpty().any { it.input is Input.Concede } }
 
     // ---- Reproduction (I-D43)
+
+    /** Where the device's line stands, for the record of a reload. */
+    private fun followed() = "head ${session.head}, tip ${session.tip}, pending ${session.pending.map { it.id }}, behind ${session.behind}"
+
+    /** The last [count] entries of the device's record (what it sent, received and did), for the app log. */
+    fun recentRecord(count: Int): List<String> = record.takeLast(count)
 
     private fun remember(entry: String) {
         record.addLast(entry.take(MAX_ENTRY))

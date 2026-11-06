@@ -86,6 +86,12 @@ class CatalogRepository(private val directory: File, private val openDriver: (Fi
         activeFile()?.let { file -> CatalogIndex(openDriver(file)).use { it.tokenArt(face, sourceName, sourcePrintingId) } }
     }
 
+    /** TRN-053 (owner gallery review 2026-11-06): the scryfall id of the picture of the emblem printing whose rules text
+     * is [text] ([EmblemArt.same]), null when no emblem printing has it or without card records. Worker-only. */
+    fun emblemArt(text: String): String? = synchronized(lock) {
+        activeFile()?.let { file -> CatalogIndex(openDriver(file)).use { it.emblemArt(text) } }
+    }
+
     /** Worker-only; query the installed public generation, never account data. */
     fun avatarChoices(query: String = "", previous: List<CatalogAvatar> = emptyList()): List<CatalogAvatar> = synchronized(lock) {
         activeFile()?.let { file -> CatalogIndex(openDriver(file)).use { it.avatarChoices(query, previous) } }.orEmpty()
@@ -291,6 +297,17 @@ class CatalogIndex internal constructor(driver: SqlDriver) : app.cash.sqldelight
             listOf(TokenArtMatch.name(face.name)), enrich = false))
         val set = sourcePrintingId?.let { printing(it)?.set }
         return TokenArtMatch.best(face, set, related, named)
+    }
+
+    /** The newest emblem printing (a token record with layout "emblem") with a picture whose rules text is [text]. */
+    internal fun emblemArt(text: String): String? {
+        val wanted = EmblemArt.normalized(text).ifEmpty { return null }
+        return rows("SELECT * FROM printing WHERE token=1 AND json LIKE ? ORDER BY id", listOf("%\"layout\":\"emblem\"%"), enrich = false)
+            .mapNotNull { printing ->
+                val json = runCatching { JsonParser.parseString(printing.json).asJsonObject }.getOrNull() ?: return@mapNotNull null
+                val printed = json.get("text")?.takeIf { it.isJsonPrimitive }?.asString ?: return@mapNotNull null
+                printing.takeIf { printing.scryfallId != null && EmblemArt.normalized(printed) == wanted }
+            }.maxByOrNull { releaseDates[it.set].orEmpty() }?.scryfallId
     }
 
     internal fun validate(): Long {

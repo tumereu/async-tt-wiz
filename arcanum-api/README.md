@@ -35,6 +35,10 @@ The definition model (overview in `Definitions.kt`):
 - `ManaCost`/`ManaSymbol` (CR 107.4), `Color`, and basic vocabularies (`CardType`,
   `Zone`, `TurnStep`, `CounterKind`, `Status`, …).
 - `ComprehensiveRules.EFFECTIVE_DATE`: the pinned rules version (2026-09-25).
+- `RulesGlossary`: a plain-words explanation of every keyword (`KeywordKind.all`) and keyword action (`KeywordAction`
+  types, plus scry, surveil, mill and fight), written in the library's own words, never the rules or reminder text;
+  `named(text)` finds the keywords a text names (whole words, longest names first, variants such as megamorph and
+  swampcycling too). A jvmTest checks that every keyword and keyword action has one; the parser checks the keywords it reads.
 - Duskmourn (set `dsk`): Rooms (CR 709.5: `Door`, `ObjectMark.Unlocked`, `Effect.UnlockDoor`/`LockDoor`,
   `EventPattern.Unlock`, `NumericProperty.UnlockedDoors`, `AbilityKind.Unlock`), manifest dread
   (`KeywordAction.ManifestDread`, `EventPattern.ManifestDread`, `ObjectMark.Manifested`, `Mechanic.CantBeTurnedFaceUp`),

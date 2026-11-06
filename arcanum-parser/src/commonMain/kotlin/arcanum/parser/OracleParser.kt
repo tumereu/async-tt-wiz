@@ -25,7 +25,7 @@ object OracleParser {
      * wording newly read, a definition shaped differently, a fix), so stored definitions made by an older parser are
      * parsed again.
      */
-    const val VERSION: Int = 36
+    const val VERSION: Int = 37
 
     /**
      * Every subtype the pinned Comprehensive Rules list (CR 205.3g–m, 205.3q), as the parser reads them: what a host
@@ -406,8 +406,9 @@ object OracleParser {
     }
 
     /** The ability with its printed [raw] lines as its text, reminder text left out (shown to players: "you may"
-     * prompts, which of two triggers is which). Keywords have their own; unparsed text stays as printed. */
-    private fun Ability.withText(raw: String): Ability {
+     * prompts, which of two triggers is which; an emblem's quoted ability, CR 114.2). Keywords have their own; unparsed
+     * text stays as printed. */
+    internal fun Ability.withText(raw: String): Ability {
         val text = raw.lines().map { REMINDER.replace(it, "").trim() }.filter { it.isNotEmpty() }.joinToString("\n")
         return when (this) {
             is Ability.Spell -> copy(text = text)

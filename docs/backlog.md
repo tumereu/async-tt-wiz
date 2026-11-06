@@ -23,7 +23,6 @@ Running: End turn engine speed (worker D). Gallery round (owner, 2026-11-06): wo
 - Pay while resolving (owner gallery review): with Autotap on the panel opens with Autotap's sources already picked (changeable), off nothing picked; declining ("Don't pay") is always possible where the effect allows it (bug: the screenshot has no decline). Changes STK-049.
 - No "plays by hand" (owner gallery review): wording for decks/cubes with unsupported cards becomes "Automatum can't play 3 cards yet: A, B, C"; a cube or set with unsupported cards can't be drafted (e2e if missing). Changes LOB-115, LOB-118 and draft entries.
 - Information-rule Assume (owner gallery review): where assuming would show you hidden information or a random result (TRN-067, TRN-071), the wait's Assume button shows greyed; holding it says why ("Assuming this would show you hidden cards or a random result: wait for <name>."). E2e + gallery item. Changes TRN-067, TRN-070, TRN-071.
-- Emblem text (found 2026-11-06, worker E, bug): the parser doesn't keep the printed text of the quoted ability in "You get an emblem with …", so real emblems have empty text: the emblem chips' inspect shows no text and the emblem art lookup (matching rules text) can't match. Keep the emblem's ability text through parsing so TRN-053's inspect shows it. Test with an invented planeswalker. No entry change.
 
 ## Ready after the e2e framework (owner playtest, 2026-11-05)
 

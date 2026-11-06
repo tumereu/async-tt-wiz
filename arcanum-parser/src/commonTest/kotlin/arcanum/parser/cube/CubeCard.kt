@@ -71,8 +71,10 @@ private fun checkFace(printed: OracleCard, face: FaceDefinition, expected: List<
     checkTexts(printed, face.abilities)
 }
 
-/** [ability] without its printed text and its modes' texts. */
-fun withoutText(ability: Ability): Ability = when (ability) {
+/** [ability] without its printed text, its modes' texts and the texts of the emblems it creates ([withoutEmblemTexts]). */
+fun withoutText(ability: Ability): Ability = withoutOwnText(withoutEmblemTexts(ability))
+
+private fun withoutOwnText(ability: Ability): Ability = when (ability) {
     is Ability.Spell -> ability.copy(text = null, instructions = withoutText(ability.instructions))
     is Ability.Activated -> ability.copy(text = null, instructions = withoutText(ability.instructions))
     is Ability.Triggered -> ability.copy(text = null, instructions = withoutText(ability.instructions))
@@ -86,6 +88,44 @@ fun withoutText(ability: Ability): Ability = when (ability) {
 private fun withoutText(instructions: Instructions): Instructions =
     instructions.copy(modes = instructions.modes?.let { m -> m.copy(options = m.options.map { it.copy(text = null) }) })
 
+private val definitionJson = kotlinx.serialization.json.Json
+
+/** Each emblem's abilities (CR 114.2) wherever [ability] creates one, through its JSON form (emblems sit at any depth of
+ * the instructions). */
+private fun emblems(ability: Ability): List<kotlinx.serialization.json.JsonObject> {
+    if ("CreateEmblem(" !in ability.toString()) return emptyList()
+    val found = mutableListOf<kotlinx.serialization.json.JsonObject>()
+    fun walk(e: kotlinx.serialization.json.JsonElement) {
+        when (e) {
+            is kotlinx.serialization.json.JsonObject -> {
+                if ((e["type"] as? kotlinx.serialization.json.JsonPrimitive)?.content == "emblem")
+                    (e["abilities"] as kotlinx.serialization.json.JsonArray).forEach { found += it as kotlinx.serialization.json.JsonObject }
+                e.values.forEach(::walk)
+            }
+            is kotlinx.serialization.json.JsonArray -> e.forEach(::walk)
+            else -> {}
+        }
+    }
+    walk(definitionJson.encodeToJsonElement(Ability.serializer(), ability))
+    return found
+}
+
+/** [ability] with the emblems it creates without their abilities' printed texts, which [checkTexts] checks apart. */
+private fun withoutEmblemTexts(ability: Ability): Ability {
+    if (emblems(ability).isEmpty()) return ability
+    fun strip(e: kotlinx.serialization.json.JsonElement): kotlinx.serialization.json.JsonElement = when (e) {
+        is kotlinx.serialization.json.JsonObject -> kotlinx.serialization.json.JsonObject(
+            if ((e["type"] as? kotlinx.serialization.json.JsonPrimitive)?.content == "emblem") e + ("abilities" to
+                kotlinx.serialization.json.JsonArray((e["abilities"] as kotlinx.serialization.json.JsonArray).map { a ->
+                    strip(kotlinx.serialization.json.JsonObject((a as kotlinx.serialization.json.JsonObject) - "text")) }))
+            else e.mapValues { strip(it.value) })
+        is kotlinx.serialization.json.JsonArray -> kotlinx.serialization.json.JsonArray(e.map(::strip))
+        else -> e
+    }
+    return definitionJson.decodeFromJsonElement(Ability.serializer(),
+        strip(definitionJson.encodeToJsonElement(Ability.serializer(), ability)))
+}
+
 /**
  * Each parsed ability keeps its printed text: one or more whole lines of the card, in order, without reminder text (a
  * spell's lines, a modal spell's "Choose one —" with its "• " lines, a leveler band); each mode its "• " line without
@@ -94,6 +134,12 @@ private fun withoutText(instructions: Instructions): Instructions =
 private fun checkTexts(printed: OracleCard, abilities: List<Ability>) {
     val lines = printed.text.lines().map { Regex("""\s*\([^)]*\)""").replace(it, "").trim() }.filter { it.isNotEmpty() }
     var from = 0
+    // CR 114.2: an emblem's ability keeps its quoted text as printed
+    for (emblem in abilities.flatMap(::emblems)) {
+        val text = (emblem["text"] as? kotlinx.serialization.json.JsonPrimitive)?.content
+            ?: kotlin.test.fail("${printed.name}: an emblem's ability has no text: $emblem")
+        assertEquals(true, "emblem with \"$text\"" in printed.text, "${printed.name}: emblem text \"$text\" isn't quoted on the card")
+    }
     abilities.forEach { ability ->
         val (text, instructions) = when (ability) {
             is Ability.Spell -> ability.text to ability.instructions

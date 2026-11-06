@@ -155,6 +155,15 @@ The definition model (overview in `Definitions.kt`):
   among creatures you control"), `ObjectFilter.HasDealtDamage` ("as long as it hasn't dealt damage yet") and `AdditionalCost.flash`
   ("you may cast this spell as though it had flash if you behold a Dragon as an additional cost to cast it", CR 702.8a);
   `DefinitionChecks` keeps a loop that creates a token attacking each player.
+- Modern Horizons 2 (set `mh2`): `AbilityLabel.Forecast` (CR 702.57: once each turn, during your upkeep, from the hand),
+  `Keyword.TrampleOverPlaneswalkers` (CR 702.19c) and `Keyword.ReinforceX` (an announced X, CR 702.77a), `Effect.PhaseOut.untilLeaves`
+  and `Effect.PhaseIn` ("phases out until [this] leaves the battlefield"), `Effect.FlipCoin.count` with `Value.FlipsWon`/`FlipsLost` and
+  `EventPattern.FlipCoin` (CR 705), `Effect.ChangeTargets.atRandom`/`notTo` ("reselect its targets at random … can't be you or a
+  permanent you control"), `EventPattern.Exploits` (CR 702.110), `ObjectFilter.CouldProduce` ("could produce {C}"),
+  `ObjectFilter.HasManaCost` ("with mana cost {0} or {1}"), `ObjectFilter.SingleTarget` ("a spell that targets only a single permanent or
+  player"), `Mechanic.SetTypes.removeSupertypes` ("isn't legendary"), `Mechanic.AdditionalLoyaltyCost` ("cost an additional [+1]"),
+  and `Choice.CardNameAmong` with `Effect.CopyNamedCard` ("choose a card name that hasn't been chosen from among …; create a copy of
+  the card with the chosen name", the card supplied by the host, CR 707.12).
 - Final Fantasy (set `fin`): `Effect.EndTurn` (CR 724.1) and `Effect.AdditionalStep` ("an additional end step after this step", CR
   500.9), `KeywordAction.Meld(objects, into)` with the existing `Layout.Meld` (CR 701.42), `Effect.Cast.manaAsAnyType` (CR 609.4b),
   `ActivationRules.cantBeCopied` ("this ability can't be copied", CR 707.10), `Modification.AsTransforms` ("as this creature transforms

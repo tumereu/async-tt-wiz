@@ -452,6 +452,14 @@ report and replay their inputs on a saved state. The default `EngineTrace.None` 
   chosen as a Siege enters, each clan's ability working only when chosen; a spell cast as though it had flash only by paying the
   additional cost that gives it flash; what has dealt any damage remembered; and a cost that names an announced X ("Sacrifice a creature
   you control with mana value X") checked once X is announced (CR 601.2b).
+- Done, Modern Horizons 2 (scenarios in `commonTest/…/sets/mh2/`): every non-trivial card plays (each file names the cards that only
+  repeat a played template). Phasing out until a permanent leaves (not phasing in at untap), coin flips counted and reacted to,
+  exploit triggers, "could produce", targets reselected at random among the allowed ones (the host rolls a die), trample over
+  planeswalkers (lethal damage to the planeswalker is its loyalty, CR 702.19c), "isn't legendary", additional loyalty costs, a
+  triggered ability's "choose both instead" judged as it is put on the Stack, exiling a card from any graveyard as a cost (the filter
+  naming the owner) kept as the permanent's memory, a keyword ability of a source that left read as it last existed (modular), the
+  creature types each player chose in one loop gathered, and a copy of a card by a chosen name: the host fills it in
+  (`Decision.HostFill.named`), it is made in exile and may be cast.
 - Done, Final Fantasy (scenarios in `commonTest/…/sets/fin/`): every card plays (templates repeated elsewhere in the set played once in
   `FinTemplatesScenariosTest`). Ending the turn (CR 724.1: the Stack exiled, straight to cleanup); additional steps after the current one
   (CR 500.9); meld (the two exiled cards one permanent, back face up, both cards leaving together; its mana value the total of the

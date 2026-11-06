@@ -73,6 +73,10 @@ Design: `docs/specs/arcanum-automatum.md` §6.
   `OracleParser` (each ability works only if its clan was chosen), "Mobilize X, where X is …" is written out as its triggered
   ability, an exile "until … leaves the battlefield" is kept as card memory when another ability names "the exiled card", and "if you
   cast it" in another creature's enters trigger is that creature.
+  Modern Horizons 2 (`mh2`): all 309 cards parse (the four split cards as two faces, the five basic lands untested); its rules are in
+  `Mh2Wordings.kt` (`Mh2`, and `Mh2Phrases` for conditions, values and nouns) and the `mh2*` functions of `Sentences.kt`, tried first;
+  `OracleParser` also reads "Vanishing" without a number, echo and reinforce X with a cost after a dash ("Echo—Discard a card."),
+  artifact landwalk and landcycling, protection from permanents with counters, and a modal trigger's "choose both instead".
 - Mechanics that used to be by hand (`MechanicWordings.kt`, tried first; `MechanicWordingsTest`, one test per wording): the Ring tempting
   you (the effect, "whenever the Ring tempts you", "[this] is your Ring-bearer", "you don't control a Ring-bearer", "you chose a creature
   other than [this] as your Ring-bearer"), soulbond's "As long as [this] is paired with another creature, both creatures have …" /

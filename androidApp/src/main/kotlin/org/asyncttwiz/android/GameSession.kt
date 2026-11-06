@@ -318,6 +318,9 @@ class GameSession(private val connection: GameConnection, private val credential
         if (engineGames[gameId] !== game) return
         // SYS-013: the player's own game action waits for the connection: the next background attempt doesn't wait longer
         if (!ready && actions.any { it !is GameAction.EngineSeen }) nextConnectAt = 0L
+        // SYS-016: a game action waiting for the server; after 3 s the table says "Reconnecting…" and refuses actions
+        // until the connection is back ([reconnecting])
+        if (!ready(gameId) && actions.any { it !is GameAction.EngineSeen }) connectionDemand.getOrPut(gameId, now)
         val stream = streams[gameId]
         val generation = stream?.generation ?: stream?.lastGeneration
         if (stream == null || generation == null) { engineBacklog.getOrPut(gameId) { mutableListOf() } += actions; return }

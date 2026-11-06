@@ -136,6 +136,16 @@ internal fun EngineTableScreen(controller: LobbyController, accountId: String, h
     // made show only the centre text that resumes it; a tap on the table while it runs pauses it
     val catchUp = status == GameDevice.Status.CatchUp
     val pausedStop = (status as? GameDevice.Status.Stopped)?.paused == true
+    // HIS-017, TBL-105: holding a card to inspect it pauses playback, and releasing it doesn't resume it: timeline mode's
+    // Auto stops; a running catch-up pauses as a tap on the table pauses it (HIS-095); a branch's take-back goes on (HIS-106)
+    val held = toolkit.peek != null
+    LaunchedEffect(held) {
+        if (!held) return@LaunchedEffect
+        if (routes.review != null) routes.reviewPlaying = false
+        else engine.shown?.takeIf { it.status is GameDevice.Status.Playing && !it.pausing && !it.takingBack }?.let {
+            engine.pause(); controller.engineSent()
+        }
+    }
     // HIS-023 (owner playtest 2026-11-05): the centre text goes at once when tapped, before the engine thread publishes
     // the playing board
     var watchTappedAt by remember(game.id) { mutableStateOf<Long?>(null) }

@@ -402,6 +402,8 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             ObjectFilter.XInManaCost -> c?.manaCost?.symbols.orEmpty().any { it is arcanum.api.ManaSymbol.Variable && it.name == 'X' }
             is ObjectFilter.NthSpellThisTurn -> History.isNthSpell(this, filter, id)
             // CR 115.7: one target in all ("with a single target"), of [target] when given
+            // dft: no abilities at all (CR 113.1)
+            ObjectFilter.NoAbilities -> c?.abilities.orEmpty().isEmpty()
             // spm: modified (CR 700.9): a counter on it, an Equipment attached, or an Aura its controller controls attached
             ObjectFilter.Modified -> (counterList(id)?.any { it.count > 0 } == true) || state.battlefield.any { other ->
                 val a = state.obj(other)?.attachedTo

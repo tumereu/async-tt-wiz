@@ -231,6 +231,10 @@ sealed interface ObjectFilter {
     /** A modified permanent (CR 700.9): it has a counter on it, is equipped, or is enchanted by an Aura its controller
      * controls ("a modified creature you control"). */
     @Serializable @SerialName("modified") data object Modified : ObjectFilter
+    // dft
+    /** It has no abilities (CR 113.1: no spell, activated, triggered or static ability, keywords included; "a creature card with no
+     * abilities"). */
+    @Serializable @SerialName("no-abilities") data object NoAbilities : ObjectFilter
 }
 
 /** A subtype written out, or the one chosen under [Chosen.key] (a choice of this resolution or remembered on the source,

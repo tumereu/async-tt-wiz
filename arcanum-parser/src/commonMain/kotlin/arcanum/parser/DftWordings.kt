@@ -47,6 +47,30 @@ internal object Dft {
     val SADDLES_AND_CREWS_USING_TOUGHNESS = Regex("""(.+) saddles Mounts and crews Vehicles using its toughness rather than its power\.""")
     val THAT_MOUNT_OR_VEHICLE = Regex("""That Mount or Vehicle (.+)""")
     val CREATE_X_TOKENS_THEY_HAVE = Regex("""Create X (\d+/\d+ .+? creature) tokens\. The tokens have "(.+)"\.?""")
+    // dft chunk 06
+    val RETURN_THEN_REDUCE_SPEED = Regex("""Return target (.+?) to its owner's hand\. If that opponent's speed is greater than each other player's speed, reduce that opponent's speed by (\w+)\. This effect can't reduce their speed below (\d+)\.""")
+    val EACH_OPPONENT_SACRIFICES_WHO_CANT_DISCARDS = Regex("""Each opponent sacrifices an? (.+?) of their choice\. Each opponent who can't discards a card\.""")
+    // dft chunk 07
+    val MAY_PAY_IF_YOU_DO_COPY_IT = Regex("""You may pay (\{[^}]+\})\. If you do, copy it\.""")
+    val CANT_ATTACK_OR_BLOCK_UNLESS = Regex("""(.+) can't attack or block unless (.+)\.""")
+    val THAT_TOKEN_ATTACKS_THIS_COMBAT = Regex("""That token attacks this combat if able\.""")
+    val DEALS_TO_EACH_PLAYER_WITHOUT_MAX_SPEED = Regex("""(.+?) deals (\d+) damage to each player who doesn't have max speed\.""")
+    val GET_X_WHERE = Regex("""(.+) get \+X/\+(\d+), where X is (.+)\.""")
+    val COST_X_LESS_WHERE = Regex("""(.+) cost \{X\} less to cast, where X is (.+)\.""")
+    val A_AND_B_YOU_CONTROL_GAIN_UNTIL_EOT = Regex("""(\w+) and (\w+) you control gain ([a-z ,]+) until end of turn\.""")
+    // dft chunk 08
+    val ONE_OR_MORE_ATTACK_YOU = Regex("""one or more (.+) attack you""")
+    val THOSE_CREATURES_GET_UNTIL_EOT = Regex("""Those creatures get ([+-]\d+)/([+-]\d+) until end of turn\.""")
+    val DEALS_DAMAGE_TO_THEM = Regex("""(.+?) deals (\d+) damage to them\.""")
+    val NEXT_EXHAUST_COPY_IT = Regex("""When you next activate an exhaust ability that isn't a mana ability this turn, copy it\. You may choose new targets for the copy\.""")
+    val ANY_NUMBER_OF_TARGET_PLAYERS_EACH_MILL = Regex("""Any number of target players each mill (\w+) cards\.""")
+    val ANY_NUMBER_OF_TARGET_PLAYERS_EACH_MILL_GRAVEYARD = Regex("""Any number of target players each mill cards equal to the number of cards in their graveyard\.""")
+    val AS_THOUGH_NOT_ACTIVATED = Regex("""During your turn, as long as you haven't activated an? (\w+) ability this turn, you may activate (\w+) abilities as though they haven't been activated\.""")
+    val LABEL_ABILITIES_OF_COST_LESS = Regex("""(\w+) abilities of (.+) cost (\{\d+\}) less to activate\.""")
+    val PUT_ANY_NUMBER_FROM_HAND = Regex("""Put any number of (.+?) cards from your hand onto the battlefield\.""")
+    val REVEAL_UNTIL_TWO_PUT_REST_BOTTOM = Regex("""Reveal cards from the top of your library until you reveal (\w+) (\w+) cards\. Put those \2 cards onto the battlefield( tapped)? and the rest on the bottom of your library in a random order\. (.+)""")
+    val PUT_X_COUNTERS_THEN_MAY_BASE_PT = Regex("""Put X (\S+) counters on (.+?)\. Then you may have the base power and toughness of each other creature you control become equal to (.+?)'s power until end of turn\.""")
+    val COSTS_LESS_IF_TARGETS_MV = Regex("""This spell costs (\{\d+\}) less to cast if it targets an? (\w+) with mana value (\d+)\.""")
 }
 
 /** Aetherdrift (dft) values and conditions read in [Values] and [Conditions]. */
@@ -76,6 +100,10 @@ internal object DftPhrases {
     }
 
     fun condition(text: String): Condition? {
+        // dft chunk 07: "you have max speed" (CR 702.179e)
+        if (text == "you have max speed") return Condition.MaxSpeed
+        // dft chunk 08: "it's not their turn" (the player of the event isn't the active player)
+        if (text == "it's not their turn") return Condition.PlayerMatches(Players.EventPlayer, arcanum.api.PlayerFilter.Not(arcanum.api.PlayerFilter.Is(Players.Active)))
         // dft chunk 03: "a Pirate and a Vehicle attacked this combat" (attacking creatures of each)
         Dft.A_AND_A_ATTACKED_THIS_COMBAT.matchEntire(text)?.let { m ->
             val attacking = ObjectFilter.HasStatus(Status.Attacking)
@@ -84,6 +112,20 @@ internal object DftPhrases {
         return null
     }
 
+    fun noun(phrase: String): ObjectFilter? {
+        // dft chunk 09: "artifact card with mana value 4 or 5"
+        MANA_VALUE_N_OR_M.matchEntire(phrase)?.let { m ->
+            val n = m.groupValues[2].toInt()
+            val mv = { v: Int -> ObjectFilter.ManaValue(arcanum.api.Comparison.Equal, Value.Fixed(v)) }
+            return Filters.all(Filters.noun(m.groupValues[1]) ?: return null, if (m.groupValues[3].isEmpty()) mv(n) else ObjectFilter.Or(listOf(mv(n), mv(m.groupValues[3].toInt()))))
+        }
+        // dft chunk 14: "creature card with no abilities" (CR 113.1)
+        WITH_NO_ABILITIES.matchEntire(phrase)?.let { m -> return Filters.all(Filters.noun(m.groupValues[1]) ?: return null, ObjectFilter.NoAbilities) }
+        return null
+    }
+
+    private val MANA_VALUE_N_OR_M = Regex("""(.+) with mana value (\d+)(?: or (\d+))?""")
+    private val WITH_NO_ABILITIES = Regex("""(.+) with no abilities""")
     private val PERMANENTS_YOU_CONTROL_THAT_ARE = Regex("""the number of permanents you control that are (.+)""")
     private val N_PLUS = Regex("""(\d+) plus (.+)""")
     private val ENTERED_UNDER_YOUR_CONTROL_THIS_TURN = Regex("""the number of (.+) that entered the battlefield under your control this turn""")

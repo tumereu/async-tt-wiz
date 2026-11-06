@@ -295,6 +295,10 @@ sealed interface Effect {
     @Serializable @SerialName("one-more-of-each-kind") data class OneMoreCounterOfEachKind(val recipients: Recipients) : Effect
     /** "Increase your speed by [amount]" (CR 702.179c): a player with no speed gets that speed; speed is at most 4. */
     @Serializable @SerialName("increase-speed") data class IncreaseSpeed(val players: Players, val amount: Value) : Effect
+    // dft
+    /** "Reduce [players]'s speed by [amount]. This effect can't reduce their speed below [atLeast]." (CR 702.179): a player with no speed
+     * keeps none, and one already at or below [atLeast] keeps their speed. */
+    @Serializable @SerialName("reduce-speed") data class ReduceSpeed(val players: Players, val amount: Value, val atLeast: Int) : Effect
     /** [controller] controls [players] during their next turn: makes every decision they could make, seeing what they could see
      * (CR 723.1, 723.2; "you control target opponent during their next turn"). */
     @Serializable @SerialName("control-next-turn") data class ControlNextTurn(

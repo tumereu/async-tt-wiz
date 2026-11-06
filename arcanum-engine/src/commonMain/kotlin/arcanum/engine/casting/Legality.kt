@@ -326,9 +326,15 @@ internal object Legality {
         }
         val key = instance.origin.key
         ability.rules.perTurn?.let { if (activationsThisTurn(snap, source, key) >= it) return "only $it time(s) each turn (CR 602.5b)" }
-        if (ability.rules.once && activationsEver(snap, source, key) >= 1 + additionalUses(snap, source, ability)) return "only once"
+        if (ability.rules.once && activationsEver(snap, source, key) >= 1 + additionalUses(snap, source, ability) && !asThoughNotActivated(snap, source, ability))
+            return "only once"
         return null
     }
+
+    /** dft: a rule lets its [ability] be activated as though it hadn't been (CR 702.177b). */
+    private fun asThoughNotActivated(snap: Snapshot, source: ObjectId, ability: Ability.Activated): Boolean = ability.label?.let { label ->
+        snap.view[source]?.mechanics.orEmpty().any { (it.mechanic as? arcanum.api.Mechanic.AsThoughNotActivated)?.label == label }
+    } ?: false
 
     private fun cantTakeSpecialAction(snap: Snapshot, player: PlayerId, source: ObjectId, instance: AbilityInstance, action: Ability.SpecialAction): String? {
         val o = snap.state.obj(source) ?: return "no such object"

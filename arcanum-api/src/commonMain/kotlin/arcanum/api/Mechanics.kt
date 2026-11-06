@@ -353,6 +353,10 @@ sealed interface Mechanic {
     /** [label] abilities of the affected objects that may be activated only once (power-up, exhaust) may be activated [count]
      * more times ("Each power-up ability of permanents you control can be activated an additional time"). */
     @Serializable @SerialName("label-additional-uses") data class LabelAdditionalUses(val label: AbilityLabel, val count: Int) : Mechanic
+    // dft
+    /** [label] abilities of the affected objects may be activated as though they hadn't been activated ("you may activate exhaust abilities
+     * as though they haven't been activated", CR 702.177b): their "activate only once" doesn't stop them while this applies. */
+    @Serializable @SerialName("as-though-not-activated") data class AsThoughNotActivated(val label: AbilityLabel) : Mechanic
     /** Spells or abilities matching [what] cost more or less by [change] (CR 601.2f, 118.7); abilities by keyword with
      * [ObjectFilter.HasKeyword] ("equip abilities cost {1} less"). [minimum]: the generic mana a reduction can't go
      * below (0: no minimum). */

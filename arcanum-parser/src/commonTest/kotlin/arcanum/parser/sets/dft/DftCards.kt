@@ -293,6 +293,11 @@ val thatMountOrVehicle: Objects = Objects.EventObject(EventRole.Source)
 /** "Enchant creature or Vehicle" (CR 702.5a) */
 val enchantCreatureOrVehicle: Keyword = Keyword.Enchant(TargetKind.Objects(or(creature, vehicle)))
 val enchanted: Objects = Objects.AttachedTo(Objects.Self)
+/** "exile the top card of your library. You may play that card this turn." (CR 601.2a, 305.1) */
+val exileTopMayPlayThisTurn: Array<Step> = arrayOf(
+    Step.Do(Effect.Move(Objects.LibraryCards(Players.You, n(1), fromTop = true), Destination(Zone.Exile), postBind = "exiled")),
+    Step.Do(Effect.ApplyMechanics(listOf(Mechanic.MayPlay(Zone.Exile, arcanum.api.PlayKind.Play, holder = PlayerFilter.You)),
+        Affected.Objects(Objects.Bound("exiled")), Duration.EndOfTurn)))
 /** Your speed (CR 702.179f). */
 val yourSpeed: Value = Value.Speed(Players.You)
 /** "Exile this card from your graveyard" as a cost. */

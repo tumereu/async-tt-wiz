@@ -46,6 +46,7 @@ internal object Filters {
     fun noun(phrase: String): ObjectFilter? {
         // CR 701.54e: "your Ring-bearer"
         if (phrase == "your Ring-bearer" || phrase == "Your Ring-bearer") return MechanicWordings.yourRingBearer
+        DftPhrases.noun(phrase)?.let { return it } // dft
         FinPhrases.noun(phrase)?.let { return it } // fin
         TdmPhrases.noun(phrase)?.let { return it } // tdm
         EoePhrases.noun(phrase)?.let { return it } // eoe

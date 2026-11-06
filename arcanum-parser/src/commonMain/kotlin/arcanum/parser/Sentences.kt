@@ -279,6 +279,53 @@ internal class Sentences(
             return Ability.Static(listOf(replacement(arcanum.api.Comparison.AtMost, 1),
                 replacement(arcanum.api.Comparison.Greater, Numbers.count(m.groupValues[4]) ?: return null)), affects = Affected.Objects(Objects.Self))
         }
+        // dft chunk 08: "During your turn, as long as you haven't activated an exhaust ability this turn, you may activate exhaust abilities as
+        // though they haven't been activated." (only before beginning to activate one this turn, CR 702.177b)
+        Dft.AS_THOUGH_NOT_ACTIVATED.matchEntire(line)?.takeIf { it.groupValues[1] == it.groupValues[2] }?.let { m ->
+            val label = LABELS[m.groupValues[1]] ?: return null
+            val activated = EventPattern.Activate(ObjectFilter.Any, PlayerFilter.You, manaAbilities = true, label = label)
+            return Ability.Static(listOf(Mechanic.AsThoughNotActivated(label)), affects = Affected.Objects(Objects.Each(Filters.all(
+                ObjectFilter.Category(arcanum.api.ObjectCategory.Permanent), ObjectFilter.ControlledBy(PlayerFilter.You)))),
+                condition = arcanum.api.Condition.And(listOf(arcanum.api.Condition.YourTurn, arcanum.api.Condition.Not(
+                    arcanum.api.Condition.HappenedThisTurn(activated, atLeast = 1, measure = Measure.Events)))))
+        }
+        // dft chunk 08: "Exhaust abilities of other permanents you control cost {2} less to activate." (CR 601.2f, 602.2b)
+        Dft.LABEL_ABILITIES_OF_COST_LESS.matchEntire(line)?.let { m ->
+            val label = LABELS[m.groupValues[1].lowercase()] ?: return null
+            val of = m.groupValues[2]
+            val source = if (of.startsWith("other ")) Filters.all(ObjectFilter.Not(ObjectFilter.Is(Objects.Self)), Filters.noun(of.removePrefix("other ")) ?: return null)
+                else Filters.noun(of) ?: return null
+            return Ability.Static(listOf(Mechanic.CostChange(ObjectFilter.AbilityOf(source = source, label = label),
+                arcanum.api.CostChange.Less(ManaCost.parse(m.groupValues[3]) ?: return null, Value.Fixed(1)))), affects = Affected.Objects(Objects.Self))
+        }
+        // dft chunk 09: "This spell costs {2} less to cast if it targets a permanent with mana value 1." (CR 601.2f)
+        Dft.COSTS_LESS_IF_TARGETS_MV.matchEntire(line)?.takeIf { isSpell }?.let { m ->
+            val filter = Filters.all(Filters.noun(m.groupValues[2]) ?: return null, ObjectFilter.ManaValue(arcanum.api.Comparison.Equal, Value.Fixed(m.groupValues[3].toInt())))
+            return Ability.Static(listOf(Mechanic.CostChange(ObjectFilter.Is(Objects.Self), arcanum.api.CostChange.Less(ManaCost.parse(m.groupValues[1]) ?: return null, Value.Fixed(1)))),
+                affects = Affected.Objects(Objects.Self), condition = arcanum.api.Condition.ObjectMatches(Objects.Target(Filters.slotName(m.groupValues[2])), filter))
+        }
+        // dft chunk 07: "Hazoret can't attack or block unless you have max speed." (the restrictions while the condition doesn't hold)
+        Dft.CANT_ATTACK_OR_BLOCK_UNLESS.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            val condition = Conditions.condition(m.groupValues[2], self) ?: return null
+            return Ability.Static(listOf(Mechanic.CantAttack(), Mechanic.CantBlock(ObjectFilter.Any)), affects = Affected.Objects(Objects.Self),
+                condition = arcanum.api.Condition.Not(condition))
+        }
+        // dft chunk 07: "Other creatures you control get +X/+0, where X is your speed." (layer 7c, the speed as it is now)
+        Dft.GET_X_WHERE.matchEntire(line)?.let { m ->
+            val subject = m.groupValues[1]
+            val filter = if (subject.startsWith("Other ")) Filters.all(ObjectFilter.Not(ObjectFilter.Is(Objects.Self)),
+                Filters.noun(subject.removePrefix("Other ")) ?: return null) else Filters.noun(subject.replaceFirstChar { it.lowercase() }) ?: return null
+            val x = Values.value(m.groupValues[3]) ?: return null
+            return Ability.Static(listOf(Mechanic.ModifyPowerToughness(x, Value.Fixed(m.groupValues[2].toInt()))), affects = Affected.Objects(Objects.Each(filter)))
+        }
+        // dft chunk 07: "Noncreature spells you cast cost {X} less to cast, where X is your speed." (the reduction as {1} X times, CR 601.2f)
+        Dft.COST_X_LESS_WHERE.matchEntire(line)?.let { m ->
+            val x = Values.value(m.groupValues[2]) ?: return null
+            val one = static("${m.groupValues[1]} cost {1} less to cast.") as? Ability.Static ?: return null
+            val change = one.mechanics.singleOrNull() as? Mechanic.CostChange ?: return null
+            val less = change.change as? arcanum.api.CostChange.Less ?: return null
+            return one.copy(mechanics = listOf(change.copy(change = less.copy(times = x))))
+        }
         // dft chunk 05: "This creature saddles Mounts and crews Vehicles as though its power were 2 greater." / "… using its toughness rather than its
         // power." (what it counts for as it is tapped to pay those costs, CR 702.171a, 702.122a)
         Dft.SADDLES_AND_CREWS_AS_THOUGH_GREATER.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
@@ -315,6 +362,11 @@ internal class Sentences(
         // dft chunk 02: "you activate an exhaust ability" (mana abilities too, CR 702.177a)
         if (text == "you activate an exhaust ability") return arcanum.api.Trigger.On(EventPattern.Activate(ObjectFilter.Any, PlayerFilter.You, manaAbilities = true,
             label = arcanum.api.AbilityLabel.Exhaust)) to null
+        // dft chunk 08: "one or more creatures attack you" (once for the batch, CR 508.3d)
+        Dft.ONE_OR_MORE_ATTACK_YOU.matchEntire(text)?.let { m ->
+            val filter = Filters.noun(m.groupValues[1]) ?: return null
+            return arcanum.api.Trigger.On(EventPattern.Attack(filter, target = RecipientFilter(players = PlayerFilter.You)), oneOrMore = true) to null
+        }
         // dft chunk 04: "this creature attacks while saddled": it attacks while it is saddled (CR 702.171b)
         val saddledSelf = Filters.all(ObjectFilter.Is(Objects.Self), DftPhrases.SADDLED)
         Dft.ATTACKS_WHILE_SADDLED.matchEntire(text)?.takeIf { isSelf(it.groupValues[1]) }?.let {
@@ -358,6 +410,56 @@ internal class Sentences(
             val it = Affected.Objects(Objects.Target(name))
             return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.ControlledBy(Players.You)), it, asLong)),
                 Step.Do(Effect.ApplyMechanics(listOf(Mechanic.CantAttack(), Mechanic.CantBlock(ObjectFilter.Any)), it, asLong)))
+        }
+        // dft chunk 08: "When you next activate an exhaust ability that isn't a mana ability this turn, copy it. You may choose new targets for the
+        // copy." (a delayed trigger for this turn, CR 603.7; the copy, CR 707.10)
+        if (Dft.NEXT_EXHAUST_COPY_IT.matches(text)) return listOf(Step.Do(Effect.CreateDelayedTrigger(
+            arcanum.api.Trigger.On(EventPattern.Activate(ObjectFilter.Any, PlayerFilter.You, label = arcanum.api.AbilityLabel.Exhaust)),
+            Instructions(steps = listOf(Step.Do(Effect.CopySpell(Objects.EventObject(EventRole.Object), Players.You, newTargets = true)))),
+            duration = arcanum.api.Duration.EndOfTurn)))
+        // dft chunk 09: "Reveal cards from the top of your library until you reveal two land cards. Put those land cards onto the battlefield tapped and
+        // the rest on the bottom of your library in a random order. …" (CR 701.20)
+        Dft.REVEAL_UNTIL_TWO_PUT_REST_BOTTOM.matchEntire(text)?.let { m ->
+            val n = Numbers.count(m.groupValues[1]) ?: return null
+            val filter = Filters.noun(m.groupValues[2]) ?: return null
+            val rest = effect(m.groupValues[4], context) ?: return null
+            return listOf(Step.Do(Effect.RevealUntil(filter, Players.You, Value.Fixed(n), reveal = true, foundBind = "found", restBind = "rest")),
+                Step.Do(Effect.Move(Objects.Bound("found"), Destination(Zone.Battlefield, tapped = m.groupValues[3].isNotEmpty()))),
+                Step.Do(Effect.Move(Objects.Bound("rest"), Destination(Zone.Library, libraryPosition = -1, randomOrder = true)))) + rest
+        }
+        // dft chunk 09: "Put X +1/+1 counters on Sita Varma. Then you may have the base power and toughness of each other creature you control become
+        // equal to Sita Varma's power until end of turn." (its power as this resolves, CR 611.2c)
+        Dft.PUT_X_COUNTERS_THEN_MAY_BASE_PT.matchEntire(text)?.takeIf { isSelf(it.groupValues[2]) && isSelf(it.groupValues[3]) }?.let { m ->
+            val kind = Counters.kind(m.groupValues[1]) ?: return null
+            val power = Value.Of(arcanum.api.NumericProperty.Power, Objects.Self, arcanum.api.Combine.Single)
+            return listOf(Step.Do(Effect.PutCounters(Objects.Self, kind, Value.Announced("X"))),
+                Step.May(listOf(dftUntilEndOfTurn(Objects.Each(Filters.all(ObjectFilter.Not(ObjectFilter.Is(Objects.Self)), ObjectFilter.Type(CardType.Creature),
+                    ObjectFilter.ControlledBy(PlayerFilter.You))), listOf(Mechanic.SetPowerToughness(power, power)))), player = Players.You))
+        }
+        // dft chunk 07: "You may pay {1}. If you do, copy it." in a cast trigger: the copy keeps the spell's targets (CR 707.10, no new targets)
+        Dft.MAY_PAY_IF_YOU_DO_COPY_IT.matchEntire(text)?.takeIf { context.event is EventPattern.Cast }?.let { m ->
+            return listOf(Step.Pay(Cost.mana(ManaCost.parse(m.groupValues[1]) ?: return null), payer = Players.You, bind = "paid"),
+                Step.If(arcanum.api.Condition.Did("paid"), then = listOf(Step.Do(Effect.CopySpell(Objects.EventObject(EventRole.Object), Players.You, newTargets = false)))))
+        }
+        // dft chunk 06: "Return target creature or Vehicle an opponent controls to its owner's hand. If that opponent's speed is greater than each
+        // other player's speed, reduce that opponent's speed by 1. This effect can't reduce their speed below 1." (the target's controller, CR 702.179)
+        Dft.RETURN_THEN_REDUCE_SPEED.matchEntire(text)?.let { m ->
+            val name = Filters.slotName(m.groupValues[1])
+            context.targets += dftSlot(name, Filters.noun(m.groupValues[1]) ?: return null)
+            val that = Players.ControllerOf(Objects.Target(name))
+            val others = Value.GreatestFor(Players.Each(PlayerFilter.Not(PlayerFilter.Is(that))), Value.Speed(Players.Tested))
+            return listOf(Step.Do(Effect.Move(Objects.Target(name), Destination(Zone.Hand))),
+                Step.If(arcanum.api.Condition.Compare(Value.Speed(that), arcanum.api.Comparison.Greater, others), then = listOf(
+                    Step.Do(Effect.ReduceSpeed(that, Value.Fixed(Numbers.count(m.groupValues[2]) ?: return null), atLeast = m.groupValues[3].toInt())))))
+        }
+        // dft chunk 06: "Each opponent sacrifices a creature or Vehicle of their choice. Each opponent who can't discards a card." (each opponent's
+        // sacrifice is a mandatory payment, so "can't" is known per opponent, CR 118.12; all at once, CR 101.4)
+        Dft.EACH_OPPONENT_SACRIFICES_WHO_CANT_DISCARDS.matchEntire(text)?.let { m ->
+            val filter = Filters.noun(m.groupValues[1]) ?: return null
+            val opponent = Players.Bound("opponent")
+            return listOf(Step.ForEach(arcanum.api.Each.Players(Players.Each(PlayerFilter.Opponent)), bind = "opponent", together = true, steps = listOf(
+                Step.Pay(Cost(listOf(CostPart.Sacrifice(CostObjects.Choose(filter, count = Value.Fixed(1))))), payer = opponent, mandatory = true, bind = "sacrificed"),
+                Step.If(arcanum.api.Condition.CouldNot("sacrificed"), then = listOf(Step.Do(Effect.Discard(opponent, Value.Fixed(1), ObjectFilter.Any)))))))
         }
         // dft chunk 03: "Choose up to one target Vehicle you control. Until end of turn, it becomes …" (the rest about that target)
         Dft.CHOOSE_UP_TO_ONE_TARGET_THEN.matchEntire(text)?.takeIf {
@@ -414,6 +516,17 @@ internal class Sentences(
         return null
     }
 
+    /** Sentences that change the steps before them. */
+    private fun dftModify(sentence: String, steps: List<Step>, context: Context): List<Step>? {
+        // dft chunk 07: "That token attacks this combat if able." after creating a token (a requirement this combat, CR 508.1d)
+        if (Dft.THAT_TOKEN_ATTACKS_THIS_COMBAT.matches(sentence)) {
+            val create = ((steps.lastOrNull() as? Step.Do)?.effect as? Effect.CreateToken)?.takeIf { it.bind == null } ?: return null
+            return steps.dropLast(1) + Step.Do(create.copy(bind = "token")) + Step.Do(Effect.ApplyMechanics(listOf(Mechanic.MustAttack()),
+                Affected.Objects(Objects.Bound("token")), arcanum.api.Duration.EndOfCombat))
+        }
+        return null
+    }
+
     /** One sentence. */
     private fun dftEffect(sentence: String, context: Context): List<Step>? {
         // dft chunk 01: "Until end of turn, this Vehicle becomes an artifact creature and gains flying." (CR 301.7b, 613.1d, f)
@@ -422,6 +535,45 @@ internal class Sentences(
             val keywords = dftKeywords(m.groupValues[2]) ?: return null
             context.it = objects
             return listOf(dftUntilEndOfTurn(objects, listOf(dftArtifactCreature, Mechanic.GainAbilities(keywords))))
+        }
+        // dft chunk 08: "those creatures get -1/-0 until end of turn." after one or more creatures attack: the attackers of the batch
+        Dft.THOSE_CREATURES_GET_UNTIL_EOT.matchEntire(sentence)?.takeIf { context.event is EventPattern.Attack }?.let { m ->
+            return listOf(dftUntilEndOfTurn(Objects.EventObject(EventRole.Object), listOf(Mechanic.ModifyPowerToughness(
+                Value.Fixed(m.groupValues[1].toInt()), Value.Fixed(m.groupValues[2].toInt())))))
+        }
+        // dft chunk 08: "this creature deals 4 damage to them." (the player of the event)
+        Dft.DEALS_DAMAGE_TO_THEM.matchEntire(sentence)?.takeIf { context.event is EventPattern.Cast }?.let { m ->
+            val source = dftSubject(m.groupValues[1], context)?.takeIf { it !is Objects.Target } ?: return null
+            return listOf(Step.Do(Effect.DealDamage(Recipients(players = Players.EventPlayer), Value.Fixed(m.groupValues[2].toInt()), source)))
+        }
+        // dft chunk 08: "Any number of target players each mill two cards." / "… each mill cards equal to the number of cards in their graveyard."
+        Dft.ANY_NUMBER_OF_TARGET_PLAYERS_EACH_MILL.matchEntire(sentence)?.let { m ->
+            context.targets += TargetSlot("players", TargetKind.Players(PlayerFilter.Any), min = Value.Fixed(0), max = null)
+            return listOf(Step.Do(Effect.Mill(Players.Target("players"), Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null))))
+        }
+        if (Dft.ANY_NUMBER_OF_TARGET_PLAYERS_EACH_MILL_GRAVEYARD.matches(sentence)) {
+            context.targets += TargetSlot("players", TargetKind.Players(PlayerFilter.Any), min = Value.Fixed(0), max = null)
+            val player = Players.Bound("player")
+            return listOf(Step.ForEach(arcanum.api.Each.Players(Players.Target("players")), bind = "player", together = true, steps = listOf(
+                Step.Do(Effect.Mill(player, Value.Count(Objects.Each(Filters.all(ObjectFilter.InZone(Zone.Graveyard), ObjectFilter.OwnedBy(PlayerFilter.Is(player))))))))))
+        }
+        // dft chunk 09: "Put any number of permanent cards from your hand onto the battlefield."
+        Dft.PUT_ANY_NUMBER_FROM_HAND.matchEntire(sentence)?.let { m ->
+            val filter = Filters.all(Filters.noun(m.groupValues[1] + " card") ?: return null, ObjectFilter.InZone(Zone.Hand), ObjectFilter.OwnedBy(PlayerFilter.You))
+            return listOf(Step.Choose(arcanum.api.Choice.Objects(filter, min = Value.Fixed(0), max = null), bind = "chosen", chooser = Players.You),
+                Step.Do(Effect.Move(Objects.Bound("chosen"), Destination(Zone.Battlefield))))
+        }
+        // dft chunk 07: "It deals 2 damage to each player who doesn't have max speed." (speed below 4, none counting as 0, CR 702.179e, f)
+        Dft.DEALS_TO_EACH_PLAYER_WITHOUT_MAX_SPEED.matchEntire(sentence)?.let { m ->
+            val source = dftSubject(m.groupValues[1], context)?.takeIf { it !is Objects.Target } ?: return null
+            val without = PlayerFilter.Where(arcanum.api.Condition.Compare(Value.Speed(Players.Tested), arcanum.api.Comparison.Less, Value.Fixed(4)))
+            return listOf(Step.Do(Effect.DealDamage(Recipients(players = Players.Each(without)), Value.Fixed(m.groupValues[2].toInt()), source)))
+        }
+        // dft chunk 07: "Creatures and Vehicles you control gain haste until end of turn." (those then, CR 611.2c)
+        Dft.A_AND_B_YOU_CONTROL_GAIN_UNTIL_EOT.matchEntire(sentence)?.let { m ->
+            val kinds = listOf(m.groupValues[1], m.groupValues[2]).map { Filters.noun(it.replaceFirstChar { c -> c.lowercase() }) ?: Filters.noun(it) ?: return null }
+            val keywords = dftKeywords(m.groupValues[3]) ?: return null
+            return listOf(dftUntilEndOfTurn(Objects.Each(Filters.all(ObjectFilter.Or(kinds), ObjectFilter.ControlledBy(PlayerFilter.You))), listOf(Mechanic.GainAbilities(keywords))))
         }
         // dft chunk 05: "That Mount or Vehicle gains flying until end of turn." after saddling or crewing: the permanent whose cost it paid
         Dft.THAT_MOUNT_OR_VEHICLE.matchEntire(sentence)?.takeIf { (context.event as? EventPattern.Tap)?.forCost != null }?.let { m ->
@@ -2176,6 +2328,7 @@ internal class Sentences(
     /** Sentences that change the step before them ("If this spell was kicked, it deals 4 damage instead.", "It can't be
      * regenerated."). */
     private fun modify(sentence: String, steps: List<Step>, context: Context): List<Step>? {
+        dftModify(sentence, steps, context)?.let { return it } // dft
         tdmModify(sentence, steps, context)?.let { return it } // tdm
         eoeModify(sentence, steps, context)?.let { return it } // eoe
         finModify(sentence, steps, context)?.let { return it } // fin

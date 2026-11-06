@@ -228,6 +228,8 @@ private sealed interface Op {
     data class Types(
         val add: List<CardType>, val addSubtypes: List<Subtype>, val addSupertypes: List<Supertype>,
         val remove: List<CardType>, val replaceTypes: Boolean, val replaceSubtypes: Boolean,
+        // mh2: "isn't legendary" (CR 205.4)
+        val removeSupertypes: List<Supertype> = emptyList(),
     ) : Op
     data object AllCreatureTypes : Op
     /** ecl: no creature types (layer 4). */
@@ -565,7 +567,7 @@ internal class LayerRun(private val state: GameState, private val traced: Set<Ob
             is Mechanic.ControlledBy -> ev.players(mechanic.players).firstOrNull()?.let { Op.Control(it) }
             is Mechanic.SetTypes -> Op.Types(
                 mechanic.add, mechanic.addSubtypes.flatMap { ev.subtypes(it) }, mechanic.addSupertypes, mechanic.remove,
-                mechanic.replaceTypes, mechanic.replaceSubtypes,
+                mechanic.replaceTypes, mechanic.replaceSubtypes, mechanic.removeSupertypes,
             )
             Mechanic.AllCreatureTypes -> Op.AllCreatureTypes
             Mechanic.LoseAllCreatureTypes -> Op.LoseAllCreatureTypes
@@ -633,7 +635,7 @@ internal class LayerRun(private val state: GameState, private val traced: Set<Ob
                 val setsBasicLandType = op.replaceSubtypes && op.addSubtypes.any { it in Subtypes.basicLandTypes }
                 val abilities = if (setsBasicLandType && CardType.Land in types) c.abilities.filterNot { it.origin.isOwn() } else c.abilities
                 p.copy(chars = c.copy(
-                    types = types, subtypes = subtypes, supertypes = (c.supertypes + op.addSupertypes).distinct(),
+                    types = types, subtypes = subtypes, supertypes = (c.supertypes + op.addSupertypes).distinct() - op.removeSupertypes.toSet(),
                     allCreatureTypes = c.allCreatureTypes && SubtypeKind.Creature !in replacedKinds, abilities = abilities,
                 ))
             }

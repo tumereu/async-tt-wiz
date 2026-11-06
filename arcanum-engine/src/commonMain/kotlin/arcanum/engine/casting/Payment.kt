@@ -377,7 +377,9 @@ internal object Payment {
             }
             is CostPart.Loyalty -> {
                 // CR 606.4, 606.6: put or remove loyalty counters; a negative cost needs that many
-                val n = eval.value(part.amount)
+                // mh2: "cost an additional [+1]" (CR 606.4, 601.2f)
+                val n = eval.value(part.amount) + plan.snap.view.players[player]?.mechanics.orEmpty()
+                    .sumOf { (it.mechanic as? arcanum.api.Mechanic.AdditionalLoyaltyCost)?.amount ?: 0 }
                 val o = s.obj(plan.sourceId) ?: refuse("It's gone")
                 if (n < 0 && o.counters(CounterKind.Loyalty) < -n) refuse("Not enough loyalty")
                 if (n > 0) Actions.putCounters(act, cause, TargetRef.Object(plan.sourceId), CounterKind.Loyalty, n, listOf(Meaning.Paid))

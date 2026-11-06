@@ -278,7 +278,11 @@ internal object Combat {
      * other creatures assign to it in this step ([assigned]); any damage from a deathtouch source is lethal (CR 702.2c). */
     private fun lethal(snap: Snapshot, source: ObjectId, target: ObjectId, assigned: List<Assignment>): Int {
         val other = assigned.filter { it.source != source && it.target == TargetRef.Object(target) }.sumOf { it.amount }
-        val remaining = ((snap.view[target]?.characteristics?.toughness ?: 0) - (snap.state.obj(target)?.damage ?: 0) - other).coerceAtLeast(0)
+        // mh2: a planeswalker's lethal damage is its loyalty (CR 702.19c)
+        val chars = snap.view[target]?.characteristics
+        if (chars != null && chars.isType(CardType.Planeswalker) && !chars.isType(CardType.Creature))
+            return ((snap.state.obj(target)?.counters(arcanum.api.CounterKind.Loyalty) ?: 0) - other).coerceAtLeast(0)
+        val remaining = ((chars?.toughness ?: 0) - (snap.state.obj(target)?.damage ?: 0) - other).coerceAtLeast(0)
         return if (remaining > 0 && has(snap, source, Mechanic.Deathtouch)) 1 else remaining
     }
 
@@ -291,10 +295,18 @@ internal object Combat {
         val attack = combat.attackers.firstOrNull { it.id == id }
         if (attack != null) {
             val target = attack.target.takeIf { !attack.targetRemoved && stillAttackable(snap, it) }
+            // mh2: trample over planeswalkers (CR 702.19c): beyond lethal damage to the attacked planeswalker, the rest may go to its controller
+            val walker = (target as? TargetRef.Object)?.id?.takeIf { w ->
+                snap.view[id]?.has { it is Mechanic.Trample && it.overPlaneswalkers } == true &&
+                    snap.view[w]?.characteristics?.let { it.isType(CardType.Planeswalker) && !it.isType(CardType.Creature) } == true
+            }
+            val walkerController = walker?.let { snap.board.controller(it) }?.let { TargetRef.Player(it) }
             // CR 510.1b: unblocked, to what it attacks
-            if (!attack.blocked) return Plan.Fixed(listOfNotNull(target?.let { Assignment(id, it, n) }))
+            if (!attack.blocked) return if (walker != null && walkerController != null) divide(snap, id, n, listOf(walker), walkerController, assigned)
+                else Plan.Fixed(listOfNotNull(target?.let { Assignment(id, it, n) }))
             val blockers = combat.blockers.filter { id in it.attackers && onBattlefield(s, it.id) }.map { it.id }
             val tramples = trample(snap, id)
+            if (walker != null && walkerController != null) return divide(snap, id, n, blockers + walker, walkerController, assigned)
             return when {
                 // CR 510.1c, 702.19d: blocked with no blockers left: no damage, unless it has trample
                 blockers.isEmpty() -> Plan.Fixed(if (tramples && target != null) listOf(Assignment(id, target, n)) else emptyList())

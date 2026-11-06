@@ -316,7 +316,9 @@ internal object Legality {
         }
         // CR 606.6: a negative loyalty cost needs that many loyalty counters
         ability.cost.parts.filterIsInstance<CostPart.Loyalty>().forEach { part ->
-            val n = (part.amount as? arcanum.api.Value.Fixed)?.value ?: 0
+            // mh2: "cost an additional [+1]"
+            val n = ((part.amount as? arcanum.api.Value.Fixed)?.value ?: 0) + snap.view.players[player]?.mechanics.orEmpty()
+                .sumOf { (it.mechanic as? arcanum.api.Mechanic.AdditionalLoyaltyCost)?.amount ?: 0 }
             if (n < 0 && (snap.state.obj(source)?.counters(arcanum.api.CounterKind.Loyalty) ?: 0) < -n) return "not enough loyalty (CR 606.6)"
         }
         when (ability.rules.timing) {

@@ -86,6 +86,8 @@ object TestCards {
         "If a source you control would deal damage to an opponent, prevent that damage and each opponent mills that many cards.")
     /** A free sorcery whose resolving shows its caster the target player's hidden hand (TRN-067). */
     val glance = card("Ember Glance", "Sorcery", "{0}", "Look at target player's hand.")
+    /** A free enchantment whose trigger its controller gets on the other player's cheap spell (their spell puts it on top). */
+    val warden = card("Ember Warden", "Enchantment", "{0}", "Whenever an opponent casts a spell with mana value 2 or less, you gain 2 life.")
 
     /** A split card ({2}{G} // {1}{R}{R}) as a catalog import keeps it (PhysicalCardFaces): one face holding both halves,
      * the front half's catalog record (its cost only) as the face's source data. */

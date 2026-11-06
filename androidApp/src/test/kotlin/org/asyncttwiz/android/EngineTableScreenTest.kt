@@ -145,15 +145,16 @@ class EngineTableScreenTest {
         kit.opening()
         kit.alice.take(kit.scenario.sim.now)
         render()
-        // TRN-059: a tap on Assume resolves goes from Never to When they have no mana
+        // TRN-059: a tap on Assume resolves goes from Normal (the default) to When they have no mana
         compose.onNodeWithContentDescription("Assume resolves setting").performClick()
         compose.waitForIdle()
         compose.onNode(isDialog()).assertDoesNotExist()
         compose.onNodeWithText("Send").assertDoesNotExist()
         val sent = kit.alice.take(kit.scenario.sim.now).filterIsInstance<GameAction.EngineSettings>()
         assertEquals(org.asyncttwiz.protocol.game.AssumeResolves.WhenNoMana, sent.single().settings.assume, "$sent")
-        // Then Always, then Never again
-        for (next in listOf(org.asyncttwiz.protocol.game.AssumeResolves.Always, org.asyncttwiz.protocol.game.AssumeResolves.Never)) {
+        // Then Always, Never and Normal again
+        for (next in listOf(org.asyncttwiz.protocol.game.AssumeResolves.Always, org.asyncttwiz.protocol.game.AssumeResolves.Never,
+                org.asyncttwiz.protocol.game.AssumeResolves.Normal)) {
             compose.onNodeWithContentDescription("Assume resolves setting").performClick()
             compose.waitForIdle()
             assertEquals(next, kit.alice.take(kit.scenario.sim.now).filterIsInstance<GameAction.EngineSettings>().single().settings.assume)

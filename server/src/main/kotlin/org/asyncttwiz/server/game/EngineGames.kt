@@ -140,10 +140,12 @@ internal class EngineGames(private val capacity: Int = warmCapacity()) {
         val endedWaits: Set<String> = emptySet(),
         /** Whose undo a rewind is (the requester's when approved): their device waits for them at [target]. */
         val rewoundBy: String? = null,
+        /** Each player's current response mode (owner 2026-11-06: the other player's device learns it at once). */
+        val modes: Map<String, org.asyncttwiz.protocol.game.ResponseMode> = emptyMap(),
     ) {
         /** Whose move the game is for the stored summary: a player the game waits for (each viewer sees their own first). */
         val attention: String? get() = moves.entries.firstOrNull { it.value }?.key
-        val update: EngineUpdate get() = EngineUpdate(events.drop(1), target, heads, lines, request, confirmed, moves, activity, rewoundBy)
+        val update: EngineUpdate get() = EngineUpdate(events.drop(1), target, heads, lines, request, confirmed, moves, activity, rewoundBy, modes)
     }
 
     private fun take(play: UUID): LiveState? = synchronized(warm) { warm.remove(play) }
@@ -338,7 +340,7 @@ internal class EngineGames(private val capacity: Int = warmCapacity()) {
     }
 
     /** [play]'s state at the main line's head for [viewer]'s device to load (warm when it can be), with the local heads,
-     * the viewer's own private settings, the open undo request and the line counter; and whose move it is for the viewer
+     * the viewer's own settings, each player's response mode, the open undo request and the line counter; and whose move it is for the viewer
      * (account id: theirs when they have a next stop, else the other player's when they have one; null once over). */
     fun snapshot(sql: DSLContext, play: UUID, viewer: UUID): Pair<EngineSnapshot, String?>? {
         val (store, head, row, seats) = opened(sql, play) ?: return null
@@ -363,7 +365,8 @@ internal class EngineGames(private val capacity: Int = warmCapacity()) {
             ?.takeIf { it.isNotEmpty() && it.size <= MAX_TAKEN_BACK && seat.head != head }.orEmpty()
         return EngineSnapshot(store.codec.encodeDefinitions(), store.rootId, head, store.codec.encodeModel(state.model),
             seats.associate { it.account.toString() to it.head }, seat?.settings, row.request, row.lines,
-            start.takeIf { after.isNotEmpty() }, base, after.map(store.codec::encodeEvent), takenBack.map(store.codec::encodeEvent)) to
+            start.takeIf { after.isNotEmpty() }, base, after.map(store.codec::encodeEvent), takenBack.map(store.codec::encodeEvent),
+            seats.associate { it.account.toString() to it.settings.mode }) to
             attention(seats, viewer)
     }
 
@@ -496,7 +499,8 @@ internal class EngineGames(private val capacity: Int = warmCapacity()) {
             seats.associate { it.account.toString() to (waits[it] == true) },
             // A wait that goes on across the other player's table-only events keeps its stop: not new (§18.11)
             seats.filter { waits[it] == true && (!it.waited || stops[it] != it.nextStop) }.map { it.account.toString() }.toSet(),
-            seats.filter { it.waited && waits[it] != true }.map { it.account.toString() }.toSet(), rewoundBy)
+            seats.filter { it.waited && waits[it] != true }.map { it.account.toString() }.toSet(), rewoundBy,
+            seats.associate { it.account.toString() to it.settings.mode })
     }
 
     /** What [refresh] works out for one seat: its next stop (and whether answering the open undo request or result
@@ -516,9 +520,9 @@ internal class EngineGames(private val capacity: Int = warmCapacity()) {
         // the requester waits (or cancels) meanwhile (§10)
         val stop = when {
             request?.by == seat.account.toString() -> null
-            asker != null && asker != seat.account.toString() -> NextStop.of(model, seat.head, after, player, seat.settings.playbackMode)
+            asker != null && asker != seat.account.toString() -> NextStop.of(model, seat.head, after, player, seat.settings.mode)
                 ?: NextStop.Stop(head, null).also { requested = true }
-            else -> NextStop.of(model, seat.head, after, player, seat.settings.playbackMode)
+            else -> NextStop.of(model, seat.head, after, player, seat.settings.mode)
         }
         val stored = seat.nextStop
         val same = stop != null && stop.event == null && stored != null &&

@@ -388,6 +388,28 @@ class EngineGameServiceTest {
         assertTrue(f.revisions(f.a, "0").none { GameWire.encode(it).contains("alwaysAssumeResolves") })
     }
 
+    // STK-036, SYS-071 (owner 2026-11-06): each player's response mode is a per-game value kept on the server, outside
+    // undo and history: both snapshots name it, and a change reaches the other player at once (its revision carries every
+    // player's mode); the rest of the settings stay the player's own. An event keeps the mode its submission recorded.
+    @Test fun `the response mode is shared at once and events record theirs`() = withService { runtime ->
+        val f = Fixture(runtime, engine = true, tag = "m")
+        val a = f.a.account.accountId; val b = f.b.account.accountId
+        assertEquals(mapOf(a to ResponseMode.AutoSkip, b to ResponseMode.AutoSkip), f.snapshot(f.a).modes)
+        assertEquals("accepted", f.recipient.execute(GameAction.EngineSettings(PlaySettings(ResponseMode.FullControl, autotap = false))).outcome)
+        assertEquals(ResponseMode.FullControl, f.snapshot(f.a).modes[b])
+        assertEquals(PlaySettings(), f.snapshot(f.a).settings)
+        val change = f.revisions(f.a, "0").last()
+        assertEquals(mapOf(a to ResponseMode.AutoSkip, b to ResponseMode.FullControl), change.engine?.modes)
+        assertTrue(!GameWire.encode(change).contains("autotap"), "only the mode is shared")
+        // Alice's keep, recorded under Normal
+        val alice = f.device(f.a)
+        val keep = alice.act(id(), Input.Answer(alice.model.engine.pending!!.decision.id, Answer.Option("Keep"))).copy(mode = ResponseMode.Normal)
+        assertEquals("accepted", f.owner.execute(GameAction.Submit(keep)).outcome)
+        val event = f.codec().decodeEvent(f.revisions(f.b, "0").last().engineEvent!!)
+        assertEquals(keep.id, event.id)
+        assertEquals(ResponseMode.Normal, event.mode)
+    }
+
     // LOB-113 (I-D56 §7, step D): a new game starts with each player's defaults kept on the server for their account
     @Test fun `a new game starts with the account's defaults`() = withService { runtime ->
         val defaults = PlaySettings(ResponseMode.Normal, alwaysAssumeResolves = true, autotap = false)

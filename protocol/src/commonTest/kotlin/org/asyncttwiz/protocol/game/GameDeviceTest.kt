@@ -109,15 +109,15 @@ class GameDeviceTest {
         }
     }
 
-    // HIS-095 (owner, 2026-11-05): playback's own Full control toggle stops it at every assumed pass, whatever the live
-    // response mode (Auto-skip here); it is a private setting of the player's for the game
+    // HIS-095, STK-036 (owner, 2026-11-06): playback stops by the player's current response mode; playback's Control
+    // toggle sets it to Control, which stops it at every assumed pass; the value is kept on the server for the game
     @Test
     fun fullControlStopsAtEveryAssumedPass() {
         val sim = spells("Storm Spark")
         sim.bobToMain()
         val device = sim.load(sim.alice)
         assertEquals(ResponseMode.AutoSkip, device.settings.mode)
-        device.settings(device.settings.copy(playbackFullControl = true))
+        device.settings(device.settings.copy(mode = ResponseMode.FullControl))
         device.play()
         device.playToStop()
         var stops = 0
@@ -273,7 +273,12 @@ class GameDeviceTest {
         val sim = spells("Glance Ahead")
         sim.bobToMain(alwaysAssume = false)
         val alice = sim.alice; val bob = sim.bob
-        // Alice is away (her device gets nothing); Bob's spell is her pause
+        // Alice in Normal (owner 2026-11-06: in Quick with nothing to respond with her own mode would pass, and Bob's device
+        // would assume that at once), then away (her device gets nothing); Bob's spell is her pause
+        sim.device(alice).settings(PlaySettings(mode = ResponseMode.Normal))
+        sim.flush(alice)
+        sim.deliver(bob)
+        assertEquals(ResponseMode.Normal, sim.device(bob).opponentMode)
         sim.bobCasts("Glance Ahead")
         sim.settle(only = listOf(bob))
         val waiting = assertIs<GameDevice.Status.Waiting>(sim.device(bob).status)
@@ -312,18 +317,21 @@ class GameDeviceTest {
             "the pass at Alice's pause was assumed at once")
     }
 
-    // LOB-113, HIS-096: "Assume resolves" stored before it had three choices reads as it was (on: Always, off: Never); a
-    // choice is stored so
+    // LOB-113, HIS-096 (owner, 2026-11-06): "Assume resolves" stored before Normal existed reads on as Always, and off
+    // (Never then) as Normal, the new default; a choice is stored so; a tap goes Never, Normal, No mana, Always
     @Test
     fun assumeResolvesSettingsMapFromTheirStoredForm() {
         val json = org.asyncttwiz.protocol.GameWire.json
-        val on = json.decodeFromString(PlaySettings.serializer(), json.encodeToString(PlaySettings.serializer(), PlaySettings(alwaysAssumeResolves = true))
-            .replace(",\"assumeWhenNoMana\":false", ""))
-        assertEquals(AssumeResolves.Always, on.assume)
-        assertEquals(AssumeResolves.Never, PlaySettings().assume)
+        // As stored before: no assumeNever (Never was all flags off)
+        fun stored(settings: PlaySettings) = json.decodeFromJsonElement(PlaySettings.serializer(), kotlinx.serialization.json.JsonObject(
+            json.encodeToJsonElement(PlaySettings.serializer(), settings).let { it as kotlinx.serialization.json.JsonObject } - "assumeNever"))
+        assertEquals(AssumeResolves.Always, stored(PlaySettings(alwaysAssumeResolves = true)).assume)
+        assertEquals(AssumeResolves.Normal, stored(PlaySettings(alwaysAssumeResolves = false)).assume)
+        assertEquals(AssumeResolves.Normal, PlaySettings().assume)
         for (choice in AssumeResolves.all) assertEquals(choice,
             json.decodeFromString(PlaySettings.serializer(), json.encodeToString(PlaySettings.serializer(), PlaySettings().assuming(choice))).assume)
-        assertEquals(listOf(AssumeResolves.WhenNoMana, AssumeResolves.Always, AssumeResolves.Never), AssumeResolves.all.map { it.next })
+        assertEquals(listOf(AssumeResolves.Normal, AssumeResolves.WhenNoMana, AssumeResolves.Always, AssumeResolves.Never),
+            AssumeResolves.all.map { it.next })
     }
 
     // I-D56 §5: an assumption whose outcome would show the assumer the other player's hand isn't sent: a wait with no
@@ -627,7 +635,7 @@ class GameDeviceTest {
         return m.battlefield.first { m.obj(it)?.controller == alice && m.obj(it)?.definition?.faces?.first()?.name == "Elvish Seer" }
     }
 
-    // HIS-096, TRN-070 (owner, 2026-11-06): with "Assume resolves" Never, the other player's pause right after your
+    // HIS-096, TRN-070 (owner, 2026-11-06): with "Assume resolves" Normal (the default), the other player's pause right after your
     // attack is assumed at once (no wait with Assume before their blocks); the priority after their blocks keeps the
     // setting (a wait with Assume); their catch-up playback still stops at the pass assumed after the attack (HIS-095)
     @Test
@@ -635,7 +643,7 @@ class GameDeviceTest {
         val sim = seers()
         sim.seersToCombat(alwaysAssume = false)
         val alice = sim.alice; val bob = sim.bob
-        assertEquals(AssumeResolves.Never, sim.device(alice).settings.assume)
+        assertEquals(AssumeResolves.Normal, sim.device(alice).settings.assume)
         val afterAttack = sim.server.line().single { e ->
             val before = sim.server.stateAt(e.parentId).engine
             e.assumed?.assumedBy == alice && before.turn.step == TurnStep.DeclareAttackers && before.turn.number == 3
@@ -649,9 +657,9 @@ class GameDeviceTest {
         val afterBlocks = assertIs<GameDevice.Status.Waiting>(sim.device(alice).status, "his priority after the blocks waits")
         assertEquals(GameDevice.Wait.MayAct(TurnStep.DeclareBlockers), afterBlocks.reason)
         assertEquals(GameDevice.Offer.AssumeResolves, afterBlocks.offer)
-        // Bob comes back with playback's Full control: his playback stops at the pass assumed after her attack
+        // Bob comes back in Control (playback's Control on): his playback stops at the pass assumed after her attack
         val bobs = sim.load(bob)
-        bobs.settings(PlaySettings(playbackFullControl = true))
+        bobs.settings(PlaySettings(mode = ResponseMode.FullControl))
         bobs.play()
         val stops = mutableListOf<GameDevice.Status.Stopped>()
         while (true) {
@@ -665,7 +673,7 @@ class GameDeviceTest {
         assertTrue(sim.leaks.isEmpty())
     }
 
-    // HIS-096, TRN-070 (owner, 2026-11-06): with "Assume resolves" Never, the other player's pause at your end step is
+    // HIS-096, TRN-070 (owner, 2026-11-06): with "Assume resolves" Normal (the default), the other player's pause at your end step is
     // assumed at once: Alice's End turn goes on into Bob's turn while he is away
     @Test
     fun theirPauseAtYourEndStepIsAssumedAtOnce() {
@@ -674,7 +682,7 @@ class GameDeviceTest {
         val alice = sim.alice; val bob = sim.bob
         val alices = sim.device(alice)
         alices.settings(PlaySettings(mode = ResponseMode.Normal))
-        assertEquals(AssumeResolves.Never, alices.settings.assume)
+        assertEquals(AssumeResolves.Normal, alices.settings.assume)
         alices.endTurn(sim.now)
         sim.settle(only = listOf(alice))
         assertEquals(4, alices.model.engine.turn.number, "into Bob's turn: ${alices.model.engine.turn}")

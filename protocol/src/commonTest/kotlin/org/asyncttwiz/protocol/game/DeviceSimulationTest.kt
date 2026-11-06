@@ -46,10 +46,11 @@ class DeviceSimulationTest {
         val online = players.associateWith { true }.toMutableMap()
         // HIS-096: whether the other player's pauses are assumed at once is each player's setting, never their presence:
         // live play waits at them (with Assume), async play goes on
-        sim.start(if (rnd.nextBoolean()) sim.alice else sim.bob, if (rnd.nextInt(4) == 0) ResponseMode.Normal else ResponseMode.AutoSkip,
-            alwaysAssume = when (mode) { Mode.LIVE -> false; Mode.ASYNC -> true; Mode.MIXED -> seed % 2 == 0L },
-            // HIS-095: some players' playback stops wherever they get priority
-            playbackFullControl = seed % 3 == 0L)
+        val starter = if (rnd.nextBoolean()) sim.alice else sim.bob
+        val drawn = if (rnd.nextInt(4) == 0) ResponseMode.Normal else ResponseMode.AutoSkip
+        // STK-036, HIS-095: some players are in Control (their playback stops wherever they get priority, too)
+        sim.start(starter, if (seed % 3 == 0L) ResponseMode.FullControl else drawn,
+            alwaysAssume = when (mode) { Mode.LIVE -> false; Mode.ASYNC -> true; Mode.MIXED -> seed % 2 == 0L })
         var quiet = 0
         var lastProgress = ""
         var ticks = 0

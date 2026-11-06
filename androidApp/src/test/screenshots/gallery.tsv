@@ -80,3 +80,4 @@ number	item	screenshot	catalog	decisions
 79	Assume greyed by the information rule	engine/assume-greyed.png	TRN-067 TRN-070 TRN-071
 80	Undo dialog in landscape	engine/rewind-dialog-landscape.png	HIS-099
 81	Timeline turn and step lines	engine/timeline-separators.png	HIS-005
+82	Assume resolves quick action: Normal	engine/assume-normal.png	TRN-059 HIS-096

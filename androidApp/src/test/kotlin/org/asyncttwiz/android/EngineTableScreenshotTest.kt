@@ -127,18 +127,23 @@ class EngineTableScreenshotTest {
     }
 
     // TRN-059, HIS-096 (owner playtest 2026-11-05 evening, 2026-11-06): the Assume resolves quick action shows its choice
-    // of Never, When they have no mana and Always, filled deep blue, violet or amber by how much control she keeps
+    // of Never, Normal, When they have no mana and Always, filled deep blue, violet or amber as the response mode that
+    // keeps as much control
     @Test fun theAssumeQuickActionShowsNever() = assumeCell(org.asyncttwiz.protocol.game.AssumeResolves.Never, "Never",
-        "assume-never", "filled deep blue with white words, it reads \"Assume: Never\": her device waits at each of Bob's pauses.")
+        "assume-never", "filled deep blue with white words, it reads \"Assume: Never\": her device waits wherever Bob gets priority.")
+
+    // TRN-059, HIS-096
+    @Test fun theAssumeQuickActionShowsNormal() = assumeCell(org.asyncttwiz.protocol.game.AssumeResolves.Normal, "Normal",
+        "assume-normal", "filled violet with white words, it reads \"Assume: Normal\": her device goes on where Normal mode would and waits at Bob's pauses.")
 
     // TRN-059, HIS-096
     @Test fun theAssumeQuickActionShowsNoMana() = assumeCell(org.asyncttwiz.protocol.game.AssumeResolves.WhenNoMana,
         "When they have no mana", "assume-no-mana",
-        "filled violet with white words, it reads \"Assume: No mana\": her device goes on at Bob's pauses while the table shows him no mana.")
+        "filled amber with white words, it reads \"Assume: No mana\": her device also goes on at Bob's pauses while the table shows him no mana.")
 
     // TRN-059, HIS-096
     @Test fun theAssumeQuickActionShowsAlways() = assumeCell(org.asyncttwiz.protocol.game.AssumeResolves.Always, "Always",
-        "assume-always", "filled amber with white words, it reads \"Assume: Always\": her device goes on at each of Bob's pauses.")
+        "assume-always", "filled amber with white words, it reads \"Assume: Always\": her device goes on wherever Bob gets priority.")
 
     /** Alice at her main phase in response mode [mode]: the quick action shows its name and is captured as [file]. */
     private fun modeCell(mode: org.asyncttwiz.protocol.game.ResponseMode, file: String, caption: String) {
@@ -480,7 +485,7 @@ class EngineTableScreenshotTest {
     // Alice assumed for him in her upkeep: his table looks like any point of his, with no words saying it was assumed
     @Test fun aStopAtAnAssumptionLooksLikeYourOwnPoint() {
         val bob = bobCatchingUp()
-        bob.settings(org.asyncttwiz.protocol.game.PlaySettings(playbackFullControl = true))
+        bob.settings(org.asyncttwiz.protocol.game.PlaySettings(mode = org.asyncttwiz.protocol.game.ResponseMode.FullControl))
         bob.startPlayback()
         playToStop(bob)
         val stop = assertIs<GameDevice.Status.Stopped>(bob.device.status)

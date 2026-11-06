@@ -33,11 +33,11 @@ class SameDecisionTapTest : E2e() {
     private val held = HeldWorker()
     private val deck = TestDeck("Sparks", listOf(TestCards.mountain to 22, TestCards.spark to 12, TestCards.glimmer to 6))
 
-    /** With [bobGlimmer] Bob holds an Idle Glimmer too, and his playback's Full control is on (it stops at every pass
+    /** With [bobGlimmer] Bob holds an Idle Glimmer too, and he is in Control (his playback stops at every pass
      * assumed for him, HIS-095). */
     private fun start(alice: PlaySettings? = null, bobGlimmer: Boolean = false) {
         startGame(deck, deck, aliceSettings = alice, aliceWorker = held,
-            bobSettings = if (bobGlimmer) PlaySettings(playbackFullControl = true) else null,
+            bobSettings = if (bobGlimmer) PlaySettings(mode = ResponseMode.FullControl) else null,
             deal = { a, b -> "Mountain" in hand(a) && "Storm Spark" in hand(a) && "Idle Glimmer" in hand(a) && "Mountain" in hand(b) &&
                 (!bobGlimmer || "Idle Glimmer" in hand(b)) })
         held.observe = ::watchNotes

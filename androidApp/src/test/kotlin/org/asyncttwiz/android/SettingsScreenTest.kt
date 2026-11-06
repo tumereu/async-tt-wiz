@@ -100,13 +100,13 @@ class SettingsScreenTest {
         }
     }
 
-    // LOB-113 (I-D56 §7, §13): new games start in Quick with Assume resolves Never and Autotap on; without an
+    // LOB-113 (I-D56 §7, §13; owner 2026-11-06): new games start in Quick with Assume resolves Normal and Autotap on; without an
     // account (signed out) the device keeps them per account
     @Test fun automatumPlayDefaults() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         compose.setContent { ScreenTheme { AutomatumPauseSettings("pauses") } }
         compose.onNodeWithTag("response-mode-Quick").assertIsSelected()
-        compose.onNodeWithTag("assume-resolves-never").assertIsSelected()
+        compose.onNodeWithTag("assume-resolves-normal").assertIsSelected()
         compose.onNodeWithTag("autotap").assertIsOn()
         compose.onNodeWithTag("response-mode-Control").performClick()
         compose.onNodeWithTag("assume-resolves-always").performClick()
@@ -117,11 +117,15 @@ class SettingsScreenTest {
         assertEquals(org.asyncttwiz.protocol.game.PlaySettings(), PausePreferences(context, "someone else").engineDefaults)
         compose.onNodeWithTag("response-mode-Control").assertIsSelected()
         compose.onNodeWithTag("autotap").assertIsOff()
-        // "When they have no mana" is the third choice; one choice at a time
+        // "When they have no mana" is the third choice, Never the first; one choice at a time
         compose.onNodeWithTag("assume-resolves-no-mana").performClick()
         compose.waitForIdle()
         compose.onNodeWithTag("assume-resolves-always").assertIsNotSelected()
         assertEquals(org.asyncttwiz.protocol.game.AssumeResolves.WhenNoMana, PausePreferences(context, "pauses").engineDefaults.assume)
+        compose.onNodeWithTag("assume-resolves-never").performClick()
+        compose.waitForIdle()
+        compose.onNodeWithTag("assume-resolves-no-mana").assertIsNotSelected()
+        assertEquals(org.asyncttwiz.protocol.game.AssumeResolves.Never, PausePreferences(context, "pauses").engineDefaults.assume)
     }
 
     // LOB-079, LOB-113

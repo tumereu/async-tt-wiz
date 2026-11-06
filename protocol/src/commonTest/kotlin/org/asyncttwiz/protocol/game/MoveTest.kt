@@ -91,7 +91,7 @@ class MoveTest {
         val device = sim.load(alice)
         assertEquals(GameDevice.Status.CatchUp, device.status)
         assertEquals(bob, device.move)
-        device.settings(PlaySettings(playbackFullControl = true))
+        device.settings(PlaySettings(mode = ResponseMode.FullControl))
         device.play()
         device.playToStop()
         val stop = assertIs<GameDevice.Status.Stopped>(device.status)

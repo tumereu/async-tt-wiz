@@ -10,7 +10,7 @@ const val CURRENT_GAMEPLAY_RULES_VERSION = 36
 /** The socket protocol version of this build (SYS-033: one compatible set of apps and server). Apps offer it
  *  as [GameHello.maxMinor] and the server welcomes with its own: a lower offer gets [GameUpgradeRequired] (the app
  *  is older), and an app welcomed with a lower minor waits for the server update. Bump it with any socket wire change. */
-const val GAME_PROTOCOL_MINOR = 8
+const val GAME_PROTOCOL_MINOR = 9
 
 @Serializable enum class PresenceState { ONLINE, IDLE, OFFLINE }
 /** The opponent's presence in this game. Ages are whole seconds as of sending, so the clocks never need to agree.
@@ -39,7 +39,8 @@ const val GAME_PROTOCOL_MINOR = 8
     @Serializable @SerialName("engineAnswerRewind") data class EngineAnswerRewind(val accept: Boolean) : GameAction
     /** I-D56 §10: the requester takes their open undo request back. */
     @Serializable @SerialName("engineCancelRewind") data object EngineCancelRewind : GameAction
-    /** I-D56 §13: the actor's private play settings for this game (response mode, Always assume resolves, Autotap). */
+    /** I-D56 §13: the actor's play settings for this game (response mode, Assume resolves, Autotap); the response mode
+     * is shared with the other player at once ([EngineUpdate.modes], owner 2026-11-06). */
     @Serializable @SerialName("engineSettings") data class EngineSettings(val settings: org.asyncttwiz.protocol.game.PlaySettings) : GameAction
     @Serializable @SerialName("acceptInvitation") data object AcceptInvitation : GameAction
     @Serializable @SerialName("declineInvitation") data object DeclineInvitation : GameAction
@@ -118,7 +119,7 @@ const val GAME_PROTOCOL_MINOR = 8
 @Serializable data class EngineSnapshot(val definitions: String, val rootId: String, val headId: String, val state: String,
     /** I-D56: each player's local head by account (the assumer's indicator shows how far the other has confirmed). */
     val localHeads: Map<String, String> = emptyMap(),
-    /** The reader's own private play settings for this game (I-D56 §13); never the other player's. */
+    /** The reader's own play settings for this game (I-D56 §13); never the other player's. */
     val settings: org.asyncttwiz.protocol.game.PlaySettings? = null,
     /** The open undo request, if any (I-D56 §10). */
     val rewindRequest: EngineRewindRequest? = null,
@@ -133,7 +134,10 @@ const val GAME_PROTOCOL_MINOR = 8
     /** HIS-106: when another player's branch took the reader's local head back to the branch point (it is then behind),
      * the events of the discarded line they had been shown, from the branch point on, oldest first: their device opens
      * the game where they left it and shows the take-back ([org.asyncttwiz.protocol.game.GameDevice.load]). */
-    val takenBack: List<String> = emptyList())
+    val takenBack: List<String> = emptyList(),
+    /** Each player's current response mode by account (owner 2026-11-06: kept per game outside undo and history; the
+     * other player's device assumes a pass wherever the player's own mode would make it). */
+    val modes: Map<String, org.asyncttwiz.protocol.game.ResponseMode> = emptyMap())
 /** An open undo request (I-D56 §10): [by] asks to take the main line back to just after [target], with [message]. */
 @Serializable data class EngineRewindRequest(val by: String, val target: String, val message: String = "")
 /** I-D56: what an engine revision changed beyond [GameRevision.engineEvent]: the events after the first ([events]), a
@@ -149,7 +153,10 @@ const val GAME_PROTOCOL_MINOR = 8
     /** Server only, removed before a revision is sent: per account, their last-activity time (I-D56 §7). */
     val activity: Map<String, String>? = null,
     /** Whose undo a rewind ([target]) is: the requester's when approved (a rewind adds no event to tell it by). */
-    val rewoundBy: String? = null)
+    val rewoundBy: String? = null,
+    /** Each player's current response mode by account, as after this change ([EngineSnapshot.modes]): a player's change
+     * of it reaches the other player's device at once. */
+    val modes: Map<String, org.asyncttwiz.protocol.game.ResponseMode> = emptyMap())
 @Serializable @SerialName("revision") data class GameRevision(val gameId: String, val baseRevision: String,
     val resultRevision: String, val requestId: String, val author: String, val scope: GameScope,
     val summary: GameSummary, val preparation: LobbyPreparation? = null, val play: PlayState? = null,

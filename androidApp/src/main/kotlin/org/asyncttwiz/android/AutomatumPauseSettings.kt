@@ -30,6 +30,8 @@ internal class PausePreferences(context: Context, private val accountId: String)
             },
             alwaysAssumeResolves = preferences.getBoolean("engine-assume/$accountId", false),
             assumeWhenNoMana = preferences.getBoolean("engine-assume-no-mana/$accountId", false),
+            // Owner 2026-11-06: a "Never" kept from before Normal existed (no flag set) reads as Normal, the default
+            assumeNever = preferences.getBoolean("engine-assume-never/$accountId", false),
             autotap = preferences.getBoolean(autotapKey, true))
         set(value) {
             preferences.edit().putString("engine-mode/$accountId", when (value.mode) {
@@ -37,7 +39,8 @@ internal class PausePreferences(context: Context, private val accountId: String)
                 org.asyncttwiz.protocol.game.ResponseMode.Normal -> "normal"
                 org.asyncttwiz.protocol.game.ResponseMode.AutoSkip -> "auto-skip"
             }).putBoolean("engine-assume/$accountId", value.alwaysAssumeResolves)
-                .putBoolean("engine-assume-no-mana/$accountId", value.assumeWhenNoMana).putBoolean(autotapKey, value.autotap).apply()
+                .putBoolean("engine-assume-no-mana/$accountId", value.assumeWhenNoMana)
+                .putBoolean("engine-assume-never/$accountId", value.assumeNever).putBoolean(autotapKey, value.autotap).apply()
         }
 
 }
@@ -74,7 +77,7 @@ private fun EngineDefaultSettings(preferences: PausePreferences, account: Accoun
             SettingsLabel(mode.label(), mode.meaning(), Modifier.weight(1f).padding(start = 12.dp, top = 4.dp, bottom = 4.dp))
         }
     }
-    // HIS-096: when the other player's passes at their pauses are assumed at once: Never, When they have no mana, Always
+    // HIS-096: where the other player's passes are assumed at once: Never, Normal (the default), When they have no mana, Always
     Text("Assume resolves in new games", Modifier.padding(top = 8.dp, bottom = 4.dp),
         style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
     for (choice in org.asyncttwiz.protocol.game.AssumeResolves.all) {

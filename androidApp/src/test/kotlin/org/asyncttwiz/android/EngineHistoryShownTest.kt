@@ -127,12 +127,12 @@ class EngineHistoryShownTest {
         assertFalse(bob.device.session.behind)
     }
 
-    // HIS-093, HIS-095: playback stops at Bob's decision point (playback's Full control on here) and waits there with no
+    // HIS-093, HIS-095: playback stops at Bob's decision point (in Control, playback's Control on, here) and waits there with no
     // time limit
     @Test fun playbackStopsAtADecisionPointAndWaits() {
         val sim = EngineAppSim(f)
         val (alice, bob) = bothKeepThenBobAway(sim)
-        bob.settings(PlaySettings(playbackFullControl = true)); sim.flush(f.b)
+        bob.settings(PlaySettings(mode = org.asyncttwiz.protocol.game.ResponseMode.FullControl)); sim.flush(f.b)
         playLand(sim, alice)
         // Alice casts a Storm Spark (at the first target the engine lists): Bob may respond
         val s = alice.device.model.engine

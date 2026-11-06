@@ -54,10 +54,10 @@ internal class DeviceSim(val games: EngineGames, every: Int = 16) {
      * away: "Always assume resolves" on, unless [alwaysAssume] is false (HIS-096: then the other player's pauses wait,
      * with Assume). */
     fun start(starter: PlayerId = alice, mode: ResponseMode = ResponseMode.AutoSkip, handSizes: Map<PlayerId, Int> = emptyMap(),
-        alwaysAssume: Boolean = true, playbackFullControl: Boolean = false) {
+        alwaysAssume: Boolean = true) {
         server.start(starter, handSizes)
         for (p in listOf(alice, bob)) {
-            settings[p] = PlaySettings(mode = mode, alwaysAssumeResolves = alwaysAssume, playbackFullControl = playbackFullControl)
+            settings[p] = PlaySettings(mode = mode, alwaysAssumeResolves = alwaysAssume)
             load(p)
         }
     }
@@ -71,7 +71,7 @@ internal class DeviceSim(val games: EngineGames, every: Int = 16) {
         val snapshot = EngineSnapshot(codec.encodeDefinitions(), "root", server.head, codec.encodeModel(server.state()),
             server.heads.mapKeys { it.key.value }, settings[p], server.request, server.lines,
             baseId.takeIf { after.isNotEmpty() }, if (after.isEmpty()) null else codec.encodeModel(server.stateAt(baseId)),
-            after.map(codec::encodeEvent))
+            after.map(codec::encodeEvent), modes = modes())
         val (device, _) = GameDevice.load(snapshot, p) { "${p.value}-${++ids}" }
         watch(device)
         devices[p] = device
@@ -151,9 +151,12 @@ internal class DeviceSim(val games: EngineGames, every: Int = 16) {
 
     private fun broadcast(events: List<GameEvent>, target: String? = null, confirmed: String? = null, rewoundBy: String? = null) {
         val update = EngineUpdate(emptyList(), target, server.heads.mapKeys { it.key.value }, server.lines, server.request, confirmed,
-            rewoundBy = rewoundBy)
+            rewoundBy = rewoundBy, modes = modes())
         for (q in listOf(alice, bob)) inbox.getValue(q) += Delivery.Revision(events, update)
     }
+
+    /** Each player's current response mode, as the server sends it (owner 2026-11-06). */
+    private fun modes() = settings.entries.associate { (p, s) -> p.value to s.mode }
 
     private fun refuse(p: PlayerId, action: GameAction, reason: String) { inbox.getValue(p) += Delivery.Refusal(action, reason) }
 
@@ -187,7 +190,7 @@ internal class DeviceSim(val games: EngineGames, every: Int = 16) {
             }
             GameAction.EngineCancelRewind ->
                 if (server.request?.by != p.value) refuse(p, action, "accessDenied") else { server.request = null; broadcast(emptyList()) }
-            is GameAction.EngineSettings -> settings[p] = action.settings
+            is GameAction.EngineSettings -> { settings[p] = action.settings; broadcast(emptyList()) }
             else -> error("not an engine action: $action")
         }
     }
@@ -248,7 +251,7 @@ internal class DeviceSim(val games: EngineGames, every: Int = 16) {
             val local = server.heads.getValue(p)
             val after = MainLine.after(server.history, server.head, local)!!
             val stop = if (server.request?.by == p.value) null
-                else NextStop.of(server.stateAt(local), local, after, p, device(p).settings.playbackMode)
+                else NextStop.of(server.stateAt(local), local, after, p, device(p).settings.mode)
                     ?: NextStop.Stop(server.head, null).takeIf { asker != null && asker != p.value }
             stop != null && (if (asker != null) asker != p.value else NextStop.waitsFor(head.engine, p, stop))
         }

@@ -86,6 +86,13 @@ object ServerSetup {
         api.setAccountSettings(account.token, api.accountSettings(account.token).copy(playDefaults = settings))
     }
 
+    /** [account]'s latest notification of game [gameId] as the server keeps it (its activity summary, what the phone's
+     * notification shows): its activity id and whether it says "your move"; null when there is none. Read from the
+     * database: the activity API's rate limit is spent by the phones' own requests. */
+    fun gameNotice(account: TestAccount, gameId: String): Pair<Long, Boolean>? =
+        E2eStack.query("SELECT activity_id, your_move FROM activity_summary WHERE account_id = '${account.id}' " +
+            "AND game_id = '$gameId' AND kind = 'GAME'").singleOrNull()?.split('|')?.let { (id, move) -> id.toLong() to (move == "t") }
+
     /**
      * An account request of the setup ([what]): again after a connection failure (the app's AccountApi says only
      * "network"; a test's setup was seen failing once with "Account request failed"), at most three times; a refusal

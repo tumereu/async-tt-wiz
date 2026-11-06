@@ -124,6 +124,10 @@ object E2eStack {
         }
     }
 
+    /** The rows [sql] (a read) gives now, each one line of its values separated by `|`. */
+    fun query(sql: String): List<String> =
+        exec(null, "psql", "-q", "-t", "-A", "-U", "atw_e2e", "-d", "atw_e2e", "-v", "ON_ERROR_STOP=1", "-c", sql).lines().filter { it.isNotBlank() }
+
     /** [command] in the database's container ([input] its standard input); its standard output. */
     private fun exec(input: String?, vararg command: String): String {
         val name = requireNotNull(System.getProperty(CONTAINER)) { "the stack isn't running" }

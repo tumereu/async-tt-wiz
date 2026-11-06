@@ -33,7 +33,7 @@ class AssumeBySettingTest : E2e() {
             deal = { a, _ -> "Mountain" in hand(a) && "Ember Herald" in hand(a) })
         bothOpen()
         bothKeep(bobAway = true)
-        assertEquals(org.asyncttwiz.protocol.game.AssumeResolves.Never, alice.shown.settings.assume, "Never by default")
+        assertEquals(org.asyncttwiz.protocol.game.AssumeResolves.Normal, alice.shown.settings.assume, "Normal by default")
         alice.playFromHand("Mountain", this)
         waitUntil("the Mountain on the battlefield") { alice.field("Mountain").isNotEmpty() && alice.inOwnMain() }
         val herald = atw(alice.hand("Ember Herald").first())

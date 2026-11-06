@@ -13,8 +13,8 @@ import kotlinx.serialization.Serializable
  * What only ATW cares about in a game (I-D54 §2), beside the engine's [arcanum.engine.state.GameState]: where cards
  * lie on the battlefield, early answers (I-D33), the shared attack staging and block draft before they are declared,
  * result suggestions, and the game's randomness (I-D56 §9: the game's [secret] and where the current [line] is in its
- * stream). Immutable; only [TableChange]s change it. Each player's play settings (response mode, Autotap) are private
- * and kept on the server, not here ([PlaySettings], I-D56 §13).
+ * stream). Immutable; only [TableChange]s change it. Each player's play settings (response mode, Autotap) are kept on
+ * the server, not here ([PlaySettings], I-D56 §13).
  *
  * Players are the engine's [PlayerId]s; ATW names each player by their account id.
  */
@@ -49,53 +49,57 @@ data class TableState(
 data class Line(val number: Int = 0, val drawn: Int = 0)
 
 /**
- * A player's own play settings for one game (I-D56 §2, §13): private, kept on the server for that player and game,
- * never an event or part of the table or engine state, never sent to the other player. [mode] says where the player's
- * own device stops for them in live play; [assume] says when the other player's passes at their pauses are assumed at once
- * instead of waiting with Assume (HIS-096), kept as [alwaysAssumeResolves] (Always) and [assumeWhenNoMana] (When they have
- * no mana), so settings stored before the choice had three answers read as they were (on: Always, off: Never); [autotap]
- * pays mana costs with the engine's suggestion (I-D47, private: I-D56 choice 12); [playbackFullControl] makes catch-up
- * playback stop wherever the player gets priority (HIS-095).
+ * A player's own play settings for one game (I-D56 §2, §13), kept on the server for that player and game, never an event
+ * or part of the table or engine state. [mode] says where the player's own device stops for them, in live play and in
+ * catch-up playback alike (STK-036, HIS-095; playback's Control toggle sets it); the other player's device learns it too
+ * (owner 2026-11-06: [org.asyncttwiz.protocol.EngineSnapshot.modes], [org.asyncttwiz.protocol.EngineUpdate.modes]) and
+ * assumes the player's pass wherever it would pass. [assume] says where the other player's passes are assumed at once
+ * instead of waiting with Assume (HIS-096), kept as [assumeNever] (Never), [alwaysAssumeResolves] (Always) and
+ * [assumeWhenNoMana] (When they have no mana): none of them set is Normal, the default (owner 2026-11-06: a "Never"
+ * stored before Normal existed reads as Normal). [autotap] pays mana costs with the engine's suggestion (I-D47).
  */
 @Serializable
 data class PlaySettings(val mode: ResponseMode = ResponseMode.AutoSkip, val alwaysAssumeResolves: Boolean = false,
-    val autotap: Boolean = true, val playbackFullControl: Boolean = false, val assumeWhenNoMana: Boolean = false) {
-    /** Where catch-up playback stops for the player (HIS-095): Auto-skip whatever their live [mode], or Full control
-     * with [playbackFullControl] on. */
-    val playbackMode: ResponseMode get() = if (playbackFullControl) ResponseMode.FullControl else ResponseMode.AutoSkip
-
-    /** When the other player's passes at their pauses are assumed at once (TRN-059, LOB-113, HIS-096). */
+    val autotap: Boolean = true, val assumeWhenNoMana: Boolean = false, val assumeNever: Boolean = false) {
+    /** When the other player's passes are assumed at once (TRN-059, LOB-113, HIS-096). */
     val assume: AssumeResolves get() = when {
         alwaysAssumeResolves -> AssumeResolves.Always
         assumeWhenNoMana -> AssumeResolves.WhenNoMana
-        else -> AssumeResolves.Never
+        assumeNever -> AssumeResolves.Never
+        else -> AssumeResolves.Normal
     }
 
     /** These settings with [assume] as [value]. */
-    fun assuming(value: AssumeResolves): PlaySettings =
-        copy(alwaysAssumeResolves = value == AssumeResolves.Always, assumeWhenNoMana = value == AssumeResolves.WhenNoMana)
+    fun assuming(value: AssumeResolves): PlaySettings = copy(alwaysAssumeResolves = value == AssumeResolves.Always,
+        assumeWhenNoMana = value == AssumeResolves.WhenNoMana, assumeNever = value == AssumeResolves.Never)
 }
 
-/** When a player's device assumes the other player's passes at their pauses at once (HIS-096), instead of waiting with
- * Assume on the main button (TRN-070). */
+/** Where a player's device assumes the other player's passes at once (HIS-096) instead of waiting with Assume on the
+ * main button (TRN-070), defined from the response modes (owner 2026-11-06): Never and Normal mirror Control and Normal,
+ * so they change with them. Whatever the setting, a pass the other player's own response mode would make is assumed too
+ * ([GameDevice]). */
 sealed interface AssumeResolves {
-    /** Never: each pause waits (the default). */
+    /** Never: a wait at every point where they get priority (as Control stops), also at your end step and after your
+     * attack. */
     data object Never : AssumeResolves
-    /** When the table shows the other player no untapped mana source, no mana in their pool and no ability they could
-     * activate. */
+    /** Wherever Normal mode would pass, and their pause at your end step and right after your attack (the default). */
+    data object Normal : AssumeResolves
+    /** As [Normal], and at their pauses while the table shows them no untapped mana source, no mana in their pool and no
+     * ability they could activate. */
     data object WhenNoMana : AssumeResolves
     /** Always. */
     data object Always : AssumeResolves
 
-    /** Never, When they have no mana, Always: the order a tap on the quick action goes through. */
+    /** Never, Normal, When they have no mana, Always: the order a tap on the quick action goes through. */
     val next: AssumeResolves get() = when (this) {
-        Never -> WhenNoMana
+        Never -> Normal
+        Normal -> WhenNoMana
         WhenNoMana -> Always
         Always -> Never
     }
 
     companion object {
-        val all: List<AssumeResolves> get() = listOf(Never, WhenNoMana, Always)
+        val all: List<AssumeResolves> get() = listOf(Never, Normal, WhenNoMana, Always)
     }
 }
 

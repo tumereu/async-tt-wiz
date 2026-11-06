@@ -8,7 +8,9 @@ import kotlinx.serialization.Serializable
 /**
  * One node of a game's history tree (I-D54 §2): its [engine] part and its [table] part, applied and reverted together.
  * Either may be absent: a pass is engine only, moving a card on the battlefield is table only. [author] is the account
- * whose action it was; [parentId] the event it was made on (the play's root id for the first).
+ * whose action it was; [parentId] the event it was made on (the play's root id for the first). [mode]: the response mode it
+ * was made under (owner 2026-11-06), for an assumed input the mode of the player it is about; the other player's device
+ * reads it to know that player's mode (null: made before modes were recorded, or by the server).
  */
 @Serializable
 data class GameEvent(
@@ -17,6 +19,7 @@ data class GameEvent(
     val author: String,
     val engine: EnginePart? = null,
     val table: List<TableChange> = emptyList(),
+    val mode: ResponseMode? = null,
 ) {
     /** The first step when it is an assumed input (I-D56 §13: an assumed input always begins its own event). */
     val assumed: EngineStep? get() = engine?.steps?.firstOrNull { it.input != null }?.takeIf { it.assumedBy != null }

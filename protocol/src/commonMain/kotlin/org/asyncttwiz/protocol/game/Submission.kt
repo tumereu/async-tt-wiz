@@ -19,13 +19,15 @@ import kotlinx.serialization.Serializable
  * since the engine is deterministic and the random answers come from the line's stream (I-D56 §9).
  */
 @Serializable
-data class Submission(val id: String, val parentId: String, val acts: List<Act> = emptyList(), val table: List<TableChange> = emptyList()) {
+data class Submission(val id: String, val parentId: String, val acts: List<Act> = emptyList(), val table: List<TableChange> = emptyList(),
+    /** The response mode the event records ([GameEvent.mode]). */
+    val mode: ResponseMode? = null) {
     companion object {
         /** What a device sends for [event], an event it made itself ([EventBuilder]). */
         fun of(event: GameEvent): Submission = Submission(event.id, event.parentId,
             listOfNotNull(event.startsLine?.let { Act.NewLine(it) }) + event.engine?.steps.orEmpty().mapNotNull { step ->
                 step.input?.let { Act.Perform(it, assumed = step.assumedBy != null) }
-            }, event.table.filter { it !is TableChange.LineMoved })
+            }, event.table.filter { it !is TableChange.LineMoved }, event.mode)
     }
 }
 
@@ -75,6 +77,7 @@ object Authority {
         val assumes = submission.acts.any { it is Act.Perform && it.assumed }
         var before = if (rules.tentative || assumes) InformationRule.Before.of(model) else null
         val builder = EventBuilder(model, submission.id, submission.parentId, author.value)
+        builder.mode = submission.mode
         try {
             var performed = 0
             var assumed = false
@@ -295,6 +298,20 @@ object Stops {
 
     /** [forcedPass] on [model]'s engine state, with the pass check it keeps for the state ([GameModel.passCheck]). */
     fun forcedPass(model: GameModel, player: PlayerId): Boolean = model.passCheck(player).asSet && !stop(model.engine, player)
+
+    /**
+     * Whether [mode] passes [player]'s priority on [state] (STK-036): never in Control; in Normal wherever it isn't their
+     * [stop] or [pause]; in Quick also at a pause where they can't respond ([ownSkipOn]: their own cards judged, asked
+     * only there). Their own device passes for them by it, and the other player's device assumes their pass by it.
+     */
+    fun passes(mode: ResponseMode, state: GameState, player: PlayerId, ownSkipOn: () -> Boolean): Boolean {
+        if (stop(state, player)) return false
+        return when (mode) {
+            ResponseMode.FullControl -> false
+            ResponseMode.Normal -> !pause(state, player)
+            ResponseMode.AutoSkip -> !pause(state, player) || ownSkipOn()
+        }
+    }
 
     /** [player]'s pause on [state]: the other player's spell or ability on top of the Stack, the other player's attack,
      * blocks (both players), the other player's end step. */

@@ -227,6 +227,8 @@ class EventBuilder(private val model: GameModel, private val id: String, parentI
      * draft ([GameSession], I-D56 §6: they commute). */
     var parentId: String = parentId
         internal set
+    /** The response mode the event records ([GameEvent.mode]). */
+    var mode: ResponseMode? = null
     private val timestampBefore = model.engine.timestampCounter
     private val lineBefore = model.table.line
     private var line = lineBefore
@@ -351,7 +353,7 @@ class EventBuilder(private val model: GameModel, private val id: String, parentI
         check(!done) { "The event was built or abandoned" }
         if (line != lineBefore) table(TableChange.LineMoved(lineBefore, line))
         done = true
-        val event = GameEvent(id, parentId, author, if (steps.isEmpty()) null else EnginePart(timestampBefore, steps.toList()), table.toList())
+        val event = GameEvent(id, parentId, author, if (steps.isEmpty()) null else EnginePart(timestampBefore, steps.toList()), table.toList(), mode)
         model.afterEvent()
         return event
     }

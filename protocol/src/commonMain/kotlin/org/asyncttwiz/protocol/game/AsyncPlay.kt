@@ -7,7 +7,7 @@ import arcanum.engine.state.PlayerId
 
 /**
  * Where a player's playback stops next (I-D56 §7): the first point after their local head where it would stop, worked
- * out with their private response mode. Where playback stops and what notifications name come from their local head and
+ * out with their response mode. Where playback stops and what notifications name come from their local head and
  * this; nothing about the line beyond it. Whose move it is (the game list, the move pill and bar colours, notifications
  * and reminders) is [waitsFor]: the player the game really waits for (TRN-058, I-D57).
  */

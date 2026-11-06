@@ -492,10 +492,12 @@ internal fun ResponseMode.color(): Color = when (this) {
     ResponseMode.AutoSkip -> QuickAmber
 }
 
-/** TRN-059: the colour the Assume resolves cell fills with, as the response mode that keeps as much control. */
+/** TRN-059: the colour the Assume resolves cell fills with, as the response mode that keeps as much control: Never as
+ * Control, Normal as Normal, No mana (Normal going on where they can't respond, as Quick) and Always as Quick. */
 internal fun AssumeResolves.color(): Color = when (this) {
     AssumeResolves.Never -> ControlBlue
-    AssumeResolves.WhenNoMana -> AutomatumViolet
+    AssumeResolves.Normal -> AutomatumViolet
+    AssumeResolves.WhenNoMana -> QuickAmber
     AssumeResolves.Always -> QuickAmber
 }
 
@@ -510,28 +512,33 @@ private val MODES = listOf(ResponseMode.FullControl, ResponseMode.Normal, Respon
 /** "Assume resolves" (HIS-096): the choice's name, its short form for the quick action, and what it means. */
 internal fun AssumeResolves.label(): String = when (this) {
     AssumeResolves.Never -> "Never"
+    AssumeResolves.Normal -> "Normal"
     AssumeResolves.WhenNoMana -> "When they have no mana"
     AssumeResolves.Always -> "Always"
 }
 
 internal fun AssumeResolves.short(): String = when (this) {
     AssumeResolves.Never -> "Never"
+    AssumeResolves.Normal -> "Normal"
     AssumeResolves.WhenNoMana -> "No mana"
     AssumeResolves.Always -> "Always"
 }
 
 internal fun AssumeResolves.meaning(): String = when (this) {
-    AssumeResolves.Never -> "Wait at the other player's pauses, with Assume on the main button."
-    AssumeResolves.WhenNoMana -> "Go on at once at the other player's pauses while the table shows them no untapped mana source, " +
-        "no mana in their pool and no ability they could activate; otherwise wait."
-    AssumeResolves.Always -> "Go on at once at the other player's pauses, assuming they let things resolve; they can still respond later."
+    AssumeResolves.Never -> "Wait wherever the other player gets priority, with Assume on the main button, as Control stops."
+    AssumeResolves.Normal -> "Go on at once where Normal mode would, and at their pause in your end step and right after your " +
+        "attack; wait with Assume where Normal mode stops."
+    AssumeResolves.WhenNoMana -> "As Normal, and also go on at once at their pauses while the table shows them no untapped mana " +
+        "source, no mana in their pool and no ability they could activate."
+    AssumeResolves.Always -> "Go on at once wherever the other player gets priority, assuming they let things resolve; they can " +
+        "still respond later."
 }
 
 /**
  * The quick-actions row's toggles on engine state (I-D56 §14, TRN-059): in live play the response mode (a tap goes to
- * the next of Control, Normal and Quick), "Assume resolves" (a tap goes to the next of Never, When they have no
- * mana and Always) and "Autotap mana"; in catch-up playback
- * (HIS-095) "Control" (on: playback stops wherever you get priority) and "Autotap mana"; each private to the player.
+ * the next of Control, Normal and Quick), "Assume resolves" (a tap goes to the next of Never, Normal, When they have no
+ * mana and Always) and "Autotap mana"; in catch-up playback (HIS-095) "Control" (a shortcut to the response mode: on
+ * while it is Control; a tap sets Control, or back to Quick) and "Autotap mana".
  */
 @Composable
 internal fun RowScope.EngineToggleCells(routes: EngineTableRoutes, enabled: Boolean) {
@@ -543,14 +550,17 @@ internal fun RowScope.EngineToggleCells(routes: EngineTableRoutes, enabled: Bool
     fun set(change: (PlaySettings) -> PlaySettings) { game.settings(change(game.shown?.settings ?: settings)); routes.pump() }
     val autotap = Triple("Autotap mana", "Autotap\nmana", Icons.Outlined.WaterDrop) to
         ({ set { it.copy(autotap = !it.autotap) } } to settings.autotap)
+    // HIS-095, TRN-059 (owner 2026-11-06): playback's Control is a shortcut to the game's response mode: on while it is
+    // Control; a tap sets Control, or from Control goes back to Quick (the default)
+    val control = settings.mode == ResponseMode.FullControl
     val cells = if (shown.behind) listOf(
         Triple("Control", "Control", Icons.Outlined.Tune) to
-            ({ set { it.copy(playbackFullControl = !it.playbackFullControl) } } to settings.playbackFullControl),
+            ({ set { it.copy(mode = if (it.mode == ResponseMode.FullControl) ResponseMode.AutoSkip else ResponseMode.FullControl) } } to control),
         autotap)
     else listOf(
         Triple("Response mode", "${settings.mode.label()}\n(mode)", Icons.Outlined.Tune) to
             ({ set { it.copy(mode = MODES[(MODES.indexOf(it.mode) + 1) % MODES.size]) } } to null),
-        // TRN-059: a tap goes on to the next of Never, When they have no mana and Always
+        // TRN-059: a tap goes on to the next of Never, Normal, When they have no mana and Always
         Triple("Assume resolves setting", "Assume:\n${settings.assume.short()}", Icons.Outlined.FastForward) to
             ({ set { it.assuming(it.assume.next) } } to null),
         autotap)
@@ -569,7 +579,7 @@ internal fun RowScope.EngineToggleCells(routes: EngineTableRoutes, enabled: Bool
         val tooltip = when (name) {
             "Response mode" -> "Response mode: ${settings.mode.label()}. ${settings.mode.meaning()} Tap for the next mode."
             "Assume resolves setting" -> "Assume resolves: ${settings.assume.label()}. ${settings.assume.meaning()} Tap for the next choice."
-            "Control" -> "Control: playback stops wherever you get priority; off, only where you could respond"
+            "Control" -> "Control: your response mode is Control, so playback stops wherever you get priority; off, your mode goes back to Quick"
             else -> "Autotap mana sources: casting pays by itself, with mana in your pool first"
         }
         val control = MenuControl(name, enabled, selected = on == true, color = fillColor) { toggle() }
@@ -746,7 +756,7 @@ private fun EnginePlayback(routes: EngineTableRoutes) {
         // has played
         if (shown.takingBack) snapshotFlow { routes.motionBusy() }.first { !it }
         val last = shown.held.lastOrNull()?.takeIf { it.id == shown.localHead }
-        val wait = playbackWait(last, playbackDelay(multiplier), shown.settings.playbackMode)
+        val wait = playbackWait(last, playbackDelay(multiplier), shown.settings.mode)
         if (wait > 0) delay(wait)
         if (game.shown?.status is GameDevice.Status.Playing) { game.step(); routes.pump() }
     }

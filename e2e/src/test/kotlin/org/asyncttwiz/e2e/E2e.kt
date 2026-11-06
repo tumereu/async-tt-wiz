@@ -220,6 +220,16 @@ abstract class E2e {
         run()
     }
 
+    /**
+     * The input clock (Compose's, which stamps the injected touches) caught up with the main thread's: a panel that opened
+     * just now takes no touch for its first moments (its input guard, read on the main thread's clock), and a touch stamped
+     * from a clock left behind would fall in them however long the test waited.
+     */
+    internal fun inputClockCaughtUp() {
+        val behind = android.os.SystemClock.uptimeMillis() - compose.mainClock.currentTime
+        if (behind > 0) compose.mainClock.advanceTimeBy(behind)
+    }
+
     /** Called after every round of [run] (say, to record each board a table shows). */
     internal val everyRun = mutableListOf<() -> Unit>()
 

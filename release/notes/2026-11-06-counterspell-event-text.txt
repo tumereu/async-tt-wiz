@@ -1,0 +1,1 @@
+fix: When a counterspell resolves, the event text names the counterspell instead of the spell it countered.

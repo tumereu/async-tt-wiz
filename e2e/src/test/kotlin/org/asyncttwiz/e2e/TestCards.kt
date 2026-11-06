@@ -29,6 +29,10 @@ object TestCards {
     val stride = card("Ember Stride", "Sorcery", "{R}", "Take an extra turn after this one.")
     /** A free instant: casting it gives the other player a pause (their answer may be assumed) without using mana. */
     val glimmer = card("Idle Glimmer", "Instant", "{0}", "Draw a card.")
+    /** Another free instant, telling itself apart from the Glimmer by what it does. */
+    val glint = card("Ember Glint", "Instant", "{0}", "You gain 2 life.")
+    /** A free single-target counterspell. */
+    val quench = card("Quench Spark", "Instant", "{0}", "Counter target spell.")
     /** A loop of mandatory actions on its own (CR 104.4b): it enters and is sacrificed, dies and comes back, again and again. */
     val wisp = card("Restless Wisp", "Creature — Spirit", "{0}",
         "When this creature enters, sacrifice a creature.\nWhen this creature dies, return it to the battlefield under its owner's control.",

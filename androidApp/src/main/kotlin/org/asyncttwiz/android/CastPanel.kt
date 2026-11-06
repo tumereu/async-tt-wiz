@@ -81,10 +81,8 @@ internal fun CastPanelHost(toolkit: TableToolkitController, play: TableBoard, sc
     // STK-044: the card cast (an ability as its token) at the right of the panel and of its target bar
     val source = castSource(play, toolkit.viewer, flow, cast.abilityText)
     if (cast.targeting) {
-        // Picking a target on the Stack: its picker stands in for the bar until it closes
-        AboveHand(handRow) {
-            if (toolkit.stackTargeting) StackTargetPicker(toolkit, play, source) else TargetBar(cast, flow, play, source, toolkit.viewer)
-        }
+        // The target bar stays while a target is picked from the Stack's list (STK-048)
+        AboveHand(handRow) { TargetBar(cast, flow, play, source, toolkit.viewer) }
         return
     }
     // I-D48: the choices' cards know who looks at them (outlines, Inspect)

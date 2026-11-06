@@ -107,7 +107,8 @@ internal object EngineEventText {
     /** What a pass led to (the most telling of: a spell or ability resolved, a new turn, a new step). */
     private fun passOutcome(event: GameEvent, state: GameState?, viewer: String, names: Map<String, String>): String? {
         val changes = event.engine?.changes.orEmpty()
-        changes.firstNotNullOfOrNull { it as? Change.StackItemRemoved }?.let { removed ->
+        // The spell or ability that resolved leaves the Stack last (CR 608.2n): what it countered left before it
+        changes.lastOrNull { it is Change.StackItemRemoved }?.let { it as Change.StackItemRemoved }?.let { removed ->
             val item = removed.item
             // STK-046: an ability resolving reads as its source's ability ("Ember Herald's ability resolved")
             val ability = item.kind is StackItemKind.Activated || item.kind is StackItemKind.Triggered

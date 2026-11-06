@@ -10,17 +10,22 @@ import androidx.compose.material.icons.automirrored.outlined.StickyNote2
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import org.asyncttwiz.protocol.*
 
-/** The Stack's entries in one compact, live view (STK-019): look and hold to inspect only; the Stack changes only by the rules
- * (I-D52). (An Automatum target on the Stack is picked in the docked [StackTargetPicker].) */
+/** The Stack's entries in one compact, live view (STK-018, STK-019): look and hold to inspect only; the Stack changes only by
+ * the rules (I-D52). While a target is picked on the Stack (STK-048), [targets] are the legal entries: they glow violet and a
+ * tap picks one ([pick]); the others are dimmed. */
 @Composable
-internal fun ManageStackDialog(state: TableBoard, viewer: String, dismiss: () -> Unit) {
+internal fun ManageStackDialog(state: TableBoard, viewer: String, dismiss: () -> Unit, targets: List<String>? = null,
+    pick: (String) -> Unit = {}) {
     val order = CombatStackRules.stack(state.board).cards
     val size = rememberCardAppearance().size(CardArea.STACK)
     if (order.isEmpty()) { LaunchedEffect(Unit) { dismiss() }; return }
@@ -40,8 +45,13 @@ internal fun ManageStackDialog(state: TableBoard, viewer: String, dismiss: () ->
                 val projection = state.board.stackEffects.any { it.id == id }
                 val controlled = CombatStackRules.controller(state.board, id) == viewer
                 val owner = if (controlled) OwnTableColor else OpponentTableColor
-                Column {
-                    Row(Modifier.contentsCardGestures(id, PlayZone.STACK, actions = {}, double = null,
+                val legal = targets != null && id in targets
+                val shape = RoundedCornerShape(8.dp)
+                Column(Modifier.alpha(if (targets != null && !legal) .4f else 1f)) {
+                    Row(Modifier.then(if (legal) Modifier.background(AutomatumViolet.copy(alpha = .1f), shape)
+                            .border(2.dp, AutomatumViolet, shape).padding(4.dp)
+                            .semantics { stateDescription = "Legal target" } else Modifier)
+                        .contentsCardGestures(id, PlayZone.STACK, actions = { if (legal) pick(id) }, double = null,
                         peek = { held -> if (held) inspect(id) else inspection = null }),
                         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         val definition = state.definitions.find { it.digest == card?.definition }?.definition

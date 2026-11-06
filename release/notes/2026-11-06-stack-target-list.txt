@@ -1,0 +1,1 @@
+mod: To target a spell lower on the Stack, tap the glowing Stack: its list opens in place and you tap the spell you want.

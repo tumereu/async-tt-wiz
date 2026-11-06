@@ -42,6 +42,9 @@ internal fun TableToolkitScreen(toolkit: TableToolkitController, play: TableBoar
     if (bound != null && toolkit.panel == null) EngineCardMenu(toolkit, play, bound, names, enabled)
     toolkit.player?.let { PlayerPanel(play, it, toolkit.viewer, toolkit::dismiss) }
 
+    // STK-048: picking a target on the Stack, its list opens in place with the legal entries glowing
+    if (toolkit.stackTargeting) ManageStackDialog(play, toolkit.viewer, toolkit::closeStackTargets,
+        targets = toolkit.stackTargets(play), pick = toolkit::pickStackTarget)
     when (val panel = toolkit.panel) {
         "manageStack" -> ManageStackDialog(play, toolkit.viewer, toolkit::dismiss)
         "table" -> {

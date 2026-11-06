@@ -188,9 +188,10 @@ class ChoiceSourceTest {
         holdingTheSourceInspects(Choices.SEER)
     }
 
-    // STK-048, STK-044: in Full control Alice casts two Cinder Charms, then Quench Spark: the lower Charm is a legal target,
-    // so tapping the Stack opens the target picker, titled "Choose a target · 2", with the Quench at its right
-    @Test fun theStackTargetPickerShowsTheSpellAtItsRight() {
+    // STK-048, STK-018, STK-044: in Full control Alice casts two Cinder Charms, then Quench Spark: the lower Charm is a legal
+    // target, so tapping the Stack opens it in place as its list, both Charms glowing as legal targets, while the target bar
+    // stays above her hand with the Quench at its right; tapping the lower Charm picks it
+    @Test fun theStackOpensAsItsListToPickATargetBelowTheTop() {
         val kit = kit(Choices.CHARM, Choices.CHARM, Choices.QUENCH)
         kit.opening()
         kit.alice.settings(PlaySettings(mode = ResponseMode.FullControl, alwaysAssumeResolves = true))
@@ -202,12 +203,28 @@ class ChoiceSourceTest {
         assertEquals(2, kit.state().stack.size, "both Charms on the Stack, Alice holding priority")
         assertTrue(kit.toolkit.cast.start(kit.atw(kit.hand(Choices.QUENCH).first())), "the Quench is cast: ${kit.toolkit.error}")
         assertTrue(kit.toolkit.cast.targeting)
-        kit.tap(kit.scene().items.first { it.zone == PlayZone.STACK && it.kind == TableItemKind.PILE })
-        assertTrue(kit.toolkit.stackTargeting, "the Stack target picker opens")
         render(kit)
-        sourceAtTheRight("Stack target picker", "Choose a target · 2", Choices.QUENCH)
-        compose.onRoot().captureShot("$SCREENSHOTS/choice-source/stack-target-picker.png",
-            "Alice cast two Cinder Charms and then Quench Spark, and tapped the glowing Stack: the target picker above her hand is titled \"Choose a target · 2\", both Charms are ringed in violet, and the Quench sits at the panel's right as a small card.")
+        // The bar's source, held, inspects the Quench (with the list open, a touch outside it closes it, TBL-068)
         holdingTheSourceInspects(Choices.QUENCH)
+        compose.runOnIdle { kit.tap(kit.scene().items.first { it.zone == PlayZone.STACK && it.kind == TableItemKind.PILE }) }
+        assertTrue(kit.toolkit.stackTargeting, "the Stack opens as its list to pick from")
+        compose.waitForIdle()
+        compose.onNodeWithText("Stack · 2").assertExists()
+        val legal = compose.onAllNodes(SemanticsMatcher.expectValue(androidx.compose.ui.semantics.SemanticsProperties.StateDescription,
+            "Legal target"))
+        legal.assertCountEquals(2)
+        sourceAtTheRight("Choose targets", "Choose target spell", Choices.QUENCH)
+        compose.onRoot().captureShot("$SCREENSHOTS/choice-source/stack-target-list.png",
+            "Alice cast two Cinder Charms and then Quench Spark, and tapped the glowing Stack: it opened in place as its list \"Stack · 2\" with both Charms glowing violet as legal targets, while the bar above her hand still says \"Choose target spell\" with the Quench at its right.")
+        // The lower Charm (the list's second row) is picked: the list closes and the Quench goes on the Stack targeting it
+        val lower = kit.state().stack.first()
+        compose.onNodeWithText("2 · ${Choices.CHARM}").performClick()
+        compose.waitForIdle()
+        kit.playOn("the Quench on the Stack", bobActs = false) { kit.state().stack.size == 3 }
+        assertTrue(!kit.toolkit.stackTargeting, "the list closed")
+        compose.onNodeWithText("Stack · 2").assertDoesNotExist()
+        val quench = kit.state().stack.last()
+        assertEquals(listOf<arcanum.engine.state.TargetRef>(arcanum.engine.state.TargetRef.Object(lower)),
+            kit.state().stackItems.getValue(quench).targets.values.flatten(), "the Quench targets the lower Charm")
     }
 }

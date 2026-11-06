@@ -434,10 +434,11 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
     fun tableMenu() { dismiss(); panel = "table" }
     fun phasePicker() { dismiss(); panel = "phase" }
     fun stackContents() { dismiss(); panel = "manageStack" }
-    /** The Stack target picker is open (an entry below the top is a legal target, I-D6; [StackTargetPicker]). */
+    /** The Stack opened in place as its list to pick a target from (an entry below the top is a legal target, STK-048;
+     * [ManageStackDialog] with the legal entries glowing). */
     var stackTargeting by mutableStateOf(false); private set
-    /** Back in the Stack target picker: targets are picked on the table again. */
-    fun closeStackTargets() { stackTargeting = false }
+    /** The Stack's list closed without a pick: targets are picked on the table again. */
+    fun closeStackTargets() { stackTargeting = false; popupItem = null }
     /** The Stack entries the open cast or choice may target now, top first; empty when none. */
     fun stackTargets(play: TableBoard): List<String> = if (cast.targeting) cast.stackTargets(play)
         else if (flows.targeting) flows.stackTargets(play) else emptyList()
@@ -520,9 +521,10 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
                 layoutState.value = layoutState.value.copy(localPileTargets = true)
                 return
             }
-            // An entry below the top of the Stack is a legal target: the Stack target picker opens to pick it from
+            // STK-048: an entry below the top of the Stack is a legal target: the Stack opens in place as its list, the legal
+            // entries glowing, to pick it from
             if (play != null && item.zone == PlayZone.STACK && CombatStackRules.stack(play.board).id in cast.glow(play) + flows.glow(play)) {
-                dismiss(); stackTargeting = true
+                dismiss(); stackTargeting = true; popupItem = item
                 return
             }
             // UI review round 2 #4 (I-D46 b): a tap on anything that isn't a legal target shakes it

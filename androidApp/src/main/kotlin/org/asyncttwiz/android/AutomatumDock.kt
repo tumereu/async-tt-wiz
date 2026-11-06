@@ -194,39 +194,3 @@ internal fun ChoiceHead(title: String, source: ChoiceCardData?, inspector: Choic
     }
 }
 
-/**
- * Picking a Stack entry as a target (STK-048, UI review round 2 #7): docked above the hand like every Automatum panel,
- * the Stack's entries top first drawn as cards (hold: Inspect), the legal ones ringed in violet, the others dimmed; a tap
- * on a legal one picks it. Back returns to picking on the table. [source]: what the target is chosen for (STK-044).
- */
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-internal fun StackTargetPicker(toolkit: TableToolkitController, play: TableBoard, source: ChoiceCardData?) {
-    val viewer = toolkit.viewer
-    val targets = toolkit.stackTargets(play)
-    val stack = CombatStackRules.stack(play.board)
-    val entries = contentsEntries(play, PileContents(stack.id, "Stack", stack.cards, true), viewer)
-    var hidden by remember { mutableStateOf(false) }
-    val inspector = remember { ChoiceInspector() }
-    AutomatumDockPanel("Stack target picker", hidden, { hidden = !hidden }, "target picker", buttons = {
-        ChoiceButton("Back", Icons.AutoMirrored.Outlined.ArrowBack, onClick = toolkit::closeStackTargets)
-    }) {
-        ChoiceHead("Choose a target · ${targets.size}", source, inspector) {
-            ChoiceHintText("Tap a spell or ability ringed in violet (1 is the top of the Stack).")
-        }
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            entries.forEachIndexed { index, entry ->
-                val id = entry.cardId
-                val legal = id in targets
-                val card = choiceCard(play, viewer, id, CombatStackRules.inspection(play.board, id)?.id, entry.faceVisible, entry.name)
-                    .copy(own = CombatStackRules.controller(play.board, id) == viewer)
-                    .let { c -> entry.ability?.let { c.copy(name = it.name, ability = it) } ?: c }
-                ChoiceCardFace(card, Modifier.alpha(if (legal) 1f else .4f)
-                    .then(if (legal) Modifier.semantics { contentDescription = "Legal target" } else Modifier)
-                    .choiceCardGestures(id, tap = { if (legal) toolkit.pickStackTarget(id) }, hold = { inspector.hold(card, it) }),
-                    selected = legal, badge = "${index + 1}")
-            }
-        }
-        ChoiceInspection(inspector, play, viewer)
-    }
-}

@@ -101,10 +101,8 @@ internal fun SharedFlowHost(toolkit: TableToolkitController, play: TableBoard, s
         CompositionLocalProvider(LocalChoiceFrame provides ChoiceFrame(viewer)) {
         when {
             decision != null && flows.answering != null -> when {
-                flows.targeting -> decisionSource(flows, flow, play, viewer, decision).let { source ->
-                    if (toolkit.stackTargeting) StackTargetPicker(toolkit, play, source)
-                    else FlowTargetBar(flows, flow, play, decision as Decision.Targets, source)
-                }
+                flows.targeting -> FlowTargetBar(flows, flow, play, decision as Decision.Targets,
+                    decisionSource(flows, flow, play, viewer, decision))
                 else -> DecisionPanel(flows, flow, play, names, decision, forOther = decision.player.value != viewer,
                     otherName = name(decision.player.value))
             }

@@ -10,7 +10,7 @@ Changes the owner wants but that are not built yet. The feature catalog
 
 ## Build order (owner, 2026-11-05: one implementor at a time, small items batched, full suites after each batch)
 
-2026-11-06 playtest round 2: worker A = playback stop on return, assumed blocks branch; worker B = Bushy Bodyguard walkthrough + question panel audit, then pinned inspect, damage preview badge, rotation leftover; worker A follow-up = undo after combat back-and-forth; worker C (after B) = response mode names/colours, main button width, slow action indicator, deck service burst, Automatum screenshot gallery; next free worker = End turn engine speed.
+2026-11-06 playtest round 2: worker A = playback stop on return, assumed blocks branch; worker B = Bushy Bodyguard walkthrough + question panel audit, then pinned inspect, damage preview badge, rotation leftover; worker A follow-up = undo after combat back-and-forth; worker C (after B) = response mode names/colours, main button width, slow action indicator, deck service burst, Automatum screenshot gallery; next free worker = End turn engine speed, trigger order always asked.
 
 ## Ready to build
 
@@ -23,6 +23,7 @@ Changes the owner wants but that are not built yet. The feature catalog
 - Deck service burst (owner playtest, 2026-11-06, bug): choosing a deck once showed "The service is busy. Wait a moment, then retry." — the server's limit is 600 deck-service requests per account per minute, so the app sent a burst or looped. E2e first: count deck-service requests while choosing a deck in the lobby (fails above a handful); find and fix the burst. No entry change expected.
 - Slow action indicator (owner, 2026-11-06): the main button (End turn, Next step, Resolve, Attack/Block) and card taps that send an action show a "working" sign (e.g. a shimmer on the main button) only when the result hasn't arrived ~150 ms after the press, and once shown it stays at least ~300 ms (no flicker; instant actions look as today); press feedback itself is immediate. Tune thresholds against the app's own action timing logs; tests use the test clock (no elapsed-time asserts). Not for playback. Changes TRN-017/TRN-063 (new clause).
 - End turn engine speed (owner, 2026-11-06): End turn takes ~660–700 ms on the owner's phone, ~490–540 ms of it in the engine (report KWKB3Y, "Own action what=endTurn"). Profile End turn and step passes on a realistic board (JVM benchmark/profiler; desktop numbers relative), find the biggest costs (e.g. recomputing layers at every step) and take the easy gains, keeping behaviour identical (all arcanum/protocol suites green); report before/after numbers. R5 (precomputing passes while idle) stays a later option, not now.
+- Trigger order always asked (owner, 2026-11-06): when two or more of your triggers go on the Stack at the same time, you are always asked their order, in every response mode (today Quick/Auto-skip orders them itself); triggers that are exactly identical need no question. Doesn't block a redeploy. Changes STK-036, STK-030 and the order-triggers entry.
 
 ## Ready after the e2e framework (owner playtest, 2026-11-05)
 
@@ -43,6 +44,7 @@ Start none of these until the E2E framework above works. Each owner-reported bug
 
 ## Later (nice to have)
 
+- Remembered trigger orders (owner, 2026-11-06): conveniences like "always resolve these triggers in this order".
 - Play your first turn while the opponent is still deciding on mulligans, without rollbacks when they mulligan, as long as nothing you do interacts with their hand or library (owner, 2026-11-05; replaces the dropped assumed keep). Not high priority.
 
 - Choose a card's printing (art) in decks and cubes.

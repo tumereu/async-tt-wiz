@@ -91,4 +91,82 @@ internal object LtrSet {
     val olorinPaleRider = Cards.invent("Olórin, Pale Rider", "{3}{W}", "Legendary Creature — Avatar Wizard", "Vigilance\nWhenever you cast a spell, creatures you control get +1/+0 until end of turn. Scry 1.\nWhen Olórin dies, you may put it into its owner's library fifth from the top.", "3/3")
     // chunk 02
     val eagleOfRescue = Cards.invent("Eagle of Rescue", "{4}{W}{W}", "Creature — Bird Soldier", "Flying\nWhen this creature enters, put an indestructible counter on another target creature you control. Draw a card if that creature's power is 2 or less.", "5/5")
+    // chunk 03
+    val evenstarsGift = Cards.invent("Evenstar's Gift", "{3}{U}", "Sorcery", "This spell costs {1} less to cast if you control two or more legendary creatures.\nScry 2, then draw two cards.")
+    // chunk 03
+    val theWashingSong = Cards.invent("The Washing Song", "{3}{U}", "Enchantment — Saga", "(As this Saga enters and after your draw step, add a lore counter. Sacrifice after III.)\nI, II — Draw two cards, then discard a card.\nIII — Shuffle any number of target cards from your graveyard into your library. Add {U}{U}.")
+    // chunk 03
+    val bewitchingHerbcraft = Cards.invent("Bewitching Herbcraft", "{1}{U}", "Enchantment — Aura", "Enchant creature\nWhen this Aura enters, tap enchanted creature.\nEnchanted creature has \"If this creature would untap during your untap step, remove a +1/+1 counter from it instead. If you do, untap it.\" (Otherwise, it doesn't untap.)")
+    // chunk 03
+    val hobFerrowInnSwindler = Cards.invent("Hob Ferrow, Inn Swindler", "{1}{U}", "Legendary Creature — Human Rogue", "Whenever Hob Ferrow becomes blocked, choose one —\n• Create a Treasure token. (It's an artifact with \"{T}, Sacrifice this token: Add one mana of any color.\")\n• Target opponent gains control of target Horse you control. If they do, remove Hob Ferrow from combat and create three Treasure tokens.", "2/1")
+    // chunk 03
+    val partyVanishing = Cards.invent("Party Vanishing", "{U}", "Sorcery", "Draw a card. The Ring tempts you.")
+    // chunk 03
+    val carriedOnTheBreeze = Cards.invent("Carried on the Breeze", "{1}{U}", "Instant", "You may cast spells this turn as though they had flash.\nDraw a card.")
+    // chunk 03
+    val captainOfTheCorsairs = Cards.invent("Captain of the Corsairs", "{2}{U}", "Creature — Human Pirate", "{1}, {T}: Draw a card, then discard a card.", "2/3")
+    // chunk 03
+    val councilsMusing = Cards.invent("Council's Musing", "{1}{U}", "Instant", "Draw a card.\nWhenever you scry, if you control an Island, you may exile this card from your graveyard. If you do, draw a card.")
+    // chunk 03
+    val misleadTheHerald = Cards.invent("Mislead the Herald", "{U}", "Instant", "Target creature gets -3/-0 until end of turn.\nAmass Orcs 1. (Put a +1/+1 counter on an Army you control. It's also an Orc. If you don't control an Army, create a 0/0 black Orc Army creature token first.)")
+    // chunk 03
+    val terribleAsTheTempest = Cards.invent("Terrible as the Tempest", "{2}{U}", "Instant", "Target creature has base power and toughness 5/5 until end of turn. The Ring tempts you.")
+    // chunk 03
+    val elrohirLordOfTheValley = Cards.invent("Elrohir, Lord of the Valley", "{2}{U}", "Legendary Creature — Elf Noble", "Whenever Elrohir or another creature you control enters, scry 1. If this is the second time this ability has resolved this turn, the Ring tempts you.", "3/2")
+    // chunk 03
+    val tharkunFriendOfTheHills = Cards.invent("Tharkun, Friend of the Hills", "{3}{U}", "Legendary Creature — Avatar Wizard", "Flash\nYou may cast sorcery spells as though they had flash.\nWhenever the Ring tempts you, if you chose a creature other than Tharkun as your Ring-bearer, draw a card.", "2/4")
+    // chunk 03
+    val gloriousGust = Cards.invent("Glorious Gust", "{1}{U}", "Instant", "Counter target creature spell. If it was a legendary spell, the Ring tempts you.")
+    // chunk 03
+    val lilywenRiverDaughter = Cards.invent("Lilywen, River-Daughter", "{1}{U}", "Legendary Creature — Nymph", "{T}: Move a counter of each kind not on Lilywen from another target permanent you control onto Lilywen.\n{U}, {T}: Move one or more counters from Lilywen onto another target permanent you control. If you do, draw a card.", "1/3")
+    // chunk 03
+    val harborNavigatorOfTheWest = Cards.invent("Harbor Navigator of the West", "{2}{U}", "Creature — Elf Pilot", "Flash\nWhen this creature enters, scry 1.", "3/2")
+    // chunk 03
+    val elvenRopeKnots = Cards.invent("Elven Rope Knots", "{1}{U}", "Instant", "Tap target creature. Scry 1.\nDraw a card.")
+    // chunk 03
+    val horsesOfTheLoudwater = Cards.invent("Horses of the Loudwater", "{3}{U}{U}", "Sorcery", "Return up to two target creatures to their owners' hands. Scry 1. The Ring tempts you.")
+    // chunk 03
+    val berethielOfTheHealingHall = Cards.invent("Berethiel of the Healing Hall", "{2}{U}", "Legendary Creature — Human Cleric", "{T}: Untap another target permanent.\n{T}: Untap two other target legendary creatures.", "1/4")
+    // chunk 03
+    val isolationAtTheTower = Cards.invent("Isolation at the Tower", "{3}{U}", "Instant", "Put target creature into its owner's library second from the top.")
+    // chunk 03
+    val riverKingfisherOfTheSouth = Cards.invent("River Kingfisher of the South", "{2}{U}", "Creature — Bird", "Flying\nWhen this creature dies, draw a card.", "2/1")
+    // chunk 04
+    val knightsOfTheSwanCoast = Cards.invent("Knights of the Swan Coast", "{3}{U}", "Creature — Human Knight", "Whenever you draw your second card each turn, put a +1/+1 counter on this creature.", "3/3")
+    // chunk 04
+    val goldenWoodRevealed = Cards.invent("Golden Wood Revealed", "{3}{U}{U}", "Sorcery", "Draw three cards.\nIslandcycling {1} ({1}, Discard this card: Search your library for an Island card, reveal it, put it into your hand, then shuffle.)")
+    // chunk 04
+    val farIsleCalling = Cards.invent("Far Isle Calling", "{1}{U}", "Enchantment", "Whenever you scry, put a verse counter on this enchantment.\n{4}{U}{U}, Exile this enchantment: Draw a card for each verse counter on this enchantment. If it had seven or more verse counters on it, take an extra turn after this one. Activate only as a sorcery.")
+    // chunk 04
+    val thorondilSwiftSavior = Cards.invent("Thorondil, Swift Savior", "{3}{U}", "Legendary Creature — Bird Soldier", "Flying\nWhenever Thorondil deals combat damage to a player, exile up to one target creature you own, then return it to the battlefield under your control.", "3/3")
+    // chunk 04
+    val silverlodeWatcher = Cards.invent("Silverlode Watcher", "{1}{U}", "Creature — Elf Scout", "Whenever you scry, this creature gets +1/+0 until end of turn and can't be blocked this turn. This ability triggers only once each turn.", "2/1")
+    // chunk 04
+    val harborTownSurvivor = Cards.invent("Harbor Town Survivor", "{1}{U}", "Creature — Human Peasant", "{T}: Add one mana of any color. Spend this mana only to cast an instant or sorcery spell.\n{5}{U}, {T}: Target player mills three cards. (They put the top three cards of their library into their graveyard.)", "1/3")
+    // chunk 04
+    val driveBackTheFoe = Cards.invent("Drive Back the Foe", "{2}{U}{U}", "Instant", "Return target spell or nonland permanent an opponent controls to its owner's hand. You may cast an instant or sorcery spell with equal or lesser mana value from your hand without paying its mana cost.")
+    // chunk 04
+    val rangersOfTheHiddenVale = Cards.invent("Rangers of the Hidden Vale", "{2}{U}{U}", "Creature — Human Ranger", "Vigilance\nWhen this creature enters, gain control of up to one target creature with lesser power for as long as you control this creature. Then the Ring tempts you.", "3/3")
+    // chunk 04
+    val curunilTheWhite = Cards.invent("Curunil the White", "{4}{U}", "Legendary Creature — Avatar Wizard", "Ward {2}\nWhenever you cast your second spell each turn, amass Orcs 2. (Put two +1/+1 counters on an Army you control. It's also an Orc. If you don't control an Army, create a 0/0 black Orc Army creature token first.)", "4/4")
+    // chunk 04
+    val wizardsTrickery = Cards.invent("Wizard's Trickery", "{1}{U}{U}", "Instant", "Counter target spell.\nAmass Orcs 1. (Put a +1/+1 counter on an Army you control. It's also an Orc. If you don't control an Army, create a 0/0 black Orc Army creature token first.)")
+    // chunk 04
+    val scrollOfTheLastKing = Cards.invent("Scroll of the Last King", "{2}{U}", "Enchantment — Saga", "(As this Saga enters and after your draw step, add a lore counter. Sacrifice after III.)\nI — Gain control of up to one target artifact for as long as you control this Saga. The Ring tempts you.\nII — Tap up to two target creatures. Put a stun counter on each of them.\nIII — Draw a card for each tapped creature target opponent controls.")
+    // chunk 04
+    val soothingOfTheWretch = Cards.invent("Soothing of the Wretch", "{1}{U}", "Instant", "Return target nontoken creature to its owner's hand. The Ring tempts you.")
+    // chunk 04
+    val stormOfTheWhiteWizard = Cards.invent("Storm of the White Wizard", "{4}{U}{U}", "Enchantment", "Ward {3}\nWhenever you cast your second spell each turn, copy it, except the copy isn't legendary. You may choose new targets for the copy. (A copy of a permanent spell becomes a token.)")
+    // chunk 04
+    val hemmedInByOrcs = Cards.invent("Hemmed In by Orcs", "{3}{U}", "Sorcery", "Amass Orcs 3, then target player mills X cards, where X is the amassed Army's power. (To amass Orcs 3, put three +1/+1 counters on an Army you control. It's also an Orc. If you don't control an Army, create a 0/0 black Orc Army creature token first.)")
+    // chunk 04
+    val treasonOfTheTower = Cards.invent("Treason of the Tower", "{2}{U}", "Sorcery", "Put up to one target instant or sorcery card from your graveyard on top of your library.\nAmass Orcs 2. (To amass Orcs 2, put two +1/+1 counters on an Army you control. It's also an Orc. If you don't control an Army, create a 0/0 black Orc Army creature token first.)")
+    // chunk 04
+    val theLurkerInTheLake = Cards.invent("The Lurker in the Lake", "{3}{U}{U}", "Legendary Creature — Kraken", "The Lurker in the Lake enters tapped with nine stun counters on it. (If a permanent with a stun counter would become untapped, remove one from it instead.)\nWhenever you draw a card during an opponent's turn, create a 1/1 blue Tentacle creature token.\nWhenever a Tentacle you control dies, untap up to one target Kraken and put a stun counter on up to one target nonland permanent.", "9/9")
+    // chunk 04
+    val reedWind = Cards.invent("Reed-Wind", "{4}{U}", "Creature — Elemental", "Flying\nWhen this creature enters, scry 2.", "3/4")
+    // chunk 04
+    val elvishSailwright = Cards.invent("Elvish Sailwright", "{2}{U}", "Creature — Elf Pilot", "Whenever this creature attacks, scry 1.\nWhenever you scry, tap up to X target nonland permanents, where X is the number of cards looked at while scrying this way.", "3/2")
+    // chunk 04
+    val whiteCityGarrison = Cards.invent("White City Garrison", "{3}{U}", "Creature — Human Soldier", "White City Garrison's power is equal to the number of cards in your hand.\nWhenever this creature attacks, you may tap any number of untapped Humans you control. Draw a card for each Human tapped this way.", "*/5")
 }

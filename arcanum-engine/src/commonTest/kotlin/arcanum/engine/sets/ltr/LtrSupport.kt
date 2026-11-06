@@ -85,6 +85,8 @@ internal fun Scenario.playOut(vararg picks: String, may: Boolean = true, options
                     val id = d.options.firstOrNull { it !in taken && state.obj(it)?.let { o -> nameOf(o) } == name }
                     if (id == null) taken else taken + id
                 }.take(d.max ?: Int.MAX_VALUE)
+                // an ordering (all of them, as offered): the scry's or a library's order
+                if (chosen.size < d.min && d.min == d.options.size) { answer(Answer.Objects(d.options)); continue }
                 if (chosen.size < d.min) return
                 answer(Answer.Objects(chosen))
             }

@@ -45,7 +45,8 @@ data class TableRuntimeHooks(val chat: (() -> Unit)? = null, val history: (() ->
     /** TRN-066: why the table waits for the other player, faint over the battlefield (never taking a touch); null when
      * it doesn't. */
     val waitingLine: String? = null,
-    /** HIS-094: the large text in the board's centre that a tap acts on ("Bob has made moves · Tap to watch"); null: none. */
+    /** HIS-094: the large text in the board's centre that a tap acts on ("Bob has made moves · Tap to watch"), as does a
+     * tap anywhere on the table but the hand; null: none. */
     val centreAction: TableCentreAction? = null,
     /** HIS-095: a tap on the table (a card, a pile or the empty table) does only this (pausing playback); null: taps act
      * as usual. */

@@ -126,6 +126,7 @@ class BranchOnReturnTest : E2e() {
         waitUntil("the Cub staged") { alice.stepArrow() == "Attack (1)" }
         alice.tap("Attack (1)")
         waitUntil("Alice in assume mode for Bob's blockers") { alice.showsControl("Assume no blockers") }
+        alice.combatWorkedOut(this)
         alice.battlefieldCard("Ember Herald", owner = bob).performClick()
         run(skip = java.time.Duration.ofSeconds(1)) // past the double-tap window: the tap is a single tap
         // Her own attacking Cub's copy in the band (CMB-034)

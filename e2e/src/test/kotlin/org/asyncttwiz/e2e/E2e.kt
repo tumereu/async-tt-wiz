@@ -177,6 +177,17 @@ abstract class E2e {
         players.forEach { it.leaks.install() }
     }
 
+    /**
+     * Whether nothing of the game is on its way between the phones and the server: each phone that is online (its network
+     * up, the app in the foreground, the game open) has all its own events on the server, and their lines end at the same
+     * event (the other's events have reached it too).
+     */
+    internal fun quiet(): Boolean {
+        val online = players.filter { it.link.up && it.foreground && it.game != null }
+        if (online.any { p -> p.engine { device.session.pending.isNotEmpty() } }) return false
+        return online.map { p -> p.engine { device.session.head } }.distinct().size <= 1
+    }
+
     /** The game as the server holds it now, read by Alice's account at most every few hundred milliseconds (the
      * server limits how often an address may ask). */
     internal fun serverGame(): org.asyncttwiz.protocol.EngineSnapshot? {

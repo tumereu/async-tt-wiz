@@ -229,6 +229,9 @@ internal object Steps {
             is NamedValue.Players -> NamedValue.Players(parts.filterIsInstance<NamedValue.Players>().flatMap { it.ids }.distinct())
             is NamedValue.Targets -> NamedValue.Targets(parts.filterIsInstance<NamedValue.Targets>().flatMap { it.refs })
             is NamedValue.Number -> NamedValue.Number(parts.filterIsInstance<NamedValue.Number>().sumOf { it.value })
+            // mh2: "a type chosen this way", each player having chosen one
+            is NamedValue.SubtypeValue -> parts.flatMap { (it as? NamedValue.SubtypeValue)?.let { v -> listOf(v.subtype) } ?: (it as? NamedValue.Subtypes)?.subtypes.orEmpty() }
+                .distinct().let { if (it.size == 1) first else NamedValue.Subtypes(it) }
             // "If you do" after a loop: whether anyone did
             is NamedValue.Payment -> parts.firstOrNull { (it as? NamedValue.Payment)?.outcome == PayOutcome.Paid } ?: first
             else -> parts.last()

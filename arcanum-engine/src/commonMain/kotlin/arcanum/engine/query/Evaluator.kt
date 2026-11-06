@@ -590,7 +590,11 @@ internal class Evaluator(val board: Board, val ctx: Context) {
 
     fun subtypes(ref: SubtypeRef): List<Subtype> = when (ref) {
         is SubtypeRef.Literal -> listOf(ref.subtype)
-        is SubtypeRef.Chosen -> listOfNotNull((ctx.names[ref.name] as? NamedValue.SubtypeValue)?.subtype)
+        is SubtypeRef.Chosen -> when (val v = ctx.names[ref.name]) {
+            is NamedValue.SubtypeValue -> listOf(v.subtype)
+            is NamedValue.Subtypes -> v.subtypes
+            else -> emptyList()
+        }
         is SubtypeRef.Remembered -> listOfNotNull((selfMemory(ref.key) as? NamedValue.SubtypeValue)?.subtype)
     }
 

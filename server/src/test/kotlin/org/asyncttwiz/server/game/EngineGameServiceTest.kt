@@ -230,18 +230,29 @@ class EngineGameServiceTest {
         assertTrue(f.codec().decodeModel(snapshot.state).sameAs(bob.model))
         assertNotEquals(discarded.id, snapshot.headId)
         // I-D56 §7 (step B): the snapshot also holds the state at the earliest local head and the events after it, so
-        // her device opens at her local head with Bob's branch buffered
-        assertEquals(aliceKeep.id, snapshot.baseId)
+        // her device opens at her local head with Bob's branch buffered; KWKB3Y (HIS-084): and the line before it, up to
+        // GameDevice.KEPT_EVENTS events (here from the start), as a device that kept the game open holds it, for Undo
+        assertEquals(snapshot.rootId, snapshot.baseId)
         // LOB-116 (I-D56 §8): Alice, whose assumption Bob answered differently, gets a Game activity that says so
         assertEquals(true, runtime.transaction { c -> org.jooq.impl.DSL.using(c, org.jooq.SQLDialect.POSTGRES)
             .select(ACTIVITY_SUMMARY.BRANCHED).from(ACTIVITY_SUMMARY).where(ACTIVITY_SUMMARY.ACCOUNT_ID.eq(UUID.fromString(f.a.account.accountId)))
             .and(ACTIVITY_SUMMARY.GAME_ID.eq(UUID.fromString(f.game.id))).and(ACTIVITY_SUMMARY.KIND.eq("GAME")).fetchOne(ACTIVITY_SUMMARY.BRANCHED) })
-        assertEquals(listOf(branch), snapshot.events.map(f.codec()::decodeEvent))
+        assertEquals(listOf(aliceKeep, branch), snapshot.events.map(f.codec()::decodeEvent).takeLast(2))
         val (opened, _) = org.asyncttwiz.protocol.game.GameDevice.load(snapshot, f.alice) { id() }
         assertEquals(aliceKeep.id, opened.session.localHead)
         assertEquals(listOf(branch), opened.session.buffered)
         opened.playToStop()
         assertTrue(opened.model.sameAs(bob.model))
+        // HIS-106 (owner playtest 2026-11-06): the snapshot also holds what of the discarded line she had been shown, so a
+        // device opening the game shows the branch: where she left it, then Bob's branch received as it is live
+        assertEquals(listOf(discarded), snapshot.takenBack.map(f.codec()::decodeEvent))
+        val (left, _) = org.asyncttwiz.protocol.game.GameDevice.load(snapshot, f.alice, takenBack = true) { id() }
+        assertEquals(discarded.id, left.session.localHead)
+        assertEquals(listOf(branch), left.branchOnLoad)
+        left.revision(left.branchOnLoad, null)
+        assertTrue(left.notes().any { it is org.asyncttwiz.protocol.game.GameDevice.Note.Branched }, "the branch's note")
+        assertEquals(aliceKeep.id, left.session.localHead)
+        assertEquals(listOf(branch), left.session.buffered)
         // A table-only event of hers at the head while she is behind doesn't move her local head (it confirms nothing)
         val behind = org.asyncttwiz.protocol.game.GameDevice.load(f.snapshot(), f.alice) { id() }.first
         val early = behind.session.headModel().let { m -> EventBuilder(m, id(), snapshot.headId, f.a.account.accountId).also {
@@ -252,6 +263,10 @@ class EngineGameServiceTest {
         // Her later input on the discarded line is stale
         val late = Submission(id(), discarded.id, listOf(Act.Perform(Input.PassPriority(f.alice))))
         assertEquals("stale", f.owner.execute(GameAction.Submit(late)).reason)
+        // HIS-106: shown Bob's branch, her local head moves on and the take-back is no longer sent
+        assertEquals(listOf(discarded.id), f.snapshot().takenBack.map { f.codec().decodeEvent(it).id })
+        assertEquals("accepted", f.owner.execute(GameAction.EngineSeen(branch.id)).outcome)
+        assertEquals(emptyList<String>(), f.snapshot().takenBack)
     }
 
     // I-D56 §10, HIS-086: a free undo rewinds at once: it only pops events (owner's rule 2026-11-04), and the next event

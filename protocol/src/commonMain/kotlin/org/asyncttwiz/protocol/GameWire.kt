@@ -129,7 +129,11 @@ const val GAME_PROTOCOL_MINOR = 8
      * head, buffers the events past it, and can go back to the other player's (where a branch may start). */
     val baseId: String? = null,
     val base: String? = null,
-    val events: List<String> = emptyList())
+    val events: List<String> = emptyList(),
+    /** HIS-106: when another player's branch took the reader's local head back to the branch point (it is then behind),
+     * the events of the discarded line they had been shown, from the branch point on, oldest first: their device opens
+     * the game where they left it and shows the take-back ([org.asyncttwiz.protocol.game.GameDevice.load]). */
+    val takenBack: List<String> = emptyList())
 /** An open undo request (I-D56 §10): [by] asks to take the main line back to just after [target], with [message]. */
 @Serializable data class EngineRewindRequest(val by: String, val target: String, val message: String = "")
 /** I-D56: what an engine revision changed beyond [GameRevision.engineEvent]: the events after the first ([events]), a

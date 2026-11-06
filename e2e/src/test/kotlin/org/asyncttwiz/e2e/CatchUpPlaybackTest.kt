@@ -76,7 +76,9 @@ class CatchUpPlaybackTest : E2e() {
     // dialog, nothing played until the centre text is tapped
     @Test fun theOpeningShowsAtOnceThenTheCatchUpWaitsPausedForPlay() {
         aliceMulligansAndPlaysOn()
-        val keep = alice.shown.line.first { it.author == bob.id }
+        // Where Bob left: his own last event before he went away (his keep, or what his device made right after it); Alice's
+        // table holds the line from before it too (KWKB3Y), so not merely her first event of his
+        val keep = alice.shown.line.last { it.author == bob.id && it.assumed == null }
         val boards = bobComesBack()
         waitUntil("Bob's catch-up") { bob.status == GameDevice.Status.CatchUp }
         val openingBoard = assertNotNull(boards.firstOrNull { it.transition?.forward?.isNotEmpty() == true })

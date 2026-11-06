@@ -99,6 +99,13 @@ interface EngineWorker {
     }
 }
 
+/** Tests: every [EngineGame.Shown] an engine game publishes (whole boards, not an own action's early one), with its
+ * player's account id, on the main thread as it is published: what the table is given, also when several arrive between
+ * two frames. */
+internal object EngineShownProbe {
+    @Volatile var listener: ((me: String, shown: EngineGame.Shown) -> Unit)? = null
+}
+
 /**
  * One game played on engine state on this device (I-D54 item 2, I-D56 step C): the device core ([GameDevice], which
  * holds the main line, playback, assumptions, undo and requests) and the board the table shows of it ([TableBoard], the
@@ -177,7 +184,10 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
     fun load(snapshot: EngineSnapshot, base: PlayState = this.base) {
         this.base = base
         worker.run {
-            val (loaded, json) = try { GameDevice.load(snapshot, PlayerId(me), ids) } catch (failure: Exception) {
+            // HIS-106: opened for the first time, where another player's branch took the player's line back: the table
+            // first shows where they left it, then the branch as it shows live
+            val first = !this::device.isInitialized
+            val (loaded, json) = try { GameDevice.load(snapshot, PlayerId(me), takenBack = first, ids = ids) } catch (failure: Exception) {
                 // The table says the game can't be opened instead of waiting for a board that never comes
                 AppLog.error("engine", "Engine game failed to load", failure)
                 worker.main { loadFailed = true; onShown() }
@@ -193,6 +203,8 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
             this.loaded = true
             previous = null
             publish()
+            val branch = device.branchOnLoad
+            if (branch.isNotEmpty()) { device.branchOnLoad = emptyList(); received(branch, null) }
         }
     }
 
@@ -226,8 +238,8 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
             transition(before, play, tip, line, attention, device.move?.value)
         previewed = null
         previous = play
-        // HIS-097: a branch's take-back lasts while its playback does
-        if (takingBack && (!session.behind || status !is GameDevice.Status.Playing)) takingBack = false
+        // HIS-097: a branch's take-back lasts while its playback does (paused by the app's leaving, until the return)
+        if (takingBack && (!session.behind || (status !is GameDevice.Status.Playing && status != GameDevice.Status.CatchUp))) takingBack = false
         val shown = Shown(++published, play, status, device.locked, device.settings, device.opponent, session.behind, tip,
             session.localHead, session.drafting, device.request, device.indicator(), device.undoTarget(), line, held, lastTransition,
             device.needsReload, device.pausing, held.mapNotNullTo(HashSet()) { e -> e.id.takeIf(device::endedTurn) }, takingBack)
@@ -236,6 +248,7 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
         worker.main {
             this.notes.addAll(notes)
             this.shown = shown
+            EngineShownProbe.listener?.invoke(me, shown)
             loadFailed = false
             measure(shown, timing)
             onShown()
@@ -551,38 +564,47 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
         val update = message.engine
         val texts = listOfNotNull(message.engineEvent) + update?.events.orEmpty()
         if (texts.isEmpty() && update == null) return
-        worker.run {
-            val events: List<GameEvent> = texts.map(codec::decodeEvent)
-            val session = device.session
-            val tip = session.tip
-            val local = session.localHead
-            val head = session.head
-            // HIS-095 (§29.2, smoke 2026-11-04): a device that had shown everything (its live game) shows the other
-            // player's passes at once instead of playing them back
-            val live = !session.behind && !device.catchUp
-            // §29.4: an undo animates backwards from the board shown before it; HIS-097 (owner playtest 2026-11-05): so does
-            // the other player's branch, back to the branch point, before their new events play back
-            val branch = update?.target == null && events.firstOrNull()?.let { it.parentId != head && it.author != me } == true
-            rewinding = update?.target?.let { target ->
-                lastShown?.let { Rewinding(update.rewoundBy ?: events.firstOrNull()?.author ?: "", target, it.line, it.engine) }
-            } ?: events.firstOrNull()?.takeIf { branch }?.let { first ->
-                lastShown?.let { Rewinding(first.author, first.parentId, it.line, it.engine, branch = true) }
-            }
-            device.revision(events, update)
-            val drained = device.notes()
-            if (branch && device.session.behind && drained.any { it is GameDevice.Note.Branched }) takingBack = true
-            // A board already shown taken back by the server's revision (owner, N7FU6Y: one line per take-back)
-            if (!onLine(tip)) takenBack(when {
-                device.needsReload -> "the server's main line can't be followed (reload)"
-                update?.target != null -> "rewind to ${update.target} by ${update.rewoundBy ?: "?"}"
-                events.firstOrNull()?.let { it.parentId != head } == true -> "branch by ${events.first().author} at ${events.first().parentId}"
-                else -> "own pending events dropped: another event came first"
-            } + " (events ${events.joinToString(",") { it.id }})", tip, local)
-            if (live) device.showPasses()
-            device.advance(now)
-            publish(drained)
-            rewinding = null
+        worker.run { received(texts.map(codec::decodeEvent), update) }
+    }
+
+    /** The server's accepted [events] in order and [update] (engine thread): [revision]'s, or the main line after the
+     * branch point when the game opened where a branch took the player's line back ([GameDevice.branchOnLoad]). */
+    private fun received(events: List<GameEvent>, update: org.asyncttwiz.protocol.EngineUpdate?) {
+        val session = device.session
+        val tip = session.tip
+        val local = session.localHead
+        val head = session.head
+        // HIS-095 (§29.2, smoke 2026-11-04): a device that had shown everything (its live game) shows the other
+        // player's passes at once instead of playing them back
+        val live = !session.behind && !device.catchUp
+        // §29.4: an undo animates backwards from the board shown before it; HIS-097 (owner playtest 2026-11-05): so does
+        // the other player's branch, back to the branch point, before their new events play back
+        val branch = update?.target == null && events.firstOrNull()?.let { it.parentId != head && it.author != me } == true
+        rewinding = update?.target?.let { target ->
+            lastShown?.let { Rewinding(update.rewoundBy ?: events.firstOrNull()?.author ?: "", target, it.line, it.engine) }
+        } ?: events.firstOrNull()?.takeIf { branch }?.let { first ->
+            lastShown?.let { Rewinding(first.author, first.parentId, it.line, it.engine, branch = true) }
         }
+        device.revision(events, update)
+        val drained = device.notes()
+        if (branch && device.session.behind && drained.any { it is GameDevice.Note.Branched }) {
+            takingBack = true
+            // HIS-106 (owner playtest 2026-11-06): a branch plays to its end, never waiting paused for the centre text
+            // ("has made moves") as a catch-up does, also when it arrives while the app is away or just back (the table
+            // plays nothing while the app is away; publishing again on the return would cut the take-back's motion)
+            device.play()
+        }
+        // A board already shown taken back by the server's revision (owner, N7FU6Y: one line per take-back)
+        if (!onLine(tip)) takenBack(when {
+            device.needsReload -> "the server's main line can't be followed (reload)"
+            update?.target != null -> "rewind to ${update.target} by ${update.rewoundBy ?: "?"}"
+            events.firstOrNull()?.let { it.parentId != head } == true -> "branch by ${events.first().author} at ${events.first().parentId}"
+            else -> "own pending events dropped: another event came first"
+        } + " (events ${events.joinToString(",") { it.id }})", tip, local)
+        if (live) device.showPasses()
+        device.advance(now)
+        publish(drained)
+        rewinding = null
     }
 
     /** The server refused [action] (outcome other than accepted) for [reason]. */
@@ -702,7 +724,13 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
     fun returned() {
         if (!awayPaused) return
         awayPaused = false
-        worker.run { val before = device.status; device.returned(); if (device.status != before) publish() }
+        worker.run {
+            val before = device.status
+            device.returned()
+            // HIS-106: a branch whose playback the app's leaving paused plays on now, to its end
+            if (takingBack) device.play()
+            if (device.status != before) publish()
+        }
     }
 
     /** Whether the app left since the game was last told it returned (main thread). */

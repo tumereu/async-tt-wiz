@@ -47,24 +47,43 @@ class TableInteractionsScreenshotTest {
         captureShot(file.path, caption)
     }
 
+    /** Your Forest's menu (TBL-115: its mana ability its one row; a combat copy opens no menu any more, CMB-003) at
+     * [font] text size. */
     private fun menu(width: Float, height: Float, font: Float) {
-        val (toolkit, _) = render(width, height, font)
+        val play = LiveTableFixture.menuPlay()
+        val forest = play.board.cards.first { card -> card.containerId == "a/BATTLEFIELD" &&
+            play.definitions.single { it.digest == card.definition }.definition.name == "Forest" }
+        val board = engineTableBoard(play, "a")
+        val toolkit = TableToolkitController("a", { board }, { true }, { action, _ -> sent += action; true })
+        toolkit.openCard(TableScope(forest.id, listOf(forest.id)))
+        compose.setContent {
+            CompositionLocalProvider(LocalDensity provides Density(1f, font)) {
+                MaterialTheme { EngineFixtureTable(play, "a") { TableSurface(LiveTableFixture.game, board, "a", width > height,
+                    Modifier.fillMaxSize(), connected = true, toolkit = toolkit, onIntent = toolkit::handle) } }
+            }
+        }
+        compose.waitForIdle()
+        compose.onNodeWithContentDescription("Card action ring").assertIsDisplayed()
+        val screen = "${width.toInt()}x${height.toInt()} ${if (width > height) "landscape" else "portrait"} table, " +
+            "text size ${font}x: the card menu of your Forest, its mana ability its one row"
+        capture("menu-${width.toInt()}x${height.toInt()}-font$font", "$screen.")
+        compose.onNodeWithContentDescription("Inspect").assertDoesNotExist()
+        val row = compose.onAllNodes(hasClickAction() and hasAnyAncestor(hasContentDescription("Card action ring"))).onFirst()
+            .fetchSemanticsNode().boundsInRoot
+        assertTrue(row.height >= 40f && row.width >= 48f, "the row keeps its height at any text size: $row")
+        assertTrue(sent.isEmpty())
+    }
+
+    // CMB-003, TBL-116 (owner 2026-11-06): a combat copy opens no menu, not even when asked directly
+    @Test fun combatCopyOpensNoMenu() {
+        val (toolkit, _) = render()
         compose.runOnIdle {
-            // The combat copy of the attacking Meadow Sentinel: its menu's one cell is Remove from combat (TBL-116)
             val source = f.source(f.a, "1/3").id
             val id = CombatStackRules.occurrences(f.combat().board.combat).first { it.sourceId == source }.id
             toolkit.openCard(TableScope(id, listOf(id)))
         }
-        compose.onNodeWithContentDescription("Remove from combat").assertIsDisplayed()
-        val screen = "${width.toInt()}x${height.toInt()} ${if (width > height) "landscape" else "portrait"} table in combat, " +
-            "text size ${font}x: combat menu on your attacking Meadow Sentinel, Remove from combat its one button"
-        capture("menu-${width.toInt()}x${height.toInt()}-font$font", "$screen.")
-        compose.onNodeWithContentDescription("Inspect").assertDoesNotExist()
-        for (label in listOf("Remove from combat")) {
-            val bounds = compose.onNodeWithContentDescription(label).fetchSemanticsNode().boundsInRoot
-            assertTrue(bounds.width >= 48f && bounds.height >= 48f, "$label keeps its touch target")
-        }
-        assertTrue(sent.isEmpty())
+        compose.onNodeWithContentDescription("Card action ring").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Remove from combat").assertDoesNotExist()
     }
 
     // SYS-042

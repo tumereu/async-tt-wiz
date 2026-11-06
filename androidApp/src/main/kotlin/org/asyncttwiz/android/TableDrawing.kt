@@ -283,13 +283,14 @@ internal fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: 
             }
         }
     }
-    // Emblem chips (TRN-053) are drawn only: taps and drags reach whatever lies beneath them.
+    // The room chip of a dungeon (TRN-069) is drawn only: taps and drags reach whatever lies beneath it. The emblems' round
+    // chips (TRN-053) are EmblemChipsOverlay's.
     for (i in scene.items.filter { it.kind == TableItemKind.LIFE && it.emblems.isNotEmpty() && it.visible.isNotEmpty() }) {
         val below = i.owner != viewer
         val area = i.emblemArea
         val maxChipText = if (area != null) (area.width - 2 * ChipText.PADDING).coerceAtLeast(12f)
             else (minOf(ChipText.MAX_WIDTH, this@drawTable.size.width / density - i.bounds.x - 4f) - 2 * ChipText.PADDING).coerceAtLeast(12f)
-        /** I-D25: each emblem as a chip right of the piles (TRN-053), or beside the life square, away from it. */
+        /** TRN-069: the room chip right of the piles, or beside the life square, away from it. */
         run {
             var last: TableBounds? = null
             val previousSize = paint.textSize

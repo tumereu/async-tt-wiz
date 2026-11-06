@@ -127,12 +127,10 @@ class EngineTableScreenTest {
     }
 
     // TBL-119, TRN-010: no virtual-tabletop controls: Table actions hold the timeline and the result (no dice, coins,
-    // tokens or combat areas); card menus keep only a combat copy's Remove from combat below Automatum's rows (TBL-116: no
-    // Inspect or Other side, holding inspects; no "Attack →", the lanes pick targets, CMB-048)
+    // tokens or combat areas); card menus hold nothing below Automatum's rows (TBL-116: no Inspect or Other side, holding
+    // inspects; no "Attack →", the lanes pick targets, CMB-048) and a combat copy has no menu (CMB-003, owner 2026-11-06)
     @Test fun noVirtualTabletopControls() {
-        assertEquals(emptyList(), CardRingPages.page(CardMenuLayout.CARD).actions)
-        assertEquals(listOf("Remove from combat"), CardRingPages.page(CardMenuLayout.COMBAT).actions)
-        assertEquals(emptyList(), CardRingPages.page(CardMenuLayout.PANEL).actions)
+        for (layout in CardMenuLayout.entries) assertEquals(emptyList(), CardRingPages.page(layout).actions)
         kit.opening()
         render()
         compose.onNodeWithContentDescription("Table actions").performClick()

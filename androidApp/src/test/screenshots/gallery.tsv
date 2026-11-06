@@ -70,3 +70,8 @@ number	item	screenshot	catalog	decisions
 69	A step Automatum can't do yet	questions/skipped.png	STK-030 SYS-064	Manual
 70	A deck Automatum can't fully play	non-gameplay/choose-lobby-deck-automatum-portrait.png	LOB-115 LOB-118
 71	Automatum settings for new games	settings/settings-portrait-full-automatum-settings.png	LOB-113
+72	Target chip with the damage preview	combat-band/chip-preview.png	CMB-013 CMB-029
+73	Two-digit damage badges	combat-band/damage-badges-two-digits.png	CMB-029
+74	Emblem chips in landscape	emblem-chips-landscape.png	TRN-053
+75	Emblem inspect	emblem-inspect.png	TRN-053 TBL-104
+76	Rule explainer on a held chip	chips/rule-explainer.png	TBL-132

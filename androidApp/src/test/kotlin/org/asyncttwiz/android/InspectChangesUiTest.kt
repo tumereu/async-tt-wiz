@@ -104,6 +104,22 @@ class InspectChangesUiTest {
         compose.runOnIdle { assertTrue(closed) }
     }
 
+    // TBL-132 (owner gallery review 2026-11-06): pinned, a tap on a change line naming a keyword ("Flying") shows its source
+    // and what the keyword means; a line naming none ("1 damage") explains nothing
+    @Test fun pinnedAKeywordChangeExplainsTheKeyword() {
+        val swipe = InspectSwipe()
+        show(swipe)
+        compose.runOnIdle { swipe.moved(-200f, 0f); assertTrue(swipe.released()) }
+        compose.waitForIdle()
+        val flying = arcanum.api.RulesGlossary.keywords.getValue("flying").text
+        compose.onNodeWithText(flying).assertDoesNotExist()
+        compose.onNodeWithText("Flying").performClick()
+        compose.onNodeWithText("From Gale Banner").assertExists()
+        compose.onNodeWithText(flying).assertExists()
+        compose.onNodeWithText("1 damage").performClick()
+        compose.onAllNodes(hasContentDescription("Rule explanation"), useUnmergedTree = true).assertCountEquals(1)
+    }
+
     // TBL-131 (owner playtest 2026-11-06): pinned by a drag to the right, an unchanged card goes to the left edge with a faded
     // "No changes" in the middle of the room beside it
     @Test fun pinnedAnUnchangedCardSaysNoChanges() {

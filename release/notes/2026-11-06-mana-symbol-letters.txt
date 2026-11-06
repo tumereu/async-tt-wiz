@@ -1,0 +1,1 @@
+fix: Letters and numbers sit in the middle of mana symbols.

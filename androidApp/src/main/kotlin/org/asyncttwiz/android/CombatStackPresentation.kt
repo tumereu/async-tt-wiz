@@ -49,21 +49,21 @@ data class CombatGeometry(val width: Float, val height: Float, val cards: List<O
 }
 /**
  * A target's lane header (CMB-013): its chip, centred in the lane, with the crossed swords, a round avatar (the defending
- * player's, [accountId], or the card's art) and the name ([label] in full, [chipText] on the chip); open, the target's
- * life, loyalty or defense ([value]) under the chip inside the lane ([valueBounds]). [bounds] is the lane's header part
- * (chip row and value row); [inset] the space kept free at each lane edge, so nothing touches a lane separator.
+ * player's, [accountId], or the card's art), the name ([label] in full, [chipText] on the chip) and the target's life,
+ * loyalty or defense ([value]). [bounds] is the lane's header part (the chip row); [inset] the space kept free at each
+ * lane edge, so nothing touches a lane separator.
  */
 data class CombatLaneLabel(val cardId: String?, val label: String, val bounds: TableBounds,
     val artwork: org.asyncttwiz.storage.ArtworkReference? = null, val fontSize: Float = CombatStackPresentation.CHIP_FONT,
     val accountId: String? = null, val inset: Float = 2f,
-    /** CMB-013: the target's life, loyalty or defense, shown under the chip (empty for a hidden or gone target). */
+    /** CMB-013: the target's life, loyalty or defense, shown on the chip after the name (empty for a hidden or gone
+     * target). */
     val value: String = "",
     /** Whose side the target is on (the defending player, or the card's controller), for the chip's tint. */
     val side: String? = null,
-    /** The chip on the table (the lane's header and, before attackers are staged, its target selector). */
+    /** The chip on the table (the lane's header and, before attackers are staged, its target selector), as wide as its
+     * name and [value] need; the damage preview ("20 → 17", CMB-029) widens it about its centre. */
     val chip: TableBounds = bounds,
-    /** Where [value] shows under the chip; null while the band is collapsed (only the chips show). */
-    val valueBounds: TableBounds? = null,
     /** The target's card is hidden from the viewer (a face-down card): no art. */
     val hidden: Boolean = false) {
     /** The name on the chip: at most [CombatStackPresentation.CHIP_LETTERS] letters, cut with "…" (CMB-013). */
@@ -113,9 +113,6 @@ object CombatStackPresentation {
     const val CHIP_PAD = 4f
     /** CMB-001: the chip row, which is also the collapsed band's height (dp at zoom 1). */
     const val CHIP_ROW = CHIP_HEIGHT + 2 * CHIP_PAD
-    /** CMB-013: the row under the chips (inside the lanes) with each target's value and the damage preview. */
-    const val VALUE_ROW = 14f
-    const val VALUE_FONT = 10f
     /** The chip's parts: side padding, the crossed swords, the round avatar and the gaps between them. */
     const val CHIP_SIDE = 6f
     const val CHIP_ICON = 13f
@@ -125,13 +122,18 @@ object CombatStackPresentation {
     /** [name] as a chip shows it: whole up to [CHIP_LETTERS] letters, else cut with "…". */
     fun chipText(name: String): String = if (name.length <= CHIP_LETTERS) name else name.take(CHIP_LETTERS - 1).trimEnd() + "…"
 
-    /** A chip's width for [name] (dp at zoom 1): the swords, the avatar and the name as [chipText] shows it. */
-    fun chipWidth(name: String): Float = CHIP_SIDE + CHIP_ICON + CHIP_GAP + CHIP_AVATAR + CHIP_GAP + 1f +
-        laneTextWidth(chipText(name), CHIP_FONT) + CHIP_SIDE
+    /** A chip's width for [name] (dp at zoom 1): the swords, the avatar, the name as [chipText] shows it and, when there
+     * is one, [value] after it (the target's life, loyalty or defense, or the damage preview's "20 → 17"). */
+    fun chipWidth(name: String, value: String = ""): Float = CHIP_SIDE + CHIP_ICON + CHIP_GAP + CHIP_AVATAR + CHIP_GAP + 1f +
+        laneTextWidth(chipText(name), CHIP_FONT) + (if (value.isEmpty()) 0f else CHIP_VALUE_GAP + laneTextWidth(value, CHIP_FONT)) +
+        CHIP_SIDE
 
-    /** Room for the chip and, when the target has one, its value with the preview's "16 → 11" (CMB-013, CMB-029). */
-    fun laneWidth(lane: CombatLaneLabel) = 2 * lane.inset + maxOf(chipWidth(lane.label),
-        if (lane.value.isEmpty()) 0f else laneTextWidth("${lane.value} → ${lane.value}", VALUE_FONT))
+    /** The gap between the name and the value on a chip (CMB-013). */
+    const val CHIP_VALUE_GAP = 5f
+
+    /** Room for the chip with, when the target has one, the preview's "16 → 11" on it (CMB-013, CMB-029). */
+    fun laneWidth(lane: CombatLaneLabel) = 2 * lane.inset +
+        chipWidth(lane.label, if (lane.value.isEmpty()) "" else "${lane.value} → ${lane.value}")
 
     /** CMB-031: the gap between the blocker and attacker rows, where the arrows are drawn. */
     fun arrowGap(cardHeight: Float) = cardHeight * .5f
@@ -208,7 +210,7 @@ object CombatStackPresentation {
                 artwork = avatar?.let { org.asyncttwiz.storage.ArtworkReference(it.scryfallId, it.face, "avatar-v1", "art_crop") },
                 accountId = defender.takeIf { target == null }, inset = laneLabelInset(cardWidth), value = value, side = side,
                 hidden = hidden)
-            // The chip (and the value under it) always fits its lane; wide lanes widen the area, which then pans.
+            // The chip (with its value and the damage preview) always fits its lane; wide lanes widen the area, which then pans.
             val width = maxOf(cardSpan, laneWidth(lane))
             // A lane wider than its pairs (for its chip) keeps them packed in its middle (CMB-008)
             for (pair in members) pairWidths[pair.id] = slotWidth(pair.blockers.size, pair.attackers.size, cardWidth)
@@ -226,11 +228,11 @@ object CombatStackPresentation {
                     attackTarget = lane.cardId), lane === lanes.first(), lane === lanes.last(),
                 TablePoint(lane.bounds.center.x, CHIP_ROW / 2), emptyLane = true)
             return CombatGeometry(laneX, CHIP_ROW, emptyList(), emptyList(), targets,
-                lanes.map { headed(it.copy(bounds = it.bounds.copy(y = 0f, height = CHIP_ROW)), CHIP_PAD, null) },
+                lanes.map { headed(it.copy(bounds = it.bounds.copy(y = 0f, height = CHIP_ROW)), CHIP_PAD) },
                 emptyList(), CHIP_ROW, false)
         }
-        // CMB-013: the chips on top, each target's value under its chip inside the lane
-        val labelHeight = CHIP_ROW + VALUE_ROW
+        // CMB-013 (owner gallery review 2026-11-06): the chips on top, each with its target's value on it
+        val labelHeight = CHIP_ROW
         // The defender's view mirrors the attacker's: attackers on top, blockers below, labels at the bottom.
         val mirrored = viewer.isNotEmpty() && CombatStackRules.defendingPlayer(board) == viewer
         val gap = arrowGap(cardHeight)
@@ -322,18 +324,16 @@ object CombatStackPresentation {
         return CombatGeometry(x, labelHeight + rowHeight * 2 + gap, cards, dividers, targets,
             lanes.map { lane ->
                 val top = if (mirrored) rowHeight * 2 + gap else 0f
-                // Mirrored, the chips sit at the very bottom (by the defender's battlefield) with the values above them
-                val header = lane.copy(bounds = lane.bounds.copy(y = top, height = labelHeight))
-                if (mirrored) headed(header, top + VALUE_ROW + CHIP_PAD, top) else headed(header, top + CHIP_PAD, top + CHIP_ROW)
+                // Mirrored, the chips sit at the very bottom (by the defender's battlefield)
+                headed(lane.copy(bounds = lane.bounds.copy(y = top, height = labelHeight)), top + CHIP_PAD)
             },
             laneDividers, labelHeight, mirrored)
     }
 
-    /** [lane] with its chip centred at [chipY] and, when [valueY] is given, its value row there (CMB-013). */
-    private fun headed(lane: CombatLaneLabel, chipY: Float, valueY: Float?): CombatLaneLabel {
-        val width = chipWidth(lane.label)
-        return lane.copy(chip = TableBounds(lane.bounds.x + (lane.bounds.width - width) / 2, chipY, width, CHIP_HEIGHT),
-            valueBounds = valueY?.let { TableBounds(lane.bounds.x + lane.inset, it, lane.bounds.width - 2 * lane.inset, VALUE_ROW) })
+    /** [lane] with its chip (its name and value, CMB-013) centred in the lane at [chipY]. */
+    private fun headed(lane: CombatLaneLabel, chipY: Float): CombatLaneLabel {
+        val width = chipWidth(lane.label, lane.value)
+        return lane.copy(chip = TableBounds(lane.bounds.x + (lane.bounds.width - width) / 2, chipY, width, CHIP_HEIGHT))
     }
 
     fun stack(board: BoardState, cardWidth: Float, cardHeight: Float): StackGeometry {

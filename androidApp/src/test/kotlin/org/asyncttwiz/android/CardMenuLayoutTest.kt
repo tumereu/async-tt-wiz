@@ -7,14 +7,16 @@ import kotlin.test.*
 class CardMenuLayoutTest {
     private val f = TableStatesFixture
 
-    // TBL-071
+    // TBL-071, CMB-003 (owner 2026-11-06: a combat copy has no menu)
     @Test fun contextPicksTheLayoutFromTheTappedView() {
         val play = f.combat()
         val board = play.board
         val sentinel = f.source(f.a, "1/3")
         assertEquals(CardMenuLayout.CARD, CardRingPages.context(board, sentinel.id))
-        assertEquals(CardMenuLayout.COMBAT, CardRingPages.context(board, f.id("attacker1")))
-        assertEquals(CardMenuLayout.COMBAT, CardRingPages.context(board, f.id("blocker")))
+        assertNull(CardRingPages.context(board, f.id("attacker1")))
+        assertNull(CardRingPages.context(board, f.id("blocker")))
+        assertTrue(CardRingPages.combatCopy(board, f.id("attacker1")) && CardRingPages.combatCopy(board, f.id("blocker")))
+        assertFalse(CardRingPages.combatCopy(board, sentinel.id))
         // Stack entries have no card menu: tapping the Stack opens the Stack list (STK-018). A real card in the Stack, only
         // in a state recorded before r35 (STK-003), has none either.
         assertNull(CardRingPages.context(board, f.id("effect")))

@@ -57,28 +57,28 @@ internal fun CardText(text: String, modifier: Modifier = Modifier, style: TextSt
 
 /** One symbol as drawn in card text, filling its parent (e.g. "G", "3", "W/U"); search chips use it at their own size.
  * The tap symbol {T} is a turning arrow, as printed (owner playtest 2026-11-06), and the untap symbol {Q} the same arrow
- * mirrored; the others are letter badges. */
+ * mirrored on a purple badge, so it can't be taken for {T} (owner gallery review 2026-11-06); the others are letter badges,
+ * their letters optically centred: the letters' own outline sits in the middle of the badge (owner gallery review). */
 @Composable
 internal fun CardSymbol(token: String) {
     val parts = token.split('/')
     val arrow = token == "T" || token == "Q"
-    BoxWithConstraints(Modifier.fillMaxSize().clearAndSetSemantics {}, contentAlignment = Alignment.Center) {
-        val textSize = with(LocalDensity.current) { maxHeight.toSp() }
-        Canvas(Modifier.fillMaxSize()) {
-            val radius = size.minDimension * .47f
-            drawCircle(symbolColor(parts.first()), radius)
-            if (parts.size > 1) drawArc(symbolColor(parts[1]), -90f, 180f, useCenter = true,
-                topLeft = center - Offset(radius, radius), size = Size(radius * 2, radius * 2))
-            drawCircle(Color(0xff536066), radius, style = Stroke(size.minDimension * .045f))
-            if (arrow) scale(if (token == "Q") -1f else 1f, 1f) { turningArrow(radius) }
-        }
-        if (!arrow) Text(token, color = Color(0xff182329), fontWeight = FontWeight.Bold,
-            fontSize = textSize * (when (token.length) { 1 -> .66f; 2 -> .57f; 3 -> .43f; else -> .31f }),
-            letterSpacing = 0.sp, textAlign = TextAlign.Center, maxLines = 1,
-            // Use the inherited text size, but not its potentially much taller paragraph line height.
-            style = TextStyle(lineHeight = textSize))
+    Canvas(Modifier.fillMaxSize().clearAndSetSemantics {}) {
+        val radius = size.minDimension * .47f
+        drawCircle(if (token == "Q") UntapSymbolColor else symbolColor(parts.first()), radius)
+        if (parts.size > 1) drawArc(symbolColor(parts[1]), -90f, 180f, useCenter = true,
+            topLeft = center - Offset(radius, radius), size = Size(radius * 2, radius * 2))
+        drawCircle(Color(0xff536066), radius, style = Stroke(size.minDimension * .045f))
+        if (arrow) scale(if (token == "Q") -1f else 1f, 1f) { turningArrow(radius) }
+        // The letters' outline, not their line box, is centred: the same nudge for every letter would leave some high
+        // and others low
+        else drawCentredText(token, center, size.height * (when (token.length) { 1 -> .62f; 2 -> .54f; 3 -> .42f; else -> .31f }),
+            Color(0xff182329), 700)
     }
 }
+
+/** The untap symbol's badge (owner gallery review 2026-11-06): purple, unlike {T}'s grey and black mana's. */
+internal val UntapSymbolColor = Color(0xffb79cf2)
 
 /** A clockwise arrow around the circle's centre: from the left, over the top, its head pointing down at the lower right. */
 private fun DrawScope.turningArrow(radius: Float) {

@@ -502,6 +502,8 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
     fun openCard(scope: TableScope, sources: Map<String, TableMoveSource> = emptyMap()) {
         val play = current() ?: return
         val bound = bind(scope, sources) ?: return
+        // CMB-003, TBL-116 (owner 2026-11-06): a combat copy opens no menu
+        if (CardRingPages.combatCopy(play.board, scope.contextId)) { dismiss(); return }
         // A combat copy whose card left play has nothing to offer (TBL-116)
         val card = CombatStackRules.liveSource(play.board, scope.contextId) ?: return
         // TBL-116: a menu with nothing in it (no rows, no cells) doesn't open
@@ -967,10 +969,6 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
     }
     /** Combat copies leave the combat area: with Automatum on only what is still a draft of the declaration it awaits
      * (CMB-028): any copy while attackers are awaited, blockers while blockers are. */
-    fun removeFromCombat(bound: ToolkitCapture): Boolean {
-        val play = current()?.takeIf { enabled() } ?: return false
-        return leaveDraft(play, bound)
-    }
     private fun leaveDraft(play: TableBoard, bound: ToolkitCapture): Boolean {
         val choices = combat.choices(play).also { if (combat.working(it)) { error = CombatController.WORKING_OUT; return false } }.choices
         val blockers = bound.viewIds.all { id -> play.board.combat?.pairs?.any { p -> p.blockers.any { it.id == id } } == true }

@@ -61,10 +61,7 @@ internal fun Modifier.ringInputTarget(draggable: Boolean = false): Modifier = co
 }
 internal data class RingEntry(val id: String, val label: String, val control: MenuControl, val fill: Color? = null)
 
-internal fun ringShortLabel(name: String): String = when (name) {
-    "Remove from combat" -> "Rm combat"
-    else -> name.removePrefix("Move to ").removePrefix("Move ").substringBefore(" · ")
-}
+internal fun ringShortLabel(name: String): String = name.removePrefix("Move to ").removePrefix("Move ").substringBefore(" · ")
 
 /** A layout cell nobody supplied stays visible and disabled; a layout never shows a hole. */
 internal fun ringPlaceholder(id: String): RingEntry = RingEntry(id, ringShortLabel(id), MenuControl(id, false) {})

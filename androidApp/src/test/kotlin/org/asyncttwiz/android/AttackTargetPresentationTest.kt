@@ -25,8 +25,8 @@ internal fun attackTargetState(): PlayState {
 }
 
 class AttackTargetPresentationTest {
-    // CMB-013 (owner playtest 2026-11-06): a target's chip keeps its own size whatever the card and title sizes (it zooms
-    // with the band); the chip and the value row under it sit above the area's cards
+    // CMB-013 (owner gallery review 2026-11-06): a target's chip keeps its own size whatever the card and title sizes (it
+    // zooms with the band), as wide as its name and value; the chip row sits above the area's cards
     @Test fun chipsKeepTheirSizeAboveTheCards() {
         val initial = TableFixture.play(board = 1, library = 0)
         val state = initial.copy(board = initial.board.copy(combat = CombatArea("combat", listOf(
@@ -41,10 +41,11 @@ class AttackTargetPresentationTest {
             val zoom = scene.camera.zoom
             assertEquals(CombatStackPresentation.CHIP_FONT * zoom, lane.fontSize, .001f)
             assertEquals(CombatStackPresentation.CHIP_HEIGHT * zoom, lane.chip.height, .001f)
-            assertEquals(CombatStackPresentation.chipWidth(lane.label) * zoom, lane.chip.width, .01f)
+            assertEquals(CombatStackPresentation.chipWidth(lane.label, lane.value) * zoom, lane.chip.width, .01f)
             assertTrue(lane.chip.x >= lane.bounds.x && lane.chip.right <= lane.bounds.right + .001f)
-            val value = assertNotNull(lane.valueBounds)
-            assertTrue(lane.chip.bottom <= value.y + .001f && value.bottom <= lane.bounds.bottom + .001f)
+            assertTrue(lane.chip.bottom <= lane.bounds.bottom + .001f)
+            // The preview's "3 → 3" still fits the lane
+            assertTrue(CombatStackPresentation.chipWidth(lane.label, "${lane.value} → ${lane.value}") * zoom <= lane.bounds.width + .01f)
             val card = scene.items.single { it.cardId == "attacker" }
             assertTrue(lane.bounds.bottom < card.bounds.y)
         }
@@ -112,7 +113,7 @@ class AttackTargetPresentationTest {
             // Lanes tile the whole area without shrinking: the area widens (and pans) instead.
             assertEquals(scene.width, scene.lanes.sumOf { it.bounds.width.toDouble() }.toFloat(), .01f)
             assertTrue(scene.lanes.zipWithNext().all { (a, b) -> kotlin.math.abs(a.bounds.right - b.bounds.x) < .01f })
-            assertEquals(CombatStackPresentation.CHIP_ROW + CombatStackPresentation.VALUE_ROW, scene.labelHeight)
+            assertEquals(CombatStackPresentation.CHIP_ROW, scene.labelHeight)
         }
         // A name up to the chip's letters shows whole
         assertEquals("Ember Herald", CombatStackPresentation.chipText("Ember Herald"))

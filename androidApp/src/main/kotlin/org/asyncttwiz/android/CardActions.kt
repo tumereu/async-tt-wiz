@@ -22,24 +22,19 @@ import org.asyncttwiz.protocol.*
 
 /**
  * A card's menu (TBL-115, TBL-116; battlefield card, combat copy, Graveyard or Exile panel card): what Automatum offers
- * for it as rows, then only a combat copy's Remove from combat; holding a card inspects it (TBL-104). Nothing changes the
- * game by hand (I-D52); an attack's target is picked in the combat area's lanes only (CMB-028). A hand card has no menu
- * (ZON-079).
+ * for it as rows; holding a card inspects it (TBL-104). Nothing changes the game by hand (I-D52); an attack's target is
+ * picked in the combat area's lanes only (CMB-028). A hand card (ZON-079) and a combat copy (CMB-003) have no menu.
  */
 @Composable
 internal fun EngineCardMenu(toolkit: TableToolkitController, play: TableBoard, bound: ToolkitCapture, names: Map<String, String>,
     enabled: Boolean) {
     val view = bound.contextViewId
+    if (CardRingPages.combatCopy(play.board, view)) return
     val card = CombatStackRules.liveSource(play.board, view) ?: return
     val viewer = toolkit.viewer
     val layout = CardRingPages.context(play.board, view) ?: CardMenuLayout.CARD
     if (layout == CardMenuLayout.HAND) return
-    val combat = bound.viewIds.filter { id -> CombatStackRules.occurrences(play.board.combat).any { it.id == id } }
-    fun entry(control: MenuControl, id: String = control.name) = RingEntry(id, ringShortLabel(control.name), control)
-    val entries = listOf(
-        entry(MenuControl("Remove from combat", enabled && combat.isNotEmpty()) {
-            if (toolkit.removeFromCombat(bound.copy(viewIds = combat))) toolkit.dismiss()
-        }))
+    val entries = emptyList<RingEntry>()
     val ownerColor = if (card.owner == viewer) OwnTableColor else OpponentTableColor
     val rows = automatumRows(toolkit, play, bound, names, enabled)
     val page = CardRingPages.page(layout)

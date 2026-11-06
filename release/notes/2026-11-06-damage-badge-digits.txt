@@ -1,0 +1,1 @@
+fix: Combat damage numbers sit in the middle of their badge, and two-digit damage fits.

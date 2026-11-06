@@ -137,10 +137,15 @@ data class TableItem(
     val enteredThisTurn: Boolean = false,
     /** A public face-down Battlefield card's title stand-in ("?"): the same for every viewer, never its front. */
     val coveredTitle: String = "",
-    /** LIFE only: the player's emblems' texts (I-D25), oldest first, drawn as chips beside the square. */
+    /** LIFE only: the texts drawn as chips beside the square: the room of the player's dungeon (TRN-069). */
     val emblems: List<String> = emptyList(),
-    /** LIFE only (TRN-053): the free room right of the player's piles the emblem chips stack in; null: by the square. */
+    /** LIFE only (TRN-053): the free room right of the player's piles the text chips stack in; null: by the square. */
     val emblemArea: TableBounds? = null,
+    /** LIFE only (TRN-053, I-D25): the player's emblems' rules texts, oldest first. */
+    val emblemTexts: List<String> = emptyList(),
+    /** LIFE only (TRN-053): where the emblems' round chips are ([EmblemChips.round]); the last a "+N" chip when there are
+     * more than [EmblemChips.SHOWN] emblems. */
+    val emblemChips: List<TableBounds> = emptyList(),
     /** Automatum on (I1): the colour of a computed P/T (up, down, mixed); null for the manual corner's colours. */
     val cornerColor: Int? = null,
     /** Automatum on (I1): an until-end-of-turn effect changes the computed P/T (⌛ as TBL-023). */
@@ -534,11 +539,19 @@ object TablePresentation {
             val pilesRight = PILE_START + (places - 1) * spacing + pileWidth - dp.scroll
             val emblemArea = if (landscape) null else TableBounds(pilesRight + 8f, rowY + 4f, width - pilesRight - 16f, dockRow - 8f)
                 .takeIf { it.width >= EmblemChips.MIN_AREA_WIDTH }
-            items += TableItem("life/${player.accountId}", TableBounds(10f - dp.scroll, rowY + 8f, 48f, 48f),
+            // TRN-053 (owner gallery review 2026-11-06): the emblems as round chips, after the room chip (TRN-069)
+            val rooms = listOfNotNull(dungeon?.room?.takeIf { it.isNotEmpty() }?.let { "Room: $it" })
+            val emblemTexts = EmblemChips.texts(play.board, player.accountId)
+            val life = TableBounds(10f - dp.scroll, rowY + 8f, 48f, 48f)
+            // In landscape the row is fitted to the room before the Stack below (after the Stack is placed)
+            val emblemChips = EmblemChips.round(emblemTexts.size, life, emblemArea, player.accountId != viewer,
+                EmblemChips.textLines(rooms, life, width))
+            val textArea = emblemArea?.let { a -> if (emblemChips.isEmpty()) a
+                else a.copy(width = a.width - EmblemChips.rowWidth(emblemChips.size) - 6f) }
+            items += TableItem("life/${player.accountId}", life,
                 "${name(player.accountId)}, life ${player.life}",
                 player.life, player.accountId, kind = TableItemKind.LIFE, viewport = dp.id,
-                emblems = listOfNotNull(dungeon?.room?.takeIf { it.isNotEmpty() }?.let { "Room: $it" }) +
-                    EmblemChips.texts(play.board, player.accountId), emblemArea = emblemArea)
+                emblems = rooms, emblemArea = textArea, emblemTexts = emblemTexts, emblemChips = emblemChips)
             val counterRowY = if (ownSide) rowY + dockRow else rowY - counterHeight
             for ((n, c) in listOf(PlayZone.LIBRARY, PlayZone.GRAVEYARD, PlayZone.EXILE).map { container(player.accountId, it) }.withIndex()) {
                 val zone = c.zone
@@ -599,6 +612,12 @@ object TablePresentation {
         val stackRegion = TableBounds(stackCenter.x - stackWidth / 2 - stackPadding,
             stackCenter.y - stackHeight / 2 - stackPadding, stackWidth + 2 * stackPadding, stackHeight + 2 * stackPadding)
         val sb = TableBounds(stackRegion.center.x - stackWidth / 2, stackRegion.center.y - stackHeight / 2, stackWidth, stackHeight)
+        // TRN-053: in landscape the emblems' row by a life square keeps clear of the Stack between the two players' rows
+        if (landscape) items.replaceAll { item ->
+            if (item.kind != TableItemKind.LIFE || item.emblemTexts.isEmpty() || item.emblemArea != null) item
+            else item.copy(emblemChips = EmblemChips.round(item.emblemTexts.size, item.bounds, null, item.owner != viewer,
+                EmblemChips.textLines(item.emblems, item.bounds, width), room = stackRegion.x - 6f - item.bounds.x))
+        }
         val sp = port(stack.id, sb, stackWidth)
         items += TableItem(stack.id, sb, "Stack, ${stack.cards.size} entries", stack.cards.size.toString(), zone = PlayZone.STACK,
             cards = stack.cards, viewport = sp.id, footprint = sb, peekOwners = stackGeometry.visible.mapNotNull { CombatStackRules.controller(play.board, it.viewId) },
@@ -660,7 +679,7 @@ object TablePresentation {
         val laneDividers = combat.laneDividers.map { x -> world.screen(TablePoint(x + combatX, combatY), camera) to
             world.screen(TablePoint(x + combatX, combatY + combat.height), camera) }
         val labels = combat.lanes.map { lane -> lane.copy(bounds = translated(lane.bounds), fontSize = lane.fontSize * zoom,
-            inset = lane.inset * zoom, chip = translated(lane.chip), valueBounds = lane.valueBounds?.let(::translated),
+            inset = lane.inset * zoom, chip = translated(lane.chip),
             artwork = if (lane.cardId == null) lane.artwork else play.board.cards.find { it.id == lane.cardId }
                 ?.takeIf { !it.isFaceDown && CardVisibility.isVisibleFaceUp(play.board, it, viewer) }?.let { art(it, false) }) }
         val clippedPorts = if (landscape) ports.map { p ->

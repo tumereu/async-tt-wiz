@@ -1,1 +1,1 @@
-412x892 portrait table in combat, text size 1.0x: combat menu on your attacking Meadow Sentinel, Remove from combat its one button.
+412x892 portrait table, text size 1.0x: the card menu of your Forest, its mana ability its one row.

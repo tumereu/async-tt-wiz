@@ -73,6 +73,10 @@ internal sealed interface InspectTile {
      * colour ([own]). */
     data class Ability(override val key: String, val ability: StackAbilityShown, val details: List<String>,
         val own: Boolean, val art: ArtworkReference? = null) : InspectTile
+
+    /** TRN-053 (owner gallery review 2026-11-06): an emblem: a dark rounded panel as an ability's, with the emblem's [art]
+     * (an emblem icon without one), "Emblem" and its rules [text], outlined in its owner's colour ([own]). */
+    data class Emblem(override val key: String, val text: String, val art: ArtworkReference?, val own: Boolean) : InspectTile
 }
 
 /**
@@ -301,13 +305,25 @@ private fun ChangeLine(change: InspectChange, interactive: Boolean, size: androi
     var open by remember(change) { mutableStateOf(false) }
     var pressed by remember(change) { mutableStateOf(false) }
     val source = change.source.takeIf { interactive }
-    Column(if (source == null) Modifier else Modifier.fillMaxWidth().pointerInput(change) {
+    // TBL-132 (owner gallery review 2026-11-06): a line naming a keyword ("Flying", "+3/+3, trample until end of turn")
+    // explains it too
+    val explained = if (interactive) remember(change.text) { arcanum.api.RulesGlossary.named(change.text) } else emptyList()
+    Column(if (source == null && explained.isEmpty()) Modifier else Modifier.fillMaxWidth().pointerInput(change) {
         detectTapGestures(onPress = { pressed = true; tryAwaitRelease(); pressed = false }, onTap = { open = !open })
     }) {
         CardText(change.text, color = Color.White, style = MaterialTheme.typography.bodyLarge.copy(fontSize = size, lineHeight = lineHeight))
-        if (source != null && (open || pressed)) Text("From $source", color = InspectSourceColor, fontSize = 13.sp, lineHeight = 17.sp)
+        if (open || pressed) {
+            if (source != null) Text("From $source", color = InspectSourceColor, fontSize = 13.sp, lineHeight = 17.sp)
+            if (explained.isNotEmpty()) Column(Modifier.padding(top = 4.dp).semantics { contentDescription = "Rule explanation" },
+                verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                explained.forEach { RuleExplanationText(it, InspectExplanationColor) }
+            }
+        }
     }
 }
+
+/** The ink of a rule explanation under a change line (TBL-132). */
+private val InspectExplanationColor = Color(0xffe2dcf5)
 
 /** Pinned Inspect's close button, at the top right. */
 @Composable
@@ -340,6 +356,37 @@ private fun InspectTileView(tile: InspectTile, room: DpSize, fit: Boolean = fals
             }
         }
         is InspectTile.Ability -> AbilityTile(tile, size, fit, modifier)
+        is InspectTile.Emblem -> EmblemTile(tile, size, fit, modifier)
+    }
+}
+
+/** TRN-053: an emblem in Inspect, laid out as an ability's tile ([AbilityTile]): its art (or the emblem icon), then
+ * "Emblem" and its whole rules text. */
+@Composable
+private fun EmblemTile(tile: InspectTile.Emblem, size: DpSize, fit: Boolean, modifier: Modifier = Modifier) {
+    val shape = RoundedCornerShape(12.dp)
+    val density = LocalDensity.current
+    // An emblem is a line or two of text: a lower picture band than an ability's keeps several on the screen at once
+    val artHeight = size.width / EMBLEM_ART_RATIO
+    val bounded = if (fit) Modifier.heightIn(max = size.height) else Modifier
+    Box(modifier.width(size.width).then(bounded).clip(shape).background(AbilityTokenColor)
+        .border(2.dp, if (tile.own) OwnTableColor else OpponentTableColor, shape)
+        .semantics { contentDescription = "Emblem: ${tile.text}" }) {
+        CompositionLocalProvider(LocalContentColor provides Color.White) {
+            Column(Modifier.fillMaxWidth().then(bounded)) {
+                Box(Modifier.fillMaxWidth().then(if (fit) Modifier.weight(1f, fill = false) else Modifier).height(artHeight)
+                    .background(AbilityTokenArtColor), contentAlignment = Alignment.Center) {
+                    if (tile.art != null) CardArtwork(tile.art, "", with(density) { size.width.roundToPx() }.coerceIn(1, 4096),
+                        with(density) { artHeight.roundToPx() }.coerceIn(1, 4096), Modifier.fillMaxSize(), crop = true,
+                        placeholder = { EmblemIcon(Modifier.size(artHeight / 3), Color.White.copy(alpha = .7f)) })
+                    else EmblemIcon(Modifier.size(artHeight / 3), Color.White.copy(alpha = .7f))
+                }
+                Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("Emblem", style = MaterialTheme.typography.labelLarge)
+                    CardText(tile.text, style = MaterialTheme.typography.bodyLarge)
+                }
+            }
+        }
     }
 }
 
@@ -410,6 +457,9 @@ private fun AbilityTile(tile: InspectTile.Ability, size: DpSize, fit: Boolean, m
         }
     }
 }
+
+/** An emblem's picture band in Inspect (TRN-053): its width to height. */
+private const val EMBLEM_ART_RATIO = 2.6f
 
 /** The source's art in an ability's Inspect panel (STK-050): an art crop's width to height. */
 private const val ABILITY_ART_RATIO = 1.37f

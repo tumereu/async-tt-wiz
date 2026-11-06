@@ -86,11 +86,6 @@ class TableStatesScreenshotTest {
         compose.waitForIdle()
         when (kind) {
             "tokens-contents" -> compose.onNodeWithContentDescription("Stack, 2 entries").performClick()
-            // TBL-116: the attacking token's combat copy; its menu's one cell is Remove from combat
-            "tokens-menu" -> compose.runOnIdle {
-                val copy = CombatStackRules.occurrences(drawn.board.combat).first { it.sourceId == f.source(f.a, "1/3").id }.id
-                toolkit.openCard(TableScope(copy, listOf(copy)))
-            }
             "tokens-inspector" -> compose.runOnIdle { toolkit.peek(f.source(f.a, "1/3").id) }
             "stack-contents" -> {
                 compose.onNodeWithContentDescription("Stack, 2 entries").performTouchInput { doubleClick() }
@@ -126,7 +121,6 @@ class TableStatesScreenshotTest {
             "tokens" -> "$combat, where your attacker, the opponent's blocker and one hand card are tokens"
             "tokens-small" -> "$combat with several tokens, zoomed out as far as possible"
             "tokens-contents" -> "$combat with several tokens, after tapping the two-entry Stack"
-            "tokens-menu" -> "$combat with several tokens, combat menu open on your token attacker's combat copy, Remove from combat its one button"
             "tokens-inspector" -> "$combat with several tokens, holding your token attacker: Inspect shows only its card image"
             "tokens-stack-card" -> "$combat with several tokens, a token card on top of the Stack"
             "stack-contents" -> "$combat, after double-tapping the Stack: Manage Stack lists its two entries"
@@ -210,7 +204,6 @@ class TableStatesScreenshotTest {
     @Test fun tokensOnBattlefieldHandStackAndCombatPortrait() { render("tokens", false) }
     @Test fun tokensAtSmallestCardSizePortrait() { render("tokens-small", false) }
     @Test fun tokenContentsPreviewPortrait() { render("tokens-contents", false) }
-    @Test fun tokenMenuPreviewPortrait() { render("tokens-menu", false) }
     @Test fun tokenInspectorPreviewPortrait() { render("tokens-inspector", false) }
     @Test fun realTokenOnStackPortrait() { render("tokens-stack-card", false) }
     // CMB-008, STK-018, ZON-035, ZON-058

@@ -695,8 +695,11 @@ internal fun CostLine(cost: arcanum.api.Cost) {
     Row(Modifier.semantics(mergeDescendants = true) { contentDescription = "Cost: $text" }, verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         Text("Cost", fontSize = 11.sp, color = Color(0xff4b5a5f))
-        Surface(shape = RoundedCornerShape(10.dp), color = Color(0xfffff4e0), border = BorderStroke(1.dp, Color(0xffd08a1e))) {
-            CardText(text, Modifier.padding(horizontal = 8.dp, vertical = 2.dp), style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Medium))
+        // TBL-132 (owner gallery review 2026-11-06): holding a cost naming a keyword action ("Forage") explains it
+        RuleTip(text) {
+            Surface(shape = RoundedCornerShape(10.dp), color = Color(0xfffff4e0), border = BorderStroke(1.dp, Color(0xffd08a1e))) {
+                CardText(text, Modifier.padding(horizontal = 8.dp, vertical = 2.dp), style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Medium))
+            }
         }
     }
 }

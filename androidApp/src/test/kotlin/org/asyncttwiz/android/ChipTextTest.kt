@@ -53,16 +53,19 @@ class ChipTextTest {
     private val long = "{2}{G}, {T}, Sacrifice this artifact: Search your library for a basic land card, put it onto the battlefield tapped, then shuffle."
 
     // TBL-124: an ability's chip reads as on the card, cost first in symbols ({T} a turning arrow), then the effect; a long
-    // effect wraps onto more rows (none of it cut)
-    @OptIn(ExperimentalLayoutApi::class)
+    // effect wraps onto more rows (none of it cut); the chips take the fewest rows (owner gallery review 2026-11-06): in
+    // card order they would take three, so the third chip moves up beside the first
     @Test fun aLongAbilityChipWraps() {
+        val untap = "{1}{G/P}, {S}: Untap target land."
+        val pay = "{T}, Pay 1 life: Add {G}."
+        val add = "{T}: Add {G}."
         compose.setContent {
             MaterialTheme {
-                FlowRow(Modifier.testTag("chips").width(412.dp).background(Color(0xffe6ece9)).padding(8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    AbilityChip("{T}: Add {G}.", {}, {})
+                ChipRowsLayout(4.dp, Modifier.testTag("chips").width(412.dp).background(Color(0xffe6ece9)).padding(8.dp)) {
+                    AbilityChip(untap, {}, {})
                     AbilityChip(long, {}, {})
-                    AbilityChip("{1}{G/P}, {S}: Untap target land.", {}, {})
+                    AbilityChip(pay, {}, {})
+                    AbilityChip(add, {}, {})
                 }
             }
         }
@@ -72,8 +75,12 @@ class ChipTextTest {
         val cost = compose.onNodeWithText("{2}{G}, {T}, Sacrifice this artifact:").assertExists().getUnclippedBoundsInRoot()
         assertTrue(cost.left < compose.onNodeWithText(effect).getUnclippedBoundsInRoot().left, "the cost comes first")
         compose.onNodeWithText("{T}:").assertExists()
+        val chips = listOf(untap, long, pay, add).map { compose.onNodeWithContentDescription(it).getUnclippedBoundsInRoot() }
+        fun sameRow(a: Int, b: Int) = chips[a].top < chips[b].bottom && chips[b].top < chips[a].bottom
+        assertTrue(sameRow(0, 2) && sameRow(1, 3) && !sameRow(0, 1), "two rows: the first and third chips, then the second and fourth: $chips")
+        assertTrue(chips[0].right < chips[2].left && chips[1].right < chips[3].left, "card order within each row")
         compose.onNodeWithTag("chips").captureShot("$SCREENSHOTS/chips/ability-chips-wrapped.png",
-            "A forest card's three ability chips, each cost first as on the card: the tap arrow then \"Add\" G, a long search ability whose cost ({2}{G}, tap arrow, sacrifice) comes before its effect wrapped onto several rows, and an untap ability with Phyrexian and snow symbols.")
+            "A land's four ability chips in the fewest rows, each cost first as on the card: an untap ability with Phyrexian and snow symbols (the untap symbol purple) and, moved up beside it, \"{T}, Pay 1 life: Add\" G; then a long search ability whose cost ({2}{G}, tap arrow, sacrifice) comes before its effect wrapped onto several rows, and the tap arrow then \"Add\" G.")
     }
 
     // ZON-080: a long way name wraps too
@@ -140,17 +147,21 @@ class ChipTextTest {
             "Three card menu rows whose ability texts draw their mana and tap symbols as symbols: the tap arrow for G, an X damage ability with a red-green hybrid and the tap arrow, and a greyed one with a blue Phyrexian and the untap symbol, the arrow mirrored.")
     }
 
-    // TBL-124: {T} is drawn as a turning arrow, as printed, and {Q} as the same arrow mirrored
+    // TBL-124: {T} is drawn as a turning arrow, as printed, and {Q} as the same arrow mirrored on a purple badge (owner
+    // gallery review 2026-11-06); the letters in the badges are optically centred
     @Test fun tapAndUntapSymbolsAreArrows() {
         compose.setContent {
             MaterialTheme {
-                androidx.compose.foundation.layout.Row(Modifier.testTag("symbols").background(Color.White).padding(8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    for (token in listOf("T", "Q", "G", "2")) androidx.compose.foundation.layout.Box(Modifier.size(48.dp)) { CardSymbol(token) }
+                androidx.compose.foundation.layout.Column(Modifier.testTag("symbols").background(Color.White).padding(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    for (line in listOf(listOf("T", "Q", "G", "2"), listOf("W", "U", "B", "R", "C", "X"), listOf("10", "W/U", "G/P", "S", "E")))
+                        androidx.compose.foundation.layout.Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            for (token in line) androidx.compose.foundation.layout.Box(Modifier.size(48.dp)) { CardSymbol(token) }
+                        }
                 }
             }
         }
         compose.onNodeWithTag("symbols").captureShot("$SCREENSHOTS/chips/tap-symbols.png",
-            "The tap symbol drawn large as a clockwise turning arrow, the untap symbol as the same arrow mirrored, then the G and 2 badges for comparison.")
+            "The tap symbol drawn large as a clockwise turning arrow, the untap symbol as the same arrow mirrored on a purple badge, then the G and 2 badges; below, the W, U, B, R, C and X badges, then 10, a white-blue hybrid, green Phyrexian, snow and energy, each letter centred in its badge.")
     }
 }

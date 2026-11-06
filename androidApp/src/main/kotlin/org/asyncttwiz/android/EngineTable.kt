@@ -10,8 +10,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Check
@@ -664,15 +663,24 @@ private fun EngineBar(text: String, what: String, buttons: @Composable RowScope.
 @Composable
 private fun EngineBoardPreview(game: EngineGame, summary: GameSummary, model: org.asyncttwiz.protocol.game.GameModel, at: String, viewer: String) {
     val board = remember(model, at) { game.preview(model, at, viewer) } ?: return
-    // The whole table laid out at a phone's size, drawn smaller (a small table would lay itself out differently)
-    val scale = PREVIEW_HEIGHT / PREVIEW_TABLE_HEIGHT
-    Box(Modifier.fillMaxWidth().height(PREVIEW_HEIGHT.dp).testTag("undo-board").semantics { contentDescription = "The board it goes back to" },
+    BoardPreview(summary, board, viewer)
+}
+
+/** HIS-099: [board] drawn small and view-only: the whole table laid out at a phone's size ([landscape]: turned) and
+ * scaled down to [height] (a small table would lay itself out differently); [dim] while a newer one is worked out. */
+@Composable
+private fun BoardPreview(summary: GameSummary, board: TableBoard, viewer: String, landscape: Boolean = false,
+    height: Float = PREVIEW_HEIGHT, dim: Boolean = false) {
+    val tableWidth = if (landscape) PREVIEW_TABLE_HEIGHT else PREVIEW_TABLE_WIDTH
+    val tableHeight = if (landscape) PREVIEW_TABLE_WIDTH else PREVIEW_TABLE_HEIGHT
+    val scale = height / tableHeight
+    Box(Modifier.fillMaxWidth().height(height.dp).testTag("undo-board").semantics { contentDescription = "The board it goes back to" },
         contentAlignment = Alignment.TopCenter) {
-        Box(Modifier.size((PREVIEW_TABLE_WIDTH * scale).dp, PREVIEW_HEIGHT.dp).clipToBounds()
-            .border(1.dp, MenuBorder, RoundedCornerShape(4.dp))) {
-            Box(Modifier.wrapContentSize(Alignment.TopStart, unbounded = true).requiredSize(PREVIEW_TABLE_WIDTH.dp, PREVIEW_TABLE_HEIGHT.dp)
+        Box(Modifier.size((tableWidth * scale).dp, height.dp).clipToBounds()
+            .border(1.dp, MenuBorder, RoundedCornerShape(4.dp)).graphicsLayer { alpha = if (dim) .6f else 1f }) {
+            Box(Modifier.wrapContentSize(Alignment.TopStart, unbounded = true).requiredSize(tableWidth.dp, tableHeight.dp)
                 .graphicsLayer { scaleX = scale; scaleY = scale; transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0f, 0f) }) {
-                TableSurface(summary, board, viewer, false, Modifier.fillMaxSize(), connected = false,
+                TableSurface(summary, board, viewer, landscape, Modifier.fillMaxSize(), connected = false,
                     runtime = TableRuntimeHooks(liveView = false, controlsConnected = false))
             }
         }
@@ -680,8 +688,12 @@ private fun EngineBoardPreview(game: EngineGame, summary: GameSummary, model: or
 }
 
 private const val PREVIEW_HEIGHT = 300f
+/** The Undo dialog's board in landscape: a turned table, as wide as the dialog allows. */
+private const val PREVIEW_HEIGHT_LANDSCAPE = 120f
 private const val PREVIEW_TABLE_WIDTH = 412f
 private const val PREVIEW_TABLE_HEIGHT = 892f
+/** HIS-099: how long the Undo dialog's choice rests before its board is worked out (dragging through events works out none). */
+internal const val UNDO_PREVIEW_DELAY_MS = 250L
 
 private const val QUICK_PLAYBACK_MS = 120L
 
@@ -781,29 +793,51 @@ private fun EngineRequestDialog(routes: EngineTableRoutes, opponent: String, sum
     }
 }
 
-/** The Undo dialog's list (§10, HIS-099): the actions shown to the player, newest first; §29.2: passes are implied, so
- * none is listed except the first pass of the player's own End turn ("You ended the turn"). */
-internal fun undoChoices(shown: EngineGame.Shown): List<GameEvent> = shown.held.filter { e ->
-    e.engine?.steps?.any { s -> s.input != null } == true && (!EngineEventText.pass(e) || e.id in shown.endTurns)
-}.asReversed()
-
-/** The text of an Undo dialog entry ([undoChoices]). */
-internal fun undoChoiceText(event: GameEvent, shown: EngineGame.Shown, viewer: String, names: Map<String, String>): String =
-    if (EngineEventText.pass(event)) "You ended the turn" else EngineEventText.of(event, shown.engine, viewer, names)
+/** One point of the Undo dialog (HIS-099): the timeline [event] ([shown] as the timeline shows it); choosing it goes back
+ * to just before it, [target]. */
+internal class UndoPoint(val event: GameEvent, val shown: HistoryTimelineEvent) {
+    val target: String get() = requireNotNull(event.parentId)
+}
 
 /**
- * The rewind dialog (§10): the main line up to the viewer's local head as the target picker (newest first), an optional
- * message, then Undo: done at once when it is free, else sent to the other player as an undo request.
+ * The Undo dialog's points (HIS-099): exactly the timeline's events ([timeline], HIS-005: the player's own and the other
+ * player's, no passes, HIS-101) on the main line up to the local head, oldest first; an event with nothing before it
+ * (the game's first) is no point.
+ */
+internal fun undoPoints(shown: EngineGame.Shown, timeline: List<HistoryTimelineEvent>): List<UndoPoint> {
+    val held = shown.held.associateBy { it.id }
+    return timeline.mapNotNull { t -> held[t.id]?.takeIf { it.parentId != null }?.let { UndoPoint(it, t) } }
+}
+
+/**
+ * The Undo dialog (§10, HIS-099): the board at the chosen point on top (worked out once the choice rests a moment,
+ * [UNDO_PREVIEW_DELAY_MS]), under it the timeline's strip of the points with the chosen one in the centre, dragged left
+ * and right (or tapped) to choose, and its text; then Undo: done at once when it is free, else, with an optional message,
+ * sent to the other player as an undo request ("Ask <name>").
  */
 @Composable
 private fun EngineRewindDialog(routes: EngineTableRoutes, choice: EngineTableRoutes.RewindChoice, names: Map<String, String>, opponent: String,
     summary: GameSummary) {
     val game = routes.engine ?: return
     val published = game.shown ?: return
-    val shown = remember(game.version) { undoChoices(published) }
-    var target by remember(choice) { mutableStateOf(choice.target) }
+    val timeline = game.timeline.events(game, names)
+    val points = remember(published.version, timeline) { undoPoints(published, timeline) }
+    // The point opened at: the one just after the default target (HIS-084), else the newest
+    var chosen by remember(choice) { mutableStateOf(points.lastOrNull { it.target == choice.target }?.event?.id) }
+    val point = points.firstOrNull { it.event.id == chosen } ?: points.lastOrNull()
+    val target = point?.target
     var message by remember(choice) { mutableStateOf("") }
-    val needsRequest = remember(target, game.version) { target?.let { game.undoNeedsRequest(it) } }
+    // HIS-099: the board there and whether the other player must approve, worked out once the choice rests (at once when
+    // the dialog opens); the last one stays meanwhile, dimmed
+    var preview by remember(choice) { mutableStateOf<Pair<String, EngineGame.UndoPreview>?>(null) }
+    LaunchedEffect(target, game.version) {
+        val t = target ?: return@LaunchedEffect
+        if (preview != null) delay(UNDO_PREVIEW_DELAY_MS)
+        preview = t to game.undoPreview(t)
+    }
+    val current = preview?.takeIf { it.first == target }?.second
+    val needsRequest = (current ?: preview?.second)?.needsRequest
+    val landscape = LocalConfiguration.current.let { it.screenWidthDp > it.screenHeightDp }
     ScreenDialog({ routes.rewind = null }, title = "Undo", actions = {
         DialogCancelButton("Cancel", { routes.rewind = null })
         DialogMainButton(if (needsRequest == true) "Ask $opponent" else "Undo", {
@@ -814,23 +848,29 @@ private fun EngineRewindDialog(routes: EngineTableRoutes, choice: EngineTableRou
             }
             routes.rewind = null
             routes.pump()
-        }, Modifier.testTag("rewind-confirm"), enabled = target != null, icon = if (needsRequest == true) "send" else "withdraw")
+        }, Modifier.testTag("rewind-confirm"), enabled = target != null && current != null,
+            icon = if (needsRequest == true) "send" else "withdraw")
     }) {
-        Text(if (shown.isEmpty()) "Nothing to undo yet: your actions are still on their way." else "Go back to just before:", style = MaterialTheme.typography.bodyMedium)
-        LazyColumn(Modifier.fillMaxWidth().heightIn(max = 280.dp)) {
-            items(shown, key = { it.id }) { event ->
-                val selected = event.parentId == target
-                Row(Modifier.fillMaxWidth().heightIn(min = 44.dp).clickable { target = event.parentId }
-                    .background(if (selected) AutomatumViolet.copy(alpha = .12f) else Color.Transparent).padding(horizontal = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically) {
-                    RadioButton(selected, onClick = null)
-                    Text(undoChoiceText(event, published, routes.viewer, names), Modifier.padding(start = 8.dp), fontSize = 14.sp)
-                }
-            }
+        if (point == null) {
+            Text("Nothing to undo yet: your actions are still on their way.", style = MaterialTheme.typography.bodyMedium)
+            return@ScreenDialog
         }
-        // HIS-099: the board at the point it goes back to
-        val board = remember(target, game.version) { target?.takeIf { !published.drafting }?.let { t -> game.read { runCatching { it.session.stateAt(t) }.getOrNull() } } }
-        if (board != null) EngineBoardPreview(game, summary, board, target!!, routes.viewer)
+        val board = preview?.second?.board
+        if (board != null) BoardPreview(summary, board, routes.viewer, landscape,
+            if (landscape) PREVIEW_HEIGHT_LANDSCAPE else PREVIEW_HEIGHT, dim = current == null)
+        else Box(Modifier.fillMaxWidth().height((if (landscape) PREVIEW_HEIGHT_LANDSCAPE else PREVIEW_HEIGHT).dp))
+        // HIS-099: the timeline's strip of the points (its icons and separators), the chosen one in the centre
+        HistoryTimeline(points.map { it.shown }, point.event.id, routes.viewer, {}, { chosen = it },
+            Modifier.fillMaxWidth().testTag("undo-scroller"))
+        val lead: @Composable () -> Unit = {
+            Text("Go back to just before", style = MaterialTheme.typography.bodySmall, color = Color(0xff66757a))
+        }
+        val text: @Composable () -> Unit = {
+            Text(point.shown.description, Modifier.testTag("undo-point"), style = MaterialTheme.typography.bodyLarge, maxLines = 2)
+        }
+        // In landscape on one line, so the board, the strip and the text fit above the buttons
+        if (landscape) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) { lead(); text() }
+        else Column(verticalArrangement = Arrangement.spacedBy(2.dp)) { lead(); text() }
         if (needsRequest == true) {
             Text("$opponent has seen this or it showed you something new: they are asked first. The game waits meanwhile.",
                 style = MaterialTheme.typography.bodySmall)

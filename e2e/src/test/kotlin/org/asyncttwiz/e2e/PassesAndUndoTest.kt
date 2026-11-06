@@ -6,8 +6,7 @@ import arcanum.api.TurnStep
 import arcanum.engine.input.Input
 import org.asyncttwiz.android.EngineEventText
 import org.asyncttwiz.android.EngineGame
-import org.asyncttwiz.android.undoChoiceText
-import org.asyncttwiz.android.undoChoices
+import org.asyncttwiz.android.undoPoints
 import org.asyncttwiz.protocol.game.GameDevice
 import org.junit.Test
 import kotlin.test.assertEquals
@@ -71,7 +70,14 @@ class PassesAndUndoTest : E2e() {
             val timeline = game.timeline.events(game, names)
             assertTrue(timeline.none { "passed" in it.description || "assumed" in it.description && "pass" in it.description },
                 "${player.name}: ${timeline.map { it.description }}")
-            assertTrue(timeline.any { it.description.startsWith("Turn ") }, "${player.name}: the turn change shows: ${timeline.map { it.description }}")
+            // HIS-005: a pass shows on the timeline only as a resolution or an own End turn; the new turn and steps it led
+            // to are the separators between events
+            val byId = line.associateBy { it.id }
+            assertTrue(timeline.none { t -> byId[t.id]!!.let { EngineEventText.pass(it) && it.id !in game.shown!!.endTurns &&
+                it.engine?.changes.orEmpty().none { c -> c is arcanum.engine.change.Change.StackItemRemoved } } },
+                "${player.name}: no step-only pass on the timeline: ${timeline.map { it.description }}")
+            assertTrue(timeline.none { it.description.startsWith("Turn ") } && timeline.any { it.separator != null },
+                "${player.name}: turn and step changes show only as separators: ${timeline.map { it.separator?.label to it.description }}")
             for (e in passes.filterNot(EngineEventText::hidden)) {
                 val text = game.timeline.text(game, e, names)
                 assertTrue(text.isNotBlank() && "passed" !in text && "assumed" !in text, text)
@@ -84,13 +90,17 @@ class PassesAndUndoTest : E2e() {
             assertFalse("passed" in bobGame.timeline.text(bobGame, told, names), bobGame.timeline.text(bobGame, told, names))
         }
 
-        // HIS-099: the Undo dialog lists no pass; an End turn that began with a pass is one entry
+        // HIS-099: the Undo dialog's points are exactly the timeline's events up to her local head: no pass line (a
+        // resolution reads as what resolved; an End turn that began with a pass is one point)
         val shown = alice.shown
-        val choices = undoChoices(shown)
-        assertTrue(choices.isNotEmpty())
-        assertTrue(choices.none { EngineEventText.pass(it) && it.id !in shown.endTurns }, choices.map { undoChoiceText(it, shown, alice.id, names) }.toString())
-        assertFalse(choices.any { it.id == next.id }, "her Next tap isn't listed")
-        val texts = choices.map { undoChoiceText(it, shown, alice.id, names) }
+        val aliceGame = alice.game!!
+        val timeline = aliceGame.timeline.events(aliceGame, names)
+        val points = undoPoints(shown, timeline)
+        assertTrue(points.isNotEmpty())
+        val held = shown.held.associateBy { it.id }
+        assertEquals(timeline.filter { held[it.id]?.parentId != null }.map { it.id }, points.map { it.event.id })
+        assertFalse(points.any { it.event.id == next.id }, "her Next tap isn't a point")
+        val texts = points.map { it.shown.description }
         assertTrue(texts.none { "passed" in it }, texts.toString())
         assertTrue("You cast Ember Herald" in texts, texts.toString())
         assertTrue(texts.count { it == "You ended the turn" } <= 1, texts.toString())

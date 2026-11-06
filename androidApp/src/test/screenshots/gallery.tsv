@@ -40,7 +40,7 @@ number	item	screenshot	catalog	decisions
 39	Playback of an attack	engine/playback-attack.png	CMB-007 HIS-021
 40	The other player's staging	engine/shared-staging.png	CMB-043
 41	Timeline mode	engine/timeline-mode.png	HIS-004 HIS-010
-42	Undo dialog	engine/rewind-dialog.png	HIS-083 HIS-084
+42	Undo dialog	engine/rewind-dialog.png	HIS-083 HIS-099
 43	Undo request	engine/undo-request.png	SYS-025
 44	Hand card way chips	chips/hand-ability-chips.png	ZON-080
 45	Ability chips with cost symbols	chips/ability-chips-wrapped.png	TBL-124
@@ -75,3 +75,5 @@ number	item	screenshot	catalog	decisions
 74	Emblem chips in landscape	emblem-chips-landscape.png	TRN-053
 75	Emblem inspect	emblem-inspect.png	TRN-053 TBL-104
 76	Rule explainer on a held chip	chips/rule-explainer.png	TBL-132
+77	Undo dialog in landscape	engine/rewind-dialog-landscape.png	HIS-099
+78	Timeline turn and step lines	engine/timeline-separators.png	HIS-005

@@ -1,1 +1,1 @@
-Holding Undo opens the Undo dialog: the actions so far, newest first, to pick the point to go back to, and below them the board at that point; going back past what Bob has seen asks him first.
+Alice, a few turns in, holds Undo: the Undo dialog opens at the point just before her latest action ("You cast Ember Cub"), with the board there on top, under it the timeline's strip of both players' events with their turn and step lines and that point in the centre, its text, and Ask Bob with a message field, as Bob has acted since.

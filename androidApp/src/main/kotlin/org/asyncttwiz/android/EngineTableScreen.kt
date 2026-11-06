@@ -107,7 +107,7 @@ internal fun EngineTableScreen(controller: LobbyController, accountId: String, h
                 applied.reviewed = reviewPlay.nodeId
                 changes.applyEngine(reviewPlay.nodeId, jump = false, emptyList(), emptySet())
                 // HIS-076: in timeline mode every event shown has its chip, yours too
-                engine.event(reviewPlay.nodeId)?.let { eventText.post(it.id, engine.timeline.text(engine, it, names)) }
+                engine.event(reviewPlay.nodeId)?.let { eventText.post(it.id, engine.timeline.reviewText(engine, it, names)) }
             }
         } else {
             applied.reviewed = null
@@ -254,10 +254,10 @@ internal fun EngineReviewPanel(routes: EngineTableRoutes, events: List<HistoryTi
     }
     val transport: @Composable () -> Unit = {
         Box(Modifier.fillMaxSize().padding(horizontal = 8.dp), contentAlignment = Alignment.Center) {
-            HistoryTransport(position, at > 0, at < events.lastIndex, connected = false,
+            HistoryTransport(position, at > 0, at < events.lastIndex,
                 onPrevious = { routes.reviewPlaying = false; routes.review = events[(at - 1).coerceAtLeast(0)].id },
                 onNext = { routes.reviewPlaying = false; routes.review = events[(at + 1).coerceAtMost(events.lastIndex)].id },
-                onPlay = { routes.reviewPlaying = true }, onPause = { routes.reviewPlaying = false }, onContinue = {})
+                onPlay = { routes.reviewPlaying = true }, onPause = { routes.reviewPlaying = false })
         }
     }
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {

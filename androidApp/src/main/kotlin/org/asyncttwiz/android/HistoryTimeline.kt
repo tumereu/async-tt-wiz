@@ -28,6 +28,10 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.*
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.drawText
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.res.painterResource
@@ -35,18 +39,27 @@ import kotlin.math.abs
 import kotlin.math.roundToInt
 import org.asyncttwiz.protocol.HistoryIcon
 
+/**
+ * One event of the timeline (HIS-005): its icon, text and author (its colour); [separator] is the turn and step change
+ * the game went through since the event before it, drawn as a labelled line in the gap before this event.
+ */
 data class HistoryTimelineEvent(val id: String, val icon: HistoryIcon, val description: String,
-    val author: String?, val groupId: String?, val alternatives: Int = 0, val label: String = "Change")
+    val author: String?, val separator: TimelineSeparator? = null, val label: String = "Change")
+
+/**
+ * HIS-005: the turn and step the game had reached before an event, when it moved on since the event before it (the
+ * latest change when several fell in between): "T3 · Combat". [newTurn]: the turn changed too (a stronger line);
+ * [active] is the turn's player (the label's colour).
+ */
+data class TimelineSeparator(val label: String, val newTurn: Boolean, val active: String?)
 
 object HistoryTimelineLayout {
     fun x(index: Int, selected: Int, width: Float, pitch: Float) =
         x(index, selected.toFloat(), width, pitch)
     fun x(index: Int, center: Float, width: Float, pitch: Float) =
         width / 2f + (index - center) * pitch
-    /** HIS-005/HIS-036: the split sits after the shared event; an armed continuation splits after its cursor. */
-    fun splitsAfter(event: HistoryTimelineEvent, armedSplit: String?) = event.alternatives > 0 || event.id == armedSplit
-    /** The centre of the gap after the event at [x]. */
-    fun splitGapX(x: Float, pitch: Float) = x + pitch / 2f
+    /** HIS-005: a separator's line sits in the middle of the gap before its event at [x]. */
+    fun separatorX(x: Float, pitch: Float) = x - pitch / 2f
     fun selectedAfterDrag(start: Int, delta: Float, pitch: Float, count: Int): Int {
         require(count > 0 && pitch > 0)
         return (start - (delta / pitch).roundToInt()).coerceIn(0, count - 1)
@@ -56,14 +69,29 @@ object HistoryTimelineLayout {
         val radius = (width / (2f * pitch)).toInt() + 1
         return maxOf(0, selected - radius)..minOf(count - 1, selected + radius)
     }
+
+    /**
+     * HIS-005: which separator labels show, given each line's x and its label's width (the same units), left to right:
+     * a label starts [gap] right of its line and shows only when it ends [gap] before the next shown label's line; the
+     * later ones are placed first, so where labels would overlap the newest change keeps its label. Lines always show.
+     */
+    fun shownLabels(lines: List<Pair<Float, Float>>, gap: Float): Set<Int> {
+        val shown = HashSet<Int>()
+        var limit = Float.POSITIVE_INFINITY
+        for (i in lines.indices.reversed()) {
+            val (x, width) = lines[i]
+            if (x + gap + width + gap <= limit) { shown += i; limit = x }
+        }
+        return shown
+    }
 }
 
 /** Dense path window with a fixed center selection. The padding is real empty space at endpoints,
- * never fabricated nodes or an extended path line. onPause runs before any touch-driven exact selection. */
+ * never fabricated nodes or an extended path line. onPause runs before any touch-driven exact selection.
+ * HIS-005: the turn and step changes between events are labelled vertical lines; there are no branch lines. */
 @Composable
 fun HistoryTimeline(events: List<HistoryTimelineEvent>, selectedId: String, viewer: String,
     onPause: () -> Unit, onSelect: (String) -> Unit, modifier: Modifier = Modifier,
-    armedSplit: String? = null,
     eventIcon: @Composable (HistoryIcon) -> Unit = { HistoryEventIcon(it) }) {
     val positions = remember(IdentityKey(events)) { events.withIndex().associate { it.value.id to it.index } }
     val selected = positions[selectedId] ?: -1
@@ -71,6 +99,7 @@ fun HistoryTimeline(events: List<HistoryTimelineEvent>, selectedId: String, view
     val pause by rememberUpdatedState(onPause); val select by rememberUpdatedState(onSelect)
     val selectedNow by rememberUpdatedState(selected)
     val density = androidx.compose.ui.platform.LocalDensity.current.density
+    val measurer = rememberTextMeasurer()
     val pitch = 24f
     val windowCenter = selected.toFloat()
     BoxWithConstraints(modifier.fillMaxWidth().height(TableTimelineHeight.dp).clipToBounds().pointerInput(Unit) {
@@ -83,6 +112,11 @@ fun HistoryTimeline(events: List<HistoryTimelineEvent>, selectedId: String, view
         }
     }) {
         val width = maxWidth.value
+        val visible = HistoryTimelineLayout.visible(events.size, windowCenter.roundToInt(), width, pitch)
+            .filter { abs(HistoryTimelineLayout.x(it, windowCenter, width, pitch) - width / 2f) <= width / 2f + 12f }
+        // HIS-005: the separators in view, left to right, at their lines' x
+        val separators = visible.mapNotNull { i -> events[i].separator?.let { s ->
+            s to HistoryTimelineLayout.separatorX(HistoryTimelineLayout.x(i, windowCenter, width, pitch), pitch) } }
         Box(Modifier.fillMaxSize().semantics {
             contentDescription = events[selected].description
             progressBarRangeInfo = ProgressBarRangeInfo(selected.toFloat(), 0f..events.lastIndex.toFloat(), maxOf(0, events.size - 2))
@@ -99,44 +133,36 @@ fun HistoryTimeline(events: List<HistoryTimelineEvent>, selectedId: String, view
             val selectionX = HistoryTimelineLayout.x(selected, windowCenter, size.width / density, pitch).dp.toPx()
             drawRect(Color(0xff287f85), Offset(selectionX - 11.dp.toPx(), center.y - 12.dp.toPx()),
                 Size(22.dp.toPx(), 24.dp.toPx()), style = Stroke(1.5.dp.toPx()))
+            // HIS-005: a labelled line where the turn or step changed (a new turn's stronger), the label above the icons
+            // in the turn player's colour
+            val texts = separators.map { (s, _) -> measurer.measure(s.label, SeparatorLabelStyle) }
+            val gap = 2.dp.toPx()
+            val labelled = HistoryTimelineLayout.shownLabels(
+                separators.mapIndexed { n, (_, x) -> x.dp.toPx() to texts[n].size.width.toFloat() }, gap)
+            separators.forEachIndexed { n, (s, x) ->
+                val lineX = x.dp.toPx()
+                drawLine(SeparatorInk.copy(alpha = if (s.newTurn) .7f else .35f), Offset(lineX, 1.dp.toPx()),
+                    Offset(lineX, size.height - 3.dp.toPx()), (if (s.newTurn) 1.5.dp else 1.dp).toPx())
+                if (n in labelled) drawText(texts[n], historyAuthorColor(s.active, viewer), Offset(lineX + gap, 0f))
+            }
         }
-        for (i in HistoryTimelineLayout.visible(events.size, windowCenter.roundToInt(), width, pitch)) {
+        for ((s, x) in separators) Box(Modifier.offset(x.dp).width(1.dp).fillMaxHeight()
+            .semantics { testTag = TimelineSeparatorTag; contentDescription = s.label })
+        for (i in visible) {
             val event = events[i]; val x = HistoryTimelineLayout.x(i, windowCenter, width, pitch)
-            if (abs(x - width / 2f) > width / 2f + 12f) continue
             val authorColor = historyAuthorColor(event.author, viewer)
-            // HIS-005/HIS-036: a branch splits off after this event (or will, once the armed continuation acts).
-            if (HistoryTimelineLayout.splitsAfter(event, armedSplit)) BranchSplitMarker(
-                Modifier.offset(HistoryTimelineLayout.splitGapX(x, pitch).dp).width(BranchMarkerWidth.dp).fillMaxHeight()
-                    .semantics { testTag = BranchMarkerTag })
             TimelineEventChip(event, authorColor, i == selected,
                 Modifier.align(Alignment.CenterStart).offset((x - 10f).dp), eventIcon) {
                 pause(); select(event.id)
-            }
-            if (i > 0 && event.groupId != events[i - 1].groupId) Canvas(Modifier.offset((x - 12f).dp).width(1.dp).fillMaxHeight()) {
-                drawLine(Color.Gray.copy(alpha = .25f), Offset(0f, 4.dp.toPx()), Offset(0f, size.height - 4.dp.toPx()), 1.dp.toPx())
             }
         }
     }
 }
 
-internal const val BranchMarkerTag = "Branch marker"
-private const val BranchMarkerWidth = 14f
-
-/** Drawn from the gap's centre line: rises from the strip above the event icons, turns right and ends in a
- * small filled arrowhead pointing forward in time. */
-@Composable
-private fun BranchSplitMarker(modifier: Modifier) = Canvas(modifier) {
-    val edge = Color(0xff98abaa)
-    val stroke = 1.dp.toPx()
-    val turn = 7.dp.toPx()
-    val head = 5.dp.toPx()
-    drawLine(edge, Offset(0f, center.y), Offset(0f, turn), stroke)
-    drawLine(edge, Offset(-stroke / 2f, turn), Offset(size.width - head, turn), stroke)
-    drawPath(androidx.compose.ui.graphics.Path().apply {
-        moveTo(size.width - head, turn - 3.dp.toPx()); lineTo(size.width, turn)
-        lineTo(size.width - head, turn + 3.dp.toPx()); close()
-    }, edge)
-}
+/** HIS-005: the test tag of a separator's line; its content description is its label. */
+internal const val TimelineSeparatorTag = "timeline-separator"
+private val SeparatorInk = Color(0xff59656a)
+private val SeparatorLabelStyle = TextStyle(fontSize = 9.sp, lineHeight = 11.sp, fontWeight = FontWeight.Medium)
 
 /** A recognized hold describes the event and consumes the tap; it never moves the review cursor. */
 @Composable
@@ -264,63 +290,36 @@ internal fun historyIconGlyph(icon: HistoryIcon): String = when (icon) {
     HistoryIcon.UNKNOWN -> "•"
 }
 
+/** Timeline mode's Previous, Auto and Next (HIS-010, HIS-013): view-only, nothing here branches or acts on the game. */
 @Composable
-fun HistoryTransport(position: HistoryPosition, previousEnabled: Boolean, nextEnabled: Boolean, connected: Boolean,
+fun HistoryTransport(position: HistoryPosition, previousEnabled: Boolean, nextEnabled: Boolean,
     onPrevious: () -> Unit, onNext: () -> Unit, onPlay: () -> Unit, onPause: () -> Unit,
-    onContinue: (String) -> Unit, modifier: Modifier = Modifier, controlsEnabled: Boolean = true,
-    branchPending: Boolean = false, offLiveLine: Boolean = branchPending) {
-    // Auto always heads for the live game: off the live line that starts with a rewind to the split point.
-    val rewind = branchPending || offLiveLine
+    modifier: Modifier = Modifier, controlsEnabled: Boolean = true) {
     val current by rememberUpdatedState(position)
-    val continueAction by rememberUpdatedState(onContinue)
     val play by rememberUpdatedState(onPlay)
     val pause by rememberUpdatedState(onPause)
     val toggle = { if (controlsEnabled) { if (current.playing) pause() else play() } }
     Column(modifier.fillMaxWidth()) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             IconButton(onPrevious, modifier = Modifier.size(48.dp).semantics { contentDescription = "Previous" },
-                enabled = previousEnabled && controlsEnabled && !branchPending) { TableChromeIcon("previous") }
-            run {
-                var captured by remember { mutableStateOf<String?>(null) }
-                // A pending opponent branch rewinds before playing on; branching here is not offered.
-                val canBranch = connected && controlsEnabled && !branchPending
-                Surface(Modifier.weight(1f).heightIn(min = 48.dp).pressFeedback().semantics {
-                    role = Role.Button; contentDescription = "Auto advance"
-                    stateDescription = if (rewind && !position.playing) "Rewind to the branch point, then play"
-                        else if (position.playing) "Auto: on" else "Auto: off"
-                    if (!controlsEnabled) disabled() else onClick { toggle(); true }
-                    if (canBranch) customActions = listOf(CustomAccessibilityAction("Continue playing from here") {
-                        val cursor = current.cursorId
-                        pause(); continueAction(cursor); true
-                    })
-                }.pointerInput(canBranch, branchPending, controlsEnabled) {
-                    if (!controlsEnabled) return@pointerInput
-                    detectTapGestures(onPress = { captured = current.cursorId; tryAwaitRelease() },
-                        // A pending branch swallows a hold silently: neither branch nor toggle.
-                        onTap = { toggle() }, onLongPress = if (branchPending) ({ _ -> }) else if (!canBranch) null else ({
-                            pause()
-                            captured?.let { continueAction(it) } // Host validates this original boundary; no fallback substitution.
-                         }))
-                }, color = Color.White, contentColor = Color(0xff253d44), border = BorderStroke(1.dp, MenuBorder)) {
-                    Row(Modifier.padding(horizontal = 8.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        if (rewind) Icon(Icons.Outlined.FastRewind, null,
-                            Modifier.size(20.dp).semantics { testTag = "Rewind and play" }, tint = Color(0xffa84f58))
-                        else Icon(if (position.playing) Icons.Outlined.Pause else Icons.Outlined.PlayArrow, null,
-                            Modifier.size(20.dp), tint = if (position.playing) Color(0xffb57d45) else Color(0xff5b896c))
-                        // A pending branch can only be rewound; the player just chooses when it starts.
-                        val showsRewind = rewind && !position.playing
-                        Column {
-                            Text(if (showsRewind) "Rewind" else if (position.playing) "Auto: on" else "Auto: off",
-                                fontSize = 16.sp, lineHeight = 20.sp)
-                            // HIS-013: holding Auto is the only way to branch, so the button says so.
-                            if (!showsRewind && canBranch) Text("Hold to branch", fontSize = 10.sp, lineHeight = 12.sp, color = Color(0xff66757a))
-                        }
-                    }
+                enabled = previousEnabled && controlsEnabled) { TableChromeIcon("previous") }
+            Surface(Modifier.weight(1f).heightIn(min = 48.dp).pressFeedback().semantics {
+                role = Role.Button; contentDescription = "Auto advance"
+                stateDescription = if (position.playing) "Auto: on" else "Auto: off"
+                if (!controlsEnabled) disabled() else onClick { toggle(); true }
+            }.pointerInput(controlsEnabled) {
+                if (!controlsEnabled) return@pointerInput
+                detectTapGestures(onTap = { toggle() })
+            }, color = Color.White, contentColor = Color(0xff253d44), border = BorderStroke(1.dp, MenuBorder)) {
+                Row(Modifier.padding(horizontal = 8.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Icon(if (position.playing) Icons.Outlined.Pause else Icons.Outlined.PlayArrow, null,
+                        Modifier.size(20.dp), tint = if (position.playing) Color(0xffb57d45) else Color(0xff5b896c))
+                    Text(if (position.playing) "Auto: on" else "Auto: off", fontSize = 16.sp, lineHeight = 20.sp)
                 }
             }
             IconButton(onNext, modifier = Modifier.size(48.dp).semantics { contentDescription = "Next" },
-                enabled = nextEnabled && controlsEnabled && !branchPending) { TableChromeIcon("next") }
+                enabled = nextEnabled && controlsEnabled) { TableChromeIcon("next") }
         }
     }
 }

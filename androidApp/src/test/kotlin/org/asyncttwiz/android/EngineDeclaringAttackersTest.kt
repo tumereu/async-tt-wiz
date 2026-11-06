@@ -127,10 +127,15 @@ class EngineDeclaringAttackersTest {
         assertEquals(listOf(TargetRef.Player(kit.other)), attackDraft().map { it.target }, "staged at Bob")
         assertTrue(kit.state().stack.isEmpty() && power(hound) == 3, "no ability activated")
         assertNull(toolkit.abilityCard, "no ability chips")
-        // The Oracle has its lane; its header's tap makes it the active lane; a tap unstages the Hound, the next stages it there
+        // The Oracle has its lane; its header's tap makes it the active lane; the Hound's copy is selected by a tap and
+        // unstaged by the next (CMB-003, CMB-032, owner 2026-11-06), the tap after that stages it there
         val lane = kit.scene().combatLabels.single { it.cardId == oracle }
         toolkit.combat.chooseTarget(kit.alice.play(), lane.cardId)
         assertEquals(oracle, toolkit.combat.activeTarget(kit.alice.play()))
+        tapSeen(hound)
+        kit.settle(bobActs = false)
+        assertEquals(hound, toolkit.combat.selected, "selected")
+        assertEquals(1, attackDraft().size, "still staged")
         tapSeen(hound)
         kit.settle(bobActs = false)
         assertEquals(emptyList(), attackDraft(), "unstaged")

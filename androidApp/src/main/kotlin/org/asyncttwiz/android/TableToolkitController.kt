@@ -744,8 +744,9 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
     /**
      * A tap on [item] with Automatum on while combat is being declared or shown (CMB-028, CMB-032, CMB-034): one of the
      * attacking player's creatures is staged or unstaged; one of the defending player's creatures is picked as the blocker
-     * to place, and an attacker tapped then is blocked or unblocked by it; other combat copies are selected, the selected
-     * one's menu opening on the next tap. False when the tap opens the card's menu as usual.
+     * to place, and an attacker tapped then is blocked or unblocked by it. A combat copy's first tap only selects it; a
+     * tap on the selected copy unstages its attacker or removes its blocker while they are declared, else deselects it
+     * (owner, 2026-11-06: no Combat menu). False when the tap opens the card's menu as usual.
      */
     private fun combatTap(play: TableBoard, item: TableItem): Boolean {
         if (item.kind != TableItemKind.CARD) return false
@@ -773,14 +774,20 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
                     if (attacking && card != picking.attacker) { combat.toggleBandMember(play, card); return true }
                 }
                 combat.stopPicking()
-                if (attacking) return unstage(occurrence!!.id, card)
+                // CMB-003, CMB-032 (owner, 2026-11-06): a staged attacker's copy is selected first, unstaged by a tap on it
+                // selected; its real card's tap unstages it at once (CMB-028)
+                if (attacking && copy && combat.selected != card) { combat.select(card); return true }
+                if (attacking) { combat.clearSelection(); return unstage(occurrence!!.id, card) }
                 if (card !in choices.attacks && !creature(play, card)) return false
                 return stage(play, listOf(card), combat.activeTarget(play))
             }
             if (!attacking) {
                 if (card !in choices.blocks && !creature(play, card)) return false
                 if (card !in choices.blocks) { error = "${combatName(play, card)} can't block now."; return true }
-                combat.select(if (combat.selected == card) null else card)
+                // CMB-034 (owner, 2026-11-06): a placed blocker's copy tapped while selected leaves combat
+                val placed = CombatStackRules.occurrences(area).filter { it.sourceId == card }
+                if (copy && placed.isNotEmpty() && combat.selected == card) { combat.clearSelection(); return removeBlocker(placed.map { it.id }) }
+                combat.select(if (combat.selected == card && !copy) null else card)
                 return true
             }
         }
@@ -792,10 +799,18 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
             return true
         }
         if (!copy) return false
-        // CMB-032: select a combatant; the selected one's own tap opens its Combat menu
-        if (combat.selected == card) { combat.clearSelection(); return false }
-        combat.select(card)
+        // CMB-032: a tap selects a combatant, a tap on the selected one deselects it (no Combat menu, owner 2026-11-06)
+        combat.select(if (combat.selected == card) null else card)
         return true
+    }
+
+    /** CMB-034 (owner, 2026-11-06): a placed blocker leaves the blocks being declared: its copies [occurrenceIds] go. */
+    private fun removeBlocker(occurrenceIds: List<String>): Boolean {
+        val area = current()?.board?.combat ?: return false
+        error = null
+        return engineRoute { batchResult {
+            occurrenceIds.map { submit(PlayAction.Combat(CombatAction.Remove(area.id, it))) }.any { it }
+        } }
     }
 
     /**
@@ -818,7 +833,12 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
                 if (!creature(play, card)) return false
                 error = "${combatName(play, card)} can't block now."; return true
             }
-            combat.select(if (combat.selected == card) null else card)
+            // CMB-040 (owner, 2026-11-06): a placed blocker's copy is selected first; tapped selected, its blocks go
+            val copy = item.viewport == "combat"
+            if (copy && placed.blocks[card].orEmpty().isNotEmpty() && combat.selected == card) {
+                combat.clearSelection(); placed.set(card, emptyList()); return true
+            }
+            combat.select(if (combat.selected == card && !copy) null else card)
             return true
         }
         val blocker = combat.selected?.takeIf { it in choices.blocks } ?: return false

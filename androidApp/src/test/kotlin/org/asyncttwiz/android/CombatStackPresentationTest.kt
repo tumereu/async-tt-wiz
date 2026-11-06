@@ -118,7 +118,9 @@ class CombatStackPresentationTest {
             val pair = state.board.combat!!.pairs.first()
             val blockers = geometry.cards.filter { card -> pair.blockers.any { it.id == card.viewId } }.map { it.bounds }
             val attacker = geometry.cards.single { it.viewId == pair.attackers.single().id }.bounds
-            val slotCenter = geometry.dividers.single() / 2
+            // The slot ends at the divider (a lane wider than its pairs, for its chip with the target's value, CMB-013, keeps
+            // them in its middle, so the slot needn't start at the lane's edge)
+            val slotCenter = geometry.dividers.single() - CombatStackPresentation.slotWidth(pair.blockers.size, pair.attackers.size, width) / 2
             assertEquals(slotCenter, attacker.center.x, .001f)
             assertEquals(slotCenter, (blockers.first().x + blockers.last().right) / 2, .001f)
             assertEquals(width * .04f, blockers.last().x - blockers.first().right, .001f)

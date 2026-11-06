@@ -488,7 +488,7 @@ class TableGesturesTest {
     }
 
     // CMB-003, TBL-044
-    @Test fun combatTapOpensCombatMenuDoubleTapDoesNothingAndHoldInspects() {
+    @Test fun combatTapGoesToTheToolkitDoubleTapDoesNothingAndHoldInspects() {
         val f = TableStatesFixture
         val play = f.combat()
         val scene = TablePresentation.scene(f.game, tableBoard(play), f.a, 412f, 892f, false)

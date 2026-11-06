@@ -42,8 +42,8 @@ internal fun PermanentAbilityChips(toolkit: TableToolkitController, play: TableB
     Layout(content = {
         Column(verticalArrangement = Arrangement.spacedBy(4.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             held?.let { offered.getOrNull(it) }?.let { AbilityDetails(name, it.text) }
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterHorizontally),
-                verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            // TBL-124 (owner gallery review 2026-11-06): the fewest rows, in a stable order close to the card's
+            ChipRowsLayout(4.dp) {
                 offered.forEachIndexed { index, ability ->
                     AbilityChip(ability.text, { toolkit.activateChip(index) },
                         { hold -> toolkit.heldAbility = if (hold) index else null })

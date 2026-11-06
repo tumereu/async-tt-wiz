@@ -216,30 +216,16 @@ internal fun CombatAreaOverlay(combat: CombatController?, play: TableBoard, scen
                     verticalArrangement = Arrangement.spacedBy(1.dp)) {
                     // CMB-036–CMB-038: the staging's own chips nearest the card, then the badges
                     if (below) for (chip in actions) StagingChipView(chip, b.width)
-                    for ((text, color, description) in (if (below) chips else chips.asReversed())) CombatChip(text, color, b.width, description)
+                    // TBL-132 (owner gallery review 2026-11-06): holding a keyword badge explains the keyword
+                    for ((text, color, description) in (if (below) chips else chips.asReversed()))
+                        RuleTip(if (color == AutomatumViolet) text else "") { CombatChip(text, color, b.width, description) }
                     if (!below) for (chip in actions.asReversed()) StagingChipView(chip, b.width)
                 }
             }
             // CMB-029 (owner playtest 2026-11-06): one badge over the card's middle, clear of its name (combat review #12), sized
             // to the card so it fits at any zoom
-            if (dealt != null || dying) DamageBadge(dealt, dying, (b.width * .6f).coerceIn(12f, 26f), Modifier.align(Alignment.Center))
-        }
-    }
-    // CMB-013 (owner playtest 2026-11-06): under each chip inside its lane, the target's life, loyalty or defense, and
-    // with the damage preview what it would become ("20 → 17")
-    for (lane in scene.combatLabels) {
-        val b = lane.valueBounds ?: continue
-        if (lane.value.isEmpty()) continue
-        val now = lane.value.toIntOrNull()
-        val change = if (preview == null || now == null) 0 else if (lane.cardId == null)
-            CombatStackRules.defendingPlayer(play.board)?.let { preview.life[it] } ?: 0 else -(damage[lane.cardId] ?: 0)
-        val text = if (change == 0) lane.value else "$now → ${now!! + change}"
-        Box(Modifier.offset { IntOffset(b.x.dp.roundToPx(), b.y.dp.roundToPx()) }.size(b.width.dp, b.height.dp)
-            .semantics { contentDescription = if (change == 0) "${lane.label}: ${lane.value}" else
-                "${lane.label} would go from $now to ${now!! + change}" }, contentAlignment = Alignment.Center) {
-            Text(text, color = if (change == 0) CombatValueInk else PreviewRed, fontWeight = FontWeight.Bold, letterSpacing = 0.sp,
-                fontSize = (lane.fontSize * CombatStackPresentation.VALUE_FONT / CombatStackPresentation.CHIP_FONT).sp,
-                lineHeight = (lane.fontSize * 1.1f).sp, maxLines = 1, softWrap = false)
+            if (dealt != null || dying) DamageBadge(dealt, dying, (b.width * .6f).coerceIn(12f, 26f),
+                Modifier.align(Alignment.Center).wrapContentSize(unbounded = true))
         }
     }
     for ((player, change) in preview?.life.orEmpty()) {
@@ -254,8 +240,14 @@ internal fun CombatAreaOverlay(combat: CombatController?, play: TableBoard, scen
     // CMB-001, CMB-013, CMB-028 (owner playtest 2026-11-06): the target chips fade in (once per declare attackers step);
     // while the viewer declares attackers a tap on one makes its target the active one; holding one shows its full name
     // and highlights the target's card or the player's life square
+    // CMB-013, CMB-029 (owner gallery review 2026-11-06): each chip shows its target's value, and with the damage preview
+    // what it would become ("20 → 17")
+    val changes = scene.combatLabels.associate { lane ->
+        lane.cardId to if (preview == null || lane.value.toIntOrNull() == null) 0 else if (lane.cardId == null)
+            CombatStackRules.defendingPlayer(play.board)?.let { preview.life[it] } ?: 0 else -(damage[lane.cardId] ?: 0)
+    }
     TargetChips(scene, play, viewer, active, chooser = if (staging && writable && combat != null && viewer == choices.declaring)
-        ({ target -> combat.chooseTarget(play, target) }) else null, bounds)
+        ({ target -> combat.chooseTarget(play, target) }) else null, bounds, changes)
     if (area == null || port == null || scene.combatLabels.isEmpty()) return
     // Just right of the lanes' top-right corner: the eye hiding and showing the preview's numbers (CMB-029)
     val panel = scene.combatPanel ?: return
@@ -280,8 +272,17 @@ internal fun CombatAreaOverlay(combat: CombatController?, play: TableBoard, scen
 internal val AttackOrange = Color(0xffe8590c)
 /** CMB-007 (owner playtest 2026-11-06): the combat band's colour, the old combat area's cream. */
 internal val CombatBandColor = Color(0xfff5f1df)
-/** The ink of a target's value under its chip (CMB-013). */
+/** The ink of a target's value on its chip (CMB-013). */
 private val CombatValueInk = Color(0xff4a4636)
+
+/** What a target chip shows after the name (CMB-013, CMB-029): the target's value, or "20 → 17" when the damage preview
+ * would change it by [change]; empty for a target without one. */
+internal fun chipValue(lane: CombatLaneLabel, change: Int): String {
+    val now = lane.value.toIntOrNull()
+    return if (change == 0 || now == null) lane.value else "$now → ${signedValue(now + change)}"
+}
+
+private fun signedValue(n: Int) = if (n < 0) "−${-n}" else "$n"
 
 /**
  * The target chips of the combat band ([TableScene.combatLabels], CMB-013), clipped to the table: each fades in, the
@@ -291,7 +292,7 @@ private val CombatValueInk = Color(0xff4a4636)
  */
 @Composable
 private fun TargetChips(scene: TableScene, play: TableBoard, viewer: String, active: String?, chooser: ((String?) -> Unit)?,
-    bounds: (TableItem) -> TableBounds) {
+    bounds: (TableItem) -> TableBounds, changes: Map<String?, Int>) {
     val lanes = scene.combatLabels
     // The table, short of the Stack where it lies over the chips (portrait: at the table's right edge), which keeps its taps
     val table = scene.world?.visibleViewport?.let { t ->
@@ -323,9 +324,13 @@ private fun TargetChips(scene: TableScene, play: TableBoard, viewer: String, act
     Box(Modifier.offset { IntOffset(table.x.dp.roundToPx(), table.y.dp.roundToPx()) }.size(table.width.dp, table.height.dp)
         .clipToBounds().graphicsLayer { alpha = appear.value }) {
         for (lane in lanes) key(lane.cardId) {
-            TargetChip(lane, viewer, lane.cardId == active && chooser != null, chooser?.let { choose -> { choose(lane.cardId) } },
+            val change = changes[lane.cardId] ?: 0
+            // The preview's "20 → 17" widens the chip about its centre
+            val width = CombatStackPresentation.chipWidth(lane.label, chipValue(lane, change)) * (lane.chip.height / CombatStackPresentation.CHIP_HEIGHT)
+            val x = lane.chip.center.x - width / 2
+            TargetChip(lane, change, width, viewer, lane.cardId == active && chooser != null, chooser?.let { choose -> { choose(lane.cardId) } },
                 held = { held = if (it) lane else held?.takeIf { h -> h.cardId != lane.cardId } },
-                Modifier.offset { IntOffset((lane.chip.x - table.x).dp.roundToPx(), (lane.chip.y - table.y).dp.roundToPx()) })
+                Modifier.offset { IntOffset((x - table.x).dp.roundToPx(), (lane.chip.y - table.y).dp.roundToPx()) })
         }
     }
     held?.let { lane ->
@@ -345,10 +350,11 @@ private fun TargetChips(scene: TableScene, play: TableBoard, viewer: String, act
 /** How long the target chips take to fade in (CMB-001). */
 internal const val CHIP_FADE_MILLIS = 300
 
-/** One target chip at its place in the band: crossed swords, the round avatar, the name cut to the chip's letters. */
+/** One target chip at its place in the band, [width] wide: crossed swords, the round avatar, the name cut to the chip's
+ * letters, then the target's value, or what the damage preview would make of it ([change], CMB-029). */
 @Composable
-private fun TargetChip(lane: CombatLaneLabel, viewer: String, active: Boolean, onTap: (() -> Unit)?, held: (Boolean) -> Unit,
-    modifier: Modifier) {
+private fun TargetChip(lane: CombatLaneLabel, change: Int, width: Float, viewer: String, active: Boolean, onTap: (() -> Unit)?,
+    held: (Boolean) -> Unit, modifier: Modifier) {
     val c = lane.chip
     val zoom = c.height / CombatStackPresentation.CHIP_HEIGHT
     var down by remember { mutableStateOf(false) }
@@ -361,7 +367,7 @@ private fun TargetChip(lane: CombatLaneLabel, viewer: String, active: Boolean, o
     val ink = if (active) Color.White else Color(0xff2b3437)
     val currentTap by androidx.compose.runtime.rememberUpdatedState(onTap)
     val currentHeld by androidx.compose.runtime.rememberUpdatedState(held)
-    Row(modifier.size(c.width.dp, c.height.dp)
+    Row(modifier.size(width.dp, c.height.dp)
         .testTag("combat-target-chip")
         .semantics {
             contentDescription = if (onTap != null) "Attack ${lane.label}" else lane.label
@@ -402,6 +408,18 @@ private fun TargetChip(lane: CombatLaneLabel, viewer: String, active: Boolean, o
         Text(lane.chipText, Modifier.weight(1f), color = ink, fontSize = lane.fontSize.sp, fontWeight = FontWeight.Bold,
             lineHeight = (lane.fontSize * 1.15f).sp, maxLines = 1, softWrap = false,
             overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+        // CMB-013, CMB-029 (owner gallery review 2026-11-06): the target's life, loyalty or defense on the chip, and what
+        // the damage preview would make of it in red
+        if (lane.value.isNotEmpty()) {
+            val now = lane.value.toIntOrNull()
+            val text = chipValue(lane, change)
+            Spacer(Modifier.width((CombatStackPresentation.CHIP_VALUE_GAP * zoom).dp))
+            Text(text, Modifier.semantics { contentDescription = if (change == 0 || now == null) "${lane.label}: ${lane.value}" else
+                    "${lane.label} would go from $now to ${now + change}" },
+                color = when { change != 0 -> if (active) Color.White else PreviewRed; active -> Color.White; else -> CombatValueInk },
+                fontSize = lane.fontSize.sp, fontWeight = FontWeight.Bold, lineHeight = (lane.fontSize * 1.15f).sp, letterSpacing = 0.sp,
+                maxLines = 1, softWrap = false)
+        }
         Spacer(Modifier.width((CombatStackPresentation.CHIP_SIDE * zoom).dp))
     }
 }
@@ -456,7 +474,9 @@ private fun StagingChipView(chip: StagingChip, width: Float) {
     val room = (width - if (chip.icon != null) 18f else 6f).coerceAtLeast(8f)
     val natural = CombatStackPresentation.laneTextWidth(chip.text, 10f)
     val size = if (chip.cost) 13f else if (natural <= room) 10f else maxOf(6f, 10f * room / natural)
-    HoldTip(chip.hold) {
+    // TBL-132 (owner gallery review 2026-11-06): holding a chip naming a keyword ("Exert") explains it too, unless what
+    // holding it says explains it already ("Enlist: …")
+    RuleTip(if (chip.hold.startsWith("${chip.text}:")) "" else chip.text, lead = chip.hold) {
         Row(Modifier.width(width.dp).heightIn(min = 22.dp).background(if (chip.on) color else Color.White, shape)
             .border(if (chip.picking) 2.5.dp else 1.5.dp, color, shape)
             .semantics {
@@ -517,9 +537,10 @@ internal fun PreviewChip(text: String, color: Color, modifier: Modifier, descrip
 }
 
 /**
- * CMB-029 (owner playtest 2026-11-06): what combat damage would do to a creature, as one badge [size] dp wide: a red
+ * CMB-029 (owner playtest 2026-11-06): what combat damage would do to a creature, as one badge [size] dp tall: a red
  * splash with the damage ("3", no minus) when it survives, a black skull with the damage inside when it dies (without a
- * number when it dies without damage).
+ * number when it dies without damage). The number's outline is centred exactly and the badge widens for two digits or
+ * more (owner gallery review 2026-11-06).
  */
 @Composable
 internal fun DamageBadge(dealt: Int?, dying: Boolean, size: Float, modifier: Modifier = Modifier) {
@@ -528,26 +549,31 @@ internal fun DamageBadge(dealt: Int?, dying: Boolean, size: Float, modifier: Mod
         dying -> "Would die"
         else -> "Would take $dealt damage"
     }
-    Box(modifier.size(size.dp).semantics { contentDescription = description }, contentAlignment = Alignment.Center) {
-        Canvas(Modifier.fillMaxSize()) { if (dying) skull() else splash() }
-        if (dealt != null) Text("$dealt", Modifier.offset(y = if (dying) (-size * .1f).dp else 0.dp), color = Color.White,
-            fontSize = (size * (if (dying) .42f else .46f)).sp, fontWeight = FontWeight.Black, lineHeight = (size * .5f).sp,
-            letterSpacing = 0.sp, maxLines = 1, softWrap = false)
+    val text = dealt?.toString().orEmpty()
+    Canvas(modifier.size(damageBadgeWidth(text, size).dp, size.dp).semantics { contentDescription = description }) {
+        if (dying) skull() else splash()
+        // In a skull the number sits in the cranium, above the jaw
+        if (text.isNotEmpty()) drawCentredText(text, Offset(center.x, if (dying) this.size.height * .4f else center.y),
+            this.size.height * (if (dying) .4f else .44f), Color.White, 900)
     }
 }
 
-/** A red splash filling the canvas: a ragged star with a thin white edge. */
+/** A damage badge's width for [text] at [size] dp tall: round for one digit, wider by about a digit for each more. */
+internal fun damageBadgeWidth(text: String, size: Float): Float = size * (1f + .34f * (text.length - 1).coerceAtLeast(0))
+
+/** A red splash filling the canvas: a ragged star with a thin white edge, stretched sideways on a wide badge. */
 private fun DrawScope.splash() {
     val points = 11
     val c = center
-    val outer = size.minDimension / 2f
+    val rx = size.width / 2f
+    val ry = size.height / 2f
     val path = Path()
     for (i in 0 until points * 2) {
         val angle = Math.PI * i / points - Math.PI / 2
         // Uneven spikes read as a splash, not a star
-        val r = if (i % 2 == 0) outer * (if (i % 4 == 0) .98f else .86f) else outer * .66f
-        val x = c.x + (r * kotlin.math.cos(angle)).toFloat()
-        val y = c.y + (r * kotlin.math.sin(angle)).toFloat()
+        val r = if (i % 2 == 0) (if (i % 4 == 0) .98f else .86f) else .66f
+        val x = c.x + (rx * r * kotlin.math.cos(angle)).toFloat()
+        val y = c.y + (ry * r * kotlin.math.sin(angle)).toFloat()
         if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
     }
     path.close()

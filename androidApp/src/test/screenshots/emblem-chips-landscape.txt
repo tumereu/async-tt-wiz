@@ -1,0 +1,1 @@
+Landscape table where you have five emblems and the opponent one: the round emblem chips sit in a row by each life square, under the opponent's and above your own, as many as fit before the Stack, the last a +N chip.

@@ -7,29 +7,27 @@ internal data class CardRingPage(val name: String, val actions: List<String>)
 internal data class CardRingSlot(val id: String, val cell: Int, val span: Int)
 
 /** One fixed layout per context. A layout applies fully: every cell is always shown (disabled when it does not apply). */
-internal enum class CardMenuLayout { CARD, COMBAT, HAND, PANEL }
+internal enum class CardMenuLayout { CARD, HAND, PANEL }
 
 internal object CardRingPages {
     const val columns = 5
     const val capacity = 25
 
     /**
-     * TBL-116 (I-D46, I-D50, I-D52): the engine's actions for the card are rows above these cells, then only a combat
-     * copy's Remove from combat; a hand card has no menu at all (ZON-079). No Inspect and no Other side: holding a card
+     * TBL-116 (I-D46, I-D50, I-D52): the engine's actions for the card are rows above these cells; a combat copy (CMB-003,
+     * owner 2026-11-06: no Combat menu) and a hand card (ZON-079) have no menu at all. No Inspect and no Other side: holding a card
      * inspects it, every face (TBL-104). No Declare and no attack target: taps stage attackers and the lanes pick their
      * targets (CMB-028, owner 2026-11-04).
      */
     fun page(layout: CardMenuLayout): CardRingPage = when (layout) {
         CardMenuLayout.CARD -> CardRingPage("Automatum", emptyList())
-        CardMenuLayout.COMBAT -> CardRingPage("Combat", listOf("Remove from combat"))
         CardMenuLayout.HAND -> CardRingPage("Hand", emptyList())
         CardMenuLayout.PANEL -> CardRingPage("Card", emptyList())
     }
 
-    /** Combat copies get the combat layout; a real card's zone picks the rest. Stack entries are managed in Manage Stack;
-     * a real card is never in the Stack (STK-003), so one shown from a state recorded before r35 has no menu either. */
+    /** A real card's zone picks its layout. Stack entries are managed in Manage Stack; a real card is never in the Stack
+     * (STK-003), so one shown from a state recorded before r35 has no menu either. */
     fun context(board: org.asyncttwiz.protocol.BoardState, viewId: String): CardMenuLayout? {
-        if (org.asyncttwiz.protocol.CombatStackRules.occurrences(board.combat).any { it.id == viewId }) return CardMenuLayout.COMBAT
         val card = board.cards.singleOrNull { it.id == viewId } ?: return null
         val container = board.containers.singleOrNull { it.id == card.containerId }
         return when (container?.zone) {
@@ -39,6 +37,10 @@ internal object CardRingPages {
             else -> CardMenuLayout.PANEL
         }
     }
+
+    /** CMB-003, TBL-116 (owner 2026-11-06): [viewId] is a combat copy, which opens no menu. */
+    fun combatCopy(board: org.asyncttwiz.protocol.BoardState, viewId: String) =
+        org.asyncttwiz.protocol.CombatStackRules.occurrences(board.combat).any { it.id == viewId }
 
     /** True when [cardIds] include a source with an attacker copy in the current combat. */
     fun declaredAttacker(board: org.asyncttwiz.protocol.BoardState, cardIds: Collection<String>) =

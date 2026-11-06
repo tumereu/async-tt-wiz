@@ -1,9 +1,17 @@
 package org.asyncttwiz.android
 
-/** A player's emblems (I-D25, TRN-053): a chip each with the emblem's text in the room right of the player's piles (in
- * landscape, or when that room is too narrow, beside the life square, away from the table's centre); drawn only, so taps
- * reach the table beneath. */
+/** A player's emblems (I-D25, TRN-053; owner gallery review 2026-11-06): a small round chip each with the emblem's art
+ * (an emblem icon when it has none), at most [SHOWN] of them and then a "+N" chip, in a row by the player's life square: in
+ * portrait at the right of the room right of the player's piles, in landscape (or when that room is too narrow) beside the
+ * life square, away from the table's centre, after the dungeon's room chip (TRN-069), which is still a text chip. Holding
+ * any of them inspects all that player's emblems ([EmblemInspect]). */
 internal object EmblemChips {
+    /** A round chip's size, the smallest it gets where room is short, and the gap between chips (dp). */
+    const val SIZE = 24f
+    const val MIN_SIZE = 20f
+    const val ROW_GAP = 4f
+    /** The most emblems shown as chips; beyond them one "+N" chip. */
+    const val SHOWN = 3
     const val MAX_LINES = 2
     const val GAP = 3f
     /** The narrowest room right of the piles the chips use; narrower, they go by the life square. */
@@ -27,7 +35,46 @@ internal object EmblemChips {
     /** [player]'s emblems' texts on [board], oldest first. */
     fun texts(board: org.asyncttwiz.protocol.BoardState, player: String): List<String> = board.engineRecords
         .filter { it.kind == org.asyncttwiz.protocol.EngineRecordKind.Emblem && it.player == player }
-        .sortedWith(compareBy({ it.timestamp ?: 0 }, { it.id })).map { "Emblem: " + it.text.replace('\n', ' ') }
+        .sortedWith(compareBy({ it.timestamp ?: 0 }, { it.id })).map { it.text }
+
+    /** How many round chips [count] emblems take: each up to [SHOWN], then one "+N" chip for the rest. */
+    fun chipCount(count: Int): Int = if (count <= SHOWN) count else SHOWN + 1
+
+    /** The width of a row of [chips] round chips [size] dp each. */
+    fun rowWidth(chips: Int, size: Float = SIZE): Float = if (chips == 0) 0f else chips * size + (chips - 1) * ROW_GAP
+
+    /**
+     * The round chips of [count] emblems in a row: right-aligned in [area] (portrait, the room right of the piles) and
+     * centred in its height; without an area by the [life] square ([below] it for the opponent, above it for the viewer),
+     * after [textLines] lines of text chips (the room chip, TRN-069) there, no wider than [room]. [chipCount] chips when
+     * they fit, else smaller (down to [MIN_SIZE]), else fewer: the last chip is then "+N" for all the emblems not shown.
+     */
+    fun round(count: Int, life: TableBounds, area: TableBounds?, below: Boolean, textLines: List<Int> = emptyList(),
+        room: Float = Float.MAX_VALUE): List<TableBounds> {
+        var chips = chipCount(count)
+        if (chips == 0) return emptyList()
+        val wide = minOf(room, area?.width ?: room)
+        fun fitted(n: Int) = ((wide - (n - 1) * ROW_GAP) / n).coerceIn(MIN_SIZE, SIZE)
+        while (chips > minOf(count, 2) && rowWidth(chips, fitted(chips)) > wide) chips--
+        val size = fitted(chips)
+        val width = rowWidth(chips, size)
+        val (x, y) = if (area != null) (area.right - width) to (area.y + (area.height - size) / 2) else {
+            val texts = textLines.sumOf { ChipText.HEIGHT.toDouble() + (it.coerceIn(1, MAX_LINES) - 1) * ChipText.LINE + GAP }.toFloat()
+            val first = ChipText.TAIL + 1f
+            life.x to (if (below) life.bottom + first + texts else life.y - first - texts - size)
+        }
+        return (0 until chips).map { TableBounds(x + it * (size + ROW_GAP), y, size, size) }
+    }
+
+    /** How many of [count] emblems [chips] chips show by themselves: all when there is a chip for each, else all but the
+     * last chip, which reads "+N". */
+    fun shown(count: Int, chips: Int): Int = if (count <= chips) count else chips - 1
+
+    /** The lines the room chip [texts] take beside a life square [width] dp from the screen's left (a generous estimate). */
+    fun textLines(texts: List<String>, life: TableBounds, width: Float): List<Int> {
+        val room = (minOf(ChipText.MAX_WIDTH, width - life.x - 4f) - 2 * ChipText.PADDING).coerceAtLeast(12f)
+        return texts.map { if (CombatStackPresentation.laneTextWidth(it, ChipText.TEXT) > room) 2 else 1 }
+    }
 
     /** The chip after [previous] (the chip before it; null: the first, by the [life] square itself), away from the
      * square, never narrower than it. */

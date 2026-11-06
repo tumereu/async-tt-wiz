@@ -333,6 +333,8 @@ internal fun TableSurface(game: GameSummary, play: TableBoard, accountId: String
             CombatAreaOverlay(toolkit?.combat, play, scene, accountId, writable && !runtime.reviewing,
                     pressed = { pressGlow.value }) { item ->
                     rendered.value.items[item.id]?.bounds ?: item.bounds }
+            // TRN-053 (owner gallery review 2026-11-06): the emblems' round chips; holding one inspects the player's emblems
+            EmblemChipsOverlay(scene, accountId)
         }
         TableBoardOverlays(game, play, accountId, runtime, scene, rendered)
         TableChromeHeader(game, play, accountId, landscape, runtime, toolkit, compactHeader, scene.appearance)

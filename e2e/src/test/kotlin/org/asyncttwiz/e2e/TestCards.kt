@@ -68,6 +68,9 @@ object TestCards {
     val cinderTrail = card("Cinder Trail", "Land",
         rulesText = "{T}, Pay 1 life, Sacrifice this land: Search your library for a basic land card, put it onto the battlefield, then shuffle.")
 
+    /** A free sorcery that gives its caster an emblem (TRN-053: the emblem's round chip by the life square). */
+    val sigil = card("Ember Sigil", "Sorcery", "{0}", "You get an emblem with \"Creatures you control get +1/+1.\"")
+
     /** A split card ({2}{G} // {1}{R}{R}) as a catalog import keeps it (PhysicalCardFaces): one face holding both halves,
      * the front half's catalog record (its cost only) as the face's source data. */
     val trailBlaze: SubmittedDefinition = run {
@@ -98,6 +101,9 @@ data class TestDeck(val name: String, val entries: List<Pair<SubmittedDefinition
 
         /** 40 cards: Mountains and Cinder Larks (bestow with collect evidence). */
         fun larks() = TestDeck("Larks", listOf(TestCards.mountain to 20, TestCards.lark to 20))
+
+        /** 40 cards: Mountains and Ember Sigils (a free emblem). */
+        fun sigils() = TestDeck("Sigils", listOf(TestCards.mountain to 20, TestCards.sigil to 20))
 
         /** 40 cards: Mountains and Storm Sparks. */
         fun sparks() = TestDeck("Sparks", listOf(TestCards.mountain to 20, TestCards.spark to 20))

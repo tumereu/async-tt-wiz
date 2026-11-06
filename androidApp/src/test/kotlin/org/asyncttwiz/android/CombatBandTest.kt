@@ -158,7 +158,8 @@ class CombatBandTest {
     }
 
     // CMB-001, CMB-042 (owner playtest 2026-11-06): staging the first attacker opens the band by itself, its copy in the
-    // lane under Bob's chip, exactly the battlefield cards' size, Bob's life under his chip
+    // lane under Bob's chip, exactly the battlefield cards' size; CMB-013 (owner gallery review 2026-11-06): Bob's life on
+    // his chip
     @Test fun stagingTheFirstAttackerOpensTheBand() {
         val attacker = aliceDeclaring()
         assertNull(k.scene().combatPanel)
@@ -171,12 +172,12 @@ class CombatBandTest {
         assertEquals(minOf(real.bounds.width, real.bounds.height), copy.bounds.width, .001f)
         assertEquals(maxOf(real.bounds.width, real.bounds.height), copy.bounds.height, .001f)
         val lane = k.scene().combatLabels.single()
-        assertTrue(lane.chip.bottom < copy.bounds.y && lane.valueBounds!!.y >= lane.chip.bottom - .001f)
+        assertTrue(lane.chip.bottom < copy.bounds.y)
         render()
         compose.onNodeWithTag("main-button").assert(hasContentDescription("Attack (1)"))
         compose.onNodeWithContentDescription("${bobName()}: ${lane.value}").assertExists()
         captureShot("$SCREENSHOTS/combat-band/staged.png",
-            "Alice tapped her ready Ember Cub: the band opened by itself between the battlefields, pushing them apart, with the Cub's copy at battlefield size in the lane under Bob's chip, his life under the chip, and the main button reading Attack (1).")
+            "Alice tapped her ready Ember Cub: the band opened by itself between the battlefields, pushing them apart, with the Cub's copy at battlefield size in the lane under Bob's chip, his life on the chip after his name, and the main button reading Attack (1).")
     }
 
     // CMB-001, CMB-007 (owner, 2026-11-05): the open band in landscape
@@ -210,6 +211,25 @@ class CombatBandTest {
         render(k.f.b)
         captureShot("$SCREENSHOTS/combat-band/blocks.png",
             "Bob declares blockers: in the band between the battlefields, mirrored for him, his Ember Cub's copy blocks Alice's attacking Cub with an arrow from blocker to attacker, the damage preview on both, and the main button reads Block (1).")
+    }
+
+    // CMB-013, CMB-029 (owner gallery review 2026-11-06): while Bob declares blockers with none placed, his target chip shows
+    // what the damage preview would make of his life ("20 → 18") in red, the chip widened about its centre
+    @Test fun theChipShowsTheDamagePreview() {
+        val attacker = aliceDeclaring()
+        k.tap(k.item(attacker))
+        k.settle()
+        assertTrue(k.toolkit.automatumStep(TableActionIntent.Next(k.scope)), "Attack (1)")
+        k.playOn("Bob declaring blockers", bobActs = false) {
+            Engine.options(k.bob.device.model.engine, k.other).any { it is Input.DeclareBlockers }
+        }
+        k.bobToolkit.combat.show(k.bob.play(), AutomatumBoards.combat(k.bob.play()))
+        render(k.f.b)
+        val lane = k.scene(k.f.b).combatLabels.single { it.cardId == null }
+        val life = lane.value.toInt()
+        compose.onNodeWithContentDescription("${bobName()} would go from $life to ${life - 2}").assertExists()
+        captureShot("$SCREENSHOTS/combat-band/chip-preview.png",
+            "Bob declares blockers with none placed yet: his target chip at the bottom of the band, mirrored for him, reads his name and $life → ${life - 2} in red, what Alice's unblocked Ember Cub would do to his life.")
     }
 
     // CMB-040, CMB-049 (owner, 2026-11-05): Bob is away when Alice attacks; while she waits for his blocks her table is at

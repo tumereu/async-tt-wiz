@@ -281,7 +281,7 @@ internal object KeywordExpansionsMore {
         // CR 702.171a: "Tap any number of other untapped creatures you control with total power N or more: This permanent becomes saddled
         // until end of turn. Activate only as a sorcery." (saddled ends in the cleanup step)
         is Keyword.Saddle -> listOf(Ability.Activated(Cost(listOf(CostPart.TapObjects(CostObjects.Choose(otherUntappedCreatureYouControl, count = null,
-            total = Total(NumericProperty.Power, Value.Fixed(keyword.amount)))))), steps(Effect.Mark(Objects.Self, ObjectMark.Saddled)),
+            total = Total(NumericProperty.PowerFor(Keyword.Saddle.Kind), Value.Fixed(keyword.amount)))))), steps(Effect.Mark(Objects.Self, ObjectMark.Saddled)),
             ActivationRules(timing = Timing.Sorcery, activatedBy = PlayerFilter.You)))
         // CR 702.124j: "When this permanent enters, target player may search their library for a card named [name], reveal it, put it into
         // their hand, then shuffle."

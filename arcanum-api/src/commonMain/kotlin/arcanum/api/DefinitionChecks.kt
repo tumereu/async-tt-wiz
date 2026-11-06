@@ -64,6 +64,8 @@ object DefinitionChecks {
         "unattach" to setOf("object", "from"),
         // CR 701.62a, b: the manifested permanent and the cards put into the graveyard
         "manifest-dread" to setOf("object", "rest"),
+        // dft: tapped to crew or saddle: the Vehicle or Mount (CR 702.122b, 702.171c)
+        "tap" to setOf("object", "source"),
     )
     private val selfAffected = json.encodeToJsonElement(Affected.serializer(), Affected.Objects(Objects.Self))
     private val eventScoped =setOf("replacement", "prevention", "cost-change", "triggers-additional-time", "damage-cant-be-prevented")

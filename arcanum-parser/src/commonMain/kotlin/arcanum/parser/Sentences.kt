@@ -162,6 +162,7 @@ internal class Sentences(
     private var triggerIt: Pair<Objects, Zone?>? = null
 
     fun line(line: String): Ability? {
+        dftLine(line)?.let { return it } // dft
         finLine(line)?.let { return it } // fin
         MechanicWordings.static(line, ::isSelf, OracleParser::keyword) { Sentences(setOf("this creature")).line(it) }?.let { return it }
         mechanicLine(line)?.let { return it }
@@ -211,6 +212,276 @@ internal class Sentences(
             }
         }
         return static(line) ?: triggered(line) ?: activated(line) ?: spell(line) ?: fraStaticLate(line) /* fra */ ?: finLate(line) // fin
+    }
+
+    // ---- dft: Aetherdrift wordings (regexes in DftWordings.kt), tried first; each reads one wording and falls through
+
+    private fun dftSlot(name: String, filter: ObjectFilter, min: Int = 1, max: Int? = 1) =
+        TargetSlot(name, TargetKind.Objects(filter), min = Value.Fixed(min), max = max?.let { Value.Fixed(it) })
+    private fun dftUntilEndOfTurn(objects: Objects, mechanics: List<Mechanic>) =
+        Step.Do(Effect.ApplyMechanics(mechanics, Affected.Objects(objects), arcanum.api.Duration.EndOfTurn))
+    private val dftArtifactCreature = Mechanic.SetTypes(add = listOf(CardType.Artifact, CardType.Creature))
+    private fun dftKeywords(text: String): List<Ability>? = text.split(Regex(""",? and |, """)).map { OracleParser.keyword(it.trim()) ?: return null }
+    private fun dftInYourGraveyard(filter: ObjectFilter) = Filters.all(filter, ObjectFilter.InZone(Zone.Graveyard), ObjectFilter.OwnedBy(PlayerFilter.You))
+    /** The subject of a sentence: this object, "it" (this object in its own enters trigger, else what "it" refers to), or "Target …" (a new
+     * target slot). */
+    private fun dftSubject(subject: String, context: Context): Objects? {
+        if (isSelf(subject)) return Objects.Self
+        if (subject == "It" || subject == "it") {
+            val selfEnters = (context.event as? EventPattern.ZoneChange)?.objects == ObjectFilter.Is(Objects.Self)
+            return if (selfEnters || context.it == null) Objects.Self else context.it
+        }
+        if (subject.startsWith("Target ")) {
+            val noun = subject.removePrefix("Target ")
+            val name = Filters.slotName(noun)
+            context.targets += dftSlot(name, Filters.noun(noun) ?: return null)
+            return Objects.Target(name)
+        }
+        return null
+    }
+
+    /** Whole lines. */
+    private fun dftLine(line: String): Ability? {
+        // dft chunk 01: "During turns other than yours, this Vehicle is an artifact creature." (a static ability with a condition)
+        Dft.DURING_OTHER_TURNS.matchEntire(line)?.let { m ->
+            val rest = m.groupValues[1].replaceFirstChar { it.uppercase() }
+            val inner = dftLine(rest) ?: static(rest) ?: return null
+            if (inner !is Ability.Static || inner.condition != null) return null
+            return inner.copy(condition = arcanum.api.Condition.Not(arcanum.api.Condition.YourTurn))
+        }
+        // dft chunk 01: "This Vehicle is an artifact creature." (layer 4, CR 301.7b)
+        Dft.IS_AN_ARTIFACT_CREATURE.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let {
+            return Ability.Static(listOf(dftArtifactCreature), affects = Affected.Objects(Objects.Self))
+        }
+        // dft chunk 01: "The Last Ride gets -X/-X, where X is your life total." (layer 7c)
+        Dft.GETS_X_WHERE.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            val x = Values.value(m.groupValues[4]) ?: return null
+            fun signed(sign: String) = if (sign == "-") Value.Times(x, -1) else x
+            return Ability.Static(listOf(Mechanic.ModifyPowerToughness(signed(m.groupValues[2]), signed(m.groupValues[3]))), affects = Affected.Objects(Objects.Self))
+        }
+        // dft chunk 01: "Activated abilities of sources with the chosen name cost {2} more to activate." (the name chosen as it entered,
+        // CR 607.2d; CR 601.2f)
+        Dft.ABILITIES_OF_CHOSEN_NAME_COST_MORE.matchEntire(line)?.let { m ->
+            val what = ObjectFilter.AbilityOf(kind = arcanum.api.AbilityKind.Activated, source = ObjectFilter.RememberedName("name"))
+            return Ability.Static(listOf(Mechanic.CostChange(what, arcanum.api.CostChange.More(ManaCost.parse(m.groupValues[1]) ?: return null, Value.Fixed(1)))),
+                affects = Affected.Objects(Objects.Self))
+        }
+        // dft chunk 02: "Each other Vehicle and creature you control enters with an additional +1/+1 counter on it if its mana value is 4 or
+        // less. Otherwise, it enters with three additional +1/+1 counters on it." (two replacements by mana value, CR 614.1c)
+        Dft.ENTERS_WITH_ADDITIONAL_IF_MV_OTHERWISE.matchEntire(line)?.let { m ->
+            val kinds = m.groupValues[1].split(" and ").map { Filters.noun(it) ?: return null }
+            val entering = Filters.all(ObjectFilter.Not(ObjectFilter.Is(Objects.Self)), if (kinds.size == 1) kinds.single() else ObjectFilter.Or(kinds),
+                ObjectFilter.ControlledBy(PlayerFilter.You))
+            val kind = Counters.kind(m.groupValues[2]) ?: return null
+            val mv = Value.Fixed(m.groupValues[3].toInt())
+            fun replacement(comparison: arcanum.api.Comparison, n: Int) = Mechanic.Replacement(EventPattern.ZoneChange(
+                Filters.all(entering, ObjectFilter.ManaValue(comparison, mv)), to = Zone.Battlefield), modify = listOf(Modification.EntersWithCounters(kind, Value.Fixed(n))))
+            return Ability.Static(listOf(replacement(arcanum.api.Comparison.AtMost, 1),
+                replacement(arcanum.api.Comparison.Greater, Numbers.count(m.groupValues[4]) ?: return null)), affects = Affected.Objects(Objects.Self))
+        }
+        // dft chunk 05: "This creature saddles Mounts and crews Vehicles as though its power were 2 greater." / "… using its toughness rather than its
+        // power." (what it counts for as it is tapped to pay those costs, CR 702.171a, 702.122a)
+        Dft.SADDLES_AND_CREWS_AS_THOUGH_GREATER.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            val n = m.groupValues[2].toInt()
+            return Ability.Static(listOf(Mechanic.PowerGreaterFor(arcanum.api.Keyword.Saddle.Kind, n), Mechanic.PowerGreaterFor(arcanum.api.Keyword.Crew.Kind, n)),
+                affects = Affected.Objects(Objects.Self))
+        }
+        Dft.SADDLES_AND_CREWS_USING_TOUGHNESS.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let {
+            return Ability.Static(listOf(Mechanic.UsesToughnessFor(arcanum.api.Keyword.Saddle.Kind), Mechanic.UsesToughnessFor(arcanum.api.Keyword.Crew.Kind)),
+                affects = Affected.Objects(Objects.Self))
+        }
+        // dft chunk 02: "Vehicle creatures you control are the chosen creature type in addition to their other types." (the type chosen as it
+        // entered, CR 607.2d; layer 4)
+        Dft.ARE_THE_CHOSEN_TYPE_IN_ADDITION.matchEntire(line)?.let { m ->
+            val affected = Filters.noun(m.groupValues[1]) ?: return null
+            return Ability.Static(listOf(Mechanic.SetTypes(addSubtypes = listOf(arcanum.api.SubtypeRef.Remembered("type")))), affects = Affected.Objects(Objects.Each(affected)))
+        }
+        return null
+    }
+
+    /** Cost parts. */
+    private fun dftCostPart(text: String): List<CostPart>? {
+        // dft chunk 01: "Tap three other untapped creatures you control"
+        Dft.TAP_N_OTHER_UNTAPPED.matchEntire(text)?.let { m ->
+            val n = Numbers.count(m.groupValues[1]) ?: return null
+            val filter = Filters.noun(m.groupValues[2]) ?: return null
+            return listOf(CostPart.TapObjects(CostObjects.Choose(Filters.all(ObjectFilter.Not(ObjectFilter.Is(Objects.Self)), filter), count = Value.Fixed(n))))
+        }
+        return null
+    }
+
+    /** Trigger events, with a condition checked as it would trigger. */
+    private fun dftTrigger(text: String): Pair<arcanum.api.Trigger.On, arcanum.api.Condition?>? {
+        // dft chunk 02: "you activate an exhaust ability" (mana abilities too, CR 702.177a)
+        if (text == "you activate an exhaust ability") return arcanum.api.Trigger.On(EventPattern.Activate(ObjectFilter.Any, PlayerFilter.You, manaAbilities = true,
+            label = arcanum.api.AbilityLabel.Exhaust)) to null
+        // dft chunk 04: "this creature attacks while saddled": it attacks while it is saddled (CR 702.171b)
+        val saddledSelf = Filters.all(ObjectFilter.Is(Objects.Self), DftPhrases.SADDLED)
+        Dft.ATTACKS_WHILE_SADDLED.matchEntire(text)?.takeIf { isSelf(it.groupValues[1]) }?.let {
+            return arcanum.api.Trigger.On(EventPattern.Attack(saddledSelf)) to null
+        }
+        // dft chunk 04: "this creature enters and whenever it attacks while saddled" (one ability, two events, CR 603.2)
+        Dft.ENTERS_AND_WHENEVER_IT_ATTACKS_WHILE_SADDLED.matchEntire(text)?.takeIf { isSelf(it.groupValues[1]) }?.let {
+            return arcanum.api.Trigger.On(listOf(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), to = Zone.Battlefield), EventPattern.Attack(saddledSelf))) to null
+        }
+        // dft chunk 05: "this creature saddles a Mount or crews a Vehicle during your main phase": tapped to pay a saddle or crew cost (CR 702.171c,
+        // 702.122b), checked as it would trigger
+        Dft.SADDLES_OR_CREWS_DURING_YOUR_MAIN_PHASE.matchEntire(text)?.takeIf { isSelf(it.groupValues[1]) }?.let {
+            val main = arcanum.api.Condition.And(listOf(arcanum.api.Condition.YourTurn, arcanum.api.Condition.Or(listOf(
+                arcanum.api.Condition.StepIs(arcanum.api.TurnStep.PrecombatMain), arcanum.api.Condition.StepIs(arcanum.api.TurnStep.PostcombatMain)))))
+            return arcanum.api.Trigger.On(listOf(EventPattern.Tap(ObjectFilter.Is(Objects.Self), forCost = arcanum.api.Keyword.Saddle.Kind),
+                EventPattern.Tap(ObjectFilter.Is(Objects.Self), forCost = arcanum.api.Keyword.Crew.Kind))) to main
+        }
+        return null
+    }
+
+    /** Wordings of several sentences, read as a whole. */
+    private fun dftWhole(text: String, context: Context): List<Step>? {
+        // dft chunk 01: "For each player, destroy up to one target creature that player controls. If a creature you controlled was destroyed
+        // this way, …" (one target for each player, CR 601.2c; the destroyed creatures as they last existed, CR 608.2h)
+        Dft.FOR_EACH_PLAYER_DESTROY_UP_TO_ONE.matchEntire(text)?.let { m ->
+            val noun = Filters.noun(m.groupValues[1]) ?: return null
+            val name = Filters.slotName(m.groupValues[1])
+            context.targets += dftSlot(name, Filters.all(noun, ObjectFilter.ControlledBy(PlayerFilter.Is(Players.SlotPlayer))), min = 0).copy(perPlayer = PlayerFilter.Any)
+            val yours = Filters.all(Filters.noun(m.groupValues[2]) ?: return null, ObjectFilter.ControlledBy(PlayerFilter.You))
+            val then = effect(m.groupValues[3].replaceFirstChar { it.uppercase() }, context) ?: return null
+            return listOf(Step.Do(Effect.Destroy(Objects.Target(name), preBind = "destroyed")),
+                Step.If(arcanum.api.Condition.Compare(Value.Count(Objects.Where(Objects.Bound("destroyed"), yours)), arcanum.api.Comparison.AtLeast, Value.Fixed(1)),
+                    then = then))
+        }
+        // dft chunk 01: "Gain control of target creature an opponent controls for as long as you control this Vehicle. That creature can't attack or
+        // block for as long as you control this Vehicle." (layer 2; the restriction for the same duration)
+        Dft.GAIN_CONTROL_AS_LONG_AS_CANT_ATTACK_OR_BLOCK.matchEntire(text)?.takeIf { isSelf(it.groupValues[2]) && isSelf(it.groupValues[3]) }?.let { m ->
+            val name = Filters.slotName(m.groupValues[1])
+            context.targets += dftSlot(name, Filters.noun(m.groupValues[1]) ?: return null)
+            val asLong = arcanum.api.Duration.AsLongAs(arcanum.api.Condition.ObjectMatches(Objects.Self, ObjectFilter.ControlledBy(PlayerFilter.You)))
+            val it = Affected.Objects(Objects.Target(name))
+            return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.ControlledBy(Players.You)), it, asLong)),
+                Step.Do(Effect.ApplyMechanics(listOf(Mechanic.CantAttack(), Mechanic.CantBlock(ObjectFilter.Any)), it, asLong)))
+        }
+        // dft chunk 03: "Choose up to one target Vehicle you control. Until end of turn, it becomes …" (the rest about that target)
+        Dft.CHOOSE_UP_TO_ONE_TARGET_THEN.matchEntire(text)?.takeIf {
+            it.groupValues[2].startsWith("Until end of turn, it ") || Dft.UNTIL_EOT_SADDLED_IF_MOUNT_CREATURE_IF_VEHICLE.matches(it.groupValues[2])
+        }?.let { m ->
+            val name = Filters.slotName(m.groupValues[1])
+            context.targets += dftSlot(name, Filters.noun(m.groupValues[1]) ?: return null, min = 0)
+            val target = Objects.Target(name)
+            context.it = target
+            // "Until end of turn, that permanent becomes saddled if it's a Mount and becomes an artifact creature if it's a Vehicle." (CR 702.171b)
+            if (Dft.UNTIL_EOT_SADDLED_IF_MOUNT_CREATURE_IF_VEHICLE.matches(m.groupValues[2])) return listOf(
+                Step.If(arcanum.api.Condition.ObjectMatches(target, Filters.noun("Mount") ?: return null), then = listOf(Step.Do(Effect.Mark(target, arcanum.api.ObjectMark.Saddled)))),
+                Step.If(arcanum.api.Condition.ObjectMatches(target, Filters.noun("Vehicle") ?: return null), then = listOf(dftUntilEndOfTurn(target, listOf(dftArtifactCreature)))))
+            val slots = context.targets.size
+            effect(m.groupValues[2], context)?.takeIf { context.targets.size == slots }?.let { return it }
+            while (context.targets.size > slots - 1) context.targets.removeAt(context.targets.lastIndex)
+            return null
+        }
+        // dft chunk 03: "Return target artifact card from your graveyard to the battlefield. If it's a Vehicle, it becomes an artifact creature." (for good)
+        Dft.RETURN_TARGET_IF_IT_BECOMES.matchEntire(text)?.let { m ->
+            context.targets += dftSlot("card", dftInYourGraveyard(Filters.noun(m.groupValues[1]) ?: return null))
+            val returned = Objects.Bound("returned")
+            return listOf(Step.Do(Effect.Move(Objects.Target("card"), Destination(Zone.Battlefield), postBind = "returned")),
+                Step.If(arcanum.api.Condition.ObjectMatches(returned, Filters.noun(m.groupValues[2]) ?: return null), then = listOf(
+                    Step.Do(Effect.ApplyMechanics(listOf(dftArtifactCreature), Affected.Objects(returned), arcanum.api.Duration.Indefinitely)))))
+        }
+        // dft chunk 03: "Return all Mount and Vehicle cards from your graveyard to the battlefield. Sacrifice them at the beginning of the next end
+        // step." (a delayed trigger, CR 603.7)
+        Dft.RETURN_ALL_THEN_SACRIFICE_THEM.matchEntire(text)?.let { m ->
+            val kinds = m.groupValues[1].split(" and ").map { Filters.noun(it) ?: return null }
+            val returned = Objects.Bound("returned")
+            return listOf(Step.Do(Effect.Move(Objects.Each(dftInYourGraveyard(if (kinds.size == 1) kinds.single() else ObjectFilter.Or(kinds))), Destination(Zone.Battlefield),
+                    postBind = "returned")),
+                Step.Do(Effect.CreateDelayedTrigger(arcanum.api.Trigger.On(EventPattern.StepBegins(arcanum.api.TurnStep.End, PlayerFilter.Any)),
+                    Instructions(steps = listOf(Step.Do(Effect.Sacrifice(returned)))))))
+        }
+        // dft chunk 05: "Create X 1/1 colorless Pilot creature tokens. The tokens have "…"" (X defined by "where X is", CR 107.3c; CR 111.4)
+        Dft.CREATE_X_TOKENS_THEY_HAVE.matchEntire(text)?.let { m ->
+            val token = Tokens.defined("a " + m.groupValues[1] + " token") ?: return null
+            val granted = Sentences(setOf("this token", "this creature")).line(m.groupValues[2]) ?: return null
+            return listOf(Step.Do(Effect.CreateToken(token.copy(face = token.face.copy(abilities = listOf(granted))), Value.Announced("X"), Players.You)))
+        }
+        // dft chunk 02: "You may search your library for an artifact card and reveal it. Put it onto the battlefield if its mana value is 2 or less.
+        // Otherwise, put it into your hand. If you search your library this way, shuffle." (no search, no shuffle, CR 701.23)
+        Dft.MAY_SEARCH_REVEAL_PUT_IF_MV_OTHERWISE.matchEntire(text)?.let { m ->
+            val found = Objects.Bound("found")
+            return listOf(Step.May(listOf(
+                Step.Do(Effect.Search(Players.You, Filters.noun(m.groupValues[1]) ?: return null, max = Value.Fixed(1), reveal = true, zones = listOf(Zone.Library),
+                    bind = "found", searcher = Players.You)),
+                Step.If(arcanum.api.Condition.ObjectMatches(found, ObjectFilter.ManaValue(arcanum.api.Comparison.AtMost, Value.Fixed(m.groupValues[2].toInt()))),
+                    then = listOf(Step.Do(Effect.Move(found, Destination(Zone.Battlefield)))), otherwise = listOf(Step.Do(Effect.Move(found, Destination(Zone.Hand))))),
+                Step.Do(Effect.Shuffle(Players.You))), player = Players.You))
+        }
+        return null
+    }
+
+    /** One sentence. */
+    private fun dftEffect(sentence: String, context: Context): List<Step>? {
+        // dft chunk 01: "Until end of turn, this Vehicle becomes an artifact creature and gains flying." (CR 301.7b, 613.1d, f)
+        Dft.UNTIL_EOT_BECOMES_ARTIFACT_CREATURE_AND_GAINS.matchEntire(sentence)?.let { m ->
+            val objects = dftSubject(m.groupValues[1], context) ?: return null
+            val keywords = dftKeywords(m.groupValues[2]) ?: return null
+            context.it = objects
+            return listOf(dftUntilEndOfTurn(objects, listOf(dftArtifactCreature, Mechanic.GainAbilities(keywords))))
+        }
+        // dft chunk 05: "That Mount or Vehicle gains flying until end of turn." after saddling or crewing: the permanent whose cost it paid
+        Dft.THAT_MOUNT_OR_VEHICLE.matchEntire(sentence)?.takeIf { (context.event as? EventPattern.Tap)?.forCost != null }?.let { m ->
+            context.it = Objects.EventObject(EventRole.Source)
+            return effect("It " + m.groupValues[1], context)
+        }
+        // dft chunk 03: "Create a 3/2 colorless Vehicle artifact token with crew 1." (an artifact, a creature only once crewed, CR 301.7)
+        Dft.CREATE_VEHICLE_TOKEN.matchEntire(sentence)?.let { m ->
+            val token = arcanum.api.TokenSpec.Defined(arcanum.api.FaceDefinition("Vehicle Token", colorIndicator = emptyList(), types = listOf(CardType.Artifact),
+                subtypes = listOf(Subtype("Vehicle")), power = arcanum.api.PrintedNumber.Fixed(m.groupValues[1].toInt()),
+                toughness = arcanum.api.PrintedNumber.Fixed(m.groupValues[2].toInt()), abilities = listOf(arcanum.api.Keyword.Crew(m.groupValues[3].toInt()))))
+            return listOf(Step.Do(Effect.CreateToken(token, Value.Fixed(1), Players.You)))
+        }
+        // dft chunk 03: "Vehicles you control become artifact creatures until end of turn." (the Vehicles then, CR 611.2c)
+        Dft.BECOME_ARTIFACT_CREATURES_UNTIL_EOT.matchEntire(sentence)?.let { m ->
+            val filter = Filters.noun(m.groupValues[1]) ?: return null
+            return listOf(dftUntilEndOfTurn(Objects.Each(filter), listOf(dftArtifactCreature)))
+        }
+        // dft chunk 03: "it becomes saddled until end of turn." (the entering Mount), "Target Mount you control becomes saddled until end of turn."
+        // (CR 702.171b: saddled until end of turn)
+        Dft.BECOMES_SADDLED_UNTIL_EOT.matchEntire(sentence)?.let { m ->
+            val objects = dftSubject(m.groupValues[1], context) ?: return null
+            return listOf(Step.Do(Effect.Mark(objects, arcanum.api.ObjectMark.Saddled)))
+        }
+        // dft chunk 02: "This Vehicle becomes an artifact creature." (for good, CR 611.2a) / "… until end of turn."; "it" in an enters
+        // trigger of this Vehicle is this Vehicle, in another's the entering one
+        Dft.BECOMES_AN_ARTIFACT_CREATURE.matchEntire(sentence)?.let { m ->
+            val objects = dftSubject(m.groupValues[1], context) ?: return@let
+            context.it = objects
+            val duration = if (m.groupValues[2].isEmpty()) arcanum.api.Duration.Indefinitely else arcanum.api.Duration.EndOfTurn
+            return listOf(Step.Do(Effect.ApplyMechanics(listOf(dftArtifactCreature), Affected.Objects(objects), duration)))
+        }
+        // dft chunk 02: "Distribute two +1/+1 counters among one or two other target Vehicles and/or creatures you control." (divided as the
+        // targets are chosen, CR 601.2d)
+        Dft.DISTRIBUTE_AMONG_ONE_OR_TWO.matchEntire(sentence)?.takeIf { it.groupValues[5].contains(" and/or ") }?.let { m ->
+            val amount = Numbers.count(m.groupValues[1]) ?: return null
+            val kind = Counters.kind(m.groupValues[2]) ?: return null
+            val noun = Filters.noun(m.groupValues[5]) ?: return null
+            val filter = if (m.groupValues[4].isEmpty()) noun else Filters.all(ObjectFilter.Not(ObjectFilter.Is(Objects.Self)), noun)
+            context.targets += dftSlot("permanents", filter, min = 1, max = Numbers.count(m.groupValues[3]) ?: return null).copy(divided = Value.Fixed(amount))
+            return listOf(Step.Do(Effect.PutCounters(Objects.Target("permanents"), kind, Value.DividedShare)))
+        }
+        // dft chunk 01: "Return a creature or Vehicle card from your graveyard to your hand." (chosen as it resolves, not targeted)
+        Dft.RETURN_A_CARD_FROM_YOUR_GRAVEYARD.matchEntire(sentence)?.let { m ->
+            val filter = dftInYourGraveyard(Filters.noun(m.groupValues[1]) ?: return null)
+            return listOf(Step.Choose(arcanum.api.Choice.Objects(filter, min = Value.Fixed(1), max = Value.Fixed(1)), bind = "chosen", chooser = Players.You),
+                Step.Do(Effect.Move(Objects.Bound("chosen"), Destination(Zone.Hand))))
+        }
+        // dft chunk 01: "Return up to one target artifact card from your graveyard to the battlefield."
+        Dft.RETURN_UP_TO_ONE_TARGET_TO_BATTLEFIELD.matchEntire(sentence)?.let { m ->
+            val filter = dftInYourGraveyard(Filters.noun(m.groupValues[1]) ?: return null)
+            context.targets += dftSlot("card", filter, min = 0)
+            return listOf(Step.Do(Effect.Move(Objects.Target("card"), Destination(Zone.Battlefield))))
+        }
+        // dft chunk 01: "Create that many tapped 2/2 black Zombie creature tokens." after discarding one or more cards: one per card
+        Dft.CREATE_THAT_MANY.matchEntire(sentence)?.takeIf { context.event is EventPattern.Discard }?.let { m ->
+            val (_, token) = Tokens.spec("two " + m.groupValues[2]) ?: return null
+            return listOf(Step.Do(Effect.CreateToken(token, Value.Count(Objects.EventObject(EventRole.After)), Players.You, tapped = m.groupValues[1].isNotEmpty())))
+        }
+        return null
     }
 
     // ---- Mechanics the engine plays since its lanes 1–4 ([MechanicWordings]); each rule reads one wording and falls through
@@ -1525,6 +1796,7 @@ internal class Sentences(
     /** A trigger's events. "One or more …" triggers once per batch; "during your turn" is checked as it would trigger. */
     // chunk 21
     private fun trigger(text: String): Pair<arcanum.api.Trigger.On, arcanum.api.Condition?>? {
+        dftTrigger(text)?.let { return it } // dft
         spmTrigger(text)?.let { return it } // spm
         eclTrigger(text)?.let { return it } // ecl
         val during = DURING_YOUR_TURN.matchEntire(text)
@@ -1674,6 +1946,7 @@ internal class Sentences(
             return listOf(CostPart.PayLife(Value.Of(arcanum.api.NumericProperty.Power, Objects.Self, arcanum.api.Combine.Single)))
         }
         mechanicCostPart(text)?.let { return it }
+        dftCostPart(text)?.let { return it } // dft
         tdmCostPart(text)?.let { return it } // tdm
         eoeCostPart(text)?.let { return it } // eoe
         tlaCostPart(text)?.let { return it } // tla
@@ -1850,6 +2123,8 @@ internal class Sentences(
         if (event is EventPattern.Damage && event.source == ObjectFilter.Is(Objects.Self) && event.to.objects == null && event.to.players != null) context.it = Objects.Self
         // chunk 36: "Whenever this creature attacks, put a +1/+1 counter on it": it is this creature
         if (event is EventPattern.Attack && event.attacker == ObjectFilter.Is(Objects.Self)) context.it = Objects.Self
+        // dft chunk 04: also "this creature attacks while saddled" (this creature, saddled)
+        if (event is EventPattern.Attack && (event.attacker as? ObjectFilter.And)?.all?.firstOrNull() == ObjectFilter.Is(Objects.Self)) context.it = Objects.Self
         context.them = them
         context.definedX = x // tla
         // chunk 20
@@ -1866,7 +2141,8 @@ internal class Sentences(
             val wholeFrom = context.targets.size
             // eoe chunk 09: also a quoted ability's own period before the next sentence ('gains "…." That creature's controller …')
             val whole = (if (body.contains(".\" ")) eoeWhole(body.replaceFirstChar { it.uppercase() }, context) else null) // eoe
-                ?: if (body.contains(". ")) eoeWhole(body.replaceFirstChar { it.uppercase() }, context) // eoe
+                ?: if (body.contains(". ")) dftWhole(body.replaceFirstChar { it.uppercase() }, context) // dft
+                ?: eoeWhole(body.replaceFirstChar { it.uppercase() }, context) // eoe
                 ?: tdmWhole(body.replaceFirstChar { it.uppercase() }, context) // tdm
                 ?: spmWhole(body.replaceFirstChar { it.uppercase() }, context) // spm
                 ?: eclWhole(body.replaceFirstChar { it.uppercase() }, context) // ecl
@@ -3131,6 +3407,7 @@ internal class Sentences(
         MechanicWordings.effect(sentence)?.let { return it }
         mechanicEffect(sentence, context)?.let { return it }
         dungeonEffect(sentence, context)?.let { return it } // dungeons
+        dftEffect(sentence, context)?.let { return it } // dft
         tdmEffect(sentence, context)?.let { return it } // tdm
         eoeEffect(sentence, context)?.let { return it } // eoe
         finEffect(sentence, context)?.let { return it } // fin

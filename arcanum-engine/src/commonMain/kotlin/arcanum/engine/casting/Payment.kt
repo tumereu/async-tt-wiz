@@ -229,7 +229,7 @@ internal object Payment {
             }
         }
         addMana(recorder, player, yields.flatMap { Mana.units(it, use.color, use.source) })
-        recorder.record(Change.Happened(GameEvent.Activated(player, use.source, inst.origin.key, manaAbility = true)))
+        recorder.record(Change.Happened(GameEvent.Activated(player, use.source, inst.origin.key, manaAbility = true, label = ability.label)))
         countActivation(recorder, use.source, inst.origin, loyalty = false)
         arcanum.engine.trigger.Triggers.resolveManaTriggers(recorder)
     }
@@ -293,6 +293,8 @@ internal object Payment {
                 check(ids, Zone.Battlefield)
                 // msh: tapped to pay a keyword's cost ("becomes tapped to pay a teamwork cost", CR 702.194a)
                 val paidFor = plan.costKeyword(kp.key)?.let { listOf(Meaning.PaidFor(it)) }.orEmpty() +
+                    // dft: tapped for a Vehicle's crew or a Mount's saddle ability: it crewed or saddled that permanent (CR 702.122b, 702.171c)
+                    listOfNotNull(plan.keyword()?.takeIf { it is Keyword.Crew || it is Keyword.Saddle }?.let { Meaning.PaidFor(it.kind, source = plan.sourceId) }) +
                     // tmt: tapped for a Vehicle's crew ability: they crewed it (CR 702.122b)
                     listOfNotNull(Meaning.Crewed(plan.sourceId).takeIf { plan.keyword() is Keyword.Crew })
                 ids.forEach { if (recorder.state.obj(it)?.tapped != false) refuse("$it is tapped"); recorder.record(Changes.tap(recorder.state, it, meanings = paidFor)) }
@@ -567,7 +569,7 @@ internal object Payment {
             plan.snap.evaluator(plan.player, self = plan.sourceId, names = plan.names.with(names), stackItem = plan.item).value(part.amount)
         }
         recorder.record(Change.Happened(GameEvent.Activated(plan.player, plan.sourceId, origin.key, manaAbility = false, loyalty = loyaltyCost,
-            keyword = plan.keyword()?.kind?.id, item = plan.item.id)))
+            keyword = plan.keyword()?.kind?.id, item = plan.item.id, label = (plan.ability as? Ability.Activated)?.label)))
         val item = plan.item.copy(names = plan.item.names.with(names), snapshots = plan.item.snapshots + snapshots,
             divided = plan.item.divided + plan.wholeShares(), timestamp = s.nextTimestamp())
         recorder.record(Change.StackItemAdded(item, s.stack.size, listOf(Meaning.Activated)))
@@ -607,7 +609,8 @@ internal object Payment {
                 else yields.flatMap { Mana.units(it, colors.firstOrNull(), plan.sourceId) }
             addMana(recorder, plan.player, units)
         }
-        recorder.record(Change.Happened(GameEvent.Activated(plan.player, plan.sourceId, plan.origin!!.key, manaAbility = true)))
+        recorder.record(Change.Happened(GameEvent.Activated(plan.player, plan.sourceId, plan.origin!!.key, manaAbility = true,
+            label = (plan.ability as? Ability.Activated)?.label)))
         countActivation(recorder, plan.sourceId, plan.origin, loyalty = false)
         arcanum.engine.trigger.Triggers.resolveManaTriggers(recorder)
         Casting.keepPriority(recorder, plan.player)

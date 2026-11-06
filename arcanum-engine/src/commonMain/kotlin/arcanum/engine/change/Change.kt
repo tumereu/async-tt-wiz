@@ -427,6 +427,9 @@ sealed interface GameEvent {
         // gtc backfill
         /** The ability put on the Stack (none for a mana ability), "that ability" of a trigger on its activation. */
         val item: ObjectId? = null,
+        // dft
+        /** The ability's label ("whenever you activate an exhaust ability", CR 702.177a). */
+        val label: arcanum.api.AbilityLabel? = null,
     ) : GameEvent
     /** [ids] were revealed to every player (CR 701.20). */
     @Serializable @SerialName("revealed") data class Revealed(val player: PlayerId, val ids: List<ObjectId>) : GameEvent
@@ -558,6 +561,9 @@ sealed interface Meaning {
     /** Done to pay that keyword's cost (tapped for teamwork, CR 702.194a). */
     @Serializable @SerialName("paid-for") data class PaidFor(
         @Serializable(with = arcanum.api.KeywordKindSerializer::class) val keyword: arcanum.api.KeywordKind,
+        // dft
+        /** The permanent whose ability's cost it paid (a crew or saddle ability: "that Mount or Vehicle", CR 702.171c, 702.122b). */
+        val source: ObjectId? = null,
     ) : Meaning
     // tmt
     /** Tapped to pay the cost of [vehicle]'s crew ability: it crewed that Vehicle (CR 702.122b, c). */

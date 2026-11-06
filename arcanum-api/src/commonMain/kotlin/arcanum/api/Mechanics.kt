@@ -235,6 +235,19 @@ sealed interface Mechanic {
     // eoe
     /** Stations permanents using its toughness rather than its power (CR 702.184c): what [NumericProperty.Stationing] reads. */
     @Serializable @SerialName("stations-with-toughness") data object StationsWithToughness : Mechanic
+    // dft
+    /** Counts its toughness rather than its power as it is tapped to pay [keyword]'s cost ("This creature saddles Mounts and crews Vehicles
+     * using its toughness rather than its power", CR 702.122a, 702.171a): what [NumericProperty.PowerFor] reads. */
+    @Serializable @SerialName("uses-toughness-for") data class UsesToughnessFor(
+        @Serializable(with = KeywordKindSerializer::class) val keyword: KeywordKind,
+    ) : Mechanic
+    /** Counts as though its power were [amount] greater as it is tapped to pay [keyword]'s cost ("This creature saddles Mounts and crews
+     * Vehicles as though its power were 2 greater"): what [NumericProperty.PowerFor] reads; instances add up. */
+    @Serializable @SerialName("power-greater-for") data class PowerGreaterFor(
+        @Serializable(with = KeywordKindSerializer::class) val keyword: KeywordKind, val amount: Int,
+    ) : Mechanic {
+        override val stacking: Stacking get() = Stacking.Additive
+    }
 
     // ---- Permissions, costs and casting (CR 601, 117, 118) ----
     /** May be cast (or activated) at any time it could cast an instant (flash, CR 702.8): the affected objects. */

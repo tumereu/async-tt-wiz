@@ -1,6 +1,7 @@
 package arcanum.engine.view
 
 import arcanum.api.Ability
+import arcanum.api.isManaAbility
 import arcanum.api.Affected
 import arcanum.api.CardType
 import arcanum.api.Color
@@ -622,6 +623,8 @@ internal class LayerRun(private val state: GameState, private val traced: Set<Ob
                     // tla: triggered abilities too when the mechanic says so
                     .filter { it.ability is Ability.Activated || (mechanic.triggered && it.ability is Ability.Triggered) }
                     .filter { !mechanic.exceptLoyalty || (it.ability as? Ability.Activated)?.cost?.parts.orEmpty().none { p -> p is CostPart.Loyalty } }
+                    // ltr chunk 13: "except mana abilities" (CR 605.1a)
+                    .filter { !mechanic.exceptMana || !it.ability.isManaAbility() }
                     .map { AbilityInstance(it.ability, AbilityOrigin.Borrowed(from, it.origin), e.timestamp) }
             })
             is Mechanic.LoseAbilities -> Op.Lose(mechanic.keyword)

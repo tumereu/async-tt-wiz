@@ -295,6 +295,15 @@ internal object Resolution {
         if (!fizzled) arcanum.engine.epic.Epic.resolves(act, item)
         val card = act.state.obj(item.id)
         if (!fizzled && givesGift(act, item)) act.record(Change.Happened(arcanum.engine.change.GameEvent.GaveGift(item.controller)))
+        // ltr chunk 13: CR 714.2c: the final chapter ability of a Saga resolved
+        if (!fizzled) (item.ability as? Ability.Triggered)?.trigger?.let { it as? arcanum.api.Trigger.Chapter }?.let { chapter ->
+            val saga = item.source ?: return@let
+            val final = (act.view()[saga]?.characteristics ?: arcanum.engine.query.Lki.find(act.state, saga)?.characteristics)?.abilities.orEmpty()
+                .mapNotNull { ((it.ability as? Ability.Triggered)?.trigger as? arcanum.api.Trigger.Chapter)?.chapters?.maxOrNull() }.maxOrNull()
+            val number = item.event?.amount
+            if (final != null && (number == final || (number == null && final in chapter.chapters)))
+                act.record(Change.Happened(arcanum.engine.change.GameEvent.FinalChapterResolved(saga)))
+        }
         // tla: CR 702.189b: a firebending ability its controller controls resolved
         if (!fizzled && isFirebending(item)) act.record(Change.Happened(arcanum.engine.change.GameEvent.Firebended(item.controller)))
         if (item.kind is StackItemKind.SpellCopy && !fizzled && card == null) {

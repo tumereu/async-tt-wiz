@@ -417,4 +417,98 @@ internal object LtrSet {
     val nimrodelGiftGiver = Cards.invent("Nimrodel, Gift-Giver", "{3}{G}{G}", "Legendary Creature — Elf Noble", "Whenever Nimrodel enters or attacks, choose one —\n• Put a +1/+1 counter on another target creature.\n• Create a Food token. (It's an artifact with \"{2}, {T}, Sacrifice this token: You gain 3 life.\")\n• Create a Treasure token. (It's an artifact with \"{T}, Sacrifice this token: Add one mana of any color.\")", "4/4")
     // chunk 10
     val greenwoodChanneler = Cards.invent("Greenwood Channeler", "{3}{G}", "Creature — Elf Druid", "At the beginning of combat on your turn, target Elf you control gains trample and gets +X/+X until end of turn, where X is the number of Forests you control.", "3/3")
+    // chunk 11
+    val arathornCompanyLeader = Cards.invent("Arathorn, Company Leader", "{1}{G}{W}", "Legendary Creature — Human Ranger", "Whenever the Ring tempts you, if you chose a creature other than Arathorn as your Ring-bearer, put your choice of a counter from among first strike, vigilance, deathtouch, and lifelink on Arathorn.\nWhenever you put one or more counters on Arathorn, put one of each of those kinds of counters on up to one other target creature.", "3/3")
+    // chunk 11
+    val elessarTheUniter = Cards.invent("Elessar, the Uniter", "{R}{G}{W}{U}", "Legendary Creature — Human Noble", "Whenever you cast a white spell, create a 1/1 white Human Soldier creature token.\nWhenever you cast a blue spell, scry 2.\nWhenever you cast a red spell, Elessar deals 3 damage to target opponent.\nWhenever you cast a green spell, target creature gets +4/+4 until end of turn.", "5/5")
+    // chunk 11
+    val luthienMortalQueen = Cards.invent("Lúthien, Mortal Queen", "{1}{G}{W}", "Legendary Creature — Elf Noble", "Lúthien enters with an indestructible counter on her.\n{1}, Remove an indestructible counter from Lúthien: Another target creature gains indestructible until end of turn. Put a +1/+1 counter and a lifelink counter on that creature and a +1/+1 counter and a lifelink counter on Lúthien.", "2/2")
+    // chunk 11
+    val idrilCelebrindal = Cards.invent("Idril Celebrindal", "{G}{U}", "Legendary Creature — Elf Noble", "Whenever you scry, put a +1/+1 counter on target creature.\n{4}{G}{U}: Scry 2.", "2/2")
+    // chunk 11
+    val theFireDemonDurinsBane = Cards.invent("The Fire Demon, Durin's Bane", "{5}{B}{R}", "Legendary Creature — Avatar Demon", "This spell costs {1} less to cast for each permanent sacrificed this turn.\nHaste\nThe Fire Demon can't be blocked except by legendary creatures.\nWhen The Fire Demon dies, destroy target artifact or creature an opponent controls.", "7/5")
+    // chunk 11
+    val bungoRetiredBurglar = Cards.invent("Bungo, Retired Burglar", "{1}{U}{R}", "Legendary Creature — Halfling Rogue", "When Bungo enters or leaves the battlefield, the Ring tempts you.\nWhenever Bungo deals combat damage to a player, create a Treasure token.", "1/3")
+    // chunk 11
+    val nobBreeInnkeeper = Cards.invent("Nob, Bree Innkeeper", "{2}{G}{W}", "Legendary Creature — Human Peasant", "At the beginning of your end step, if you don't control a Food, create a Food token. (It's an artifact with \"{2}, {T}, Sacrifice this token: You gain 3 life.\")", "3/3")
+    // chunk 11
+    val ecthelionRulingSteward = Cards.invent("Ecthelion, Ruling Steward", "{1}{W}{B}", "Legendary Creature — Human Noble", "At the beginning of your end step, if a creature died under your control this turn, create a 1/1 white Human Soldier creature token.\n{2}, Sacrifice another creature: Each opponent loses 1 life and you gain 1 life.", "2/4")
+    // chunk 11
+    val gatesOfTheDwarfLord = Cards.invent("Gates of the Dwarf Lord", "{3}{R}{G}", "Legendary Artifact", "Whenever you attack, scry 2, then you may reveal the top card of your library. If a creature card is revealed this way, put it onto the battlefield tapped and attacking. Until your next turn, it gains trample if you control a Dwarf and hexproof if you control an Elf.")
+    // chunk 11
+    val elrosMasterOfHealing = Cards.invent("Elros, Master of Healing", "{2}{G}{U}", "Legendary Creature — Elf Noble", "Whenever you scry, put a +1/+1 counter on each of up to X target creatures, where X is the number of cards looked at while scrying this way.\nWhenever a creature you control with a +1/+1 counter on it becomes the target of a spell or ability an opponent controls, you may draw a card.", "4/4")
+    // chunk 11
+    val theodwynFearlessKnight = Cards.invent("Théodwyn, Fearless Knight", "{2}{R}{W}", "Legendary Creature — Human Knight", "Haste\nWhen Théodwyn enters, exile target creature an opponent controls with greater power. Legendary creatures you control gain protection from each of that creature's colors until end of turn.", "3/4")
+    // chunk 11
+    val damrodPrinceOfIthilien = Cards.invent("Damrod, Prince of Ithilien", "{2}{W}{U}", "Legendary Creature — Human Noble", "At the beginning of your end step, choose an opponent. At the beginning of that player's next end step, you draw a card if they didn't attack you that turn. Otherwise, create three 1/1 white Human Soldier creature tokens.", "3/3")
+    // chunk 11
+    val flameOfTheSecretFire = Cards.invent("Flame of the Secret Fire", "{1}{U}{R}", "Instant", "Choose one. If you control a Wizard as you cast this spell, you may choose two instead.\n• Target player draws two cards.\n• Destroy target artifact.\n• Flame of the Secret Fire deals 5 damage to target creature.")
+    // chunk 11
+    val friendlyContest = Cards.invent("Friendly Contest", "{R}{G}", "Instant", "Target creature you control and up to one other target legendary creature you control each deal damage equal to their power to target creature you don't control.")
+    // chunk 11
+    val drogoBaggins = Cards.invent("Drogo Baggins", "{G}{W}", "Legendary Creature — Halfling Scout", "Whenever Drogo Baggins or another legendary creature you control enters, the Ring tempts you.\nAs long as Drogo Baggins is your Ring-bearer, it must be blocked if able.", "1/3")
+    // chunk 11
+    val celebrianOfLothlorien = Cards.invent("Celebrían of Lothlórien", "{1}{G}{U}", "Legendary Creature — Elf Noble", "Whenever the Ring tempts you, if you chose a creature other than Celebrían as your Ring-bearer, scry 3.\nWhenever you scry, you may reveal the top card of your library. If a land card is revealed this way, put it onto the battlefield tapped.", "3/3")
+    // chunk 12
+    val mithrandirTheGrey = Cards.invent("Mithrandir the Grey", "{3}{U}{R}", "Legendary Creature — Avatar Wizard", "Whenever you cast an instant or sorcery spell, choose one that hasn't been chosen —\n• You may tap or untap target permanent.\n• Mithrandir deals 3 damage to each opponent.\n• Copy target instant or sorcery spell you control. You may choose new targets for the copy.\n• Put Mithrandir on top of its owner's library.", "3/4")
+    // chunk 12
+    val wizardsSanction = Cards.invent("Wizard's Sanction", "{1}{U}{R}", "Sorcery", "Wizard's Sanction deals X damage to target creature, where X is the number of instant and sorcery cards in your graveyard. Excess damage is dealt to that creature's controller instead.")
+    // chunk 12
+    val thrainMournfulAvenger = Cards.invent("Thráin, Mournful Avenger", "{1}{R}{G}", "Legendary Creature — Dwarf Warrior", "Thráin has indestructible as long as two or more creatures died under your control this turn.\nWhenever another creature you control dies, put a +1/+1 counter on Thráin. When this ability resolves for the third time this turn, Thráin fights up to one target creature you don't control.", "3/2")
+    // chunk 12
+    val thorondorTheWindlord = Cards.invent("Thorondor the Windlord", "{4}{W}{U}", "Legendary Creature — Bird Noble", "This spell costs {2} less to cast as long as you've drawn two or more cards this turn.\nFlying, vigilance\nOther Birds you control have vigilance.", "4/4")
+    // chunk 12
+    val kingOfTheForsworn = Cards.invent("King of the Forsworn", "{2}{W}{B}", "Legendary Creature — Spirit Noble", "Flying\nWhenever King of the Forsworn or another Spirit you control becomes the target of a spell, it phases out. (Treat it and anything attached to it as though they don't exist until your next turn.)\nWhenever King of the Forsworn or another Spirit you control phases in, create a tapped 1/1 white Spirit creature token with flying.", "3/3")
+    // chunk 12
+    val thranduilCounterOfKills = Cards.invent("Thranduil, Counter of Kills", "{2}{G}{U}", "Legendary Creature — Elf Archer", "Reach\nWhenever you scry, if Thranduil is tapped, you may untap it. Do this only once each turn.\nWhenever a creature an opponent controls dies, put a +1/+1 counter on Thranduil.", "2/3")
+    // chunk 12
+    val tedCrookedShirriff = Cards.invent("Ted, Crooked Shirriff", "{W}{B}", "Legendary Creature — Halfling Rogue", "Whenever a player casts their second spell each turn, you lose 1 life and create a Treasure token. (It's an artifact with \"{T}, Sacrifice this token: Add one mana of any color.\")", "2/1")
+    // chunk 12
+    val lugdushUrukHaiCaptain = Cards.invent("Lugdush, Uruk-hai Captain", "{B}{R}", "Legendary Creature — Orc Soldier", "Menace\nIf one or more +1/+1 counters would be put on an Army, Goblin, or Orc you control, that many plus one +1/+1 counters are put on it instead.", "2/2")
+    // chunk 12
+    val berilacEsquireOfRohan = Cards.invent("Berilac, Esquire of Rohan", "{R}{W}", "Legendary Creature — Halfling Knight", "Haste\nBerilac has first strike as long as it's equipped.\nWhenever you attack with Berilac and another legendary creature, draw a card.", "2/2")
+    // chunk 12
+    val theVoiceOfTheDarkTower = Cards.invent("The Voice of the Dark Tower", "{3}{U}{B}", "Legendary Creature — Human Advisor", "When The Voice of the Dark Tower enters, target player mills three cards. Then amass Orcs X, where X is the number of instant and sorcery cards in that player's graveyard. (Put X +1/+1 counters on an Army you control. It's also an Orc. If you don't control an Army, create a 0/0 black Orc Army creature token first.)", "3/4")
+    // chunk 12
+    val oldGreyWillow = Cards.invent("Old Grey Willow", "{2}{B}{G}", "Legendary Creature — Treefolk", "Old Grey Willow's power and toughness are each equal to the number of lands you control.\nWhenever Old Grey Willow attacks, you may sacrifice another creature or a token. When you do, target creature an opponent controls gets -2/-2 until end of turn.", "*/*")
+    // chunk 12
+    val bolgerGuardOfTheCitadel = Cards.invent("Bolger, Guard of the Citadel", "{W}{U}", "Legendary Creature — Halfling Soldier", "Vigilance, ward {1}\n{T}: Another target creature you control gains protection from the card type of your choice until end of turn. (It can't be blocked, targeted, dealt damage, enchanted, or equipped by anything of that type.)", "2/2")
+    // chunk 12
+    val princeAdrahilTheFair = Cards.invent("Prince Adrahil the Fair", "{W}{U}", "Legendary Creature — Human Noble", "Whenever you draw your second card each turn, create a 1/1 white Human Soldier creature token.", "2/2")
+    // chunk 12
+    val ringVision = Cards.invent("Ring-vision", "{1}{U}{B}", "Sorcery", "The Ring tempts you. Search your library for a card that shares a color with a legendary creature you control, reveal it, put it into your hand, then shuffle.")
+    // chunk 12
+    val riseOfTheDarkLord = Cards.invent("Rise of the Dark Lord", "{2}{B}{G}", "Sorcery", "Each player sacrifices a creature of their choice. If you sacrificed a creature this way, you may return another permanent card from your graveyard to the battlefield.")
+    // chunk 13
+    val curumoOfManyColors = Cards.invent("Curumo of Many Colors", "{3}{W}{U}{B}", "Legendary Creature — Avatar Wizard", "Ward—Discard an enchantment, instant, or sorcery card.\nWhenever you cast your second spell each turn, each opponent mills two cards. When one or more cards are milled this way, exile target enchantment, instant, or sorcery card with equal or lesser mana value than that spell from an opponent's graveyard. Copy the exiled card. You may cast the copy without paying its mana cost.", "5/4")
+    // chunk 13
+    val maironTheDarkLord = Cards.invent("Mairon, the Dark Lord", "{3}{U}{B}{R}", "Legendary Creature — Avatar Horror", "Ward—Sacrifice a legendary artifact or legendary creature.\nWhenever an opponent casts a spell, amass Orcs 1.\nWhenever an Army you control deals combat damage to a player, the Ring tempts you.\nWhenever the Ring tempts you, you may discard your hand. If you do, draw four cards.", "7/6")
+    // chunk 13
+    val theDarkLordsRansom = Cards.invent("The Dark Lord's Ransom", "{1}{U}{B}", "Instant", "Choose an opponent. They look at the top four cards of your library and separate them into a face-down pile and a face-up pile. Put one pile into your hand and the other into your graveyard. The Ring tempts you.")
+    // chunk 13
+    val shadeSummoning = Cards.invent("Shade Summoning", "{W}{B}", "Sorcery", "Create two tapped 1/1 white Spirit creature tokens with flying.")
+    // chunk 13
+    val felarofLordOfHorses = Cards.invent("Felaróf, Lord of Horses", "{3}{R}{W}", "Legendary Creature — Horse", "Horses you control have haste. (They can attack and {T} as soon as they come under your control.)\nWhenever Felaróf attacks, you may put a creature card with lesser power from your hand onto the battlefield tapped and attacking.", "4/4")
+    // chunk 13
+    val muzgashLootBearer = Cards.invent("Muzgash, Loot Bearer", "{2}{B}{R}", "Legendary Creature — Orc Soldier", "Whenever Muzgash attacks, attach up to one target Equipment to it. Then amass Orcs X, where X is the number of Equipment attached to Muzgash. (Control of the Equipment doesn't change. To amass Orcs X, put X +1/+1 counters on an Army you control. It's also an Orc. If you don't control an Army, create a 0/0 black Orc Army creature token first.)", "4/4")
+    // chunk 13
+    val sandymanTyrantOfTheShire = Cards.invent("Sandyman, Tyrant of the Shire", "{2}{U}{B}", "Legendary Creature — Avatar Rogue", "Activated abilities of lands your opponents control can't be activated unless they're mana abilities.\nSandyman has all activated abilities of lands your opponents control except mana abilities.\nMana of any type can be spent to activate Sandyman's abilities.", "2/4")
+    // chunk 13
+    val mirkspawnChildOfUngoliant = Cards.invent("Mirkspawn, Child of Ungoliant", "{4}{B}{G}", "Legendary Creature — Spider Demon", "Deathtouch, ward {2}\nOther Spiders you control have deathtouch and ward {2}.\nWhenever another creature dealt damage this turn by a Spider you controlled dies, create a token that's a copy of that creature, except it's a Food artifact with \"{2}, {T}, Sacrifice this token: You gain 3 life,\" and it loses all other card types.", "8/8")
+    // chunk 13
+    val deagolHelpfulGuide = Cards.invent("Déagol, Helpful Guide", "{1}{B}{G}", "Legendary Creature — Halfling Horror", "At the beginning of your end step, if a creature died under your control this turn, the Ring tempts you.\nWhenever the Ring tempts you, target opponent reveals cards from the top of their library until they reveal a land card. Put that card onto the battlefield tapped under your control and the rest into their graveyard.", "4/2")
+    // chunk 13
+    val halbaradRangerOfTheNorth = Cards.invent("Halbarad, Ranger of the North", "{2}{R}{G}", "Legendary Creature — Human Ranger", "Landfall — Whenever a land you control enters, target creature gets +1/+1 until end of turn. Then if that creature has power 4 or greater, it gains first strike until end of turn.", "4/4")
+    // chunk 13
+    val thengelKingOfRohan = Cards.invent("Thengel, King of Rohan", "{1}{R}{W}", "Legendary Creature — Human Noble", "Whenever Thengel or another Human you control enters, target creature gains double strike until end of turn.", "2/3")
+    // chunk 13
+    val iarwainBenAdar = Cards.invent("Iarwain Ben-adar", "{W}{U}{B}{R}{G}", "Legendary Creature — God Bard", "As long as there are four or more lore counters among Sagas you control, Iarwain Ben-adar has hexproof and indestructible.\nWhenever the final chapter ability of a Saga you control resolves, reveal cards from the top of your library until you reveal a Saga card. Put that card onto the battlefield and the rest on the bottom of your library in a random order. This ability triggers only once each turn.", "4/4")
+    // chunk 13
+    val lurtzOfTheWhiteHand = Cards.invent("Lurtz of the White Hand", "{2}{B}{R}", "Legendary Creature — Orc Soldier", "Whenever another creature you control dies, put a +1/+1 counter on Lurtz. If that creature was a Goblin or Orc, put two +1/+1 counters on Lurtz instead.", "3/3")
+    // chunk 13
+    val berenAndLuthienWed = Cards.invent("Beren and Lúthien, Wed", "{4}{G}{W}", "Legendary Creature — Human Elf Noble", "Vigilance\nWhenever Beren and Lúthien enters or attacks, put a +1/+1 counter on each other creature you control. You gain 1 life for each other creature you control.", "3/6")
+    // chunk 13
+    val gorthaurTheLidlessEye = Cards.invent("Gorthaur, the Lidless Eye", "{3}{B}{R}", "Legendary Creature — Avatar Horror", "When Gorthaur enters, gain control of target creature an opponent controls until end of turn. Untap it. It gains haste until end of turn.\n{1}{B}{R}: Creatures you control get +2/+0 until end of turn. Each opponent loses 2 life.", "4/4")
+    // chunk 13
+    val theFireDemonFlameOfUdun = Cards.invent("The Fire Demon, Flame of Udûn", "{3}{B}{R}", "Legendary Creature — Avatar Demon", "Trample\nWhen a legendary creature an opponent controls dies, put The Fire Demon on the bottom of its owner's library.", "7/7")
 }

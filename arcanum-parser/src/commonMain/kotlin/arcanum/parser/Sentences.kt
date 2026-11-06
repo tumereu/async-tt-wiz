@@ -22300,14 +22300,17 @@ internal class Sentences(
         Ltr.EACH_PLAYER_SACRIFICES_IF_YOU_DID_RETURN.matchEntire(body)?.let { m ->
             val noun = Filters.noun(m.groupValues[1]) ?: return@let
             val card = Filters.noun(m.groupValues[2]) ?: return@let
-            val sacrificed = Objects.Bound("sacrificed")
-            return listOf(Step.ForEach(arcanum.api.Each.Players(Players.Each(PlayerFilter.Any)), "player", listOf(
-                Step.Choose(arcanum.api.Choice.Objects(Filters.all(noun, ObjectFilter.ControlledBy(PlayerFilter.Is(Players.Bound("player")))), Value.Fixed(1), Value.Fixed(1)),
-                    bind = "sacrificed", chooser = Players.Bound("player")),
-                Step.Do(Effect.Sacrifice(sacrificed))), together = true),
-                Step.If(arcanum.api.Condition.Exists(Filters.all(ObjectFilter.Is(sacrificed), ObjectFilter.OwnedBy(PlayerFilter.You)), atLeast = 1), then = listOf(
+            // the creatures are chosen in APNAP order and sacrificed at once (CR 101.4); Alice's own is named to know whether she sacrificed one
+            val yours = Objects.Bound("yours")
+            return listOf(Step.Choose(arcanum.api.Choice.Objects(Filters.all(noun, ObjectFilter.ControlledBy(PlayerFilter.You)), Value.Fixed(1), Value.Fixed(1)),
+                bind = "yours", chooser = Players.You),
+                Step.Do(Effect.Sacrifice(yours, postBind = "your card")),
+                Step.ForEach(arcanum.api.Each.Players(Players.Each(PlayerFilter.Opponent)), "player", listOf(
+                    Step.Choose(arcanum.api.Choice.Objects(Filters.all(noun, ObjectFilter.ControlledBy(PlayerFilter.Is(Players.Bound("player")))), Value.Fixed(1), Value.Fixed(1)),
+                        bind = "theirs", chooser = Players.Bound("player")), Step.Do(Effect.Sacrifice(Objects.Bound("theirs")))), together = true),
+                Step.If(arcanum.api.Condition.NonEmpty("yours"), then = listOf(
                     Step.Choose(arcanum.api.Choice.Objects(Filters.all(card, ObjectFilter.InZone(Zone.Graveyard), ObjectFilter.OwnedBy(PlayerFilter.You),
-                        ObjectFilter.Not(ObjectFilter.Is(sacrificed))), Value.Fixed(0), Value.Fixed(1)), bind = "returned", chooser = Players.You),
+                        ObjectFilter.Not(ObjectFilter.Is(Objects.Bound("your card")))), Value.Fixed(0), Value.Fixed(1)), bind = "returned", chooser = Players.You),
                     Step.Do(Effect.Move(Objects.Bound("returned"), Destination(Zone.Battlefield))))))
         }
         // ltr chunk 12: "Target player mills three cards. Then amass Orcs X, where X is the number of instant and sorcery cards in that player's graveyard."

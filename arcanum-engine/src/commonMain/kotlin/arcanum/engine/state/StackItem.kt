@@ -84,6 +84,9 @@ data class TriggerEvent(
     // dft
     /** The X announced for the ability whose cost the event paid (a cycling {X}). */
     val x: Int? = null,
+    // ltr chunk 11
+    /** The kinds of counter the event put ("one of each of those kinds of counters"). */
+    val counterKinds: List<arcanum.api.CounterKind> = emptyList(),
 )
 
 /** The objects of an event in one [role] ("it", "that creature"). */

@@ -315,6 +315,11 @@ internal object Effects {
                 }
                 effect.bind?.let { scope.bind(it, arcanum.engine.state.NamedValue.Number(moved)) }
             }
+            // ltr chunk 11: one counter of each kind the triggering event put
+            is Effect.PutEventCounterKinds -> {
+                val kinds = scope.event?.counterKinds.orEmpty()
+                onBattlefield(scope, effect.objects).forEach { id -> kinds.forEach { k -> Actions.putCounters(act, cause, TargetRef.Object(id), k, 1) } }
+            }
             is Effect.ChangeTargets -> changeTargets(scope, effect)
             is Effect.SeparatePiles -> separatePiles(scope, effect)
             is Effect.Remember -> remember(scope, effect.key, scope.objects(effect.objects), effect.replace)

@@ -148,6 +148,9 @@ internal object EventMatcher {
                 listOf(TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(c.id))) + listOfNotNull(paid?.source?.let { RoleObjects(EventRole.Source, listOf(it)) }),
                     listOfNotNull(e.controllerOf(c.id)))) else null
         }.orEmpty()
+        // ltr chunk 13: CR 714.2c
+        is EventPattern.FinalChapterResolves -> ((change as? Change.Happened)?.event as? GameEvent.FinalChapterResolved)
+            ?.takeIf { e.matches(pattern.sagas, it.saga) }?.let { listOf(TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(it.saga))), listOfNotNull(e.controllerOf(it.saga)))) }.orEmpty()
         // ltr chunk 12: a permanent phasing in (CR 702.26c)
         is EventPattern.PhaseIn -> (change as? Change.Status)?.takeIf { it.flag == StatusFlag.PhasedOut && it.before && !it.after }?.let { c ->
             if (e.matches(pattern.objects, c.id)) listOf(TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(c.id))), listOfNotNull(e.controllerOf(c.id)))) else null
@@ -363,7 +366,7 @@ internal object EventMatcher {
         if (last && c.after != null) return emptyList()
         if (!e.matches(objects, holder.id)) return emptyList()
         return listOf(TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(holder.id))), listOfNotNull(e.controllerOf(holder.id)),
-            kotlin.math.abs(delta)))
+            kotlin.math.abs(delta), counterKinds = listOf(c.kind)))
     }
 
     /** msh: whether the counters put make the count reach [reaching] ("the fourth plan counter is put"): fewer before, at least that

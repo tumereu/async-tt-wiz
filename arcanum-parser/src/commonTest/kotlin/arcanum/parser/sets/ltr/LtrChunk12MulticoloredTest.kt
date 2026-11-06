@@ -282,11 +282,13 @@ class LtrChunk12MulticoloredTest {
         type = "Sorcery",
         text = "Each player sacrifices a creature of their choice. If you sacrificed a creature this way, you may return another permanent card from your graveyard to the battlefield.",
     ) parsesTo abilities(
-        spell(Step.ForEach(Each.Players(Players.Each(PlayerFilter.Any)), "player", listOf(
-            Step.Choose(Choice.Objects(and(creature, ObjectFilter.ControlledBy(PlayerFilter.Is(Players.Bound("player")))), n(1), n(1)), bind = "sacrificed", chooser = Players.Bound("player")),
-            doing(Effect.Sacrifice(Objects.Bound("sacrificed")))), together = true),
-            Step.If(Condition.Exists(and(ObjectFilter.Is(Objects.Bound("sacrificed")), ObjectFilter.OwnedBy(PlayerFilter.You)), atLeast = 1), then = listOf(
-                Step.Choose(Choice.Objects(and(permanentCard, inZone(Zone.Graveyard), ObjectFilter.OwnedBy(PlayerFilter.You), not(ObjectFilter.Is(Objects.Bound("sacrificed")))), n(0), n(1)),
+        spell(Step.Choose(Choice.Objects(creatureYouControl, n(1), n(1)), bind = "yours", chooser = Players.You),
+            doing(Effect.Sacrifice(Objects.Bound("yours"), postBind = "your card")),
+            Step.ForEach(Each.Players(Players.Each(PlayerFilter.Opponent)), "player", listOf(
+                Step.Choose(Choice.Objects(and(creature, ObjectFilter.ControlledBy(PlayerFilter.Is(Players.Bound("player")))), n(1), n(1)), bind = "theirs", chooser = Players.Bound("player")),
+                doing(Effect.Sacrifice(Objects.Bound("theirs")))), together = true),
+            Step.If(Condition.NonEmpty("yours"), then = listOf(
+                Step.Choose(Choice.Objects(and(permanentCard, inZone(Zone.Graveyard), ObjectFilter.OwnedBy(PlayerFilter.You), not(ObjectFilter.Is(Objects.Bound("your card")))), n(0), n(1)),
                     bind = "returned", chooser = Players.You),
                 move(Objects.Bound("returned"), Zone.Battlefield)))),
     )

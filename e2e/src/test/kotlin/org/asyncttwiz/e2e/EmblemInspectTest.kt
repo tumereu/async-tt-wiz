@@ -10,14 +10,14 @@ import kotlin.test.assertTrue
 
 /**
  * Owner gallery review, 2026-11-06 (emblems as chips): Alice casts an Ember Sigil and gets an emblem; it shows as a small
- * round chip by her life square on both phones, and holding it inspects her emblems until the finger lifts.
- *
- * (The emblem's text is whatever Automatum keeps of it: the parser doesn't give the quoted ability its printed text yet, so
- * these checks don't depend on it.)
+ * round chip by her life square on both phones, and holding it inspects her emblems until the finger lifts, showing the
+ * emblem's text (bug found 2026-11-06: the parser dropped the quoted ability's text, so emblems had none).
  */
 class EmblemInspectTest : E2e() {
     private val emblem = hasContentDescription("Emblem: ", substring = true)
     private val chips = hasTestTag("emblem-chip") and emblem
+    /** The Ember Sigil's emblem's ability ([TestCards.sigil]). */
+    private val EMBLEM_TEXT = "Creatures you control get +1/+1."
 
     /** Inspect's emblem tiles [player] sees now (the chips aside). */
     private fun tiles(player: E2ePlayer) = player.nodes(emblem).fetchSemanticsNodes().size - player.nodes(chips).fetchSemanticsNodes().size
@@ -41,11 +41,16 @@ class EmblemInspectTest : E2e() {
             assertTrue(alice.shows(hasContentDescription("Card inspection content")), alice.screen())
             assertEquals(1, tiles(alice), "the emblem's tile: ${alice.screen()}")
             assertTrue(alice.showsText("Emblem"), "its tile says what it is")
+            // TRN-053 (bug 2026-11-06): the emblem's tile shows its text, the quoted ability as printed
+            assertTrue(alice.showsText(EMBLEM_TEXT, substring = true), "the emblem's text: ${alice.screen()}")
         }
         assertTrue(!alice.shows(hasContentDescription("Card inspection content")), "closed on release")
         // Bob sees Alice's emblem by her life square and inspects it the same way
         waitUntil("Alice's emblem on Bob's table", along = listOf(alice)) { bob.shows(chips) }
-        holding(bob.node(chips)) { assertEquals(1, tiles(bob), bob.screen()) }
+        holding(bob.node(chips)) {
+            assertEquals(1, tiles(bob), bob.screen())
+            assertTrue(bob.showsText(EMBLEM_TEXT, substring = true), "the emblem's text on Bob's table: ${bob.screen()}")
+        }
         assertTrue(!alice.refusalSeen && !bob.refusalSeen, "no refusal")
     }
 }

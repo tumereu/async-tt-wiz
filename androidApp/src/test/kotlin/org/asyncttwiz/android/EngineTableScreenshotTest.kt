@@ -46,7 +46,8 @@ class EngineTableScreenshotTest {
     /** [game]'s table as [EngineTableScreen] draws it: the board (or the board at [routes]' review cursor in timeline
      * mode), the change flashes. */
     private fun render(game: EngineGame, viewer: String, presence: ReceivedPresence? = null,
-        routes: EngineTableRoutes = EngineTableRoutes(viewer, { game }, {}, { game.play() }), summary: GameSummary = f.game): EngineTableRoutes {
+        routes: EngineTableRoutes = EngineTableRoutes(viewer, { game }, {}, { game.play() }), summary: GameSummary = f.game,
+        landscape: Boolean = false): EngineTableRoutes {
         routes.opponentName = names.entries.first { it.key != viewer }.value
         val toolkit = TableToolkitController(viewer, { game.play() }, { routes.canAct() }, { action, _ -> routes.local(listOf(action)) },
             playBatch = { actions, _ -> routes.local(actions) }, engine = routes)
@@ -62,7 +63,7 @@ class EngineTableScreenshotTest {
                             // HIS-094, HIS-095: catch-up playback looks like live play, with the centre text at its paused start
                             // and at a stop its pause made
                             val watch = status == GameDevice.Status.CatchUp || (status as? GameDevice.Status.Stopped)?.paused == true
-                            TableSurface(summary, reviewed ?: game.play(), viewer, false, Modifier.fillMaxSize(), connected = reviewed == null,
+                            TableSurface(summary, reviewed ?: game.play(), viewer, landscape, Modifier.fillMaxSize(), connected = reviewed == null,
                                 onIntent = toolkit::handle, toolkit = toolkit,
                                 runtime = TableRuntimeHooks(navigation = {}, chat = {}, undo = { routes.undo() },
                                     undoHold = { routes.holdUndo() }, controlsConnected = reviewed == null, opponentPresence = presence,
@@ -70,7 +71,7 @@ class EngineTableScreenshotTest {
                                     timelinePlayback = if (reviewed != null) TimelinePlaybackStatus.PAUSED else null,
                                     waitingLine = routes.waitingLine(game.play()),
                                     returnCurrent = if (reviewed != null) ({ routes.leaveReview() }) else null,
-                                    bottomPanel = if (reviewed != null) ({ _ -> EngineReviewPanel(routes, events, viewer, false, 1_000) }) else null,
+                                    bottomPanel = if (reviewed != null) ({ _ -> EngineReviewPanel(routes, events, viewer, landscape, 1_000) }) else null,
                                     centreAction = if (reviewed == null && watch)
                                         TableCentreAction("${routes.opponentName} has made moves · Tap to watch") { game.startPlayback() } else null,
                                     boardTap = if (reviewed == null && playing) ({ game.pause() }) else null))
@@ -512,20 +513,81 @@ class EngineTableScreenshotTest {
         compose.runOnIdle { assertTrue(bob.device.status.let { it !is GameDevice.Status.Stopped || !it.paused }, "the tap resumed it") }
     }
 
-    // HIS-083, HIS-084 (I-D56 §10): holding Undo opens the rewind dialog; going back past what Bob saw asks him
-    @Test fun rewindDialogPicksAnEarlierPoint() {
-        val game = aliceAtMain()
-        val pending = game.device.session.pending
-        pending.forEachIndexed { n, event -> game.revision(f.revision(event, n + 2, mapOf(f.a to event.id, f.b to f.keep.id))) }
-        val routes = render(game, f.a)
-        compose.runOnIdle { routes.holdUndo() }
+    /** Alice and Bob a few turns into the creatures game (a Mountain and an Ember Cub each turn), Alice declaring
+     * attackers: her table, with [open] done on it. */
+    private fun aliceFewTurnsIn(landscape: Boolean = false, open: (EngineTableRoutes) -> Unit): EngineGame {
+        val scenario = EngineCombatScenario()
+        scenario.until(scenario::bothHaveCubs)
+        val alice = scenario.alice
+        alice.notes.clear() // the scripted setup's own races (SYS-012 notes) aren't part of these pictures
+        val routes = render(alice, f.a, summary = f.game, landscape = landscape)
+        compose.runOnIdle { open(routes) }
         compose.waitForIdle()
-        compose.onNodeWithText("Go back to just before:").assertExists()
-        compose.onNodeWithText("You kept").assertExists()
-        // HIS-099: the board at the chosen point
+        return alice
+    }
+
+    /** HIS-099: the Undo dialog held open on [game]: its points, and the one it opened at. */
+    private fun undoDialogPoints(game: EngineGame): Pair<List<UndoPoint>, UndoPoint> {
+        val points = undoPoints(game.shown!!, game.timeline.events(game, names))
+        assertTrue(points.size >= 6, "several points: ${points.map { it.shown.description }}")
+        return points to points.last { it.target == game.shown!!.undoTarget }
+    }
+
+    // HIS-083, HIS-099 (owner 2026-11-06): holding Undo opens the Undo dialog at the point before her latest action: the
+    // board there on top, under it the timeline's strip of the points (both players' events, with the turn and step
+    // lines) with the chosen one in the centre and its text; Bob has acted since, so Undo asks him
+    private fun undoDialog(landscape: Boolean, file: String) {
+        val game = aliceFewTurnsIn(landscape) { it.holdUndo() }
+        val (points, chosen) = undoDialogPoints(game)
+        assertTrue(points.any { it.shown.author == f.b } && points.any { it.shown.author == f.a }, "both players' events")
+        compose.onNodeWithTag("undo-point").assertTextEquals(chosen.shown.description)
         compose.onNodeWithTag("undo-board").assertExists()
-        captureShot("$SCREENSHOTS/engine/rewind-dialog.png",
-            "Holding Undo opens the Undo dialog: the actions so far, newest first, to pick the point to go back to, and below them the board at that point; going back past what Bob has seen asks him first.")
+        compose.onNodeWithTag("undo-scroller").assertExists()
+        assertTrue(compose.onAllNodesWithTag(TimelineSeparatorTag, useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty(), "turn and step lines")
+        compose.onNodeWithText("Ask Bob").assertExists()
+        captureShot("$SCREENSHOTS/engine/$file.png",
+            "Alice, a few turns in, holds Undo: the Undo dialog opens at the point just before her latest action (\"${chosen.shown.description}\"), with the board there on top, under it the timeline's strip of both players' events with their turn and step lines and that point in the centre, its text, and Ask Bob with a message field, as Bob has acted since.")
+    }
+
+    // HIS-083, HIS-099
+    @Test fun undoDialogShowsTheBoardAboveTheTimelineStrip() = undoDialog(false, "rewind-dialog")
+
+    // HIS-083, HIS-099
+    @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun undoDialogInLandscape() = undoDialog(true, "rewind-dialog-landscape")
+
+    // HIS-099 (owner 2026-11-06): dragging the strip right chooses earlier points one event per step (snapping to them),
+    // the text follows at once and the board once the choice rests; tapping an event chooses it
+    @Test fun draggingTheUndoStripChoosesAnEarlierPoint() {
+        val game = aliceFewTurnsIn { it.holdUndo() }
+        val (points, chosen) = undoDialogPoints(game)
+        val at = points.indexOf(chosen)
+        assertTrue(at >= 2)
+        compose.onNodeWithTag("undo-scroller").performTouchInput { swipe(center, center + androidx.compose.ui.geometry.Offset(56f, 0f), 300) }
+        compose.waitForIdle()
+        compose.onNodeWithTag("undo-point").assertTextEquals(points[at - 2].shown.description)
+        // The main button waits for the new point's board, worked out once the choice rests
+        compose.onNodeWithTag("rewind-confirm").assertIsNotEnabled()
+        compose.mainClock.advanceTimeBy(UNDO_PREVIEW_DELAY_MS + 100)
+        compose.waitForIdle()
+        compose.onNodeWithTag("rewind-confirm").assertIsEnabled()
+        // (chips are drawn in event order: the last chip with its text is the newest point's)
+        compose.onAllNodes(hasContentDescription(points.last().shown.description) and hasClickAction(), useUnmergedTree = true).onLast().performClick()
+        compose.onNodeWithTag("undo-point").assertTextEquals(points.last().shown.description)
+    }
+
+    // HIS-005 (owner 2026-11-06): timeline mode's strip shows a labelled line where the turn or step changed between two
+    // events ("T3 · Main 1"), the newest change when several fell in between; a pass that only moved the game on is no event
+    @Test fun timelineShowsTurnAndStepLines() {
+        val game = aliceFewTurnsIn { r -> r.engine!!.timeline.events(r.engine!!, names).let { r.enterReview(it[it.size - 3].id) } }
+        val events = game.timeline.events(game, names)
+        val line = game.shown!!.line.associateBy { it.id }
+        assertTrue(events.none { e -> line[e.id]!!.let { EngineEventText.pass(it) &&
+            it.engine?.changes.orEmpty().none { c -> c is arcanum.engine.change.Change.StackItemRemoved } } }, "no step-only pass")
+        val separators = events.mapNotNull { it.separator }
+        assertTrue(separators.any { it.newTurn && it.label.startsWith("T2 · ") }, "${separators.map { it.label }}")
+        assertTrue(compose.onAllNodesWithTag(TimelineSeparatorTag, useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty())
+        captureShot("$SCREENSHOTS/engine/timeline-separators.png",
+            "Alice, a few turns in, opened timeline mode and stepped back two events: the strip shows a labelled vertical line between events wherever the turn or step changed (\"T3 · Main 1\", a stronger line for a new turn, the label in the turn player's colour), and no branch lines.")
     }
 
     // SYS-025 (I-D56 §10): the other player's undo request: their message, Accept or Deny; the game waits meanwhile
@@ -550,7 +612,7 @@ class EngineTableScreenshotTest {
         val game = aliceAtMain()
         val routes = render(game, f.a)
         val events = game.timeline.events(game, names)
-        compose.runOnIdle { routes.enterReview(events[1].id) }
+        compose.runOnIdle { routes.enterReview(events.first { it.description == "You kept" }.id) }
         compose.waitForIdle()
         compose.onNodeWithContentDescription("Auto advance").assertExists()
         compose.onNodeWithContentDescription("Return to current").assertExists()

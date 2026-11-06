@@ -782,6 +782,23 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
         val others = device.localHeads.filterKeys { it != PlayerId(me) }.values.toList()
         org.asyncttwiz.protocol.game.Rewind.requestNeeded(at, target, after, PlayerId(me), others) != null
     }
+    /** HIS-099: the Undo dialog's view of going back to just after [target]: the board there as the player sees it
+     * (null when the device can't reach it exactly) and [undoNeedsRequest]'s answer, from one walk back from the shown
+     * state ([org.asyncttwiz.protocol.game.GameSession.stateAt]), never a replay from the game's start. */
+    class UndoPreview(val board: TableBoard?, val needsRequest: Boolean?)
+
+    fun undoPreview(target: String): UndoPreview = worker.call {
+        val session = device.session
+        if (session.drafting) return@call UndoPreview(null, null)
+        val after = session.after(target) ?: return@call UndoPreview(null, true)
+        val at = runCatching { session.stateAt(target) }.getOrNull() ?: return@call UndoPreview(null, true)
+        val others = device.localHeads.filterKeys { it != PlayerId(me) }.values.toList()
+        // The request check plays the later events on its own copy; the board keeps the state at the point
+        val needs = if (after.isEmpty()) null
+            else org.asyncttwiz.protocol.game.Rewind.requestNeeded(at.copy(), target, after, PlayerId(me), others) != null
+        val board = runCatching { table(EngineProjection.project(base, at, me, target, null, null, tokenArt), at, target) }.getOrNull()
+        UndoPreview(board, needs)
+    }
     fun requestUndo(target: String, message: String) { worker.call { device.requestUndo(target, message) }; after() }
     fun answerRequest(accept: Boolean) { worker.call { device.answerRequest(accept) }; after() }
     fun cancelRequest() { worker.call { device.cancelRequest() }; after() }

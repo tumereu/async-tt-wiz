@@ -24,14 +24,15 @@ class HistoryTimelineTest {
         assertEquals(999, HistoryTimelineLayout.selectedAfterDrag(999,-240f,24f,1000))
     }
 
-    // HIS-005, old-model timeline branching
-    @Test fun branchSplitsAfterTheSharedEventOrTheArmedPointInTheGapCentre() {
-        val plain = HistoryTimelineEvent("a", HistoryIcon.FLAG, "", null, null)
-        assertFalse(HistoryTimelineLayout.splitsAfter(plain, null))
-        assertTrue(HistoryTimelineLayout.splitsAfter(plain.copy(alternatives = 2), null))
-        assertTrue(HistoryTimelineLayout.splitsAfter(plain, "a"))
-        assertFalse(HistoryTimelineLayout.splitsAfter(plain, "b"))
-        assertEquals(112f, HistoryTimelineLayout.splitGapX(100f, 24f))
+    // HIS-005: a separator's line sits in the gap's centre before its event; where labels would overlap, the newest
+    // change keeps its label (the lines all show)
+    @Test fun separatorsSitInTheGapAndTheNewestLabelWins() {
+        assertEquals(88f, HistoryTimelineLayout.separatorX(100f, 24f))
+        // Lines at 0, 24 and 100 with 40 wide labels: the one at 24 ends before the line at 100 (24 + 2 + 40 + 2 < 100);
+        // the one at 0 would run over the line at 24
+        assertEquals(setOf(1, 2), HistoryTimelineLayout.shownLabels(listOf(0f to 40f, 24f to 40f, 100f to 40f), 2f))
+        assertEquals(setOf(0, 1), HistoryTimelineLayout.shownLabels(listOf(0f to 10f, 24f to 10f), 2f))
+        assertEquals(emptySet(), HistoryTimelineLayout.shownLabels(emptyList(), 2f))
     }
 
 }

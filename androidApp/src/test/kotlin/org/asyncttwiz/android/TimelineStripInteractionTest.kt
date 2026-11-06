@@ -32,26 +32,17 @@ class TimelineStripInteractionTest {
         assertTrue(pauses > 0)
     }
 
-    // HIS-005, old-model timeline branching
-    @Test fun branchMarkerSitsInTheGapWhereTheBranchSplitsAndAnArmedPointShowsTheComingSplit() {
-        var armed by mutableStateOf<String?>(null)
-        val events = (0..4).map { if (it == 1) event(it).copy(alternatives = 1) else event(it) }
-        compose.setContent { MaterialTheme {
-            HistoryTimeline(events, "2", "me", {}, {}, armedSplit = armed)
-        } }
+    // HIS-005: a turn or step change shows as a labelled line in the gap before the event made after it; there are no
+    // branch lines
+    @Test fun aSeparatorSitsInTheGapBeforeTheEventAfterTheChange() {
+        val events = (0..4).map { n ->
+            if (n == 3) event(n).copy(separator = TimelineSeparator("T2 · Main 1", newTurn = true, active = "other")) else event(n) }
+        compose.setContent { MaterialTheme { HistoryTimeline(events, "2", "me", {}, {}) } }
         fun chip(n: Int) = compose.onNode(hasContentDescription("Event $n") and hasClickAction(), useUnmergedTree = true)
             .fetchSemanticsNode().boundsInRoot
-        fun markers() = compose.onAllNodesWithTag(BranchMarkerTag, useUnmergedTree = true).fetchSemanticsNodes().map { it.boundsInRoot }
-        fun assertInGapAfter(n: Int, marker: androidx.compose.ui.geometry.Rect) {
-            assertTrue(marker.left > chip(n).right && marker.left < chip(n + 1).left, "Marker starts in the gap after event $n")
-            assertTrue(marker.right > chip(n + 1).left, "Marker turns right over the next event")
-        }
-        assertInGapAfter(1, markers().single())
-        compose.runOnIdle { armed = "3" }
-        val both = markers().sortedBy { it.left }
-        assertEquals(2, both.size)
-        assertInGapAfter(1, both[0]); assertInGapAfter(3, both[1])
-        compose.runOnIdle { armed = "1" }
-        assertEquals(1, markers().size, "An armed point that already splits shows one marker")
+        val line = compose.onAllNodesWithTag(TimelineSeparatorTag, useUnmergedTree = true).fetchSemanticsNodes().single()
+        assertTrue(line.boundsInRoot.left > chip(2).right && line.boundsInRoot.right < chip(3).left, "in the gap before event 3")
+        compose.onNode(hasTestTag(TimelineSeparatorTag) and hasContentDescription("T2 · Main 1"), useUnmergedTree = true).assertExists()
+        compose.onAllNodesWithTag("Branch marker", useUnmergedTree = true).assertCountEquals(0)
     }
 }

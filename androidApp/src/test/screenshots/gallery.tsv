@@ -40,7 +40,7 @@ number	item	screenshot	catalog	decisions
 39	Playback of an attack	engine/playback-attack.png	CMB-007 HIS-021
 40	The other player's staging	engine/shared-staging.png	CMB-043
 41	Timeline mode	engine/timeline-mode.png	HIS-004 HIS-010
-42	Undo dialog	engine/rewind-dialog.png	HIS-083 HIS-084
+42	Undo dialog	engine/rewind-dialog.png	HIS-083 HIS-099
 43	Undo request	engine/undo-request.png	SYS-025
 44	Hand card way chips	chips/hand-ability-chips.png	ZON-080
 45	Ability chips with cost symbols	chips/ability-chips-wrapped.png	TBL-124
@@ -78,3 +78,5 @@ number	item	screenshot	catalog	decisions
 77	Numeric input for a number or X	questions/number-input.png	STK-023 STK-030
 78	Name a card while typing (landscape)	questions/card-name-landscape.png	STK-041
 79	Assume greyed by the information rule	engine/assume-greyed.png	TRN-067 TRN-070 TRN-071
+80	Undo dialog in landscape	engine/rewind-dialog-landscape.png	HIS-099
+81	Timeline turn and step lines	engine/timeline-separators.png	HIS-005

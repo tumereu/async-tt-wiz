@@ -86,6 +86,32 @@ internal object EngineEventText {
     fun pass(event: GameEvent): Boolean = event.engine?.steps?.firstOrNull { it.input != null }?.input is Input.PassPriority
 
     /**
+     * HIS-005, HIS-101: whether [event] is one of the timeline's events, which are also exactly the Undo dialog's points
+     * (HIS-099): every event not [hidden], except passes, which show only when they resolved a spell or ability ("Storm
+     * Spark resolved") or began one of the player's own End turns ([endTurns]: "You ended the turn"); a pass that led
+     * only to a new step or turn shows as the separator before the next event instead.
+     */
+    fun onTimeline(event: GameEvent, endTurns: Set<String>): Boolean =
+        if (pass(event)) event.id in endTurns || event.engine?.changes.orEmpty().any { it is Change.StackItemRemoved }
+        else !hidden(event)
+
+    /** The timeline's text of [event] (HIS-061, HIS-099): an own End turn that began with a pass reads "You ended the
+     * turn"; any other event its [of] text. */
+    fun timelineText(event: GameEvent, state: GameState?, viewer: String, names: Map<String, String>, endTurns: Set<String>): String =
+        if (pass(event) && event.id in endTurns) "You ended the turn" else of(event, state, viewer, names)
+
+    /** HIS-005: a separator's label: "T3 · Combat" ("Opening" before the first turn). */
+    fun separatorLabel(turn: arcanum.engine.state.TurnState): String = if (turn.number <= 0) "Opening"
+        else "T${turn.number} · ${separatorStep(org.asyncttwiz.automatum.EngineProjection.position(turn.step))}"
+
+    private fun separatorStep(position: org.asyncttwiz.protocol.TurnPosition): String = when (position) {
+        org.asyncttwiz.protocol.TurnPosition.BEGIN_COMBAT -> "Combat"
+        org.asyncttwiz.protocol.TurnPosition.END_COMBAT -> "End of combat"
+        org.asyncttwiz.protocol.TurnPosition.END_STEP -> "End step"
+        else -> stepLabel(position)
+    }
+
+    /**
      * §29.4: the fading top text of an undo: "Undid: cast Storm Spark" for the player who undid ([by] is [viewer]),
      * "Alice undid: cast Storm Spark" for the other player, naming [event], the first action taken back, as [viewer] saw it
      * on [state] (the board before the undo). An End turn's first pass reads "End turn"; with no event, just who undid.
@@ -180,34 +206,55 @@ internal object EngineEventText {
 /**
  * The timeline of a game on engine state (HIS-001–HIS-005, HIS-012 on engine events): the main line the device holds,
  * up to the viewer's local head, and their own pending events after it; nothing past the local head (I-D56 §7). One event
- * per acting point (HIS-092); groups are turns (the faint line between them). Texts are worked out once per event, with
- * the state shown when they are first asked for.
+ * per acting point (HIS-092), only those [EngineEventText.onTimeline] keeps; between two of them, where the turn or step
+ * changed, a labelled separator (HIS-005). Texts are worked out once per event, with the state shown when they are first
+ * asked for; the whole list once per published line.
  */
 internal class EngineTimeline {
     private val texts = HashMap<String, String>()
+    private var last: Triple<List<GameEvent>, Map<String, String>, List<HistoryTimelineEvent>>? = null
 
-    fun clear() = texts.clear()
+    fun clear() { texts.clear(); last = null }
 
     /** The events shown to the viewer, oldest first, with the turn each was made in. */
     fun shown(game: EngineGame): List<GameEvent> = game.shown?.line.orEmpty()
 
     fun events(game: EngineGame, names: Map<String, String>): List<HistoryTimelineEvent> {
         val published = game.shown ?: return emptyList()
-        val shown = published.line
+        val line = published.line
+        last?.let { (l, n, events) -> if (l === line && n == names) return events }
         val state = published.engine
         val players = state.players.map { it.id.value }
-        var turn = 0
-        return shown.mapNotNull { e ->
-            e.engine?.changes?.lastOrNull { it is Change.Step }?.let { turn = (it as Change.Step).after.number }
-            if (EngineEventText.hidden(e)) return@mapNotNull null
-            val text = texts.getOrPut(e.id) { EngineEventText.of(e, state, game.me, names) }
-            HistoryTimelineEvent(e.id, EngineEventText.icon(e), text, EngineEventText.colourOf(e, players), "turn:$turn")
+        // The turn and step along the line: before the line's first step change, where that change started
+        var at = line.firstNotNullOfOrNull { e -> e.engine?.changes?.firstOrNull { it is Change.Step } as Change.Step? }?.before ?: state.turn
+        var previous: arcanum.engine.state.TurnState? = null
+        val events = ArrayList<HistoryTimelineEvent>()
+        for (e in line) {
+            val before = at
+            e.engine?.changes?.lastOrNull { it is Change.Step }?.let { at = (it as Change.Step).after }
+            if (!EngineEventText.onTimeline(e, published.endTurns)) continue
+            // HIS-005: the turn and step this event was made in, when the game moved on since the event before it
+            val separator = previous?.takeIf { it.number != before.number || it.step != before.step }?.let {
+                TimelineSeparator(EngineEventText.separatorLabel(before), it.number != before.number, before.active.value) }
+            previous = before
+            val text = if (EngineEventText.pass(e) && e.id in published.endTurns) EngineEventText.timelineText(e, state, game.me, names, published.endTurns)
+                else texts.getOrPut(e.id) { EngineEventText.of(e, state, game.me, names) }
+            events += HistoryTimelineEvent(e.id, EngineEventText.icon(e), text, EngineEventText.colourOf(e, players), separator)
         }
+        last = Triple(line, names, events)
+        return events
     }
 
     /** The text of [event] (cached). */
     fun text(game: EngineGame, event: GameEvent, names: Map<String, String>): String =
         texts.getOrPut(event.id) { EngineEventText.of(event, requireNotNull(game.shown).engine, game.me, names) }
+
+    /** The timeline's text of [event] (HIS-076 in timeline mode): as [events] names it. */
+    fun reviewText(game: EngineGame, event: GameEvent, names: Map<String, String>): String {
+        val shown = requireNotNull(game.shown)
+        return if (EngineEventText.pass(event) && event.id in shown.endTurns) EngineEventText.timelineText(event, shown.engine, game.me, names, shown.endTurns)
+            else text(game, event, names)
+    }
 }
 
 /**

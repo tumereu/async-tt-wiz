@@ -162,6 +162,14 @@ internal class Sentences(
      * dies trigger: the new card in the graveyard, CR 400.7). */
     private var triggerIt: Pair<Objects, Zone?>? = null
 
+    /** 'You get an emblem with "[quoted]"' (CR 114.2): the emblem's one ability, read with "this emblem" as its self and
+     * keeping [quoted] as its printed text (an emblem has only its abilities, CR 114.3: the text is all a player can read
+     * of it); null when the ability can't be read. */
+    private fun emblem(quoted: String): List<Step>? {
+        val ability = Sentences(setOf("this emblem")).line(quoted) ?: return null
+        return listOf(Step.Do(Effect.CreateEmblem(listOf(with(OracleParser) { ability.withText(quoted) }), players = Players.You)))
+    }
+
     fun line(line: String): Ability? {
         mh2Line(line)?.let { return it } // mh2
         dftLine(line)?.let { return it } // dft
@@ -4697,10 +4705,7 @@ internal class Sentences(
             return listOf(Step.Do(Effect.PhaseOut(Objects.Self)))
         }
         // chunk 26: 'You get an emblem with "[ability]".' (CR 114.2)
-        EMBLEM.matchEntire(sentence)?.let { m ->
-            val ability = Sentences(setOf("this emblem")).line(m.groupValues[1]) ?: return null
-            return listOf(Step.Do(Effect.CreateEmblem(listOf(ability), players = Players.You)))
-        }
+        EMBLEM.matchEntire(sentence)?.let { m -> return emblem(m.groupValues[1]) }
         // chunk 26: "Target artifact you control becomes a copy of another target artifact or creature you control until end
         // of turn, except it's an artifact in addition to its other types." (CR 707.9b)
         BECOMES_COPY.matchEntire(sentence)?.let { m ->
@@ -20238,10 +20243,7 @@ internal class Sentences(
         eoeEffect4(sentence, context)?.let { return it }
         eoeEffect5(sentence, context)?.let { return it }
         // eoe chunk 07: 'You get an emblem with "… a 0/0 Robot artifact creature."' (the quoted ability's own period, CR 114.2)
-        Eoe.EMBLEM_PERIOD_INSIDE.matchEntire(sentence)?.let { m ->
-            val ability = Sentences(setOf("this emblem")).line(m.groupValues[1]) ?: return null
-            return listOf(Step.Do(Effect.CreateEmblem(listOf(ability), players = Players.You)))
-        }
+        Eoe.EMBLEM_PERIOD_INSIDE.matchEntire(sentence)?.let { m -> return emblem(m.groupValues[1]) }
 
         // eoe chunk 07: "Untap target artifact or creature. If it's an artifact creature, put a +1/+1 counter on it."
         Eoe.UNTAP_IF_ITS_COUNTER.matchEntire(sentence)?.let { m ->

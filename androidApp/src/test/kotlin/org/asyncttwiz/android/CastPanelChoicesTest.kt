@@ -60,6 +60,8 @@ class CastPanelChoicesTest {
         assertTrue(kit.toolkit.cast.start(burst), "the cast begins: ${kit.toolkit.error}")
         render()
         compose.onNodeWithContentDescription("Cast panel").assertExists()
+        // STK-023: the title names the card cast
+        compose.onNode(hasText("Cast Ember Burst") and isHeading()).assertExists()
         compose.onNodeWithContentDescription("Value 0").assertExists()
         compose.onNodeWithContentDescription("One less").assertIsNotEnabled()
         compose.onNodeWithContentDescription("One more").assertIsEnabled().performClick()

@@ -280,7 +280,7 @@ val delirium: Condition = Condition.Compare(Value.CountDistinct(yourGraveyardCar
 /** "Threshold — … as long as there are seven or more cards in your graveyard". */
 val threshold: Condition = Condition.Exists(ObjectFilter.And(yourGraveyard), atLeast = 7)
 /** "Hellbent — … as long as you have no cards in hand". */
-val hellbent: Condition = Condition.Compare(Value.HandSize(Players.You), arcanum.api.Comparison.Equal, n(0))
+val hellbent: Condition = Condition.Not(Condition.Exists(and(inZone(Zone.Hand), ObjectFilter.OwnedBy(PlayerFilter.You)), atLeast = 1))
 /** "Discard a card" as a cost. */
 val discardACard: CostPart = CostPart.Discard(CostObjects.Choose(cardFilter, count = n(1)))
 val investigate: Step = Step.Do(Effect.Action(KeywordAction.Investigate(n(1))))

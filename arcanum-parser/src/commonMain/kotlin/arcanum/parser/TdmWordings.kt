@@ -164,7 +164,8 @@ internal object Tdm {
     val LOSE_LIFE_EQUAL_ITS_MV = Regex("""[Yy]ou lose life equal to its mana value\.""")
     // tdm chunk 11: "it deals X damage divided as you choose among any number of target creatures and/or planeswalkers your opponents control, where X
     // is the number of lands you control"
-    val DIVIDED_AMONG_ANY_NUMBER = Regex("""(.+?) deals X damage divided as you choose among any number of target (.+)\.""")
+    // mh2 chunk 07: also a number ("it deals 4 damage divided as you choose among any number of target creatures and/or planeswalkers")
+    val DIVIDED_AMONG_ANY_NUMBER = Regex("""(.+?) deals (X|\d+) damage divided as you choose among any number of target (.+)\.""")
     // tdm chunk 11: "You may cast sorcery spells and Dragon spells as though they had flash."
     val CAST_SPELLS_AS_THOUGH_FLASH = Regex("""You may cast (.+?) as though they had flash\.""")
     // tdm chunk 11: "create a 1/1 red Goblin creature token. It gains lifelink and haste until end of turn."

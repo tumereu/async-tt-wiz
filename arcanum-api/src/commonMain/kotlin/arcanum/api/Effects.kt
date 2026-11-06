@@ -190,6 +190,11 @@ sealed interface Effect {
         val objects: Objects, val chooser: Players, val optional: Boolean,
         /** The new target when the text fixes it ("change a target of target spell or ability to this creature", CR 115.7b). */
         val to: Objects? = null,
+        // mh2
+        /** The new targets are chosen at random among the legal ones ("reselect the targets at random", CR 115.7d); [chooser] doesn't choose. */
+        val atRandom: Boolean = false,
+        /** What the new targets can't be ("The new targets can't be you or a permanent you control"); null: no such limit. */
+        val notTo: RecipientFilter? = null,
     ) : Effect
     /** "[separator] separates [objects] into two piles; [chooser] chooses one" (Fact or Fiction style); [chosenBind] and
      * [otherBind] name the piles. */

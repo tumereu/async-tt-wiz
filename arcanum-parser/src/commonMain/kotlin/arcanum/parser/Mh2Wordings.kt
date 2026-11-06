@@ -56,6 +56,20 @@ internal object Mh2 {
     val RETURN_TARGET_AND_ALL_SAME_NAME = Regex("""Return target (.+? card) and all other cards with the same name as that card from your graveyard to your hand\.""")
     val THAT_IS_SNOW_OR_COULD_PRODUCE = Regex("""(.+?) that is snow or could produce (\{[A-Z]\})""")
     val EXPLOITS_A_CREATURE = Regex("""(.+) exploits a creature""")
+    // mh2 chunk 06
+    val TARGET_OPPONENT_DISCARDS_AT_RANDOM = Regex("""[Tt]arget opponent discards (\w+) cards? at random\.""")
+    val REVEALS_HAND_CHOOSE_CARD_DISCARDS_THEN_AT_RANDOM = Regex("""Target opponent reveals their hand\. You choose a card from it\. That player discards that card, then discards a card at random\.""")
+    val CARDS_IN_ALL_GRAVEYARDS = Regex("""(.+?) cards in all graveyards""")
+    val THAT_PLAYER_DISCARDS_A_CARD = Regex("""[Tt]hat player discards a card\.""")
+    val CREATE_NUMBER_EQUAL_TO_DEVOTION = Regex("""[Cc]reate a number of (.+? tokens?(?: with .+?)?) equal to your devotion to (\w+)\.""")
+    val ESCAPES_WITH_CHOICE_OF_COUNTERS = Regex("""(.+) escapes with your choice of an? (\S+) counter or an? (\S+) counter on it\.""")
+    // mh2 chunk 07
+    val SPELL_OTHER_THAN_FIRST_EACH_TURN = Regex("""you cast a spell other than your first spell each turn""")
+    val EXILE_TOP_DURING_YOUR_NEXT_TURN_MAY_PLAY = Regex("""Exile the top card of your library\. During your next turn, you may play that card\.""")
+    val ENTERS_WITH_COUNTER_FOR_EACH_TIME_KICKED = Regex("""(.+) enters with an? (\S+) counter on it for each time it was kicked\.""")
+    val GAIN_CONTROL_OF_SPELL_COPY_RESELECT_AT_RANDOM = Regex("""Gain control of target (.+?)\. Copy it, then reselect the targets at random for the spell and the copy\. The new targets can't be you or a permanent you control\.""")
+    val SPELL_THAT_TARGETS_ONLY_SINGLE_PERMANENT_OR_PLAYER = Regex("""spell that targets only a single permanent or player""")
+    val REVEAL_UNTIL_NONLAND_BOTTOM_WHEN_YOU_REVEAL_DEALS_MV = Regex("""Reveal cards from the top of your library until you reveal an? (.+?) card\. Put the revealed cards on the bottom of your library in a random order\. When you reveal an? \1 card this way, (.+?) deals damage equal to that card's mana value to any target\.""")
 }
 
 /** Values, conditions and nouns of Modern Horizons 2 (mh2) wordings. */
@@ -81,6 +95,14 @@ internal object Mh2Phrases {
     fun value(@Suppress("UNUSED_PARAMETER") text: String, @Suppress("UNUSED_PARAMETER") exiled: Objects?): Value? = null
 
     fun noun(phrase: String): ObjectFilter? {
+        // mh2 chunk 07: "spell that targets only a single permanent or player" (CR 115.7)
+        if (Mh2.SPELL_THAT_TARGETS_ONLY_SINGLE_PERMANENT_OR_PLAYER.matches(phrase))
+            return Filters.all(ObjectFilter.Category(arcanum.api.ObjectCategory.Spell),
+                ObjectFilter.SingleTarget(ObjectFilter.Category(arcanum.api.ObjectCategory.Permanent), players = PlayerFilter.Any))
+        // mh2 chunk 06: "creature cards in all graveyards"
+        Mh2.CARDS_IN_ALL_GRAVEYARDS.matchEntire(phrase)?.let { m ->
+            return Filters.all(Filters.noun(m.groupValues[1] + " card") ?: return null, ObjectFilter.InZone(Zone.Graveyard))
+        }
         // mh2 chunk 05: "land that is snow or could produce {C}" (CR 106.7)
         Mh2.THAT_IS_SNOW_OR_COULD_PRODUCE.matchEntire(phrase)?.let { m ->
             val noun = Filters.noun(m.groupValues[1]) ?: return null

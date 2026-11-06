@@ -184,7 +184,12 @@ sealed interface ObjectFilter {
     ) : ObjectFilter
     /** A spell or ability with exactly one target, which matches [target] when given ("target spell or ability with a
      * single target", "a spell that targets only a single creature you control", CR 115.7). */
-    @Serializable @SerialName("single-target") data class SingleTarget(val target: ObjectFilter? = null) : ObjectFilter
+    @Serializable @SerialName("single-target") data class SingleTarget(
+        val target: ObjectFilter? = null,
+        // mh2
+        /** With [target]: the single target may also be a player matching this ("a spell that targets only a single permanent or player"). */
+        val players: PlayerFilter? = null,
+    ) : ObjectFilter
     // gtc chunk 07
     /** A blocking creature that blocks one of [objects] ("creatures blocking it", CR 509.1a). */
     @Serializable @SerialName("blocking") data class Blocking(val objects: Objects) : ObjectFilter

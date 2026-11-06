@@ -105,6 +105,9 @@ sealed interface Value {
     // dft
     /** The speed of [players] (one player): 0 for a player with no speed (CR 702.179f; "where X is your speed"). */
     @Serializable @SerialName("speed") data class Speed(val players: Players) : Value
+    /** In a triggered ability, the X announced for the ability whose cost the triggering event paid ("Cycling {X}{2}{W}" … "When you cycle
+     * this card, create X tokens": the X of that cycling, CR 107.3a, 702.29c); 0 when there was none. */
+    @Serializable @SerialName("event-x") data object EventX : Value
 }
 
 /**

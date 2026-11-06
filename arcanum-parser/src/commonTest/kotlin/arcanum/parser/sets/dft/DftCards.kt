@@ -293,6 +293,12 @@ val thatMountOrVehicle: Objects = Objects.EventObject(EventRole.Source)
 /** "Enchant creature or Vehicle" (CR 702.5a) */
 val enchantCreatureOrVehicle: Keyword = Keyword.Enchant(TargetKind.Objects(or(creature, vehicle)))
 val enchanted: Objects = Objects.AttachedTo(Objects.Self)
+/** "Whenever you discard one or more cards" (once for the batch). */
+val youDiscardCards: Trigger = Trigger.On(EventPattern.Discard(ObjectFilter.Any, PlayerFilter.You), oneOrMore = true)
+/** The cards discarded, counted ("that many"). */
+val thatManyDiscarded: Value = Value.Count(Objects.EventObject(EventRole.After))
+/** "Whenever you discard one or more cards, put that many +1/+1 counters on this creature." */
+val youDiscardPutThatMany: Ability = triggered(youDiscardCards, counters(Objects.Self, thatManyDiscarded))
 /** "exile the top card of your library. You may play that card this turn." (CR 601.2a, 305.1) */
 val exileTopMayPlayThisTurn: Array<Step> = arrayOf(
     Step.Do(Effect.Move(Objects.LibraryCards(Players.You, n(1), fromTop = true), Destination(Zone.Exile), postBind = "exiled")),

@@ -343,7 +343,23 @@ object OracleParser {
         // tdm chunk 02: "exile … until this creature leaves the battlefield" and a later "the exiled card": the exile keeps the card as card memory
         // (linked abilities, CR 607.2a)
         val linked = if (sentences.exiledCard == arcanum.api.Objects.Remembered(EXILED_WITH)) result.map(::rememberUntilLeaves) else result
-        return finCostTargets(linked).mapIndexed { index, ability -> ability.withText(raws[index]) }
+        return dftSacrificedCost(finCostTargets(linked)).mapIndexed { index, ability -> ability.withText(raws[index]) }
+    }
+
+    /** dft chunk 12: a spell that reads "the sacrificed permanent" names the permanent its additional cost sacrifices (CR 608.2h). */
+    private fun dftSacrificedCost(abilities: List<Ability>): List<Ability> {
+        val json = kotlinx.serialization.json.Json
+        val reads = abilities.filterIsInstance<Ability.Spell>().any {
+            json.encodeToString(Ability.serializer(), it).contains("{\"type\":\"bound\",\"name\":\"$SACRIFICED\"}")
+        }
+        if (!reads) return abilities
+        return abilities.map { ability ->
+            val static = ability as? Ability.Static ?: return@map ability
+            val additional = static.mechanics.singleOrNull() as? arcanum.api.Mechanic.AdditionalCost ?: return@map ability
+            val sacrifice = additional.cost.parts.singleOrNull() as? arcanum.api.CostPart.Sacrifice ?: return@map ability
+            if (sacrifice.preBind != null) return@map ability
+            static.copy(mechanics = listOf(additional.copy(cost = arcanum.api.Cost(listOf(sacrifice.copy(preBind = SACRIFICED))))))
+        }
     }
 
     /** fin chunk 07: "This spell costs {2} less to cast if it targets a tapped creature." read before the spell's "target nonland permanent":

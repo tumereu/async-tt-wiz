@@ -279,6 +279,28 @@ internal class Sentences(
             return Ability.Static(listOf(replacement(arcanum.api.Comparison.AtMost, 1),
                 replacement(arcanum.api.Comparison.Greater, Numbers.count(m.groupValues[4]) ?: return null)), affects = Affected.Objects(Objects.Self))
         }
+        // dft chunk 12: "You may cast this card from your graveyard by paying 2 life and sacrificing an artifact or creature in addition to paying its
+        // other costs." (CR 601.2f)
+        Dft.MAY_CAST_FROM_GRAVEYARD_BY.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) || it.groupValues[1] == "this card" }?.let { m ->
+            val parts = m.groupValues[2].split(" and ").map { gerund ->
+                val imperative = when {
+                    gerund.startsWith("paying ") -> "Pay " + gerund.removePrefix("paying ")
+                    gerund.startsWith("sacrificing ") -> "Sacrifice " + gerund.removePrefix("sacrificing ")
+                    gerund.startsWith("discarding ") -> "Discard " + gerund.removePrefix("discarding ")
+                    gerund.startsWith("exiling ") -> "Exile " + gerund.removePrefix("exiling ")
+                    else -> return null
+                }
+                costPart(imperative) ?: return null
+            }.flatten()
+            return Ability.Static(listOf(Mechanic.MayPlay(Zone.Graveyard, PlayKind.Cast, holder = PlayerFilter.You, additionalCost = Cost(parts))),
+                affects = Affected.Objects(Objects.Self))
+        }
+        // dft chunk 10: "You may have this creature enter as a copy of an artifact or creature you control." (CR 707.9, 614.1c)
+        Dft.MAY_ENTER_AS_COPY.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            val of = Filters.noun(m.groupValues[2]) ?: return null
+            return Ability.Static(listOf(Mechanic.Replacement(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), to = Zone.Battlefield),
+                modify = listOf(Modification.EntersAsCopy(of = of, optional = true)))), affects = Affected.Objects(Objects.Self))
+        }
         // dft chunk 08: "During your turn, as long as you haven't activated an exhaust ability this turn, you may activate exhaust abilities as
         // though they haven't been activated." (only before beginning to activate one this turn, CR 702.177b)
         Dft.AS_THOUGH_NOT_ACTIVATED.matchEntire(line)?.takeIf { it.groupValues[1] == it.groupValues[2] }?.let { m ->
@@ -362,6 +384,14 @@ internal class Sentences(
         // dft chunk 02: "you activate an exhaust ability" (mana abilities too, CR 702.177a)
         if (text == "you activate an exhaust ability") return arcanum.api.Trigger.On(EventPattern.Activate(ObjectFilter.Any, PlayerFilter.You, manaAbilities = true,
             label = arcanum.api.AbilityLabel.Exhaust)) to null
+        // dft chunk 12: "a player casts a spell they don't own" (its owner isn't its controller, the caster)
+        if (text == "a player casts a spell they don't own") return arcanum.api.Trigger.On(EventPattern.Cast(ObjectFilter.Not(ObjectFilter.OwnedBy(
+            PlayerFilter.Is(Players.ControllerOf(Objects.Tested)))), PlayerFilter.Any)) to null
+        // dft chunk 12: "a creature deals combat damage to one of your opponents"
+        if (text == "a creature deals combat damage to one of your opponents") return arcanum.api.Trigger.On(EventPattern.Damage(ObjectFilter.Type(CardType.Creature),
+            RecipientFilter(players = PlayerFilter.Opponent), combat = true)) to null
+        // dft chunk 10: "you cycle this card" (CR 702.29c: from whatever zone it ends up in)
+        if (text == "you cycle this card") return arcanum.api.Trigger.On(EventPattern.Cycle(ObjectFilter.Is(Objects.Self), PlayerFilter.You)) to null
         // dft chunk 08: "one or more creatures attack you" (once for the batch, CR 508.3d)
         Dft.ONE_OR_MORE_ATTACK_YOU.matchEntire(text)?.let { m ->
             val filter = Filters.noun(m.groupValues[1]) ?: return null
@@ -461,6 +491,44 @@ internal class Sentences(
                 Step.Pay(Cost(listOf(CostPart.Sacrifice(CostObjects.Choose(filter, count = Value.Fixed(1))))), payer = opponent, mandatory = true, bind = "sacrificed"),
                 Step.If(arcanum.api.Condition.CouldNot("sacrificed"), then = listOf(Step.Do(Effect.Discard(opponent, Value.Fixed(1), ObjectFilter.Any)))))))
         }
+        // dft chunk 12: "Target creature card in your graveyard gains embalm until end of turn. The embalm cost is equal to its mana cost." (CR 702.128a)
+        Dft.GAINS_EMBALM_COST_ITS_MANA_COST.matchEntire(text)?.let { m ->
+            val name = Filters.slotName(m.groupValues[1])
+            val noun = m.groupValues[1].removeSuffix(" in your graveyard")
+            val filter = if (noun != m.groupValues[1]) dftInYourGraveyard(Filters.noun(noun) ?: return null) else Filters.noun(noun) ?: return null
+            context.targets += dftSlot(name, filter)
+            return listOf(dftUntilEndOfTurn(Objects.Target(name), listOf(Mechanic.GainAbilities(listOf(arcanum.api.Keyword.Embalm(Cost(listOf(CostPart.ItsManaCost))))))))
+        }
+        // dft chunk 12: "Its controller looks at the top card of that opponent's library and exiles it face down. They may play that card for as long as
+        // it remains exiled. Mana of any type can be spent to cast a spell this way." (the damaging creature's controller, CR 406.3)
+        if (Dft.LOOKS_AT_TOP_EXILES_FACE_DOWN_MAY_PLAY.matches(text) && context.event is EventPattern.Damage) {
+            val controller = Players.ControllerOf(Objects.EventObject(EventRole.Source))
+            return listOf(Step.Do(Effect.LookAt(Objects.LibraryCards(Players.EventPlayer, Value.Fixed(1), fromTop = true), controller, bind = "looked")),
+                Step.Do(Effect.Move(Objects.Bound("looked"), Destination(Zone.Exile, faceDown = true), postBind = "exiled")),
+                Step.Do(Effect.ApplyMechanics(listOf(Mechanic.MayPlay(Zone.Exile, PlayKind.Play, holder = PlayerFilter.Is(controller), manaAsAnyColor = true)),
+                    Affected.Objects(Objects.Bound("exiled")), arcanum.api.Duration.Indefinitely)))
+        }
+        // dft chunk 12: "Choose target creature, planeswalker, or Vehicle. Mill two cards, then destroy the chosen permanent if its mana value is less than
+        // or equal to the number of cards in your graveyard." (compared as it resolves, after the mill)
+        Dft.CHOOSE_TARGET_MILL_DESTROY_IF_MV.matchEntire(text)?.let { m ->
+            val name = Filters.slotName(m.groupValues[1])
+            context.targets += dftSlot(name, Filters.noun(m.groupValues[1]) ?: return null)
+            val graveyard = Value.Count(Objects.Each(Filters.all(ObjectFilter.InZone(Zone.Graveyard), ObjectFilter.OwnedBy(PlayerFilter.You))))
+            return listOf(Step.Do(Effect.Mill(Players.You, Value.Fixed(Numbers.count(m.groupValues[2]) ?: return null))),
+                Step.If(arcanum.api.Condition.ObjectMatches(Objects.Target(name), ObjectFilter.ManaValue(arcanum.api.Comparison.AtMost, graveyard)),
+                    then = listOf(Step.Do(Effect.Destroy(Objects.Target(name))))))
+        }
+        // dft chunk 13: "Choose target artifact card in your graveyard. You may sacrifice an artifact. If you do, return the chosen card to the
+        // battlefield." (CR 118.12)
+        Dft.CHOOSE_TARGET_MAY_SACRIFICE_RETURN_CHOSEN.matchEntire(text)?.let { m ->
+            val name = Filters.slotName(m.groupValues[1])
+            val noun = m.groupValues[1].removeSuffix(" in your graveyard")
+            val filter = if (noun != m.groupValues[1]) dftInYourGraveyard(Filters.noun(noun) ?: return null) else Filters.noun(noun) ?: return null
+            context.targets += dftSlot(name, filter)
+            val sacrifice = costPart("Sacrifice an " + m.groupValues[2]) ?: costPart("Sacrifice a " + m.groupValues[2]) ?: return null
+            return listOf(Step.Pay(Cost(sacrifice), payer = Players.You, bind = "paid"),
+                Step.If(arcanum.api.Condition.Did("paid"), then = listOf(Step.Do(Effect.Move(Objects.Target(name), Destination(Zone.Battlefield))))))
+        }
         // dft chunk 03: "Choose up to one target Vehicle you control. Until end of turn, it becomes …" (the rest about that target)
         Dft.CHOOSE_UP_TO_ONE_TARGET_THEN.matchEntire(text)?.takeIf {
             it.groupValues[2].startsWith("Until end of turn, it ") || Dft.UNTIL_EOT_SADDLED_IF_MOUNT_CREATURE_IF_VEHICLE.matches(it.groupValues[2])
@@ -535,6 +603,46 @@ internal class Sentences(
             val keywords = dftKeywords(m.groupValues[2]) ?: return null
             context.it = objects
             return listOf(dftUntilEndOfTurn(objects, listOf(dftArtifactCreature, Mechanic.GainAbilities(keywords))))
+        }
+        // dft chunk 12: "That player creates a Treasure token." (the player of the event)
+        Dft.THAT_PLAYER_CREATES.matchEntire(sentence)?.takeIf { context.event is EventPattern.Cast }?.let { m ->
+            val (count, token) = Tokens.spec(m.groupValues[1]) ?: return null
+            return listOf(Step.Do(Effect.CreateToken(token, Value.Fixed(count), Players.EventPlayer)))
+        }
+        // dft chunk 13: "After this main phase, there are two additional combat phases." (each right after the one before, CR 500.8)
+        Dft.AFTER_THIS_MAIN_PHASE_COMBATS.matchEntire(sentence)?.let { m ->
+            return listOf(Step.Repeat(Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null), listOf(Step.Do(Effect.ExtraCombat()))))
+        }
+        // dft chunk 13: "At the beginning of each combat this turn, untap all creatures that attacked this turn." (CR 603.7b: every combat this turn)
+        Dft.EACH_COMBAT_THIS_TURN_UNTAP_ATTACKED.matchEntire(sentence)?.let { m ->
+            val kind = Filters.noun(m.groupValues[1]) ?: return null
+            val attacked = Filters.all(kind, ObjectFilter.ThisTurn(EventPattern.Attack(ObjectFilter.Any)))
+            return listOf(Step.Do(Effect.CreateDelayedTrigger(arcanum.api.Trigger.On(EventPattern.StepBegins(arcanum.api.TurnStep.BeginningOfCombat, PlayerFilter.Any)),
+                Instructions(steps = listOf(Step.Do(Effect.Untap(Objects.Each(attacked))))), duration = arcanum.api.Duration.EndOfTurn, repeats = true)))
+        }
+        // dft chunk 10: "Exchange control of target artifact or creature you control and target artifact or creature an opponent controls." (CR 701.12)
+        Dft.EXCHANGE_CONTROL_OF_TARGETS.matchEntire(sentence)?.let { m ->
+            val first = context.target(Filters.slotName(m.groupValues[1]), Filters.noun(m.groupValues[1]) ?: return null)
+            val second = context.target(Filters.slotName(m.groupValues[2]), Filters.noun(m.groupValues[2]) ?: return null)
+            return listOf(Step.Do(Effect.ExchangeControl(first, second)))
+        }
+        // dft chunk 10: "All creatures and Vehicles lose indestructible until end of turn, then destroy all creatures and Vehicles." (CR 613.1f first)
+        Dft.ALL_LOSE_THEN_DESTROY_ALL.matchEntire(sentence)?.takeIf { it.groupValues[1] == it.groupValues[3] }?.let { m ->
+            val kinds = m.groupValues[1].split(" and ").map { Filters.noun(it) ?: return null }
+            val all = Objects.Each(if (kinds.size == 1) kinds.single() else ObjectFilter.Or(kinds))
+            val keyword = OracleParser.keyword(m.groupValues[2]) ?: return null
+            return listOf(dftUntilEndOfTurn(all, listOf(Mechanic.LoseAbilities(keyword.kind))), Step.Do(Effect.Destroy(all)))
+        }
+        // dft chunk 10: "create X 1/1 colorless Pilot creature tokens with "…"" (X read by the ability, CR 107.3)
+        Dft.CREATE_X_TOKENS_WITH_QUOTED.matchEntire(sentence)?.let { m ->
+            val token = Tokens.defined("a " + m.groupValues[1] + " token") ?: return null
+            val granted = Sentences(setOf("this token", "this creature")).line(m.groupValues[2]) ?: return null
+            return listOf(Step.Do(Effect.CreateToken(token.copy(face = token.face.copy(abilities = listOf(granted))), Value.Announced("X"), Players.You)))
+        }
+        // dft chunk 11: "this creature deals that much damage to each opponent." after discarding one or more cards: one for each card
+        Dft.DEALS_THAT_MUCH_TO_EACH_OPPONENT.matchEntire(sentence)?.takeIf { context.event is EventPattern.Discard }?.let { m ->
+            val source = dftSubject(m.groupValues[1], context)?.takeIf { it !is Objects.Target } ?: return null
+            return listOf(Step.Do(Effect.DealDamage(Recipients(players = Players.Each(PlayerFilter.Opponent)), Value.Count(Objects.EventObject(EventRole.After)), source)))
         }
         // dft chunk 08: "those creatures get -1/-0 until end of turn." after one or more creatures attack: the attackers of the batch
         Dft.THOSE_CREATURES_GET_UNTIL_EOT.matchEntire(sentence)?.takeIf { context.event is EventPattern.Attack }?.let { m ->
@@ -1910,6 +2018,8 @@ internal class Sentences(
         // chunk 33: X in this permanent's enters trigger is the X chosen for the spell it was (CR 107.3m)
         if (trigger.events == listOf(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), to = Zone.Battlefield)) && !rest.contains("where X is"))
             instructions = instructions?.withX(Value.CastX(of = Objects.Self))
+        // dft chunk 10: X in "when you cycle this card" is the X paid for that cycling (CR 107.3a, 702.29c)
+        if (trigger.events.singleOrNull() is EventPattern.Cycle && !rest.contains("where X is")) instructions = instructions?.withX(Value.EventX)
         if (instructions == null) return null
         // chunk 25: "one or more [objects]" triggers once for the batch; "if this card is in your graveyard" states the
         // zone the ability works in (CR 113.6b)

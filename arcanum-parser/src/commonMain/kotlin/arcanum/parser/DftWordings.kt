@@ -71,6 +71,25 @@ internal object Dft {
     val REVEAL_UNTIL_TWO_PUT_REST_BOTTOM = Regex("""Reveal cards from the top of your library until you reveal (\w+) (\w+) cards\. Put those \2 cards onto the battlefield( tapped)? and the rest on the bottom of your library in a random order\. (.+)""")
     val PUT_X_COUNTERS_THEN_MAY_BASE_PT = Regex("""Put X (\S+) counters on (.+?)\. Then you may have the base power and toughness of each other creature you control become equal to (.+?)'s power until end of turn\.""")
     val COSTS_LESS_IF_TARGETS_MV = Regex("""This spell costs (\{\d+\}) less to cast if it targets an? (\w+) with mana value (\d+)\.""")
+    // dft chunk 10
+    val EXCHANGE_CONTROL_OF_TARGETS = Regex("""Exchange control of target (.+?) and target (.+)\.""")
+    val MAY_ENTER_AS_COPY = Regex("""You may have (.+?) enter as a copy of an? (.+)\.""")
+    val ALL_LOSE_THEN_DESTROY_ALL = Regex("""All (.+?) lose (\w+) until end of turn, then destroy all (.+)\.""")
+    val CREATE_X_TOKENS_WITH_QUOTED = Regex("""[Cc]reate X (\d+/\d+ .+? creature) tokens with "(.+)"\.?""")
+    val WITH_MANA_VALUE_X = Regex("""(.+) with mana value X""")
+    // dft chunk 11
+    val DEALS_THAT_MUCH_TO_EACH_OPPONENT = Regex("""(.+?) deals that much damage to each opponent\.""")
+    // dft chunk 12
+    val GAINS_EMBALM_COST_ITS_MANA_COST = Regex("""Target (.+?) gains embalm until end of turn\. The embalm cost is equal to its mana cost\.""")
+    val MAY_CAST_FROM_GRAVEYARD_BY = Regex("""You may cast (.+?) from your graveyard by (.+) in addition to paying its other costs\.""")
+    val THAT_PLAYER_CREATES = Regex("""That player creates (.+)\.""")
+    val LOOKS_AT_TOP_EXILES_FACE_DOWN_MAY_PLAY = Regex("""Its controller looks at the top card of that opponent's library and exiles it face down\. They may play that card for as long as it remains exiled\. Mana of any type can be spent to cast a spell this way\.""")
+    val CHOOSE_TARGET_MILL_DESTROY_IF_MV = Regex("""Choose target (.+?)\. Mill (\w+) cards, then destroy the chosen permanent if its mana value is less than or equal to the number of cards in your graveyard\.""")
+    val SACRIFICED_WAS = Regex("""the sacrificed permanent was an? (\w+)""")
+    // dft chunk 13
+    val CHOOSE_TARGET_MAY_SACRIFICE_RETURN_CHOSEN = Regex("""Choose target (.+?)\. You may sacrifice an? (.+?)\. If you do, return the chosen card to the battlefield\.""")
+    val AFTER_THIS_MAIN_PHASE_COMBATS = Regex("""After this main phase, there are (\w+) additional combat phases\.""")
+    val EACH_COMBAT_THIS_TURN_UNTAP_ATTACKED = Regex("""At the beginning of each combat this turn, untap all (.+?) that attacked this turn\.""")
 }
 
 /** Aetherdrift (dft) values and conditions read in [Values] and [Conditions]. */
@@ -102,6 +121,8 @@ internal object DftPhrases {
     fun condition(text: String): Condition? {
         // dft chunk 07: "you have max speed" (CR 702.179e)
         if (text == "you have max speed") return Condition.MaxSpeed
+        // dft chunk 12: "the sacrificed permanent was a Vehicle" (the cost's permanent as it last existed, CR 608.2h)
+        Dft.SACRIFICED_WAS.matchEntire(text)?.let { m -> return Condition.ObjectMatches(Objects.Bound(SACRIFICED), Filters.noun(m.groupValues[1]) ?: return null) }
         // dft chunk 08: "it's not their turn" (the player of the event isn't the active player)
         if (text == "it's not their turn") return Condition.PlayerMatches(Players.EventPlayer, arcanum.api.PlayerFilter.Not(arcanum.api.PlayerFilter.Is(Players.Active)))
         // dft chunk 03: "a Pirate and a Vehicle attacked this combat" (attacking creatures of each)
@@ -118,6 +139,10 @@ internal object DftPhrases {
             val n = m.groupValues[2].toInt()
             val mv = { v: Int -> ObjectFilter.ManaValue(arcanum.api.Comparison.Equal, Value.Fixed(v)) }
             return Filters.all(Filters.noun(m.groupValues[1]) ?: return null, if (m.groupValues[3].isEmpty()) mv(n) else ObjectFilter.Or(listOf(mv(n), mv(m.groupValues[3].toInt()))))
+        }
+        // dft chunk 11: "artifact or enchantment with mana value X" (X read by the ability: announced, or the cycling's)
+        Dft.WITH_MANA_VALUE_X.matchEntire(phrase)?.let { m ->
+            return Filters.all(Filters.noun(m.groupValues[1]) ?: return null, ObjectFilter.ManaValue(arcanum.api.Comparison.Equal, Value.Announced("X")))
         }
         // dft chunk 14: "creature card with no abilities" (CR 113.1)
         WITH_NO_ABILITIES.matchEntire(phrase)?.let { m -> return Filters.all(Filters.noun(m.groupValues[1]) ?: return null, ObjectFilter.NoAbilities) }

@@ -1,0 +1,1 @@
+mod: When preparing a pod deck for a game, basic lands are moved between Main and Side like any other card instead of with plus and minus buttons.

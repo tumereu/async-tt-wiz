@@ -69,10 +69,10 @@ Everything outside the game table: accounts, profile, navigation, game list, gam
 
 - **LOB-047** "Prepare deck" opens one scrolling page with green Mainboard · N and blue Sideboard · N headers, cards as pictures grouped by type in the shared order (SYS-051; empty groups left out, cards sorted by name) and ×N badges for copies. A deck's Maybe cards are not shown there and never reach a game. (r35)
 - **LOB-048** Swipe a card sideways (20 dp) to move one copy to the other section; hold to inspect it; tap for "Move one to…" and "Move all N to…". (r52)
-- **LOB-049** A round floating Undo button at the bottom left, shown only when there is something to undo, takes back moved cards and basic land changes one at a time. (r23)
+- **LOB-049** A round floating Undo button at the bottom left, shown only when there is something to undo, takes back moved cards one at a time. (r23)
 - **LOB-050** A short fading line under the title says what you last moved ("2× Opt → Sideboard"); while disconnected it reads "Disconnected · preparation is read-only". (r21)
 - **LOB-051** The prepare screen and saved deck view have a columns control (1–10, 3 by default), remembered per screen, device and orientation. (r31)
-- **LOB-052** In pod games each section has basic land −/+ steppers (W U B R G); Ready is blocked with a reason if Main has fewer than 40 cards including basics or Side is over the pod's sideboard limit. (r23)
+- **LOB-052** In pod games the basic lands are cards like any other: the ones added while building (and an unlimited sideboard's Side basics, DRF-104) show as tiles and move between Main and Side as other cards do (no basic land steppers); Ready is blocked with a reason if Main has fewer than 40 cards including basics or Side is over the pod's sideboard limit. (r23)
 - **LOB-053** Lobby deck changes never change the saved deck, and saved deck edits or deletion never change a deck already chosen in a lobby or game. (r1)
 
 ### Deck library

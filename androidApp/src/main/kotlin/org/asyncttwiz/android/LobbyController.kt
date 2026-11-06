@@ -155,8 +155,6 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
     fun showDeck(shown: Boolean) = preparationActions.showDeck(shown)
     fun ready() = preparationActions.ready()
     fun withdrawReady() = preparationActions.withdrawReady()
-    fun changePodBasic(land: BasicLand, delta: Int, section: SavedDeckSection = SavedDeckSection.MAINBOARD): Boolean =
-        preparationActions.changePodBasic(land, delta, section)
     internal val preparationUndo: PreparationUndo get() = preparationActions.preparationUndo
     internal fun preparationUndoStep(): PreparationStep? = preparationActions.preparationUndoStep()
     fun undoPreparation(): Boolean = preparationActions.undoPreparation()

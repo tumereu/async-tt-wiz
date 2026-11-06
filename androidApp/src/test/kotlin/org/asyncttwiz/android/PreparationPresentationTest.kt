@@ -72,8 +72,8 @@ class PreparationPresentationTest {
         assertEquals(CardTypeGroup.OTHER, cardTypeGroup("Tribal — Landfall Creature")) // Subtypes never decide.
     }
 
-    // LOB-047, SYS-051
-    @Test fun groupsFollowTypeOrderSkipEmptyGroupsSortByNameAndLeaveSuppliedBasicsToSteppers() {
+    // LOB-047, SYS-051, LOB-052
+    @Test fun groupsFollowTypeOrderSkipEmptyGroupsSortByNameAndShowSuppliedBasicsAsTiles() {
         fun card(name: String, type: String) = CardDefinition(name, listOf(DefinitionFace(id(), name, typeLine = type)))
             .let { SubmittedDefinition(DeckJson.digest(it), it) }
         val zebra = card("Zebra Scout", "Creature — Horse"); val ant = card("ant Soldier", "Creature — Insect")
@@ -92,7 +92,7 @@ class PreparationPresentationTest {
         assertEquals(listOf(CardTypeGroup.CREATURES, CardTypeGroup.INSTANTS, CardTypeGroup.LANDS), main.map { it.type })
         assertEquals(listOf("ant Soldier" to 1L, "Zebra Scout" to 3L), main[0].tiles.map { it.name to it.quantity })
         assertEquals(4L, main[0].count)
-        assertEquals(listOf("Forest" to 7L), main[2].tiles.map { it.name to it.quantity }) // Ordinary basics are tiles; supplied ones are not.
+        assertEquals(listOf("Forest" to 7L, "Swamp" to 5L), main[2].tiles.map { it.name to it.quantity }) // Supplied basics are tiles too.
         val side = preparationGroups(deck, SavedDeckSection.SIDEBOARD, definitions)
         assertEquals(listOf(PreparationGroup(CardTypeGroup.INSTANTS, listOf(PreparationTile(bolt.digest, bolt.definition, 3)))), side)
         val unknown = deck.copy(entries = listOf(PreparedEntry("missing", SavedDeckSection.SIDEBOARD, "0", 2)))
@@ -120,15 +120,15 @@ class PreparationPresentationTest {
     }
 
     // LOB-049
-    @Test fun undoInvertsTheExactCopiesAndBasicsAndIsScopedToTheShownRoundAndDeck() {
+    @Test fun undoInvertsTheExactCopiesAndIsScopedToTheShownRoundAndDeck() {
         val one = capture(false)
         val moved = PreparationRules.previewTransfer(base, actor, one)
         val back = one.inverse()
         assertEquals(SavedDeckSection.SIDEBOARD, back.source); assertEquals(one.entries.map { it.firstIndex }, back.entries.map { it.firstIndex })
         assertEquals(base.players[0].deck!!.entries, PreparationRules.previewTransfer(moved, actor, back).players[0].deck!!.entries)
         var undo = PreparationUndo().push(base.gameId, base.roundId, deck.id, PreparationStep.Moved(one))
-            .push(base.gameId, base.roundId, deck.id, PreparationStep.Basics(SavedDeckSection.SIDEBOARD, PodDeckBasics(island = 3)))
-        assertEquals(PreparationStep.Basics(SavedDeckSection.SIDEBOARD, PodDeckBasics(island = 3)), undo.last(moved, actor))
+            .push(base.gameId, base.roundId, deck.id, PreparationStep.Moved(back))
+        assertEquals(PreparationStep.Moved(back), undo.last(moved, actor))
         undo = undo.pop()
         assertEquals(PreparationStep.Moved(one), undo.last(moved, actor))
         assertNull(undo.last(moved.copy(roundId = id()), actor)); assertNull(undo.last(moved, id()))
@@ -137,9 +137,9 @@ class PreparationPresentationTest {
         val other = undo.push(id(), base.roundId, deck.id, PreparationStep.Moved(one))
         assertEquals(1, other.steps.size)
         val full = (1..60).fold(PreparationUndo()) { stack, count ->
-            stack.push(base.gameId, base.roundId, deck.id, PreparationStep.Basics(SavedDeckSection.MAINBOARD, PodDeckBasics(plains = count))) }
+            stack.push(base.gameId, base.roundId, deck.id, PreparationStep.Moved(one.copy(selectionRequestId = "$count"))) }
         assertEquals(PreparationUndo.LIMIT, full.steps.size)
-        assertEquals(PreparationStep.Basics(SavedDeckSection.MAINBOARD, PodDeckBasics(plains = 11)), full.steps.first())
+        assertEquals(PreparationStep.Moved(one.copy(selectionRequestId = "11")), full.steps.first())
     }
 
     // LOB-050

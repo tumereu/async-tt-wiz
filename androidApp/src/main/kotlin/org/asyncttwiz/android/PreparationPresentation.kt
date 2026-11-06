@@ -20,9 +20,8 @@ internal fun preparationFeedback(before: LobbyPreparation?, after: LobbyPreparat
     val next = after?.players?.find { it.accountId == actor }?.deck ?: return previous
     if (before.gameId != after.gameId || before.roundId != after.roundId || old.id != next.id) return null
     val changes = (old.entries + next.entries).map { it.definition }.distinct().mapNotNull { digest ->
-        // Supplied basics are counts set with steppers, not moved copies.
-        fun side(deck: PreparedDeck) = deck.entries.filter { it.definition == digest && it.section == SavedDeckSection.SIDEBOARD &&
-            it.suppliedBasic == null }.sumOf { it.quantity.toLong() }
+        fun side(deck: PreparedDeck) = deck.entries.filter { it.definition == digest && it.section == SavedDeckSection.SIDEBOARD }
+            .sumOf { it.quantity.toLong() }
         val delta = side(next) - side(old)
         if (delta == 0L) null else {
             val name = after.definitions.find { it.digest == digest }?.definition?.name ?: "Card"
@@ -32,10 +31,9 @@ internal fun preparationFeedback(before: LobbyPreparation?, after: LobbyPreparat
     return if (changes.isEmpty()) previous else TransferFeedback((previous?.serial ?: 0) + 1, changes.joinToString("; "))
 }
 
-/** One undoable preparation tap: the exact copies a transfer moved, or a section's basics before a stepper tap. */
+/** One undoable preparation tap: the exact copies a transfer moved. */
 internal sealed interface PreparationStep {
     data class Moved(val transfer: PreparedTransfer) : PreparationStep
-    data class Basics(val section: SavedDeckSection, val previous: PodDeckBasics) : PreparationStep
 }
 
 /** Personal undo for one game's preparation round and deck. Undo sends the inverse as an ordinary request. */
@@ -74,10 +72,10 @@ internal data class PreparationGroup(val type: CardTypeGroup, val tiles: List<Pr
     val count get() = tiles.sumOf { it.quantity }
 }
 
-/** A section's moved cards (not stepper-supplied basics) by type group; empty groups are left out, tiles by name. */
+/** A section's cards, a pod game's supplied basics included, by type group; empty groups are left out, tiles by name. */
 internal fun preparationGroups(deck: PreparedDeck, section: SavedDeckSection,
     definitions: Map<String, CardDefinition>): List<PreparationGroup> = preparationGroups(
-    deck.entries.filter { it.section == section && it.suppliedBasic == null }.map { it.definition to it.quantity.toLong() }, definitions)
+    deck.entries.filter { it.section == section }.map { it.definition to it.quantity.toLong() }, definitions)
 
 /** A saved deck's section in the same type groups as game preparation; every entry, basics included, is a tile. */
 internal fun preparationGroups(deck: SavedDeck, section: SavedDeckSection,

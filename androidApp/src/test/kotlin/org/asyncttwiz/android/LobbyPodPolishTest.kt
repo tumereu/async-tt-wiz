@@ -25,57 +25,17 @@ import kotlin.test.*
 class LobbyPodPolishTest {
     @get:Rule val compose = createComposeRule()
 
-    @Test fun basicsFitOneCompactRowAndKeepAccessibleCountsAndActions() {
-        val basics = PodDeckBasics(plains = 12, swamp = 3, mountain = 4, forest = 5)
-        val changes = mutableListOf<Pair<BasicLand, Int>>()
-        compose.setContent { ScreenTheme {
-            Box(Modifier.width(380.dp)) { PodBasicSteppers(basics, true, true) { land, delta -> changes.add(land to delta) } }
-        } }
-        val first = compose.onNodeWithContentDescription("Add Plains").getUnclippedBoundsInRoot()
-        var previousRight = 0.dp
-        for (land in BasicLand.entries) {
-            val add = compose.onNodeWithContentDescription("Add ${land.cardName}").assertIsDisplayed().assertIsEnabled()
-            val bounds = add.getUnclippedBoundsInRoot()
-            assertEquals(first.top, bounds.top)
-            assertEquals(first.bottom, bounds.bottom)
-            assertTrue(bounds.bottom - bounds.top <= 40.dp)
-            val remove = compose.onNodeWithContentDescription("Remove ${land.cardName}").assertIsDisplayed()
-            assertTrue(remove.getUnclippedBoundsInRoot().left >= previousRight)
-            previousRight = bounds.right
-            compose.onNodeWithContentDescription("${land.cardName} count: ${land.count(basics)}").assertIsDisplayed()
-            add.performTouchInput { click() }
-            if (land == BasicLand.ISLAND) remove.assertIsNotEnabled()
-            else remove.assertIsEnabled().performTouchInput { click() }
-        }
-        assertTrue(previousRight <= 380.dp)
-        assertEquals(BasicLand.entries.flatMap { land ->
-            listOf(land to 1) + if (land == BasicLand.ISLAND) emptyList() else listOf(land to -1)
-        }, changes)
-    }
-
-    @Test fun cardLimitAndReadOnlyStateStillDisableBasicChanges() {
-        var enabled by mutableStateOf(true)
-        compose.setContent { ScreenTheme {
-            PodBasicSteppers(PodDeckBasics(1, 1, 1, 1, 1), enabled, false) { _, _ -> fail("Disabled change") }
-        } }
-        for (land in BasicLand.entries) {
-            compose.onNodeWithContentDescription("Add ${land.cardName}").assertIsNotEnabled()
-            compose.onNodeWithContentDescription("Remove ${land.cardName}").assertIsEnabled()
-        }
-        compose.runOnIdle { enabled = false }
-        for (land in BasicLand.entries) {
-            compose.onNodeWithContentDescription("Add ${land.cardName}").assertIsNotEnabled()
-            compose.onNodeWithContentDescription("Remove ${land.cardName}").assertIsNotEnabled()
-        }
-    }
-
-    @Test fun podPreparationShowsMainboardCardsBelowBasicsWithoutScrolling() {
+    // LOB-052: no basic land steppers; basics are cards like any other
+    @Test fun podPreparationHasNoBasicLandSteppers() {
         val fixture = ScreenFixtures().also { it.configure("prepare-deck-faded") }
         val preparation = fixture.lobby.state.preparation!!
         fixture.lobby.seed(fixture.lobby.state.copy(preparation = preparation.copy(podRules = PodGameRules())))
         try {
             compose.setContent { ScreenTheme { PreparationScreen(fixture.lobby, "a", false) } }
-            compose.onNodeWithContentDescription("Add Forest").assertIsDisplayed()
+            for (land in BasicLand.entries) {
+                compose.onNodeWithContentDescription("Add ${land.cardName}").assertDoesNotExist()
+                compose.onNodeWithContentDescription("Remove ${land.cardName}").assertDoesNotExist()
+            }
             compose.onNodeWithContentDescription("Meadow Sentinel, 3 copies, Mainboard").assertIsDisplayed()
             compose.onNodeWithContentDescription("Aegis Ward, 4 copies, Mainboard").assertIsDisplayed()
         } finally { fixture.lobby.close() }

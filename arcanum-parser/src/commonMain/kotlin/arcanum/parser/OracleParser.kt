@@ -536,6 +536,9 @@ object OracleParser {
         }
         // mh2 chunk 12: "Echo—Discard a card." (CR 702.30a): a cost that isn't mana
         Mh2.ECHO_COST.matchEntire(part)?.let { m -> return Keyword.Echo(Sentences(setOf("this card")).cost(m.groupValues[1]) ?: return null) }
+        // ltr chunk 14: "nonbasic landwalk" (CR 702.14c)
+        if (Ltr.NONBASIC_LANDWALK.matches(part))
+            return Keyword.Landwalk(Filters.all(arcanum.api.ObjectFilter.Not(arcanum.api.ObjectFilter.Super(arcanum.api.Supertype.Basic)), arcanum.api.ObjectFilter.Type(arcanum.api.CardType.Land)), part)
         // mh2 chunk 13: "artifact landwalk" (CR 702.14c); "Artifact landcycling {2}" (CR 702.29e)
         if (Mh2.ARTIFACT_LANDWALK.matches(part))
             return Keyword.Landwalk(Filters.all(arcanum.api.ObjectFilter.Type(arcanum.api.CardType.Artifact), arcanum.api.ObjectFilter.Type(arcanum.api.CardType.Land)), part)

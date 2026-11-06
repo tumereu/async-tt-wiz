@@ -164,6 +164,22 @@ internal object Ltr {
     val MANA_OF_ANY_TYPE_TO_ACTIVATE_SELFS = Regex("""Mana of any type can be spent to activate (.+?)'s abilities\.""")
     val OPPONENTS_MILL_WHEN_MILLED_EXILE_COPY_CAST = Regex("""Each opponent mills (\w+) cards\. When one or more cards are milled this way, exile (target .+?) with equal or lesser mana value than that spell from an opponent's graveyard\. Copy the exiled card\. You may cast the copy without paying its mana cost\.""")
     val TARGETS_EACH_GAIN = Regex("""((?:Up to )?(?:two|three|Two|Three) target .+?) (?:each )?(gain|get) (.+)""")
+    // ltr chunk 14
+    val YOU_GAIN_PROTECTION_FROM_EVERYTHING = Regex("""[Yy]ou gain protection from everything until your next turn\.""")
+    val YOU_LOSE_LIFE_FOR_EACH = Regex("""[Yy]ou lose (\d+) life for each (.+)\.""")
+    val CREATE_IF_THAT_CREATURE_INSTEAD_ATTACKING = Regex("""(Create .+?)\. If that creature is (\w+), instead create (\w+) of those tokens that are tapped and attacking\.""")
+    val BLOCKS_OR_BECOMES_BLOCKED_THAT_CREATURE_LOSES = Regex("""Whenever (.+?) blocks or becomes blocked by an? (.+?), that creature loses all abilities until end of turn\.""")
+    val MAY_CAST_FROM_HAND_WITH_MANA_VALUE_AT_MOST = Regex("""[Yy]ou may cast an? (.+?) spell from your hand with mana value less than or equal to (.+?) without paying its mana cost\.""")
+    val OWNER_SHUFFLES_IT = Regex("""[Ii]ts owner shuffles it into their library\.""")
+    val OPPONENT_MAY_HAVE_YOU_DRAW_ELSE_MILL = Regex("""(.+?\.) Then target opponent may have you draw a card\. If that player doesn't, you mill X cards, where X is the number of (\S+) counters on (.+?), and that player loses life equal to the total mana value of those cards\.""")
+    val WOULD_WHILE_YOU_HAVE = Regex("""If you would (.+?) while you have (.+?), (.+)\.""")
+    val UNTAP_EQUIPPED_CREATURE = Regex("""[Uu]ntap equipped creature\.""")
+    val HAS_AS_LONG_AS_BLOCKING_OR_BLOCKED_BY = Regex("""Equipped creature has (.+?) as long as it's blocking or blocked by an? (.+)\.""")
+    val NONBASIC_LANDWALK = Regex("""[Nn]onbasic landwalk""")
+    val ADD_MANA_OF_ANY_COLOR_AMONG = Regex("""[Aa]dd one mana of any color among (.+)\.""")
+    val SACRIFICE_SELF_AND_A = Regex("""Sacrifice (.+?) and (an? .+)""")
+    val YOU_HAVE_N_OR_LESS_LIFE = Regex("""you have (\d+) or less life""")
+    val CHOOSE_UP_TO_THEN_DESTROY_THE_REST = Regex("""[Cc]hoose up to (\w+) (.+?), then destroy the rest\.""")
 }
 
 /** Nouns, values and conditions of The Lord of the Rings (ltr). */
@@ -177,6 +193,7 @@ internal object LtrPhrases {
     private val FROM_AN_OPPONENTS_GRAVEYARD = Regex("""(.+? cards?) from an opponent's graveyard""")
     private val AND_OR = Regex("""(\w+?)s? and/or (\w+?)s?""")
     private val POWER_AT_MOST_AMASSED = Regex("""(.+?) with power less than or equal to the amassed Army's power""")
+    private val WITH_POWER_X = Regex("""(.+?) with power X""")
 
     fun noun(phrase: String): ObjectFilter? {
         // ltr chunk 02: "permanent card in your graveyard that was put there from the battlefield this turn" (the new object, CR 400.7)
@@ -227,6 +244,11 @@ internal object LtrPhrases {
             val base = Filters.noun(m.groupValues[1]) ?: return null
             return Filters.all(base, ObjectFilter.Power(Comparison.AtMost, Value.Of(arcanum.api.NumericProperty.Power, arcanum.api.Objects.Bound(AMASSED_ARMY), arcanum.api.Combine.Single)))
         }
+        // ltr chunk 14: "creature with power X" (X announced as the ability is activated, CR 107.3a)
+        WITH_POWER_X.matchEntire(phrase)?.let { m ->
+            val base = Filters.noun(m.groupValues[1]) ?: return null
+            return Filters.all(base, ObjectFilter.Power(Comparison.Equal, Value.Announced(name = "X")))
+        }
         // ltr chunk 04: "creature with lesser power" (than this creature)
         WITH_LESSER_POWER.matchEntire(phrase)?.let { m ->
             val base = Filters.noun(m.groupValues[1]) ?: return null
@@ -249,6 +271,10 @@ internal object LtrPhrases {
 
     /** ltr: a condition. */
     fun condition(text: String): arcanum.api.Condition? {
+        // ltr chunk 14: "you have 5 or less life"
+        Ltr.YOU_HAVE_N_OR_LESS_LIFE.matchEntire(text)?.let { m ->
+            return arcanum.api.Condition.Compare(Value.LifeOf(arcanum.api.Players.You), Comparison.AtMost, Value.Fixed(m.groupValues[1].toInt()))
+        }
         // ltr chunk 07: "you control a creature with the greatest power among creatures on the battlefield" (ties count, CR 208.1)
         if (Ltr.CONTROL_CREATURE_WITH_GREATEST_POWER.matches(text)) {
             val creature = ObjectFilter.Type(arcanum.api.CardType.Creature)

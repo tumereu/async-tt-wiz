@@ -64,6 +64,12 @@ object TestCards {
     val blade = card("Ember Blade", "Artifact — Equipment", "{0}", "Equipped creature gets +1/+0.\nEquip {0}")
     /** A sorcery too dear for one Mountain that cycles for {R} (ZON-080: its Cycling chip). */
     val musing = card("Ember Musing", "Sorcery", "{3}{R}", "Draw two cards.\nCycling {R} ({R}, Discard this card: Draw a card.)")
+    /** An instant milling fourteen that cycles for {R} with a "when you cycle" trigger (owner playtest 2026-11-07: worded
+     * as a real cycling card with a cycle trigger, STK-057). */
+    val reason = card("Shattered Reason", "Instant", "{1}{U}{U}",
+        "Each opponent mills fourteen cards.\nCycling {R} ({R}, Discard this card: Draw a card.)\nWhen you cycle this card, each opponent mills four cards.")
+    /** A free instant dealing 1 damage to any target (a targeted spell that needs no mana). */
+    val flick = card("Ember Flick", "Instant", "{0}", "Ember Flick deals 1 damage to any target.")
     /** A fetch-style land (owner playtest 2026-11-05 evening): its ability searches its controller's library for a basic land. */
     val cinderTrail = card("Cinder Trail", "Land",
         rulesText = "{T}, Pay 1 life, Sacrifice this land: Search your library for a basic land card, put it onto the battlefield, then shuffle.")

@@ -392,7 +392,7 @@ private fun EmblemTile(tile: InspectTile.Emblem, size: DpSize, fit: Boolean, mod
 }
 
 @Composable
-private fun InspectFaceView(tile: InspectTile.Face, size: DpSize, modifier: Modifier = Modifier) {
+internal fun InspectFaceView(tile: InspectTile.Face, size: DpSize, modifier: Modifier = Modifier) {
     val density = LocalDensity.current
     val (width, height) = size
     Box(modifier.size(width, height).semantics { contentDescription = "Card image: ${tile.name}" }) {

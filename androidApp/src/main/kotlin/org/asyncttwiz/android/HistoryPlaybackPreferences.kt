@@ -10,6 +10,7 @@ class HistoryPlaybackPreferences(context: Context, accountId: String) {
     private val preferences = context.applicationContext.getSharedPreferences("history-playback", Context.MODE_PRIVATE)
     internal val key = "pause/$accountId"
     private val rewindKey = "rewind-pause/$accountId"
+    private val showPlaysKey = "show-plays/$accountId"
     private val seenPrefix = "last-seen/$accountId/"
 
     init {
@@ -38,9 +39,15 @@ class HistoryPlaybackPreferences(context: Context, accountId: String) {
         get() = preferences.getLong(rewindKey, DEFAULT_REWIND_PAUSE_MILLIS).coerceIn(MIN_REWIND_PAUSE_MILLIS, MAX_REWIND_PAUSE_MILLIS)
         set(value) { preferences.edit().putLong(rewindKey, value.coerceIn(MIN_REWIND_PAUSE_MILLIS, MAX_REWIND_PAUSE_MILLIS)).apply() }
 
+    /** HIS-112, LOB-082: how long a play of the other player's (or a trigger of the player's own) shows large on the
+     * table before it moves to the Stack; 0: none shows. */
+    var showPlaysMillis: Long
+        get() = preferences.getLong(showPlaysKey, DEFAULT_SHOW_PLAYS_MILLIS).coerceIn(0L, MAX_SHOW_PLAYS_MILLIS)
+        set(value) { preferences.edit().putLong(showPlaysKey, value.coerceIn(0L, MAX_SHOW_PLAYS_MILLIS)).apply() }
+
     fun observe(onChange: () -> Unit): () -> Unit {
         val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, changed ->
-            if (changed == null || changed == key || changed == rewindKey) onChange()
+            if (changed == null || changed == key || changed == rewindKey || changed == showPlaysKey) onChange()
         }
         preferences.registerOnSharedPreferenceChangeListener(listener)
         return { preferences.unregisterOnSharedPreferenceChangeListener(listener) }
@@ -53,6 +60,8 @@ class HistoryPlaybackPreferences(context: Context, accountId: String) {
         const val DEFAULT_REWIND_PAUSE_MILLIS = 100L
         const val MIN_REWIND_PAUSE_MILLIS = 20L
         const val MAX_REWIND_PAUSE_MILLIS = 2_000L
+        const val DEFAULT_SHOW_PLAYS_MILLIS = 1_200L
+        const val MAX_SHOW_PLAYS_MILLIS = 3_000L
     }
 }
 
@@ -79,6 +88,17 @@ internal fun HistoryPlaybackPreferences.rewindPauseState(): State<Long> {
     DisposableEffect(this) {
         val stop = observe { state.longValue = rewindPauseMillis }
         state.longValue = rewindPauseMillis
+        onDispose { stop() }
+    }
+    return state
+}
+
+@Composable
+internal fun HistoryPlaybackPreferences.showPlaysState(): State<Long> {
+    val state = remember(this) { mutableLongStateOf(showPlaysMillis) }
+    DisposableEffect(this) {
+        val stop = observe { state.longValue = showPlaysMillis }
+        state.longValue = showPlaysMillis
         onDispose { stop() }
     }
     return state

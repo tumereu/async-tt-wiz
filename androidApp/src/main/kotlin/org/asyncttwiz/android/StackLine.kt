@@ -38,10 +38,17 @@ internal object StackLine {
      * top entry is their own, or they don't hold priority. [names]: the players' names by account id. */
     fun pieces(play: TableBoard, viewer: String, names: Map<String, String>): List<StackTextPiece>? {
         val top = CombatStackRules.stack(play.board).cards.firstOrNull() ?: return null
+        val item = play.board.stackEffects.singleOrNull { it.id == top }?.item ?: return null
+        if (item.controller == viewer || play.board.priority?.holder != viewer) return null
+        return entryPieces(play, top, viewer, names)
+    }
+
+    /** The line's words for the Stack entry [top] as [viewer] sees it, whoever controls it and holds priority (HIS-112: a
+     * play shown names it so), or null when it isn't an entry Automatum made. */
+    fun entryPieces(play: TableBoard, top: String, viewer: String, names: Map<String, String>): List<StackTextPiece>? {
         val effect = play.board.stackEffects.singleOrNull { it.id == top } ?: return null
         val item = effect.item ?: return null
-        if (item.controller == viewer || play.board.priority?.holder != viewer) return null
-        val who = names[item.controller] ?: "The other player"
+        val who = if (item.controller == viewer) "You" else names[item.controller] ?: "The other player"
         val card = CombatStackRules.inspection(play.board, top)
         val visible = card != null && !effect.faceDown && (effect.frozen != null || CardVisibility.isVisibleFaceUp(play.board, card, viewer))
         val face = if (!visible) null else play.definitions.firstOrNull { it.digest == card!!.definition }?.definition?.faces

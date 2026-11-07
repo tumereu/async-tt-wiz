@@ -97,6 +97,7 @@ number	item	screenshot	catalog	decisions
 96	The other player's reveal stops your view until OK	engine/reveal-panel.png	HIS-110 STK-044
 97	View deck from your own Library: Still in library	engine/view-deck.png	ZON-093 ZON-078
 98	Game settings in the lobby: allowing assumes over library and hand reveals	settings/game-settings-host.png	LOB-135 TRN-067
-99	Hand card chips, one per complete way to cast it (offspring)	chips/cast-chips-offspring.png	ZON-080 ZON-079
-100	One "Cast…" chip for a card with more than four ways	chips/cast-more-chip.png	ZON-080
-101	Cast panel paying with a source picked on the table	cast-panel/payment-chosen.png	STK-024 ZON-082	ManaPayment
+99	The other player's spell shown large before it moves to the Stack	engine/play-show-spell.png	HIS-112 STK-057
+100	Hand card chips, one per complete way to cast it (offspring)	chips/cast-chips-offspring.png	ZON-080 ZON-079
+101	One "Cast…" chip for a card with more than four ways	chips/cast-more-chip.png	ZON-080
+102	Cast panel paying with a source picked on the table	cast-panel/payment-chosen.png	STK-024 ZON-082	ManaPayment

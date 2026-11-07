@@ -163,7 +163,11 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
         val reveal: GameDevice.Reveal? = null,
         /** HIS-111, HIS-099 (owner 2026-11-07): the main line before [line] loaded from the server so far, oldest first
          * ([GameDevice.olderEvents]), and whether it begins with the game's first event. */
-        val older: List<GameEvent> = emptyList(), val olderComplete: Boolean = true) {
+        val older: List<GameEvent> = emptyList(), val olderComplete: Boolean = true,
+        /** HIS-112: the play shown large on the table now: the view holds until it is done ([dismissShow]). */
+        val show: GameDevice.PlayShow? = null,
+        /** HIS-112: the event of the last play done: playback goes on after it without the playback delay (HIS-021). */
+        val showDone: String? = null) {
         val engine: GameState get() = board.engine!!.state
         /** Engine-responsiveness R3: what the engine thread worked out with [board]: its computed card values, the player's
          * hand plays (on an own action's early board right after it is published, before the action's follow-up work,
@@ -221,6 +225,7 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
             }
             device = loaded; codec = json
             device.clock = clock
+            device.showPlays = showPlays
             device.assumeReveals(reveals)
             previous = if (undone != null) previous else null
             this.loaded = undone == null
@@ -303,7 +308,7 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
         val shown = Shown(++published, play, status, device.locked, device.settings, device.opponent, session.behind, tip,
             session.localHead, session.drafting, device.request, device.indicator(), device.undoTarget(), line, held, lastTransition,
             device.needsReload, device.pausing, held.mapNotNullTo(HashSet(olderEnds)) { e -> e.id.takeIf(device::endedTurn) }, takingBack,
-            device.reveal, older, device.olderComplete)
+            device.reveal, older, device.olderComplete, device.show, device.showDone)
         lastShown = shown
         timing?.let { it.boardEnd = clock(); it.version = shown.version; play.values?.promisePlays() }
         worker.main {
@@ -406,7 +411,8 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
         // R3: its computed values come with it; its plays right after it, before what follows the action ([playsOf])
         val shown = Shown(++published, play, last.status, last.locked, last.settings, last.opponent, last.behind, last.tip,
             last.localHead, last.drafting, last.request, last.indicator, last.undoTarget, last.line, last.held, last.transition,
-            last.needsReload, last.pausing, last.endTurns, last.takingBack, last.reveal, last.older, last.olderComplete)
+            last.needsReload, last.pausing, last.endTurns, last.takingBack, last.reveal, last.older, last.olderComplete, last.show,
+            last.showDone)
         timing.boardEnd = clock(); timing.version = shown.version
         play.values?.promisePlays()
         worker.main { this.shown = shown; shownVersion = shown.version; measure(shown, timing); onShown() }
@@ -887,6 +893,31 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
 
     /** HIS-110: the player dismissed the open reveal panel: the next one opens, or the held events play on. */
     fun dismissReveal() = worker.run { if (device.dismissReveal()) { publish(); afterBoard() } }
+
+    /** HIS-112: whether plays are shown (the player's "Show the other player's plays" time is above 0); off until the table
+     * says (engine thread's copy for a game loaded again). */
+    @Volatile private var showPlays = false
+
+    /** HIS-112: the table shows plays ([on]) or not (0 s): turned off, the one showing ends and the view goes on. */
+    fun showPlays(on: Boolean) = worker.run {
+        if (showPlays == on) return@run
+        showPlays = on
+        if (!this::device.isInitialized) return@run
+        val open = device.show != null
+        device.showPlays = on
+        if (open && !on) { publish(); afterBoard() }
+    }
+
+    /** HIS-112: the play shown [show] is done (its time is up, or the player tapped it): the next one shows, or the view
+     * goes on. Nothing when it is no longer the one shown (taken back meanwhile). */
+    fun dismissShow(show: GameDevice.PlayShow) = worker.run { if (device.dismissShow(show)) { publish(); afterBoard() } }
+
+    /** HIS-112: every play shown ends (timeline mode entered). */
+    fun dismissShows() = worker.run {
+        var any = false
+        while (device.dismissShow()) any = true
+        if (any) { publish(); afterBoard() }
+    }
 
     /** A tap on the table while playback runs (HIS-095): it goes on to the next point where Full control stops and stops
      * there ([GameDevice.pausing]). */

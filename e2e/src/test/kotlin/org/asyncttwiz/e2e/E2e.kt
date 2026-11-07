@@ -96,6 +96,7 @@ abstract class E2e {
         aliceWorker: EngineWorker = EngineWorker.Background,
         deal: Deal.(TestAccount, TestAccount) -> Boolean = { _, _ -> true }) {
         val (a, b) = ServerSetup.accounts()
+        showPlays(a, b)
         ServerSetup.playDefaults(a, aliceSettings ?: PlaySettings())
         ServerSetup.playDefaults(b, bobSettings ?: PlaySettings())
         prepared = ServerSetup.prepare(a, b, aliceDeck, bobDeck, starter = if (bobStarts) b else a,
@@ -111,9 +112,20 @@ abstract class E2e {
      * pod: [ServerSetup.draftingPod]). */
     internal fun launchPlayers() {
         val (a, b) = ServerSetup.accounts()
+        showPlays(a, b)
         alice = E2ePlayer(a, compose).also(players::add)
         bob = E2ePlayer(b, compose).also(players::add)
         alice.launch(); bob.launch()
+    }
+
+    /**
+     * HIS-112: the phones show no plays (their "Show the other player's plays" time 0), as every flow but the shows' own
+     * was written for: a play shown holds a table for a moment and takes the taps on the middle of the board. A test of
+     * the shows sets the time itself ([org.asyncttwiz.android.HistoryPlaybackPreferences.showPlaysMillis]).
+     */
+    private fun showPlays(vararg accounts: TestAccount) {
+        val context = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
+        for (account in accounts) org.asyncttwiz.android.HistoryPlaybackPreferences(context, account.id).showPlaysMillis = 0
     }
 
     /**

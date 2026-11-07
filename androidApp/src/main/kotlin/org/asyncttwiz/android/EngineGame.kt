@@ -1,5 +1,7 @@
 package org.asyncttwiz.android
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import arcanum.engine.input.Block
 import arcanum.engine.input.Input
 import arcanum.engine.setup.GameResult
@@ -124,7 +126,10 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
     private val ids: () -> String = { UUID.randomUUID().toString() },
     private val worker: EngineWorker = EngineWorker.Direct, private val onShown: () -> Unit = {},
     /** The own-action probe's clock (SYS-030), in nanoseconds. */
-    private val clock: () -> Long = System::nanoTime) {
+    private val clock: () -> Long = System::nanoTime,
+    /** HIS-110, HIS-099: asks the server for the page of the main line ending at an event (older history); its answer
+     * (null when it failed) comes off the main thread. Null: none is asked (the device reaches only what it holds). */
+    private val pages: ((through: String, done: (org.asyncttwiz.protocol.EngineHistoryPage?) -> Unit) -> Boolean)? = null) {
     @Volatile var base: PlayState = base
         private set
     /** The device core: on the engine thread only. */
@@ -152,7 +157,10 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
         val endTurns: Set<String> = emptySet(),
         /** HIS-097 (owner playtest 2026-11-05): a branch is being shown: the rewind back to the branch point, then the
          * playback of the other player's new events; it can't be paused, skipped or left until it ends. */
-        val takingBack: Boolean = false) {
+        val takingBack: Boolean = false,
+        /** HIS-110, HIS-099 (owner 2026-11-07): the main line before [line] loaded from the server so far, oldest first
+         * ([GameDevice.olderEvents]), and whether it begins with the game's first event. */
+        val older: List<GameEvent> = emptyList(), val olderComplete: Boolean = true) {
         val engine: GameState get() = board.engine!!.state
         /** Engine-responsiveness R3: what the engine thread worked out with [board]: its computed card values, the player's
          * hand plays (on an own action's early board right after it is published, before the action's follow-up work,
@@ -163,6 +171,10 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
 
     /** The last published snapshot (main thread); null until the game first loaded. */
     @Volatile var shown: Shown? = null
+        private set
+    /** [Shown.version] of the last board published, as snapshot state (main thread): a dialog reading it follows every
+     * board published (HIS-110: older history coming in) without its parent recomposing. */
+    var shownVersion by androidx.compose.runtime.mutableLongStateOf(0L)
         private set
     /** Bumped whenever anything shown changes (the table and the async panels recompose on it). */
     val version: Long get() = shown?.version ?: 0L
@@ -194,16 +206,27 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
                 return@run
             }
             // A game loaded again (the device couldn't follow the server) replaces the board it showed
+            val undone = reloadRewind
+            reloadRewind = null
             if (this::device.isInitialized) {
                 val old = device.session
                 takenBack("loaded again from the server's head ${snapshot.headId}", old.tip, old.localHead, loaded.session)
                 // Why the device couldn't follow (its own record goes with it)
                 AppLog.info("engine", "Device record before loading again: ${device.recentRecord(12).joinToString(" | ")}")
+                // HIS-005: what was loaded of older history stays (its pages, and the main line up to the new line's start)
+                device.older?.let { o -> loaded.older = o.carriedTo(loaded.session.lineStart, device.olderEvents + old.events) }
             }
             device = loaded; codec = json
             device.clock = clock
-            this.loaded = true
-            previous = null
+            previous = if (undone != null) previous else null
+            this.loaded = undone == null
+            // HIS-108, HIS-084 (owner 2026-11-07: undo reaches any point): an undo to a point before this device's line
+            // loads the game there; it still animates once from the board before, and after the player's own undo their
+            // device passes nothing for them there until they act
+            if (undone != null) {
+                rewinding = undone
+                if (undone.by == me) device.holdAtHead()
+            }
             // HIS-108: likewise, opened where the other player's undo took the player's line back: the undo as it shows live.
             // Either waits until the table has drawn the board where the player left it ([tableShown]): a table opening on
             // the board after it shows only the result (owner playtest 2026-11-07)
@@ -214,8 +237,13 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
                 onLoad = { received(branch, undo) }; onLoadWaiting = true
             }
             publish()
+            rewinding = null
         }
     }
+
+    /** HIS-108: a rewind this device couldn't follow (its point is before the device's line): the game is loaded again
+     * ([load]) and the undo animates from the board shown before it (engine thread). */
+    private var reloadRewind: Rewinding? = null
 
     /** HIS-106, HIS-108: the take-back found on loading, received once the table has drawn the board where the player
      * left it ([tableShown]), or before anything else reaches the device (engine thread). */
@@ -262,14 +290,18 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
         previous = play
         // HIS-097: a branch's take-back lasts while its playback does (paused by the app's leaving, until the return)
         if (takingBack && (!session.behind || (status !is GameDevice.Status.Playing && status != GameDevice.Status.CatchUp))) takingBack = false
+        val older = device.olderEvents
+        val olderEnds = olderTurns?.takeIf { it.first === older }?.second
+            ?: older.mapNotNullTo(HashSet()) { e -> e.id.takeIf(device::endedTurn) }.also { olderTurns = older to it }
         val shown = Shown(++published, play, status, device.locked, device.settings, device.opponent, session.behind, tip,
             session.localHead, session.drafting, device.request, device.indicator(), device.undoTarget(), line, held, lastTransition,
-            device.needsReload, device.pausing, held.mapNotNullTo(HashSet()) { e -> e.id.takeIf(device::endedTurn) }, takingBack)
+            device.needsReload, device.pausing, held.mapNotNullTo(HashSet(olderEnds)) { e -> e.id.takeIf(device::endedTurn) }, takingBack,
+            older, device.olderComplete)
         lastShown = shown
         timing?.let { it.boardEnd = clock(); it.version = shown.version; play.values?.promisePlays() }
         worker.main {
             this.notes.addAll(notes)
-            this.shown = shown
+            this.shown = shown; shownVersion = shown.version
             EngineShownProbe.listener?.invoke(me, shown)
             loadFailed = false
             measure(shown, timing)
@@ -292,6 +324,8 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
 
     /** The last [Shown] published (engine thread). */
     private var lastShown: Shown? = null
+    /** The End turns among the older history published last (engine thread; worked out again only when it changes). */
+    private var olderTurns: Pair<List<GameEvent>, Set<String>>? = null
 
     /** What the board built last ([board]) was made from (engine thread). */
     private class Built(val model: GameModel, val changes: Long, val table: org.asyncttwiz.protocol.game.TableState,
@@ -365,10 +399,10 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
         // R3: its computed values come with it; its plays right after it, before what follows the action ([playsOf])
         val shown = Shown(++published, play, last.status, last.locked, last.settings, last.opponent, last.behind, last.tip,
             last.localHead, last.drafting, last.request, last.indicator, last.undoTarget, last.line, last.held, last.transition,
-            last.needsReload, last.pausing, last.endTurns, last.takingBack)
+            last.needsReload, last.pausing, last.endTurns, last.takingBack, last.older, last.olderComplete)
         timing.boardEnd = clock(); timing.version = shown.version
         play.values?.promisePlays()
-        worker.main { this.shown = shown; measure(shown, timing); onShown() }
+        worker.main { this.shown = shown; shownVersion = shown.version; measure(shown, timing); onShown() }
         return play
     }
 
@@ -506,8 +540,8 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
     /** The timeline's events and texts (HIS-001–HIS-005 on engine events; main thread). */
     val timeline = EngineTimeline()
 
-    /** The event [id] among those shown to the player (the timeline's), or null. */
-    fun event(id: String): GameEvent? = shown?.line?.firstOrNull { it.id == id }
+    /** The event [id] among those shown to the player (the timeline's, older history included), or null. */
+    fun event(id: String): GameEvent? = shown?.let { s -> s.line.firstOrNull { it.id == id } ?: s.older.firstOrNull { it.id == id } }
 
     /**
      * Timeline mode (HIS-004, HIS-012): the board at shown event [id] (on the main line up to the local head, or one of the
@@ -522,11 +556,63 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
             session.pending.any { it.id == id } -> device.model.copy().also { m ->
                 for (e in session.pending.asReversed()) { if (e.id == id) break; m.revert(e) }
             }
-            else -> runCatching { session.stateAt(id) }.getOrNull()
+            // HIS-005: further back from older history (a checkpoint and at most a page of events), once its page is in
+            else -> (runCatching { device.reach(id) }.getOrNull() as? GameDevice.Reach.State)?.model
         } ?: return@call null
         if (model.stale) return@call null
         table(EngineProjection.project(base, model, me, id, null, null, tokenArt, pictures), model, id)
     }
+
+    // ---- Older history (HIS-110, HIS-099, owner 2026-11-07: the timeline and Undo reach the game's first event)
+
+    /** The pages of older history asked for and not answered yet, by the event each ends at (main thread). */
+    private val asked = mutableSetOf<String>()
+
+    /** Whether a page of older history is on its way (main thread; the strip's edge shows it). */
+    var historyLoading by androidx.compose.runtime.mutableStateOf(false)
+        private set
+
+    /** The pages that couldn't be read: not asked again until timeline mode or the Undo dialog opens again
+     * ([historyRetry]), so a failing read never loops (main thread). */
+    private val failedPages = mutableSetOf<String>()
+
+    /** Timeline mode or the Undo dialog opens: pages that failed before are asked for again when needed (main thread). */
+    fun historyRetry() { failedPages.clear() }
+
+    /** Asks for the page of older history ending at [through] unless it is on its way (main thread); the board is
+     * published again once it is in. False when none could be asked. */
+    private fun ask(through: String?): Boolean {
+        if (through == null || through in failedPages) return false
+        if (through in asked) return true
+        val fetch = pages ?: return false
+        asked += through
+        historyLoading = true
+        // Done once the board with the page is published (its main-thread work queued first), so nothing in between
+        // finds the point neither shown nor loading
+        val started = fetch(through) { page ->
+            worker.run {
+                val taken = page != null && device.addPage(page)
+                if (taken) publish()
+                worker.main { asked -= through; if (!taken) failedPages += through; historyLoading = asked.isNotEmpty() }
+            }
+        }
+        if (!started) { asked -= through; historyLoading = asked.isNotEmpty() }
+        return started
+    }
+
+    /** The timeline (or the Undo dialog's strip) came near the oldest event the device holds: the next older page is
+     * asked for, unless there is nothing older (main thread). */
+    fun loadOlder(): Boolean = ask(worker.call { device.olderThrough() })
+
+    /** The board at shown event [id] needs older history ([reviewPlay] and [undoPreview] gave none): its page is asked
+     * for (main thread). False when none is needed or can be asked: the point can't be shown. */
+    fun loadFor(id: String): Boolean = ask(worker.call { (runCatching { device.reach(id) }.getOrNull() as? GameDevice.Reach.Needs)?.through })
+
+    /** The open undo request's preview ([GameDevice.requestPreview]): null while it needs older history ([loadForRequest]). */
+    fun requestPreview(): GameDevice.Preview? = worker.call { device.requestPreview() }
+
+    /** Asks for the older history the open undo request's preview needs, if any (main thread). */
+    fun loadForRequest(): Boolean = ask(worker.call { device.requestNeeds() })
 
     /** The board of [model] (the point an undo goes back to) as [viewer] sees it, for a view-only preview. */
     fun preview(model: GameModel, at: String, viewer: String): TableBoard? = worker.call {
@@ -606,11 +692,13 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
         // the other player's branch, back to the branch point, before their new events play back
         val branch = update?.target == null && events.firstOrNull()?.let { it.parentId != head && it.author != me } == true
         rewinding = update?.target?.let { target ->
-            lastShown?.let { Rewinding(update.rewoundBy ?: events.firstOrNull()?.author ?: "", target, it.line, it.engine) }
+            lastShown?.let { Rewinding(update.rewoundBy ?: events.firstOrNull()?.author ?: "", target,
+                if (it.line.any { e -> e.id == target || e.parentId == target }) it.line else it.older + it.line, it.engine) }
         } ?: events.firstOrNull()?.takeIf { branch }?.let { first ->
             lastShown?.let { Rewinding(first.author, first.parentId, it.line, it.engine, branch = true) }
         }
         device.revision(events, update)
+        if (device.needsReload && update?.target != null) reloadRewind = rewinding
         val drained = device.notes()
         if (branch && device.session.behind && drained.any { it is GameDevice.Note.Branched }) {
             takingBack = true
@@ -802,22 +890,33 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
     fun undoNeedsRequest(target: String): Boolean? = worker.call {
         val session = device.session
         if (session.drafting) return@call null
-        val after = session.after(target) ?: return@call true
+        val after = device.lineAfter(target) ?: return@call true
         if (after.isEmpty()) return@call null
-        val at = session.stateAt(target) ?: return@call true
+        val at = (device.reach(target) as? GameDevice.Reach.State)?.model ?: return@call true
         val others = device.localHeads.filterKeys { it != PlayerId(me) }.values.toList()
         org.asyncttwiz.protocol.game.Rewind.requestNeeded(at, target, after, PlayerId(me), others) != null
     }
     /** HIS-099: the Undo dialog's view of going back to just after [target]: the board there as the player sees it
      * (null when the device can't reach it exactly) and [undoNeedsRequest]'s answer, from one walk back from the shown
      * state ([org.asyncttwiz.protocol.game.GameSession.stateAt]), never a replay from the game's start. */
-    class UndoPreview(val board: TableBoard?, val needsRequest: Boolean?)
+    class UndoPreview(val board: TableBoard?, val needsRequest: Boolean?,
+        /** HIS-005: the point needs older history, asked for ([loadFor]): nothing is worked out until it is in. */
+        val loading: Boolean = false)
 
-    fun undoPreview(target: String): UndoPreview = worker.call {
+    fun undoPreview(target: String): UndoPreview {
+        val preview = undoPreviewNow(target)
+        return if (preview.loading && !loadFor(target)) UndoPreview(null, true) else preview
+    }
+
+    private fun undoPreviewNow(target: String): UndoPreview = worker.call {
         val session = device.session
         if (session.drafting) return@call UndoPreview(null, null)
-        val after = session.after(target) ?: return@call UndoPreview(null, true)
-        val at = runCatching { session.stateAt(target) }.getOrNull() ?: return@call UndoPreview(null, true)
+        val after = device.lineAfter(target) ?: return@call UndoPreview(null, true)
+        val at = when (val reached = runCatching { device.reach(target) }.getOrNull()) {
+            is GameDevice.Reach.State -> reached.model
+            is GameDevice.Reach.Needs -> return@call UndoPreview(null, null, loading = true)
+            else -> return@call UndoPreview(null, true)
+        }
         val others = device.localHeads.filterKeys { it != PlayerId(me) }.values.toList()
         // The request check plays the later events on its own copy; the board keeps the state at the point
         val needs = if (after.isEmpty()) null

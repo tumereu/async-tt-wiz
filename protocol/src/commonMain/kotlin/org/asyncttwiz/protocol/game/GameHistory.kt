@@ -34,6 +34,19 @@ interface HistoryStore {
             cursor = node.event.parentId
         }
     }
+
+    /** The id of the event at [depth] on the line ending at [head] (the root at depth 0), or null when the line has none
+     * there. A store backed by a database finds it in one query without reading the events in between. */
+    fun idAt(head: String, depth: Int): String? {
+        var cursor = head
+        while (true) {
+            if (cursor == rootId) return if (depth == 0) rootId else null
+            val node = node(cursor) ?: return null
+            if (node.depth == depth) return cursor
+            if (node.depth < depth) return null
+            cursor = node.event.parentId
+        }
+    }
 }
 
 /**
@@ -95,6 +108,26 @@ class GameHistory(val store: HistoryStore, val codec: EngineJson, val every: Int
 
     /** What a store keeps for an event at [depth] whose state is [model]: its checkpoint, or null. */
     fun checkpointFor(depth: Int, model: GameModel): String? = if (checkpointed(depth)) codec.encodeModel(model) else null
+
+    /**
+     * HIS-110, HIS-099 (owner 2026-11-07): the page of the main line ending at [head] that ends at its event [through]:
+     * the checkpoint above [through] with its stored state, and the events after it up to [through] (at most [every]),
+     * read without applying any; null when [through] isn't an event of that line (the root, a discarded line's event, an
+     * unknown id). The work doesn't grow with the game: one look-up of the line's event at [through]'s depth, then the
+     * events below the checkpoint.
+     */
+    fun page(head: String, through: String): org.asyncttwiz.protocol.EngineHistoryPage? {
+        if (through == store.rootId) return null
+        val node = store.node(through) ?: return null
+        if (store.idAt(head, node.depth) != through) return null
+        val top = every * ((node.depth - 1) / every)
+        val nodes = store.ancestors(through, top)
+        if (nodes.size != node.depth - top) return null
+        val baseId = nodes.last().event.parentId
+        val base = store.checkpoint(baseId) ?: throw IllegalStateException("No checkpoint at $baseId above $through")
+        return org.asyncttwiz.protocol.EngineHistoryPage(through, baseId, base, nodes.asReversed().map { codec.encodeEvent(it.event) },
+            baseId == store.rootId)
+    }
 
     companion object {
         /** Events between checkpoints: a cold state is one checkpoint decoded plus at most this many events applied. */

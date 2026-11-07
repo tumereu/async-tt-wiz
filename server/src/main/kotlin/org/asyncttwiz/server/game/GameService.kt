@@ -140,6 +140,15 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
     fun head(principal: AccountService.Principal, gameId: String): GameHead = transaction { sql ->
         readHead(sql, principal, gameId, locked(sql, uuid(gameId), actor(principal)))
     }
+    /** HIS-110, HIS-099: a page of the active play's main line ending at its event [through], for a player of the game
+     * ([EngineGames.historyPage]); refused ("inapplicable") when the game has no active engine play or [through] isn't
+     * on its main line. */
+    fun history(principal: AccountService.Principal, gameId: String, through: String): EngineHistoryPage = transaction { sql ->
+        val game = locked(sql, uuid(gameId), actor(principal))
+        val play = game.currentPlay?.takeIf { game.lifecycle == "ACTIVE" } ?: throw GameProtocolFailure("inapplicable")
+        try { engineGames.historyPage(sql, play, through) } catch (_: org.asyncttwiz.protocol.game.Refusal) { null }
+            ?: throw GameProtocolFailure("inapplicable")
+    }
     /** A socket may learn removal and recover originals, never reopen the removed replica. [engine] (switch-review #11):
      * the open game's head, with its play and engine state; otherwise an active play's head is its summary only. */
     fun subscriptionHead(principal: AccountService.Principal, gameId: String, presence: Boolean = false,

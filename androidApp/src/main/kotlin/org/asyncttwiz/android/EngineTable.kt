@@ -190,6 +190,7 @@ internal class EngineTableRoutes(val viewer: String, private val game: () -> Eng
 
     /** Enters timeline mode at [at] (HIS-004); playback running meanwhile waits paused for the centre text (HIS-006). */
     fun enterReview(at: String) {
+        engine?.historyRetry()
         game()?.takeIf { it.shown?.status is GameDevice.Status.Playing }?.holdPlayback()
         reviewPlaying = false; review = at
     }
@@ -331,7 +332,7 @@ internal class EngineTableRoutes(val viewer: String, private val game: () -> Eng
     fun workDone() { if (undoAfterWork && !working()) { undoAfterWork = false; undo() } }
 
     /** Holding Undo opens the rewind dialog to pick any earlier point (§10). */
-    fun holdUndo() { rewind = RewindChoice(game()?.shown?.undoTarget) }
+    fun holdUndo() { engine?.historyRetry(); rewind = RewindChoice(game()?.shown?.undoTarget) }
 
     /** The other player's name, for the wait's words and the unconfirmed mark's tooltip (set by the table). */
     var opponentName: String = "The other player"
@@ -724,6 +725,9 @@ private const val PREVIEW_TABLE_WIDTH = 412f
 private const val PREVIEW_TABLE_HEIGHT = 892f
 /** HIS-099: how long the Undo dialog's choice rests before its board is worked out (dragging through events works out none). */
 internal const val UNDO_PREVIEW_DELAY_MS = 250L
+/** HIS-110, HIS-099 (owner 2026-11-07): how close to the oldest event held the timeline's cursor (or the Undo dialog's
+ * choice) comes before the next older page of history is asked for. */
+internal const val OLDER_HISTORY_MARGIN = 12
 
 private const val QUICK_PLAYBACK_MS = 120L
 
@@ -820,8 +824,11 @@ internal object EnginePlaybackPace {
 @Composable
 private fun EngineRequestDialog(routes: EngineTableRoutes, opponent: String, summary: GameSummary) {
     val game = routes.engine ?: return
+    game.shownVersion
     val shownGame = game.shown ?: return
-    val preview = remember(game.version) { game.read { it.requestPreview() } }
+    // HIS-110: a point before what the device holds shows once its older history is in (the board is published again)
+    val preview = remember(game.version) { game.requestPreview() }
+    LaunchedEffect(game.version, preview == null) { if (preview == null) game.loadForRequest() }
     ScreenDialog({}, title = "$opponent asks to undo", actions = {
         DialogCancelButton("Deny", { game.answerRequest(false); routes.pump() }, Modifier.testTag("request-deny"))
         DialogMainButton("Accept", { game.answerRequest(true); routes.pump() }, Modifier.testTag("request-accept"), icon = "ready")
@@ -845,12 +852,16 @@ internal class UndoPoint(val event: GameEvent, val shown: HistoryTimelineEvent) 
 
 /**
  * The Undo dialog's points (HIS-099): exactly the timeline's events ([timeline], HIS-005: the player's own and the other
- * player's, no passes, HIS-101) on the main line up to the local head, oldest first; an event with nothing before it
- * (the game's first) is no point.
+ * player's, no passes, HIS-101) on the main line up to the local head, older history loaded included (owner 2026-11-07:
+ * back to the game's first event), oldest first; the game's first event (the server's start, nothing before it) is no
+ * point.
  */
 internal fun undoPoints(shown: EngineGame.Shown, timeline: List<HistoryTimelineEvent>): List<UndoPoint> {
-    val held = shown.held.associateBy { it.id }
-    return timeline.mapNotNull { t -> held[t.id]?.takeIf { it.parentId != null }?.let { UndoPoint(it, t) } }
+    val held = HashMap<String, GameEvent>(shown.older.size + shown.held.size)
+    shown.older.associateByTo(held) { it.id }
+    shown.held.associateByTo(held) { it.id }
+    return timeline.mapNotNull { t -> held[t.id]?.takeIf { e -> e.engine?.steps.orEmpty().none { it.input is Input.StartGame } }
+        ?.let { UndoPoint(it, t) } }
 }
 
 /**
@@ -863,6 +874,9 @@ internal fun undoPoints(shown: EngineGame.Shown, timeline: List<HistoryTimelineE
 private fun EngineRewindDialog(routes: EngineTableRoutes, choice: EngineTableRoutes.RewindChoice, names: Map<String, String>, opponent: String,
     summary: GameSummary) {
     val game = routes.engine ?: return
+    // HIS-110: read as snapshot state, so the points follow every board published (older history coming in), not only the
+    // dialog's own content
+    game.shownVersion
     val published = game.shown ?: return
     val timeline = game.timeline.events(game, names)
     val points = remember(published.version, timeline) { undoPoints(published, timeline) }
@@ -877,10 +891,18 @@ private fun EngineRewindDialog(routes: EngineTableRoutes, choice: EngineTableRou
     LaunchedEffect(target, game.version) {
         val t = target ?: return@LaunchedEffect
         if (preview != null) delay(UNDO_PREVIEW_DELAY_MS)
-        preview = t to game.undoPreview(t)
+        // HIS-005: a point whose board needs older history keeps the last board, dimmed, until its page is in (the
+        // board is published again then: this runs again)
+        val next = game.undoPreview(t)
+        preview = if (next.loading) t to EngineGame.UndoPreview(preview?.second?.board, null, loading = true) else t to next
     }
-    val current = preview?.takeIf { it.first == target }?.second
-    val needsRequest = (current ?: preview?.second)?.needsRequest
+    // HIS-099 (owner 2026-11-07: back to the game's first event): a choice near the oldest point held asks for older history
+    val chosenIndex = points.indexOf(point)
+    LaunchedEffect(chosenIndex, points.size, published.olderComplete) {
+        if (point != null && chosenIndex < OLDER_HISTORY_MARGIN && !published.olderComplete) game.loadOlder()
+    }
+    val current = preview?.takeIf { it.first == target && !it.second.loading }?.second
+    val needsRequest = (current ?: preview?.second?.takeIf { !it.loading })?.needsRequest
     val landscape = LocalConfiguration.current.let { it.screenWidthDp > it.screenHeightDp }
     ScreenDialog({ routes.rewind = null }, title = "Undo", actions = {
         DialogCancelButton("Cancel", { routes.rewind = null })
@@ -905,7 +927,7 @@ private fun EngineRewindDialog(routes: EngineTableRoutes, choice: EngineTableRou
         else Box(Modifier.fillMaxWidth().height((if (landscape) PREVIEW_HEIGHT_LANDSCAPE else PREVIEW_HEIGHT).dp))
         // HIS-099: the timeline's strip of the points (its icons and separators), the chosen one in the centre
         HistoryTimeline(points.map { it.shown }, point.event.id, routes.viewer, {}, { chosen = it },
-            Modifier.fillMaxWidth().testTag("undo-scroller"))
+            Modifier.fillMaxWidth().testTag("undo-scroller"), loadingStart = game.historyLoading && !published.olderComplete)
         val lead: @Composable () -> Unit = {
             Text("Go back to just before", style = MaterialTheme.typography.bodySmall, color = Color(0xff66757a))
         }

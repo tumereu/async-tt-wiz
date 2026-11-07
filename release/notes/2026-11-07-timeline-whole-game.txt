@@ -1,0 +1,1 @@
+mod: The timeline and the Undo dialog now reach back to the start of the game, however long it is; earlier moves load as you scroll back, and you can undo to any earlier point.

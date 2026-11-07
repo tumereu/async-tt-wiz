@@ -119,6 +119,73 @@ class EngineHistoryStoreTest {
         }
     }
 
+    // HIS-110 (owner 2026-11-07: the timeline and the Undo dialog reach the game's first event): pages of the
+    // main line from the head back to the game's first event, each read from a cold store with at most one checkpoint
+    // interval of events decoded however long the game, the checkpoint's state stored with it; a discarded line's event
+    // has no page (shown to nobody)
+    @Test
+    fun pagesOfTheMainLineReachTheFirstEventWithBoundedReads() = FreshDatabase().start().use { db ->
+        FoundationMigrations.migrate(db.settings)
+        db.connection().use { connection ->
+            connection.autoCommit = false
+            val sql = DSL.using(connection, SQLDialect.POSTGRES)
+            val play = seedPlay(sql)
+            val alice = PlayerId(a.toString()); val bob = PlayerId(b.toString())
+            val names = List(16) { if (it % 2 == 0) "Forest" else "Mountain" } + List(24) { listOf("Elvish Seer", "Storm Spark", "Thicketwood Elves")[it % 3] }
+            val initial = Engine.newGame(listOf(alice, bob).map { p -> Seat(p, names.mapIndexed { i, n -> DeckCard(CardId("${p.value}.$i"), Cards.definition(n)) }) })
+            val root = UUID.randomUUID()
+            val store = EngineHistoryStore.create(sql, play, root, GameDefinitions.of(initial), GameModel(initial.deepCopy()))
+            val history = GameHistory(store, store.codec)
+            val rnd = Random(9)
+            val direct = mutableMapOf<String, GameModel>()
+            fun grow(from: String, model: GameModel, count: Int): List<String> {
+                var parent = from
+                return List(count) {
+                    val event = next(model, parent, rnd)
+                    store.append(history, event, a, model)
+                    direct[event.id] = model.copy()
+                    parent = event.id
+                    event.id
+                }
+            }
+            // A main line of 300 events, and a discarded line of 20 from its 100th
+            val first = grow(root.toString(), GameModel(initial.deepCopy()), 100)
+            val gone = grow(first.last(), direct.getValue(first.last()).copy(), 20)
+            val main = first + grow(first.last(), direct.getValue(first.last()).copy(), 200)
+            val head = main.last()
+            connection.commit()
+
+            var through: String? = head
+            val seen = ArrayDeque<String>()
+            var pages = 0
+            while (through != null) {
+                val cold = EngineHistoryStore.open(sql, play)!!
+                val page = GameHistory(cold, cold.codec).page(head, through!!)!!
+                assertTrue(cold.decoded <= GameHistory.CHECKPOINT_EVERY + 1, "a page decodes at most a checkpoint interval: ${cold.decoded}")
+                assertTrue(page.events.size in 1..GameHistory.CHECKPOINT_EVERY)
+                val events = page.events.map(cold.codec::decodeEvent)
+                assertEquals(through, events.last().id)
+                assertEquals(page.baseId, events.first().parentId)
+                // The state at each of its events: the checkpoint and the events before it, the same as reached directly
+                val model = cold.codec.decodeModel(page.base)
+                for (e in events) { model.apply(e); assertTrue(model.sameAs(direct.getValue(e.id)), "the state at ${e.id}") }
+                events.asReversed().forEach { seen.addFirst(it.id) }
+                pages++
+                through = if (page.fromStart) null else page.baseId
+                if (page.fromStart) assertEquals(root.toString(), page.baseId)
+            }
+            assertEquals(main, seen.toList(), "the whole main line, oldest first")
+            assertEquals(5, pages, "300 events at 64 a checkpoint: 44, then 64 four times")
+            val cold = EngineHistoryStore.open(sql, play)!!
+            assertNull(GameHistory(cold, cold.codec).page(head, gone[5]), "a discarded line's event")
+            assertNull(GameHistory(cold, cold.codec).page(head, root.toString()))
+            assertNull(GameHistory(cold, cold.codec).page(head, UUID.randomUUID().toString()))
+            assertEquals(main[199], cold.idAt(head, 200))
+            assertEquals(root.toString(), cold.idAt(head, 0))
+            assertNull(cold.idAt(main[10], 50))
+        }
+    }
+
     /** The wipe of the switch to engine events (V59, owner accepted), run again on the latest schema: every started game
      * goes with every row of any table that names it or its plays, both histories included; a game that never started
      * stays. */

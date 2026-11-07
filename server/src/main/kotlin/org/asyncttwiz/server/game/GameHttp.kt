@@ -23,7 +23,7 @@ class GameHttp(private val runtime: ServiceRuntime, private val hub: GameHub) {
         val parts = path.split('/')
         val socket = path == "/v1/socket"
         val read = parts.size >= 5 && parts.take(3) == listOf("", "v1", "games") &&
-            parts[4] in listOf("revisions", "results", "results:lookup", "chat")
+            parts[4] in listOf("revisions", "results", "results:lookup", "chat", "timeline")
         if (!socket && !read) return false
         response.setHeader("Cache-Control", "no-store")
         response.setHeader("X-Content-Type-Options", "nosniff")
@@ -57,17 +57,21 @@ class GameHttp(private val runtime: ServiceRuntime, private val hub: GameHub) {
             val result = parts.size == 6 && parts[4] == "results"
             val chat = parts.size == 5 && parts[4] == "chat"
             val chatRead = parts.size == 6 && parts[4] == "chat" && parts[5] == "read"
-            if (!(lookup || revisions || result || chat || chatRead)) { error(404, "not_found"); return true }
+            // HIS-110, HIS-099: a page of the active play's main line ending at ?through=<event> (older timeline history)
+            val history = parts.size == 5 && parts[4] == "timeline"
+            if (!(lookup || revisions || result || chat || chatRead || history)) { error(404, "not_found"); return true }
             if (if (chatRead) request.method !in listOf("GET", "PUT")
                 else request.method != if (lookup) "POST" else "GET") { error(405, "method_not_allowed"); return true }
             boundary = when {
-                revisions -> UnavailabilityBoundary.GAME_HTTP_REVISIONS
+                revisions || history -> UnavailabilityBoundary.GAME_HTTP_REVISIONS
                 else -> UnavailabilityBoundary.GAME_HTTP_RESULTS
             }
             val body = when {
                 chatRead && request.method == "GET" -> json.encodeToString(hub.games.chatRead(principal, parts[3]))
                 chat -> json.encodeToString(hub.games.chat(principal, parts[3], request.getParameter("before"), request.getParameter("after")))
                 revisions -> json.encodeToString(hub.games.revisions(principal, parts[3], request.getParameter("after") ?: "0"))
+                history -> json.encodeToString(hub.games.history(principal, parts[3],
+                    requireNotNull(request.getParameter("through")) { "through" }))
                 result -> json.encodeToString(hub.games.results(principal, parts[3], listOf(parts[5])).statuses.single())
                 else -> {
                     if (!request.contentType.orEmpty().substringBefore(';').equals("application/json", true)) {

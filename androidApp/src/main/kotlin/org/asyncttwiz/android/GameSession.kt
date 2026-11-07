@@ -197,7 +197,8 @@ class GameSession(private val connection: GameConnection, private val credential
             // switchreview #10) loads from it
             engineHeads.remove(head.gameId); unopenable.remove(head.gameId)
             if (existing == null) engineGames[head.gameId] = EngineGame(head.gameId, me, play, snapshot, worker = engineWorker,
-                onShown = { engineShown(head.gameId) })
+                onShown = { engineShown(head.gameId) },
+                pages = { through, done -> connection.historyPage(head.gameId, through, done) })
             else existing.load(snapshot, play)
             reloadAsked.remove(head.gameId)
         }

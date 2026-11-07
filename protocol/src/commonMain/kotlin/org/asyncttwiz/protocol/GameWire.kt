@@ -142,6 +142,16 @@ const val GAME_PROTOCOL_MINOR = 9
     val modes: Map<String, org.asyncttwiz.protocol.game.ResponseMode> = emptyMap(),
     /** HIS-108: who undid [takenBack] (an undo, not a branch); null otherwise. */
     val undoneBy: String? = null)
+/**
+ * HIS-110, HIS-099 (owner 2026-11-07: the timeline and the Undo dialog reach the game's first event): a page of a play's
+ * main line ending at the event [through], read on demand (`GET /v1/games/{id}/timeline?through=`): the checkpoint above
+ * it, [baseId] (the game's root before its first event when [fromStart]) with its encoded state [base]
+ * ([org.asyncttwiz.protocol.game.EngineJson.encodeModel]), and the encoded events after it up to [through], oldest first
+ * (at most [org.asyncttwiz.protocol.game.GameHistory.CHECKPOINT_EVERY]): the state at any of them is the base with the
+ * events before it applied, never a replay from the game's start.
+ */
+@Serializable data class EngineHistoryPage(val through: String, val baseId: String, val base: String, val events: List<String>,
+    val fromStart: Boolean)
 /** An open undo request (I-D56 §10): [by] asks to take the main line back to just after [target], with [message]. */
 @Serializable data class EngineRewindRequest(val by: String, val target: String, val message: String = "")
 /** I-D56: what an engine revision changed beyond [GameRevision.engineEvent]: the events after the first ([events]), a

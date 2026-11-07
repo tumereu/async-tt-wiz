@@ -92,6 +92,8 @@ object HistoryTimelineLayout {
 @Composable
 fun HistoryTimeline(events: List<HistoryTimelineEvent>, selectedId: String, viewer: String,
     onPause: () -> Unit, onSelect: (String) -> Unit, modifier: Modifier = Modifier,
+    /** HIS-005 (owner 2026-11-07): older events are on their way: a small spinner where the next older event goes. */
+    loadingStart: Boolean = false,
     eventIcon: @Composable (HistoryIcon) -> Unit = { HistoryEventIcon(it) }) {
     val positions = remember(IdentityKey(events)) { events.withIndex().associate { it.value.id to it.index } }
     val selected = positions[selectedId] ?: -1
@@ -156,11 +158,18 @@ fun HistoryTimeline(events: List<HistoryTimelineEvent>, selectedId: String, view
                 pause(); select(event.id)
             }
         }
+        // HIS-005: the older events loading, in the place of the next older one (only when it is in view)
+        val loadingX = HistoryTimelineLayout.x(-1, windowCenter, width, pitch)
+        if (loadingStart && loadingX >= -12f) CircularProgressIndicator(Modifier.align(Alignment.CenterStart).offset((loadingX - 7f).dp)
+            .size(14.dp).semantics { testTag = TimelineLoadingTag; contentDescription = "Loading earlier events" },
+            color = SeparatorInk, strokeWidth = 1.5.dp)
     }
 }
 
 /** HIS-005: the test tag of a separator's line; its content description is its label. */
 internal const val TimelineSeparatorTag = "timeline-separator"
+/** HIS-005: the test tag of the strip's spinner while older events load. */
+internal const val TimelineLoadingTag = "timeline-loading"
 private val SeparatorInk = Color(0xff59656a)
 private val SeparatorLabelStyle = TextStyle(fontSize = 9.sp, lineHeight = 11.sp, fontWeight = FontWeight.Medium)
 

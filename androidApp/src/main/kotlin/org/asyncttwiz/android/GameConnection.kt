@@ -27,6 +27,9 @@ interface GameConnection : AutoCloseable {
     fun disconnect()
     fun chatPage(gameId: String, before: String? = null, after: String? = null, complete: (ChatPage?) -> Unit): Boolean = false
     fun chatRead(gameId: String, input: ReadChat? = null, complete: (ChatReadState?) -> Unit): Boolean = false
+    /** HIS-110, HIS-099: the page of [gameId]'s main line ending at its event [through] (older history), or null when
+     * it can't be read; [complete] runs off the main thread. False when nothing was asked. */
+    fun historyPage(gameId: String, through: String, complete: (EngineHistoryPage?) -> Unit): Boolean = false
 }
 
 class SocketGameConnection(private val origin: String) : GameConnection {
@@ -108,6 +111,23 @@ class SocketGameConnection(private val origin: String) : GameConnection {
                     }
                 }
             }.onFailure { AppLog.warn("game", "Chat page failed", it) }.getOrNull()
+            complete(page)
+        }
+        return true
+    }
+    override fun historyPage(gameId: String, through: String, complete: (EngineHistoryPage?) -> Unit): Boolean {
+        val credential = token ?: return false
+        if (!DeckValidation.uuid(gameId) || !DeckValidation.uuid(through)) return false
+        reads.execute {
+            val page = runCatching {
+                check(token == credential)
+                client.newCall(Request.Builder().url("$origin/v1/games/$gameId/timeline?through=$through")
+                    .header("Authorization", "Bearer $credential").build()).execute().use { response ->
+                    require(response.isSuccessful) { "HTTP ${response.code}" }
+                    GameWire.json.decodeFromString<EngineHistoryPage>(requireNotNull(response.body).byteStream()
+                        .bounded(GameWire.MAX_MESSAGE_BYTES).toString(Charsets.UTF_8)).also { require(it.through == through) }
+                }
+            }.onFailure { AppLog.warn("game", "History page failed", it) }.getOrNull()
             complete(page)
         }
         return true

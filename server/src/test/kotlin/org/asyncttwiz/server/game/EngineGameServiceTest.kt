@@ -343,6 +343,70 @@ class EngineGameServiceTest {
         assertEquals("noChange", f.recipient.execute(GameAction.EngineSeen(start)).reason)
     }
 
+    /** [count] events, each the first thing the player to act may do (a pass, a keep, a declaration), made by that
+     * player's own device and shown on both: a long game made quickly. */
+    private fun Fixture.events(count: Int) {
+        val sessions = mapOf(alice to device(a), bob to device(b))
+        val streams = mapOf(alice to owner, bob to recipient)
+        repeat(count) {
+            val s = sessions.getValue(alice).model.engine
+            val keep = Answer.Option("Keep")
+            val decision = s.pending?.decision
+            val (player, input) = if (decision != null) Engine.decider(s, decision.player).let { p ->
+                p to Engine.options(s, p).filterIsInstance<Input.Answer>().let { o -> o.firstOrNull { it.answer == keep } ?: o.first() }
+            } else s.players.flatMap { p -> Engine.options(s, p.id).filter { it !is Input.Concede }.map { p.id to it } }.let { o ->
+                o.firstOrNull { it.second is Input.PassPriority } ?: o.first()
+            }
+            val session = sessions.getValue(player)
+            val result = streams.getValue(player).execute(GameAction.Submit(session.act(id(), input)))
+            assertEquals("accepted", result.outcome, "event $it, $input by ${player.value}: ${result.reason}")
+            val event = session.pending.single()
+            sessions.values.forEach { it.receivedShown(event) }
+        }
+    }
+
+    // HIS-110, HIS-099, HIS-108 (owner 2026-11-07: the timeline and the Undo dialog reach the game's first event, no limit
+    // on how far back): a player reads the main line in pages from the head back to the game's first event (each at
+    // most a checkpoint interval); an event not on it is refused, and so is anyone outside the game. An undo request to a
+    // point more than 200 events back is approved and taken: the game goes back there, and the other player, who had seen
+    // it all, gets no take-back to animate when opening the game (more than 200 events: it opens at its result)
+    @Test fun `older history comes in pages to the first event, and an undo request reaches far back`() = withService { runtime ->
+        val f = Fixture(runtime, engine = true, tag = "hp")
+        f.events(260)
+        val codec = f.codec()
+        val head = f.snapshot().headId
+        var through: String? = head
+        val line = ArrayDeque<org.asyncttwiz.protocol.game.GameEvent>()
+        var pages = 0
+        while (through != null) {
+            val page = f.games.history(f.b, f.game.id, through)
+            assertTrue(page.events.size in 1..org.asyncttwiz.protocol.game.GameHistory.CHECKPOINT_EVERY, "${page.events.size} events")
+            val events = page.events.map(codec::decodeEvent)
+            assertEquals(through, events.last().id)
+            events.asReversed().forEach(line::addFirst)
+            through = if (page.fromStart) null else page.baseId
+            pages++
+        }
+        assertEquals(261, line.size, "the server's first event and 260 more")
+        assertEquals(5, pages)
+        assertTrue(line.first().engine!!.steps.any { it.input is Input.StartGame }, "the game's first event")
+        assertTrue(line.zipWithNext().all { (x, y) -> y.parentId == x.id }, "one line")
+        assertEquals("inapplicable", assertThrows(GameProtocolFailure::class.java) { f.games.history(f.a, f.game.id, id()) }.code)
+        val stranger = account(runtime, "EngineStranger")
+        assertEquals("accessDenied", assertThrows(GameProtocolFailure::class.java) { f.games.history(stranger, f.game.id, head) }.code)
+
+        if (f.snapshot(f.b).localHeads[f.b.account.accountId] != head)
+            assertEquals("accepted", f.recipient.execute(GameAction.EngineSeen(head)).outcome)
+        val target = line[3].id
+        assertEquals("accepted", f.owner.execute(GameAction.EngineRequestRewind(target, "back to the start")).outcome)
+        assertEquals("accepted", f.recipient.execute(GameAction.EngineAnswerRewind(true)).outcome)
+        val after = f.snapshot(f.b)
+        assertEquals(target, after.headId)
+        assertEquals(target, after.localHeads[f.b.account.accountId])
+        assertEquals(emptyList<String>(), after.takenBack)
+        assertNull(after.undoneBy)
+    }
+
     // R6 (engine responsiveness): a player's own report (their device showed events, their settings) works out only their
     // own seat again; a submission, an undo request or a rewind works out both. The seat left as stored is checked against
     // working it out (checkSkipped).

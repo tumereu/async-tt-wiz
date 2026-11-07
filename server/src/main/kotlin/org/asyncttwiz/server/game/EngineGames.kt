@@ -429,6 +429,19 @@ internal class EngineGames(private val capacity: Int = warmCapacity()) {
             attention(seats, viewer)
     }
 
+    /**
+     * HIS-110, HIS-099 (owner 2026-11-07: the timeline and the Undo dialog reach the game's first event): the page of
+     * [play]'s main line ending at its event [through] ([GameHistory.page]: the checkpoint above it and at most
+     * [GameHistory.CHECKPOINT_EVERY] events, however long the game); null when [play] isn't played as engine state;
+     * refused ("inapplicable") when [through] isn't on the main line (a discarded line is shown to nobody). Nothing past
+     * the head is read, and a device holds everything up to the head anyway (I-D56 §7, I-D27).
+     */
+    fun historyPage(sql: DSLContext, play: UUID, through: String): org.asyncttwiz.protocol.EngineHistoryPage? {
+        val store = open(sql, play) ?: return null
+        val history = GameHistory(store, store.codec)
+        return history.page(head(sql, play, store.rootId), through) ?: throw Refusal("inapplicable")
+    }
+
     /** Whose move [play] is for [viewer] (TRN-058, I-D57): null when it isn't an engine play or it waits for nobody. */
     fun attentionFor(sql: DSLContext, play: UUID, viewer: UUID): String? =
         if (!mayExist(sql) || open(sql, play) == null) null else attention(seats(sql, play), viewer)

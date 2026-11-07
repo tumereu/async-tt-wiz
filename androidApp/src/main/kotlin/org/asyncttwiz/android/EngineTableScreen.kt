@@ -87,8 +87,15 @@ internal fun EngineTableScreen(controller: LobbyController, accountId: String, h
     val applied = remember(game.id, playId) { AppliedMarks() }
     // Timeline mode (HIS-004, HIS-012): the board at the review cursor, view-only
     val reviewId = routes.review
-    val reviewPlay = remember(reviewId, engine.version) { reviewId?.let { engine.reviewPlay(it) } }
-    LaunchedEffect(reviewId, reviewPlay == null) { if (reviewId != null && reviewPlay == null) routes.leaveReview() }
+    val reviewNow = remember(reviewId, engine.version) { reviewId?.let { engine.reviewPlay(it) } }
+    // HIS-005 (owner 2026-11-07: the timeline reaches the game's first event): a point whose board needs older history
+    // keeps the board shown before until its page is in; one that can't be shown leaves timeline mode
+    val reviewKept = remember(game.id) { ReviewKept() }
+    val reviewPlay = reviewNow ?: reviewKept.board.takeIf { reviewId != null && engine.historyLoading }
+    reviewKept.board = if (reviewId == null) null else reviewNow ?: reviewKept.board
+    LaunchedEffect(reviewId, reviewNow == null, engine.historyLoading) {
+        if (reviewId != null && reviewNow == null && !engine.historyLoading && !engine.loadFor(reviewId)) routes.leaveReview()
+    }
     // TBL-040 (owner playtest 2026-11-04): what a published board changed plays step by step, in event order
     val motion = remember(game.id, playId) { EngineMotionQueue() }
     // CMB-040 (owner, 2026-11-05): while waiting for the defender's blocks the attacker's lanes show the blocks placed to assume
@@ -171,6 +178,8 @@ internal fun EngineTableScreen(controller: LobbyController, accountId: String, h
     val reviewing = reviewPlay != null || rewindingBranch
     var playbackSettingsOpen by remember(game.id) { mutableStateOf(false) }
     val timeline = engine.timeline.events(engine, names)
+    // A point no longer on the timeline (the device let it go) can't be looked at: timeline mode ends
+    LaunchedEffect(reviewId, timeline) { if (reviewId != null && timeline.none { it.id == reviewId }) routes.leaveReview() }
     // HIS-075: while the other player makes a choice the event text says so (also with Event text off, never in timeline
     // mode); TBL-118: a refused control's shake meanwhile flashes it
     val choosing = if (reviewPlay == null) routes.choosingText(play) else null
@@ -242,6 +251,9 @@ internal fun EngineReviewPanel(routes: EngineTableRoutes, events: List<HistoryTi
     pauseMillis: Long, onSettings: () -> Unit = {}) {
     val cursor = routes.review ?: return
     val at = events.indexOfFirst { it.id == cursor }.takeIf { it >= 0 } ?: return
+    val engine = routes.engine
+    // HIS-005 (owner 2026-11-07): coming near the oldest event held asks for older history, back to the game's first event
+    LaunchedEffect(at, events.size) { if (at < OLDER_HISTORY_MARGIN) engine?.loadOlder() }
     LaunchedEffect(routes.reviewPlaying, cursor) {
         if (!routes.reviewPlaying) return@LaunchedEffect
         delay(pauseMillis.coerceIn(100L, 10_000L))
@@ -250,7 +262,8 @@ internal fun EngineReviewPanel(routes: EngineTableRoutes, events: List<HistoryTi
     val position = HistoryPosition(cursor, HistoryMode.PLAYBACK, routes.reviewPlaying, cursor)
     val strip: @Composable () -> Unit = {
         Box(Modifier.fillMaxWidth().height(TableTimelineHeight.dp)) {
-            HistoryTimeline(events, cursor, viewer, { routes.reviewPlaying = false }, { routes.review = it }, Modifier.fillMaxWidth())
+            HistoryTimeline(events, cursor, viewer, { routes.reviewPlaying = false }, { routes.review = it }, Modifier.fillMaxWidth(),
+                loadingStart = engine != null && engine.historyLoading && engine.shown?.olderComplete == false)
             IconButton(onClick = { routes.reviewPlaying = false; onSettings() }, modifier = Modifier.align(Alignment.CenterEnd)
                 .background(TimelineBarColor).size(if (landscape) 36.dp else 40.dp)) {
                 Icon(Icons.Outlined.Settings, contentDescription = "Playback settings")
@@ -291,6 +304,9 @@ internal fun EngineRewindPanel(landscape: Boolean) {
             .testTag("rewind-panel"))
     }
 }
+
+/** HIS-005: the last board timeline mode showed, kept while the next point's older history loads. */
+private class ReviewKept { var board: TableBoard? = null }
 
 /** What the engine table applied once: the last transition and the board reviewed; [drawn]: the table has drawn a live
  * board of this game (a transition applied later animates from it). */

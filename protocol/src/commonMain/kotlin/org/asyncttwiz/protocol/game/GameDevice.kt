@@ -112,6 +112,13 @@ class GameDevice(
      * it ([revision]) once it showed the table there. */
     var undoOnLoad: EngineUpdate? = null
 
+    /** HIS-110, HIS-099 (owner 2026-11-07): the main line before the session's, loaded from the server on demand
+     * ([addPage]), and the states beyond what going back from the shown state reaches; null on a device made without a
+     * codec (tests), which then reaches only its session's line. */
+    var older: OlderHistory? = null
+    /** The game's root (before its first event): nothing is older ([EngineSnapshot.rootId]). */
+    var rootId: String? = null
+
     /** HIS-108: the other player's undo of events the player had been shown went back to their local head: the device
      * reports that head once even though the server has it, which tells the server the undo was shown. */
     private var undoShown = false
@@ -1155,9 +1162,9 @@ class GameDevice(
         if (target == null) return Undo.Unavailable("nothing")
         if (request != null) return Undo.Unavailable(REWIND_REQUESTED)
         if (session.drafting || session.pending.isNotEmpty()) return Undo.Unavailable("sending")
-        val after = session.after(target) ?: return Undo.Request(target, "unknown")
+        val after = lineAfter(target) ?: return Undo.Request(target, "unknown")
         if (after.isEmpty()) return Undo.Unavailable("nothing")
-        val at = session.stateAt(target) ?: return Undo.Request(target, "unknown")
+        val at = (reach(target) as? Reach.State)?.model ?: return Undo.Request(target, "unknown")
         val reason = Rewind.requestNeeded(at, target, after, me, heads.filterKeys { it != me }.values.toList())
         if (reason != null) return Undo.Request(target, reason)
         forgetRemakes()
@@ -1249,8 +1256,27 @@ class GameDevice(
         if (session.drafting) return null
         val target = session.indexOf(r.target)
         val local = session.indexOf(session.localHead) ?: return null
-        val board = if (target != null && target <= local) session.stateAt(r.target) else null
+        // HIS-005: a point before this device's line is before its local head too: its board from older history (none
+        // until its page is in, [requestNeeds])
+        if (target == null && older != null) {
+            val old = (reach(r.target) as? Reach.State)?.model ?: return null
+            return Preview(old, false, r.message)
+        }
+        val board = if (target != null && target <= local) when (val at = reach(r.target)) {
+            is Reach.State -> at.model
+            is Reach.Needs -> return null
+            Reach.Unknown -> null
+        } else null
         return Preview(board ?: session.stateAt(session.localHead) ?: return null, board == null, r.message)
+    }
+
+    /** The page of older history the open undo request's preview needs ([requestPreview]), or null: the next older page
+     * while its target is before what this device holds, or the page ending at it when its state needs one. */
+    fun requestNeeds(): String? {
+        val r = request?.takeIf { it.by != me.value } ?: return null
+        if (session.drafting) return null
+        if (!session.knows(r.target) && older?.holds(r.target) != true) return olderThrough()
+        return (reach(r.target) as? Reach.Needs)?.through
     }
 
     // ---- The server
@@ -1532,12 +1558,73 @@ class GameDevice(
         }
     }
 
-    /** Forgets events well before both local heads (the device keeps [KEPT_EVENTS] of them for undo and previews). */
+    /** Forgets events well before both local heads (the device keeps [KEPT_EVENTS] of them for undo and previews); once
+     * older history was loaded ([older]) they join it instead, so what was reached stays reachable. */
     private fun trim() {
         val earliest = listOfNotNull(session.localHead, heads[opponent]).mapNotNull(session::indexOf).minOrNull() ?: return
         val cut = earliest - KEPT_EVENTS
-        if (cut >= 0) session.trim(session.events[cut].id)
+        if (cut < 0) return
+        val from = session.lineStart
+        val moved = session.events.take(cut + 1)
+        session.trim(session.events[cut].id)
+        older?.trimmed(from, moved)
     }
+
+    // ---- Older history (HIS-110, HIS-099: the timeline and Undo reach the game's first event)
+
+    /** What [reach] finds for a main-line event. */
+    sealed interface Reach {
+        /** The state there (a copy: the shown state is unchanged). */
+        data class State(val model: GameModel) : Reach
+        /** Known, but its state needs the page of older history ending at [through] ([addPage]). */
+        data class Needs(val through: String) : Reach
+        /** Not an event of the main line this device holds (or a draft is open). */
+        data object Unknown : Reach
+    }
+
+    /** The main line this device holds before its session's line ([OlderHistory.events]), oldest first. */
+    val olderEvents: List<GameEvent> get() = older?.events.orEmpty()
+
+    /** Whether [olderEvents] begin with the game's first event (nothing older to load). */
+    val olderComplete: Boolean get() = older?.complete == true || session.lineStart == rootId
+
+    /** The event the next older page of the main line ends at, or null when there is nothing older (or no [older]). */
+    fun olderThrough(): String? = older?.through(session.lineStart, rootId)
+
+    /** Takes in the server's [page] of older history ([OlderHistory.add]); false when it doesn't fit. */
+    fun addPage(page: org.asyncttwiz.protocol.EngineHistoryPage): Boolean {
+        val ok = older?.add(page, session.lineStart, rootId) == true
+        remember("older page to ${page.through}: ${if (ok) "taken" else "refused"}")
+        return ok
+    }
+
+    /**
+     * The state at main-line event [id] for timeline mode and the Undo dialog: going back from the shown state when that
+     * is exact ([GameSession.stateAt]), else from a page of older history ([OlderHistory.stateAt]: a checkpoint and at
+     * most a page of events), never from the game's start.
+     */
+    fun reach(id: String): Reach {
+        if (session.drafting) return Reach.Unknown
+        if (session.knows(id)) session.stateAt(id)?.let { return Reach.State(it) }
+        else if (older?.holds(id) != true) return Reach.Unknown
+        val h = older ?: return Reach.Unknown
+        if (id == rootId) return Reach.Unknown
+        return h.stateAt(id)?.let { Reach.State(it) } ?: Reach.Needs(id)
+    }
+
+    /** The main-line events after [target] up to the head, from [olderEvents] on when it is one of them; null when
+     * [target] isn't known. */
+    fun lineAfter(target: String): List<GameEvent>? {
+        session.after(target)?.let { return it }
+        val held = olderEvents
+        val at = held.indexOfFirst { it.id == target }
+        if (at < 0) return null
+        return held.subList(at + 1, held.size) + session.events
+    }
+
+    /** HIS-084: after the player's own undo to a point before this device's line (a reload brought it here), the device
+     * passes nothing for them at the head until they act, as after any undo of theirs. */
+    fun holdAtHead() { holdAt = session.head }
 
     /** What the device sends now (drained): its actions in order, and a local-head report when the shown head moved
      * (at once where playback stops or reaches the head, else at most every [SEEN_EVERY_MS]). */
@@ -1742,7 +1829,7 @@ class GameDevice(
             val local = heads[me]?.takeIf { it == baseId || events.any { e -> e.id == it } } ?: snapshot.headId
             fun device(session: GameSession) =
                 GameDevice(session, snapshot.settings ?: PlaySettings(), heads, snapshot.lines, snapshot.rewindRequest, ids)
-                    .also { it.modes(snapshot.modes) }
+                    .also { it.modes(snapshot.modes); it.older = OlderHistory(codec); it.rootId = snapshot.rootId }
             val gone = if (takenBack) snapshot.takenBack.map(codec::decodeEvent) else emptyList()
             if (gone.isNotEmpty() && gone.first().parentId == local) {
                 val at = if (local == baseId) 0 else events.indexOfFirst { it.id == local } + 1

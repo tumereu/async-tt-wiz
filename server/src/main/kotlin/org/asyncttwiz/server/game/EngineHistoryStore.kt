@@ -121,7 +121,30 @@ internal class EngineHistoryStore private constructor(
         }
     }
 
-    private fun decode(id: String, body: String): GameEvent = StoredData.decode("engine event", id) { codec.decodeEvent(body) }
+    /**
+     * HIS-005 (a page of older history, [GameHistory.page]): the id of the event at [depth] on the line ending at [head],
+     * in one recursive query over the events' ids and parents (no event is read or decoded), or null.
+     */
+    override fun idAt(head: String, depth: Int): String? {
+        if (head == rootId) return if (depth == 0) rootId else null
+        if (depth == 0) return rootId.takeIf { node(head) != null }
+        val start = uuid(head) ?: return null
+        return sql.fetch("""
+            WITH RECURSIVE line(id, parent_id, depth) AS (
+                SELECT e.id, e.parent_id, e.depth FROM engine_event e WHERE e.play_id = ? AND e.id = ? AND e.depth >= ?
+                UNION ALL
+                SELECT e.id, e.parent_id, e.depth FROM line JOIN engine_event e ON e.play_id = ? AND e.id = line.parent_id
+                WHERE e.depth >= ?
+            )
+            SELECT id FROM line WHERE depth = ?""", play, start, depth, play, depth, depth)
+            .firstOrNull()?.get(0, UUID::class.java)?.toString()?.takeIf { it !in deleted }
+    }
+
+    /** Events decoded from their stored bodies by this store (tests check a request's work stays bounded). */
+    var decoded: Int = 0
+        private set
+
+    private fun decode(id: String, body: String): GameEvent { decoded++; return StoredData.decode("engine event", id) { codec.decodeEvent(body) } }
 
     companion object {
         private fun uuid(id: String): UUID? = runCatching { UUID.fromString(id) }.getOrNull()

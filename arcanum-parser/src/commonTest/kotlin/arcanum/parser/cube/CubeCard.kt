@@ -25,6 +25,7 @@ import arcanum.api.Zone
 import arcanum.parser.OracleCard
 import arcanum.parser.OracleParser
 import arcanum.parser.PrintedNumbers
+import arcanum.parser.TargetSpans
 import arcanum.parser.TypeLine
 import kotlin.test.assertEquals
 
@@ -69,6 +70,45 @@ private fun checkFace(printed: OracleCard, face: FaceDefinition, expected: List<
     assertEquals(listOf(printed.power, printed.toughness, printed.loyalty), listOf(face.power, face.toughness, face.loyalty).map(PrintedNumbers::render), "P/T, loyalty")
     assertEquals(expected, face.abilities.map(::withoutText), printed.name)
     checkTexts(printed, face.abilities)
+    checkSpans(printed.name, face.abilities)
+}
+
+/**
+ * Each target slot of a parsed ability knows where its phrase sits in the ability's text, or a mode's slot in the mode's
+ * text ([TargetSlot.span]): every slot has one, unless its text names no target of its own (a keyword action that
+ * targets, "earthbend 2", "support 2"; targets only in a reflexive trigger's sentence); it names a target ("any
+ * target", "up to two target creatures"), and a text's spans come in order without overlapping (slots sharing one phrase,
+ * "two target creatures controlled by different players", share its span).
+ */
+fun checkSpans(name: String, abilities: List<Ability>) {
+    fun check(text: String?, instructions: Instructions) {
+        if (text == null) return
+        var last: arcanum.api.TextSpan? = null
+        for (slot in instructions.targets) {
+            val span = slot.span
+            if (span == null) {
+                assertEquals(emptyList(), TargetSpans.phrases(TargetSpans.ownText(text, instructions)),
+                    "$name: slot ${slot.name} has no span in \"$text\"")
+                continue
+            }
+            val phrase = span.of(text)
+            assertEquals(true, phrase != null && Regex("\\btargets?\\b", RegexOption.IGNORE_CASE).containsMatchIn(phrase),
+                "$name: slot ${slot.name}'s span $span (\"$phrase\") isn't a target phrase of \"$text\"")
+            assertEquals(true, last == null || span == last || span.start >= last.end,
+                "$name: slot ${slot.name}'s span $span overlaps or precedes the one before it in \"$text\"")
+            last = span
+        }
+        instructions.modes?.options?.forEach { check(it.text, it.instructions) }
+    }
+    abilities.forEach { ability ->
+        when (ability) {
+            is Ability.Spell -> check(ability.text, ability.instructions)
+            is Ability.Activated -> check(ability.text, ability.instructions)
+            is Ability.Triggered -> check(ability.text, ability.instructions)
+            is arcanum.api.Keyword.ClassLevel -> checkSpans(name, ability.abilities)
+            else -> {}
+        }
+    }
 }
 
 /** [ability] without its printed text, its modes' texts and the texts of the emblems it creates ([withoutEmblemTexts]). */
@@ -85,8 +125,11 @@ private fun withoutOwnText(ability: Ability): Ability = when (ability) {
     else -> ability
 }
 
-private fun withoutText(instructions: Instructions): Instructions =
-    instructions.copy(modes = instructions.modes?.let { m -> m.copy(options = m.options.map { it.copy(text = null) }) })
+/** [instructions] without its modes' texts and its slots' places in the text ([TargetSlot.span], checked by
+ * [checkSpans]). */
+private fun withoutText(instructions: Instructions): Instructions = instructions.copy(
+    targets = instructions.targets.map { it.copy(span = null) },
+    modes = instructions.modes?.let { m -> m.copy(options = m.options.map { it.copy(text = null, instructions = withoutText(it.instructions)) }) })
 
 private val definitionJson = kotlinx.serialization.json.Json
 
@@ -118,7 +161,7 @@ private fun withoutEmblemTexts(ability: Ability): Ability {
             if ((e["type"] as? kotlinx.serialization.json.JsonPrimitive)?.content == "emblem") e + ("abilities" to
                 kotlinx.serialization.json.JsonArray((e["abilities"] as kotlinx.serialization.json.JsonArray).map { a ->
                     strip(kotlinx.serialization.json.JsonObject((a as kotlinx.serialization.json.JsonObject) - "text")) }))
-            else e.mapValues { strip(it.value) })
+            else (e - "span").mapValues { strip(it.value) })
         is kotlinx.serialization.json.JsonArray -> kotlinx.serialization.json.JsonArray(e.map(::strip))
         else -> e
     }

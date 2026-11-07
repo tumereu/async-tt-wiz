@@ -141,8 +141,8 @@ web client is the same app in a browser, with a desktop layout made for mouse, k
 | Tap (acts at once, TBL-041) | Left click, also at once |
 | Double tap (400 ms, 32 dp, TBL-042) | Double click (same timing) |
 | Hold a card 350 ms to inspect (TBL-047, TBL-104), pinned by a sideways drag (TBL-131) | **Right-click toggles Inspect** (owner): the card's images with its changes beside them (as pinned Inspect shows them) and a close button; right-click again, ✕, Esc or a click outside closes. No press-and-hold on desktop. |
-| — | Proposal: **hover** a card ~250 ms for a quick preview (the large picture only, no dimming), gone when the pointer leaves |
-| Holding a control does its hold action (step arrow → End turn, Undo → Undo dialog, tooltips SYS-045) | Proposal: right-click a control does its hold action (step arrow = End turn, Undo = the Undo dialog); Shift+Space = End turn; tooltips show on hover after 0.5 s |
+| — | **Hover** a card ~250 ms for a quick look (owner): the large picture only, no dimming, gone when the pointer leaves |
+| Holding a control does its hold action (step arrow → End turn, Undo → Undo dialog, tooltips SYS-045) | Right-click a control does its hold action (owner) (step arrow = End turn, Undo = the Undo dialog); Shift+Space = End turn; tooltips show on hover after 0.5 s |
 | Drag a card (ZON-077, CMB-009) | Drag with the left button; the same meanings and highlights |
 | One-finger drag on empty battlefield pans (TBL-011) | Left-drag on empty battlefield, or middle-drag anywhere |
 | Pinch zooms (TBL-010) | Mouse wheel zooms around the pointer (0.65–2×); trackpad pinch zooms; Shift+wheel pans sideways |
@@ -268,5 +268,4 @@ Hotkeys never act while a text field has focus. "?" shows the list over the scre
 
 ## 12. Open questions for the owner
 
-1. Hover preview on desktop (section 5), in addition to right-click Inspect?
-2. Right-click on a control does its phone hold action (step arrow = End turn, Undo = Undo dialog)?
+None at the moment (all answered 2026-11-07); section 1 waits for the feasibility test.

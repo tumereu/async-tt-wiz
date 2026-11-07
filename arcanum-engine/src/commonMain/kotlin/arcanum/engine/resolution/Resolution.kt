@@ -383,6 +383,6 @@ internal object Resolution {
         return if (permission.thenInsteadOf == null || permission.thenInsteadOf == Zone.Graveyard) permission.then!!.zone else Zone.Graveyard
     }
 
-    private val PERMANENT_TYPES = listOf(CardType.Artifact, CardType.Battle, CardType.Creature, CardType.Enchantment,
+    private val PERMANENT_TYPES = listOf<CardType>(CardType.Artifact, CardType.Battle, CardType.Creature, CardType.Enchantment,
         CardType.Land, CardType.Planeswalker)
 }

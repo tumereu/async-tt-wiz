@@ -501,7 +501,7 @@ internal class Evaluator(val board: Board, val ctx: Context) {
     }
 
     /** Where spells can be cast from ("spells you cast"). */
-    private val CAST_FROM = listOf(Zone.Hand, Zone.Library, Zone.Graveyard, Zone.Exile, Zone.Command)
+    private val CAST_FROM = listOf<Zone>(Zone.Hand, Zone.Library, Zone.Graveyard, Zone.Exile, Zone.Command)
 
     private fun prospectiveCastFrom(id: ObjectId): Zone? =
         if (!ctx.prospectiveCast) null else zoneOf(id)?.takeIf { it != Zone.Stack && it != Zone.Battlefield }

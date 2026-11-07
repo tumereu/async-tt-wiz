@@ -9,21 +9,13 @@ import java.util.concurrent.CompletableFuture
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLong
 
-/** Retained definition consumers can construct this without consulting a newer local catalog.
- * Face is an explicit provider face index, not a name search or first-face guess. */
-data class ArtworkReference(val printing: String?, val face: Int, val version: String,
-    val size: String = "normal", val customUrl: String? = null, val faceName: String? = null) {
-    init { require(face in 0..15 && version.length <= 256 && size in listOf("small", "normal", "large", "png", "art_crop")) }
-    val key: String get() = "$printing|$face|$size|$version|$customUrl|$faceName"
-    companion object {
-        fun from(record: CatalogPrinting, version: String, size: String = "normal"): ArtworkReference? {
-            val face = if (record.side.isEmpty()) 0 else record.side.singleOrNull()?.let { it - 'a' } ?: return null
-            if (face !in 0..15) return null
-            val name = runCatching { JsonParser.parseString(record.json).asJsonObject.get("faceName")?.asString }
-                .getOrNull()?.takeIf { it.isNotBlank() } ?: record.name
-            return ArtworkReference(record.scryfallId, face, version, size, faceName = name)
-        }
-    }
+/** Web spike: the catalog factory of [ArtworkReference] (the class moved to :shared-ui). */
+fun ArtworkReference.Companion.from(record: CatalogPrinting, version: String, size: String = "normal"): ArtworkReference? {
+    val face = if (record.side.isEmpty()) 0 else record.side.singleOrNull()?.let { it - 'a' } ?: return null
+    if (face !in 0..15) return null
+    val name = runCatching { JsonParser.parseString(record.json).asJsonObject.get("faceName")?.asString }
+        .getOrNull()?.takeIf { it.isNotBlank() } ?: record.name
+    return ArtworkReference(record.scryfallId, face, version, size, faceName = name)
 }
 
 internal data class ArtworkEntry(val status: Int, val expires: Long, val failures: Int,

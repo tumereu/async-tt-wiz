@@ -395,7 +395,7 @@ class EoeGreenGoldArtifactScenariosTest {
     @Test
     fun brisquelFeedsOnArtifacts() = scenario {
         alice.battlefield(EoeSet.brisquelNimbleGalleychef, trinket, "Plains", "Plains", "Plains")
-        expect { assert(arcanum.api.Subtype("Food") in trinket.subtypes) }
+        expect { kotlin.test.assertTrue(arcanum.api.Subtype("Food") in trinket.subtypes) }
         alice.activates(EoeSet.brisquelNimbleGalleychef, choosing = listOf(trinket))
         resolveAll()
         expect { bob.life shouldBe 17 }
@@ -594,7 +594,7 @@ class EoeGreenGoldArtifactScenariosTest {
         targets(trinket)
         expect {
             trinket.power shouldBe 3
-            assert(arcanum.api.Subtype("Robot") in trinket.subtypes)
+            kotlin.test.assertTrue(arcanum.api.Subtype("Robot") in trinket.subtypes)
         }
     }
 

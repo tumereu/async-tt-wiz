@@ -1,7 +1,7 @@
 package org.asyncttwiz.core
 
 /** Canonical identity only; acquisition of random IDs belongs to platform adapters. */
-@JvmInline
+@kotlin.jvm.JvmInline
 value class EntityId(val value: String) {
     init {
         require(CANONICAL_UUID.matches(value)) { "Expected a lowercase hyphenated UUID" }

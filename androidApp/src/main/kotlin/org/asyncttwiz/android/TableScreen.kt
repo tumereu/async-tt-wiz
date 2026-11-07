@@ -95,5 +95,3 @@ internal fun tableIsLoading(state: LobbyTableView, gameId: String, historyError:
 
 internal val OwnTableColor = Color(0xff237d68)
 internal val OpponentTableColor = Color(0xffb44853)
-/** Emblem chips (I-D25): the Automatum violet of the switch (integration spec §5). */
-internal val EmblemChipColor = Color(0xff7a4fc4)

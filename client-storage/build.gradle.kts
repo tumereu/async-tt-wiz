@@ -50,6 +50,8 @@ dependencies {
     implementation(project(":protocol"))
     // Arcanum card definitions parsed on the device (docs/specs/arcanum-atw-integration.md I-D2).
     implementation(project(":arcanum-parser"))
+    // Web spike: ArtworkReference moved to the shared Compose module
+    api(project(":shared-ui"))
     implementation(libs.serialization.json)
     implementation(libs.sqldelight.runtime)
     implementation(libs.sqldelight.android.driver)

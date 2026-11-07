@@ -1,6 +1,5 @@
 package org.asyncttwiz.android
 
-import android.graphics.Paint
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -12,19 +11,16 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.drawscope.translate
-import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
 import org.asyncttwiz.protocol.*
 
 /** Retained across tap endpoints: don't rebuild every text metric/path on the first rotation frame. */
 internal class TableDrawCache(density: Float) {
-    val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = android.graphics.Color.DKGRAY; textSize = 11 * density }
+    val paint = TablePaint().apply { color = TableInk.DKGRAY; textSize = 11 * density }
     val layerPaint = androidx.compose.ui.graphics.Paint()
     private data class TextKey(val text: String, val size: Float, val bold: Boolean)
     private data class FaceKey(val width: Float, val height: Float, val token: Boolean)
-    private fun <K, V> bounded() = object : java.util.LinkedHashMap<K, V>(256, .75f, true) {
-        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<K, V>?) = size > 256
-    }
+    private fun <K, V> bounded() = BoundedCache<K, V>(256)
     private val measurements = bounded<TextKey, Float>()
     private val centerOffsets = bounded<Float, Float>()
     private val outlines = bounded<FaceKey, androidx.compose.ui.graphics.Path>()
@@ -47,7 +43,7 @@ internal class TableCardPainter(val density: Float, scene: TableScene, val cache
     val titleBand = maxOf(11f, 7f * titleScale + 3f)
     val artBottom = 40f - maxOf(10f, 7f * valueScale + 3f)
     fun DrawScope.text(value: String, x: Float, y: Float, max: Int = 16) {
-        drawContext.canvas.nativeCanvas.drawText(value.take(max), x * density, y * density, paint)
+        nativeText(value.take(max), x * density, y * density, paint)
     }
     fun DrawScope.fittedText(value: String, x: Float, y: Float, width: Float, right: Boolean = false) {
         val left = if (right) x - width else x
@@ -63,7 +59,7 @@ internal class TableCardPainter(val density: Float, scene: TableScene, val cache
         if (measured > available) paint.textSize *= available / measured
         val x = bounds.center.x * density - cache.measure(value) / 2
         val baseline = bounds.center.y * density - cache.centerOffset()
-        drawContext.canvas.nativeCanvas.drawText(value, x, baseline, paint)
+        nativeText(value, x, baseline, paint)
     }
     fun DrawScope.emptySlot(i: TableItem, color: Color) {
         val z = i.bounds.width / 28f
@@ -129,7 +125,7 @@ internal class TableCardPainter(val density: Float, scene: TableScene, val cache
         clipRect((x + b.x * z) * density, y * density, (x + b.right * z) * density, (y + 40 * z) * density) {
             text(value, x + (b.x + 1f) * z, baseline, value.length)
         }
-        paint.color = android.graphics.Color.DKGRAY
+        paint.color = TableInk.DKGRAY
     }
     fun DrawScope.cardFace(i: TableItem, x: Float, y: Float, color: Color, title: String) {
         translate(x * density, y * density) {
@@ -152,7 +148,7 @@ internal class TableCardPainter(val density: Float, scene: TableScene, val cache
             drawRoundRect(if (lethal) red else Color.White, xy(left, top), size(width, height), CornerRadius(2 * z * density))
             drawRoundRect(red, xy(left, top), size(width, height), CornerRadius(2 * z * density), style = Stroke(z * density))
             paint.textSize = 6 * valueScale * z * density
-            paint.color = if (lethal) android.graphics.Color.WHITE else 0xffb3261e.toInt()
+            paint.color = if (lethal) TableInk.WHITE else 0xffb3261e.toInt()
             fittedText(i.damage, left + z, cardHeight - 3 * z, width - 2 * z)
             paint.color = previousColor
         }
@@ -249,14 +245,14 @@ internal class TableCardPainter(val density: Float, scene: TableScene, val cache
             if (art != null) drawTableArtwork(art, body)
             else {
                 drawRect(AbilityTokenArtColor, xy(body.x, body.y), size(body.width, body.height))
-                paint.textSize = 12 * z * density; paint.color = android.graphics.Color.WHITE
+                paint.textSize = 12 * z * density; paint.color = TableInk.WHITE
                 text(i.typeIcon, body.center.x - cache.measure(i.typeIcon) / density / 2, body.center.y + 4f * z, i.typeIcon.length)
             }
         }
         drawPath(shape, color, style = Stroke(1.5f * density * z))
         // The kind chip at the bottom, centred
         val letter = ability.letter
-        paint.color = android.graphics.Color.WHITE; paint.isFakeBoldText = true
+        paint.color = TableInk.WHITE; paint.isFakeBoldText = true
         paint.textSize = 5.5f * z * density
         val chip = TableBounds(body.center.x - 4f * z, body.bottom - 9f * z, 8f * z, 7f * z)
         drawRoundRect(AutomatumViolet, xy(chip.x, chip.y), size(chip.width, chip.height), CornerRadius(2f * z * density))
@@ -264,7 +260,7 @@ internal class TableCardPainter(val density: Float, scene: TableScene, val cache
             style = Stroke(.7f * z * density))
         text(letter, chip.center.x - cache.measure(letter) / density / 2, chip.center.y - cache.centerOffset() / density, letter.length)
         paint.isFakeBoldText = false
-        paint.color = android.graphics.Color.DKGRAY
+        paint.color = TableInk.DKGRAY
         paint.textSize = 11 * density
     }
 }

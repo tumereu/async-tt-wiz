@@ -20,7 +20,7 @@ import androidx.compose.ui.unit.dp
 
 /** Proportional 45-degree cuts remain visible even on an 18dp-wide zoomed-out card.
  * Only the drawing is cut: layout and pointer bounds remain the full rectangle. */
-internal fun cardSilhouette(width: Float, height: Float, token: Boolean, x: Float = 0f, y: Float = 0f,
+fun cardSilhouette(width: Float, height: Float, token: Boolean, x: Float = 0f, y: Float = 0f,
     radius: Float = 2f): Path = Path().apply {
     if (token) {
         val cut = minOf(width, height) * .22f
@@ -31,13 +31,13 @@ internal fun cardSilhouette(width: Float, height: Float, token: Boolean, x: Floa
     } else addRoundRect(RoundRect(Rect(x, y, x + width, y + height), CornerRadius(radius)))
 }
 
-internal fun cardShape(token: Boolean): Shape = object : Shape {
+fun cardShape(token: Boolean): Shape = object : Shape {
     override fun createOutline(size: Size, layoutDirection: LayoutDirection, density: Density) =
         Outline.Generic(cardSilhouette(size.width, size.height, token, radius = with(density) { 2.dp.toPx() }))
 }
 
 /** Preview artwork and its owner-colored outline share the table silhouette. */
-internal fun Modifier.cardFrame(token: Boolean, owner: Color, projection: Boolean = false): Modifier =
+fun Modifier.cardFrame(token: Boolean, owner: Color, projection: Boolean = false): Modifier =
     clip(cardShape(token)).background(Color.White).drawWithContent {
         drawContent()
         val inset = 1.dp.toPx()

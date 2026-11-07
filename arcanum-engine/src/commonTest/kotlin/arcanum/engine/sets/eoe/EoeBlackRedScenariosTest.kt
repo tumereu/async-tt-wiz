@@ -275,7 +275,7 @@ class EoeBlackRedScenariosTest {
         expect {
             flier.zone shouldBe Zone.Battlefield
             flier lacksKeyword Keyword.Flying
-            assert(arcanum.api.Subtype("Skeleton") in flier.subtypes)
+            kotlin.test.assertTrue(arcanum.api.Subtype("Skeleton") in flier.subtypes)
         }
     }
 

@@ -17,6 +17,22 @@ plugins {
     alias(libs.plugins.sqldelight) apply false
 }
 
+// Web spike: the Kotlin/Wasm toolchain downloads come from the settings repositories (FAIL_ON_PROJECT_REPOS).
+allprojects {
+    plugins.withType<org.jetbrains.kotlin.gradle.targets.wasm.nodejs.WasmNodeJsPlugin> {
+        extensions.findByType<org.jetbrains.kotlin.gradle.targets.wasm.nodejs.WasmNodeJsEnvSpec>()?.downloadBaseUrl?.set(null as String?)
+    }
+    plugins.withType<org.jetbrains.kotlin.gradle.targets.wasm.nodejs.WasmNodeJsRootPlugin> {
+        extensions.findByType<org.jetbrains.kotlin.gradle.targets.wasm.nodejs.WasmNodeJsEnvSpec>()?.downloadBaseUrl?.set(null as String?)
+    }
+    plugins.withType<org.jetbrains.kotlin.gradle.targets.wasm.yarn.WasmYarnPlugin> {
+        extensions.findByType<org.jetbrains.kotlin.gradle.targets.wasm.yarn.WasmYarnRootEnvSpec>()?.downloadBaseUrl?.set(null as String?)
+    }
+    plugins.withType<org.jetbrains.kotlin.gradle.targets.wasm.binaryen.BinaryenPlugin> {
+        extensions.findByType<org.jetbrains.kotlin.gradle.targets.wasm.binaryen.BinaryenEnvSpec>()?.downloadBaseUrl?.set(null as String?)
+    }
+}
+
 allprojects {
     group = "org.asyncttwiz"
     version = "0.1.0"

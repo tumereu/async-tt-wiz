@@ -276,7 +276,7 @@ class CardSearchTest {
         val alphabet = "abc tcmvoidrsf:=<>!-()\"'~ORand0123/{}"
         val random = kotlin.random.Random(7)
         repeat(5000) {
-            val query = String(CharArray(random.nextInt(0, 30)) { alphabet[random.nextInt(alphabet.length)] })
+            val query = CharArray(random.nextInt(0, 30)) { alphabet[random.nextInt(alphabet.length)] }.concatToString()
             when (val parsed = CardSearchQuery.parse(query)) {
                 is CardSearchParse.Valid -> cards.forEach { parsed.query.match(it) }
                 is CardSearchParse.Invalid -> assertTrue(parsed.error.message.isNotBlank())

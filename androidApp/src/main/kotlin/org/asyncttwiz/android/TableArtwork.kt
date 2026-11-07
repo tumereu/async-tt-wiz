@@ -32,14 +32,6 @@ internal fun DefinitionFace.artwork(index: Int, digest: String, size: String = "
     }
 }
 
-internal enum class TableArtworkMode { TYPE_ICON, ART_CROP, CUSTOM_CARD }
-
-/** A failed or pending custom image keeps the ordinary name/icon/corner fallback. */
-internal fun tableArtworkMode(reference: ArtworkReference?, imageAvailable: Boolean): TableArtworkMode = when {
-    reference == null || !imageAvailable -> TableArtworkMode.TYPE_ICON
-    reference.customUrl != null -> TableArtworkMode.CUSTOM_CARD
-    else -> TableArtworkMode.ART_CROP
-}
 
 /** Exactly what the table (art crop, or a custom full card) and then the inspector (large) request for
  * every face, in definition order: all table images first, since they are what a player sees first. */

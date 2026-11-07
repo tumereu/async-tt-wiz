@@ -305,6 +305,8 @@ dependencies {
     implementation(project(":core"))
     implementation(project(":protocol"))
     implementation(project(":client-storage"))
+    // Web spike (part D): the table drawing and its model, shared with the browser build
+    implementation(project(":shared-ui"))
     // Arcanum Automatum in ATW (integration spec §3): the engine's view of the board (I1).
     implementation(project(":automatum"))
     implementation(platform(libs.compose.bom))

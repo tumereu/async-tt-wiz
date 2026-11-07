@@ -409,7 +409,7 @@ class HandWrittenEffectsTest {
             val step = state.turn.step
             if (step != before && (step == arcanum.api.TurnStep.BeginningOfCombat || step == arcanum.api.TurnStep.PostcombatMain)) phases += step
         }
-        assertEquals(listOf(arcanum.api.TurnStep.BeginningOfCombat, arcanum.api.TurnStep.PostcombatMain,
+        assertEquals(listOf<arcanum.api.TurnStep>(arcanum.api.TurnStep.BeginningOfCombat, arcanum.api.TurnStep.PostcombatMain,
             arcanum.api.TurnStep.BeginningOfCombat, arcanum.api.TurnStep.PostcombatMain), phases)
     }
 

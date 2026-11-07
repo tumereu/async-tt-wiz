@@ -9,14 +9,14 @@ sealed interface SubtypeKind {
     /** The card types this kind of subtype goes with. */
     val types: List<CardType>
 
-    data object Creature : SubtypeKind { override val types = listOf(CardType.Creature, CardType.Kindred) }
-    data object Land : SubtypeKind { override val types = listOf(CardType.Land) }
-    data object Artifact : SubtypeKind { override val types = listOf(CardType.Artifact) }
-    data object Enchantment : SubtypeKind { override val types = listOf(CardType.Enchantment) }
-    data object Planeswalker : SubtypeKind { override val types = listOf(CardType.Planeswalker) }
-    data object Spell : SubtypeKind { override val types = listOf(CardType.Instant, CardType.Sorcery) }
-    data object Battle : SubtypeKind { override val types = listOf(CardType.Battle) }
-    data object Dungeon : SubtypeKind { override val types = listOf(CardType.Dungeon) }
+    data object Creature : SubtypeKind { override val types: List<CardType> = listOf(CardType.Creature, CardType.Kindred) }
+    data object Land : SubtypeKind { override val types: List<CardType> = listOf(CardType.Land) }
+    data object Artifact : SubtypeKind { override val types: List<CardType> = listOf(CardType.Artifact) }
+    data object Enchantment : SubtypeKind { override val types: List<CardType> = listOf(CardType.Enchantment) }
+    data object Planeswalker : SubtypeKind { override val types: List<CardType> = listOf(CardType.Planeswalker) }
+    data object Spell : SubtypeKind { override val types: List<CardType> = listOf(CardType.Instant, CardType.Sorcery) }
+    data object Battle : SubtypeKind { override val types: List<CardType> = listOf(CardType.Battle) }
+    data object Dungeon : SubtypeKind { override val types: List<CardType> = listOf(CardType.Dungeon) }
 }
 
 /** The subtype lists of the pinned rules (CR 205.3g–m); creature types are every subtype not in another list. */

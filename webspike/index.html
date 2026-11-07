@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ATW web spike</title>
+  <style>body { font: 16px system-ui, sans-serif; margin: 16px; } li { margin: 10px 0; }</style>
+</head>
+<body>
+  <h3>ATW web spike (Kotlin/Wasm)</h3>
+  <ul>
+    <li><a href="bench/?mode=main">A: engine benchmark on the main thread</a></li>
+    <li><a href="bench/?mode=worker">B: engine in a Web Worker (benchmark + round trips)</a></li>
+    <li><a href="table/">C: Compose table, 150 cards</a> (<a href="table/?auto">auto-pan</a>, <a href="table/?auto&amp;size=small">small images</a>)</li>
+  </ul>
+  <p id="ua"></p>
+  <script>document.getElementById('ua').textContent = navigator.userAgent + ', ' + navigator.hardwareConcurrency + ' threads';</script>
+</body>
+</html>

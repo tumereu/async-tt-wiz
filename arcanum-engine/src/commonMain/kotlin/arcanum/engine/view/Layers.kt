@@ -707,7 +707,7 @@ internal class LayerRun(private val state: GameState, private val traced: Set<Ob
     /** CR 205.3d: drop subtypes that no longer correspond to a type; CR 305.6: lands have the mana ability of each
      * basic land type they have. */
     private fun afterTypes(board: WorkBoard) {
-        board.work.replaceAll { _, p ->
+        board.work.replaceAllValues { _, p ->
             val c = p.chars
             val subtypes = c.subtypes.filter { s -> Subtypes.kindOf(s).types.any { it in c.types } }
             val allCreatureTypes = c.allCreatureTypes && SubtypeKind.Creature.types.any { it in c.types }
@@ -727,7 +727,7 @@ internal class LayerRun(private val state: GameState, private val traced: Set<Ob
 
     /** CR 208.3: a noncreature permanent has no power or toughness; a creature without them has 0. */
     private fun finishPowerToughness(board: WorkBoard) {
-        board.work.replaceAll { id, p ->
+        board.work.replaceAllValues { id, p ->
             val c = p.chars
             val onBattlefield = state.obj(id)?.zone == Zone.Battlefield
             when {
@@ -870,4 +870,10 @@ internal class LayerRun(private val state: GameState, private val traced: Set<Ob
     /** This origin is one of [origins] or part of the expansion of one. */
     private fun AbilityOrigin.comesFrom(origins: Set<AbilityOrigin>): Boolean =
         this in origins || (this is AbilityOrigin.Expansion && keyword.comesFrom(origins))
+}
+
+
+/** Web spike: java.util.Map.replaceAll is JVM-only; the common stdlib has no equivalent. */
+internal inline fun <K, V> MutableMap<K, V>.replaceAllValues(f: (K, V) -> V) {
+    for (e in entries) e.setValue(f(e.key, e.value))
 }

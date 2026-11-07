@@ -25,6 +25,9 @@ kotlin {
         minSdk = 29
         compilerOptions.jvmTarget.set(JvmTarget.JVM_17)
     }
+    // Web spike: the engine in the browser (Kotlin/Wasm).
+    @OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class)
+    wasmJs { browser(); nodejs() }
     sourceSets {
         commonMain.dependencies {
             api(project(":core"))

@@ -1,0 +1,1 @@
+fix: In Control mode, the step arrow in your second main phase now says "End step" and stops at your own end step, so you can act there; holding it still ends the turn.

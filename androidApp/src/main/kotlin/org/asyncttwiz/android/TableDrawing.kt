@@ -49,9 +49,6 @@ internal fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: 
     pressed: Pair<String, Float>? = null) {
     val density = density
     with(TableCardPainter(density, scene, cache, artwork)) {
-    scene.viewports.firstOrNull { it.id == "sidebar" }?.bounds?.let { b ->
-        drawRect(Color.White, xy(b.x, b.y), size(b.width, b.height))
-    }
     for (f in scene.fields) {
         val b = f.gridBounds
         val viewport = scene.world?.horizontalBand(b) ?: f.bounds
@@ -75,8 +72,9 @@ internal fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: 
                 CombatStackPresentation.laneDividerStroke(scene.combatCardWidth) * density)
         }
     }
-    // HUD surfaces cover world drawings and link lines, including the screen-pinned Stack gutter.
-    for (port in scene.viewports.filter { it.hand || it.id.startsWith("dock/") || it.id.startsWith("counters/") }) {
+    // HUD surfaces cover world drawings and link lines, including the screen-pinned Stack gutter; a row in a bar (landscape,
+    // TBL-009) sits on the bar's own colour.
+    for (port in scene.viewports.filter { it.hand || !it.bar && (it.id.startsWith("dock/") || it.id.startsWith("counters/")) }) {
         val b = port.bounds
         drawRect(Color.White, xy(b.x, b.y), size(b.width, b.height))
     }

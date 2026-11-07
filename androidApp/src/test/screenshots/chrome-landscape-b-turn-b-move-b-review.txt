@@ -1,1 +1,1 @@
-Landscape table seen by player B: player B's turn, player B to move, untap step, after choosing Table actions → Timeline: history at the latest event.
+Landscape table seen by player B: player B's turn, player B to move, untap step, after choosing Table actions → Timeline: history at the latest event; the life square and piles stay at the bottom bar's left end, the event strip and Previous / Auto / Next after them.

@@ -50,8 +50,8 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
         (engine as? EngineTableRoutes)?.dropInteraction = { cast.open.also { open -> if (open) cast.cancel("undone") } }
     }
 
-    /** The words the step arrow shows on [play] ([AutomatumStepArrow]): the board's own. */
-    private fun arrowStep(play: TableBoard): AutomatumStep = AutomatumStep.of(play)
+    /** The words the step arrow shows on [play] ([AutomatumStepArrow]): the board's own, with the viewer's response mode. */
+    private fun arrowStep(play: TableBoard): AutomatumStep = AutomatumStep.of(play, engine?.control() == true)
     /** Combat through Automatum (I3 on today's lanes): declarations, passing on to the damage, early divisions. */
     internal val combat = CombatController({ current()?.takeIf { enabled() } }, { submit(it) }, automatumWork,
         { error }, { error = it }, board = { current() })
@@ -380,7 +380,8 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
                 is TableActionIntent.Next -> when {
                     declares(play) -> flows.step()
                     // Smoke 2026-11-04 (TRN-057, TRN-063): an arrow that says "End turn" ends the turn; a plain pass
-                    // would stop at the viewer's own main phase on the way (STK-036)
+                    // would stop at the viewer's own main phase on the way (STK-036). In Control the second main phase's
+                    // arrow says "End step" (owner bug 2026-11-07): a plain pass, stopping at the end step
                     arrowStep(play) == AutomatumStep.EndTurn -> e.endTurn()
                     else -> e.pass()
                 }

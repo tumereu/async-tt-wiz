@@ -1,0 +1,1 @@
+mod: In landscape the table uses the whole width: the opponent's life, library, graveyard, exile and emblems sit in the top bar, yours at the left of the bottom bar, and the Stack at the right edge as in portrait.

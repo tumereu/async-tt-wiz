@@ -33,23 +33,26 @@ import org.asyncttwiz.protocol.*
 /**
  * What the step arrow does (I-D46 d), said MTG Arena-style by its label: the priority holder passes ("Pass" when it isn't
  * the turn's player; for the turn's player "To combat" from the first main phase, "End turn" from the second main phase
- * on, when passing hands the turn over, else "Next"), the awaited declaration ("Attack (2)", "No attack", "Block (1)",
- * "No blocks"), "Resolve" with something on the Stack. [Waiting]: another choice is open, which its own panel answers:
- * greyed ([stepBlocked]).
+ * on, when passing hands the turn over, else "Next"; in Control "End step" from the second main phase, whose tap stops at
+ * the end step, TRN-063), the awaited declaration ("Attack (2)", "No attack", "Block (1)", "No blocks"), "Resolve" with
+ * something on the Stack. [Waiting]: another choice is open, which its own panel answers: greyed ([stepBlocked]).
  */
 sealed class AutomatumStep(val label: String) {
     data object Pass : AutomatumStep("Pass")
     data object Next : AutomatumStep("Next")
     data object ToCombat : AutomatumStep("To combat")
     data object EndTurn : AutomatumStep("End turn")
+    /** TRN-063 (owner bug 2026-11-07): in Control, the second main phase's tap goes on to the end step, where Control stops. */
+    data object ToEndStep : AutomatumStep("End step")
     data object Resolve : AutomatumStep("Resolve")
     data object Waiting : AutomatumStep("Next")
     data class Attack(val count: Int) : AutomatumStep(if (count == 0) "No attack" else "Attack ($count)")
     data class Block(val count: Int) : AutomatumStep(if (count == 0) "No blocks" else "Block ($count)")
 
     companion object {
-        /** The step arrow on [play]'s board, read from the board alone. */
-        fun of(play: TableBoard): AutomatumStep {
+        /** The step arrow on [play]'s board, read from the board and whether the viewer's response mode is Control
+         * ([control], STK-036: it stops at their own end step, so their second main phase's tap is "End step"). */
+        fun of(play: TableBoard, control: Boolean = false): AutomatumStep {
             val board = play.board
             if (play.flowOpen) return Waiting
             if (CombatStackRules.stack(board).cards.isNotEmpty()) return Resolve
@@ -63,7 +66,8 @@ sealed class AutomatumStep(val label: String) {
             if (holder != board.turn.accountId) return Pass
             return when (position) {
                 TurnPosition.PRECOMBAT_MAIN -> ToCombat
-                TurnPosition.POSTCOMBAT_MAIN, TurnPosition.END_STEP, TurnPosition.CLEANUP -> EndTurn
+                TurnPosition.POSTCOMBAT_MAIN -> if (control) ToEndStep else EndTurn
+                TurnPosition.END_STEP, TurnPosition.CLEANUP -> EndTurn
                 else -> Next
             }
         }
@@ -77,6 +81,7 @@ internal val AutomatumStep.icon: ImageVector get() = when (this) {
     AutomatumStep.Next, AutomatumStep.Waiting -> Icons.AutoMirrored.Outlined.ArrowForward
     AutomatumStep.ToCombat -> Icons.Outlined.Shield
     AutomatumStep.EndTurn -> Icons.AutoMirrored.Outlined.LastPage
+    AutomatumStep.ToEndStep -> Icons.Outlined.Bedtime
     AutomatumStep.Resolve -> Icons.Outlined.PlayArrow
     is AutomatumStep.Attack -> if (count == 0) Icons.Outlined.Block else Icons.Outlined.Shield
     is AutomatumStep.Block -> if (count == 0) Icons.Outlined.RemoveModerator else Icons.Outlined.Shield
@@ -132,9 +137,11 @@ internal fun stepArrowShown(play: TableBoard, viewer: String?): Boolean {
 internal fun AutomatumStepArrow(play: TableBoard, enabled: Boolean, modifier: Modifier, onHold: () -> Unit,
     blocked: String? = null, resolveTip: String? = null,
     /** CMB-033 (owner, 2026-11-05): the go-on action of an open combat choice (the damage division's OK) in its place. */
-    main: MainAction? = null, onClick: () -> Unit) {
+    main: MainAction? = null,
+    /** TRN-063: the viewer's response mode is Control ([AutomatumStep.of]). */
+    control: Boolean = false, onClick: () -> Unit) {
     if (main != null) { MainActionArrow(main, enabled, modifier); return }
-    val step = AutomatumStep.of(play)
+    val step = AutomatumStep.of(play, control)
     val usable = enabled && blocked == null && step != AutomatumStep.Waiting
     val ink = AutomatumStepInk.copy(alpha = if (usable) 1f else .38f)
     var shakes by remember { mutableIntStateOf(0) }

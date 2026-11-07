@@ -185,7 +185,7 @@ internal fun E2ePlayer.tap(label: String) { control(label).performClick() }
 internal fun E2ePlayer.hold(label: String) { control(label).performTouchInput { longClick() } }
 
 /** What the step arrow says now ([org.asyncttwiz.android.AutomatumStep] labels), null while it isn't shown. */
-internal val STEP_LABELS = listOf("Pass", "Next", "To combat", "End turn", "Resolve", "No attack", "No blocks")
+internal val STEP_LABELS = listOf("Pass", "Next", "To combat", "End turn", "End step", "Resolve", "No attack", "No blocks")
 internal fun E2ePlayer.stepArrow(): String? = nodes(hasClickAction()).fetchSemanticsNodes().map { it.description() }
     .firstOrNull { it in STEP_LABELS || it.matches(Regex("(Attack|Block) \\([0-9]+\\)")) }
 
@@ -260,7 +260,7 @@ internal fun E2ePlayer.playAlong() {
                 }
                 else -> when (val arrow = stepArrow()) {
                     null -> false
-                    "To combat", "End turn" -> { hold(arrow); true }
+                    "To combat", "End turn", "End step" -> { hold(arrow); true }
                     "Pass", "Next", "Resolve", "No attack", "No blocks" ->
                         if (shown.engine.turn.active == me && shown.engine.turn.step.let { it == TurnStep.PrecombatMain || it == TurnStep.PostcombatMain })
                             { hold(arrow); true } else { tap(arrow); true }

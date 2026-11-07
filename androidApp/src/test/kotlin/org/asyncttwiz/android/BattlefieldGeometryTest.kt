@@ -62,12 +62,8 @@ class BattlefieldGeometryTest {
             val scene = TablePresentation.scene(TableFixture.game, tableBoard(TableFixture.play()), "a",
                 if (landscape) 892f else 412f, if (landscape) 412f else 892f, landscape,
                 appearance = CardAppearance(cardSize = scale))
-            val sidebar = scene.viewports.firstOrNull { it.id == "sidebar" }
-            val visible = if (sidebar == null) scene else TablePresentation.scene(TableFixture.game, tableBoard(TableFixture.play()), "a",
-                892f, 412f, true, TableLayoutState(scrollY = mapOf("sidebar" to sidebar.maxScrollY / 2)),
-                appearance = CardAppearance(cardSize = scale))
-            val stack = visible.items.single { it.zone == PlayZone.STACK }.bounds
-            val region = visible.stackRegion!!
+            val stack = scene.items.single { it.zone == PlayZone.STACK }.bounds
+            val region = scene.stackRegion!!
             val padding = 12f
             assertEquals(padding, stack.x - region.x, .001f)
             assertEquals(padding, region.right - stack.right, .001f)

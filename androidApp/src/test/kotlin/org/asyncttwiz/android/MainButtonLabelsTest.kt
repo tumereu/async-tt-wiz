@@ -41,7 +41,7 @@ class MainButtonLabelsTest {
     @get:Rule val compose = createComposeRule()
 
     /** Every name the main button shows: the step arrow's, a combat division's OK, the waits' (TRN-063, TRN-070). */
-    private val labels = listOf("To combat", "End turn", "Next", "Pass", "Attack (2)", "No attack", "Block (1)", "No blocks",
+    private val labels = listOf("To combat", "End turn", "End step", "Next", "Pass", "Attack (2)", "No attack", "Block (1)", "No blocks",
         "Resolve", "OK", "Assume resolves", "Assume no response", "Assume no blockers", "Assume blockers", "Cancel request")
 
     @OptIn(ExperimentalLayoutApi::class)

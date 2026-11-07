@@ -135,7 +135,8 @@ fun QuickActionStrip(play: TableBoard, context: QuickContext, controller: TableA
             val wait = if (arrow) null else engine?.waitAction()
             val unconfirmed = engine?.engine?.shown?.indicator != null
             val main = context.mainAction.takeIf { arrow }
-            RecordShown(bottomBarRecord(if (arrow) main?.label ?: AutomatumStep.of(play).label else wait?.label, if (toggles) null else actions.map { it.name }))
+            val control = engine?.control() == true
+            RecordShown(bottomBarRecord(if (arrow) main?.label ?: AutomatumStep.of(play, control).label else wait?.label, if (toggles) null else actions.map { it.name }))
             // TRN-063 (owner, 2026-11-06): a main button action is the player's own action, whose result the working sign
             // waits for; one not taken drops it
             fun own(action: () -> Boolean) { engine?.ownAction(); if (!action()) engine?.ownActionDropped() }
@@ -145,7 +146,7 @@ fun QuickActionStrip(play: TableBoard, context: QuickContext, controller: TableA
                     onHold = { own { perform(TableActionIntent.End(scope)) } },
                     blocked = stepBlocked(play, context.castOpen, context.automatumCombat),
                     resolveTip = "Resolve: pass, so the top of the Stack resolves once ${engine?.opponentName ?: "the other player"} passes too",
-                    main = main?.let { m -> MainAction(m.label, m.icon, m.refusal, m.tooltip) { own { m.run(); true } } }) {
+                    main = main?.let { m -> MainAction(m.label, m.icon, m.refusal, m.tooltip) { own { m.run(); true } } }, control = control) {
                     own { perform(TableActionIntent.Next(scope)) }
                 }
                 else if (wait != null) EngineWaitArrow(EngineTableRoutes.WaitAction(wait.label, wait.icon, wait.tooltip, wait.refusal) {

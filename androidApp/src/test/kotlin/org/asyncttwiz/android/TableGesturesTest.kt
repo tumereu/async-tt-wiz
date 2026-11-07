@@ -447,7 +447,8 @@ class TableGesturesTest {
             val start = scene.items.single { it.cardId == "a/HAND/2" }.visible.first().center
             for (field in scene.fields.filter { it.owner == owner }) {
                 val band = assertNotNull(field.landsBounds(field.owner == "a", scene.camera).intersection(field.bounds))
-                val end = TablePoint(field.bounds.right - 24, band.center.y)
+                // Left of the Stack, pinned at the right edge over the battlefields (STK-007, TBL-009)
+                val end = TablePoint(minOf(field.bounds.right, scene.stackRegion!!.x) - 24, band.center.y)
                 val events = mutableListOf<TableIntent>()
                 val gesture = TableGestureCoordinator(events::add)
                 gesture.update(scene, true)
@@ -697,16 +698,14 @@ class TableGesturesTest {
 
 
     // SYS-005
-    @Test fun twoFingerCompactSidebarPanIsPersonalNotABoardMove() {
+    @Test fun twoFingerCompactLandscapePanBesideTheStackIsPersonalNotABoardMove() {
         val scene = TablePresentation.scene(TableFixture.game, tableBoard(TableFixture.play()), "a", 640f, 260f, true,
             TableLayoutState(TableCamera(zoom = 2f)))
         val f = Fixture(scene)
-        val sidebar = scene.viewports.single { it.id == "sidebar" }
-        // The narrow gutter beside the Stack belongs to the sidebar, not the horizontal counter rail.
-        val background = TablePoint(sidebar.bounds.x + 1f, scene.stackRegion!!.center.y)
+        // The battlefield's empty room just left of the Stack (pinned at the right edge, TBL-009) pans the camera.
+        val background = TablePoint(scene.stackRegion!!.x - 4f, scene.stackRegion.center.y)
         f.gestures.down(background, 0)
-        f.gestures.transform(TablePoint(0f, -60f), 1f, sidebar.bounds.center)
-        assertEquals(TableIntent.Scroll("sidebar", 60f, true), f.events.single())
-        assertTrue(f.events.none { it is TableIntent.Camera || it is TableIntent.Move })
+        f.gestures.transform(TablePoint(0f, -60f), 1f, background)
+        assertTrue(f.events.isNotEmpty() && f.events.all { it is TableIntent.Camera }, "${f.events}")
     }
 }

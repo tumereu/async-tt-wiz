@@ -72,7 +72,7 @@ number	item	screenshot	catalog	decisions
 71	Automatum settings for new games	settings/settings-portrait-full-automatum-settings.png	LOB-113
 72	Target chip with the damage preview	combat-band/chip-preview.png	CMB-013 CMB-029
 73	Two-digit damage badges	combat-band/damage-badges-two-digits.png	CMB-029
-74	Emblem chips in landscape	emblem-chips-landscape.png	TRN-053
+74	Emblem chips in landscape	emblem-chips-landscape.png	TRN-053 TBL-009
 75	Emblem inspect	emblem-inspect.png	TRN-053 TBL-104
 76	Rule explainer on a held chip	chips/rule-explainer.png	TBL-132
 77	Numeric input for a number or X	questions/number-input.png	STK-023 STK-030
@@ -81,3 +81,6 @@ number	item	screenshot	catalog	decisions
 80	Undo dialog in landscape	engine/rewind-dialog-landscape.png	HIS-099
 81	Timeline turn and step lines	engine/timeline-separators.png	HIS-005
 82	Assume resolves quick action: Normal	engine/assume-normal.png	TRN-059 HIS-096
+83	Landscape table layout	layout-populated-landscape.png	TBL-009 TRN-035 STK-007 TBL-121
+84	Timeline mode in landscape	chrome-landscape-a-turn-a-move-a-review.png	HIS-007 TBL-009
+85	Combat band in landscape	combat-band/staged-landscape.png	CMB-007 CMB-042 TBL-009

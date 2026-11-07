@@ -84,16 +84,18 @@ class CardAppearanceTest {
             for (temp in scene.items.filter { landscape && it.temp }) assertTrue(temp.bounds.height <= 44f, temp.id)
             for (item in scene.items.filter { it.kind == TableItemKind.CARD && it.zone == PlayZone.HAND ||
                     it.kind == TableItemKind.PILE && !(landscape && it.temp) }) {
-                assertEquals(28f * scale, item.bounds.width, item.id)
-                assertEquals(40f * scale, item.bounds.height, item.id)
-                val port = scene.viewports.first { it.id == item.viewport }.bounds
-                if (!landscape || item.zone == PlayZone.HAND) {
-                    assertTrue(item.bounds.y >= port.y && item.bounds.bottom <= port.bottom, "${item.id}: ${item.bounds} / $port")
+                // TBL-009: in landscape the piles fit their bar row, at most 32 dp tall, and the Stack the room between the hands
+                val barPile = landscape && item.zone != PlayZone.HAND && item.zone != PlayZone.STACK
+                val pileScale = if (barPile) minOf(scale, .8f) else scale
+                if (landscape && item.zone == PlayZone.STACK) {
+                    assertTrue(item.bounds.height <= 40f * scale + .001f && item.bounds.height + 24f <= scene.world!!.viewport.height + .001f, item.id)
+                    assertEquals(item.bounds.height * .7f, item.bounds.width, .001f, item.id)
                 } else {
-                    // Tall landscape docks and Stack use the sidebar scroller, not overlapping rows.
-                    assertTrue(item.visible.all { it.intersection(port) == it })
-                    if (port.height < item.bounds.height) assertTrue(scene.viewports.single { it.id == "sidebar" }.maxScrollY > 0)
+                    assertEquals(28f * pileScale, item.bounds.width, .001f, item.id)
+                    assertEquals(40f * pileScale, item.bounds.height, .001f, item.id)
                 }
+                val port = scene.viewports.first { it.id == item.viewport }.bounds
+                assertTrue(item.bounds.y >= port.y && item.bounds.bottom <= port.bottom, "${item.id}: ${item.bounds} / $port")
             }
             val hands = scene.items.filter { it.kind == TableItemKind.HAND }
             for (panel in scene.cardPanels) {
@@ -106,17 +108,7 @@ class CardAppearanceTest {
             }
             val stack = scene.items.single { it.kind == TableItemKind.PILE && it.zone == PlayZone.STACK }
             assertTrue(hands.all { hand -> stack.visible.all { it.intersection(hand.bounds) == null } },
-                "Visible Stack fragments must not cover a hand; off-screen sidebar content is clipped")
-            if (landscape) {
-                val sidebar = scene.viewports.single { it.id == "sidebar" }
-                val bottom = TablePresentation.scene(f.game, tableBoard(play), f.a, width, height, true,
-                    TableLayoutState(scrollY = mapOf("sidebar" to sidebar.maxScrollY)), appearance = appearance)
-                for (item in bottom.items.filter { it.kind == TableItemKind.PILE && it.owner == f.a && it.zone != PlayZone.STACK }) {
-                    val port = bottom.viewports.single { it.id == item.viewport }.bounds
-                    assertTrue(item.bounds.y >= port.y && item.bounds.bottom <= port.bottom,
-                        "Own piles must become fully visible when the sidebar is scrolled: ${item.bounds} / $port")
-                }
-            }
+                "Visible Stack fragments must not cover a hand")
         }
     }
 

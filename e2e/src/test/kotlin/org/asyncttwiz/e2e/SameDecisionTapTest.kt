@@ -281,8 +281,9 @@ class SameDecisionTapTest : E2e() {
      * Both live; both keep and Alice casts Idle Glimmer (free) in her first main phase, so her game waits for Bob at his
      * pause. What the server sends Alice's phone is held in the network; Bob passes (taken by the server) while Alice,
      * hearing nothing from him, taps Assume and her phone assumes that pass, the Glimmer resolves and she is back in her
-     * main phase, where she makes [move]. Her assumption and her move reach the server after his pass: refused as stale,
-     * delivered after his revision (one socket keeps the server's order).
+     * main phase, where she makes [move]. Her assumption and her move reach the server after his pass: her assumption is
+     * the same event as his pass, so the server drops it as its duplicate and takes her move on his pass (owner
+     * 2026-11-07, SYS-077), and her phone puts his pass in place of her assumption with her board as it is.
      */
     private fun race(move: () -> Unit) {
         start()
@@ -309,19 +310,21 @@ class SameDecisionTapTest : E2e() {
     private fun made(input: (Input) -> Boolean): Boolean = alice.engine { device.session.events + device.session.pending }
         .any { e: GameEvent -> e.author == alice.id && e.engine?.steps.orEmpty().any { it.assumedBy == null && it.input?.let(input) == true } }
 
-    // SYS-077: the server took Bob's pass before Alice's own pass made on her phone's assumption of it; on his pass the
-    // same decision waits for her, so her pass is made again there without a note (his revision first)
-    @Test fun aPassLostToTheOpponentsSamePassIsMadeAgain() {
+    // SYS-077 (owner 2026-11-07): the server took Bob's pass before Alice's own pass made on her phone's assumption of it;
+    // her assumption is the same event as his pass, so his pass takes its place and her pass stands on it, taken by the
+    // server without a note and without being made again (his revision first)
+    @Test fun aPassMadeOnTheAssumptionOfTheOpponentsSamePassIsTaken() {
         race { alice.tap("To combat") }
         assertTrue(notes.none { it is GameDevice.Note.Refused } && !alice.refusalSeen, "no refusal note: $notes")
-        assertTrue(made { it == Input.PassPriority(alice.me) }, "her pass made again")
-        assertTrue(alice.engine { device.repro(codec).log }.any { it.startsWith("remake PassPriority") }, "made again after the race")
+        assertTrue(made { it == Input.PassPriority(alice.me) }, "her pass taken")
+        val log = alice.engine { device.repro(codec).log }
+        assertTrue(log.any { it.startsWith("adopted") } && log.none { it.startsWith("remake") }, "kept, not made again: ${log.takeLast(20)}")
         assertNotEquals(TurnStep.PrecombatMain, alice.state.turn.step, "her main 1 is over")
     }
 
-    // SYS-077: the same with a Mountain played and Storm Spark cast on it (its target and payment as she chose them): each
-    // made again on the one before
-    @Test fun aCastLostToTheOpponentsSamePassIsMadeAgain() {
+    // SYS-077 (owner 2026-11-07): the same with a Mountain played and Storm Spark cast on it (its target and payment as she
+    // chose them): both taken as she made them
+    @Test fun aCastMadeOnTheAssumptionOfTheOpponentsSamePassIsTaken() {
         race {
             val land = Engine.options(alice.state, alice.me).filterIsInstance<Input.PlayLand>().first()
             assertFalse(alice.game!!.send(listOf(land)) is GameDevice.Acted.Refused)
@@ -329,6 +332,6 @@ class SameDecisionTapTest : E2e() {
             alice.game!!.send(spark(alice.state))
         }
         assertTrue(notes.none { it is GameDevice.Note.Refused } && !alice.refusalSeen, "no refusal note: $notes")
-        assertTrue(made { it is Input.PlayLand } && made { it is Input.Cast }, "her land and cast made again")
+        assertTrue(made { it is Input.PlayLand } && made { it is Input.Cast }, "her land and cast taken")
     }
 }

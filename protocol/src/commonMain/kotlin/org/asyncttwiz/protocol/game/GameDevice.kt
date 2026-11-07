@@ -166,6 +166,13 @@ class GameDevice(
     /** The events of those moves: their "stale" refusal isn't told ([remake] tells it when it can't make one again). */
     private val lost = mutableSetOf<String>()
     private val confirming = mutableSetOf<String>()
+    /** Owner 2026-11-07 (SYS-077): the device's own recent events whose place the other player's same event took
+     * ([GameSession.Received.Adopted]), to that event's id. */
+    private val adopted = LinkedHashMap<String, String>()
+
+    /** The event that took the place of the device's own event [id] (the same event, made by the other player's device:
+     * the board on it is the board on [id], SYS-009), or null. */
+    fun adoptedAs(id: String): String? = adopted[id]
     /** The submissions made by the player's own actions (a refusal of one is told, even "stale"). */
     private val byPlayer = mutableSetOf<String>()
     /** Who made this device's own recent events (I-D56 §10, report C9PVLM): true for the player's own action (an End
@@ -1290,6 +1297,16 @@ class GameDevice(
                     endTurnTakenBack(event.parentId)
                 }
                 is GameSession.Received.Applied -> { endTurnDropped(r.dropped); lostOpening(r.dropped) || lostMoves(r.dropped) { it in byPlayer } }
+                // Owner 2026-11-07 (SYS-077): the other player's event is the device's own pending one but for who made it
+                // (their assumption of this answer, or their own answer this device assumed): it takes its place, the board
+                // and anything open on it untouched; the server drops the pending event as its duplicate
+                is GameSession.Received.Adopted -> {
+                    remember("adopted ${event.id} for ${r.mine.id}")
+                    byPlayer.remove(r.mine.id)
+                    if (endTurnFirst == r.mine.id) endTurnFirst = event.id
+                    adopted[r.mine.id] = event.id
+                    if (adopted.size > MAX_ORIGINS) adopted.remove(adopted.keys.first())
+                }
                 else -> {}
             }
         }

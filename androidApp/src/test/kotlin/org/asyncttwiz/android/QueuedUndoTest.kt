@@ -187,7 +187,8 @@ class QueuedUndoTest {
         assertTrue(casts(game).any { it.id == cast.id }, "nothing taken back yet")
     }
 
-    // HIS-107, SYS-077: the server took Bob's real pass before Alice's assumption of it and her land played on it; the
+    // HIS-107, SYS-077: the server took Bob's real pass (with an early answer of his in the same event: not the same event
+    // as her assumption of his bare pass, owner 2026-11-07) before Alice's assumption of it and her land played on it; the
     // refusal comes first, so her land waits to be made again on his pass. Her Undo then takes the land back: it is not
     // made again (and nothing tells her it wasn't taken)
     @Test fun anUndoOfAMoveWaitingToBeMadeAgainEndsIt() {
@@ -202,8 +203,10 @@ class QueuedUndoTest {
         sim.flush(f.a); sim.deliver(f.b); bob.playToStop(); bob.tick(sim.now); sim.flush(f.b)
         sim.deliver(f.a); game.tick(sim.now)
         assertEquals(GameDevice.Offer.AssumeResolves, (game.device.status as? GameDevice.Status.Waiting)?.offer)
-        // Bob passes (the server takes it); Alice, hearing nothing, assumes his pass and plays her land
-        assertFalse(bob.pass() is GameDevice.Acted.Refused)
+        // Bob passes with an early answer (the server takes it); Alice, hearing nothing, assumes his pass and plays her land
+        val bobId = PlayerId(f.b)
+        assertIs<GameDevice.Acted.Sent>(bob.device.act(Input.PassPriority(bobId), listOf(TableChange.EarlyAnswered("early:bob", null,
+            org.asyncttwiz.protocol.game.EarlyAnswer(bobId, "early:bob", Answer.YesNo(true))))))
         sim.flush(f.b)
         assertIs<GameDevice.Acted.Sent>(game.assume())
         assertTrue(inMain(game.device.model.engine), "the Spark resolved on her assumption")

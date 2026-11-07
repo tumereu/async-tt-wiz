@@ -344,11 +344,18 @@ class LiveState(val at: String, val model: GameModel)
  *   author's local head moves past it and the submission is dropped as a duplicate); any other input (a mana ability
  *   or special action first included) is a branch: the new event's parent is P, it starts a new line, and the old line
  *   after P is discarded (kept in storage, shown to nobody);
+ * - the next main-line event after P is the other player's own input that the author's submission assumed for them
+ *   (the same event, [duplicate]): their real answer came first, and the submission is dropped as its duplicate too
+ *   ([Confirmed]; owner 2026-11-07, SYS-077);
  * - the author's concession at P is a branch too (I-D56 §11: the result never depends on what they haven't seen), its
  *   new line started by the server when the device didn't (a concession made at the device's head while an event was
  *   still on its way to it, CR 104.3a: conceding is taken at any time);
  * - otherwise: `stale`.
- * An assumed input is taken only at its author's own local head (I-D56 §6: never from a player who is behind).
+ * An assumed input is taken only at its author's own local head (I-D56 §6: never from a player who is behind). A
+ * submission dropped as the duplicate of a main-line event ([duplicate]: the same event made on the same board) stands
+ * for that event: the author's later submissions made on it are taken on that event instead ([Confirmed.alias], [accept]'s
+ * aliases), so a confirmation that crossed the other player's assumption on the wire costs the author nothing (owner
+ * 2026-11-07: "if you confirm something that is assumed, that's just a noop").
  * The invariant this keeps: unconfirmed assumptions on the main line are about one player, so there is never more than
  * one tentative line. The state at the parent is [warm]'s when it is there or near ([GameHistory.move]), else a
  * checkpoint and the events after it ([GameHistory.stateAt]).
@@ -359,17 +366,22 @@ object Acceptance {
      * [authorHead]: the author's local head moves to it (not for a table-only event added at the head while the author
      * is behind: it confirms nothing, I-D56 §6). */
     class Accepted(val event: GameEvent, val live: LiveState, val discarded: String? = null, val authorHead: Boolean = true) : Result
-    /** The submission confirmed the assumed input [event] about its author and was dropped. */
-    class Confirmed(val event: String) : Result
+    /** The submission confirmed the assumed input [event] about its author, or was the author's assumption of the other
+     * player's own input [event] that came first, and was dropped. [alias]: the submission's id when it was [event]'s
+     * [duplicate] (the same event on the same board): the author's later submissions made on it are taken on [event]. */
+    class Confirmed(val event: String, val alias: String? = null) : Result
 
     /**
-     * Accepts [submission] by [author] on the main line ending at [head] with each player's local head [heads] (a player
+     * Accepts [sent] by [author] on the main line ending at [head] with each player's local head [heads] (a player
      * without one is at the root); [nextLine] is the line a branch starts (one past the line counter: while the head's
      * line is behind the counter, after a rewind, an event at the head starts the counter's line, [Rewind.lineDue]); [rewindOpen]: an undo request is open, so
-     * only a concession is taken (I-D56 §10). Refused ([Refusal]), or accepted with a new event, [warm] is used up.
+     * only a concession is taken (I-D56 §10); [aliases]: the author's earlier submissions dropped as duplicates of
+     * main-line events, by id ([Confirmed.alias]): a submission made on one is taken on its event. Refused ([Refusal]),
+     * or accepted with a new event, [warm] is used up.
      */
-    fun accept(history: GameHistory, head: String, warm: LiveState?, submission: Submission, author: PlayerId,
-        heads: Map<PlayerId, String>, nextLine: Int, rewindOpen: Boolean = false): Result {
+    fun accept(history: GameHistory, head: String, warm: LiveState?, sent: Submission, author: PlayerId,
+        heads: Map<PlayerId, String>, nextLine: Int, rewindOpen: Boolean = false, aliases: Map<String, String> = emptyMap()): Result {
+        val submission = aliases[sent.parentId]?.let { sent.copy(parentId = it) } ?: sent
         val concession = submission.acts.filterIsInstance<Act.Perform>().firstOrNull()?.input.let { it is Input.Concede && it.player == author }
         var used: LiveState? = null
         try {
@@ -411,9 +423,13 @@ object Acceptance {
             val assumed = next.assumed
             val players = (heads.keys + author).distinct()
             val about = assumed?.let { step -> assumedAbout(step, next, players) }
+            // The author's assumption of the other player's input, which that player's own same input came before
+            if (first != null && first.assumed && next.assumed == null && next.author != author.value && duplicate(submission, next))
+                return Confirmed(next.id, alias = submission.id)
             if (first == null || first.assumed) throw Refusal("stale")
             if (about != author && !concession) throw Refusal("stale")
-            if (about == author && !concession && confirms(first.input, assumed!!.input!!)) return Confirmed(next.id)
+            if (about == author && !concession && confirms(first.input, assumed!!.input!!))
+                return Confirmed(next.id, alias = submission.id.takeIf { duplicate(submission, next) })
             // A branch at the author's local head: a new line, the old line after it discarded. A concession's line is
             // the server's to start when the device didn't (it conceded at what it showed as the head, §11)
             val acts = when {
@@ -448,6 +464,21 @@ object Acceptance {
      * confirmation. One rule for the server ([accept]) and the device ([GameDevice.act], [GameDevice.send]).
      */
     fun confirms(first: Input, assumed: Input): Boolean = same(first, assumed)
+
+    /**
+     * Whether [submission], made on [event]'s parent, is the same event as [event] but for who made it (owner 2026-11-07,
+     * SYS-077): the same inputs in the same order (compared canonically, [same]: one side's own input and the other's
+     * assumption of it alike), the same new line and the same table changes, so it gives the same board (the engine is
+     * deterministic and the random answers are the line's). One rule for the server ([accept]) and the device
+     * ([GameSession.received]).
+     */
+    fun duplicate(submission: Submission, event: GameEvent): Boolean {
+        val acts = submission.acts.filterIsInstance<Act.Perform>().map { it.input }
+        val inputs = event.engine?.steps.orEmpty().mapNotNull { it.input }
+        return acts.size == inputs.size && acts.zip(inputs).all { (a, b) -> same(a, b) } &&
+            submission.acts.filterIsInstance<Act.NewLine>().map { it.number } == listOfNotNull(event.startsLine) &&
+            submission.table == event.table.filter { it !is TableChange.LineMoved }
+    }
 
     /** Whether the main line after [other]'s local head holds an assumption of [author]'s: [author]'s line is
      * tentative (I-D56 §2). */

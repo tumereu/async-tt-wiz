@@ -44,7 +44,7 @@ game inside it, from start to result. One game holds any number of matches.
 2. **The opponent's deck** (name, cover, colours) shows in your record once that deck has been shown to you: at the
    match's end (LOB-043/044, DRF-125), or later, when the opponent shows the same deck (same source id) to you in any
    game. A later reveal fills in every earlier record of yours with that deck. Once shown it stays shown, even if they
-   hide it again (Claude's choice of the two the owner allowed). Until then it reads "Deck" with the placeholder
+   hide it again (owner-approved 2026-11-07). Until then it reads "Deck" with the placeholder
    picture (LOB-042). The server leaves out deck fields the viewer may not see.
 3. **Pod members** see every match of the pod (their own and the others'), without any deck: no names, covers or
    colours, also for their own matches in that view.

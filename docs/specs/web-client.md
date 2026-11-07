@@ -43,6 +43,17 @@ web client is the same app in a browser, with a desktop layout made for mouse, k
 11. The site is installable as an app (home screen / desktop window).
 12. An open tab left on an old version reloads itself at a safe moment, with a short note.
 13. Once the web client is live, every feature works in both clients before it is released.
+14. Desktop mouse: **left click acts like a tap** (for now); **right-click toggles Inspect**, shown the desktop way:
+    the card with its changes beside it and a close button (desktop has the room), open until right-clicked again,
+    closed or Esc. Desktop has no press-and-hold.
+15. Desktop table: phase track in the top row instead of the step button and dialog; a right dock with the full Stack
+    list and the chat, replacing the floating Stack; card sizes kept per layout, desktop starting larger.
+16. Clients and server always work from the same card records: a new catalog version must be installed before
+    anything else, and the server refuses clients on an older one.
+17. Draft data (set booster recipes) is part of the server-built catalog, so drafts can be set up on the web too.
+18. Browser Back leaves a table without a second-Back guard.
+19. The proposed hotkeys, two-pane deck editor, draft picks strip and tab title count are built as proposed and refined
+    by testing.
 
 ## 1. Architecture (provisional until the feasibility test)
 
@@ -84,8 +95,8 @@ web client is the same app in a browser, with a desktop layout made for mouse, k
    open or text is being typed; at once on the menu, the game list or before opening a game. After the reload a short
    note says "ATW was updated" and What's new (LOB-087) follows its usual rules. The web has no Update screen
    (LOB-084–086 stay Android-only).
-3. **Light proxies** for sites without CORS: Archidekt deck import (LOB-061). Cube Cobra, MTGJSON set files, the
-   Scryfall API and Scryfall pictures allow browser requests and are fetched directly (checked 2026-11-07).
+3. **Light proxies** for sites without CORS: Archidekt deck import (LOB-061). Cube Cobra, the Scryfall API and
+   Scryfall pictures allow browser requests and are fetched directly (checked 2026-11-07).
 4. **Web Push**: the server keeps each browser's push subscription (VAPID keys) and sends the same notifications it
    sends through Firebase (LOB-072–078, LOB-111, LOB-114, LOB-116, DRF-135–138).
 5. Problem and crash reports use the existing endpoints.
@@ -101,16 +112,18 @@ web client is the same app in a browser, with a desktop layout made for mouse, k
    2026-10-23 AllPrintings: 42,435 faces, 121,888 printings, **about 9 MB gzip** (184 MB today).
 3. Its version is the checksum of its content: a rebuild with no real change keeps the version and publishes nothing.
    The server serves the file under its checksum, cached for good, and says which version is current.
-4. Clients check the current version at start and on every return to the app. A new version shows the card records
-   screen (like LOB-091: what it is and its size, with Download); until it is installed nothing else in the app works
-   (proposal: the whole app, one code path with the first download; the owner allowed either the whole app or games
-   only).
-5. Proposal: the server also checks the catalog version when a game opens and refuses play from an older one ("Update
-   card records to continue"), so both players always work from the same card texts.
+4. Clients check the current version at start, on every return to the app and when the server says it changed. A
+   new version shows the card records screen (like LOB-091: what it is and its size, with Download); until it is
+   installed nothing else in the app works (one code path with the first download).
+5. The server takes requests only from clients on the current catalog version (sent with every connection and
+   request); an older one gets "Update card records to continue" and the client shows the card records screen. So
+   both players and the server always work from the same card texts.
 6. **Android** switches to this file once it is served: the MTGJSON download, incremental updates and on-device
    indexing of 184 MB go away (changes LOB-091–096, LOB-110, LOB-125).
-7. Draft set files (DRF-089): proposal: unchanged, both clients fetch MTGJSON's per-set files directly (small, allowed
-   from browsers).
+7. Draft data is part of the catalog: the booster recipes of draftable sets (with the printings they name), measured
+   at about 3.4 MB gzip for 184 sets, so the whole catalog is roughly 12–13 MB. The per-set MTGJSON downloads and their
+   Redownload buttons go away (changes DRF-089, DRF-088, DRF-090); since the server holds the same catalog, it builds
+   set packs from it.
 
 ## 4. Layouts and input
 
@@ -127,9 +140,9 @@ web client is the same app in a browser, with a desktop layout made for mouse, k
 | --- | --- |
 | Tap (acts at once, TBL-041) | Left click, also at once |
 | Double tap (400 ms, 32 dp, TBL-042) | Double click (same timing) |
-| Hold a card 350 ms to inspect (TBL-047, TBL-104) | **Hover** a card ~250 ms: a large preview beside it with its change lines, no dimming; closes when the pointer leaves. Pressing and holding the button still works. |
-| Pinned Inspect by dragging sideways while holding (TBL-131) | **Right-click** a card: pinned Inspect, open until Esc, a click outside or its close button |
-| Holding a control does its hold action (step arrow → End turn, Undo → Undo dialog, tooltips SYS-045) | **Right-click = hold** everywhere (proposal): right-click the step arrow = End turn, right-click Undo = the Undo dialog; tooltips show on hover after 0.5 s |
+| Hold a card 350 ms to inspect (TBL-047, TBL-104), pinned by a sideways drag (TBL-131) | **Right-click toggles Inspect** (owner): the card's images with its changes beside them (as pinned Inspect shows them) and a close button; right-click again, ✕, Esc or a click outside closes. No press-and-hold on desktop. |
+| — | Proposal: **hover** a card ~250 ms for a quick preview (the large picture only, no dimming), gone when the pointer leaves |
+| Holding a control does its hold action (step arrow → End turn, Undo → Undo dialog, tooltips SYS-045) | Proposal: right-click a control does its hold action (step arrow = End turn, Undo = the Undo dialog); Shift+Space = End turn; tooltips show on hover after 0.5 s |
 | Drag a card (ZON-077, CMB-009) | Drag with the left button; the same meanings and highlights |
 | One-finger drag on empty battlefield pans (TBL-011) | Left-drag on empty battlefield, or middle-drag anywhere |
 | Pinch zooms (TBL-010) | Mouse wheel zooms around the pointer (0.65–2×); trackpad pinch zooms; Shift+wheel pans sideways |
@@ -137,10 +150,9 @@ web client is the same app in a browser, with a desktop layout made for mouse, k
 | Swipes in draft, Build, Prepare (DRF-058, DRF-099, LOB-048) | The same with a mouse drag; also hotkeys while hovering a card (section 6) |
 | Holding a timeline event shows its text (HIS-011) | Hover |
 
-Correction to the first draft of decision 6: on the phone a hold inspects; there is no hold menu. Right-click therefore
-does what a hold does (inspect a card, a control's hold action), and a left click opens card menus as a tap does.
+A left click opens card menus, activates or raises a hand card exactly as a tap does (TBL-041, TBL-122, ZON-079).
 
-## 6. Desktop: keyboard (proposal, Arena as baseline)
+## 6. Desktop: keyboard (Arena as baseline; owner: build as proposed, refine by testing)
 
 Hotkeys never act while a text field has focus. "?" shows the list over the screen.
 
@@ -171,23 +183,23 @@ Hotkeys never act while a text field has focus. "?" shows the list over the scre
 2. **Game table** (wireframes D1–D4). The landscape table (TBL-009) made for a large screen:
    - Top row: the turn line and move pill (TRN-005, TRN-006), the opponent's life square, piles, emblems and hand
      backs, the chat and Table actions buttons.
-   - Proposal, **phase track**: the phase dialog's step squares (TRN-008) shown in the top row, current outlined, so
+   - **Phase track** (owner): the phase dialog's step squares (TRN-008) shown in the top row, current outlined, so
      the step button and dialog aren't needed on desktop.
    - The battlefields and combat band fill the middle (TBL-001), as wide as the window.
    - Bottom row: your life square and piles, your hand at a larger default card size, the quick actions, Undo and the
      main button at the right end.
-   - Proposal, **right dock** (collapsible, about 320 px): the Stack as its full list, always open (top first, as the
+   - **Right dock** (owner; collapsible, about 320 px): the Stack as its full list, always open (top first, as the
      Stack list STK-018 shows it, replacing the floating Stack HUD STK-007 on desktop), and the game chat under it with
      its input always visible (LOB-066's panel, docked).
    - Panels (cast, choices, target bar, STK-044) sit above your hand at the left as in landscape; the damage division
      stays attached to the combat band (CMB-033).
-   - Proposal: card sizes (TBL-034) are kept per layout, desktop starting larger (battlefield 1.5×, hand 2×).
+   - Card sizes (TBL-034) are kept per layout (owner), desktop starting larger (proposal: battlefield 1.5×, hand 2×).
 3. **Timeline mode** (D5; the hotkey sheet is D6): the timeline panel along the bottom as in landscape; ← / → and hover on events.
 4. **Lobby screens** (D7): the same screens with the side menu; game rows wider.
-5. **Deck and cube editor** (D8, proposal): search sits beside the list (two panes) instead of a full-screen search
+5. **Deck and cube editor** (D8): search sits beside the list (two panes) instead of a full-screen search
    page (LOB-106): a click on a result adds a copy to the section chosen at the top of the search pane, a drag drops it
    into any section, right-click inspects.
-6. **Draft** (D9, proposal): the pick view with the keep/burn trays in a column at the right, and under the pack a
+6. **Draft** (D9): the pick view with the keep/burn trays in a column at the right, and under the pack a
    compact strip of your picks so far (the Build columns at small size, Arena-style). Build, Stats and Games tabs
    unchanged, with more columns by default.
 7. **Settings** (D10): adds Layout (section 4.1), Browser notifications (9.2) and Install app (9.1); hides app update rows;
@@ -205,8 +217,8 @@ Hotkeys never act while a text field has focus. "?" shows the list over the scre
    - already covered: dialogs (SYS-048 close button), menus and popups (a tap outside, TBL-068), pinned Inspect's close
      button (TBL-131), the graveyard view's ✕ (ZON-038), the Stack list's Close (STK-018), "Return to current"
      (HIS-018), Undo for an open cast (STK-025), the side menu from the table's ☰.
-4. Browser Back moves between screens only. Proposal: Back from a table goes straight to the previous screen, without
-   SYS-050's "second Back" guard (nothing is lost: the game lives on the server).
+4. Browser Back moves between screens only. Back from a table goes straight to the previous screen, without SYS-050's
+   "second Back" guard (owner; nothing is lost: the game lives on the server).
 5. Browser chrome on the table and draft screens: no pull-to-refresh, no page zoom by pinch, no long-press callouts or
    text selection, no browser context menu (right-click = hold).
 6. Installed on Android, the app opens without browser bars (SYS-079's hidden status bar has no equivalent in a tab).
@@ -221,8 +233,8 @@ Hotkeys never act while a text field has focus. "?" shows the list over the scre
    prompt; refused, the switch goes back off with "Blocked in your browser's site settings". When on, the three kinds
    (Invitations, Game activity, Draft activity, LOB-072) have their own switches. The Games list shows one hint card
    "Get notified when it's your move" with Turn on and ✕; ✕ hides it for good in that browser. Clicking a
-   notification opens or focuses the tab at that game or pod (LOB-078). Proposal: the tab title counts games waiting
-   for you ("(2) ATW").
+   notification opens or focuses the tab at that game or pod (LOB-078). The tab title counts games waiting for you
+   ("(2) ATW").
 3. **Card records**: the first download (LOB-091) shows the size; browsers don't reliably say whether a connection is
    metered, so that line is left out. iOS Safari deletes a site's data after 7 days without a visit unless the site is
    installed; the catalog then downloads again.
@@ -256,11 +268,5 @@ Hotkeys never act while a text field has focus. "?" shows the list over the scre
 
 ## 12. Open questions for the owner
 
-1. Right-click = hold everywhere (section 5)?
-2. Right dock with the full Stack list and chat, replacing the floating Stack on desktop (7.2)?
-3. Phase track in the top row instead of the step button and dialog on desktop (7.2)?
-4. Card sizes kept per layout, desktop starting larger (7.2)?
-5. The catalog update blocks the whole app (3.4)? The server refuses play from an old catalog (3.5)?
-6. Draft set files stay direct from MTGJSON (3.7)?
-7. Browser Back from a table leaves without a second-Back guard (8.4)?
-8. The hotkey list (section 6), the two-pane deck editor (7.5), the draft picks strip (7.6), the tab title count (9.2)?
+1. Hover preview on desktop (section 5), in addition to right-click Inspect?
+2. Right-click on a control does its phone hold action (step arrow = End turn, Undo = Undo dialog)?

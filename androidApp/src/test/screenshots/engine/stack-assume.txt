@@ -1,1 +1,1 @@
-Alice cast Storm Spark while Bob is away and Assume resolves is Normal: faint words say Bob may respond to it, and the main button reads Assume resolves, where tapping it goes on as if Bob let it resolve.
+Alice cast Storm Spark at Bob while he is away and Assume resolves is Normal: a green arrow runs from the Stack to his life square, faint words say Bob may respond to it, and the main button reads Assume resolves, where tapping it goes on as if Bob let it resolve.

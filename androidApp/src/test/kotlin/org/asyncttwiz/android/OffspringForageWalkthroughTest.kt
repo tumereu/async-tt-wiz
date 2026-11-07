@@ -106,7 +106,7 @@ class OffspringForageWalkthroughTest {
     }
 
     /** Holding the Stack list's row [row] shows the ability's inspect tile with [text]; captured as [shot]. */
-    private fun holdInStackList(row: String, text: String, shot: String, caption: String) {
+    private fun holdInStackList(row: String, text: String, shot: String, caption: String, kind: String = "Triggered ability") {
         compose.onNode(hasContentDescription("Stack, ", substring = true) and hasClickAction()).performClick()
         compose.waitForIdle()
         compose.mainClock.advanceTimeBy(400)
@@ -114,8 +114,8 @@ class OffspringForageWalkthroughTest {
         val node = compose.onNodeWithText(row)
         node.performTouchInput { down(center) }
         compose.mainClock.advanceTimeBy(600)
-        compose.onNodeWithContentDescription("Triggered ability of ${Choices.SENTRY}").assertIsDisplayed()
-        compose.onNode(hasText(text, substring = true) and hasAnyAncestor(hasContentDescription("Triggered ability of ${Choices.SENTRY}")))
+        compose.onNodeWithContentDescription("$kind of ${Choices.SENTRY}").assertIsDisplayed()
+        compose.onNode(hasText(text, substring = true) and hasAnyAncestor(hasContentDescription("$kind of ${Choices.SENTRY}")))
             .assertExists()
         compose.mainClock.advanceTimeBy(100)
         captureShot(shot, caption)
@@ -180,9 +180,11 @@ class OffspringForageWalkthroughTest {
         compose.onNodeWithContentDescription("Cost: Forage").assertExists()
         captureShot("$SCREENSHOTS/questions/may-forage.png",
             "The Sentry's forage trigger resolves: the panel above Alice's hand is titled \"You may pay\", says \"You may forage. If you do, put two +1/+1 counters on it.\" with a \"Cost\" chip reading Forage, the trigger's token at its right, and No and Yes at its bottom.")
-        // Meanwhile holding the offspring trigger on the Stack shows its keyword's line (STK-050)
+        // Meanwhile holding the offspring trigger on the Stack shows its kind (owner playtest 2026-11-07) and its keyword's
+        // line (STK-050)
         holdInStackList("2 · ${Choices.SENTRY}'s ability", "Offspring {R}", "$SCREENSHOTS/questions/offspring-stack-inspect.png",
-            "While the forage question is open, Alice holds the Sentry's offspring trigger waiting under it in the Stack list: Inspect shows the Sentry's art, \"Triggered ability\" and its offspring line with the reminder text.")
+            "While the forage question is open, Alice holds the Sentry's offspring trigger waiting under it in the Stack list: Inspect shows the Sentry's art, \"Offspring trigger\" and its offspring line with the reminder text.",
+            kind = "Offspring trigger")
         compose.onNodeWithText("Yes").performClick()
         refresh()
 

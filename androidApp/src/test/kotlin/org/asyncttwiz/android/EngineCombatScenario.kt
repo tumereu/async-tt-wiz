@@ -65,8 +65,9 @@ internal class EngineCombatScenario(val f: EngineGameFixture = EngineGameFixture
         game.pass()
     }
 
-    /** A cast with its payment, as the cast panel sends it (Autotap: the engine's suggestion). */
-    fun cast(s: GameState, me: PlayerId, input: Input): List<Input> {
+    /** A cast with its payment, as the cast panel sends it (Autotap: the engine's suggestion); its targets the first the
+     * engine lists, or [target] when given. */
+    fun cast(s: GameState, me: PlayerId, input: Input, target: arcanum.engine.state.TargetRef? = null): List<Input> {
         val copy = s.deepCopy()
         val inputs = mutableListOf(input)
         var next = input
@@ -75,6 +76,7 @@ internal class EngineCombatScenario(val f: EngineGameFixture = EngineGameFixture
             val d = copy.pending?.decision ?: return inputs
             if (d is Decision.Random || Engine.decider(copy, d.player) != me) return inputs
             next = if (d is Decision.ManaPayment) Input.Answer(d.id, Answer.ManaPayment(d.suggestion))
+                else if (d is Decision.Targets && target != null) Input.Answer(d.id, Answer.Targets(listOf(target)))
                 else Engine.options(copy, me).filterIsInstance<Input.Answer>().first { it.decision == d.id }
             inputs += next
         }

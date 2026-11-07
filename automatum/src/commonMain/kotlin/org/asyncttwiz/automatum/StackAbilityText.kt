@@ -72,6 +72,131 @@ object StackAbilityText {
             triggered = item.kind == StackItemKind.Triggered).takeIf { it.isNotEmpty() }
     }
 
+    /**
+     * [effect] with [item]'s chosen targets in place of their phrases (owner 2026-11-07: "deals 3 damage to Ember Cub"):
+     * each target phrase of its chosen modes' texts or its own text the parser placed ([arcanum.api.TargetSlot.span]) is
+     * a [TargetedText.Part.Targets]; targets chosen for a slot whose phrase isn't in the short text (none placed, or left out
+     * with a trigger condition) are [TargetedText.unplaced]. A phrase nothing was chosen for ("up to one target creature")
+     * stays as printed. Null as [effect] is.
+     */
+    fun targetedEffect(item: StackItem, rulesText: String? = null, source: String? = null): TargetedText? {
+        val x = item.announced["X"] ?: item.event?.x
+        val instructions = instructions(item.ability)
+        val options = instructions?.modes?.options
+        val chosen = item.modes.withIndex().mapNotNull { (position, index) ->
+            options?.getOrNull(index)?.takeIf { !it.text.isNullOrBlank() }?.let { position to it }
+        }
+        if (instructions != null && chosen.isNotEmpty()) {
+            val marks = Marks(item)
+            val texts = chosen.map { (position, mode) ->
+                val text = mode.text!!.trim()
+                short(marks.mark(text, mode.instructions.targets.mapNotNull { slot ->
+                    slot.span?.takeIf { mode.text == text }?.let { it to slotKey(instructions, item.modes, position, slot.name) } }), source, x)
+            }
+            return marks.parts(texts.joinToString("; "))
+        }
+        val own = ownText(item)
+        val text = own ?: text(item, rulesText) ?: return null
+        val marks = Marks(item)
+        val marked = marks.mark(text, if (own == null) emptyList() else instructions?.targets.orEmpty().mapNotNull { slot -> slot.span?.let { it to slot.name } })
+        val shortened = short(marked, source, x, activated = item.kind == StackItemKind.Activated, triggered = item.kind == StackItemKind.Triggered)
+        return if (shortened.isEmpty()) null else marks.parts(shortened)
+    }
+
+    /**
+     * The whole text of [item] with its chosen targets in place of their phrases and X filled in (owner 2026-11-07), for
+     * the Stack list and Inspect: an ability's text ([of]) or a spell's own text (null for a permanent spell without one),
+     * each chosen mode's targets in its line. Targets whose phrase isn't in the text are [TargetedText.unplaced].
+     */
+    fun targetedText(item: StackItem, rulesText: String? = null): TargetedText? {
+        val x = item.announced["X"] ?: item.event?.x
+        val own = ownText(item)
+        val marks = Marks(item)
+        if (own == null) {
+            val text = (if (item.kind == StackItemKind.Activated || item.kind == StackItemKind.Triggered) of(item, rulesText) else null)
+                ?: return null
+            return marks.parts(fillX(text, x))
+        }
+        val instructions = instructions(item.ability) ?: return marks.parts(fillX(own, x))
+        val spans = instructions.targets.mapNotNull { slot -> slot.span?.let { it to slot.name } } +
+            item.modes.withIndex().flatMap { (position, index) ->
+                val mode = instructions.modes?.options?.getOrNull(index) ?: return@flatMap emptyList()
+                val at = mode.text?.takeIf { it.isNotEmpty() }?.let { own.indexOf(it) }?.takeIf { it >= 0 } ?: return@flatMap emptyList()
+                mode.instructions.targets.mapNotNull { slot ->
+                    slot.span?.let { arcanum.api.TextSpan(it.start + at, it.end + at) to slotKey(instructions, item.modes, position, slot.name) }
+                }
+            }
+        return marks.parts(fillX(marks.mark(own, spans), x))
+    }
+
+    /** [text] with each X that isn't a mana symbol's ("{X}") as [x], when known. */
+    private fun fillX(text: String, x: Int?): String = if (x == null) text else LONE_X.replace(text, x.toString())
+
+    /** The printed text of [item]'s own spell or ability, as the parser kept it (its slots' spans count in it). */
+    private fun ownText(item: StackItem): String? = when (val a = item.ability) {
+        is Ability.Spell -> a.text
+        is Ability.Activated -> a.text
+        is Ability.Triggered -> a.text
+        else -> null
+    }?.takeIf { it.isNotBlank() }
+
+    private fun instructions(ability: Ability?): arcanum.api.Instructions? = when (ability) {
+        is Ability.Spell -> ability.instructions
+        is Ability.Activated -> ability.instructions
+        is Ability.Triggered -> ability.instructions
+        else -> null
+    }
+
+    /** Where a chosen mode's slot keeps its targets in the Stack item, as the engine keys them (CR 700.2d: a mode chosen
+     * again, or a name an earlier mode used, is "name@position"). */
+    private fun slotKey(instructions: arcanum.api.Instructions, modes: List<Int>, position: Int, name: String): String {
+        val options = instructions.modes?.options.orEmpty()
+        val usedBefore = instructions.targets.any { it.name == name } ||
+            modes.take(position).any { index -> options.getOrNull(index)?.instructions?.targets.orEmpty().any { it.name == name } }
+        return if (usedBefore) "$name@$position" else name
+    }
+
+    /** Target phrases replaced by markers while a text is shortened, then read back as [TargetedText.Part]s. */
+    private class Marks(private val item: StackItem) {
+        private val groups = mutableListOf<List<String>>()
+
+        /** [text] with each of [spans] (by slot key) whose slot has targets chosen as a marker; spans of one phrase share it. */
+        fun mark(text: String, spans: List<Pair<arcanum.api.TextSpan, String>>): String {
+            val chosen = spans.filter { (span, key) -> item.targets[key].orEmpty().isNotEmpty() && span.end <= text.length }
+            val bySpan = chosen.groupBy({ it.first }, { it.second }).entries.sortedBy { it.key.start }
+            val out = StringBuilder()
+            var at = 0
+            for ((span, keys) in bySpan) {
+                if (span.start < at) continue
+                out.appendRange(text, at, span.start).append(MARK_OPEN).append(groups.size).append(MARK_CLOSE)
+                groups += keys
+                at = span.end
+            }
+            return out.appendRange(text, at, text.length).toString()
+        }
+
+        /** [marked] as parts; targets chosen whose marker isn't in it are unplaced. */
+        fun parts(marked: String): TargetedText {
+            val parts = mutableListOf<TargetedText.Part>()
+            val placed = mutableSetOf<String>()
+            var at = 0
+            for (m in MARKER.findAll(marked)) {
+                if (m.range.first > at) parts += TargetedText.Part.Plain(marked.substring(at, m.range.first))
+                val keys = groups[m.groupValues[1].toInt()]
+                parts += TargetedText.Part.Targets(keys)
+                placed += keys
+                at = m.range.last + 1
+            }
+            if (at < marked.length) parts += TargetedText.Part.Plain(marked.substring(at))
+            return TargetedText(parts, item.targets.filter { (key, targets) -> targets.isNotEmpty() && key !in placed }.keys.toList())
+        }
+    }
+
+    private const val MARK_OPEN = ''
+    private const val MARK_CLOSE = ''
+    private val MARKER = Regex("(\\d+)")
+    private val LONE_X = Regex("(?<!\\{)\\bX\\b(?!})")
+
     /** Whether [effect]'s text for [item] has an X in it (filled in when known); false without a text. */
     fun mentionsX(item: StackItem, rulesText: String? = null): Boolean {
         val options = modeOptions(item.ability)
@@ -163,5 +288,27 @@ object StackAbilityText {
     fun decoded(item: MtgStackItem): StackItem? {
         if (item.data.isEmpty()) return null
         return runCatching { EngineCodec.stackItem(item) }.getOrNull()
+    }
+}
+
+/**
+ * A Stack entry's text with its chosen targets in place of the phrases that name them (owner 2026-11-07: "Storm Spark
+ * deals 3 damage to Ember Cub"): [parts] in order; [unplaced] the keys (as in the Stack item's targets) of chosen targets
+ * no phrase in it stands for, which a host names after it ("→ Ember Cub").
+ */
+data class TargetedText(val parts: List<Part>, val unplaced: List<String>) {
+    sealed interface Part {
+        /** Text as printed (shortened, X filled in). */
+        data class Plain(val text: String) : Part
+        /** The targets chosen for the slots [keys] (keys of the Stack item's targets), named together in this place. */
+        data class Targets(val keys: List<String>) : Part
+    }
+
+    /** The text with each [Part.Targets] as [names] gives it. */
+    fun text(names: (List<String>) -> String): String = parts.joinToString("") { part ->
+        when (part) {
+            is Part.Plain -> part.text
+            is Part.Targets -> names(part.keys)
+        }
     }
 }

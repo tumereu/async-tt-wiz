@@ -2,10 +2,12 @@ package org.asyncttwiz.automatum
 
 import arcanum.api.Ability
 import arcanum.engine.cards.Cards
+import arcanum.engine.state.CardId
 import arcanum.engine.state.ObjectId
 import arcanum.engine.state.PlayerId
 import arcanum.engine.state.StackItem
 import arcanum.engine.state.StackItemKind
+import arcanum.engine.state.TargetRef
 import org.asyncttwiz.protocol.MtgRef
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -78,5 +80,84 @@ class StackAbilityTextTest {
         val spell = Cards.definition(reason).faces.single().abilities.filterIsInstance<Ability.Spell>().single()
         assertEquals("each opponent mills 14 cards", StackAbilityText.effect(StackItem(ObjectId.StackItem("S2"),
             StackItemKind.Spell, PlayerId("alice"), null, spell, timestamp = 2), source = "Shattered Reason"))
+    }
+
+    // ---- Targets named in the text (owner 2026-11-07: "Lightning Bolt deals 3 damage to Llanowar Elves")
+
+    private val cub = TargetRef.Object(ObjectId.Card(CardId("cub"), 0))
+    private val pup = TargetRef.Object(ObjectId.Card(CardId("pup"), 0))
+    private val bob = TargetRef.Player(PlayerId("bob"))
+    private val shown = mapOf(cub to "Ember Cub", pup to "Ash Pup", bob to "Bob")
+
+    /** A Stack item of [name]'s spell (its first spell ability) with its slots' targets in order ([targets]: per slot). */
+    private fun spell(name: String, text: String, vararg targets: List<TargetRef>, modes: List<Int> = emptyList(), x: Int? = null): StackItem {
+        val ability = Cards.definition(Cards.invent(name, "{1}{R}", "Instant", text)).faces.single().abilities.filterIsInstance<Ability.Spell>().single()
+        val instructions = ability.instructions
+        val slots = instructions.targets.map { it.name } + modes.withIndex().flatMap { (position, index) ->
+            instructions.modes!!.options[index].instructions.targets.map { slot ->
+                if (instructions.targets.any { it.name == slot.name } ||
+                    modes.take(position).any { i -> instructions.modes!!.options[i].instructions.targets.any { it.name == slot.name } })
+                    "${slot.name}@$position" else slot.name
+            }
+        }
+        return StackItem(ObjectId.Card(CardId(name), 0), StackItemKind.Spell, PlayerId("alice"), null, ability,
+            targets = slots.zip(targets).toMap(), modes = modes, announced = listOfNotNull(x?.let { "X" to it }).toMap(), timestamp = 1)
+    }
+
+    /** [text] with each target part as "[names]". */
+    private fun named(item: StackItem, text: TargetedText?): String = requireNotNull(text).text { keys ->
+        "[" + keys.flatMap { item.targets[it].orEmpty() }.joinToString(" and ") { shown.getValue(it) } + "]"
+    }
+
+    @Test fun aSingleTargetIsNamedInPlace() {
+        val bolt = spell("Spanned Spark", "Spanned Spark deals 3 damage to any target.", listOf(cub))
+        assertEquals("deals 3 damage to [Ember Cub]", named(bolt, StackAbilityText.targetedEffect(bolt, source = "Spanned Spark")))
+        assertEquals("Spanned Spark deals 3 damage to [Ember Cub].", named(bolt, StackAbilityText.targetedText(bolt)))
+        assertEquals(emptyList(), StackAbilityText.targetedEffect(bolt)!!.unplaced)
+    }
+
+    @Test fun twoTargetsAreEachNamedWhereTheTextNamesThem() {
+        val brawl = spell("Spanned Brawl", "Target creature you control fights target creature you don't control.", listOf(cub), listOf(pup))
+        assertEquals("[Ember Cub] fights [Ash Pup]", named(brawl, StackAbilityText.targetedEffect(brawl)))
+    }
+
+    // Two targets for one phrase are named together there
+    @Test fun severalTargetsOfOnePhrase() {
+        val snare = spell("Spanned Snare", "Tap up to two target creatures.", listOf(cub, pup))
+        assertEquals("tap [Ember Cub and Ash Pup]", named(snare, StackAbilityText.targetedEffect(snare)))
+    }
+
+    @Test fun aPlayerTarget() {
+        val insight = spell("Spanned Insight", "Target player draws two cards.", listOf(bob))
+        assertEquals("[Bob] draws 2 cards", named(insight, StackAbilityText.targetedEffect(insight)))
+    }
+
+    // CR 700.2: a chosen mode's targets are named in its line, in the short effect and in the whole text
+    @Test fun aModesTargetsAreNamedInItsLine() {
+        val rasp = spell("Spanned Rasp", "Choose one —\n• Spanned Rasp deals 3 damage to target creature.\n• Destroy target artifact.",
+            listOf(pup), modes = listOf(0))
+        assertEquals("deals 3 damage to [Ash Pup]", named(rasp, StackAbilityText.targetedEffect(rasp, source = "Spanned Rasp")))
+        assertEquals("Choose one —\n• Spanned Rasp deals 3 damage to [Ash Pup].\n• Destroy target artifact.",
+            named(rasp, StackAbilityText.targetedText(rasp)))
+    }
+
+    @Test fun xIsFilledIn() {
+        val burst = spell("Spanned Burst", "Spanned Burst deals X damage to any target.", listOf(bob), x = 4)
+        assertEquals("deals 4 damage to [Bob]", named(burst, StackAbilityText.targetedEffect(burst, source = "Spanned Burst")))
+        assertEquals("Spanned Burst deals 4 damage to [Bob].", named(burst, StackAbilityText.targetedText(burst)))
+    }
+
+    // A slot whose phrase the parser couldn't place (a keyword action that targets) stays for the host to name after it
+    @Test fun aTargetWithoutAPhraseIsUnplaced() {
+        val heave = spell("Spanned Heave", "Earthbend 2.", listOf(cub))
+        val text = requireNotNull(StackAbilityText.targetedEffect(heave))
+        assertEquals("earthbend 2", named(heave, text))
+        assertEquals(heave.targets.keys.toList(), text.unplaced)
+    }
+
+    // A phrase nothing was chosen for stays as printed
+    @Test fun aPhraseWithoutTargetsStaysPrinted() {
+        val snare = spell("Spanned Snare", "Tap up to two target creatures.", emptyList())
+        assertEquals("tap up to 2 target creatures", named(snare, StackAbilityText.targetedEffect(snare)))
     }
 }

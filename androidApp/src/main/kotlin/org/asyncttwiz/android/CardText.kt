@@ -55,6 +55,31 @@ internal fun CardText(text: String, modifier: Modifier = Modifier, style: TextSt
     Text(annotated, modifier, color = color, style = style, maxLines = maxLines, overflow = overflow, inlineContent = inline)
 }
 
+/**
+ * [CardText] of pieces, each in its own colour where it has one (a Stack entry's target names in their controllers' colours,
+ * STK-057, owner 2026-11-07); the others in [color]. Its text (semantics, tests) is the pieces' words joined.
+ */
+@Composable
+internal fun CardText(pieces: List<Pair<String, Color?>>, modifier: Modifier = Modifier, style: TextStyle = LocalTextStyle.current,
+    maxLines: Int = Int.MAX_VALUE, overflow: TextOverflow = TextOverflow.Clip, color: Color = Color.Unspecified) {
+    val parsed = remember(pieces) { pieces.map { (text, tint) -> parseCardText(text) to tint } }
+    val annotated = remember(parsed) { buildAnnotatedString {
+        for ((parts, tint) in parsed) {
+            val styled = tint?.let { pushStyle(androidx.compose.ui.text.SpanStyle(color = it)) }
+            for (part in parts) when (part) {
+                is CardTextPart.Plain -> append(part.text)
+                is CardTextPart.Symbol -> appendInlineContent(part.token, "{${part.token}}")
+            }
+            if (styled != null) pop()
+        }
+    } }
+    val symbols = parsed.flatMap { it.first }.filterIsInstance<CardTextPart.Symbol>().distinct()
+    val inline = symbols.associate { symbol -> symbol.token to InlineTextContent(
+        Placeholder(1.em, 1.em, PlaceholderVerticalAlign.TextCenter)
+    ) { CardSymbol(symbol.token) } }
+    Text(annotated, modifier, color = color, style = style, maxLines = maxLines, overflow = overflow, inlineContent = inline)
+}
+
 /** One symbol as drawn in card text, filling its parent (e.g. "G", "3", "W/U"); search chips use it at their own size.
  * The tap symbol {T} is a turning arrow, as printed (owner playtest 2026-11-06), and the untap symbol {Q} the same arrow
  * mirrored on a purple badge, so it can't be taken for {T} (owner gallery review 2026-11-06); the others are letter badges,

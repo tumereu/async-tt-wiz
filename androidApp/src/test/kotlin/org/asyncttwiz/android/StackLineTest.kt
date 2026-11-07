@@ -7,6 +7,7 @@ import arcanum.engine.state.ObjectId
 import arcanum.engine.state.PlayerId
 import arcanum.engine.state.StackItem
 import arcanum.engine.state.StackItemKind
+import arcanum.engine.state.TargetRef
 import arcanum.parser.OracleCard
 import arcanum.parser.OracleParser
 import org.asyncttwiz.protocol.*
@@ -26,6 +27,7 @@ class StackLineTest {
     private val reason = invented("reason", "Shattered Reason", "Instant", reasonText)
     private val spark = invented("spark", "Storm Spark", "Instant", "Storm Spark deals 3 damage to any target.")
     private val burst = invented("burst", "Ember Burst", "Sorcery", "Ember Burst deals X damage to any target.")
+    private val snare = invented("snare", "Frost Snare", "Instant", "Tap up to two target creatures.")
 
     private class Invented(val submitted: SubmittedDefinition, val engine: arcanum.api.CardDefinition)
 
@@ -53,16 +55,31 @@ class StackLineTest {
             stackEffects = listOf(entry) + below, priority = MtgPriority(holder))))
     }
 
-    private fun spell(card: Invented, targets: List<MtgRef> = emptyList(), x: Int? = null): (String) -> MtgStackItem = { id ->
+    /** [card]'s spell with [targets] chosen for its first target slot ([slot] when it names another key). */
+    private fun spell(card: Invented, targets: List<MtgRef> = emptyList(), x: Int? = null, slot: String? = null): (String) -> MtgStackItem = { id ->
         val ability = card.engine.faces.single().abilities.filterIsInstance<Ability.Spell>().single()
+        val key = slot ?: ability.instructions.targets.firstOrNull()?.name ?: "target"
         val engine = StackItem(ObjectId.Card(CardId(id), 0), StackItemKind.Spell, PlayerId(f.b), ObjectId.Card(CardId(id), 0), ability,
+            targets = if (targets.isEmpty()) emptyMap() else mapOf(key to targets.map(::engineRef)),
             announced = listOfNotNull(x?.let { "X" to it }).toMap(), timestamp = 1)
-        structured(engine, MtgRef.Card(id, 0), MtgStackKind.Spell, targets)
+        structured(engine, MtgRef.Card(id, 0), MtgStackKind.Spell)
+    }
+
+    private fun engineRef(ref: MtgRef): TargetRef = when (ref) {
+        is MtgRef.Card -> TargetRef.Object(ObjectId.Card(CardId(ref.cardId), ref.zoneChanges))
+        is MtgRef.Player -> TargetRef.Player(PlayerId(ref.accountId))
+        is MtgRef.StackItem -> TargetRef.Object(ObjectId.StackItem(ref.id))
     }
 
     /** The structured item the table gets of the engine's [item] (as the projection writes it). */
-    private fun structured(item: StackItem, id: MtgRef, kind: MtgStackKind, targets: List<MtgRef> = emptyList()) = MtgStackItem(id, kind,
-        item.controller.value, targets = if (targets.isEmpty()) emptyMap() else mapOf("target" to targets), values = item.announced,
+    private fun structured(item: StackItem, id: MtgRef, kind: MtgStackKind) = MtgStackItem(id, kind,
+        item.controller.value, targets = item.targets.mapValues { (_, refs) -> refs.map { r -> when (r) {
+            is TargetRef.Player -> MtgRef.Player(r.id.value)
+            is TargetRef.Object -> when (val o = r.id) {
+                is ObjectId.Card -> MtgRef.Card(o.card.value, o.zoneChanges)
+                else -> MtgRef.StackItem((o as ObjectId.StackItem).id)
+            }
+        } } }, values = item.announced,
         timestamp = item.timestamp, data = kotlinx.serialization.json.Json { encodeDefaults = false }.encodeToString(StackItem.serializer(), item))
 
     private val cycleTrigger: (String) -> MtgStackItem = { id ->
@@ -88,19 +105,38 @@ class StackLineTest {
         assertEquals("Cycling trigger", StackAbilities.of(play, CombatStackRules.stack(play.board).cards.first(), f.a)?.kind)
     }
 
-    // STK-057: the targets come after the effect, players by name ("you" for the viewer), X filled into the effect
-    @Test fun targetsAndXShowOnTheLine() {
+    // STK-057 (owner 2026-11-07: "Lightning Bolt deals 3 damage to Llanowar Elves"): each target is named where the effect
+    // names it, players by name ("you" for the viewer), X filled in; the name carries its controller, which colours it
+    @Test fun targetsAndXShowInTheEffect() {
+        val sentinel = f.source(f.a, "1/3")
+        val play = board(spark, PlayZone.HAND, spell(spark, listOf(MtgRef.Card(sentinel.id, 0))))
+        assertEquals("Bob cast Storm Spark · deals 3 damage to ${name(sentinel)}", StackLine.text(play, f.a, names))
+        assertEquals(StackTextPiece(name(sentinel), f.a), StackLine.pieces(play, f.a, names)!!.last())
+        assertEquals("Bob cast Ember Burst · deals 4 damage to you",
+            StackLine.text(board(burst, PlayZone.HAND, spell(burst, listOf(MtgRef.Player(f.a)), x = 4)), f.a, names))
+        // A player target is in their own colour
+        assertEquals(StackTextPiece("Bob", f.b), StackLine.pieces(board(spark, PlayZone.HAND, spell(spark, listOf(MtgRef.Player(f.b)))), f.a, names)!!.last())
+    }
+
+    // STK-057: two targets of one phrase are named together
+    @Test fun twoTargetsOfOnePhrase() {
+        val sentinel = f.source(f.a, "1/3")
+        val other = f.source(f.b, "2/3")
+        assertEquals("Bob cast Frost Snare · tap ${name(sentinel)} and ${name(other)}", StackLine.text(board(snare, PlayZone.HAND,
+            spell(snare, listOf(MtgRef.Card(sentinel.id, 0), MtgRef.Card(other.id, 0)))), f.a, names))
+    }
+
+    // STK-057: a target whose phrase isn't known (here kept under another key) follows the effect, as before
+    @Test fun aTargetWithoutItsPhraseFollowsTheEffect() {
         val sentinel = f.source(f.a, "1/3")
         assertEquals("Bob cast Storm Spark · deals 3 damage to any target → ${name(sentinel)}",
-            StackLine.text(board(spark, PlayZone.HAND, spell(spark, listOf(MtgRef.Card(sentinel.id, 0)))), f.a, names))
-        assertEquals("Bob cast Ember Burst · deals 4 damage to any target → you",
-            StackLine.text(board(burst, PlayZone.HAND, spell(burst, listOf(MtgRef.Player(f.a)), x = 4)), f.a, names))
+            StackLine.text(board(spark, PlayZone.HAND, spell(spark, listOf(MtgRef.Card(sentinel.id, 0)), slot = "elsewhere")), f.a, names))
     }
 
     // STK-057, HIS-062: a target the viewer can't see is "a card", never named
     @Test fun aHiddenTargetIsACard() {
         val hidden = f.initial.board.cards.first { it.containerId == f.id("b/HAND") }
-        assertEquals("Bob cast Storm Spark · deals 3 damage to any target → a card",
+        assertEquals("Bob cast Storm Spark · deals 3 damage to a card",
             StackLine.text(board(spark, PlayZone.HAND, spell(spark, listOf(MtgRef.Card(hidden.id, 0)))), f.a, names))
     }
 
@@ -143,7 +179,13 @@ class StackLineTest {
     // STK-018: the Stack list's rows show what was chosen for each entry (StackAbilities.details), here a spell's X and target
     @Test fun theStackListShowsTheChoices() {
         val play = board(burst, PlayZone.HAND, spell(burst, listOf(MtgRef.Player(f.a)), x = 4))
-        assertEquals(listOf("X = 4", "Target: You"), StackAbilities.details(play, CombatStackRules.stack(play.board).cards.first(), f.a, names))
+        val entry = CombatStackRules.stack(play.board).cards.first()
+        assertEquals(listOf("X = 4", "Target: You"), StackAbilities.details(play, entry, f.a, names))
+        // STK-018, STK-050 (owner 2026-11-07): the entry's text names its targets and fills in X; its details then list only
+        // the targets the text doesn't name
+        val text = requireNotNull(StackAbilities.text(play, entry, f.a, names))
+        assertEquals("Ember Burst deals 4 damage to you.", text.pieces.plain())
+        assertEquals(listOf("X = 4"), StackAbilities.details(play, entry, f.a, names, text))
     }
 
     // edgeToward: an arrow leaves the Stack at its edge, towards its target

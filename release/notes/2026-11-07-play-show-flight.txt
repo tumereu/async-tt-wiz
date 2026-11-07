@@ -1,0 +1,1 @@
+fix: The other player's plays now fly quickly to the Stack and fade out as they land, instead of seeming stuck in the middle of the table.

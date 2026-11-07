@@ -1,14 +1,12 @@
 package org.asyncttwiz.android
 
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.FastOutLinearInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -19,11 +17,14 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
@@ -38,7 +39,7 @@ import org.asyncttwiz.protocol.CombatStackRules
 import org.asyncttwiz.protocol.PlayZone
 import org.asyncttwiz.protocol.game.GameDevice
 import org.asyncttwiz.storage.ArtworkReference
-import kotlin.math.hypot
+import kotlin.math.roundToInt
 
 /** The test tag of the play shown in the middle of the table (HIS-112). */
 internal const val PLAY_SHOW_TAG = "play-show"
@@ -91,10 +92,22 @@ internal object PlayShows {
 /** HIS-112: the shown card's height: about half the board's, at most this. */
 private const val PLAY_SHOW_MAX_HEIGHT = 300f
 
+/** HIS-112 (owner playtest 2026-11-07): the flight to the Stack at Card move speed 1×. */
+internal const val PLAY_SHOW_FLIGHT_MILLIS = 250
+
+/** HIS-112: how long the flight to the Stack takes at the Card move speed [multiplier] (TBL-038). */
+internal fun playShowFlightMillis(multiplier: Float): Int =
+    (PLAY_SHOW_FLIGHT_MILLIS / cardMoveMultiplier(multiplier)).roundToInt().coerceAtLeast(1)
+
+/** HIS-112: the shown card's opacity at [progress] of its flight: whole over the first half, fading out over the second. */
+internal fun playShowFlightAlpha(progress: Float): Float = (2f - 2f * progress).coerceIn(0f, 1f)
+
 /**
  * HIS-112 (owner 2026-11-07, MTG Arena as the reference): [show] large in the middle of the board for [millis], then it
- * flies to the Stack at the card move speed and is [done]; a tap on it ends it at once. The view holds meanwhile (the
- * device holds the later events). Only the card and its line take touches.
+ * flies to the Stack's top card, taking its place and size, with an accelerating curve ([playShowFlightMillis]); its line
+ * goes as the flight starts and the card fades out over the flight's second half. When it lands it is gone from this
+ * screen at once, and [done] (the device's dismissal, on the engine thread) runs. A tap on it ends it at once. The view
+ * holds meanwhile (the device holds the later events). Only the card and its line take touches.
  */
 @Composable
 internal fun PlayShowOverlay(play: TableBoard, scene: TableScene, viewer: String, show: GameDevice.PlayShow,
@@ -104,37 +117,38 @@ internal fun PlayShowOverlay(play: TableBoard, scene: TableScene, viewer: String
     val multiplier by rememberCardMovePreferences(viewer).multiplierState()
     val height = minOf(board.height * .46f, PLAY_SHOW_MAX_HEIGHT)
     val width = height / 1.4f
-    val stack = scene.stackRegion ?: scene.items.firstOrNull { it.zone == PlayZone.STACK && it.kind == TableItemKind.PILE }?.bounds
+    val target = playShowTarget(scene)
     val flight = remember(show) { Animatable(0f) }
+    var flying by remember(show) { mutableStateOf(false) }
+    // Landed or tapped: off this screen at once, whenever the device gets to its dismissal
+    var gone by remember(show) { mutableStateOf(false) }
     val ended = remember(show) { booleanArrayOf(false) }
-    fun end() { if (!ended[0]) { ended[0] = true; done() } }
+    fun end() { gone = true; if (!ended[0]) { ended[0] = true; done() } }
     LaunchedEffect(show) {
         if (millis > 0) delay(millis)
-        if (stack != null) {
-            val distance = hypot(stack.center.x - board.center.x, stack.center.y - board.center.y)
-            val speed = DEFAULT_CARD_MOVE_SPEED * cardMoveMultiplier(multiplier)
-            flight.animateTo(1f, tween(cardMoveDurationMillis(distance, speed), easing = FastOutSlowInEasing))
-        }
+        flying = true
+        if (target != null) flight.animateTo(1f, tween(playShowFlightMillis(multiplier), easing = FastOutLinearInEasing))
         end()
     }
+    if (gone) return
     val density = LocalDensity.current
     Box(Modifier.offset(board.x.dp, board.y.dp).size(board.width.dp, board.height.dp), contentAlignment = Alignment.Center) {
-        // The flight is read while drawing only: it moves the card without composing it again
-        Column(Modifier
+        // The card's centre is the board's, so the flight moves and scales it about its own centre. The flight is read
+        // while drawing only: it moves the card without composing it again
+        Box(Modifier
             .graphicsLayer {
                 val p = flight.value
-                if (stack != null) {
-                    translationX = (stack.center.x - board.center.x) * p * density.density
-                    translationY = (stack.center.y - board.center.y) * p * density.density
-                    val target = (stack.height / height).coerceIn(.05f, 1f)
-                    scaleX = 1f + (target - 1f) * p
-                    scaleY = scaleX
+                if (target != null) {
+                    translationX = (target.center.x - board.center.x) * p * density.density
+                    translationY = (target.center.y - board.center.y) * p * density.density
+                    scaleX = 1f + (target.width / width - 1f) * p
+                    scaleY = 1f + (target.height / height - 1f) * p
+                    alpha = playShowFlightAlpha(p)
                 }
             }
             .testTag(PLAY_SHOW_TAG)
             .semantics { contentDescription = shown.description }
-            .clickable(remember { MutableInteractionSource() }, indication = null, onClickLabel = "Skip") { end() },
-            horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            .clickable(remember { MutableInteractionSource() }, indication = null, onClickLabel = "Skip") { end() }) {
             val ability = shown.ability
             when {
                 ability != null -> AbilityTokenFace(ability, shown.art, shown.own, Modifier.size(width.dp, height.dp), shown.typeIcon)
@@ -142,12 +156,28 @@ internal fun PlayShowOverlay(play: TableBoard, scene: TableScene, viewer: String
                 else -> Box(Modifier.size(width.dp, height.dp).cardFrame(false, if (shown.own) OwnTableColor else OpponentTableColor)
                     .background(Color(0xff506b61)))
             }
-            Surface(Modifier.widthIn(max = 300.dp).graphicsLayer { alpha = (1f - flight.value * 3f).coerceIn(0f, 1f) },
-                shape = RoundedCornerShape(10.dp), color = Color.White.copy(alpha = .94f), shadowElevation = 4.dp) {
-                CardText(shown.caption.tinted(viewer), Modifier.padding(horizontal = 12.dp, vertical = 8.dp), color = MenuInk,
-                    style = MaterialTheme.typography.bodyMedium.copy(textAlign = TextAlign.Center), maxLines = 3,
-                    overflow = TextOverflow.Ellipsis)
+        }
+        // Its line under the card, gone once the flight starts
+        if (!flying) Surface(Modifier
+            .layout { measurable, constraints ->
+                val placeable = measurable.measure(constraints)
+                layout(placeable.width, placeable.height) {
+                    placeable.place(0, (height.dp.toPx() / 2 + 8.dp.toPx() + placeable.height / 2f).roundToInt())
+                }
             }
+            .widthIn(max = 300.dp)
+            .clickable(remember { MutableInteractionSource() }, indication = null, onClickLabel = "Skip") { end() },
+            shape = RoundedCornerShape(10.dp), color = Color.White.copy(alpha = .94f), shadowElevation = 4.dp) {
+            CardText(shown.caption.tinted(viewer), Modifier.padding(horizontal = 12.dp, vertical = 8.dp), color = MenuInk,
+                style = MaterialTheme.typography.bodyMedium.copy(textAlign = TextAlign.Center), maxLines = 3,
+                overflow = TextOverflow.Ellipsis)
         }
     }
+}
+
+/** HIS-112: where the shown play lands: the Stack's top card (its place and size), else the Stack. */
+internal fun playShowTarget(scene: TableScene): TableBounds? {
+    val pile = scene.items.firstOrNull { it.zone == PlayZone.STACK && it.kind == TableItemKind.PILE }
+    return pile?.let { p -> scene.items.lastOrNull { it.zone == PlayZone.STACK && it.kind == TableItemKind.CARD && it.viewport == p.viewport } }?.bounds
+        ?: pile?.bounds ?: scene.stackRegion
 }

@@ -161,4 +161,44 @@ class PlayShowTest {
         assertTrue(!shown, "nothing shown at 0 s")
         assertNull(kit.alice.shown?.show)
     }
+
+    // HIS-112 (owner playtest 2026-11-07): the flight to the Stack takes about 0.25 s at Card move speed 1×, scaled by it;
+    // the card is whole over its first half and fades out over the second
+    @Test fun theFlightIsAQuarterSecondScaledByCardMoveSpeedAndFadesInItsSecondHalf() {
+        assertEquals(250, playShowFlightMillis(1f))
+        assertEquals(125, playShowFlightMillis(2f))
+        assertEquals(1000, playShowFlightMillis(.25f))
+        assertEquals(1f, playShowFlightAlpha(0f))
+        assertEquals(1f, playShowFlightAlpha(.5f))
+        assertEquals(.5f, playShowFlightAlpha(.75f), .001f)
+        assertEquals(0f, playShowFlightAlpha(1f))
+    }
+
+    // HIS-112 (owner playtest 2026-11-07): after its time the line goes as the flight starts, the card flies to the Stack's
+    // top card and is gone from the screen as it lands, without waiting for the device (here its dismissal never comes)
+    @Test fun theShowLeavesTheScreenWhenItLandsWithoutWaitingForTheDevice() {
+        val (kit, show) = bobsSparkShown()
+        val play = kit.alice.play()
+        val scene = TablePresentation.scene(kit.f.game, play, kit.f.a, 412f, 892f, false)
+        val top = assertNotNull(playShowTarget(scene), "the Stack's top card")
+        assertTrue(scene.items.any { it.zone == org.asyncttwiz.protocol.PlayZone.STACK && it.kind == TableItemKind.CARD && it.bounds == top },
+            "the target is the top card's place: $top")
+        var done = 0
+        compose.mainClock.autoAdvance = false
+        compose.setContent { MaterialTheme { NoRipples { Box(Modifier.fillMaxSize()) {
+            PlayShowOverlay(play, scene, kit.f.a, show, emptyMap(), 1_200) { done++ }
+        } } } }
+        compose.mainClock.advanceTimeByFrame()
+        compose.waitForIdle()
+        val line = "cast Storm Spark"
+        compose.onNodeWithText(line, substring = true, useUnmergedTree = true).assertExists()
+        compose.mainClock.advanceTimeBy(1_250)
+        compose.waitForIdle()
+        compose.onNodeWithTag(PLAY_SHOW_TAG).assertExists()
+        compose.onNodeWithText(line, substring = true, useUnmergedTree = true).assertDoesNotExist()
+        compose.mainClock.advanceTimeBy(PLAY_SHOW_FLIGHT_MILLIS.toLong() + 100)
+        compose.waitForIdle()
+        compose.onNodeWithTag(PLAY_SHOW_TAG).assertDoesNotExist()
+        assertEquals(1, done)
+    }
 }

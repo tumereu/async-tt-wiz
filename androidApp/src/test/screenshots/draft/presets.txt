@@ -1,0 +1,1 @@
+Tapping Presets in the creator's pod setup opens the dialog: the built-in Booster and Glimpse presets first, then Alice's saved presets (Booster, Rotisserie, Sealed from a set, a grid whose cube is missing) with search.

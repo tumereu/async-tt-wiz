@@ -1,0 +1,1 @@
+A Winchester draft on Bob's turn: the board stays on screen with its line naming whose pick it is ("Waiting for Bob") and the stack count, the four face-up piles, and the Picks button at the top right.

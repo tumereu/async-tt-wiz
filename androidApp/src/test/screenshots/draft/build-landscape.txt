@@ -1,0 +1,1 @@
+Build in landscape after a Booster draft: the same deck in wider columns, the deck name and the Main header at the top, Undo and Submit deck in the full-width bottom bar.

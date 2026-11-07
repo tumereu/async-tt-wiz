@@ -1,0 +1,1 @@
+A Booster draft with Librarians after Alice spends one: the Librarian joins the pack with a book badge at the end of the pack, the keep tray grows a dashed, badged second slot beside Cinder Whelp with the chip counting the one left, and Confirm reads "Confirm · 1 Librarian" (greyed until the second keep is marked).

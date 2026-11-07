@@ -1,1 +1,1 @@
-A raised hand card's chips: Cast {3}{R} chosen but greyed (not enough mana), then Cycling {1}, which can be paid now, Channel {2}{R}, greyed, and a plain ability reading as on the card: "{1}, Discard this card:" then "You gain 2 life".
+A raised hand card's chips, each one way to cast or use it: Cast {3}{R} greyed (not enough mana), then Cycling {1}, which can be paid now, Channel {2}{R}, greyed, and a plain ability reading as on the card: "{1}, Discard this card:" then "You gain 2 life".

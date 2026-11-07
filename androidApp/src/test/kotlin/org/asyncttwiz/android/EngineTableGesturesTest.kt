@@ -137,7 +137,7 @@ class EngineTableGesturesTest {
         val mountain = kit.playLand()
         kit.tap(kit.item(spark, PlayZone.HAND))
         assertEquals(spark, toolkit.hand.raised, "raised")
-        assertEquals(setOf(mountain), toolkit.hand.options?.sources, "the Mountain Autotap would tap is outlined")
+        assertEquals(setOf(mountain), toolkit.hand.chips?.sources, "the Mountain Autotap would tap is outlined")
         kit.tap(kit.item(mountain))
         assertNull(toolkit.hand.raised, "a tap elsewhere lowers it")
         toolkit.dismiss(); toolkit.closeAbilities()

@@ -183,7 +183,8 @@ object HandCasts {
         val extras = begun.map { flow -> flow?.let(::extrasOf).orEmpty() }
         val combos = extras.map { list -> combinations(list.size) }
         val count = combos.sumOf { it.size }
-        val costs = plays.indices.map { i -> plain[i].cost ?: printed[i] }
+        // A way the engine won't begin now shows its printed cost (no payment says it); a free one none
+        val costs = plays.indices.map { i -> plain[i].cost ?: printed[i].takeIf { !plain[i].affordable } }
         if (count > MAX_CHIPS) {
             val payable = plays.indices.filter { plain[it].affordable }
             val cheapest = (payable.ifEmpty { plays.indices.toList() }).minByOrNull { manaValue(costs[it]) }?.let { costs[it] }
@@ -199,7 +200,7 @@ object HandCasts {
                 val texts = listOfNotNull(wayText(cardDefinition, plays[i])) + on.mapNotNull { (instance, _) ->
                     CastFlow.abilityText(cardDefinition, instance.origin)?.takeIf { it.isNotBlank() } ?: CastFlow.text(instance.ability)
                 }
-                CastChip(i, times, plays[i], name, probe.cost ?: printed[i].takeIf { times.none { it > 0 } }, texts.joinToString("\n").ifEmpty { null },
+                CastChip(i, times, plays[i], name, probe.cost ?: costs[i].takeIf { times.none { it > 0 } }, texts.joinToString("\n").ifEmpty { null },
                     probe.affordable, probe.sources, probe.asks)
             }
         }

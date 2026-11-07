@@ -88,7 +88,15 @@ internal class EngineGameFixture(val startingPlayer: String = TableStatesFixture
         const val INSIGHT = "Ember Insight"
         /** The Insight as a free instant: the other player's reveal in the viewer's own turn (HIS-110). */
         const val FORESIGHT = "Ember Foresight"
+        /** A free creature with offspring {R} (ZON-080: "Cast" and "Cast with offspring {R}" chips). */
+        const val KIT = "Ember Kit"
+        /** A free mana rock: "{T}: Add {R}." (a second source beside a Mountain on turn one). */
+        const val SHARD = "Ember Shard"
+        /** {2}{R} with kicker {1}, offspring {R} and dash {R}: eight complete ways, one "Cast…" chip (ZON-080). */
+        const val BROODRAIDER = "Ember Broodraider"
     }
+    private val KIT_TEXT = "Offspring {R} (You may pay an additional {R} as you cast this spell. If you do, when this creature enters, create a 1/1 token copy of it.)"
+    private val BROODRAIDER_TEXT = "Kicker {1} (You may pay an additional {1} as you cast this spell.)\nOffspring {R}\nDash {R}"
     private val REASON_TEXT = "Each opponent mills fourteen cards.\nCycling {R} ({R}, Discard this card: Draw a card.)\n" +
         "When you cycle this card, each opponent mills four cards."
     private val SENTRY_TEXT = "Offspring {R} (You may pay an additional {R} as you cast this spell. If you do, when this creature enters, create a 1/1 token copy of it.)\n" +
@@ -115,6 +123,11 @@ internal class EngineGameFixture(val startingPlayer: String = TableStatesFixture
         free("reason", Choices.REASON, "Instant", REASON_TEXT),
         free("insight", Choices.INSIGHT, "Sorcery", "Reveal the top card of your library and put that card into your hand."),
         free("foresight", Choices.FORESIGHT, "Instant", "Reveal the top card of your library and put that card into your hand."),
+        free("kit", Choices.KIT, "Creature — Elemental Fox", KIT_TEXT, "1", "1"),
+        free("shard", Choices.SHARD, "Artifact", "{T}: Add {R}."),
+        Invented(DefinitionFace("broodraider", Choices.BROODRAIDER, typeLine = "Creature — Elemental Warrior", manaCost = "{2}{R}",
+            rulesText = BROODRAIDER_TEXT, power = "2", toughness = "2"),
+            OracleCard(Choices.BROODRAIDER, "{2}{R}", "Creature — Elemental Warrior", BROODRAIDER_TEXT, "2", "2")),
     ).associateBy { it.submitted.definition.name }
     private val aliceChoices = aliceCards.map { choiceCards[it] ?: if (it == "Mountain") mountain else error("no card $it") }
     private val bobChoices = bobCards.map { choiceCards[it] ?: when (it) { "Mountain" -> mountain; "Storm Spark" -> spark; else -> error("no card $it") } }

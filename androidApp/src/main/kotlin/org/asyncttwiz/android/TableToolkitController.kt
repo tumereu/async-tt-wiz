@@ -173,6 +173,8 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
      */
     internal fun tapUsable(play: TableBoard, cardId: String): Boolean {
         if (cast.targeting || flows.targeting) return cardId in cast.glow(play) + flows.glow(play)
+        // STK-024 (owner 2026-11-07): while the cast panel is open a tap adds a mana source to its payment
+        if (cast.paying) return cardId in cast.payableSources()
         val shown = combat.choices(play)
         if (!combat.working(shown)) {
             val choices = shown.choices
@@ -220,9 +222,19 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
                 if (!cast.targeting && !flows.targeting) combat.clearSelection()
                 layoutState.value = layoutState.value.copy(expandedGroup = group.key)
             }
-            is GroupTap.Act -> member(tap.cardId)
+            // STK-024: in a stack of identical sources a tap adds the next one to the payment, else takes the last out
+            is GroupTap.Act -> member(if (cast.paying) payMember(group, tap.cardId) else tap.cardId)
             GroupTap.Top -> member(group.top)
         }
+    }
+
+    /** STK-024: which card of [card]'s stack in [group] a tap on it adds to the open payment: the first one not paying yet,
+     * else the last one paying (taken out). */
+    private fun payMember(group: BattlefieldGroup, card: String): String {
+        val unit = group.units.firstOrNull { card in it } ?: return card
+        val payable = cast.payableSources()
+        val paying = cast.paySources()
+        return unit.firstOrNull { it in payable && it !in paying } ?: unit.lastOrNull { it in paying } ?: card
     }
 
     /** Closes the ability chips (a tap elsewhere, an activation). */
@@ -230,7 +242,8 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
     val layoutState = mutableStateOf(TableLayoutState())
     /** I-D50 (ZON-079, ZON-080): the viewer's hand with Automatum on: a tap raises a card with its cost chips. */
     internal val hand = HandController(viewer, { current()?.takeIf { enabled() } }, layoutState, automatumWork,
-        cast = { card, way, extras -> error = null; castGesture = card; cast.start(card, way, extras) },
+        cast = { card, chip -> error = null; castGesture = card; cast.start(card, chip.input, chip.times) },
+        panel = { card, known -> error = null; castGesture = card; cast.startFromHand(card, known) },
         shake = { shake(it) }, unplayable = { play, card -> AutomatumBoards.cachedCardPlays(play, viewer)?.let { unplayable(play, card) } })
     val table = TableActionController(::current, ::enabled, this)
     private val basic = BasicTableController(::current, ::enabled, ::enqueue)
@@ -564,6 +577,12 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
         hand.lower()
         // TRN-069: a tap on a dungeon does nothing (holding inspects it)
         if (item.kind == TableItemKind.DUNGEON) return
+        // STK-024 (owner 2026-11-07): while the cast panel is open a tap on a mana source adds it to the payment or takes it
+        // out
+        if (cast.paying && item.kind == TableItemKind.CARD && item.zone == PlayZone.BATTLEFIELD && item.viewport != "combat" && !item.projection) {
+            val card = item.cardId?.let { CombatStackRules.liveSource(play.board, it)?.id }
+            if (card != null && cast.tapSource(card)) return
+        }
         // CMB-040 (owner, 2026-11-05): while waiting for the defender's blocks, taps place blocks to assume as they would
         engine?.assuming()?.let { placed -> if (assumeTap(placed, play, item)) { dismiss(); return } }
         // CMB-028, CMB-032, CMB-034: with Automatum on a tap in combat stages, blocks or selects
@@ -653,11 +672,12 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
      * played; one already known to have no cast or play Automatum allows now shakes at once (I-D46). */
     private fun castFromHand(cardId: String): Boolean {
         val play = current()?.takeIf { enabled() }
-        // I-D50: the raised card goes the way its chips chose
-        val (way, extras) = hand.castChoice(cardId)
+        // ZON-004, ZON-077 (owner 2026-11-07): as a tap on the raised card: cast at once without any choice, else the
+        // cast panel
+        val known = hand.known(cardId)
         hand.lower()
         if (play != null && !cast.open && unplayable(play, cardId)) { shake(cardId); return false }
-        return cast.start(cardId, way, extras)
+        return cast.startFromHand(cardId, known)
     }
 
     /** The card a cast was begun on by a gesture, so its refusal worked out in the background shakes it too. */

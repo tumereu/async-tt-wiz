@@ -304,7 +304,8 @@ internal fun TableSurface(game: GameSummary, play: TableBoard, accountId: String
             val glow = rememberPlayableGlow(play, if (runtime.reviewing) emptySet() else toolkit?.playableOrNull(play))
             val shaking = toolkit?.shaking
             // ZON-079 (I-D50): what Autotap would tap for the raised hand card (live table only)
-            val raisedSources = if (runtime.reviewing) emptySet() else toolkit?.hand?.sources(play).orEmpty()
+            // STK-024 (owner 2026-11-07): and while the cast panel is open, the sources that pay it
+            val raisedSources = if (runtime.reviewing) emptySet() else toolkit?.hand?.sources(play).orEmpty() + toolkit?.cast?.paySources().orEmpty()
             // CMB-028 (owner, 2026-11-05): while the viewer declares attackers, the creatures that may attack glow red-orange
             val attackGlow = if (runtime.reviewing || !writable) emptySet() else toolkit?.combat?.attackable(play, accountId).orEmpty()
             val shakeOffset = remember(shaking) { androidx.compose.animation.core.Animatable(0f) }

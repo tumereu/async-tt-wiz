@@ -86,10 +86,25 @@ internal class CastController(
     var flow by mutableStateOf<CastFlow?>(null); private set
     /** The plays the engine offers for the card being cast (its ways: faces, alternative costs). */
     var ways by mutableStateOf<List<Input>>(emptyList()); private set
-    /** The mana uses picked in the mana section (starting from the engine's suggestion). */
+    /** STK-024 (owner 2026-11-07): the mana uses that pay the cast ([payment]): Autotap's suggestion while the player
+     * hasn't changed it ([custom]) with Autotap on, else the sources the player tapped on the table. */
     override var mana by mutableStateOf<List<ManaUse>>(emptyList()); private set
-    /** Whether the picked mana pays the open payment (worked out with the pick). */
+    /** Whether [mana] pays [payment] (true when the cast has none). */
     override var paid by mutableStateOf(false); private set
+    /** STK-024 (owner 2026-11-07): the payment the open cast comes to ([HandCasts.ahead]: the open one, or the one it reaches
+     * with the questions before it answered as the chips are worked out), shown in the panel while it is open; null when
+     * it has none. */
+    var payment by mutableStateOf<Decision.ManaPayment?>(null); private set
+    /** The cast taken on to [payment] (its engine check of a payment). */
+    private var ahead: CastFlow? = null
+    /** Whether the player changed the payment by tapping sources (Autotap then no longer chooses for them). */
+    var custom by mutableStateOf(false); private set
+    /** ZON-080, ZON-082 (owner 2026-11-07): a hand card's cast panel's ways and extras (the way and extras chosen in it);
+     * null for any other cast (a chip's, a card menu's). */
+    var hand by mutableStateOf<org.asyncttwiz.automatum.HandCastOptions?>(null); private set
+    /** A hand card's cast panel opened before its first question while it has ways or extras to choose: its targets
+     * wait for Cast (the panel isn't a target bar yet). */
+    var choosing by mutableStateOf(false); private set
     /** Targets picked so far for a slot that takes several. */
     var picked by mutableStateOf<List<TargetRef>>(emptyList()); private set
     /** The eye icon (I-D10): the panel is hidden so the board can be looked at. */
@@ -128,7 +143,10 @@ internal class CastController(
     /** The card being cast (or played, or whose ability is activated) while a cast is [open]. */
     val castCard: String? get() = flow?.cardId ?: starting
     /** The open question is targets, chosen on the table: the panel is a slim bar. */
-    val targeting: Boolean get() = flow?.pending is Decision.Targets
+    val targeting: Boolean get() = flow?.pending is Decision.Targets && !choosing
+    /** STK-024 (owner 2026-11-07): the open panel takes the table's mana sources: a tap on one adds it to the payment or
+     * takes it out ([tapSource]). */
+    val paying: Boolean get() = flow != null && !targeting && payment != null
 
     /**
      * Casts (or plays, a land) the hand card [cardId] [way] (the first way the engine offers when null, ZON-004) with the
@@ -161,6 +179,91 @@ internal class CastController(
             }
             // I-D50: the way was chosen with the cost chips: the panel has no "Cast as"
             settle(flow, auto = true, autotapOn, keep = null, ways = listOf(begin))
+        }
+    }
+
+    /**
+     * ZON-079, ZON-080 (owner 2026-11-07): a tap on the raised hand card [cardId] (a double-tap, a drag, the "Cast…" chip):
+     * a card without any choice (one complete way asking nothing before its payment) is cast at once as [start] does;
+     * otherwise the cast panel opens with its ways and extras ([hand]) and its questions, and stops before the payment so
+     * the player can see and change what pays. [known]: its chips when already worked out. False with a message when it
+     * can't be begun.
+     */
+    fun startFromHand(cardId: String, known: org.asyncttwiz.automatum.HandCastChips? = null): Boolean {
+        val play = current() ?: return false
+        if (open) { fail(BUSY); return false }
+        if (revealing()) { fail(REVEAL_BUSY); return false }
+        if (play.flowOpen) { fail(SharedFlowController.BUSY); return false }
+        if (!ownHand(play, cardId, viewer)) { fail(NOT_YOURS); return false }
+        val autotapOn = autotap
+        starting = cardId
+        hidden = false
+        abilityText = null
+        return step {
+            val name = cardName(play, cardId)
+            val cant = if (land(play, cardId)) "$name can't be played now." else "$name can't be cast now."
+            val offered = AutomatumBoards.handPlays(play, viewer).of(cardId)
+            val definitions = AutomatumBoards.definitions(play)
+            val src = source(play)
+            val seeds = seeds()
+            val chips = known?.takeIf { it.cardId == cardId } ?: HandCasts.chips(src, definitions, viewer, cardId, offered, seeds)
+                ?: return@step Step.Drop(cant)
+            if (!chips.affordable) return@step Step.Drop(cant)
+            if (!chips.choice) {
+                val chip = chips.chips.single()
+                val flow = try { CastFlow.start(src, viewer, chip.input, seeds, extras = chip.times) }
+                    catch (_: IllegalArgumentException) { return@step Step.Drop(cant) }
+                return@step settle(flow, auto = true, autotapOn, keep = null, ways = listOf(chip.input))
+            }
+            // The panel: the first way the player can pay, its extras off
+            val first = HandCasts.options(src, definitions, viewer, cardId, offered, 0, emptyList(), seeds) ?: return@step Step.Drop(cant)
+            val way = first.ways.indexOfFirst { it.affordable }.coerceAtLeast(0)
+            val options = if (way == 0) first else HandCasts.options(src, definitions, viewer, cardId, offered, way, emptyList(), seeds)
+                ?: return@step Step.Drop(cant)
+            val flow = try { CastFlow.start(src, viewer, options.chosen.input, seeds, extras = options.times) }
+                catch (_: IllegalArgumentException) { return@step Step.Drop(cant) }
+            settle(flow, auto = false, autotapOn, keep = null, ways = listOf(options.chosen.input), hand = options,
+                choosing = options.ways.size > 1 || options.extras.isNotEmpty())
+        }
+    }
+
+    /** ZON-080 (owner 2026-11-07): a tap on way chip [index] of a hand card's cast panel: the cast goes on that way, its
+     * extras off, keeping the answers that still fit. A way the player can't pay for now does nothing. */
+    fun handWay(index: Int): Boolean = handChoice { o ->
+        if (index == o.way || o.ways.getOrNull(index)?.affordable != true) null else index to emptyList()
+    }
+
+    /** ZON-082: a tap on extra chip [index] of a hand card's cast panel turns it on or off (a repeatable one counts up);
+     * one the player can't pay for now is never turned on. */
+    fun handExtra(index: Int): Boolean = handChoice { o ->
+        val chip = o.extras.getOrNull(index) ?: return@handChoice null
+        val now = o.times.getOrElse(index) { 0 }
+        val next = if (chip.repeatable) now + 1 else if (now > 0) 0 else 1
+        if (next > now && !chip.affordable) null else o.way to o.times.toMutableList().also { it[index] = next }
+    }
+
+    /** ZON-082: the small "−" of a repeatable extra in the cast panel: once fewer. */
+    fun handLess(index: Int): Boolean = handChoice { o ->
+        val now = o.times.getOrElse(index) { 0 }
+        if (now <= 0) null else o.way to o.times.toMutableList().also { it[index] = now - 1 }
+    }
+
+    private fun handChoice(choose: (org.asyncttwiz.automatum.HandCastOptions) -> Pair<Int, List<Int>>?): Boolean {
+        val f = flow ?: return false
+        val o = hand ?: return false
+        if (busy) return false
+        val (way, times) = choose(o) ?: return false
+        val play = current() ?: return false
+        val autotapOn = autotap
+        val keep = mana
+        val changed = custom
+        return step {
+            val options = HandCasts.options(source(play), AutomatumBoards.definitions(play), viewer, f.cardId,
+                AutomatumBoards.handPlays(play, viewer).of(f.cardId), way, times, seeds()) ?: return@step Step.Refuse(NOT_ALLOWED)
+            val next = try { f.withChoice(options.chosen.input, options.times) } catch (_: IllegalArgumentException) {
+                return@step Step.Refuse(NOT_ALLOWED)
+            }
+            settle(next, auto = false, autotapOn, keep, changed, ways = listOf(options.chosen.input), hand = options)
         }
     }
 
@@ -231,29 +334,80 @@ internal class CastController(
         return answer(Answer.Targets(picked))
     }
 
-    /** Taps or untaps a mana source in the mana section. The tapped sources are a set: their colours are worked out
-     * together so they pay whenever they can, whatever order they were tapped in ([ManaPicks]). */
+    /** STK-024 (owner 2026-11-07): adds a mana source to the cast's payment or takes it out (a tap on the table, or on a
+     * pool or life chip in the panel); from then on Autotap no longer chooses ([custom]). The tapped sources are a set:
+     * their colours are worked out together so they pay whenever they can, whatever order they were tapped in
+     * ([ManaPicks]). */
     override fun toggleMana(group: List<ManaUse>) {
         val f = flow ?: return
-        val decision = f.pending as? Decision.ManaPayment ?: return
+        val at = ahead ?: return
+        val decision = payment ?: return
         if (busy) return
         val current = mana
+        custom = true
         step {
-            val uses = ManaPicks.toggle(decision, current, group, f::pays)
-            Step.Mana(f, uses, f.pays(uses))
+            val uses = ManaPicks.toggle(decision, current, group, at::pays)
+            Step.Mana(f, uses, at.pays(uses))
         }
     }
 
-    /** "Cast": pays with the picked mana (when the cast is at its payment) and sends the whole flow. Nothing is sent
-     * while the player can't act (the timeline reviewed, offline): the cast stays open. */
+    /** STK-024 (owner 2026-11-07): a tap on the battlefield card [cardId] while the panel is open ([paying]): when it is a
+     * source the payment can use, it is added to the payment or taken out; false when it isn't one. */
+    fun tapSource(cardId: String): Boolean {
+        if (!paying) return false
+        val group = groupOf(cardId) ?: return false
+        toggleMana(group)
+        return true
+    }
+
+    /** The payment's uses tapped by tapping [cardId] on the table: one of its mana abilities, or another way to pay with it
+     * alone (convoke, improvise). */
+    private fun groupOf(cardId: String): List<ManaUse>? {
+        val at = ahead ?: return null
+        val decision = payment ?: return null
+        return ManaPicks.groups(decision).firstOrNull { group -> tableSource(at, group.first()) == cardId }
+    }
+
+    private fun tableSource(at: CastFlow, use: ManaUse): String? = when (use) {
+        is ManaUse.Ability -> at.atwCard(use.source)
+        is ManaUse.Special -> use.objects.singleOrNull()?.let(at::atwCard)
+        else -> null
+    }
+
+    /** STK-024: the table card [use] is tapped on (null for pool mana, life or a way with several cards: chips in the panel). */
+    fun tableSource(use: ManaUse): String? = ahead?.let { tableSource(it, use) }
+
+    /** STK-024 (owner 2026-11-07): the sources that pay the open panel's cast now (outlined in amber on the table). */
+    fun paySources(): Set<String> {
+        if (!paying) return emptySet()
+        val at = ahead ?: return emptySet()
+        return mana.mapNotNull { tableSource(at, it) }.toSet() +
+            mana.filterIsInstance<ManaUse.Special>().flatMap { it.objects.mapNotNull(at::atwCard) }
+    }
+
+    /** STK-024: the table cards a tap adds to the open panel's payment (or takes out). */
+    fun payableSources(): Set<String> {
+        if (!paying) return emptySet()
+        val at = ahead ?: return emptySet()
+        return payment?.options.orEmpty().mapNotNull { tableSource(at, it) }.toSet()
+    }
+
+    /** "Cast": pays with the chosen mana (when the cast is at its payment) and sends the whole flow. In a hand card's
+     * panel still choosing its way, it goes on to the targets first. Nothing is sent while the player can't act (the
+     * timeline reviewed, offline): the cast stays open. */
     fun cast(): Boolean {
         val f = flow ?: return false
         if (busy) return false
+        if (choosing) {
+            choosing = false
+            if (f.pending is Decision.Targets) return true
+        }
         val play = current() ?: run { fail(CANT_ACT); return false }
         val autotapOn = autotap
-        val picked = (f.pending as? Decision.ManaPayment)?.let { payment -> if (autotapOn) payment.suggestion else mana }
+        val follows = autotapOn && !custom
+        val picked = (f.pending as? Decision.ManaPayment)?.let { payment -> if (follows) payment.suggestion else mana }
         if (picked == null && !f.complete) return false
-        return step { complete(f, autotapOn, picked) ?: Step.Refuse(NOT_ALLOWED) }
+        return step { complete(f, autotapOn, picked) ?: Step.Refuse(if (picked != null) notPaid(f.pending as Decision.ManaPayment) else NOT_ALLOWED) }
     }
 
     /**
@@ -278,6 +432,7 @@ internal class CastController(
         generation++
         busy = false; starting = null
         flow = null; ways = emptyList(); mana = emptyList(); paid = false; picked = emptyList(); hidden = false; abilityText = null
+        payment = null; ahead = null; custom = false; hand = null; choosing = false
         announcedMost = emptyMap()
         listed = emptyList(); visible = emptySet()
     }
@@ -314,9 +469,16 @@ internal class CastController(
         if (f.board === play.board) return
         val keep = mana
         val autotapOn = autotap
+        val changed = custom
+        val chosen = hand
         step {
             try {
-                settle(f.on(source(play)), auto = false, autotapOn, keep, clear = false)
+                // A hand card's panel: its ways and extras worked out again on the new board
+                val options = chosen?.let {
+                    HandCasts.options(source(play), AutomatumBoards.definitions(play), viewer, f.cardId,
+                        AutomatumBoards.handPlays(play, viewer).of(f.cardId), it.way, it.times, seeds())
+                }
+                settle(f.on(source(play)), auto = false, autotapOn, keep, changed, clear = false, hand = options)
             } catch (problem: Exception) {
                 Step.Drop("The table changed: ${cardName(play, f.cardId)} can't be cast now.")
             }
@@ -327,7 +489,13 @@ internal class CastController(
         /** [flow] with its open question shown; [ways] set when the cast was just begun. */
         class Show(val flow: CastFlow, val mana: List<ManaUse>, val paid: Boolean, val listed: List<Answer>,
             val visible: Set<ObjectId>, val ways: List<Input>?, val clear: Boolean,
-            val most: Map<arcanum.engine.decision.DecisionId, Int>) : Step
+            val most: Map<arcanum.engine.decision.DecisionId, Int>,
+            /** The cast taken on to its payment ([HandCasts.ahead]), null when it reaches none. */
+            val ahead: CastFlow?,
+            /** A hand card's panel's ways and extras, null: unchanged. */
+            val hand: org.asyncttwiz.automatum.HandCastOptions? = null,
+            /** Whether a hand card's panel waits for its way before the targets, null: unchanged. */
+            val choosing: Boolean? = null) : Step
         class Mana(val flow: CastFlow, val mana: List<ManaUse>, val paid: Boolean) : Step
         /** I-D56 step C: the complete [flow]'s own [inputs], made on [board]. */
         class Engine(val flow: CastFlow, val inputs: List<Input>, val board: BoardState) : Step
@@ -364,6 +532,9 @@ internal class CastController(
             if (outcome.ways != null) AutomatumLog.flow(outcome.flow.source.gameId, "cast", "started", outcome.flow.cardId)
             listed = outcome.listed; visible = outcome.visible
             flow = outcome.flow; mana = outcome.mana; paid = outcome.paid; picked = emptyList(); announcedMost = outcome.most
+            ahead = outcome.ahead; payment = outcome.ahead?.pending as? Decision.ManaPayment
+            outcome.hand?.let { hand = it }
+            outcome.choosing?.let { choosing = it }
             if (outcome.clear) fail(null)
             follow()
             true
@@ -412,35 +583,55 @@ internal class CastController(
         val f = flow ?: return false
         if (busy) return false
         val autotapOn = autotap
+        val keep = mana
+        val changed = custom
+        // An answer goes on past a hand card's way: its targets are picked on the table from here
+        choosing = false
         return step {
             val next = try { change(f) } catch (problem: IllegalArgumentException) {
                 AppLog.info("automatum", "Cast step refused: ${problem.message?.take(200)}")
                 AutomatumLog.refusal(f.source.gameId, "cast step", problem.message.orEmpty())
                 return@step Step.Refuse(NOT_ALLOWED)
             }
-            settle(next, auto = true, autotapOn, keep = null, refuseShort = true)
+            settle(next, auto = true, autotapOn, keep, changed, refuseShort = true)
         }
     }
 
-    /** What [next] leads to (worked out off the main thread): sent at once when nothing is left to decide, or only a
-     * payment, made with the engine's suggestion with Autotap on (I-D47: the panel has no mana selection then; a payment
-     * the sources can't make is refused, [refuseShort], or drops a cast just begun); else shown with its open question,
-     * the mana picked being [keep] while all of it is still offered (the player's own tapping, STK-025) or else the
-     * suggestion. */
-    private fun settle(next: CastFlow, auto: Boolean, autotapOn: Boolean, keep: List<ManaUse>?, ways: List<Input>? = null,
-        clear: Boolean = true, refuseShort: Boolean = false): Step {
+    /**
+     * What [next] leads to (worked out off the main thread): sent at once when nothing is left to decide, or (with [auto])
+     * only a payment that the chosen mana makes: Autotap's suggestion with Autotap on while the player hasn't changed it
+     * ([custom]), else the sources the player chose ([keep], carried to this payment). A payment Autotap can't make is
+     * refused ([refuseShort]) or drops a cast just begun. Else shown with its open question, and the payment it comes to
+     * ([HandCasts.ahead], STK-024: Autotap's suggestion pre-chosen, or the player's own sources; nothing chosen with
+     * Autotap off).
+     */
+    private fun settle(next: CastFlow, auto: Boolean, autotapOn: Boolean, keep: List<ManaUse>?, custom: Boolean = false,
+        ways: List<Input>? = null, clear: Boolean = true, refuseShort: Boolean = false,
+        hand: org.asyncttwiz.automatum.HandCastOptions? = null, choosing: Boolean? = null): Step {
         val payment = next.pending as? Decision.ManaPayment
-        if (auto && (next.complete || (payment != null && autotapOn))) complete(next, autotapOn)?.let { return it }
-        if (auto && payment != null && autotapOn) {
-            val message = "Not enough mana to pay ${payment.cost}."
-            return if (refuseShort) Step.Refuse(message) else Step.Drop(message)
+        val follows = autotapOn && !custom
+        if (auto && next.complete) complete(next, autotapOn)?.let { return it }
+        if (auto && payment != null) {
+            val picks = picks(next, payment, follows, keep)
+            if (next.pays(picks)) complete(next, autotapOn, picks)?.let { return it }
+            if (follows) {
+                val message = notPaid(payment)
+                return if (refuseShort) Step.Refuse(message) else Step.Drop(message)
+            }
         }
-        val mana = keep?.takeIf { k -> payment != null && k.isNotEmpty() && k.all { it in payment.options } } ?: payment?.suggestion.orEmpty()
+        val ahead = if (payment != null) next else HandCasts.ahead(next)
+        val due = ahead?.pending as? Decision.ManaPayment
+        val mana = if (ahead != null && due != null) picks(ahead, due, follows, keep) else emptyList()
         val pending = next.pending
         val listed = if (pending != null && pending !is Decision.Targets && pending !is Decision.ManaPayment) next.listedAnswers() else emptyList()
-        return Step.Show(next, mana, payment != null && next.pays(mana), listed, Engine.visible(next.state, PlayerId(viewer)), ways, clear,
-            mostAnnounced(next))
+        return Step.Show(next, mana, if (ahead != null && due != null) ahead.pays(mana) else true, listed, Engine.visible(next.state, PlayerId(viewer)), ways, clear,
+            mostAnnounced(next), ahead, hand, choosing)
     }
+
+    /** The mana chosen for [payment] of [flow]: Autotap's suggestion when it [follows], else the player's sources [keep]
+     * carried to it ([ManaPicks.carry]; none with Autotap off until they tap some). */
+    private fun picks(flow: CastFlow, payment: Decision.ManaPayment, follows: Boolean, keep: List<ManaUse>?): List<ManaUse> =
+        if (follows) payment.suggestion else ManaPicks.carry(payment, keep.orEmpty(), flow::pays)
 
     /** STK-023: the most each announcement of [flow] (open or answered) may be ([announcedMost]). */
     private fun mostAnnounced(flow: CastFlow): Map<arcanum.engine.decision.DecisionId, Int> {
@@ -501,6 +692,8 @@ internal class CastController(
         /** I-D27: the same for every card in the other player's hand, whatever it is. */
         const val NOT_YOURS = "Only its owner can cast that card."
         const val NOT_ALLOWED = "Automatum doesn't allow that choice."
+        /** STK-024: a payment that can't be made with the mana chosen. */
+        fun notPaid(payment: Decision.ManaPayment) = "Not enough mana to pay ${payment.cost}."
         const val FAILED = "Automatum couldn't work that cast out."
         const val TAKE_OVER = "Automatum can't take over this board:"
 

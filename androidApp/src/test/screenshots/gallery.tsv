@@ -96,3 +96,6 @@ number	item	screenshot	catalog	decisions
 95	Inspect of an ability naming its kind (Cycling trigger)	stack/cycling-trigger-inspect.png	STK-050 TBL-104
 96	The other player's reveal stops your view until OK	engine/reveal-panel.png	HIS-110 STK-044
 97	View deck from your own Library: Still in library	engine/view-deck.png	ZON-093 ZON-078
+98	Hand card chips, one per complete way to cast it (offspring)	chips/cast-chips-offspring.png	ZON-080 ZON-079
+99	One "Cast…" chip for a card with more than four ways	chips/cast-more-chip.png	ZON-080
+100	Cast panel paying with a source picked on the table	cast-panel/payment-chosen.png	STK-024 ZON-082	ManaPayment

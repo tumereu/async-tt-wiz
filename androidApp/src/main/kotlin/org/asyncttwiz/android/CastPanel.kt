@@ -267,7 +267,22 @@ private fun CastPanel(cast: CastController, flow: CastFlow, play: TableBoard, na
                     }
                 }
                 ChoiceInspection(inspector, play, LocalChoiceFrame.current.viewer)
-                if (cast.ways.size > 1) Section("Cast as") {
+                // ZON-080, ZON-082 (owner 2026-11-07): a hand card's ways and extras, as chips (its way filled violet)
+                cast.hand?.let { hand ->
+                    if (hand.ways.size > 1) Section("Cast as") {
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            hand.ways.forEachIndexed { index, chip -> WayChip(chip, index == hand.way, { cast.handWay(index) }, {}) }
+                        }
+                    }
+                    if (hand.extras.isNotEmpty()) Section("Extras") {
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            hand.extras.forEachIndexed { index, chip ->
+                                ExtraChip(chip, hand.times.getOrElse(index) { 0 }, { cast.handExtra(index) }, { cast.handLess(index) }, {})
+                            }
+                        }
+                    }
+                }
+                if (cast.hand == null && cast.ways.size > 1) Section("Cast as") {
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         for (way in cast.ways) FilterChip(way == flow.begin, { if (way != flow.begin) cast.way(way) },
                             label = { Text(wayLabel(play, flow, way), fontSize = 12.sp) })
@@ -276,11 +291,13 @@ private fun CastPanel(cast: CastController, flow: CastFlow, play: TableBoard, na
                 flow.steps.forEachIndexed { index, (decision, answer) -> AnsweredSection(cast, flow, play, names, index, decision, answer) }
                 when (val open = flow.pending) {
                     null -> Text(if (flow.activation) "Ready." else "Ready to cast.", fontSize = 12.sp)
-                    // I-D47: with Autotap on the panel has no mana selection (its sources are tapped as Cast goes out)
-                    is Decision.ManaPayment -> if (!cast.autotap) ManaSection(cast, cast, play, open)
-                        else CardText("Ready to cast: Autotap pays ${open.cost}.", style = TextStyle(fontSize = 12.sp))
+                    // STK-024 (owner 2026-11-07): the payment is the line below
+                    is Decision.ManaPayment -> Unit
+                    // A hand card's panel still choosing its way: Cast goes on to the targets
+                    is Decision.Targets -> CardText("Then ${targetPrompt(open)} on the table.", style = TextStyle(fontSize = 12.sp))
                     else -> CompositionLocalProvider(LocalCastOk provides ok) { OpenSection(cast, cast, play, names, open) }
                 }
+                PaymentLine(cast, play)
                 // UI review round 2 #4 (I-D46 b): why the last step was refused, inside the panel rather than over the table
                 cast.notice?.let { CardText(it, color = Color(0xffb3261e), style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Medium)) }
             }
@@ -297,8 +314,9 @@ private fun CastPanel(cast: CastController, flow: CastFlow, play: TableBoard, na
                     // STK-023, STK-052 (owner playtest 2026-11-05 evening): no Cancel (Undo and Back drop the cast); Cast also
                     // answers a choice built up in place (X) and goes on
                     val answering = ok.answer.takeIf { ok.decision != null && ok.decision == flow.pending?.id }
-                    Button({ answering?.invoke() ?: cast.cast() }, enabled = !cast.busy && (answering != null || cast.paid || flow.complete ||
-                        (cast.autotap && flow.pending is Decision.ManaPayment)),
+                    // STK-024 (owner 2026-11-07): greyed while the chosen mana doesn't pay (the payment line says why)
+                    Button({ answering?.invoke() ?: cast.cast() }, enabled = !cast.busy && cast.paid && (answering != null || flow.complete ||
+                        flow.pending is Decision.ManaPayment || (cast.choosing && flow.pending is Decision.Targets)),
                         colors = ButtonDefaults.buttonColors(containerColor = AutomatumViolet)) {
                         IconText(if (flow.activation) Icons.Outlined.Bolt else Icons.Outlined.AutoAwesome, actionLabel(flow))
                     }
@@ -575,6 +593,53 @@ internal fun ManaSection(cast: FlowQuestions, flow: FlowQuestions, play: TableBo
             color = if (cast.paid) Color(0xff237d68) else Color(0xffb3261e))
         ChoiceInspection(inspector, play, viewer)
     }
+}
+
+/**
+ * STK-024 (owner 2026-11-07): what pays the open cast, compact: its mana and "Paid with" the sources chosen (Autotap's
+ * suggestion, outlined on the table, until the player taps sources there), or in red why it isn't paid (Cast is greyed
+ * then); pool mana, life and other ways the table can't tap are chips here.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun PaymentLine(cast: CastController, play: TableBoard) {
+    val payment = cast.payment ?: return
+    val due = payment.cost.toString()
+    if (due.isEmpty()) return
+    val names = cast.mana.map { useName(cast, play, it) }
+    val reason = when {
+        cast.paid -> null
+        cast.autotap && !cast.custom -> CastController.notPaid(payment)
+        names.isEmpty() -> "Tap sources on the table to pay $due."
+        else -> "Not enough to pay $due: tap more sources on the table."
+    }
+    Section("Mana · $due") {
+        val line = if (names.isEmpty()) "Nothing chosen yet." else "Paid with ${names.joinToString()}"
+        CardText(if (cast.paid || names.isEmpty()) line else "Chosen: ${names.joinToString()}", Modifier.semantics { contentDescription = "Payment: $line" },
+            style = TextStyle(fontSize = 12.sp))
+        if (reason != null) CardText(reason, Modifier.semantics { contentDescription = "Not paid: $reason" }, color = Color(0xffb3261e),
+            style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Medium))
+        else Text("Tap a source on the table to change it.", fontSize = 11.sp, color = Color(0xff4b5a5f))
+        val others = ManaPicks.groups(payment).filter { group -> cast.tableSource(group.first()) == null }
+        if (others.isNotEmpty()) FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            for (group in others) {
+                val used = cast.mana.firstOrNull { it in group }
+                val label = useName(cast, play, used ?: group.first())
+                FilterChip(used != null, { cast.toggleMana(group) },
+                    modifier = Modifier.semantics { contentDescription = "Mana source $label${if (used != null) ", chosen" else ""}" },
+                    label = { Text(label, fontSize = 12.sp) }, leadingIcon = { TapGlyph(used != null) },
+                    colors = FilterChipDefaults.filterChipColors(selectedContainerColor = AutomatumViolet.copy(alpha = .18f)))
+            }
+        }
+    }
+}
+
+/** A payment's use as the payment line names it: its source card, "Pool mana", "2 life". */
+private fun useName(flow: FlowQuestions, play: TableBoard, use: ManaUse): String = when (use) {
+    is ManaUse.Ability -> objectName(flow, play, use.source)
+    is ManaUse.Pool -> "Pool mana"
+    is ManaUse.Life -> "2 life"
+    is ManaUse.Special -> use.objects.joinToString { objectName(flow, play, it) }
 }
 
 @Composable

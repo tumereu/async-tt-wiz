@@ -79,12 +79,12 @@ internal fun TableToolkitScreen(toolkit: TableToolkitController, play: TableBoar
     // TBL-104: the panels' Inspect is drawn here, outside their layout
     val inspectHost = remember { InspectHost() }
     CompositionLocalProvider(LocalInspectHost provides inspectHost) {
-    // I-D50: the raised hand card's cost chips
-    RaisedCardChips(toolkit, play, scene)
     // TBL-122: a battlefield card's ability chips when it has several to activate
     PermanentAbilityChips(toolkit, play, scene)
     // Automatum (I2a): the open cast's panel by the Stack, over the table
     CastPanelHost(toolkit, play, scene, names)
+    // I-D50: the raised hand card's chips, over the cast panel while they flash as it opens (ZON-080)
+    RaisedCardChips(toolkit, play, scene)
     // Automatum (I2b): priority, resolution and trigger choices by the Stack
     SharedFlowHost(toolkit, play, scene, names, reviewing)
     val engine = LocalEngineRoutes.current

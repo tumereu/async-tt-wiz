@@ -132,13 +132,16 @@ class BattlefieldLayoutTest {
         assertEquals(slot, BattlefieldLayout.place(groups, 400f).getValue("imp").x, "closed, the host's slot only")
     }
 
-    // TBL-122: a tap on a group acts at once when it can mean one thing (identical cards count as one, an untapped one
-    // first), opens it when it could mean several, and is its top card's tap when nothing in it is usable
+    // TBL-122, TBL-130: a tap on a group acts at once when it can mean one thing (identical cards count as one, the topmost
+    // able to, an untapped one first; owner playtest 2026-11-07), opens it when it could mean several, and is its top card's
+    // tap when nothing in it is usable
     @Test fun aGroupsTapActsAtOnceOrOpensIt() {
         val lands = BattlefieldGroup("stack:f1", "a", BattlefieldRow.Lands, listOf("f1", "f2", "f3"), BattlefieldGroup.Kind.Stack)
-        val tapped = setOf("f1")
-        assertEquals(GroupTap.Act("f2"), GroupTap.of(lands, { it !in tapped }, { it in tapped }))
+        assertEquals(GroupTap.Act("f3"), GroupTap.of(lands, { true }, { false }), "the topmost member")
+        val tapped = setOf("f3")
+        assertEquals(GroupTap.Act("f2"), GroupTap.of(lands, { it !in tapped }, { it in tapped }), "the topmost able to")
         assertEquals(GroupTap.Act("f2"), GroupTap.of(lands, { true }, { it in tapped }), "an untapped one first")
+        assertEquals(GroupTap.Act("f3"), GroupTap.of(lands, { true }, { true }), "all tapped: the topmost")
         assertEquals(GroupTap.Top, GroupTap.of(lands, { false }, { false }))
         val equipped = BattlefieldGroup("host:bear", "a", BattlefieldRow.Creatures, listOf("bear", "blade"), BattlefieldGroup.Kind.Attached)
         assertEquals(GroupTap.Act("bear"), GroupTap.of(equipped, { it == "bear" }, { false }))

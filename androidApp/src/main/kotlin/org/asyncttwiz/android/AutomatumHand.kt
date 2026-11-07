@@ -156,7 +156,9 @@ internal class HandController(
     fun sources(play: TableBoard): Set<String> {
         val o = chips ?: return emptySet()
         if (o.cardId != raised) return emptySet()
-        return held?.let { o.chips.getOrNull(it)?.sources } ?: o.sources
+        val sources = held?.let { o.chips.getOrNull(it)?.sources } ?: o.sources
+        // TBL-130 (owner playtest 2026-11-07): in a stack of identical sources the topmost ones, as Autotap takes them
+        return TopmostSources.cards(sources, BattlefieldLayout.groups(play, viewer)) { id -> play.board.cards.firstOrNull { it.id == id }?.tapped == true }
     }
 
     private fun compute(play: TableBoard) {

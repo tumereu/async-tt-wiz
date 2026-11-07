@@ -211,6 +211,10 @@ object BattlefieldLayout {
         return spots
     }
 
+    /** The groups of [play]'s battlefields as [viewer]'s table lays them out (TBL-053), its computed values as far as known. */
+    fun groups(play: TableBoard, viewer: String): List<BattlefieldGroup> = groups(cards(play.board,
+        play.definitions.associate { it.digest to it.definition }, AutomatumBoards.compute(play, viewer)))
+
     /** The most peek steps any group of [groups] lifts its attached cards by (the rows grow by that much, TBL-003). */
     fun lifts(groups: List<BattlefieldGroup>): Int =
         groups.filter { it.kind == BattlefieldGroup.Kind.Attached }.maxOfOrNull { it.members.size - 1 } ?: 0
@@ -294,7 +298,8 @@ sealed interface GroupTap {
         /**
          * TBL-122: a tap on [group] when [usable] tells which cards can do what the tap would do now (activate, one-tap mana,
          * stage an attacker, pick a blocker, be picked as a target): with one of its [BattlefieldGroup.units] usable it
-         * acts on it at once (in a stack, on an untapped usable member first, [tapped] telling), with several it expands,
+         * acts on it at once (in a stack, on its topmost usable member, an untapped one first, [tapped] telling; owner
+         * playtest 2026-11-07), with several it expands,
          * with none it is the top card's tap. With [alwaysOpen] (TBL-130, owner 2026-11-07: while targets are picked) a
          * group of several with anything usable in it always opens, so each member can be picked by a tap of its own.
          */
@@ -304,7 +309,7 @@ sealed interface GroupTap {
             return when {
                 units.isEmpty() -> Top
                 alwaysOpen && group.members.size > 1 -> Expand
-                units.size == 1 -> Act(units.single().let { members -> members.firstOrNull { !tapped(it) } ?: members.first() })
+                units.size == 1 -> Act(units.single().let { members -> members.lastOrNull { !tapped(it) } ?: members.last() })
                 else -> Expand
             }
         }

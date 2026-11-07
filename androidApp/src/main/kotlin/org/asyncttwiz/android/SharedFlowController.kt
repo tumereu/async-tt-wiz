@@ -72,7 +72,8 @@ internal class SharedFlowController(
             picked = emptyList()
             hidden = false
             // STK-049 (owner gallery review, 2026-11-06): with Autotap on a payment opens with its sources picked, off none
-            mana = if (autotap()) ((next?.decision as? Decision.ManaPayment) ?: next?.payment)?.suggestion.orEmpty() else emptyList()
+            mana = if (!autotap() || next == null) emptyList()
+                else ((next.decision as? Decision.ManaPayment) ?: next.payment)?.let { suggestion(next, it) }.orEmpty()
             if (choosingFor != id) choosingFor = null
         }
         visible = null
@@ -150,7 +151,15 @@ internal class SharedFlowController(
         val holder = flow.holder
         val declaring = if (holder == null) flow.declaring else null
         if (holder == null && declaring == null) throw Refused(NOTHING_TO_PASS)
-        return if (holder != null) flow.step(holder) else flow.declare(autotap())
+        return if (holder != null) flow.step(holder) else flow.declare(autotap()) { suggestion(flow, it) }
+    }
+
+    /** STK-024, TBL-130 (owner playtest 2026-11-07): Autotap's suggestion for [payment] of [flow], taking the topmost members
+     * of stacks of identical sources ([TopmostSources]); the engine's own when that doesn't pay. */
+    private fun suggestion(flow: SharedFlow, payment: Decision.ManaPayment): List<ManaUse> {
+        val play = current() ?: return payment.suggestion
+        val topmost = TopmostSources.of(payment.suggestion, payment.options, BattlefieldLayout.groups(play, viewer), flow::atwCard)
+        return if (topmost == payment.suggestion || flow.pays(topmost)) topmost else payment.suggestion
     }
 
     override fun answer(answer: Answer): Boolean = answerWith(answer, emptyList())

@@ -233,13 +233,13 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
         }
     }
 
-    /** STK-024: which card of [card]'s stack in [group] a tap on it adds to the open payment: the first one not paying yet,
-     * else the last one paying (taken out). */
+    /** STK-024, TBL-130 (owner playtest 2026-11-07): which card of [card]'s stack in [group] a tap on it adds to the open
+     * payment: the topmost one not paying yet, else (all paying) the lowest one, the one added last (taken out). */
     private fun payMember(group: BattlefieldGroup, card: String): String {
         val unit = group.units.firstOrNull { card in it } ?: return card
         val payable = cast.payableSources()
         val paying = cast.paySources()
-        return unit.firstOrNull { it in payable && it !in paying } ?: unit.lastOrNull { it in paying } ?: card
+        return unit.lastOrNull { it in payable && it !in paying } ?: unit.firstOrNull { it in paying } ?: card
     }
 
     /** Closes the ability chips (a tap elsewhere, an activation). */

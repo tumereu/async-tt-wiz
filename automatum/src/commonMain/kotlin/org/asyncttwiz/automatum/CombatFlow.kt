@@ -12,6 +12,7 @@ import arcanum.engine.change.Change
 import arcanum.engine.change.Meaning
 import arcanum.engine.decision.Answer
 import arcanum.engine.decision.Decision
+import arcanum.engine.decision.ManaUse
 import arcanum.engine.decision.Share
 import arcanum.engine.input.Attack
 import arcanum.engine.input.Block
@@ -293,23 +294,25 @@ object CombatFlow {
      * for.
      * @throws CombatRefused when the engine refuses the declaration; nothing changes then.
      */
-    fun declareAttackers(call: EngineRun, attacks: List<LaneAttack>, autotap: Boolean = false): Pending? {
+    fun declareAttackers(call: EngineRun, attacks: List<LaneAttack>, autotap: Boolean = false,
+        pick: (Decision.ManaPayment) -> List<ManaUse> = { it.suggestion }): Pending? {
         val input = attackInput(call, attacks)
         refusal(call.working, input)?.let { throw CombatRefused(reason(call, it)) }
-        return paid(call, input.player, call.perform(input), autotap)
+        return paid(call, input.player, call.perform(input), autotap, pick)
     }
 
     /**
      * CMB-037 (CR 508.1h–j, 509.1d–f, I-D47): what the engine waits for after a declaration with costs ([pending]): with
-     * [autotap] the mana it asks [player] to pay is paid with its suggestion in the same call, as casting does; any other
-     * choice of the payment (what to sacrifice) stays open for the shared flow's panel.
+     * [autotap] the mana it asks [player] to pay is paid with its suggestion in the same call (as [pick] takes it), as casting
+     * does; any other choice of the payment (what to sacrifice) stays open for the shared flow's panel.
      */
-    private fun paid(call: EngineRun, player: PlayerId, pending: Pending?, autotap: Boolean): Pending? {
+    private fun paid(call: EngineRun, player: PlayerId, pending: Pending?, autotap: Boolean,
+        pick: (Decision.ManaPayment) -> List<ManaUse>): Pending? {
         var open = pending
         while (autotap) {
             val d = open?.decision as? Decision.ManaPayment ?: break
             if (d.player != player) break
-            val answer = Input.Answer(d.id, Answer.ManaPayment(d.suggestion))
+            val answer = Input.Answer(d.id, Answer.ManaPayment(pick(d)))
             if (refusal(call.working, answer) != null) break
             open = call.perform(answer)
         }
@@ -320,10 +323,11 @@ object CombatFlow {
      * The defending player declares [blocks] (CR 509.1); an empty list declares no blockers.
      * @throws CombatRefused when the engine refuses the declaration; nothing changes then.
      */
-    fun declareBlockers(call: EngineRun, blocks: List<LaneBlock>, autotap: Boolean = false): Pending? {
+    fun declareBlockers(call: EngineRun, blocks: List<LaneBlock>, autotap: Boolean = false,
+        pick: (Decision.ManaPayment) -> List<ManaUse> = { it.suggestion }): Pending? {
         val input = blockInput(call, blocks)
         refusal(call.working, input)?.let { throw CombatRefused(reason(call, it)) }
-        return paid(call, input.player, call.perform(input), autotap)
+        return paid(call, input.player, call.perform(input), autotap, pick)
     }
 
     /**

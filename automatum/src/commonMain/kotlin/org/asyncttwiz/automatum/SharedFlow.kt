@@ -82,15 +82,16 @@ class SharedFlow private constructor(
 
     /**
      * Declares what ATW's lanes hold (the step button in the declare attackers or blockers step, CR 508.1, 509.1), with
-     * the attacker's choices ([CombatFlow.withChoices]); with [autotap] the mana of costs to attack or block is paid with the engine's suggestion (CR 508.1h, 509.1d).
+     * the attacker's choices ([CombatFlow.withChoices]); with [autotap] the mana of costs to attack or block is paid with the engine's suggestion (CR 508.1h, 509.1d),
+     * as [pick] takes it from the payment.
      * @throws CombatRefused when the engine refuses the declaration (nothing changes).
      */
-    fun declare(autotap: Boolean = false): EngineRun = call().apply {
+    fun declare(autotap: Boolean = false, pick: (Decision.ManaPayment) -> List<ManaUse> = { it.suggestion }): EngineRun = call().apply {
         val (attacks, blocks) = CombatFlow.lanes(board.combat)
         // CMB-036–CMB-038: with the attacker's choices; CMB-037: with [autotap] the costs' mana is paid by itself (I-D47)
         if (Engine.options(working, working.turn.active).any { it is Input.DeclareAttackers })
-            CombatFlow.declareAttackers(this, CombatFlow.withChoices(attacks, board), autotap)
-        else CombatFlow.declareBlockers(this, blocks, autotap)
+            CombatFlow.declareAttackers(this, CombatFlow.withChoices(attacks, board), autotap, pick)
+        else CombatFlow.declareBlockers(this, blocks, autotap, pick)
     }
 
     /**

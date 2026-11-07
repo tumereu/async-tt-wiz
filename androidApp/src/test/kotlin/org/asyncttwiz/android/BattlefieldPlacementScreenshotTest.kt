@@ -183,8 +183,9 @@ class BattlefieldPlacementScreenshotTest {
         assertEquals(3, scene.items.single { it.cardId == "a-elemental-3" }.copies)
         val board = engineTableBoard(play, "a")
         assertEquals(GroupTap.Expand, toolkit.groupTap(board, groups.getValue("host:${f.HOST}")))
-        assertEquals(GroupTap.Act("a-hound-2"), toolkit.groupTap(board, groups.getValue("stack:a-hound-2")))
-        assertEquals(GroupTap.Act("a-mountain-2"), toolkit.groupTap(board, groups.getValue("stack:a-mountain-1")))
+        // TBL-130: the topmost member able to (the Mountains' top one is tapped)
+        assertEquals(GroupTap.Act("a-hound-3"), toolkit.groupTap(board, groups.getValue("stack:a-hound-2")))
+        assertEquals(GroupTap.Act("a-mountain-3"), toolkit.groupTap(board, groups.getValue("stack:a-mountain-1")))
         compose.onRoot().captureShot("$SCREENSHOTS/battlefield/both-sides.png",
             "Alice's main phase, both battlefields laid out by themselves: by each player's edge the land row, the Mountains " +
                 "fanned as one stack from the left (tapped ones turned inside it); above it the two-row upper band with the " +

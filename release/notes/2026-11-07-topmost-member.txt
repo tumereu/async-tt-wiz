@@ -1,0 +1,1 @@
+mod: In a stack of identical permanents, tapping the stack now uses the top card first, for mana, attacking, blocking and paying.

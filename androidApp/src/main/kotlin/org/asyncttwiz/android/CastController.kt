@@ -405,7 +405,7 @@ internal class CastController(
         val play = current() ?: run { fail(CANT_ACT); return false }
         val autotapOn = autotap
         val follows = autotapOn && !custom
-        val picked = (f.pending as? Decision.ManaPayment)?.let { payment -> if (follows) payment.suggestion else mana }
+        val picked = (f.pending as? Decision.ManaPayment)?.let { payment -> if (follows) suggestion(f, payment) else mana }
         if (picked == null && !f.complete) return false
         return step { complete(f, autotapOn, picked) ?: Step.Refuse(if (picked != null) notPaid(f.pending as Decision.ManaPayment) else NOT_ALLOWED) }
     }
@@ -638,7 +638,15 @@ internal class CastController(
     /** The mana chosen for [payment] of [flow]: Autotap's suggestion when it [follows], else the player's sources [keep]
      * carried to it ([ManaPicks.carry]; none with Autotap off until they tap some). */
     private fun picks(flow: CastFlow, payment: Decision.ManaPayment, follows: Boolean, keep: List<ManaUse>?): List<ManaUse> =
-        if (follows) payment.suggestion else ManaPicks.carry(payment, keep.orEmpty(), flow::pays)
+        if (follows) suggestion(flow, payment) else ManaPicks.carry(payment, keep.orEmpty(), flow::pays)
+
+    /** STK-024, TBL-130 (owner playtest 2026-11-07): Autotap's suggestion for [payment] of [flow], taking the topmost members
+     * of stacks of identical sources ([TopmostSources]); the engine's own when that doesn't pay. */
+    private fun suggestion(flow: CastFlow, payment: Decision.ManaPayment): List<ManaUse> {
+        val play = current() ?: return payment.suggestion
+        val topmost = TopmostSources.of(payment.suggestion, payment.options, BattlefieldLayout.groups(play, viewer), flow::atwCard)
+        return if (topmost == payment.suggestion || flow.pays(topmost)) topmost else payment.suggestion
+    }
 
     /** STK-023: the most each announcement of [flow] (open or answered) may be ([announcedMost]). */
     private fun mostAnnounced(flow: CastFlow): Map<arcanum.engine.decision.DecisionId, Int> {
@@ -659,7 +667,7 @@ internal class CastController(
         val uses = when {
             next.complete -> null
             payment != null && picked != null -> picked
-            payment != null && autotapOn && payment.suggestion.isNotEmpty() && next.pays(payment.suggestion) -> payment.suggestion
+            payment != null && autotapOn && payment.suggestion.isNotEmpty() && next.pays(payment.suggestion) -> suggestion(next, payment)
             else -> return null
         }
         val sending = try { next.sending(uses) } catch (_: IllegalArgumentException) { return null }

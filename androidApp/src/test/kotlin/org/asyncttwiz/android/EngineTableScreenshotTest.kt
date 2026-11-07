@@ -143,7 +143,7 @@ class EngineTableScreenshotTest {
 
     // TRN-059, HIS-096
     @Test fun theAssumeQuickActionShowsAlways() = assumeCell(org.asyncttwiz.protocol.game.AssumeResolves.Always, "Always",
-        "assume-always", "filled amber with white words, it reads \"Assume: Always\": her device goes on wherever Bob gets priority.")
+        "assume-always", "filled red-orange with white words, it reads \"Assume: Always\": her device goes on wherever Bob gets priority after something she did.")
 
     /** Alice at her main phase in response mode [mode]: the quick action shows its name and is captured as [file]. */
     private fun modeCell(mode: org.asyncttwiz.protocol.game.ResponseMode, file: String, caption: String) {

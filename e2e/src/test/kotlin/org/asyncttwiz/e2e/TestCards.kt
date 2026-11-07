@@ -88,6 +88,12 @@ object TestCards {
     val glance = card("Ember Glance", "Sorcery", "{0}", "Look at target player's hand.")
     /** A free enchantment whose trigger its controller gets on the other player's cheap spell (their spell puts it on top). */
     val warden = card("Ember Warden", "Enchantment", "{0}", "Whenever an opponent casts a spell with mana value 2 or less, you gain 2 life.")
+    /** A free creature with haste: it attacks the turn it is cast. */
+    val dasher = card("Ember Dasher", "Creature — Elemental", "{0}", "Haste", "1", "1")
+    /** A free creature whose own trigger goes on the Stack when it dies (no target: nothing to choose). */
+    val martyr = card("Ember Martyr", "Creature — Elemental", "{0}", "When this creature dies, you gain 2 life.", "1", "1")
+    /** A free enchantment whose trigger begins its controller's upkeep (no input before it in the step). */
+    val chime = card("Ember Chime", "Enchantment", "{0}", "At the beginning of your upkeep, you gain 1 life.")
 
     /** A split card ({2}{G} // {1}{R}{R}) as a catalog import keeps it (PhysicalCardFaces): one face holding both halves,
      * the front half's catalog record (its cost only) as the face's source data. */

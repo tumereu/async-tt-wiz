@@ -35,8 +35,9 @@ import org.asyncttwiz.protocol.GameAction
  *   event, as do engine-automatic answers ([WhoActs.automaticAnswer], public forced passes). Under Auto-skip it also
  *   answers questions with only one answer.
  * - **Assume or wait** (§3, §4) at the other player's points: engine-automatic answers at once; their pass assumed at
- *   once where the player's Assume setting assumes it or the other player's own response mode would pass it
- *   ([opponentMode], their Quick judged on their real hand; owner 2026-11-06), else a wait with Assume, whether they
+ *   once where the other player's own response mode would pass it ([opponentMode], their Quick judged on their real
+ *   hand; owner 2026-11-06) or, at a point the player began ([pointOwner]: the last real input since the step began was
+ *   theirs; owner 2026-11-07), where their Assume setting assumes it, else a wait with Assume, whether they
  *   are online or away (HIS-096: presence never decides it); never at their
  *   own main phase; blockers a wait with Assume blockers ([assume]); anything else a real wait, the opening keep
  *   included (TRN-027: never assumed). An assumption whose outcome would show the player a hidden card, or a random
@@ -632,13 +633,17 @@ class GameDevice(
     }
 
     /**
-     * HIS-096 (owner 2026-11-06): whether [holder]'s pass on [s] (their priority, not at their own main phase) is assumed at
-     * once: where this player's Assume setting assumes it ([settingAssumes]) or [holder]'s own response mode would pass it
-     * ([opponentMode]: their Quick judged on their real hand, information they give out by choosing Quick).
+     * HIS-096 (owner 2026-11-06, 2026-11-07): whether [holder]'s pass on [s] (their priority, not at their own main phase)
+     * is assumed at once. Always where [holder]'s own response mode would pass it ([opponentMode]: their Quick judged on
+     * their real hand, information they give out by choosing Quick); at a point this player began ([pointOwner] on the
+     * line up to the head), also where this player's Assume setting assumes it ([settingAssumes]). At a point [holder]
+     * began, the setting doesn't count: where their mode stops, the device waits for them.
      */
-    private fun assumesAtOnce(s: GameState, holder: PlayerId): Boolean =
-        settingAssumes(settings.assume, s, holder, me) { noMana(s, holder) } ||
-            Stops.passes(opponentMode, s, holder) { model.passCheck(holder).ownSkipOn }
+    private fun assumesAtOnce(s: GameState, holder: PlayerId): Boolean {
+        if (Stops.passes(opponentMode, s, holder) { model.passCheck(holder).ownSkipOn }) return true
+        if (pointOwner(session.events + session.pending, s) != me) return false
+        return settingAssumes(settings.assume, s, holder, me) { noMana(s, holder) }
+    }
 
     /** Whether [holder] has no mana on [s] as this player's table shows it: nothing in their mana pool and nothing they
      * could activate (no untapped mana source, mana abilities being activations too, and no other ability usable now).
@@ -1626,7 +1631,8 @@ class GameDevice(
          * point (as Control stops everywhere); Normal wherever Normal mode would pass ([Stops.passes]), and at their pause
          * at [me]'s end step and right after [me]'s attack (nothing of [me]'s follows before their next real answer, so it
          * never takes anything back); When they have no mana as Normal and also while [noMana]; Always at every point.
-         * Whatever the setting, the device also assumes a pass [holder]'s own response mode would make ([GameDevice]).
+         * Whatever the setting, the device also assumes a pass [holder]'s own response mode would make ([GameDevice]); the
+         * setting counts only at points [me] began ([pointOwner], owner 2026-11-07).
          */
         fun settingAssumes(setting: AssumeResolves, s: GameState, holder: PlayerId, me: PlayerId, noMana: () -> Boolean): Boolean {
             fun normal() = Stops.passes(ResponseMode.Normal, s, holder) { false } || (s.stack.isEmpty() && s.turn.active == me &&
@@ -1637,6 +1643,50 @@ class GameDevice(
                 AssumeResolves.WhenNoMana -> normal() || noMana()
                 AssumeResolves.Always -> true
             }
+        }
+
+        /**
+         * HIS-096 (owner 2026-11-07): who began the point at [state], the end of [line] (the main line's events up to it,
+         * oldest first): the player who made the last real input since the step began. A real input is a cast, a land
+         * played, an activation, a declaration of attackers or blockers (an empty one too) or an answer to a decision;
+         * an assumed one (assumed blocks) is the input of the player who assumed it; never a pass, a random answer or an
+         * engine-automatic answer one device made for the other player. Whose turn it is and who controls the top of the
+         * Stack don't matter. With no real input since the step began (a beginning-of-step trigger), or none on [line]
+         * (its older events trimmed), the active player.
+         */
+        fun pointOwner(line: List<GameEvent>, state: GameState): PlayerId {
+            for (event in line.asReversed()) {
+                val steps = event.engine?.steps ?: continue
+                for (step in steps.asReversed()) {
+                    // The step began after this step's input (its changes follow it): nothing later was a real input
+                    if (step.changes.any { it is arcanum.engine.change.Change.Step && (it.before.step != it.after.step ||
+                            it.before.number != it.after.number) }) return state.turn.active
+                    val input = step.input ?: continue
+                    realInputBy(event, step, input)?.let { return it }
+                }
+            }
+            return state.turn.active
+        }
+
+        /** The player whose real input [input] (of [step] in [event]) is ([pointOwner]), or null when it is none. */
+        private fun realInputBy(event: GameEvent, step: EngineStep, input: Input): PlayerId? {
+            val player = when (input) {
+                is Input.Cast -> input.player
+                is Input.PlayLand -> input.player
+                is Input.Activate -> input.player
+                is Input.DeclareAttackers -> input.player
+                is Input.DeclareBlockers -> input.player
+                is Input.SetupAnswer -> input.player
+                // The decision it answered, as the step's first change of the open decision records it
+                is Input.Answer -> step.changes.firstNotNullOfOrNull { change ->
+                    (change as? arcanum.engine.change.Change.PendingSet)?.before?.decision?.takeIf { it.id == input.decision }
+                }?.takeIf { it !is Decision.Random }?.player
+                else -> null
+            } ?: return null
+            // An assumed input (assumed blocks) began the point for the player who pressed Assume: the other player did
+            // nothing there. Else only the author's own counts (an answer made by a device for the other player is
+            // engine-automatic: it decides nothing)
+            return step.assumedBy ?: player.takeIf { it.value == event.author }
         }
 
         /** [state] without what never makes a decision another ([sameDecision]). */

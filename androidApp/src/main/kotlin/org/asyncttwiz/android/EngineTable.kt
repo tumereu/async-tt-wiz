@@ -527,11 +527,11 @@ internal fun AssumeResolves.short(): String = when (this) {
 internal fun AssumeResolves.meaning(): String = when (this) {
     AssumeResolves.Never -> "Wait wherever the other player gets priority, with Assume on the main button, as Control stops."
     AssumeResolves.Normal -> "Go on at once where Normal mode would, and at their pause in your end step and right after your " +
-        "attack; wait with Assume where Normal mode stops."
+        "attack; wait with Assume where Normal mode stops. After something they did, their own mode decides."
     AssumeResolves.WhenNoMana -> "As Normal, and also go on at once at their pauses while the table shows them no untapped mana " +
         "source, no mana in their pool and no ability they could activate."
-    AssumeResolves.Always -> "Go on at once wherever the other player gets priority, assuming they let things resolve; they can " +
-        "still respond later."
+    AssumeResolves.Always -> "Go on at once wherever the other player gets priority after something you did, assuming they let " +
+        "things resolve; they can still respond later. After something they did, their own mode decides."
 }
 
 /**
@@ -731,11 +731,12 @@ internal fun playbackDelay(multiplier: Float): Long = (PLAYBACK_DELAY_MS / cardM
 /**
  * HIS-021 (§27, §29.3, §29.6): how long playback waits after showing [shown] before the next event: nothing after an
  * event that changed nothing you can see ([EnginePlaybackPace.quiet]: only the step indicator moved; with playback's Full
- * control on, [mode], the delay too), a short moment after the other player's staging and card places, else the playback [delay].
+ * control on, [mode], the delay too, except a pass made right after the same player's own action, [previous], HIS-104), a
+ * short moment after the other player's staging and card places, else the playback [delay].
  */
-internal fun playbackWait(shown: GameEvent?, delay: Long, mode: ResponseMode): Long = when {
+internal fun playbackWait(shown: GameEvent?, delay: Long, mode: ResponseMode, previous: GameEvent? = null): Long = when {
     shown == null -> 0L
-    EnginePlaybackPace.quiet(shown) -> if (mode == ResponseMode.FullControl) delay else 0L
+    EnginePlaybackPace.quiet(shown) -> if (mode == ResponseMode.FullControl && !EnginePlaybackPace.passAfterOwnAction(shown, previous)) delay else 0L
     shown.engine == null && shown.table.all { it is TableChange.AttackDraft || it is TableChange.BlockDraft || it is TableChange.Placed ||
         it is TableChange.EarlyAnswered } -> QUICK_PLAYBACK_MS
     else -> delay
@@ -756,7 +757,7 @@ private fun EnginePlayback(routes: EngineTableRoutes) {
         // has played
         if (shown.takingBack) snapshotFlow { routes.motionBusy() }.first { !it }
         val last = shown.held.lastOrNull()?.takeIf { it.id == shown.localHead }
-        val wait = playbackWait(last, playbackDelay(multiplier), shown.settings.mode)
+        val wait = playbackWait(last, playbackDelay(multiplier), shown.settings.mode, shown.held.getOrNull(shown.held.size - 2))
         if (wait > 0) delay(wait)
         if (game.shown?.status is GameDevice.Status.Playing) { game.step(); routes.pump() }
     }
@@ -774,6 +775,19 @@ internal object EnginePlaybackPace {
         if (event.table.isNotEmpty()) return false
         if (part.steps.any { it.input?.let(::empty) == false }) return false
         return part.changes.none(::visible)
+    }
+
+    /**
+     * HIS-104 (owner 2026-11-07: a manual resolve is indistinguishable): whether [event] is a player's own pass made right
+     * after their own action [previous] (a cast, an activation, not a pass or an assumption), as a player in Control
+     * resolving by hand after their cast: a lower mode would have passed by itself inside that action's event, so playback
+     * gives it no delay of its own.
+     */
+    fun passAfterOwnAction(event: GameEvent, previous: GameEvent?): Boolean {
+        if (previous == null || event.parentId != previous.id || event.author != previous.author) return false
+        if (event.assumed != null || previous.assumed != null) return false
+        val acting = previous.engine?.steps?.firstOrNull { it.input != null }?.input ?: return false
+        return event.engine?.steps?.firstOrNull { it.input != null }?.input is Input.PassPriority && acting !is Input.PassPriority
     }
 
     private fun empty(input: Input): Boolean = input is Input.PassPriority ||

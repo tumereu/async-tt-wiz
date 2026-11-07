@@ -96,6 +96,24 @@ class EngineAsyncViewTest {
         if (draw != null) assertFalse(EnginePlaybackPace.quiet(draw))
     }
 
+    // HIS-104 (owner 2026-11-07: a manual resolve is indistinguishable): under Full control a player's pass right after
+    // their own cast goes by at once too, as the pass a lower mode makes inside the cast's event; after their pass, after
+    // an assumption or after the other player's event it keeps the delay
+    @Test fun aPassRightAfterTheSamePlayersCastGoesByAtOnce() {
+        fun step(input: Input) = org.asyncttwiz.protocol.game.EngineStep(input, emptyList())
+        fun event(id: String, parent: String, author: String, input: Input, assumedBy: PlayerId? = null) =
+            GameEvent(id, parent, author, org.asyncttwiz.protocol.game.EnginePart(0, listOf(step(input).copy(assumedBy = assumedBy))))
+        val bob = PlayerId("bob"); val alice = PlayerId("alice")
+        val cast = event("c", "r", bob.value, Input.Cast(bob, arcanum.engine.state.ObjectId.Card(arcanum.engine.state.CardId("x"), 0)))
+        val pass = event("p", "c", bob.value, Input.PassPriority(bob))
+        assertTrue(EnginePlaybackPace.quiet(pass))
+        assertEquals(0L, playbackWait(pass, 330, ResponseMode.FullControl, cast))
+        assertEquals(330L, playbackWait(event("p2", "p", bob.value, Input.PassPriority(bob)), 330, ResponseMode.FullControl, pass))
+        assertEquals(330L, playbackWait(event("p3", "c", alice.value, Input.PassPriority(alice)), 330, ResponseMode.FullControl, cast))
+        assertEquals(330L, playbackWait(event("p4", "c", alice.value, Input.PassPriority(bob), assumedBy = alice), 330, ResponseMode.FullControl, cast))
+        assertEquals(330L, playbackWait(pass, 330, ResponseMode.FullControl))
+    }
+
     // HIS-021 (§29.3): the playback delay is a third of a second at Card move speed 1×, scaled by it
     @Test fun thePlaybackDelayFollowsTheCardMoveSpeed() {
         assertEquals(330L, playbackDelay(1f))

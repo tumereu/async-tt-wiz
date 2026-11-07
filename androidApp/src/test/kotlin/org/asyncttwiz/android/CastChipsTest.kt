@@ -233,6 +233,10 @@ class CastChipsTest {
             "Alice tapped her Ember Kit in hand with a Mountain and an Ember Shard out: it rises with two chips above it, \"Cast\" and \"Cast with offspring\" with its {R}, each casting the Kit that way in one tap.")
         kit.tap(kit.item(card, PlayZone.HAND))
         assertTrue(toolkit.cast.handExtra(0))
+        refresh()
+        // STK-024 (owner 2026-11-07, open issue for the owner): unpanned, the portrait cast panel covers her land row
+        captureShot("$SCREENSHOTS/cast-panel/covers-lands.png",
+            "Alice tapped her raised Ember Kit to open its cast panel and turned on its Offspring extra, the table not panned: the panel's \"Mana · {R}\" section asks her to tap sources on the table, but the panel covers the bottom of her battlefield, her Mountain and Ember Shard hidden under it.")
         // In portrait the panel covers the bottom of her battlefield: she pans the table up to see her sources above it
         toolkit.layoutState.value = toolkit.layoutState.value.copy(camera = TableCamera(y = 150f))
         val suggested = toolkit.cast.paySources().single()

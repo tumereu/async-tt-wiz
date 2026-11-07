@@ -299,6 +299,8 @@ internal fun TableSurface(game: GameSummary, play: TableBoard, accountId: String
             val barColor by animateColorAsState(tableBarColor(play.board, accountId, runtime.reviewing), tween(200), label = "Table bars")
             // A cast or an Automatum decision choosing targets (I-D6): its legal targets glow
             val castGlow = toolkit?.cast?.glow(play).orEmpty() + toolkit?.flows?.glow(play).orEmpty()
+            // STK-047 (owner 2026-11-07): the targets picked so far show picked, alone or in an opened group (TBL-130)
+            val pickedGlow = toolkit?.cast?.pickedGlow(play).orEmpty() + toolkit?.flows?.pickedGlow(play).orEmpty()
             // I-D46: the viewer's playable cards glow (live table only); a refused gesture shakes what it was made on.
             // TBL-117 (owner playtest 2026-11-04 #8): while Automatum works a new board out the cards that stayed where they
             // were keep their glow, and each glow fades in and out, so a card that stays playable never blinks
@@ -327,12 +329,12 @@ internal fun TableSurface(game: GameSummary, play: TableBoard, accountId: String
             Canvas(Modifier.fillMaxSize()) {
                 DebugLatency.tapFrame(game.id, progress.value, refreshRate)
                 val frame = rendered.value
-                val glows = TableGlows.of(frame.scene.battlefieldGroups, groupTaps, glow.alphas(), castGlow, attackGlow)
+                val glows = TableGlows.of(frame.scene.battlefieldGroups, groupTaps, glow.alphas(), castGlow, attackGlow, pickedGlow)
                 val alphas = if (dimmed.isEmpty()) frame.alphas else frame.alphas + frame.scene.items
                     .filter { it.battlefieldCard && it.cardId in dimmed }.associate { it.id to minOf(frame.alphas[it.id] ?: 1f, TARGET_DIMMED) }
                 drawTable(frame.scene, accountId, play.board.turn.accountId, preview, alphas, artwork, drawCache,
                     presenceDot, glows.targets, glows.playable, shaking?.let { it.id to shakeOffset.value }?.takeIf { it.second != 0f }, raisedSources,
-                    attackable = glows.attack, expandGlow = glows.expand, pressed = pressGlow.value, pileBadges = false)
+                    attackable = glows.attack, expandGlow = glows.expand, pressed = pressGlow.value, picked = glows.picked, pileBadges = false)
             }
             TableSemanticNodes(game, play, scene, semanticItems, rendered, runtime, { currentRuntime }, coordinator, writable, toolkit,
                 { preview }, layoutState)

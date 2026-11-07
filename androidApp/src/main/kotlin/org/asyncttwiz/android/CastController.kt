@@ -447,6 +447,13 @@ internal class CastController(
         return targetGlow(play, decision.options.map(f::ref))
     }
 
+    /** STK-047: the table items of the targets picked so far for a slot that takes several, drawn as picked. */
+    fun pickedGlow(play: TableBoard): Set<String> {
+        val f = flow ?: return emptySet()
+        if (f.pending !is Decision.Targets) return emptySet()
+        return targetPicks(play, picked.map(f::ref))
+    }
+
     /** The Stack entries that are legal targets of the open question, top first (picked in Manage Stack). */
     fun stackTargets(play: TableBoard): List<String> {
         val f = flow ?: return emptyList()
@@ -741,6 +748,18 @@ internal fun targetGlow(play: TableBoard, refs: List<MtgRef>): Set<String> = ref
     }
 }.toSet() + listOfNotNull(CombatStackRules.stack(play.board).takeIf { stack ->
     targetEntries(play, refs).any { it != stack.cards.firstOrNull() } }?.id)
+
+/** STK-047: the table items drawn as picked for the picked targets [refs]: cards by id, Stack entries by id, players by
+ * their life square (never the pile or the Stack holding one: it may hold other targets still to pick). */
+internal fun targetPicks(play: TableBoard, refs: List<MtgRef>): Set<String> = refs.flatMapTo(HashSet()) { ref ->
+    val entries = play.board.stackEffects.filter { it.item?.id == ref }.map { it.id }
+    if (entries.isNotEmpty()) return@flatMapTo entries
+    when (ref) {
+        is MtgRef.Player -> listOf("life/${ref.accountId}")
+        is MtgRef.Card -> listOf(ref.cardId)
+        is MtgRef.StackItem -> emptyList()
+    }
+}
 
 /** The Stack entries that are legal targets among [refs]: a spell by its card (its item's object), an ability by its
  * item (I-D6), top first. */

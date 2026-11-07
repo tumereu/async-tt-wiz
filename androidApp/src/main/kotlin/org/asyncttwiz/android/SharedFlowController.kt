@@ -226,6 +226,13 @@ internal class SharedFlowController(
         return targetGlow(play, decision.options.map(flow::ref))
     }
 
+    /** STK-047: the table items of the targets picked so far for a slot that takes several, drawn as picked. */
+    fun pickedGlow(play: TableBoard): Set<String> {
+        val flow = view ?: return emptySet()
+        if (answering !is Decision.Targets) return emptySet()
+        return targetPicks(play, picked.map(flow::ref))
+    }
+
     /** The Stack entries that are legal targets of the open decision the viewer answers, top first. */
     fun stackTargets(play: TableBoard): List<String> {
         val flow = view ?: return emptyList()

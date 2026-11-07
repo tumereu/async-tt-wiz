@@ -47,6 +47,9 @@ internal fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: 
     /** TBL-117 (owner playtest 2026-11-06): the item a finger is down on and how far its glow has grown (0–1): a glowing
      * card's glow grows a little and brightens under the finger. */
     pressed: Pair<String, Float>? = null,
+    /** STK-047 (owner 2026-11-07): the targets picked so far (ids as [glow]): their violet glow at full strength, a violet
+     * wash over them and a white check in a violet dot at their top right. */
+    picked: Set<String> = emptySet(),
     /** Whether the piles' count bubbles are drawn here; false when the caller draws them over its overlays
      * ([drawPileBadges]: over the Stack's target arrows, STK-058). */
     pileBadges: Boolean = true) {
@@ -133,13 +136,30 @@ internal fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: 
                 size(b.width + 2 * outset + 4, b.height + 2 * outset + 4), style = Stroke(6 * density))
             drawRect(AutotapAmber, xy(b.x - outset, b.y - outset), size(b.width + 2 * outset, b.height + 2 * outset), style = Stroke(2.5f * density))
         }
-        if (glow.isNotEmpty() && (i.cardId in glow || i.sourceId in glow || i.id in glow)) {
-            // TBL-117, STK-047 (owner playtest 2026-11-06): under a finger the target's glow grows a little and brightens
-            val press = if (pressed != null && pressed.first == i.id) pressed.second else 0f
+        val chosen = picked.isNotEmpty() && (i.cardId in picked || i.sourceId in picked || i.id in picked)
+        if (chosen || glow.isNotEmpty() && (i.cardId in glow || i.sourceId in glow || i.id in glow)) {
+            // TBL-117, STK-047 (owner playtest 2026-11-06): under a finger the target's glow grows a little and brightens;
+            // a picked target's is always at full strength
+            val press = if (chosen) 1f else if (pressed != null && pressed.first == i.id) pressed.second else 0f
             val halo = 2f + 1.5f * press
             drawRect(AutomatumViolet.copy(alpha = .35f + .25f * press), xy(b.x - outset - halo, b.y - outset - halo),
                 size(b.width + 2 * outset + 2 * halo, b.height + 2 * outset + 2 * halo), style = Stroke((6 + 3 * press) * density))
             drawRect(AutomatumViolet, xy(b.x - outset, b.y - outset), size(b.width + 2 * outset, b.height + 2 * outset), style = Stroke(2.5f * density))
+        }
+        if (chosen) {
+            // STK-047 (owner 2026-11-07): picked: a violet wash over it and a white check in a violet dot at its top right
+            drawRect(AutomatumViolet.copy(alpha = .3f), xy(b.x, b.y), size(b.width, b.height))
+            val r = (minOf(b.width, b.height) * .2f).coerceIn(4f, 8f)
+            val c = xy(b.right - r - 1f, b.y + r + 1f)
+            drawCircle(AutomatumViolet, r * density, c)
+            drawCircle(Color.White, r * density, c, style = Stroke(.8f * density))
+            val check = androidx.compose.ui.graphics.Path().apply {
+                moveTo(c.x - .5f * r * density, c.y)
+                lineTo(c.x - .12f * r * density, c.y + .4f * r * density)
+                lineTo(c.x + .52f * r * density, c.y - .35f * r * density)
+            }
+            drawPath(check, Color.White, style = Stroke(1.4f * density, cap = androidx.compose.ui.graphics.StrokeCap.Round,
+                join = androidx.compose.ui.graphics.StrokeJoin.Round))
         }
     }
     for (i in scene.items) for (part in i.visible) {

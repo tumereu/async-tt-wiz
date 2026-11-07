@@ -111,3 +111,6 @@ number	item	screenshot	catalog	decisions
 110	Targeting: opened group of 6, one tapped, one picked	battlefield/group-opened-targets-6.png	TBL-130 TBL-002 STK-047	Targets
 111	Targeting: opened group of 6 in landscape	battlefield/group-opened-targets-6-landscape.png	TBL-130 TBL-002 STK-047	Targets
 112	Targeting: opened group with non-targets dimmed	battlefield/group-opened-targets-dimmed.png	TBL-130	Targets
+113	Targeting: a picked card alone	battlefield/target-picked-alone.png	STK-047 TBL-117	Targets
+114	Issue: cast panel covers your lands (portrait)	cast-panel/covers-lands.png	STK-024 STK-023
+115	Issue: target bar covers your lands (landscape)	battlefield/group-opened-targets-6-landscape.png	STK-047	Targets

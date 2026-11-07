@@ -333,12 +333,35 @@ class BattlefieldPlacementScreenshotTest {
         compose.runOnIdle {
             assertEquals(listOf("a-hound-4"), picked(toolkit))
             assertEquals("stack:a-hound-2", toolkit.expandedGroup, "it stays open while targets are picked from it")
+            // STK-047: the picked member is drawn picked, every member framed, as cards alone
+            assertEquals(setOf("a-hound-4"), toolkit.cast.pickedGlow(engineTableBoard(play, "a")))
+            assertTrue((2..7).all { "a-hound-$it" in toolkit.cast.glow(engineTableBoard(play, "a")) }, "every Hound framed")
         }
         compose.onRoot().captureShot("$SCREENSHOTS/battlefield/group-opened-targets-6${if (landscape) "-landscape" else ""}.png",
             "${if (landscape) "In landscape, " else ""}Alice casts Frost Snare (tap up to two target creatures), taps her stack " +
                 "of six identical Cinder Hounds (one tapped) and then the third Hound: the stack lies open in place, the six " +
                 "Hounds side by side (the tapped one turned in its own slot), each framed in violet as a target, the third " +
-                "one picked (no mark of its own: only the bar's None turned Done); her Elemental tokens moved along to the right.")
+                "one picked (filled violet with a white check, the bar's None turned Done); her Elemental tokens moved along to " +
+                "the right." + if (landscape) " The target bar covers the left of her land row (her Mountains)." else "")
+    }
+
+    // STK-047 (owner 2026-11-07): a card alone shows the same marks as an opened group's member: framed in violet as a
+    // target, and once picked also filled violet with a white check
+    @Test fun whileTargetsArePickedAPickedCardAloneIsMarked() {
+        play = f.play(snare = true, hounds = 1)
+        val toolkit = render()
+        compose.runOnIdle { assertTrue(toolkit.cast.start(f.SNARE), "${toolkit.error}") }
+        compose.waitForIdle()
+        assertEquals(listOf("a-hound-2"), scene(toolkit).battlefieldGroups.single { "a-hound-2" in it.members }.members, "a card alone")
+        tap(toolkit, "a-hound-2")
+        compose.runOnIdle {
+            assertEquals(listOf("a-hound-2"), picked(toolkit), "a tap on a card alone picks it")
+            assertEquals(setOf("a-hound-2"), toolkit.cast.pickedGlow(engineTableBoard(play, "a")))
+        }
+        compose.onRoot().captureShot("$SCREENSHOTS/battlefield/target-picked-alone.png",
+            "Alice casts Frost Snare (tap up to two target creatures) and taps her Cinder Hound standing alone: it is picked, " +
+                "framed in violet and filled violet with a white check at its top right; the groups holding other targets " +
+                "(her equipped Hound, her Elemental tokens, Bob's Cubs and Elementals) glow white, a tap opening them.")
     }
 
     // TBL-130: while targets are picked a tap elsewhere closes the opened group: a pick from it stays picked, a tap on

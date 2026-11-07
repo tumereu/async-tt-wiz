@@ -162,6 +162,26 @@ class BattlefieldLayoutTest {
         assertTrue(none.expand.isEmpty() && none.playable.isEmpty())
     }
 
+    // STK-047, TBL-130, TBL-117 (owner 2026-11-07): while targets are picked the opened group's members glow exactly as cards
+    // alone: every legal target framed, the picked ones also drawn picked, the non-target unmarked; a closed group holding
+    // a picked target shows picked as a whole
+    @Test fun anOpenedGroupsMembersShowTargetAndPickedAsCardsAlone() {
+        val hounds = BattlefieldGroup("stack:h1", "a", BattlefieldRow.Creatures, listOf("h1", "h2", "h3"), BattlefieldGroup.Kind.Stack)
+        val equipped = BattlefieldGroup("host:bear", "a", BattlefieldRow.Creatures, listOf("bear", "blade"), BattlefieldGroup.Kind.Attached)
+        val cubs = BattlefieldGroup("stack:c1", "b", BattlefieldRow.Creatures, listOf("c1", "c2"), BattlefieldGroup.Kind.Stack)
+        val targets = setOf("h1", "h2", "h3", "bear", "c1", "c2", "lone")
+        // the Hounds are opened (no tap of their own), the equipped Bear and Bob's Cubs closed
+        val glows = TableGlows.of(listOf(hounds, equipped, cubs), mapOf(equipped.key to GroupTap.Expand, cubs.key to GroupTap.Expand),
+            emptyMap(), targets, picked = setOf("h2", "lone", "c2"))
+        for (member in hounds.members) assertTrue(member in glows.targets, "$member framed as a target")
+        assertEquals(setOf("h2"), hounds.members.filter { it in glows.picked }.toSet(), "only the picked member drawn picked")
+        assertTrue("lone" in glows.targets && "lone" in glows.picked, "a card alone: the same two marks")
+        assertTrue(equipped.members.none { it in glows.picked || it in glows.targets }, "a closed group a tap opens: its own glow")
+        assertEquals(setOf("c1", "c2"), cubs.members.filter { it in glows.picked }.toSet(), "a closed group holding a pick")
+        val noTaps = TableGlows.of(listOf(hounds), emptyMap(), emptyMap(), targets, picked = setOf("h3"))
+        assertEquals(setOf("h3"), noTaps.picked)
+    }
+
     // TBL-004, TBL-053: read from a board: the type line it has now, a face-down card alone in the creature row, an aura
     // with its host, and the same state stacking
     @Test fun cardsAreReadFromTheBoard() {

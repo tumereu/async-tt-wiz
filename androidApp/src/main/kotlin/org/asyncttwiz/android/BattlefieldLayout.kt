@@ -220,25 +220,28 @@ object BattlefieldLayout {
 
 /** The glows the table draws (TBL-117): [playable] the cyan glow's strength by card, [targets] the legal targets framed in
  * violet, [attack] the creatures that may attack glowing red-orange (CMB-028), [expand] the strength of the glow of the
- * groups a tap opens (white). */
+ * groups a tap opens (white), [picked] the targets picked so far, drawn picked (STK-047). */
 data class TableGlows(val playable: Map<String, Float>, val targets: Set<String>, val expand: Map<String, Float> = emptyMap(),
-    val attack: Set<String> = emptySet()) {
+    val attack: Set<String> = emptySet(), val picked: Set<String> = emptySet()) {
     companion object {
         /**
          * TBL-117 for groups: a collapsed group of several ([taps]: what a tap on each does) glows as a whole when any member
          * glows: in the usual colours when the tap acts at once (every member as strong as its strongest; a legal target
-         * framed whole, a stack that may attack red-orange whole), in the expand colour when the tap opens it. Cards alone
-         * and the opened group's members glow as themselves.
+         * framed whole, a stack that may attack red-orange whole), in the expand colour when the tap opens it; one holding a
+         * [picked] target shows picked as a whole (STK-047). Cards alone and the opened group's members glow as themselves:
+         * a legal target framed, a picked one drawn picked, exactly as a card alone.
          */
         fun of(groups: List<BattlefieldGroup>, taps: Map<String, GroupTap>, playable: Map<String, Float>, targets: Set<String>,
-            attack: Set<String> = emptySet()): TableGlows {
-            if (taps.isEmpty()) return TableGlows(playable, targets, attack = attack)
+            attack: Set<String> = emptySet(), picked: Set<String> = emptySet()): TableGlows {
+            if (taps.isEmpty()) return TableGlows(playable, targets, attack = attack, picked = picked)
             val cyan = playable.toMutableMap()
             val violet = targets.toMutableSet()
             val orange = attack.toMutableSet()
             val white = HashMap<String, Float>()
+            val chosen = picked.toMutableSet()
             for (group in groups) {
                 val tap = taps[group.key] ?: continue
+                if (group.members.any { it in picked }) chosen += group.members
                 val strength = group.members.maxOf { playable[it] ?: 0f }
                 val target = group.members.any { it in targets }
                 val attacks = group.members.any { it in attack }
@@ -251,7 +254,7 @@ data class TableGlows(val playable: Map<String, Float>, val targets: Set<String>
                     if (attacks && tap is GroupTap.Act) orange += group.members
                 }
             }
-            return TableGlows(cyan, violet, white, orange)
+            return TableGlows(cyan, violet, white, orange, chosen)
         }
     }
 }

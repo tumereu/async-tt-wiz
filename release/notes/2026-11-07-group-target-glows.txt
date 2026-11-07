@@ -1,0 +1,1 @@
+fix: While you pick several targets, each one you have picked now shows a check mark and a stronger glow, also inside an opened stack of cards.

@@ -34,7 +34,9 @@ class AutomatumQuickActionIconsTest {
         assertTrue(AutomatumStep.Attack(2).swords)
         assertFalse(AutomatumStep.Attack(0).swords)
         assertNotEquals(AutomatumStep.Pass.icon, AutomatumStep.Next.icon)
-        val all = listOf(AutomatumStep.Pass, AutomatumStep.Next, AutomatumStep.ToCombat, AutomatumStep.EndTurn, AutomatumStep.Resolve,
+        // TRN-063: Control's End step has its own icon, not End turn's
+        assertNotEquals(AutomatumStep.EndTurn.icon, AutomatumStep.ToEndStep.icon)
+        val all = listOf(AutomatumStep.Pass, AutomatumStep.Next, AutomatumStep.ToCombat, AutomatumStep.EndTurn, AutomatumStep.ToEndStep, AutomatumStep.Resolve,
             AutomatumStep.Attack(0), AutomatumStep.Attack(1), AutomatumStep.Block(0), AutomatumStep.Block(1))
         all.forEach { assertNotEquals(it.label, Icons.Outlined.Gavel, it.icon) }
     }

@@ -88,6 +88,9 @@ interface EngineRoutes {
     /** CMB-040 (owner, 2026-11-05): the defender's blocks the viewer places on the lanes while waiting for them (null when
      * not waiting for the defender's blocks); assumed only by the main button. */
     fun assuming(): AssumedBlocks? = null
+
+    /** Whether the viewer's response mode for this game is Control (STK-036): the step arrow's words depend on it (TRN-063). */
+    fun control(): Boolean = false
 }
 
 /**
@@ -261,6 +264,8 @@ internal class EngineTableRoutes(val viewer: String, private val game: () -> Eng
     }
 
     fun status(): GameDevice.Status? = game()?.shown?.status
+
+    override fun control(): Boolean = game()?.shown?.settings?.mode == ResponseMode.FullControl
 
     /** TRN-015, I-D56 §14: the step arrow acts only for the viewer: shown while they may act. */
     fun arrowShown(): Boolean = when (status()) {

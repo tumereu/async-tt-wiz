@@ -195,7 +195,7 @@ object StackAbilityText {
     private const val MARK_OPEN = ''
     private const val MARK_CLOSE = ''
     private val MARKER = Regex("(\\d+)")
-    private val LONE_X = Regex("(?<!\\{)\\bX\\b(?!})")
+    private val LONE_X = Regex("(?<!\\{)\\bX\\b(?!\\})")
 
     /** Whether [effect]'s text for [item] has an X in it (filled in when known); false without a text. */
     fun mentionsX(item: StackItem, rulesText: String? = null): Boolean {

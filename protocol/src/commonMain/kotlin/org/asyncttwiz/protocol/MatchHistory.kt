@@ -94,7 +94,7 @@ object DeckColors {
             val texts = listOf(face.manaCost, face.colorIndicator.orEmpty()) + face.parts.flatMap { listOf(it.manaCost, it.colorIndicator.orEmpty()) }
             for (text in texts) {
                 // Mana symbols: the letters inside braces ({W}, {W/U}, {G/P}, {2/R}); a colour indicator: plain letters
-                val letters = if ('{' in text) Regex("\\{([^}]*)}").findAll(text).flatMap { it.groupValues[1].asSequence() } else text.asSequence()
+                val letters = if ('{' in text) Regex("\\{([^}]*)\\}").findAll(text).flatMap { it.groupValues[1].asSequence() } else text.asSequence()
                 letters.filter { it in ORDER }.forEach { found += it }
             }
         }

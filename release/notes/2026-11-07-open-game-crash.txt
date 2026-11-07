@@ -1,0 +1,1 @@
+fix: Opening a game no longer closes the app.

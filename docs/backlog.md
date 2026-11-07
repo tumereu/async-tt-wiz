@@ -10,8 +10,7 @@ Changes the owner wants but that are not built yet. The feature catalog
 
 ## Build order (owner, 2026-11-05: one implementor at a time, small items batched, full suites after each batch)
 
-Owner playtest of 0.2.0-beta4, 2026-11-07 (overnight; push master after each merge; no deploys):
-
+Nothing running (owner's beta4 playtest round built 2026-11-08).
 
 ## Ready to build
 

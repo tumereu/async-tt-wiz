@@ -44,10 +44,10 @@ internal fun TableToolkitScreen(toolkit: TableToolkitController, play: TableBoar
     toolkit.player?.let { PlayerPanel(play, it, toolkit.viewer, toolkit::dismiss) }
 
     // STK-048: picking a target on the Stack, its list opens in place with the legal entries glowing
-    if (toolkit.stackTargeting) ManageStackDialog(play, toolkit.viewer, toolkit::closeStackTargets,
+    if (toolkit.stackTargeting) ManageStackDialog(play, toolkit.viewer, toolkit::closeStackTargets, names = names,
         targets = toolkit.stackTargets(play), pick = toolkit::pickStackTarget)
     when (val panel = toolkit.panel) {
-        "manageStack" -> ManageStackDialog(play, toolkit.viewer, toolkit::dismiss)
+        "manageStack" -> ManageStackDialog(play, toolkit.viewer, toolkit::dismiss, names = names)
         "table" -> {
             TableActionMenu(play, toolkit.table, toolkit::dismiss, perform = toolkit::perform, names = names, onTimeline = onTimeline,
                 blocked = gameActionsBlocked)

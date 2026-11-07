@@ -33,15 +33,16 @@ import org.asyncttwiz.protocol.MtgStackKind
 /**
  * STK-046 (owner 2026-11-04, MTG Arena as the reference): a triggered or activated ability on the Stack is drawn as an
  * ability, never as its source card: a smaller token with the source's art, a trigger or activation marker, the source's
- * name and the ability's text. [source] is the source's name, [text] the ability's text ("" when unknown).
+ * name and the ability's text. [source] is the source's name, [text] the ability's text ("" when unknown); [kind] what
+ * kind of ability it is (STK-050, owner playtest 2026-11-07: "Cycling trigger", "Offspring trigger", "Cycling ability",
+ * else "Triggered ability" or "Activated ability").
  */
-data class StackAbilityShown(val triggered: Boolean, val source: String, val text: String) {
+data class StackAbilityShown(val triggered: Boolean, val source: String, val text: String,
+    val kind: String = if (triggered) "Triggered ability" else "Activated ability") {
     /** How the ability is named in lists and texts: "Ember Herald's ability". */
     val name: String get() = "$source's ability"
     /** The source's name and the ability's text: "Ember Herald — When this creature enters, …". */
     val line: String get() = if (text.isEmpty()) source else "$source — $text"
-    /** The marker's words: "Triggered ability" or "Activated ability". */
-    val kind: String get() = if (triggered) "Triggered ability" else "Activated ability"
     /** The kind chip's letter (STK-046): "T" for a triggered ability, "A" for an activated one. */
     val letter: String get() = if (triggered) "T" else "A"
 }
@@ -55,6 +56,15 @@ internal object StackAbilities {
      * per item. */
     private fun text(item: MtgStackItem, rulesText: String?): String? = synchronized(texts) {
         texts[item.data] ?: StackAbilityText.of(item, rulesText)?.also { texts[item.data] = it }
+    }
+
+    private val kinds = object : java.util.LinkedHashMap<String, String>(64, .75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, String>?) = size > 64
+    }
+
+    /** What kind of ability [item] is ([StackAbilityText.kind]), decoded once per item. */
+    private fun kind(item: MtgStackItem): String? = synchronized(kinds) {
+        kinds[item.data] ?: StackAbilityText.kind(item)?.also { kinds[item.data] = it }
     }
 
     /**
@@ -79,7 +89,7 @@ internal object StackAbilities {
         if (!frozen && !CardVisibility.isVisibleFaceUp(play.board, card, viewer)) return null
         val source = face?.name?.takeIf { it.isNotBlank() } ?: "Ability"
         val text = text(item, face?.rulesText) ?: face?.rulesText?.takeIf { frozen }.orEmpty()
-        return StackAbilityShown(triggered, source, text.trim())
+        return kind(item)?.let { StackAbilityShown(triggered, source, text.trim(), it) } ?: StackAbilityShown(triggered, source, text.trim())
     }
 
     /**
@@ -91,23 +101,30 @@ internal object StackAbilities {
     fun details(play: TableBoard, entryId: String, viewer: String, names: Map<String, String>): List<String> {
         val item = play.board.stackEffects.singleOrNull { it.id == entryId }?.item ?: return emptyList()
         val modes = StackAbilityText.modes(item)
-        val targets = item.targets.values.flatten().map { target -> when (target) {
-            is MtgRef.Player -> if (target.accountId == viewer) "You" else names[target.accountId] ?: "Opponent"
-            is MtgRef.Card -> visibleName(play, target.cardId, viewer)
-            is MtgRef.StackItem -> of(play, target.id, viewer)?.name ?: visibleName(play, target.id, viewer)
-        } }
+        val targets = item.targets.values.flatten().map { targetName(play, it, viewer, names) }
         return listOfNotNull(
             modes.takeIf { it.isNotEmpty() }?.joinToString("; ", prefix = if (modes.size == 1) "Mode: " else "Modes: ")) +
             item.values.map { (name, value) -> "$name = $value" } +
             listOfNotNull(targets.takeIf { it.isNotEmpty() }?.joinToString(", ", prefix = if (targets.size == 1) "Target: " else "Targets: "))
     }
 
-    /** The name of the card (or Stack entry) [id] as [viewer] sees it: "a hidden card" when they can't see it face up. */
-    internal fun visibleName(play: TableBoard, id: String, viewer: String): String {
-        val card = CombatStackRules.inspection(play.board, id) ?: return "a hidden card"
-        if (!CardVisibility.isVisibleFaceUp(play.board, card, viewer)) return "a hidden card"
+    /**
+     * A chosen [target] as [viewer] may see it (HIS-062): [you] for themselves, the other player's name in [names], a card's
+     * or Stack entry's name, [hidden] for a card they can't see face up.
+     */
+    internal fun targetName(play: TableBoard, target: MtgRef, viewer: String, names: Map<String, String>, you: String = "You",
+        hidden: String = "a hidden card"): String = when (target) {
+        is MtgRef.Player -> if (target.accountId == viewer) you else names[target.accountId] ?: "Opponent"
+        is MtgRef.Card -> visibleName(play, target.cardId, viewer, hidden)
+        is MtgRef.StackItem -> of(play, target.id, viewer)?.name ?: visibleName(play, target.id, viewer, hidden)
+    }
+
+    /** The name of the card (or Stack entry) [id] as [viewer] sees it: [hidden] when they can't see it face up. */
+    internal fun visibleName(play: TableBoard, id: String, viewer: String, hidden: String = "a hidden card"): String {
+        val card = CombatStackRules.inspection(play.board, id) ?: return hidden
+        if (!CardVisibility.isVisibleFaceUp(play.board, card, viewer)) return hidden
         return play.definitions.firstOrNull { it.digest == card.definition }?.definition?.faces
-            ?.let { faces -> faces.firstOrNull { it.faceId == card.faceId } ?: faces.firstOrNull() }?.name ?: "a hidden card"
+            ?.let { faces -> faces.firstOrNull { it.faceId == card.faceId } ?: faces.firstOrNull() }?.name ?: hidden
     }
 }
 

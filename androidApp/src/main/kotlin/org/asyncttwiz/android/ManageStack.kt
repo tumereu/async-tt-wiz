@@ -25,11 +25,15 @@ import org.asyncttwiz.protocol.*
  * tap picks one ([pick]); the others are dimmed. */
 @Composable
 internal fun ManageStackDialog(state: TableBoard, viewer: String, dismiss: () -> Unit, targets: List<String>? = null,
-    pick: (String) -> Unit = {}) {
+    pick: (String) -> Unit = {}, names: Map<String, String> = emptyMap()) {
     val order = CombatStackRules.stack(state.board).cards
     val size = rememberCardAppearance().size(CardArea.STACK)
     if (order.isEmpty()) { LaunchedEffect(Unit) { dismiss() }; return }
     val entries = contentsEntries(state, PileContents(CombatStackRules.stack(state.board).id, "Stack", order, true), viewer)
+    fun place(index: Int) = if (index == 0) "Top" else "${index + 1}"
+    // STK-018 (owner playtest 2026-11-07): what was chosen for each entry, and which entries target which
+    val details = remember(IdentityKey(state.board), viewer, names) { order.associateWith { StackAbilities.details(state, it, viewer, names) } }
+    val targetedBy = remember(IdentityKey(state.board)) { stackTargetedBy(state, order) }
     var inspection by remember { mutableStateOf<ManualInspection?>(null) }
     fun inspect(id: String) {
         val card = CombatStackRules.inspection(state.board, id) ?: return
@@ -47,10 +51,14 @@ internal fun ManageStackDialog(state: TableBoard, viewer: String, dismiss: () ->
                 val owner = if (controlled) OwnTableColor else OpponentTableColor
                 val legal = targets != null && id in targets
                 val shape = RoundedCornerShape(8.dp)
+                // STK-058: an entry another entry targets is softly highlighted in the targeting entry's controller's colour
+                val targeter = targetedBy[id]?.firstOrNull()?.let { if (CombatStackRules.controller(state.board, it) == viewer) OwnTableColor else OpponentTableColor }
                 Column(Modifier.alpha(if (targets != null && !legal) .4f else 1f)) {
                     Row(Modifier.then(if (legal) Modifier.background(AutomatumViolet.copy(alpha = .1f), shape)
                             .border(2.dp, AutomatumViolet, shape).padding(4.dp)
-                            .semantics { stateDescription = "Legal target" } else Modifier)
+                            .semantics { stateDescription = "Legal target" }
+                        else if (targeter != null) Modifier.background(targeter.copy(alpha = .08f), shape)
+                            .border(1.5.dp, targeter.copy(alpha = .7f), shape).padding(4.dp) else Modifier)
                         .contentsCardGestures(id, PlayZone.STACK, actions = { if (legal) pick(id) }, double = null,
                         peek = { held -> if (held) inspect(id) else inspection = null }),
                         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -69,10 +77,17 @@ internal fun ManageStackDialog(state: TableBoard, viewer: String, dismiss: () ->
                             else MenuIcon("Inspect")
                         }
                         Column(Modifier.weight(1f)) {
-                            Text("${if (index == 0) "Top" else "${index + 1}"} · ${entry.name}",
+                            Text("${place(index)} · ${entry.name}",
                                 style = MaterialTheme.typography.bodyMedium, maxLines = 2)
-                            if (ability != null && ability.text.isNotEmpty()) Text(ability.text,
-                                style = MaterialTheme.typography.bodySmall, maxLines = 3)
+                            // STK-018 (owner playtest 2026-11-07): an ability's kind, its text, then what was chosen for the
+                            // entry (modes, X, targets as far as the viewer may see them), and the entries targeting it
+                            if (ability != null) Text(ability.kind, style = MaterialTheme.typography.labelMedium, color = AutomatumViolet)
+                            if (ability != null && ability.text.isNotEmpty()) CardText(ability.text,
+                                style = MaterialTheme.typography.bodySmall, maxLines = 3, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                            if (entry.faceVisible) for (line in details[id].orEmpty()) CardText(line, style = MaterialTheme.typography.bodySmall,
+                                color = MenuInk, maxLines = 2, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                            targetedBy[id]?.let { by -> Text("Targeted by ${by.joinToString(", ") { place(order.indexOf(it)) }}",
+                                style = MaterialTheme.typography.labelMedium, color = targeter ?: MenuInk) }
                         }
                     }
                     HorizontalDivider()
@@ -80,6 +95,16 @@ internal fun ManageStackDialog(state: TableBoard, viewer: String, dismiss: () ->
             }
         }
         // Attach the peek Popup to this dialog's window, not the underlying table activity.
-        inspection?.let { GameplayCardInspection(state, viewer, it, { inspection = null }) }
+        inspection?.let { GameplayCardInspection(state, viewer, it, { inspection = null }, names) }
     }
+}
+
+/** STK-018, STK-058: for each of the Stack entries [order] (top first) that another entry targets, the entries targeting
+ * it, top first. */
+internal fun stackTargetedBy(state: TableBoard, order: List<String>): Map<String, List<String>> {
+    val effects = state.board.stackEffects.associateBy { it.id }
+    val byItem = order.mapNotNull { id -> effects[id]?.item?.id?.let { it to id } }.toMap()
+    return order.flatMap { id ->
+        effects[id]?.item?.targets?.values.orEmpty().flatten().mapNotNull { ref -> byItem[ref]?.takeIf { it != id } }.map { it to id }
+    }.groupBy({ it.first }, { it.second })
 }

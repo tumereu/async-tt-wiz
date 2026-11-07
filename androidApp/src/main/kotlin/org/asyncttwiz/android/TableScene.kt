@@ -333,6 +333,9 @@ internal fun TableSurface(game: GameSummary, play: TableBoard, accountId: String
             CombatAreaOverlay(toolkit?.combat, play, scene, accountId, writable && !runtime.reviewing,
                     pressed = { pressGlow.value }) { item ->
                     rendered.value.items[item.id]?.bounds ?: item.bounds }
+            // STK-058 (owner playtest 2026-11-07): the top Stack entry's target arrows, for both players
+            val stackNames = remember(game) { gameNames(game) }
+            StackTargetArrows(play, scene, accountId, stackNames) { item -> rendered.value.items[item.id]?.bounds ?: item.bounds }
             // TRN-053 (owner gallery review 2026-11-06): the emblems' round chips; holding one inspects the player's emblems
             EmblemChipsOverlay(scene, accountId)
         }

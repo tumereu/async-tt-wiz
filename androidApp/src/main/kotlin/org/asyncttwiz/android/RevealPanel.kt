@@ -21,11 +21,16 @@ import org.asyncttwiz.protocol.game.GameDevice
 /** The test tag of the reveal panel's dismiss button (HIS-110). */
 internal const val REVEAL_OK_TAG = "reveal-ok"
 
+/** HIS-110, TRN-063 (owner, 2026-11-07): why the main button is greyed and game actions are refused while the other
+ * player's reveal panel is open, until its OK. */
+internal const val REVEAL_BUSY = "Dismiss the reveal first: tap its OK."
+
 /**
  * HIS-110 (owner playtest 2026-11-07): the other player's reveal, docked above the hand like every Automatum panel
- * (STK-044): "<name> revealed · <source>", the revealed cards as cards (holding one inspects it, TBL-104), the source's
- * card at the right, the eye, and OK, which [dismiss]es it (the table then plays on). The cards were revealed to the
- * viewer, so they show face up wherever they are now.
+ * (STK-044): "<name> revealed · <source>", the revealed cards as cards at the Hand card size (holding one inspects it,
+ * TBL-104), the source's card at the right, the eye, and OK, which [dismiss]es it (the table then plays on). The cards
+ * were revealed to the viewer, so they show face up wherever they are now. Until OK the main button is greyed
+ * ([REVEAL_BUSY]) and game actions are refused as while a choice is open.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -43,8 +48,9 @@ internal fun RevealPanel(play: TableBoard, viewer: String, reveal: GameDevice.Re
             ChoiceHead(title, source, inspector)
             FlowRow(Modifier.fillMaxWidth().padding(bottom = 4.dp), horizontalArrangement = Arrangement.spacedBy(6.dp),
                 verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                // HIS-110 (owner, 2026-11-07): the revealed cards at the hand's card size, wrapping (the panel scrolls)
                 for (card in cards) ChoiceCardFace(card, Modifier.choiceCardGestures(card.key, tap = {},
-                    hold = { inspector.hold(card, it) }, moved = inspector::moved))
+                    hold = { inspector.hold(card, it) }, moved = inspector::moved), area = CardArea.HAND)
             }
             ChoiceInspection(inspector, play, viewer)
         }

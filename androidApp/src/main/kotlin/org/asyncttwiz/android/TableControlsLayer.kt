@@ -22,6 +22,7 @@ internal inline fun BoxWithConstraintsScope.TableControlsLayer(game: GameSummary
                 val endingColor = if (play.board.turn.accountId == accountId) OwnTableColor else OpponentTableColor
                 QuickActionStrip(play, toolkitQuickContext(play, accountId)
                     .copy(automatumCombat = toolkit.combat.ready(play), castOpen = toolkit.cast.open,
+                        revealOpen = !runtime.reviewing && LocalEngineRoutes.current?.revealing() == true,
                         assumedBlockers = LocalEngineRoutes.current?.assuming()?.blocks?.size,
                         mainAction = toolkit.flows.divisionAction())
                     .withCombatTarget(toolkit.combat, play, defendingPlayerName(game, play)),

@@ -33,6 +33,8 @@ data class QuickContext(val combatAreaId: String? = null,
     val combatTarget: String? = null, val combatTargetName: String = "",
     /** UI review round 2 #3: the viewer's own cast is open, so the step arrow can't act ([stepBlocked]). */
     val castOpen: Boolean = false,
+    /** HIS-110 (owner, 2026-11-07): the other player's reveal panel is open: the main button is greyed until its OK. */
+    val revealOpen: Boolean = false,
     /** CMB-040 (owner, 2026-11-05): how many of the defender's creatures the viewer placed as assumed blockers while
      * waiting for their blocks; null when not waiting for them. */
     val assumedBlockers: Int? = null,
@@ -132,9 +134,11 @@ fun QuickActionStrip(play: TableBoard, context: QuickContext, controller: TableA
                 (engine?.arrowShown() ?: stepArrowShown(play, context.viewer))
             // TRN-066, TRN-070: while the other player must act, its place holds the wait's Assume (or Cancel); TRN-068: the
             // unconfirmed mark sits at its corner without moving anything
-            val wait = if (arrow) null else engine?.waitAction()
+            val wait = if (arrow) null else engine?.waitAction()?.let { w ->
+                if (context.revealOpen) EngineTableRoutes.WaitAction(w.label, w.icon, w.tooltip, REVEAL_BUSY, w.run) else w }
             val unconfirmed = engine?.engine?.shown?.indicator != null
-            val main = context.mainAction.takeIf { arrow }
+            val main = context.mainAction.takeIf { arrow }?.let { m ->
+                if (context.revealOpen) MainAction(m.label, m.icon, REVEAL_BUSY, m.tooltip, m.run) else m }
             val control = engine?.control() == true
             RecordShown(bottomBarRecord(if (arrow) main?.label ?: AutomatumStep.of(play, control).label else wait?.label, if (toggles) null else actions.map { it.name }))
             // TRN-063 (owner, 2026-11-06): a main button action is the player's own action, whose result the working sign
@@ -144,7 +148,7 @@ fun QuickActionStrip(play: TableBoard, context: QuickContext, controller: TableA
             Box(Modifier.width(MainButtonWidth)) {
                 if (arrow) AutomatumStepArrow(play, controller.enabled(scope), Modifier.fillMaxWidth(),
                     onHold = { own { perform(TableActionIntent.End(scope)) } },
-                    blocked = stepBlocked(play, context.castOpen, context.automatumCombat),
+                    blocked = stepBlocked(play, context.castOpen, context.automatumCombat, context.revealOpen),
                     resolveTip = "Resolve: pass, so the top of the Stack resolves once ${engine?.opponentName ?: "the other player"} passes too",
                     main = main?.let { m -> MainAction(m.label, m.icon, m.refusal, m.tooltip) { own { m.run(); true } } }, control = control) {
                     own { perform(TableActionIntent.Next(scope)) }

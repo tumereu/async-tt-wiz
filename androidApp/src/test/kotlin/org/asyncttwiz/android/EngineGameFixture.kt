@@ -86,6 +86,8 @@ internal class EngineGameFixture(val startingPlayer: String = TableStatesFixture
         const val REASON = "Shattered Reason"
         /** A free sorcery that reveals its caster's top card (HIS-110: the other player's reveal panel). */
         const val INSIGHT = "Ember Insight"
+        /** The Insight as a free instant: the other player's reveal in the viewer's own turn (HIS-110). */
+        const val FORESIGHT = "Ember Foresight"
     }
     private val REASON_TEXT = "Each opponent mills fourteen cards.\nCycling {R} ({R}, Discard this card: Draw a card.)\n" +
         "When you cycle this card, each opponent mills four cards."
@@ -112,6 +114,7 @@ internal class EngineGameFixture(val startingPlayer: String = TableStatesFixture
         free("glance", Choices.GLANCE, "Sorcery", "Look at target player's hand."),
         free("reason", Choices.REASON, "Instant", REASON_TEXT),
         free("insight", Choices.INSIGHT, "Sorcery", "Reveal the top card of your library and put that card into your hand."),
+        free("foresight", Choices.FORESIGHT, "Instant", "Reveal the top card of your library and put that card into your hand."),
     ).associateBy { it.submitted.definition.name }
     private val aliceChoices = aliceCards.map { choiceCards[it] ?: if (it == "Mountain") mountain else error("no card $it") }
     private val bobChoices = bobCards.map { choiceCards[it] ?: when (it) { "Mountain" -> mountain; "Storm Spark" -> spark; else -> error("no card $it") } }

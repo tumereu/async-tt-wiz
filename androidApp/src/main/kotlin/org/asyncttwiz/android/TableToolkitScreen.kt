@@ -135,6 +135,7 @@ private fun engineRows(toolkit: TableToolkitController, play: TableBoard, cardId
     val name = CastController.cardName(play, cardId)
     val busy = when {
         toolkit.cast.open -> CastController.BUSY
+        toolkit.revealing() -> REVEAL_BUSY
         play.flowOpen -> SharedFlowController.BUSY
         else -> null
     }

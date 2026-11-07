@@ -79,6 +79,8 @@ internal class CastController(
     /** I-D56 step C: sends the complete cast as the player's own inputs (null: sent; else why not), and the device does
      * what follows by itself (null: casting isn't available here). */
     private val engineSend: ((List<Input>) -> String?)? = null,
+    /** HIS-110 (owner, 2026-11-07): the other player's reveal panel is open: nothing is cast until its OK. */
+    private val revealing: () -> Boolean = { false },
 ) : FlowQuestions {
     /** The open cast, null when none. */
     var flow by mutableStateOf<CastFlow?>(null); private set
@@ -139,6 +141,7 @@ internal class CastController(
         val play = current() ?: return false
         if (open) { fail(BUSY); return false }
         // A shared flow waits for an answer (D32): nothing is cast meanwhile
+        if (revealing()) { fail(REVEAL_BUSY); return false }
         if (play.flowOpen) { fail(SharedFlowController.BUSY); return false }
         if (!ownHand(play, cardId, viewer)) { fail(NOT_YOURS); return false }
         val autotapOn = autotap
@@ -169,6 +172,7 @@ internal class CastController(
     fun begin(cardId: String, input: Input, text: String? = null): Boolean {
         val play = current() ?: return false
         if (open) { fail(BUSY); return false }
+        if (revealing()) { fail(REVEAL_BUSY); return false }
         if (play.flowOpen) { fail(SharedFlowController.BUSY); return false }
         val autotapOn = autotap
         starting = cardId

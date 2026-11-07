@@ -30,11 +30,12 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
     fun enabled() = connected() && current() != null
     /** Casting from the hand through Automatum (I2a): a private flow; while it is open nothing else changes (D32). */
     internal val cast = CastController(viewer, { current()?.takeIf { enabled() } }, { castMessage(it) },
-        automatumWork, tokenArt = tokenArt, shake = { shake(it) }, engineSend = engine?.let { e -> e::send })
+        automatumWork, tokenArt = tokenArt, shake = { shake(it) }, engineSend = engine?.let { e -> e::send },
+        revealing = { revealing() })
     /** Priority, responding, resolution and triggers through Automatum (I2b): shared flows; while one waits for an
      * answer nothing else changes (D32). */
     internal val flows = SharedFlowController(viewer, { current()?.takeIf { enabled() } },
-        { if (it == SharedFlowController.BUSY) busyShake() else error = it },
+        { if (it == SharedFlowController.BUSY || it == REVEAL_BUSY) busyShake() else error = it },
         automatumWork, tokenArt = tokenArt, autotap = { cast.autotap }, engineSend = engine?.let { e -> e::send })
     private val automatumWork = automatumWork
 
@@ -96,7 +97,7 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
 
     /** [playable], or null while Automatum still works the board out (the glow keeps what it showed meanwhile, TBL-117). */
     internal fun playableOrNull(play: TableBoard): Set<String>? {
-        if (!enabled() || cast.open || play.flowOpen) return emptySet()
+        if (!enabled() || cast.open || play.flowOpen || revealing()) return emptySet()
         // The game begins only once both players are Ready (TRN-062)
         if (play.board.turn.number == "1" && PlayerStatus.anyOpening(play.board)) return emptySet()
         val plays = cardPlays(play) ?: return null
@@ -134,7 +135,7 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
      * special actions included), in printed order; empty while a cast or an Automatum choice is open, null while
      * Automatum still works the board out. */
     internal fun activatable(play: TableBoard, cardId: String): List<org.asyncttwiz.automatum.CardPlay>? {
-        if (!enabled() || cast.open || play.flowOpen) return emptyList()
+        if (!enabled() || cast.open || play.flowOpen || revealing()) return emptyList()
         val plays = cardPlays(play) ?: return null
         return plays.of(cardId).filter { it.legal && it.kind != org.asyncttwiz.automatum.CardPlay.Kind.Cast &&
             it.kind != org.asyncttwiz.automatum.CardPlay.Kind.Play }
@@ -268,6 +269,9 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
     /** A refused tap or gesture: the event text flashes while the other player's choice is open. */
     fun refusedTap() { if (othersChoice()) choiceFlashes++ }
     private fun othersChoice(): Boolean = engine?.othersChoice() == true
+    /** HIS-110 (owner, 2026-11-07): the other player's reveal panel is open: game actions are refused as while a choice
+     * is open (STK-032) until its OK. */
+    internal fun revealing(): Boolean = engine?.revealing() == true
     /** UI review round 2 #4 (I-D46 b): an action refused because the viewer's own cast is open ("Finish or cancel the cast
      * first.") or Automatum's choice is open (STK-032) shakes what it was made on (the card or pile whose menu it came
      * from), else the card being cast, instead of a message. */
@@ -307,7 +311,7 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
 
     private fun enqueue(action: PlayAction, invocationId: String?): Boolean {
         if (lastInvocation != invocationId) { lastInvocation = invocationId; error = null }
-        refusal(action)?.let { if (it == CastController.BUSY || it == SharedFlowController.BUSY) busyShake() else error = it; return false }
+        refusal(action)?.let { if (it == CastController.BUSY || it == SharedFlowController.BUSY || it == REVEAL_BUSY) busyShake() else error = it; return false }
         return (engineDraft?.add(action) ?: gameplay(action, invocationId)).also { sent ->
             if (!sent) error = "Action could not be queued. Reconnect and try again."
         }
@@ -323,6 +327,7 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
         if (cast.open) return CastController.BUSY
         val play = current() ?: return null
         val board = play.board
+        if (revealing() && !shownOnly(play, action)) return REVEAL_BUSY
         if (play.flowOpen && !shownOnly(play, action)) return SharedFlowController.BUSY
         // TRN-027: the viewer's own mulligans and library bottom during their opening, the host's setup before the game
         if (AutomatumDrags.openingAction(board, viewer, action)) return null
@@ -371,7 +376,7 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
 
     override fun automatumStep(intent: TableActionIntent): Boolean {
         val play = current() ?: return false
-        if (cast.open) { busyShake(); return false }
+        if (cast.open || revealing()) { busyShake(); return false }
         // I-D56 step C (TRN-057): the arrow passes only the viewer's own priority, or declares what the lanes hold; End
         // turn passes for them until the turn ends; the phase dialog is view-only
         engine?.let { e ->
@@ -660,7 +665,7 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
         val card = castGesture
         castGesture = null
         // STK-032 (I-D46 b): a cast refused while Automatum's choice is open says nothing: its card shakes
-        if (message == SharedFlowController.BUSY) { if (card != null) shake(card) else busyShake(); return }
+        if (message == SharedFlowController.BUSY || message == REVEAL_BUSY) { if (card != null) shake(card) else busyShake(); return }
         val unplayable = message != null && !message.startsWith("The table changed") &&
             (message.endsWith("can't be cast now.") || message.endsWith("can't be played now."))
         if (unplayable && card != null) shake(card) else error = message

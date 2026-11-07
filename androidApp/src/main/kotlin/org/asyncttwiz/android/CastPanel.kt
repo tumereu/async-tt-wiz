@@ -213,14 +213,15 @@ internal fun CastPanelPlacement(stack: TableBounds?, middle: Float?, dock: Table
 
 @Composable
 private fun TargetBar(cast: CastController, flow: CastFlow, play: TableBoard, source: ChoiceCardData, viewer: String) {
-    val decision = flow.pending as Decision.Targets
+    val pick = cast.pick ?: return
+    val decision = pick.decision
     val inspector = remember { ChoiceInspector() }
     // UI review #4, #9: docked above the hand like every Automatum panel, never over it; STK-044: the title says only the
-    // choice, the card it is for sits at the right
-    AutomatumDockBar("Choose targets", eye = true) {
+    // choice, the card it is for sits at the right. D1: a cost of battlefield permanents (a sacrifice) is picked the same way
+    AutomatumDockBar(pick.description, eye = true) {
         // STK-047 (owner playtest 2026-11-06): the sentence the targets are for, under the title
-        TargetBarTitle(targetTitle(decision), cast.abilityText ?: askedSentence(rulesTextOf(play, flow.cardId), decision))
-        if (decision.max != 1 || decision.min == 0) TextButton(cast::confirmTargets, enabled = cast.picked.size >= decision.min) {
+        TargetBarTitle(pick.title, cast.abilityText ?: askedSentence(rulesTextOf(play, flow.cardId), decision))
+        if (pick.max != 1 || pick.min == 0) TextButton(cast::confirmTargets, enabled = cast.picked.size >= pick.min) {
             IconText(Icons.Outlined.Check, if (cast.picked.isEmpty()) "None" else "Done")
         }
         ChoiceSource(source, inspector, Modifier.padding(start = 4.dp, end = 6.dp, top = 2.dp, bottom = 2.dp))
@@ -296,9 +297,9 @@ private fun CastPanel(cast: CastController, flow: CastFlow, play: TableBoard, na
                     null -> Text(if (flow.activation) "Ready." else "Ready to cast.", fontSize = 12.sp)
                     // STK-024 (owner 2026-11-07): the payment is the line below
                     is Decision.ManaPayment -> Unit
-                    // A hand card's panel still choosing its way: Cast goes on to the targets
-                    is Decision.Targets -> CardText("Then ${targetPrompt(open)} on the table.", style = TextStyle(fontSize = 12.sp))
-                    else -> CompositionLocalProvider(LocalCastOk provides ok) { OpenSection(cast, cast, play, names, open) }
+                    // A hand card's panel still choosing its way: Cast goes on to the targets (D1: or the permanents a cost picks)
+                    else -> cast.pick?.let { CardText("Then ${it.prompt} on the table.", style = TextStyle(fontSize = 12.sp)) }
+                        ?: CompositionLocalProvider(LocalCastOk provides ok) { OpenSection(cast, cast, play, names, open) }
                 }
                 PaymentLine(cast, play)
                 // UI review round 2 #4 (I-D46 b): why the last step was refused, inside the panel rather than over the table
@@ -319,7 +320,7 @@ private fun CastPanel(cast: CastController, flow: CastFlow, play: TableBoard, na
                     val answering = ok.answer.takeIf { ok.decision != null && ok.decision == flow.pending?.id }
                     // STK-024 (owner 2026-11-07): greyed while the chosen mana doesn't pay (the payment line says why)
                     Button({ answering?.invoke() ?: cast.cast() }, enabled = !cast.busy && cast.paid && (answering != null || flow.complete ||
-                        flow.pending is Decision.ManaPayment || (cast.choosing && flow.pending is Decision.Targets)),
+                        flow.pending is Decision.ManaPayment || (cast.choosing && cast.pick != null)),
                         colors = ButtonDefaults.buttonColors(containerColor = AutomatumViolet)) {
                         IconText(if (flow.activation) Icons.Outlined.Bolt else Icons.Outlined.AutoAwesome, actionLabel(flow))
                     }

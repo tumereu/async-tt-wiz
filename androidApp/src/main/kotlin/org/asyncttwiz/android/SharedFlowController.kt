@@ -83,9 +83,19 @@ internal class SharedFlowController(
     /** The open decision, when the viewer answers it: theirs, or the other player's after "Choose for them". */
     val answering: Decision? get() = view?.decision?.takeIf { it.player.value == viewer || choosingFor == it.id.value }
 
-    /** The open decision is targets the viewer picks on the table, on the board they act on: until the panel has the new
-     * board's flow (worked out off the main thread) a tap isn't taken as a target for the previous board's decision. */
-    val targeting: Boolean get() = answering is Decision.Targets && view?.board === current()?.board
+    /** The open decision the viewer answers when it is picked on the table: targets, or (D1) a choice of battlefield
+     * permanents ([TablePick]). */
+    val pick: TablePick? get() {
+        val decision = answering ?: return null
+        val flow = view ?: return null
+        pickOf?.let { (of, pick) -> if (of === decision) return pick }
+        return TablePick.of(decision, flow.state).also { pickOf = decision to it }
+    }
+    private var pickOf: Pair<Decision, TablePick?>? = null
+
+    /** The open decision is picked by the viewer on the table ([pick]), on the board they act on: until the panel has the
+     * new board's flow (worked out off the main thread) a tap isn't taken as a pick for the previous board's decision. */
+    val targeting: Boolean get() = pick != null && view?.board === current()?.board
 
     fun toggleHidden() { hidden = !hidden }
 
@@ -209,44 +219,45 @@ internal class SharedFlowController(
         }
     }
 
-    /** A tap on a table item while the open decision asks for targets (I-D5: players by their life squares). */
+    /** A tap on a table item while the open decision is picked on the table (I-D5: players by their life squares; D1:
+     * battlefield permanents chosen as targets are). */
     fun tapTarget(item: TableItem): Boolean {
-        val decision = answering as? Decision.Targets ?: return false
+        val pick = pick ?: return false
         val flow = view ?: return false
         // UI review round 2 #4 (I-D46 b): not a legal target: false, the table shakes it
-        val target = targetOf(flow, decision, item) ?: return false
+        val target = targetOf(flow, pick.options, item) ?: return false
         fail(null)
-        if (decision.max == 1 && decision.min <= 1) return answer(Answer.Targets(listOf(target)))
+        if (pick.max == 1 && pick.min <= 1) return answer(pick.answer(listOf(target)))
         picked = if (target in picked) picked - target else picked + target
-        if (decision.max != null && picked.size >= decision.max!!) return confirmTargets()
+        if (pick.max != null && picked.size >= pick.max!!) return confirmTargets()
         return true
     }
 
     fun confirmTargets(): Boolean {
-        val decision = answering as? Decision.Targets ?: return false
-        if (picked.size < decision.min) return false
-        return answer(Answer.Targets(picked))
+        val pick = pick ?: return false
+        if (picked.size < pick.min) return false
+        return answer(pick.answer(picked))
     }
 
-    /** The table items that glow as legal targets of the open decision the viewer answers. */
+    /** The table items that glow as legal picks of the open decision the viewer answers. */
     fun glow(play: TableBoard): Set<String> {
         val flow = view ?: return emptySet()
-        val decision = answering as? Decision.Targets ?: return emptySet()
-        return targetGlow(play, decision.options.map(flow::ref))
+        val pick = pick ?: return emptySet()
+        return targetGlow(play, pick.options.map(flow::ref))
     }
 
-    /** STK-047: the table items of the targets picked so far for a slot that takes several, drawn as picked. */
+    /** STK-047: the table items picked so far for a decision that takes several, drawn as picked. */
     fun pickedGlow(play: TableBoard): Set<String> {
         val flow = view ?: return emptySet()
-        if (answering !is Decision.Targets) return emptySet()
+        if (pick == null) return emptySet()
         return targetPicks(play, picked.map(flow::ref))
     }
 
     /** The Stack entries that are legal targets of the open decision the viewer answers, top first. */
     fun stackTargets(play: TableBoard): List<String> {
         val flow = view ?: return emptyList()
-        val decision = answering as? Decision.Targets ?: return emptyList()
-        return targetEntries(play, decision.options.map(flow::ref))
+        val pick = pick ?: return emptyList()
+        return targetEntries(play, pick.options.map(flow::ref))
     }
 
     override val engine: GameState get() = view!!.state
@@ -359,10 +370,10 @@ internal class SharedFlowController(
         }
     }
 
-    private fun targetOf(flow: SharedFlow, decision: Decision.Targets, item: TableItem): TargetRef? {
-        if (item.kind == TableItemKind.LIFE) return decision.options.firstOrNull { it == TargetRef.Player(PlayerId(item.owner ?: return null)) }
+    private fun targetOf(flow: SharedFlow, options: List<TargetRef>, item: TableItem): TargetRef? {
+        if (item.kind == TableItemKind.LIFE) return options.firstOrNull { it == TargetRef.Player(PlayerId(item.owner ?: return null)) }
         val ids = listOfNotNull(item.sourceId, item.cardId)
-        return decision.options.firstOrNull { target ->
+        return options.firstOrNull { target ->
             when (val ref = flow.ref(target)) {
                 is MtgRef.Card -> ref.cardId in ids
                 is MtgRef.StackItem -> flow.board.stackEffects.any { it.id in ids && it.item?.id == ref }

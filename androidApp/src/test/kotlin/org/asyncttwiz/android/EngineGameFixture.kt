@@ -98,6 +98,10 @@ internal class EngineGameFixture(val startingPlayer: String = TableStatesFixture
         const val SHARD = "Ember Shard"
         /** {2}{R} with kicker {1}, offspring {R} and dash {R}: eight complete ways, one "Cast…" chip (ZON-080). */
         const val BROODRAIDER = "Ember Broodraider"
+        /** A free artifact whose ability's cost sacrifices another creature (D1: the creature picked on the table). */
+        const val ALTAR = "Ember Altar"
+        /** A free 1/1 creature with nothing to do: identical ones lie in one stack (TBL-053). */
+        const val PUP = "Ash Pup"
     }
     private val KIT_TEXT = "Offspring {R} (You may pay an additional {R} as you cast this spell. If you do, when this creature enters, create a 1/1 token copy of it.)"
     private val BROODRAIDER_TEXT = "Kicker {1} (You may pay an additional {1} as you cast this spell.)\nOffspring {R}\nDash {R}"
@@ -131,6 +135,8 @@ internal class EngineGameFixture(val startingPlayer: String = TableStatesFixture
         free("foresight", Choices.FORESIGHT, "Instant", "Reveal the top card of your library and put that card into your hand."),
         free("kit", Choices.KIT, "Creature — Elemental Fox", KIT_TEXT, "1", "1"),
         free("shard", Choices.SHARD, "Artifact", "{T}: Add {R}."),
+        free("altar", Choices.ALTAR, "Artifact", "{T}, Sacrifice another creature: Each opponent loses 2 life and you gain 2 life."),
+        free("pup", Choices.PUP, "Creature — Elemental Dog", "", "1", "1"),
         Invented(DefinitionFace("broodraider", Choices.BROODRAIDER, typeLine = "Creature — Elemental Warrior", manaCost = "{2}{R}",
             rulesText = BROODRAIDER_TEXT, power = "2", toughness = "2"),
             OracleCard(Choices.BROODRAIDER, "{2}{R}", "Creature — Elemental Warrior", BROODRAIDER_TEXT, "2", "2")),

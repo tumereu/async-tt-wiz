@@ -142,8 +142,17 @@ internal class CastController(
     val open: Boolean get() = flow != null || starting != null
     /** The card being cast (or played, or whose ability is activated) while a cast is [open]. */
     val castCard: String? get() = flow?.cardId ?: starting
-    /** The open question is targets, chosen on the table: the panel is a slim bar. */
-    val targeting: Boolean get() = flow?.pending is Decision.Targets && !choosing
+    /** The open question when it is picked on the table: targets, or (D1) a choice of battlefield permanents, such as a
+     * creature to sacrifice ([TablePick]). */
+    val pick: TablePick? get() {
+        val f = flow ?: return null
+        val decision = f.pending ?: return null
+        pickOf?.let { (of, pick) -> if (of === decision) return pick }
+        return TablePick.of(decision, f.state).also { pickOf = decision to it }
+    }
+    private var pickOf: Pair<Decision, TablePick?>? = null
+    /** The open question is picked on the table ([pick]): the panel is a slim bar. */
+    val targeting: Boolean get() = pick != null && !choosing
     /** STK-024 (owner 2026-11-07): the open panel takes the table's mana sources: a tap on one adds it to the payment or
      * takes it out ([tapSource]). */
     val paying: Boolean get() = flow != null && !targeting && payment != null
@@ -316,22 +325,22 @@ internal class CastController(
      * false when it isn't a legal target (the table shakes it, I-D46 b) or nothing is targeted now. */
     fun tapTarget(item: TableItem): Boolean {
         val f = flow ?: return false
-        val decision = f.pending as? Decision.Targets ?: return false
+        val pick = pick ?: return false
         if (busy) return true
-        val target = targetOf(f, decision, item) ?: return false
+        val target = targetOf(f, pick.options, item) ?: return false
         fail(null)
-        val max = decision.max
-        if (max == 1 && decision.min <= 1) return answer(Answer.Targets(listOf(target)))
+        val max = pick.max
+        if (max == 1 && pick.min <= 1) return answer(pick.answer(listOf(target)))
         picked = if (target in picked) picked - target else picked + target
         if (max != null && picked.size >= max) return confirmTargets()
         return true
     }
 
-    /** Confirms the targets picked for a slot that takes several. */
+    /** Confirms the targets (or cards, D1) picked for a question that takes several. */
     fun confirmTargets(): Boolean {
-        val decision = flow?.pending as? Decision.Targets ?: return false
-        if (picked.size < decision.min) return false
-        return answer(Answer.Targets(picked))
+        val pick = pick ?: return false
+        if (picked.size < pick.min) return false
+        return answer(pick.answer(picked))
     }
 
     /** STK-024 (owner 2026-11-07): adds a mana source to the cast's payment or takes it out (a tap on the table, or on a
@@ -400,7 +409,7 @@ internal class CastController(
         if (busy) return false
         if (choosing) {
             choosing = false
-            if (f.pending is Decision.Targets) return true
+            if (pick != null) return true
         }
         val play = current() ?: run { fail(CANT_ACT); return false }
         val autotapOn = autotap
@@ -443,22 +452,22 @@ internal class CastController(
      * holding one, opened to pick it), players by their life square. */
     fun glow(play: TableBoard): Set<String> {
         val f = flow ?: return emptySet()
-        val decision = f.pending as? Decision.Targets ?: return emptySet()
-        return targetGlow(play, decision.options.map(f::ref))
+        val pick = pick ?: return emptySet()
+        return targetGlow(play, pick.options.map(f::ref))
     }
 
-    /** STK-047: the table items of the targets picked so far for a slot that takes several, drawn as picked. */
+    /** STK-047: the table items picked so far for a question that takes several, drawn as picked. */
     fun pickedGlow(play: TableBoard): Set<String> {
         val f = flow ?: return emptySet()
-        if (f.pending !is Decision.Targets) return emptySet()
+        if (pick == null) return emptySet()
         return targetPicks(play, picked.map(f::ref))
     }
 
     /** The Stack entries that are legal targets of the open question, top first (picked in Manage Stack). */
     fun stackTargets(play: TableBoard): List<String> {
         val f = flow ?: return emptyList()
-        val decision = f.pending as? Decision.Targets ?: return emptyList()
-        return targetEntries(play, decision.options.map(f::ref))
+        val pick = pick ?: return emptyList()
+        return targetEntries(play, pick.options.map(f::ref))
     }
 
     /**
@@ -674,10 +683,10 @@ internal class CastController(
         return Step.Engine(sending.flow, sending.cast.inputs.toList(), next.board)
     }
 
-    private fun targetOf(f: CastFlow, decision: Decision.Targets, item: TableItem): TargetRef? {
-        if (item.kind == TableItemKind.LIFE) return decision.options.firstOrNull { it == TargetRef.Player(PlayerId(item.owner ?: return null)) }
+    private fun targetOf(f: CastFlow, options: List<TargetRef>, item: TableItem): TargetRef? {
+        if (item.kind == TableItemKind.LIFE) return options.firstOrNull { it == TargetRef.Player(PlayerId(item.owner ?: return null)) }
         val ids = listOfNotNull(item.sourceId, item.cardId)
-        return decision.options.firstOrNull { target ->
+        return options.firstOrNull { target ->
             when (val ref = f.ref(target)) {
                 is MtgRef.Card -> ref.cardId in ids
                 is MtgRef.StackItem -> f.board.stackEffects.any { it.id in ids && it.item?.id == ref }

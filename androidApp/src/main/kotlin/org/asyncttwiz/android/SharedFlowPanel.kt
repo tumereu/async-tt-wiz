@@ -102,8 +102,9 @@ internal fun SharedFlowHost(toolkit: TableToolkitController, play: TableBoard, s
         CompositionLocalProvider(LocalChoiceFrame provides ChoiceFrame(viewer)) {
         when {
             decision != null && flows.answering != null -> when {
-                flows.targeting -> FlowTargetBar(flows, flow, play, decision as Decision.Targets,
-                    decisionSource(flows, flow, play, viewer, decision))
+                flows.targeting -> flows.pick?.let { pick ->
+                    FlowTargetBar(flows, flow, play, pick, decisionSource(flows, flow, play, viewer, decision))
+                }
                 else -> DecisionPanel(flows, flow, play, names, decision, forOther = decision.player.value != viewer,
                     otherName = name(decision.player.value))
             }
@@ -341,14 +342,16 @@ internal fun DecisionPanelContent(questions: FlowQuestions, hidden: Boolean, tog
 /** Targets of a trigger, picked on the table as for a cast (I-D5, I-D6); there is no cancelling a shared flow. The title
  * says only the choice, the [source] sits at the right (STK-044). */
 @Composable
-private fun FlowTargetBar(flows: SharedFlowController, flow: SharedFlow, play: TableBoard, decision: Decision.Targets,
+private fun FlowTargetBar(flows: SharedFlowController, flow: SharedFlow, play: TableBoard, pick: TablePick,
     source: ChoiceCardData?) {
+    val decision = pick.decision
     val inspector = remember(decision.id) { ChoiceInspector() }
-    AutomatumDockBar("Choose targets", eye = true) {
+    // D1: a choice of battlefield permanents (an edict's sacrifice, "choose a creature") is picked as targets are
+    AutomatumDockBar(pick.description, eye = true) {
         // STK-047 (owner playtest 2026-11-06): the sentence the targets are for, under the title
-        TargetBarTitle(targetTitle(decision), askedLine(flows, flow, play, decision, source))
-        if (decision.max != 1 || decision.min == 0) BarButton(if (flows.picked.isEmpty()) "None" else "Done",
-            if (flows.picked.isEmpty()) Icons.Outlined.Block else Icons.Outlined.Check, enabled = flows.picked.size >= decision.min,
+        TargetBarTitle(pick.title, askedLine(flows, flow, play, decision, source))
+        if (pick.max != 1 || pick.min == 0) BarButton(if (flows.picked.isEmpty()) "None" else "Done",
+            if (flows.picked.isEmpty()) Icons.Outlined.Block else Icons.Outlined.Check, enabled = flows.picked.size >= pick.min,
             onClick = flows::confirmTargets)
         if (source != null) ChoiceSource(source, inspector, Modifier.padding(start = 4.dp, end = 6.dp, top = 2.dp, bottom = 2.dp))
         ChoiceInspection(inspector, play, LocalChoiceFrame.current.viewer)

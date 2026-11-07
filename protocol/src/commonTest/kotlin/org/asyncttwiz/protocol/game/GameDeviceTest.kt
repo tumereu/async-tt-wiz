@@ -109,8 +109,8 @@ class GameDeviceTest {
         }
     }
 
-    // HIS-095, STK-036 (owner, 2026-11-06): playback stops by the player's current response mode; playback's Control
-    // toggle sets it to Control, which stops it at every assumed pass; the value is kept on the server for the game
+    // HIS-095, STK-036 (owner, 2026-11-06): playback stops by the player's current response mode; set to Control
+    // (from the quick actions, live or in playback), which stops it at every assumed pass; the value is kept on the server for the game
     @Test
     fun fullControlStopsAtEveryAssumedPass() {
         val sim = spells("Storm Spark")
@@ -657,7 +657,7 @@ class GameDeviceTest {
         val afterBlocks = assertIs<GameDevice.Status.Waiting>(sim.device(alice).status, "his priority after the blocks waits")
         assertEquals(GameDevice.Wait.MayAct(TurnStep.DeclareBlockers), afterBlocks.reason)
         assertEquals(GameDevice.Offer.AssumeResolves, afterBlocks.offer)
-        // Bob comes back in Control (playback's Control on): his playback stops at the pass assumed after her attack
+        // Bob comes back in Control: his playback stops at the pass assumed after her attack
         val bobs = sim.load(bob)
         bobs.settings(PlaySettings(mode = ResponseMode.FullControl))
         bobs.play()

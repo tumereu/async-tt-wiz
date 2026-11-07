@@ -125,7 +125,7 @@ class AbReviewTest {
         assertIs<GameDevice.Acted.Sent>(bobs.act(Input.Cast(bob, hand(bobs.model, bob, "Crow's Larceny")), follow = answers(bob, alice)))
         sim.settle()
         assertEquals(alice, sim.server.state().engine.pending?.decision?.player, "Alice's pass was assumed: her discard waits")
-        // Alice comes back in Control (playback's Control on): playback stops at the assumed pass at Bob's spell (her pause)
+        // Alice comes back in Control: playback stops at the assumed pass at Bob's spell (her pause)
         val alices = sim.load(alice)
         alices.settings(PlaySettings(mode = ResponseMode.FullControl))
         alices.play()

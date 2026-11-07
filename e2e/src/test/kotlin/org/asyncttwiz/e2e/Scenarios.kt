@@ -50,11 +50,14 @@ internal class HeraldCast(val herald: String, val cast: GameEvent, val line: Lis
  * Sparks): Bob holds an Idle Glimmer (so his playback, Auto-skip, stops at Alice's spell and her trigger: he could
  * respond, HIS-095), both keep, Bob goes away; Alice plays a Mountain and casts an Ember Herald, her phone assuming Bob
  * lets it resolve ("Always assume resolves" on, HIS-096); the Herald and its token reach her battlefield. With [endTurn]
- * she then ends her turn.
+ * she then ends her turn. With [bobCanRespond] false Bob's deck is Mountains, Ember Cubs and Storm Sparks instead (in
+ * Alice's first turn he has no mana, so nothing he could respond with); [bobSettings]: his play defaults.
  */
-internal fun E2e.aliceCastsAHeraldWhileBobIsAway(endTurn: Boolean = true): HeraldCast {
-    startGame(TestDeck.thirds(TestCards.herald), TestDeck.glimmers(), aliceSettings = PlaySettings(alwaysAssumeResolves = true),
-        deal = { a, b -> "Mountain" in hand(a) && "Ember Herald" in hand(a) && "Idle Glimmer" in hand(b) })
+internal fun E2e.aliceCastsAHeraldWhileBobIsAway(endTurn: Boolean = true, bobCanRespond: Boolean = true,
+    bobSettings: PlaySettings? = null): HeraldCast {
+    startGame(TestDeck.thirds(TestCards.herald), if (bobCanRespond) TestDeck.glimmers() else TestDeck.thirds(),
+        aliceSettings = PlaySettings(alwaysAssumeResolves = true), bobSettings = bobSettings,
+        deal = { a, b -> "Mountain" in hand(a) && "Ember Herald" in hand(a) && (!bobCanRespond || "Idle Glimmer" in hand(b)) })
     bothOpen()
     bothKeep(bobAway = true)
     alice.playFromHand("Mountain", this)

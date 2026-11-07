@@ -33,7 +33,8 @@ import org.asyncttwiz.protocol.GameAction
  * - **The device's own passes** (§6, §7): at the head, where the player gets priority and their mode doesn't stop
  *   there (or an "End turn" goes on), the device passes for them; such passes after the player's own input fold into its
  *   event, as do engine-automatic answers ([WhoActs.automaticAnswer], public forced passes). Under Auto-skip it also
- *   answers questions with only one answer.
+ *   answers questions with only one answer. A new response mode ([settings]) applies from the next point on: the stop
+ *   the player stands at, live or in playback, stays until they answer it ([keptAt], owner 2026-11-07).
  * - **Assume or wait** (§3, §4) at the other player's points: engine-automatic answers at once; their pass assumed at
  *   once where the other player's own response mode would pass it ([opponentMode], their Quick judged on their real
  *   hand; owner 2026-11-06) or, at a point the player began ([pointOwner]: the last real input since the step began was
@@ -205,6 +206,11 @@ class GameDevice(
     /** The head a free undo of this player's landed on: the device makes none of their own inputs there by itself
      * (their mode's passes would carry the game straight past the point again); they act there themselves ([held]). */
     private var holdAt: String? = null
+    /** STK-036, HIS-095 (owner 2026-11-07, report WDKHSB): the point (the shown tip) where the player stood at a stop of
+     * theirs when they changed their response mode ([settings]): the new mode applies only from the next point on, so
+     * there the device makes none of their passes or one-answer answers by itself, and playback stays stopped before the
+     * other player's assumption about them made there, whatever the new mode says. Their answer moves the tip on. */
+    private var keptAt: String? = null
     /** HIS-107 (owner problem report 2026-11-05): an Undo tapped while something of the player's was still on its way
      * ([undoTap]): the event of the action it takes back. Meanwhile the device makes nothing of its own. */
     private var queuedUndo: String? = null
@@ -660,6 +666,8 @@ class GameDevice(
         val step = event.assumed ?: return null
         if (step.assumedBy == me || Acceptance.assumedAbout(step, event, players) != me) return null
         if (remaking.isNotEmpty() && event.id == lateAnswerAt()) return step.input
+        // The stop the player stood at when they changed their mode stays until they answer it ([keptAt])
+        if (keeps(event.parentId)) return step.input
         return step.input?.takeIf { NextStop.stopsAt(model.engine, it, me, mode) }
     }
 
@@ -753,12 +761,14 @@ class GameDevice(
         val d = s.pending?.decision
         if (d != null) {
             if (d is Decision.Random || Engine.decider(s, d.player) != me) return null
-            return WhoActs.automaticAnswer(model, d) ?: oneAnswer(s, d)
+            return WhoActs.automaticAnswer(model, d) ?: oneAnswer(s, d)?.takeIf { !keeps(session.tip) }
         }
         val holder = s.priority.holder
         if (holder != null) {
             // An End turn going on passes whatever they could do: no search of their options
             if (endTurn == s.turn.number) return Input.PassPriority(holder)
+            // The stop they stood at when they changed their mode waits for their answer ([keptAt])
+            if (keeps(session.tip)) return null
             // One search of the player's options answers both (the engine's own pass and their mode's)
             val check = model.passCheck(holder)
             return Input.PassPriority(holder).takeIf { (check.asSet && !Stops.stop(s, holder)) || modePasses(s, holder, check) }
@@ -1269,9 +1279,18 @@ class GameDevice(
         return table(listOf(TableChange.EarlyAnswered(key, model.table.earlyAnswers[key], answer)))
     }
 
-    /** The player's private settings for this game (§7): they apply to the points not yet played back. */
+    /**
+     * The player's private settings for this game (§7): they apply to the points not yet played back. A new response
+     * mode applies from the next point on (owner 2026-11-07, report WDKHSB): where the player stands at a stop of theirs
+     * (live, or a playback stop their mode made), it stays until they answer it ([keptAt]), never passed by itself.
+     */
     fun settings(new: PlaySettings) {
         if (new == settings) return
+        if (new.mode != settings.mode) when (val now = status) {
+            is Status.Stopped -> if (!now.paused) keptAt = session.tip
+            Status.YourMove -> keptAt = session.tip
+            else -> {}
+        }
         settings = new
         reveals.clear()
         send(GameAction.EngineSettings(new))
@@ -1396,6 +1415,16 @@ class GameDevice(
         if (remaking.isNotEmpty()) remember("undo: ${remaking.size} move(s) not made again")
         remaking.clear()
         retry.clear()
+    }
+
+    /** Whether [at] is still the point [keptAt] names: it, or an event after it with only table-only events (card places,
+     * early answers, staging of either player) between them, on the line or pending. */
+    private fun keeps(at: String): Boolean {
+        val kept = keptAt ?: return false
+        if (at == kept) return true
+        val after = (session.after(kept) ?: return false) + session.pending
+        val upTo = after.indexOfFirst { it.id == at }.takeIf { it >= 0 } ?: return false
+        return after.subList(0, upTo + 1).all { e -> e.engine?.steps.orEmpty().none { it.input != null } }
     }
 
     /** Whether the device holds at a free undo's point ([holdAt]): only table-only events (the other player's card places

@@ -51,7 +51,7 @@ data class Line(val number: Int = 0, val drawn: Int = 0)
 /**
  * A player's own play settings for one game (I-D56 §2, §13), kept on the server for that player and game, never an event
  * or part of the table or engine state. [mode] says where the player's own device stops for them, in live play and in
- * catch-up playback alike (STK-036, HIS-095; playback's Control toggle sets it); the other player's device learns it too
+ * catch-up playback alike (STK-036, HIS-095; set from the quick actions in both); the other player's device learns it too
  * (owner 2026-11-06: [org.asyncttwiz.protocol.EngineSnapshot.modes], [org.asyncttwiz.protocol.EngineUpdate.modes]) and
  * assumes the player's pass wherever it would pass. [assume] says where the other player's passes are assumed at once
  * instead of waiting with Assume (HIS-096), kept as [assumeNever] (Never), [alwaysAssumeResolves] (Always) and

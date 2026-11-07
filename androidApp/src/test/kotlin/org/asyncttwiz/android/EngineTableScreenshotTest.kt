@@ -263,10 +263,10 @@ class EngineTableScreenshotTest {
         compose.onNodeWithText("Timeline mode").assertDoesNotExist()
         compose.onNodeWithTag("playback-toggle").assertDoesNotExist()
         compose.onNodeWithContentDescription("Alice has made moves · Tap to watch").assertExists()
-        compose.onNodeWithContentDescription("Control").assertExists()
+        compose.onNodeWithContentDescription("Response mode").assertExists()
         compose.onNodeWithContentDescription("Assume resolves setting").assertDoesNotExist()
         captureShot("$SCREENSHOTS/engine/catch-up.png",
-            "Bob comes back after Alice played on past the opening: no dialog and no timeline look; his table shows where he left it, as in live play, with \"Alice has made moves · Tap to watch\" in the middle of the board, and his playback quick actions Control and Autotap mana; nothing plays until he taps the text.")
+            "Bob comes back after Alice played on past the opening: no dialog and no timeline look; his table shows where he left it, as in live play, with \"Alice has made moves · Tap to watch\" in the middle of the board, and his playback quick actions: the response mode cell as in live play (Quick, amber) and Autotap mana; nothing plays until he taps the text.")
         compose.onNodeWithTag("centre-action").performClick()
         compose.runOnIdle {
             assertTrue(bob.device.status.let { it is GameDevice.Status.Playing || it is GameDevice.Status.Stopped }, "the tap started it")
@@ -508,7 +508,7 @@ class EngineTableScreenshotTest {
         return game to h
     }
 
-    // HIS-095, HIS-091, HIS-105 (owner playtest 2026-11-04 #1, #2): Bob's playback (its Control on) stops at a pass
+    // HIS-095, HIS-091, HIS-105 (owner playtest 2026-11-04 #1, #2): Bob's playback (his mode Control) stops at a pass
     // Alice assumed for him in her upkeep: his table looks like any point of his, with no words saying it was assumed
     @Test fun aStopAtAnAssumptionLooksLikeYourOwnPoint() {
         val bob = bobCatchingUp()
@@ -522,7 +522,7 @@ class EngineTableScreenshotTest {
         compose.onNodeWithText("Your decision", substring = true).assertDoesNotExist()
         compose.onNodeWithTag("engine-bar").assertDoesNotExist()
         captureShot("$SCREENSHOTS/engine/decision-stop.png",
-            "Bob's playback (Control on) stopped at Alice's upkeep, where she had assumed his pass: his table is live there with his main button, as at any point of his; nothing says what Alice assumed.")
+            "Bob's playback (his response mode Control) stopped at Alice's upkeep, where she had assumed his pass: his table is live there with his main button, as at any point of his; nothing says what Alice assumed.")
     }
 
     // HIS-095 (owner 2026-11-05): Bob tapped the table while playback ran: it went on to Alice's upkeep, where Control

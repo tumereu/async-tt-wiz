@@ -81,7 +81,8 @@ class GameHttp(private val runtime: ServiceRuntime, private val hub: GameHub) {
                     if (bytes.size > 128 * 1024) { error(413, "request_too_large"); return true }
                     val text = Charsets.UTF_8.newDecoder().onMalformedInput(CodingErrorAction.REPORT)
                         .decode(ByteBuffer.wrap(bytes)).toString()
-                    if (chatRead) json.encodeToString(hub.games.chatRead(principal, parts[3], json.decodeFromString<ReadChat>(text)))
+                    if (chatRead) json.encodeToString(hub.games.chatRead(principal, parts[3], json.decodeFromString<ReadChat>(text))
+                        .also { hub.chatReadChanged(parts[3]) })
                     else {
                         val input = json.decodeFromString<LookupGameResults>(text)
                         json.encodeToString(hub.games.results(principal, parts[3], input.requestIds))

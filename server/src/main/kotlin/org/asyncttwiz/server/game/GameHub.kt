@@ -59,6 +59,8 @@ class GameHub @JvmOverloads constructor(private val runtime: ServiceRuntime,
     fun endpoint(token: String, accountId: String): Endpoint = GameSocket(token, accountId)
     /** A player's presence flipped: tell the opponent's open tables now (no SQL; heads re-check every 30 s). */
     fun presenceChanged(change: org.asyncttwiz.server.activity.PresenceChange) { sockets.forEach { it.presence(change) } }
+    /** LOB-138: a chat read cursor of [gameId] moved: every table showing it (both players' devices) asks for its read state. */
+    fun chatReadChanged(gameId: String) { sockets.forEach { it.chatRead(gameId) } }
     override fun close() {
         workers.shutdownNow()
         // toArray is weakly consistent; toList() can throw when a socket leaves between size() and next().
@@ -208,6 +210,7 @@ class GameHub @JvmOverloads constructor(private val runtime: ServiceRuntime,
             if (change.accountId != accountId && change.gameId in subscriptions)
                 send(GamePresenceUpdate(change.gameId, change.presence))
         }
+        fun chatRead(gameId: String) { if (gameId in subscriptions) send(GameChatReadUpdate(gameId)) }
         private fun send(message: GameServerMessage) = sendText(GameWire.encode(message))
         @Synchronized private fun sendText(text: String) {
             if (stopped) return

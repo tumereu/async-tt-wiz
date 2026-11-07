@@ -90,7 +90,8 @@ class ActivityPresenceTest {
                 record(false)
                 service.heartbeat(f.a, actor.copy(left = true))
                 delivery.deliverDue(); assertEquals(2, sent.size)
-                assertFalse(service.page(f.b, delta.nextCursor).readyNotices!!.single().notice!!.newMessage)
+                // LOB-072 (owner, 2026-11-07): opening the game doesn't read the chat: the later notice still tells the message
+                assertTrue(service.page(f.b, delta.nextCursor).readyNotices!!.single().notice!!.newMessage)
             }
         }
     }
@@ -188,7 +189,8 @@ class ActivityPresenceTest {
                     delivery.deliverDue()
                 }
                 assertTrue(p.sent.isEmpty())
-                assertEquals(0L, f.number("SELECT count(*) FROM activity_summary WHERE kind='GAME' AND new_message " +
+                // LOB-072 (owner, 2026-11-07): heartbeats see the moves but don't read the chat
+                assertEquals(1L, f.number("SELECT count(*) FROM activity_summary WHERE kind='GAME' AND new_message " +
                     "AND account_id='${f.b.account.accountId}'"))
                 p.at(31); p.service.heartbeat(f.b, p.recipient.copy(left = true))
                 assertTrue(p.notices().isEmpty(), "Moves seen before leaving stay seen")

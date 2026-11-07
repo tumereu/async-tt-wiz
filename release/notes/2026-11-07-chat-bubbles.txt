@@ -1,0 +1,1 @@
+add: Chat messages show as speech bubbles by the life squares; tap the other player's bubble to read it, hold it to open the chat, and send quick messages like "One sec" or "GG" with one tap. Your messages show "Read" once they are read.

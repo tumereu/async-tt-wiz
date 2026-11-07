@@ -16,6 +16,8 @@ internal class SessionChat(private val scope: SessionScope, private val connecti
     private val chatReadRequests = mutableSetOf<String>()
     private val chatReadRefresh = mutableMapOf<String, Long>()
     private val chatReadRetry = mutableMapOf<String, Long>()
+    /** LOB-138: games whose read state moved on the server while a read request was on its way: asked again after it. */
+    private val chatReadStale = mutableSetOf<String>()
     private val chatSubmissions = linkedMapOf<String, ChatSubmission>()
     fun chat(gameId: String) = messages[gameId].orEmpty()
     fun chatLoaded(gameId: String) = gameId in chatRevisions
@@ -43,10 +45,16 @@ internal class SessionChat(private val scope: SessionScope, private val connecti
             if (state != null && available(gameId)) {
                 personalChat.accept(state); scope.statusChanged()
                 // Coalesce all visibility callbacks during the request into its latest cursor.
-                if (personalChat.pendingRead(gameId) != null) syncChatRead(gameId)
+                if (personalChat.pendingRead(gameId) != null || chatReadStale.remove(gameId)) syncChatRead(gameId)
             }
         } }
         if (!started) { chatReadRequests.remove(gameId); chatReadRetry[gameId] = now() + 1_000 }
+    }
+    /** LOB-138: a read cursor of [gameId] moved on the server (the other player read, or this account on another
+     * device): its read state is asked for at once rather than at the next refresh. */
+    fun readChanged(gameId: String) {
+        chatReadRefresh.remove(gameId)
+        if (gameId in chatReadRequests) chatReadStale.add(gameId) else syncChatRead(gameId)
     }
     fun outgoingChat(gameId: String) = chatSubmissions.values.filter { it.command.scope.gameId == gameId }
     fun submitted(command: GameCommand) { chatSubmissions[command.requestId] = ChatSubmission(command) }
@@ -116,6 +124,6 @@ internal class SessionChat(private val scope: SessionScope, private val connecti
         chatSubmissions.entries.removeAll { it.value.command.scope.gameId == gameId }
     }
     /** In-flight reads belong to the old socket epoch. */
-    fun disconnected() { chatReads.clear(); chatReadRequests.clear(); chatReadRefresh.clear(); chatReadRetry.clear() }
+    fun disconnected() { chatReads.clear(); chatReadRequests.clear(); chatReadRefresh.clear(); chatReadRetry.clear(); chatReadStale.clear() }
     fun clear() { messages.clear(); chatRevisions.clear(); chatCursors.clear(); olderChat.clear(); chatReads.clear(); personalChat.clear(); chatSubmissions.clear() }
 }

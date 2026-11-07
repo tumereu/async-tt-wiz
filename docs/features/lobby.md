@@ -110,12 +110,17 @@ Everything outside the game table: accounts, profile, navigation, game list, gam
 
 ### Game chat
 
-- **LOB-066** A chat button on the table's top bar opens "Game chat" as a side panel; a small dot on the button shows unread messages. (r16)
+- **LOB-066** A chat button on the table's top bar opens "Game chat" as a side panel; a small dot on the button shows unread messages: it clears once every message of the other player's is read, seen in the chat or tapped as its bubble (LOB-136). (r58)
 - **LOB-067** Messages show author and text, your own tinted; the newest stays at the bottom and the list scrolls by itself; the keyboard shrinks the list instead of pushing it up. (r13)
 - **LOB-068** The keyboard's Send key sends like the Send button. A message being sent says "Checking delivery…", a failed one "Not delivered". (r24)
-- **LOB-069** Unread counts are kept on the server per player and game, so they match on every device. (r16)
+- **LOB-069** Unread counts and what each player has read are kept on the server per player and game, so they match on every device: a bubble read on one of your devices is gone on the other. (r58)
 - **LOB-070** A typed but unsent message is kept per game; a draft from an earlier play must be cleared before writing a new one. (r16)
 - **LOB-071** Chat stays usable while a game result suggestion is waiting. (r18)
+- **LOB-136** A chat message of the other player's shows on your table as a speech bubble by their life square, under it (in landscape under the top bar, where their square sits), in the old status bubbles' look: white, outlined and tailed in their colour, the text centred over up to four lines and cut with "…", never narrower than the life square. It stays until you tap it; a tap reads that message. With several unread the bubble shows the oldest with "1/3" beside its text; each tap reads it and shows the next ("2/3"), and the last tap leaves no bubble. Holding the bubble opens the chat at that message. Bubbles show in play, in timeline mode and when you open the game (the unread ones), never as part of the game's history. (r58)
+- **LOB-137** A message you send shows above your own life square (in landscape above the bottom bar, where your square sits) as a bubble in your colour for about 3 s once the table is in sight (in portrait after the chat closes), then fades in 0.4 s; it takes no taps. (r58)
+- **LOB-140** A chat bubble never covers a card, a pile, a life square, an emblem, the Stack, an open panel or the bars: when the room under the opponent's square (above your own) holds something, it goes to the nearest free room by the square (at most about 168 dp away, the usual side first), its tail toward the square; where four lines find no room it shows one line, and where not even that fits there is no bubble until there is room (the chat button's dot still shows). Your own bubble also keeps off the other player's. (r58)
+- **LOB-138** Your message shows a small "Read" under it in the chat once the other player has read it (tapped its bubble or seen it in their chat), at once while you have the game open. (r58)
+- **LOB-139** Quick messages: a row of chips above the chat's message box, "Thinking…", "One sec", "Your move?", "Got a response", "No responses" and "GG", each sends its text with one tap as a message like any other; a typed draft stays as it is. (r58)
 
 ### Game history and Stats
 
@@ -130,7 +135,7 @@ Everything outside the game table: accounts, profile, navigation, game list, gam
 
 ### Notifications and reminders
 
-- **LOB-072** Three notification channels: Invitations, Game activity and Draft activity. A game notification reads "<game> · vs <opponent>" with "Your move", "<opponent>'s move" or "<opponent> is waiting for you", then where you would resume (the turn and step you last saw, in the turn square's words: "Turn 5, Alex's turn, End step"; "Mulliganing" in the opening) and " · new message" after chat; your deck's name is in its header and its time is your next stop's event. Every notification shows the app logo as a one-colour status-bar icon. (r49)
+- **LOB-072** Three notification channels: Invitations, Game activity and Draft activity. A game notification reads "<game> · vs <opponent>" with "Your move", "<opponent>'s move" or "<opponent> is waiting for you", then where you would resume (the turn and step you last saw, in the turn square's words: "Turn 5, Alex's turn, End step"; "Mulliganing" in the opening) and " · new message" while the game's chat holds a message of the opponent's you haven't read (opening the game doesn't read it; reading it in the chat or tapping its bubble does, LOB-136); your deck's name is in its header and its time is your next stop's event. Every notification shows the app logo as a one-colour status-bar icon. (r58)
 - **LOB-073** A move notification comes only when the game waits for you (TRN-058: your turn's stops, a decision only you can make, an information-rule stop, your opponent waiting for you instead of assuming, their line running out without you, an unseen result, an undo request), never while your opponent plays on assumptions about you, and not if they go on before it was sent. It comes 10 s after your next stop appeared when new to you (60 s otherwise), timed from that event, never while the game is open. (r49)
 - **LOB-074** Leaving with the Home button still notifies; after you open a game and close it, your opponent's next moves notify with sound again. (r29)
 - **LOB-075** One reminder "<opponent> is waiting for you" comes 5 minutes after your next stop appeared while the game waits for you (LOB-073), if you have not moved since; just opening the game does not count, and it waits until 5 minutes after you leave. (r49)

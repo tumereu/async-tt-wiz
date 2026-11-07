@@ -223,7 +223,12 @@ internal fun EngineTableScreen(controller: LobbyController, accountId: String, h
                                 watchTappedAt = shown.version; engine.startPlayback(); controller.engineSent() }
                             else null,
                         boardTap = if (reviewPlay == null && playing && !shown.pausing && !takingBack) ({
-                            engine.pause(); controller.engineSent() }) else null))
+                            engine.pause(); controller.engineSent() }) else null,
+                        // LOB-136, LOB-137: chat bubbles, also in timeline mode (chat isn't game history); the own one
+                        // waits while the chat covers the table (portrait)
+                        chatBubbles = TableChatBubbles(state.chatBubble, state.chatSent, tableShown = !state.chatOpen || landscape,
+                            routes.opponentName, read = { controller.readChatBubble(game.id, it) },
+                            open = { controller.openChat(it) }, sentShown = { controller.chatSentShown(game.id, it) })))
                 // Over the top row (whose move/step/turn), never taking its taps.
                 EventTextOverlay(eventText, playbackPause, Modifier.align(Alignment.TopCenter), status = choosing,
                     flashes = toolkit.choiceFlashes)

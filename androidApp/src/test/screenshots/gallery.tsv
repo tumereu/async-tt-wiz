@@ -97,3 +97,7 @@ number	item	screenshot	catalog	decisions
 96	The other player's reveal stops your view until OK	engine/reveal-panel.png	HIS-110 STK-044
 97	View deck from your own Library: Still in library	engine/view-deck.png	ZON-093 ZON-078
 98	Game settings in the lobby: allowing assumes over library and hand reveals	settings/game-settings-host.png	LOB-135 TRN-067
+99	The other player's chat message as a bubble by their life square, 1/2	chat/bubble-opponent.png	LOB-136 LOB-140
+100	Your sent message's bubble fading	chat/bubble-own-fading.png	LOB-137
+101	Chat with quick messages and a Read mark	chat/quick-messages.png	LOB-139 LOB-138
+102	Chat bubbles in landscape	chat/bubble-landscape.png	LOB-136 LOB-137 LOB-140

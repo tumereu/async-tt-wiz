@@ -3,6 +3,8 @@ package org.asyncttwiz.android
 import androidx.compose.ui.text.input.ImeAction
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -46,6 +48,12 @@ internal fun ChatPanel(controller: LobbyController, accountId: String, modifier:
             if (atLatest) list.requestScrollToItem(0)
         }
     }
+    // LOB-136: opened by holding a bubble: at that message
+    val focus = state.chatFocus
+    LaunchedEffect(game.id, focus) {
+        val at = focus?.let { id -> chat.messages.indexOfFirst { it.id == id } }?.takeIf { it >= 0 } ?: return@LaunchedEffect
+        list.scrollToItem(chat.outgoing.size + chat.messages.lastIndex - at)
+    }
     val viewEpoch = controller.chatViewEpoch
     BackHandler { controller.closeChat() }
     LaunchedEffect(game.id, viewEpoch, list) {
@@ -85,10 +93,20 @@ internal fun ChatPanel(controller: LobbyController, accountId: String, modifier:
             }
             items(chat.messages.size, key = { chat.messages[chat.messages.lastIndex - it].id }) { index ->
                 val message = chat.messages[chat.messages.lastIndex - index]
+                // LOB-138: your message the other player has read says so
                 ChatMessageRow(if (message.author == game.inviter.accountId) game.inviter.username else game.recipient.username,
-                    message.text, message.author == accountId, "")
+                    message.text, message.author == accountId, if (message.author == accountId && chat.read(message)) "Read" else "")
             }
         }
+        }
+        // LOB-139: quick messages, each sent with one tap; the typed draft stays
+        val quick = chat.canSendQuick(game, game.id !in state.reconnectingGames)
+        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 8.dp)
+            .semantics { contentDescription = "Quick messages" }, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            for (text in QuickChatMessages) SuggestionChip(onClick = {
+                controller.sendQuickChat(text)
+                list.requestScrollToItem(0)
+            }, label = { Text(text, maxLines = 1) }, enabled = quick)
         }
         Row(Modifier.fillMaxWidth().padding(8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             val send = {

@@ -19,6 +19,8 @@ data class LobbyState(val contacts: List<AccountIdentity> = emptyList(), val que
     val board: TableBoard? = null,
     val gameContext: GameSummary? = null, val deletion: GameDeletion? = null,
     val chatOpen: Boolean = false, val chat: ChatPresentation = ChatPresentation(),
+    /** LOB-136: the message the chat opens at (held bubble); null: at the newest. */
+    val chatFocus: String? = null,
     val reconnectingGames: Set<String> = emptySet(), val backgroundLoading: Boolean = false,
     val choosingOpponent: Boolean = false, val contactsTab: ContactsTab = ContactsTab.CONTACTS,
     val contactFilter: String = "", val removingContact: AccountIdentity? = null, val chatLoaded: Boolean = false,
@@ -31,7 +33,8 @@ data class LobbyState(val contacts: List<AccountIdentity> = emptyList(), val que
     val unreachable: Boolean = false) {
     val filteredContacts get() = contacts.filter { it.username.contains(contactFilter.trim(), ignoreCase = true) }
     internal fun tableView() = LobbyTableView(selected, detail, board, connectedGames, reconnectingGames,
-        syncedGames, activityTarget, chatOpen, chat.unread, connectionMessage, error, ownPodDeckName, opponentPresence)
+        syncedGames, activityTarget, chatOpen, chat.unread, connectionMessage, error, ownPodDeckName, opponentPresence,
+        chat.bubble, chat.sent)
 }
 
 /** The [LobbyState] fields an open table reads. Games-list refreshes flip busy/loading flags in the whole
@@ -39,7 +42,8 @@ data class LobbyState(val contacts: List<AccountIdentity> = emptyList(), val que
  * change to one of these fields recomposes it. */
 internal data class LobbyTableView(val selected: String?, val detail: GameSummary?, val board: TableBoard?, val connectedGames: Set<String>, val reconnectingGames: Set<String>,
     val syncedGames: Set<String>, val activityTarget: ActivityTarget?, val chatOpen: Boolean, val chatUnread: Int,
-    val connectionMessage: String?, val error: String?, val ownPodDeckName: String?, val opponentPresence: ReceivedPresence?)
+    val connectionMessage: String?, val error: String?, val ownPodDeckName: String?, val opponentPresence: ReceivedPresence?,
+    val chatBubble: IncomingChatBubble? = null, val chatSent: SentChat? = null)
 
 /** [LobbyController.state] and its narrow table view, written together. An equal view is not written, so
  * the busy/loading flips of a list refresh never invalidate the table. (Not derivedStateOf: a pending

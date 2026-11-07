@@ -1,0 +1,1 @@
+add: When the other player casts a spell, uses an ability or one of their abilities triggers (and when your own triggers), your table shows it large for a moment before it goes to the Stack; tap it to skip. Set how long in Settings, Timeline playback, "Show the other player's plays" (0 turns it off).

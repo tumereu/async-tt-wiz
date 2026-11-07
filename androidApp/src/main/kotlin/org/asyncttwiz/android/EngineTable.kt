@@ -94,6 +94,9 @@ interface EngineRoutes {
 
     /** HIS-110: whether the other player's reveal panel is open: it comes before any choice panel of the viewer's. */
     fun revealing(): Boolean = false
+
+    /** HIS-112: whether a play shows large in the middle of the table: the Stack line and the wait's words give way. */
+    fun showing(): Boolean = false
 }
 
 /**
@@ -272,6 +275,8 @@ internal class EngineTableRoutes(val viewer: String, private val game: () -> Eng
     override fun control(): Boolean = game()?.shown?.settings?.mode == ResponseMode.FullControl
 
     override fun revealing(): Boolean = game()?.shown?.reveal != null
+
+    override fun showing(): Boolean = game()?.shown?.show != null
 
     /** TRN-015, I-D56 §14: the step arrow acts only for the viewer: shown while they may act. */
     fun arrowShown(): Boolean = when (status()) {
@@ -638,6 +643,16 @@ internal fun EngineAsyncHost(toolkit: TableToolkitController, routes: EngineTabl
     if (reveal != null) AboveHand(handRow(scene, routes.viewer)) {
         RevealPanel(play, routes.viewer, reveal, names[reveal.by.value] ?: opponent) { game.dismissReveal(); routes.pump() }
     }
+    // HIS-112: the other player's play (or a trigger of the viewer's own) large in the middle of the table for the
+    // "Show the other player's plays" time, then to the Stack; the view holds meanwhile. Timeline mode ends it
+    val playbackPreferences = rememberHistoryPlaybackPreferences(routes.viewer)
+    val showMillis by playbackPreferences.showPlaysState()
+    LaunchedEffect(game, showMillis > 0) { game.showPlays(showMillis > 0) }
+    val show = shown.show
+    if (show != null && reviewing) LaunchedEffect(show) { game.dismissShows(); routes.pump() }
+    if (show != null && !reviewing && scene != null) key(show) {
+        PlayShowOverlay(play, scene, routes.viewer, show, names, showMillis) { game.dismissShow(show); routes.pump() }
+    }
     if (!reviewing) when (status) {
         is GameDevice.Status.Playing -> EnginePlayback(routes)
         else -> if (reveal != null) Unit else when (status) {
@@ -778,7 +793,9 @@ private fun EnginePlayback(routes: EngineTableRoutes) {
         // has played
         if (shown.takingBack) snapshotFlow { routes.motionBusy() }.first { !it }
         val last = shown.held.lastOrNull()?.takeIf { it.id == shown.localHead }
-        val wait = playbackWait(last, playbackDelay(multiplier), shown.settings.mode, shown.held.getOrNull(shown.held.size - 2))
+        // HIS-112, HIS-021: an event whose plays were shown already had its moment: no playback delay after it
+        val wait = if (last != null && last.id == shown.showDone) 0L
+            else playbackWait(last, playbackDelay(multiplier), shown.settings.mode, shown.held.getOrNull(shown.held.size - 2))
         if (wait > 0) delay(wait)
         if (game.shown?.status is GameDevice.Status.Playing) { game.step(); routes.pump() }
     }

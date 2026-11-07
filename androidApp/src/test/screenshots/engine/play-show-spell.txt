@@ -1,0 +1,1 @@
+Bob cast Storm Spark at Alice's Ember Cub: her table shows the Spark large in the middle of the board, with "Bob cast Storm Spark · deals 3 damage to Ember Cub" under it, before it moves to the Stack; her table waits at the cast meanwhile.

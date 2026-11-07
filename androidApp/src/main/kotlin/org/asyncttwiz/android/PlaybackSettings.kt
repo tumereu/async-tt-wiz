@@ -9,10 +9,11 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import kotlin.math.roundToInt
 
-/** Shared by Settings and the timeline dialog; both edit the same account-local preferences. */
+/** Shared by Settings and the timeline dialog; both edit the same account-local preferences. [plays]: the time a play
+ * shows (HIS-112), in Settings only (HIS-028). */
 @Composable
 internal fun PlaybackSettings(preferences: HistoryPlaybackPreferences, accountId: String, heading: Boolean = true,
-    moveSpeed: Boolean = true) {
+    moveSpeed: Boolean = true, plays: Boolean = false) {
     val pause by preferences.pauseState()
     val rewind by preferences.rewindPauseState()
     Column(Modifier.fillMaxWidth().testTag("playback-settings")) {
@@ -25,11 +26,23 @@ internal fun PlaybackSettings(preferences: HistoryPlaybackPreferences, accountId
         Slider(value = rewind.toFloat(), onValueChange = { preferences.rewindPauseMillis = (it / 10).roundToInt() * 10L },
             valueRange = HistoryPlaybackPreferences.MIN_REWIND_PAUSE_MILLIS.toFloat()..HistoryPlaybackPreferences.MAX_REWIND_PAUSE_MILLIS.toFloat(),
             modifier = Modifier.testTag("history-rewind-pause"))
+        if (plays) ShowPlaysSetting(preferences)
         Spacer(Modifier.height(8.dp))
         if (moveSpeed) CardMoveSpeedSetting(accountId)
     }
 }
 
+
+/** HIS-112, LOB-082: how long the other player's plays (and the player's own triggers) show large on the table, 0 (Off)
+ * to 3 s in 0.1 s steps. */
+@Composable
+internal fun ShowPlaysSetting(preferences: HistoryPlaybackPreferences) {
+    val millis by preferences.showPlaysState()
+    SettingsLabel("Show the other player's plays", if (millis == 0L) "Off" else "${millis / 1000.0} s, then to the Stack")
+    Slider(value = millis.toFloat(), onValueChange = { preferences.showPlaysMillis = (it / 100).roundToInt() * 100L },
+        valueRange = 0f..HistoryPlaybackPreferences.MAX_SHOW_PLAYS_MILLIS.toFloat(),
+        modifier = Modifier.testTag("show-plays-time"))
+}
 
 /** Multiplier for card flight animations; tap the value to type an exact one. */
 @Composable

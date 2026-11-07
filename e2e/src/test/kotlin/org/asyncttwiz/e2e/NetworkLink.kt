@@ -34,6 +34,7 @@ class NetworkLink(target: String) : AutoCloseable {
 
     private val gate = Object()
     @Volatile private var holding = false
+    @Volatile private var holdingOut = false
 
     /** Every HTTP request this device sent through the link, as "METHOD /path" in the order sent (a test counts the
      * ones it cares about, say the deck service's). */
@@ -57,7 +58,7 @@ class NetworkLink(target: String) : AutoCloseable {
                     }
                     carry = text.substring(maxOf(end, text.length - 512))
                 }
-                if (incoming) synchronized(gate) { while (holding) gate.wait() }
+                synchronized(gate) { while (if (incoming) holding else holdingOut) gate.wait() }
                 output.write(buffer, 0, n); output.flush()
             }
         } catch (_: Exception) {}
@@ -77,8 +78,14 @@ class NetworkLink(target: String) : AutoCloseable {
 
     fun releaseIncoming() = synchronized(gate) { holding = false; gate.notifyAll() }
 
+    /** What this device sends waits in the network (the server's messages still come in), until [releaseOutgoing]: a slow
+     * uplink, so the other phone's moves reach the server before this device's own. */
+    fun holdOutgoing() { holdingOut = true }
+
+    fun releaseOutgoing() = synchronized(gate) { holdingOut = false; gate.notifyAll() }
+
     /** The connection is back. */
     fun restore() { up = true }
 
-    override fun close() { releaseIncoming(); cut(); runCatching { listener.close() } }
+    override fun close() { releaseIncoming(); releaseOutgoing(); cut(); runCatching { listener.close() } }
 }

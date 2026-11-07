@@ -258,7 +258,10 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
         val held = session.events.take(local + 1)
         val line = held + session.pending
         val before = previous
-        if (before == null || before.nodeId != tip || before.board.turn != play.board.turn)
+        // SYS-009, SYS-077 (owner 2026-11-07): the other player's same event that took the place of the board's own pending
+        // event is the same board: no transition (nothing moves, flashes or jumps)
+        val shownAt = before?.nodeId?.let { device.adoptedAs(it) ?: it }
+        if (before == null || shownAt != tip || before.board.turn != play.board.turn)
             transition(before, play, tip, line, attention, device.move?.value)
         previewed = null
         previous = play
@@ -623,7 +626,7 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
             device.play()
         }
         // A board already shown taken back by the server's revision (owner, N7FU6Y: one line per take-back)
-        if (!onLine(tip)) takenBack(when {
+        if (!onLine(device.adoptedAs(tip) ?: tip)) takenBack(when {
             device.needsReload -> "the server's main line can't be followed (reload)"
             update?.target != null -> "rewind to ${update.target} by ${update.rewoundBy ?: "?"}"
             events.firstOrNull()?.let { it.parentId != head } == true -> "branch by ${events.first().author} at ${events.first().parentId}"

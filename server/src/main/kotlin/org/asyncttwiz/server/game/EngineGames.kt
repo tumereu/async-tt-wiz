@@ -77,6 +77,9 @@ internal val ENGINE_REASONS = setOf("stale", "revealsHidden", "rewindRequested",
  * branch, the board after an undo without its animation). */
 private const val MAX_TAKEN_BACK = 200
 
+/** How many of a play's duplicate submissions [EngineGames] keeps (the latest ones: a device's next submissions follow). */
+private const val MAX_ALIASES = 16
+
 internal class EngineGames(private val capacity: Int = warmCapacity()) {
     private val warm = object : LinkedHashMap<UUID, LiveState>(16, 0.75f, true) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<UUID, LiveState>?) = size > capacity
@@ -97,6 +100,17 @@ internal class EngineGames(private val capacity: Int = warmCapacity()) {
     private val plays = object : LinkedHashMap<UUID, EngineHistoryStore.Shared>(16, 0.75f, true) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<UUID, EngineHistoryStore.Shared>?) = size > capacity
     }
+    /**
+     * Owner 2026-11-07 (SYS-077): each play's recent submissions dropped as duplicates of main-line events
+     * ([Acceptance.Confirmed.alias]: a player's answer that crossed the other player's assumption of it on the wire), by
+     * submission id: their author's later submissions made on one are taken on its event. Kept in memory only (a device's
+     * next submissions follow at once); after a restart such a submission is stale, as before.
+     */
+    private val aliases = object : LinkedHashMap<UUID, LinkedHashMap<String, String>>(16, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<UUID, LinkedHashMap<String, String>>?) = size > capacity
+    }
+
+    private fun aliases(play: UUID): Map<String, String> = synchronized(aliases) { aliases[play]?.toMap().orEmpty() }
 
     /** [play]'s history store, reading through what earlier requests kept of it. */
     internal fun open(sql: DSLContext, play: UUID): EngineHistoryStore? {
@@ -187,6 +201,8 @@ internal class EngineGames(private val capacity: Int = warmCapacity()) {
         val modes: Map<String, org.asyncttwiz.protocol.game.ResponseMode> = emptyMap(),
         /** When [ended]: what the match's record takes from the play. */
         val facts: MatchFacts? = null,
+        /** A submission dropped as the duplicate of a main-line event: its id and the event's ([Acceptance.Confirmed.alias]). */
+        val alias: Pair<String, String>? = null,
     ) {
         /** Whose move the game is for the stored summary: a player the game waits for (each viewer sees their own first). */
         val attention: String? get() = moves.entries.firstOrNull { it.value }?.key
@@ -204,6 +220,11 @@ internal class EngineGames(private val capacity: Int = warmCapacity()) {
     /** Puts [outcome]'s state back as its play's warm state, once its transaction committed. */
     fun committed(outcome: Outcome) {
         outcome.store?.let { store -> store.committed(); synchronized(plays) { plays[outcome.play] = store.cache } }
+        outcome.alias?.let { (submission, event) -> synchronized(aliases) {
+            val play = aliases.getOrPut(outcome.play) { LinkedHashMap() }
+            play[submission] = event
+            while (play.size > MAX_ALIASES) play.remove(play.keys.first())
+        } }
         outcome.live?.let { synchronized(warm) { warm[outcome.play] = it } }
     }
 
@@ -261,7 +282,7 @@ internal class EngineGames(private val capacity: Int = warmCapacity()) {
         val me = PlayerId(author.toString())
         val result = try {
             Acceptance.accept(history, head, warm, submission, me, seats.associate { PlayerId(it.account.toString()) to it.head },
-                row.lines + 1, rewindOpen = row.request != null)
+                row.lines + 1, rewindOpen = row.request != null, aliases = aliases(play))
         } catch (refusal: Refusal) {
             keepWarm(play, history, refusal.state, head)
             throw refusal
@@ -271,7 +292,7 @@ internal class EngineGames(private val capacity: Int = warmCapacity()) {
                 setHead(sql, play, author, result.event)
                 // The warm state wasn't used: it is still the head's
                 val state = warm?.takeIf { it.at == head } ?: LiveState(head, history.stateAt(head))
-                refresh(sql, play, history, state, emptyList(), live, confirmed = result.event)
+                refresh(sql, play, history, state, emptyList(), live, confirmed = result.event, alias = result.alias?.let { it to result.event })
             }
             is Acceptance.Accepted -> {
                 val event = result.event
@@ -476,7 +497,8 @@ internal class EngineGames(private val capacity: Int = warmCapacity()) {
      * worked out again.
      */
     private fun refresh(sql: DSLContext, play: UUID, history: GameHistory, state: LiveState, events: List<GameEvent>, live: (UUID) -> Boolean,
-        target: String? = null, confirmed: String? = null, branched: Boolean = false, rewoundBy: String? = null, only: UUID? = null): Outcome {
+        target: String? = null, confirmed: String? = null, branched: Boolean = false, rewoundBy: String? = null, only: UUID? = null,
+        alias: Pair<String, String>? = null): Outcome {
         val head = state.at
         val seats = seats(sql, play)
         val row = playRow(sql, play)
@@ -569,7 +591,7 @@ internal class EngineGames(private val capacity: Int = warmCapacity()) {
             seats.filter { waits[it] == true && (!it.waited || stops[it] != it.nextStop) }.map { it.account.toString() }.toSet(),
             seats.filter { it.waited && waits[it] != true }.map { it.account.toString() }.toSet(), rewoundBy,
             seats.associate { it.account.toString() to it.settings.mode },
-            if (ended) MatchFacts.of(engine, result!!, conceded, agreement, mulligans) else null)
+            if (ended) MatchFacts.of(engine, result!!, conceded, agreement, mulligans) else null, alias)
     }
 
     /** Each player's mulligans taken in the opening (CR 103.5), from the engine's log of this and last turn. */

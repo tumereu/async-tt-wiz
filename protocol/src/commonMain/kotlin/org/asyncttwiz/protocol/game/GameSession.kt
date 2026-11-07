@@ -21,6 +21,7 @@ import arcanum.engine.state.PlayerId
  *   head while events are buffered is the player's answer at a decision stop: sent as a new line (a branch), it
  *   discards the buffered events.
  * - The server's events come in through [received]: the device's own next pending event is confirmed; another player's
+ *   event that is that pending event but for who made it takes its place, the board as it is ([Received.Adopted]); another player's
  *   table-only event on [head] that doesn't touch what the pending events and the draft touch is slipped in under them
  *   (shown at once; the server makes them on it the same way, [Acceptance.commutes]); any other event on [head] drops
  *   whatever the device had pending (the server refuses it: its parent moved) and is buffered; an event on an earlier
@@ -161,6 +162,11 @@ class GameSession(base: GameModel, baseId: String, events: List<GameEvent>, loca
     sealed interface Received {
         /** The device's own pending event, as the server stored it. */
         data object Confirmed : Received
+        /** The other player's event that is the device's own first pending event [mine] but for who made it
+         * ([Acceptance.duplicate]: their assumption of the player's answer, or their own answer the player's device
+         * assumed): it takes [mine]'s place on the line with the board as it is; the server drops [mine] as its
+         * duplicate (owner 2026-11-07, SYS-077). */
+        data class Adopted(val mine: GameEvent) : Received
         /** Another event on [head], buffered; [dropped] are the device's events (and draft) it replaced. */
         data class Applied(val dropped: List<GameEvent>, val draftDropped: Boolean) : Received
         /**
@@ -195,6 +201,7 @@ class GameSession(base: GameModel, baseId: String, events: List<GameEvent>, loca
             return Received.Applied(emptyList(), false)
         }
         if (event.parentId == head) {
+            adopt(event)?.let { return it }
             slip(event)?.let { return it }
             val hadDraft = draft != null
             val dropped = dropPending() ?: return Received.Reload
@@ -235,6 +242,33 @@ class GameSession(base: GameModel, baseId: String, events: List<GameEvent>, loca
         if (waiting.isNotEmpty()) waiting[0] = waiting[0].copy(parentId = event.id)
         else if (draftKept) { open!!.parentId = event.id; draftAt = event.id }
         return Received.Applied(dropped, open != null && !draftKept)
+    }
+
+    /**
+     * Owner 2026-11-07 (SYS-077): another player's [event] on [head] that is the device's first pending event but for who
+     * made it: their device's assumption of the player's answer that the player's own same answer crossed on the wire, or
+     * their own answer that this device assumed for them ([Acceptance.duplicate], the server's rule: it drops the
+     * pending event as the duplicate and takes the events made on it on [event]). It takes the pending event's place:
+     * shown, with the board, the later pending events and the open draft as they are (nothing taken back or made
+     * again); the next pending event, or the draft, is now made on it. Null when it isn't such an event, or when its
+     * changes differ from the pending event's after all (then it is dropped as any event on [head] drops them).
+     */
+    private fun adopt(event: GameEvent): Received.Adopted? {
+        val mine = waiting.firstOrNull() ?: return null
+        if (behind || mine.parentId != event.parentId || event.author == me.value) return null
+        val theirs = event.assumed
+        val own = mine.assumed
+        // Their assumption of the player's own first input, or the player's assumption of their own first input
+        val crossed = (theirs != null && own == null && theirs.assumedBy != me) || (theirs == null && own?.assumedBy == me)
+        if (!crossed || !Acceptance.duplicate(Submission.of(mine), event)) return null
+        if (event.engine?.timestampBefore != mine.engine?.timestampBefore || event.engine?.changes != mine.engine?.changes ||
+            event.table != mine.table) return null
+        waiting.removeAt(0)
+        line += event
+        shown++
+        if (waiting.isNotEmpty()) waiting[0] = waiting[0].copy(parentId = event.id)
+        else draft?.let { it.parentId = event.id; draftAt = event.id }
+        return Received.Adopted(mine)
     }
 
     /** Whether [id] is an event the device's own pending branch replaced (the line it discards). */

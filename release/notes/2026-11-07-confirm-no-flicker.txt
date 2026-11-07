@@ -1,0 +1,1 @@
+fix: When you pass at the same moment the other player's phone goes on for you with that same pass, your table and any open panel stay as they are instead of flickering back and redrawing.

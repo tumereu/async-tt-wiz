@@ -88,7 +88,7 @@ internal object Loops {
             val s = recorder.state
             recorder.record(Change.Happened(GameEvent.MandatoryLoop))
             // CR 104.4b: the game is a draw; the remaining players leave it together (GameResult.Draw)
-            s.players.filterNot { it.lost }.map { it.id }.forEach { recorder.record(Change.Lost(it, false, true)) }
+            s.players.filterNot { it.lost }.map { it.id }.forEach { recorder.record(Change.Lost(it, false, true, arcanum.engine.setup.LossReason.Loop)) }
         }
         return Progress.Done
     }

@@ -26,6 +26,8 @@ data class PlayerState(
     val manaPool: List<ManaUnit> = emptyList(),
     /** Lost the game (CR 104.3); kept in turn order, skipped by turns and priority. */
     val lost: Boolean = false,
+    /** Why they lost ([lost]), null while they haven't; set and taken back with [arcanum.engine.change.Change.Lost]. */
+    val lossReason: arcanum.engine.setup.LossReason? = null,
     val designations: List<Designation> = emptyList(),
     val library: List<ObjectId> = emptyList(),
     val hand: List<ObjectId> = emptyList(),

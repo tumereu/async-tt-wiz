@@ -135,6 +135,13 @@ revealed (CR 708.9; in a viewer's state those it doesn't know stay unknown, as l
 priority they held passes on, their turn goes on without them (CR 800.4j), and their decisions are made by others or not at
 all (CR 800.4f–h, see Status).
 
+Why each player lost is kept with them: `PlayerState.lossReason` (a sealed `LossReason`, null while they haven't lost),
+set and taken back with the `Change.Lost` that carries it: `ZeroLife` (CR 704.5a), `EmptyLibrary` (704.5b), `Poison`
+(704.5c), `Effect(card)` (an effect said they lose, or that another player wins, naming its source, CR 104.3e, 104.2b),
+`Conceded` (CR 104.3a), `Agreed` (`Input.AgreedResult`) and `Loop` (a mandatory loop's draw, CR 104.4b). A player who
+loses to several state-based actions at once gets the first listed in CR 704.5; in a draw by everyone losing at once
+(CR 104.4a) each keeps their own.
+
 ## Loops
 
 - **Safety cap:** one `perform` call makes at most `Loops.MAX_ROUNDS` rounds of state-based actions and triggers (200)

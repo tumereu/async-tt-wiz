@@ -88,12 +88,19 @@ internal object StateBasedActions {
         // counters loses (unless they can't, CR 104.3b)
         // fra: once one player is left (another won the game, CR 104.2b) the game is over (CR 104.1): nobody loses after
         val over = state.players.count { !it.lost } <= 1
+        // Each loser's reason is the first of these that holds (LossReason)
         val losers = if (over) emptyList() else state.players.filter { p ->
-            // "You don't lose the game for having 0 or less life."
-            !p.lost && (p.life <= 0 && view.players[p.id]?.mechanics.orEmpty().none { it.mechanic == Mechanic.NoLossForZeroLife } ||
-                (p.ledger[Actions.EMPTY_DRAW] ?: 0) > 0 || p.counters(CounterKind.Poison) >= 10) &&
-                view.players[p.id]?.mechanics.orEmpty().none { it.mechanic == Mechanic.CantLoseGame }
-        }.map { it.id }
+            !p.lost && view.players[p.id]?.mechanics.orEmpty().none { it.mechanic == Mechanic.CantLoseGame }
+        }.mapNotNull { p ->
+            when {
+                // "You don't lose the game for having 0 or less life."
+                p.life <= 0 && view.players[p.id]?.mechanics.orEmpty().none { it.mechanic == Mechanic.NoLossForZeroLife } ->
+                    p.id to arcanum.engine.setup.LossReason.ZeroLife
+                (p.ledger[Actions.EMPTY_DRAW] ?: 0) > 0 -> p.id to arcanum.engine.setup.LossReason.EmptyLibrary
+                p.counters(CounterKind.Poison) >= 10 -> p.id to arcanum.engine.setup.LossReason.Poison
+                else -> null
+            }
+        }
         val emptyDraws = state.players.filter { (it.ledger[Actions.EMPTY_DRAW] ?: 0) > 0 }
 
         // CR 704.5d: a token in a zone other than the battlefield ceases to exist
@@ -169,7 +176,7 @@ internal object StateBasedActions {
             }
 
         // CR 704.3: all at once
-        losers.forEach { act.record(Change.Lost(it, false, true)) }
+        losers.forEach { (player, reason) -> act.record(Change.Lost(player, false, true, reason)) }
         emptyDraws.forEach { p -> act.record(Change.Ledger(p.id, Actions.EMPTY_DRAW, p.ledger[Actions.EMPTY_DRAW] ?: 0, 0)) }
         if (strayTokens.isNotEmpty()) act.record(Change.Removed(strayTokens.map { Placed(it, state.positionOf(it.id)) }
             .sortedByDescending { it.index }.let { placed -> recomputeIndexes(act, placed) }))

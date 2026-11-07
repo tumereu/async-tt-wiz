@@ -239,9 +239,11 @@ sealed interface Change {
         override val isEvent: Boolean get() = false
     }
 
-    /** A player loses the game (CR 104.3). */
+    /** A player loses the game (CR 104.3) for [reason] ([arcanum.engine.state.PlayerState.lossReason]; null: not said).
+     * Its inverse carries the reason it takes back. */
     @Serializable @SerialName("lost")
-    data class Lost(val player: PlayerId, val before: Boolean, val after: Boolean) : Change {
+    data class Lost(val player: PlayerId, val before: Boolean, val after: Boolean,
+        val reason: arcanum.engine.setup.LossReason? = null) : Change {
         override fun inverse() = copy(before = after, after = before)
     }
 

@@ -183,7 +183,7 @@ internal object Applier {
             }
             is Change.Lost -> state.updatePlayer(change.player) { p ->
                 check(p.lost == change.before) { "Lost of ${change.player} isn't ${change.before}" }
-                p.copy(lost = change.after)
+                p.copy(lost = change.after, lossReason = if (change.after) change.reason else null)
             }
             is Change.SkipWhenNoChoice -> state.updatePlayer(change.player) { p ->
                 check(p.skipWhenNoChoice == change.before) { "Skip when no choice of ${change.player} isn't ${change.before}" }

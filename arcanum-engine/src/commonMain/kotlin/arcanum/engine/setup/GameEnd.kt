@@ -89,7 +89,7 @@ internal object GameEnd {
             }
         }
         recorder.record(Change.Happened(GameEvent.Conceded(player)))
-        recorder.record(Change.Lost(player, false, true))
+        recorder.record(Change.Lost(player, false, true, LossReason.Conceded))
         if (over(s)) {
             close(recorder)
             return Outcome(recorder.changes.toList(), null)
@@ -148,7 +148,7 @@ internal object GameEnd {
         val leaving = if (result is GameResult.Won) left - result.winner else left
         leaving.forEach { player ->
             if (result is GameResult.Won) recorder.record(Change.Happened(GameEvent.Conceded(player)))
-            recorder.record(Change.Lost(player, false, true))
+            recorder.record(Change.Lost(player, false, true, LossReason.Agreed))
         }
         close(recorder)
         return Outcome(recorder.changes.toList(), null)

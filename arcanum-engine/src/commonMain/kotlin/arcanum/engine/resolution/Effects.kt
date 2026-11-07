@@ -538,7 +538,9 @@ internal object Effects {
         val act = scope.act
         if (act.state.player(player).lost) return
         if (act.view().players[player]?.mechanics.orEmpty().any { it.mechanic == Mechanic.CantLoseGame }) return
-        act.record(Change.Lost(player, false, true))
+        // CR 104.3e: the loss names the effect's source, as the name it had while its instructions run
+        val card = act.recorder.by?.name ?: scope.cause.source?.let { act.view()[it]?.characteristics?.name }
+        act.record(Change.Lost(player, false, true, arcanum.engine.setup.LossReason.Effect(card)))
     }
 
     // ---- Damage

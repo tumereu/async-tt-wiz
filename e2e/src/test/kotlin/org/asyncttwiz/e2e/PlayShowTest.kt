@@ -61,11 +61,12 @@ class PlayShowTest : E2e() {
         assertFalse(bob.shows(hasTestTag(PLAY_SHOW_TAG)), "nothing shown on Bob's phone for his own cast")
         assertNull(bob.shown.show)
         waitUntil("the Glint resolved on Bob's phone") { bobsLife(bob) == life + 2 && bob.state.stack.isEmpty() && bob.inOwnMain() }
+        // His phone shows the resolve at once, as its own pending event: it reaches her phone only after the server took it
+        waitUntil("his resolve reaching Alice's phone, his later events waiting there") { alice.shown.behind }
         assertNotNull(alice.shown.show, "still shown on Alice's phone")
         assertEquals(show.event, alice.shown.tip, "her table at the cast")
         assertTrue(alice.state.stack.isNotEmpty(), "the Glint still on her Stack")
         assertEquals(life, bobsLife(alice), "his life before the Glint on her table")
-        assertTrue(alice.shown.behind, "his later events wait on her phone")
         alice.tagged(PLAY_SHOW_TAG).performClick()
         waitUntil("Alice's table playing on past the Glint") {
             alice.shown.show == null && !alice.shows(hasTestTag(PLAY_SHOW_TAG)) && bobsLife(alice) == life + 2

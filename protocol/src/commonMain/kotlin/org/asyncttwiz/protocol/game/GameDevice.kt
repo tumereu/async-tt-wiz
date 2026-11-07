@@ -299,8 +299,9 @@ class GameDevice(
             // HIS-094, HIS-095 (owner playtest 2026-11-06): playback standing at a decision of the player's own has nothing
             // to watch before it: leaving the app, coming back or loading the game again never pauses it for the centre
             // text there ("has made moves"), whatever of the other player's follows; the stop shows, live
-            // HIS-110: an open reveal panel holds playback where it is (the centre text waits until it is dismissed)
-            if (catchUp && !opening && decision == null && !revealHolds()) return Status.CatchUp
+            // HIS-110, HIS-112: an open reveal panel or a play shown holds playback where it is (the centre text waits
+            // until it is dismissed or done)
+            if (catchUp && !opening && decision == null && !viewHolds()) return Status.CatchUp
             val stop = if (pausing) stopAt(next) else decision
             return stop?.let { Status.Stopped(next, it, paused = decision == null) } ?: Status.Playing(next)
         }
@@ -459,10 +460,10 @@ class GameDevice(
      */
     fun step(): GameEvent? {
         if (needsReload || (catchUp && !opening) || session.drafting || !session.behind) return null
-        if (revealHolds()) return null
+        if (viewHolds()) return null
         if (stopAt(session.buffered.first()) != null) return null
         var shown: GameEvent
-        do shown = session.showNext() while (opening && session.behind && !revealHolds() && stopAt(session.buffered.first()) == null)
+        do shown = session.showNext() while (opening && session.behind && !viewHolds() && stopAt(session.buffered.first()) == null)
         if (!session.behind) { pausing = false; catchUp = false }
         return shown
     }
@@ -509,10 +510,14 @@ class GameDevice(
     /** Whether an open reveal panel holds playback (HIS-110). */
     private fun revealHolds(): Boolean { syncReveals(); return revealsOpen.isNotEmpty() }
 
+    /** Whether an open reveal panel (HIS-110) or a play shown (HIS-112) holds the view where it is. */
+    private fun viewHolds(): Boolean { syncReveals(); return revealsOpen.isNotEmpty() || showsOpen.isNotEmpty() }
+
     /**
-     * HIS-110: brings the open reveals in line with the shown line (the main line up to the local head, then the device's
-     * own pending events): a reveal whose event was taken back (an undo, a branch, a rewind, a refusal) closes, and the
-     * events newly shown since add the other player's reveals in them, in order.
+     * HIS-110, HIS-112: brings the open reveals and plays shown in line with the shown line (the main line up to the
+     * local head, then the device's own pending events): one whose event was taken back (an undo, a branch, a rewind, a
+     * refusal) closes, and the events newly shown since add the other player's reveals and the plays shown in them, in
+     * order.
      */
     private fun syncReveals() {
         val tip = session.tip
@@ -521,11 +526,14 @@ class GameDevice(
         val local = session.indexOf(session.localHead) ?: -1
         val events = session.events
         val line = events.subList(0, local + 1) + session.pending
-        if (revealsOpen.isNotEmpty()) {
+        if (revealsOpen.isNotEmpty() || showsOpen.isNotEmpty()) {
             val ids = line.mapTo(HashSet()) { it.id }
             val gone = revealsOpen.filter { it.event !in ids }
             revealsOpen.removeAll(gone)
             gone.forEach { revealsSeen.remove(it.event) }
+            val goneShows = showsOpen.filter { it.event !in ids }
+            showsOpen.removeAll(goneShows)
+            goneShows.forEach { revealsSeen.remove(it.event) }
         }
         val fresh = ArrayList<GameEvent>()
         for (i in line.indices.reversed()) {
@@ -536,8 +544,70 @@ class GameDevice(
         for (e in fresh.asReversed()) {
             revealsSeen += e.id
             revealsOpen += revealsIn(e, me)
+            if (showPlays) showsOpen += showsIn(e, me)
         }
     }
+
+    // ---- Plays shown (HIS-112)
+
+    /**
+     * HIS-112 (owner 2026-11-07, MTG Arena as the reference): a Stack entry put on the Stack in the shown event [event]
+     * that this player's table shows large in the middle for a moment before it moves to the Stack: the other player's
+     * spells cast, abilities activated and triggers, and this player's own triggers (never their own casts or
+     * activations). [by] controls it, [entry] is the engine's object for it on the Stack (the spell's card object, else its
+     * Stack item), [kind] how it got there, [card] the spell's card or the ability's source card (null when it has none).
+     * While one is open ([show]) the view holds where it is, as at a reveal: the events after it wait and the device makes
+     * none of its own; the table ends it ([dismissShow]) when its time is up or the player taps it. Personal: nothing is
+     * sent, and the game never waits for it on the other player's phone.
+     */
+    data class PlayShow(val event: String, val by: PlayerId, val entry: ObjectId, val kind: PlayKind,
+        val card: arcanum.engine.state.CardId?)
+
+    /** How a shown play got onto the Stack (HIS-112). */
+    sealed interface PlayKind {
+        data object Cast : PlayKind
+        data object Activated : PlayKind
+        data object Triggered : PlayKind
+    }
+
+    /**
+     * HIS-112: whether plays are shown at all (the player's "Show the other player's plays" time is above 0). Off (the
+     * default: simulations and the server never show any), the events shown open none; turned off, the open ones close.
+     */
+    var showPlays: Boolean = false
+        set(value) {
+            syncReveals()
+            field = value
+            if (!value) showsOpen.clear()
+        }
+
+    /** HIS-112: the play shown now (the oldest not done), or null; never while a reveal panel is open (HIS-110 first). */
+    val show: PlayShow? get() { syncReveals(); return if (revealsOpen.isNotEmpty()) null else showsOpen.firstOrNull() }
+
+    /** HIS-112: every play not shown to its end yet, oldest first. */
+    val openShows: List<PlayShow> get() { syncReveals(); return showsOpen.toList() }
+
+    /** HIS-112: the event of the last play done ([dismissShow]): playback lets the next event follow it at once (the show
+     * took the playback delay's place, HIS-021). */
+    var showDone: String? = null
+        private set
+
+    /**
+     * HIS-112: the play shown now is done (its time is up, or the player tapped it): the next one shows, or the view goes
+     * on. [which]: only when it is still the one shown (a play taken back meanwhile is gone already). True when one ended.
+     */
+    fun dismissShow(which: PlayShow? = null): Boolean {
+        val open = show ?: return false
+        if (which != null && which != open) return false
+        showsOpen.removeAt(0)
+        showDone = open.event
+        return true
+    }
+
+    private val showsOpen = ArrayList<PlayShow>()
+
+    /** Whether a play shown holds the view (HIS-112). */
+    private fun showHolds(): Boolean { syncReveals(); return showsOpen.isNotEmpty() }
 
     /**
      * HIS-095 (§29.2, smoke 2026-11-04): the other player's passes reaching a device that showed everything before them (its
@@ -547,7 +617,7 @@ class GameDevice(
      */
     fun showPasses(): Boolean {
         var shown = false
-        while (!needsReload && !catchUp && !session.drafting && session.pending.isEmpty() && session.behind && !revealHolds()) {
+        while (!needsReload && !catchUp && !session.drafting && session.pending.isEmpty() && session.behind && !viewHolds()) {
             val next = session.buffered.first()
             if (!passesOnly(next) || stopAt(next) != null) break
             session.showNext()
@@ -600,6 +670,10 @@ class GameDevice(
 
     private fun automaticStep(): Boolean {
         if (needsReload || session.drafting || session.behind || request != null || locked || queuedUndo != null) return false
+        // HIS-112: while a play is shown the board stays where it is: the device's own steps (its passes, its assumptions)
+        // wait until it is done, so a spell shown isn't resolved under it by this device (the other player's device goes
+        // on as ever)
+        if (showHolds()) return false
         // R3: nothing to make here was already found at this point (no search again while it lasts)
         val key = pointKey()
         if (key.same(idleAt)) return false
@@ -1907,6 +1981,25 @@ class GameDevice(
                 }
                 Reveal(event.id, revealed.player, cards, (by as? ObjectId.Card)?.card, happened.by?.name)
             }
+        }
+
+        /**
+         * HIS-112: the plays [viewer]'s table shows of [event], in the order they were put on the Stack: every spell cast,
+         * ability activated (mana abilities never use the Stack) and trigger of the other player's, and [viewer]'s own
+         * triggers. Copies of spells are put there by something else, which was shown: they are not.
+         */
+        fun showsIn(event: GameEvent, viewer: PlayerId): List<PlayShow> = event.engine?.changes.orEmpty().mapNotNull { change ->
+            val added = change as? arcanum.engine.change.Change.StackItemAdded ?: return@mapNotNull null
+            val kind = when {
+                arcanum.engine.change.Meaning.Cast in added.meanings -> PlayKind.Cast
+                arcanum.engine.change.Meaning.Activated in added.meanings -> PlayKind.Activated
+                arcanum.engine.change.Meaning.Triggered in added.meanings -> PlayKind.Triggered
+                else -> return@mapNotNull null
+            }
+            val item = added.item
+            if (item.controller == viewer && kind != PlayKind.Triggered) return@mapNotNull null
+            val card = (item.id as? ObjectId.Card)?.card ?: (item.source as? ObjectId.Card)?.card
+            PlayShow(event.id, item.controller, item.id, kind, card)
         }
 
         /** [state] without what never makes a decision another ([sameDecision]). */

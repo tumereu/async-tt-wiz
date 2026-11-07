@@ -109,6 +109,9 @@ object TestCards {
     val dasher = card("Ember Dasher", "Creature — Elemental", "{0}", "Haste", "1", "1")
     /** A free creature whose own trigger goes on the Stack when it dies (no target: nothing to choose). */
     val martyr = card("Ember Martyr", "Creature — Elemental", "{0}", "When this creature dies, you gain 2 life.", "1", "1")
+    /** A free artifact whose ability's cost sacrifices a creature (an Ember Martyr's trigger then goes on the Stack above
+     * the ability: two of its controller's own items there). */
+    val altar = card("Ember Altar", "Artifact", "{0}", "{T}, Sacrifice another creature: Each opponent loses 2 life and you gain 2 life.")
     /** A free enchantment whose trigger begins its controller's upkeep (no input before it in the step). */
     val chime = card("Ember Chime", "Enchantment", "{0}", "At the beginning of your upkeep, you gain 1 life.")
 

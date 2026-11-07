@@ -32,7 +32,9 @@ import org.asyncttwiz.protocol.game.TableState
 internal class EngineGameFixture(val startingPlayer: String = TableStatesFixture.a, creatures: Boolean = false, dungeons: Boolean = false,
     heralds: Boolean = false, extraTurns: Boolean = false, declaring: Boolean = false,
     /** Alice's deck made of these cards in turn instead (by name: [Choices]), each free, for Automatum's choice panels. */
-    aliceCards: List<String> = emptyList()) {
+    aliceCards: List<String> = emptyList(),
+    /** Bob's deck made of these cards in turn instead (by name: [Choices], "Mountain" or "Storm Spark"). */
+    bobCards: List<String> = emptyList()) {
     private val f = TableStatesFixture
     private class Invented(face: DefinitionFace, oracle: OracleCard) {
         val submitted = CardDefinition(face.name, listOf(face)).let { SubmittedDefinition(DeckJson.digest(it), it) }
@@ -79,7 +81,14 @@ internal class EngineGameFixture(val startingPlayer: String = TableStatesFixture
         const val GLINT = "Ember Glint"
         /** A free "Look at target player's hand." sorcery: its resolving shows its caster the target's hidden hand (TRN-067). */
         const val GLANCE = "Ember Glance"
+        /** A free instant milling fourteen with cycling {R} and "When you cycle this card, each opponent mills four cards."
+         * (owner playtest 2026-11-07: worded as a real cycling card with a cycle trigger). */
+        const val REASON = "Shattered Reason"
+        /** A free sorcery that reveals its caster's top card (HIS-110: the other player's reveal panel). */
+        const val INSIGHT = "Ember Insight"
     }
+    private val REASON_TEXT = "Each opponent mills fourteen cards.\nCycling {R} ({R}, Discard this card: Draw a card.)\n" +
+        "When you cycle this card, each opponent mills four cards."
     private val SENTRY_TEXT = "Offspring {R} (You may pay an additional {R} as you cast this spell. If you do, when this creature enters, create a 1/1 token copy of it.)\n" +
         "When this creature enters, you may forage. If you do, put two +1/+1 counters on it. (To forage, exile three cards from your graveyard or sacrifice a Food.)"
     private val TRAIL_TEXT = "{T}, Pay 1 life, Sacrifice this land: Search your library for a basic land card, put it onto the battlefield, then shuffle."
@@ -101,8 +110,11 @@ internal class EngineGameFixture(val startingPlayer: String = TableStatesFixture
         free("study", Choices.STUDY, "Sorcery", "Draw a card."),
         free("glint", Choices.GLINT, "Instant", "You gain 2 life."),
         free("glance", Choices.GLANCE, "Sorcery", "Look at target player's hand."),
+        free("reason", Choices.REASON, "Instant", REASON_TEXT),
+        free("insight", Choices.INSIGHT, "Sorcery", "Reveal the top card of your library and put that card into your hand."),
     ).associateBy { it.submitted.definition.name }
     private val aliceChoices = aliceCards.map { choiceCards[it] ?: if (it == "Mountain") mountain else error("no card $it") }
+    private val bobChoices = bobCards.map { choiceCards[it] ?: when (it) { "Mountain" -> mountain; "Storm Spark" -> spark; else -> error("no card $it") } }
 
     private val map = Invented(DefinitionFace("map", "Torch Map", typeLine = "Sorcery", manaCost = "{0}",
         rulesText = "Venture into the dungeon."), OracleCard("Torch Map", "{0}", "Sorcery", "Venture into the dungeon."))
@@ -131,6 +143,7 @@ internal class EngineGameFixture(val startingPlayer: String = TableStatesFixture
      * thirds Torch Maps. */
     private val decks = listOf(a, b).associateWith { p -> List(30) { i -> f.id("$p/card/$i") to when {
         aliceChoices.isNotEmpty() && p == a -> aliceChoices[i % aliceChoices.size]
+        bobChoices.isNotEmpty() && p == b -> bobChoices[i % bobChoices.size]
         dungeons && p == a -> if (i % 3 == 0) mountain else map
         i % 3 == 2 -> spark
         heralds && i % 3 == 1 -> herald
@@ -148,7 +161,7 @@ internal class EngineGameFixture(val startingPlayer: String = TableStatesFixture
         p.copy(definitions = (listOf(spark.submitted, mountain.submitted) + listOfNotNull(cub.submitted.takeIf { creatures }) +
             listOfNotNull(herald.submitted.takeIf { heralds }) + listOfNotNull(stride.submitted.takeIf { extraTurns }) +
             listOfNotNull(hound.submitted.takeIf { declaring }, oracle.submitted.takeIf { declaring }) +
-            listOfNotNull(map.submitted.takeIf { dungeons }) + aliceChoices.map { it.submitted } + outside)
+            listOfNotNull(map.submitted.takeIf { dungeons }) + aliceChoices.map { it.submitted } + bobChoices.map { it.submitted } + outside)
             .distinctBy { it.digest }.sortedBy { it.digest },
             board = p.board.copy(cards = cards, stackEffects = emptyList(), combat = null, engineRecords = emptyList(),
                 containers = p.board.containers.map { c ->

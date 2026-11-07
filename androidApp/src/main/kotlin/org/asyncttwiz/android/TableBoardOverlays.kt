@@ -39,6 +39,24 @@ internal inline fun TableBoardOverlays(game: GameSummary, play: TableBoard, acco
                 textAlign = androidx.compose.ui.text.style.TextAlign.Center)
         }
     } }
+    // STK-057 (owner playtest 2026-11-07): what the other player's top Stack entry is while you hold priority over it, in
+    // the wait's place (they never show together) and look, a little darker; purely visual. Live and in catch-up playback,
+    // not under the catch-up's centre text or in timeline mode
+    if (!runtime.reviewing && runtime.waitingLine == null && runtime.centreAction == null) {
+        val names = remember(game) { gameNames(game) }
+        val stackLine = remember(IdentityKey(play.board), accountId, names) { StackLine.text(play, accountId, names) }
+        if (stackLine != null) scene.world?.visibleViewport?.let { board ->
+            // Clear of the Stack at the board's right edge (STK-007), kept centred
+            val side = maxOf(24f, scene.stackRegion?.let { board.right - it.x + 8f } ?: 0f).coerceAtMost(board.width / 3)
+            Box(Modifier.offset(board.x.dp, board.y.dp).size(board.width.dp, board.height.dp), contentAlignment = Alignment.Center) {
+                CardText(stackLine, Modifier.padding(horizontal = side.dp).widthIn(max = 520.dp).testTag("stack-line")
+                    .semantics { contentDescription = stackLine }, color = StackLineInk,
+                    style = androidx.compose.material3.MaterialTheme.typography.titleMedium.copy(
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center),
+                    maxLines = 2, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+            }
+        }
+    }
     // HIS-094: the catch-up's centre text, a tap resumes playback
     if (!runtime.reviewing) runtime.centreAction?.let { action -> scene.world?.visibleViewport?.let { board ->
         Box(Modifier.offset(board.x.dp, board.y.dp).size(board.width.dp, board.height.dp), contentAlignment = Alignment.Center) {
@@ -60,6 +78,13 @@ internal inline fun TableBoardOverlays(game: GameSummary, play: TableBoard, acco
         }
     }
 }
+
+/** STK-057: the Stack line's ink: the wait's (TRN-066), darker, so a two-line sentence still reads over the board. */
+internal val StackLineInk = Color(0xff253d44).copy(alpha = .72f)
+
+/** The game's players' names by account id. */
+internal fun gameNames(game: GameSummary): Map<String, String> =
+    mapOf(game.inviter.accountId to game.inviter.username, game.recipient.accountId to game.recipient.username)
 
 /** The order a mana pool lists its mana in: the colours in WUBRG order, then colourless. */
 private val POOL_ORDER = listOf("W", "U", "B", "R", "G", "C")

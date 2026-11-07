@@ -38,8 +38,9 @@ internal object EngineEventText {
             is Input.StartGame -> "The game began"
             is Input.Cast -> "${who(input.player)} cast ${card(input.card)}"
             is Input.PlayLand -> "${who(input.player)} played ${card(input.card)}"
-            // STK-046: an ability is named as its source's ability, never as if the card were cast
-            is Input.Activate -> "${who(input.player)} activated ${name(input.source, state, viewer)?.let { "$it's ability" } ?: "an ability"}"
+            // STK-046: an ability is named as its source's ability, never as if the card were cast; HIS-091 (owner playtest
+            // 2026-11-07): cycling reads as cycling ("Bob cycled Fractured Sanity"), another keyword's ability by its keyword
+            is Input.Activate -> activation(event, input, state, viewer, who(input.player))
             // §29.2 (owner 2026-11-04): passes are implied: a pass reads only as what it led to ("Storm Spark resolved",
             // "Turn 3 → Bob", the new step); one that led to nothing shows nowhere ([hidden])
             is Input.PassPriority -> passOutcome(event, state, viewer, names).orEmpty()
@@ -58,6 +59,20 @@ internal object EngineEventText {
             is Input.AgreedResult -> "The result was agreed"
             else -> "${author()} acted"
         }
+    }
+
+    /**
+     * HIS-091: an activation's text, by [who]: "Bob cycled Fractured Sanity" for cycling (CR 702.29a), "You activated Ember
+     * Blade's equip ability" for another keyword's ability, else "You activated Ember Herald's ability" (STK-046); the
+     * ability as it went on the Stack in [event] tells which (a mana ability, which doesn't, reads as an ability).
+     */
+    private fun activation(event: GameEvent, input: Input.Activate, state: GameState?, viewer: String, who: String): String {
+        val name = name(input.source, state, viewer)
+        val item = event.engine?.changes.orEmpty().filterIsInstance<Change.StackItemAdded>().map { it.item }
+            .firstOrNull { it.kind is StackItemKind.Activated && it.origin == input.ability }
+        if (name != null && item != null && org.asyncttwiz.automatum.StackAbilityText.cycling(item)) return "$who cycled $name"
+        val kind = item?.let { org.asyncttwiz.automatum.StackAbilityText.kind(it) }?.takeIf { it != "Activated ability" }
+        return "$who activated ${name?.let { "$it's ${kind?.replaceFirstChar { c -> c.lowercase() } ?: "ability"}" } ?: "an ability"}"
     }
 
     /** What the table part of a table-only event says. */
@@ -138,10 +153,14 @@ internal object EngineEventText {
             val item = removed.item
             // STK-046: an ability resolving reads as its source's ability ("Ember Herald's ability resolved")
             val ability = item.kind is StackItemKind.Activated || item.kind is StackItemKind.Triggered
+            // HIS-091 (owner playtest 2026-11-07): a keyword's ability or trigger by its kind ("Fractured Sanity's cycling
+            // trigger resolved")
+            val kind = org.asyncttwiz.automatum.StackAbilityText.kind(item)
+                ?.takeIf { it != "Activated ability" && it != "Triggered ability" }?.replaceFirstChar { it.lowercase() } ?: "ability"
             val shown = when (val id = item.id) {
                 is ObjectId.Card -> name(id, state, viewer)
                 else -> (item.snapshots.firstOrNull { it.id == item.source }?.characteristics?.name ?: name(item.source, state, viewer))
-                    ?.let { if (ability) "$it's ability" else it }
+                    ?.let { if (ability) "$it's $kind" else it }
             }
             return "${shown ?: if (ability) "an ability" else "a spell"} resolved"
         }

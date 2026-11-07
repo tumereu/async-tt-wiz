@@ -1,0 +1,1 @@
+add: When the other player casts a spell or uses an ability, a line on the table says who did it and what it does (a cycling trigger is named as one), arrows point at its targets, and the Stack list shows the chosen targets and modes.

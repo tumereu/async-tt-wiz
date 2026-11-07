@@ -327,6 +327,7 @@ class EngineTableScreenshotTest {
             val d = copy.pending?.decision ?: break
             if (d is Decision.Random || Engine.decider(copy, d.player) != me) break
             next = if (d is Decision.ManaPayment) Input.Answer(d.id, Answer.ManaPayment(d.suggestion))
+                else if (d is Decision.Targets) Input.Answer(d.id, Answer.Targets(listOf(arcanum.engine.state.TargetRef.Player(PlayerId(f.b)))))
                 else Engine.options(copy, me).filterIsInstance<Input.Answer>().first { it.decision == d.id }
             inputs += next
         }
@@ -359,7 +360,7 @@ class EngineTableScreenshotTest {
         compose.onNodeWithText("You cast Storm Spark").assertDoesNotExist()
         compose.onNodeWithContentDescription("Respond prompt").assertDoesNotExist()
         captureShot("$SCREENSHOTS/engine/stack-resolve.png",
-            "In the Control response mode Alice cast Storm Spark at Bob and kept priority: the spell is on the Stack, nothing covers the board or sits under the Stack, and the main button in the bottom-right corner, 112 dp wide, reads Resolve.")
+            "In the Control response mode Alice cast Storm Spark at Bob and kept priority: the spell is on the Stack with a green arrow to Bob's life square, nothing covers the board or sits under the Stack, and the main button in the bottom-right corner, 112 dp wide, reads Resolve.")
         compose.onNodeWithTag("main-button").performClick()
         compose.runOnIdle { assertTrue(game.device.model.engine.stack.isEmpty(), "she passed; Bob's pass was assumed and it resolved") }
     }
@@ -374,7 +375,7 @@ class EngineTableScreenshotTest {
         compose.onNodeWithTag("engine-wait-action").assert(hasContentDescription("Assume resolves"))
         compose.onNodeWithTag("stack-assume").assertDoesNotExist()
         captureShot("$SCREENSHOTS/engine/stack-assume.png",
-            "Alice cast Storm Spark while Bob is away and Assume resolves is Normal: faint words say Bob may respond to it, and the main button reads Assume resolves, where tapping it goes on as if Bob let it resolve.")
+            "Alice cast Storm Spark at Bob while he is away and Assume resolves is Normal: a green arrow runs from the Stack to his life square, faint words say Bob may respond to it, and the main button reads Assume resolves, where tapping it goes on as if Bob let it resolve.")
         compose.onNodeWithTag("engine-wait-action").performClick()
         compose.runOnIdle { assertTrue(game.device.model.engine.stack.isEmpty(), "Storm Spark resolved on the assumed pass") }
     }
@@ -411,7 +412,7 @@ class EngineTableScreenshotTest {
         compose.waitForIdle()
         compose.onNodeWithText("Assuming this would show you hidden cards or a random result: wait for Bob.").assertExists()
         captureShot("$SCREENSHOTS/engine/assume-greyed.png",
-            "Alice cast Ember Glance at Bob, who is away: assuming his pass would show her his hidden hand, so faint words say she waits for Bob because going on would show hidden cards, and the main button's Assume resolves is greyed; held, it says why.")
+            "Alice cast Ember Glance at Bob, who is away (a green arrow runs from the Stack to his life square): assuming his pass would show her his hidden hand, so faint words say she waits for Bob because going on would show hidden cards, and the main button's Assume resolves is greyed; held, it says why.")
         compose.onNodeWithTag("engine-wait-action").performTouchInput { up() }
     }
 
@@ -429,7 +430,7 @@ class EngineTableScreenshotTest {
         compose.waitForIdle()
         compose.onNodeWithText("Top · Ember Herald's ability").assertExists()
         captureShot("$SCREENSHOTS/engine/stack-ability-list.png",
-            "Alice tapped the Stack holding her Ember Herald's enters trigger: the list shows it as the ability token with its \"T\" chip, \"Top · Ember Herald's ability\" and the trigger's text.")
+            "Alice tapped the Stack holding her Ember Herald's enters trigger: the list shows it as the ability token with its \"T\" chip, \"Top · Ember Herald's ability\", \"Triggered ability\" in violet and the trigger's text.")
     }
 
     // STK-050, TBL-104 (owner playtest 2026-11-06): holding an ability's entry on the Stack shows a dark rounded panel,

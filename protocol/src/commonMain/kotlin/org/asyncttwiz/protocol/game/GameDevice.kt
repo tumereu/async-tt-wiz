@@ -197,6 +197,8 @@ class GameDevice(
     /** Who made this device's own recent events (I-D56 §10, report C9PVLM): true for the player's own action (an End
      * turn's first pass included), false for the device's automatic steps; Undo goes back past the automatic ones. */
     private val origins = LinkedHashMap<String, Boolean>()
+    /** This device's recent assumptions made by a press of Assume ([assume]), not by itself ([pressedByItself]). */
+    private val assumeTaps = LinkedHashSet<String>()
     /** This device's recent End turns (TRN-057) that began with a pass: the event of that first pass (§29.2: the only
      * pass Undo targets, and the Undo dialog lists, as one "End turn" entry). */
     private val endTurns = LinkedHashSet<String>()
@@ -1159,7 +1161,11 @@ class GameDevice(
             Offer.AssumeBlockers -> Input.DeclareBlockers(opponent, blocks)
             else -> point.input!!
         }
-        return assumed(input)
+        return assumed(input).also { acted ->
+            if (acted !is Acted.Sent) return@also
+            assumeTaps += acted.event.id
+            if (assumeTaps.size > MAX_ORIGINS) assumeTaps.remove(assumeTaps.first())
+        }
     }
 
     /** Assumes the other player's [input] at the head (§3): a press of Assume and the device's own assumption alike (spec
@@ -1692,6 +1698,28 @@ class GameDevice(
         val step = next.assumed ?: return false
         if (next.author != opponent.value || step.assumedBy != opponent || Acceptance.assumedAbout(step, next, players) != me) return false
         return step.input?.let { Acceptance.same(it, input) } == true
+    }
+
+    /**
+     * HIS-109, SYS-012 (owner problem report E48RDE): whether this device's event right after [parent] on its line (its
+     * pending events first, then the main line) is its own automatic press of [input], made by itself: the player's pass
+     * by their mode, or its assumption of the other player's answer (never one a tap of theirs made, SYS-011's quick second
+     * tap). A tap made on the board at [parent] whose input is that one is the same press, already made there: nothing
+     * more to make or tell. Only the event right after [parent] counts, so such a tap never acts at a later point (the
+     * next Stack item).
+     */
+    fun pressedByItself(parent: String, input: Input): Boolean {
+        // [parent] itself may be an event of the device's whose place the other player's same event took (SYS-077)
+        val at = adoptedAs(parent) ?: parent
+        val next = session.pending.firstOrNull { it.parentId == at } ?: session.after(at)?.firstOrNull() ?: return false
+        if (next.author != me.value) return false
+        val step = next.engine?.steps?.firstOrNull { it.input != null } ?: return false
+        val automatic = when (step.assumedBy) {
+            null -> origins[next.id] == false
+            me -> next.id !in assumeTaps
+            else -> false
+        }
+        return automatic && step.input?.let { Acceptance.same(it, input) } == true
     }
 
     /**

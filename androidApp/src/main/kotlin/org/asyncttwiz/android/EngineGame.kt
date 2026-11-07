@@ -672,8 +672,10 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
 
     /** The step arrow's pass: the player's own priority (at a decision stop: their answer to what was assumed). */
     fun pass(): GameDevice.Acted = early("pass", done = { seen ->
-        // SYS-077: tapped as the other player's device assumed this very pass (right after their attack, HIS-096)
-        GameDevice.Acted.Confirmed.takeIf { device.assumedAlready(seen.tip, listOf(Input.PassPriority(PlayerId(me)))) }
+        val pass = Input.PassPriority(PlayerId(me))
+        // SYS-077: tapped as the other player's device assumed this very pass (right after their attack, HIS-096); HIS-109
+        // (owner problem report E48RDE): or as the player's own device passed there by itself (the same press)
+        GameDevice.Acted.Confirmed.takeIf { device.assumedAlready(seen.tip, listOf(pass)) || device.pressedByItself(seen.tip, pass) }
     }) { performed ->
         val holder = device.model.engine.priority.holder ?: return@early GameDevice.Acted.Refused("noPriority")
         if (arcanum.engine.Engine.decider(device.model.engine, holder).value != me) return@early GameDevice.Acted.Refused("notYours")
@@ -834,7 +836,9 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
     /**
      * SYS-012 (analysis 2026-11-05): whether the other player's own answer on the line right after the board [seen] (where
      * the player tapped Assume) is the input that Assume offered there ([blocks]: Assume blockers'): their real answer took
-     * its place, as when the device's own assumption loses that race on the server, so the tap goes quietly. Engine thread.
+     * its place, as when the device's own assumption loses that race on the server, so the tap goes quietly. HIS-109 (owner
+     * problem report E48RDE): so does the device's own assumption of that input made there by itself (the same press): it
+     * is never made again at the next point (the next Stack item). Engine thread.
      */
     private fun answeredAsAssumed(seen: Shown, blocks: List<Block>): Boolean {
         val state = seen.board.engine?.state ?: return false
@@ -843,6 +847,7 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
             GameDevice.Offer.AssumeBlockers -> Input.DeclareBlockers(device.opponent, blocks)
             null -> return false
         }
+        if (device.pressedByItself(seen.tip, offered)) return true
         val next = device.session.after(seen.tip)?.firstOrNull() ?: return false
         if (next.author != device.opponent.value || next.assumed != null) return false
         val input = next.engine?.steps?.firstNotNullOfOrNull { it.input } ?: return false

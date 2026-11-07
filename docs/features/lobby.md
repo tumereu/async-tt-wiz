@@ -120,7 +120,7 @@ Everything outside the game table: accounts, profile, navigation, game list, gam
 - **LOB-137** A message you send shows above your own life square (in landscape above the bottom bar, where your square sits) as a bubble in your colour for about 3 s once the table is in sight (in portrait after the chat closes), then fades in 0.4 s; it takes no taps. (r58)
 - **LOB-140** A chat bubble never covers a card, a pile, a life square, an emblem, the Stack, an open panel or the bars: when the room under the opponent's square (above your own) holds something, it goes to the nearest free room by the square (at most about 168 dp away, the usual side first), its tail toward the square; where four lines find no room it shows one line, and where not even that fits there is no bubble until there is room (the chat button's dot still shows). Your own bubble also keeps off the other player's. (r58)
 - **LOB-138** Your message shows a small "Read" under it in the chat once the other player has read it (tapped its bubble or seen it in their chat), at once while you have the game open. (r58)
-- **LOB-139** Quick messages: a row of chips above the chat's message box, "Thinking…", "One sec", "Your move?", "Got a response", "No responses" and "GG", each sends its text with one tap as a message like any other; a typed draft stays as it is. (r58)
+- **LOB-139** Quick messages: chips above the chat's message box (wrapping onto a second row), "Thinking…", "One sec", "Your move?", "Got a response", "No responses" and "GG", each sends its text with one tap as a message like any other; a typed draft stays as it is. (r58)
 
 ### Game history and Stats
 

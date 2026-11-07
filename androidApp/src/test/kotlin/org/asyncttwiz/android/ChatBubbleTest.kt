@@ -160,7 +160,7 @@ class ChatQuickMessagesTest {
             assertTrue(compose.onAllNodesWithText(text, useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty(), text)
         assertEquals(1, compose.onAllNodesWithText("Read").fetchSemanticsNodes().size, "only the message Bob read")
         captureShot("$SCREENSHOTS/chat/quick-messages.png",
-            "Game chat with quick-message chips (Thinking…, One sec, Your move?, …) in a row above the message box; your " +
+            "Game chat with the six quick-message chips (Thinking… to GG) in two rows above the message box; your " +
                 "One sec, which the other player has read, says Read, your newer Got a response doesn't yet.")
     }
 }

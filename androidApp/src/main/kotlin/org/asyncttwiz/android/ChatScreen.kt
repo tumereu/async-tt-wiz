@@ -3,8 +3,6 @@ package org.asyncttwiz.android
 import androidx.compose.ui.text.input.ImeAction
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -26,6 +24,7 @@ internal fun presentedChatIds(messages: List<ChatMessage>, visibleKeys: List<Any
 
 private class ChatScrollAnchor(var latestKey: String? = null)
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun ChatPanel(controller: LobbyController, accountId: String, modifier: Modifier = Modifier,
     contentInsets: WindowInsets = WindowInsets.safeDrawing) {
@@ -101,8 +100,8 @@ internal fun ChatPanel(controller: LobbyController, accountId: String, modifier:
         }
         // LOB-139: quick messages, each sent with one tap; the typed draft stays
         val quick = chat.canSendQuick(game, game.id !in state.reconnectingGames)
-        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 8.dp)
-            .semantics { contentDescription = "Quick messages" }, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        FlowRow(Modifier.fillMaxWidth().padding(horizontal = 8.dp).semantics { contentDescription = "Quick messages" },
+            horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             for (text in QuickChatMessages) SuggestionChip(onClick = {
                 controller.sendQuickChat(text)
                 list.requestScrollToItem(0)

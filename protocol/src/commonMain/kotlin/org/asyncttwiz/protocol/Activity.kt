@@ -5,14 +5,20 @@ import kotlinx.serialization.json.Json
 
 /** Account activity, never board state, covered-card names, read receipts or player progress.
  * Only the authenticated feed carries display content; ActivityPushHint stays opaque. */
-@Serializable enum class ActivityKind { INVITATION, GAME, POD_INVITATION, POD_YOUR_PICK, POD_DRAFT_COMPLETE, POD_DECKS_READY, POD_DRAFT_CANCELLED, POD_DESTROYED, POD_AUTO_START_OFF }
+/** [GAME_REMOVAL] and [POD_REMOVAL]: the cleanup's warning 3 days before a game in play or a pod is deleted for lack of
+ * activity (game history spec §4.5). */
+@Serializable enum class ActivityKind { INVITATION, GAME, POD_INVITATION, POD_YOUR_PICK, POD_DRAFT_COMPLETE, POD_DECKS_READY, POD_DRAFT_CANCELLED, POD_DESTROYED, POD_AUTO_START_OFF,
+    GAME_REMOVAL, POD_REMOVAL }
 /** gameId is the pod ID for POD_* kinds; identity is the draft attempt for
- * POD_YOUR_PICK / POD_DRAFT_COMPLETE. The existing game hint shape is unchanged. */
+ * POD_YOUR_PICK / POD_DRAFT_COMPLETE. The existing game hint shape is unchanged. [resourceName]: the pod's name for
+ * POD_* kinds, the game's for GAME_REMOVAL. */
 @OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
 @Serializable data class ActivityHint(val activityId: String, val kind: ActivityKind, val gameId: String,
     val identity: String, val authorId: String? = null, val notice: GameNoticeContent? = null, val resourceName: String? = null,
     /** POD_* kinds (I-D57): the set or cube the pod drafts. Omitted when unknown. */
-    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val sourceName: String? = null)
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val sourceName: String? = null,
+    /** GAME_REMOVAL: the recipient's opponent in the game. Omitted otherwise. */
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val opponentName: String? = null)
 /** Authenticated projection only; never included in the FCM data hint. [reminder]: the one-off
  * "opponent is waiting" notice after their moves went unanswered (omitted when false). [gameOver]: the opponent
  * accepted the recipient's result suggestion, which was this outcome from the recipient's (its author's) side

@@ -187,12 +187,20 @@ class ActivityService(private val runtime: ServiceRuntime, private val clock: Cl
         val pods = rows.take(100).filterIndexed { index, _ -> kinds[index].name.startsWith("POD_") }.mapNotNull { it[game] }.toSet()
         val podNames = if (pods.isEmpty()) emptyMap() else sql.select(POD.ID, POD.NAME, POD.SOURCE_NAME).from(POD).where(POD.ID.`in`(pods)).fetch()
             .associate { it[POD.ID]!! to (it[POD.NAME] to it[POD.SOURCE_NAME]) }
+        // Game history §4.5: a removal warning names the game and the recipient's opponent, in one query
+        val warned = rows.take(100).filterIndexed { index, _ -> kinds[index] == ActivityKind.GAME_REMOVAL }.mapNotNull { it[game] }.toSet()
+        val inviterName = ACCOUNT.`as`("warned_inviter"); val recipientName = ACCOUNT.`as`("warned_recipient")
+        val gameNames = if (warned.isEmpty()) emptyMap() else sql.select(GAME.ID, GAME.GAME_NAME, GAME.INVITER_ID, inviterName.USERNAME,
+            recipientName.USERNAME).from(GAME).join(inviterName).on(inviterName.ID.eq(GAME.INVITER_ID))
+            .join(recipientName).on(recipientName.ID.eq(GAME.RECIPIENT_ID)).where(GAME.ID.`in`(warned)).fetch()
+            .associate { it.value1()!! to (it.value2()!! to if (it.value3() == owner) it.value5()!! else it.value4()!!) }
         val entries = rows.take(100).mapIndexed { index, row ->
             val type = kinds[index]
             val pod = if (type.name.startsWith("POD_")) podNames[row[game]] else null
+            val named = if (type == ActivityKind.GAME_REMOVAL) gameNames[row[game]] else null
             // I-D57: a pod's notice names the set or cube it drafts
             ActivityHint(row[activity].toString(), type, row[game].toString(), row[identity].toString(), row[author]?.toString(),
-                resourceName = pod?.first, sourceName = pod?.second)
+                resourceName = pod?.first ?: named?.first, sourceName = pod?.second, opponentName = named?.second)
         }
         val more = rows.size > 100
         val next = if (more) {
@@ -342,7 +350,9 @@ class ActivityService(private val runtime: ServiceRuntime, private val clock: Cl
                 kind.eq("INVITATION").and(GAME.RECIPIENT_ID.eq(owner)).and(INVITATION.STATE.eq("PENDING"))
                     .and(GAME.CURRENT_INVITATION.eq(identity)).or(
                         kind.eq("GAME").and(GAME.INVITER_ID.eq(owner).or(GAME.RECIPIENT_ID.eq(owner)
-                             .and(INVITATION.STATE.eq("ACCEPTED"))))))
+                             .and(INVITATION.STATE.eq("ACCEPTED"))))).or(
+                        // Game history §4.5: the cleanup's warning to either player of a game in play
+                        kind.eq("GAME_REMOVAL").and(GAME.INVITER_ID.eq(owner).or(GAME.RECIPIENT_ID.eq(owner)))))
 
         internal fun podVisible(owner: org.jooq.Field<UUID>, kind: org.jooq.Field<String>, resource: org.jooq.Field<UUID>,
             identity: org.jooq.Field<UUID>): org.jooq.Condition {
@@ -361,8 +371,10 @@ class ActivityService(private val runtime: ServiceRuntime, private val clock: Cl
             // Auto-start notices concern only the creator, while the pod is still in setup and not re-armed.
             val autoStartOff = DSL.exists(DSL.selectOne().from(POD).where(POD.ID.eq(resource)).and(POD.CREATOR_ID.eq(owner))
                 .and(POD.PHASE.eq("SETUP")).and(POD.AUTO_START.isFalse))
+            // Game history §4.5: the cleanup's warning to every member of a stalled pod
+            val anyMember = DSL.exists(DSL.selectOne().from(POD_MEMBER).where(POD_MEMBER.POD_ID.eq(resource)).and(POD_MEMBER.ACCOUNT_ID.eq(owner)))
             return kind.`in`("POD_DRAFT_CANCELLED", "POD_DESTROYED").or(member).or(kind.eq("POD_INVITATION").and(invited))
-                .or(kind.eq("POD_AUTO_START_OFF").and(autoStartOff))
+                .or(kind.eq("POD_AUTO_START_OFF").and(autoStartOff)).or(kind.eq("POD_REMOVAL").and(anyMember))
         }
 
         /** Call inside the accepting transaction. Gameplay integration supplies the real group ID.

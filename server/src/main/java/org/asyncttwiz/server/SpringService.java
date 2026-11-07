@@ -40,6 +40,7 @@ public final class SpringService implements AutoCloseable {
     private final ResetMailWorker mail;
     private final GameHub games;
     private final ActivityDelivery activity;
+    private final org.asyncttwiz.server.history.GameCleanup cleanup;
     private ConfigurableApplicationContext health;
     private ConfigurableApplicationContext publicApi;
     private boolean closed;
@@ -59,6 +60,7 @@ public final class SpringService implements AutoCloseable {
         games = new GameHub(runtime);
         runtime.attachWorker(() -> games.validatePending(), games::available);
         activity = new ActivityDelivery(runtime, activityPush, java.time.Clock.systemUTC());
+        cleanup = new org.asyncttwiz.server.history.GameCleanup(runtime, java.time.Clock.systemUTC());
     }
 
     public synchronized void start() { start((listener, port) -> {}); }
@@ -75,6 +77,7 @@ public final class SpringService implements AutoCloseable {
             if (mail != null) mail.start();
             games.start();
             activity.start();
+            cleanup.start();
             runtime.start();
         } catch (RuntimeException failure) { close(); throw failure; }
     }
@@ -146,6 +149,7 @@ public final class SpringService implements AutoCloseable {
         private final LobbyHttp lobby;
         private final GameHttp games;
         private final ActivityHttp activity;
+        private final org.asyncttwiz.server.history.HistoryHttp history;
         private final CrashReportHttp crashReports;
         private final org.asyncttwiz.server.releases.AppReleaseHttp appReleases;
         private final org.asyncttwiz.server.diagnostics.ProblemReportHttp problemReports;
@@ -158,6 +162,7 @@ public final class SpringService implements AutoCloseable {
             lobby = health ? null : new LobbyHttp(runtime);
             games = health ? null : new GameHttp(runtime, hub);
             activity = health ? null : new ActivityHttp(runtime, hub::presenceChanged);
+            history = health ? null : new org.asyncttwiz.server.history.HistoryHttp(runtime);
             crashReports = health ? null : new CrashReportHttp(runtime, java.time.Clock.systemUTC());
             appReleases = health ? null : new org.asyncttwiz.server.releases.AppReleaseHttp();
             problemReports = health ? null : new org.asyncttwiz.server.diagnostics.ProblemReportHttp(runtime);
@@ -168,6 +173,7 @@ public final class SpringService implements AutoCloseable {
             if (!health && problemReports.handle(request, response)) return;
             if (!health && accounts.handle(request, response)) return;
             if (!health && decks.handle(request, response)) return;
+            if (!health && history.handle(request, response)) return;
             if (!health && pods.handle(request, response)) return;
             if (!health && games.handle(request, response)) return;
             if (!health && lobby.handle(request, response)) return;
@@ -196,6 +202,7 @@ public final class SpringService implements AutoCloseable {
         closed = true;
         runtime.close();
         activity.close();
+        cleanup.close();
         games.close();
         if (mail != null) mail.close();
         if (publicApi != null) publicApi.close();

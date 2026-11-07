@@ -13,6 +13,7 @@ import org.asyncttwiz.server.generated.tables.AccountRequest.ACCOUNT_REQUEST
 import org.asyncttwiz.server.generated.tables.Contact.CONTACT
 import org.asyncttwiz.server.generated.tables.Game.GAME
 import org.asyncttwiz.server.generated.tables.GameChange.GAME_CHANGE
+import org.asyncttwiz.server.generated.tables.GameRemoved.GAME_REMOVED
 import org.asyncttwiz.server.generated.tables.Invitation.INVITATION
 import org.asyncttwiz.server.generated.tables.RequestIdentity.REQUEST_IDENTITY
 import org.jooq.DSLContext
@@ -170,7 +171,11 @@ class LobbyService(private val runtime: ServiceRuntime) {
                 .orderBy(GAME.ID).limit(101).forShare().fetch()
             val page = rows.take(100)
             val shown = page.filter { it.get(onList) == true }.map { it.into(GAME) }
-            val removed = page.filter { it.get(onList) != true }.map { it.get(GAME.ID).toString() }
+            // Games the cleanup deleted since then (game history §4) are gone with their markers: their tombstones say so
+            val deleted = if (changedSince == null || after != null) emptyList() else sql.select(GAME_REMOVED.GAME_ID).from(GAME_REMOVED)
+                .where(GAME_REMOVED.INVITER_ID.eq(actor).or(GAME_REMOVED.RECIPIENT_ID.eq(actor)))
+                .and(GAME_REMOVED.CHANGE_XID.ge(changedSince)).fetch(GAME_REMOVED.GAME_ID).map { it.toString() }
+            val removed = page.filter { it.get(onList) != true }.map { it.get(GAME.ID).toString() } + deleted
             // A game whose stored play can't be read is left out of a whole list; opening it fails on its own (SYS-052)
             val games = summaries(sql, shown, actor, checkPlays = changedSince == null)
             Result(200, json.encodeToString(GameList(games, if (rows.size > 100) rows[99].get(GAME.ID).toString() else null,

@@ -27,6 +27,7 @@ import org.asyncttwiz.protocol.game.PlaySettings
 import org.asyncttwiz.protocol.game.Refusal
 import org.asyncttwiz.protocol.game.Rewind
 import org.asyncttwiz.protocol.game.Submission
+import org.asyncttwiz.protocol.game.TableChange
 import org.asyncttwiz.protocol.game.TableState
 import org.asyncttwiz.server.generated.tables.EngineAsyncRound.ENGINE_ASYNC_ROUND
 import org.asyncttwiz.server.generated.tables.EngineEvent.ENGINE_EVENT
@@ -108,7 +109,45 @@ internal class EngineGames(private val capacity: Int = warmCapacity()) {
      * on the discarded line ([takenBackFrom], HIS-106; cleared by any later move of it). */
     data class SeatRow(val account: UUID, val head: String, val settings: PlaySettings, val nextStop: String?,
         val nextStopAt: java.time.OffsetDateTime? = null, val waited: Boolean = false, val resumeAt: String? = null,
-        val takenBackFrom: String? = null)
+        val takenBackFrom: String? = null, val mulligans: Int = 0)
+
+    /**
+     * What a finished match's record takes from its play (game history spec §1.2): the turn number at the end, each
+     * player's final life, mulligans and result, how it ended, and why each loser lost when the rules decided.
+     */
+    class MatchFacts(val turns: Int, val life: Map<String, Int>, val mulligans: Map<String, Int>,
+        val results: Map<String, org.asyncttwiz.protocol.SuggestedResult>, val ending: org.asyncttwiz.protocol.MatchEnding,
+        val causes: Map<String, org.asyncttwiz.protocol.LossCause>) {
+        companion object {
+            /** The facts of a match that ended on [engine] with [result]: [conceded] by that player, else [agreement] (who agreed,
+             * the reason of the suggestion), else by the rules; [mulligans] per player. */
+            fun of(engine: arcanum.engine.state.GameState, result: arcanum.engine.setup.GameResult, conceded: PlayerId?,
+                agreement: Pair<String, String>?, mulligans: Map<String, Int>): MatchFacts {
+                val winner = (result as? arcanum.engine.setup.GameResult.Won)?.winner
+                val results = engine.players.associate { p -> p.id.value to when (winner) {
+                    null -> org.asyncttwiz.protocol.SuggestedResult.DRAW
+                    p.id -> org.asyncttwiz.protocol.SuggestedResult.WIN
+                    else -> org.asyncttwiz.protocol.SuggestedResult.LOSS
+                } }
+                val reasons = engine.players.mapNotNull { p -> p.lossReason?.let { p.id.value to it } }.toMap()
+                val ending = when {
+                    conceded != null -> org.asyncttwiz.protocol.MatchEnding.Conceded(conceded.value)
+                    agreement != null -> org.asyncttwiz.protocol.MatchEnding.Agreed(agreement.second)
+                    winner == null -> org.asyncttwiz.protocol.MatchEnding.Draw(loop = reasons.values.any { it == arcanum.engine.setup.LossReason.Loop })
+                    else -> org.asyncttwiz.protocol.MatchEnding.ByRules
+                }
+                // CR 104.3b-e: why each player lost by the rules (a concession or an agreement says it itself)
+                val causes = reasons.mapNotNull { (player, reason) -> when (reason) {
+                    arcanum.engine.setup.LossReason.ZeroLife -> org.asyncttwiz.protocol.LossCause.ZeroLife
+                    arcanum.engine.setup.LossReason.EmptyLibrary -> org.asyncttwiz.protocol.LossCause.EmptyLibrary
+                    arcanum.engine.setup.LossReason.Poison -> org.asyncttwiz.protocol.LossCause.Poison
+                    is arcanum.engine.setup.LossReason.Effect -> org.asyncttwiz.protocol.LossCause.CardEffect(reason.card)
+                    else -> null
+                }?.let { player to it } }.toMap()
+                return MatchFacts(engine.turn.number, engine.players.associate { it.id.value to it.life }, mulligans, results, ending, causes)
+            }
+        }
+    }
 
     /**
      * What a change did, for the caller's revision, notifications and broadcast: the new [events] (encoded, in order:
@@ -142,6 +181,8 @@ internal class EngineGames(private val capacity: Int = warmCapacity()) {
         val rewoundBy: String? = null,
         /** Each player's current response mode (owner 2026-11-06: the other player's device learns it at once). */
         val modes: Map<String, org.asyncttwiz.protocol.game.ResponseMode> = emptyMap(),
+        /** When [ended]: what the match's record takes from the play. */
+        val facts: MatchFacts? = null,
     ) {
         /** Whose move the game is for the stored summary: a player the game waits for (each viewer sees their own first). */
         val attention: String? get() = moves.entries.firstOrNull { it.value }?.key
@@ -487,20 +528,36 @@ internal class EngineGames(private val capacity: Int = warmCapacity()) {
             time?.let { stopTimes[seat.account.toString()] = it }
             (time ?: times[seat.head])?.let { activity[seat.account.toString()] = it.toInstant().toString() }
         }
-        val result = Engine.result(state.model.engine)
+        // The game history's mulligans (§1.2): kept while the engine still logs them (its first two turns)
+        val engine = state.model.engine
+        val mulligans = if (engine.turn.number <= 1) loggedMulligans(engine) else seats.associate { it.account.toString() to it.mulligans }
+        for (seat in seats) {
+            val count = mulligans[seat.account.toString()] ?: 0
+            if (count != seat.mulligans) sql.update(ENGINE_SEAT).set(ENGINE_SEAT.MULLIGANS, count)
+                .where(ENGINE_SEAT.PLAY_ID.eq(play)).and(ENGINE_SEAT.ACCOUNT_ID.eq(seat.account)).execute()
+        }
+        val result = Engine.result(engine)
         val conceded = events.flatMap { e -> e.engine?.steps.orEmpty().mapNotNull { (it.input as? Input.Concede)?.player } }.firstOrNull()
         val ended = result != null && (state.model.table.resultConfirmedBy != null || conceded != null)
+        val agreement = if (ended && conceded == null) agreement(history, head) else null
         return Outcome(play, events.map(history.codec::encodeEvent), state, target, confirmed, ended,
             seats.associate { it.account.toString() to it.head }, moves, newStops, row.request, row.lines, stopTimes, activity,
             history.store as? EngineHistoryStore, branched,
-            if (ended) record(result!!, conceded, if (conceded == null) agreedBy(history, head) else null, seats.map { it.account.toString() }) else null,
+            if (ended) record(result!!, conceded, agreement?.first, seats.map { it.account.toString() }) else null,
             seats.filter { it.nextStop != null && stops[it] == null }.map { it.account.toString() }.toSet(),
             ready(state.model.engine, events, seats),
             seats.associate { it.account.toString() to (waits[it] == true) },
             // A wait that goes on across the other player's table-only events keeps its stop: not new (§18.11)
             seats.filter { waits[it] == true && (!it.waited || stops[it] != it.nextStop) }.map { it.account.toString() }.toSet(),
             seats.filter { it.waited && waits[it] != true }.map { it.account.toString() }.toSet(), rewoundBy,
-            seats.associate { it.account.toString() to it.settings.mode })
+            seats.associate { it.account.toString() to it.settings.mode },
+            if (ended) MatchFacts.of(engine, result!!, conceded, agreement, mulligans) else null)
+    }
+
+    /** Each player's mulligans taken in the opening (CR 103.5), from the engine's log of this and last turn. */
+    private fun loggedMulligans(engine: arcanum.engine.state.GameState): Map<String, Int> = engine.players.associate { p ->
+        p.id.value to (engine.log.mapNotNull { ((it.change as? arcanum.engine.change.Change.Happened)?.event as?
+            arcanum.engine.change.GameEvent.Mulliganed)?.takeIf { m -> m.player == p.id }?.count }.maxOrNull() ?: 0)
     }
 
     /** What [refresh] works out for one seat: its next stop (and whether answering the open undo request or result
@@ -534,16 +591,18 @@ internal class EngineGames(private val capacity: Int = warmCapacity()) {
     }
 
     /**
-     * Who agreed the result at the main line's [head] (I-D56 §11): the author of the result's own event when it holds the
+     * Who agreed the result at the main line's [head] (I-D56 §11), and the reason of the suggestion they accepted: the author of the result's own event when it holds the
      * agreement ([Input.AgreedResult]). An agreed result is final only in a later table-only event (both local heads
      * reach it first), so the line is read back from the head to its last engine event (a few table-only events).
      */
-    private fun agreedBy(history: GameHistory, head: String): String? {
+    private fun agreement(history: GameHistory, head: String): Pair<String, String>? {
         var at = head
         while (at != history.store.rootId) {
             val event = history.store.node(at)?.event ?: return null
             val engine = event.engine
-            if (engine != null) return event.author.takeIf { engine.steps.any { it.input is Input.AgreedResult } }
+            // The accepting event also clears the suggestion it answered: its reason (TRN-046) is the agreement's
+            if (engine != null) return if (engine.steps.none { it.input is Input.AgreedResult }) null else event.author to
+                event.table.firstNotNullOfOrNull { (it as? TableChange.Suggestion)?.before?.note }.orEmpty()
             at = event.parentId
         }
         return null
@@ -641,7 +700,7 @@ internal class EngineGames(private val capacity: Int = warmCapacity()) {
             .orderBy(ENGINE_EVENT.ORDINAL.desc()).limit(1)).`as`("head")
         val rows = sql.select(ENGINE_PLAY.ROOT_ID, definitions, ENGINE_PLAY.LINES, ENGINE_PLAY.REWIND_BY, ENGINE_PLAY.REWIND_TARGET,
             ENGINE_PLAY.REWIND_MESSAGE, newest, ENGINE_SEAT.ACCOUNT_ID, ENGINE_SEAT.LOCAL_HEAD, ENGINE_SEAT.SETTINGS, ENGINE_SEAT.NEXT_STOP,
-            ENGINE_SEAT.NEXT_STOP_AT, ENGINE_SEAT.WAITED, ENGINE_SEAT.RESUME_AT, ENGINE_SEAT.TAKEN_BACK_FROM)
+            ENGINE_SEAT.NEXT_STOP_AT, ENGINE_SEAT.WAITED, ENGINE_SEAT.RESUME_AT, ENGINE_SEAT.TAKEN_BACK_FROM, ENGINE_SEAT.MULLIGANS)
             .from(ENGINE_PLAY).leftJoin(ENGINE_SEAT).on(ENGINE_SEAT.PLAY_ID.eq(ENGINE_PLAY.PLAY_ID))
             .where(ENGINE_PLAY.PLAY_ID.eq(play)).orderBy(ENGINE_SEAT.ACCOUNT_ID).fetch()
         val first = rows.firstOrNull() ?: return null
@@ -652,7 +711,8 @@ internal class EngineGames(private val capacity: Int = warmCapacity()) {
         val seats = rows.filter { it[ENGINE_SEAT.ACCOUNT_ID] != null }.map { r ->
             SeatRow(r[ENGINE_SEAT.ACCOUNT_ID]!!, r[ENGINE_SEAT.LOCAL_HEAD]!!.toString(),
                 GameWire.json.decodeFromString(PlaySettings.serializer(), r[ENGINE_SEAT.SETTINGS]!!), r[ENGINE_SEAT.NEXT_STOP]?.toString(),
-                r[ENGINE_SEAT.NEXT_STOP_AT], r[ENGINE_SEAT.WAITED]!!, r[ENGINE_SEAT.RESUME_AT], r[ENGINE_SEAT.TAKEN_BACK_FROM]?.toString())
+                r[ENGINE_SEAT.NEXT_STOP_AT], r[ENGINE_SEAT.WAITED]!!, r[ENGINE_SEAT.RESUME_AT], r[ENGINE_SEAT.TAKEN_BACK_FROM]?.toString(),
+                r[ENGINE_SEAT.MULLIGANS]!!)
         }
         return Opened(store, first[newest]?.toString() ?: store.rootId, row, seats)
     }
@@ -670,10 +730,10 @@ internal class EngineGames(private val capacity: Int = warmCapacity()) {
 
     internal fun seats(sql: DSLContext, play: UUID): List<SeatRow> =
         sql.select(ENGINE_SEAT.ACCOUNT_ID, ENGINE_SEAT.LOCAL_HEAD, ENGINE_SEAT.SETTINGS, ENGINE_SEAT.NEXT_STOP, ENGINE_SEAT.NEXT_STOP_AT,
-            ENGINE_SEAT.WAITED, ENGINE_SEAT.RESUME_AT, ENGINE_SEAT.TAKEN_BACK_FROM)
+            ENGINE_SEAT.WAITED, ENGINE_SEAT.RESUME_AT, ENGINE_SEAT.TAKEN_BACK_FROM, ENGINE_SEAT.MULLIGANS)
             .from(ENGINE_SEAT).where(ENGINE_SEAT.PLAY_ID.eq(play)).orderBy(ENGINE_SEAT.ACCOUNT_ID).fetch { r ->
                 SeatRow(r.value1()!!, r.value2()!!.toString(), GameWire.json.decodeFromString(PlaySettings.serializer(), r.value3()!!),
-                    r.value4()?.toString(), r.value5(), r.value6()!!, r.value7(), r.value8()?.toString())
+                    r.value4()?.toString(), r.value5(), r.value6()!!, r.value7(), r.value8()?.toString(), r.value9()!!)
             }
 
     private fun setHead(sql: DSLContext, play: UUID, account: UUID, event: String) {

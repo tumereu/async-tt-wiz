@@ -124,7 +124,7 @@ class ActivityDelivery(private val runtime: ServiceRuntime, private val adapter:
                     .leftJoin(INVITATION).on(INVITATION.ID.eq(GAME.CURRENT_INVITATION))
                     .where(PUSH.DUE_AT.le(time)).and(INSTALL.PUSH_TOKEN.isNotNull).and(SESSION.REVOKED_AT.isNull)
                     .and(SESSION.AUTH_EPOCH.eq(ACCOUNT.AUTH_EPOCH))
-                    .and(GAME.LIFECYCLE.`in`("LOBBY", "ACTIVE").and(PUSH.KIND.`in`("INVITATION", "GAME"))
+                    .and(GAME.LIFECYCLE.`in`("LOBBY", "ACTIVE").and(PUSH.KIND.`in`("INVITATION", "GAME", "GAME_REMOVAL"))
                         .and(PUSH.KIND.ne("INVITATION").or(INVITATION.STATE.eq("PENDING").and(GAME.CURRENT_INVITATION.eq(PUSH.IDENTITY))))
                         .or(ActivityService.podVisible(INSTALL.ACCOUNT_ID, PUSH.KIND, PUSH.GAME_ID, PUSH.IDENTITY)))
                     .orderBy(PUSH.DUE_AT).limit(1).forUpdate().of(PUSH).skipLocked().fetchOne() ?: return@transaction null

@@ -288,8 +288,14 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
             // Reused summaries must have the same precision as PostgreSQL's timestamp(6).
             val updatedAt = java.time.OffsetDateTime.now(java.time.ZoneOffset.UTC)
                 .truncatedTo(java.time.temporal.ChronoUnit.MICROS)
+            // Game history §4.4: a change by a player is activity (the cleanup's clock); a match whose result became final
+            // ended now, and that is the last activity until the next one
+            val activityAt = java.time.OffsetDateTime.ofInstant(clock.instant(), java.time.ZoneOffset.UTC)
+                .truncatedTo(java.time.temporal.ChronoUnit.MICROS)
             sql.update(GAME).set(GAME.REVISION, revision)
                 .set(GAME.UPDATED_AT, updatedAt)
+                .let { if (activity(command.action)) it.set(GAME.ACTIVITY_AT, activityAt) else it }
+                .let { if (engineAccepted?.ended == true) it.set(GAME.LAST_MATCH_END_AT, activityAt) else it }
                 .where(GAME.ID.eq(game.id)).execute()
             val engine = engineAccepted
             var seated: EngineUpdate? = null
@@ -432,13 +438,25 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
         } catch (refusal: org.asyncttwiz.protocol.game.Refusal) {
             return (if (refusal.reason in ENGINE_REASONS) refusal.reason else "refusedByEngine") to null
         }
-        if (outcome.ended) PlayStore.endEngine(sql, lobby.summary(sql, game.id!!), command.requestId, outcome.result) { lobby.summary(sql, it) }
+        if (outcome.ended) {
+            val summary = lobby.summary(sql, game.id!!)
+            // Game history §1.1: the finished match's record, from the decks it was played with (before the lobby's return)
+            org.asyncttwiz.server.history.MatchRecords.finished(sql, summary, play, outcome.facts!!, now)
+            PlayStore.endEngine(sql, summary, command.requestId, outcome.result) { lobby.summary(sql, it) }
+        }
         return null to outcome
     }
+
+    /** Whether [action] is a change by a player that counts as the game's activity (game history §4.4): anything but a
+     * device reporting what its player has seen, or a player's private play settings. */
+    private fun activity(action: GameAction): Boolean = action !is GameAction.EngineSeen && action !is GameAction.EngineSettings
 
     private fun applyDeletion(sql: DSLContext, game: GameRecord, command: GameCommand): String? {
         if (game.lifecycle != "ACTIVE") return "lifecycleEnded"
         if (command.scope.playId != game.currentPlay?.toString()) return "inapplicable"
+        // Game history §1.3: the match in play leaves an Unfinished record
+        org.asyncttwiz.server.history.MatchRecords.unfinished(sql, lobby.summary(sql, game.id!!),
+            java.time.OffsetDateTime.ofInstant(clock.instant(), java.time.ZoneOffset.UTC))
         sql.update(GAME).set(GAME.LIFECYCLE, "DELETED").where(GAME.ID.eq(game.id)).execute()
         return null
     }

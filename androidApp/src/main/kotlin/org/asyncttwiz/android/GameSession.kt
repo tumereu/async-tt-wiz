@@ -203,6 +203,8 @@ class GameSession(private val connection: GameConnection, private val credential
             reloadAsked.remove(head.gameId)
         }
         engineGames[head.gameId]?.revision = head.revision
+        // LOB-135: the game's assume reveal settings, as its host last set them
+        engineGames[head.gameId]?.assumeReveals(head.summary.assumeReveals)
         acceptedRevisions[head.gameId] = head.revision
         if (summaries[head.gameId]?.let { newerOrEqual(head.revision, it.revision) } != false) summaries[head.gameId] = head.summary
         streams[head.gameId]?.head = true
@@ -273,6 +275,7 @@ class GameSession(private val connection: GameConnection, private val credential
             else install(message.summary, message.resultRevision, message.preparation)
             return
         }
+        game.assumeReveals(message.summary.assumeReveals)
         game.revision(message)
         acceptedRevisions[message.gameId] = message.resultRevision
         if (summaries[message.gameId]?.let { newerOrEqual(message.resultRevision, it.revision) } != false) summaries[message.gameId] = message.summary
@@ -467,12 +470,23 @@ class GameSession(private val connection: GameConnection, private val credential
     }
     /** Withdraw display only. Already sent originals still recover and can be accepted normally. */
     fun withdrawTransferPrediction(requestId: String) { preparations.withdrawTransfer(requestId); statusChanged() }
+    /** LOB-135: the game's assume reveal settings, changed by its host, in the lobby or in play (the server refuses anyone
+     * else); sent alongside whatever else of the game is on its way, as chat is. */
+    fun setAssumeReveals(game: GameSummary, reveals: AssumeReveals): Boolean = measureLatency(game, GameAction.SetAssumeReveals(reveals)) {
+        val current = summary(game)
+        if (current.lifecycle !in listOf(GameLifecycle.LOBBY, GameLifecycle.ACTIVE) || current.assumeReveals == reveals) return false
+        val command = command(current, GameAction.SetAssumeReveals(reveals)) ?: return false
+        pending[command.requestId] = command
+        latencySubmitted(command, false)
+        error = null; flush(); statusChanged(); return true
+    }
     private fun command(game: GameSummary, action: GameAction): GameCommand? {
         if (action is GameAction.SendChat) { if (!activeRequest(game)) return null }
         else if (!ready(game.id) || credential() != token) return null
-        if ((action !is GameAction.SendChat && pending(game.id)) || pending.size >= 256) return null
+        if ((action !is GameAction.SendChat && action !is GameAction.SetAssumeReveals && pending(game.id)) || pending.size >= 256) return null
         val stream = streams.getValue(game.id)
-        val scope = if (action == GameAction.DeleteGame || action is GameAction.SendChat) GameScope(game.id, playId = game.playId)
+        val scope = if (action is GameAction.SetAssumeReveals) GameScope(game.id)
+            else if (action == GameAction.DeleteGame || action is GameAction.SendChat) GameScope(game.id, playId = game.playId)
             else GameScope(game.id, game.preparationRound,
                 if (action == GameAction.AcceptInvitation || action == GameAction.DeclineInvitation || action == GameAction.Reinvite) game.invitationId else null)
         return GameCommand(UUID.randomUUID().toString(), scope,

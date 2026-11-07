@@ -1,0 +1,1 @@
+add: New game settings let the game's creator choose whether you may go on without the other player over cards revealed from their library (on by default) or from their hand (off by default); find them in the game lobby and in the game under Table actions.

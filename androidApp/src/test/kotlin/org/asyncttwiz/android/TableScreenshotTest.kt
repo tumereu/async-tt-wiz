@@ -54,6 +54,8 @@ class TableScreenshotTest {
         // The engine table's board and routes (R4b follow-up): what the app draws of this board
         val board = engineTableBoard(play, "a")
         val toolkit = TableToolkitController("a", { board }, { !paused }, { _, _ -> true })
+        // LOB-135: in a game the table offers Game settings
+        toolkit.assumeReveals = {}
         compose.setContent {
             MaterialTheme {
                 EngineFixtureTable(play, "a") {
@@ -202,7 +204,8 @@ class TableScreenshotTest {
             "card-actions", "action-tooltip" -> toolkit.openCard(TableScope(forest.id, listOf(forest.id)))
             "player-actions" -> toolkit.open(TableIntent.Actions("life/b", null),
                 TableItem("life/b", TableBounds(0f, 0f, 48f, 48f), "Bob, life 20", "20", "b", kind = TableItemKind.LIFE))
-            "table-actions" -> toolkit.tableMenu()
+            // LOB-135: in a game the table offers Game settings
+            "table-actions" -> { toolkit.assumeReveals = {}; toolkit.tableMenu() }
             "phase-picker" -> toolkit.phasePicker()
             "library-actions" -> toolkit.openLibrary("a/LIBRARY")
             "pile-contents" -> toolkit.open(TableIntent.Actions("a/GRAVEYARD", null),

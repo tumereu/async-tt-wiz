@@ -81,6 +81,10 @@ internal class EngineGameFixture(val startingPlayer: String = TableStatesFixture
         const val GLINT = "Ember Glint"
         /** A free "Look at target player's hand." sorcery: its resolving shows its caster the target's hidden hand (TRN-067). */
         const val GLANCE = "Ember Glance"
+        /** A free "Target player reveals their hand." sorcery: its resolving reveals the target's hand (LOB-135). */
+        const val EXPOSURE = "Ember Exposure"
+        /** A free "Target player reveals the top two cards of their library." sorcery (LOB-135). */
+        const val AUGURY = "Ember Augury"
         /** A free instant milling fourteen with cycling {R} and "When you cycle this card, each opponent mills four cards."
          * (owner playtest 2026-11-07: worded as a real cycling card with a cycle trigger). */
         const val REASON = "Shattered Reason"
@@ -112,6 +116,8 @@ internal class EngineGameFixture(val startingPlayer: String = TableStatesFixture
         free("study", Choices.STUDY, "Sorcery", "Draw a card."),
         free("glint", Choices.GLINT, "Instant", "You gain 2 life."),
         free("glance", Choices.GLANCE, "Sorcery", "Look at target player's hand."),
+        free("exposure", Choices.EXPOSURE, "Sorcery", "Target player reveals their hand."),
+        free("augury", Choices.AUGURY, "Sorcery", "Target player reveals the top two cards of their library."),
         free("reason", Choices.REASON, "Instant", REASON_TEXT),
         free("insight", Choices.INSIGHT, "Sorcery", "Reveal the top card of your library and put that card into your hand."),
         free("foresight", Choices.FORESIGHT, "Instant", "Reveal the top card of your library and put that card into your hand."),

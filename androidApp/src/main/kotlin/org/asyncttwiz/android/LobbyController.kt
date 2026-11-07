@@ -155,6 +155,14 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
     fun starter(choice: StarterChoice) = preparationActions.starter(choice)
     fun alternateStarter(enabled: Boolean) = preparationActions.alternateStarter(enabled)
     fun showDeck(shown: Boolean) = preparationActions.showDeck(shown)
+    /** LOB-135: the open game's assume reveal settings, changed by its host: in the lobby once the game can send (the
+     * latest tap wins), in play at once beside the game's own requests. */
+    fun assumeReveals(reveals: AssumeReveals) {
+        val game = state.detail ?: return
+        if (closed || game.inviter.accountId != accountId()) return
+        val send = { state.detail?.takeIf { it.id == game.id }?.let { current -> session?.setAssumeReveals(current, reveals) }; connectionState() }
+        if (game.lifecycle == GameLifecycle.LOBBY) queue.whenReady(game.id, "assumeReveals") { send() } else send()
+    }
     fun ready() = preparationActions.ready()
     fun withdrawReady() = preparationActions.withdrawReady()
     internal val preparationUndo: PreparationUndo get() = preparationActions.preparationUndo

@@ -87,6 +87,18 @@ class GameDevice(
      * the other player's is [opponentMode]. */
     fun modes(modes: Map<String, ResponseMode>) { modes[opponent.value]?.let { opponentMode = it } }
 
+    /** The game's assume reveal settings (LOB-135), as the caller last said ([assumeReveals]): the cards the information
+     * rule lets through, in this player's assumptions and own actions alike. Until told, nothing ([AssumeReveals.NONE]). */
+    var assumeReveals: org.asyncttwiz.protocol.AssumeReveals = org.asyncttwiz.protocol.AssumeReveals.NONE
+        private set
+
+    /** The game's assume reveal settings changed (its summary, set by the host): they apply to the points not yet made. */
+    fun assumeReveals(value: org.asyncttwiz.protocol.AssumeReveals) {
+        if (value == assumeReveals) return
+        assumeReveals = value
+        reveals.clear()
+    }
+
     /** Each player's local head as the server last said. */
     val localHeads: Map<PlayerId, String> get() = heads.toMap()
     private val heads = localHeads.toMutableMap()
@@ -330,17 +342,19 @@ class GameDevice(
      * tip names it: the state at an event is the same however it was reached, and nothing is decided while a draft is
      * open; its open decision is compared too, by identity, as a cheap guard against a state changed in place): the table
      * state (the other player's table-only events slip in under the device's own pending events without moving the tip),
-     * the player's settings, the other player's response mode, an End turn going on and the head a free undo held at. While none of it changes, the status
-     * at the head ([status]) and the device's own step there ([automaticStep]) stay the same, so each is worked out once
-     * per point: a tick at an unchanged point does no engine search.
+     * the player's settings, the other player's response mode, the game's assume reveal settings, an End turn going on and
+     * the head a free undo held at. While none of it changes, the status at the head ([status]) and the device's own step
+     * there ([automaticStep]) stay the same, so each is worked out once per point: a tick at an unchanged point does no
+     * engine search.
      */
     private class PointKey(val tip: String, val pending: Any?, val table: TableState, val settings: PlaySettings,
-        val endTurn: Int?, val holdAt: String?, val opponentMode: ResponseMode) {
+        val endTurn: Int?, val holdAt: String?, val opponentMode: ResponseMode, val reveals: org.asyncttwiz.protocol.AssumeReveals) {
         fun same(other: PointKey?): Boolean = other != null && tip == other.tip && pending === other.pending && table === other.table &&
-            settings == other.settings && endTurn == other.endTurn && holdAt == other.holdAt && opponentMode == other.opponentMode
+            settings == other.settings && endTurn == other.endTurn && holdAt == other.holdAt && opponentMode == other.opponentMode &&
+            reveals == other.reveals
     }
 
-    private fun pointKey() = PointKey(session.tip, model.engine.pending, model.table, settings, endTurn, holdAt, opponentMode)
+    private fun pointKey() = PointKey(session.tip, model.engine.pending, model.table, settings, endTurn, holdAt, opponentMode, assumeReveals)
 
     /** The status at the head worked out last, with its point ([PointKey]). */
     private var headStatus: Pair<PointKey, Status>? = null
@@ -1001,8 +1015,8 @@ class GameDevice(
      */
     private fun shows(before: InformationRule.Before, builder: EventBuilder): Boolean = informationRule {
         // The model is [before] with the builder's changes made (its builders are on it): its kept view is the after view
-        InformationRule.revealing(before, builder.changes, me, model.view()).isNotEmpty() ||
-            InformationRule.randomResult(builder.engineSteps, before.state)
+        InformationRule.revealing(before, builder.changes, me, model.view(), assumeReveals).isNotEmpty() ||
+            InformationRule.randomResult(builder.engineSteps, before.state, me, assumeReveals)
     }
 
     /**

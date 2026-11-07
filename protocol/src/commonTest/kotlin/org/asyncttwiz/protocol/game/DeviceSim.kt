@@ -41,6 +41,10 @@ internal class DeviceSim(val games: EngineGames, every: Int = 16) {
     var branches = 0
     var confirmations = 0
     var rewinds = 0
+    /** The game's assume reveal settings (LOB-135): the server, every device and the leak oracle honour them. Nothing
+     * relaxed unless a test says. */
+    var reveals: org.asyncttwiz.protocol.AssumeReveals = org.asyncttwiz.protocol.AssumeReveals.NONE
+        set(value) { field = value; server.reveals = value; devices.values.forEach { it.assumeReveals(value) } }
 
     sealed interface Delivery {
         data class Revision(val events: List<GameEvent>, val update: EngineUpdate) : Delivery
@@ -73,6 +77,7 @@ internal class DeviceSim(val games: EngineGames, every: Int = 16) {
             baseId.takeIf { after.isNotEmpty() }, if (after.isEmpty()) null else codec.encodeModel(server.stateAt(baseId)),
             after.map(codec::encodeEvent), modes = modes())
         val (device, _) = GameDevice.load(snapshot, p) { "${p.value}-${++ids}" }
+        device.assumeReveals(reveals)
         watch(device)
         devices[p] = device
         inbox[p] = ArrayDeque()
@@ -118,7 +123,10 @@ internal class DeviceSim(val games: EngineGames, every: Int = 16) {
             }
             shown += seen(state)
         }
-        return shown.filterTo(mutableSetOf()) { it in existing && it !in known }
+        // LOB-135: what the game's settings let through (the other player's library, their hand, where it was before)
+        val allowed = before.objects.values.filter { o -> o.owner != me &&
+            (o.zone == arcanum.api.Zone.Library && reveals.library || o.zone == arcanum.api.Zone.Hand && reveals.hands) }.map { it.card }.toSet()
+        return shown.filterTo(mutableSetOf()) { it in existing && it !in known && it !in allowed }
     }
 
     /**

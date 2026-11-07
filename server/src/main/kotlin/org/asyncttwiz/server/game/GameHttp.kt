@@ -57,7 +57,7 @@ class GameHttp(private val runtime: ServiceRuntime, private val hub: GameHub) {
             val result = parts.size == 6 && parts[4] == "results"
             val chat = parts.size == 5 && parts[4] == "chat"
             val chatRead = parts.size == 6 && parts[4] == "chat" && parts[5] == "read"
-            // HIS-110, HIS-099: a page of the active play's main line ending at ?through=<event> (older timeline history)
+            // HIS-111, HIS-099: a page of the active play's main line ending at ?through=<event> (older timeline history)
             val history = parts.size == 5 && parts[4] == "timeline"
             if (!(lookup || revisions || result || chat || chatRead || history)) { error(404, "not_found"); return true }
             if (if (chatRead) request.method !in listOf("GET", "PUT")

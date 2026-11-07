@@ -27,7 +27,7 @@ interface GameConnection : AutoCloseable {
     fun disconnect()
     fun chatPage(gameId: String, before: String? = null, after: String? = null, complete: (ChatPage?) -> Unit): Boolean = false
     fun chatRead(gameId: String, input: ReadChat? = null, complete: (ChatReadState?) -> Unit): Boolean = false
-    /** HIS-110, HIS-099: the page of [gameId]'s main line ending at its event [through] (older history), or null when
+    /** HIS-111, HIS-099: the page of [gameId]'s main line ending at its event [through] (older history), or null when
      * it can't be read; [complete] runs off the main thread. False when nothing was asked. */
     fun historyPage(gameId: String, through: String, complete: (EngineHistoryPage?) -> Unit): Boolean = false
 }

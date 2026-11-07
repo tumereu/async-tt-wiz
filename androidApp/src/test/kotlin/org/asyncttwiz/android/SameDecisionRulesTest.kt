@@ -237,9 +237,10 @@ class SameDecisionRulesTest {
         assertEquals(2, log.count { it.startsWith("remake PassPriority") }, "both made again: ${log.takeLast(25)}")
     }
 
-    // SYS-077, HIS-096 (e2e CombatBandTest, 2026-11-06): Bob passes at Alice's spell just as her device assumes that pass
-    // for him (her Assume) and the server takes her assumption first: his pass is his answer at it (HIS-109), confirming
-    // it, and tells nothing, both reply orders
+    // SYS-077, HIS-096 (e2e CombatBandTest, 2026-11-06; owner 2026-11-07): Bob passes at Alice's spell just as her device
+    // assumes that pass for him (her Assume) and the server takes her assumption first: his pass is his answer at it
+    // (HIS-109), the same one, so it is simply the assumption's confirmation: her assumption takes its place on his phone
+    // with his board as it is, and nothing is told, both reply orders
     @Test fun aPassTheOtherPlayerAssumedFirstIsMadeAlready() {
         for (refusalsFirst in listOf(false, true)) SameDecisionRulesTest().assumedFirst(refusalsFirst)
     }
@@ -273,7 +274,8 @@ class SameDecisionRulesTest {
         bob.tick(sim.now + 3_000)
         val log = bob.device.repro(f.codec).log
         assertTrue(bob.notes.none { it is GameDevice.Note.Refused }, "refusals first $refusalsFirst: no note: ${bob.notes} ${log.takeLast(12)}")
-        assertTrue(log.any { it.contains("answers the assumption") }, "refusals first $refusalsFirst: ${log.takeLast(12)}")
+        assertTrue(log.any { it.startsWith("adopted") } && log.none { it.startsWith("remake") }, "refusals first $refusalsFirst: ${log.takeLast(12)}")
+        assertTrue(bob.device.session.pending.isEmpty(), "refusals first $refusalsFirst: his pass taken as the confirmation")
     }
 
     // SYS-077, SYS-012: Bob concedes after his pass, so the game Alice's move was made in is gone: not made again, and she

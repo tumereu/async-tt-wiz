@@ -94,6 +94,9 @@ object TestCards {
     val glance = card("Ember Glance", "Sorcery", "{0}", "Look at target player's hand.")
     /** A free enchantment whose trigger its controller gets on the other player's cheap spell (their spell puts it on top). */
     val warden = card("Ember Warden", "Enchantment", "{0}", "Whenever an opponent casts a spell with mana value 2 or less, you gain 2 life.")
+    /** A free sorcery that reveals its caster's top card and puts it into their hand (HIS-110: the other player's reveal
+     * panel). */
+    val insight = card("Ember Insight", "Sorcery", "{0}", "Reveal the top card of your library and put that card into your hand.")
     /** A free creature with haste: it attacks the turn it is cast. */
     val dasher = card("Ember Dasher", "Creature — Elemental", "{0}", "Haste", "1", "1")
     /** A free creature whose own trigger goes on the Stack when it dies (no target: nothing to choose). */
@@ -137,6 +140,9 @@ data class TestDeck(val name: String, val entries: List<Pair<SubmittedDefinition
 
         /** 40 cards: Mountains and Storm Sparks. */
         fun sparks() = TestDeck("Sparks", listOf(TestCards.mountain to 20, TestCards.spark to 20))
+
+        /** 40 cards: Mountains and Ember Insights (a free reveal). */
+        fun insights() = TestDeck("Insights", listOf(TestCards.mountain to 20, TestCards.insight to 20))
 
         /** 40 cards: Mountains and Ember Musings (cycling). */
         fun musings() = TestDeck("Musings", listOf(TestCards.mountain to 20, TestCards.musing to 20))

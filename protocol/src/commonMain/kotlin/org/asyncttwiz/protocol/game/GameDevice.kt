@@ -112,7 +112,7 @@ class GameDevice(
      * it ([revision]) once it showed the table there. */
     var undoOnLoad: EngineUpdate? = null
 
-    /** HIS-110, HIS-099 (owner 2026-11-07): the main line before the session's, loaded from the server on demand
+    /** HIS-111, HIS-099 (owner 2026-11-07): the main line before the session's, loaded from the server on demand
      * ([addPage]), and the states beyond what going back from the shown state reaches; null on a device made without a
      * codec (tests), which then reaches only its session's line. */
     var older: OlderHistory? = null
@@ -173,6 +173,13 @@ class GameDevice(
     /** The events of those moves: their "stale" refusal isn't told ([remake] tells it when it can't make one again). */
     private val lost = mutableSetOf<String>()
     private val confirming = mutableSetOf<String>()
+    /** Owner 2026-11-07 (SYS-077): the device's own recent events whose place the other player's same event took
+     * ([GameSession.Received.Adopted]), to that event's id. */
+    private val adopted = LinkedHashMap<String, String>()
+
+    /** The event that took the place of the device's own event [id] (the same event, made by the other player's device:
+     * the board on it is the board on [id], SYS-009), or null. */
+    fun adoptedAs(id: String): String? = adopted[id]
     /** The submissions made by the player's own actions (a refusal of one is told, even "stale"). */
     private val byPlayer = mutableSetOf<String>()
     /** Who made this device's own recent events (I-D56 §10, report C9PVLM): true for the player's own action (an End
@@ -292,7 +299,8 @@ class GameDevice(
             // HIS-094, HIS-095 (owner playtest 2026-11-06): playback standing at a decision of the player's own has nothing
             // to watch before it: leaving the app, coming back or loading the game again never pauses it for the centre
             // text there ("has made moves"), whatever of the other player's follows; the stop shows, live
-            if (catchUp && !opening && decision == null) return Status.CatchUp
+            // HIS-110: an open reveal panel holds playback where it is (the centre text waits until it is dismissed)
+            if (catchUp && !opening && decision == null && !revealHolds()) return Status.CatchUp
             val stop = if (pausing) stopAt(next) else decision
             return stop?.let { Status.Stopped(next, it, paused = decision == null) } ?: Status.Playing(next)
         }
@@ -451,11 +459,84 @@ class GameDevice(
      */
     fun step(): GameEvent? {
         if (needsReload || (catchUp && !opening) || session.drafting || !session.behind) return null
+        if (revealHolds()) return null
         if (stopAt(session.buffered.first()) != null) return null
         var shown: GameEvent
-        do shown = session.showNext() while (opening && session.behind && stopAt(session.buffered.first()) == null)
+        do shown = session.showNext() while (opening && session.behind && !revealHolds() && stopAt(session.buffered.first()) == null)
         if (!session.behind) { pausing = false; catchUp = false }
         return shown
+    }
+
+    // ---- Reveal stops (HIS-110)
+
+    /**
+     * HIS-110 (owner playtest 2026-11-07): cards the other player revealed to this player ([by]: who revealed them, never
+     * this player) in the shown event [event]: [cards] in the order revealed, and what revealed them, [source] (the card
+     * of the spell or ability, null when none is known) and its [sourceName] then. Each reveal is one panel; while one
+     * is open ([reveal]) playback holds the events after it, as at a playback stop, until the player dismisses it
+     * ([dismissReveal]). Personal: nothing is sent, and the device still makes its own steps at the head.
+     */
+    data class Reveal(val event: String, val by: PlayerId, val cards: List<arcanum.engine.state.CardId>,
+        val source: arcanum.engine.state.CardId?, val sourceName: String?)
+
+    /** HIS-110: the reveal panel open now (the oldest not dismissed), or null. */
+    val reveal: Reveal? get() { syncReveals(); return revealsOpen.firstOrNull() }
+
+    /** HIS-110: every reveal not dismissed yet, oldest first (one panel each, in order). */
+    val openReveals: List<Reveal> get() { syncReveals(); return revealsOpen.toList() }
+
+    /** HIS-110: the player dismissed the open reveal panel: the next one opens, or playback goes on. True when one was open. */
+    fun dismissReveal(): Boolean {
+        syncReveals()
+        if (revealsOpen.isEmpty()) return false
+        revealsOpen.removeAt(0)
+        return true
+    }
+
+    private val revealsOpen = ArrayList<Reveal>()
+    /** The shown events already looked at for reveals (those shown before the device was made count as looked at). */
+    private val revealsSeen = HashSet<String>()
+    /** The tip [syncReveals] last looked at: the shown line is the same while the tip is (each event names its parent). */
+    private var revealsTip: String? = null
+
+    init {
+        // A game opened (or loaded again) opens no panel for what was shown before
+        val local = session.indexOf(session.localHead) ?: -1
+        session.events.take(local + 1).mapTo(revealsSeen) { it.id }
+        revealsTip = session.tip
+    }
+
+    /** Whether an open reveal panel holds playback (HIS-110). */
+    private fun revealHolds(): Boolean { syncReveals(); return revealsOpen.isNotEmpty() }
+
+    /**
+     * HIS-110: brings the open reveals in line with the shown line (the main line up to the local head, then the device's
+     * own pending events): a reveal whose event was taken back (an undo, a branch, a rewind, a refusal) closes, and the
+     * events newly shown since add the other player's reveals in them, in order.
+     */
+    private fun syncReveals() {
+        val tip = session.tip
+        if (tip == revealsTip || session.drafting) return
+        revealsTip = tip
+        val local = session.indexOf(session.localHead) ?: -1
+        val events = session.events
+        val line = events.subList(0, local + 1) + session.pending
+        if (revealsOpen.isNotEmpty()) {
+            val ids = line.mapTo(HashSet()) { it.id }
+            val gone = revealsOpen.filter { it.event !in ids }
+            revealsOpen.removeAll(gone)
+            gone.forEach { revealsSeen.remove(it.event) }
+        }
+        val fresh = ArrayList<GameEvent>()
+        for (i in line.indices.reversed()) {
+            val e = line[i]
+            if (e.id in revealsSeen) break
+            fresh += e
+        }
+        for (e in fresh.asReversed()) {
+            revealsSeen += e.id
+            revealsOpen += revealsIn(e, me)
+        }
     }
 
     /**
@@ -466,7 +547,7 @@ class GameDevice(
      */
     fun showPasses(): Boolean {
         var shown = false
-        while (!needsReload && !catchUp && !session.drafting && session.pending.isEmpty() && session.behind) {
+        while (!needsReload && !catchUp && !session.drafting && session.pending.isEmpty() && session.behind && !revealHolds()) {
             val next = session.buffered.first()
             if (!passesOnly(next) || stopAt(next) != null) break
             session.showNext()
@@ -1316,6 +1397,16 @@ class GameDevice(
                     endTurnTakenBack(event.parentId)
                 }
                 is GameSession.Received.Applied -> { endTurnDropped(r.dropped); lostOpening(r.dropped) || lostMoves(r.dropped) { it in byPlayer } }
+                // Owner 2026-11-07 (SYS-077): the other player's event is the device's own pending one but for who made it
+                // (their assumption of this answer, or their own answer this device assumed): it takes its place, the board
+                // and anything open on it untouched; the server drops the pending event as its duplicate
+                is GameSession.Received.Adopted -> {
+                    remember("adopted ${event.id} for ${r.mine.id}")
+                    byPlayer.remove(r.mine.id)
+                    if (endTurnFirst == r.mine.id) endTurnFirst = event.id
+                    adopted[r.mine.id] = event.id
+                    if (adopted.size > MAX_ORIGINS) adopted.remove(adopted.keys.first())
+                }
                 else -> {}
             }
         }
@@ -1570,7 +1661,7 @@ class GameDevice(
         older?.trimmed(from, moved)
     }
 
-    // ---- Older history (HIS-110, HIS-099: the timeline and Undo reach the game's first event)
+    // ---- Older history (HIS-111, HIS-099: the timeline and Undo reach the game's first event)
 
     /** What [reach] finds for a main-line event. */
     sealed interface Reach {
@@ -1795,6 +1886,27 @@ class GameDevice(
             // nothing there. Else only the author's own counts (an answer made by a device for the other player is
             // engine-automatic: it decides nothing)
             return step.assumedBy ?: player.takeIf { it.value == event.author }
+        }
+
+        /**
+         * HIS-110: the reveals in [event] of a player other than [viewer] ([arcanum.engine.change.GameEvent.Revealed]: shown to
+         * every player, CR 701.20), one per reveal in order, with what made each: the source the change carries (a spell's or
+         * ability's instructions), else the card cast or the ability's source of the step's input (a cost).
+         */
+        fun revealsIn(event: GameEvent, viewer: PlayerId): List<Reveal> = event.engine?.steps.orEmpty().flatMap { step ->
+            step.changes.mapNotNull { change ->
+                val happened = change as? arcanum.engine.change.Change.Happened ?: return@mapNotNull null
+                val revealed = happened.event as? arcanum.engine.change.GameEvent.Revealed ?: return@mapNotNull null
+                if (revealed.player == viewer) return@mapNotNull null
+                val cards = revealed.ids.mapNotNull { (it as? ObjectId.Card)?.card }.distinct()
+                if (cards.isEmpty()) return@mapNotNull null
+                val by = happened.by?.source ?: when (val input = step.input) {
+                    is Input.Cast -> input.card
+                    is Input.Activate -> input.source
+                    else -> null
+                }
+                Reveal(event.id, revealed.player, cards, (by as? ObjectId.Card)?.card, happened.by?.name)
+            }
         }
 
         /** [state] without what never makes a decision another ([sameDecision]). */

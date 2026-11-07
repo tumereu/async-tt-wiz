@@ -110,7 +110,7 @@ class GameHistory(val store: HistoryStore, val codec: EngineJson, val every: Int
     fun checkpointFor(depth: Int, model: GameModel): String? = if (checkpointed(depth)) codec.encodeModel(model) else null
 
     /**
-     * HIS-110, HIS-099 (owner 2026-11-07): the page of the main line ending at [head] that ends at its event [through]:
+     * HIS-111, HIS-099 (owner 2026-11-07): the page of the main line ending at [head] that ends at its event [through]:
      * the checkpoint above [through] with its stored state, and the events after it up to [through] (at most [every]),
      * read without applying any; null when [through] isn't an event of that line (the root, a discarded line's event, an
      * unknown id). The work doesn't grow with the game: one look-up of the line's event at [through]'s depth, then the

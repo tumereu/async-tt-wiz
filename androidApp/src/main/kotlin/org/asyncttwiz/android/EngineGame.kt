@@ -127,7 +127,7 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
     private val worker: EngineWorker = EngineWorker.Direct, private val onShown: () -> Unit = {},
     /** The own-action probe's clock (SYS-030), in nanoseconds. */
     private val clock: () -> Long = System::nanoTime,
-    /** HIS-110, HIS-099: asks the server for the page of the main line ending at an event (older history); its answer
+    /** HIS-111, HIS-099: asks the server for the page of the main line ending at an event (older history); its answer
      * (null when it failed) comes off the main thread. Null: none is asked (the device reaches only what it holds). */
     private val pages: ((through: String, done: (org.asyncttwiz.protocol.EngineHistoryPage?) -> Unit) -> Boolean)? = null) {
     @Volatile var base: PlayState = base
@@ -158,7 +158,9 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
         /** HIS-097 (owner playtest 2026-11-05): a branch is being shown: the rewind back to the branch point, then the
          * playback of the other player's new events; it can't be paused, skipped or left until it ends. */
         val takingBack: Boolean = false,
-        /** HIS-110, HIS-099 (owner 2026-11-07): the main line before [line] loaded from the server so far, oldest first
+        /** HIS-110: the other player's reveal whose panel is open: playback holds the later events until it is dismissed. */
+        val reveal: GameDevice.Reveal? = null,
+        /** HIS-111, HIS-099 (owner 2026-11-07): the main line before [line] loaded from the server so far, oldest first
          * ([GameDevice.olderEvents]), and whether it begins with the game's first event. */
         val older: List<GameEvent> = emptyList(), val olderComplete: Boolean = true) {
         val engine: GameState get() = board.engine!!.state
@@ -173,7 +175,7 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
     @Volatile var shown: Shown? = null
         private set
     /** [Shown.version] of the last board published, as snapshot state (main thread): a dialog reading it follows every
-     * board published (HIS-110: older history coming in) without its parent recomposing. */
+     * board published (HIS-111: older history coming in) without its parent recomposing. */
     var shownVersion by androidx.compose.runtime.mutableLongStateOf(0L)
         private set
     /** Bumped whenever anything shown changes (the table and the async panels recompose on it). */
@@ -284,7 +286,10 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
         val held = session.events.take(local + 1)
         val line = held + session.pending
         val before = previous
-        if (before == null || before.nodeId != tip || before.board.turn != play.board.turn)
+        // SYS-009, SYS-077 (owner 2026-11-07): the other player's same event that took the place of the board's own pending
+        // event is the same board: no transition (nothing moves, flashes or jumps)
+        val shownAt = before?.nodeId?.let { device.adoptedAs(it) ?: it }
+        if (before == null || shownAt != tip || before.board.turn != play.board.turn)
             transition(before, play, tip, line, attention, device.move?.value)
         previewed = null
         previous = play
@@ -296,7 +301,7 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
         val shown = Shown(++published, play, status, device.locked, device.settings, device.opponent, session.behind, tip,
             session.localHead, session.drafting, device.request, device.indicator(), device.undoTarget(), line, held, lastTransition,
             device.needsReload, device.pausing, held.mapNotNullTo(HashSet(olderEnds)) { e -> e.id.takeIf(device::endedTurn) }, takingBack,
-            older, device.olderComplete)
+            device.reveal, older, device.olderComplete)
         lastShown = shown
         timing?.let { it.boardEnd = clock(); it.version = shown.version; play.values?.promisePlays() }
         worker.main {
@@ -399,7 +404,7 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
         // R3: its computed values come with it; its plays right after it, before what follows the action ([playsOf])
         val shown = Shown(++published, play, last.status, last.locked, last.settings, last.opponent, last.behind, last.tip,
             last.localHead, last.drafting, last.request, last.indicator, last.undoTarget, last.line, last.held, last.transition,
-            last.needsReload, last.pausing, last.endTurns, last.takingBack, last.older, last.olderComplete)
+            last.needsReload, last.pausing, last.endTurns, last.takingBack, last.reveal, last.older, last.olderComplete)
         timing.boardEnd = clock(); timing.version = shown.version
         play.values?.promisePlays()
         worker.main { this.shown = shown; shownVersion = shown.version; measure(shown, timing); onShown() }
@@ -563,7 +568,7 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
         table(EngineProjection.project(base, model, me, id, null, null, tokenArt, pictures), model, id)
     }
 
-    // ---- Older history (HIS-110, HIS-099, owner 2026-11-07: the timeline and Undo reach the game's first event)
+    // ---- Older history (HIS-111, HIS-099, owner 2026-11-07: the timeline and Undo reach the game's first event)
 
     /** The pages of older history asked for and not answered yet, by the event each ends at (main thread). */
     private val asked = mutableSetOf<String>()
@@ -708,7 +713,7 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
             device.play()
         }
         // A board already shown taken back by the server's revision (owner, N7FU6Y: one line per take-back)
-        if (!onLine(tip)) takenBack(when {
+        if (!onLine(device.adoptedAs(tip) ?: tip)) takenBack(when {
             device.needsReload -> "the server's main line can't be followed (reload)"
             update?.target != null -> "rewind to ${update.target} by ${update.rewoundBy ?: "?"}"
             events.firstOrNull()?.let { it.parentId != head } == true -> "branch by ${events.first().author} at ${events.first().parentId}"
@@ -861,6 +866,9 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
         publish()
         if (first != null) afterBoard()
     }
+
+    /** HIS-110: the player dismissed the open reveal panel: the next one opens, or the held events play on. */
+    fun dismissReveal() = worker.run { if (device.dismissReveal()) { publish(); afterBoard() } }
 
     /** A tap on the table while playback runs (HIS-095): it goes on to the next point where Full control stops and stops
      * there ([GameDevice.pausing]). */

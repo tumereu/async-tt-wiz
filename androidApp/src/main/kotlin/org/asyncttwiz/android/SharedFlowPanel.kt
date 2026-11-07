@@ -63,6 +63,8 @@ internal fun SharedFlowHost(toolkit: TableToolkitController, play: TableBoard, s
         flows.show(next)
     }
     if (!shown) return
+    // HIS-110: the other player's reveal panel comes first; the choice shows once it is dismissed
+    if (toolkit.engine?.revealing() == true) return
     val flow = flows.view?.takeIf { it.board === play.board } ?: return
     var confirm by remember(IdentityKey(play.board)) { mutableStateOf(false) }
     val viewer = toolkit.viewer

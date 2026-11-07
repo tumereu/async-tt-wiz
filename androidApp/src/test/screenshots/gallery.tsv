@@ -94,3 +94,4 @@ number	item	screenshot	catalog	decisions
 93	Line naming the other player's cycling trigger	stack/cycling-trigger-line.png	STK-057 STK-046
 94	Stack list showing what was chosen for an entry	stack/stack-list-choices.png	STK-018
 95	Inspect of an ability naming its kind (Cycling trigger)	stack/cycling-trigger-inspect.png	STK-050 TBL-104
+96	The other player's reveal stops your view until OK	engine/reveal-panel.png	HIS-110 STK-044

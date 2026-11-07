@@ -12,7 +12,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
- * HIS-110, HIS-099 (owner 2026-11-07: the timeline and the Undo dialog reach the game's first event, with no limit on how
+ * HIS-111, HIS-099 (owner 2026-11-07: the timeline and the Undo dialog reach the game's first event, with no limit on how
  * many events back): a device holds only a recent part of a long game's main line; older history comes from the server in
  * pages on demand, each a checkpoint and at most a checkpoint interval of events, so the state at any point costs bounded
  * work (never a replay from the game's start, owner rule).
@@ -64,7 +64,7 @@ class OlderHistoryTest {
         }
     }
 
-    // HIS-110 (owner 2026-11-07): the timeline reaches the game's first event: older history comes in pages until the
+    // HIS-111 (owner 2026-11-07): the timeline reaches the game's first event: older history comes in pages until the
     // device holds the whole main line, and the state at every event is the server's, each worked out from the shown
     // state or a page's checkpoint with at most a page of events applied (a page no longer kept is asked for again)
     @Test
@@ -97,7 +97,7 @@ class OlderHistoryTest {
         assertNull(sim.server.history.page(sim.server.head, "root"))
     }
 
-    // HIS-110: what was loaded stays when the game goes on: the events the device trims from its line join it
+    // HIS-111: what was loaded stays when the game goes on: the events the device trims from its line join it
     @Test
     fun loadedHistoryStaysWhenTheDeviceTrimsItsLine() {
         val sim = longGame(events = 120)
@@ -115,7 +115,7 @@ class OlderHistoryTest {
         assertEquals(sim.server.line().map { it.id }, (d.olderEvents + d.session.events).map { it.id })
     }
 
-    // HIS-110, HIS-099, HIS-100 (owner 2026-11-07: no limit on how far back): Alice's Undo to an event before her device's line is
+    // HIS-111, HIS-099, HIS-100 (owner 2026-11-07: no limit on how far back): Alice's Undo to an event before her device's line is
     // worked out from older history (a request: Bob's events come after it, not "unknown"); Bob's preview loads what it
     // needs and shows the board there as seen; his Accept takes the game back to it, and both devices load it again there
     @Test

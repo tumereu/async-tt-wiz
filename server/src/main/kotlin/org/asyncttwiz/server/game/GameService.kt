@@ -140,7 +140,7 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
     fun head(principal: AccountService.Principal, gameId: String): GameHead = transaction { sql ->
         readHead(sql, principal, gameId, locked(sql, uuid(gameId), actor(principal)))
     }
-    /** HIS-110, HIS-099: a page of the active play's main line ending at its event [through], for a player of the game
+    /** HIS-111, HIS-099: a page of the active play's main line ending at its event [through], for a player of the game
      * ([EngineGames.historyPage]); refused ("inapplicable") when the game has no active engine play or [through] isn't
      * on its main line. */
     fun history(principal: AccountService.Principal, gameId: String, through: String): EngineHistoryPage = transaction { sql ->

@@ -71,20 +71,22 @@ internal fun choiceCard(play: TableBoard, viewer: String, key: String, cardId: S
 }
 
 /** STK-044 (owner playtest 2026-11-06): the width and height of a choice's card: the 28 × 40 dp base the hand, piles and
- * Stack use, scaled by the Panels card size. */
+ * Stack use, scaled by the Panels card size ([area]: another area's size, as the reveal panel's cards use the Hand's,
+ * HIS-110). */
 @Composable
-internal fun choiceCardSize(): Pair<androidx.compose.ui.unit.Dp, androidx.compose.ui.unit.Dp> {
-    val scale = rememberCardAppearance().size(CardArea.PANELS)
+internal fun choiceCardSize(area: CardArea = CardArea.PANELS): Pair<androidx.compose.ui.unit.Dp, androidx.compose.ui.unit.Dp> {
+    val scale = rememberCardAppearance().size(area)
     return 28.dp * scale to 40.dp * scale
 }
 
 /** A choice's card face, as the battlefield draws it: the name on top, the art below, the owner's outline; covered
  * when hidden. [badge]: a small number in its corner (its place in an order); [selected]: a violet ring. [small] (a
- * panel's source, the cards a choice is about) draws its name smaller; every panel card has the same size. */
+ * panel's source, the cards a choice is about) draws its name smaller; every panel card has the same size, the Panels
+ * card size, except the reveal panel's revealed cards, [area] Hand (HIS-110). */
 @Composable
 internal fun ChoiceCardFace(card: ChoiceCardData, modifier: Modifier = Modifier, selected: Boolean = false, badge: String? = null,
-    small: Boolean = false) {
-    val (width, height) = choiceCardSize()
+    small: Boolean = false, area: CardArea = CardArea.PANELS) {
+    val (width, height) = choiceCardSize(area)
     val owner = if (card.own) OwnTableColor else OpponentTableColor
     // A tapped card lies sideways, taking its sideways room
     Box(modifier.size(if (card.tapped) height else width, if (card.tapped) width else height)

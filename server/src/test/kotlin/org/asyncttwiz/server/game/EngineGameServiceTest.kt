@@ -204,6 +204,36 @@ class EngineGameServiceTest {
         assertTrue(codec.decodeModel(f.snapshot().state).engine.turn.number == 1)
     }
 
+    // SYS-077, HIS-109 (owner 2026-11-07): Bob's keep crosses Alice's assumption of it on the wire, with a move of his made
+    // on it right behind: the keep is the assumption's confirmation (accepted, no new event, his local head past it) and
+    // his next move, made on his keep, is taken on the assumption instead of refused as stale
+    @Test fun `a matching answer that crossed the assumption confirms it and the moves made on it are taken`() = withService { runtime ->
+        val f = Fixture(runtime, engine = true, tag = "x")
+        val alice = f.device(f.a)
+        val bob = f.device(f.b)
+        f.owner.execute(GameAction.Submit(alice.act(id(), Input.Answer(alice.model.engine.pending!!.decision.id, Answer.Option("Keep")))))
+        val aliceKeep = alice.pending.single()
+        bob.receivedShown(aliceKeep); alice.receivedShown(aliceKeep)
+        val open = alice.model.engine.pending!!.decision
+        assertEquals("accepted", f.owner.execute(GameAction.Submit(alice.act(id(), Input.Answer(open.id, Answer.Option("Keep")), assumed = true))).outcome)
+        val assumed = alice.pending.single()
+        // Bob's keep and a table-only move of his on it, both made before the assumption reached him
+        val keep = bob.act(id(), Input.Answer(open.id, Answer.Option("Keep")))
+        val early = bob.act(id(), null, listOf(org.asyncttwiz.protocol.game.TableChange.EarlyAnswered("early:bob", null,
+            org.asyncttwiz.protocol.game.EarlyAnswer(f.bob, "early:bob", Answer.YesNo(true)))))
+        assertEquals(keep.id, early.parentId)
+        val before = f.games.head(f.a, f.game.id).summary.revision
+        assertEquals("accepted", f.recipient.execute(GameAction.Submit(keep)).outcome)
+        assertEquals(assumed.id, f.snapshot().headId, "no new event")
+        assertEquals(assumed.id, f.revisions(f.b, before).last().engine!!.confirmed)
+        assertEquals(assumed.id, f.snapshot().localHeads[f.b.account.accountId], "confirmed: his local head past it")
+        assertEquals("accepted", f.recipient.execute(GameAction.Submit(early)).outcome, "taken on the assumption, not stale")
+        val head = f.codec().decodeEvent(f.snapshot().events.last())
+        assertEquals(early.id, head.id)
+        assertEquals(assumed.id, head.parentId)
+        assertEquals(early.table, head.table)
+    }
+
     // I-D56 §8, §9: another answer branches from Bob's local head: a new line; the discarded line is kept, shown to nobody
     @Test fun `another answer branches and starts a new line`() = withService { runtime ->
         val f = Fixture(runtime, engine = true, tag = "b")
@@ -365,7 +395,7 @@ class EngineGameServiceTest {
         }
     }
 
-    // HIS-110, HIS-099, HIS-108 (owner 2026-11-07: the timeline and the Undo dialog reach the game's first event, no limit
+    // HIS-111, HIS-099, HIS-108 (owner 2026-11-07: the timeline and the Undo dialog reach the game's first event, no limit
     // on how far back): a player reads the main line in pages from the head back to the game's first event (each at
     // most a checkpoint interval); an event not on it is refused, and so is anyone outside the game. An undo request to a
     // point more than 200 events back is approved and taken: the game goes back there, and the other player, who had seen

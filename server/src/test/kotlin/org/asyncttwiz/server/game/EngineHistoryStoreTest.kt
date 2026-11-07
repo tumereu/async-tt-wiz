@@ -119,7 +119,7 @@ class EngineHistoryStoreTest {
         }
     }
 
-    // HIS-110 (owner 2026-11-07: the timeline and the Undo dialog reach the game's first event): pages of the
+    // HIS-111 (owner 2026-11-07: the timeline and the Undo dialog reach the game's first event): pages of the
     // main line from the head back to the game's first event, each read from a cold store with at most one checkpoint
     // interval of events decoded however long the game, the checkpoint's state stored with it; a discarded line's event
     // has no page (shown to nobody)

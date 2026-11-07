@@ -3,7 +3,7 @@ package org.asyncttwiz.protocol.game
 import org.asyncttwiz.protocol.EngineHistoryPage
 
 /**
- * HIS-110, HIS-099 (owner 2026-11-07: the timeline and the Undo dialog reach the game's first event, with no limit on how
+ * HIS-111, HIS-099 (owner 2026-11-07: the timeline and the Undo dialog reach the game's first event, with no limit on how
  * far back): what a device holds of a game's main line beyond its [GameSession]'s, loaded from the server in pages on
  * demand ([EngineHistoryPage]).
  *

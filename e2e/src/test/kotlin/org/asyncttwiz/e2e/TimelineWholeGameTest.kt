@@ -62,7 +62,7 @@ class TimelineWholeGameTest : E2e() {
         assertTrue(oldest(), "${player.name} reached the oldest event")
     }
 
-    // HIS-110, HIS-004, HIS-012 (owner 2026-11-07): after a dozen turns Alice's phone holds only their recent part; in
+    // HIS-111, HIS-004, HIS-012 (owner 2026-11-07): after a dozen turns Alice's phone holds only their recent part; in
     // timeline mode, going back past it loads older history page by page, and the strip reaches the game's first event,
     // with its board (the opening) shown, still in timeline mode
     @Test fun theTimelineReachesTheGamesFirstEvent() {
@@ -84,7 +84,7 @@ class TimelineWholeGameTest : E2e() {
     private fun cursor(player: E2ePlayer, under: String? = null): Int =
         player.strip(under).fetchSemanticsNode().config[SemanticsProperties.ProgressBarRangeInfo].current.toInt()
 
-    // HIS-110, HIS-099, HIS-100, HIS-108 (owner 2026-11-07: no limit on how far back): after a dozen turns, Alice holds Undo and
+    // HIS-111, HIS-099, HIS-100, HIS-108 (owner 2026-11-07: no limit on how far back): after a dozen turns, Alice holds Undo and
     // drags the strip back to the game's first point (older history loads as it goes): going back there asks Bob; his
     // dialog shows the board it goes back to, he accepts, and the game is back in the opening on both phones
     @Test fun theUndoDialogGoesBackToTheGamesFirstPoint() {

@@ -237,8 +237,8 @@ internal fun E2ePlayer.raisedInHand(): String? = runCatching {
 /**
  * The other player playing along by themselves, as the interim simulations' Bob did: on their table they keep their
  * opening hand, pass (the main button's Pass / Next / Resolve), declare no attacks and no blocks, end their own turn
- * (holding the main button) in their main phases, tap the centre text on a catch-up and answer at a playback stop as the
- * main button says. One action per board shown; nothing while the app is away.
+ * (holding the main button) in their main phases, tap the centre text on a catch-up, answer at a playback stop as the
+ * main button says and tap OK on the other player's reveal (HIS-110). One action per board shown; nothing while the app is away.
  */
 internal fun E2ePlayer.playAlong() {
     val shown = game?.shown ?: return
@@ -246,6 +246,8 @@ internal fun E2ePlayer.playAlong() {
     if (engine { device.session.pending.isNotEmpty() }) return
     if (!foreground || shown.version == alongAt || !current()) return
     val acted = runCatching {
+        // HIS-110: the other player's reveal panel: they look and tap OK
+        if (shown.reveal != null && shows(hasTestTag(org.asyncttwiz.android.REVEAL_OK_TAG))) { tagged(org.asyncttwiz.android.REVEAL_OK_TAG).performClick(); return@runCatching true }
         when (val status = shown.status) {
             GameDevice.Status.CatchUp -> { tapToWatch(); true }
             is GameDevice.Status.Stopped ->

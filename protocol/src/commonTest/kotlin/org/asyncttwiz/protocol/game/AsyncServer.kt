@@ -23,6 +23,8 @@ internal class AsyncServer(val games: EngineGames, every: Int = 16) {
     /** The open undo request (I-D56 §10): only a concession is taken while it is. */
     var request: org.asyncttwiz.protocol.EngineRewindRequest? = null
     private var warm: LiveState? = null
+    /** Submissions dropped as duplicates of main-line events, by id ([Acceptance.Confirmed.alias]), as the server keeps them. */
+    val aliases = mutableMapOf<String, String>()
     private var ids = 0
     val alice get() = games.alice
     val bob get() = games.bob
@@ -50,7 +52,8 @@ internal class AsyncServer(val games: EngineGames, every: Int = 16) {
      * back to the branch point. */
     fun submit(submission: Submission, author: PlayerId): Result<Acceptance.Result> = try {
         val oldHead = head
-        val result = Acceptance.accept(history, head, warm, submission, author, heads, lines + 1, rewindOpen = request != null)
+        val result = Acceptance.accept(history, head, warm, submission, author, heads, lines + 1, rewindOpen = request != null,
+            aliases = aliases)
         when (result) {
             is Acceptance.Accepted -> {
                 val event = result.event
@@ -66,7 +69,10 @@ internal class AsyncServer(val games: EngineGames, every: Int = 16) {
                 // A concession ends an open undo request
                 request = null
             }
-            is Acceptance.Confirmed -> heads[author] = result.event
+            is Acceptance.Confirmed -> {
+                heads[author] = result.event
+                result.alias?.let { aliases[it] = result.event }
+            }
         }
         Result.success(result)
     } catch (refusal: Refusal) {

@@ -98,8 +98,11 @@ internal val AutomatumStepOutline = Color(0xff9aa7a3)
  * Why the step arrow can't act on [play] now (UI review round 2 #3, I-D46 b), or null when it can: the viewer's own cast
  * is open ([castOpen]), the opening (turn 1 while a player is still Mulliganing, TRN-062), another choice is open
  * ([AutomatumStep.Waiting]), or the declaration the lanes hold isn't one Automatum allows ([combat]: what it worked out).
+ * HIS-110 (owner, 2026-11-07): the other player's reveal panel is open ([revealOpen]) until its OK.
  */
-internal fun stepBlocked(play: TableBoard, castOpen: Boolean, combat: org.asyncttwiz.automatum.CombatShown?): String? {
+internal fun stepBlocked(play: TableBoard, castOpen: Boolean, combat: org.asyncttwiz.automatum.CombatShown?,
+    revealOpen: Boolean = false): String? {
+    if (revealOpen) return REVEAL_BUSY
     if (castOpen) return CastController.BUSY
     if (play.board.turn.number == "1" && PlayerStatus.anyOpening(play.board)) return SharedFlowController.OPENING
     val step = AutomatumStep.of(play)

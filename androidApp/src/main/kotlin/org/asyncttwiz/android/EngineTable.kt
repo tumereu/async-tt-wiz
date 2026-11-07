@@ -91,6 +91,9 @@ interface EngineRoutes {
 
     /** Whether the viewer's response mode for this game is Control (STK-036): the step arrow's words depend on it (TRN-063). */
     fun control(): Boolean = false
+
+    /** HIS-110: whether the other player's reveal panel is open: it comes before any choice panel of the viewer's. */
+    fun revealing(): Boolean = false
 }
 
 /**
@@ -267,6 +270,8 @@ internal class EngineTableRoutes(val viewer: String, private val game: () -> Eng
     fun status(): GameDevice.Status? = game()?.shown?.status
 
     override fun control(): Boolean = game()?.shown?.settings?.mode == ResponseMode.FullControl
+
+    override fun revealing(): Boolean = game()?.shown?.reveal != null
 
     /** TRN-015, I-D56 §14: the step arrow acts only for the viewer: shown while they may act. */
     fun arrowShown(): Boolean = when (status()) {
@@ -628,8 +633,14 @@ internal fun EngineAsyncHost(toolkit: TableToolkitController, routes: EngineTabl
     // here covers the board (CMB-040: assumed blocks are placed on the lanes)
     // HIS-095 (owner playtest 2026-11-04 #1): a stop at the other player's assumption about you looks like any point
     // where you may act: no words over the board say it was assumed
+    // HIS-110: the other player's reveal stops the view until dismissed, before anything else docked above the hand
+    val reveal = shown.reveal.takeIf { !reviewing }
+    if (reveal != null) AboveHand(handRow(scene, routes.viewer)) {
+        RevealPanel(play, routes.viewer, reveal, names[reveal.by.value] ?: opponent) { game.dismissReveal(); routes.pump() }
+    }
     if (!reviewing) when (status) {
         is GameDevice.Status.Playing -> EnginePlayback(routes)
+        else -> if (reveal != null) Unit else when (status) {
         is GameDevice.Status.Over -> AboveHand(handRow(scene, routes.viewer)) {
             val won = (status.result as? arcanum.engine.setup.GameResult.Won)?.winner
             val words = when (won) { null -> "Draw"; PlayerId(routes.viewer) -> "You won"; else -> "You lost" }
@@ -640,6 +651,7 @@ internal fun EngineAsyncHost(toolkit: TableToolkitController, routes: EngineTabl
         }
         GameDevice.Status.Reload -> AboveHand(handRow(scene, routes.viewer)) { EngineBar("Loading the game again…", "loading line") {} }
         else -> {}
+        }
     }
     // Incoming undo request (§10): Accept / Deny; the game is frozen meanwhile
     val request = shown.request
@@ -725,7 +737,7 @@ private const val PREVIEW_TABLE_WIDTH = 412f
 private const val PREVIEW_TABLE_HEIGHT = 892f
 /** HIS-099: how long the Undo dialog's choice rests before its board is worked out (dragging through events works out none). */
 internal const val UNDO_PREVIEW_DELAY_MS = 250L
-/** HIS-110, HIS-099 (owner 2026-11-07): how close to the oldest event held the timeline's cursor (or the Undo dialog's
+/** HIS-111, HIS-099 (owner 2026-11-07): how close to the oldest event held the timeline's cursor (or the Undo dialog's
  * choice) comes before the next older page of history is asked for. */
 internal const val OLDER_HISTORY_MARGIN = 12
 
@@ -826,7 +838,7 @@ private fun EngineRequestDialog(routes: EngineTableRoutes, opponent: String, sum
     val game = routes.engine ?: return
     game.shownVersion
     val shownGame = game.shown ?: return
-    // HIS-110: a point before what the device holds shows once its older history is in (the board is published again)
+    // HIS-111: a point before what the device holds shows once its older history is in (the board is published again)
     val preview = remember(game.version) { game.requestPreview() }
     LaunchedEffect(game.version, preview == null) { if (preview == null) game.loadForRequest() }
     ScreenDialog({}, title = "$opponent asks to undo", actions = {
@@ -874,7 +886,7 @@ internal fun undoPoints(shown: EngineGame.Shown, timeline: List<HistoryTimelineE
 private fun EngineRewindDialog(routes: EngineTableRoutes, choice: EngineTableRoutes.RewindChoice, names: Map<String, String>, opponent: String,
     summary: GameSummary) {
     val game = routes.engine ?: return
-    // HIS-110: read as snapshot state, so the points follow every board published (older history coming in), not only the
+    // HIS-111: read as snapshot state, so the points follow every board published (older history coming in), not only the
     // dialog's own content
     game.shownVersion
     val published = game.shown ?: return

@@ -143,7 +143,7 @@ const val GAME_PROTOCOL_MINOR = 9
     /** HIS-108: who undid [takenBack] (an undo, not a branch); null otherwise. */
     val undoneBy: String? = null)
 /**
- * HIS-110, HIS-099 (owner 2026-11-07: the timeline and the Undo dialog reach the game's first event): a page of a play's
+ * HIS-111, HIS-099 (owner 2026-11-07: the timeline and the Undo dialog reach the game's first event): a page of a play's
  * main line ending at the event [through], read on demand (`GET /v1/games/{id}/timeline?through=`): the checkpoint above
  * it, [baseId] (the game's root before its first event when [fromStart]) with its encoded state [base]
  * ([org.asyncttwiz.protocol.game.EngineJson.encodeModel]), and the encoded events after it up to [through], oldest first

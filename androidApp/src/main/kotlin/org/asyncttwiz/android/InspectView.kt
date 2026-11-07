@@ -399,8 +399,9 @@ internal fun InspectFaceView(tile: InspectTile.Face, size: DpSize, modifier: Mod
         CardArtwork(tile.reference?.copy(size = "large"), tile.name,
             with(density) { width.roundToPx() }.coerceIn(1, 4096), with(density) { height.roundToPx() }.coerceIn(1, 4096),
             Modifier.requiredSize(width, height)
-                // Inspection always shows the whole printed card, including token corners.
-                .then(if (tile.owner != null) Modifier.cardFrame(tile.token, tile.owner, tile.projection) else Modifier),
+                // TBL-104 (owner 2026-11-07): Inspect shows the whole printed card with normal card corners, a token too;
+                // only the table cuts a token's corners (TBL-018)
+                .then(if (tile.owner != null) Modifier.cardFrame(false, tile.owner, tile.projection) else Modifier),
             placeholder = { InspectFacePlaceholder(tile.reference, tile.name) },
             previewReference = tile.reference?.copy(size = "normal"), degrees = tile.degrees)
         // The holder's own face-down card: the front stays readable but is plainly marked.

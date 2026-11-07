@@ -155,7 +155,7 @@ class TableStatesScreenshotTest {
             "tokens" -> "$combat, where your attacker, the opponent's blocker and one hand card are tokens"
             "tokens-small" -> "$combat with several tokens, zoomed out as far as possible"
             "tokens-contents" -> "$combat with several tokens, after tapping the two-entry Stack"
-            "tokens-inspector" -> "$combat with several tokens, holding your token attacker: Inspect shows only its card image"
+            "tokens-inspector" -> "$combat with several tokens, holding your token attacker: Inspect shows only its card image, with normal card corners"
             "tokens-stack-card" -> "$combat with several tokens, a token card on top of the Stack"
             "stack-contents" -> "$combat, after double-tapping the Stack: Manage Stack lists its two entries"
             "graveyard-contents" -> "after double-tapping your three-card graveyard: its panel lists the cards grouped by type"

@@ -1,0 +1,1 @@
+fix: Holding a token to look at it shows the whole picture with normal card corners.

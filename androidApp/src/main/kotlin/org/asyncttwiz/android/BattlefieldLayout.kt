@@ -270,13 +270,16 @@ sealed interface GroupTap {
          * TBL-122: a tap on [group] when [usable] tells which cards can do what the tap would do now (activate, one-tap mana,
          * stage an attacker, pick a blocker, be picked as a target): with one of its [BattlefieldGroup.units] usable it
          * acts on it at once (in a stack, on an untapped usable member first, [tapped] telling), with several it expands,
-         * with none it is the top card's tap.
+         * with none it is the top card's tap. With [alwaysOpen] (TBL-130, owner 2026-11-07: while targets are picked) a
+         * group of several with anything usable in it always opens, so each member can be picked by a tap of its own.
          */
-        fun of(group: BattlefieldGroup, usable: (String) -> Boolean, tapped: (String) -> Boolean): GroupTap {
+        fun of(group: BattlefieldGroup, usable: (String) -> Boolean, tapped: (String) -> Boolean,
+            alwaysOpen: Boolean = false): GroupTap {
             val units = group.units.map { unit -> unit.filter(usable) }.filter { it.isNotEmpty() }
-            return when (units.size) {
-                0 -> Top
-                1 -> Act(units.single().let { members -> members.firstOrNull { !tapped(it) } ?: members.first() })
+            return when {
+                units.isEmpty() -> Top
+                alwaysOpen && group.members.size > 1 -> Expand
+                units.size == 1 -> Act(units.single().let { members -> members.firstOrNull { !tapped(it) } ?: members.first() })
                 else -> Expand
             }
         }

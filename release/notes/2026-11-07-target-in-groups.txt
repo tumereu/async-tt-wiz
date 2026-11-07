@@ -1,0 +1,1 @@
+fix: When choosing targets, tapping a group of cards on the battlefield now spreads it out so you can pick each card, even two from the same group.

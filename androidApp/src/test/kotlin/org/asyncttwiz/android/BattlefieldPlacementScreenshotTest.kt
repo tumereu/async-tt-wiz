@@ -38,8 +38,11 @@ internal object BattlefieldPlacementFixture {
     val elemental = invented("elemental", "Elemental", "Token Creature — Elemental", power = "1", toughness = "1", token = true)
     val totem = invented("totem", "Spark Totem", "Artifact", "{2}", "{T}: This artifact deals 1 damage to any target.")
     val banner = invented("banner", "Quiet Banner", "Enchantment", "{1}")
+    /** A free two-target spell, in Alice's hand only with [play]'s `snare` (TBL-130: targets in a group). */
+    val snare = invented("snare", "Frost Snare", "Instant", "{0}", "Tap up to two target creatures.")
 
     const val HOST = "a-hound-1"
+    const val SNARE = "a-snare"
 
     /** The cards' rules parsed from their text, as on a device (the test boards' engine state otherwise has printed values
      * only); undone by [AutomatumBoards.reset] and [unparsed]. */
@@ -54,7 +57,8 @@ internal object BattlefieldPlacementFixture {
     }
     fun unparsed() { AutomatumBoards.definitionSource = null; AutomatumBoards.reset() }
 
-    fun play(): PlayState {
+    /** The board; with [snare] Alice holds a Frost Snare ([SNARE]). */
+    fun play(snare: Boolean = false): PlayState {
         val cards = mutableListOf<PlayCard>()
         val containers = mutableListOf<PlayContainer>()
         var stamp = 0L
@@ -80,6 +84,8 @@ internal object BattlefieldPlacementFixture {
             val members = when (zone) {
                 PlayZone.BATTLEFIELD -> (if (owner == "a") alice else bob).map { it.id }
                 PlayZone.LIBRARY -> (0 until 20).map { n -> "$owner-library-$n" }.onEach { cards += PlayCard(it, mountain.digest, owner, id, "mountain") }
+                PlayZone.HAND -> if (snare && owner == "a") listOf(SNARE).onEach { cards += PlayCard(it, this.snare.digest, owner, id, "snare") }
+                    else emptyList()
                 else -> emptyList()
             }
             containers += PlayContainer(id, zone, owner, members)
@@ -88,7 +94,8 @@ internal object BattlefieldPlacementFixture {
         return PlayState(TableFixture.gameId, TableFixture.playId, "round", "request", PlayRoot("root", "branch"),
             BoardState(listOf(PlayPlayer("a"), PlayPlayer("b")), cards, containers,
                 TurnState("a", "4", TurnPosition.PRECOMBAT_MAIN.phase, TurnPosition.PRECOMBAT_MAIN.step)),
-            listOf(mountain, hound, cub, blade, ward, elemental, totem, banner), emptyList(), InitialStarter(StarterChoice("a"), "a"))
+            listOf(mountain, hound, cub, blade, ward, elemental, totem, banner) + listOfNotNull(this.snare.takeIf { snare }),
+            emptyList(), InitialStarter(StarterChoice("a"), "a"))
     }
 }
 
@@ -100,7 +107,8 @@ internal object BattlefieldPlacementFixture {
 class BattlefieldPlacementScreenshotTest {
     @get:Rule val compose = createComposeRule()
     private val f = BattlefieldPlacementFixture.also { it.parsed() }
-    private val play = f.play()
+    /** The board drawn (set before [render]). */
+    private var play = f.play()
 
     @After fun forget() = f.unparsed()
 
@@ -190,5 +198,81 @@ class BattlefieldPlacementScreenshotTest {
         compose.onNodeWithContentDescription("Shared table").performTouchInput { click(Offset(empty.x, empty.y)) }
         compose.waitForIdle()
         compose.runOnIdle { assertEquals(null, toolkit.expandedGroup, "a tap on the empty table closes it") }
+    }
+
+    /** The cards picked so far as targets of the open cast, by card id. */
+    private fun picked(toolkit: TableToolkitController): List<String> = toolkit.cast.picked.map {
+        (((it as arcanum.engine.state.TargetRef.Object).id) as arcanum.engine.state.ObjectId.Card).card.value }
+
+    // TBL-130, STK-047 (owner 2026-11-07): while Alice picks the Frost Snare's two targets, a tap on the stack of two identical
+    // Cinder Hounds opens it in place (the identical cards no longer count as one), each Hound glowing as a target; a tap
+    // on a Hound picks it and the group stays open, a second tap unpicks it; the two Hounds are picked one tap each, and
+    // once the targets are chosen the group closes
+    @Test fun whileTargetsArePickedAGroupOpensAndEachMemberIsPickedByItsOwnTap() {
+        play = f.play(snare = true)
+        val toolkit = render()
+        val stack = "stack:a-hound-2"
+        compose.runOnIdle { assertTrue(toolkit.cast.start(f.SNARE), "${toolkit.error}") }
+        compose.waitForIdle()
+        assertTrue(toolkit.cast.targeting, "the Snare's targets are picked on the table")
+        val groups = scene(toolkit).battlefieldGroups.associateBy { it.key }
+        assertEquals(GroupTap.Expand, toolkit.groupTap(engineTableBoard(play, "a"), groups.getValue(stack)), "a tap opens it")
+        assertEquals(GroupTap.Top, toolkit.groupTap(engineTableBoard(play, "a"), groups.getValue("stack:a-mountain-1")),
+            "no target in it: its top card's tap (a shake)")
+        tap(toolkit, "a-hound-3")
+        compose.runOnIdle {
+            assertEquals(stack, toolkit.expandedGroup)
+            assertEquals(emptyList(), picked(toolkit), "the first tap only opens it")
+        }
+        val opened = scene(toolkit)
+        val hounds = listOf("a-hound-2", "a-hound-3").map { id -> opened.items.single { it.cardId == id && it.battlefieldCard }.bounds }
+        assertTrue(hounds[1].x > hounds[0].right, "side by side: $hounds")
+        compose.onRoot().captureShot("$SCREENSHOTS/battlefield/group-opened-targets.png",
+            "Alice casts Frost Snare (tap up to two target creatures) and taps her stack of two identical Cinder Hounds: while " +
+                "targets are picked a tap always opens a group, so the two Hounds lie side by side, each framed in violet as " +
+                "a target, for each to be picked by a tap of its own; the target bar waits above her hand.")
+        tap(toolkit, "a-hound-2")
+        compose.runOnIdle {
+            assertEquals(listOf("a-hound-2"), picked(toolkit))
+            assertEquals(stack, toolkit.expandedGroup, "it stays open while targets are picked from it")
+        }
+        tap(toolkit, "a-hound-2")
+        compose.runOnIdle {
+            assertEquals(emptyList(), picked(toolkit), "a tap on a picked Hound unpicks it")
+            assertEquals(stack, toolkit.expandedGroup)
+        }
+        tap(toolkit, "a-hound-2")
+        compose.runOnIdle { assertEquals(listOf("a-hound-2"), picked(toolkit)) }
+        tap(toolkit, "a-hound-3")
+        compose.runOnIdle {
+            assertTrue(!toolkit.cast.targeting, "both targets chosen: ${toolkit.error}")
+            assertEquals(null, toolkit.expandedGroup, "the group closes once the targets are chosen")
+        }
+    }
+
+    // TBL-130: while targets are picked a tap elsewhere closes the opened group: a pick from it stays picked, a tap on
+    // another group (Bob's two Ember Cubs) opens that one instead, and a tap on the empty table closes it, the target
+    // choice going on
+    @Test fun whileTargetsArePickedATapElsewhereClosesTheGroup() {
+        play = f.play(snare = true)
+        val toolkit = render()
+        compose.runOnIdle { assertTrue(toolkit.cast.start(f.SNARE), "${toolkit.error}") }
+        compose.waitForIdle()
+        tap(toolkit, "a-hound-3")
+        tap(toolkit, "a-hound-2")
+        compose.runOnIdle { assertEquals("stack:a-hound-2", toolkit.expandedGroup) }
+        tap(toolkit, "b-cub-2")
+        compose.runOnIdle {
+            assertEquals("stack:b-cub-1", toolkit.expandedGroup, "Bob's Cubs opened, the Hounds closed")
+            assertEquals(listOf("a-hound-2"), picked(toolkit), "the Hound stays picked")
+        }
+        val own = scene(toolkit).fields.last()
+        compose.onNodeWithContentDescription("Shared table").performTouchInput {
+            click(Offset(300f, own.gridBounds.bottom - 1.5f * own.rowHeight)) }
+        compose.waitForIdle()
+        compose.runOnIdle {
+            assertEquals(null, toolkit.expandedGroup, "a tap on the empty table closes it")
+            assertTrue(toolkit.cast.targeting, "one more target may be picked")
+        }
     }
 }

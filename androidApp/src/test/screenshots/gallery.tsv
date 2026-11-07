@@ -105,3 +105,4 @@ number	item	screenshot	catalog	decisions
 104	Your sent message's bubble fading	chat/bubble-own-fading.png	LOB-137
 105	Chat with quick messages and a Read mark	chat/quick-messages.png	LOB-139 LOB-138
 106	Chat bubbles in landscape	chat/bubble-landscape.png	LOB-136 LOB-137 LOB-140
+107	Opened battlefield group while targets are picked	battlefield/group-opened-targets.png	TBL-130 STK-047	Targets

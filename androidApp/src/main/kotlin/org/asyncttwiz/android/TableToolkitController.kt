@@ -185,9 +185,11 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
         return !activatable(play, cardId).isNullOrEmpty()
     }
 
-    /** TBL-122: what a tap on the collapsed battlefield [group] does on [play] now ([GroupTap.of]). */
+    /** TBL-122: what a tap on the collapsed battlefield [group] does on [play] now ([GroupTap.of]); TBL-130 (owner
+     * 2026-11-07): while targets are picked a group of several with a legal target in it always opens. */
     internal fun groupTap(play: TableBoard, group: BattlefieldGroup): GroupTap =
-        GroupTap.of(group, { tapUsable(play, it) }, { id -> play.board.cards.firstOrNull { it.id == id }?.tapped == true })
+        GroupTap.of(group, { tapUsable(play, it) }, { id -> play.board.cards.firstOrNull { it.id == id }?.tapped == true },
+            alwaysOpen = cast.targeting || flows.targeting)
 
     /** TBL-122: the battlefield group the viewer opened (personal UI), null when none. */
     val expandedGroup: String? get() = layoutState.value.expandedGroup
@@ -198,7 +200,8 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
      * TBL-122 (Arena style): a tap on [item] of [scene]. A battlefield card in a collapsed group of several is the group's
      * tap: it acts at once on the one member it can mean ([GroupTap.Act]), opens the group with its members side by side
      * when it could mean several ([GroupTap.Expand]), else is a tap on the group's top card. In an opened group the tap is
-     * the member's own, and acting closes the group; a tap anywhere else closes it too.
+     * the member's own, and acting closes the group; a tap anywhere else closes it too. TBL-130 (owner 2026-11-07): while
+     * targets are picked a group opens on any tap and stays open while targets are picked from it, one tap per member.
      */
     fun tap(captured: TableIntent.Actions, item: TableItem, scene: TableScene) {
         val group = if (item.battlefieldCard) scene.groupOf(item.cardId) else null
@@ -206,9 +209,11 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
         if (opened != null && group?.key != opened) collapse()
         val play = current()
         if (play == null || group == null || group.members.size < 2 || group.key == opened) {
+            val picking = cast.targeting || flows.targeting
             open(captured, item)
-            // Acting closes the group; its member's chips or menu keep it open
-            if (opened != null && group?.key == opened && abilityCard == null && capture == null) collapse()
+            // Acting closes the group; its member's chips or menu keep it open, and so does picking targets from it (it
+            // closes once they are chosen, [targetingEnded])
+            if (opened != null && group?.key == opened && abilityCard == null && capture == null && !picking) collapse()
             return
         }
         fun member(id: String) {
@@ -219,7 +224,7 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
             GroupTap.Expand -> {
                 // The first tap of a group that could mean several things only opens it
                 dismiss(); hand.lower()
-                if (!cast.targeting && !flows.targeting) combat.clearSelection()
+                if (!cast.targeting && !flows.targeting) combat.clearSelection() else targetGroup = group.key
                 layoutState.value = layoutState.value.copy(expandedGroup = group.key)
             }
             // STK-024: in a stack of identical sources a tap adds the next one to the payment, else takes the last out
@@ -500,8 +505,11 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
     fun closeLocalPile() { layoutState.value = layoutState.value.copy(localPileId = null, localPileTargets = false); dismiss() }
     /** The pile opened to pick targets from ([open]), closed again once the targets are chosen. */
     private var targetPile: String? = null
+    /** TBL-130: the battlefield group opened to pick targets from ([tap]), closed again once the targets are chosen. */
+    private var targetGroup: String? = null
     internal fun targetingEnded() {
         stackTargeting = false
+        targetGroup?.let { key -> targetGroup = null; if (expandedGroup == key) collapse() }
         val pile = targetPile ?: return
         targetPile = null
         if (layoutState.value.localPileId == pile) layoutState.value = layoutState.value.copy(localPileId = null, localPileTargets = false)

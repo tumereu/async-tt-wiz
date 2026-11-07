@@ -314,6 +314,10 @@ internal fun TableSurface(game: GameSummary, play: TableBoard, accountId: String
             // TBL-117, TBL-122: what a tap on each collapsed group of several does, for its glow's colour (live table only)
             val groupTaps = if (toolkit == null || runtime.reviewing) emptyMap() else scene.battlefieldGroups
                 .filter { it.members.size > 1 && it.key != scene.expandedGroup }.associate { it.key to toolkit.groupTap(play, it) }
+            // TBL-130 (owner 2026-11-07): while targets are picked, the members of the opened group that aren't legal targets
+            // are dimmed (as the Stack list's, STK-048)
+            val dimmed = if (toolkit?.let { it.cast.targeting || it.flows.targeting } != true) emptySet() else scene.battlefieldGroups
+                .firstOrNull { it.key == scene.expandedGroup }?.members.orEmpty().filterNotTo(HashSet()) { it in castGlow }
             // TBL-117 (owner playtest 2026-11-06): the glow of the card a finger is down on grows a little and brightens
             val pressedId by remember(coordinator) { derivedStateOf { preview.pressedId } }
             val pressGlow = rememberPressGlow(pressedId)
@@ -324,7 +328,9 @@ internal fun TableSurface(game: GameSummary, play: TableBoard, accountId: String
                 DebugLatency.tapFrame(game.id, progress.value, refreshRate)
                 val frame = rendered.value
                 val glows = TableGlows.of(frame.scene.battlefieldGroups, groupTaps, glow.alphas(), castGlow, attackGlow)
-                drawTable(frame.scene, accountId, play.board.turn.accountId, preview, frame.alphas, artwork, drawCache,
+                val alphas = if (dimmed.isEmpty()) frame.alphas else frame.alphas + frame.scene.items
+                    .filter { it.battlefieldCard && it.cardId in dimmed }.associate { it.id to minOf(frame.alphas[it.id] ?: 1f, TARGET_DIMMED) }
+                drawTable(frame.scene, accountId, play.board.turn.accountId, preview, alphas, artwork, drawCache,
                     presenceDot, glows.targets, glows.playable, shaking?.let { it.id to shakeOffset.value }?.takeIf { it.second != 0f }, raisedSources,
                     attackable = glows.attack, expandGlow = glows.expand, pressed = pressGlow.value, pileBadges = false)
             }
@@ -392,6 +398,9 @@ internal fun rememberPressGlow(pressed: String?): State<Pair<String, Float>?> {
 
 /** How long a card's playable glow takes to fade in or out (TBL-117). */
 internal const val GLOW_FADE_MILLIS = 220
+
+/** How opaque an opened group's members that aren't legal targets are drawn while targets are picked (TBL-130). */
+private const val TARGET_DIMMED = .4f
 
 /**
  * TBL-117: the glow of [play]'s playable cards, [target] (null while Automatum still works the board out: the cards

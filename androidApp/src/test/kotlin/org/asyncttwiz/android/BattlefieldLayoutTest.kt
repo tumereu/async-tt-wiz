@@ -130,6 +130,19 @@ class BattlefieldLayoutTest {
         assertEquals("bear", equipped.top)
     }
 
+    // TBL-130 (owner 2026-11-07): while targets are picked a tap on a group of several with a legal target in it always
+    // opens it, a stack of identical cards and a group with one target too; with no target in it, it is its top card's tap
+    @Test fun whileTargetsArePickedAGroupsTapAlwaysOpensIt() {
+        val pair = BattlefieldGroup("stack:c1", "a", BattlefieldRow.Creatures, listOf("c1", "c2"), BattlefieldGroup.Kind.Stack)
+        assertEquals(GroupTap.Expand, GroupTap.of(pair, { true }, { false }, alwaysOpen = true))
+        assertEquals(GroupTap.Expand, GroupTap.of(pair, { true }, { it == "c1" }, alwaysOpen = true), "tapped and untapped")
+        assertEquals(GroupTap.Top, GroupTap.of(pair, { false }, { false }, alwaysOpen = true))
+        val equipped = BattlefieldGroup("host:bear", "a", BattlefieldRow.Creatures, listOf("bear", "blade"), BattlefieldGroup.Kind.Attached)
+        assertEquals(GroupTap.Expand, GroupTap.of(equipped, { it == "bear" }, { false }, alwaysOpen = true), "one target in it")
+        val alone = BattlefieldGroup("card:bear", "a", BattlefieldRow.Creatures, listOf("bear"), BattlefieldGroup.Kind.Single)
+        assertEquals(GroupTap.Act("bear"), GroupTap.of(alone, { true }, { false }, alwaysOpen = true), "one card alone")
+    }
+
     // TBL-117, TBL-122: a collapsed group glows as a whole: cyan (or the target frame) when its tap acts at once, the
     // expand colour when it opens; cards alone glow as themselves
     @Test fun aGroupsGlowSaysWhatItsTapDoes() {

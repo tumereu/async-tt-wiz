@@ -31,10 +31,20 @@ internal object StackTargetText {
      * [hidden] for a card they can't see, HIS-062).
      */
     fun pieces(play: TableBoard, item: MtgStackItem, text: TargetedText, viewer: String, names: Map<String, String>,
-        you: String = "you", hidden: String = "a card"): List<StackTextPiece> = text.parts.flatMap { part ->
-        when (part) {
-            is TargetedText.Part.Plain -> listOf(StackTextPiece(part.text))
-            is TargetedText.Part.Targets -> named(play, part.keys.flatMap { item.targets[it].orEmpty() }.distinct(), viewer, names, you, hidden)
+        you: String = "you", hidden: String = "a card"): List<StackTextPiece> {
+        var before = ""
+        return text.parts.flatMap { part ->
+            when (part) {
+                is TargetedText.Part.Plain -> listOf(StackTextPiece(part.text)).also { before += part.text }
+                is TargetedText.Part.Targets -> {
+                    // A phrase that is its clause's subject ("Target player draws two cards") names the viewer by their
+                    // own name, so the verb still agrees; elsewhere ("… deals 3 damage to you") they read as [you].
+                    val subject = before.isBlank() || before.trimEnd().let { it.endsWith('.') || it.endsWith(':') || it.endsWith('\n') }
+                    val self = if (subject) names[viewer] ?: you else you
+                    named(play, part.keys.flatMap { item.targets[it].orEmpty() }.distinct(), viewer, names, self, hidden)
+                        .also { pieces -> before += pieces.plain() }
+                }
+            }
         }
     }
 

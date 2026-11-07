@@ -28,6 +28,7 @@ class StackLineTest {
     private val spark = invented("spark", "Storm Spark", "Instant", "Storm Spark deals 3 damage to any target.")
     private val burst = invented("burst", "Ember Burst", "Sorcery", "Ember Burst deals X damage to any target.")
     private val snare = invented("snare", "Frost Snare", "Instant", "Tap up to two target creatures.")
+    private val insight = invented("insight", "Borrowed Insight", "Sorcery", "Target player draws two cards.")
 
     private class Invented(val submitted: SubmittedDefinition, val engine: arcanum.api.CardDefinition)
 
@@ -116,6 +117,15 @@ class StackLineTest {
             StackLine.text(board(burst, PlayZone.HAND, spell(burst, listOf(MtgRef.Player(f.a)), x = 4)), f.a, names))
         // A player target is in their own colour
         assertEquals(StackTextPiece("Bob", f.b), StackLine.pieces(board(spark, PlayZone.HAND, spell(spark, listOf(MtgRef.Player(f.b)))), f.a, names)!!.last())
+    }
+
+    // STK-057: a target phrase that is its sentence's subject names the viewer by name, so the verb agrees ("Alice draws",
+    // never "you draws"); as an object the viewer stays "you"
+    @Test fun theViewerAsASubjectIsNamed() {
+        assertEquals("Bob cast Borrowed Insight · Alice draws 2 cards",
+            StackLine.text(board(insight, PlayZone.HAND, spell(insight, listOf(MtgRef.Player(f.a)))), f.a, names))
+        assertEquals("Bob cast Borrowed Insight · Bob draws 2 cards",
+            StackLine.text(board(insight, PlayZone.HAND, spell(insight, listOf(MtgRef.Player(f.b)))), f.a, names))
     }
 
     // STK-057: two targets of one phrase are named together

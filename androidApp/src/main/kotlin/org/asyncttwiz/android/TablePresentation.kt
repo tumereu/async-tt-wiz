@@ -156,7 +156,9 @@ data class TableItem(
     /** STK-046: a Stack entry that is a triggered or activated ability, drawn as an ability token, not as its source card. */
     val stackAbility: StackAbilityShown? = null,
     /** TBL-053: a battlefield card's group ([BattlefieldGroup.key]); null off the battlefield. */
-    val group: String? = null
+    val group: String? = null,
+    /** ZON-092: a pile holding a card with counters (a suspended card in exile), marked on the pile. */
+    val countersInside: Boolean = false
 ) {
     /** The card title's colour on the table: blue while it entered this turn, else the default text colour. */
     val titleColor: Int get() = if (enteredThisTurn) EnteredThisTurnTitleColor else android.graphics.Color.DKGRAY
@@ -596,12 +598,15 @@ object TablePresentation {
                 val hidden = zone == PlayZone.LIBRARY && !c.keepTopRevealed || top == null || !CardVisibility.isVisibleFaceUp(play.board, top, viewer)
                 val b = TableBounds(pileX(n), pileY, pileWidth, pileHeight)
                 val title = zone.name.lowercase()
-                items += TableItem(c.id, b, "${name(player.accountId)} $title, ${c.cards.size} cards${if (c.keepTopRevealed) ", keep top card revealed" else ""}", c.cards.size.toString(),
+                // ZON-092: a card in it carries counters (time counters on a suspended card, CR 702.62a)
+                val countersInside = zone == PlayZone.EXILE && c.cards.any { id -> byId[id]?.typedCounters?.any { it.count != 0 } == true }
+                items += TableItem(c.id, b, "${name(player.accountId)} $title, ${c.cards.size} cards${if (c.keepTopRevealed) ", keep top card revealed" else ""}" +
+                    if (countersInside) ", cards with counters" else "", c.cards.size.toString(),
                     top?.owner ?: player.accountId, zone, c.cards, viewport = dp.id, covered = hidden,
                     footprint = b, peekOwners = listOfNotNull(top?.owner),
                     touchBounds = touch(b),
                     token = top?.token == true,
-                    keepTopRevealed = c.keepTopRevealed,
+                    keepTopRevealed = c.keepTopRevealed, countersInside = countersInside,
                     faceTitle = if (hidden) "" else face(top)?.name.orEmpty(),
                     corner = if (hidden) "" else top?.corner.orEmpty(),
                     typeIcon = if (hidden) "" else cardTypeIcon(face(top)?.typeLine.orEmpty()), artwork = art(top, hidden),

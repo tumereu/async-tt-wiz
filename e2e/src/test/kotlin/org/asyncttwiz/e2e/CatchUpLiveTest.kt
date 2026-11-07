@@ -80,6 +80,26 @@ class CatchUpLiveTest : E2e() {
         // HIS-097's note on Alice's table (shown for a few seconds)
         waitUntil("Alice told") { alice.told("responded — your later actions were taken back") }
         assertTrue(alice.engine { device.session.events }.none { it.id == cast.next.id }, "the assumed line is discarded")
+        // HIS-096 point ownership (owner 2026-11-07: the rule exactly as specified): once his Glimmer resolves, Bob has
+        // priority with her Herald still on the Stack. The last real input before that point was his Glimmer (passes don't
+        // count), so the point is his: only his response mode decides, his Quick mode stops there (he could still respond),
+        // and Alice's phone waits for him there instead of assuming his pass by her Assume: Always
+        waitUntil("Bob's stop after his Glimmer resolved, Alice waiting for him") {
+            where(bob.shown.board, glimmer) == PlayZone.GRAVEYARD.name && where(bob.shown.board, cast.herald) == "STACK" &&
+                bob.status == GameDevice.Status.YourMove && bob.stepArrow() == "Resolve" &&
+                where(alice.shown.board, cast.herald) == "STACK" &&
+                (alice.status as? GameDevice.Status.Waiting)?.reason is GameDevice.Wait.Respond
+        }
+        assertTrue(bob.current() && alice.current(), "both phones on their newest board")
+        assertIs<GameDevice.Wait.Respond>(assertIs<GameDevice.Status.Waiting>(alice.status, "Alice waits for Bob, not assumed").reason)
+        assertEquals("STACK", where(alice.shown.board, cast.herald))
+        // Bob answers there as a player would: Resolve on the main button (and the same at a further stop of his, at her
+        // Herald's trigger)
+        waitUntil("Bob's answers taken: the Herald and its trigger resolved") {
+            if (bob.status == GameDevice.Status.YourMove || bob.status is GameDevice.Status.Stopped)
+                bob.once { bob.stepArrow()?.takeIf { it == "Resolve" }?.let(bob::tap) }
+            where(alice.shown.board, cast.herald) == PlayZone.BATTLEFIELD.name && alice.state.stack.isEmpty()
+        }
         // HIS-097 (analysis 2026-11-05): her End turn was on the discarded line, so it is taken back with it: the game goes
         // on from Bob's answer to her own main phase and waits for her there (it went on to Bob's turn by itself, the
         // long run of animations hiding the note)

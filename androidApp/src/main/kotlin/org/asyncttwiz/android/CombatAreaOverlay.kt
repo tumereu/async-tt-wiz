@@ -196,12 +196,10 @@ internal fun CombatAreaOverlay(combat: CombatController?, play: TableBoard, scen
             val occurrence = CombatStackRules.occurrences(area).first { it.sourceId == card }
             val pair = area!!.pairs.first { p -> (p.attackers + p.blockers).any { it.id == occurrence.id } }
             val attacker = pair.attackers.any { it.id == occurrence.id }
-            when {
-                staging && attacker -> ((scene.combatLabels.firstOrNull { it.cardId == pair.attackTarget }?.label
-                    ?.let { if (it.startsWith("→ ")) it else "→ $it" } ?: "→ attack")).let { chips += Triple(it, AutomatumViolet, it) }
-                // Only where it fits: small cards show their combat by their copies alone
-                b.width >= 44f -> (if (attacker) "attacking" else "blocking").let { chips += Triple(it, ArrowColor, it) }
-            }
+            // CMB-035 (owner playtest 2026-11-07): a staged attacker carries no chip, its lane already names its target.
+            // Only where it fits: small cards show their combat by their copies alone
+            if (!(staging && attacker) && b.width >= 44f)
+                (if (attacker) "attacking" else "blocking").let { chips += Triple(it, ArrowColor, it) }
         }
         val dealt = if (copy || card !in inCombat) damage[card] else null
         val dying = (copy || card !in inCombat) && card in dies

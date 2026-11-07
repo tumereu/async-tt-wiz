@@ -206,6 +206,12 @@ class QuestionPanelsTest {
         // Each name once, in its first group
         compose.onAllNodesWithContentDescription("Storm Spark, ", substring = true).assertCountEquals(1)
         compose.onNodeWithContentDescription("Storm Spark, in your library").performClick()
+        // The tap writes the name in the field; the card records' search for it runs off the main thread: wait until its
+        // result is shown (only Storm Spark left, the other names gone) before the picture
+        compose.waitUntil(5_000) {
+            compose.onAllNodesWithContentDescription(", a card", substring = true).fetchSemanticsNodes().isEmpty() &&
+                compose.onAllNodesWithContentDescription("Storm Spark, in your library, chosen").fetchSemanticsNodes().size == 1
+        }
         compose.onNodeWithText("OK").assertIsEnabled()
         compose.onRoot().captureShot("$SCREENSHOTS/questions/card-name.png",
             "Naming a card: the panel is titled \"Name a card\" with the sentence under it, the search field holding Storm Spark, and the names containing it: Storm Spark from Alice's library with a card-stack icon, chosen; OK is enabled.")

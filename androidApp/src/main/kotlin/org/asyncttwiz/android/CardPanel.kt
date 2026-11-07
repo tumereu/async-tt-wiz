@@ -26,9 +26,10 @@ data class CardPanelGeometry(val display: ContentsDisplay, val bounds: TableBoun
     val closeBounds get() = TableBounds(bounds.right - 24f, bounds.y + 2, 24f, 24f)
 }
 
-/** Concealed copies are never grouped using hidden names (or collapsed into one back). */
-internal fun panelGroups(entries: List<ContentsEntry>): List<List<ContentsEntry>> =
-    entries.groupBy { if (it.faceVisible) it.name else it.cardId }.values.toList()
+/** Concealed copies are never grouped using hidden names (or collapsed into one back); copies with different counters
+ * ([countersOf], ZON-091) keep their own places. */
+internal fun panelGroups(entries: List<ContentsEntry>, countersOf: (String) -> List<TypedCounter> = { emptyList() }): List<List<ContentsEntry>> =
+    entries.groupBy { (if (it.faceVisible) it.name else it.cardId) to countersOf(it.cardId) }.values.toList()
 
 internal fun panelColumnCount(maxColumns: Int): Int = maxColumns.coerceIn(1, 3)
 
@@ -63,7 +64,8 @@ internal fun cardPanelGeometry(play: TableBoard, viewer: String, ui: TableLayout
         val entries = if (localZone != null) contentsEntries(play, PileContents(display.containerId, "", display.cardIds), viewer)
             else contentsEntries(play, display, viewer)
         // Picking targets: each card is its own object, so none are grouped
-        val grouped = if (localZone != null && !ui.localPileTargets) panelGroups(entries)
+        val grouped = if (localZone != null && !ui.localPileTargets) panelGroups(entries) { id ->
+                play.board.cards.firstOrNull { it.id == id }?.typedCounters?.filter { it.count != 0 }.orEmpty() }
             else if (localZone != null) entries.map { listOf(it) }
             else if (display.search && display.author == viewer) entries.groupBy {
                 it.name to (it.cardId in display.revealedIds)
@@ -115,14 +117,18 @@ internal fun cardPanels(scene: TableScene, play: TableBoard, viewer: String, pan
         val face = definition?.faces?.firstOrNull { it.faceId == card.faceId }
         val art = if (!row.entry.faceVisible || face == null || face.scryfallId == null && face.imageUri == null) null else
             face.tableArtwork(definition.faces.indexOf(face), card.definition)?.forTable()
+        // ZON-091: counters on a card in exile (a suspended card's time counters) show as on the battlefield (TBL-113)
+        val counters = org.asyncttwiz.automatum.ComputedBoard.counterMarks(card.typedCounters)
         TableItem("card/${card.id}", row.bounds,
-            "${panel.title} panel: ${row.entry.name}${if (row.copies > 1) ", ×${row.copies}" else ""}", if (row.entry.faceVisible) row.entry.name else "",
+            "${panel.title} panel: ${row.entry.name}${if (row.copies > 1) ", ×${row.copies}" else ""}" +
+                counters.joinToString("") { ", $it" }, if (row.entry.faceVisible) row.entry.name else "",
             owner = card.owner, zone = containers[card.containerId]?.zone, kind = TableItemKind.CARD,
             viewport = panel.viewport.id, cardId = card.id, covered = !row.entry.faceVisible,
             artwork = art,
             corner = if (row.entry.faceVisible) effectiveCorner(card) else "",
             damage = if (row.entry.faceVisible) card.damage else "",
             copies = row.copies, token = card.token,
+            automatumMarks = counters,
             typeIcon = if (row.entry.faceVisible) TablePresentation.cardTypeIcon(face?.typeLine.orEmpty()) else "",
             changedPowerToughness = row.entry.faceVisible && changedPowerToughness(card.corner, face))
     } }

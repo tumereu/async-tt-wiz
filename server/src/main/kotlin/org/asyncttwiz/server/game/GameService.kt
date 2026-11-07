@@ -283,6 +283,7 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
                 applyEngine(sql, game, inbox.accountId!!, command).let { (reason, accepted) -> engineAccepted = accepted; reason }
             is GameAction.SendChat -> ChatStore.apply(sql, game, inbox.accountId!!, command).also { insertedChat = it.message }.reason
             is GameAction.SetAssumeReveals -> applyAssumeReveals(sql, game, inbox.accountId!!, command.action as GameAction.SetAssumeReveals)
+            GameAction.AcknowledgeResult -> applyAcknowledgement(sql, game, inbox.accountId!!)
             GameAction.CancelSetup -> applyCancellation(sql, game, inbox.accountId!!, command)
             is GameAction.SelectDeck -> applySelection(sql, game, inbox.accountId!!, command)
             is GameAction.TransferPreparedCard -> applyTransfer(sql, game, inbox.accountId!!, command)
@@ -455,6 +456,13 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
             // Game history §1.1: the finished match's record, from the decks it was played with (before the lobby's return)
             org.asyncttwiz.server.history.MatchRecords.finished(sql, summary, play, outcome.facts!!, now)
             PlayStore.endEngine(sql, summary, command.requestId, outcome.result) { lobby.summary(sql, it) }
+            // TRN-065 (owner 2026-11-07): each player sees the result until they tap OK; the player whose own action ended
+            // it (this request's: a concession, an accepted suggestion, a confirmation) has seen it
+            val facts = outcome.facts!!
+            val notice = org.asyncttwiz.protocol.ResultNotice(
+                facts.results.entries.firstOrNull { it.value == org.asyncttwiz.protocol.SuggestedResult.WIN }?.key, facts.ending,
+                facts.causes, listOf(game.inviterId!!, game.recipientId!!).filter { it != account }.map(UUID::toString))
+            sql.update(GAME).set(GAME.RESULT_NOTICE, json.encodeToString(notice)).where(GAME.ID.eq(game.id)).execute()
         }
         return null to outcome
     }
@@ -470,6 +478,18 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
         sql.update(GAME).set(GAME.ASSUME_LIBRARY_REVEALS, action.reveals.library).set(GAME.ASSUME_HAND_REVEALS, action.reveals.hands)
             .where(GAME.ID.eq(game.id)).execute()
         game.assumeLibraryReveals = action.reveals.library; game.assumeHandReveals = action.reveals.hands
+        return null
+    }
+
+    /** TRN-065: the actor tapped OK on the last match's result: they no longer see it, and once neither does the next
+     * game may start ([StartRules.canStart]). Tapping it again (another device) changes nothing. */
+    private fun applyAcknowledgement(sql: DSLContext, game: GameRecord, account: UUID): String? {
+        if (game.lifecycle != "LOBBY") return "inapplicable"
+        val notice = game.resultNotice?.let { json.decodeFromString<org.asyncttwiz.protocol.ResultNotice>(it) } ?: return null
+        val unseen = notice.unseen - account.toString()
+        val stored = if (unseen.isEmpty()) null else json.encodeToString(notice.copy(unseen = unseen))
+        sql.update(GAME).set(GAME.RESULT_NOTICE, stored).where(GAME.ID.eq(game.id)).execute()
+        game.resultNotice = stored
         return null
     }
 
@@ -573,6 +593,8 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
             if (!org.asyncttwiz.protocol.game.OutsideCards.valid(outside)) return "invalidOutsideCards"
             if (!EngineDecks.outsideProvided(changed.state!!, account.toString(), outside)) return "automatumUnsupported"
         }
+        // TRN-065: a player gets Ready only after tapping OK on the last match's result
+        if (command.action == GameAction.Ready && summary.resultNotice?.unseen?.contains(account.toString()) == true) return "resultNotSeen"
         val change = if (command.action == GameAction.Ready) changed.copy(state = changed.state?.let {
             StartRules.withOutside(it, account.toString(), outside) }) else changed
         if (change.state?.let { preparation -> StartRules.canStart(summary, preparation) &&

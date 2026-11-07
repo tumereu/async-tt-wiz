@@ -119,6 +119,8 @@ object TestCards {
     /** A free edict (D1: the other player picks their creature to sacrifice on the table). */
     val edict = card("Ember Edict", "Sorcery", "{0}", "Each opponent sacrifices a creature of their choice.")
     /** A free instant with two targets (TBL-130: targets picked from one battlefield group). */
+    /** A free sorcery that ends a game by the rules (TRN-065: the other player's life reaches 0). */
+    val ruin = card("Ember Ruin", "Sorcery", "{0}", "Each opponent loses 20 life.")
     val snare = card("Frost Snare", "Instant", "{0}", "Tap up to two target creatures.")
 
     /** A split card ({2}{G} // {1}{R}{R}) as a catalog import keeps it (PhysicalCardFaces): one face holding both halves,

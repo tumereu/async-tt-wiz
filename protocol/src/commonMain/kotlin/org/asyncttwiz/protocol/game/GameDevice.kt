@@ -271,8 +271,12 @@ class GameDevice(
         /** Waiting for the other player: [reason] for the waiting bar, [offer] its Assume button (null: none). */
         data class Waiting(val reason: Wait, val offer: Offer? = null) : Status
         /** The game's [result] (from the shown state): [confirmable] once both local heads reached it (OK, TRN-065);
-         * [final] once confirmed, or after a concession. */
-        data class Over(val result: GameResult, val confirmable: Boolean, val final: Boolean) : Status
+         * [final] once confirmed, or after a concession or an accepted suggestion. [ending]: how it ended; [endedBy]:
+         * the player whose own action made it final (the conceder, the player who accepted, the player who confirmed),
+         * who has seen it already (TRN-065: they go on without a second OK). */
+        data class Over(val result: GameResult, val confirmable: Boolean, val final: Boolean,
+            val ending: org.asyncttwiz.protocol.MatchEnding = org.asyncttwiz.protocol.MatchEnding.ByRules,
+            val endedBy: PlayerId? = null) : Status
         /** Nothing to do (before the game starts). */
         data object Idle : Status
     }
@@ -356,7 +360,7 @@ class GameDevice(
             return stop?.let { Status.Stopped(next, it, paused = decision == null) } ?: Status.Playing(next)
         }
         val s = model.engine
-        Engine.result(s)?.let { return Status.Over(it, confirmable(), final()) }
+        Engine.result(s)?.let { return Status.Over(it, confirmable(), final(), ending(s, it), endedBy()) }
         if (request != null) return Status.Waiting(Wait.Request)
         if (locked) return Status.Waiting(Wait.Suggestion)
         // R3: worked out once per point (the searches below don't run again while nothing they read changed)
@@ -2006,8 +2010,28 @@ class GameDevice(
         return heads.filterKeys { it != me }.values.all { h -> session.after(h)?.all { it.engine == null } == true }
     }
 
-    private fun final(): Boolean = model.table.resultConfirmedBy != null ||
-        session.events.any { e -> e.engine?.steps.orEmpty().any { it.input is Input.Concede } }
+    private fun final(): Boolean = endedBy() != null
+
+    /** The concession on the line, if any. */
+    private fun concession(): PlayerId? =
+        session.events.firstNotNullOfOrNull { e -> e.engine?.steps.orEmpty().firstNotNullOfOrNull { (it.input as? Input.Concede)?.player } }
+
+    /** The event accepting the other player's suggestion (TRN-047), if any. */
+    private fun agreement(): GameEvent? = session.events.lastOrNull { e -> e.engine?.steps.orEmpty().any { it.input is Input.AgreedResult } }
+
+    /** TRN-065 (owner 2026-11-07): who made the result final by their own action: the conceder, the player who accepted a
+     * suggestion (it ends the game at once, as a concession does), or the player who confirmed a result the rules gave. */
+    private fun endedBy(): PlayerId? = concession() ?: agreement()?.let { PlayerId(it.author) } ?: model.table.resultConfirmedBy
+
+    /** How the game reported [result] on [s] ended (LOB-126's endings). */
+    private fun ending(s: GameState, result: GameResult): org.asyncttwiz.protocol.MatchEnding {
+        concession()?.let { return org.asyncttwiz.protocol.MatchEnding.Conceded(it.value) }
+        agreement()?.let { e -> return org.asyncttwiz.protocol.MatchEnding.Agreed(
+            e.table.firstNotNullOfOrNull { (it as? TableChange.Suggestion)?.before?.note }.orEmpty()) }
+        if (result is GameResult.Draw) return org.asyncttwiz.protocol.MatchEnding.Draw(
+            loop = s.players.any { it.lossReason == arcanum.engine.setup.LossReason.Loop })
+        return org.asyncttwiz.protocol.MatchEnding.ByRules
+    }
 
     // ---- Reproduction (I-D43)
 

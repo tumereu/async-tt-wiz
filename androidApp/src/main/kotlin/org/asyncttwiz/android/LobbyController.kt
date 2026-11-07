@@ -181,6 +181,19 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
         val send = { state.detail?.takeIf { it.id == game.id }?.let { current -> session?.setAssumeReveals(current, reveals) }; connectionState() }
         if (game.lifecycle == GameLifecycle.LOBBY) queue.whenReady(game.id, "assumeReveals") { send() } else send()
     }
+    /** TRN-065 (owner 2026-11-07): the viewer tapped OK on the open game's result: off the screen at once, sent once the
+     * game can send. */
+    fun acknowledgeResult() {
+        val game = state.detail ?: return
+        if (closed) return
+        state = state.copy(resultsOk = state.resultsOk + resultKey(game))
+        queue.whenReady(game.id, "acknowledgeResult") {
+            state.detail?.takeIf { it.id == game.id }?.let { current -> session?.acknowledgeResult(current) }; connectionState()
+        }
+    }
+    /** TRN-065: whether the viewer still has to tap OK on [game]'s last result (the server's word, unless OK'd here). */
+    fun resultUnseen(game: GameSummary): Boolean =
+        game.resultNotice?.unseen?.contains(accountId()) == true && resultKey(game) !in state.resultsOk
     fun ready() = preparationActions.ready()
     fun withdrawReady() = preparationActions.withdrawReady()
     internal val preparationUndo: PreparationUndo get() = preparationActions.preparationUndo

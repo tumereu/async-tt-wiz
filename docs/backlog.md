@@ -12,7 +12,6 @@ Changes the owner wants but that are not built yet. The feature catalog
 
 Owner playtest of 0.2.0-beta4, 2026-11-07 (overnight; push master after each merge; no deploys):
 
-- C2 Game end dialog (TRN-065, TRN-064, LOB-046, STK-044, LOB-111): every ending (rules, concession, agreement) shows each player a dialog in the middle of the screen: "You won" / "You lost" / "Draw", the reason ("Bob's life reached 0", "You drew from an empty library", "Bob got 10 poison counters", "<card>'s effect", "Bob conceded", "Agreed: <reason>", "Both players lost at once", "An endless loop"), the eye and OK; a rules result stays greyed "waiting for <name> to catch up" until both saw it (finality unchanged). It stays until that player taps OK (every reopen, never dismissed in the background); the player whose own action ended it (the conceder, the one accepting a suggestion) has OK'd already. Your OK takes you to the lobby; the next game can start only once both have OK'd (server keeps each player's OK).
 
 ## Ready to build
 

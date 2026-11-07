@@ -81,7 +81,8 @@ internal class HistoryWorld(val db: TestPostgres, val runtime: ServiceRuntime, v
         val stream = games.open(actor, hello, connection, game.id, id())
         fun command(action: GameAction): GameCommand {
             val summary = games.head(actor, game.id).summary
-            val scope = if (action is GameAction.Submit || action.isEngine || action is GameAction.SendChat || action == GameAction.DeleteGame)
+            val scope = if (action == GameAction.AcknowledgeResult) GameScope(game.id)
+                else if (action is GameAction.Submit || action.isEngine || action is GameAction.SendChat || action == GameAction.DeleteGame)
                 GameScope(game.id, playId = summary.playId)
                 else GameScope(game.id, summary.preparationRound,
                     if (action == GameAction.AcceptInvitation || action == GameAction.DeclineInvitation) summary.invitationId else null)
@@ -114,12 +115,17 @@ internal class HistoryWorld(val db: TestPostgres, val runtime: ServiceRuntime, v
 
         /** Both Ready: the match starts, played on simple engine cards (the test seam). */
         fun start() {
+            seated { alice.accepted(GameAction.Ready); bob.accepted(GameAction.Ready) }
+            assertEquals(GameLifecycle.ACTIVE, summary().lifecycle)
+        }
+
+        /** Runs [work] with a match started from it played on simple engine cards (the test seam). */
+        fun <T> seated(work: () -> T): T {
             val seats = listOf(a, b).map { PlayerId(it.account.accountId) }.map { p ->
                 Seat(p, List(40) { i -> DeckCard(CardId("${p.value}.$i"), Cards.definition(if (i % 2 == 0) "Forest" else "Mountain")) })
             }
             engineSeats = { _ -> seats }
-            try { alice.accepted(GameAction.Ready); bob.accepted(GameAction.Ready) } finally { engineSeats = null }
-            assertEquals(GameLifecycle.ACTIVE, summary().lifecycle)
+            try { return work() } finally { engineSeats = null }
         }
 
         /** [by] concedes (CR 104.3a): the match ends at once. */

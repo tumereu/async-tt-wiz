@@ -85,6 +85,8 @@ class GameResultLifecycleTest {
             Fixture(db).use { f ->
                 fun end(): LobbyPreparation {
                     assertEquals("accepted", f.other.execute(f.concession()).outcome)
+                    // TRN-065: the next play starts only once the other player tapped OK on the result
+                    assertEquals("accepted", f.owner.execute(f.owner.command(GameAction.AcknowledgeResult, GameScope(f.game.id))).outcome)
                     return f.games.head(f.b, f.game.id).preparation!!
                 }
                 val accounts = listOf(f.a.account.accountId, f.b.account.accountId)
@@ -144,6 +146,8 @@ class GameResultLifecycleTest {
                 // The lobby toggle is not a gameplay action: an active game refuses it.
                 assertEquals("lifecycleEnded", f.other.execute(GameAction.ShowDeck(true)).reason)
                 assertEquals("accepted", f.other.execute(f.concession()).outcome)
+                // TRN-065: the owner taps OK on the result before getting Ready
+                assertEquals("accepted", f.owner.execute(f.owner.command(GameAction.AcknowledgeResult, GameScope(f.game.id))).outcome)
                 assertEquals(setOf(false), shown().values.toSet(), "Hidden by default")
                 assertFalse("deckShown" in GameWire.encode(f.games.head(f.a, f.game.id)))
                 f.owner.execute(GameAction.Ready)

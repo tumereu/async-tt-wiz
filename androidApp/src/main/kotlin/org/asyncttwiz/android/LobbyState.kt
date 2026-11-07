@@ -3,6 +3,9 @@ package org.asyncttwiz.android
 import androidx.compose.runtime.*
 import org.asyncttwiz.protocol.*
 
+/** TRN-065: names one match's result of [game] (a game's lobby round changes with each match's end). */
+internal fun resultKey(game: GameSummary) = "${game.id}/${game.preparationRound}"
+
 data class LobbyState(val contacts: List<AccountIdentity> = emptyList(), val query: String = "",
     val results: List<AccountIdentity> = emptyList(), val searched: Boolean = false, val searching: Boolean = false,
     val searchError: String? = null, val games: List<GameSummary> = emptyList(), val invitations: List<GameSummary> = emptyList(),
@@ -29,6 +32,8 @@ data class LobbyState(val contacts: List<AccountIdentity> = emptyList(), val que
     val opponentPresence: ReceivedPresence? = null,
     /** Games with lobby taps waiting for the game connection or an earlier request; each runs once. */
     val queuedGames: Set<String> = emptySet(),
+    /** TRN-065: the results OK'd on this phone ([resultKey]), off the screen at once while the server learns it. */
+    val resultsOk: Set<String> = emptySet(),
     /** Background refreshes have kept failing for a while; the shown lists may be stale. */
     val unreachable: Boolean = false) {
     val filteredContacts get() = contacts.filter { it.username.contains(contactFilter.trim(), ignoreCase = true) }

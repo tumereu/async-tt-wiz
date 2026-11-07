@@ -74,6 +74,16 @@ import kotlinx.serialization.Serializable
     @Serializable @SerialName("card") data class CardEffect(val card: String? = null) : LossCause
 }
 
+/** Why a player lost by the rules, from the engine's reason (CR 104.3b-e); null for one a record doesn't name (a loop's
+ * draw, a concession). */
+fun lossCause(reason: arcanum.engine.setup.LossReason): LossCause? = when (reason) {
+    arcanum.engine.setup.LossReason.ZeroLife -> LossCause.ZeroLife
+    arcanum.engine.setup.LossReason.EmptyLibrary -> LossCause.EmptyLibrary
+    arcanum.engine.setup.LossReason.Poison -> LossCause.Poison
+    is arcanum.engine.setup.LossReason.Effect -> LossCause.CardEffect(reason.card)
+    else -> null
+}
+
 /** GET /v1/history (your records) and GET /v1/games/{id}/history (this game's): newest first. */
 @Serializable data class MatchHistory(val records: List<MatchRecord>)
 

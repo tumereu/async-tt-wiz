@@ -155,13 +155,7 @@ internal class EngineGames(private val capacity: Int = warmCapacity()) {
                     else -> org.asyncttwiz.protocol.MatchEnding.ByRules
                 }
                 // CR 104.3b-e: why each player lost by the rules (a concession or an agreement says it itself)
-                val causes = reasons.mapNotNull { (player, reason) -> when (reason) {
-                    arcanum.engine.setup.LossReason.ZeroLife -> org.asyncttwiz.protocol.LossCause.ZeroLife
-                    arcanum.engine.setup.LossReason.EmptyLibrary -> org.asyncttwiz.protocol.LossCause.EmptyLibrary
-                    arcanum.engine.setup.LossReason.Poison -> org.asyncttwiz.protocol.LossCause.Poison
-                    is arcanum.engine.setup.LossReason.Effect -> org.asyncttwiz.protocol.LossCause.CardEffect(reason.card)
-                    else -> null
-                }?.let { player to it } }.toMap()
+                val causes = reasons.mapNotNull { (player, reason) -> org.asyncttwiz.protocol.lossCause(reason)?.let { player to it } }.toMap()
                 return MatchFacts(engine.turn.number, engine.players.associate { it.id.value to it.life }, mulligans, results, ending, causes)
             }
         }
@@ -593,7 +587,10 @@ internal class EngineGames(private val capacity: Int = warmCapacity()) {
         }
         val result = Engine.result(engine)
         val conceded = events.flatMap { e -> e.engine?.steps.orEmpty().mapNotNull { (it.input as? Input.Concede)?.player } }.firstOrNull()
-        val ended = result != null && (state.model.table.resultConfirmedBy != null || conceded != null)
+        // TRN-065 (owner 2026-11-07): an accepted suggestion ends the play at once, as a concession does; a result the
+        // rules gave once a player confirms it after both saw it
+        val agreed = events.any { e -> e.engine?.steps.orEmpty().any { it.input is Input.AgreedResult } }
+        val ended = result != null && (state.model.table.resultConfirmedBy != null || conceded != null || agreed)
         val agreement = if (ended && conceded == null) agreement(history, head) else null
         return Outcome(play, events.map(history.codec::encodeEvent), state, target, confirmed, ended,
             seats.associate { it.account.toString() to it.head }, moves, newStops, row.request, row.lines, stopTimes, activity,
@@ -647,8 +644,8 @@ internal class EngineGames(private val capacity: Int = warmCapacity()) {
 
     /**
      * Who agreed the result at the main line's [head] (I-D56 §11), and the reason of the suggestion they accepted: the author of the result's own event when it holds the
-     * agreement ([Input.AgreedResult]). An agreed result is final only in a later table-only event (both local heads
-     * reach it first), so the line is read back from the head to its last engine event (a few table-only events).
+     * agreement ([Input.AgreedResult]), read back from the head to its last engine event (an accepted suggestion ends the
+     * play at once, TRN-065, so that is normally the head itself).
      */
     private fun agreement(history: GameHistory, head: String): Pair<String, String>? {
         var at = head

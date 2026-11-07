@@ -187,11 +187,9 @@ class SwitchReviewTest {
         assertEquals("automatumUnsupported", f.started.reason)
     }
 
-    // switchreview #8, LOB-111, async-play.md §23 choice 3: an agreed result ends the play only when a player confirms it in
-    // a later table-only event (TRN-065: both local heads must reach it first), but EngineGames.refresh looks for the
-    // AgreedResult input among the events of the request that ended the play, so it never finds it: every agreed result
-    // is recorded as the rules' result, and the notice reads "Game over · Draw" instead of "<Alice> accepted the draw"
-    // ("… your win", "… your loss").
+    // switchreview #8, LOB-111: an agreed result must be recorded as the suggestion's, not as the rules' result, so the notice
+    // reads "<Alice> accepted the draw" ("… your win", "… your loss") instead of "Game over · Draw". TRN-065 (owner
+    // 2026-11-07): accepting ends the play at once.
     @Test fun `an agreed result is recorded as the suggestion's, not the rules'`() = withService { runtime ->
         val f = Fixture(runtime)
         val draw = arcanum.engine.setup.GameResult.Draw
@@ -202,11 +200,6 @@ class SwitchReviewTest {
         val bob = f.device(f.b)
         assertEquals("accepted", f.recipient.execute(GameAction.Submit(bob.act(id(), Input.AgreedResult(draw),
             listOf(org.asyncttwiz.protocol.game.TableChange.Suggestion(suggestion, null))))).outcome)
-        val agreed = f.snapshot().headId
-        assertEquals("accepted", f.owner.execute(GameAction.EngineSeen(agreed)).outcome)
-        val atResult = f.device(f.a)
-        assertEquals("accepted", f.owner.execute(GameAction.Submit(atResult.act(id(), null,
-            listOf(org.asyncttwiz.protocol.game.TableChange.ResultConfirmed(null, f.alice))))).outcome)
         assertEquals(GameLifecycle.LOBBY, f.games.head(f.a, f.game.id).summary.lifecycle, "the play ended")
         val plays = org.asyncttwiz.server.generated.tables.GamePlay.GAME_PLAY
         val recorded = runtime.transaction { c -> DSL.using(c, SQLDialect.POSTGRES).select(plays.PAYLOAD).from(plays)

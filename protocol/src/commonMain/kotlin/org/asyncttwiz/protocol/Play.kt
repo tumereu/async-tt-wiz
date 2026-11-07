@@ -200,6 +200,8 @@ object StartRules {
     }
     fun canStart(game: GameSummary, preparation: LobbyPreparation) = game.lifecycle == GameLifecycle.LOBBY &&
         game.invitationState == InvitationState.ACCEPTED &&
+        // TRN-065: the next game starts only once both players have tapped OK on the last one's result
+        game.resultNotice == null &&
         preparation.players.size == 2 && preparation.players.all { it.ready && it.deck != null }
 
     /** Inputs are acquired independently by the server only after the readiness transition applies. */

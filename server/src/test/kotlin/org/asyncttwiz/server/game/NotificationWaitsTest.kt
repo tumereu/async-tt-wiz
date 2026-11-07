@@ -245,7 +245,7 @@ class NotificationWaitsTest {
     }
 
     // TRN-058, TRN-047, TRN-049, TRN-065: a result suggestion waits for the other player's answer (their move for both);
-    // the agreed result waits for Alice until she has seen it; then for nobody
+    // accepting it ends the game at once (owner 2026-11-07): back in its lobby, with the result for Alice to see
     @Test fun `a suggestion and a result not seen yet are the move of the player who must answer or see it`() = withService { runtime ->
         val f = Fixture(runtime)
         val draw = arcanum.engine.setup.GameResult.Draw
@@ -257,8 +257,9 @@ class NotificationWaitsTest {
         val bob = f.device(f.b)
         assertEquals("accepted", f.recipient.execute(GameAction.Submit(bob.act(id(), Input.AgreedResult(draw),
             listOf(org.asyncttwiz.protocol.game.TableChange.Suggestion(suggestion, null))))).outcome)
-        f.assertMoves(f.a, f.a, "Alice hasn't seen the agreed draw")
-        assertEquals("accepted", f.owner.execute(GameAction.EngineSeen(f.snapshot().headId)).outcome)
-        f.assertMoves(null, null, "both have seen it")
+        val summary = f.games.head(f.a, f.game.id).summary
+        assertEquals(org.asyncttwiz.protocol.GameLifecycle.LOBBY, summary.lifecycle)
+        assertEquals(listOf(f.a.account.accountId), summary.resultNotice?.unseen, "Alice hasn't seen the agreed draw")
+        assertNull(summary.attentionHolder)
     }
 }

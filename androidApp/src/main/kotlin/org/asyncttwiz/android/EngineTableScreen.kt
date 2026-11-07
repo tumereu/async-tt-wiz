@@ -44,7 +44,7 @@ internal fun EngineTableScreen(controller: LobbyController, accountId: String, h
     val interactive = game.id !in state.reconnectingGames
     val routes = remember(controller, game.id, accountId) {
         EngineTableRoutes(accountId, { controller.engineGame() }, { controller.engineSent() },
-            { controller.table.value.board?.takeIf { it.gameId == game.id } })
+            { controller.table.value.board?.takeIf { it.gameId == game.id } }, { controller.acknowledgeResult() })
     }
     val context = LocalContext.current
     val tokenArt = remember(context) { AndroidTokenArt.of(context.applicationContext) }

@@ -137,7 +137,9 @@ class AssumedBlocks(val tip: String) {
 
 /** The open table's engine routes and the async panels' own state (personal UI). */
 internal class EngineTableRoutes(val viewer: String, private val game: () -> EngineGame?, private val sent: () -> Unit,
-    private val shown: () -> TableBoard?) : EngineRoutes {
+    private val shown: () -> TableBoard?, private val acknowledge: () -> Unit = {}) : EngineRoutes {
+    /** TRN-065: the player tapped OK on a final result (the game is back in its lobby). */
+    fun acknowledgeResult() = acknowledge()
     val engine: EngineGame? get() = game()
 
     /** The rewind dialog (hold Undo, or an undo that needs the other player's approval): its chosen target. */
@@ -661,12 +663,15 @@ internal fun EngineAsyncHost(toolkit: TableToolkitController, routes: EngineTabl
     if (!reviewing) when (status) {
         is GameDevice.Status.Playing -> EnginePlayback(routes)
         else -> if (reveal != null) Unit else when (status) {
-        is GameDevice.Status.Over -> AboveHand(handRow(scene, routes.viewer)) {
-            val won = (status.result as? arcanum.engine.setup.GameResult.Won)?.winner
-            val words = when (won) { null -> "Draw"; PlayerId(routes.viewer) -> "You won"; else -> "You lost" }
-            EngineBar(if (status.final) "$words · game over" else if (status.confirmable) words else "$words · waiting for $opponent to catch up", "result line") {
-                if (!status.final) ChoiceButton("OK", Icons.Outlined.Check, enabled = status.confirmable, primary = true) {
-                    game.confirmResult(); routes.pump() }
+        // TRN-065 (owner 2026-11-07): the result in a dialog in the middle of the screen until the player taps OK; the player
+        // whose own action made it final (a concession, an accepted suggestion) has seen it and goes on to the lobby
+        is GameDevice.Status.Over -> if (!(status.final && status.endedBy == PlayerId(routes.viewer))) {
+            val won = (status.result as? arcanum.engine.setup.GameResult.Won)?.winner?.value
+            val causes = shown.engine.players.mapNotNull { p -> p.lossReason?.let { org.asyncttwiz.protocol.lossCause(it) }?.let { p.id.value to it } }.toMap()
+            val text = GameEndText.of(won, status.ending, causes, routes.viewer, names)
+            GameEndDialog(text, if (!status.final && !status.confirmable) "Waiting for $opponent to catch up" else null) {
+                if (status.final) routes.acknowledgeResult() else game.confirmResult()
+                routes.pump()
             }
         }
         GameDevice.Status.Reload -> AboveHand(handRow(scene, routes.viewer)) { EngineBar("Loading the game again…", "loading line") {} }
@@ -705,7 +710,7 @@ internal fun EngineAsyncHost(toolkit: TableToolkitController, routes: EngineTabl
     }
 }
 
-/** The one-line panels docked above the hand (the result line, TRN-065): [text] and [buttons], with the eye at the left
+/** The one-line panels docked above the hand (the loading line): [text] and [buttons], with the eye at the left
  * that hides and shows it like every Automatum panel (STK-044); [what] names it for the eye. */
 @Composable
 private fun EngineBar(text: String, what: String, buttons: @Composable RowScope.() -> Unit) {

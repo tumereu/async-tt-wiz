@@ -1,0 +1,1 @@
+Bob conceded in Alice's first turn: her table shows a dialog in the middle of the screen with "You won" and "Bob conceded" under it, the eye at its bottom left and OK at its right.

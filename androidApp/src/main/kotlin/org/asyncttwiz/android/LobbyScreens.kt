@@ -160,6 +160,7 @@ internal fun WaitingLobby(controller: LobbyController, accountId: String, hambur
     if (state.preparing && state.detail?.lifecycle == GameLifecycle.LOBBY) {
         PreparationScreen(controller, accountId, landscape, hamburger); return
     }
+    Box(Modifier.fillMaxSize()) {
     ScreenBusyOverlay(lobbyBusyMessage(state, "Loading game…")) {
     Column(Modifier.fillMaxSize()) {
         ScreenHeader(state.detail?.gameName ?: "Loading game…", hamburger) {
@@ -189,6 +190,11 @@ internal fun WaitingLobby(controller: LobbyController, accountId: String, hambur
                 val status = if (ownPlayer?.ready == true && game.invitationState == InvitationState.ACCEPTED)
                     "Waiting for ${game.opponent(accountId).username}" else gameStatus(game)
                 Text("$status · Created ${gameDate(game)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                // TRN-065: the next game starts only once both have tapped OK on the last result
+                if (game.resultNotice?.unseen?.contains(game.opponent(accountId).accountId) == true)
+                    Text("${game.opponent(accountId).username} hasn't seen the last game's result yet",
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.testTag("result-unseen"))
                 val own: @Composable (Modifier) -> Unit = { modifier ->
                     OutlinedCard(modifier) { Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         PlayerReadiness(if (game.inviter.accountId == accountId) game.inviter else game.recipient, ownPlayer?.ready == true)
@@ -245,6 +251,7 @@ internal fun WaitingLobby(controller: LobbyController, accountId: String, hambur
         val checking = LocalCardListSupport.current != null && !ownCards.isNullOrEmpty()
         val support = rememberCardListSupport(ownCards)
         val reason = readyReason(state.preparation, accountId)
+            ?: RESULT_FIRST.takeIf { state.detail?.let(controller::resultUnseen) == true }
             ?: AUTOMATUM_DECK_BLOCKED.takeIf { support?.supported == false }
             ?: AUTOMATUM_CHECKING.takeIf { checking && support == null }
         Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
@@ -262,6 +269,13 @@ internal fun WaitingLobby(controller: LobbyController, accountId: String, hambur
         }
         }
         }
+    }
+    // TRN-065 (owner 2026-11-07): a result you haven't tapped OK on shows over the lobby, on every device, until you do
+    state.detail?.takeIf { it.lifecycle == GameLifecycle.LOBBY && controller.resultUnseen(it) }?.let { game ->
+        val notice = game.resultNotice!!
+        val names = mapOf(game.inviter.accountId to game.inviter.username, game.recipient.accountId to game.recipient.username)
+        key(resultKey(game)) { GameEndDialog(GameEndText.of(notice, accountId, names), null, controller::acknowledgeResult) }
+    }
     }
     }
 }

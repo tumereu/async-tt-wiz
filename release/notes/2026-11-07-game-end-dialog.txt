@@ -1,0 +1,1 @@
+mod: When a game ends, each player sees who won and why in the middle of the screen until they tap OK, even if the other player tapped OK first; the next game starts once both have. Accepting a suggested result ends the game at once.

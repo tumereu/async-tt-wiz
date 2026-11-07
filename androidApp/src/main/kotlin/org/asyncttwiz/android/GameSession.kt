@@ -480,12 +480,21 @@ class GameSession(private val connection: GameConnection, private val credential
         latencySubmitted(command, false)
         error = null; flush(); statusChanged(); return true
     }
+    /** TRN-065: the player tapped OK on [game]'s last result. */
+    fun acknowledgeResult(game: GameSummary): Boolean = measureLatency(game, GameAction.AcknowledgeResult) {
+        val current = summary(game)
+        if (current.lifecycle != GameLifecycle.LOBBY || current.resultNotice == null) return false
+        val command = command(current, GameAction.AcknowledgeResult) ?: return false
+        pending[command.requestId] = command
+        latencySubmitted(command, false)
+        error = null; flush(); statusChanged(); return true
+    }
     private fun command(game: GameSummary, action: GameAction): GameCommand? {
         if (action is GameAction.SendChat) { if (!activeRequest(game)) return null }
         else if (!ready(game.id) || credential() != token) return null
         if ((action !is GameAction.SendChat && action !is GameAction.SetAssumeReveals && pending(game.id)) || pending.size >= 256) return null
         val stream = streams.getValue(game.id)
-        val scope = if (action is GameAction.SetAssumeReveals) GameScope(game.id)
+        val scope = if (action is GameAction.SetAssumeReveals || action == GameAction.AcknowledgeResult) GameScope(game.id)
             else if (action == GameAction.DeleteGame || action is GameAction.SendChat) GameScope(game.id, playId = game.playId)
             else GameScope(game.id, game.preparationRound,
                 if (action == GameAction.AcceptInvitation || action == GameAction.DeclineInvitation || action == GameAction.Reinvite) game.invitationId else null)

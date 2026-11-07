@@ -101,6 +101,10 @@ class LobbyService(private val runtime: ServiceRuntime) {
     private fun assumeReveals(game: org.asyncttwiz.server.generated.tables.records.GameRecord) =
         AssumeReveals(library = game.assumeLibraryReveals != false, hands = game.assumeHandReveals == true)
 
+    /** TRN-065: [game]'s last match result while a player still has to tap OK on it. */
+    private fun resultNotice(game: org.asyncttwiz.server.generated.tables.records.GameRecord) =
+        game.resultNotice?.let { json.decodeFromString<org.asyncttwiz.protocol.ResultNotice>(it) }
+
     /** [viewer]: whose list it is; a play whose state is the engine's says whose move it is per viewer (I-D56 §7). */
     private fun summary(sql: DSLContext, game: org.asyncttwiz.server.generated.tables.records.GameRecord, viewer: UUID? = null): GameSummary {
         if (game.lifecycle != "ACTIVE") return summary(sql, game, null as String?)
@@ -140,7 +144,8 @@ class LobbyService(private val runtime: ServiceRuntime) {
             game.currentInvitation.toString(), InvitationState.valueOf(identities.value1()!!), GameLifecycle.valueOf(game.lifecycle!!),
             game.revision.toString(), game.currentPlay?.toString(),
             holder,
-            activity ?: game.updatedAt!!.toInstant().toString(), game.podId?.toString(), game.podName, game.podInvitationHeld == true, assumeReveals(game))
+            activity ?: game.updatedAt!!.toInstant().toString(), game.podId?.toString(), game.podName, game.podInvitationHeld == true, assumeReveals(game),
+            resultNotice(game))
     }
 
     /**
@@ -232,7 +237,8 @@ class LobbyService(private val runtime: ServiceRuntime) {
                 game.currentInvitation.toString(), InvitationState.valueOf(row.value2()!!), GameLifecycle.valueOf(game.lifecycle!!),
                 game.revision.toString(), game.currentPlay?.toString(),
                 holder,
-                activity ?: game.updatedAt!!.toInstant().toString(), game.podId?.toString(), game.podName, game.podInvitationHeld == true, assumeReveals(game))
+                activity ?: game.updatedAt!!.toInstant().toString(), game.podId?.toString(), game.podName, game.podInvitationHeld == true, assumeReveals(game),
+            resultNotice(game))
         } }
     }
 

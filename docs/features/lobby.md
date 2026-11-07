@@ -64,7 +64,7 @@ Everything outside the game table: accounts, profile, navigation, game list, gam
 - **LOB-042** The opponent's deck shows as "Deck" with a placeholder picture, unless they chose to show it; your own pod deck's private name is visible only to you. (r30)
 - **LOB-043** Your card has a "Show deck name & art" switch for this game, starting from the Deck visibility setting (LOB-079). Pressing it at all makes it your own choice for that game that nothing overrides; picking another deck resets it. (r34)
 - **LOB-044** With "Show after first game", your deck is shown to an opponent once you finish a game with that deck against them, also in the rematch and in other lobbies already waiting with that deck; games in play are not changed. (r34)
-- **LOB-046** After an accepted game result both players return to the same lobby with their last prepared decks restored and both Ready cleared. (r1)
+- **LOB-046** When a game's result is final the game returns to the same lobby with both players' last prepared decks restored and both Ready cleared; each player gets there with their OK on the result dialog (TRN-065), and the next game starts only once both have tapped it. (r1)
 
 ### Deck preparation for a game
 

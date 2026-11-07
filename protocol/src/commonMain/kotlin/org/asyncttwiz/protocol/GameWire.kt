@@ -45,6 +45,9 @@ const val GAME_PROTOCOL_MINOR = 10
     /** LOB-135: the game's assume reveal settings; only its host (the inviter) changes them, before and during the game.
      * Scoped to the game alone (no preparation, invitation or play). */
     @Serializable @SerialName("setAssumeReveals") data class SetAssumeReveals(val reveals: AssumeReveals) : GameAction
+    /** TRN-065 (owner 2026-11-07): the actor tapped OK on the last match's result ([GameSummary.resultNotice]); the next
+     * game starts only once both players have. Scoped to the game alone. */
+    @Serializable @SerialName("acknowledgeResult") data object AcknowledgeResult : GameAction
     @Serializable @SerialName("acceptInvitation") data object AcceptInvitation : GameAction
     @Serializable @SerialName("declineInvitation") data object DeclineInvitation : GameAction
     @Serializable @SerialName("reinvite") data object Reinvite : GameAction
@@ -239,7 +242,7 @@ object GameWire {
             require(DeckValidation.uuid(submission.id) && DeckValidation.uuid(submission.parentId))
             require(submission.acts.size <= MAX_SUBMITTED && submission.table.size <= MAX_SUBMITTED)
             require(submission.acts.isNotEmpty() || submission.table.isNotEmpty())
-        } else if (command.action is GameAction.SetAssumeReveals) {
+        } else if (command.action is GameAction.SetAssumeReveals || command.action == GameAction.AcknowledgeResult) {
             require(command.scope.playId == null && command.scope.preparationId == null && command.scope.invitationId == null)
         } else if (command.action.isEngine) {
             require(command.scope.playId != null && command.scope.preparationId == null && command.scope.invitationId == null)

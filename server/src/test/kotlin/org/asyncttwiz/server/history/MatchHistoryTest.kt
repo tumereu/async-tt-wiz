@@ -78,8 +78,8 @@ class MatchHistoryTest {
         assertEquals("Alice Red", w.records(a).single().player(a.account.accountId)!!.deck!!.name)
     }
 
-    // LOB-126 (game history §1.2; TRN-046, TRN-047): Alice suggests her win with a reason, Bob accepts, Alice confirms once she saw
-    // it: an agreed result, its reason kept
+    // LOB-126 (game history §1.2; TRN-046, TRN-047, TRN-065): Alice suggests her win with a reason, Bob accepts, which ends the
+    // match at once: an agreed result, its reason kept
     @Test fun `an agreed match keeps the suggestion's reason`() = HistoryWorld.run { w ->
         val a = w.account("AgreeAlice"); val b = w.account("AgreeBob")
         val m = w.Match(a, b, "Agreed Spark")
@@ -94,8 +94,6 @@ class MatchHistoryTest {
         m.alice.accepted(GameAction.Submit(device(a).act(id(), null, listOf(TableChange.Suggestion(null, suggestion)))))
         val accept = device(b).act(id(), Input.AgreedResult(EngineResult.Won(alice)), listOf(TableChange.Suggestion(suggestion, null)))
         m.bob.accepted(GameAction.Submit(accept))
-        m.alice.accepted(GameAction.EngineSeen(accept.id))
-        m.alice.accepted(GameAction.Submit(device(a).act(id(), null, listOf(TableChange.ResultConfirmed(null, alice)))))
         assertEquals(GameLifecycle.LOBBY, m.summary().lifecycle)
         val record = w.records(b).single()
         assertEquals(MatchEnding.Agreed("Infinite combo"), record.ending)

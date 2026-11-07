@@ -257,6 +257,14 @@ internal fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: 
                               size(cardWidth + 2 * spread, cardHeight + 2 * spread), CornerRadius((2 + spread) * density))
                       }
                       scale(i.flipScale, 1f, xy(b.center.x, b.center.y)) { cardFace(i, x, y, color, i.value) }
+                      // CMB-047 (owner playtest 2026-11-07): a stack's staged member, at its right end: a wash and an edge in
+                      // the attackers' red-orange or the blocks' arrow colour
+                      i.staged?.let { role ->
+                          val tint = if (role == CombatRole.ATTACKER) AttackOrange else ArrowColor
+                          drawRoundRect(tint.copy(alpha = .3f), xy(x, y), size(cardWidth, cardHeight), CornerRadius(2 * density))
+                          drawRoundRect(tint, xy(x - 1f, y - 1f), size(cardWidth + 2f, cardHeight + 2f), CornerRadius(3 * density),
+                              style = Stroke(2f * density))
+                      }
                       if (i.copies > 1) {
                           val label = "×${i.copies}"
                           // TBL-053: a battlefield stack's count badge is sized with its card (a panel's keeps its size)

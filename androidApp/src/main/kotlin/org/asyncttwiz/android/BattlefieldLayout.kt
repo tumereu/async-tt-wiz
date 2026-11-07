@@ -1,5 +1,6 @@
 package org.asyncttwiz.android
 
+import org.asyncttwiz.protocol.CombatRole
 import org.asyncttwiz.protocol.TypedCounter
 
 /** Which part of a battlefield a permanent lies in (TBL-004): every land in the land row by the player's own edge; the
@@ -51,16 +52,18 @@ data class StackIdentity(val definition: String, val faceId: String, val token: 
     val untilEndOfTurn: Boolean, val entered: Boolean)
 
 /** One battlefield card as the layout reads it: [identity] null when it never stacks (face down, in combat, attached to
- * another card); [attachedTo] the card it lies behind (an Aura, Equipment or a merged mutate creature's other card). */
+ * another card); [attachedTo] the card it lies behind (an Aura, Equipment or a merged mutate creature's other card);
+ * [staged] its role while it is staged as an attacker or placed as a blocker being declared (CMB-028, CMB-034). */
 data class BattlefieldCard(val id: String, val field: String, val row: BattlefieldRow, val identity: StackIdentity?,
-    val attachedTo: String? = null, val tapped: Boolean = false)
+    val attachedTo: String? = null, val tapped: Boolean = false, val staged: CombatRole? = null)
 
 /**
  * A group on a battlefield (TBL-053): a stack of identical permanents, a permanent with the cards attached to it, or one
- * card alone. [members] in arrival order, a host first and then what is attached to it.
+ * card alone. [members] in arrival order, a host first and then what is attached to it; [staged] the members staged as
+ * attackers or placed as blockers while those are declared (they stay in their stack then, CMB-047).
  */
 data class BattlefieldGroup(val key: String, val field: String, val row: BattlefieldRow, val members: List<String>,
-    val kind: Kind) {
+    val kind: Kind, val staged: Map<String, CombatRole> = emptyMap()) {
     sealed interface Kind {
         data object Single : Kind
         /** Identical permanents: lands fan out, others lie tight with a ×N badge. */
@@ -81,10 +84,12 @@ data class BattlefieldGroup(val key: String, val field: String, val row: Battlef
 }
 
 /** Where a battlefield card lies: [x] dp (at card size 1) from the left end of its battlefield's rows, [row] the row
- * counted from the player's own edge ([BattlefieldRow.LAND_ROW], [BattlefieldRow.BAND_BACK], [BattlefieldRow.BAND_FRONT]), [lift] how many peek steps above its host an attached card lies, [order] its
- * drawing order on the battlefield (later on top), [copies] the ×N badge it carries (0: none). */
+ * counted from the player's own edge ([BattlefieldRow.LAND_ROW], [BattlefieldRow.BAND_BACK], [BattlefieldRow.BAND_FRONT]),
+ * [lift] how many peek steps above its host an attached card lies, [order] its drawing order on the battlefield (later on
+ * top), [copies] the ×N badge it carries (0: none), [staged] its role when it is a stack's staged member drawn at the
+ * stack's right end (CMB-047). */
 data class BattlefieldSpot(val x: Float, val row: Int, val lift: Int = 0, val order: Int = 0, val copies: Int = 0,
-    val group: String = "", val lifts: Int = 0)
+    val group: String = "", val lifts: Int = 0, val staged: CombatRole? = null)
 
 /** TBL-002, TBL-004, TBL-053: the automatic battlefield layout (MTG Arena style): rows, stacks and attachments. */
 object BattlefieldLayout {
@@ -131,26 +136,30 @@ object BattlefieldLayout {
             val at = key?.let(stacks::get)
             if (at != null) {
                 val stack = groups[at]
-                groups[at] = stack.copy(members = stack.members + card.id, kind = BattlefieldGroup.Kind.Stack)
+                groups[at] = stack.copy(members = stack.members + card.id, kind = BattlefieldGroup.Kind.Stack,
+                    staged = card.staged?.let { stack.staged + (card.id to it) } ?: stack.staged)
             } else {
                 if (key != null) stacks[key] = groups.size
-                groups += BattlefieldGroup("card:${card.id}", card.field, card.row, listOf(card.id), BattlefieldGroup.Kind.Single)
+                groups += BattlefieldGroup("card:${card.id}", card.field, card.row, listOf(card.id), BattlefieldGroup.Kind.Single,
+                    card.staged?.let { mapOf(card.id to it) }.orEmpty())
             }
         }
         // A stack is known by its first card, whichever joins or leaves later
         return groups.map { if (it.kind == BattlefieldGroup.Kind.Stack) it.copy(key = "stack:${it.members.first()}") else it }
     }
 
-    /** The width [group] takes in its row, [expanded] or not. */
+    /** The width [group] takes in its row, [expanded] or not: a stack with staged members a slot more for each (CMB-047). */
     fun width(group: BattlefieldGroup, expanded: Boolean): Float {
         val n = group.members.size
         return when {
             expanded && n > 1 -> n * SLOT
-            group.kind == BattlefieldGroup.Kind.Stack && group.row == BattlefieldRow.Lands -> SLOT + (n - 1) * FAN
-            group.kind == BattlefieldGroup.Kind.Stack -> SLOT + minOf(n - 1, TIGHT_SHOWN) * TIGHT
+            group.kind == BattlefieldGroup.Kind.Stack && group.row == BattlefieldRow.Lands -> SLOT + (n - 1) * FAN + stagedWidth(group)
+            group.kind == BattlefieldGroup.Kind.Stack -> SLOT + minOf(n - 1, TIGHT_SHOWN) * TIGHT + stagedWidth(group)
             else -> SLOT
         }
     }
+
+    private fun stagedWidth(group: BattlefieldGroup) = group.staged.size * SLOT
 
     /** TBL-004: the small margin always kept between the upper band's creatures and its other permanents. */
     const val MARGIN = SLOT / 2
@@ -173,19 +182,27 @@ object BattlefieldLayout {
             // Behind first: attached cards (the highest peek first), then the host; a stack from its first arrival up
             val drawn = if (!open && group.kind == BattlefieldGroup.Kind.Attached) group.members.drop(1).reversed() + group.members.first()
                 else group.members
+            // CMB-047 (owner playtest 2026-11-07): while attackers or blockers are declared a stack's staged members lie at its
+            // right end, side by side in the order they are taken (the topmost first); the others stay where they were
+            val staged = if (open || group.kind != BattlefieldGroup.Kind.Stack) emptyList()
+                else group.members.asReversed().filter { it in group.staged }
+            val unstaged = group.members.filter { it !in staged }
+            val stackWidth = width(group, false) - stagedWidth(group)
             for (id in drawn) {
                 val i = group.members.indexOf(id)
                 val x = when {
                     open -> i * SLOT
+                    id in staged -> stackWidth + staged.indexOf(id) * SLOT
                     group.kind == BattlefieldGroup.Kind.Stack && group.row == BattlefieldRow.Lands -> i * FAN
                     group.kind == BattlefieldGroup.Kind.Stack -> minOf(i, TIGHT_SHOWN) * TIGHT
                     else -> 0f
                 }
                 val lift = if (open || group.kind != BattlefieldGroup.Kind.Attached) 0 else i
-                // The tight stack's ×N on its top card
+                // The tight stack's ×N on its top card (of those not staged)
                 val copies = if (!open && group.kind == BattlefieldGroup.Kind.Stack && group.row != BattlefieldRow.Lands &&
-                    id == group.top) group.members.size else 0
-                spots[id] = BattlefieldSpot(left + x, row, lift, order++, copies, group.key, lifts)
+                    id == unstaged.lastOrNull() && unstaged.size > 1) unstaged.size else 0
+                spots[id] = BattlefieldSpot(left + x, row, lift, order++, copies, group.key, lifts,
+                    if (id in staged) group.staged[id] else null)
             }
         }
         fun width(group: BattlefieldGroup) = width(group, group.key == expanded)
@@ -223,7 +240,9 @@ object BattlefieldLayout {
      * Every battlefield card of [board] as the layout reads it, each battlefield's in arrival order (its container's,
      * timestamp order): its row by the type line it has now ([computed]'s when an effect changed it, else its face's),
      * what it is attached to (a card on a battlefield) and its [StackIdentity]. A face-down card never stacks (two backs
-     * lying together would tell the other player they are the same card), nor one in combat or attached to another.
+     * lying together would tell the other player they are the same card), nor one in combat or attached to another; but
+     * while attackers or blockers are declared (nobody holds priority) a staged attacker or placed blocker stays in its
+     * stack, marked [BattlefieldCard.staged] (CMB-047, owner playtest 2026-11-07).
      */
     fun cards(board: org.asyncttwiz.protocol.BoardState, definitions: Map<String, org.asyncttwiz.protocol.CardDefinition>,
         computed: org.asyncttwiz.automatum.ComputedBoard): List<BattlefieldCard> {
@@ -231,16 +250,30 @@ object BattlefieldLayout {
         val fields = board.containers.filter { it.zone == org.asyncttwiz.protocol.PlayZone.BATTLEFIELD }
         val onField = fields.flatMapTo(HashSet()) { it.cards }
         val inCombat = org.asyncttwiz.protocol.CombatStackRules.occurrences(board.combat).mapTo(HashSet()) { it.sourceId }
+        val staged = staged(board)
         return fields.flatMap { field -> field.cards.mapNotNull { id -> byId[id]?.let { card ->
             val face = definitions[card.definition]?.faces?.firstOrNull { it.faceId == card.faceId }
             val auto = computed.cards[card.id]
             val hidden = card.isFaceDown
             val host = (card.attachedTo as? org.asyncttwiz.protocol.MtgRef.Card)?.cardId?.takeIf { it in onField && it != card.id }
-            val identity = if (hidden || host != null || card.id in inCombat) null else StackIdentity(card.definition, card.faceId,
+            val identity = if (hidden || host != null || card.id in inCombat && card.id !in staged) null else StackIdentity(card.definition, card.faceId,
                 card.token, card.owner, card.typedCounters, card.damage, auto?.corner ?: card.corner, auto?.marks.orEmpty(),
                 auto?.untilEndOfTurn == true, org.asyncttwiz.protocol.EnteredTurn.marked(board, card))
-            BattlefieldCard(card.id, field.id, BattlefieldRow.of(auto?.typeLine ?: face?.typeLine, hidden), identity, host, card.tapped)
+            BattlefieldCard(card.id, field.id, BattlefieldRow.of(auto?.typeLine ?: face?.typeLine, hidden), identity, host, card.tapped,
+                staged[card.id])
         } } }
+    }
+
+    /** CMB-047: the cards of [board] staged as attackers (in the declare attackers step) or placed as blockers (in the declare
+     * blockers step) while they are declared (nobody holds priority), by card. */
+    fun staged(board: org.asyncttwiz.protocol.BoardState): Map<String, CombatRole> {
+        if (board.priority?.holder != null) return emptyMap()
+        val role = when (org.asyncttwiz.protocol.TurnPosition.of(board.turn)) {
+            org.asyncttwiz.protocol.TurnPosition.DECLARE_ATTACKERS -> CombatRole.ATTACKER
+            org.asyncttwiz.protocol.TurnPosition.DECLARE_BLOCKERS -> CombatRole.BLOCKER
+            else -> return emptyMap()
+        }
+        return board.combat?.pairs.orEmpty().flatMap { it.side(role) }.associate { it.sourceId to role }
     }
 }
 

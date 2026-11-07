@@ -158,7 +158,10 @@ data class TableItem(
     /** TBL-053: a battlefield card's group ([BattlefieldGroup.key]); null off the battlefield. */
     val group: String? = null,
     /** ZON-092: a pile holding a card with counters (a suspended card in exile), marked on the pile. */
-    val countersInside: Boolean = false
+    val countersInside: Boolean = false,
+    /** CMB-047: a stack's member staged as an attacker or placed as a blocker while they are declared, drawn at its stack's
+     * right end with the staged look; null otherwise. */
+    val staged: CombatRole? = null
 ) {
     /** The card title's colour on the table: blue while it entered this turn, else the default text colour. */
     val titleColor: Int get() = if (enteredThisTurn) EnteredThisTurnTitleColor else android.graphics.Color.DKGRAY
@@ -545,7 +548,7 @@ object TablePresentation {
                 val lift = (spot.lifts / 2f - spot.lift) * BattlefieldLayout.PEEK * fieldScale
                 val b = battlefieldCardBounds(footprint, if (c.tapped) ch else cw, if (c.tapped) cw else ch, lift)
                 card(c, b, footprint, player.accountId, PlayZone.BATTLEFIELD, battlefield.id)
-                items[items.lastIndex] = items.last().copy(group = spot.group, copies = maxOf(1, spot.copies),
+                items[items.lastIndex] = items.last().copy(group = spot.group, copies = maxOf(1, spot.copies), staged = spot.staged,
                     label = if (spot.copies > 1) items.last().label + ", stack of ${spot.copies}" else items.last().label)
             }
             port(battlefield.id, field.bounds, (logicalRight + 32f) * fieldScale)

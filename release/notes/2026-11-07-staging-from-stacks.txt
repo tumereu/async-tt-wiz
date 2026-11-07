@@ -1,0 +1,1 @@
+add: While declaring attackers or blockers, tap a stack of identical creatures again and again to send one after another; the chosen ones move to the stack's right end and the rest stay put.

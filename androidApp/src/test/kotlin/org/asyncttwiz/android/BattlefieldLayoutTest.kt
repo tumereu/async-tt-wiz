@@ -202,6 +202,46 @@ class BattlefieldLayoutTest {
         assertEquals(setOf("h3"), noTaps.picked)
     }
 
+    // CMB-047, TBL-053 (owner playtest 2026-11-07): while attackers or blockers are declared a stack's staged members lie at
+    // its right end, side by side in the order they were taken (the topmost first), the others where they were, the ×N
+    // counting those left; the stack's column widens, so the next column moves along
+    @Test fun stagedMembersLieAtTheStacksRightEnd() {
+        val attacker = CombatRole.ATTACKER
+        val cubs = BattlefieldGroup("stack:c1", "a", BattlefieldRow.Creatures, listOf("c1", "c2", "c3", "c4"), BattlefieldGroup.Kind.Stack,
+            staged = mapOf("c4" to attacker, "c3" to attacker))
+        val imp = BattlefieldGroup("card:imp", "a", BattlefieldRow.Creatures, listOf("imp"), BattlefieldGroup.Kind.Single)
+        val bear = BattlefieldGroup("card:bear", "a", BattlefieldRow.Creatures, listOf("bear"), BattlefieldGroup.Kind.Single)
+        val spots = BattlefieldLayout.place(listOf(cubs, imp, bear), 400f)
+        val slot = BattlefieldLayout.SLOT
+        val stack = slot + 2 * BattlefieldLayout.TIGHT
+        assertEquals(listOf(0f, BattlefieldLayout.TIGHT, stack, stack + slot), listOf("c1", "c2", "c4", "c3").map { spots.getValue(it).x })
+        assertEquals(listOf(null, null, attacker, attacker), listOf("c1", "c2", "c4", "c3").map { spots.getValue(it).staged })
+        assertEquals(2, spots.getValue("c2").copies, "×2 on the top one left")
+        assertEquals(0, spots.getValue("c4").copies)
+        assertEquals(stack + 2 * slot, spots.getValue("bear").x, "the next column after the staged Cubs")
+        assertEquals(stack + 2 * slot, BattlefieldLayout.width(cubs, false))
+    }
+
+    // CMB-047, TBL-053: read from a board while attackers are declared (nobody holds priority): a staged attacker stays in
+    // its stack, marked staged; once declared (priority held) a card in combat never stacks
+    @Test fun aStagedAttackerStaysInItsStackWhileDeclared() {
+        val cub = CardDefinition("Cub", listOf(DefinitionFace("cub", "Cub", typeLine = "Creature — Cat")))
+        val field = PlayContainer("a/BATTLEFIELD", PlayZone.BATTLEFIELD, "a", listOf("c1", "c2", "c3"))
+        val cards = listOf("c1", "c2", "c3").map { PlayCard(it, "cub", "a", field.id, "cub", covered = false) }
+        val declaring = BoardState(players = emptyList(), cards = cards, containers = listOf(field),
+            turn = TurnState("a", "5", TurnPosition.DECLARE_ATTACKERS.phase, TurnPosition.DECLARE_ATTACKERS.step),
+            combat = CombatArea("combat", listOf(CombatPair("p", attackers = listOf(CombatOccurrence("o", "c3"))))),
+            priority = MtgPriority(null))
+        val read = BattlefieldLayout.cards(declaring, mapOf("cub" to cub), org.asyncttwiz.automatum.ComputedBoard.NONE)
+        assertEquals(listOf(null, null, CombatRole.ATTACKER), read.map { it.staged })
+        val group = BattlefieldLayout.groups(read).single()
+        assertEquals(listOf("c1", "c2", "c3"), group.members)
+        assertEquals(mapOf("c3" to CombatRole.ATTACKER), group.staged)
+        val declared = BattlefieldLayout.cards(declaring.copy(priority = MtgPriority("a")), mapOf("cub" to cub),
+            org.asyncttwiz.automatum.ComputedBoard.NONE)
+        assertEquals(listOf(listOf("c1", "c2"), listOf("c3")), BattlefieldLayout.groups(declared).map { it.members })
+    }
+
     // TBL-004, TBL-053: read from a board: the type line it has now, a face-down card alone in the creature row, an aura
     // with its host, and the same state stacking
     @Test fun cardsAreReadFromTheBoard() {

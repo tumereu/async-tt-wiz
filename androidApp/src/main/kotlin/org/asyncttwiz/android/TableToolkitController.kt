@@ -179,8 +179,12 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
         if (!combat.working(shown)) {
             val choices = shown.choices
             val declaring = choices.declaring
-            if (declaring != null && enabled() && controllerOf(play, cardId) == declaring)
+            if (declaring != null && enabled() && controllerOf(play, cardId) == declaring) {
+                // CMB-047 (owner playtest 2026-11-07): a staged attacker or placed blocker isn't taken again, so a tap on
+                // its stack takes the next one
+                if (cardId in BattlefieldLayout.staged(play.board)) return false
                 return if (choices.attackers) cardId in choices.attacks else cardId in choices.blocks
+            }
         }
         return !activatable(play, cardId).isNullOrEmpty()
     }

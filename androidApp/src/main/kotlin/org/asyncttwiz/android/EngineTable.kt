@@ -219,6 +219,8 @@ internal class EngineTableRoutes(val viewer: String, private val game: () -> Eng
         }
     }
     override fun pass(): Boolean = done(game()?.pass())
+    /** TRN-017, STK-029: holding Resolve, the Resolve chain. */
+    fun holdResolve(): Boolean = done(game()?.holdResolve())
     override fun endTurn(): Boolean { val g = game() ?: return false; g.endTurn(); sent(); return true }
     override fun mulligan(): Boolean = done(game()?.mulligan())
     override fun keep(bottom: List<String>): Boolean = done(game()?.keep(bottom))
@@ -348,10 +350,11 @@ internal class EngineTableRoutes(val viewer: String, private val game: () -> Eng
     var opponentName: String = "The other player"
 
     /** A wait's own control on the main button (TRN-066, TRN-070): an Assume button, or Cancel for the viewer's own
-     * undo request; holding it says [tooltip]. [refusal]: greyed (TRN-071: assuming would show hidden information), a tap
+     * undo request; holding it does [hold] (named [holdName], TRN-017: a Stack wait's Assume is the Resolve chain, another
+     * Assume its tap), else says [tooltip]. [refusal]: greyed (TRN-071: assuming would show hidden information), a tap
      * shakes it and holding it says why. */
     class WaitAction(val label: String, val icon: androidx.compose.ui.graphics.vector.ImageVector, val tooltip: String? = null,
-        val refusal: String? = null, val run: () -> Unit)
+        val refusal: String? = null, val hold: (() -> Unit)? = null, val holdName: String? = null, val run: () -> Unit)
 
     /** The control the main button shows while the other player must act, or null for none: "Assume resolves" with
      * something on the Stack (STK-028), else "Assume no response" (TRN-070, owner playtest 2026-11-05 evening); while their
@@ -362,19 +365,23 @@ internal class EngineTableRoutes(val viewer: String, private val game: () -> Eng
         val status = shown.status as? GameDevice.Status.Waiting ?: return null
         val name = opponentName
         return when (status.offer) {
+            // TRN-017 (owner 2026-11-07): holding a Stack wait's Assume is the Resolve chain; holding any other Assume, its tap
             GameDevice.Offer.AssumeResolves -> if (shown.engine.stack.isNotEmpty())
                 WaitAction("Assume resolves", Icons.Outlined.DoneAll,
-                    "Assume $name lets it resolve and go on; if they respond when they come back, the game goes back there") { g.assume(); pump() }
+                    "Assume $name lets it resolve and go on; if they respond when they come back, the game goes back there",
+                    hold = { g.holdAssume(); pump() }, holdName = RESOLVE_CHAIN) { g.assume(); pump() }
                 else WaitAction("Assume no response", Icons.Outlined.DoneAll,
-                    "Assume $name lets the game go on; if they act here when they come back, the game goes back there") { g.assume(); pump() }
+                    "Assume $name lets the game go on; if they act here when they come back, the game goes back there",
+                    hold = { g.assume(); pump() }, holdName = "Assume no response") { g.assume(); pump() }
             // CMB-040 (owner, 2026-11-05): the blocks placed on the lanes, assumed only by this button
             GameDevice.Offer.AssumeBlockers -> assuming()?.let { placed ->
                 if (placed.blocks.isEmpty()) WaitAction("Assume no blockers", Icons.Outlined.RemoveModerator,
                     "Assume $name doesn't block and go on; if they block when they come back, the game goes back there. " +
-                        "Tap or drag their creatures onto your attackers to assume blocks instead.") { assumeBlocks(g, placed) }
+                        "Tap or drag their creatures onto your attackers to assume blocks instead.",
+                    hold = { assumeBlocks(g, placed) }, holdName = "Assume no blockers") { assumeBlocks(g, placed) }
                 else WaitAction("Assume blockers", Icons.Outlined.Shield,
-                    "Assume $name blocks as placed on the lanes and go on; if they block differently when they come back, the game goes back there") {
-                    assumeBlocks(g, placed) }
+                    "Assume $name blocks as placed on the lanes and go on; if they block differently when they come back, the game goes back there",
+                    hold = { assumeBlocks(g, placed) }, holdName = "Assume blockers") { assumeBlocks(g, placed) }
             }
             null -> when {
                 status.reason == GameDevice.Wait.Request && shown.request?.by == viewer ->
@@ -422,6 +429,8 @@ internal fun EngineWaitArrow(action: EngineTableRoutes.WaitAction, modifier: Mod
         .testTag("engine-wait-action").semantics { if (refused) disabled() },
         fill = Color.White, ink = if (refused) AutomatumStepInk.copy(alpha = .38f) else AutomatumViolet, compactContent = true,
         gestureKey = action.label to action.refusal, tooltip = action.refusal ?: action.tooltip,
+        // TRN-017: a greyed one only says why
+        holdName = action.holdName.takeIf { !refused && action.hold != null }, onHold = action.hold.takeIf { !refused },
         icon = { MainButtonContent(icon = { Icon(action.icon, null, Modifier.size(20.dp), tint = LocalContentColor.current) },
             label = action.label) }, onClick = { if (refused) shakes++ else action.run() })
 }

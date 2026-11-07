@@ -720,12 +720,41 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
         val pass = Input.PassPriority(PlayerId(me))
         // SYS-077: tapped as the other player's device assumed this very pass (right after their attack, HIS-096); HIS-109
         // (owner problem report E48RDE): or as the player's own device passed there by itself (the same press)
+        // TRN-017: a tap is the player's own action: it ends a Resolve chain going on, also when it is that very press
         GameDevice.Acted.Confirmed.takeIf { device.assumedAlready(seen.tip, listOf(pass)) || device.pressedByItself(seen.tip, pass) }
+            ?.also { device.endChain("own press") }
     }) { performed ->
         val holder = device.model.engine.priority.holder ?: return@early GameDevice.Acted.Refused("noPriority")
         if (arcanum.engine.Engine.decider(device.model.engine, holder).value != me) return@early GameDevice.Acted.Refused("notYours")
         device.act(Input.PassPriority(holder), performed = performed)
     }
+
+    /**
+     * TRN-017, STK-029, TRN-070 (owner 2026-11-07): holding Resolve ([pass]) or a Stack wait's Assume ([assume]) is the
+     * whole chain: [press] as its tap, then, unless the other player's real input arrived meanwhile, the Resolve chain
+     * ([GameDevice.startChain]): the device presses Resolve at each of the player's priority points and Assume at each of
+     * the other player's until the Stack is empty, a decision of theirs, a reveal stop, a greyed Assume, their own action
+     * or the other player's real input (which it never presses over). What the press did.
+     */
+    private fun chain(press: () -> GameDevice.Acted): GameDevice.Acted {
+        val since = worker.call { device.opponentInputs }
+        val acted = press()
+        if (acted is GameDevice.Acted.Refused) return acted
+        worker.run {
+            if (!device.startChain(since)) return@run
+            val tip = device.session.tip
+            device.advance(now)
+            val drained = device.notes()
+            if (device.session.tip != tip || drained.isNotEmpty()) publish(drained)
+        }
+        return acted
+    }
+
+    /** Holding Resolve (STK-029): the Resolve chain ([chain]). */
+    fun holdResolve(): GameDevice.Acted = chain(::pass)
+
+    /** Holding a Stack wait's Assume, "Assume resolves" (TRN-070): the Resolve chain ([chain]). */
+    fun holdAssume(): GameDevice.Acted = chain { assume() }
 
     // ---- The server
 
@@ -884,7 +913,10 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
 
     /** The waiting bar's Assume button (§4): the opponent's pass, or [blocks] (the Assume blockers screen's). */
     fun assume(blocks: List<Block> = emptyList()): GameDevice.Acted =
-        acting(STALE, "assume", done = { seen -> GameDevice.Acted.Confirmed.takeIf { answeredAsAssumed(seen, blocks) } }) { device.assume(blocks) }
+        acting(STALE, "assume", done = { seen ->
+            // TRN-017: a tap is the player's own action: it ends a Resolve chain going on, also when it is that very press
+            GameDevice.Acted.Confirmed.takeIf { answeredAsAssumed(seen, blocks) }?.also { device.endChain("own press") }
+        }) { device.assume(blocks) }
 
     /**
      * SYS-012 (analysis 2026-11-05): whether the other player's own answer on the line right after the board [seen] (where

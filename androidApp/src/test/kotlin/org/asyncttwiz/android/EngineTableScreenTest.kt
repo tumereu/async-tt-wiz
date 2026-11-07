@@ -9,6 +9,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
 import arcanum.api.TurnStep
@@ -179,6 +180,28 @@ class EngineTableScreenTest {
         compose.onNodeWithText("Hold").assertDoesNotExist()
         assertEquals(AutomatumStep.Resolve, AutomatumStep.of(kit.alice.play()))
         compose.onNodeWithTag("main-button").performClick()
+        compose.waitForIdle()
+        kit.playOn("the Spark resolving") { kit.state().stack.isEmpty() }
+        assertTrue(kit.scenario.cards(kit.state(), kit.other, kit.state().player(kit.other).graveyard, "Storm Spark").isNotEmpty(), "it resolved")
+    }
+
+    // TRN-017, STK-029 (owner 2026-11-07): holding Resolve is the Resolve chain (the main button's hold names it), never
+    // End turn; holding it resolves the Stack
+    @Test fun holdingResolveIsTheResolveChain() {
+        kit.opening()
+        kit.playLand()
+        kit.bobCastsSpark()
+        kit.scenario.confirmStops[f.a] = false
+        assertTrue(toolkit.automatumStep(TableActionIntent.End(kit.scope)), "End turn")
+        kit.playOn("Alice with Bob's Storm Spark on the Stack") {
+            kit.state().stack.isNotEmpty() && kit.state().priority.holder == kit.me && kit.routes.arrowShown()
+        }
+        render()
+        val button = compose.onNodeWithTag("main-button")
+        button.assert(hasContentDescription("Resolve"))
+        val holds = button.fetchSemanticsNode().config.getOrNull(androidx.compose.ui.semantics.SemanticsActions.CustomActions).orEmpty()
+        assertEquals(listOf(RESOLVE_CHAIN), holds.map { it.label })
+        compose.runOnIdle { holds.single().action() }
         compose.waitForIdle()
         kit.playOn("the Spark resolving") { kit.state().stack.isEmpty() }
         assertTrue(kit.scenario.cards(kit.state(), kit.other, kit.state().player(kit.other).graveyard, "Storm Spark").isNotEmpty(), "it resolved")

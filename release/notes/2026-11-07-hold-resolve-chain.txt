@@ -1,0 +1,1 @@
+add: Hold Resolve, or Assume resolves while the other player may respond, to resolve the whole Stack in one go; it stops as soon as the other player really responds.

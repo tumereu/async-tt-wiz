@@ -135,7 +135,7 @@ fun QuickActionStrip(play: TableBoard, context: QuickContext, controller: TableA
             // TRN-066, TRN-070: while the other player must act, its place holds the wait's Assume (or Cancel); TRN-068: the
             // unconfirmed mark sits at its corner without moving anything
             val wait = if (arrow) null else engine?.waitAction()?.let { w ->
-                if (context.revealOpen) EngineTableRoutes.WaitAction(w.label, w.icon, w.tooltip, REVEAL_BUSY, w.run) else w }
+                if (context.revealOpen) EngineTableRoutes.WaitAction(w.label, w.icon, w.tooltip, REVEAL_BUSY, run = w.run) else w }
             val unconfirmed = engine?.engine?.shown?.indicator != null
             val main = context.mainAction.takeIf { arrow }?.let { m ->
                 if (context.revealOpen) MainAction(m.label, m.icon, REVEAL_BUSY, m.tooltip, m.run) else m }
@@ -148,12 +148,15 @@ fun QuickActionStrip(play: TableBoard, context: QuickContext, controller: TableA
             Box(Modifier.width(MainButtonWidth)) {
                 if (arrow) AutomatumStepArrow(play, controller.enabled(scope), Modifier.fillMaxWidth(),
                     onHold = { own { perform(TableActionIntent.End(scope)) } },
+                    // TRN-017, STK-029 (owner 2026-11-07): holding Resolve is the Resolve chain
+                    onResolveHold = engine?.let { routes -> { own { routes.holdResolve() } } },
                     blocked = stepBlocked(play, context.castOpen, context.automatumCombat, context.revealOpen),
                     resolveTip = "Resolve: pass, so the top of the Stack resolves once ${engine?.opponentName ?: "the other player"} passes too",
                     main = main?.let { m -> MainAction(m.label, m.icon, m.refusal, m.tooltip) { own { m.run(); true } } }, control = control) {
                     own { perform(TableActionIntent.Next(scope)) }
                 }
-                else if (wait != null) EngineWaitArrow(EngineTableRoutes.WaitAction(wait.label, wait.icon, wait.tooltip, wait.refusal) {
+                else if (wait != null) EngineWaitArrow(EngineTableRoutes.WaitAction(wait.label, wait.icon, wait.tooltip, wait.refusal,
+                    wait.hold?.let { hold -> { own { hold(); true } } }, wait.holdName) {
                     own { wait.run(); true } }, Modifier.fillMaxWidth())
                 else Spacer(Modifier.fillMaxWidth().height(48.dp))
                 if (working) SlowActionShimmer(Modifier.matchParentSize().clip(AdvanceArrowShape))

@@ -172,6 +172,23 @@ class GameDevice(
 
     private var now = 0L
     private var endTurn: Int? = null
+    /**
+     * TRN-017, STK-029, TRN-070 (owner 2026-11-07): the Resolve chain a hold of Resolve or of a Stack wait's Assume began
+     * ([startChain]): at the head the device presses Resolve at each of the player's priority points and Assume at each
+     * of the other player's (where the information rule allows it: a greyed Assume ends it), whatever the player's
+     * response mode, until the Stack is empty, a decision of the player's, a reveal stop (HIS-110), the player's own
+     * action, or the other player's real input arriving ([opponentInputs]): that input is never passed over.
+     */
+    private var chain = false
+
+    /** Counts the other player's real inputs this device received (their own events with an engine input, never an
+     * assumption, nor their same event that took the place of this device's own, SYS-077): a Resolve chain begins only
+     * when none arrived since its hold was pressed ([startChain]). */
+    var opponentInputs: Int = 0
+        private set
+
+    /** Whether a Resolve chain goes on ([chain]). */
+    val chaining: Boolean get() = chain
     /** Where the End turn going on ([endTurn]) was tapped, and the first event it made (null until it makes one): a
      * branch or a rewind that takes it back ends it ([endTurnTakenBack]). */
     private var endTurnAt: String? = null
@@ -370,13 +387,14 @@ class GameDevice(
      * engine search.
      */
     private class PointKey(val tip: String, val pending: Any?, val table: TableState, val settings: PlaySettings,
-        val endTurn: Int?, val holdAt: String?, val opponentMode: ResponseMode, val reveals: org.asyncttwiz.protocol.AssumeReveals) {
+        val endTurn: Int?, val holdAt: String?, val opponentMode: ResponseMode, val reveals: org.asyncttwiz.protocol.AssumeReveals,
+        val chain: Boolean) {
         fun same(other: PointKey?): Boolean = other != null && tip == other.tip && pending === other.pending && table === other.table &&
             settings == other.settings && endTurn == other.endTurn && holdAt == other.holdAt && opponentMode == other.opponentMode &&
-            reveals == other.reveals
+            reveals == other.reveals && chain == other.chain
     }
 
-    private fun pointKey() = PointKey(session.tip, model.engine.pending, model.table, settings, endTurn, holdAt, opponentMode, assumeReveals)
+    private fun pointKey() = PointKey(session.tip, model.engine.pending, model.table, settings, endTurn, holdAt, opponentMode, assumeReveals, chain)
 
     /** The status at the head worked out last, with its point ([PointKey]). */
     private var headStatus: Pair<PointKey, Status>? = null
@@ -681,6 +699,9 @@ class GameDevice(
         val step = event.assumed ?: return null
         if (step.assumedBy == me || Acceptance.assumedAbout(step, event, players) != me) return null
         if (remaking.isNotEmpty() && event.id == lateAnswerAt()) return step.input
+        // TRN-017 (owner 2026-11-07): a Resolve chain presses Resolve there: the other player's assumption of that press
+        // over the Stack shows (and so is confirmed) instead of stopping
+        if (chain && !pausing && step.input is Input.PassPriority && model.engine.stack.isNotEmpty()) return null
         // The stop the player stood at when they changed their mode stays until they answer it ([keptAt])
         if (keeps(event.parentId)) return step.input
         return step.input?.takeIf { NextStop.stopsAt(model.engine, it, me, mode) }
@@ -722,25 +743,60 @@ class GameDevice(
     private fun decideStep(): Boolean {
         val s = model.engine
         if (Engine.result(s) != null) return false
+        if (chain) chainEnds(s)?.let(::endChain)
         val who = Attention.of(s) ?: return false
         if (who == me || declares(s)) {
             if (held()) return false
             val input = own(s) ?: return false
-            if (reveals["${session.tip}:$input"] == true) return false
+            if (reveals["${session.tip}:$input"] == true) { endChain("press would show hidden cards"); return false }
             // Spec rule 6 (owner 2026-11-06): the device's own pass is exactly a press of Resolve or the step arrow
-            return act(input, emptyList(), { null }, null, automatic = true) is Acted.Sent
+            return (act(input, emptyList(), { null }, null, automatic = true) is Acted.Sent).also { made -> if (!made) endChain("press not made") }
         }
         return when (val point = point(s)) {
             is Point.Automatic -> make(point.input, assumed = false) is Acted.Sent
             // ... and its assumption exactly a press of Assume
             is Point.Assume -> assumed(point.input) is Acted.Sent
-            is Point.Wait -> false
+            // TRN-017, TRN-070: a Resolve chain presses the wait's Assume; a wait without it (greyed: the information rule,
+            // TRN-071; or the other player's own decision) ends the chain
+            is Point.Wait -> if (chain && point.offer == Offer.AssumeResolves && point.input != null) assumed(point.input) is Acted.Sent
+                else { if (chain) endChain("wait ${point.reason}"); false }
         }
+    }
+
+    /**
+     * TRN-017, STK-029, TRN-070 (owner 2026-11-07): the hold of Resolve, or of a Stack wait's Assume, pressed as its tap
+     * when the other player's real inputs this device had received were [since] ([opponentInputs]): the Resolve chain
+     * begins ([chain]), unless their input arrived meanwhile or the Stack is empty. Whether it began.
+     */
+    fun startChain(since: Int): Boolean {
+        if (since != opponentInputs || needsReload || model.engine.stack.isEmpty()) return false
+        chain = true
+        holdAt = null
+        remember("chain")
+        return true
+    }
+
+    /** Ends a Resolve chain going on, for [why] (the device's record). */
+    fun endChain(why: String) {
+        if (!chain) return
+        chain = false
+        remember("chain ends: $why")
+    }
+
+    /** Why a Resolve chain going on ends on [s] at the head, or null: the Stack empty, a decision of the player's (not
+     * answered by the engine itself), or the other player's reveal panel open (HIS-110). */
+    private fun chainEnds(s: GameState): String? {
+        if (s.stack.isEmpty()) return "stack empty"
+        if (reveal != null) return "reveal"
+        val d = s.pending?.decision
+        if (d != null && d !is Decision.Random && Engine.decider(s, d.player) == me && WhoActs.automaticAnswer(model, d) == null) return "decision"
+        return null
     }
 
     /** Ends the turn for this player (TRN-057): their device passes their priority until the turn ends, declaring no
      * attackers; the other player's points are assumed, automatic or waited for as usual. */
     fun endTurn(now: Long) {
+        endChain("end turn")
         endTurn = model.engine.turn.number
         endTurnAt = session.tip
         endTurnFirst = null
@@ -782,6 +838,8 @@ class GameDevice(
         if (holder != null) {
             // An End turn going on passes whatever they could do: no search of their options
             if (endTurn == s.turn.number) return Input.PassPriority(holder)
+            // TRN-017: so does a Resolve chain, over the Stack ([chainEnds] ends it once the Stack is empty)
+            if (chain) return Input.PassPriority(holder)
             // The stop they stood at when they changed their mode waits for their answer ([keptAt])
             if (keeps(session.tip)) return null
             // One search of the player's options answers both (the engine's own pass and their mode's)
@@ -918,6 +976,7 @@ class GameDevice(
      * 2026-11-06); only who made it differs: its loss in a race goes quietly (SYS-012) and Undo goes back past it. */
     private fun act(input: Input, table: List<TableChange>, follow: (GameModel) -> Input?, replay: ArrayDeque<Input>?,
         performed: (() -> Unit)? = null, automatic: Boolean = false): Acted {
+        if (!automatic) endChain("own action")
         refusal(input)?.let { return Acted.Refused(it) }
         if (!session.behind) return make(input, assumed = false, follow = follow, table = table, player = !automatic, performed = performed)
         val stop = status as? Status.Stopped
@@ -991,6 +1050,7 @@ class GameDevice(
      * rewind, another event at the head that doesn't commute with it) is gone: told once, and [send] answers "noDraft".
      */
     fun begin(): EventBuilder? {
+        endChain("own action")
         if (refusal(null) != null) return null
         val stop = if (session.behind) status as? Status.Stopped ?: return null else null
         draftBefore = informationRule { if (tentative()) InformationRule.Before.of(model) else null }
@@ -1177,6 +1237,7 @@ class GameDevice(
     /** Assumes the other player's answer offered on the waiting bar (§4): their pass, or [blocks] (the
      * Assume blockers screen's, "No blocks" when empty). */
     fun assume(blocks: List<Block> = emptyList()): Acted {
+        endChain("own action")
         refusal(null)?.let { return Acted.Refused(it) }
         if (session.behind) return Acted.Refused("playback")
         val point = point(model.engine) as? Point.Wait ?: return Acted.Refused("noOffer")
@@ -1202,6 +1263,7 @@ class GameDevice(
      * staging (the attack and block drafts) behind the head stays on the device ([Acted.Kept]).
      */
     fun table(changes: List<TableChange>): Acted {
+        endChain("own action")
         if (needsReload) return Acted.Refused("reload")
         if (holding) return Acted.Refused("playback")
         if (request != null) return Acted.Refused(REWIND_REQUESTED)
@@ -1369,6 +1431,7 @@ class GameDevice(
      * moves waiting to be made again after a lost race ([remake]) and table changes waiting to be re-made: they were made
      * on the line it takes back. */
     fun undo(target: String? = undoTarget()): Undo {
+        endChain("undo")
         if (holding) return Undo.Unavailable("playback")
         if (target == null) return Undo.Unavailable("nothing")
         if (request != null) return Undo.Unavailable(REWIND_REQUESTED)
@@ -1394,6 +1457,7 @@ class GameDevice(
      * made again.
      */
     fun undoTap(): Undo {
+        endChain("undo")
         if (holding) return Undo.Unavailable("playback")
         if (request != null) return Undo.Unavailable(REWIND_REQUESTED)
         if (session.drafting) return Undo.Unavailable("drafting")
@@ -1514,6 +1578,8 @@ class GameDevice(
         val target = update?.target
         if (target != null) {
             val by = update?.rewoundBy ?: events.firstOrNull()?.author
+            // TRN-017: a rewind changes the line under a Resolve chain: it ends
+            endChain("rewind")
             when (val r = session.rewound(target, events)) {
                 GameSession.Received.Reload -> { needsReload = true; remember("reload at rewind $target: ${followed()}") }
                 is GameSession.Received.Changed -> {
@@ -1530,7 +1596,16 @@ class GameDevice(
             holdAt = if (by == me.value) session.head else null
             if (by == me.value) forgetRemakes()
         } else for (event in events) {
-            when (val r = session.received(event)) {
+            val r = session.received(event)
+            // TRN-017 (owner 2026-11-07): the other player's real input ends a Resolve chain at once, so the chain never
+            // presses over it: the device's next step sees it first (their same event taking the place of this device's
+            // own, SYS-077, is that press, not a new input)
+            if (event.author == opponent.value && event.assumed == null && event.engine?.steps.orEmpty().any { it.input != null } &&
+                (r is GameSession.Received.Applied || r is GameSession.Received.Changed)) {
+                opponentInputs++
+                endChain("their input ${event.id}")
+            }
+            when (r) {
                 GameSession.Received.Reload -> { needsReload = true; remember("reload at ${event.id} on ${event.parentId}: ${followed()}"); break }
                 is GameSession.Received.Changed -> {
                     if (r.takenBack.isNotEmpty() && r.discarded.isNotEmpty())

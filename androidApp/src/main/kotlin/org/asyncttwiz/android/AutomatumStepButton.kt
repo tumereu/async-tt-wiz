@@ -132,13 +132,16 @@ internal fun stepArrowShown(play: TableBoard, viewer: String?): Boolean {
 /**
  * The step arrow with Automatum on (I-D46 d, I-D48), the main button (owner 2026-11-05): neutral, an icon above the label
  * that says what a tap does ([AutomatumStep]); tap = that, hold = End turn as before (TRN-017), except Resolve (STK-029),
- * whose hold says what it does ([resolveTip]). The one control that moves the game on with Automatum on (UI review round
- * 2 #1): panels and quick actions have no Pass, Let it resolve or Commit of their own. [blocked] ([stepBlocked]): greyed;
+ * whose hold is the Resolve chain ([onResolveHold], owner 2026-11-07; without it, it says [resolveTip]). The one control
+ * that moves the game on with Automatum on (UI review round 2 #1): panels and quick actions have no Pass, Let it resolve
+ * or Commit of their own. [blocked] ([stepBlocked]): greyed;
  * a tap shakes it and holding it says why (I-D46 b).
  */
 @Composable
 internal fun AutomatumStepArrow(play: TableBoard, enabled: Boolean, modifier: Modifier, onHold: () -> Unit,
     blocked: String? = null, resolveTip: String? = null,
+    /** TRN-017, STK-029 (owner 2026-11-07): holding Resolve, the Resolve chain (null: holding it says [resolveTip]). */
+    onResolveHold: (() -> Unit)? = null,
     /** CMB-033 (owner, 2026-11-05): the go-on action of an open combat choice (the damage division's OK) in its place. */
     main: MainAction? = null,
     /** TRN-063: the viewer's response mode is Control ([AutomatumStep.of]). */
@@ -149,16 +152,21 @@ internal fun AutomatumStepArrow(play: TableBoard, enabled: Boolean, modifier: Mo
     val ink = AutomatumStepInk.copy(alpha = if (usable) 1f else .38f)
     var shakes by remember { mutableIntStateOf(0) }
     val endTurn = blocked == null && step != AutomatumStep.Resolve
+    val chain = onResolveHold.takeIf { blocked == null && step == AutomatumStep.Resolve }
     ActionSquare(step.label, "↦", enabled, modifier.testTag("main-button").shaken(shakes).shadow(3.dp, AdvanceArrowShape)
         .background(Color.White, AdvanceArrowShape).border(1.dp, AutomatumStepOutline, AdvanceArrowShape).clip(AdvanceArrowShape),
-        fill = Color.White, ink = ink, compactContent = true, holdName = if (endTurn) "End turn" else null,
-        onHold = if (endTurn) onHold else null, tooltip = blocked ?: resolveTip.takeIf { step == AutomatumStep.Resolve },
+        fill = Color.White, ink = ink, compactContent = true,
+        holdName = if (endTurn) "End turn" else if (chain != null) RESOLVE_CHAIN else null,
+        onHold = if (endTurn) onHold else chain, tooltip = blocked ?: resolveTip.takeIf { step == AutomatumStep.Resolve },
         gestureKey = step.label to blocked,
         icon = { MainButtonContent(icon = {
             if (step.swords) Icon(painterResource(R.drawable.swords_outlined), null, Modifier.size(20.dp), tint = LocalContentColor.current)
             else Icon(step.icon, null, Modifier.size(20.dp), tint = LocalContentColor.current)
         }, label = step.label) }, onClick = { if (blocked != null) shakes++ else onClick() })
 }
+
+/** TRN-017 (owner 2026-11-07): the name of the hold of Resolve or of a Stack wait's Assume, the Resolve chain. */
+internal const val RESOLVE_CHAIN = "Resolve the whole Stack"
 
 /**
  * A go-on action of an open choice on the main button (TRN-063, owner 2026-11-05): [label] under [icon]; [refusal] greys

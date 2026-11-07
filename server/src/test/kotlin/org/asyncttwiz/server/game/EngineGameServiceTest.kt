@@ -310,6 +310,39 @@ class EngineGameServiceTest {
         assertEquals(approved.headId, approved.localHeads[f.b.account.accountId])
     }
 
+    // HIS-108 (owner playtest 2026-11-07): Alice's free undo takes back her keep that Bob's device had shown: his local
+    // head goes to the undo's point and his snapshot keeps what he had been shown with who undid, so a device opening
+    // the game shows the undo (where he left it, then the rewind as it is live); his device's report of that head (the
+    // undo shown) clears it
+    @Test fun `an undo of events the other player had seen stays with their seat until shown`() = withService { runtime ->
+        val f = Fixture(runtime, engine = true, tag = "us")
+        val alice = f.device(f.a)
+        val start = f.snapshot().headId
+        f.owner.execute(GameAction.Submit(alice.act(id(), Input.Answer(alice.model.engine.pending!!.decision.id, Answer.Option("Keep")))))
+        val keep = alice.pending.single()
+        assertEquals("accepted", f.recipient.execute(GameAction.EngineSeen(keep.id)).outcome)
+        assertEquals("accepted", f.owner.execute(GameAction.EngineRewind(start)).outcome)
+        val snapshot = f.snapshot(f.b)
+        assertEquals(start, snapshot.headId)
+        assertEquals(start, snapshot.localHeads[f.b.account.accountId])
+        assertEquals(listOf(keep.id), snapshot.takenBack.map { f.codec().decodeEvent(it).id })
+        assertEquals(f.a.account.accountId, snapshot.undoneBy)
+        // Nothing of it for the player who undid
+        assertEquals(emptyList<String>(), f.snapshot().takenBack)
+        assertNull(f.snapshot().undoneBy)
+        val (left, _) = org.asyncttwiz.protocol.game.GameDevice.load(snapshot, f.bob, takenBack = true) { id() }
+        assertEquals(keep.id, left.session.localHead)
+        val undo = left.undoOnLoad!!
+        left.revision(left.branchOnLoad, undo)
+        assertTrue(left.notes().any { it is org.asyncttwiz.protocol.game.GameDevice.Note.TakenBack }, "the undo shown")
+        assertEquals(start, left.session.localHead)
+        assertEquals(listOf(GameAction.EngineSeen(start)), left.take(0).filterIsInstance<GameAction.EngineSeen>())
+        assertEquals("accepted", f.recipient.execute(GameAction.EngineSeen(start)).outcome)
+        assertEquals(emptyList<String>(), f.snapshot(f.b).takenBack)
+        assertNull(f.snapshot(f.b).undoneBy)
+        assertEquals("noChange", f.recipient.execute(GameAction.EngineSeen(start)).reason)
+    }
+
     // R6 (engine responsiveness): a player's own report (their device showed events, their settings) works out only their
     // own seat again; a submission, an undo request or a rewind works out both. The seat left as stored is checked against
     // working it out (checkSkipped).

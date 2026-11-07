@@ -41,7 +41,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             lobby.activityUnavailable("This notification belongs to an earlier sign-in. Showing your current Games.")
             return
         }
-        if (route.kind == org.asyncttwiz.protocol.ActivityKind.GAME) lobby.open(route.gameId)
+        if (route.kind == org.asyncttwiz.protocol.ActivityKind.GAME) lobby.openNotified(route.gameId)
         else lobby.openActivity(route) { activity.accepts(route.accountId, route.binding) }
     }
     private fun authenticationRequired(token: String) {

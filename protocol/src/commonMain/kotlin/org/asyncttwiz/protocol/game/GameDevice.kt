@@ -107,6 +107,15 @@ class GameDevice(
      * line another player's branch discarded; the caller receives them ([revision]) once it showed the table there. */
     var branchOnLoad: List<GameEvent> = emptyList()
 
+    /** HIS-108: when [load] opened the game where the player left it before the other player's undo took it back, the
+     * undo as its revision brings it (with [branchOnLoad] as the events re-added after its point): the caller receives
+     * it ([revision]) once it showed the table there. */
+    var undoOnLoad: EngineUpdate? = null
+
+    /** HIS-108: the other player's undo of events the player had been shown went back to their local head: the device
+     * reports that head once even though the server has it, which tells the server the undo was shown. */
+    private var undoShown = false
+
     /** Whether playback waits, paused, for the player's Play before it starts ([play] ends it; §29.1). Past the opening
      * only: the opening shows at once ([opening]); any submission of the player's ends it. */
     var catchUp: Boolean = session.buffered.any { it.author != session.me.value }
@@ -1260,7 +1269,10 @@ class GameDevice(
             when (val r = session.rewound(target, events)) {
                 GameSession.Received.Reload -> { needsReload = true; remember("reload at rewind $target: ${followed()}") }
                 is GameSession.Received.Changed -> {
-                    if (r.takenBack.isNotEmpty() && by != me.value && by != null) note(Note.TakenBack(PlayerId(by), r.takenBack))
+                    if (r.takenBack.isNotEmpty() && by != me.value && by != null) {
+                        note(Note.TakenBack(PlayerId(by), r.takenBack))
+                        undoShown = true
+                    }
                     endTurnTakenBack(target)
                 }
                 else -> {}
@@ -1540,6 +1552,15 @@ class GameDevice(
         val local = session.localHead
         val server = heads[me]
         val ahead = server == null || (session.indexOf(local) ?: -1) > (session.indexOf(server) ?: -1)
+        if (undoShown) {
+            undoShown = false
+            if (local == server) {
+                remember("out EngineSeen (undo shown)")
+                outbox += GameAction.EngineSeen(local)
+                reported = local; reportedAt = now
+                return
+            }
+        }
         if (local != reported && local != server && ahead && (urgent || now - reportedAt >= SEEN_EVERY_MS)) {
             remember("out EngineSeen")
             outbox += GameAction.EngineSeen(local)
@@ -1709,7 +1730,9 @@ class GameDevice(
          * with the events past it buffered. With [takenBack] (HIS-106), when another player's branch took the player's
          * local head back ([EngineSnapshot.takenBack]), it is instead where they left it, on the discarded line, and the
          * main line's events after the branch point wait in [branchOnLoad] for the caller to receive as a revision (the
-         * branch then shows as it does live: the take-back with its note, then the other player's new events). */
+         * branch then shows as it does live: the take-back with its note, then the other player's new events). HIS-108:
+         * likewise where the other player's undo took the player's local head back ([EngineSnapshot.undoneBy]): the undo
+         * waits in [undoOnLoad], the events re-added after its point in [branchOnLoad]. */
         fun load(snapshot: EngineSnapshot, me: PlayerId, takenBack: Boolean = false, ids: () -> String): Pair<GameDevice, EngineJson> {
             val codec = EngineJson(EngineJson.decodeDefinitions(snapshot.definitions))
             val baseId = snapshot.baseId ?: snapshot.headId
@@ -1723,8 +1746,11 @@ class GameDevice(
             val gone = if (takenBack) snapshot.takenBack.map(codec::decodeEvent) else emptyList()
             if (gone.isNotEmpty() && gone.first().parentId == local) {
                 val at = if (local == baseId) 0 else events.indexOfFirst { it.id == local } + 1
-                return device(GameSession(base, baseId, events.take(at) + gone, gone.last().id, me))
-                    .also { it.branchOnLoad = events.drop(at) } to codec
+                return device(GameSession(base, baseId, events.take(at) + gone, gone.last().id, me)).also {
+                    it.branchOnLoad = events.drop(at)
+                    if (snapshot.undoneBy != null) it.undoOnLoad = EngineUpdate(target = local, localHeads = snapshot.localHeads,
+                        lines = snapshot.lines, rewindRequest = snapshot.rewindRequest, rewoundBy = snapshot.undoneBy, modes = snapshot.modes)
+                } to codec
             }
             return device(GameSession(base, baseId, events, local, me)) to codec
         }

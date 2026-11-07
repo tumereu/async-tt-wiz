@@ -1,0 +1,1 @@
+fix: Coming back to a game, also from a notification, shows the other player's undo or different answer taking back the moves you had seen, instead of jumping straight to the game as it is now.

@@ -233,6 +233,20 @@ internal class E2ePlayer(val account: TestAccount, private val compose: ComposeT
         e2e.waitUntil("$name's table") { game?.shown != null }
     }
 
+    /**
+     * The player taps a game notification (LOB-078), as the app takes it: MainActivity keeps the notification's route
+     * until the signed-in session is restored, then AuthViewModel.openActivity goes to the Games screen and opens the
+     * game ([LobbyController.openNotified]). With the app in the background, call [back] first (the activity resumes
+     * before the route is taken); after [E2e.restart], this is the cold start a notification makes.
+     */
+    fun openFromNotification(gameId: String, e2e: E2e) {
+        fun signedIn() = auth.state.account != null && !auth.state.restoring && !auth.state.busy
+        if (!signedIn()) e2e.waitUntil("$name signed in") { signedIn() }
+        auth.navigate(ShellDestination.GAMES)
+        lobby.openNotified(gameId)
+        e2e.waitUntil("$name's table") { game?.shown != null }
+    }
+
     /** Failure evidence: this player's screen (picture and semantics tree) and the app's log. */
     fun evidence(dir: File) {
         dir.mkdirs()

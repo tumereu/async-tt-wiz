@@ -47,6 +47,25 @@ class TableStatesScreenshotTest {
                 else -> container
             } }))
     }
+    /** ZON-091, ZON-092: River Adept suspended in your exile with 3 time counters, beside a card without counters. */
+    private val exileState = f.initial.let { play ->
+        val exile = f.id("a/EXILE")
+        val hand = play.board.cards.filter { it.containerId == f.id("a/HAND") }
+        val river = hand.single { it.corner == "1/2" }
+        val other = hand.first { it.id != river.id }
+        val moved = listOf(river.id, other.id)
+        play.copy(board = play.board.copy(
+            cards = play.board.cards.map { when (it.id) {
+                river.id -> it.copy(containerId = exile, covered = false, typedCounters = listOf(TypedCounter("time", 3, 1)))
+                other.id -> it.copy(containerId = exile, covered = false)
+                else -> it
+            } },
+            containers = play.board.containers.map { container -> when (container.id) {
+                exile -> container.copy(cards = moved + container.cards)
+                f.id("a/HAND") -> container.copy(cards = container.cards - moved.toSet())
+                else -> container
+            } }))
+    }
 
     @OptIn(ExperimentalRoborazziApi::class)
     private fun render(kind: String, landscape: Boolean): List<PlayAction> {
@@ -63,7 +82,8 @@ class TableStatesScreenshotTest {
         }
         val drawn = if (kind == "combat-targets") combatTargetsState
             else if (kind.startsWith("tokens")) tokenState
-            else if (kind == "graveyard-contents") graveyardState else f.combat()
+            else if (kind == "graveyard-contents") graveyardState
+            else if (kind.startsWith("exile-counters")) exileState else f.combat()
         val current = { drawn }
         // The engine table's board and routes (R4b follow-up): what the app draws of this board
         val toolkit = TableToolkitController(f.a, { engineTableBoard(current(), f.a) }, { true }, { action, _ -> sent += action; true })
@@ -109,6 +129,20 @@ class TableStatesScreenshotTest {
                 for (name in listOf("Meadow Sentinel", "River Adept", "Forest"))
                     compose.onNodeWithContentDescription("Graveyard panel: $name").assertIsDisplayed()
             }
+            "exile-counters" -> {
+                compose.onNodeWithContentDescription("Alice exile, 2 cards, cards with counters").performTouchInput { doubleClick() }
+                compose.mainClock.advanceTimeBy(500)
+                compose.onNodeWithContentDescription("Your Exile panel, 2 cards").assertIsDisplayed()
+                compose.onNodeWithContentDescription("Exile panel: River Adept, time ×3").assertIsDisplayed()
+                val scene = TablePresentation.scene(f.game, engineTableBoard(current(), f.a), f.a, 412f, 892f, landscape, toolkit.layoutState.value)
+                assertEquals(listOf("time ×3"), scene.items.single { it.label == "Exile panel: River Adept, time ×3" }.automatumMarks)
+            }
+            "exile-counters-pile" -> {
+                compose.onNodeWithContentDescription("Alice exile, 2 cards, cards with counters").assertIsDisplayed()
+                val scene = TablePresentation.scene(f.game, engineTableBoard(current(), f.a), f.a, 412f, 892f, landscape, toolkit.layoutState.value)
+                assertEquals(listOf(true, false), listOf(f.a, f.b).map { owner ->
+                    scene.items.single { it.zone == PlayZone.EXILE && it.kind == TableItemKind.PILE && it.owner == owner }.countersInside })
+            }
         }
         compose.waitForIdle()
         assertTrue(sent.isEmpty())
@@ -125,6 +159,8 @@ class TableStatesScreenshotTest {
             "tokens-stack-card" -> "$combat with several tokens, a token card on top of the Stack"
             "stack-contents" -> "$combat, after double-tapping the Stack: Manage Stack lists its two entries"
             "graveyard-contents" -> "after double-tapping your three-card graveyard: its panel lists the cards grouped by type"
+            "exile-counters" -> "after double-tapping your exile: its panel shows the suspended River Adept's chip \"time ×3\" under its title"
+            "exile-counters-pile" -> "with a suspended card (3 time counters) in your exile: the exile pile carries a small violet counter marker at its top-right corner"
             "placeholder" -> "placeholder showing Loading table… with a spinner"
             "unavailable" -> "placeholder showing Table unavailable with a Reconnect button"
             else -> error("No caption for $kind")
@@ -210,6 +246,10 @@ class TableStatesScreenshotTest {
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun combatLandscape() { render("combat", true) }
     @Test fun stackPortrait() { render("stack-contents", false) }
     @Test fun graveyardBrowserPortrait() { render("graveyard-contents", false) }
+    // ZON-091: counters on a card in exile show on it in the exile view
+    @Test fun exileCountersPortrait() { render("exile-counters", false) }
+    // ZON-092: an exile pile holding a card with counters is marked
+    @Test fun exileCountersPilePortrait() { render("exile-counters-pile", false) }
     // TBL-104
     @Test fun graveyardHoldInspectsWithoutOpeningActionsOrLogging() {
         val sent = render("graveyard-contents", false)

@@ -1,6 +1,6 @@
 # Web client: desktop and phone browsers (owner, 2026-11-07)
 
-Status: **in discussion, not started.** Roadmap item 2 ("Desktop web client"), started before the Android client is
+Status: **ready for owner review (2026-11-07), not started.** Roadmap item 2 ("Desktop web client"), started before the Android client is
 finished because Automatum shrank the set of player actions. Decisions marked **(owner)** are agreed; everything marked
 **(proposal)** is Claude's and waits for the owner. The feasibility test (section 11, step 0) reported on 2026-11-07:
 the shared route works on desktop; the phone measurement is still to be done. Wireframes: the "ATW Web Wireframes" design canvas, https://claude.ai/artifact/FhqdRe7Er5PHv86t8u2rXL (private to the
@@ -28,7 +28,7 @@ web client is the same app in a browser, with a desktop layout made for mouse, k
    screen, mouse and keyboard). Chosen automatically by window size and pointer type, with a manual override in
    Settings.
 6. Desktop controls start from MTG Arena's and deviate where ATW differs, as the phone app did. Click acts like a tap,
-   hover inspects, the mouse wheel zooms, chat/timeline/Stack can be docked, and there are hotkeys (Space, Ctrl+Z, Esc,
+   hover gives a quick look, the mouse wheel zooms, chat/timeline/Stack can be docked, and there are hotkeys (Space, Ctrl+Z, Esc,
    Enter, T, C, F, 1–9 as a start).
 7. Back: on-screen Back/close controls everywhere on the web. Screens get real URLs, so the browser's Back moves
    between screens. Dialogs and popups get **no** history entries; Esc closes them on desktop, and on Android Chrome the
@@ -157,8 +157,8 @@ Feasibility test results (2026-11-07, throwaway branch `w/web-spike`, Chrome on 
 1. **Two layouts.** Phone: today's app, portrait or landscape by window shape. Desktop: section 7. Automatic choice:
    desktop when the window is at least 1024 × 600 CSS px and the main pointer is a mouse or trackpad (it can hover);
    otherwise phone. Settings → Table → "Layout": Automatic (default), Phone, Desktop; kept per browser, applied at once.
-2. **Input is judged per pointer, not per layout** (proposal): a finger on a touchscreen laptop works as on the phone
-   (hold inspects), a mouse in the phone layout works as a mouse (click acts, hover previews, right-click = hold).
+2. **Input is judged per pointer, not per layout** (proposal, also to confirm in review): a finger on a touchscreen laptop works as on the phone
+   (hold inspects), a mouse in the phone layout works as a mouse (click acts, hover gives a quick look, right-click toggles Inspect).
 3. The Android app keeps the phone layout; a desktop layout for Android tablets or Chromebooks is out of scope.
 
 ## 5. Desktop: mouse
@@ -278,23 +278,156 @@ Hotkeys never act while a text field has focus. "?" shows the list over the scre
 3. Each part's tests follow AGENTS.md: unit and UI tests for logic, screenshots for layouts, end-to-end coverage of each
    new flow, run in a browser for the web.
 
-## 11. Build order
+## 11. Build plan
 
-0. **Feasibility test**: done on desktop 2026-11-07 (section 1). Still to do: the same pages on the owner's phone in
-   Chrome (`webspike/serve.sh` on the spike branch can open them over adb), before the phone-web parts (steps 3–4) are
-   finalised.
-0b. **Wasm target** on `core`, `protocol`, `automatum` and `arcanum-*` with their common tests running on wasm (the
-   spike's small fixes, redone cleanly).
-1. **Server-built catalog** and Android's switch to it. Useful on its own; can go to prod independently.
-2. **Shared UI module**: Android UI moved into `app-ui`, behaviour identical (screenshots unchanged).
-3. **Web shell**: the wasm app served by the server, sign-in, card records, lobby screens in the phone layout, routes
-   and on-screen Back.
-4. **Game table on the web** (phone layout) with the engine in a worker.
-5. **Desktop layout**: shell, table with dock and phase track, hover preview, right-click, hotkeys.
-6. **Desktop decks, cubes, drafts and Build.**
-7. **Notifications, install, stale-tab reload.**
-8. **Web end-to-end coverage**, a full green run, then the first prod deploy.
+Each step is one implementor batch (or a few, where noted), ends merged on master with its suites green, and follows
+AGENTS.md (catalog entries in the same commit, release notes for visible changes, e2e coverage of new flows). Order and
+what may run side by side:
+
+```
+0 (phone run) ─┐
+0b wasm target ─┴─► 2 shared UI ─┐
+1a server catalog ─► 1b Android ──┴─► 3 web shell ─► 4 web table ─┬─► 5 desktop table
+                                                                  ├─► 6 desktop screens
+                                       3 ─► 7 notifications, install (any time after 3)
+                                                                  └─► 8 web e2e + prod
+```
+
+### Step 0: feasibility test (desktop done)
+
+Remaining: run the spike pages in Chrome on the owner's phone (benchmark in a worker, table drawing) and add the numbers
+to section 1. If a pass takes much over ~0.5 s there, the phone-web table needs its own plan before step 4 (the desktop
+plan is unaffected).
+
+### Step 0b: wasm target on the shared modules
+
+- `wasmJs` (browser and Node) on `core`, `protocol`, `automatum`, `arcanum-api`, `arcanum-parser`, `arcanum-engine`; the
+  spike's fixes redone cleanly (explicit element types for mixed sealed-object lists, a common `replaceAll` helper,
+  `@JvmInline` imports, wasm SHA-1/SHA-256), Node/Yarn/Binaryen download repositories in `settings.gradle.kts`.
+- Common tests also run on wasm (Node); AGENTS.md's task list gains the wasm test tasks (owner approves the AGENTS
+  change). Arcanum libraries stay ATW-free (`verifyModuleBoundaries`).
+- No behaviour change, no catalog change, no release note. Small (one batch).
+
+### Step 1a: the server builds and serves the catalog
+
+- The MTGJSON import (today `client-storage`'s streaming `MtgJsonCatalog`, JVM code) moves to a module the server can
+  use; the trimmed catalog's format and reader go in common code (Android and browser read it).
+- Format (proposal): gzip-compressed JSON lines, one record per face, printing, set and booster recipe; browsers unpack
+  it natively (`DecompressionStream`). Contents: section 3.2 plus the set list (DRF-088) and the booster recipes of
+  draftable sets with the printings they name.
+- A nightly job (section 3.1) streams `AllPrintings` (never loads it whole: the Pi has 8 GB), writes the file, computes
+  its checksum, keeps the current and previous files on disk. A manual "build now" for operations (CLI or admin
+  endpoint).
+- Endpoints, open without sign-in (the first download happens before sign-in, LOB-091): current version (checksum, size,
+  date, counts) and the file by checksum, cached for good.
+- Version check: clients send their catalog version with every request and socket handshake; the server answers lobby,
+  deck, pod and game requests from an older one with "Update card records to continue". Account, catalog, update and
+  problem-report requests stay open.
+- Set pods: the server builds set packs from its own catalog; clients send only the set code (PodService no longer takes
+  uploaded set files).
+- Tests: server tests with a small synthetic MTGJSON (no real card data committed): build, unchanged rebuild keeps the
+  version, endpoints, the version refusal, set packs from the catalog.
+
+### Step 1b: Android uses the server catalog
+
+- The app downloads the server file instead of MTGJSON and builds its search indexes from it (small, so indexing is
+  quick). A different version shows the card records screen and blocks the app until installed (owner decision 16);
+  a refused request does the same.
+- Removed: incremental and metered-connection updates, "Refresh full catalog", per-set downloads and Redownload, the
+  "downloaded again once" migrations.
+- Catalog: LOB-092 removed; LOB-091, LOB-093, LOB-094, LOB-095, LOB-110, LOB-125, DRF-088, DRF-089 changed; DRF-090
+  unchanged in effect (recipes now from the server). Release note "mod: Card records now come from the ATW server: a
+  much smaller download, and both players always have the same ones."
+- E2E: a new catalog version published while both players are in a game: each app asks for the update, play continues
+  after it; a pod from a set starts with server-built packs.
+- Steps 1a + 1b can go to prod on their own, before any web work (owner approves that release as usual).
+
+### Step 2: the shared UI module
+
+- New `app-ui` module (Compose Multiplatform 1.11.x; on Android it resolves to the same androidx Compose, so drawing
+  doesn't change). `androidApp`'s UI moves into it as a whole (its `internal` code doesn't survive a split), keeping
+  package names so history stays readable. `androidApp` keeps the Activity, Firebase, WorkManager, the update installer.
+- Sub-steps, each merged green: (a) switch dependencies to Compose Multiplatform artifacts, nothing moved; (b) platform
+  interfaces for the ~41 files using Android APIs (about 10–15 need real redesign: storage and preferences, text paint
+  on the native canvas, Coil loaders, resources, Ktor engine, notifications, haptics, system bars); (c) move the code;
+  (d) `client-storage` becomes multiplatform: common interfaces and logic, the Android SQLDelight implementation.
+- The guard: every existing screenshot test passes unchanged in verify mode, and every e2e test passes. No catalog
+  change, no release note.
+- The largest step and it touches almost every Android file: run it when no other Android batch is open, and merge it
+  quickly to avoid long conflicts.
+
+### Step 3: web shell (phone layout)
+
+- `webApp` module (Kotlin/Wasm); the server serves its build (section 2.1) and the Archidekt proxy (2.3); stale-tab
+  reload (2.2); a loading screen for the first load (1.7).
+- Routes, browser history, on-screen Back and CloseWatcher (section 8); sign-in with the token in IndexedDB; the card
+  records download into IndexedDB with persistent storage; lobby screens in the phone layout: menu, games, contacts,
+  game lobby, decks and cubes (view, import, editor), settings.
+- Catalog: new `docs/features/web.md` (routes, Back, stale reload, first load, card records on the web); LOB-084–086
+  marked Android-only. Release notes start here but no prod deploy until step 8.
+- Tests: the web-only logic (routes, reload decision, storage) as common unit tests; a real-browser smoke for the wasm
+  build (Playwright on Chrome: load, sign in, list games), run with the e2e suite.
+
+### Step 4: the game table on the web (phone layout)
+
+- The engine in a Web Worker behind the message boundary (section 1.3); Android uses the same boundary on its
+  background thread. The table, hand, panels, combat band, timeline, chat in the browser; browser chrome kept off the
+  table (section 8.5); haptics where available.
+- Depends on step 0's phone numbers for the phone layout's speed.
+- Tests: the existing e2e suite already drives the shared UI in the JVM, so it keeps covering the table; the browser
+  smoke gains "open a game, make one move"; a mixed e2e: one player on Android code, one on the web build's code path.
+
+### Step 5: desktop table
+
+- Layout choice and the Layout setting (section 4); the desktop table: top row with phase track, right dock (Stack list,
+  chat), larger hand, panels as in landscape; mouse (section 5: click = tap, right-click toggles Inspect with changes
+  and close button, right-click on controls = hold action, hover quick look, wheel zoom, drags); hotkeys and the "?"
+  sheet (section 6); card sizes per layout.
+- Catalog: `web.md` entries for layout choice, mouse, hotkeys, dock, phase track.
+- Tests: screenshot tests of the desktop table at 1440×900 (D1–D6 states), e2e flows in the desktop layout with mouse
+  and key input (the JVM harness renders it at desktop size).
+
+### Step 6: desktop lobby, decks, drafts
+
+- Permanent side menu shell, wider lists, two-pane deck and cube editor (D8), draft pick with trays at the right and
+  the picks strip (D9), Build and Stats with more columns, settings rows (D10). Hotkeys K/B/U and the Build swipes, Ctrl+S.
+- Tests: screenshots per screen at desktop size; e2e: build a deck in the two-pane editor; draft a pick with keys.
+
+### Step 7: notifications, install, tab title
+
+- Web Push (server VAPID keys and subscriptions, sending alongside Firebase), the Settings switch and per-kind switches,
+  the Games-list hint, notification clicks opening the right route; web manifest, icons, service worker, Install app;
+  the "(N) ATW" tab title.
+- Tests: server tests for subscriptions and sending; unit tests for the hint and switches; browser smoke for the
+  manifest and service worker registering.
+
+### Step 8: complete, then prod
+
+- Full suites including the browser smoke and e2e, a manual session of the owner on desktop and phone web, the review
+  gates (`scripts/review.sh` catalog and screenshots), then the first prod deploy of server + web + Android together.
+
+### Risks
+
+- Phone browsers may be too slow for comfortable play (step 0 decides; desktop is unaffected).
+- Compose for web is Beta: upgrades may need small fixes; iOS Safari is untested (no device).
+- Step 2 is large and collides with any concurrent Android work.
+- Bandwidth from the Pi: the app (~3.8 MB) and catalog (~12–13 MB) per new device or version, cached by Cloudflare under
+  content-hashed names; the nightly MTGJSON download (184 MB) when it changed.
+- Web e2e on a canvas: kept small by testing shared UI in the JVM harness and only smoke-testing the real browser.
+
+### Possible follow-ups (not planned)
+
+- The server works out card definitions from its own catalog instead of storing the ones clients upload with decks.
+- A desktop layout for Android tablets and Chromebooks.
 
 ## 12. Open questions for the owner
 
-None at the moment (all answered 2026-11-07).
+All design questions are answered (2026-11-07). Claude's plan choices to confirm in review:
+
+1. Step 0b adds wasm test tasks to AGENTS.md's task list.
+2. Catalog file format: gzip-compressed JSON lines (1a).
+3. Steps 1a + 1b may go to prod before any web work (1b).
+4. Account, catalog, update and problem-report requests stay open to clients on an old catalog (1a).
+5. Step 2 runs when no other Android batch is open (2).
+6. The real browser is only smoke-tested (Playwright on Chrome); everything else is tested through the shared UI in the
+   existing JVM e2e harness, at phone and desktop sizes (3–5).

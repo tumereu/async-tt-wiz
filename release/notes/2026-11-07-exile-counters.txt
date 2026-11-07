@@ -1,0 +1,1 @@
+add: Counters on cards in exile show on the cards, such as the time counters on a suspended card, and the exile pile gets a small mark when any card in it has counters.

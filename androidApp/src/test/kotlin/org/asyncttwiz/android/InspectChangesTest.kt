@@ -30,4 +30,21 @@ class InspectChangesTest {
             other.id to listOf("Attached to $name"),
         ), InspectChanges.of(play, f.a, shown, emptyMap()).mapValues { (_, lines) -> lines.map { it.text } })
     }
+
+    // ZON-091, TBL-104: a card in exile lists its counters (a suspended card's time counters, CR 702.62a), nothing else
+    @Test fun aCardInExileListsItsCounters() {
+        val board = f.initial.board
+        val exile = f.id("a/EXILE")
+        val card = board.cards.first { it.containerId == f.id("a/HAND") }
+        val cards = board.cards.map { if (it.id == card.id) it.copy(containerId = exile, typedCounters = listOf(
+            TypedCounter("time", 3, 1))) else it }
+        val containers = board.containers.map { when (it.id) {
+            exile -> it.copy(cards = it.cards + card.id)
+            card.containerId -> it.copy(cards = it.cards - card.id)
+            else -> it
+        } }
+        val play = tableBoard(f.initial.copy(board = board.copy(cards = cards, containers = containers)))
+        assertEquals(mapOf(card.id to listOf("time counter ×3")),
+            InspectChanges.of(play, f.a, cards.filter { it.id == card.id }, emptyMap()).mapValues { (_, lines) -> lines.map { it.text } })
+    }
 }

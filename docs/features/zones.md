@@ -34,6 +34,7 @@ Hand, library, graveyard and exile, the graveyard/exile view, and who sees what 
 - **ZON-033** Tapping either player's graveyard or exile opens its menu, whose only button is Search (looking has no game effect); nothing moves a pile's cards by hand. (r45)
 - **ZON-035** Double-tapping a graveyard or exile pile opens its search view, as does Search in the pile menu (also while reviewing or offline). (r29)
 - **ZON-036** Graveyards and exiles are public, so looking through either player's is free: the view is personal, records no history and is never shown to the opponent. (r45)
+- **ZON-092** An exile pile holding a card with counters (a suspended card's time counters, say) carries a small marker at its top-right corner, opposite its count: a violet dot ringed in white with a white centre. (r58)
 - **ZON-037** The view groups cards under coloured type headers with counts like "Creature (3)" (non-empty types only), types in the shared order (SYS-051), names alphabetical, copies grouped ×N. (r35)
 - **ZON-038** The view closes on ✕, on a tap outside it, or when its pile empties. (r45)
 
@@ -45,6 +46,7 @@ Hand, library, graveyard and exile, the graveyard/exile view, and who sees what 
 
 - **ZON-049** The graveyard/exile view's cards sit in up to 3 columns, left to right then down; a partial last row starts at the left. (r45)
 - **ZON-058** Tapping a card in the graveyard/exile view opens its card menu (TBL-116): what Automatum offers for it (a flashback cast, say) as rows, nothing else; a card Automatum offers nothing for opens no menu. Holding it inspects it (TBL-104). (r52)
+- **ZON-091** A card in the exile view shows its counters, any kind, as a battlefield card does (TBL-113): one violet-text chip under its title ("time ×3"), sized with the card; copies with different counters keep their own places. Holding it lists them (TBL-104). (r58)
 - **ZON-061** A drag on empty space in the view, a double-tap-drag anywhere in it or two fingers scroll it; there is no selection box. (r45)
 
 ### Moving cards between zones

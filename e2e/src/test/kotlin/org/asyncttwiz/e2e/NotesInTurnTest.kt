@@ -10,7 +10,7 @@ import kotlin.test.assertTrue
  * one after another (SYS-078).
  */
 class NotesInTurnTest : E2e() {
-    private val branched = "responded — your later actions were taken back"
+    private val branched = "responded"
     private val notTaken = "That wasn't taken"
 
     // SYS-078, HIS-097, SYS-012: Alice plays on while Bob is away; Bob comes back and answers her Herald with an Idle

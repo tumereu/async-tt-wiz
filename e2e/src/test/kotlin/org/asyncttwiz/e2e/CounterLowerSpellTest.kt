@@ -143,7 +143,7 @@ class CounterLowerSpellTest : E2e() {
         waitUntil("Alice's table going back to the branch point") {
             boards.any { it.transition?.undone?.branch == true && it.transition!!.backward.isNotEmpty() }
         }
-        assertTrue(alice.told("responded — your later actions were taken back"), "HIS-097's note")
+        assertTrue(alice.told("${bob.name} responded") && !alice.told("taken back"), "HIS-097's note: only her phone's passes were taken back")
         waitUntil("Bob's Quench played back on Alice's table") { stack(alice) == listOf("Idle Glimmer", "Ember Glint", "Quench Spark") }
         aCounteredAndBResolved(hand)
     }

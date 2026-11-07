@@ -284,8 +284,11 @@ class GameDevice(
 
     /** Something to tell the player once. */
     sealed interface Note {
-        /** [by] answered differently than assumed ([discarded]'s first event): your later actions were taken back. */
-        data class Branched(val by: PlayerId, val discarded: GameEvent, val takenBack: List<GameEvent>) : Note
+        /** [by] answered differently than assumed ([discarded]'s first event): what you had been shown after it was
+         * taken back ([takenBack]), and of it your own actions ([actions], HIS-097: as Undo counts them, an End turn's
+         * first pass included; never your device's own passes and assumptions). */
+        data class Branched(val by: PlayerId, val discarded: GameEvent, val takenBack: List<GameEvent>,
+            val actions: List<GameEvent> = emptyList()) : Note
         /** [by] took the main line back past what you were shown ([takenBack]). */
         data class TakenBack(val by: PlayerId, val takenBack: List<GameEvent>) : Note
         /** Taking back to [target] needs the other player's approval (an undo request). */
@@ -1516,7 +1519,7 @@ class GameDevice(
                 GameSession.Received.Reload -> { needsReload = true; remember("reload at ${event.id} on ${event.parentId}: ${followed()}"); break }
                 is GameSession.Received.Changed -> {
                     if (r.takenBack.isNotEmpty() && r.discarded.isNotEmpty())
-                        note(Note.Branched(PlayerId(event.author), r.discarded.first(), r.takenBack))
+                        note(Note.Branched(PlayerId(event.author), r.discarded.first(), r.takenBack, r.takenBack.filter(::realInput)))
                     endTurnTakenBack(event.parentId)
                 }
                 is GameSession.Received.Applied -> { endTurnDropped(r.dropped); lostOpening(r.dropped) || lostMoves(r.dropped) { it in byPlayer } }

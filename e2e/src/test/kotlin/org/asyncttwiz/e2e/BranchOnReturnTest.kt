@@ -76,11 +76,11 @@ class BranchOnReturnTest : E2e() {
     // HIS-097, HIS-106, CMB-040, CMB-049 (owner playtest 2026-11-06): Alice attacks with her Ember Cub while Bob is away,
     // assumes his Ember Herald blocks it ("Assume blockers") and plays on to his turn; she leaves the app; Bob comes back
     // and, at his playback's stop at the assumed blocks, declares no blocks. Alice comes back: the branch, with "Bob
-    // blocked differently — your later actions were taken back", not "Bob has made moves"
+    // blocked differently — your End turn was taken back", not "Bob has made moves"
     @Test fun assumedBlocksAnsweredDifferentlyShowTheBranchOnReturn() {
         val (assumed, noBlocks) = bobBlocksDifferentlyWhileAliceIsAway()
         val seen = aliceComesBack()
-        assertBranchShown(seen, "${bob.name} blocked differently — your later actions were taken back", assumed, noBlocks)
+        assertBranchShown(seen, "${bob.name} blocked differently — your End turn was taken back", assumed, noBlocks)
     }
 
     // HIS-097, HIS-106, HIS-033 (owner playtest 2026-11-06): as above, but Alice's app starts again and she opens the game
@@ -90,7 +90,7 @@ class BranchOnReturnTest : E2e() {
         val seen = aliceComesBack(reopen = true)
         waitUntil("Alice's table") { seen.boards.isNotEmpty() }
         assertTrue(seen.boards.first().held.any { it.id == assumed.id }, "opened where she left it, her assumed blocks shown")
-        assertBranchShown(seen, "${bob.name} blocked differently — your later actions were taken back", assumed, noBlocks)
+        assertBranchShown(seen, "${bob.name} blocked differently", assumed, noBlocks)
     }
 
     /**
@@ -167,8 +167,8 @@ class BranchOnReturnTest : E2e() {
 
     // HIS-097, HIS-106, HIS-105: Alice casts an Ember Herald while Bob is away, assumes his pass ("Always assume
     // resolves") and ends her turn; she leaves the app; Bob comes back and, at his playback's stop at her spell, casts an
-    // Idle Glimmer instead of letting it resolve. Alice comes back: the branch, with "Bob responded — your later actions
-    // were taken back", not "Bob has made moves"
+    // Idle Glimmer instead of letting it resolve. Alice comes back: the branch, with "Bob responded — your End turn
+    // was taken back", not "Bob has made moves"
     @Test fun anAssumedPassAnsweredWithAResponseShowsTheBranchOnReturn() {
         val cast = aliceCastsAHeraldWhileBobIsAway()
         aliceLeaves()
@@ -185,7 +185,7 @@ class BranchOnReturnTest : E2e() {
         }
 
         val seen = aliceComesBack()
-        assertBranchShown(seen, "${bob.name} responded — your later actions were taken back", cast.next, ::bobsCast)
+        assertBranchShown(seen, "${bob.name} responded — your End turn was taken back", cast.next, ::bobsCast)
         assertFalse(alice.shown.behind)
     }
 }

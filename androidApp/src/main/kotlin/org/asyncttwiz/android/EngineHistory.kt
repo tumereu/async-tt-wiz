@@ -145,6 +145,58 @@ internal object EngineEventText {
         return "$head: $action"
     }
 
+    /**
+     * HIS-097 (owner, problem report DY6VCM): the branch note of [by] (the other player's name) whose real answer differed
+     * from the assumed one ([discarded], the first event of the line it discarded): "Bob responded" ("blocked
+     * differently", "took a mulligan"), and when the branch took back actions of [viewer]'s own ([actions], as Undo counts
+     * them: never their phone's own passes and assumptions, HIS-109), the first one named as HIS-091 names it: "Bob
+     * responded — your attack was taken back" (an End turn's first pass: "your End turn").
+     */
+    fun branched(by: String, discarded: GameEvent, actions: List<GameEvent>, state: GameState?, viewer: String): String {
+        val answer = when (discarded.assumed?.input) {
+            is Input.DeclareBlockers -> "blocked differently"
+            is Input.SetupAnswer, is Input.Answer -> "took a mulligan"
+            else -> "responded"
+        }
+        val action = actions.firstOrNull() ?: return "$by $answer"
+        val what = if (pass(action)) "your End turn was" else yourAction(action, state, viewer)
+        return "$by $answer — $what taken back"
+    }
+
+    /** [event], an action of [viewer]'s own, as "your …" with its verb's number ("your attack was", "your blocks were"). */
+    private fun yourAction(event: GameEvent, state: GameState?, viewer: String): String {
+        fun card(id: ObjectId?): String = name(id, state, viewer) ?: "card"
+        return when (val input = event.engine?.steps?.firstOrNull { it.input != null }?.input) {
+            null -> when {
+                event.table.any { it is GameTableChange.AttackDraft } -> "your attack staging was"
+                event.table.any { it is GameTableChange.BlockDraft } -> "your block arrangement was"
+                event.table.any { it is GameTableChange.EarlyAnswered } -> "your early answer was"
+                event.table.any { it is GameTableChange.Placed } -> "your card move was"
+                event.table.any { it is GameTableChange.Suggestion } -> "your result suggestion was"
+                else -> "your action was"
+            }
+            is Input.Cast -> "your ${card(input.card)} was"
+            is Input.PlayLand -> "your ${card(input.card)} was"
+            is Input.Activate -> activation(event, input, state, viewer, "You").removePrefix("You ").let { text ->
+                when {
+                    text.startsWith("cycled ") -> "your cycling of ${text.removePrefix("cycled ")} was"
+                    text.startsWith("activated ") -> "your ${text.removePrefix("activated ").removePrefix("an ")} was"
+                    else -> "your ability was"
+                }
+            }
+            is Input.DeclareAttackers -> if (input.attacks.isEmpty()) "your choice not to attack was" else "your attack was"
+            is Input.DeclareBlockers -> if (input.blocks.isEmpty()) "your choice not to block was" else "your blocks were"
+            is Input.SetupAnswer -> when (input.answer) {
+                Answer.Option("Keep") -> "your keep was"
+                Answer.Option("Mulligan") -> "your mulligan was"
+                else -> "your choice was"
+            }
+            is Input.Answer -> if (input.answer == Answer.Option("Keep")) "your keep was" else "your choice was"
+            is Input.Concede -> "your concession was"
+            else -> "your action was"
+        }
+    }
+
     /** What a pass led to (the most telling of: a spell or ability resolved, a new turn, a new step). */
     private fun passOutcome(event: GameEvent, state: GameState?, viewer: String, names: Map<String, String>): String? {
         val changes = event.engine?.changes.orEmpty()

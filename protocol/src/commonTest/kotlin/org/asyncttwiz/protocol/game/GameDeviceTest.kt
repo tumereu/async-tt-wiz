@@ -185,6 +185,8 @@ class GameDeviceTest {
         assertEquals(alice, note.by)
         assertEquals(stop.event.id, note.discarded.id)
         assertTrue(note.takenBack.isNotEmpty())
+        // HIS-097 (problem report DY6VCM): only Bob's device's own passes and assumptions went: no action of his to name
+        assertEquals(emptyList(), note.actions)
         // Bob's table is back at the branch point; Alice's cast is buffered and played back
         assertEquals(stop.event.parentId, sim.device(bob).session.localHead)
         assertIs<GameDevice.Status.Playing>(sim.device(bob).status)
@@ -790,6 +792,8 @@ class GameDeviceTest {
         assertEquals(1, sim.branches)
         val note = sim.device(alice).notes().filterIsInstance<GameDevice.Note.Branched>().single()
         assertEquals(Input.DeclareBlockers(bob, emptyList()), note.discarded.assumed?.input)
+        // HIS-097: her assumption and her passes to the damage are no action of hers
+        assertEquals(emptyList(), note.actions)
         assertNull(Engine.result(sim.device(alice).model.engine))
         assertNull(Engine.result(sim.server.state().engine))
         assertTrue(sim.leaks.isEmpty())

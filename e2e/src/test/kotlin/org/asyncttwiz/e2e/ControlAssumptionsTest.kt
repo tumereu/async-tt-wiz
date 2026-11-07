@@ -557,7 +557,7 @@ class ControlAssumptionsTest : E2e() {
         alice.handCard("Idle Glimmer").performClick()
         waitUntil("Alice's Glimmer sent") { alice.engine { device.session.pending.isNotEmpty() } }
         alice.link.releaseIncoming()
-        waitUntil("Bob's line branched by Alice's answer") { bob.told("responded — your later actions were taken back") && quiet() }
+        waitUntil("Bob's line branched by Alice's answer") { bob.told("${alice.name} responded") && !bob.told("taken back") && quiet() }
         assertFalse(alice.refusalSeen, "Alice's Glimmer wasn't refused: ${alice.shownTexts}")
         assertEquals(2, alice.state.stack.size, "both Glimmers on the Stack")
         assertTrue(alice.leaks.leaks.isEmpty() && bob.leaks.leaks.isEmpty())
@@ -579,7 +579,7 @@ class ControlAssumptionsTest : E2e() {
         }
         waitUntil("Bob's phone stopping at it") { bob.status is GameDevice.Status.Stopped }
         bob.playFromHand("Idle Glimmer", this)
-        waitUntil("Alice's line branched by Bob's second Glimmer") { alice.told("responded — your later actions were taken back") && quiet() }
+        waitUntil("Alice's line branched by Bob's second Glimmer") { alice.told("${bob.name} responded") && !alice.told("taken back") && quiet() }
         assertFalse(bob.refusalSeen, "nothing refused: ${bob.shownTexts}")
         assertEquals(2, alice.state.stack.size, "both Glimmers on the Stack")
         assertTrue(alice.leaks.leaks.isEmpty() && bob.leaks.leaks.isEmpty())

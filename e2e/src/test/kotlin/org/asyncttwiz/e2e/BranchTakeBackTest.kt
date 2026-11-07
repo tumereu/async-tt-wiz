@@ -52,7 +52,7 @@ class BranchTakeBackTest : E2e() {
         waitUntil("Alice's table going back to the branch point") { takeBack() >= 0 }
         val back = boards[takeBack()]
         assertTrue(back.transition!!.steps.isNotEmpty(), "the rewind animates back step by step")
-        assertTrue(alice.told("responded — your later actions were taken back"), "HIS-097's note")
+        assertTrue(alice.told("${bob.name} responded") && !alice.told("taken back"), "HIS-097's note: only her phone's passes were taken back")
         // While it plays: no pause, no leaving
         assertTrue(alice.shown.behind, "Bob's new events still to play back")
         alice.tapTable()

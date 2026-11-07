@@ -125,7 +125,7 @@ class RewindOnReturnTest : E2e() {
     private fun assertBranchShown(seen: Seen, discarded: GameEvent, theirs: (GameEvent) -> Boolean) {
         fun takeBack(): Int = seen.boards.indexOfFirst { s -> s.transition?.let { it.undone?.branch == true && it.backward.isNotEmpty() } == true }
         waitUntil("Alice's table going back to the branch point") { takeBack() >= 0 }
-        waitUntil("Alice told") { alice.told("${bob.name} responded — your later actions were taken back") }
+        waitUntil("Alice told") { alice.told("${bob.name} responded") }
         waitUntil("Bob's answer played back on Alice's table, her table live at the new head") {
             !alice.shown.behind && alice.status !is GameDevice.Status.Playing && alice.shown.held.any(theirs)
         }

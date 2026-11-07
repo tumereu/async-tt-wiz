@@ -114,6 +114,26 @@ class EngineAsyncViewTest {
         assertEquals(330L, playbackWait(pass, 330, ResponseMode.FullControl))
     }
 
+    // HIS-097 (problem report DY6VCM): a branch that took back none of Alice's own actions (only her phone's passes and
+    // assumptions) says just "Bob responded"; one that took back actions of hers names the first ("your attack was
+    // taken back"; an End turn's first pass: "your End turn")
+    @Test fun theBranchNoteNamesTheFirstOwnActionTakenBack() {
+        fun event(id: String, input: Input, assumedBy: PlayerId? = null) = GameEvent(id, "r", f.a,
+            org.asyncttwiz.protocol.game.EnginePart(0, listOf(org.asyncttwiz.protocol.game.EngineStep(input, emptyList(), assumedBy))))
+        fun card(id: String) = arcanum.engine.state.ObjectId.Card(arcanum.engine.state.CardId(id), 0)
+        val alice = PlayerId(f.a); val bob = PlayerId(f.b)
+        val assumedPass = event("a", Input.PassPriority(bob), assumedBy = alice)
+        val endTurn = event("p", Input.PassPriority(alice))
+        val attack = event("x", Input.DeclareAttackers(alice, listOf(arcanum.engine.input.Attack(card("cub"), arcanum.engine.state.TargetRef.Player(bob)))))
+        val noBlocks = event("b", Input.DeclareBlockers(bob, emptyList()), assumedBy = alice)
+        val blocks = event("c", Input.DeclareBlockers(alice, listOf(arcanum.engine.input.Block(card("pup"), card("cub")))))
+        assertEquals("Bob responded", EngineEventText.branched("Bob", assumedPass, emptyList(), null, f.a))
+        assertEquals("Bob responded — your attack was taken back", EngineEventText.branched("Bob", assumedPass, listOf(attack, endTurn), null, f.a))
+        assertEquals("Bob blocked differently", EngineEventText.branched("Bob", noBlocks, emptyList(), null, f.a))
+        assertEquals("Bob blocked differently — your End turn was taken back", EngineEventText.branched("Bob", noBlocks, listOf(endTurn), null, f.a))
+        assertEquals("Bob responded — your blocks were taken back", EngineEventText.branched("Bob", assumedPass, listOf(blocks), null, f.a))
+    }
+
     // HIS-021 (§29.3): the playback delay is a third of a second at Card move speed 1×, scaled by it
     @Test fun thePlaybackDelayFollowsTheCardMoveSpeed() {
         assertEquals(330L, playbackDelay(1f))

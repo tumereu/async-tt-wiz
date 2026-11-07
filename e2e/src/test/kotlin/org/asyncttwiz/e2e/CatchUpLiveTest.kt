@@ -78,7 +78,7 @@ class CatchUpLiveTest : E2e() {
                 e.engine?.steps.orEmpty().any { (it.input as? Input.Cast)?.card?.let(::atw) == glimmer } }
         }
         // HIS-097's note on Alice's table (shown for a few seconds)
-        waitUntil("Alice told") { alice.told("responded — your later actions were taken back") }
+        waitUntil("Alice told") { alice.told("${bob.name} responded — your End turn was taken back") }
         assertTrue(alice.engine { device.session.events }.none { it.id == cast.next.id }, "the assumed line is discarded")
         // HIS-096 point ownership (owner 2026-11-07: the rule exactly as specified): once his Glimmer resolves, Bob has
         // priority with her Herald still on the Stack. The last real input before that point was his Glimmer (passes don't

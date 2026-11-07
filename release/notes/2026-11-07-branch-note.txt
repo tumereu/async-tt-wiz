@@ -1,0 +1,1 @@
+fix: When the other player answers differently than your phone assumed, the note says only "<name> responded" unless something you did yourself was taken back, and then it names it.

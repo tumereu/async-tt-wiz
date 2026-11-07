@@ -672,11 +672,9 @@ internal fun EngineAsyncHost(toolkit: TableToolkitController, routes: EngineTabl
     LaunchedEffect(game.version) {
         while (game.notes.isNotEmpty()) {
             when (val note = game.notes.removeAt(0)) {
-                is GameDevice.Note.Branched -> routes.tell("${names[note.by.value] ?: opponent} " + when (note.discarded.assumed?.input) {
-                    is Input.DeclareBlockers -> "blocked differently"
-                    is Input.SetupAnswer, is Input.Answer -> "took a mulligan"
-                    else -> "responded"
-                } + " — your later actions were taken back")
+                // HIS-097 (problem report DY6VCM): names the first real action of yours taken back, if any
+                is GameDevice.Note.Branched -> routes.tell(EngineEventText.branched(names[note.by.value] ?: opponent, note.discarded,
+                    note.actions, game.shown?.engine, routes.viewer))
                 // HIS-099, §29.4: the other player's undo of events you had seen: your board goes back the way it came,
                 // with "<name> undid: <action>" fading at the top (the transition's, EngineTableScreen)
                 is GameDevice.Note.TakenBack -> {}

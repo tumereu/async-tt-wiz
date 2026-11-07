@@ -66,7 +66,7 @@ class EmblemChipTest {
     }
 
     // TRN-053: in portrait the round chips sit in a row at the right of the room right of the piles, clear of both hands;
-    // landscape keeps them by the life square (under the opponent's, above your own)
+    // in landscape right after the piles in the player's bar row (TBL-009)
     @Test fun chipsSitInARowByTheLifeSquareClearOfTheHands() {
         val scene = TablePresentation.scene(TableFixture.game, tableBoard(play), "a", 412f, 892f, false)
         val hands = scene.items.filter { it.kind == TableItemKind.HAND }.map { it.bounds }
@@ -84,16 +84,26 @@ class EmblemChipTest {
             val stacked = EmblemChips.stacked(area, player == "b", listOf(80f), listOf(1))
             assertTrue(stacked.all { it.x == area.x && it.right <= life.emblemChips.first().x }, "text chips left of the row")
         }
-        val landscape = TablePresentation.scene(TableFixture.game, tableBoard(play), "a", 892f, 412f, true)
-        val own = landscape.items.single { it.id == "life/a" }
-        val opponent = landscape.items.single { it.id == "life/b" }
-        assertNull(own.emblemArea)
-        assertTrue(own.emblemChips.all { it.bottom < own.bounds.y && it.x >= own.bounds.x }, "above your own square")
-        assertTrue(opponent.emblemChips.all { it.y > opponent.bounds.bottom && it.x >= opponent.bounds.x }, "under the opponent's")
-        // Clear of the Stack between them: as many chips as fit, at least 20 dp, the last one "+N"
-        val stack = landscape.items.single { it.zone == PlayZone.STACK && it.kind == TableItemKind.PILE }
-        assertTrue(own.emblemChips.all { it.right < stack.bounds.x - 6f && it.width >= EmblemChips.MIN_SIZE }, "${own.emblemChips} ${stack.bounds}")
-        assertTrue(own.emblemChips.size >= 2)
+        // TBL-009: in landscape right after the piles in the player's bar row (the opponent's top bar, your bottom bar),
+        // inside the row, clear of the hands and of the controls in the bottom bar's right half
+        for ((width, height) in listOf(892f to 412f, 640f to 360f)) {
+            val landscape = TablePresentation.scene(TableFixture.game, tableBoard(play), "a", width, height, true)
+            val landscapeHands = landscape.items.filter { it.kind == TableItemKind.HAND }.map { it.bounds }
+            for (player in listOf("a", "b")) {
+                val life = landscape.items.single { it.id == "life/$player" }
+                val row = landscape.viewports.single { it.id == "dock/$player" }.bounds
+                val exile = landscape.items.single { it.id == "$player/EXILE" }
+                assertEquals(if (player == "a") EmblemChips.SHOWN + 1 else 1, life.emblemChips.size, "$width: ${life.emblemChips}")
+                for (chip in life.emblemChips) {
+                    assertEquals(chip, chip.intersection(row), "$width: $chip in $row")
+                    assertTrue(chip.x > exile.touchBounds!!.right - 1f, "$width: after the piles: $chip")
+                    assertTrue(landscapeHands.none { it.intersection(chip) != null }, "$width: $chip")
+                    assertTrue(chip.width >= EmblemChips.MIN_SIZE)
+                    if (player == "a") assertTrue(chip.right <= width / 2, "$width: clear of the controls: $chip")
+                }
+                assertTrue(life.emblemChips.zipWithNext().all { (a, b) -> a.right < b.x && a.y == b.y }, "one row")
+            }
+        }
     }
 
     private fun render(landscape: Boolean = false) {
@@ -121,8 +131,9 @@ class EmblemChipTest {
     @Test fun emblemChipsLandscape() {
         render(landscape = true)
         compose.onRoot().captureShot("$SCREENSHOTS/emblem-chips-landscape.png",
-            "Landscape table where you have five emblems and the opponent one: the round emblem chips sit in a row by each " +
-                "life square, under the opponent's and above your own, as many as fit before the Stack, the last a +N chip.")
+            "Landscape table where you have five emblems and the opponent one: the round emblem chips sit right after each " +
+                "player's piles in their bar row (the opponent's one in the top bar, your three and a +2 chip in the bottom " +
+                "bar, left of Next).")
     }
 
     // TRN-053: holding any emblem chip inspects all that player's emblems with their full text; the release closes it

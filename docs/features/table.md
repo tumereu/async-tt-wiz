@@ -11,7 +11,7 @@ The battlefield, how cards look on it, how you touch them, their menus and inspe
 - **TBL-129** Within a row, groups keep the order they arrived in: a card moves only when its group or row changes (it becomes a creature, gets a counter, has an Aura attached, joins or leaves a stack), and the row closes the gap a group leaves; nothing re-sorts by itself. Joining or leaving a stack, opening or closing a group and a row closing a gap animate at the card move speed (TBL-038). (r53)
 - **TBL-120** Each player's mana pool shows, while it isn't empty, as a small white pill of mana symbols (as drawn in card text, in WUBRG order, then colourless; more than 8 mana shows each kind once with its count, "×4") at the left of their battlefield on the line between their land row and the next row, live and in the timeline. (r47)
 - **TBL-005** The battlefield feels endless: no field edge is visible anywhere you can pan, and its background covers the whole pan area on both sides. (r31)
-- **TBL-009** In landscape the piles, life, counters and Stack sit in a left sidebar; in portrait they sit above and below the battlefield. (r2)
+- **TBL-009** In landscape each player's life square, piles and emblems sit in a bar row and the battlefields take the whole width: the opponent's in the top bar after the turn header, before their hand; yours at the left end of the bottom bar, left of the quick actions and the step button. There the piles are at most 32 dp tall, each with its own 48 dp touch target; the Stack is pinned at the right edge as in portrait (STK-007). In portrait the piles and life sit above and below the battlefield. (r57)
 
 ### Pan and zoom
 

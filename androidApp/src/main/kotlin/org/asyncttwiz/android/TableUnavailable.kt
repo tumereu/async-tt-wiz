@@ -21,10 +21,9 @@ internal fun TableUnavailable(title: String, landscape: Boolean, modifier: Modif
     navigation: (() -> Unit)? = null, message: String? = null, loading: Boolean = true,
     retry: () -> Unit, returnCurrent: (() -> Unit)? = null) {
     BoxWithConstraints(modifier.fillMaxSize().background(Color(0xfff5f8f7))) {
-        val side = if (landscape) TablePresentation.sidebarWidth(maxWidth.value) else 0f
         Canvas(Modifier.fillMaxSize().clearAndSetSemantics {}) {
             val d = density
-            val left = (side + 6f) * d
+            val left = 6f * d
             val top = (if (landscape) 52f else 106f) * d
             val bottom = size.height - (if (landscape) 56f else 108f) * d
             val middle = (top + bottom) / 2

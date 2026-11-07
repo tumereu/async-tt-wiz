@@ -324,7 +324,7 @@ internal fun TableSurface(game: GameSummary, play: TableBoard, accountId: String
                 val glows = TableGlows.of(frame.scene.battlefieldGroups, groupTaps, glow.alphas(), castGlow, attackGlow)
                 drawTable(frame.scene, accountId, play.board.turn.accountId, preview, frame.alphas, artwork, drawCache,
                     presenceDot, glows.targets, glows.playable, shaking?.let { it.id to shakeOffset.value }?.takeIf { it.second != 0f }, raisedSources,
-                    attackable = glows.attack, expandGlow = glows.expand, pressed = pressGlow.value)
+                    attackable = glows.attack, expandGlow = glows.expand, pressed = pressGlow.value, pileBadges = false)
             }
             TableSemanticNodes(game, play, scene, semanticItems, rendered, runtime, { currentRuntime }, coordinator, writable, toolkit,
                 { preview }, layoutState)
@@ -338,6 +338,8 @@ internal fun TableSurface(game: GameSummary, play: TableBoard, accountId: String
             val stackNames = remember(game) { gameNames(game) }
             if (toolkit?.let { it.cast.targeting || it.flows.targeting } != true)
                 StackTargetArrows(play, scene, accountId, stackNames) { item -> rendered.value.items[item.id]?.bounds ?: item.bounds }
+            // STK-058 (owner gallery review 2026-11-07): the piles' count bubbles over every arrow and overlay above the table
+            Canvas(Modifier.fillMaxSize()) { drawPileBadges(rendered.value.scene, drawCache) }
             // TRN-053 (owner gallery review 2026-11-06): the emblems' round chips; holding one inspects the player's emblems
             EmblemChipsOverlay(scene, accountId)
         }

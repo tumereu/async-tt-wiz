@@ -55,14 +55,14 @@ internal fun PlayerPanel(state: TableBoard, accountId: String, viewer: String, c
 @Composable
 private fun QuickMessages(quick: TableQuickChat, close: () -> Unit) {
     val color = LocalInlinePopupColor.current
-    FlowRow(Modifier.widthIn(max = 320.dp).semantics { contentDescription = "Quick messages" },
+    FlowRow(Modifier.widthIn(max = 344.dp).semantics { contentDescription = "Quick messages" },
         horizontalArrangement = Arrangement.spacedBy(4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         for (text in QuickChatMessages) RingPress(MenuControl(text, quick.enabled) { quick.send(text); close() },
             Modifier.heightIn(min = 40.dp), color) {
             Text(text, Modifier.padding(horizontal = 10.dp), color = MenuInk.copy(alpha = if (quick.enabled) 1f else .38f),
                 style = MaterialTheme.typography.labelLarge, maxLines = 1)
         }
-        // SYS-045: icon only, holding it names it
+        // SYS-045: icon only, holding it names it; the last item of the chips' flow, as tall as they are
         RingPress(MenuControl("Write a message") { close(); quick.write() }, Modifier.size(40.dp), color) {
             Icon(Icons.Outlined.Edit, null, tint = color)
         }

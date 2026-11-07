@@ -599,6 +599,8 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
         val pile = play.board.containers.singleOrNull { it.id == id }
         if (pile == null || pile.temp) return true
         if (pile.zone != PlayZone.LIBRARY) return false
+        // ZON-093: your own Library's menu always has View deck
+        if (pile.accountId == viewer) return false
         val top = pile.cards.firstOrNull() ?: return true
         // Not worked out yet: the menu opens and shows the rows once they are
         val plays = cardPlays(play) ?: return false
@@ -609,6 +611,12 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
     fun openLibrary(id: String) {
         current()?.board?.containers?.singleOrNull { it.id == id && it.zone == PlayZone.LIBRARY } ?: return
         dismiss(); panel = "library/$id"
+    }
+
+    /** ZON-093: the View deck panel, from your own Library's menu (looking only: nothing in the game changes). */
+    fun openDeckView() {
+        val item = popupItem
+        dismiss(); panel = "deck"; popupItem = item
     }
 
     fun handle(intent: TableIntent): Boolean {

@@ -52,11 +52,16 @@ internal fun TableToolkitScreen(toolkit: TableToolkitController, play: TableBoar
             TableActionMenu(play, toolkit.table, toolkit::dismiss, perform = toolkit::perform, names = names, onTimeline = onTimeline,
                 blocked = gameActionsBlocked)
         }
+        "deck" -> DeckViewPanel(play, toolkit.viewer, toolkit::dismiss)
         "phase" -> PhaseStepPicker(play, toolkit.viewer, endingColor, toolkit::dismiss, names = names)
         else -> if (panel?.startsWith("library/") == true) {
             val id = panel.substringAfter('/')
+            val own = play.board.containers.singleOrNull { it.id == id }?.accountId == toolkit.viewer
             InlinePopupPanel(toolkit::dismiss, "Library", width = 264.dp, key = panel) {
-                ZoneMenu(rows = libraryTopRows(toolkit, play, id, names, enabled))
+                // ZON-093: your own Library's menu always has View deck (the opponent's never)
+                ZoneMenu(rows = libraryTopRows(toolkit, play, id, names, enabled), kept = {
+                    if (own) InlinePopupCell(MenuControl("View deck", DeckView.deck(play, toolkit.viewer).isNotEmpty()) { toolkit.openDeckView() })
+                })
             }
         } else if (panel?.startsWith("pile/") == true) {
             val pile = play.board.containers.singleOrNull { it.id == panel.substringAfter('/') && it.zone in PublicPiles.zones }

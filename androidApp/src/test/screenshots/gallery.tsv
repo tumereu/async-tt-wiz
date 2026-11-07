@@ -95,3 +95,4 @@ number	item	screenshot	catalog	decisions
 94	Stack list showing what was chosen for an entry	stack/stack-list-choices.png	STK-018
 95	Inspect of an ability naming its kind (Cycling trigger)	stack/cycling-trigger-inspect.png	STK-050 TBL-104
 96	The other player's reveal stops your view until OK	engine/reveal-panel.png	HIS-110 STK-044
+97	View deck from your own Library: Still in library	engine/view-deck.png	ZON-093 ZON-078

@@ -18,7 +18,24 @@ import kotlinx.serialization.Serializable
     val attentionHolder: String? = null, val updatedAt: String = createdAt,
     val podId: String? = null, val podName: String? = null,
     /** Pod challenge waiting for the opponent's deck: both players see it, the recipient can decline but not yet accept. Omitted when false. */
-    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val invitationHeld: Boolean = false)
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val invitationHeld: Boolean = false,
+    /** The game's assume reveal settings (LOB-135), set by its host ([inviter]). Omitted when the defaults. */
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val assumeReveals: AssumeReveals = AssumeReveals())
+
+/**
+ * A game's settings that relax the information rule (TRN-067, LOB-135; owner 2026-11-07), set by the game's host before
+ * and during the game, outside undo: with [library], cards of the other player's library (a reveal from its top, a
+ * search's result shown) don't hold back an assumption or the player's own actions on a tentative line (every line
+ * reshuffles the unknown parts of the libraries, HIS-042); with [hands], cards of the other player's hand (reveals,
+ * random discards) don't either. Face-down cards and other random results are held back regardless. The defaults are
+ * the game's: library on, hands off.
+ */
+@Serializable data class AssumeReveals(val library: Boolean = true, val hands: Boolean = false) {
+    companion object {
+        /** Nothing relaxed: the information rule as such (its checks' default, and a device not yet told). */
+        val NONE = AssumeReveals(library = false, hands = false)
+    }
+}
 /** A page of the games list. Read with a [token] from an earlier read ("changed since", switch-review #11): only the games
  * changed since then, with [removed] the ids of changed games that left this list (ended, cancelled, declined, no longer
  * visible). [token] is what to read changed games since next time (the first page's; null on an older read). */

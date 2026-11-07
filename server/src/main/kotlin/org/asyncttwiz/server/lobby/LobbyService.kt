@@ -97,6 +97,10 @@ class LobbyService(private val runtime: ServiceRuntime) {
 
     fun summary(sql: DSLContext, id: UUID): GameSummary = summary(sql, sql.selectFrom(GAME).where(GAME.ID.eq(id)).fetchSingle())
 
+    /** LOB-135: [game]'s assume reveal settings, as its host last set them. */
+    private fun assumeReveals(game: org.asyncttwiz.server.generated.tables.records.GameRecord) =
+        AssumeReveals(library = game.assumeLibraryReveals != false, hands = game.assumeHandReveals == true)
+
     /** [viewer]: whose list it is; a play whose state is the engine's says whose move it is per viewer (I-D56 §7). */
     private fun summary(sql: DSLContext, game: org.asyncttwiz.server.generated.tables.records.GameRecord, viewer: UUID? = null): GameSummary {
         if (game.lifecycle != "ACTIVE") return summary(sql, game, null as String?)
@@ -136,7 +140,7 @@ class LobbyService(private val runtime: ServiceRuntime) {
             game.currentInvitation.toString(), InvitationState.valueOf(identities.value1()!!), GameLifecycle.valueOf(game.lifecycle!!),
             game.revision.toString(), game.currentPlay?.toString(),
             holder,
-            activity ?: game.updatedAt!!.toInstant().toString(), game.podId?.toString(), game.podName, game.podInvitationHeld == true)
+            activity ?: game.updatedAt!!.toInstant().toString(), game.podId?.toString(), game.podName, game.podInvitationHeld == true, assumeReveals(game))
     }
 
     /**
@@ -228,7 +232,7 @@ class LobbyService(private val runtime: ServiceRuntime) {
                 game.currentInvitation.toString(), InvitationState.valueOf(row.value2()!!), GameLifecycle.valueOf(game.lifecycle!!),
                 game.revision.toString(), game.currentPlay?.toString(),
                 holder,
-                activity ?: game.updatedAt!!.toInstant().toString(), game.podId?.toString(), game.podName, game.podInvitationHeld == true)
+                activity ?: game.updatedAt!!.toInstant().toString(), game.podId?.toString(), game.podName, game.podInvitationHeld == true, assumeReveals(game))
         } }
     }
 

@@ -70,6 +70,8 @@ internal fun EngineTableScreen(controller: LobbyController, accountId: String, h
     // LOB-113 (I-D56 §7): a new game starts with the player's defaults, which the server gives its seat from their account
     // I-D56 §13: Autotap is the player's private setting of this game; the cast flow reads it
     SideEffect { toolkit.cast.autotap = shown.settings.autotap }
+    // LOB-135: Table actions → Game settings changes the game's assume reveal settings (the host's)
+    SideEffect { toolkit.assumeReveals = controller::assumeReveals }
     // The device's own steps (its passes, assumptions, a live wait turning async) and its local-head reports
     LaunchedEffect(controller, game.id) { while (true) { controller.engineTick(); delay(1_000) } }
     val locked = shown.locked

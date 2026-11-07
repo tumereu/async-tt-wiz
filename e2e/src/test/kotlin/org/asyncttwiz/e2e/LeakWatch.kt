@@ -10,7 +10,8 @@ import java.util.concurrent.CopyOnWriteArrayList
 /**
  * The interim simulation's leak oracle (I-D56 §5) on a real phone: on every event the player's device shows or sends,
  * while their line is tentative (an event of the main line past the other player's local head, or one of their own
- * pending ones, is an assumption of theirs), nothing shown may reveal a card they couldn't see before. Installed on the
+ * pending ones, is an assumption of theirs), nothing shown may reveal a card they couldn't see before, apart from what the
+ * game's assume reveal settings let through (LOB-135). Installed on the
  * device's session (engine thread), again whenever the game is loaded again.
  */
 internal class LeakWatch(private val player: E2ePlayer) {
@@ -44,7 +45,8 @@ internal class LeakWatch(private val player: E2ePlayer) {
         val tentative = (after + device.session.pending).any { it.assumed?.assumedBy == me && it.id != event.id } ||
             event.assumed?.assumedBy == me
         if (!tentative) return
-        val shown = InformationRule.revealing(before, event.engine?.changes.orEmpty(), me)
+        // LOB-135: what the game's assume reveal settings let through isn't a leak
+        val shown = InformationRule.revealing(before, event.engine?.changes.orEmpty(), me, device.assumeReveals)
         if (shown.isNotEmpty()) leaks += "${player.name} shown $shown by ${event.id}"
     }
 }

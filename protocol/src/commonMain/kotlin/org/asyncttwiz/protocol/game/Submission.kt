@@ -67,7 +67,9 @@ object Authority {
      * applies (I-D56 §5); [resultSeenByAll], every player's local head has reached the result the engine reports, so it
      * may be confirmed (I-D56 §11).
      */
-    data class Rules(val nextLine: Int? = null, val tentative: Boolean = false, val resultSeenByAll: Boolean = true)
+    data class Rules(val nextLine: Int? = null, val tentative: Boolean = false, val resultSeenByAll: Boolean = true,
+        /** The game's assume reveal settings (LOB-135): the cards the information rule lets through. */
+        val reveals: org.asyncttwiz.protocol.AssumeReveals = org.asyncttwiz.protocol.AssumeReveals.NONE)
 
     /**
      * Makes the event [submission] describes, by [author], on [model] (the state at its parent): on success [model] is
@@ -116,7 +118,7 @@ object Authority {
             // I-D56 §5: while the author's line is tentative, nothing may show them a card they couldn't see before
             // The model is the state after [changes] ([before] is after the line's reorder when the event starts one)
             val checked = before
-            if (checked != null && InformationRule.revealing(checked, changes, author, model.view()).isNotEmpty()) throw Refusal(REVEALS_HIDDEN)
+            if (checked != null && InformationRule.revealing(checked, changes, author, model.view(), rules.reveals).isNotEmpty()) throw Refusal(REVEALS_HIDDEN)
             return builder.build()
         } catch (refusal: Refusal) {
             builder.abandon()
@@ -376,11 +378,13 @@ object Acceptance {
      * without one is at the root); [nextLine] is the line a branch starts (one past the line counter: while the head's
      * line is behind the counter, after a rewind, an event at the head starts the counter's line, [Rewind.lineDue]); [rewindOpen]: an undo request is open, so
      * only a concession is taken (I-D56 §10); [aliases]: the author's earlier submissions dropped as duplicates of
-     * main-line events, by id ([Confirmed.alias]): a submission made on one is taken on its event. Refused ([Refusal]),
+     * main-line events, by id ([Confirmed.alias]): a submission made on one is taken on its event; [reveals]: the game's
+     * assume reveal settings, the cards the information rule lets through (LOB-135). Refused ([Refusal]),
      * or accepted with a new event, [warm] is used up.
      */
     fun accept(history: GameHistory, head: String, warm: LiveState?, sent: Submission, author: PlayerId,
-        heads: Map<PlayerId, String>, nextLine: Int, rewindOpen: Boolean = false, aliases: Map<String, String> = emptyMap()): Result {
+        heads: Map<PlayerId, String>, nextLine: Int, rewindOpen: Boolean = false, aliases: Map<String, String> = emptyMap(),
+        reveals: org.asyncttwiz.protocol.AssumeReveals = org.asyncttwiz.protocol.AssumeReveals.NONE): Result {
         val submission = aliases[sent.parentId]?.let { sent.copy(parentId = it) } ?: sent
         val concession = submission.acts.filterIsInstance<Act.Perform>().firstOrNull()?.input.let { it is Input.Concede && it.player == author }
         var used: LiveState? = null
@@ -415,7 +419,7 @@ object Acceptance {
                 val seen = ahead.all { it.engine == null } &&
                     others.all { other -> MainLine.after(history, head, other)?.all { e -> e.engine == null } == true }
                 val event = Authority.make(model, submission.copy(parentId = head, acts = acts), author,
-                    Authority.Rules(nextLine = due, tentative = tentative, resultSeenByAll = seen))
+                    Authority.Rules(nextLine = due, tentative = tentative, resultSeenByAll = seen, reveals = reveals))
                 return Accepted(event, LiveState(event.id, model), authorHead = event.engine?.steps.orEmpty().any { it.input != null } || parent == own)
             }
             val next = rest.first()
@@ -438,7 +442,7 @@ object Acceptance {
                 else -> throw Refusal("newLine")
             }
             val model = state(parent)
-            val event = Authority.make(model, submission.copy(acts = acts), author, Authority.Rules(nextLine = nextLine))
+            val event = Authority.make(model, submission.copy(acts = acts), author, Authority.Rules(nextLine = nextLine, reveals = reveals))
             return Accepted(event, LiveState(event.id, model), discarded = next.id)
         } catch (refusal: Refusal) {
             refusal.state = used ?: warm
@@ -525,16 +529,28 @@ object InformationRule {
     /**
      * The cards [changes] (made on [before]) show [viewer] at some moment that weren't visible to them in [before]
      * ([Engine.revealed]: compared by card, looks and reveals in passing included), apart from cards of their own library
-     * (protected by the reseed, §9).
+     * (protected by the reseed, §9) and the cards the game's [allowed] settings let through (LOB-135: the other player's
+     * library, their hand; where the card was in [before]).
      */
-    fun revealing(before: GameState, changes: List<Change>, viewer: PlayerId): Set<arcanum.engine.state.CardId> =
-        revealing(Before(before, null), changes, viewer, null)
+    fun revealing(before: GameState, changes: List<Change>, viewer: PlayerId,
+        allowed: org.asyncttwiz.protocol.AssumeReveals = org.asyncttwiz.protocol.AssumeReveals.NONE): Set<arcanum.engine.state.CardId> =
+        revealing(Before(before, null), changes, viewer, null, allowed)
 
     /** [revealing] on [before] with the views known ([Before.view]; [after]: the view of [before]'s state with [changes]
      * made), so the layers aren't worked out again (engine-responsiveness R2); null ones are worked out. */
-    fun revealing(before: Before, changes: List<Change>, viewer: PlayerId, after: arcanum.engine.view.View?): Set<arcanum.engine.state.CardId> =
+    fun revealing(before: Before, changes: List<Change>, viewer: PlayerId, after: arcanum.engine.view.View?,
+        allowed: org.asyncttwiz.protocol.AssumeReveals = org.asyncttwiz.protocol.AssumeReveals.NONE): Set<arcanum.engine.state.CardId> =
         Engine.revealed(before.state, changes, viewer, before.view, after).filterTo(mutableSetOf()) { card ->
-            before.state.current(card)?.let { !(it.zone == Zone.Library && it.owner == viewer) } ?: true
+            before.state.current(card)?.let { !passes(it, viewer, allowed) } ?: true
+        }
+
+    /** Whether [card] (where it is before an event) may be shown to [viewer] on a tentative line: a card of their own
+     * library always; with [allowed]'s settings, a card of the other player's library or hand (LOB-135). */
+    private fun passes(card: arcanum.engine.state.GameObject, viewer: PlayerId, allowed: org.asyncttwiz.protocol.AssumeReveals): Boolean =
+        when (card.zone) {
+            Zone.Library -> card.owner == viewer || allowed.library
+            Zone.Hand -> card.owner != viewer && allowed.hands
+            else -> false
         }
 
     /** The state before an event, kept for the rule's check: a copy of the model's engine state, with its view when the
@@ -549,8 +565,11 @@ object InformationRule {
      * shuffle's order is hidden and a new line reshuffles it anyway). */
     fun randomResult(event: GameEvent, before: GameState): Boolean = randomResult(event.engine?.steps.orEmpty(), before)
 
-    /** [randomResult] of the engine [steps] made on [before] (an event being made). */
-    fun randomResult(steps: List<EngineStep>, before: GameState): Boolean {
+    /** [randomResult] of the engine [steps] made on [before] (an event being made). With [allowed]'s hands setting
+     * (LOB-135), a random pick among cards of a hand other than [viewer]'s (a random discard) isn't one: it shows only
+     * cards of that hand, which the setting lets through. */
+    fun randomResult(steps: List<EngineStep>, before: GameState, viewer: PlayerId? = null,
+        allowed: org.asyncttwiz.protocol.AssumeReveals = org.asyncttwiz.protocol.AssumeReveals.NONE): Boolean {
         if (steps.none { it.input is Input.Answer }) return false
         val state = before.deepCopy()
         var found = false
@@ -559,7 +578,10 @@ object InformationRule {
             val input = step.input
             if (d != null && input is Input.Answer && input.decision == d.id) {
                 val what = d.what
-                if (!(what is arcanum.engine.decision.RandomKind.Objects && what.library.isNotEmpty())) found = true
+                val shuffle = what is arcanum.engine.decision.RandomKind.Objects && what.library.isNotEmpty()
+                val handPick = allowed.hands && viewer != null && what is arcanum.engine.decision.RandomKind.Objects &&
+                    what.among.isNotEmpty() && what.among.all { id -> state.obj(id)?.let { it.zone == Zone.Hand && it.owner != viewer } == true }
+                if (!shuffle && !handPick) found = true
             }
             step.changes.forEach { state.apply(it) }
         }

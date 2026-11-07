@@ -20,12 +20,15 @@ fun TableActionMenu(play: TableBoard, controller: TableActionController, onDismi
     names: Map<String, String> = emptyMap(), onTimeline: (() -> Unit)? = null,
     reportToken: () -> String? = DebugCrashes::sessionToken,
     /** TRN-049: a waiting suggestion blocks every entry but Timeline (HIS-020). */
-    blocked: Boolean = false) {
+    blocked: Boolean = false,
+    /** LOB-135: the game's settings (null: Game settings greyed, as in tests of the table alone). */
+    settings: GameSettingsAccess? = null) {
     val scope = TableActionScope(play.gameId, play.playId)
     var ending by remember(scope) { mutableStateOf(false) }
     var outcome by remember(scope) { mutableStateOf<Pair<String, EndingTool>?>(null) }
     var conceding by remember(scope) { mutableStateOf(false) }
     var reporting by remember(scope) { mutableStateOf(false) }
+    var setting by remember(scope) { mutableStateOf(false) }
     val landscape = LocalConfiguration.current.screenWidthDp > LocalConfiguration.current.screenHeightDp
     val enabled = controller.enabled(scope) && !blocked
     val endingEntry = if (pendingSuggestionId == null) MenuControl("Suggest game end", enabled) { ending = true }
@@ -36,9 +39,12 @@ fun TableActionMenu(play: TableBoard, controller: TableActionController, onDismi
     val entries = listOf(MenuControl("Timeline", onTimeline != null) { onDismiss(); onTimeline?.invoke() }) +
         listOfNotNull(endingEntry.takeIf { pendingSuggestionId == null || mayAccept }) + MenuControl("Concede", enabled) { conceding = true } +
         // The same report as Settings' "Report a problem", without leaving the game (N7FU6Y)
-        MenuControl("Send problem report", !blocked) { reporting = true }
+        MenuControl("Send problem report", !blocked) { reporting = true } +
+        // LOB-135: both players see the game's settings; only its host changes them
+        MenuControl("Game settings", settings != null && !blocked) { setting = true }
     if (reporting) ProblemReportDialog(reportToken) { reporting = false; onDismiss() }
-    if (!ending && !conceding && !reporting) TableMenuPanel(onDismiss, width = if (landscape) 776.dp else 400.dp, title = "Table actions") {
+    if (setting && settings != null) GameSettingsPanel(settings.game, settings.accountId, settings.change) { setting = false; onDismiss() }
+    if (!ending && !conceding && !reporting && !setting) TableMenuPanel(onDismiss, width = if (landscape) 776.dp else 400.dp, title = "Table actions") {
         for (row in entries.chunked(if (landscape) 3 else 2)) Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             for (entry in row) MenuButton(entry.name, Modifier.weight(1f), entry.enabled, entry.color, onClick = entry.click)
             repeat((if (landscape) 3 else 2) - row.size) { Spacer(Modifier.weight(1f)) }

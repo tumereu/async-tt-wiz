@@ -92,6 +92,10 @@ object TestCards {
         "If a source you control would deal damage to an opponent, prevent that damage and each opponent mills that many cards.")
     /** A free sorcery whose resolving shows its caster the target player's hidden hand (TRN-067). */
     val glance = card("Ember Glance", "Sorcery", "{0}", "Look at target player's hand.")
+    /** A free sorcery revealing the target player's hand (LOB-135: held back unless "Allow assumes that reveal hands"). */
+    val exposure = card("Ember Exposure", "Sorcery", "{0}", "Target player reveals their hand.")
+    /** A free sorcery revealing the target player's top two library cards (LOB-135: let through by default). */
+    val augury = card("Ember Augury", "Sorcery", "{0}", "Target player reveals the top two cards of their library.")
     /** A free enchantment whose trigger its controller gets on the other player's cheap spell (their spell puts it on top). */
     val warden = card("Ember Warden", "Enchantment", "{0}", "Whenever an opponent casts a spell with mana value 2 or less, you gain 2 life.")
     /** A free sorcery that reveals its caster's top card and puts it into their hand (HIS-110: the other player's reveal

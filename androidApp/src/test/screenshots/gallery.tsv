@@ -96,4 +96,5 @@ number	item	screenshot	catalog	decisions
 95	Inspect of an ability naming its kind (Cycling trigger)	stack/cycling-trigger-inspect.png	STK-050 TBL-104
 96	The other player's reveal stops your view until OK	engine/reveal-panel.png	HIS-110 STK-044
 97	View deck from your own Library: Still in library	engine/view-deck.png	ZON-093 ZON-078
-98	The other player's spell shown large before it moves to the Stack	engine/play-show-spell.png	HIS-112 STK-057
+98	Game settings in the lobby: allowing assumes over library and hand reveals	settings/game-settings-host.png	LOB-135 TRN-067
+99	The other player's spell shown large before it moves to the Stack	engine/play-show-spell.png	HIS-112 STK-057

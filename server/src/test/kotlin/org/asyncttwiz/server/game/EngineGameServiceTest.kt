@@ -49,7 +49,8 @@ class EngineGameServiceTest {
         val connection = UUID.randomUUID()
         val stream = games.open(actor, hello, connection, game.id, UUID.randomUUID().toString())
         fun command(action: GameAction): GameCommand {
-            val scope = if (action is GameAction.Submit || action.isEngine) GameScope(game.id, playId = games.head(actor, game.id).summary.playId)
+            val scope = if (action is GameAction.SetAssumeReveals) GameScope(game.id)
+                else if (action is GameAction.Submit || action.isEngine) GameScope(game.id, playId = games.head(actor, game.id).summary.playId)
                 else GameScope(game.id, game.preparationRound, if (action == GameAction.AcceptInvitation) game.invitationId else null)
             return GameCommand(UUID.randomUUID().toString(), scope, action, stream.streamId, stream.generation)
         }
@@ -73,7 +74,7 @@ class EngineGameServiceTest {
 
     /** A started game; its play is engine state when [engine] (seats from the seam, or the decks with [decks]). */
     private inner class Fixture(runtime: ServiceRuntime, engine: Boolean, decks: Boolean = false, tag: String = "",
-        bobDefaults: PlaySettings? = null) {
+        bobDefaults: PlaySettings? = null, deck: List<String> = names) {
         val a = account(runtime, "EngineA$tag${if (engine) "" else "x"}"); val b = account(runtime, "EngineB$tag${if (engine) "" else "x"}")
         val games = GameService(runtime)
         val game: GameSummary
@@ -95,7 +96,7 @@ class EngineGameServiceTest {
             owner.execute(GameAction.SetStarter(StarterChoice(a.account.accountId)))
             bobDefaults?.let { org.asyncttwiz.server.accounts.AccountSettingsService(runtime).set(b.account.accountId, AccountSettings(playDefaults = it)) }
             val seats = listOf(a, b).map { p -> PlayerId(p.account.accountId) }.map { p ->
-                Seat(p, names.mapIndexed { i, n -> DeckCard(CardId("${p.value}.$i"), Cards.definition(n)) })
+                Seat(p, deck.mapIndexed { i, n -> DeckCard(CardId("${p.value}.$i"), Cards.definition(n)) })
             }
             engineSeats = if (!decks) { _ -> seats } else null
             try {
@@ -535,6 +536,60 @@ class EngineGameServiceTest {
         val event = f.codec().decodeEvent(f.revisions(f.b, "0").last().engineEvent!!)
         assertEquals(keep.id, event.id)
         assertEquals(ResponseMode.Normal, event.mode)
+    }
+
+    // LOB-135, TRN-067 (owner 2026-11-07): the assume reveal settings are the game's, the defaults until changed (library
+    // on, hands off), changed by its host only and seen by both players; the server's information rule check honours
+    // them as they are when a submission comes: Alice's assumed pass over her spell revealing Bob's library top is
+    // refused with the library setting off and taken once she turns it on
+    @Test fun `the host's assume reveal settings are the game's and the server's check honours them`() = withService { runtime ->
+        val augury = Cards.invent("Prying Augury", "{0}", "Sorcery", "Target player reveals the top two cards of their library.")
+        val f = Fixture(runtime, engine = true, tag = "r", deck = List(40) { augury })
+        assertEquals(AssumeReveals(), f.games.head(f.b, f.game.id).summary.assumeReveals)
+        assertEquals("notHost", f.recipient.execute(GameAction.SetAssumeReveals(AssumeReveals(hands = true))).reason)
+        assertEquals(AssumeReveals(), f.games.head(f.a, f.game.id).summary.assumeReveals)
+        val before = f.games.head(f.b, f.game.id).summary.revision
+        assertEquals("accepted", f.owner.execute(GameAction.SetAssumeReveals(AssumeReveals(library = false))).outcome)
+        assertEquals(AssumeReveals(library = false), f.games.head(f.b, f.game.id).summary.assumeReveals)
+        assertEquals(AssumeReveals(library = false), f.revisions(f.b, before).last().summary.assumeReveals)
+        // Alice keeps, assumes Bob's keep and his passes up to her main phase, and casts the Augury at him
+        val alice = f.device(f.a)
+        fun send(submission: Submission) {
+            assertEquals("accepted", f.owner.execute(GameAction.Submit(submission)).outcome)
+            alice.receivedShown(alice.pending.first())
+        }
+        send(alice.act(id(), Input.Answer(alice.model.engine.pending!!.decision.id, Answer.Option("Keep"))))
+        send(alice.act(id(), Input.Answer(alice.model.engine.pending!!.decision.id, Answer.Option("Keep")), assumed = true))
+        for (i in 0 until 20) {
+            val s = alice.model.engine
+            if (s.turn.active == f.alice && s.turn.step == arcanum.api.TurnStep.PrecombatMain && s.priority.holder == f.alice && s.stack.isEmpty()) break
+            val holder = s.priority.holder!!
+            send(alice.act(id(), Input.PassPriority(holder), assumed = holder != f.alice))
+        }
+        val builder = alice.begin(id())
+        builder.perform(Input.Cast(f.alice, alice.model.engine.player(f.alice).hand.first()))
+        while (true) {
+            val d = alice.model.engine.pending?.decision ?: break
+            val answers = Engine.options(alice.model.engine, f.alice).filterIsInstance<Input.Answer>().filter { it.decision == d.id }
+            builder.perform(if (d is arcanum.engine.decision.Decision.Targets) answers.first {
+                (it.answer as Answer.Targets).chosen == listOf(arcanum.engine.state.TargetRef.Player(f.bob)) } else answers.first())
+        }
+        send(alice.send())
+        if (alice.model.engine.priority.holder == f.alice) send(alice.act(id(), Input.PassPriority(f.alice)))
+        assertEquals(f.bob, alice.model.engine.priority.holder)
+        // Assuming Bob's pass resolves the Augury: it would show Alice the top of Bob's library
+        fun assumedPass(): Submission {
+            val model = alice.model.copy()
+            val pass = EventBuilder(model, id(), alice.tip, f.a.account.accountId)
+            pass.perform(Input.PassPriority(f.bob), assumedBy = f.alice)
+            pass.answerRandoms()
+            return Submission.of(pass.build())
+        }
+        val refused = f.owner.execute(GameAction.Submit(assumedPass()))
+        assertEquals("rejected", refused.outcome); assertEquals("revealsHidden", refused.reason)
+        assertEquals("accepted", f.owner.execute(GameAction.SetAssumeReveals(AssumeReveals(library = true))).outcome)
+        assertEquals("accepted", f.owner.execute(GameAction.Submit(assumedPass())).outcome)
+        assertTrue(f.codec().decodeModel(f.snapshot().state).engine.stack.isEmpty(), "the Augury resolved")
     }
 
     // LOB-113 (I-D56 §7, step D): a new game starts with each player's defaults kept on the server for their account

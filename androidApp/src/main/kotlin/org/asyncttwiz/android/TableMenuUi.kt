@@ -45,6 +45,7 @@ internal fun menuIcon(name: String): ImageVector {
         n == "view deck" -> Icons.AutoMirrored.Outlined.ViewList
         n == "concede" -> Icons.Outlined.OutlinedFlag
         n == "send problem report" -> Icons.Outlined.BugReport
+        n == "game settings" -> Icons.Outlined.Settings
         n == "ready" -> Icons.Outlined.CheckCircleOutline
         // Automatum's quick actions (CMB-028, CMB-029, CMB-034, TRN-059): each its own icon, before the generic matches
         n == "pass" -> Icons.AutoMirrored.Outlined.ArrowForward

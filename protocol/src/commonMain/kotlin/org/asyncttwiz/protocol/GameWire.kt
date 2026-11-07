@@ -10,7 +10,7 @@ const val CURRENT_GAMEPLAY_RULES_VERSION = 36
 /** The socket protocol version of this build (SYS-033: one compatible set of apps and server). Apps offer it
  *  as [GameHello.maxMinor] and the server welcomes with its own: a lower offer gets [GameUpgradeRequired] (the app
  *  is older), and an app welcomed with a lower minor waits for the server update. Bump it with any socket wire change. */
-const val GAME_PROTOCOL_MINOR = 9
+const val GAME_PROTOCOL_MINOR = 10
 
 @Serializable enum class PresenceState { ONLINE, IDLE, OFFLINE }
 /** The opponent's presence in this game. Ages are whole seconds as of sending, so the clocks never need to agree.
@@ -42,6 +42,9 @@ const val GAME_PROTOCOL_MINOR = 9
     /** I-D56 §13: the actor's play settings for this game (response mode, Assume resolves, Autotap); the response mode
      * is shared with the other player at once ([EngineUpdate.modes], owner 2026-11-06). */
     @Serializable @SerialName("engineSettings") data class EngineSettings(val settings: org.asyncttwiz.protocol.game.PlaySettings) : GameAction
+    /** LOB-135: the game's assume reveal settings; only its host (the inviter) changes them, before and during the game.
+     * Scoped to the game alone (no preparation, invitation or play). */
+    @Serializable @SerialName("setAssumeReveals") data class SetAssumeReveals(val reveals: AssumeReveals) : GameAction
     @Serializable @SerialName("acceptInvitation") data object AcceptInvitation : GameAction
     @Serializable @SerialName("declineInvitation") data object DeclineInvitation : GameAction
     @Serializable @SerialName("reinvite") data object Reinvite : GameAction
@@ -234,6 +237,8 @@ object GameWire {
             require(DeckValidation.uuid(submission.id) && DeckValidation.uuid(submission.parentId))
             require(submission.acts.size <= MAX_SUBMITTED && submission.table.size <= MAX_SUBMITTED)
             require(submission.acts.isNotEmpty() || submission.table.isNotEmpty())
+        } else if (command.action is GameAction.SetAssumeReveals) {
+            require(command.scope.playId == null && command.scope.preparationId == null && command.scope.invitationId == null)
         } else if (command.action.isEngine) {
             require(command.scope.playId != null && command.scope.preparationId == null && command.scope.invitationId == null)
             when (val action = command.action) {

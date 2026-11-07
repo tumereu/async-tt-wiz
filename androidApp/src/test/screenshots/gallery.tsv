@@ -84,3 +84,8 @@ number	item	screenshot	catalog	decisions
 83	Landscape table layout	layout-populated-landscape.png	TBL-009 TRN-035 STK-007 TBL-121
 84	Timeline mode in landscape	chrome-landscape-a-turn-a-move-a-review.png	HIS-007 TBL-009
 85	Combat band in landscape	combat-band/staged-landscape.png	CMB-007 CMB-042 TBL-009
+86	Stats: History	match-history/stats-history.png	LOB-130
+87	Stats: a record's details	match-history/stats-details.png	LOB-131
+88	Stats: Graphs (one opponent)	match-history/stats-graphs-opponent.png	LOB-132
+89	Game lobby History tab	match-history/lobby-history.png	LOB-035 LOB-129
+90	Pod standings and matches	match-history/pod-games.png	DRF-121

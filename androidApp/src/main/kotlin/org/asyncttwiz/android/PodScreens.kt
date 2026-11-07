@@ -491,6 +491,11 @@ internal fun PodGamesTab(detail: PodDetail, accountId: String, lobby: LobbyContr
                     }
             }
         }
+        // DRF-121 (game history §3.2): the pod's standings and every match of it, played or being played, no decks
+        if (lobby != null) {
+            LaunchedEffect(detail.id) { lobby.history.loadPod(detail.id) }
+            PodMatchesSection(detail, lobby.history.pods[detail.id])
+        }
         if (games.isNotEmpty()) {
             Text("Games", style = MaterialTheme.typography.titleMedium)
             games.forEach { game ->

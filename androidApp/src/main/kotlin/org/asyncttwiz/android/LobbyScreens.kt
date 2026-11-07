@@ -21,6 +21,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.focusRequester
@@ -166,6 +167,19 @@ internal fun WaitingLobby(controller: LobbyController, accountId: String, hambur
                 ScreenIconButton("Cancel game", "cancel", { controller.requestCancelSetup(game) }, danger = true)
             }
         }
+        // LOB-035 (game history §3.1): the lobby's two tabs, Lobby and History
+        val gameId = state.detail?.id
+        var historyTab by rememberSaveable(gameId) { mutableStateOf(false) }
+        if (gameId != null) TabRow(if (historyTab) 1 else 0) {
+            Tab(!historyTab, { historyTab = false }, text = { Text("Lobby") })
+            Tab(historyTab, { historyTab = true }, text = { Text("History") }, modifier = Modifier.testTag("lobby-history-tab"))
+        }
+        if (historyTab && gameId != null) {
+            LaunchedEffect(gameId) { controller.history.loadGame(gameId) }
+            var details by remember(gameId) { mutableStateOf<MatchRecord?>(null) }
+            GameHistoryList(controller.history.games[gameId], accountId, { details = it }, Modifier.weight(1f).fillMaxWidth())
+            details?.let { MatchDetailsDialog(it, accountId, null) { details = null } }
+        } else
         InitialLoadArea(state.detail != null, Modifier.weight(1f).fillMaxWidth(), state.error != null, controller::refresh, loading = state.busy) {
         Column(Modifier.fillMaxSize()) {
         Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp),

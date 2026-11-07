@@ -1,0 +1,1 @@
+add: A record of every finished game: see your games against each opponent in the game's new History tab, a pod's standings and matches in its Games tab, and your results and graphs on the new Stats screen. Games idle for two weeks (finished games after one week) are now removed, with a warning three days before for games in play and pods.

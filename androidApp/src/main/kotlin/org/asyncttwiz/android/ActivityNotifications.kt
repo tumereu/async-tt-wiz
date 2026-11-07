@@ -37,6 +37,11 @@ internal fun resumePointText(point: ResumePoint, opponentName: String): String =
     if (point.turn == 0) "Mulliganing"
     else "Turn ${point.turn}, ${if (point.yours) "your" else "$opponentName's"} turn" + point.step?.let { ", ${it.label}" }.orEmpty()
 
+/** Game history §4.5: the cleanup's warning 3 days before a game in play is deleted: "<game> · vs <opponent>" and
+ * "Removed in 3 days if nobody plays". */
+internal fun gameRemovalText(hint: org.asyncttwiz.protocol.ActivityHint): Pair<String, String> =
+    "${hint.resourceName ?: "Game"} · vs ${hint.opponentName ?: "your opponent"}" to "Removed in 3 days if nobody plays"
+
 /** I-D57: a pod notification's text: the set or cube the pod drafts. */
 internal fun podNotificationDetail(hint: org.asyncttwiz.protocol.ActivityHint): String? =
     hint.sourceName?.takeIf { hint.kind.isPodActivity() }
@@ -94,12 +99,13 @@ class ActivityNotifications(private val context: Context, private val podName: (
             .putExtra("kind", notice.hint.kind.name)
         val pending = PendingIntent.getActivity(context, 0, route, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         val gameText = notice.hint.notice?.let(::gameNotificationText)
+        val removal = if (notice.hint.kind == ActivityKind.GAME_REMOVAL) gameRemovalText(notice.hint) else null
         val notification = Notification.Builder(context, ActivityChannels.channel(notice.hint.kind))
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(if (notice.hint.kind.isPodActivity()) podActivityText(notice.hint.kind, notice.hint.resourceName ?: podName(notice.hint.gameId))
-                else if (notice.hint.kind == ActivityKind.INVITATION) "New invitation" else gameText?.title ?: "Game activity")
+                else if (notice.hint.kind == ActivityKind.INVITATION) "New invitation" else removal?.first ?: gameText?.title ?: "Game activity")
             // I-D57: a pod's notice names the set or cube it drafts; a game's names your deck in its header
-            .setContentText(gameText?.text ?: podNotificationDetail(notice.hint))
+            .setContentText(removal?.second ?: gameText?.text ?: podNotificationDetail(notice.hint))
             .apply { gameText?.let { setWhen(it.whenMillis); setShowWhen(true); it.subText?.let(::setSubText)
                 setStyle(Notification.BigTextStyle().bigText(it.text)) } }
             .setContentIntent(pending).setAutoCancel(true).setOnlyAlertOnce(notice.silent)

@@ -365,6 +365,7 @@ internal fun screenIcon(kind: String): ImageVector = when (kind) {
     "error" -> Icons.Outlined.ErrorOutline
     "logout" -> Icons.AutoMirrored.Outlined.Logout
     "settings" -> Icons.Outlined.Settings
+    "stats" -> Icons.Outlined.BarChart
     "add" -> Icons.Outlined.Add
     "news" -> Icons.Outlined.AutoAwesome
     "report" -> Icons.Outlined.BugReport

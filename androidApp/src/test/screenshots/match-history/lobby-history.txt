@@ -1,0 +1,1 @@
+A game lobby's History tab, opened by tapping History, lists the game's two matches newest first: a loop draw and a loss.

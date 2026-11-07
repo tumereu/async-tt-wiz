@@ -239,6 +239,17 @@ object ServerSetup {
         invitation
     }
 
+    /** Both players of [game] (in its lobby, decks prepared) Ready: the server starts it. Returns the started game. */
+    fun readyBoth(a: TestAccount, b: TestAccount, game: GameSummary): GameSummary {
+        Socket(a).use { owner -> Socket(b).use { recipient ->
+            owner.execute(game, owner.open(game), GameAction.Ready)
+            recipient.execute(game, recipient.open(game), GameAction.Ready)
+        } }
+        val started = LobbyApi(origin).use { api -> runBlocking { api.head(a.token, game.id) } }
+        check(started.lifecycle == GameLifecycle.ACTIVE) { "the game didn't start: $started" }
+        return started
+    }
+
     /** The game as the server holds it now, as [account] reads it (its engine snapshot: the main line's head, each
      * player's local head). */
     fun head(account: TestAccount, gameId: String): GameHead = Socket(account).use { it.head(gameId) }

@@ -185,7 +185,7 @@ Cubes, pods of 2–8 players drafting asynchronously, the pick and grid screens,
 
 - **DRF-119** Submit is possible once the whole draft is done: Main at least 40 cards incl. basics, Side within the sideboard limit, at most 1000 cards; "Submit deck?" is confirmed. (r16)
 - **DRF-120** Submitting locks Main, Side and basics; the bar then shows "✓ Submitted". Trash is left out of pod games. Members submit independently. (r17)
-- **DRF-121** The Games tab lists members as "deck submitted" or "building" and, once yours is submitted, a crossed-swords Challenge button beside every other member, then this pod's games. (r24)
+- **DRF-121** The Games tab lists members as "deck submitted" or "building" and, once yours is submitted, a crossed-swords Challenge button beside every other member; then the pod's Standings (each member's W–L–D in the pod's finished matches, most wins first, then fewest losses, then most draws) and its Matches, played or being played: "<name> vs <name>" with "In play" and the turn reached, or the winner ("<name> won", "Draw", "Unfinished") with date, turns and how it ended; no deck information, also for your own matches; then this pod's games. (r58)
 - **DRF-122** Challenging a member who is still building is allowed: they see the invitation at once and can decline it, but can accept only after submitting; you can prepare and get Ready meanwhile. (r30)
 - **DRF-123** A challenge is a normal game invitation; incoming ones are answered in place in the Games tab. Any two members may play any number of games. (r30)
 - **DRF-124** In a pod game's lobby each deck is fixed to its pod deck (no saved-deck choice); its basics move between Main and Side like other cards (LOB-052); Ready checks 40 Main cards and the sideboard limit. (r55)

@@ -60,9 +60,11 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
     private val preparationActions: LobbyPreparationActions = LobbyPreparationActions(scope, accountId, session, queue,
         dungeonDefinitions, worker, post)
     private val removal: LobbyGameRemoval = LobbyGameRemoval(scope, accountId, session, setupCancellation)
+    /** Game history: records of the account, a game and a pod (read on demand). */
+    val history = HistoryController(api, credential, worker, post)
     private val routes: LobbyActivityRoutes = LobbyActivityRoutes(scope, api, credential, accountId, worker, post, session, openGame,
         activityTarget)
-    fun clear() { queue.clear(); epoch++; contactBook.clear(); deckPicker.clear(); routes.fence(); refresher.clear(); setupCancellation.clear(); personalChat.clear(); invitations.clear(); latest.clear(); session?.clear(); state = LobbyState() }
+    fun clear() { queue.clear(); epoch++; contactBook.clear(); deckPicker.clear(); routes.fence(); refresher.clear(); setupCancellation.clear(); personalChat.clear(); invitations.clear(); latest.clear(); session?.clear(); history.clear(); state = LobbyState() }
     fun openChat() {
         if (state.detail?.lifecycle == GameLifecycle.ACTIVE) { state = state.copy(chatOpen = true); connectionState() }
     }

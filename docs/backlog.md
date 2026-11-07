@@ -24,8 +24,6 @@ Start none of these until the E2E framework above works. Each owner-reported bug
 
 ## Specified, not started
 
-- Game history, Stats and cleanup: `docs/specs/game-history.md` (owner, 2026-11-07; LOB-015, LOB-018, LOB-026, LOB-035, LOB-077, DRF-121 and new entries).
-
 ## Needs discussion
 
 - Opening a game from its very first event (found 2026-11-06, worker A): loading a game's recent events starting at its root gave a wrong board (turn 1 shown with the keep decision open, Keep ignored); the load now stops at the first event, which avoids it, but why loading from the root goes wrong is unexplained. Investigate before relying on root loads.

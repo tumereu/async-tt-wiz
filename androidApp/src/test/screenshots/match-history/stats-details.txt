@@ -1,0 +1,1 @@
+Tapping the agreed win against riley opens its details: reason, pod, play/draw, mulligans, final life, both decks and Open deck.

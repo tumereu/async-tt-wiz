@@ -152,7 +152,7 @@ internal fun Navigation(controller: AuthController, close: Boolean, lobby: Lobby
             NavigationItem("Menu", null, controller.state.destination == ShellDestination.MENU) {
                 controller.navigate(ShellDestination.MENU)
             }
-            for (destination in listOf(ShellDestination.DECKS, ShellDestination.CONTACTS, ShellDestination.SETTINGS)) {
+            for (destination in listOf(ShellDestination.STATS, ShellDestination.DECKS, ShellDestination.CONTACTS, ShellDestination.SETTINGS)) {
                 NavigationItem(destination.title, destination.icon(), controller.state.destination == destination, indented = true) {
                     if (destination == ShellDestination.CONTACTS) lobby?.contacts(false)
                     controller.navigate(destination)
@@ -288,6 +288,8 @@ internal fun ShellContent(destination: ShellDestination, hamburger: Boolean, ope
             else if (destination == ShellDestination.GAMES && lobby != null) GamesContent(lobby, accountId)
             else if (destination == ShellDestination.DECKS && decks != null) SavedDeckCollection(decks)
             else if (destination == ShellDestination.SETTINGS) SettingsContent(catalog, accountId, logout, auth)
+            else if (destination == ShellDestination.STATS && lobby != null) StatsContent(lobby.history, accountId,
+                decks?.let { library -> { id: String -> navigate(ShellDestination.DECKS); library.open(id) } })
             else InitialLoadArea(destination != ShellDestination.MENU || lobby == null || lobby.state.loaded,
                 failed = lobby?.state?.error != null, retry = { lobby?.refresh() }, loading = lobby?.state?.busy == true) {
             Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).heightIn(min = maxHeight).padding(16.dp),
@@ -298,7 +300,7 @@ internal fun ShellContent(destination: ShellDestination, hamburger: Boolean, ope
                         WizardLogo()
                         Spacer(Modifier.height(24.dp))
                     }
-                     for (item in listOf(ShellDestination.GAMES, ShellDestination.PODS, ShellDestination.DECKS, ShellDestination.CONTACTS, ShellDestination.SETTINGS)) {
+                     for (item in listOf(ShellDestination.GAMES, ShellDestination.PODS, ShellDestination.STATS, ShellDestination.DECKS, ShellDestination.CONTACTS, ShellDestination.SETTINGS)) {
                           OutlinedButton(onClick = { if (item == ShellDestination.CONTACTS) lobby?.contacts(false); navigate(item) }, modifier = Modifier.widthIn(max = 540.dp).fillMaxWidth()
                              .heightIn(min = if (hamburger) 78.dp else 60.dp).testTag("menu-${item.name}"),
                             shape = RoundedCornerShape(8.dp), border = BorderStroke(1.dp, Color(0xffcdd3dc)),
@@ -368,5 +370,6 @@ private fun ShellDestination.icon(): String = when (this) {
     ShellDestination.DECKS -> "decks"
     ShellDestination.CONTACTS -> "contacts"
     ShellDestination.SETTINGS -> "settings"
+    ShellDestination.STATS -> "stats"
     ShellDestination.MENU -> "menu"
 }

@@ -38,7 +38,7 @@ data class ActivityScreen(val game: String? = null, val pod: String? = null, val
 
 internal fun ActivityKind.isPodActivity(): Boolean = name.startsWith("POD_")
 internal fun ActivityHint.notificationKey(): String = when {
-    kind == ActivityKind.GAME -> "game:$gameId"
+    kind == ActivityKind.GAME || kind == ActivityKind.GAME_REMOVAL -> "game:$gameId"
     kind == ActivityKind.INVITATION -> "invite:$identity"
     kind == ActivityKind.POD_INVITATION -> "pod-invite:$gameId"
     else -> "pod:$gameId"
@@ -52,5 +52,7 @@ internal fun podActivityText(kind: ActivityKind, name: String? = null): String =
     ActivityKind.POD_DRAFT_CANCELLED -> "Draft cancelled"
     ActivityKind.POD_DESTROYED -> "Pod destroyed"
     ActivityKind.POD_AUTO_START_OFF -> name?.let { "Auto-start off — $it" } ?: "Auto-start off"
+    // Game history §4.5: the cleanup's warning 3 days before a stalled pod is deleted
+    ActivityKind.POD_REMOVAL -> "${name ?: "Pod"}: Removed in 3 days if nobody picks or plays"
     else -> "Game activity"
 }

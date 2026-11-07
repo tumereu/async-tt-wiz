@@ -25,6 +25,12 @@ interface Lobbies : Closeable {
      * this server can't say (then the whole list is read). */
     suspend fun gamesSince(token: String, invitations: Boolean, since: String, after: String? = null): GameList? = null
     suspend fun head(token: String, id: String): GameSummary
+    /** Game history: the account's records (Stats), newest first. */
+    suspend fun history(token: String): MatchHistory { throw LobbyFailure("not_configured") }
+    /** Game history: [gameId]'s records (its lobby's History tab), newest first. */
+    suspend fun gameHistory(token: String, gameId: String): MatchHistory { throw LobbyFailure("not_configured") }
+    /** Game history: [podId]'s matches and its matches in play (the pod's Games tab), without decks. */
+    suspend fun podMatches(token: String, podId: String): PodMatches { throw LobbyFailure("not_configured") }
 }
 
 /** Private HTTP transport, no redirect/caching or provider clients. Existing-game writes join I09b's socket. */
@@ -54,6 +60,15 @@ class LobbyApi(private val origin: String, private val client: HttpClient = Acco
     override suspend fun head(token: String, id: String): GameSummary {
         if (!DeckValidation.uuid(id)) throw LobbyFailure("invalid_request")
         return call(token, "/v1/games/$id/head")
+    }
+    override suspend fun history(token: String): MatchHistory = call(token, "/v1/history")
+    override suspend fun gameHistory(token: String, gameId: String): MatchHistory {
+        if (!DeckValidation.uuid(gameId)) throw LobbyFailure("invalid_request")
+        return call(token, "/v1/games/$gameId/history")
+    }
+    override suspend fun podMatches(token: String, podId: String): PodMatches {
+        if (!DeckValidation.uuid(podId)) throw LobbyFailure("invalid_request")
+        return call(token, "/v1/pods/$podId/matches")
     }
     private fun page(route: String, after: String?): String {
         if (after != null && !DeckValidation.uuid(after)) throw LobbyFailure("invalid_request")

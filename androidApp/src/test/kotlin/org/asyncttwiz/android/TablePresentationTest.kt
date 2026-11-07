@@ -43,9 +43,9 @@ class TablePresentationTest {
     // the rows' left ends where they were; portrait, and a camera the player moved, are left alone
     @Test fun landscapeOpensOnBothBattlefieldsWholeHeight() {
         val play = TableFixture.play(board = 3, hand = 2)
-        fun scene(landscape: Boolean, ui: TableLayoutState = TableLayoutState(), home: Boolean = true) =
+        fun scene(landscape: Boolean, ui: TableLayoutState = TableLayoutState(), home: Boolean = true, size: Float = .75f) =
             TablePresentation.scene(TableFixture.game, tableBoard(play), "a", if (landscape) 892f else 412f, if (landscape) 412f else 892f,
-                landscape, ui, landscapeHome = home, appearance = CardAppearance(cardSize = 1.25f))
+                landscape, ui, landscapeHome = home, appearance = CardAppearance(cardSize = size))
         val plain = scene(true, home = false)
         val opened = scene(true)
         val viewport = assertNotNull(opened.world).viewport
@@ -56,6 +56,11 @@ class TablePresentationTest {
             assertTrue(field.gridBounds.y >= viewport.y - .5f && field.gridBounds.bottom <= viewport.bottom + .5f, "$field in $viewport")
             assertEquals(plain.fields.single { it.owner == field.owner }.originX, field.originX, .01f)
         }
+        // TBL-121, TBL-010 (B1, three rows each): larger cards don't fit even at the least zoom: it opens there, centred on
+        // the battlefields
+        val large = scene(true, size = 1.25f)
+        assertEquals(TablePresentation.MIN_ZOOM, large.camera.zoom, .001f)
+        assertEquals(large.world!!.viewport.center.y, (large.fields.first().gridBounds.y + large.fields.last().gridBounds.bottom) / 2, 1f)
         assertEquals(TableCamera(), scene(false).camera)
         val moved = TableCamera(10f, 0f, 1f)
         assertEquals(moved, scene(true, TableLayoutState(moved)).camera)
@@ -160,8 +165,8 @@ class TablePresentationTest {
                 val lane = scene.viewports.single { it.id == "combat" }.bounds
                 for (field in scene.fields) {
                     val lands = field.landsBounds(field.owner == "a")
-                    // TBL-003: two rows, the back row by the player's own edge
-                    assertEquals(field.gridBounds.height / 2, lands.height, .001f)
+                    // TBL-003: three rows, the land row by the player's own edge
+                    assertEquals(field.gridBounds.height / 3, lands.height, .001f)
                     assertEquals(lands, lands.intersection(field.gridBounds))
                     // CMB-007: the combat band lies between the battlefields, never over their outer lands rows
                     assertNull(lands.intersection(lane))
@@ -227,11 +232,12 @@ class TablePresentationTest {
 
     // TBL-002
     @Test fun battlefieldGroupsHaveFixed42DpSlotsAndRotateAroundTheSameCenter() {
-        val play = TableFixture.apart(TableFixture.play(board = 2))
+        // The 1st and 3rd cards lie side by side in the upper band's row nearest the middle (the 2nd behind the 1st, TBL-004)
+        val play = TableFixture.apart(TableFixture.play(board = 3))
         for (tapped in listOf(false, true)) {
             val state = play.copy(board = play.board.copy(cards = play.board.cards.map { it.copy(tapped = tapped) }))
             val scene = TableFixture.scene(state)
-            val cards = (0..1).map { n -> scene.items.single { it.cardId == "a/BATTLEFIELD/$n" } }.sortedBy { it.bounds.x }
+            val cards = listOf(0, 2).map { n -> scene.items.single { it.cardId == "a/BATTLEFIELD/$n" } }.sortedBy { it.bounds.x }
             assertEquals(42f, cards[1].bounds.x - cards[0].bounds.x, .001f)
             assertEquals(if (tapped) 2f else 14f, cards[1].bounds.x - cards[0].bounds.right, .001f)
             val upright = TableFixture.scene(play).items.single { it.cardId == cards[0].cardId }

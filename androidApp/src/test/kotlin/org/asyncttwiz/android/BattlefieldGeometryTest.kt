@@ -5,13 +5,13 @@ import org.junit.Test
 import kotlin.test.*
 
 class BattlefieldGeometryTest {
-    // TBL-003: two rows each (the back row and the creature row), a row the card height with
-    // margins; every card inside its row, and both rows of both battlefields can be panned into view
+    // TBL-003: three rows each (the land row and the upper band's two), a row the card height with
+    // margins; every card inside its row (lands in the land row), and the cards of both battlefields can be panned into view
     @Test fun rowsFollowRenderedCardHeightWithMarginsAndOverflowIsReachable() {
         val base = TableFixture.apart(TableFixture.play(board = 15))
         val creature = TableFixture.definition.copy(name = "Creature card", faces = TableFixture.definition.faces.map { it.copy(typeLine = "Creature — Test") })
         val submitted = SubmittedDefinition(DeckJson.digest(creature), creature)
-        // Odd cards are creatures (the row nearest the middle), even ones lie in the back row
+        // Odd cards are creatures (the upper band's left side), even ones lie on its right side
         val initial = base.copy(definitions = base.definitions + submitted, board = base.board.copy(cards = base.board.cards.map { card ->
             if (card.containerId.endsWith("BATTLEFIELD") && card.id.substringAfterLast('/').toInt() % 2 == 1) card.copy(definition = submitted.digest) else card }))
         for (landscape in listOf(false, true)) for (scale in listOf(.5f, 1f, 3f))
@@ -25,9 +25,12 @@ class BattlefieldGeometryTest {
             val world = home.world!!
             for (field in home.fields) {
                 assertEquals(56f * scale * zoom, field.rowHeight, .001f)
-                assertEquals(2 * field.rowHeight, field.gridBounds.height, .001f)
+                assertEquals(3 * field.rowHeight, field.gridBounds.height, .001f)
                 for (card in home.items.filter { it.viewport == field.containerId }) {
-                    val row = home.groupOf(card.cardId)!!.row.index
+                    val fromEdge = if (field.owner == "a") field.gridBounds.bottom - card.bounds.center.y else card.bounds.center.y - field.gridBounds.y
+                    val row = (fromEdge / field.rowHeight).toInt()
+                    if (home.groupOf(card.cardId)!!.row == BattlefieldRow.Lands) assertEquals(BattlefieldRow.LAND_ROW, row)
+                    else assertTrue(row == BattlefieldRow.BAND_BACK || row == BattlefieldRow.BAND_FRONT, "upper band: $row")
                     val rowY = if (field.owner == "a") field.gridBounds.bottom - (row + 1f) * field.rowHeight
                         else field.gridBounds.y + row * field.rowHeight
                     val margin = 40f * scale * zoom * .1f

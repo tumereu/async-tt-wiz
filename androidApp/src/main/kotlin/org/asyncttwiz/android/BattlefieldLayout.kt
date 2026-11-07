@@ -2,30 +2,40 @@ package org.asyncttwiz.android
 
 import org.asyncttwiz.protocol.TypedCounter
 
-/** Which row of a battlefield a permanent lies in (TBL-004): creatures nearest the middle, lands and the other permanents
- * in the back row by the player's own edge, lands from the left and the others from the right. */
+/** Which part of a battlefield a permanent lies in (TBL-004): every land in the land row by the player's own edge; the
+ * other permanents in the upper band by the middle, creatures from the left and the others from the right. */
 sealed interface BattlefieldRow {
-    /** The row nearest the middle (the combat side). */
+    /** The upper band, from the left: creatures and face-down permanents. */
     data object Creatures : BattlefieldRow
-    /** The back row, from the left. */
+    /** The land row, by the player's own edge, from the left. */
     data object Lands : BattlefieldRow
-    /** The back row, from the right: artifacts, enchantments, planeswalkers, battles and any other permanent. */
+    /** The upper band, from the right: artifacts, enchantments, planeswalkers, battles and any other permanent. */
     data object Others : BattlefieldRow
 
-    /** The row counted from the player's own edge: 0 the back row, 1 the creature row (nearest the middle, where the combat
-     * band opens between the battlefields, CMB-007). */
-    val index: Int get() = if (this == Creatures) 1 else 0
-
     companion object {
-        /** TBL-004: the row of a permanent with [typeLine] (the type line it has now): the first type in the shared order
-         * (SYS-051) decides, so a creature of any other type too is in the creature row; a face-down permanent (or one the
-         * viewer can't see) is in the creature row. */
+        /** The land row's index, counted from the player's own edge. */
+        const val LAND_ROW = 0
+        /** The upper band's row behind the one nearest the middle. */
+        const val BAND_BACK = 1
+        /** The upper band's row nearest the middle (where the combat band opens between the battlefields, CMB-007). */
+        const val BAND_FRONT = 2
+        /** The rows of one battlefield: the land row and the upper band's two. */
+        const val COUNT = 3
+
+        /** TBL-004: where a permanent with [typeLine] (the type line it has now) lies: every land in the land row, whatever
+         * its other types (an artifact land, a land creature, a land an effect made a creature); else every creature on
+         * the creature side of the upper band and the other permanents on its other side. A face-down permanent (or one
+         * the viewer can't see) lies with the creatures. */
         fun of(typeLine: String?, faceDown: Boolean): BattlefieldRow = when {
             faceDown || typeLine == null -> Creatures
-            else -> when (cardTypeGroup(typeLine)) {
-                CardTypeGroup.CREATURES -> Creatures
-                CardTypeGroup.LANDS -> Lands
-                else -> Others
+            else -> {
+                val types = typeLine.substringBefore("//").substringBefore('—').substringBefore(" - ")
+                    .split(' ', '\t').filter { it.isNotBlank() }.map { it.lowercase() }.toSet()
+                when {
+                    "land" in types -> Lands
+                    "creature" in types -> Creatures
+                    else -> Others
+                }
             }
         }
     }
@@ -70,8 +80,8 @@ data class BattlefieldGroup(val key: String, val field: String, val row: Battlef
     val inspectOrder: List<String> get() = if (kind == Kind.Stack) members.reversed() else members
 }
 
-/** Where a battlefield card lies: [x] dp (at card size 1) from the left end of its battlefield's rows, [row] its
- * [BattlefieldRow.index], [lift] how many peek steps above its host an attached card lies, [order] its
+/** Where a battlefield card lies: [x] dp (at card size 1) from the left end of its battlefield's rows, [row] the row
+ * counted from the player's own edge ([BattlefieldRow.LAND_ROW], [BattlefieldRow.BAND_BACK], [BattlefieldRow.BAND_FRONT]), [lift] how many peek steps above its host an attached card lies, [order] its
  * drawing order on the battlefield (later on top), [copies] the ×N badge it carries (0: none). */
 data class BattlefieldSpot(val x: Float, val row: Int, val lift: Int = 0, val order: Int = 0, val copies: Int = 0,
     val group: String = "", val lifts: Int = 0)
@@ -142,16 +152,22 @@ object BattlefieldLayout {
         }
     }
 
+    /** TBL-004: the small margin always kept between the upper band's creatures and its other permanents. */
+    const val MARGIN = SLOT / 2
+
     /**
-     * Where each card of one battlefield's [groups] lies (TBL-004): creatures from the left in the row nearest the middle;
-     * in the back row lands from the left and the other permanents from the right end, the first to arrive rightmost. The
-     * right end is [rowWidth] dp from the left end, or further when the back row needs more room (nothing shrinks to fit;
-     * the table pans, SYS-041). The group [expanded] lies with its members side by side (TBL-122).
+     * Where each card of one battlefield's [groups] lies (TBL-004): lands from the left in the land row; in the upper
+     * band creatures from the left and the other permanents from its right end, each side filling two-slot columns in
+     * arrival order (the slot in the row nearest the middle first, then the one behind it, then the next column inward). A
+     * column is as wide as its wider group; the creatures' columns align their groups to the left, the others' to the
+     * right. The right end is [rowWidth] dp from the left end, or further when the creatures need the room: [MARGIN] always
+     * separates the two sides (nothing shrinks to fit; the table pans, SYS-041). The group [expanded] lies with its
+     * members side by side (TBL-122).
      */
     fun place(groups: List<BattlefieldGroup>, rowWidth: Float, expanded: String? = null): Map<String, BattlefieldSpot> {
         val spots = LinkedHashMap<String, BattlefieldSpot>()
         var order = 0
-        fun put(group: BattlefieldGroup, left: Float) {
+        fun put(group: BattlefieldGroup, left: Float, row: Int) {
             val open = group.key == expanded && group.members.size > 1
             val lifts = if (open || group.kind != BattlefieldGroup.Kind.Attached) 0 else group.members.size - 1
             // Behind first: attached cards (the highest peek first), then the host; a stack from its first arrival up
@@ -169,22 +185,28 @@ object BattlefieldLayout {
                 // The tight stack's ×N on its top card
                 val copies = if (!open && group.kind == BattlefieldGroup.Kind.Stack && group.row != BattlefieldRow.Lands &&
                     id == group.top) group.members.size else 0
-                spots[id] = BattlefieldSpot(left + x, group.row.index, lift, order++, copies, group.key, lifts)
+                spots[id] = BattlefieldSpot(left + x, row, lift, order++, copies, group.key, lifts)
             }
         }
-        var creatures = 0f
-        for (group in groups.filter { it.row == BattlefieldRow.Creatures }) {
-            put(group, creatures); creatures += width(group, group.key == expanded)
-        }
-        val lands = groups.filter { it.row == BattlefieldRow.Lands }
-        val others = groups.filter { it.row == BattlefieldRow.Others }
+        fun width(group: BattlefieldGroup) = width(group, group.key == expanded)
         var left = 0f
-        for (group in lands) { put(group, left); left += width(group, group.key == expanded) }
-        val othersWidth = others.sumOf { width(it, it.key == expanded).toDouble() }.toFloat()
-        var right = maxOf(rowWidth, left + (if (lands.isNotEmpty() && others.isNotEmpty()) SLOT else 0f) + othersWidth)
-        for (group in others) {
-            right -= width(group, group.key == expanded)
-            put(group, right)
+        for (group in groups.filter { it.row == BattlefieldRow.Lands }) { put(group, left, BattlefieldRow.LAND_ROW); left += width(group) }
+        // The upper band's columns: two groups each, the first in the row nearest the middle
+        val creatures = groups.filter { it.row == BattlefieldRow.Creatures }.chunked(2)
+        val others = groups.filter { it.row == BattlefieldRow.Others }.chunked(2)
+        fun columnWidth(column: List<BattlefieldGroup>) = column.maxOf { width(it) }
+        val creaturesWidth = creatures.sumOf { columnWidth(it).toDouble() }.toFloat()
+        val othersWidth = others.sumOf { columnWidth(it).toDouble() }.toFloat()
+        fun row(n: Int) = if (n == 0) BattlefieldRow.BAND_FRONT else BattlefieldRow.BAND_BACK
+        var x = 0f
+        for (column in creatures) {
+            column.forEachIndexed { n, group -> put(group, x, row(n)) }
+            x += columnWidth(column)
+        }
+        var right = maxOf(rowWidth, creaturesWidth + (if (creatures.isNotEmpty() && others.isNotEmpty()) MARGIN else 0f) + othersWidth)
+        for (column in others) {
+            column.forEachIndexed { n, group -> put(group, right - width(group), row(n)) }
+            right -= columnWidth(column)
         }
         return spots
     }

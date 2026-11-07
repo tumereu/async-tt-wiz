@@ -190,14 +190,15 @@ class TableAnimationTest {
 
     // TBL-002
     @Test fun adjacentGroupsKeepFixedCentersThroughoutRotationsAndEndpointsDoNotIntersect() {
-        // Three different cards, each a group of its own one slot apart (the back row from the right: the first rightmost);
-        // tapping never moves a group
+        // Three different cards, each a group of its own one slot apart (the upper band's row nearest the middle from the right,
+        // the first rightmost; the 2nd and 4th cards lie behind them, TBL-004); tapping never moves a group
         for (landscape in listOf(false, true)) for (zoom in listOf(.65f, 1f, 1.37f, 2f)) {
-                val initial = TableFixture.apart(TableFixture.play(board = 3))
+                val initial = TableFixture.apart(TableFixture.play(board = 5))
                 fun scene(mask: Int): TableScene {
                     val play = initial.copy(board = initial.board.copy(cards = initial.board.cards.map { card ->
-                        if (!card.containerId.endsWith("BATTLEFIELD")) card
-                        else card.copy(tapped = mask and (1 shl card.id.last().digitToInt()) != 0)
+                        val n = card.id.last().digitToInt()
+                        if (!card.containerId.endsWith("BATTLEFIELD") || n % 2 == 1) card
+                        else card.copy(tapped = mask and (1 shl n / 2) != 0)
                     }))
                     return TableFixture.scene(play, landscape, TableLayoutState(TableCamera(zoom = zoom)))
                 }
@@ -208,7 +209,7 @@ class TableAnimationTest {
                     for (step in 0..20) {
                         val frame = animation.frame(step / 20f)
                         for (owner in listOf("a", "b")) {
-                            val cards = (0..2).map { col -> frame.single { it.item.cardId == "$owner/BATTLEFIELD/$col" } }
+                            val cards = (0..2).map { col -> frame.single { it.item.cardId == "$owner/BATTLEFIELD/${2 * col}" } }
                             val drawn = cards.map { card ->
                                 val b = card.item.faceTransform(card.bounds).bounds(card.bounds.center)
                                 val footprint = card.item.footprint

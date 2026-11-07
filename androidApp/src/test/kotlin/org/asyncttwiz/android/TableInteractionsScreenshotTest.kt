@@ -104,7 +104,7 @@ class TableInteractionsScreenshotTest {
         }
         compose.waitForIdle(); compose.mainClock.advanceTimeByFrame(); compose.mainClock.advanceTimeByFrame()
         try {
-            capture("landing-lands", "Portrait table in combat, dragging a hand card onto your battlefield's back row: your " +
+            capture("landing-lands", "Portrait table in combat, dragging a hand card onto your battlefield's land row: your " +
                 "whole battlefield lights up with a dashed outline (it lays itself out, so no single slot is shown).")
             assertTrue(sent.isEmpty(), "A preview never submits a move")
         } finally {

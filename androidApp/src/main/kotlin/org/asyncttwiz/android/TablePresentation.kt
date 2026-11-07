@@ -387,22 +387,24 @@ object TablePresentation {
         val stackScale = appearance.size(CardArea.STACK).let { size -> if (!landscape) size
             else minOf(size, ((worldViewport.height - 24f) / hudHeight).coerceAtLeast(.5f)) }
         val stackWidth = hudWidth * stackScale
+        val stackPadding = 12f
         val stackHeight = hudHeight * stackScale
         val panelArea = worldViewport.copy(x = 0f, width = width)
         val panels = cardPanelGeometry(play, viewer, ui, panelArea, appearance.size(CardArea.PANELS))
         // TBL-004, TBL-053 (Arena style): each battlefield lays itself out from the game state: its groups (stacks, cards with
-        // what is attached to them) in its back and creature rows; the group the viewer opened lies with its members side by side
+        // what is attached to them) in its land row and upper band; the group the viewer opened lies with its members side by side
         val groups = BattlefieldLayout.groups(BattlefieldLayout.cards(play.board, definitions, computed))
         val expanded = ui.expandedGroup?.takeIf { key -> groups.any { it.key == key && it.members.size > 1 } }
-        // The back row's right end at 1×: the battlefield's own width on the screen (others lie from there leftwards)
-        val rowWidth = (worldViewport.width / battlefieldScale - 32f).coerceAtLeast(BattlefieldLayout.SLOT)
+        // TBL-004: the upper band's right end at 1×: the battlefield's own width on the screen left of the Stack pinned at its
+        // right edge (STK-007), so the non-creatures lying from there leftwards aren't under it in the opening view
+        val rowWidth = ((worldViewport.width - stackWidth - 2 * stackPadding) / battlefieldScale - 32f).coerceAtLeast(BattlefieldLayout.SLOT)
         val spots = players.associate { player -> container(player.accountId, PlayZone.BATTLEFIELD).id.let { id ->
             id to BattlefieldLayout.place(groups.filter { it.field == id }, rowWidth, expanded) } }
         val logicalRight = spots.values.flatMap { it.values }.maxOfOrNull { it.x + BattlefieldLayout.SLOT } ?: (4 * BattlefieldLayout.SLOT)
-        // Rows are world content, not fractions of the remaining screen. Small viewports pan. TBL-003: two rows each, the back
-        // row by the player's own edge, the creature row by the middle (the combat band pushes the battlefields apart, CMB-007)
+        // Rows are world content, not fractions of the remaining screen. Small viewports pan. TBL-003: three rows each, the land
+        // row by the player's own edge, the upper band's two by the middle (the combat band pushes the battlefields apart, CMB-007)
         val rowHeight = battlefieldRowHeight(hudHeight * battlefieldScale, battlefieldScale, BattlefieldLayout.lifts(groups))
-        val fieldHeights = players.map { 2 * rowHeight }
+        val fieldHeights = players.map { BattlefieldRow.COUNT * rowHeight }
         // CMB-042 (owner playtest 2026-11-06): the band is world content, zooming with the battlefields: its cards are
         // exactly the battlefield's
         val combatCard = hudWidth * battlefieldScale
@@ -629,7 +631,6 @@ object TablePresentation {
         val stack = container(null, PlayZone.STACK)
         val stackGeometry = CombatStackPresentation.stack(play.board, stackWidth, stackHeight)
         // Centre between the actual pile rows, not the asymmetric pile + counter blocks.
-        val stackPadding = 12f
         val stackHalfHeight = stackHeight / 2 + stackPadding
         val portraitStackY = if (worldViewport.height >= 2 * stackHalfHeight)
             (height / 2).coerceIn(worldViewport.y + stackHalfHeight, worldViewport.bottom - stackHalfHeight)

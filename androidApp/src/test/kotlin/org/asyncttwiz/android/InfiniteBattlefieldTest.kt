@@ -33,7 +33,7 @@ class InfiniteBattlefieldTest {
     private val cases: Map<String, PlayState> get() {
         val base = LiveTableFixture.play()
         return mapOf("default" to base, "empty board" to empty(base), "wide combat area" to wideCombat(base),
-            "a row wider than the screen" to wideRow(base, 30))
+            "a row wider than the screen" to wideRow(base, 61))
     }
 
     private fun scene(play: PlayState, width: Float, height: Float, landscape: Boolean, camera: TableCamera = TableCamera()) =
@@ -76,12 +76,12 @@ class InfiniteBattlefieldTest {
         for ((width, height, landscape) in sizes) {
             val pitch = TablePresentation.COLUMN_PITCH
             val plain = scene(base, width, height, landscape)
-            val wide = scene(wideRow(base, 30), width, height, landscape)
+            val wide = scene(wideRow(base, 61), width, height, landscape)
             assertEquals(-3 * pitch, wide.world!!.panBounds.x, .001f)
-            // Three creatures and thirty more, each in a slot of its own, from the left
-            assertEquals(33 * pitch + 32f + 3 * pitch, wide.world.panBounds.right, .001f)
+            // Three creatures and 61 more, each in a slot of its own, from the left in two-slot columns (TBL-004)
+            assertEquals(32 * pitch + 32f + 3 * pitch, wide.world.panBounds.right, .001f)
             assertTrue(wide.world.panBounds.right > plain.world!!.panBounds.right)
-            val last = wide.items.single { it.cardId == "a/BATTLEFIELD/x29" }
+            val last = wide.items.single { it.cardId == "a/BATTLEFIELD/x60" }
             assertEquals(plain.items.single { it.cardId == "a/BATTLEFIELD/2" }.bounds.width, last.bounds.width, "nothing shrinks to fit")
         }
     }

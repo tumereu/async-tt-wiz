@@ -1,1 +1,1 @@
-Portrait table in combat, dragging a hand card onto your battlefield's back row: your whole battlefield lights up with a dashed outline (it lays itself out, so no single slot is shown).
+Portrait table in combat, dragging a hand card onto your battlefield's land row: your whole battlefield lights up with a dashed outline (it lays itself out, so no single slot is shown).

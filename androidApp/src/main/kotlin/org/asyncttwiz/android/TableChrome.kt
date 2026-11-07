@@ -28,10 +28,8 @@ internal fun BoxWithConstraintsScope.TableChromeHeader(game: GameSummary, play: 
     val turnColor = if (play.board.turn.accountId == viewer) OwnTableColor else OpponentTableColor
     val attention = attentionPresentation(game, play, viewer, runtime.reviewing, toolkit?.enabled() == true)
     val spacing = if (compact) 0.dp else 4.dp
-    // Landscape shares this rail with the fixed opponent Hand (sidebar + 10dp).
-    val titleWidth = if (landscape)
-        (TablePresentation.sidebarWidth(maxWidth.value, appearance) + 10f - 48f - spacing.value).coerceAtLeast(0f).dp
-        else Dp.Infinity
+    // Landscape shares this rail with the opponent's life square, piles, emblems and Hand (TBL-009).
+    val titleWidth = if (landscape) TablePresentation.Landscape.title(maxWidth.value).dp else Dp.Infinity
     Row(Modifier.align(Alignment.TopStart).height(48.dp).fillMaxWidth()
         .padding(end = if (compact) 0.dp else 8.dp),
         horizontalArrangement = Arrangement.spacedBy(spacing),

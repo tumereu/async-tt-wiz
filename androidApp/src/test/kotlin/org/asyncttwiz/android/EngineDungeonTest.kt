@@ -91,17 +91,20 @@ class EngineDungeonTest {
             "Alice cast Torch Map and ventured into the dungeon: her Lantern Crypt sits as a small card after her Library, Graveyard and Exile, and the violet chip beside it says the venture marker is in Room: Crypt Door.")
     }
 
-    // TRN-069, TRN-035: in landscape the dungeon fits in the sidebar, in the free row under the Library, unscrolled
-    @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun theDungeonFitsTheLandscapeSidebar() {
+    // TRN-069, TBL-009: in landscape the dungeon takes the fourth place after the piles in the player's bar row, unscrolled
+    @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun theDungeonFitsTheLandscapeBarRow() {
         val game = ventured()
         val scene = TablePresentation.scene(f.game, game.play(), f.a, 892f, 412f, true)
         val item = scene.items.single { it.kind == TableItemKind.DUNGEON }
-        val dock = scene.viewports.single { it.id == item.viewport }.bounds
-        assertTrue(item.bounds.x >= dock.x && item.bounds.right <= dock.right && item.bounds.y >= dock.y && item.bounds.bottom <= dock.bottom,
-            "${item.bounds} inside $dock")
+        val dock = scene.viewports.single { it.id == item.viewport }
+        assertEquals("dock/${f.a}", dock.id)
+        assertEquals(0f, dock.maxScroll)
+        assertTrue(item.bounds.x >= dock.bounds.x && item.bounds.right <= dock.bounds.right && item.bounds.y >= dock.bounds.y &&
+            item.bounds.bottom <= dock.bounds.bottom, "${item.bounds} inside ${dock.bounds}")
+        assertTrue(item.bounds.x > scene.items.single { it.zone == org.asyncttwiz.protocol.PlayZone.EXILE && it.viewport == dock.id }.bounds.right, "after the Exile")
         render(game, toolkit(game), landscape = true)
         compose.onRoot().captureShot("$SCREENSHOTS/engine/dungeon-on-table-landscape.png",
-            "In landscape, after Alice ventured into the dungeon: her Lantern Crypt sits as a small card in the free row of the sidebar under her Library, fully visible, with the Room: Crypt Door chip above her life square.")
+            "In landscape, after Alice ventured into the dungeon: her Lantern Crypt sits as a small card after her Library, Graveyard and Exile in the bottom bar, fully visible, with the Room: Crypt Door chip after it.")
     }
 
     // CR 701.49b, 309.5a: the next venture asks Alice which room to follow; the board at the earlier event shows the earlier room

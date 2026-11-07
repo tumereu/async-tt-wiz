@@ -61,7 +61,9 @@ class TablePresentationTest {
         assertEquals(moved, scene(true, TableLayoutState(moved)).camera)
     }
 
-    @Test fun landscapeLaneFitsAllPileSizesAndGlobalCardSizeFallbacksWithoutHorizontalScrolling() {
+    // TBL-009: in landscape every pile size setting fits the bar rows: the piles at most 32 dp tall, each with its own
+    // whole 48 dp touch target inside its row, nothing scrolling sideways
+    @Test fun landscapeBarRowsFitAllPileSizesAndGlobalCardSizeFallbacksWithoutScrolling() {
         val sizes = (5..30).map { it / 10f }
         val appearances = sizes.flatMap { size ->
             listOf(CardAppearance(cardSize = size),
@@ -71,82 +73,64 @@ class TablePresentationTest {
                     areas = mapOf(CardArea.PILES to size)) }
         }
         for ((width, height) in listOf(900f to 412f, 640f to 360f)) for (appearance in appearances) {
-            fun scene(scroll: Float = 0f) = TablePresentation.scene(TableFixture.game, tableBoard(TableFixture.play()), "a", width, height, true,
-                TableLayoutState(scrollY = mapOf("sidebar" to scroll)), appearance = appearance)
-            val initial = scene()
-            val sidebar = initial.viewports.single { it.id == "sidebar" }
-            val pileWidth = 28f * appearance.size(CardArea.PILES)
-            val spacing = maxOf(52f, pileWidth + 12f)
-            val rightmostTarget = 76f + 2 * spacing + pileWidth / 2 + maxOf(48f, pileWidth) / 2
-            assertEquals(maxOf(224f, rightmostTarget + 6f), sidebar.bounds.width, .001f)
-            assertEquals(sidebar.bounds.right + 6f, initial.world!!.viewport.x)
-            assertTrue(initial.world.viewport.width > 0f)
+            val scene = TablePresentation.scene(TableFixture.game, tableBoard(TableFixture.play()), "a", width, height, true,
+                appearance = appearance)
+            val pileHeight = minOf(40f * appearance.size(CardArea.PILES), 32f)
+            assertEquals(TableBounds(6f, scene.world!!.viewport.y, width - 12f, scene.world.viewport.height), scene.world.viewport)
             for (owner in listOf("a", "b")) {
-                val row = initial.items.single { it.id == "$owner/LIBRARY" }.bounds
-                // Large settings use the existing vertical sidebar scroll, not clipped horizontal piles.
-                val current = scene((row.center.y - sidebar.bounds.center.y).coerceIn(0f, sidebar.maxScrollY))
-                assertEquals(0f, current.viewports.single { it.id == "dock/$owner" }.maxScroll)
+                val dock = scene.viewports.single { it.id == "dock/$owner" }
+                assertEquals(0f, dock.maxScroll)
                 for (zone in listOf(PlayZone.LIBRARY, PlayZone.GRAVEYARD, PlayZone.EXILE)) {
-                    val pile = current.items.single { it.id == "$owner/$zone" }
-                    assertEquals(pileWidth, pile.bounds.width, .001f)
+                    val pile = scene.items.single { it.id == "$owner/$zone" }
+                    assertEquals(pileHeight, pile.bounds.height, .001f)
+                    assertEquals(pileHeight * .7f, pile.bounds.width, .001f)
                     assertEquals(listOf(pile.bounds), pile.visible, "$width x $height, $appearance, ${pile.id}")
+                    assertEquals(pile.pileCountBubble, pile.pileCountBubble.intersection(dock.bounds))
                     val touch = assertNotNull(pile.touchBounds)
-                    assertEquals(maxOf(48f, pileWidth), touch.width, .001f)
-                    assertEquals(maxOf(48f, 40f * appearance.size(CardArea.PILES)), touch.height, .001f)
-                    assertEquals(touch, touch.intersection(sidebar.bounds))
+                    assertEquals(48f, touch.width, .001f)
+                    assertEquals(48f, touch.height, .001f)
+                    assertEquals(touch, touch.intersection(dock.bounds))
                     for (point in listOf(TablePoint(touch.x + .1f, touch.center.y), TablePoint(touch.right - .1f, touch.center.y),
                         TablePoint(touch.center.x, touch.y + .1f), TablePoint(touch.center.x, touch.bottom - .1f)))
-                        assertEquals(pile.id, current.hit(point)?.id, "$width x $height, $appearance, $point")
+                        assertEquals(pile.id, scene.hit(point)?.id, "$width x $height, $appearance, $point")
                 }
             }
         }
     }
 
-    // STK-007, TBL-009
-    @Test fun landscapeSidebarIsCompactWithStackOnThePileMidlineAndFullPileTouchTargets() {
+    // TBL-009, STK-007 (owner, 2026-11-07): in landscape the opponent's life square and piles sit in the top bar after the
+    // turn header, yours in the bottom bar left of the controls; the battlefields take the whole width and the Stack is
+    // pinned at the right edge, mid-screen, as in portrait
+    @Test fun landscapeRowsSitInTheBarsWithTheStackAtTheRightEdge() {
         for ((width, height) in listOf(900f to 412f, 640f to 360f)) for (scale in listOf(.5f, 1f)) {
             val scene = TablePresentation.scene(TableFixture.game, tableBoard(TableFixture.play()), "a", width, height, true,
                 appearance = CardAppearance(customizeAreas = true, areas = mapOf(CardArea.PILES to scale)))
-            val sidebar = scene.viewports.single { it.id == "sidebar" }
-            assertEquals(224f, sidebar.bounds.width)
-            assertTrue(scene.world!!.viewport.width > width - minOf(326f, width * .366f) - 12f)
-            val upper = scene.items.single { it.id == "b/LIBRARY" }
-            val lower = scene.items.single { it.id == "a/LIBRARY" }
-            val stack = scene.items.single { it.id == "stack" }
-            assertEquals((upper.bounds.center.y + lower.bounds.center.y) / 2, stack.bounds.center.y, .001f)
-            assertEquals(sidebar.bounds.center.x, stack.bounds.center.x, .001f)
+            assertNull(scene.viewports.firstOrNull { it.id == "sidebar" })
+            assertTrue(scene.viewports.none { it.id.startsWith("counters/") })
+            val bottomBar = height - TableControlsHeight
             for (owner in listOf("a", "b")) {
+                val own = owner == "a"
+                val dock = scene.viewports.single { it.id == "dock/$owner" }.bounds
+                assertEquals(if (own) TableBounds(10f, bottomBar, dock.width, TableControlsHeight)
+                    else TableBounds(48f + 4f + (if (width >= 892f) 128f else 80f) + 4f, 0f, dock.width, TablePresentation.HEADER), dock)
+                if (own) assertTrue(dock.right <= width / 2, "clear of the controls: $dock")
+                else assertTrue(dock.right < scene.items.single { it.id == "b/HAND" }.bounds.x, "before the opponent's hand")
+                val life = scene.items.single { it.id == "life/$owner" }
+                assertTrue(life.bounds.width >= 40f && life.bounds.height >= 40f, "${life.bounds}")
+                assertEquals(life.bounds, life.bounds.intersection(dock))
+                assertEquals(life.id, scene.hit(life.bounds.center)?.id)
                 val piles = listOf(PlayZone.LIBRARY, PlayZone.GRAVEYARD, PlayZone.EXILE).map { zone ->
-                    scene.items.single { it.id == "$owner/$zone" }
-                }
-                assertEquals(52f, piles[1].bounds.x - piles[0].bounds.x)
-                assertEquals(0f, scene.viewports.single { it.id == "dock/$owner" }.maxScroll)
-                for (pile in piles + stack) {
-                    assertEquals(listOf(pile.bounds), pile.visible)
-                    val touch = assertNotNull(pile.touchBounds)
-                    assertTrue(touch.width >= 48f && touch.height >= 48f, "${pile.id}: $touch")
-                    assertEquals(touch, touch.intersection(sidebar.bounds))
-                    for (point in listOf(TablePoint(touch.x + .1f, touch.center.y), TablePoint(touch.right - .1f, touch.center.y),
-                        TablePoint(touch.center.x, touch.y + .1f), TablePoint(touch.center.x, touch.bottom - .1f)))
-                        assertEquals(pile.id, scene.hit(point)?.id, "$width x $height, scale $scale, point $point")
-                }
+                    scene.items.single { it.id == "$owner/$zone" } }
+                assertEquals(48f, piles[1].bounds.x - piles[0].bounds.x, .001f)
+                assertTrue(piles[0].touchBounds!!.x >= life.bounds.right, "piles after the life square")
+                for (pile in piles) assertEquals(dock.center.y, pile.bounds.center.y, .001f)
             }
-            }
-        assertTrue(TableFixture.scene().items.all { it.touchBounds == null }, "Portrait keeps its existing geometry")
-    }
-
-    @Test fun landscapeStackTracksPileMidlineWhenSidebarScrolls() {
-        fun scene(scroll: Float) = TablePresentation.scene(TableFixture.game, tableBoard(TableFixture.play()), "a", 640f, 300f, true,
-            TableLayoutState(scrollY = mapOf("sidebar" to scroll)))
-        val first = scene(0f)
-        val maxScroll = first.viewports.single { it.id == "sidebar" }.maxScrollY
-        assertTrue(maxScroll > 0f)
-        for (scroll in listOf(0f, maxScroll / 2, maxScroll)) {
-            val current = scene(scroll)
-            val piles = listOf("a/LIBRARY", "b/LIBRARY").map { id -> current.items.single { it.id == id }.bounds }
-            val stack = current.items.single { it.id == "stack" }
-            assertEquals(piles.map { it.center.y }.average().toFloat(), stack.bounds.center.y, .001f)
-            assertEquals(first.items.single { it.id == "stack" }.bounds.y - scroll, stack.bounds.y, .001f)
+            val stack = scene.items.single { it.id == "stack" }
+            val region = scene.stackRegion!!
+            assertEquals(width, region.right, .001f)
+            val world = scene.world!!.viewport
+            assertEquals((height / 2).coerceIn(world.y + region.height / 2, world.bottom - region.height / 2), stack.bounds.center.y, .001f)
+            assertNull(stack.touchBounds)
         }
     }
 
@@ -235,7 +219,9 @@ class TablePresentationTest {
                     assertTrue(c.bounds.y >= c.footprint.y && c.bounds.bottom <= c.footprint.bottom)
                 }
             }
-            scene.items.filter { it.kind == TableItemKind.PILE }.forEach { assertTrue(it.bounds.width >= 28f) }
+            // TBL-009: landscape's piles fit their bar row, a little smaller
+            scene.items.filter { it.kind == TableItemKind.PILE }.forEach {
+                assertTrue(it.bounds.width >= if (landscape && it.zone != PlayZone.STACK) 28f * .8f - .001f else 28f) }
         }
     }
 
@@ -350,11 +336,11 @@ class TablePresentationTest {
             val stack = scene.items.single { it.zone == PlayZone.STACK }
             val dock = scene.viewports.single { it.id == "dock/a" }
             assertEquals(TableFixture.scene(p, landscape).viewports.single { it.id == dock.id }.maxScroll, dock.maxScroll)
-            if (landscape) assertTrue(stack.bounds.right < scene.fields.first().bounds.x)
-            else assertEquals(410f, stack.bounds.center.y)
-            val sidebar = scene.viewports.firstOrNull { it.id == "sidebar" }
+            // STK-007: pinned at the right edge in both orientations (TBL-009)
+            assertEquals(if (landscape) 900f else 412f, scene.stackRegion!!.right, .001f)
+            if (!landscape) assertEquals(410f, stack.bounds.center.y)
             val end = TableFixture.scene(p, landscape, TableLayoutState(TableCamera(zoom = 2f),
-                mapOf("dock/a" to dock.maxScroll), mapOf("sidebar" to (sidebar?.maxScrollY ?: 0f))))
+                mapOf("dock/a" to dock.maxScroll)))
             assertTrue(end.items.single { it.id == "a/EXILE" }.visible.isNotEmpty())
             assertTrue(scene.items.single { it.id == "a/LIBRARY" }.label.contains("4 cards"))
         }
@@ -396,8 +382,9 @@ class TablePresentationTest {
             assertTrue(stack.bounds.center.y > opponent.bounds.center.y)
             assertTrue(stack.bounds.center.y < own.bounds.center.y)
             assertNotNull(scene.stackRegion)
-            if (landscape) assertTrue(scene.fields.none { it.bounds.intersection(scene.stackRegion!!) != null })
-            else assertEquals(410f, stack.bounds.center.y)
+            // STK-007, TBL-009: pinned at the right edge in both orientations
+            assertEquals(if (landscape) 900f else 412f, scene.stackRegion!!.right, .001f)
+            if (!landscape) assertEquals(410f, stack.bounds.center.y)
             }
     }
 

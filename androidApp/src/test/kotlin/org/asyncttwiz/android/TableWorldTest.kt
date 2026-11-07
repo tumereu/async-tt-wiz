@@ -9,10 +9,10 @@ class TableWorldTest {
     // bounds) doesn't count them
     @Test fun panExposesThreeEmptySlotsBeyondBothBattlefieldsWithoutChangingFitBounds() {
         val f = TableStatesFixture
-        // Twenty more creatures of Alice's, each different: her creature row is wider than either screen
+        // Thirty more creatures of Alice's, each different: her creature row is wider than either screen at every zoom
         val combat = f.combat()
         val creature = f.source(f.a, "1/3")
-        val extra = (0 until 20).map { n -> creature.copy(id = f.id("extra$n"), corner = "$n/$n", placement = null) }
+        val extra = (0 until 30).map { n -> creature.copy(id = f.id("extra$n"), corner = "$n/$n", placement = null) }
         val play = combat.copy(board = combat.board.copy(cards = combat.board.cards + extra, containers = combat.board.containers.map {
             if (it.id == creature.containerId) it.copy(cards = it.cards + extra.map(PlayCard::id)) else it }))
         val pitch = TablePresentation.COLUMN_PITCH
@@ -114,8 +114,8 @@ class TableWorldTest {
                     } else assertEquals(item.bounds, other.bounds, item.id)
                 }
                 assertEquals(home.stackRegion, next.stackRegion)
-                assertEquals(home.viewports.filter { it.id == "sidebar" || it.hand || it.id.startsWith("dock/") || it.id.startsWith("counters/") },
-                    next.viewports.filter { it.id == "sidebar" || it.hand || it.id.startsWith("dock/") || it.id.startsWith("counters/") })
+                assertEquals(home.viewports.filter { it.hand || it.id.startsWith("dock/") || it.id.startsWith("counters/") },
+                    next.viewports.filter { it.hand || it.id.startsWith("dock/") || it.id.startsWith("counters/") })
             }
         }
     }

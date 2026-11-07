@@ -2,7 +2,6 @@ package org.asyncttwiz.android
 
 import org.asyncttwiz.protocol.*
 import org.asyncttwiz.storage.ArtworkReference
-import kotlin.math.max
 
 
 /** All coordinates are dp. Personal navigation never changes shared placement or container order. */
@@ -188,8 +187,9 @@ data class TableField(val bounds: TableBounds, val owner: String, val containerI
     fun landsBounds(atBottom: Boolean, camera: TableCamera = TableCamera()) = gridBounds.copy(
         y = if (atBottom) gridBounds.bottom - rowHeight else gridBounds.y, height = rowHeight)
 }
+/** [bar]: a player's row in a bar (landscape, TBL-009), drawn on the bar's own colour rather than a white surface. */
 data class TableViewport(val id: String, val bounds: TableBounds, val contentWidth: Float, val scroll: Float,
-    val hand: Boolean = false, val contentHeight: Float = bounds.height, val scrollY: Float = 0f) {
+    val hand: Boolean = false, val contentHeight: Float = bounds.height, val scrollY: Float = 0f, val bar: Boolean = false) {
     val maxScroll get() = (contentWidth - bounds.width).coerceAtLeast(0f)
     val maxScrollY get() = (contentHeight - bounds.height).coerceAtLeast(0f)
 }
@@ -277,20 +277,50 @@ object TablePresentation {
     const val MIN_ZOOM = .65f
     const val MAX_ZOOM = 2f
     const val HEADER = 48f
-    // Reserve the maximum chrome width so the opponent's fixed Hand does not move in review.
-    const val TOOLBAR = 264f
+    // Reserve the maximum chrome width so the opponent's fixed Hand does not move in review: three 48 dp buttons (step,
+    // Return to current or Table actions, chat) with their gaps and the bar's end padding, and a gap before them.
+    const val TOOLBAR = 168f
     private const val PILE_START = 76f
-    private fun landscapePileSpacing(pileWidth: Float) = maxOf(52f, pileWidth + 12f)
     /** The counters' room may be squeezed this far before it scrolls. */
     private const val MIN_SHRUNK_COUNTER_GRID = 60f
     internal fun portraitDockWidth(pileWidth: Float, piles: Int) = PILE_START + (piles - 1) * (pileWidth + 12f) + pileWidth + 8f
-    /** Narrower landscape counter slots would overlap their value circles (28dp across in the 48dp row). */
-    private const val MIN_LANDSCAPE_COUNTER = 28f
-    private fun landscapeCountersFit(sidebar: Float) = sidebar / 6 >= MIN_LANDSCAPE_COUNTER
-    private fun landscapeDockWidth(pileWidth: Float) = PILE_START + 2 * landscapePileSpacing(pileWidth) +
-        pileWidth + (48f - pileWidth).coerceAtLeast(0f) / 2 + 6f
-    fun sidebarWidth(width: Float, appearance: CardAppearance = CardAppearance()) =
-        maxOf(minOf(224f, width * .366f), landscapeDockWidth(28f * appearance.size(CardArea.PILES)))
+
+    /** TBL-009 (owner, 2026-11-07): in landscape each player's life square, piles and emblems sit in a bar row (the
+     * opponent's in the top bar, yours in the bottom bar), so the battlefield takes the whole width. */
+    internal object Landscape {
+        /** The turn header's room in the top bar (TableChromeHeader), before the opponent's row; narrower on narrow
+         * screens. */
+        fun title(width: Float) = (width - 764f).coerceIn(80f, 128f)
+        /** A life square's side, as in portrait: the top bar's whole height. */
+        const val LIFE = 48f
+        /** The piles' most height in a bar row (their counts above them still inside the bar). */
+        const val PILE_HEIGHT = 32f
+        /** Each pile's own 48 dp touch target, side by side, the first [PILE_GAP] after the life square. */
+        const val PILE_PITCH = 48f
+        const val PILE_GAP = 12f
+        /** The emblem chips' most room after the piles: three chips and a "+N" (TRN-053). */
+        val EMBLEMS = EmblemChips.rowWidth(EmblemChips.SHOWN + 1)
+        /** Your row's left end in the bottom bar. */
+        const val OWN_X = 10f
+        /** The opponent's row's left end in the top bar: after the navigation button and the turn header. */
+        fun opponentX(width: Float) = 48f + 4f + title(width) + 4f
+        /** The narrowest the opponent's hand gets in the top bar (a card and its count) before their emblems' room gives
+         * way, down to [MIN_EMBLEMS]. */
+        const val MIN_OPPONENT_HAND = 64f
+        /** The emblems' least room: a chip and a "+N" at their smallest. */
+        val MIN_EMBLEMS = EmblemChips.rowWidth(2, EmblemChips.MIN_SIZE)
+        /** The x of the room after [places] piles (from the row's [x]). */
+        fun pilesRight(x: Float, places: Int) = x + LIFE + PILE_GAP + places * PILE_PITCH
+        /** The opponent's emblems' room after [places] piles, fitted to the top bar's free width. */
+        fun emblemRoom(width: Float, places: Int) = (width - TOOLBAR - 10f - MIN_OPPONENT_HAND - 10f -
+            pilesRight(opponentX(width), places) - 4f).coerceIn(MIN_EMBLEMS, EMBLEMS)
+        /** The right end of a player's row: life square, [places] piles (the dungeon's the fourth, TRN-069) and the
+         * emblems' room. Yours ([own], in the bottom bar left of the controls, which take its right half) always keeps
+         * room for the dungeon, so its end (where the timeline panel's strip starts) never moves. */
+        fun rowRight(width: Float, own: Boolean, places: Int = 3) =
+            if (own) minOf(pilesRight(OWN_X, 4) + 4f + EMBLEMS, width / 2 - 4f)
+            else pilesRight(opponentX(width), places) + 4f + emblemRoom(width, places)
+    }
 
     fun scene(game: GameSummary, play: TableBoard, viewer: String, width: Float, height: Float, landscape: Boolean,
         ui: TableLayoutState = TableLayoutState(), placements: Map<String, TablePlacement> = emptyMap(),
@@ -318,17 +348,15 @@ object TablePresentation {
             if (hidden || (f.scryfallId == null && f.imageUri == null)) return null
             return f.tableArtwork(definitions[card!!.definition]!!.faces.indexOf(f), card.definition)?.forTable()
         }
-        val sidebar = if (landscape) sidebarWidth(width, appearance) else 0f
         val hudWidth = 28f; val hudHeight = 40f; val hudEnvelope = GRID
         val battlefieldScale = cardScale(appearance.cardSize)
         val columnPitch = COLUMN_PITCH * battlefieldScale
         val handWidth = hudWidth * appearance.size(CardArea.HAND)
         val handHeight = hudHeight * appearance.size(CardArea.HAND)
-        val pileWidth = hudWidth * appearance.size(CardArea.PILES)
-        val pileHeight = hudHeight * appearance.size(CardArea.PILES)
-        val pileInsetY = if (landscape) maxOf(12f, (48f - pileHeight) / 2) else 12f
-        val stackWidth = hudWidth * appearance.size(CardArea.STACK)
-        val stackHeight = hudHeight * appearance.size(CardArea.STACK)
+        // TBL-009: in landscape the piles fit their bar row
+        val pileScale = appearance.size(CardArea.PILES).let { if (landscape) minOf(it, Landscape.PILE_HEIGHT / hudHeight) else it }
+        val pileWidth = hudWidth * pileScale
+        val pileHeight = hudHeight * pileScale
         // CMB-001, CMB-007 (owner playtest 2026-11-06): the combat band between the battlefields is always there, collapsed
         // to its chip row; while the viewer declares attackers the chips of every target show in it; it opens by itself
         // once an attacker is in the area (in playback too: only when someone attacked)
@@ -343,23 +371,22 @@ object TablePresentation {
         // HIS-001, HIS-007: play mode's bottom bar has only the controls; timeline mode's panel adds its strip in portrait
         val controlsHeight = tableBottomHeight(landscape, timeline)
         val dockRow = maxOf(64f, 68f + pileHeight - hudHeight)
-        val counterHeight = 48f
-        val dockSpacing = if (landscape) landscapePileSpacing(pileWidth) else pileWidth + 12f
+        val dockSpacing = if (landscape) Landscape.PILE_PITCH else pileWidth + 12f
         val gridWidth = minOf(132f, width * .34f)
-        // The player counters' room (I-D52: it stays empty) takes its own row in landscape when it doesn't fit.
-        val countersOwnRow = players.map { landscape && !landscapeCountersFit(sidebar) }
-        val counterHeights = players.indices.map { if (landscape) counterHeight else if (countersOwnRow[it]) dockRow / 2 else 0f }
-        val landscapeExtra = players.indices.map { if (landscape && countersOwnRow[it]) counterHeight else 0f }
-        // Include clearance for the Stack's protruding count badge and minimum pile targets.
-        val middleHeight = stackHeight + if (landscape) 28f else 24f
         val boardTop = HEADER + 4f + if (landscape) (handHeight - hudHeight).coerceAtLeast(0f) else 0f
         val boardBottom = height - controlsHeight - if (landscape) railHeight + 8f else 4f
-        val ownDockY = height - controlsHeight - dockRow - counterHeights[1]
-        val worldTop = if (landscape) boardTop else HEADER + dockRow + counterHeights[0] + railHeight
+        val ownDockY = height - controlsHeight - dockRow
+        val worldTop = if (landscape) boardTop else HEADER + dockRow + railHeight
         val worldBottom = if (landscape) boardBottom else ownDockY - railHeight
-        val worldViewport = TableBounds(sidebar + 6f, worldTop, (width - sidebar - 12f).coerceAtLeast(1f),
+        // TBL-009: the battlefields take the table's whole width in both orientations
+        val worldViewport = TableBounds(6f, worldTop, (width - 12f).coerceAtLeast(1f),
             (worldBottom - worldTop).coerceAtLeast(1f))
-        val panelArea = worldViewport.copy(x = sidebar, width = width - sidebar)
+        // TBL-009: in landscape the Stack (over the battlefields' right end, STK-007) fits between the hands
+        val stackScale = appearance.size(CardArea.STACK).let { size -> if (!landscape) size
+            else minOf(size, ((worldViewport.height - 24f) / hudHeight).coerceAtLeast(.5f)) }
+        val stackWidth = hudWidth * stackScale
+        val stackHeight = hudHeight * stackScale
+        val panelArea = worldViewport.copy(x = 0f, width = width)
         val panels = cardPanelGeometry(play, viewer, ui, panelArea, appearance.size(CardArea.PANELS))
         // TBL-004, TBL-053 (Arena style): each battlefield lays itself out from the game state: its groups (stacks, cards with
         // what is attached to them) in its back and creature rows; the group the viewer opened lies with its members side by side
@@ -417,15 +444,11 @@ object TablePresentation {
                 gridBounds = grid, rowHeight = rowHeight * zoom, holdsAttention = player.accountId == play.board.moveHolder,
                 originX = logical.x)
         }
-        val sidebarBounds = TableBounds(0f, boardTop, sidebar, (height - controlsHeight - boardTop).coerceAtLeast(0f))
-        val sidebarRow = dockRow + counterHeight
-        val sidebarContent = max(2 * sidebarRow + landscapeExtra.sum() + middleHeight, sidebarBounds.height)
-        val sidebarScroll = if (landscape) (ui.scrollY["sidebar"] ?: 0f).coerceIn(0f, (sidebarContent - sidebarBounds.height).coerceAtLeast(0f)) else 0f
         val items = mutableListOf<TableItem>()
         val ports = mutableListOf<TableViewport>()
-        fun port(id: String, bounds: TableBounds, content: Float, hand: Boolean = false): TableViewport {
+        fun port(id: String, bounds: TableBounds, content: Float, hand: Boolean = false, bar: Boolean = false): TableViewport {
             val offset = (ui.scroll[id] ?: 0f).coerceIn(0f, (content - bounds.width).coerceAtLeast(0f))
-            return TableViewport(id, bounds, content, offset, hand).also(ports::add)
+            return TableViewport(id, bounds, content, offset, hand, bar = bar).also(ports::add)
         }
         fun card(card: PlayCard, b: TableBounds, footprint: TableBounds, region: String?, zone: PlayZone, viewport: String,
             viewId: String = card.id, projection: Boolean = false, frozen: Boolean = false, draw: Boolean = true): TableItem {
@@ -467,22 +490,27 @@ object TablePresentation {
                     frontTypeLine = if (hidden) "" else definitions[card.definition]?.faces?.firstOrNull()?.typeLine.orEmpty(),
                     enteredThisTurn = entered, coveredTitle = coveredTitle, stackAbility = ability).also { if (draw) items += it }
         }
-        // Opponent block on top (counters/Temp row above its pile row), own block at the bottom.
-        val dockRowY = if (landscape) listOf(boardTop + counterHeight + landscapeExtra[0] - sidebarScroll,
-                boardTop + sidebarContent - sidebarRow - landscapeExtra[1] - sidebarScroll)
-            else listOf(HEADER + counterHeights[0], ownDockY)
+        // Opponent block on top, own block at the bottom; in landscape (TBL-009) the opponent's in the top bar, yours in the
+        // bottom bar, left of the controls
+        val dockRowY = if (landscape) listOf(0f, height - controlsHeight) else listOf(HEADER, ownDockY)
+        val dockRowHeights = if (landscape) listOf(HEADER, controlsHeight) else listOf(dockRow, dockRow)
         for ((index, player) in players.withIndex()) {
             val ownSide = player.accountId == viewer
+            // TRN-069: the player's dungeon in the command zone takes a fourth place after the piles
+            val dungeon = play.engine?.let { org.asyncttwiz.automatum.EngineProjection.dungeon(it.state, player.accountId) }
+            val places = if (dungeon != null) 4 else 3
             val hand = container(player.accountId, PlayZone.HAND).let { hand ->
                 // UI review round 2 #9 (decided for the owner): with Automatum on a spell cast from a hand leaves it at once:
                 // its card isn't drawn in the hand while its entry is on the Stack (the card stays there, STK-001)
                 hand.copy(cards = hand.cards.filter { it !in castFromHand })
             }
             val normalHandBounds = if (!ownSide) {
-                if (landscape) TableBounds(sidebar + 10f, 2f, (width - sidebar - toolbarWidth - 20f).coerceAtLeast(handWidth), maxOf(HEADER, railHeight))
+                // TBL-009: in landscape in the top bar, after the opponent's life square, piles and emblems
+                if (landscape) Landscape.rowRight(width, own = false, places).let { left -> TableBounds(left + 10f, 2f,
+                    (width - toolbarWidth - 10f - left - 10f).coerceAtLeast(handWidth), maxOf(HEADER, railHeight)) }
                 else TableBounds(8f, worldTop - railHeight, width - 16f, railHeight)
-            } else TableBounds(if (landscape) sidebar + 10f else 8f, (if (landscape) height - controlsHeight else ownDockY) - railHeight - if (landscape) 2f else 0f,
-                 (width - (if (landscape) sidebar + 20f else 16f)).coerceAtLeast(28f), railHeight)
+            } else TableBounds(if (landscape) 10f else 8f, (if (landscape) height - controlsHeight else ownDockY) - railHeight - if (landscape) 2f else 0f,
+                 (width - (if (landscape) 20f else 16f)).coerceAtLeast(28f), railHeight)
             val handBounds = normalHandBounds
             val handContent = if (hand.cards.isEmpty()) 0f else (hand.cards.size - 1) * (handWidth + 4f) + handWidth
             val hp = port(hand.id, handBounds.copy(width = (handBounds.width - 24f).coerceAtLeast(1f)), handContent, true)
@@ -519,31 +547,38 @@ object TablePresentation {
             port(battlefield.id, field.bounds, (logicalRight + 32f) * fieldScale)
             // Mirror the player blocks: counters face the outside, piles face the Stack.
             val rowY = dockRowY[index]
+            val rowHeight = dockRowHeights[index]
             val spacing = dockSpacing
-            val ownRow = countersOwnRow[index]
             val portraitDock = portraitDockWidth(pileWidth, 3)
             val portraitCounters = (width - portraitDock).coerceAtLeast(0f)
             val shrink = portraitCounters >= MIN_SHRUNK_COUNTER_GRID
-            val dockWidth = if (landscape) sidebar else if (ownRow) width
+            // TBL-009: in landscape the row starts after the turn header in the top bar, or at the bottom bar's left end
+            val dockX = if (!landscape) 0f else if (ownSide) Landscape.OWN_X else Landscape.opponentX(width)
+            val dockWidth = if (landscape) Landscape.rowRight(width, ownSide, places) - dockX
                 else if (portraitCounters >= gridWidth) width - gridWidth
                 else if (shrink) portraitDock
                 else maxOf(width - gridWidth, minOf(portraitDock, width))
-            val dock = TableBounds(0f, rowY, dockWidth, dockRow)
-            // TRN-069: the player's dungeon in the command zone takes a fourth place after the piles in portrait; in landscape
-            // (no room beside the piles) it sits in the free row by them, under the Library
-            val dungeon = play.engine?.let { org.asyncttwiz.automatum.EngineProjection.dungeon(it.state, player.accountId) }
-            val places = if (dungeon != null && !landscape) 4 else 3
-            val dp = port("dock/${player.accountId}", dock, (if (landscape) landscapeDockWidth(pileWidth) else portraitDock) +
-                (places - 3) * spacing)
-            // TRN-053: in portrait the emblem chips sit in the empty room right of the piles, clear of the hands
-            val pilesRight = PILE_START + (places - 1) * spacing + pileWidth - dp.scroll
-            val emblemArea = if (landscape) null else TableBounds(pilesRight + 8f, rowY + 4f, width - pilesRight - 16f, dockRow - 8f)
-                .takeIf { it.width >= EmblemChips.MIN_AREA_WIDTH }
+            val dock = TableBounds(dockX, rowY, dockWidth, rowHeight)
+            val dp = port("dock/${player.accountId}", dock, if (landscape) dockWidth else portraitDock +
+                (places - 3) * spacing, bar = landscape)
+            // Each pile's left edge: in landscape centred in its own touch target after the life square
+            fun pileX(n: Int) = if (landscape) Landscape.pilesRight(dockX, n) + (Landscape.PILE_PITCH - pileWidth) / 2
+                else PILE_START + n * spacing - dp.scroll
+            val pileY = if (landscape) rowY + (rowHeight - pileHeight) / 2 else rowY + 12f
             // TRN-053 (owner gallery review 2026-11-06): the emblems as round chips, after the room chip (TRN-069)
             val rooms = listOfNotNull(dungeon?.room?.takeIf { it.isNotEmpty() }?.let { "Room: $it" })
             val emblemTexts = EmblemChips.texts(play.board, player.accountId)
-            val life = TableBounds(10f - dp.scroll, rowY + 8f, 48f, 48f)
-            // In landscape the row is fitted to the room before the Stack below (after the Stack is placed)
+            // TRN-053: in portrait the emblem chips sit in the empty room right of the piles, clear of the hands; in landscape
+            // right after the piles in the bar row
+            val pilesRight = PILE_START + (places - 1) * spacing + pileWidth - dp.scroll
+            val emblemArea = if (landscape) (Landscape.pilesRight(dockX, places) + 4f).let { x ->
+                    val room = (dock.right - x).coerceAtLeast(0f)
+                    TableBounds(x, rowY + 4f, if (rooms.isEmpty()) minOf(room, EmblemChips.rowWidth(EmblemChips.chipCount(emblemTexts.size)))
+                        else room, rowHeight - 8f) }
+                else TableBounds(pilesRight + 8f, rowY + 4f, width - pilesRight - 16f, dockRow - 8f)
+                .takeIf { it.width >= EmblemChips.MIN_AREA_WIDTH }
+            val life = if (landscape) TableBounds(dockX, rowY + (rowHeight - Landscape.LIFE) / 2, Landscape.LIFE, Landscape.LIFE)
+                else TableBounds(10f - dp.scroll, rowY + 8f, 48f, 48f)
             val emblemChips = EmblemChips.round(emblemTexts.size, life, emblemArea, player.accountId != viewer,
                 EmblemChips.textLines(rooms, life, width))
             val textArea = emblemArea?.let { a -> if (emblemChips.isEmpty()) a
@@ -552,18 +587,19 @@ object TablePresentation {
                 "${name(player.accountId)}, life ${player.life}",
                 player.life, player.accountId, kind = TableItemKind.LIFE, viewport = dp.id,
                 emblems = rooms, emblemArea = textArea, emblemTexts = emblemTexts, emblemChips = emblemChips)
-            val counterRowY = if (ownSide) rowY + dockRow else rowY - counterHeight
+            /** A small pile's 48 dp touch target in landscape, around it. */
+            fun touch(b: TableBounds) = if (landscape) TableBounds(b.center.x - maxOf(48f, b.width) / 2,
+                b.center.y - maxOf(48f, b.height) / 2, maxOf(48f, b.width), maxOf(48f, b.height)) else null
             for ((n, c) in listOf(PlayZone.LIBRARY, PlayZone.GRAVEYARD, PlayZone.EXILE).map { container(player.accountId, it) }.withIndex()) {
                 val zone = c.zone
                 val top = byId[c.cards.firstOrNull()]
                 val hidden = zone == PlayZone.LIBRARY && !c.keepTopRevealed || top == null || !CardVisibility.isVisibleFaceUp(play.board, top, viewer)
-                val b = TableBounds(PILE_START + n * spacing - dp.scroll, rowY + pileInsetY, pileWidth, pileHeight)
+                val b = TableBounds(pileX(n), pileY, pileWidth, pileHeight)
                 val title = zone.name.lowercase()
                 items += TableItem(c.id, b, "${name(player.accountId)} $title, ${c.cards.size} cards${if (c.keepTopRevealed) ", keep top card revealed" else ""}", c.cards.size.toString(),
                     top?.owner ?: player.accountId, zone, c.cards, viewport = dp.id, covered = hidden,
                     footprint = b, peekOwners = listOfNotNull(top?.owner),
-                    touchBounds = if (landscape) TableBounds(b.center.x - maxOf(48f, b.width) / 2,
-                        b.center.y - maxOf(48f, b.height) / 2, maxOf(48f, b.width), maxOf(48f, b.height)) else null,
+                    touchBounds = touch(b),
                     token = top?.token == true,
                     keepTopRevealed = c.keepTopRevealed,
                     faceTitle = if (hidden) "" else face(top)?.name.orEmpty(),
@@ -571,31 +607,18 @@ object TablePresentation {
                     typeIcon = if (hidden) "" else cardTypeIcon(face(top)?.typeLine.orEmpty()), artwork = art(top, hidden),
                     changedPowerToughness = !hidden && changedPowerToughness(top?.corner.orEmpty(), face(top)))
             }
-            val countersPort = run {
-                // The player counters' room stays, empty (I-D52: no counters by hand); it takes its own row when it
-                // doesn't fit (landscape).
-                val ownRowY = if (landscape) (if (ownSide) counterRowY + counterHeight else counterRowY - counterHeight)
-                    else if (ownSide) rowY + dockRow else rowY - counterHeights[index]
-                val portraitGrid = if (shrink) minOf(gridWidth, portraitCounters) else gridWidth
-                if (landscape) (if (ownRow) port("counters/${player.accountId}", TableBounds(0f, ownRowY, sidebar, counterHeight), sidebar)
-                    else port("counters/${player.accountId}", TableBounds(0f, counterRowY, sidebar, counterHeight), sidebar))
-                    else if (ownRow) port("counters/${player.accountId}", TableBounds((width - 2 * gridWidth).coerceAtLeast(0f), ownRowY,
-                        minOf(width, 2 * gridWidth), counterHeights[index]), minOf(width, 2 * gridWidth))
-                    else port("counters/${player.accountId}",
-                    TableBounds(dock.right, rowY, (width - dock.right).coerceAtLeast(0f), dockRow), portraitGrid)
-            }
+            // The player counters' room stays, empty (I-D52: no counters by hand); in portrait right of the piles (landscape
+            // has none: the bar row holds only the life square, piles and emblems)
+            if (!landscape) port("counters/${player.accountId}",
+                TableBounds(dock.right, rowY, (width - dock.right).coerceAtLeast(0f), dockRow),
+                if (shrink) minOf(gridWidth, portraitCounters) else gridWidth)
             dungeon?.let { d ->
                 val card = byId[d.cardId]
-                val port = if (landscape) countersPort else dp
-                val b = if (landscape) TableBounds(PILE_START - port.scroll,
-                        port.bounds.y + ((port.bounds.height - pileHeight) / 2).coerceAtLeast(0f), pileWidth, pileHeight)
-                    else TableBounds(PILE_START + 3 * spacing - dp.scroll, rowY + pileInsetY, pileWidth, pileHeight)
+                val b = TableBounds(pileX(3), pileY, pileWidth, pileHeight)
                 items += TableItem("dungeon/${player.accountId}", b, "${name(player.accountId)} dungeon ${d.name}, room ${d.room}",
-                    d.room, player.accountId, kind = TableItemKind.DUNGEON, viewport = port.id, cardId = d.cardId, frozen = true,
+                    d.room, player.accountId, kind = TableItemKind.DUNGEON, viewport = dp.id, cardId = d.cardId, frozen = true,
                     sourceId = null, footprint = b, faceTitle = d.name, artwork = art(card, false), faceId = card?.faceId,
-                    typeLine = face(card)?.typeLine.orEmpty(),
-                    touchBounds = if (landscape) TableBounds(b.center.x - maxOf(48f, b.width) / 2,
-                        b.center.y - maxOf(48f, b.height) / 2, maxOf(48f, b.width), maxOf(48f, b.height)) else null)
+                    typeLine = face(card)?.typeLine.orEmpty(), touchBounds = touch(b))
             }
         }
         val stack = container(null, PlayZone.STACK)
@@ -606,25 +629,15 @@ object TablePresentation {
         val portraitStackY = if (worldViewport.height >= 2 * stackHalfHeight)
             (height / 2).coerceIn(worldViewport.y + stackHalfHeight, worldViewport.bottom - stackHalfHeight)
             else worldViewport.center.y
-        val stackCenter = if (landscape) TablePoint(sidebar / 2,
-            (dockRowY[0] + dockRowY[1]) / 2 + pileInsetY + pileHeight / 2)
-            else TablePoint(width - stackWidth / 2 - stackPadding, portraitStackY)
+        // STK-007: pinned at the right edge, vertically mid-screen (in landscape too, TBL-009)
+        val stackCenter = TablePoint(width - stackWidth / 2 - stackPadding, portraitStackY)
         val stackRegion = TableBounds(stackCenter.x - stackWidth / 2 - stackPadding,
             stackCenter.y - stackHeight / 2 - stackPadding, stackWidth + 2 * stackPadding, stackHeight + 2 * stackPadding)
         val sb = TableBounds(stackRegion.center.x - stackWidth / 2, stackRegion.center.y - stackHeight / 2, stackWidth, stackHeight)
-        // TRN-053: in landscape the emblems' row by a life square keeps clear of the Stack between the two players' rows
-        if (landscape) items.replaceAll { item ->
-            if (item.kind != TableItemKind.LIFE || item.emblemTexts.isEmpty() || item.emblemArea != null) item
-            else item.copy(emblemChips = EmblemChips.round(item.emblemTexts.size, item.bounds, null, item.owner != viewer,
-                EmblemChips.textLines(item.emblems, item.bounds, width), room = stackRegion.x - 6f - item.bounds.x))
-        }
         val sp = port(stack.id, sb, stackWidth)
         items += TableItem(stack.id, sb, "Stack, ${stack.cards.size} entries", stack.cards.size.toString(), zone = PlayZone.STACK,
             cards = stack.cards, viewport = sp.id, footprint = sb, peekOwners = stackGeometry.visible.mapNotNull { CombatStackRules.controller(play.board, it.viewId) },
-            countBadge = TableBounds(stackRegion.x - 8.5f, stackRegion.y - 8.5f, 20f, 20f),
-            touchBounds = if (landscape) stackRegion.copy(x = stackCenter.x - maxOf(48f, stackRegion.width) / 2,
-                y = stackCenter.y - maxOf(48f, stackRegion.height) / 2,
-                width = maxOf(48f, stackRegion.width), height = maxOf(48f, stackRegion.height)) else null)
+            countBadge = TableBounds(stackRegion.x - 8.5f, stackRegion.y - 8.5f, 20f, 20f))
         for (drawing in stackGeometry.visible.asReversed()) {
             val b = drawing.bounds.copy(x = sb.x + drawing.bounds.x, y = sb.y + drawing.bounds.y)
             card(drawing.card, b, sb, null, PlayZone.STACK, sp.id, drawing.viewId, drawing.projection, drawing.frozen)
@@ -682,16 +695,12 @@ object TablePresentation {
             inset = lane.inset * zoom, chip = translated(lane.chip),
             artwork = if (lane.cardId == null) lane.artwork else play.board.cards.find { it.id == lane.cardId }
                 ?.takeIf { !it.isFaceDown && CardVisibility.isVisibleFaceUp(play.board, it, viewer) }?.let { art(it, false) }) }
-        val clippedPorts = if (landscape) ports.map { p ->
-            if (p.id.startsWith("dock/") || p.id.startsWith("counters/") || p.id.startsWith("temp/") || p.id == stack.id)
-                p.copy(bounds = p.bounds.intersection(sidebarBounds) ?: p.bounds.copy(height = 0f)) else p
-        } + TableViewport("sidebar", sidebarBounds, sidebar, 0f, contentHeight = sidebarContent, scrollY = sidebarScroll) else ports
         val realSources = play.board.cards.associate { c -> c.id to TableMoveSource(c.containerId, positions[c.id],
             play.board.containers.any { it.id == c.containerId && it.zone == PlayZone.LIBRARY && it.cards.firstOrNull() == c.id }) }
         val sources = realSources + items.filter { it.projection && it.sourceId != null }.associate { item ->
             item.cardId!! to realSources.getValue(item.sourceId!!).copy(sourceId = item.sourceId) }
-        return clip(cardPanels(TableScene(items, fields, clippedPorts, cw, ch, envelope, camera, sources, drops, dividers,
-             stackRegion = if (landscape) stackRegion.intersection(sidebarBounds) else stackRegion, world = world, appearance = appearance,
+        return clip(cardPanels(TableScene(items, fields, ports, cw, ch, envelope, camera, sources, drops, dividers,
+             stackRegion = stackRegion, world = world, appearance = appearance,
             combatLabels = labels, combatLaneDividers = laneDividers, combatPanel = combatPanel,
             combatBand = band.intersection(worldViewport), combatCardWidth = combatCard * zoom, combatCardHeight = combatCard * hudHeight / hudWidth * zoom,
             stackProjections = stackProjections, cardOwners = play.board.cards.associate { it.id to it.owner } +
@@ -723,8 +732,7 @@ object TablePresentation {
                 scene.cardPanels.fold(regions) { parts, panel -> parts.flatMap { it.subtract(panel.bounds) } }
             i.copy(visible = if (i.zone == PlayZone.BATTLEFIELD && scene.stackRegion != null)
                 panelClipped.flatMap { it.subtract(scene.stackRegion) } else panelClipped,
-                touchBounds = i.touchBounds?.intersection(
-                    (if (i.zone == PlayZone.STACK) viewports["sidebar"]?.bounds else null) ?: viewport?.bounds ?: screen)?.intersection(screen))
+                touchBounds = i.touchBounds?.intersection(viewport?.bounds ?: screen)?.intersection(screen))
         }
         val occlusion = TableOcclusionIndex(clipped)
         val visible = clipped.mapIndexed { n, i ->

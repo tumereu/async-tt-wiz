@@ -2,8 +2,9 @@ package org.asyncttwiz.android
 
 /** A player's emblems (I-D25, TRN-053; owner gallery review 2026-11-06): a small round chip each with the emblem's art
  * (an emblem icon when it has none), at most [SHOWN] of them and then a "+N" chip, in a row by the player's life square: in
- * portrait at the right of the room right of the player's piles, in landscape (or when that room is too narrow) beside the
- * life square, away from the table's centre, after the dungeon's room chip (TRN-069), which is still a text chip. Holding
+ * portrait at the right of the room right of the player's piles (when that room is too narrow beside the life square, away
+ * from the table's centre), in landscape right after the piles in the player's bar row (TBL-009); after the dungeon's room
+ * chip (TRN-069), which is still a text chip. Holding
  * any of them inspects all that player's emblems ([EmblemInspect]). */
 internal object EmblemChips {
     /** A round chip's size, the smallest it gets where room is short, and the gap between chips (dp). */

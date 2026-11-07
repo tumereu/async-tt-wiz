@@ -24,7 +24,7 @@ Start none of these until the E2E framework above works. Each owner-reported bug
 
 ## Specified, not started
 
-(none)
+- Game history, Stats and cleanup: `docs/specs/game-history.md` (owner, 2026-11-07; LOB-015, LOB-018, LOB-026, LOB-035, LOB-077, DRF-121 and new entries).
 
 ## Needs discussion
 

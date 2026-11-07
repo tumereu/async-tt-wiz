@@ -492,13 +492,13 @@ internal fun ResponseMode.color(): Color = when (this) {
     ResponseMode.AutoSkip -> QuickAmber
 }
 
-/** TRN-059: the colour the Assume resolves cell fills with, as the response mode that keeps as much control: Never as
- * Control, Normal as Normal, No mana (Normal going on where they can't respond, as Quick) and Always as Quick. */
+/** TRN-059: the colour the Assume resolves cell fills with, by how much control you keep: Never as Control, Normal as
+ * Normal, No mana (Normal going on where they can't respond, as Quick) as Quick, and Always its own red-orange. */
 internal fun AssumeResolves.color(): Color = when (this) {
     AssumeResolves.Never -> ControlBlue
     AssumeResolves.Normal -> AutomatumViolet
     AssumeResolves.WhenNoMana -> QuickAmber
-    AssumeResolves.Always -> QuickAmber
+    AssumeResolves.Always -> AssumeAlwaysRed
 }
 
 internal fun ResponseMode.meaning(): String = when (this) {

@@ -11,7 +11,9 @@ internal val GroupExpandGlow = Color.White
 internal val GroupExpandEdge = Color(0xff7d8a88)
 
 /** TRN-059 (owner playtest 2026-11-06): the response mode and Assume resolves cells fill by how much control you keep:
- * deep blue = Control / Assume: Never, violet = Normal / Assume: No mana, amber = Quick / Assume: Always; white text on
- * each passes contrast (8.5:1, 5.6:1, 4.8:1). */
+ * deep blue = Control / Assume: Never, violet = Normal / Assume: Normal, amber = Quick / Assume: No mana, red-orange =
+ * Assume: Always (owner 2026-11-07: each Assume setting its own colour); white text on each passes contrast (8.5:1,
+ * 5.6:1, 4.8:1, 5.9:1). */
 internal val ControlBlue = Color(0xff24489c)
 internal val QuickAmber = Color(0xffa86200)
+internal val AssumeAlwaysRed = Color(0xffb23c17)

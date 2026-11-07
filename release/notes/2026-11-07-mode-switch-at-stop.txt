@@ -1,0 +1,1 @@
+fix: Changing your response mode while the game waits for your answer no longer answers for you: the new mode starts from the next point. While watching the other player's moves, the mode button now shows your mode and changes it as in live play.

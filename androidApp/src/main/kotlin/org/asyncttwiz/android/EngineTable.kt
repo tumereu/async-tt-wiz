@@ -553,8 +553,8 @@ internal fun AssumeResolves.meaning(): String = when (this) {
 /**
  * The quick-actions row's toggles on engine state (I-D56 §14, TRN-059): in live play the response mode (a tap goes to
  * the next of Control, Normal and Quick), "Assume resolves" (a tap goes to the next of Never, Normal, When they have no
- * mana and Always) and "Autotap mana"; in catch-up playback (HIS-095) "Control" (a shortcut to the response mode: on
- * while it is Control; a tap sets Control, or back to Quick) and "Autotap mana".
+ * mana and Always) and "Autotap mana"; in catch-up playback (HIS-095) the same response mode cell and "Autotap mana".
+ * A new response mode applies from the next point on: the stop the player stands at stays ([GameDevice.settings]).
  */
 @Composable
 internal fun RowScope.EngineToggleCells(routes: EngineTableRoutes, enabled: Boolean) {
@@ -566,16 +566,13 @@ internal fun RowScope.EngineToggleCells(routes: EngineTableRoutes, enabled: Bool
     fun set(change: (PlaySettings) -> PlaySettings) { game.settings(change(game.shown?.settings ?: settings)); routes.pump() }
     val autotap = Triple("Autotap mana", "Autotap\nmana", Icons.Outlined.WaterDrop) to
         ({ set { it.copy(autotap = !it.autotap) } } to settings.autotap)
-    // HIS-095, TRN-059 (owner 2026-11-06): playback's Control is a shortcut to the game's response mode: on while it is
-    // Control; a tap sets Control, or from Control goes back to Quick (the default)
-    val control = settings.mode == ResponseMode.FullControl
-    val cells = if (shown.behind) listOf(
-        Triple("Control", "Control", Icons.Outlined.Tune) to
-            ({ set { it.copy(mode = if (it.mode == ResponseMode.FullControl) ResponseMode.AutoSkip else ResponseMode.FullControl) } } to control),
-        autotap)
+    // TRN-059, HIS-095 (owner 2026-11-07, report WDKHSB): catch-up playback's response mode cell is live play's (name,
+    // colour, a tap going on to the next mode), so the mode it stops by always shows
+    val mode = Triple("Response mode", "${settings.mode.label()}\n(mode)", Icons.Outlined.Tune) to
+        ({ set { it.copy(mode = MODES[(MODES.indexOf(it.mode) + 1) % MODES.size]) } } to null)
+    val cells = if (shown.behind) listOf(mode, autotap)
     else listOf(
-        Triple("Response mode", "${settings.mode.label()}\n(mode)", Icons.Outlined.Tune) to
-            ({ set { it.copy(mode = MODES[(MODES.indexOf(it.mode) + 1) % MODES.size]) } } to null),
+        mode,
         // TRN-059: a tap goes on to the next of Never, Normal, When they have no mana and Always
         Triple("Assume resolves setting", "Assume:\n${settings.assume.short()}", Icons.Outlined.FastForward) to
             ({ set { it.assuming(it.assume.next) } } to null),
@@ -593,9 +590,8 @@ internal fun RowScope.EngineToggleCells(routes: EngineTableRoutes, enabled: Bool
         }
         val filled = on == true || on == null
         val tooltip = when (name) {
-            "Response mode" -> "Response mode: ${settings.mode.label()}. ${settings.mode.meaning()} Tap for the next mode."
+            "Response mode" -> "Response mode: ${settings.mode.label()}. ${settings.mode.meaning()} Tap for the next mode; it applies from the next point on."
             "Assume resolves setting" -> "Assume resolves: ${settings.assume.label()}. ${settings.assume.meaning()} Tap for the next choice."
-            "Control" -> "Control: your response mode is Control, so playback stops wherever you get priority; off, your mode goes back to Quick"
             else -> "Autotap mana sources: casting pays by itself, with mana in your pool first"
         }
         val control = MenuControl(name, enabled, selected = on == true, color = fillColor) { toggle() }

@@ -1,0 +1,1 @@
+fix: Tapping Resolve or Assume just as your phone made that same move by itself no longer says "That wasn't taken".

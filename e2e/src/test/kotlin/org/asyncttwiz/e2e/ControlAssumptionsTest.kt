@@ -373,7 +373,9 @@ class ControlAssumptionsTest : E2e() {
     // HIS-096, STK-036, TRN-063 (owner 2026-11-07, scenarios 7c and 8): Bob in Control, Alice on Always. At Bob's end step
     // with an empty Stack (his own step, nothing input in it yet: his point; his main 2 arrow taps on to it) Alice's phone
     // waits for him; so at his next upkeep with his Ember Chime's trigger on the Stack and him holding priority. Once he is
-    // in Quick and holds nothing he could use there, his end step goes on by itself: no wait with Assume
+    // in Quick and holds nothing he could use there, his end step goes on by itself: no wait with Assume. STK-036 (owner
+    // 2026-11-07, report WDKHSB): the switch to Quick, made at his trigger, applies from the next point on: the trigger
+    // waits for his Resolve
     @Test fun theirOwnStepsWaitForTheirMode() {
         startGame(TestDeck.thirds(), TestDeck("Chimes", listOf(TestCards.mountain to 20, TestCards.chime to 20)), bobStarts = true,
             aliceSettings = PlaySettings().assuming(AssumeResolves.Always), bobSettings = PlaySettings(mode = ResponseMode.FullControl),
@@ -400,8 +402,14 @@ class ControlAssumptionsTest : E2e() {
         }
         waitUntil("Alice's phone waiting for Bob at his trigger") { waitsWithAssume(alice) && alice.state.turn.step == TurnStep.Upkeep }
         keepsWaiting(alice, bob)
-        // Bob in Quick: his trigger goes on by itself, and so does his end step
+        // Bob in Quick: the stop at his trigger stays until he answers it (the new mode applies from the next point on)...
         bob.game!!.settings(bob.shown.settings.copy(mode = ResponseMode.AutoSkip))
+        repeat(3) { run(skip = Duration.ofSeconds(5)) }
+        assertTrue(bob.state.stack.size == 1 && (bob.status == GameDevice.Status.YourMove || bob.status is GameDevice.Status.Stopped),
+            "Bob's trigger still waits for him: ${bob.status}")
+        assertEquals("Resolve", bob.stepArrow())
+        bob.tap("Resolve")
+        // ...and his end step goes on by itself
         waitUntil("Bob's Main 1 of turn 3", along = listOf(alice)) { inMain(bob, turn = 3) && quiet() }
         bob.tap("To combat")
         waitUntil("Bob's second main phase", along = listOf(alice)) { bob.inOwnMain(TurnStep.PostcombatMain) && quiet() }

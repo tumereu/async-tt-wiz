@@ -127,7 +127,7 @@ class EngineHistoryShownTest {
         assertFalse(bob.device.session.behind)
     }
 
-    // HIS-093, HIS-095: playback stops at Bob's decision point (in Control, playback's Control on, here) and waits there with no
+    // HIS-093, HIS-095: playback stops at Bob's decision point (in Control here) and waits there with no
     // time limit
     @Test fun playbackStopsAtADecisionPointAndWaits() {
         val sim = EngineAppSim(f)

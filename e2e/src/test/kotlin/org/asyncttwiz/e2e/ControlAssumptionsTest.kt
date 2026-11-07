@@ -56,14 +56,17 @@ class ControlAssumptionsTest : E2e() {
     }
 
     /**
-     * [player] goes on with taps of the main button (Pass, Next, Resolve, To combat, No attack, No blocks;
+     * [player] goes on with taps of the main button (Pass, Next, Resolve, To combat, End step, No attack, No blocks;
      * also at a playback stop, and the centre text of a catch-up) until [done]; each of [along] plays along.
      */
     private fun stepsUntil(player: E2ePlayer, what: String, along: List<E2ePlayer> = emptyList(), done: () -> Boolean) =
         waitUntil(what, along = along) {
             if (!done() && player.foreground && player.engine { device.session.pending.isEmpty() }) when (player.status) {
                 GameDevice.Status.CatchUp -> player.once { player.tapToWatch() }
-                GameDevice.Status.YourMove, is GameDevice.Status.Stopped ->
+                // Live, only on a settled game: a tap on a board still on its way passes the point [done] waits for
+                GameDevice.Status.YourMove -> if (quiet())
+                    player.stepArrow()?.takeIf { it in TAPS }?.let { arrow -> player.once { player.tap(arrow) } }
+                is GameDevice.Status.Stopped ->
                     player.stepArrow()?.takeIf { it in TAPS }?.let { arrow -> player.once { player.tap(arrow) } }
                 else -> {}
             }
@@ -367,64 +370,44 @@ class ControlAssumptionsTest : E2e() {
         assertTrue(alice.leaks.leaks.isEmpty() && bob.leaks.leaks.isEmpty())
     }
 
-    /**
-     * Bob's end step reached while he is away: Bob (on Never) taps End turn in his second main phase, Alice (in Control
-     * for it) holds priority there, Bob leaves, and Alice's device (back in Quick) passes: Bob's priority in his end step,
-     * as Alice's phone sees it.
-     */
-    private fun bobsEndStepWhileAway() {
-        alice.game!!.settings(alice.shown.settings.copy(mode = ResponseMode.FullControl))
-        waitUntil("Alice in Control, on Bob's phone too") { bob.engine { device.opponentMode } == ResponseMode.FullControl && quiet() }
-        bob.tap("End turn")
-        waitUntil("Alice's priority in Bob's second main phase") {
-            alice.state.turn.step == TurnStep.PostcombatMain && alice.state.priority.holder == alice.me &&
-                alice.status == GameDevice.Status.YourMove && quiet()
-        }
-        away(bob, alice)
-        // Back in Quick her device passes there by itself (no pause of hers)
-        alice.game!!.settings(alice.shown.settings.copy(mode = ResponseMode.AutoSkip))
-    }
-
-    // HIS-096, STK-036 (owner 2026-11-07, scenarios 7c and 8): Bob in Control, Alice on Always. At Bob's end step with an
-    // empty Stack (his own step, nothing input in it yet: his point) Alice's phone waits for him; so at his next upkeep with
-    // his Ember Chime's trigger on the Stack and him holding priority. Once he is in Quick and holds nothing he could use
-    // there, Alice's phone goes on past his end step by itself (while he is away): no wait with Assume
+    // HIS-096, STK-036, TRN-063 (owner 2026-11-07, scenarios 7c and 8): Bob in Control, Alice on Always. At Bob's end step
+    // with an empty Stack (his own step, nothing input in it yet: his point; his main 2 arrow taps on to it) Alice's phone
+    // waits for him; so at his next upkeep with his Ember Chime's trigger on the Stack and him holding priority. Once he is
+    // in Quick and holds nothing he could use there, his end step goes on by itself: no wait with Assume
     @Test fun theirOwnStepsWaitForTheirMode() {
         startGame(TestDeck.thirds(), TestDeck("Chimes", listOf(TestCards.mountain to 20, TestCards.chime to 20)), bobStarts = true,
-            aliceSettings = PlaySettings().assuming(AssumeResolves.Always), bobSettings = PlaySettings(mode = ResponseMode.FullControl).assuming(AssumeResolves.Never),
+            aliceSettings = PlaySettings().assuming(AssumeResolves.Always), bobSettings = PlaySettings(mode = ResponseMode.FullControl),
             deal = { a, b -> "Ember Chime" in hand(b) && "Mountain" in hand(a) })
         bothOpen()
         bobToHisMain()
         bob.playFromHand("Ember Chime", this)
         stepsUntil(bob, "the Chime on Bob's battlefield", along = listOf(alice)) { bob.field("Ember Chime").isNotEmpty() && inMain(bob) && quiet() }
-        stepsUntil(bob, "Bob's second main phase", along = listOf(alice)) { bob.inOwnMain(TurnStep.PostcombatMain) && quiet() }
-        bobsEndStepWhileAway()
+        stepsUntil(bob, "Bob's end step, his priority", along = listOf(alice)) {
+            bob.state.turn.step == TurnStep.End && bob.state.priority.holder == bob.me && bob.status == GameDevice.Status.YourMove && quiet()
+        }
         waitUntil("Alice's phone waiting for Bob at his end step") {
             waitsWithAssume(alice) && alice.state.turn.step == TurnStep.End && alice.state.priority.holder == bob.me
         }
         keepsWaiting(alice, bob)
-        // Bob back (his End turn goes on); on to his next upkeep, Alice ending her turn and Bob confirming what her phone
-        // assumed of his on the way
-        bob.back()
+        // On to his next upkeep, Alice ending her turn and Bob confirming what her phone assumed of his on the way
         waitUntil("Bob's upkeep with his Chime's trigger on the Stack") {
             // Alice plays a Mountain (her hand stays at seven) and ends her turn
             if (alice.state.turn.active == alice.me) alice.playAlong()
             if (bob.state.turn.number < 3 && bob.engine { device.session.pending.isEmpty() } &&
                 (bob.status == GameDevice.Status.YourMove || bob.status is GameDevice.Status.Stopped))
-                bob.stepArrow()?.takeIf { it in TAPS }?.let { arrow -> bob.once { bob.tap(arrow) } }
+                bob.stepArrow()?.takeIf { it in STEP_LABELS }?.let { arrow -> bob.once { bob.tap(arrow) } }
             bob.state.let { s -> s.turn.number == 3 && s.turn.step == TurnStep.Upkeep && s.stack.size == 1 && s.priority.holder == bob.me } && quiet()
         }
         waitUntil("Alice's phone waiting for Bob at his trigger") { waitsWithAssume(alice) && alice.state.turn.step == TurnStep.Upkeep }
         keepsWaiting(alice, bob)
-        // Bob in Quick: his trigger goes on by itself; his end step, reached while he is away, is assumed at once (only
-        // that lets the turn pass to Alice without him)
+        // Bob in Quick: his trigger goes on by itself, and so does his end step
         bob.game!!.settings(bob.shown.settings.copy(mode = ResponseMode.AutoSkip))
         waitUntil("Bob's Main 1 of turn 3", along = listOf(alice)) { inMain(bob, turn = 3) && quiet() }
         bob.tap("To combat")
         waitUntil("Bob's second main phase", along = listOf(alice)) { bob.inOwnMain(TurnStep.PostcombatMain) && quiet() }
         val waits = assumeWaits { alice }
-        bobsEndStepWhileAway()
-        waitUntil("Bob's pass in his end step assumed") {
+        bob.tap(bob.stepArrow()!!)
+        waitUntil("Bob's end step gone by") {
             alice.state.turn.number == 4 || alice.state.let { s -> s.turn.step == TurnStep.End && s.priority.holder == alice.me }
         }
         assertTrue(waits.none { it.step == TurnStep.End }, "his end step went on by itself: $waits")

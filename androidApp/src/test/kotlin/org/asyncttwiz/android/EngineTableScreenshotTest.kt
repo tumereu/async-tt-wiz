@@ -47,10 +47,11 @@ class EngineTableScreenshotTest {
      * mode), the change flashes. */
     private fun render(game: EngineGame, viewer: String, presence: ReceivedPresence? = null,
         routes: EngineTableRoutes = EngineTableRoutes(viewer, { game }, {}, { game.play() }), summary: GameSummary = f.game,
-        landscape: Boolean = false): EngineTableRoutes {
+        landscape: Boolean = false, onToolkit: (TableToolkitController) -> Unit = {}): EngineTableRoutes {
         routes.opponentName = names.entries.first { it.key != viewer }.value
         val toolkit = TableToolkitController(viewer, { game.play() }, { routes.canAct() }, { action, _ -> routes.local(listOf(action)) },
             playBatch = { actions, _ -> routes.local(actions) }, engine = routes)
+        onToolkit(toolkit)
         compose.setContent {
             MaterialTheme {
                 NoRipples {
@@ -363,6 +364,29 @@ class EngineTableScreenshotTest {
             "In the Control response mode Alice cast Storm Spark at Bob and kept priority: the spell is on the Stack with a green arrow to Bob's life square, nothing covers the board or sits under the Stack, and the main button in the bottom-right corner, 112 dp wide, reads Resolve.")
         compose.onNodeWithTag("main-button").performClick()
         compose.runOnIdle { assertTrue(game.device.model.engine.stack.isEmpty(), "she passed; Bob's pass was assumed and it resolved") }
+    }
+
+    // ZON-093 (owner 2026-11-07): your own Library's menu has View deck; its panel lists your deck in type groups, All or
+    // Still in library (the seven cards in your opening hand left out)
+    @Test fun viewDeckListsYourDeck() {
+        val game = EngineGame(f.game.id, f.a, f.base, f.snapshot())
+        game.tick(1_000)
+        var toolkit: TableToolkitController? = null
+        render(game, f.a, onToolkit = { toolkit = it })
+        val library = game.play().board.containers.single { it.zone == PlayZone.LIBRARY && it.accountId == f.a }
+        compose.runOnIdle { requireNotNull(toolkit).openLibrary(library.id) }
+        // past the panels' guard against the opening tap's tail
+        compose.mainClock.advanceTimeBy(600)
+        compose.onNodeWithContentDescription("View deck").assertIsEnabled().performClick()
+        compose.mainClock.advanceTimeBy(600)
+        assertEquals("deck", toolkit?.panel)
+        val deck = DeckView.deck(game.play(), f.a).sumOf { it.second }
+        compose.onNodeWithText("All · $deck").assertExists()
+        compose.onNodeWithText("Still in library · ${deck - 7}").performClick()
+        compose.mainClock.advanceTimeBy(600)
+        compose.onNodeWithTag("deck-view-library").assertIsSelected()
+        captureShot("$SCREENSHOTS/engine/view-deck.png",
+            "At the opening Alice opened her own Library's menu and tapped View deck, then Still in library: her deck's cards without the seven in her hand, in type groups as in the deck views, with copies counted on each card.")
     }
 
     // STK-028, TRN-070, HIS-096 (owner 2026-11-05): with "Assume resolves" Normal, after Alice's Storm Spark the game

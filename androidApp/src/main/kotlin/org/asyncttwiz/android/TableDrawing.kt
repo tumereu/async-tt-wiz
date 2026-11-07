@@ -46,7 +46,10 @@ internal fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: 
     attackable: Set<String> = emptySet(),
     /** TBL-117 (owner playtest 2026-11-06): the item a finger is down on and how far its glow has grown (0–1): a glowing
      * card's glow grows a little and brightens under the finger. */
-    pressed: Pair<String, Float>? = null) {
+    pressed: Pair<String, Float>? = null,
+    /** Whether the piles' count bubbles are drawn here; false when the caller draws them over its overlays
+     * ([drawPileBadges]: over the Stack's target arrows, STK-058). */
+    pileBadges: Boolean = true) {
     val density = density
     with(TableCardPainter(density, scene, cache, artwork)) {
     for (f in scene.fields) {
@@ -256,39 +259,8 @@ internal fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: 
         }
     }
     }
-    // Badge bounds belong to the pile, not its top card's face. Draw above Stack projections too.
-    // An empty Temp pile shows only its order number, no "0" count.
-    for (i in scene.items.filter { it.kind == TableItemKind.PILE && !(it.temp && it.cards.isEmpty()) }) {
-        val badge = if (i.zone == PlayZone.STACK) i.stackBadge else i.pileCountBubble
-        val port = if (i.countBadge != null) TableBounds(0f, 0f, this@drawTable.size.width / density, this@drawTable.size.height / density)
-            else scene.viewports.single { it.id == i.viewport }.bounds
-        if (i.visible.isNotEmpty()) clipRect(port.x * density, port.y * density, port.right * density, port.bottom * density) {
-            drawCircle(Color(0xff345451), badge.width / 2 * density, xy(badge.center.x, badge.center.y))
-            drawCircle(Color.White, badge.width / 2 * density, xy(badge.center.x, badge.center.y), style = Stroke(density))
-            paint.color = android.graphics.Color.WHITE; paint.isFakeBoldText = true
-            val previousSize = paint.textSize
-            paint.textSize = (if (i.zone == PlayZone.STACK) 11f else 8.8f) * density
-            text(i.value, badge.center.x - cache.measure(i.value) / density / 2, badge.center.y - cache.centerOffset() / density, 5)
-            paint.textSize = previousSize
-            paint.color = android.graphics.Color.DKGRAY; paint.isFakeBoldText = false
-            if (i.countersInside) {
-                // ZON-092: a card in the pile carries counters: a small violet counter (the colour of the counter chips,
-                // TBL-113) ringed in white like the count bubble, at the corner opposite it
-                val center = xy(i.bounds.right - 1f, i.bounds.y + 1f)
-                drawCircle(EmblemChipColor, 5f * density, center)
-                drawCircle(Color.White, 5f * density, center, style = Stroke(density))
-                drawCircle(Color.White, 1.6f * density, center)
-            }
-            if (i.keepTopRevealed) {
-                // Same eye treatment as revealed panel cards, separate from the count badge.
-                val cx = i.bounds.right - 7f; val cy = i.bounds.y + 7f
-                val ink = Color(0xff345451)
-                drawCircle(Color.White, 6f * density, xy(cx, cy))
-                drawOval(ink, xy(cx - 5f, cy - 3f), size(10f, 6f), style = Stroke(density))
-                drawCircle(ink, 1.7f * density, xy(cx, cy))
-            }
-        }
-    }
+    // STK-058: drawn here unless the caller draws them over its overlays (drawPileBadges)
+    if (pileBadges) pileBadges(this@with, scene)
     // The room chip of a dungeon (TRN-069) is drawn only: taps and drags reach whatever lies beneath it. The emblems' round
     // chips (TRN-053) are EmblemChipsOverlay's.
     for (i in scene.items.filter { it.kind == TableItemKind.LIFE && it.emblems.isNotEmpty() && it.visible.isNotEmpty() }) {
@@ -341,6 +313,50 @@ internal fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: 
             text("${preview.scope.cardIds.size}", p.x, p.y)
         }
     }
+    }
+}
+
+/**
+ * STK-058 (owner gallery review 2026-11-07): the piles' count bubbles of [scene] (the Stack's corner count, a pile's
+ * count, ZON-092's counter mark, the revealed top's eye), for drawing over the table's overlays: the Stack's target
+ * arrows and highlights never cover them.
+ */
+internal fun DrawScope.drawPileBadges(scene: TableScene, cache: TableDrawCache) =
+    pileBadges(TableCardPainter(density, scene, cache, emptyMap()), scene)
+
+private fun DrawScope.pileBadges(painter: TableCardPainter, scene: TableScene) = with(painter) {
+    // Badge bounds belong to the pile, not its top card's face. Draw above Stack projections too.
+    // An empty Temp pile shows only its order number, no "0" count.
+    for (i in scene.items.filter { it.kind == TableItemKind.PILE && !(it.temp && it.cards.isEmpty()) }) {
+        val badge = if (i.zone == PlayZone.STACK) i.stackBadge else i.pileCountBubble
+        val port = if (i.countBadge != null) TableBounds(0f, 0f, size.width / density, size.height / density)
+            else scene.viewports.single { it.id == i.viewport }.bounds
+        if (i.visible.isNotEmpty()) clipRect(port.x * density, port.y * density, port.right * density, port.bottom * density) {
+            drawCircle(Color(0xff345451), badge.width / 2 * density, xy(badge.center.x, badge.center.y))
+            drawCircle(Color.White, badge.width / 2 * density, xy(badge.center.x, badge.center.y), style = Stroke(density))
+            paint.color = android.graphics.Color.WHITE; paint.isFakeBoldText = true
+            val previousSize = paint.textSize
+            paint.textSize = (if (i.zone == PlayZone.STACK) 11f else 8.8f) * density
+            text(i.value, badge.center.x - cache.measure(i.value) / density / 2, badge.center.y - cache.centerOffset() / density, 5)
+            paint.textSize = previousSize
+            paint.color = android.graphics.Color.DKGRAY; paint.isFakeBoldText = false
+            if (i.countersInside) {
+                // ZON-092: a card in the pile carries counters: a small violet counter (the colour of the counter chips,
+                // TBL-113) ringed in white like the count bubble, at the corner opposite it
+                val center = xy(i.bounds.right - 1f, i.bounds.y + 1f)
+                drawCircle(EmblemChipColor, 5f * density, center)
+                drawCircle(Color.White, 5f * density, center, style = Stroke(density))
+                drawCircle(Color.White, 1.6f * density, center)
+            }
+            if (i.keepTopRevealed) {
+                // Same eye treatment as revealed panel cards, separate from the count badge.
+                val cx = i.bounds.right - 7f; val cy = i.bounds.y + 7f
+                val ink = Color(0xff345451)
+                drawCircle(Color.White, 6f * density, xy(cx, cy))
+                drawOval(ink, xy(cx - 5f, cy - 3f), size(10f, 6f), style = Stroke(density))
+                drawCircle(ink, 1.7f * density, xy(cx, cy))
+            }
+        }
     }
 }
 

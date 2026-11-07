@@ -220,6 +220,13 @@ abstract class E2e {
      * resent move restarted the hold's timer at an older time (it fired late or never), and a popup's window waited for a
      * traversal that never came (the screen never got idle).
      */
+    /** The input's clock moved on to [ahead] ms past the main thread's (see [holding]): a table popup that opened by the main
+     * thread's clock lets the next tap through its guard against the opening tap's tail (TBL-067's inline popups). */
+    internal fun pastPopupGuard(ahead: Long = 400) {
+        val behind = android.os.SystemClock.uptimeMillis() - compose.mainClock.currentTime
+        compose.mainClock.advanceTimeBy(maxOf(0L, behind) + ahead)
+    }
+
     internal fun holding(node: androidx.compose.ui.test.SemanticsNodeInteraction, millis: Long = 600, held: () -> Unit) {
         val looper = shadowOf(Looper.getMainLooper())
         val behind = compose.mainClock.currentTime - android.os.SystemClock.uptimeMillis()

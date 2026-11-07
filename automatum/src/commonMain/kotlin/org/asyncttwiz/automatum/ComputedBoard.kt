@@ -112,7 +112,7 @@ class ComputedBoard private constructor(
             is EffectSource.EffectObject -> {
                 val effect = state.effects[s.effect]
                 val by = name(effect?.source) ?: "an effect"
-                listOfNotNull(by, effect?.duration?.let(::duration)).joinToString(" ")
+                listOfNotNull(by, effect?.let { DurationText(state, view, viewer).of(it, id) }).joinToString(" ")
             }
             is EffectSource.Counters -> "counters"
         }
@@ -162,6 +162,7 @@ class ComputedBoard private constructor(
         val objects = cardIds.filter { it in cards }.mapNotNull { card -> objectOf(card)?.let { card to it } }
         if (objects.isEmpty()) return emptyMap()
         val explanations = Engine.explain(state, objects.map { it.second })
+        val durations = DurationText(state, view, viewer, names)
         return objects.mapNotNull { (card, id) ->
             val explanation = explanations[id] ?: return@mapNotNull null
             val changes = explanation.effects.mapNotNull { effect ->
@@ -170,7 +171,9 @@ class ComputedBoard private constructor(
                 if (source is EffectSource.StaticAbility && source.characteristicDefining && source.obj == id) return@mapNotNull null
                 val parts = effect.steps.flatMap { step -> stepParts(step, viewer, names) }.distinct()
                 if (parts.isEmpty()) return@mapNotNull null
-                val text = (parts.joinToString(", ") + (effect.duration?.let(::duration)?.let { " $it" } ?: ""))
+                val made = (source as? EffectSource.EffectObject)?.let { state.effects[it.effect] }
+                val lasts = effect.duration?.let { durations.of(it, made, id) }
+                val text = (parts.joinToString(", ") + (lasts?.let { " $it" } ?: ""))
                     .replaceFirstChar { it.uppercase() }
                 val from = when {
                     source is EffectSource.StaticAbility && source.obj == id -> "Its own ability"
@@ -309,19 +312,6 @@ class ComputedBoard private constructor(
 
         private fun pt(power: Int?, toughness: Int?) = "${power ?: 0}/${toughness ?: 0}"
         private fun signed(n: Int) = if (n < 0) "−${-n}" else "+$n"
-
-        private fun duration(d: Duration): String? = when (d) {
-            Duration.EndOfTurn -> "until end of turn"
-            Duration.EndOfCombat -> "until end of combat"
-            Duration.UntilYourNextTurn -> "until its controller's next turn"
-            Duration.UntilEndOfYourNextTurn -> "until the end of its controller's next turn"
-            is Duration.UntilStep, is Duration.ThroughNextStep -> "until a later step"
-            is Duration.AsLongAs -> "for as long as its condition holds"
-            is Duration.UntilLeaves -> "until its source leaves the battlefield"
-            is Duration.UntilCast -> "until the exiled card is cast"
-            is Duration.UntilEndOfNextTurnOf -> "until the end of that player's next turn"
-            Duration.Indefinitely -> null
-        }
 
         /** A typed counter kind as players read it: "+1/+1", "Flying counter", "charge". */
         fun counterName(kind: String): String = when (val k = runCatching { EngineCodec.counterKind(kind) }.getOrNull()) {

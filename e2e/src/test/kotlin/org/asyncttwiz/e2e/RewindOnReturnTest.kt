@@ -47,6 +47,15 @@ class RewindOnReturnTest : E2e() {
         var rewinding = false
         var watch: String? = null
         var reopened = false
+
+        /** The boards the table showed from the return on: the one already on screen when they came back (the last
+         * published before it, unless the game screen loaded anew), then every one published since. A phone that heard
+         * the take-back in the background published its held board before the return, and nothing new after it while
+         * the table waits. */
+        fun sinceReturn(): List<EngineGame.Shown> {
+            val onScreen = if (reopened) null else boards.getOrNull(returned - 1)
+            return listOfNotNull(onScreen) + boards.drop(returned)
+        }
     }
 
     /** Records what [player]'s game publishes from now on ([Seen.boards]). */
@@ -96,7 +105,8 @@ class RewindOnReturnTest : E2e() {
         waitUntil("${player.name}'s centre text") { player.showsWatch() && player.current() }
         assertEquals(text, player.watchText())
         repeat(5) { run(skip = java.time.Duration.ofMillis(600)) }
-        val since = seen.boards.drop(seen.returned)
+        val since = seen.sinceReturn()
+        assertTrue(since.isNotEmpty(), "a board on ${player.name}'s table since the return")
         assertTrue(since.none { it.transition?.undone != null }, "nothing taken back before the tap")
         assertTrue(since.all(asLeft) && since.last().status == GameDevice.Status.CatchUp,
             "the table as left, waiting: ${since.map { it.status }}")

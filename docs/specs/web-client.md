@@ -2,8 +2,8 @@
 
 Status: **in discussion, not started.** Roadmap item 2 ("Desktop web client"), started before the Android client is
 finished because Automatum shrank the set of player actions. Decisions marked **(owner)** are agreed; everything marked
-**(proposal)** is Claude's and waits for the owner. Section 1 is **provisional until the feasibility test** (section 11,
-step 0) reports. Wireframes: the "ATW Web Wireframes" design canvas, https://claude.ai/artifact/FhqdRe7Er5PHv86t8u2rXL (private to the
+**(proposal)** is Claude's and waits for the owner. The feasibility test (section 11, step 0) reported on 2026-11-07:
+the shared route works on desktop; the phone measurement is still to be done. Wireframes: the "ATW Web Wireframes" design canvas, https://claude.ai/artifact/FhqdRe7Er5PHv86t8u2rXL (private to the
 owner): D1–D10 desktop, P1–P4 phone web.
 Building a part moves its behaviour into the catalog (new `WEB` area, changed entries listed per part) and deletes the
 matching part of this file.
@@ -55,7 +55,31 @@ web client is the same app in a browser, with a desktop layout made for mouse, k
 19. The proposed hotkeys, two-pane deck editor, draft picks strip and tab title count are built as proposed and refined
     by testing.
 
-## 1. Architecture (provisional until the feasibility test)
+## 1. Architecture
+
+Feasibility test results (2026-11-07, throwaway branch `w/web-spike`, Chrome on Windows, busy board of ~180 cards):
+
+| Engine operation | JVM | Chrome wasm (worker) | Ratio |
+| --- | --- | --- | --- |
+| Load a game snapshot | 61 ms | 169 ms | 2.8× |
+| Cast start / pay / send | 3 / 16 / 31 ms | 11 / 49 / 88 ms | 2.9–3.3× |
+| Passes after a cast | 41 ms | 119 ms | 2.9× |
+| End turn | 67 ms | 185 ms | 2.8× |
+
+- All shared modules (`core`, `protocol`, `automatum`, `arcanum-*`) build for wasm and their 12,597 common tests pass
+  there; the fixes were small (explicit element types where the wasm compiler infers `List<Any>`, a few JVM-only calls
+  that slipped into common code, wasm SHA-1/SHA-256).
+- In a Web Worker the page keeps a steady 60 fps while the engine computes; sending states across as JSON strings costs
+  about 2 ms per round trip.
+- Drawing 150 cards with real Scryfall pictures, tapped and panning, runs at the display's rate (~60 fps) in Chrome with
+  a GPU; mouse, wheel, touch pan and pinch all work.
+- Download: about 3.8 MB brotli on first load (Compose's Skia runtime 2.5 MB, engine 0.9 MB, app code 0.35 MB), cached
+  afterwards.
+- A real table file moved into a shared module builds for Android and wasm with Android screenshots unchanged; the
+  table code is not layered, so the UI must move as one module, not file by file.
+- Not measured yet: a phone browser (the phone wasn't attached). Mid-range phones may be 3–5× slower than desktop; a
+  pass would then take 0.3–0.5 s.
+
 
 1. **Modules.**
    - `app-ui` (new, Kotlin Multiplatform with Compose Multiplatform): every screen, view model and controller that is
@@ -73,8 +97,8 @@ web client is the same app in a browser, with a desktop layout made for mouse, k
    the screen on, system bars, crash capture, opening links (password reset).
 3. **The engine runs in a Web Worker** on the web, so drawing never waits for it (the browser gives a page one
    thread). The boundary is the one Android already uses for background planning (cast plans, End turn, trial casts),
-   made message-based (serialisable requests and answers) on both platforms, so there is one design. Whether the
-   <20 ms local apply (SYS-025) stays on the drawing thread depends on the measured numbers.
+   made message-based (JSON-string requests and answers) on both platforms, so there is one design. Kotlin/Wasm, not
+   Kotlin/JS (slower for this engine).
 4. **Browser storage**: the catalog and the gameplay tree cache in IndexedDB (or the browser's private file system),
    with persistent storage requested so the browser doesn't evict them; personal data and the session in IndexedDB;
    card pictures in the browser's HTTP cache and Cache API.
@@ -83,7 +107,10 @@ web client is the same app in a browser, with a desktop layout made for mouse, k
 6. **Tests**: shared composables keep their Roborazzi screenshot tests (rendered on the JVM through the Android host),
    and desktop layouts get screenshot tests the same way at desktop sizes. Web-only behaviour (keys, mouse, routes)
    gets common UI tests. Web end-to-end tests drive a real browser; how they find controls on Compose's canvas
-   (semantics or a test hook) is decided after the feasibility test.
+   (semantics or a test hook) is decided when that step is built.
+7. **First load** shows a loading screen while the ~3.8 MB app downloads; later visits load from the browser cache.
+8. **The wasm target stays green**: once added, the shared modules' common tests run on wasm too, so JVM-only calls
+   can't slip back into common code.
 
 ## 2. Server
 
@@ -253,9 +280,11 @@ Hotkeys never act while a text field has focus. "?" shows the list over the scre
 
 ## 11. Build order
 
-0. **Feasibility test** (running 2026-11-07, throwaway branch): engine in wasm vs JVM, engine in a Web Worker, table
-   drawing frame rate with real pictures, moving one real table file into a shared module. Section 1 is finalised from
-   its numbers.
+0. **Feasibility test**: done on desktop 2026-11-07 (section 1). Still to do: the same pages on the owner's phone in
+   Chrome (`webspike/serve.sh` on the spike branch can open them over adb), before the phone-web parts (steps 3–4) are
+   finalised.
+0b. **Wasm target** on `core`, `protocol`, `automatum` and `arcanum-*` with their common tests running on wasm (the
+   spike's small fixes, redone cleanly).
 1. **Server-built catalog** and Android's switch to it. Useful on its own; can go to prod independently.
 2. **Shared UI module**: Android UI moved into `app-ui`, behaviour identical (screenshots unchanged).
 3. **Web shell**: the wasm app served by the server, sign-in, card records, lobby screens in the phone layout, routes
@@ -268,4 +297,4 @@ Hotkeys never act while a text field has focus. "?" shows the list over the scre
 
 ## 12. Open questions for the owner
 
-None at the moment (all answered 2026-11-07); section 1 waits for the feasibility test.
+None at the moment (all answered 2026-11-07).

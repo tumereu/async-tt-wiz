@@ -325,8 +325,10 @@ private fun TargetChips(scene: TableScene, play: TableBoard, viewer: String, act
         .clipToBounds().graphicsLayer { alpha = appear.value }) {
         for (lane in lanes) key(lane.cardId) {
             val change = changes[lane.cardId] ?: 0
-            // The preview's "20 → 17" widens the chip about its centre
-            val width = CombatStackPresentation.chipWidth(lane.label, chipValue(lane, change)) * (lane.chip.height / CombatStackPresentation.CHIP_HEIGHT)
+            // The preview's "20 → 17" widens the chip about its centre, within the room its lane keeps for it (a rarer,
+            // wider result squeezes the name instead), so nothing moves (CMB-013)
+            val width = minOf(CombatStackPresentation.chipWidth(lane.label, chipValue(lane, change)) *
+                (lane.chip.height / CombatStackPresentation.CHIP_HEIGHT), lane.bounds.width - 2 * lane.inset)
             val x = lane.chip.center.x - width / 2
             TargetChip(lane, change, width, viewer, lane.cardId == active && chooser != null, chooser?.let { choose -> { choose(lane.cardId) } },
                 held = { held = if (it) lane else held?.takeIf { h -> h.cardId != lane.cardId } },
@@ -537,10 +539,11 @@ internal fun PreviewChip(text: String, color: Color, modifier: Modifier, descrip
 }
 
 /**
- * CMB-029 (owner playtest 2026-11-06): what combat damage would do to a creature, as one badge [size] dp tall: a red
+ * CMB-029 (owner playtest 2026-11-06): what combat damage would do to a creature, as one badge [size] dp square: a red
  * splash with the damage ("3", no minus) when it survives, a black skull with the damage inside when it dies (without a
- * number when it dies without damage). The number's outline is centred exactly and the badge widens for two digits or
- * more (owner gallery review 2026-11-06).
+ * number when it dies without damage). The badge keeps its size whatever the number; a longer number is drawn smaller
+ * to fit, its outline centred where the eye expects it: the splash's middle, or the skull's cranium above the jaw (owner
+ * gallery review 2026-11-07).
  */
 @Composable
 internal fun DamageBadge(dealt: Int?, dying: Boolean, size: Float, modifier: Modifier = Modifier) {
@@ -550,18 +553,27 @@ internal fun DamageBadge(dealt: Int?, dying: Boolean, size: Float, modifier: Mod
         else -> "Would take $dealt damage"
     }
     val text = dealt?.toString().orEmpty()
-    Canvas(modifier.size(damageBadgeWidth(text, size).dp, size.dp).semantics { contentDescription = description }) {
+    Canvas(modifier.size(size.dp).semantics { contentDescription = description }) {
         if (dying) skull() else splash()
-        // In a skull the number sits in the cranium, above the jaw
-        if (text.isNotEmpty()) drawCentredText(text, Offset(center.x, if (dying) this.size.height * .4f else center.y),
-            this.size.height * (if (dying) .4f else .44f), Color.White, 900)
+        if (text.isNotEmpty()) {
+            val centre = if (dying) SkullNumberCentre else SplashNumberCentre
+            drawCentredText(text, Offset(this.size.width * centre.x, this.size.height * centre.y),
+                this.size.height * (if (dying) .4f else .44f), Color.White, 900,
+                maxWidth = this.size.width * (if (dying) SkullNumberWidth else SplashNumberWidth))
+        }
     }
 }
 
-/** A damage badge's width for [text] at [size] dp tall: round for one digit, wider by about a digit for each more. */
-internal fun damageBadgeWidth(text: String, size: Float): Float = size * (1f + .34f * (text.length - 1).coerceAtLeast(0))
+/** The widest a damage badge's number is drawn, as a share of the badge: inside the splash's core and the cranium, so
+ * one or two digits keep their full size and three are drawn smaller. */
+internal const val SplashNumberWidth = .54f
+internal const val SkullNumberWidth = .6f
+/** Where a splash's number is centred, as shares of the badge: the middle of the splash's area (its spikes are uneven). */
+internal val SplashNumberCentre = Offset(.499f, .498f)
+/** Where a skull's number is centred, as shares of the badge: the middle of the round cranium above the jaw. */
+internal val SkullNumberCentre = Offset(.5f, .37f)
 
-/** A red splash filling the canvas: a ragged star with a thin white edge, stretched sideways on a wide badge. */
+/** A red splash filling the canvas: a ragged star with a thin white edge. */
 private fun DrawScope.splash() {
     val points = 11
     val c = center

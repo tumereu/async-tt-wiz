@@ -1,0 +1,1 @@
+fix: When you hold a card to see what changed on it, effects now say exactly when they end, such as "Haste as long as you control it" or "until the end of Bob's next turn".

@@ -1,0 +1,1 @@
+add: Tap your own library and choose View deck to see your deck, either all of it or only the cards still in your library.

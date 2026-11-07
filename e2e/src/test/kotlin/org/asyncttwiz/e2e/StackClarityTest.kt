@@ -21,7 +21,8 @@ import kotlin.test.assertTrue
 /**
  * Owner playtest 2026-11-07: "How are opponent cast spell targets etc shown? My friend cast Fractured Sanity, and whilst I
  * think it's probably the cast not the cycle effect, the UI does not really make this clear." Bob casts Ember Flick at
- * Alice's Ash Pup: at her pause a line on her table says who cast it, what it does and at what, and an arrow points at the
+ * Alice's Ash Pup: at her pause a line on her table says who cast it and what it does, the Pup named in its text (owner
+ * 2026-11-07: "… deals 1 damage to Ash Pup"), and an arrow points at the
  * Pup. Then Bob cycles Shattered Reason: her line names its cycling trigger, and the event reads that Bob cycled it.
  */
 class StackClarityTest : E2e() {
@@ -63,7 +64,7 @@ class StackClarityTest : E2e() {
         bob.battlefieldCard("Ash Pup", owner = alice).performClick()
         waitUntil("Alice holding priority over Bob's Flick") { aliceHoldsOver { it == StackItemKind.Spell } }
         waitUntil("the line on Alice's table") {
-            description(alice, "stack-line") == "${bob.name} cast Ember Flick · deals 1 damage to any target → Ash Pup"
+            description(alice, "stack-line") == "${bob.name} cast Ember Flick · deals 1 damage to Ash Pup"
         }
         assertEquals("Targets of the top Stack entry: Ash Pup", description(alice, "stack-target-arrows"), alice.screen())
         // Bob sees the arrow too (his own spell), but no line

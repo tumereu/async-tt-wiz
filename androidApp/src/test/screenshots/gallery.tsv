@@ -90,9 +90,10 @@ number	item	screenshot	catalog	decisions
 89	Game lobby History tab	match-history/lobby-history.png	LOB-035 LOB-129
 90	Pod standings and matches	match-history/pod-games.png	DRF-121
 91	Counters on a card in exile and the exile pile marker	states-exile-counters-portrait.png	ZON-091 ZON-092
-92	Line saying what the other player's spell does, with its target arrow	stack/opponent-spell-line.png	STK-057 STK-058 STK-027
+92	Line saying what the other player's spell does, its target named in the text, with its target arrow	stack/opponent-spell-line.png	STK-057 STK-058 STK-027
 93	Line naming the other player's cycling trigger	stack/cycling-trigger-line.png	STK-057 STK-046
-94	Stack list showing what was chosen for an entry	stack/stack-list-choices.png	STK-018
+94	Stack list showing an entry's text with its target named in it	stack/stack-list-choices.png	STK-018
 95	Inspect of an ability naming its kind (Cycling trigger)	stack/cycling-trigger-inspect.png	STK-050 TBL-104
 96	The other player's reveal stops your view until OK	engine/reveal-panel.png	HIS-110 STK-044
-97	Game settings in the lobby: allowing assumes over library and hand reveals	settings/game-settings-host.png	LOB-135 TRN-067
+97	View deck from your own Library: Still in library	engine/view-deck.png	ZON-093 ZON-078
+98	Game settings in the lobby: allowing assumes over library and hand reveals	settings/game-settings-host.png	LOB-135 TRN-067

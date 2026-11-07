@@ -76,16 +76,20 @@ class EngineTableGesturesTest {
         assertEquals(kit.scenario.sim.head, kit.alice.device.session.head, "through Automatum: the server took the land")
     }
 
-    // ZON-013, ZON-078, TBL-118: a library whose top card Automatum offers nothing for shakes on a tap and opens no menu;
-    // a double-tap draws nothing; a Graveyard's menu is only Search
+    // ZON-013, ZON-078, ZON-093, TBL-118: the other player's library whose top card Automatum offers nothing for shakes on a
+    // tap and opens no menu; your own opens its menu with View deck; a double-tap draws nothing; a Graveyard's menu is only Search
     @Test fun aLibraryTapShakesAndADoubleTapDrawsNothing() {
         kit.opening()
+        val theirs = kit.pile(PlayZone.LIBRARY, owner = f.b)
+        kit.tap(theirs)
+        assertEquals(theirs.id, toolkit.shaking?.id, "the other player's library shakes")
+        assertNull(toolkit.panel, "no menu")
+        assertNull(toolkit.error, "no message")
         val library = kit.pile(PlayZone.LIBRARY)
         val hand = kit.hand("Mountain").size + kit.hand("Storm Spark").size
         kit.tap(library)
-        assertEquals(library.id, toolkit.shaking?.id, "the library shakes")
-        assertNull(toolkit.panel, "no menu")
-        assertNull(toolkit.error, "no message")
+        assertEquals("library/${library.id}", toolkit.panel, "your own library's menu: View deck")
+        toolkit.dismiss()
         val (gestures, emitted) = kit.gestures()
         kit.doubleTap(gestures, library.bounds.center)
         kit.settle()

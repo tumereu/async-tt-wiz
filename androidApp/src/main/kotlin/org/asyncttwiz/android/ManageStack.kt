@@ -32,7 +32,9 @@ internal fun ManageStackDialog(state: TableBoard, viewer: String, dismiss: () ->
     val entries = contentsEntries(state, PileContents(CombatStackRules.stack(state.board).id, "Stack", order, true), viewer)
     fun place(index: Int) = if (index == 0) "Top" else "${index + 1}"
     // STK-018 (owner playtest 2026-11-07): what was chosen for each entry, and which entries target which
-    val details = remember(IdentityKey(state.board), viewer, names) { order.associateWith { StackAbilities.details(state, it, viewer, names) } }
+    // (owner 2026-11-07) each entry's text names its targets in place; the details list only the targets it doesn't name
+    val texts = remember(IdentityKey(state.board), viewer, names) { order.associateWith { StackAbilities.text(state, it, viewer, names) } }
+    val details = remember(texts) { order.associateWith { StackAbilities.details(state, it, viewer, names, texts[it]) } }
     val targetedBy = remember(IdentityKey(state.board)) { stackTargetedBy(state, order) }
     var inspection by remember { mutableStateOf<ManualInspection?>(null) }
     fun inspect(id: String) {
@@ -79,10 +81,13 @@ internal fun ManageStackDialog(state: TableBoard, viewer: String, dismiss: () ->
                         Column(Modifier.weight(1f)) {
                             Text("${place(index)} · ${entry.name}",
                                 style = MaterialTheme.typography.bodyMedium, maxLines = 2)
-                            // STK-018 (owner playtest 2026-11-07): an ability's kind, its text, then what was chosen for the
-                            // entry (modes, X, targets as far as the viewer may see them), and the entries targeting it
+                            // STK-018 (owner playtest 2026-11-07): an ability's kind, its text (a spell's own text), its
+                            // targets named in it, then what was chosen for the entry (modes, X, targets the text doesn't
+                            // name, as far as the viewer may see them), and the entries targeting it
                             if (ability != null) Text(ability.kind, style = MaterialTheme.typography.labelMedium, color = AutomatumViolet)
-                            if (ability != null && ability.text.isNotEmpty()) CardText(ability.text,
+                            val text = texts[id]
+                            if (text != null) CardText(text.pieces.tinted(viewer), style = MaterialTheme.typography.bodySmall, maxLines = 3, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                            else if (ability != null && ability.text.isNotEmpty()) CardText(ability.text,
                                 style = MaterialTheme.typography.bodySmall, maxLines = 3, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
                             if (entry.faceVisible) for (line in details[id].orEmpty()) CardText(line, style = MaterialTheme.typography.bodySmall,
                                 color = MenuInk, maxLines = 2, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)

@@ -44,12 +44,13 @@ internal inline fun TableBoardOverlays(game: GameSummary, play: TableBoard, acco
     // not under the catch-up's centre text or in timeline mode
     if (!runtime.reviewing && runtime.waitingLine == null && runtime.centreAction == null) {
         val names = remember(game) { gameNames(game) }
-        val stackLine = remember(IdentityKey(play.board), accountId, names) { StackLine.text(play, accountId, names) }
-        if (stackLine != null) scene.world?.visibleViewport?.let { board ->
+        val pieces = remember(IdentityKey(play.board), accountId, names) { StackLine.pieces(play, accountId, names) }
+        if (pieces != null) scene.world?.visibleViewport?.let { board ->
+            val stackLine = pieces.plain()
             // Clear of the Stack at the board's right edge (STK-007), kept centred
             val side = maxOf(24f, scene.stackRegion?.let { board.right - it.x + 8f } ?: 0f).coerceAtMost(board.width / 3)
             Box(Modifier.offset(board.x.dp, board.y.dp).size(board.width.dp, board.height.dp), contentAlignment = Alignment.Center) {
-                CardText(stackLine, Modifier.padding(horizontal = side.dp).widthIn(max = 520.dp).testTag("stack-line")
+                CardText(pieces.tinted(accountId), Modifier.padding(horizontal = side.dp).widthIn(max = 520.dp).testTag("stack-line")
                     .semantics { contentDescription = stackLine }, color = StackLineInk,
                     style = androidx.compose.material3.MaterialTheme.typography.titleMedium.copy(
                         textAlign = androidx.compose.ui.text.style.TextAlign.Center),

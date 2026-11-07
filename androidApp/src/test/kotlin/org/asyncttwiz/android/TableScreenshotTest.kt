@@ -239,7 +239,7 @@ class TableScreenshotTest {
             "table-actions" -> "Table actions menu open"
             "phase-picker" -> "phase and step picker open"
             "action-tooltip" -> "card menu open on your Forest, holding its mana ability row to show its name tooltip"
-            "library-actions" -> "your library menu open"
+            "library-actions" -> "your library menu open, with its View deck cell (ZON-093)"
             "pile-contents" -> "actions open for your two-card graveyard"
             "stack-contents" -> "Stack contents open, holding one Meadow Sentinel effect"
             else -> error("No caption for $kind")

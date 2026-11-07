@@ -117,12 +117,12 @@ class GameDevice(
         private set
 
     /** HIS-106: the main line's events after the branch point when [load] opened the game where the player left it on a
-     * line another player's branch discarded; the caller receives them ([revision]) once it showed the table there. */
+     * line another player's branch discarded; the caller receives them ([revision]) once the player tapped the centre text there. */
     var branchOnLoad: List<GameEvent> = emptyList()
 
     /** HIS-108: when [load] opened the game where the player left it before the other player's undo took it back, the
      * undo as its revision brings it (with [branchOnLoad] as the events re-added after its point): the caller receives
-     * it ([revision]) once it showed the table there. */
+     * it ([revision]) once the player tapped the centre text there. */
     var undoOnLoad: EngineUpdate? = null
 
     /** HIS-111, HIS-099 (owner 2026-11-07): the main line before the session's, loaded from the server on demand
@@ -140,6 +140,15 @@ class GameDevice(
      * only: the opening shows at once ([opening]); any submission of the player's ends it. */
     var catchUp: Boolean = session.buffered.any { it.author != session.me.value }
         private set
+
+    /**
+     * HIS-106, HIS-108 (owner 2026-11-07): the caller holds back what the server sent (a branch or the other player's
+     * undo that takes back what the player had seen, found on their return or on opening the game) until the player
+     * taps the centre text: meanwhile the table stays exactly as they left it, so the device stays where it was too: it
+     * stands at the catch-up's pause ([Status.CatchUp]), makes nothing of its own, takes no action of the player's but a
+     * concession and reports no local head (the line it holds is no longer the server's).
+     */
+    var holding: Boolean = false
 
     /**
      * The measuring clock (nanoseconds; engine-responsiveness R1, SYS-030): when set, the time the information rule's
@@ -315,6 +324,7 @@ class GameDevice(
     /** Where the game is for this player now. */
     val status: Status get() {
         if (needsReload) return Status.Reload
+        if (holding) return Status.CatchUp
         if (session.drafting) return Status.Drafting
         if (session.behind) {
             val next = session.buffered.first()
@@ -484,7 +494,7 @@ class GameDevice(
      * every event up to the first turn, a stop or the head shows at once: the last of them is answered.
      */
     fun step(): GameEvent? {
-        if (needsReload || (catchUp && !opening) || session.drafting || !session.behind) return null
+        if (needsReload || holding || (catchUp && !opening) || session.drafting || !session.behind) return null
         if (viewHolds()) return null
         if (stopAt(session.buffered.first()) != null) return null
         var shown: GameEvent
@@ -696,7 +706,7 @@ class GameDevice(
     private fun steps() { repeat(MAX_AUTOMATIC_EVENTS) { if (!automaticStep()) return } }
 
     private fun automaticStep(): Boolean {
-        if (needsReload || session.drafting || session.behind || request != null || locked || queuedUndo != null) return false
+        if (needsReload || holding || session.drafting || session.behind || request != null || locked || queuedUndo != null) return false
         // HIS-112: while a play is shown the board stays where it is: the device's own steps (its passes, its assumptions)
         // wait until it is done, so a spell shown isn't resolved under it by this device (the other player's device goes
         // on as ever)
@@ -955,6 +965,7 @@ class GameDevice(
 
     private fun refusal(input: Input?): String? = when {
         needsReload -> "reload"
+        holding && input !is Input.Concede -> "playback"
         session.drafting -> "drafting"
         input is Input.Concede -> null
         request != null -> REWIND_REQUESTED
@@ -1192,6 +1203,7 @@ class GameDevice(
      */
     fun table(changes: List<TableChange>): Acted {
         if (needsReload) return Acted.Refused("reload")
+        if (holding) return Acted.Refused("playback")
         if (request != null) return Acted.Refused(REWIND_REQUESTED)
         if (locked && changes.any { it !is TableChange.Suggestion && it !is TableChange.ResultConfirmed }) return Acted.Refused("suggestion")
         if (session.behind && changes.any { it is TableChange.AttackDraft || it is TableChange.BlockDraft }) return Acted.Kept
@@ -1325,6 +1337,7 @@ class GameDevice(
      * line start, so a second Undo goes on back past the player's previous action (report C9PVLM). Passes are implied
      * (§29.2): a pass is never the target, the player's own included, except the first pass of an End turn. */
     fun undoTarget(): String? {
+        if (holding) return null
         val shown = session.indexOf(session.localHead) ?: return null
         return session.events.take(shown + 1).lastOrNull(::realInput)?.parentId
     }
@@ -1356,6 +1369,7 @@ class GameDevice(
      * moves waiting to be made again after a lost race ([remake]) and table changes waiting to be re-made: they were made
      * on the line it takes back. */
     fun undo(target: String? = undoTarget()): Undo {
+        if (holding) return Undo.Unavailable("playback")
         if (target == null) return Undo.Unavailable("nothing")
         if (request != null) return Undo.Unavailable(REWIND_REQUESTED)
         if (session.drafting || session.pending.isNotEmpty()) return Undo.Unavailable("sending")
@@ -1380,6 +1394,7 @@ class GameDevice(
      * made again.
      */
     fun undoTap(): Undo {
+        if (holding) return Undo.Unavailable("playback")
         if (request != null) return Undo.Unavailable(REWIND_REQUESTED)
         if (session.drafting) return Undo.Unavailable("drafting")
         if (session.pending.isEmpty() && remaking.isEmpty()) return undo()
@@ -1875,6 +1890,7 @@ class GameDevice(
 
     /** Reports the shown head when it is ahead of the server's (throttled unless [urgent]). */
     private fun report(now: Long, urgent: Boolean) {
+        if (holding) return
         val local = session.localHead
         val server = heads[me]
         val ahead = server == null || (session.indexOf(local) ?: -1) > (session.indexOf(server) ?: -1)

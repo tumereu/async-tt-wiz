@@ -167,7 +167,9 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
         /** HIS-112: the play shown large on the table now: the view holds until it is done ([dismissShow]). */
         val show: GameDevice.PlayShow? = null,
         /** HIS-112: the event of the last play done: playback goes on after it without the playback delay (HIS-021). */
-        val showDone: String? = null) {
+        val showDone: String? = null,
+        /** HIS-106, HIS-108: a take-back waiting for the player's tap on the centre text (the table as they left it). */
+        val takeBack: Held? = null) {
         val engine: GameState get() = board.engine!!.state
         /** Engine-responsiveness R3: what the engine thread worked out with [board]: its computed card values, the player's
          * hand plays (on an own action's early board right after it is published, before the action's follow-up work,
@@ -203,8 +205,8 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
     fun load(snapshot: EngineSnapshot, base: PlayState = this.base) {
         this.base = base
         worker.run {
-            // HIS-106: opened for the first time, where another player's branch took the player's line back: the table
-            // first shows where they left it, then the branch as it shows live
+            // HIS-106, HIS-108: opened for the first time, where another player's branch or undo took back what the player
+            // had seen: the table shows where they left it until they tap (the take-back held, [hold])
             val first = !this::device.isInitialized
             val (loaded, json) = try { GameDevice.load(snapshot, PlayerId(me), takenBack = first, ids = ids) } catch (failure: Exception) {
                 // The table says the game can't be opened instead of waiting for a board that never comes
@@ -236,14 +238,16 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
                 rewinding = undone
                 if (undone.by == me) device.holdAtHead()
             }
-            // HIS-108: likewise, opened where the other player's undo took the player's line back: the undo as it shows live.
-            // Either waits until the table has drawn the board where the player left it ([tableShown]): a table opening on
-            // the board after it shows only the result (owner playtest 2026-11-07)
+            // HIS-106, HIS-108 (owner 2026-11-07): likewise, opened where the other player's branch or undo took the
+            // player's line back: the game opens exactly as they left it, nothing moves until they tap the centre text
+            // ("<name> responded differently · Tap to watch", "<name> undid moves · Tap to watch"), and the tap plays the
+            // take-back as it shows live
             val branch = device.branchOnLoad
             val undo = device.undoOnLoad
+            heldRevisions.clear(); heldWork = null
             if (undo != null || branch.isNotEmpty()) {
                 device.branchOnLoad = emptyList(); device.undoOnLoad = null
-                onLoad = { received(branch, undo) }; onLoadWaiting = true
+                hold(Held(undo?.rewoundBy ?: branch.firstOrNull()?.author ?: device.opponent.value, undo = undo != null)) { received(branch, undo) }
             }
             publish()
             rewinding = null
@@ -254,18 +258,59 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
      * ([load]) and the undo animates from the board shown before it (engine thread). */
     private var reloadRewind: Rewinding? = null
 
-    /** HIS-106, HIS-108: the take-back found on loading, received once the table has drawn the board where the player
-     * left it ([tableShown]), or before anything else reaches the device (engine thread). */
-    private var onLoad: (() -> Unit)? = null
-    @Volatile private var onLoadWaiting = false
-    private fun takeBackOnLoad() {
-        val work = onLoad ?: return
-        onLoad = null; onLoadWaiting = false
-        work()
+    /**
+     * HIS-106, HIS-108, HIS-035 (owner 2026-11-07): what waits behind the centre text when the player came back (the app
+     * in the background, a notification, the game opened, a cold start) to a branch or to the other player's undo that
+     * takes back what they had seen: [by] responded differently, or ([undo]) undid moves. Live (the game open, in sight,
+     * at the head) a take-back plays at once instead.
+     */
+    class Held(val by: String, val undo: Boolean)
+
+    /** The take-back held ([Held]) and everything the server sent after it, in order, received only once the player taps
+     * the centre text ([startPlayback]); empty when nothing is held (engine thread). */
+    private val heldRevisions = ArrayList<() -> Unit>()
+    private var heldWork: Held? = null
+
+    /** Holds [what] (and everything after it) until the player's tap: the table stays as they left it (engine thread). */
+    private fun hold(kind: Held, work: () -> Unit) {
+        if (heldWork == null) heldWork = kind
+        heldRevisions += work
+        device.holding = true
     }
 
-    /** The table drew this game's board (main thread, after composition): a take-back found on loading goes on now. */
-    fun tableShown() { if (onLoadWaiting) worker.run { takeBackOnLoad() } }
+    /** The player tapped the centre text over a held take-back: the take-back plays (the rewind look, the Rewind pause,
+     * the note; an undo's one backward animation), then the other player's new events as catch-up playback with its stops
+     * (engine thread). */
+    private fun releaseHeld() {
+        val work = heldRevisions.toList()
+        heldRevisions.clear(); heldWork = null
+        device.holding = false
+        device.play()
+        for (w in work) w()
+        // The other player's new events after an undo play back too (a branch's playback goes on by itself, [received])
+        device.play()
+        publish()
+    }
+
+    /**
+     * Whether [events] and [update] (a revision) take back what the player had been shown: the other player's branch at
+     * an event before the shown tip, or their undo to a point before it. An undo or branch of only events never shown is
+     * no take-back (a plain catch-up).
+     */
+    private fun takesBackShown(events: List<GameEvent>, update: org.asyncttwiz.protocol.EngineUpdate?): Boolean {
+        val session = device.session
+        val shown = session.indexOf(session.tip) ?: return false
+        val target = update?.target
+        if (target != null) {
+            if (update.rewoundBy == me) return false
+            val at = session.indexOf(target) ?: return true
+            return at < shown
+        }
+        val first = events.firstOrNull() ?: return false
+        if (first.author == me || first.parentId == session.head) return false
+        val at = session.indexOf(first.parentId) ?: return false
+        return at < shown
+    }
 
     /** The board the table shows now: the projected state at the local head and the device's own pending events. */
     fun play(): TableBoard = requireNotNull(shown) { "Not loaded yet" }.board
@@ -308,7 +353,7 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
         val shown = Shown(++published, play, status, device.locked, device.settings, device.opponent, session.behind, tip,
             session.localHead, session.drafting, device.request, device.indicator(), device.undoTarget(), line, held, lastTransition,
             device.needsReload, device.pausing, held.mapNotNullTo(HashSet(olderEnds)) { e -> e.id.takeIf(device::endedTurn) }, takingBack,
-            device.reveal, older, device.olderComplete, device.show, device.showDone)
+            device.reveal, older, device.olderComplete, device.show, device.showDone, heldWork)
         lastShown = shown
         timing?.let { it.boardEnd = clock(); it.version = shown.version; play.values?.promisePlays() }
         worker.main {
@@ -412,7 +457,7 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
         val shown = Shown(++published, play, last.status, last.locked, last.settings, last.opponent, last.behind, last.tip,
             last.localHead, last.drafting, last.request, last.indicator, last.undoTarget, last.line, last.held, last.transition,
             last.needsReload, last.pausing, last.endTurns, last.takingBack, last.reveal, last.older, last.olderComplete, last.show,
-            last.showDone)
+            last.showDone, last.takeBack)
         timing.boardEnd = clock(); timing.version = shown.version
         play.values?.promisePlays()
         worker.main { this.shown = shown; shownVersion = shown.version; measure(shown, timing); onShown() }
@@ -690,7 +735,17 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
         val update = message.engine
         val texts = listOfNotNull(message.engineEvent) + update?.events.orEmpty()
         if (texts.isEmpty() && update == null) return
-        worker.run { takeBackOnLoad(); received(texts.map(codec::decodeEvent), update) }
+        worker.run {
+            val events = texts.map(codec::decodeEvent)
+            // HIS-106, HIS-108, HIS-035 (owner 2026-11-07): coming back to a branch or undo of what the player had seen,
+            // the table stays as they left it until their tap; what follows it waits with it
+            val kind = if (awayPaused && heldWork == null && takesBackShown(events, update))
+                Held(update?.rewoundBy ?: events.firstOrNull()?.author ?: device.opponent.value, undo = update?.target != null) else null
+            if (heldWork != null || kind != null) {
+                hold(kind ?: heldWork!!) { received(events, update) }
+                publish()
+            } else received(events, update)
+        }
     }
 
     /** The server's accepted [events] in order and [update] (engine thread): [revision]'s, or the main line after the
@@ -717,9 +772,8 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
         val drained = device.notes()
         if (branch && device.session.behind && drained.any { it is GameDevice.Note.Branched }) {
             takingBack = true
-            // HIS-106 (owner playtest 2026-11-06): a branch plays to its end, never waiting paused for the centre text
-            // ("has made moves") as a catch-up does, also when it arrives while the app is away or just back (the table
-            // plays nothing while the app is away; publishing again on the return would cut the take-back's motion)
+            // HIS-106: a branch plays to its end, never waiting paused for the centre text ("has made moves") as a catch-up
+            // does: live, or once the player tapped the centre text over it on their return ([releaseHeld])
             device.play()
         }
         // A board already shown taken back by the server's revision (owner, N7FU6Y: one line per take-back)
@@ -765,7 +819,6 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
     /** The time [now]; makes the device's own steps (passes, assumptions). The other player's presence never decides
      * an assumption (HIS-096). */
     fun tick(now: Long) = worker.run {
-        takeBackOnLoad()
         this.now = now
         val before = device.status
         val tip = device.session.tip
@@ -882,13 +935,15 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
     }
 
     /** Whether the app left since the game was last told it returned (main thread). */
-    var awayPaused = false
+    @Volatile var awayPaused = false
         private set
 
     /** The centre text "<name> has made moves · Tap to watch" (HIS-094): the catch-up's paused start, or a stop the
      * player's pause made, ends and playback goes on, its first step right away (HIS-023): the first board published
-     * after it already shows the next event (owner playtest 2026-11-05: nothing waited for after the tap). */
+     * after it already shows the next event (owner playtest 2026-11-05: nothing waited for after the tap). Over a held
+     * take-back ([Held]) the take-back plays first ([releaseHeld]). */
     fun startPlayback() = worker.run {
+        if (heldWork != null) { releaseHeld(); return@run }
         device.play()
         device.pausing = false
         val first = device.step()

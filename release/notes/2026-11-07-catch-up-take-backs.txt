@@ -1,0 +1,1 @@
+mod: When you come back to a game where the other player answered differently or undid moves you had seen, the game waits as you left it and tells you so; tap to watch it go back and see their new moves.

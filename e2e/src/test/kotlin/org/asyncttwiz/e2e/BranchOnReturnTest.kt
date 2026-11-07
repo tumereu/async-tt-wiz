@@ -18,9 +18,10 @@ import kotlin.test.assertTrue
 
 /**
  * Owner playtest 2026-11-06: Alice assumed Bob's blocks and played on; Bob then declared other blocks. Coming back to
- * her phone she was told "Bob has made moves · Tap to watch" instead of seeing the branch. Coming back to a game whose
- * line the other player's real answer branched while she was away shows the branch (HIS-097, HIS-106): the take-back to
- * the branch point with its note, then Bob's new events played back, never the catch-up's centre text.
+ * her phone she was told "Bob has made moves · Tap to watch", which didn't say her line was taken back. Owner
+ * 2026-11-07 (catch-up rules): coming back to a game whose line the other player's real answer branched while she was
+ * away opens it as she left it with "Bob responded differently · Tap to watch"; her tap shows the branch (HIS-097,
+ * HIS-106): the take-back to the branch point with its note, then Bob's new events played back.
  */
 class BranchOnReturnTest : E2e() {
     /** Alice leaves the app (her phone then hears nothing until she is back; Bob is away too, so he isn't told). */
@@ -32,10 +33,11 @@ class BranchOnReturnTest : E2e() {
     @After fun noProbe() { EngineShownProbe.listener = null }
 
     /** What Alice's table is given from her return on: every board her game publishes (several may come between two
-     * frames, [EngineShownProbe]), and whether the centre text ever showed. */
+     * frames, [EngineShownProbe]), the first centre text it showed, and how many boards it had when she tapped it. */
     private class Seen {
         val boards = java.util.concurrent.CopyOnWriteArrayList<EngineGame.Shown>()
         var watch: String? = null
+        var tapped = -1
     }
 
     /** Alice's app comes back from the background ([reopen] false), or starts again and opens the game from the Games
@@ -51,10 +53,20 @@ class BranchOnReturnTest : E2e() {
         return seen
     }
 
-    /** HIS-097, HIS-106: Alice's table went back to the branch point (the take-back, with timeline mode's look) with
-     * [note], then played Bob's new events back ([theirs]) and is live at the new head, never paused with the centre
-     * text; [discarded] is gone. */
+    /** HIS-097, HIS-106, HIS-094 (owner 2026-11-07): back, Alice's table waited as she left it ([discarded] shown) with
+     * "Bob responded differently · Tap to watch", nothing moving; her tap took it back to the branch point (the take-back,
+     * with timeline mode's look) with [note], then played Bob's new events back ([theirs]), and she is live at the new
+     * head; [discarded] is gone. */
     private fun assertBranchShown(seen: Seen, note: String, discarded: GameEvent, theirs: (GameEvent) -> Boolean) {
+        waitUntil("Alice's centre text") { alice.showsWatch() && alice.current() }
+        assertEquals("${bob.name} responded differently · Tap to watch", alice.watchText())
+        repeat(5) { run(skip = java.time.Duration.ofMillis(600)) }
+        assertTrue(seen.boards.none { it.transition?.undone != null }, "nothing taken back before her tap")
+        assertTrue(seen.boards.all { s -> s.held.any { it.id == discarded.id } } && seen.boards.last().status == GameDevice.Status.CatchUp,
+            "her table as she left it, waiting: ${seen.boards.map { it.status }}")
+        assertEquals("${bob.name} responded differently · Tap to watch", seen.watch, "the first centre text says what waits")
+        seen.tapped = seen.boards.size
+        alice.tapToWatch()
         fun takeBack(): Int = seen.boards.indexOfFirst { it.transition?.undone?.branch == true && it.transition!!.backward.isNotEmpty() }
         waitUntil("Alice's table going back to the branch point") { takeBack() >= 0 }
         waitUntil("Alice told") { alice.told(note) }
@@ -66,26 +78,28 @@ class BranchOnReturnTest : E2e() {
         assertTrue(back.transition!!.steps.isNotEmpty(), "the take-back goes back step by step")
         val played = seen.boards.indexOfFirst { s -> s.held.any(theirs) }
         assertTrue(played > takeBack(), "the take-back first, then Bob's new events")
-        assertTrue(seen.boards.none { it.status == GameDevice.Status.CatchUp && !it.takingBack },
-            "never paused for the catch-up's centre text: ${seen.boards.map { "${it.status}/${it.takingBack}" }}")
-        assertEquals(null, seen.watch, "no catch-up centre text")
+        assertTrue(takeBack() >= seen.tapped, "the take-back only after her tap")
+        assertTrue(seen.boards.drop(seen.tapped).none { it.status == GameDevice.Status.CatchUp && !it.takingBack },
+            "after her tap never paused for a centre text again: ${seen.boards.map { "${it.status}/${it.takingBack}" }}")
         assertTrue(alice.engine { device.session.events }.none { it.id == discarded.id }, "her assumed line is discarded")
         assertTrue(alice.leaks.leaks.isEmpty() && bob.leaks.leaks.isEmpty())
     }
 
     // HIS-097, HIS-106, CMB-040, CMB-049 (owner playtest 2026-11-06): Alice attacks with her Ember Cub while Bob is away,
     // assumes his Ember Herald blocks it ("Assume blockers") and plays on to his turn; she leaves the app; Bob comes back
-    // and, at his playback's stop at the assumed blocks, declares no blocks. Alice comes back: the branch, with "Bob
-    // blocked differently — your End turn was taken back", not "Bob has made moves"
-    @Test fun assumedBlocksAnsweredDifferentlyShowTheBranchOnReturn() {
+    // and, at his playback's stop at the assumed blocks, declares no blocks. Alice comes back: her table as she left it
+    // with "Bob responded differently · Tap to watch"; her tap shows the branch, with "Bob blocked differently — your End
+    // turn was taken back"
+    @Test fun assumedBlocksAnsweredDifferentlyWaitForATapOnReturn() {
         val (assumed, noBlocks) = bobBlocksDifferentlyWhileAliceIsAway()
         val seen = aliceComesBack()
         assertBranchShown(seen, "${bob.name} blocked differently — your End turn was taken back", assumed, noBlocks)
     }
 
-    // HIS-097, HIS-106, HIS-033 (owner playtest 2026-11-06): as above, but Alice's app starts again and she opens the game
-    // from the Games list (loaded anew): her table first shows where she left it, then the branch, as above
-    @Test fun assumedBlocksAnsweredDifferentlyShowTheBranchWhenTheGameOpensAgain() {
+    // HIS-097, HIS-106, HIS-033 (owner 2026-11-07): as above, but Alice's app starts again and she opens the game from the
+    // Games list (loaded anew): her table opens where she left it and waits for her tap, as above (a device loaded anew
+    // doesn't know her End turn: the note names none)
+    @Test fun assumedBlocksAnsweredDifferentlyWaitForATapWhenTheGameOpensAgain() {
         val (assumed, noBlocks) = bobBlocksDifferentlyWhileAliceIsAway()
         val seen = aliceComesBack(reopen = true)
         waitUntil("Alice's table") { seen.boards.isNotEmpty() }
@@ -167,9 +181,9 @@ class BranchOnReturnTest : E2e() {
 
     // HIS-097, HIS-106, HIS-105: Alice casts an Ember Herald while Bob is away, assumes his pass ("Always assume
     // resolves") and ends her turn; she leaves the app; Bob comes back and, at his playback's stop at her spell, casts an
-    // Idle Glimmer instead of letting it resolve. Alice comes back: the branch, with "Bob responded — your End turn
-    // was taken back", not "Bob has made moves"
-    @Test fun anAssumedPassAnsweredWithAResponseShowsTheBranchOnReturn() {
+    // Idle Glimmer instead of letting it resolve. Alice comes back: her table as she left it with "Bob responded
+    // differently · Tap to watch"; her tap shows the branch, with "Bob responded — your End turn was taken back"
+    @Test fun anAssumedPassAnsweredWithAResponseWaitsForATapOnReturn() {
         val cast = aliceCastsAHeraldWhileBobIsAway()
         aliceLeaves()
         bob.back()

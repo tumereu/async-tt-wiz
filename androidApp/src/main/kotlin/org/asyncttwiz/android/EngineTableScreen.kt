@@ -65,8 +65,6 @@ internal fun EngineTableScreen(controller: LobbyController, accountId: String, h
     }
     // SYS-072: the engine's tokens show the best matching token picture
     SideEffect { engine.tokenArt = tokenArt }
-    // HIS-106, HIS-108: a take-back found on opening the game goes on once the table has drawn where the player left it
-    SideEffect { engine.tableShown() }
     // LOB-113 (I-D56 §7): a new game starts with the player's defaults, which the server gives its seat from their account
     // I-D56 §13: Autotap is the player's private setting of this game; the cast flow reads it
     SideEffect { toolkit.cast.autotap = shown.settings.autotap }
@@ -219,7 +217,12 @@ internal fun EngineTableScreen(controller: LobbyController, accountId: String, h
                             else -> null
                         },
                         centreAction = if (reviewPlay == null && (catchUp || pausedStop) && !takingBack && watchTappedAt != shown.version)
-                            TableCentreAction("${routes.opponentName} has made moves · Tap to watch") {
+                            // HIS-094, HIS-106, HIS-108: what waits: a take-back held on the return, or the other player's moves
+                            TableCentreAction(when (shown.takeBack?.undo) {
+                                false -> "${routes.opponentName} responded differently · Tap to watch"
+                                true -> "${routes.opponentName} undid moves · Tap to watch"
+                                null -> "${routes.opponentName} has made moves · Tap to watch"
+                            }) {
                                 watchTappedAt = shown.version; engine.startPlayback(); controller.engineSent() }
                             else null,
                         boardTap = if (reviewPlay == null && playing && !shown.pausing && !takingBack) ({

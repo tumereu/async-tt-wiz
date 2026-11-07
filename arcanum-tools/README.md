@@ -8,3 +8,11 @@ JVM developer tools for the Arcanum libraries. Not a library and never shipped.
   `build/arcanum/pattern-frequencies.tsv`, with coverage numbers for the top 50–2000
   patterns and the parser's coverage, plus `unparsed-keywords.tsv` (keyword-like lines
   the parser still leaves unparsed). `./scripts/gradle.sh :arcanum-tools:patternFrequencies -Pmtgjson=<file>`
+- `setSupport`: checks that every card of each supported set (`src/main/resources/arcanum/tools/supported-sets.txt`,
+  one MTGJSON set code and name per line) is fully supported: its faces read as a host's card data gives them
+  (`OracleParser.layout`, `OracleParser.parseCard`) and nothing left to the players (`Engine.manualParts`), the check
+  behind a host's "fully supported" mark. Un-cards, online-only and rebalanced printings are skipped; reprints are
+  checked once. The MTGJSON set files are kept outside the repository (`~/.cache/arcanum-sets`, or `-PsetCache=<dir>`)
+  and fetched again only when MTGJSON's version changes (Meta.json checked at most once a day; offline, the cache is
+  used), so the first run needs a network. Prints every unsupported card with the parts left to the players and fails
+  when there is any. `./scripts/gradle.sh :arcanum-tools:setSupport [-Psets=LTR,BLB]`

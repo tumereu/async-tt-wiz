@@ -42,16 +42,7 @@ object GameCards {
             single != null && card.layout in SHARED_FACE -> return Printed.Unreadable("the parts of this ${card.layout} card aren't in its card data")
             else -> card.faces.map { face(it, card.token) }
         }
-        val layout = if (faces.size == 1) Layout.Normal else when (card.layout) {
-            // An aftermath card is a split card whose second half has aftermath (CR 702.127).
-            "split", "aftermath" -> Layout.Split
-            "flip" -> Layout.Flip
-            "transform" -> Layout.Transform
-            "modal_dfc" -> Layout.ModalDoubleFaced
-            "adventure" -> Layout.Adventure
-            "omen" -> Layout.Omen
-            else -> return Printed.Unreadable("faces of layout ${card.layout}")
-        }
+        val layout = OracleParser.layout(card.layout, faces) ?: return Printed.Unreadable("faces of layout ${card.layout}")
         return Printed.Card(layout, faces)
     }
 

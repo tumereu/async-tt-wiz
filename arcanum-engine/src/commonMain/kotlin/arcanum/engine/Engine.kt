@@ -28,6 +28,13 @@ object Engine {
      */
     const val SUPPORT_VERSION: Int = 9
 
+    /** The parts of [definition] this engine leaves to the players, one short line each (empty: it plays all of the card
+     * by the rules): text the parser couldn't read, `Manual` steps and cost parts, keywords done by hand, and the shapes
+     * it can't finish at run time (a cost paid on resolution it can't work out, a mana ability step that asks something,
+     * a special action doing more than turning itself face up, unlocking its door or moving itself). Follows
+     * [SUPPORT_VERSION]: a host keeping per-card results keeps them per that version. */
+    fun manualParts(definition: arcanum.api.CardDefinition): List<String> = arcanum.engine.view.ManualParts.of(definition)
+
     /** The room of dungeon [id] its owner's venture marker is on (CR 309.4), by index into its rooms
      * ([arcanum.api.FaceDefinition.rooms]); null when it has no marker (not a dungeon in the command zone). */
     fun ventureRoom(state: GameState, id: arcanum.engine.state.ObjectId): Int? =

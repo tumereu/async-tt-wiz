@@ -93,6 +93,22 @@ object OracleParser {
     fun parseCard(layout: arcanum.api.Layout, faces: List<OracleCard>): arcanum.api.CardDefinition =
         arcanum.api.CardDefinition(layout, faces.map(::parse))
 
+    /**
+     * The [arcanum.api.Layout] of a card printed with [faces] (in printed order) under the card-data layout name [name]
+     * (Scryfall's and MTGJSON's: "split", "transform", "modal_dfc", ...), for [parseCard]; null where the parser has no
+     * layout for it. One face is always [arcanum.api.Layout.Normal].
+     */
+    fun layout(name: String, faces: List<OracleCard>): arcanum.api.Layout? = if (faces.size == 1) arcanum.api.Layout.Normal else when (name) {
+        // An aftermath card is a split card whose second half has aftermath (CR 702.127).
+        "split", "aftermath" -> arcanum.api.Layout.Split
+        "flip" -> arcanum.api.Layout.Flip
+        "transform" -> arcanum.api.Layout.Transform
+        "modal_dfc" -> arcanum.api.Layout.ModalDoubleFaced
+        "adventure" -> arcanum.api.Layout.Adventure
+        "omen" -> arcanum.api.Layout.Omen
+        else -> null
+    }
+
     /** What the card calls itself: its name, a legendary card's short name ("Thalia"), "this [type]", "this [subtype]"
      * ("this Equipment", "this Vehicle"). */
     private fun selfNames(name: String, face: FaceDefinition): Set<String> =

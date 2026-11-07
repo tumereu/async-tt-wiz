@@ -26,6 +26,7 @@ Engine.reorderUnknown(state, player, parts): Change.Reorder? // a host's new ran
 Engine.blockCosts(state, blocks): Boolean        // whether the blocks have costs to block (CR 509.1d)
 Engine.loopKey(state): LoopKey                   // the state without ids, timestamps, history: finding loops (CR 104.4b)
 Engine.SUPPORT_VERSION                           // raised when what the engine leaves to the players changes
+Engine.manualParts(definition): List<String>     // the parts of a card the engine leaves to the players (empty: fully supported)
 Engine.otherViewDecision(state, filled)          // what a player decides in their view while this view waits (D31)
 Engine.layersWorkedOut: (() -> Unit)?            // tests and measurements: called each time the layers are worked out in full
 state.apply(change); state.revert(change)        // the only mutators (D56, D59)

@@ -12,6 +12,7 @@ kotlin {
 
 dependencies {
     implementation(project(":arcanum-parser"))
+    implementation(project(":arcanum-engine"))
     implementation(libs.gson)
 }
 
@@ -27,4 +28,18 @@ tasks.register<JavaExec>("patternFrequencies") {
     val output = layout.buildDirectory.file("arcanum/pattern-frequencies.tsv")
     doFirst { check(input.isPresent) { "Give the local MTGJSON file: -Pmtgjson=/path/AllPrintings.json.gz" } }
     argumentProviders += CommandLineArgumentProvider { listOf(input.getOrElse(""), output.get().asFile.absolutePath) }
+}
+
+// Checks that every card of each supported set (src/main/resources/arcanum/tools/supported-sets.txt) is fully
+// supported, from MTGJSON set files cached outside the repository (~/.cache/arcanum-sets, or -PsetCache=<dir>); fetched
+// again when MTGJSON's version changes, so the first run needs a network. -Psets=LTR,BLB checks only those sets.
+tasks.register<JavaExec>("setSupport") {
+    group = "arcanum"
+    description = "Fails listing every card of the supported sets the parser and engine don't fully support."
+    classpath = sourceSets["main"].runtimeClasspath
+    mainClass.set("arcanum.tools.SetSupportKt")
+    maxHeapSize = "2g"
+    val cache = providers.gradleProperty("setCache").orElse(System.getProperty("user.home") + "/.cache/arcanum-sets")
+    val sets = providers.gradleProperty("sets").orElse("")
+    argumentProviders += CommandLineArgumentProvider { listOf(cache.get(), sets.get()) }
 }

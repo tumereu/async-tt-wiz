@@ -24,6 +24,9 @@ Design: `docs/specs/arcanum-automatum.md` §6.
 - `OracleParser.parseCard(layout, faces)`: a card with several faces (split, adventurer,
   double-faced; CR 709, 712, 715) → `CardDefinition`, each face parsed on its own. A face's
   colour indicator is read from `OracleCard.colorIndicator` ("U").
+- `OracleParser.layout(name, faces)`: the `Layout` for `parseCard` of a card printed with `faces` under a card-data
+  layout name (Scryfall's and MTGJSON's: "split", "transform", "modal_dfc", "adventure", ...); null where the parser
+  has none. One face is always `Layout.Normal`.
 - `OracleParser.VERSION`: the parser's output version. Hosts that store parsed definitions keep them per version
   and parse again when it changes. **Bump it in every change that changes the parser's output for any card.**
 - Subtypes and ability words are accepted only from the lists in the pinned

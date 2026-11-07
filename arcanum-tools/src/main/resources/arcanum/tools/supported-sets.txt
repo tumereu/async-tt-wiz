@@ -1,0 +1,21 @@
+# Sets the Arcanum parser and engine support fully: every card of each must pass :arcanum-tools:setSupport.
+# One MTGJSON set code per line, then its name. A set is added here when its set work is merged.
+BLB Bloomburrow
+DFT Aetherdrift
+DGM Dragon's Maze
+DSK Duskmourn: House of Horror
+ECL Lorwyn Eclipsed
+EOE Edge of Eternities
+FIN Final Fantasy
+FRA Reality Fracture
+GTC Gatecrash
+HOB The Hobbit
+LTR The Lord of the Rings: Tales of Middle-earth
+MH2 Modern Horizons 2
+MSH Marvel Super Heroes
+RTR Return to Ravnica
+SOS Secrets of Strixhaven
+SPM Marvel's Spider-Man
+TDM Tarkir: Dragonstorm
+TLA Avatar: The Last Airbender
+TMT Teenage Mutant Ninja Turtles

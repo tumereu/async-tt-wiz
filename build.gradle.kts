@@ -60,7 +60,7 @@ tasks.register("verifyModuleBoundaries") {
             ":arcanum-api" to emptySet(),
             ":arcanum-parser" to setOf(":arcanum-api"),
             ":arcanum-engine" to setOf(":arcanum-api"),
-            ":arcanum-tools" to setOf(":arcanum-parser"),
+            ":arcanum-tools" to setOf(":arcanum-parser", ":arcanum-engine"),
             // ATW's side of the integration: depends on both sides; nothing in Arcanum depends on it.
             ":automatum" to setOf(":protocol", ":arcanum-api", ":arcanum-engine"),
             // End-to-end tests run :androidApp's compiled tests against an installed :server; no project dependencies.

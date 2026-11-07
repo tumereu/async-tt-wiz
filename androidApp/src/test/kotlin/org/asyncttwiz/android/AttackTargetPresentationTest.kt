@@ -213,6 +213,32 @@ class AttackTargetPresentationTest {
         assertNull(plain.artwork)
     }
 
+    // CMB-013 (owner gallery review 2026-11-07): each lane keeps room for the widest damage preview its chip can show,
+    // negative results included ("3 → −2", "5 → −12", "20 → −88"), so the chip never outgrows its lane and nothing moves
+    // when the preview appears
+    @Test fun lanesKeepRoomForNegativePreviews() {
+        val original = attackTargetState()
+        val empty = original.copy(board = original.board.copy(combat = original.board.combat!!.copy(pairs = emptyList())))
+        val lanes = CombatStackPresentation.combat(empty.board, 28f, 40f, empty.definitions, mapOf(combatId(8) to "Bob")).lanes
+        val player = lanes.first()
+        assertEquals("20", player.value)
+        val walker = lanes.single { it.cardId == combatId(80) }
+        for (lane in lanes) {
+            val now = lane.value.toInt()
+            // Results down to minus 99, and up to one digit more than the target has now
+            for (change in listOf(-1, -now, -now - 2, -now - 12, -now - 99, 10 - now % 10)) {
+                val shown = chipValue(lane, change)
+                assertTrue(CombatStackPresentation.chipWidth(lane.label, shown) + 2 * lane.inset <= lane.bounds.width + .001f,
+                    "${lane.label}: $shown")
+            }
+        }
+        assertEquals("20 → −5", chipValue(player, -25))
+        assertEquals("0 → −12", chipValue(walker.copy(value = "0"), -12))
+        assertEquals("20 → −88", CombatStackPresentation.previewRoom("20"))
+        assertEquals("3 → −88", CombatStackPresentation.previewRoom("3"))
+        assertEquals("", CombatStackPresentation.previewRoom(""))
+    }
+
     // CMB-012, CMB-013
     @Test fun emptyCombatHasDefaultPlayerLabelAndChoicesOnlyIncludeDefendingWalkersAndOwnSieges() {
         val original = attackTargetState()

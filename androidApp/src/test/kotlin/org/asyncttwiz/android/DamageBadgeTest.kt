@@ -25,17 +25,18 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 import kotlin.test.assertEquals
-import kotlin.test.assertTrue
 
-/** CMB-029 (owner playtest 2026-11-06): the damage preview's one badge per creature, at the sizes a card's zoom gives it. */
+/** CMB-029 (owner playtest 2026-11-06): the damage preview's one badge per creature, at the sizes a card's zoom gives it,
+ * drawn at a phone's density so the pictures show how readable the numbers are. */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
-@Config(sdk = [35], qualifiers = "w412dp-h892dp-port-mdpi")
+@Config(sdk = [35], qualifiers = "w412dp-h892dp-port-xxhdpi")
 class DamageBadgeTest {
     @get:Rule val compose = createComposeRule()
 
     // CMB-029: a red splash with the number when the creature survives, a black skull with the number inside when it
-    // dies, the same at every size; two digits widen the badge (owner gallery review 2026-11-06)
+    // dies, the same at every size; the badge keeps its size for two or three digits, the number drawn smaller to fit
+    // and centred in the splash or the skull's cranium (owner gallery review 2026-11-07)
     @Test fun aSplashWhenItSurvivesASkullWhenItDies() {
         compose.setContent {
             MaterialTheme {
@@ -47,6 +48,7 @@ class DamageBadgeTest {
                         DamageBadge(null, dying = true, size = size)
                         DamageBadge(12, dying = false, size = size)
                         DamageBadge(10, dying = true, size = size)
+                        DamageBadge(120, dying = false, size = size)
                     }
                 }
             }
@@ -56,15 +58,21 @@ class DamageBadgeTest {
         assertEquals(3, compose.onAllNodesWithContentDescription("Would die").fetchSemanticsNodes().size)
         assertEquals(3, compose.onAllNodesWithContentDescription("Would take 12 damage").fetchSemanticsNodes().size)
         assertEquals(3, compose.onAllNodesWithContentDescription("Would take 10 damage and die").fetchSemanticsNodes().size)
-        // A badge is round for one digit and wider for two
-        assertEquals(26f, damageBadgeWidth("3", 26f))
-        assertTrue(damageBadgeWidth("12", 26f) > 26f * 1.3f)
+        assertEquals(3, compose.onAllNodesWithContentDescription("Would take 120 damage").fetchSemanticsNodes().size)
+        // Every badge is as wide as it is tall, whatever its number
+        val px = with(compose.density) { listOf(12, 18, 26).map { it.dp.roundToPx() } }
+        for (description in listOf("Would take 3 damage", "Would take 12 damage", "Would take 120 damage", "Would die",
+            "Would take 2 damage and die", "Would take 10 damage and die")) {
+            val sizes = compose.onAllNodesWithContentDescription(description).fetchSemanticsNodes().map { it.size }
+            assertEquals(px, sizes.map { it.height })
+            assertEquals(sizes.map { it.height }, sizes.map { it.width })
+        }
         compose.onRoot().captureShot("$SCREENSHOTS/combat-band/damage-badges.png",
-            "The damage preview's badges at three sizes, smallest first: a red splash with 3 for a creature that survives, a black skull with 2 inside for one that dies, a plain skull for one that dies without damage, then a wider splash with 12 and a wider skull with 10 inside, each number centred.")
+            "The damage preview's badges at three sizes, smallest first: a red splash with 3 for a creature that survives, a black skull with 2 in its cranium for one that dies, a plain skull for one that dies without damage, then a splash with 12, a skull with 10 and a splash with 120, every badge the same size with the longer numbers drawn smaller to fit.")
     }
 
-    // CMB-029 (owner gallery review 2026-11-06): two-digit damage on cards as large as the table's: the badge widens over
-    // the card's middle and its number stays centred
+    // CMB-029 (owner gallery review 2026-11-07): two-digit damage on cards as large as the table's: the badge keeps its
+    // size over the card's middle and its number fits inside, centred
     @Test fun twoDigitDamageOnCards() {
         compose.setContent {
             MaterialTheme {
@@ -79,6 +87,6 @@ class DamageBadgeTest {
         assertEquals(1, compose.onAllNodesWithContentDescription("Would take 12 damage").fetchSemanticsNodes().size)
         assertEquals(1, compose.onAllNodesWithContentDescription("Would take 20 damage and die").fetchSemanticsNodes().size)
         compose.onRoot().captureShot("$SCREENSHOTS/combat-band/damage-badges-two-digits.png",
-            "Damage preview badges on four combat cards at their largest: a wide red splash with 12, a wide skull with 10 inside, a round splash with 7 and a wide skull with 20, each number centred in its badge.")
+            "Damage preview badges on four combat cards at their largest: a red splash with 12, a skull with 10 in its cranium, a splash with 7 and a skull with 20, every badge the same size with each number fitting inside, centred.")
     }
 }

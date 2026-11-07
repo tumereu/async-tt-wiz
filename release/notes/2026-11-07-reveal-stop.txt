@@ -1,0 +1,1 @@
+add: When the other player reveals cards, your game now stops to show them to you and waits until you tap OK.

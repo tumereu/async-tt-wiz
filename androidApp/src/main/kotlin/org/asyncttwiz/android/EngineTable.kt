@@ -91,6 +91,9 @@ interface EngineRoutes {
 
     /** Whether the viewer's response mode for this game is Control (STK-036): the step arrow's words depend on it (TRN-063). */
     fun control(): Boolean = false
+
+    /** HIS-110: whether the other player's reveal panel is open: it comes before any choice panel of the viewer's. */
+    fun revealing(): Boolean = false
 }
 
 /**
@@ -266,6 +269,8 @@ internal class EngineTableRoutes(val viewer: String, private val game: () -> Eng
     fun status(): GameDevice.Status? = game()?.shown?.status
 
     override fun control(): Boolean = game()?.shown?.settings?.mode == ResponseMode.FullControl
+
+    override fun revealing(): Boolean = game()?.shown?.reveal != null
 
     /** TRN-015, I-D56 §14: the step arrow acts only for the viewer: shown while they may act. */
     fun arrowShown(): Boolean = when (status()) {
@@ -627,8 +632,14 @@ internal fun EngineAsyncHost(toolkit: TableToolkitController, routes: EngineTabl
     // here covers the board (CMB-040: assumed blocks are placed on the lanes)
     // HIS-095 (owner playtest 2026-11-04 #1): a stop at the other player's assumption about you looks like any point
     // where you may act: no words over the board say it was assumed
+    // HIS-110: the other player's reveal stops the view until dismissed, before anything else docked above the hand
+    val reveal = shown.reveal.takeIf { !reviewing }
+    if (reveal != null) AboveHand(handRow(scene, routes.viewer)) {
+        RevealPanel(play, routes.viewer, reveal, names[reveal.by.value] ?: opponent) { game.dismissReveal(); routes.pump() }
+    }
     if (!reviewing) when (status) {
         is GameDevice.Status.Playing -> EnginePlayback(routes)
+        else -> if (reveal != null) Unit else when (status) {
         is GameDevice.Status.Over -> AboveHand(handRow(scene, routes.viewer)) {
             val won = (status.result as? arcanum.engine.setup.GameResult.Won)?.winner
             val words = when (won) { null -> "Draw"; PlayerId(routes.viewer) -> "You won"; else -> "You lost" }
@@ -639,6 +650,7 @@ internal fun EngineAsyncHost(toolkit: TableToolkitController, routes: EngineTabl
         }
         GameDevice.Status.Reload -> AboveHand(handRow(scene, routes.viewer)) { EngineBar("Loading the game again…", "loading line") {} }
         else -> {}
+        }
     }
     // Incoming undo request (§10): Accept / Deny; the game is frozen meanwhile
     val request = shown.request

@@ -152,7 +152,9 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
         val endTurns: Set<String> = emptySet(),
         /** HIS-097 (owner playtest 2026-11-05): a branch is being shown: the rewind back to the branch point, then the
          * playback of the other player's new events; it can't be paused, skipped or left until it ends. */
-        val takingBack: Boolean = false) {
+        val takingBack: Boolean = false,
+        /** HIS-110: the other player's reveal whose panel is open: playback holds the later events until it is dismissed. */
+        val reveal: GameDevice.Reveal? = null) {
         val engine: GameState get() = board.engine!!.state
         /** Engine-responsiveness R3: what the engine thread worked out with [board]: its computed card values, the player's
          * hand plays (on an own action's early board right after it is published, before the action's follow-up work,
@@ -264,7 +266,8 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
         if (takingBack && (!session.behind || (status !is GameDevice.Status.Playing && status != GameDevice.Status.CatchUp))) takingBack = false
         val shown = Shown(++published, play, status, device.locked, device.settings, device.opponent, session.behind, tip,
             session.localHead, session.drafting, device.request, device.indicator(), device.undoTarget(), line, held, lastTransition,
-            device.needsReload, device.pausing, held.mapNotNullTo(HashSet()) { e -> e.id.takeIf(device::endedTurn) }, takingBack)
+            device.needsReload, device.pausing, held.mapNotNullTo(HashSet()) { e -> e.id.takeIf(device::endedTurn) }, takingBack,
+            device.reveal)
         lastShown = shown
         timing?.let { it.boardEnd = clock(); it.version = shown.version; play.values?.promisePlays() }
         worker.main {
@@ -365,7 +368,7 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
         // R3: its computed values come with it; its plays right after it, before what follows the action ([playsOf])
         val shown = Shown(++published, play, last.status, last.locked, last.settings, last.opponent, last.behind, last.tip,
             last.localHead, last.drafting, last.request, last.indicator, last.undoTarget, last.line, last.held, last.transition,
-            last.needsReload, last.pausing, last.endTurns, last.takingBack)
+            last.needsReload, last.pausing, last.endTurns, last.takingBack, last.reveal)
         timing.boardEnd = clock(); timing.version = shown.version
         play.values?.promisePlays()
         worker.main { this.shown = shown; measure(shown, timing); onShown() }
@@ -773,6 +776,9 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
         publish()
         if (first != null) afterBoard()
     }
+
+    /** HIS-110: the player dismissed the open reveal panel: the next one opens, or the held events play on. */
+    fun dismissReveal() = worker.run { if (device.dismissReveal()) { publish(); afterBoard() } }
 
     /** A tap on the table while playback runs (HIS-095): it goes on to the next point where Full control stops and stops
      * there ([GameDevice.pausing]). */

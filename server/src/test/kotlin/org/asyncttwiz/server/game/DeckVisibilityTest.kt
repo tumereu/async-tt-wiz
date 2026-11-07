@@ -205,8 +205,12 @@ class DeckVisibilityTest {
         // Up to V53: V54 would remove the finished game this checks
         assertEquals(8, org.flywaydb.core.Flyway.configure().configuration(FoundationMigrations.flyway(f.db.settings).configuration)
             .target("53").load().migrate().migrationsExecuted)
-        assertTrue(f.shown(a1)); assertTrue(f.shown(b1, f.a))
-        assertFalse(f.shown(b1), "An account that hides its decks stays hidden")
-        assertFalse(f.shown(other), "Another deck has not finished a game against B")
+        // Read from the table at that schema: today's game reads need columns added after V53 (V66)
+        fun shown(stream: Stream, of: AccountService.Principal = stream.actor) = f.db.connection().use { c -> c.createStatement().executeQuery(
+            "SELECT deck_shown FROM player_preparation WHERE game_id = '${stream.gameId}' AND account_id = '${of.account.accountId}'")
+            .use { assertTrue(it.next()); it.getBoolean(1) } }
+        assertTrue(shown(a1)); assertTrue(shown(b1, f.a))
+        assertFalse(shown(b1), "An account that hides its decks stays hidden")
+        assertFalse(shown(other), "Another deck has not finished a game against B")
     }
 }

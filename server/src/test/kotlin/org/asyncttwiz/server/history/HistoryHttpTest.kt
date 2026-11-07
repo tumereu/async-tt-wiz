@@ -17,7 +17,7 @@ import org.springframework.boot.tomcat.servlet.TomcatServletWebServerFactory
 
 /** Game history §3: the HTTP reads of the records: GET /v1/history, /v1/games/{id}/history and /v1/pods/{id}/matches. */
 class HistoryHttpTest {
-    // Game history §2, §3: each read answers its viewer's records; a pod's matches only to its members; sign-in needed
+    // LOB-129, LOB-130, DRF-121 (game history §2, §3): each read answers its viewer's records; a pod's matches only to its members; sign-in needed
     @Test fun `history endpoints answer the viewer's records`() = HistoryWorld.run { w ->
         val (a, aliceToken) = w.session("HttpAlice"); val (b, bobToken) = w.session("HttpBob"); val (_, carolToken) = w.session("HttpCarol")
         val pod = UUID.randomUUID()

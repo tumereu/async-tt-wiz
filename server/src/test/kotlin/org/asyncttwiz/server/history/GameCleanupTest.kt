@@ -21,7 +21,7 @@ class GameCleanupTest {
         number("SELECT count(*) FROM account_activity WHERE kind = ? AND game_id = ?", kind.name, resource)
     private fun Instant.micros(): Instant = truncatedTo(ChronoUnit.MICROS)
 
-    // Game history §4.1, 4.5, 4.6: a finished game whose match ended 7 days ago, with no activity since, is deleted (without a
+    // LOB-133 (game history §4.1, 4.5, 4.6): a finished game whose match ended 7 days ago, with no activity since, is deleted (without a
     // warning); its record stays, and a games list read since before learns it is gone
     @Test fun `a finished game goes 7 days after its match ended`() = HistoryWorld.run { w ->
         val a = w.account("FinAlice"); val b = w.account("FinBob")
@@ -40,7 +40,7 @@ class GameCleanupTest {
         assertTrue(m.game.id in since.removed, "the list learns the game is gone")
     }
 
-    // Game history §4.1, 4.2, 4.4: a lobby change after the finished match is activity: the game then goes after 14 days
+    // LOB-133 (game history §4.1, 4.2, 4.4): a lobby change after the finished match is activity: the game then goes after 14 days
     // without activity, as any other game
     @Test fun `activity after a finished match keeps the game 14 days from it`() = HistoryWorld.run { w ->
         val a = w.account("LaterAlice"); val b = w.account("LaterBob")
@@ -59,7 +59,7 @@ class GameCleanupTest {
         assertFalse(m.exists(), "14 days after the last activity")
     }
 
-    // Game history §4.2, 4.5, 1.3: a game in play gets one warning at day 11 of 14 to both players ("<game> · vs <opponent>"),
+    // LOB-133, LOB-134, LOB-127 (game history §4.2, 4.5, 1.3): a game in play gets one warning at day 11 of 14 to both players ("<game> · vs <opponent>"),
     // then is deleted at day 14, leaving an Unfinished record
     @Test fun `a game in play is warned at day 11 and deleted at day 14`() = HistoryWorld.run { w ->
         val a = w.account("PlayAlice"); val b = w.account("PlayBob")
@@ -88,7 +88,7 @@ class GameCleanupTest {
         assertEquals(MatchEnding.Unfinished, w.sql { MatchRecords.forAccount(it, UUID.fromString(b.account.accountId)) }.single().ending)
     }
 
-    // Game history §4.4, 4.5: any change by a player is activity and resets the clock, a later warning included (a move, a
+    // LOB-133, LOB-134 (game history §4.4, 4.5): any change by a player is activity and resets the clock, a later warning included (a move, a
     // chat message); a device reporting what its player has seen, or a player's private settings, are not
     @Test fun `a player's change resets the clock, seeing and private settings do not`() = HistoryWorld.run { w ->
         val a = w.account("ResetAlice"); val b = w.account("ResetBob")
@@ -118,7 +118,7 @@ class GameCleanupTest {
         assertEquals(4L, w.warnings(ActivityKind.GAME_REMOVAL, m.id))
     }
 
-    // Game history §4.4: lobby changes, invitations and their answers are activity; the server's own revisions (a deck
+    // LOB-133 (game history §4.4): lobby changes, invitations and their answers are activity; the server's own revisions (a deck
     // revealed in another lobby when a match ends) are not
     @Test fun `lobby changes and invitation answers are activity, the server's own revisions are not`() = HistoryWorld.run { w ->
         val a = w.account("LobbyAlice"); val b = w.account("LobbyBob")
@@ -150,7 +150,7 @@ class GameCleanupTest {
             .where(org.asyncttwiz.server.generated.tables.Game.GAME.ID.eq(UUID.fromString(invited.id))).fetchSingle().value1()!!.toInstant() })
     }
 
-    // Game history §4.2, 4.5: an invitation or a lobby goes after 14 days without activity, without a warning
+    // LOB-133, LOB-134 (game history §4.2, 4.5): an invitation or a lobby goes after 14 days without activity, without a warning
     @Test fun `invitations and lobbies go after 14 days without a warning`() = HistoryWorld.run { w ->
         val a = w.account("InvAlice"); val b = w.account("InvBob")
         w.lobby.add(a, AddContact(UUID.randomUUID().toString(), b.account.accountId))
@@ -166,7 +166,7 @@ class GameCleanupTest {
         ids.forEach { assertEquals(0L, w.number("SELECT count(*) FROM game WHERE id = ?", it)) }
     }
 
-    // Game history §4.3, 4.5, DRF-042: a pod with no activity in it or its games is warned at day 11 (every member) and
+    // LOB-133, LOB-134, DRF-042 (game history §4.3, 4.5): a pod with no activity in it or its games is warned at day 11 (every member) and
     // deleted at day 14; a game of the pod with activity keeps it; deleting a pod leaves its games
     @Test fun `stalled pods are warned at day 11 and deleted at day 14`() = HistoryWorld.run { w ->
         val a = w.account("PodsAlice"); val b = w.account("PodsBob")
@@ -199,7 +199,7 @@ class GameCleanupTest {
         assertTrue(game.exists())
     }
 
-    // Game history §4: deleting a game removes everything of it (lobby, chat, matches and their event data, notices) but
+    // LOB-133 (game history §4): deleting a game removes everything of it (lobby, chat, matches and their event data, notices) but
     // never its records: no row of any table names the game or its plays afterwards but match_record's
     @Test fun `deleting a game removes every row of it but its records`() = HistoryWorld.run { w ->
         val a = w.account("RowsAlice"); val b = w.account("RowsBob")

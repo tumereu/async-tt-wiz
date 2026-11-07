@@ -75,7 +75,8 @@ class FoundationDatabaseTest {
                     "game_chat", "game_chat_read_cursor", "activity_cursor", "account_activity", "activity_summary",
                     "activity_installation", "activity_push", "activity_presence", "debug_crash_report", "debug_crash_daily_count",
                     "problem_report", "pod_draft_marks", "pod_deck_notes", "finished_deck_matchup", "pod_preset",
-                    "engine_play", "engine_event", "engine_checkpoint", "engine_seat", "engine_async_round", "game_change"), tables)
+                    "engine_play", "engine_event", "engine_checkpoint", "engine_seat", "engine_async_round", "game_change",
+                    "match_record", "deck_shown_to", "game_removed"), tables)
             }
             assertThrows(FlywayException::class.java) { flyway.clean() }
             assertEquals(91, epoch(db))

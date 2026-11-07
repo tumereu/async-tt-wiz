@@ -94,6 +94,7 @@ catalog wins. Where neither says, ask rather than pick.
   `:server:test`, `:androidApp:testDebugUnitTest`, `:androidApp:assembleDebug`,
   `:arcanum-parser:jvmTest`, `:arcanum-engine:jvmTest`, `:e2e:test` (slow, Docker;
   see End-to-end coverage).
+  `AndroidRegexCheckTest` (in `:androidApp:testDebugUnitTest`) fails on regex braces Android's ICU rejects but the JVM accepts.
   While implementing, run the tasks relevant to what you changed. After a batch
   of implementations is merged, all the tasks above run together on the merged
   result, and failures are fixed before the batch is done.

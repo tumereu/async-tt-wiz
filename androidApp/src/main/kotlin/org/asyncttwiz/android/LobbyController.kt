@@ -65,17 +65,35 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
     private val routes: LobbyActivityRoutes = LobbyActivityRoutes(scope, api, credential, accountId, worker, post, session, openGame,
         activityTarget)
     fun clear() { queue.clear(); epoch++; contactBook.clear(); deckPicker.clear(); routes.fence(); refresher.clear(); setupCancellation.clear(); personalChat.clear(); invitations.clear(); latest.clear(); session?.clear(); history.clear(); state = LobbyState() }
-    fun openChat() {
-        if (state.detail?.lifecycle == GameLifecycle.ACTIVE) { state = state.copy(chatOpen = true); connectionState() }
+    /** Opens the game's chat; [focus]: at that message (holding its bubble on the table, LOB-136). */
+    fun openChat(focus: String? = null) {
+        if (state.detail?.lifecycle == GameLifecycle.ACTIVE) { state = state.copy(chatOpen = true, chatFocus = focus); connectionState() }
     }
-    fun closeChat() { state = state.copy(chatOpen = false) }
+    fun closeChat() { state = state.copy(chatOpen = false, chatFocus = null) }
     var gameInput: (() -> Unit)? = null
     fun composeChat(text: String) { gameInput?.invoke(); state.detail?.let { personalChat.compose(it, text); connectionState() } }
     fun sendChat() {
         val game = state.detail ?: return
         val draft = state.chat.draft ?: return
         if (!closed && state.chat.canSend(game, true) && session?.sendChat(game, draft.text) == true) {
-            personalChat.sent(game.id); connectionState()
+            personalChat.sent(game.id, draft.text); connectionState()
+        }
+    }
+    /** LOB-139: sends a quick message with one tap; a typed draft stays as it is. */
+    fun sendQuickChat(text: String) {
+        val game = state.detail ?: return
+        gameInput?.invoke()
+        if (!closed && state.chat.canSendQuick(game, true) && session?.sendChat(game, text) == true) {
+            personalChat.sent(game.id, text, fromDraft = false); connectionState()
+        }
+    }
+    /** LOB-137: the own sent message's bubble [key] has faded; reopening the game doesn't show it again. */
+    fun chatSentShown(gameId: String, key: Long) { personalChat.sentShown(gameId, key); connectionState() }
+    /** LOB-136: a tap on the other player's chat bubble reads its message (the next unread one shows next). */
+    fun readChatBubble(gameId: String, messageId: String) {
+        if (!closed && state.selected == gameId) {
+            gameInput?.invoke()
+            session?.presentedChat(gameId, setOf(messageId)); connectionState()
         }
     }
     val chatViewEpoch get() = epoch

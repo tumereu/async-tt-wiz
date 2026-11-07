@@ -238,6 +238,7 @@ internal fun TableSurface(game: GameSummary, play: TableBoard, accountId: String
         val drawCache = remember(density, play.playId) { TableDrawCache(density) }
         val refreshRate = androidx.compose.ui.platform.LocalView.current.display?.refreshRate ?: 60f
         SideEffect { previousLayout = layout; previousSize = maxWidth to maxHeight }
+        val tableWidth = maxWidth.value; val tableHeight = maxHeight.value
         SideEffect {
             presentation = { rendered.value.scene }
             coordinator.update(scene, writable, sceneSource = { rendered.value.scene }, reviewing = runtime.reviewing)
@@ -343,6 +344,9 @@ internal fun TableSurface(game: GameSummary, play: TableBoard, accountId: String
             Canvas(Modifier.fillMaxSize()) { drawPileBadges(rendered.value.scene, drawCache) }
             // TRN-053 (owner gallery review 2026-11-06): the emblems' round chips; holding one inspects the player's emblems
             EmblemChipsOverlay(scene, accountId)
+            // LOB-136, LOB-137 (owner, 2026-11-07): chat messages as speech bubbles by the life squares, off every card
+            runtime.chatBubbles?.let { ChatBubblesOverlay(scene, accountId, it, tableWidth, tableHeight,
+                tableBottomHeight(landscape, runtime.timelineOpen)) }
         }
         TableBoardOverlays(game, play, accountId, runtime, scene, rendered)
         TableChromeHeader(game, play, accountId, landscape, runtime, toolkit, compactHeader, scene.appearance)

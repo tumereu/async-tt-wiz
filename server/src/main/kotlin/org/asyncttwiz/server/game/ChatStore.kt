@@ -2,6 +2,7 @@ package org.asyncttwiz.server.game
 
 import java.util.UUID
 import org.asyncttwiz.protocol.*
+import org.asyncttwiz.server.generated.tables.ActivitySummary.ACTIVITY_SUMMARY
 import org.asyncttwiz.server.generated.tables.GameChat.GAME_CHAT
 import org.asyncttwiz.server.generated.tables.GameChatReadCursor.GAME_CHAT_READ_CURSOR
 import org.asyncttwiz.server.generated.tables.records.GameRecord
@@ -14,7 +15,11 @@ internal object ChatStore {
             .fetchOne(GAME_CHAT_READ_CURSOR.REVISION) ?: 0L
         val unread = sql.fetchCount(GAME_CHAT, GAME_CHAT.GAME_ID.eq(game)
             .and(GAME_CHAT.REVISION.gt(cursor)).and(GAME_CHAT.AUTHOR_ID.ne(account)))
-        return ChatReadState(game.toString(), cursor.toString(), sync(sql, game).revision, unread)
+        // LOB-138: the other player's cursor, so the author's chat marks their messages read
+        val peer = sql.select(org.jooq.impl.DSL.max(GAME_CHAT_READ_CURSOR.REVISION)).from(GAME_CHAT_READ_CURSOR)
+            .where(GAME_CHAT_READ_CURSOR.GAME_ID.eq(game)).and(GAME_CHAT_READ_CURSOR.ACCOUNT_ID.ne(account))
+            .fetchOne(0, Long::class.java) ?: 0L
+        return ChatReadState(game.toString(), cursor.toString(), sync(sql, game).revision, unread, peer.toString())
     }
 
     fun read(sql: DSLContext, game: UUID, account: UUID, message: UUID): ChatReadState {
@@ -26,7 +31,12 @@ internal object ChatStore {
             .onConflict(GAME_CHAT_READ_CURSOR.GAME_ID, GAME_CHAT_READ_CURSOR.ACCOUNT_ID).doUpdate()
             .set(GAME_CHAT_READ_CURSOR.REVISION, org.jooq.impl.DSL.greatest(GAME_CHAT_READ_CURSOR.REVISION,
                 org.jooq.impl.DSL.`val`(revision))).execute()
-        return readState(sql, game, account)
+        return readState(sql, game, account).also { state ->
+            // LOB-072 (owner, 2026-11-07): " · new message" follows the chat's read state: it goes once nothing is unread
+            if (state.unread == 0) sql.update(ACTIVITY_SUMMARY).set(ACTIVITY_SUMMARY.NEW_MESSAGE, false)
+                .where(ACTIVITY_SUMMARY.ACCOUNT_ID.eq(account)).and(ACTIVITY_SUMMARY.GAME_ID.eq(game))
+                .and(ACTIVITY_SUMMARY.KIND.eq("GAME")).execute()
+        }
     }
 
     private fun message(it: org.asyncttwiz.server.generated.tables.records.GameChatRecord) =

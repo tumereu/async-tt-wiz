@@ -13,6 +13,14 @@ class ChatTest {
         assertEquals(page, GameWire.json.decodeFromString<ChatPage>(GameWire.json.encodeToString(page)))
         assertNull(GameWire.json.decodeFromString<ChatPage>("""{"gameId":"game","messages":[],"sync":{}}""").readState)
     }
+    // LOB-138: the other player's read cursor travels with the private read state; a moved cursor is a server message
+    @Test fun peerReadCursorAndReadUpdateRoundTrip() {
+        val state = ChatReadState("game", "12", "20", 3, peerReadThrough = "18")
+        assertEquals(state, GameWire.json.decodeFromString<ChatReadState>(GameWire.json.encodeToString(state)))
+        assertEquals("0", GameWire.json.decodeFromString<ChatReadState>("""{"gameId":"game"}""").peerReadThrough)
+        val update: GameServerMessage = GameChatReadUpdate(game)
+        assertEquals(update, GameWire.json.decodeFromString<GameServerMessage>(GameWire.json.encodeToString(update)))
+    }
     private val game = "10000000-0000-4000-8000-000000000001"
     private val play = "10000000-0000-4000-8000-000000000002"
     private val command = GameCommand("10000000-0000-4000-8000-000000000003", GameScope(game, playId = play),

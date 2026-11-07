@@ -101,3 +101,7 @@ number	item	screenshot	catalog	decisions
 100	Hand card chips, one per complete way to cast it (offspring)	chips/cast-chips-offspring.png	ZON-080 ZON-079
 101	One "Cast…" chip for a card with more than four ways	chips/cast-more-chip.png	ZON-080
 102	Cast panel paying with a source picked on the table	cast-panel/payment-chosen.png	STK-024 ZON-082	ManaPayment
+103	The other player's chat message as a bubble by their life square, 1/2	chat/bubble-opponent.png	LOB-136 LOB-140
+104	Your sent message's bubble fading	chat/bubble-own-fading.png	LOB-137
+105	Chat with quick messages and a Read mark	chat/quick-messages.png	LOB-139 LOB-138
+106	Chat bubbles in landscape	chat/bubble-landscape.png	LOB-136 LOB-137 LOB-140

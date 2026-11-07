@@ -49,7 +49,9 @@ data class TableRuntimeHooks(val chat: (() -> Unit)? = null, val history: (() ->
     val centreAction: TableCentreAction? = null,
     /** HIS-095: a tap on the table (a card, a pile or the empty table) does only this (pausing playback); null: taps act
      * as usual. */
-    val boardTap: (() -> Unit)? = null) {
+    val boardTap: (() -> Unit)? = null,
+    /** LOB-136, LOB-137: the chat bubbles by the life squares; null: none. */
+    val chatBubbles: TableChatBubbles? = null) {
     /** Timeline mode itself (not a branch's take-back, which only looks like it): its panel is taller (HIS-001, HIS-007). */
     val timelineOpen: Boolean get() = reviewing && timelinePlayback != TimelinePlaybackStatus.REWINDING
 }

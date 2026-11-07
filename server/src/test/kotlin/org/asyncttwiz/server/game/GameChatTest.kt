@@ -126,6 +126,34 @@ class GameChatTest {
             }
         }
     }
+    // LOB-138, LOB-072 (owner, 2026-11-07): the author learns the other player's read cursor; " · new message" stays through
+    // opening the game and goes only once the chat is read through
+    @Test fun `peer read cursor reaches the author and reading through clears the new message notice`() {
+        FreshDatabase().start().use { db ->
+            FoundationMigrations.migrate(db.settings)
+            ServiceRuntime(db.settings).use { runtime ->
+                ready(runtime); val f = Fixture(runtime); val game = f.game.id
+                fun newMessage() = db.connection().use { c ->
+                    c.createStatement().executeQuery("SELECT bool_or(new_message) FROM activity_summary WHERE kind='GAME' " +
+                        "AND game_id='$game' AND account_id='${f.a.account.accountId}'").use { it.next(); it.getBoolean(1) } }
+                val first = f.recipient.command(GameAction.SendChat("Thinking…")); f.recipient.execute(first)
+                val last = f.recipient.command(GameAction.SendChat("GG")); f.recipient.execute(last)
+                assertEquals("0", f.games.chatRead(f.b, game).peerReadThrough)
+                assertTrue(newMessage())
+                // Opening the game (a heartbeat) doesn't read the chat
+                org.asyncttwiz.server.activity.ActivityService(runtime).heartbeat(f.a, GamePresence(game, id()))
+                assertTrue(newMessage())
+                val read = f.games.chatRead(f.a, game, ReadChat(first.requestId))
+                assertEquals(1, read.unread); assertEquals("0", read.peerReadThrough)
+                assertEquals(read.readThrough, f.games.chatRead(f.b, game).peerReadThrough)
+                assertTrue(newMessage(), "one message is still unread")
+                val all = f.games.chatRead(f.a, game, ReadChat(last.requestId))
+                assertEquals(0, all.unread)
+                assertEquals(all.readThrough, f.games.chatRead(f.b, game).peerReadThrough)
+                assertFalse(newMessage())
+            }
+        }
+    }
     @Test fun `chat shares durable FIFO and original outcome identity without mutating board or leaking private results`() {
         FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)

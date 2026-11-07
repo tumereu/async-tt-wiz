@@ -187,6 +187,8 @@ const val GAME_PROTOCOL_MINOR = 10
     val engine: EngineUpdate? = null) : GameServerMessage
 /** The opponent's presence changed (opened/left the game, or came back from idle). */
 @Serializable @SerialName("presence") data class GamePresenceUpdate(val gameId: String, val opponent: OpponentPresence) : GameServerMessage
+/** LOB-138: a player's chat read cursor in this game moved; devices showing the game ask for their [ChatReadState] again. */
+@Serializable @SerialName("chatRead") data class GameChatReadUpdate(val gameId: String) : GameServerMessage
 @Serializable @SerialName("pong") data class GamePong(val correlationId: String) : GameServerMessage
 @Serializable data class GameRevisions(val revisions: List<GameRevision>, val next: String? = null)
 @Serializable data class LookupGameResults(val requestIds: List<String>)

@@ -640,6 +640,7 @@ class GameSession(private val connection: GameConnection, private val credential
             is GameUpgradeRequired -> incompatibleRules(clientOlder = true)
             is GamePresenceUpdate -> if (message.gameId in streams && available(message.gameId))
                 presence(message.gameId, message.opponent)
+            is GameChatReadUpdate -> if (message.gameId in streams && available(message.gameId)) chats.readChanged(message.gameId)
             is GamePong -> if (message.correlationId == resumePing) { resumePing = null; resumePending = false }
         }
         flush()

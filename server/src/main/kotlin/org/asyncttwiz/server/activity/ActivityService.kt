@@ -60,7 +60,8 @@ class ActivityService(private val runtime: ServiceRuntime, private val clock: Cl
                 .set(PRESENCE.INPUT_AT, inputAt).set(PRESENCE.LEFT_GAME, input.left).execute()
             val after = rows.filter { it.presenceId != presence } + PresenceRow(presence, time, inputAt, input.left)
             if (!input.left) {
-                sql.update(SUMMARY).set(SUMMARY.SEEN_THROUGH, SUMMARY.ACTIVITY_ID).set(SUMMARY.NEW_MESSAGE, false).where(SUMMARY.ACCOUNT_ID.eq(owner))
+                // LOB-072 (owner, 2026-11-07): opening the game doesn't read its chat: " · new message" stays until it is read
+                sql.update(SUMMARY).set(SUMMARY.SEEN_THROUGH, SUMMARY.ACTIVITY_ID).where(SUMMARY.ACCOUNT_ID.eq(owner))
                     .and(SUMMARY.GAME_ID.eq(game)).and(SUMMARY.KIND.eq("GAME")).execute()
                 sql.deleteFrom(PUSH).where(PUSH.GAME_ID.eq(game)).and(PUSH.KIND.eq("GAME"))
                     .and(PUSH.GENERATION.`in`(sql.select(INSTALL.GENERATION).from(INSTALL).where(INSTALL.ACCOUNT_ID.eq(owner)))).execute()

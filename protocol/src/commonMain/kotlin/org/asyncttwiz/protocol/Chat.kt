@@ -11,9 +11,10 @@ import kotlinx.serialization.Serializable
 @Serializable data class ChatPage(val gameId: String, val messages: List<ChatMessage>, val sync: ChatSync,
     val older: String? = null, val next: String? = null, val readState: ChatReadState? = null)
 
-/** Private to the authenticated member; throughRevision bounds the unread snapshot. */
+/** Private to the authenticated member; throughRevision bounds the unread snapshot. [peerReadThrough]: the other
+ * player's read cursor, so the author sees which of their messages were read (LOB-138). */
 @Serializable data class ChatReadState(val gameId: String, val readThrough: String = "0",
-    val throughRevision: String = "0", val unread: Int = 0)
+    val throughRevision: String = "0", val unread: Int = 0, val peerReadThrough: String = "0")
 @Serializable data class ReadChat(val messageId: String)
 
 object ChatPaging {

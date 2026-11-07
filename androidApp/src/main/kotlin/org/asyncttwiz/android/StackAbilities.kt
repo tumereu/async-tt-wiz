@@ -47,6 +47,10 @@ data class StackAbilityShown(val triggered: Boolean, val source: String, val tex
     val letter: String get() = if (triggered) "T" else "A"
 }
 
+/** STK-018, STK-050: a Stack entry's whole text as shown ([pieces], target names in place) and the targets it doesn't
+ * name ([unplaced]), which its "Target:" line lists. */
+internal data class StackEntryText(val pieces: List<StackTextPiece>, val unplaced: List<MtgRef>)
+
 internal object StackAbilities {
     private val texts = object : java.util.LinkedHashMap<String, String>(64, .75f, true) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, String>?) = size > 64
@@ -93,15 +97,52 @@ internal object StackAbilities {
     }
 
     /**
+     * STK-018, STK-050 (owner 2026-11-07): the whole text of Stack entry [entryId] as [viewer] sees it, with each chosen
+     * target named where the text names it ("Storm Spark deals 3 damage to Ember Cub"), coloured by its controller, and X
+     * filled in: an ability's text ([of]) or a spell's own text; [unplaced] the targets it doesn't name. Null when no text
+     * shows: a hidden entry, a permanent spell without text of its own.
+     */
+    fun text(play: TableBoard, entryId: String, viewer: String, names: Map<String, String>): StackEntryText? {
+        val effect = play.board.stackEffects.singleOrNull { it.id == entryId } ?: return null
+        val item = effect.item ?: return null
+        val engine = StackAbilityText.decoded(item)
+        val ability = of(play, entryId, viewer)
+        val rulesText: String?
+        when (item.kind) {
+            MtgStackKind.Activated, MtgStackKind.Triggered -> {
+                ability ?: return null
+                rulesText = sourceFace(play, entryId)?.rulesText
+            }
+            MtgStackKind.Spell, MtgStackKind.SpellCopy -> {
+                val card = CombatStackRules.inspection(play.board, entryId) ?: return null
+                if (effect.faceDown || (effect.frozen == null && !CardVisibility.isVisibleFaceUp(play.board, card, viewer))) return null
+                rulesText = null
+            }
+        }
+        val targeted = engine?.let { StackAbilityText.targetedText(it, rulesText) }
+            ?: return ability?.text?.takeIf { it.isNotEmpty() }?.let { StackEntryText(listOf(StackTextPiece(it)), item.targets.values.flatten().distinct()) }
+        val pieces = StackTargetText.pieces(play, item, targeted, viewer, names)
+        if (pieces.plain().isBlank()) return null
+        return StackEntryText(pieces, StackTargetText.unplaced(item, targeted))
+    }
+
+    /** The face of the Stack entry [entryId]'s card (its source's, for an ability). */
+    private fun sourceFace(play: TableBoard, entryId: String) = CombatStackRules.inspection(play.board, entryId)?.let { card ->
+        play.definitions.firstOrNull { it.digest == card.definition }?.definition?.faces
+            ?.let { faces -> faces.firstOrNull { it.faceId == card.faceId } ?: faces.firstOrNull() }
+    }
+
+    /**
      * STK-050: what was chosen for the Stack entry [entryId] (an ability, or a spell: owner 2026-11-06), one line each, for
      * Inspect: "Mode: …" ("Modes: …"), "X = 3" for each announced value, and "Target: …" ("Targets: …"), each target named
      * as far as [viewer] may see it ("You", the other player's name in [names], a card's name, "a hidden card"); empty
-     * when nothing was chosen.
+     * when nothing was chosen. With the entry's [shown] text, only the targets that text doesn't name are listed (owner
+     * 2026-11-07).
      */
-    fun details(play: TableBoard, entryId: String, viewer: String, names: Map<String, String>): List<String> {
+    fun details(play: TableBoard, entryId: String, viewer: String, names: Map<String, String>, shown: StackEntryText? = null): List<String> {
         val item = play.board.stackEffects.singleOrNull { it.id == entryId }?.item ?: return emptyList()
         val modes = StackAbilityText.modes(item)
-        val targets = item.targets.values.flatten().map { targetName(play, it, viewer, names) }
+        val targets = (shown?.unplaced ?: item.targets.values.flatten()).map { targetName(play, it, viewer, names) }
         return listOfNotNull(
             modes.takeIf { it.isNotEmpty() }?.joinToString("; ", prefix = if (modes.size == 1) "Mode: " else "Modes: ")) +
             item.values.map { (name, value) -> "$name = $value" } +

@@ -228,10 +228,12 @@ internal fun WaitingLobby(controller: LobbyController, accountId: String, hambur
                      alternate = state.preparation?.alternateStarter ?: true, setAlternate = controller::alternateStarter,
                      choose = controller::starter)
                 }
+                // LOB-135: the game's assume reveal settings, below Starting player
+                val settings: @Composable () -> Unit = { GameSettingsCard(game, accountId, controller::assumeReveals) }
                 if (landscape) Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     own(Modifier.weight(1f))
-                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(12.dp)) { opponent(Modifier.fillMaxWidth()); starter() }
-                } else { own(Modifier.fillMaxWidth()); opponent(Modifier.fillMaxWidth()); starter() }
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(12.dp)) { opponent(Modifier.fillMaxWidth()); starter(); settings() }
+                } else { own(Modifier.fillMaxWidth()); opponent(Modifier.fillMaxWidth()); starter(); settings() }
             }
         }
         val own = state.preparation?.players?.find { it.accountId == accountId }

@@ -364,7 +364,23 @@ data class TargetSlot(
     // spm
     /** The chosen objects must all differ in this quality ("up to six target creature cards with different names", CR 601.2c). */
     val distinct: SharedQuality? = null,
+    /** Where the slot's target phrase ("any target", "up to two target creatures", "another target creature or
+     * planeswalker") sits in the printed text of the ability holding it ([Ability.Spell.text], [Ability.Activated.text],
+     * [Ability.Triggered.text]), or of the mode holding it ([Mode.text]) for a mode's slot: for hosts that show a spell or
+     * ability with its chosen targets named in its text. Null when not known (a definition written by hand, a slot the
+     * engine makes, a wording whose phrases the parser couldn't place). It has no rules meaning. */
+    val span: TextSpan? = null,
 )
+
+/** A piece of a printed text: the characters from [start] (inclusive) to [end] (exclusive), counted in UTF-16 code
+ * units as Kotlin strings count them ([String.substring]). */
+@Serializable
+data class TextSpan(val start: Int, val end: Int) {
+    init { require(start in 0..end) { "A text span runs forwards from 0: $start..$end" } }
+
+    /** The span's characters in [text], or null when [text] is too short for it. */
+    fun of(text: String): String? = if (end <= text.length) text.substring(start, end) else null
+}
 
 /** What a target can be. "Any target" is [Either] of creatures, planeswalkers and battles, and players (CR 115.4). */
 @Serializable

@@ -1,0 +1,1 @@
+Portrait game lobby cards for the game's host: Starting player, then Game settings with "Allow assumes that reveal the opponent's library" on and "Allow assumes that reveal hands" off, the defaults.

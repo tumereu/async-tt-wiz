@@ -271,8 +271,10 @@ internal class EngineGames(private val capacity: Int = warmCapacity()) {
     }
 
     /** [submission] by [author] on [play] (I-D56 §8): accepted (appended, a branch, or a confirmation), or refused
-     * ([Refusal]); null when [play] isn't played as engine state. */
-    fun submit(sql: DSLContext, play: UUID, author: UUID, submission: Submission, live: (UUID) -> Boolean): Outcome? {
+     * ([Refusal]); null when [play] isn't played as engine state. [reveals]: the game's assume reveal settings, which the
+     * information rule's check honours (LOB-135). */
+    fun submit(sql: DSLContext, play: UUID, author: UUID, submission: Submission, live: (UUID) -> Boolean,
+        reveals: org.asyncttwiz.protocol.AssumeReveals = org.asyncttwiz.protocol.AssumeReveals.NONE): Outcome? {
         val store = open(sql, play) ?: return null
         val history = GameHistory(store, store.codec)
         val row = playRow(sql, play)
@@ -282,7 +284,7 @@ internal class EngineGames(private val capacity: Int = warmCapacity()) {
         val me = PlayerId(author.toString())
         val result = try {
             Acceptance.accept(history, head, warm, submission, me, seats.associate { PlayerId(it.account.toString()) to it.head },
-                row.lines + 1, rewindOpen = row.request != null, aliases = aliases(play))
+                row.lines + 1, rewindOpen = row.request != null, aliases = aliases(play), reveals = reveals)
         } catch (refusal: Refusal) {
             keepWarm(play, history, refusal.state, head)
             throw refusal

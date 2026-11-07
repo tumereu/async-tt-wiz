@@ -26,13 +26,17 @@ import org.asyncttwiz.protocol.PlayZone
 /**
  * STK-057 (owner playtest 2026-11-07, Fractured Sanity): the line saying what the other player's top Stack entry is while
  * you hold priority over it: "Bob cast Fractured Sanity · each opponent mills 14 cards", "Fractured Sanity's cycling
- * trigger · each opponent mills 4 cards", with its chosen modes, X and targets ("… → Ember Herald"). Hidden cards are never
- * named (HIS-062: "a card").
+ * trigger · each opponent mills 4 cards", with its chosen modes, X and targets: each target named where its text names it
+ * (owner 2026-11-07: "Bob cast Storm Spark · deals 3 damage to Ember Cub", the name in its controller's colour), else after
+ * it ("… → Ember Herald"). Hidden cards are never named (HIS-062: "a card").
  */
 internal object StackLine {
-    /** The line for [viewer] on [play], or null: nothing on the Stack, the top entry is their own, or they don't hold
-     * priority. [names]: the players' names by account id. */
-    fun text(play: TableBoard, viewer: String, names: Map<String, String>): String? {
+    /** The line's words for [viewer] on [play] ([pieces]), or null. */
+    fun text(play: TableBoard, viewer: String, names: Map<String, String>): String? = pieces(play, viewer, names)?.plain()
+
+    /** The line for [viewer] on [play] as pieces (target names carry their controllers), or null: nothing on the Stack, the
+     * top entry is their own, or they don't hold priority. [names]: the players' names by account id. */
+    fun pieces(play: TableBoard, viewer: String, names: Map<String, String>): List<StackTextPiece>? {
         val top = CombatStackRules.stack(play.board).cards.firstOrNull() ?: return null
         val effect = play.board.stackEffects.singleOrNull { it.id == top } ?: return null
         val item = effect.item ?: return null
@@ -51,20 +55,33 @@ internal object StackLine {
                 ?: "$who's ability"
         }
         val engine = if (visible) StackAbilityText.decoded(item) else null
-        val shortEffect = when {
+        // The effect with its targets in place (owner 2026-11-07); the targets it doesn't name follow it
+        val targeted = if (engine != null) StackAbilityText.targetedEffect(engine, face?.rulesText, name) else null
+        val shortEffect: List<StackTextPiece>? = when {
             !visible -> null
-            engine != null -> StackAbilityText.effect(engine, face?.rulesText, name)
+            targeted != null -> StackTargetText.pieces(play, item, targeted, viewer, names)
+            engine != null -> null
             // A spell without the engine's data (a board made by hand): its first printed line, for an instant or sorcery
             item.kind == MtgStackKind.Spell && face != null && ("Instant" in face.typeLine || "Sorcery" in face.typeLine) ->
-                face.rulesText.lines().firstOrNull { it.isNotBlank() }?.let { StackAbilityText.short(it, name) }
+                face.rulesText.lines().firstOrNull { it.isNotBlank() }?.let { listOf(StackTextPiece(StackAbilityText.short(it, name))) }
             else -> null
-        }
+        }?.takeIf { it.plain().isNotEmpty() }
         // X shows filled into the effect; where the effect doesn't say it, after it
         val x = item.values.filterKeys { engine == null || it != "X" || !StackAbilityText.mentionsX(engine, face?.rulesText) }
             .map { (n, v) -> "$n = $v" }
-        val targets = item.targets.values.flatten().map { StackAbilities.targetName(play, it, viewer, names, you = "you", hidden = "a card") }
-        return (listOfNotNull(head, shortEffect?.takeIf { it.isNotEmpty() }) + x).joinToString(" · ") +
-            (if (targets.isEmpty()) "" else " → " + targets.joinToString(", "))
+        val unplaced = if (targeted != null) StackTargetText.unplaced(item, targeted) else item.targets.values.flatten()
+        val pieces = mutableListOf(StackTextPiece(head))
+        if (shortEffect != null) { pieces += StackTextPiece(" · "); pieces += shortEffect }
+        x.forEach { pieces += StackTextPiece(" · $it") }
+        if (unplaced.isNotEmpty()) {
+            pieces += StackTextPiece(" → ")
+            unplaced.forEachIndexed { i, ref ->
+                if (i > 0) pieces += StackTextPiece(", ")
+                pieces += StackTextPiece(StackAbilities.targetName(play, ref, viewer, names, you = "you", hidden = "a card"),
+                    StackTargetText.controller(play, ref))
+            }
+        }
+        return pieces
     }
 }
 

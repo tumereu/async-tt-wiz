@@ -246,7 +246,7 @@ class ChoiceSourceTest {
         legal.assertCountEquals(2)
         sourceAtTheRight("Choose targets", "Choose target spell", Choices.QUENCH)
         compose.onRoot().captureShot("$SCREENSHOTS/choice-source/stack-target-list.png",
-            "Alice cast two Cinder Charms and then Quench Spark, and tapped the glowing Stack: it opened in place as its list \"Stack · 2\" with both Charms glowing violet as legal targets, each row saying its chosen mode and target, while the bar above her hand still says \"Choose target spell\" with the Quench at its right.")
+            "Alice cast two Cinder Charms and then Quench Spark, and tapped the glowing Stack: it opened in place as its list \"Stack · 2\" with both Charms glowing violet as legal targets, each row showing the Charm's text with its target named in its chosen mode (\"deals 1 damage to you\") and the mode under it, while the bar above her hand still says \"Choose target spell\" with the Quench at its right.")
         // The lower Charm (the list's second row) is picked: the list closes and the Quench goes on the Stack targeting it
         val lower = kit.state().stack.first()
         compose.onNodeWithText("2 · ${Choices.CHARM}").performClick()

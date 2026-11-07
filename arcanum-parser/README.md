@@ -14,6 +14,13 @@ Design: `docs/specs/arcanum-automatum.md` §6.
   resolves as one object (CR 608.2b). A leveler's "LEVEL" band becomes one conditional static
   ability (CR 711.2), or stays unparsed as a whole. Each parsed ability keeps its printed lines as its `text`
   (reminder text left out), each mode its "• " line (`Mode.text`), for engines to show players.
+- Target spans (`TargetSpans.kt`): each target slot of a parsed ability gets `TargetSlot.span`, where its phrase ("any
+  target", "up to two target creatures", "another target creature you control", "one or two targets") sits in the
+  ability's text (a mode's slot: in `Mode.text`). It is read from the text after parsing, so every wording gets spans:
+  slots take the phrases in order, one phrase may stand for several slots its count allows ("two target creatures
+  controlled by different players"), and a reflexive trigger's sentence ("When you do, …") is left to that trigger. A slot
+  with no phrase of its own (a keyword action that targets: "earthbend 2", "support 2"), or a text whose phrases don't
+  pair up with its slots, has none. Every parse test checks the spans.
 - `OracleParser.parseCard(layout, faces)`: a card with several faces (split, adventurer,
   double-faced; CR 709, 712, 715) → `CardDefinition`, each face parsed on its own. A face's
   colour indicator is read from `OracleCard.colorIndicator` ("U").

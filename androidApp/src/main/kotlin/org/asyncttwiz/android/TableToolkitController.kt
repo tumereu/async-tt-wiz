@@ -250,6 +250,8 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
     private var invocation: String? = null
     private var lastInvocation: String? = null
     var panel by mutableStateOf<String?>(null); private set
+    /** LOB-135: changes the game's assume reveal settings (the host's; Table actions → Game settings); null: not offered. */
+    var assumeReveals: ((org.asyncttwiz.protocol.AssumeReveals) -> Unit)? = null
     var popupItem by mutableStateOf<TableItem?>(null); private set
     /** The player whose Life panel is open (TRN-030), tapped on their life square; personal UI. */
     var player by mutableStateOf<String?>(null); private set

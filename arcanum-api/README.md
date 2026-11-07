@@ -32,6 +32,9 @@ The definition model (overview in `Definitions.kt`):
   `ObjectFilter`, `Players`/`PlayerFilter`, `Value`, `Condition`, `Duration`,
   `ManaProduction`, `TokenSpec`, `KeywordAction`.
 - `Ability.isManaAbility()`: whether an ability is a mana ability (CR 605.1a/b), derived from its shape.
+- `TargetSlot.span` (`TextSpan`): where a slot's target phrase ("any target", "up to two target creatures") sits in the
+  printed text of its ability, or of its mode (`Mode.text`) for a mode's slot, so a host can show a spell or ability with
+  its chosen targets' names in place of the phrase. Text only, no rules meaning; null when unknown.
 - `ManaCost`/`ManaSymbol` (CR 107.4), `Color`, and basic vocabularies (`CardType`,
   `Zone`, `TurnStep`, `CounterKind`, `Status`, …).
 - `ComprehensiveRules.EFFECTIVE_DATE`: the pinned rules version (2026-09-25).

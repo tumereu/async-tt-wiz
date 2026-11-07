@@ -65,24 +65,25 @@ class StackClarityTest {
     }
 
     // STK-057, STK-058, STK-018 (owner playtest 2026-11-07): Bob casts Storm Spark at Alice's Ember Cub; at her pause a line
-    // says "Bob cast Storm Spark · deals 3 damage to any target → Ember Cub" and an arrow runs from the Stack to the Cub,
-    // highlighted in Bob's colour; the Stack list shows the Spark's target
+    // says "Bob cast Storm Spark · deals 3 damage to Ember Cub" (the Cub's name in her colour, owner 2026-11-07) and an
+    // arrow runs from the Stack to the Cub, highlighted in Bob's colour; the Stack list's row names the Cub in the Spark's text
     @Test fun anOpponentsTargetedSpellSaysWhatItDoesAndPointsAtItsTarget() {
         val kit = EngineTableKit()
         val cub = kit.toReadyCub()
         kit.bobCastsSpark { s -> TargetRef.Object(s.battlefield.first { (it as arcanum.engine.state.ObjectId.Card).card.value == cub }) }
         toBobsEntry(kit) { s -> s.stackItems[s.stack.last()]?.kind == StackItemKind.Spell }
         render(kit)
-        compose.onNodeWithTag("stack-line").assert(hasContentDescription("Bob cast Storm Spark · deals 3 damage to any target → Ember Cub"))
+        compose.onNodeWithTag("stack-line").assert(hasContentDescription("Bob cast Storm Spark · deals 3 damage to Ember Cub"))
         compose.onNodeWithTag("stack-target-arrows", useUnmergedTree = true)
             .assert(hasContentDescription("Targets of the top Stack entry: Ember Cub"))
         captureShot("$SCREENSHOTS/stack/opponent-spell-line.png",
-            "Bob cast Storm Spark at Alice's Ember Cub and she holds priority: a line over the battlefield says \"Bob cast Storm Spark · deals 3 damage to any target → Ember Cub\", and a red arrow runs from the Stack to the Cub, which has a soft red highlight.")
+            "Bob cast Storm Spark at Alice's Ember Cub and she holds priority: a line over the battlefield says \"Bob cast Storm Spark · deals 3 damage to Ember Cub\" with the Cub's name in her green, and a red arrow runs from the Stack to the Cub, which has a soft red highlight.")
         compose.onNodeWithContentDescription("Stack, 1 entries").performClick()
         compose.waitForIdle()
-        compose.onNodeWithText("Target: Ember Cub").assertExists()
+        compose.onNodeWithText("Storm Spark deals 3 damage to Ember Cub.").assertExists()
+        compose.onNodeWithText("Target: Ember Cub").assertDoesNotExist()
         captureShot("$SCREENSHOTS/stack/stack-list-choices.png",
-            "Alice tapped the Stack holding Bob's Storm Spark: the list's row shows the Spark and, under its name, what Bob chose for it: \"Target: Ember Cub\".")
+            "Alice tapped the Stack holding Bob's Storm Spark: the list's row shows the Spark and, under its name, its text with Bob's target named in it, \"Storm Spark deals 3 damage to Ember Cub.\", the Cub's name in her green.")
     }
 
     // STK-057, STK-050, HIS-091 (owner playtest 2026-11-07, CR 702.29c): Bob cycles Shattered Reason; at Alice's pause the line

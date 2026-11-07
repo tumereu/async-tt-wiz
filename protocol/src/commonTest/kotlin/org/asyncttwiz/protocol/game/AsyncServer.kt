@@ -25,6 +25,8 @@ internal class AsyncServer(val games: EngineGames, every: Int = 16) {
     private var warm: LiveState? = null
     /** Submissions dropped as duplicates of main-line events, by id ([Acceptance.Confirmed.alias]), as the server keeps them. */
     val aliases = mutableMapOf<String, String>()
+    /** The game's assume reveal settings (LOB-135) the information rule honours; nothing relaxed unless a test says. */
+    var reveals: org.asyncttwiz.protocol.AssumeReveals = org.asyncttwiz.protocol.AssumeReveals.NONE
     private var ids = 0
     val alice get() = games.alice
     val bob get() = games.bob
@@ -53,7 +55,7 @@ internal class AsyncServer(val games: EngineGames, every: Int = 16) {
     fun submit(submission: Submission, author: PlayerId): Result<Acceptance.Result> = try {
         val oldHead = head
         val result = Acceptance.accept(history, head, warm, submission, author, heads, lines + 1, rewindOpen = request != null,
-            aliases = aliases)
+            aliases = aliases, reveals = reveals)
         when (result) {
             is Acceptance.Accepted -> {
                 val event = result.event

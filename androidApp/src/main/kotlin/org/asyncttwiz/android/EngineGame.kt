@@ -8,6 +8,7 @@ import arcanum.engine.setup.GameResult
 import arcanum.engine.state.GameState
 import arcanum.engine.state.PlayerId
 import org.asyncttwiz.automatum.EngineProjection
+import org.asyncttwiz.protocol.AssumeReveals
 import org.asyncttwiz.protocol.BoardState
 import org.asyncttwiz.protocol.EngineRewindRequest
 import org.asyncttwiz.protocol.EngineSnapshot
@@ -220,6 +221,7 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
             }
             device = loaded; codec = json
             device.clock = clock
+            device.assumeReveals(reveals)
             previous = if (undone != null) previous else null
             this.loaded = undone == null
             // HIS-108, HIS-084 (owner 2026-11-07: undo reaches any point): an undo to a point before this device's line
@@ -734,6 +736,22 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
             ((action as? GameAction.Submit)?.submission?.let { " ${it.id} on ${it.parentId}" } ?: "") + ": ${reason ?: "refused"}", tip, local)
         device.advance(now)
         publish()
+    }
+
+    /** LOB-135: the game's assume reveal settings, as its summary last said (main thread). */
+    @Volatile private var reveals: AssumeReveals = AssumeReveals.NONE
+
+    /** LOB-135: the game's assume reveal settings changed (its summary): the device's information rule follows them at
+     * once, so a wait they now allow goes on (its assumption made) and one they no longer allow waits. */
+    fun assumeReveals(value: AssumeReveals) {
+        if (value == reveals) return
+        reveals = value
+        worker.run {
+            if (!this::device.isInitialized) return@run
+            device.assumeReveals(value)
+            device.advance(now)
+            publish(device.notes())
+        }
     }
 
     /** The time [now]; makes the device's own steps (passes, assumptions). The other player's presence never decides

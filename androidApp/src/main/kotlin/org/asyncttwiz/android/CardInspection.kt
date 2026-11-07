@@ -40,8 +40,11 @@ internal fun gameInspectGroups(state: TableBoard, viewer: String, inspection: Ma
         val definition = state.definitions.firstOrNull { it.digest == card.definition }?.definition?.takeIf { it.faces.isNotEmpty() }
         val face = definition?.faces?.indexOfFirst { it.faceId == card.faceId }?.takeIf { it >= 0 } ?: 0
         val art = definition?.let { InspectedCard.retained(card.definition, it).artwork.getOrNull(face) }?.forTable()
+        // (owner 2026-11-07) its text names its targets in place; the details list only the targets it doesn't name
+        val text = StackAbilities.text(state, entry, viewer, names)
         return listOf(InspectGroup("ability/$entry", listOf(InspectTile.Ability("ability/$entry", shown,
-            StackAbilities.details(state, entry, viewer, names), CombatStackRules.controller(state.board, entry) == viewer, art))))
+            StackAbilities.details(state, entry, viewer, names, text), CombatStackRules.controller(state.board, entry) == viewer, art,
+            text?.pieces?.tinted(viewer)))))
     }
     // TBL-111: holding a battlefield group shows each of its members in turn
     val below = if (inspection.snapshot == null) inspection.group.mapNotNull { id -> state.board.cards.firstOrNull { it.id == id } }

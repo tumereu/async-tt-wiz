@@ -70,9 +70,10 @@ internal sealed interface InspectTile {
 
     /** STK-050: a triggered or activated ability on the Stack: a dark rounded panel with the source's [art] and under it
      * the source's name, the ability's text and [details] (its chosen modes and targets), outlined in its controller's
-     * colour ([own]). */
+     * colour ([own]). [text]: its text with its targets named in place, each in its controller's colour (owner
+     * 2026-11-07), shown instead of the ability's printed text. */
     data class Ability(override val key: String, val ability: StackAbilityShown, val details: List<String>,
-        val own: Boolean, val art: ArtworkReference? = null) : InspectTile
+        val own: Boolean, val art: ArtworkReference? = null, val text: List<Pair<String, Color?>>? = null) : InspectTile
 
     /** TRN-053 (owner gallery review 2026-11-06): an emblem: a dark rounded panel as an ability's, with the emblem's [art]
      * (an emblem icon without one), "Emblem" and its rules [text], outlined in its owner's colour ([own]). */
@@ -450,7 +451,8 @@ private fun AbilityTile(tile: InspectTile.Ability, size: DpSize, fit: Boolean, m
                         Text(tile.ability.kind, style = MaterialTheme.typography.labelLarge)
                     }
                     Text(tile.ability.source, style = MaterialTheme.typography.titleLarge)
-                    if (tile.ability.text.isNotEmpty()) CardText(tile.ability.text, style = MaterialTheme.typography.bodyLarge)
+                    if (tile.text != null) CardText(tile.text, style = MaterialTheme.typography.bodyLarge)
+                    else if (tile.ability.text.isNotEmpty()) CardText(tile.ability.text, style = MaterialTheme.typography.bodyLarge)
                     tile.details.forEach { CardText(it, style = MaterialTheme.typography.bodyMedium) }
                 }
             }

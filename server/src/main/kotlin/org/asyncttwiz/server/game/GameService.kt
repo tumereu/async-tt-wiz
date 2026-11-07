@@ -282,6 +282,7 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
             is GameAction.EngineAnswerRewind, GameAction.EngineCancelRewind, is GameAction.EngineSettings ->
                 applyEngine(sql, game, inbox.accountId!!, command).let { (reason, accepted) -> engineAccepted = accepted; reason }
             is GameAction.SendChat -> ChatStore.apply(sql, game, inbox.accountId!!, command).also { insertedChat = it.message }.reason
+            is GameAction.SetAssumeReveals -> applyAssumeReveals(sql, game, inbox.accountId!!, command.action as GameAction.SetAssumeReveals)
             GameAction.CancelSetup -> applyCancellation(sql, game, inbox.accountId!!, command)
             is GameAction.SelectDeck -> applySelection(sql, game, inbox.accountId!!, command)
             is GameAction.TransferPreparedCard -> applyTransfer(sql, game, inbox.accountId!!, command)
@@ -323,7 +324,7 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
             update = GameRevision(game.id.toString(), before.toString(), revision.toString(), command.requestId,
                 inbox.accountId.toString(), command.scope, summary,
                 if (summary.lifecycle == GameLifecycle.LOBBY) PreparationStore.read(sql, summary) else null,
-                if (command.action !is GameAction.SendChat && engine == null) play else null,
+                if (command.action !is GameAction.SendChat && command.action !is GameAction.SetAssumeReveals && engine == null) play else null,
                 insertedChat, engineEvent = engine?.events?.firstOrNull(), engine = engine?.update ?: seated)
             encodedUpdate = GameWire.encode(update)
             sql.insertInto(GAME_REVISION).set(GAME_REVISION.GAME_ID, game.id).set(GAME_REVISION.REVISION, revision)
@@ -435,7 +436,9 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
         val live = { player: UUID -> OpponentPresences.read(sql, game.id!!, player, now).state == PresenceState.ONLINE }
         val outcome = try {
             when (val action = command.action) {
-                is GameAction.Submit -> engineGames.submit(sql, play, account, action.submission, live)
+                is GameAction.Submit -> engineGames.submit(sql, play, account, action.submission, live,
+                    // LOB-135: the information rule's check honours the game's assume reveal settings
+                    AssumeReveals(library = game.assumeLibraryReveals != false, hands = game.assumeHandReveals == true))
                 is GameAction.EngineSeen -> engineGames.seen(sql, play, account, action.eventId, live)
                 is GameAction.EngineRewind -> engineGames.rewind(sql, play, account, action.target, live)
                 is GameAction.EngineRequestRewind -> engineGames.requestRewind(sql, play, account, action.target, action.message, live)
@@ -459,6 +462,16 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
     /** Whether [action] is a change by a player that counts as the game's activity (game history §4.4): anything but a
      * device reporting what its player has seen, or a player's private play settings. */
     private fun activity(action: GameAction): Boolean = action !is GameAction.EngineSeen && action !is GameAction.EngineSettings
+
+    /** LOB-135: the game's assume reveal settings, changed by its host (the inviter) only, in the lobby or in play; game
+     * state outside undo and history, which the information rule's check reads ([applyEngine]). */
+    private fun applyAssumeReveals(sql: DSLContext, game: GameRecord, account: UUID, action: GameAction.SetAssumeReveals): String? {
+        if (account != game.inviterId) return "notHost"
+        sql.update(GAME).set(GAME.ASSUME_LIBRARY_REVEALS, action.reveals.library).set(GAME.ASSUME_HAND_REVEALS, action.reveals.hands)
+            .where(GAME.ID.eq(game.id)).execute()
+        game.assumeLibraryReveals = action.reveals.library; game.assumeHandReveals = action.reveals.hands
+        return null
+    }
 
     private fun applyDeletion(sql: DSLContext, game: GameRecord, command: GameCommand): String? {
         if (game.lifecycle != "ACTIVE") return "lifecycleEnded"

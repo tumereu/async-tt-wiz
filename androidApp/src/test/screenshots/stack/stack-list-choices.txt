@@ -1,1 +1,1 @@
-Alice tapped the Stack holding Bob's Storm Spark: the list's row shows the Spark and, under its name, what Bob chose for it: "Target: Ember Cub".
+Alice tapped the Stack holding Bob's Storm Spark: the list's row shows the Spark and, under its name, its text with Bob's target named in it, "Storm Spark deals 3 damage to Ember Cub.", the Cub's name in her green.

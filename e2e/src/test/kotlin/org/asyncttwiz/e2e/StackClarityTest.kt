@@ -75,13 +75,9 @@ class StackClarityTest : E2e() {
         }
         assertTrue(!alice.shows(hasTestTag("stack-line")) && !alice.shows(hasTestTag("stack-target-arrows")), alice.screen())
 
-        // Bob cycles Shattered Reason from its chip (ZON-080): its cycling trigger goes on the Stack over the cycling
+        // Bob cycles Shattered Reason from its chip in one tap (ZON-080): its cycling trigger goes on the Stack over the cycling
         bob.handCard("Shattered Reason").performClick()
         waitUntil("the Reason's chips") { bob.shows(hasContentDescription("Way Cycling {R}")) }
-        bob.node(hasContentDescription("Way Cycling {R}")).performClick()
-        waitUntil("Cycling chosen") {
-            bob.shows(hasContentDescription("Way Cycling {R}") and SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "chosen"))
-        }
         bob.node(hasContentDescription("Way Cycling {R}")).performClick()
         waitUntil("Alice holding priority over the cycling trigger") { aliceHoldsOver { it == StackItemKind.Triggered } }
         waitUntil("the line naming the cycling trigger") {

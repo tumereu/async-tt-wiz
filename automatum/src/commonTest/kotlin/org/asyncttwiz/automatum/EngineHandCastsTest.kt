@@ -240,6 +240,21 @@ class EngineHandCastsTest {
         assertEquals(mountains.toSet(), chips.sources)
     }
 
+    // ZON-079 (owner 2026-11-07): a greyed way beside the regular cast is no choice (the raised card's tap casts it); a card
+    // whose only payable way isn't the regular cast (cycling) has one (its panel opens)
+    @Test fun aGreyedWayIsNoChoice() {
+        table.put(alice, Zone.Battlefield, "Mountain", "Mountain", "Mountain")
+        val (firebird) = table.put(alice, Zone.Hand, "Inspector's Firebird")
+        val bestow = assertNotNull(chips(firebird))
+        assertEquals(listOf(true, false), bestow.chips.map { it.affordable })
+        assertFalse(bestow.choice)
+        val musing = arcanum.engine.cards.Cards.invent("Ember Musing", "{3}{R}", "Sorcery", "Draw two cards.\nCycling {1}")
+        val (card) = table.put(alice, Zone.Hand, musing)
+        val cycling = assertNotNull(chips(card))
+        assertEquals(listOf(false, true), cycling.chips.map { it.affordable })
+        assertTrue(cycling.choice)
+    }
+
     // ZON-080 (owner 2026-11-07): a kicker spell has two complete ways, "Cast" and "Cast with kicker" with its whole cost;
     // with two Mountains the kicked one is greyed; both ask for a target
     @Test fun kickerMakesTwoChips() {

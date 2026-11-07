@@ -210,7 +210,7 @@ internal class CastController(
                 ?: return@step Step.Drop(cant)
             if (!chips.affordable) return@step Step.Drop(cant)
             if (!chips.choice) {
-                val chip = chips.chips.single()
+                val chip = chips.chips.first()
                 val flow = try { CastFlow.start(src, viewer, chip.input, seeds, extras = chip.times) }
                     catch (_: IllegalArgumentException) { return@step Step.Drop(cant) }
                 return@step settle(flow, auto = true, autotapOn, keep = null, ways = listOf(chip.input))

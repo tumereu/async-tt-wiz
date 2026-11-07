@@ -54,6 +54,10 @@ object TestCards {
     val thoughts = card("Empty Thoughts", "Sorcery", "{0}", "Discard your hand.")
     /** A free mana rock: identical ones lie in one stack (TBL-053). */
     val shard = card("Ember Shard", "Artifact", "{0}", "{T}: Add {R}.")
+    /** A free creature with offspring {R} (ZON-080: its "Cast" and "Cast with offspring {R}" chips). */
+    val kit = card("Ember Kit", "Creature — Elemental Fox", "{0}",
+        "Offspring {R} (You may pay an additional {R} as you cast this spell. If you do, when this creature enters, create a 1/1 token copy of it.)",
+        "1", "1")
     /** A free creature with a pump ability. */
     val ashHound = card("Ash Hound", "Creature — Elemental Dog", "{0}", "{R}: This creature gets +1/+0 until end of turn.", "1", "1")
     /** A free creature with nothing to do. */
@@ -146,6 +150,9 @@ data class TestDeck(val name: String, val entries: List<Pair<SubmittedDefinition
 
         /** 40 cards: Mountains and Ember Musings (cycling). */
         fun musings() = TestDeck("Musings", listOf(TestCards.mountain to 20, TestCards.musing to 20))
+
+        /** 40 cards: Mountains, Ember Shards (a free mana rock) and Ember Kits (offspring {R}). */
+        fun kits() = TestDeck("Kits", listOf(TestCards.mountain to 14, TestCards.shard to 13, TestCards.kit to 13))
 
         /** 40 cards: Mountains, Cinder Trails (a fetch-style land) and Storm Sparks. */
         fun trails() = TestDeck("Trails", listOf(TestCards.mountain to 14, TestCards.cinderTrail to 13, TestCards.spark to 13))

@@ -117,9 +117,10 @@ data class HandCastChips(
 ) {
     /** More complete ways than chips: a single "Cast…" chip. */
     val more: Boolean get() = count > HandCasts.MAX_CHIPS
-    /** Whether the card has any choice: several complete ways, or one that asks something before its payment. A card
-     * with none is cast on its raised card's tap. */
-    val choice: Boolean get() = count > 1 || chips.singleOrNull()?.asks == true
+    /** Whether the card has any choice: several complete ways it can be cast now, or only another way than the regular
+     * cast (cycling, evoke), or a regular cast that asks something before its payment. A card with none (the regular cast
+     * is all it can do now, a greyed way beside it is no choice) is cast on its raised card's tap. */
+    val choice: Boolean get() = more || chips.count { it.affordable } != 1 || chips.firstOrNull()?.let { !it.affordable || it.asks } != false
 }
 
 /**

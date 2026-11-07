@@ -142,7 +142,7 @@ internal class HandController(
         val play = current()
         if (known?.affordable == false || (known == null && play != null && unplayable(play, card) == true)) { shake(card); return false }
         if (known != null && !known.choice) {
-            val chip = known.chips.single()
+            val chip = known.chips.first()
             lower()
             return cast(card, chip)
         }

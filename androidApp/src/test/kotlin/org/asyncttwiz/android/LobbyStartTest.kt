@@ -269,11 +269,13 @@ class LobbyStartTest {
                 // Every special pile occupies exactly one card, including when empty.
                 assertEquals(1, piles.filter { it.zone != PlayZone.STACK }.map { it.footprint.width to it.footprint.height }.distinct().size)
                 for (pile in piles) {
-                    assertEquals(28f, pile.footprint.width)
-                    assertEquals(40f, pile.footprint.height)
+                    // TBL-009: landscape's piles in the bars are at most 32 dp tall
+                    val scale = if (landscape && pile.zone != PlayZone.STACK) .8f else 1f
+                    assertEquals(28f * scale, pile.footprint.width, .001f)
+                    assertEquals(40f * scale, pile.footprint.height, .001f)
                     assertEquals(pile.bounds, pile.bounds.intersection(pile.footprint))
-                    assertEquals(28f, pile.bounds.width)
-                    assertEquals(40f, pile.bounds.height)
+                    assertEquals(28f * scale, pile.bounds.width, .001f)
+                    assertEquals(40f * scale, pile.bounds.height, .001f)
                 }
                 assertEquals(viewer.accountId, scene.fields.last().owner)
                 assertEquals(play.board.containers.map { it.id }.filterNot { id -> play.board.containers.single { it.id == id }.zone == PlayZone.BATTLEFIELD }.toSet(),

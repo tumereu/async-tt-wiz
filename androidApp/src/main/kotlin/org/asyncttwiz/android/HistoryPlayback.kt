@@ -233,7 +233,10 @@ class HistorySceneAnimation(initial: TableScene) {
             val source = departure.item.sourceId
             if (destination.sources[source] != target.sources[source]) continue
             target.realCardBounds(source)?.let { bounds ->
-                end = end + (departure.item.animationId to departure.copy(bounds = bounds, alpha = 0f))
+                // It lands at the real card's size (a landscape pile is smaller than a card, TBL-009), not the face it
+                // had mid-flight
+                end = end + (departure.item.animationId to departure.copy(bounds = bounds, alpha = 0f,
+                    item = departure.item.copy(cardTransform = null)))
             }
         }
         // Hidden pile arrivals have no individual destination drawing; fly back to the pile.

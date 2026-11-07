@@ -95,7 +95,9 @@ class TableChromeUiTest {
             val transport = compose.onNodeWithContentDescription("Auto advance").fetchSemanticsNode().boundsInRoot
             assertEquals(pixels.height - 4f, transport.bottom)
             val reviewOutput = "$SCREENSHOTS/$prefix-review.png"
-            compose.onRoot().captureShot(reviewOutput, "$situation, after choosing Table actions → Timeline: history at the latest event.")
+            compose.onRoot().captureShot(reviewOutput, "$situation, after choosing Table actions → Timeline: history at the latest event" +
+                // TBL-009, HIS-007
+                if (landscape) "; the life square and piles stay at the bottom bar's left end, the event strip and Previous / Auto / Next after them." else ".")
             val reviewPixels = ImageIO.read(File(reviewOutput))
             assertEquals(TimelineBarColor.toArgb(), reviewPixels.getRGB(2, 35))
             assertEquals(TimelineBarColor.toArgb(), reviewPixels.getRGB(reviewPixels.width - 2, 35))

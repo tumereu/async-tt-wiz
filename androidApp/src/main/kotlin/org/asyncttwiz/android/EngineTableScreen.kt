@@ -260,8 +260,11 @@ internal fun EngineReviewPanel(routes: EngineTableRoutes, events: List<HistoryTi
                 onPlay = { routes.reviewPlaying = true }, onPause = { routes.reviewPlaying = false })
         }
     }
-    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
-        if (landscape) Row(Modifier.fillMaxWidth().height(tableBottomHeight(true, timeline = true).dp).background(TimelineBarColor),
+    BoxWithConstraints(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
+        // TBL-009: in landscape your life square, piles and emblems keep the bar's left end (the table's own grey bar
+        // lies under them); the strip and Previous / Auto / Next share the rest
+        if (landscape) Row(Modifier.fillMaxWidth().height(tableBottomHeight(true, timeline = true).dp)
+            .padding(start = TablePresentation.Landscape.rowRight(maxWidth.value, own = true).dp + 4.dp),
             verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.weight(1f).height(TableTimelineHeight.dp)) { strip() }
             Box(Modifier.weight(1f).height(TableControlsHeight.dp)) { transport() }

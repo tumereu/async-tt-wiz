@@ -66,7 +66,11 @@ class RevealStopTest : E2e() {
         assertFalse(bob.shows(hasTestTag(REVEAL_OK_TAG)), "no panel for Bob's own reveal")
         bobPlaysOn()
         repeat(3) { run(skip = Duration.ofSeconds(2)) }
-        assertEquals(at, alice.shown.tip, "Alice's table still at the reveal")
+        // SYS-077: when her phone passed on the Insight itself (her own pass resolving it, the panel on her pending event)
+        // and Bob's assumption of that pass reached the server first, his same event took her event's place: the same board
+        val held = alice.engine { device.adoptedAs(at) } ?: at
+        assertEquals(held, alice.shown.tip, "Alice's table still at the reveal")
+        assertEquals(held, alice.shown.reveal?.event, "the panel still at the reveal")
         assertTrue(alice.shown.behind, "Bob's later events wait on her phone")
         assertFalse(alice.showsOnBattlefield("Mountain", bob), "his Mountain not shown to her yet")
         assertTrue(alice.showsText(title))

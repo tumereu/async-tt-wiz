@@ -113,6 +113,59 @@ class RevealStopTest {
             "playback went on past the reveal")
     }
 
+    // HIS-110, SYS-077 (full e2e run 2026-11-07): Alice's phone passes on Bob's Insight itself, so her own pending pass
+    // resolves it and opens the panel; Bob's assumption of that pass reaches the server first and then her phone, taking
+    // her event's place (the same board): the panel stays open, now at his event, and her table stays there while he
+    // plays on, until her OK
+    @Test
+    fun aRevealInHerOwnPassStaysOpenWhenBobsSameAssumptionTakesItsPlace() {
+        val sim = sim()
+        sim.bobToMain()
+        sim.device(sim.alice).play()
+        sim.settle()
+        val alices = sim.device(sim.alice)
+        val bobs = sim.device(sim.bob)
+        sim.bobCastsInsight()
+        sim.flush(sim.bob)
+        // Only his cast reaches her before her phone passes on it
+        sim.deliver(sim.alice, 1)
+        alices.playToStop()
+        alices.advance(sim.now)
+        val mine = alices.session.pending.singleOrNull()
+        assertNotNull(mine, "her own pass on its way")
+        assertEquals(Input.PassPriority(sim.alice), mine.engine!!.steps.first().input)
+        val opened = assertNotNull(alices.reveal, "the panel opens on her own pass")
+        assertEquals(mine.id, opened.event)
+        // His device assumes her pass; his event reaches the server, then her phone, before hers
+        bobs.advance(sim.now)
+        sim.flush(sim.bob)
+        val assumption = sim.server.line().last()
+        assertEquals(Input.PassPriority(sim.alice), assumption.assumed?.input, "Bob assumed her pass")
+        var shown = 0
+        alices.session.beforeShow = { _, _ -> shown++ }
+        sim.deliver(sim.alice)
+        assertEquals(assumption.id, alices.adoptedAs(mine.id), "his event took her event's place")
+        assertEquals(0, shown, "nothing played back")
+        val reveal = assertNotNull(alices.reveal, "the panel still open")
+        assertEquals(listOf(reveal), alices.openReveals, "one panel")
+        assertEquals(opened.copy(event = assumption.id), reveal)
+        assertEquals(assumption.id, alices.session.localHead, "her table at the reveal's event")
+        sim.flush(sim.alice)
+        assertEquals(1, sim.confirmations, "her pass confirmed his assumption")
+        // He plays on: his turn ends; her table waits at the reveal
+        bobs.endTurn(sim.now)
+        sim.settle()
+        assertTrue(sim.server.line().last().id != assumption.id, "the game went on")
+        assertEquals(assumption.id, alices.session.localHead, "her view still at the reveal")
+        assertTrue(alices.session.behind)
+        assertEquals(reveal, alices.reveal)
+        assertTrue(alices.dismissReveal())
+        sim.settle()
+        assertNull(alices.reveal)
+        assertTrue(sim.server.line().indexOfFirst { it.id == alices.session.localHead } > sim.server.line().indexOfFirst { it.id == assumption.id },
+            "playback went on past the reveal")
+    }
+
     // HIS-110: several reveals in a row open one panel each, in order
     @Test
     fun severalRevealsOpenOnePanelEachInOrder() {

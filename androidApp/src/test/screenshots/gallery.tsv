@@ -103,7 +103,7 @@ number	item	screenshot	catalog	decisions
 102	Cast panel paying with a source picked on the table	cast-panel/payment-chosen.png	STK-024 ZON-082	ManaPayment
 103	The other player's chat message as a bubble by their life square, 1/2	chat/bubble-opponent.png	LOB-136 LOB-140
 104	Your sent message's bubble fading	chat/bubble-own-fading.png	LOB-137
-105	Chat with quick messages and a Read mark	chat/quick-messages.png	LOB-139 LOB-138
+105	Quick messages in your own Life panel	chat/life-quick-messages.png	LOB-139 TRN-030
 106	Chat bubbles in landscape	chat/bubble-landscape.png	LOB-136 LOB-137 LOB-140
 107	Opened battlefield group while targets are picked	battlefield/group-opened-targets.png	TBL-130 STK-047	Targets
 108	Targeting: opened group of 2	battlefield/group-opened-targets-2.png	TBL-130 TBL-002	Targets

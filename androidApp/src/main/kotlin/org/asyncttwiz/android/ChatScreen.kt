@@ -24,7 +24,6 @@ internal fun presentedChatIds(messages: List<ChatMessage>, visibleKeys: List<Any
 
 private class ChatScrollAnchor(var latestKey: String? = null)
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun ChatPanel(controller: LobbyController, accountId: String, modifier: Modifier = Modifier,
     contentInsets: WindowInsets = WindowInsets.safeDrawing) {
@@ -97,15 +96,6 @@ internal fun ChatPanel(controller: LobbyController, accountId: String, modifier:
                     message.text, message.author == accountId, if (message.author == accountId && chat.read(message)) "Read" else "")
             }
         }
-        }
-        // LOB-139: quick messages, each sent with one tap; the typed draft stays
-        val quick = chat.canSendQuick(game, game.id !in state.reconnectingGames)
-        FlowRow(Modifier.fillMaxWidth().padding(horizontal = 8.dp).semantics { contentDescription = "Quick messages" },
-            horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            for (text in QuickChatMessages) SuggestionChip(onClick = {
-                controller.sendQuickChat(text)
-                list.requestScrollToItem(0)
-            }, label = { Text(text, maxLines = 1) }, enabled = quick)
         }
         Row(Modifier.fillMaxWidth().padding(8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             val send = {

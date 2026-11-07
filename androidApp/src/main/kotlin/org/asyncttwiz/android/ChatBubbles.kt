@@ -15,7 +15,7 @@ data class IncomingChatBubble(val messageId: String, val text: String, val index
  * their own life square. */
 data class SentChat(val key: Long, val text: String)
 
-/** LOB-139 (owner, 2026-11-07): the composer's quick messages, each sent with one tap. */
+/** LOB-139 (owner, 2026-11-07): the quick messages of your own Life panel, each sent with one tap. */
 internal val QuickChatMessages = listOf("Thinking…", "One sec", "Your move?", "Got a response", "No responses", "GG")
 
 internal object ChatBubbleRules {

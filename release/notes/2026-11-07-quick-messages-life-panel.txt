@@ -1,0 +1,1 @@
+mod: Quick messages moved from the chat to your own life square: tap it, then tap a message to send it, or the pencil to open the chat.

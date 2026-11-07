@@ -155,7 +155,7 @@ internal fun TableSurface(game: GameSummary, play: TableBoard, accountId: String
     val presenceDot = rememberPresenceDot(runtime.opponentPresence)
     val computedBoard = rememberComputedBoard(play, accountId)
     CompositionLocalProvider(LocalTableTapRelay provides relay, LocalTableChanges provides runtime.changes, LocalComputedBoard provides computedBoard,
-        LocalOpponentPresence provides runtime.opponentPresence) {
+        LocalOpponentPresence provides runtime.opponentPresence, LocalTableQuickChat provides runtime.quickChat) {
     BoxWithConstraints(modifier.fillMaxWidth().onGloballyPositioned { screenOrigin = it.localToScreen(Offset.Zero) }.tableRingRelay(relay)
         .background(Color(0xfff5f8f7)).pointerInput(coordinator) {
         awaitEachGesture {

@@ -46,7 +46,7 @@ Turn and step tracking, whose move it is, the top and bottom game bars, life, ga
 
 ### Life
 
-- **TRN-030** Each player starts at 20 life. Tapping a life square opens a floating Life panel with that player's life (only the rules change it) and, for the other player, their presence line (TRN-043); its life row sits on the panel edge facing the square (the panel opens under the opponent's square and above your own, in landscape too). (r57)
+- **TRN-030** Each player starts at 20 life. Tapping a life square opens a floating Life panel with that player's life (only the rules change it) and, for the other player, their presence line (TRN-043), for you the quick messages and Write (LOB-139); its life row sits on the panel edge facing the square (the panel opens under the opponent's square and above your own, in landscape too). (r59)
 - **TRN-034** Portrait: each player's row shows the life square and packed piles; the room beside them stays free. (r45)
 - **TRN-035** Landscape: each player's life square and piles sit in their bar row (TBL-009), the opponent's in the top bar and yours in the bottom bar, their emblems right after them. (r57)
 

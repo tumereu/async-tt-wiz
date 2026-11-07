@@ -231,7 +231,10 @@ internal fun EngineTableScreen(controller: LobbyController, accountId: String, h
                         // waits while the chat covers the table (portrait)
                         chatBubbles = TableChatBubbles(state.chatBubble, state.chatSent, tableShown = !state.chatOpen || landscape,
                             routes.opponentName, read = { controller.readChatBubble(game.id, it) },
-                            open = { controller.openChat(it) }, sentShown = { controller.chatSentShown(game.id, it) })))
+                            open = { controller.openChat(it) }, sentShown = { controller.chatSentShown(game.id, it) }),
+                        // LOB-139: quick messages from your own Life panel, sent as any message; Write opens the chat
+                        quickChat = TableQuickChat(interactive && game.lifecycle == GameLifecycle.ACTIVE && game.playId != null,
+                            send = controller::sendQuickChat, write = { controller.openChat() })))
                 // Over the top row (whose move/step/turn), never taking its taps.
                 EventTextOverlay(eventText, playbackPause, Modifier.align(Alignment.TopCenter), status = choosing,
                     flashes = toolkit.choiceFlashes)

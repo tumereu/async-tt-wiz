@@ -137,7 +137,7 @@ class ChatBubbleTest {
     }
 }
 
-/** LOB-139: the chat composer's quick messages. */
+/** LOB-138, LOB-139: the chat's Read marks; its quick messages moved to your own Life panel. */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(sdk = [35], qualifiers = "w412dp-h892dp-port-mdpi")
@@ -146,8 +146,8 @@ class ChatQuickMessagesTest {
     private val lobby = ScreenFixtures().lobby
     private val game = LiveTableFixture.game
 
-    // LOB-139, LOB-138: the quick-message chips above the message box; your message Bob read says Read
-    @Test fun composerWithQuickMessagesShot() {
+    // LOB-139, LOB-138: no quick-message chips in the chat; your message Bob read says Read
+    @Test fun chatHasNoQuickMessagesAndMarksRead() {
         val messages = IndexedChatMessages().upsert(listOf(
             ChatMessage("m1", game.id, game.playId!!, "b", "Your move?", "1", "date"),
             ChatMessage("m2", game.id, game.playId!!, "a", "One sec", "2", "date"),
@@ -156,11 +156,9 @@ class ChatQuickMessagesTest {
             chat = ChatPresentation(messages = messages, peerReadThrough = 2)))
         compose.setContent { NoRipples { ChatPanel(lobby, "a", contentInsets = WindowInsets(0)) } }
         compose.waitForIdle()
-        for (text in QuickChatMessages)
-            assertTrue(compose.onAllNodesWithText(text, useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty(), text)
+        compose.onNodeWithContentDescription("Quick messages").assertDoesNotExist()
+        for (text in listOf("Thinking…", "No responses", "GG"))
+            assertTrue(compose.onAllNodesWithText(text, useUnmergedTree = true).fetchSemanticsNodes().isEmpty(), text)
         assertEquals(1, compose.onAllNodesWithText("Read").fetchSemanticsNodes().size, "only the message Bob read")
-        captureShot("$SCREENSHOTS/chat/quick-messages.png",
-            "Game chat with the six quick-message chips (Thinking… to GG) in two rows above the message box; your " +
-                "One sec, which the other player has read, says Read, your newer Got a response doesn't yet.")
     }
 }

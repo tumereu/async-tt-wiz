@@ -18,7 +18,6 @@ Owner playtest of 0.2.0-beta4, 2026-11-07 (overnight; push master after each mer
 - C4 Tokens in Inspect (TBL-104, TBL-106): Inspect draws tokens with normal card corners (no cut corners; TBL-018 stays for the table).
 - D1 Battlefield costs and choices on the table (STK-023, STK-030, STK-047, STK-044): every cost or choice whose candidates are all battlefield permanents (sacrifice, tap untapped creatures you control, return or exile a permanent you control, edicts, "choose a creature") is picked on the table as targets are (slim bar with the question, legal cards glow, picked ones show picked, groups open on a tap, Done); panels stay for other zones.
 - D2 Pan past an open panel (TBL-001 pan bounds, SYS-041): while an Automatum panel or bar is open the table pans further up by the panel's height, so you can put the board above it; when it closes the table stays until your next pan, which uses the usual bounds. No automatic pan.
-- D3 Quick messages on your life square (LOB-139, TRN-030): the chat loses its quick-message chips; tapping your own life square opens the Life panel with the six quick messages as chips (a tap sends it, a plain chat message) and an icon-only Write button (hold tooltip) opening the chat.
 
 ## Ready to build
 

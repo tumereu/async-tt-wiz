@@ -263,7 +263,7 @@ internal class CastController(
             val next = try { f.withChoice(options.chosen.input, options.times) } catch (_: IllegalArgumentException) {
                 return@step Step.Refuse(NOT_ALLOWED)
             }
-            settle(next, auto = false, autotapOn, keep, changed, ways = listOf(options.chosen.input), hand = options)
+            settle(next, auto = false, autotapOn, keep, changed, hand = options)
         }
     }
 

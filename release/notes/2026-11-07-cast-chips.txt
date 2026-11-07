@@ -1,0 +1,1 @@
+mod: The chips above a hand card are now complete ways to cast it ("Cast", "Cast with offspring") and cast it in one tap; tapping the card opens the cast panel, where you can see what pays and tap your lands to pay differently.

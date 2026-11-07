@@ -18,6 +18,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -153,6 +154,7 @@ internal fun CardNameSection(cast: FlowQuestions, decision: Decision.ChooseCardN
     val suggestions = game + catalog.filter { it.lowercase() !in known }.distinct().map { NameSuggestion(it, NameSource.Catalog) }
     // What is written names a card when it is one of the names offered
     val named = chosen ?: suggestions.firstOrNull { it.name.equals(typed, ignoreCase = true) }?.name
+    val focus = LocalFocusManager.current
     Section(choiceWhat(decision), choiceHint(decision)) {
         OutlinedTextField(text, { text = it; chosen = null }, Modifier.fillMaxWidth().semantics { contentDescription = "Card name" },
             singleLine = true, leadingIcon = { Icon(Icons.Outlined.Search, null, Modifier.size(18.dp)) },
@@ -160,7 +162,10 @@ internal fun CardNameSection(cast: FlowQuestions, decision: Decision.ChooseCardN
         if (suggestions.isEmpty()) Text(if (typed.length < 2) "Write at least two letters of its name." else "No card's name has that in it.",
             fontSize = 11.sp, color = Color(0xff4b5a5f))
         else Column(Modifier.heightIn(max = 176.dp).verticalScroll(rememberScrollState())) {
-            for (suggestion in suggestions.take(40)) NameRow(suggestion, suggestion.name == named) { chosen = suggestion.name; text = suggestion.name }
+            for (suggestion in suggestions.take(40)) NameRow(suggestion, suggestion.name == named) {
+                // The choice is made: the keyboard goes, leaving the panel's OK in sight (and no cursor left inside the name)
+                chosen = suggestion.name; text = suggestion.name; focus.clearFocus()
+            }
         }
         OkRow(decision, named != null) { named?.let { cast.answer(Answer.CardName(it)) } }
     }

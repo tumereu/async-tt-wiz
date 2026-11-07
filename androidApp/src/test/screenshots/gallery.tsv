@@ -106,3 +106,8 @@ number	item	screenshot	catalog	decisions
 105	Chat with quick messages and a Read mark	chat/quick-messages.png	LOB-139 LOB-138
 106	Chat bubbles in landscape	chat/bubble-landscape.png	LOB-136 LOB-137 LOB-140
 107	Opened battlefield group while targets are picked	battlefield/group-opened-targets.png	TBL-130 STK-047	Targets
+108	Targeting: opened group of 2	battlefield/group-opened-targets-2.png	TBL-130 TBL-002	Targets
+109	Targeting: opened group of 3	battlefield/group-opened-targets-3.png	TBL-130 TBL-002	Targets
+110	Targeting: opened group of 6, one tapped, one picked	battlefield/group-opened-targets-6.png	TBL-130 TBL-002 STK-047	Targets
+111	Targeting: opened group of 6 in landscape	battlefield/group-opened-targets-6-landscape.png	TBL-130 TBL-002 STK-047	Targets
+112	Targeting: opened group with non-targets dimmed	battlefield/group-opened-targets-dimmed.png	TBL-130	Targets

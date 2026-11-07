@@ -57,8 +57,9 @@ internal object BattlefieldPlacementFixture {
     }
     fun unparsed() { AutomatumBoards.definitionSource = null; AutomatumBoards.reset() }
 
-    /** The board; with [snare] Alice holds a Frost Snare ([SNARE]). */
-    fun play(snare: Boolean = false): PlayState {
+    /** The board; with [snare] Alice holds a Frost Snare ([SNARE]). Her stack of identical Cinder Hounds holds [hounds]
+     * (`a-hound-2`, `a-hound-3`, …), the one [tappedHound] (by id) tapped. */
+    fun play(snare: Boolean = false, hounds: Int = 2, tappedHound: String? = null): PlayState {
         val cards = mutableListOf<PlayCard>()
         val containers = mutableListOf<PlayContainer>()
         var stamp = 0L
@@ -72,7 +73,8 @@ internal object BattlefieldPlacementFixture {
             Triple("a-mountain-1", mountain, tapped), Triple("a-mountain-2", mountain, plain),
             Triple(HOST, hound, plain), Triple("a-blade", blade, attached), Triple("a-ward", ward, attached),
             Triple("a-mountain-3", mountain, plain), Triple("a-hound-2", hound, plain), Triple("a-totem", totem, plain),
-            Triple("a-hound-3", hound, plain), Triple("a-mountain-4", mountain, tapped), Triple("a-banner", banner, plain),
+            *(3..hounds + 1).map { n -> Triple("a-hound-$n", hound, if ("a-hound-$n" == tappedHound) tapped else plain) }.toTypedArray(),
+            Triple("a-mountain-4", mountain, tapped), Triple("a-banner", banner, plain),
             Triple("a-elemental-1", elemental, plain), Triple("a-elemental-2", elemental, plain), Triple("a-elemental-3", elemental, plain))
         val bob = field("b",
             Triple("b-mountain-1", mountain, plain), Triple("b-cub-1", cub, plain), Triple("b-mountain-2", mountain, tapped),
@@ -118,7 +120,7 @@ class BattlefieldPlacementScreenshotTest {
         toolkit.layoutState.value = toolkit.layoutState.value.copy(camera = camera)
         compose.setContent { MaterialTheme { NoRipples {
             EngineFixtureTable(play, "a") {
-                TableSurface(TableFixture.game, board, "a", false, Modifier.fillMaxSize(), connected = true,
+                TableSurface(TableFixture.game, board, "a", landscape, Modifier.fillMaxSize(), connected = true,
                     onIntent = toolkit::handle, toolkit = toolkit, runtime = TableRuntimeHooks(navigation = {}, chat = {}, history = {}))
             }
         } } }
@@ -126,8 +128,12 @@ class BattlefieldPlacementScreenshotTest {
         return toolkit
     }
 
-    private fun scene(toolkit: TableToolkitController) =
-        TablePresentation.scene(TableFixture.game, engineTableBoard(play, "a"), "a", 412f, 892f, false, toolkit.layoutState.value)
+    /** The screen's size in dp (set before [render] for another orientation). */
+    private var screen = 412f to 892f
+    private val landscape get() = screen.first > screen.second
+
+    private fun scene(toolkit: TableToolkitController) = TablePresentation.scene(TableFixture.game, engineTableBoard(play, "a"), "a",
+        screen.first, screen.second, landscape, toolkit.layoutState.value, landscapeHome = true)
 
     /** Taps the screen where [cardId] shows on the table. */
     private fun tap(toolkit: TableToolkitController, cardId: String) {
@@ -248,6 +254,91 @@ class BattlefieldPlacementScreenshotTest {
             assertTrue(!toolkit.cast.targeting, "both targets chosen: ${toolkit.error}")
             assertEquals(null, toolkit.expandedGroup, "the group closes once the targets are chosen")
         }
+    }
+
+    /** Starts the Frost Snare, taps [tapOn] to open the group [group] and checks it lies open: [members] side by side in
+     * that order, wholly on the screen, no other battlefield card overlapping them, and the rest of its row moved along
+     * ([moved] further from the group than before). */
+    private fun openForTargets(toolkit: TableToolkitController, group: String, tapOn: String, members: List<String>, moved: String) {
+        compose.runOnIdle { assertTrue(toolkit.cast.start(f.SNARE), "${toolkit.error}") }
+        compose.waitForIdle()
+        assertTrue(toolkit.cast.targeting, "the Snare's targets are picked on the table")
+        fun spot(id: String) = scene(toolkit).items.single { it.cardId == id && it.battlefieldCard }.footprint
+        fun gap() = Math.abs(spot(moved).center.x - spot(members.first()).center.x)
+        val gapBefore = gap()
+        tap(toolkit, tapOn)
+        compose.runOnIdle {
+            assertEquals(group, toolkit.expandedGroup)
+            assertEquals(emptyList(), picked(toolkit), "the first tap only opens it")
+        }
+        val spots = members.map(::spot)
+        assertTrue(spots.zipWithNext().all { (a, b) -> b.x >= a.right - 0.01f }, "side by side: $spots")
+        assertTrue(spots.all { it.x >= 0f && it.right <= screen.first && it.y >= 0f && it.bottom <= screen.second }, "on screen: $spots")
+        val others = scene(toolkit).items.filter { it.battlefieldCard && it.cardId !in members }
+        assertTrue(others.none { o -> spots.any { s -> s.intersection(o.footprint).let { it != null && it.width > 0.01f } } }, "nothing overlaps the opened group")
+        assertTrue(gap() > gapBefore, "the row moved along")
+    }
+
+    // TBL-130, TBL-002: while Alice picks the Frost Snare's targets, a tap on Bob's stack of two Ember Cubs opens it in
+    // place on his side, the two Cubs side by side, each glowing as a target; his Elementals move along
+    @Test fun whileTargetsArePickedAnOpenedGroupOfTwo() {
+        play = f.play(snare = true)
+        val toolkit = render()
+        openForTargets(toolkit, "stack:b-cub-1", "b-cub-2", listOf("b-cub-1", "b-cub-2"), moved = "b-elemental-2")
+        compose.onRoot().captureShot("$SCREENSHOTS/battlefield/group-opened-targets-2.png",
+            "Alice casts Frost Snare (tap up to two target creatures) and taps Bob's stack of two Ember Cubs: it opens in place " +
+                "on his side, the two Cubs side by side, each framed in violet as a target, his Elementals moved along.")
+    }
+
+    // TBL-130, TBL-002: while targets are picked, a tap on Alice's stack of three identical Cinder Hounds opens it in place,
+    // the three side by side, each glowing as a target; her Elemental tokens move along
+    @Test fun whileTargetsArePickedAnOpenedGroupOfThree() {
+        play = f.play(snare = true, hounds = 3)
+        val toolkit = render()
+        openForTargets(toolkit, "stack:a-hound-2", "a-hound-3", listOf("a-hound-2", "a-hound-3", "a-hound-4"),
+            moved = "a-elemental-3")
+        compose.onRoot().captureShot("$SCREENSHOTS/battlefield/group-opened-targets-3.png",
+            "Alice casts Frost Snare (tap up to two target creatures) and taps her stack of three identical Cinder Hounds: it " +
+                "opens in place, the three Hounds side by side, each framed in violet as a target, her Elemental tokens moved " +
+                "along to the right.")
+    }
+
+    // TBL-130: while targets are picked, a tap on Alice's equipped Cinder Hound opens its group though it holds one target:
+    // the Hound glows as a target, its Ember Blade and Ember Ward (no creatures) are dimmed
+    @Test fun whileTargetsArePickedAnOpenedGroupDimsWhatIsNoTarget() {
+        play = f.play(snare = true)
+        val toolkit = render()
+        openForTargets(toolkit, "host:${f.HOST}", f.HOST, listOf(f.HOST, "a-blade", "a-ward"), moved = "a-hound-2")
+        compose.onRoot().captureShot("$SCREENSHOTS/battlefield/group-opened-targets-dimmed.png",
+            "Alice casts Frost Snare (tap up to two target creatures) and taps her Cinder Hound wearing an Ember Blade and an " +
+                "Ember Ward: its group opens in place, the Hound framed in violet as a target and the Blade and the Ward, no " +
+                "creatures, dimmed; the Hound stack and the tokens moved along to the right.")
+    }
+
+    // TBL-130, TBL-002, STK-047: while targets are picked, a tap on Alice's stack of six identical Cinder Hounds (one of
+    // them tapped) opens it in place, the six side by side, the tapped one turned in its own slot; a tap on one picks it
+    // and the group stays open
+    @Test fun whileTargetsArePickedAnOpenedGroupOfSix() = groupOfSix(landscape = false)
+
+    // TBL-130, TBL-002, STK-047: the same in landscape
+    @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun whileTargetsArePickedAnOpenedGroupOfSixLandscape() =
+        groupOfSix(landscape = true)
+
+    private fun groupOfSix(landscape: Boolean) {
+        if (landscape) screen = 892f to 412f
+        play = f.play(snare = true, hounds = 6, tappedHound = "a-hound-5")
+        val toolkit = render()
+        openForTargets(toolkit, "stack:a-hound-2", "a-hound-3", (2..7).map { "a-hound-$it" }, moved = "a-elemental-3")
+        tap(toolkit, "a-hound-4")
+        compose.runOnIdle {
+            assertEquals(listOf("a-hound-4"), picked(toolkit))
+            assertEquals("stack:a-hound-2", toolkit.expandedGroup, "it stays open while targets are picked from it")
+        }
+        compose.onRoot().captureShot("$SCREENSHOTS/battlefield/group-opened-targets-6${if (landscape) "-landscape" else ""}.png",
+            "${if (landscape) "In landscape, " else ""}Alice casts Frost Snare (tap up to two target creatures), taps her stack " +
+                "of six identical Cinder Hounds (one tapped) and then the third Hound: the stack lies open in place, the six " +
+                "Hounds side by side (the tapped one turned in its own slot), each framed in violet as a target, the third " +
+                "one picked (no mark of its own: only the bar's None turned Done); her Elemental tokens moved along to the right.")
     }
 
     // TBL-130: while targets are picked a tap elsewhere closes the opened group: a pick from it stays picked, a tap on

@@ -3,7 +3,8 @@
 Status: **ready for owner review (2026-11-07), not started.** Roadmap item 2 ("Desktop web client"), started before the Android client is
 finished because Automatum shrank the set of player actions. Decisions marked **(owner)** are agreed; everything marked
 **(proposal)** is Claude's and waits for the owner. The feasibility test (section 11, step 0) reported on 2026-11-07:
-the shared route works on desktop; the phone measurement is still to be done. Wireframes: the "ATW Web Wireframes" design canvas, https://claude.ai/artifact/FhqdRe7Er5PHv86t8u2rXL (private to the
+the shared route works on desktop. Phone browsers aren't measured: the web client is built for desktop, phones have the
+native app, and phone-web speed is optimised later only if people use it (owner). Wireframes: the "ATW Web Wireframes" design canvas, https://claude.ai/artifact/FhqdRe7Er5PHv86t8u2rXL (private to the
 owner): D1–D10 desktop, P1–P4 phone web.
 Building a part moves its behaviour into the catalog (new `WEB` area, changed entries listed per part) and deletes the
 matching part of this file.
@@ -54,6 +55,17 @@ web client is the same app in a browser, with a desktop layout made for mouse, k
 18. Browser Back leaves a table without a second-Back guard.
 19. The proposed hotkeys, two-pane deck editor, draft picks strip and tab title count are built as proposed and refined
     by testing.
+20. No phone-browser benchmark before building (round 3): the web client is for desktop; phone web is secondary and gets
+    optimised only if people end up playing on it.
+21. Right-click Inspect dims the table behind it, so it reads as a layer on top that scrolls on its own. How a large pile
+    (a creature with many Equipment) looks is tuned by real testing.
+22. Hovering a usable card already shows its chips, faded, and the sources Autotap would tap (ZON-079's amber outlines).
+23. Keyboard shortcuts are rebindable and kept on the player's account.
+24. Deck and cube editor: the list on the left, search on the right.
+25. No swipes with a mouse. Draft pick: left click keeps, right click burns. Build and the card list screens: a card
+    shows a zone at its left and right edge, tinted in the destination section's colour on hover; a click there moves it.
+26. Desktop Build has no one-by-one review (DRF-107–110). If it is wanted later, it is used by keyboard (Space keeps,
+    other keys move).
 
 ## 1. Architecture
 
@@ -77,8 +89,8 @@ Feasibility test results (2026-11-07, throwaway branch `w/web-spike`, Chrome on 
   afterwards.
 - A real table file moved into a shared module builds for Android and wasm with Android screenshots unchanged; the
   table code is not layered, so the UI must move as one module, not file by file.
-- Not measured yet: a phone browser (the phone wasn't attached). Mid-range phones may be 3–5× slower than desktop; a
-  pass would then take 0.3–0.5 s.
+- Not measured: a phone browser. Mid-range phones may be 3–5× slower than desktop (a pass 0.3–0.5 s); not needed for
+  the desktop client (decision 20).
 
 
 1. **Modules.**
@@ -167,21 +179,30 @@ Feasibility test results (2026-11-07, throwaway branch `w/web-spike`, Chrome on 
 | --- | --- |
 | Tap (acts at once, TBL-041) | Left click, also at once |
 | Double tap (400 ms, 32 dp, TBL-042) | Double click (same timing) |
-| Hold a card 350 ms to inspect (TBL-047, TBL-104), pinned by a sideways drag (TBL-131) | **Right-click toggles Inspect** (owner): the card's images with its changes beside them (as pinned Inspect shows them) and a close button; right-click again, ✕, Esc or a click outside closes. No press-and-hold on desktop. |
+| Hold a card 350 ms to inspect (TBL-047, TBL-104), pinned by a sideways drag (TBL-131) | **Right-click toggles Inspect** (owner): the table dims behind it; the card's images with its changes beside them (as pinned Inspect shows them), a long list scrolling inside the layer, and a close button; right-click again, ✕, Esc or a click outside closes. No press-and-hold on desktop. |
 | — | **Hover** a card ~250 ms for a quick look (owner): the large picture only, no dimming, gone when the pointer leaves |
+| A tap raises a hand card with its chips and amber Autotap outlines (ZON-079, ZON-080); a tap on a card with several abilities opens its chips (TBL-124) | **Hovering a usable card shows its chips faded** (owner), with the amber outlines of what Autotap would tap for the first chip; hovering a chip makes it solid and outlines that chip's sources. A click on a chip uses it at once; a click on the card does what a tap does. A battlefield card with one usable ability shows that one chip, so hover tells what a click will do (proposal) |
 | Holding a control does its hold action (step arrow → End turn, Undo → Undo dialog, tooltips SYS-045) | Right-click a control does its hold action (owner) (step arrow = End turn, Undo = the Undo dialog); Shift+Space = End turn; tooltips show on hover after 0.5 s |
 | Drag a card (ZON-077, CMB-009) | Drag with the left button; the same meanings and highlights |
 | One-finger drag on empty battlefield pans (TBL-011) | Left-drag on empty battlefield, or middle-drag anywhere |
 | Pinch zooms (TBL-010) | Mouse wheel zooms around the pointer (0.65–2×); trackpad pinch zooms; Shift+wheel pans sideways |
 | Double tap empty battlefield = fit (TBL-012) | Double click empty battlefield, or F |
-| Swipes in draft, Build, Prepare (DRF-058, DRF-099, LOB-048) | The same with a mouse drag; also hotkeys while hovering a card (section 6) |
+| Draft pick: swipe right keeps, left burns; tap opens the menu (DRF-058–062) | **Left click keeps, right-click burns** (owner): the same click again unmarks, the other switches (DRF-060); hover gives the quick look with every face (DRF-063's content); a ⋯ button on the hovered card opens the menu (Refund Librarian) (proposal); K / B / U on the hovered card |
+| Build, Prepare and the Cards tab: swipe a card to another section (DRF-099, LOB-048, LOB-105) | **Edge zones** (owner): hovering a card's left or right quarter tints it in the destination section's colour with its name ("◂ Trash", "Side ▸"); a click there moves one copy, as the swipe would. Build keeps DRF-099's destinations; in the deck editor and Prepare the right zone is the next section (as the swipe) and the left zone the remaining one (decks; cubes have only a right zone) (proposal). A click in the middle opens the card's menu as a tap does |
+| Build review, one by one (DRF-107–110) | Not on desktop (owner): column labels and section headers don't open it |
 | Holding a timeline event shows its text (HIS-011) | Hover |
 
 A left click opens card menus, activates or raises a hand card exactly as a tap does (TBL-041, TBL-122, ZON-079).
 
 ## 6. Desktop: keyboard (Arena as baseline; owner: build as proposed, refine by testing)
 
-Hotkeys never act while a text field has focus. "?" shows the list over the screen.
+Hotkeys never act while a text field has focus. "?" shows the list over the screen with the player's current keys and a
+"Change keys in Settings" button.
+
+**Rebinding** (owner): Settings → "Keyboard shortcuts" lists every action below with its key; a click on a key waits for
+the next key press (Esc cancels), "Reset all" restores the defaults. Kept on the server for the account, like LOB-113's
+Automatum settings, so every browser shows the same (owner). Proposals: taking a key another action uses leaves that
+action without a key and says so on its row; Esc, Enter and the mouse can't be rebound; one key per action.
 
 | Key | Where | Does |
 | --- | --- | --- |
@@ -200,8 +221,8 @@ Hotkeys never act while a text field has focus. "?" shows the list over the scre
 | S | Table | Stack list |
 | G / X | Table | Your graveyard / exile view (with Shift: the opponent's) |
 | M | Table | Next response mode (Control, Normal, Quick) |
-| K / B / U | Draft pick, hovering a card | Keep / burn / unmark |
-| ← / → / ↓ | Build, Prepare, hovering a card | Swipe left / swipe right / open its menu |
+| K / B / U | Draft pick, hovering a card | Keep / burn / unmark (the clicks do the same) |
+| ← / → / ↓ | Build, Prepare, editor, hovering a card | Move to the left / right edge zone's section / open its menu |
 
 ## 7. Desktop: screens
 
@@ -223,14 +244,14 @@ Hotkeys never act while a text field has focus. "?" shows the list over the scre
    - Card sizes (TBL-034) are kept per layout (owner), desktop starting larger (proposal: battlefield 1.5×, hand 2×).
 3. **Timeline mode** (D5; the hotkey sheet is D6): the timeline panel along the bottom as in landscape; ← / → and hover on events.
 4. **Lobby screens** (D7): the same screens with the side menu; game rows wider.
-5. **Deck and cube editor** (D8): search sits beside the list (two panes) instead of a full-screen search
-   page (LOB-106): a click on a result adds a copy to the section chosen at the top of the search pane, a drag drops it
-   into any section, right-click inspects.
+5. **Deck and cube editor** (D8): the list on the left and search on the right (owner), instead of a full-screen
+   search page (LOB-106): a click on a result adds a copy to the section chosen at the top of the search pane, a drag
+   drops it into any section, right-click inspects. List cards move by their edge zones (section 5).
 6. **Draft** (D9): the pick view with the keep/burn trays in a column at the right, and under the pack a
-   compact strip of your picks so far (the Build columns at small size, Arena-style). Build, Stats and Games tabs
-   unchanged, with more columns by default.
-7. **Settings** (D10): adds Layout (section 4.1), Browser notifications (9.2) and Install app (9.1); hides app update rows;
-   Card records shows the server catalog's version.
+   compact strip of your picks so far (the Build columns at small size, Arena-style); click keeps, right-click burns
+   (section 5). Build with edge zones and no one-by-one review; Stats and Games tabs unchanged; more columns by default.
+7. **Settings** (D10): adds Layout (section 4.1), Browser notifications (9.2), Install app (9.1) and Keyboard shortcuts
+   (section 6); hides app update rows; Card records shows the server catalog's version.
 
 ## 8. Phone web and the browser's Back
 
@@ -285,19 +306,16 @@ AGENTS.md (catalog entries in the same commit, release notes for visible changes
 what may run side by side:
 
 ```
-0 (phone run) ─┐
-0b wasm target ─┴─► 2 shared UI ─┐
+0b wasm target ──► 2 shared UI ─┐
 1a server catalog ─► 1b Android ──┴─► 3 web shell ─► 4 web table ─┬─► 5 desktop table
                                                                   ├─► 6 desktop screens
                                        3 ─► 7 notifications, install (any time after 3)
                                                                   └─► 8 web e2e + prod
 ```
 
-### Step 0: feasibility test (desktop done)
+### Step 0: feasibility test (done)
 
-Remaining: run the spike pages in Chrome on the owner's phone (benchmark in a worker, table drawing) and add the numbers
-to section 1. If a pass takes much over ~0.5 s there, the phone-web table needs its own plan before step 4 (the desktop
-plan is unaffected).
+Desktop results are in section 1. No phone-browser run (decision 20).
 
 ### Step 0b: wasm target on the shared modules
 
@@ -373,7 +391,6 @@ plan is unaffected).
 - The engine in a Web Worker behind the message boundary (section 1.3); Android uses the same boundary on its
   background thread. The table, hand, panels, combat band, timeline, chat in the browser; browser chrome kept off the
   table (section 8.5); haptics where available.
-- Depends on step 0's phone numbers for the phone layout's speed.
 - Tests: the existing e2e suite already drives the shared UI in the JVM, so it keeps covering the table; the browser
   smoke gains "open a game, make one move"; a mixed e2e: one player on Android code, one on the web build's code path.
 
@@ -381,17 +398,20 @@ plan is unaffected).
 
 - Layout choice and the Layout setting (section 4); the desktop table: top row with phase track, right dock (Stack list,
   chat), larger hand, panels as in landscape; mouse (section 5: click = tap, right-click toggles Inspect with changes
-  and close button, right-click on controls = hold action, hover quick look, wheel zoom, drags); hotkeys and the "?"
-  sheet (section 6); card sizes per layout.
-- Catalog: `web.md` entries for layout choice, mouse, hotkeys, dock, phase track.
+  over a dimmed table, right-click on controls = hold action, hover quick look, hover chips with Autotap outlines, wheel
+  zoom, drags); hotkeys, the "?" sheet and rebinding in Settings, kept on the account (server: a key-bindings field in
+  the account settings LOB-113 uses; section 6); card sizes per layout.
+- Catalog: `web.md` entries for layout choice, mouse, hover chips, hotkeys and rebinding, dock, phase track.
 - Tests: screenshot tests of the desktop table at 1440×900 (D1–D6 states), e2e flows in the desktop layout with mouse
   and key input (the JVM harness renders it at desktop size).
 
 ### Step 6: desktop lobby, decks, drafts
 
-- Permanent side menu shell, wider lists, two-pane deck and cube editor (D8), draft pick with trays at the right and
-  the picks strip (D9), Build and Stats with more columns, settings rows (D10). Hotkeys K/B/U and the Build swipes, Ctrl+S.
-- Tests: screenshots per screen at desktop size; e2e: build a deck in the two-pane editor; draft a pick with keys.
+- Permanent side menu shell, wider lists, two-pane deck and cube editor (list left, search right, D8), draft pick with
+  click keep / right-click burn, trays at the right and the picks strip (D9), edge zones in Build, Prepare and the
+  Cards tab, no Build review on desktop, Stats with more columns, settings rows (D10). Hotkeys K/B/U, ←/→/↓, Ctrl+S.
+- Tests: screenshots per screen at desktop size; e2e: build a deck in the two-pane editor; draft a pick with clicks and
+  keys; move a Build card by its edge zone.
 
 ### Step 7: notifications, install, tab title
 
@@ -408,7 +428,7 @@ plan is unaffected).
 
 ### Risks
 
-- Phone browsers may be too slow for comfortable play (step 0 decides; desktop is unaffected).
+- Phone browsers may be slow for comfortable play; accepted (decision 20), optimised later if people use phone web.
 - Compose for web is Beta: upgrades may need small fixes; iOS Safari is untested (no device).
 - Step 2 is large and collides with any concurrent Android work.
 - Bandwidth from the Pi: the app (~3.8 MB) and catalog (~12–13 MB) per new device or version, cached by Cloudflare under
@@ -419,10 +439,12 @@ plan is unaffected).
 
 - The server works out card definitions from its own catalog instead of storing the ones clients upload with decks.
 - A desktop layout for Android tablets and Chromebooks.
+- A keyboard-driven Build review on desktop (Space keeps, other keys move) if the owner wants it after testing.
+- Phone-web speed work (measure, then optimise the engine's hot spots such as `ObjectId.Card.equals`).
 
 ## 12. Open questions for the owner
 
-All design questions are answered (2026-11-07). Claude's plan choices to confirm in review:
+All design questions are answered (2026-11-07, round 3 the same day). Claude's choices to confirm in review:
 
 1. Step 0b adds wasm test tasks to AGENTS.md's task list.
 2. Catalog file format: gzip-compressed JSON lines (1a).
@@ -431,3 +453,10 @@ All design questions are answered (2026-11-07). Claude's plan choices to confirm
 5. Step 2 runs when no other Android batch is open (2).
 6. The real browser is only smoke-tested (Playwright on Chrome); everything else is tested through the shared UI in the
    existing JVM e2e harness, at phone and desktop sizes (3–5).
+7. Hover chips: a battlefield card with one usable ability shows that one chip too, so hover always tells what a click
+   does (section 5).
+8. Edge zones outside Build: in the deck editor and Prepare the right zone is the next section, the left zone the
+   remaining one; cubes (two sections) only a right zone (section 5).
+9. Draft pick: a ⋯ button on the hovered card opens its menu, for Refund Librarian (section 5).
+10. Rebinding: taking a used key leaves the other action without a key, with a note; Esc, Enter and mouse buttons
+    fixed; one key per action (section 6).

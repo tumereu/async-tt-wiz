@@ -30,9 +30,11 @@ data class TableBounds(val x: Float, val y: Float, val width: Float, val height:
 }
 
 data class TableCamera(val x: Float = 0f, val y: Float = 0f, val zoom: Float = 1f)
-/** One affine transform for the entire world. Camera offsets are world units from its home center. */
+/** One affine transform for the entire world. Camera offsets are world units from its home center. [bottomInset] (screen
+ * dp): how far past the usual bounds the world may be panned up, so its bottom can sit above an open Automatum panel
+ * (D2: the panel's height). */
 data class TableWorld(val viewport: TableBounds, val bounds: TableBounds, val panBounds: TableBounds = bounds,
-    val clipViewport: TableBounds? = null) {
+    val clipViewport: TableBounds? = null, val bottomInset: Float = 0f) {
     val visibleViewport get() = clipViewport ?: viewport
     private val home get() = TablePoint(viewport.width / 2, viewport.height / 2)
     fun screen(p: TablePoint, camera: TableCamera) = TablePoint(
@@ -44,13 +46,24 @@ data class TableWorld(val viewport: TableBounds, val bounds: TableBounds, val pa
     fun clamp(camera: TableCamera): TableCamera {
         val c = normalize(camera)
         // Sort the two edge alignments: large content covers the viewport; small content stays inside it.
-        fun offset(value: Float, start: Float, end: Float, home: Float, extent: Float): Float {
+        fun offset(value: Float, start: Float, end: Float, home: Float, extent: Float, past: Float = 0f): Float {
             val a = start - home + extent / (2 * c.zoom)
             val b = end - home - extent / (2 * c.zoom)
-            return value.coerceIn(minOf(a, b), maxOf(a, b))
+            // [past]: the end may also come that far inside the viewport (the bottom above an open panel)
+            return value.coerceIn(minOf(a, b), maxOf(a, b, b + past))
         }
         return c.copy(x = offset(c.x, panBounds.x, panBounds.right, home.x, viewport.width),
-            y = offset(c.y, panBounds.y, panBounds.bottom, home.y, viewport.height))
+            y = offset(c.y, panBounds.y, panBounds.bottom, home.y, viewport.height, bottomInset / c.zoom))
+    }
+    /** This world with [inset] dp more room to pan up (D2: an open panel's height). */
+    fun withBottomInset(inset: Float) = if (inset == bottomInset) this else copy(bottomInset = inset.coerceAtLeast(0f))
+    /** This world, extended upward just enough to hold [camera] where it is (D2: the table stays put after a panel
+     * closes, until a pan settles it into the usual bounds). */
+    fun holding(camera: TableCamera): TableWorld {
+        val c = normalize(camera)
+        if (c.y <= clamp(c).y) return this
+        val b = panBounds.bottom - home.y - viewport.height / (2 * c.zoom)
+        return copy(bottomInset = (c.y - b) * c.zoom)
     }
     fun normalize(camera: TableCamera) = TableCamera(camera.x.takeIf { it.isFinite() } ?: 0f,
         camera.y.takeIf { it.isFinite() } ?: 0f,

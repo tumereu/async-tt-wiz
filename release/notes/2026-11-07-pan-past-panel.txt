@@ -1,0 +1,1 @@
+add: While a choice or cast panel is open you can move the board further up, above the panel.

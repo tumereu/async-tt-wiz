@@ -82,7 +82,7 @@ Rules that every feature follows: what the product is, who decides game state, h
 - **SYS-038** These rules still hold: cards go to their owner's hand, library, graveyard and exile, only game members act, you undo only back to your own actions (past the other player's only by an undo request, HIS-099), and personal proposals belong to their author (withdrawing a result suggestion). (r48)
 - **SYS-039** The app hides hidden information on screen only, a deliberate trust-the-client choice. Inspection never shows a hidden side. (r52)
 - **SYS-040** Menu actions are always shown and are disabled when they don't apply. An action is replaced only by its state twin (Mute ↔ Unmute, Hide ↔ Show). Each menu context has one fixed layout with no hidden buttons and no empty slots. (r28)
-- **SYS-041** The battlefield feels infinite: no visible edge inside the pan area, and a row wider than the screen is panned to; nothing shrinks to fit (TBL-004). Only how far you can pan away from the cards is limited. (r53)
+- **SYS-041** The battlefield feels infinite: no visible edge inside the pan area, and a row wider than the screen is panned to; nothing shrinks to fit (TBL-004). Only how far you can pan away from the cards is limited. While an Automatum panel or bar is open over the table's bottom (the cast panel, a target bar, a choice or question, the reveal panel), the table pans further up by its height, so the board can sit above it; when it closes the table stays where it is until your next pan, which settles into the usual bounds (a tap moves nothing; the table never pans by itself). (r59)
 
 ### Shared UI rules
 

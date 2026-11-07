@@ -52,6 +52,15 @@ class TableGestureCoordinator(
     private var writable = false
     private var reviewing = false
     private var navigationCamera: TableCamera? = null // unresisted pointer position, never compounded rubber
+    /** D2 (SYS-041): the height (dp) of the open Automatum panel or bar over the table's bottom: the world pans that much
+     * further up, so the board can sit above it. */
+    var panelInset: () -> Float = { 0f }
+    /** The world this gesture navigates in: the scene's, with the open panel's room, holding a camera a closed panel
+     * left beyond the usual bounds where it is until the gesture settles (D2). */
+    private var gestureWorld: TableWorld? = null
+    /** Whether this gesture moved the camera (or caught its spring): only then does its release settle it. */
+    private var gestureNavigated = false
+    private val world get() = scene.world?.withBottomInset(panelInset())
     private data class SpringReturn(val from: TableCamera, val to: TableCamera, var start: Long? = null)
     private var spring: SpringReturn? = null
     /** ZON-081 (I-D50): a hand pulled past its end springs back like the battlefield (TBL-014). */
@@ -97,10 +106,14 @@ class TableGestureCoordinator(
     fun down(point: TablePoint, time: Long, dismissedRingCard: String? = null) {
         if (capture != null) cancel()
         tick(time)
-        spring = null // a new gesture interrupts the return at its displayed position
+        // A new gesture interrupts the return at its displayed position, and settles it on release
+        gestureNavigated = spring != null
+        // D2: a camera a closed panel left past the usual bounds (no spring brings it back) stays put for this gesture
+        gestureWorld = if (spring == null) world?.holding(scene.camera) else world
+        spring = null
         handSpring = null
         transforming = false; transformRegion = null
-        navigationCamera = scene.world?.unresist(scene.camera) ?: scene.camera
+        navigationCamera = gestureWorld?.unresist(scene.camera) ?: scene.camera
         val item = scene.hit(point)
         val id = item?.cardId ?: if (item?.kind == TableItemKind.PILE && item.zone != PlayZone.STACK) {
             item.cards.firstOrNull() // the displayed real card, not an invented logical top in unordered bins
@@ -312,9 +325,9 @@ class TableGestureCoordinator(
             return
         }
         val old = navigationCamera ?: scene.camera
-        if (scene.world == null) return
+        if (world == null) return
         val zoom = (old.zoom * scale).coerceIn(TablePresentation.MIN_ZOOM, TablePresentation.MAX_ZOOM)
-        val center = requireNotNull(scene.world).viewport.center
+        val center = requireNotNull(world).viewport.center
         val anchorX = centroid.x - center.x
         val anchorY = centroid.y - center.y
         // centroid is the CURRENT centroid; keep the previous centroid's world point under it.
@@ -325,8 +338,10 @@ class TableGestureCoordinator(
     fun panBy(x: Float, y: Float) = navigate(scene.camera.copy(x = scene.camera.x + x, y = scene.camera.y + y))
     private fun navigate(camera: TableCamera, elastic: Boolean = false) {
         spring = null
+        gestureNavigated = true
         navigationCamera = camera.takeIf { elastic }
-        val next = if (elastic) scene.world?.resist(camera) else scene.world?.clamp(camera)
+        val bounded = gestureWorld ?: world
+        val next = if (elastic) bounded?.resist(camera) else bounded?.clamp(camera)
         publishCamera(next ?: camera)
     }
     private fun publishCamera(camera: TableCamera) {
@@ -344,9 +359,14 @@ class TableGestureCoordinator(
     }
     private fun settleCamera() {
         settleHand()
+        gestureWorld = null
+        // D2: a tap leaves the camera where it is (past the usual bounds, after a panel closed, until the next pan)
+        val navigated = gestureNavigated
+        gestureNavigated = false
         if (navigationCamera == null) return
         navigationCamera = null
-        val target = scene.world?.clamp(scene.camera) ?: return
+        if (!navigated) return
+        val target = world?.clamp(scene.camera) ?: return
         if (target != scene.camera) spring = SpringReturn(scene.camera, target)
     }
     fun cancel() {

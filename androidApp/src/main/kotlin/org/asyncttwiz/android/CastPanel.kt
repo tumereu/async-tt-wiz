@@ -102,10 +102,13 @@ internal fun castSource(play: TableBoard, viewer: String, flow: CastFlow, abilit
  * without one), at most up to the table's top. */
 @Composable
 private fun DockedAboveHand(hand: TableBounds?, content: @Composable () -> Unit) {
+    val docked = dockedPanelReporter()
     Layout(content = content, modifier = Modifier.fillMaxSize()) { measurables, constraints ->
         val bottom = (hand?.y?.dp?.roundToPx() ?: constraints.maxHeight).coerceIn(0, constraints.maxHeight)
         val placeable = measurables.firstOrNull()?.measure(Constraints(minWidth = constraints.maxWidth, maxWidth = constraints.maxWidth,
             maxHeight = bottom))
+        // D2: the table pans past the open panel
+        docked((placeable?.height ?: 0).toDp().value)
         layout(constraints.maxWidth, constraints.maxHeight) {
             placeable?.place(0, bottom - placeable.height)
         }

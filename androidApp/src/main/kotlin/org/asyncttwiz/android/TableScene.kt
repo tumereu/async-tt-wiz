@@ -153,9 +153,12 @@ internal fun TableSurface(game: GameSummary, play: TableBoard, accountId: String
             preview = coordinator.preview
         }) }
     val presenceDot = rememberPresenceDot(runtime.opponentPresence)
+    // D2 (SYS-041): the table pans past an open Automatum panel by its height
+    val dockedPanels = remember(coordinator) { DockedPanels().also { panels -> coordinator.panelInset = { panels.height } } }
     val computedBoard = rememberComputedBoard(play, accountId)
     CompositionLocalProvider(LocalTableTapRelay provides relay, LocalTableChanges provides runtime.changes, LocalComputedBoard provides computedBoard,
-        LocalOpponentPresence provides runtime.opponentPresence, LocalTableQuickChat provides runtime.quickChat) {
+        LocalOpponentPresence provides runtime.opponentPresence, LocalTableQuickChat provides runtime.quickChat,
+        LocalDockedPanels provides dockedPanels) {
     BoxWithConstraints(modifier.fillMaxWidth().onGloballyPositioned { screenOrigin = it.localToScreen(Offset.Zero) }.tableRingRelay(relay)
         .background(Color(0xfff5f8f7)).pointerInput(coordinator) {
         awaitEachGesture {

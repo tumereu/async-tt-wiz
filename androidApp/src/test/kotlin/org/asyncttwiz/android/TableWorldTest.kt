@@ -55,6 +55,27 @@ class TableWorldTest {
             }
     }
 
+    // SYS-041, TBL-001 (D2): an open panel lets the world pan up by its height at every zoom, the bottom of small content
+    // too; holding a camera past the usual bounds extends them just enough to keep it where it is
+    @Test fun anOpenPanelExtendsThePanBoundsUpwardByItsHeight() {
+        val viewport = TableBounds(0f, 0f, 400f, 400f)
+        for (height in listOf(100f, 800f)) for (zoom in listOf(.65f, 1f, 2f)) {
+            val world = TableWorld(viewport, TableBounds(0f, 0f, 400f, height))
+            val usual = world.clamp(TableCamera(0f, 10000f, zoom))
+            val panel = world.withBottomInset(150f)
+            val up = panel.clamp(TableCamera(0f, 10000f, zoom))
+            // Large content's bottom comes just above the panel; small content may already go higher (its top to the top)
+            val bottom = world.screen(world.bounds, up).bottom
+            if (height * zoom >= viewport.height) assertEquals(viewport.bottom - 150f, bottom, .01f, "the bottom just above the panel")
+            else assertTrue(bottom <= viewport.bottom - 150f + .01f, "small content above the panel: $bottom")
+            assertTrue(up.y >= usual.y)
+            assertEquals(world.clamp(TableCamera(0f, -10000f, zoom)), panel.clamp(TableCamera(0f, -10000f, zoom)), "top unchanged")
+            assertEquals(world.clamp(TableCamera(-10000f, 0f, zoom)).x, panel.clamp(TableCamera(-10000f, 0f, zoom)).x, "sides unchanged")
+            assertSame(world, world.holding(usual), "nothing to hold inside the usual bounds")
+            assertEquals(up, world.holding(up).clamp(up), "a camera past them is held where it is")
+        }
+    }
+
     // TBL-005
     @Test fun backgroundBandsCoverViewportWidthEvenWhenAllocatedWorldIsOffscreen() {
         val scene = TableFixture.scene(ui = TableLayoutState(TableCamera(800f, 0f, .65f)))

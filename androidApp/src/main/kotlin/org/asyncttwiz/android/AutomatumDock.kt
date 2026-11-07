@@ -50,13 +50,37 @@ import androidx.compose.ui.unit.dp
  */
 @Composable
 internal fun AboveHand(hand: TableBounds?, content: @Composable () -> Unit) {
+    val docked = dockedPanelReporter()
     Layout(content = content, modifier = Modifier.fillMaxSize()) { measurables, constraints ->
         val bottom = (hand?.y?.dp?.roundToPx() ?: constraints.maxHeight).coerceIn(0, constraints.maxHeight)
         val width = if (constraints.maxWidth > constraints.maxHeight) minOf(LANDSCAPE_WIDTH.roundToPx(), constraints.maxWidth)
             else constraints.maxWidth
         val placeable = measurables.firstOrNull()?.measure(Constraints(minWidth = width, maxWidth = width, maxHeight = bottom))
+        docked((placeable?.height ?: 0).toDp().value)
         layout(constraints.maxWidth, constraints.maxHeight) { placeable?.place(0, bottom - placeable.height) }
     }
+}
+
+/**
+ * D2 (SYS-041): the heights of the Automatum panels and bars open over the table's bottom, read by the table's pan
+ * bounds when a pan starts (personal UI, never state that recomposes anything).
+ */
+internal class DockedPanels {
+    private val heights = mutableMapOf<Any, Float>()
+    /** The tallest open panel's height (dp); 0 with none open. */
+    val height: Float get() = heights.values.maxOrNull() ?: 0f
+    fun report(key: Any, height: Float) { if (height > 0f) heights[key] = height else heights.remove(key) }
+}
+
+internal val LocalDockedPanels = compositionLocalOf<DockedPanels?> { null }
+
+/** Reports this docked panel's measured height (dp) to the table's [DockedPanels] while it is open. */
+@Composable
+internal fun dockedPanelReporter(): (Float) -> Unit {
+    val panels = LocalDockedPanels.current ?: return {}
+    val key = remember { Any() }
+    DisposableEffect(panels, key) { onDispose { panels.report(key, 0f) } }
+    return remember(panels, key) { { height: Float -> panels.report(key, height) } }
 }
 
 internal val LANDSCAPE_WIDTH = 420.dp

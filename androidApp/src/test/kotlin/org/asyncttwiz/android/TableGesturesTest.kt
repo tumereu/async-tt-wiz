@@ -224,6 +224,35 @@ class TableGesturesTest {
         }
     }
 
+    // SYS-041, TBL-001 (D2): with a panel open the board pans up past it by the panel's height; once it closes the table
+    // stays where it is (a tap moves nothing, nothing pans by itself) until the next pan, which settles in the usual bounds
+    @Test fun panPastAnOpenPanelThenStayUntilTheNextPan() {
+        val world = TableWorld(TableBounds(0f, 0f, 400f, 400f), TableBounds(0f, 0f, 400f, 800f))
+        val events = mutableListOf<TableIntent>()
+        val gestures = TableGestureCoordinator(events::add)
+        var panel = 150f
+        gestures.panelInset = { panel }
+        gestures.update(TableScene(emptyList(), emptyList(), world = world, camera = world.clamp(TableCamera())), true)
+        fun camera() = events.filterIsInstance<TableIntent.Camera>().last().camera
+        val start = world.viewport.center
+        gestures.down(start, 0); gestures.move(TablePoint(start.x, start.y - 1500f), 40); gestures.up(TablePoint(start.x, start.y - 1500f), 60)
+        gestures.tick(100); gestures.tick(1000)
+        val above = camera()
+        assertEquals(world.withBottomInset(150f).clamp(TableCamera(0f, 10000f)), above, "settled with the bottom above the panel")
+        assertTrue(above.y > world.clamp(above).y)
+        // The panel closes: nothing moves, a tap neither
+        panel = 0f
+        val count = events.count { it is TableIntent.Camera }
+        gestures.tick(2000)
+        gestures.down(start, 3000); gestures.up(start, 3020); gestures.tick(3100); gestures.tick(4000)
+        assertEquals(count, events.count { it is TableIntent.Camera }, "a tap leaves the table where it is")
+        // The next pan starts where the table is, then settles in the usual bounds
+        gestures.down(start, 6000); gestures.move(TablePoint(start.x, start.y + 30f), 6040)
+        assertEquals(above.y - 30f, camera().y, .01f, "the pan follows the finger from where the table was")
+        gestures.up(TablePoint(start.x, start.y + 30f), 6060); gestures.tick(6100); gestures.tick(7000)
+        assertEquals(world.clamp(above), camera())
+    }
+
     // TBL-014
     @Test fun incrementalTransformsDoNotCompoundRubberResistanceAndNewPressInterruptsSpring() {
         val world = TableWorld(TableBounds(0f, 0f, 400f, 400f), TableBounds(0f, 0f, 400f, 400f))

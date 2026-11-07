@@ -99,7 +99,7 @@ object CombatStackPresentation {
             c in "rt()[]-" -> .42
             c in "mwMW" -> .92
             c.isUpperCase() -> .72
-            c.isDigit() || c.isLetter() && c.code < 128 -> .6
+            c.isDigit() || c == '−' || c.isLetter() && c.code < 128 -> .6
             else -> 1.0
         }
     }.toFloat() * fontSize * 1.06f
@@ -131,9 +131,18 @@ object CombatStackPresentation {
     /** The gap between the name and the value on a chip (CMB-013). */
     const val CHIP_VALUE_GAP = 5f
 
-    /** Room for the chip with, when the target has one, the preview's "16 → 11" on it (CMB-013, CMB-029). */
-    fun laneWidth(lane: CombatLaneLabel) = 2 * lane.inset +
-        chipWidth(lane.label, if (lane.value.isEmpty()) "" else "${lane.value} → ${lane.value}")
+    /** Room for the chip with, when the target has one, the widest damage preview it can show (CMB-013, CMB-029), so the
+     * lane never changes and nothing moves when the preview appears. */
+    fun laneWidth(lane: CombatLaneLabel) = 2 * lane.inset + chipWidth(lane.label, previewRoom(lane.value))
+
+    /** The widest text the chip may show after the name for [value] (CMB-013, owner gallery review 2026-11-07): a negative
+     * result with a minus and as many digits as [value], at least two ("3 → −88", "20 → −88"), which also covers a
+     * result with one digit more than [value] ("9 → 12"). Rarer results that are wider still squeeze the chip's name. */
+    fun previewRoom(value: String): String {
+        if (value.isEmpty()) return ""
+        val digits = value.trimStart('-', '−').takeIf { value.toIntOrNull() != null }?.length ?: return "$value → $value"
+        return "$value → −" + "8".repeat(maxOf(digits, 2))
+    }
 
     /** CMB-031: the gap between the blocker and attacker rows, where the arrows are drawn. */
     fun arrowGap(cardHeight: Float) = cardHeight * .5f

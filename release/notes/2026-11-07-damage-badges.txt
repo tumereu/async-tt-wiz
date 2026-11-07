@@ -1,0 +1,1 @@
+mod: Combat damage marks keep the same size for any number, with the number fitting neatly inside, and target labels keep room for the damage result so nothing shifts when it shows.

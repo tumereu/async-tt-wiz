@@ -1,1 +1,1 @@
-Damage preview badges on four combat cards at their largest: a wide red splash with 12, a wide skull with 10 inside, a round splash with 7 and a wide skull with 20, each number centred in its badge.
+Damage preview badges on four combat cards at their largest: a red splash with 12, a skull with 10 in its cranium, a splash with 7 and a skull with 20, every badge the same size with each number fitting inside, centred.

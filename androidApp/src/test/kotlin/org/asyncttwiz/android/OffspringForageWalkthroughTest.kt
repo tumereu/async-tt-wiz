@@ -82,10 +82,13 @@ class OffspringForageWalkthroughTest {
             val turn = kit.state().turn.number
             assertTrue(toolkit.automatumStep(TableActionIntent.End(kit.scope)), "End turn")
             kit.playOn("Alice's next Main 1", rounds = 40) {
-                // HIS-095: her playback in Control also stops at Bob's assumed passes in her own turn
+                // HIS-095: her playback in Control also stops at Bob's assumed passes in her own turn. HIS-096: a point
+                // nobody's input began (her own upkeep, draw) is hers, so only her Control decides: Bob's phone waits for
+                // her and she passes it herself, as everywhere before her next Main 1.
+                val arrived = kit.aliceMain() && kit.state().turn.number > turn
                 if (kit.alice.device.status is GameDevice.Status.Stopped ||
-                    kit.state().priority.holder == kit.me && pending() == null && kit.state().turn.active != kit.me) go()
-                kit.aliceMain() && kit.state().turn.number > turn
+                    !arrived && kit.state().priority.holder == kit.me && pending() == null) go()
+                arrived
             }
         }
         assertTrue(kit.hand(name).isNotEmpty(), "$name in Alice's hand: ${kit.state().player(kit.me).hand}")

@@ -204,9 +204,9 @@ internal class EngineTableKit(val scenario: EngineCombatScenario = EngineCombatS
         return cub
     }
 
-    /** Bob's Main 1 plan: a Mountain, then a Storm Spark (at the first target the engine lists). Bob's decision stops are
-     * then his own to answer ([settle]). */
-    fun bobCastsSpark() {
+    /** Bob's Main 1 plan: a Mountain, then a Storm Spark (at the first target the engine lists, or [target]'s on his board).
+     * Bob's decision stops are then his own to answer ([settle]). */
+    fun bobCastsSpark(target: ((GameState) -> arcanum.engine.state.TargetRef)? = null) {
         scenario.confirmStops[f.b] = false
         bobMain = { s ->
             val land = scenario.cards(s, other, s.player(other).hand, "Mountain").firstOrNull()
@@ -215,8 +215,27 @@ internal class EngineTableKit(val scenario: EngineCombatScenario = EngineCombatS
                 (s.turn.landsPlayed[other] ?: 0) == 0 && land != null -> { bob.send(listOf(Input.PlayLand(other, land))); true }
                 spark != null && scenario.cards(s, other, s.battlefield, "Mountain").any { s.obj(it)?.tapped == false } -> {
                     bobMain = null
-                    bob.send(scenario.cast(s, other, Input.Cast(other, spark))); true
+                    bob.send(scenario.cast(s, other, Input.Cast(other, spark), target?.invoke(s))); true
                 }
+                else -> false
+            }
+        }
+    }
+
+    /** Bob's Main 1 plan: a Mountain, then cycling a [card] from his hand (its only activation). Bob's decision stops are
+     * then his own to answer ([settle]). */
+    fun bobCycles(card: String) {
+        scenario.confirmStops[f.b] = false
+        bobMain = { s ->
+            val land = scenario.cards(s, other, s.player(other).hand, "Mountain").firstOrNull()
+            val held = scenario.cards(s, other, s.player(other).hand, card).firstOrNull()
+            // An ability used from the hand, as its chip makes it (HandCasts: the engine lists no hand activations)
+            val cycle = held?.let { c -> Engine.view(s)[c]?.characteristics?.abilities?.firstOrNull { it.ability is arcanum.api.Ability.Activated }
+                ?.let { Input.Activate(other, c, it.origin) } }
+            val mana = scenario.cards(s, other, s.battlefield, "Mountain").any { s.obj(it)?.tapped == false }
+            when {
+                (s.turn.landsPlayed[other] ?: 0) == 0 && land != null -> { bob.send(listOf(Input.PlayLand(other, land))); true }
+                cycle != null && mana -> { bobMain = null; bob.send(scenario.cast(s, other, cycle)); true }
                 else -> false
             }
         }

@@ -1,1 +1,1 @@
-Alice cast two Cinder Charms and then Quench Spark, and tapped the glowing Stack: it opened in place as its list "Stack · 2" with both Charms glowing violet as legal targets, while the bar above her hand still says "Choose target spell" with the Quench at its right.
+Alice cast two Cinder Charms and then Quench Spark, and tapped the glowing Stack: it opened in place as its list "Stack · 2" with both Charms glowing violet as legal targets, each row saying its chosen mode and target, while the bar above her hand still says "Choose target spell" with the Quench at its right.

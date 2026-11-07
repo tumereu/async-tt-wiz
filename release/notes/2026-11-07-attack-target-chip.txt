@@ -1,0 +1,1 @@
+mod: Attacking creatures you are lining up no longer carry a label naming their target; the lane already shows it.

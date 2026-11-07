@@ -1,6 +1,7 @@
 package org.asyncttwiz.android
 
 import arcanum.api.CardDefinition
+import arcanum.api.CounterKind
 import arcanum.api.Mechanic
 import arcanum.api.TurnStep
 import arcanum.api.Zone
@@ -10,6 +11,7 @@ import arcanum.engine.state.Blocker
 import arcanum.engine.state.CardId
 import arcanum.engine.state.CombatState
 import arcanum.engine.state.ControlSince
+import arcanum.engine.state.CounterEntry
 import arcanum.engine.state.GameObject
 import arcanum.engine.state.GameState
 import arcanum.engine.state.ObjectId
@@ -35,17 +37,23 @@ import org.asyncttwiz.protocol.TurnPosition
  * blockers from the declare blockers step on).
  *
  * A board the engine can't hold ([NotHeld]: a manual Stack entry, cards in a Temp pile, engine records, a life total,
- * damage or turn that isn't a number) has no engine state. Engine data on a board (typed counters, mana, ledgers, Stack
- * items) isn't read: a board holding any fails the test instead, as no test board needs it.
+ * damage or turn that isn't a number) has no engine state. A card's typed counters are read (a suspended card's time
+ * counters, ZON-091); other engine data on a board (players' counters, mana, ledgers, Stack items) isn't: a board holding
+ * any fails the test instead, as no test board needs it.
  */
 internal object TestEngineState {
+    /** A typed counter's kind as the app writes it: "+1/+1", "time", else a named kind. */
+    private fun counterKind(kind: String): CounterKind = Regex("([+-]\\d+)/([+-]\\d+)").matchEntire(kind)
+        ?.let { CounterKind.PowerToughness(it.groupValues[1].toInt(), it.groupValues[2].toInt()) }
+        ?: if (kind == "time") CounterKind.Time else CounterKind.Named(kind)
+
     /** The engine can't hold the board. */
     class NotHeld(reason: String) : IllegalStateException(reason)
 
     fun of(play: PlayState): GameState {
         val board = play.board
         problems(board)?.let { throw NotHeld(it) }
-        check(CombatStackRules.stack(board).cards.isEmpty() && board.cards.none { it.ledger.isNotEmpty() || it.typedCounters.isNotEmpty() } &&
+        check(CombatStackRules.stack(board).cards.isEmpty() && board.cards.none { it.ledger.isNotEmpty() } &&
             board.players.none { it.ledger.isNotEmpty() || it.typedCounters.isNotEmpty() || it.manaPool.isNotEmpty() }) {
             "Engine data on a test board isn't read by the test builder"
         }
@@ -75,6 +83,7 @@ internal object TestEngineState {
                 damage = card.damage.toIntOrNull() ?: 0,
                 attachedTo = card.attachedTo?.let { ref -> target(board, ref) },
                 timestamp = card.timestamp,
+                counters = card.typedCounters.map { CounterEntry(counterKind(it.kind), it.count, it.timestamp) },
                 controlSince = if (zone != Zone.Battlefield || container.accountId == null) null
                     else ControlSince(PlayerId(container.accountId!!), card.enteredTurn.toIntOrNull() ?: 0),
             )

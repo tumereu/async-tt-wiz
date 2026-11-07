@@ -88,6 +88,20 @@ class EngineBoardTest {
             .filter { it == ogre || it == bear }, "the newest card on top")
     }
 
+    // ZON-091, CR 702.62a: a card in exile keeps its counters on the table (a suspended card's time counters), read as
+    // its chip reads them
+    @Test fun aCardInExileKeepsItsCounters() {
+        val (bear) = table.put(alice, Zone.Exile, "Stout Bear")
+        val start = table.state()
+        start.objects[table.obj(bear)] = start.objects.getValue(table.obj(bear)).copy(
+            counters = listOf(CounterEntry(CounterKind.Time, 3, 1)))
+        val board = table.board(start, viewer = bob)
+        assertEquals(PlayZone.EXILE, zoneOf(board, bear))
+        val shown = board.cards.single { it.id == bear }
+        assertEquals(listOf(org.asyncttwiz.protocol.TypedCounter("time", 3, 1)), shown.typedCounters)
+        assertEquals(listOf("time ×3"), ComputedBoard.counterMarks(shown.typedCounters))
+    }
+
     // TBL-103: a token that leaves the Battlefield stops existing; tokens get a place in their normal row (land tokens in
     // the land row, others in the main row; the table lays them out itself, TBL-004)
     @Test fun tokensStartInTheirRowAndStopExistingWhenTheyLeave() {

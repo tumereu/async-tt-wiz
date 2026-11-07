@@ -184,18 +184,18 @@ class EngineTableScreenTest {
         assertTrue(kit.scenario.cards(kit.state(), kit.other, kit.state().player(kit.other).graveyard, "Storm Spark").isNotEmpty(), "it resolved")
     }
 
-    // CMB-035, CMB-028: a staged attacker's real card carries a violet "→ <target>" chip in the declare attackers step
-    @Test fun aStagedAttackerCarriesItsTargetChip() {
+    // CMB-035, CMB-028: a staged attacker's real card carries no chip in the declare attackers step: its lane names the
+    // target, so there is neither a violet "→ <target>" chip nor the grey "attacking" one
+    @Test fun aStagedAttackerCarriesNoTargetChip() {
         val cub = kit.toReadyCub()
         kit.toAttacks()
         kit.tap(kit.item(cub))
         kit.settle()
         render()
-        val chips = compose.onAllNodesWithContentDescription("→ Bob").fetchSemanticsNodes()
-        assertTrue(chips.isNotEmpty(), "the staged Cub's chip")
-        val card = kit.item(cub).bounds
-        for (chip in chips) assertTrue(chip.boundsInRoot.width / compose.density.density <= card.width + .5f,
-            "no wider than the card")
+        compose.onNodeWithTag("main-button").assert(hasContentDescription("Attack (1)"))
+        compose.onAllNodesWithContentDescription("→ Bob").assertCountEquals(0)
+        compose.onAllNodesWithContentDescription("→ attack").assertCountEquals(0)
+        compose.onAllNodesWithContentDescription("attacking").assertCountEquals(0)
     }
 
     // CMB-048: while attackers are declared, before anything is staged, the quick action names the defending player:

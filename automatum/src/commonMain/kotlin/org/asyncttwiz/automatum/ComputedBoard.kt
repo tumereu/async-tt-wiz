@@ -265,7 +265,7 @@ class ComputedBoard private constructor(
                     gained = gained, lost = lost,
                     typeLine = typeLine(chars).takeIf { it != typeLine(base) },
                     colors = colors(chars).takeIf { chars.colors != base.colors },
-                    counters = card.typedCounters.filter { it.count != 0 }.map { "${counterName(it.kind)} ×${it.count}" },
+                    counters = counterMarks(card.typedCounters),
                     keywords = chars.keywords.map(Keyword::text),
                 )
             }
@@ -330,5 +330,10 @@ class ComputedBoard private constructor(
             null -> kind
             else -> EngineCodec.counterName(k)
         }
+
+        /** A card's counters as its chip reads them ("+1/+1 ×2", "time ×3"): on the battlefield (TBL-113) and in exile
+         * (ZON-091). */
+        fun counterMarks(counters: List<org.asyncttwiz.protocol.TypedCounter>): List<String> =
+            counters.filter { it.count != 0 }.map { "${counterName(it.kind)} ×${it.count}" }
     }
 }

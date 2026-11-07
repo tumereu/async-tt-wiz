@@ -271,6 +271,14 @@ internal fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: 
             text(i.value, badge.center.x - cache.measure(i.value) / density / 2, badge.center.y - cache.centerOffset() / density, 5)
             paint.textSize = previousSize
             paint.color = android.graphics.Color.DKGRAY; paint.isFakeBoldText = false
+            if (i.countersInside) {
+                // ZON-092: a card in the pile carries counters: a small violet counter (the colour of the counter chips,
+                // TBL-113) ringed in white like the count bubble, at the corner opposite it
+                val center = xy(i.bounds.right - 1f, i.bounds.y + 1f)
+                drawCircle(EmblemChipColor, 5f * density, center)
+                drawCircle(Color.White, 5f * density, center, style = Stroke(density))
+                drawCircle(Color.White, 1.6f * density, center)
+            }
             if (i.keepTopRevealed) {
                 // Same eye treatment as revealed panel cards, separate from the count badge.
                 val cx = i.bounds.right - 7f; val cy = i.bounds.y + 7f

@@ -8,6 +8,7 @@ import arcanum.engine.setup.StartOptions
 import arcanum.engine.state.PlayerId
 import java.security.SecureRandom
 import java.util.UUID
+import kotlinx.serialization.builtins.serializer
 import org.asyncttwiz.protocol.EngineRewindRequest
 import org.asyncttwiz.protocol.EngineSnapshot
 import org.asyncttwiz.protocol.EngineUpdate
@@ -71,8 +72,9 @@ internal val ENGINE_REASONS = setOf("stale", "revealsHidden", "rewindRequested",
  * changed). Each play's decoded definitions and recent events are kept too ([EngineHistoryStore.Shared]), so the work
  * of a request doesn't grow with how far a player is behind (the main line between two events is read in one go).
  */
-/** HIS-106: the most events of a discarded line a snapshot carries for its viewer's take-back (a longer one opens as a
- * plain catch-up at the branch point). */
+/** HIS-106, HIS-108: the most events of a discarded line, or of what the other player's undo took back, a snapshot
+ * carries for its viewer's take-back (a longer one opens at the point the game went back to: a plain catch-up after a
+ * branch, the board after an undo without its animation). */
 private const val MAX_TAKEN_BACK = 200
 
 internal class EngineGames(private val capacity: Int = warmCapacity()) {
@@ -106,10 +108,12 @@ internal class EngineGames(private val capacity: Int = warmCapacity()) {
     /** One player's seat: their local head, private settings, next stop and its time, whether the game waits for them
      * (I-D57, [NextStop.waitsFor]), the point they would resume at (the encoded [org.asyncttwiz.protocol.ResumePoint] of
      * their local head) and, when another player's branch took their local head back to the branch point, where it stood
-     * on the discarded line ([takenBackFrom], HIS-106; cleared by any later move of it). */
+     * on the discarded line ([takenBackFrom], HIS-106); when the other player's undo took back events they had been
+     * shown, those events (encoded, from the undo's point on: [undone], HIS-108) and who undid ([undoneBy]); both cleared
+     * by any later move of it. */
     data class SeatRow(val account: UUID, val head: String, val settings: PlaySettings, val nextStop: String?,
         val nextStopAt: java.time.OffsetDateTime? = null, val waited: Boolean = false, val resumeAt: String? = null,
-        val takenBackFrom: String? = null, val mulligans: Int = 0)
+        val takenBackFrom: String? = null, val mulligans: Int = 0, val undone: List<String> = emptyList(), val undoneBy: String? = null)
 
     /**
      * What a finished match's record takes from its play (game history spec §1.2): the turn number at the end, each
@@ -293,7 +297,12 @@ internal class EngineGames(private val capacity: Int = warmCapacity()) {
         val history = GameHistory(store, store.codec)
         val head = head(sql, play, store.rootId)
         val seat = seats(sql, play).single { it.account == account }
-        if (eventId == seat.head) throw Refusal("noChange")
+        if (eventId == seat.head) {
+            // HIS-108: the device showed the other player's undo at its local head: a later opening shows it no more
+            if (seat.undoneBy == null) throw Refusal("noChange")
+            setHead(sql, play, account, eventId)
+            return refresh(sql, play, history, warmAt(play, history, head), emptyList(), live, only = account)
+        }
         val after = MainLine.after(history, head, seat.head) ?: throw Refusal("stale")
         if (after.none { it.id == eventId }) throw Refusal("stale")
         setHead(sql, play, account, eventId)
@@ -342,7 +351,13 @@ internal class EngineGames(private val capacity: Int = warmCapacity()) {
         }
         val gone = after.map { it.id }.toSet() + target
         val newHead = events.lastOrNull()?.id ?: target.also(store::raise)
-        for (seat in seats) if (seat.head in gone) setHead(sql, play, seat.account, newHead)
+        for (seat in seats) if (seat.head in gone) {
+            // HIS-108: what another player had been shown of the deleted events stays with their seat (its local head at
+            // the undo's point), so a device opening the game later shows the undo instead of only its result
+            val seen = if (seat.account == account) emptyList() else after.take(after.indexOfFirst { it.id == seat.head } + 1)
+            if (seen.isNotEmpty() && seen.size <= MAX_TAKEN_BACK) undone(sql, play, seat.account, target, account, seen.map(store.codec::encodeEvent))
+            else setHead(sql, play, seat.account, newHead)
+        }
         if (approved || row.request != null) clearRequest(sql, play)
         return refresh(sql, play, history, LiveState(newHead, model), events, live, target = target, rewoundBy = account.toString())
     }
@@ -403,11 +418,14 @@ internal class EngineGames(private val capacity: Int = warmCapacity()) {
         val seat = seats.singleOrNull { it.account == viewer }
         // HIS-106: what of the discarded line the viewer had been shown, when another player's branch took it back
         val takenBack = seat?.takenBackFrom?.let { from -> MainLine.after(history, from, seat.head) }
-            ?.takeIf { it.isNotEmpty() && it.size <= MAX_TAKEN_BACK && seat.head != head }.orEmpty()
+            ?.takeIf { it.isNotEmpty() && it.size <= MAX_TAKEN_BACK && seat.head != head }.orEmpty().map(store.codec::encodeEvent)
+        // HIS-108: or what of it the other player's undo took back (deleted from the line, kept with the seat)
+        val undone = seat?.undone?.takeIf { seat.undoneBy != null }.orEmpty()
         return EngineSnapshot(store.codec.encodeDefinitions(), store.rootId, head, store.codec.encodeModel(state.model),
             seats.associate { it.account.toString() to it.head }, seat?.settings, row.request, row.lines,
-            start.takeIf { after.isNotEmpty() }, base, after.map(store.codec::encodeEvent), takenBack.map(store.codec::encodeEvent),
-            seats.associate { it.account.toString() to it.settings.mode }) to
+            start.takeIf { after.isNotEmpty() }, base, after.map(store.codec::encodeEvent), takenBack.ifEmpty { undone },
+            seats.associate { it.account.toString() to it.settings.mode },
+            undoneBy = seat?.undoneBy?.takeIf { takenBack.isEmpty() && undone.isNotEmpty() }) to
             attention(seats, viewer)
     }
 
@@ -700,7 +718,8 @@ internal class EngineGames(private val capacity: Int = warmCapacity()) {
             .orderBy(ENGINE_EVENT.ORDINAL.desc()).limit(1)).`as`("head")
         val rows = sql.select(ENGINE_PLAY.ROOT_ID, definitions, ENGINE_PLAY.LINES, ENGINE_PLAY.REWIND_BY, ENGINE_PLAY.REWIND_TARGET,
             ENGINE_PLAY.REWIND_MESSAGE, newest, ENGINE_SEAT.ACCOUNT_ID, ENGINE_SEAT.LOCAL_HEAD, ENGINE_SEAT.SETTINGS, ENGINE_SEAT.NEXT_STOP,
-            ENGINE_SEAT.NEXT_STOP_AT, ENGINE_SEAT.WAITED, ENGINE_SEAT.RESUME_AT, ENGINE_SEAT.TAKEN_BACK_FROM, ENGINE_SEAT.MULLIGANS)
+            ENGINE_SEAT.NEXT_STOP_AT, ENGINE_SEAT.WAITED, ENGINE_SEAT.RESUME_AT, ENGINE_SEAT.TAKEN_BACK_FROM, ENGINE_SEAT.MULLIGANS,
+            ENGINE_SEAT.UNDONE_EVENTS, ENGINE_SEAT.UNDONE_BY)
             .from(ENGINE_PLAY).leftJoin(ENGINE_SEAT).on(ENGINE_SEAT.PLAY_ID.eq(ENGINE_PLAY.PLAY_ID))
             .where(ENGINE_PLAY.PLAY_ID.eq(play)).orderBy(ENGINE_SEAT.ACCOUNT_ID).fetch()
         val first = rows.firstOrNull() ?: return null
@@ -712,7 +731,7 @@ internal class EngineGames(private val capacity: Int = warmCapacity()) {
             SeatRow(r[ENGINE_SEAT.ACCOUNT_ID]!!, r[ENGINE_SEAT.LOCAL_HEAD]!!.toString(),
                 GameWire.json.decodeFromString(PlaySettings.serializer(), r[ENGINE_SEAT.SETTINGS]!!), r[ENGINE_SEAT.NEXT_STOP]?.toString(),
                 r[ENGINE_SEAT.NEXT_STOP_AT], r[ENGINE_SEAT.WAITED]!!, r[ENGINE_SEAT.RESUME_AT], r[ENGINE_SEAT.TAKEN_BACK_FROM]?.toString(),
-                r[ENGINE_SEAT.MULLIGANS]!!)
+                r[ENGINE_SEAT.MULLIGANS]!!, undoneEvents(r[ENGINE_SEAT.UNDONE_EVENTS]), r[ENGINE_SEAT.UNDONE_BY]?.toString())
         }
         return Opened(store, first[newest]?.toString() ?: store.rootId, row, seats)
     }
@@ -730,14 +749,20 @@ internal class EngineGames(private val capacity: Int = warmCapacity()) {
 
     internal fun seats(sql: DSLContext, play: UUID): List<SeatRow> =
         sql.select(ENGINE_SEAT.ACCOUNT_ID, ENGINE_SEAT.LOCAL_HEAD, ENGINE_SEAT.SETTINGS, ENGINE_SEAT.NEXT_STOP, ENGINE_SEAT.NEXT_STOP_AT,
-            ENGINE_SEAT.WAITED, ENGINE_SEAT.RESUME_AT, ENGINE_SEAT.TAKEN_BACK_FROM, ENGINE_SEAT.MULLIGANS)
+            ENGINE_SEAT.WAITED, ENGINE_SEAT.RESUME_AT, ENGINE_SEAT.TAKEN_BACK_FROM, ENGINE_SEAT.MULLIGANS, ENGINE_SEAT.UNDONE_EVENTS,
+            ENGINE_SEAT.UNDONE_BY)
             .from(ENGINE_SEAT).where(ENGINE_SEAT.PLAY_ID.eq(play)).orderBy(ENGINE_SEAT.ACCOUNT_ID).fetch { r ->
                 SeatRow(r.value1()!!, r.value2()!!.toString(), GameWire.json.decodeFromString(PlaySettings.serializer(), r.value3()!!),
-                    r.value4()?.toString(), r.value5(), r.value6()!!, r.value7(), r.value8()?.toString(), r.value9()!!)
+                    r.value4()?.toString(), r.value5(), r.value6()!!, r.value7(), r.value8()?.toString(), r.value9()!!,
+                    undoneEvents(r.value10()), r.value11()?.toString())
             }
+
+    private val undoneList = kotlinx.serialization.builtins.ListSerializer(String.serializer())
+    private fun undoneEvents(json: String?): List<String> = json?.let { GameWire.json.decodeFromString(undoneList, it) }.orEmpty()
 
     private fun setHead(sql: DSLContext, play: UUID, account: UUID, event: String) {
         sql.update(ENGINE_SEAT).set(ENGINE_SEAT.LOCAL_HEAD, UUID.fromString(event)).setNull(ENGINE_SEAT.TAKEN_BACK_FROM)
+            .setNull(ENGINE_SEAT.UNDONE_EVENTS).setNull(ENGINE_SEAT.UNDONE_BY)
             .where(ENGINE_SEAT.PLAY_ID.eq(play)).and(ENGINE_SEAT.ACCOUNT_ID.eq(account)).execute()
     }
 
@@ -745,6 +770,16 @@ internal class EngineGames(private val capacity: Int = warmCapacity()) {
      * branch point and remembers [from] ([SeatRow.takenBackFrom]). */
     private fun takeBack(sql: DSLContext, play: UUID, account: UUID, branchPoint: String, from: String) {
         sql.update(ENGINE_SEAT).set(ENGINE_SEAT.LOCAL_HEAD, UUID.fromString(branchPoint)).set(ENGINE_SEAT.TAKEN_BACK_FROM, UUID.fromString(from))
+            .setNull(ENGINE_SEAT.UNDONE_EVENTS).setNull(ENGINE_SEAT.UNDONE_BY)
+            .where(ENGINE_SEAT.PLAY_ID.eq(play)).and(ENGINE_SEAT.ACCOUNT_ID.eq(account)).execute()
+    }
+
+    /** HIS-108: [by]'s undo to just after [target] deleted [seen] (encoded, oldest first), which [account] had been shown:
+     * their local head goes to the undo's point, and the seat keeps [seen] and [by] for a device opening the game later
+     * ([SeatRow.undone]). */
+    private fun undone(sql: DSLContext, play: UUID, account: UUID, target: String, by: UUID, seen: List<String>) {
+        sql.update(ENGINE_SEAT).set(ENGINE_SEAT.LOCAL_HEAD, UUID.fromString(target)).setNull(ENGINE_SEAT.TAKEN_BACK_FROM)
+            .set(ENGINE_SEAT.UNDONE_EVENTS, GameWire.json.encodeToString(undoneList, seen)).set(ENGINE_SEAT.UNDONE_BY, by)
             .where(ENGINE_SEAT.PLAY_ID.eq(play)).and(ENGINE_SEAT.ACCOUNT_ID.eq(account)).execute()
     }
 

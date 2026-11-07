@@ -204,11 +204,31 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
             device.clock = clock
             this.loaded = true
             previous = null
-            publish()
+            // HIS-108: likewise, opened where the other player's undo took the player's line back: the undo as it shows live.
+            // Either waits until the table has drawn the board where the player left it ([tableShown]): a table opening on
+            // the board after it shows only the result (owner playtest 2026-11-07)
             val branch = device.branchOnLoad
-            if (branch.isNotEmpty()) { device.branchOnLoad = emptyList(); received(branch, null) }
+            val undo = device.undoOnLoad
+            if (undo != null || branch.isNotEmpty()) {
+                device.branchOnLoad = emptyList(); device.undoOnLoad = null
+                onLoad = { received(branch, undo) }; onLoadWaiting = true
+            }
+            publish()
         }
     }
+
+    /** HIS-106, HIS-108: the take-back found on loading, received once the table has drawn the board where the player
+     * left it ([tableShown]), or before anything else reaches the device (engine thread). */
+    private var onLoad: (() -> Unit)? = null
+    @Volatile private var onLoadWaiting = false
+    private fun takeBackOnLoad() {
+        val work = onLoad ?: return
+        onLoad = null; onLoadWaiting = false
+        work()
+    }
+
+    /** The table drew this game's board (main thread, after composition): a take-back found on loading goes on now. */
+    fun tableShown() { if (onLoadWaiting) worker.run { takeBackOnLoad() } }
 
     /** The board the table shows now: the projected state at the local head and the device's own pending events. */
     fun play(): TableBoard = requireNotNull(shown) { "Not loaded yet" }.board
@@ -569,7 +589,7 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
         val update = message.engine
         val texts = listOfNotNull(message.engineEvent) + update?.events.orEmpty()
         if (texts.isEmpty() && update == null) return
-        worker.run { received(texts.map(codec::decodeEvent), update) }
+        worker.run { takeBackOnLoad(); received(texts.map(codec::decodeEvent), update) }
     }
 
     /** The server's accepted [events] in order and [update] (engine thread): [revision]'s, or the main line after the
@@ -626,6 +646,7 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
     /** The time [now]; makes the device's own steps (passes, assumptions). The other player's presence never decides
      * an assumption (HIS-096). */
     fun tick(now: Long) = worker.run {
+        takeBackOnLoad()
         this.now = now
         val before = device.status
         val tip = device.session.tip

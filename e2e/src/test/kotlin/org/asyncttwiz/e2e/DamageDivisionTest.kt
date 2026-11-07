@@ -14,10 +14,17 @@ import kotlin.test.assertTrue
  * Pup with its damage chip and on the bottom line what tramples over to Bob; OK deals it.
  */
 class DamageDivisionTest : E2e() {
-    /** Taps [player]'s main button while it passes or goes on (also at a stop at an assumption about them, HIS-095). */
-    private fun goOn(player: E2ePlayer) = player.once {
-        if (player.status == GameDevice.Status.YourMove || player.status is GameDevice.Status.Stopped)
-            player.stepArrow()?.takeIf { it in listOf("Pass", "Next", "Resolve") }?.let(player::tap)
+    /**
+     * Taps [player]'s main button while it passes or goes on (also at a stop at an assumption about them, HIS-095), once
+     * their game has [settled]: until then a board their own pass shows may still be taken back by the other device's
+     * assumption about them winning the race to the server (HIS-096), and a tap on it isn't taken (SYS-012).
+     */
+    private fun goOn(player: E2ePlayer) {
+        if (!player.settled(this)) return
+        player.once {
+            if (player.status == GameDevice.Status.YourMove || player.status is GameDevice.Status.Stopped)
+                player.stepArrow()?.takeIf { it in listOf("Pass", "Next", "Resolve") }?.let(player::tap)
+        }
     }
 
     // CMB-033, STK-033, CR 702.19b
@@ -59,9 +66,12 @@ class DamageDivisionTest : E2e() {
         bob.declare("Block (3)", this)
         // CMB-033: Alice's division opens attached to the band: a row per Pup (lethal 1 each in turn: two red, one grey)
         // and what tramples over to Bob on the bottom line
-        waitUntil("Alice's division", along = listOf(bob)) {
+        // Once the game has settled: after Bob's blocks the point is his (HIS-096), so his phone assumes Alice's pass at once
+        // while her own device passes too; when his assumption reaches the server first, her board (with the division
+        // already open on it) is taken back and the division opens again on his line
+        waitUntil("Alice's division, the game settled", along = listOf(bob)) {
             goOn(alice)
-            alice.shows(androidx.compose.ui.test.hasContentDescription("Division of combat damage"))
+            alice.settled(this) && alice.shows(androidx.compose.ui.test.hasContentDescription("Division of combat damage"))
         }
         assertTrue(alice.showsText("Divide 2 damage"), alice.screen())
         assertEquals(2, alice.nodes(androidx.compose.ui.test.hasContentDescription("Ash Pup: 1")).fetchSemanticsNodes().size)

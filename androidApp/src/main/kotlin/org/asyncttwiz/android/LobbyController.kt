@@ -204,6 +204,10 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
     fun activityUnavailable(message: String = "This activity is no longer available. Showing your current Games.") =
         routes.activityUnavailable(message)
     fun openActivity(route: ActivityRoute, current: () -> Boolean) = routes.openActivity(route, current)
+    /** A game's notification (LOB-078): opens the game; when it is open already its table stays as it is, so a take-back
+     * that reached it in the background still plays on the return (HIS-106, HIS-108) instead of the table opening anew
+     * at the board after it. */
+    fun openNotified(id: String) { if (state.selected == id && state.detail?.id == id) openGame() else open(id) }
     fun open(id: String) { if (!state.mutating) { routes.fence(); setupCancellation.clear(); queue.dropQueued(); closePicker(); state = state.copy(selected = id, detail = null, activityTarget = null, acceptedPreparation = null, preparation = null, board = null, preparing = false, transferFeedback = null, chatOpen = false, chat = ChatPresentation(), gameContext = null, deletion = null, error = null); openGame(); refresh() } }
     fun back() { if (state.deletion != null) dismissGameDeletion() else if (state.gameContext != null) dismissGameContext()
         else if (setupCancellation.confirmation != null) setupCancellation.dismiss() else if (setupCancellation.context != null) setupCancellation.dismissContext()

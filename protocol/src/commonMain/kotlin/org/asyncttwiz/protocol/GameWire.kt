@@ -133,11 +133,15 @@ const val GAME_PROTOCOL_MINOR = 9
     val events: List<String> = emptyList(),
     /** HIS-106: when another player's branch took the reader's local head back to the branch point (it is then behind),
      * the events of the discarded line they had been shown, from the branch point on, oldest first: their device opens
-     * the game where they left it and shows the take-back ([org.asyncttwiz.protocol.game.GameDevice.load]). */
+     * the game where they left it and shows the take-back ([org.asyncttwiz.protocol.game.GameDevice.load]). HIS-108: or,
+     * with [undoneBy], the events the other player's undo took back that the reader had been shown, from the undo's point
+     * (the reader's local head) on. */
     val takenBack: List<String> = emptyList(),
     /** Each player's current response mode by account (owner 2026-11-06: kept per game outside undo and history; the
      * other player's device assumes a pass wherever the player's own mode would make it). */
-    val modes: Map<String, org.asyncttwiz.protocol.game.ResponseMode> = emptyMap())
+    val modes: Map<String, org.asyncttwiz.protocol.game.ResponseMode> = emptyMap(),
+    /** HIS-108: who undid [takenBack] (an undo, not a branch); null otherwise. */
+    val undoneBy: String? = null)
 /** An open undo request (I-D56 §10): [by] asks to take the main line back to just after [target], with [message]. */
 @Serializable data class EngineRewindRequest(val by: String, val target: String, val message: String = "")
 /** I-D56: what an engine revision changed beyond [GameRevision.engineEvent]: the events after the first ([events]), a

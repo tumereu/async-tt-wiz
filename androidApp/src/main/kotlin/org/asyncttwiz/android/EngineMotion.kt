@@ -55,43 +55,45 @@ internal object EngineMotion {
 /**
  * The table's side of [EngineMotion] (main thread): the board to draw while a published board's steps play. Started by
  * the board's [EngineGame.Shown.version]; a newer board (the player's next action, the server) ends it at once, and the
- * table goes on from wherever its cards are.
+ * table goes on from wherever its cards are; except a branch's take-back (HIS-106), which plays to its end when its board
+ * is published again unchanged (its status, a note, the app's return).
  */
 internal class EngineMotionQueue {
     private var version = -1L
     private var serial = 0L
     private var steps: List<TableBoard> = emptyList()
-    /** The board version and how many of its steps have played (state: the table recomposes on it). */
+    /** Counts the step sequences started ([steps]). */
+    private var run = 0L
+    /** The step sequence and how many of its steps have played (state: the table recomposes on it). */
     private val played = mutableStateOf(-1L to 0)
+    private val index: Int get() = played.value.let { (at, count) -> if (at == run) count else 0 }
 
     /** Composition: [version]'s board [live], with the steps of [transition] to show before it when it is new (a board
-     * published again with the same transition, an action's preview, shows at once). */
+     * published again with the same transition, an action's preview, shows at once; a branch's take-back goes on). */
     fun board(version: Long, transition: EngineGame.Transition?, live: TableBoard): TableBoard {
         if (version != this.version) {
             // The table just opened: the last board shows as it is
             if (this.version < 0) transition?.let { serial = it.serial }
             this.version = version
-            steps = if (transition == null || transition.serial == serial || transition.jump) emptyList() else transition.steps
+            val takeBackGoesOn = transition != null && transition.serial == serial && transition.undone?.branch == true
+            if (!takeBackGoesOn) {
+                steps = if (transition == null || transition.serial == serial || transition.jump) emptyList() else transition.steps
+                run++
+            }
             transition?.let { serial = it.serial }
         }
-        val (at, count) = played.value
-        val index = if (at == version) count else 0
         return this.steps.getOrNull(index) ?: live
     }
 
     /** The key of what is drawn now, for the table's scene clock (each step is a scene of its own). */
-    fun key(): String {
-        val (at, count) = played.value
-        return "motion:$version:${if (at == version) count else 0}"
-    }
+    fun key(): String = "motion:$version:$index"
 
     /** The table finished animating to what [board] gave last: the next step, or the board itself. */
     fun settled() {
-        val (at, count) = played.value
-        val index = if (at == version) count else 0
-        if (index < steps.size) played.value = version to index + 1
+        val at = index
+        if (at < steps.size) played.value = run to at + 1
     }
 
     /** Whether a step is drawn instead of the board. */
-    val playing: Boolean get() = played.value.let { (at, count) -> (if (at == version) count else 0) < steps.size }
+    val playing: Boolean get() = index < steps.size
 }

@@ -65,6 +65,8 @@ internal fun EngineTableScreen(controller: LobbyController, accountId: String, h
     }
     // SYS-072: the engine's tokens show the best matching token picture
     SideEffect { engine.tokenArt = tokenArt }
+    // HIS-106, HIS-108: a take-back found on opening the game goes on once the table has drawn where the player left it
+    SideEffect { engine.tableShown() }
     // LOB-113 (I-D56 §7): a new game starts with the player's defaults, which the server gives its seat from their account
     // I-D56 §13: Autotap is the player's private setting of this game; the cast flow reads it
     SideEffect { toolkit.cast.autotap = shown.settings.autotap }
@@ -113,6 +115,7 @@ internal fun EngineTableScreen(controller: LobbyController, accountId: String, h
             applied.reviewed = null
             shown.transition?.takeIf { it.serial != applied.transition }?.let { t ->
                 applied.transition = t.serial
+                EngineTableProbe.applied?.invoke(accountId, t, !applied.drawn)
                 changes.applyEngine(t.cursor, t.jump, t.changes, t.shuffled)
                 // HIS-076 (owner playtest 2026-11-04 #5): live, the newest event just shown, yours too (your own action's
                 // text fades at the top like the other player's); quiet on open and return. §29.4: an undo says what it
@@ -128,7 +131,9 @@ internal fun EngineTableScreen(controller: LobbyController, accountId: String, h
                     else -> eventText.moved(t.cursor)
                 }
             }
+            applied.drawn = true
         }
+        if (rewindingBranch) EngineTableProbe.rewinding?.invoke(accountId)
     }
     val status = shown.status
     val playing = status is GameDevice.Status.Playing
@@ -287,8 +292,17 @@ internal fun EngineRewindPanel(landscape: Boolean) {
     }
 }
 
-/** What the engine table applied once: the last transition and the board reviewed. */
-private class AppliedMarks { var transition = 0L; var reviewed: String? = null }
+/** What the engine table applied once: the last transition and the board reviewed; [drawn]: the table has drawn a live
+ * board of this game (a transition applied later animates from it). */
+private class AppliedMarks { var transition = 0L; var reviewed: String? = null; var drawn = false }
+
+/** Tests: what the engine table did with the boards it was given (main thread, after composition), with its player's
+ * account id: each transition it applied, and whether it opened on it ([applied]'s `opened`: no board of the game drawn
+ * before, so nothing animates); and each composition drawing a step of a branch's take-back (HIS-106, [rewinding]). */
+internal object EngineTableProbe {
+    @Volatile var applied: ((me: String, transition: EngineGame.Transition, opened: Boolean) -> Unit)? = null
+    @Volatile var rewinding: ((me: String) -> Unit)? = null
+}
 
 /** The ending tools on engine state (TRN-046, TRN-064): suggestions are table changes, conceding an engine input. */
 private fun engineEnding(routes: EngineTableRoutes, intent: TableActionIntent.Ending): Boolean {

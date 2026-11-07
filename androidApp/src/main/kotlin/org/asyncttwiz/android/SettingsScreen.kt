@@ -50,7 +50,7 @@ internal fun SettingsContent(catalog: CatalogViewModel?, accountId: String, logo
                 CardSettings()
             }
             HorizontalDivider()
-            SettingsSection("Timeline playback") { PlaybackSettings(preferences, accountId, heading = false, moveSpeed = false) }
+            SettingsSection("Timeline playback") { PlaybackSettings(preferences, accountId, heading = false, moveSpeed = false, plays = true) }
             HorizontalDivider()
             SettingsSection("Automatum") { AutomatumPauseSettings(accountId, account) }
             HorizontalDivider()

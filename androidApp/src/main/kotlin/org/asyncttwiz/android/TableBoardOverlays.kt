@@ -31,8 +31,10 @@ internal inline fun TableBoardOverlays(game: GameSummary, play: TableBoard, acco
             TimelineCentreText(runtime.timelinePlayback ?: TimelinePlaybackStatus.PAUSED)
         }
     }
+    // HIS-112: a play shown in the middle of the table takes the place of the wait's words and the Stack line
+    val showing = LocalEngineRoutes.current?.showing() == true
     // TRN-066: the wait, faint like timeline mode's words; purely visual (no pointer handlers), so the board stays usable
-    if (!runtime.reviewing) runtime.waitingLine?.let { line -> scene.world?.visibleViewport?.let { board ->
+    if (!runtime.reviewing && !showing) runtime.waitingLine?.let { line -> scene.world?.visibleViewport?.let { board ->
         Box(Modifier.offset(board.x.dp, board.y.dp).size(board.width.dp, board.height.dp), contentAlignment = Alignment.Center) {
             Text(line, Modifier.padding(horizontal = 24.dp).semantics { contentDescription = line }, color = TimelineFaintInk,
                 style = androidx.compose.material3.MaterialTheme.typography.titleMedium,
@@ -42,7 +44,7 @@ internal inline fun TableBoardOverlays(game: GameSummary, play: TableBoard, acco
     // STK-057 (owner playtest 2026-11-07): what the other player's top Stack entry is while you hold priority over it, in
     // the wait's place (they never show together) and look, a little darker; purely visual. Live and in catch-up playback,
     // not under the catch-up's centre text or in timeline mode
-    if (!runtime.reviewing && runtime.waitingLine == null && runtime.centreAction == null) {
+    if (!runtime.reviewing && runtime.waitingLine == null && runtime.centreAction == null && !showing) {
         val names = remember(game) { gameNames(game) }
         val pieces = remember(IdentityKey(play.board), accountId, names) { StackLine.pieces(play, accountId, names) }
         if (pieces != null) scene.world?.visibleViewport?.let { board ->

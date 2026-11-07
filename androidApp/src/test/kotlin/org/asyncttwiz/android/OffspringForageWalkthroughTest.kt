@@ -48,6 +48,8 @@ class OffspringForageWalkthroughTest {
     @After fun forget() = AutomatumBoards.reset()
 
     private fun render() {
+        // HIS-112: no plays shown (Alice's own triggers would hold her table a moment each): this walks through the questions
+        HistoryPlaybackPreferences(androidx.test.core.app.ApplicationProvider.getApplicationContext(), kit.f.a).showPlaysMillis = 0
         compose.setContent {
             MaterialTheme {
                 NoRipples {

@@ -327,7 +327,8 @@ class RtrChunk03OverloadAndIzzetSpellsTest {
         spell(draw(4), Step.Do(Effect.Discard(Players.You, n(2), ObjectFilter.Any))),
     )
 
-    /** "If that spell is countered this way, exile it instead": a replacement of the spell's own effect (CR 614.15). */
+    /** "If that spell is countered this way, exile it instead": a replacement of the spell's own effect (CR 614.15). The
+     * {X} to pay is the X announced as the spell was cast (CR 107.3a; set check). */
     @Test
     fun offbeatDenial() = card(
         name = "Offbeat Denial",
@@ -338,7 +339,8 @@ class RtrChunk03OverloadAndIzzetSpellsTest {
         Ability.Spell(Instructions(
             targets = listOf(slot("spell", Rtr.spell)),
             steps = listOf(
-                Step.Pay(Cost.mana(mana("{X}")), payer = Players.ControllerOf(target("spell")), bind = "paid"),
+                Step.Pay(Cost(listOf(arcanum.api.CostPart.Mana(mana("{X}"), x = Value.Announced("X")))),
+                    payer = Players.ControllerOf(target("spell")), bind = "paid"),
                 Step.If(Condition.Not(Condition.Did("paid")), then = listOf(Step.Do(Effect.Counter(target("spell"))))),
             ),
             announced = listOf("X"),

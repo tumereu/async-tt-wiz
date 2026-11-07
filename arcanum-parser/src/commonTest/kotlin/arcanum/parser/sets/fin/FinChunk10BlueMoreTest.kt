@@ -206,7 +206,8 @@ class FinChunk10BlueMoreTest {
         Ability.Spell(Instructions(
             targets = listOf(slot("spell", spellFilter)),
             steps = listOf(
-                Step.Pay(cost(mana("{X}")), payer = Players.ControllerOf(target("spell")), bind = "paid"),
+                // CR 107.3a (set check): the {X} to pay is the X announced as the spell was cast
+                Step.Pay(cost(CostPart.Mana(ManaCost.parse("{X}")!!, x = Value.Announced("X"))), payer = Players.ControllerOf(target("spell")), bind = "paid"),
                 ifThen(arcanum.api.Condition.Not(arcanum.api.Condition.Did("paid")), doing(Effect.Counter(target("spell"))))),
             announced = listOf("X"),
             replacements = listOf(Mechanic.Replacement(EventPattern.ZoneChange(ObjectFilter.Is(target("spell")), from = Zone.Stack, to = Zone.Graveyard),

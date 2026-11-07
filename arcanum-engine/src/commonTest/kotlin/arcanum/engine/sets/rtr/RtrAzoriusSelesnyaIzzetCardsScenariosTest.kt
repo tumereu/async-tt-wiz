@@ -17,6 +17,7 @@ import arcanum.engine.sets.rtr.Rtr.ogre
 import arcanum.engine.sets.rtr.Rtr.ponder
 import arcanum.engine.sets.rtr.Rtr.shock
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 
 /** Return to Ravnica's detain, populate and overload cards and other Azorius, Selesnya and Izzet cards in play (parser chunks 01–03), beyond the mechanics played in [RtrMechanicsScenariosTest]. */
@@ -813,5 +814,28 @@ class RtrAzoriusSelesnyaIzzetCardsScenariosTest {
         if (pending is Decision.May) bob.answers(Answer.YesNo(false))
         resolveAll()
         expect { bob.exile has ogre }
+    }
+
+    // CR 107.3a, 118.12a (set check): the {X} to pay is the X announced for the counterspell; paid, the spell stays
+    @Test
+    fun offbeatDenialIsPaidWithItsX() = scenario {
+        bob.battlefield("Mountain", "Mountain", "Mountain", "Mountain", "Mountain", "Mountain")
+        bob.hand(ogre)
+        alice.battlefield("Island", "Island", "Island")
+        alice.hand(offbeatDenial)
+        turn(active = bob)
+        bob.casts(ogre)
+        bob.passes()
+        alice.casts(offbeatDenial, target = ogre, x = 2)
+        resolveAll()
+        assertEquals(bob.id, decision<Decision.May>().player)
+        answer(Answer.YesNo(true))
+        val payment = decision<Decision.ManaPayment>()
+        answer(Answer.ManaPayment(payment.suggestion))
+        resolveAll()
+        expect {
+            (0..5).count { card("Mountain", it).tapped } shouldBe 5
+            bob.battlefield has ogre
+        }
     }
 }

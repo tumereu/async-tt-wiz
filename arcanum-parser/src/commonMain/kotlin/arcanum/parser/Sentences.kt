@@ -4448,7 +4448,10 @@ internal class Sentences(
             val counter = Step.Do(Effect.Counter(spell))
             if (m.groupValues[2].isEmpty()) return listOf(counter)
             val cost = ManaCost.parse(m.groupValues[2]) ?: return null
-            return unlessPays(Players.ControllerOf(spell), Cost.mana(cost), listOf(counter))
+            // set check (RTR, TDM): "unless its controller pays {X}" in a spell with {X} in its cost: the X announced as
+            // it was cast (CR 107.3a)
+            val x = Value.Announced("X").takeIf { cost.symbols.any { it is arcanum.api.ManaSymbol.Variable } }
+            return unlessPays(Players.ControllerOf(spell), Cost(listOf(CostPart.Mana(cost, x = x))), listOf(counter))
         }
         COUNTERED_THIS_WAY.matchEntire(sentence)?.let { m ->
             val spell = context.targets.lastOrNull()?.let { Objects.Target(it.name) } ?: return null

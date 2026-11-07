@@ -473,7 +473,8 @@ class TdmChunk10BlueTest {
                 targets = listOf(TargetSlot(name = "spell", what = TargetKind.Objects(filter = spellFilter), min = n(1), max = n(1))),
                 steps = listOf(
                     Step.Pay(
-                        cost = Cost(parts = listOf(mana("{X}"))),
+                        // CR 107.3a (set check): the X announced as the spell was cast
+                        cost = Cost(parts = listOf(CostPart.Mana(cost = ManaCost.parse("{X}")!!, x = Value.Announced(name = "X")))),
                         payer = Players.ControllerOf(objects = target("spell")),
                         bind = "paid",
                     ),

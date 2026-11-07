@@ -513,6 +513,22 @@ class LtrWhiteScenariosTest {
         }
     }
 
+    /** Named by its shortened name, it makes a Food as it enters, and the token's creation puts a counter on another
+     * creature, never on itself. */
+    // CR 201.5c, 111.1
+    @Test
+    fun marigoldThistleCountersOnTokens() = scenario {
+        alice.battlefield("Plains", "Plains", "Plains", p.bear)
+        alice.hand(s.marigoldThistleOfElmHollow)
+        alice.casts(s.marigoldThistleOfElmHollow)
+        playOut(p.bear)
+        expect {
+            alice.battlefield has food
+            p.bear.counters(p1p1) shouldBe 1
+            s.marigoldThistleOfElmHollow.counters(p1p1) shouldBe 0
+        }
+    }
+
     /** A creature that died this turn comes back to hand, then the Ring tempts. */
     // CR 400.7, 701.54a
     @Test

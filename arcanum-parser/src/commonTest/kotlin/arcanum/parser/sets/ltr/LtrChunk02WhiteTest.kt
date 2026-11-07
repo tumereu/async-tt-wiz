@@ -111,6 +111,22 @@ class LtrChunk02WhiteTest {
         triggered(on(EventPattern.CreateToken(you)), counters(target("creature")), targets = listOf(slot("creature", and(another, creature, you)))),
     )
 
+    // CR 201.5c (set check): a legendary card's shortened name is its name before " of " ("Marigold Thistle")
+    @Test
+    fun marigoldThistleOfElmHollow() = card(
+        name = "Marigold Thistle of Elm Hollow",
+        cost = "{2}{W}",
+        type = "Legendary Creature — Halfling Peasant",
+        text = """
+            When Marigold Thistle enters, create a Food token. (It's an artifact with "{2}, {T}, Sacrifice this token: You gain 3 life.")
+            Whenever you create a token, put a +1/+1 counter on target creature you control other than Marigold Thistle.
+        """,
+        pt = "1/1",
+    ) parsesTo abilities(
+        triggered(entersSelf, createFood()),
+        triggered(on(EventPattern.CreateToken(you)), counters(target("creature")), targets = listOf(slot("creature", and(another, creature, you)))),
+    )
+
     // CR 400.7: the card the permanent became as it went to the graveyard this turn
     @Test
     fun hamfastTheSteadfast() = card(

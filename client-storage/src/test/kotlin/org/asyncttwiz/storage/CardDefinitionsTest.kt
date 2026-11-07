@@ -98,6 +98,24 @@ class CardDefinitionsTest {
     private val modal = twoFaces("13", "modal_dfc",
         { face("Tidecaller's Call", "Instant", "{1}{U}", "U", "Draw two cards.") },
         { face("Tidecaller Grotto", "Land", "", "", "{T}: Add {U}.") })
+    // set check (TDM): card data names an Omen card's layout "adventure"
+    private val omen = twoFaces("14", "adventure",
+        { face("Tidewing Regent", "Creature — Dragon", "{3}{U}{U}", "U", "Flying", "4", "4") },
+        { face("Swell and Surge", "Instant — Omen", "{1}{U}", "U", "Draw a card. (Then shuffle this card into its owner's library.)") })
+    private val prepare = twoFaces("15", "prepare",
+        { face("Quillward Tutor", "Creature — Human Wizard", "{1}{U}", "U",
+            "This creature enters prepared. (While it's prepared, you may cast a copy of its spell. Doing so unprepares it.)", "2", "2") },
+        { face("Ink Lesson", "Sorcery", "{U}", "U", "Draw a card.") })
+    /** A meld pair's front (with its partner's name) and the back face it shares, as MTGJSON links them. */
+    private val meld: List<JsonObject> = run {
+        val front = id("16", "a"); val back = id("16", "b")
+        listOf(
+            card("16", "Bramble Twin // Thornwall Colossus", "Creature — Elf", "{2}{G}", "G", "Reach\n(Melds with Hollow Twin.)",
+                layout = "meld", power = "2", toughness = "3", side = "a", faceName = "Bramble Twin", others = listOf(back), uuid = front),
+            card("16b", "Thornwall Colossus", "Creature — Elemental", colors = "G", text = "Trample", layout = "meld", power = "9",
+                toughness = "9", side = "b", faceName = "Thornwall Colossus", others = listOf(front), uuid = back),
+        )
+    }
     private val token = card("T1", "Spirit", "Token Creature — Spirit", colors = "W", text = "Flying", layout = "token",
         power = "1", toughness = "1")
 
@@ -107,7 +125,7 @@ class CardDefinitionsTest {
         val set = JsonObject().apply {
             addProperty("code", "INV"); addProperty("name", "Invented"); addProperty("type", "expansion")
             addProperty("releaseDate", "2026-01-01")
-            add("cards", JsonArray().apply { (listOf(sentry, moth, expanse) + split + adventure + transform + modal).forEach(::add) })
+            add("cards", JsonArray().apply { (listOf(sentry, moth, expanse) + split + adventure + transform + modal + omen + prepare + meld).forEach(::add) })
             add("tokens", JsonArray().apply { add(token) })
         }
         val root = JsonObject().apply {
@@ -115,7 +133,7 @@ class CardDefinitionsTest {
             add("data", JsonObject().apply { add("INV", set) })
         }
         val meta = catalog.stage { index -> MtgJsonCatalog().import(root.toString().byteInputStream(), index, CatalogMetadata("2026-10-31", "5.3.0")) }
-        listOf(sentry, moth, expanse, split[0], adventure[0], transform[0], modal[0], token).associate { record ->
+        listOf(sentry, moth, expanse, split[0], adventure[0], transform[0], modal[0], omen[0], prepare[0], meld[0], token).associate { record ->
             val printing = checkNotNull(catalog.printing(record.get("uuid").asString))
             val faces = (printing.otherFaces + printing.id)
                 .map { checkNotNull(catalog.printing(it)) }.sortedWith(compareBy<CatalogPrinting> { it.side }.thenBy { it.id })
@@ -176,6 +194,28 @@ class CardDefinitionsTest {
             OracleCard("Tidecaller's Call", "{1}{U}", "Instant", "Draw two cards."),
             OracleCard("Tidecaller Grotto", null, "Land", "{T}: Add {U}."),
         )), definition(names[3]))
+    }
+
+    // set check (TDM, SOS, FIN): Omen cards (named "adventure" in card data, CR 720), preparation cards (CR 722) and meld
+    // cards (CR 712.4) are read with their layouts, not left unreadable
+    @Test fun omenPreparationAndMeldCardsKeepTheirLayout() {
+        val result = definitions().forDefinitions(listOf("Tidewing Regent // Swell and Surge", "Quillward Tutor // Ink Lesson",
+            "Bramble Twin // Thornwall Colossus").map(::of))
+        fun definition(name: String) = read(result[of(name).digest]).definition
+        assertEquals(OracleParser.parseCard(Layout.Omen, listOf(
+            OracleCard("Tidewing Regent", "{3}{U}{U}", "Creature — Dragon", "Flying", power = "4", toughness = "4"),
+            OracleCard("Swell and Surge", "{1}{U}", "Instant — Omen", "Draw a card. (Then shuffle this card into its owner's library.)"),
+        )), definition("Tidewing Regent // Swell and Surge"))
+        assertEquals(OracleParser.parseCard(Layout.Prepare, listOf(
+            OracleCard("Quillward Tutor", "{1}{U}", "Creature — Human Wizard",
+                "This creature enters prepared. (While it's prepared, you may cast a copy of its spell. Doing so unprepares it.)",
+                power = "2", toughness = "2"),
+            OracleCard("Ink Lesson", "{U}", "Sorcery", "Draw a card."),
+        )), definition("Quillward Tutor // Ink Lesson"))
+        assertEquals(OracleParser.parseCard(Layout.Meld("Hollow Twin"), listOf(
+            OracleCard("Bramble Twin", "{2}{G}", "Creature — Elf", "Reach\n(Melds with Hollow Twin.)", power = "2", toughness = "3"),
+            OracleCard("Thornwall Colossus", null, "Creature — Elemental", "Trample", power = "9", toughness = "9", colorIndicator = "G"),
+        )), definition("Bramble Twin // Thornwall Colossus"))
     }
 
     @Test fun tokenTypeLineIsReadWithoutTheTokenWord() {

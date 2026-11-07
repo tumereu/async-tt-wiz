@@ -25,7 +25,7 @@ object OracleParser {
      * wording newly read, a definition shaped differently, a fix), so stored definitions made by an older parser are
      * parsed again.
      */
-    const val VERSION: Int = 39
+    const val VERSION: Int = 40
 
     /**
      * Every subtype the pinned Comprehensive Rules list (CR 205.3g–m, 205.3q), as the parser reads them: what a host
@@ -104,10 +104,26 @@ object OracleParser {
         "flip" -> arcanum.api.Layout.Flip
         "transform" -> arcanum.api.Layout.Transform
         "modal_dfc" -> arcanum.api.Layout.ModalDoubleFaced
-        "adventure" -> arcanum.api.Layout.Adventure
+        // set check (TDM): card data names an Omen card's layout "adventure"; its inset spell is an Omen (CR 720)
+        "adventure" -> if (faces.getOrNull(1)?.let { TypeLine.parse(it.typeLine)?.subtypes?.contains(omen) } == true) arcanum.api.Layout.Omen
+            else arcanum.api.Layout.Adventure
         "omen" -> arcanum.api.Layout.Omen
+        // set check (SOS, FRA): a preparation card (CR 722)
+        "prepare" -> arcanum.api.Layout.Prepare
+        // set check (FIN): a meld card's front and the back face it shares with its partner (CR 712.4)
+        "meld" -> meldPartner(faces[0].text)?.let { arcanum.api.Layout.Meld(it) }
         else -> null
     }
+
+    private val omen = arcanum.api.Subtype("Omen")
+
+    /** The other card of a meld pair, from its front face's text: "(Melds with X.)" or the meld ability's "a creature
+     * named X, … meld them into" (CR 701.42a). */
+    private fun meldPartner(text: String): String? =
+        (MELDS_WITH.find(text) ?: NAMED_PARTNER.find(text)?.takeIf { "meld them into" in text })?.groupValues?.get(1)
+
+    private val MELDS_WITH = Regex("""\(Melds with (.+?)\.\)""")
+    private val NAMED_PARTNER = Regex("""and (?:a|an) [a-z ]*?named (.+?), (?:you may|exile them)""")
 
     /** What the card calls itself: its name, a legendary card's short name ("Thalia"), "this [type]", "this [subtype]"
      * ("this Equipment", "this Vehicle"). */
@@ -116,6 +132,8 @@ object OracleParser {
             listOf("this card", "this permanent", "this spell") +
             // chunk 26: a legendary card's first name ("Kaito" of "Kaito Shizuki", CR 201.5c)
             listOfNotNull(name.substringBefore(' ').takeIf { arcanum.api.Supertype.Legendary in face.supertypes && ',' !in name && it != "The" }) +
+            // set check (LTR): a legendary card's name before " of " ("Rosie Cotton" of "Rosie Cotton of South Lane", CR 201.5c)
+            listOfNotNull(name.substringBefore(" of ").takeIf { arcanum.api.Supertype.Legendary in face.supertypes && ',' !in name && it != name }) +
             // chunk 20
             face.subtypes.map { "this " + it.name }).let { names ->
             // msh: dotless aliases ("MODOK" for "M.O.D.O.K.", "Ms Marvel"), which [dotless] writes the lines with

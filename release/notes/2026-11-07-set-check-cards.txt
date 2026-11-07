@@ -1,0 +1,1 @@
+fix: Cards Automatum couldn't play now work: Rosie Cotton of South Lane (Lord of the Rings), the Secrets of Strixhaven and Reality Fracture cards with a prepared spell, Final Fantasy's melding pair, and Syncopate and Spectral Denial; Tarkir: Dragonstorm's Omen spells now shuffle back into their owner's library as they should.

@@ -104,6 +104,11 @@ class CastFlow private constructor(
     /** The same cast begun another way ([ways]: another face or cost), keeping the answers that still fit. */
     fun withBegin(input: Input): CastFlow = replayOn(input, answers, strict = false)
 
+    /** The same cast begun [input] with the optional extras [extras] (the cast panel's way and extra chips, ZON-080: times
+     * each is paid, in the engine's order), keeping the answers that still fit.
+     * @throws IllegalArgumentException when the engine refuses to begin it so. */
+    fun withChoice(input: Input, extras: List<Int>): CastFlow = replay(Context(source, player, seeds, extras), input, answers, strict = false)
+
     /** The flow replayed on [newPlay] (the board changed underneath, D32): the same answers while they still fit.
      * @throws IllegalArgumentException when the cast can't be begun there any more. */
     fun on(newSource: Source): CastFlow = replay(Context(newSource, player, seeds, extras), begin, answers, strict = false)

@@ -218,4 +218,108 @@ class EngineHandCastsTest {
         assertFalse(chips.ways[1].affordable)
         assertFalse(chips.ways[2].affordable)
     }
+
+    private fun chips(card: String): HandCastChips? {
+        val state = table.state()
+        return HandCasts.chips(table.source(state), table.definitions, alice, card, HandPlays.of(state, alice, null).of(card),
+            CastFlow.Seeds(table::seed))
+    }
+
+    // ZON-080 (owner 2026-11-07): a card with one complete way and nothing to ask has one chip and no choice (its raised
+    // card's tap casts it), with the Mountain Autotap would tap
+    @Test fun oneWayIsOneChipAndNoChoice() {
+        val pup = arcanum.engine.cards.Cards.invent("Ember Pup", "{R}", "Creature — Elemental Dog", "", "2/1")
+        val mountains = table.put(alice, Zone.Battlefield, "Mountain")
+        val (card) = table.put(alice, Zone.Hand, pup)
+        val chips = assertNotNull(chips(card))
+        assertEquals(listOf("Cast" to "{R}"), chips.chips.map { it.name to it.cost })
+        assertFalse(chips.choice)
+        assertFalse(chips.more)
+        assertTrue(chips.chips.single().affordable)
+        assertEquals(mountains.toSet(), chips.chips.single().sources)
+        assertEquals(mountains.toSet(), chips.sources)
+    }
+
+    // ZON-080 (owner 2026-11-07): a kicker spell has two complete ways, "Cast" and "Cast with kicker" with its whole cost;
+    // with two Mountains the kicked one is greyed; both ask for a target
+    @Test fun kickerMakesTwoChips() {
+        table.put(alice, Zone.Battlefield, "Mountain", "Mountain")
+        val (surge) = table.put(alice, Zone.Hand, "Flash Surge")
+        val chips = assertNotNull(chips(surge))
+        assertEquals(listOf("Cast" to "{R}", "Cast with kicker" to "{4}{R}"), chips.chips.map { it.name to it.cost })
+        assertEquals(listOf(listOf(0), listOf(1)), chips.chips.map { it.times })
+        assertEquals(listOf(true, false), chips.chips.map { it.affordable })
+        assertTrue(chips.chips.all { it.asks }, "a target to choose")
+        assertTrue(chips.choice)
+    }
+
+    // ZON-080 (owner 2026-11-07): kicker × offspring gives four complete ways, extras off first, each with its total cost
+    @Test fun kickerTimesOffspringMakesFourChips() {
+        val brood = arcanum.engine.cards.Cards.invent("Ember Brood", "{1}{R}", "Creature — Elemental",
+            "Kicker {1} (You may pay an additional {1} as you cast this spell.)\nOffspring {2} (You may pay an additional {2} as you cast this spell. If you do, when this creature enters, create a 1/1 token copy of it.)", "2/2")
+        val mountains = table.put(alice, Zone.Battlefield, "Mountain", "Mountain", "Mountain", "Mountain", "Mountain")
+        val (card) = table.put(alice, Zone.Hand, brood)
+        val chips = assertNotNull(chips(card))
+        assertEquals(listOf("Cast" to "{1}{R}", "Cast with kicker" to "{2}{R}", "Cast with offspring" to "{3}{R}",
+            "Cast with kicker and offspring" to "{4}{R}"), chips.chips.map { it.name to it.cost })
+        assertTrue(chips.chips.all { it.affordable && !it.asks })
+        assertEquals(mountains.toSet(), chips.chips.last().sources, "five Mountains for {4}{R}")
+        assertEquals(2, chips.chips.first().sources.size)
+    }
+
+    // ZON-080 (owner 2026-11-07): more than four complete ways (two ways × kicker × offspring) make one "Cast…" chip with
+    // the cheapest cost the player can pay
+    @Test fun moreThanFourWaysMakeOneCastChip() {
+        val raider = arcanum.engine.cards.Cards.invent("Ember Broodraider", "{2}{R}", "Creature — Elemental",
+            "Kicker {1}\nOffspring {2}\nDash {R}", "2/2")
+        table.put(alice, Zone.Battlefield, "Mountain")
+        val (card) = table.put(alice, Zone.Hand, raider)
+        val chips = assertNotNull(chips(card))
+        assertEquals(8, chips.count)
+        assertTrue(chips.more)
+        assertTrue(chips.choice)
+        assertTrue(chips.chips.isEmpty())
+        assertEquals("{R}", chips.cheapest, "Dash, the only way one Mountain pays")
+        assertTrue(chips.affordable)
+    }
+
+    // ZON-080 (owner 2026-11-07): an Adventure is a complete way of its own; an alternative cost (evoke) too
+    @Test fun adventureAndEvokeAreChips() {
+        table.put(alice, Zone.Battlefield, "Island", "Island", "Island")
+        table.put(table.bob, Zone.Battlefield, "Elvish Seer")
+        val (pilferer) = table.put(alice, Zone.Hand, "Brash Pilferer")
+        val adventure = assertNotNull(chips(pilferer))
+        assertEquals(listOf("Cast" to "{1}{U}{U}", "Petty Pinch" to "{1}{U}"), adventure.chips.map { it.name to it.cost })
+        assertEquals(listOf(false, true), adventure.chips.map { it.asks }, "the Adventure targets")
+        val (vivacity) = table.put(alice, Zone.Hand, "Vivacity")
+        assertEquals(listOf("Cast", "Evoke"), assertNotNull(chips(vivacity)).chips.map { it.name })
+    }
+
+    // STK-024 (owner 2026-11-07): a cast whose target is still open is taken on to its payment, which the panel shows
+    @Test fun aheadReachesThePayment() {
+        table.put(alice, Zone.Battlefield, "Mountain")
+        val (surge) = table.put(alice, Zone.Hand, "Flash Surge")
+        val state = table.state()
+        val flow = CastFlow.start(table.source(state), alice, HandPlays.of(state, alice, null).of(surge).first(), CastFlow.Seeds(table::seed),
+            extras = listOf(0))
+        assertIs<Decision.Targets>(flow.pending)
+        val ahead = assertNotNull(HandCasts.ahead(flow))
+        val payment = assertIs<Decision.ManaPayment>(ahead.pending)
+        assertEquals("{R}", payment.cost.toString())
+        assertTrue(ahead.pays(payment.suggestion))
+    }
+
+    // ZON-080 (owner 2026-11-07): the cast panel changes the way and extras, keeping the answers that still fit
+    @Test fun withChoiceKeepsTheTarget() {
+        table.put(alice, Zone.Battlefield, "Mountain", "Mountain", "Mountain", "Mountain", "Mountain")
+        val (surge) = table.put(alice, Zone.Hand, "Flash Surge")
+        val state = table.state()
+        val begin = HandPlays.of(state, alice, null).of(surge).first()
+        val flow = CastFlow.start(table.source(state), alice, begin, CastFlow.Seeds(table::seed), extras = listOf(0))
+        val targeted = flow.answer(arcanum.engine.decision.Answer.Targets(listOf((flow.pending as Decision.Targets).options.first())))
+        assertEquals("{R}", (targeted.pending as Decision.ManaPayment).cost.toString())
+        val kicked = targeted.withChoice(begin, listOf(1))
+        assertEquals(1, kicked.answers.size, "the target kept")
+        assertEquals("{4}{R}", (kicked.pending as Decision.ManaPayment).cost.toString())
+    }
 }

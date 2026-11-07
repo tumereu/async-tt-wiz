@@ -11,12 +11,26 @@ import arcanum.engine.decision.ManaUse
 object ManaPicks {
     /** [decision]'s uses grouped by what the player taps: one group per source (its abilities and colours), pool mana,
      * life or another way, in the engine's order. */
-    fun groups(decision: Decision.ManaPayment): List<List<ManaUse>> = decision.options.groupBy { use -> when (use) {
+    fun groups(decision: Decision.ManaPayment): List<List<ManaUse>> = decision.options.groupBy(::key).values.toList()
+
+    /** What the player taps for [use]: the same for every use of one source (its abilities and colours). */
+    fun key(use: ManaUse): String = when (use) {
         is ManaUse.Ability -> use.source.toString()
         is ManaUse.Pool -> "pool/${use.index}"
         is ManaUse.Life -> "life/${use.symbol}"
         is ManaUse.Special -> "special/${use.way}/${use.objects}"
-    } }.values.toList()
+    }
+
+    /**
+     * STK-024 (owner 2026-11-07): the player's picks [kept] (made for an earlier payment of the same cast, before a choice
+     * changed its cost) carried to [decision]: the same sources, their colours worked out again so they pay when they can
+     * ([assign]); a source no longer offered drops out.
+     */
+    fun carry(decision: Decision.ManaPayment, kept: List<ManaUse>, pays: (List<ManaUse>) -> Boolean): List<ManaUse> {
+        val keys = kept.map(::key).toSet()
+        val tapped = groups(decision).filter { key(it.first()) in keys }
+        return assign(tapped, kept, pays) ?: tapped.map { group -> group.firstOrNull { it in kept } ?: group.first() }
+    }
 
     /**
      * One use of each of [tapped] (groups of [groups]) that pays ([pays], the engine's check), preferring the uses in

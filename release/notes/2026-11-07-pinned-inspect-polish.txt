@@ -1,0 +1,1 @@
+mod: Holding a card in a game shows faint ‹‹ ›› marks at the sides as a reminder that dragging sideways pins it open, and pinning it no longer makes its lines jump at the end.

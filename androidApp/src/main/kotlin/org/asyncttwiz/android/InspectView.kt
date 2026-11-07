@@ -151,7 +151,10 @@ internal fun InspectContent(groups: List<InspectGroup>, scroll: ScrollState, swi
         if (landscape) Row(content.align(toStart).padding(top = buttonRoom).widthIn(max = room.width).horizontalScroll(scroll),
             horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
             val cardsRoom = DpSize(room.width, room.height - buttonRoom)
-            val changesWidth = if (pinned) pinnedChangesWidth(groups, cardsRoom, room.width) else SIDE_CHANGES_WIDTH
+            // TBL-131 (owner playtest 2026-11-07): from the swipe's start the changes have their pinned width, so their
+            // blocks keep the layout they end with instead of wrapping again when it is pinned
+            val changesWidth = if (progress > 0f) pinnedChangesWidth(groups, DpSize(room.width, room.height - CLOSE_BUTTON_ROOM), room.width)
+                else SIDE_CHANGES_WIDTH
             groups.forEachIndexed { index, group ->
                 key(group.key) {
                     if (index > 0) GroupSeparator(Modifier.padding(horizontal = 4.dp).width(1.dp).height(cardsRoom.height * .7f))
@@ -162,23 +165,47 @@ internal fun InspectContent(groups: List<InspectGroup>, scroll: ScrollState, swi
             verticalArrangement = Arrangement.spacedBy(8.dp), horizontalAlignment = androidx.compose.ui.BiasAlignment.Horizontal(-progress)) {
             groups.forEachIndexed { index, group ->
                 key(group.key) {
-                    if (index > 0) GroupSeparator(Modifier.padding(vertical = 4.dp).height(1.dp).width(room.width * .8f))
+                    // TBL-131 (owner playtest 2026-11-07): pinned and on the way there the line spans the whole width
+                    if (index > 0) GroupSeparator(Modifier.padding(vertical = 4.dp).height(1.dp)
+                        .width(if (progress > 0f) room.width else room.width * .8f))
                     PortraitGroup(group, room, progress, pinned)
                 }
             }
+        }
+        // TBL-131 (owner playtest 2026-11-07): where it can be pinned, faint ‹‹ ›› marks at the side edges hint at the
+        // sideways drag; they fade out as it goes
+        if (swipe != null && !pinned) {
+            val hint = Modifier.graphicsLayer { alpha = 1f - progress }.testTag(INSPECT_PIN_HINT_TAG)
+            PinHint("‹‹", hint.align(Alignment.CenterStart).padding(start = 6.dp))
+            PinHint("››", hint.align(Alignment.CenterEnd).padding(end = 6.dp))
         }
         if (swipe != null && progress > 0f) InspectCloseButton(swipe::close, Modifier.align(Alignment.TopEnd).padding(12.dp)
             .graphicsLayer { alpha = progress; scaleX = .6f + .4f * progress; scaleY = .6f + .4f * progress })
     }
 }
 
+/** The test tag of pinned Inspect's side hints (TBL-131). */
+internal const val INSPECT_PIN_HINT_TAG = "inspect-pin-hint"
+
+/** One of the faint marks at the side edges of an Inspect that can be pinned (TBL-131). */
+@Composable
+private fun PinHint(text: String, modifier: Modifier) {
+    Text(text, modifier, color = Color.White.copy(alpha = .4f), fontSize = 22.sp)
+}
+
 /** The room pinned Inspect keeps above the cards for its close button. */
 private val CLOSE_BUTTON_ROOM = 60.dp
+
+/** The test tag of a change's block in pinned Inspect (TBL-131). */
+internal const val INSPECT_CHANGE_BLOCK_TAG = "inspect-change-block"
+
+/** The test tag of the line between two cards in Inspect. */
+internal const val INSPECT_SEPARATOR_TAG = "inspect-separator"
 
 /** The thin line between two cards in Inspect (owner 2026-11-06). */
 @Composable
 private fun GroupSeparator(modifier: Modifier) {
-    Box(modifier.background(Color.White.copy(alpha = .55f)))
+    Box(modifier.background(Color.White.copy(alpha = .55f)).testTag(INSPECT_SEPARATOR_TAG))
 }
 
 /** In pinned mode the cards take this share of the width, their changes the rest (owner 2026-11-06). */
@@ -254,8 +281,10 @@ private fun Modifier.scaledTo(scale: Float): Modifier = layout { measurable, con
 private fun ChangeBlocks(changes: List<InspectChange>, interactive: Boolean, modifier: Modifier = Modifier) {
     Column(modifier.semantics { contentDescription = "Card changes" }, verticalArrangement = Arrangement.spacedBy(6.dp)) {
         changes.forEach { change ->
-            Box(Modifier.clip(RoundedCornerShape(10.dp)).background(InspectChangesColor).padding(horizontal = 12.dp, vertical = 7.dp)) {
-                ChangeLine(change, interactive, 13.sp, 17.sp)
+            Box(Modifier.testTag(INSPECT_CHANGE_BLOCK_TAG).clip(RoundedCornerShape(10.dp)).background(InspectChangesColor)
+                .padding(horizontal = 12.dp, vertical = 7.dp)) {
+                // TBL-131 (owner playtest 2026-11-07): laid out as pinned from the swipe's start; taps work once pinned
+                ChangeLine(change, interactive, 13.sp, 17.sp, pinnedLayout = true)
             }
         }
     }
@@ -302,18 +331,19 @@ private fun ChangesPanel(changes: List<InspectChange>, interactive: Boolean, mod
 
 @Composable
 private fun ChangeLine(change: InspectChange, interactive: Boolean, size: androidx.compose.ui.unit.TextUnit = 15.sp,
-    lineHeight: androidx.compose.ui.unit.TextUnit = 20.sp) {
+    lineHeight: androidx.compose.ui.unit.TextUnit = 20.sp, pinnedLayout: Boolean = interactive) {
     var open by remember(change) { mutableStateOf(false) }
     var pressed by remember(change) { mutableStateOf(false) }
-    val source = change.source.takeIf { interactive }
+    val source = change.source.takeIf { pinnedLayout }
     // TBL-132 (owner gallery review 2026-11-06): a line naming a keyword ("Flying", "+3/+3, trample until end of turn")
     // explains it too
-    val explained = if (interactive) remember(change.text) { arcanum.api.RulesGlossary.named(change.text) } else emptyList()
-    Column(if (source == null && explained.isEmpty()) Modifier else Modifier.fillMaxWidth().pointerInput(change) {
+    val explained = if (pinnedLayout) remember(change.text) { arcanum.api.RulesGlossary.named(change.text) } else emptyList()
+    val tappable = source != null || explained.isNotEmpty()
+    Column(if (!tappable) Modifier else Modifier.fillMaxWidth().then(if (!interactive) Modifier else Modifier.pointerInput(change) {
         detectTapGestures(onPress = { pressed = true; tryAwaitRelease(); pressed = false }, onTap = { open = !open })
-    }) {
+    })) {
         CardText(change.text, color = Color.White, style = MaterialTheme.typography.bodyLarge.copy(fontSize = size, lineHeight = lineHeight))
-        if (open || pressed) {
+        if (interactive && (open || pressed)) {
             if (source != null) Text("From $source", color = InspectSourceColor, fontSize = 13.sp, lineHeight = 17.sp)
             if (explained.isNotEmpty()) Column(Modifier.padding(top = 4.dp).semantics { contentDescription = "Rule explanation" },
                 verticalArrangement = Arrangement.spacedBy(4.dp)) {

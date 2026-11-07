@@ -10,6 +10,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
+import androidx.compose.ui.unit.dp
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
@@ -50,7 +51,7 @@ class InspectChangesUiTest {
     // TBL-104, TBL-111: the changes sit under each card on a dark panel as wide as the card; a line separates the cards
     @Test fun eachCardShowsOnlyItsChangesUnderIt() {
         val scroll = ScrollState(0)
-        show(scroll = scroll)
+        show(InspectSwipe(), scroll)
         changes().assertCountEquals(2)
         val card = compose.onNodeWithContentDescription("Card image: Meadow Sentinel").getBoundsInRoot()
         val panel = changes()[0].getBoundsInRoot()
@@ -64,7 +65,52 @@ class InspectChangesUiTest {
         captureShot("$SCREENSHOTS/inspect/changes-portrait.png", "Portrait Inspect of a creature and the card attached to it, " +
             "scrolled down: under the Meadow Sentinel's picture a dark panel lists only what changed on it (two +1/+1 counters, " +
             "1 damage, +3/+3 until end of turn, Flying, Entered this turn), a thin white line, then the River Adept with " +
-            "\"Attached to Meadow Sentinel\" under it.")
+            "\"Attached to Meadow Sentinel\" under it, with faint ‹‹ ›› marks at the left and right edges.")
+    }
+
+    // TBL-131 (owner playtest 2026-11-07): an Inspect that can be pinned has faint ‹‹ ›› marks centred at its left and right
+    // edges until it is pinned; one that can't (draft, decks) has none
+    @Test fun anInspectThatCanBePinnedHintsAtTheSidewaysDrag() {
+        val swipe = InspectSwipe()
+        show(swipe)
+        val hints = compose.onAllNodesWithTag(INSPECT_PIN_HINT_TAG, useUnmergedTree = true)
+        hints.assertCountEquals(2)
+        val screen = compose.onRoot().getBoundsInRoot()
+        val left = hints[0].getBoundsInRoot()
+        val right = hints[1].getBoundsInRoot()
+        assertTrue(left.left.value < 12f && right.right.value > screen.right.value - 12f, "at the edges: $left, $right")
+        assertEquals(screen.bottom.value / 2, (left.top.value + left.bottom.value) / 2, 2f)
+        compose.runOnIdle { swipe.moved(-200f, 0f); assertTrue(swipe.released()) }
+        compose.waitForIdle()
+        hints.assertCountEquals(0)
+    }
+
+    @Test fun anInspectThatCantBePinnedHasNoHints() {
+        show()
+        compose.onAllNodesWithTag(INSPECT_PIN_HINT_TAG, useUnmergedTree = true).assertCountEquals(0)
+    }
+
+    // TBL-131 (owner playtest 2026-11-07): pinned and through the slide, the line between the cards spans the whole width
+    // (it stops short only before the drag starts); the change blocks have the size they end with all through the slide
+    @Test fun theLineSpansTheWidthAndTheBlocksKeepTheirLayoutThroughTheSlide() {
+        val swipe = InspectSwipe()
+        show(swipe)
+        val screen = compose.onRoot().getBoundsInRoot()
+        val line = compose.onNodeWithTag(INSPECT_SEPARATOR_TAG, useUnmergedTree = true)
+        assertTrue(line.getBoundsInRoot().right < screen.right - 40.dp, "short before the drag: ${line.getBoundsInRoot()}")
+        compose.runOnIdle { swipe.moved(-(InspectSwipe.SLOP + InspectSwipe.DISTANCE * .75f), 0f) }
+        compose.waitForIdle()
+        val sliding = compose.onNodeWithTag(INSPECT_SEPARATOR_TAG, useUnmergedTree = true).getBoundsInRoot()
+        assertTrue(sliding.right >= screen.right - 9.dp && sliding.right - sliding.left >= screen.right - screen.left - 17.dp,
+            "the whole width while sliding: $sliding")
+        val block = compose.onNode(hasTestTag(INSPECT_CHANGE_BLOCK_TAG) and hasAnyDescendant(hasText("Flying")), useUnmergedTree = true)
+        // Its own size, not the part shown: the slide clips it at its right
+        val during = block.fetchSemanticsNode().size
+        compose.runOnIdle { assertTrue(swipe.released()) }
+        compose.waitForIdle()
+        assertEquals(during, block.fetchSemanticsNode().size)
+        val pinned = compose.onNodeWithTag(INSPECT_SEPARATOR_TAG, useUnmergedTree = true).getBoundsInRoot()
+        assertTrue(pinned.right >= screen.right - 9.dp, "the whole width pinned: $pinned")
     }
 
     // TBL-131 (owner 2026-11-06): half way through the drag to the left the cards are shrinking, the changes folding away

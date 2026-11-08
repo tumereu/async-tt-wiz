@@ -1,0 +1,1 @@
+add: A combat holds your view for a moment on the attackers and on the damage, so you can see what happened. The setting is now called Show plays and combat; a tap on the table skips the moment.

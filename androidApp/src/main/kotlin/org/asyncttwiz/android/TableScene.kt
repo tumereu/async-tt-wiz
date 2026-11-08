@@ -77,7 +77,10 @@ internal fun TableSurface(game: GameSummary, play: TableBoard, accountId: String
                 is TableIntent.Scroll -> layout = if (intent.vertical)
                     layout.copy(scrollY = layout.scrollY + (intent.viewportId to intent.offset))
                     else layout.copy(scroll = layout.scroll + (intent.viewportId to intent.offset))
-                TableIntent.EmptyTap, is TableIntent.Actions -> if (currentRuntime.centreAction != null && !owner.tapOnHand) {
+                TableIntent.EmptyTap, is TableIntent.Actions -> if (currentRuntime.holdTap != null && !owner.tapOnHand) {
+                    // HIS-113: while a combat holds the view a tap on the table (not the hand) only skips that
+                    currentRuntime.holdTap?.invoke()
+                } else if (currentRuntime.centreAction != null && !owner.tapOnHand) {
                     // HIS-094: with the catch-up's centre text showing, a tap on the table (not the hand) starts the playback
                     currentRuntime.centreAction?.run?.invoke()
                 } else if (currentRuntime.boardTap != null) {

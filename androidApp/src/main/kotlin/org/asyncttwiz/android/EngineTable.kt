@@ -647,12 +647,12 @@ internal fun EngineAsyncHost(toolkit: TableToolkitController, routes: EngineTabl
         RevealPanel(play, routes.viewer, reveal, names[reveal.by.value] ?: opponent) { game.dismissReveal(); routes.pump() }
     }
     // HIS-112: the other player's play (or a trigger of the viewer's own) large in the middle of the table for the
-    // "Show the other player's plays" time, then to the Stack; the view holds meanwhile. Timeline mode ends it
+    // "Show plays and combat" time, then to the Stack; the view holds meanwhile. Timeline mode ends it
     val playbackPreferences = rememberHistoryPlaybackPreferences(routes.viewer)
     val showMillis by playbackPreferences.showPlaysState()
     LaunchedEffect(game, showMillis > 0) { game.showPlays(showMillis > 0) }
     val show = shown.show
-    if (show != null && reviewing) LaunchedEffect(show) { game.dismissShows(); routes.pump() }
+    if ((show != null || shown.combatHold != null) && reviewing) LaunchedEffect(show, shown.combatHold) { game.dismissShows(); routes.pump() }
     // TRN-074: a play and the turn banner never overlap: one follows the other
     if (show != null && !reviewing && scene != null && !routes.banners.holdsPlays) key(show) {
         PlayShowOverlay(play, scene, routes.viewer, show, names, showMillis) { game.dismissShow(show); routes.pump() }

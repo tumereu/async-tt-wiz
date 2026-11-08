@@ -24,6 +24,7 @@ import androidx.compose.ui.window.DialogProperties
 import arcanum.engine.setup.GameResult
 import arcanum.engine.state.PlayerId
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import org.asyncttwiz.protocol.*
 import org.asyncttwiz.protocol.game.GameDevice
@@ -104,6 +105,16 @@ internal fun EngineTableScreen(controller: LobbyController, accountId: String, h
     // CMB-040 (owner, 2026-11-05): while waiting for the defender's blocks the attacker's lanes show the blocks placed to assume
     val play = reviewPlay ?: motion.board(shown.version, shown.transition, live).let { b -> routes.assuming()?.board(b) ?: b }
     SideEffect { routes.motionBusy = { motion.playing } }
+    // HIS-113: a combat holds the view on the attackers and on the damage, each for the plays' time, once the table shows
+    // it; a tap on the table skips it; timeline mode ends it (EngineAsyncHost)
+    val combatHold = shown.combatHold?.takeIf { reviewId == null }
+    SideEffect { motion.stopAtAttackers = combatHold?.kind == GameDevice.CombatMoment.Attackers }
+    val combatHoldMillis by playbackPreferences.showPlaysState()
+    if (combatHold != null) LaunchedEffect(combatHold) {
+        snapshotFlow { !motion.playing || (motion.atAttackers && combatHold.kind == GameDevice.CombatMoment.Attackers) }.first { it }
+        delay(combatHoldMillis)
+        engine.dismissCombatHold(combatHold); controller.engineSent()
+    }
     // HIS-107: an Undo tapped while the player's own action is still being worked out waits for it
     SideEffect { routes.working = { toolkit.flows.busy || toolkit.cast.busy } }
     LaunchedEffect(routes, toolkit) { snapshotFlow { toolkit.flows.busy || toolkit.cast.busy }.collect { if (!it) routes.workDone() } }
@@ -164,7 +175,7 @@ internal fun EngineTableScreen(controller: LobbyController, accountId: String, h
     val haptic = LocalHapticFeedback.current
     val recordShown = LocalShownTexts.current
     SideEffect {
-        val cue = moveCue.see(shown.status, shown.line, shown.tip, shown.show != null || shown.reveal != null, accountId, SystemClock.uptimeMillis())
+        val cue = moveCue.see(shown.status, shown.line, shown.tip, shown.show != null || shown.combatHold != null || shown.reveal != null, accountId, SystemClock.uptimeMillis())
         if (cue && reviewPlay == null) {
             routes.moveCue++
             haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
@@ -257,6 +268,7 @@ internal fun EngineTableScreen(controller: LobbyController, accountId: String, h
                             else null,
                         boardTap = if (reviewPlay == null && playing && !shown.pausing && !takingBack) ({
                             engine.pause(); controller.engineSent() }) else null,
+                        holdTap = combatHold?.let { hold -> ({ engine.dismissCombatHold(hold); controller.engineSent() }) },
                         // LOB-136, LOB-137: chat bubbles, also in timeline mode (chat isn't game history); the own one
                         // waits while the chat covers the table (portrait)
                         chatBubbles = TableChatBubbles(state.chatBubble, state.chatSent, tableShown = !state.chatOpen || landscape,

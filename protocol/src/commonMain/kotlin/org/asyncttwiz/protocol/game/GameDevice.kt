@@ -614,7 +614,7 @@ class GameDevice(
         for (e in fresh.asReversed()) {
             revealsSeen += e.id
             revealsOpen += revealsIn(e, me)
-            if (showPlays) showsOpen += showsIn(e, me)
+            if (showPlays) showsOpen += momentsIn(e, me)
         }
     }
 
@@ -630,8 +630,25 @@ class GameDevice(
      * none of its own; the table ends it ([dismissShow]) when its time is up or the player taps it. Personal: nothing is
      * sent, and the game never waits for it on the other player's phone.
      */
-    data class PlayShow(val event: String, val by: PlayerId, val entry: ObjectId, val kind: PlayKind,
-        val card: arcanum.engine.state.CardId?)
+    data class PlayShow(override val event: String, val by: PlayerId, val entry: ObjectId, val kind: PlayKind,
+        val card: arcanum.engine.state.CardId?) : ViewMoment
+
+    /** A moment of the shown event [event] that holds this player's view until it is done (HIS-112, HIS-113). */
+    sealed interface ViewMoment { val event: String }
+
+    /**
+     * HIS-113 (owner, 2026-11-08): a combat holds this player's view as a play shown does, for the same time ([showPlays]),
+     * whoever's combat it is, live and in catch-up playback: once when the attackers show and once on the damage (each
+     * combat damage step that deals any). The table ends it ([dismissCombatHold]) when its time is up or the player taps the
+     * table. Declaring no attackers holds nothing. Personal: nothing is sent, and the game never waits for it.
+     */
+    data class CombatHold(override val event: String, val kind: CombatMoment) : ViewMoment
+
+    /** What a combat holds the view on (HIS-113). */
+    sealed interface CombatMoment {
+        data object Attackers : CombatMoment
+        data object Damage : CombatMoment
+    }
 
     /** How a shown play got onto the Stack (HIS-112). */
     sealed interface PlayKind {
@@ -651,11 +668,16 @@ class GameDevice(
             if (!value) showsOpen.clear()
         }
 
-    /** HIS-112: the play shown now (the oldest not done), or null; never while a reveal panel is open (HIS-110 first). */
-    val show: PlayShow? get() { syncReveals(); return if (revealsOpen.isNotEmpty()) null else showsOpen.firstOrNull() }
+    /** HIS-112: the play shown now (the oldest moment not done, when it is a play), or null; never while a reveal panel is
+     * open (HIS-110 first). */
+    val show: PlayShow? get() { syncReveals(); return if (revealsOpen.isNotEmpty()) null else showsOpen.firstOrNull() as? PlayShow }
+
+    /** HIS-113: the combat moment holding the view now (the oldest moment not done, when it is one), or null; never while a
+     * reveal panel is open. */
+    val combatHold: CombatHold? get() { syncReveals(); return if (revealsOpen.isNotEmpty()) null else showsOpen.firstOrNull() as? CombatHold }
 
     /** HIS-112: every play not shown to its end yet, oldest first. */
-    val openShows: List<PlayShow> get() { syncReveals(); return showsOpen.toList() }
+    val openShows: List<PlayShow> get() { syncReveals(); return showsOpen.filterIsInstance<PlayShow>() }
 
     /** HIS-112: the event of the last play done ([dismissShow]): playback lets the next event follow it at once (the show
      * took the playback delay's place, HIS-021). */
@@ -674,7 +696,17 @@ class GameDevice(
         return true
     }
 
-    private val showsOpen = ArrayList<PlayShow>()
+    /** HIS-113: the combat moment holding the view now is done (its time is up, or the player tapped the table): the next
+     * moment comes, or the view goes on. [which]: only when it is still the one. True when one ended. */
+    fun dismissCombatHold(which: CombatHold? = null): Boolean {
+        val open = combatHold ?: return false
+        if (which != null && which != open) return false
+        showsOpen.removeAt(0)
+        showDone = open.event
+        return true
+    }
+
+    private val showsOpen = ArrayList<ViewMoment>()
 
     /** Whether a play shown holds the view (HIS-112). */
     private fun showHolds(): Boolean { syncReveals(); return showsOpen.isNotEmpty() }
@@ -2272,18 +2304,40 @@ class GameDevice(
          * ability activated (mana abilities never use the Stack) and trigger of the other player's, and [viewer]'s own
          * triggers. Copies of spells are put there by something else, which was shown: they are not.
          */
-        fun showsIn(event: GameEvent, viewer: PlayerId): List<PlayShow> = event.engine?.changes.orEmpty().mapNotNull { change ->
-            val added = change as? arcanum.engine.change.Change.StackItemAdded ?: return@mapNotNull null
+        fun showsIn(event: GameEvent, viewer: PlayerId): List<PlayShow> = momentsIn(event, viewer).filterIsInstance<PlayShow>()
+
+        /**
+         * HIS-112, HIS-113: what holds [viewer]'s view in [event], in the order it happened: the plays shown ([showsIn]) and
+         * the combat's moments: attackers declared, and each combat damage step that deals damage.
+         */
+        fun momentsIn(event: GameEvent, viewer: PlayerId): List<ViewMoment> {
+            val moments = ArrayList<ViewMoment>()
+            var damageStep = false
+            for (change in event.engine?.changes.orEmpty()) when (change) {
+                is arcanum.engine.change.Change.StackItemAdded -> showOf(event, change, viewer)?.let(moments::add)
+                is arcanum.engine.change.Change.Combat ->
+                    if (change.before?.attackers.isNullOrEmpty() && !change.after?.attackers.isNullOrEmpty()) moments += CombatHold(event.id, CombatMoment.Attackers)
+                is arcanum.engine.change.Change.Step -> damageStep = change.after.step == arcanum.api.TurnStep.CombatDamage
+                is arcanum.engine.change.Change.Damage -> if (damageStep && change.dealt.isNotEmpty()) {
+                    moments += CombatHold(event.id, CombatMoment.Damage)
+                    damageStep = false
+                }
+                else -> {}
+            }
+            return moments
+        }
+
+        private fun showOf(event: GameEvent, added: arcanum.engine.change.Change.StackItemAdded, viewer: PlayerId): PlayShow? {
             val kind = when {
                 arcanum.engine.change.Meaning.Cast in added.meanings -> PlayKind.Cast
                 arcanum.engine.change.Meaning.Activated in added.meanings -> PlayKind.Activated
                 arcanum.engine.change.Meaning.Triggered in added.meanings -> PlayKind.Triggered
-                else -> return@mapNotNull null
+                else -> return null
             }
             val item = added.item
-            if (item.controller == viewer && kind != PlayKind.Triggered) return@mapNotNull null
+            if (item.controller == viewer && kind != PlayKind.Triggered) return null
             val card = (item.id as? ObjectId.Card)?.card ?: (item.source as? ObjectId.Card)?.card
-            PlayShow(event.id, item.controller, item.id, kind, card)
+            return PlayShow(event.id, item.controller, item.id, kind, card)
         }
 
         /** [state] without what never makes a decision another ([sameDecision]). */

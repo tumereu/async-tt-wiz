@@ -54,7 +54,7 @@ The battlefield, how cards look on it, how you touch them, their menus and inspe
 - **TBL-038** Moving cards fly at a steady speed (1.2 dp/ms by default, easing out, at most 350 ms, so short moves arrive early); a "Card move speed" setting scales it from 0.25× to 3×. (r14)
 - **TBL-039** Turning, moving, flipping and fading each take their own natural time; a scene lasts as long as its longest part. (r15)
 - **TBL-040** Every card move animates, yours and the opponent's, live and in playback, including moves between piles (library, graveyard, exile) on either side; hand cards slide aside when cards join or leave. (r51)
-- **TBL-125** When one board brings several steps (your action and the passes, resolutions and triggers that follow by itself), each step that moves, taps, makes or turns something plays in event order, one after another, at the card move speed with no playback pause; a token made by a resolving Stack entry flies out of it. Until your action's outcome is in, its own board shows and the panels (whose move, the waiting bar) don't change. (r51)
+- **TBL-125** When one board brings several steps (your action and the passes, resolutions and triggers that follow by itself), each step that moves, taps, makes or turns something plays in event order, one after another, at the card move speed with no playback pause (a combat's attackers and damage hold, HIS-113); a token made by a resolving Stack entry flies out of it. Until your action's outcome is in, its own board shows and the panels (whose move, the waiting bar) don't change. (r61)
 
 ### Gestures
 

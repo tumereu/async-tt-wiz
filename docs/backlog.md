@@ -16,7 +16,7 @@ Changes the owner wants but that are not built yet. The feature catalog
 
 Catalog review follow-ups (owner, 2026-11-08; the catalog was cleaned on w/catalog-cleanup, these change code):
 
-- Single version (AGENTS.md): remove code that keeps anything older working (old stored fields decoding, old HTTP reads, the deck-save old retry, old handshake formats, old-data refreshes) and with it LOB-112, the "downloaded again once" parts of LOB-110 and LOB-125, LOB-113's reading of settings from before Normal, LOB-135's "Games from before these settings have the defaults" and DRF-079's "Pods started before this change keep plain rotation". Ask the owner before anything that deletes or invalidates existing games.
+- Single version, the parts that need the owner's approval first (the rest built 2026-11-08: the saved lists' card data refresh, LOB-113's and LOB-135's old-settings clauses): each keeps data from an older version readable, and removing it makes that data unreadable or needs a migration or wipe. Phones' card records of an older index version downloaded again once (LOB-110, LOB-125: without it an older catalog's token lookups fail); grid pods started before Draftmancer's order keeping plain rotation and GridEngine.resume bringing grid snapshots from before per-member opening up to date (DRF-079: running grid pods); grid boards' "0 / empty from older servers" defaults (round, slots: stored pod snapshots); the deck service's pre-I08 request identity (stored request records); cubes stored as plain arrays (PodService); a preparation snapshot's stored null meaning Random; "Assume resolves" kept as flags (a single stored value needs a migration of account and seat settings).
 
 ## Ready after the e2e framework (owner playtest, 2026-11-05)
 

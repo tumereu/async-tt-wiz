@@ -30,7 +30,6 @@ internal class PausePreferences(context: Context, private val accountId: String)
             },
             alwaysAssumeResolves = preferences.getBoolean("engine-assume/$accountId", false),
             assumeWhenNoMana = preferences.getBoolean("engine-assume-no-mana/$accountId", false),
-            // Owner 2026-11-06: a "Never" kept from before Normal existed (no flag set) reads as Normal, the default
             assumeNever = preferences.getBoolean("engine-assume-never/$accountId", false),
             autotap = preferences.getBoolean(autotapKey, true))
         set(value) {

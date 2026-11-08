@@ -51,8 +51,7 @@ data class Line(val number: Int = 0, val drawn: Int = 0)
  * (owner 2026-11-06: [org.asyncttwiz.protocol.EngineSnapshot.modes], [org.asyncttwiz.protocol.EngineUpdate.modes]) and
  * assumes the player's pass wherever it would pass. [assume] says where the other player's passes are assumed at once
  * instead of waiting with Assume (HIS-096), kept as [assumeNever] (Never), [alwaysAssumeResolves] (Always) and
- * [assumeWhenNoMana] (When they have no mana): none of them set is Normal, the default (owner 2026-11-06: a "Never"
- * stored before Normal existed reads as Normal). [autotap] pays mana costs with the engine's suggestion (I-D47).
+ * [assumeWhenNoMana] (When they have no mana): none of them set is Normal, the default. [autotap] pays mana costs with the engine's suggestion (I-D47).
  */
 @Serializable
 data class PlaySettings(val mode: ResponseMode = ResponseMode.AutoSkip, val alwaysAssumeResolves: Boolean = false,

@@ -115,7 +115,6 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             lobby.sync()
             // Switch-review #11: while a game is open only the list's changes are read (badges); the rest waits
             if (lobby.state.selected == null) {
-                refreshCardData()
                 refreshAutomatumSupport()
             }
         }
@@ -125,36 +124,9 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
      * well inside the deck service's 600 requests a minute, so a deck chosen meanwhile is never refused as busy. */
     private suspend fun paceSavedLists() = kotlinx.coroutines.delay(1_000)
 
-    // I-D21: saved decks' and cubes' card data made before it kept split halves and colour indicators is rebuilt from
-    // the installed catalog, once per account (CardDataRefreshRun); a failed run is tried again on a later return.
     private val cardDataWork by lazy { Executors.newSingleThreadExecutor { Thread(it, "card-data-refresh") } }
-    private val cardDataDone by lazy { application.getSharedPreferences("card-data-refresh", 0) }
-    @Volatile private var cardDataRunning = false
-    private fun refreshCardData() {
-        val account = controller.state.account?.accountId ?: return
-        val token = controller.sessionToken() ?: return
-        if (cardDataRunning || cardDataDone.getInt(account, 0) >= CARD_DATA_VERSION || catalog.state.installed == null) return
-        cardDataRunning = true
-        cardDataWork.execute {
-            try {
-                val repository = catalog.repository
-                val api = DeckApi(BuildConfig.ACCOUNT_ORIGIN, authenticationRequired = ::authenticationRequired)
-                val outcome = api.use {
-                    kotlinx.coroutines.runBlocking { CardDataRefreshRun(it, it, org.asyncttwiz.storage.CardDataRefresh::stale, pace = ::paceSavedLists) { definition ->
-                        org.asyncttwiz.storage.CardDataRefresh.rebuild(definition, repository) }.run(token) }
-                }
-                AppLog.info("CardData", "Card data refreshed: ${outcome.decksUpdated} decks, ${outcome.cubesUpdated} cubes" +
-                    outcome.notRebuilt.takeIf { it.isNotEmpty() }?.let { "; not in the catalog: ${it.take(20).joinToString()}" }.orEmpty())
-                if (token == controller.sessionToken()) cardDataDone.edit().putInt(account, CARD_DATA_VERSION).apply()
-            } catch (failure: Exception) {
-                AppLog.warn("CardData", "Card data refresh failed; trying again later", failure)
-            } finally {
-                cardDataRunning = false
-            }
-        }
-    }
     // I-D51 (LOB-115, DRF-161): saved decks and cubes without Automatum support for this parser version get it in the
-    // background, on the card data worker after its refresh, at most every 15 minutes while the app returns.
+    // background, on the card data worker, at most every 15 minutes while the app returns.
     @Volatile private var supportRun: Pair<String, Long>? = null
     private fun refreshAutomatumSupport() {
         val account = controller.state.account?.accountId ?: return
@@ -222,6 +194,3 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         revocations.shutdown()
     }
 }
-
-/** The card data refresh this app version runs (I-D21); raised when a new field needs another refresh. */
-private const val CARD_DATA_VERSION = 1

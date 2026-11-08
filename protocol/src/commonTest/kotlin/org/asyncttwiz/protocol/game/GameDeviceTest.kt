@@ -319,16 +319,11 @@ class GameDeviceTest {
             "the pass at Alice's pause was assumed at once")
     }
 
-    // LOB-113, HIS-096 (owner, 2026-11-06): "Assume resolves" stored before Normal existed reads on as Always, and off
-    // (Never then) as Normal, the new default; a choice is stored so; a tap goes Never, Normal, No mana, Always
+    // LOB-113, HIS-096 (owner, 2026-11-06): Normal is the default; each choice is stored so; a tap goes Never, Normal, No
+    // mana, Always
     @Test
     fun assumeResolvesSettingsMapFromTheirStoredForm() {
         val json = org.asyncttwiz.protocol.GameWire.json
-        // As stored before: no assumeNever (Never was all flags off)
-        fun stored(settings: PlaySettings) = json.decodeFromJsonElement(PlaySettings.serializer(), kotlinx.serialization.json.JsonObject(
-            json.encodeToJsonElement(PlaySettings.serializer(), settings).let { it as kotlinx.serialization.json.JsonObject } - "assumeNever"))
-        assertEquals(AssumeResolves.Always, stored(PlaySettings(alwaysAssumeResolves = true)).assume)
-        assertEquals(AssumeResolves.Normal, stored(PlaySettings(alwaysAssumeResolves = false)).assume)
         assertEquals(AssumeResolves.Normal, PlaySettings().assume)
         for (choice in AssumeResolves.all) assertEquals(choice,
             json.decodeFromString(PlaySettings.serializer(), json.encodeToString(PlaySettings.serializer(), PlaySettings().assuming(choice))).assume)

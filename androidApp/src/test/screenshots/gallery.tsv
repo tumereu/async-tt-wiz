@@ -163,3 +163,4 @@ number	item	screenshot	catalog	decisions
 162	A stack with its tapped members on top	battlefield/pile-tapped-on-top.png	TBL-053 TBL-054
 163	Turn banner: your turn	turn-banner/your-turn.png	TRN-074
 164	Turn banner in landscape: the other player's turn	turn-banner/their-turn-landscape.png	TRN-074
+165	Target bar with its whole sentence, after a tap on it	choice-source/target-bar-whole-sentence.png	STK-047	Targets

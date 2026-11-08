@@ -8,6 +8,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -35,6 +36,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
@@ -194,9 +196,22 @@ internal fun RowScope.TargetBarTitle(title: String, line: String?) {
     Column(Modifier.weight(1f).padding(vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(1.dp)) {
         Text(title, Modifier.semantics { heading() }, fontSize = 13.sp, fontWeight = FontWeight.Medium, maxLines = 2,
             overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
-        if (line != null) CardText(line, Modifier.semantics { contentDescription = "Question: $line" }, color = Color(0xff4b5a5f),
-            style = androidx.compose.ui.text.TextStyle(fontSize = 11.sp, lineHeight = 13.sp), maxLines = 2,
-            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+        if (line != null) TargetBarLine(line)
+    }
+}
+
+/** STK-047: the sentence in up to 4 lines. Only when they cut it, a tap on it shows it whole, scrolling past half the
+ * table's height, and another goes back; otherwise it takes no taps. */
+@Composable
+private fun TargetBarLine(line: String) {
+    var cut by remember(line) { mutableStateOf(false) }
+    var whole by remember(line) { mutableStateOf(false) }
+    val scroll = rememberScrollState()
+    Box((if (cut) Modifier.clickable(onClickLabel = if (whole) "Show less" else "Show the whole sentence") { whole = !whole } else Modifier)
+        .heightIn(max = LocalConfiguration.current.screenHeightDp.dp / 2).verticalScroll(scroll, enabled = whole)) {
+        CardText(line, Modifier.semantics { contentDescription = "Question: $line" }, color = Color(0xff4b5a5f),
+            style = androidx.compose.ui.text.TextStyle(fontSize = 11.sp, lineHeight = 13.sp), maxLines = if (whole) Int.MAX_VALUE else 4,
+            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, onTextLayout = { if (!whole) cut = it.hasVisualOverflow })
     }
 }
 

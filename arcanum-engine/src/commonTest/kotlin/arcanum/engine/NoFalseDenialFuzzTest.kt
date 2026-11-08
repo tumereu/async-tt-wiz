@@ -108,6 +108,15 @@ class NoFalseDenialFuzzTest {
     private fun Scenario.board(seed: Long) {
         val rnd = Random(seed)
         alice.life = listOf(1, 2, 3, 20).random(rnd)
+        // Every third board: the cast's other costs against the mana (CR 601.2g before 601.2h): an altar or a mana creature, the creatures a cost may tap
+        if (seed % 3 == 0L) {
+            alice.battlefield(sources.first { "Altar" in it })
+            if (rnd.nextBoolean()) alice.battlefield(sources.first { "Elf" in it })
+            creatures.shuffled(rnd).take(1 + rnd.nextInt(2)).forEach { alice.battlefield(it) }
+            bob.battlefield(creatures.random(rnd), tapped = rnd.nextBoolean())
+            alice.hand("Deny Red One Tap", "Deny Green Tap", "Deny Offering", "Deny Blood Pact")
+            return
+        }
         val basics = listOf("Plains", "Island", "Swamp", "Mountain", "Forest").shuffled(rnd).take(rnd.nextInt(4))
         if (basics.isNotEmpty()) alice.battlefield(*basics.toTypedArray())
         if (basics.isNotEmpty() && rnd.nextInt(4) == 0) { alice.battlefield(fertile); attach(fertile, basics.first()) }
@@ -173,6 +182,15 @@ class NoFalseDenialFuzzTest {
                     for (picked in all) {
                         val done = Engine.selection(at, picked).done
                         if (done) assertTrue(Engine.finishableWith(at, answer(picked)), "Board $seed: $d: done with $picked, but it can't be finished")
+                        if (done) {
+                            // Autotap's suggestion at that payment, when it has one, is accepted: it doesn't use what the rest of the cost uses (CR 601.2g before 601.2h)
+                            val next = try { Engine.perform(at, Input.Answer(d.id, answer(picked))) } catch (_: IllegalArgumentException) { continue }
+                            val payment = next.pending?.decision as? Decision.ManaPayment ?: continue
+                            if (payment.suggestion.isEmpty()) continue
+                            val after = at.deepCopy().also { c -> next.changes.forEach { c.apply(it) } }
+                            try { Engine.perform(after, Input.Answer(payment.id, Answer.ManaPayment(payment.suggestion))) }
+                            catch (e: IllegalArgumentException) { fail("Board $seed: Autotap's ${payment.suggestion} is refused after $picked: ${e.message}") }
+                        }
                     }
                     val left = options - Engine.selection(at, emptyList()).candidates.toSet()
                     for (out in left) for (picked in all.filter { out in it }) {

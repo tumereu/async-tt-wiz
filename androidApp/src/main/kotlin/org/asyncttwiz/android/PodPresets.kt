@@ -46,7 +46,6 @@ internal fun podPresetFilter(presets: List<PodPreset>, query: String): List<PodP
  * never renamed, replaced or deleted. Only on the device; the server never stores them.
  */
 internal val PodBuiltInPresets = listOf(
-    PodPreset("builtin-booster", "Booster", DraftSettings.booster(), updatedAt = ""),
     PodPreset("builtin-glimpse", "Glimpse", DraftSettings.glimpse(), updatedAt = ""),
 )
 internal val PodPreset.builtIn: Boolean get() = PodBuiltInPresets.any { it.id == id }

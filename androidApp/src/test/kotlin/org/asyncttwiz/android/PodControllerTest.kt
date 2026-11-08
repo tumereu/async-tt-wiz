@@ -1282,7 +1282,7 @@ class PodControllerTest {
         f.controller.newSettings { it.copy(packsPerPlayer = 5, librarians = 2, sideboardLimit = 7) }
         val presets = f.controller.presets
         presets.open(); f.deliver()
-        assertEquals(listOf("Booster", "Glimpse"), presets.state.filtered.map { it.name })
+        assertEquals(listOf("Glimpse"), presets.state.filtered.map { it.name })
         presets.choose(presets.state.filtered.single { it.name == "Glimpse" })
         val draft = f.controller.state.creating!!
         assertEquals(cube.id, draft.cubeId)

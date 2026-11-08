@@ -117,7 +117,7 @@ number	item	screenshot	catalog	decisions
 116	Draft: Pods list with pick, build and setup statuses	draft/pods-list.png	DRF-012 DRF-013
 117	Draft: pod setup with the mode button and setting tiles	draft/setup-booster.png	DRF-016 DRF-020 DRF-022 DRF-026 DRF-027 DRF-030 DRF-036 DRF-051 DRF-142
 118	Draft: mode popup with every mode and its player range	non-gameplay/pod-mode-portrait.png	DRF-020
-119	Draft: presets dialog with built-in Booster and Glimpse	draft/presets.png	DRF-031 DRF-032
+119	Draft: presets dialog with built-in Glimpse	draft/presets.png	DRF-031 DRF-032
 120	Draft: set boosters, the Source dialog's Sets tab	draft/source-sets.png	DRF-018 DRF-088 DRF-089
 121	Draft: Sealed setup from a set	draft/setup-sealed-set.png	DRF-021 DRF-024 DRF-151
 122	Draft: Prepare cube	non-gameplay/prepare-cube-portrait.png	DRF-141 DRF-142

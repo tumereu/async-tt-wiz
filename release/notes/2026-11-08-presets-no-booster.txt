@@ -1,0 +1,1 @@
+mod: The Presets list no longer has a separate Booster preset; choose Booster on the mode button instead. Glimpse stays.

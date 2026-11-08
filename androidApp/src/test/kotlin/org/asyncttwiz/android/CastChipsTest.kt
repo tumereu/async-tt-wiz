@@ -177,8 +177,9 @@ class CastChipsTest {
         assertEquals(1, hand.way, "the first way the mana pays: Dash")
     }
 
-    // STK-024 (owner 2026-11-07): in the Kit's panel with offspring on, Autotap's source pays and is outlined; a tap on it
-    // takes it out (Cast greyed, not paid), a tap on the other source adds it; Cast pays with the hand-picked source
+    // STK-024 (owner 2026-11-08, partial override): in the Kit's panel with offspring on, Autotap's source pays and is outlined; a tap
+    // on it takes it out and Autotap fills in with the other; taking that out too leaves nothing (Cast greyed, not paid), a tap on it
+    // picks it again; Cast pays with the source picked, the one taken out isn't used again
     @Test fun thePanelsPaymentIsChosenOnTheTable() {
         val (mountain, shard) = twoSources()
         val card = kit.atw(kit.hand(Choices.KIT).first())
@@ -193,6 +194,9 @@ class CastChipsTest {
         val other = if (suggested == mountain) shard else mountain
         kit.tap(kit.item(suggested))
         assertTrue(toolkit.cast.custom)
+        assertTrue(toolkit.cast.paid, "Autotap fills in")
+        assertEquals(setOf(other), toolkit.cast.paySources())
+        kit.tap(kit.item(other))
         assertFalse(toolkit.cast.paid, "nothing pays now")
         assertEquals(emptySet(), toolkit.cast.paySources())
         assertTrue(toolkit.cast.open, "the panel stays")
@@ -241,6 +245,8 @@ class CastChipsTest {
         toolkit.layoutState.value = toolkit.layoutState.value.copy(camera = TableCamera(y = 150f))
         val suggested = toolkit.cast.paySources().single()
         kit.tap(kit.item(suggested))
+        val filled = toolkit.cast.paySources().single()
+        kit.tap(kit.item(filled))
         refresh()
         compose.onNodeWithContentDescription("Not paid: Tap sources on the table to pay {R}.").assertExists()
         compose.onNode(hasText("Cast") and hasClickAction()).assertIsNotEnabled()
@@ -250,6 +256,6 @@ class CastChipsTest {
         compose.onNodeWithContentDescription("Payment: Paid with ${Choices.SHARD}").assertExists()
         compose.onNode(hasText("Cast") and hasClickAction()).assertIsEnabled()
         captureShot("$SCREENSHOTS/cast-panel/payment-chosen.png",
-            "Alice tapped her raised Ember Kit to open its cast panel, turned on its Offspring extra, panned the table up above the panel, took Autotap's source out and tapped her Ember Shard on the table: the panel says \"Paid with Ember Shard\" under \"Mana · {R}\", the Shard is outlined in amber on the table and Cast is enabled.")
+            "Alice tapped her raised Ember Kit to open its cast panel, turned on its Offspring extra, panned the table up above the panel, took out both sources and tapped her Ember Shard on the table: the panel says \"Paid with Ember Shard\" under \"Mana · {R}\", the Shard is outlined in amber on the table and Cast is enabled.")
     }
 }

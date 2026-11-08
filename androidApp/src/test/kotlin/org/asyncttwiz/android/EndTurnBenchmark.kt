@@ -53,7 +53,11 @@ class EndTurnBenchmark {
 
     @Test fun endTurnAndStepPasses() {
         if (!enabled) return
-        val boards = listOf(BenchBoard("small", BenchBoard.SMALL), BenchBoard("heavy", BenchBoard.HEAVY))
+        val boards = listOf(BenchBoard("small", BenchBoard.SMALL), BenchBoard("heavy", BenchBoard.HEAVY),
+            // Castability: reducers on the board, a hand of cards the mana can't pay, each with targets: every look at the hand looks through them
+            BenchBoard("reducers", BenchBoard.REDUCERS, BenchBoard.UNAFFORDABLE),
+            // The search's worst: a reduction whose amount reads the targets can't be bounded: each target is tried
+            BenchBoard("readers", BenchBoard.REDUCERS, BenchBoard.UNBOUNDED))
         for (board in boards) println("BENCH board ${board.name}: ${board.permanents} permanents, ${board.parsedWarnings}")
         val ops = listOf<Pair<String, (EngineGame) -> Unit>>(
             "endTurn" to { g -> g.endTurn() },
@@ -201,11 +205,10 @@ class EndTurnBenchmark {
  * sickness), equipment and auras attached to the creatures in order. The rest of each 60-card deck (Mountains, Storm
  * Sparks, Ember Cubs) is in the library and the opening hand.
  */
-private class BenchBoard(val name: String, board: List<Pair<BenchCard, Int>>) {
+private class BenchBoard(val name: String, board: List<Pair<BenchCard, Int>>, private val filler: List<Pair<BenchCard, Int>> = listOf(BenchCard.MOUNTAIN to 20, BenchCard.SPARK to 12, BenchCard.CUB to 8)) {
     private val f = TableStatesFixture
     val a = f.a
     val b = f.b
-    private val filler = listOf(BenchCard.MOUNTAIN to 20, BenchCard.SPARK to 12, BenchCard.CUB to 8)
     private val cards = (board + filler).flatMap { (card, n) -> List(n) { card } }
     private val decks = listOf(a, b).associateWith { p -> cards.mapIndexed { i, card -> f.id("$p/card/$i") to card } }
     private val onBattlefield = board.sumOf { it.second }
@@ -297,6 +300,9 @@ private class BenchBoard(val name: String, board: List<Pair<BenchCard, Int>>) {
             BenchCard.CLERIC to 3, BenchCard.IMP to 2, BenchCard.SENTINEL to 1, BenchCard.BRUTE to 3, BenchCard.KNIGHT to 3,
             BenchCard.TENDER to 2, BenchCard.HOUND to 2, BenchCard.ELF to 3, BenchCard.PLATE to 4, BenchCard.WINGS to 3,
         )
+        val REDUCERS = HEAVY + listOf(BenchCard.COIN to 2)
+        val UNBOUNDED = listOf(BenchCard.MOUNTAIN to 8, BenchCard.FAR_READER to 24, BenchCard.SPARK to 4, BenchCard.CUB to 4)
+        val UNAFFORDABLE = listOf(BenchCard.MOUNTAIN to 8, BenchCard.FAR_BANISH to 12, BenchCard.FAR_REBUKE to 12, BenchCard.SPARK to 4, BenchCard.CUB to 4)
     }
 }
 
@@ -309,6 +315,10 @@ private class BenchCard(val name: String, cost: String?, type: String, text: Str
 
     companion object {
         val MOUNTAIN = BenchCard("Mountain", null, "Basic Land — Mountain")
+        val COIN = BenchCard("Coin Medallion", "{2}", "Artifact", "Creature spells you cast cost {1} less to cast.")
+        val FAR_READER = BenchCard("Far Measure", "{19}{W}", "Instant", "This spell costs {1} less to cast for each target creature.\nTap up to five target creatures.")
+        val FAR_BANISH = BenchCard("Far Banishing", "{19}{W}", "Instant", "Exile target creature.")
+        val FAR_REBUKE = BenchCard("Far Rebuke", "{19}{W}", "Instant", "This spell costs {2} less to cast if it targets a tapped creature.\nExile target creature.")
         val FOREST = BenchCard("Forest", null, "Basic Land — Forest")
         val SPARK = BenchCard("Storm Spark", "{R}", "Instant", "Storm Spark deals 3 damage to any target.")
         val CUB = BenchCard("Ember Cub", "{R}", "Creature — Elemental Cat", "", "2", "1")

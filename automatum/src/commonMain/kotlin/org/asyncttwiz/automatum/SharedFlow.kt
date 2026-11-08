@@ -210,6 +210,23 @@ class SharedFlow private constructor(
         }
     }
 
+    /** STK-024: the open payment (or the open "you may pay"'s [payment]) around the player's own picks: [pinned] stay, [removed]
+     * aren't used, Autotap fills in the rest ([Engine.fillPayment]); empty when the rest can't be filled. */
+    fun fill(pinned: List<ManaUse>, removed: List<ManaUse>): List<ManaUse> {
+        if (decision is Decision.ManaPayment) return Engine.fillPayment(state, pinned, removed)
+        val open = decision as? Decision.May ?: return emptyList()
+        return try {
+            call().run {
+                perform(Input.Answer(open.id, Answer.YesNo(true)))
+                Engine.fillPayment(working, pinned, removed)
+            }
+        } catch (_: IllegalArgumentException) {
+            emptyList()
+        } catch (_: IllegalStateException) {
+            emptyList()
+        }
+    }
+
     /** Whether paying the open [Decision.ManaPayment] (or the open "you may pay"'s [payment]) with [uses] completes it; the
      * latest answer is kept, so asking again for the same tapping costs no engine call (#9). */
     fun pays(uses: List<ManaUse>): Boolean {

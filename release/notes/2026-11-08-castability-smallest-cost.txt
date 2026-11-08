@@ -1,0 +1,1 @@
+mod: A raised card that can cost different amounts shows its smallest cost with a + and a question mark, and outlines the mana for that cost.

@@ -48,9 +48,9 @@ class CastWaysTest : E2e() {
         assertFalse(alice.refusalSeen, "no refusal: ${alice.shownTexts}")
     }
 
-    // STK-024 (owner 2026-11-07): in the Kit's cast panel with Offspring on, Alice takes Autotap's source out and taps the
-    // other one on the table (the panel hidden with its eye meanwhile, as it covers her lands in portrait); Cast pays with
-    // the source she picked: it is tapped, Autotap's stays untapped
+    // STK-024 (owner 2026-11-08, partial override): in the Kit's cast panel with Offspring on, Alice takes Autotap's source out on
+    // the table (the panel hidden with its eye meanwhile, as it covers her lands in portrait): Autotap fills in with the other one;
+    // Cast pays with it: it is tapped, the one she took out stays untapped
     @Test fun thePanelPaysWithAHandPickedSource() {
         startGame(TestDeck.kits(), deal = { a, _ -> "Mountain" in hand(a) && "Ember Shard" in hand(a) && "Ember Kit" in hand(a) })
         bothOpen()
@@ -73,15 +73,14 @@ class CastWaysTest : E2e() {
             alice.tap("Show cast panel")
             waitUntil(what) { check() }
         }
-        onTable(suggested, { alice.shows(hasContentDescription("Not paid: ", substring = true)) }, "$suggested taken out: not paid")
-        onTable(other, { alice.payment() == "Payment: Paid with $other" }, "paid with $other")
+        onTable(suggested, { alice.payment() == "Payment: Paid with $other" }, "$suggested taken out: Autotap fills in with $other")
         val cast = alice.castButton()
         alice.node(SemanticsMatcher("Cast button") { it.id == cast.id }).performClick()
         waitUntil("the Kit and its token copy on the battlefield, on the server", along = listOf(bob)) {
             alice.field("Ember Kit").size == 2 && alice.inOwnMain() && alice.engine { device.session.pending.isEmpty() }
         }
-        assertTrue(alice.tapped(other), "$other, picked by hand, paid")
-        assertFalse(alice.tapped(suggested), "$suggested, Autotap's choice, stayed untapped")
+        assertTrue(alice.tapped(other), "$other, filled in by Autotap, paid")
+        assertFalse(alice.tapped(suggested), "$suggested, taken out by hand, stayed untapped")
         assertFalse(alice.refusalSeen, "no refusal: ${alice.shownTexts}")
     }
 }

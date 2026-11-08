@@ -252,8 +252,14 @@ internal class Act(val recorder: Recorder, val asker: Asker) {
         return chosen
     }
 
-    fun chooseColor(player: PlayerId, source: ObjectId?, among: List<Color>): Color =
-        if (among.size == 1) among.single() else (ask { Decision.ChooseColor(it, player, source, among) } as Answer.ColorChoice).color
+    /** Colours already said for the choices coming (a payment's triggered mana abilities, CR 605.4a). */
+    var colorsAhead: MutableList<Color>? = null
+
+    fun chooseColor(player: PlayerId, source: ObjectId?, among: List<Color>): Color {
+        if (among.size == 1) return among.single()
+        colorsAhead?.firstOrNull { it in among }?.let { said -> colorsAhead?.remove(said); return said }
+        return (ask { Decision.ChooseColor(it, player, source, among) } as Answer.ColorChoice).color
+    }
 
     fun chooseNumber(player: PlayerId, source: ObjectId?, min: Int, max: Int?): Int =
         if (max == min) min else (ask { Decision.ChooseNumber(it, player, source, min, max) } as Answer.Number).value

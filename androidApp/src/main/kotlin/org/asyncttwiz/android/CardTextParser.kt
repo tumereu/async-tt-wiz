@@ -8,7 +8,8 @@ internal sealed interface CardTextPart {
 // Android's ICU regex engine requires both literal braces escaped (the host JVM is lenient).
 private val cardTextToken = Regex("\\{([^{}]*)\\}")
 private val manaColors = setOf("W", "U", "B", "R", "G")
-private val simpleSymbols = manaColors + setOf("C", "X", "Y", "Z", "T", "Q", "S", "E") + (0..20).map(Int::toString)
+// "?": our own, not real MTG: the costs a card can have beyond the smallest shown (ZON-080)
+private val simpleSymbols = manaColors + setOf("C", "X", "Y", "Z", "T", "Q", "S", "E", "?") + (0..20).map(Int::toString)
 
 /** Presentation only: preserve every character outside the explicitly supported symbol vocabulary. */
 internal fun parseCardText(text: String): List<CardTextPart> = buildList {

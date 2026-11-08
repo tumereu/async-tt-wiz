@@ -36,8 +36,9 @@ import arcanum.engine.view.Subtypes
  * - With a decision open: answers to it, each checked by performing it on a copy: yes/no; each target, object, mode,
  *   colour, option, player, card type, replacement or legend to keep; the triggers in the order they are; a number at
  *   its least (and most); an announced X at the least values that work, up to what can be paid; the suggested mana
- *   payment; a division; card names and creature types found in the game; for choices of several, the first ones that
- *   work together. In a cast or activation, only answers after which it can still be finished (CR 601.2c, 601.2g–h).
+ *   payment (when Autotap finds one: a way may exist that only a player's own picks make); a division; card names and creature types found in the game; for choices of several, the first ones that
+ *   work together. In a cast or activation, only answers after which it can still be finished (CR 601.2c, 601.2g–h), denied
+ *   only with proof (castability §1): whenever a search stops early, the answer stands.
  *   Not every combination is listed: the decision says what is allowed, and any allowed answer is accepted. Random
  *   results and host fills (D25, D60) are the host's to answer and aren't listed. Any player may answer (P7), so answers
  *   are offered to everyone; [Input.Cancel] for a cast or an activation only to the player casting or activating it.
@@ -47,10 +48,12 @@ import arcanum.engine.view.Subtypes
  * - With priority: passing, each land they may play, each spell they may begin to cast (every castable face, from the
  *   hand or with a permission, a permission for the hand too, and each alternative cost that applies) and each ability
  *   they may activate, mana abilities included. A cast or activation is listed when it can be begun, everything known at
- *   its start can be done (targets, objects for costs, CR 601.2c, 601.2h), a payment is found for its mana cost as it
- *   stands then (X as 0, cost changes applied, restricted mana that may pay for it, convoke and delve counted) or at the
- *   end of a choice that lowers it (the target or the creature to sacrifice of a reduction, another player's assist,
- *   CR 601.2f, 702.132a), and its decisions have answers that lead to its end (looked ahead within a bound).
+ *   its start can be done (targets, objects for costs, CR 601.2c, 601.2h), a payment may exist for its mana cost as it
+ *   stands then ([Mana.verdict]: every mana ability counted; X as 0, cost changes applied, restricted mana that may pay for it,
+ *   convoke and delve counted) or at the end of a choice that lowers it (the target or the creature to sacrifice of a reduction,
+ *   another player's assist, CR 601.2f, 702.132a), and its decisions have answers that lead to its end. It is left out only when
+ *   the search has shown there is no way: every combination of targets, objects and modes, every X, every payment. A search
+ *   stopped by a bound lists it ("seems castable"); a false approval costs a look, a false denial a game action.
  */
 internal object Options {
     /** [view], when given, is [state]'s view (the caller has it: the layers aren't worked out again for the search). */
@@ -100,7 +103,7 @@ internal object Options {
         null
     }
 
-    /** How many more answers a look-ahead ([goesOn]) may try; once spent, what is accepted is taken to go on. */
+    /** How many more answers a look-ahead ([goesOn]) may try; once spent, everything is taken to go on (deny only with proof). */
     private class Budget(var left: Int = LOOKAHEAD)
 
     /**
@@ -116,31 +119,79 @@ internal object Options {
         if (!payableYet(Plan(state, c))) return false
         val d = pending.decision
         if (d is Decision.Random || d is Decision.HostFill || d is Decision.OtherView) return true
+        // The payment itself: [payableYet] says a way may exist; finding it is the player's and Autotap's (CR 601.2g-h)
+        if (d is Decision.ManaPayment) return true
         val snap = Snapshot(state)
         if (d is Decision.Announce) return announced(snap, pending, 1, budget).isNotEmpty()
-        return candidates(snap, pending).distinct().any { goesOnAfter(snap, pending, it, budget) }
+        // A sample that fails isn't proof (deny only with proof)
+        return tries(snap, pending).any { goesOnAfter(snap, pending, it, budget) } || !everyTried(d, pending)
     }
 
-    /** Whether [answer] to the open decision of a cast or activation is accepted and it [goesOn] after it. */
+    /** Whether [tries] of [d] is every answer it has, not a sample: creature types and card names found in the game, a few divisions, a number's ends. */
+    private fun everyTried(d: Decision, pending: Pending): Boolean = when (d) {
+        is Decision.ChooseSubtype -> d.among != null
+        is Decision.ChooseCardName, is Decision.Divide -> false
+        is Decision.ChooseNumber -> pending.continuation is Continuation.Announcing && d.max != null
+        else -> true
+    }
+
+    /** Whether [answer] to the open decision of a cast or activation is accepted and it [goesOn] after it; with the [budget] spent,
+     * it is taken to (deny only with proof). */
     private fun goesOnAfter(snap: Snapshot, pending: Pending, answer: Answer, budget: Budget = Budget()): Boolean {
+        if (budget.left-- <= 0) return true
         val (after, next) = performed(snap, Input.Answer(pending.decision.id, answer)) ?: return false
-        return budget.left-- <= 0 || goesOn(after, next, budget)
+        return goesOn(after, next, budget)
     }
 
-    /** Whether a payment is found for the mana the plan's caster pays as it stands (§7.8; what an assisting player pays is
-     * theirs, CR 702.132a), with its other ways to pay too (convoke, delve, CR 702.51, 702.66) when mana alone doesn't. */
-    private fun manaFound(plan: Plan): Boolean =
-        !plan.total.hasMana || plan.manaToPay.symbols.isEmpty() || Mana.suggest(plan.snap, plan.player, plan.manaToPay, plan.itemId, plan.manaWays, !plan.cantSpendMana, plan.manaAsAnyColor,
-            plan.tappedByCost).isNotEmpty()
+    /**
+     * Every answer a look-ahead must try before it may deny (castability §1.1): a choice of targets, objects or modes in every
+     * combination, the smallest first, since a cost can fall as more are chosen ("{5}, {1} less for each target"), a set may be
+     * legal where others aren't, and the cost may read what was chosen. Lazily: the search stops at the first that works.
+     */
+    private fun tries(snap: Snapshot, pending: Pending): Sequence<Answer> = when (val d = pending.decision) {
+        is Decision.Targets -> selections(d.options, d.min, d.max).map { Answer.Targets(it) }
+        is Decision.ChooseObjects -> (sharing(snap, pending).orEmpty().asSequence() + listOfNotNull(reachingTotal(snap, pending)) + selections(d.options, d.min, d.max))
+            .distinct().map { Answer.Objects(it) }
+        is Decision.Modes -> {
+            val available = d.options.filter { it.available }.map { it.index }
+            val worth = { modes: List<Int> -> d.pawprintLimit == null || modes.sumOf { i -> d.options.first { it.index == i }.pawprints } <= d.pawprintLimit }
+            val repeated = if (d.repeatable && d.min > 1) available.map { m -> List(d.min) { m } } else emptyList()
+            (selections(available, d.min, d.max) + repeated).filter(worth).map { Answer.Modes(it) }
+        }
+        else -> candidates(snap, pending).distinct().asSequence()
+    }
 
-    /** [manaFound], or a choice still to come may lower the cost ([Plan.costMayFall]). */
-    private fun payableYet(plan: Plan): Boolean = manaFound(plan) || plan.costMayFall
+    /** Every choice of [min] to [max] of [options], the fewest first (none last, as a choice of one lists it). */
+    private fun <T> selections(options: List<T>, min: Int, max: Int?): Sequence<List<T>> = sequence {
+        val top = minOf(max ?: options.size, options.size)
+        for (size in maxOf(min, 1)..top) yieldAll(subsets(options, size))
+        if (min == 0) yield(emptyList())
+    }
+
+    private fun <T> subsets(options: List<T>, size: Int, from: Int = 0): Sequence<List<T>> = sequence {
+        if (size == 0) { yield(emptyList()); return@sequence }
+        for (i in from..options.size - size) subsets(options, size - 1, i + 1).forEach { yield(listOf(options[i]) + it) }
+    }
+
+    /** Whether a payment may exist for the mana the plan's caster pays as it stands ([Mana.verdict]; what an assisting player pays
+     * is theirs, CR 702.132a), with its other ways to pay too (convoke, delve, CR 702.51, 702.66). */
+    private fun manaFound(plan: Plan): Boolean =
+        !plan.total.hasMana || plan.manaToPay.symbols.isEmpty() ||
+            Mana.mayPay(plan.snap, plan.player, plan.manaToPay, plan.itemId, plan.manaWays, !plan.cantSpendMana, plan.manaAsAnyColor, plan.reserved)
+
+    /** [manaFound], or a choice still to come may lower the cost ([Plan.costMayFall]) by enough: a cost that doesn't pay even at the most it
+     * can fall ([Plan.mostFall]) is proof without trying every choice. */
+    private fun payableYet(plan: Plan): Boolean = manaFound(plan) || (plan.costMayFall && paysAtTheMostItCanFall(plan))
+
+    private fun paysAtTheMostItCanFall(plan: Plan): Boolean = plan.mostFall.let { most ->
+        most == null || Mana.mayPay(plan.snap, plan.player, arcanum.engine.casting.Costs.reduce(plan.manaToPay, most), plan.itemId, plan.manaWays, !plan.cantSpendMana, plan.manaAsAnyColor, plan.reserved)
+    }
 
     /**
      * Answers to an X (or another value) announced for a cost (CR 107.3, 601.2b): the least [count] values from the
      * decision's least after which the cast can go on ([goesOnAfter]; targets may need a larger X, CR 601.2c). Values are
-     * tried up to the most a payment is found for (CR 601.2g–h), [MAX_TRIED] more than the least at most. Each value
-     * has its own look-ahead unless [budget] is shared.
+     * tried up to the most a payment may exist for (CR 601.2g–h), [MAX_TRIED] more than the least at most; a search stopped there
+     * lists the next value untried (deny only with proof). Each value has its own look-ahead unless [budget] is shared.
      */
     private fun announced(snap: Snapshot, pending: Pending, count: Int, budget: Budget? = null): List<Answer> {
         val d = pending.decision as Decision.Announce
@@ -149,13 +200,158 @@ internal object Options {
         val most = minOf(d.max ?: Int.MAX_VALUE, d.min + MAX_TRIED)
         var n = d.min
         while (n <= most && found.size < count) {
-            // A larger value costs no less mana
-            if (!payableYet(Plan(snap.state, c.copy(choices = c.choices.copy(announced = c.choices.announced + (d.name to n)))))) break
+            // A larger value costs no less mana, unless a reduction starts to apply with it (a filter reading mana value, CR 202.3e, 601.2f): proof only
+            // when it doesn't pay at the most every reduction could take
+            val plan = Plan(snap.state, c.copy(choices = c.choices.copy(announced = c.choices.announced + (d.name to n))))
+            if (!manaFound(plan) && !(plan.anyReduction && paysAtTheMostItCanFall(plan))) break
             val answer = Answer.Number(n)
             if (goesOnAfter(snap, pending, answer, budget ?: Budget())) found += answer
             n++
         }
+        if (found.isEmpty() && n > most && most < (d.max ?: Int.MAX_VALUE)) found += Answer.Number(n)
         return found
+    }
+
+    /** [Engine.finishable]. */
+    fun finishable(state: GameState): Boolean = goesOn(state, state.pending)
+
+    /** [Engine.anyReduction]. */
+    fun anyReduction(state: GameState): Boolean = (state.pending?.continuation as? Continuation.Announcing)?.let { Plan(state, it).anyReduction } == true
+
+    /** [Engine.finishableWith]. */
+    fun finishableWith(state: GameState, answer: Answer): Boolean {
+        val pending = state.pending ?: return false
+        return goesOnAfter(Snapshot(state), pending, answer)
+    }
+
+    /** [Engine.selection]: see there. Candidates are tried with as few others as can be, so the budget goes to the near ones. */
+    fun selection(state: GameState, picked: List<arcanum.engine.state.TargetRef>): Selection {
+        val pending = state.pending ?: return Selection(emptyList(), false)
+        val d = pending.decision
+        val options = when (d) {
+            is Decision.Targets -> d.options
+            is Decision.ChooseObjects -> d.options.map { arcanum.engine.state.TargetRef.Object(it) }
+            else -> return Selection(emptyList(), false)
+        }
+        val min = if (d is Decision.Targets) d.min else (d as Decision.ChooseObjects).min
+        val max = minOf(if (d is Decision.Targets) d.max ?: options.size else (d as Decision.ChooseObjects).max ?: options.size, options.size)
+        val answerOf = { chosen: List<arcanum.engine.state.TargetRef> ->
+            if (d is Decision.Targets) Answer.Targets(chosen) else Answer.Objects(chosen.map { (it as arcanum.engine.state.TargetRef.Object).id })
+        }
+        val c = pending.continuation as? Continuation.Announcing
+        val plan = c?.takeIf { it.choices.names[Plan.MANUAL] == null && it.choices.paying == null }?.let { Plan(state, it) }
+        val limits = plan != null && d is Decision.Targets && plan.targetsLimitEachOther(d.slot)
+        // Not a cast or activation: as the decision says
+        if (plan == null) return Selection(options, picked.size in min..max)
+        val snap = Snapshot(state)
+        val budget = Budget(SELECTION)
+        val done = picked.size in min..max && goesOnAfter(snap, pending, answerOf(picked))
+        // Targets all alike, the next thing being the payment: nothing to work out per candidate (objects a cost uses do change what can pay, Plan.reserved)
+        if (d is Decision.Targets && !plan.costMayVary && !limits && min <= 1 && options.isNotEmpty() &&
+            performed(snap, Input.Answer(d.id, answerOf(listOf(options.first()))))?.second?.decision.let { it == null || it is Decision.ManaPayment }) return Selection(options, done)
+        val rest = options.filter { it !in picked }
+        val undecided = rest.toMutableList()
+        val selectable = picked.toMutableSet()
+        // Each round: a candidate with [extra] others beside the picks
+        var extra = 0
+        while (undecided.isNotEmpty() && budget.left > 0 && picked.size + 1 + extra <= max) {
+            val iterator = undecided.iterator()
+            while (iterator.hasNext() && budget.left > 0) {
+                val candidate = iterator.next()
+                val others = rest.filter { it != candidate }
+                if (picked.size + 1 + extra < min) continue
+                if (subsets(others, extra).any { more -> goesOnAfter(snap, pending, answerOf(picked + candidate + more), budget) }) {
+                    selectable += candidate
+                    iterator.remove()
+                }
+            }
+            extra++
+        }
+        // A bound keeps a candidate selectable (the final check is exact)
+        if (budget.left <= 0) selectable += undecided
+        return Selection(options.filter { it in selectable }, done)
+    }
+
+    /** [Engine.castCosts]: see there. */
+    fun castCosts(state: GameState): CastCosts {
+        val pending = state.pending
+        val first = (pending?.continuation as? Continuation.Announcing)?.takeIf { it.choices.names[Plan.MANUAL] == null && it.choices.paying == null }
+            ?: return CastCosts(null, several = false, asks = false, castable = true, suggestion = emptyList(), answers = emptyList())
+        val budget = Budget(COST_LEAVES)
+        // Every way through while the cost may vary; else the first that goes on
+        class Leaf(val cost: arcanum.api.ManaCost?, val payable: Boolean, val suggestion: List<arcanum.engine.decision.ManaUse>, val answers: List<Answer>, val x: Int)
+        val leaves = mutableListOf<Leaf>()
+        var stopped = false
+        var asks = false
+        var xes = 0
+        fun walk(s: GameState, p: Pending?, path: List<Answer>) {
+            val c = (p?.continuation as? Continuation.Announcing)?.takeIf { it.choices.names[Plan.MANUAL] == null && it.choices.paying == null }
+            val x = path.filterIsInstance<Answer.Number>().firstOrNull()?.value ?: 0
+            if (c == null) { leaves += Leaf(null, true, emptyList(), path, x); return }
+            val d = p.decision
+            if (d is Decision.ManaPayment && d.player == c.player) {
+                leaves += Leaf(d.cost, manaFound(Plan(s, c)), d.suggestion, path, x)
+                return
+            }
+            if (d is Decision.Random || d is Decision.HostFill || d is Decision.OtherView) { leaves += Leaf(null, true, emptyList(), path, x); stopped = true; return }
+            asks = true
+            xes = maxOf(xes, Plan(s, c).contributions.sumOf { co -> co.cost.parts.sumOf { pa -> (pa as? arcanum.api.CostPart.Mana)?.cost?.symbols.orEmpty().count { it is arcanum.api.ManaSymbol.Variable } } })
+            val snap = Snapshot(s)
+            val plan = Plan(s, c)
+            if (d is Decision.Announce) {
+                val least = announced(snap, p, 1).firstOrNull() ?: return
+                val (after, next) = performed(snap, Input.Answer(d.id, least)) ?: return
+                return walk(after, next, path + least)
+            }
+            val every = plan.costMayVary
+            for (answer in tries(snap, p)) {
+                if (budget.left-- <= 0) { stopped = true; return }
+                val (after, next) = performed(snap, Input.Answer(d.id, answer)) ?: continue
+                val before = leaves.size
+                walk(after, next, path + answer)
+                // The first that can be paid when the cost is the same every way (a cost's objects may leave nothing to pay with, Plan.reserved)
+                if (!every && leaves.drop(before).any { it.payable }) return
+            }
+            if (!everyTried(d, p)) stopped = true
+        }
+        walk(state, pending, emptyList())
+        val costs = leaves.map { it.cost?.toString().orEmpty() }.distinct()
+        val payable = leaves.filter { it.payable }
+        val least = (payable.ifEmpty { leaves }).minByOrNull { manaValue(it.cost) }
+        return CastCosts(least?.cost?.let { printedX(it, xes, least.x) }, several = costs.size > 1 || stopped, asks = asks, castable = goesOn(state, pending),
+            suggestion = least?.suggestion.orEmpty(), answers = least?.answers.orEmpty())
+    }
+
+    /** [cost] with its X shown as {X} ([count] of them, of value [x]) rather than as what X is at its least (castability §2). */
+    private fun printedX(cost: arcanum.api.ManaCost, count: Int, x: Int): arcanum.api.ManaCost {
+        if (count == 0) return cost
+        var left = count * x
+        val rest = cost.symbols.mapNotNull { s ->
+            if (s !is arcanum.api.ManaSymbol.Generic || left == 0) return@mapNotNull s
+            val taken = minOf(left, s.amount)
+            left -= taken
+            if (s.amount - taken > 0) arcanum.api.ManaSymbol.Generic(s.amount - taken) else null
+        }
+        return arcanum.api.ManaCost(List(count) { arcanum.api.ManaSymbol.Variable('X') } + rest)
+    }
+
+    private fun manaValue(cost: arcanum.api.ManaCost?): Int = cost?.symbols.orEmpty().sumOf { s ->
+        when (s) {
+            is arcanum.api.ManaSymbol.Generic -> s.amount
+            is arcanum.api.ManaSymbol.GenericHybrid -> s.amount
+            is arcanum.api.ManaSymbol.Variable -> 0
+            else -> 1
+        }
+    }
+
+    /** [Engine.fillPayment]: see there. */
+    fun fillPayment(state: GameState, pinned: List<arcanum.engine.decision.ManaUse>, removed: List<arcanum.engine.decision.ManaUse>): List<arcanum.engine.decision.ManaUse> {
+        val pending = state.pending ?: return emptyList()
+        val d = pending.decision as? Decision.ManaPayment ?: return emptyList()
+        val c = pending.continuation as? Continuation.Announcing
+        if (c == null || d.player != c.player) return Mana.suggest(Snapshot(state), d.player, d.cost, null, pinned = pinned, removed = removed)
+        val plan = Plan(state, c)
+        return Mana.suggest(plan.snap, d.player, d.cost, plan.itemId, plan.manaWays, !plan.cantSpendMana, plan.manaAsAnyColor, plan.reserved, pinned, removed)
     }
 
     private fun answers(snap: Snapshot, pending: Pending, player: PlayerId): List<Input> {
@@ -167,8 +363,14 @@ internal object Options {
         val found = if (d is Decision.Announce && announcing) announced(snap, pending, NUMBERS)
             else candidates(snap, pending).distinct().filter { hidden.isEmpty() || objectsOf(d, it).none { id -> id in hidden } }
                 .filter { if (announcing) goesOnAfter(snap, pending, it) else accepted(snap, Input.Answer(d.id, it)) }
+        // A sample that doesn't work isn't proof: the first combination that does (a target that only works as part of a pair)
+        val working = if (announcing && found.isEmpty() && d !is Decision.Announce && d !is Decision.ManaPayment)
+            tries(snap, pending).filter { a -> hidden.isEmpty() || objectsOf(d, a).none { it in hidden } }.take(LOOKAHEAD).firstOrNull { goesOnAfter(snap, pending, it) }?.let { listOf(it) }
+                // A failed sample proves nothing: what it accepts stays on offer
+                ?: if (everyTried(d, pending)) emptyList() else candidates(snap, pending).distinct().filter { accepted(snap, Input.Answer(d.id, it)) }
+            else found
         val cancel = (pending.continuation as? Continuation.Announcing)?.takeIf { it.player == player }?.let { Input.Cancel(player) }
-        return found.map { Input.Answer(d.id, it) } + listOfNotNull(cancel)
+        return working.map { Input.Answer(d.id, it) } + listOfNotNull(cancel)
     }
 
     /** The objects a decision offers. */
@@ -294,7 +496,11 @@ internal object Options {
     private const val MAX_TRIED = 20
 
     /** How many answers a look-ahead tries at most. */
-    private const val LOOKAHEAD = 40
+    private const val LOOKAHEAD = 64
+    /** How many selections [selection] tries at most for one look at the candidates. */
+    private const val SELECTION = 512
+    /** How many answers [castCosts] tries at most to tell a card's costs. */
+    private const val COST_LEAVES = 64
 
     private fun declarations(snap: Snapshot, player: PlayerId): List<Input> {
         val s = snap.state

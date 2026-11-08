@@ -15,7 +15,8 @@ object ManaPicks {
 
     /** What the player taps for [use]: the same for every use of one source (its abilities and colours). */
     fun key(use: ManaUse): String = when (use) {
-        is ManaUse.Ability -> use.source.toString()
+        // CR 605.3a: a source used with another object (the creature an altar sacrifices) is a pick of its own
+        is ManaUse.Ability -> use.source.toString() + use.answers.filterIsInstance<arcanum.engine.decision.Answer.Objects>().joinToString("") { "/${it.chosen}" }
         is ManaUse.Pool -> "pool/${use.index}"
         is ManaUse.Life -> "life/${use.symbol}"
         is ManaUse.Special -> "special/${use.way}/${use.objects}"
@@ -26,10 +27,18 @@ object ManaPicks {
      * changed its cost) carried to [decision]: the same sources, their colours worked out again so they pay when they can
      * ([assign]); a source no longer offered drops out.
      */
-    fun carry(decision: Decision.ManaPayment, kept: List<ManaUse>, pays: (List<ManaUse>) -> Boolean): List<ManaUse> {
+    fun carry(decision: Decision.ManaPayment, kept: List<ManaUse>, pays: (List<ManaUse>) -> Boolean,
+        fill: (List<ManaUse>, List<ManaUse>) -> List<ManaUse> = { _, _ -> emptyList() }): List<ManaUse> {
         val keys = kept.map(::key).toSet()
         val tapped = groups(decision).filter { key(it.first()) in keys }
-        return assign(tapped, kept, pays) ?: tapped.map { group -> group.firstOrNull { it in kept } ?: group.first() }
+        return assign(tapped, kept, pays) ?: searched(decision, tapped, pays, fill) ?: tapped.map { group -> group.firstOrNull { it in kept } ?: group.first() }
+    }
+
+    /** [tapped] paying when the first combinations of colours didn't: the engine's search ([fill]: the picks kept, everything else left out). */
+    private fun searched(decision: Decision.ManaPayment, tapped: List<List<ManaUse>>, pays: (List<ManaUse>) -> Boolean,
+        fill: (List<ManaUse>, List<ManaUse>) -> List<ManaUse>): List<ManaUse>? {
+        val taken = tapped.flatten().toSet()
+        return fill(tapped.map { it.first() }, decision.options.filter { it !in taken }).takeIf { it.isNotEmpty() && pays(it) }
     }
 
     /**
@@ -57,14 +66,16 @@ object ManaPicks {
     /**
      * The uses after tapping or untapping [group] with [current] tapped: untapping drops its use; tapping adds it. Either
      * way the colours of all tapped sources are worked out again ([assign]) so the set pays when it can; when it can't,
-     * the kept uses stay as they were and a newly tapped source makes its first colour.
+     * the kept uses stay as they were and a newly tapped source makes its first colour. Past the first combinations the engine's search ([fill]) decides.
      */
-    fun toggle(decision: Decision.ManaPayment, current: List<ManaUse>, group: List<ManaUse>, pays: (List<ManaUse>) -> Boolean): List<ManaUse> {
+    fun toggle(decision: Decision.ManaPayment, current: List<ManaUse>, group: List<ManaUse>, pays: (List<ManaUse>) -> Boolean,
+        fill: (List<ManaUse>, List<ManaUse>) -> List<ManaUse> = { _, _ -> emptyList() }): List<ManaUse> {
         val all = groups(decision)
         val untapping = current.any { it in group }
         val kept = if (untapping) current.filterNot { it in group } else current
         val tapped = all.filter { g -> g.any { it in kept } || (!untapping && g == group) }
         assign(tapped, kept, pays)?.let { return it }
+        searched(decision, tapped, pays, fill)?.let { return it }
         return if (untapping) kept else kept + group.first()
     }
 }

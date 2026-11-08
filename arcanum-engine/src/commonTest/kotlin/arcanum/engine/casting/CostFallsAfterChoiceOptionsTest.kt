@@ -180,13 +180,105 @@ class CostFallsAfterChoiceOptionsTest {
         assertTrue(troll in casts(alice))
     }
 
-    // CR 605.3a, 106.4: a mana ability that costs mana isn't counted ahead; its mana, once in the pool, is (TBL-122)
+    // CR 605.3a, 106.4 (castability §1): a mana ability that costs mana counts by what it nets (a Plains into a Signet: {W}{U}), and so
+    // does its mana once in the pool (TBL-122)
     @Test
-    fun aManaAbilityThatCostsManaCountsOnceItsManaIsInThePool() = scenario {
+    fun aManaAbilityThatCostsManaCountsByWhatItNets() = scenario {
         alice.battlefield("Plains", signet)
         alice.hand(flier)
-        assertFalse(flier in casts(alice))
+        assertTrue(flier in casts(alice), "{1}{W} with the Plains through the Signet")
         alice.activates(signet)
         assertTrue(flier in casts(alice), "{1}{W} with the Signet's {W}{U} in the pool")
     }
+
+    // ---- Castability §1: the search's early stops turned into proof or "castable"
+
+    private val phyrexian = Cards.invent("Falls Phyrexian Banish", "{2}{W/P}", "Sorcery",
+        "This spell costs {2} less to cast if it targets a tapped creature.\nExile target creature.")
+
+    // CR 107.4f, 601.2f: a reduction and Phyrexian mana (a bug Arena has had): with no mana at all, the reduced {W/P} is paid with 2 life
+    @Test
+    fun aReductionWithPhyrexianManaIsPaidWithLife() = scenario {
+        alice.hand(phyrexian)
+        bob.battlefield(ox, tapped = true)
+        assertTrue(phyrexian in casts(alice))
+        perform(Input.Cast(alice.id, card(phyrexian)))
+        answer(arcanum.engine.decision.Answer.Targets(listOf(target(ox))))
+        val payment = decision<arcanum.engine.decision.Decision.ManaPayment>()
+        assertEquals("{W/P}", payment.cost.toString(), "the reduction takes generic mana, never the Phyrexian symbol (CR 118.7c)")
+        answer(arcanum.engine.decision.Answer.ManaPayment(payment.suggestion))
+        assertEquals(18, alice.life)
+    }
+
+    // CR 119.4: with too little life the Phyrexian symbol can't be paid that way
+    @Test
+    fun theSameSpellIsNotListedWithoutTheLife() = scenario {
+        alice.life = 1
+        alice.hand(phyrexian)
+        bob.battlefield(ox, tapped = true)
+        assertFalse(phyrexian in casts(alice))
+    }
+
+    // CR 107.4f: two Phyrexian symbols, mana for the first only: life for the second (every set of symbols is tried, not only the last ones)
+    @Test
+    fun lifePaysAnyPhyrexianSymbolNotOnlyTheLast() = scenario {
+        val two = Cards.invent("Falls Two Phyrexian", "{B/P}{W/P}", "Sorcery", "Draw a card.")
+        alice.life = 2
+        alice.battlefield("Plains")
+        alice.hand(two)
+        assertTrue(two in casts(alice))
+    }
+
+    /** A spell of two targets sharing a creature type, the first pair the search meets not sharing one (CR 601.2c). */
+    private val sharingTwo: String = run {
+        val base = Cards.definition(Cards.invent("Falls Pair Base", "{1}", "Sorcery", "Draw a card.")).faces.single()
+        val slot = arcanum.api.TargetSlot("pair", arcanum.api.TargetKind.Objects(arcanum.api.ObjectFilter.Type(arcanum.api.CardType.Creature)),
+            arcanum.api.Value.Fixed(2), arcanum.api.Value.Fixed(2), sharing = arcanum.api.SharedQuality.CreatureType)
+        val spell = arcanum.api.Ability.Spell(arcanum.api.Instructions(targets = listOf(slot), steps = listOf(arcanum.api.Step.Do(arcanum.api.Effect.Destroy(arcanum.api.Objects.Target("pair"))))))
+        Cards.define("Falls Pair", arcanum.api.CardDefinition(arcanum.api.Layout.Normal, listOf(base.copy(name = "Falls Pair", abilities = listOf(spell)))))
+    }
+
+    // CR 601.2c: a required choice of two: not only the first set is tried (Options.some did): Ox and Bird don't share, Ox and the other Ox do
+    @Test
+    fun aRequiredPairIsFoundThoughTheFirstPairFails() = scenario {
+        alice.battlefield("Plains")
+        alice.hand(sharingTwo)
+        bob.battlefield(ox)
+        bob.battlefield(flier)
+        bob.battlefield(ox)
+        assertTrue(sharingTwo in casts(alice))
+    }
+
+    @Test
+    fun noPairAtAllIsProof() = scenario {
+        alice.battlefield("Plains")
+        alice.hand(sharingTwo)
+        bob.battlefield(ox)
+        bob.battlefield(flier)
+        assertFalse(sharingTwo in casts(alice))
+    }
+
+    /** {4}{W}, less by its target's power: a reducer that applies already, its amount read from the target (Plan.costMayFall skipped it). */
+    private val byPower: String = run {
+        val base = Cards.definition(Cards.invent("Falls By Power Base", "{4}{W}", "Sorcery", "Exile target creature.")).faces.single()
+        val spell = base.abilities.single() as arcanum.api.Ability.Spell
+        val slot = spell.instructions.targets.single().name
+        val cheaper = arcanum.api.Ability.Static(listOf(arcanum.api.Mechanic.CostChange(arcanum.api.ObjectFilter.Is(arcanum.api.Objects.Self),
+            arcanum.api.CostChange.Less(arcanum.api.ManaCost.parse("{1}")!!, arcanum.api.Value.Of(arcanum.api.NumericProperty.Power, arcanum.api.Objects.Target(slot), arcanum.api.Combine.Single)))),
+            arcanum.api.Affected.Objects(arcanum.api.Objects.Self))
+        Cards.define("Falls By Power", arcanum.api.CardDefinition(arcanum.api.Layout.Normal, listOf(base.copy(name = "Falls By Power", abilities = listOf(cheaper, spell)))))
+    }
+
+    // CR 601.2f: the amount depends on the target: the 3/3's {1}{W} is paid with two lands, the 1/1's {3}{W} isn't
+    @Test
+    fun aReducerWhoseAmountReadsTheTargetIsLookedThrough() = scenario {
+        alice.battlefield("Plains", "Plains")
+        alice.hand(byPower)
+        bob.battlefield(flier)
+        bob.battlefield(ox)
+        assertTrue(byPower in casts(alice))
+        perform(Input.Cast(alice.id, card(byPower)))
+        assertEquals(listOf(ox), offeredTargets())
+    }
+
 }

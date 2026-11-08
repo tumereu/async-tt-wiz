@@ -307,6 +307,12 @@ sealed interface ManaUse {
      * colour, [color] names it (telling a dual land's two abilities apart). */
     @Serializable @SerialName("ability") data class Ability(
         val source: ObjectId, val ability: arcanum.engine.view.AbilityOrigin, val color: Color? = null,
+        /** What else its activation asks, in order (CR 605.3a): the objects its cost uses (the creature an altar sacrifices), an
+         * amount it announces, each colour of a combination. Its own mana is paid from the mana the payment has by then. */
+        val answers: List<Answer> = emptyList(),
+        /** The colours for the triggered mana abilities it sets off that ask one (CR 605.1b, 605.4a: "an additional one mana of any
+         * color"), in the order they resolve; one not said here is asked. */
+        val triggered: List<Color> = emptyList(),
     ) : ManaUse
     /** Tap or exile [objects] another way ([arcanum.api.ManaPaymentWay]). */
     @Serializable @SerialName("special") data class Special(val way: arcanum.api.ManaPaymentWay, val objects: List<ObjectId>) : ManaUse

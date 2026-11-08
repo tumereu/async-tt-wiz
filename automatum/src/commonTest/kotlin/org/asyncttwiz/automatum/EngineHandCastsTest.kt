@@ -98,6 +98,18 @@ class EngineHandCastsTest {
         assertEquals(3, HandCasts.mostAnnounced(flow))
     }
 
+    // STK-024: five any-colour sources tapped by hand for five colours: past the first combinations of colours the engine's search decides
+    @Test fun aSetOfSourcesPaysPastTheFirstCombinations() {
+        val sources = (1..5).map { arcanum.engine.state.ObjectId.Card(arcanum.engine.state.CardId("alice.$it"), 0) }
+        val options = sources.flatMap { s -> arcanum.api.Color.all.map { c -> arcanum.engine.decision.ManaUse.Ability(s, arcanum.engine.view.AbilityOrigin.Printed(0, 0), c) } }
+        val d = Decision.ManaPayment(arcanum.engine.decision.DecisionId("pay"), arcanum.engine.state.PlayerId("alice"), sources.first(), arcanum.api.ManaCost.parse("{W}{U}{B}{R}{G}")!!, options, emptyList())
+        val pays = { uses: List<arcanum.engine.decision.ManaUse> -> uses.size == 5 && uses.map { (it as arcanum.engine.decision.ManaUse.Ability).color }.toSet().size == 5 }
+        val answer = sources.zip(arcanum.api.Color.all).map { (s, c) -> arcanum.engine.decision.ManaUse.Ability(s, arcanum.engine.view.AbilityOrigin.Printed(0, 0), c) }
+        var current: List<arcanum.engine.decision.ManaUse> = emptyList()
+        ManaPicks.groups(d).forEach { group -> current = ManaPicks.toggle(d, current, group, pays) { pinned, _ -> if (pinned.size == 5) answer else emptyList() } }
+        assertTrue(pays(current), "the five can pay it: $current")
+    }
+
     // STK-023: X counted twice ({X}{X}{G}): five Mountains and a Forest pay up to X = 2
     @Test fun aDoubleXCountsTwice() {
         table.put(alice, Zone.Battlefield, "Mountain", "Mountain", "Mountain", "Mountain", "Mountain", "Forest")

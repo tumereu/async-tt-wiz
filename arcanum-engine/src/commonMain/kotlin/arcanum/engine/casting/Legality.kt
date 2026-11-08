@@ -359,6 +359,16 @@ internal object Legality {
         return null
     }
 
+    /** How many more times mana ability [instance] of [source] may be activated (CR 602.5b): its limit each turn or once only,
+     * else no limit of its own. */
+    fun manaUsesLeft(snap: Snapshot, source: ObjectId, instance: AbilityInstance): Int {
+        val ability = instance.ability as? Ability.Activated ?: return 0
+        var left = Int.MAX_VALUE
+        ability.rules.perTurn?.let { left = minOf(left, it - activationsThisTurn(snap, source, instance.origin.key)) }
+        if (ability.rules.once && activationsEver(snap, source, instance.origin.key) >= 1) left = 0
+        return left
+    }
+
     /** dft: a rule lets its [ability] be activated as though it hadn't been (CR 702.177b). */
     private fun asThoughNotActivated(snap: Snapshot, source: ObjectId, ability: Ability.Activated): Boolean = ability.label?.let { label ->
         snap.view[source]?.mechanics.orEmpty().any { (it.mechanic as? arcanum.api.Mechanic.AsThoughNotActivated)?.label == label }

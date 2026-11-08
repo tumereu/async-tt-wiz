@@ -51,14 +51,14 @@ fun main(args: Array<String>) {
 }
 
 /** The supported sets in file order: code → name. */
-private fun supportedSets(): Map<String, String> {
+internal fun supportedSets(): Map<String, String> {
     val text = checkNotNull(object {}.javaClass.getResource("/arcanum/tools/supported-sets.txt")) { "supported-sets.txt missing" }.readText()
     return text.lines().map { it.trim() }.filter { it.isNotEmpty() && !it.startsWith("#") }
         .associate { it.substringBefore(' ') to it.substringAfter(' ', "").trim() }
 }
 
 /** MTGJSON set files in [dir], fetched again when MTGJSON's version (Meta.json, checked at most once a day) changes. */
-private class SetCache(private val dir: File) {
+internal class SetCache(private val dir: File) {
     private val http = HttpClient.newBuilder().followRedirects(HttpClient.Redirect.NORMAL).connectTimeout(Duration.ofSeconds(20)).build()
     private val meta = File(dir, "Meta.json")
 
@@ -104,7 +104,7 @@ private class SetCache(private val dir: File) {
 }
 
 /** One card of a set: its card-data layout and its faces' records in printed order. */
-private class SetCard(val name: String, val layout: String, val faces: List<JsonObject>) {
+internal class SetCard(val name: String, val layout: String, val faces: List<JsonObject>) {
     /** The parts of the card the engine leaves to the players, as a host reads its card data (empty: supported). */
     fun handParts(): List<String> {
         val printed = faces.map(::oracleCard)
@@ -119,7 +119,7 @@ private class SetCard(val name: String, val layout: String, val faces: List<Json
 }
 
 /** A face's printed values as a host's card data gives them to the parser. */
-private fun oracleCard(record: JsonObject): OracleCard {
+internal fun oracleCard(record: JsonObject): OracleCard {
     fun field(key: String) = record.get(key)?.takeIf { it.isJsonPrimitive }?.asString.orEmpty()
     return OracleCard(
         name = field("faceName").ifBlank { field("name") },
@@ -142,7 +142,7 @@ private fun colorIndicator(record: JsonObject): String? {
 }
 
 /** The set's cards, once per oracle id (the first printing), skipping Un-cards, online-only and rebalanced printings. */
-private fun setCards(file: File): List<SetCard> {
+internal fun setCards(file: File): List<SetCard> {
     val root = GZIPInputStream(file.inputStream().buffered(1 shl 16)).reader(Charsets.UTF_8).use { JsonParser.parseReader(it) }
     val records = root.asJsonObject.getAsJsonObject("data").getAsJsonArray("cards").map { it.asJsonObject }
         .filterNot { card -> listOf("isFunny", "isOnlineOnly", "isRebalanced").any { card.get(it)?.asBoolean == true } }

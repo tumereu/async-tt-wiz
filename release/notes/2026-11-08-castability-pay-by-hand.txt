@@ -1,0 +1,1 @@
+mod: In the cast panel a source you pick stays picked and Autotap fills in the rest; a source you take out isn't used again. When Autotap finds no way the panel opens and you pay by hand.

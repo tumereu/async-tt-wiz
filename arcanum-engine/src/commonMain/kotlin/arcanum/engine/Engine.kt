@@ -93,12 +93,39 @@ object Engine {
         Layers.explain(state, ids)
 
     /**
-     * Whether the mana to pay for the cast or activation waiting in [state] may still fall with a choice not made yet
-     * (CR 601.2f comes after 601.2b-e): the target of "costs {2} less if it targets a tapped creature", the creature to
-     * sacrifice for emerge. Its answers may then differ in whether it can be paid: [options] lists those that can.
+     * Whether the open cast or activation can still be finished from here, as far as the search can tell (castability §1): false
+     * only when it has shown there is no way; a search stopped by a bound, or a payment that may exist, says true. What
+     * [options] lists a cast by, for a host working out a choice it made (a way with its extras).
      */
-    fun costMayFall(state: GameState): Boolean = (state.pending?.continuation as? arcanum.engine.decision.Continuation.Announcing)
-        ?.let { arcanum.engine.casting.Plan(state, it).costMayFall } == true
+    fun finishable(state: GameState): Boolean = Options.finishable(state)
+
+    /** Whether a reduction may come to apply to the open cast or activation as its choices are made: then what it costs needn't rise with an X (CR 202.3e, 601.2f). */
+    fun anyReduction(state: GameState): Boolean = Options.anyReduction(state)
+
+    /** [finishable] once [answer] is given to the open decision: false when it is refused or leaves no way. */
+    fun finishableWith(state: GameState, answer: arcanum.engine.decision.Answer): Boolean = Options.finishableWith(state, answer)
+
+    /**
+     * What may be picked next in the open choice of targets or objects with [picked] picked so far (castability §3, CR 601.2c,
+     * 601.2f): a candidate is listed when some finished selection including it and [picked] can be paid and is legal, not when the
+     * selection is payable right now, since a cost can fall as more are picked. A search bound keeps a candidate listed;
+     * [Selection.done] is for [picked] itself. Blocking: run it off the main thread. Picked candidates stay listed (they can be
+     * taken back).
+     */
+    fun selection(state: GameState, picked: List<arcanum.engine.state.TargetRef>): Selection = Options.selection(state, picked)
+
+    /**
+     * What the open cast or activation can come to (castability §2): the smallest cost among the ways through its open choices,
+     * whether it can have several, Autotap's suggestion for that smallest, and the answers leading to it. Blocking.
+     */
+    fun castCosts(state: GameState): CastCosts = Options.castCosts(state)
+
+    /**
+     * The open [arcanum.engine.decision.Decision.ManaPayment] paid around a player's own choices (STK-024): [pinned] uses stay,
+     * [removed] uses aren't used, Autotap's order fills in the rest; empty when the rest can't be filled.
+     */
+    fun fillPayment(state: GameState, pinned: List<arcanum.engine.decision.ManaUse>, removed: List<arcanum.engine.decision.ManaUse>): List<arcanum.engine.decision.ManaUse> =
+        Options.fillPayment(state, pinned, removed)
 
     /** What [player] may do now: play a land, cast, activate, pass, declare, or answer the open decision. */
     fun options(state: GameState, player: PlayerId): List<Input> = Options.of(state, player)
@@ -315,3 +342,18 @@ data class PassCheck(val asSet: Boolean, val ownSkipOn: Boolean) {
 /** A [decision] and the [continuation] that goes on once it is answered (D58). The host stores both as they are. */
 @Serializable
 data class Pending(val decision: Decision, val continuation: Continuation)
+
+/** What [Engine.selection] says of an open choice of targets or objects: the [candidates] that may be picked with what is picked
+ * so far, and whether the picks so far are a selection that is [done]: legal and able to be paid. */
+data class Selection(val candidates: List<arcanum.engine.state.TargetRef>, val done: Boolean)
+
+/**
+ * What [Engine.castCosts] says of an open cast or activation: [least] the lowest mana cost among the ways through its open choices
+ * that can be paid now (the lowest of all when none can; null when it costs no mana), [several] whether it can have other costs or
+ * the search couldn't finish, [asks] whether anything is asked before the payment, [castable] the same answer as
+ * [Engine.finishable], [suggestion] Autotap's sources for [least], [answers] the answers leading to [least].
+ */
+data class CastCosts(
+    val least: arcanum.api.ManaCost?, val several: Boolean, val asks: Boolean, val castable: Boolean,
+    val suggestion: List<arcanum.engine.decision.ManaUse>, val answers: List<arcanum.engine.decision.Answer>,
+)

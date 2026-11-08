@@ -137,6 +137,9 @@ internal interface FlowQuestions {
     /** STK-049: the payment a "you may pay {mana}" question [decision] goes on to, asked in one panel with "Don't pay"; null
      * when it has none (or isn't such a question). */
     fun paymentAfter(decision: Decision): Decision.ManaPayment? = null
+    /** Castability §3: what may be picked in the open choice of cards in a panel with [chosen] picked, given to [done] (null: anything
+     * the decision offers), worked out off the main thread. */
+    fun selectionOf(chosen: List<ObjectId>, done: (arcanum.engine.Selection?) -> Unit) = done(null)
     /** Pays the open payment (or says yes to the open "you may pay" and pays its [paymentAfter]) with [mana]. */
     fun payMana(): Boolean = answer(Answer.ManaPayment(mana))
     val mana: List<ManaUse>
@@ -221,7 +224,7 @@ private fun TargetBar(cast: CastController, flow: CastFlow, play: TableBoard, so
     AutomatumDockBar(pick.description, eye = true) {
         // STK-047 (owner playtest 2026-11-06): the sentence the targets are for, under the title
         TargetBarTitle(pick.title, cast.abilityText ?: askedSentence(rulesTextOf(play, flow.cardId), decision))
-        if (pick.max != 1 || pick.min == 0) TextButton(cast::confirmTargets, enabled = cast.picked.size >= pick.min) {
+        if (pick.max != 1 || pick.min == 0) TextButton(cast::confirmTargets, enabled = cast.pickDone) {
             IconText(Icons.Outlined.Check, if (cast.picked.isEmpty()) "None" else "Done")
         }
         ChoiceSource(source, inspector, Modifier.padding(start = 4.dp, end = 6.dp, top = 2.dp, bottom = 2.dp))
@@ -613,7 +616,6 @@ private fun PaymentLine(cast: CastController, play: TableBoard) {
     val names = cast.mana.map { useName(cast, play, it) }
     val reason = when {
         cast.paid -> null
-        cast.autotap && !cast.custom -> CastController.notPaid(payment)
         names.isEmpty() -> "Tap sources on the table to pay $due."
         else -> "Not enough to pay $due: tap more sources on the table."
     }
@@ -640,10 +642,16 @@ private fun PaymentLine(cast: CastController, play: TableBoard) {
 
 /** A payment's use as the payment line names it: its source card, "Pool mana", "2 life". */
 private fun useName(flow: FlowQuestions, play: TableBoard, use: ManaUse): String = when (use) {
-    is ManaUse.Ability -> objectName(flow, play, use.source)
+    is ManaUse.Ability -> objectName(flow, play, use.source) + usedWith(flow, play, use)
     is ManaUse.Pool -> "Pool mana"
     is ManaUse.Life -> "2 life"
     is ManaUse.Special -> use.objects.joinToString { objectName(flow, play, it) }
+}
+
+/** What a source's cost uses besides itself, as the panel names it ("Blood Altar: Bear", CR 605.3a). */
+private fun usedWith(flow: FlowQuestions, play: TableBoard, use: ManaUse.Ability): String {
+    val objects = use.answers.filterIsInstance<Answer.Objects>().flatMap { it.chosen }
+    return if (objects.isEmpty()) "" else ": " + objects.joinToString { objectName(flow, play, it) }
 }
 
 @Composable
@@ -778,7 +786,7 @@ internal fun objectName(flow: FlowQuestions, play: TableBoard, id: ObjectId): St
         ?: flow.atwCard(id)?.let { CastController.cardName(play, it) } ?: "An object"
 
 private fun manaLabel(flow: FlowQuestions, play: TableBoard, use: ManaUse, group: List<ManaUse>): String = when (use) {
-    is ManaUse.Ability -> objectName(flow, play, use.source) + " " + group.filterIsInstance<ManaUse.Ability>()
+    is ManaUse.Ability -> objectName(flow, play, use.source) + usedWith(flow, play, use) + " " + group.filterIsInstance<ManaUse.Ability>()
         .map { it.color?.symbol ?: 'C' }.distinct().joinToString("/")
     is ManaUse.Pool -> "Pool mana"
     is ManaUse.Life -> "2 life"

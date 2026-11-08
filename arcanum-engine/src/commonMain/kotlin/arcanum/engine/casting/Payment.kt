@@ -78,7 +78,8 @@ internal object Payment {
         }
     }
 
-    private fun pay(act: Act, c: Continuation.Announcing, uses: List<ManaUse>): Progress {
+    /** [nested]: a mana ability activated while another payment is made (CR 605.3a): it resolves at once and its asks go on [act]. */
+    private fun pay(act: Act, c: Continuation.Announcing, uses: List<ManaUse>, nested: Boolean = false, triggered: List<Color> = emptyList()): Progress {
         val recorder = act.recorder
         val plan = Plan(recorder.state, c)
         val total = plan.total
@@ -107,7 +108,7 @@ internal object Payment {
         }
         val names = Bindings(bound)
         return when {
-            plan.isManaAbility -> finishManaAbility(recorder, plan, names)
+            plan.isManaAbility -> finishManaAbility(act, plan, names, nested, triggered)
             plan.isSpecialAction -> finishSpecialAction(act, plan)
             plan.isSpell -> finishSpell(recorder, plan, names, snapshots, spent, paidWith)
             else -> finishAbility(recorder, plan, names, snapshots)
@@ -123,14 +124,13 @@ internal object Payment {
         if (plan.cantSpendMana && uses.any { it is ManaUse.Pool || it is ManaUse.Ability }) refuse("Mana can't be spent to cast this spell")
         val chosenPool = uses.filterIsInstance<ManaUse.Pool>().map { it.index }.distinct()
         if (chosenPool.any { it !in poolBefore.indices }) refuse("No such mana in the pool")
-        // CR 601.2g: mana abilities are activated before costs are paid
-        uses.filterIsInstance<ManaUse.Ability>().forEach { activateForMana(act, player, it) }
-        val poolNow = recorder.state.player(player).manaPool
-        val added = (poolBefore.size until poolNow.size).toList()
         val lifeFor = uses.filterIsInstance<ManaUse.Life>().map { it.symbol }.toSet()
         if (lifeFor.any { cost.symbols.getOrNull(it).let { s -> s !is arcanum.api.ManaSymbol.Phyrexian && s !is arcanum.api.ManaSymbol.PhyrexianHybrid } }) {
             refuse("Life pays only Phyrexian mana (CR 107.4f)")
         }
+        // CR 601.2g: mana abilities are activated before costs are paid
+        val funds = activateAll(act, player, uses, chosenPool, Mana.needs(cost, lifeFor))
+        val poolNow = recorder.state.player(player).manaPool
         val specials = uses.filterIsInstance<ManaUse.Special>()
         // tla: CR 701.67b: tapping pays only the generic mana of the waterbend cost
         if (specials.filter { it.way == ManaPaymentWay.Waterbend }.sumOf { it.objects.size } > plan.total.waterbend)
@@ -143,7 +143,7 @@ internal object Payment {
                     ?: refuse("$id can't pay that way")
             }
         }
-        val payers = Mana.poolPayers(board, player, plan.itemId, chosenPool + added, plan.manaAsAnyColor) + specialPayers
+        val payers = Mana.poolPayers(board, player, plan.itemId, funds, plan.manaAsAnyColor) + specialPayers
         if (Mana.leastMana(cost) > payers.size) refuse("That doesn't pay $cost")
         val used = Mana.assign(Mana.needs(cost, lifeFor), payers) ?: refuse("That doesn't pay $cost")
         // CR 107.4f, 119.4: 2 life for each Phyrexian symbol paid with life, only with that much life
@@ -186,15 +186,15 @@ internal object Payment {
         val poolBefore = recorder.state.player(player).manaPool
         val chosenPool = uses.filterIsInstance<ManaUse.Pool>().map { it.index }.distinct()
         if (chosenPool.any { it !in poolBefore.indices }) refuse("No such mana in the pool")
-        uses.filterIsInstance<ManaUse.Ability>().forEach { activateForMana(act, player, it) }
-        val poolNow = recorder.state.player(player).manaPool
-        val added = (poolBefore.size until poolNow.size).toList()
         val lifeFor = uses.filterIsInstance<ManaUse.Life>().map { it.symbol }.toSet()
         if (lifeFor.any { cost.symbols.getOrNull(it).let { s -> s !is arcanum.api.ManaSymbol.Phyrexian && s !is arcanum.api.ManaSymbol.PhyrexianHybrid } }) {
             refuse("Life pays only Phyrexian mana (CR 107.4f)")
         }
+        // CR 605.3a: every payment may use mana abilities, also one a spell or ability asks as it resolves
+        val funds = activateAll(act, player, uses, chosenPool, Mana.needs(cost, lifeFor))
+        val poolNow = recorder.state.player(player).manaPool
         val board = spell?.let { Plan(recorder.state, it.c).snap } ?: recorder.snapshot()
-        val payers = Mana.poolPayers(board, player, spell?.itemId, chosenPool + added)
+        val payers = Mana.poolPayers(board, player, spell?.itemId, funds)
         val used = Mana.assign(Mana.needs(cost, lifeFor), payers) ?: refuse("That doesn't pay $cost")
         if (lifeFor.isNotEmpty()) {
             val life = 2 * lifeFor.size
@@ -207,14 +207,97 @@ internal object Payment {
         }
     }
 
-    /** Activates a simple mana ability while paying (CR 605.3a): pays its cost and adds its mana. */
-    private fun activateForMana(act: Act, player: PlayerId, use: ManaUse.Ability) {
+    /**
+     * Activates the mana abilities of a payment (CR 601.2g, 605.3a), each once it can be: those paying life before those dealing
+     * damage (damage isn't a cost, CR 118.3; life can be paid only while it is there, CR 119.4), what taps before what sacrifices
+     * (a creature tapped for mana can then be sacrificed), and an ability with its own mana once the payment has that mana (a
+     * Plains into a Signet, whichever order the player picked them). Returns the mana of the pool the payment may spend now
+     * ([chosen], by index, and what the abilities added, less what their own costs spent); the rest of the pool is left alone,
+     * and mana left over stays in the pool. [needs]: what the mana will pay in the end, so an own cost spends what isn't needed.
+     */
+    private fun activateAll(act: Act, player: PlayerId, uses: List<ManaUse>, chosen: List<Int>, needs: List<Mana.Need>): List<Int> {
         val recorder = act.recorder
+        var funds = chosen
+        val left = uses.filterIsInstance<ManaUse.Ability>().sortedBy { order(recorder.snapshot(), it) }.toMutableList()
+        while (left.isNotEmpty()) {
+            val ready = left.firstNotNullOfOrNull { use -> readied(recorder, player, use, funds)?.let { use to it } }
+                ?: refuse("That doesn't pay: nothing pays the mana of ${left.first().source}'s ability (CR 601.2g)")
+            left.remove(ready.first)
+            funds = activateForMana(act, player, ready.first, ready.second, funds, left, needs)
+        }
+        return funds
+    }
+
+    private fun order(snap: Snapshot, use: ManaUse.Ability): Int {
+        val ability = Legality.instance(snap, use.source, use.ability)?.ability as? Ability.Activated ?: return 1
+        val parts = ability.cost.parts
+        return when {
+            parts.any { it is CostPart.Sacrifice || it is CostPart.Exile || it is CostPart.ReturnToHand || it is CostPart.Discard } -> 4
+            parts.any { it is CostPart.Mana } -> 3
+            !Mana.isSimple(ability) && ability.instructions.steps.any { (it as? Step.Do)?.effect.let { e -> e is Effect.DealDamage || e is Effect.LoseLife } } -> 2
+            parts.any { it is CostPart.PayLife } -> 0
+            else -> 1
+        }
+    }
+
+    /** A mana ability's activation made ready: its choices answered from [ManaUse.Ability] (CR 602.2b), [own] the mana it asks. */
+    private class Readied(val continuation: Continuation.Announcing?, val own: ManaCost?)
+
+    /** [use] readied to be activated now, or null while [funds] can't pay its own mana. Refused when its choices aren't answered. */
+    private fun readied(recorder: Recorder, player: PlayerId, use: ManaUse.Ability, funds: List<Int>): Readied? {
         val snap = recorder.snapshot()
         val inst = Legality.instance(snap, use.source, use.ability) ?: refuse("${use.source} has no ability ${use.ability.key}")
         val ability = inst.ability as? Ability.Activated ?: refuse("Not an activated ability")
-        if (!Legality.isManaAbility(ability) || !Mana.isSimple(ability)) refuse("Activate that mana ability on its own first")
+        if (!Legality.isManaAbility(ability)) refuse("Only mana abilities can be activated while paying (CR 605.3a)")
         if (!Mana.canActivate(snap, player, use.source, inst)) refuse("${use.source} can't be activated for mana now")
+        if (Legality.manaUsesLeft(snap, use.source, inst) <= 0) refuse("${use.source} can't be activated for mana again")
+        if (Mana.isSimple(ability) && use.answers.isEmpty()) return Readied(null, null)
+        val id = "m${recorder.state.nextTimestamp()}.${use.source}"
+        var c = Continuation.Announcing(player, arcanum.engine.decision.Announced.Ability(use.source, use.ability, ability), arcanum.engine.decision.AnnounceStage.Modes,
+            arcanum.engine.decision.Choices(names = Bindings.EMPTY.with(Plan.ITEM, NamedValue.Option(id))))
+        val queue = use.answers.toMutableList()
+        while (true) {
+            val plan = Plan(recorder.state, c)
+            val q = plan.next() ?: return Readied(c, null)
+            plan.blocker(q)?.let { refuse(it) }
+            if (q is Question.Pay) return if (Mana.assign(Mana.needs(q.cost), Mana.poolPayers(plan.snap, player, plan.itemId, funds, plan.manaAsAnyColor)) != null) Readied(c, q.cost) else null
+            val answer = next(queue, q) ?: Answers.automatic(plan, q) ?: (q as? Question.ManaColor)?.let { _ -> use.color?.let { Answer.ColorChoice(it) } }
+                ?: refuse("Say what ${use.source}'s mana ability asks: ${q.kind}")
+            c = c.copy(choices = Answers.apply(plan, q, answer))
+        }
+    }
+
+    /** The next of a mana ability's given answers, when it is what [q] asks. */
+    private fun next(queue: MutableList<Answer>, q: Question): Answer? {
+        val head = queue.firstOrNull() ?: return null
+        val fits = when (q) {
+            is Question.Objects -> head is Answer.Objects
+            is Question.Announce -> head is Answer.Number
+            is Question.ManaColor -> head is Answer.ColorChoice
+            is Question.Modes -> head is Answer.Modes
+            is Question.OneOf -> head is Answer.Option
+            is Question.Player -> head is Answer.Player
+            is Question.CostChoice -> head is Answer.SubtypeChoice || head is Answer.Objects
+            else -> false
+        }
+        return if (fits) queue.removeAt(0) else null
+    }
+
+    /** Activates a mana ability while paying (CR 605.3a): pays its cost and adds its mana. Returns [funds] as they are after it. */
+    private fun activateForMana(act: Act, player: PlayerId, use: ManaUse.Ability, ready: Readied, funds: List<Int>, later: List<ManaUse.Ability>, needs: List<Mana.Need>): List<Int> {
+        val recorder = act.recorder
+        val before = recorder.state.player(player).manaPool.size
+        val c = ready.continuation
+        if (c != null) {
+            val plan = Plan(recorder.state, c)
+            val spent = ready.own?.let { Mana.spendFor(plan.snap, player, it, plan.itemId, funds, later, needs) } ?: emptyList()
+            pay(act, c, spent.map { ManaUse.Pool(it) }, nested = true, triggered = use.triggered)
+            val kept = funds.filter { it !in spent }.map { i -> i - spent.count { it < i } }
+            return kept + ((before - spent.size) until recorder.state.player(player).manaPool.size)
+        }
+        val snap = recorder.snapshot()
+        val inst = Legality.instance(snap, use.source, use.ability) ?: refuse("${use.source} has no ability ${use.ability.key}")
+        val ability = inst.ability as Ability.Activated
         val yields = Mana.yields(snap, player, use.source, ability)
         yields.filter { it.choice }.forEach { y -> if (use.color == null || use.color !in y.colors) refuse("Choose a colour it can make") }
         ability.cost.parts.forEach { part ->
@@ -231,7 +314,8 @@ internal object Payment {
         addMana(recorder, player, yields.flatMap { Mana.units(it, use.color, use.source) })
         recorder.record(Change.Happened(GameEvent.Activated(player, use.source, inst.origin.key, manaAbility = true, label = ability.label)))
         countActivation(recorder, use.source, inst.origin, loyalty = false)
-        arcanum.engine.trigger.Triggers.resolveManaTriggers(recorder)
+        arcanum.engine.trigger.Triggers.resolveManaTriggers(act, use.triggered)
+        return funds + (before until recorder.state.player(player).manaPool.size)
     }
 
     private fun addMana(recorder: Recorder, player: PlayerId, units: List<ManaUnit>) {
@@ -597,7 +681,8 @@ internal object Payment {
      * right after its mana is added, as resolution steps would (CR 608.2c); a part that would need a decision is left to
      * the players.
      */
-    private fun finishManaAbility(recorder: Recorder, plan: Plan, bound: Bindings): Progress {
+    private fun finishManaAbility(outer: Act, plan: Plan, bound: Bindings, nested: Boolean, triggered: List<Color>): Progress {
+        val recorder = outer.recorder
         val ability = plan.ability as Ability.Activated
         val snap = recorder.snapshot()
         ability.instructions.steps.forEachIndexed { i, step ->
@@ -616,8 +701,8 @@ internal object Payment {
         recorder.record(Change.Happened(GameEvent.Activated(plan.player, plan.sourceId, plan.origin!!.key, manaAbility = true,
             label = (plan.ability as? Ability.Activated)?.label)))
         countActivation(recorder, plan.sourceId, plan.origin, loyalty = false)
-        arcanum.engine.trigger.Triggers.resolveManaTriggers(recorder)
-        Casting.keepPriority(recorder, plan.player)
+        arcanum.engine.trigger.Triggers.resolveManaTriggers(outer, triggered)
+        if (!nested) Casting.keepPriority(recorder, plan.player)
         // ecl: "Add one mana of any color. This creature becomes that color": the colour chosen for the mana is what its
         // choice step binds, so that step isn't asked again (CR 605.3b: the ability resolves as a whole)
         var names = plan.names.with(bound)
@@ -635,6 +720,12 @@ internal object Payment {
             (it is Step.Do && it.effect is Effect.AddMana) || (it is Step.Choose && it.choice is arcanum.api.Choice.Color && it.bind in answered)
         }
         if (rest.isEmpty()) return Progress.Done
+        // Inside a payment what it asks is asked of the payment's player, the payment redone with the answer (D29)
+        if (nested) {
+            val cause = arcanum.engine.action.Cause(plan.player, plan.sourceId, key = "mana:${plan.sourceId}:${recorder.state.nextTimestamp()}")
+            arcanum.engine.resolution.Steps.run(arcanum.engine.resolution.Scope(outer, cause, names, null), rest)
+            return Progress.Done
+        }
         val mark = recorder.changes.size
         return try {
             val act = arcanum.engine.action.Act(recorder, arcanum.engine.action.Asker.NONE)

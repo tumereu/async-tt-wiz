@@ -20,6 +20,17 @@ import kotlin.test.assertTrue
 class TablePickTest : E2e() {
     private val bar = hasContentDescription("Choose on the table")
 
+    /** Whether Bob's two Ash Pups lie side by side on his screen, each whole: their stack opened (in a closed stack the card
+     * under the top one shows only as a thin strip). */
+    private fun pupsOpened(): Boolean {
+        val field = bob.battlefieldBounds()
+        val pups = bob.nodes(hasContentDescription("Ash Pup, owner ${bob.name}, ", substring = true)).fetchSemanticsNodes()
+            .filter { field.contains(it.boundsInRoot.center) }.sortedBy { it.boundsInRoot.left }
+        val sizes = pups.map { minOf(it.boundsInRoot.width, it.boundsInRoot.height) }
+        return pups.size == 2 && sizes.min() > .8f * sizes.max() &&
+            pups[1].boundsInRoot.left >= pups[0].boundsInRoot.right - 1f
+    }
+
     /** Alice casts her free [name] (a creature or artifact) and waits until it is on her battlefield. */
     private fun castFree(name: String, count: Int) {
         alice.playFromHand(name, this)
@@ -52,16 +63,22 @@ class TablePickTest : E2e() {
         waitUntil("Alice's sacrifice asked on the table") { alice.shows(bar) && alice.shows(hasText("Sacrifice") and isHeading()) }
         assertFalse(alice.shows(hasContentDescription("Cast panel")) || alice.shows(hasContentDescription("Automatum choice")),
             "no panel: ${alice.screen()}")
-        // The enchanted Pup is the one by the Mantle; a tap on its group (the Pup with its Mantle) opens it (TBL-130), a
-        // tap on the Pup then picks it
-        fun tapEnchanted() {
-            val mantle = alice.battlefieldCard("Ember Mantle").fetchSemanticsNode().boundsInRoot
-            val pups = (0..1).map { alice.battlefieldCard("Ash Pup", index = it) }
-            pups.minBy { kotlin.math.abs(it.fetchSemanticsNode().boundsInRoot.center.x - mantle.center.x) }.performClick()
+        // The enchanted Pup is the one by the Mantle; a tap on its group (the Pup with its Mantle) opens it with nothing
+        // picked yet (TBL-130), a tap on the Pup then picks it
+        fun enchantedPup() = alice.battlefieldCard("Ember Mantle").fetchSemanticsNode().boundsInRoot.let { mantle ->
+            (0..1).map { alice.battlefieldCard("Ash Pup", index = it) }
+                .minBy { kotlin.math.abs(it.fetchSemanticsNode().boundsInRoot.center.x - mantle.center.x) }
         }
-        tapEnchanted()
-        run(skip = java.time.Duration.ofMillis(300))
-        if (alice.shows(bar)) tapEnchanted()
+        fun groupOpened(): Boolean = alice.field("Ash Pup").size == 2 && alice.field("Ember Mantle").size == 1 &&
+            alice.battlefieldCard("Ember Mantle").fetchSemanticsNode().boundsInRoot.let { mantle ->
+                val pup = enchantedPup().fetchSemanticsNode().boundsInRoot
+                pup.left >= mantle.right - 1f || mantle.left >= pup.right - 1f
+            }
+        enchantedPup().performClick()
+        waitUntil("the enchanted Pup's group opened, the Pup and its Mantle side by side") { !alice.shows(bar) || groupOpened() }
+        assertTrue(alice.shows(bar) && alice.field("Ash Pup").size == 2 && alice.field("Ember Mantle").size == 1,
+            "the first tap on the group opens it and picks nothing: ${alice.screen()}")
+        enchantedPup().performClick()
         waitUntil("the enchanted Pup sacrificed and the Altar's ability resolved", along = listOf(bob)) {
             alice.field("Ash Pup") == listOf(plain) && alice.field("Ember Mantle").isEmpty() && alice.state.stack.isEmpty() &&
                 alice.state.player(alice.me).life == 22 && alice.inOwnMain()
@@ -91,10 +108,12 @@ class TablePickTest : E2e() {
             bob.state.pending?.decision is Decision.ChooseObjects && bob.shows(bar)
         }
         assertFalse(bob.shows(hasContentDescription("Automatum choice")), "no panel: ${bob.screen()}")
+        // TBL-130: the first tap opens the stack of identical Pups with nothing picked yet; a tap on a member picks it
         bob.battlefieldCard("Ash Pup").performClick()
-        run(skip = java.time.Duration.ofMillis(300))
-        // TBL-130: the stack of identical Pups opened on the tap; a tap on a member picks it
-        if (bob.shows(bar)) bob.battlefieldCard("Ash Pup", index = 1).performClick()
+        waitUntil("Bob's Pups opened side by side") { !bob.shows(bar) || pupsOpened() }
+        assertTrue(bob.shows(bar) && bob.field("Ash Pup").size == 2 && bob.state.pending?.decision is Decision.ChooseObjects,
+            "the first tap on the stack opens it and picks nothing: ${bob.screen()}")
+        bob.battlefieldCard("Ash Pup", index = 1).performClick()
         waitUntil("one of Bob's Pups sacrificed", along = listOf(alice)) {
             bob.field("Ash Pup").size == 1 && bob.state.pending == null && bob.state.stack.isEmpty()
         }

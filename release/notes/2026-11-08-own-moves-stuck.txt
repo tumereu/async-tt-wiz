@@ -1,0 +1,1 @@
+fix: After a quick run of your own moves the game could wrongly say the other player hadn't seen them, and keep your phone busy talking to the server until the next move.

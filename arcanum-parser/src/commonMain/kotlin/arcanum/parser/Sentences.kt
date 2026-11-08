@@ -20448,6 +20448,24 @@ internal class Sentences(
                 Value.Fixed(1)))), affects = Affected.Objects(Objects.Self),
                 condition = arcanum.api.Condition.ObjectMatches(Objects.Self, ObjectFilter.Targets(objects = Objects.Each(Filters.noun(m.groupValues[2]) ?: return null))))
         }
+        // Castability: costs that read the targets (CR 601.2f)
+        CostPerTargetWordings.LESS_FOR_EACH_TARGET.matchEntire(line)?.let { m ->
+            return Ability.Static(listOf(Mechanic.CostChange(ObjectFilter.Is(Objects.Self), arcanum.api.CostChange.Less(ManaCost.parse(m.groupValues[1]) ?: return null,
+                Value.Count(Objects.Target(m.groupValues[2] + "s"))))), affects = Affected.Objects(Objects.Self))
+        }
+        CostPerTargetWordings.MORE_FOR_EACH_TARGET_BEYOND_THE_FIRST.matchEntire(line)?.let { m ->
+            return Ability.Static(listOf(Mechanic.CostChange(ObjectFilter.Is(Objects.Self), arcanum.api.CostChange.More(ManaCost.parse(m.groupValues[1]) ?: return null,
+                Value.Max(listOf(Value.Fixed(0), Value.Difference(Value.Count(Objects.Target(m.groupValues[2] + "s")), Value.Fixed(1))))))), affects = Affected.Objects(Objects.Self))
+        }
+        CostPerTargetWordings.MORE_FOR_EACH_TYPE_AMONG_TARGETS.matchEntire(line)?.let { m ->
+            return Ability.Static(listOf(Mechanic.CostChange(ObjectFilter.Is(Objects.Self), arcanum.api.CostChange.More(ManaCost.parse(m.groupValues[1]) ?: return null,
+                Value.CountDistinct(Objects.Target(m.groupValues[2] + "s"), arcanum.api.SharedQuality.CreatureType)))), affects = Affected.Objects(Objects.Self))
+        }
+        CostPerTargetWordings.OPPONENTS_SPELLS_TARGETING_THIS_COST_MORE.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            val what = ObjectFilter.And(listOf(ObjectFilter.ControlledBy(PlayerFilter.Opponent), ObjectFilter.Targets(objects = Objects.Self)))
+            return Ability.Static(listOf(Mechanic.CostChange(what, arcanum.api.CostChange.More(ManaCost.parse(m.groupValues[2]) ?: return null, Value.Fixed(1)))),
+                affects = Affected.Objects(Objects.Self))
+        }
         // tdm chunk 06: "Activated abilities of artifacts, creatures, and planeswalkers can't be activated." (CR 602.5)
         Tdm.ACTIVATED_ABILITIES_OF_LIST_CANT.matchEntire(line)?.let { m ->
             val items = m.groupValues[1].split(Regex(""",? and |, """)).map { Filters.noun(it.removeSuffix("s")) ?: return null }

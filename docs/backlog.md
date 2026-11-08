@@ -10,7 +10,7 @@ Changes the owner wants but that are not built yet. The feature catalog
 
 ## Build order (owner, 2026-11-05: one implementor at a time, small items batched, full suites after each batch)
 
-2026-11-08, one at a time: (1) running: branch stop, landscape hand, View deck; (2) presets, set Redownload, Winchester tables, Stats mana sources; (3) catalog review follow-ups.
+2026-11-08, one at a time: (1) built: branch stop, landscape hand, View deck; (2) running: presets, set Redownload, Winchester tables, Stats mana sources; (3) catalog review follow-ups.
 
 ## Ready to build
 

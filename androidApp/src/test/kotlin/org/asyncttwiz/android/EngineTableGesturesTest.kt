@@ -124,6 +124,20 @@ class EngineTableGesturesTest {
         assertTrue(land in kit.field("Mountain").map(kit::atw))
     }
 
+    // SYS-012, SYS-069 (owner, 2026-11-08): a refusal of Alice's own action shakes the card it was made on, without a
+    // message; one made on the main button (or on a card the table doesn't show) shakes the main button
+    @Test fun aRefusalShakesWhatItWasMadeOn() {
+        kit.opening()
+        val land = kit.atw(kit.hand("Mountain").first())
+        toolkit.refusedShake(land)
+        assertEquals(land, toolkit.shaking?.id, "the card shakes")
+        val main = toolkit.mainShakes
+        toolkit.refusedShake(null)
+        toolkit.refusedShake("not-on-the-table")
+        assertEquals(main + 2, toolkit.mainShakes, "the main button shakes")
+        assertNull(toolkit.error, "no message")
+    }
+
     // ZON-079, TBL-118: a tap raises a hand card Automatum lets Alice cast, with the Mountain Autotap would tap
     // outlined; a tap elsewhere lowers it; the raised card's second tap casts it; a card she can't cast now only shakes
     @Test fun aTapRaisesAHandCardAndItsSecondTapCastsIt() {

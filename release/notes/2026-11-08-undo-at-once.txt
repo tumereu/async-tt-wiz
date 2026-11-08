@@ -1,0 +1,1 @@
+fix: Undo now shows its result on your table at once instead of waiting for the server.

@@ -498,6 +498,9 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
     private class Rewinding(val by: String, val target: String, val line: List<GameEvent>, val state: arcanum.engine.state.GameState?,
         val branch: Boolean = false)
     private var rewinding: Rewinding? = null
+    /** SYS-025: the player's own undo just shown on this device, before the server's rewind came ([undo]): its board
+     * animates as that rewind's would (engine thread; used by the next transition). */
+    private var ownUndo: Rewinding? = null
     /** HIS-097: a branch's take-back is being shown (engine thread; [Shown.takingBack]). */
     private var takingBack = false
     /** HIS-106 (owner 2026-11-08): the take-back stops at the branch point until the player's tap (engine thread;
@@ -514,7 +517,9 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
         val ptAfter = EngineChanges.powerToughness(device.model)
         val from = before?.nodeId?.let { id -> line.indexOfFirst { it.id == id }.takeIf { it >= 0 } ?: if (id == device.session.lineStart) -1 else null }
         val to = line.indexOfFirst { it.id == tip }.takeIf { it >= 0 } ?: if (tip == device.session.lineStart) -1 else null
-        if (!loaded && before != null && from == null) rewinding?.let { r -> if (undo(r, before, after, attention, move)) return }
+        val undoing = rewinding ?: ownUndo
+        ownUndo = null
+        if (!loaded && before != null && from == null) undoing?.let { r -> if (undo(r, before, after, attention, move)) return }
         val jump = loaded || before == null || from == null || to == null
         val forward = if (!jump && to!! > from!!) line.subList(from + 1, to + 1).toList() else emptyList()
         val backward = if (!jump && to!! < from!!) line.subList(to + 1, from + 1).reversed() else emptyList()
@@ -907,7 +912,7 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
      * one acting point; the device answers the randomness and makes the passes that follow by itself. */
     fun send(inputs: List<Input>, table: List<TableChange> = emptyList()): GameDevice.Acted {
         if (inputs.isEmpty()) return GameDevice.Acted.Refused("nothing")
-        return early("send") { performed ->
+        return early("send", on = GameDevice.madeOn(inputs)) { performed ->
             val first = inputs.first()
             val rest = inputs.drop(1).iterator()
             // I-D54 §8: a declaration ends the shared staging of it in the same event (at the head; at a decision stop the
@@ -921,7 +926,7 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
     }
 
     /** One input of the player's own (a pass, a keep, a concession). */
-    fun act(input: Input): GameDevice.Acted = early("act") { performed -> device.act(input, performed = performed) }
+    fun act(input: Input): GameDevice.Acted = early("act", on = GameDevice.madeOn(listOf(input))) { performed -> device.act(input, performed = performed) }
 
     /** The step arrow's End turn (TRN-057): the device passes for the player until the turn ends. SYS-011 (smoke
      * 2026-11-04): tapped on a board the device has moved on from within the player's own turn (its own steps after
@@ -1053,7 +1058,15 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
      * player's input in between makes it stale unless the same decision waits there.
      */
     fun undo(target: String? = null): GameDevice.Undo =
-        acting(GameDevice.Undo.Unavailable(STALE_REASON), "undo", own = true) { if (target == null) device.undoTap() else device.undo(target) }
+        acting(GameDevice.Undo.Unavailable(STALE_REASON), "undo", own = true) {
+            val before = lastShown
+            (if (target == null) device.undoTap() else device.undo(target)).also { undo ->
+                // SYS-025 (owner, 2026-11-08): a free undo shows at once, animating as the server's rewind would (HIS-030)
+                if (undo is GameDevice.Undo.Free && before != null && device.session.tip == undo.target)
+                    ownUndo = Rewinding(me, undo.target, if (before.line.any { e -> e.id == undo.target || e.parentId == undo.target })
+                        before.line else before.older + before.line, before.engine)
+            }
+        }
 
     /** Whether taking the line back to just after [target] needs the other player's approval (§10), worked out as the
      * device's undo does without sending anything; null when nothing would be undone. */
@@ -1147,7 +1160,7 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
      * A refusal after that (what follows by itself would show a hidden card on a tentative line, TRN-067, or an engine
      * failure) is told as a note and the board goes back. Without the performed point (refused before it) it is [acting].
      */
-    private fun early(what: String, done: ((Shown) -> GameDevice.Acted?)? = null,
+    private fun early(what: String, done: ((Shown) -> GameDevice.Acted?)? = null, on: arcanum.engine.state.ObjectId? = null,
         work: (performed: () -> Unit) -> GameDevice.Acted): GameDevice.Acted {
         val board = shown
         val seen = board?.version
@@ -1198,7 +1211,7 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
                 timing.after(timing.boardEnd!!, clock(), informationNanos() - shownInfo)
                 if (acted is GameDevice.Acted.Refused) {
                     takenBack("own $what refused on the device after it showed: ${acted.reason}", tip, local)
-                    worker.main { notes.add(GameDevice.Note.Refused(acted.reason)) }
+                    worker.main { notes.add(GameDevice.Note.Refused(acted.reason, on)) }
                 }
             }
             after(timing, shownEarly = early)

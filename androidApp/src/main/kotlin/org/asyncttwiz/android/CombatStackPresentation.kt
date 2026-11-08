@@ -302,14 +302,10 @@ object CombatStackPresentation {
                         TableBounds(x - before, y, pairWidth + before + after, rowHeight),
                         CombatDestination(area.id, role, pair.id, attackTarget = pair.attackTarget),
                         landing = TablePoint(left + side.size * (cardWidth + margin), y + rowHeight / 2))
-                    for ((member, occurrence) in side.withIndex()) {
+                    for (occurrence in side) {
                         val card = CombatStackRules.inspection(board, occurrence.id)!!.copy(tapped = false)
                         cards += OccurrenceDrawing(occurrence.id, card,
                             TableBounds(left, y + margin, cardWidth, cardHeight), true)
-                        targets += CombatDropRegion("Insert ${role.name.lowercase()} before ${occurrence.id}",
-                            TableBounds(left - margin, y, margin * 2, rowHeight), CombatDestination(area.id, role, pair.id,
-                                insertion = CombatInsertion.GAP, cardGap = IdentityGap(side.getOrNull(member - 1)?.id, occurrence.id)),
-                            landing = TablePoint(left, y + rowHeight / 2))
                         left += cardWidth + margin
                     }
                 }
@@ -319,14 +315,7 @@ object CombatStackPresentation {
             x += pad
         }
         if (pairs.isNotEmpty()) {
-            for (index in 1 until pairs.size) {
-                // An empty lane between two pairs keeps both pair edges one-sided, so the whole empty lane
-                // stays its own drop (a centered gap tolerance would reach into it).
-                val apart = kotlin.math.abs(edges[index - 1].second - edges[index].first) > .01f
-                insertion(pairs[index - 1].id, pairs[index].id, edges[index].first, left = apart)
-                if (apart) insertion(pairs[index - 1].id, pairs[index].id, edges[index - 1].second, right = true, lanePair = pairs[index - 1].id)
-            }
-            // The area's end gaps extend outward only when no empty lane lies beyond them.
+            // CMB-007: the area's end gaps extend outward only when no empty lane lies beyond them.
             insertion(null, pairs.first().id, edges.first().first, left = true, extend = lanes.first().cardId == pairs.first().attackTarget)
             insertion(pairs.last().id, null, edges.last().second, right = true, extend = lanes.last().cardId == pairs.last().attackTarget)
         }

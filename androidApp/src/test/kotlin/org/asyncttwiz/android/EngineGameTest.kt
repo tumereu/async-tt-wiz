@@ -87,17 +87,18 @@ class EngineGameTest {
         assertTrue(game.device.session.pending.isEmpty(), "her keep isn't made again")
     }
 
-    // SYS-012 (problem report N7FU6Y): an own action the server refuses for any other reason (the engine's) is told too,
-    // never a silent snap back, and the app log says once which board was taken back and why
-    @Test fun anOwnActionTheEngineRefusesIsToldAndLogged() {
+    // SYS-012 (problem report N7FU6Y; owner 2026-11-08): an own action the server refuses for any other reason (the
+    // engine's) is never a silent snap back: it shakes (no note text) what it was made on, here the main button (a keep),
+    // and the app log says once which board was taken back and why
+    @Test fun anOwnActionTheEngineRefusesShakesAndIsLogged() {
         val game = alice()
         game.tick(1_000)
         assertIs<GameDevice.Acted.Sent>(game.keep(emptyList()))
         val submit = game.take(1_000).filterIsInstance<GameAction.Submit>().first()
         val shown = game.device.session.tip
         game.refused(submit, "refusedByEngine")
-        assertTrue(game.notes.any { it == GameDevice.Note.Refused("refusedByEngine") })
-        assertEquals(NOT_ACCEPTED, refusedText("refusedByEngine"))
+        assertTrue(game.notes.any { it == GameDevice.Note.Refused("refusedByEngine", on = null) }, "made on the main button: ${game.notes}")
+        assertEquals(null, refusedText("refusedByEngine"), "shaken, not said")
         val lines = AppLog.text().lines().filter { "Shown board taken back" in it && submit.submission.id in it }
         assertEquals(1, lines.size, AppLog.text())
         assertTrue("refusedByEngine" in lines.single() && "tip $shown → ${game.device.session.tip}" in lines.single(), lines.single())

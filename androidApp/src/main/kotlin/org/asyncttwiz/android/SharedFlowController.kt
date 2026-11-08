@@ -391,8 +391,6 @@ internal class SharedFlowController(
         const val OPENING = "The game begins once both players are Ready."
         const val TAKE_OVER = "Automatum can't take over this board."
         const val NOTHING_TO_PASS = "Automatum couldn't go on from here."
-        /** TRN-057: steps and turns change only through Automatum while it is on. */
-        const val STEPS_FORWARD = "The turn moves on through Automatum: use Next step or End turn."
     }
 }
 

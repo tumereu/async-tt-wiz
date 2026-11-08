@@ -1,0 +1,1 @@
+mod: A move the game doesn't accept no longer shows a message: the card you used (or the main button) shakes and the table shows where the game is.

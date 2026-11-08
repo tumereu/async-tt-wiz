@@ -362,8 +362,8 @@ class AttackTargetPresentationTest {
         }
     }
 
-    // CMB-015
-    @Test fun multiAttackerRetargetAndCrossLaneDragAreSingleAtomicBatchesKeepingBlockers() {
+    // CMB-015: staged attackers moved into another lane retarget their whole pairs, each pair one change, blockers staying
+    @Test fun multiAttackerRetargetsAreOneChangePerPairKeepingBlockers() {
         val original = attackTargetState()
         val pairs = original.board.combat!!.pairs
         val selected = pairs.take(2).flatMap { it.attackers }.map { it.id }
@@ -372,32 +372,10 @@ class AttackTargetPresentationTest {
         assertEquals(2, retarget.applied.size)
         assertTrue(plan.board.combat!!.pairs.take(2).all { it.attackTarget == combatId(80) })
         assertEquals(pairs.map { it.blockers }, plan.board.combat!!.pairs.map { it.blockers })
-        val destination = CombatDestination(original.board.combat!!.id, CombatRole.ATTACKER, pairs.last().id)
         val dragging = CombatBoards(combatId(7))
-        val drag = dragging.place(plan, selected, destination)
+        val drag = dragging.attackTarget(plan, selected, pairs.last().attackTarget)
         assertEquals(2, dragging.applied.size)
         assertEquals(original.board.combat, drag.board.combat)
         assertEquals(original.board.cards, drag.board.cards)
     }
-
-    // CMB-015
-    @Test fun crossLaneBlockerRowDropMovesAttackerIdentityAndLeavesOriginalBlockersInPlace() {
-        val original = attackTargetState()
-        val pairs = original.board.combat!!.pairs
-        val attacker = pairs.first().attackers.single()
-        val targeted = CombatBoards(combatId(7)).attackTarget(original, listOf(attacker.id), combatId(80))
-        val destination = CombatDestination(targeted.board.combat!!.id, CombatRole.BLOCKER, pairs.last().id)
-        assertTrue(CombatStackController.retargetDrop(targeted.board, listOf(attacker.id), destination).isEmpty())
-        val placing = CombatBoards(combatId(7))
-        val plan = placing.place(targeted, listOf(attacker.id), destination)
-        assertIs<CombatAction.Place>(assertIs<PlayAction.Combat>(placing.applied.single()).action)
-        val result = plan.board.combat!!
-        val origin = result.pairs.single { it.id == pairs.first().id }
-        assertTrue(origin.attackers.isEmpty())
-        assertEquals(pairs.first().blockers, origin.blockers)
-        assertEquals(combatId(80), origin.attackTarget)
-        assertEquals(pairs.last().copy(blockers = pairs.last().blockers + attacker, blocked = true), result.pairs.last())
-        assertEquals(targeted.board.cards, plan.board.cards)
-    }
-
 }

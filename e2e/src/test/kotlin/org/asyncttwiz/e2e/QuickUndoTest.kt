@@ -13,9 +13,9 @@ import kotlin.test.assertTrue
 
 /**
  * Owner problem report 2026-11-05 (attack, then a quick Undo) and the undo's look: an Undo tapped while the player's own
- * action is still on its way waits for it and then takes it back, never refused (no shake, no "That wasn't taken"); an
- * undo shows its whole result at once and animates once, with no bottom bar (main button, quick actions) of a board in
- * between.
+ * action is still on its way takes it back, never refused (no shake, no "That wasn't taken"), and shows its result at
+ * once, before the server answers (SYS-025, owner 2026-11-08); an undo shows its whole result at once and animates once,
+ * with no bottom bar (main button, quick actions) of a board in between.
  */
 class QuickUndoTest : E2e() {
     /** The events on Alice's device (the main line she knows and her own on their way). */
@@ -29,9 +29,10 @@ class QuickUndoTest : E2e() {
 
     private fun logLines(): Int = AppLog.text().lines().size
 
-    // HIS-107 (owner problem report 2026-11-05): Alice attacks with her Ember Cub and taps Undo at once, while her attack is
-    // still on its way to the server: the Undo waits for it and takes the attack back (she is declaring attackers again,
-    // the Cub staged), with no shake and no note
+    // HIS-107 (owner problem report 2026-11-05), SYS-025 (owner 2026-11-08): Alice attacks with her Ember Cub and taps Undo
+    // at once, while her attack is still on its way and the server's answers are held back: her table shows the attack
+    // taken back at once (she is declaring attackers again, the Cub staged); the server ends there too, with no shake and
+    // no note
     @Test fun anUndoRightAfterAttackTakesTheAttackBack() {
         startGame(TestDeck.thirds(TestCards.cub), TestDeck.thirds(TestCards.cub),
             deal = { a, b -> "Mountain" in hand(a) && "Ember Cub" in hand(a) && "Mountain" in hand(b) })
@@ -53,9 +54,10 @@ class QuickUndoTest : E2e() {
         alice.link.holdIncoming()
         alice.tap("Attack (1)")
         alice.tap("Undo")
-        // Her attack is worked out first (off the main thread), then made: the Undo waits for it
-        waitUntil("her attack made, on its way") {
-            mine { it is Input.DeclareAttackers }.size == 1 && alice.engine { device.session.pending.isNotEmpty() }
+        // Her attack is worked out first (off the main thread), then made, then undone: shown before any answer comes
+        waitUntil("the attack taken back on her table, the server's answers held back") {
+            mine { it is Input.DeclareAttackers }.isEmpty() && alice.state.turn.step == TurnStep.DeclareAttackers &&
+                alice.stepArrow() == "Attack (1)"
         }
         alice.link.releaseIncoming()
         waitUntil("the attack taken back") {
@@ -67,8 +69,9 @@ class QuickUndoTest : E2e() {
         assertTrue(alice.leaks.leaks.isEmpty())
     }
 
-    // HIS-107: Alice casts an Ember Herald and taps Undo while her cast is still on its way to the server: the Undo waits
-    // for it and takes the cast back (the Herald in her hand, her Mountain untapped), with no shake and no note
+    // HIS-107, SYS-025: Alice casts an Ember Herald and taps Undo while her cast is still on its way to the server: her
+    // table shows the cast taken back at once, while the server's answers are held back (the Herald in her hand, her
+    // Mountain untapped); the server ends there too, with no shake and no note
     @Test fun anUndoWhileACastIsSentTakesItBack() {
         startGame(TestDeck.thirds(TestCards.herald), TestDeck.thirds(TestCards.herald),
             deal = { a, _ -> "Mountain" in hand(a) && "Ember Herald" in hand(a) })
@@ -86,6 +89,9 @@ class QuickUndoTest : E2e() {
         waitUntil("the Herald cast") { where(alice.shown.board, herald) == "STACK" }
         assertTrue(alice.engine { device.session.pending.isNotEmpty() }, "her cast still on its way")
         alice.tap("Undo")
+        waitUntil("the cast taken back on her table, the server's answers held back") {
+            where(alice.shown.board, herald) == "HAND" && alice.field("Mountain").none { alice.state.obj(it)?.tapped == true }
+        }
         alice.link.releaseIncoming()
         waitUntil("the cast taken back") {
             serverGame()?.headId == before && alice.engine { device.session.pending.isEmpty() } && where(alice.shown.board, herald) == "HAND"

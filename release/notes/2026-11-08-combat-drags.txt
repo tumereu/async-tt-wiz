@@ -1,0 +1,1 @@
+mod: Dragging in combat now only puts an attacker into a lane, moves it to another lane or places a blocker; it no longer reorders or swaps cards.

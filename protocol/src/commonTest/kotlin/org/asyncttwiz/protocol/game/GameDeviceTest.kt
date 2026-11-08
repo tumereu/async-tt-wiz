@@ -319,16 +319,11 @@ class GameDeviceTest {
             "the pass at Alice's pause was assumed at once")
     }
 
-    // LOB-113, HIS-096 (owner, 2026-11-06): "Assume resolves" stored before Normal existed reads on as Always, and off
-    // (Never then) as Normal, the new default; a choice is stored so; a tap goes Never, Normal, No mana, Always
+    // LOB-113, HIS-096 (owner, 2026-11-06): Normal is the default; each choice is stored so; a tap goes Never, Normal, No
+    // mana, Always
     @Test
     fun assumeResolvesSettingsMapFromTheirStoredForm() {
         val json = org.asyncttwiz.protocol.GameWire.json
-        // As stored before: no assumeNever (Never was all flags off)
-        fun stored(settings: PlaySettings) = json.decodeFromJsonElement(PlaySettings.serializer(), kotlinx.serialization.json.JsonObject(
-            json.encodeToJsonElement(PlaySettings.serializer(), settings).let { it as kotlinx.serialization.json.JsonObject } - "assumeNever"))
-        assertEquals(AssumeResolves.Always, stored(PlaySettings(alwaysAssumeResolves = true)).assume)
-        assertEquals(AssumeResolves.Normal, stored(PlaySettings(alwaysAssumeResolves = false)).assume)
         assertEquals(AssumeResolves.Normal, PlaySettings().assume)
         for (choice in AssumeResolves.all) assertEquals(choice,
             json.decodeFromString(PlaySettings.serializer(), json.encodeToString(PlaySettings.serializer(), PlaySettings().assuming(choice))).assume)
@@ -533,7 +528,24 @@ class GameDeviceTest {
         settle()
     }
 
-    // I-D56 §6: a table-only event (placing your own cards) made while behind goes at the head and doesn't move the
+    // SYS-012 (owner, 2026-11-08): a refused own action names what it was made on, the card played here, so the table
+    // shakes that card; a pass names nothing (the main button shakes)
+    @Test
+    fun aRefusedActionNamesWhatItWasMadeOn() {
+        val sim = spells("Storm Spark")
+        val alice = sim.alice
+        sim.start(alice)
+        val alices = sim.device(alice)
+        sim.keepWhileAway(alice)
+        val forest = hand(alices.model, alice, "Forest")
+        assertIs<GameDevice.Acted.Sent>(alices.act(Input.PlayLand(alice, forest)))
+        val submit = alices.take(sim.now).filterIsInstance<org.asyncttwiz.protocol.GameAction.Submit>().last()
+        alices.refused(submit, "refusedByEngine")
+        assertEquals(GameDevice.Note.Refused("refusedByEngine", forest), alices.notes().filterIsInstance<GameDevice.Note.Refused>().single())
+        assertEquals(null, GameDevice.madeOn(listOf(Input.PassPriority(alice))))
+    }
+
+    // I-D56 §6: a table-only event (a result suggestion) made while behind goes at the head and doesn't move the
     // author's local head; staging and early answers behind the head stay on the device; one that crosses an engine input
     // on the wire is refused as stale and made again at the new head; an engine input that crosses the other player's
     // table-only event is made on it (abreview #1: it decides nothing, so it never makes an input stale)
@@ -554,45 +566,48 @@ class GameDeviceTest {
         assertIs<GameDevice.Acted.Sent>(bobs.act(Input.PlayLand(bob, hand(bobs.model, bob, "Island"))))
         bobs.endTurn(sim.now)
         sim.settle(only = listOf(bob))
-        val island = bobs.model.engine.battlefield.first { bobs.model.engine.obj(it)?.controller == bob }
-        // Alice comes back behind Bob's turn: her own Forest is hers to place, at the head
+        // Alice comes back behind Bob's turn: her result suggestion goes at the head
         val back = sim.load(alice)
         val aliceHead = sim.server.heads[alice]
         assertTrue(back.session.behind)
         assertEquals(GameDevice.Acted.Refused("behind"),
             back.table(listOf(TableChange.EarlyAnswered("x", null, EarlyAnswer(alice, "x", Answer.YesNo(true))))))
         assertEquals(GameDevice.Acted.Kept, back.table(listOf(TableChange.BlockDraft(null, emptyList()))))
-        val forest = back.model.engine.battlefield.first { back.model.engine.obj(it)?.controller == alice }
-        val placed = sim.server.state().table.placements[forest]
-        val sent = assertIs<GameDevice.Acted.Sent>(back.table(listOf(TableChange.Placed(forest, placed, Placement(7, 1)))))
+        val draw = ResultSuggestion(alice, arcanum.engine.setup.GameResult.Draw)
+        val sent = assertIs<GameDevice.Acted.Sent>(back.table(listOf(TableChange.Suggestion(null, draw))))
         assertEquals(sim.server.head, sent.event.parentId)
         sim.flush(alice)
         assertEquals(sent.event.id, sim.server.head)
         assertEquals(aliceHead, sim.server.heads[alice], "it confirms nothing: her local head stays")
-        assertEquals(Placement(7, 1), sim.server.state().table.placements[forest])
-        // I-D56 §6: nobody places the other player's cards (abreview #11)
+        assertEquals(draw, sim.server.state().table.suggestion)
+        // I-D56 §6: nobody makes the other player's table changes (abreview #11)
         assertEquals("Only bob makes this change", sim.server.submit(Submission("x", sim.server.head,
-            table = listOf(TableChange.Placed(island, null, Placement(1, 1)))), alice).exceptionOrNull()?.message)
+            table = listOf(TableChange.Suggestion(draw, ResultSuggestion(bob, arcanum.engine.setup.GameResult.Draw)))), alice)
+            .exceptionOrNull()?.message)
+        sim.deliver(alice)
+        assertIs<GameDevice.Acted.Sent>(back.table(listOf(TableChange.Suggestion(draw, null))))
+        sim.flush(alice)
         // Normal: her device keeps her main phase for her after her land (Auto-skip would pass it: she can do nothing more)
         back.settings(PlaySettings(mode = ResponseMode.Normal))
         sim.catchUp(alice)
         sim.settle()
         assertTrue(sim.atMain(alice) && !back.session.behind && !bobs.session.behind)
-        // Alice plays a land while Bob moves his Island: her land reaches the server first; his move is made again on it
-        bobs.table(listOf(TableChange.Placed(island, sim.server.state().table.placements[island], Placement(5, 0))))
+        // Alice plays a land while Bob answers early: her land reaches the server first; his answer is made again on it
+        val early = EarlyAnswer(bob, "early:bob", Answer.YesNo(true))
+        bobs.table(listOf(TableChange.EarlyAnswered(early.key, null, early)))
         assertIs<GameDevice.Acted.Sent>(back.act(Input.PlayLand(alice, hand(back.model, alice, "Forest"))))
         sim.flush(alice); sim.flush(bob)
         sim.settle()
-        assertEquals(Placement(5, 0), sim.server.state().table.placements[island])
+        assertEquals(early, sim.server.state().table.earlyAnswers[early.key])
         assertTrue(bobs.model.sameAs(sim.server.state()) && back.model.sameAs(sim.server.state()))
-        // Bob moves it again while Alice passes: his move first; her pass is made on it, not refused
-        bobs.table(listOf(TableChange.Placed(island, Placement(5, 0), Placement(6, 0))))
+        // Bob takes it back while Alice passes: his change first; her pass is made on it, not refused
+        bobs.table(listOf(TableChange.EarlyAnswered(early.key, early, null)))
         val pass = assertIs<GameDevice.Acted.Sent>(back.act(Input.PassPriority(alice)))
         sim.flush(bob); sim.flush(alice)
         sim.settle()
         assertEquals(emptyList(), back.notes())
         val taken = sim.server.line().single { it.id == pass.event.id }
-        assertEquals(sim.server.line().single { it.table.any { c -> c is TableChange.Placed && c.after == Placement(6, 0) } }.id, taken.parentId)
+        assertEquals(sim.server.line().single { it.table.any { c -> c is TableChange.EarlyAnswered && c.before == early && c.after == null } }.id, taken.parentId)
         assertTrue(bobs.model.sameAs(sim.server.state()) && back.model.sameAs(sim.server.stateAt(back.session.localHead)))
     }
 

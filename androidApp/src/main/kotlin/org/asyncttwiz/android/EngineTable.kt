@@ -238,18 +238,9 @@ internal class EngineTableRoutes(val viewer: String, private val game: () -> Eng
     }
 
     private fun local(g: EngineGame, device: GameDevice, play: TableBoard, actions: List<PlayAction>, requestId: String?): Boolean {
-        val places = mutableListOf<TableChange>()
         var staged: BoardState? = null
         for ((index, action) in actions.withIndex()) {
             when {
-                action is PlayAction.MoveCard && action.source.containerId == action.destination.containerId &&
-                    play.board.containers.any { it.id == action.source.containerId && it.zone == PlayZone.BATTLEFIELD } -> {
-                    val position = action.destination.position ?: return false
-                    val obj = device.model.engine.objects.keys.firstOrNull { (it as? ObjectId.Card)?.card?.value == action.cardId &&
-                        device.model.engine.objects[it]?.zone == arcanum.api.Zone.Battlefield } ?: return false
-                    places += TableChange.Placed(obj, device.model.table.placements[obj],
-                        org.asyncttwiz.protocol.game.Placement(position.x, position.y))
-                }
                 action is PlayAction.Combat || (action is PlayAction.Mtg && action.action is MtgAction.SetRecord) -> {
                     val on = staged ?: play.board
                     // Each as the member of the batch the table worked it out as (its request id): a Place names the
@@ -270,7 +261,6 @@ internal class EngineTableRoutes(val viewer: String, private val game: () -> Eng
             else if (acted is GameDevice.Acted.Refused) return false
             else g.unstage()
         }
-        if (places.isNotEmpty()) g.table(places)
         return true
     }
 
@@ -456,20 +446,20 @@ internal fun EngineUnconfirmedMark(opponent: String, modifier: Modifier = Modifi
 
 internal val LocalEngineRoutes = staticCompositionLocalOf<EngineTableRoutes?> { null }
 
-/** The note for a refusal of the player's own action (SYS-012: never dropped silently), or null for none. */
+/** The note for a refusal of the player's own action (SYS-012: never dropped silently), or null when it shakes instead
+ * (any other refusal: what it was made on, or the main button, [TableToolkitController.refusedShake]). */
 internal fun refusedText(reason: String): String? = when (reason) {
     GameDevice.REVEALS_HIDDEN -> CastController.WAIT_TO_CATCH_UP
     "stale", "newLine" -> NOT_TAKEN
     GameDevice.DRAFT_DROPPED -> NOT_TAKEN
-    // SYS-012: any other refusal of the player's own action is told too, never a silent snap back (problem report N7FU6Y)
-    else -> NOT_ACCEPTED
+    else -> null
 }
+
+/** The record of a refusal shown by a shake ([LocalShownTexts]: nothing in the app hears it; the e2e phones do). */
+internal const val REFUSAL_SHAKEN = "Refusal shaken:"
 
 /** A player's own action the game moved on from before it reached the server (SYS-012). */
 internal const val NOT_TAKEN = "That wasn't taken: the game moved on first. The table shows where it is now."
-
-/** A player's own action the game refused for another reason (SYS-012). */
-internal const val NOT_ACCEPTED = "That wasn't taken: the game didn't accept it. The table shows where it is now."
 
 /** The waiting bar's words (§14) for [wait]. */
 internal fun waitingText(wait: GameDevice.Wait, play: TableBoard, opponent: String): String? = when (wait) {
@@ -683,6 +673,7 @@ internal fun EngineAsyncHost(toolkit: TableToolkitController, routes: EngineTabl
     if (request != null && request.by != routes.viewer) EngineRequestDialog(routes, opponent, summary)
     routes.rewind?.let { EngineRewindDialog(routes, it, names, opponent, summary) }
     // Notes (§8, §10): told once
+    val recordShown = LocalShownTexts.current
     LaunchedEffect(game.version) {
         while (game.notes.isNotEmpty()) {
             when (val note = game.notes.removeAt(0)) {
@@ -693,7 +684,12 @@ internal fun EngineAsyncHost(toolkit: TableToolkitController, routes: EngineTabl
                 // with "<name> undid: <action>" fading at the top (the transition's, EngineTableScreen)
                 is GameDevice.Note.TakenBack -> {}
                 is GameDevice.Note.RequestNeeded -> routes.rewind = EngineTableRoutes.RewindChoice(note.target)
-                is GameDevice.Note.Refused -> refusedText(note.reason)?.let(routes::tell) ?: toolkit.dismissError()
+                // SYS-012 (owner, 2026-11-08): any other refusal of your own action shakes what it was made on, never a
+                // silent snap back (problem report N7FU6Y); the board shows where the game is
+                is GameDevice.Note.Refused -> refusedText(note.reason)?.let(routes::tell) ?: run {
+                    toolkit.refusedShake((note.on as? arcanum.engine.state.ObjectId.Card)?.card?.value)
+                    recordShown("$REFUSAL_SHAKEN ${note.reason}")
+                }
             }
         }
     }
@@ -776,12 +772,12 @@ internal fun playbackDelay(multiplier: Float): Long = (PLAYBACK_DELAY_MS / cardM
  * HIS-021 (§27, §29.3, §29.6): how long playback waits after showing [shown] before the next event: nothing after an
  * event that changed nothing you can see ([EnginePlaybackPace.quiet]: only the step indicator moved; with playback's Full
  * control on, [mode], the delay too, except a pass made right after the same player's own action, [previous], HIS-104), a
- * short moment after the other player's staging and card places, else the playback [delay].
+ * short moment after the other player's staging and early answers, else the playback [delay].
  */
 internal fun playbackWait(shown: GameEvent?, delay: Long, mode: ResponseMode, previous: GameEvent? = null): Long = when {
     shown == null -> 0L
     EnginePlaybackPace.quiet(shown) -> if (mode == ResponseMode.FullControl && !EnginePlaybackPace.passAfterOwnAction(shown, previous)) delay else 0L
-    shown.engine == null && shown.table.all { it is TableChange.AttackDraft || it is TableChange.BlockDraft || it is TableChange.Placed ||
+    shown.engine == null && shown.table.all { it is TableChange.AttackDraft || it is TableChange.BlockDraft ||
         it is TableChange.EarlyAnswered } -> QUICK_PLAYBACK_MS
     else -> delay
 }

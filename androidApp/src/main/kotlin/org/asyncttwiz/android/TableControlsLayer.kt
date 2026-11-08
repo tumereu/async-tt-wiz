@@ -27,7 +27,8 @@ internal inline fun BoxWithConstraintsScope.TableControlsLayer(game: GameSummary
                         mainAction = toolkit.flows.divisionAction())
                     .withCombatTarget(toolkit.combat, play, defendingPlayerName(game, play)),
                     toolkit.table, endingColor,
-                    Modifier.fillMaxSize().padding(start = 60.dp, end = 8.dp), perform = toolkit::perform, submit = { toolkit.submit(it) })
+                    Modifier.fillMaxSize().padding(start = 60.dp, end = 8.dp), perform = toolkit::perform, submit = { toolkit.submit(it) },
+                    mainShakes = toolkit.mainShakes)
                 // HIS-083 (I-D56 §10): holding Undo opens the rewind dialog to pick an earlier point; there is no Redo
                 runtime.undo?.let { undo -> ActionSquare("Undo", "↶", runtime.controlsConnected ?: connected,
                     Modifier.align(Alignment.CenterStart).padding(start = 10.dp).shaken(runtime.undoShakes),

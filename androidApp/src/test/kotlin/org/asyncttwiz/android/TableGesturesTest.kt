@@ -493,8 +493,8 @@ class TableGesturesTest {
     }
 
 
-    // CMB-009
-    @Test fun combatInsertionDragBindsOnlyTheRequestedOccurrenceAndCancellingDoesNotCreatePairs() {
+    // CMB-028
+    @Test fun combatDragBindsOnlyTheRequestedOccurrenceAndCancellingDoesNotCreatePairs() {
         val f = TableStatesFixture
         val play = f.combat()
         for (landscape in listOf(false, true)) {
@@ -541,9 +541,9 @@ class TableGesturesTest {
         assertEquals(listOf<TableIntent>(TableIntent.Peek(card.cardId), TableIntent.Peek(null, released = true)), events)
     }
 
-    // CMB-009, CMB-007 (owner playtest 2026-11-06: the band takes combat drops; its end drops reach past the lanes to the
-    // band's ends)
-    @Test fun combatDropEndsReachThePanelsEdgesDividersAreLenientAndPreviewIsUprightAtLanding() {
+    // CMB-007 (owner playtest 2026-11-06: the band takes combat drops; its end drops reach past the lanes to the band's
+    // ends), CMB-028: between pairs there is no drop of its own (no new pair at a divider), only the lanes
+    @Test fun combatDropEndsReachThePanelsEdgesAndPreviewIsUprightAtLanding() {
         val f = TableStatesFixture
         val play = f.combat()
         for (zoom in listOf(.65f, 1f, 2f)) {
@@ -561,20 +561,12 @@ class TableGesturesTest {
             val regions = scene.combatDrops.filter { it.destination.role == org.asyncttwiz.protocol.CombatRole.ATTACKER }
             val left = regions.single { it.destination.pairId == null && it.bounds.x < panel.x + .01f }
             val right = regions.single { it.destination.pairId == null && it.bounds.right > panel.right - .01f }
-            val divider = regions.single { it.destination.pairId == null && !edge(it) }
-            val lowerDivider = scene.combatDrops.single { it.destination.role == org.asyncttwiz.protocol.CombatRole.BLOCKER &&
-                it.destination.pairId == null && !edge(it) }
+            assertTrue(scene.combatDrops.none { it.destination.pairId == null && !edge(it) }, "no drop at a divider")
             // Beside the lanes, still in the band, the end drops take it
-            assertEquals(left.destination, scene.combatDestination(TablePoint(panel.x - 1f, left.bounds.center.y), null))
-            assertEquals(right.destination, scene.combatDestination(TablePoint(panel.right + 1f, right.bounds.center.y), null))
-            // CMB-027: covering half of a neighbouring card goes beside it, so between two attackers the divider
-            // only takes drops within a slot margin; the blocker row has a card on one side only and stays lenient.
-            val near = CombatStackPresentation.slotMargin(scene.combatCardWidth) * .5f
-            for ((region, point) in listOf(left to TablePoint(panel.x + .5f, left.bounds.center.y),
-                right to TablePoint(panel.right - .5f, right.bounds.center.y),
-                divider to TablePoint(divider.bounds.center.x - near, divider.bounds.center.y),
-                divider to TablePoint(divider.bounds.center.x + near, divider.bounds.center.y),
-                lowerDivider to TablePoint(lowerDivider.bounds.center.x + minOf(11f, scene.combatCardWidth / 2), lowerDivider.bounds.center.y))) {
+            assertEquals(left.destination, scene.combatDestination(TablePoint(panel.x - 1f, left.bounds.center.y)))
+            assertEquals(right.destination, scene.combatDestination(TablePoint(panel.right + 1f, right.bounds.center.y)))
+            for ((region, point) in listOf(left to TablePoint(panel.x - 1f, left.bounds.center.y),
+                right to TablePoint(panel.right + 1f, right.bounds.center.y))) {
                 events.clear()
                 gesture.down(occurrence.visible.first().center, 0); gesture.move(point, 80)
                 assertEquals(TableDestination.Combat(region.destination), gesture.preview.destination)
@@ -590,7 +582,7 @@ class TableGesturesTest {
                 assertEquals(TableDestination.Combat(region.destination), events.filterIsInstance<TableIntent.Move>().single().destination)
             }
             val last = scene.items.single { it.cardId == f.id("attacker2") }
-            val end = TablePoint(panel.right - .5f, right.bounds.center.y)
+            val end = TablePoint(panel.right + 1f, right.bounds.center.y)
             gesture.down(last.bounds.center, 200); gesture.move(end, 280)
             assertEquals(TableDestination.Combat(right.destination), gesture.preview.destination)
             // The old last group vanishes, so its replacement lands at that same packed position.

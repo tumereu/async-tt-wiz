@@ -50,56 +50,6 @@ class CombatStackControllerTest {
         assertFailsWith<IllegalArgumentException> { CombatStackController.bind(state.board, combatId(9999)) }
     }
 
-    @Test fun collectionPlacementUsesVisualOrderOneTargetAndPrefixAnchors() {
-        val boards = CombatBoards(actor)
-        var state = boards.declare(combatState(), targets(combatState(), 20, 21, 22), false)
-        val original = state
-        val area = state.board.combat!!
-        val target = area.pairs.last()
-        state = boards.place(state, listOf(combatId(24), combatId(21), combatId(20)), CombatDestination(area.id, CombatRole.BLOCKER, target.id))
-        assertEquals(listOf(combatId(20), combatId(21), combatId(24)), state.board.combat!!.pairs.last().blockers.map { it.sourceId })
-        assertEquals(original.board.cards, state.board.cards)
-        assertEquals(1, state.board.combat!!.pairs.size)
-    }
-
-    @Test fun withinSlotSubsetInsertionDoesNotReverse() {
-        val boards = CombatBoards(actor)
-        var state = boards.apply(combatState(), PlayAction.Combat(CombatAction.Open))
-        val areaId = state.board.combat!!.id
-        state = boards.place(state, (20..23).map(::combatId), CombatDestination(areaId, CombatRole.ATTACKER))
-        val pair = state.board.combat!!.pairs.single()
-        val a = pair.attackers[0]; val c = pair.attackers[2]
-        state = boards.place(state, listOf(pair.attackers[3].id, pair.attackers[1].id),
-            CombatDestination(areaId, CombatRole.ATTACKER, pair.id, insertion = CombatInsertion.GAP, cardGap = IdentityGap(a.id, c.id)))
-        assertEquals(listOf(combatId(20), combatId(21), combatId(23), combatId(22)), state.board.combat!!.pairs.single().attackers.map { it.sourceId })
-        val unchanged = CombatBoards(actor)
-        assertEquals(state, unchanged.place(state, listOf(combatId(21), combatId(23)),
-            CombatDestination(areaId, CombatRole.ATTACKER, pair.id, insertion = CombatInsertion.GAP, cardGap = IdentityGap(a.id, c.id))))
-        assertTrue(unchanged.applied.isEmpty())
-    }
-
-    @Test fun crossSlotOrderBlockersBeforeAttackersNotSelectionOrPairOrder() {
-        val boards = CombatBoards(actor)
-        var state = boards.declare(combatState(), targets(combatState(), 20, 21), false)
-        val area = state.board.combat!!
-        state = boards.place(state, listOf(combatId(22)), CombatDestination(area.id, CombatRole.BLOCKER, area.pairs.last().id))
-        val occurrences = CombatStackRules.occurrences(state.board.combat)
-        val ordered = CombatStackController.orderedTargets(state.board, occurrences.map { it.id }.reversed())
-        assertEquals(listOf(combatId(22), combatId(20), combatId(21)), ordered.map { it.sourceId })
-        val target = CombatDestination(area.id, CombatRole.ATTACKER, state.board.combat!!.pairs.first().id)
-        val accepted = boards.place(state, occurrences.map { it.id }.reversed(), target)
-        assertEquals(listOf(combatId(22), combatId(20), combatId(21)), accepted.board.combat!!.pairs.single().attackers.map { it.sourceId })
-    }
-
-    @Test fun invalidWholeDropIsRefused() {
-        val boards = CombatBoards(actor)
-        val state = boards.declare(combatState(), targets(combatState(), 20), false)
-        assertFailsWith<IllegalArgumentException> {
-            boards.place(state, listOf(combatId(21), combatId(999)),
-                CombatDestination(state.board.combat!!.id, CombatRole.BLOCKER, state.board.combat!!.pairs.single().id))
-        }
-    }
-
     @Test fun frozenEffectsHaveNoSourceButKeepInspection() {
         val state = combatState()
         val token = state.board.cards.single { it.id == combatId(25) }.copy(corner = "5/2")

@@ -183,7 +183,7 @@ Feasibility test results (2026-11-07, throwaway branch `w/web-spike`, Chrome on 
 | — | **Hover** a card ~250 ms for a quick look (owner): the large picture only, no dimming, gone when the pointer leaves |
 | A tap raises a hand card with its chips and amber Autotap outlines (ZON-079, ZON-080); a tap on a card with several abilities opens its chips (TBL-124) | **Hovering a usable card shows its chips faded** (owner), with the amber outlines of what Autotap would tap for the first chip; hovering a chip makes it solid and outlines that chip's sources. A click on a chip uses it at once; a click on the card does what a tap does. A battlefield card with one usable ability shows that one chip, so hover tells what a click will do (proposal) |
 | Holding a control does its hold action (step arrow → End turn, Undo → Undo dialog, tooltips SYS-045) | Right-click a control does its hold action (owner) (step arrow = End turn, Undo = the Undo dialog); Shift+Space = End turn; tooltips show on hover after 0.5 s |
-| Drag a card (ZON-077, CMB-009) | Drag with the left button; the same meanings and highlights |
+| Drag a card (ZON-077, CMB-028) | Drag with the left button; the same meanings and highlights |
 | One-finger drag on empty battlefield pans (TBL-011) | Left-drag on empty battlefield, or middle-drag anywhere |
 | Pinch zooms (TBL-010) | Mouse wheel zooms around the pointer (0.65–2×); trackpad pinch zooms; Shift+wheel pans sideways |
 | Double tap empty battlefield = fit (TBL-012) | Double click empty battlefield, or F |

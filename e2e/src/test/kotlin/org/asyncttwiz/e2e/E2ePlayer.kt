@@ -127,8 +127,8 @@ internal class E2ePlayer(val account: TestAccount, private val compose: ComposeT
     /** Whether the screen showed a short-lived text containing [text] ([shownTexts]). */
     fun told(text: String): Boolean = shownTexts.any { text in it }
 
-    /** Whether the screen showed SYS-012's refusal note ("That wasn't taken: ...") or a refused action's error. */
-    val refusalSeen: Boolean get() = told("wasn't taken")
+    /** Whether the screen showed SYS-012's refusal note ("That wasn't taken: ...") or a refused action's shake. */
+    val refusalSeen: Boolean get() = told("wasn't taken") || told(org.asyncttwiz.android.REFUSAL_SHAKEN)
 
     private var onceAt = -1L
 

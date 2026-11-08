@@ -59,6 +59,4 @@ object RuleRefusals {
     const val OFF_BATTLEFIELD = "offBattlefield"
     /** I-D23: no branch starts while an Automatum flow is open. */
     const val FLOW_OPEN = "flowOpen"
-    /** I-D52: a change made by hand; the game changes only through Automatum. */
-    const val AUTOMATUM_ONLY = "automatumOnly"
 }

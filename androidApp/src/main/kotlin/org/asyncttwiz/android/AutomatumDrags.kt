@@ -56,7 +56,7 @@ internal object AutomatumDrags {
     /**
      * Whether [actor] may make [action] by hand (I-D52: the game changes only by the rules): what has no game effect
      * ("Inspect other side", passing the move), their own early answers (I-D33), the combat staging in the lanes (not
-     * closing it), a card's place within its own Battlefield, and in their opening their own hand cards to the bottom of
+     * closing it), and in their opening their own hand cards to the bottom of
      * their own library.
      */
     fun allowed(board: BoardState, actor: String, action: PlayAction): Boolean = when (action) {
@@ -65,7 +65,7 @@ internal object AutomatumDrags {
             is MtgAction.SetRecord -> listOfNotNull(mtg.before, mtg.after).let { records ->
                 records.isNotEmpty() && records.all { it.kind == EngineRecordKind.PreAnswer && it.player == actor } }
         }
-        is PlayAction.MoveCard -> openingBottom(board, actor, action) || placement(board, action)
+        is PlayAction.MoveCard -> openingBottom(board, actor, action)
         is PlayAction.Combat -> action.action !is CombatAction.Close
         is PlayAction.Stack -> false
     }
@@ -78,13 +78,6 @@ internal object AutomatumDrags {
         opening(board, actor) && action.destination.insertion == MoveInsertion.BOTTOM &&
             own(board, actor, action.destination.containerId, PlayZone.LIBRARY) &&
             board.cards.singleOrNull { it.id == action.cardId }?.let { own(board, actor, it.containerId, PlayZone.HAND) } == true
-
-    /** A card moved within the Battlefield it is on, face and Stack untouched: only its place changes. */
-    private fun placement(board: BoardState, action: PlayAction.MoveCard): Boolean =
-        action.faceDown == null && action.removeStackEntryId == null &&
-            action.source.containerId == action.destination.containerId &&
-            board.containers.any { it.id == action.source.containerId && it.zone == PlayZone.BATTLEFIELD } &&
-            board.cards.any { it.id == action.cardId && it.containerId == action.source.containerId }
 
     const val MANUAL_MOVE = "Cards move only by the rules."
     const val STACK = "Automatum resolves the Stack: let it resolve."

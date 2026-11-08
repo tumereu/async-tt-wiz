@@ -183,18 +183,11 @@ class DeviceSimulationTest {
         d.send()
     }
 
-    /** The player moves one of their own permanents, or gives or takes back an early answer (I-D56 §6). */
+    /** The player gives or takes back an early answer (I-D56 §6). */
     private fun tableOnly(d: GameDevice, rnd: Random, stats: Stats) {
-        val s = d.model.engine
-        val own = s.battlefield.filter { s.obj(it)?.controller == d.me }
-        val change = if (own.isNotEmpty() && rnd.nextInt(3) > 0) {
-            val obj = own.random(rnd)
-            TableChange.Placed(obj, d.model.table.placements[obj], Placement(rnd.nextInt(12), rnd.nextInt(3)))
-        } else {
-            val key = "early:${d.me.value}:${rnd.nextInt(3)}"
-            val before = d.model.table.earlyAnswers[key]
-            TableChange.EarlyAnswered(key, before, if (before == null) EarlyAnswer(d.me, key, Answer.YesNo(true)) else null)
-        }
+        val key = "early:${d.me.value}:${rnd.nextInt(3)}"
+        val before = d.model.table.earlyAnswers[key]
+        val change = TableChange.EarlyAnswered(key, before, if (before == null) EarlyAnswer(d.me, key, Answer.YesNo(true)) else null)
         if (d.table(listOf(change)) is GameDevice.Acted.Sent) stats.table++
     }
 

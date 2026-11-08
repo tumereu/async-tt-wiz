@@ -13,7 +13,7 @@ enum class EndingTool { SUGGEST_WIN, SUGGEST_LOSS, SUGGEST_DRAW, ACCEPT, CONCEDE
 interface TableActionRoutes {
     fun combat(intent: TableActionIntent.Combat)
     fun ending(intent: TableActionIntent.Ending)
-    /** Next step, End turn or a chosen step through Automatum (TRN-057): whether it was taken. */
+    /** Next step or End turn through Automatum (TRN-057): whether it was taken. */
     fun automatumStep(intent: TableActionIntent): Boolean = false
     /** The viewer's opening (I-D49): "Mulligan" or "Keep"; whether it was taken. */
     fun opening(intent: TableActionIntent): Boolean = false
@@ -23,9 +23,6 @@ sealed interface TableActionIntent {
     val scope: TableActionScope
     data class Next(override val scope: TableActionScope) : TableActionIntent
     data class End(override val scope: TableActionScope) : TableActionIntent
-    /** A later step records every step passed on the way (rules v33). [pass]: go on into [position] itself as a
-     * passed step, for a combined action that acts inside it before its own final step change. */
-    data class Choose(override val scope: TableActionScope, val position: TurnPosition, val pass: Boolean = false) : TableActionIntent
     data class Combat(override val scope: TableActionScope, val tool: CombatTool,
         val areaId: String?, val sourceIds: List<String> = emptyList()) : TableActionIntent
     data class Ending(override val scope: TableActionScope, val tool: EndingTool,
@@ -48,7 +45,7 @@ class TableActionController(private val state: () -> TableBoard?, private val ca
     fun perform(intent: TableActionIntent): Boolean {
         current(intent.scope) ?: return false
         when (intent) {
-            is TableActionIntent.Next, is TableActionIntent.End, is TableActionIntent.Choose -> return routes.automatumStep(intent)
+            is TableActionIntent.Next, is TableActionIntent.End -> return routes.automatumStep(intent)
             is TableActionIntent.OpeningMulligan, is TableActionIntent.Keep -> return routes.opening(intent)
             is TableActionIntent.Combat -> routes.combat(intent)
             is TableActionIntent.Ending -> routes.ending(intent)

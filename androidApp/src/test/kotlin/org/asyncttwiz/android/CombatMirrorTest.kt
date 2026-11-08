@@ -79,7 +79,7 @@ class CombatMirrorTest {
                 val pairCards = own.filter { CombatStackRules.location(play.board.combat!!, it.cardId!!)?.pairId == drop.destination.pairId }
                 assertTrue(pairCards.all { drop.bounds.contains(it.bounds.center) })
                 assertTrue(if (mirrored) drop.bounds.bottom <= labelTop + .01f else drop.bounds.y >= labelBottom - .01f)
-                assertEquals(drop.destination.role, scene.combatDestination(drop.landing, null)?.role)
+                assertEquals(drop.destination.role, scene.combatDestination(drop.landing)?.role)
             }
         }
     }

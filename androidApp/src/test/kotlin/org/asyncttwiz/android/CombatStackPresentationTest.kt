@@ -55,11 +55,11 @@ class CombatStackPresentationTest {
         val blockers = geometry.cards.filter { CombatStackRules.location(state.board.combat!!, it.viewId)!!.role == CombatRole.BLOCKER }
         val attackers = geometry.cards.filter { CombatStackRules.location(state.board.combat!!, it.viewId)!!.role == CombatRole.ATTACKER }
         assertTrue(blockers.maxOf { it.bounds.y + it.bounds.height } < attackers.minOf { it.bounds.y })
-        assertEquals(6, geometry.destinations.count { it.destination.pairId == null }) // 3 gaps, both sides.
+        // CMB-028: only the area's two end gaps (both rows) take drops outside the pairs; none at a divider
+        assertEquals(4, geometry.destinations.count { it.destination.pairId == null })
         assertEquals(widths.sum(), geometry.width, .001f) // No reserved insertion slots.
         assertTrue(geometry.dividers.all { it > 0 && it < geometry.width })
-        val between = geometry.destinations.filter { it.destination.pairId == null && !it.extendLeft && !it.extendRight }
-        assertTrue(between.all { it.bounds.width == 24f && it.bounds.center.x == geometry.dividers.single() })
+        assertTrue(geometry.destinations.none { it.destination.pairId == null && !it.extendLeft && !it.extendRight })
         for (role in CombatRole.entries) {
             val regions = geometry.destinations.filter { it.destination.role == role }
             val y = regions.first().bounds.center.y
@@ -67,12 +67,12 @@ class CombatStackPresentationTest {
             assertEquals(IdentityGap(beforeId = state.board.combat!!.pairs.first().id), target(-1e20f)?.pairGap)
             assertEquals(IdentityGap(afterId = state.board.combat!!.pairs.last().id), target(1e20f)?.pairGap)
             assertNull(regions.firstOrNull { it.contains(TablePoint(-1e20f, -1f)) })
-            assertNull(target(geometry.dividers.single() - 11f)?.pairId)
+            assertEquals(state.board.combat!!.pairs.first().id, target(geometry.dividers.single() - 11f)?.pairId)
             assertEquals(state.board.combat!!.pairs.last().id, target(geometry.dividers.single() + 14f)?.pairId)
         }
     }
 
-    @Test fun closedVersusEmptyAreaAndAccessibleInsertionChoices() {
+    @Test fun closedVersusEmptyAreaAndAccessibleDropChoices() {
         val state = combatState()
         assertTrue(CombatStackPresentation.combat(state.board, 48f, 68f).destinations.isEmpty())
         val opened = CombatBoards(combatId(8)).apply(state, PlayAction.Combat(CombatAction.Open))
@@ -88,11 +88,13 @@ class CombatStackPresentationTest {
             it.contains(TablePoint(1e20f, it.bounds.center.y)) })
         val populated = populated()
         val choices = CombatStackPresentation.combat(populated.board, 48f, 68f).destinations
-        assertTrue(choices.any { it.destination.insertion == CombatInsertion.GAP && it.destination.cardGap.beforeId != null })
+        // CMB-028: no drop between two cards (no reordering or swapping)
+        assertTrue(choices.none { it.destination.insertion == CombatInsertion.GAP })
         assertTrue(choices.all { it.destination.areaId == populated.board.combat!!.id && it.label.isNotBlank() })
     }
 
-    @Test fun groupFacesAppendToTheirRowAndInternalCardGapsRetainIdentityTargets() {
+    // CMB-028, CMB-034: a drop on a pair's card is that pair, never a place between its cards
+    @Test fun groupFacesAppendToTheirRow() {
         val state = populated()
         val geometry = CombatStackPresentation.combat(state.board, 48f, 68f)
         val pair = state.board.combat!!.pairs.first()
@@ -105,9 +107,6 @@ class CombatStackPresentationTest {
             assertEquals(role, destination.role)
             assertEquals(CombatInsertion.APPEND, destination.insertion)
         }
-        val gap = geometry.destinations.single { it.destination.cardGap.beforeId == pair.blockers.last().id }
-        assertEquals(gap.destination, target(gap.bounds.center))
-        assertEquals(IdentityGap(pair.blockers.first().id, pair.blockers.last().id), gap.destination.cardGap)
     }
 
     // CMB-008

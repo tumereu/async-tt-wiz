@@ -20,7 +20,5 @@ internal fun refusalText(reason: String?): String = when (reason) {
     RuleRefusals.OFF_BATTLEFIELD -> "That card isn't on the battlefield."
     // SYS-062
     RuleRefusals.FLOW_OPEN -> "Automatum is in the middle of something. Finish it before going back."
-    // SYS-069
-    RuleRefusals.AUTOMATUM_ONLY -> "The game changes only by the rules."
     else -> "This game has changed. Refresh and try again."
 }

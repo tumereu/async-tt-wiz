@@ -37,12 +37,9 @@ internal class CombatBoards(private val actor: String, private val ids: () -> St
             apply(next, PlayAction.Combat(CombatAction.SetAttackTarget(state.board.combat!!.id, pair.id, cardId)))
         }
 
-    /** [selected] placed in order at [destination], as the toolkit's drop places them (a whole-lane drop retargets). */
+    /** [selected] placed in the given order at [destination] (a staging the lanes hold, built for a test). */
     fun place(state: PlayState, selected: List<String>, destination: CombatDestination): PlayState {
-        val retarget = CombatStackController.retargetDrop(state.board, selected, destination)
-        if (retarget.isNotEmpty()) return attackTarget(state, selected,
-            state.board.combat?.pairs?.find { it.id == destination.pairId }?.attackTarget ?: destination.attackTarget)
-        val targets = CombatStackController.orderedTargets(state.board, selected)
+        val targets = selected.map { CombatStackController.bind(state.board, it) }.distinctBy { it.sourceId ?: it.viewId }
         val sourceIds = CombatStackController.sources(targets)
         require(sourceIds.size == targets.size && sourceIds.isNotEmpty()) { "No live source" }
         var next = state

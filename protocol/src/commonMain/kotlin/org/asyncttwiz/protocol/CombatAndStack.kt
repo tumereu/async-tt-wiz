@@ -114,7 +114,7 @@ object CombatStackRules {
     }
 
     /**
-     * The combat lanes [board] holds after [action] (the table's own staging of a declaration, CMB-009–CMB-034), with
+     * The combat lanes [board] holds after [action] (the table's own staging of a declaration, CMB-028, CMB-034), with
      * the same checks and ids as the gameplay change gives ([requestId]: the action's request, naming new pairs and
      * occurrences; the wire's checks first, the lanes' invariants after); [board] itself when nothing changes.
      * [definitions]: the board's card data.

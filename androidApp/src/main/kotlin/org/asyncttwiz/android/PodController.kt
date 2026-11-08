@@ -84,6 +84,8 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
         val select: Boolean = false, val setupRevision: Long? = null,
         val createdFrom: NewPodDraft? = null,
         val deckName: String? = null, val submit: Boolean = false,
+        /** A Rotisserie pick queue being set (DRF-164): shown at once until the server's answer comes. */
+        val pickQueue: List<String>? = null,
         val send: suspend (String) -> PodDetail?)
     private val writes = mutableListOf<Write>()
     /** Keep/burn/Librarian marks survive tab switches here, and app restarts through the server copy. */
@@ -456,6 +458,14 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
         val input = PodTurn(requestId(), attempt, action, turn, card, packId, pile, table)
         enqueue(Write(detail.id, attempt, pick = true, send = { api.turn(it, detail.id, input) }))
     }
+    /** Sets your Rotisserie pick queue to [cards], in order (DRF-164); it shows at once and the server keeps it. */
+    fun queue(cards: List<String>) {
+        val detail = state.detail?.takeIf { it.phase == PodPhase.DRAFTING && it.settings.mode == DraftMode.ROTISSERIE && it.limited != null } ?: return
+        val attempt = detail.draftAttemptId ?: return
+        if (state.uncertain) return
+        val input = PodPickQueue(requestId(), attempt, cards)
+        enqueue(Write(detail.id, attempt, pickQueue = cards, send = { api.queue(it, detail.id, input) }))
+    }
     fun move(copyId: String, category: PodDeckCategory) {
         val detail = editable() ?: return
         val from = detail.build?.copies?.firstOrNull { it.copyId == copyId }?.category ?: return
@@ -594,6 +604,13 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
             val pending = writes.filter { it.pod == base.id && it.attempt == base.draftAttemptId }
             detail = base.copy(deckName = pending.lastOrNull { it.deckName != null }?.deckName ?: base.deckName,
                 submitted = base.submitted || pending.any { it.submit })
+            // DRF-164: the latest pick queue being set shows at once.
+            val queue = pending.lastOrNull { it.pickQueue != null }?.pickQueue
+            val view = base.limited
+            if (queue != null && view != null) {
+                val copies = view.board.associate { it.copy.id to it.copy }
+                detail = detail?.copy(limited = view.copy(pickQueue = queue.mapNotNull(copies::get), queueCleared = null))
+            }
         }
         state = state.copy(detail = detail, pending = writes.size, picking = writes.any { it.pick })
     }

@@ -245,6 +245,45 @@ class LimitedDraftHttpTest {
         assertEquals("wrong_draft_mode", f.code(f.turn(f.a, booster, PodTurn(id(), draft.draftAttemptId!!, LimitedAction.TAKE_CARD, 0, "x"), 409)))
     }
 
+    // DRF-164, DRF-136: a private pick queue kept on the server: when the turn comes its first card is taken at once
+    // (no "Your pick"), a queued card taken by another clears the queue with a note, and a turn that comes back after
+    // queued picks notifies again.
+    @Test fun `Rotisserie HTTP pick queue takes queued cards when the turn comes and clears when one is taken`() = fixture { f ->
+        val pod = f.create(DraftSettings.rotisserie().copy(cardsPerPlayer = 5))
+        f.join(pod, f.b)
+        val started = json.decodeFromString<PodDetail>(f.start(pod))
+        val attempt = started.draftAttemptId!!
+        val (x, y) = started.limited!!.seating.map(f::session)
+        val board = started.limited!!.board.map { it.copy.id }
+        fun queue(who: SessionCreated, cards: List<String>, status: Int = 200) =
+            f.send(who, "PUT", "/v1/pods/$pod/rotisserie/queue", PodPickQueue(id(), attempt, cards), status)
+        fun take(who: SessionCreated, card: String, status: Int = 200) =
+            f.turn(who, pod, PodTurn(id(), attempt, LimitedAction.TAKE_CARD, f.get(who, pod).limited!!.turn, card), status)
+        assertEquals("unknown_card", f.code(queue(y, listOf("missing"), 409)))
+        // y queues three cards: only y sees them.
+        val shown = json.decodeFromString<PodDetail>(queue(y, board.subList(1, 4))).limited!!
+        assertEquals(board.subList(1, 4), shown.pickQueue.map { it.id })
+        assertTrue(f.get(x, pod).limited!!.pickQueue.isEmpty())
+        assertEquals(0, f.count(ActivityKind.POD_YOUR_PICK, pod, y))
+        // x picks: y's two picks in a row take y's first two queued cards at once, without a "Your pick" for y; the turn
+        // comes back to x, who is told again.
+        take(x, board[0])
+        val after = f.get(y, pod).limited!!
+        assertEquals(3, after.turn)
+        assertEquals(board.subList(1, 3), after.pool.map { it.id })
+        assertEquals(listOf(board[3]), after.pickQueue.map { it.id })
+        assertEquals(0, f.count(ActivityKind.POD_YOUR_PICK, pod, y))
+        assertEquals(2, f.count(ActivityKind.POD_YOUR_PICK, pod, x))
+        // x takes y's queued card: y's queue clears with a note; y's next turn waits for y and tells y.
+        take(x, board[3])
+        take(x, board[4])
+        val cleared = f.get(y, pod).limited!!
+        assertTrue(cleared.pickQueue.isEmpty())
+        assertEquals(board[3], cleared.queueCleared?.id)
+        assertEquals(y.account.accountId, cleared.currentPlayer)
+        assertEquals(1, f.count(ActivityKind.POD_YOUR_PICK, pod, y))
+    }
+
     // DRF-154, DRF-155, DRF-139: open packs are public, later rounds stay hidden, picks follow each pack's snake order.
     @Test fun `Rochester HTTP open packs hidden rounds parallel picks and end`() = fixture { f ->
         val pod = f.create(DraftSettings.rochester().copy(packsPerPlayer = 2, cardsPerPack = 6))

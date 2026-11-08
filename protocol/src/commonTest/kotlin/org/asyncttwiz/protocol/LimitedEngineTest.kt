@@ -118,6 +118,65 @@ class LimitedEngineTest {
         assertEquals(state.pools.getValue(y).toSet(), view.board.filter { it.pickedBy == y }.map { it.copy.id }.toSet())
     }
 
+    // DRF-164: a private pick queue; when your turn comes its first card is taken for you at once (also for picks in a row),
+    // the rest stays queued; a queued card taken by someone else clears your whole queue, with a note naming it.
+    @Test fun rotisseriePickQueueTakesTheFirstCardWhenYourTurnComes() {
+        val two = players.take(2)
+        var state = LimitedEngine.startFromCube(two, cube(30), DraftSettings.rotisserie().copy(cardsPerPlayer = 5), seed)
+        val (x, y) = state.seating
+        val board = state.board
+        // Setting a queue: untaken board cards, distinct; nothing is taken now, even on your turn.
+        assertEquals(LimitedRejection.UNKNOWN_CARD, LimitedEngine.queue(state, y, listOf("missing")).reason)
+        assertEquals(LimitedRejection.UNKNOWN_CARD, LimitedEngine.queue(state, y, listOf(board[0], board[0])).reason)
+        assertEquals(LimitedRejection.NOT_YOUR_TURN, LimitedEngine.queue(state, "nobody", listOf(board[0])).reason)
+        state = assertNotNull(LimitedEngine.queue(state, x, listOf(board[9])).state)
+        assertEquals(0, state.turn)
+        state = assertNotNull(LimitedEngine.queue(state, y, listOf(board[1], board[2], board[3])).state)
+        // The queue is private: only its owner sees it.
+        assertEquals(listOf(board[1], board[2], board[3]), LimitedEngine.view(state, y).pickQueue.map { it.id })
+        assertTrue(LimitedEngine.view(state, x).let { it.pickQueue.size == 1 && it.queueCleared == null })
+        // x picks by hand (its own queued card leaves its queue); y's two picks in a row (snake) take y's first two
+        // queued cards at once; then it's x's turn again, which waits for x (its queue is empty).
+        state = ok(move(state, x, LimitedAction.TAKE_CARD, board[9]))
+        assertEquals(3, state.turn)
+        assertEquals(listOf(board[9], board[1], board[2]), state.log.flatMap { it.cards })
+        assertEquals(listOf(x, y, y), state.log.map { it.player })
+        assertEquals(listOf(board[3]), LimitedEngine.view(state, y).pickQueue.map { it.id })
+        assertTrue(LimitedEngine.view(state, x).pickQueue.isEmpty())
+        assertEquals(listOf("turn"), state.queues.getValue(x))
+        // x takes y's queued card: y's whole queue clears, with a note naming the card; y's turn waits for y.
+        state = ok(move(state, x, LimitedAction.TAKE_CARD, board[3]))
+        val second = ok(move(state, x, LimitedAction.TAKE_CARD, board[4]))
+        assertTrue(LimitedEngine.view(second, y).pickQueue.isEmpty())
+        assertEquals(board[3], LimitedEngine.view(second, y).queueCleared?.id)
+        assertEquals(listOf("turn"), second.queues.getValue(y))
+        // Queueing again (or picking) removes the note; an empty list empties the queue.
+        val again = assertNotNull(LimitedEngine.queue(second, y, listOf(board[5])).state)
+        assertNull(LimitedEngine.view(again, y).queueCleared)
+        assertTrue(LimitedEngine.view(assertNotNull(LimitedEngine.queue(again, y, emptyList()).state), y).pickQueue.isEmpty())
+        assertNull(LimitedEngine.view(ok(move(second, y, LimitedAction.TAKE_CARD, board[6])), y).queueCleared)
+        // Taken cards can't be queued; other engines have no pick queue.
+        assertEquals(LimitedRejection.UNKNOWN_CARD, LimitedEngine.queue(second, y, listOf(board[3])).reason)
+        val winston = LimitedEngine.startFromCube(two, cube(30), DraftSettings.winston().copy(packsPerPlayer = 1, cardsPerPack = 10), seed)
+        assertEquals(LimitedRejection.WRONG_ACTION, LimitedEngine.queue(winston, x, emptyList()).reason)
+    }
+
+    // DRF-164: queued picks play the draft to its end when everyone has queued enough.
+    @Test fun rotisseriePickQueuesCanFinishTheDraft() {
+        val two = players.take(2)
+        var state = LimitedEngine.startFromCube(two, cube(30), DraftSettings.rotisserie().copy(cardsPerPlayer = 5), seed)
+        val (x, y) = state.seating
+        val board = state.board
+        state = assertNotNull(LimitedEngine.queue(state, y, board.subList(5, 10)).state)
+        state = assertNotNull(LimitedEngine.queue(state, x, board.subList(1, 5)).state)
+        // x's one pick by hand plays the whole draft: every later turn takes its player's next queued card.
+        state = ok(move(state, x, LimitedAction.TAKE_CARD, board[0]))
+        assertTrue(state.finished)
+        assertEquals(board.subList(0, 5), state.pools.getValue(x))
+        assertEquals(board.subList(5, 10).toSet(), state.pools.getValue(y).toSet())
+        assertTrue(state.pickQueues.isEmpty() && state.queueCleared.isEmpty())
+    }
+
     /** Plays a Rochester draft to its end, each move the first free card of the mover's first pack; returns pickers per pack. */
     private fun playRochester(start: LimitedDraftState, check: (LimitedDraftState) -> Unit = {}): Pair<LimitedDraftState, Map<String, List<String>>> {
         var state = start

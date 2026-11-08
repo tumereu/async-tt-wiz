@@ -1,0 +1,1 @@
+add: In Rotisserie drafts you can queue the cards you want ahead; when your turn comes the first one is picked for you at once.

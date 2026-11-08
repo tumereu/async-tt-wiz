@@ -2,6 +2,7 @@ package org.asyncttwiz.android
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
@@ -57,15 +58,15 @@ internal fun podSearchCard(definition: CardDefinition): CardSearchCard {
     return CardSearchCard(definition.name, definition.layout, faces, faces.fold(0) { mask, face -> mask or face.colors })
 }
 
-/** The Draft tab of Rochester, Rotisserie, Winston and Winchester pods. */
+/** The Draft tab of Rochester, Rotisserie, Winston and Winchester pods; [queue] sets your Rotisserie pick queue (DRF-164). */
 @Composable
 internal fun PodLimitedDraftView(detail: PodDetail, accountId: String, definitions: Map<String, CardDefinition>,
     busy: Boolean, send: PodTurnSender, modifier: Modifier, columns: PodPickColumns, waitingText: String,
-    onMainMenu: (() -> Unit)?) {
+    onMainMenu: (() -> Unit)?, queue: (List<String>) -> Unit = {}) {
     val view = detail.limited
     val members = detail.members.map { it.account }
     when (view?.mode) {
-        DraftMode.ROTISSERIE -> PodRotisserieView(view, members, definitions, busy, send, modifier, columns)
+        DraftMode.ROTISSERIE -> PodRotisserieView(view, members, definitions, busy, send, modifier, columns, queue)
         DraftMode.ROCHESTER -> PodRochesterView(view, members, definitions, busy, send, modifier, columns)
         DraftMode.WINSTON -> PodWinstonView(view, members, definitions, busy, send, modifier, columns)
         DraftMode.WINCHESTER -> PodWinchesterView(view, members, definitions, busy, send, modifier, columns)
@@ -93,11 +94,12 @@ internal fun PodLimitedPreviewHost(preview: PodLimitedPreview, definitions: Map<
 
 /**
  * One face-up card of a limited board: a taken card stays in place, greyed, with its picker's small avatar (as in Grid,
- * DRF-085); [selected] frames it. Tap [onTap]; holding inspects it.
+ * DRF-085); [selected] frames it; [badge] (a Rotisserie queue number, DRF-164) sits in a small circle at the top right.
+ * Tap [onTap]; holding inspects it.
  */
 @Composable
 internal fun PodLimitedCard(copy: DraftCopy, definition: CardDefinition?, pickedBy: String?, members: List<AccountIdentity>,
-    colors: Map<String, Color>, selected: Boolean, tag: String, preview: PodLimitedPreview, onTap: () -> Unit) {
+    colors: Map<String, Color>, selected: Boolean, tag: String, preview: PodLimitedPreview, badge: String? = null, onTap: () -> Unit) {
     val shape = MaterialTheme.shapes.extraSmall
     val name = definition?.name ?: "Card data unavailable"
     val picker = pickedBy?.let { id -> members.firstOrNull { it.accountId == id } }
@@ -115,6 +117,10 @@ internal fun PodLimitedCard(copy: DraftCopy, definition: CardDefinition?, picked
         Box(Modifier.matchParentSize().border(if (selected) 3.dp else 1.dp,
             if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant, shape))
         if (pickedBy != null) PodPickerBadge(picker, colors[pickedBy] ?: OpponentTableColor, "$tag-picker")
+        if (badge != null) Box(Modifier.align(Alignment.TopEnd).padding(4.dp).size(22.dp).clip(CircleShape)
+            .background(MaterialTheme.colorScheme.primary).testTag("$tag-badge"), contentAlignment = Alignment.Center) {
+            Text(badge, color = MaterialTheme.colorScheme.onPrimary, style = MaterialTheme.typography.labelSmall)
+        }
     }
 }
 
@@ -194,14 +200,24 @@ internal fun podRotisserieFilter(board: List<LimitedSlot>, definitions: Map<Stri
     return board.filter { slot -> definitions[slot.copy.definition]?.let { parsed.query.matches(podSearchCard(it)) } == true }
 }
 
+/** "1 · Lightning Bolt": a queued card's chip text (DRF-164). */
+internal fun podQueueChipText(position: Int, copy: DraftCopy, definitions: Map<String, CardDefinition>): String =
+    "${position + 1} · ${definitions[copy.definition]?.name ?: "Card"}"
+
+/** "Queue cleared: Lightning Bolt was taken" (DRF-164). */
+internal fun podQueueClearedText(copy: DraftCopy, definitions: Map<String, CardDefinition>): String =
+    "Queue cleared: ${definitions[copy.definition]?.name ?: "a queued card"} was taken"
+
 /**
  * Rotisserie (DRF-152): the whole pool in one scrolling panel with a catalog search field; taken cards are greyed with
- * the picker's avatar. On your turn tap a card, then Confirm.
+ * the picker's avatar. On your turn tap a card, then Confirm; on another's turn tap a card, then "Queue <card>" adds it
+ * to your pick queue (DRF-164), whose strip above the button lists it in order with removes.
  */
 @Composable
 internal fun PodRotisserieView(view: LimitedView, members: List<AccountIdentity>, definitions: Map<String, CardDefinition>,
-    busy: Boolean, send: PodTurnSender, modifier: Modifier, columns: PodPickColumns) {
+    busy: Boolean, send: PodTurnSender, modifier: Modifier, columns: PodPickColumns, queue: (List<String>) -> Unit = {}) {
     val mine = view.currentPlayer == view.player
+    val queued = view.pickQueue.map { it.id }
     var selected by remember(view.turn) { mutableStateOf<String?>(null) }
     var query by rememberSaveable { mutableStateOf("") }
     val preview = remember { PodLimitedPreview() }
@@ -225,15 +241,30 @@ internal fun PodRotisserieView(view: LimitedView, members: List<AccountIdentity>
             }
             items(shown, key = { it.copy.id }) { slot ->
                 val copy = slot.copy
+                val position = queued.indexOf(copy.id)
                 PodLimitedCard(copy, definitions[copy.definition], slot.pickedBy, members, colors, selected == copy.id,
-                    "pod-rotisserie-${copy.id}", preview) {
-                    if (mine && slot.pickedBy == null && selected != copy.id) selected = copy.id
+                    "pod-rotisserie-${copy.id}", preview, badge = if (position >= 0) "${position + 1}" else null) {
+                    val free = slot.pickedBy == null && !view.finished
+                    if (free && selected != copy.id && (mine || position < 0)) selected = copy.id
                 }
             }
         }
-        if (mine) PodLimitedConfirm(selected?.let { id -> "Pick " + (view.board.firstOrNull { it.copy.id == id }
-            ?.let { definitions[it.copy.definition]?.name } ?: "card") } ?: "Confirm", !busy && selected != null) {
+        if (view.pickQueue.isNotEmpty()) Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).testTag("pod-rotisserie-queue"),
+            horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+            view.pickQueue.forEachIndexed { position, copy ->
+                InputChip(false, { queue(queued - copy.id) }, label = { Text(podQueueChipText(position, copy, definitions)) },
+                    modifier = Modifier.testTag("pod-rotisserie-queued-${copy.id}"),
+                    trailingIcon = { Text("✕", Modifier.semantics { contentDescription = "Remove from queue" }) })
+            }
+        } else view.queueCleared?.let {
+            Text(podQueueClearedText(it, definitions), Modifier.padding(vertical = 6.dp).testTag("pod-rotisserie-queue-cleared"),
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        val name = selected?.let { id -> view.board.firstOrNull { it.copy.id == id }?.let { definitions[it.copy.definition]?.name } ?: "card" }
+        if (mine) PodLimitedConfirm(name?.let { "Pick $it" } ?: "Confirm", !busy && selected != null) {
             selected?.let { send(LimitedAction.TAKE_CARD, view.turn, it, null, null, 0) }
+        } else if (!view.finished) PodLimitedConfirm(name?.let { "Queue $it" } ?: "Queue", !busy && selected != null) {
+            selected?.let { queue(queued + it); selected = null }
         }
     }
     PodLimitedPreviewHost(preview, definitions)

@@ -66,6 +66,13 @@ val DraftMode.players: IntRange get() = when (this) {
     val seen: Map<String, List<String>> = emptyMap(),
     /** Winston and Winchester tables after the first (DRF-156, DRF-158); the first table is [stack], [piles], [turn] and [pile]. */
     val tables: List<LimitedTable> = emptyList(),
+    /**
+     * Rotisserie: each member's private pick queue (DRF-164), untaken board cards in order; its first card is taken for
+     * them as soon as their turn comes.
+     */
+    val pickQueues: Map<String, List<String>> = emptyMap(),
+    /** Rotisserie: the card another member took that cleared a member's pick queue, until they queue or pick again. */
+    val queueCleared: Map<String, String> = emptyMap(),
 )
 
 /**
@@ -130,6 +137,10 @@ data class LimitedResult(val state: LimitedDraftState? = null, val reason: Limit
     val picks: List<LimitedPickView> = emptyList(),
     /** Winston, Winchester: every table, in order; the first is also [currentPlayer], [turn], [stack], [piles] and [pile]. */
     val tables: List<LimitedTableView> = emptyList(),
+    /** Rotisserie: the viewer's own pick queue, in order (DRF-164). */
+    val pickQueue: List<DraftCopy> = emptyList(),
+    /** Rotisserie: the card another member took that cleared the viewer's pick queue, until they queue or pick again. */
+    val queueCleared: DraftCopy? = null,
 )
 
 /**
@@ -339,7 +350,7 @@ object LimitedEngine {
                 if (move.turn != state.turn) return reject(LimitedRejection.STALE_TURN)
                 val taken = state.log.flatMap { it.cards }.toSet()
                 val card = move.card?.takeIf { it in state.board && it !in taken } ?: return reject(LimitedRejection.UNKNOWN_CARD)
-                return LimitedResult(settle(take(state, LimitedTake(move.player, listOf(card))).copy(turn = state.turn + 1)))
+                return LimitedResult(rotisserieTake(state, move.player, card))
             }
             DraftMode.ROCHESTER -> {
                 if (move.action != LimitedAction.TAKE_CARD) return reject(LimitedRejection.WRONG_ACTION)
@@ -401,6 +412,38 @@ object LimitedEngine {
         }
     }
 
+    /**
+     * Rotisserie: [player] takes [card] (DRF-152). It leaves their own pick queue and clears every other member's queue
+     * holding it (DRF-164); then, while the next turn's player has a queue, its first card is taken for them at once.
+     */
+    private fun rotisserieTake(state: LimitedDraftState, player: String, card: String): LimitedDraftState {
+        val cleared = state.pickQueues.filter { (who, cards) -> who != player && card in cards }.keys
+        val queues = state.pickQueues.mapValues { (who, cards) -> if (who == player) cards - card else cards }
+            .filter { (who, cards) -> who !in cleared && cards.isNotEmpty() }
+        val next = settle(state.copy(log = state.log + LimitedTake(player, listOf(card)),
+            pools = state.pools + (player to state.pools.getValue(player) + card), turn = state.turn + 1,
+            pickQueues = queues, queueCleared = state.queueCleared - player + cleared.associateWith { card }))
+        val following = turnPlayer(next) ?: return next
+        val head = next.pickQueues[following]?.firstOrNull() ?: return next
+        return rotisserieTake(next, following, head)
+    }
+
+    /**
+     * Rotisserie: sets [player]'s private pick queue to [cards], untaken board cards in order (DRF-164); an empty list
+     * empties it. Nothing is taken now, even on their turn: a queue's first card is taken when their turn comes.
+     */
+    fun queue(state: LimitedDraftState, player: String, cards: List<String>): LimitedResult {
+        fun reject(reason: LimitedRejection) = LimitedResult(reason = reason)
+        if (state.finished) return reject(LimitedRejection.DRAFT_FINISHED)
+        if (state.settings.mode != DraftMode.ROTISSERIE) return reject(LimitedRejection.WRONG_ACTION)
+        if (player !in state.seating) return reject(LimitedRejection.NOT_YOUR_TURN)
+        val taken = state.log.flatMap { it.cards }.toSet()
+        val board = state.board.toSet()
+        if (cards.distinct().size != cards.size || cards.any { it !in board || it in taken }) return reject(LimitedRejection.UNKNOWN_CARD)
+        val queues = if (cards.isEmpty()) state.pickQueues - player else state.pickQueues + (player to cards)
+        return LimitedResult(state.copy(pickQueues = queues, queueCleared = state.queueCleared - player))
+    }
+
     /** Winston: the [index]-th table's turn ends; its next player starts at the first pile that has cards. */
     private fun endWinston(state: LimitedDraftState, index: Int): LimitedDraftState {
         val table = tables(state)[index]
@@ -438,7 +481,9 @@ object LimitedEngine {
             DraftMode.ROTISSERIE -> {
                 val pickers = state.log.flatMap { take -> take.cards.map { it to take.player } }.toMap()
                 base.copy(turns = minOf(rotisserieTurns(state), state.board.size),
-                    board = state.board.map { LimitedSlot(copies.getValue(it), pickers[it]) })
+                    board = state.board.map { LimitedSlot(copies.getValue(it), pickers[it]) },
+                    pickQueue = state.pickQueues[viewer].orEmpty().map(copies::getValue),
+                    queueCleared = state.queueCleared[viewer]?.let(copies::getValue))
             }
             DraftMode.ROCHESTER -> base.copy(round = if (state.finished) state.packs.maxOf { it.round } + 1 else state.round + 1,
                 rounds = state.packs.maxOf { it.round } + 1,

@@ -231,12 +231,6 @@ class GameDevice(
     private val origins = LinkedHashMap<String, Boolean>()
     /** This device's recent assumptions made by a press of Assume ([assume]), not by itself ([pressedByItself]). */
     private val assumeTaps = LinkedHashSet<String>()
-    /** This device's recent End turns (TRN-057) that began with a pass: the event of that first pass (§29.2: the only
-     * pass Undo targets, and the Undo dialog lists, as one "End turn" entry). */
-    private val endTurns = LinkedHashSet<String>()
-    /** HIS-101, HIS-084 (owner, 2026-11-08): the player's recent taps of the main button that left their own main phase
-     * with an empty Stack: the event of that pass, with the main phase it left. Undo points like an End turn's first pass. */
-    private val leftMains = LinkedHashMap<String, arcanum.api.TurnStep>()
     /** An End turn waits for its first event: the player's action. */
     private var endTurnMade = false
     /** The head a free undo of this player's landed on: the device makes none of their own inputs there by itself
@@ -1159,8 +1153,10 @@ class GameDevice(
             if (kind == WhoActs.Kind.Random) return Acted.Refused("Not the player's input")
         } catch (e: Refusal) { return Acted.Refused(e.reason) }
         val before = informationRule { if (assumed || tentative()) InformationRule.Before.of(model) else null }
-        // HIS-101: the player's own press leaving their main phase (their device's own passes there are an End turn's)
-        val leaving = model.engine.turn.step.takeIf { player && !assumed && input == Input.PassPriority(me) && model.engine.pending == null && Stops.stop(model.engine, me) }
+        // HIS-101: the player's own press leaving their main phase (their device's own passes there are an End turn's); a
+        // move made again after a lost race (SYS-077) comes here as a press too, and keeps its mark
+        val press = model.engine.turn.step.takeIf { player && !assumed && input == Input.PassPriority(me) && model.engine.pending == null && Stops.stop(model.engine, me) }
+            ?.let { if (it == arcanum.api.TurnStep.PrecombatMain) MainPress.ToCombat else MainPress.ToEndStep }
         val builder = open(newLine)
         try {
             // Inputs worked out on the board shown answer the same decisions after a new line's reorder (problem report
@@ -1180,15 +1176,15 @@ class GameDevice(
         // rule holds back (then the whole event is refused, before anything shows). What follows by itself can't refuse
         // it by that rule any more: the player's own passes stop before one that would show something ([fold])
         if (performed != null && (before == null || !shows(before, builder))) performed()
-        return finish(builder, own = !assumed, before = before, player = player, leaving = leaving)
+        return finish(builder, own = !assumed, before = before, player = player, press = press)
     }
 
     /** Folds what follows by itself into [builder]'s event and sends it, unless it would show this player a hidden card
      * or a random result while [before] is given (the state before it: their line is tentative, or the event assumes):
-     * then the draft is taken back unsent (§5). [player]: made by the player's own action (a refusal is told). [leaving]:
-     * the main phase it leaves ([leftMains]). */
+     * then the draft is taken back unsent (§5). [player]: made by the player's own action (a refusal is told). [press]:
+     * the main button press leaving their main phase it records ([GameEvent.press]; an End turn's first pass records its own). */
     private fun finish(builder: EventBuilder, own: Boolean, before: InformationRule.Before?, player: Boolean = false,
-        leaving: arcanum.api.TurnStep? = null): Acted {
+        press: MainPress? = null): Acted {
         val inputs = if (player) builder.playerInputs to builder.tableChanges else null
         try { fold(builder, own, guard = before) } catch (e: RuntimeException) { abandon(); return Acted.Refused(e.message ?: "refusedByEngine") }
         // I-D56 §5: while the line is tentative (or this assumes), nothing may show this player a hidden card
@@ -1201,24 +1197,18 @@ class GameDevice(
         openDraft = null; draftStop = null; draftBefore = null
         // Each event records the response mode it was made under; an assumption the other player's (owner 2026-11-06)
         builder.mode = if (own) settings.mode else opponentMode
+        val first = builder.inputs.firstOrNull()
+        val ended = own && endTurnMade && (first == Input.PassPriority(me) || (first as? Input.DeclareAttackers)?.player == me)
+        // HIS-101: only an End turn's first pass records it; one that begins with a declaration is a real input as it is
+        builder.press = if (ended && first is Input.PassPriority) MainPress.EndTurn else press
         val event = session.sendEvent()
         if (player) byPlayer += event.id
-        if (leaving != null) {
-            leftMains[event.id] = leaving
-            if (leftMains.size > MAX_ORIGINS) leftMains.remove(leftMains.keys.first())
-        }
         if (inputs != null && inputs.first.isNotEmpty()) {
             made[event.id] = inputs
             if (made.size > MAX_ORIGINS) made.remove(made.keys.first())
         }
         if (own) {
-            val first = event.engine?.steps?.firstNotNullOfOrNull { it.input }
-            val ended = endTurnMade && (first == Input.PassPriority(me) || (first as? Input.DeclareAttackers)?.player == me)
             origins[event.id] = player || ended
-            if (ended && first is Input.PassPriority) {
-                endTurns += event.id
-                if (endTurns.size > MAX_ORIGINS) endTurns.remove(endTurns.first())
-            }
             if (ended) { endTurnMade = false; endTurnFirst = event.id }
             if (origins.size > MAX_ORIGINS) origins.remove(origins.keys.first())
         }
@@ -1459,17 +1449,18 @@ class GameDevice(
     }
 
     /** HIS-084, HIS-101: whether Undo goes back to just before [e]: one of the player's own real inputs, or their press
-     * leaving their own main phase. (A branch's note names only the real inputs, HIS-097.) */
-    private fun undoPoint(e: GameEvent): Boolean = e.id in leftMains || realInput(e)
+     * leaving their own main phase, as the record says ([GameEvent.press]). (A branch's note names only the real inputs,
+     * HIS-097.) */
+    private fun undoPoint(e: GameEvent): Boolean = realInput(e) || (e.author == me.value && e.press != null)
 
-    /** Whether [e] is one of this player's own real inputs (an action of theirs, or a table-only event of theirs). Events
-     * made before this device was loaded are judged by their input: the player's own passes and inputs for the other
-     * player there are taken as automatic. */
+    /** Whether [e] is one of this player's own real inputs (an action of theirs, or a table-only event of theirs). A pass is
+     * one only as the first of an End turn, as the record says ([GameEvent.press]). Other events made before this device
+     * was loaded are judged by their input: the player's own inputs for the other player there are taken as automatic. */
     private fun realInput(e: GameEvent): Boolean {
         if (e.author != me.value || e.assumed != null) return false
         val input = e.engine?.steps?.firstNotNullOfOrNull { it.input }
         if (input == null) return e.table.any { it !is TableChange.LineMoved }
-        if (input is Input.PassPriority) return e.id in endTurns
+        if (input is Input.PassPriority) return e.press == MainPress.EndTurn
         origins[e.id]?.let { return it }
         return when (input) {
             is Input.PlayLand -> input.player == me
@@ -1481,12 +1472,6 @@ class GameDevice(
             else -> true
         }
     }
-
-    /** Whether [id] is the first pass of an End turn this device made (TRN-057; §29.2: the Undo dialog's "End turn"). */
-    fun endedTurn(id: String): Boolean = id in endTurns
-
-    /** HIS-101: the player's recent presses leaving their own main phase: each one's event, with the main phase it left. */
-    val mainExits: Map<String, arcanum.api.TurnStep> get() = leftMains.toMap()
 
     /** Undo to [target] (by default [undoTarget]): sent when free, else [Undo.Request]. A free undo ends the player's
      * moves waiting to be made again after a lost race ([remake]) and table changes waiting to be re-made: they were made

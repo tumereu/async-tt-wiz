@@ -21,13 +21,15 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class Submission(val id: String, val parentId: String, val acts: List<Act> = emptyList(), val table: List<TableChange> = emptyList(),
     /** The response mode the event records ([GameEvent.mode]). */
-    val mode: ResponseMode? = null) {
+    val mode: ResponseMode? = null,
+    /** The main button press the event records ([GameEvent.press]). */
+    val press: MainPress? = null) {
     companion object {
         /** What a device sends for [event], an event it made itself ([EventBuilder]). */
         fun of(event: GameEvent): Submission = Submission(event.id, event.parentId,
             listOfNotNull(event.startsLine?.let { Act.NewLine(it) }) + event.engine?.steps.orEmpty().mapNotNull { step ->
                 step.input?.let { Act.Perform(it, assumed = step.assumedBy != null) }
-            }, event.table.filter { it !is TableChange.LineMoved }, event.mode)
+            }, event.table.filter { it !is TableChange.LineMoved }, event.mode, event.press)
     }
 }
 
@@ -80,6 +82,7 @@ object Authority {
         var before = if (rules.tentative || assumes) InformationRule.Before.of(model) else null
         val builder = EventBuilder(model, submission.id, submission.parentId, author.value)
         builder.mode = submission.mode
+        builder.press = submission.press
         try {
             var performed = 0
             var assumed = false

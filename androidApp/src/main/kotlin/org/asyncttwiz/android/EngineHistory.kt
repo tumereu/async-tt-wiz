@@ -11,6 +11,7 @@ import arcanum.engine.state.StackItemKind
 import org.asyncttwiz.protocol.HistoryIcon
 import org.asyncttwiz.protocol.PlayZone
 import org.asyncttwiz.protocol.game.GameEvent
+import org.asyncttwiz.protocol.game.MainPress
 import org.asyncttwiz.protocol.game.TableChange as GameTableChange
 import java.math.BigInteger
 
@@ -102,37 +103,33 @@ internal object EngineEventText {
     /**
      * HIS-005, HIS-101: whether [event] is one of the timeline's events, which are also exactly the Undo dialog's points
      * (HIS-099): every event not [hidden], except passes, which show only when they resolved a spell or ability ("Storm
-     * Spark resolved"), began one of the player's own End turns ([endTurns]: "You ended the turn") or left their own main
-     * phase by a press ([mainExits]: "You went to combat"); a pass that led only to a new step or turn shows as the separator
-     * before the next event instead.
+     * Spark resolved") or is [viewer]'s own main button press ([ownPress]: "You ended the turn", "You went to combat"); a
+     * pass that led only to a new step or turn shows as the separator before the next event instead.
      */
-    fun onTimeline(event: GameEvent, endTurns: Set<String>, mainExits: Map<String, arcanum.api.TurnStep> = emptyMap()): Boolean =
-        if (pass(event)) event.id in endTurns || event.id in mainExits || event.engine?.changes.orEmpty().any { it is Change.StackItemRemoved }
+    fun onTimeline(event: GameEvent, viewer: String): Boolean =
+        if (pass(event)) ownPress(event, viewer) != null || event.engine?.changes.orEmpty().any { it is Change.StackItemRemoved }
         else !hidden(event)
+
+    /** HIS-101: the main button press [event] records, when it is [viewer]'s own: the other player's shows to them only as
+     * what it led to. */
+    fun ownPress(event: GameEvent, viewer: String): MainPress? = event.press?.takeIf { event.author == viewer }
 
     /** The timeline's text of [event] (HIS-061, HIS-099): an own End turn that began with a pass reads "You ended the
      * turn", a press leaving an own main phase "You went to combat" ("You went to the end step"); any other event its
      * [of] text. */
-    fun timelineText(event: GameEvent, state: GameState?, viewer: String, names: Map<String, String>, endTurns: Set<String>,
-        mainExits: Map<String, arcanum.api.TurnStep> = emptyMap()): String = when {
-        !pass(event) -> of(event, state, viewer, names)
-        event.id in endTurns -> "You ended the turn"
-        event.id in mainExits -> "You ${wentTo(mainExits.getValue(event.id))}"
-        else -> of(event, state, viewer, names)
-    }
+    fun timelineText(event: GameEvent, state: GameState?, viewer: String, names: Map<String, String>): String =
+        when (val press = ownPress(event, viewer)) {
+            null -> of(event, state, viewer, names)
+            MainPress.EndTurn -> "You ended the turn"
+            MainPress.ToCombat, MainPress.ToEndStep -> "You ${wentTo(press)}"
+        }
 
-    /** HIS-101: what leaving the main phase [left] does, by a tap of the main button: on to combat from the first, on to the
-     * end step from the second (Control's "End step"; in the other modes that tap is End turn). */
-    private fun wentTo(left: arcanum.api.TurnStep) = if (left == arcanum.api.TurnStep.PrecombatMain) "went to combat" else "went to the end step"
-
-    /** HIS-076: the main phase that [event], the first of [undone] and the other player's pass, left when those events
-     * didn't end the turn: their undo of it isn't an End turn; null otherwise. */
-    fun leftMain(event: GameEvent, undone: List<GameEvent>): arcanum.api.TurnStep? {
-        if (!pass(event)) return null
-        val steps = undone.flatMap { e -> e.engine?.changes.orEmpty().filterIsInstance<Change.Step>() }
-        val first = steps.firstOrNull() ?: return null
-        if (steps.any { it.before.number != it.after.number }) return null
-        return first.before.step.takeIf { it == arcanum.api.TurnStep.PrecombatMain || it == arcanum.api.TurnStep.PostcombatMain }
+    /** HIS-101: what a tap of the main button leaving a main phase does: on to combat from the first, on to the end step from
+     * the second (Control's "End step"; in the other modes that tap is End turn); null for any other [press]. */
+    private fun wentTo(press: MainPress?): String? = when (press) {
+        MainPress.ToCombat -> "went to combat"
+        MainPress.ToEndStep -> "went to the end step"
+        MainPress.EndTurn, null -> null
     }
 
     /** HIS-005: a separator's label: "T3 · Combat" ("Opening" before the first turn). */
@@ -150,14 +147,13 @@ internal object EngineEventText {
      * §29.4: the fading top text of an undo: "Undid: cast Storm Spark" for the player who undid ([by] is [viewer]),
      * "Alice undid: cast Storm Spark" for the other player, naming [event], the first action taken back, as [viewer] saw it
      * on [state] (the board before the undo). An End turn's first pass reads "End turn", a press leaving a main phase
-     * ([leftMain]) "went to combat"; with no event, just who undid.
+     * ([GameEvent.press]) "went to combat"; with no event, just who undid.
      */
-    fun undid(event: GameEvent?, state: GameState?, viewer: String, by: String, names: Map<String, String>,
-        leftMain: arcanum.api.TurnStep? = null): String {
+    fun undid(event: GameEvent?, state: GameState?, viewer: String, by: String, names: Map<String, String>): String {
         val subject = if (by == viewer) "You" else names[by] ?: "The other player"
         val head = if (by == viewer) "Undid" else "$subject undid"
         val e = event ?: return head
-        if (leftMain != null) return "$head: ${wentTo(leftMain)}"
+        wentTo(e.press)?.let { return "$head: $it" }
         val text = if (pass(e)) "End turn" else of(e, state, viewer, names)
         val action = when {
             text.startsWith("$subject: ") -> text.removePrefix("$subject: ")
@@ -347,13 +343,12 @@ internal class EngineTimeline {
         for (e in line) {
             val before = at
             e.engine?.changes?.lastOrNull { it is Change.Step }?.let { at = (it as Change.Step).after }
-            if (!EngineEventText.onTimeline(e, published.endTurns, published.mainExits)) continue
+            if (!EngineEventText.onTimeline(e, game.me)) continue
             // HIS-005: the turn and step this event was made in, when the game moved on since the event before it
             val separator = shownBefore?.takeIf { it.number != before.number || it.step != before.step }?.let {
                 TimelineSeparator(EngineEventText.separatorLabel(before), it.number != before.number, before.active.value) }
             shownBefore = before
-            val text = if (EngineEventText.pass(e) && (e.id in published.endTurns || e.id in published.mainExits))
-                    EngineEventText.timelineText(e, state, game.me, names, published.endTurns, published.mainExits)
+            val text = if (EngineEventText.ownPress(e, game.me) != null) EngineEventText.timelineText(e, state, game.me, names)
                 else texts.getOrPut(e.id) { EngineEventText.of(e, state, game.me, names) }
             events += HistoryTimelineEvent(e.id, EngineEventText.icon(e), text, EngineEventText.colourOf(e, players), separator)
         }
@@ -366,9 +361,7 @@ internal class EngineTimeline {
 
     /** The timeline's text of [event] (HIS-076 in timeline mode): as [events] names it. */
     fun reviewText(game: EngineGame, event: GameEvent, names: Map<String, String>): String {
-        val shown = requireNotNull(game.shown)
-        return if (EngineEventText.pass(event) && (event.id in shown.endTurns || event.id in shown.mainExits))
-                EngineEventText.timelineText(event, shown.engine, game.me, names, shown.endTurns, shown.mainExits)
+        return if (EngineEventText.ownPress(event, game.me) != null) EngineEventText.timelineText(event, requireNotNull(game.shown).engine, game.me, names)
             else text(game, event, names)
     }
 }

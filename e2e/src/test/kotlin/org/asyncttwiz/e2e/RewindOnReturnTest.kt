@@ -213,17 +213,18 @@ class RewindOnReturnTest : E2e() {
      * Bob comes back and watches: his playback stops at her spell (he could respond), so he has seen the cast but not
      * answered; with [away] he leaves the app. Alice undoes the Herald: free (all after it is hers, her assumption of
      * Bob's pass not confirmed, HIS-087), it takes back her cast Bob had seen. The cast, and what Bob's phone showed from
-     * before Alice's undo. [connected]: [leaves].
+     * before he came back. [connected]: [leaves].
      */
     private fun aliceUndoesWhatBobSaw(connected: Boolean, away: Boolean = true): Pair<HeraldCast, Seen> {
         val cast = aliceCastsAHeraldWhileBobIsAway(endTurn = false)
+        // From before he is back: the board of his stop is published once as he reaches it, and may never be again
+        val seen = watching(bob)
         bob.back()
         waitUntil("Bob's playback stopping at Alice's Herald") {
             if (bob.status == GameDevice.Status.CatchUp) bob.once { bob.tapToWatch() }
             bob.status is GameDevice.Status.Stopped && bob.state.stack.isNotEmpty()
         }
         waitUntil("the server told Bob saw the cast") { serverGame()?.localHeads?.get(bob.id) == cast.cast.id }
-        val seen = watching(bob)
         if (away) leaves(bob, alice, connected)
         val target = assertNotNull(alice.shown.undoTarget)
         assertEquals(cast.cast.parentId, target, "Undo's point: just before the cast")

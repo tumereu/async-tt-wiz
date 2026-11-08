@@ -11,9 +11,9 @@ class PodDeckRulesTest {
     // DRF-099
     @Test fun swipeTable() {
         val table = listOf(
-            Triple(PodDeckCategory.MAIN, PodDeckCategory.SIDE, PodDeckCategory.TRASH),
-            Triple(PodDeckCategory.SIDE, PodDeckCategory.MAIN, PodDeckCategory.TRASH),
-            Triple(PodDeckCategory.TRASH, PodDeckCategory.MAIN, PodDeckCategory.SIDE),
+            Triple(PodDeckCategory.MAIN, PodDeckCategory.SIDE, PodDeckCategory.MAYBE),
+            Triple(PodDeckCategory.SIDE, PodDeckCategory.MAIN, PodDeckCategory.MAYBE),
+            Triple(PodDeckCategory.MAYBE, PodDeckCategory.MAIN, PodDeckCategory.SIDE),
         )
         for ((source, right, left) in table) {
             assertEquals(right, PodDeckRules.swipe(source, PodDeckSwipe.RIGHT))
@@ -23,7 +23,7 @@ class PodDeckRulesTest {
 
     // DRF-093
     @Test fun newAwardsGoToMainWithoutMovingExistingCopiesOrChangingBasics() {
-        val build = PodDeckBuild(listOf(PodDeckCopy("one", PodDeckCategory.SIDE), PodDeckCopy("two", PodDeckCategory.TRASH)),
+        val build = PodDeckBuild(listOf(PodDeckCopy("one", PodDeckCategory.SIDE), PodDeckCopy("two", PodDeckCategory.MAYBE)),
             PodDeckBasics(plains = 17))
         val updated = PodDeckRules.withAwards(build, listOf("one", "two", "three", "four", "three"))
         assertEquals(build.copies + listOf(PodDeckCopy("three"), PodDeckCopy("four")), updated.copies)
@@ -49,29 +49,30 @@ class PodDeckRulesTest {
         assertEquals(listOf(PodDeckIssue.DECK_TOO_LARGE), PodDeckRules.validate(PodDeckBuild(basics = huge), emptyList()))
     }
 
-    // DRF-119
-    @Test fun submissionCapacityCountsMainSideAndBasicsButNotTrash() {
-        val pool = List(1100) { "copy-$it" }
+    // DRF-119, LOB-141: every copy and basic goes to the pod's games (Maybe outside the game), so all count toward 1000
+    @Test fun submissionCapacityCountsMainSideMaybeAndBasics() {
+        val pool = List(60) { "copy-$it" }
         val build = PodDeckBuild(pool.mapIndexed { index, id -> PodDeckCopy(id, when {
             index < 45 -> PodDeckCategory.MAIN
             index < 50 -> PodDeckCategory.SIDE
-            else -> PodDeckCategory.TRASH
-        }) }, PodDeckBasics(plains = 950))
-        assertTrue(PodDeckRules.validate(build, pool).isEmpty()) // Exactly 1000, ignoring Trash.
-        assertEquals(listOf(PodDeckIssue.DECK_TOO_LARGE), PodDeckRules.validate(build.copy(basics = PodDeckBasics(plains = 951)), pool))
+            else -> PodDeckCategory.MAYBE
+        }) }, PodDeckBasics(plains = 940))
+        assertTrue(PodDeckRules.validate(build, pool).isEmpty()) // Exactly 1000, Maybe included.
+        assertEquals(listOf(PodDeckIssue.DECK_TOO_LARGE), PodDeckRules.validate(build.copy(basics = PodDeckBasics(plains = 941)), pool))
         val originalProbe = PodDeckBuild(pool.take(45).map { PodDeckCopy(it) }, PodDeckBasics(plains = 956))
         assertEquals(listOf(PodDeckIssue.DECK_TOO_LARGE), PodDeckRules.validate(originalProbe, pool.take(45)))
-        val noBasics = build.copy(basics = PodDeckBasics(), copies = pool.map { PodDeckCopy(it) })
-        assertEquals(listOf(PodDeckIssue.DECK_TOO_LARGE), PodDeckRules.validate(noBasics, pool))
+        val large = List(1001) { "copy-$it" }
+        val noBasics = PodDeckBuild(large.map { PodDeckCopy(it) })
+        assertEquals(listOf(PodDeckIssue.DECK_TOO_LARGE), PodDeckRules.validate(noBasics, large))
     }
 
-    // DRF-119
+    // DRF-119, DRF-025 (the sideboard limit counts Side only, not Maybe)
     @Test fun submissionChecksOwnershipUniquenessCompletenessMainAndSideLimit() {
         val pool = List(50) { "copy-$it" }
         val build = PodDeckBuild(pool.mapIndexed { index, id -> PodDeckCopy(id, when {
             index < 23 -> PodDeckCategory.MAIN
             index < 48 -> PodDeckCategory.SIDE
-            else -> PodDeckCategory.TRASH
+            else -> PodDeckCategory.MAYBE
         }) }, PodDeckBasics(forest = 17))
         assertTrue(PodDeckRules.validate(build, pool).isEmpty())
         assertTrue(PodDeckRules.validate(build, pool, 25).isEmpty())
@@ -83,7 +84,7 @@ class PodDeckRulesTest {
         assertEquals(listOf(PodDeckIssue.UNKNOWN_COPY), PodDeckRules.validate(build.copy(copies = build.copies + PodDeckCopy("foreign")), pool))
         assertContains(PodDeckRules.validate(build.copy(copies = build.copies + build.copies.first()), pool), PodDeckIssue.DUPLICATE_COPY)
         assertEquals(listOf(PodDeckIssue.MISSING_COPY), PodDeckRules.validate(build.copy(copies = build.copies.dropLast(1)), pool))
-        val duplicateAcrossCategories = build.copy(copies = build.copies + PodDeckCopy(pool.first(), PodDeckCategory.TRASH))
+        val duplicateAcrossCategories = build.copy(copies = build.copies + PodDeckCopy(pool.first(), PodDeckCategory.MAYBE))
         assertEquals(listOf(PodDeckIssue.DUPLICATE_COPY), PodDeckRules.validate(duplicateAcrossCategories, pool))
         assertFailsWith<IllegalArgumentException> { PodDeckRules.validate(build, pool, -1) }
         assertEquals(build, Json.decodeFromString<PodDeckBuild>(Json.encodeToString(build)))

@@ -52,20 +52,22 @@ class PodBuildViewTest {
         assertEquals(6, moves.size)
     }
 
-    // DRF-099
+    // DRF-099, DRF-092 (SYS-054: Maybe in the card list sections' amber, its swipe tint their brighter yellow)
     @Test fun swipeProjectionTargetAndColourFollowTheSwipeTable() {
         assertEquals(PodPickGreen, PodDeckCategory.MAIN.podBuildColor())
         assertEquals(PodBuildBlue, PodDeckCategory.SIDE.podBuildColor())
-        assertEquals(PodPickRed, PodDeckCategory.TRASH.podBuildColor())
+        assertEquals(SectionMaybeAmber, PodDeckCategory.MAYBE.podBuildColor())
+        assertEquals(SectionMaybeYellow, PodDeckCategory.MAYBE.podBuildFill())
+        assertEquals(PodBuildBlue, PodDeckCategory.SIDE.podBuildFill())
         for (category in PodDeckCategory.entries) {
             assertNull(podBuildSwipeTarget(category, 0f))
             assertEquals(PodDeckRules.swipe(category, PodDeckSwipe.RIGHT), podBuildSwipeTarget(category, 1f))
             assertEquals(PodDeckRules.swipe(category, PodDeckSwipe.LEFT), podBuildSwipeTarget(category, -1f))
         }
         assertEquals(PodDeckCategory.SIDE, podBuildSwipeTarget(PodDeckCategory.MAIN, 5f))
-        assertEquals(PodDeckCategory.TRASH, podBuildSwipeTarget(PodDeckCategory.MAIN, -5f))
-        assertEquals(PodDeckCategory.MAIN, podBuildSwipeTarget(PodDeckCategory.TRASH, 5f))
-        assertEquals(PodDeckCategory.SIDE, podBuildSwipeTarget(PodDeckCategory.TRASH, -5f))
+        assertEquals(PodDeckCategory.MAYBE, podBuildSwipeTarget(PodDeckCategory.MAIN, -5f))
+        assertEquals(PodDeckCategory.MAIN, podBuildSwipeTarget(PodDeckCategory.MAYBE, 5f))
+        assertEquals(PodDeckCategory.SIDE, podBuildSwipeTarget(PodDeckCategory.MAYBE, -5f))
     }
 
     // DRF-100
@@ -83,7 +85,7 @@ class PodBuildViewTest {
         assertEquals(original, card.fetchSemanticsNode().boundsInRoot)
         card.performTouchInput { moveBy(androidx.compose.ui.geometry.Offset(-36f, 0f), delayMillis = 16) }
         compose.mainClock.advanceTimeByFrame()
-        projection.assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "Trash"))
+        projection.assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "Maybe"))
         card.performTouchInput { moveBy(androidx.compose.ui.geometry.Offset(8f, 0f), delayMillis = 16); up() }
         compose.mainClock.advanceTimeByFrame()
         projection.assertExists()
@@ -140,7 +142,7 @@ class PodBuildViewTest {
         compose.runOnIdle { assertEquals(listOf("first" to PodDeckCategory.SIDE), moves) }
         compose.onNodeWithTag("pod-build-card-first").performTouchInput { longClick() }
         compose.runOnIdle { assertEquals(1, inspections) }
-        compose.onNodeWithText("→ Trash").assertDoesNotExist()
+        compose.onNodeWithText("→ Maybe").assertDoesNotExist()
     }
 
     // DRF-102
@@ -157,7 +159,7 @@ class PodBuildViewTest {
         compose.runOnIdle { assertTrue(moves.isEmpty()); assertEquals(1, inspections) }
         node.performClick()
         compose.onNodeWithText("→ Side").assertIsNotEnabled()
-        compose.onNodeWithText("→ Trash").assertIsNotEnabled()
+        compose.onNodeWithText("→ Maybe").assertIsNotEnabled()
         compose.onNodeWithText("Inspect").assertDoesNotExist()
     }
 
@@ -293,9 +295,9 @@ class PodBuildViewTest {
     }
 
     // DRF-120
-    @Test fun submittedBuildHidesAllEditingControlsAndTrashStartsExpanded() {
+    @Test fun submittedBuildHidesAllEditingControlsAndMaybeStartsExpanded() {
         compose.setContent { MaterialTheme {
-            PodBuildView(PodDeckBuild(listOf(PodDeckCopy("first", PodDeckCategory.TRASH))),
+            PodBuildView(PodDeckBuild(listOf(PodDeckCopy("first", PodDeckCategory.MAYBE))),
                 mapOf("first" to DraftCopy("first", "digest")), mapOf("digest" to card), null,
                 false, false, { _, _ -> fail("read-only") }, { _, _ -> fail("read-only") }, { fail("read-only") })
         } }
@@ -305,7 +307,7 @@ class PodBuildViewTest {
         compose.onNodeWithContentDescription("Add Plains").assertDoesNotExist()
         compose.onNodeWithTag("pod-build").performScrollToNode(hasTestTag("pod-build-card-first"))
         compose.onNodeWithTag("pod-build-card-first").assertIsDisplayed()
-        compose.onNodeWithText("Trash 1").assertIsDisplayed()
+        compose.onNodeWithText("Maybe 1").assertIsDisplayed()
     }
 
     // DRF-097
@@ -497,13 +499,13 @@ class PodBuildViewTest {
         compose.onNodeWithText("Main · MV 1").assertIsDisplayed()
         compose.onNodeWithText("1 / 2").assertIsDisplayed()
         compose.onNodeWithText("Main 3").assertIsDisplayed()
-        // The buttons under the card do what the gestures do: Trash (left), Keep (a tap), Side (right)
-        compose.onNodeWithContentDescription("Move to Trash").assertIsDisplayed()
+        // The buttons under the card do what the gestures do: Maybe (left), Keep (a tap), Side (right)
+        compose.onNodeWithContentDescription("Move to Maybe").assertIsDisplayed()
         compose.onNodeWithContentDescription("Keep").assertIsDisplayed()
         compose.onNodeWithContentDescription("Move to Side").assertIsDisplayed()
-        // A swipe left moves it as in the columns (DRF-099): Main → Trash
+        // A swipe left moves it as in the columns (DRF-099): Main → Maybe
         compose.onNodeWithTag("pod-build-feed-card-first").performTouchInput { swipeLeft() }
-        compose.runOnIdle { assertEquals(listOf("first" to PodDeckCategory.TRASH), moves) }
+        compose.runOnIdle { assertEquals(listOf("first" to PodDeckCategory.MAYBE), moves) }
         compose.onNodeWithText("2 / 2").assertIsDisplayed()
         compose.onNodeWithText("Main 2").assertIsDisplayed()
         compose.onNodeWithContentDescription("Undo").assertIsEnabled().performClick()
@@ -530,16 +532,16 @@ class PodBuildViewTest {
     // DRF-107, DRF-108, DRF-110
     @Test fun columnFeedClosesAtItsEndAndSectionFeedsCoverEveryColumn() {
         val (build, move) = movingBuild(PodDeckBuild(listOf(PodDeckCopy("land"), PodDeckCopy("first"),
-            PodDeckCopy("side", PodDeckCategory.SIDE), PodDeckCopy("trash", PodDeckCategory.TRASH))))
+            PodDeckCopy("side", PodDeckCategory.SIDE), PodDeckCopy("maybe", PodDeckCategory.MAYBE))))
         val land = card.copy(name = "Land card", faces = listOf(card.faces.single().copy(typeLine = "Land", manaCost = "")))
-        val copies = listOf("land", "first", "side", "trash").associateWith { DraftCopy(it, if (it == "land") "land" else "digest") }
+        val copies = listOf("land", "first", "side", "maybe").associateWith { DraftCopy(it, if (it == "land") "land" else "digest") }
         compose.setContent { MaterialTheme {
             PodBuildView(build(), copies, mapOf("digest" to card, "land" to land), null, true, false, move, { _, _ -> }, {})
         } }
         compose.onNodeWithTag("pod-build-feed-label-MAIN-0").performClick()
         val actions = compose.onNodeWithTag("pod-build-feed-card-land").fetchSemanticsNode()
             .config[androidx.compose.ui.semantics.SemanticsActions.CustomActions]
-        assertEquals(listOf("Keep", "Move to Side", "Move to Trash"), actions.map { it.label })
+        assertEquals(listOf("Keep", "Move to Side", "Move to Maybe"), actions.map { it.label })
         compose.runOnIdle { actions.first().action() }
         compose.onNodeWithTag("pod-build-feed").assertDoesNotExist()
         compose.onNodeWithText("Kept 1").assertIsDisplayed()
@@ -555,14 +557,14 @@ class PodBuildViewTest {
         compose.onNodeWithText("Side · MV 1").assertIsDisplayed()
         compose.onNodeWithText("1 / 2").assertIsDisplayed()
         compose.onNodeWithContentDescription("Move to Main").assertIsDisplayed()
-        compose.onNodeWithContentDescription("Move to Trash").performClick()
-        compose.runOnIdle { assertEquals("first" to PodDeckCategory.TRASH, moves.last()) }
+        compose.onNodeWithContentDescription("Move to Maybe").performClick()
+        compose.runOnIdle { assertEquals("first" to PodDeckCategory.MAYBE, moves.last()) }
         androidx.test.espresso.Espresso.pressBack()
-        compose.onNodeWithText("Trash 2").assertIsDisplayed()
-        // Trash has a review too: right → Main, left → Side
-        compose.onNodeWithTag("pod-build-feed-label-TRASH-2").assertIsDisplayed()
-        compose.onNodeWithTag("pod-build-feed-header-TRASH").performClick()
-        compose.onNodeWithText("Trash · MV 1").assertIsDisplayed()
+        compose.onNodeWithText("Maybe 2").assertIsDisplayed()
+        // Maybe has a review too: right → Main, left → Side
+        compose.onNodeWithTag("pod-build-feed-label-MAYBE-2").assertIsDisplayed()
+        compose.onNodeWithTag("pod-build-feed-header-MAYBE").performClick()
+        compose.onNodeWithText("Maybe · MV 1").assertIsDisplayed()
         compose.onNodeWithText("1 / 2").assertIsDisplayed()
         compose.onNodeWithContentDescription("Move to Side").assertIsDisplayed()
         compose.onNodeWithContentDescription("Move to Main").performClick()
@@ -572,22 +574,22 @@ class PodBuildViewTest {
         compose.onNodeWithText("Kept 1 · 1 to Main").assertIsDisplayed()
     }
 
-    // DRF-107, DRF-108: the Trash review: a tap keeps, swipes and the buttons under the card move it (right → Main,
+    // DRF-107, DRF-108: the Maybe review: a tap keeps, swipes and the buttons under the card move it (right → Main,
     // left → Side)
     @Test
     @GraphicsMode(GraphicsMode.Mode.NATIVE)
-    fun trashReviewScreenshot() {
-        val (build, move) = movingBuild(PodDeckBuild(listOf(PodDeckCopy("first"), PodDeckCopy("trash", PodDeckCategory.TRASH),
-            PodDeckCopy("burnt", PodDeckCategory.TRASH))))
+    fun maybeReviewScreenshot() {
+        val (build, move) = movingBuild(PodDeckBuild(listOf(PodDeckCopy("first"), PodDeckCopy("maybe", PodDeckCategory.MAYBE),
+            PodDeckCopy("burnt", PodDeckCategory.MAYBE))))
         compose.setContent { NoRipples { MaterialTheme {
-            PodBuildView(build(), listOf("first", "trash", "burnt").associateWith { DraftCopy(it, "digest") },
+            PodBuildView(build(), listOf("first", "maybe", "burnt").associateWith { DraftCopy(it, "digest") },
                 mapOf("digest" to card), null, true, false, move, { _, _ -> }, {})
         } } }
-        compose.onNodeWithTag("pod-build-feed-header-TRASH").performClick()
+        compose.onNodeWithTag("pod-build-feed-header-MAYBE").performClick()
         compose.waitForIdle()
-        compose.onNodeWithText("Trash · MV 1").assertIsDisplayed()
-        captureShot("$SCREENSHOTS/pod-build-review-trash.png",
-            "Tapping the Trash header's Review opens the one-by-one review of the two trashed cards: \"Trash · MV 1\", 1 / 2 and the Main count at the top, the card in the middle, and under it ◀ Side, ✓ Keep and Main ▶ in their colours (a tap keeps, swipes move it as in the columns).")
+        compose.onNodeWithText("Maybe · MV 1").assertIsDisplayed()
+        captureShot("$SCREENSHOTS/pod-build-review-maybe.png",
+            "Tapping the Maybe header's Review opens the one-by-one review of the two cards in Maybe: \"Maybe · MV 1\", 1 / 2 and the Main count at the top, the card in the middle, and under it ◀ Side, ✓ Keep and Main ▶ in their colours (a tap keeps, swipes move it as in the columns).")
     }
 
     // DRF-092

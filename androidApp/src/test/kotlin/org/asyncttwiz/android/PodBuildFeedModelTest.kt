@@ -31,28 +31,28 @@ class PodBuildFeedModelTest {
         assertEquals("5 / 5", done.progress)
     }
 
-    // DRF-107, DRF-108: swipes move a copy as in the columns (DRF-099); Trash has a review too
-    @Test fun swipesFollowTheColumnsAndTrashHasAFeed() {
+    // DRF-107, DRF-108: swipes move a copy as in the columns (DRF-099); Maybe has a review too
+    @Test fun swipesFollowTheColumnsAndMaybeHasAFeed() {
         val main = podBuildFeed(PodDeckCategory.MAIN, buckets, labels, null)!!
-        assertEquals(PodDeckCategory.SIDE to PodDeckCategory.TRASH, main.right to main.left)
+        assertEquals(PodDeckCategory.SIDE to PodDeckCategory.MAYBE, main.right to main.left)
         val side = podBuildFeed(PodDeckCategory.SIDE, buckets, labels, null)!!
-        assertEquals(PodDeckCategory.MAIN to PodDeckCategory.TRASH, side.right to side.left)
-        val trash = assertNotNull(podBuildFeed(PodDeckCategory.TRASH, buckets, labels, null))
-        assertEquals(PodDeckCategory.MAIN to PodDeckCategory.SIDE, trash.right to trash.left)
-        assertEquals("Trash · Lands", trash.title)
+        assertEquals(PodDeckCategory.MAIN to PodDeckCategory.MAYBE, side.right to side.left)
+        val maybe = assertNotNull(podBuildFeed(PodDeckCategory.MAYBE, buckets, labels, null))
+        assertEquals(PodDeckCategory.MAIN to PodDeckCategory.SIDE, maybe.right to maybe.left)
+        assertEquals("Maybe · Lands", maybe.title)
     }
 
     // DRF-110
     @Test fun decisionsCountIntoTheSummaryAndStopAtTheEnd() {
         val feed = podBuildFeed(PodDeckCategory.MAIN, buckets, labels, 2)!!
-        val done = feed.decide(null).decide(PodDeckCategory.SIDE).decide(PodDeckCategory.TRASH)
+        val done = feed.decide(null).decide(PodDeckCategory.SIDE).decide(PodDeckCategory.MAYBE)
         assertTrue(done.finished)
         assertNull(done.current)
-        assertEquals("Kept 1 · 1 to Side · 1 to Trash", done.summary)
+        assertEquals("Kept 1 · 1 to Side · 1 to Maybe", done.summary)
         assertSame(done, done.decide(PodDeckCategory.SIDE))
-        assertEquals("2 to Trash", podBuildFeed(PodDeckCategory.SIDE, buckets, labels, 2)!!
-            .decide(PodDeckCategory.TRASH).decide(PodDeckCategory.TRASH).summary)
-        assertEquals("Kept 1 · 1 to Main", podBuildFeed(PodDeckCategory.TRASH, buckets, labels, 2)!!
+        assertEquals("2 to Maybe", podBuildFeed(PodDeckCategory.SIDE, buckets, labels, 2)!!
+            .decide(PodDeckCategory.MAYBE).decide(PodDeckCategory.MAYBE).summary)
+        assertEquals("Kept 1 · 1 to Main", podBuildFeed(PodDeckCategory.MAYBE, buckets, labels, 2)!!
             .decide(PodDeckCategory.MAIN).decide(null).summary)
         // Its own section is a keep
         assertEquals("Kept 1", podBuildFeed(PodDeckCategory.MAIN, buckets, labels, 3)!!.decide(PodDeckCategory.MAIN).summary)
@@ -69,7 +69,7 @@ class PodBuildFeedModelTest {
         assertNull(none)
         assertEquals("a1", afterKeep.current?.copyId)
         // Undo still works once finished (while the last card's flick plays).
-        val (back, moved) = feed.decide(null).decide(null).decide(PodDeckCategory.TRASH).undo()
+        val (back, moved) = feed.decide(null).decide(null).decide(PodDeckCategory.MAYBE).undo()
         assertEquals("b1", moved)
         assertFalse(back.finished)
     }

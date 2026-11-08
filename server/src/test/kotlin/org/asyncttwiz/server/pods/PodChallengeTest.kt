@@ -60,7 +60,7 @@ class PodChallengeTest {
             val detail = detail(who, pod); val attempt = detail.draftAttemptId!!
             val copies = detail.build!!.copies
             assertEquals(200, pods.move(who, pod, MovePodCopy(id(), attempt, copies[1].copyId, PodDeckCategory.SIDE)).status)
-            assertEquals(200, pods.move(who, pod, MovePodCopy(id(), attempt, copies[2].copyId, PodDeckCategory.TRASH)).status)
+            assertEquals(200, pods.move(who, pod, MovePodCopy(id(), attempt, copies[2].copyId, PodDeckCategory.MAYBE)).status)
             assertEquals(200, pods.basics(who, pod, SetPodBasics(id(), attempt, counts)).status)
             assertEquals(200, pods.submit(who, pod, SubmitPodDeck(id(), attempt)).status)
         }
@@ -171,7 +171,9 @@ class PodChallengeTest {
         for (player in accepted.players) {
             val deck = player.deck!!
             assertEquals(41L, deck.count(SavedDeckSection.MAINBOARD)); assertEquals(1L, deck.count(SavedDeckSection.SIDEBOARD))
-            assertEquals(2, deck.entries.count { it.suppliedBasic == null }) // Trash is absent.
+            // LOB-141: Maybe comes along (outside the game with Side)
+            assertEquals(1L, deck.count(SavedDeckSection.MAYBEBOARD))
+            assertEquals(3, deck.entries.count { it.suppliedBasic == null })
             assertEquals(PodDeckBasics(8, 8, 8, 8, 8), PodGamePreparation.basics(deck))
             assertEquals(5, deck.basicDefinitions.size)
             assertTrue(deck.entries.all { entry -> accepted.definitions.any { it.digest == entry.definition } })
@@ -320,12 +322,14 @@ class PodChallengeTest {
         f.submit(f.a, pod); f.submit(f.b, pod, counts)
         val detail = f.detail(f.b, pod)
         val pool = detail.draft!!.pool.associateBy { it.id }
-        val submitted = detail.deck!!.copies.filter { it.category != PodDeckCategory.TRASH }
+        // LOB-141: the submitted deck keeps the Build's Maybe
+        val submitted = detail.deck!!.copies
+        assertEquals(detail.build!!.copies, submitted)
+        assertEquals(1, submitted.count { it.category == PodDeckCategory.MAYBE })
         val privateDigests = submitted.map { pool.getValue(it.copyId).definition }.toSet()
-        val trash = pool.getValue(detail.build!!.copies.single { it.category == PodDeckCategory.TRASH }.copyId).definition
         fun privatePreparation(preparation: LobbyPreparation) {
             assertNull(preparation.players.single { it.accountId == f.b.account.accountId }.deck)
-            assertTrue(preparation.definitions.none { it.digest in privateDigests || it.digest == trash })
+            assertTrue(preparation.definitions.none { it.digest in privateDigests })
         }
         fun privatePayloads(game: GameSummary) {
             val head = f.games.head(f.a, game.id)
@@ -334,7 +338,7 @@ class PodChallengeTest {
             val revisions = f.games.revisions(f.a, game.id, "0").revisions
             revisions.mapNotNull { it.preparation }.forEach(::privatePreparation)
             val payloads = listOf(GameWire.encode(head), f.lobby.head(f.a, game.id).body) + revisions.map(GameWire::encode)
-            for (definition in detail.definitions.filter { it.digest in privateDigests || it.digest == trash }) {
+            for (definition in detail.definitions.filter { it.digest in privateDigests }) {
                 assertTrue(payloads.none { definition.digest in it || definition.definition.name in it })
             }
         }
@@ -350,10 +354,13 @@ class PodChallengeTest {
         assertEquals(counts, PodGamePreparation.basics(deck))
         for (copy in submitted) {
             val entry = deck.entries.single { it.definition == pool.getValue(copy.copyId).definition }
-            assertEquals(if (copy.category == PodDeckCategory.MAIN) SavedDeckSection.MAINBOARD else SavedDeckSection.SIDEBOARD, entry.section)
+            assertEquals(when (copy.category) {
+                PodDeckCategory.MAIN -> SavedDeckSection.MAINBOARD
+                PodDeckCategory.SIDE -> SavedDeckSection.SIDEBOARD
+                PodDeckCategory.MAYBE -> SavedDeckSection.MAYBEBOARD
+            }, entry.section)
         }
         assertTrue(privateDigests.all { digest -> preparation.definitions.any { it.digest == digest } })
-        assertTrue(preparation.definitions.none { it.digest == trash })
         assertEquals(preparation, f.games.subscriptionHead(f.a, game.id).preparation)
         assertEquals(preparation, f.games.revisions(f.a, game.id, "0").revisions.last().preparation)
 
@@ -512,5 +519,30 @@ class PodChallengeTest {
         f.submit(f.c, pod)
         assertEquals(ac.id, json.decodeFromString<GameList>(f.lobby.list(f.c, null, true).body).games.single().id)
         assertEquals("accepted", f.stream(f.c, ac).execute(GameAction.AcceptInvitation).outcome)
+    }
+
+    // LOB-141, DRF-120: a pod game's cards outside the game are the pod deck's Side and Maybe (the Build's Maybe), never in
+    // the library; the sideboard limit counted Side only (DRF-025)
+    @Test fun `a pod game's cards outside the game are the pod deck's Side and Maybe`() = fixture(uniqueCards = true) { f ->
+        val pod = f.pod()
+        f.submit(f.a, pod); f.submit(f.b, pod)
+        val detail = f.detail(f.a, pod)
+        val names = detail.definitions.associate { it.digest to it.definition.name }
+        val pool = detail.draft!!.pool.associate { it.id to names.getValue(it.definition) }
+        fun named(category: PodDeckCategory) = detail.build!!.copies.filter { it.category == category }.map { pool.getValue(it.copyId) }
+        val game = f.challenge(pod); val owner = f.stream(f.a, game); val recipient = f.stream(f.b, game)
+        recipient.execute(GameAction.AcceptInvitation)
+        owner.execute(GameAction.Ready); assertEquals("accepted", recipient.execute(GameAction.Ready).outcome)
+        val head = f.games.head(f.a, game.id)
+        assertEquals(GameLifecycle.ACTIVE, head.summary.lifecycle)
+        val snapshot = head.engine!!
+        val model = org.asyncttwiz.protocol.game.EngineJson(org.asyncttwiz.protocol.game.EngineJson.decodeDefinitions(snapshot.definitions))
+            .decodeModel(snapshot.state)
+        val alice = model.engine.player(arcanum.engine.state.PlayerId(f.a.account.accountId))
+        fun name(id: arcanum.engine.state.ObjectId) = model.engine.obj(id)!!.definition!!.faces.first().name
+        assertEquals(named(PodDeckCategory.SIDE) + named(PodDeckCategory.MAYBE), alice.outside.map(::name))
+        assertEquals(1, named(PodDeckCategory.MAYBE).size)
+        assertEquals(41, alice.library.size + alice.hand.size)
+        assertTrue((alice.library + alice.hand).map(::name).none { it in named(PodDeckCategory.MAYBE) })
     }
 }

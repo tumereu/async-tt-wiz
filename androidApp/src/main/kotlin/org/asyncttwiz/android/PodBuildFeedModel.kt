@@ -9,7 +9,7 @@ import org.asyncttwiz.protocol.PodDeckSwipe
 internal data class PodBuildFeedCard(val copyId: String, val digest: String, val definition: CardDefinition?, val column: Int)
 
 /**
- * Reviewing one Build column (or a whole section, Trash too) one copy at a time. [cards] is a snapshot taken when
+ * Reviewing one Build column (or a whole section, Maybe too) one copy at a time. [cards] is a snapshot taken when
  * the feed opens, so moves never reorder it. Each decision either keeps the copy in [category] (a tap) or moves it
  * where a swipe in the columns would ([right], [left]: DRF-099); [moved] records the decisions made so far, in order
  * (null: kept).
@@ -40,7 +40,7 @@ internal data class PodBuildFeed(
 
     val progress: String get() = "${minOf(position + 1, cards.size)} / ${cards.size}"
 
-    /** Zero parts are left out ("Kept 3", "2 to Side", "1 to Trash"); an empty review says "Kept 0". */
+    /** Zero parts are left out ("Kept 3", "2 to Side", "1 to Maybe"); an empty review says "Kept 0". */
     val summary: String get() = (listOf(null, right, left).mapNotNull { destination ->
         moved.count { it == destination }.takeIf { it > 0 }?.let { count ->
             if (destination == null) "Kept $count" else "$count to ${destination.podBuildLabel()}"

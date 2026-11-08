@@ -805,13 +805,13 @@ class PodControllerTest {
     @Test fun buildMovesAndBasicsPredictImmediatelyAndSendInOrderWithoutFlicker() = Fixture().use { f ->
         f.open()
         f.controller.move("copy", PodDeckCategory.SIDE)
-        f.controller.move("copy", PodDeckCategory.TRASH)
+        f.controller.move("copy", PodDeckCategory.MAYBE)
         f.controller.basics(PodDeckBasics(plains = 20))
-        assertEquals(PodDeckCategory.TRASH, f.controller.state.detail!!.build!!.copies.single().category)
+        assertEquals(PodDeckCategory.MAYBE, f.controller.state.detail!!.build!!.copies.single().category)
         assertEquals(20, f.controller.state.detail!!.build!!.basics.plains)
         assertTrue(f.api.calls.isEmpty())
         f.worker.one(); f.posts.removeFirst()()
-        assertEquals(PodDeckCategory.TRASH, f.controller.state.detail!!.build!!.copies.single().category)
+        assertEquals(PodDeckCategory.MAYBE, f.controller.state.detail!!.build!!.copies.single().category)
         assertEquals(20, f.controller.state.detail!!.build!!.basics.plains)
         f.deliver()
         assertEquals(listOf("move", "move", "basics"), f.api.calls.map { it.first })
@@ -1010,11 +1010,11 @@ class PodControllerTest {
     // DRF-093
     @Test fun freshAwardsJoinMainWithoutLosingQueuedBuildIntents() = Fixture().use { f ->
         f.open()
-        f.controller.move("copy", PodDeckCategory.TRASH)
+        f.controller.move("copy", PodDeckCategory.MAYBE)
         f.api.saved = f.api.saved.copy(build = PodDeckRules.withAwards(f.api.saved.build!!, listOf("copy", "new-award")))
         f.deliver()
         val build = f.controller.state.detail!!.build!!
-        assertEquals(PodDeckCategory.TRASH, build.copies.first { it.copyId == "copy" }.category)
+        assertEquals(PodDeckCategory.MAYBE, build.copies.first { it.copyId == "copy" }.category)
         assertEquals(PodDeckCategory.MAIN, build.copies.first { it.copyId == "new-award" }.category)
     }
 

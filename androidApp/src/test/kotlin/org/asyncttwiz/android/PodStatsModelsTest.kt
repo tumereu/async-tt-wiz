@@ -88,7 +88,7 @@ class PodStatsModelsTest {
             "s" to "side", "t" to "side", "m" to "missing").associate { (id, digest) -> id to DraftCopy(id, digest) }
         val build = PodDeckBuild(copies.keys.map { PodDeckCopy(it, when (it) {
             "s" -> PodDeckCategory.SIDE
-            "t" -> PodDeckCategory.TRASH
+            "t" -> PodDeckCategory.MAYBE
             else -> PodDeckCategory.MAIN
         }) }, PodDeckBasics(plains = 2, forest = 1), sideBasics = PodDeckBasics(island = 5))
         val stats = podStats(build, copies, definitions)
@@ -113,7 +113,7 @@ class PodStatsModelsTest {
     }
 
     // DRF-111, DRF-115
-    @Test fun mainIncludesBasicsAndDuplicateCopiesButNotSideTrashAndCountsNonlandSourcesApart() {
+    @Test fun mainIncludesBasicsAndDuplicateCopiesButNotSideMaybeAndCountsNonlandSourcesApart() {
         val definitions = mapOf(
             "creature" to card("Elf", "Creature — Elf", "{G}", "{T}: Add {G}."),
             "spell" to card("Spell", "Instant", "{X}{2}{W/U}{B/P}"),
@@ -122,10 +122,10 @@ class PodStatsModelsTest {
             "creatureLand" to card("Dryad", "Land Creature — Forest Dryad"),
         )
         val copies = listOf(DraftCopy("c1", "creature"), DraftCopy("c2", "creature"), DraftCopy("s", "spell"),
-            DraftCopy("d", "dual"), DraftCopy("t", "textLand"), DraftCopy("l", "creatureLand"), DraftCopy("side", "spell"), DraftCopy("trash", "dual")).associateBy { it.id }
+            DraftCopy("d", "dual"), DraftCopy("t", "textLand"), DraftCopy("l", "creatureLand"), DraftCopy("side", "spell"), DraftCopy("maybe", "dual")).associateBy { it.id }
         val build = PodDeckBuild(copies.keys.map { PodDeckCopy(it, when (it) {
             "side" -> PodDeckCategory.SIDE
-            "trash" -> PodDeckCategory.TRASH
+            "maybe" -> PodDeckCategory.MAYBE
             else -> PodDeckCategory.MAIN
         }) }, PodDeckBasics(plains = 3, island = 2, swamp = 1, mountain = 4, forest = 5))
         val stats = podStats(build, copies, definitions, mana(definitions))
@@ -242,18 +242,18 @@ class PodStatsModelsTest {
     }
 
     // DRF-117
-    @Test fun colorsCountEveryMainNonlandCopyByIdentityAndExcludeLandsBasicsSideAndTrash() {
+    @Test fun colorsCountEveryMainNonlandCopyByIdentityAndExcludeLandsBasicsSideAndMaybe() {
         val definitions = DraftColor.entries.associate { color -> color.name to card(color.name, "Creature", "{${color.name}}") } + mapOf(
             "gold" to card("Gold", "Instant", "{W/U}"),
             "colorless" to card("Rock", "Artifact", "{3}"),
             "land" to card("Dryad", "Land Creature — Forest"),
         )
-        val copies = (definitions.keys + listOf("duplicate", "side", "trash", "missing")).associateWith { id ->
-            DraftCopy(id, if (id in listOf("duplicate", "side", "trash")) "gold" else id)
+        val copies = (definitions.keys + listOf("duplicate", "side", "maybe", "missing")).associateWith { id ->
+            DraftCopy(id, if (id in listOf("duplicate", "side", "maybe")) "gold" else id)
         }
         val build = PodDeckBuild(copies.keys.map { id -> PodDeckCopy(id, when (id) {
             "side" -> PodDeckCategory.SIDE
-            "trash" -> PodDeckCategory.TRASH
+            "maybe" -> PodDeckCategory.MAYBE
             else -> PodDeckCategory.MAIN
         }) }, PodDeckBasics(plains = 20))
         val stats = podStats(build, copies, definitions)

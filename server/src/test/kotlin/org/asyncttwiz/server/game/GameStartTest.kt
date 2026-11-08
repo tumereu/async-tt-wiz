@@ -203,7 +203,10 @@ class GameStartTest {
             assertEquals(shuffled.order, RandomV1.shuffle(members.toList(), shuffled.seed))
             assertEquals(members, state.board.cards.filter { it.owner == player.accountId }.map { it.id }.toSet())
         }
-        assertEquals(state.board.cards.map { it.definition }.toSet(), state.definitions.map { it.digest }.toSet())
+        // The board's cards and the cards outside the game (Side and Maybe, LOB-141)
+        val outside = preparation.players.flatMap { player -> player.deck!!.entries.filter { it.section != SavedDeckSection.MAINBOARD }
+            .map { it.definition } + player.deck!!.outside }
+        assertEquals(state.board.cards.map { it.definition }.toSet() + outside, state.definitions.map { it.digest }.toSet())
         assertEquals(2, state.shuffles.map { it.seed }.distinct().size)
     }
 

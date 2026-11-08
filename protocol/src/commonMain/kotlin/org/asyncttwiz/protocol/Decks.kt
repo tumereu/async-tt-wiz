@@ -61,11 +61,12 @@ data class CardDefinition(
 @Serializable data class SubmittedDefinition(val digest: String, val definition: CardDefinition)
 @Serializable data class SubmitDefinitions(val requestId: String, val definitions: List<SubmittedDefinition>)
 @Serializable data class DefinitionsAccepted(val digests: List<String>)
-/** A card list's sections. Decks have all three; cubes have Main and Maybe. Maybe holds cards being considered:
- * never dealt, drafted or played, and not part of a game's prepared deck. */
+/** A card list's sections. Decks have all three; cubes have Main and Maybe. Maybe holds cards being considered: never
+ * dealt or drafted; a deck's Maybe comes along to its games outside the game with Side (LOB-141), never into the library. */
 @Serializable enum class SavedDeckSection { MAINBOARD, SIDEBOARD, MAYBEBOARD;
     companion object {
-        /** The sections a game or pod deck is prepared from, in order (LOB-047). */
+        /** The sections a game's deck preparation shows and moves cards between, in order (LOB-047); a prepared deck's
+         * Maybe comes along unchanged. */
         val PREPARED = listOf(MAINBOARD, SIDEBOARD)
         /** A cube's sections, in order. */
         val CUBE = listOf(MAINBOARD, MAYBEBOARD)

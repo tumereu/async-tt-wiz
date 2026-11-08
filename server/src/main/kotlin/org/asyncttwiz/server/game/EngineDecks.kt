@@ -13,9 +13,10 @@ import org.asyncttwiz.protocol.game.OutsideCards
 /**
  * A starting game's decks as engine seats (I-D54 switch-over item 1): each prepared card, by its game-local id, with the
  * engine definition the parser makes of its card data on the server ([GameCards], the same parser as the device's).
- * Main decks become libraries, sideboards the cards outside the game, with the dungeon cards the player's device brought
- * ([OutsideCards], CR 309.2). Players in seat order by account id, as the play sorts them. A card whose printed values can't be
- * read plays as an unknown card (no definition, D60): the readiness check (I-D52) keeps decks Automatum can't play out of games.
+ * Main decks become libraries; Side and Maybe are the cards outside the game (LOB-141: what wishes, learn and the like can
+ * fetch), with the dungeon cards the player's device brought ([OutsideCards], CR 309.2). Players in seat order by account
+ * id, as the play sorts them. A card whose printed values can't be read plays as an unknown card (no definition, D60): the
+ * readiness check (I-D52) keeps decks Automatum can't play out of games, Maybe cards included.
  */
 internal object EngineDecks {
     fun seats(preparation: LobbyPreparation): List<Seat> {
@@ -27,7 +28,8 @@ internal object EngineDecks {
                 List(entry.quantity) { offset -> DeckCard(CardId(deck.card(entry, offset).id), parsed[entry.definition]) }
             }
             val outside = deck.outside.mapIndexed { n, digest -> DeckCard(CardId(OutsideCards.cardId(deck, n)), parsed[digest]) }
-            Seat(PlayerId(player.accountId), section(SavedDeckSection.MAINBOARD), section(SavedDeckSection.SIDEBOARD) + outside)
+            Seat(PlayerId(player.accountId), section(SavedDeckSection.MAINBOARD),
+                section(SavedDeckSection.SIDEBOARD) + section(SavedDeckSection.MAYBEBOARD) + outside)
         }
     }
 
@@ -35,7 +37,8 @@ internal object EngineDecks {
      * a plain venture may enter, one that takes the initiative an Undercity), by the server's own parse. */
     fun outsideProvided(preparation: LobbyPreparation, actor: String, outside: List<SubmittedDefinition>): Boolean {
         val deck = preparation.players.single { it.accountId == actor }.deck ?: return true
-        val digests = deck.entries.filter { it.section in SavedDeckSection.PREPARED }.map { it.definition }.toSet()
+        // Every card of the deck may be played: Maybe too, from outside the game (LOB-141)
+        val digests = deck.entries.map { it.definition }.toSet()
         val cards = preparation.definitions.filter { it.digest in digests }
         // Most decks never venture: their text says so without parsing them
         val venturing = cards.filter { OutsideCards.mayVenture(it.definition) }

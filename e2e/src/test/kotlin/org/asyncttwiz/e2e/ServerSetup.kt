@@ -111,9 +111,12 @@ object ServerSetup {
 
     fun deck(account: TestAccount, deck: TestDeck): SavedDeck = DeckApi(origin).use { api ->
         runBlocking {
-            api.submit(account.token, SubmitDefinitions(UUID.randomUUID().toString(), deck.entries.map { it.first }.distinctBy { it.digest }))
+            val sections = listOf(SavedDeckSection.MAINBOARD to deck.entries, SavedDeckSection.SIDEBOARD to deck.side,
+                SavedDeckSection.MAYBEBOARD to deck.maybe)
+            api.submit(account.token, SubmitDefinitions(UUID.randomUUID().toString(),
+                sections.flatMap { (_, cards) -> cards.map { it.first } }.distinctBy { it.digest }))
             api.create(account.token, CreateDeck(UUID.randomUUID().toString(), deck.name,
-                deck.entries.map { (card, n) -> SavedDeckEntry(SavedDeckSection.MAINBOARD, card.digest, n) }))
+                sections.flatMap { (section, cards) -> cards.map { (card, n) -> SavedDeckEntry(section, card.digest, n) } }))
         }
     }
 

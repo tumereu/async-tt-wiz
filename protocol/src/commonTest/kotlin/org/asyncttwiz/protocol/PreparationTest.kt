@@ -43,19 +43,32 @@ class PreparationTest {
         assertNull(before.players[0].deck) // Original accepted base was not mutated.
     }
 
-    // LOB-047: Maybe never reaches game preparation, neither its cards nor its card records.
-    @Test fun maybeCardsStayOutOfThePreparedDeckAndItsDefinitions() {
+    // LOB-047, LOB-141: Maybe comes along to the game (outside the game with Side) after Main and Side, which keep their card
+    // ids; its card records are needed too. Preparation moves cards between Main and Side only: a Maybe card stays.
+    @Test fun maybeCardsComeAlongAfterMainAndSideAndStayWhereTheyAre() {
         val considered = CardDefinition("Considered", listOf(DefinitionFace(id(22), "Considered")))
         val maybe = SubmittedDefinition(DeckJson.digest(considered), considered)
-        val saved = source.copy(entries = source.entries + SavedDeckEntry(SavedDeckSection.MAYBEBOARD, maybe.digest, 4) +
+        val saved = source.copy(entries = listOf(SavedDeckEntry(SavedDeckSection.MAYBEBOARD, maybe.digest, 4)) + source.entries +
             SavedDeckEntry(SavedDeckSection.MAYBEBOARD, submitted.digest, 1))
         val state = select(saved = saved, definitions = listOf(submitted, maybe)).state!!
         val deck = state.players[0].deck!!
-        assertEquals(select().state!!.players[0].deck, deck)
-        assertEquals(0L, deck.count(SavedDeckSection.MAYBEBOARD))
-        assertEquals(listOf(submitted), state.definitions)
-        // A Maybe card's record is not even needed to choose the deck.
-        assertNotNull(select(saved = saved, definitions = listOf(submitted)).state)
+        val plain = select().state!!.players[0].deck!!
+        assertEquals(plain.entries, deck.entries.take(plain.entries.size))
+        assertEquals(listOf(SavedDeckSection.MAINBOARD, SavedDeckSection.SIDEBOARD, SavedDeckSection.MAYBEBOARD, SavedDeckSection.MAYBEBOARD),
+            deck.entries.map { it.section })
+        assertEquals(2L, deck.count(SavedDeckSection.MAINBOARD)); assertEquals(1L, deck.count(SavedDeckSection.SIDEBOARD))
+        assertEquals(5L, deck.count(SavedDeckSection.MAYBEBOARD))
+        assertEquals(listOf(submitted, maybe).sortedBy { it.digest }, state.definitions)
+        // A Maybe card's record is needed to choose the deck, as any other card's.
+        assertEquals("definitionsUnavailable", select(saved = saved, definitions = listOf(submitted)).reason)
+
+        val actor = game.inviter.accountId
+        assertNull(PreparationRules.capture(state, actor, maybe.digest, SavedDeckSection.MAYBEBOARD, all = true))
+        val entry = deck.entries.first { it.definition == maybe.digest }
+        val card = deck.card(entry, 0)
+        val move = GameAction.TransferPreparedCard(deck.id, card.id, entry.firstIndex, SavedDeckSection.MAYBEBOARD)
+        assertEquals("inapplicable", PreparationRules.transfer(game, state, actor, scope, move).reason)
+        assertNotNull(PreparationRules.capture(state, actor, submitted.digest, SavedDeckSection.SIDEBOARD, all = true))
     }
 
     // I-D52

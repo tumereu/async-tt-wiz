@@ -1,1 +1,1 @@
-Build after a Booster draft, opened on the Build tab (Build · Stats · Games) on a tall screen: Main, Side and Trash with their counts, basics rows, columns Lands then mana value with counts, duplicates as ×2, and Undo with Submit deck at the bottom.
+Build after a Booster draft, opened on the Build tab (Build · Stats · Games) on a tall screen: Main, Side and Maybe with their counts, basics rows, columns Lands then mana value with counts, duplicates as ×2, and Undo with Submit deck at the bottom.

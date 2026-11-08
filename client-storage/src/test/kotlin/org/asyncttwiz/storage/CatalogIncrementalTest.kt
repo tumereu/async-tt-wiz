@@ -51,7 +51,6 @@ class CatalogIncrementalTest {
         dropped.forEach { card.addProperty(it, "unnecessary data".repeat(100)) }
         card.getAsJsonObject("identifiers").addProperty("mtgArenaId", "123")
         val metadata = install(root)
-        assertEquals(CATALOG_INDEX_VERSION, metadata.indexVersion)
         val record = repo().printing(card.get("uuid").asString)!!
         val stored = JsonParser.parseString(record.json).asJsonObject
         kept.filter { card.has(it) }.forEach { assertEquals(card[it], stored[it], it) }
@@ -77,7 +76,6 @@ class CatalogIncrementalTest {
         assertEquals(listOf("REC", "FUT", "NEW"), plan.sets.map { it.code })
         assertNull(CatalogUpdatePolicy.plan(meta, listOf(old), available.copy(sets = listOf(old)), today))
         assertTrue(CatalogUpdatePolicy.plan(null, emptyList(), available, today)!!.full)
-        assertTrue(CatalogUpdatePolicy.plan(meta.copy(indexVersion = 1), listOf(old), available, today)!!.full)
         assertFalse(CatalogUpdatePolicy.canDownload(meta, plan, metered = true, consent = false))
         assertTrue(CatalogUpdatePolicy.canDownload(meta, plan, metered = true, consent = true))
         assertTrue(CatalogUpdatePolicy.canDownload(meta, plan, metered = false, consent = false))

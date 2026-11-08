@@ -178,8 +178,8 @@ class GameplayTreeCacheTest {
             assertEquals(StoredPayload(1, "keep draft"), storage.personal("draft", "text"))
             assertEquals(StoredPayload(1, "keep art"), storage.publicCache("art"))
         }
-        assertEquals("5", scalar("PRAGMA user_version"), "incremental-only cache schema")
-        assertEquals("accepted_cursor,accepted_record,card_definition_cache,personal_state,public_cache", scalar(
+        assertEquals("6", scalar("PRAGMA user_version"), "incremental-only cache schema")
+        assertEquals("accepted_cursor,accepted_record,card_definition_cache,catalog_redownload,personal_state,public_cache", scalar(
             "SELECT group_concat(name, ',') FROM (SELECT name FROM sqlite_master WHERE type='table' ORDER BY name)"))
     }
 

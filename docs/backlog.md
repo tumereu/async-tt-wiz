@@ -14,10 +14,6 @@ Changes the owner wants but that are not built yet. The feature catalog
 
 ## Ready to build
 
-Catalog review follow-ups (owner, 2026-11-08; the catalog was cleaned on w/catalog-cleanup, these change code):
-
-- Single version, rest (owner approved 2026-11-08 after a read-only prod check: 1 booster pod in setup, 0 grid or cube pods, 0 games with a null starter, 3 deck-save request records, 6 game seats with the three assume flags, no account defaults; for the release after beta6, as its third batch): delete GridEngine's plain rotation and resume and the grid boards' older-server defaults (DRF-079's "Pods started before this change keep plain rotation"), the preparation snapshot's null-means-Random reading, and the deck service's pre-I08 request identity; convert "Assume resolves" from its three stored flags to one stored value with a Flyway migration of engine_seat.settings and account.play_defaults (nothing lost, games untouched); phones redownload their card records once in that update (a client database migration), then the older-index-version check and the "downloaded again once" parts of LOB-110 and LOB-125 go. Cubes stored as plain arrays are the current format, not a leftover: keep them.
-
 Invitation notifications (owner, 2026-11-08, for beta7):
 
 - Challenge and invitation notices (DRF-137, LOB-072, LOB-077, DRF-123, LOB-025): a pod challenge sent while the recipient is still building notifies at once (Invitations channel) "<pod>: <name> challenged you · submit your deck to accept", opening the pod's Games tab; when they then submit their deck the held challenge becomes acceptable with no notification (today releaseChallenges in PodService records one). A challenge to someone who already submitted notifies as now. Clearer texts: "New invitation" becomes "<name> invited you · <game name>" (a pod challenge: "<pod>: <name> challenged you"), "New pod invitation" becomes "<name> invited you to <pod>".

@@ -27,8 +27,8 @@ internal fun catalogSetFilename(code: String): String {
 }
 
 object CatalogUpdatePolicy {
-    fun changed(installed: CatalogMetadata?, available: CatalogMetadata?): Boolean = available != null &&
-        (installed == null || installed.indexVersion != available.indexVersion)
+    /** Nothing installed yet (a first install, or card records cleared for downloading again). */
+    fun changed(installed: CatalogMetadata?, available: CatalogMetadata?): Boolean = available != null && installed == null
     fun download(installed: CatalogMetadata?, available: CatalogMetadata?, metered: Boolean, consent: Boolean): Boolean =
         changed(installed, available) && (consent || (installed != null && !metered))
     fun plan(installed: CatalogMetadata?, installedSets: List<CatalogSet>, available: CatalogSetList,
@@ -217,7 +217,7 @@ class CatalogInstaller(private val directory: File, private val repository: Cata
     fun install(plan: CatalogUpdatePlan, size: Long? = null, progress: (CatalogProgress) -> Unit = {}): CatalogMetadata {
         if (plan.full) return install(plan.metadata, size, progress)
         require(plan.sets.isNotEmpty() && plan.sets.map { it.code }.distinct().size == plan.sets.size)
-        check(repository.metadata()?.indexVersion == CATALOG_INDEX_VERSION)
+        checkNotNull(repository.metadata())
         check(directory.isDirectory || directory.mkdirs())
         val downloads = mutableListOf<Triple<CatalogSet, File, String>>()
         val reserve = 64L * 1024 * 1024

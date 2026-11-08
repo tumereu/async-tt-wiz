@@ -1,0 +1,6 @@
+-- Single version (owner 2026-11-08): every phone downloads its card records again once in this update
+-- (CatalogRedownload.sq); the app clears them while this row exists, then removes it.
+CREATE TABLE IF NOT EXISTS catalog_redownload (
+  id INTEGER NOT NULL PRIMARY KEY CHECK (id = 1)
+);
+INSERT OR IGNORE INTO catalog_redownload VALUES (1);

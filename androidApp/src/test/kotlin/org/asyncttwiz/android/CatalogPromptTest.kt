@@ -6,7 +6,9 @@ import kotlin.test.*
 
 class CatalogPromptTest {
     private val old = CatalogMetadata("2026-10-20", "5.2.2")
-    private val newer = old.copy(date = "2026-10-21", indexVersion = old.indexVersion + 1)
+    private val newer = old.copy(date = "2026-10-21")
+    /** Sets to fetch for [newer] (LOB-092). */
+    private val sets = CatalogUpdatePlan(newer, listOf(CatalogSet("NEW", "2026-10-21")))
 
     // LOB-091
     @Test fun missingRecordsNeverAutomaticallyDownloadWithoutInitialConsent() {
@@ -38,7 +40,7 @@ class CatalogPromptTest {
         assertFalse(policy.shouldPrompt(CatalogUiState(installed = old)))
         assertFalse(policy.shouldPrompt(CatalogUiState(installed = old, available = old)))
         assertFalse(policy.shouldPrompt(CatalogUiState(installed = newer)))
-        assertTrue(policy.shouldPrompt(CatalogUiState(installed = old, available = newer)))
+        assertTrue(policy.shouldPrompt(CatalogUiState(installed = old, available = newer, plan = sets)))
     }
 
     @Test fun missingDismissalLastsOnlyThisProcessAndUpdateDismissalIsPerVersion() {
@@ -48,12 +50,11 @@ class CatalogPromptTest {
         assertFalse(policy.shouldPrompt(missing))
         assertFalse(policy.shouldPrompt(missing.copy(available = newer)))
         assertFalse(CatalogPromptPolicy().shouldPrompt(missing))
-        val update = CatalogUiState(installed = old, available = newer)
+        val update = CatalogUiState(installed = old, available = newer, plan = sets)
         assertTrue(policy.shouldPrompt(update))
         policy.dismiss(update)
         assertFalse(policy.shouldPrompt(update))
         assertTrue(policy.shouldPrompt(update.copy(available = newer.copy(version = "5.2.3"))))
-        assertTrue(policy.shouldPrompt(update.copy(available = newer.copy(indexVersion = newer.indexVersion + 1))))
         assertTrue(CatalogPromptPolicy().shouldPrompt(update))
     }
 

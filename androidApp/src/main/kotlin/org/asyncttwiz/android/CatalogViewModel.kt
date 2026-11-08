@@ -30,7 +30,7 @@ internal class CatalogPromptPolicy {
         if (state.installed == null) return null // Mandatory first download has its own pre-login dialog.
         val available = state.available ?: return null
         if (state.plan == null && !CatalogUpdatePolicy.changed(state.installed, available)) return null
-        return "${available.date}/${available.version}/${available.indexVersion}"
+        return "${available.date}/${available.version}"
     }
     fun shouldPrompt(state: CatalogUiState): Boolean = !state.busy && key(state)?.let { it !in dismissed } == true
     fun dismiss(state: CatalogUiState) { key(state)?.let { dismissed = dismissed + it } }
@@ -126,6 +126,7 @@ class CatalogViewModel(application: Application) : AndroidViewModel(application)
             var size: Long? = null
             var pending: CatalogUpdatePlan? = null
             try {
+                CatalogRedownloadGate.await()
                 installed = repository.metadata()
                 val local = installed
                 main.post { if (!cleared) state = state.copy(installed = local, loaded = true) }

@@ -1,0 +1,1 @@
+mod: After this update the app downloads its card records again once, as on the first start.

@@ -267,7 +267,7 @@ class DeckImportTest {
         assertEquals(spell.map { it.get("uuid").asString }, exactBack.entries.single().faces.map { it.id })
     }
 
-    @Test fun oldPublicIndexStaysReadableAndRequestsRefreshForReleaseDates() {
+    @Test fun oldPublicIndexStaysReadableWithoutReleaseDates() {
         val repository = repository("prism")
         val directory = temporary.resolve("prism").toFile()
         val file = File(directory, File(directory, "current").readText())
@@ -277,8 +277,6 @@ class DeckImportTest {
             }
         }
         val metadata = repository.metadata()!!
-        assertEquals(0, metadata.indexVersion)
-        assertTrue(CatalogUpdatePolicy.changed(metadata, metadata.copy(indexVersion = CATALOG_INDEX_VERSION)))
         val result = DeckImportResolver(repository).resolve("20 Coppercloud Surveyor\n1 Dayglass Loom")
         assertTrue(result.resolved, result.issues.toString())
         assertEquals(2, result.entries.last().faces.size)

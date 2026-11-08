@@ -52,7 +52,7 @@ class ClientStorageTest {
             assertEquals(AcceptedSnapshot(Long.MAX_VALUE, listOf(first.copy(payload = StoredPayload(3, "{}")))), storage.accepted("replica-a"))
             assertNull(storage.accepted("replica-b"))
         }
-        assertEquals("5", scalar("PRAGMA user_version"))
+        assertEquals("6", scalar("PRAGMA user_version"))
         assertEquals("ok", scalar("PRAGMA integrity_check"))
         println("PASS actual SQLite ${scalar("SELECT sqlite_version()")} file-backed create/commit/reopen, exact signed-64-bit cursor")
     }
@@ -75,7 +75,7 @@ class ClientStorageTest {
             assertEquals(AcceptedSnapshot(2, listOf(second)), storage.accepted("account:profile"))
             assertEquals(StoredPayload(1, "keep"), storage.publicCache("catalog"))
         }
-        assertEquals("5", scalar("PRAGMA user_version"))
+        assertEquals("6", scalar("PRAGMA user_version"))
     }
 
     @Test fun catalogKeyedCardDefinitionCacheOfVersion4IsDroppedAndOtherDataKept() {
@@ -92,9 +92,34 @@ class ClientStorageTest {
             assertEquals(AcceptedSnapshot(2, listOf(second)), storage.accepted("account:profile"))
             assertEquals(StoredPayload(1, "keep"), storage.publicCache("catalog"))
         }
-        assertEquals("5", scalar("PRAGMA user_version"))
+        assertEquals("6", scalar("PRAGMA user_version"))
         assertEquals("0", scalar("SELECT count(*) FROM sqlite_master WHERE name = 'card_definition'"))
         assertEquals("0", scalar("SELECT count(*) FROM card_definition_cache"))
+    }
+
+    // LOB-091 (single version, owner 2026-11-08): the migration to version 6 has the card records cleared once, so they are
+    // downloaded again as on a first install; everything stored stays, and a new installation never clears them
+    @Test fun migrationToVersion6ClearsTheCardRecordsOnceAndKeepsEverythingElse() {
+        open().use { storage ->
+            assertFalse(storage.redownloadCatalog { fail("A new installation has nothing to download again") })
+            storage.commitAccepted("account:profile", null, 2, listOf(second))
+            storage.savePersonal("account:profile", "shell-destination", StoredPayload(1, "\"DECKS\""))
+            storage.cachePublic("catalog", StoredPayload(1, "keep"))
+        }
+        execute("DROP TABLE catalog_redownload")
+        execute("PRAGMA user_version = 5")
+        var cleared = 0
+        open().use { storage ->
+            assertThrows(IllegalStateException::class.java) { storage.redownloadCatalog { error("No room") } }
+            assertTrue(storage.redownloadCatalog { cleared++ }, "A failed clear is tried again")
+            assertFalse(storage.redownloadCatalog { cleared++ })
+            assertEquals(AcceptedSnapshot(2, listOf(second)), storage.accepted("account:profile"))
+            assertEquals(StoredPayload(1, "\"DECKS\""), storage.personal("account:profile", "shell-destination"))
+            assertEquals(StoredPayload(1, "keep"), storage.publicCache("catalog"))
+        }
+        open().use { storage -> assertFalse(storage.redownloadCatalog { cleared++ }) }
+        assertEquals(1, cleared)
+        assertEquals("6", scalar("PRAGMA user_version"))
     }
 
     // LOB-007
@@ -185,7 +210,7 @@ class ClientStorageTest {
             assertNull(storage.personal("replica-a", "draft"))
             assertEquals(AcceptedSnapshot(7, listOf(first)), storage.accepted("replica-a"))
         }
-        assertEquals("accepted_cursor,accepted_record,card_definition_cache,personal_state,public_cache", scalar("SELECT group_concat(name, ',') FROM (SELECT name FROM sqlite_master WHERE type='table' ORDER BY name)"))
+        assertEquals("accepted_cursor,accepted_record,card_definition_cache,catalog_redownload,personal_state,public_cache", scalar("SELECT group_concat(name, ',') FROM (SELECT name FROM sqlite_master WHERE type='table' ORDER BY name)"))
         println("PASS separate accepted/personal/public-cache tables; no outgoing/prediction/exposure journal")
     }
 
@@ -201,7 +226,7 @@ class ClientStorageTest {
                 assertNull(storage.publicCache("missing"))
             }
         }
-        assertEquals("5", scalar("PRAGMA user_version"))
+        assertEquals("6", scalar("PRAGMA user_version"))
         open().use { storage ->
             storage.commitAccepted("replica-a", 9007199254740993, 9007199254740994, listOf(second))
             storage.cachePublic("new", StoredPayload(2, "{}"))

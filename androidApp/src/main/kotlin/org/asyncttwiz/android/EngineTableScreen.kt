@@ -136,7 +136,7 @@ internal fun EngineTableScreen(controller: LobbyController, accountId: String, h
                 when {
                     // HIS-097: a branch's take-back has its note instead
                     undone != null && undone.branch -> eventText.moved(t.cursor)
-                    undone != null -> eventText.post(t.cursor, EngineEventText.undid(undone.event, undone.state, accountId, undone.by, names),
+                    undone != null -> eventText.post(t.cursor, EngineEventText.undid(undone.event, undone.state, accountId, undone.by, names, undone.leftMain),
                         always = true)
                     told != null -> eventText.post(t.cursor, engine.timeline.text(engine, told, names))
                     else -> eventText.moved(t.cursor)

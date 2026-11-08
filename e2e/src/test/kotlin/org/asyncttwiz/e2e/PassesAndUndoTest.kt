@@ -54,8 +54,8 @@ class PassesAndUndoTest : E2e() {
 
     // HIS-101, HIS-075, HIS-099, HIS-084 (§29.2, owner 2026-11-04): across turns full of passes no timeline
     // or event chip text says anyone passed (assumed or not): a pass reads only as what it led to, one that led to nothing
-    // shows nowhere; the Undo dialog lists no pass (an End turn's first pass is "You ended the turn"), and Undo goes back
-    // past the player's own Next tap to their cast
+    // shows nowhere; the Undo dialog lists no pass (an End turn's first pass is "You ended the turn", her tap leaving her main
+    // phase "You went to combat", owner 2026-11-08), and Undo goes back to just before that tap, then past it to her cast
     @Test fun passesAreImpliedInTheTimelineChipsAndUndo() {
         val cast = aliceCastsAHeraldWhileBobIsAway(endTurn = false)
         val castEvent = cast.cast
@@ -67,8 +67,8 @@ class PassesAndUndoTest : E2e() {
         val next = alice.engine { (device.session.events + device.session.pending)[before] }
         assertTrue(EngineEventText.pass(next), "the Next tap is a pass")
         waitUntil("Alice's own stop after it") { alice.status == GameDevice.Status.YourMove && alice.state.turn.step != TurnStep.PrecombatMain }
-        // HIS-084: her own pass is no target: Undo goes back to just before her cast
-        assertEquals(castEvent.parentId, alice.shown.undoTarget)
+        // HIS-084, HIS-101 (owner 2026-11-08): her tap leaving her main phase is the target, not the assumed passes after it
+        waitUntil("her tap on the server: the target") { alice.shown.undoTarget == next.parentId }
         alice.hold(alice.stepArrow()!!)
         waitUntil("Alice's phone on in Bob's turn, all of it on the server") {
             alice.state.turn.active == bob.me && alice.engine { device.session.pending.isEmpty() }
@@ -89,7 +89,7 @@ class PassesAndUndoTest : E2e() {
             // HIS-005: a pass shows on the timeline only as a resolution or an own End turn; the new turn and steps it led
             // to are the separators between events
             val byId = line.associateBy { it.id }
-            assertTrue(timeline.none { t -> byId[t.id]!!.let { EngineEventText.pass(it) && it.id !in game.shown!!.endTurns &&
+            assertTrue(timeline.none { t -> byId[t.id]!!.let { EngineEventText.pass(it) && it.id !in game.shown!!.endTurns && it.id !in game.shown!!.mainExits &&
                 it.engine?.changes.orEmpty().none { c -> c is arcanum.engine.change.Change.StackItemRemoved } } },
                 "${player.name}: no step-only pass on the timeline: ${timeline.map { it.description }}")
             assertTrue(timeline.none { it.description.startsWith("Turn ") } && timeline.any { it.separator != null },
@@ -115,8 +115,8 @@ class PassesAndUndoTest : E2e() {
         assertTrue(points.isNotEmpty())
         val held = shown.held.associateBy { it.id }
         assertEquals(timeline.filter { held[it.id]?.parentId != null }.map { it.id }, points.map { it.event.id })
-        assertFalse(points.any { it.event.id == next.id }, "her Next tap isn't a point")
         val texts = points.map { it.shown.description }
+        assertEquals("You went to combat", points.single { it.event.id == next.id }.shown.description, "her tap out of her main phase is a point")
         assertTrue(texts.none { "passed" in it }, texts.toString())
         assertTrue("You cast Ember Herald" in texts, texts.toString())
         assertTrue(texts.count { it == "You ended the turn" } <= 1, texts.toString())

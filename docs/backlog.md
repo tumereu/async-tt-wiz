@@ -24,7 +24,6 @@ Table batch (owner, 2026-11-08):
 
 - Turn banner (new entry): at a turn change "Your turn" / "<name>'s turn" shows at the screen's centre and fades in about 1.2 s, taking no touches, live and in catch-up playback, never in timeline mode; in order with plays shown (HIS-112).
 - Your move cue (TRN-058, TRN-063): when the move passes to you from the other player, one haptic tick and one main-button pulse in your colour; never for your own chain of steps.
-- Leaving your own main phase is an undo point (HIS-084, HIS-099, HIS-101, HIS-005): tapping the main button out of your main phase is an event on the timeline ("You went to combat") that one Undo returns to, so a mistaken tap needs no rewind into the other player's turn.
 - Combat stays readable (HIS-104, HIS-112, TBL-125, LOB-082): a combat that goes by itself holds your view (never the game, as plays shown does) on the attackers shown and on the damage, for the "Show the other player's plays" time (the same setting, 0 = no hold), a tap skipping it. Declaring no attackers holds nothing.
 
 

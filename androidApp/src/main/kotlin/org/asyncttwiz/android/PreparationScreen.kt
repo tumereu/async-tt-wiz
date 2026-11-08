@@ -158,7 +158,7 @@ internal fun PreparationLayout(title: String, tag: String, columnsScreen: DeckVi
  * [header] (a cube has no sections) with an optional [headerAction] at its right end, then type
  * groups of card tiles [columns] wide drawn by [tile], or, with [cellWidth], tiles that wide, as many per row as fit. */
 internal fun LazyListScope.visualDeckSection(source: SavedDeckSection, count: Long, groups: List<PreparationGroup>, columns: Int,
-    header: Boolean = true, headerAction: (@Composable () -> Unit)? = null, cellWidth: Dp? = null,
+    header: Boolean = true, headerAction: (@Composable () -> Unit)? = null, cellWidth: Dp? = null, empty: String = "Empty",
     tile: @Composable (PreparationTile) -> Unit) {
     val title = source.label()
     val color = source.preparationColor()
@@ -176,7 +176,7 @@ internal fun LazyListScope.visualDeckSection(source: SavedDeckSection, count: Lo
         }
     }
     if (groups.isEmpty() && count == 0L) item("empty-$source") {
-        Text("Empty", Modifier.padding(horizontal = PreparationGutter, vertical = 12.dp),
+        Text(empty, Modifier.padding(horizontal = PreparationGutter, vertical = 12.dp),
             color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
     for (group in groups) item("group-$source-${group.type}") {

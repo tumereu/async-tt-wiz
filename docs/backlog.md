@@ -24,10 +24,6 @@ Main button presses on the record (owner, 2026-11-08; HIS-101, HIS-084, HIS-099,
 
 - The first pass of a main button press records what was pressed ("To combat", "To end step", "End turn") as a nullable field of its event, as `mode` is; End turn's other passes stay plain. Undo points and their texts read that field instead of the phone's memory, so "You went to combat" and "You ended the turn" survive a restart, reopening the game and another device. The event doesn't record the result: that is in its changes. Older events have no mark and aren't points; existing games keep working.
 
-Small batch, beta9 playtest notes (owner, 2026-11-08):
-
-- Card list editor (LOB-105, LOB-107, DRF-003): a filter field at the top of the Cards tab with search's syntax and chips (LOB-108, LOB-119), sections showing only what matches; +1, -1, Remove all and Move to... get icons.
-
 Table batch 2, beta9 playtest notes (owner, 2026-11-08):
 
 - Hold to pause (HIS-021, HIS-112, HIS-113, HIS-094): a finger held on the table pauses whatever your view is waiting on: a play shown, a combat hold, catch-up playback between events. It goes on when lifted; only your view waits, never the game. A pause icon shows in a corner meanwhile, with a quick fade in and out. Holding a shown card also inspects it. Skipping a shown play or combat hold becomes a double tap; a single tap does nothing, so it isn't triggered by accident.

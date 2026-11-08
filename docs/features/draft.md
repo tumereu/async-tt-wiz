@@ -6,7 +6,7 @@ Cubes, pods of 2–8 players drafting asynchronously, the pick and grid screens,
 
 - **DRF-001** Manage decks has two tabs, Decks | Cubes; the Cubes tab lists "CUBES (N)" with a New cube button at the top right. (r21)
 - **DRF-002** A cube is a saved, named, counted card list with Main and Maybe sections (no Side), synced across your devices; drafting never uses it up and many pods can share one cube. Maybe holds cards being considered: it is never drafted, and only Prepare cube (DRF-141) uses it. (r35)
-- **DRF-003** The cube editor is the deck editor (LOB-059, LOB-105, LOB-106) with the cube name in place of name and cover; Cube Cobra is its link source and search adds to Main or Maybe. (r35)
+- **DRF-003** The cube editor is the deck editor (LOB-059, LOB-105, LOB-142, LOB-106) with the cube name in place of name and cover; Cube Cobra is its link source and search adds to Main or Maybe. (r35)
 - **DRF-004** A pasted cube list is checked by itself shortly after you stop typing; there is no separate "Import list" button. (r20)
 - **DRF-005** Cube lists accept every Cube Cobra export (plaintext, MTGO, Forge, XMage, CSV) and bare card names (one copy per line); maybeboard rows and a pasted list's sideboard lines go to Maybe. (r35)
 - **DRF-006** A name shared by different cards does not block a cube: one is picked and listed with the other substitutions before saving; unknown cards block saving and name the bad lines. (r19)

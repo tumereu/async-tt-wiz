@@ -19,6 +19,9 @@ import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.ArrowForward
+import androidx.compose.material.icons.outlined.Remove
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -193,6 +196,15 @@ private fun CardListCardsTab(editor: CardListEditor, search: CardListSearch, loo
     var held by remember { mutableStateOf<Pair<String, PreparationTile>?>(null) }
     val previewScroll = rememberScrollState()
     val previewScreen = holdPreviewScreenHeight()
+    // LOB-142: only what shows follows the filter; every edit below works on the whole list
+    val query = search.filter.query
+    val parsed = remember(query) { query.takeIf { it.isNotBlank() }?.let(CardSearchQuery::parse) }
+    val matcher = (parsed as? CardSearchParse.Valid)?.query
+    LaunchedEffect(matcher != null, entries) { if (matcher != null) entries?.let { list -> search.loadFilterCards(list.map { it.printing }) } }
+    val known = search.filterCards
+    val matching = remember(matcher, entries, known) {
+        matcher?.let { filter -> entries?.filter { filter.matches(listSearchCard(it, definitionOf(it), known[it.printing.id])) } }
+    }
     Box(Modifier.fillMaxSize()) {
         if (entries == null) Column(Modifier.fillMaxSize().padding(16.dp).verticalScrollable(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             if (lookupPending) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -203,13 +215,15 @@ private fun CardListCardsTab(editor: CardListEditor, search: CardListSearch, loo
             Column(Modifier.fillMaxSize()) {
                 if (summary) CardListSummary(editor, entries, columns, Modifier.fillMaxWidth())
                 LazyColumn(Modifier.weight(1f).fillMaxWidth().testTag("card-list-cards"), contentPadding = PaddingValues(bottom = 88.dp)) {
+                    item("card-list-filter") { CardListFilterBar(search, oneRow = !summary, (parsed as? CardSearchParse.Invalid)?.error?.message) }
                     for (section in editor.kind.sections) {
                         val saved = section.saved()
-                        val rows = entries.filter { it.section == section }
+                        val rows = (matching ?: entries).filter { it.section == section }
                         val definitions = rows.associate { it.printing.id to definitionOf(it) }
                         val groups = preparationGroups(rows.map { it.printing.id to it.quantity.toLong() }, definitions)
                         // LOB-105: every section shows, even when empty; its header's + opens search with that section chosen.
-                        visualDeckSection(saved, rows.sumOf { it.quantity.toLong() }, groups, columns.count, headerAction = {
+                        visualDeckSection(saved, rows.sumOf { it.quantity.toLong() }, groups, columns.count,
+                            empty = if (matcher != null) "No matching cards" else "Empty", headerAction = {
                             HoldTip("Add cards to ${saved.sectionLabel()}") {
                                 IconButton({ editor.destination(section); search.open(CardListEdits.total(entries)) },
                                     Modifier.testTag("add-cards-${saved.shortLabel().lowercase()}"), enabled = editor.editable) {
@@ -250,6 +264,25 @@ private fun CardListCardsTab(editor: CardListEditor, search: CardListSearch, loo
     }
 }
 
+/** LOB-142: the filter over the Cards tab's pictures, in the search page's words and chips ([error]: why its text can't be read). */
+@Composable
+private fun CardListFilterBar(search: CardListSearch, oneRow: Boolean, error: String?) {
+    val filter = search.filter
+    val keyboard = LocalSoftwareKeyboardController.current
+    Column(Modifier.fillMaxWidth().testTag("card-list-filter")) {
+        ScreenTextField(filter.text, search::filterText, Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 4.dp)
+            .testTag("card-list-filter-field").semantics { contentDescription = "Filter cards" },
+            placeholder = "Filter cards, e.g. t:goblin mv<=2", keyboardOptions = imeOptions(ImeAction.Search),
+            keyboardActions = KeyboardActions(onSearch = { keyboard?.hide() }),
+            trailingIcon = if (filter.text.isEmpty()) null else ({
+                HoldTip("Clear filter") { IconButton({ search.filterText("") }, Modifier.size(48.dp)) { EntryIcon("Clear filter", "close") } }
+            }))
+        SearchChips(SearchChipChoices(filter.colors, filter.types, filter.values, search::filterToggle, search::filterToggle, search::filterToggle), oneRow)
+        if (error != null) Text(error, Modifier.padding(horizontal = 16.dp, vertical = 4.dp).testTag("card-list-filter-error"),
+            color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+    }
+}
+
 /** The Cards tab's line: the section counts and the columns control. */
 @Composable
 private fun CardListSummary(editor: CardListEditor, entries: List<ResolvedDeckEntry>, columns: PodBuildColumns, modifier: Modifier) {
@@ -285,15 +318,15 @@ private fun EditorCard(editor: CardListEditor, tile: PreparationTile, key: Strin
         capture = { { moveOne() } }, onHold = onHold, onHoldScroll = onHoldScroll,
         actions = listOf(CustomAccessibilityAction("Move one $name to ${next.saved().sectionLabel()}") { enabled && moveOne() })) { close ->
         if (!choosing) {
-            DropdownMenuItem(text = { Text("+1") }, enabled = enabled, onClick = {
+            DropdownMenuItem(text = { Text("+1") }, leadingIcon = { Icon(screenIcon("add"), null) }, enabled = enabled, onClick = {
                 close()
                 val entries = editor.entries ?: return@DropdownMenuItem
                 val result = CardListEdits.increase(editor.kind, entries, tile.digest, section)
                 if (result.refused != null) editor.cardsMessage(result.refused) else editor.applyCards(result.entries, editor.listCatalog)
             })
-            DropdownMenuItem(text = { Text("−1") }, enabled = enabled, onClick = { close(); apply { CardListEdits.change(it, tile.digest, section, -1) } })
-            DropdownMenuItem(text = { Text("Remove all") }, enabled = enabled, onClick = { close(); apply { CardListEdits.removeAll(it, tile.digest, section) } })
-            DropdownMenuItem(text = { Text("Move to…") }, enabled = enabled, onClick = { choosing = true })
+            DropdownMenuItem(text = { Text("−1") }, leadingIcon = { Icon(Icons.Outlined.Remove, null) }, enabled = enabled, onClick = { close(); apply { CardListEdits.change(it, tile.digest, section, -1) } })
+            DropdownMenuItem(text = { Text("Remove all") }, leadingIcon = { Icon(screenIcon("delete"), null) }, enabled = enabled, onClick = { close(); apply { CardListEdits.removeAll(it, tile.digest, section) } })
+            DropdownMenuItem(text = { Text("Move to…") }, leadingIcon = { Icon(Icons.AutoMirrored.Outlined.ArrowForward, null) }, enabled = enabled, onClick = { choosing = true })
         } else editor.kind.sections.filter { it != section }.forEach { target ->
             DropdownMenuItem(text = { Text(if (tile.quantity > 1) "All ${tile.quantity} to ${target.saved().sectionLabel()}"
                 else "To ${target.saved().sectionLabel()}", color = target.saved().sectionColor()) }, enabled = enabled,
@@ -336,7 +369,7 @@ private fun CardSearchPage(editor: CardListEditor, search: CardListSearch, lands
                     HoldTip("Clear search") { IconButton({ search.text("") }, Modifier.size(48.dp)) { EntryIcon("Clear search", "close") } }
                 }))
         }
-        SearchChips(search, oneRow = landscape)
+        SearchChips(SearchChipChoices(state.colors, state.types, state.values, search::toggle, search::toggle, search::toggle), oneRow = landscape)
         Box(Modifier.weight(1f).fillMaxWidth()) {
             when {
                 state.error != null -> Text(state.error, Modifier.padding(16.dp), color = MaterialTheme.colorScheme.error)
@@ -387,11 +420,14 @@ internal fun cardSearchDoneLabel(added: Long): String = when {
     else -> "Done · ${if (added > 0) "+" else "−"}${kotlin.math.abs(added)} ${if (kotlin.math.abs(added) == 1L) "card" else "cards"}"
 }
 
+/** The chips chosen and what a tap on each does: on the search page (LOB-119) or the Cards tab's filter (LOB-142). */
+private class SearchChipChoices(val colors: Set<SearchColor>, val types: Set<SearchType>, val values: Set<SearchManaValue>,
+    val color: (SearchColor) -> Unit, val type: (SearchType) -> Unit, val value: (SearchManaValue) -> Unit)
+
 /** The quick filters: colours as card-text mana symbols, mana values as generic mana symbols, then card types; 32 dp tall
  * chips 4 dp apart (no 48 dp touch padding between them). */
 @Composable
-private fun SearchChips(search: CardListSearch, oneRow: Boolean) {
-    val state = search.state
+private fun SearchChips(state: SearchChipChoices, oneRow: Boolean) {
     @Composable fun row(content: @Composable RowScope.() -> Unit) =
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically, content = content)
@@ -405,18 +441,18 @@ private fun SearchChips(search: CardListSearch, oneRow: Boolean) {
         }
     val types: @Composable RowScope.() -> Unit = {
         SearchType.entries.forEach { type ->
-            FilterChip(type in state.types, { search.toggle(type) }, { Text(type.label) }, Modifier.height(32.dp))
+            FilterChip(type in state.types, { state.type(type) }, { Text(type.label) }, Modifier.height(32.dp))
         }
     }
     CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
         Column(Modifier.padding(vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             row {
                 SearchColor.entries.forEach { color ->
-                    symbol(color in state.colors, color.label, "Colour ${color.label}", "search-colour-${color.label}") { search.toggle(color) }
+                    symbol(color in state.colors, color.label, "Colour ${color.label}", "search-colour-${color.label}") { state.color(color) }
                 }
                 Spacer(Modifier.width(8.dp))
                 SearchManaValue.entries.forEach { value ->
-                    symbol(value in state.values, value.label, "Mana value ${value.label}", "search-value-${value.label}") { search.toggle(value) }
+                    symbol(value in state.values, value.label, "Mana value ${value.label}", "search-value-${value.label}") { state.value(value) }
                 }
                 if (oneRow) { Spacer(Modifier.width(8.dp)); types() }
             }

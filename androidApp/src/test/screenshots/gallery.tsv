@@ -161,3 +161,5 @@ number	item	screenshot	catalog	decisions
 160	A chat bubble over the other player's state chips on a narrow phone	states/bubble-over-chips.png	LOB-136 TRN-072
 161	Exit timeline at the newest event	engine/timeline-exit.png	HIS-015 HIS-010
 162	A stack with its tapped members on top	battlefield/pile-tapped-on-top.png	TBL-053 TBL-054
+163	Turn banner: your turn	turn-banner/your-turn.png	TRN-074
+164	Turn banner in landscape: the other player's turn	turn-banner/their-turn-landscape.png	TRN-074

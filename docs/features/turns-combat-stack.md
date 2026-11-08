@@ -25,6 +25,7 @@ Turn and step tracking, whose move it is, the top and bottom game bars, life, ga
 
 - **TRN-012** Whose TURN shows on the battlefields: only the turn player's battlefield is tinted (your own green-ish, the opponent's red-ish, the land band a little darker); the other battlefield is neutral grey. (r11)
 - **TRN-013** Whose MOVE shows on the bars: the top and bottom bars take the light colour of the player whose move it is (TRN-058), never part of an event. In timeline mode both bars are grey. (r50)
+- **TRN-074** Turn banner: at a turn change "Your turn" or "<name>'s turn" shows at the screen's centre in the turn player's colour and fades out in about 1.2 s, taking no touches, holding nothing and waiting for nothing but a play shown before it (HIS-112), live and in catch-up playback. It and the plays shown never overlap: a play that went on the Stack before the turn change shows first, one after it waits for the banner. Never in timeline mode, a take-back or on opening a game. (r61)
 - **TRN-058** The move is the player the game really waits for (the record "Your move" notifications use, LOB-073). While one player plays on assumptions about the other, the acting player has it, even while the other's playback stops at an assumption they may answer. An open undo request (HIS-100) or result suggestion (TRN-047) is the answerer's move; a result is the move of whoever hasn't seen it. When nobody is waited for, the game list says "Move not available". (r50)
 
 ### Bottom bar and quick actions

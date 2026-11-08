@@ -116,6 +116,9 @@ internal fun EngineTableScreen(controller: LobbyController, accountId: String, h
     val scope = rememberCoroutineScope()
     SideEffect {
         if (reviewPlay != null) {
+            // TRN-074: never a turn banner in timeline mode
+            routes.banners.drop()
+            shown.turnChange?.let { applied.turnChange = it.serial }
             if (applied.reviewed != reviewPlay.nodeId) {
                 applied.reviewed = reviewPlay.nodeId
                 changes.applyEngine(reviewPlay.nodeId, jump = false, emptyList(), emptySet())
@@ -127,6 +130,8 @@ internal fun EngineTableScreen(controller: LobbyController, accountId: String, h
             shown.transition?.takeIf { it.serial != applied.transition }?.let { t ->
                 applied.transition = t.serial
                 EngineTableProbe.applied?.invoke(accountId, t, !applied.drawn)
+                // TRN-074: a take-back ends the banner showing
+                if (t.undone != null) routes.banners.drop()
                 changes.applyEngine(t.cursor, t.jump, t.changes, t.shuffled)
                 // HIS-076 (owner playtest 2026-11-04 #5): live, the newest event just shown, yours too (your own action's
                 // text fades at the top like the other player's); quiet on open and return. §29.4: an undo says what it
@@ -141,6 +146,11 @@ internal fun EngineTableScreen(controller: LobbyController, accountId: String, h
                     told != null -> eventText.post(t.cursor, engine.timeline.text(engine, told, names))
                     else -> eventText.moved(t.cursor)
                 }
+            }
+            // TRN-074: at a turn change, live and in catch-up playback, in order with the plays shown; not on opening the game
+            shown.turnChange?.takeIf { it.serial != applied.turnChange }?.let { change ->
+                applied.turnChange = change.serial
+                if (applied.drawn) routes.banners.post(change, shown.show)
             }
             applied.drawn = true
         }
@@ -243,6 +253,7 @@ internal fun EngineTableScreen(controller: LobbyController, accountId: String, h
                 // Over the top row (whose move/step/turn), never taking its taps.
                 EventTextOverlay(eventText, playbackPause, Modifier.align(Alignment.TopCenter), status = choosing,
                     flashes = toolkit.choiceFlashes)
+                TurnBannerOverlay(routes.banners, shown.show != null, accountId, names, Modifier.align(Alignment.Center))
             }
         }
     }
@@ -332,7 +343,7 @@ private class ReviewKept { var board: TableBoard? = null }
 
 /** What the engine table applied once: the last transition and the board reviewed; [drawn]: the table has drawn a live
  * board of this game (a transition applied later animates from it). */
-private class AppliedMarks { var transition = 0L; var reviewed: String? = null; var drawn = false }
+private class AppliedMarks { var transition = 0L; var reviewed: String? = null; var drawn = false; var turnChange = 0L }
 
 /** Tests: what the engine table did with the boards it was given (main thread, after composition), with its player's
  * account id: each transition it applied, and whether it opened on it ([applied]'s `opened`: no board of the game drawn

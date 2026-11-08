@@ -175,7 +175,10 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
         val branchStop: Boolean = false,
         /** HIS-101, HIS-099 (owner 2026-11-08): the player's presses leaving their own main phase: each one's event, with the
          * main phase it left (on the timeline and points of Undo, as an End turn's first pass). */
-        val mainExits: Map<String, arcanum.api.TurnStep> = emptyMap()) {
+        val mainExits: Map<String, arcanum.api.TurnStep> = emptyMap(),
+        /** TRN-074: the newest turn change shown going forward (the table takes each once, also when several boards
+         * arrive between two frames). */
+        val turnChange: TurnChange? = null) {
         val engine: GameState get() = board.engine!!.state
         /** Engine-responsiveness R3: what the engine thread worked out with [board]: its computed card values, the player's
          * hand plays (on an own action's early board right after it is published, before the action's follow-up work,
@@ -204,6 +207,7 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
     private var previous: TableBoard? = null
     private val gameLog = GameLog(gameId, arcanum.engine.state.PlayerId(me))
     private var lastTransition: Transition? = null
+    private var lastTurnChange: TurnChange? = null
 
     /** The last [Transition] published (the screen applies each once, by its serial). */
     val transition: Transition? get() = shown?.transition
@@ -366,7 +370,7 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
         val shown = Shown(++published, play, status, device.locked, device.settings, device.opponent, session.behind, tip,
             session.localHead, session.drafting, device.request, device.indicator(), device.undoTarget(), line, held, lastTransition,
             device.needsReload, device.pausing, held.mapNotNullTo(HashSet(olderEnds)) { e -> e.id.takeIf(device::endedTurn) }, takingBack,
-            device.reveal, older, device.olderComplete, device.show, device.showDone, heldWork, branchStop, device.mainExits)
+            device.reveal, older, device.olderComplete, device.show, device.showDone, heldWork, branchStop, device.mainExits, lastTurnChange)
         lastShown = shown
         timing?.let { it.boardEnd = clock(); it.version = shown.version; play.values?.promisePlays() }
         worker.main {
@@ -470,7 +474,7 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
         val shown = Shown(++published, play, last.status, last.locked, last.settings, last.opponent, last.behind, last.tip,
             last.localHead, last.drafting, last.request, last.indicator, last.undoTarget, last.line, last.held, last.transition,
             last.needsReload, last.pausing, last.endTurns, last.takingBack, last.reveal, last.older, last.olderComplete, last.show,
-            last.showDone, last.takeBack, last.branchStop, last.mainExits)
+            last.showDone, last.takeBack, last.branchStop, last.mainExits, last.turnChange)
         timing.boardEnd = clock(); timing.version = shown.version
         play.values?.promisePlays()
         worker.main { this.shown = shown; shownVersion = shown.version; measure(shown, timing); onShown() }
@@ -540,6 +544,7 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
         }.onFailure { AppLog.info("engine", "No motion steps: ${it.message}") }.getOrDefault(emptyList())
         lastTransition = Transition(++transitions, tip, jump, changes, if (jump) emptySet() else EngineChanges.shuffled(after, forward),
             forward, backward, steps)
+        TurnBanners.of(lastTransition!!)?.let { lastTurnChange = it }
         pt = ptAfter
         loaded = false
     }

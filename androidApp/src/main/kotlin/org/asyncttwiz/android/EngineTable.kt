@@ -164,6 +164,9 @@ internal class EngineTableRoutes(val viewer: String, private val game: () -> Eng
 
     data class RewindChoice(val target: String?)
 
+    /** TRN-074: the turn banner to show. */
+    val banners = TurnBannerQueue()
+
     /** Timeline mode (HIS-004): the shown event the board is reviewed at; null in play mode. */
     var review by mutableStateOf<String?>(null)
     /** Timeline mode's Auto (HIS-013). */
@@ -647,7 +650,8 @@ internal fun EngineAsyncHost(toolkit: TableToolkitController, routes: EngineTabl
     LaunchedEffect(game, showMillis > 0) { game.showPlays(showMillis > 0) }
     val show = shown.show
     if (show != null && reviewing) LaunchedEffect(show) { game.dismissShows(); routes.pump() }
-    if (show != null && !reviewing && scene != null) key(show) {
+    // TRN-074: a play and the turn banner never overlap: one follows the other
+    if (show != null && !reviewing && scene != null && !routes.banners.holdsPlays) key(show) {
         PlayShowOverlay(play, scene, routes.viewer, show, names, showMillis) { game.dismissShow(show); routes.pump() }
     }
     if (!reviewing) when (status) {

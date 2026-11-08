@@ -146,6 +146,22 @@ class CatalogCardSearchTest {
         assertEquals(bolt.cards.single().key, id("oracle", "Lightning Bolt"))
     }
 
+    // LOB-142: what a listed card's filter needs and its record doesn't hold; nothing for what search doesn't know
+    @Test fun searchDataGivesEachPrintingsCardAsSearchKnowsIt() {
+        val stray = CatalogPrinting("stray", "Stray", "AAA", "1", "English", "", null, false, emptyList(), "{}")
+        assertTrue(repo().searchData(listOf(stray)).isEmpty(), "no card records yet")
+        val repository = install()
+        val bolt = page(repository, "bolt").cards.single().printing
+        val data = repository.searchData(listOf(bolt, stray, stray.copy(id = "broken", json = "not json")))
+        assertEquals(setOf(bolt.id), data.keys)
+        val card = data.getValue(bolt.id)
+        assertEquals("Lightning Bolt", card.name)
+        assertEquals(8, card.identity, "red")
+        assertTrue("modern" in card.legal)
+        assertTrue(CardSearchPrintingFixture("aaa", "common") in card.printings.map { CardSearchPrintingFixture(it.set, it.rarity) })
+    }
+    private data class CardSearchPrintingFixture(val set: String, val rarity: String)
+
     @Test fun printingTermsChooseTheFirstMatchingPrinting() {
         val repository = install()
         fun printing(query: String) = page(repository, query).cards.single().printing.let { "${it.set} ${it.number}" }

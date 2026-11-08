@@ -382,7 +382,7 @@ object TablePresentation {
         fun art(card: PlayCard?, hidden: Boolean): ArtworkReference? {
             val f = face(card) ?: return null
             if (hidden || (f.scryfallId == null && f.imageUri == null)) return null
-            return f.tableArtwork(definitions[card!!.definition]!!.faces.indexOf(f), card.definition)?.forTable()
+            return f.tableArtwork(definitions[card!!.definition]!!.faces.indexOf(f))?.forTable()
         }
         val hudWidth = 28f; val hudHeight = 40f; val hudEnvelope = GRID
         val battlefieldScale = cardScale(appearance.cardSize)

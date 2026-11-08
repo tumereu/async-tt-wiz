@@ -1,0 +1,1 @@
+mod: The sentence on the bar for choosing targets shows up to 4 lines; when that isn't enough, tap it to read it all.

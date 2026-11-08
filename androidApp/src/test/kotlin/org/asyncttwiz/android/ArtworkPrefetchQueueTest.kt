@@ -10,7 +10,7 @@ import kotlin.test.*
 
 class ArtworkPrefetchQueueTest {
     private fun references(name: String, count: Int) = (1..count).map {
-        ArtworkReference(UUID.nameUUIDFromBytes("$name-$it".toByteArray()).toString(), 0, name, "art_crop")
+        ArtworkReference(UUID.nameUUIDFromBytes("$name-$it".toByteArray()).toString(), 0, "art_crop")
     }
 
     private suspend fun settle(condition: () -> Boolean) {
@@ -25,7 +25,7 @@ class ArtworkPrefetchQueueTest {
         val queue = ArtworkPrefetchQueue(this, parallelism = 2) { reference ->
             started += reference; running++; peak = maxOf(peak, running)
             gate.await(); running--
-            reference.version != "deck" || reference != started.first()
+            reference != started.first()
         }
         val deck = references("deck", 4)
         val game = references("game", 3)

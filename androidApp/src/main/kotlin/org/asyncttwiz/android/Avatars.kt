@@ -44,7 +44,7 @@ internal fun avatarColor(accountId: String): Color = Color.hsv(Math.floorMod(acc
 @Composable
 fun Avatar(account: AccountIdentity, modifier: Modifier = Modifier, size: Dp = 32.dp) {
     val initial = avatarInitial(account.username)
-    val reference = account.avatar?.takeIf { it.face in 0..15 }?.let { ArtworkReference(it.scryfallId, it.face, "avatar-v1", "art_crop") }
+    val reference = account.avatar?.takeIf { it.face in 0..15 }?.let { ArtworkReference(it.scryfallId, it.face, "art_crop") }
     Box(modifier.size(size).clip(CircleShape).background(avatarColor(account.accountId))
         .semantics { contentDescription = "${account.username}'s avatar" }, contentAlignment = Alignment.Center) {
         CompositionLocalProvider(LocalContentColor provides Color.White) {

@@ -39,13 +39,13 @@ class ArtworkRetryTest {
         val id = "2487c5bd-8d7f-5925-af7a-a2f6e5eb6b7a"
         val png = byteArrayOf(137.toByte(), 80, 78, 71, 13, 10, 26, 10)
         val repository = HttpArtworkRepository(ArtworkDiskCache(temporary.resolve("art").toFile(), now = { clock }),
-            ArtworkTransport { url, _, _, _ ->
+            ArtworkTransport { url, _ ->
                 calls++
                 if (status != 200) ArtworkResponse(status) else if (url.endsWith(id)) ArtworkResponse(200,
                     """{"object":"card","id":"$id","image_uris":{"normal":"$origin/image"}}""".toByteArray(), "application/json")
                 else ArtworkResponse(200, png, "image/png")
             }, ArtworkUrlPolicy(origin), "$origin/cards/", { clock })
-        val reference = ArtworkReference(id, 0, "v1")
+        val reference = ArtworkReference(id, 0)
         assertNull(repository.load(reference)); assertNull(repository.load(reference)); assertEquals(1, calls)
         repository.connectivityRestored()
         status = 200
@@ -71,14 +71,14 @@ class ArtworkRetryTest {
         var calls = 0
         val origin = "http://127.0.0.1:12345"
         val repository = HttpArtworkRepository(ArtworkDiskCache(temporary.resolve("partial").toFile(), now = { clock }),
-            ArtworkTransport { _, _, _, _ ->
+            ArtworkTransport { _, _ ->
                 when (++calls) {
                     1 -> throw java.net.SocketTimeoutException()
                     2 -> ArtworkResponse(200, byteArrayOf(137.toByte(), 80), "image/png")
                     else -> ArtworkResponse(200, byteArrayOf(137.toByte(), 80, 78, 71, 13, 10, 26, 10), "image/png")
                 }
             }, ArtworkUrlPolicy(origin), "$origin/cards/", { clock })
-        val reference = ArtworkReference(null, 0, "v1", customUrl = "$origin/image")
+        val reference = ArtworkReference(null, 0, customUrl = "$origin/image")
         assertNull(repository.load(reference)); clock += 1_000
         assertNull(repository.load(reference)); clock += 1_999
         assertNull(repository.load(reference)); assertEquals(2, calls)

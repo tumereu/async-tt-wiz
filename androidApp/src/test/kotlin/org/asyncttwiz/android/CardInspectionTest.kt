@@ -24,7 +24,7 @@ class CardInspectionTest {
         val entry = result.entries.single()
         val preview = InspectedCard.preview(entry, result.catalog)
         val submitted = DeckSavePlan.from(result, "Name").definitions.definitions.single()
-        val saved = InspectedCard.retained(submitted.digest, submitted.definition)
+        val saved = InspectedCard.retained(submitted.definition)
         assertEquals(submitted.definition, preview.definition)
         assertEquals(listOf("Front", "Back"), saved.definition.faces.map { it.name })
         assertEquals("Exact  text\nUnicode 🧙", saved.definition.faces[1].rulesText)
@@ -34,10 +34,9 @@ class CardInspectionTest {
             assertEquals(listOf(printing, printing), card.artwork.map { it!!.printing })
             assertEquals(listOf("large", "large"), card.artwork.map { it!!.size })
         }
-        assertEquals(listOf(submitted.digest, submitted.digest), saved.artwork.map { it!!.version })
-        assertEquals(0, InspectedCard.retained("single", CardDefinition("Blank", listOf(DefinitionFace(front, "Blank"))))
+        assertEquals(0, InspectedCard.retained(CardDefinition("Blank", listOf(DefinitionFace(front, "Blank"))))
             .artwork.single()!!.face)
-        assertNull(InspectedCard.retained("bad-side", CardDefinition("Blank", listOf(DefinitionFace(front, "Blank",
+        assertNull(InspectedCard.retained(CardDefinition("Blank", listOf(DefinitionFace(front, "Blank",
             sourceData = """{"side":"not-a-side"}""")))).artwork.single())
     }
 }

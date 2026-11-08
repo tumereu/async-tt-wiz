@@ -1,0 +1,1 @@
+Portrait Edit cube screen's card menu after tapping Rune Bear: +1, −1, Remove all and Move to…, each with its icon.

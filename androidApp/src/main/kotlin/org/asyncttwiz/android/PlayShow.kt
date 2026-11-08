@@ -72,7 +72,7 @@ internal object PlayShows {
         return when (show.kind) {
             GameDevice.PlayKind.Cast -> {
                 val caption = line ?: listOf(StackTextPiece("$who cast ${name ?: "a card"}"))
-                val face = if (visible && definition != null) inspectFaces(InspectedCard.retained(card.definition, definition), faceIndex,
+                val face = if (visible && definition != null) inspectFaces(InspectedCard.retained(definition), faceIndex,
                     flippedOnTable(definition, card.faceId), "play-show/${card.id}",
                     if (own) OwnTableColor else OpponentTableColor, card.token).firstOrNull() else null
                 PlayShown(caption.plain(), caption, own, face = face, covered = face == null)

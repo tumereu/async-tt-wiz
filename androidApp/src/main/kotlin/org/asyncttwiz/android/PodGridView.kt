@@ -301,7 +301,7 @@ private fun PodGridArrow(line: GridLine, rules: PodGridRules?, selected: GridLin
 @Composable
 private fun PodGridCard(copy: DraftCopy, definition: CardDefinition?, modifier: Modifier) {
     val card = remember(copy.definition, definition) {
-        definition?.takeIf { it.faces.isNotEmpty() }?.let { InspectedCard.retained(copy.definition, it) }
+        definition?.takeIf { it.faces.isNotEmpty() }?.let { InspectedCard.retained(it) }
     }
     BoxWithConstraints(modifier) {
         val density = LocalDensity.current

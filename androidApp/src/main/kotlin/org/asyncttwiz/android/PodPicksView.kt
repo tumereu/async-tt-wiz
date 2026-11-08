@@ -68,6 +68,7 @@ internal fun PodPicksDialog(picks: List<PodOpponentPicks>, definitions: Map<Stri
                 }
             }
         }
+        // Inside the dialog: from outside, its window would lie behind the dialog's.
+        PodLimitedPreviewHost(preview, definitions)
     }
-    PodLimitedPreviewHost(preview, definitions)
 }

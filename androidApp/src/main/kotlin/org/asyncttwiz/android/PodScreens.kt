@@ -345,6 +345,8 @@ private fun PodDraftScreen(controller: PodController, detail: PodDetail, account
     val waiting = podWaitingText(detail, accountId)
     Column(Modifier.fillMaxSize()) {
         PodPlayHeader(detail, navigation) {
+            // DRF-165: on the Draft tab History is above the pack; on the others, while building and after, it is up here.
+            if (detail.settings.mode.packPassing && selected != PodTab.DRAFT) PodHistoryHeaderButton(controller, definitions, historyColumns)
             PodViewSettingsButton(pickColumns.takeIf { detail.settings.mode != DraftMode.GRID }, buildColumns, buildSideBySide,
                 historyColumns.takeIf { detail.settings.mode.packPassing })
         }

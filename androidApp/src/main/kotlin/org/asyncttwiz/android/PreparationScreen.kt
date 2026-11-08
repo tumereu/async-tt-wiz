@@ -148,7 +148,7 @@ internal fun PreparationLayout(title: String, tag: String, columnsScreen: DeckVi
     }
     held?.second?.let { tile ->
         val card = remember(tile.digest, tile.definition) {
-            tile.definition?.takeIf { it.faces.isNotEmpty() }?.let { InspectedCard.retained(tile.digest, it) }
+            tile.definition?.takeIf { it.faces.isNotEmpty() }?.let { InspectedCard.retained(it) }
         }
         PodCardArtPreview(card, tile.name, previewScroll)
     }
@@ -158,7 +158,7 @@ internal fun PreparationLayout(title: String, tag: String, columnsScreen: DeckVi
  * [header] (a cube has no sections) with an optional [headerAction] at its right end, then type
  * groups of card tiles [columns] wide drawn by [tile], or, with [cellWidth], tiles that wide, as many per row as fit. */
 internal fun LazyListScope.visualDeckSection(source: SavedDeckSection, count: Long, groups: List<PreparationGroup>, columns: Int,
-    header: Boolean = true, headerAction: (@Composable () -> Unit)? = null, cellWidth: Dp? = null,
+    header: Boolean = true, headerAction: (@Composable () -> Unit)? = null, cellWidth: Dp? = null, empty: String = "Empty",
     tile: @Composable (PreparationTile) -> Unit) {
     val title = source.label()
     val color = source.preparationColor()
@@ -176,7 +176,7 @@ internal fun LazyListScope.visualDeckSection(source: SavedDeckSection, count: Lo
         }
     }
     if (groups.isEmpty() && count == 0L) item("empty-$source") {
-        Text("Empty", Modifier.padding(horizontal = PreparationGutter, vertical = 12.dp),
+        Text(empty, Modifier.padding(horizontal = PreparationGutter, vertical = 12.dp),
             color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
     for (group in groups) item("group-$source-${group.type}") {
@@ -214,7 +214,7 @@ internal fun VisualDeckCard(tile: PreparationTile, key: String, title: String,
 /** Card art filling the tile, with a "×3" badge when the tile holds more than one copy. */
 @Composable
 private fun BoxScope.PreparationTileFace(tile: PreparationTile, width: Int,
-    reference: org.asyncttwiz.storage.ArtworkReference? = remember(tile.digest, tile.definition) { podTileArtwork(tile.digest, tile.definition) }) {
+    reference: org.asyncttwiz.storage.ArtworkReference? = remember(tile.digest, tile.definition) { podTileArtwork(tile.definition) }) {
     val height = (width * 1.4f).roundToInt().coerceAtLeast(1)
     CardArtwork(reference, tile.name, width, height, Modifier.fillMaxSize(), placeholder = { PodCardPlaceholder(tile.name) })
     if (tile.quantity > 1) Text("×${tile.quantity}", Modifier.align(Alignment.BottomStart).padding(2.dp)
@@ -293,7 +293,7 @@ internal fun SwipeDeckCard(tile: PreparationTile, key: String, tag: String, titl
     val name = tile.name
     BoxWithConstraints(Modifier.fillMaxWidth().testTag(tag)) {
         val width = with(LocalDensity.current) { maxWidth.roundToPx().coerceAtLeast(1) }
-        val reference = remember(tile.digest, tile.definition) { podTileArtwork(tile.digest, tile.definition) }
+        val reference = remember(tile.digest, tile.definition) { podTileArtwork(tile.definition) }
         Box(Modifier.fillMaxWidth().aspectRatio(1f / 1.4f)
             .pointerInput(key, enabled, threshold) {
                 podPickGestures(onTap = { menus.open = key }, onInspect = { currentHold(it) }, onInspectScroll = { currentHoldScroll(it) },

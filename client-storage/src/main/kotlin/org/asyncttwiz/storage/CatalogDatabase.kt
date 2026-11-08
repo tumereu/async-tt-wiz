@@ -129,6 +129,13 @@ class CatalogRepository(private val directory: File, private val openDriver: (Fi
     fun searchCards(query: String, cursor: CatalogCardCursor? = null, limit: Int = 60, budget: Int = 3000): CatalogCardSearch =
         synchronized(lock) { searchCatalogCards(activeFile(), openDriver, query, cursor, limit, budget) }
 
+    /**
+     * Worker-only: the given printings' cards as search knows them, by printing id, with what card records don't carry
+     * (colour identity, format legalities, printings and rarities). Printings without such a card are left out.
+     */
+    fun searchData(printings: Collection<CatalogPrinting>): Map<String, CardSearchCard> =
+        synchronized(lock) { activeFile()?.let { file -> CatalogIndex(openDriver(file)).use { it.searchData(printings) } }.orEmpty() }
+
     /** Keep every line/face of an import on one generation while a refresh waits. */
     internal fun <T> snapshot(read: (CatalogIndex?) -> T): T = synchronized(lock) {
         activeFile()?.let { file -> CatalogIndex(openDriver(file)).use { read(it) } } ?: read(null)

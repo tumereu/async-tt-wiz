@@ -228,6 +228,20 @@ internal fun searchCatalogCards(file: File?, open: (File) -> SqlDriver, query: S
     }
 }
 
+/** See [CatalogRepository.searchData]. */
+internal fun CatalogIndex.searchData(printings: Collection<CatalogPrinting>): Map<String, CardSearchCard> {
+    if (!hasCardSearch()) return emptyMap()
+    val keys = printings.mapNotNull { printing ->
+        runCatching { printing.id to cardSearchKey(printing, JsonParser.parseString(printing.json).asJsonObject) }.getOrNull()
+    }
+    val found = keys.map { it.second }.distinct().chunked(400).flatMap { chunk ->
+        select("SELECT oracle, data FROM search_data WHERE oracle IN (${chunk.joinToString { "?" }})", chunk) {
+            it.getString(0)!! to it.getString(1)!!
+        }
+    }.toMap()
+    return keys.mapNotNull { (id, key) -> found[key]?.let { id to searchJson.decodeFromString(CardSearchCard.serializer(), it) } }.toMap()
+}
+
 /** Same records as [CatalogIndex.printing] for many ids, in two queries instead of two per id. */
 private fun CatalogIndex.printings(ids: Collection<String>): Map<String, CatalogPrinting> = ids.distinct().chunked(400).flatMap { chunk ->
     val marks = chunk.joinToString { "?" }

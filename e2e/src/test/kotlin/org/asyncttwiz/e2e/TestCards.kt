@@ -49,6 +49,9 @@ object TestCards {
         "When this creature enters, you gain 1 life.\nWhen this creature enters, draw a card.", "1", "1")
     /** An X spell (STK-023): X damage to any target, X paid by its caster's mana. */
     val burst = card("Ember Burst", "Sorcery", "{X}", "Ember Burst deals X damage to any target.")
+    /** A spell whose sentence, with its long reminder text, is taller than half the table in a target bar (STK-047). */
+    val cascade = card("Ember Cascade", "Instant", "{R}", "Ember Cascade deals 3 damage to any target. (" +
+        "on and on, as the longest printed reminders do, ".repeat(60) + "it goes.)")
     /** A bestow creature whose bestow needs collect evidence (owner playtest 2026-11-05 evening: its Bestow chip was missing
      * while the evidence couldn't be collected). */
     val lark = card("Cinder Lark", "Enchantment Creature — Elemental Bird", "{R}",

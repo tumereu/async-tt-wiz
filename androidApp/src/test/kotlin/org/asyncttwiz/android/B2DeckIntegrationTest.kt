@@ -76,7 +76,7 @@ class B2DeckIntegrationTest {
         assertEquals(1, server.creates)
         val digest = plan.deck.entries.single().definition
         assertEquals(4, library.state.detail!!.saved.entries.single().quantity)
-        val captured = InspectedCard.retained(digest, library.state.detail!!.definitions.getValue(digest))
+        val captured = InspectedCard.retained(library.state.detail!!.definitions.getValue(digest))
         assertEquals("Exact  text 🧙", captured.definition.faces.single().rulesText)
         assertNull(captured.artwork.single()!!.printing) // Missing art leaves the placeholder card.
         library.edit(DeckDialog.RENAME); library.name("Unfinished name")

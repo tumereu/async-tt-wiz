@@ -24,7 +24,7 @@ class CardArtworkPreviewTest {
     @Test fun cachedNormalThumbnailIsVisibleOnFirstFrameWhileLargeArtIsUnavailable() {
         val context = RuntimeEnvironment.getApplication()
         CardArtworkService(context, temporary.newFolder()).use { service ->
-            val normal = ArtworkReference(null, 0, "v1")
+            val normal = ArtworkReference(null, 0)
             val thumbnail = Bitmap.createBitmap(40, 56, Bitmap.Config.ARGB_8888).asImage()
             service.loader.memoryCache!![MemoryCache.Key(CardArtworkRequest(normal, 40, 56).key)] = MemoryCache.Value(thumbnail)
             compose.setContent {

@@ -29,7 +29,7 @@ class InspectChangesUiTest {
     /** The faces of the fixture's card named [name], as Inspect shows them. */
     private fun faces(name: String): List<InspectTile> {
         val submitted = f.initial.definitions.first { it.definition.name == name }
-        return inspectFaces(InspectedCard.retained(submitted.digest, submitted.definition), key = name, owner = OwnTableColor)
+        return inspectFaces(InspectedCard.retained(submitted.definition), key = name, owner = OwnTableColor)
     }
 
     /** Alice's Meadow Sentinel with counters, a pump, a keyword it gained and its enter mark, and the River Adept attached to

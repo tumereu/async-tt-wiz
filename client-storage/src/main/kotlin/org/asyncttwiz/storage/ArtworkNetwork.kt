@@ -61,11 +61,10 @@ class ArtworkUrlPolicy(val syntheticOrigin: String? = null,
     }
 }
 
-data class ArtworkResponse(val status: Int, val bytes: ByteArray = byteArrayOf(), val type: String = "",
-    val etag: String = "", val modified: String = "", val retryAt: Long = 0)
+data class ArtworkResponse(val status: Int, val bytes: ByteArray = byteArrayOf(), val type: String = "", val retryAt: Long = 0)
 
 fun interface ArtworkTransport {
-    fun get(url: String, maximum: Long, etag: String, modified: String): ArtworkResponse
+    fun get(url: String, maximum: Long): ArtworkResponse
 }
 
 /** One installation-wide spacing for provider API (metadata) requests, including their redirects:
@@ -136,7 +135,7 @@ class HttpArtworkTransport(private val policy: ArtworkUrlPolicy = ArtworkUrlPoli
         .retryOnConnectionFailure(false).connectTimeout(10, TimeUnit.SECONDS).readTimeout(10, TimeUnit.SECONDS)
         .callTimeout(30, TimeUnit.SECONDS).build()
 
-    override fun get(url: String, maximum: Long, etag: String, modified: String): ArtworkResponse {
+    override fun get(url: String, maximum: Long): ArtworkResponse {
         val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(30)
         var uri = policy.validate(url)
         repeat(4) { redirects ->
@@ -146,13 +145,7 @@ class HttpArtworkTransport(private val policy: ArtworkUrlPolicy = ArtworkUrlPoli
             check(System.nanoTime() < deadline)
             val request = Request.Builder().url(uri.toString()).header("User-Agent", userAgent)
                 .header("Accept", "application/json, image/png, image/jpeg, image/webp")
-                .header("Accept-Encoding", "identity").apply {
-                    // Validators are public data but need not cross an origin redirect either.
-                    if (uri == URI(url)) {
-                        if (etag.isNotEmpty()) header("If-None-Match", etag)
-                        if (modified.isNotEmpty()) header("If-Modified-Since", modified)
-                    }
-                }.build()
+                .header("Accept-Encoding", "identity").build()
             val call = client.newCall(request)
             call.timeout().timeout((deadline - System.nanoTime()).coerceAtLeast(1), TimeUnit.NANOSECONDS)
             call.execute().use { response ->
@@ -170,8 +163,7 @@ class HttpArtworkTransport(private val policy: ArtworkUrlPolicy = ArtworkUrlPoli
                             check(body.contentLength() < 0 || it.size.toLong() == body.contentLength()) { "Incomplete artwork download" }
                         }
                     } else byteArrayOf()
-                    return ArtworkResponse(response.code, bytes, response.header("Content-Type").orEmpty().substringBefore(';'),
-                        response.header("ETag").orEmpty().take(1024), response.header("Last-Modified").orEmpty().take(1024), retry)
+                    return ArtworkResponse(response.code, bytes, response.header("Content-Type").orEmpty().substringBefore(';'), retryAt = retry)
                 }
             }
         }

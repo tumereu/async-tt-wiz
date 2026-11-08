@@ -39,7 +39,7 @@ internal fun gameInspectGroups(state: TableBoard, viewer: String, inspection: Ma
     StackAbilities.of(state, entry, viewer)?.let { shown ->
         val definition = state.definitions.firstOrNull { it.digest == card.definition }?.definition?.takeIf { it.faces.isNotEmpty() }
         val face = definition?.faces?.indexOfFirst { it.faceId == card.faceId }?.takeIf { it >= 0 } ?: 0
-        val art = definition?.let { InspectedCard.retained(card.definition, it).artwork.getOrNull(face) }?.forTable()
+        val art = definition?.let { InspectedCard.retained(it).artwork.getOrNull(face) }?.forTable()
         // (owner 2026-11-07) its text names its targets in place; the details list only the targets it doesn't name
         val text = StackAbilities.text(state, entry, viewer, names)
         return listOf(InspectGroup("ability/$entry", listOf(InspectTile.Ability("ability/$entry", shown,
@@ -76,7 +76,7 @@ private fun cardTiles(state: TableBoard, viewer: String, card: PlayCard, inspect
     if (faces.isEmpty()) return listOf(InspectTile.Covered(card.id, "Covered card"))
     // The full name only when every face is permitted: a partial view never names a face it hides.
     val filtered = definition.copy(name = if (faces.size == definition.faces.size) definition.name else faces.first().name, faces = faces)
-    val full = InspectedCard.retained(card.definition, definition)
+    val full = InspectedCard.retained(definition)
     val shown = InspectedCard(filtered, faces.map { face -> full.artwork[definition.faces.indexOf(face)] })
     // The holder's own face-down card (or face-down entry, STK-005) shows its front marked "Face down"
     val faceDown = ManualDisclosure.faceDownOutsideHiddenZones(state.board, card) || faceDownEntry

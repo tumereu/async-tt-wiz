@@ -98,6 +98,16 @@ internal class E2ePlayer(val account: TestAccount, private val compose: ComposeT
     val pods = PodController(PodApi(link.origin, authenticationRequired = ::authenticationRequired),
         DeckApi(link.origin, authenticationRequired = ::authenticationRequired), auth::sessionToken, worker("pods"), post)
     private val reset = ResetController(AccountApi(link.origin), "", worker("reset"), succeeded = {}, post = post)
+    /** The deck screens, on the phone once a test asks for them ([decksShown]): these phones have no card records, so the
+     * editor works on a saved deck's own cards. */
+    val decks = org.asyncttwiz.android.DeckLibraryController(DeckApi(link.origin, authenticationRequired = ::authenticationRequired),
+        auth::sessionToken, worker("decks"), post)
+    val deckImport = org.asyncttwiz.android.DeckImportController({ error("No card records on this phone") }, worker("deck-import"), post).apply {
+        connectSave(DeckApi(link.origin, authenticationRequired = ::authenticationRequired), auth::sessionToken, saved = {
+            auth.push(ShellDestination.DECKS); decks.open(it.deck.id)
+        })
+    }
+    var decksShown by mutableStateOf(false)
     internal val heartbeat = GameHeartbeatController({ token, presence ->
         runBlocking { ActivityApi(link.origin).use { it.heartbeat(token, presence) } }
     }) { token, presence -> auth.sessionToken() == token && lobby.heartbeat(presence) }
@@ -179,7 +189,8 @@ internal class E2ePlayer(val account: TestAccount, private val compose: ComposeT
                 SideEffect { heartbeat.display(game?.takeIf { shown }, token) }
                 CompositionLocalProvider(LocalShownTexts provides { text: String -> shownTexts += text },
                     LocalCardListSupport provides cardListSupport) {
-                    Surface(Modifier.fillMaxSize()) { AccountEntry(auth, reset, lobby = lobby, pods = pods) }
+                    Surface(Modifier.fillMaxSize()) { AccountEntry(auth, reset, lobby = lobby, pods = pods,
+                        deckImport = deckImport.takeIf { decksShown }, decks = decks.takeIf { decksShown }) }
                 }
             }
         }

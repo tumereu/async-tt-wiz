@@ -88,7 +88,7 @@ internal fun ResultChip(result: SuggestedResult?, finished: Boolean, modifier: M
 @Composable
 internal fun MatchDeckLine(deck: MatchDeck?, modifier: Modifier = Modifier) {
     Row(modifier, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        DeckThumbnail(deck?.cover?.let { ArtworkReference(it.scryfallId, 0, it.definition, "small", it.imageUri) }, deck?.name ?: "Deck", 20.dp, 28.dp)
+        DeckThumbnail(deck?.cover?.let { ArtworkReference(it.scryfallId, 0, "small", it.imageUri) }, deck?.name ?: "Deck", 20.dp, 28.dp)
         Text(deck?.name ?: "Deck", style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }

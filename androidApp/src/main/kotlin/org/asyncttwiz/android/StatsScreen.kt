@@ -106,7 +106,7 @@ private fun StatsGraphs(records: List<MatchRecord>, me: String, opponent: Accoun
             val decks = remember(records) { MatchStats.decks(records, me) }
             decks.forEach { deck ->
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    DeckThumbnail(deck.cover?.let { ArtworkReference(it.scryfallId, 0, it.definition, "small", it.imageUri) }, deck.name, 24.dp, 34.dp)
+                    DeckThumbnail(deck.cover?.let { ArtworkReference(it.scryfallId, 0, "small", it.imageUri) }, deck.name, 24.dp, 34.dp)
                     Text(deck.name, Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text("${deck.record.wins}–${deck.record.losses}", fontWeight = FontWeight.SemiBold)
                     Text(deck.record.rate.text, Modifier.width(48.dp), style = MaterialTheme.typography.bodySmall)

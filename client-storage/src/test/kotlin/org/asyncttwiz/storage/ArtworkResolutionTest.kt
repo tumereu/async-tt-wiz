@@ -33,7 +33,7 @@ class ArtworkResolutionTest {
                 else -> """{"image_uris":{"normal":"$origin/front"},"card_faces":[{"name":"Front"},{"name":"Back"}]}"""
             }.removePrefix("{").removeSuffix("}")
             val repository = HttpArtworkRepository(ArtworkDiskCache(temporary.resolve(layout).toFile()),
-                ArtworkTransport { url, _, _, _ ->
+                ArtworkTransport { url, _ ->
                     urls += url
                     when (url) {
                         "$origin/cards/$id" -> ArtworkResponse(200,
@@ -46,7 +46,7 @@ class ArtworkResolutionTest {
                     }
                 }, ArtworkUrlPolicy(origin), "$origin/cards/")
             rows.forEachIndexed { index, row ->
-                val reference = ArtworkReference.from(row, "catalog-v1")!!
+                val reference = ArtworkReference.from(row)!!
                 val expected = if (index == 1 && (physicalBack || layout == "meld")) "back" else "front"
                 assertArrayEquals(png + "$origin/$expected".toByteArray(), repository.load(reference), "$layout ${row.side}")
             }
@@ -63,7 +63,7 @@ class ArtworkResolutionTest {
         val base = "https://api.scryfall.com/cards/"
         val requested = mutableListOf<String>()
         val repository = HttpArtworkRepository(ArtworkDiskCache(temporary.resolve("real").toFile()),
-            ArtworkTransport { url, _, _, _ ->
+            ArtworkTransport { url, _ ->
                 requested += url
                 cards[url.removePrefix(base)]?.let { ArtworkResponse(200, it.toByteArray(), "application/json") }
                     ?: ArtworkResponse(200, png + url.toByteArray(), "image/png")
@@ -77,7 +77,7 @@ class ArtworkResolutionTest {
             val printing = CatalogPrinting(row.get("uuid").asString, row.get("name").asString, row.get("setCode").asString,
                 row.get("number").asString, "English", side, scryfall, row.get("layout").asString.endsWith("token"),
                 row.getAsJsonArray("otherFaceIds").map { it.asString }, row.toString())
-            val reference = ArtworkReference.from(printing, "catalog-v1", size)!!
+            val reference = ArtworkReference.from(printing, size)!!
             // Meld results are their own printing; every other side b is the physical back image.
             val physical = if (side == "b" && row.get("layout").asString != "meld") "back" else "front"
             val expected = "https://cards.scryfall.io/$size/$physical/${scryfall[0]}/${scryfall[1]}/$scryfall.jpg"
@@ -90,19 +90,19 @@ class ArtworkResolutionTest {
     @Test fun independentlyPrintedTokenBackAndMeldFrontUseTheirOwnTopLevelImagesDespiteSideLetters() {
         for (layout in listOf("token", "meld")) {
             val repository = HttpArtworkRepository(ArtworkDiskCache(temporary.resolve("separate-$layout").toFile()),
-                ArtworkTransport { url, _, _, _ ->
+                ArtworkTransport { url, _ ->
                     if (url.endsWith(id)) ArtworkResponse(200, """{"object":"card","id":"$id","layout":"$layout",
                         "name":"Back","image_uris":{"normal":"$origin/back"}}""".toByteArray(), "application/json")
                     else ArtworkResponse(200, png, "image/png")
                 }, ArtworkUrlPolicy(origin), "$origin/cards/")
-            assertNotNull(repository.load(ArtworkReference(id, 1, "v1", faceName = "Back")))
+            assertNotNull(repository.load(ArtworkReference(id, 1, faceName = "Back")))
         }
     }
 
     @Test fun missingCustomAndLargeImagesFallBackToRetainedPrintingAndOtherFullImageSize() {
         val urls = mutableListOf<String>()
         val repository = HttpArtworkRepository(ArtworkDiskCache(temporary.resolve("fallback").toFile()),
-            ArtworkTransport { url, _, _, _ ->
+            ArtworkTransport { url, _ ->
                 urls += url
                 when (url) {
                     "$origin/cards/$id" -> ArtworkResponse(200, """{"object":"card","id":"$id",
@@ -111,7 +111,7 @@ class ArtworkResolutionTest {
                     else -> ArtworkResponse(404)
                 }
             }, ArtworkUrlPolicy(origin), "$origin/cards/")
-        assertNotNull(repository.load(ArtworkReference(id, 0, "v1", "large", "$origin/missing-custom")))
+        assertNotNull(repository.load(ArtworkReference(id, 0, "large", "$origin/missing-custom")))
         assertEquals(listOf("$origin/missing-custom", "$origin/cards/$id", "$origin/missing-large", "$origin/front"), urls)
     }
 }

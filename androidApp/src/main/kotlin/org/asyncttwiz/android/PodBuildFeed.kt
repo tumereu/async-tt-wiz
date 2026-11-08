@@ -261,7 +261,7 @@ private fun PodBuildFeedArtwork(card: PodBuildFeedCard, face: Int, width: Dp, to
     val definition = card.definition
     val name = definition?.faces?.getOrNull(face)?.name ?: definition?.name ?: "Card details unavailable"
     val reference = remember(card.digest, definition, face) {
-        definition?.takeIf { it.faces.isNotEmpty() }?.let { InspectedCard.retained(card.digest, it) }?.artwork?.getOrNull(face)
+        definition?.takeIf { it.faces.isNotEmpty() }?.let { InspectedCard.retained(it) }?.artwork?.getOrNull(face)
     }
     CardArtwork(reference?.copy(size = "large"), name,
         with(density) { width.roundToPx() }.coerceIn(1, 4096),

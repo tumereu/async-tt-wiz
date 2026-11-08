@@ -58,7 +58,7 @@ internal fun podPreviewFaces(definition: CardDefinition): List<Int> {
 @Composable
 internal fun PodPickArtPreview(copy: DraftCopy, definition: CardDefinition?, scroll: ScrollState = rememberScrollState()) {
     val card = remember(copy.definition, definition) {
-        definition?.takeIf { it.faces.isNotEmpty() }?.let { InspectedCard.retained(copy.definition, it) }
+        definition?.takeIf { it.faces.isNotEmpty() }?.let { InspectedCard.retained(it) }
     }
     PodCardArtPreview(card, definition?.name ?: "Card data unavailable", scroll = scroll)
 }

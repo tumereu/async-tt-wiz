@@ -31,7 +31,7 @@ class PodArtPrefetchTest {
         val references = podPrefetchArtwork(listOf(shown, next), definitions)
         assertEquals(29, references.size)
         assertTrue(references.all { it.size == "normal" && it.printing != null })
-        assertEquals((shown.cards + next.cards).map { podTileArtwork(it.definition, definitions[it.definition]) }, references)
+        assertEquals((shown.cards + next.cards).map { podTileArtwork(definitions[it.definition]) }, references)
         val gate = CompletableDeferred<Unit>()
         val requested = mutableListOf<ArtworkReference>()
         var running = 0

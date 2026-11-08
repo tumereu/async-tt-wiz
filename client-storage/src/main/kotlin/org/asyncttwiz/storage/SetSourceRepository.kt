@@ -49,10 +49,20 @@ class SetSourceRepository(
         return catalog.draftableSets().filter { it.draftable }
     }
     fun isCached(code: String): Boolean = File(directory, "${catalogSetFilename(code)}.json.gz").isFile
-    fun load(code: String): SetSourceUpload = load(code, false)
+    /** Loads [code] from its kept file, downloading it when needed. DRF-089: when cards turn out missing and the set
+     * wasn't downloaded today, it is redownloaded once (with its recipe's dependencies) before they are reported. */
+    fun load(code: String): SetSourceUpload = synchronized(lock) {
+        val upload = load(code, false)
+        if (upload.missingCards.isEmpty() || downloadedToday(code)) upload else load(code, true)
+    }
 
-    /** Also refresh the recipe's dependencies, so manual refresh really replaces its source. */
+    /** Also refresh the recipe's dependencies, so a redownload really replaces its source. */
     fun redownload(code: String): SetSourceUpload = load(code, true)
+
+    private fun downloadedToday(code: String): Boolean {
+        val file = File(directory, "${catalogSetFilename(code)}.json.gz")
+        return file.isFile && java.time.Instant.ofEpochMilli(file.lastModified()).atZone(clock.zone).toLocalDate() == LocalDate.now(clock)
+    }
 
     private fun load(code: String, force: Boolean): SetSourceUpload = synchronized(lock) {
         catalogSetFilename(code)
@@ -190,7 +200,7 @@ class SetSourceRepository(
         val snapshot = SetSourceSnapshot(main.code, main.name, normalized, recipe)
         check(normalized.isNotEmpty()) { "No usable cards for ${main.code}. Update installed card records; missing UUIDs: ${missing.keys}" }
         check(snapshot.validate().isEmpty()) { "Invalid set source ${main.code}: ${snapshot.validate()}; missing cards: ${missing.keys}" }
-        if (missing.isNotEmpty()) warnings += "${missing.size} cards are unavailable and excluded. Update installed card records or redownload the set."
+        if (missing.isNotEmpty()) warnings += "${missing.size} cards are unavailable and excluded. Check for updates in Settings → Card records."
         SetSourceUpload(snapshot, SubmittedDefinitions(definitions.values.toList()), missing.values.toList(), warnings)
     }
 

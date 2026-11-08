@@ -68,7 +68,7 @@ class KeyboardActionKeyTest {
         }
         compose.setContent { ScreenTheme {
             CompositionLocalProvider(LocalSoftwareKeyboardController provides keyboard) {
-                androidx.compose.foundation.layout.Column { PodSetPickerContent(PodSetPickerState(), {}, {}, {}, {}) }
+                androidx.compose.foundation.layout.Column { PodSetPickerContent(PodSetPickerState(), {}, {}, {}) }
             }
         } }
         compose.onNode(hasSetTextAction()).assert(ime(ImeAction.Search)).performImeAction()

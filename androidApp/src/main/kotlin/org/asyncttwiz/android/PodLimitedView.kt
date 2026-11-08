@@ -29,8 +29,8 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import org.asyncttwiz.protocol.*
 
-/** A limited engine's move, sent by [PodController.turn]. */
-internal typealias PodTurnSender = (action: LimitedAction, turn: Int, card: String?, packId: String?, pile: Int?) -> Unit
+/** A limited engine's move, sent by [PodController.turn]; [table] is Winchester's (DRF-158), 0 elsewhere. */
+internal typealias PodTurnSender = (action: LimitedAction, turn: Int, card: String?, packId: String?, pile: Int?, table: Int) -> Unit
 
 /** Who the pod waits for (DRF-071): "Waiting for <names>", Rochester with its round. */
 internal fun podLimitedWaitingText(detail: PodDetail, view: LimitedView, accountId: String): String {
@@ -153,7 +153,9 @@ internal fun PodLimitedArt(copy: DraftCopy, definition: CardDefinition?, modifie
 internal fun podLimitedPrefetchCards(view: LimitedView, definitions: Map<String, CardDefinition>): List<DraftCopy> = when (view.mode) {
     DraftMode.ROTISSERIE -> podRotisserieOrder(view.board, definitions).map { it.copy }
     DraftMode.ROCHESTER -> podRochesterOrder(view).flatMap { pack -> pack.slots.map { it.copy } }
-    DraftMode.WINSTON, DraftMode.WINCHESTER -> view.piles.flatten().filterNotNull()
+    DraftMode.WINSTON -> view.piles.flatten().filterNotNull()
+    // Winchester: every table's piles, in table order (DRF-158).
+    DraftMode.WINCHESTER -> view.tables.flatMap { it.piles.flatten() }.ifEmpty { view.piles.flatten().filterNotNull() }
     else -> emptyList()
 }
 
@@ -231,7 +233,7 @@ internal fun PodRotisserieView(view: LimitedView, members: List<AccountIdentity>
         }
         if (mine) PodLimitedConfirm(selected?.let { id -> "Pick " + (view.board.firstOrNull { it.copy.id == id }
             ?.let { definitions[it.copy.definition]?.name } ?: "card") } ?: "Confirm", !busy && selected != null) {
-            selected?.let { send(LimitedAction.TAKE_CARD, view.turn, it, null, null) }
+            selected?.let { send(LimitedAction.TAKE_CARD, view.turn, it, null, null, 0) }
         }
     }
     PodLimitedPreviewHost(preview, definitions)
@@ -291,7 +293,7 @@ internal fun PodRochesterView(view: LimitedView, members: List<AccountIdentity>,
                 ?.let { definitions[it.copy.definition]?.name } ?: "card" }
             PodLimitedConfirm(name?.let { "Pick $it" } ?: "Confirm", !busy && choice != null) {
                 val pack = choice?.let { (id, _) -> view.packs.firstOrNull { it.id == id } } ?: return@PodLimitedConfirm
-                send(LimitedAction.TAKE_CARD, pack.picks, choice.second, pack.id, null)
+                send(LimitedAction.TAKE_CARD, pack.picks, choice.second, pack.id, null, 0)
             }
         }
     }
@@ -367,31 +369,68 @@ internal fun PodWinstonView(view: LimitedView, members: List<AccountIdentity>, d
             onTap = { _, _ -> })
         if (mine) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             val last = view.piles.drop(view.pile + 1).none { it.isNotEmpty() }
-            OutlinedButton({ send(LimitedAction.PASS_PILE, view.turn, null, null, view.pile) }, Modifier.weight(1f).testTag("pod-winston-pass"),
+            OutlinedButton({ send(LimitedAction.PASS_PILE, view.turn, null, null, view.pile, 0) }, Modifier.weight(1f).testTag("pod-winston-pass"),
                 enabled = !busy && podWinstonCanPass(view)) { ButtonLabel("pass", if (last) "Pass · take top card" else "Pass") }
-            Button({ send(LimitedAction.TAKE_PILE, view.turn, null, null, view.pile) }, Modifier.weight(1f).testTag("pod-winston-take"),
+            Button({ send(LimitedAction.TAKE_PILE, view.turn, null, null, view.pile, 0) }, Modifier.weight(1f).testTag("pod-winston-take"),
                 enabled = !busy && view.piles.getOrNull(view.pile)?.isNotEmpty() == true) { ButtonLabel("take", "Take pile ${view.pile + 1}") }
         }
     }
     PodLimitedPreviewHost(preview, definitions)
 }
 
+/** The [index]-th Winchester table as a one-table view (DRF-158): its turn, stack and piles in place of the first's. */
+internal fun LimitedView.table(index: Int): LimitedView = tables.getOrNull(index)?.let { table ->
+    copy(currentPlayer = table.currentPlayer, turn = table.turn, stack = table.stack, piles = table.piles)
+} ?: this
+
+/** A Winchester table chip: "Table 1 · Your pick", "Table 2 · Bob picks", "Table 3 · Finished". */
+internal fun podTableChipText(index: Int, table: LimitedTableView, me: String, members: List<AccountIdentity>): String =
+    "Table ${index + 1} · " + when (table.currentPlayer) {
+        null -> "Finished"
+        me -> "Your pick"
+        else -> (members.firstOrNull { it.accountId == table.currentPlayer }?.username ?: "Another player") + " picks"
+    }
+
+/** The first table where it is [me]'s pick, or null. */
+internal fun podFirstTableToPick(view: LimitedView, me: String = view.player): Int? =
+    view.tables.indexOfFirst { it.currentPlayer == me }.takeIf { it >= 0 }
+
 /**
  * Winchester (DRF-159): every pile face up with the stack's count. On your turn tap a card of a pile to choose that
- * pile, then "Take pile N".
+ * pile, then "Take pile N". With several tables (DRF-158) a chip row on top shows one table at a time, opening on (and
+ * moving to, after you take a pile) a table where it is your pick.
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun PodWinchesterView(view: LimitedView, members: List<AccountIdentity>, definitions: Map<String, CardDefinition>,
     busy: Boolean, send: PodTurnSender, modifier: Modifier, columns: PodPickColumns) {
-    val mine = view.currentPlayer == view.player && !view.finished
-    var chosen by remember(view.turn) { mutableStateOf<Int?>(null) }
+    var shown by rememberSaveable { mutableIntStateOf(podFirstTableToPick(view) ?: 0) }
+    // After a take at a table: once the server's answer shows it, move to a table where it is your pick (as soon as
+    // there is one); a tap on a chip first keeps the table chosen.
+    var taken by remember { mutableStateOf<Pair<Int, Int>?>(null) }
+    LaunchedEffect(view) {
+        val (index, turn) = taken ?: return@LaunchedEffect
+        if ((view.tables.getOrNull(index)?.turn ?: return@LaunchedEffect) <= turn) return@LaunchedEffect
+        podFirstTableToPick(view)?.let { taken = null; shown = it }
+    }
+    val index = shown.coerceIn(0, (view.tables.size - 1).coerceAtLeast(0))
+    val table = view.table(index)
+    val mine = table.currentPlayer == view.player && !view.finished
+    var chosen by remember(index, table.turn) { mutableStateOf<Int?>(null) }
     val preview = remember { PodLimitedPreview() }
     PodLimitedBoardPrefetch(view, definitions, preview)
     Column(modifier.padding(horizontal = 8.dp)) {
-        PodPiles(view, members, definitions, columns, preview, { it == chosen }, "winchester", Modifier.weight(1f).fillMaxWidth(),
+        if (view.tables.size > 1) FlowRow(Modifier.fillMaxWidth().testTag("pod-winchester-tables"),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            view.tables.forEachIndexed { i, entry ->
+                FilterChip(i == index, { taken = null; shown = i }, label = { Text(podTableChipText(i, entry, view.player, members)) },
+                    modifier = Modifier.testTag("pod-winchester-table-$i"))
+            }
+        }
+        PodPiles(table, members, definitions, columns, preview, { it == chosen }, "winchester", Modifier.weight(1f).fillMaxWidth(),
             onTap = { pile, _ -> if (mine && chosen != pile) chosen = pile })
-        if (mine) PodLimitedConfirm(chosen?.let { "Take pile ${it + 1} (${podCardCount(view.piles[it].size)})" } ?: "Confirm",
-            !busy && chosen != null) { chosen?.let { send(LimitedAction.TAKE_PILE, view.turn, null, null, it) } }
+        if (mine) PodLimitedConfirm(chosen?.let { "Take pile ${it + 1} (${podCardCount(table.piles[it].size)})" } ?: "Confirm",
+            !busy && chosen != null) { chosen?.let { taken = index to table.turn; send(LimitedAction.TAKE_PILE, table.turn, null, null, it, index) } }
     }
     PodLimitedPreviewHost(preview, definitions)
 }

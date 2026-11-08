@@ -64,13 +64,21 @@ val DraftMode.players: IntRange get() = when (this) {
     val pile: Int = 0,
     /** Winston: every card each member has seen in a pile; it stays face up for them. */
     val seen: Map<String, List<String>> = emptyMap(),
+    /** Winchester tables after the first (DRF-158); the first table is [stack], [piles] and [turn]. */
+    val tables: List<LimitedTable> = emptyList(),
 )
 
+/** One Winchester table: its own face-down stack (top card last), face-up piles (each bottom first) and completed turns. */
+@Serializable data class LimitedTable(val stack: List<String>, val piles: List<List<String>>, val turn: Int = 0)
+
 @Serializable enum class LimitedAction { TAKE_CARD, TAKE_PILE, PASS_PILE }
-/** [turn] must be the move's turn: Rochester the pack's picks so far, the others [LimitedDraftState.turn]. */
+/**
+ * [turn] must be the move's turn: Rochester the pack's picks so far, Winchester its [table]'s completed turns, the others
+ * [LimitedDraftState.turn]. [table]: Winchester's zero-based table.
+ */
 @Serializable data class LimitedMove(val player: String, val action: LimitedAction, val turn: Int, val card: String? = null,
-    val packId: String? = null, val pile: Int? = null)
-@Serializable enum class LimitedRejection { DRAFT_FINISHED, WRONG_ACTION, NOT_YOUR_TURN, STALE_TURN, UNKNOWN_CARD, WRONG_PILE, EMPTY_PILE, CANNOT_PASS }
+    val packId: String? = null, val pile: Int? = null, val table: Int = 0)
+@Serializable enum class LimitedRejection { DRAFT_FINISHED, WRONG_ACTION, NOT_YOUR_TURN, STALE_TURN, UNKNOWN_CARD, WRONG_PILE, EMPTY_PILE, CANNOT_PASS, WRONG_TABLE }
 data class LimitedResult(val state: LimitedDraftState? = null, val reason: LimitedRejection? = null)
 
 /** A face-up card on a board or in a pack, with who took it. */
@@ -80,6 +88,8 @@ data class LimitedResult(val state: LimitedDraftState? = null, val reason: Limit
     val currentPlayer: String?,
     /** Picks taken so far (the [LimitedMove.turn] of the next pick). */
     val picks: Int)
+/** One Winchester table as members see it (DRF-158): whose turn it is there, its completed turns, stack count and piles. */
+@Serializable data class LimitedTableView(val currentPlayer: String?, val turn: Int, val stack: Int, val piles: List<List<DraftCopy>>)
 /** One take as the viewer may see it: a card they have not seen is null (a card back). */
 @Serializable data class LimitedPickView(val player: String, val cards: List<DraftCopy?>, val pile: Int? = null, val fromStack: Boolean = false)
 /** What one member may see of a limited draft. */
@@ -111,6 +121,8 @@ data class LimitedResult(val state: LimitedDraftState? = null, val reason: Limit
     val pile: Int = 0,
     /** Winston, Winchester: every take so far, oldest first, as the viewer may see it. */
     val picks: List<LimitedPickView> = emptyList(),
+    /** Winchester: every table, in order; the first is also [currentPlayer], [turn], [stack] and [piles]. */
+    val tables: List<LimitedTableView> = emptyList(),
 )
 
 /**
@@ -207,13 +219,24 @@ object LimitedEngine {
                     LimitedPack("pack-$index", index + 1, index / open, seating[index % n], cards.map { it.id })
                 }))
             }
-            DraftMode.WINSTON, DraftMode.WINCHESTER -> {
+            DraftMode.WINSTON -> {
                 val stack = random.shuffled(copies.map { it.id }).toMutableList()
                 val piles = List(settings.piles) { mutableListOf<String>() }
-                // Winston piles start with one card each; Winchester deals at the start of every turn.
-                if (settings.mode == DraftMode.WINSTON) piles.forEach { pile -> stack.removeLastOrNull()?.let(pile::add) }
-                val state = base.copy(stack = stack, piles = piles)
-                if (settings.mode == DraftMode.WINSTON) settle(look(state)) else settle(dealWinchester(state))
+                // Winston piles start with one card each.
+                piles.forEach { pile -> stack.removeLastOrNull()?.let(pile::add) }
+                settle(look(base.copy(stack = stack, piles = piles)))
+            }
+            DraftMode.WINCHESTER -> {
+                // The shuffled cards split evenly into the tables (one per player at most); each deals at the start of every turn.
+                val stack = random.shuffled(copies.map { it.id })
+                val count = settings.tables.coerceIn(1, n)
+                var start = 0
+                val tables = List(count) { index ->
+                    val size = stack.size / count + if (index < stack.size % count) 1 else 0
+                    dealWinchester(LimitedTable(stack.subList(start, start + size).toList(), List(settings.piles) { emptyList() }))
+                        .also { start += size }
+                }
+                settle(withTables(base, tables))
             }
             else -> error("Not a limited mode")
         }
@@ -234,9 +257,21 @@ object LimitedEngine {
     private fun turnPlayer(state: LimitedDraftState): String? = when {
         state.finished -> null
         state.settings.mode == DraftMode.ROTISSERIE -> snake(state.seating, state.turn)
-        state.settings.mode == DraftMode.WINSTON || state.settings.mode == DraftMode.WINCHESTER -> state.seating[state.turn % state.seating.size]
+        state.settings.mode == DraftMode.WINSTON -> state.seating[state.turn % state.seating.size]
+        state.settings.mode == DraftMode.WINCHESTER -> tablePlayer(state, 0, tables(state).first())
         else -> null
     }
+
+    /** Winchester: every table, the first from the state's own stack, piles and turn. */
+    private fun tables(state: LimitedDraftState): List<LimitedTable> = listOf(LimitedTable(state.stack, state.piles, state.turn)) + state.tables
+    private fun withTables(state: LimitedDraftState, tables: List<LimitedTable>): LimitedDraftState =
+        state.copy(stack = tables.first().stack, piles = tables.first().piles, turn = tables.first().turn, tables = tables.drop(1))
+    private val LimitedTable.empty: Boolean get() = stack.isEmpty() && piles.all { it.isEmpty() }
+    /** Winchester: whose turn it is at the [index]-th table; each table's turn order starts one seat later (DRF-158). */
+    private fun tablePlayer(state: LimitedDraftState, index: Int, table: LimitedTable): String? =
+        if (state.finished || table.empty) null else state.seating[(table.turn + index) % state.seating.size]
+    /** Winchester queue entries: "turn" for the first table, "turn:N" for the N-th after it. */
+    private fun tableQueue(index: Int) = if (index == 0) TURN else "$TURN:$index"
 
     /** Recomputes [LimitedDraftState.queues], the Rochester round and whether the draft is over. */
     private fun settle(state: LimitedDraftState): LimitedDraftState {
@@ -244,7 +279,8 @@ object LimitedEngine {
         val finished = when (settings.mode) {
             DraftMode.ROTISSERIE -> state.turn >= rotisserieTurns(state) || state.log.size >= state.board.size
             DraftMode.ROCHESTER -> state.packs.all { it.empty }
-            DraftMode.WINSTON, DraftMode.WINCHESTER -> state.stack.isEmpty() && state.piles.all { it.isEmpty() }
+            DraftMode.WINSTON -> state.stack.isEmpty() && state.piles.all { it.isEmpty() }
+            DraftMode.WINCHESTER -> tables(state).all { it.empty }
             else -> true
         }
         val round = if (settings.mode == DraftMode.ROCHESTER)
@@ -255,6 +291,8 @@ object LimitedEngine {
                 finished -> emptyList()
                 settings.mode == DraftMode.ROCHESTER ->
                     next.packs.filter { it.round == round && packPlayer(next, it) == player }.map { it.id }
+                settings.mode == DraftMode.WINCHESTER -> tables(next).withIndex()
+                    .filter { (index, table) -> tablePlayer(next, index, table) == player }.map { tableQueue(it.index) }
                 turnPlayer(next) == player -> listOf(TURN)
                 else -> emptyList()
             }
@@ -270,11 +308,11 @@ object LimitedEngine {
         return state.copy(seen = state.seen + (player to known + cards.filter { it !in known }))
     }
 
-    /** Winchester: every pile gets one card from the stack at the start of a turn. */
-    private fun dealWinchester(state: LimitedDraftState): LimitedDraftState {
-        val stack = state.stack.toMutableList()
-        val piles = state.piles.map { pile -> stack.removeLastOrNull()?.let { pile + it } ?: pile }
-        return state.copy(stack = stack, piles = piles)
+    /** Winchester: every pile of a table gets one card from its stack at the start of a turn. */
+    private fun dealWinchester(table: LimitedTable): LimitedTable {
+        val stack = table.stack.toMutableList()
+        val piles = table.piles.map { pile -> stack.removeLastOrNull()?.let { pile + it } ?: pile }
+        return table.copy(stack = stack, piles = piles)
     }
 
     fun act(state: LimitedDraftState, move: LimitedMove): LimitedResult {
@@ -335,14 +373,17 @@ object LimitedEngine {
             }
             DraftMode.WINCHESTER -> {
                 if (move.action != LimitedAction.TAKE_PILE) return reject(LimitedRejection.WRONG_ACTION)
-                if (turnPlayer(state) != move.player) return reject(LimitedRejection.NOT_YOUR_TURN)
-                if (move.turn != state.turn) return reject(LimitedRejection.STALE_TURN)
+                val tables = tables(state)
+                val table = tables.getOrNull(move.table) ?: return reject(LimitedRejection.WRONG_TABLE)
+                if (tablePlayer(state, move.table, table) != move.player) return reject(LimitedRejection.NOT_YOUR_TURN)
+                if (move.turn != table.turn) return reject(LimitedRejection.STALE_TURN)
                 val index = move.pile ?: return reject(LimitedRejection.WRONG_PILE)
-                val cards = state.piles.getOrNull(index) ?: return reject(LimitedRejection.WRONG_PILE)
+                val cards = table.piles.getOrNull(index) ?: return reject(LimitedRejection.WRONG_PILE)
                 if (cards.isEmpty()) return reject(LimitedRejection.EMPTY_PILE)
-                val piles = state.piles.toMutableList().also { it[index] = emptyList() }
-                val next = take(state.copy(piles = piles), LimitedTake(move.player, cards, pile = index)).copy(turn = state.turn + 1)
-                return LimitedResult(settle(dealWinchester(next)))
+                val piles = table.piles.toMutableList().also { it[index] = emptyList() }
+                val dealt = dealWinchester(table.copy(piles = piles, turn = table.turn + 1))
+                val next = withTables(state, tables.toMutableList().also { it[move.table] = dealt })
+                return LimitedResult(settle(take(next, LimitedTake(move.player, cards, pile = index))))
             }
             else -> return reject(LimitedRejection.WRONG_ACTION)
         }
@@ -366,7 +407,8 @@ object LimitedEngine {
                 val start = state.seating.indexOf(pack.opener)
                 (pack.picked.size until pack.cards.size).takeWhile { snake(state.seating, it, start) == player }.count()
             }
-            else -> 1
+            // Winchester: one pick per table where it is their turn.
+            else -> state.queues.getValue(player).size
         }
     }
 
@@ -400,6 +442,10 @@ object LimitedEngine {
                     picks = state.log.map { take ->
                         LimitedPickView(take.player, take.cards.map { if (take.player == viewer) copies.getValue(it) else shown(it) },
                             take.pile, take.fromStack)
+                    },
+                    tables = if (mode != DraftMode.WINCHESTER) emptyList() else tables(state).mapIndexed { index, table ->
+                        LimitedTableView(tablePlayer(state, index, table), table.turn, table.stack.size,
+                            table.piles.map { pile -> pile.map(copies::getValue) })
                     })
             }
             else -> base

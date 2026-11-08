@@ -1,0 +1,1 @@
+mod: Stats counts mana sources from what the cards can really make, mana creatures and rocks too, and shows them as bars per colour.

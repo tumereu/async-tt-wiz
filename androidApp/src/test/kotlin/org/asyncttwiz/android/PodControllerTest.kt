@@ -526,7 +526,6 @@ class PodControllerTest {
         override fun sets(): List<DraftableSet> { calls += "sets"; return listOf(DraftableSet("TST", "Test set", "2026-10-01", 1, "expansion")) }
         override fun isCached(code: String) = true
         override fun load(code: String): SetSourceUpload { calls += "load:$code"; if (fail) error("offline"); return upload }
-        override fun redownload(code: String): SetSourceUpload { calls += "redownload:$code"; if (fail) error("offline"); return upload }
         /** DRF-161: the support worked out so far, the background requests and the sets worked out at once. */
         val support = mutableMapOf<String, List<String>>()
         val requested = mutableListOf<List<String>>()
@@ -753,16 +752,8 @@ class PodControllerTest {
         assertEquals(PodSourceKind.SET, f.controller.state.detail!!.source.kind)
     }
 
-    @Test fun setDownloadAndRedownloadErrorsCanRetryWithoutSelectingOrUploadingOnManualRefresh() = Fixture(PodPhase.SETUP).use { f ->
+    @Test fun setDownloadErrorsDoNotSelectOrUpload() = Fixture(PodPhase.SETUP).use { f ->
         f.controller.newPod(); f.deliver(); f.controller.chooseSet(); f.deliver()
-        f.sets.fail = true; f.controller.setPicker.redownload("TST"); f.deliver()
-        assertNotNull(f.controller.setPicker.state.error)
-        assertFalse(f.controller.setPicker.state.busy)
-        f.sets.fail = false; f.controller.setPicker.retry(); f.deliver()
-        assertEquals(listOf("sets", "redownload:TST", "redownload:TST"), f.sets.calls)
-        assertTrue(f.controller.setPicker.state.rows.single().cached)
-        assertTrue(f.controller.setPicker.state.open)
-        assertNull(f.controller.state.creating!!.setSource)
         f.sets.fail = true; f.controller.setPicker.choose("TST"); f.deliver()
         assertNotNull(f.controller.setPicker.state.error)
         assertNull(f.controller.state.sourcePreview)
@@ -1282,7 +1273,7 @@ class PodControllerTest {
         f.controller.newSettings { it.copy(packsPerPlayer = 5, librarians = 2, sideboardLimit = 7) }
         val presets = f.controller.presets
         presets.open(); f.deliver()
-        assertEquals(listOf("Booster", "Glimpse"), presets.state.filtered.map { it.name })
+        assertEquals(listOf("Glimpse"), presets.state.filtered.map { it.name })
         presets.choose(presets.state.filtered.single { it.name == "Glimpse" })
         val draft = f.controller.state.creating!!
         assertEquals(cube.id, draft.cubeId)

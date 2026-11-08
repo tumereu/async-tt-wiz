@@ -45,13 +45,13 @@ internal fun PodSourcePickerDialog(controller: PodController, manageCubes: () ->
                     }
                 }
             }
-        } else PodSetPickerContent(picker.state, picker::query, picker::choose, picker::redownload, picker::retry, picker::showing)
+        } else PodSetPickerContent(picker.state, picker::query, picker::choose, picker::retry, picker::showing)
     }
 }
 
 @Composable
 internal fun PodSetPickerContent(state: PodSetPickerState, query: (String) -> Unit, choose: (String) -> Unit,
-    redownload: (String) -> Unit, retry: () -> Unit, showing: (List<String>) -> Unit = {}) {
+    retry: () -> Unit, showing: (List<String>) -> Unit = {}) {
     OutlinedTextField(state.query, query, Modifier.fillMaxWidth(), label = { Text("Search name, code or release date") }, singleLine = true,
         keyboardOptions = imeOptions(ImeAction.Search), keyboardActions = hideKeyboardActions())
     val rows = state.filtered
@@ -72,7 +72,6 @@ internal fun PodSetPickerContent(state: PodSetPickerState, query: (String) -> Un
                     Text(row.set.name)
                 }
                 AutomatumSupportIcon(state.support(row.set.code) ?: row.automatum)
-                if (row.cached) ScreenIconButton("Redownload ${row.set.code}", "refresh", { redownload(row.set.code) }, enabled = !state.busy)
             }
         }
     }

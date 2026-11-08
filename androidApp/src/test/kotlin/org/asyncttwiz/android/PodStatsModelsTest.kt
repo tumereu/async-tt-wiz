@@ -29,6 +29,10 @@ class PodStatsModelsTest {
     }
     private fun card(name: String, type: String, cost: String = "", text: String = "") =
         CardDefinition(name, listOf(DefinitionFace("front", name, typeLine = type, manaCost = cost, rulesText = text)))
+    /** Each card's mana colours as the device works them out: from its Automatum definition, parsed from its rules text. */
+    private fun mana(definitions: Map<String, CardDefinition>) = definitions.mapValues { (_, card) ->
+        podStatsManaColors(assertNotNull(org.asyncttwiz.protocol.game.GameCards.parse(card).definition, card.name))
+    }
 
     // DRF-114
     @Test fun coloredPipsHandleHybridPhyrexianHalfPipsAndIgnoreGenericXAndBack() {
@@ -109,12 +113,12 @@ class PodStatsModelsTest {
     }
 
     // DRF-111, DRF-115
-    @Test fun mainIncludesBasicsAndDuplicateCopiesButNotSideTrashOrNonlandSources() {
+    @Test fun mainIncludesBasicsAndDuplicateCopiesButNotSideTrashAndCountsNonlandSourcesApart() {
         val definitions = mapOf(
             "creature" to card("Elf", "Creature — Elf", "{G}", "{T}: Add {G}."),
             "spell" to card("Spell", "Instant", "{X}{2}{W/U}{B/P}"),
             "dual" to card("Dual", "Land — Plains Island"),
-            "textLand" to card("Other", "Land", text = "{B}, {T}: Add {R}{R} or {G}."),
+            "textLand" to card("Other", "Land", text = "{B}, {T}: Add {R} or {G}."),
             "creatureLand" to card("Dryad", "Land Creature — Forest Dryad"),
         )
         val copies = listOf(DraftCopy("c1", "creature"), DraftCopy("c2", "creature"), DraftCopy("s", "spell"),
@@ -124,13 +128,17 @@ class PodStatsModelsTest {
             "trash" -> PodDeckCategory.TRASH
             else -> PodDeckCategory.MAIN
         }) }, PodDeckBasics(plains = 3, island = 2, swamp = 1, mountain = 4, forest = 5))
-        val stats = podStats(build, copies, definitions)
+        val stats = podStats(build, copies, definitions, mana(definitions))
         assertEquals(mapOf(1.0 to PodStatsCurveBucket(creatures = 2), 4.0 to PodStatsCurveBucket(noncreatures = 1)), stats.curve)
         assertEquals(2, stats.creatures)
         assertEquals(1, stats.noncreatures)
         assertEquals(18L, stats.lands)
         assertEquals(mapOf(DraftColor.W to 0.5, DraftColor.U to 0.5, DraftColor.B to 1.0, DraftColor.R to 0.0, DraftColor.G to 2.0), stats.pips)
         assertEquals(mapOf(DraftColor.W to 4L, DraftColor.U to 3L, DraftColor.B to 1L, DraftColor.R to 5L, DraftColor.G to 7L), stats.sources)
+        // The two Elves are other sources, apart from the lands.
+        assertEquals(mapOf(DraftColor.W to 0L, DraftColor.U to 0L, DraftColor.B to 0L, DraftColor.R to 0L, DraftColor.G to 2L), stats.otherSources)
+        assertEquals(18L, stats.sourceLands)
+        assertEquals(2, stats.sourceOthers)
         assertEquals(0, stats.missingDefinitions)
     }
 
@@ -175,12 +183,52 @@ class PodStatsModelsTest {
         assertEquals("", podStatsFrontCost(card.copy(faces = listOf(card.faces.first().copy(sourceData = "invalid")))))
     }
 
-    // DRF-115
+    // DRF-115, CR 605.1a: sources are the colours of the cards' mana abilities, each colour once; activation costs and
+    // nonland cards never make a land source; basic land types count (CR 305.6).
     @Test fun landSourcesCountAColorOnceAndExcludeActivationCostsAndNonlands() {
-        assertEquals(setOf(DraftColor.U, DraftColor.B), podStatsLandColors(card("Land", "Land", text = "{R}, {T}: Add {U}{U} or {B}. Spend {G} only on creatures.")))
-        assertEquals(DraftColor.entries.toSet(), podStatsLandColors(card("Rainbow", "Land", text = "{T}: Add one mana of any color.")))
-        assertEquals(emptySet(), podStatsLandColors(card("Elf", "Creature", text = "{T}: Add {G}.")))
+        val land = card("Land", "Land", text = "{R}, {T}: Add {U} or {B}.")
+        assertEquals(setOf(DraftColor.U, DraftColor.B), podStatsLandColors(land, mana(mapOf("l" to land)).getValue("l")))
+        val rainbow = card("Rainbow", "Land", text = "{T}: Add one mana of any color.")
+        assertEquals(DraftColor.entries.toSet(), podStatsLandColors(rainbow, mana(mapOf("r" to rainbow)).getValue("r")))
+        assertEquals(emptySet(), podStatsLandColors(card("Elf", "Creature", text = "{T}: Add {G}."), setOf(DraftColor.G)))
         assertEquals(setOf(DraftColor.W, DraftColor.G), podStatsLandColors(card("Typed", "Land — Plains Forest")))
+        // Without its definition a land makes no colour from its text: only its basic land types count.
+        assertEquals(emptySet(), podStatsLandColors(land))
+    }
+
+    // DRF-115, CR 605.1a, CR 605.5b: mana sources from Automatum's parsed mana abilities, lands and nonland permanents
+    // apart; a card making several colours counts once for each; rituals and Treasure makers are not sources.
+    @Test fun manaSourcesComeFromParsedManaAbilitiesOfLandsAndNonlandPermanents() {
+        val definitions = mapOf(
+            "dual" to card("Mistvale Crossing", "Land", text = "{T}: Add {U} or {B}."),
+            "prism" to card("Prism Hollow", "Land", text = "{T}: Add {C}.\n{1}, {T}: Add one mana of any color."),
+            "banner" to card("Banner Keep", "Land", text = "As Banner Keep enters, choose a color.\n{T}: Add one mana of the chosen color."),
+            "tender" to card("Thicket Tender", "Creature — Elf Druid", "{G}", "{T}: Add {G}."),
+            "signet" to card("Ember Signet", "Artifact", "{2}", "{1}, {T}: Add {R}{W}."),
+            "rite" to card("Grave Rite", "Instant", "{B}", "Add {B}{B}{B}."),
+            "prospector" to card("Gilded Prospector", "Creature — Goblin", "{2}{R}", "When this creature enters, create a Treasure token."),
+        )
+        val colors = mana(definitions)
+        val all = DraftColor.entries.toSet()
+        assertEquals(mapOf("dual" to setOf(DraftColor.U, DraftColor.B), "prism" to all, "banner" to all,
+            "tender" to setOf(DraftColor.G), "signet" to setOf(DraftColor.R, DraftColor.W), "rite" to emptySet(),
+            "prospector" to emptySet()), colors)
+        val copies = definitions.keys.associateWith { DraftCopy(it, it) }
+        val stats = podStats(PodDeckBuild(copies.keys.map { PodDeckCopy(it) }, PodDeckBasics(plains = 2, forest = 1)),
+            copies, definitions, colors)
+        assertEquals(mapOf(DraftColor.W to 4L, DraftColor.U to 3L, DraftColor.B to 3L, DraftColor.R to 2L, DraftColor.G to 3L), stats.sources)
+        assertEquals(mapOf(DraftColor.W to 1L, DraftColor.U to 0L, DraftColor.B to 0L, DraftColor.R to 1L, DraftColor.G to 1L), stats.otherSources)
+        assertEquals(6L, stats.sourceLands)
+        assertEquals(2, stats.sourceOthers)
+        assertEquals(0, stats.colorlessLands)
+        // A card the device couldn't read makes no colour (no text matching).
+        val unread = podStats(PodDeckBuild(copies.keys.map { PodDeckCopy(it) }), copies, definitions, colors - "tender" - "dual")
+        assertEquals(1, unread.colorlessLands)
+        assertEquals(0L, unread.otherSources.getValue(DraftColor.G))
+        assertEquals("7", podStatsSourceText(7, 0))
+        assertEquals("7 + 2", podStatsSourceText(7, 2))
+        assertEquals("Sources: 17 lands, 3 others", podStatsSourcesLine(17, 3))
+        assertEquals("Sources: 1 land, 1 other", podStatsSourcesLine(1, 1))
     }
 
     @Test fun missingDefinitionsAreReportedAndEmptyPoolStillCountsBasics() {

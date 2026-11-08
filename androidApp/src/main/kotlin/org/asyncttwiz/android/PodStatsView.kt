@@ -50,7 +50,16 @@ fun PodStatsView(
     notes: PodDeckNotes? = null,
     onNotes: ((PodDeckNotes) -> PodDeckNotes) -> Unit = {},
 ) {
-    val stats = remember(build, copies, definitions) { podStats(build, copies, definitions) }
+    // DRF-115: mana sources from the cards' Automatum definitions, worked out off the main thread (none until known).
+    val check = LocalCardListSupport.current
+    val manaColors by produceState(emptyMap<String, Set<DraftColor>>(), check, definitions) {
+        value = check?.let {
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
+                runCatching { podStatsManaColors(it.parsed(definitions.map { (digest, card) -> SubmittedDefinition(digest, card) })) }.getOrNull()
+            }
+        }.orEmpty()
+    }
+    val stats = remember(build, copies, definitions, manaColors) { podStats(build, copies, definitions, manaColors) }
     BoxWithConstraints(modifier.fillMaxSize()) {
         val wide = maxWidth >= 600.dp
         LazyColumn(Modifier.fillMaxSize().testTag("pod-stats"), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -99,22 +108,50 @@ private fun PodStatsTypes(types: List<Pair<String, Long>>) {
     }
 }
 
-/** Pips and land sources per color as plain numbers, then the cards grouped by their colored cost symbols. */
+/** The sources' total line: "Sources: 17 lands, 3 others" ("1 land", "1 other"). */
+internal fun podStatsSourcesLine(lands: Long, others: Int): String =
+    "Sources: $lands ${if (lands == 1L) "land" else "lands"}, $others ${if (others == 1) "other" else "others"}"
+
+/** A colour's sources beside its bar: "7" (lands only) or "7 + 2" (lands + other producers). */
+internal fun podStatsSourceText(lands: Long, others: Long): String = if (others == 0L) "$lands" else "$lands + $others"
+
+/**
+ * Pips per colour as plain numbers and the colour's sources as a bar (lands solid, other producers lighter) with their
+ * numbers, a total line, then the cards grouped by their colored cost symbols (DRF-114, DRF-115).
+ */
 @Composable
 private fun PodStatsMana(stats: PodStats, modifier: Modifier) {
     val style = MaterialTheme.typography.bodyMedium
+    val most = DraftColor.entries.maxOf { stats.sources.getValue(it) + stats.otherSources.getValue(it) }.coerceAtLeast(1)
+    val solid = MaterialTheme.colorScheme.primary
+    val light = MaterialTheme.colorScheme.primary.copy(alpha = .35f)
+    val track = MaterialTheme.colorScheme.surfaceContainerHighest
     Column(modifier.testTag("pod-stats-mana"), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Row(Modifier.fillMaxWidth()) {
-            Spacer(Modifier.width(40.dp))
-            Text("Pips", Modifier.weight(1f), style = MaterialTheme.typography.labelLarge, textAlign = TextAlign.End)
-            Text("Land sources", Modifier.weight(1.5f), style = MaterialTheme.typography.labelLarge, textAlign = TextAlign.End)
+            Spacer(Modifier.width(32.dp))
+            Text("Pips", Modifier.width(40.dp), style = MaterialTheme.typography.labelLarge, textAlign = TextAlign.End)
+            Spacer(Modifier.width(12.dp))
+            Text("Sources", Modifier.weight(1f), style = MaterialTheme.typography.labelLarge)
         }
         for (color in DraftColor.entries) Row(Modifier.fillMaxWidth().testTag("pod-stats-mana-${color.name}")
             .semantics(mergeDescendants = true) {}, verticalAlignment = Alignment.CenterVertically) {
-            CardText("{${color.name}}", Modifier.width(40.dp), style = MaterialTheme.typography.titleMedium)
-            Text(podStatsPipText(stats.pips.getValue(color)), Modifier.weight(1f), style = style, textAlign = TextAlign.End)
-            Text("${stats.sources.getValue(color)}", Modifier.weight(1.5f), style = style, textAlign = TextAlign.End)
+            val lands = stats.sources.getValue(color)
+            val others = stats.otherSources.getValue(color)
+            CardText("{${color.name}}", Modifier.width(32.dp), style = MaterialTheme.typography.titleMedium)
+            Text(podStatsPipText(stats.pips.getValue(color)), Modifier.width(40.dp), style = style, textAlign = TextAlign.End)
+            Spacer(Modifier.width(12.dp))
+            Canvas(Modifier.weight(1f).height(10.dp).testTag("pod-stats-bar-${color.name}")) {
+                val radius = androidx.compose.ui.geometry.CornerRadius(size.height / 2)
+                drawRoundRect(track, cornerRadius = radius)
+                val total = size.width * (lands + others) / most
+                if (total > 0) drawRoundRect(light, size = Size(total, size.height), cornerRadius = radius)
+                val land = size.width * lands / most
+                if (land > 0) drawRoundRect(solid, size = Size(land, size.height), cornerRadius = radius)
+            }
+            Text(podStatsSourceText(lands, others), Modifier.widthIn(min = 48.dp).padding(start = 8.dp), style = style)
         }
+        Text(podStatsSourcesLine(stats.sourceLands, stats.sourceOthers), Modifier.testTag("pod-stats-sources"),
+            style = MaterialTheme.typography.labelMedium)
         if (stats.colorlessLands > 0) Text("Lands without a color: ${stats.colorlessLands}", style = MaterialTheme.typography.labelMedium)
         if (stats.pipPatterns.isNotEmpty() || stats.noPips > 0) Spacer(Modifier.height(8.dp))
         stats.pipPatterns.forEachIndexed { index, (pattern, count) ->

@@ -29,7 +29,9 @@ internal enum class PodSetting(val label: String) {
     /** Winston and Winchester. */
     PILES("Piles"),
     /** Sealed from a set. */
-    BOOSTERS("Boosters");
+    BOOSTERS("Boosters"),
+    /** Winchester: independent tables (DRF-158). */
+    TABLES("Tables");
 
     fun value(s: DraftSettings): Int? = when (this) {
         PACKS -> s.packsPerPlayer; PACK_SIZE -> s.cardsPerPack; KEEP -> s.keep; BURN -> s.burn
@@ -37,6 +39,7 @@ internal enum class PodSetting(val label: String) {
         OPEN_GRIDS -> s.gridsOpenAtOnce; SIDEBOARD -> s.sideboardLimit
         LIBRARIANS -> s.librarians
         TABLE_OPEN -> s.tablePacksOpen; CARDS_EACH -> s.cardsPerPlayer; PILES -> s.piles; BOOSTERS -> s.packsPerPlayer
+        TABLES -> s.tables
     }
     /** The empty value's tile and toggle text: Sideboard ∞, Rochester's open packs "1 each" (one per player). */
     val emptyText: String? get() = when (this) { SIDEBOARD -> "∞"; TABLE_OPEN -> "1 each"; else -> null }
@@ -55,6 +58,7 @@ internal enum class PodSetting(val label: String) {
         CARDS_EACH -> 5..225
         PILES -> if (s.mode == DraftMode.WINCHESTER) 2..8 else 2..6
         BOOSTERS -> 1..30
+        TABLES -> 1..DraftMode.WINCHESTER.players.last
     }
     fun limit(s: DraftSettings): String = when (this) {
         PACKS -> if (s.mode.limited) "1–15" else "Open packs: ${s.packsOpenAtOnce}; maximum 30"
@@ -71,6 +75,7 @@ internal enum class PodSetting(val label: String) {
         CARDS_EACH -> "5–225"
         PILES -> "${range(s).first}–${range(s).last}"
         BOOSTERS -> "1–30"
+        TABLES -> "1–${range(s).last}; more than the players gives one table each"
     }
     /** Plain-words meaning shown in the value dialog. */
     fun explanation(s: DraftSettings): String = when (this) {
@@ -90,6 +95,7 @@ internal enum class PodSetting(val label: String) {
         CARDS_EACH -> if (s.mode == DraftMode.SEALED) "How many random cube cards each player gets." else "How many cards each player picks from the pool."
         PILES -> if (s.mode == DraftMode.WINCHESTER) "How many face-up piles lie on the table." else "How many piles lie on the table."
         BOOSTERS -> "How many boosters each player opens."
+        TABLES -> "How many separate tables the cards are split into, each with its own stack and piles, so players can pick at different tables at the same time."
     }
     fun valid(text: String, s: DraftSettings) = text.toIntOrNull()?.let { it in range(s) } == true
     fun apply(s: DraftSettings, value: Int?): DraftSettings = when (this) {
@@ -101,6 +107,7 @@ internal enum class PodSetting(val label: String) {
         LIBRARIANS -> s.copy(librarians = value!!)
         TABLE_OPEN -> s.copy(tablePacksOpen = value)
         CARDS_EACH -> s.copy(cardsPerPlayer = value!!); PILES -> s.copy(piles = value!!); BOOSTERS -> s.copy(packsPerPlayer = value!!)
+        TABLES -> s.copy(tables = value!!)
     }
 }
 
@@ -111,7 +118,8 @@ internal fun podSettingFields(settings: DraftSettings, source: PodSource): List<
         DraftMode.GRID -> listOf(PodSetting.GRIDS, PodSetting.OPEN_GRIDS)
         DraftMode.ROCHESTER -> listOfNotNull(PodSetting.PACKS, PodSetting.PACK_SIZE.takeIf { packSize }, PodSetting.TABLE_OPEN)
         DraftMode.ROTISSERIE -> listOf(PodSetting.CARDS_EACH)
-        DraftMode.WINSTON, DraftMode.WINCHESTER -> listOfNotNull(PodSetting.PACKS, PodSetting.PACK_SIZE.takeIf { packSize }, PodSetting.PILES)
+        DraftMode.WINSTON -> listOfNotNull(PodSetting.PACKS, PodSetting.PACK_SIZE.takeIf { packSize }, PodSetting.PILES)
+        DraftMode.WINCHESTER -> listOfNotNull(PodSetting.PACKS, PodSetting.PACK_SIZE.takeIf { packSize }, PodSetting.PILES, PodSetting.TABLES)
         DraftMode.SEALED -> listOf(if (source.kind == PodSourceKind.SET) PodSetting.BOOSTERS else PodSetting.CARDS_EACH)
         DraftMode.BOOSTER, DraftMode.GLIMPSE -> listOfNotNull(PodSetting.PACKS, PodSetting.PACK_SIZE.takeIf { packSize },
             PodSetting.KEEP, PodSetting.BURN, PodSetting.DISCARD, PodSetting.OPEN_PACKS, PodSetting.LIBRARIANS)

@@ -1,0 +1,1 @@
+mod: Sets no longer have a Redownload button; a set with missing cards is downloaded again by itself.

@@ -1,7 +1,17 @@
 package org.asyncttwiz.android
 
+import arcanum.api.Ability
+import arcanum.api.Effect
+import arcanum.api.Instructions
+import arcanum.api.ManaKind
+import arcanum.api.ManaSymbol
+import arcanum.api.Step
+import arcanum.api.isManaAbility
 import kotlinx.serialization.json.*
 import org.asyncttwiz.protocol.*
+import org.asyncttwiz.storage.ParsedCard
+import arcanum.api.CardDefinition as RulesCard
+import arcanum.api.Color as RulesColor
 
 internal data class PodStats(
     val curve: Map<Double, PodStatsCurveBucket>,
@@ -9,11 +19,17 @@ internal data class PodStats(
     val noncreatures: Int,
     val lands: Long,
     val pips: Map<DraftColor, Double>,
+    /** Land sources per colour (DRF-114): basics, basic land types and the lands' mana abilities. */
     val sources: Map<DraftColor, Long>,
     val colors: Map<PodStatsColor, Int>,
     val missingDefinitions: Int,
     /** Main lands (not basics) that produce no colored mana by [podStatsLandColors]. */
     val colorlessLands: Int = 0,
+    /** Nonland sources per colour (DRF-115): nonland permanents whose mana abilities can add it. */
+    val otherSources: Map<DraftColor, Long> = DraftColor.entries.associateWith { 0L },
+    /** Lands that make at least one colour, basics included, and nonland permanents that do (the total line). */
+    val sourceLands: Long = 0,
+    val sourceOthers: Int = 0,
     /** Main nonland copies per colored-symbol pattern of the front cost, most common first. */
     val pipPatterns: List<Pair<String, Int>> = emptyList(),
     val noPips: Int = 0,
@@ -30,6 +46,7 @@ internal enum class PodStatsColor { W, U, B, R, G, MULTICOLOR, COLORLESS }
 private val podStatsSymbols = Regex("\\{([^{}]+)\\}")
 private val podStatsLand = Regex("\\bLand\\b", RegexOption.IGNORE_CASE)
 private val podStatsCreature = Regex("\\bCreature\\b", RegexOption.IGNORE_CASE)
+private val podStatsPermanent = Regex("\\b(Artifact|Creature|Enchantment|Planeswalker|Battle)\\b", RegexOption.IGNORE_CASE)
 private val podStatsBasicTypes = listOf("Plains", "Island", "Swamp", "Mountain", "Forest")
 
 /** Each word of the front type line before the type/subtype dash: "Legendary Artifact Creature — Golem" gives three. */
@@ -92,8 +109,11 @@ internal fun podStatsPips(cost: String): Map<DraftColor, Double> {
     return result
 }
 
-/** Deliberately approximate: one source per produced color per land, not mana quantity. */
-internal fun podStatsLandColors(card: CardDefinition): Set<DraftColor> {
+/**
+ * One source per produced colour per land, not mana quantity (DRF-115): its front face's basic land types (CR 305.6) and
+ * the colours its mana abilities can add ([manaColors], from its Automatum definition; none when that is missing).
+ */
+internal fun podStatsLandColors(card: CardDefinition, manaColors: Set<DraftColor> = emptySet()): Set<DraftColor> {
     val face = card.faces.firstOrNull() ?: return emptySet()
     if (!podStatsLand.containsMatchIn(face.typeLine)) return emptySet()
     val result = mutableSetOf<DraftColor>()
@@ -101,17 +121,78 @@ internal fun podStatsLandColors(card: CardDefinition): Set<DraftColor> {
     podStatsBasicTypes.forEachIndexed { index, name ->
         if (Regex("\\b$name\\b", RegexOption.IGNORE_CASE).containsMatchIn(subtypes)) result += DraftColor.entries[index]
     }
-    // Limit symbols to an Add clause: activation costs and unrelated rules aren't sources.
-    Regex("\\bAdd\\b([^.;\\n]*)", RegexOption.IGNORE_CASE).findAll(face.rulesText).forEach { clause ->
-        podStatsSymbols.findAll(clause.groupValues[1]).forEach { symbol ->
-            symbol.groupValues[1].uppercase().split('/').forEach { part ->
-                DraftColor.entries.firstOrNull { it.name == part }?.let(result::add)
-            }
-        }
-        if (Regex("\\bany colou?r\\b", RegexOption.IGNORE_CASE).containsMatchIn(clause.value)) result += DraftColor.entries
-    }
-    return result
+    return result + manaColors
 }
+
+/**
+ * DRF-115: the colours the mana abilities (CR 605) of [card]'s front face can add, one each: a card adding one colour at
+ * a time, "any color" or a colour chosen as it enters counts every colour it may make. A spell adding mana (a ritual)
+ * has no mana ability, and the tokens a card creates (Treasure) are abilities of their own, so neither counts.
+ */
+internal fun podStatsManaColors(card: RulesCard): Set<DraftColor> =
+    card.faces.firstOrNull()?.abilities.orEmpty().filter { it.isManaAbility() }.flatMap { ability ->
+        val instructions = when (ability) {
+            is Ability.Activated -> ability.instructions
+            is Ability.Triggered -> ability.instructions
+            else -> return@flatMap emptyList()
+        }
+        podStatsAddedMana(instructions).flatMap(::podStatsKindColors)
+    }.toSet()
+
+/** Every mana an ability's resolution can add, in nested steps, modes and its own replacements too. */
+private fun podStatsAddedMana(instructions: Instructions): List<ManaKind> {
+    val found = mutableListOf<ManaKind>()
+    fun visit(steps: List<Step>) {
+        for (step in steps) when (step) {
+            is Step.Do -> (step.effect as? Effect.AddMana)?.let { found += it.mana.kind }
+            is Step.Simultaneously -> visit(step.steps)
+            is Step.Pay -> visit(step.steps)
+            is Step.May -> visit(step.steps)
+            is Step.If -> { visit(step.then); visit(step.otherwise) }
+            is Step.ForEach -> visit(step.steps)
+            is Step.Repeat -> visit(step.steps)
+            is Step.RepeatWhile -> visit(step.steps)
+            else -> Unit
+        }
+    }
+    fun visit(instructions: Instructions) {
+        visit(instructions.steps)
+        instructions.modes?.options.orEmpty().forEach { visit(it.instructions) }
+        instructions.replacements.forEach { replacement -> replacement.instead?.let { visit(it) } }
+    }
+    visit(instructions)
+    return found
+}
+
+private fun RulesColor.draftColor(): DraftColor = DraftColor.entries.first { it.name == symbol.toString() }
+
+/** The colours one kind of added mana can be: its symbols' colours, or every colour it may be chosen as. Mana "of any
+ * type a land could produce" or "of the type produced" adds no colour of its own. */
+private fun podStatsKindColors(kind: ManaKind): Set<DraftColor> = when (kind) {
+    is ManaKind.Fixed -> kind.mana.symbols.flatMap { symbol ->
+        when (symbol) {
+            is ManaSymbol.Colored -> listOf(symbol.color)
+            is ManaSymbol.Hybrid -> listOf(symbol.first, symbol.second)
+            is ManaSymbol.GenericHybrid -> listOf(symbol.color)
+            is ManaSymbol.ColorlessHybrid -> listOf(symbol.color)
+            is ManaSymbol.Phyrexian -> listOf(symbol.color)
+            is ManaSymbol.PhyrexianHybrid -> listOf(symbol.first, symbol.second)
+            else -> emptyList()
+        }
+    }.map { it.draftColor() }.toSet()
+    is ManaKind.Choose -> kind.colors?.let { colors ->
+        // A chosen, remembered or "among" colour may be any of the five.
+        if (colors.all { it is arcanum.api.ColorRef.Literal }) colors.map { (it as arcanum.api.ColorRef.Literal).color.draftColor() }.toSet()
+        else DraftColor.entries.toSet()
+    } ?: DraftColor.entries.toSet()
+    is ManaKind.EachColorAmong -> DraftColor.entries.toSet()
+    is ManaKind.AsCouldProduce, is ManaKind.SameAsProduced -> emptySet()
+}
+
+/** DRF-115: [podStatsManaColors] of every card the device could read, by definition digest; a card it couldn't read
+ * makes no colour. */
+internal fun podStatsManaColors(parsed: Map<String, ParsedCard>): Map<String, Set<DraftColor>> =
+    parsed.mapValues { (_, card) -> (card as? ParsedCard.Read)?.let { podStatsManaColors(it.definition) }.orEmpty() }
 
 /** Prefer catalog identity, which includes rules symbols and both faces, not just the cost. */
 internal fun podStatsColorIdentity(card: CardDefinition, copyColors: Set<DraftColor>): PodStatsColor {
@@ -140,10 +221,16 @@ internal fun podStatsColorIdentity(card: CardDefinition, copyColors: Set<DraftCo
     }
 }
 
-internal fun podStats(build: PodDeckBuild, copies: Map<String, DraftCopy>, definitions: Map<String, CardDefinition>): PodStats {
+/** [manaColors]: the colours each card's mana abilities can add, by definition digest ([podStatsManaColors]); a card
+ * missing there makes no colour beyond its basic land types. */
+internal fun podStats(build: PodDeckBuild, copies: Map<String, DraftCopy>, definitions: Map<String, CardDefinition>,
+    manaColors: Map<String, Set<DraftColor>> = emptyMap()): PodStats {
     val curve = sortedMapOf<Double, PodStatsCurveBucket>()
     val pips = DraftColor.entries.associateWith { 0.0 }.toMutableMap()
     val sources = DraftColor.entries.mapIndexed { index, color -> color to build.basics.podBuildValues()[index].toLong() }.toMap().toMutableMap()
+    val others = DraftColor.entries.associateWith { 0L }.toMutableMap()
+    var sourceLands = build.basics.total
+    var sourceOthers = 0
     val colors = PodStatsColor.entries.associateWith { 0 }.toMutableMap()
     var creatures = 0
     var noncreatures = 0
@@ -162,10 +249,14 @@ internal fun podStats(build: PodDeckBuild, copies: Map<String, DraftCopy>, defin
         for (word in podStatsTypeWords(face.typeLine)) types[word] = (types[word] ?: 0) + 1
         if (podStatsLand.containsMatchIn(face.typeLine)) {
             lands++
-            val produced = podStatsLandColors(card)
-            if (produced.isEmpty()) colorlessLands++
+            val produced = podStatsLandColors(card, manaColors[copy.definition].orEmpty())
+            if (produced.isEmpty()) colorlessLands++ else sourceLands++
             for (color in produced) sources[color] = sources.getValue(color) + 1
         } else {
+            // A nonland permanent with a mana ability: a mana creature or rock (DRF-115).
+            val produced = if (podStatsPermanent.containsMatchIn(face.typeLine.substringBefore(" // "))) manaColors[copy.definition].orEmpty() else emptySet()
+            if (produced.isNotEmpty()) sourceOthers++
+            for (color in produced) others[color] = others.getValue(color) + 1
             val creature = podStatsCreature.containsMatchIn(face.typeLine)
             if (creature) creatures++ else noncreatures++
             val mv = PodDeckManaCost.front(card).value
@@ -182,7 +273,8 @@ internal fun podStats(build: PodDeckBuild, copies: Map<String, DraftCopy>, defin
     val listed = patterns.filterKeys { it.isNotEmpty() }.toList()
         .sortedWith(compareByDescending<Pair<String, Int>> { it.second }.thenBy { it.first })
     val typeCounts = types.toList().sortedWith(compareByDescending<Pair<String, Long>> { it.second }.thenBy { it.first })
-    return PodStats(curve, creatures, noncreatures, lands, pips, sources, colors, missing, colorlessLands, listed, patterns[""] ?: 0, typeCounts)
+    return PodStats(curve, creatures, noncreatures, lands, pips, sources, colors, missing, colorlessLands, others, sourceLands,
+        sourceOthers, listed, patterns[""] ?: 0, typeCounts)
 }
 
 internal fun PodStats.curveBuckets(): Map<String, PodStatsCurveBucket> = (0..7).associate { bucket ->

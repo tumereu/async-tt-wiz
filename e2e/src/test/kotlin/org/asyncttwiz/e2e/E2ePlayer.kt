@@ -31,6 +31,8 @@ import androidx.compose.ui.test.printToString
 import kotlinx.coroutines.runBlocking
 import org.asyncttwiz.android.AccountApi
 import org.asyncttwiz.android.AccountEntry
+import org.asyncttwiz.android.CardListSupportCheck
+import org.asyncttwiz.android.LocalCardListSupport
 import org.asyncttwiz.android.ActivityApi
 import org.asyncttwiz.android.AppLog
 import org.asyncttwiz.android.AuthController
@@ -157,6 +159,14 @@ internal class E2ePlayer(val account: TestAccount, private val compose: ComposeT
     /** The board version [playAlong] last acted on. */
     internal var alongAt = -1L
 
+    /** The app's card list check (MainActivity provides it): cards parsed from their rules text as the device does,
+     * without its storage cache. */
+    private val cardListSupport = CardListSupportCheck({ cards -> cards.associate { card ->
+        val parsed = org.asyncttwiz.protocol.game.GameCards.parse(card.definition)
+        card.digest to (parsed.definition?.let { org.asyncttwiz.storage.ParsedCard.Read(it, parsed.manualAbilities) }
+            ?: org.asyncttwiz.storage.ParsedCard.Unreadable(parsed.problem.orEmpty()))
+    } })
+
     /** Starts the app's screen: signed in (the saved session), on the main menu. */
     fun launch() {
         controller = Robolectric.buildActivity(ComponentActivity::class.java).setup()
@@ -167,7 +177,8 @@ internal class E2ePlayer(val account: TestAccount, private val compose: ComposeT
                 val game = lobby.state.selected.takeIf { state.destination == ShellDestination.GAMES }
                 val shown = foreground
                 SideEffect { heartbeat.display(game?.takeIf { shown }, token) }
-                CompositionLocalProvider(LocalShownTexts provides { text: String -> shownTexts += text }) {
+                CompositionLocalProvider(LocalShownTexts provides { text: String -> shownTexts += text },
+                    LocalCardListSupport provides cardListSupport) {
                     Surface(Modifier.fillMaxSize()) { AccountEntry(auth, reset, lobby = lobby, pods = pods) }
                 }
             }

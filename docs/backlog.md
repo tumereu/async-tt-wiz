@@ -10,16 +10,9 @@ Changes the owner wants but that are not built yet. The feature catalog
 
 ## Build order (owner, 2026-11-05: one implementor at a time, small items batched, full suites after each batch)
 
-2026-11-08, one at a time: (1) built: branch stop, landscape hand, View deck; (2) running: presets, set Redownload, Winchester tables, Stats mana sources; (3) catalog review follow-ups.
+2026-11-08, one at a time: (1) built: branch stop, landscape hand, View deck; (2) built: presets, set Redownload, Winchester tables, Stats mana sources; (3) catalog review follow-ups.
 
 ## Ready to build
-
-Owner notes after beta5 (2026-11-08):
-
-- Presets (DRF-031, DRF-032): drop the built-in "Booster" preset (it equals choosing Booster on the mode button); Glimpse stays the only built-in.
-- Set Redownload (DRF-089): remove the per-set Redownload button; when loading a set finds cards missing (the "N cards are unavailable … redownload the set" warning), redownload it automatically once. Recent sets keep refreshing automatically.
-- Winchester tables (DRF-158, DRF-159, DRF-021–DRF-023): a "Tables" setting, default 1 (like Booster's packs open at once): the cards split into independent Winchester tables, each with its own stack and piles and turn order offset so players can pick at different tables at the same time. The pick screen has a chip row ("Table 1 · Your pick", "Table 2 · Bob picks") showing one table's piles at a time, opening on a table where it's your pick; piles keep following "Draft · cards per row".
-- Stats mana sources (DRF-114, DRF-115): sources come from Arcanum's parsed mana abilities (CR 605) instead of text matching, counting nonland permanents too; rituals and Treasure makers are left out. Each colour row shows a bar, solid part lands and a lighter part other producers, with numbers ("7 lands + 2 others") beside the pips; a card producing several colours (one at a time, or a colour chosen as it enters) counts 1 for each colour it can make; a total line under the rows ("Sources: 17 lands, 3 others").
 
 Catalog review follow-ups (owner, 2026-11-08; the catalog was cleaned on w/catalog-cleanup, these change code):
 

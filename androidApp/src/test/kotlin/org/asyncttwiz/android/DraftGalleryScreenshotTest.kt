@@ -158,7 +158,7 @@ class DraftGalleryScreenshotTest {
         settle()
         compose.onNodeWithText("Ember Reaches").assertIsDisplayed()
         shot("source-sets", "Tapping the source's edit button in pod setup and then the Sets tab lists the draftable sets newest " +
-            "first, with a search field and Redownload buttons on the two downloaded sets (invented set names).")
+            "first, with a search field; downloaded and other sets look the same (invented set names).")
     }
 
     // DRF-031, DRF-032
@@ -174,7 +174,7 @@ class DraftGalleryScreenshotTest {
                 updatedAt = "2026-11-01T00:00:00Z"))))
         show(opened(detail))
         compose.onNodeWithText("Glimpse").assertIsDisplayed()
-        shot("presets", "Tapping Presets in the creator's pod setup opens the dialog: the built-in Booster and Glimpse presets " +
+        shot("presets", "Tapping Presets in the creator's pod setup opens the dialog: the built-in Glimpse preset " +
             "first, then Alice's saved presets (Booster, Rotisserie, Sealed from a set, a grid whose cube is missing) with search.")
     }
 

@@ -449,11 +449,11 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
         enqueue(Write(detail.id, attempt, pick = true, send = { api.gridSelect(it, detail.id, input) }))
     }
     /** A Rochester, Rotisserie, Winston or Winchester move; nothing is predicted, the server's answer shows. */
-    fun turn(action: LimitedAction, turn: Int, card: String? = null, packId: String? = null, pile: Int? = null) {
+    fun turn(action: LimitedAction, turn: Int, card: String? = null, packId: String? = null, pile: Int? = null, table: Int = 0) {
         val detail = state.detail?.takeIf { it.phase == PodPhase.DRAFTING && it.limited != null } ?: return
         val attempt = detail.draftAttemptId ?: return
         if (state.picking || state.uncertain) return
-        val input = PodTurn(requestId(), attempt, action, turn, card, packId, pile)
+        val input = PodTurn(requestId(), attempt, action, turn, card, packId, pile, table)
         enqueue(Write(detail.id, attempt, pick = true, send = { api.turn(it, detail.id, input) }))
     }
     fun move(copyId: String, category: PodDeckCategory) {
@@ -813,7 +813,7 @@ private fun podError(failure: Exception): String = when ((failure as? PodFailure
     "librarian_definition_unavailable" -> "Librarian unavailable."
     "insufficient_supply" -> "The source cube does not have enough cards."
     "too_many_members" -> "Too many members for this draft mode."
-    "not_your_turn", "stale_turn", "wrong_pile", "unknown_card", "empty_pile", "cannot_pass" ->
+    "not_your_turn", "stale_turn", "wrong_pile", "wrong_table", "unknown_card", "empty_pile", "cannot_pass" ->
         "That move is no longer possible; the draft has moved on."
     "too_many_players" -> "Too many players are joined or invited for this draft mode."
     "main_too_small" -> "Main must contain at least 40 cards including basics."

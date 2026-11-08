@@ -98,6 +98,21 @@ object ServerSetup {
      * "network"; a test's setup was seen failing once with "Account request failed"), at most three times; a refusal
      * fails at once, naming its code.
      */
+    /** A lobby request of the setup: again after a connection failure, as [accountCall] (seen failing a test's setup with
+     * "Lobby request failed", a burst of three tests within two seconds), at most three times; a refusal fails at once,
+     * naming its code. */
+    private fun <T> lobbyCall(call: suspend (LobbyApi) -> T): T {
+        repeat(3) { attempt ->
+            try { return LobbyApi(origin).use { api -> runBlocking { call(api) } } }
+            catch (failure: org.asyncttwiz.android.LobbyFailure) {
+                if (failure.code != "network" || attempt == 2) error("Lobby request of the setup: ${failure.code}")
+                System.err.println("Setup: lobby request again after a connection failure")
+                Thread.sleep(200)
+            }
+        }
+        error("unreachable")
+    }
+
     private fun <T> accountCall(what: String, call: suspend (AccountApi) -> T): T {
         repeat(3) { attempt ->
             try { return AccountApi(origin).use { api -> runBlocking { call(api) } } }
@@ -129,7 +144,7 @@ object ServerSetup {
         cards: List<SubmittedDefinition> = listOf(TestCards.mountain, TestCards.cub, TestCards.spark),
         settings: DraftSettings = DraftSettings(packsPerPlayer = 3, cardsPerPack = 2)): String = runBlocking {
         fun id() = UUID.randomUUID().toString()
-        LobbyApi(origin).use { it.add(a.token, AddContact(id(), b.id)) }
+        lobbyCall { it.add(a.token, AddContact(id(), b.id)) }
         val cube = DeckApi(origin).use { api ->
             api.submit(a.token, SubmitDefinitions(id(), cards))
             api.create(a.token, CreateCube(id(), "E2E cube", cards.map { SavedCubeEntry(it.digest, 12 / cards.size) }))
@@ -158,11 +173,9 @@ object ServerSetup {
 
     /** A game [name] of [a] (the inviter) and [b], invited and accepted, in its lobby with no deck chosen yet. */
     fun invitation(a: TestAccount, b: TestAccount, name: String): GameSummary {
-        val invitation = LobbyApi(origin).use { api ->
-            runBlocking {
-                api.add(a.token, AddContact(UUID.randomUUID().toString(), b.id))
-                api.create(a.token, CreateInvitation(UUID.randomUUID().toString(), b.id, name))
-            }
+        val invitation = lobbyCall { api ->
+            api.add(a.token, AddContact(UUID.randomUUID().toString(), b.id))
+            api.create(a.token, CreateInvitation(UUID.randomUUID().toString(), b.id, name))
         }
         Socket(b).use { recipient -> recipient.execute(invitation, recipient.open(invitation), GameAction.AcceptInvitation) }
         return invitation
@@ -187,7 +200,7 @@ object ServerSetup {
                 owner.execute(invitation, owner.open(invitation), GameAction.Ready)
                 recipient.execute(invitation, recipient.open(invitation), GameAction.Ready)
             } }
-            val started = LobbyApi(origin).use { api -> runBlocking { api.head(a.token, invitation.id) } }
+            val started = lobbyCall { api -> api.head(a.token, invitation.id) }
             check(started.lifecycle == GameLifecycle.ACTIVE) { "the game didn't start: $started" }
             return started
         }
@@ -199,11 +212,9 @@ object ServerSetup {
      */
     fun prepare(a: TestAccount, b: TestAccount, aDeck: TestDeck, bDeck: TestDeck, starter: TestAccount = a,
         name: String = "E2E game", deal: (Deal) -> Boolean = { true }): Prepared {
-        val invitation = LobbyApi(origin).use { api ->
-            runBlocking {
-                api.add(a.token, AddContact(UUID.randomUUID().toString(), b.id))
-                api.create(a.token, CreateInvitation(UUID.randomUUID().toString(), b.id, name))
-            }
+        val invitation = lobbyCall { api ->
+            api.add(a.token, AddContact(UUID.randomUUID().toString(), b.id))
+            api.create(a.token, CreateInvitation(UUID.randomUUID().toString(), b.id, name))
         }
         val saved = mapOf(a to deck(a, aDeck), b to deck(b, bDeck))
         Socket(a).use { owner -> Socket(b).use { recipient ->
@@ -234,7 +245,7 @@ object ServerSetup {
     fun podGame(a: TestAccount, b: TestAccount, name: String, mainPlains: Int = 40): GameSummary = runBlocking {
         val pod = draftedPod(a, b, "$name pod", mainPlains)
         for (who in listOf(a, b)) submitPodDeck(who, pod)
-        val invitation = LobbyApi(origin).use { it.challengeFromPod(a.token, pod, ChallengeFromPod(UUID.randomUUID().toString(), b.id, name, basics)) }
+        val invitation = lobbyCall { it.challengeFromPod(a.token, pod, ChallengeFromPod(UUID.randomUUID().toString(), b.id, name, basics)) }
         Socket(b).use { recipient -> recipient.execute(invitation, recipient.open(invitation), GameAction.AcceptInvitation) }
         invitation
     }
@@ -273,7 +284,7 @@ object ServerSetup {
 
     /** [a] challenges [b] to a game [name] of [pod] ([a]'s deck submitted). */
     fun challenge(a: TestAccount, b: TestAccount, pod: String, name: String): GameSummary =
-        LobbyApi(origin).use { runBlocking { it.challengeFromPod(a.token, pod, ChallengeFromPod(UUID.randomUUID().toString(), b.id, name, basics)) } }
+        lobbyCall { it.challengeFromPod(a.token, pod, ChallengeFromPod(UUID.randomUUID().toString(), b.id, name, basics)) }
 
     /** [account]'s invitation notices of game [gameId] as the server recorded them (DRF-137): one per notification. Read
      * from the database (see [gameNotice]). */
@@ -293,7 +304,7 @@ object ServerSetup {
             owner.execute(game, owner.open(game), GameAction.Ready)
             recipient.execute(game, recipient.open(game), GameAction.Ready)
         } }
-        val started = LobbyApi(origin).use { api -> runBlocking { api.head(a.token, game.id) } }
+        val started = lobbyCall { api -> api.head(a.token, game.id) }
         check(started.lifecycle == GameLifecycle.ACTIVE) { "the game didn't start: $started" }
         return started
     }

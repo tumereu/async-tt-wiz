@@ -49,6 +49,6 @@ Start none of these until the E2E framework above works. Each owner-reported bug
 ## Later (nice to have)
 
 - Remembered trigger orders (owner, 2026-11-06): conveniences like "always resolve these triggers in this order".
-- Play your first turn while the opponent is still deciding on mulligans, without rollbacks when they mulligan, as long as nothing you do interacts with their hand or library (owner, 2026-11-05; replaces the dropped assumed keep). Not high priority.
+- Play your first turn while the opponent is still deciding on mulligans, without rollbacks when they mulligan, as long as what you did comes out the same on top of their real opening (owner, 2026-11-05; replaces the dropped assumed keep). Not high priority. Spec draft for the owner's review: `docs/specs/first-turn-during-mulligans.md` (2026-11-08).
 
 - Choose a card's printing (art) in decks and cubes.

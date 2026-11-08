@@ -239,6 +239,14 @@ class QuestionPanelsTest {
             arcanum.api.ObjectFilter.Not(arcanum.api.ObjectFilter.Type(arcanum.api.CardType.Land))), "Choose a nonland card name.", catalog = catalog)
         compose.onNodeWithContentDescription("Card name").performTextInput("sp")
         compose.waitUntil(5_000) { compose.onAllNodesWithContentDescription("Spark Lantern, a card").fetchSemanticsNodes().isNotEmpty() }
+        // The field's cursor blinks on the test clock, which the wait above moved on by a varying amount: the clock stops
+        // and the cursor is set anew after "sp" (restarting its blink, shown), so the picture always has it
+        compose.mainClock.autoAdvance = false
+        val field = compose.onNodeWithContentDescription("Card name")
+        field.performTextInputSelection(androidx.compose.ui.text.TextRange(0))
+        compose.mainClock.advanceTimeByFrame()
+        field.performTextInputSelection(androidx.compose.ui.text.TextRange(2))
+        compose.mainClock.advanceTimeByFrame()
         compose.onRoot().captureShot("$SCREENSHOTS/questions/card-name-landscape.png",
             "Naming a card in landscape while typing: the panel at the table's left holds the search field with \"sp\" and the names to tap: Storm Spark from Alice's library with a card-stack icon first, then every card's names; OK waits for a tap.")
     }

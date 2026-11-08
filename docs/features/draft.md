@@ -139,7 +139,7 @@ Cubes, pods of 2–8 players drafting asynchronously, the pick and grid screens,
 ### Set boosters
 
 - **DRF-088** The Sets tab lists draftable sets only (expansion, core, masters, draft innovation), already released, newest first, searchable by name, code or release date. (r17)
-- **DRF-089** Choosing a set downloads its card file once and keeps it; sets from the last ~60 days refresh automatically and every downloaded set has a Redownload button. (r16)
+- **DRF-089** Choosing a set downloads its card file once and keeps it; sets from the last ~60 days refresh automatically. Every set row looks the same (no Redownload button): when loading a kept set finds cards missing, it is redownloaded once by itself (at most once a day) before the warning "N cards are unavailable and excluded. Check for updates in Settings → Card records." shows. (r60)
 - **DRF-090** Set packs follow the set's Play Booster, else Draft Booster, else default recipe; without one they are approximate (10 commons, 3 uncommons, 1 rare or mythic, 1 any). Set packs never run out. (r16)
 - **DRF-091** With Fresh boosters on, every grid from a set gets its own booster and nine random cards from it. (r29)
 

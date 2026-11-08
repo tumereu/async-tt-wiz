@@ -158,7 +158,7 @@ class DraftGalleryScreenshotTest {
         settle()
         compose.onNodeWithText("Ember Reaches").assertIsDisplayed()
         shot("source-sets", "Tapping the source's edit button in pod setup and then the Sets tab lists the draftable sets newest " +
-            "first, with a search field and Redownload buttons on the two downloaded sets (invented set names).")
+            "first, with a search field; downloaded and other sets look the same (invented set names).")
     }
 
     // DRF-031, DRF-032

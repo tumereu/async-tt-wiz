@@ -401,6 +401,32 @@ class SetSourceRepositoryTest {
         assertTrue(upload.warnings.any { it.contains("2 cards") })
     }
 
+    // DRF-089: a kept set file missing cards is redownloaded once by itself; the warning no longer asks for a redownload.
+    @Test fun missingCardsInAKeptFileRedownloadTheSetOnceBeforeWarning() {
+        val installed = set(cards = listOf(card(1), card(2)))
+        val source = FixtureSource().apply { put(set(cards = listOf(card(1), card(2), card(3)))) }
+        val catalog = catalog(installed)
+        assertEquals(1, repository(catalog, source).load("OLD").missingCards.size)
+        assertEquals(listOf("OLD"), source.downloads)
+        // A day later the kept file still misses a card: one redownload, which brings the fixed file.
+        clock.tomorrow()
+        source.put(set(cards = listOf(card(1), card(2))))
+        val fixed = repository(catalog, source).load("OLD")
+        assertTrue(fixed.missingCards.isEmpty())
+        assertTrue(fixed.warnings.isEmpty())
+        assertEquals(listOf("OLD", "OLD"), source.downloads)
+        // A complete kept file is not downloaded again.
+        clock.tomorrow()
+        repository(catalog, source).load("OLD")
+        assertEquals(2, source.downloads.size)
+        // Cards still missing in a file downloaded today: warned at once, without another download.
+        source.put(set(cards = listOf(card(1), card(2), card(4))))
+        repository(catalog, source).redownload("OLD")
+        val missing = repository(catalog, source).load("OLD")
+        assertEquals(3, source.downloads.size)
+        assertEquals(listOf("1 cards are unavailable and excluded. Check for updates in Settings → Card records."), missing.warnings)
+    }
+
     @Test fun unusableRecipeAfterExclusionsFallsBackWithExplicitApproximationWarning() {
         val remote = set(cards = listOf(card(1), card(2))).withRecipes("draft" to recipe(listOf(1, 2), count = 2))
         val upload = repository(catalog(set()), FixtureSource().apply { put(remote) }).load("OLD")

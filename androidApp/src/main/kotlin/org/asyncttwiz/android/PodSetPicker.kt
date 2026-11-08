@@ -10,8 +10,8 @@ import java.util.concurrent.ExecutorService
 interface PodSetRepository {
     fun sets(): List<DraftableSet>
     fun isCached(code: String): Boolean
+    /** Loads [code], downloading it when needed (DRF-089: redownloaded once by itself when cards are missing). */
     fun load(code: String): SetSourceUpload
-    fun redownload(code: String): SetSourceUpload
     /** I-D51: the unsupported card names of the sets worked out so far, by set code. */
     fun automatum(): Map<String, List<String>> = emptyMap()
     /** DRF-161 (smoke 2026-11-04): asks for the support of the sets [codes] shown, worked out in the background; [done]
@@ -33,7 +33,6 @@ internal class StoredPodSets(factory: () -> SetSourceRepository,
     override fun automatumNow(code: String) = now(code)
     override fun isCached(code: String) = repository.isCached(code)
     override fun load(code: String) = repository.load(code)
-    override fun redownload(code: String) = repository.redownload(code)
 }
 
 /** [automatum]: the set's Automatum support (DRF-161), null until worked out. */
@@ -104,29 +103,24 @@ internal class PodSetPickerController(private val repository: PodSetRepository?,
         }
     }
 
-    fun choose(code: String) = acquire(code, false)
-    fun redownload(code: String) = acquire(code, true)
-    private fun acquire(code: String, force: Boolean) {
+    fun choose(code: String) {
         val set = state.rows.firstOrNull { it.set.code == code && it.set.draftable }?.set ?: return
-        if (!state.open || force && state.busy) return
-        if (!force) {
-            // Displayed rows remain selectable during refresh. Fence its queued result before choosing.
-            generation++
-            state = state.copy(busy = false)
-        }
-        work(if (force) "Redownloading $code and preparing card definitions…" else "Loading $code: downloading if needed and preparing card definitions…",
-            { acquire(code, force) }, detached = !force, action = {
+        if (!state.open) return
+        // Displayed rows remain selectable during refresh. Fence its queued result before choosing.
+        generation++
+        state = state.copy(busy = false)
+        work("Loading $code: downloading if needed and preparing card definitions…", { choose(code) }, detached = true, action = {
                 val source = checkNotNull(repository)
-                val upload = if (force) source.redownload(code) else source.load(code)
+                val upload = source.load(code)
                 // DRF-161: the chosen set's support goes with it (I-D52), worked out now when it isn't known yet
-                if (!force) source.automatumNow(code)
+                source.automatumNow(code)
                 upload to runCatching { source.automatum() }.getOrNull()
             }) { (upload, support) ->
             if (support != null) state = state.copy(support = support)
             state = state.copy(rows = state.rows.map { if (it.set.code == code) it.copy(cached = true) else it }, warnings = upload.warnings)
-            if (!force) { dismiss(); selected(upload) }
+            dismiss(); selected(upload)
         }
-        if (!force) { state = state.copy(open = false); choosing(set) }
+        state = state.copy(open = false); choosing(set)
     }
 
     /** Loads [code] straight from the catalog without showing the list (a preset's set); reported like a picked set. */

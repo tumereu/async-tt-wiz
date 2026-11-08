@@ -67,8 +67,8 @@ class PodScreensTest {
         field.assertIsEnabled().assertTextEquals("0–2147483647", "0")
     }
 
-    // DRF-088
-    @Test fun setPickerSearchesNamesCodesAndDatesNewestFirstAndRedownloadsCachedRows() {
+    // DRF-088, DRF-089: no set row has a Redownload button, downloaded or not.
+    @Test fun setPickerSearchesNamesCodesAndDatesNewestFirstWithoutRedownloadButtons() {
         var state by mutableStateOf(PodSetPickerState(open = true, loaded = true, rows = listOf(
             PodSetRow(DraftableSet("OLD", "Older set", "2000-01-01", 100, "core"), false),
             PodSetRow(DraftableSet("NEW", "Newer set", "2026-10-01", 200, "expansion"), true),
@@ -76,9 +76,8 @@ class PodScreensTest {
             PodSetRow(DraftableSet("FUT", "Future set", java.time.LocalDate.now(AppClock.clock()).plusDays(1).toString(), 200, "expansion"), false),
             PodSetRow(DraftableSet("TOD", "Today's set", java.time.LocalDate.now(AppClock.clock()).toString(), 200, "expansion"), false))))
         var chosen: String? = null
-        var redownload: String? = null
         compose.setContent { ScreenTheme { Column {
-            PodSetPickerContent(state, { state = state.copy(query = it) }, { chosen = it }, { redownload = it }, {})
+            PodSetPickerContent(state, { state = state.copy(query = it) }, { chosen = it }, {})
         } } }
         val newer = compose.onNodeWithText("Newer set").fetchSemanticsNode().boundsInRoot
         val older = compose.onNodeWithText("Older set").fetchSemanticsNode().boundsInRoot
@@ -86,8 +85,7 @@ class PodScreensTest {
         compose.onNodeWithText("Commander set").assertDoesNotExist()
         compose.onNodeWithText("Future set").assertDoesNotExist()
         compose.onNodeWithText("Today's set").assertIsDisplayed()
-        compose.onNodeWithContentDescription("Redownload NEW").performClick()
-        assertEquals("NEW", redownload)
+        compose.onNodeWithContentDescription("Redownload NEW").assertDoesNotExist()
         compose.onNodeWithContentDescription("Redownload OLD").assertDoesNotExist()
         val search = compose.onNodeWithText("Search name, code or release date")
         search.performTextInput("oLd")
@@ -101,7 +99,6 @@ class PodScreensTest {
         assertEquals("NEW", chosen)
         compose.runOnIdle { state = state.copy(busy = true, status = "Downloading NEW…") }
         compose.onNodeWithText("Downloading NEW…").assertDoesNotExist()
-        compose.onNodeWithContentDescription("Redownload NEW").assertIsNotEnabled()
         compose.runOnIdle { state = state.copy(busy = false, error = "Download failed.") }
         compose.onNodeWithContentDescription("Retry source").assertExists()
     }
@@ -111,7 +108,7 @@ class PodScreensTest {
             PodSetRow(DraftableSet("OLD", "Legacy set", "2000-01-01", 100), true)))
         var chosen: String? = null
         compose.setContent { ScreenTheme { Column {
-            PodSetPickerContent(state, {}, { chosen = it }, {}, {})
+            PodSetPickerContent(state, {}, { chosen = it }, {})
         } } }
         compose.onNodeWithText("No sets found").assertDoesNotExist()
         compose.onNodeWithContentDescription("Retry source").assertDoesNotExist()

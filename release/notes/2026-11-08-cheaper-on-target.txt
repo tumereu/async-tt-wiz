@@ -1,0 +1,1 @@
+fix: Spells and abilities that cost less for a certain target (or for the creature you sacrifice or tap) can be cast when you can pay that lower cost, and only the targets you can afford are offered.

@@ -467,13 +467,20 @@ object HandCasts {
     }
 
     /** The answer a question before the payment is given while trying a choice: X at its least, the first targets and
-     * modes, else the engine's first listed answer; null when there is none. */
-    private fun defaultAnswer(flow: CastFlow, open: Decision): Answer? = when (open) {
-        is Decision.Announce -> Answer.Number(open.min)
+     * modes, else the engine's first listed answer; null when there is none. KX8GYS: where the answer may change what the
+     * cast costs (CR 601.2f: the first legal target may cost more than the player has where another costs less), the engine's
+     * first listed answer, one after which the cast can be finished. */
+    private fun defaultAnswer(flow: CastFlow, open: Decision): Answer? = when {
+        open is Decision.Announce -> Answer.Number(open.min)
+        flow.costMayFall -> flow.listedAnswers().firstOrNull() ?: firstAnswer(open)
+        else -> firstAnswer(open) ?: flow.listedAnswers().firstOrNull()
+    }
+
+    private fun firstAnswer(open: Decision): Answer? = when (open) {
         is Decision.Targets -> Answer.Targets(open.options.take(open.min)).takeIf { open.options.size >= open.min }
         is Decision.Modes -> open.options.filter { it.available }.take(maxOf(open.min, 1)).map { it.index }
             .takeIf { it.size >= open.min }?.let(Answer::Modes)
-        else -> flow.listedAnswers().firstOrNull()
+        else -> null
     }
 
     private fun sources(flow: CastFlow, uses: List<ManaUse>): Set<String> = uses.flatMap { use ->

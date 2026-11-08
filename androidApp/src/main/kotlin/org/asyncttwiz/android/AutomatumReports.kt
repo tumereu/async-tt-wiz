@@ -31,6 +31,12 @@ internal object AutomatumReports {
     /** The latest game on engine state's device bundle ([EngineGame.repro]), set while one is open on this device. */
     @Volatile var engine: (() -> GameRepro?)? = null
 
+    /** The latest open game's [EngineGame.logBoard], set while one is open on this device. */
+    @Volatile var board: (() -> Unit)? = null
+
+    /** LOB-089: writes the latest game's board into the app log before a problem report reads it. Never throws. */
+    fun logBoard() { try { board?.invoke() } catch (_: Throwable) {} }
+
     /** [repro] as report text ([GameRepro.REPORT_HEADER] and gzip+base64), dropping its least useful parts until it
      * fits [maxChars]: older log entries, then the oldest events (the base can't be replayed past them then), then the
      * base state. */

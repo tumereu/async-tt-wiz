@@ -148,7 +148,7 @@ internal class CastController(
         val f = flow ?: return null
         val decision = f.pending ?: return null
         pickOf?.let { (of, pick) -> if (of === decision) return pick }
-        return TablePick.of(decision, f.state).also { pickOf = decision to it }
+        return TablePick.of(decision, f.state, f.payableChoices).also { pickOf = decision to it }
     }
     private var pickOf: Pair<Decision, TablePick?>? = null
     /** The open question is picked on the table ([pick]): the panel is a slim bar. */
@@ -527,7 +527,8 @@ internal class CastController(
         val run = ++generation
         busy = true
         var result = true
-        fun guarded(work: () -> Step): Step = try { work() } catch (problem: Exception) {
+        // KX8GYS: worked out here, off the main thread, for the table's pick ([pick]) to read
+        fun guarded(work: () -> Step): Step = try { work().also { (it as? Step.Show)?.flow?.payableChoices } } catch (problem: Exception) {
             AppLog.warn("automatum", "Cast step failed: ${problem::class.java.simpleName}: ${problem.message?.take(200)}", problem)
             current()?.gameId?.let { AutomatumLog.refusal(it, "cast", "${problem::class.java.simpleName}: ${problem.message}") }
             Step.Drop(FAILED)

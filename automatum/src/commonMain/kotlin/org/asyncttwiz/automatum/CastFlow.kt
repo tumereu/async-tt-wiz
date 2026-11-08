@@ -129,6 +129,23 @@ class CastFlow private constructor(
         }
     }
 
+    /** KX8GYS: whether the open question's answers may differ in what the cast costs ([Engine.costMayFall]). */
+    val costMayFall: Boolean by lazy { runCatching { Engine.costMayFall(call.working) }.getOrDefault(false) }
+
+    /** KX8GYS: the candidates of the open choice of one (a target, or an object for a cost) that leave the cast payable, when
+     * they may differ ([costMayFall]); null when any will do or none is listed. Worked out once per question. */
+    val payableChoices: List<arcanum.engine.state.TargetRef>? by lazy {
+        val open = pending
+        val one = (open is Decision.Targets && open.min <= 1) || (open is Decision.ChooseObjects && open.min <= 1)
+        if (!one || !costMayFall) null else listedAnswers().mapNotNull { answer ->
+            when (answer) {
+                is Answer.Targets -> answer.chosen.singleOrNull()
+                is Answer.Objects -> answer.chosen.singleOrNull()?.let { arcanum.engine.state.TargetRef.Object(it) }
+                else -> null
+            }
+        }.ifEmpty { null }
+    }
+
     /** The answers the engine lists for the open decision (a working sample for choices of several, §7.0); card names
      * and creature types only of objects the player may see ([ShownAnswers], I-D27). */
     fun listedAnswers(): List<Answer> {

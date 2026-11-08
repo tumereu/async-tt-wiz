@@ -14,6 +14,12 @@ Changes the owner wants but that are not built yet. The feature catalog
 
 ## Ready to build
 
+Castable-spell review leftovers (owner, 2026-11-08, report KX8GYS; reductions that depend on a choice are fixed and tested in `CostFallsAfterChoiceOptionsTest`), each to decide or fix (TBL-117, STK-047):
+
+- A mana ability that itself costs mana (Signet, filter land) isn't counted ahead: the card doesn't glow or raise until its mana is floated by tapping (TBL-122).
+- A required choice of two or more tries only the first candidates (`Options.some`), so a spell whose first pair is refused isn't listed though another pair works; with more than 40 candidates the look-ahead stops and lists the cast though none may be payable; a mana search over 3,000 steps gives up (`Mana.search`).
+- "Up to one" and "None" stay possible where the reduction needs a pick (harmonize tapping nothing, with too little mana): the cost can then not be paid and the cast is dropped.
+
 Small, not urgent (owner, 2026-11-08):
 
 - Opponent's modes and X on the Stack, shown and tested (STK-057, STK-018; test and screenshots only, no entry change): screenshots of the other player's modal spell and an X spell, each with the battlefield line and the Stack list, one gallery.tsv entry each; a unit test that the line and the Stack list show the chosen modes (X is already covered by StackLineTest). If the app doesn't show them as the entries say, report it.

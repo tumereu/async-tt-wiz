@@ -26,8 +26,8 @@ internal sealed interface TablePick {
     /** The answer picking [picked] gives. */
     fun answer(picked: List<TargetRef>): Answer
 
-    data class Targets(override val decision: Decision.Targets) : TablePick {
-        override val options: List<TargetRef> get() = decision.options
+    data class Targets(override val decision: Decision.Targets, val payable: List<TargetRef>? = null) : TablePick {
+        override val options: List<TargetRef> get() = payable ?: decision.options
         override val min: Int get() = decision.min
         override val max: Int? get() = decision.max
         override val title: String get() = targetTitle(decision)
@@ -36,8 +36,8 @@ internal sealed interface TablePick {
         override fun answer(picked: List<TargetRef>): Answer = Answer.Targets(picked)
     }
 
-    data class Objects(override val decision: Decision.ChooseObjects) : TablePick {
-        override val options: List<TargetRef> = decision.options.map { TargetRef.Object(it) }
+    data class Objects(override val decision: Decision.ChooseObjects, val payable: List<TargetRef>? = null) : TablePick {
+        override val options: List<TargetRef> = payable ?: decision.options.map { TargetRef.Object(it) }
         override val min: Int get() = decision.min
         override val max: Int? get() = decision.max
         /** What the engine's sentence says it is ("Sacrifice another creature"); a sentence too long for a title ("Each
@@ -54,10 +54,11 @@ internal sealed interface TablePick {
     }
 
     companion object {
-        /** [decision] as picked on the table on [state], or null when it is answered in a panel. */
-        fun of(decision: Decision?, state: GameState?): TablePick? = when (decision) {
-            is Decision.Targets -> Targets(decision)
-            is Decision.ChooseObjects -> if (state != null && onBattlefield(decision, state)) Objects(decision) else null
+        /** [decision] as picked on the table on [state], or null when it is answered in a panel. [payable]: only these
+         * candidates leave the cast payable where they differ in what it costs (KX8GYS, CR 601.2f); null: all do. */
+        fun of(decision: Decision?, state: GameState?, payable: List<TargetRef>? = null): TablePick? = when (decision) {
+            is Decision.Targets -> Targets(decision, payable)
+            is Decision.ChooseObjects -> if (state != null && onBattlefield(decision, state)) Objects(decision, payable) else null
             else -> null
         }
 

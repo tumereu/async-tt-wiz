@@ -61,6 +61,7 @@ internal fun EngineTableScreen(controller: LobbyController, accountId: String, h
     // I-D43: problem and crash reports carry this game's device bundle while it is the latest open
     DisposableEffect(controller, game.id) {
         AutomatumReports.engine = { controller.engineGame()?.repro() }
+        AutomatumReports.board = { controller.engineGame()?.logBoard() }
         onDispose { }
     }
     // SYS-072: the engine's tokens show the best matching token picture

@@ -35,7 +35,7 @@ class CatchUpPlaybackTest : E2e() {
      * main phase, where she plays a Mountain. Her phone assumes his passes at his pauses ("Always assume resolves",
      * HIS-096). */
     private fun aliceMulligansAndPlaysOn() {
-        startGame(deck, deck, aliceSettings = org.asyncttwiz.protocol.game.PlaySettings(alwaysAssumeResolves = true))
+        startGame(deck, deck, aliceSettings = org.asyncttwiz.protocol.game.PlaySettings(assume = org.asyncttwiz.protocol.game.AssumeResolves.Always))
         bothOpen()
         bob.tap("Keep")
         waitUntil("Bob's keep on Alice's table") { alice.shown.held.any { it.author == bob.id } }
@@ -142,7 +142,7 @@ class CatchUpPlaybackTest : E2e() {
     // catch-up shows the attack in the combat band, which opens for it as in live combat, and keeps the playback delay
     // after it
     @Test fun anAttackPlaysBackInTheCombatArea() {
-        startGame(TestDeck.thirds(TestCards.cub), deck, aliceSettings = org.asyncttwiz.protocol.game.PlaySettings(alwaysAssumeResolves = true),
+        startGame(TestDeck.thirds(TestCards.cub), deck, aliceSettings = org.asyncttwiz.protocol.game.PlaySettings(assume = org.asyncttwiz.protocol.game.AssumeResolves.Always),
             deal = { a, b -> "Mountain" in hand(a) && "Ember Cub" in hand(a) && "Mountain" in hand(b) })
         bothOpen()
         bothKeep(bobAway = false)

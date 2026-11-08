@@ -33,7 +33,7 @@ class BattlefieldGroupsTest : E2e() {
     // them for its mana at once (no menu, no opening); the next tap taps the other, the untapped one; the two stay one stack
     @Test fun aTapOnAStackOfIdenticalCardsTapsOneOfThem() {
         startGame(TestDeck("Shards", listOf(TestCards.mountain to 20, TestCards.shard to 20)),
-            aliceSettings = PlaySettings(alwaysAssumeResolves = true),
+            aliceSettings = PlaySettings(assume = org.asyncttwiz.protocol.game.AssumeResolves.Always),
             deal = { a, _ -> hand(a).count { it == "Ember Shard" } >= 2 })
         bothOpen()
         bothKeep(bobAway = false)
@@ -58,7 +58,7 @@ class BattlefieldGroupsTest : E2e() {
     // the Hound pumps it, which closes the group again (the Blade back behind the Hound)
     @Test fun anEquippedCreatureOpensOnTheFirstTapAndActsOnTheSecond() {
         startGame(TestDeck("Blades", listOf(TestCards.mountain to 10, TestCards.ashHound to 10, TestCards.pup to 10, TestCards.blade to 10)),
-            aliceSettings = PlaySettings(alwaysAssumeResolves = true),
+            aliceSettings = PlaySettings(assume = org.asyncttwiz.protocol.game.AssumeResolves.Always),
             deal = { a, _ -> listOf("Mountain", "Ash Hound", "Ash Pup", "Ember Blade").all { it in hand(a) } })
         bothOpen()
         bothKeep(bobAway = false)

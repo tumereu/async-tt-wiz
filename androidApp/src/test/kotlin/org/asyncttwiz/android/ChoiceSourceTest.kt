@@ -225,7 +225,7 @@ class ChoiceSourceTest {
     @Test fun theStackOpensAsItsListToPickATargetBelowTheTop() {
         val kit = kit(Choices.CHARM, Choices.CHARM, Choices.QUENCH)
         kit.opening()
-        kit.alice.settings(PlaySettings(mode = ResponseMode.FullControl, alwaysAssumeResolves = true))
+        kit.alice.settings(PlaySettings(mode = ResponseMode.FullControl, assume = org.asyncttwiz.protocol.game.AssumeResolves.Always))
         kit.scenario.confirmStops[kit.f.a] = false
         repeat(2) {
             val s = kit.state()

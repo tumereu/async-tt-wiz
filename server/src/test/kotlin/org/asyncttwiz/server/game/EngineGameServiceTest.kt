@@ -11,8 +11,10 @@ import arcanum.engine.state.CardId
 import arcanum.engine.state.PlayerId
 import java.util.UUID
 import java.util.concurrent.TimeUnit
+import kotlinx.serialization.json.jsonObject
 import org.asyncttwiz.protocol.*
 import org.asyncttwiz.protocol.game.Act
+import org.asyncttwiz.protocol.game.AssumeResolves
 import org.asyncttwiz.protocol.game.EngineJson
 import org.asyncttwiz.protocol.game.EventBuilder
 import org.asyncttwiz.protocol.game.GameModel
@@ -63,12 +65,14 @@ class EngineGameServiceTest {
     private val names = List(16) { if (it % 2 == 0) "Forest" else "Mountain" } +
         List(24) { listOf("Elvish Seer", "Storm Spark", "Thicketwood Elves")[it % 3] }
 
-    private fun <T> withService(test: (ServiceRuntime) -> T): T = FreshDatabase().start().use { db ->
+    private fun <T> withService(test: (ServiceRuntime) -> T): T = withDatabase { _, runtime -> test(runtime) }
+
+    private fun <T> withDatabase(test: (FreshDatabase, ServiceRuntime) -> T): T = FreshDatabase().start().use { db ->
         FoundationMigrations.migrate(db.settings)
         ServiceRuntime(db.settings).use { runtime ->
             runtime.start(); val end = System.nanoTime() + TimeUnit.SECONDS.toNanos(15)
             while (!runtime.ready()) { assertTrue(System.nanoTime() < end); Thread.sleep(20) }
-            test(runtime)
+            test(db, runtime)
         }
     }
 
@@ -509,11 +513,11 @@ class EngineGameServiceTest {
     // I-D56 §13: a player's play settings are their own, kept on the server, never shown to the other player
     @Test fun `play settings are private`() = withService { runtime ->
         val f = Fixture(runtime, engine = true, tag = "s")
-        val mine = PlaySettings(ResponseMode.FullControl, alwaysAssumeResolves = true, autotap = false)
+        val mine = PlaySettings(ResponseMode.FullControl, assume = org.asyncttwiz.protocol.game.AssumeResolves.Always, autotap = false)
         assertEquals("accepted", f.recipient.execute(GameAction.EngineSettings(mine)).outcome)
         assertEquals(mine, f.snapshot(f.b).settings)
         assertEquals(PlaySettings(), f.snapshot(f.a).settings)
-        assertTrue(f.revisions(f.a, "0").none { GameWire.encode(it).contains("alwaysAssumeResolves") })
+        assertTrue(f.revisions(f.a, "0").none { GameWire.encode(it).contains("\"assume\":{") })
     }
 
     // STK-036, SYS-071 (owner 2026-11-06): each player's response mode is a per-game value kept on the server, outside
@@ -594,11 +598,60 @@ class EngineGameServiceTest {
 
     // LOB-113 (I-D56 §7, step D): a new game starts with each player's defaults kept on the server for their account
     @Test fun `a new game starts with the account's defaults`() = withService { runtime ->
-        val defaults = PlaySettings(ResponseMode.Normal, alwaysAssumeResolves = true, autotap = false)
+        val defaults = PlaySettings(ResponseMode.Normal, assume = org.asyncttwiz.protocol.game.AssumeResolves.Always, autotap = false)
         val f = Fixture(runtime, engine = true, tag = "d", bobDefaults = defaults)
         assertEquals(defaults, org.asyncttwiz.server.accounts.AccountSettingsService(runtime).read(f.b.account.accountId).playDefaults)
         assertEquals(defaults, f.snapshot(f.b).settings)
         assertEquals(PlaySettings(), f.snapshot(f.a).settings)
+    }
+
+    // TRN-059, LOB-113, HIS-096 (single version, owner 2026-11-08): V71 keeps "Assume resolves" as one value instead of
+    // three flags, in a game's seat settings and in the account's defaults alike; every stored combination becomes the
+    // value the app read from it (Always first, then When they have no mana, then Never, else Normal), the rest kept
+    @Test fun `V71 turns the three stored assume flags into one value`() = withDatabase { db, runtime ->
+        val kept = PlaySettings(ResponseMode.Normal, autotap = false)
+        val f = Fixture(runtime, engine = true, tag = "v", bobDefaults = kept)
+        val bob = f.b.account.accountId
+        val migration = javaClass.getResource("/db/migration/V71__assume_resolves_value.sql")!!.readText()
+        fun sql(statement: String, vararg values: String) = db.connection().use { c ->
+            c.prepareStatement(statement).use { s -> values.forEachIndexed { i, v -> s.setString(i + 1, v) }; s.execute() } }
+        // Its jsonb "?" operator is no parameter
+        fun migrate() = db.connection().use { c -> c.createStatement().use { it.execute(migration) } }
+        fun read(statement: String): String = db.connection().use { c ->
+            c.prepareStatement(statement).use { s -> s.setObject(1, UUID.fromString(bob)); s.executeQuery().use { it.next(); it.getString(1) } } }
+        val seat = "SELECT settings FROM engine_seat WHERE account_id = ?"
+        val defaults = "SELECT play_defaults FROM account WHERE id = ?"
+        /** [kept] as stored before V71: the response mode and Autotap, and the given assume flags (null: not stored). */
+        fun old(always: Boolean?, noMana: Boolean?, never: Boolean?): String {
+            val current = GameWire.json.encodeToJsonElement(PlaySettings.serializer(), kept).jsonObject
+            return kotlinx.serialization.json.JsonObject(current - "assume" + listOfNotNull(
+                always?.let { "alwaysAssumeResolves" to kotlinx.serialization.json.JsonPrimitive(it) },
+                noMana?.let { "assumeWhenNoMana" to kotlinx.serialization.json.JsonPrimitive(it) },
+                never?.let { "assumeNever" to kotlinx.serialization.json.JsonPrimitive(it) })).toString()
+        }
+        val cases = buildList {
+            for (always in listOf(false, true)) for (noMana in listOf(false, true)) for (never in listOf(false, true))
+                add(Triple(always, noMana, never) to when {
+                    always -> AssumeResolves.Always; noMana -> AssumeResolves.WhenNoMana; never -> AssumeResolves.Never
+                    else -> AssumeResolves.Normal })
+        }.map { (flags, value) -> old(flags.first, flags.second, flags.third) to value } +
+            listOf(old(false, null, null) to AssumeResolves.Normal, old(true, null, null) to AssumeResolves.Always)
+        for ((stored, value) in cases) {
+            sql("UPDATE engine_seat SET settings = ? WHERE account_id = '$bob'", stored)
+            sql("UPDATE account SET play_defaults = ? WHERE id = '$bob'", stored)
+            migrate()
+            val expected = kept.assuming(value)
+            assertEquals(expected, GameWire.json.decodeFromString(PlaySettings.serializer(), read(seat)), stored)
+            assertEquals(expected, GameWire.json.decodeFromString(PlaySettings.serializer(), read(defaults)), stored)
+            assertEquals(expected, org.asyncttwiz.server.accounts.AccountSettingsService(runtime).read(bob).playDefaults)
+            // Run again, nothing changes
+            migrate()
+            assertEquals(expected, GameWire.json.decodeFromString(PlaySettings.serializer(), read(seat)))
+        }
+        // The other player's seat and accounts without defaults stay as they were
+        assertEquals(PlaySettings(), f.snapshot(f.a).settings)
+        db.connection().use { c -> c.createStatement().executeQuery(
+            "SELECT play_defaults FROM account WHERE id = '${f.a.account.accountId}'").use { it.next(); assertNull(it.getString(1)) } }
     }
 
     // I-D54 switch-over item 1: the game's decks parsed on the server become the engine seats

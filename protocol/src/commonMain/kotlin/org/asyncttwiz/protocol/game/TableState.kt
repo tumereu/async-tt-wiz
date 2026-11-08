@@ -50,40 +50,32 @@ data class Line(val number: Int = 0, val drawn: Int = 0)
  * catch-up playback alike (STK-036, HIS-095; set from the quick actions in both); the other player's device learns it too
  * (owner 2026-11-06: [org.asyncttwiz.protocol.EngineSnapshot.modes], [org.asyncttwiz.protocol.EngineUpdate.modes]) and
  * assumes the player's pass wherever it would pass. [assume] says where the other player's passes are assumed at once
- * instead of waiting with Assume (HIS-096), kept as [assumeNever] (Never), [alwaysAssumeResolves] (Always) and
- * [assumeWhenNoMana] (When they have no mana): none of them set is Normal, the default. [autotap] pays mana costs with the engine's suggestion (I-D47).
+ * instead of waiting with Assume (TRN-059, LOB-113, HIS-096), Normal by default. [autotap] pays mana costs with the
+ * engine's suggestion (I-D47).
  */
 @Serializable
-data class PlaySettings(val mode: ResponseMode = ResponseMode.AutoSkip, val alwaysAssumeResolves: Boolean = false,
-    val autotap: Boolean = true, val assumeWhenNoMana: Boolean = false, val assumeNever: Boolean = false) {
-    /** When the other player's passes are assumed at once (TRN-059, LOB-113, HIS-096). */
-    val assume: AssumeResolves get() = when {
-        alwaysAssumeResolves -> AssumeResolves.Always
-        assumeWhenNoMana -> AssumeResolves.WhenNoMana
-        assumeNever -> AssumeResolves.Never
-        else -> AssumeResolves.Normal
-    }
-
+data class PlaySettings(val mode: ResponseMode = ResponseMode.AutoSkip, val assume: AssumeResolves = AssumeResolves.Normal,
+    val autotap: Boolean = true) {
     /** These settings with [assume] as [value]. */
-    fun assuming(value: AssumeResolves): PlaySettings = copy(alwaysAssumeResolves = value == AssumeResolves.Always,
-        assumeWhenNoMana = value == AssumeResolves.WhenNoMana, assumeNever = value == AssumeResolves.Never)
+    fun assuming(value: AssumeResolves): PlaySettings = copy(assume = value)
 }
 
 /** Where a player's device assumes the other player's passes at once (HIS-096) instead of waiting with Assume on the
  * main button (TRN-070), defined from the response modes (owner 2026-11-06): Never and Normal mirror Control and Normal,
  * so they change with them. Whatever the setting, a pass the other player's own response mode would make is assumed too
  * ([GameDevice]). */
+@Serializable
 sealed interface AssumeResolves {
     /** Never: a wait at every point where they get priority (as Control stops), also at your end step and after your
      * attack. */
-    data object Never : AssumeResolves
+    @Serializable @SerialName("never") data object Never : AssumeResolves
     /** Wherever Normal mode would pass, and their pause at your end step and right after your attack (the default). */
-    data object Normal : AssumeResolves
+    @Serializable @SerialName("normal") data object Normal : AssumeResolves
     /** As [Normal], and at their pauses while the table shows them no untapped mana source, no mana in their pool and no
      * ability they could activate. */
-    data object WhenNoMana : AssumeResolves
+    @Serializable @SerialName("no-mana") data object WhenNoMana : AssumeResolves
     /** Always. */
-    data object Always : AssumeResolves
+    @Serializable @SerialName("always") data object Always : AssumeResolves
 
     /** Never, Normal, When they have no mana, Always: the order a tap on the quick action goes through. */
     val next: AssumeResolves get() = when (this) {

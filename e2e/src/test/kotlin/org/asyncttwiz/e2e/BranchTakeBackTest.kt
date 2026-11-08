@@ -23,7 +23,7 @@ class BranchTakeBackTest : E2e() {
     // there with "Bob responded differently from here · Tap to continue", Bob's Glimmer not played; her tap plays it back
     // as playback that looks like live play; then her table is live at the new head
     @Test fun aBranchRewindsStopsAtTheBranchPointThenPlaysTheNewEventsBack() {
-        startGame(TestDeck.thirds(TestCards.herald), TestDeck.glimmers(), aliceSettings = PlaySettings(alwaysAssumeResolves = true),
+        startGame(TestDeck.thirds(TestCards.herald), TestDeck.glimmers(), aliceSettings = PlaySettings(assume = org.asyncttwiz.protocol.game.AssumeResolves.Always),
             deal = { a, b -> "Mountain" in hand(a) && "Ember Herald" in hand(a) && "Idle Glimmer" in hand(b) })
         bothOpen()
         bothKeep(bobAway = true)

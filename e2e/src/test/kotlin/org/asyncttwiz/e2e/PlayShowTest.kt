@@ -27,7 +27,7 @@ class PlayShowTest : E2e() {
     private val glints = TestDeck("Glints", listOf(TestCards.mountain to 20, TestCards.glint to 20))
 
     private fun start() {
-        startGame(TestDeck.thirds(), glints, bobStarts = true, bobSettings = PlaySettings(alwaysAssumeResolves = true),
+        startGame(TestDeck.thirds(), glints, bobStarts = true, bobSettings = PlaySettings(assume = org.asyncttwiz.protocol.game.AssumeResolves.Always),
             deal = { _, b -> hand(b).count { it == "Ember Glint" } >= 2 })
         // The longest time (3 s): Bob's phone has long resolved the Glint while hers still shows it
         HistoryPlaybackPreferences(ApplicationProvider.getApplicationContext<Context>(), alice.id).showPlaysMillis =

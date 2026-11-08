@@ -137,7 +137,7 @@ class DeviceSimulationTest {
             GameDevice.Status.YourMove -> move(sim, d, rnd, stats)
             is GameDevice.Status.Waiting -> when {
                 // CMB-040: the Assume blockers screen the player opens, OK or Back
-                status.offer == GameDevice.Offer.AssumeBlockers && sim.settings.getValue(p).alwaysAssumeResolves ->
+                status.offer == GameDevice.Offer.AssumeBlockers && sim.settings.getValue(p).assume == AssumeResolves.Always ->
                     if (rnd.nextInt(4) > 0) d.assume(blocks(d, rnd))
                 status.offer != null && rnd.nextInt(6) == 0 -> d.assume(if (status.offer == GameDevice.Offer.AssumeBlockers) blocks(d, rnd) else emptyList())
                 rnd.nextInt(15) == 0 && d.undoTarget() != null -> undo(d, rnd, stats)

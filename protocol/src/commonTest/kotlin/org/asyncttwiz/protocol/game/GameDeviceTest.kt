@@ -262,7 +262,7 @@ class GameDeviceTest {
         assertIs<GameDevice.Status.Waiting>(bobs.status, "a wait has no timeout")
         // "Always assume resolves" turned on: a new point, assumed at once
         val before = sim.server.line().size
-        bobs.settings(PlaySettings(alwaysAssumeResolves = true))
+        bobs.settings(PlaySettings(assume = org.asyncttwiz.protocol.game.AssumeResolves.Always))
         sim.settle()
         assertTrue(sim.server.line().size > before, "assumed once the setting is on")
         assertEquals(bob, sim.server.line()[before].assumed?.assumedBy)

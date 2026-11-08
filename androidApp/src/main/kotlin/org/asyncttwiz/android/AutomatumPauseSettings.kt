@@ -19,6 +19,7 @@ import androidx.compose.ui.unit.dp
 internal class PausePreferences(context: Context, private val accountId: String) {
     private val preferences = context.applicationContext.getSharedPreferences("automatum-pauses", Context.MODE_PRIVATE)
     private val autotapKey = "autotap/$accountId"
+    private val assumeKey = "engine-assume-resolves/$accountId"
 
     /** I-D56 §7, §13 (LOB-113): the response mode, "Assume resolves" and Autotap a new game on engine state starts with. */
     var engineDefaults: org.asyncttwiz.protocol.game.PlaySettings
@@ -28,20 +29,24 @@ internal class PausePreferences(context: Context, private val accountId: String)
                 "normal" -> org.asyncttwiz.protocol.game.ResponseMode.Normal
                 else -> org.asyncttwiz.protocol.game.ResponseMode.AutoSkip
             },
-            alwaysAssumeResolves = preferences.getBoolean("engine-assume/$accountId", false),
-            assumeWhenNoMana = preferences.getBoolean("engine-assume-no-mana/$accountId", false),
-            assumeNever = preferences.getBoolean("engine-assume-never/$accountId", false),
+            assume = org.asyncttwiz.protocol.game.AssumeResolves.all.firstOrNull { it.key() == preferences.getString(assumeKey, null) }
+                ?: org.asyncttwiz.protocol.game.AssumeResolves.Normal,
             autotap = preferences.getBoolean(autotapKey, true))
         set(value) {
             preferences.edit().putString("engine-mode/$accountId", when (value.mode) {
                 org.asyncttwiz.protocol.game.ResponseMode.FullControl -> "full"
                 org.asyncttwiz.protocol.game.ResponseMode.Normal -> "normal"
                 org.asyncttwiz.protocol.game.ResponseMode.AutoSkip -> "auto-skip"
-            }).putBoolean("engine-assume/$accountId", value.alwaysAssumeResolves)
-                .putBoolean("engine-assume-no-mana/$accountId", value.assumeWhenNoMana)
-                .putBoolean("engine-assume-never/$accountId", value.assumeNever).putBoolean(autotapKey, value.autotap).apply()
+            }).putString(assumeKey, value.assume.key()).putBoolean(autotapKey, value.autotap).apply()
         }
 
+}
+
+private fun org.asyncttwiz.protocol.game.AssumeResolves.key() = when (this) {
+    org.asyncttwiz.protocol.game.AssumeResolves.Never -> "never"
+    org.asyncttwiz.protocol.game.AssumeResolves.Normal -> "normal"
+    org.asyncttwiz.protocol.game.AssumeResolves.WhenNoMana -> "no-mana"
+    org.asyncttwiz.protocol.game.AssumeResolves.Always -> "always"
 }
 
 /** Settings → Automatum (LOB-113): the play settings new games start with, kept on the server per account. */

@@ -29,7 +29,7 @@ class CounterLowerSpellTest : E2e() {
     private val aliceEngine = HeldWorker()
 
     private fun start(bobAway: Boolean) {
-        startGame(aliceDeck, bobDeck, aliceSettings = PlaySettings(alwaysAssumeResolves = bobAway), aliceWorker = aliceEngine,
+        startGame(aliceDeck, bobDeck, aliceSettings = PlaySettings(assume = if (bobAway) org.asyncttwiz.protocol.game.AssumeResolves.Always else org.asyncttwiz.protocol.game.AssumeResolves.Normal), aliceWorker = aliceEngine,
             deal = { a, b -> "Idle Glimmer" in hand(a) && "Ember Glint" in hand(a) && "Quench Spark" in hand(b) })
         bothOpen()
         bothKeep(bobAway)
@@ -46,7 +46,7 @@ class CounterLowerSpellTest : E2e() {
 
     /** In her Main 1, Alice turns Full control on, casts A, keeps priority, casts B and passes. Her hand's size before. */
     private fun aliceCastsAThenB(assume: Boolean): Int {
-        alice.game!!.settings(PlaySettings(mode = ResponseMode.FullControl, alwaysAssumeResolves = assume))
+        alice.game!!.settings(PlaySettings(mode = ResponseMode.FullControl, assume = if (assume) org.asyncttwiz.protocol.game.AssumeResolves.Always else org.asyncttwiz.protocol.game.AssumeResolves.Normal))
         waitUntil("Alice's Full control") { alice.shown.settings.mode == ResponseMode.FullControl }
         val hand = alice.state.player(alice.me).hand.size
         alice.playFromHand("Idle Glimmer", this)

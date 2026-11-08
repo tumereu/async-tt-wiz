@@ -253,4 +253,4 @@ internal class EngineGameFixture(val startingPlayer: String = TableStatesFixture
 }
 
 /** A player who plays on while the other is away (HIS-096: the other player's pauses assumed at once). */
-internal val PLAYS_ON = org.asyncttwiz.protocol.game.PlaySettings(alwaysAssumeResolves = true)
+internal val PLAYS_ON = org.asyncttwiz.protocol.game.PlaySettings(assume = org.asyncttwiz.protocol.game.AssumeResolves.Always)

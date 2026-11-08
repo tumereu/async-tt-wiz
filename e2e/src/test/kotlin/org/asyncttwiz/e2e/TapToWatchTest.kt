@@ -19,7 +19,7 @@ class TapToWatchTest : E2e() {
     /** Alice plays a Mountain with Bob along, then Bob leaves and she casts an Ember Herald (assuming his pass, "Always
      * assume resolves"); Bob comes back to the catch-up's centre text. */
     private fun bobComesBackToTheCatchUp() {
-        startGame(TestDeck.thirds(TestCards.herald), TestDeck.glimmers(), aliceSettings = PlaySettings(alwaysAssumeResolves = true),
+        startGame(TestDeck.thirds(TestCards.herald), TestDeck.glimmers(), aliceSettings = PlaySettings(assume = org.asyncttwiz.protocol.game.AssumeResolves.Always),
             deal = { a, b -> "Mountain" in hand(a) && "Ember Herald" in hand(a) && "Idle Glimmer" in hand(b) })
         bothOpen()
         bothKeep(bobAway = false)

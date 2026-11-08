@@ -127,7 +127,7 @@ class PassesAndUndoTest : E2e() {
     // taken-back End turn passes nothing more for her (it carried the game on to Bob's turn after the Mountain)
     @Test fun anUndoneEndTurnPassesNothingAfterTheNextAction() {
         startGame(TestDeck.thirds(TestCards.herald), TestDeck.thirds(TestCards.herald),
-            aliceSettings = org.asyncttwiz.protocol.game.PlaySettings(alwaysAssumeResolves = true),
+            aliceSettings = org.asyncttwiz.protocol.game.PlaySettings(assume = org.asyncttwiz.protocol.game.AssumeResolves.Always),
             deal = { a, _ -> "Mountain" in hand(a) })
         bothOpen()
         bothKeep(bobAway = true)

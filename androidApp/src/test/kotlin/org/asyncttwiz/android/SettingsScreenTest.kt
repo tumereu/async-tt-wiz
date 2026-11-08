@@ -113,7 +113,7 @@ class SettingsScreenTest {
         compose.onNodeWithTag("autotap").performClick()
         compose.waitForIdle()
         assertEquals(org.asyncttwiz.protocol.game.PlaySettings(org.asyncttwiz.protocol.game.ResponseMode.FullControl,
-            alwaysAssumeResolves = true, autotap = false), PausePreferences(context, "pauses").engineDefaults)
+            assume = org.asyncttwiz.protocol.game.AssumeResolves.Always, autotap = false), PausePreferences(context, "pauses").engineDefaults)
         assertEquals(org.asyncttwiz.protocol.game.PlaySettings(), PausePreferences(context, "someone else").engineDefaults)
         compose.onNodeWithTag("response-mode-Control").assertIsSelected()
         compose.onNodeWithTag("autotap").assertIsOff()

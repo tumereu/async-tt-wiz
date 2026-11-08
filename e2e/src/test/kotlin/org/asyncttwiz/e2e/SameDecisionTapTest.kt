@@ -241,7 +241,7 @@ class SameDecisionTapTest : E2e() {
     // be made at any priority of her own turn, so it is made on the newer board, not dropped
     @Test fun endTurnTappedWhileTheDeviceStepsOnByItselfIsMade() {
         // HIS-096: her phone goes on past Bob's pause at her end step
-        start(PlaySettings(alwaysAssumeResolves = true))
+        start(PlaySettings(assume = org.asyncttwiz.protocol.game.AssumeResolves.Always))
         aliceInMain()
         val turn = alice.state.turn.number
         held.holding = true
@@ -260,7 +260,7 @@ class SameDecisionTapTest : E2e() {
     // notes when a board arrives) tells it at once
     @Test fun endTurnOnABoardOfAnEndedTurnIsRefusedWithTheNoteAtOnce() {
         // HIS-096: her phone goes on past Bob's pause at her end step
-        start(PlaySettings(alwaysAssumeResolves = true))
+        start(PlaySettings(assume = org.asyncttwiz.protocol.game.AssumeResolves.Always))
         aliceInMain()
         held.holding = true
         alice.hold("To combat")

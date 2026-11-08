@@ -26,7 +26,7 @@ class RevealStopTest : E2e() {
     private val title get() = "${bob.name} revealed · Ember Insight"
 
     private fun start() {
-        startGame(TestDeck.thirds(), TestDeck.insights(), bobStarts = true, bobSettings = PlaySettings(alwaysAssumeResolves = true),
+        startGame(TestDeck.thirds(), TestDeck.insights(), bobStarts = true, bobSettings = PlaySettings(assume = org.asyncttwiz.protocol.game.AssumeResolves.Always),
             deal = { _, b -> "Ember Insight" in hand(b) && "Mountain" in hand(b) })
         bothOpen()
         alice.tap("Keep")

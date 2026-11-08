@@ -114,7 +114,7 @@ class CatchUpLiveTest : E2e() {
     // a tap on the table while it runs pauses it at the next point where he gets priority (where Full control would stop),
     // live there, with the centre text back; the centre text resumes it
     @Test fun aTapOnTheTablePausesAtTheNextPriorityPoint() {
-        startGame(TestDeck.thirds(TestCards.herald), TestDeck.thirds(TestCards.herald), aliceSettings = PlaySettings(alwaysAssumeResolves = true),
+        startGame(TestDeck.thirds(TestCards.herald), TestDeck.thirds(TestCards.herald), aliceSettings = PlaySettings(assume = org.asyncttwiz.protocol.game.AssumeResolves.Always),
             deal = { a, _ -> "Mountain" in hand(a) && "Ember Herald" in hand(a) })
         bothOpen()
         bothKeep(bobAway = true)

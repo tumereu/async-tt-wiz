@@ -56,7 +56,7 @@ internal class HeraldCast(val herald: String, val cast: GameEvent, val line: Lis
 internal fun E2e.aliceCastsAHeraldWhileBobIsAway(endTurn: Boolean = true, bobCanRespond: Boolean = true,
     bobSettings: PlaySettings? = null): HeraldCast {
     startGame(TestDeck.thirds(TestCards.herald), if (bobCanRespond) TestDeck.glimmers() else TestDeck.thirds(),
-        aliceSettings = PlaySettings(alwaysAssumeResolves = true), bobSettings = bobSettings,
+        aliceSettings = PlaySettings(assume = org.asyncttwiz.protocol.game.AssumeResolves.Always), bobSettings = bobSettings,
         deal = { a, b -> "Mountain" in hand(a) && "Ember Herald" in hand(a) && (!bobCanRespond || "Idle Glimmer" in hand(b)) })
     bothOpen()
     bothKeep(bobAway = true)

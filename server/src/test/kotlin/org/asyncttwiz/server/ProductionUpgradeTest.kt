@@ -165,7 +165,7 @@ class ProductionUpgradeTest {
         val (s1, s2) = game("Started game"); prepare(s1, s2)
         s1.execute(GameAction.SetStarter(StarterChoice(ann.account.accountId)))
         s1.execute(GameAction.Ready); s2.execute(GameAction.Ready)
-        s1.execute(GameAction.EngineSettings(org.asyncttwiz.protocol.game.PlaySettings(alwaysAssumeResolves = true)))
+        s1.execute(GameAction.EngineSettings(org.asyncttwiz.protocol.game.PlaySettings(assume = org.asyncttwiz.protocol.game.AssumeResolves.Always)))
         s2.execute(GameAction.EngineSettings(org.asyncttwiz.protocol.game.PlaySettings(autotap = false)))
         val chat = listOf("Good luck", "You too", "Your move")
         for ((stream, text) in listOf(s1, s2, s1).zip(chat)) stream.execute(GameAction.SendChat(text))

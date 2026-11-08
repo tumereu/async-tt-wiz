@@ -28,7 +28,7 @@ data class CastWayChip(
     val cost: String?,
     /** The printed text of its alternative cost ("Evoke {R/G}{R/G}"), for the chip's details; null for the others. */
     val text: String?,
-    /** Whether what the player has now pays it (with the extras chosen so far when it is the chosen way). */
+    /** Whether the engine sees a way to do it now (with the extras chosen so far when it is the chosen way). */
     val affordable: Boolean,
 )
 
@@ -84,17 +84,22 @@ data class CastChip(
     val input: Input,
     /** What the chip says: the way's name, with the extras paid ("Cast with kicker and offspring"). */
     val name: String,
-    /** The mana it costs in all, extras included (X at its least); null when it costs none. */
+    /** The smallest mana it can cost in all, extras included (an X as {X}); null when it costs none. */
     val cost: String?,
     /** The printed text of its alternative cost and extras, for the chip's details; null when none. */
     val text: String?,
-    /** Whether what the player has now pays it. */
+    /** Whether the engine sees a way to do it now: the same verdict as [Engine.options] (castability §1.4). */
     val affordable: Boolean,
-    /** The sources Autotap would tap for it (ATW card ids). */
+    /** The sources Autotap would tap for its smallest cost (ATW card ids). */
     val sources: Set<String>,
     /** Whether the cast asks anything before its payment (modes, X, targets, another choice). */
     val asks: Boolean,
-)
+    /** Castability §2: it can have other costs than [cost], or the search couldn't finish: shown as "cost + {?}". */
+    val more: Boolean = false,
+) {
+    /** What the chip shows: its [cost], and with [more] "+ {?}" (our own notation, not MTG's). */
+    val shownCost: String? get() = HandCasts.shownCost(cost, more)
+}
 
 /**
  * The chips of a raised hand card (ZON-080, owner 2026-11-07): one per complete way ([CastChip]) when it has at most
@@ -110,9 +115,9 @@ data class HandCastChips(
     /** The cheapest cost among the card's ways (the "Cast…" chip's): the cheapest one the player can pay now, else the
      * cheapest; null when it costs none. */
     val cheapest: String?,
-    /** Whether any way can be paid now. */
+    /** Whether the engine sees a way to do any of them now. */
     val affordable: Boolean,
-    /** The sources Autotap would tap for the regular way (ZON-079, outlined while the card is raised). */
+    /** The sources Autotap would tap for the regular way's smallest cost (ZON-079, outlined while the card is raised). */
     val sources: Set<String>,
 ) {
     /** More complete ways than chips: a single "Cast…" chip. */
@@ -124,10 +129,10 @@ data class HandCastChips(
 }
 
 /**
- * Works out a hand card's cost chips (I-D50) by trying each choice through the engine as far as its payment: the cast is
- * begun ([CastFlow]) with the extras answered as chosen, every other question before the payment (modes, X, targets) is
- * answered with the engine's first listed answer (X at its least), and the payment's suggestion says whether it is paid
- * and which sources Autotap would tap. Blocking (one replay per question); the app runs it on the Automatum worker.
+ * Works out a hand card's cost chips (I-D50) by asking the engine of each choice: the cast is begun ([CastFlow]) with the extras
+ * answered as chosen, and [Engine.castCosts] says its smallest cost, whether it can have others, whether it can be done (the same
+ * verdict as [Engine.options]: a chip never denies what the engine lists, castability §1.4) and which sources Autotap would
+ * tap for the smallest. Blocking; the app runs it on the Automatum worker.
  */
 object HandCasts {
     /**
@@ -151,8 +156,8 @@ object HandCasts {
         val ways = plays.mapIndexed { i, input ->
             val probe = if (i == way) current else probe { start(input, emptyList()) }
             val plain = if (i == way && chosen.any { it > 0 }) probe { start(input, emptyList()) } else probe
-            CastWayChip(input, wayName(cardDefinition, input), plain.cost ?: printed[i].takeIf { !plain.affordable }, wayText(cardDefinition, input),
-                probe.affordable)
+            CastWayChip(input, wayName(cardDefinition, input), shownCost(plain.cost, plain.more) ?: printed[i].takeIf { !plain.affordable }, wayText(cardDefinition, input),
+                probe.affordable || (i == way && chosen.none { it > 0 } && input in offered))
         }
         val extraChips = extras.mapIndexed { i, (instance, mechanic) ->
             val more = chosen.toMutableList().also { it[i] = if (mechanic.repeatable) it[i] + 1 else 1 }
@@ -180,7 +185,10 @@ object HandCasts {
         val printed = printedCosts(source, plays)
         // Each way begun plainly: its own cost and payment, and the extras it has
         val begun = plays.map { input -> try { start(input, emptyList()) } catch (_: IllegalArgumentException) { null } }
-        val plain = plays.indices.map { i -> probe { begun[i] ?: throw IllegalArgumentException("not now") } }
+        val plain = plays.indices.map { i -> probe { begun[i] ?: throw IllegalArgumentException("not now") }.let { p ->
+            // Castability §1.4: what the engine lists, the app doesn't deny again
+            if (plays[i] in offered && !p.affordable) Probe(p.cost, p.sources, true, p.asks, p.more) else p
+        } }
         val extras = begun.map { flow -> flow?.let(::extrasOf).orEmpty() }
         val combos = extras.map { list -> combinations(list.size) }
         val count = combos.sumOf { it.size }
@@ -188,7 +196,7 @@ object HandCasts {
         val costs = plays.indices.map { i -> plain[i].cost ?: printed[i].takeIf { !plain[i].affordable } }
         if (count > MAX_CHIPS) {
             val payable = plays.indices.filter { plain[it].affordable }
-            val cheapest = (payable.ifEmpty { plays.indices.toList() }).minByOrNull { manaValue(costs[it]) }?.let { costs[it] }
+            val cheapest = (payable.ifEmpty { plays.indices.toList() }).minByOrNull { manaValue(costs[it]) }?.let { shownCost(costs[it], plain[it].more) }
             return HandCastChips(cardId, emptyList(), count, cheapest, payable.isNotEmpty(), plain[0].sources)
         }
         val chips = plays.indices.flatMap { i ->
@@ -202,11 +210,11 @@ object HandCasts {
                     CastFlow.abilityText(cardDefinition, instance.origin)?.takeIf { it.isNotBlank() } ?: CastFlow.text(instance.ability)
                 }
                 CastChip(i, times, plays[i], name, probe.cost ?: costs[i].takeIf { times.none { it > 0 } }, texts.joinToString("\n").ifEmpty { null },
-                    probe.affordable, probe.sources, probe.asks)
+                    probe.affordable, probe.sources, probe.asks, probe.more)
             }
         }
         val payable = chips.filter { it.affordable }
-        val cheapest = payable.ifEmpty { chips }.minByOrNull { manaValue(it.cost) }?.cost
+        val cheapest = payable.ifEmpty { chips }.minByOrNull { manaValue(it.cost) }?.shownCost
         return HandCastChips(cardId, chips, count, cheapest, payable.isNotEmpty(), chips.first().sources)
     }
 
@@ -227,18 +235,17 @@ object HandCasts {
     /**
      * The open cast [flow] taken on to its payment (STK-024, owner 2026-11-07: the cast panel shows and lets the player
      * choose what pays while earlier questions are open): every question before it answered as the chips are worked out
-     * (the engine's first listed answer, X at its least, the first targets). [flow] itself when its payment is open; null
+     * (the way to its smallest cost, [Engine.castCosts]: X at its least). [flow] itself when its payment is open; null
      * when it reaches no payment (a free spell, or a question without a listed answer). Blocking (one replay per question).
      */
     fun ahead(flow: CastFlow): CastFlow? {
+        val open = flow.pending ?: return null
+        if (open is Decision.ManaPayment) return flow
         var at = flow
-        repeat(MAX_QUESTIONS) {
-            val open = at.pending ?: return null
-            if (open is Decision.ManaPayment) return at
-            val answer = defaultAnswer(at, open) ?: return null
+        for (answer in Engine.castCosts(flow.state).answers) {
             at = try { at.answer(answer) } catch (_: IllegalArgumentException) { return null }
         }
-        return null
+        return at.takeIf { it.pending is Decision.ManaPayment }
     }
 
     /** The card's definition: the game's card data, else the engine's own object (its definition is always there). */
@@ -348,15 +355,15 @@ object HandCasts {
 
     /**
      * STK-023 (owner playtest 2026-11-05 evening): the most the announcement open in [flow] ([Decision.Announce], an X)
-     * may be so that the cast can still be paid with what the player has now, each value tried as far as the payment as
-     * the chips are ([probe]: the later questions answered with the engine's first listed answers); one less than its
-     * least when even that can't be paid; at most [cap] (and the decision's own most). Null when no announcement is open.
-     * Blocking (a few replays per value tried); the app runs it on the Automatum worker.
+     * may be so that the cast can still be finished, given the cheapest targets still to come (CR 601.2b before 601.2c:
+     * [Engine.finishableWith], so an earlier choice is never a dead end); one less than its least when even that can't be
+     * paid; at most [cap] (and the decision's own most). Null when no announcement is open. Blocking (a look-ahead per value
+     * tried); the app runs it on the Automatum worker.
      */
     fun mostAnnounced(flow: CastFlow, cap: Int = MAX_ANNOUNCED): Int? {
         val open = flow.pending as? Decision.Announce ?: return null
         val top = minOf(open.max ?: cap, cap).coerceAtLeast(open.min)
-        fun pays(value: Int) = probe { flow.answer(Answer.Number(value)) }.affordable
+        fun pays(value: Int) = Engine.finishableWith(flow.state, Answer.Number(value))
         if (!pays(open.min)) return open.min - 1
         // Doubling steps up to the first value that can't be paid, then halving between it and the last that can
         var good = open.min
@@ -443,44 +450,23 @@ object HandCasts {
 
     private fun manaOf(mechanic: Mechanic.AdditionalCost): String? = manaOf(mechanic.cost)
 
-    /** What trying a choice as far as its payment found: its [cost], the [sources] Autotap would tap when it is paid,
-     * and whether it [asks] anything before the payment. */
-    private class Probe(val cost: String?, val sources: Set<String>, val affordable: Boolean, val asks: Boolean = false)
+    /** What the engine says of a choice ([Engine.castCosts]): its smallest [cost], whether it can have [more], the [sources] Autotap
+     * would tap for that, whether it can be done, and whether it [asks] anything before the payment. */
+    private class Probe(val cost: String?, val sources: Set<String>, val affordable: Boolean, val asks: Boolean = false, val more: Boolean = false)
 
-    /** Tries the choice [start] begins as far as its payment (see [HandCasts]). A choice the engine refuses to begin is
-     * unaffordable; one whose questions can't be answered with a listed answer counts as payable (the cast says). */
+    /** Asks the engine of the choice [start] begins (see [HandCasts]). A choice the engine refuses to begin can't be done. */
     private fun probe(start: () -> CastFlow): Probe {
-        var flow = try { start() } catch (_: IllegalArgumentException) { return Probe(null, emptySet(), false) }
-        var asks = false
-        repeat(MAX_QUESTIONS) {
-            val open = flow.pending ?: return Probe(null, emptySet(), true, asks)
-            if (open is Decision.ManaPayment) {
-                val pays = flow.pays(open.suggestion)
-                val cost = open.cost.toString().ifEmpty { null }
-                return Probe(cost, if (pays) sources(flow, open.suggestion) else emptySet(), pays, asks)
-            }
-            asks = true
-            val answer = defaultAnswer(flow, open) ?: return Probe(null, emptySet(), true, asks)
-            flow = try { flow.answer(answer) } catch (_: IllegalArgumentException) { return Probe(null, emptySet(), true, asks) }
-        }
-        return Probe(null, emptySet(), true, asks)
+        val flow = try { start() } catch (_: IllegalArgumentException) { return Probe(null, emptySet(), false) }
+        val open = flow.pending ?: return Probe(null, emptySet(), true)
+        val costs = Engine.castCosts(flow.state)
+        return Probe(costs.least?.toString()?.ifEmpty { null }, sources(flow, costs.suggestion), costs.castable, costs.asks || open !is Decision.ManaPayment, costs.several)
     }
 
-    /** The answer a question before the payment is given while trying a choice: X at its least, the first targets and
-     * modes, else the engine's first listed answer; null when there is none. KX8GYS: where the answer may change what the
-     * cast costs (CR 601.2f: the first legal target may cost more than the player has where another costs less), the engine's
-     * first listed answer, one after which the cast can be finished. */
-    private fun defaultAnswer(flow: CastFlow, open: Decision): Answer? = when {
-        open is Decision.Announce -> Answer.Number(open.min)
-        flow.costMayFall -> flow.listedAnswers().firstOrNull() ?: firstAnswer(open)
-        else -> firstAnswer(open) ?: flow.listedAnswers().firstOrNull()
-    }
-
-    private fun firstAnswer(open: Decision): Answer? = when (open) {
-        is Decision.Targets -> Answer.Targets(open.options.take(open.min)).takeIf { open.options.size >= open.min }
-        is Decision.Modes -> open.options.filter { it.available }.take(maxOf(open.min, 1)).map { it.index }
-            .takeIf { it.size >= open.min }?.let(Answer::Modes)
-        else -> null
+    /** Castability §2: [cost], and "+ {?}" when it [more] can have other costs (our UI's own, not real MTG notation). */
+    fun shownCost(cost: String?, more: Boolean): String? = when {
+        !more -> cost
+        cost == null -> "{0} + {?}"
+        else -> "$cost + {?}"
     }
 
     private fun sources(flow: CastFlow, uses: List<ManaUse>): Set<String> = uses.flatMap { use ->
@@ -493,7 +479,6 @@ object HandCasts {
 
     private const val OPTIONAL_KEY = "opt:"
     private const val MAX_EXTRAS = 16
-    private const val MAX_QUESTIONS = 12
     /** The most chips above a raised hand card; a card with more complete ways shows one "Cast…" chip ([HandCastChips.more]). */
     const val MAX_CHIPS = 4
     /** The most an X is ever offered ([mostAnnounced]). */

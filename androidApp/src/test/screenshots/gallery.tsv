@@ -163,3 +163,9 @@ number	item	screenshot	catalog	decisions
 162	A stack with its tapped members on top	battlefield/pile-tapped-on-top.png	TBL-053 TBL-054
 163	Turn banner: your turn	turn-banner/your-turn.png	TRN-074
 164	Turn banner in landscape: the other player's turn	turn-banner/their-turn-landscape.png	TRN-074
+165	The raised card's smallest cost, + {?}, and its sources	castability/smallest-cost.png	ZON-080 ZON-079
+166	A target you can't pay for doesn't glow	castability/target-unaffordable.png	TBL-118 STK-047
+167	Enough mana for both targets: both glow	castability/target-both.png	STK-047 TBL-117
+168	A selection narrows what can still be picked	castability/multi-target.png	STK-047
+169	A Signet chain in a payment	castability/signet-chain.png	STK-059 STK-024
+170	Partial override: a pick stays, Autotap fills in	castability/partial-override.png	STK-024

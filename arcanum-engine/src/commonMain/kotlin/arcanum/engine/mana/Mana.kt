@@ -769,7 +769,13 @@ internal object Mana {
         fun run(): List<ManaUse>? {
             val found = pinned(0)
             if (budget <= 0) p.cantTell = true
-            return found
+            if (found == null) return null
+            // Nothing tapped for no reason: a source a chain was begun with that the later one made unneeded goes (never a player's own pick)
+            chosen.drop(required.size).forEach { pick ->
+                chosen.remove(pick)
+                if (payment() == null) chosen.add(pick)
+            }
+            return payment() ?: found
         }
 
         private fun pinned(i: Int): List<ManaUse>? {

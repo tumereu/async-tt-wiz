@@ -256,7 +256,7 @@ private fun RaisedChipsRow(hand: HandController, play: TableBoard, raised: Strin
                 if (options.more) {
                     MoreChip(options.cheapest, options.affordable, { hand.more() }, { hold -> hand.held = if (hold) HandController.MORE else null }, flash)
                 } else options.chips.forEachIndexed { index, chip ->
-                    WayChip(CastWayChip(chip.input, chip.name, chip.cost, chip.text, chip.affordable), false,
+                    WayChip(CastWayChip(chip.input, chip.name, chip.shownCost, chip.text, chip.affordable), false,
                         { hand.chip(index) }, { hold -> hand.held = if (hold) index else null }, flash)
                 }
             }
@@ -381,7 +381,7 @@ private fun ChipDetails(play: TableBoard, cardId: String, options: HandCastChips
     if (chip == null && held != HandController.MORE) return
     val title = chip?.let { "${it.name}${it.cost?.let { c -> " $c" }.orEmpty()}" } ?: "$MORE_NAME${options.cheapest?.let { " $it" }.orEmpty()}"
     val text = if (chip == null) "${options.count} ways to cast it: tap to choose in the cast panel."
-        else listOfNotNull(wayText(play, cardId, CastWayChip(chip.input, chip.name, chip.cost, null, chip.affordable)), chip.text)
+        else listOfNotNull(wayText(play, cardId, CastWayChip(chip.input, chip.name, chip.shownCost, null, chip.affordable)), chip.text)
             .distinct().joinToString("\n").ifEmpty { null }
     val affordable = chip?.affordable ?: options.affordable
     Surface(shape = RoundedCornerShape(6.dp), color = Color.White, shadowElevation = 6.dp,

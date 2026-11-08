@@ -93,14 +93,6 @@ object Engine {
         Layers.explain(state, ids)
 
     /**
-     * Whether the mana to pay for the cast or activation waiting in [state] may still fall with a choice not made yet
-     * (CR 601.2f comes after 601.2b-e): the target of "costs {2} less if it targets a tapped creature", the creature to
-     * sacrifice for emerge. Its answers may then differ in whether it can be paid: [options] lists those that can.
-     */
-    fun costMayFall(state: GameState): Boolean = (state.pending?.continuation as? arcanum.engine.decision.Continuation.Announcing)
-        ?.let { arcanum.engine.casting.Plan(state, it).costMayFall } == true
-
-    /**
      * Whether the open cast or activation can still be finished from here, as far as the search can tell (castability §1): false
      * only when it has shown there is no way; a search stopped by a bound, or a payment that may exist, says true. What
      * [options] lists a cast by, for a host working out a choice it made (a way with its extras).

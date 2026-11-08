@@ -63,7 +63,7 @@ Rules that every feature follows: what the product is, who decides game state, h
 - **SYS-034** An event kind or icon the app can't show never crashes it; it shows a fallback (HIS-074). (r60)
 - **SYS-035** If local data was written by a newer app, the app says "Local data needs a newer app. Update the app without uninstalling." It never erases local data when storage fails to open. (r1)
 - **SYS-052** If the server can't read one saved game, pod, pod preset or card (e.g. after an update changed its format), or one saved game fails its damage check at startup, only that item is affected: it is left out of its list (a deck whose cover can't be read shows none), opening it fails like a temporary server problem, and an unreadable pending action is refused. The server still starts, everything else carries on, nothing is deleted or rewritten, and the item is logged. (r35)
-- **SYS-053** The server refuses any action the rules don't allow, never ignoring it silently. The app doesn't offer such actions: what you can do glows (TBL-117) and the rest is greyed or shakes (TBL-118); a refusal that still happens shakes what it was made on (SYS-012). (r60)
+- **SYS-053** The server refuses any action the rules don't allow, never ignoring it silently. The app doesn't offer such actions: what you can do, or seem to be able to do, glows (TBL-117) and the rest is greyed or shakes (TBL-118); something that only seemed possible is said at its last step, in the cast panel with Cast greyed (STK-024); a refusal that still happens shakes what it was made on (SYS-012). (r62)
 
 ### Automatum
 

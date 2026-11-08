@@ -242,7 +242,11 @@ internal fun ObjectsSection(cast: FlowQuestions, flow: FlowQuestions, play: Tabl
             ObjectsShape.Shape.Pick -> {
                 // Saved, so the picks survive hiding the panel with the eye and showing it again (STK-044, STK-056)
                 var chosen by androidx.compose.runtime.saveable.rememberSaveable(decision.id.toString()) { mutableStateOf(listOf<String>()) }
-                CardPicks(decision.options.map { cards.getValue(it.toString()) }, chosen, inspector) { key ->
+                // Castability §3: in a cast or activation only what can be paid with the picks so far is offered
+                var selection by remember(decision.id) { mutableStateOf<arcanum.engine.Selection?>(null) }
+                androidx.compose.runtime.LaunchedEffect(decision.id, chosen) { cast.selectionOf(chosen.map(ids::getValue)) { selection = it } }
+                val offered = selection?.candidates?.mapNotNull { (it as? arcanum.engine.state.TargetRef.Object)?.id } ?: decision.options
+                CardPicks(decision.options.filter { it in offered }.map { cards.getValue(it.toString()) }, chosen, inspector) { key ->
                     chosen = when {
                         key in chosen -> chosen - key
                         decision.max == 1 -> listOf(key)
@@ -253,7 +257,7 @@ internal fun ObjectsSection(cast: FlowQuestions, flow: FlowQuestions, play: Tabl
                     val others = remember(decision.id, flow.engine) { searchedOthers(flow.engine, decision) }
                     if (others.isNotEmpty()) OtherCards(others.map { choiceCardOf(flow, play, viewer, it) }.sortedBy { it.name }, inspector)
                 }
-                OkRow(decision, chosen.size >= decision.min && (decision.max == null || chosen.size <= decision.max!!)) {
+                OkRow(decision, chosen.size >= decision.min && (decision.max == null || chosen.size <= decision.max!!) && selection?.done != false) {
                     cast.answer(Answer.Objects(chosen.map(ids::getValue)))
                 }
             }

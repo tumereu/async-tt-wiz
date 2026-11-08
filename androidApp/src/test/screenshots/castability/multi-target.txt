@@ -1,0 +1,1 @@
+Alice cast her Ember Toll ({R}{R} for each creature type among its targets) with three Ember Geodes out and picked her Elf Bear: it shows picked and Done is enabled; her Ox Human, with two more types, no longer glows, and her one-type Lone Goat does.

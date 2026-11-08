@@ -43,3 +43,17 @@ tasks.register<JavaExec>("setSupport") {
     val sets = providers.gradleProperty("sets").orElse("")
     argumentProviders += CommandLineArgumentProvider { listOf(cache.get(), sets.get()) }
 }
+
+// Castability over every supported card (castability spec §6), from the same cached set files: each mana ability pays, each cost reducer
+// lowers a cost on a test board; everything listed in build/arcanum/mana-check.tsv. -Psets=LTR,BLB checks only those sets.
+tasks.register<JavaExec>("manaCheck") {
+    group = "arcanum"
+    description = "Fails listing every mana ability of the supported sets that doesn't pay; lists every cost reducer."
+    classpath = sourceSets["main"].runtimeClasspath
+    mainClass.set("arcanum.tools.ManaCheckKt")
+    maxHeapSize = "2g"
+    val cache = providers.gradleProperty("setCache").orElse(System.getProperty("user.home") + "/.cache/arcanum-sets")
+    val sets = providers.gradleProperty("sets").orElse("")
+    val output = layout.buildDirectory.file("arcanum/mana-check.tsv")
+    argumentProviders += CommandLineArgumentProvider { listOf(cache.get(), output.get().asFile.absolutePath, sets.get()) }
+}

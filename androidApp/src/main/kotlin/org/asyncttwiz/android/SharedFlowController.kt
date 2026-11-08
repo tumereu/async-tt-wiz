@@ -58,6 +58,9 @@ internal class SharedFlowController(
     /** Targets picked so far for a slot that takes several. */
     var picked by mutableStateOf<List<TargetRef>>(emptyList()); private set
     override var mana by mutableStateOf<List<ManaUse>>(emptyList()); private set
+    /** STK-024: the sources the player picked in the open payment, and those they took out: Autotap fills in the rest. */
+    private var pins: List<ManaUse> = emptyList()
+    private var outs: List<ManaUse> = emptyList()
     /** Automatum is working out the last answer (SYS-025): nothing else is taken meanwhile. */
     var busy by mutableStateOf(false); private set
     private var shownDecision: String? = null
@@ -71,6 +74,7 @@ internal class SharedFlowController(
             shownDecision = id
             picked = emptyList()
             hidden = false
+            pins = emptyList(); outs = emptyList()
             // STK-049 (owner gallery review, 2026-11-06): with Autotap on a payment opens with its sources picked, off none
             mana = if (!autotap() || next == null) emptyList()
                 else ((next.decision as? Decision.ManaPayment) ?: next.payment)?.let { suggestion(next, it) }.orEmpty()
@@ -279,9 +283,21 @@ internal class SharedFlowController(
         val decision = flow.decision as? Decision.ManaPayment ?: flow.payment ?: return
         if (busy) return
         val current = mana
+        val autotapOn = autotap()
+        val key = ManaPicks.key(group.first())
+        val taken = current.any { it in group }
+        pins = if (taken) pins.filterNot { ManaPicks.key(it) == key } else pins + group.first()
+        outs = if (taken) outs + group.first() else outs.filterNot { ManaPicks.key(it) == key }
+        val pinned = pins
+        val removed = outs
         busy = true
         work.run({
-            runCatching { ManaPicks.toggle(decision, current, group, flow::pays).let { it to flow.pays(it) } }
+            runCatching {
+                // STK-024 (owner 2026-11-08): a pick stays and Autotap fills in the rest; with Autotap off, only the picks
+                val uses = if (autotapOn) flow.fill(pinned, removed).ifEmpty { ManaPicks.carry(decision, pinned, flow::pays) }
+                    else ManaPicks.toggle(decision, current, group, flow::pays)
+                uses to flow.pays(uses)
+            }
                 .onFailure { AppLog.warn("automatum", "Mana tapping couldn't be worked out: ${it::class.java.simpleName}") }.getOrNull()
         }) { result ->
             busy = false

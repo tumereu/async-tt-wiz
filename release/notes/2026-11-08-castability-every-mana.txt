@@ -1,0 +1,1 @@
+fix: Every mana ability now counts and pays: pain lands, Signets, altars, lands with counters, and mana that comes when you tap a land. A spell you can pay for one of those ways glows and can be cast.

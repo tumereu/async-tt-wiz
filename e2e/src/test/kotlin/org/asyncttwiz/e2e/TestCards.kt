@@ -56,6 +56,60 @@ object TestCards {
             "Flying, haste\nEnchanted creature gets +1/+1 and has flying and haste.", "1", "1")
     /** Empties its caster's hand for free. */
     val thoughts = card("Empty Thoughts", "Sorcery", "{0}", "Discard your hand.")
+    // Castability (castability spec §6): free permanents, so a board is out on the first turn
+    /** Costs {1}{R} on a tapped creature, {3}{R} on another. */
+    val rebuke = card("Ember Rebuke", "Sorcery", "{3}{R}", "This spell costs {2} less to cast if it targets a tapped creature.\nExile target creature.")
+    /** A free rock making two mana. */
+    val geode = card("Ember Geode", "Artifact", "{0}", "{T}: Add {R}{R}.")
+    /** The owner's example: {R}{R} for each creature type among its targets. */
+    val typeToll = card("Ember Toll", "Sorcery", "{0}", "This spell costs {R}{R} more to cast for each creature type among target creatures.\nTap up to five target creatures.")
+    val quadBeast = card("Quad Beast", "Creature — Elf Bear Ox Human", "{0}", power = "1", toughness = "1")
+    val twoTypes = card("Elf Bear", "Creature — Elf Bear", "{0}", power = "1", toughness = "1")
+    val otherTwoTypes = card("Ox Human", "Creature — Ox Human", "{0}", power = "1", toughness = "1")
+    val sameTwoTypes = card("Bear Elf", "Creature — Elf Bear", "{0}", power = "1", toughness = "1")
+    val oneType = card("Lone Goat", "Creature — Goat", "{0}", power = "1", toughness = "1")
+    /** {5}, {1} less for each target. */
+    val hush = card("Ember Hush", "Sorcery", "{5}", "This spell costs {1} less to cast for each target creature.\nTap up to five target creatures.")
+    /** A rising cost per target, strive's template. */
+    val striving = card("Ember Striving", "Sorcery", "{R}", "This spell costs {1}{R} more to cast for each target creature beyond the first.\nTap up to five target creatures.")
+    /** Spells that target it cost more, on the other side. */
+    val wardedPup = card("Warded Pup", "Creature — Dog", "{0}", "Spells your opponents cast that target this creature cost {2} more to cast.", "1", "1")
+    /** X and a reduction read from its target. */
+    val cleave = card("Ember Cleave", "Sorcery", "{X}{3}{R}", "This spell costs {3} less to cast if it targets a tapped creature.\nThis spell deals X damage to target creature.")
+    /** A hasty mana creature, tappable at once. */
+    val sprite = card("Ember Sprite", "Creature — Elemental", "{0}", "Haste\n{T}: Add {R}.", "1", "1")
+    /** Pays {1} again and again: every payment for an ability is a payment. */
+    val engineRock = card("Ember Engine", "Artifact", "{0}", "{1}: You gain 1 life.")
+    val painStone = card("Pain Stone", "Artifact", "{0}", "{T}: Add {C}.\n{T}: Add {R}. This artifact deals 1 damage to you.")
+    val tomb = card("Tomb Stone", "Artifact", "{0}", "{T}: Add {C}{C}. This artifact deals 2 damage to you.")
+    val doom = card("Doom Stone", "Artifact", "{0}", "{T}: Add {R}. This artifact deals 40 damage to you.")
+    val chargeStone = card("Charge Stone", "Artifact", "{0}", "This artifact enters with a charge counter on it.\n{T}, Remove a charge counter from this artifact: Add {R}.")
+    val bloodAltar = card("Blood Altar", "Artifact", "{0}", "Sacrifice a creature: Add {R}.")
+    val signet = card("Ember Signet", "Artifact", "{0}", "{1}, {T}: Add {R}{U}.")
+    val filter = card("Filter Stone", "Artifact", "{0}", "{R/U}, {T}: Add two mana in any combination of {R} and/or {U}.")
+    val prism = card("Ember Prism", "Artifact", "{0}", "{T}: Add one mana of any color.")
+    val boost = card("Mountain Hymn", "Enchantment", "{0}", "Whenever you tap a Mountain for mana, add an additional {R}.")
+    /** A way Autotap can't find (an announced amount): {U} through it. */
+    val xStone = card("Measure Stone", "Artifact", "{0}", "{X}, {T}: Add X mana of any one color.")
+    val blueNote = card("Blue Note", "Sorcery", "{U}", "Draw a card.")
+    val twoPence = card("Two Pence", "Sorcery", "{2}", "Draw a card.")
+    /** Its additional cost is a land: tapped for its mana first, then sacrificed (CR 601.2g before 601.2h). */
+    val landEater = card("Land Eater", "Sorcery", "{R}", "As an additional cost to cast this spell, sacrifice a land.\nDraw a card.")
+    val tapPact = card("Tap Pact", "Sorcery", "{R}", "As an additional cost to cast this spell, tap an untapped creature you control.\nDraw a card.")
+    val bloodPact = card("Blood Pact", "Sorcery", "{R}", "As an additional cost to cast this spell, pay 2 life.\nDraw a card.")
+    val offering = card("Altar Offering", "Sorcery", "{R}", "As an additional cost to cast this spell, sacrifice a creature.\nDraw a card.")
+    /** An instant castable only through a pain source, for Quick mode's windows. */
+    val redFlash = card("Red Flash", "Instant", "{R}", "Draw a card.")
+    /** An instant castable only on a tapped creature with this mana. */
+    val tappedFlash = card("Tapped Flash", "Instant", "{1}{R}", "This spell costs {1} less to cast if it targets a tapped creature.\nTap target creature.")
+    /** Counters unless paid, for free. */
+    val freeTax = card("Free Tax", "Instant", "{0}", "Counter target spell unless its controller pays {1}.")
+    val emberStone = card("Ember Stone", "Artifact", "{0}", "{T}: Add {C}.")
+    val study = card("Ember Study", "Sorcery", "{0}", "Draw a card.")
+    /** A cost a panel can change: kicker adds to it. */
+    val clan = card("Ember Clan", "Creature — Elemental", "{1}", "Kicker {1}", "1", "1")
+    /** Two ways, offspring dearer: for a panel paying several sources. */
+    val brood = card("Ember Brood", "Creature — Elemental", "{0}", "Offspring {2}", "1", "1")
     /** A free mana rock: identical ones lie in one stack (TBL-053). */
     val shard = card("Ember Shard", "Artifact", "{0}", "{T}: Add {R}.")
     /** A free creature with offspring {R} (ZON-080: its "Cast" and "Cast with offspring {R}" chips). */

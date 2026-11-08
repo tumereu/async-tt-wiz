@@ -16,7 +16,11 @@ Engine.speed(state, player), ringTemptations(state, player), dungeonsCompleted(s
 Engine.dayOrNight(state): DayOrNight?            // CR 731; null while it is neither
 Engine.classLevel(state, id): Int?               // the level a Class has gained (CR 716.2)
 Engine.options(state, player[, view]): List<Input> // what a player may do now: exact (every input listed is accepted)
-Engine.costMayFall(state): Boolean // whether the waiting cast's cost may still fall with a choice not made yet (CR 601.2f)
+Engine.finishable(state): Boolean // whether the open cast or activation can still be finished; false only with proof (a bound says true)
+Engine.finishableWith(state, answer): Boolean // finishable once answer is given to the open decision
+Engine.selection(state, picked): Selection // the candidates that may be picked with these picked, and whether these are a finished selection (CR 601.2c, 601.2f)
+Engine.castCosts(state): CastCosts // the smallest cost among the ways through the open choices, whether there can be others, Autotap's sources for it, the way to it
+Engine.fillPayment(state, pinned, removed): List<ManaUse> // the open payment around a player's picks: pinned stay, removed aren't used, Autotap's order fills in the rest
 Engine.refusal(state, input[, view]): String?    // why perform refuses a land play, cast or activation at once, without performing it
 Engine.perform(state, input[, view], trace?): Outcome // Outcome(changes, pending); never writes `state`; trace: see Tracing
 Engine.newGame(seats, startingLife): GameState   // a game before it begins; Input.StartGame starts it (CR 103)
@@ -37,16 +41,23 @@ Engine.layersWorkedOut: (() -> Unit)?            // tests and measurements: call
 state.apply(change); state.revert(change)        // the only mutators (D56, D59)
 ```
 
-`options` is exact: `perform` accepts every input it lists, and an open decision lists an answer whenever one is found
+`options` lists what can be begun: `perform` accepts every input it lists, and an open decision lists an answer whenever one is found
 (random results and host fills are the host's, D25, D60). Answers are listed to every player (P7), except answers
 naming cards hidden from that player (D60); for choices of several
 objects, targets or modes a working sample is listed, not every combination. A cast or activation is listed when it can
 be begun, everything known at its start can be done (its first targets, the objects its costs use, a mode with what it
-needs), a payment is found for its mana cost as it stands then (X as 0; convoke and delve counted) and its next decisions
-have answers that lead to its end (looked ahead within a bound: a target that depends on X or on an earlier target).
-Inside a cast or activation only answers after which it can still be finished are listed, so no decision it reaches is a
-dead end; X is listed at the least values that work, up to what can be paid. `OptionsFuzzTest` checks the contract on
-seeded random games of cube cards, failing on any open player decision without a listed answer. `revert` takes changes back last first; after a host drops older turns' events
+needs), a payment may exist for its mana cost as it stands then (X as 0; every mana ability, convoke and delve counted) and its next
+decisions have answers that lead to its end. **It is left out only with proof**: every combination of targets, objects and modes, every X
+and every set of mana abilities has been tried; a search stopped by a bound lists it ("seems castable"), so a listed cast can end in a
+payment only a player's own picks can make, or none. A false approval costs a look, a false denial loses a game action. Inside a cast or
+activation only answers after which it can still be finished are listed, so no decision it reaches is a
+dead end; X is listed at the least values that work, up to what can be paid. Whether a payment exists is `Mana.verdict`
+(found, none, or maybe when a bound stopped it or a source can't be read); `Mana.suggest` (Autotap, `Decision.ManaPayment.suggestion`) is a
+convenience in its order (pool; no side effects; damage or life; sacrifices; a lethal source last) and may find nothing where a way exists.
+A payment names every mana ability it uses (CR 605.3a), with what its activation asks in `ManaUse.Ability.answers` (the objects its cost uses, an
+amount, a combination's colours); the payment runs them in an order that works, whatever order they are listed in, an ability's own mana coming from
+what the payment has by then. `OptionsFuzzTest` checks the contract on
+seeded random games of cube cards, failing on any open player decision without a listed answer (a payment apart); `NoFalseDenialFuzzTest` tries each card left out on generated boards without bounds: no way may exist. `revert` takes changes back last first; after a host drops older turns' events
 (`GameState.forgetOlderTurns`) undo still reaches those turns, but "this turn" questions there see none of their events.
 
 - `state/` — `GameState` (serializable, mutable): players in turn order with their zones,

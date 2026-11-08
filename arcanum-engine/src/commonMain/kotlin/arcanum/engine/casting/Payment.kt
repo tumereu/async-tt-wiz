@@ -255,7 +255,7 @@ internal object Payment {
         val id = "m${recorder.state.nextTimestamp()}.${use.source}"
         var c = Continuation.Announcing(player, arcanum.engine.decision.Announced.Ability(use.source, use.ability, ability), arcanum.engine.decision.AnnounceStage.Modes,
             arcanum.engine.decision.Choices(names = Bindings.EMPTY.with(Plan.ITEM, NamedValue.Option(id))))
-        val queue = ArrayDeque(use.answers)
+        val queue = use.answers.toMutableList()
         while (true) {
             val plan = Plan(recorder.state, c)
             val q = plan.next() ?: return Readied(c, null)
@@ -268,7 +268,7 @@ internal object Payment {
     }
 
     /** The next of a mana ability's given answers, when it is what [q] asks. */
-    private fun next(queue: ArrayDeque<Answer>, q: Question): Answer? {
+    private fun next(queue: MutableList<Answer>, q: Question): Answer? {
         val head = queue.firstOrNull() ?: return null
         val fits = when (q) {
             is Question.Objects -> head is Answer.Objects
@@ -280,7 +280,7 @@ internal object Payment {
             is Question.CostChoice -> head is Answer.SubtypeChoice || head is Answer.Objects
             else -> false
         }
-        return if (fits) queue.removeFirst() else null
+        return if (fits) queue.removeAt(0) else null
     }
 
     /** Activates a mana ability while paying (CR 605.3a): pays its cost and adds its mana. Returns [funds] as they are after it. */

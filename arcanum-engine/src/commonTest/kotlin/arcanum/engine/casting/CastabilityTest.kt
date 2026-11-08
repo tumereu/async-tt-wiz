@@ -423,6 +423,83 @@ class CastabilityTest {
         assertEquals(1, state.player(alice.id).manaPool.size, "mana left over goes to the pool")
     }
 
+    /** Alice's Spark on the Stack, Bob's "unless pays {1}" resolving, Alice said yes: the payment is open. */
+    private fun Scenario.taxedPayment(): Decision.ManaPayment {
+        alice.hand(spark)
+        alice.battlefield("Mountain")
+        bob.battlefield("Island", "Island")
+        bob.hand(tax)
+        perform(Input.Cast(alice.id, card(spark)))
+        answer(Answer.ManaPayment(listOf(decision<Decision.ManaPayment>().options.filterIsInstance<ManaUse.Ability>().first { it.source == card("Mountain") })))
+        passPriority()
+        perform(Input.Cast(bob.id, card(tax)))
+        answer(Answer.Targets(listOf(TargetRef.Object(state.stack.first()))))
+        answer(Answer.ManaPayment(decision<Decision.ManaPayment>().suggestion))
+        allPass()
+        val may = decision<Decision.May>()
+        assertTrue(may.payable, "the tax can be paid: $may")
+        answer(Answer.YesNo(true))
+        return decision<Decision.ManaPayment>()
+    }
+
+    private fun ManaUse.isOf(id: arcanum.engine.state.ObjectId) = (this as? ManaUse.Ability)?.source == id
+
+    // CR 605.3a: every payment works this way (each kind by Autotap and by hand, while a spell resolves)
+    @Test fun aLandRemovingACounterPaysDuringResolution() = scenario {
+        alice.battlefield(counterLand, counters = listOf(CounterKind.Named("charge") to 1))
+        val payment = taxedPayment()
+        assertTrue(payment.suggestion.any { it.isOf(card(counterLand)) })
+        answer(Answer.ManaPayment(payment.suggestion))
+        assertEquals(0, state.objOrThrow(card(counterLand)).counters(CounterKind.Named("charge")))
+    }
+
+    @Test fun anAltarPaysDuringResolution() = scenario {
+        alice.battlefield(altar)
+        alice.battlefield(bear)
+        val payment = taxedPayment()
+        answer(Answer.ManaPayment(listOf(payment.options.first { it.isOf(card(altar)) })))
+        assertTrue(state.player(alice.id).graveyard.any { nameOf(state.objOrThrow(it)) == bear })
+    }
+
+    @Test fun aSignetChainPaysDuringResolutionWhicheverWayItIsPicked() = scenario {
+        alice.battlefield("Plains")
+        alice.battlefield(signet)
+        val payment = taxedPayment()
+        answer(Answer.ManaPayment(listOf(payment.options.first { it.isOf(card(signet)) }, payment.options.first { it.isOf(card("Plains")) })))
+        assertEquals(1, state.player(alice.id).manaPool.size, "one of the Signet's two left over")
+    }
+
+    @Test fun aFilterLandPaysDuringResolution() = scenario {
+        alice.battlefield("Island")
+        alice.battlefield(filterLand)
+        val payment = taxedPayment()
+        answer(Answer.ManaPayment(listOf(payment.options.first { it.isOf(card(filterLand)) }, payment.options.first { it.isOf(card("Island")) })))
+        assertEquals(1, state.player(alice.id).manaPool.size)
+    }
+
+    @Test fun aColourChoicePaysDuringResolution() = scenario {
+        alice.battlefield(prism)
+        val payment = taxedPayment()
+        assertTrue(payment.suggestion.any { it.isOf(card(prism)) })
+        answer(Answer.ManaPayment(payment.suggestion))
+    }
+
+    @Test fun triggeredManaPaysDuringResolution() = scenario {
+        alice.battlefield("Swamp")
+        alice.battlefield(swampBoost)
+        val payment = taxedPayment()
+        answer(Answer.ManaPayment(payment.suggestion))
+        assertEquals(1, state.player(alice.id).manaPool.size, "the additional {B} left over")
+    }
+
+    @Test fun lethalDamagePaysDuringResolution() = scenario {
+        alice.life = 1
+        alice.battlefield(tomb)
+        val payment = taxedPayment()
+        answer(Answer.ManaPayment(payment.suggestion))
+        assertTrue(state.player(alice.id).life <= 0, "it pays; the game ends once priority would next come (CR 704.3)")
+    }
+
     // ---- Selections (§3): candidates legal given what is picked; a cost falling with more targets
 
     private val fallsPerTarget: String = spellWith("Cast Many Targets", "{5}",

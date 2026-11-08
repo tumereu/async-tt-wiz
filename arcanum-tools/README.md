@@ -16,3 +16,7 @@ JVM developer tools for the Arcanum libraries. Not a library and never shipped.
   and fetched again only when MTGJSON's version changes (Meta.json checked at most once a day; offline, the cache is
   used), so the first run needs a network. Prints every unsupported card with the parts left to the players and fails
   when there is any. `./scripts/gradle.sh :arcanum-tools:setSupport [-Psets=LTR,BLB]`
+- `manaCheck`: castability over every card of the supported sets, from the same cached files (never committed): each mana ability must pay
+  for a small spell through a payment by hand on a test board, each cost reducer is tried on test boards; all are listed in
+  `build/arcanum/mana-check.tsv` (`pays` / `FAILS`, `lowers` / `look`: a reducer whose condition the boards don't meet is to be read, not a
+  failure). Fails when a mana ability doesn't pay. `./scripts/gradle.sh :arcanum-tools:manaCheck [-Psets=LTR,BLB]`

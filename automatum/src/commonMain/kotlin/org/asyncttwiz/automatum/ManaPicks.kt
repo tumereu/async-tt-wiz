@@ -15,7 +15,8 @@ object ManaPicks {
 
     /** What the player taps for [use]: the same for every use of one source (its abilities and colours). */
     fun key(use: ManaUse): String = when (use) {
-        is ManaUse.Ability -> use.source.toString()
+        // CR 605.3a: a source used with another object (the creature an altar sacrifices) is a pick of its own
+        is ManaUse.Ability -> use.source.toString() + use.answers.filterIsInstance<arcanum.engine.decision.Answer.Objects>().joinToString("") { "/${it.chosen}" }
         is ManaUse.Pool -> "pool/${use.index}"
         is ManaUse.Life -> "life/${use.symbol}"
         is ManaUse.Special -> "special/${use.way}/${use.objects}"

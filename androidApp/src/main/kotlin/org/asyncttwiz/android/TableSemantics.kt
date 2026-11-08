@@ -24,6 +24,11 @@ internal inline fun TableSemanticNodes(game: GameSummary, play: TableBoard, scen
         })
     // Semantics-only children do not install a second pointer detector. Dock piles expose
     // the same minimum touch rectangle used by the scene's pointer hit testing.
+    // TBL-117, STK-047, ZON-079: what the table draws on a card and doesn't say, for accessibility services and tests
+    val targets = toolkit?.cast?.glow(play).orEmpty() + toolkit?.flows?.glow(play).orEmpty()
+    val picks = toolkit?.cast?.pickedGlow(play).orEmpty() + toolkit?.flows?.pickedGlow(play).orEmpty()
+    val outlined = toolkit?.hand?.sources(play).orEmpty() + toolkit?.cast?.paySources().orEmpty()
+    val marks = { card: String -> setOfNotNull("target".takeIf { card in targets }, "picked".takeIf { card in picks }, "source".takeIf { card in outlined }) }
     for (item in semanticItems) {
         if (item.kind == TableItemKind.HAND && item.cards.isNotEmpty()) continue
         key(item.id) {
@@ -35,6 +40,7 @@ internal inline fun TableSemanticNodes(game: GameSummary, play: TableBoard, scen
                 }
             }.semantics {
                 contentDescription = item.label
+                item.cardId?.let { card -> marks(card).takeIf { it.isNotEmpty() }?.let { this[TableMarks] = it } }
                  if (item.peekOwners.isNotEmpty()) stateDescription = "Visible card owners: " + item.peekOwners.joinToString { owner ->
                     if (owner == game.inviter.accountId) game.inviter.username else game.recipient.username
                 }
@@ -51,3 +57,6 @@ internal inline fun TableSemanticNodes(game: GameSummary, play: TableBoard, scen
         }
     }
 }
+
+/** The marks the table draws on a card: "target" a violet glow, "picked" picked in a choice of several, "source" Autotap's amber outline. */
+val TableMarks = androidx.compose.ui.semantics.SemanticsPropertyKey<Set<String>>("TableMarks")

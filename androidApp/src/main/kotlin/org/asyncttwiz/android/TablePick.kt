@@ -55,7 +55,7 @@ internal sealed interface TablePick {
 
     companion object {
         /** [decision] as picked on the table on [state], or null when it is answered in a panel. [payable]: only these
-         * candidates leave the cast payable where they differ in what it costs (KX8GYS, CR 601.2f); null: all do. */
+         * candidates can be picked now given what is picked so far (castability §3, CR 601.2c, 601.2f); null: all can. */
         fun of(decision: Decision?, state: GameState?, payable: List<TargetRef>? = null): TablePick? = when (decision) {
             is Decision.Targets -> Targets(decision, payable)
             is Decision.ChooseObjects -> if (state != null && onBattlefield(decision, state)) Objects(decision, payable) else null

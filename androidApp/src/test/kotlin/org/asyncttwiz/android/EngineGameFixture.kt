@@ -102,7 +102,21 @@ internal class EngineGameFixture(val startingPlayer: String = TableStatesFixture
         const val ALTAR = "Ember Altar"
         /** A free 1/1 creature with nothing to do: identical ones lie in one stack (TBL-053). */
         const val PUP = "Ash Pup"
+        // Castability's screens (castability spec §6)
+        const val REBUKE = "Ember Rebuke"
+        const val DROWSY = "Drowsy Pup"
+        const val TOLL = "Ember Toll"
+        const val GEODE = "Ember Geode"
+        const val ELF_BEAR = "Elf Bear"
+        const val OX_HUMAN = "Ox Human"
+        const val GOAT = "Lone Goat"
+        const val BLUE_NOTE = "Blue Note"
+        const val SIGNET = "Ember Signet"
+        const val BROOD = "Ember Brood"
+        const val ELF = "Ember Elf"
+        const val STONE = "Ember Stone"
     }
+    private val REBUKE_TEXT = "This spell costs {2} less to cast if it targets a tapped creature.\nExile target creature."
     private val KIT_TEXT = "Offspring {R} (You may pay an additional {R} as you cast this spell. If you do, when this creature enters, create a 1/1 token copy of it.)"
     private val BROODRAIDER_TEXT = "Kicker {1} (You may pay an additional {1} as you cast this spell.)\nOffspring {R}\nDash {R}"
     private val REASON_TEXT = "Each opponent mills fourteen cards.\nCycling {R} ({R}, Discard this card: Draw a card.)\n" +
@@ -137,6 +151,20 @@ internal class EngineGameFixture(val startingPlayer: String = TableStatesFixture
         free("shard", Choices.SHARD, "Artifact", "{T}: Add {R}."),
         free("altar", Choices.ALTAR, "Artifact", "{T}, Sacrifice another creature: Each opponent loses 2 life and you gain 2 life."),
         free("pup", Choices.PUP, "Creature — Elemental Dog", "", "1", "1"),
+        Invented(DefinitionFace("rebuke", Choices.REBUKE, typeLine = "Sorcery", manaCost = "{3}{R}", rulesText = REBUKE_TEXT),
+            OracleCard(Choices.REBUKE, "{3}{R}", "Sorcery", REBUKE_TEXT)),
+        free("drowsy", Choices.DROWSY, "Creature — Dog", "This creature enters tapped.", "1", "1"),
+        free("toll", Choices.TOLL, "Sorcery", "This spell costs {R}{R} more to cast for each creature type among target creatures.\nTap up to five target creatures."),
+        free("geode", Choices.GEODE, "Artifact", "{T}: Add {R}{R}."),
+        free("elfbear", Choices.ELF_BEAR, "Creature — Elf Bear", "", "1", "1"),
+        free("oxhuman", Choices.OX_HUMAN, "Creature — Ox Human", "", "1", "1"),
+        free("goat", Choices.GOAT, "Creature — Goat", "", "1", "1"),
+        Invented(DefinitionFace("note", Choices.BLUE_NOTE, typeLine = "Sorcery", manaCost = "{U}", rulesText = "Draw a card."),
+            OracleCard(Choices.BLUE_NOTE, "{U}", "Sorcery", "Draw a card.")),
+        free("signet", Choices.SIGNET, "Artifact", "{1}, {T}: Add {R}{U}."),
+        free("brood", Choices.BROOD, "Creature — Elemental", "Offspring {2}", "1", "1"),
+        free("elf", Choices.ELF, "Creature — Elf", "Haste\n{T}: Add {R}.", "1", "1"),
+        free("stone", Choices.STONE, "Artifact", "{T}: Add {C}."),
         Invented(DefinitionFace("broodraider", Choices.BROODRAIDER, typeLine = "Creature — Elemental Warrior", manaCost = "{2}{R}",
             rulesText = BROODRAIDER_TEXT, power = "2", toughness = "2"),
             OracleCard(Choices.BROODRAIDER, "{2}{R}", "Creature — Elemental Warrior", BROODRAIDER_TEXT, "2", "2")),

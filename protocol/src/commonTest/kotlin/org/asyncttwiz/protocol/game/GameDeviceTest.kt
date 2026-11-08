@@ -664,13 +664,13 @@ class GameDeviceTest {
     }
 
     // HIS-084, HIS-101, HIS-099 (owner, 2026-11-08): her press leaving her own main phase is an undo point, unlike the passes
-    // after it: one Undo is back there, free, and her phone passes nothing there; her End turn's first pass isn't counted as one
+    // after it: one Undo is back there, free, and her phone passes nothing there; her End turn's first pass records End turn
     @Test fun aPressLeavingTheMainPhaseIsAnUndoPoint() {
         val sim = seers()
         sim.seersToThirdTurn()
         val alice = sim.device(sim.alice)
         val pass = assertIs<GameDevice.Acted.Sent>(alice.act(Input.PassPriority(sim.alice))).event
-        assertEquals(arcanum.api.TurnStep.PrecombatMain, alice.mainExits[pass.id])
+        assertEquals(MainPress.ToCombat, pass.press)
         sim.settle(only = listOf(sim.alice))
         assertTrue(alice.model.engine.turn.step != arcanum.api.TurnStep.PrecombatMain, "past her main phase")
         assertEquals(pass.parentId, alice.undoTarget())
@@ -678,9 +678,91 @@ class GameDeviceTest {
         sim.settle(only = listOf(sim.alice))
         assertEquals(pass.parentId, alice.session.tip, "back in her main phase, her phone passing nothing")
         assertEquals(arcanum.api.TurnStep.PrecombatMain, alice.model.engine.turn.step)
-        val exits = alice.mainExits.size
+        val made = alice.session.pending.size
         alice.endTurn(sim.now)
-        assertEquals(exits, alice.mainExits.size, "End turn is its own kind of point")
+        val ending = alice.session.pending.drop(made)
+        assertEquals(MainPress.EndTurn, ending.first().press, "End turn is its own kind of point")
+        assertTrue(ending.drop(1).all { it.press == null }, "its later passes stay plain: ${ending.map { it.press }}")
+    }
+
+    // HIS-101 (owner, 2026-11-08): the mark says what was pressed: To end step from her second main phase in Control; no mark on
+    // her passes between them, nor on an assumed pass
+    @Test fun onlyThePressIsMarked() {
+        val sim = seers()
+        sim.seersToThirdTurn()
+        val alice = sim.device(sim.alice)
+        val bob = sim.device(sim.bob)
+        alice.settings(PlaySettings(mode = ResponseMode.FullControl))
+        assertEquals(MainPress.ToCombat, assertIs<GameDevice.Acted.Sent>(alice.act(Input.PassPriority(sim.alice))).event.press)
+        sim.settle(only = listOf(sim.alice))
+        // On to her second main phase: her declaration of no attackers and her later passes, none of them presses out of a main phase
+        var guard = 0
+        while (alice.model.engine.turn.step != arcanum.api.TurnStep.PostcombatMain && guard++ < 40) {
+            val s = alice.model.engine
+            val acted = when {
+                s.pending == null && s.priority.holder == sim.alice -> alice.act(Input.PassPriority(sim.alice))
+                s.pending == null && s.priority.holder == null && s.turn.active == sim.alice -> alice.act(Input.DeclareAttackers(sim.alice, emptyList()))
+                else -> alice.assume(emptyList())
+            }
+            if (alice.model.engine.turn.step != arcanum.api.TurnStep.PostcombatMain) assertNull((acted as? GameDevice.Acted.Sent)?.event?.press, "$s")
+            sim.settle(only = listOf(sim.alice))
+        }
+        assertEquals(arcanum.api.TurnStep.PostcombatMain, alice.model.engine.turn.step)
+        assertEquals(MainPress.ToEndStep, assertIs<GameDevice.Acted.Sent>(alice.act(Input.PassPriority(sim.alice))).event.press)
+        sim.settle()
+        val line = alice.session.events + alice.session.pending
+        assertTrue(line.any { it.assumed != null } && line.filter { it.assumed != null }.all { it.press == null }, "an assumed pass never has one")
+        assertEquals(listOf(MainPress.ToCombat, MainPress.ToEndStep), line.mapNotNull { it.press }.takeLast(2))
+        assertEquals(line.last { it.press != null }.id, bob.session.events.last { it.press != null }.id, "the other phone holds the same record")
+    }
+
+    // HIS-101, SYS-077 (owner, 2026-11-08): a press lost in a race, made again on the other player's event, keeps its mark
+    @Test fun aPressMadeAgainAfterALostRaceKeepsItsMark() {
+        val sim = seers()
+        sim.seersToThirdTurn()
+        val alice = sim.device(sim.alice)
+        val bob = sim.device(sim.bob)
+        sim.settle()
+        // Her press on the wire, refused as out of date; the event the server took first (Bob's early answer) reaches her after it
+        val lost = assertIs<GameDevice.Acted.Sent>(alice.act(Input.PassPriority(sim.alice))).event
+        assertEquals(MainPress.ToCombat, lost.press)
+        alice.take(sim.now)
+        alice.refused(org.asyncttwiz.protocol.GameAction.Submit(Submission.of(lost)), "stale")
+        val early = EarlyAnswer(sim.bob, "early:bob", Answer.YesNo(true))
+        val first = assertIs<GameDevice.Acted.Sent>(bob.table(listOf(TableChange.EarlyAnswered(early.key, null, early)))).event
+        sim.flush(sim.bob)
+        sim.deliver(sim.alice)
+        alice.playToStop()
+        alice.advance(sim.now)
+        val again = alice.session.pending.first()
+        assertEquals(first.id, again.parentId, "made again on his event")
+        assertTrue(again.id != lost.id)
+        assertEquals(MainPress.ToCombat, again.press)
+        // ... and the server keeps it: her phone's event is the one it stored (a difference would reload her game)
+        sim.settle()
+        assertEquals(false, alice.needsReload)
+        assertEquals(MainPress.ToCombat, alice.session.events.single { it.id == again.id }.press)
+        assertEquals(MainPress.ToCombat, bob.session.events.single { it.id == again.id }.press)
+    }
+
+    // HIS-101 (owner, 2026-11-08): the event and its submission carry the mark: the server makes the same event from what the
+    // device sends (Authority.make), through the stored form; an old event without the field decodes with no mark
+    @Test fun theMarkTravelsAndOldEventsDecode() {
+        val sim = seers()
+        sim.seersToThirdTurn()
+        val alice = sim.device(sim.alice)
+        val event = assertIs<GameDevice.Acted.Sent>(alice.act(Input.PassPriority(sim.alice))).event
+        assertEquals(MainPress.ToCombat, Submission.of(event).press)
+        val codec = EngineJson(GameDefinitions.of(alice.model.engine))
+        val text = codec.encodeEvent(event)
+        assertTrue("\"press\":{\"type\":\"combat\"}" in text, text)
+        assertEquals(event, codec.decodeEvent(text))
+        val old = codec.decodeEvent(text.replace(",\"press\":{\"type\":\"combat\"}", ""))
+        assertNull(old.press)
+        assertEquals(event.copy(press = null), old)
+        for (press in listOf(MainPress.ToCombat, MainPress.ToEndStep, MainPress.EndTurn))
+            assertEquals(press, codec.decodeEvent(codec.encodeEvent(event.copy(press = press))).press)
+        assertTrue("press" !in codec.encodeEvent(event.copy(press = null)), "no mark, no field")
     }
 
     // HIS-113: declaring no attackers holds nothing

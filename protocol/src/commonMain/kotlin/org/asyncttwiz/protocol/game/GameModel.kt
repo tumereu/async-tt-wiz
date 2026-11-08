@@ -229,6 +229,8 @@ class EventBuilder(private val model: GameModel, private val id: String, parentI
         internal set
     /** The response mode the event records ([GameEvent.mode]). */
     var mode: ResponseMode? = null
+    /** The main button press the event records ([GameEvent.press]). */
+    var press: MainPress? = null
     private val timestampBefore = model.engine.timestampCounter
     private val lineBefore = model.table.line
     private var line = lineBefore
@@ -353,7 +355,7 @@ class EventBuilder(private val model: GameModel, private val id: String, parentI
         check(!done) { "The event was built or abandoned" }
         if (line != lineBefore) table(TableChange.LineMoved(lineBefore, line))
         done = true
-        val event = GameEvent(id, parentId, author, if (steps.isEmpty()) null else EnginePart(timestampBefore, steps.toList()), table.toList(), mode)
+        val event = GameEvent(id, parentId, author, if (steps.isEmpty()) null else EnginePart(timestampBefore, steps.toList()), table.toList(), mode, press)
         model.afterEvent()
         return event
     }

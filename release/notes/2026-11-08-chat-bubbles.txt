@@ -1,0 +1,1 @@
+mod: Chat bubbles always appear right at the life square, even over cards, and a tap on one only reads it.

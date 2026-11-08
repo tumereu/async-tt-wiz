@@ -4,8 +4,8 @@ import org.asyncttwiz.protocol.*
 import org.junit.Test
 import kotlin.test.*
 
-/** The chat bubbles' rules (LOB-136, LOB-137, LOB-138, LOB-140): which message the other player's bubble shows and its
- * "k/n", the read mark, the own sent message, and where a bubble may go. */
+/** The chat bubbles' rules (LOB-136, LOB-137, LOB-138): which message the other player's bubble shows and its "k/n", the
+ * read mark, the own sent message, and where a bubble goes. */
 class ChatBubbleRulesTest {
     private val game = "g"
     private fun message(revision: Int, author: String, text: String = "Message $revision") =
@@ -82,41 +82,31 @@ class ChatBubbleRulesTest {
 
     private fun overlaps(a: TableBounds, b: TableBounds) = a.x < b.right && b.x < a.right && a.y < b.bottom && b.y < a.bottom
 
-    // LOB-140: the old place under the opponent's square when free; else the nearest free room, off every obstacle; none
-    // when nothing is free
-    @Test fun bubbleGoesUnderTheSquareOrToTheNearestFreeRoom() {
+    // LOB-136, LOB-137 (owner, 2026-11-08): always at the square, whatever lies there: under the opponent's, above your own;
+    // only the screen's edges move it
+    @Test fun bubbleAlwaysStartsAtTheLifeSquare() {
         val life = TableBounds(10f, 56f, 48f, 48f)
-        val bars = listOf(TableBounds(0f, 0f, 412f, 48f), TableBounds(0f, 836f, 412f, 56f))
-        val free = ChatBubbleLayout.place(life, true, 120f, 44f, 412f, 892f, ChatBubbleLayout.Obstacles(emptyList(), bars))
-        assertEquals(TableBounds(10f, 56f + 48f + ChatBubbleLayout.TAIL + 1f, 120f, 44f), free)
-        // Hand cards under the square: the bubble goes elsewhere, clear of them (and its tail too)
-        val cards = (0 until 5).map { TableBounds(8f + it * 32f, 116f, 28f, 40f) }
-        val moved = assertNotNull(ChatBubbleLayout.place(life, true, 120f, 44f, 412f, 892f, ChatBubbleLayout.Obstacles(cards, bars)))
-        assertTrue(cards.none { overlaps(it, moved) }, "$moved")
-        assertTrue(bars.none { overlaps(it, moved) }, "$moved")
-        // Your own square: above it
+        assertEquals(TableBounds(10f, 56f + 48f + ChatBubbleLayout.TAIL + 1f, 120f, 44f), ChatBubbleLayout.place(life, true, 120f, 44f, 412f, 892f))
         val own = TableBounds(10f, 776f, 48f, 48f)
-        val above = assertNotNull(ChatBubbleLayout.place(own, false, 120f, 44f, 412f, 892f, ChatBubbleLayout.Obstacles(emptyList(), bars)))
-        assertTrue(above.bottom <= own.y - ChatBubbleLayout.TAIL, "$above")
-        // Everything near the square taken: no bubble
-        val wall = listOf(TableBounds(0f, 0f, 412f, 892f))
-        assertNull(ChatBubbleLayout.place(life, true, 120f, 44f, 412f, 892f, ChatBubbleLayout.Obstacles(wall, bars)))
+        assertEquals(TableBounds(10f, 776f - ChatBubbleLayout.TAIL - 1f - 44f, 120f, 44f), ChatBubbleLayout.place(own, false, 120f, 44f, 412f, 892f))
+        // A square by the screen's right edge: the bubble stays on the screen
+        val right = TableBounds(360f, 56f, 48f, 48f)
+        assertEquals(412f - 4f, ChatBubbleLayout.place(right, true, 120f, 44f, 412f, 892f).right)
     }
 
-    // LOB-140: on real tables (portrait and landscape, cards in both hands and on both battlefields) neither player's
-    // bubble covers a card, a pile or a life square
-    @Test fun bubblesOnTablesNeverCoverCards() {
+    // LOB-136, LOB-137: on real tables (portrait and landscape, cards in both hands and on both battlefields) each player's
+    // bubble lies at their square, with its tail towards it, hand cards under it or not
+    @Test fun bubblesOnTablesStayAtTheirSquares() {
         val play = TableFixture.play(hand = 7, board = 6)
         for ((landscape, size) in listOf(false to (412f to 892f), true to (892f to 412f))) {
             val (width, height) = size
             val scene = TablePresentation.scene(TableFixture.game, tableBoard(play), "a", width, height, landscape)
             for ((player, below) in listOf("b" to true, "a" to false)) {
-                val life = scene.items.single { it.id == "life/$player" }
-                val obstacles = ChatBubbleLayout.obstacles(scene, life.id, width, height, tableBottomHeight(landscape))
-                val bubble = assertNotNull(ChatBubbleLayout.place(life.bounds, below, 160f, 57f, width, height, obstacles),
-                    "landscape=$landscape $player")
-                val things = scene.items.filter { it.kind != TableItemKind.HAND && it.id != life.id }.flatMap { it.visible }
-                assertTrue(things.none { overlaps(it, bubble) }, "landscape=$landscape $player: $bubble")
+                val life = scene.items.single { it.id == "life/$player" }.bounds
+                val bubble = ChatBubbleLayout.place(life, below, 160f, 57f, width, height)
+                assertFalse(overlaps(bubble, life), "landscape=$landscape $player: $bubble off its square")
+                assertTrue(bubble.x >= 4f && bubble.right <= width - 4f && bubble.y >= 0f && bubble.bottom <= height, "on the screen: $bubble")
+                assertEquals(below, ChatBubbleLayout.tail(bubble, life).top, "the tail towards the square")
             }
         }
     }

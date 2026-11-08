@@ -101,10 +101,10 @@ number	item	screenshot	catalog	decisions
 100	Hand card chips, one per complete way to cast it (offspring)	chips/cast-chips-offspring.png	ZON-080 ZON-079
 101	One "Cast…" chip for a card with more than four ways	chips/cast-more-chip.png	ZON-080
 102	Cast panel paying with a source picked on the table	cast-panel/payment-chosen.png	STK-024 ZON-082	ManaPayment
-103	The other player's chat message as a bubble by their life square, 1/2	chat/bubble-opponent.png	LOB-136 LOB-140
+103	The other player's chat message as a bubble at their life square over their hand, 1/2	chat/bubble-opponent.png	LOB-136
 104	Your sent message's bubble fading	chat/bubble-own-fading.png	LOB-137
 105	Quick messages in your own Life panel	chat/life-quick-messages.png	LOB-139 TRN-030
-106	Chat bubbles in landscape	chat/bubble-landscape.png	LOB-136 LOB-137 LOB-140
+106	Chat bubbles in landscape	chat/bubble-landscape.png	LOB-136 LOB-137
 107	Opened battlefield group while targets are picked	battlefield/group-opened-targets.png	TBL-130 STK-047	Targets
 108	Targeting: opened group of 2	battlefield/group-opened-targets-2.png	TBL-130 TBL-002	Targets
 109	Targeting: opened group of 3	battlefield/group-opened-targets-3.png	TBL-130 TBL-002	Targets
@@ -157,3 +157,5 @@ number	item	screenshot	catalog	decisions
 156	Player state chips in landscape	states/player-chips-landscape.png	TRN-072 TRN-073 TBL-009
 157	Player state chips on a narrow screen	states/player-chips-narrow.png	TRN-072 TRN-053 TRN-069
 158	Holding a player state chip	states/player-chip-explained.png	TRN-072 TBL-132
+159	Your sent message's bubble above your life square	chat/bubble-own.png	LOB-137
+160	A chat bubble over the other player's state chips on a narrow phone	states/bubble-over-chips.png	LOB-136 TRN-072

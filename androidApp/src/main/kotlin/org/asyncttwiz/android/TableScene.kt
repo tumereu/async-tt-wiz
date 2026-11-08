@@ -357,9 +357,9 @@ internal fun TableSurface(game: GameSummary, play: TableBoard, accountId: String
             EmblemChipsOverlay(scene, accountId)
             // TRN-072, TRN-073: a player's states and the game's day or night; holding one explains it
             StateChipsOverlay(scene)
-            // LOB-136, LOB-137 (owner, 2026-11-07): chat messages as speech bubbles by the life squares, off every card
-            runtime.chatBubbles?.let { ChatBubblesOverlay(scene, accountId, it, tableWidth, tableHeight,
-                tableBottomHeight(landscape, runtime.timelineOpen)) }
+            // LOB-136, LOB-137 (owner, 2026-11-08): chat messages as speech bubbles at the life squares, over what lies there;
+            // last here, so a tap on the other player's takes that tap from the table and its chips
+            runtime.chatBubbles?.let { ChatBubblesOverlay(scene, accountId, it, tableWidth, tableHeight) }
         }
         TableBoardOverlays(game, play, accountId, runtime, scene, rendered)
         TableChromeHeader(game, play, accountId, landscape, runtime, toolkit, compactHeader, scene.appearance)

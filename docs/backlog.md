@@ -28,7 +28,6 @@ Table batch (owner, 2026-11-08):
 - Timeline exit (HIS-010, HIS-015): at the last event the Auto/Pause button reads "Exit timeline" and a tap leaves timeline mode at once; Next stays a plain arrow.
 - Piles (TBL-053, TBL-129, TBL-027): tapped members lie on top of a stack, re-sorted only when stacks merge; entered this turn splits only creatures, so other permanents join their stack at once (the "2 sick" idea below stays separate).
 - Combat stays readable (HIS-104, HIS-112, TBL-125, LOB-082): a combat that goes by itself holds your view (never the game, as plays shown does) on the attackers shown and on the damage, for the "Show the other player's plays" time (the same setting, 0 = no hold), a tap skipping it. Declaring no attackers holds nothing.
-- Chat bubbles (LOB-136, LOB-137, LOB-140): bubbles always start at the life square and may cover anything, hand cards included; the rule finding other room goes. Write (LOB-139) focuses the chat's input and opens the keyboard.
 
 
 Castable-spell review leftovers (owner, 2026-11-08, report KX8GYS; reductions that depend on a choice are fixed and tested in `CostFallsAfterChoiceOptionsTest`), each to decide or fix (TBL-117, STK-047):

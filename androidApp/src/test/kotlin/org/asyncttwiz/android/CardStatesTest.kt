@@ -6,7 +6,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.filter
 import androidx.compose.ui.test.hasContentDescription
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithText
@@ -267,11 +269,12 @@ class CardStatesTest {
         assertEquals(null, scene(board { }).dayNightChip, "neither day nor night yet")
     }
 
-    private fun render(play: PlayState, table: TableBoard, landscape: Boolean = false) {
+    private fun render(play: PlayState, table: TableBoard, landscape: Boolean = false, runtime: TableRuntimeHooks = TableRuntimeHooks()) {
         val toolkit = TableToolkitController(f.a, { table }, { true }, { _, _ -> true })
         compose.setContent { MaterialTheme {
             EngineFixtureTable(play, f.a) {
-                TableSurface(f.game, table, f.a, landscape, Modifier.fillMaxSize(), connected = true, onIntent = toolkit::handle, toolkit = toolkit)
+                TableSurface(f.game, table, f.a, landscape, Modifier.fillMaxSize(), connected = true, onIntent = toolkit::handle, toolkit = toolkit,
+                    runtime = runtime)
             }
         } }
         compose.waitForIdle()
@@ -294,6 +297,28 @@ class CardStatesTest {
         compose.onRoot().captureShot("$SCREENSHOTS/states/player-chips-landscape.png",
             "Landscape table with the same states: each player's chips after their piles in their bar row, going on beside their emblems, the opponent's " +
                 "above their dungeon room with a +N chip for the rest; Night sits above the Stack.")
+    }
+
+    // LOB-136, TRN-072 (owner, 2026-11-08): on a narrow phone the other player's chips lie under their life square: the chat
+    // bubble lies over them, and a tap on it reads it, never reaching the chip under it
+    @Config(qualifiers = "w320dp-h640dp-port-mdpi")
+    @Test fun aChatBubbleLiesOverStateChipsAndTakesTheTap() {
+        var read: String? = null
+        var opened: String? = null
+        render(shotPlay, allStates(), runtime = TableRuntimeHooks(chatBubbles = TableChatBubbles(
+            IncomingChatBubble("m1", "Thinking… give me a moment, I have a lot of triggers to order here", 1, 1), null, true, "Bob",
+            read = { read = it }, open = { opened = it }, sentShown = {})))
+        val bubble = compose.onNode(hasTestTag("chat-bubble"))
+        val at = bubble.fetchSemanticsNode().boundsInRoot
+        assertTrue(compose.onAllNodes(hasTestTag(STATE_CHIP_TAG)).fetchSemanticsNodes().any { it.boundsInRoot.overlaps(at) }, "over a chip: $at")
+        compose.onRoot().captureShot("$SCREENSHOTS/states/bubble-over-chips.png",
+            "A narrow 320 dp phone with Bob's unread message: its bubble lies right under his life square, over his room and state chips, " +
+                "which lie there on so narrow a screen.")
+        bubble.performTouchInput { longClick() }
+        compose.waitForIdle()
+        assertEquals("m1", opened, "holding it opens the chat, no chip's explanation")
+        bubble.performClick()
+        assertEquals("m1", read, "a tap reads it")
     }
 
     @Config(qualifiers = "w320dp-h640dp-port-mdpi")

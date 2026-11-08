@@ -239,7 +239,7 @@ internal fun EngineTableScreen(controller: LobbyController, accountId: String, h
                             open = { controller.openChat(it) }, sentShown = { controller.chatSentShown(game.id, it) }),
                         // LOB-139: quick messages from your own Life panel, sent as any message; Write opens the chat
                         quickChat = TableQuickChat(interactive && game.lifecycle == GameLifecycle.ACTIVE && game.playId != null,
-                            send = controller::sendQuickChat, write = { controller.openChat() })))
+                            send = controller::sendQuickChat, write = { controller.writeChat() })))
                 // Over the top row (whose move/step/turn), never taking its taps.
                 EventTextOverlay(eventText, playbackPause, Modifier.align(Alignment.TopCenter), status = choosing,
                     flashes = toolkit.choiceFlashes)

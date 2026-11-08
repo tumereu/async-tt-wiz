@@ -101,5 +101,67 @@ class MainPhaseUndoTest : E2e() {
         bob.tagged("request-accept").performClick()
         aliceBackInHerMain(hand, turn)
         assertEquals(alice.me, bob.state.turn.active, "Alice's turn; Bob has nothing to redo")
+        // HIS-076: Bob's phone reads what she pressed from the record
+        waitUntil("Bob told what she undid") { bob.told("${alice.name} undid: went to combat") }
+    }
+
+    // HIS-101 (owner, 2026-11-08): the other player's press shows on your timeline only as what it led to, also now that it
+    // is on the record
+    @Test fun theOtherPlayersTapIsNoEventOnYourTimeline() {
+        aliceDrewInHerMain()
+        val pass = aliceLeavesHerMain()
+        waitUntil("Bob having seen it") { alice.settled(this) && bob.shown.line.any { it.id == pass } }
+        val game = bob.game!!
+        val timeline = game.timeline.events(game, names())
+        assertTrue(timeline.none { it.id == pass }, timeline.map { it.description }.toString())
+    }
+
+    /** Alice's app closes and starts again, all of her events on the server, and she opens the game: nothing of her phone's
+     * memory left, only the record. */
+    private fun aliceRestarts() {
+        waitUntil("Alice's events on the server") { alice.engine { device.session.pending.isEmpty() } }
+        alice = restart(alice)
+        alice.openGame(game, this)
+    }
+
+    // HIS-101, HIS-084, HIS-099 (owner, 2026-11-08): her press out of her main phase is on the game's record: after the app
+    // starts again it is still on the timeline as "You went to combat", and one Undo still returns to that main phase
+    @Test fun aTapLeavingTheMainPhaseIsStillAPointAfterTheAppStartsAgain() {
+        val hand = aliceDrewInHerMain()
+        val turn = alice.state.turn.number
+        away(bob, alice)
+        val pass = aliceLeavesHerMain()
+        aliceRestarts()
+        waitUntil("Alice's table past her Main 1") { alice.state.turn.number == turn && alice.state.turn.step != TurnStep.PrecombatMain && alice.status == GameDevice.Status.YourMove }
+        val game = alice.game!!
+        val timeline = game.timeline.events(game, names())
+        assertEquals("You went to combat", timeline.single { it.id == pass }.description, timeline.map { it.description }.toString())
+        alice.tap("Undo")
+        aliceBackInHerMain(hand, turn)
+        assertTrue(alice.told("Undid: went to combat"), alice.shownTexts.toString())
+    }
+
+    // HIS-101, HIS-084, HIS-099, TRN-057 (owner, 2026-11-08): the same for End turn: after the app starts again it is one
+    // point, "You ended the turn" (only its first pass; the others stay plain), and one Undo returns to the main phase,
+    // not into the other player's turn
+    @Test fun anEndTurnIsStillAPointAfterTheAppStartsAgain() {
+        val hand = aliceDrewInHerMain()
+        val turn = alice.state.turn.number
+        away(bob, alice)
+        val first = alice.engine { device.session.events.size + device.session.pending.size }
+        alice.hold("To combat")
+        waitUntil("Alice's phone past her Main 1, all of it on the server") {
+            alice.state.turn.step != TurnStep.PrecombatMain && alice.settled(this)
+        }
+        val press = alice.engine { (device.session.events + device.session.pending)[first].id }
+        aliceRestarts()
+        waitUntil("Alice's table past her Main 1") { alice.game?.shown != null && alice.state.turn.step != TurnStep.PrecombatMain }
+        val game = alice.game!!
+        val timeline = game.timeline.events(game, names())
+        assertEquals("You ended the turn", timeline.single { it.id == press }.description, timeline.map { it.description }.toString())
+        assertEquals(1, timeline.count { it.description == "You ended the turn" }, timeline.map { it.description }.toString())
+        alice.tap("Undo")
+        aliceBackInHerMain(hand, turn)
+        assertTrue(alice.told("Undid: End turn"), alice.shownTexts.toString())
     }
 }

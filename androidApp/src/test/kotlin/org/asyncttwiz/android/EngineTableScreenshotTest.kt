@@ -621,7 +621,7 @@ class EngineTableScreenshotTest {
         val game = aliceFewTurnsIn { r -> r.engine!!.timeline.events(r.engine!!, names).let { r.enterReview(it[it.size - 3].id) } }
         val events = game.timeline.events(game, names)
         val line = game.shown!!.line.associateBy { it.id }
-        assertTrue(events.none { e -> line[e.id]!!.let { EngineEventText.pass(it) && it.id !in game.shown!!.mainExits &&
+        assertTrue(events.none { e -> line[e.id]!!.let { EngineEventText.pass(it) && EngineEventText.ownPress(it, game.me) == null &&
             it.engine?.changes.orEmpty().none { c -> c is arcanum.engine.change.Change.StackItemRemoved } } }, "no step-only pass")
         val separators = events.mapNotNull { it.separator }
         assertTrue(separators.any { it.newTurn && it.label.startsWith("T2 · ") }, "${separators.map { it.label }}")

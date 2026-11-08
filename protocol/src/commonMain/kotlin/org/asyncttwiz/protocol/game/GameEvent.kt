@@ -3,6 +3,7 @@ package org.asyncttwiz.protocol.game
 import arcanum.engine.change.Change
 import arcanum.engine.input.Input
 import arcanum.engine.state.PlayerId
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /**
@@ -10,7 +11,9 @@ import kotlinx.serialization.Serializable
  * Either may be absent: a pass is engine only, moving a card on the battlefield is table only. [author] is the account
  * whose action it was; [parentId] the event it was made on (the play's root id for the first). [mode]: the response mode it
  * was made under (owner 2026-11-06), for an assumed input the mode of the player it is about; the other player's device
- * reads it to know that player's mode (null: made before modes were recorded, or by the server).
+ * reads it to know that player's mode (null: made before modes were recorded, or by the server). [press]: the main button
+ * press whose first pass this event is (HIS-101; null on every other event, an End turn's later passes included, on a pass
+ * the device made by itself or the other player's device assumed, and on events made before presses were recorded).
  */
 @Serializable
 data class GameEvent(
@@ -20,12 +23,25 @@ data class GameEvent(
     val engine: EnginePart? = null,
     val table: List<TableChange> = emptyList(),
     val mode: ResponseMode? = null,
+    val press: MainPress? = null,
 ) {
     /** The first step when it is an assumed input (I-D56 §13: an assumed input always begins its own event). */
     val assumed: EngineStep? get() = engine?.steps?.firstOrNull { it.input != null }?.takeIf { it.assumedBy != null }
 
     /** The line this event starts (I-D56 §9: its first step reshuffles the libraries' unknown parts), or null. */
     val startsLine: Int? get() = table.firstNotNullOfOrNull { (it as? TableChange.LineMoved)?.takeIf { m -> m.before.number != m.after.number }?.after?.number }
+}
+
+/** HIS-101 (owner 2026-11-08): what a press of the main button was: what the player pressed, not what it resulted in (that
+ * is in the event's changes). */
+@Serializable
+sealed interface MainPress {
+    /** "To combat", from their first main phase. */
+    @Serializable @SerialName("combat") data object ToCombat : MainPress
+    /** "To end step", from their second main phase in Control. */
+    @Serializable @SerialName("end-step") data object ToEndStep : MainPress
+    /** "End turn". */
+    @Serializable @SerialName("end-turn") data object EndTurn : MainPress
 }
 
 /**

@@ -89,7 +89,7 @@ class PassesAndUndoTest : E2e() {
             // HIS-005: a pass shows on the timeline only as a resolution or an own End turn; the new turn and steps it led
             // to are the separators between events
             val byId = line.associateBy { it.id }
-            assertTrue(timeline.none { t -> byId[t.id]!!.let { EngineEventText.pass(it) && it.id !in game.shown!!.endTurns && it.id !in game.shown!!.mainExits &&
+            assertTrue(timeline.none { t -> byId[t.id]!!.let { EngineEventText.pass(it) && EngineEventText.ownPress(it, player.id) == null &&
                 it.engine?.changes.orEmpty().none { c -> c is arcanum.engine.change.Change.StackItemRemoved } } },
                 "${player.name}: no step-only pass on the timeline: ${timeline.map { it.description }}")
             assertTrue(timeline.none { it.description.startsWith("Turn ") } && timeline.any { it.separator != null },

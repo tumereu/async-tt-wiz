@@ -491,13 +491,45 @@ class CastabilityTest : E2e() {
         waitUntil("the Note resolved", along = listOf(bob)) { alice.tappedCount("Measure Stone") == 1 && alice.tappedCount("Ember Shard") == 1 && alice.inOwnMain() && alice.state.stack.isEmpty() }
     }
 
-    // STK-059, CR 601.2g, 601.2h (spec §1, §6.12): a land tapped for mana is then sacrificed as the cost; a creature the cost taps doesn't also tap for mana
-    @Test fun manaChoicesInteractWithTheOtherCosts() {
-        start(deck(TestCards.mountain to 12, TestCards.landEater to 10, TestCards.sprite to 8, TestCards.tapPact to 10), mapOf("Mountain" to 1, "Land Eater" to 1, "Ember Sprite" to 2, "Tap Pact" to 1))
+    // STK-059, CR 601.2g, 601.2h (spec §1, §6.12): a land tapped for mana is then sacrificed as the cost: one Mountain pays "{R}, sacrifice a land"
+    @Test fun aLandTappedForManaIsThenSacrificedAsTheCost() {
+        start(deck(TestCards.mountain to 20, TestCards.landEater to 20), mapOf("Mountain" to 1, "Land Eater" to 1))
         plays(alice, "Mountain")
         alice.playFromHand("Land Eater", this)
-        waitUntil("the Land Eater's choice or out: ${alice.screen()}", along = listOf(bob)) {
+        waitUntil("the Land Eater resolved, the Mountain gone: ${alice.screen()}", along = listOf(bob)) {
             alice.field("Mountain").isEmpty() && alice.state.stack.isEmpty() && alice.inOwnMain()
+        }
+    }
+
+    // STK-059, CR 601.2g, 601.2h (spec §1, §6.12): the creature the cost taps doesn't also tap for mana: Autotap takes the other one
+    @Test fun autotapAvoidsTheCreatureTheCostTaps() {
+        start(deck(TestCards.sprite to 13, TestCards.whisp to 13, TestCards.tapPact to 14), mapOf("Ember Sprite" to 1, "Ember Whisp" to 1, "Tap Pact" to 1))
+        plays(alice, "Ember Sprite", "Ember Whisp")
+        alice.playFromHand("Tap Pact", this)
+        waitUntil("the creature to tap asked: ${alice.screen()}") { alice.shows(hasContentDescription("Choose on the table")) }
+        alice.battlefieldCard("Ember Sprite").performClick()
+        waitUntil("the Pact paid with the other creature", along = listOf(bob)) {
+            alice.tappedCount("Ember Sprite") == 1 && alice.tappedCount("Ember Whisp") == 1 && alice.state.stack.isEmpty() && alice.inOwnMain()
+        }
+    }
+
+    // STK-059, CR 601.2g, 601.2h, 119.4 (spec §1, §6.12): a pain source's damage comes before a paid-life cost: at 20 life they combine
+    @Test fun aPainSourceAndAPaidLifeCostCombine() {
+        start(deck(TestCards.painStone to 20, TestCards.bloodPact to 20), mapOf("Pain Stone" to 1, "Blood Pact" to 1))
+        plays(alice, "Pain Stone")
+        alice.playFromHand("Blood Pact", this)
+        waitUntil("the Pact resolved", along = listOf(bob)) { alice.state.stack.isEmpty() && alice.inOwnMain() && alice.state.player(alice.me).life == 17 }
+    }
+
+    // STK-059, CR 601.2g, 601.2h (spec §1, §6.12): a creature sacrificed for mana can't also be sacrificed for the cost: two creatures do both
+    @Test fun aCreatureSacrificedForManaIsNotAlsoTheCost() {
+        start(deck(TestCards.bloodAltar to 10, TestCards.pup to 10, TestCards.ashHound to 10, TestCards.offering to 10), mapOf("Blood Altar" to 1, "Ash Pup" to 1, "Ash Hound" to 1, "Altar Offering" to 1))
+        plays(alice, "Blood Altar", "Ash Pup", "Ash Hound")
+        alice.playFromHand("Altar Offering", this)
+        waitUntil("the creature to sacrifice asked: ${alice.screen()}") { alice.shows(hasContentDescription("Choose on the table")) }
+        alice.battlefieldCard("Ash Pup").performClick()
+        waitUntil("both creatures gone, the Offering resolved", along = listOf(bob)) {
+            alice.field("Ash Pup").isEmpty() && alice.field("Ash Hound").isEmpty() && alice.state.stack.isEmpty() && alice.inOwnMain()
         }
     }
 

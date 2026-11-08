@@ -24,7 +24,7 @@ import arcanum.engine.state.TargetRef
 /**
  * Costs paid while a spell or ability resolves (CR 118.12, D40): "you may pay …", "unless … pays", ward. A cost can be
  * chosen only if it can be paid in full (CR 601.2h, 118.3). Mana is paid with a
- * [arcanum.engine.decision.Decision.ManaPayment] (pool mana, simple mana abilities, life for Phyrexian symbols); a cost
+ * [arcanum.engine.decision.Decision.ManaPayment] (pool mana, every mana ability, life for Phyrexian symbols, CR 605.3a); a cost
  * whose amount isn't known here ("its mana cost", an unannounced X) is paid by hand.
  */
 internal object Costs {

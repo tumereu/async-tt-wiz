@@ -78,6 +78,8 @@ object TestCards {
     val cleave = card("Ember Cleave", "Sorcery", "{X}{3}{R}", "This spell costs {3} less to cast if it targets a tapped creature.\nThis spell deals X damage to target creature.")
     /** A hasty mana creature, tappable at once. */
     val sprite = card("Ember Sprite", "Creature — Elemental", "{0}", "Haste\n{T}: Add {R}.", "1", "1")
+    /** A second hasty mana creature, told apart from the Sprite by its name. */
+    val whisp = card("Ember Whisp", "Creature — Elemental", "{0}", "Haste\n{T}: Add {R}.", "1", "1")
     /** Pays {1} again and again: every payment for an ability is a payment. */
     val engineRock = card("Ember Engine", "Artifact", "{0}", "{1}: You gain 1 life.")
     val painStone = card("Pain Stone", "Artifact", "{0}", "{T}: Add {C}.\n{T}: Add {R}. This artifact deals 1 damage to you.")

@@ -1,0 +1,1 @@
+add: When the move passes to you, your phone ticks once and the main button pulses once in your colour.

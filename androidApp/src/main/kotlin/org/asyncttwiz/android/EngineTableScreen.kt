@@ -15,7 +15,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -155,6 +157,19 @@ internal fun EngineTableScreen(controller: LobbyController, accountId: String, h
             applied.drawn = true
         }
         if (rewindingBranch) EngineTableProbe.rewinding?.invoke(accountId)
+    }
+    // TRN-075: the move passing to you from the other player: one haptic tick and one pulse of the main button, not in
+    // timeline mode
+    val moveCue = remember(game.id) { YourMoveCue() }
+    val haptic = LocalHapticFeedback.current
+    val recordShown = LocalShownTexts.current
+    SideEffect {
+        val cue = moveCue.see(shown.status, shown.line, shown.tip, shown.show != null || shown.reveal != null, accountId, SystemClock.uptimeMillis())
+        if (cue && reviewPlay == null) {
+            routes.moveCue++
+            haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
+            recordShown(YOUR_MOVE_CUE)
+        }
     }
     val status = shown.status
     val playing = status is GameDevice.Status.Playing

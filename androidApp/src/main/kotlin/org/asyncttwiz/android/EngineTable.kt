@@ -164,6 +164,9 @@ internal class EngineTableRoutes(val viewer: String, private val game: () -> Eng
 
     data class RewindChoice(val target: String?)
 
+    /** TRN-075: bumped when the move passes to the player from the other player: the main button pulses once. */
+    var moveCue by mutableIntStateOf(0)
+
     /** TRN-074: the turn banner to show. */
     val banners = TurnBannerQueue()
 

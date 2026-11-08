@@ -2,6 +2,7 @@ package org.asyncttwiz.e2e
 
 import androidx.compose.ui.test.hasTestTag
 import org.asyncttwiz.android.TURN_BANNER_TAG
+import org.asyncttwiz.android.YOUR_MOVE_CUE
 import org.junit.Test
 import java.time.Duration
 import kotlin.test.assertEquals
@@ -13,6 +14,42 @@ import kotlin.test.assertTrue
  */
 class TurnBannerTest : E2e() {
     private fun E2ePlayer.banners(text: String) = shownTexts.count { it == text }
+
+    private val E2ePlayer.cues get() = banners(YOUR_MOVE_CUE)
+
+    // TRN-075, TRN-058, TRN-063: the move passing to Alice from Bob: one cue on her phone, and none on his; her own chain of
+    // steps (To combat, her phone on to her declaration) brings none, nor does her action just before his answer; in playback
+    // one only at the stop at a decision of hers
+    @Test fun theMovePassingToYouCuesOnce() {
+        startGame(bobStarts = true, deal = { a, b -> "Mountain" in hand(a) && "Mountain" in hand(b) })
+        bothOpen()
+        alice.tap("Keep")
+        bob.tap("Keep")
+        waitUntil("Bob's Main 1") { bob.inOwnMain() }
+        bob.playsAMountain()
+        waitUntil("both settled") { alice.settled(this) && bob.settled(this) }
+        // Let the cues of the opening pass: from here on they count
+        val hers = alice.cues
+        val his = bob.cues
+        run(skip = Duration.ofSeconds(3))
+        bob.hold("To combat")
+        waitUntil("Alice's stop or Main 1") {
+            if (alice.status is org.asyncttwiz.protocol.game.GameDevice.Status.Stopped && alice.cues == hers) false
+            else if (alice.status is org.asyncttwiz.protocol.game.GameDevice.Status.Stopped) { alice.once { alice.stepArrow()?.let(alice::tap) }; false }
+            else alice.inOwnMain()
+        }
+        assertTrue(alice.cues >= hers + 1, "the move passed to her: ${alice.shownTexts}")
+        val atMain = alice.cues
+        assertEquals(his, bob.cues, "his own End turn brings him none")
+        waitUntil("settled at her Main 1") { alice.settled(this) && bob.settled(this) }
+        run(skip = Duration.ofSeconds(2))
+        assertEquals(atMain, alice.cues, "not repeating")
+        // Her own chain of steps
+        alice.tap("To combat")
+        waitUntil("Alice past her Main 1") { alice.state.turn.step != arcanum.api.TurnStep.PrecombatMain && alice.status == org.asyncttwiz.protocol.game.GameDevice.Status.YourMove && alice.settled(this) }
+        run(skip = Duration.ofSeconds(2))
+        assertEquals(atMain, alice.cues, "her own chain of steps brings none")
+    }
 
     /** This player's land for the turn (else a turn's draw makes them discard at its end, which waits for them). */
     private fun E2ePlayer.playsAMountain() {

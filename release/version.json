@@ -18,7 +18,8 @@
     { "versionCode": 14, "versionName": "0.2.0-beta1" },
     { "versionCode": 15, "versionName": "0.2.0-beta2" },
     { "versionCode": 16, "versionName": "0.2.0-beta3" },
-    { "versionCode": 17, "versionName": "0.2.0-beta4" }
+    { "versionCode": 17, "versionName": "0.2.0-beta4" },
+    { "versionCode": 18, "versionName": "0.2.0-beta5" }
   ],
   "protocol": {
     "major": 1,

@@ -144,8 +144,29 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
     val permission: Pair<Mechanic.MayPlay, AbilityOrigin?>? = if (byEffect) (c.what as Announced.Spell).permitted?.let { it to null }
         else way.permission?.let { p -> (c.what as? Announced.Spell)?.permitted?.let { it to p.ability } ?: permissionMechanic(plain, p) }
 
-    /** tla: the source, when the cost taps it ({T}, CR 107.5): not also tapped for mana in a suggested payment. */
-    val tappedByCost: Set<ObjectId> get() = if (total.parts.any { it.part == arcanum.api.CostPart.TapSelf }) setOf(sourceId) else emptySet()
+    /**
+     * What the other parts of the total cost use, for the mana paid before them (CR 601.2g before 601.2h): what the cost taps (its
+     * own {T}, tla, CR 107.5; the creatures it asks) can't also tap for mana; what it moves away may tap for mana first, but can't
+     * also be sacrificed for mana; the life it pays comes after a mana ability's damage.
+     */
+    val reserved: Mana.Reserved get() {
+        val tapped = mutableSetOf<ObjectId>()
+        val leaving = mutableSetOf<ObjectId>()
+        var life = 0
+        total.parts.forEach { kp ->
+            val chosen = (choices.names[OBJECTS + kp.key] as? NamedValue.Objects)?.ids.orEmpty()
+            when (val part = kp.part) {
+                CostPart.TapSelf -> tapped += sourceId
+                is CostPart.TapObjects -> tapped += chosen
+                is CostPart.Sacrifice -> if (part.what == arcanum.api.CostObjects.Self) leaving += sourceId else leaving += chosen
+                is CostPart.ReturnToHand -> if (part.what == arcanum.api.CostObjects.Self) leaving += sourceId else leaving += chosen
+                is CostPart.Exile -> if (part.what == arcanum.api.CostObjects.Self) leaving += sourceId else leaving += chosen
+                is CostPart.PayLife -> life += eval.value(part.amount)
+                else -> Unit
+            }
+        }
+        return Mana.Reserved(tapped, leaving, life)
+    }
 
     val overloaded = alternative?.second?.keyword == Keyword.Overload.Kind
     // gtc
@@ -464,9 +485,10 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
     /**
      * Whether the mana to pay may still fall with a choice not made yet (CR 601.2f comes after 601.2b-e; report KX8GYS):
      * a question is still open before the payment, and the spell or ability has a reduction of its own (which may read its
-     * targets or what its costs use: "costs {2} less if it targets a tapped creature", emerge, harmonize), another object's
-     * reduction doesn't apply to it yet ("Equip abilities that target this creature cost {2} less"), or another player may
-     * still assist (CR 702.132a). Which choice does it is for the caller to try.
+     * targets or what its costs use: "costs {2} less if it targets a tapped creature", emerge, harmonize), any other object has a
+     * reduction, whether it applies yet or not (its amount may read the target: "Equip abilities that target this creature cost
+     * {2} less", "costs {1} less for each target"), or another player may still assist (CR 702.132a). Which choice does it is for
+     * the caller to try.
      */
     val costMayFall: Boolean get() {
         fun lower(m: Mechanic) = m is Mechanic.CostChange && m.change !is CostChange.More
@@ -474,13 +496,35 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
         val any = (assistable > 0 && choices.assist?.amount == null) ||
             (ability as? Ability.Activated)?.rules?.costChange?.let { it !is CostChange.More } == true ||
             withGrantedAsSpell().any { inst -> (inst.ability as? Ability.Static)?.mechanics.orEmpty().any(::lower) } ||
-            snap.view.rules.any { applied ->
-                val m = applied.mechanic as? Mechanic.CostChange
-                m != null && lower(m) && !snap.evaluator(applied.controller, self = applied.source, names = applied.names).matches(m.what, itemId)
-            }
+            snap.view.rules.any { lower(it.mechanic) }
         if (!any) return false
         val q = next()
         return q != null && q !is Question.Pay
+    }
+
+    /**
+     * Whether a question still open may change what it costs at all, up or down (CR 601.2f): a cost change of its own or from
+     * any object, a repeated or per-mode additional cost, a mode that costs more, an "A or B" cost, another player's assist.
+     * Without any, every way through has the same cost and the first one says it.
+     */
+    val costMayVary: Boolean get() {
+        fun change(m: Mechanic) = m is Mechanic.CostChange || (m is Mechanic.AdditionalCost && m.times != null)
+        val any = assistable > 0 || (ability as? Ability.Activated)?.rules?.costChange != null ||
+            withGrantedAsSpell().any { inst -> (inst.ability as? Ability.Static)?.mechanics.orEmpty().any(::change) } ||
+            snap.view.rules.any { change(it.mechanic) } ||
+            instructions.modes?.options.orEmpty().any { it.extraCost != null } || additionalCosts.any { it.second.keyword == Keyword.Entwine.Kind || it.second.times != null } ||
+            contributions.any { c -> c.cost.parts.any { it is CostPart.OneOf } } ||
+            // Mana that rises with what is chosen ("{B}{B} for each creature type among them" read by a value)
+            contributions.any { c -> c.cost.parts.any { it is CostPart.Mana && (it.times != null || it.x != null) } }
+        if (!any) return false
+        val q = next()
+        return q != null && q !is Question.Pay
+    }
+
+    /** Whether the open slot's targets limit each other (CR 601.2c): the same controller or owner, a shared or differing quality, a
+     * total, one for each: some candidates then stop being legal with others picked. */
+    fun targetsLimitEachOther(key: String): Boolean = instructions.let { Targets.slots(it, choices.modes) }.any { s ->
+        s.key == key.substringBefore(":") && (s.slot.sameController || s.slot.sameOwner || s.slot.sharing != null || s.slot.distinct != null || s.slot.onePer != null || s.slot.totalAtMost != null)
     }
 
     /** The objects chosen so far for cost parts that bind them, under their bound names (CR 601.2b, 601.2f: the
@@ -767,11 +811,11 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
             Decision.ChooseObjects(id, player, sourceId, costChoiceObjects(choice), eval.value(choice.min), choice.max?.let { eval.value(it) }, "Choose")
         } ?: Decision.ChooseSubtype(id, player, sourceId, (q.part.choice as? arcanum.api.Choice.CreatureTypeAmong)?.among)
         is Question.Pay -> if (cantSpendMana) {
-            Decision.ManaPayment(id, player, sourceId, q.cost, Mana.options(snap, player, q.cost, itemId, manaWays, manaAsAnyColor)
-                .filter { it is ManaUse.Special || it is ManaUse.Life }, Mana.suggest(snap, player, q.cost, itemId, manaWays, canSpendMana = false))
+            Decision.ManaPayment(id, player, sourceId, q.cost, Mana.options(snap, player, q.cost, itemId, manaWays, manaAsAnyColor, reserved)
+                .filter { it is ManaUse.Special || it is ManaUse.Life }, Mana.suggest(snap, player, q.cost, itemId, manaWays, canSpendMana = false, reserved = reserved))
         } else Decision.ManaPayment(id, player, sourceId, q.cost,
-            Mana.options(snap, player, q.cost, itemId, manaWays, manaAsAnyColor),
-            Mana.suggest(snap, player, q.cost, itemId, manaWays, anyColor = manaAsAnyColor, notSources = tappedByCost))
+            Mana.options(snap, player, q.cost, itemId, manaWays, manaAsAnyColor, reserved),
+            Mana.suggest(snap, player, q.cost, itemId, manaWays, anyColor = manaAsAnyColor, reserved = reserved))
     }
 
     /** eoe: the objects a [CostPart.Choose] of objects may choose, in the zones its filter names (the battlefield otherwise). */

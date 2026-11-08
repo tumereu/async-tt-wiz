@@ -130,8 +130,10 @@ internal object Triggers {
         }
     }
 
-    private fun isManaTrigger(t: WaitingTrigger): Boolean {
-        val ability = t.ability as? Ability.Triggered ?: return false
+    private fun isManaTrigger(t: WaitingTrigger): Boolean = (t.ability as? Ability.Triggered)?.let(::isManaTrigger) == true
+
+    /** A triggered mana ability the engine resolves at once (CR 605.1b, 605.4a). */
+    fun isManaTrigger(ability: Ability.Triggered): Boolean {
         val on = ability.trigger as? Trigger.On ?: return false
         val i = ability.instructions
         return i.targets.isEmpty() && i.modes == null && i.steps.isNotEmpty() &&

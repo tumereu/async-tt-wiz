@@ -180,12 +180,13 @@ class CostFallsAfterChoiceOptionsTest {
         assertTrue(troll in casts(alice))
     }
 
-    // CR 605.3a, 106.4: a mana ability that costs mana isn't counted ahead; its mana, once in the pool, is (TBL-122)
+    // CR 605.3a, 106.4 (castability §1): a mana ability that costs mana counts by what it nets (a Plains into a Signet: {W}{U}), and so
+    // does its mana once in the pool (TBL-122)
     @Test
-    fun aManaAbilityThatCostsManaCountsOnceItsManaIsInThePool() = scenario {
+    fun aManaAbilityThatCostsManaCountsByWhatItNets() = scenario {
         alice.battlefield("Plains", signet)
         alice.hand(flier)
-        assertFalse(flier in casts(alice))
+        assertTrue(flier in casts(alice), "{1}{W} with the Plains through the Signet")
         alice.activates(signet)
         assertTrue(flier in casts(alice), "{1}{W} with the Signet's {W}{U} in the pool")
     }

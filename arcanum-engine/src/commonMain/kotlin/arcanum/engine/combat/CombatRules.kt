@@ -234,7 +234,7 @@ internal object CombatRules {
      * objects (one land doesn't pay two "sacrifice a land"). */
     private fun canPay(snap: Snapshot, player: PlayerId, costs: List<CombatCost>): Boolean {
         if (costs.isEmpty()) return true
-        manaOf(costs)?.let { if (arcanum.engine.mana.Mana.suggest(snap, player, it, null).isEmpty()) return false }
+        manaOf(costs)?.let { if (!arcanum.engine.mana.Mana.mayPay(snap, player, it, null)) return false }
         var life = snap.state.player(player).life
         // Each object a using-up part takes, as one slot with its options
         val slots = mutableListOf<List<ObjectId>>()

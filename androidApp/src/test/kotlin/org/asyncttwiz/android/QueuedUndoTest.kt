@@ -118,15 +118,22 @@ class QueuedUndoTest {
         return acted.event
     }
 
-    // HIS-107: Alice casts Storm Spark and taps Undo before the server has her cast: the Undo waits for it, then takes it
-    // back (no shake, no note)
-    @Test fun anUndoTappedWhileHerCastIsSentWaitsAndTakesItBack() {
+    // SYS-025, HIS-107 (owner, 2026-11-08): Alice casts Storm Spark and taps Undo before the server has her cast: her
+    // table shows the cast taken back at once, while nothing has reached the server yet (no waiting for the round trips);
+    // the undo goes out right behind the cast and the server ends where her table is (no shake, no note)
+    @Test fun anUndoTappedWhileHerCastIsSentShowsItTakenBackAtOnce() {
         val game = aliceInMain()
         val before = sim.head
         assertFalse(game.send(spark(game.device.model.engine)) is GameDevice.Acted.Refused)
         val cast = lastCast(game)
         assertTrue(game.device.session.pending.any { it.id == cast.id }, "her cast on its way")
-        assertEquals(GameDevice.Undo.Queued(cast.id), game.undo())
+        assertEquals(GameDevice.Undo.Free(cast.parentId), game.undo())
+        // The server's answer is still held back: it has neither her cast nor her undo
+        assertEquals(before, sim.head, "nothing reached the server yet")
+        assertTrue(casts(game).none { it.id == cast.id }, "her cast taken back on her table at once")
+        val shown = assertNotNull(game.shown)
+        assertTrue(shown.engine.stack.isEmpty() && inMain(shown.engine), "her table shows her main phase with an empty Stack")
+        assertEquals(GameDevice.Status.YourMove, shown.status)
         aliceRoundTrip(game)
         assertEquals(before, sim.head, "the server back before her cast")
         assertTrue(casts(game).none { it.id == cast.id }, "her cast taken back on her device")
@@ -135,18 +142,20 @@ class QueuedUndoTest {
         assertEquals(0, refusedNotes(game), "no note: ${game.notes}")
     }
 
-    // HIS-107: the queued Undo takes back the cast it was tapped after, not only the table-only event she made after the
-    // tap (its point is before the cast, so that event goes with it)
-    @Test fun aQueuedUndoTakesBackTheCastNotOnlyALaterTableOnlyEvent() {
+    // HIS-107, SYS-025: the Undo takes back the cast it was tapped after; what she does after the tap (an early answer,
+    // made on the board the undo shows at once) stays
+    @Test fun anUndoWhileHerCastIsSentTakesBackTheCastNotALaterEvent() {
         val game = aliceInMain()
         val before = sim.head
         game.send(spark(game.device.model.engine))
         val cast = lastCast(game)
-        assertEquals(GameDevice.Undo.Queued(cast.id), game.undo())
-        answerEarly(game, "early:6")
+        assertEquals(GameDevice.Undo.Free(cast.parentId), game.undo())
+        val early = answerEarly(game, "early:6")
+        assertEquals(before, early.parentId, "made on the board the undo showed")
         aliceRoundTrip(game)
-        assertEquals(before, sim.head, "back before her cast")
+        assertEquals(early.id, sim.head, "her cast taken back on the server, her early answer after it")
         assertTrue(casts(game).none { it.id == cast.id }, "her cast taken back")
+        assertTrue(game.device.model.table.earlyAnswers.containsKey("early:6"), "her early answer stays")
         assertEquals(0, refusedNotes(game), "no note: ${game.notes}")
     }
 
@@ -160,7 +169,8 @@ class QueuedUndoTest {
         assertTrue(game.device.session.pending.isEmpty(), "her cast on the server")
         val afterCast = sim.head
         val move = answerEarly(game, "early:7")
-        assertEquals(GameDevice.Undo.Queued(move.id), game.undo())
+        assertEquals(GameDevice.Undo.Free(move.parentId), game.undo())
+        assertEquals(null, game.device.model.table.earlyAnswers["early:7"], "taken back on her table at once")
         aliceRoundTrip(game)
         assertEquals(afterCast, sim.head, "only the early answer taken back")
         assertTrue(casts(game).any { it.id == cast.id }, "her cast stays")
@@ -168,22 +178,24 @@ class QueuedUndoTest {
         assertEquals(0, refusedNotes(game), "no note: ${game.notes}")
     }
 
-    // HIS-107, HIS-087, HIS-099: Bob has answered her cast (his pass) by the time the queued Undo is made: not free, so the
-    // Undo dialog opens with the point before her cast chosen
-    @Test fun aQueuedUndoThatIsNoLongerFreeOpensTheUndoDialog() {
+    // HIS-107, HIS-087, HIS-099, SYS-025: the server has her cast and Bob has answered it (his pass) before her Undo
+    // arrives, while her device hasn't heard back: her table shows the undo at once, the server finds it isn't free, so her
+    // game loads again from the server's line and the Undo dialog opens with the point before her cast chosen
+    @Test fun anUndoNoLongerFreeOnTheServerOpensTheUndoDialog() {
         val game = aliceInMain()
         val bob = sim.game(f.b)
         game.send(spark(game.device.model.engine))
         val cast = lastCast(game)
-        assertEquals(GameDevice.Undo.Queued(cast.id), game.undo())
         sim.flush(f.a)
         // Bob's device shows her cast and he passes before Alice hears anything back
         sim.deliver(f.b); bob.playToStop(); bob.tick(sim.now)
         assertFalse(bob.pass() is GameDevice.Acted.Refused)
         sim.flush(f.b)
+        assertEquals(GameDevice.Undo.Free(cast.parentId), game.undo())
         aliceRoundTrip(game)
         assertTrue(game.notes.any { it == GameDevice.Note.RequestNeeded(cast.parentId) }, "the Undo dialog: ${game.notes}")
-        assertTrue(casts(game).any { it.id == cast.id }, "nothing taken back yet")
+        assertTrue(sim.line().any { it.id == cast.id }, "nothing taken back on the server")
+        assertEquals(GameDevice.Status.Reload, game.device.status, "her game loads again")
     }
 
     // HIS-107, SYS-077: the server took Bob's real pass (with an early answer of his in the same event: not the same event

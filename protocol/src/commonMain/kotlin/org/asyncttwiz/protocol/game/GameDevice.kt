@@ -242,6 +242,9 @@ class GameDevice(
     /** HIS-107 (owner problem report 2026-11-05): an Undo tapped while something of the player's was still on its way
      * ([undoTap]): the event of the action it takes back. Meanwhile the device makes nothing of its own. */
     private var queuedUndo: String? = null
+    /** The targets of the player's own undos shown on this device before the server's rewind came ([undoLocally]), in
+     * the order they were sent. */
+    private val localUndos = mutableListOf<String>()
     private val outbox = mutableListOf<GameAction>()
     private val notes = mutableListOf<Note>()
     private var reported: String? = null
@@ -1444,7 +1447,30 @@ class GameDevice(
         if (reason != null) return Undo.Request(target, reason)
         forgetRemakes()
         send(GameAction.EngineRewind(target))
+        undoLocally(target)
         return Undo.Free(target)
+    }
+
+    /**
+     * SYS-025 (owner, 2026-11-08): the player's own free undo to [target], sent, shown at once as every own action is:
+     * the session takes back what the server's rewind will ([GameSession.undoLocally]); the device then waits for the
+     * player at [target] (§10). The rewind, when it comes, finds it done ([revision]); refused, the game loads again.
+     */
+    private fun undoLocally(target: String) {
+        when (val r = session.undoLocally(target)) {
+            null -> remember("undo to $target shown when the server's rewind comes")
+            GameSession.Received.Reload -> { needsReload = true; remember("reload at own undo to $target: ${followed()}") }
+            is GameSession.Received.Changed -> {
+                r.dropped.forEach { byPlayer.remove(it.id) }
+                localUndos += target
+                // The rewind starts a new line, counted as the server will count it (§9): the next event starts it
+                lines++
+                endTurnTakenBack(target)
+                holdAt = session.head
+                remember("undo to $target shown: ${r.discarded.size} taken back, ${r.dropped.size} pending")
+            }
+            else -> {}
+        }
     }
 
     /**
@@ -1463,6 +1489,7 @@ class GameDevice(
         if (request != null) return Undo.Unavailable(REWIND_REQUESTED)
         if (session.drafting) return Undo.Unavailable("drafting")
         if (session.pending.isEmpty() && remaking.isEmpty()) return undo()
+        sentUndo()?.let { return it }
         val shown = session.indexOf(session.localHead) ?: -1
         val latest = session.pending.lastOrNull(::realInput)?.id ?: remaking.lastOrNull()?.event
             ?: session.events.take(shown + 1).lastOrNull(::realInput)?.id ?: return Undo.Unavailable("nothing")
@@ -1470,6 +1497,26 @@ class GameDevice(
         queuedUndo = latest
         settleQueuedUndo()
         return Undo.Queued(latest)
+    }
+
+    /**
+     * SYS-025 (owner, 2026-11-08): the Undo button's tap while the player's latest own action (and their device's own
+     * steps after it) is still on its way to the server: when that action was made on the shown head and the undo is free
+     * now, the rewind goes out right behind it (the server makes them in order) and the undone board shows at once
+     * ([undoLocally]), as every own action does. Null when it isn't so: the undo waits for it instead ([Undo.Queued]).
+     */
+    private fun sentUndo(): Undo? {
+        if (remaking.isNotEmpty() || session.behind) return null
+        val latest = session.pending.lastOrNull(::realInput) ?: return null
+        val target = latest.parentId
+        if (target != session.localHead) return null
+        val after = (lineAfter(target) ?: return null) + session.pending
+        val at = (reach(target) as? Reach.State)?.model ?: return null
+        if (Rewind.requestNeeded(at, target, after, me, heads.filterKeys { it != me }.values.toList()) != null) return null
+        forgetRemakes()
+        send(GameAction.EngineRewind(target))
+        undoLocally(target)
+        return Undo.Free(target)
     }
 
     /**
@@ -1581,7 +1628,14 @@ class GameDevice(
             val by = update?.rewoundBy ?: events.firstOrNull()?.author
             // TRN-017: a rewind changes the line under a Resolve chain: it ends
             endChain("rewind")
-            when (val r = session.rewound(target, events)) {
+            // SYS-025: the player's own undo this device showed already ([undoLocally]): nothing more to take back
+            val own = by == me.value && localUndos.firstOrNull() == target
+            if (own) localUndos.removeAt(0)
+            if (own && events.isEmpty() && (localUndos.isNotEmpty() || session.head == target)) {
+                remember("own undo to $target already shown")
+                if (localUndos.isEmpty()) session.undone()
+            }
+            else when (val r = session.rewound(target, events)) {
                 GameSession.Received.Reload -> { needsReload = true; remember("reload at rewind $target: ${followed()}") }
                 is GameSession.Received.Changed -> {
                     if (r.takenBack.isNotEmpty() && by != me.value && by != null) {
@@ -1651,6 +1705,8 @@ class GameDevice(
             is GameAction.Submit -> {
                 val submission = action.submission
                 if (confirming.remove(submission.id)) return
+                // SYS-025: an event the player's own undo took back already; the server's answer to the undo follows
+                if (session.ghost(submission.id)) return
                 val mine = byPlayer.remove(submission.id)
                 val refused = session.refused(submission.id)
                 if (refused == GameSession.Received.Reload) { needsReload = true; remember("reload at refused ${submission.id}: ${followed()}") }
@@ -1671,7 +1727,11 @@ class GameDevice(
                     madeOn(submission.acts.mapNotNull { (it as? Act.Perform)?.takeIf { p -> !p.assumed }?.input })))
                 checkDraft()
             }
-            is GameAction.EngineRewind -> note(if (reason == "requestNeeded") Note.RequestNeeded(action.target) else Note.Refused(reason))
+            is GameAction.EngineRewind -> {
+                // SYS-025: an undo this device showed already isn't the server's: the game loads again
+                if (localUndos.remove(action.target)) { needsReload = true; localUndos.clear(); remember("reload: own undo to ${action.target} refused, $reason") }
+                note(if (reason == "requestNeeded") Note.RequestNeeded(action.target) else Note.Refused(reason))
+            }
             is GameAction.EngineSeen -> if (reported == action.eventId) reported = null
             else -> note(Note.Refused(reason))
         }

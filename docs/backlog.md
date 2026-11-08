@@ -16,7 +16,6 @@ Changes the owner wants but that are not built yet. The feature catalog
 
 Catalog review follow-ups (owner, 2026-11-08; the catalog was cleaned on w/catalog-cleanup, these change code):
 
-- Undo shown locally (SYS-025; the entry stays, the app is fixed): a free Undo shows its result on your table at once, before the server answers, as every other action does; today the app waits for the server's rewind (a queued undo about two round trips). A test shows the undone board while the server's answer is still held back (no timing asserts), plus e2e for the flow.
 - Single version (AGENTS.md): remove code that keeps anything older working (old stored fields decoding, old HTTP reads, the deck-save old retry, old handshake formats, old-data refreshes) and with it LOB-112, the "downloaded again once" parts of LOB-110 and LOB-125, LOB-113's reading of settings from before Normal, LOB-135's "Games from before these settings have the defaults" and DRF-079's "Pods started before this change keep plain rotation". Ask the owner before anything that deletes or invalidates existing games.
 
 ## Ready after the e2e framework (owner playtest, 2026-11-05)

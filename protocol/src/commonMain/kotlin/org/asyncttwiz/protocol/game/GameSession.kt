@@ -49,6 +49,9 @@ class GameSession(base: GameModel, baseId: String, events: List<GameEvent>, loca
     private var draftAt: String? = null
     /** The events the device's own pending branch replaces, and those received on them since (ignored). */
     private val superseded = mutableSetOf<String>()
+    /** The events the player's own undo took back on this device before the server's rewind came ([undoLocally]), and
+     * those received on them since: the server still takes or has them until it makes the rewind (ignored). */
+    private val ghosts = mutableSetOf<String>()
 
     /** Called with the state before each event played back ([showNext]), for tests' leak oracle. */
     var beforeShow: ((GameState, GameEvent) -> Unit)? = null
@@ -183,7 +186,9 @@ class GameSession(base: GameModel, baseId: String, events: List<GameEvent>, loca
 
     /** The server's accepted [event]. */
     fun received(event: GameEvent): Received {
-        if (knows(event.id) || event.id in superseded) return Received.Known
+        if (knows(event.id) || event.id in superseded || event.id in ghosts) return Received.Known
+        // An event the server took before the player's own undo, on what the undo takes back
+        if (event.parentId in ghosts) { ghosts += event.id; return Received.Known }
         // An event the server took before the device's own branch, on the line the branch replaces
         if (event.parentId in superseded) { superseded += event.id; return Received.Known }
         val first = waiting.firstOrNull()
@@ -277,6 +282,7 @@ class GameSession(base: GameModel, baseId: String, events: List<GameEvent>, loca
     /** The server's rewind (I-D56 §10): the main line's events after [target] are deleted, then [events] (the new line's
      * first event and those added again after it) follow it. */
     fun rewound(target: String, events: List<GameEvent>): Received {
+        ghosts.clear()
         val at = indexOf(target) ?: return Received.Reload
         val changed = cut(at + 1) ?: return Received.Reload
         for (event in events) {
@@ -285,6 +291,27 @@ class GameSession(base: GameModel, baseId: String, events: List<GameEvent>, loca
         }
         return changed
     }
+
+    /**
+     * SYS-025 (owner, 2026-11-08): the player's own free undo to [target] (the local head or a shown main-line event) shown
+     * at once: the open draft, the pending events and the main-line events after [target] are taken back, as the server's
+     * rewind will take them; until it comes they are ghosts: the server's confirmations of them and events made on them
+     * are ignored ([received]), a refusal of one is nobody's ([ghost]). Null (nothing changed) when [target] isn't shown
+     * or the device is behind or branching; [Received.Reload] when the model can't go back exactly.
+     */
+    fun undoLocally(target: String): Received? {
+        if (behind || superseded.isNotEmpty()) return null
+        val at = indexOf(target)?.takeIf { it < shown } ?: return null
+        val changed = cut(at + 1) ?: return Received.Reload
+        ghosts += changed.discarded.map { it.id } + changed.dropped.map { it.id }
+        return changed
+    }
+
+    /** Whether [id] is an event the player's own undo took back before the server's rewind came ([undoLocally]). */
+    fun ghost(id: String): Boolean = id in ghosts
+
+    /** The server made the player's own undos shown here ([undoLocally]): what they took back is gone there too. */
+    fun undone() = ghosts.clear()
 
     /** Cuts the line to its first [keep] events, the model going back when it showed more: null when it can't exactly. */
     private fun cut(keep: Int): Received.Changed? {

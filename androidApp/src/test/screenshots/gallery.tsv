@@ -149,3 +149,5 @@ number	item	screenshot	catalog	decisions
 148	Draft: Winston tables chip row	pod-winston-tables.png	DRF-156 DRF-157
 149	Draft: Rotisserie pick queue	pod-rotisserie-queue.png	DRF-164 DRF-153
 150	Draft: Booster draft history	pod-draft-history.png	DRF-165 DRF-160
+151	Draft: Stats mana curve by colour	pod-stats-color.png	DRF-111
+152	Draft: Basics dialog with its basics and lands count	pod-build-basics-dialog.png	DRF-103

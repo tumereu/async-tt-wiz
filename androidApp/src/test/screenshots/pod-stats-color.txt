@@ -1,0 +1,1 @@
+Draft deck Stats after tapping Color above the mana curve: the same chart and totals with the bars stacked W, U, B, R, G, gold and colorless in the donut's colours, a legend of those colours above the Creature, Noncreature and Land counts.

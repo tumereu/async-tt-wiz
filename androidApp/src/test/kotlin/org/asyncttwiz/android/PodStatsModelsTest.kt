@@ -44,6 +44,72 @@ class PodStatsModelsTest {
         assertEquals(1.5, pips[DraftColor.G])
     }
 
+    // DRF-114: each colour's bars are its share of all pips and of all sources, half pips counted as they are, a dual land
+    // for both its colours so the source shares still add up to 100%.
+    @Test fun manaSharesCountHalfPipsAndADualLandForBothColors() {
+        val definitions = mapOf("dual" to card("Dual", "Land — Island Swamp"), "half" to card("Half", "Instant", "{2/U}{U}{B}{B}{B/R}"),
+            "rock" to card("Rock", "Artifact", "{2}", "{T}: Add {U}."))
+        val copies = definitions.keys.associateWith { DraftCopy(it, it) }
+        val stats = podStats(PodDeckBuild(copies.keys.map { PodDeckCopy(it) }, PodDeckBasics(island = 1, swamp = 2)), copies, definitions, mana(definitions))
+        assertEquals(mapOf(DraftColor.W to 0.0, DraftColor.U to 1.5, DraftColor.B to 2.5, DraftColor.R to 0.5, DraftColor.G to 0.0), stats.pips)
+        val shares = stats.manaShares()
+        assertEquals(PodStatsManaShare(1.5 / 4.5, 3.0 / 6, 2.0 / 6), shares[DraftColor.U]) // 2 lands + the rock, of 3 + 3 sources
+        assertEquals(PodStatsManaShare(2.5 / 4.5, 3.0 / 6, 3.0 / 6), shares[DraftColor.B])
+        assertEquals(PodStatsManaShare(.5 / 4.5, 0.0, 0.0), shares[DraftColor.R])
+        assertEquals(1.0, shares.values.sumOf { it.pips }, 1e-9)
+        assertEquals(1.0, shares.values.sumOf { it.sources }, 1e-9)
+        assertEquals("1½ / 3", podStatsManaText(stats.pips.getValue(DraftColor.U), stats.sources.getValue(DraftColor.U), stats.otherSources.getValue(DraftColor.U)))
+        assertEquals("9 / 8", podStatsManaText(9.0, 7, 1))
+        assertEquals("4½ / 8", podStatsManaText(4.5, 8, 0))
+        assertEquals("0 / 0", podStatsManaText(0.0, 0, 0))
+    }
+
+    // DRF-114: both bar kinds in every row are on one scale, the largest share nearly filling the width
+    @Test fun barsShareOneScaleSetByTheLargestShareOfEitherKind() {
+        val shares = mapOf(DraftColor.W to PodStatsManaShare(.5, .25, .25), DraftColor.U to PodStatsManaShare(.5, .75, .5))
+        assertEquals(.95 / .75, shares.podStatsBarScale(), 1e-9)
+        assertEquals(.95, .75 * shares.podStatsBarScale(), 1e-9)
+        // The pip bar reads against the source bar by length: W's pip share is twice its source share, so its bar is too.
+        assertEquals(.5 * shares.podStatsBarScale(), 2 * .25 * shares.podStatsBarScale(), 1e-9)
+        val pipsLead = mapOf(DraftColor.W to PodStatsManaShare(1.0, .5, .5), DraftColor.U to PodStatsManaShare(0.0, .5, .5))
+        assertEquals(.95, pipsLead.podStatsBarScale(), 1e-9)
+    }
+
+    // DRF-114: no pips, no sources or neither: empty bars and never a division by zero
+    @Test fun manaSharesAndScaleHandleZeroTotals() {
+        val empty = podStats(PodDeckBuild(), emptyMap(), emptyMap()).manaShares()
+        assertTrue(empty.values.all { it == PodStatsManaShare(0.0, 0.0, 0.0) })
+        assertEquals(0.0, empty.podStatsBarScale())
+        val noPips = podStats(PodDeckBuild(basics = PodDeckBasics(forest = 2)), emptyMap(), emptyMap()).manaShares()
+        assertEquals(PodStatsManaShare(0.0, 1.0, 1.0), noPips[DraftColor.G])
+        assertEquals(.95, noPips.podStatsBarScale(), 1e-9)
+        val spell = mapOf("s" to card("Spell", "Instant", "{R}"))
+        val noSources = podStats(PodDeckBuild(listOf(PodDeckCopy("s"))), mapOf("s" to DraftCopy("s", "s")), spell).manaShares()
+        assertEquals(PodStatsManaShare(1.0, 0.0, 0.0), noSources[DraftColor.R])
+        assertEquals(.95, noSources.podStatsBarScale(), 1e-9)
+    }
+
+    // DRF-111: the Color view's slots, by each card's colour as in the donut: gold is more than one colour, 7+ groups
+    @Test fun curveByColorGroupsSlotsAndCountsGoldAndColorlessLeavingLandsOut() {
+        val definitions = mapOf("red" to card("Red", "Instant", "{1}{R}"), "red2" to card("Red Two", "Creature", "{R}{R}"),
+            "gold" to card("Gold", "Creature", "{U}{R}"), "rock" to card("Rock", "Artifact", "{2}"),
+            "huge" to card("Huge", "Creature", "{7}{G}"), "huger" to card("Huger", "Sorcery", "{9}{B}"),
+            "land" to card("Land", "Land — Island"))
+        val copies = (definitions.keys + "side").associateWith { DraftCopy(it, if (it == "side") "red" else it) }
+        val build = PodDeckBuild(copies.keys.map { PodDeckCopy(it, if (it == "side") PodDeckCategory.SIDE else PodDeckCategory.MAIN) }, PodDeckBasics(plains = 5))
+        val stats = podStats(build, copies, definitions)
+        val curve = stats.curveColorBuckets()
+        assertEquals(listOf("0", "1", "2", "3", "4", "5", "6", "7+"), curve.keys.toList())
+        fun counts(vararg counts: Pair<PodStatsColor, Int>) = PodStatsColor.entries.associateWith { color -> counts.toMap()[color] ?: 0 }
+        assertEquals(counts(PodStatsColor.R to 2, PodStatsColor.MULTICOLOR to 1, PodStatsColor.COLORLESS to 1), curve["2"])
+        assertEquals(counts(PodStatsColor.G to 1, PodStatsColor.B to 1), curve["7+"])
+        assertEquals(counts(), curve["0"])
+        // The same totals as the Type view, in every slot.
+        assertEquals(stats.curveBuckets().mapValues { it.value.total }, curve.mapValues { it.value.values.sum() })
+        assertEquals(listOf("W", "U", "B", "R", "G", "Gold", "Colorless"), PodStatsColor.entries.map { it.podStatsCurveName() })
+        assertTrue(podStats(PodDeckBuild(), emptyMap(), emptyMap()).curveColorBuckets().values.all { slot -> slot.values.all { it == 0 } })
+    }
+
     // DRF-116
     @Test fun pipPatternsKeepColoredAndColorlessSymbolsInPrintedOrderAndDropGenericXAndSnow() {
         assertEquals("{U}", podStatsPipPattern("{3}{U}"))
@@ -225,8 +291,6 @@ class PodStatsModelsTest {
         val unread = podStats(PodDeckBuild(copies.keys.map { PodDeckCopy(it) }), copies, definitions, colors - "tender" - "dual")
         assertEquals(1, unread.colorlessLands)
         assertEquals(0L, unread.otherSources.getValue(DraftColor.G))
-        assertEquals("7", podStatsSourceText(7, 0))
-        assertEquals("7 + 2", podStatsSourceText(7, 2))
         assertEquals("Sources: 17 lands, 3 others", podStatsSourcesLine(17, 3))
         assertEquals("Sources: 1 land, 1 other", podStatsSourcesLine(1, 1))
     }

@@ -46,10 +46,22 @@ internal fun podBuildMainTitle(build: PodDeckBuild, copies: Map<String, DraftCop
 internal fun podBuildSideTitle(build: PodDeckBuild, copies: Map<String, DraftCopy>, definitions: Map<String, CardDefinition>): String =
     podBuildLandTitle("Side", build, PodDeckCategory.SIDE, build.sideBasics, copies, definitions)
 
+/** The section's drafted lands, basics apart. */
+private fun podBuildDraftedLands(build: PodDeckBuild, category: PodDeckCategory, copies: Map<String, DraftCopy>,
+    definitions: Map<String, CardDefinition>): Int = build.copies.filter { it.category == category }
+    .count { entry -> copies[entry.copyId]?.definition?.let(definitions::get)?.let(::podStatsIsLand) == true }
+
+/** DRF-103: the basics dialog's "Basics N · Lands M" of the section it edits, every land of the section in M. */
+internal fun podBuildBasicsLine(build: PodDeckBuild, category: PodDeckCategory, copies: Map<String, DraftCopy>,
+    definitions: Map<String, CardDefinition>): String {
+    val basics = if (category == PodDeckCategory.SIDE) build.sideBasics else build.basics
+    return "Basics ${basics.total} · Lands ${podBuildDraftedLands(build, category, copies, definitions) + basics.total}"
+}
+
 private fun podBuildLandTitle(label: String, build: PodDeckBuild, category: PodDeckCategory, basics: PodDeckBasics,
     copies: Map<String, DraftCopy>, definitions: Map<String, CardDefinition>): String {
     val cards = build.copies.filter { it.category == category }
-    val drafted = cards.count { entry -> copies[entry.copyId]?.definition?.let(definitions::get)?.let(::podStatsIsLand) == true }
+    val drafted = podBuildDraftedLands(build, category, copies, definitions)
     val lands = drafted + basics.total
     return if (category == PodDeckCategory.SIDE && lands == 0L) "$label ${cards.size}"
         else "$label ${cards.size - drafted} + $lands = ${cards.size + basics.total}"

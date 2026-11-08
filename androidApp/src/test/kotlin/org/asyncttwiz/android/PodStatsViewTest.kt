@@ -18,6 +18,7 @@ import org.robolectric.annotation.GraphicsMode
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 @RunWith(RobolectricTestRunner::class)
@@ -40,11 +41,13 @@ class PodStatsViewTest {
         compose.onNodeWithText("Creature: 1").performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("Noncreature: 0").assertIsDisplayed()
         compose.onNodeWithText("Land: 39").assertIsDisplayed()
-        compose.onNodeWithText("Sources").assertIsDisplayed()
+        compose.onNodeWithText("Pips / Sources").assertIsDisplayed()
         compose.onNodeWithTag("pod-stats-sources").assertTextEquals("Sources: 39 lands, 0 others")
-        compose.onNodeWithTag("pod-stats-mana-W").assert(hasText("½")).assert(hasText("39"))
-        compose.onNodeWithTag("pod-stats-mana-B").assert(hasText("1")).assert(hasText("0"))
-        compose.onNodeWithTag("pod-stats-mana-R").assert(hasText("0"))
+        compose.onNodeWithTag("pod-stats-mana-W").assert(hasText("½ / 39"))
+            .assert(hasContentDescription("W: 25% of pips, 100% of sources"))
+        compose.onNodeWithTag("pod-stats-mana-B").assert(hasText("1 / 0"))
+            .assert(hasContentDescription("B: 50% of pips, 0% of sources"))
+        compose.onNodeWithTag("pod-stats-mana-R").assert(hasText("0 / 0"))
         compose.onNodeWithTag("pod-stats-pattern-0").assertTextEquals("1× {W/U}{B/P}")
         compose.onNodeWithTag("pod-stats-no-pips").assertDoesNotExist()
         compose.onNodeWithText("Lands without a color", substring = true).assertDoesNotExist()
@@ -63,12 +66,11 @@ class PodStatsViewTest {
             ?: org.asyncttwiz.storage.ParsedCard.Unreadable(parsed.problem.orEmpty()))
     } })
 
-    // DRF-112, DRF-113, DRF-114, DRF-115
-    @Test
-    @Config(qualifiers = "w412dp-h892dp-port-xhdpi")
-    fun typeCountsWrapBelowTheLegendAndAboveTheManaTable() {
-        fun card(name: String, type: String, cost: String, text: String = "") =
-            CardDefinition(name, listOf(DefinitionFace("front", name, typeLine = type, manaCost = cost, rulesText = text)))
+    private fun card(name: String, type: String, cost: String, text: String = "") =
+        CardDefinition(name, listOf(DefinitionFace("front", name, typeLine = type, manaCost = cost, rulesText = text)))
+
+    /** A 23-card build plus 15 basics, as the app reads it: a green-white deck with a little red, a mana rock and two duals. */
+    private fun showDeck() {
         val definitions = mapOf(
             "bear" to card("Bear", "Creature — Bear", "{1}{G}"), "golem" to card("Golem", "Artifact Creature — Golem", "{4}"),
             "hero" to card("Hero", "Legendary Creature — Human Knight", "{1}{W}{W}"), "bolt" to card("Bolt", "Instant", "{R}"),
@@ -84,11 +86,19 @@ class PodStatsViewTest {
         compose.setContent { MaterialTheme { androidx.compose.runtime.CompositionLocalProvider(LocalCardListSupport provides parsing) {
             PodStatsView(PodDeckBuild(copies.keys.map { PodDeckCopy(it) }, PodDeckBasics(plains = 7, forest = 8)), copies, definitions)
         } } }
-        // The sources once the cards' mana abilities are known: lands solid, the Ring (any colour) lighter.
+        // The sources once the cards' mana abilities are known.
         compose.waitUntil(5_000) { compose.onAllNodesWithText("Sources: 17 lands, 1 other").fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithTag("pod-stats-mana-W").assert(hasText("7 + 1"))
-        compose.onNodeWithTag("pod-stats-mana-G").assert(hasText("10 + 1"))
-        compose.onNodeWithTag("pod-stats-mana-R").assert(hasText("2 + 1"))
+    }
+
+    // DRF-112, DRF-113, DRF-114, DRF-115, DRF-116
+    @Test
+    @Config(qualifiers = "w412dp-h892dp-port-xhdpi")
+    fun typeCountsWrapBelowTheLegendAndAboveTheManaTable() {
+        showDeck()
+        // Lands and the Ring (any colour) added up, the Gate counting for both its colours.
+        compose.onNodeWithTag("pod-stats-mana-W").assert(hasText("9 / 8"))
+        compose.onNodeWithTag("pod-stats-mana-G").assert(hasText("9 / 11"))
+        compose.onNodeWithTag("pod-stats-mana-R").assert(hasText("4 / 3"))
         compose.onNodeWithTag("pod-stats-type-Creature").assertTextEquals("Creature 12").assertIsDisplayed()
         compose.onNodeWithTag("pod-stats-type-Land").assertTextEquals("Land 17")
         compose.onNodeWithTag("pod-stats-type-Basic").assertTextEquals("Basic 15")
@@ -107,10 +117,51 @@ class PodStatsViewTest {
         val mana = compose.onNodeWithTag("pod-stats-mana").getUnclippedBoundsInRoot()
         assertTrue(legend.bottom <= types.top && types.bottom <= mana.top)
         assertTrue(types.bottom - types.top < 80.dp, "Nine types wrap into at most a few rows: ${types.bottom - types.top}")
+        // DRF-116: the pip counts flow in rows in their order, the "N× ∅" chip last.
+        val first = compose.onNodeWithTag("pod-stats-pattern-0", useUnmergedTree = true).assertTextEquals("8× {G}").getUnclippedBoundsInRoot()
+        val second = compose.onNodeWithTag("pod-stats-pattern-1", useUnmergedTree = true).assertTextEquals("4× {R}").getUnclippedBoundsInRoot()
+        assertEquals(first.top, second.top)
+        assertTrue(first.right < second.left)
+        compose.onNodeWithTag("pod-stats-no-pips", useUnmergedTree = true).assertTextEquals("3× ∅")
         val output = java.io.File("$SCREENSHOTS/pod-stats-types.png").also { it.parentFile!!.mkdirs() }
-        compose.onRoot().captureShot(output.path, "Draft deck Stats in portrait for a 23-card build plus 15 basics: " +
-            "card type counts wrap between the curve legend and the mana table, whose source bars show the lands solid and " +
-            "a mana rock lighter, with the sources' total line under them.")
+        compose.onRoot().captureShot(output.path, "Draft deck Stats in portrait for a 23-card build plus 15 basics, the curve " +
+            "on its Type view: card type counts wrap between the curve legend and the mana table, each colour's \"pips / sources\" " +
+            "beside a thin pip bar over a source bar on one scale (lands solid, a mana rock lighter), then the sources' total " +
+            "line and the pip counts as chips flowing in rows.")
+    }
+
+    // DRF-111
+    @Test
+    @Config(qualifiers = "w412dp-h892dp-port-xhdpi")
+    fun curveToggleStacksByColorKeepingTheChartAndRemembersTheChoice() {
+        showDeck()
+        val preferences = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
+            .getSharedPreferences("pod-build", 0)
+        compose.onNodeWithTag("pod-stats-curve-type").assertIsSelected()
+        compose.onNodeWithTag("pod-stats-curve-color").assertIsNotSelected()
+        compose.onNodeWithTag("pod-stats-curve-legend").assertDoesNotExist()
+        val typeChart = compose.onNodeWithTag("pod-stats-curve").assert(hasContentDescription("2: 5 creature, 3 noncreature", substring = true))
+            .getUnclippedBoundsInRoot()
+        compose.onNodeWithTag("pod-stats-curve-color").performClick()
+        compose.onNodeWithTag("pod-stats-curve-color").assertIsSelected()
+        compose.onNodeWithTag("pod-stats-curve-type").assertIsNotSelected()
+        assertEquals(typeChart, compose.onNodeWithTag("pod-stats-curve")
+            .assert(hasContentDescription("2: 2 W, 5 G, 1 Colorless", substring = true)).assert(hasContentDescription("0: none", substring = true))
+            .getUnclippedBoundsInRoot())
+        compose.onNodeWithTag("pod-stats-curve").assert(hasContentDescription("4: 1 Gold, 2 Colorless", substring = true))
+        for (name in listOf("W", "U", "B", "R", "G", "Gold", "Colorless"))
+            compose.onNode(hasText(name) and hasAnyAncestor(hasTestTag("pod-stats-curve-legend"))).assertIsDisplayed()
+        // The counts stay; their Type swatches would mean nothing here.
+        compose.onNodeWithText("Creature: 12").assertIsDisplayed()
+        // Every legend entry on one line at phone width.
+        assertTrue(with(compose.onNodeWithTag("pod-stats-curve-legend").getUnclippedBoundsInRoot()) { bottom - top } < 24.dp)
+        compose.onRoot().captureShot("$SCREENSHOTS/pod-stats-color.png", "Draft deck Stats after tapping Color above the mana " +
+            "curve: the same chart and totals with the bars stacked W, U, B, R, G, gold and colorless in the donut's colours, " +
+            "a legend of those colours above the Creature, Noncreature and Land counts.")
+        assertTrue(PodStatsCurveChoice(preferences).byColor, "the choice stays on this device")
+        compose.onNodeWithTag("pod-stats-curve-type").performClick()
+        compose.onNodeWithTag("pod-stats-curve-legend").assertDoesNotExist()
+        assertFalse(PodStatsCurveChoice(preferences).byColor)
     }
 
     // DRF-113
@@ -126,7 +177,7 @@ class PodStatsViewTest {
             .assert(hasContentDescription("W 0%, U 0%, B 0%, R 0%, G 0%", substring = true)).getUnclippedBoundsInRoot()
         assertEquals(table.top, colors.top)
         assertTrue(table.right < colors.left)
-        for (color in DraftColor.entries) compose.onNodeWithTag("pod-stats-mana-${color.name}").assert(hasText("0"))
+        for (color in DraftColor.entries) compose.onNodeWithTag("pod-stats-mana-${color.name}").assert(hasText("0 / 0"))
         compose.onNodeWithTag("pod-stats-pattern-0").assertDoesNotExist()
         compose.onNodeWithTag("pod-stats-no-pips").assertDoesNotExist()
         compose.onNodeWithTag("pod-stats-notes").assertDoesNotExist()
@@ -142,7 +193,7 @@ class PodStatsViewTest {
         } }
         val before = compose.onNodeWithTag("pod-stats-mana").getUnclippedBoundsInRoot()
         compose.runOnIdle { build.value = PodDeckBuild(basics = PodDeckBasics(forest = 17)); dark.value = true }
-        compose.onNodeWithTag("pod-stats-mana-G").assert(hasText("17")).assertIsDisplayed()
+        compose.onNodeWithTag("pod-stats-mana-G").assert(hasText("0 / 17")).assertIsDisplayed()
         assertEquals(before, compose.onNodeWithTag("pod-stats-mana").getUnclippedBoundsInRoot())
     }
 
@@ -156,7 +207,7 @@ class PodStatsViewTest {
                 mapOf("a" to DraftCopy("a", "spell"), "b" to DraftCopy("b", "spell"), "c" to DraftCopy("c", "rock"),
                     "d" to DraftCopy("d", "waste")), mapOf("spell" to spell, "rock" to rock, "waste" to waste))
         } }
-        compose.onNodeWithTag("pod-stats-mana-U").assert(hasText("2")).assert(hasText("0"))
+        compose.onNodeWithTag("pod-stats-mana-U").assert(hasText("2 / 0"))
         compose.onNodeWithTag("pod-stats-pattern-0").assertTextEquals("2× {U}")
         compose.onNodeWithTag("pod-stats-no-pips").assertTextEquals("1× ∅").assertContentDescriptionEquals("1× no colored pips")
         compose.onNodeWithText("Lands without a color: 1").assertIsDisplayed()

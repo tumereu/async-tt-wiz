@@ -574,6 +574,38 @@ class PodBuildViewTest {
         compose.onNodeWithText("Kept 1 · 1 to Main").assertIsDisplayed()
     }
 
+    // DRF-103: "Basics N · Lands M" left of Done follows the steppers, for the section the dialog was opened for
+    @Test
+    @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    @Config(qualifiers = "w412dp-h892dp-port-xhdpi")
+    fun basicsDialogCountsBasicsAndLandsOfItsSectionLive() {
+        val land = CardDefinition("Dual", listOf(DefinitionFace("front", "Dual", typeLine = "Land — Island Swamp")))
+        var build by mutableStateOf(PodDeckBuild(listOf(PodDeckCopy("first"), PodDeckCopy("dual"), PodDeckCopy("side", PodDeckCategory.SIDE)),
+            PodDeckBasics(plains = 7, forest = 8), sideBasics = PodDeckBasics(island = 3)))
+        compose.setContent { NoRipples { ScreenTheme {
+            PodBuildView(build, mapOf("first" to DraftCopy("first", "digest"), "dual" to DraftCopy("dual", "land"), "side" to DraftCopy("side", "land")),
+                mapOf("digest" to card, "land" to land), null, true, false, { _, _ -> },
+                { index, delta -> build = build.copy(basics = build.basics.podBuildAdjust(index, delta)) }, {},
+                onAdjustSideBasic = { index, delta -> build = build.copy(sideBasics = build.sideBasics.podBuildAdjust(index, delta)) })
+        } } }
+        compose.onNodeWithContentDescription("Edit basic lands").performClick()
+        compose.onNodeWithTag("pod-build-basics-count").assertTextEquals("Basics 15 · Lands 16").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Add Forest").performClick()
+        val count = compose.onNodeWithTag("pod-build-basics-count").assertTextEquals("Basics 16 · Lands 17").getUnclippedBoundsInRoot()
+        val done = compose.onNodeWithText("Done").getUnclippedBoundsInRoot()
+        assertTrue(count.right <= done.left)
+        compose.waitForIdle()
+        captureShot("$SCREENSHOTS/pod-build-basics-dialog.png", "The Build tab's basics row tapped and one Forest added: the five " +
+            "steppers with \"Basics 16 · Lands 17\" left of Done, counting the 16 basics and one drafted land of Main.")
+        compose.onNodeWithText("Done").performClick()
+        compose.onNodeWithTag("pod-build-basics-count").assertDoesNotExist()
+        compose.onNodeWithTag("pod-build").performScrollToNode(hasTestTag("pod-build-side-basics"))
+        compose.onNodeWithContentDescription("Edit Side basic lands").performClick()
+        compose.onNodeWithTag("pod-build-basics-count").assertTextEquals("Basics 3 · Lands 4")
+        compose.onNodeWithContentDescription("Remove Island").performClick()
+        compose.onNodeWithTag("pod-build-basics-count").assertTextEquals("Basics 2 · Lands 3")
+    }
+
     // DRF-107, DRF-108: the Maybe review: a tap keeps, swipes and the buttons under the card move it (right → Main,
     // left → Side)
     @Test

@@ -1,0 +1,1 @@
+mod: Draft Stats: the mana curve can show colours as well as types, each colour compares its share of pips and of sources in two bars, pip counts are compact chips, and the basics dialog shows how many basics and lands you have.

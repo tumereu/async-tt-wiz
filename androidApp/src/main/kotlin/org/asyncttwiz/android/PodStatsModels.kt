@@ -35,6 +35,8 @@ internal data class PodStats(
     val noPips: Int = 0,
     /** Main copies per word of the front type line before the dash, basics included; most common first, zeros absent. */
     val types: List<Pair<String, Long>> = emptyList(),
+    /** Main nonland copies per mana value and colour (DRF-111), by the same colour as [colors]; zeros absent. */
+    val curveColors: Map<Double, Map<PodStatsColor, Int>> = emptyMap(),
 )
 
 internal data class PodStatsCurveBucket(val creatures: Int = 0, val noncreatures: Int = 0) {
@@ -239,6 +241,7 @@ internal fun podStats(build: PodDeckBuild, copies: Map<String, DraftCopy>, defin
     var colorlessLands = 0
     val patterns = mutableMapOf<String, Int>()
     val types = mutableMapOf<String, Long>()
+    val curveColors = mutableMapOf<Double, MutableMap<PodStatsColor, Int>>()
     // Basics are counts, not drafted copies: "Basic Land — Plains" and so on.
     if (build.basics.total > 0) for (word in podStatsTypeWords("Basic Land")) types[word] = (types[word] ?: 0) + build.basics.total
     for (entry in build.copies.filter { it.category == PodDeckCategory.MAIN }) {
@@ -265,6 +268,8 @@ internal fun podStats(build: PodDeckBuild, copies: Map<String, DraftCopy>, defin
                 else bucket.copy(noncreatures = bucket.noncreatures + 1)
             val color = podStatsColorIdentity(card, copy?.colors.orEmpty())
             colors[color] = colors.getValue(color) + 1
+            val slot = curveColors.getOrPut(mv) { mutableMapOf() }
+            slot[color] = (slot[color] ?: 0) + 1
             val pattern = podStatsPipPattern(podStatsPipCost(card))
             patterns[pattern] = (patterns[pattern] ?: 0) + 1
         }
@@ -274,14 +279,58 @@ internal fun podStats(build: PodDeckBuild, copies: Map<String, DraftCopy>, defin
         .sortedWith(compareByDescending<Pair<String, Int>> { it.second }.thenBy { it.first })
     val typeCounts = types.toList().sortedWith(compareByDescending<Pair<String, Long>> { it.second }.thenBy { it.first })
     return PodStats(curve, creatures, noncreatures, lands, pips, sources, colors, missing, colorlessLands, others, sourceLands,
-        sourceOthers, listed, patterns[""] ?: 0, typeCounts)
+        sourceOthers, listed, patterns[""] ?: 0, typeCounts, curveColors)
 }
+
+private fun podStatsCurveLabel(slot: Int) = if (slot == 7) "7+" else "$slot"
 
 internal fun PodStats.curveBuckets(): Map<String, PodStatsCurveBucket> = (0..7).associate { bucket ->
     val entries = curve.entries.filter { it.key.toInt().coerceIn(0, 7) == bucket }
-    (if (bucket == 7) "7+" else "$bucket") to PodStatsCurveBucket(
+    podStatsCurveLabel(bucket) to PodStatsCurveBucket(
         entries.sumOf { it.value.creatures }, entries.sumOf { it.value.noncreatures })
 }
+
+/** The curve's slots by colour (DRF-111): each slot holds a count for every [PodStatsColor], in its order. */
+internal fun PodStats.curveColorBuckets(): Map<String, Map<PodStatsColor, Int>> = (0..7).associate { bucket ->
+    val entries = curveColors.entries.filter { it.key.toInt().coerceIn(0, 7) == bucket }
+    podStatsCurveLabel(bucket) to PodStatsColor.entries.associateWith { color -> entries.sumOf { it.value[color] ?: 0 } }
+}
+
+/** A colour's name in the curve's Color view and its legend (DRF-111). */
+internal fun PodStatsColor.podStatsCurveName(): String = when (this) {
+    PodStatsColor.MULTICOLOR -> "Gold"
+    PodStatsColor.COLORLESS -> "Colorless"
+    else -> name
+}
+
+/** A colour's bars in the mana table (DRF-114): its share of all coloured pips, of all sources, and the lands' part of
+ * that sources share. A dual land counts for both its colours, so the source shares add up to 100% as the pip shares do. */
+internal data class PodStatsManaShare(val pips: Double, val sources: Double, val lands: Double)
+
+internal fun PodStats.manaShares(): Map<DraftColor, PodStatsManaShare> {
+    val pipShares = podStatsShares(pips)
+    val sourceTotal = DraftColor.entries.sumOf { sources.getValue(it) + otherSources.getValue(it) }
+    fun share(count: Long) = if (sourceTotal == 0L) 0.0 else count.toDouble() / sourceTotal
+    return DraftColor.entries.associateWith { color ->
+        val lands = sources.getValue(color)
+        PodStatsManaShare(pipShares.getValue(color), share(lands + otherSources.getValue(color)), share(lands))
+    }
+}
+
+/** The part of the bars' width the largest share takes: it nearly fills the width. */
+private const val PodStatsLargestBar = .95
+
+/**
+ * The one scale of every mana bar, both kinds in all rows (DRF-114): a bar's width as a part of the full width is its
+ * share times this, so a longer pip bar than source bar means the colour is short of sources. 0 when nothing has a share.
+ */
+internal fun Map<DraftColor, PodStatsManaShare>.podStatsBarScale(): Double {
+    val largest = values.maxOfOrNull { maxOf(it.pips, it.sources) } ?: 0.0
+    return if (largest == 0.0) 0.0 else PodStatsLargestBar / largest
+}
+
+/** A colour's text in the mana table: "9 / 8", "4½ / 8": its pips, then its sources (lands + others) added up. */
+internal fun podStatsManaText(pips: Double, lands: Long, others: Long): String = "${podStatsPipText(pips)} / ${lands + others}"
 
 /** Empty donuts have zero shares, never NaN; each chart normalizes independently. */
 internal fun <T> podStatsShares(values: Map<T, Number>): Map<T, Double> {

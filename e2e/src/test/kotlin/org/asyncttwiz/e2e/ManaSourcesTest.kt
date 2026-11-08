@@ -29,7 +29,7 @@ class ManaSourcesTest : E2e() {
         waitUntil("Alice's Stats") { alice.shows(hasTestTag("pod-stats")) }
         alice.tagged("pod-stats").performScrollToNode(hasTestTag("pod-stats-sources"))
         waitUntil("the rock as a red source in Alice's Stats") {
-            alice.shows(hasTestTag("pod-stats-mana-R") and hasAnyDescendant(hasText("0 + 1"))) &&
+            alice.shows(hasTestTag("pod-stats-mana-R") and hasAnyDescendant(hasText("0 / 1"))) &&
                 alice.shows(hasTestTag("pod-stats-sources") and hasText("Sources: 0 lands, 1 other"))
         }
     }

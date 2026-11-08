@@ -187,8 +187,8 @@ fun PodBuildView(
                         }
                     }
                 }
-                if (category == PodDeckCategory.MAIN) item("basics") { PodBuildBasics(build.basics, editable, onAdjustBasic) }
-                if (category == PodDeckCategory.SIDE) item("side-basics") { PodBuildBasics(build.sideBasics, editable, onAdjustSideBasic, side = true) }
+                if (category == PodDeckCategory.MAIN) item("basics") { PodBuildBasics(build.basics, podBuildBasicsLine(build, category, copies, definitions), editable, onAdjustBasic) }
+                if (category == PodDeckCategory.SIDE) item("side-basics") { PodBuildBasics(build.sideBasics, podBuildBasicsLine(build, category, copies, definitions), editable, onAdjustSideBasic, side = true) }
                 item("columns-$category") {
                     BoxWithConstraints(Modifier.fillMaxWidth().then(if (sliding) Modifier.animateItem(fadeInSpec = null,
                         fadeOutSpec = null, placementSpec = tween(PodBuildSettleMillis)) else Modifier)
@@ -359,7 +359,7 @@ private fun PodBuildLeavingCard(leaving: PodBuildLeaving, done: () -> Unit) {
 }
 
 @Composable
-private fun PodBuildBasics(basics: PodDeckBasics, editable: Boolean, onAdjust: (Int, Int) -> Unit, side: Boolean = false) {
+private fun PodBuildBasics(basics: PodDeckBasics, countLine: String, editable: Boolean, onAdjust: (Int, Int) -> Unit, side: Boolean = false) {
     var open by remember { mutableStateOf(false) }
     Box(Modifier.padding(horizontal = PodBuildSidePadding, vertical = 4.dp)) {
         Surface(onClick = { open = true }, enabled = editable, shape = MaterialTheme.shapes.small,
@@ -374,7 +374,10 @@ private fun PodBuildBasics(basics: PodDeckBasics, editable: Boolean, onAdjust: (
         }
     }
     if (open && editable) ScreenDialog({ open = false }, title = if (side) "Side basic lands" else "Basic lands",
-        actions = { DialogMainButton("Done", { open = false }) }) {
+        actions = {
+            Text(countLine, Modifier.weight(1f).testTag("pod-build-basics-count"), style = MaterialTheme.typography.labelLarge)
+            DialogMainButton("Done", { open = false })
+        }) {
             listOf("Plains", "Island", "Swamp", "Mountain", "Forest").forEachIndexed { index, name ->
                 val count = basics.podBuildValues()[index]
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {

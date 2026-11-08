@@ -5,6 +5,20 @@ import org.junit.Test
 import kotlin.test.*
 
 class PodBuildModelsTest {
+    // DRF-103: the basics dialog's line counts the section it was opened for, every land of it, nonbasics too
+    @Test fun basicsLineCountsTheSectionsBasicsAndAllItsLands() {
+        val spell = CardDefinition("Spell", listOf(DefinitionFace("front", "Spell", typeLine = "Creature — Elf")))
+        val land = CardDefinition("Dual", listOf(DefinitionFace("front", "Dual", typeLine = "Land — Island Swamp")))
+        val definitions = mapOf("spell" to spell, "land" to land)
+        val copies = listOf("s1" to "spell", "l1" to "land", "l2" to "land", "l3" to "land", "l4" to "land")
+            .associate { (id, digest) -> id to DraftCopy(id, digest) }
+        val build = PodDeckBuild(listOf(PodDeckCopy("s1"), PodDeckCopy("l1"), PodDeckCopy("l2"), PodDeckCopy("l3", PodDeckCategory.SIDE),
+            PodDeckCopy("l4", PodDeckCategory.MAYBE)), PodDeckBasics(plains = 7, forest = 8), sideBasics = PodDeckBasics(island = 17))
+        assertEquals("Basics 15 · Lands 17", podBuildBasicsLine(build, PodDeckCategory.MAIN, copies, definitions))
+        assertEquals("Basics 17 · Lands 18", podBuildBasicsLine(build, PodDeckCategory.SIDE, copies, definitions))
+        assertEquals("Basics 0 · Lands 0", podBuildBasicsLine(PodDeckBuild(), PodDeckCategory.MAIN, emptyMap(), emptyMap()))
+    }
+
     // DRF-094
     @Test fun mainHeaderSplitsNonlandCardsFromAllMainLands() {
         val spell = CardDefinition("Spell", listOf(DefinitionFace("front", "Spell", typeLine = "Creature — Elf")))

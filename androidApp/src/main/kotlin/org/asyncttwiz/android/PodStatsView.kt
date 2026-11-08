@@ -13,6 +13,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -29,6 +30,7 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.asyncttwiz.protocol.*
@@ -49,6 +51,7 @@ fun PodStatsView(
     /** The caller's private notes; null hides the notes and counters. */
     notes: PodDeckNotes? = null,
     onNotes: ((PodDeckNotes) -> PodDeckNotes) -> Unit = {},
+    curveChoice: PodStatsCurveChoice = rememberPodStatsCurveChoice(),
 ) {
     // DRF-115: mana sources from the cards' Automatum definitions, worked out off the main thread (none until known).
     val check = LocalCardListSupport.current
@@ -63,13 +66,21 @@ fun PodStatsView(
     BoxWithConstraints(modifier.fillMaxSize()) {
         val wide = maxWidth >= 600.dp
         LazyColumn(Modifier.fillMaxSize().testTag("pod-stats"), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            item { PodStatsCurve(stats.curveBuckets()) }
             item {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    listOf("Creature" to stats.creatures, "Noncreature" to stats.noncreatures, "Land" to stats.lands).forEachIndexed { index, (label, count) ->
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                            if (index < 2) PodStatsSwatch(if (index == 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primaryContainer)
-                            Text("$label: $count", style = MaterialTheme.typography.labelMedium)
+                Column {
+                    PodStatsCurveToggle(curveChoice.byColor, curveChoice::choose)
+                    PodStatsCurve(stats, curveChoice.byColor)
+                }
+            }
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (curveChoice.byColor) PodStatsCurveColorLegend()
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        listOf("Creature" to stats.creatures, "Noncreature" to stats.noncreatures, "Land" to stats.lands).forEachIndexed { index, (label, count) ->
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                if (index < 2 && !curveChoice.byColor) PodStatsSwatch(if (index == 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primaryContainer)
+                                Text("$label: $count", style = MaterialTheme.typography.labelMedium)
+                            }
                         }
                     }
                 }
@@ -91,19 +102,25 @@ fun PodStatsView(
     }
 }
 
+/** The Stats chips' look: the type counts and the pip counts (DRF-113, DRF-116). */
+@Composable
+private fun PodStatsChip(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
+    Surface(modifier, shape = MaterialTheme.shapes.small, color = MaterialTheme.colorScheme.surfaceContainerHigh) {
+        Box(Modifier.padding(horizontal = 8.dp, vertical = 3.dp)) { content() }
+    }
+}
+
 /** Main copies per type-line word, as wrapping "Creature 15" labels, most common first. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun PodStatsTypes(types: List<Pair<String, Long>>) {
     FlowRow(Modifier.fillMaxWidth().testTag("pod-stats-types"),
         horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        for ((name, count) in types) Surface(Modifier.testTag("pod-stats-type-$name")
-            .semantics(mergeDescendants = true) {},
-            shape = MaterialTheme.shapes.small, color = MaterialTheme.colorScheme.surfaceContainerHigh) {
+        for ((name, count) in types) PodStatsChip(Modifier.testTag("pod-stats-type-$name").semantics(mergeDescendants = true) {}) {
             Text(buildAnnotatedString {
                 append("$name ")
                 withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append("$count") }
-            }, Modifier.padding(horizontal = 8.dp, vertical = 3.dp), style = MaterialTheme.typography.labelMedium, maxLines = 1)
+            }, style = MaterialTheme.typography.labelMedium, maxLines = 1)
         }
     }
 }
@@ -112,53 +129,83 @@ private fun PodStatsTypes(types: List<Pair<String, Long>>) {
 internal fun podStatsSourcesLine(lands: Long, others: Int): String =
     "Sources: $lands ${if (lands == 1L) "land" else "lands"}, $others ${if (others == 1) "other" else "others"}"
 
-/** A colour's sources beside its bar: "7" (lands only) or "7 + 2" (lands + other producers). */
-internal fun podStatsSourceText(lands: Long, others: Long): String = if (others == 0L) "$lands" else "$lands + $others"
+private val PodStatsPipBarHeight = 5.dp
+private val PodStatsSourceBarHeight = 10.dp
+
+/** A short sample of one bar kind and its name, for the mana table's legend. */
+@Composable
+private fun PodStatsBarKey(color: Color, height: Dp, label: String) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        Canvas(Modifier.size(16.dp, height)) { drawRoundRect(color, cornerRadius = CornerRadius(size.height / 2)) }
+        Text(label, style = MaterialTheme.typography.labelSmall, maxLines = 1)
+    }
+}
 
 /**
- * Pips per colour as plain numbers and the colour's sources as a bar (lands solid, other producers lighter) with their
- * numbers, a total line, then the cards grouped by their colored cost symbols (DRF-114, DRF-115).
+ * Per colour "pips / sources" and two bars on one scale, pips over sources (lands solid, other producers lighter), then a
+ * total line and the cards grouped by their colored cost symbols, as chips (DRF-114, DRF-115, DRF-116).
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun PodStatsMana(stats: PodStats, modifier: Modifier) {
     val style = MaterialTheme.typography.bodyMedium
-    val most = DraftColor.entries.maxOf { stats.sources.getValue(it) + stats.otherSources.getValue(it) }.coerceAtLeast(1)
+    val shares = stats.manaShares()
+    val scale = shares.podStatsBarScale()
+    val pip = MaterialTheme.colorScheme.onSurface
     val solid = MaterialTheme.colorScheme.primary
     val light = MaterialTheme.colorScheme.primary.copy(alpha = .35f)
     val track = MaterialTheme.colorScheme.surfaceContainerHighest
     Column(modifier.testTag("pod-stats-mana"), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Row(Modifier.fillMaxWidth()) {
-            Spacer(Modifier.width(32.dp))
-            Text("Pips", Modifier.width(40.dp), style = MaterialTheme.typography.labelLarge, textAlign = TextAlign.End)
-            Spacer(Modifier.width(12.dp))
-            Text("Sources", Modifier.weight(1f), style = MaterialTheme.typography.labelLarge)
+        FlowRow(Modifier.fillMaxWidth().padding(bottom = 4.dp), horizontalArrangement = Arrangement.SpaceBetween,
+            verticalArrangement = Arrangement.spacedBy(4.dp), itemVerticalAlignment = Alignment.CenterVertically) {
+            Text("Pips / Sources", style = MaterialTheme.typography.labelLarge)
+            Row(Modifier.testTag("pod-stats-bar-legend"), verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                PodStatsBarKey(pip, PodStatsPipBarHeight, "Pips")
+                PodStatsBarKey(solid, PodStatsSourceBarHeight, "Lands")
+                PodStatsBarKey(light, PodStatsSourceBarHeight, "Others")
+            }
         }
         for (color in DraftColor.entries) Row(Modifier.fillMaxWidth().testTag("pod-stats-mana-${color.name}")
             .semantics(mergeDescendants = true) {}, verticalAlignment = Alignment.CenterVertically) {
-            val lands = stats.sources.getValue(color)
-            val others = stats.otherSources.getValue(color)
+            val share = shares.getValue(color)
             CardText("{${color.name}}", Modifier.width(32.dp), style = MaterialTheme.typography.titleMedium)
-            Text(podStatsPipText(stats.pips.getValue(color)), Modifier.width(40.dp), style = style, textAlign = TextAlign.End)
+            Text(podStatsManaText(stats.pips.getValue(color), stats.sources.getValue(color), stats.otherSources.getValue(color)),
+                Modifier.widthIn(min = 64.dp), style = style, textAlign = TextAlign.End, maxLines = 1)
             Spacer(Modifier.width(12.dp))
-            Canvas(Modifier.weight(1f).height(10.dp).testTag("pod-stats-bar-${color.name}")) {
-                val radius = androidx.compose.ui.geometry.CornerRadius(size.height / 2)
-                drawRoundRect(track, cornerRadius = radius)
-                val total = size.width * (lands + others) / most
-                if (total > 0) drawRoundRect(light, size = Size(total, size.height), cornerRadius = radius)
-                val land = size.width * lands / most
-                if (land > 0) drawRoundRect(solid, size = Size(land, size.height), cornerRadius = radius)
+            Canvas(Modifier.weight(1f).height(PodStatsPipBarHeight + 2.dp + PodStatsSourceBarHeight)
+                .testTag("pod-stats-bar-${color.name}").semantics {
+                    contentDescription = "${color.name}: ${(share.pips * 100).roundToInt()}% of pips, ${(share.sources * 100).roundToInt()}% of sources"
+                }) {
+                val pipHeight = PodStatsPipBarHeight.toPx()
+                val sourceHeight = PodStatsSourceBarHeight.toPx()
+                val sourceTop = size.height - sourceHeight
+                fun bar(paint: Color, width: Float, top: Float, height: Float) {
+                    if (width > 0f) drawRoundRect(paint, Offset(0f, top), Size(width, height), CornerRadius(height / 2))
+                }
+                bar(track, size.width, 0f, pipHeight)
+                bar(pip, (size.width * share.pips * scale).toFloat(), 0f, pipHeight)
+                bar(track, size.width, sourceTop, sourceHeight)
+                bar(light, (size.width * share.sources * scale).toFloat(), sourceTop, sourceHeight)
+                bar(solid, (size.width * share.lands * scale).toFloat(), sourceTop, sourceHeight)
             }
-            Text(podStatsSourceText(lands, others), Modifier.widthIn(min = 48.dp).padding(start = 8.dp), style = style)
         }
         Text(podStatsSourcesLine(stats.sourceLands, stats.sourceOthers), Modifier.testTag("pod-stats-sources"),
             style = MaterialTheme.typography.labelMedium)
         if (stats.colorlessLands > 0) Text("Lands without a color: ${stats.colorlessLands}", style = MaterialTheme.typography.labelMedium)
-        if (stats.pipPatterns.isNotEmpty() || stats.noPips > 0) Spacer(Modifier.height(8.dp))
-        stats.pipPatterns.forEachIndexed { index, (pattern, count) ->
-            CardText("$count× $pattern", Modifier.testTag("pod-stats-pattern-$index"), style = style)
+        if (stats.pipPatterns.isNotEmpty() || stats.noPips > 0) {
+            Spacer(Modifier.height(8.dp))
+            FlowRow(Modifier.fillMaxWidth().testTag("pod-stats-patterns"),
+                horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                stats.pipPatterns.forEachIndexed { index, (pattern, count) ->
+                    PodStatsChip { CardText("$count× $pattern", Modifier.testTag("pod-stats-pattern-$index"), style = style, maxLines = 1) }
+                }
+                if (stats.noPips > 0) PodStatsChip {
+                    Text("${stats.noPips}× ∅", Modifier.testTag("pod-stats-no-pips")
+                        .semantics { contentDescription = "${stats.noPips}× no colored pips" }, style = style, maxLines = 1)
+                }
+            }
         }
-        if (stats.noPips > 0) Text("${stats.noPips}× ∅", Modifier.testTag("pod-stats-no-pips")
-            .semantics { contentDescription = "${stats.noPips}× no colored pips" }, style = style)
     }
 }
 
@@ -223,8 +270,40 @@ private fun PodStatsColors(stats: PodStats, modifier: Modifier) {
     } }, podStatsPalette, modifier)
 }
 
+/** The small Type | Color choice above the mana curve (DRF-111). */
 @Composable
-private fun PodStatsCurve(values: Map<String, PodStatsCurveBucket>) {
+private fun PodStatsCurveToggle(byColor: Boolean, choose: (Boolean) -> Unit) {
+    Row(Modifier.fillMaxWidth().testTag("pod-stats-curve-toggle"), verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.End)) {
+        listOf(false to "Type", true to "Color").forEach { (value, label) ->
+            val chosen = byColor == value
+            Surface(selected = chosen, onClick = { choose(value) }, Modifier.testTag("pod-stats-curve-${label.lowercase()}"),
+                shape = MaterialTheme.shapes.small,
+                color = if (chosen) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHigh) {
+                Text(label, Modifier.padding(horizontal = 10.dp, vertical = 4.dp), style = MaterialTheme.typography.labelMedium, maxLines = 1)
+            }
+        }
+    }
+}
+
+/** The Color view's legend: the curve's stack from the bottom up (DRF-111). */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun PodStatsCurveColorLegend() {
+    FlowRow(Modifier.fillMaxWidth().testTag("pod-stats-curve-legend"), horizontalArrangement = Arrangement.SpaceBetween,
+        verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        PodStatsColor.entries.forEachIndexed { index, color ->
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                PodStatsSwatch(podStatsPalette[index])
+                Text(color.podStatsCurveName(), style = MaterialTheme.typography.labelMedium, maxLines = 1)
+            }
+        }
+    }
+}
+
+/** The mana curve: the same slots, scale and totals in both views, stacked creature/noncreature or by colour (DRF-111). */
+@Composable
+private fun PodStatsCurve(stats: PodStats, byColor: Boolean) {
     val creatureColor = MaterialTheme.colorScheme.primary
     val noncreatureColor = MaterialTheme.colorScheme.primaryContainer
     val outline = MaterialTheme.colorScheme.outline
@@ -233,25 +312,37 @@ private fun PodStatsCurve(values: Map<String, PodStatsCurveBucket>) {
     val paint = remember(textColor, textSize) { Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = textColor.toArgb(); this.textSize = textSize; textAlign = Paint.Align.CENTER
     } }
+    // Per slot its label and its stack from the bottom up.
+    val slots: List<Pair<String, List<Pair<Color, Int>>>> = if (byColor) stats.curveColorBuckets().map { (label, counts) ->
+        label to PodStatsColor.entries.mapIndexed { index, color -> podStatsPalette[index] to counts.getValue(color) }
+    } else stats.curveBuckets().map { (label, value) ->
+        label to listOf(creatureColor to value.creatures, noncreatureColor to value.noncreatures)
+    }
     Canvas(Modifier.fillMaxWidth().height(180.dp).testTag("pod-stats-curve").semantics {
-        contentDescription = values.entries.joinToString { (label, value) ->
+        contentDescription = if (byColor) stats.curveColorBuckets().entries.joinToString { (label, counts) ->
+            "$label: " + counts.filterValues { it > 0 }.entries.joinToString { (color, count) -> "$count ${color.podStatsCurveName()}" }.ifEmpty { "none" }
+        } else stats.curveBuckets().entries.joinToString { (label, value) ->
             "$label: ${value.creatures} creature, ${value.noncreatures} noncreature"
         }
     }) {
-        val maximum = (values.values.maxOfOrNull { it.total } ?: 0).coerceAtLeast(1)
-        val slot = size.width / values.size.coerceAtLeast(1)
+        val maximum = (slots.maxOfOrNull { (_, parts) -> parts.sumOf { it.second } } ?: 0).coerceAtLeast(1)
+        val slot = size.width / slots.size.coerceAtLeast(1)
         val baseline = size.height - textSize * 1.8f
         val chartHeight = (baseline - textSize * 2).coerceAtLeast(0f)
-        values.entries.forEachIndexed { index, (label, value) ->
-            val creatureHeight = value.creatures.toFloat() / maximum * chartHeight
-            val noncreatureHeight = value.noncreatures.toFloat() / maximum * chartHeight
-            val height = creatureHeight + noncreatureHeight
+        slots.forEachIndexed { index, (label, parts) ->
             val left = slot * index + slot * .15f
-            drawRect(creatureColor, Offset(left, baseline - creatureHeight), Size(slot * .7f, creatureHeight))
-            drawRect(noncreatureColor, Offset(left, baseline - height), Size(slot * .7f, noncreatureHeight))
-            if (value.total > 0) {
-                drawRect(outline, Offset(left, baseline - height), Size(slot * .7f, height), style = Stroke(1.dp.toPx()))
-                drawContext.canvas.nativeCanvas.drawText("${value.total}", slot * (index + .5f), baseline - height - textSize * .3f, paint)
+            var top = baseline
+            for ((color, count) in parts) if (count > 0) {
+                val height = count.toFloat() / maximum * chartHeight
+                top -= height
+                drawRect(color, Offset(left, top), Size(slot * .7f, height))
+                // A fine line keeps neighboring pale mana colors distinct, as in the donut.
+                if (byColor) drawRect(outline, Offset(left, top), Size(slot * .7f, height), style = Stroke(1.dp.toPx()))
+            }
+            val total = parts.sumOf { it.second }
+            if (total > 0) {
+                drawRect(outline, Offset(left, top), Size(slot * .7f, baseline - top), style = Stroke(1.dp.toPx()))
+                drawContext.canvas.nativeCanvas.drawText("$total", slot * (index + .5f), top - textSize * .3f, paint)
             }
             drawContext.canvas.nativeCanvas.drawText(label, slot * (index + .5f), size.height - textSize * .25f, paint)
         }

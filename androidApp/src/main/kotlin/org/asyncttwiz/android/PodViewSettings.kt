@@ -51,6 +51,21 @@ internal fun rememberPodBuildSideBySide(): PodBuildColumns {
     }
 }
 
+/** The Stats mana curve's view (DRF-111), Type or Color: personal, per device, Type until the player chooses. */
+@Stable
+class PodStatsCurveChoice internal constructor(private val preferences: SharedPreferences) {
+    var byColor by mutableStateOf(preferences.getBoolean(KEY, false))
+        private set
+    fun choose(value: Boolean) { byColor = value; preferences.edit().putBoolean(KEY, value).apply() }
+    private companion object { const val KEY = "stats-curve-by-color" }
+}
+
+@Composable
+internal fun rememberPodStatsCurveChoice(): PodStatsCurveChoice {
+    val context = LocalContext.current.applicationContext
+    return remember(context) { PodStatsCurveChoice(context.getSharedPreferences("pod-build", Context.MODE_PRIVATE)) }
+}
+
 /**
  * The draft history's own cards per row (DRF-165), per device and orientation: 1 up to [packSize], by default 8 in
  * portrait and 15 in landscape, capped at the pack size.

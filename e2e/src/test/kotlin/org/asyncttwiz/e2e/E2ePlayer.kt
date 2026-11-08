@@ -88,10 +88,11 @@ internal class E2ePlayer(val account: TestAccount, private val compose: ComposeT
         override fun clear() { token = null }
     }
 
+    val connection = HeadFirstConnection(SocketGameConnection(link.origin))
     val auth = AuthController(AccountApi(link.origin), MemoryStore(account.token), worker("account"), post = post)
     private fun authenticationRequired(token: String) = auth.authenticationRequired(token)
     val lobby = LobbyController(LobbyApi(link.origin, authenticationRequired = ::authenticationRequired), auth::sessionToken,
-        worker("lobby"), post, openGame = { auth.push(ShellDestination.GAMES) }, gameConnection = SocketGameConnection(link.origin),
+        worker("lobby"), post, openGame = { auth.push(ShellDestination.GAMES) }, gameConnection = connection,
         accountId = { auth.state.account?.accountId }, authenticationRequired = ::authenticationRequired,
         deckApi = DeckApi(link.origin, authenticationRequired = ::authenticationRequired),
         clock = { android.os.SystemClock.uptimeMillis() }, engineWorker = engineWorker)
@@ -243,6 +244,13 @@ internal class E2ePlayer(val account: TestAccount, private val compose: ComposeT
     /** The game open on this phone's table (its engine game: the app's own state, for assertions). */
     val game: EngineGame? get() = lobby.engineGame()?.also { last = it }
 
+    /** The phone asks the server for its open game's head, from the revision it holds, as it does when a heartbeat's summary
+     * is past the revisions it received (GameSession.askHead): the revisions after it, then the head. */
+    fun askHead() {
+        val open = game ?: return
+        connection.send(org.asyncttwiz.protocol.SubscribeGame(open.gameId, open.revision ?: "0", engine = true))
+    }
+
     /** The last game the table had open (still readable after it ended and the table let it go). */
     var last: EngineGame? = null
         private set
@@ -307,4 +315,35 @@ internal class E2ePlayer(val account: TestAccount, private val compose: ComposeT
     companion object {
         fun log(): String = AppLog.text()
     }
+}
+
+/**
+ * The phone's socket, which can stage a head overtaking revisions on their way (a head is read as soon as asked for, a
+ * revision published up to a moment after its commit): from [holdRevisions], its game's revisions wait here until a head with
+ * engine state has been handed on; then they follow, in order, and [overtaken] says so.
+ */
+internal class HeadFirstConnection(private val real: org.asyncttwiz.android.GameConnection) : org.asyncttwiz.android.GameConnection by real {
+    private val held = mutableListOf<org.asyncttwiz.protocol.GameRevision>()
+    private var holding = false
+    @Volatile var overtaken = false
+        private set
+
+    @Synchronized fun holdRevisions() { holding = true; overtaken = false }
+
+    override fun connect(token: String, listener: org.asyncttwiz.android.GameConnection.Listener) =
+        real.connect(token, object : org.asyncttwiz.android.GameConnection.Listener {
+            override fun opened() = listener.opened()
+            override fun disconnected(unauthorized: Boolean) = listener.disconnected(unauthorized)
+            override fun disconnected(unauthorized: Boolean, cause: String) = listener.disconnected(unauthorized, cause)
+            override fun message(message: org.asyncttwiz.protocol.GameServerMessage) = synchronized(this@HeadFirstConnection) {
+                if (holding && message is org.asyncttwiz.protocol.GameRevision) { held += message; return@synchronized }
+                listener.message(message)
+                if (holding && message is org.asyncttwiz.protocol.GameHead && message.engine != null) {
+                    holding = false
+                    held.forEach(listener::message)
+                    held.clear()
+                    overtaken = true
+                }
+            }
+        })
 }

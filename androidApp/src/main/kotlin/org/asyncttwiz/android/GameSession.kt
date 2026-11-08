@@ -188,6 +188,7 @@ class GameSession(private val connection: GameConnection, private val credential
         val play = head.play ?: return
         val me = account ?: accountId() ?: return
         val existing = engineGames[head.gameId]?.takeIf { it.base.id == play.id }
+        var following = false
         if (existing == null && !engineLoad(head.gameId)) {
             // A list game: its summary is all the list needs; it loads when it opens
             engineHeads[head.gameId] = head
@@ -201,11 +202,16 @@ class GameSession(private val connection: GameConnection, private val credential
                 pages = { through, done -> connection.historyPage(head.gameId, through, done) })
             else existing.load(snapshot, play)
             reloadAsked.remove(head.gameId)
+        } else following = true
+        // A head the game didn't load from says nothing of the revisions up to it that are still on their way (it can be
+        // read before they are published): they carry the confirmations of the device's own events and the local heads,
+        // and must not be fenced off as already received
+        if (!following) {
+            engineGames[head.gameId]?.revision = head.revision
+            acceptedRevisions[head.gameId] = head.revision
         }
-        engineGames[head.gameId]?.revision = head.revision
         // LOB-135: the game's assume reveal settings, as its host last set them
         engineGames[head.gameId]?.assumeReveals(head.summary.assumeReveals)
-        acceptedRevisions[head.gameId] = head.revision
         if (summaries[head.gameId]?.let { newerOrEqual(head.revision, it.revision) } != false) summaries[head.gameId] = head.summary
         streams[head.gameId]?.head = true
         changed(summary(head.summary))

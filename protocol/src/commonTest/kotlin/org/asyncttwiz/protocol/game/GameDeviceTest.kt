@@ -85,6 +85,77 @@ class GameDeviceTest {
         assertTrue(sim.leaks.isEmpty())
     }
 
+    /** What [device] reports now, past the throttle, each answered [answer] (null: not answered). */
+    private fun reports(sim: DeviceSim, device: GameDevice, answer: String? = null): List<String> {
+        sim.now += 3_000
+        return device.take(sim.now).filterIsInstance<org.asyncttwiz.protocol.GameAction.EngineSeen>().onEach {
+            if (answer != null) device.refused(it, answer)
+        }.map { it.eventId }
+    }
+
+    // HIS-032, SYS-014 (e2e MainPhaseUndoTest, 2026-11-08): the server's word that the player's seat is on their own event still
+    // pending, the shown head behind it (the revisions confirming it are late): the server can only refuse a report of the
+    // shown head, so none goes out. It went out at every take before, without end
+    @Test
+    fun noReportOfAShownHeadBehindTheOwnPendingEventTheServerSaysTheSeatIsOn() {
+        val sim = spells("Storm Spark")
+        sim.bobToMain()
+        sim.settle()
+        val me = sim.bob
+        val bob = sim.device(me)
+        assertIs<GameDevice.Acted.Sent>(bob.act(Input.PlayLand(me, hand(bob.model, me, "Island"))))
+        assertIs<GameDevice.Acted.Sent>(bob.act(Input.PassPriority(me)))
+        bob.take(sim.now)
+        val first = bob.session.pending.first()
+        val last = bob.session.pending.last()
+        assertTrue(first.id != last.id)
+        val others = bob.localHeads.mapKeys { it.key.value }
+        bob.revision(listOf(first), org.asyncttwiz.protocol.EngineUpdate(localHeads = others + (me.value to first.id)))
+        bob.revision(emptyList(), org.asyncttwiz.protocol.EngineUpdate(localHeads = others + (me.value to last.id)))
+        assertEquals(first.id, bob.session.localHead)
+        repeat(3) { assertEquals(emptyList(), reports(sim, bob, "stale"), "take ${it + 1}") }
+    }
+
+    // HIS-032: a report refused with the server's head somewhere this device doesn't know goes out once: no revision since, so
+    // nothing has changed for the server's answer, whatever it was
+    @Test
+    fun aRefusedReportIsNotRepeatedWithoutARevisionSince() {
+        val sim = spells("Storm Spark")
+        sim.bobToMain()
+        val alice = sim.load(sim.alice)
+        alice.play()
+        alice.playToStop()
+        alice.revision(emptyList(), org.asyncttwiz.protocol.EngineUpdate(localHeads = alice.localHeads.mapKeys { it.key.value } +
+            (sim.alice.value to "not-on-this-line")))
+        val local = alice.session.localHead
+        assertEquals(listOf(local), reports(sim, alice, "stale"))
+        repeat(3) { assertEquals(emptyList(), reports(sim, alice, "stale"), "take ${it + 1}") }
+    }
+
+    // HIS-032: a report refused while its event hadn't reached the server's line goes again once a revision says the seat is
+    // still before it (the other player's view of what this player has seen would stay behind), once per such revision, and
+    // not after the server took it
+    @Test
+    fun aRefusedReportGoesAgainOnceARevisionSaysTheSeatIsStillBeforeIt() {
+        val sim = spells("Storm Spark")
+        sim.bobToMain()
+        val alice = sim.load(sim.alice)
+        val before = alice.localHeads.mapKeys { it.key.value }
+        alice.play()
+        alice.playToStop()
+        val local = alice.session.localHead
+        assertTrue(local != before[sim.alice.value], "she was shown more than the server has of her")
+        assertEquals(listOf(local), reports(sim, alice, "stale"))
+        assertEquals(emptyList(), reports(sim, alice, "stale"), "nothing new from the server yet")
+        alice.revision(emptyList(), org.asyncttwiz.protocol.EngineUpdate(localHeads = before))
+        assertEquals(listOf(local), reports(sim, alice, "stale"), "the seat still before it: again")
+        assertEquals(emptyList(), reports(sim, alice), "again only on the next revision")
+        alice.revision(emptyList(), org.asyncttwiz.protocol.EngineUpdate(localHeads = before))
+        assertEquals(listOf(local), reports(sim, alice))
+        alice.revision(emptyList(), org.asyncttwiz.protocol.EngineUpdate(localHeads = before + (sim.alice.value to local)))
+        assertEquals(emptyList(), reports(sim, alice), "the server took it")
+    }
+
     // TRN-027, HIS-096 (owner, 2026-11-05): the starting player's device never assumes the other player's opening keep,
     // with "Always assume resolves" on or off: it waits for it with no Assume button, and turn 1 begins on their own keep
     @Test

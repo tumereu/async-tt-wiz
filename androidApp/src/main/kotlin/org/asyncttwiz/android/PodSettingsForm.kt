@@ -30,7 +30,7 @@ internal enum class PodSetting(val label: String) {
     PILES("Piles"),
     /** Sealed from a set. */
     BOOSTERS("Boosters"),
-    /** Winchester: independent tables (DRF-158). */
+    /** Winston and Winchester: independent tables (DRF-156, DRF-158). */
     TABLES("Tables");
 
     fun value(s: DraftSettings): Int? = when (this) {
@@ -58,7 +58,7 @@ internal enum class PodSetting(val label: String) {
         CARDS_EACH -> 5..225
         PILES -> if (s.mode == DraftMode.WINCHESTER) 2..8 else 2..6
         BOOSTERS -> 1..30
-        TABLES -> 1..DraftMode.WINCHESTER.players.last
+        TABLES -> 1..s.mode.players.last
     }
     fun limit(s: DraftSettings): String = when (this) {
         PACKS -> if (s.mode.limited) "1–15" else "Open packs: ${s.packsOpenAtOnce}; maximum 30"
@@ -118,8 +118,7 @@ internal fun podSettingFields(settings: DraftSettings, source: PodSource): List<
         DraftMode.GRID -> listOf(PodSetting.GRIDS, PodSetting.OPEN_GRIDS)
         DraftMode.ROCHESTER -> listOfNotNull(PodSetting.PACKS, PodSetting.PACK_SIZE.takeIf { packSize }, PodSetting.TABLE_OPEN)
         DraftMode.ROTISSERIE -> listOf(PodSetting.CARDS_EACH)
-        DraftMode.WINSTON -> listOfNotNull(PodSetting.PACKS, PodSetting.PACK_SIZE.takeIf { packSize }, PodSetting.PILES)
-        DraftMode.WINCHESTER -> listOfNotNull(PodSetting.PACKS, PodSetting.PACK_SIZE.takeIf { packSize }, PodSetting.PILES, PodSetting.TABLES)
+        DraftMode.WINSTON, DraftMode.WINCHESTER -> listOfNotNull(PodSetting.PACKS, PodSetting.PACK_SIZE.takeIf { packSize }, PodSetting.PILES, PodSetting.TABLES)
         DraftMode.SEALED -> listOf(if (source.kind == PodSourceKind.SET) PodSetting.BOOSTERS else PodSetting.CARDS_EACH)
         DraftMode.BOOSTER, DraftMode.GLIMPSE -> listOfNotNull(PodSetting.PACKS, PodSetting.PACK_SIZE.takeIf { packSize },
             PodSetting.KEEP, PodSetting.BURN, PodSetting.DISCARD, PodSetting.OPEN_PACKS, PodSetting.LIBRARIANS)

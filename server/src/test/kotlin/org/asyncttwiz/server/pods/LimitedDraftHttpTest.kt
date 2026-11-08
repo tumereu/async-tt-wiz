@@ -370,7 +370,7 @@ class LimitedDraftHttpTest {
         assertEquals(listOf(x.account.accountId, y.account.accountId), tables.map { it.currentPlayer })
         assertEquals(listOf(6, 6), tables.map { it.stack })
         // Every face-up pile of every table is named.
-        assertEquals(tables.flatMap { it.piles.flatten() }.map { it.definition }.toSet(), view.definitions.map { it.digest }.toSet())
+        assertEquals(tables.flatMap { it.piles.flatten() }.map { it!!.definition }.toSet(), view.definitions.map { it.digest }.toSet())
         // Both have a pick waiting (and a notification) at once.
         for (who in listOf(x, y)) assertEquals(1, f.count(ActivityKind.POD_YOUR_PICK, pod, who))
         assertEquals(listOf(1, 1), listOf(x, y).map { who -> f.get(who, pod).members.single { it.account.accountId == who.account.accountId }.packsWaiting })
@@ -389,6 +389,46 @@ class LimitedDraftHttpTest {
             val (index, table) = board.tables.withIndex().first { it.value.currentPlayer != null }
             take(f.session(table.currentPlayer!!), index, table.turn, table.piles.indexOfFirst { it.isNotEmpty() })
             assertTrue(++guard < 60)
+        }
+        assertEquals(20, listOf(x, y).sumOf { f.get(it, pod).limited!!.pool.size })
+        for (who in listOf(x, y)) assertEquals(1, f.count(ActivityKind.POD_DRAFT_COMPLETE, pod, who))
+    }
+
+    // DRF-156, DRF-023: Winston tables, each with its own stack, piles and turn order one seat later; each player looks
+    // at their own table's pile 1 only, both play at once, a move names its table, and the draft ends when every table is empty.
+    @Test fun `Winston HTTP tables split the cards and let both players play at once`() = fixture { f ->
+        assertEquals("invalid_settings", f.code(f.send(f.a, "POST", "/v1/pods", CreatePod(id(), "Limited pod", f.cube.cube.id,
+            DraftMode.WINSTON, settings = DraftSettings.winston().copy(tables = 5)), 400)))
+        val pod = f.create(DraftSettings.winston().copy(packsPerPlayer = 1, cardsPerPack = 10, tables = 2))
+        f.join(pod, f.b)
+        val started = json.decodeFromString<PodDetail>(f.start(pod))
+        val attempt = started.draftAttemptId!!
+        val (x, y) = started.limited!!.seating.map(f::session)
+        val view = f.get(y, pod)
+        val tables = view.limited!!.tables
+        assertEquals(listOf(x.account.accountId, y.account.accountId), tables.map { it.currentPlayer })
+        assertEquals(listOf(7, 7), tables.map { it.stack })
+        // y sees only the card it looks at: table 2's pile 1; only that card is named.
+        assertEquals(listOf(listOf(0, 0, 0), listOf(1, 0, 0)), tables.map { table -> table.piles.map { pile -> pile.count { it != null } } })
+        assertEquals(setOf(tables[1].piles[0].single()!!.definition), view.definitions.map { it.digest }.toSet())
+        for (who in listOf(x, y)) assertEquals(1, f.count(ActivityKind.POD_YOUR_PICK, pod, who))
+        fun act(who: SessionCreated, action: LimitedAction, table: Int, turn: Int, pile: Int, status: Int = 200) =
+            f.turn(who, pod, PodTurn(id(), attempt, action, turn, pile = pile, table = table), status)
+        assertEquals("not_your_turn", f.code(act(x, LimitedAction.TAKE_PILE, 1, 0, 0, 409)))
+        assertEquals("wrong_table", f.code(act(y, LimitedAction.TAKE_PILE, 2, 0, 0, 409)))
+        act(y, LimitedAction.PASS_PILE, 1, 0, 0)
+        act(x, LimitedAction.TAKE_PILE, 0, 0, 0)
+        val after = f.get(x, pod).limited!!
+        assertEquals(listOf(y.account.accountId, y.account.accountId), after.tables.map { it.currentPlayer })
+        assertEquals(listOf(0, 1), after.tables.map { it.pile })
+        var guard = 0
+        while (f.get(f.a, pod).phase == PodPhase.DRAFTING) {
+            val board = f.get(f.a, pod).limited!!
+            val (index, table) = board.tables.withIndex().first { it.value.currentPlayer != null }
+            val canPass = table.stack > 0 || table.piles.drop(table.pile + 1).any { it.isNotEmpty() }
+            act(f.session(table.currentPlayer!!), if (table.piles[table.pile].size >= 2 || !canPass) LimitedAction.TAKE_PILE
+                else LimitedAction.PASS_PILE, index, table.turn, table.pile)
+            assertTrue(++guard < 200)
         }
         assertEquals(20, listOf(x, y).sumOf { f.get(it, pod).limited!!.pool.size })
         for (who in listOf(x, y)) assertEquals(1, f.count(ActivityKind.POD_DRAFT_COMPLETE, pod, who))

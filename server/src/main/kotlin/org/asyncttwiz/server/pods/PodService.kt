@@ -962,7 +962,7 @@ class PodService(private val runtime: ServiceRuntime) {
     /** Every card a limited view shows, for its definitions. */
     private fun LimitedView?.cards(): List<DraftCopy> = this?.let { view ->
         view.pool + view.board.map { it.copy } + view.packs.flatMap { pack -> pack.slots.map { it.copy } } +
-            view.piles.flatten().filterNotNull() + view.tables.flatMap { it.piles.flatten() } + view.picks.flatMap { it.cards.filterNotNull() }
+            view.piles.flatten().filterNotNull() + view.tables.flatMap { it.piles.flatten().filterNotNull() } + view.picks.flatMap { it.cards.filterNotNull() }
     }.orEmpty()
 
     private fun mutate(principal: AccountService.Principal, id: String, request: String, kind: String, input: JsonElement,

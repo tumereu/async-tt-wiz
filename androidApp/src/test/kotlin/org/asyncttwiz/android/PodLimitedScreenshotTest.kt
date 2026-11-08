@@ -222,6 +222,37 @@ class PodLimitedScreenshotTest {
         compose.onNodeWithTag("pod-limited-confirm").assertDoesNotExist()
     }
 
+    // DRF-156, DRF-157: Winston tables get the same chip row ("Bob looks" as its pile line says); the screen opens on the
+    // table where it is your pick, a pass keeps it there and a take moves on to a table where it is your pick.
+    @Test fun winstonTablesChipRowOpensOnYourPick() {
+        val first = listOf(listOf(null, null), listOf<DraftCopy?>(null), listOf<DraftCopy?>(null))
+        val second = listOf(listOf(copies[4], null), listOf(copies[5], copies[6]), listOf<DraftCopy?>(null))
+        fun table(player: String?, turn: Int, stack: Int, piles: List<List<DraftCopy?>>, pile: Int) = LimitedTableView(player, turn, stack, piles, pile)
+        var view by mutableStateOf(LimitedView(DraftMode.WINSTON, "alice", listOf("alice", "bob"), emptyList(), false,
+            currentPlayer = "bob", turn = 2, stack = 12, piles = first,
+            tables = listOf(table("bob", 2, 12, first, 0), table("alice", 2, 11, second, 1))))
+        val sent = mutableListOf<Triple<LimitedAction, Int, Int>>()
+        show({ "pod-winston-${it.id}" }, second.flatten().filterNotNull()) {
+            PodWinstonView(view, members, definitions, false, { action, turn, _, _, pile, table -> sent += Triple(action, table, pile!!); check(turn == 2) },
+                Modifier.fillMaxSize(), columns)
+        }
+        compose.onNodeWithText("Table 1 · Bob looks").assertIsDisplayed().assertIsNotSelected()
+        compose.onNodeWithText("Table 2 · Your pick").assertIsDisplayed().assertIsSelected()
+        compose.onNodeWithText("Your pick · Stack: 11 cards").assertIsDisplayed()
+        compose.onNodeWithText("Pile 2 · 2 cards · you look at it").assertIsDisplayed()
+        shot("pod-winston-tables", "Winston draft with two tables, opened on table 2 where it is Alice's turn (Bob looks at " +
+            "table 1): the chip row on top, table 2's piles with pile 2 being looked at, and Pass and Take pile 2 below.")
+        compose.onNodeWithTag("pod-winston-take").performClick()
+        kotlin.test.assertEquals(listOf(Triple(LimitedAction.TAKE_PILE, 1, 1)), sent)
+        // Bob's turn at table 1 ended meanwhile; Alice's take shows: the screen moves to table 1, her turn now.
+        compose.runOnIdle { view = view.copy(currentPlayer = "alice", turn = 3, stack = 11, piles = first,
+            tables = listOf(table("alice", 3, 11, first, 0), table("bob", 3, 10, second, 0))) }
+        compose.waitForIdle()
+        compose.onNodeWithText("Table 1 · Your pick").assertIsSelected()
+        compose.onNodeWithText("Table 2 · Bob looks").assertIsNotSelected()
+        compose.onNodeWithText("Pile 1 · 2 cards · you look at it").assertIsDisplayed()
+    }
+
     // DRF-158: one table shows no chip row.
     @Test fun winchesterOneTableHasNoChipRow() {
         val piles = listOf(listOf(copies[0]), listOf(copies[1]))

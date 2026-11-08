@@ -90,6 +90,8 @@ class DeviceSimulationTest {
         }
         sim.settle()
         if (sim.leaks.isNotEmpty()) fail("seed $seed $mode: leaks ${sim.leaks}")
+        // STK-053, TRN-057 (reports P2XUER, 3WWPA8): races and all, only a press leaves a player's own main phase
+        assertEquals(emptyList(), sim.ownMainPasses, "seed $seed $mode: the device passed its player's own main phase by itself")
         assertEquals(emptyList(), sim.equivalence(), "seed $seed $mode: the main line is the engine's play of its inputs")
         if (sim.branches == 0 && sim.rewinds == 0) assertEquals(0, sim.server.lines, "seed $seed $mode: one line without branches")
         for (p in players) {
@@ -119,7 +121,7 @@ class DeviceSimulationTest {
     /** One thing player [p] does on their device, as a player would. */
     private fun turn(sim: DeviceSim, p: PlayerId, rnd: Random, stats: Stats) {
         val d = sim.device(p)
-        d.advance(sim.now)
+        sim.automatically { d.advance(sim.now) }
         d.notes()
         // Conceding at any moment, also with the other player's events still on the wire (CR 104.3a, I-D56 §11)
         if (rnd.nextInt(2_500) == 0 && d.concede() is GameDevice.Acted.Sent) { stats.concessions++; return }
@@ -196,7 +198,7 @@ class DeviceSimulationTest {
         val s = d.model.engine
         if (rnd.nextInt(12) == 0 && d.undoTarget() != null) return undo(d, rnd, stats)
         if (rnd.nextInt(1_500) == 0) { d.concede(); return }
-        if (s.priority.holder == d.me && s.pending == null && rnd.nextInt(12) == 0) { d.endTurn(sim.now); return }
+        if (s.priority.holder == d.me && s.pending == null && rnd.nextInt(12) == 0) { sim.endTurns[d.me] = s.turn.number; d.endTurn(sim.now); return }
         val listed = Engine.options(s, d.me).filter { it !is Input.Concede && Authority.mayMake(s, it, d.me, d.model.table) }
         if (listed.isEmpty()) return
         val doing = listed.filterNot { it is Input.PassPriority || (it is Input.DeclareAttackers && it.attacks.isEmpty()) ||

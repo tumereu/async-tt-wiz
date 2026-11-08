@@ -1,0 +1,1 @@
+fix: Holding a card in the draft history or the Picks view shows it over the dialog instead of behind it.

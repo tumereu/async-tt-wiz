@@ -44,6 +44,17 @@ internal fun podHistoryPackSize(detail: PodDetail): Int =
 internal fun podHistoryPrefetchCards(history: PodDraftHistory?): List<DraftCopy> =
     history?.picks.orEmpty().flatMap { it.cards + it.takenSince }
 
+/** The icon in the pod's header on every tab but Draft (DRF-165), which has [PodHistoryButton]: the history while building and after. */
+@Composable
+internal fun PodHistoryHeaderButton(controller: PodController, definitions: Map<String, CardDefinition>, columns: PodBuildColumns) {
+    var open by remember { mutableStateOf(false) }
+    HoldTip("History") {
+        IconButton({ controller.loadHistory(); open = true }, Modifier.size(48.dp).testTag("pod-history")) { EntryIcon("History", "history") }
+    }
+    if (open) PodHistoryDialog(controller.history, controller.historyFailed, definitions, columns.count,
+        controller::loadHistory) { open = false }
+}
+
 /** The "History" button above a Booster or Glimpse pick screen (DRF-165); it loads and opens [PodHistoryDialog]. */
 @Composable
 internal fun PodHistoryButton(controller: PodController, definitions: Map<String, CardDefinition>, columns: PodBuildColumns) {
@@ -89,9 +100,10 @@ internal fun PodHistoryDialog(history: PodDraftHistory?, failed: Boolean, defini
                     }
                 }
             }
+            // Inside the dialog: from outside, its window would lie behind the dialog's.
+            PodLimitedPreviewHost(preview, known)
         }
     }
-    PodLimitedPreviewHost(preview, known)
 }
 
 @Composable

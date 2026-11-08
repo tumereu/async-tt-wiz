@@ -341,4 +341,24 @@ class PodLimitedScreenshotTest {
         captureShot(File(SCREENSHOTS, "pod-picks.png").path, "Picks dialog of a Winston draft showing Bob's picks newest " +
             "first: cards Alice saw face up, the others as card backs, with a chip per opponent.")
     }
+
+    // DRF-160: holding a card shows it in a window of the dialog, and so over it, not in the app's window behind it
+    @Test fun holdingACardInThePicksDialogShowsItOverTheDialog() {
+        val picks = listOf(PodOpponentPicks(bob, listOf(copies[0])))
+        show({ "pod-picks-${it.id}" }, copies.take(1)) { PodPicksDialog(picks, definitions) {} }
+        fun viewOf(matcher: SemanticsMatcher) =
+            (compose.onNode(matcher, useUnmergedTree = true).fetchSemanticsNode().root as androidx.compose.ui.platform.ViewRootForTest).view
+        compose.mainClock.autoAdvance = false
+        compose.onNodeWithTag("pod-picks-copy-0", useUnmergedTree = true).performTouchInput { down(center) }
+        compose.mainClock.advanceTimeBy(1_000)
+        compose.waitForIdle()
+        val inspect = hasContentDescription("Card inspection content")
+        compose.onNode(inspect, useUnmergedTree = true).assertExists()
+        val parent = (viewOf(inspect).rootView.layoutParams as android.view.WindowManager.LayoutParams).token
+        kotlin.test.assertEquals(viewOf(hasTestTag("pod-picks-copy-0")).windowToken, parent)
+        compose.onNodeWithTag("pod-picks-copy-0", useUnmergedTree = true).performTouchInput { up() }
+        compose.mainClock.autoAdvance = true
+        compose.waitForIdle()
+        compose.onNode(inspect, useUnmergedTree = true).assertDoesNotExist()
+    }
 }

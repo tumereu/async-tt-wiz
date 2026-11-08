@@ -26,7 +26,6 @@ Main button presses on the record (owner, 2026-11-08; HIS-101, HIS-084, HIS-099,
 
 Small batch, beta9 playtest notes (owner, 2026-11-08):
 
-- Draft history (DRF-165): holding a card shows it over the history dialog (today the preview is drawn outside the dialog, behind it; e2e). The History button also shows during Build and after it, not only while drafting.
 - Panel text (STK-047, STK-044, STK-023): a panel's sentence shows up to 4 lines (today 2, AutomatumDock); when it is still cut, a tap on it shows it whole, scrolling past half the table's height.
 - Card list editor (LOB-105, LOB-107, DRF-003): a filter field at the top of the Cards tab with search's syntax and chips (LOB-108, LOB-119), sections showing only what matches; +1, -1, Remove all and Move to... get icons.
 

@@ -251,6 +251,8 @@ class GameDevice(
     private val notes = mutableListOf<Note>()
     private var reported: String? = null
     private var reportedAt = Long.MIN_VALUE / 2
+    /** The report the server refused last ([refused]): [reported] stays it until a revision says it must go again ([reportAgain]). */
+    private var reportRefused: String? = null
     private val record = ArrayDeque<String>()
 
     private class Retry(val table: List<TableChange>, val parent: String)
@@ -1728,6 +1730,7 @@ class GameDevice(
         update?.modes?.let(::modes)
         if (update != null) {
             for ((account, head) in update.localHeads) heads[PlayerId(account)] = head
+            reportAgain()
             request = update.rewindRequest
             // The server confirmed where this device branched: it can't follow (the rules agree, so only after a fault)
             if (update.confirmed?.let(session::supersedes) == true) { needsReload = true; remember("reload: ${update.confirmed} superseded") }
@@ -1742,7 +1745,7 @@ class GameDevice(
 
     /** The server refused [action] for [reason]. */
     fun refused(action: GameAction, reason: String) {
-        remember("refused ${action::class.simpleName} ${(action as? GameAction.Submit)?.submission?.id} $reason")
+        remember("refused ${action::class.simpleName} ${(action as? GameAction.Submit)?.submission?.id ?: (action as? GameAction.EngineSeen)?.eventId} $reason")
         when (action) {
             is GameAction.Submit -> {
                 val submission = action.submission
@@ -1774,7 +1777,9 @@ class GameDevice(
                 if (localUndos.remove(action.target)) { needsReload = true; localUndos.clear(); remember("reload: own undo to ${action.target} refused, $reason") }
                 note(if (reason == "requestNeeded") Note.RequestNeeded(action.target) else Note.Refused(reason))
             }
-            is GameAction.EngineSeen -> if (reported == action.eventId) reported = null
+            // The player's seat isn't before it there. A refusal changes nothing on the server and brings no revision, so
+            // sending it again by itself would only repeat at the speed of the network ([reportAgain] says when it goes again)
+            is GameAction.EngineSeen -> if (reported == action.eventId) reportRefused = action.eventId
             else -> note(Note.Refused(reason))
         }
         settleQueuedUndo()
@@ -2075,21 +2080,33 @@ class GameDevice(
         if (holding) return
         val local = session.localHead
         val server = heads[me]
-        val ahead = server == null || (session.indexOf(local) ?: -1) > (session.indexOf(server) ?: -1)
+        // The server's head on one of the device's own events still pending is past anything shown
+        val ahead = server == null || (session.pending.none { it.id == server } &&
+            (session.indexOf(local) ?: -1) > (session.indexOf(server) ?: -1))
         if (undoShown) {
             undoShown = false
             if (local == server) {
-                remember("out EngineSeen (undo shown)")
+                remember("out EngineSeen $local (undo shown)")
                 outbox += GameAction.EngineSeen(local)
                 reported = local; reportedAt = now
                 return
             }
         }
         if (local != reported && local != server && ahead && (urgent || now - reportedAt >= SEEN_EVERY_MS)) {
-            remember("out EngineSeen")
+            remember("out EngineSeen $local")
             outbox += GameAction.EngineSeen(local)
             reported = local; reportedAt = now
         }
+    }
+
+    /** A refused report goes again on the server's word only: a revision since says the player's seat is still before it
+     * (its event has reached the server's line since). Only a revision does this and a refused report makes none, so it
+     * can't feed itself. */
+    private fun reportAgain() {
+        val refused = reportRefused ?: return
+        val seat = heads[me]?.let(session::indexOf) ?: return
+        val at = session.indexOf(refused) ?: return
+        if (seat < at && reported == refused) { reported = null; reportRefused = null }
     }
 
     /** What happened that the player is told once (drained). */

@@ -145,12 +145,6 @@ object Authority {
                 change.after
             }
             is TableChange.LineMoved -> throw Refusal("The line moves only with the event's own random answers")
-            // I-D56 §6: placing your own cards on your battlefield (a place taken from an object that is gone: anyone)
-            is TableChange.Placed -> {
-                val obj = model.engine.obj(change.obj)
-                if (change.after != null && (obj == null || change.obj !in model.engine.battlefield)) throw Refusal("Only a permanent has a place")
-                obj?.controller
-            }
             is TableChange.AttackDraft, is TableChange.BlockDraft -> null
         }
         if (own != null && own != author) throw Refusal("Only $own makes this change")

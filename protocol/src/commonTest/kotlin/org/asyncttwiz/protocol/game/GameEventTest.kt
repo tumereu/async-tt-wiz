@@ -76,9 +76,8 @@ class GameEventTest {
         assertFailsWith<IllegalStateException> { model.apply(mixed.copy(engine = mixed.engine!!.copy(timestampBefore = -1))) }
         assertTrue(model.sameAs(snapshot))
         // A table part that doesn't fit takes the engine part back with it
-        val obj = ObjectId.Card(arcanum.engine.state.CardId("nobody"), 0)
         val wrongTable = GameEvent("x", parent, "alice", EnginePart(model.engine.timestampCounter, listOf(fits)),
-            listOf(TableChange.Placed(obj, Placement(0, 0), null)))
+            listOf(TableChange.EarlyAnswered("nobody", EarlyAnswer(PlayerId("alice"), "nobody", arcanum.engine.decision.Answer.YesNo(true)), null)))
         assertFailsWith<IllegalStateException> { model.apply(wrongTable) }
         assertTrue(model.sameAs(snapshot))
     }
@@ -88,20 +87,18 @@ class GameEventTest {
         val alice = PlayerId("alice")
         val obj = ObjectId.Card(arcanum.engine.state.CardId("c1"), 2)
         var table = TableState()
-        table = TableChange.Placed(obj, null, Placement(1, 0)).apply(table)
         table = TableChange.LineMoved(Line(), Line(0, 2)).apply(table)
         table = TableChange.AttackDraft(null, listOf(arcanum.engine.input.Attack(obj, arcanum.engine.state.TargetRef.Player(alice)))).apply(table)
-        assertEquals(Placement(1, 0), table.placements[obj])
         assertEquals(Line(0, 2), table.line)
-        assertFailsWith<IllegalStateException> { TableChange.Placed(obj, null, Placement(2, 0)).apply(table) }
+        assertFailsWith<IllegalStateException> { TableChange.AttackDraft(null, emptyList()).apply(table) }
         assertFailsWith<IllegalStateException> { TableChange.LineMoved(Line(), Line(1, 0)).apply(table) }
         table = TableChange.LineMoved(Line(0, 2), Line()).apply(table)
-        assertEquals(TableState(placements = mapOf(obj to Placement(1, 0)), attackDraft = table.attackDraft), table)
+        assertEquals(TableState(attackDraft = table.attackDraft), table)
     }
 
     @Test
     fun eventsAndStatesSurviveTheirStoredForm() {
-        val games = EngineGames(5)
+        val games = EngineGames(1)
         val model = games.model()
         val codec = games.codec
         val played = games.play(model, "root", 250)

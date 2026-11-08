@@ -8,7 +8,7 @@ import arcanum.engine.input.Input
 import arcanum.engine.state.GameState
 import arcanum.engine.state.PlayerId
 import org.asyncttwiz.protocol.game.GameDevice
-import org.asyncttwiz.protocol.game.Placement
+import org.asyncttwiz.protocol.game.EarlyAnswer
 import org.asyncttwiz.protocol.game.TableChange
 import org.junit.Test
 import kotlin.test.assertEquals
@@ -111,14 +111,13 @@ class SameBoardRuleTest {
         return game
     }
 
-    /** Bob moves his Mountain on his battlefield (a table-only event); Alice's device gets it and shows it. */
-    private fun bobMovesHisMountain(game: EngineGame) {
+    /** Bob answers early (a table-only event); Alice's device gets it and shows it. */
+    private fun bobAnswersEarly(game: EngineGame) {
         val bob = sim.game(f.b)
-        val mountain = assertNotNull(bobsMountain(bob.device.model.engine))
-        val before = bob.device.model.table.placements[mountain]
-        assertIs<GameDevice.Acted.Sent>(bob.table(listOf(TableChange.Placed(mountain, before, Placement(4, 0)))))
+        val early = EarlyAnswer(bobId, "early:${f.b}", arcanum.engine.decision.Answer.YesNo(true))
+        assertIs<GameDevice.Acted.Sent>(bob.table(listOf(TableChange.EarlyAnswered(early.key, null, early))))
         sim.flush(f.b); sim.deliver(f.a); game.playToStop(); game.tick(sim.now)
-        assertTrue(game.device.model.table.placements[mountain] == Placement(4, 0), "Bob's move shown on Alice's device")
+        assertTrue(game.device.model.table.earlyAnswers[early.key] == early, "Bob's early answer on Alice's device")
     }
 
     /** Bob casts his Storm Spark at the first target it offers (an input); Alice's device gets it and shows it. */
@@ -135,13 +134,13 @@ class SameBoardRuleTest {
 
     private fun refusedNotes(game: EngineGame) = game.notes.count { it == GameDevice.Note.Refused("stale") }
 
-    // SYS-011: Assume tapped while Bob's table-only move arrived (not on Alice's screen yet): the same decision, made there
+    // SYS-011: Assume tapped while Bob's table-only early answer arrived (not on Alice's screen yet): the same decision, made there
     @Test fun anAssumeOnABoardChangedOnlyByATableOnlyEventIsMade() {
         val game = aliceWaitsWithAssume()
         val before = assumedByAlice(game)
         val shown = assertNotNull(game.shown).version
         held.holding = true
-        bobMovesHisMountain(game)
+        bobAnswersEarly(game)
         assertEquals(shown, game.shown!!.version, "Alice's table still shows the older board")
         assertIs<GameDevice.Acted.Sent>(game.assume())
         held.release()
@@ -161,12 +160,12 @@ class SameBoardRuleTest {
         assertEquals(before, assumedByAlice(game), "nothing assumed")
     }
 
-    // SYS-011, HIS-084: Undo tapped while Bob's table-only move arrived: the same decision, made there (her land taken back)
+    // SYS-011, HIS-084: Undo tapped while Bob's table-only early answer arrived: the same decision, made there (her land taken back)
     @Test fun anUndoOnABoardChangedOnlyByATableOnlyEventIsMade() {
         val game = aliceInMainWithBobsLand()
         val shown = assertNotNull(game.shown).version
         held.holding = true
-        bobMovesHisMountain(game)
+        bobAnswersEarly(game)
         assertEquals(shown, game.shown!!.version, "Alice's table still shows the older board")
         assertIs<GameDevice.Undo.Free>(game.undo())
         held.release()

@@ -34,14 +34,16 @@ class UndoRuleTest {
     private fun event(build: EventBuilder.() -> Unit): GameEvent =
         EventBuilder(model, "u${++n}", parent, "alice").apply(build).build().also { parent = it.id }
 
-    private fun place(obj: ObjectId, x: Int) = TableChange.Placed(obj, model.table.placements[obj], Placement(x, 9))
+    /** A table-only change about [obj]: it staged as an attacker of Bob. */
+    private fun stage(obj: ObjectId) = TableChange.AttackDraft(model.table.attackDraft,
+        listOf(arcanum.engine.input.Attack(obj, arcanum.engine.state.TargetRef.Player(games.bob))))
 
     @Test
-    fun aCardPlacedLaterBlocksUndoingTheEventThatPutItThere() {
+    fun aCardStagedLaterBlocksUndoingTheEventThatPutItThere() {
         val land = untilALandCanBePlayed()
         val play = event { perform(land) }
         val entered = model.engine.battlefield.last()
-        val placing = event { table(place(entered, 0)) }
+        val placing = event { table(stage(entered)) }
         assertSame(placing, UndoRule.blocking(play, listOf(placing)))
         val snapshot = model.copy()
         assertFailsWith<IllegalStateException> { UndoRule.undo(model, play, listOf(placing)) }
@@ -56,7 +58,7 @@ class UndoRuleTest {
         val play = event { perform(land) }
         val touched = Concerns.of(play).writes
         val elsewhere = model.engine.battlefield.filterIsInstance<ObjectId.Card>().first { StateKey.Presence(it.card) !in touched }
-        val moving = event { table(place(elsewhere, 5)) }
+        val moving = event { table(stage(elsewhere)) }
         val setting = event { table(TableChange.Suggestion(null, ResultSuggestion(games.bob, arcanum.engine.setup.GameResult.Draw))) }
         assertNull(UndoRule.blocking(play, listOf(moving, setting)))
         UndoRule.undo(model, play, listOf(moving, setting))
@@ -73,7 +75,7 @@ class UndoRuleTest {
         assertSame(pass, UndoRule.blocking(play, listOf(pass)))
         // ... but a table-only event before it is free to go: no engine input reads the table
         val obj = model.engine.battlefield.last()
-        val placing = event { table(place(obj, 1)) }
+        val placing = event { table(stage(obj)) }
         val any = model.engine.players.flatMap { Engine.options(model.engine, it.id) }.first { it !is Input.Concede }
         val pass2 = event { perform(any) }
         assertNull(UndoRule.blocking(placing, listOf(pass2)))
@@ -83,10 +85,9 @@ class UndoRuleTest {
     fun tableEventsBlockEachOtherOnlyOnTheSameThing() {
         untilALandCanBePlayed()
         val obj = model.engine.battlefield.first()
-        val other = model.engine.battlefield.last()
-        val first = event { table(place(obj, 1)) }
-        val unrelated = event { table(place(other, 2)) }
-        val again = event { table(place(obj, 3)) }
+        val first = event { table(stage(obj)) }
+        val unrelated = event { table(TableChange.EarlyAnswered("u", null, EarlyAnswer(games.bob, "u", arcanum.engine.decision.Answer.YesNo(true)))) }
+        val again = event { table(TableChange.AttackDraft(model.table.attackDraft, null)) }
         assertNull(UndoRule.blocking(first, listOf(unrelated)))
         assertEquals(again, UndoRule.blocking(first, listOf(unrelated, again)))
         // The latest event can always be undone

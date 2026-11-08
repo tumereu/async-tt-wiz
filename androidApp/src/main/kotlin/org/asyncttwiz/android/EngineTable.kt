@@ -238,18 +238,9 @@ internal class EngineTableRoutes(val viewer: String, private val game: () -> Eng
     }
 
     private fun local(g: EngineGame, device: GameDevice, play: TableBoard, actions: List<PlayAction>, requestId: String?): Boolean {
-        val places = mutableListOf<TableChange>()
         var staged: BoardState? = null
         for ((index, action) in actions.withIndex()) {
             when {
-                action is PlayAction.MoveCard && action.source.containerId == action.destination.containerId &&
-                    play.board.containers.any { it.id == action.source.containerId && it.zone == PlayZone.BATTLEFIELD } -> {
-                    val position = action.destination.position ?: return false
-                    val obj = device.model.engine.objects.keys.firstOrNull { (it as? ObjectId.Card)?.card?.value == action.cardId &&
-                        device.model.engine.objects[it]?.zone == arcanum.api.Zone.Battlefield } ?: return false
-                    places += TableChange.Placed(obj, device.model.table.placements[obj],
-                        org.asyncttwiz.protocol.game.Placement(position.x, position.y))
-                }
                 action is PlayAction.Combat || (action is PlayAction.Mtg && action.action is MtgAction.SetRecord) -> {
                     val on = staged ?: play.board
                     // Each as the member of the batch the table worked it out as (its request id): a Place names the
@@ -270,7 +261,6 @@ internal class EngineTableRoutes(val viewer: String, private val game: () -> Eng
             else if (acted is GameDevice.Acted.Refused) return false
             else g.unstage()
         }
-        if (places.isNotEmpty()) g.table(places)
         return true
     }
 
@@ -776,12 +766,12 @@ internal fun playbackDelay(multiplier: Float): Long = (PLAYBACK_DELAY_MS / cardM
  * HIS-021 (§27, §29.3, §29.6): how long playback waits after showing [shown] before the next event: nothing after an
  * event that changed nothing you can see ([EnginePlaybackPace.quiet]: only the step indicator moved; with playback's Full
  * control on, [mode], the delay too, except a pass made right after the same player's own action, [previous], HIS-104), a
- * short moment after the other player's staging and card places, else the playback [delay].
+ * short moment after the other player's staging and early answers, else the playback [delay].
  */
 internal fun playbackWait(shown: GameEvent?, delay: Long, mode: ResponseMode, previous: GameEvent? = null): Long = when {
     shown == null -> 0L
     EnginePlaybackPace.quiet(shown) -> if (mode == ResponseMode.FullControl && !EnginePlaybackPace.passAfterOwnAction(shown, previous)) delay else 0L
-    shown.engine == null && shown.table.all { it is TableChange.AttackDraft || it is TableChange.BlockDraft || it is TableChange.Placed ||
+    shown.engine == null && shown.table.all { it is TableChange.AttackDraft || it is TableChange.BlockDraft ||
         it is TableChange.EarlyAnswered } -> QUICK_PLAYBACK_MS
     else -> delay
 }

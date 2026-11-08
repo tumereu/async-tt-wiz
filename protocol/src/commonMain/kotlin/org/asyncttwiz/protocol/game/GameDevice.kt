@@ -1286,7 +1286,7 @@ class GameDevice(
         // Made at the head, with the values there as the before-values (the player sees the board at their local head)
         val model = session.headModel()
         val again = rebase(model, changes)
-        if (again == null || !applies(model, again)) return Acted.Refused("inapplicable")
+        if (again == null) return Acted.Refused("inapplicable")
         val builder = EventBuilder(model, ids(), session.head, me.value)
         builder.mode = settings.mode
         Rewind.lineDue(model, lines)?.let(builder::startLine)
@@ -1295,10 +1295,6 @@ class GameDevice(
         send(GameAction.Submit(Submission.of(event)))
         return Acted.Sent(event)
     }
-
-    /** Whether [changes] still apply on [model] (a placed card still on the battlefield). */
-    private fun applies(model: GameModel, changes: List<TableChange>): Boolean =
-        changes.all { it !is TableChange.Placed || it.after == null || it.obj in model.engine.battlefield }
 
     /** Whether a staging among [changes] (an attack or block draft) is of a declaration [model]'s game still awaits (as
      * the table stages only those): a staging lost in a race and made again after its declaration (made again first,
@@ -1320,7 +1316,7 @@ class GameDevice(
         for (r in ready) {
             val at = if (session.behind) session.headModel() else model.copy()
             val fixed = rebase(at, r.table) ?: continue
-            if (applies(at, fixed) && staging(at, fixed)) table(fixed)
+            if (staging(at, fixed)) table(fixed)
         }
     }
 
@@ -1329,7 +1325,6 @@ class GameDevice(
     private fun rebase(model: GameModel, changes: List<TableChange>): List<TableChange>? = changes.map { c ->
         val t = model.table
         when (c) {
-            is TableChange.Placed -> c.copy(before = t.placements[c.obj])
             is TableChange.EarlyAnswered -> c.copy(before = t.earlyAnswers[c.key])
             is TableChange.AttackDraft -> c.copy(before = t.attackDraft)
             is TableChange.BlockDraft -> c.copy(before = t.blockDraft)

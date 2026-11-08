@@ -83,7 +83,6 @@ internal object EngineEventText {
             ?.let { "$author arranged ${it.size} ${if (it.size == 1) "block" else "blocks"}" } ?: "$author cleared the blocks")
         event.table.any { it is GameTableChange.EarlyAnswered } ->
             if (event.table.any { it is GameTableChange.EarlyAnswered && it.after != null }) "$author answered early" else "$author withdrew an early answer"
-        event.table.any { it is GameTableChange.Placed } -> "$author moved a card"
         event.table.any { it is GameTableChange.Suggestion && it.after != null } -> "A result was suggested"
         event.table.any { it is GameTableChange.Suggestion } -> "The suggested result was answered"
         event.table.any { it is GameTableChange.ResultConfirmed } -> "The result was confirmed"
@@ -171,7 +170,6 @@ internal object EngineEventText {
                 event.table.any { it is GameTableChange.AttackDraft } -> "your attack staging was"
                 event.table.any { it is GameTableChange.BlockDraft } -> "your block arrangement was"
                 event.table.any { it is GameTableChange.EarlyAnswered } -> "your early answer was"
-                event.table.any { it is GameTableChange.Placed } -> "your card move was"
                 event.table.any { it is GameTableChange.Suggestion } -> "your result suggestion was"
                 else -> "your action was"
             }
@@ -239,7 +237,6 @@ internal object EngineEventText {
             null -> when {
                 event.table.any { it is GameTableChange.AttackDraft || it is GameTableChange.BlockDraft } -> HistoryIcon.GPS_FIXED
                 event.table.any { it is GameTableChange.EarlyAnswered } -> HistoryIcon.STICKY_NOTE_2
-                event.table.any { it is GameTableChange.Placed } -> HistoryIcon.OPEN_WITH
                 event.table.any { it is GameTableChange.Suggestion || it is GameTableChange.ResultConfirmed } -> HistoryIcon.EMOJI_EVENTS
                 else -> HistoryIcon.SETTINGS_BACKUP_RESTORE
             }

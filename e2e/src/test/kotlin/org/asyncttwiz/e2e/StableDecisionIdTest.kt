@@ -7,7 +7,7 @@ import arcanum.engine.input.Input
 import arcanum.engine.state.GameState
 import org.asyncttwiz.android.AppLog
 import org.asyncttwiz.protocol.game.GameDevice
-import org.asyncttwiz.protocol.game.Placement
+import org.asyncttwiz.protocol.game.EarlyAnswer
 import org.asyncttwiz.protocol.game.TableChange
 import org.junit.Test
 import kotlin.test.assertEquals
@@ -84,21 +84,20 @@ class StableDecisionIdTest : E2e() {
         assertTrue(alice.field("Mountain", owner = bob.me).isNotEmpty(), "Bob's Mountain")
     }
 
-    /** Bob moves his Mountain on his battlefield (a table-only event), on his phone and the server. */
-    private fun bobMovesHisMountain(x: Int) {
-        // He moves it on the board his table shows: the newest his phone has
+    /** Bob answers early (a table-only event), on his phone and the server. */
+    private fun bobAnswersEarly() {
+        // He answers on the board his table shows: the newest his phone has
         waitUntil("Bob's table showing his phone's newest board") {
             bob.engine { device.session.tip to device.session.behind } == (bob.shown.tip to false)
         }
-        val mountain = bob.field("Mountain").first()
-        val before = bob.engine { device.model.table.placements[mountain] }
-        assertIs<GameDevice.Acted.Sent>(bob.game!!.table(listOf(TableChange.Placed(mountain, before, Placement(x, 0)))))
-        waitUntil("Bob's move on the server") { bob.engine { device.session.pending.isEmpty() } }
+        val early = EarlyAnswer(arcanum.engine.state.PlayerId(bob.id), "early:${bob.id}", Answer.YesNo(true))
+        assertIs<GameDevice.Acted.Sent>(bob.game!!.table(listOf(TableChange.EarlyAnswered(early.key, null, early))))
+        waitUntil("Bob's early answer on the server") { bob.engine { device.session.pending.isEmpty() } }
     }
 
     // SYS-011, problem report GXKJSE (owner, 2026-11-05: stable decision identity): Alice casts Storm Spark (its target
-    // and payment answered on the board her screen shows) while her phone, not her screen yet, has had Bob move his
-    // Mountain and take that back (his free undo: a new line is due). Nothing but table-only events changed, so her cast
+    // and payment answered on the board her screen shows) while her phone, not her screen yet, has had Bob answer early
+    // and take that back (his free undo: a new line is due). Nothing but table-only events changed, so her cast
     // is made on the newer board, where its event starts the new line with the libraries' reshuffle first: her answers
     // still name the decisions asked there, and the server takes it, with no note
     @Test fun aCastMadeOnTheNewerBoardWhereItsEventReshufflesIsTaken() {
@@ -110,7 +109,7 @@ class StableDecisionIdTest : E2e() {
         val shown = alice.shown
         val inputs = spark(alice.state)
         held.holding = true
-        bobMovesHisMountain(4)
+        bobAnswersEarly()
         val lines = bob.engine { device.lines }
         assertIs<GameDevice.Undo.Free>(bob.game!!.undo())
         waitUntil("Bob's undo on Alice's phone") { alice.engine { device.lines > lines && !device.session.behind } }

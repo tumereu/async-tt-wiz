@@ -4,14 +4,13 @@ import arcanum.engine.decision.Answer
 import arcanum.engine.input.Attack
 import arcanum.engine.input.Block
 import arcanum.engine.setup.GameResult
-import arcanum.engine.state.ObjectId
 import arcanum.engine.state.PlayerId
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /**
- * What only ATW cares about in a game (I-D54 §2), beside the engine's [arcanum.engine.state.GameState]: where cards
- * lie on the battlefield, early answers (I-D33), the shared attack staging and block draft before they are declared,
+ * What only ATW cares about in a game (I-D54 §2), beside the engine's [arcanum.engine.state.GameState]: early answers
+ * (I-D33), the shared attack staging and block draft before they are declared,
  * result suggestions, and the game's randomness (I-D56 §9: the game's [secret] and where the current [line] is in its
  * stream). Immutable; only [TableChange]s change it. Each player's play settings (response mode, Autotap) are kept on
  * the server, not here ([PlaySettings], I-D56 §13).
@@ -20,9 +19,6 @@ import kotlinx.serialization.Serializable
  */
 @Serializable
 data class TableState(
-    /** Battlefield objects' places, by engine object id: a card that changes zones is a new object (D21) and needs a
-     * new place, so a stale entry is simply never shown. */
-    val placements: Map<ObjectId, Placement> = emptyMap(),
     /** Early answers by [EarlyAnswer.key] (I-D33). */
     val earlyAnswers: Map<String, EarlyAnswer> = emptyMap(),
     /** The attack being staged before it is declared, shared by both players (owner, 2026-11-03). */
@@ -115,10 +111,6 @@ sealed interface ResponseMode {
     @Serializable @SerialName("auto-skip") data object AutoSkip : ResponseMode
 }
 
-/** A battlefield object's cell: column [x] in row [y], in [pile] when it is grouped with others. */
-@Serializable
-data class Placement(val x: Int, val y: Int, val pile: String? = null)
-
 /**
  * An answer [player] gives early to a decision of theirs that isn't open yet (I-D33), named by [key] (the decision's
  * kind and what it is about, [EarlyAnswer.keyOf]), valid in turn [turn] (null: any). Applied by the device running the
@@ -151,16 +143,6 @@ sealed interface TableChange {
     fun apply(table: TableState): TableState
     fun inverse(): TableChange
     fun revert(table: TableState): TableState = inverse().apply(table)
-
-    /** [obj]'s place on the battlefield ([before] null: it had none; [after] null: it has none). */
-    @Serializable @SerialName("placed")
-    data class Placed(val obj: ObjectId, val before: Placement?, val after: Placement?) : TableChange {
-        override fun apply(table: TableState): TableState {
-            check(table.placements[obj] == before) { "Placement of $obj isn't $before" }
-            return table.copy(placements = if (after == null) table.placements - obj else table.placements + (obj to after))
-        }
-        override fun inverse() = copy(before = after, after = before)
-    }
 
     @Serializable @SerialName("early-answer")
     data class EarlyAnswered(val key: String, val before: EarlyAnswer?, val after: EarlyAnswer?) : TableChange {

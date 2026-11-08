@@ -45,8 +45,8 @@ import org.asyncttwiz.protocol.ResultSuggestion as AtwSuggestion
  *   from with a Stack entry pointing at it (STK-001, STK-045).
  * - What [viewer] may not see is covered (a card in a hidden zone they may see, looked at or revealed, is known to them).
  * - A merged permanent's other cards (mutate, CR 730.2) lie on its Battlefield as cards attached to it (SYS-074).
- * - Battlefield places come from the table state, else the first free cell of the card's normal row
- *   ([org.asyncttwiz.protocol.BattlefieldPlacement]), in timestamp order.
+ * - Battlefield places are the first free cell of the card's normal row ([org.asyncttwiz.protocol.BattlefieldPlacement]),
+ *   in timestamp order.
  * - The combat lanes show the engine's combat (a pair per attacker), or the shared attack and block staging before they are
  *   declared ([EngineDrafts], I-D54 §8); a token is drawn with its best matching picture ([TokenArt], SYS-072).
  * - Dungeon cards (CR 309), outside the game or in the command zone, are cards of the board in no zone's list (like an ability's
@@ -184,15 +184,12 @@ object EngineProjection {
             }
         }
 
-        // Battlefield places: the table state's, else the first free cell of the card's row, in timestamp order
+        // Battlefield places: the first free cell of the card's row, in timestamp order
         val placed = mutableMapOf<String, BoardPosition>()
         for (c in board0.containers.filter { it.zone == PlayZone.BATTLEFIELD }) {
             val here = members[c.id].orEmpty().sortedWith(compareBy<Pair<GameObject, String>> { it.first.timestamp }.thenBy { it.second })
             val taken = mutableSetOf<BoardPosition>()
-            for ((obj, id) in here) table.placements[obj.id]?.let { p ->
-                BoardPosition(p.x, p.y).takeIf { it !in taken }?.let { taken += it; placed[id] = it }
-            }
-            for ((obj, id) in here) if (id !in placed) {
+            for ((obj, id) in here) {
                 val row = if (obj.faceDown) 1 else TokenStacks.row(definitions[digestOf(obj)]?.definition?.faces
                     ?.firstOrNull { it.faceId == faceIdOf(obj, digestOf(obj)) })
                 val cell = BoardPosition(generateSequence(0) { it + 1 }.first { BoardPosition(it, row) !in taken }, row)

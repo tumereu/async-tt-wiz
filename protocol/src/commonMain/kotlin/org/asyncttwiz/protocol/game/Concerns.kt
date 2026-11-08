@@ -49,7 +49,6 @@ data class Concerns(val writes: Set<StateKey>, val reads: Set<StateKey>, val rea
         private fun table(change: TableChange, writes: MutableSet<StateKey>, reads: MutableSet<StateKey>) {
             fun obj(id: ObjectId) { if (id is ObjectId.Card) reads += StateKey.Presence(id.card) }
             when (change) {
-                is TableChange.Placed -> { writes += StateKey.Table("placement:${change.obj}"); obj(change.obj) }
                 is TableChange.LineMoved -> writes += StateKey.Table("line")
                 is TableChange.EarlyAnswered -> writes += StateKey.Table("early:${change.key}")
                 is TableChange.AttackDraft -> {

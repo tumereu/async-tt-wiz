@@ -9,7 +9,8 @@ import arcanum.engine.state.GameState
 import arcanum.engine.state.PlayerId
 import org.asyncttwiz.protocol.game.GameDevice
 import org.asyncttwiz.protocol.game.GameEvent
-import org.asyncttwiz.protocol.game.Placement
+import org.asyncttwiz.protocol.game.EarlyAnswer
+import org.asyncttwiz.protocol.game.ResultSuggestion
 import org.asyncttwiz.protocol.game.PlaySettings
 import org.asyncttwiz.protocol.game.ResponseMode
 import org.asyncttwiz.protocol.game.TableChange
@@ -85,7 +86,6 @@ class QueuedUndoTest {
 
     private fun castable(s: GameState) = Engine.options(s, alice).any { it is Input.Cast }
     private fun bobsMountain(s: GameState) = s.battlefield.firstOrNull { s.obj(it)?.controller == bobId }
-    private fun alicesMountain(s: GameState) = s.battlefield.first { s.obj(it)?.controller == alice }
 
     /** A Storm Spark cast by Alice with her own answers (the first target, the suggested payment). */
     private fun spark(s: GameState): List<Input> {
@@ -111,9 +111,10 @@ class QueuedUndoTest {
 
     private fun refusedNotes(game: EngineGame) = game.notes.count { it is GameDevice.Note.Refused }
 
-    private fun moveHerMountain(game: EngineGame, x: Int): GameEvent {
-        val mountain = alicesMountain(game.device.model.engine)
-        val acted = assertIs<GameDevice.Acted.Sent>(game.table(listOf(TableChange.Placed(mountain, game.device.model.table.placements[mountain], Placement(x, 0)))))
+    /** Alice answers early (a table-only event of hers). */
+    private fun answerEarly(game: EngineGame, key: String): GameEvent {
+        val early = EarlyAnswer(alice, key, Answer.YesNo(true))
+        val acted = assertIs<GameDevice.Acted.Sent>(game.table(listOf(TableChange.EarlyAnswered(key, null, early))))
         return acted.event
     }
 
@@ -134,38 +135,36 @@ class QueuedUndoTest {
         assertEquals(0, refusedNotes(game), "no note: ${game.notes}")
     }
 
-    // HIS-107: the queued Undo takes back the cast it was tapped after, not only the table move she made after the tap
-    // (its point is before the cast, so the move goes with it)
-    @Test fun aQueuedUndoTakesBackTheCastNotOnlyALaterTableMove() {
+    // HIS-107: the queued Undo takes back the cast it was tapped after, not only the table-only event she made after the
+    // tap (its point is before the cast, so that event goes with it)
+    @Test fun aQueuedUndoTakesBackTheCastNotOnlyALaterTableOnlyEvent() {
         val game = aliceInMain()
         val before = sim.head
         game.send(spark(game.device.model.engine))
         val cast = lastCast(game)
         assertEquals(GameDevice.Undo.Queued(cast.id), game.undo())
-        moveHerMountain(game, 6)
+        answerEarly(game, "early:6")
         aliceRoundTrip(game)
         assertEquals(before, sim.head, "back before her cast")
         assertTrue(casts(game).none { it.id == cast.id }, "her cast taken back")
         assertEquals(0, refusedNotes(game), "no note: ${game.notes}")
     }
 
-    // HIS-107: Undo tapped while her table move (made after her confirmed cast) is on its way takes back only that move,
-    // never the earlier cast
-    @Test fun aQueuedUndoOfATableMoveKeepsTheEarlierCast() {
+    // HIS-107: Undo tapped while her table-only event (made after her confirmed cast) is on its way takes back only that
+    // event, never the earlier cast
+    @Test fun aQueuedUndoOfATableOnlyEventKeepsTheEarlierCast() {
         val game = aliceInMain()
         game.send(spark(game.device.model.engine))
         aliceRoundTrip(game)
         val cast = lastCast(game)
         assertTrue(game.device.session.pending.isEmpty(), "her cast on the server")
         val afterCast = sim.head
-        val mountain = alicesMountain(game.device.model.engine)
-        val placed = game.device.model.table.placements[mountain]
-        val move = moveHerMountain(game, 7)
+        val move = answerEarly(game, "early:7")
         assertEquals(GameDevice.Undo.Queued(move.id), game.undo())
         aliceRoundTrip(game)
-        assertEquals(afterCast, sim.head, "only the move taken back")
+        assertEquals(afterCast, sim.head, "only the early answer taken back")
         assertTrue(casts(game).any { it.id == cast.id }, "her cast stays")
-        assertEquals(placed, game.device.model.table.placements[mountain], "her Mountain back in its place")
+        assertEquals(null, game.device.model.table.earlyAnswers["early:7"], "her early answer gone")
         assertEquals(0, refusedNotes(game), "no note: ${game.notes}")
     }
 
@@ -226,9 +225,9 @@ class QueuedUndoTest {
         assertEquals(0, refusedNotes(game), "no note: ${game.notes}")
     }
 
-    // HIS-084: after a free undo her device waits for her where she acted, also after Bob's table-only move arrives there
+    // HIS-084: after a free undo her device waits for her where she acted, also after Bob's table-only events arrive there
     // (it held only while the tip was that point's event: then her Auto-skip passed her beginning of combat by itself)
-    @Test fun theUndoPointHoldsWhenATableOnlyMoveArrives() {
+    @Test fun theUndoPointHoldsWhenTableOnlyEventsArrive() {
         val game = aliceInMain()
         // Full control: she stops at her beginning of combat and casts Storm Spark there, keeping priority after it
         game.settings(PlaySettings(mode = ResponseMode.FullControl))
@@ -249,15 +248,18 @@ class QueuedUndoTest {
         assertEquals(cast.parentId, sim.head, "her cast taken back")
         fun atCombatStart() = game.device.model.engine.let { s -> s.turn.step == TurnStep.BeginningOfCombat && s.priority.holder == alice }
         assertTrue(atCombatStart(), "back at her beginning of combat")
-        // Bob opens the game (catching up, so his device makes nothing of its own) and moves his Mountain, a table-only
-        // event made at the head: her device still waits for her
+        // Bob opens the game (catching up, so his device makes nothing of its own), suggests a draw and takes it back,
+        // table-only events made at the head: her device still waits for her
         val bob = sim.load(f.b)
         assertTrue(bob.device.session.behind, "Bob catching up")
-        val mountain = assertNotNull(bobsMountain(bob.device.model.engine))
-        assertIs<GameDevice.Acted.Sent>(bob.table(listOf(TableChange.Placed(mountain, bob.device.model.table.placements[mountain], Placement(4, 0)))))
+        val draw = ResultSuggestion(bobId, arcanum.engine.setup.GameResult.Draw)
+        assertIs<GameDevice.Acted.Sent>(bob.table(listOf(TableChange.Suggestion(null, draw))))
+        sim.flush(f.b); sim.deliver(f.b)
+        assertIs<GameDevice.Acted.Sent>(bob.table(listOf(TableChange.Suggestion(draw, null))))
         sim.flush(f.b)
         aliceRoundTrip(game)
-        assertEquals(Placement(4, 0), game.device.model.table.placements[mountain], "Bob's move shown")
+        assertEquals(2, game.device.session.events.count { e -> e.author == f.b && e.table.any { it is TableChange.Suggestion } }, "Bob's events shown")
+        assertEquals(null, game.device.model.table.suggestion)
         assertTrue(atCombatStart(), "still at her beginning of combat: ${game.device.model.engine.turn.step}")
         assertEquals(GameDevice.Status.YourMove, game.device.status)
     }

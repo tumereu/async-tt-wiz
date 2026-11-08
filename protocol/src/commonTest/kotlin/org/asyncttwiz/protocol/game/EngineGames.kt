@@ -10,15 +10,13 @@ import arcanum.engine.setup.DeckCard
 import arcanum.engine.setup.Seat
 import arcanum.engine.state.CardId
 import arcanum.engine.state.GameState
-import arcanum.engine.state.ObjectId
 import arcanum.engine.state.PlayerId
 import kotlin.random.Random
 
 /**
  * Seeded games of invented cube cards played into [GameEvent]s on the public engine API, as a device would make them:
- * one acting point per event (a chosen input, then the random results the device answers), with the table part a
- * device adds (a place for each permanent that entered), and now and then a table-only event (a card moved on the
- * battlefield, a setting changed).
+ * one acting point per event (a chosen input, then the random results the device answers), and now and then a
+ * table-only event (an early answer given or taken back).
  */
 internal class EngineGames(seed: Long, decks: Pair<List<String>, List<String>> = CREATURES to SPELLS, life: Int = 20,
     /** Alice's cards outside the game besides a sideboard (dungeon cards, CR 309.2). */
@@ -46,33 +44,17 @@ internal class EngineGames(seed: Long, decks: Pair<List<String>, List<String>> =
     fun next(model: GameModel, parentId: String, id: String = "e${++ids}"): GameEvent {
         val author = if (rnd.nextBoolean()) alice.value else bob.value
         val builder = EventBuilder(model, id, parentId, author)
-        val placed = model.table.placements.keys
         if (model.engine.turn.number > 0 && rnd.nextInt(8) == 0) {
-            // A table-only event: a card moved on the battlefield, or an early answer given or taken back
-            val obj = model.engine.battlefield.filter { it in placed }.randomOrNull(rnd)
-            if (obj != null && rnd.nextBoolean()) {
-                val before = model.table.placements.getValue(obj)
-                builder.table(TableChange.Placed(obj, before, Placement(rnd.nextInt(12), rnd.nextInt(3))))
-            } else {
-                val player = if (rnd.nextBoolean()) alice else bob
-                val key = "early:${player.value}"
-                val before = model.table.earlyAnswers[key]
-                builder.table(TableChange.EarlyAnswered(key, before, if (before == null) EarlyAnswer(player, key, Answer.YesNo(true)) else null))
-            }
+            // A table-only event: an early answer given or taken back
+            val player = if (rnd.nextBoolean()) alice else bob
+            val key = "early:${player.value}"
+            val before = model.table.earlyAnswers[key]
+            builder.table(TableChange.EarlyAnswered(key, before, if (before == null) EarlyAnswer(player, key, Answer.YesNo(true)) else null))
             return builder.build()
         }
         builder.perform(choose(model.engine))
         // The random answers from the line's stream (I-D56 §9)
         builder.answerRandoms()
-        // A place for each permanent that entered (the device's table part)
-        val taken = model.table.placements.filterKeys { it in model.engine.battlefield }.values.toMutableSet()
-        for (obj in model.engine.battlefield) if (obj !in model.table.placements && obj is ObjectId.Card) {
-            val owner = model.engine.obj(obj)?.controller ?: continue
-            val row = if (owner == alice) 0 else 3
-            val cell = generateSequence(0) { it + 1 }.map { Placement(it, row) }.first { it !in taken }
-            taken += cell
-            builder.table(TableChange.Placed(obj, null, cell))
-        }
         if (model.engine.turn.number != turn) { turn = model.engine.turn.number; inputsThisTurn = 0 } else inputsThisTurn++
         return builder.build()
     }

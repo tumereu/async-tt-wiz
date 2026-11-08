@@ -491,21 +491,26 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
      * the caller to try.
      */
     val costMayFall: Boolean get() {
+        if (!anyReduction) return false
+        val q = next()
+        return q != null && q !is Question.Pay
+    }
+
+    /** Whether any reduction exists that may come to apply, whatever is left to choose (the cheap checks first: most cards a player can't pay have
+     * nothing of this, on every look at their hand). */
+    val anyReduction: Boolean get() {
         fun lower(m: Mechanic) = m is Mechanic.CostChange && m.change !is CostChange.More
-        // The cheap checks first: most cards a player can't pay have nothing of this, on every look at their hand
-        val any = (assistable > 0 && choices.assist?.amount == null) ||
+        return (assistable > 0 && choices.assist?.amount == null) ||
             (ability as? Ability.Activated)?.rules?.costChange?.let { it !is CostChange.More } == true ||
             withGrantedAsSpell().any { inst -> (inst.ability as? Ability.Static)?.mechanics.orEmpty().any(::lower) } ||
             snap.view.rules.any { lower(it.mechanic) }
-        if (!any) return false
-        val q = next()
-        return q != null && q !is Question.Pay
     }
 
     /**
      * The most the cost's mana can still fall by with what is known (CR 601.2f): every reduction that may come to apply, at its amount, or null when
      * one can't be bounded (its amount reads a choice, another player may assist). A reduction whose filter reads nothing chosen and doesn't match
-     * this spell can't come to apply. An upper bound: a search may stop when even this doesn't pay (deny only with proof).
+     * this spell can't come to apply ([fixedBeforeChoices]: anything else may). An upper bound: a search may stop when even this doesn't pay (deny
+     * only with proof).
      */
     val mostFall: ManaCost? get() {
         if (assistable > 0 && choices.assist?.amount == null) return null
@@ -521,11 +526,28 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
         snap.view.rules.forEach { applied ->
             val m = applied.mechanic as? Mechanic.CostChange ?: return@forEach
             if (m.change is CostChange.More) return@forEach
-            val reads = READS_CHOICE.any { it in kotlinx.serialization.json.Json.encodeToString(ObjectFilter.serializer(), m.what) }
-            if (!reads && !snap.evaluator(applied.controller, self = applied.source, names = applied.names).matches(m.what, itemId)) return@forEach
+            if (fixedBeforeChoices(m.what) && !snap.evaluator(applied.controller, self = applied.source, names = applied.names).matches(m.what, itemId)) return@forEach
             if (!add(m.change)) return null
         }
         return ManaCost(symbols)
+    }
+
+    /** Whether a filter on the spell can't change with what is chosen while casting (an allow-list: its mana value can, with X, CR 202.3e; a term not
+     * known here may). */
+    private fun fixedBeforeChoices(f: ObjectFilter): Boolean = when (f) {
+        ObjectFilter.Any, ObjectFilter.Colorless, ObjectFilter.Multicolored, ObjectFilter.Monocolored, ObjectFilter.XInManaCost -> true
+        is ObjectFilter.And -> f.all.all(::fixedBeforeChoices)
+        is ObjectFilter.Or -> f.any.all(::fixedBeforeChoices)
+        is ObjectFilter.Not -> fixedBeforeChoices(f.filter)
+        is ObjectFilter.Category, is ObjectFilter.Super, is ObjectFilter.InZone, is ObjectFilter.Named, is ObjectFilter.WasCast -> true
+        is ObjectFilter.Type -> f.cardType is arcanum.api.CardTypeRef.Literal
+        is ObjectFilter.Sub -> f.subtype is arcanum.api.SubtypeRef.Literal
+        is ObjectFilter.OfColor -> f.color is arcanum.api.ColorRef.Literal
+        is ObjectFilter.ControlledBy -> f.players == arcanum.api.PlayerFilter.You || f.players == arcanum.api.PlayerFilter.Opponent || f.players == arcanum.api.PlayerFilter.Any
+        is ObjectFilter.OwnedBy -> f.players == arcanum.api.PlayerFilter.You || f.players == arcanum.api.PlayerFilter.Opponent || f.players == arcanum.api.PlayerFilter.Any
+        is ObjectFilter.AbilityOf -> f.source?.let(::fixedBeforeChoices) ?: true
+        is ObjectFilter.Is -> f.objects == arcanum.api.Objects.Self
+        else -> false
     }
 
     /**
@@ -865,8 +887,6 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
         const val PER_PLAYER = "\$per-player:"
         const val COLOR = "\$color:"
         const val MANUAL = "\$manual"
-        /** What in a serialized filter may read what is chosen while casting. */
-        private val READS_CHOICE = listOf("\"targets\"", "\"target\"", "\"bound\"", "\"announced\"", "\"chosen\"", "\"remembered\"")
 
         fun publicNames(names: Bindings): Bindings = Bindings(names.values.filterKeys { !it.startsWith("$") })
 

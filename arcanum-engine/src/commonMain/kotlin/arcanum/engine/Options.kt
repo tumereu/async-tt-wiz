@@ -181,9 +181,11 @@ internal object Options {
 
     /** [manaFound], or a choice still to come may lower the cost ([Plan.costMayFall]) by enough: a cost that doesn't pay even at the most it
      * can fall ([Plan.mostFall]) is proof without trying every choice. */
-    private fun payableYet(plan: Plan): Boolean = manaFound(plan) || (plan.costMayFall && plan.mostFall.let { most ->
+    private fun payableYet(plan: Plan): Boolean = manaFound(plan) || (plan.costMayFall && paysAtTheMostItCanFall(plan))
+
+    private fun paysAtTheMostItCanFall(plan: Plan): Boolean = plan.mostFall.let { most ->
         most == null || Mana.mayPay(plan.snap, plan.player, arcanum.engine.casting.Costs.reduce(plan.manaToPay, most), plan.itemId, plan.manaWays, !plan.cantSpendMana, plan.manaAsAnyColor, plan.reserved)
-    })
+    }
 
     /**
      * Answers to an X (or another value) announced for a cost (CR 107.3, 601.2b): the least [count] values from the
@@ -198,8 +200,10 @@ internal object Options {
         val most = minOf(d.max ?: Int.MAX_VALUE, d.min + MAX_TRIED)
         var n = d.min
         while (n <= most && found.size < count) {
-            // A larger value costs no less mana
-            if (!payableYet(Plan(snap.state, c.copy(choices = c.choices.copy(announced = c.choices.announced + (d.name to n)))))) break
+            // A larger value costs no less mana, unless a reduction starts to apply with it (a filter reading mana value, CR 202.3e, 601.2f): proof only
+            // when it doesn't pay at the most every reduction could take
+            val plan = Plan(snap.state, c.copy(choices = c.choices.copy(announced = c.choices.announced + (d.name to n))))
+            if (!manaFound(plan) && !(plan.anyReduction && paysAtTheMostItCanFall(plan))) break
             val answer = Answer.Number(n)
             if (goesOnAfter(snap, pending, answer, budget ?: Budget())) found += answer
             n++
@@ -210,6 +214,9 @@ internal object Options {
 
     /** [Engine.finishable]. */
     fun finishable(state: GameState): Boolean = goesOn(state, state.pending)
+
+    /** [Engine.anyReduction]. */
+    fun anyReduction(state: GameState): Boolean = (state.pending?.continuation as? Continuation.Announcing)?.let { Plan(state, it).anyReduction } == true
 
     /** [Engine.finishableWith]. */
     fun finishableWith(state: GameState, answer: Answer): Boolean {

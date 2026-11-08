@@ -99,6 +99,9 @@ object Engine {
      */
     fun finishable(state: GameState): Boolean = Options.finishable(state)
 
+    /** Whether a reduction may come to apply to the open cast or activation as its choices are made: then what it costs needn't rise with an X (CR 202.3e, 601.2f). */
+    fun anyReduction(state: GameState): Boolean = Options.anyReduction(state)
+
     /** [finishable] once [answer] is given to the open decision: false when it is refused or leaves no way. */
     fun finishableWith(state: GameState, answer: arcanum.engine.decision.Answer): Boolean = Options.finishableWith(state, answer)
 

@@ -364,6 +364,16 @@ object HandCasts {
         val open = flow.pending as? Decision.Announce ?: return null
         val top = minOf(open.max ?: cap, cap).coerceAtLeast(open.min)
         fun pays(value: Int) = Engine.finishableWith(flow.state, Answer.Number(value))
+        // CR 202.3e, 601.2f: a reduction may start to apply as X grows: what can be paid has gaps, so each value is tried, up to a run of those that can't
+        if (Engine.anyReduction(flow.state)) {
+            var most = open.min - 1
+            var value = open.min
+            while (value <= top && value - most <= GAP_TRIED) {
+                if (pays(value)) most = value
+                value++
+            }
+            return most
+        }
         if (!pays(open.min)) return open.min - 1
         // Doubling steps up to the first value that can't be paid, then halving between it and the last that can
         var good = open.min
@@ -479,6 +489,8 @@ object HandCasts {
 
     private const val OPTIONAL_KEY = "opt:"
     private const val MAX_EXTRAS = 16
+    /** How many values in a row that can't be paid end the look for the most an X may be. */
+    private const val GAP_TRIED = 20
     /** The most chips above a raised hand card; a card with more complete ways shows one "Cast…" chip ([HandCastChips.more]). */
     const val MAX_CHIPS = 4
     /** The most an X is ever offered ([mostAnnounced]). */

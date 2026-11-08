@@ -18,6 +18,7 @@ Engine.classLevel(state, id): Int?               // the level a Class has gained
 Engine.options(state, player[, view]): List<Input> // what a player may do now: exact (every input listed is accepted)
 Engine.finishable(state): Boolean // whether the open cast or activation can still be finished; false only with proof (a bound says true)
 Engine.finishableWith(state, answer): Boolean // finishable once answer is given to the open decision
+Engine.anyReduction(state): Boolean // whether a reduction may come to apply to the open cast as its choices are made (what it costs needn't rise with X then)
 Engine.selection(state, picked): Selection // the candidates that may be picked with these picked, and whether these are a finished selection (CR 601.2c, 601.2f)
 Engine.castCosts(state): CastCosts // the smallest cost among the ways through the open choices, whether there can be others, Autotap's sources for it, the way to it
 Engine.fillPayment(state, pinned, removed): List<ManaUse> // the open payment around a player's picks: pinned stay, removed aren't used, Autotap's order fills in the rest

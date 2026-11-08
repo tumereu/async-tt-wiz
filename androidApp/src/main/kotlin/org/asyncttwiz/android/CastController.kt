@@ -402,7 +402,7 @@ internal class CastController(
         val pinned = pins
         val removed = outs
         step {
-            val uses = if (autotapOn) filled(at, decision, pinned, removed) else ManaPicks.toggle(decision, current, group, at::pays)
+            val uses = if (autotapOn) filled(at, decision, pinned, removed) else ManaPicks.toggle(decision, current, group, at::pays, at::fill)
             Step.Mana(f, uses, at.pays(uses))
         }
     }
@@ -713,7 +713,7 @@ internal class CastController(
     private fun chosen(flow: CastFlow, payment: Decision.ManaPayment, autotapOn: Boolean, custom: Boolean, keep: List<ManaUse>?, picks: Pair<List<ManaUse>, List<ManaUse>>): List<ManaUse> = when {
         autotapOn && !custom -> suggestion(flow, payment)
         autotapOn -> filled(flow, payment, picks.first, picks.second)
-        else -> ManaPicks.carry(payment, keep.orEmpty(), flow::pays)
+        else -> ManaPicks.carry(payment, keep.orEmpty(), flow::pays, flow::fill)
     }
 
     /** STK-024, TBL-130 (owner playtest 2026-11-07): Autotap's suggestion for [payment] of [flow], taking the topmost members

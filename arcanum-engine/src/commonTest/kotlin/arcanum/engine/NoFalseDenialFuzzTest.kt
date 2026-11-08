@@ -53,6 +53,15 @@ class NoFalseDenialFuzzTest {
         filterLand(),
         Cards.invent("Deny Shield", "{0}", "Enchantment", "Prevent all damage that would be dealt to you."),
     )
+    private val xGiant = Cards.invent("Deny X Giant", "{X}{4}", "Creature — Giant", "", "4/4")
+    private val sizeReducer: String = run {
+        val face = Cards.definition(Cards.invent("Deny Drover Base", "{0}", "Enchantment", "Creature spells you cast cost {2} less to cast.")).faces.single()
+        val static = face.abilities.single() as Ability.Static
+        val m = static.mechanics.single() as Mechanic.CostChange
+        val big = arcanum.api.ObjectFilter.ManaValue(arcanum.api.Comparison.AtLeast, Value.Fixed(6))
+        Cards.define("Deny Drover", CardDefinition(arcanum.api.Layout.Normal, listOf(face.copy(name = "Deny Drover",
+            abilities = listOf(static.copy(mechanics = listOf(m.copy(what = arcanum.api.ObjectFilter.And(listOf(m.what, big))))))))))
+    }
     private val fertile = Cards.invent("Deny Fertile", "{0}", "Enchantment — Aura", "Enchant land\nWhenever enchanted land is tapped for mana, its controller adds an additional one mana of any color.")
     private val creatures = listOf(
         Cards.invent("Deny Bear", "{1}{G}", "Creature — Bear", "", "2/2"),
@@ -108,6 +117,13 @@ class NoFalseDenialFuzzTest {
     private fun Scenario.board(seed: Long) {
         val rnd = Random(seed)
         alice.life = listOf(1, 2, 3, 20).random(rnd)
+        // Every seventh board: reducers that start to apply as X grows (CR 202.3e, 601.2f)
+        if (seed % 7 == 0L) {
+            repeat(1 + rnd.nextInt(2)) { alice.battlefield(sizeReducer) }
+            alice.battlefield(*List(1 + rnd.nextInt(4)) { "Forest" }.toTypedArray())
+            alice.hand(xGiant)
+            return
+        }
         // Every third board: the cast's other costs against the mana (CR 601.2g before 601.2h): an altar or a mana creature, the creatures a cost may tap
         if (seed % 3 == 0L) {
             alice.battlefield(sources.first { "Altar" in it })

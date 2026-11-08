@@ -540,6 +540,65 @@ class CastabilityTest {
         assertTrue(stopped)
     }
 
+    /** "Creature spells with mana value 6 or greater cost {2} less" (or [filter] of the spell). */
+    private fun drover(name: String, filter: arcanum.api.ObjectFilter = arcanum.api.ObjectFilter.ManaValue(arcanum.api.Comparison.AtLeast, Value.Fixed(6))): String {
+        val face = Cards.definition(Cards.invent("$name Base", "{0}", "Enchantment", "Creature spells you cast cost {2} less to cast.")).faces.single()
+        val static = face.abilities.single() as Ability.Static
+        val m = static.mechanics.single() as Mechanic.CostChange
+        return Cards.define(name, CardDefinition(arcanum.api.Layout.Normal, listOf(face.copy(name = name,
+            abilities = listOf(static.copy(mechanics = listOf(m.copy(what = arcanum.api.ObjectFilter.And(listOf(m.what, filter))))))))))
+    }
+
+    // CR 202.3e, 601.2f: a reducer starts to apply as X grows: X = 0 costs {4}, X = 2 has mana value 6 and costs {2}: three Forests pay it, and the card
+    // isn't left out for what X = 0 costs
+    @Test fun aReducerThatStartsToApplyWithXIsLookedThrough() = scenario {
+        val giant = Cards.invent("Cast X Giant", "{X}{4}", "Creature — Giant", "", "4/4")
+        val reducer = drover("Cast Drover")
+        alice.battlefield(reducer, reducer)
+        alice.battlefield("Forest", "Forest", "Forest")
+        alice.hand(giant)
+        assertTrue(giant in casts(alice))
+        perform(Input.Cast(alice.id, card(giant)))
+        assertFalse(Engine.finishableWith(state, Answer.Number(0)), "{4}")
+        assertFalse(Engine.finishableWith(state, Answer.Number(1)), "{5}: mana value 5")
+        assertTrue(Engine.finishableWith(state, Answer.Number(2)), "mana value 6: {2}")
+        assertEquals(Answer.Number(2), Engine.options(state, alice.id).filterIsInstance<Input.Answer>().first().answer, "the least that works")
+    }
+
+    // Deny only with proof, CR 601.2f: a reducer whose filter has a term not known to be fixed before the choices may come to apply: the look goes on to the
+    // leaf, and only there is it refused
+    @Test fun aReducerWithAnUnknownTermIsNotSkippedByTheBound() = scenario {
+        val spell = Cards.invent("Cast Unknown Term Spell", "{3}", "Sorcery", "Exile target creature.")
+        val reducer = drover("Cast Paid Drover", arcanum.api.ObjectFilter.WasPaid(arcanum.api.Keyword.Kicker.Kind, 1))
+        val many = drover("Cast Fixed Drover", arcanum.api.ObjectFilter.Type(arcanum.api.CardType.Artifact))
+        alice.battlefield("Plains")
+        alice.battlefield(reducer, many)
+        bob.battlefield(bear)
+        alice.hand(spell)
+        perform(Input.Cast(alice.id, card(spell)))
+        val plan = Plan(state, state.pending!!.continuation as arcanum.engine.decision.Continuation.Announcing)
+        assertEquals("{2}", plan.mostFall.toString(), "the unknown term counts, the fixed one that doesn't match doesn't")
+    }
+
+    // STK-024: five sources of any colour pay {W}{U}{B}{R}{G} by the engine's search, whatever a first look at the combinations found
+    @Test fun fiveAnyColourSourcesPayFiveColours() = scenario {
+        val five = Cards.invent("Cast Five Colours", "{W}{U}{B}{R}{G}", "Sorcery", "Draw a card.")
+        val prismA = Cards.invent("Cast Prism A", "{0}", "Artifact", "{T}: Add one mana of any color.")
+        val prismB = Cards.invent("Cast Prism B", "{0}", "Artifact", "{T}: Add one mana of any color.")
+        val prismC = Cards.invent("Cast Prism C", "{0}", "Artifact", "{T}: Add one mana of any color.")
+        val prismD = Cards.invent("Cast Prism D", "{0}", "Artifact", "{T}: Add one mana of any color.")
+        val prismE = Cards.invent("Cast Prism E", "{0}", "Artifact", "{T}: Add one mana of any color.")
+        alice.battlefield(prismA, prismB, prismC, prismD, prismE)
+        alice.hand(five)
+        perform(Input.Cast(alice.id, card(five)))
+        val payment = decision<Decision.ManaPayment>()
+        val one = listOf(prismA, prismB, prismC, prismD, prismE).map { p -> payment.options.first { it.isOf(card(p)) } }
+        val filled = Engine.fillPayment(state, one, emptyList())
+        assertEquals(5, filled.size)
+        answer(Answer.ManaPayment(filled))
+        assertTrue(state.pending == null)
+    }
+
     // ---- During resolution (CR 605.3a, 608.2g): "counter unless you pay"
 
     private val tax = Cards.invent("Cast Mana Tax", "{1}{U}", "Instant", "Counter target spell unless its controller pays {1}.")

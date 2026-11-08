@@ -295,7 +295,7 @@ internal class SharedFlowController(
             runCatching {
                 // STK-024 (owner 2026-11-08): a pick stays and Autotap fills in the rest; with Autotap off, only the picks
                 val uses = if (autotapOn) flow.fill(pinned, removed).ifEmpty { ManaPicks.carry(decision, pinned, flow::pays) }
-                    else ManaPicks.toggle(decision, current, group, flow::pays)
+                    else ManaPicks.toggle(decision, current, group, flow::pays, flow::fill)
                 uses to flow.pays(uses)
             }
                 .onFailure { AppLog.warn("automatum", "Mana tapping couldn't be worked out: ${it::class.java.simpleName}") }.getOrNull()

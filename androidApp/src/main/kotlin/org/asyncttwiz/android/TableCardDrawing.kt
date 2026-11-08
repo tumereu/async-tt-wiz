@@ -121,6 +121,11 @@ internal class TableCardPainter(val density: Float, scene: TableScene, val cache
         val noteHeight = (noteMetrics.bottom - noteMetrics.top) / (z * density) + 2f
         val slot = automatumMarksSlot(titleBand, noteHeight)
         val value = i.automatumMarks.joinToString(", ").take(32)
+        // TBL-133: on a small card a state's word shrinks a little rather than be cut
+        if (i.automatumState) {
+            val word = cache.measure(i.automatumMarks.first()) / (z * density) + 2f
+            if (word > slot.width) paint.textSize *= maxOf(MIN_STATE_TEXT, slot.width / word)
+        }
         val b = slot.copy(width = minOf(slot.width, cache.measure(value) / (z * density) + 2f))
         drawRoundRect(Color.White, xy(x + b.x * z, y + b.y * z), size(b.width * z, b.height * z), CornerRadius(z * density))
         paint.color = EmblemChipColor.toArgb()
@@ -130,6 +135,7 @@ internal class TableCardPainter(val density: Float, scene: TableScene, val cache
             text(value, x + (b.x + 1f) * z, baseline, value.length)
         }
         paint.color = android.graphics.Color.DKGRAY
+        paint.textSize = 7 * noteScale * z * density
     }
     fun DrawScope.cardFace(i: TableItem, x: Float, y: Float, color: Color, title: String) {
         translate(x * density, y * density) {
@@ -273,3 +279,6 @@ internal class TableCardPainter(val density: Float, scene: TableScene, val cache
 internal val AbilityTokenColor = Color(0xff2e2838)
 internal val AbilityTokenArtColor = Color(0xff4a4259)
 internal val AbilityTokenTextColor = Color(0xffe8e2f0)
+
+/** How far a state's word on a card's chip may shrink to fit (TBL-133). */
+private const val MIN_STATE_TEXT = .72f

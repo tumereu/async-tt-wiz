@@ -355,6 +355,8 @@ internal fun TableSurface(game: GameSummary, play: TableBoard, accountId: String
             Canvas(Modifier.fillMaxSize()) { drawPileBadges(rendered.value.scene, drawCache) }
             // TRN-053 (owner gallery review 2026-11-06): the emblems' round chips; holding one inspects the player's emblems
             EmblemChipsOverlay(scene, accountId)
+            // TRN-072, TRN-073: a player's states and the game's day or night; holding one explains it
+            StateChipsOverlay(scene)
             // LOB-136, LOB-137 (owner, 2026-11-07): chat messages as speech bubbles by the life squares, off every card
             runtime.chatBubbles?.let { ChatBubblesOverlay(scene, accountId, it, tableWidth, tableHeight,
                 tableBottomHeight(landscape, runtime.timelineOpen)) }

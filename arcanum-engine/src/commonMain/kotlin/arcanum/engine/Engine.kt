@@ -45,6 +45,39 @@ object Engine {
     fun view(state: GameState): View = Layers.view(state)
 
     /**
+     * What continuous effects tell object [id] it can't or must do beyond its characteristics ("can't block", "can't be
+     * blocked by creatures with flying", "attacks each combat if able", "doesn't untap", "can't be countered"), a host's
+     * Inspect beside [explain]: each with plain words, what made it and how long it lasts. Read from [view], which the host
+     * already has, so it works nothing out again. What the object's own printed text says and what a keyword means (its
+     * keyword is listed instead) are left out. Empty for an object nothing restricts or that isn't there.
+     */
+    fun restrictions(state: GameState, view: View, id: arcanum.engine.state.ObjectId): List<arcanum.engine.view.AppliedRestriction> =
+        arcanum.engine.view.Restrictions.of(state, view, id)
+
+    /** [player]'s speed (CR 702.179): 1 to 4, 0 for a player with no speed. */
+    fun speed(state: GameState, player: PlayerId): Int = arcanum.engine.turn.Speed.of(state, player)
+
+    /** How many times the Ring has tempted [player] (CR 701.54c); 0: never. Its abilities stop growing at four. */
+    fun ringTemptations(state: GameState, player: PlayerId): Int = arcanum.engine.ring.TheRing.temptations(state, player)
+
+    /** How many dungeons [player] has completed this game (CR 309.6). */
+    fun dungeonsCompleted(state: GameState, player: PlayerId): Int = arcanum.engine.dungeon.Dungeons.completed(state, player)
+
+    /** Whether it is day or night (CR 731); null while it is neither, as a game starts. */
+    fun dayOrNight(state: GameState): arcanum.engine.view.DayOrNight? = when (arcanum.engine.turn.DayNight.of(state)) {
+        arcanum.engine.query.Evaluator.DAY -> arcanum.engine.view.DayOrNight.Day
+        arcanum.engine.query.Evaluator.NIGHT -> arcanum.engine.view.DayOrNight.Night
+        else -> null
+    }
+
+    /** The level a Class [id] has gained (CR 716.2, its level abilities): at least 1 for a Class on the battlefield; null for
+     * any other object or none. */
+    fun classLevel(state: GameState, id: arcanum.engine.state.ObjectId): Int? = state.obj(id)?.let { o ->
+        if (arcanum.api.Subtype("Class") !in o.definition?.faces?.getOrNull(o.face)?.subtypes.orEmpty() || o.zone != arcanum.api.Zone.Battlefield) null
+        else ((o.memory[arcanum.engine.query.Evaluator.CLASS_LEVEL] as? arcanum.engine.state.NamedValue.Number)?.value ?: 1).coerceAtLeast(1)
+    }
+
+    /**
      * Where object [id]'s characteristics come from (spec §7.1, a host's Inspect: "2/2 printed, +1/+1 from an anthem,
      * +3/+3 until end of turn"): its values after layer 1, then each continuous effect that changed them in the order
      * applied (CR 613), with what made it. Works the layers out afresh (one [view]'s cost). Null when [id] has no

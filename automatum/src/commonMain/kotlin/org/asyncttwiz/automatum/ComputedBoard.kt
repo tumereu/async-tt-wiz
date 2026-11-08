@@ -31,6 +31,7 @@ import org.asyncttwiz.protocol.SubmittedDefinition
  * - [typeLine]/[colors]: its type line and colours when an effect changed them (layers 4, 5); null when unchanged.
  * - [counters]: its typed counters (§4.2) as "+1/+1 ×2", "charge ×1", "Flying counter ×1".
  * - [keywords]: every keyword ability it has.
+ * - [states]: TBL-133: the states the rules keep on it ("Ring-bearer", "Goaded", "Monstrous", [CardStates.words]).
  */
 data class ComputedCard(
     val cardId: String,
@@ -46,6 +47,7 @@ data class ComputedCard(
     val counters: List<String> = emptyList(),
     /** Every keyword ability it has now ("Flying", "First strike"), as the engine works them out (layer 6). */
     val keywords: List<String> = emptyList(),
+    val states: List<String> = emptyList(),
 ) {
     /** The computed P/T as the corner shows it ("3/3"); null when the engine gives the card no power and toughness. */
     val corner: String? get() = if (power != null && toughness != null) "$power/$toughness" else null
@@ -64,8 +66,9 @@ data class ComputedCard(
             }
         }
 
-    /** The short marks the card shows besides its P/T: changed types and colours, keywords gained and lost, counters. */
-    val marks: List<String> get() = listOfNotNull(typeLine, colors) + gained + lost.map { "no $it" } + counters
+    /** The short marks the card shows besides its P/T: its states first (the chip is cut short, TBL-113, TBL-133), then
+     * changed types and colours, keywords gained and lost, counters. */
+    val marks: List<String> get() = states + listOfNotNull(typeLine, colors) + gained + lost.map { "no $it" } + counters
 }
 
 /** One continuous effect on a card as Inspect lists it ([ComputedBoard.effects]): what it does ("+3/+3 until end of
@@ -87,6 +90,9 @@ class ComputedBoard private constructor(
     private val state: GameState?,
     private val view: View?,
     private val ids: CardIds?,
+    /** ZON-094: the states of cards in exile the rules keep ("Plotted", "Foretold", "Warped"), by ATW card id; each is public
+     * even for a card exiled face down. */
+    val exileStates: Map<String, List<String>> = emptyMap(),
 ) {
     /**
      * Where [cardId]'s values come from, one line each, for Inspect (spec §7.1): its power and toughness as
@@ -185,6 +191,41 @@ class ComputedBoard private constructor(
         }.toMap()
     }
 
+    /**
+     * TBL-133: [cardIds]' states as Inspect lists them ([CardStates.lines]), in [viewer]'s words; [names] names the players
+     * by account. Only what the state holds; nothing is worked out.
+     */
+    fun states(cardIds: List<String>, viewer: String, names: Map<String, String> = emptyMap()): Map<String, List<EffectChange>> {
+        val state = state ?: return emptyMap()
+        return cardIds.filter { it in cards }.mapNotNull { card ->
+            val o = objectOf(card)?.let { state.obj(it) } ?: return@mapNotNull null
+            CardStates.lines(state, o, viewer, names).takeIf { it.isNotEmpty() }?.let { card to it }
+        }.toMap()
+    }
+
+    /**
+     * TBL-134: what continuous effects tell each of [cardIds] (on the Battlefield, or a spell on the Stack) it can't or must do,
+     * from the board's own view ([Engine.restrictions]): "Can't block until end of turn", with its source as [viewer] may see
+     * it. A Ring-bearer's rule from the Ring is its own line ([states]).
+     */
+    fun restrictions(cardIds: List<String>, viewer: String, names: Map<String, String> = emptyMap()): Map<String, List<EffectChange>> {
+        val state = state ?: return emptyMap()
+        val view = view ?: return emptyMap()
+        val durations = DurationText(state, view, viewer, names)
+        return cardIds.mapNotNull { card ->
+            val id = ids?.engine(card)?.let { engine -> state.objects.keys.firstOrNull {
+                (it as? ObjectId.Card)?.card == engine && state.objects[it]?.zone.let { z -> z == Zone.Battlefield || z == Zone.Stack } } } ?: return@mapNotNull null
+            val changes = Engine.restrictions(state, view, id).mapNotNull { restriction ->
+                val from = restriction.madeBy?.let { state.obj(it) }
+                if (from?.zone == Zone.Command && from.definition?.faces?.firstOrNull()?.name == CardStates.RING) return@mapNotNull null
+                val made = restriction.effect?.let { state.effects[it] }
+                val lasts = restriction.duration?.let { durations.of(it, made, id) }
+                EffectChange(restriction.text + (lasts?.let { " $it" } ?: ""), visibleName(state, view, restriction.madeBy))
+            }
+            changes.takeIf { it.isNotEmpty() }?.let { card to it }
+        }.toMap()
+    }
+
     /** What one layer step changed, in a few words each ("+3/+3", "trample", "loses flying", "becomes blue"). */
     private fun stepParts(step: ExplainedEffect, viewer: String, names: Map<String, String>): List<String> = when (step.layer) {
         Layer.PowerToughnessDefining, Layer.PowerToughnessSet -> listOf("base ${pt(step.after.power, step.after.toughness)}")
@@ -270,9 +311,15 @@ class ComputedBoard private constructor(
                     colors = colors(chars).takeIf { chars.colors != base.colors },
                     counters = counterMarks(card.typedCounters),
                     keywords = chars.keywords.map(Keyword::text),
+                    states = o.obj?.let { CardStates.words(state, it) }.orEmpty(),
                 )
             }
-            return ComputedBoard(cards, emptyList(), manualAbilities, manualCards, state, view, ids)
+            val exile = board.containers.filter { it.zone == PlayZone.EXILE }.flatMap { it.cards }.toSet()
+            val exileStates = board.cards.filter { it.id in exile }.mapNotNull { card ->
+                val o = state.obj(ObjectId.Card(ids.engine(card.id), card.zoneChanges)) ?: return@mapNotNull null
+                if (o.marks.isEmpty()) null else CardStates.words(state, o).takeIf { it.isNotEmpty() }?.let { card.id to it }
+            }.toMap()
+            return ComputedBoard(cards, emptyList(), manualAbilities, manualCards, state, view, ids, exileStates)
         }
 
         private fun manual(board: BoardState, submitted: List<SubmittedDefinition>, definitions: Map<String, CardDefinition>,

@@ -158,12 +158,16 @@ data class TableItem(
     /** LIFE only (TRN-053): where the emblems' round chips are ([EmblemChips.round]); the last a "+N" chip when there are
      * more than [EmblemChips.SHOWN] emblems. */
     val emblemChips: List<TableBounds> = emptyList(),
+    /** LIFE only (TRN-072): the player's state chips ("Monarch", "Ring 2/4") where they lie. */
+    val stateChips: List<PlacedStateChip> = emptyList(),
     /** Automatum on (I1): the colour of a computed P/T (up, down, mixed); null for the manual corner's colours. */
     val cornerColor: Int? = null,
     /** Automatum on (I1): an until-end-of-turn effect changes the computed P/T (⌛ as TBL-023). */
     val cornerHourglass: Boolean = false,
     /** Automatum on (I1): changed types and colours, keywords gained or lost and typed counters, as one chip. */
     val automatumMarks: List<String> = emptyList(),
+    /** TBL-133: the first of [automatumMarks] is a state's word. */
+    val automatumState: Boolean = false,
     /** ZON-079: a raised hand card (drawn above its hand row, not clipped by it at the top). */
     val raised: Boolean = false,
     /** STK-046: a Stack entry that is a triggered or activated ability, drawn as an ability token, not as its source card. */
@@ -218,6 +222,8 @@ data class TableScene(val items: List<TableItem>, val fields: List<TableField>,
     val sources: Map<String, TableMoveSource> = emptyMap(), val combatDrops: List<CombatDropRegion> = emptyList(),
     val combatDividers: List<Pair<TablePoint, TablePoint>> = emptyList(),
     val stackRegion: TableBounds? = null,
+    /** TRN-073: the game's day or night, while it is one of them. */
+    val dayNightChip: PlacedStateChip? = null,
     val world: TableWorld? = null, val stackProjections: List<TableItem> = emptyList(),
     val cardOwners: Map<String, String> = emptyMap(),
     internal val cardPanels: List<CardPanelGeometry> = emptyList(),
@@ -329,19 +335,20 @@ object TablePresentation {
         val MIN_EMBLEMS = EmblemChips.rowWidth(2, EmblemChips.MIN_SIZE)
         /** The x of the room after [places] piles (from the row's [x]). */
         fun pilesRight(x: Float, places: Int) = x + LIFE + PILE_GAP + places * PILE_PITCH
-        /** The opponent's emblems' room after [places] piles, fitted to the top bar's free width. */
-        fun emblemRoom(width: Float, places: Int) = (width - TOOLBAR - 10f - MIN_OPPONENT_HAND - 10f -
-            pilesRight(opponentX(width), places) - 4f).coerceIn(MIN_EMBLEMS, EMBLEMS)
+        /** The opponent's emblems' room after [places] piles, fitted to the top bar's free width; [wanted]: what their row
+         * of state chips would like (TRN-072), when more than the emblems' room. */
+        fun emblemRoom(width: Float, places: Int, wanted: Float = EMBLEMS) = (width - TOOLBAR - 10f - MIN_OPPONENT_HAND - 10f -
+            pilesRight(opponentX(width), places) - 4f).coerceIn(MIN_EMBLEMS, maxOf(EMBLEMS, wanted))
         /** The right end of a player's row: life square, [places] piles (the dungeon's the fourth, TRN-069) and the
          * emblems' room. Yours ([own], in the bottom bar before your hand) has the emblems' room only while you have
          * emblems or a dungeon room chip ([emblems]), fitted as the opponent's is ([ownEmblemRoom]). */
-        fun rowRight(width: Float, own: Boolean, places: Int = 3, emblems: Boolean = false) =
-            if (own) pilesRight(OWN_X, places) + if (emblems) 4f + ownEmblemRoom(width, places) else 0f
-            else pilesRight(opponentX(width), places) + 4f + emblemRoom(width, places)
+        fun rowRight(width: Float, own: Boolean, places: Int = 3, emblems: Boolean = false, wanted: Float = EMBLEMS) =
+            if (own) pilesRight(OWN_X, places) + if (emblems) 4f + ownEmblemRoom(width, places, wanted) else 0f
+            else pilesRight(opponentX(width), places) + 4f + emblemRoom(width, places, wanted)
         /** Your emblems' room after [places] piles: it gives way to your hand down to [MIN_OWN_HAND] before the controls,
          * down to [MIN_EMBLEMS]. */
-        fun ownEmblemRoom(width: Float, places: Int) = (width - controls(width) - 8f - MIN_OWN_HAND -
-            pilesRight(OWN_X, places) - 4f).coerceIn(MIN_EMBLEMS, EMBLEMS)
+        fun ownEmblemRoom(width: Float, places: Int, wanted: Float = EMBLEMS) = (width - controls(width) - 8f - MIN_OWN_HAND -
+            pilesRight(OWN_X, places) - 4f).coerceIn(MIN_EMBLEMS, maxOf(EMBLEMS, wanted))
         /** TBL-009 (owner, 2026-11-08): the bottom bar's right end, one width whatever shows there (Undo, the quick actions
          * and the main button; in timeline mode its strip and Previous / Auto / Next), so your hand left of it never changes
          * width: [CONTROLS], at most half the bar. */
@@ -505,8 +512,9 @@ object TablePresentation {
             // STK-046: an ability on the Stack names itself as an ability, with its text
             val ability = if (zone == PlayZone.STACK && projection && !hidden) StackAbilities.of(play, viewId, viewer) else null
             val label = if (ability != null) "${ability.kind}, ${ability.line}, controller ${name(CombatStackRules.controller(play.board, viewId) ?: card.owner)}"
+                // TBL-133: a card's states read aloud too, as the chip shows them
                 else "$title, owner ${name(card.owner)}, ${if (tapped) "tapped" else "untapped"}" +
-                if (entered) ", entered this turn" else ""
+                    (if (entered) ", entered this turn" else "") + auto?.states.orEmpty().joinToString("") { ", $it" }
             return TableItem("card/$viewId", b, if (projection) "${if (frozen) "Retained effect, read-only" else "Projection"}, $label" else label,
                  if (hidden) "" else title, if (projection && zone == PlayZone.STACK) CombatStackRules.controller(play.board, viewId) else card.owner,
                  zone, kind = TableItemKind.CARD, viewport = viewport,
@@ -519,7 +527,7 @@ object TablePresentation {
                     changedPowerToughness = if (autoCorner != null) false
                         else if (faceDown) changedFaceDownPowerToughness(card.corner) else !hidden && changedPowerToughness(card.corner, f),
                     cornerColor = if (autoCorner != null) computedCornerColor(auto.trend) else null,
-                    cornerHourglass = autoCorner != null && auto.untilEndOfTurn, automatumMarks = auto?.marks.orEmpty(),
+                    cornerHourglass = autoCorner != null && auto.untilEndOfTurn, automatumMarks = auto?.marks.orEmpty(), automatumState = auto?.states?.isNotEmpty() == true,
                     frontTypeLine = if (hidden) "" else definitions[card.definition]?.faces?.firstOrNull()?.typeLine.orEmpty(),
                     enteredThisTurn = entered, coveredTitle = coveredTitle, stackAbility = ability).also { if (draw) items += it }
         }
@@ -535,7 +543,11 @@ object TablePresentation {
             // TRN-053 (owner gallery review 2026-11-06): the emblems as round chips, after the room chip (TRN-069)
             val rooms = listOfNotNull(dungeon?.room?.takeIf { it.isNotEmpty() }?.let { "Room: $it" })
             val emblemTexts = EmblemChips.texts(play.board, player.accountId)
-            val emblems = rooms.isNotEmpty() || emblemTexts.isNotEmpty()
+            // TRN-072: what the rules keep for the player, in chips of its own in the same row
+            val stateChips = play.engine?.let { org.asyncttwiz.automatum.PlayerStates.of(it.state, player.accountId) }.orEmpty()
+            val stateRow = StateChips.rowWidth(stateChips)
+            val emblemsOnly = rooms.isNotEmpty() || emblemTexts.isNotEmpty()
+            val emblems = emblemsOnly || stateChips.isNotEmpty()
             val hand = container(player.accountId, PlayZone.HAND).let { hand ->
                 // UI review round 2 #9 (decided for the owner): with Automatum on a spell cast from a hand leaves it at once:
                 // its card isn't drawn in the hand while its entry is on the Stack (the card stays there, STK-001)
@@ -543,12 +555,12 @@ object TablePresentation {
             }
             val normalHandBounds = if (!ownSide) {
                 // TBL-009: in landscape in the top bar, after the opponent's life square, piles and emblems
-                if (landscape) Landscape.rowRight(width, own = false, places).let { left -> TableBounds(left + 10f, 2f,
+                if (landscape) Landscape.rowRight(width, own = false, places, wanted = stateRow).let { left -> TableBounds(left + 10f, 2f,
                     (width - toolbarWidth - 10f - left - 10f).coerceAtLeast(handWidth), maxOf(HEADER, railHeight)) }
                 else TableBounds(8f, worldTop - railHeight, width - 16f, railHeight)
             } else if (landscape) {
                 // TBL-009 (owner, 2026-11-08): in the bottom bar, after your life square, piles and emblems, up to the controls
-                val left = Landscape.rowRight(width, own = true, places, emblems) + 6f
+                val left = Landscape.rowRight(width, own = true, places, emblems, stateRow) + 6f
                 TableBounds(left, height - 4f - ownHandHeight, (width - Landscape.controls(width) - left).coerceAtLeast(handWidth), ownHandHeight)
             } else TableBounds(8f, ownDockY - railHeight, (width - 16f).coerceAtLeast(28f), railHeight)
             val handBounds = normalHandBounds
@@ -594,7 +606,7 @@ object TablePresentation {
             val shrink = portraitCounters >= MIN_SHRUNK_COUNTER_GRID
             // TBL-009: in landscape the row starts after the turn header in the top bar, or at the bottom bar's left end
             val dockX = if (!landscape) 0f else if (ownSide) Landscape.OWN_X else Landscape.opponentX(width)
-            val dockWidth = if (landscape) Landscape.rowRight(width, ownSide, places, emblems) - dockX
+            val dockWidth = if (landscape) Landscape.rowRight(width, ownSide, places, emblems, stateRow) - dockX
                 else if (portraitCounters >= gridWidth) width - gridWidth
                 else if (shrink) portraitDock
                 else maxOf(width - gridWidth, minOf(portraitDock, width))
@@ -608,22 +620,49 @@ object TablePresentation {
             // TRN-053: in portrait the emblem chips sit in the empty room right of the piles, clear of the hands; in landscape
             // right after the piles in the bar row
             val pilesRight = PILE_START + (places - 1) * spacing + pileWidth - dp.scroll
-            val emblemArea = if (landscape) (Landscape.pilesRight(dockX, places) + 4f).let { x ->
+            val chipsArea = if (landscape) (Landscape.pilesRight(dockX, places) + 4f).let { x ->
                     val room = (dock.right - x).coerceAtLeast(0f)
-                    TableBounds(x, rowY + 4f, if (rooms.isEmpty()) minOf(room, EmblemChips.rowWidth(EmblemChips.chipCount(emblemTexts.size)))
-                        else room, rowHeight - 8f) }
+                    TableBounds(x, rowY + 4f, room, rowHeight - 8f) }
                 else TableBounds(pilesRight + 8f, rowY + 4f, width - pilesRight - 16f, dockRow - 8f)
                 .takeIf { it.width >= EmblemChips.MIN_AREA_WIDTH }
+            // TRN-072: the state chips' line takes the top of the row's room while there are emblems or a room chip too
+            val lined = stateChips.isNotEmpty() && emblemsOnly
+            val emblemArea = chipsArea?.let { a ->
+                val under = if (lined) a.copy(y = a.y + StateChips.LINE, height = a.height - StateChips.LINE) else a
+                if (landscape && rooms.isEmpty()) under.copy(width = minOf(a.width, EmblemChips.rowWidth(EmblemChips.chipCount(emblemTexts.size)))) else under
+            }
             val life = if (landscape) TableBounds(dockX, rowY + (rowHeight - Landscape.LIFE) / 2, Landscape.LIFE, Landscape.LIFE)
                 else TableBounds(10f - dp.scroll, rowY + 8f, 48f, 48f)
             val emblemChips = EmblemChips.round(emblemTexts.size, life, emblemArea, player.accountId != viewer,
                 EmblemChips.textLines(rooms, life, width))
             val textArea = emblemArea?.let { a -> if (emblemChips.isEmpty()) a
                 else a.copy(width = a.width - EmblemChips.rowWidth(emblemChips.size) - 6f) }
+            val placedStates = if (chipsArea != null) {
+                val y = if (lined) chipsArea.y else chipsArea.y + (chipsArea.height - StateChips.HEIGHT) / 2
+                // TRN-072: a second line beside the emblems, under the first, unless a room chip lies there
+                val y2 = chipsArea.y + StateChips.LINE + 2f
+                val beside = if (emblemChips.isEmpty()) 0f else EmblemChips.rowWidth(emblemChips.size) + 6f
+                val wrap = rooms.isEmpty() && chipsArea.height >= 2 * StateChips.LINE
+                val wrappedY = if (lined || !wrap) y else chipsArea.y + (chipsArea.height - 2 * StateChips.HEIGHT - 2f) / 2
+                val secondY = if (lined) y2 else wrappedY + StateChips.LINE
+                if (landscape) StateChips.rows(stateChips, chipsArea.width, if (StateChips.rowWidth(stateChips) <= chipsArea.width) y else wrappedY, start = chipsArea.x,
+                    room2 = if (wrap) chipsArea.width - beside else 0f, y2 = secondY, start2 = chipsArea.x + beside)
+                else StateChips.rows(stateChips, chipsArea.width, if (StateChips.rowWidth(stateChips) <= chipsArea.width) y else wrappedY, end = chipsArea.right,
+                    room2 = if (wrap) chipsArea.width - beside else 0f, y2 = secondY, end2 = chipsArea.right - beside)
+            } else {
+                // By the life square, past the room chips, on the emblems' line (TRN-053, TRN-069)
+                val texts = EmblemChips.textLines(rooms, life, width).sumOf { ChipText.HEIGHT.toDouble() + (it.coerceIn(1, EmblemChips.MAX_LINES) - 1) * ChipText.LINE + EmblemChips.GAP }.toFloat()
+                val below = player.accountId != viewer
+                val emblem = emblemChips.lastOrNull()
+                val x = emblem?.let { it.right + StateChips.GAP } ?: life.x
+                val y = emblem?.let { it.y + (it.height - StateChips.HEIGHT) / 2 }
+                    ?: if (below) life.bottom + ChipText.TAIL + 1f + texts else life.y - ChipText.TAIL - 1f - texts - StateChips.HEIGHT
+                StateChips.row(stateChips, width - x - 4f, y, start = x)
+            }
             items += TableItem("life/${player.accountId}", life,
                 "${name(player.accountId)}, life ${player.life}",
                 player.life, player.accountId, kind = TableItemKind.LIFE, viewport = dp.id,
-                emblems = rooms, emblemArea = textArea, emblemTexts = emblemTexts, emblemChips = emblemChips)
+                emblems = rooms, emblemArea = textArea, emblemTexts = emblemTexts, emblemChips = emblemChips, stateChips = placedStates)
             /** A small pile's 48 dp touch target in landscape, around it. */
             fun touch(b: TableBounds) = if (landscape) TableBounds(b.center.x - maxOf(48f, b.width) / 2,
                 b.center.y - maxOf(48f, b.height) / 2, maxOf(48f, b.width), maxOf(48f, b.height)) else null
@@ -740,6 +779,7 @@ object TablePresentation {
             item.cardId!! to realSources.getValue(item.sourceId!!).copy(sourceId = item.sourceId) }
         return clip(cardPanels(TableScene(items, fields, ports, cw, ch, envelope, camera, sources, drops, dividers,
              stackRegion = stackRegion, world = world, appearance = appearance,
+            dayNightChip = play.engine?.let { org.asyncttwiz.automatum.PlayerStates.dayOrNight(it.state) }?.let { StateChips.aboveStack(it, stackRegion) },
             combatLabels = labels, combatLaneDividers = laneDividers, combatPanel = combatPanel,
             combatBand = band.intersection(worldViewport), combatCardWidth = combatCard * zoom, combatCardHeight = combatCard * hudHeight / hudWidth * zoom,
             stackProjections = stackProjections, cardOwners = play.board.cards.associate { it.id to it.owner } +

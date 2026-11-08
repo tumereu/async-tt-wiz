@@ -149,9 +149,11 @@ internal object ChatBubbleLayout {
             item.countBadge?.let(::add)
             if (item.kind == TableItemKind.PILE && item.visible.isNotEmpty()) add(item.pileCountBubble)
             addAll(item.emblemChips)
+            item.stateChips.forEach { add(it.bounds) }
             item.emblemArea?.takeIf { item.emblems.isNotEmpty() }?.let(::add)
         }
         scene.stackRegion?.let(::add)
+        scene.dayNightChip?.let { add(it.bounds) }
         scene.cardPanels.forEach { add(it.bounds) }
         scene.combatPanel?.let(::add)
     }, listOf(TableBounds(0f, 0f, width, TablePresentation.HEADER), TableBounds(0f, height - bottom, width, bottom)))

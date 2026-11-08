@@ -149,3 +149,9 @@ number	item	screenshot	catalog	decisions
 148	Draft: Winston tables chip row	pod-winston-tables.png	DRF-156 DRF-157
 149	Draft: Rotisserie pick queue	pod-rotisserie-queue.png	DRF-164 DRF-153
 150	Draft: Booster draft history	pod-draft-history.png	DRF-165 DRF-160
+151	Card states on the chip	states/card-state-chips.png	TBL-133 TBL-113
+152	Inspect with states and a restriction	states/card-state-inspect.png	TBL-133 TBL-134 TBL-104
+153	Player state chips	states/player-chips-portrait.png	TRN-072 TRN-073 TRN-053
+154	Player state chips in landscape	states/player-chips-landscape.png	TRN-072 TRN-073 TBL-009
+155	Player state chips on a narrow screen	states/player-chips-narrow.png	TRN-072 TRN-053 TRN-069
+156	Holding a player state chip	states/player-chip-explained.png	TRN-072 TBL-132

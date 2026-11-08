@@ -38,6 +38,9 @@ The definition model (overview in `Definitions.kt`):
 - `ManaCost`/`ManaSymbol` (CR 107.4), `Color`, and basic vocabularies (`CardType`,
   `Zone`, `TurnStep`, `CounterKind`, `Status`, …).
 - `ComprehensiveRules.EFFECTIVE_DATE`: the pinned rules version (2026-09-25).
+- `RulesGlossary.states`, `state(id)`, `ringLevels`: the same plain words for what the rules keep on an object or a
+  player (a permanent's marks, goaded, phased out; monarch, initiative, speed, the Ring, day and night, player counters)
+  and what a Ring-bearer gets at each of the Ring's levels (CR 701.54c).
 - `RulesGlossary`: a plain-words explanation of every keyword (`KeywordKind.all`) and keyword action (`KeywordAction`
   types, plus scry, surveil, mill and fight), written in the library's own words, never the rules or reminder text;
   `named(text)` finds the keywords a text names (whole words, longest names first, variants such as megamorph and

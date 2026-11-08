@@ -65,7 +65,9 @@ internal fun cardPanelGeometry(play: TableBoard, viewer: String, ui: TableLayout
             else contentsEntries(play, display, viewer)
         // Picking targets: each card is its own object, so none are grouped
         val grouped = if (localZone != null && !ui.localPileTargets) panelGroups(entries) { id ->
-                play.board.cards.firstOrNull { it.id == id }?.typedCounters?.filter { it.count != 0 }.orEmpty() }
+                play.board.cards.firstOrNull { it.id == id }?.typedCounters?.filter { it.count != 0 }.orEmpty() +
+                    // ZON-094: a plotted copy doesn't lie with an unplotted one
+                    play.values?.computed?.exileStates?.get(id).orEmpty().map { org.asyncttwiz.protocol.TypedCounter(it, 1, 0) } }
             else if (localZone != null) entries.map { listOf(it) }
             else if (display.search && display.author == viewer) entries.groupBy {
                 it.name to (it.cardId in display.revealedIds)
@@ -111,6 +113,7 @@ internal fun cardPanels(scene: TableScene, play: TableBoard, viewer: String, pan
     val cards = play.board.cards.associateBy { it.id }
     val definitions = play.definitions.associateBy { it.digest }
     val containers = play.board.containers.associateBy { it.id }
+    val exileStates = play.values?.computed?.exileStates.orEmpty()
     val items = panels.flatMap { panel -> panel.rows.mapNotNull { row ->
         val card = cards[row.entry.cardId] ?: return@mapNotNull null
         val definition = definitions[card.definition]?.definition
@@ -128,7 +131,8 @@ internal fun cardPanels(scene: TableScene, play: TableBoard, viewer: String, pan
             corner = if (row.entry.faceVisible) effectiveCorner(card) else "",
             damage = if (row.entry.faceVisible) card.damage else "",
             copies = row.copies, token = card.token,
-            automatumMarks = counters,
+            // ZON-094: the state a card has in exile first, as on the battlefield (TBL-133)
+            automatumMarks = exileStates[card.id].orEmpty() + counters,
             typeIcon = if (row.entry.faceVisible) TablePresentation.cardTypeIcon(face?.typeLine.orEmpty()) else "",
             changedPowerToughness = row.entry.faceVisible && changedPowerToughness(card.corner, face))
     } }

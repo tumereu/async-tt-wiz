@@ -84,6 +84,8 @@ object TestCards {
 
     /** A free sorcery that gives its caster an emblem (TRN-053: the emblem's round chip by the life square). */
     val sigil = card("Ember Sigil", "Sorcery", "{0}", "You get an emblem with \"Creatures you control get +1/+1.\"")
+    /** A free sorcery: the Ring tempts its caster (TBL-133, TRN-072: a Ring-bearer's chip and the Ring's chip by the life square). */
+    val beckoning = card("Ember Beckoning", "Sorcery", "{0}", "The Ring tempts you.")
     /** A free creature whose enters trigger asks to pay {1} or not (STK-049: Pay or Don't pay). */
     val tollkeeper = card("Ember Tollkeeper", "Creature — Elemental", "{0}", "When this creature enters, you may pay {1}. If you do, draw a card.", "1", "1")
     /** A free legendary creature: a second one makes its controller keep one (CR 704.5j). */

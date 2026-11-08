@@ -24,6 +24,10 @@ Catalog review follow-ups (owner, 2026-11-08; the catalog was cleaned on w/catal
 - "My loss" leftover (internal, TRN-046 unchanged): ResultScreen.kt still offers "My loss" although Suggest game end offers only My win / Draw game; remove it, or the screen if nothing uses it.
 - Single version (AGENTS.md): remove code that keeps anything older working (old stored fields decoding, old HTTP reads, the deck-save old retry, old handshake formats, old-data refreshes) and with it LOB-112, the "downloaded again once" parts of LOB-110 and LOB-125, LOB-113's reading of settings from before Normal, LOB-135's "Games from before these settings have the defaults" and DRF-079's "Pods started before this change keep plain rotation". Ask the owner before anything that deletes or invalidates existing games.
 
+Small, not urgent (owner, 2026-11-08):
+
+- Opponent's modes and X on the Stack, shown and tested (STK-057, STK-018; test and screenshots only, no entry change): screenshots of the other player's modal spell and an X spell, each with the battlefield line and the Stack list, one gallery.tsv entry each; a unit test that the line and the Stack list show the chosen modes (X is already covered by StackLineTest). If the app doesn't show them as the entries say, report it.
+
 ## Ready after the e2e framework (owner playtest, 2026-11-05)
 
 Start none of these until the E2E framework above works. Each owner-reported bug gets an e2e test that fails before the fix.

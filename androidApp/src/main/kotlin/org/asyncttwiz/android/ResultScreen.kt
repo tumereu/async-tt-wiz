@@ -13,18 +13,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import org.asyncttwiz.protocol.*
 
-/** Reusable table-action content. I20 owns placement in the actual Table action catalog. */
-@Composable
-internal fun ResultSuggestionControls(target: ResultTarget, enabled: Boolean,
-    suggest: (ResultTarget, SuggestedResult) -> Unit) {
-    Column {
-        Text("Suggest a result")
-        for ((outcome, label) in listOf(SuggestedResult.WIN to "My win", SuggestedResult.LOSS to "My loss", SuggestedResult.DRAW to "Draw")) {
-            Button(onClick = { suggest(target, outcome) }, enabled = enabled) { Text(label) }
-        }
-    }
-}
-
 @Composable
 internal fun ResultTablePanel(model: ResultPresentation, controls: TableResultControls?, modifier: Modifier = Modifier) {
     Surface(modifier.widthIn(max = 320.dp), shape = MaterialTheme.shapes.small,

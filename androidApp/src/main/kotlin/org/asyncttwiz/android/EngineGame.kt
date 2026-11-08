@@ -231,6 +231,7 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
             }
             device = loaded; codec = json
             device.clock = clock
+            device.ownMainPass = { why -> AppLog.warn("game", gameLog.ownMainPass(device.model.engine, why)) }
             device.showPlays = showPlays
             device.assumeReveals(reveals)
             previous = if (undone != null) previous else null
@@ -880,6 +881,13 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
         device.advance(now)
         val drained = device.notes()
         if (device.status != before || device.session.tip != tip || device.request != request || drained.isNotEmpty()) publish(drained)
+    }
+
+    /** TRN-057 (reports P2XUER, 3WWPA8): a press of the main button on [board], which says [label], into the app log (main
+     * thread, before the press is acted on). */
+    fun logPress(board: TableBoard, label: String, hold: Boolean) {
+        val state = board.engine?.state ?: return
+        AppLog.info("game", gameLog.press(state, label, hold, shown?.engine))
     }
 
     /** LOB-089 (report KX8GYS): the board shown and what the player can do on it, into the app log, just before a problem report. */

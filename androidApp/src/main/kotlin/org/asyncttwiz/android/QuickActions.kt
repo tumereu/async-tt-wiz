@@ -146,20 +146,24 @@ fun QuickActionStrip(play: TableBoard, context: QuickContext, controller: TableA
             // TRN-063 (owner, 2026-11-06): a main button action is the player's own action, whose result the working sign
             // waits for; one not taken drops it
             fun own(action: () -> Boolean) { engine?.ownAction(); if (!action()) engine?.ownActionDropped() }
+            // TRN-057 (reports P2XUER, 3WWPA8): every press goes into the app log, with what the button said and the step
+            fun pressed(label: String, hold: Boolean = false) = engine?.engine?.logPress(play, label, hold)
+            val says = AutomatumStep.of(play, control).label
             val working = rememberSlowActionSign { engine?.ownActionPending(play) == true } && (arrow || wait != null)
             Box(Modifier.width(MainButtonWidth).shaken(mainShakes)) {
                 if (arrow) AutomatumStepArrow(play, controller.enabled(scope), Modifier.fillMaxWidth(),
-                    onHold = { own { perform(TableActionIntent.End(scope)) } },
+                    onHold = { pressed(says, hold = true); own { perform(TableActionIntent.End(scope)) } },
                     // TRN-017, STK-029 (owner 2026-11-07): holding Resolve is the Resolve chain
-                    onResolveHold = engine?.let { routes -> { own { routes.holdResolve() } } },
+                    onResolveHold = engine?.let { routes -> { pressed(says, hold = true); own { routes.holdResolve() } } },
                     blocked = stepBlocked(play, context.castOpen, context.automatumCombat, context.revealOpen),
                     resolveTip = "Resolve: pass, so the top of the Stack resolves once ${engine?.opponentName ?: "the other player"} passes too",
-                    main = main?.let { m -> MainAction(m.label, m.icon, m.refusal, m.tooltip) { own { m.run(); true } } }, control = control) {
+                    main = main?.let { m -> MainAction(m.label, m.icon, m.refusal, m.tooltip) { pressed(m.label); own { m.run(); true } } }, control = control) {
+                    pressed(says)
                     own { perform(TableActionIntent.Next(scope)) }
                 }
                 else if (wait != null) EngineWaitArrow(EngineTableRoutes.WaitAction(wait.label, wait.icon, wait.tooltip, wait.refusal,
-                    wait.hold?.let { hold -> { own { hold(); true } } }, wait.holdName) {
-                    own { wait.run(); true } }, Modifier.fillMaxWidth())
+                    wait.hold?.let { hold -> { pressed(wait.label, hold = true); own { hold(); true } } }, wait.holdName) {
+                    pressed(wait.label); own { wait.run(); true } }, Modifier.fillMaxWidth())
                 else Spacer(Modifier.fillMaxWidth().height(48.dp))
                 if (working) SlowActionShimmer(Modifier.matchParentSize().clip(AdvanceArrowShape))
                 if (unconfirmed) EngineUnconfirmedMark(engine!!.opponentName, Modifier.align(Alignment.TopStart).offset((-10).dp, (-10).dp))
@@ -213,7 +217,8 @@ internal fun ActionSquare(name: String, glyph: String, enabled: Boolean, modifie
         if (pressed && enabled) drawRect(foreground.copy(alpha = .16f))
     }.onKeyEvent { event ->
         if (enabled && event.key in listOf(Key.Enter, Key.Spacebar, Key.DirectionCenter)) {
-            if (event.type == KeyEventType.KeyUp) click()
+            // TRN-057 (reports P2XUER, 3WWPA8): a press that isn't a finger on the screen says so in the app log
+            if (event.type == KeyEventType.KeyUp) { AppLog.info("game", "A key pressed $name"); click() }
             true
         } else false
     }.focusable(enabled).semantics(mergeDescendants = true) {
@@ -221,7 +226,7 @@ internal fun ActionSquare(name: String, glyph: String, enabled: Boolean, modifie
         role = Role.Button
         if (!enabled) disabled()
         this.selected = selected
-        onClick(name) { if (enabled) { click(); true } else false }
+        onClick(name) { if (enabled) { AppLog.info("game", "An accessibility action pressed $name"); click(); true } else false }
         if (holdName != null) customActions = listOf(CustomAccessibilityAction(holdName) {
             if (enabled) { currentPerformHold?.invoke(); true } else false
         })

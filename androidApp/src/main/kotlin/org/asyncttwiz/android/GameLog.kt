@@ -43,6 +43,19 @@ internal class GameLog(gameId: String, private val me: PlayerId) {
         options?.let { append("; can do [${it.mapNotNull { input -> describe(state, input) }.joinToString(", ")}]") }
     }
 
+    /**
+     * TRN-057 (reports P2XUER, 3WWPA8): a press of the main button, so that a report can tell a press from the device's own
+     * steps: a tap or a [hold] of what it says ([label]) on the board [state] it was pressed on; with [newest], the board the
+     * device had reached by then when it is at another point.
+     */
+    fun press(state: GameState, label: String, hold: Boolean, newest: GameState? = null): String = buildString {
+        append("$game ${at(state)}: main button ${if (hold) "hold" else "tap"} \"$label\"")
+        if (newest != null && at(newest) != at(state)) append(" (the device is at ${at(newest)})")
+    }
+
+    /** TRN-057, STK-053: the device itself passed this player's own main phase on [state], for [why] ([org.asyncttwiz.protocol.game.GameDevice.ownMainPass]). */
+    fun ownMainPass(state: GameState, why: String) = "$game ${at(state)}: the device passed the player's own main phase: $why"
+
     private fun at(s: GameState) = "turn ${s.turn.number} ${s.turn.step}"
 
     private fun zones(s: GameState): Map<String, List<String>> {

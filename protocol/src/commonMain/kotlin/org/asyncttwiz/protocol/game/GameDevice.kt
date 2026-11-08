@@ -157,6 +157,11 @@ class GameDevice(
      */
     var clock: (() -> Long)? = null
 
+    /** TRN-057, STK-053 (reports P2XUER, 3WWPA8): told when the device itself makes a pass of its player's at their own main
+     * phase, which only a press of theirs may do: a press lost in a race being made again (SYS-011), or anything else (a
+     * fault). An End turn going on isn't told: its press is logged, and passing there is what it does. The host logs it. */
+    var ownMainPass: ((why: String) -> Unit)? = null
+
     /** The information rule's time so far, in nanoseconds, while [clock] is set (the caller takes differences). */
     var informationNanos: Long = 0L
         private set
@@ -758,6 +763,7 @@ class GameDevice(
             if (held()) return false
             val input = own(s) ?: return false
             if (reveals["${session.tip}:$input"] == true) { endChain("press would show hidden cards"); return false }
+            if (input is Input.PassPriority && Stops.stop(s, input.player) && endTurn != s.turn.number) ownMainPass?.invoke("by itself")
             // Spec rule 6 (owner 2026-11-06): the device's own pass is exactly a press of Resolve or the step arrow
             return (act(input, emptyList(), { null }, null, automatic = true) is Acted.Sent).also { made -> if (!made) endChain("press not made") }
         }
@@ -1856,6 +1862,9 @@ class GameDevice(
             c is TableChange.AttackDraft && c.before == c.after || c is TableChange.BlockDraft && c.before == c.after
         } ?: return null
         val rest = ArrayDeque(move.inputs.drop(1))
+        (move.inputs.first() as? Input.PassPriority)?.let { pass ->
+            if (Stops.stop(model.engine, pass.player)) ownMainPass?.invoke("a press lost in a race, made again")
+        }
         return act(move.inputs.first(), table, { rest.removeFirstOrNull() }, null)
     }
 

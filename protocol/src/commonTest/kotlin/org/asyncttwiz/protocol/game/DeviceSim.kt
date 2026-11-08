@@ -89,7 +89,28 @@ internal class DeviceSim(val games: EngineGames, every: Int = 16) {
     /** The leak oracle on [device]: every event shown while the player's line is tentative on the server. */
     private fun watch(device: GameDevice) {
         device.session.beforeShow = { before, event -> check(device, before, event) }
-        device.session.onSent = { before, event -> check(device, before, event) }
+        device.session.onSent = { before, event -> check(device, before, event); ownMain(device, before, event) }
+        device.ownMainPass = { why -> ownMainTold += why }
+    }
+
+    /** Whether a device's own steps are being made now ([automatically]), not a press of its player's. */
+    private var automatic = false
+    /** The turn of each player's latest End turn, which passes their own main phases for them (TRN-057). */
+    val endTurns = mutableMapOf<PlayerId, Int>()
+    /** STK-053's oracle: the passes of a player's own main phase their device made by itself, but for their End turn and a
+     * press of theirs lost in a race and made again (SYS-011: it is that press), which it tells ([GameDevice.ownMainPass]). */
+    val ownMainPasses = mutableListOf<String>()
+    private val ownMainTold = mutableListOf<String>()
+
+    /** [work] as the device's own steps (the player pressed nothing). */
+    fun <T> automatically(work: () -> T): T { automatic = true; try { return work() } finally { automatic = false } }
+
+    private fun ownMain(device: GameDevice, before: arcanum.engine.state.GameState, event: GameEvent) {
+        val me = device.me
+        if (!automatic || event.author != me.value || event.engine?.steps?.firstNotNullOfOrNull { it.input } != Input.PassPriority(me) ||
+            !Stops.stop(before, me) || endTurns[me] == before.turn.number) return
+        val madeAgain = device.recentRecord(1).any { it.startsWith("remake") }
+        if (!madeAgain || ownMainTold.removeLastOrNull() == null) ownMainPasses += "${me.value} on turn ${before.turn.number} ${before.turn.step}: ${device.recentRecord(12)}"
     }
 
     private fun check(device: GameDevice, before: arcanum.engine.state.GameState, event: GameEvent) {
@@ -240,7 +261,7 @@ internal class DeviceSim(val games: EngineGames, every: Int = 16) {
             var moved = false
             for (p in only) {
                 if (device(p).status != GameDevice.Status.CatchUp && device(p).playToStop().isNotEmpty()) moved = true
-                device(p).advance(now)
+                automatically { device(p).advance(now) }
                 val out = device(p).take(now)
                 if (out.isNotEmpty()) moved = true
                 for (a in out) handle(p, a)

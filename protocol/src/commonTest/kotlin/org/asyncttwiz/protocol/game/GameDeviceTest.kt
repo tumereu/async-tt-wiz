@@ -533,6 +533,23 @@ class GameDeviceTest {
         settle()
     }
 
+    // SYS-012 (owner, 2026-11-08): a refused own action names what it was made on, the card played here, so the table
+    // shakes that card; a pass names nothing (the main button shakes)
+    @Test
+    fun aRefusedActionNamesWhatItWasMadeOn() {
+        val sim = spells("Storm Spark")
+        val alice = sim.alice
+        sim.start(alice)
+        val alices = sim.device(alice)
+        sim.keepWhileAway(alice)
+        val forest = hand(alices.model, alice, "Forest")
+        assertIs<GameDevice.Acted.Sent>(alices.act(Input.PlayLand(alice, forest)))
+        val submit = alices.take(sim.now).filterIsInstance<org.asyncttwiz.protocol.GameAction.Submit>().last()
+        alices.refused(submit, "refusedByEngine")
+        assertEquals(GameDevice.Note.Refused("refusedByEngine", forest), alices.notes().filterIsInstance<GameDevice.Note.Refused>().single())
+        assertEquals(null, GameDevice.madeOn(listOf(Input.PassPriority(alice))))
+    }
+
     // I-D56 §6: a table-only event (a result suggestion) made while behind goes at the head and doesn't move the
     // author's local head; staging and early answers behind the head stay on the device; one that crosses an engine input
     // on the wire is refused as stale and made again at the new head; an engine input that crosses the other player's

@@ -286,6 +286,13 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
     var shaking by mutableStateOf<Shake?>(null); private set
     private var shakes = 0
     fun shake(id: String) { error = null; shaking = Shake(id, ++shakes); refusedTap() }
+    /** SYS-012, SYS-053: bumped to shake the main button, for a refusal made on it or on nothing the table shows. */
+    var mainShakes by mutableIntStateOf(0); private set
+    /** SYS-012, SYS-069 (owner, 2026-11-08): a refusal of the player's own action shakes the card [card] it was made on
+     * when the table shows it, else the main button; the board shows where the game is. */
+    fun refusedShake(card: String?) {
+        if (card != null && current()?.board?.cards?.any { it.id == card } == true) shake(card) else { error = null; mainShakes++ }
+    }
 
     /** TBL-118, HIS-075: bumped by every refusal (a shake, a greyed control's tap) while the game waits for the other
      * player's choice ([EngineRoutes.othersChoice]): the event text saying so flashes once in the warning colour. */
@@ -335,7 +342,15 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
 
     private fun enqueue(action: PlayAction, invocationId: String?): Boolean {
         if (lastInvocation != invocationId) { lastInvocation = invocationId; error = null }
-        refusal(action)?.let { if (it == CastController.BUSY || it == SharedFlowController.BUSY || it == REVEAL_BUSY) busyShake() else error = it; return false }
+        refusal(action)?.let {
+            when (it) {
+                CastController.BUSY, SharedFlowController.BUSY, REVEAL_BUSY -> busyShake()
+                // SYS-069: a change made by hand shakes what it was made on (or the main button), without a message
+                AutomatumDrags.MANUAL -> refusedShake(castGesture ?: capture?.contextViewId ?: popupItem?.id)
+                else -> error = it
+            }
+            return false
+        }
         return (engineDraft?.add(action) ?: gameplay(action, invocationId)).also { sent ->
             if (!sent) error = "Action could not be queued. Reconnect and try again."
         }
@@ -415,7 +430,7 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
                     else -> e.pass()
                 }
                 is TableActionIntent.End -> e.endTurn()
-                else -> { error = SharedFlowController.STEPS_FORWARD; false }
+                else -> false
             }
         }
         return false

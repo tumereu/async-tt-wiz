@@ -97,7 +97,9 @@ class ActionPress(private val assignedHold: Boolean) {
 fun QuickActionStrip(play: TableBoard, context: QuickContext, controller: TableActionController,
     endingPlayerColor: Color, modifier: Modifier = Modifier, perform: (TableActionIntent) -> Boolean = controller::perform,
     /** I-D46 (c): sends the viewer's own Automatum setting changes (Skip when I have no choice). */
-    submit: (PlayAction) -> Boolean = { false }) {
+    submit: (PlayAction) -> Boolean = { false },
+    /** SYS-012: goes up to shake the main button (a refusal of an action made on it). */
+    mainShakes: Int = 0) {
     if (!context.playable) return
     // I-D46 (c): with Automatum on the row is the viewer's Automatum toggles, on either player's turn
     val toggles = AutomatumToggles.shown(play, context)
@@ -145,7 +147,7 @@ fun QuickActionStrip(play: TableBoard, context: QuickContext, controller: TableA
             // waits for; one not taken drops it
             fun own(action: () -> Boolean) { engine?.ownAction(); if (!action()) engine?.ownActionDropped() }
             val working = rememberSlowActionSign { engine?.ownActionPending(play) == true } && (arrow || wait != null)
-            Box(Modifier.width(MainButtonWidth)) {
+            Box(Modifier.width(MainButtonWidth).shaken(mainShakes)) {
                 if (arrow) AutomatumStepArrow(play, controller.enabled(scope), Modifier.fillMaxWidth(),
                     onHold = { own { perform(TableActionIntent.End(scope)) } },
                     // TRN-017, STK-029 (owner 2026-11-07): holding Resolve is the Resolve chain

@@ -907,7 +907,7 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
      * one acting point; the device answers the randomness and makes the passes that follow by itself. */
     fun send(inputs: List<Input>, table: List<TableChange> = emptyList()): GameDevice.Acted {
         if (inputs.isEmpty()) return GameDevice.Acted.Refused("nothing")
-        return early("send") { performed ->
+        return early("send", on = GameDevice.madeOn(inputs)) { performed ->
             val first = inputs.first()
             val rest = inputs.drop(1).iterator()
             // I-D54 §8: a declaration ends the shared staging of it in the same event (at the head; at a decision stop the
@@ -921,7 +921,7 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
     }
 
     /** One input of the player's own (a pass, a keep, a concession). */
-    fun act(input: Input): GameDevice.Acted = early("act") { performed -> device.act(input, performed = performed) }
+    fun act(input: Input): GameDevice.Acted = early("act", on = GameDevice.madeOn(listOf(input))) { performed -> device.act(input, performed = performed) }
 
     /** The step arrow's End turn (TRN-057): the device passes for the player until the turn ends. SYS-011 (smoke
      * 2026-11-04): tapped on a board the device has moved on from within the player's own turn (its own steps after
@@ -1147,7 +1147,7 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
      * A refusal after that (what follows by itself would show a hidden card on a tentative line, TRN-067, or an engine
      * failure) is told as a note and the board goes back. Without the performed point (refused before it) it is [acting].
      */
-    private fun early(what: String, done: ((Shown) -> GameDevice.Acted?)? = null,
+    private fun early(what: String, done: ((Shown) -> GameDevice.Acted?)? = null, on: arcanum.engine.state.ObjectId? = null,
         work: (performed: () -> Unit) -> GameDevice.Acted): GameDevice.Acted {
         val board = shown
         val seen = board?.version
@@ -1198,7 +1198,7 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
                 timing.after(timing.boardEnd!!, clock(), informationNanos() - shownInfo)
                 if (acted is GameDevice.Acted.Refused) {
                     takenBack("own $what refused on the device after it showed: ${acted.reason}", tip, local)
-                    worker.main { notes.add(GameDevice.Note.Refused(acted.reason)) }
+                    worker.main { notes.add(GameDevice.Note.Refused(acted.reason, on)) }
                 }
             }
             after(timing, shownEarly = early)

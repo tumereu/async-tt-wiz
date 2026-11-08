@@ -323,8 +323,10 @@ class GameDevice(
         data class TakenBack(val by: PlayerId, val takenBack: List<GameEvent>) : Note
         /** Taking back to [target] needs the other player's approval (an undo request). */
         data class RequestNeeded(val target: String) : Note
-        /** The server refused something for [reason]. */
-        data class Refused(val reason: String) : Note
+        /** The server refused something for [reason]; [on] is the object the refused action was made on (the card cast or
+         * played, the source activated, [madeOn]), null for one made on the main button (a pass, a declaration, an
+         * answer). */
+        data class Refused(val reason: String, val on: ObjectId? = null) : Note
     }
 
     /** What an action of the player's did. */
@@ -1665,7 +1667,8 @@ class GameDevice(
                 if (submission.acts.isEmpty() && reason == "stale") retry += Retry(submission.table, submission.parentId)
                 // The player's own action is never dropped silently (an opening declaration is made again instead); the
                 // device's own passes and assumptions lost in the expected races are (I-D56 §8)
-                else if ((!race || mine) && !again) note(Note.Refused(reason))
+                else if ((!race || mine) && !again) note(Note.Refused(reason,
+                    madeOn(submission.acts.mapNotNull { (it as? Act.Perform)?.takeIf { p -> !p.assumed }?.input })))
                 checkDraft()
             }
             is GameAction.EngineRewind -> note(if (reason == "requestNeeded") Note.RequestNeeded(action.target) else Note.Refused(reason))
@@ -2058,6 +2061,15 @@ class GameDevice(
         const val REWIND_REQUESTED = "rewindRequested"
         /** The note of a draft the main line dropped under it (a branch, a rewind, another event at the head). */
         const val DRAFT_DROPPED = "draftDropped"
+
+        /** The object an action of [inputs] was made on, by its first input: the card cast or played, the source
+         * activated; null for anything made on the main button (a pass, a declaration, an answer). */
+        fun madeOn(inputs: List<Input>): ObjectId? = when (val first = inputs.firstOrNull()) {
+            is Input.Cast -> first.card
+            is Input.PlayLand -> first.card
+            is Input.Activate -> first.source
+            else -> null
+        }
         /** Events a device keeps before the earlier local head (undo targets and request previews further back come
          * from the server). */
         const val KEPT_EVENTS = 64

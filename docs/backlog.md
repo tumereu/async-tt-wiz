@@ -10,9 +10,36 @@ Changes the owner wants but that are not built yet. The feature catalog
 
 ## Build order (owner, 2026-11-05: one implementor at a time, small items batched, full suites after each batch)
 
-2026-11-08: beta6 and beta7 batches all built (gameplay notes, draft notes, catalog review follow-ups, draft history / Winston tables / Rotisserie queue, Side + Maybe, single-version rest, invitation notifications). Nothing running.
+2026-11-08: beta6 and beta7 batches all built (gameplay notes, draft notes, catalog review follow-ups, draft history / Winston tables / Rotisserie queue, Side + Maybe, single-version rest, invitation notifications).
+
+2026-11-08 beta7 playtest notes: start after the KX8GYS hotfix is deployed. Bug first, then the table batch; the draft stats and card states batches each have their own implementor. All merged, full suites and e2e green → prod release (owner approved in advance).
 
 ## Ready to build
+
+Bug (owner, 2026-11-08; reports P2XUER, 3WWPA8):
+
+- A player's first main phase was skipped: in turn 13 of a beta7 game their phone sent the passes that lead from main 1 to declare attackers 30.0 s after the main phase began (server 11:33:44.290 → 11:34:14.284), and they say they didn't press. Presence updates also run every 30 s; no link found yet. Reproduce in e2e (wait 30 s at main 1 with the opponent connected, right after the opponent's End turn) and fix (TRN-057, STK-036 say nothing passes your main phase but your press). Also log every main-button press in release builds, so the next case can tell a tap from automation. If it doesn't reproduce, report what was tried; the logging still ships.
+
+Table batch (owner, 2026-11-08):
+
+- Turn banner (new entry): at a turn change "Your turn" / "<name>'s turn" shows at the screen's centre and fades in about 1.2 s, taking no touches, live and in catch-up playback, never in timeline mode; in order with plays shown (HIS-112).
+- Your move cue (TRN-058, TRN-063): when the move passes to you from the other player, one haptic tick and one main-button pulse in your colour; never for your own chain of steps.
+- Leaving your own main phase is an undo point (HIS-084, HIS-099, HIS-101, HIS-005): tapping the main button out of your main phase is an event on the timeline ("You went to combat") that one Undo returns to, so a mistaken tap needs no rewind into the other player's turn.
+- Timeline exit (HIS-010, HIS-015): at the last event the Auto/Pause button reads "Exit timeline" and a tap leaves timeline mode at once; Next stays a plain arrow.
+- Piles (TBL-053, TBL-129, TBL-027): tapped members lie on top of a stack, re-sorted only when stacks merge; entered this turn splits only creatures, so other permanents join their stack at once (the "2 sick" idea below stays separate).
+- Combat stays readable (HIS-104, HIS-112, TBL-125, LOB-082): a combat that goes by itself holds your view (never the game, as plays shown does) on the attackers shown and on the damage, for the "Show the other player's plays" time (the same setting, 0 = no hold), a tap skipping it. Declaring no attackers holds nothing.
+- Chat bubbles (LOB-136, LOB-137, LOB-140): bubbles always start at the life square and may cover anything, hand cards included; the rule finding other room goes. Write (LOB-139) focuses the chat's input and opens the keyboard.
+
+Draft stats batch (owner, 2026-11-08):
+
+- Basics dialog (DRF-103): "Basics N · Lands M" on the Done button's left, updating live.
+- Pips and sources (DRF-114): each colour shows "pips / sources" then two bars: its share of all pips and its share of all sources (the sum over colours, a dual land counting for both), on one shared scale; sources keep the lighter "other producers" part.
+- Pip counts (DRF-116): the "3× {R}{R}" lines become chips flowing in rows.
+- Mana curve (DRF-111): a Type | Colour toggle; Colour stacks W U B R G, gold and colourless.
+
+Card states batch (owner, 2026-11-08; own implementor):
+
+- Audit what the rules state holds and the table doesn't show, then show it (TBL-113, TBL-104, TRN-053). Card states such as Ring-bearer, goaded, monstrous, renowned, suspected, saddled: a word on the chip, a line in Inspect, the hold explanation (TBL-132). Player states such as monarch, initiative, city's blessing, speed, day/night, the Ring's level: chips by the life square, like emblems. Restrictions such as "can't block", "can't attack", "can't be blocked", "doesn't untap": lines in Inspect, adding what Arcanum's public view needs (owner reviews the API addition with the results).
 
 Small, not urgent (owner, 2026-11-08):
 

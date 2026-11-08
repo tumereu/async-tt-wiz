@@ -1,8 +1,7 @@
 # Feature catalog
 
 The list of everything the app does today that the owner wants kept. It is the
-single source of truth for current behaviour: when it disagrees with older spec
-text in `docs/design/` or `docs/decisions.md`, the catalog wins.
+single source of truth for current behaviour.
 
 ## Files
 

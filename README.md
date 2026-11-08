@@ -12,10 +12,8 @@ the app records and presents what happened, the players interpret the rules
 
 ## Docs
 
-- [Product principles](docs/design/01-product/overview.md) — start here
-- [Design index](docs/README.md) — experience, contracts, technical design
-- [UI mockups](docs/design/02-experience/ui/README.md) — portrait/landscape images in `images/`
-- [Decision log](docs/decisions.md)
+- [Feature catalog](docs/features/README.md) — what the app does today; start here
+- [Docs index](docs/README.md) — roadmap, backlog, specs
 
 ## Build and test
 

@@ -634,7 +634,7 @@ Parser coverage grows alongside every phase, in frequency order.
   resolution" — would allow an optional assistant that does.
 - **SYS-002** "Nothing is guessed from card names or rules text" — definitions come
   from rules text (parsed, not guessed).
-- **P-056** (`docs/design/03-contracts/product.md`) "No authoring UI/executable rules".
+- **P-056** (the old product contract, since deleted) "No authoring UI/executable rules".
 - **TBL-021–024, TBL-078–079, TBL-082, TBL-085–086** — P/T, counters, durations and
   keywords when automation is on (§7.1).
 - **ZON-004 / STK-004** — double tap becomes Cast (§7.2).

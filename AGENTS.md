@@ -25,8 +25,6 @@ build anything outside the task you were given.
 | `docs/roadmap.md` | Long-term product direction |
 | `docs/backlog.md` | Approved changes not built yet; an item you build is deleted there in the same commit |
 | `docs/specs/` | Specs of larger approved changes not built yet; deleted once built |
-| `docs/design/` | Older, larger spec of the hand-moved tabletop. Tier 1 `01-product/overview.md` → Tier 3 contracts in `03-contracts/`; its rules versions and compatibility parts never apply |
-| `docs/design/02-experience/ui/` | UI mockups: `images/*.png` (portrait/landscape), `review.md` notes, `feedback.md` owner feedback |
 
 Read the catalog files your task touches before changing code. Read only the
 spec sections your task needs; where the spec and the catalog disagree, the

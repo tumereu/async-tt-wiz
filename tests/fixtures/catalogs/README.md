@@ -90,7 +90,6 @@ defaults, identities, update deltas and file/content hashes. Mutation regression
 reject tampering and malformed reciprocal relationships even after rehashing.
 
 No normal downloader, import parser, HTTP service, game fixture injection or Android
-acceptance is implemented by these files. Follow the
-[E2E strategy](../../../docs/design/05-verification/e2e-strategy.md): users/decks-only
+acceptance is implemented by these files. Follow the E2E strategy: users/decks-only
 pre-scenario helpers, all measured actions through both normal UIs, reset only
 between independent tests and retain state within recovery journeys.

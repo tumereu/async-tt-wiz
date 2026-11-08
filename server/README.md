@@ -108,5 +108,3 @@ password or signs in. Keep proxy access logs off or redact token queries.
 - [Definitions and saved decks](DECKS.md)
 - [Contacts, game lists and invitations](LOBBY.md)
 - [Ordered game service, synchronization and history](GAMES.md)
-- [Authentication design](../docs/design/04-technical/authentication-and-sessions.md)
-- [Storage mechanics](../docs/design/04-technical/storage-mechanics.md)

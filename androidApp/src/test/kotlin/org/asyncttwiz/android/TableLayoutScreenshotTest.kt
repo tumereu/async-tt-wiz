@@ -64,8 +64,8 @@ class TableLayoutScreenshotTest {
         // TBL-009: landscape's rows in the bars
         compose.onRoot().captureShot(output.path, if (landscape) "Landscape table layout $contents: the opponent's life " +
             "square (120), library, graveyard and exile in the top bar after the turn header, before their hand; yours (life " +
-            "-105) at the left end of the bottom bar, left of the quick actions; the battlefields across the whole width and " +
-            "the Stack at the right edge."
+            "-105) at the left end of the bottom bar, then your hand in the bar, then the quick actions; the battlefields across " +
+            "the whole width and the height between the bars, and the Stack at the right edge."
             else "Portrait table layout $contents, each player's empty Temp 1 showing, your life -105, opponent's 120, $counters.")
         val image = ImageIO.read(output)
         assertEquals(if (landscape) 892 else 412, image.width)

@@ -333,11 +333,22 @@ object TablePresentation {
         fun emblemRoom(width: Float, places: Int) = (width - TOOLBAR - 10f - MIN_OPPONENT_HAND - 10f -
             pilesRight(opponentX(width), places) - 4f).coerceIn(MIN_EMBLEMS, EMBLEMS)
         /** The right end of a player's row: life square, [places] piles (the dungeon's the fourth, TRN-069) and the
-         * emblems' room. Yours ([own], in the bottom bar left of the controls, which take its right half) always keeps
-         * room for the dungeon, so its end (where the timeline panel's strip starts) never moves. */
-        fun rowRight(width: Float, own: Boolean, places: Int = 3) =
-            if (own) minOf(pilesRight(OWN_X, 4) + 4f + EMBLEMS, width / 2 - 4f)
+         * emblems' room. Yours ([own], in the bottom bar before your hand) has the emblems' room only while you have
+         * emblems or a dungeon room chip ([emblems]), fitted as the opponent's is ([ownEmblemRoom]). */
+        fun rowRight(width: Float, own: Boolean, places: Int = 3, emblems: Boolean = false) =
+            if (own) pilesRight(OWN_X, places) + if (emblems) 4f + ownEmblemRoom(width, places) else 0f
             else pilesRight(opponentX(width), places) + 4f + emblemRoom(width, places)
+        /** Your emblems' room after [places] piles: it gives way to your hand down to [MIN_OWN_HAND] before the controls,
+         * down to [MIN_EMBLEMS]. */
+        fun ownEmblemRoom(width: Float, places: Int) = (width - controls(width) - 8f - MIN_OWN_HAND -
+            pilesRight(OWN_X, places) - 4f).coerceIn(MIN_EMBLEMS, EMBLEMS)
+        /** TBL-009 (owner, 2026-11-08): the bottom bar's right end, one width whatever shows there (Undo, the quick actions
+         * and the main button; in timeline mode its strip and Previous / Auto / Next), so your hand left of it never changes
+         * width: [CONTROLS], at most half the bar. */
+        fun controls(width: Float) = minOf(CONTROLS, width / 2)
+        const val CONTROLS = 416f
+        /** The narrowest your hand gets in the bottom bar (a card and its count) before your emblems' room gives way. */
+        const val MIN_OWN_HAND = 64f
     }
 
     fun scene(game: GameSummary, play: TableBoard, viewer: String, width: Float, height: Float, landscape: Boolean,
@@ -392,7 +403,9 @@ object TablePresentation {
         val dockSpacing = if (landscape) Landscape.PILE_PITCH else pileWidth + 12f
         val gridWidth = minOf(132f, width * .34f)
         val boardTop = HEADER + 4f + if (landscape) (handHeight - hudHeight).coerceAtLeast(0f) else 0f
-        val boardBottom = height - controlsHeight - if (landscape) railHeight + 8f else 4f
+        // TBL-009 (owner, 2026-11-08): in landscape your hand sits in the bottom bar (taller cards reach above it)
+        val ownHandHeight = maxOf(HEADER, railHeight)
+        val boardBottom = if (landscape) minOf(height - controlsHeight, height - 4f - ownHandHeight) - 4f else height - controlsHeight - 4f
         val ownDockY = height - controlsHeight - dockRow
         val worldTop = if (landscape) boardTop else HEADER + dockRow + railHeight
         val worldBottom = if (landscape) boardBottom else ownDockY - railHeight
@@ -519,6 +532,10 @@ object TablePresentation {
             // TRN-069: the player's dungeon in the command zone takes a fourth place after the piles
             val dungeon = play.engine?.let { org.asyncttwiz.automatum.EngineProjection.dungeon(it.state, player.accountId) }
             val places = if (dungeon != null) 4 else 3
+            // TRN-053 (owner gallery review 2026-11-06): the emblems as round chips, after the room chip (TRN-069)
+            val rooms = listOfNotNull(dungeon?.room?.takeIf { it.isNotEmpty() }?.let { "Room: $it" })
+            val emblemTexts = EmblemChips.texts(play.board, player.accountId)
+            val emblems = rooms.isNotEmpty() || emblemTexts.isNotEmpty()
             val hand = container(player.accountId, PlayZone.HAND).let { hand ->
                 // UI review round 2 #9 (decided for the owner): with Automatum on a spell cast from a hand leaves it at once:
                 // its card isn't drawn in the hand while its entry is on the Stack (the card stays there, STK-001)
@@ -529,8 +546,11 @@ object TablePresentation {
                 if (landscape) Landscape.rowRight(width, own = false, places).let { left -> TableBounds(left + 10f, 2f,
                     (width - toolbarWidth - 10f - left - 10f).coerceAtLeast(handWidth), maxOf(HEADER, railHeight)) }
                 else TableBounds(8f, worldTop - railHeight, width - 16f, railHeight)
-            } else TableBounds(if (landscape) 10f else 8f, (if (landscape) height - controlsHeight else ownDockY) - railHeight - if (landscape) 2f else 0f,
-                 (width - (if (landscape) 20f else 16f)).coerceAtLeast(28f), railHeight)
+            } else if (landscape) {
+                // TBL-009 (owner, 2026-11-08): in the bottom bar, after your life square, piles and emblems, up to the controls
+                val left = Landscape.rowRight(width, own = true, places, emblems) + 6f
+                TableBounds(left, height - 4f - ownHandHeight, (width - Landscape.controls(width) - left).coerceAtLeast(handWidth), ownHandHeight)
+            } else TableBounds(8f, ownDockY - railHeight, (width - 16f).coerceAtLeast(28f), railHeight)
             val handBounds = normalHandBounds
             val handContent = if (hand.cards.isEmpty()) 0f else (hand.cards.size - 1) * (handWidth + 4f) + handWidth
             val hp = port(hand.id, handBounds.copy(width = (handBounds.width - 24f).coerceAtLeast(1f)), handContent, true)
@@ -574,7 +594,7 @@ object TablePresentation {
             val shrink = portraitCounters >= MIN_SHRUNK_COUNTER_GRID
             // TBL-009: in landscape the row starts after the turn header in the top bar, or at the bottom bar's left end
             val dockX = if (!landscape) 0f else if (ownSide) Landscape.OWN_X else Landscape.opponentX(width)
-            val dockWidth = if (landscape) Landscape.rowRight(width, ownSide, places) - dockX
+            val dockWidth = if (landscape) Landscape.rowRight(width, ownSide, places, emblems) - dockX
                 else if (portraitCounters >= gridWidth) width - gridWidth
                 else if (shrink) portraitDock
                 else maxOf(width - gridWidth, minOf(portraitDock, width))
@@ -585,9 +605,6 @@ object TablePresentation {
             fun pileX(n: Int) = if (landscape) Landscape.pilesRight(dockX, n) + (Landscape.PILE_PITCH - pileWidth) / 2
                 else PILE_START + n * spacing - dp.scroll
             val pileY = if (landscape) rowY + (rowHeight - pileHeight) / 2 else rowY + 12f
-            // TRN-053 (owner gallery review 2026-11-06): the emblems as round chips, after the room chip (TRN-069)
-            val rooms = listOfNotNull(dungeon?.room?.takeIf { it.isNotEmpty() }?.let { "Room: $it" })
-            val emblemTexts = EmblemChips.texts(play.board, player.accountId)
             // TRN-053: in portrait the emblem chips sit in the empty room right of the piles, clear of the hands; in landscape
             // right after the piles in the bar row
             val pilesRight = PILE_START + (places - 1) * spacing + pileWidth - dp.scroll

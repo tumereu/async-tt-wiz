@@ -16,7 +16,6 @@ Changes the owner wants but that are not built yet. The feature catalog
 
 Owner notes after beta5 (2026-11-08):
 
-- Landscape hand (TBL-009, TBL-121 and the landscape layout entries): the hand moves into the bottom bar between your zones and the right end; it scrolls as in portrait. The right end is a fixed-width area as wide as the Quick / Assume / Autotap buttons; quick actions that appear fit inside it (buttons narrow), so the hand's width never changes. The separate hand strip goes, the battlefield gets its height.
 - Presets (DRF-031, DRF-032): drop the built-in "Booster" preset (it equals choosing Booster on the mode button); Glimpse stays the only built-in.
 - Set Redownload (DRF-089): remove the per-set Redownload button; when loading a set finds cards missing (the "N cards are unavailable … redownload the set" warning), redownload it automatically once. Recent sets keep refreshing automatically.
 - Winchester tables (DRF-158, DRF-159, DRF-021–DRF-023): a "Tables" setting, default 1 (like Booster's packs open at once): the cards split into independent Winchester tables, each with its own stack and piles and turn order offset so players can pick at different tables at the same time. The pick screen has a chip row ("Table 1 · Your pick", "Table 2 · Bob picks") showing one table's piles at a time, opening on a table where it's your pick; piles keep following "Draft · cards per row".

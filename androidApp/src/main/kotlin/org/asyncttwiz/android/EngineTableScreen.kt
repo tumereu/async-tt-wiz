@@ -298,8 +298,9 @@ internal fun EngineReviewPanel(routes: EngineTableRoutes, events: List<HistoryTi
     BoxWithConstraints(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
         // TBL-009: in landscape your life square, piles and emblems keep the bar's left end (the table's own grey bar
         // lies under them); the strip and Previous / Auto / Next share the rest
-        if (landscape) Row(Modifier.fillMaxWidth().height(tableBottomHeight(true, timeline = true).dp)
-            .padding(start = TablePresentation.Landscape.rowRight(maxWidth.value, own = true).dp + 4.dp),
+        // TBL-009 (owner, 2026-11-08): in the controls' fixed-width place at the bar's right end, your hand left of it
+        if (landscape) Row(Modifier.align(Alignment.BottomEnd).width(TablePresentation.Landscape.controls(maxWidth.value).dp)
+            .height(tableBottomHeight(true, timeline = true).dp),
             verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.weight(1f).height(TableTimelineHeight.dp)) { strip() }
             Box(Modifier.weight(1f).height(TableControlsHeight.dp)) { transport() }
@@ -316,9 +317,10 @@ internal fun EngineReviewPanel(routes: EngineTableRoutes, events: List<HistoryTi
  */
 @Composable
 internal fun EngineRewindPanel(landscape: Boolean) {
-    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
-        Box(Modifier.fillMaxWidth(if (landscape) .5f else 1f).height(tableBottomHeight(landscape).dp).background(TimelineBarColor)
-            .testTag("rewind-panel"))
+    BoxWithConstraints(Modifier.fillMaxSize(), contentAlignment = if (landscape) Alignment.BottomEnd else Alignment.BottomCenter) {
+        // TBL-009: in landscape the controls' fixed-width place at the bar's right end
+        Box(Modifier.then(if (landscape) Modifier.width(TablePresentation.Landscape.controls(maxWidth.value).dp) else Modifier.fillMaxWidth())
+            .height(tableBottomHeight(landscape).dp).background(TimelineBarColor).testTag("rewind-panel"))
     }
 }
 

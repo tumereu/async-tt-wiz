@@ -102,7 +102,9 @@ need new API (report it for the owner's API review).
 - **Autotap's order:** pool; sources with no side effects (keeping today's colour and land-before-creature order); damage or life;
   sacrifices; a lethal source last. It uses a lethal source only when that's the only way to pay, by the owner's decision ("we
   have undo"). Never pays life you don't have.
-- **Open question for the owner, see below:** how to override when Autotap is on and the cast goes out at once after its last target.
+- **A cast that asks only targets, with Autotap on, still goes out at once after its last target** (owner: "common things easy, rare
+  things possible"). There is no source picking in the target bar: to pay another way, tap and float the mana before casting, or turn
+  Autotap off (the payment panel then opens after the targets). STK-024's panel and its partial override apply wherever the panel is open.
 
 ## 5. Undo after killing yourself
 
@@ -132,7 +134,10 @@ parser wording decided as usual or a definition built directly in the test. Each
 10. Autotap prefers damage-free sources; a pain land only when needed; a lethal source only when it's the only way; then Undo (§5).
 11. A way exists but Autotap finds none: the panel opens and you pay by hand.
 12. Interactions with other costs (§1 list), and non-mana abilities refused during a cast (they shake).
-13. Quick mode doesn't pass your window while a card is castable only through a pain land or Signet.
+13. Quick mode doesn't pass your window while a card is castable only through a pain land or Signet. A spell castable only after floating
+    first: Quick passes; check what Normal and Control do (§9).
+14. A cast asking only targets, Autotap on: floated mana pays it instead of the sources Autotap would take; with Autotap off the panel opens
+    after the targets.
 
 **Engine:**
 
@@ -159,15 +164,11 @@ entries as needed. Anything else the work would change: stop and ask (AGENTS.md)
 - Searching for "tap this first, then it's castable" (§1.2).
 - Whether this invalidates stored games: if events or stored formats must change, ask the owner first. Nothing is known to need it.
 
-## 9. Open for the owner
+## 9. Decided consequences (owner, 2026-11-08)
 
-**Overriding Autotap when it's on and only targets are asked.** Today the cast goes out at once after the last target, so there's no
-payment step to override in, and STK-024 takes source taps only in the panel, not the target bar. Recommended: while the target bar is
-open, a tap on a mana source that isn't a selectable candidate picks it; a card that is a candidate is taken as the target. Any pick
-means the panel opens after the last target instead of going out at once. Alternative: override only by turning Autotap off.
-
-**Consequence to confirm of §1.2.** Quick mode auto-passes when nothing is castable from the current state, so a spell castable only
-after floating first won't stop your response window. Holding the main button or Control mode still gives it.
+Quick mode auto-passes when nothing is castable from the current state, so a spell castable only after floating first doesn't stop your
+response window there. Accepted: for such situations players use Normal or Control mode, and Undo covers a mistake. If Normal mode doesn't
+stop in that situation as the owner expects, report it rather than changing the modes.
 
 ## 10. Process
 

@@ -286,7 +286,7 @@ class EngineTwoDeviceTest {
 
     // HIS-099, HIS-100, TRN-065 (I-D56 §10, §11): players coming and going, undo requests, results
     @Test fun mixedGames() {
-        val stats = run(Mode.MIXED, 21L..25L)
+        val stats = run(Mode.MIXED, 33L..37L)
         assertTrue(stats.rewinds > 0 && stats.requests > 0 && stats.results > 0, "$stats")
     }
 }

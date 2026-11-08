@@ -1,0 +1,1 @@
+mod: View deck shows its cards at your panel card size and closes with an X.

@@ -280,7 +280,9 @@ internal fun inlinePopupBounds(width: Float, height: Float, anchor: TableBounds,
 
 @Composable
 internal fun InlinePopupPanel(dismiss: () -> Unit, title: String, width: Dp = 360.dp, height: Dp = 288.dp,
-    key: String = title, sheet: Boolean = false, content: @Composable ColumnScope.() -> Unit) {
+    key: String = title, sheet: Boolean = false,
+    /** A sheet's close as a borderless X icon (the Source dialog's, ZON-093) instead of its Close cell. */
+    closeIcon: Boolean = false, content: @Composable ColumnScope.() -> Unit) {
     // Opening a card menu from a row clears the toolkit anchor while this panel is still visible.
     // Capture the opening anchor and key by a stable identity (not a count-bearing title) so the
     // input guard does not restart and swallow the row's second tap.
@@ -294,7 +296,9 @@ internal fun InlinePopupPanel(dismiss: () -> Unit, title: String, width: Dp = 36
             if (sheet) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(title, Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
-                    InlinePopupCell(MenuControl("Close", click = LocalInlinePopupDismiss.current ?: dismiss), "Close", color)
+                    val close = LocalInlinePopupDismiss.current ?: dismiss
+                    if (closeIcon) ScreenIconButton("Close", "close", close)
+                    else InlinePopupCell(MenuControl("Close", click = close), "Close", color)
                 }
             }
             content()

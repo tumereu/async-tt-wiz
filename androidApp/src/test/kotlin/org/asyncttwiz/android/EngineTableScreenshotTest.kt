@@ -366,8 +366,9 @@ class EngineTableScreenshotTest {
         compose.runOnIdle { assertTrue(game.device.model.engine.stack.isEmpty(), "she passed; Bob's pass was assumed and it resolved") }
     }
 
-    // ZON-093 (owner 2026-11-07): your own Library's menu has View deck; its panel lists your deck in type groups, All or
-    // Still in library (the seven cards in your opening hand left out)
+    // ZON-093 (owner 2026-11-07, 2026-11-08): your own Library's menu has View deck; its panel lists your deck in type
+    // groups at the Panels card size, All or Still in library (the seven cards in your opening hand left out), closed by
+    // a borderless X
     @Test fun viewDeckListsYourDeck() {
         val game = EngineGame(f.game.id, f.a, f.base, f.snapshot())
         game.tick(1_000)
@@ -385,8 +386,9 @@ class EngineTableScreenshotTest {
         compose.onNodeWithText("Still in library · ${deck - 7}").performClick()
         compose.mainClock.advanceTimeBy(600)
         compose.onNodeWithTag("deck-view-library").assertIsSelected()
+        compose.onNode(hasContentDescription("Close") and hasClickAction()).assertExists()
         captureShot("$SCREENSHOTS/engine/view-deck.png",
-            "At the opening Alice opened her own Library's menu and tapped View deck, then Still in library: her deck's cards without the seven in her hand, in type groups as in the deck views, with copies counted on each card.")
+            "At the opening Alice opened her own Library's menu and tapped View deck, then Still in library: her deck's cards without the seven in her hand, in type groups as in the deck views, at the Panels card size with copies counted on each card, and a borderless X at the top right that closes the panel.")
     }
 
     // STK-028, TRN-070, HIS-096 (owner 2026-11-05): with "Assume resolves" Normal, after Alice's Storm Spark the game

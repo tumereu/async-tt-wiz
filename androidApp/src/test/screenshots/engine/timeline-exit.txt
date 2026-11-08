@@ -1,0 +1,1 @@
+Alice just opened timeline mode, at the newest event: the Auto button between Previous and Next reads Exit timeline with a close icon.

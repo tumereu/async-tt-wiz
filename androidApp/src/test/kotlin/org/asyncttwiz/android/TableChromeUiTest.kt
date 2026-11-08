@@ -85,19 +85,19 @@ class TableChromeUiTest {
             compose.onNodeWithContentDescription("Timeline mode").assertDoesNotExist()
             compose.onNodeWithContentDescription("Table actions").performClick()
             compose.onNodeWithText("Timeline").assertIsDisplayed().performClick()
-            compose.onNodeWithContentDescription("Auto advance").assertIsDisplayed()
+            compose.onNodeWithContentDescription(EXIT_TIMELINE).assertIsDisplayed()
             compose.onNode(hasContentDescription(events.last().description) and hasClickAction(), useUnmergedTree = true).assertIsSelected()
             val handAfter = compose.onAllNodesWithContentDescription(handLabel).fetchSemanticsNodes().map { it.boundsInRoot }
             // HIS-007: in landscape nothing moves; in portrait the hand moves up to sit above the taller timeline panel
             if (landscape) assertEquals(handBefore, handAfter, "HUD must not move on mode change")
             else assertTrue(handAfter.maxOf { it.bottom } <= pixels.height - tableBottomHeight(false, timeline = true),
                 "the HUD sits above the timeline panel: $handAfter")
-            val transport = compose.onNodeWithContentDescription("Auto advance").fetchSemanticsNode().boundsInRoot
+            val transport = compose.onNodeWithContentDescription(EXIT_TIMELINE).fetchSemanticsNode().boundsInRoot
             assertEquals(pixels.height - 4f, transport.bottom)
             val reviewOutput = "$SCREENSHOTS/$prefix-review.png"
             compose.onRoot().captureShot(reviewOutput, "$situation, after choosing Table actions → Timeline: history at the latest event" +
                 // TBL-009, HIS-007
-                if (landscape) "; the life square, piles and hand stay in the bottom bar, the event strip and Previous / Auto / Next in the controls' place after them." else ".")
+                if (landscape) "; the life square, piles and hand stay in the bottom bar, the event strip and Previous / Exit timeline / Next in the controls' place after them." else ".")
             val reviewPixels = ImageIO.read(File(reviewOutput))
             assertEquals(TimelineBarColor.toArgb(), reviewPixels.getRGB(2, 35))
             assertEquals(TimelineBarColor.toArgb(), reviewPixels.getRGB(reviewPixels.width - 2, 35))
@@ -107,7 +107,7 @@ class TableChromeUiTest {
         compose.runOnIdle { review = false }
         compose.onNodeWithContentDescription("Table actions").performClick()
         compose.onNodeWithText("Timeline").assertIsDisplayed().performClick()
-        compose.onNodeWithContentDescription("Auto advance").assertIsDisplayed()
+        compose.onNodeWithContentDescription(EXIT_TIMELINE).assertIsDisplayed()
     }
 
     // HIS-001, HIS-004, HIS-007, HIS-008, TRN-013, TRN-015, TRN-016: no strip in play mode, Table actions → Timeline enters

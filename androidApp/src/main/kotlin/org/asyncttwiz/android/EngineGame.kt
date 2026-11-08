@@ -172,7 +172,15 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
         val takeBack: Held? = null,
         /** HIS-106 (owner 2026-11-08): a branch's rewind stopped at the branch point: the catch-up waits paused there with
          * the centre text "<name> responded differently from here · Tap to continue" until the player's tap. */
-        val branchStop: Boolean = false) {
+        val branchStop: Boolean = false,
+        /** HIS-101, HIS-099 (owner 2026-11-08): the player's presses leaving their own main phase: each one's event, with the
+         * main phase it left (on the timeline and points of Undo, as an End turn's first pass). */
+        val mainExits: Map<String, arcanum.api.TurnStep> = emptyMap(),
+        /** TRN-074: the newest turn change shown going forward (the table takes each once, also when several boards
+         * arrive between two frames). */
+        val turnChange: TurnChange? = null,
+        /** HIS-113: the combat moment holding the view now ([dismissCombatHold]). */
+        val combatHold: GameDevice.CombatHold? = null) {
         val engine: GameState get() = board.engine!!.state
         /** Engine-responsiveness R3: what the engine thread worked out with [board]: its computed card values, the player's
          * hand plays (on an own action's early board right after it is published, before the action's follow-up work,
@@ -201,6 +209,7 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
     private var previous: TableBoard? = null
     private val gameLog = GameLog(gameId, arcanum.engine.state.PlayerId(me))
     private var lastTransition: Transition? = null
+    private var lastTurnChange: TurnChange? = null
 
     /** The last [Transition] published (the screen applies each once, by its serial). */
     val transition: Transition? get() = shown?.transition
@@ -363,7 +372,7 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
         val shown = Shown(++published, play, status, device.locked, device.settings, device.opponent, session.behind, tip,
             session.localHead, session.drafting, device.request, device.indicator(), device.undoTarget(), line, held, lastTransition,
             device.needsReload, device.pausing, held.mapNotNullTo(HashSet(olderEnds)) { e -> e.id.takeIf(device::endedTurn) }, takingBack,
-            device.reveal, older, device.olderComplete, device.show, device.showDone, heldWork, branchStop)
+            device.reveal, older, device.olderComplete, device.show, device.showDone, heldWork, branchStop, device.mainExits, lastTurnChange, device.combatHold)
         lastShown = shown
         timing?.let { it.boardEnd = clock(); it.version = shown.version; play.values?.promisePlays() }
         worker.main {
@@ -467,7 +476,7 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
         val shown = Shown(++published, play, last.status, last.locked, last.settings, last.opponent, last.behind, last.tip,
             last.localHead, last.drafting, last.request, last.indicator, last.undoTarget, last.line, last.held, last.transition,
             last.needsReload, last.pausing, last.endTurns, last.takingBack, last.reveal, last.older, last.olderComplete, last.show,
-            last.showDone, last.takeBack, last.branchStop)
+            last.showDone, last.takeBack, last.branchStop, last.mainExits, last.turnChange, last.combatHold)
         timing.boardEnd = clock(); timing.version = shown.version
         play.values?.promisePlays()
         worker.main { this.shown = shown; shownVersion = shown.version; measure(shown, timing); onShown() }
@@ -496,7 +505,9 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
 
     /** §29.4: what an undo took back of what this player had seen: [by] undid, [event] first (null when unknown). With
      * [branch] (HIS-097) it is a branch's take-back: [by] answered differently than assumed, the note says so. */
-    class Undone(val by: String, val event: GameEvent?, val state: arcanum.engine.state.GameState?, val branch: Boolean = false)
+    class Undone(val by: String, val event: GameEvent?, val state: arcanum.engine.state.GameState?, val branch: Boolean = false,
+        /** HIS-101, HIS-076: [event] is a press leaving this main phase, not an End turn. */
+        val leftMain: arcanum.api.TurnStep? = null)
 
     /** A rewind arriving (engine thread): who undid (or branched, [branch]), to where, and the line shown before it. */
     private class Rewinding(val by: String, val target: String, val line: List<GameEvent>, val state: arcanum.engine.state.GameState?,
@@ -535,6 +546,7 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
         }.onFailure { AppLog.info("engine", "No motion steps: ${it.message}") }.getOrDefault(emptyList())
         lastTransition = Transition(++transitions, tip, jump, changes, if (jump) emptySet() else EngineChanges.shuffled(after, forward),
             forward, backward, steps)
+        TurnBanners.of(lastTransition!!)?.let { lastTurnChange = it }
         pt = ptAfter
         loaded = false
     }
@@ -567,7 +579,7 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
         }.onFailure { AppLog.info("engine", "No undo motion: ${it.message}") }.getOrDefault(emptyList())
         val first = undone.firstOrNull { !EngineEventText.hidden(it) || EngineEventText.pass(it) }
         lastTransition = Transition(++transitions, after.nodeId, false, changes, emptySet(), emptyList(), undone.asReversed(), steps,
-            Undone(r.by, first, r.state, r.branch))
+            Undone(r.by, first, r.state, r.branch, first?.let { e -> device.mainExits[e.id] ?: EngineEventText.leftMain(e, undone) }))
         pt = ptNow
         loaded = false
         return true
@@ -1028,7 +1040,7 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
     /** HIS-110: the player dismissed the open reveal panel: the next one opens, or the held events play on. */
     fun dismissReveal() = worker.run { if (device.dismissReveal()) { publish(); afterBoard() } }
 
-    /** HIS-112: whether plays are shown (the player's "Show the other player's plays" time is above 0); off until the table
+    /** HIS-112, HIS-113: whether plays and combat are shown (the player's "Show plays and combat" time is above 0); off until the table
      * says (engine thread's copy for a game loaded again). */
     @Volatile private var showPlays = false
 
@@ -1046,10 +1058,14 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
      * goes on. Nothing when it is no longer the one shown (taken back meanwhile). */
     fun dismissShow(show: GameDevice.PlayShow) = worker.run { if (device.dismissShow(show)) { publish(); afterBoard() } }
 
-    /** HIS-112: every play shown ends (timeline mode entered). */
+    /** HIS-113: the combat moment [hold] is done (its time is up, or the player tapped the table): the next moment comes, or
+     * the view goes on. Nothing when it is no longer the one (taken back meanwhile). */
+    fun dismissCombatHold(hold: GameDevice.CombatHold) = worker.run { if (device.dismissCombatHold(hold)) { publish(); afterBoard() } }
+
+    /** HIS-112, HIS-113: every play shown and combat moment ends (timeline mode entered). */
     fun dismissShows() = worker.run {
         var any = false
-        while (device.dismissShow()) any = true
+        while (device.dismissShow() || device.dismissCombatHold()) any = true
         if (any) { publish(); afterBoard() }
     }
 

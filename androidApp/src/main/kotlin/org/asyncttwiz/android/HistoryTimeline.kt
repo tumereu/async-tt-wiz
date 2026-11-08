@@ -299,32 +299,44 @@ internal fun historyIconGlyph(icon: HistoryIcon): String = when (icon) {
     HistoryIcon.UNKNOWN -> "•"
 }
 
-/** Timeline mode's Previous, Auto and Next (HIS-010, HIS-013): view-only, nothing here branches or acts on the game. */
+/** Timeline mode's Previous, Auto and Next (HIS-010, HIS-013): view-only, nothing here branches or acts on the game. With
+ * [onExit] (HIS-015: at the last event) the Auto button reads "Exit timeline" and a tap on it leaves timeline mode. */
 @Composable
 fun HistoryTransport(position: HistoryPosition, previousEnabled: Boolean, nextEnabled: Boolean,
     onPrevious: () -> Unit, onNext: () -> Unit, onPlay: () -> Unit, onPause: () -> Unit,
-    modifier: Modifier = Modifier, controlsEnabled: Boolean = true) {
+    modifier: Modifier = Modifier, controlsEnabled: Boolean = true, onExit: (() -> Unit)? = null) {
     val current by rememberUpdatedState(position)
     val play by rememberUpdatedState(onPlay)
     val pause by rememberUpdatedState(onPause)
-    val toggle = { if (controlsEnabled) { if (current.playing) pause() else play() } }
+    val exit by rememberUpdatedState(onExit)
+    val toggle = { if (controlsEnabled) { exit?.invoke() ?: if (current.playing) pause() else play() } }
+    val exits = onExit != null
     Column(modifier.fillMaxWidth()) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             IconButton(onPrevious, modifier = Modifier.size(48.dp).semantics { contentDescription = "Previous" },
                 enabled = previousEnabled && controlsEnabled) { TableChromeIcon("previous") }
             Surface(Modifier.weight(1f).heightIn(min = 48.dp).pressFeedback().semantics {
-                role = Role.Button; contentDescription = "Auto advance"
-                stateDescription = if (position.playing) "Auto: on" else "Auto: off"
+                role = Role.Button
+                if (exits) contentDescription = EXIT_TIMELINE
+                else {
+                    contentDescription = "Auto advance"
+                    stateDescription = if (position.playing) "Auto: on" else "Auto: off"
+                }
                 if (!controlsEnabled) disabled() else onClick { toggle(); true }
             }.pointerInput(controlsEnabled) {
                 if (!controlsEnabled) return@pointerInput
                 detectTapGestures(onTap = { toggle() })
             }, color = Color.White, contentColor = Color(0xff253d44), border = BorderStroke(1.dp, MenuBorder)) {
-                Row(Modifier.padding(horizontal = 8.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Icon(if (position.playing) Icons.Outlined.Pause else Icons.Outlined.PlayArrow, null,
-                        Modifier.size(20.dp), tint = if (position.playing) Color(0xffb57d45) else Color(0xff5b896c))
-                    Text(if (position.playing) "Auto: on" else "Auto: off", fontSize = 16.sp, lineHeight = 20.sp)
+                BoxWithConstraints(contentAlignment = Alignment.CenterStart) {
+                    // HIS-015, TBL-009: in landscape's narrow place "Exit timeline" takes two smaller lines rather than being cut
+                    val tight = exits && maxWidth < EXIT_TIMELINE_ONE_LINE
+                    Row(Modifier.padding(horizontal = if (tight) 4.dp else 8.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(if (tight) 4.dp else 8.dp)) {
+                        Icon(if (exits) Icons.Outlined.Close else if (position.playing) Icons.Outlined.Pause else Icons.Outlined.PlayArrow, null,
+                            Modifier.size(if (tight) 16.dp else 20.dp), tint = if (exits) Color(0xff253d44) else if (position.playing) Color(0xffb57d45) else Color(0xff5b896c))
+                        Text(if (exits) EXIT_TIMELINE else if (position.playing) "Auto: on" else "Auto: off",
+                            fontSize = if (tight) 12.sp else 16.sp, lineHeight = if (tight) 14.sp else 20.sp)
+                    }
                 }
             }
             IconButton(onNext, modifier = Modifier.size(48.dp).semantics { contentDescription = "Next" },
@@ -332,3 +344,7 @@ fun HistoryTransport(position: HistoryPosition, previousEnabled: Boolean, nextEn
         }
     }
 }
+
+/** HIS-015: what the Auto button reads at the last event. */
+internal const val EXIT_TIMELINE = "Exit timeline"
+private val EXIT_TIMELINE_ONE_LINE = 150.dp

@@ -69,7 +69,9 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
     fun openChat(focus: String? = null) {
         if (state.detail?.lifecycle == GameLifecycle.ACTIVE) { state = state.copy(chatOpen = true, chatFocus = focus); connectionState() }
     }
-    fun closeChat() { state = state.copy(chatOpen = false, chatFocus = null) }
+    /** LOB-139: Write in the Life panel: the chat open with its input focused and the soft keyboard up. */
+    fun writeChat() { openChat(); if (state.chatOpen) state = state.copy(chatWrite = true) }
+    fun closeChat() { state = state.copy(chatOpen = false, chatFocus = null, chatWrite = false) }
     var gameInput: (() -> Unit)? = null
     fun composeChat(text: String) { gameInput?.invoke(); state.detail?.let { personalChat.compose(it, text); connectionState() } }
     fun sendChat() {

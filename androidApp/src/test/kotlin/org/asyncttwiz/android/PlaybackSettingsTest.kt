@@ -69,7 +69,7 @@ class PlaybackSettingsTest {
     }
 
 
-    // HIS-028, LOB-082, HIS-112: Timeline playback holds the two pauses and the time a play shows (1.2 s by default, 0 reads
+    // HIS-028, LOB-082, HIS-112, HIS-113: Timeline playback holds the two pauses and the time a play shows and a combat holds (1.2 s by default, 0 reads
     // "Off"); there are no auto-pause switches
     @Test fun settingsShowsThePlaybackPausesAndThePlaysTime() {
         HistoryPlaybackPreferences(context, "settings")
@@ -84,12 +84,12 @@ class PlaybackSettingsTest {
         compose.onNodeWithTag("history-rewind-pause").performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("0.1 s after each rewound group").assertExists()
         compose.onNodeWithTag("show-plays-time").performScrollTo().assertIsDisplayed()
-        compose.onNodeWithText("Show the other player's plays").assertExists()
-        compose.onNodeWithText("1.2 s, then to the Stack").assertExists()
+        compose.onNodeWithText("Show plays and combat").assertExists()
+        compose.onNodeWithText("1.2 s each").assertExists()
         compose.runOnIdle { HistoryPlaybackPreferences(context, "settings").showPlaysMillis = 0 }
         compose.onNode(hasText("Off") and hasAnyAncestor(hasTestTag("playback-settings"))).assertExists()
         compose.runOnIdle { HistoryPlaybackPreferences(context, "settings").showPlaysMillis = 9_000 }
-        compose.onNodeWithText("3.0 s, then to the Stack").assertExists()
+        compose.onNodeWithText("3.0 s each").assertExists()
     }
 
 

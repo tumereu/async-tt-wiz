@@ -50,6 +50,8 @@ data class TableRuntimeHooks(val chat: (() -> Unit)? = null, val history: (() ->
     /** HIS-095: a tap on the table (a card, a pile or the empty table) does only this (pausing playback); null: taps act
      * as usual. */
     val boardTap: (() -> Unit)? = null,
+    /** HIS-113: a tap on the table but the hand does only this (skipping a combat's hold of the view); null: none. */
+    val holdTap: (() -> Unit)? = null,
     /** LOB-136, LOB-137: the chat bubbles by the life squares; null: none. */
     val chatBubbles: TableChatBubbles? = null,
     /** LOB-139, TRN-030: the quick messages and Write button of your own Life panel; null: none. */

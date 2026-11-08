@@ -234,6 +234,9 @@ class GameDevice(
     /** This device's recent End turns (TRN-057) that began with a pass: the event of that first pass (§29.2: the only
      * pass Undo targets, and the Undo dialog lists, as one "End turn" entry). */
     private val endTurns = LinkedHashSet<String>()
+    /** HIS-101, HIS-084 (owner, 2026-11-08): the player's recent taps of the main button that left their own main phase
+     * with an empty Stack: the event of that pass, with the main phase it left. Undo points like an End turn's first pass. */
+    private val leftMains = LinkedHashMap<String, arcanum.api.TurnStep>()
     /** An End turn waits for its first event: the player's action. */
     private var endTurnMade = false
     /** The head a free undo of this player's landed on: the device makes none of their own inputs there by itself
@@ -611,7 +614,7 @@ class GameDevice(
         for (e in fresh.asReversed()) {
             revealsSeen += e.id
             revealsOpen += revealsIn(e, me)
-            if (showPlays) showsOpen += showsIn(e, me)
+            if (showPlays) showsOpen += momentsIn(e, me)
         }
     }
 
@@ -627,8 +630,25 @@ class GameDevice(
      * none of its own; the table ends it ([dismissShow]) when its time is up or the player taps it. Personal: nothing is
      * sent, and the game never waits for it on the other player's phone.
      */
-    data class PlayShow(val event: String, val by: PlayerId, val entry: ObjectId, val kind: PlayKind,
-        val card: arcanum.engine.state.CardId?)
+    data class PlayShow(override val event: String, val by: PlayerId, val entry: ObjectId, val kind: PlayKind,
+        val card: arcanum.engine.state.CardId?) : ViewMoment
+
+    /** A moment of the shown event [event] that holds this player's view until it is done (HIS-112, HIS-113). */
+    sealed interface ViewMoment { val event: String }
+
+    /**
+     * HIS-113 (owner, 2026-11-08): a combat holds this player's view as a play shown does, for the same time ([showPlays]),
+     * whoever's combat it is, live and in catch-up playback: once when the attackers show and once on the damage (each
+     * combat damage step that deals any). The table ends it ([dismissCombatHold]) when its time is up or the player taps the
+     * table. Declaring no attackers holds nothing. Personal: nothing is sent, and the game never waits for it.
+     */
+    data class CombatHold(override val event: String, val kind: CombatMoment) : ViewMoment
+
+    /** What a combat holds the view on (HIS-113). */
+    sealed interface CombatMoment {
+        data object Attackers : CombatMoment
+        data object Damage : CombatMoment
+    }
 
     /** How a shown play got onto the Stack (HIS-112). */
     sealed interface PlayKind {
@@ -648,11 +668,16 @@ class GameDevice(
             if (!value) showsOpen.clear()
         }
 
-    /** HIS-112: the play shown now (the oldest not done), or null; never while a reveal panel is open (HIS-110 first). */
-    val show: PlayShow? get() { syncReveals(); return if (revealsOpen.isNotEmpty()) null else showsOpen.firstOrNull() }
+    /** HIS-112: the play shown now (the oldest moment not done, when it is a play), or null; never while a reveal panel is
+     * open (HIS-110 first). */
+    val show: PlayShow? get() { syncReveals(); return if (revealsOpen.isNotEmpty()) null else showsOpen.firstOrNull() as? PlayShow }
+
+    /** HIS-113: the combat moment holding the view now (the oldest moment not done, when it is one), or null; never while a
+     * reveal panel is open. */
+    val combatHold: CombatHold? get() { syncReveals(); return if (revealsOpen.isNotEmpty()) null else showsOpen.firstOrNull() as? CombatHold }
 
     /** HIS-112: every play not shown to its end yet, oldest first. */
-    val openShows: List<PlayShow> get() { syncReveals(); return showsOpen.toList() }
+    val openShows: List<PlayShow> get() { syncReveals(); return showsOpen.filterIsInstance<PlayShow>() }
 
     /** HIS-112: the event of the last play done ([dismissShow]): playback lets the next event follow it at once (the show
      * took the playback delay's place, HIS-021). */
@@ -671,7 +696,17 @@ class GameDevice(
         return true
     }
 
-    private val showsOpen = ArrayList<PlayShow>()
+    /** HIS-113: the combat moment holding the view now is done (its time is up, or the player tapped the table): the next
+     * moment comes, or the view goes on. [which]: only when it is still the one. True when one ended. */
+    fun dismissCombatHold(which: CombatHold? = null): Boolean {
+        val open = combatHold ?: return false
+        if (which != null && which != open) return false
+        showsOpen.removeAt(0)
+        showDone = open.event
+        return true
+    }
+
+    private val showsOpen = ArrayList<ViewMoment>()
 
     /** Whether a play shown holds the view (HIS-112). */
     private fun showHolds(): Boolean { syncReveals(); return showsOpen.isNotEmpty() }
@@ -1124,6 +1159,8 @@ class GameDevice(
             if (kind == WhoActs.Kind.Random) return Acted.Refused("Not the player's input")
         } catch (e: Refusal) { return Acted.Refused(e.reason) }
         val before = informationRule { if (assumed || tentative()) InformationRule.Before.of(model) else null }
+        // HIS-101: the player's own press leaving their main phase (their device's own passes there are an End turn's)
+        val leaving = model.engine.turn.step.takeIf { player && !assumed && input == Input.PassPriority(me) && model.engine.pending == null && Stops.stop(model.engine, me) }
         val builder = open(newLine)
         try {
             // Inputs worked out on the board shown answer the same decisions after a new line's reorder (problem report
@@ -1143,13 +1180,15 @@ class GameDevice(
         // rule holds back (then the whole event is refused, before anything shows). What follows by itself can't refuse
         // it by that rule any more: the player's own passes stop before one that would show something ([fold])
         if (performed != null && (before == null || !shows(before, builder))) performed()
-        return finish(builder, own = !assumed, before = before, player = player)
+        return finish(builder, own = !assumed, before = before, player = player, leaving = leaving)
     }
 
     /** Folds what follows by itself into [builder]'s event and sends it, unless it would show this player a hidden card
      * or a random result while [before] is given (the state before it: their line is tentative, or the event assumes):
-     * then the draft is taken back unsent (§5). [player]: made by the player's own action (a refusal is told). */
-    private fun finish(builder: EventBuilder, own: Boolean, before: InformationRule.Before?, player: Boolean = false): Acted {
+     * then the draft is taken back unsent (§5). [player]: made by the player's own action (a refusal is told). [leaving]:
+     * the main phase it leaves ([leftMains]). */
+    private fun finish(builder: EventBuilder, own: Boolean, before: InformationRule.Before?, player: Boolean = false,
+        leaving: arcanum.api.TurnStep? = null): Acted {
         val inputs = if (player) builder.playerInputs to builder.tableChanges else null
         try { fold(builder, own, guard = before) } catch (e: RuntimeException) { abandon(); return Acted.Refused(e.message ?: "refusedByEngine") }
         // I-D56 §5: while the line is tentative (or this assumes), nothing may show this player a hidden card
@@ -1164,6 +1203,10 @@ class GameDevice(
         builder.mode = if (own) settings.mode else opponentMode
         val event = session.sendEvent()
         if (player) byPlayer += event.id
+        if (leaving != null) {
+            leftMains[event.id] = leaving
+            if (leftMains.size > MAX_ORIGINS) leftMains.remove(leftMains.keys.first())
+        }
         if (inputs != null && inputs.first.isNotEmpty()) {
             made[event.id] = inputs
             if (made.size > MAX_ORIGINS) made.remove(made.keys.first())
@@ -1407,12 +1450,17 @@ class GameDevice(
     /** The point just before the player's latest own real input shown (their later assumed inputs go with it): never
      * the device's automatic steps (its passes by the player's mode, engine-automatic answers it made) nor a rewind's
      * line start, so a second Undo goes on back past the player's previous action (report C9PVLM). Passes are implied
-     * (§29.2): a pass is never the target, the player's own included, except the first pass of an End turn. */
+     * (§29.2): a pass is never the target, the player's own included, except the first pass of an End turn and a press
+     * leaving their own main phase ([undoPoint], HIS-101). */
     fun undoTarget(): String? {
         if (holding) return null
         val shown = session.indexOf(session.localHead) ?: return null
-        return session.events.take(shown + 1).lastOrNull(::realInput)?.parentId
+        return session.events.take(shown + 1).lastOrNull(::undoPoint)?.parentId
     }
+
+    /** HIS-084, HIS-101: whether Undo goes back to just before [e]: one of the player's own real inputs, or their press
+     * leaving their own main phase. (A branch's note names only the real inputs, HIS-097.) */
+    private fun undoPoint(e: GameEvent): Boolean = e.id in leftMains || realInput(e)
 
     /** Whether [e] is one of this player's own real inputs (an action of theirs, or a table-only event of theirs). Events
      * made before this device was loaded are judged by their input: the player's own passes and inputs for the other
@@ -1436,6 +1484,9 @@ class GameDevice(
 
     /** Whether [id] is the first pass of an End turn this device made (TRN-057; §29.2: the Undo dialog's "End turn"). */
     fun endedTurn(id: String): Boolean = id in endTurns
+
+    /** HIS-101: the player's recent presses leaving their own main phase: each one's event, with the main phase it left. */
+    val mainExits: Map<String, arcanum.api.TurnStep> get() = leftMains.toMap()
 
     /** Undo to [target] (by default [undoTarget]): sent when free, else [Undo.Request]. A free undo ends the player's
      * moves waiting to be made again after a lost race ([remake]) and table changes waiting to be re-made: they were made
@@ -1497,8 +1548,8 @@ class GameDevice(
         if (session.pending.isEmpty() && remaking.isEmpty()) return undo()
         sentUndo()?.let { return it }
         val shown = session.indexOf(session.localHead) ?: -1
-        val latest = session.pending.lastOrNull(::realInput)?.id ?: remaking.lastOrNull()?.event
-            ?: session.events.take(shown + 1).lastOrNull(::realInput)?.id ?: return Undo.Unavailable("nothing")
+        val latest = session.pending.lastOrNull(::undoPoint)?.id ?: remaking.lastOrNull()?.event
+            ?: session.events.take(shown + 1).lastOrNull(::undoPoint)?.id ?: return Undo.Unavailable("nothing")
         remember("undo queued after $latest")
         queuedUndo = latest
         settleQueuedUndo()
@@ -1513,7 +1564,7 @@ class GameDevice(
      */
     private fun sentUndo(): Undo? {
         if (remaking.isNotEmpty() || session.behind) return null
-        val latest = session.pending.lastOrNull(::realInput) ?: return null
+        val latest = session.pending.lastOrNull(::undoPoint) ?: return null
         val target = latest.parentId
         if (target != session.localHead) return null
         val after = (lineAfter(target) ?: return null) + session.pending
@@ -2253,18 +2304,40 @@ class GameDevice(
          * ability activated (mana abilities never use the Stack) and trigger of the other player's, and [viewer]'s own
          * triggers. Copies of spells are put there by something else, which was shown: they are not.
          */
-        fun showsIn(event: GameEvent, viewer: PlayerId): List<PlayShow> = event.engine?.changes.orEmpty().mapNotNull { change ->
-            val added = change as? arcanum.engine.change.Change.StackItemAdded ?: return@mapNotNull null
+        fun showsIn(event: GameEvent, viewer: PlayerId): List<PlayShow> = momentsIn(event, viewer).filterIsInstance<PlayShow>()
+
+        /**
+         * HIS-112, HIS-113: what holds [viewer]'s view in [event], in the order it happened: the plays shown ([showsIn]) and
+         * the combat's moments: attackers declared, and each combat damage step that deals damage.
+         */
+        fun momentsIn(event: GameEvent, viewer: PlayerId): List<ViewMoment> {
+            val moments = ArrayList<ViewMoment>()
+            var damageStep = false
+            for (change in event.engine?.changes.orEmpty()) when (change) {
+                is arcanum.engine.change.Change.StackItemAdded -> showOf(event, change, viewer)?.let(moments::add)
+                is arcanum.engine.change.Change.Combat ->
+                    if (change.before?.attackers.isNullOrEmpty() && !change.after?.attackers.isNullOrEmpty()) moments += CombatHold(event.id, CombatMoment.Attackers)
+                is arcanum.engine.change.Change.Step -> damageStep = change.after.step == arcanum.api.TurnStep.CombatDamage
+                is arcanum.engine.change.Change.Damage -> if (damageStep && change.dealt.isNotEmpty()) {
+                    moments += CombatHold(event.id, CombatMoment.Damage)
+                    damageStep = false
+                }
+                else -> {}
+            }
+            return moments
+        }
+
+        private fun showOf(event: GameEvent, added: arcanum.engine.change.Change.StackItemAdded, viewer: PlayerId): PlayShow? {
             val kind = when {
                 arcanum.engine.change.Meaning.Cast in added.meanings -> PlayKind.Cast
                 arcanum.engine.change.Meaning.Activated in added.meanings -> PlayKind.Activated
                 arcanum.engine.change.Meaning.Triggered in added.meanings -> PlayKind.Triggered
-                else -> return@mapNotNull null
+                else -> return null
             }
             val item = added.item
-            if (item.controller == viewer && kind != PlayKind.Triggered) return@mapNotNull null
+            if (item.controller == viewer && kind != PlayKind.Triggered) return null
             val card = (item.id as? ObjectId.Card)?.card ?: (item.source as? ObjectId.Card)?.card
-            PlayShow(event.id, item.controller, item.id, kind, card)
+            return PlayShow(event.id, item.controller, item.id, kind, card)
         }
 
         /** [state] without what never makes a decision another ([sameDecision]). */

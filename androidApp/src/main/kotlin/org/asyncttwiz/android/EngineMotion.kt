@@ -1,6 +1,8 @@
 package org.asyncttwiz.android
 
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import arcanum.engine.state.GameState
 import org.asyncttwiz.protocol.BoardState
 
@@ -16,16 +18,20 @@ internal object EngineMotion {
     /** Steps are looked for in the last this many events only (each pass is an event of its own). */
     const val MAX_EVENTS = 64
 
-    /** What the table draws of [state]'s objects (where each is, tapped, face down, its face, controller) and the
-     * Stack: a step that changes none of it shows nothing new. */
-    fun objects(state: GameState): Any = state.objects.values.mapTo(HashSet()) {
+    /** What the table draws of [state]'s objects (where each is, tapped, face down, its face, controller), the Stack and
+     * the attackers (HIS-113): a step that changes none of it shows nothing new. */
+    fun objects(state: GameState): Any = Triple(state.objects.values.mapTo(HashSet()) {
         listOf(it.id, it.zone, it.tapped, it.faceDown, it.face, it.controller)
-    } to state.stack.toList()
+    }, state.stack.toList(), state.combat?.attackers?.map { it.id })
 
-    /** What moves on [board]: each card's container, place, tapped, covered and face, and the Stack's entries. */
+    /** What moves on [board]: each card's container, place, tapped, covered and face, the Stack's entries and the attackers
+     * in the combat area. */
     fun key(board: BoardState): List<Any?> = listOf(board.cards.associate {
         it.id to listOf(it.containerId, it.placement?.position, it.tapped, it.covered, it.faceId)
-    }, board.stackEffects.map { it.id })
+    }, board.stackEffects.map { it.id }, attackers(board))
+
+    /** The attackers in [board]'s combat area. */
+    fun attackers(board: BoardState): List<String> = board.combat?.pairs.orEmpty().flatMap { pair -> pair.attackers.map { it.sourceId } }
 
     /**
      * The [steps] worth showing between [before] (shown before) and [after] (the last): none that looks like the board
@@ -67,6 +73,10 @@ internal class EngineMotionQueue {
     /** The step sequence and how many of its steps have played (state: the table recomposes on it). */
     private val played = mutableStateOf(-1L to 0)
     private val index: Int get() = played.value.let { (at, count) -> if (at == run) count else 0 }
+    /** HIS-113, TBL-125: a combat's attackers and damage in one board: its first step with the attackers stops the steps while
+     * this holds (the hold's end publishes the board anew, which ends the steps). */
+    var stopAtAttackers by mutableStateOf(false)
+    private val stopped = mutableStateOf(-1L)
 
     /** Composition: [version]'s board [live], with the steps of [transition] to show before it when it is new (a board
      * published again with the same transition, an action's preview, shows at once; a branch's take-back goes on). */
@@ -91,9 +101,14 @@ internal class EngineMotionQueue {
     /** The table finished animating to what [board] gave last: the next step, or the board itself. */
     fun settled() {
         val at = index
-        if (at < steps.size) played.value = run to at + 1
+        if (at >= steps.size) return
+        if (stopAtAttackers && EngineMotion.attackers(steps[at].board).isNotEmpty()) { stopped.value = run; return }
+        played.value = run to at + 1
     }
 
     /** Whether a step is drawn instead of the board. */
     val playing: Boolean get() = index < steps.size
+
+    /** HIS-113: whether the steps stopped at the attackers ([stopAtAttackers]). */
+    val atAttackers: Boolean get() = stopped.value == run && playing
 }

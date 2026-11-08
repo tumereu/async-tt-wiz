@@ -3,6 +3,7 @@ package org.asyncttwiz.android
 import org.asyncttwiz.protocol.*
 import org.junit.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -31,19 +32,54 @@ class BattlefieldLayoutTest {
         assertEquals(BattlefieldRow.Creatures, BattlefieldRow.of("Basic Land — Forest", true))
     }
 
-    // TBL-053: identical permanents form one stack, tapped and untapped together; a difference that matters splits it;
-    // a card that never stacks (face down, in combat, attached) stays alone; a stack is one battlefield's
+    // TBL-053: identical permanents form one stack, tapped and untapped together, the tapped on top; a difference that
+    // matters splits it; a card that never stacks (face down, in combat, attached) stays alone; a stack is one battlefield's
     @Test fun identicalPermanentsStackAndDifferencesSplit() {
         val groups = BattlefieldLayout.groups(listOf(
             card("f1", BattlefieldRow.Lands, same), card("f2", BattlefieldRow.Lands, same, tapped = true),
             card("bear", identity = null), card("f3", BattlefieldRow.Lands, same.copy(counters = listOf(TypedCounter("charge", 1, 0)))),
             card("f4", BattlefieldRow.Lands, same), card("f5", BattlefieldRow.Lands, same, field = "b/BATTLEFIELD")))
-        assertEquals(listOf(listOf("f1", "f2", "f4"), listOf("bear"), listOf("f3"), listOf("f5")), groups.map { it.members })
+        assertEquals(listOf(listOf("f1", "f4", "f2"), listOf("bear"), listOf("f3"), listOf("f5")), groups.map { it.members })
         assertEquals(BattlefieldGroup.Kind.Stack, groups[0].kind)
-        assertEquals("stack:f1", groups[0].key, "a stack is known by its first card")
-        assertEquals("f4", groups[0].top)
-        assertEquals(listOf("f4", "f2", "f1"), groups[0].inspectOrder, "TBL-111: the top card first")
-        assertEquals(listOf(listOf("f1", "f2", "f4")), groups[0].units, "identical cards mean one thing")
+        assertEquals("stack:f1", groups[0].key, "a stack is known by its first arrival")
+        assertEquals("f2", groups[0].top)
+        assertEquals(listOf("f2", "f4", "f1"), groups[0].inspectOrder, "TBL-111: the top card first")
+        assertEquals(listOf(listOf("f1", "f4", "f2")), groups[0].units, "identical cards mean one thing")
+    }
+
+    // TBL-053, TBL-130 (owner, 2026-11-08): stacks merging or a new member joining never leave a tapped member in the middle:
+    // the tapped lie on top in arrival order, the untapped under them; with none tapped, arrival order; a tap acts on the
+    // top untapped member, and tapping from the top down keeps the order
+    @Test fun tappedMembersLieOnTopOfAStack() {
+        fun members(vararg tapped: String) = BattlefieldLayout.groups(listOf("l1", "l2", "l3", "l4")
+            .map { card(it, BattlefieldRow.Lands, same, tapped = it in tapped) }).single().members
+        assertEquals(listOf("l1", "l2", "l3", "l4"), members())
+        assertEquals(listOf("l1", "l2", "l4", "l3"), members("l3"), "a new land on an old tapped one")
+        assertEquals(listOf("l3", "l4", "l1", "l2"), members("l1", "l2"), "merged: older tapped, newer untapped")
+        assertEquals(listOf("l1", "l2", "l3", "l4"), members("l3", "l4"), "tapped from the top down: no change")
+        val group = BattlefieldLayout.groups(listOf("l1", "l2", "l3").map { card(it, BattlefieldRow.Lands, same, tapped = it == "l1") }).single()
+        assertEquals(GroupTap.Act("l3"), GroupTap.of(group, { true }, { it == "l1" }), "the top untapped one")
+    }
+
+    // TBL-053, TBL-027 (owner, 2026-11-08): entered this turn splits only creatures, by what they are now: a land and an artifact
+    // join their stack at once; a creature and a creature land split
+    @Test fun enteredThisTurnSplitsOnlyCreatures() {
+        fun card(name: String, line: String) = CardDefinition(name, listOf(DefinitionFace(name, name, typeLine = line)))
+        val definitions = mapOf("forest" to card("forest", "Basic Land — Forest"), "rock" to card("rock", "Artifact"),
+            "cub" to card("cub", "Creature — Cat"), "warden" to card("warden", "Land Creature — Forest Dryad"))
+        val names = definitions.keys.flatMap { listOf("$it-1", "$it-2") }
+        val field = PlayContainer("a/BATTLEFIELD", PlayZone.BATTLEFIELD, "a", names)
+        val board = BoardState(players = emptyList(), cards = names.map { id -> id.substringBefore('-').let { d ->
+            PlayCard(id, d, "a", field.id, d, covered = false, enteredTurn = if (id.endsWith("-2")) "3" else "") } },
+            containers = listOf(field), turn = TurnState("a", "3"))
+        val groups = BattlefieldLayout.groups(BattlefieldLayout.cards(board, definitions, org.asyncttwiz.automatum.ComputedBoard.NONE))
+        assertEquals(listOf(listOf("forest-1", "forest-2"), listOf("rock-1", "rock-2"), listOf("cub-1"), listOf("cub-2"), listOf("warden-1"), listOf("warden-2")),
+            groups.map { it.members })
+        // An animated land: its worked-out type line says what it is now, as for its row (TBL-004)
+        assertTrue(BattlefieldRow.creature("Land Creature — Elemental"), "an animated land")
+        assertFalse(BattlefieldRow.creature("Basic Land — Forest"))
+        assertFalse(BattlefieldRow.creature("Artifact — Vehicle"), "an uncrewed Vehicle")
+        assertFalse(BattlefieldRow.creature(null))
     }
 
     // TBL-053: auras and equipment lie with the card they are attached to (also one attached to an attachment); a card

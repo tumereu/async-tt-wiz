@@ -3,6 +3,7 @@ package org.asyncttwiz.e2e
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.isFocused
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
 import org.junit.Test
@@ -56,5 +57,48 @@ class ChatBubblesTest : E2e() {
         // The server has Alice's read state: Bob's chat marks both his messages Read
         bob.described("Chat, ", substring = true).performClick()
         waitUntil("Bob's chat showing both messages read") { bob.nodes(hasText("Read")).fetchSemanticsNodes().size == 2 }
+    }
+
+    // LOB-136, LOB-137 (owner, 2026-11-08): the bubble lies at Bob's life square over his hand's cards on Alice's table, and
+    // a tap on it reads it without touching the card under it; Bob's own bubble lies above his square
+    @Test fun aBubbleOverAHandCardIsReadByATapThatTouchesNoCard() {
+        startGame()
+        bothOpen()
+        bob.described("Chat, ", substring = true).performClick()
+        waitUntil("Bob's chat open") { bob.shows(hasContentDescription("Chat message draft")) }
+        bob.described("Chat message draft").performTextInput("Give me a moment, I have a lot of triggers to order here")
+        waitUntil("Bob's draft") { bob.lobby.state.chat.draft != null }
+        bob.described("Send").performClick()
+        waitUntil("Bob's message accepted") { bob.lobby.state.chat.messages.size == 1 }
+        bob.described("Close chat").performClick()
+        waitUntil("Bob's own bubble above his life square") { bob.shows(hasTestTag("own-chat-bubble")) }
+        val square = bob.node(hasContentDescription("${bob.name}, life 20", substring = true)).fetchSemanticsNode().boundsInRoot
+        assertTrue(bob.tagged("own-chat-bubble").fetchSemanticsNode().boundsInRoot.bottom <= square.top, bob.screen())
+        waitUntil("Bob's bubble on Alice's table") { alice.shows(bubble) }
+        val at = alice.node(bubble).fetchSemanticsNode().boundsInRoot
+        val cards = alice.nodes(hasContentDescription(", owner ${bob.name}, ", substring = true)).fetchSemanticsNodes()
+        assertTrue(cards.any { it.boundsInRoot.overlaps(at) }, "over Bob's hand: $at ${alice.screen()}")
+        alice.node(bubble).performClick()
+        waitUntil("Alice read it") { !alice.shows(bubble) && alice.lobby.state.chat.unread == 0 }
+        assertTrue(!alice.shows(hasContentDescription("Card action ring")), "no card's menu: ${alice.screen()}")
+    }
+
+    // LOB-139 (owner, 2026-11-08): Write in the Life panel opens the chat ready to type: its input has the focus, and the
+    // text typed is the draft
+    @Test fun writeOpensTheChatWithItsInputFocused() {
+        startGame()
+        bothOpen()
+        bob.node(hasContentDescription("${bob.name}, life 20", substring = true)).performClick()
+        waitUntil("Bob's Life panel") { bob.shows(hasContentDescription("Quick messages")) }
+        pastPopupGuard()
+        bob.described("Write a message").performClick()
+        waitUntil("Bob's chat with its input focused") { bob.shows(hasContentDescription("Chat message draft") and isFocused()) }
+        bob.described("Close chat").performClick()
+        waitUntil("Bob's chat closed") { !bob.shows(hasContentDescription("Chat message draft")) }
+        // Opened from the chat button it isn't focused
+        bob.described("Chat, ", substring = true).performClick()
+        waitUntil("Bob's chat open") { bob.shows(hasContentDescription("Chat message draft")) }
+        run(skip = java.time.Duration.ofSeconds(1))
+        assertTrue(!bob.shows(hasContentDescription("Chat message draft") and isFocused()), "the chat button only opens the chat")
     }
 }

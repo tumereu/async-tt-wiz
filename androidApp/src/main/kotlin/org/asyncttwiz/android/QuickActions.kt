@@ -165,6 +165,8 @@ fun QuickActionStrip(play: TableBoard, context: QuickContext, controller: TableA
                     wait.hold?.let { hold -> { pressed(wait.label, hold = true); own { hold(); true } } }, wait.holdName) {
                     pressed(wait.label); own { wait.run(); true } }, Modifier.fillMaxWidth())
                 else Spacer(Modifier.fillMaxWidth().height(48.dp))
+                // TRN-075: the move passed to you: one pulse in your colour
+                MoveCuePulse(engine?.moveCue ?: 0, Modifier.matchParentSize().clip(AdvanceArrowShape))
                 if (working) SlowActionShimmer(Modifier.matchParentSize().clip(AdvanceArrowShape))
                 if (unconfirmed) EngineUnconfirmedMark(engine!!.opponentName, Modifier.align(Alignment.TopStart).offset((-10).dp, (-10).dp))
             }

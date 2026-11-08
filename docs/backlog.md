@@ -20,17 +20,6 @@ Bug (owner, 2026-11-08; reports P2XUER, 3WWPA8):
 
 - A player's first main phase was skipped, cause not found: in turn 13 of a beta7 game their phone's passes from main 1 to declare attackers reached the server 30.0 s after the main phase began (server 11:33:44.290 → 11:34:14.284), and they say they didn't press. It doesn't reproduce (`MainPhaseStaysTest`: the same race with the other player's End turn, then 35 s at main 1) and the device has no way of its own to do it, so what is left is a press they didn't register, made at 11:34:14 or (if the phone's uplink stalled) just as main 1 arrived. Nothing to build until it happens again: main-button presses are now in the app log with what the button said and the step, and a pass the device itself makes at your main phase is a warning (LOB-089). At the next report read those lines around the passes; a press line means the tap happened (then the Your move cue and the main phase undo point below are the answer), no press line with passes means a fault to fix.
 
-Table batch (owner, 2026-11-08):
-
-- Turn banner (new entry): at a turn change "Your turn" / "<name>'s turn" shows at the screen's centre and fades in about 1.2 s, taking no touches, live and in catch-up playback, never in timeline mode; in order with plays shown (HIS-112).
-- Your move cue (TRN-058, TRN-063): when the move passes to you from the other player, one haptic tick and one main-button pulse in your colour; never for your own chain of steps.
-- Leaving your own main phase is an undo point (HIS-084, HIS-099, HIS-101, HIS-005): tapping the main button out of your main phase is an event on the timeline ("You went to combat") that one Undo returns to, so a mistaken tap needs no rewind into the other player's turn.
-- Timeline exit (HIS-010, HIS-015): at the last event the Auto/Pause button reads "Exit timeline" and a tap leaves timeline mode at once; Next stays a plain arrow.
-- Piles (TBL-053, TBL-129, TBL-027): tapped members lie on top of a stack, re-sorted only when stacks merge; entered this turn splits only creatures, so other permanents join their stack at once (the "2 sick" idea below stays separate).
-- Combat stays readable (HIS-104, HIS-112, TBL-125, LOB-082): a combat that goes by itself holds your view (never the game, as plays shown does) on the attackers shown and on the damage, for the "Show the other player's plays" time (the same setting, 0 = no hold), a tap skipping it. Declaring no attackers holds nothing.
-- Chat bubbles (LOB-136, LOB-137, LOB-140): bubbles always start at the life square and may cover anything, hand cards included; the rule finding other room goes. Write (LOB-139) focuses the chat's input and opens the keyboard.
-
-
 Castable-spell review leftovers (owner, 2026-11-08, report KX8GYS; reductions that depend on a choice are fixed and tested in `CostFallsAfterChoiceOptionsTest`), each to decide or fix (TBL-117, STK-047):
 
 - A mana ability that itself costs mana (Signet, filter land) isn't counted ahead: the card doesn't glow or raise until its mana is floated by tapping (TBL-122).

@@ -19,7 +19,7 @@ import org.robolectric.annotation.GraphicsMode
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
-/** LOB-136, LOB-137, LOB-139, LOB-140 (owner, 2026-11-07): chat messages as speech bubbles on the table, and the
+/** LOB-136, LOB-137, LOB-139 (owner, 2026-11-07, 2026-11-08): chat messages as speech bubbles on the table, and the
  * composer's quick messages. */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
@@ -48,9 +48,10 @@ class ChatBubbleTest {
             sentShown = { chat.sentShown(game.id, it); refresh() })
     }
 
-    private fun render(harness: Harness, landscape: Boolean = false) {
+    private fun render(harness: Harness, landscape: Boolean = false, play: PlayState = this.play) {
         val board = engineTableBoard(play, "a")
         val toolkit = TableToolkitController("a", { board }, { true }, { _, _ -> true })
+        this.toolkit = toolkit
         compose.setContent { MaterialTheme {
             EngineFixtureTable(play, "a") {
                 TableSurface(game, board, "a", landscape, Modifier.fillMaxSize(), connected = true, onIntent = toolkit::handle,
@@ -60,6 +61,7 @@ class ChatBubbleTest {
         compose.waitForIdle()
     }
 
+    private lateinit var toolkit: TableToolkitController
     private val bubble = hasTestTag("chat-bubble")
 
     // LOB-136: Bob's two unread messages: the bubble shows the oldest with 1/2; a tap reads it and shows the next, the
@@ -101,15 +103,38 @@ class ChatBubbleTest {
         assertEquals(null, harness.presentation.sent, "not shown again")
     }
 
-    // LOB-136, LOB-140: the other player's bubble with 1/2 under their life square, off the cards
+    // LOB-136 (owner, 2026-11-08): the bubble may lie over a card: a tap on it reads the message and doesn't touch the card
+    @Test fun aTapOnTheBubbleOverACardOnlyReadsIt() {
+        val harness = Harness(listOf(message(1, "b", "Thinking… give me a moment, I have a lot of triggers to order here")), 0)
+        render(harness)
+        val at = compose.onNode(bubble).fetchSemanticsNode().boundsInRoot
+        val under = compose.onAllNodes(hasContentDescription(", owner Bob, ", substring = true)).fetchSemanticsNodes()
+            .map { it.boundsInRoot }.filter { it.overlaps(at) }
+        assertTrue(under.isNotEmpty(), "Bob's hand lies under the bubble: $at")
+        compose.onNode(bubble).performClick()
+        compose.onNode(bubble).assertDoesNotExist()
+        assertEquals(0, harness.presentation.unread, "read")
+        assertEquals(null, toolkit.capture, "no card's menu opened")
+        assertEquals(null, toolkit.peek, "nothing inspected")
+    }
+
+    // LOB-136: the other player's bubble with 1/2 under their life square, over their hand's cards
     @Test fun opponentBubbleShot() {
         render(Harness(listOf(message(1, "b", "Thinking… give me a moment, I have a lot of triggers to order here and then I " +
             "want to look at your graveyard again before I decide what to block with"),
             message(2, "b", "Your move?")), 0))
         compose.onRoot().captureShot("$SCREENSHOTS/chat/bubble-opponent.png",
             "Portrait table with two unread messages from Bob: a white speech bubble outlined in his red shows the older " +
-                "one over four lines (cut with …) and 1/2 beside it, just below his hand row with its tail up towards his " +
-                "life square, as the room right under the square would cover his hand's cards.")
+                "one over four lines (cut with …) and 1/2 beside it, right under his life square with its tail up towards " +
+                "the square, lying over his hand's cards.")
+    }
+
+    // LOB-137: your own bubble as it is sent, above your life square, over whatever lies there
+    @Test fun ownBubbleShot() {
+        render(Harness(emptyList(), 0, sent = "Got a response, give me a moment to look at the Stack"))
+        compose.onRoot().captureShot("$SCREENSHOTS/chat/bubble-own.png",
+            "Portrait table right after you sent a longer message: its bubble, outlined in your green, lies right above your " +
+                "life square with its tail down towards the square, over your land row.")
     }
 
     // LOB-137: your own bubble halfway through its fade
@@ -123,8 +148,8 @@ class ChatBubbleTest {
                 "above your life square, is halfway faded out.")
     }
 
-    // LOB-136, LOB-137, LOB-140: in landscape the bubbles follow the life squares in the bars, under the top bar's and above
-    // the bottom bar's, off the cards
+    // LOB-136, LOB-137: in landscape the bubbles follow the life squares in the bars, under the top bar's and above the
+    // bottom bar's
     @Config(qualifiers = "w892dp-h412dp-land-mdpi")
     @Test fun landscapeBubblesShot() {
         render(Harness(listOf(message(1, "b", "GG")), 0, sent = "Thinking…"), landscape = true)
@@ -133,7 +158,7 @@ class ChatBubbleTest {
         assertTrue(shown.top >= 48f && own.bottom <= 412f - 56f, "$shown $own")
         compose.onRoot().captureShot("$SCREENSHOTS/chat/bubble-landscape.png",
             "Landscape table right after you sent Thinking… with Bob's GG unread: his red-outlined bubble hangs under his " +
-                "life square in the top bar, yours (green) sits above your life square in the bottom bar, both clear of cards.")
+                "life square in the top bar, yours (green) sits above your life square in the bottom bar.")
     }
 }
 

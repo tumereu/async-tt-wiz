@@ -27,7 +27,7 @@ import kotlin.test.assertTrue
 
 /**
  * HIS-112 (owner 2026-11-07, MTG Arena as the reference): on Alice's table Bob's plays show large in the middle of the board
- * for the "Show the other player's plays" time, her view held at their event meanwhile, then they fly to the Stack; a tap
+ * for the "Show plays and combat" time, her view held at their event meanwhile, then they fly to the Stack; a tap
  * ends one at once, and at 0 none shows. Games played through the simulated server; time on the test clock.
  */
 @RunWith(RobolectricTestRunner::class)

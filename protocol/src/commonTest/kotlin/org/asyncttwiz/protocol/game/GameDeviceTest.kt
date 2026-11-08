@@ -628,6 +628,73 @@ class GameDeviceTest {
         return seer
     }
 
+    // HIS-113 (owner, 2026-11-08): the attackers hold Alice's view, her phone making none of its own steps, until done; then
+    // the damage holds it too; Off there are no holds; the game goes on for the other player (their events are never held)
+    @Test fun aCombatHoldsTheViewOnTheAttackersAndOnTheDamage() {
+        val sim = seers()
+        val seer = sim.seersToThirdTurn()
+        val alice = sim.device(sim.alice)
+        alice.showPlays = true
+        alice.act(Input.PassPriority(sim.alice))
+        sim.settle(only = listOf(sim.alice))
+        assertNull(alice.combatHold)
+        alice.act(Input.DeclareAttackers(sim.alice, listOf(Attack(seer, TargetRef.Player(sim.bob)))))
+        val hold = assertNotNull(alice.combatHold, "the attackers show")
+        assertEquals(GameDevice.CombatMoment.Attackers, hold.kind)
+        val tip = alice.session.tip
+        sim.settle(only = listOf(sim.alice))
+        alice.advance(sim.now)
+        assertEquals(tip, alice.session.tip, "her phone makes nothing of its own meanwhile")
+        assertNull(alice.show, "no play shown for it")
+        assertTrue(alice.dismissCombatHold(hold))
+        assertEquals(hold.event, alice.showDone)
+        sim.settle(only = listOf(sim.alice))
+        assertNull(alice.combatHold, "on to Bob's blocks")
+        // Bob's blocks assumed, her own passes and his on to the damage
+        repeat(8) {
+            if (alice.combatHold == null) {
+                if (alice.status == GameDevice.Status.YourMove) alice.act(Input.PassPriority(sim.alice)) else alice.assume(emptyList())
+                sim.settle(only = listOf(sim.alice))
+            }
+        }
+        val damage = assertNotNull(alice.combatHold, "the damage holds too")
+        assertEquals(GameDevice.CombatMoment.Damage, damage.kind)
+        alice.showPlays = false
+        assertNull(alice.combatHold, "Off: none")
+    }
+
+    // HIS-084, HIS-101, HIS-099 (owner, 2026-11-08): her press leaving her own main phase is an undo point, unlike the passes
+    // after it: one Undo is back there, free, and her phone passes nothing there; her End turn's first pass isn't counted as one
+    @Test fun aPressLeavingTheMainPhaseIsAnUndoPoint() {
+        val sim = seers()
+        sim.seersToThirdTurn()
+        val alice = sim.device(sim.alice)
+        val pass = assertIs<GameDevice.Acted.Sent>(alice.act(Input.PassPriority(sim.alice))).event
+        assertEquals(arcanum.api.TurnStep.PrecombatMain, alice.mainExits[pass.id])
+        sim.settle(only = listOf(sim.alice))
+        assertTrue(alice.model.engine.turn.step != arcanum.api.TurnStep.PrecombatMain, "past her main phase")
+        assertEquals(pass.parentId, alice.undoTarget())
+        assertIs<GameDevice.Undo.Free>(alice.undo())
+        sim.settle(only = listOf(sim.alice))
+        assertEquals(pass.parentId, alice.session.tip, "back in her main phase, her phone passing nothing")
+        assertEquals(arcanum.api.TurnStep.PrecombatMain, alice.model.engine.turn.step)
+        val exits = alice.mainExits.size
+        alice.endTurn(sim.now)
+        assertEquals(exits, alice.mainExits.size, "End turn is its own kind of point")
+    }
+
+    // HIS-113: declaring no attackers holds nothing
+    @Test fun noAttackersHoldNothing() {
+        val sim = seers()
+        sim.seersToThirdTurn()
+        val alice = sim.device(sim.alice)
+        alice.showPlays = true
+        alice.act(Input.PassPriority(sim.alice))
+        sim.settle(only = listOf(sim.alice))
+        alice.act(Input.DeclareAttackers(sim.alice, emptyList()))
+        assertNull(alice.combatHold)
+    }
+
     /** As [seersToCombat], up to Alice's third turn's first main phase, holding priority there: her Seer. */
     private fun DeviceSim.seersToThirdTurn(mode: ResponseMode = ResponseMode.Normal): ObjectId {
         val alice = alice

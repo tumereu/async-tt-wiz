@@ -15,13 +15,16 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import arcanum.engine.setup.GameResult
 import arcanum.engine.state.PlayerId
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import org.asyncttwiz.protocol.*
 import org.asyncttwiz.protocol.game.GameDevice
@@ -102,6 +105,16 @@ internal fun EngineTableScreen(controller: LobbyController, accountId: String, h
     // CMB-040 (owner, 2026-11-05): while waiting for the defender's blocks the attacker's lanes show the blocks placed to assume
     val play = reviewPlay ?: motion.board(shown.version, shown.transition, live).let { b -> routes.assuming()?.board(b) ?: b }
     SideEffect { routes.motionBusy = { motion.playing } }
+    // HIS-113: a combat holds the view on the attackers and on the damage, each for the plays' time, once the table shows
+    // it; a tap on the table skips it; timeline mode ends it (EngineAsyncHost)
+    val combatHold = shown.combatHold?.takeIf { reviewId == null }
+    SideEffect { motion.stopAtAttackers = combatHold?.kind == GameDevice.CombatMoment.Attackers }
+    val combatHoldMillis by playbackPreferences.showPlaysState()
+    if (combatHold != null) LaunchedEffect(combatHold) {
+        snapshotFlow { !motion.playing || (motion.atAttackers && combatHold.kind == GameDevice.CombatMoment.Attackers) }.first { it }
+        delay(combatHoldMillis)
+        engine.dismissCombatHold(combatHold); controller.engineSent()
+    }
     // HIS-107: an Undo tapped while the player's own action is still being worked out waits for it
     SideEffect { routes.working = { toolkit.flows.busy || toolkit.cast.busy } }
     LaunchedEffect(routes, toolkit) { snapshotFlow { toolkit.flows.busy || toolkit.cast.busy }.collect { if (!it) routes.workDone() } }
@@ -116,6 +129,9 @@ internal fun EngineTableScreen(controller: LobbyController, accountId: String, h
     val scope = rememberCoroutineScope()
     SideEffect {
         if (reviewPlay != null) {
+            // TRN-074: never a turn banner in timeline mode
+            routes.banners.drop()
+            shown.turnChange?.let { applied.turnChange = it.serial }
             if (applied.reviewed != reviewPlay.nodeId) {
                 applied.reviewed = reviewPlay.nodeId
                 changes.applyEngine(reviewPlay.nodeId, jump = false, emptyList(), emptySet())
@@ -127,6 +143,8 @@ internal fun EngineTableScreen(controller: LobbyController, accountId: String, h
             shown.transition?.takeIf { it.serial != applied.transition }?.let { t ->
                 applied.transition = t.serial
                 EngineTableProbe.applied?.invoke(accountId, t, !applied.drawn)
+                // TRN-074: a take-back ends the banner showing
+                if (t.undone != null) routes.banners.drop()
                 changes.applyEngine(t.cursor, t.jump, t.changes, t.shuffled)
                 // HIS-076 (owner playtest 2026-11-04 #5): live, the newest event just shown, yours too (your own action's
                 // text fades at the top like the other player's); quiet on open and return. §29.4: an undo says what it
@@ -136,15 +154,33 @@ internal fun EngineTableScreen(controller: LobbyController, accountId: String, h
                 when {
                     // HIS-097: a branch's take-back has its note instead
                     undone != null && undone.branch -> eventText.moved(t.cursor)
-                    undone != null -> eventText.post(t.cursor, EngineEventText.undid(undone.event, undone.state, accountId, undone.by, names),
+                    undone != null -> eventText.post(t.cursor, EngineEventText.undid(undone.event, undone.state, accountId, undone.by, names, undone.leftMain),
                         always = true)
                     told != null -> eventText.post(t.cursor, engine.timeline.text(engine, told, names))
                     else -> eventText.moved(t.cursor)
                 }
             }
+            // TRN-074: at a turn change, live and in catch-up playback, in order with the plays shown; not on opening the game
+            shown.turnChange?.takeIf { it.serial != applied.turnChange }?.let { change ->
+                applied.turnChange = change.serial
+                if (applied.drawn) routes.banners.post(change, shown.show)
+            }
             applied.drawn = true
         }
         if (rewindingBranch) EngineTableProbe.rewinding?.invoke(accountId)
+    }
+    // TRN-075: the move passing to you from the other player: one haptic tick and one pulse of the main button, not in
+    // timeline mode
+    val moveCue = remember(game.id) { YourMoveCue() }
+    val haptic = LocalHapticFeedback.current
+    val recordShown = LocalShownTexts.current
+    SideEffect {
+        val cue = moveCue.see(shown.status, shown.line, shown.tip, shown.show != null || shown.combatHold != null || shown.reveal != null, accountId, SystemClock.uptimeMillis())
+        if (cue && reviewPlay == null) {
+            routes.moveCue++
+            haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
+            recordShown(YOUR_MOVE_CUE)
+        }
     }
     val status = shown.status
     val playing = status is GameDevice.Status.Playing
@@ -232,6 +268,7 @@ internal fun EngineTableScreen(controller: LobbyController, accountId: String, h
                             else null,
                         boardTap = if (reviewPlay == null && playing && !shown.pausing && !takingBack) ({
                             engine.pause(); controller.engineSent() }) else null,
+                        holdTap = combatHold?.let { hold -> ({ engine.dismissCombatHold(hold); controller.engineSent() }) },
                         // LOB-136, LOB-137: chat bubbles, also in timeline mode (chat isn't game history); the own one
                         // waits while the chat covers the table (portrait)
                         chatBubbles = TableChatBubbles(state.chatBubble, state.chatSent, tableShown = !state.chatOpen || landscape,
@@ -239,10 +276,11 @@ internal fun EngineTableScreen(controller: LobbyController, accountId: String, h
                             open = { controller.openChat(it) }, sentShown = { controller.chatSentShown(game.id, it) }),
                         // LOB-139: quick messages from your own Life panel, sent as any message; Write opens the chat
                         quickChat = TableQuickChat(interactive && game.lifecycle == GameLifecycle.ACTIVE && game.playId != null,
-                            send = controller::sendQuickChat, write = { controller.openChat() })))
+                            send = controller::sendQuickChat, write = { controller.writeChat() })))
                 // Over the top row (whose move/step/turn), never taking its taps.
                 EventTextOverlay(eventText, playbackPause, Modifier.align(Alignment.TopCenter), status = choosing,
                     flashes = toolkit.choiceFlashes)
+                TurnBannerOverlay(routes.banners, shown.show != null, accountId, names, Modifier.align(Alignment.Center))
             }
         }
     }
@@ -293,7 +331,9 @@ internal fun EngineReviewPanel(routes: EngineTableRoutes, events: List<HistoryTi
             HistoryTransport(position, at > 0, at < events.lastIndex,
                 onPrevious = { routes.reviewPlaying = false; routes.review = events[(at - 1).coerceAtLeast(0)].id },
                 onNext = { routes.reviewPlaying = false; routes.review = events[(at + 1).coerceAtMost(events.lastIndex)].id },
-                onPlay = { routes.reviewPlaying = true }, onPause = { routes.reviewPlaying = false })
+                onPlay = { routes.reviewPlaying = true }, onPause = { routes.reviewPlaying = false },
+                // HIS-015, HIS-018 (owner, 2026-11-08): at the last event one tap leaves timeline mode, to where you were
+                onExit = if (at == events.lastIndex && !routes.reviewPlaying) routes::leaveReview else null)
         }
     }
     BoxWithConstraints(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
@@ -330,7 +370,7 @@ private class ReviewKept { var board: TableBoard? = null }
 
 /** What the engine table applied once: the last transition and the board reviewed; [drawn]: the table has drawn a live
  * board of this game (a transition applied later animates from it). */
-private class AppliedMarks { var transition = 0L; var reviewed: String? = null; var drawn = false }
+private class AppliedMarks { var transition = 0L; var reviewed: String? = null; var drawn = false; var turnChange = 0L }
 
 /** Tests: what the engine table did with the boards it was given (main thread, after composition), with its player's
  * account id: each transition it applied, and whether it opened on it ([applied]'s `opened`: no board of the game drawn

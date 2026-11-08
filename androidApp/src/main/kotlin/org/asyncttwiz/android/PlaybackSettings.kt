@@ -33,12 +33,12 @@ internal fun PlaybackSettings(preferences: HistoryPlaybackPreferences, accountId
 }
 
 
-/** HIS-112, LOB-082: how long the other player's plays (and the player's own triggers) show large on the table, 0 (Off)
- * to 3 s in 0.1 s steps. */
+/** HIS-112, HIS-113, LOB-082: how long the other player's plays (and the player's own triggers) show large on the table and a
+ * combat holds the view on its attackers and on its damage, 0 (Off) to 3 s in 0.1 s steps. */
 @Composable
 internal fun ShowPlaysSetting(preferences: HistoryPlaybackPreferences) {
     val millis by preferences.showPlaysState()
-    SettingsLabel("Show the other player's plays", if (millis == 0L) "Off" else "${millis / 1000.0} s, then to the Stack")
+    SettingsLabel("Show plays and combat", if (millis == 0L) "Off" else "${millis / 1000.0} s each")
     Slider(value = millis.toFloat(), onValueChange = { preferences.showPlaysMillis = (it / 100).roundToInt() * 100L },
         valueRange = 0f..HistoryPlaybackPreferences.MAX_SHOW_PLAYS_MILLIS.toFloat(),
         modifier = Modifier.testTag("show-plays-time"))

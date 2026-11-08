@@ -119,7 +119,7 @@ abstract class E2e {
     }
 
     /**
-     * HIS-112: the phones show no plays (their "Show the other player's plays" time 0), as every flow but the shows' own
+     * HIS-112: the phones show no plays (their "Show plays and combat" time 0), as every flow but the shows' own
      * was written for: a play shown holds a table for a moment and takes the taps on the middle of the board. A test of
      * the shows sets the time itself ([org.asyncttwiz.android.HistoryPlaybackPreferences.showPlaysMillis]).
      */

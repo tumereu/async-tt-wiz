@@ -10,10 +10,16 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.paneTitle
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withTimeoutOrNull
 import org.asyncttwiz.protocol.*
 
 /** Only intersecting laid-out rows count as presented; lazy prefetch is not viewing. */
@@ -23,6 +29,9 @@ internal fun presentedChatIds(messages: List<ChatMessage>, visibleKeys: List<Any
     }.toSet()
 
 private class ChatScrollAnchor(var latestKey: String? = null)
+
+/** LOB-139: how long Write's focus waits for the chat's window to take the focus before asking anyway. */
+private const val WRITE_FOCUS_WAIT_MS = 500L
 
 @Composable
 internal fun ChatPanel(controller: LobbyController, accountId: String, modifier: Modifier = Modifier,
@@ -51,6 +60,17 @@ internal fun ChatPanel(controller: LobbyController, accountId: String, modifier:
     LaunchedEffect(game.id, focus) {
         val at = focus?.let { id -> chat.messages.indexOfFirst { it.id == id } }?.takeIf { it >= 0 } ?: return@LaunchedEffect
         list.scrollToItem(chat.outgoing.size + chat.messages.lastIndex - at)
+    }
+    // LOB-139: opened by Write: ready to type. The chat's window takes the focus a moment after it opens, and only a focused
+    // window gets the keyboard
+    val input = remember { FocusRequester() }
+    val keyboard = LocalSoftwareKeyboardController.current
+    val window = LocalWindowInfo.current
+    LaunchedEffect(game.id, state.chatWrite) {
+        if (!state.chatWrite) return@LaunchedEffect
+        withTimeoutOrNull(WRITE_FOCUS_WAIT_MS) { snapshotFlow { window.isWindowFocused }.first { it } }
+        input.requestFocus()
+        keyboard?.show()
     }
     val viewEpoch = controller.chatViewEpoch
     BackHandler { controller.closeChat() }
@@ -104,7 +124,7 @@ internal fun ChatPanel(controller: LobbyController, accountId: String, modifier:
             }
             val maySend = chat.canSend(game, game.id !in state.reconnectingGames)
             // The keyboard's Send key sends like the button; a stale draft only closes the keyboard.
-            ScreenTextField(chat.draft?.text.orEmpty(), controller::composeChat, Modifier.weight(1f)
+            ScreenTextField(chat.draft?.text.orEmpty(), controller::composeChat, Modifier.weight(1f).focusRequester(input)
                 .semantics { contentDescription = "Chat message draft" }, singleLine = false, placeholder = "Message", maxLines = 4,
                 keyboardOptions = imeOptions(ImeAction.Send),
                 keyboardActions = submitKeyboardActions(!staleDraft && maySend, keepKeyboard = true, submit = send))

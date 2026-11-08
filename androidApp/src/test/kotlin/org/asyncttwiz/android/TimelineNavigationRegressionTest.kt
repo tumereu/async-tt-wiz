@@ -22,8 +22,8 @@ class TimelineNavigationRegressionTest {
     }
 
     /** Opens the table and enters timeline mode from Table actions → Timeline (HIS-004). */
-    private fun review(f: EngineLobbyFixture) {
-        f.connect()
+    private fun review(f: EngineLobbyFixture, head: org.asyncttwiz.protocol.GameHead = f.head()) {
+        f.connect(head)
         f.keep()
         compose.setContent { MaterialTheme { TableScreen(f.lobby, f.me, {}, false) } }
         drain(f)
@@ -37,10 +37,13 @@ class TimelineNavigationRegressionTest {
     @Test fun holdingAutoAtAPastPointDoesNotBranch() {
         val f = EngineLobbyFixture()
         try {
-            review(f)
+            // Bob's keep and hers: her keep is the newest event (there the button is Exit timeline, HIS-015), his a past point
+            review(f, f.head(otherKept = true))
             val sent = f.commands().size
             compose.onNodeWithContentDescription("Continue playing from here").assertDoesNotExist()
             compose.onNodeWithText("Hold to branch", useUnmergedTree = true).assertDoesNotExist()
+            compose.onNodeWithContentDescription("Previous").performClick()
+            drain(f)
             compose.onNodeWithContentDescription("Auto advance").performTouchInput { longClick() }
             drain(f)
             compose.runOnIdle { assertEquals(sent, f.commands().size) }

@@ -429,7 +429,7 @@ class TableGestureCoordinator(
             if (fromLibrary.isNotEmpty() && !libraryTop) return null
             return TableDestination.Container(it.id, PlayZone.STACK)
         }
-        if (scene.worldInput(p)) scene.combatDestination(p, scope)?.let { return TableDestination.Combat(it) }
+        if (scene.worldInput(p)) scene.combatDestination(p)?.let { return TableDestination.Combat(it) }
         // CMB-007: the rest of the combat panel (its headers, its margins) takes no drop
         if (scene.worldInput(p) && scene.combatPanel?.contains(p) == true) return null
         // ZON-077: a battlefield card dropped anywhere on the battlefields stays where the layout puts it (no move)

@@ -6,8 +6,7 @@ import org.asyncttwiz.protocol.CombatRole
 
 data class TableDragLanding(val outlines: List<TableBounds> = emptyList(),
     val hand: TableBounds? = null, val insertionX: Float? = null,
-    val additionalHands: List<Pair<TableBounds, Float?>> = emptyList(),
-    val combatInsertion: Pair<TablePoint, TablePoint>? = null)
+    val additionalHands: List<Pair<TableBounds, Float?>> = emptyList())
 
 /** Uses the same snapped destination and captured relative positions as the move adapter. */
 fun tableDragLanding(scene: TableScene, preview: TableGesturePreview): TableDragLanding {
@@ -80,17 +79,13 @@ fun tableDragLanding(scene: TableScene, preview: TableGesturePreview): TableDrag
                 target.cardGap.beforeId?.let { id -> remaining.indexOfFirst { it.cardId == id }.takeIf { it >= 0 } } ?: remaining.size
             var x = start + (width(target.pairId) - CombatStackPresentation.rowWidth(count(target.pairId, target.role), scene.combatCardWidth)) / 2 +
                 index * (scene.combatCardWidth + margin)
-            val firstX = x
             val slots = moved.map {
                 val b = TableBounds(x, region.landing.y - scene.combatCardHeight / 2, scene.combatCardWidth, scene.combatCardHeight)
                 x += b.width + margin
                 b
             }
             val port = scene.world?.viewport
-            val indicatorX = firstX - if (target.pairId == null) CombatStackPresentation.slotMargin(scene.combatCardWidth) else margin / 2
-            val indicator = TablePoint(indicatorX, region.landing.y - scene.combatCardHeight * .3f) to
-                TablePoint(indicatorX, region.landing.y + scene.combatCardHeight * .3f)
-            TableDragLanding(slots.mapNotNull { if (port == null) it else it.intersection(port) }, combatInsertion = indicator)
+            TableDragLanding(slots.mapNotNull { if (port == null) it else it.intersection(port) })
         }
     }
 }

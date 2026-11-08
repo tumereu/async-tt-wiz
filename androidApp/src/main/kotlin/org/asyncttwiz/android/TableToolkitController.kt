@@ -758,21 +758,28 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
             AutomatumDrags.Route.Combat -> {
                 val destination = (intent.destination as TableDestination.Combat).destination
                 val bound = bind(intent.scope, intent.sources) ?: return false
-                // CMB-001: a creature dropped into a band tapped open before any attacker was staged is staged in that lane
-                if (destination.areaId == TablePresentation.OPENED_COMBAT_AREA && play.board.combat == null)
-                    return destination.role == CombatRole.ATTACKER && stage(play, bound.sourceIds, destination.attackTarget)
-                // CMB-034: one of the defender's creatures dropped on an attacker's pair blocks it, as tapping does
                 val choices = combat.choices(play).also { if (combat.working(it)) { error = CombatController.WORKING_OUT; return false } }.choices
+                val pair = destination.pairId?.let { id -> play.board.combat?.pairs?.singleOrNull { it.id == id } }
+                val target = pair?.attackTarget ?: destination.attackTarget
+                if (choices.declaring != null && choices.attackers) {
+                    // CMB-015: staged attackers dropped into another lane attack its target; in their own lane they stay
+                    val staged = CombatStackController.attackerPairs(play.board, bound.viewIds)
+                    if (staged.isNotEmpty() && bound.viewIds.all { id -> staged.any { p -> p.attackers.any { it.id == id } } })
+                        return staged.any { it.attackTarget != target } && setAttackTarget(bound, target)
+                    // CMB-028: a creature dropped into a lane (the collapsed band's chips too) is staged attacking its target
+                    return stage(play, bound.sourceIds, target)
+                }
+                // CMB-034: one of the defender's creatures dropped on an attacker's pair blocks it, as tapping does (dropped
+                // back on the pair it blocks, it stays)
                 val card = bound.sourceIds.singleOrNull()
-                val pair = destination.pairId
-                if (choices.declaring != null && !choices.attackers && card != null && pair != null &&
-                    controllerOf(play, card) == choices.declaring && play.board.combat?.let { area ->
-                        CombatStackRules.occurrences(area).firstOrNull { it.sourceId == card }
-                            ?.let { CombatStackRules.blockedPairs(area, it.id).firstOrNull() } } != pair)
-                    return block(play, card, pair)
+                if (choices.declaring != null && card != null && pair != null && controllerOf(play, card) == choices.declaring) {
+                    val blocks = play.board.combat?.let { area -> CombatStackRules.occurrences(area).firstOrNull { it.sourceId == card }
+                        ?.let { CombatStackRules.blockedPairs(area, it.id) } }.orEmpty()
+                    return pair.id !in blocks && block(play, card, pair.id)
+                }
                 combat.draftRefusal(play, bound.sourceIds, destination.role, destination.pairId, destination.attackTarget)
-                    ?.let { error = it; return false }
-                return engineRoute { handle(intent.copy(drag = false)) }
+                    ?.let { error = it }
+                return false
             }
             AutomatumDrags.Route.LeaveDraft -> {
                 val bound = bind(intent.scope, intent.sources) ?: return false
@@ -791,7 +798,8 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
                 if (intent.scope.cardIds.any { it in CombatStackRules.stack(board).cards })
                     return basic.handle(intent.copy(invocationId = intent.invocationId ?: invocation))
                 val bound = bind(intent.scope, intent.sources) ?: return false
-                if (intent.destination is TableDestination.Combat) place(bound, intent.destination.destination)
+                // CMB-028, CMB-034: combat drops are Automatum's staging ([automatumDrag]), never placed by hand
+                if (intent.destination is TableDestination.Combat) false
                 else if (bound.sourceIds.isEmpty()) false else basic.handle(intent.copy(
                     scope = TableScope(bound.contextViewId.takeIf { it in bound.sourceIds }
                         ?: intent.sources[bound.contextViewId]?.sourceId ?: bound.sourceIds.first(), bound.sourceIds), sources = bound.sources))
@@ -1078,79 +1086,4 @@ class TableToolkitController(val viewer: String, private val state: () -> TableB
             sent = submit(PlayAction.Combat(CombatAction.SetAttackTarget(bound.areaId!!, pair.id, cardId))) || sent
         sent
     }
-
-    /**
-     * Engine-responsiveness R4a: the whole-drop preflight of [place] on the board of a game on engine state, as
-     * [CombatStackController.place] makes it on today's model: every card of [selected] placed in order at [destination]
-     * on the board shown ([EngineStaging]), each member named as a batch's; throws with the reason when one is refused.
-     */
-    private fun engineProbe(initial: TableBoard, selected: List<String>, destination: CombatDestination) {
-        val requestId = DeviceRandom.uuid()
-        var board = initial.board
-        var members = 0
-        fun emit(action: PlayAction) {
-            val next = EngineStaging.apply(board, initial.definitions, viewer, action, CommandIds.uuidV5(requestId, "member/$members"))
-            if (next != board) members++
-            board = next
-        }
-        val targets = CombatStackController.orderedTargets(board, selected)
-        val sourceIds = CombatStackController.sources(targets)
-        require(sourceIds.size == targets.size && sourceIds.isNotEmpty()) { "No live source" }
-        var target = destination
-        var prefix: String? = null
-        var rightAnchor = destination.cardGap.beforeId
-        for ((index, source) in sourceIds.withIndex()) {
-            val area = requireNotNull(board.combat)
-            val occurrence = CombatStackRules.occurrences(area).find { it.sourceId == source }
-            val pending = sourceIds.drop(index + 1)
-            target = if (prefix != null) target.copy(insertion = CombatInsertion.GAP, cardGap = IdentityGap(prefix, rightAnchor),
-                pendingSourceIds = pending) else target.copy(pendingSourceIds = pending)
-            emit(PlayAction.Combat(CombatAction.Place(source, target, occurrence?.let { CombatStackRules.location(area, it.id) })))
-            val placedArea = board.combat!!
-            val placed = CombatStackRules.occurrences(placedArea).single { it.sourceId == source }
-            val location = CombatStackRules.location(placedArea, placed.id)!!
-            if (index == 0) {
-                val side = placedArea.pairs.single { it.id == location.pairId }.side(location.role)
-                val right = side.dropWhile { it.id != placed.id }.drop(1).firstOrNull { it.sourceId !in pending }?.id
-                rightAnchor = right
-                target = target.copy(pairId = location.pairId, insertion = CombatInsertion.GAP, cardGap = IdentityGap(placed.id, right))
-            }
-            prefix = placed.id
-        }
-    }
-
-    /** Whole-drop structural preflight uses the existing shared helper; only real-session callbacks send.
-     * Request-derived occurrence IDs are read from that session's immediate prediction, never the probe. */
-    fun place(bound: ToolkitCapture, destination: CombatDestination): Boolean = batchResult {
-        val initial = current()?.takeIf { enabled() } ?: return@batchResult false
-        if (CombatStackController.retargetDrop(initial.board, bound.viewIds, destination).isNotEmpty())
-            return@batchResult setAttackTarget(bound,
-                initial.board.combat?.pairs?.find { it.id == destination.pairId }?.attackTarget ?: destination.attackTarget)
-        val probe = runCatching { engineProbe(initial, bound.viewIds, destination) }
-        if (probe.isFailure) { error = probe.exceptionOrNull()?.message ?: "Unavailable combat destination"; return@batchResult false }
-        val ids = CombatStackController.sources(CombatStackController.orderedTargets(initial.board, bound.viewIds))
-        var target = destination
-        var prefix: String? = null
-        var right = destination.cardGap.beforeId
-        var sent = false
-        for ((index, source) in ids.withIndex()) {
-            val board = current()?.board ?: break
-            val area = board.combat?.takeIf { it.id == destination.areaId } ?: break
-            val old = CombatStackRules.occurrences(area).firstOrNull { it.sourceId == source }
-            target = if (prefix == null) target.copy(pendingSourceIds = ids.drop(index + 1)) else target.copy(
-                insertion = CombatInsertion.GAP, cardGap = IdentityGap(prefix, right), pendingSourceIds = ids.drop(index + 1))
-            sent = submit(PlayAction.Combat(CombatAction.Place(source, target, old?.let { CombatStackRules.location(area, it.id) }))) || sent
-            val next = current()?.board?.combat?.takeIf { it.id == area.id } ?: continue
-            val placed = CombatStackRules.occurrences(next).singleOrNull { it.sourceId == source } ?: continue
-            val location = CombatStackRules.location(next, placed.id) ?: continue
-            if (index == 0) {
-                val side = next.pairs.single { it.id == location.pairId }.side(location.role)
-                right = side.dropWhile { it.id != placed.id }.drop(1).firstOrNull { it.sourceId !in ids.drop(index + 1) }?.id
-                target = target.copy(pairId = location.pairId, insertion = CombatInsertion.GAP)
-            }
-            prefix = placed.id
-        }
-        sent
-    }
 }
-

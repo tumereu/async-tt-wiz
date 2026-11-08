@@ -16,7 +16,7 @@ import org.asyncttwiz.protocol.SubmittedDefinition
 /**
  * Engine-responsiveness R4a: what the table's own controls change on the board shown of a game on engine state, worked
  * out on that board alone (no play is rebuilt for it): a card's place within its Battlefield (TBL-012), the combat lanes
- * a declaration is staged in (CMB-009–CMB-034, [CombatStackRules.stage]) and the early answers beside the board (the
+ * a declaration is staged in (CMB-028, CMB-034, [CombatStackRules.stage]) and the early answers beside the board (the
  * attacker's choices and early divisions, I-D33). The same checks and ids as the gameplay change of today's model; the
  * device shares the result as table changes ([EngineTableRoutes]). Anything else is left to the routes, which refuse it.
  */

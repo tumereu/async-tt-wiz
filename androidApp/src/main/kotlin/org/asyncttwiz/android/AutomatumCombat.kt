@@ -34,7 +34,7 @@ import org.asyncttwiz.protocol.*
  * Combat through Automatum on today's lanes (integration spec §3 I3; the interim before the combat area redesign, I-D32):
  *
  * - while the engine waits for attackers or blockers the lanes are a draft of the declaration: cards join it by dragging
- *   (CMB-009) or Declare (CMB-017), checked against what the engine allows ([draftRefusal], I-D36);
+ *   (CMB-028) or Declare (CMB-017), checked against what the engine allows ([draftRefusal], I-D36);
  * - Attack / No attack, Block / No blocks and Deal damage are the step arrow's pass (TRN-057): with a declaration
  *   awaited it declares what the lanes hold, else the priority holder passes and the engine deals the combat damage,
  *   asking for a division only where there is a choice (the shared flow's panel, I-D29);

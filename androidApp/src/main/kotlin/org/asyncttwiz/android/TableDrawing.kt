@@ -320,11 +320,6 @@ internal fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: 
         }
     }
     val landing = tableDragLanding(scene, preview)
-    landing.combatInsertion?.let { (from, to) -> scene.world?.viewport?.let { port ->
-        clipRect(port.x * density, port.y * density, port.right * density, port.bottom * density) {
-            drawLine(Color.Black.copy(alpha = .18f), xy(from.x, from.y), xy(to.x, to.y), density)
-        }
-    } }
     for ((b, insertionX) in listOfNotNull(landing.hand?.let { it to landing.insertionX }) + landing.additionalHands) {
         drawRect(OwnTableColor.copy(alpha = .18f), xy(b.x, b.y), size(b.width, b.height))
         insertionX?.let { x -> drawLine(OwnTableColor, xy(x, b.y + 3), xy(x, b.bottom - 3), 2 * density) }

@@ -169,6 +169,25 @@ class BattlefieldPlacementScreenshotTest {
         compose.waitForIdle()
     }
 
+    // TBL-053, TBL-054, TBL-027 (owner, 2026-11-08): the Mountain played this turn joined its stack at once, under the tapped
+    // ones, which lie on top
+    @Test fun aNewLandJoinsItsStackUnderTheTappedOnes() {
+        play = f.play().let { p -> p.copy(board = p.board.copy(cards = p.board.cards.map {
+            if (it.id == "a-mountain-3") it.copy(enteredTurn = p.board.turn.number) else it })) }
+        val toolkit = render()
+        val scene = scene(toolkit)
+        assertEquals(listOf("a-mountain-2", "a-mountain-3", "a-mountain-1", "a-mountain-4"),
+            scene.battlefieldGroups.single { it.key == "stack:a-mountain-1" }.members)
+        val own = scene.fields.last()
+        val center = scene.world!!.viewport.center
+        toolkit.layoutState.value = toolkit.layoutState.value.copy(camera = TableCamera(own.originX + 80f - center.x,
+            own.gridBounds.bottom - 24f - center.y, 3f))
+        compose.waitForIdle()
+        compose.onRoot().captureShot("$SCREENSHOTS/battlefield/pile-tapped-on-top.png",
+            "Alice's land row zoomed in: she played the third Mountain this turn (its name in blue) and it joined the stack at once; of the fan from the left " +
+                "the two untapped Mountains lie under the two tapped ones, which are turned and on top.")
+    }
+
     // TBL-004, TBL-053, TBL-117, TBL-122: lands from the left in the land row by each player's edge; in the upper band
     // creatures from the left and the other permanents from the right, two-slot columns filled nearest the middle first;
     // identical permanents in one stack (lands fanned with their tapped members turned, tokens tight with ×3); the Blade
@@ -178,7 +197,7 @@ class BattlefieldPlacementScreenshotTest {
         val toolkit = render()
         val scene = scene(toolkit)
         val groups = scene.battlefieldGroups.associateBy { it.key }
-        assertEquals(listOf("a-mountain-1", "a-mountain-2", "a-mountain-3", "a-mountain-4"), groups.getValue("stack:a-mountain-1").members)
+        assertEquals(listOf("a-mountain-2", "a-mountain-3", "a-mountain-1", "a-mountain-4"), groups.getValue("stack:a-mountain-1").members)
         assertEquals(listOf(f.HOST, "a-blade", "a-ward"), groups.getValue("host:${f.HOST}").members)
         assertEquals(3, scene.items.single { it.cardId == "a-elemental-3" }.copies)
         val board = engineTableBoard(play, "a")
@@ -382,7 +401,7 @@ class BattlefieldPlacementScreenshotTest {
         if (landscape) screen = 892f to 412f
         play = f.play(snare = true, hounds = 6, tappedHound = "a-hound-5")
         val toolkit = render()
-        openForTargets(toolkit, "stack:a-hound-2", "a-hound-3", (2..7).map { "a-hound-$it" }, moved = "a-elemental-3")
+        openForTargets(toolkit, "stack:a-hound-2", "a-hound-3", listOf(2, 3, 4, 6, 7, 5).map { "a-hound-$it" }, moved = "a-elemental-3")
         tap(toolkit, "a-hound-4")
         compose.runOnIdle {
             assertEquals(listOf("a-hound-4"), picked(toolkit))
@@ -394,7 +413,7 @@ class BattlefieldPlacementScreenshotTest {
         compose.onRoot().captureShot("$SCREENSHOTS/battlefield/group-opened-targets-6${if (landscape) "-landscape" else ""}.png",
             "${if (landscape) "In landscape, " else ""}Alice casts Frost Snare (tap up to two target creatures), taps her stack " +
                 "of six identical Cinder Hounds (one tapped) and then the third Hound: the stack lies open in place, the six " +
-                "Hounds side by side (the tapped one turned in its own slot), each framed in violet as a target, the third " +
+                "Hounds side by side (the tapped one turned in its own slot at the right end, TBL-053), each framed in violet as a target, the third " +
                 "one picked (filled violet with a white check, the bar's None turned Done); her Elemental tokens moved along to " +
                 "the right." + if (landscape) " The target bar covers the left of her land row (her Mountains)." else "")
     }

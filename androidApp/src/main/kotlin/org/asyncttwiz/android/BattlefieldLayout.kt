@@ -29,9 +29,7 @@ sealed interface BattlefieldRow {
          * the viewer can't see) lies with the creatures. */
         fun of(typeLine: String?, faceDown: Boolean): BattlefieldRow = when {
             faceDown || typeLine == null -> Creatures
-            else -> {
-                val types = typeLine.substringBefore("//").substringBefore('—').substringBefore(" - ")
-                    .split(' ', '\t').filter { it.isNotBlank() }.map { it.lowercase() }.toSet()
+            else -> types(typeLine).let { types ->
                 when {
                     "land" in types -> Lands
                     "creature" in types -> Creatures
@@ -39,13 +37,21 @@ sealed interface BattlefieldRow {
                 }
             }
         }
+
+        /** TBL-053: whether a permanent with [typeLine] (the type line it has now, a creature land or an animated land
+         * included) is a creature. */
+        fun creature(typeLine: String?): Boolean = typeLine != null && "creature" in types(typeLine)
+
+        private fun types(typeLine: String) = typeLine.substringBefore("//").substringBefore('—').substringBefore(" - ")
+            .split(' ', '\t').filter { it.isNotBlank() }.map { it.lowercase() }.toSet()
     }
 }
 
 /**
  * What decides whether two permanents lie in one stack (TBL-053): the same card and face, controller and owner, and the
- * same state that matters for play: counters, damage, face up, in combat or not, the entered-this-turn mark (summoning
- * sickness shown), the P/T and marks as worked out. Tapped or not never splits a stack.
+ * same state that matters for play: counters, damage, face up, in combat or not, a creature's entered-this-turn mark
+ * (summoning sickness shown; [entered] is false for any other permanent, which joins its identical stack at once), the
+ * P/T and marks as worked out. Tapped or not never splits a stack.
  */
 data class StackIdentity(val definition: String, val faceId: String, val token: Boolean, val owner: String,
     val counters: List<TypedCounter>, val damage: String, val corner: String, val marks: List<String>,
@@ -59,7 +65,8 @@ data class BattlefieldCard(val id: String, val field: String, val row: Battlefie
 
 /**
  * A group on a battlefield (TBL-053): a stack of identical permanents, a permanent with the cards attached to it, or one
- * card alone. [members] in arrival order, a host first and then what is attached to it; [staged] the members staged as
+ * card alone. [members] from the bottom up: a stack's untapped members in arrival order, then its tapped ones in arrival
+ * order, on top (owner, 2026-11-08); a host first and then what is attached to it; [staged] the members staged as
  * attackers or placed as blockers while those are declared (they stay in their stack then, CMB-047).
  */
 data class BattlefieldGroup(val key: String, val field: String, val row: BattlefieldRow, val members: List<String>,
@@ -76,7 +83,7 @@ data class BattlefieldGroup(val key: String, val field: String, val row: Battlef
      * attachments is one per card. */
     val units: List<List<String>> get() = if (kind == Kind.Stack) listOf(members) else members.map { listOf(it) }
 
-    /** The card drawn on top: a stack's last arrival, an attached group's host. */
+    /** The card drawn on top: a stack's last member, an attached group's host. */
     val top: String get() = if (kind == Kind.Stack) members.last() else members.first()
 
     /** TBL-111: the order a hold inspects the members in: the top card first. */
@@ -106,7 +113,8 @@ object BattlefieldLayout {
     /**
      * The groups of [cards] (every battlefield's cards, each battlefield's in arrival order): an attached card joins the
      * group of the card it is attached to (its host's battlefield, wherever it is), a card with attachments is a group of
-     * its own, and identical cards of one battlefield and row ([BattlefieldCard.identity]) form one stack. Groups are in
+     * its own, and identical cards of one battlefield and row ([BattlefieldCard.identity]) form one stack, its tapped
+     * members on top (TBL-053: whichever way it came together, stacks merging at a turn's end included). Groups are in
      * arrival order (a group arrives with its first card).
      */
     fun groups(cards: List<BattlefieldCard>): List<BattlefieldGroup> {
@@ -144,8 +152,9 @@ object BattlefieldLayout {
                     card.staged?.let { mapOf(card.id to it) }.orEmpty())
             }
         }
-        // A stack is known by its first card, whichever joins or leaves later
-        return groups.map { if (it.kind == BattlefieldGroup.Kind.Stack) it.copy(key = "stack:${it.members.first()}") else it }
+        // A stack is known by its first arrival, whichever joins or leaves later
+        return groups.map { group -> if (group.kind != BattlefieldGroup.Kind.Stack) group else group.copy(key = "stack:${group.members.first()}",
+            members = group.members.sortedBy { byId[it]?.tapped == true }) }
     }
 
     /** The width [group] takes in its row, [expanded] or not: a stack with staged members a slot more for each (CMB-047). */
@@ -256,10 +265,11 @@ object BattlefieldLayout {
             val auto = computed.cards[card.id]
             val hidden = card.isFaceDown
             val host = (card.attachedTo as? org.asyncttwiz.protocol.MtgRef.Card)?.cardId?.takeIf { it in onField && it != card.id }
+            val typeLine = auto?.typeLine ?: face?.typeLine
             val identity = if (hidden || host != null || card.id in inCombat && card.id !in staged) null else StackIdentity(card.definition, card.faceId,
                 card.token, card.owner, card.typedCounters, card.damage, auto?.corner ?: card.corner, auto?.marks.orEmpty(),
-                auto?.untilEndOfTurn == true, org.asyncttwiz.protocol.EnteredTurn.marked(board, card))
-            BattlefieldCard(card.id, field.id, BattlefieldRow.of(auto?.typeLine ?: face?.typeLine, hidden), identity, host, card.tapped,
+                auto?.untilEndOfTurn == true, org.asyncttwiz.protocol.EnteredTurn.marked(board, card) && BattlefieldRow.creature(typeLine))
+            BattlefieldCard(card.id, field.id, BattlefieldRow.of(typeLine, hidden), identity, host, card.tapped,
                 staged[card.id])
         } } }
     }

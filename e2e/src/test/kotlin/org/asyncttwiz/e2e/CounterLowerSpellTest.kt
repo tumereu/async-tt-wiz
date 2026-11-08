@@ -144,6 +144,8 @@ class CounterLowerSpellTest : E2e() {
             boards.any { it.transition?.undone?.branch == true && it.transition!!.backward.isNotEmpty() }
         }
         assertTrue(alice.told("${bob.name} responded") && !alice.told("taken back"), "HIS-097's note: only her phone's passes were taken back")
+        // HIS-106: her table stops at the branch point; her tap plays Bob's Quench back
+        alice.continuesPastBranchStop(this)
         waitUntil("Bob's Quench played back on Alice's table") { stack(alice) == listOf("Idle Glimmer", "Ember Glint", "Quench Spark") }
         aCounteredAndBResolved(hand)
     }

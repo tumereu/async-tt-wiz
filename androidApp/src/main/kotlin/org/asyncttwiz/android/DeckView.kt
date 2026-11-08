@@ -75,14 +75,16 @@ internal fun DeckViewPanel(play: TableBoard, viewer: String, dismiss: () -> Unit
     var held by remember { mutableStateOf<Pair<String, PreparationTile>?>(null) }
     val previewScroll = rememberScrollState()
     val previewScreen = holdPreviewScreenHeight()
-    InlinePopupPanel(dismiss, title = "Deck", width = 384.dp, height = 560.dp, key = "deck-view", sheet = true) {
+    // ZON-093 (owner, 2026-11-08): the cards are the Panels card size, as every card panel's (STK-044)
+    val (cardWidth, _) = choiceCardSize()
+    InlinePopupPanel(dismiss, title = "Deck", width = 384.dp, height = 560.dp, key = "deck-view", sheet = true, closeIcon = true) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             FilterChip(!remaining, { remaining = false }, { Text("All · ${all.sumOf { it.second }}") }, Modifier.ringInputTarget().testTag("deck-view-all"))
             FilterChip(remaining, { remaining = true }, { Text("Still in library · ${left.sumOf { it.second }}") },
                 Modifier.ringInputTarget().testTag("deck-view-library"))
         }
         LazyColumn(Modifier.fillMaxWidth().heightIn(max = 460.dp).ringInputTarget(draggable = true).testTag("deck-view"), contentPadding = PaddingValues(bottom = 8.dp)) {
-            visualDeckSection(SavedDeckSection.MAINBOARD, shown.sumOf { it.second }, groups, DECK_VIEW_COLUMNS, header = false) { tile ->
+            visualDeckSection(SavedDeckSection.MAINBOARD, shown.sumOf { it.second }, groups, 1, header = false, cellWidth = cardWidth) { tile ->
                 val key = "deck/${tile.digest}"
                 VisualDeckCard(tile, key, "Deck", onHold = { open ->
                     if (open) {
@@ -101,6 +103,3 @@ internal fun DeckViewPanel(play: TableBoard, viewer: String, dismiss: () -> Unit
         }
     }
 }
-
-/** Cards per row in the View deck panel. */
-private const val DECK_VIEW_COLUMNS = 5

@@ -107,7 +107,10 @@ internal fun EngineTableScreen(controller: LobbyController, accountId: String, h
     // HIS-097, HIS-022 (owner playtest 2026-11-05): a branch's rewind back to the branch point waits the Rewind pause
     // after each step
     val rewindPause by playbackPreferences.rewindPauseState()
-    val takingBack = shown.takingBack && reviewPlay == null
+    // HIS-106 (owner 2026-11-08): once the rewind has played, it stops at the branch point as playback stops: the table
+    // is live there with the centre text, and Back, the menu and the timeline work again
+    val branchRewound = shown.branchStop && !(shown.transition?.undone?.branch == true && motion.playing)
+    val takingBack = shown.takingBack && reviewPlay == null && !branchRewound
     val rewindingBranch = takingBack && shown.transition?.undone?.branch == true && motion.playing
     val scope = rememberCoroutineScope()
     SideEffect {
@@ -218,7 +221,8 @@ internal fun EngineTableScreen(controller: LobbyController, accountId: String, h
                         },
                         centreAction = if (reviewPlay == null && (catchUp || pausedStop) && !takingBack && watchTappedAt != shown.version)
                             // HIS-094, HIS-106, HIS-108: what waits: a take-back held on the return, or the other player's moves
-                            TableCentreAction(when (shown.takeBack?.undo) {
+                            TableCentreAction(if (shown.branchStop) "${routes.opponentName} responded differently from here · Tap to continue"
+                            else when (shown.takeBack?.undo) {
                                 false -> "${routes.opponentName} responded differently · Tap to watch"
                                 true -> "${routes.opponentName} undid moves · Tap to watch"
                                 null -> "${routes.opponentName} has made moves · Tap to watch"
@@ -294,8 +298,9 @@ internal fun EngineReviewPanel(routes: EngineTableRoutes, events: List<HistoryTi
     BoxWithConstraints(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
         // TBL-009: in landscape your life square, piles and emblems keep the bar's left end (the table's own grey bar
         // lies under them); the strip and Previous / Auto / Next share the rest
-        if (landscape) Row(Modifier.fillMaxWidth().height(tableBottomHeight(true, timeline = true).dp)
-            .padding(start = TablePresentation.Landscape.rowRight(maxWidth.value, own = true).dp + 4.dp),
+        // TBL-009 (owner, 2026-11-08): in the controls' fixed-width place at the bar's right end, your hand left of it
+        if (landscape) Row(Modifier.align(Alignment.BottomEnd).width(TablePresentation.Landscape.controls(maxWidth.value).dp)
+            .height(tableBottomHeight(true, timeline = true).dp),
             verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.weight(1f).height(TableTimelineHeight.dp)) { strip() }
             Box(Modifier.weight(1f).height(TableControlsHeight.dp)) { transport() }
@@ -312,9 +317,10 @@ internal fun EngineReviewPanel(routes: EngineTableRoutes, events: List<HistoryTi
  */
 @Composable
 internal fun EngineRewindPanel(landscape: Boolean) {
-    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
-        Box(Modifier.fillMaxWidth(if (landscape) .5f else 1f).height(tableBottomHeight(landscape).dp).background(TimelineBarColor)
-            .testTag("rewind-panel"))
+    BoxWithConstraints(Modifier.fillMaxSize(), contentAlignment = if (landscape) Alignment.BottomEnd else Alignment.BottomCenter) {
+        // TBL-009: in landscape the controls' fixed-width place at the bar's right end
+        Box(Modifier.then(if (landscape) Modifier.width(TablePresentation.Landscape.controls(maxWidth.value).dp) else Modifier.fillMaxWidth())
+            .height(tableBottomHeight(landscape).dp).background(TimelineBarColor).testTag("rewind-panel"))
     }
 }
 

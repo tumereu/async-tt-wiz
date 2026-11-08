@@ -43,7 +43,9 @@ class TablePresentationTest {
     // the rows' left ends where they were; portrait, and a camera the player moved, are left alone
     @Test fun landscapeOpensOnBothBattlefieldsWholeHeight() {
         val play = TableFixture.play(board = 3, hand = 2)
-        fun scene(landscape: Boolean, ui: TableLayoutState = TableLayoutState(), home: Boolean = true, size: Float = .75f) =
+        // TBL-009 (owner, 2026-11-08): with your hand in the bottom bar the battlefields are taller: cards a little larger
+        // than before don't fit at 1×
+        fun scene(landscape: Boolean, ui: TableLayoutState = TableLayoutState(), home: Boolean = true, size: Float = .85f) =
             TablePresentation.scene(TableFixture.game, tableBoard(play), "a", if (landscape) 892f else 412f, if (landscape) 412f else 892f,
                 landscape, ui, landscapeHome = home, appearance = CardAppearance(cardSize = size))
         val plain = scene(true, home = false)
@@ -101,6 +103,33 @@ class TablePresentationTest {
                 }
             }
         }
+    }
+
+    // TBL-009 (owner, 2026-11-08): in landscape your hand sits in the bottom bar, after your life square and piles, up to
+    // the bar's fixed-width right end (the controls); no hand strip above the bar: the battlefields reach the bar. Portrait
+    // keeps its hand row above the bottom bar
+    @Test fun landscapeHandSitsInTheBottomBarBeforeTheControls() {
+        for ((width, height) in listOf(900f to 412f, 640f to 360f)) {
+            val scene = TablePresentation.scene(TableFixture.game, tableBoard(TableFixture.play(hand = 12)), "a", width, height, true)
+            val bar = height - TableControlsHeight
+            val hand = scene.items.single { it.id == "a/HAND" }.bounds
+            val dock = scene.viewports.single { it.id == "dock/a" }.bounds
+            assertTrue(hand.y >= bar && hand.bottom <= height, "in the bottom bar: $hand")
+            assertTrue(hand.x >= dock.right, "after the life square and piles: $hand, $dock")
+            assertEquals(width - TablePresentation.Landscape.controls(width), hand.right, .001f)
+            assertTrue(TablePresentation.Landscape.controls(width) <= width / 2)
+            assertTrue(hand.width >= TablePresentation.Landscape.MIN_OWN_HAND, "$hand")
+            val cards = scene.items.filter { it.zone == PlayZone.HAND && it.owner == "a" && it.kind == TableItemKind.CARD }
+            assertEquals(12, cards.size)
+            assertTrue(cards.all { it.bounds.y >= hand.y && it.bounds.bottom <= hand.bottom }, "cards inside the hand row")
+            assertTrue(scene.viewports.single { it.id == "a/HAND" }.maxScroll > 0f, "a long hand scrolls")
+            val world = assertNotNull(scene.world).viewport
+            assertEquals(bar - 4f, world.bottom, .001f)
+        }
+        val portrait = TableFixture.scene(TableFixture.play(hand = 2))
+        val hand = portrait.items.single { it.id == "a/HAND" }.bounds
+        assertEquals(8f, hand.x)
+        assertTrue(hand.bottom <= 820f - TableControlsHeight - 64f, "portrait: above the own piles row: $hand")
     }
 
     // TBL-009, STK-007 (owner, 2026-11-07): in landscape the opponent's life square and piles sit in the top bar after the

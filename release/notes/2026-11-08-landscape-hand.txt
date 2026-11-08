@@ -1,0 +1,1 @@
+mod: In landscape your hand now sits in the bottom bar next to your piles, giving the battlefield more room.

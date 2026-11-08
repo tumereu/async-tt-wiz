@@ -38,8 +38,9 @@ internal inline fun BoxWithConstraintsScope.TableControlsLayer(game: GameSummary
     }
     if (runtime.bottomPanel != null) runtime.bottomPanel.invoke(playControls)
     // HIS-001: no event strip in play mode
+    // TBL-009 (owner, 2026-11-08): in landscape the bar's fixed-width right end, your hand left of it
     else if (!runtime.reviewing) Box(Modifier.align(if (landscape) Alignment.BottomEnd else Alignment.BottomCenter)
-        .fillMaxWidth(if (landscape) .5f else 1f)) { playControls() }
+        .then(if (landscape) Modifier.width(TablePresentation.Landscape.controls(maxWidth.value).dp) else Modifier.fillMaxWidth())) { playControls() }
     FloatingTransientError(runtime.errorMessage ?: toolkit?.error,
         { if (runtime.errorMessage != null) runtime.dismissError?.invoke() else toolkit?.dismissError() },
         // Above the own hand row, clear of the own life square, hand and quick actions

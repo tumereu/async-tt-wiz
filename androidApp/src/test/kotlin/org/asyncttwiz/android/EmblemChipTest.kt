@@ -85,7 +85,8 @@ class EmblemChipTest {
             assertTrue(stacked.all { it.x == area.x && it.right <= life.emblemChips.first().x }, "text chips left of the row")
         }
         // TBL-009: in landscape right after the piles in the player's bar row (the opponent's top bar, your bottom bar),
-        // inside the row, clear of the hands and of the controls in the bottom bar's right half
+        // inside the row, clear of the hands and of the controls in the bottom bar's right half; on a narrow screen your
+        // row gives way to your hand in the bar (owner, 2026-11-08) down to a chip and "+N"
         for ((width, height) in listOf(892f to 412f, 640f to 360f)) {
             val landscape = TablePresentation.scene(TableFixture.game, tableBoard(play), "a", width, height, true)
             val landscapeHands = landscape.items.filter { it.kind == TableItemKind.HAND }.map { it.bounds }
@@ -93,7 +94,8 @@ class EmblemChipTest {
                 val life = landscape.items.single { it.id == "life/$player" }
                 val row = landscape.viewports.single { it.id == "dock/$player" }.bounds
                 val exile = landscape.items.single { it.id == "$player/EXILE" }
-                assertEquals(if (player == "a") EmblemChips.SHOWN + 1 else 1, life.emblemChips.size, "$width: ${life.emblemChips}")
+                assertEquals(if (player == "b") 1 else if (width >= 892f) EmblemChips.SHOWN + 1 else 2, life.emblemChips.size,
+                    "$width: ${life.emblemChips}")
                 for (chip in life.emblemChips) {
                     assertEquals(chip, chip.intersection(row), "$width: $chip in $row")
                     assertTrue(chip.x > exile.touchBounds!!.right - 1f, "$width: after the piles: $chip")
@@ -133,7 +135,7 @@ class EmblemChipTest {
         compose.onRoot().captureShot("$SCREENSHOTS/emblem-chips-landscape.png",
             "Landscape table where you have five emblems and the opponent one: the round emblem chips sit right after each " +
                 "player's piles in their bar row (the opponent's one in the top bar, your three and a +2 chip in the bottom " +
-                "bar, left of Next).")
+                "bar, before your hand).")
     }
 
     // TRN-053: holding any emblem chip inspects all that player's emblems with their full text; the release closes it

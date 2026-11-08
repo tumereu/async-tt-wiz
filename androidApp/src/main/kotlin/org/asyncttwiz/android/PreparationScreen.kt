@@ -156,9 +156,9 @@ internal fun PreparationLayout(title: String, tag: String, columnsScreen: DeckVi
 
 /** One section of the visual deck shared by game preparation, saved-deck and saved-cube viewing: a coloured "Mainboard · 60"
  * [header] (a cube has no sections) with an optional [headerAction] at its right end, then type
- * groups of card tiles [columns] wide drawn by [tile]. */
+ * groups of card tiles [columns] wide drawn by [tile], or, with [cellWidth], tiles that wide, as many per row as fit. */
 internal fun LazyListScope.visualDeckSection(source: SavedDeckSection, count: Long, groups: List<PreparationGroup>, columns: Int,
-    header: Boolean = true, headerAction: (@Composable () -> Unit)? = null,
+    header: Boolean = true, headerAction: (@Composable () -> Unit)? = null, cellWidth: Dp? = null,
     tile: @Composable (PreparationTile) -> Unit) {
     val title = source.label()
     val color = source.preparationColor()
@@ -184,7 +184,7 @@ internal fun LazyListScope.visualDeckSection(source: SavedDeckSection, count: Lo
             .padding(horizontal = PreparationGutter)) {
             Text("${group.type.label} · ${group.count}", Modifier.padding(top = 12.dp, bottom = 6.dp),
                 color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.titleSmall)
-            PreparationGrid(columns, PreparationTileGap) {
+            PreparationGrid(columns, PreparationTileGap, cellWidth) {
                 // Keyed by card, so a tile that loses one copy keeps its gesture and place.
                 for (card in group.tiles) key(card.digest) { tile(card) }
             }
@@ -222,13 +222,16 @@ private fun BoxScope.PreparationTileFace(tile: PreparationTile, width: Int,
         color = Color.White, fontSize = 11.sp, lineHeight = 16.sp, maxLines = 1)
 }
 
-/** Row-major tiles [columns] wide, all one width, [gap] apart. One layout parent keeps keyed tiles across rows. */
+/** Row-major tiles [columns] wide, all one width, [gap] apart; with [cellWidth] tiles that wide, as many per row as fit.
+ * One layout parent keeps keyed tiles across rows. */
 @Composable
-private fun PreparationGrid(columns: Int, gap: Dp, content: @Composable () -> Unit) {
+private fun PreparationGrid(columns: Int, gap: Dp, cellWidth: Dp? = null, content: @Composable () -> Unit) {
     Layout(content, Modifier.fillMaxWidth()) { measurables, constraints ->
         val gapPx = gap.roundToPx()
         val width = constraints.maxWidth
-        val cell = ((width - gapPx * (columns - 1)) / columns).coerceAtLeast(1)
+        val fixed = cellWidth?.roundToPx()?.coerceIn(1, width.coerceAtLeast(1))
+        val columns = if (fixed == null) columns else ((width + gapPx) / (fixed + gapPx)).coerceAtLeast(1)
+        val cell = fixed ?: ((width - gapPx * (columns - 1)) / columns).coerceAtLeast(1)
         val rows = measurables.map { it.measure(Constraints.fixedWidth(cell)) }.chunked(columns)
         val heights = rows.map { row -> row.maxOf { it.height } }
         layout(width, (heights.sum() + gapPx * (rows.size - 1)).coerceAtLeast(0)) {

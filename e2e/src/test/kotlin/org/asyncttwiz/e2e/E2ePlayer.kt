@@ -25,6 +25,7 @@ import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.ComposeTestRule
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.onLast
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.printToString
 import kotlinx.coroutines.runBlocking
@@ -229,7 +230,8 @@ internal class E2ePlayer(val account: TestAccount, private val compose: ComposeT
         e2e.waitUntil("$name's menu") { shows(hasTestTag("menu-GAMES")) }
         tagged("menu-GAMES").performClick()
         e2e.waitUntil("$name's game in the Games list") { shows(hasText(summary.gameName)) }
-        text(summary.gameName).performScrollTo().performClick()
+        // In landscape the side menu lists the game too (LOB-018): the Games list's row is the last
+        nodes(hasText(summary.gameName)).onLast().performScrollTo().performClick()
         e2e.waitUntil("$name's table") { game?.shown != null }
     }
 

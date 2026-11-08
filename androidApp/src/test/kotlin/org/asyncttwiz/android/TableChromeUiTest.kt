@@ -97,7 +97,7 @@ class TableChromeUiTest {
             val reviewOutput = "$SCREENSHOTS/$prefix-review.png"
             compose.onRoot().captureShot(reviewOutput, "$situation, after choosing Table actions → Timeline: history at the latest event" +
                 // TBL-009, HIS-007
-                if (landscape) "; the life square and piles stay at the bottom bar's left end, the event strip and Previous / Auto / Next after them." else ".")
+                if (landscape) "; the life square, piles and hand stay in the bottom bar, the event strip and Previous / Auto / Next in the controls' place after them." else ".")
             val reviewPixels = ImageIO.read(File(reviewOutput))
             assertEquals(TimelineBarColor.toArgb(), reviewPixels.getRGB(2, 35))
             assertEquals(TimelineBarColor.toArgb(), reviewPixels.getRGB(reviewPixels.width - 2, 35))

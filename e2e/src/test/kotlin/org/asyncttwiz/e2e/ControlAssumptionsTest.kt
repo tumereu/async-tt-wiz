@@ -580,6 +580,9 @@ class ControlAssumptionsTest : E2e() {
         waitUntil("Bob's phone stopping at it") { bob.status is GameDevice.Status.Stopped }
         bob.playFromHand("Idle Glimmer", this)
         waitUntil("Alice's line branched by Bob's second Glimmer") { alice.told("${bob.name} responded") && !alice.told("taken back") && quiet() }
+        // HIS-106: her table stops at the branch point; her tap plays Bob's second Glimmer back
+        alice.continuesPastBranchStop(this)
+        waitUntil("Bob's second Glimmer shown on Alice's table") { alice.state.stack.size == 2 && quiet() }
         assertFalse(bob.refusalSeen, "nothing refused: ${bob.shownTexts}")
         assertEquals(2, alice.state.stack.size, "both Glimmers on the Stack")
         assertTrue(alice.leaks.leaks.isEmpty() && bob.leaks.leaks.isEmpty())

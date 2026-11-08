@@ -1,0 +1,1 @@
+fix: Going to combat or ending your turn can still be undone back to your main phase after you close and reopen the game.

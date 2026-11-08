@@ -101,16 +101,9 @@ internal class E2ePlayer(val account: TestAccount, private val compose: ComposeT
     internal val heartbeat = GameHeartbeatController({ token, presence ->
         runBlocking { ActivityApi(link.origin).use { it.heartbeat(token, presence) } }
     }) { token, presence -> auth.sessionToken() == token && lobby.heartbeat(presence) }
-    private var syncedAt = 0L
     private val maintenance = GameConnectionMaintenance({ true }, {
         auth.foreground()
-        // The looper's clock runs far ahead of real time here ([E2e.run]'s skips), so its reads every 5 s came tens of times a
-        // real second (a phone: one every 5 s) and spent the server's limit of 600 lobby requests a minute per account, shared
-        // by every test of a run: a later test's setup was refused with try_later. At most two a real second.
-        if (auth.state.account != null && System.nanoTime() - syncedAt >= 500_000_000) {
-            syncedAt = System.nanoTime()
-            lobby.sync()
-        }
+        if (auth.state.account != null) lobby.sync()
     }, main, lobby::tick)
 
     /** Whether the app is in the foreground (MainActivity resumed): away, it says it left the game, as onPause does. */

@@ -65,7 +65,7 @@ internal fun podNavigationAvatars(members: List<AccountIdentity>, selfId: String
     return AvatarStackContent(others.take(2), (others.size - 2).coerceAtLeast(0))
 }
 
-/** One stack width for every row of a pod list (DRF-012, DRF-014, DRF-015), so the names line up. */
+/** One stack width for every row of a pod list (DRF-012, LOB-017, LOB-018), so the names line up. */
 internal fun podStackWidth(pods: List<PodSummary>, selfId: String?): Dp =
     pods.maxOfOrNull { podNavigationAvatars(it.members, selfId).width } ?: 32.dp
 

@@ -50,7 +50,7 @@ class NavigationPodsTest {
         compose.setContent { ScreenTheme { Navigation(fixtures.auth, close, fixtures.lobby, pods) } }
     }
 
-    // DRF-015, LOB-018
+    // LOB-018
     @Test fun podsIsOneTopLevelSectionDirectlyBelowGamesWithMatchingIndentedRows() {
         val pod = pod()
         val game = fixtures.lobby.state.games.first()
@@ -104,7 +104,7 @@ class NavigationPodsTest {
         assertFalse(':' in gameLastActivity(earlier))
     }
 
-    // DRF-015
+    // LOB-018
     @Test fun everyMemberPodAppearsWithoutInvitationsOrMainMenuThreeItemLimit() {
         val entries = listOf(pod("setup", PodPhase.SETUP), pod("draft"), pod("build", PodPhase.DRAFTED), pod("fourth"))
         pods.seed(PodState(loaded = true, pods = entries,
@@ -114,7 +114,7 @@ class NavigationPodsTest {
         compose.onNodeWithText("Invitation only").assertDoesNotExist()
     }
 
-    // DRF-015, DRF-013
+    // LOB-018, DRF-013
     @Test fun drawerPodsFollowTheSharedPodOrder() {
         fun at(pod: PodSummary, hour: Int, attention: PodAttention) = pod.copy(attention = attention, updatedAt = "2026-10-27T0$hour:00:00Z")
         val entries = listOf(at(pod("old-other"), 1, PodAttention.NONE), at(pod("new-pick"), 4, PodAttention.YOUR_PICK),

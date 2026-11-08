@@ -148,7 +148,7 @@ internal fun EngineTableScreen(controller: LobbyController, accountId: String, h
     // made show only the centre text that resumes it; a tap on the table while it runs pauses it
     val catchUp = status == GameDevice.Status.CatchUp
     val pausedStop = (status as? GameDevice.Status.Stopped)?.paused == true
-    // HIS-017, TBL-105: holding a card to inspect it pauses playback, and releasing it doesn't resume it: timeline mode's
+    // HIS-017: holding a card to inspect it pauses playback, and releasing it doesn't resume it: timeline mode's
     // Auto stops; a running catch-up pauses as a tap on the table pauses it (HIS-095); a branch's take-back goes on (HIS-106)
     val held = toolkit.peek != null
     LaunchedEffect(held) {

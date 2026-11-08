@@ -235,7 +235,7 @@ class ChoiceSourceTest {
         assertTrue(kit.toolkit.cast.start(kit.atw(kit.hand(Choices.QUENCH).first())), "the Quench is cast: ${kit.toolkit.error}")
         assertTrue(kit.toolkit.cast.targeting)
         render(kit)
-        // The bar's source, held, inspects the Quench (with the list open, a touch outside it closes it, TBL-068)
+        // The bar's source, held, inspects the Quench (with the list open, a touch outside it closes it, SYS-042)
         holdingTheSourceInspects(Choices.QUENCH)
         compose.runOnIdle { kit.tap(kit.scene().items.first { it.zone == PlayZone.STACK && it.kind == TableItemKind.PILE }) }
         assertTrue(kit.toolkit.stackTargeting, "the Stack opens as its list to pick from")

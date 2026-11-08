@@ -26,7 +26,7 @@ class ViewDeckTest : E2e() {
         waitUntil("Still in library chosen") { alice.showsText("Still in library · $left") && alice.showsText("Lands · ", substring = true) }
     }
 
-    // ZON-093, ZON-078, ZON-013 (owner 2026-11-07): at the opening Alice's View deck shows her 40 cards, and Still in library
+    // ZON-093, ZON-078 (owner 2026-11-07): at the opening Alice's View deck shows her 40 cards, and Still in library
     // the 33 not in her opening hand; after she draws in her first turn (Bob starts) it shows 32. Nothing in the game changes.
     @Test fun viewDeckFollowsTheCardsLeavingTheLibrary() {
         startGame(bobStarts = true)

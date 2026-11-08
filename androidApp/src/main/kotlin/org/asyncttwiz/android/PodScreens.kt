@@ -215,7 +215,7 @@ internal fun PodRow(pod: PodSummary, accountId: String?, open: () -> Unit, modif
     Surface(onClick = open, modifier = modifier.fillMaxWidth(), shape = MaterialTheme.shapes.medium, color = fill,
         border = BorderStroke(1.dp, if (highlighted) MaterialTheme.colorScheme.primary else ScreenBorder)) {
         Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            // DRF-012: the side menu's compact stack of the other members (DRF-015).
+            // DRF-012: the side menu's compact stack of the other members (LOB-018).
             AvatarStack(podNavigationAvatars(pod.members, accountId), ring = fill, width = stackWidth)
             Column(Modifier.weight(1f)) {
                 Text(pod.name, fontWeight = FontWeight.SemiBold)

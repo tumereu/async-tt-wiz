@@ -120,7 +120,7 @@ class QuickContinueTest {
         "2026-10-24T${hour.toString().padStart(2, '0')}:00:00Z")
     private fun invitation(id: String, hour: Int) = PodInvitation(id, id, other, pod(id, hour).updatedAt)
 
-    // DRF-014, LOB-017
+    // LOB-017
     @Test fun podPicksAndBuildActionsComeFirstOldestFirstThenOtherPodsNewestFirstCappedAtThree() {
         val pods = listOf(pod("other-old", 1), pod("pick-new", 10, PodAttention.YOUR_PICK),
             pod("other-new", 20, phase = PodPhase.SETUP), pod("build-old", 5, PodAttention.BUILD, PodPhase.DRAFTED))
@@ -129,7 +129,7 @@ class QuickContinueTest {
             quickContinuePods(pods.filter { it.attention == PodAttention.NONE }, emptyList()).map { it.id })
     }
 
-    // DRF-014, LOB-017
+    // LOB-017
     @Test fun podInvitationsFollowYourPicksAndBuildsAheadOfOtherPodsAndEmptyPanelHasNoEntries() {
         val invitations = listOf(invitation("invite-old", 0), invitation("invite-new", 23))
         val pods = listOf(pod("active", 10), pod("pick", 20, PodAttention.YOUR_PICK))
@@ -140,7 +140,7 @@ class QuickContinueTest {
         assertNotNull(quickContinuePods(emptyList(), invitations).first().invitation)
     }
 
-    // DRF-012, DRF-013, DRF-015, LOB-022
+    // DRF-012, DRF-013, LOB-018, LOB-022
     @Test fun sharedPodOrderIsYourPicksAndBuildsLongestWaitingThenInvitationsNewestThenTheRestNewest() {
         val pods = listOf(pod("pick-new", 9, PodAttention.YOUR_PICK), pod("build-old", 2, PodAttention.BUILD, PodPhase.DRAFTED),
             pod("setup-new", 8, phase = PodPhase.SETUP), pod("drafting-old", 3), pod("submitted", 5, phase = PodPhase.DRAFTED))

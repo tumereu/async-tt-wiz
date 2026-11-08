@@ -122,7 +122,7 @@ class AvatarTest {
         assertEquals("?", avatarInitial(""))
     }
 
-    // DRF-015
+    // LOB-018
     @Test fun podNavigationShowsOtherMembersAsCompactStack() {
         val me = AccountIdentity("me", "Me")
         val others = (1..4).map { AccountIdentity("o$it", "Other $it") }

@@ -203,7 +203,7 @@ internal fun Navigation(controller: AuthController, close: Boolean, lobby: Lobby
             }
             if (!pods?.state?.pods.isNullOrEmpty()) {
                 Column {
-                    // DRF-015: the shared pod order (DRF-013); invitations are answered on the Pods screen.
+                    // LOB-018: the shared pod order (DRF-013); invitations are answered on the Pods screen.
                     val podRows = orderedPods(pods?.state?.pods.orEmpty(), emptyList()).mapNotNull { it.pod }
                     val stackWidth = podStackWidth(pods?.state?.pods.orEmpty(), controller.state.account?.accountId)
                     for (pod in podRows) {

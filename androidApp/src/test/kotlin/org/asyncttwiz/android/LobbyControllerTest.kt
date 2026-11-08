@@ -142,7 +142,7 @@ class LobbyControllerTest {
         } finally { controller.close(); worker.drain() }
     }
 
-    // LOB-027, SYS-020, SYS-022
+    // SYS-023, SYS-020, SYS-022
     @Test fun backgroundPollFailuresStayQuietForThirtySeconds() {
         val worker = Worker(); var failing = false; var now = 0L
         val api = object : Api() {
@@ -253,7 +253,7 @@ class LobbyControllerTest {
         } finally { controller.close(); worker.drain() }
     }
 
-    // LOB-027
+    // SYS-023
     @Test fun backgroundRefreshRetainsAcceptedListsAndReportsRealErrors() {
         val worker = Worker(); val posts = ArrayDeque<() -> Unit>(); var failing = false; var code = "network"
         val api = object : Api() {
@@ -296,7 +296,7 @@ class LobbyControllerTest {
         assertFalse(lobbyLifecycleInterruption(LobbyFailure("invalid_response"), interrupted = true))
     }
 
-    // LOB-027
+    // SYS-023
     @Test fun cancellationDuringBackgroundIsSilentAndResumeRetriesWithoutAnIndicator() {
         val worker = Worker(); var calls = 0
         lateinit var controller: LobbyController

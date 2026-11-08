@@ -147,7 +147,7 @@ internal class SharedFlowController(
         // I-D46 d: with something on the Stack the step arrow is "Resolve": its holder passes, as Let it resolve does
         val stacked = CombatStackRules.stack(play.board).cards.isNotEmpty()
         if (stacked && play.board.stackEffects.none { it.item != null }) return STACK_WAITING
-        // TRN-027, TRN-028: the opening (mulligans) is the host's setup; the engine's game begins after it (CR 103.8)
+        // TRN-027: the opening (mulligans) is the host's setup; the engine's game begins after it (CR 103.8)
         if (play.board.turn.number == "1" && PlayerStatus.anyOpening(play.board)) return OPENING
         return null
     }

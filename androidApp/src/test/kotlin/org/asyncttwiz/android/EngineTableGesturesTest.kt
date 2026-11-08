@@ -76,7 +76,7 @@ class EngineTableGesturesTest {
         assertEquals(kit.scenario.sim.head, kit.alice.device.session.head, "through Automatum: the server took the land")
     }
 
-    // ZON-013, ZON-078, ZON-093, TBL-118: the other player's library whose top card Automatum offers nothing for shakes on a
+    // ZON-078, ZON-093, TBL-118: the other player's library whose top card Automatum offers nothing for shakes on a
     // tap and opens no menu; your own opens its menu with View deck; a double-tap draws nothing; a Graveyard's menu is only Search
     @Test fun aLibraryTapShakesAndADoubleTapDrawsNothing() {
         kit.opening()

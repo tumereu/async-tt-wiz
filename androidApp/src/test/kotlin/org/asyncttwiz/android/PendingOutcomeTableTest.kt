@@ -91,7 +91,7 @@ class PendingOutcomeTableTest {
         } finally { f.close() }
     }
 
-    // HIS-020, LOB-071, TRN-047, TRN-049 (on engine state, R4b)
+    // HIS-020, TRN-049, TRN-047 (on engine state, R4b)
     @Test fun authorCanWithdrawOnTableWhileOtherActionsAreLockedAndTimelineAndChatWork() = pendingTable(false)
     @Test fun opponentCanDeclineOnTableWhileOtherActionsAreLockedAndTimelineAndChatWork() = pendingTable(true)
 }

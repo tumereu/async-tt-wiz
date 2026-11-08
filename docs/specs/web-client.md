@@ -262,7 +262,7 @@ action without a key and says so on its row; Esc, Enter and the mouse can't be r
 3. **On-screen Back** wherever the app relies on system Back today:
    - every screen opened from a section gets a back arrow in its header (LOB-020, LOB-106's search page, DRF-076);
    - the game chat side panel gets a close button;
-   - already covered: dialogs (SYS-048 close button), menus and popups (a tap outside, TBL-068), pinned Inspect's close
+   - already covered: dialogs (SYS-048 close button), menus and popups (a tap outside, SYS-042), pinned Inspect's close
      button (TBL-131), the graveyard view's ✕ (ZON-038), the Stack list's Close (STK-018), "Return to current"
      (HIS-018), Undo for an open cast (STK-025), the side menu from the table's ☰.
 4. Browser Back moves between screens only. Back from a table goes straight to the previous screen, without SYS-050's

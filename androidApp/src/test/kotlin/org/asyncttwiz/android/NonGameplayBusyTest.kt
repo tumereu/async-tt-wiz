@@ -30,7 +30,7 @@ class NonGameplayBusyTest {
     private val viewModels = ViewModelStore()
     @After fun clearViewModels() { viewModels.clear() }
 
-    // LOB-027, SYS-023
+    // SYS-023
     @Test fun refreshKeepsGamesStillAndShowsNoLoadingIndicator() {
         val fixtures = ScreenFixtures()
         compose.setContent { ScreenTheme { Surface(Modifier.fillMaxSize()) { GamesContent(fixtures.lobby, "a") } } }
@@ -112,7 +112,7 @@ class NonGameplayBusyTest {
         compose.onAllNodesWithTag("floating-busy-pill").assertCountEquals(0)
     }
 
-    // LOB-027, SYS-023
+    // SYS-023
     @Test fun onlyInitialForegroundLoadOfEmptyGamesShowsLoading() {
         val fixtures = ScreenFixtures()
         fixtures.lobby.seed(LobbyState(busy = true))

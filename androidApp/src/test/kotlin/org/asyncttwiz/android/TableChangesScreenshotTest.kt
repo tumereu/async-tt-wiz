@@ -160,7 +160,7 @@ class TableChangesScreenshotTest {
     }
 
 
-    // HIS-031, TBL-033
+    // HIS-031
     @Test fun accumulatedTagsAndHighlightsAtAMidAnimationFrame() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         CardAppearancePreferences(context).setSize(MIN_CARD_SCALE)

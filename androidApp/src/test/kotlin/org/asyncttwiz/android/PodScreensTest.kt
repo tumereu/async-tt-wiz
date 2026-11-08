@@ -169,7 +169,7 @@ class PodScreensTest {
         assertTrue(opened)
     }
 
-    // DRF-012, DRF-015
+    // DRF-012, LOB-018
     @Test fun podRowsShowTheSideMenusCompactStackOfOtherMembersWithNamesLinedUp() {
         val others = (1..4).map { AccountIdentity("o$it", "Other $it") }
         val group = PodSummary("group", "Big draft", PodPhase.DRAFTING, alice, listOf(alice) + others,

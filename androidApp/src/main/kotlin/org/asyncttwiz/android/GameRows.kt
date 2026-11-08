@@ -75,7 +75,7 @@ internal fun MenuPodRow(entry: QuickContinuePod, accountId: String?, stackWidth:
     val invite = entry.invitation
     Row(Modifier.fillMaxWidth().testTag("quick-pod-${entry.id}").clickable(onClick = open).padding(12.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        // DRF-014: pods show the side menu's compact stack (DRF-015); an invitation keeps its creator's avatar.
+        // LOB-017: pods show the side menu's compact stack (LOB-018); an invitation keeps its creator's avatar.
         if (pod != null) AvatarStack(podNavigationAvatars(pod.members, accountId), ring = Color.White, width = stackWidth)
         else Box(Modifier.width(stackWidth)) { Avatar(requireNotNull(invite).creator) }
         Column(Modifier.weight(1f)) {

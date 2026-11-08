@@ -14,7 +14,7 @@ import kotlin.test.assertTrue
  * The starting player's phone never assumes the other player's keep: it waits for their keep (or mulligans).
  */
 class OpeningKeepTest : E2e() {
-    // TRN-027, TRN-028, TRN-070, HIS-096: Alice (the starting player) opens the game first and keeps while Bob hasn't
+    // TRN-027, TRN-070, HIS-096: Alice (the starting player) opens the game first and keeps while Bob hasn't
     // opened it; her phone waits for his keep, offers no Assume keep, and her turn 1 begins only on his own keep
     @Test fun theStartingPlayerWaitsForTheOtherPlayersKeepWhenOpeningFirst() {
         startGame()

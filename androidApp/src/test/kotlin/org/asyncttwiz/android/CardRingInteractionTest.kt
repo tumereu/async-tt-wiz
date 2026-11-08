@@ -63,7 +63,7 @@ class CardRingInteractionTest {
         compose.waitUntil(5000) { toolkit.capture == null || toolkit.error != null }
     }
 
-    // TBL-068
+    // SYS-042
     @Test fun outsideTapDismissesWithoutActivatingTableChrome() {
         val toolkit = render()
         compose.mainClock.advanceTimeBy(350)
@@ -93,7 +93,7 @@ class CardRingInteractionTest {
         compose.onNodeWithContentDescription("Inspect other side").assertDoesNotExist()
     }
 
-    // SYS-042, TBL-068: a drag outside the menu closes it and still goes through to the table (here the card goes back
+    // SYS-042: a drag outside the menu closes it and still goes through to the table (here the card goes back
     // where the layout puts it: nothing is placed by hand on the battlefield, ZON-077)
     @Test fun outsideDragSurvivesRingDismissalAndReachesTheTable() {
         val toolkit = render()

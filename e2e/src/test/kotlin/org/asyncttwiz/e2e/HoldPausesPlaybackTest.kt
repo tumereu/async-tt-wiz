@@ -18,7 +18,7 @@ class HoldPausesPlaybackTest : E2e() {
     private fun E2ePlayer.auto(): String? = described("Auto advance").fetchSemanticsNode().config
         .getOrNull(SemanticsProperties.StateDescription)
 
-    // HIS-017, TBL-105, HIS-095: Alice casts an Ember Herald while Bob is away; Bob comes back and watches. Holding a card
+    // HIS-017, HIS-095: Alice casts an Ember Herald while Bob is away; Bob comes back and watches. Holding a card
     // of his hand while the catch-up plays pauses it (it goes on to the next point where he gets priority and stops there
     // with the centre text). Then in timeline mode, with Auto on, holding a card stops Auto, and it stays off after
     // the release.

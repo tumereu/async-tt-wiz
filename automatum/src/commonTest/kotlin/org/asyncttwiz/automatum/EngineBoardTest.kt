@@ -138,7 +138,7 @@ class EngineBoardTest {
         assertEquals(digests.getValue(bear), part.definition)
     }
 
-    // TBL-095, TRN-003: damage on a creature clears when the turn passes
+    // TBL-095: damage on a creature clears when the turn passes
     @Test fun damageClearsWhenTheTurnPasses() {
         val (ogre) = table.put(bob, Zone.Battlefield, "Hill Ogre")
         table.put(alice, Zone.Library, "Island", "Island")

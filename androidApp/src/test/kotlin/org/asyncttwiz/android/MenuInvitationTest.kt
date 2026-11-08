@@ -123,7 +123,7 @@ class MenuInvitationTest {
         } finally { pods.close(); worker.drain() }
     }
 
-    // DRF-014
+    // LOB-017
     @Test fun menuPodPanelRowsShowTheSideMenusCompactStackAndInvitationsTheirCreator() {
         val worker = Worker()
         val pods = PodController(proxy<Pods> { name, _ -> when (name) {

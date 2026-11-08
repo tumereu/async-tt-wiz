@@ -25,7 +25,7 @@ build anything outside the task you were given.
 | `docs/roadmap.md` | Long-term product direction |
 | `docs/backlog.md` | Approved changes not built yet; an item you build is deleted there in the same commit |
 | `docs/specs/` | Specs of larger approved changes not built yet; deleted once built |
-| `docs/design/` | Older, larger spec. Tier 1 `01-product/overview.md` → Tier 3 contracts in `03-contracts/` |
+| `docs/design/` | Older, larger spec of the hand-moved tabletop. Tier 1 `01-product/overview.md` → Tier 3 contracts in `03-contracts/`; its rules versions and compatibility parts never apply |
 | `docs/design/02-experience/ui/` | UI mockups: `images/*.png` (portrait/landscape), `review.md` notes, `feedback.md` owner feedback |
 
 Read the catalog files your task touches before changing code. Read only the
@@ -112,9 +112,12 @@ catalog wins. Where neither says, ask rather than pick.
   its short half on the shrunk build.
 - Never weaken or delete a test just to make it pass. A test may change only
   when it encodes behaviour your task names (see "Protecting existing features").
-- Only one compatible set of apps and server is maintained; do not keep old app
-  versions working. A change that deletes or invalidates existing games (e.g. a
-  migration, or retiring an old rules version) needs the owner's permission first.
+- Exactly one version of the apps and server exists at a time: the server serves
+  only the current app, and an older app only shows the update screen. Never add
+  code, tests or docs that keep anything older working (older apps, older stored
+  formats, older events or settings, version windows, fallback readers). A change
+  that deletes or invalidates existing games (e.g. a new stored format) needs the
+  owner's permission first.
 - Every user-visible change gets a release note: one file per change,
   `release/notes/<YYYY-MM-DD>-<slug>.txt`, holding one line `add: <text>`,
   `mod: <text>` or `fix: <text>`. Plain words a player understands, no

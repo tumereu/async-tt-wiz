@@ -146,7 +146,7 @@ class EngineBoardShownTest {
         assertTrue(cub in back.containers.single { it.zone == PlayZone.HAND && it.accountId == kit.f.a }.cards)
     }
 
-    // TRN-028, TRN-062, TRN-066, TRN-070: Alice's turn-1 controls wait while Bob (online) is still deciding on a mulligan:
+    // TRN-027, TRN-062, TRN-066, TRN-070: Alice's turn-1 controls wait while Bob (online) is still deciding on a mulligan:
     // no step arrow and nothing in its place (his keep is never assumed, TRN-027); once he keeps she plays her first turn
     // TRN-004: the step arrow shows only while the viewer may act
     @Test fun theStartingPlayersControlsWaitForTheOtherKeep() {

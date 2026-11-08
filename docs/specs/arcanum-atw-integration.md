@@ -290,7 +290,7 @@ pause-point review fixes A and C and the UI review round 2's (1) are superseded 
   (`AutomatumDrags.manual`) except while a `Manual` decision is open and inside Automatum's own routes (moving within
   one's own Battlefield or hand, the combat draft); refused controls stay greyed and say why on tap
   (`MenuControl.refused`, `LocalRefusal`): Life panel, Table actions, quick actions, Stack bubbles and Manage Stack.
-  Catalog: TBL-043, TBL-046, TBL-071, TBL-114–TBL-116, ZON-007, ZON-013, ZON-077, ZON-078, TRN-010, TRN-031, TRN-059,
+  Catalog: TBL-043, TBL-046, TBL-071, TBL-114–TBL-116, ZON-007, ZON-078, ZON-077, TRN-010, TRN-031, TRN-059,
   CMB-025, STK-035, SYS-069.
 - **Built (I-D40, I-D42):** `SharedFlowController.step` (every step route: step button, arrow, phase dialog, quick
   actions, combat Commit attack/Commit blocks/Pass) works out who would act; for the other player nothing is sent and
@@ -479,7 +479,7 @@ pause-point review fixes A and C and the UI review round 2's (1) are superseded 
   mulligan and while Automatum's combat offers quick actions. "Manual…" is gone: card and zone menus show only engine
   rows and no-game-effect cells, today's menus while a `Manual` decision is open; Table actions, the Stack bubbles and
   Manage Stack drop their manual entries. Catalog: TBL-043, TBL-046, TBL-071, TBL-114–TBL-118, ZON-004, ZON-007,
-  ZON-013, ZON-077, ZON-078, TRN-010, TRN-015, TRN-020, TRN-031, TRN-059, TRN-061, STK-035, SYS-063, SYS-069, SYS-071,
+  ZON-078, ZON-077, TRN-010, TRN-015, TRN-020, TRN-031, TRN-059, TRN-061, STK-035, SYS-063, SYS-069, SYS-071,
   LOB-113.
 - **Built (I-D46 (d), I-D47 choices, I-D48, UI review 2026-11-03 #1, #4–#6, #9):** the step arrow with Automatum on is
   `AutomatumStepArrow`, its words from `AutomatumStep.of(play)` (ATW's board alone): Pass / Next / To combat / End turn /

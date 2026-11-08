@@ -4,7 +4,7 @@ number	item	screenshot	catalog	decisions
 3	Target bar of a spell	choice-source/target-bar.png	STK-044 STK-047	Targets
 4	Target bar of an activated ability	choice-source/target-bar-ability.png	STK-046 STK-047
 5	Target bar of a trigger	choice-source/trigger-target-bar.png	STK-030 STK-046
-6	Stack list as a target list	choice-source/stack-target-list.png	STK-018 STK-048 TBL-068
+6	Stack list as a target list	choice-source/stack-target-list.png	STK-018 STK-048 SYS-042
 7	Stack list	engine/stack-ability-list.png	STK-046
 8	Ability token on the Stack	engine/stack-ability.png	STK-046
 9	Ability token's Inspect	engine/stack-ability-inspect.png	STK-050 TBL-104

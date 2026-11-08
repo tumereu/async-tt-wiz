@@ -77,7 +77,7 @@ class ChatScreenTest {
         compose.onNodeWithText("Checking delivery…").assertDoesNotExist()
     }
 
-    // LOB-068, LOB-102
+    // LOB-068, SYS-047
     @Test fun keyboardSendKeySendsLikeTheSendButton() {
         open()
         compose.onNodeWithContentDescription("Chat messages").performScrollToIndex(30)

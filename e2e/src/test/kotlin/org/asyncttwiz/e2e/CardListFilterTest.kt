@@ -31,7 +31,8 @@ class CardListFilterTest : E2e() {
         alice.tagged("menu-DECKS").performClick()
         waitUntil("her deck in the list") { alice.showsText(deck.name) }
         alice.text(deck.name).performClick()
-        waitUntil("the saved deck's Edit") { alice.showsText("Edit") }
+        // Edit is greyed until the deck has loaded
+        waitUntil("the saved deck") { alice.showsText("Edit") && alice.showsText("Mainboard · 40") }
         alice.text("Edit").performClick()
         waitUntil("the Cards tab") { alice.shows(hasTestTag("card-list-filter-field")) && shows("Ember Cub", "Mainboard") }
         val field = alice.tagged("card-list-filter-field")

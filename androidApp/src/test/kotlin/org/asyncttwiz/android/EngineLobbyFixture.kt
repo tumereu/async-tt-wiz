@@ -17,9 +17,13 @@ internal class EngineLobbyFixture(val me: String = TableStatesFixture.a) : AutoC
     val other: String get() = if (me == f.a) f.b else f.a
     val worker = BasicTableFixture.Worker()
     val wire = BasicTableFixture.Wire()
+    var listReads = 0
     val api = object : Lobbies {
         override suspend fun contacts(token: String, after: String?) = ContactList(emptyList())
-        override suspend fun games(token: String, invitations: Boolean, after: String?) = GameList(if (invitations) emptyList() else listOf(game))
+        override suspend fun games(token: String, invitations: Boolean, after: String?): GameList {
+            listReads++
+            return GameList(if (invitations) emptyList() else listOf(game))
+        }
         override suspend fun head(token: String, id: String) = game
         override suspend fun search(token: String, query: String) = UserSearch(emptyList())
         override suspend fun add(token: String, input: AddContact): AccountIdentity = error("not used")

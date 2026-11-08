@@ -93,26 +93,17 @@ object ServerSetup {
         E2eStack.query("SELECT activity_id, your_move FROM activity_summary WHERE account_id = '${account.id}' " +
             "AND game_id = '$gameId' AND kind = 'GAME'").singleOrNull()?.split('|')?.let { (id, move) -> id.toLong() to (move == "t") }
 
-    /**
-     * A lobby request of the setup. Every test of a run shares Alice's and Bob's accounts and the app reads its lists after
-     * each game command, so a burst of quick tests can spend the server's limit of 600 lobby requests a minute per account:
-     * refused with try_later, it waits for the limit's next minute. Again after a connection failure, as [accountCall], at
-     * most three times. Any other refusal fails at once, naming its code.
-     */
+    /** A lobby request of the setup: again after a connection failure, as [accountCall], at most three times; a refusal fails
+     * at once, naming its code. */
     private fun <T> lobbyCall(call: suspend (LobbyApi) -> T): T {
-        val limitEnds = System.nanoTime() + java.time.Duration.ofSeconds(70).toNanos()
-        var connectionFailures = 0
-        while (true) {
+        repeat(3) { attempt ->
             try { return LobbyApi(origin).use { api -> runBlocking { call(api) } } }
             catch (failure: org.asyncttwiz.android.LobbyFailure) {
-                when {
-                    failure.code == "network" && ++connectionFailures < 3 -> Thread.sleep(200)
-                    failure.code == "try_later" && System.nanoTime() < limitEnds -> Thread.sleep(2_000)
-                    else -> error("Lobby request of the setup: ${failure.code}")
-                }
-                System.err.println("Setup: lobby request again after ${failure.code}")
+                if (failure.code != "network" || attempt == 2) error("Lobby request of the setup: ${failure.code}")
+                Thread.sleep(200)
             }
         }
+        error("unreachable")
     }
 
     /**

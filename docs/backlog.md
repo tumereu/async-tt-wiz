@@ -26,7 +26,6 @@ Main button presses on the record (owner, 2026-11-08; HIS-101, HIS-084, HIS-099,
 
 Small batch, beta9 playtest notes (owner, 2026-11-08):
 
-- Art stays (LOB-097, DRF-070): card art counts as permanent. A cached picture shows at once and is never checked again (today every picture and lookup expires after 24 h and the tile waits on the network, a "304" counting as a download in the log); failures still retry. The cache key is the printing, face and size (and a custom URL), not the card digest or catalog checksum, so one picture isn't stored per screen or lost at a catalog update; the old cache downloads once more. The cache's limit goes from 256 MB to 1 GB, oldest used first out. Then measure how a large cube fills on a first visit, and report before adding load-ahead or anything else.
 - Draft history (DRF-165): holding a card shows it over the history dialog (today the preview is drawn outside the dialog, behind it; e2e). The History button also shows during Build and after it, not only while drafting.
 - Panel text (STK-047, STK-044, STK-023): a panel's sentence shows up to 4 lines (today 2, AutomatumDock); when it is still cut, a tap on it shows it whole, scrolling past half the table's height.
 - Card list editor (LOB-105, LOB-107, DRF-003): a filter field at the top of the Cards tab with search's syntax and chips (LOB-108, LOB-119), sections showing only what matches; +1, -1, Remove all and Move to... get icons.

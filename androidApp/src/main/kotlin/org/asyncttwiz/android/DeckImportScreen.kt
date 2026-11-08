@@ -46,7 +46,7 @@ internal fun DeckImportScreen(controller: DeckImportController, landscape: Boole
                     Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable { controller.cover(card.digest) }
                         .padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        DeckThumbnail(ArtworkReference(face.scryfallId, 0, card.digest, "small", face.imageUri), card.definition.name, 28.dp, 40.dp)
+                        DeckThumbnail(ArtworkReference(face.scryfallId, 0, "small", face.imageUri), card.definition.name, 28.dp, 40.dp)
                         Text(card.definition.name, Modifier.weight(1f))
                         if (controller.currentCover?.definition == card.digest) EntryIcon("Selected cover", "ready")
                     }

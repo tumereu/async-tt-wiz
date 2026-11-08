@@ -115,7 +115,7 @@ internal fun rememberEmblemArt(text: String): ArtworkReference? {
     val art by produceState(AndroidEmblemArt.known(text), text) {
         value = withContext(Dispatchers.IO) { AndroidEmblemArt.find(context, text) }
     }
-    return art?.let { ArtworkReference(it, 0, "emblem-v1", "art_crop") }
+    return art?.let { ArtworkReference(it, 0, "art_crop") }
 }
 
 /**

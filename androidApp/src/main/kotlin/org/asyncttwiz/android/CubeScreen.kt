@@ -134,7 +134,7 @@ internal fun CubeScreen(controller: CubeController, navigation: (() -> Unit)?, d
     }
     held?.second?.let { tile ->
         val card = remember(tile.digest, tile.definition) {
-            tile.definition?.takeIf { it.faces.isNotEmpty() }?.let { InspectedCard.retained(tile.digest, it) }
+            tile.definition?.takeIf { it.faces.isNotEmpty() }?.let { InspectedCard.retained(it) }
         }
         PodCardArtPreview(card, tile.name, previewScroll)
     }

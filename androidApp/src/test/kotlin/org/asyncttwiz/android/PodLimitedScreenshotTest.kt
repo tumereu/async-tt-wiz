@@ -91,7 +91,7 @@ class PodLimitedScreenshotTest {
         for ((node, copy) in nodes) {
             val size = compose.onNodeWithTag(node).fetchSemanticsNode().size
             val n = copy.id.substringAfter("copy-").toInt()
-            val reference = ArtworkReference("print-$n", 0, copy.definition, "normal", null, null)
+            val reference = ArtworkReference("print-$n", 0, "normal", null, null)
             service.loader.memoryCache!![MemoryCache.Key(CardArtworkRequest(reference, size.width, size.height).key)] =
                 MemoryCache.Value(cardBitmap(size.width, size.height, palette[n % palette.size]).asImage())
         }

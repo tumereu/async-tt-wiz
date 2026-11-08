@@ -244,7 +244,7 @@ private fun CardListCardsTab(editor: CardListEditor, search: CardListSearch, loo
     }
     held?.second?.let { tile ->
         val card = remember(tile.digest, tile.definition) {
-            tile.definition?.takeIf { it.faces.isNotEmpty() }?.let { InspectedCard.retained(tile.digest, it) }
+            tile.definition?.takeIf { it.faces.isNotEmpty() }?.let { InspectedCard.retained(it) }
         }
         PodCardArtPreview(card, tile.name, previewScroll)
     }
@@ -474,7 +474,7 @@ private fun SearchResult(editor: CardListEditor, card: CatalogCard, metadata: Ca
         if (shown.first == destination && count > shown.second) { pulse.snapTo(1.35f); pulse.animateTo(1f, tween(220)) }
         shown = destination to count
     }
-    val reference = remember(card.key, metadata) { ArtworkReference.from(card.printing, metadata?.checksum.orEmpty(), "normal") }
+    val reference = remember(card.key) { ArtworkReference.from(card.printing, "normal") }
     val saved = destination.saved()
     BoxWithConstraints(Modifier.fillMaxWidth().testTag("search-result-${card.name}")) {
         val width = with(LocalDensity.current) { maxWidth.roundToPx().coerceAtLeast(1) }

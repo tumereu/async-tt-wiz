@@ -216,7 +216,7 @@ object CombatStackPresentation {
             }
             val side = if (target == null) defender else board.containers.firstOrNull { it.id == targetCard?.containerId }?.accountId
             val lane = CombatLaneLabel(target, label, TableBounds(laneX, 0f, cardSpan, 0f),
-                artwork = avatar?.let { org.asyncttwiz.storage.ArtworkReference(it.scryfallId, it.face, "avatar-v1", "art_crop") },
+                artwork = avatar?.let { org.asyncttwiz.storage.ArtworkReference(it.scryfallId, it.face, "art_crop") },
                 accountId = defender.takeIf { target == null }, inset = laneLabelInset(cardWidth), value = value, side = side,
                 hidden = hidden)
             // The chip (with its value and the damage preview) always fits its lane; wide lanes widen the area, which then pans.

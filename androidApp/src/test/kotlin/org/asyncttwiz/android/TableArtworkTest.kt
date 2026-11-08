@@ -16,7 +16,7 @@ class TableArtworkTest {
             val submitted = SubmittedDefinition(DeckJson.digest(definition), DeckJson.normalized(definition))
             val warmed = gameArtworkReferences(listOf(submitted))
             for (size in listOf("normal", "large")) assertEquals((0..15).toList(), warmed.filter { it.size == size }.map { it.face })
-            assertTrue(InspectedCard.retained(submitted.digest, definition).artwork.drop(16).all { it == null })
+            assertTrue(InspectedCard.retained(definition).artwork.drop(16).all { it == null })
             val initial = TableFixture.play(board = 1, hand = 1)
             val play = initial.copy(definitions = listOf(submitted), board = initial.board.copy(cards = initial.board.cards.map {
                 it.copy(definition = submitted.digest, faceId = ids.last())
@@ -26,7 +26,7 @@ class TableArtworkTest {
     }
 
     private val printing = "2487c5bd-8d7f-5925-af7a-a2f6e5eb6b7a"
-    private val full = ArtworkReference(printing, 0, "v1")
+    private val full = ArtworkReference(printing, 0)
     private val custom = full.copy(customUrl = "https://example.com/card.png")
 
     // TBL-019
@@ -39,6 +39,17 @@ class TableArtworkTest {
         assertEquals(TableArtworkMode.CUSTOM_CARD, tableArtworkMode(custom.copy(printing = null).forTable(), true))
         assertEquals("normal", full.size, "table conversion must not change full-card consumers")
         assertNotEquals(CardArtworkRequest(full, 100, 140).key, CardArtworkRequest(full.forTable(), 100, 140).key)
+    }
+
+    // LOB-097: one picture per printing, face and size, whichever card definition or screen asks for it.
+    @Test fun twoDefinitionsOfOnePrintingShareTheirPicture() {
+        val face = DefinitionFace("front", "Front", scryfallId = printing)
+        val first = CardDefinition("Card", listOf(face))
+        val second = CardDefinition("Card", listOf(face.copy(rulesText = "Reworded by a catalog update.")))
+        assertNotEquals(DeckJson.digest(first), DeckJson.digest(second))
+        assertEquals(InspectedCard.retained(first).artwork.single()!!.key, InspectedCard.retained(second).artwork.single()!!.key)
+        assertEquals(1, gameArtworkReferences(listOf(first, second).map { SubmittedDefinition(DeckJson.digest(it), it) })
+            .count { it.size == "art_crop" })
     }
 
     // TBL-019
@@ -59,10 +70,9 @@ class TableArtworkTest {
         val references = gameArtworkReferences(listOf(submitted, submitted))
         assertEquals(listOf(0 to "art_crop", 1 to "art_crop", 2 to "normal", 0 to "large", 1 to "large", 2 to "large"),
             references.map { it.face to it.size })
-        assertTrue(references.all { it.version == submitted.digest })
         assertEquals(custom.customUrl, references.last().customUrl)
         // The very keys the inspector and the table request, so warmed entries are reused as-is.
-        val inspected = InspectedCard.retained(submitted.digest, definition).artwork.filterNotNull()
+        val inspected = InspectedCard.retained(definition).artwork.filterNotNull()
             .filter { it.printing != null || it.customUrl != null }
         assertEquals(inspected, references.drop(3))
         val initial = TableFixture.play(board = 1, hand = 1)
@@ -91,7 +101,7 @@ class TableArtworkTest {
                 definitions.getValue(card.id).let { card.copy(definition = it.digest, faceId = it.definition.faces.single().faceId) }
             }))
         val order = gameArtworkReferences(tableBoard(play), viewer).filter { it.size == "art_crop" }.map { reference ->
-            play.definitions.single { it.digest == reference.version }.definition.name
+            play.definitions.single { it.definition.faces.single().scryfallId == reference.printing }.definition.name
         }
         assertEquals(listOf("Hand", "Field"), order.take(2))
         assertEquals(play.definitions.size, order.size)
@@ -112,7 +122,7 @@ class TableArtworkTest {
             assertTrue(visible.isNotEmpty())
             assertTrue(visible.all { it.artwork?.size == if (imageUri == null) "art_crop" else "normal" })
             assertTrue(scene.items.filter { it.covered }.all { it.artwork == null })
-            assertEquals("large", InspectedCard.retained(submitted.digest, definition).artwork.single()?.size)
+            assertEquals("large", InspectedCard.retained(definition).artwork.single()?.size)
         }
     }
 }

@@ -22,13 +22,13 @@ import org.asyncttwiz.storage.ArtworkReference
 internal const val PodArtPrefetchParallelism = 4
 
 /** The tile image of a draft card: the retained printing's first face at normal size. */
-internal fun podTileArtwork(digest: String, definition: CardDefinition?): ArtworkReference? =
-    definition?.takeIf { it.faces.isNotEmpty() }?.let { InspectedCard.retained(digest, it) }
+internal fun podTileArtwork(definition: CardDefinition?): ArtworkReference? =
+    definition?.takeIf { it.faces.isNotEmpty() }?.let { InspectedCard.retained(it) }
         ?.artwork?.firstOrNull()?.takeIf { it.printing != null || it.customUrl != null }?.copy(size = "normal")
 
 /** Every given card, in order, without duplicates. */
 internal fun podCardPrefetchArtwork(cards: List<DraftCopy>, definitions: Map<String, CardDefinition>): List<ArtworkReference> =
-    cards.mapNotNull { podTileArtwork(it.definition, definitions[it.definition]) }.distinct()
+    cards.mapNotNull { podTileArtwork(definitions[it.definition]) }.distinct()
 
 /** Every card of the given packs, in pack order, without duplicates. */
 internal fun podPrefetchArtwork(packs: List<DraftPrivatePack>, definitions: Map<String, CardDefinition>): List<ArtworkReference> =

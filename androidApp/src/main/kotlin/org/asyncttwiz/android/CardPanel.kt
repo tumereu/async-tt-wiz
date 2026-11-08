@@ -119,7 +119,7 @@ internal fun cardPanels(scene: TableScene, play: TableBoard, viewer: String, pan
         val definition = definitions[card.definition]?.definition
         val face = definition?.faces?.firstOrNull { it.faceId == card.faceId }
         val art = if (!row.entry.faceVisible || face == null || face.scryfallId == null && face.imageUri == null) null else
-            face.tableArtwork(definition.faces.indexOf(face), card.definition)?.forTable()
+            face.tableArtwork(definition.faces.indexOf(face))?.forTable()
         // ZON-091: counters on a card in exile (a suspended card's time counters) show as on the battlefield (TBL-113)
         val counters = org.asyncttwiz.automatum.ComputedBoard.counterMarks(card.typedCounters)
         TableItem("card/${card.id}", row.bounds,

@@ -67,7 +67,7 @@ class ArtworkProductionTest {
         }
         val directory = File(original.cacheDir, "artwork-pending-${UUID.randomUUID()}")
         val service = CardArtworkService(original, directory, ArtworkUrlPolicy(origin), "$origin/cards/")
-        val reference = mutableStateOf<ArtworkReference?>(ArtworkReference(null, 0, "pending", customUrl = "$origin/delayed"))
+        val reference = mutableStateOf<ArtworkReference?>(ArtworkReference(null, 0, customUrl = "$origin/delayed"))
         val visible = mutableStateOf(true)
         try {
             compose.activityRule.scenario.onActivity { activity -> activity.setContent {
@@ -107,7 +107,7 @@ class ArtworkProductionTest {
         // Query ordinary name/printing identities from this synthetic source; no runtime fixture roles.
         val records = catalog.find("Dayglass Loom // Nightglass Weave")
         assertEquals(2, records.size)
-        val references = records.sortedBy { it.side }.map { ArtworkReference.from(it, metadata.date + metadata.checksum)!! }
+        val references = records.sortedBy { it.side }.map { ArtworkReference.from(it)!! }
         val directory = File(owned, "art")
         var service = CardArtworkService(original, directory)
         val first = service.repository.load(references[0])!!
@@ -162,7 +162,7 @@ class ArtworkProductionTest {
             compose.onNodeWithContentDescription("Back face").assertIsDisplayed()
                 .assertWidthIsEqualTo(120.dp).assertHeightIsEqualTo(180.dp)
             compose.onNodeWithContentDescription("Front face").assertDoesNotExist()
-            compose.runOnIdle { reference.value = ArtworkReference(null, 0, "missing"); fallback.value = "Missing artwork — plain text" }
+            compose.runOnIdle { reference.value = ArtworkReference(null, 0); fallback.value = "Missing artwork — plain text" }
             compose.onNodeWithText("Missing artwork — plain text").assertIsDisplayed()
             compose.runOnIdle { visible.value = false; reference.value = references[0] }
             compose.runOnIdle { visible.value = true; fallback.value = "Rebound face" }

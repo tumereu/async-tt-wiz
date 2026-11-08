@@ -148,7 +148,7 @@ internal fun PreparationLayout(title: String, tag: String, columnsScreen: DeckVi
     }
     held?.second?.let { tile ->
         val card = remember(tile.digest, tile.definition) {
-            tile.definition?.takeIf { it.faces.isNotEmpty() }?.let { InspectedCard.retained(tile.digest, it) }
+            tile.definition?.takeIf { it.faces.isNotEmpty() }?.let { InspectedCard.retained(it) }
         }
         PodCardArtPreview(card, tile.name, previewScroll)
     }
@@ -214,7 +214,7 @@ internal fun VisualDeckCard(tile: PreparationTile, key: String, title: String,
 /** Card art filling the tile, with a "×3" badge when the tile holds more than one copy. */
 @Composable
 private fun BoxScope.PreparationTileFace(tile: PreparationTile, width: Int,
-    reference: org.asyncttwiz.storage.ArtworkReference? = remember(tile.digest, tile.definition) { podTileArtwork(tile.digest, tile.definition) }) {
+    reference: org.asyncttwiz.storage.ArtworkReference? = remember(tile.digest, tile.definition) { podTileArtwork(tile.definition) }) {
     val height = (width * 1.4f).roundToInt().coerceAtLeast(1)
     CardArtwork(reference, tile.name, width, height, Modifier.fillMaxSize(), placeholder = { PodCardPlaceholder(tile.name) })
     if (tile.quantity > 1) Text("×${tile.quantity}", Modifier.align(Alignment.BottomStart).padding(2.dp)
@@ -293,7 +293,7 @@ internal fun SwipeDeckCard(tile: PreparationTile, key: String, tag: String, titl
     val name = tile.name
     BoxWithConstraints(Modifier.fillMaxWidth().testTag(tag)) {
         val width = with(LocalDensity.current) { maxWidth.roundToPx().coerceAtLeast(1) }
-        val reference = remember(tile.digest, tile.definition) { podTileArtwork(tile.digest, tile.definition) }
+        val reference = remember(tile.digest, tile.definition) { podTileArtwork(tile.definition) }
         Box(Modifier.fillMaxWidth().aspectRatio(1f / 1.4f)
             .pointerInput(key, enabled, threshold) {
                 podPickGestures(onTap = { menus.open = key }, onInspect = { currentHold(it) }, onInspectScroll = { currentHoldScroll(it) },

@@ -7,10 +7,10 @@ import org.asyncttwiz.storage.*
 data class InspectedCard(val definition: CardDefinition, val artwork: List<ArtworkReference?>) {
     init { require(definition.faces.isNotEmpty() && artwork.size == definition.faces.size) }
     companion object {
-        fun retained(identity: String, definition: CardDefinition) = InspectedCard(definition,
-            definition.faces.mapIndexed { index, face -> face.artwork(index, identity, "large") })
+        fun retained(definition: CardDefinition) = InspectedCard(definition,
+            definition.faces.mapIndexed { index, face -> face.artwork(index, "large") })
         fun preview(entry: ResolvedDeckEntry, catalog: CatalogMetadata?) = InspectedCard(entry.definition(catalog),
-            entry.faces.map { ArtworkReference.from(it, catalog?.checksum.orEmpty(), "large") })
+            entry.faces.map { ArtworkReference.from(it, "large") })
     }
 }
 

@@ -24,7 +24,7 @@ internal fun DeckMetadataHeader(name: String, cover: DeckCover?, onName: ((Strin
         Box(Modifier.size(48.dp).then(if (chooseCover != null) Modifier.clickable(enabled = enabled,
             onClickLabel = "Choose deck cover", onClick = chooseCover).semantics { contentDescription = "Choose deck cover" }
             else Modifier), contentAlignment = Alignment.Center) {
-            DeckThumbnail(cover?.let { ArtworkReference(it.scryfallId, 0, it.definition, "small", it.imageUri) },
+            DeckThumbnail(cover?.let { ArtworkReference(it.scryfallId, 0, "small", it.imageUri) },
                 cover?.name ?: "No deck cover", 32.dp, 44.dp)
         }
         if (onName == null) Text(name, Modifier.weight(1f), style = MaterialTheme.typography.titleLarge)

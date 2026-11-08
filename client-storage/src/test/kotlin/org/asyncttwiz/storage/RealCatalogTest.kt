@@ -139,8 +139,8 @@ class RealCatalogTest {
         // Scryfall GET /cards/:id: https://scryfall.com/docs/api/cards/id
         val requests = mutableListOf<String>()
         val artwork = HttpArtworkRepository(ArtworkDiskCache(temporary.resolve("art").toFile()),
-            ArtworkTransport { url, _, _, _ -> requests += url; ArtworkResponse(404) })
-        val reference = checkNotNull(ArtworkReference.from(jace, installed.date))
+            ArtworkTransport { url, _ -> requests += url; ArtworkResponse(404) })
+        val reference = checkNotNull(ArtworkReference.from(jace))
         assertNotNull(reference.printing)
         assertNull(artwork.load(reference))
         assertEquals(listOf("https://api.scryfall.com/cards/${jace.scryfallId}"), requests)

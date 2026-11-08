@@ -22,7 +22,7 @@ class ArtworkTest {
     private val origin = "http://127.0.0.1:12345"
     private val policy get() = ArtworkUrlPolicy(origin)
     private var clock = 1_000_000L
-    private fun cache(name: String = "art", budget: Long = 256L * 1024 * 1024) =
+    private fun cache(name: String = "art", budget: Long = ArtworkDiskCache.MAX_BUDGET) =
         ArtworkDiskCache(temporary.resolve(name).toFile(), budget) { clock }
     private fun repository(transport: ArtworkTransport, disk: ArtworkDiskCache = cache()) =
         HttpArtworkRepository(disk, transport, policy, "$origin/cards/", { clock })
@@ -34,22 +34,22 @@ class ArtworkTest {
             "card_faces":[{}, {"image_uris":{"normal":"$origin/back","art_crop":"$origin/back-art"}}]}""".toByteArray()
         val urls = mutableListOf<String>()
         val disk = cache()
-        val art = repository(ArtworkTransport { url, maximum, _, _ ->
+        val art = repository(ArtworkTransport { url, maximum ->
             urls += url
             if (url == "$origin/cards/$id") ArtworkResponse(200, card, "application/json") else {
                 assertEquals(HttpArtworkRepository.MAX_IMAGE, maximum)
                 ArtworkResponse(200, png() + url.toByteArray(), "image/png")
             }
         }, disk)
-        val references = listOf(ArtworkReference(id, 0, "v1"), ArtworkReference(id, 0, "v1", "art_crop"),
-            ArtworkReference(id, 1, "v1"), ArtworkReference(id, 1, "v1", "art_crop"))
+        val references = listOf(ArtworkReference(id, 0), ArtworkReference(id, 0, "art_crop"),
+            ArtworkReference(id, 1), ArtworkReference(id, 1, "art_crop"))
         val expectedUrls = listOf("$origin/front", "$origin/front-art", "$origin/back", "$origin/back-art")
         assertEquals(4, references.map { it.key }.distinct().size)
         references.zip(expectedUrls).forEach { (reference, url) ->
             assertArrayEquals(png() + url.toByteArray(), art.load(reference))
         }
         assertEquals(listOf("$origin/cards/$id") + expectedUrls, urls)
-        val offline = repository(ArtworkTransport { _, _, _, _ -> error("offline") }, disk)
+        val offline = repository(ArtworkTransport { _, _ -> error("offline") }, disk)
         references.zip(expectedUrls).forEach { (reference, url) ->
             assertArrayEquals(png() + url.toByteArray(), offline.load(reference))
         }
@@ -59,8 +59,8 @@ class ArtworkTest {
     @Test fun aPictureIsDownloadedOnFirstUseAndServedFromThePhoneAfterARestart() {
         val card = """{"object":"card","id":"$id","image_uris":{"normal":"$origin/image","art_crop":"$origin/art"}}""".toByteArray()
         val urls = mutableListOf<String>()
-        val reference = ArtworkReference(id, 0, "v1", "art_crop")
-        val online = repository(ArtworkTransport { url, _, _, _ ->
+        val reference = ArtworkReference(id, 0, "art_crop")
+        val online = repository(ArtworkTransport { url, _ ->
             urls += url
             if (url == "$origin/cards/$id") ArtworkResponse(200, card, "application/json") else ArtworkResponse(200, png(), "image/png")
         }, cache("kept"))
@@ -68,7 +68,7 @@ class ArtworkTest {
         assertArrayEquals(png(), online.load(reference))
         assertEquals(listOf("$origin/cards/$id", "$origin/art"), urls)
         // A new cache over the same directory, as after the app restarts, with no network at all.
-        val restarted = repository(ArtworkTransport { _, _, _, _ -> error("offline") }, cache("kept"))
+        val restarted = repository(ArtworkTransport { _, _ -> error("offline") }, cache("kept"))
         assertArrayEquals(png(), restarted.load(reference))
         assertEquals(2, urls.size)
     }
@@ -76,13 +76,13 @@ class ArtworkTest {
     @Test fun sizesRemainSeparateEvenWhenProviderReturnsTheSameImageUrl() {
         val card = """{"object":"card","id":"$id","image_uris":{"normal":"$origin/image","art_crop":"$origin/image"}}""".toByteArray()
         var imageCalls = 0
-        val art = repository(ArtworkTransport { url, _, _, _ ->
+        val art = repository(ArtworkTransport { url, _ ->
             if (url == "$origin/cards/$id") ArtworkResponse(200, card, "application/json") else {
                 imageCalls++
                 ArtworkResponse(200, png(), "image/png")
             }
         })
-        val normal = ArtworkReference(id, 0, "v1")
+        val normal = ArtworkReference(id, 0)
         val crop = normal.copy(size = "art_crop")
         repeat(2) { assertNotNull(art.load(normal)); assertNotNull(art.load(crop)) }
         assertEquals(2, imageCalls)
@@ -92,11 +92,11 @@ class ArtworkTest {
         for (imageUris in listOf("""{"normal":"$origin/full"}""",
             """{"normal":"$origin/full","art_crop":"http://169.254.169.254/art"}""")) {
             var calls = 0
-            val art = repository(ArtworkTransport { _, _, _, _ ->
+            val art = repository(ArtworkTransport { _, _ ->
                 calls++
                 ArtworkResponse(200, """{"object":"card","id":"$id","image_uris":$imageUris}""".toByteArray(), "application/json")
             }, cache("policy-${imageUris.length}"))
-            assertNull(art.load(ArtworkReference(id, 0, "v1", "art_crop")))
+            assertNull(art.load(ArtworkReference(id, 0, "art_crop")))
             assertEquals(1, calls)
         }
     }
@@ -110,7 +110,7 @@ class ArtworkTest {
             val metadata = File(base, "Meta.json").inputStream().use { MtgJsonCatalog().metadata(it) }
             records.stage { index -> File(base, "AllPrintings.json").inputStream().use { MtgJsonCatalog().import(it, index, metadata) } }
             var requests = 0
-            val transport = ArtworkTransport { url, _, _, _ ->
+            val transport = ArtworkTransport { url, _ ->
                 requests++
                 val path = java.net.URI(url).path
                 if (path.startsWith("/cards/")) {
@@ -127,13 +127,13 @@ class ArtworkTest {
                 .filter { it.asJsonObject.has("side") }.map { records.printing(it.asJsonObject.get("uuid").asString)!! }
             assertEquals(2, faceRecords.size)
             for (record in faceRecords) {
-                val reference = ArtworkReference.from(record, records.metadata()!!.checksum + records.metadata()!!.date)!!
+                val reference = ArtworkReference.from(record)!!
                 val metadata = JsonParser.parseString(File(base, "scryfall/cards/${record.scryfallId}.json").readText()).asJsonObject
                 val path = java.net.URI(metadata.getAsJsonArray("card_faces")[reference.face].asJsonObject
                     .getAsJsonObject("image_uris").get("normal").asString).path
                 assertArrayEquals(File(fixtures, path.removePrefix("/")).readBytes(), art.load(reference))
                 val previous = requests
-                assertArrayEquals(art.load(reference), repository(ArtworkTransport { _, _, _, _ -> error("offline") }, disk).load(reference))
+                assertArrayEquals(art.load(reference), repository(ArtworkTransport { _, _ -> error("offline") }, disk).load(reference))
                 assertEquals(previous, requests)
             }
             assertEquals(3, requests, "one metadata + two exact face images")
@@ -145,24 +145,25 @@ class ArtworkTest {
         var calls = 0
         val card = """{"object":"card","id":"$id","image_uris":{"normal":"$origin/front"}}""".toByteArray()
         var response = ArtworkResponse(200, card, "application/json")
-        val art = repository(ArtworkTransport { _, _, _, _ -> calls++; response })
-        assertNull(art.load(ArtworkReference(null, 0, "v1"))); assertEquals(0, calls)
-        assertNull(art.load(ArtworkReference(id, 1, "v1"))); assertEquals(1, calls)
+        var art = repository(ArtworkTransport { _, _ -> calls++; response })
+        assertNull(art.load(ArtworkReference(null, 0))); assertEquals(0, calls)
+        assertNull(art.load(ArtworkReference(id, 1))); assertEquals(1, calls)
         response = ArtworkResponse(200, card.toString(Charsets.UTF_8).replace(id, "00000000-0000-0000-0000-000000000000").toByteArray(), "application/json")
-        assertNull(art.load(ArtworkReference(id, 0, "wrong")))
+        art = repository(ArtworkTransport { _, _ -> calls++; response }, cache("other-printing"))
+        assertNull(art.load(ArtworkReference(id, 0)))
         for (type in listOf("image/svg+xml", "text/html", "image/png")) {
             response = ArtworkResponse(200, "<svg onload='script'/>".toByteArray(), type)
-            assertNull(art.load(ArtworkReference(null, 0, type, customUrl = "$origin/custom-$type")))
+            assertNull(art.load(ArtworkReference(null, 0, customUrl = "$origin/custom-$type")))
         }
         response = ArtworkResponse(200, ByteArray(HttpArtworkRepository.MAX_IMAGE.toInt() + 1), "image/png")
-        assertNull(art.load(ArtworkReference(null, 0, "oversize", customUrl = "$origin/huge")))
+        assertNull(art.load(ArtworkReference(null, 0, customUrl = "$origin/huge")))
     }
 
-    @Test fun negativeAndTransientWindowsConditionalRequestsAndRetryAfter() {
+    @Test fun negativeAndTransientWindowsAndRetryAfter() {
         var calls = 0
         var response = ArtworkResponse(404)
-        val art = repository(ArtworkTransport { _, _, _, _ -> calls++; response })
-        val reference = ArtworkReference(null, 0, "v1", customUrl = "$origin/missing")
+        val art = repository(ArtworkTransport { _, _ -> calls++; response })
+        val reference = ArtworkReference(null, 0, customUrl = "$origin/missing")
         assertNull(art.load(reference)); clock += 999
         assertNull(art.load(reference)); assertEquals(1, calls)
         clock++; response = ArtworkResponse(503)
@@ -175,27 +176,97 @@ class ArtworkTest {
         clock++; response = ArtworkResponse(429, retryAt = clock + 7_200_000)
         art.load(reference); assertEquals(5, calls)
         clock += 7_199_999; art.load(reference); assertEquals(5, calls)
-        clock++; response = ArtworkResponse(200, png(), "image/png", "\"v1\"", "Wed, 21 Oct 2026 10:00:00 GMT")
+        clock++; response = ArtworkResponse(200, png(), "image/png")
         assertArrayEquals(png(), art.load(reference)); assertEquals(6, calls)
-        clock += HttpArtworkRepository.DAY
-        val conditional = repository(ArtworkTransport { _, _, etag, modified ->
-            assertEquals("\"v1\"", etag); assertEquals("Wed, 21 Oct 2026 10:00:00 GMT", modified)
-            ArtworkResponse(304)
+    }
+
+    // LOB-097: a day, or years, later a kept picture and its lookup still make no request, online or not.
+    @Test fun aKeptPictureAndItsLookupAreNeverCheckedAgain() {
+        val card = """{"object":"card","id":"$id","image_uris":{"normal":"$origin/image"}}""".toByteArray()
+        var calls = 0
+        val art = repository(ArtworkTransport { url, _ ->
+            calls++
+            if (url == "$origin/cards/$id") ArtworkResponse(200, card, "application/json") else ArtworkResponse(200, png(), "image/png")
         })
-        assertArrayEquals(png(), conditional.load(reference))
-        clock += HttpArtworkRepository.DAY
-        assertArrayEquals(png(), repository(ArtworkTransport { _, _, _, _ -> error("offline") }).load(reference))
+        val reference = ArtworkReference(id, 0)
+        assertArrayEquals(png(), art.load(reference)); assertEquals(2, calls)
+        for (later in listOf(HttpArtworkRepository.DAY, 400 * HttpArtworkRepository.DAY, 4000 * HttpArtworkRepository.DAY)) {
+            clock += later
+            art.connectivityRestored()
+            assertArrayEquals(png(), art.load(reference)); assertEquals(2, calls)
+            val other = repository(ArtworkTransport { _, _ -> error("no request is made") })
+            assertArrayEquals(png(), other.load(reference))
+        }
+    }
+
+    // LOB-097: the key is the printing, face and size (and a custom URL, and the provider's face name).
+    @Test fun whatTellsPicturesApartIsThePrintingFaceSizeAndCustomUrl() {
+        val base = ArtworkReference(id, 0)
+        val different = listOf(base, base.copy(printing = "other"), base.copy(face = 1), base.copy(size = "large"),
+            base.copy(customUrl = "$origin/custom"), base.copy(faceName = "Meld result"))
+        assertEquals(different.size, different.map { it.key }.distinct().size)
+    }
+
+    // LOB-097: a lookup that can't be used isn't kept for good: it fails, then retries with a backoff.
+    @Test fun unusableCardDataRetriesAfterItsBackoffThenStays() {
+        var calls = 0
+        var body = """{"object":"card","id":"somebody-else"}"""
+        val art = repository(ArtworkTransport { url, _ ->
+            calls++
+            if (url == "$origin/cards/$id") ArtworkResponse(200, body.toByteArray(), "application/json") else ArtworkResponse(200, png(), "image/png")
+        })
+        val reference = ArtworkReference(id, 0)
+        assertNull(art.load(reference)); assertEquals(1, calls)
+        assertNull(art.load(reference)); assertEquals(1, calls, "inside the retry window")
+        clock += ArtworkRetrySchedule.backoff(6)
+        body = """{"object":"card","id":"$id","image_uris":{"normal":"$origin/image"}}"""
+        assertArrayEquals(png(), art.load(reference)); assertEquals(3, calls)
+        clock += 400 * HttpArtworkRepository.DAY
+        assertArrayEquals(png(), art.load(reference)); assertEquals(3, calls)
+    }
+
+    // LOB-097: nothing is asked of a server that answers 304 to a request that had no validators: it is a failure, not a picture.
+    @Test fun aStray304IsAFailedRequestNotADownload() {
+        val attempts = mutableListOf<ArtworkAttempt>()
+        val log = object : ArtworkLog { override fun attempt(attempt: ArtworkAttempt) { attempts += attempt } }
+        val art = HttpArtworkRepository(cache(), ArtworkTransport { _, _ -> ArtworkResponse(304) }, policy, "$origin/cards/", { clock }, log = log)
+        assertNull(art.load(ArtworkReference(null, 0, customUrl = "$origin/image")))
+        assertEquals("HTTP 304", attempts.single().failure)
+    }
+
+    // LOB-097
+    @Test fun theCacheHoldsUpToOneGigabyteAndNotMore() {
+        assertEquals(1024L * 1024 * 1024, cache().budget)
+        assertThrows(IllegalArgumentException::class.java) { cache(budget = 1024L * 1024 * 1024 + 1) }
+    }
+
+    // LOB-097: the running total survives a restart and replacing an entry, so the budget stays true.
+    @Test fun theBudgetCountsWhatARestartFindsAndReplacedEntriesOnlyOnce() {
+        fun put(disk: ArtworkDiskCache, key: String) { disk.write(key, ArtworkEntry(200, Long.MAX_VALUE, 0, "image/png", ByteArray(100))); clock++ }
+        val directory = temporary.resolve("art").toFile()
+        val kept = { directory.listFiles()!!.filter { it.extension == "art" }.sumOf { it.length() } }
+        val first = cache(budget = 450)
+        repeat(5) { put(first, "same") }
+        put(first, "a"); put(first, "b")
+        assertNotNull(first.read("same"), "five writes of one entry count once")
+        clock++
+        val restarted = cache(budget = 450)
+        put(restarted, "c")
+        assertTrue(kept() <= 450)
+        assertNull(restarted.read("a"), "the entry used longest ago goes first, also after a restart")
+        assertNotNull(restarted.read("same"))
+        assertNotNull(restarted.read("c"))
     }
 
     @Test fun perKeyConcurrentCoalescing() {
         val entered = CountDownLatch(1); val release = CountDownLatch(1); val calls = AtomicInteger()
-        val art = repository(ArtworkTransport { _, _, _, _ ->
+        val art = repository(ArtworkTransport { _, _ ->
             calls.incrementAndGet(); entered.countDown(); check(release.await(5, TimeUnit.SECONDS))
             ArtworkResponse(200, png(), "image/png")
         })
         val pool = Executors.newFixedThreadPool(8)
         try {
-            val reference = ArtworkReference(null, 0, "v1", customUrl = "$origin/image")
+            val reference = ArtworkReference(null, 0, customUrl = "$origin/image")
             val results = (1..8).map { pool.submit<ByteArray?> { art.load(reference) } }
             assertTrue(entered.await(5, TimeUnit.SECONDS)); release.countDown()
             results.forEach { assertArrayEquals(png(), it.get(5, TimeUnit.SECONDS)) }
@@ -205,11 +276,11 @@ class ArtworkTest {
 
     @Test fun cancelledOwnerRecordsNoFailureAndAJoinedCallerTakesTheDownloadOver() {
         val entered = CountDownLatch(1); val calls = AtomicInteger()
-        val art = repository(ArtworkTransport { _, _, _, _ ->
+        val art = repository(ArtworkTransport { _, _ ->
             if (calls.incrementAndGet() == 1) { entered.countDown(); Thread.sleep(10_000) }
             ArtworkResponse(200, png(), "image/png")
         })
-        val reference = ArtworkReference(null, 0, "v1", customUrl = "$origin/image")
+        val reference = ArtworkReference(null, 0, customUrl = "$origin/image")
         val owner = Thread { art.load(reference, ArtworkPriority.PREFETCH) }.apply { start() }
         assertTrue(entered.await(5, TimeUnit.SECONDS))
         val pool = Executors.newSingleThreadExecutor()
@@ -258,8 +329,8 @@ class ArtworkTest {
     }
 
     @Test fun decoderFailuresHavePersistedExponentialWindowsAndSuccessReset() {
-        val transport = ArtworkTransport { _, _, _, _ -> ArtworkResponse(200, png(), "image/png") }
-        val reference = ArtworkReference(null, 0, "decode", customUrl = "$origin/image")
+        val transport = ArtworkTransport { _, _ -> ArtworkResponse(200, png(), "image/png") }
+        val reference = ArtworkReference(null, 0, customUrl = "$origin/image")
         var art = repository(transport)
         for (delay in listOf(1_000L, 2_000L, 4_000L, 8_000L, 16_000L, 30_000L, 30_000L)) {
             assertNotNull(art.load(reference)); art.rejectDecoded(reference)
@@ -296,14 +367,14 @@ class ArtworkTest {
         }
         var imageOnline = false
         val disk = cache()
-        val art = HttpArtworkRepository(disk, ArtworkTransport { url, _, _, _ ->
+        val art = HttpArtworkRepository(disk, ArtworkTransport { url, _ ->
             when {
                 url == "$origin/cards/$id" -> ArtworkResponse(200, card, "application/json")
                 imageOnline -> ArtworkResponse(200, png(), "image/png")
                 else -> throw java.net.UnknownHostException("cards.test")
             }
         }, policy, "$origin/cards/", { clock }, log = log)
-        val reference = ArtworkReference(id, 0, "v1")
+        val reference = ArtworkReference(id, 0)
         assertNull(art.load(reference))
         assertEquals(listOf(false, true), attempts.map { it.image })
         assertNull(attempts[0].failure)
@@ -315,7 +386,7 @@ class ArtworkTest {
         assertNull(attempts.last().failure)
         assertEquals("$origin/front", attempts.last().url)
         // Unusable card data never reaches the network log as a request failure, but is still reported.
-        val broken = HttpArtworkRepository(cache("broken"), ArtworkTransport { _, _, _, _ ->
+        val broken = HttpArtworkRepository(cache("broken"), ArtworkTransport { _, _ ->
             ArtworkResponse(200, """{"object":"card","id":"other"}""".toByteArray(), "application/json")
         }, policy, "$origin/cards/", { clock }, log = log)
         assertNull(broken.load(reference))
@@ -378,19 +449,19 @@ class ArtworkTest {
         }
         server.start()
         try { HttpArtworkTransport(ArtworkUrlPolicy(base)).use { network ->
-            assertArrayEquals(png(), network.get("$base/r1", 10 * 1024 * 1024, "", "").bytes)
+            assertArrayEquals(png(), network.get("$base/r1", 10 * 1024 * 1024).bytes)
             assertEquals(listOf("/r1", "/r2", "/r3", "/image"), paths)
             for (path in listOf("bad", "port", "credentials", "loop"))
-                assertThrows(Exception::class.java) { network.get("$base/$path", 1024, "", "") }
+                assertThrows(Exception::class.java) { network.get("$base/$path", 1024) }
             assertEquals(4, paths.count { it == "/loop" })
-            assertThrows(Exception::class.java) { network.get("$base/image", 8, "", "") }
+            assertThrows(Exception::class.java) { network.get("$base/image", 8) }
         } } finally { server.stop(0) }
     }
 
     @Test fun diskBudgetLruCorruptEntriesAndSeparateEssentialFiles() {
         val essential = temporary.resolve("accepted.db").toFile().apply { writeText("accepted definition") }
         val disk = cache(budget = 450)
-        fun put(key: String) { disk.write(key, ArtworkEntry(200, clock + 1000, 0, "image/png", "", "", ByteArray(100))) }
+        fun put(key: String) { disk.write(key, ArtworkEntry(200, clock + 1000, 0, "image/png", ByteArray(100))) }
         put("a"); clock++; put("b"); clock++; put("c"); clock++
         assertNotNull(disk.read("a")); clock++; put("d")
         assertNull(disk.read("b")); assertNotNull(disk.read("a")); assertNotNull(disk.read("d"))

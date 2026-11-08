@@ -183,7 +183,7 @@ Everything outside the game table: accounts, profile, navigation, game list, gam
 
 ### Card pictures
 
-- **LOB-097** Card pictures come from Scryfall when first needed and are kept on the phone; a deck's pictures start downloading when you save it and when a game opens. (r21)
+- **LOB-097** Card pictures come from Scryfall when first needed and are kept on the phone: a kept picture, and the lookup that found it, shows at once and is never checked again (a failed one keeps retrying, LOB-098). One picture is kept per printing, face and size (and custom picture), whichever screen asked for it and through catalog updates, up to 1 GB, the ones used longest ago going first. A deck's pictures start downloading when you save it and when a game opens. (r61)
 - **LOB-098** A picture on screen keeps retrying until it loads; on-screen pictures go before background downloads. (r21)
 - **LOB-099** Inspecting a card whose picture is still loading shows the placeholder card with its name and "Downloading artwork X of Y", or "Artwork unavailable". (r52)
 

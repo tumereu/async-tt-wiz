@@ -316,6 +316,87 @@ class CastabilityTest {
         assertFalse(state.objOrThrow(card(painLand)).tapped)
     }
 
+    // ---- Triggered mana of a colour chosen as it resolves (CR 605.1b, 605.3b, 605.4a)
+
+    private val fertile = Cards.invent("Cast Fertile", "{0}", "Enchantment — Aura", "Enchant land\nWhenever enchanted land is tapped for mana, its controller adds an additional one mana of any color.")
+    private val blueGreen = Cards.invent("Cast Blue Green", "{U}{G}", "Sorcery", "Draw a card.")
+    private val whiteGreen = Cards.invent("Cast White Green", "{W}{G}", "Sorcery", "Draw a card.")
+    private val redBlue = Cards.invent("Cast Red Blue", "{R}{U}", "Sorcery", "Draw a card.")
+
+    // CR 605.1b, 106.1: one Forest with an any-colour bonus pays {U}{G} and {W}{G}, by Autotap, in a cast
+    @Test fun aBonusOfAnyColourCountsAndPays() = scenario {
+        alice.battlefield("Forest", fertile)
+        attach(fertile, "Forest")
+        alice.hand(blueGreen, whiteGreen, redBlue)
+        assertTrue(blueGreen in casts(alice))
+        assertTrue(whiteGreen in casts(alice))
+        assertFalse(redBlue in casts(alice), "the Forest makes {G}, the bonus one colour: {R}{U} has no way")
+        castByAutotap(blueGreen)
+        assertEquals(emptyList(), state.player(alice.id).manaPool, "both spent")
+        assertEquals(1, state.stack.size, "the bonus never went on the Stack (CR 605.3b)")
+    }
+
+    // CR 605.1b, 605.3b, 605.4a: by hand: the colour is carried in the payment's use
+    @Test fun aBonusOfAnyColourPaysByHand() = scenario {
+        alice.battlefield("Forest", fertile)
+        attach(fertile, "Forest")
+        alice.hand(blueGreen)
+        perform(Input.Cast(alice.id, card(blueGreen)))
+        val payment = decision<Decision.ManaPayment>()
+        answer(Answer.ManaPayment(listOf(payment.options.filterIsInstance<ManaUse.Ability>().first { it.source == card("Forest") && Color.Blue in it.triggered })))
+        assertTrue(state.pending == null, "the cast finished")
+    }
+
+    // CR 605.4a: a mana ability activated on its own asks the colour as its trigger resolves, at once, not on the Stack
+    @Test fun aBonusOfAnyColourAsksItsColourAtOnceOutsideAPayment() = scenario {
+        alice.battlefield("Forest", fertile)
+        attach(fertile, "Forest")
+        val forest = Engine.options(state, alice.id).filterIsInstance<Input.Activate>().first { it.source == card("Forest") }
+        perform(forest)
+        answer(Answer.ColorChoice(Color.Blue))
+        assertEquals(listOf(Color.Green, Color.Blue), state.player(alice.id).manaPool.map { it.color })
+        assertTrue(state.stack.isEmpty(), "CR 605.3b: no Stack")
+    }
+
+    // CR 605.4a: a bonus of one chosen colour asks nothing and counts as that colour
+    @Test fun aBonusOfTheChosenColourCounts() = scenario {
+        val bloom = Cards.invent("Cast Bloom", "{0}", "Enchantment — Aura", "Enchant land\nAs this Aura enters, choose a color.\nWhenever enchanted land is tapped for mana, its controller adds an additional one mana of the chosen color.")
+        alice.battlefield("Forest")
+        alice.hand(bloom, blueGreen, whiteGreen)
+        perform(Input.Cast(alice.id, card(bloom)))
+        answer(Answer.Targets(listOf(target("Forest"))))
+        allPass()
+        if (pending is Decision.ChooseColor) answer(Answer.ColorChoice(Color.Blue))
+        assertTrue(blueGreen in casts(alice))
+        assertFalse(whiteGreen in casts(alice), "the bonus is blue")
+        castByAutotap(blueGreen)
+    }
+
+    // ---- Damage that may not come doesn't deny (CR 615, 616; deny only with proof)
+
+    private val shieldAll = Cards.invent("Cast Shield", "{0}", "Enchantment", "Prevent all damage that would be dealt to you.")
+
+    // CR 615, 119.4: all damage to you prevented: a pain land's damage doesn't stand in the way of paid life
+    @Test fun preventedDamageDoesNotDenyPaidLife() = scenario {
+        alice.life = 2
+        alice.battlefield(shieldAll)
+        alice.battlefield(painLand)
+        alice.hand(payTwo)
+        assertTrue(payTwo in casts(alice))
+    }
+
+    // CR 615.7: a shield made by an effect on the player counts too, as it stands on the state as an effect
+    @Test fun aPreventionShieldFromAnEffectDoesNotDenyEither() = scenario {
+        val fog = Cards.invent("Cast Little Fog", "{0}", "Instant", "Prevent the next 3 damage that would be dealt to you this turn.")
+        alice.life = 2
+        alice.battlefield(painLand)
+        alice.hand(fog, payTwo)
+        assertFalse(payTwo in casts(alice), "without the shield, proof")
+        perform(Input.Cast(alice.id, card(fog)))
+        allPass()
+        assertTrue(payTwo in casts(alice), "with it, no proof")
+    }
+
     // ---- The cast's other costs (CR 601.2g before 601.2h)
 
     private val sacLand = Cards.invent("Cast Land Eater", "{G}", "Sorcery", "As an additional cost to cast this spell, sacrifice a land.\nDraw a card.")
@@ -392,6 +473,71 @@ class CastabilityTest {
         val payment = decision<Decision.ManaPayment>()
         answer(Answer.ManaPayment(payment.suggestion))
         assertEquals(2, state.player(alice.id).graveyard.size)
+    }
+
+    // CR 601.2g before 601.2h: a mana ability can't sacrifice the creature the cost will tap: Autotap takes the other, the payment is accepted
+    @Test fun aCreatureTheCostTapsIsNotSacrificedForMana() = scenario {
+        val pact = Cards.invent("Cast One Tap", "{1}", "Sorcery", "As an additional cost to cast this spell, tap an untapped creature you control.\nDraw a card.")
+        alice.battlefield(altar)
+        alice.battlefield(bear)
+        alice.battlefield(ox)
+        alice.hand(pact)
+        perform(Input.Cast(alice.id, card(pact)))
+        answer(Answer.Objects(listOf(card(bear))))
+        val payment = decision<Decision.ManaPayment>()
+        assertTrue(payment.options.filterIsInstance<ManaUse.Ability>().none { use -> use.answers.any { it == Answer.Objects(listOf(card(bear))) } }, "the Bear isn't offered")
+        answer(Answer.ManaPayment(payment.suggestion))
+        assertTrue(state.pending == null, "the suggestion pays")
+        assertTrue(state.objOrThrow(card(bear)).tapped)
+        assertTrue(state.player(alice.id).graveyard.any { nameOf(state.objOrThrow(it)) == ox }, "the Ox went")
+    }
+
+    // CR 601.2g before 601.2h: the only creature can't both tap for the cost and go for the mana: proof, so not listed
+    @Test fun theOnlyCreatureCannotBothTapAndBeSacrificed() = scenario {
+        val pact = Cards.invent("Cast One Tap", "{1}", "Sorcery", "As an additional cost to cast this spell, tap an untapped creature you control.\nDraw a card.")
+        alice.battlefield(altar)
+        alice.battlefield(bear)
+        alice.hand(pact)
+        assertFalse(pact in casts(alice))
+    }
+
+    // CR 601.2c, 601.2h (spec §3): a cost's choice of objects is narrowed by the payment: the Elf, the only mana, can't be tapped for the cost
+    @Test fun aCostsChoiceOfObjectsIsNarrowedByThePayment() = scenario {
+        alice.battlefield(elf)
+        alice.battlefield(bear)
+        alice.hand(tapCreature)
+        assertTrue(tapCreature in casts(alice))
+        perform(Input.Cast(alice.id, card(tapCreature)))
+        val selection = Engine.selection(state, emptyList())
+        assertEquals(listOf(TargetRef.Object(card(bear))), selection.candidates, "only the Bear leaves mana")
+        assertFalse(Engine.selection(state, listOf(TargetRef.Object(card(elf)))).done, "Done only on what can be paid")
+        assertTrue(Engine.selection(state, listOf(TargetRef.Object(card(bear)))).done)
+        assertFalse(Engine.finishableWith(state, Answer.Objects(listOf(card(elf)))))
+    }
+
+    // Deny only with proof (CR 205.3m, 701.4a): creature types are looked at through a sample of those in the game: the ninth, the only one with two
+    // creatures to behold, is past it: a sample that fails isn't proof
+    @Test fun aSampleOfCreatureTypesThatFailsIsNotProof() = scenario {
+        val base = Cards.definition(Cards.invent("Cast Beholding Base", "{0}", "Sorcery", "Draw a card.")).faces.single()
+        val ofType = arcanum.api.ObjectFilter.And(listOf(arcanum.api.ObjectFilter.Type(arcanum.api.CardType.Creature), arcanum.api.ObjectFilter.Sub(arcanum.api.SubtypeRef.Chosen("type"))))
+        val cost = arcanum.api.Cost(listOf(arcanum.api.CostPart.Choose(arcanum.api.Choice.CreatureType, bind = "type"),
+            arcanum.api.CostPart.Action(arcanum.api.KeywordAction.Behold(ofType, Value.Fixed(2)), bind = "beheld")))
+        val additional = Ability.Static(listOf(Mechanic.AdditionalCost(cost = cost)), arcanum.api.Affected.Objects(Objects.Self))
+        val beholding = Cards.define("Cast Beholding", CardDefinition(arcanum.api.Layout.Normal, listOf(base.copy(name = "Cast Beholding", abilities = base.abilities + additional))))
+        listOf("Ape", "Bat", "Cat", "Dog", "Elk", "Fox", "Goat", "Hawk").forEach { alice.battlefield(Cards.invent("Cast Lone $it", "{0}", "Creature — $it", "", "1/1")) }
+        val zombie = Cards.invent("Cast Zombie", "{0}", "Creature — Zombie", "", "1/1")
+        alice.battlefield(zombie, zombie)
+        alice.hand(beholding)
+        assertTrue(beholding in casts(alice))
+    }
+
+    // Deny only with proof: the ways to pay an ability's own mana are tried up to a limit: a search that reached it says so
+    @Test fun aLimitOnTheWaysToPayOwnManaIsNotProof() = scenario {
+        val kinds = listOf(Color.White, Color.Blue, Color.Black, Color.Red, Color.Green, null)
+        val payers = kinds.flatMap { c -> List(3) { arcanum.engine.mana.Mana.Payer(setOf(c), false, ManaUse.Life(-1)) } }
+        var stopped = false
+        arcanum.engine.mana.Mana.assignments(arcanum.engine.mana.Mana.needs(ManaCost.parse("{3}")!!), payers, stopped = { stopped = true })
+        assertTrue(stopped)
     }
 
     // ---- During resolution (CR 605.3a, 608.2g): "counter unless you pay"

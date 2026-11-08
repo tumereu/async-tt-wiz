@@ -17,15 +17,17 @@ import arcanum.api.Objects
 import arcanum.api.Players
 import arcanum.api.Step
 import arcanum.api.Value
+import arcanum.api.isManaAbility
 import arcanum.engine.cards.Cards
 import arcanum.engine.decision.Answer
 import arcanum.engine.decision.Continuation
 import arcanum.engine.decision.Decision
 import arcanum.engine.decision.ManaUse
 import arcanum.engine.input.Input
+import arcanum.engine.scenario.Scenario
 import arcanum.engine.scenario.scenario
 import arcanum.engine.state.GameState
-import arcanum.engine.state.ObjectId
+import arcanum.engine.state.PlayerId
 import arcanum.engine.state.TargetRef
 import kotlin.random.Random
 import kotlin.test.Test
@@ -49,7 +51,9 @@ class NoFalseDenialFuzzTest {
         Cards.invent("Deny Elf", "{G}", "Creature — Elf", "{T}: Add {G}.", "1/1"),
         Cards.invent("Deny Life Stone", "{2}", "Artifact", "Pay 1 life: Add {C}."),
         filterLand(),
+        Cards.invent("Deny Shield", "{0}", "Enchantment", "Prevent all damage that would be dealt to you."),
     )
+    private val fertile = Cards.invent("Deny Fertile", "{0}", "Enchantment — Aura", "Enchant land\nWhenever enchanted land is tapped for mana, its controller adds an additional one mana of any color.")
     private val creatures = listOf(
         Cards.invent("Deny Bear", "{1}{G}", "Creature — Bear", "", "2/2"),
         Cards.invent("Deny Ox", "{2}{G}", "Creature — Ox Beast", "", "3/3"),
@@ -70,7 +74,13 @@ class NoFalseDenialFuzzTest {
         Cards.invent("Deny Dual", "{W}{U}", "Sorcery", "Draw a card."),
         Cards.invent("Deny Two White", "{W}{W}", "Sorcery", "Draw a card."),
         falling("Deny Many Targets", CostChange.Less(ManaCost.parse("{1}")!!, Value.Count(Objects.Target("creatures")))),
+        Cards.invent("Deny Blue Green", "{U}{G}", "Sorcery", "Draw a card."),
+        Cards.invent("Deny Red One Tap", "{1}", "Sorcery", "As an additional cost to cast this spell, tap an untapped creature you control.\nDraw a card."),
+        Cards.invent("Deny Green Tap", "{G}", "Sorcery", "As an additional cost to cast this spell, tap an untapped creature you control.\nDraw a card."),
     )
+    /** These read a creature's being tapped: floating first (tapping it) may make them castable where they weren't, which isn't a false denial
+     * (castability §1.2). */
+    private val readTapped = setOf("Deny Banishing", "Deny Burst")
 
     private fun filterLand(): String {
         val base = Cards.definition(Cards.invent("Deny Filter Land Base", null, "Land", "{T}: Add {C}.")).faces.single()
@@ -95,6 +105,19 @@ class NoFalseDenialFuzzTest {
     /** How many answers a card's search without bounds may try on one board. Boards are small enough not to reach it; one that does is counted. */
     private class Tries(var left: Int = 20_000)
 
+    private fun Scenario.board(seed: Long) {
+        val rnd = Random(seed)
+        alice.life = listOf(1, 2, 3, 20).random(rnd)
+        val basics = listOf("Plains", "Island", "Swamp", "Mountain", "Forest").shuffled(rnd).take(rnd.nextInt(4))
+        if (basics.isNotEmpty()) alice.battlefield(*basics.toTypedArray())
+        if (basics.isNotEmpty() && rnd.nextInt(4) == 0) { alice.battlefield(fertile); attach(fertile, basics.first()) }
+        sources.shuffled(rnd).take(rnd.nextInt(5)).forEach { alice.battlefield(it) }
+        creatures.shuffled(rnd).take(rnd.nextInt(3)).forEach { alice.battlefield(it) }
+        bob.battlefield(creatures.random(rnd), tapped = rnd.nextBoolean())
+        bob.battlefield(creatures.random(rnd), tapped = rnd.nextBoolean())
+        alice.hand(*spells.shuffled(rnd).take(4).toTypedArray())
+    }
+
     @Test
     fun aCardLeftOutHasNoWayToBeCast() {
         var denied = 0
@@ -102,16 +125,7 @@ class NoFalseDenialFuzzTest {
         repeat(BOARDS) { i ->
             val seed = SEED + i
             scenario(seed = seed) {
-                val rnd = Random(seed)
-                alice.life = listOf(1, 2, 3, 20).random(rnd)
-                val basics = listOf("Plains", "Island", "Swamp", "Mountain", "Forest").shuffled(rnd).take(rnd.nextInt(4))
-                if (basics.isNotEmpty()) alice.battlefield(*basics.toTypedArray())
-                sources.shuffled(rnd).take(rnd.nextInt(5)).forEach { alice.battlefield(it) }
-                creatures.shuffled(rnd).take(rnd.nextInt(3)).forEach { alice.battlefield(it) }
-                bob.battlefield(creatures.random(rnd), tapped = rnd.nextBoolean())
-                bob.battlefield(creatures.random(rnd), tapped = rnd.nextBoolean())
-                val hand = spells.shuffled(rnd).take(4)
-                alice.hand(*hand.toTypedArray())
+                board(seed)
                 val listed = Engine.options(state, alice.id).filterIsInstance<Input.Cast>().map { it.card }
                 for (card in state.player(alice.id).hand) {
                     if (card in listed) continue
@@ -121,12 +135,76 @@ class NoFalseDenialFuzzTest {
                     val tries = Tries()
                     val way = wayFrom(state, input, tries)
                     if (way != null) fail("Board $seed: ${nameOf(state.objOrThrow(card))} was left out, but it can be cast: $way\nbattlefield ${state.battlefield.map { nameOf(state.objOrThrow(it)) }}, life ${alice.life}")
+                    // A second way, not through the payment's own options: floating the mana first with the abilities on their own (CR 605.3a)
+                    if (i % FLOAT_EVERY == 0 && nameOf(state.objOrThrow(card)).toString() !in readTapped) floated(state, Tries(FLOATS)).firstOrNull { wayFrom(it, input, tries) != null }?.let {
+                        fail("Board $seed: ${nameOf(state.objOrThrow(card))} was left out, but floating first ${it.player(alice.id).manaPool.map { u -> u.color }} casts it\nbattlefield ${state.battlefield.map { b -> nameOf(state.objOrThrow(b)) }}, life ${alice.life}")
+                    }
                     if (tries.left <= 0) capped++
                 }
             }
         }
         assertTrue(denied > BOARDS / 2, "the boards deny enough to test: $denied")
         assertTrue(capped < denied / 4, "the search without bounds finished on most boards: $capped of $denied")
+    }
+
+    // Castability §3: on every board and every first choice of targets or objects in a cast: a selection that is done can be finished, and a
+    // candidate left out has no finishing selection
+    @Test
+    fun aSelectionsDoneAndItsLeftOutCandidatesHoldOnEveryBoard() {
+        var looked = 0
+        repeat(BOARDS) { i ->
+            val seed = SEED + i
+            scenario(seed = seed) {
+                board(seed)
+                for (input in Engine.options(state, alice.id).filterIsInstance<Input.Cast>()) {
+                    val open = try { Engine.perform(state, input) } catch (_: IllegalArgumentException) { continue }
+                    val at = state.deepCopy().also { s -> open.changes.forEach { s.apply(it) } }
+                    val d = open.pending?.decision ?: continue
+                    val options = when (d) {
+                        is Decision.Targets -> d.options
+                        is Decision.ChooseObjects -> d.options.map { TargetRef.Object(it) }
+                        else -> continue
+                    }
+                    val min = if (d is Decision.Targets) d.min else (d as Decision.ChooseObjects).min
+                    val max = if (d is Decision.Targets) d.max else (d as Decision.ChooseObjects).max
+                    fun answer(picked: List<TargetRef>): Answer = if (d is Decision.Targets) Answer.Targets(picked) else Answer.Objects(picked.map { (it as TargetRef.Object).id })
+                    looked++
+                    val all = subsets(options, min, max).toList()
+                    for (picked in all) {
+                        val done = Engine.selection(at, picked).done
+                        if (done) assertTrue(Engine.finishableWith(at, answer(picked)), "Board $seed: $d: done with $picked, but it can't be finished")
+                    }
+                    val left = options - Engine.selection(at, emptyList()).candidates.toSet()
+                    for (out in left) for (picked in all.filter { out in it }) {
+                        val way = wayFrom(at, Input.Answer(d.id, answer(picked)), Tries())
+                        if (way != null) fail("Board $seed: $d: $out was left out, but $picked finishes it: $way")
+                    }
+                }
+            }
+        }
+        assertTrue(looked > 20, "enough choices to test: $looked")
+    }
+
+    /** The states reached by activating mana abilities on their own from [state], [state] itself first, with each colour they ask. */
+    private fun floated(state: GameState, tries: Tries): Sequence<GameState> = sequence {
+        yield(state)
+        if (tries.left <= 0) return@sequence
+        val view = Engine.view(state)
+        val abilities = Engine.options(state, PlayerId("alice")).filterIsInstance<Input.Activate>().filter { a ->
+            view[a.source]?.characteristics?.abilities?.firstOrNull { it.origin == a.ability }?.ability?.isManaAbility() == true
+        }
+        for (a in abilities) for (after in finished(state, a, tries)) yieldAll(floated(after, tries))
+    }
+
+    /** The states after [input] with every way to answer what it asks. */
+    private fun finished(state: GameState, input: Input, tries: Tries): Sequence<GameState> = sequence {
+        if (tries.left-- <= 0) return@sequence
+        val outcome = try { Engine.perform(state, input) } catch (_: IllegalArgumentException) { return@sequence } catch (_: IllegalStateException) { return@sequence }
+        val next = state.deepCopy()
+        outcome.changes.forEach { next.apply(it) }
+        val pending = outcome.pending
+        if (pending == null) { yield(next); return@sequence }
+        for (answer in everyAnswer(pending.decision, tries)) yieldAll(finished(next, Input.Answer(pending.decision.id, answer), tries))
     }
 
     /** The answers that finish [input] from [state], or null when there are none. */
@@ -138,7 +216,7 @@ class NoFalseDenialFuzzTest {
         val pending = outcome.pending ?: return emptyList()
         if (pending.continuation !is Continuation.Announcing) return emptyList()
         val d = pending.decision
-        for (answer in everyAnswer(next, d)) {
+        for (answer in everyAnswer(d, tries)) {
             val rest = wayFrom(next, Input.Answer(d.id, answer), tries)
             if (rest != null) return listOf(answer) + rest
             if (tries.left <= 0) return null
@@ -146,7 +224,7 @@ class NoFalseDenialFuzzTest {
         return null
     }
 
-    private fun everyAnswer(state: GameState, d: Decision): Sequence<Answer> = when (d) {
+    private fun everyAnswer(d: Decision, tries: Tries): Sequence<Answer> = when (d) {
         is Decision.Targets -> subsets(d.options, d.min, d.max).map { Answer.Targets(it) }
         is Decision.ChooseObjects -> subsets(d.options, d.min, d.max).map { Answer.Objects(it) }
         is Decision.Modes -> subsets(d.options.filter { it.available }.map { it.index }, d.min, d.max).map { Answer.Modes(it) }
@@ -154,8 +232,11 @@ class NoFalseDenialFuzzTest {
         is Decision.Announce -> (d.min..d.min + 6).asSequence().map { Answer.Number(it) }
         is Decision.ChooseOption -> d.options.asSequence().map { Answer.Option(it) }
         is Decision.ChooseColor -> d.among.asSequence().map { Answer.ColorChoice(it) }
+        is Decision.ChooseNumber -> (d.min..(d.max ?: (d.min + 6))).asSequence().map { Answer.Number(it) }
+        is Decision.ChoosePlayer -> d.options.asSequence().map { Answer.Player(it) }
         is Decision.ManaPayment -> everyPayment(d).map { Answer.ManaPayment(it) }
-        else -> emptySequence()
+        // Not explored: this board can't tell, and it is counted as cut short
+        else -> { tries.left = 0; emptySequence() }
     }
 
     /** Every set of the payment's options: from each source at most one way, the pool's mana and life on their own. */
@@ -179,6 +260,9 @@ class NoFalseDenialFuzzTest {
 
     private companion object {
         const val BOARDS = 200
+        const val FLOATS = 150
+        /** Floating first is the slow part: every so many boards. */
+        const val FLOAT_EVERY = 5
         const val SEED = 91_000L
     }
 }

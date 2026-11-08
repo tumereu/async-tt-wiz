@@ -108,6 +108,10 @@ object TestCards {
     val freeTax = card("Free Tax", "Instant", "{0}", "Counter target spell unless its controller pays {1}.")
     val emberStone = card("Ember Stone", "Artifact", "{0}", "{T}: Add {C}.")
     val study = card("Ember Study", "Sorcery", "{0}", "Draw a card.")
+    /** A triggered mana ability of a colour chosen as it resolves (CR 605.1b, 605.4a). */
+    val bounty = card("Ember Bounty", "Enchantment — Aura", "{0}", "Enchant land\nWhenever enchanted land is tapped for mana, its controller adds an additional one mana of any color.")
+    val redBlue = card("Red Blue", "Sorcery", "{R}{U}", "Draw a card.")
+    val oneTap = card("One Tap", "Sorcery", "{1}", "As an additional cost to cast this spell, tap an untapped creature you control.\nDraw a card.")
     /** A cost a panel can change: kicker adds to it. */
     val clan = card("Ember Clan", "Creature — Elemental", "{1}", "Kicker {1}", "1", "1")
     /** Two ways, offspring dearer: for a panel paying several sources. */

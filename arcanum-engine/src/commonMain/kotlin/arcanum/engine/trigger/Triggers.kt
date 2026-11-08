@@ -117,16 +117,22 @@ internal object Triggers {
      * CR 605.1b, 605.4a: a triggered mana ability (it triggers from tapping for mana, adds a fixed amount of mana and
      * has no targets) doesn't wait for the Stack: it resolves right after the mana ability that triggered it.
      */
-    fun resolveManaTriggers(recorder: Recorder) {
+    fun resolveManaTriggers(act: Act, colors: List<arcanum.api.Color> = emptyList()) {
+        val recorder = act.recorder
         val waiting = recorder.state.triggered.toList()
         val mana = waiting.filter { isManaTrigger(it) }
         if (mana.isEmpty()) return
         recorder.record(Change.TriggersWaiting(waiting, waiting.filterNot { it in mana }))
-        mana.forEach { t ->
-            val act = Act(recorder, Asker.NONE)
-            val scope = arcanum.engine.resolution.Scope(act, arcanum.engine.action.Cause(t.controller, t.source, null,
-                "mana-trigger@${recorder.state.nextTimestamp()}"), t.names, t.event)
-            (t.ability as Ability.Triggered).instructions.steps.forEach { arcanum.engine.resolution.Steps.run(scope, it) }
+        // CR 605.4a: a colour they ask is chosen as they resolve: said already in a payment, else asked (the payment redone with the answer, D29)
+        act.colorsAhead = colors.toMutableList()
+        try {
+            mana.forEach { t ->
+                val scope = arcanum.engine.resolution.Scope(act, arcanum.engine.action.Cause(t.controller, t.source, null,
+                    "mana-trigger@${recorder.state.nextTimestamp()}"), t.names, t.event)
+                (t.ability as Ability.Triggered).instructions.steps.forEach { arcanum.engine.resolution.Steps.run(scope, it) }
+            }
+        } finally {
+            act.colorsAhead = null
         }
     }
 
@@ -139,8 +145,8 @@ internal object Triggers {
         return i.targets.isEmpty() && i.modes == null && i.steps.isNotEmpty() &&
             on.events.all { it is arcanum.api.EventPattern.Tap && it.forMana == true } &&
             i.steps.all { step -> ((step as? arcanum.api.Step.Do)?.effect as? arcanum.api.Effect.AddMana)?.mana?.kind.let {
-                // dgm: "adds one mana of any type that land produced" (CR 605.1b)
-                it is arcanum.api.ManaKind.Fixed || it is arcanum.api.ManaKind.SameAsProduced
+                // dgm: "adds one mana of any type that land produced" (CR 605.1b); gtc, ecl: "an additional one mana of any color", of the chosen colour
+                it is arcanum.api.ManaKind.Fixed || it is arcanum.api.ManaKind.SameAsProduced || it is arcanum.api.ManaKind.Choose
             } }
     }
 

@@ -533,6 +533,47 @@ class CastabilityTest : E2e() {
         }
     }
 
+    // STK-047, STK-059, CR 601.2c, 601.2h (spec §3): a cost's choice of objects is narrowed by the payment: the Sprite, the only mana, can't be tapped for the cost
+    @Test fun aCostsChoiceOfObjectsIsNarrowedByThePayment() {
+        start(deck(TestCards.sprite to 13, TestCards.pup to 13, TestCards.tapPact to 14), mapOf("Ember Sprite" to 1, "Ash Pup" to 1, "Tap Pact" to 1))
+        plays(alice, "Ember Sprite", "Ash Pup")
+        alice.playFromHand("Tap Pact", this)
+        waitUntil("the creature to tap asked, the Pup glowing: ${alice.screen()}") { alice.shows(hasContentDescription("Choose on the table")) && "target" in alice.marks("Ash Pup") }
+        assertFalse("target" in alice.marks("Ember Sprite"), "the Sprite is the only mana")
+        alice.battlefieldCard("Ember Sprite").performClick()
+        run(skip = java.time.Duration.ofMillis(300))
+        assertTrue(alice.shows(hasContentDescription("Choose on the table")), "it shakes, still choosing")
+        alice.battlefieldCard("Ash Pup").performClick()
+        waitUntil("the Pact paid by the Sprite", along = listOf(bob)) {
+            alice.tappedCount("Ember Sprite") == 1 && alice.tappedCount("Ash Pup") == 1 && alice.state.stack.isEmpty() && alice.inOwnMain()
+        }
+    }
+
+    // STK-059, CR 601.2g, 601.2h (spec §1): a mana ability doesn't sacrifice the creature the cost taps: Autotap's suggestion takes the other one
+    @Test fun autotapDoesNotSacrificeTheCreatureTheCostTaps() {
+        start(deck(TestCards.bloodAltar to 10, TestCards.pup to 10, TestCards.ashHound to 10, TestCards.oneTap to 10), mapOf("Blood Altar" to 1, "Ash Pup" to 1, "Ash Hound" to 1, "One Tap" to 1))
+        plays(alice, "Blood Altar", "Ash Pup", "Ash Hound")
+        alice.playFromHand("One Tap", this)
+        waitUntil("the creature to tap asked: ${alice.screen()}") { alice.shows(hasContentDescription("Choose on the table")) }
+        alice.battlefieldCard("Ash Pup").performClick()
+        waitUntil("the Hound gone, the Pup tapped", along = listOf(bob)) {
+            alice.field("Ash Hound").isEmpty() && alice.tappedCount("Ash Pup") == 1 && alice.state.stack.isEmpty() && alice.inOwnMain()
+        }
+    }
+
+    // STK-059, CR 605.1b, 605.3b, 605.4a (spec §1): triggered mana of a chosen colour: one Mountain with the Aura pays {R}{U}, Autotap saying the colour; nothing goes on the Stack
+    @Test fun aTriggeredManaAbilityOfAnyColourPaysAtOnce() {
+        start(deck(TestCards.mountain to 14, TestCards.bounty to 13, TestCards.redBlue to 13), mapOf("Mountain" to 1, "Ember Bounty" to 1, "Red Blue" to 1))
+        plays(alice, "Mountain")
+        alice.playFromHand("Ember Bounty", this)
+        waitUntil("the Aura's target") { alice.choosingTargets() }
+        alice.battlefieldCard("Mountain").performClick()
+        waitUntil("the Aura on the Mountain", along = listOf(bob)) { alice.field("Ember Bounty").isNotEmpty() && alice.inOwnMain() && alice.engine { device.session.pending.isEmpty() } }
+        alice.playFromHand("Red Blue", this)
+        waitUntil("the spell paid by one Mountain", along = listOf(bob)) { alice.tappedCount("Mountain") == 1 && alice.state.stack.isEmpty() && alice.inOwnMain() }
+        assertTrue(alice.state.player(alice.me).manaPool.isEmpty())
+    }
+
     // TBL-122, STK-025, CR 605.3a (spec §6.12): during a cast non-mana abilities are refused: they shake, nothing happens
     @Test fun nonManaAbilitiesAreRefusedDuringACast() {
         start(deck(TestCards.engineRock to 10, TestCards.brood to 10, TestCards.shard to 10, TestCards.emberStone to 10), mapOf("Ember Engine" to 1, "Ember Brood" to 1, "Ember Shard" to 1, "Ember Stone" to 1))

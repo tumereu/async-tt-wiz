@@ -331,7 +331,9 @@ internal object Mana {
                             if (choice == null || (part is CostPart.Discard && part.random)) unknown = true
                             else {
                                 val single = choice.min <= 1 && choice.total == null && choice.shared == null
-                                val free = choice.options.filter { o -> if (part is CostPart.TapObjects) o !in reserved.tapped else o !in reserved.leaving }
+                                // CR 601.2g before 601.2h: what the cost taps must still be there and untapped; what the cost moves away may tap
+                                // for mana first but can't also go for mana
+                                val free = choice.options.filter { o -> o !in reserved.tapped && (part is CostPart.TapObjects || o !in reserved.leaving) }
                                 if (free.size < choice.min) return emptyList()
                                 chosen += if (single) Triple(part, free.take(MAX_OBJECTS).map { listOf(it) }, free.size > MAX_OBJECTS)
                                     else Triple(part, listOf(free.take(choice.min)), true)
@@ -343,7 +345,7 @@ internal object Mana {
                 else -> unknown = true
             }
         }
-        if (id in reserved.leaving && id in leaves) return emptyList()
+        if (id in leaves && (id in reserved.leaving || id in reserved.tapped)) return emptyList()
         if (limit <= 0) return emptyList()
         // Each combination of the objects its cost could use
         var combos: List<List<Pair<CostPart, List<ObjectId>>>> = listOf(emptyList())
@@ -354,7 +356,7 @@ internal object Mana {
             when (val effect = (step as? Step.Do)?.effect) {
                 is Effect.AddMana -> Unit
                 // CR 120: to the player who activates it, whichever way the definition says "you"
-                is Effect.DealDamage -> if (effect.to.toString().contains("You")) damage += eval.value(effect.amount)
+                is Effect.DealDamage -> if (effect.to.players == arcanum.api.Players.You && effect.to.objects == null && effect.to.target == null) damage += eval.value(effect.amount) else unknown = true
                 is Effect.LoseLife -> if (effect.players == arcanum.api.Players.You) damage += eval.value(effect.amount)
                 else -> if (step !is Step.Choose) unknown = true
             }
@@ -650,10 +652,20 @@ internal object Mana {
     ): Boolean = verdict(snap, player, cost, paysFor, ways, canSpendMana, anyColor, reserved) != Verdict.None
 
     /** One activation of a source as a search tries it, with the colours it makes. */
-    private class Pick(val source: Source, val color: Color?, val combination: List<Color> = emptyList())
+    private class Pick(val source: Source, val color: Color?, val combination: List<Color> = emptyList(), val triggered: List<Color> = emptyList())
 
     /** The colours to try for [s]: none to choose, each colour of a choice, or each way of a combination (CR 106.1). */
     private fun picks(s: Source): List<Pick> {
+        val own = ownPicks(s)
+        // CR 605.4a: what its triggered mana abilities let be chosen: each colour too
+        val free = freeBonus(s)
+        if (free.isEmpty()) return own
+        var ways: List<List<Color>> = listOf(emptyList())
+        free.forEach { y -> ways = ways.flatMap { w -> y.colors.filterNotNull().map { w + it } } }
+        return own.flatMap { p -> ways.map { Pick(s, p.color, p.combination, it) } }
+    }
+
+    private fun ownPicks(s: Source): List<Pick> {
         val choosing = s.yields.filter { it.choice }
         if (choosing.isEmpty()) return listOf(Pick(s, null))
         val colors = choosing.flatMap { it.colors }.distinct()
@@ -664,10 +676,14 @@ internal object Mana {
         return ways.map { Pick(s, it.first(), it) }
     }
 
+    /** The mana a source's triggered mana abilities add whose colour is chosen as they resolve: not "any type that land produced" when the
+     * source itself made just the one colour picked (CR 106.7). */
+    private fun freeBonus(s: Source): List<Yield> = s.bonus.filter { y -> y.choice && !(y.production.kind is ManaKind.SameAsProduced && s.yields.any { it.choice }) }
+
     private fun use(p: Pick): ManaUse.Ability {
         val s = p.source
         val colors = p.combination.map { Answer.ColorChoice(it) }
-        return ManaUse.Ability(s.id, s.origin, if (s.yields.any { it.choice }) p.color else s.colors.singleOrNull(), answers = s.answers + colors)
+        return ManaUse.Ability(s.id, s.origin, if (s.yields.any { it.choice }) p.color else s.colors.singleOrNull(), answers = s.answers + colors, triggered = p.triggered)
     }
 
     private fun colorsOf(unit: ManaUnit, any: Boolean): Set<Color?> = if (any) (Color.all + unit.color).toSet() else setOf(unit.color)
@@ -692,8 +708,12 @@ internal object Mana {
         private val mustLife = pinned.filterIsInstance<ManaUse.Life>().map { it.symbol }.toSet()
         private val noLife = removed.filterIsInstance<ManaUse.Life>().map { it.symbol }.toSet()
         private val specials: List<Payer> = capped(specialPayers(snap, player, ways, reserved.tapped).filter { p -> removed.none { it == p.use } }, ways)
-        /** A damage replacement or prevention may change what a source deals: then its damage can't deny anything. */
-        val damageSure = snap.view.rules.none { (it.mechanic as? Mechanic.Replacement)?.event is arcanum.api.EventPattern.Damage }
+        /** Anything that may change what a source's damage does to its controller means its damage can't deny anything (CR 615, 616, 702.15,
+         * 702.16e): a replacement of damage, prevention (static or an effect's, a shield too, CR 615.7), a player's protection, lifelink on a source. */
+        val damageSure = snap.view.rules.none { it.mechanic is Mechanic.Prevention || (it.mechanic as? Mechanic.Replacement)?.event is arcanum.api.EventPattern.Damage } &&
+            snap.state.effects.values.none { e -> e.mechanics.any { it is Mechanic.Prevention || (it as? Mechanic.Replacement)?.event is arcanum.api.EventPattern.Damage } } &&
+            snap.view.players[player]?.mechanics.orEmpty().none { it.mechanic is Mechanic.Protection } &&
+            all.none { s -> s.damage > 0 && snap.view[s.id]?.characteristics?.hasKeyword(arcanum.api.Keyword.Lifelink) == true }
         /** A bound stopped a search, or a source wasn't searched: "not found" proves nothing. */
         var cantTell = all.any { it.unknown || it.partial }
 
@@ -827,9 +847,11 @@ internal object Mana {
         private fun payersOf(pick: Pick): List<Payer> {
             val s = pick.source
             val use = use(pick)
+            val free = freeBonus(s)
+            val said = pick.triggered.iterator()
             val made = s.yields.flatMap { y ->
                 if (y.combination && pick.combination.isNotEmpty()) pick.combination.flatMap { c -> units(y.copy(amount = 1), c, s.id) } else units(y, pick.color, s.id)
-            } + s.bonus.flatMap { y -> units(y, pick.color, s.id) }
+            } + s.bonus.flatMap { y -> units(y, if (y in free && said.hasNext()) said.next() else pick.color, s.id) }
             return made.map { u -> Payer(colorsOf(u, p.any), u.snow, use, u) }
         }
 
@@ -860,7 +882,7 @@ internal object Mana {
             }
             for (next in rest) {
                 val own = needs(next.source.ownCost!!)
-                for (paid in assignments(own, payers.filter { it.use !is ManaUse.Special })) {
+                for (paid in assignments(own, payers.filter { it.use !is ManaUse.Special }, stopped = { p.cantTell = true })) {
                     val mark = spent.size
                     spent += paid.map { it.use }.filter { it is ManaUse.Pool }
                     val left = payers.toMutableList().also { list -> paid.forEach { list.remove(it) } }
@@ -875,14 +897,15 @@ internal object Mana {
 
     /**
      * The different ways [payers] can cover [needs] by what they are (one of each kind for a need), at most [limit]: what a mana
-     * ability's own cost could be paid with, for a search or a payment to choose what leaves the rest payable.
+     * ability's own cost could be paid with, for a search or a payment to choose what leaves the rest payable. [stopped]: told when the limit
+     * left ways untried, so a search that found nothing proves nothing.
      */
-    fun assignments(needs: List<Need>, payers: List<Payer>, limit: Int = 24): List<List<Payer>> {
+    fun assignments(needs: List<Need>, payers: List<Payer>, limit: Int = 24, stopped: (() -> Unit)? = null): List<List<Payer>> {
         val found = LinkedHashMap<List<String>, List<Payer>>()
         val used = BooleanArray(payers.size)
         val picked = mutableListOf<Payer>()
         fun go(i: Int) {
-            if (found.size >= limit) return
+            if (found.size >= limit) { stopped?.invoke(); return }
             if (i == needs.size) {
                 found.getOrPut(picked.map { "${it.colors}/${it.snow}" }.sorted()) { picked.toList() }
                 return

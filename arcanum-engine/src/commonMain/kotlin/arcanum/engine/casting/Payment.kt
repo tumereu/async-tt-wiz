@@ -79,7 +79,7 @@ internal object Payment {
     }
 
     /** [nested]: a mana ability activated while another payment is made (CR 605.3a): it resolves at once and its asks go on [act]. */
-    private fun pay(act: Act, c: Continuation.Announcing, uses: List<ManaUse>, nested: Boolean = false): Progress {
+    private fun pay(act: Act, c: Continuation.Announcing, uses: List<ManaUse>, nested: Boolean = false, triggered: List<Color> = emptyList()): Progress {
         val recorder = act.recorder
         val plan = Plan(recorder.state, c)
         val total = plan.total
@@ -108,7 +108,7 @@ internal object Payment {
         }
         val names = Bindings(bound)
         return when {
-            plan.isManaAbility -> finishManaAbility(act, plan, names, nested)
+            plan.isManaAbility -> finishManaAbility(act, plan, names, nested, triggered)
             plan.isSpecialAction -> finishSpecialAction(act, plan)
             plan.isSpell -> finishSpell(recorder, plan, names, snapshots, spent, paidWith)
             else -> finishAbility(recorder, plan, names, snapshots)
@@ -291,7 +291,7 @@ internal object Payment {
         if (c != null) {
             val plan = Plan(recorder.state, c)
             val spent = ready.own?.let { Mana.spendFor(plan.snap, player, it, plan.itemId, funds, later, needs) } ?: emptyList()
-            pay(act, c, spent.map { ManaUse.Pool(it) }, nested = true)
+            pay(act, c, spent.map { ManaUse.Pool(it) }, nested = true, triggered = use.triggered)
             val kept = funds.filter { it !in spent }.map { i -> i - spent.count { it < i } }
             return kept + ((before - spent.size) until recorder.state.player(player).manaPool.size)
         }
@@ -314,7 +314,7 @@ internal object Payment {
         addMana(recorder, player, yields.flatMap { Mana.units(it, use.color, use.source) })
         recorder.record(Change.Happened(GameEvent.Activated(player, use.source, inst.origin.key, manaAbility = true, label = ability.label)))
         countActivation(recorder, use.source, inst.origin, loyalty = false)
-        arcanum.engine.trigger.Triggers.resolveManaTriggers(recorder)
+        arcanum.engine.trigger.Triggers.resolveManaTriggers(act, use.triggered)
         return funds + (before until recorder.state.player(player).manaPool.size)
     }
 
@@ -681,7 +681,7 @@ internal object Payment {
      * right after its mana is added, as resolution steps would (CR 608.2c); a part that would need a decision is left to
      * the players.
      */
-    private fun finishManaAbility(outer: Act, plan: Plan, bound: Bindings, nested: Boolean): Progress {
+    private fun finishManaAbility(outer: Act, plan: Plan, bound: Bindings, nested: Boolean, triggered: List<Color>): Progress {
         val recorder = outer.recorder
         val ability = plan.ability as Ability.Activated
         val snap = recorder.snapshot()
@@ -701,7 +701,7 @@ internal object Payment {
         recorder.record(Change.Happened(GameEvent.Activated(plan.player, plan.sourceId, plan.origin!!.key, manaAbility = true,
             label = (plan.ability as? Ability.Activated)?.label)))
         countActivation(recorder, plan.sourceId, plan.origin, loyalty = false)
-        arcanum.engine.trigger.Triggers.resolveManaTriggers(recorder)
+        arcanum.engine.trigger.Triggers.resolveManaTriggers(outer, triggered)
         if (!nested) Casting.keepPriority(recorder, plan.player)
         // ecl: "Add one mana of any color. This creature becomes that color": the colour chosen for the mana is what its
         // choice step binds, so that step isn't asked again (CR 605.3b: the ability resolves as a whole)

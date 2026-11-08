@@ -55,7 +55,7 @@ dead end; X is listed at the least values that work, up to what can be paid. Whe
 (found, none, or maybe when a bound stopped it or a source can't be read); `Mana.suggest` (Autotap, `Decision.ManaPayment.suggestion`) is a
 convenience in its order (pool; no side effects; damage or life; sacrifices; a lethal source last) and may find nothing where a way exists.
 A payment names every mana ability it uses (CR 605.3a), with what its activation asks in `ManaUse.Ability.answers` (the objects its cost uses, an
-amount, a combination's colours); the payment runs them in an order that works, whatever order they are listed in, an ability's own mana coming from
+amount, a combination's colours) and in `ManaUse.Ability.triggered` the colours of the triggered mana abilities it sets off (CR 605.4a; one not said is asked, at once, never on the Stack); the payment runs them in an order that works, whatever order they are listed in, an ability's own mana coming from
 what the payment has by then. `OptionsFuzzTest` checks the contract on
 seeded random games of cube cards, failing on any open player decision without a listed answer (a payment apart); `NoFalseDenialFuzzTest` tries each card left out on generated boards without bounds: no way may exist. `revert` takes changes back last first; after a host drops older turns' events
 (`GameState.forgetOlderTurns`) undo still reaches those turns, but "this turn" questions there see none of their events.

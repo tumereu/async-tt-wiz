@@ -123,7 +123,16 @@ internal object Options {
         if (d is Decision.ManaPayment) return true
         val snap = Snapshot(state)
         if (d is Decision.Announce) return announced(snap, pending, 1, budget).isNotEmpty()
-        return tries(snap, pending).any { goesOnAfter(snap, pending, it, budget) }
+        // A sample that fails isn't proof (deny only with proof)
+        return tries(snap, pending).any { goesOnAfter(snap, pending, it, budget) } || !everyTried(d, pending)
+    }
+
+    /** Whether [tries] of [d] is every answer it has, not a sample: creature types and card names found in the game, a few divisions, a number's ends. */
+    private fun everyTried(d: Decision, pending: Pending): Boolean = when (d) {
+        is Decision.ChooseSubtype -> d.among != null
+        is Decision.ChooseCardName, is Decision.Divide -> false
+        is Decision.ChooseNumber -> pending.continuation is Continuation.Announcing && d.max != null
+        else -> true
     }
 
     /** Whether [answer] to the open decision of a cast or activation is accepted and it [goesOn] after it; with the [budget] spent,
@@ -170,8 +179,11 @@ internal object Options {
         !plan.total.hasMana || plan.manaToPay.symbols.isEmpty() ||
             Mana.mayPay(plan.snap, plan.player, plan.manaToPay, plan.itemId, plan.manaWays, !plan.cantSpendMana, plan.manaAsAnyColor, plan.reserved)
 
-    /** [manaFound], or a choice still to come may lower the cost ([Plan.costMayFall]). */
-    private fun payableYet(plan: Plan): Boolean = manaFound(plan) || plan.costMayFall
+    /** [manaFound], or a choice still to come may lower the cost ([Plan.costMayFall]) by enough: a cost that doesn't pay even at the most it
+     * can fall ([Plan.mostFall]) is proof without trying every choice. */
+    private fun payableYet(plan: Plan): Boolean = manaFound(plan) || (plan.costMayFall && plan.mostFall.let { most ->
+        most == null || Mana.mayPay(plan.snap, plan.player, arcanum.engine.casting.Costs.reduce(plan.manaToPay, most), plan.itemId, plan.manaWays, !plan.cantSpendMana, plan.manaAsAnyColor, plan.reserved)
+    })
 
     /**
      * Answers to an X (or another value) announced for a cost (CR 107.3, 601.2b): the least [count] values from the
@@ -222,11 +234,14 @@ internal object Options {
         val c = pending.continuation as? Continuation.Announcing
         val plan = c?.takeIf { it.choices.names[Plan.MANUAL] == null && it.choices.paying == null }?.let { Plan(state, it) }
         val limits = plan != null && d is Decision.Targets && plan.targetsLimitEachOther(d.slot)
-        // Nothing can make one candidate depend on another, or the cast on the candidates: as the decision says
-        if (plan == null || (!plan.costMayVary && !limits && min <= 1)) return Selection(options, picked.size in min..max)
+        // Not a cast or activation: as the decision says
+        if (plan == null) return Selection(options, picked.size in min..max)
         val snap = Snapshot(state)
         val budget = Budget(SELECTION)
         val done = picked.size in min..max && goesOnAfter(snap, pending, answerOf(picked))
+        // Targets all alike, the next thing being the payment: nothing to work out per candidate (objects a cost uses do change what can pay, Plan.reserved)
+        if (d is Decision.Targets && !plan.costMayVary && !limits && min <= 1 && options.isNotEmpty() &&
+            performed(snap, Input.Answer(d.id, answerOf(listOf(options.first()))))?.second?.decision.let { it == null || it is Decision.ManaPayment }) return Selection(options, done)
         val rest = options.filter { it !in picked }
         val undecided = rest.toMutableList()
         val selectable = picked.toMutableSet()
@@ -287,8 +302,10 @@ internal object Options {
                 val (after, next) = performed(snap, Input.Answer(d.id, answer)) ?: continue
                 val before = leaves.size
                 walk(after, next, path + answer)
-                if (!every && leaves.size > before) return
+                // The first that can be paid when the cost is the same every way (a cost's objects may leave nothing to pay with, Plan.reserved)
+                if (!every && leaves.drop(before).any { it.payable }) return
             }
+            if (!everyTried(d, p)) stopped = true
         }
         walk(state, pending, emptyList())
         val costs = leaves.map { it.cost?.toString().orEmpty() }.distinct()
@@ -341,7 +358,9 @@ internal object Options {
                 .filter { if (announcing) goesOnAfter(snap, pending, it) else accepted(snap, Input.Answer(d.id, it)) }
         // A sample that doesn't work isn't proof: the first combination that does (a target that only works as part of a pair)
         val working = if (announcing && found.isEmpty() && d !is Decision.Announce && d !is Decision.ManaPayment)
-            tries(snap, pending).filter { a -> hidden.isEmpty() || objectsOf(d, a).none { it in hidden } }.take(LOOKAHEAD).firstOrNull { goesOnAfter(snap, pending, it) }?.let { listOf(it) }.orEmpty()
+            tries(snap, pending).filter { a -> hidden.isEmpty() || objectsOf(d, a).none { it in hidden } }.take(LOOKAHEAD).firstOrNull { goesOnAfter(snap, pending, it) }?.let { listOf(it) }
+                // A failed sample proves nothing: what it accepts stays on offer
+                ?: if (everyTried(d, pending)) emptyList() else candidates(snap, pending).distinct().filter { accepted(snap, Input.Answer(d.id, it)) }
             else found
         val cancel = (pending.continuation as? Continuation.Announcing)?.takeIf { it.player == player }?.let { Input.Cancel(player) }
         return working.map { Input.Answer(d.id, it) } + listOfNotNull(cancel)

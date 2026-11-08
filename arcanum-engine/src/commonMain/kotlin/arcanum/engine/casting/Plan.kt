@@ -503,6 +503,32 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
     }
 
     /**
+     * The most the cost's mana can still fall by with what is known (CR 601.2f): every reduction that may come to apply, at its amount, or null when
+     * one can't be bounded (its amount reads a choice, another player may assist). A reduction whose filter reads nothing chosen and doesn't match
+     * this spell can't come to apply. An upper bound: a search may stop when even this doesn't pay (deny only with proof).
+     */
+    val mostFall: ManaCost? get() {
+        if (assistable > 0 && choices.assist?.amount == null) return null
+        val symbols = mutableListOf<ManaSymbol>()
+        fun add(change: CostChange): Boolean {
+            if (change is CostChange.More) return true
+            val times = (change.times as? Value.Fixed)?.value ?: return false
+            repeat(times.coerceAtLeast(0)) { symbols += change.mana.symbols }
+            return true
+        }
+        (ability as? Ability.Activated)?.rules?.costChange?.let { if (!add(it)) return null }
+        withGrantedAsSpell().forEach { inst -> (inst.ability as? Ability.Static)?.mechanics.orEmpty().filterIsInstance<Mechanic.CostChange>().forEach { if (!add(it.change)) return null } }
+        snap.view.rules.forEach { applied ->
+            val m = applied.mechanic as? Mechanic.CostChange ?: return@forEach
+            if (m.change is CostChange.More) return@forEach
+            val reads = READS_CHOICE.any { it in kotlinx.serialization.json.Json.encodeToString(ObjectFilter.serializer(), m.what) }
+            if (!reads && !snap.evaluator(applied.controller, self = applied.source, names = applied.names).matches(m.what, itemId)) return@forEach
+            if (!add(m.change)) return null
+        }
+        return ManaCost(symbols)
+    }
+
+    /**
      * Whether a question still open may change what it costs at all, up or down (CR 601.2f): a cost change of its own or from
      * any object, a repeated or per-mode additional cost, a mode that costs more, an "A or B" cost, another player's assist.
      * Without any, every way through has the same cost and the first one says it.
@@ -839,6 +865,8 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
         const val PER_PLAYER = "\$per-player:"
         const val COLOR = "\$color:"
         const val MANUAL = "\$manual"
+        /** What in a serialized filter may read what is chosen while casting. */
+        private val READS_CHOICE = listOf("\"targets\"", "\"target\"", "\"bound\"", "\"announced\"", "\"chosen\"", "\"remembered\"")
 
         fun publicNames(names: Bindings): Bindings = Bindings(names.values.filterKeys { !it.startsWith("$") })
 

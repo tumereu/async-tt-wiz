@@ -188,7 +188,8 @@ PY
             -H 'Content-Type: application/vnd.android.package-archive' --upload-file "$file")
         [[ $status == 201 ]] || gh_fail "uploading $asset" "$status"
         gh_url=$(gh_json browser_download_url)
-        gh_verify "$gh_url" "$size" "$sha" 30 || die "GitHub: the public download of $asset does not match the built APK."
+        # A fresh upload can take GitHub longer than 5 minutes to serve; ATW_GH_VERIFY_ATTEMPTS (10 s each) waits longer.
+        gh_verify "$gh_url" "$size" "$sha" "${ATW_GH_VERIFY_ATTEMPTS:-30}" || die "GitHub: the public download of $asset does not match the built APK."
     fi
     [[ $gh_url == https://* && ${#gh_url} -le 500 ]] || die "GitHub: unexpected download URL $gh_url"
     echo "GitHub download verified: $gh_url"

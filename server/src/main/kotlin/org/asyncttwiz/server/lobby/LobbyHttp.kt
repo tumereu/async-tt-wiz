@@ -16,8 +16,6 @@ class LobbyHttp(private val runtime: ServiceRuntime) {
     private val accounts = AccountService(runtime)
     private val lobby = LobbyService(runtime)
     private val limits = AccountRateLimits()
-    /** Unset in production. The e2e server sets it: its tests share two accounts, and the app reads its lists after each game command. */
-    private val requestsAMinute = System.getenv("TEST_LOBBY_REQUESTS_A_MINUTE")?.toIntOrNull() ?: 600
     private val json = DeckJson.format
     fun handle(request: HttpServletRequest, response: HttpServletResponse): Boolean {
         val path = request.requestURI
@@ -33,7 +31,7 @@ class LobbyHttp(private val runtime: ServiceRuntime) {
             val token = request.getHeaders("Authorization").toList().singleOrNull()?.takeIf { it.startsWith("Bearer ", true) }?.substring(7)
             val principal = token?.let(accounts::authenticate)
             if (principal == null) { error(401, "authentication_required"); return true }
-            if (!limits.allow("lobby-http", principal.account.accountId, requestsAMinute, 60)) {
+            if (!limits.allow("lobby-http", principal.account.accountId, 600, 60)) {
                 response.setHeader("Retry-After", "60"); error(429, "try_later"); return true
             }
             val parts = path.split('/')

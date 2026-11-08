@@ -63,7 +63,7 @@ object E2eStack {
             "SERVER_ADDRESS" to "127.0.0.1", "SERVER_PORT" to "0", "HEALTH_ADDRESS" to "127.0.0.1", "HEALTH_PORT" to "0",
             "SMTP_HOST" to "127.0.0.1", "SMTP_PORT" to "9", "SMTP_TLS" to "local-plaintext", "SMTP_FROM" to "e2e@atw.invalid",
             "RESET_BASE_URL" to "https://reset.atw.invalid", "RESET_MAIL_KEY_FILE" to resetKey.path,
-            "TEST_GAME_SECRET_FILE" to secret.path, "TEST_LOBBY_REQUESTS_A_MINUTE" to "100000",
+            "TEST_GAME_SECRET_FILE" to secret.path,
             "JAVA_OPTS" to "-Djava.net.preferIPv4Stack=true -Xmx768m")
         fun launch(command: String, log: File): Process = ProcessBuilder(server, command).redirectErrorStream(true)
             .redirectOutput(log).also { it.environment().putAll(environment) }.start()

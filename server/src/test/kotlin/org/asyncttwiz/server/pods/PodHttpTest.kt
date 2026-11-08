@@ -545,6 +545,42 @@ class PodHttpTest {
         f.send(f.c, "PUT", "/v1/pods/$pod/draft/marks", SetPodDraftMarks(attempt, other.id), 404)
     }
 
+    // DRF-165: the draft history is the caller's own picks with the packs as they came, named, a wheel's cards taken since,
+    // and only for members of a Booster or Glimpse draft
+    @Test fun `draft history lists the caller's picks with their packs and what a wheel lost`() = fixture { f ->
+        val pod = f.create().id
+        f.join(pod)
+        f.configure(pod, DraftSettings.glimpse().copy(packsPerPlayer = 1, cardsPerPack = 7, burn = 1))
+        f.start(pod)
+        fun history(who: SessionCreated, status: Int = 200): String {
+            val response = f.request(who, "GET", "/v1/pods/$pod/draft/history")
+            assertEquals(status, response.statusCode(), response.body())
+            return response.body()
+        }
+        assertTrue(json.decodeFromString<PodDraftHistory>(history(f.a)).picks.isEmpty())
+        val first = f.get(f.a, pod).draft!!.head!!
+        f.pick(f.a, pod); f.pick(f.b, pod); f.pick(f.a, pod); f.pick(f.b, pod)
+        // A's own pack comes back: A picks it again
+        val back = f.get(f.a, pod).draft!!.head!!
+        assertEquals(first.id, back.id)
+        f.pick(f.a, pod)
+        val mine = json.decodeFromString<PodDraftHistory>(history(f.a))
+        assertEquals(listOf(1, 2, 3), mine.picks.map { it.pick })
+        assertEquals(first.cards.map { it.id }.toSet(), mine.picks[0].cards.map { it.id }.toSet())
+        assertEquals(listOf(first.cards[0].id), mine.picks[0].kept)
+        assertEquals(listOf(first.cards[1].id), mine.picks[0].burned)
+        assertEquals(back.cards.map { it.id }.toSet(), mine.picks[2].cards.map { it.id }.toSet())
+        // B kept one and burned one of A's pack: both are gone since A passed it
+        assertEquals(2, mine.picks[2].takenSince.size)
+        assertEquals((mine.picks.flatMap { it.cards + it.takenSince }).map { it.definition }.toSet(), mine.definitions.map { it.digest }.toSet())
+        // B's history is B's own two picks and the last card of A's pack, given automatically
+        assertEquals(listOf(false, false, true), json.decodeFromString<PodDraftHistory>(history(f.b)).picks.map { it.automatic })
+        history(f.c, 404)
+        // A pod without a Booster draft has no history
+        val setup = f.create(DraftMode.GRID).id
+        assertEquals("wrong_draft_mode", json.decodeFromString<PodError>(f.request(f.a, "GET", "/v1/pods/$setup/draft/history").body()).code)
+    }
+
     // DRF-118
     @Test fun `deck notes are private per attempt, editable after submitting and cleared by cancellation`() = fixture { f ->
         val pod = f.create().id

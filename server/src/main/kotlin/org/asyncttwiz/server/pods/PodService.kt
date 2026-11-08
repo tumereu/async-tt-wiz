@@ -878,6 +878,22 @@ class PodService(private val runtime: ServiceRuntime) {
         }
     }
 
+    /** The caller's Booster or Glimpse draft history (DRF-165) with its cards' definitions; only what their packs showed. */
+    fun history(principal: AccountService.Principal, id: String): Result {
+        if (!DeckValidation.uuid(id)) return error(404, "not_found")
+        return runtime.transaction { connection ->
+            val sql = DSL.using(connection, SQLDialect.POSTGRES)
+            val row = sql.selectFrom(POD).where(POD.ID.eq(UUID.fromString(id))).forShare().fetchOne()
+                ?: return@transaction error(404, "not_found")
+            val owner = UUID.fromString(principal.account.accountId)
+            if (members(sql, row.id!!).none { it.accountId == owner }) return@transaction error(404, "not_found")
+            val state = draft(row, settings(row)).booster ?: return@transaction error(409, "wrong_draft_mode")
+            val picks = DraftEngine.history(state, owner.toString())
+            val digests = picks.flatMap { it.cards + it.takenSince }.map { it.definition }.toSet()
+            Result(200, json.encodeToString(PodDraftHistory(picks, StoredDefinitions.read(sql, digests))))
+        }
+    }
+
     /** The app's shared pod order (DRF-013): your pick or build longest waiting first, then the rest newest first. */
     private val podListOrder = Comparator<PodSummary> { a, b ->
         val waiting = (a.attention == PodAttention.NONE).compareTo(b.attention == PodAttention.NONE)

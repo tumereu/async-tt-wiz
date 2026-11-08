@@ -350,6 +350,7 @@ internal fun screenIcon(kind: String): ImageVector = when (kind) {
     "prepare" -> Icons.Outlined.Tune
     "ready" -> Icons.Outlined.Check
     "pending" -> Icons.Outlined.HourglassEmpty
+    "history" -> Icons.Outlined.History
     "withdraw" -> Icons.AutoMirrored.Outlined.Undo
     "chevron" -> Icons.Outlined.ChevronRight
     "chevron-left" -> Icons.Outlined.ChevronLeft

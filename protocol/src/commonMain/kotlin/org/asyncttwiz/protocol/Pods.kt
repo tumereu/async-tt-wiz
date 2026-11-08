@@ -112,6 +112,8 @@ import kotlinx.serialization.Serializable
 /** POST /v1/pods/{id}/turn: a Rochester, Rotisserie, Winston or Winchester move ([LimitedMove] without the player). */
 @Serializable data class PodTurn(val requestId: String, val draftAttemptId: String, val action: LimitedAction, val turn: Int,
     val card: String? = null, val packId: String? = null, val pile: Int? = null, val table: Int = 0)
+/** GET /v1/pods/{id}/draft/history: the caller's Booster or Glimpse picks in order (DRF-165) and the definitions of their cards. */
+@Serializable data class PodDraftHistory(val picks: List<DraftHistoryPick>, val definitions: List<SubmittedDefinition> = emptyList())
 /** PUT /v1/pods/{id}/rotisserie/queue: the caller's whole Rotisserie pick queue, in order (DRF-164); empty empties it. */
 @Serializable data class PodPickQueue(val requestId: String, val draftAttemptId: String, val cards: List<String>)
 /** PUT /v1/pods/{id}/build/move. */

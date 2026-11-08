@@ -51,6 +51,22 @@ internal fun rememberPodBuildSideBySide(): PodBuildColumns {
     }
 }
 
+/**
+ * The draft history's own cards per row (DRF-165), per device and orientation: 1 up to [packSize], by default 8 in
+ * portrait and 15 in landscape, capped at the pack size.
+ */
+@Composable
+internal fun rememberPodHistoryColumns(packSize: Int): PodBuildColumns {
+    val context = LocalContext.current.applicationContext
+    val orientation = LocalConfiguration.current.orientation
+    val preferences = remember(context) { context.getSharedPreferences("pod-pick", Context.MODE_PRIVATE) }
+    val size = packSize.coerceAtLeast(1)
+    return remember(preferences, orientation, size) {
+        PodBuildColumns(preferences, "history-columns-$orientation", 1..size,
+            (if (orientation == Configuration.ORIENTATION_LANDSCAPE) 15 else 8).coerceAtMost(size))
+    }
+}
+
 internal val DeckViewColumnRange = 1..10
 
 /** Personal per-orientation tile columns of a visual deck view. Game preparation ([DeckViewScreen.PREPARATION]),
@@ -83,7 +99,7 @@ internal fun DeckViewColumnsControl(columns: PodBuildColumns) =
 /** Header cog opening a small floating panel with every pod view's layout setting; values apply live. */
 @Composable
 internal fun PodViewSettingsButton(pick: PodPickColumns?, build: PodBuildColumns,
-    sideBySide: PodBuildColumns = rememberPodBuildSideBySide()) {
+    sideBySide: PodBuildColumns = rememberPodBuildSideBySide(), history: PodBuildColumns? = null) {
     var open by remember { mutableStateOf(false) }
     Box {
         HoldTip("View settings") { IconButton({ open = true }, Modifier.size(48.dp)) { EntryIcon("View settings", "settings") } }
@@ -92,6 +108,9 @@ internal fun PodViewSettingsButton(pick: PodPickColumns?, build: PodBuildColumns
                 if (pick != null) PodViewSettingRow("Draft · cards per row") {
                     val value = pick.preferred.coerceIn(PodPickColumnRange)
                     PodColumnControl("$value", "Cards per row", value, PodPickColumnRange, pick::choose)
+                }
+                if (history != null) PodViewSettingRow("History · cards per row") {
+                    PodColumnControl("${history.count}", "History cards per row", history.count, history.range, history::choose)
                 }
                 PodViewSettingRow("Build · columns") {
                     PodColumnControl("${build.count}", "Columns", build.count, PodBuildColumnRange, build::choose)

@@ -458,6 +458,25 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
         val input = PodTurn(requestId(), attempt, action, turn, card, packId, pile, table)
         enqueue(Write(detail.id, attempt, pick = true, send = { api.turn(it, detail.id, input) }))
     }
+    /** The open pod's draft history (DRF-165) once loaded; null while loading or after a failure ([historyFailed]). */
+    var history by mutableStateOf<PodDraftHistory?>(null)
+        private set
+    var historyFailed by mutableStateOf(false)
+        private set
+    /** Loads the caller's Booster or Glimpse draft history from the server, replacing any shown one. */
+    fun loadHistory() {
+        val pod = state.detail?.id ?: return
+        val token = credential() ?: return
+        history = null; historyFailed = false
+        worker.execute {
+            val result = runCatching { runBlocking { serviceRetry(wait, { !closed }) { api.history(token, pod) } } }
+            post {
+                if (closed || state.detail?.id != pod) return@post
+                history = result.getOrNull()
+                historyFailed = result.isFailure
+            }
+        }
+    }
     /** Sets your Rotisserie pick queue to [cards], in order (DRF-164); it shows at once and the server keeps it. */
     fun queue(cards: List<String>) {
         val detail = state.detail?.takeIf { it.phase == PodPhase.DRAFTING && it.settings.mode == DraftMode.ROTISSERIE && it.limited != null } ?: return

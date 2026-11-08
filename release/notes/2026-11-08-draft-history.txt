@@ -1,0 +1,1 @@
+add: Booster and Glimpse drafts have a History button showing each of your picks with the pack as it came to you, what you kept and burned, and what was taken from a pack before it came back.

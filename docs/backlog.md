@@ -20,7 +20,6 @@ Catalog review follow-ups (owner, 2026-11-08; the catalog was cleaned on w/catal
 
 Draft and outside-the-game notes (owner, 2026-11-08, for the release after beta6; build, verify and release autonomously):
 
-- Booster draft history (DRF-160, DRF-075, new entries): Booster and Glimpse get the top-right button too, opening "Draft history": every pick of yours in order ("Pack 1 · Pick 3"), each showing the pack as it came to you with your keeps marked green and burns red; a pack that comes round again marks which cards were taken since you last saw it. Its own cards-per-row setting (in the cogwheel panel, saved per device and orientation like DRF-056), range 1 up to the pack size, default much larger than the pick screen's (8 portrait, 15 landscape, capped at the pack size) so the big picture shows.
 - Outside the game = Side + Maybe (DRF-092, DRF-099, DRF-107, DRF-110, DRF-120, LOB-055, and the game setup entries): rename limited Build's Trash to "Maybe" everywhere; in every game (constructed and pod) a player's cards outside the game are their Side and Maybe (wishes, learn and the like can fetch them), Maybe no longer left out of games; a saved draft deck keeps Maybe as its own section instead of folding it into Side. The sideboard limit (DRF-025) counts Side only, as in real Magic.
 
 Small, not urgent (owner, 2026-11-08):

@@ -56,7 +56,11 @@ class PodSettingsRangesTest {
         assertEquals(listOf(PodSetting.PACKS, PodSetting.TABLE_OPEN, PodSetting.SIDEBOARD), fields(DraftSettings.rochester(), recipe))
         assertEquals(listOf(PodSetting.CARDS_EACH, PodSetting.SIDEBOARD), fields(DraftSettings.rotisserie(), recipe))
         assertEquals(listOf(PodSetting.PACKS, PodSetting.PACK_SIZE, PodSetting.PILES, PodSetting.SIDEBOARD), fields(DraftSettings.winston()))
-        assertEquals(listOf(PodSetting.PACKS, PodSetting.PILES, PodSetting.SIDEBOARD), fields(DraftSettings.winchester(), recipe))
+        // DRF-158: Winchester's Tables tile, 1–4, default 1.
+        assertEquals(listOf(PodSetting.PACKS, PodSetting.PILES, PodSetting.TABLES, PodSetting.SIDEBOARD), fields(DraftSettings.winchester(), recipe))
+        assertEquals(1..4, PodSetting.TABLES.range(DraftSettings.winchester()))
+        assertEquals(1, PodSetting.TABLES.value(DraftSettings.winchester()))
+        assertEquals(2, PodSetting.TABLES.apply(DraftSettings.winchester(), 2).tables)
         assertEquals(listOf(PodSetting.CARDS_EACH, PodSetting.SIDEBOARD), fields(DraftSettings.sealed()))
         assertEquals(listOf(PodSetting.BOOSTERS, PodSetting.SIDEBOARD), fields(DraftSettings.sealed(), recipe))
         assertEquals(1..15, PodSetting.PACKS.range(DraftSettings.winston()))

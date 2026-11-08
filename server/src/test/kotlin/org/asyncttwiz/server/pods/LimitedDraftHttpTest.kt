@@ -354,4 +354,43 @@ class LimitedDraftHttpTest {
         // The Picks view shows every take face up.
         assertTrue(f.get(seating[0], pod).limited!!.picks.all { take -> take.cards.all { it != null } })
     }
+
+    // DRF-158, DRF-023: Winchester tables, each with its own stack, piles and turn order one seat later; both players pick
+    // at once, a move names its table, and the draft ends when every table is empty.
+    @Test fun `Winchester HTTP tables split the cards and let both players pick at once`() = fixture { f ->
+        assertEquals("invalid_settings", f.code(f.send(f.a, "POST", "/v1/pods", CreatePod(id(), "Limited pod", f.cube.cube.id,
+            DraftMode.WINCHESTER, settings = DraftSettings.winchester().copy(tables = 5)), 400)))
+        val pod = f.create(DraftSettings.winchester().copy(packsPerPlayer = 1, cardsPerPack = 10, tables = 2))
+        f.join(pod, f.b)
+        val started = json.decodeFromString<PodDetail>(f.start(pod))
+        val attempt = started.draftAttemptId!!
+        val (x, y) = started.limited!!.seating.map(f::session)
+        val view = f.get(y, pod)
+        val tables = view.limited!!.tables
+        assertEquals(listOf(x.account.accountId, y.account.accountId), tables.map { it.currentPlayer })
+        assertEquals(listOf(6, 6), tables.map { it.stack })
+        // Every face-up pile of every table is named.
+        assertEquals(tables.flatMap { it.piles.flatten() }.map { it.definition }.toSet(), view.definitions.map { it.digest }.toSet())
+        // Both have a pick waiting (and a notification) at once.
+        for (who in listOf(x, y)) assertEquals(1, f.count(ActivityKind.POD_YOUR_PICK, pod, who))
+        assertEquals(listOf(1, 1), listOf(x, y).map { who -> f.get(who, pod).members.single { it.account.accountId == who.account.accountId }.packsWaiting })
+        fun take(who: SessionCreated, table: Int, turn: Int, pile: Int = 0, status: Int = 200) =
+            f.turn(who, pod, PodTurn(id(), attempt, LimitedAction.TAKE_PILE, turn, pile = pile, table = table), status)
+        assertEquals("not_your_turn", f.code(take(x, 1, 0, status = 409)))
+        assertEquals("wrong_table", f.code(take(y, 2, 0, status = 409)))
+        take(y, 1, 0)
+        take(x, 0, 0)
+        val after = f.get(x, pod).limited!!
+        assertEquals(listOf(y.account.accountId, x.account.accountId), after.tables.map { it.currentPlayer })
+        assertEquals(listOf(1, 1), after.tables.map { it.turn })
+        var guard = 0
+        while (f.get(f.a, pod).phase == PodPhase.DRAFTING) {
+            val board = f.get(f.a, pod).limited!!
+            val (index, table) = board.tables.withIndex().first { it.value.currentPlayer != null }
+            take(f.session(table.currentPlayer!!), index, table.turn, table.piles.indexOfFirst { it.isNotEmpty() })
+            assertTrue(++guard < 60)
+        }
+        assertEquals(20, listOf(x, y).sumOf { f.get(it, pod).limited!!.pool.size })
+        for (who in listOf(x, y)) assertEquals(1, f.count(ActivityKind.POD_DRAFT_COMPLETE, pod, who))
+    }
 }

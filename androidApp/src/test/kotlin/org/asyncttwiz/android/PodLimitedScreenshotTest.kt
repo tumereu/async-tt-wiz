@@ -120,7 +120,7 @@ class PodLimitedScreenshotTest {
         val view = LimitedView(DraftMode.ROTISSERIE, "alice", listOf("alice", "bob", "carol"), listOf(copies[7]), false,
             currentPlayer = "alice", turn = 3, turns = 135, board = board)
         show({ "pod-rotisserie-${it.id}" }, board.map { it.copy }) {
-            PodRotisserieView(view, members, definitions, false, { _, _, _, _, _ -> }, Modifier.fillMaxSize(), columns)
+            PodRotisserieView(view, members, definitions, false, { _, _, _, _, _, _ -> }, Modifier.fillMaxSize(), columns)
         }
         shot("pod-rotisserie", "Rotisserie draft for three on Alice's turn: the whole pool sorted by colour, " +
             "with the three cards already taken greyed and marked with their picker's avatar.")
@@ -145,7 +145,7 @@ class PodLimitedScreenshotTest {
         val view = LimitedView(DraftMode.ROCHESTER, "alice", listOf("alice", "bob", "carol"), emptyList(), false,
             packs = packs, round = 1, rounds = 3)
         show({ "pod-rochester-${it.id}" }, copies) {
-            PodRochesterView(view, members, definitions, false, { _, _, _, _, _ -> }, Modifier.fillMaxSize(), columns)
+            PodRochesterView(view, members, definitions, false, { _, _, _, _, _, _ -> }, Modifier.fillMaxSize(), columns)
         }
         compose.onNodeWithTag("pod-rochester-copy-7").performClick()
         compose.mainClock.advanceTimeBy(500)
@@ -161,7 +161,7 @@ class PodLimitedScreenshotTest {
         val view = LimitedView(DraftMode.WINSTON, "alice", listOf("alice", "bob"), emptyList(), false, currentPlayer = "alice",
             turn = 4, stack = 31, piles = piles, pile = 1)
         show({ "pod-winston-${it.id}" }, piles.flatten().filterNotNull()) {
-            PodWinstonView(view, members, definitions, false, { _, _, _, _, _ -> }, Modifier.fillMaxSize(), columns)
+            PodWinstonView(view, members, definitions, false, { _, _, _, _, _, _ -> }, Modifier.fillMaxSize(), columns)
         }
         shot("pod-winston", "Winston draft on Alice's turn while she looks at pile 2: cards she has seen are face up, " +
             "cards added since are backs, with Pass and Take pile 2 below.")
@@ -173,7 +173,7 @@ class PodLimitedScreenshotTest {
         val view = LimitedView(DraftMode.WINCHESTER, "alice", listOf("alice", "bob"), emptyList(), false, currentPlayer = "alice",
             turn = 2, stack = 24, piles = piles)
         show({ "pod-winchester-${it.id}" }, piles.flatten()) {
-            PodWinchesterView(view, members, definitions, false, { _, _, _, _, _ -> }, Modifier.fillMaxSize(), columns)
+            PodWinchesterView(view, members, definitions, false, { _, _, _, _, _, _ -> }, Modifier.fillMaxSize(), columns)
         }
         compose.onNodeWithTag("pod-winchester-copy-4").performClick()
         compose.mainClock.advanceTimeBy(500)
@@ -181,6 +181,57 @@ class PodLimitedScreenshotTest {
         compose.onNodeWithText("Take pile 3 (3 cards)").assertIsEnabled()
         shot("pod-winchester", "Winchester draft on Alice's turn after she taps a card of pile 3: the four face-up piles, " +
             "pile 3 framed, and \"Take pile 3 (3 cards)\" below.")
+    }
+
+    // DRF-158, DRF-159: several tables get a chip row; the screen opens on a table where it is your pick, shows only that
+    // table's piles, and moves to another such table once the server's answer to your take shows.
+    @Test fun winchesterTablesChipRowOpensOnYourPick() {
+        val first = listOf(listOf(copies[0], copies[1]), listOf(copies[2]), listOf(copies[3]))
+        val second = listOf(listOf(copies[4]), listOf(copies[5], copies[6], copies[7]), listOf(copies[8]))
+        fun table(player: String?, turn: Int, stack: Int, piles: List<List<DraftCopy>>) = LimitedTableView(player, turn, stack, piles)
+        var view by mutableStateOf(LimitedView(DraftMode.WINCHESTER, "alice", listOf("alice", "bob"), emptyList(), false,
+            currentPlayer = "bob", turn = 3, stack = 9, piles = first,
+            tables = listOf(table("bob", 3, 9, first), table("alice", 3, 8, second))))
+        val sent = mutableListOf<Pair<Int, Int>>()
+        show({ "pod-winchester-${it.id}" }, second.flatten()) {
+            PodWinchesterView(view, members, definitions, false, { _, turn, _, _, pile, table -> sent += table to pile!!; check(turn == 3) },
+                Modifier.fillMaxSize(), columns)
+        }
+        compose.onNodeWithText("Table 1 · Bob picks").assertIsDisplayed().assertIsNotSelected()
+        compose.onNodeWithText("Table 2 · Your pick").assertIsDisplayed().assertIsSelected()
+        compose.onNodeWithText("Your pick · Stack: 8 cards").assertIsDisplayed()
+        compose.onNodeWithTag("pod-winchester-copy-0").assertDoesNotExist()
+        compose.onNodeWithTag("pod-winchester-copy-6").performClick()
+        compose.mainClock.advanceTimeBy(500)
+        compose.waitForIdle()
+        compose.onNodeWithText("Take pile 2 (3 cards)").assertIsEnabled()
+        shot("pod-winchester-tables", "Winchester draft with two tables, opened on table 2 where it is Alice's pick (Bob picks at " +
+            "table 1): the chip row on top, table 2's piles with pile 2 framed after a tap, and \"Take pile 2 (3 cards)\" below.")
+        compose.onNodeWithText("Take pile 2 (3 cards)").performClick()
+        kotlin.test.assertEquals(listOf(1 to 1), sent)
+        // Bob took at table 1 meanwhile; Alice's take at table 2 shows: the screen moves to table 1, her pick now.
+        compose.runOnIdle { view = view.copy(currentPlayer = "alice", turn = 4, stack = 6,
+            tables = listOf(table("alice", 4, 6, first), table("bob", 4, 5, second))) }
+        compose.waitForIdle()
+        compose.onNodeWithText("Table 1 · Your pick").assertIsSelected()
+        compose.onNodeWithText("Table 2 · Bob picks").assertIsNotSelected()
+        compose.onNodeWithTag("pod-winchester-copy-0").assertExists()
+        // A tap on a chip shows that table; there it is not your pick, so nothing can be taken.
+        compose.onNodeWithText("Table 2 · Bob picks").performClick()
+        compose.onNodeWithText("Waiting for Bob · Stack: 5 cards").assertIsDisplayed()
+        compose.onNodeWithTag("pod-limited-confirm").assertDoesNotExist()
+    }
+
+    // DRF-158: one table shows no chip row.
+    @Test fun winchesterOneTableHasNoChipRow() {
+        val piles = listOf(listOf(copies[0]), listOf(copies[1]))
+        val view = LimitedView(DraftMode.WINCHESTER, "alice", listOf("alice", "bob"), emptyList(), false, currentPlayer = "alice",
+            turn = 0, stack = 10, piles = piles, tables = listOf(LimitedTableView("alice", 0, 10, piles)))
+        show({ "pod-winchester-${it.id}" }, piles.flatten()) {
+            PodWinchesterView(view, members, definitions, false, { _, _, _, _, _, _ -> }, Modifier.fillMaxSize(), columns)
+        }
+        compose.onNodeWithTag("pod-winchester-tables").assertDoesNotExist()
+        compose.onNodeWithText("Your pick · Stack: 10 cards").assertIsDisplayed()
     }
 
     // DRF-160

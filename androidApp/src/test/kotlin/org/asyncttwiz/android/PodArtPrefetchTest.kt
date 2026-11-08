@@ -115,6 +115,10 @@ class PodArtPrefetchTest {
         val view = LimitedView(DraftMode.WINCHESTER, "ann", listOf("ann", "bob"), emptyList(), false,
             piles = listOf(listOf(copy("a")), emptyList(), listOf(copy("b"), copy("c"))))
         assertEquals(listOf("a", "b", "c"), podLimitedPrefetchCards(view, emptyMap()).map { it.id })
+        // DRF-158: with several tables, every table's piles in table order.
+        val tables = view.copy(tables = listOf(LimitedTableView("ann", 0, 3, listOf(listOf(copy("a")))),
+            LimitedTableView("bob", 0, 3, listOf(listOf(copy("d")), listOf(copy("e"))))))
+        assertEquals(listOf("a", "d", "e"), podLimitedPrefetchCards(tables, emptyMap()).map { it.id })
     }
 
     // DRF-070: the Picks view hands over each opponent's seen picks in chip order, never a card back.

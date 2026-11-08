@@ -520,7 +520,7 @@ class PodService(private val runtime: ServiceRuntime) {
             if (row.phase != "DRAFTING") return@mutate error(409, "not_drafting")
             if (!settings(row).mode.limited) return@mutate error(409, "wrong_draft_mode")
             val previous = limitedState(row)!!
-            val result = LimitedEngine.act(previous, LimitedMove(owner.toString(), input.action, input.turn, input.card, input.packId, input.pile))
+            val result = LimitedEngine.act(previous, LimitedMove(owner.toString(), input.action, input.turn, input.card, input.packId, input.pile, input.table))
             if (result.reason != null) return@mutate error(409, result.reason!!.name.lowercase())
             advanceLimited(sql, row, previous, result.state!!)
             detail(sql, row, owner)
@@ -962,7 +962,7 @@ class PodService(private val runtime: ServiceRuntime) {
     /** Every card a limited view shows, for its definitions. */
     private fun LimitedView?.cards(): List<DraftCopy> = this?.let { view ->
         view.pool + view.board.map { it.copy } + view.packs.flatMap { pack -> pack.slots.map { it.copy } } +
-            view.piles.flatten().filterNotNull() + view.picks.flatMap { it.cards.filterNotNull() }
+            view.piles.flatten().filterNotNull() + view.tables.flatMap { it.piles.flatten() } + view.picks.flatMap { it.cards.filterNotNull() }
     }.orEmpty()
 
     private fun mutate(principal: AccountService.Principal, id: String, request: String, kind: String, input: JsonElement,

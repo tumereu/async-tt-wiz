@@ -34,6 +34,8 @@ data class DraftSettings(
     val piles: Int = 3,
     /** Rochester: packs open at once across the table; null = one per player. */
     val tablePacksOpen: Int? = null,
+    /** Winchester: independent tables the cards are split into (DRF-158); more than the players gives one per player. */
+    val tables: Int = 1,
 ) {
     /**
      * DRF-045: a pick from a pack holding [cards] cards (spent Librarians included) with [keep] keep slots needs only the
@@ -59,6 +61,7 @@ data class DraftSettings(
                     if (cardsPerPack !in 5..30) add(DraftSettingsIssue.CARDS_PER_PACK)
                     if (mode == DraftMode.WINSTON && piles !in 2..6 || mode == DraftMode.WINCHESTER && piles !in 2..8)
                         add(DraftSettingsIssue.PILES)
+                    if (mode == DraftMode.WINCHESTER && tables !in 1..DraftMode.WINCHESTER.players.last) add(DraftSettingsIssue.TABLES)
                     if (mode == DraftMode.ROCHESTER && tablePacksOpen != null && tablePacksOpen !in 1..packsPerPlayer * DraftMode.ROCHESTER.players.last)
                         add(DraftSettingsIssue.PACKS_OPEN_AT_ONCE)
                 }
@@ -112,7 +115,7 @@ data class DraftSettings(
 @Serializable enum class DraftSettingsIssue {
     PLAYERS, PACKS_PER_PLAYER, CARDS_PER_PACK, KEEP, BURN, KEEP_AND_BURN,
     DISCARD_REMAINING_AT, PACKS_OPEN_AT_ONCE, SIDEBOARD_LIMIT,
-    GRIDS, TWO_PICKS, GRIDS_OPEN_AT_ONCE, LIBRARIANS, CARDS_PER_PLAYER, PILES,
+    GRIDS, TWO_PICKS, GRIDS_OPEN_AT_ONCE, LIBRARIANS, CARDS_PER_PLAYER, PILES, TABLES,
 }
 
 @Serializable data class DraftCubeEntry(val definition: String, val quantity: Int, val colors: Set<DraftColor> = emptySet(), val librarian: Boolean = false)

@@ -111,7 +111,7 @@ import kotlinx.serialization.Serializable
     val line: GridLineType, val index: Int)
 /** POST /v1/pods/{id}/turn: a Rochester, Rotisserie, Winston or Winchester move ([LimitedMove] without the player). */
 @Serializable data class PodTurn(val requestId: String, val draftAttemptId: String, val action: LimitedAction, val turn: Int,
-    val card: String? = null, val packId: String? = null, val pile: Int? = null)
+    val card: String? = null, val packId: String? = null, val pile: Int? = null, val table: Int = 0)
 /** PUT /v1/pods/{id}/build/move. */
 @Serializable data class MovePodCopy(val requestId: String, val draftAttemptId: String, val copyId: String, val category: PodDeckCategory)
 /** PUT /v1/pods/{id}/build/basics. [side] sets the Side lands instead of Main. */

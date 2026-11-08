@@ -20,6 +20,10 @@ Bug (owner, 2026-11-08; reports P2XUER, 3WWPA8):
 
 - A player's first main phase was skipped, cause not found: in turn 13 of a beta7 game their phone's passes from main 1 to declare attackers reached the server 30.0 s after the main phase began (server 11:33:44.290 → 11:34:14.284), and they say they didn't press. It doesn't reproduce (`MainPhaseStaysTest`: the same race with the other player's End turn, then 35 s at main 1) and the device has no way of its own to do it, so what is left is a press they didn't register, made at 11:34:14 or (if the phone's uplink stalled) just as main 1 arrived. Nothing to build until it happens again: main-button presses are now in the app log with what the button said and the step, and a pass the device itself makes at your main phase is a warning (LOB-089). At the next report read those lines around the passes; a press line means the tap happened (then the Your move cue and the main phase undo point below are the answer), no press line with passes means a fault to fix.
 
+Main button presses on the record (owner, 2026-11-08; HIS-101, HIS-084, HIS-099, HIS-005):
+
+- The first pass of a main button press records what was pressed ("To combat", "To end step", "End turn") as a nullable field of its event, as `mode` is; End turn's other passes stay plain. Undo points and their texts read that field instead of the phone's memory, so "You went to combat" and "You ended the turn" survive a restart, reopening the game and another device. The event doesn't record the result: that is in its changes. Older events have no mark and aren't points; existing games keep working.
+
 Castability, costs and payment (owner, 2026-11-08, report KX8GYS; spec docs/specs/castability.md, reviewed by session async-tt-wiz-dc before merge):
 
 - Deny a cast only with proof, count every mana ability, pay with any mana ability at every payment, smallest cost + {?}, selections narrowed by what can be paid, partial Autotap override that never blocks a cast, no-false-denial tests (TBL-117, TBL-118, TBL-122, ZON-079, ZON-080, STK-023, STK-024, STK-047, STK-052, SYS-053).

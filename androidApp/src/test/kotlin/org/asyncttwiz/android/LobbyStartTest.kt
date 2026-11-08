@@ -97,17 +97,17 @@ class LobbyStartTest {
         }
     }
 
-    @Test fun randomDefaultSurvivesAccountResetReopenAndLegacyNullRoundTripAndReselectNeverClears() {
-        val base = prepared().copy(starter = null)
+    @Test fun randomDefaultSurvivesAccountResetReopenAndRoundTripAndReselectNeverClears() {
+        val base = prepared().copy(starter = StarterChoice())
         Fixture(base).use { f ->
-            assertEquals(StarterChoice(), f.lobby.state.preparation!!.startingChoice)
+            assertEquals(StarterChoice(), f.lobby.state.preparation!!.starter)
             assertNull(readyReason(base, owner.accountId))
             f.lobby.starter(StarterChoice())
-            assertEquals(StarterChoice(), f.lobby.state.preparation!!.startingChoice)
+            assertEquals(StarterChoice(), f.lobby.state.preparation!!.starter)
             f.head(game.copy(revision = "1"), base.copy(starter = StarterChoice()))
             f.lobby.clear(); f.lobby.open(game.id); f.connect(generation = "2")
             f.head(game.copy(revision = "1"), base)
-            assertEquals(StarterChoice(), f.lobby.state.preparation!!.startingChoice)
+            assertEquals(StarterChoice(), f.lobby.state.preparation!!.starter)
             assertEquals(StarterChoice(), PreparationRules.empty(game).starter)
         }
     }

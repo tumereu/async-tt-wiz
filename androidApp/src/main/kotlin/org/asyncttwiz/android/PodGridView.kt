@@ -48,14 +48,11 @@ internal fun podGridColors(seating: List<String>, me: String): Map<String, Color
 internal data class PodGridCell(val copy: DraftCopy?, val pickedBy: String?, val discarded: Boolean, val refill: Boolean)
 
 /**
- * Slots from current servers; an older server sends only the live board. [latest] is the grid's newest board (see
- * [gridBoardStages]): only there are a finished grid's unpicked cards discarded; a board before a refill had none.
+ * [latest] is the grid's newest board (see [gridBoardStages]): only there are a finished grid's unpicked cards
+ * discarded; a board before a refill had none.
  */
 internal fun podGridCells(board: GridPublicBoard, slots: List<GridPublicSlot> = board.slots, latest: Boolean = true): List<PodGridCell> =
-    if (slots.size == 9) slots.map {
-        PodGridCell(it.copy, it.pickedBy, latest && board.finished && it.pickedBy == null && it.copy != null, it.refill)
-    }
-    else List(9) { PodGridCell(board.positions.getOrNull(it), null, false, false) }
+    slots.map { PodGridCell(it.copy, it.pickedBy, latest && board.finished && it.pickedBy == null && it.copy != null, it.refill) }
 
 /**
  * The picks whose line band passes under [position], in drawing order: the latest pick first, so each earlier pick's

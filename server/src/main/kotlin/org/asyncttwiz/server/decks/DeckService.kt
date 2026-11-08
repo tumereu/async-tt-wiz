@@ -77,11 +77,7 @@ class DeckService(private val runtime: ServiceRuntime) {
 
     fun update(principal: AccountService.Principal, id: String, input: UpdateDeck): Result {
         if (!DeckValidation.uuid(input.requestId)) return error(400, "invalid_request", "requestId")
-        // Preserve canonical intent for pre-I08 metadata retries: the newly optional null field
-        // was absent from their typed schema, not a change to the original request.
-        val encoded = json.encodeToJsonElement(UpdateDeck.serializer(), input).jsonObject
-        val canonical = if (input.contents == null) JsonObject(encoded.filterKeys { it != "contents" }) else encoded
-        return business(principal, input.requestId, "updateDeck", intent(id, canonical)) { sql, owner ->
+        return business(principal, input.requestId, "updateDeck", intent(id, json.encodeToJsonElement(UpdateDeck.serializer(), input))) { sql, owner ->
             val row = owned(sql, owner, id) ?: return@business error(404, "not_found")
             // Draft decks follow their pod submission; "Save as deck" makes an editable copy.
             if (row.draftPodId != null) return@business error(409, "draft_deck")

@@ -95,7 +95,7 @@ class GameResultLifecycleTest {
                 val returned = end()
                 val next = accounts.single { it != first }
                 assertTrue(returned.alternateStarter, "On by default")
-                assertEquals(StarterChoice(next), returned.startingChoice)
+                assertEquals(StarterChoice(next), returned.starter)
                 assertEquals(1, count(db, "SELECT count(*) FROM game WHERE alternate_starter AND starter_choice LIKE '%$next%'"))
                 assertEquals("accepted", f.other.execute(GameAction.SetAlternateStarter(false)).outcome)
                 assertFalse(f.games.head(f.a, f.game.id).preparation!!.alternateStarter)
@@ -104,7 +104,7 @@ class GameResultLifecycleTest {
                 assertEquals(next, second.starter.accountId)
                 val kept = end()
                 assertFalse(kept.alternateStarter)
-                assertEquals(StarterChoice(next), kept.startingChoice, "Switched off: the choice stays")
+                assertEquals(StarterChoice(next), kept.starter, "Switched off: the choice stays")
             }
         }
     }

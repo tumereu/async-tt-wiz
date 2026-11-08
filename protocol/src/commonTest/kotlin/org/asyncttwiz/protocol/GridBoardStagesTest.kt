@@ -93,11 +93,4 @@ class GridBoardStagesTest {
         assertEquals(reserve, listOf(2, 5, 8).map { ids(after)[it] })
         assertEquals(listOf(a, a, b, b, b, b, null, null, b), after.slots.map { it.pickedBy })
     }
-
-    @Test fun boardsWithoutSlotsFromOlderServersStayOneBoard() {
-        val board = GridPublicBoard("grid-0", 1, List(9) { null }, null)
-        val log = listOf(GridPublicPickLog("a", "grid-0", row(0), emptyList(), emptyList()),
-            GridPublicPickLog("b", "other", row(1), emptyList(), emptyList()))
-        assertEquals(listOf(GridBoardStage(emptyList(), log.take(1))), gridBoardStages(board, log))
-    }
 }

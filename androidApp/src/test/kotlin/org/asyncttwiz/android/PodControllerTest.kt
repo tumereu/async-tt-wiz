@@ -931,11 +931,13 @@ class PodControllerTest {
     }
 
     private fun gridDetail(): PodDetail {
-        val boards = listOf(GridPublicBoard("grid-0", 1, List(9) { copy.copy(id = "copy-$it") }, self.accountId),
-            GridPublicBoard("grid-1", 2, List(9) { copy.copy(id = "later-$it") }, self.accountId))
+        val boards = listOf(GridPublicBoard("grid-0", 1, List(9) { copy.copy(id = "copy-$it") }, self.accountId, 1, false,
+            List(9) { org.asyncttwiz.protocol.GridPublicSlot(copy.copy(id = "copy-$it")) }),
+            GridPublicBoard("grid-1", 2, List(9) { copy.copy(id = "later-$it") }, self.accountId, 1, false,
+                List(9) { org.asyncttwiz.protocol.GridPublicSlot(copy.copy(id = "later-$it")) }))
         return detail().copy(settings = DraftSettings.grid(), draft = null,
             grid = org.asyncttwiz.protocol.PodGridView(GridPublicView(1, 9, false, listOf(self.accountId, other.accountId), boards, emptyList()),
-                GridPrivateView(self.accountId, listOf(copy), "grid-0")))
+                GridPrivateView(self.accountId, listOf(copy), "grid-0", round = 1, rounds = 9)))
     }
 
     @Test fun gridSelectSendsAttemptAndLineOnlyOnceAndDoesNotPredict() = Fixture().use { f ->

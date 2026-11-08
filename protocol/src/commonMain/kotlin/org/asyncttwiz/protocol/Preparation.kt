@@ -30,12 +30,9 @@ import kotlinx.serialization.Serializable
 @OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
 @Serializable data class LobbyPreparation(val gameId: String, val roundId: String,
     val players: List<PlayerPreparation>, val definitions: List<SubmittedDefinition> = emptyList(),
-    val starter: StarterChoice? = StarterChoice(), val podRules: PodGameRules? = null,
+    val starter: StarterChoice = StarterChoice(), val podRules: PodGameRules? = null,
     /** After each play, [starter] becomes the player who did not start it (the resolved starter, not the choice). */
-    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val alternateStarter: Boolean = true) {
-    /** Older snapshots may explicitly contain null. It means Random, never an empty selection. */
-    val startingChoice: StarterChoice get() = starter ?: StarterChoice()
-}
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val alternateStarter: Boolean = true)
 
 /** Personal captured gesture intent; compact even for large rows. Never a bulk server command. */
 data class PreparedTransfer(val gameId: String, val roundId: String, val deckId: String,

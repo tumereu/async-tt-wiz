@@ -32,9 +32,7 @@ class PlayTest {
         val sideOnly = state.players[0].deck!!.copy(entries = state.players[0].deck!!.entries.filter { it.section == SavedDeckSection.SIDEBOARD })
         assertTrue(change(state.copy(players = listOf(state.players[0].copy(deck = sideOnly), state.players[1])),
             a.accountId, GameAction.Ready, pending).state!!.players[0].ready)
-        assertEquals(StarterChoice(), PreparationRules.empty(game).startingChoice)
-        assertEquals(StarterChoice(), lobby().copy(starter = null).startingChoice)
-        assertTrue(change(lobby().copy(starter = null), a.accountId, GameAction.Ready).state!!.players[0].ready)
+        assertEquals(StarterChoice(), PreparationRules.empty(game).starter)
     }
 
     @Test fun actualStarterChangeAndWithdrawalClearOnlyActorAndCannotReopenPlay() {
@@ -42,7 +40,7 @@ class PlayTest {
         val changed = change(both, b.accountId, GameAction.SetStarter(StarterChoice())).state!!
         assertTrue(changed.players[0].ready); assertFalse(changed.players[1].ready)
         assertEquals(StarterChoice(), changed.starter); assertFalse(StartRules.canStart(game, changed))
-        assertEquals(both, change(both, a.accountId, GameAction.SetStarter(both.starter!!)).state)
+        assertEquals(both, change(both, a.accountId, GameAction.SetStarter(both.starter)).state)
         val withdrawn = change(both, a.accountId, GameAction.WithdrawReady).state!!
         assertFalse(withdrawn.players[0].ready); assertTrue(withdrawn.players[1].ready)
         assertEquals("inapplicable", change(both, a.accountId, GameAction.SetStarter(StarterChoice(id(99)))).reason)

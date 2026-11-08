@@ -74,8 +74,7 @@ class PodService(private val runtime: ServiceRuntime) {
     private fun state(row: PodRecord) = row.draftState?.takeIf { settings(row).mode.packPassing }
         ?.let { stored(row) { json.decodeFromString<DraftState>(it.data()) } }
     private fun gridState(row: PodRecord) = row.draftState?.takeIf { settings(row).mode == DraftMode.GRID }
-        // Snapshots from before per-member opening are brought to the current model (their remaining grids dealt).
-        ?.let { stored(row) { GridEngine.resume(json.decodeFromString<GridState>(it.data())) } }
+        ?.let { stored(row) { json.decodeFromString<GridState>(it.data()) } }
     private fun limitedState(row: PodRecord) = row.draftState?.takeIf { settings(row).mode.limited }
         ?.let { stored(row) { json.decodeFromString<LimitedDraftState>(it.data()) } }
     /** A pod's stored draft, decoded once per request. Settings are read only when there is a draft. */
@@ -84,8 +83,7 @@ class PodService(private val runtime: ServiceRuntime) {
         val data = row.draftState ?: return Draft(null, null)
         return if (settings!!.mode.packPassing) Draft(stored(row) { json.decodeFromString<DraftState>(data.data()) }, null)
             else if (settings.mode.limited) Draft(null, null, stored(row) { json.decodeFromString<LimitedDraftState>(data.data()) })
-            // Snapshots from before per-member opening are brought to the current model (their remaining grids dealt).
-            else Draft(null, stored(row) { GridEngine.resume(json.decodeFromString<GridState>(data.data())) })
+            else Draft(null, stored(row) { json.decodeFromString<GridState>(data.data()) })
     }
     private fun pools(row: PodRecord) = gridState(row)?.pools ?: limitedState(row)?.pools ?: state(row)!!.pools
     private fun copies(row: PodRecord) = gridState(row)?.copies ?: limitedState(row)?.copies ?: state(row)!!.copies

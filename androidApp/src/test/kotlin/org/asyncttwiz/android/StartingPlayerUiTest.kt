@@ -27,7 +27,7 @@ class StartingPlayerUiTest {
         var currentGame by mutableStateOf(game)
         compose.setContent {
             ScreenTheme { Surface(Modifier.fillMaxSize()) {
-                StartingPlayerControl(currentGame, preparation.startingChoice, true) {
+                StartingPlayerControl(currentGame, preparation.starter, true) {
                     preparation = preparation.copy(starter = it)
                 }
             } }
@@ -37,7 +37,7 @@ class StartingPlayerUiTest {
         compose.onNodeWithContentDescription("Starting player: alex").performClick().assertIsSelected()
         random.assertIsNotSelected().performClick().assertIsSelected()
         compose.runOnIdle {
-            preparation = preparation.copy(starter = null) // Legacy server snapshot after an account change.
+            preparation = preparation.copy(starter = StarterChoice()) // Random from the server after an account change.
             currentGame = game.copy(inviter = game.recipient, recipient = game.inviter)
         }
         random.assertIsSelected().performClick().assertIsSelected()
@@ -52,7 +52,7 @@ class StartingPlayerUiTest {
         val sent = mutableListOf<Boolean>()
         compose.setContent {
             ScreenTheme { Surface(Modifier.fillMaxSize()) {
-                StartingPlayerControl(game, preparation.startingChoice, true, preparation.alternateStarter,
+                StartingPlayerControl(game, preparation.starter, true, preparation.alternateStarter,
                     { sent += it; preparation = preparation.copy(alternateStarter = it) }) { preparation = preparation.copy(starter = it) }
             } }
         }

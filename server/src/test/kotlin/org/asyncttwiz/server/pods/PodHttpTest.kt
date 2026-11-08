@@ -1174,32 +1174,6 @@ class PodHttpTest {
         finishGrid(f, pod, listOf(f.a, f.b))
     }
 
-    @Test fun `Grid HTTP pods saved before per-member opening continue`() = fixture { f ->
-        val pod = f.create(DraftMode.GRID).id; f.join(pod); f.join(pod, f.c)
-        f.configure(pod, DraftSettings.grid().copy(grids = 4, gridsOpenAtOnce = 2))
-        f.start(pod)
-        // Rewrite the stored snapshot the old way: only round 1 dealt, no refill cards, the rest still in the supply.
-        f.db.connection().use { connection ->
-            val stored = connection.prepareStatement("select draft_state::text from pod where id = ?").use { statement ->
-                statement.setObject(1, UUID.fromString(pod))
-                statement.executeQuery().use { rows -> rows.next(); json.decodeFromString<GridState>(rows.getString(1)) }
-            }
-            val dealt = stored.grids.take(2)
-            val old = stored.copy(grids = dealt.map { it.copy(reserve = emptyList()) },
-                supply = stored.supply + stored.grids.drop(2).flatMap { it.positions.filterNotNull() + it.reserve } + dealt.flatMap { it.reserve })
-            val element = kotlinx.serialization.json.JsonObject(json.encodeToJsonElement(old).let { it as kotlinx.serialization.json.JsonObject }
-                .filterKeys { it !in setOf("queues", "held", "opened") })
-            connection.prepareStatement("update pod set draft_state = ?::jsonb where id = ?").use { statement ->
-                statement.setString(1, element.toString()); statement.setObject(2, UUID.fromString(pod)); statement.executeUpdate()
-            }
-        }
-        val resumed = f.get(f.a, pod).grid!!
-        assertEquals(2, resumed.publicView.grids.size)
-        finishGrid(f, pod, listOf(f.a, f.b, f.c))
-        assertEquals(48, listOf(f.a, f.b, f.c).sumOf { f.get(it, pod).grid!!.mine.pool.size } +
-            f.get(f.a, pod).grid!!.publicView.log.sumOf { it.discarded.size })
-    }
-
     // DRF-079
     @Test fun `three player Grid HTTP refills follows Draftmancer's turn order and completes parallel rounds`() = fixture { f ->
         val pod = f.create(DraftMode.GRID).id; f.join(pod); f.join(pod, f.c)

@@ -66,9 +66,9 @@ class PodGridScreenshotTest {
      */
     private fun view(): GridViewData {
         val board = refills + cards.drop(3)
-        val live = GridPublicBoard("grid-0", 1, board.mapIndexed { index, copy -> copy.takeIf { index % 3 != 1 } }, alice.accountId,
+        val live = GridPublicBoard("grid-0", 1, board.mapIndexed { index, copy -> copy.takeIf { index % 3 != 1 } }, alice.accountId, 1, false,
             slots = board.mapIndexed { index, copy -> GridPublicSlot(copy, "carol".takeIf { index % 3 == 1 }, refill = index < 3) })
-        val done = GridPublicBoard("done", 2, List(9) { null }, null, finished = true, slots = cards.mapIndexed { index, copy ->
+        val done = GridPublicBoard("done", 2, List(9) { null }, null, 1, finished = true, slots = cards.mapIndexed { index, copy ->
             GridPublicSlot(copy, when (index) { 1, 4, 7 -> "bob"; 6, 8 -> "alice"; else -> null })
         })
         val log = listOf(GridPublicPickLog("bob", "grid-0", line(GridLineType.ROW, 0), cards.take(3), emptyList()),
@@ -76,7 +76,7 @@ class PodGridScreenshotTest {
             GridPublicPickLog("bob", "done", line(GridLineType.COLUMN, 1), listOf(cards[1], cards[4], cards[7]), emptyList()),
             GridPublicPickLog("alice", "done", line(GridLineType.ROW, 2), listOf(cards[6], cards[8]), listOf(cards[0], cards[2], cards[3], cards[5])))
         return GridViewData(GridPublicView(1, 9, false, listOf("alice", "bob", "carol"), listOf(live), log, finishedGrids = listOf(done)),
-            GridPrivateView(alice.accountId, emptyList(), live.id))
+            GridPrivateView(alice.accountId, emptyList(), live.id, round = 1, rounds = 9))
     }
 
     private fun cardBitmap(width: Int, height: Int, color: Int): Bitmap {

@@ -90,6 +90,12 @@ class EngineTableScreenshotTest {
         tick(1_000); keep(emptyList()); tick(2_000)
     }
 
+    /** [aliceAtMain] with a Mountain played: her keep is no longer the newest event. */
+    private fun aliceAfterALand(): EngineGame = aliceAtMain().apply {
+        assertTrue(act(Input.PlayLand(PlayerId(f.a), hand(this, "Mountain"))) !is GameDevice.Acted.Refused)
+        tick(3_000)
+    }
+
     private fun hand(game: EngineGame, name: String): ObjectId = game.device.model.engine.let { s ->
         s.player(PlayerId(f.a)).hand.first { s.obj(it)?.definition?.faces?.first()?.name == name }
     }
@@ -643,7 +649,7 @@ class EngineTableScreenshotTest {
 
     // HIS-004, HIS-010, HIS-012 (I-D56 step D): timeline mode on engine events: the board at an earlier event, view-only
     @Test fun timelineModeShowsAnEarlierBoard() {
-        val game = aliceAtMain()
+        val game = aliceAfterALand()
         val routes = render(game, f.a)
         val events = game.timeline.events(game, names)
         compose.runOnIdle { routes.enterReview(events.first { it.description == "You kept" }.id) }
@@ -652,6 +658,41 @@ class EngineTableScreenshotTest {
         compose.onNodeWithContentDescription("Return to current").assertExists()
         captureShot("$SCREENSHOTS/engine/timeline-mode.png",
             "Alice tapped the history button at the end of the strip and stepped back to her keep: the bars turn grey, the board shows the opening as it was then, and the timeline panel has the strip with Previous, Auto and Next; nothing on it acts.")
+    }
+
+    // HIS-015, HIS-018 (owner, 2026-11-08): timeline mode opens at the newest event, where the Auto button reads "Exit
+    // timeline"; moving back makes it Auto again, Next stays an arrow, and at the last event again a tap leaves timeline mode
+    @Test fun exitTimelineAtTheLastEvent() {
+        val game = aliceAfterALand()
+        val routes = render(game, f.a)
+        val events = game.timeline.events(game, names)
+        compose.runOnIdle { routes.enterReview(events.last().id) }
+        compose.waitForIdle()
+        compose.onNodeWithContentDescription(EXIT_TIMELINE).assertExists()
+        compose.onNodeWithContentDescription("Auto advance").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Next").assertExists()
+        captureShot("$SCREENSHOTS/engine/timeline-exit.png",
+            "Alice just opened timeline mode, at the newest event: the Auto button between Previous and Next reads Exit timeline with a close icon.")
+        compose.onNodeWithContentDescription("Previous").performClick()
+        compose.waitForIdle()
+        compose.onNodeWithContentDescription("Auto advance").assertExists()
+        compose.onNodeWithContentDescription(EXIT_TIMELINE).assertDoesNotExist()
+        compose.onNodeWithContentDescription("Next").performClick()
+        compose.waitForIdle()
+        compose.onNodeWithContentDescription(EXIT_TIMELINE).performClick()
+        compose.runOnIdle { kotlin.test.assertNull(routes.review, "back where she was") }
+    }
+
+    // HIS-015, TBL-009: in landscape too "Exit timeline" fits between Previous and Next, in the controls' place
+    @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun exitTimelineInLandscape() {
+        val game = aliceAfterALand()
+        val routes = render(game, f.a, landscape = true)
+        val events = game.timeline.events(game, names)
+        compose.runOnIdle { routes.enterReview(events.last().id) }
+        compose.waitForIdle()
+        compose.onNodeWithContentDescription(EXIT_TIMELINE).assertExists()
+        captureShot("$SCREENSHOTS/engine/timeline-exit-landscape.png",
+            "Landscape: Alice just opened timeline mode, at the newest event: Exit timeline sits between Previous and Next, in the bottom bar's right end beside the strip.")
     }
 
     // CMB-043 (I-D54 §8): Alice's attack staging is shared: Bob's table shows her staged Cub in the lane while she decides

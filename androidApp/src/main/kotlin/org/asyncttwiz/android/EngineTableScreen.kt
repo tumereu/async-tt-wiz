@@ -293,7 +293,9 @@ internal fun EngineReviewPanel(routes: EngineTableRoutes, events: List<HistoryTi
             HistoryTransport(position, at > 0, at < events.lastIndex,
                 onPrevious = { routes.reviewPlaying = false; routes.review = events[(at - 1).coerceAtLeast(0)].id },
                 onNext = { routes.reviewPlaying = false; routes.review = events[(at + 1).coerceAtMost(events.lastIndex)].id },
-                onPlay = { routes.reviewPlaying = true }, onPause = { routes.reviewPlaying = false })
+                onPlay = { routes.reviewPlaying = true }, onPause = { routes.reviewPlaying = false },
+                // HIS-015, HIS-018 (owner, 2026-11-08): at the last event one tap leaves timeline mode, to where you were
+                onExit = if (at == events.lastIndex && !routes.reviewPlaying) routes::leaveReview else null)
         }
     }
     BoxWithConstraints(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {

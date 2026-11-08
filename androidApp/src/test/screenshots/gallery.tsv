@@ -159,3 +159,4 @@ number	item	screenshot	catalog	decisions
 158	Holding a player state chip	states/player-chip-explained.png	TRN-072 TBL-132
 159	Your sent message's bubble above your life square	chat/bubble-own.png	LOB-137
 160	A chat bubble over the other player's state chips on a narrow phone	states/bubble-over-chips.png	LOB-136 TRN-072
+161	Exit timeline at the newest event	engine/timeline-exit.png	HIS-015 HIS-010

@@ -173,9 +173,14 @@ class EngineHistoryShownTest {
         compose.onNodeWithContentDescription("Next").performClick()
         compose.mainClock.advanceTimeBy(2_000)
         compose.runOnIdle { assertEquals(events.last().id, routes.review, "Next again: still there") }
-        compose.runOnIdle { routes.review = events[events.lastIndex - 1].id }
-        compose.mainClock.advanceTimeByFrame()
+        compose.onNodeWithContentDescription(EXIT_TIMELINE).assertExists()
+        compose.onNodeWithContentDescription("Previous").performClick()
+        compose.mainClock.advanceTimeBy(2_000)
+        compose.waitForIdle()
+        compose.mainClock.advanceTimeBy(100)
         compose.onNodeWithContentDescription("Auto advance").performClick()
+        compose.waitForIdle()
+        compose.mainClock.advanceTimeBy(100)
         compose.mainClock.advanceTimeBy(600)
         compose.runOnIdle { assertEquals(events.last().id, routes.review) }
         compose.mainClock.advanceTimeBy(600)

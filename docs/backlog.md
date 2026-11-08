@@ -44,6 +44,13 @@ Castability, costs and payment (owner, 2026-11-08, report KX8GYS; spec docs/spec
 
 - Deny a cast only with proof, count every mana ability, pay with any mana ability at every payment, smallest cost + {?}, selections narrowed by what can be paid, partial Autotap override that never blocks a cast, no-false-denial tests (TBL-117, TBL-118, TBL-122, ZON-079, ZON-080, STK-023, STK-024, STK-047, STK-052, SYS-053).
 
+Arcanum engine generalisation (owner, 2026-11-08; after castability merges; reviewed by session async-tt-wiz-74 before each merge; probes ~/projects/atw-cache/engine-genericity-probes-2026-11-08.kt; every card of `:arcanum-tools:setSupport` stays supported; mutate, banding, day/night and the Saga/Aura/Army/Human checks are not in scope). In this order, one implementor at a time:
+
+- Copiable values include layout and all faces; designations stay on the object. Fixes: a permanent becoming a copy of a Room has both doors locked and unlockable (CR 709.5b, c, e); a token copy of a Room has two locked halves (709.5b, d); a copy of a preparation creature can become prepared (722.2b, 722.3a); a token copy of a double-faced permanent can transform (707.8a). If this would invalidate stored games, stop: that needs the owner's permission.
+- Generic trigger events: one `KeywordActionDone(action, players, objects)` and one `GotMark(mark, objects)`, so a new verb or mark needs no new event type; "whenever" triggers on explore, proliferate, investigate, discover, collect evidence, exert and foretell, and on gaining marks, with general parser wordings kept small.
+- A mark rules table beside KeywordExpansions, and one shared exile-cast permission path (Foretell, Plot, Prepare). Fixes: a card foretold through granted foretell is castable later (CR 702.143a); "becomes plotted" works on an exiled card; foretell's cost and timing can be changed.
+- Special actions as a general concept: through the normal step runner without the stack, offered from one list, replacing `Payment.finishSpecialAction`'s allow-list and the `Decision.Manual` fallback, with one turn-face-up path. Fixes: Manifested clears when turned face up (CR 701.40a); Cloaked clears too (701.58a).
+
 Small, not urgent (owner, 2026-11-08):
 
 - Opponent's modes and X on the Stack, shown and tested (STK-057, STK-018; test and screenshots only, no entry change): screenshots of the other player's modal spell and an X spell, each with the battlefield line and the Stack list, one gallery.tsv entry each; a unit test that the line and the Stack list show the chosen modes (X is already covered by StackLineTest). If the app doesn't show them as the entries say, report it.

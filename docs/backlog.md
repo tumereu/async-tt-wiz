@@ -24,6 +24,22 @@ Main button presses on the record (owner, 2026-11-08; HIS-101, HIS-084, HIS-099,
 
 - The first pass of a main button press records what was pressed ("To combat", "To end step", "End turn") as a nullable field of its event, as `mode` is; End turn's other passes stay plain. Undo points and their texts read that field instead of the phone's memory, so "You went to combat" and "You ended the turn" survive a restart, reopening the game and another device. The event doesn't record the result: that is in its changes. Older events have no mark and aren't points; existing games keep working.
 
+Small batch, beta9 playtest notes (owner, 2026-11-08):
+
+- Art stays (LOB-097, DRF-070): card art counts as permanent. A cached picture shows at once and is never checked again (today every picture and lookup expires after 24 h and the tile waits on the network, a "304" counting as a download in the log); failures still retry. The cache key is the printing, face and size (and a custom URL), not the card digest or catalog checksum, so one picture isn't stored per screen or lost at a catalog update; the old cache downloads once more. The cache's limit goes from 256 MB to 1 GB, oldest used first out. Then measure how a large cube fills on a first visit, and report before adding load-ahead or anything else.
+- Draft history (DRF-165): holding a card shows it over the history dialog (today the preview is drawn outside the dialog, behind it; e2e). The History button also shows during Build and after it, not only while drafting.
+- Panel text (STK-047, STK-044, STK-023): a panel's sentence shows up to 4 lines (today 2, AutomatumDock); when it is still cut, a tap on it shows it whole, scrolling past half the table's height.
+- Card list editor (LOB-105, LOB-107, DRF-003): a filter field at the top of the Cards tab with search's syntax and chips (LOB-108, LOB-119), sections showing only what matches; +1, -1, Remove all and Move to... get icons.
+
+Table batch 2, beta9 playtest notes (owner, 2026-11-08):
+
+- Hold to pause (HIS-021, HIS-112, HIS-113, HIS-094): a finger held on the table pauses whatever your view is waiting on: a play shown, a combat hold, catch-up playback between events. It goes on when lifted; only your view waits, never the game. A pause icon shows in a corner meanwhile, with a quick fade in and out. Holding a shown card also inspects it. Skipping a shown play or combat hold becomes a double tap; a single tap does nothing, so it isn't triggered by accident.
+- Declaring blockers like attackers (CMB-028, CMB-034, CMB-007, CMB-012, CMB-040): creatures that may block glow red-orange as attackers do. For the whole step each attacker has a dashed blocker slot on its lane, brighter on the attackers a selected or dragged creature may block, and a drop target. Declaring attackers gets the same dashed slot on the active lane. A short "Choose blockers" label on the band until the first block. Try it and see: the whole step was the owner's call, the risk a busier band.
+
+Pod chat (owner, 2026-11-08; new entries; LOB-066, LOB-072, DRF-012), after the batches above:
+
+- One chat per pod for its members, kept as long as the pod, with a chat button and unread dot on the pod screens; a notification on the Draft activity channel. In a pod game the chat panel has two tabs, Game and Pod. Pod messages show no bubbles on the table, but they do light the dot on the table's chat button, and a tab with a message you haven't seen is highlighted while you are on the other (dismissing a game message's bubble counts as seeing it). Needs server storage, its limits as a game chat's. No "Read" marks unless the implementor finds them plain for several members; list it under choices.
+
 Castability, costs and payment (owner, 2026-11-08, report KX8GYS; spec docs/specs/castability.md, reviewed by session async-tt-wiz-dc before merge):
 
 - Deny a cast only with proof, count every mana ability, pay with any mana ability at every payment, smallest cost + {?}, selections narrowed by what can be paid, partial Autotap override that never blocks a cast, no-false-denial tests (TBL-117, TBL-118, TBL-122, ZON-079, ZON-080, STK-023, STK-024, STK-047, STK-052, SYS-053).

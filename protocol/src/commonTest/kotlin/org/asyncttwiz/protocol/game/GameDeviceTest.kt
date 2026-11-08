@@ -14,6 +14,7 @@ import arcanum.engine.state.TargetRef
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
@@ -697,6 +698,48 @@ class GameDeviceTest {
         device(alice).act(Input.DeclareAttackers(alice, listOf(Attack(seer, TargetRef.Player(bob)))))
         settle(only = listOf(alice))
         return seer
+    }
+
+    // HIS-109, SYS-012 (a full e2e run, 2026-11-08): Alice's attack shows at once with her priority (act's performed point),
+    // then her pass by her mode folds into its event. A tap of the main button on that board is that very press, also once
+    // the server has taken the event; on the board before the attack the same input is another move, and so is Bob's pass
+    @Test fun aPassFoldedIntoHerActionIsThePressOnItsOwnBoard() {
+        val sim = seers()
+        val seer = sim.seersToThirdTurn()
+        val alice = sim.device(sim.alice)
+        alice.act(Input.PassPriority(sim.alice))
+        sim.settle(only = listOf(sim.alice))
+        val parent = alice.session.tip
+        val pass = Input.PassPriority(sim.alice)
+        var holder: PlayerId? = null
+        val attack = assertIs<GameDevice.Acted.Sent>(alice.act(Input.DeclareAttackers(sim.alice, listOf(Attack(seer, TargetRef.Player(sim.bob)))),
+            performed = { holder = alice.model.engine.priority.holder })).event
+        assertEquals(sim.alice, holder, "her priority on the attack's own board")
+        assertEquals(pass, attack.engine?.steps.orEmpty().mapNotNull { it.input }.getOrNull(1), "her pass folded into the attack's event")
+
+        assertTrue(alice.pressedInAction(parent, pass), "the press the attack's own board offered")
+        assertFalse(alice.pressedInAction(parent, Input.PassPriority(sim.bob)), "another input")
+        assertFalse(alice.pressedByItself(parent, pass), "on the board before the attack it is no press of her phone's")
+        sim.settle(only = listOf(sim.alice))
+        assertTrue(alice.pressedInAction(parent, pass), "still that press on the main line")
+    }
+
+    // HIS-109, SYS-011: in Control nothing folds into her attack's event: she holds priority, and her tap is her own pass
+    @Test fun nothingFoldedIntoHerActionLeavesHerPressHers() {
+        val sim = seers()
+        val seer = sim.seersToThirdTurn()
+        val alice = sim.device(sim.alice)
+        alice.settings(PlaySettings(mode = ResponseMode.FullControl))
+        repeat(5) {
+            if (alice.model.engine.turn.step != TurnStep.DeclareAttackers) {
+                alice.act(Input.PassPriority(sim.alice))
+                sim.settle(only = listOf(sim.alice))
+            }
+        }
+        assertEquals(TurnStep.DeclareAttackers, alice.model.engine.turn.step)
+        val parent = alice.session.tip
+        assertIs<GameDevice.Acted.Sent>(alice.act(Input.DeclareAttackers(sim.alice, listOf(Attack(seer, TargetRef.Player(sim.bob))))))
+        assertFalse(alice.pressedInAction(parent, Input.PassPriority(sim.alice)))
     }
 
     // HIS-113 (owner, 2026-11-08): the attackers hold Alice's view, her phone making none of its own steps, until done; then

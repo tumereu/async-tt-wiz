@@ -175,7 +175,10 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
          * arrive between two frames). */
         val turnChange: TurnChange? = null,
         /** HIS-113: the combat moment holding the view now ([dismissCombatHold]). */
-        val combatHold: GameDevice.CombatHold? = null) {
+        val combatHold: GameDevice.CombatHold? = null,
+        /** SYS-025: the player's own action shown at its performed point, before what follows by itself is folded into its
+         * event ([preview]). */
+        val ownActionShown: Boolean = false) {
         val engine: GameState get() = board.engine!!.state
         /** Engine-responsiveness R3: what the engine thread worked out with [board]: its computed card values, the player's
          * hand plays (on an own action's early board right after it is published, before the action's follow-up work,
@@ -466,7 +469,7 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
         val shown = Shown(++published, play, last.status, last.locked, last.settings, last.opponent, last.behind, last.tip,
             last.localHead, last.drafting, last.request, last.indicator, last.undoTarget, last.line, last.held, last.transition,
             last.needsReload, last.pausing, last.takingBack, last.reveal, last.older, last.olderComplete, last.show,
-            last.showDone, last.takeBack, last.branchStop, last.turnChange, last.combatHold)
+            last.showDone, last.takeBack, last.branchStop, last.turnChange, last.combatHold, ownActionShown = true)
         timing.boardEnd = clock(); timing.version = shown.version
         play.values?.promisePlays()
         worker.main { this.shown = shown; shownVersion = shown.version; measure(shown, timing); onShown() }
@@ -739,7 +742,9 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
         // SYS-077: tapped as the other player's device assumed this very pass (right after their attack, HIS-096); HIS-109
         // (owner problem report E48RDE): or as the player's own device passed there by itself (the same press)
         // TRN-017: a tap is the player's own action: it ends a Resolve chain going on, also when it is that very press
-        GameDevice.Acted.Confirmed.takeIf { device.assumedAlready(seen.tip, listOf(pass)) || device.pressedByItself(seen.tip, pass) }
+        // (a full e2e run, 2026-11-08): or on an own action's early board, as the device folded that very pass into its event
+        GameDevice.Acted.Confirmed.takeIf { device.assumedAlready(seen.tip, listOf(pass)) || device.pressedByItself(seen.tip, pass) ||
+            (seen.ownActionShown && device.pressedInAction(seen.tip, pass)) }
             ?.also { device.endChain("own press") }
     }) { performed ->
         val holder = device.model.engine.priority.holder ?: return@early GameDevice.Acted.Refused("noPriority")
@@ -1189,7 +1194,9 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
         worker.early { release ->
             timing.started = clock()
             val info = informationNanos()
-            if (!inAction && seen != null && seen != published && !stillSame(what, board)) {
+            // HIS-109, SYS-011 (a full e2e run, 2026-11-08): an own action's early board stays the newest published while its
+            // event is finished, but the device has moved on from it by then (its passes folded in, the Stack perhaps resolved)
+            if (!inAction && seen != null && (seen != published || previewed != null) && !stillSame(what, board)) {
                 // What the tap meant already happened on the newer board ([acting]'s done): nothing to do or tell
                 val already = done?.invoke(board!!)
                 if (already != null) {

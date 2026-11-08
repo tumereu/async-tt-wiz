@@ -211,6 +211,9 @@ class GameDevice(
     /** The player's own inputs (and table changes) of each of their recent events, as their action made them, before
      * what followed by itself: made again when the server took the other player's event first ([lostMoves]). */
     private val made = LinkedHashMap<String, Pair<List<Input>, List<TableChange>>>()
+    /** The first input the device folded by itself into each of the player's recent actions, right after what they made
+     * ([finish], [pressedInAction]). */
+    private val foldedPress = LinkedHashMap<String, Input>()
     /** The player's own moves the server took the other player's event before, in order, to be made again on it when
      * the same decision still waits for them there ([remake]). */
     private val remaking = mutableListOf<Lost>()
@@ -1188,6 +1191,7 @@ class GameDevice(
     private fun finish(builder: EventBuilder, own: Boolean, before: InformationRule.Before?, player: Boolean = false,
         press: MainPress? = null): Acted {
         val inputs = if (player) builder.playerInputs to builder.tableChanges else null
+        val madeSoFar = builder.inputs.size
         try { fold(builder, own, guard = before) } catch (e: RuntimeException) { abandon(); return Acted.Refused(e.message ?: "refusedByEngine") }
         // I-D56 §5: while the line is tentative (or this assumes), nothing may show this player a hidden card
         if (before != null && shows(before, builder)) {
@@ -1203,8 +1207,13 @@ class GameDevice(
         val ended = own && endTurnMade && (first == Input.PassPriority(me) || (first as? Input.DeclareAttackers)?.player == me)
         // HIS-101: only an End turn's first pass records it; one that begins with a declaration is a real input as it is
         builder.press = if (ended && first is Input.PassPriority) MainPress.EndTurn else press
+        val folded = builder.inputs.getOrNull(madeSoFar)
         val event = session.sendEvent()
         if (player) byPlayer += event.id
+        if (player && folded != null) {
+            foldedPress[event.id] = folded
+            if (foldedPress.size > MAX_ORIGINS) foldedPress.remove(foldedPress.keys.first())
+        }
         if (inputs != null && inputs.first.isNotEmpty()) {
             made[event.id] = inputs
             if (made.size > MAX_ORIGINS) made.remove(made.keys.first())
@@ -1954,6 +1963,20 @@ class GameDevice(
             else -> false
         }
         return automatic && step.input?.let { Acceptance.same(it, input) } == true
+    }
+
+    /**
+     * HIS-109, SYS-012 (a full e2e run, 2026-11-08): [pressedByItself] for a tap on the board of the player's own action
+     * shown at its performed point (SYS-025), standing on [parent]: whether the first thing the device folded into that
+     * action's event by itself is [input]. That is the very press the board offered, already made there. Only for such a
+     * board: on the board before the action, the same input meant something else (a pass instead of the action).
+     */
+    fun pressedInAction(parent: String, input: Input): Boolean {
+        val at = adoptedAs(parent) ?: parent
+        // The other player's table-only events may have slipped in under the action (they commute)
+        val line = session.after(at)?.plus(session.pending) ?: session.pending.dropWhile { it.id != at }.drop(1)
+        val action = line.firstOrNull { e -> e.engine?.steps.orEmpty().any { it.input != null } } ?: return false
+        return foldedPress[action.id]?.let { Acceptance.same(it, input) } == true
     }
 
     /**

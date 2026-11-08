@@ -1,5 +1,6 @@
 package org.asyncttwiz.e2e
 
+import arcanum.api.TurnStep
 import arcanum.engine.Engine
 import arcanum.engine.decision.Decision
 import arcanum.engine.input.Input
@@ -24,6 +25,11 @@ import kotlin.test.assertTrue
  * press the phone made there by itself is that press: it goes quietly, with nothing made again (never the next ability's
  * resolution). Alice's phone holds what its engine thread shows ([Stepped]): the board in between reaches her screen, the
  * one after her phone's own pass waits.
+ *
+ * A full e2e run, 2026-11-08 (CombatBandTest, "no refusal"): the same press folded into the player's own action. Her Attack's
+ * board shows at once (SYS-025), before her pass that follows by itself is folded into its event, and says Next; her tap of
+ * Next there was told "That wasn't taken". Tapped while the event is still being finished, it was worse: made on the board
+ * the phone had reached, a point she never saw.
  */
 class StaleTapTest : E2e() {
     private val held = Stepped()
@@ -37,7 +43,13 @@ class StaleTapTest : E2e() {
         @Volatile var holding = false
         private val held = ConcurrentLinkedQueue<() -> Unit>()
         var observe: () -> Unit = {}
-        override fun run(work: () -> Unit) = EngineWorker.Background.run(work)
+        /** While on, what the engine thread queues behind its own work (an own action's follow-up, its next board) waits
+         * ([releaseFollowUps]): a tap on the action's own board then comes first, as while the action's event is being finished. */
+        @Volatile var holdingFollowUps = false
+        private val followUps = ConcurrentLinkedQueue<() -> Unit>()
+        override fun run(work: () -> Unit) {
+            if (holdingFollowUps && Thread.currentThread().name == "atw-engine") followUps.add(work) else EngineWorker.Background.run(work)
+        }
         override fun <T> call(work: () -> T): T = EngineWorker.Background.call(work)
         override fun early(work: (release: (() -> Unit)?) -> Unit) = EngineWorker.Background.early(work)
         override fun main(work: () -> Unit) = EngineWorker.Background.main { if (holding) held.add(work) else { work(); observe() } }
@@ -62,6 +74,11 @@ class StaleTapTest : E2e() {
             holding = false
             while (true) { val work = held.poll() ?: break; work(); observe() }
         }
+
+        fun releaseFollowUps() {
+            holdingFollowUps = false
+            while (true) { val work = followUps.poll() ?: break; EngineWorker.Background.run(work) }
+        }
     }
 
     /** Every note Alice's table was given (each once, before the table shows and drops it). */
@@ -81,11 +98,14 @@ class StaleTapTest : E2e() {
     }
 
     /** The Altar's activation sacrificing the Martyr, with Alice's own answers, as the table makes it. */
-    private fun activation(s: GameState): List<Input> {
-        val activate = assertNotNull(Engine.options(s, alice.me).filterIsInstance<Input.Activate>().firstOrNull(), "the Altar's ability")
+    private fun activation(s: GameState): List<Input> =
+        withAnswers(s, assertNotNull(Engine.options(s, alice.me).filterIsInstance<Input.Activate>().firstOrNull(), "the Altar's ability"))
+
+    /** [first] with Alice's own answers to what it asks, as the table makes them. */
+    private fun withAnswers(s: GameState, first: Input): List<Input> {
         val copy = s.deepCopy()
-        val inputs = mutableListOf<Input>(activate)
-        var input: Input = activate
+        val inputs = mutableListOf(first)
+        var input: Input = first
         repeat(10) {
             Engine.perform(copy, input).changes.forEach(copy::apply)
             val d = copy.pending?.decision ?: return inputs
@@ -140,5 +160,103 @@ class StaleTapTest : E2e() {
         assertEquals(bobLife, alice.state.player(bob.me).life, "her ability not resolved")
         waitUntil("Alice waiting for Bob over her ability with Assume") { waitingWithAssume(stack = 1) }
         assertEquals(bobLife, alice.state.player(bob.me).life, "her ability still not resolved")
+    }
+
+    // HIS-109, SYS-012, SYS-011 (a full e2e run, 2026-11-08): Alice attacks; her phone shows the attack at once with Next on
+    // the main button, then folds her pass into the attack's event and assumes Bob's pass. Her tap of Next on the attack's own
+    // board reaches the phone after all that: the pass her phone made there by itself, so no "That wasn't taken" and no
+    // second pass; Bob's own Pass then confirms what her phone assumed
+    @Test fun aNextTappedOnHerAttackAsHerPhonePassesByItselfGoesQuietly() {
+        startGame(TestDeck.thirds(TestCards.cub), TestDeck.thirds(TestCards.herald), aliceWorker = held,
+            deal = { a, b -> "Mountain" in hand(a) && "Ember Cub" in hand(a) && "Mountain" in hand(b) })
+        held.observe = ::watchNotes
+        bothOpen()
+        bothKeep(bobAway = false)
+        alice.playFromHand("Mountain", this)
+        waitUntil("the Mountain on the battlefield", along = listOf(bob)) { alice.field("Mountain").isNotEmpty() && alice.inOwnMain() }
+        alice.playFromHand("Ember Cub", this)
+        waitUntil("the Cub on the battlefield", along = listOf(bob)) { alice.field("Ember Cub").isNotEmpty() && alice.inOwnMain() }
+        alice.hold("To combat")
+        waitUntil("Bob's Main 1", along = listOf(alice)) { bob.inOwnMain() }
+        // A land, so he has no card to discard at his end step
+        bob.playFromHand("Mountain", this)
+        waitUntil("Bob's Mountain", along = listOf(alice)) { bob.field("Mountain").isNotEmpty() && bob.inOwnMain() }
+        bob.hold("To combat")
+        waitUntil("Alice's next Main 1", along = listOf(bob)) { alice.inOwnMain() && alice.state.turn.number >= 3 }
+        alice.tap("To combat")
+        alice.stageAttacker("Ember Cub", this)
+        waitUntil("the Cub staged") { alice.shown.board.engine!!.table.attackDraft.orEmpty().size == 1 }
+        waitUntil("her Attack ready") {
+            alice.settled(this) && org.asyncttwiz.android.AutomatumBoards.cachedCombat(alice.shown.board) != null && alice.stepArrow() == "Attack (1)"
+        }
+        val before = alice.engine { device.session.tip }
+
+        held.holding = true
+        alice.tap("Attack (1)")
+        waitUntil("her phone past Bob's pass it assumed") { alice.engine { device.model.engine.turn.step } == TurnStep.DeclareBlockers }
+        // Her screen shows the attack's own board, not yet what her phone did after it
+        held.releaseUntil { alice.state.combat?.attackers.orEmpty().isNotEmpty() }
+        assertEquals(alice.me, alice.state.priority.holder, "her priority on the attack's own board")
+        assertEquals("Next", alice.stepArrow())
+        alice.tap("Next")
+        held.release()
+        waitUntil("Bob's stop at her assumption") {
+            bob.settled(this) && (bob.status is GameDevice.Status.Stopped || bob.status == GameDevice.Status.YourMove) && bob.stepArrow() == "Pass"
+        }
+        bob.tap("Pass")
+        // Bob has no creature to block with: the game goes on to the Cub's damage
+        val life = alice.state.player(bob.me).life
+        waitUntil("the Cub's damage", along = listOf(alice, bob)) { alice.state.player(bob.me).life < life }
+
+        assertTrue(told.none { it is GameDevice.Note.Refused } && !alice.refusalSeen && !bob.refusalSeen, "no refusal: $told ${alice.shownTexts}")
+        assertTrue(AppLog.text().lines().any { "Own pass on board" in it && "already done" in it }, "the tap taken as the same press")
+        assertEquals(listOf<Input>(Input.PassPriority(alice.me), Input.PassPriority(bob.me)), inputsInEvents(before).drop(1).take(2),
+            "after her attack, her pass in it, then Bob's pass assumed")
+        assertEquals(life - 2, alice.state.player(bob.me).life, "the Cub's damage, once")
+    }
+
+    // HIS-109, SYS-011 (the same run's race, one step earlier): Alice casts a spell Bob, with an empty hand, can only pass over,
+    // so her pass and his fold into the cast's event and it resolves in it, back in her Main 1. Her tap of Resolve on the
+    // cast's own board reaches the phone while that board is still the newest it has published: it is the pass made there,
+    // never a pass of the Main 1 she hasn't seen it come back to
+    @Test fun aResolveTappedWhileHerCastIsBeingFinishedPassesNothingMore() {
+        startGame(deck, TestDeck("Martyrs", listOf(TestCards.martyr to 40)), bobStarts = true, aliceWorker = held,
+            deal = { a, _ -> "Ember Martyr" in hand(a) })
+        held.observe = ::watchNotes
+        bothOpen()
+        alice.tap("Keep")
+        bob.tap("Keep")
+        waitUntil("Bob's Main 1", along = listOf(alice)) { bob.inOwnMain() }
+        for (n in 1..7) {
+            waitUntil("Bob settled", along = listOf(alice)) { bob.settled(this) && bob.inOwnMain() }
+            bob.game!!.send(listOf(Input.Cast(bob.me, bob.hand("Ember Martyr").first())))
+            waitUntil("Bob's Martyr $n", along = listOf(alice)) { bob.field("Ember Martyr").size == n && bob.inOwnMain() }
+        }
+        bob.hold("To combat")
+        waitUntil("Alice's Main 1", along = listOf(bob)) { alice.inOwnMain() && alice.state.turn.active == alice.me && alice.settled(this) }
+        assertTrue(alice.state.player(bob.me).hand.isEmpty(), "Bob's hand empty")
+        val turn = alice.state.turn.number
+        val before = alice.engine { device.session.tip }
+        val cast = withAnswers(alice.state, Input.Cast(alice.me, alice.hand("Ember Martyr").first()))
+
+        held.holdingFollowUps = true
+        alice.game!!.send(cast)
+        waitUntil("the cast's own board on her screen") { alice.state.stack.size == 1 && alice.state.priority.holder == alice.me }
+        assertEquals("Resolve", alice.stepArrow())
+        alice.tap("Resolve")
+        held.releaseFollowUps()
+        repeat(5) { run(skip = java.time.Duration.ofMillis(500)) }
+        waitUntil("her Martyr on the battlefield") { alice.field("Ember Martyr").size == 1 && alice.settled(this) }
+
+        assertTrue(told.none { it is GameDevice.Note.Refused } && !alice.refusalSeen, "no refusal: $told ${alice.shownTexts}")
+        assertEquals(turn to TurnStep.PrecombatMain, alice.state.turn.number to alice.state.turn.step, "still her Main 1")
+        assertEquals(GameDevice.Status.YourMove, alice.status)
+        assertEquals(cast + listOf<Input>(Input.PassPriority(alice.me), Input.PassPriority(bob.me)), inputsInEvents(before), "the cast and its passes only")
+    }
+
+    /** Every input on Alice's phone's line after [from], oldest first, the ones folded into an event too. */
+    private fun inputsInEvents(from: String): List<Input> = alice.engine {
+        val line = device.session.events + device.session.pending
+        line.drop(line.indexOfFirst { it.id == from } + 1).flatMap { e -> e.engine?.steps.orEmpty().mapNotNull { it.input } }
     }
 }

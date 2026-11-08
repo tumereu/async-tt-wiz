@@ -34,7 +34,7 @@ data class DraftSettings(
     val piles: Int = 3,
     /** Rochester: packs open at once across the table; null = one per player. */
     val tablePacksOpen: Int? = null,
-    /** Winchester: independent tables the cards are split into (DRF-158); more than the players gives one per player. */
+    /** Winston and Winchester: independent tables the cards are split into (DRF-156, DRF-158); more than the players gives one per player. */
     val tables: Int = 1,
 ) {
     /**
@@ -61,7 +61,7 @@ data class DraftSettings(
                     if (cardsPerPack !in 5..30) add(DraftSettingsIssue.CARDS_PER_PACK)
                     if (mode == DraftMode.WINSTON && piles !in 2..6 || mode == DraftMode.WINCHESTER && piles !in 2..8)
                         add(DraftSettingsIssue.PILES)
-                    if (mode == DraftMode.WINCHESTER && tables !in 1..DraftMode.WINCHESTER.players.last) add(DraftSettingsIssue.TABLES)
+                    if ((mode == DraftMode.WINSTON || mode == DraftMode.WINCHESTER) && tables !in 1..mode.players.last) add(DraftSettingsIssue.TABLES)
                     if (mode == DraftMode.ROCHESTER && tablePacksOpen != null && tablePacksOpen !in 1..packsPerPlayer * DraftMode.ROCHESTER.players.last)
                         add(DraftSettingsIssue.PACKS_OPEN_AT_ONCE)
                 }

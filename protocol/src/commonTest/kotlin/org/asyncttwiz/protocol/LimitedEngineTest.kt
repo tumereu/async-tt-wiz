@@ -118,6 +118,65 @@ class LimitedEngineTest {
         assertEquals(state.pools.getValue(y).toSet(), view.board.filter { it.pickedBy == y }.map { it.copy.id }.toSet())
     }
 
+    // DRF-164: a private pick queue; when your turn comes its first card is taken for you at once (also for picks in a row),
+    // the rest stays queued; a queued card taken by someone else clears your whole queue, with a note naming it.
+    @Test fun rotisseriePickQueueTakesTheFirstCardWhenYourTurnComes() {
+        val two = players.take(2)
+        var state = LimitedEngine.startFromCube(two, cube(30), DraftSettings.rotisserie().copy(cardsPerPlayer = 5), seed)
+        val (x, y) = state.seating
+        val board = state.board
+        // Setting a queue: untaken board cards, distinct; nothing is taken now, even on your turn.
+        assertEquals(LimitedRejection.UNKNOWN_CARD, LimitedEngine.queue(state, y, listOf("missing")).reason)
+        assertEquals(LimitedRejection.UNKNOWN_CARD, LimitedEngine.queue(state, y, listOf(board[0], board[0])).reason)
+        assertEquals(LimitedRejection.NOT_YOUR_TURN, LimitedEngine.queue(state, "nobody", listOf(board[0])).reason)
+        state = assertNotNull(LimitedEngine.queue(state, x, listOf(board[9])).state)
+        assertEquals(0, state.turn)
+        state = assertNotNull(LimitedEngine.queue(state, y, listOf(board[1], board[2], board[3])).state)
+        // The queue is private: only its owner sees it.
+        assertEquals(listOf(board[1], board[2], board[3]), LimitedEngine.view(state, y).pickQueue.map { it.id })
+        assertTrue(LimitedEngine.view(state, x).let { it.pickQueue.size == 1 && it.queueCleared == null })
+        // x picks by hand (its own queued card leaves its queue); y's two picks in a row (snake) take y's first two
+        // queued cards at once; then it's x's turn again, which waits for x (its queue is empty).
+        state = ok(move(state, x, LimitedAction.TAKE_CARD, board[9]))
+        assertEquals(3, state.turn)
+        assertEquals(listOf(board[9], board[1], board[2]), state.log.flatMap { it.cards })
+        assertEquals(listOf(x, y, y), state.log.map { it.player })
+        assertEquals(listOf(board[3]), LimitedEngine.view(state, y).pickQueue.map { it.id })
+        assertTrue(LimitedEngine.view(state, x).pickQueue.isEmpty())
+        assertEquals(listOf("turn"), state.queues.getValue(x))
+        // x takes y's queued card: y's whole queue clears, with a note naming the card; y's turn waits for y.
+        state = ok(move(state, x, LimitedAction.TAKE_CARD, board[3]))
+        val second = ok(move(state, x, LimitedAction.TAKE_CARD, board[4]))
+        assertTrue(LimitedEngine.view(second, y).pickQueue.isEmpty())
+        assertEquals(board[3], LimitedEngine.view(second, y).queueCleared?.id)
+        assertEquals(listOf("turn"), second.queues.getValue(y))
+        // Queueing again (or picking) removes the note; an empty list empties the queue.
+        val again = assertNotNull(LimitedEngine.queue(second, y, listOf(board[5])).state)
+        assertNull(LimitedEngine.view(again, y).queueCleared)
+        assertTrue(LimitedEngine.view(assertNotNull(LimitedEngine.queue(again, y, emptyList()).state), y).pickQueue.isEmpty())
+        assertNull(LimitedEngine.view(ok(move(second, y, LimitedAction.TAKE_CARD, board[6])), y).queueCleared)
+        // Taken cards can't be queued; other engines have no pick queue.
+        assertEquals(LimitedRejection.UNKNOWN_CARD, LimitedEngine.queue(second, y, listOf(board[3])).reason)
+        val winston = LimitedEngine.startFromCube(two, cube(30), DraftSettings.winston().copy(packsPerPlayer = 1, cardsPerPack = 10), seed)
+        assertEquals(LimitedRejection.WRONG_ACTION, LimitedEngine.queue(winston, x, emptyList()).reason)
+    }
+
+    // DRF-164: queued picks play the draft to its end when everyone has queued enough.
+    @Test fun rotisseriePickQueuesCanFinishTheDraft() {
+        val two = players.take(2)
+        var state = LimitedEngine.startFromCube(two, cube(30), DraftSettings.rotisserie().copy(cardsPerPlayer = 5), seed)
+        val (x, y) = state.seating
+        val board = state.board
+        state = assertNotNull(LimitedEngine.queue(state, y, board.subList(5, 10)).state)
+        state = assertNotNull(LimitedEngine.queue(state, x, board.subList(1, 5)).state)
+        // x's one pick by hand plays the whole draft: every later turn takes its player's next queued card.
+        state = ok(move(state, x, LimitedAction.TAKE_CARD, board[0]))
+        assertTrue(state.finished)
+        assertEquals(board.subList(0, 5), state.pools.getValue(x))
+        assertEquals(board.subList(5, 10).toSet(), state.pools.getValue(y).toSet())
+        assertTrue(state.pickQueues.isEmpty() && state.queueCleared.isEmpty())
+    }
+
     /** Plays a Rochester draft to its end, each move the first free card of the mover's first pack; returns pickers per pack. */
     private fun playRochester(start: LimitedDraftState, check: (LimitedDraftState) -> Unit = {}): Pair<LimitedDraftState, Map<String, List<String>>> {
         var state = start
@@ -325,5 +384,70 @@ class LimitedEngineTest {
         val three = LimitedEngine.startFromCube(players.take(3), cube(30), base.copy(tables = 3), seed)
         assertEquals(three.seating.mapIndexed { index, player -> player to listOf(if (index == 0) "turn" else "turn:$index") }.toMap(),
             three.queues)
+    }
+
+    // DRF-156, DRF-023: Winston tables split the cards evenly into independent tables, each with its own stack, piles,
+    // looked-at pile and turn order one seat later; both players play at once and the draft ends when every table is empty.
+    @Test fun winstonTablesSplitTheCardsAndOffsetTheirTurnOrders() {
+        val two = players.take(2)
+        assertEquals(1, DraftSettings.winston().tables)
+        assertTrue(DraftSettings.winston().copy(tables = 4).validate(2).isEmpty())
+        assertEquals(listOf(DraftSettingsIssue.TABLES), DraftSettings.winston().copy(tables = 5).validate(2))
+        assertEquals(listOf(DraftSettingsIssue.TABLES), DraftSettings.winston().copy(tables = 0).validate(2))
+        val settings = DraftSettings.winston().copy(packsPerPlayer = 1, cardsPerPack = 10, tables = 2)
+        var state = LimitedEngine.startFromCube(two, cube(30), settings, seed)
+        val (x, y) = state.seating
+        // 20 cards: 10 per table, one on each of the 3 piles.
+        assertEquals(listOf(7, 7), listOf(state.stack.size, state.tables.single().stack.size))
+        assertEquals(listOf(1, 1, 1), state.tables.single().piles.map { it.size })
+        assertEquals(mapOf(x to listOf("turn"), y to listOf("turn:1")), state.queues)
+        // Each looks at pile 1 of their own table only.
+        fun shown(player: String, table: Int) = LimitedEngine.view(state, player).tables[table].piles.map { pile -> pile.map { it != null } }
+        assertEquals(listOf(listOf(true), listOf(false), listOf(false)), shown(x, 0))
+        assertEquals(listOf(listOf(false), listOf(false), listOf(false)), shown(x, 1))
+        assertEquals(listOf(listOf(true), listOf(false), listOf(false)), shown(y, 1))
+        assertEquals(listOf(x, y), LimitedEngine.view(state, y).tables.map { it.currentPlayer })
+        assertEquals(LimitedRejection.NOT_YOUR_TURN, move(state, x, LimitedAction.TAKE_PILE, pile = 0, table = 1).reason)
+        assertEquals(LimitedRejection.WRONG_TABLE, move(state, y, LimitedAction.TAKE_PILE, pile = 0, table = 2).reason)
+        // y passes at table 2 while table 1 stays as it was; then x takes pile 1 at table 1.
+        state = ok(move(state, y, LimitedAction.PASS_PILE, pile = 0, table = 1))
+        assertEquals(listOf(1, 0), listOf(state.tables.single().pile, state.pile))
+        assertEquals(listOf(listOf(true, false), listOf(true), listOf(false)), shown(y, 1))
+        assertEquals(LimitedRejection.WRONG_PILE, move(state, y, LimitedAction.TAKE_PILE, pile = 0, table = 1).reason)
+        state = ok(move(state, x, LimitedAction.TAKE_PILE, pile = 0, table = 0))
+        assertEquals(mapOf(x to emptyList(), y to listOf("turn", "turn:1")), state.queues)
+        assertEquals(2, LimitedEngine.consecutivePicks(state, y))
+        // The next turn at table 1 is y's, looking at its pile 1 (the replacement card) while y still holds table 2's turn.
+        assertEquals(listOf(true), shown(y, 0)[0])
+        state = ok(move(state, y, LimitedAction.TAKE_PILE, pile = 1, turn = 0, table = 1))
+        assertEquals(mapOf(x to listOf("turn:1"), y to listOf("turn")), state.queues)
+        assertEquals(LimitedRejection.STALE_TURN, move(state, x, LimitedAction.TAKE_PILE, pile = 0, turn = 0, table = 1).reason)
+        var guard = 0
+        while (!state.finished) {
+            val (player, queue) = state.queues.entries.first { it.value.isNotEmpty() }
+            val table = queue.first().substringAfter(':', "0").toInt()
+            val board = if (table == 0) LimitedTable(state.stack, state.piles, state.turn, state.pile) else state.tables.single()
+            val canPass = board.stack.isNotEmpty() || board.piles.drop(board.pile + 1).any { it.isNotEmpty() }
+            val action = if (board.piles[board.pile].size >= 2 || !canPass) LimitedAction.TAKE_PILE else LimitedAction.PASS_PILE
+            state = ok(move(state, player, action, pile = board.pile, turn = board.turn, table = table))
+            assertTrue(++guard < 500)
+        }
+        assertEquals(20, state.pools.values.sumOf { it.size })
+        assertEquals(state.copies.map { it.id }.toSet(), state.pools.values.flatten().toSet())
+        assertTrue(state.queues.values.all { it.isEmpty() })
+        assertEquals(listOf(null, null), LimitedEngine.view(state, x).tables.map { it.currentPlayer })
+    }
+
+    // DRF-156, DRF-023: more tables than players gives one per player; one table is the plain Winston draft, its single
+    // table view matching the first table's fields.
+    @Test fun winstonTablesAreAtMostOnePerPlayerAndOneTableIsUnchanged() {
+        val two = players.take(2)
+        val base = DraftSettings.winston().copy(packsPerPlayer = 1, cardsPerPack = 10)
+        assertEquals(1, LimitedEngine.startFromCube(two, cube(30), base.copy(tables = 4), seed).tables.size)
+        val one = LimitedEngine.startFromCube(two, cube(30), base, seed)
+        assertTrue(one.tables.isEmpty())
+        assertEquals(listOf("turn"), one.queues.getValue(one.seating[0]))
+        val view = LimitedEngine.view(one, one.seating[0])
+        assertEquals(LimitedTableView(view.currentPlayer, view.turn, view.stack, view.piles, view.pile), view.tables.single())
     }
 }

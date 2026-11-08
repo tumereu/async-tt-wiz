@@ -2,6 +2,7 @@ package org.asyncttwiz.android
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
@@ -29,7 +30,7 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import org.asyncttwiz.protocol.*
 
-/** A limited engine's move, sent by [PodController.turn]; [table] is Winchester's (DRF-158), 0 elsewhere. */
+/** A limited engine's move, sent by [PodController.turn]; [table] is Winston's and Winchester's (DRF-156, DRF-158), 0 elsewhere. */
 internal typealias PodTurnSender = (action: LimitedAction, turn: Int, card: String?, packId: String?, pile: Int?, table: Int) -> Unit
 
 /** Who the pod waits for (DRF-071): "Waiting for <names>", Rochester with its round. */
@@ -57,15 +58,15 @@ internal fun podSearchCard(definition: CardDefinition): CardSearchCard {
     return CardSearchCard(definition.name, definition.layout, faces, faces.fold(0) { mask, face -> mask or face.colors })
 }
 
-/** The Draft tab of Rochester, Rotisserie, Winston and Winchester pods. */
+/** The Draft tab of Rochester, Rotisserie, Winston and Winchester pods; [queue] sets your Rotisserie pick queue (DRF-164). */
 @Composable
 internal fun PodLimitedDraftView(detail: PodDetail, accountId: String, definitions: Map<String, CardDefinition>,
     busy: Boolean, send: PodTurnSender, modifier: Modifier, columns: PodPickColumns, waitingText: String,
-    onMainMenu: (() -> Unit)?) {
+    onMainMenu: (() -> Unit)?, queue: (List<String>) -> Unit = {}) {
     val view = detail.limited
     val members = detail.members.map { it.account }
     when (view?.mode) {
-        DraftMode.ROTISSERIE -> PodRotisserieView(view, members, definitions, busy, send, modifier, columns)
+        DraftMode.ROTISSERIE -> PodRotisserieView(view, members, definitions, busy, send, modifier, columns, queue)
         DraftMode.ROCHESTER -> PodRochesterView(view, members, definitions, busy, send, modifier, columns)
         DraftMode.WINSTON -> PodWinstonView(view, members, definitions, busy, send, modifier, columns)
         DraftMode.WINCHESTER -> PodWinchesterView(view, members, definitions, busy, send, modifier, columns)
@@ -93,11 +94,12 @@ internal fun PodLimitedPreviewHost(preview: PodLimitedPreview, definitions: Map<
 
 /**
  * One face-up card of a limited board: a taken card stays in place, greyed, with its picker's small avatar (as in Grid,
- * DRF-085); [selected] frames it. Tap [onTap]; holding inspects it.
+ * DRF-085); [selected] frames it; [badge] (a Rotisserie queue number, DRF-164) sits in a small circle at the top right.
+ * Tap [onTap]; holding inspects it.
  */
 @Composable
 internal fun PodLimitedCard(copy: DraftCopy, definition: CardDefinition?, pickedBy: String?, members: List<AccountIdentity>,
-    colors: Map<String, Color>, selected: Boolean, tag: String, preview: PodLimitedPreview, onTap: () -> Unit) {
+    colors: Map<String, Color>, selected: Boolean, tag: String, preview: PodLimitedPreview, badge: String? = null, onTap: () -> Unit) {
     val shape = MaterialTheme.shapes.extraSmall
     val name = definition?.name ?: "Card data unavailable"
     val picker = pickedBy?.let { id -> members.firstOrNull { it.accountId == id } }
@@ -115,6 +117,10 @@ internal fun PodLimitedCard(copy: DraftCopy, definition: CardDefinition?, picked
         Box(Modifier.matchParentSize().border(if (selected) 3.dp else 1.dp,
             if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant, shape))
         if (pickedBy != null) PodPickerBadge(picker, colors[pickedBy] ?: OpponentTableColor, "$tag-picker")
+        if (badge != null) Box(Modifier.align(Alignment.TopEnd).padding(4.dp).size(22.dp).clip(CircleShape)
+            .background(MaterialTheme.colorScheme.primary).testTag("$tag-badge"), contentAlignment = Alignment.Center) {
+            Text(badge, color = MaterialTheme.colorScheme.onPrimary, style = MaterialTheme.typography.labelSmall)
+        }
     }
 }
 
@@ -153,9 +159,9 @@ internal fun PodLimitedArt(copy: DraftCopy, definition: CardDefinition?, modifie
 internal fun podLimitedPrefetchCards(view: LimitedView, definitions: Map<String, CardDefinition>): List<DraftCopy> = when (view.mode) {
     DraftMode.ROTISSERIE -> podRotisserieOrder(view.board, definitions).map { it.copy }
     DraftMode.ROCHESTER -> podRochesterOrder(view).flatMap { pack -> pack.slots.map { it.copy } }
-    DraftMode.WINSTON -> view.piles.flatten().filterNotNull()
-    // Winchester: every table's piles, in table order (DRF-158).
-    DraftMode.WINCHESTER -> view.tables.flatMap { it.piles.flatten() }.ifEmpty { view.piles.flatten().filterNotNull() }
+    // Every table's piles, in table order (DRF-156, DRF-158).
+    DraftMode.WINSTON, DraftMode.WINCHESTER ->
+        view.tables.flatMap { it.piles.flatten().filterNotNull() }.ifEmpty { view.piles.flatten().filterNotNull() }
     else -> emptyList()
 }
 
@@ -194,14 +200,24 @@ internal fun podRotisserieFilter(board: List<LimitedSlot>, definitions: Map<Stri
     return board.filter { slot -> definitions[slot.copy.definition]?.let { parsed.query.matches(podSearchCard(it)) } == true }
 }
 
+/** "1 · Lightning Bolt": a queued card's chip text (DRF-164). */
+internal fun podQueueChipText(position: Int, copy: DraftCopy, definitions: Map<String, CardDefinition>): String =
+    "${position + 1} · ${definitions[copy.definition]?.name ?: "Card"}"
+
+/** "Queue cleared: Lightning Bolt was taken" (DRF-164). */
+internal fun podQueueClearedText(copy: DraftCopy, definitions: Map<String, CardDefinition>): String =
+    "Queue cleared: ${definitions[copy.definition]?.name ?: "a queued card"} was taken"
+
 /**
  * Rotisserie (DRF-152): the whole pool in one scrolling panel with a catalog search field; taken cards are greyed with
- * the picker's avatar. On your turn tap a card, then Confirm.
+ * the picker's avatar. On your turn tap a card, then Confirm; on another's turn tap a card, then "Queue <card>" adds it
+ * to your pick queue (DRF-164), whose strip above the button lists it in order with removes.
  */
 @Composable
 internal fun PodRotisserieView(view: LimitedView, members: List<AccountIdentity>, definitions: Map<String, CardDefinition>,
-    busy: Boolean, send: PodTurnSender, modifier: Modifier, columns: PodPickColumns) {
+    busy: Boolean, send: PodTurnSender, modifier: Modifier, columns: PodPickColumns, queue: (List<String>) -> Unit = {}) {
     val mine = view.currentPlayer == view.player
+    val queued = view.pickQueue.map { it.id }
     var selected by remember(view.turn) { mutableStateOf<String?>(null) }
     var query by rememberSaveable { mutableStateOf("") }
     val preview = remember { PodLimitedPreview() }
@@ -225,15 +241,30 @@ internal fun PodRotisserieView(view: LimitedView, members: List<AccountIdentity>
             }
             items(shown, key = { it.copy.id }) { slot ->
                 val copy = slot.copy
+                val position = queued.indexOf(copy.id)
                 PodLimitedCard(copy, definitions[copy.definition], slot.pickedBy, members, colors, selected == copy.id,
-                    "pod-rotisserie-${copy.id}", preview) {
-                    if (mine && slot.pickedBy == null && selected != copy.id) selected = copy.id
+                    "pod-rotisserie-${copy.id}", preview, badge = if (position >= 0) "${position + 1}" else null) {
+                    val free = slot.pickedBy == null && !view.finished
+                    if (free && selected != copy.id && (mine || position < 0)) selected = copy.id
                 }
             }
         }
-        if (mine) PodLimitedConfirm(selected?.let { id -> "Pick " + (view.board.firstOrNull { it.copy.id == id }
-            ?.let { definitions[it.copy.definition]?.name } ?: "card") } ?: "Confirm", !busy && selected != null) {
+        if (view.pickQueue.isNotEmpty()) Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).testTag("pod-rotisserie-queue"),
+            horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+            view.pickQueue.forEachIndexed { position, copy ->
+                InputChip(false, { queue(queued - copy.id) }, label = { Text(podQueueChipText(position, copy, definitions)) },
+                    modifier = Modifier.testTag("pod-rotisserie-queued-${copy.id}"),
+                    trailingIcon = { Text("✕", Modifier.semantics { contentDescription = "Remove from queue" }) })
+            }
+        } else view.queueCleared?.let {
+            Text(podQueueClearedText(it, definitions), Modifier.padding(vertical = 6.dp).testTag("pod-rotisserie-queue-cleared"),
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        val name = selected?.let { id -> view.board.firstOrNull { it.copy.id == id }?.let { definitions[it.copy.definition]?.name } ?: "card" }
+        if (mine) PodLimitedConfirm(name?.let { "Pick $it" } ?: "Confirm", !busy && selected != null) {
             selected?.let { send(LimitedAction.TAKE_CARD, view.turn, it, null, null, 0) }
+        } else if (!view.finished) PodLimitedConfirm(name?.let { "Queue $it" } ?: "Queue", !busy && selected != null) {
+            selected?.let { queue(queued + it); selected = null }
         }
     }
     PodLimitedPreviewHost(preview, definitions)
@@ -353,42 +384,22 @@ private fun PodPiles(view: LimitedView, members: List<AccountIdentity>, definiti
     }
 }
 
-/**
- * Winston (DRF-157): the piles, cards you have seen face up and the rest as backs, and the stack's count. On your turn
- * you look at one pile at a time: take it, or pass (it gets one more card) and look at the next; passing the last pile
- * takes the top card of the stack.
- */
-@Composable
-internal fun PodWinstonView(view: LimitedView, members: List<AccountIdentity>, definitions: Map<String, CardDefinition>,
-    busy: Boolean, send: PodTurnSender, modifier: Modifier, columns: PodPickColumns) {
-    val mine = view.currentPlayer == view.player && !view.finished
-    val preview = remember { PodLimitedPreview() }
-    PodLimitedBoardPrefetch(view, definitions, preview)
-    Column(modifier.padding(horizontal = 8.dp)) {
-        PodPiles(view, members, definitions, columns, preview, { mine && it == view.pile }, "winston", Modifier.weight(1f).fillMaxWidth(),
-            onTap = { _, _ -> })
-        if (mine) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            val last = view.piles.drop(view.pile + 1).none { it.isNotEmpty() }
-            OutlinedButton({ send(LimitedAction.PASS_PILE, view.turn, null, null, view.pile, 0) }, Modifier.weight(1f).testTag("pod-winston-pass"),
-                enabled = !busy && podWinstonCanPass(view)) { ButtonLabel("pass", if (last) "Pass · take top card" else "Pass") }
-            Button({ send(LimitedAction.TAKE_PILE, view.turn, null, null, view.pile, 0) }, Modifier.weight(1f).testTag("pod-winston-take"),
-                enabled = !busy && view.piles.getOrNull(view.pile)?.isNotEmpty() == true) { ButtonLabel("take", "Take pile ${view.pile + 1}") }
-        }
-    }
-    PodLimitedPreviewHost(preview, definitions)
-}
-
-/** The [index]-th Winchester table as a one-table view (DRF-158): its turn, stack and piles in place of the first's. */
+/** The [index]-th Winston or Winchester table as a one-table view (DRF-156, DRF-158): its turn, stack, piles and pile in place of the first's. */
 internal fun LimitedView.table(index: Int): LimitedView = tables.getOrNull(index)?.let { table ->
-    copy(currentPlayer = table.currentPlayer, turn = table.turn, stack = table.stack, piles = table.piles)
+    copy(currentPlayer = table.currentPlayer, turn = table.turn, stack = table.stack, piles = table.piles, pile = table.pile)
 } ?: this
 
-/** A Winchester table chip: "Table 1 · Your pick", "Table 2 · Bob picks", "Table 3 · Finished". */
-internal fun podTableChipText(index: Int, table: LimitedTableView, me: String, members: List<AccountIdentity>): String =
+/**
+ * A table chip: "Table 1 · Your pick", "Table 2 · Bob picks" (Winston: "Bob looks", as its piles say, DRF-157) or
+ * "Table 3 · Finished".
+ */
+internal fun podTableChipText(index: Int, table: LimitedTableView, me: String, members: List<AccountIdentity>,
+    mode: DraftMode = DraftMode.WINCHESTER): String =
     "Table ${index + 1} · " + when (table.currentPlayer) {
         null -> "Finished"
         me -> "Your pick"
-        else -> (members.firstOrNull { it.accountId == table.currentPlayer }?.username ?: "Another player") + " picks"
+        else -> (members.firstOrNull { it.accountId == table.currentPlayer }?.username ?: "Another player") +
+            if (mode == DraftMode.WINSTON) " looks" else " picks"
     }
 
 /** The first table where it is [me]'s pick, or null. */
@@ -396,41 +407,96 @@ internal fun podFirstTableToPick(view: LimitedView, me: String = view.player): I
     view.tables.indexOfFirst { it.currentPlayer == me }.takeIf { it >= 0 }
 
 /**
+ * Which table a pile engine's screen shows (DRF-156, DRF-158, DRF-159): it opens on a table where it is your pick and,
+ * after your turn at a table ends, moves to one as soon as there is one; a tap on a chip first keeps the table chosen.
+ */
+@Stable
+internal class PodTableChoice(shown: Int) {
+    var shown by mutableIntStateOf(shown)
+    /** The table and turn of your last move, until the screen has moved on after it. */
+    var acted by mutableStateOf<Pair<Int, Int>?>(null)
+    fun index(view: LimitedView): Int = shown.coerceIn(0, (view.tables.size - 1).coerceAtLeast(0))
+    fun choose(index: Int) { acted = null; shown = index }
+}
+
+@Composable
+private fun rememberPodTableChoice(view: LimitedView): PodTableChoice {
+    val choice = rememberSaveable(saver = androidx.compose.runtime.saveable.Saver<PodTableChoice, Int>({ it.shown }, { PodTableChoice(it) })) {
+        PodTableChoice(podFirstTableToPick(view) ?: 0)
+    }
+    LaunchedEffect(view) {
+        val (index, turn) = choice.acted ?: return@LaunchedEffect
+        if ((view.tables.getOrNull(index)?.turn ?: return@LaunchedEffect) <= turn) return@LaunchedEffect
+        podFirstTableToPick(view)?.let { choice.acted = null; choice.shown = it }
+    }
+    return choice
+}
+
+/** The chip row of several tables (one table shows none), tagged "pod-<tag>-tables" and "pod-<tag>-table-N". */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun PodTableChips(view: LimitedView, members: List<AccountIdentity>, choice: PodTableChoice, tag: String) {
+    if (view.tables.size <= 1) return
+    val index = choice.index(view)
+    FlowRow(Modifier.fillMaxWidth().testTag("pod-$tag-tables"), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        view.tables.forEachIndexed { i, entry ->
+            FilterChip(i == index, { choice.choose(i) }, label = { Text(podTableChipText(i, entry, view.player, members, view.mode)) },
+                modifier = Modifier.testTag("pod-$tag-table-$i"))
+        }
+    }
+}
+
+/**
+ * Winston (DRF-157): the piles, cards you have seen face up and the rest as backs, and the stack's count. On your turn
+ * you look at one pile at a time: take it, or pass (it gets one more card) and look at the next; passing the last pile
+ * takes the top card of the stack. With several tables (DRF-156) the chip row shows one table at a time, as Winchester's.
+ */
+@Composable
+internal fun PodWinstonView(view: LimitedView, members: List<AccountIdentity>, definitions: Map<String, CardDefinition>,
+    busy: Boolean, send: PodTurnSender, modifier: Modifier, columns: PodPickColumns) {
+    val choice = rememberPodTableChoice(view)
+    val index = choice.index(view)
+    val table = view.table(index)
+    val mine = table.currentPlayer == view.player && !view.finished
+    val preview = remember { PodLimitedPreview() }
+    PodLimitedBoardPrefetch(view, definitions, preview)
+    Column(modifier.padding(horizontal = 8.dp)) {
+        PodTableChips(view, members, choice, "winston")
+        PodPiles(table, members, definitions, columns, preview, { mine && it == table.pile }, "winston", Modifier.weight(1f).fillMaxWidth(),
+            onTap = { _, _ -> })
+        if (mine) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            val last = table.piles.drop(table.pile + 1).none { it.isNotEmpty() }
+            fun act(action: LimitedAction) { choice.acted = index to table.turn; send(action, table.turn, null, null, table.pile, index) }
+            OutlinedButton({ act(LimitedAction.PASS_PILE) }, Modifier.weight(1f).testTag("pod-winston-pass"),
+                enabled = !busy && podWinstonCanPass(table)) { ButtonLabel("pass", if (last) "Pass · take top card" else "Pass") }
+            Button({ act(LimitedAction.TAKE_PILE) }, Modifier.weight(1f).testTag("pod-winston-take"),
+                enabled = !busy && table.piles.getOrNull(table.pile)?.isNotEmpty() == true) { ButtonLabel("take", "Take pile ${table.pile + 1}") }
+        }
+    }
+    PodLimitedPreviewHost(preview, definitions)
+}
+
+/**
  * Winchester (DRF-159): every pile face up with the stack's count. On your turn tap a card of a pile to choose that
  * pile, then "Take pile N". With several tables (DRF-158) a chip row on top shows one table at a time, opening on (and
  * moving to, after you take a pile) a table where it is your pick.
  */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun PodWinchesterView(view: LimitedView, members: List<AccountIdentity>, definitions: Map<String, CardDefinition>,
     busy: Boolean, send: PodTurnSender, modifier: Modifier, columns: PodPickColumns) {
-    var shown by rememberSaveable { mutableIntStateOf(podFirstTableToPick(view) ?: 0) }
-    // After a take at a table: once the server's answer shows it, move to a table where it is your pick (as soon as
-    // there is one); a tap on a chip first keeps the table chosen.
-    var taken by remember { mutableStateOf<Pair<Int, Int>?>(null) }
-    LaunchedEffect(view) {
-        val (index, turn) = taken ?: return@LaunchedEffect
-        if ((view.tables.getOrNull(index)?.turn ?: return@LaunchedEffect) <= turn) return@LaunchedEffect
-        podFirstTableToPick(view)?.let { taken = null; shown = it }
-    }
-    val index = shown.coerceIn(0, (view.tables.size - 1).coerceAtLeast(0))
+    val choice = rememberPodTableChoice(view)
+    val index = choice.index(view)
     val table = view.table(index)
     val mine = table.currentPlayer == view.player && !view.finished
     var chosen by remember(index, table.turn) { mutableStateOf<Int?>(null) }
     val preview = remember { PodLimitedPreview() }
     PodLimitedBoardPrefetch(view, definitions, preview)
     Column(modifier.padding(horizontal = 8.dp)) {
-        if (view.tables.size > 1) FlowRow(Modifier.fillMaxWidth().testTag("pod-winchester-tables"),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            view.tables.forEachIndexed { i, entry ->
-                FilterChip(i == index, { taken = null; shown = i }, label = { Text(podTableChipText(i, entry, view.player, members)) },
-                    modifier = Modifier.testTag("pod-winchester-table-$i"))
-            }
-        }
+        PodTableChips(view, members, choice, "winchester")
         PodPiles(table, members, definitions, columns, preview, { it == chosen }, "winchester", Modifier.weight(1f).fillMaxWidth(),
             onTap = { pile, _ -> if (mine && chosen != pile) chosen = pile })
         if (mine) PodLimitedConfirm(chosen?.let { "Take pile ${it + 1} (${podCardCount(table.piles[it].size)})" } ?: "Confirm",
-            !busy && chosen != null) { chosen?.let { taken = index to table.turn; send(LimitedAction.TAKE_PILE, table.turn, null, null, it, index) } }
+            !busy && chosen != null) { chosen?.let { choice.acted = index to table.turn; send(LimitedAction.TAKE_PILE, table.turn, null, null, it, index) } }
     }
     PodLimitedPreviewHost(preview, definitions)
 }

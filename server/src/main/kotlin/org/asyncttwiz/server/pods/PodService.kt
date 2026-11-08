@@ -526,6 +526,20 @@ class PodService(private val runtime: ServiceRuntime) {
             detail(sql, row, owner)
         }
 
+    /** The caller's Rotisserie pick queue (DRF-164): private, kept with the draft; nothing is taken when it is set. */
+    fun queue(principal: AccountService.Principal, id: String, input: PodPickQueue): Result =
+        mutate(principal, id, input.requestId, "podPickQueue", json.encodeToJsonElement(input), input.draftAttemptId) { sql, owner, row ->
+            member(sql, row, owner)?.let { return@mutate it }
+            if (row.phase != "DRAFTING") return@mutate error(409, "not_drafting")
+            if (settings(row).mode != DraftMode.ROTISSERIE) return@mutate error(409, "wrong_draft_mode")
+            if (input.cards.size > 500) return@mutate error(400, "invalid_request")
+            val result = LimitedEngine.queue(limitedState(row)!!, owner.toString(), input.cards)
+            if (result.reason != null) return@mutate error(409, result.reason!!.name.lowercase())
+            row.draftState = encoded(result.state!!)
+            save(sql, row)
+            detail(sql, row, owner)
+        }
+
     fun move(principal: AccountService.Principal, id: String, input: MovePodCopy): Result =
         editBuild(principal, id, input.requestId, "movePodCopy", json.encodeToJsonElement(input), input.draftAttemptId) { build ->
             if (build.copies.none { it.copyId == input.copyId }) null
@@ -813,7 +827,10 @@ class PodService(private val runtime: ServiceRuntime) {
                 .where(MEMBER.POD_ID.eq(row.id)).and(MEMBER.ACCOUNT_ID.eq(owner)).execute()
             // "Your pick" when it becomes the member's turn (Rochester: a pack's pick) while none was waiting.
             val queue = next.queues[player].orEmpty()
-            val hadTurn = previous?.queues?.get(player).orEmpty().any { it in queue }
+            // Rotisserie: a turn that comes back after others' picks (queued picks taken at once, DRF-164) is a new turn.
+            val othersPicked = next.settings.mode == DraftMode.ROTISSERIE && previous != null &&
+                next.log.drop(previous.log.size).any { it.player != player }
+            val hadTurn = !othersPicked && previous?.queues?.get(player).orEmpty().any { it in queue }
             if (!hadTurn && queue.isNotEmpty())
                 ActivityService.record(sql, owner, ActivityKind.POD_YOUR_PICK, row.id!!, row.draftAttemptId!!)
         }
@@ -858,6 +875,22 @@ class PodService(private val runtime: ServiceRuntime) {
             val owner = UUID.fromString(principal.account.accountId)
             val members = members(sql, row.id!!)
             if (members.none { it.accountId == owner }) error(404, "not_found") else detail(sql, row, owner, members = members)
+        }
+    }
+
+    /** The caller's Booster or Glimpse draft history (DRF-165) with its cards' definitions; only what their packs showed. */
+    fun history(principal: AccountService.Principal, id: String): Result {
+        if (!DeckValidation.uuid(id)) return error(404, "not_found")
+        return runtime.transaction { connection ->
+            val sql = DSL.using(connection, SQLDialect.POSTGRES)
+            val row = sql.selectFrom(POD).where(POD.ID.eq(UUID.fromString(id))).forShare().fetchOne()
+                ?: return@transaction error(404, "not_found")
+            val owner = UUID.fromString(principal.account.accountId)
+            if (members(sql, row.id!!).none { it.accountId == owner }) return@transaction error(404, "not_found")
+            val state = draft(row, settings(row)).booster ?: return@transaction error(409, "wrong_draft_mode")
+            val picks = DraftEngine.history(state, owner.toString())
+            val digests = picks.flatMap { it.cards + it.takenSince }.map { it.definition }.toSet()
+            Result(200, json.encodeToString(PodDraftHistory(picks, StoredDefinitions.read(sql, digests))))
         }
     }
 
@@ -962,7 +995,7 @@ class PodService(private val runtime: ServiceRuntime) {
     /** Every card a limited view shows, for its definitions. */
     private fun LimitedView?.cards(): List<DraftCopy> = this?.let { view ->
         view.pool + view.board.map { it.copy } + view.packs.flatMap { pack -> pack.slots.map { it.copy } } +
-            view.piles.flatten().filterNotNull() + view.tables.flatMap { it.piles.flatten() } + view.picks.flatMap { it.cards.filterNotNull() }
+            view.piles.flatten().filterNotNull() + view.tables.flatMap { it.piles.flatten().filterNotNull() } + view.picks.flatMap { it.cards.filterNotNull() }
     }.orEmpty()
 
     private fun mutate(principal: AccountService.Principal, id: String, request: String, kind: String, input: JsonElement,

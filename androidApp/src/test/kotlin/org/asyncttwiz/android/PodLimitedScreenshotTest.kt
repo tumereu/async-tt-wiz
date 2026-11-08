@@ -81,12 +81,15 @@ class PodLimitedScreenshotTest {
      * Shows [content] and seeds decoded artwork for every card node tagged [tag] + copy id at its exact decode box, then
      * remounts so every card loads it at once.
      */
-    private fun show(tag: (DraftCopy) -> String, shown: List<DraftCopy>, content: @Composable () -> Unit) {
+    private fun show(tag: (DraftCopy) -> String, shown: List<DraftCopy>, also: (DraftCopy) -> List<String> = { emptyList() },
+        content: @Composable () -> Unit) {
         var generation by mutableIntStateOf(0)
         installArtwork(service)
         compose.setContent { ScreenTheme { NoRipples { key(generation) { content() } } } }
-        for (copy in shown) {
-            val size = compose.onNodeWithTag(tag(copy)).fetchSemanticsNode().size
+        // [also]: more nodes of the same card (shown twice), seeded at their own decode boxes.
+        val nodes = shown.flatMap { copy -> (listOf(tag(copy)) + also(copy)).map { it to copy } }
+        for ((node, copy) in nodes) {
+            val size = compose.onNodeWithTag(node).fetchSemanticsNode().size
             val n = copy.id.substringAfter("copy-").toInt()
             val reference = ArtworkReference("print-$n", 0, copy.definition, "normal", null, null)
             service.loader.memoryCache!![MemoryCache.Key(CardArtworkRequest(reference, size.width, size.height).key)] =
@@ -94,7 +97,7 @@ class PodLimitedScreenshotTest {
         }
         compose.runOnIdle { generation++ }
         compose.waitUntil(5_000) {
-            compose.onAllNodes(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Image)).fetchSemanticsNodes().size >= shown.size
+            compose.onAllNodes(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Image)).fetchSemanticsNodes().size >= nodes.size
         }
         compose.mainClock.advanceTimeBy(500)
         compose.waitForIdle()
@@ -131,6 +134,42 @@ class PodLimitedScreenshotTest {
         compose.onNodeWithText("Pick Serra Angel").assertIsEnabled()
         shot("pod-rotisserie-selected", "Rotisserie draft after Alice taps Serra Angel: the card is framed and Confirm reads " +
             "\"Pick Serra Angel\".")
+    }
+
+    // DRF-153, DRF-164: on another's turn a tap frames a free card and "Queue <card>" adds it to the end of your queue;
+    // the strip lists the queue in order with removes, queued cards carry their number, and a cleared queue shows its note.
+    @Test fun rotisseriePickQueueStripAndQueueButton() {
+        val board = copies.take(12).mapIndexed { index, copy -> LimitedSlot(copy, if (index == 4) "bob" else null) }
+        var view by mutableStateOf(LimitedView(DraftMode.ROTISSERIE, "alice", listOf("alice", "bob"), emptyList(), false,
+            currentPlayer = "bob", turn = 1, turns = 90, board = board, pickQueue = listOf(copies[6], copies[0])))
+        val queued = mutableListOf<List<String>>()
+        show({ "pod-rotisserie-${it.id}" }, board.map { it.copy }) {
+            PodRotisserieView(view, members, definitions, false, { _, _, _, _, _, _ -> error("no pick on Bob's turn") },
+                Modifier.fillMaxSize(), columns) { queued += it }
+        }
+        compose.onNodeWithText("1 · Serra Angel").assertIsDisplayed()
+        compose.onNodeWithText("2 · Lightning Bolt").assertIsDisplayed()
+        compose.onNodeWithTag("pod-rotisserie-copy-6-badge", useUnmergedTree = true).assertExists()
+        compose.onNodeWithText("Queue").assertIsNotEnabled()
+        // Taps on a queued or taken card do nothing; a free card is framed for the queue.
+        compose.onNodeWithTag("pod-rotisserie-copy-6").performClick()
+        compose.onNodeWithTag("pod-rotisserie-copy-4").performClick()
+        compose.mainClock.advanceTimeBy(500)
+        compose.waitForIdle()
+        compose.onNodeWithText("Queue").assertIsNotEnabled()
+        compose.onNodeWithTag("pod-rotisserie-copy-7").performClick()
+        compose.mainClock.advanceTimeBy(500)
+        compose.waitForIdle()
+        compose.onNodeWithText("Queue Shivan Dragon").assertIsEnabled()
+        shot("pod-rotisserie-queue", "Rotisserie draft on Bob's turn with Alice's pick queue of two cards in the strip above " +
+            "the button (numbered on their cards too), after she taps Shivan Dragon: \"Queue Shivan Dragon\" below.")
+        compose.onNodeWithText("Queue Shivan Dragon").performClick()
+        compose.onNodeWithTag("pod-rotisserie-queued-copy-0").performClick()
+        kotlin.test.assertEquals(listOf(listOf("copy-6", "copy-0", "copy-7"), listOf("copy-6")), queued)
+        // Bob took a queued card: the queue is empty and the note names the card.
+        compose.runOnIdle { view = view.copy(pickQueue = emptyList(), queueCleared = copies[0]) }
+        compose.onNodeWithText("Queue cleared: Lightning Bolt was taken").assertIsDisplayed()
+        compose.onNodeWithTag("pod-rotisserie-queue").assertDoesNotExist()
     }
 
     // DRF-155, DRF-085
@@ -222,6 +261,37 @@ class PodLimitedScreenshotTest {
         compose.onNodeWithTag("pod-limited-confirm").assertDoesNotExist()
     }
 
+    // DRF-156, DRF-157: Winston tables get the same chip row ("Bob looks" as its pile line says); the screen opens on the
+    // table where it is your pick, a pass keeps it there and a take moves on to a table where it is your pick.
+    @Test fun winstonTablesChipRowOpensOnYourPick() {
+        val first = listOf(listOf(null, null), listOf<DraftCopy?>(null), listOf<DraftCopy?>(null))
+        val second = listOf(listOf(copies[4], null), listOf(copies[5], copies[6]), listOf<DraftCopy?>(null))
+        fun table(player: String?, turn: Int, stack: Int, piles: List<List<DraftCopy?>>, pile: Int) = LimitedTableView(player, turn, stack, piles, pile)
+        var view by mutableStateOf(LimitedView(DraftMode.WINSTON, "alice", listOf("alice", "bob"), emptyList(), false,
+            currentPlayer = "bob", turn = 2, stack = 12, piles = first,
+            tables = listOf(table("bob", 2, 12, first, 0), table("alice", 2, 11, second, 1))))
+        val sent = mutableListOf<Triple<LimitedAction, Int, Int>>()
+        show({ "pod-winston-${it.id}" }, second.flatten().filterNotNull()) {
+            PodWinstonView(view, members, definitions, false, { action, turn, _, _, pile, table -> sent += Triple(action, table, pile!!); check(turn == 2) },
+                Modifier.fillMaxSize(), columns)
+        }
+        compose.onNodeWithText("Table 1 · Bob looks").assertIsDisplayed().assertIsNotSelected()
+        compose.onNodeWithText("Table 2 · Your pick").assertIsDisplayed().assertIsSelected()
+        compose.onNodeWithText("Your pick · Stack: 11 cards").assertIsDisplayed()
+        compose.onNodeWithText("Pile 2 · 2 cards · you look at it").assertIsDisplayed()
+        shot("pod-winston-tables", "Winston draft with two tables, opened on table 2 where it is Alice's turn (Bob looks at " +
+            "table 1): the chip row on top, table 2's piles with pile 2 being looked at, and Pass and Take pile 2 below.")
+        compose.onNodeWithTag("pod-winston-take").performClick()
+        kotlin.test.assertEquals(listOf(Triple(LimitedAction.TAKE_PILE, 1, 1)), sent)
+        // Bob's turn at table 1 ended meanwhile; Alice's take shows: the screen moves to table 1, her turn now.
+        compose.runOnIdle { view = view.copy(currentPlayer = "alice", turn = 3, stack = 11, piles = first,
+            tables = listOf(table("alice", 3, 11, first, 0), table("bob", 3, 10, second, 0))) }
+        compose.waitForIdle()
+        compose.onNodeWithText("Table 1 · Your pick").assertIsSelected()
+        compose.onNodeWithText("Table 2 · Bob looks").assertIsNotSelected()
+        compose.onNodeWithText("Pile 1 · 2 cards · you look at it").assertIsDisplayed()
+    }
+
     // DRF-158: one table shows no chip row.
     @Test fun winchesterOneTableHasNoChipRow() {
         val piles = listOf(listOf(copies[0]), listOf(copies[1]))
@@ -232,6 +302,33 @@ class PodLimitedScreenshotTest {
         }
         compose.onNodeWithTag("pod-winchester-tables").assertDoesNotExist()
         compose.onNodeWithText("Your pick · Stack: 10 cards").assertIsDisplayed()
+    }
+
+    // DRF-165: the draft history lists your picks in order, each pack as it came with keeps green and burns red, a wheel's
+    // cards taken since greyed under their own line; a failure offers Retry
+    @Test fun draftHistoryShowsPacksWithKeepsBurnsAndCardsTakenSince() {
+        fun c(vararg n: Int) = n.map { copies[it] }
+        val picks = listOf(
+            DraftHistoryPick(1, 1, c(0, 1, 2, 3, 4, 5, 6, 7, 8, 9), kept = listOf("copy-6"), burned = listOf("copy-0", "copy-2")),
+            DraftHistoryPick(1, 2, c(10, 11, 12, 13, 14, 15, 16), kept = listOf("copy-13"), burned = listOf("copy-10", "copy-16")),
+            DraftHistoryPick(1, 4, c(1, 3, 5, 8), kept = listOf("copy-8"), burned = listOf("copy-1"), takenSince = c(4, 7, 9)))
+        val history = PodDraftHistory(picks)
+        val shown = picks.flatMap { it.cards + it.takenSince }.distinctBy { it.id }
+        var failed by mutableStateOf(false)
+        var loaded by mutableStateOf<PodDraftHistory?>(history)
+        fun at(copy: DraftCopy) = picks.indices.filter { copy in picks[it].cards || copy in picks[it].takenSince }.map { "pod-history-$it-${copy.id}" }
+        show({ at(it).first() }, shown, { at(it).drop(1) }) {
+            PodHistoryDialog(loaded, failed, definitions, 8, {}) {}
+        }
+        compose.onNodeWithText("Pack 1 · Pick 1").assertExists()
+        compose.onNodeWithText("Taken since you last saw it").assertExists()
+        File(SCREENSHOTS).mkdirs()
+        captureShot(File(SCREENSHOTS, "pod-draft-history.png").path, "Draft history of a Glimpse draft with eight cards per " +
+            "row: three of Alice's picks in order, each pack as it came with her keep green and burns red; the pack that came " +
+            "round again lists the three cards taken since, greyed.")
+        compose.runOnIdle { loaded = null; failed = true }
+        compose.onNodeWithText("Couldn't load the draft history").assertExists()
+        compose.onNodeWithTag("pod-history-retry").assertExists()
     }
 
     // DRF-160

@@ -37,7 +37,7 @@ class WinchesterTablesTest : E2e() {
         }
         // Both tap a card of their table's first pile and take it, without waiting for each other
         for (player in listOf(alice, bob)) {
-            val copy = player.pods.state.detail!!.limited!!.tables[tables.getValue(player)].piles[0].first()
+            val copy = player.pods.state.detail!!.limited!!.tables[tables.getValue(player)].piles[0].first()!!
             player.tagged("pod-winchester-${copy.id}").performClick()
             waitUntil("${player.name}'s Take pile 1") { player.showsText("Take pile 1 (1 card)") }
             player.tagged("pod-limited-confirm").performClick()

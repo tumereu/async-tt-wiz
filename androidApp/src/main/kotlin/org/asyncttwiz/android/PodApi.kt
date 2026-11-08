@@ -26,6 +26,10 @@ interface Pods : Closeable {
     suspend fun pick(token: String, id: String, input: PickPod): PodDetail
     suspend fun gridSelect(token: String, id: String, input: SelectPodGrid): PodDetail
     suspend fun turn(token: String, id: String, input: PodTurn): PodDetail = throw PodFailure("not_configured")
+    /** Sets the caller's whole Rotisserie pick queue (DRF-164). */
+    suspend fun queue(token: String, id: String, input: PodPickQueue): PodDetail = throw PodFailure("not_configured")
+    /** The caller's Booster or Glimpse draft history (DRF-165). */
+    suspend fun history(token: String, id: String): PodDraftHistory = throw PodFailure("not_configured")
     suspend fun move(token: String, id: String, input: MovePodCopy): PodDetail
     suspend fun basics(token: String, id: String, input: SetPodBasics): PodDetail
     suspend fun deckName(token: String, id: String, input: SetPodDeckName): PodDetail
@@ -69,6 +73,8 @@ class PodApi(private val origin: String, private val client: HttpClient = Accoun
     override suspend fun pick(token: String, id: String, input: PickPod): PodDetail = call(token, path(id, "/pick"), DeckJson.format.encodeToString(input))
     override suspend fun gridSelect(token: String, id: String, input: SelectPodGrid): PodDetail = call(token, path(id, "/grid/select"), DeckJson.format.encodeToString(input))
     override suspend fun turn(token: String, id: String, input: PodTurn): PodDetail = call(token, path(id, "/turn"), DeckJson.format.encodeToString(input))
+    override suspend fun queue(token: String, id: String, input: PodPickQueue): PodDetail = call(token, path(id, "/rotisserie/queue"), DeckJson.format.encodeToString(input), HttpMethod.Put)
+    override suspend fun history(token: String, id: String): PodDraftHistory = call(token, path(id, "/draft/history"))
     override suspend fun move(token: String, id: String, input: MovePodCopy): PodDetail = call(token, path(id, "/build/move"), DeckJson.format.encodeToString(input), HttpMethod.Put)
     override suspend fun basics(token: String, id: String, input: SetPodBasics): PodDetail = call(token, path(id, "/build/basics"), DeckJson.format.encodeToString(input), HttpMethod.Put)
     override suspend fun deckName(token: String, id: String, input: SetPodDeckName): PodDetail = call(token, path(id, "/build/name"), DeckJson.format.encodeToString(input), HttpMethod.Put)

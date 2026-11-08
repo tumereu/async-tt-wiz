@@ -90,6 +90,26 @@ data class DraftPickResult(val state: DraftState? = null, val reason: DraftPickR
  * [packsWaiting] is [DraftEngine.consecutivePicks]: positive exactly when the member's queue is not empty.
  */
 @Serializable data class DraftMemberStatus(val player: String, val packsWaiting: Int, val picksMade: Int, val finished: Boolean)
+
+/**
+ * One pick of the viewer's draft history (DRF-165): the pack as it came to them (Librarians they spent on it included),
+ * what they kept and burned, and, when the pack came round to them before, the cards gone from it since they passed it.
+ */
+@Serializable data class DraftHistoryPick(
+    /** One-based pack number for its opening player, as [DraftPack.number]. */
+    val pack: Int,
+    /** One-based pick number in that pack: manual picks taken from it before + 1. */
+    val pick: Int,
+    val cards: List<DraftCopy>,
+    val kept: List<String>,
+    val burned: List<String> = emptyList(),
+    /** Librarians spent on this pick; they are among [cards]. */
+    val librarians: List<String> = emptyList(),
+    /** Cards of the pack as the viewer passed it last time that are gone now: taken, burned or thrown away by others. */
+    val takenSince: List<DraftCopy> = emptyList(),
+    /** Given automatically (a pack with keep cards or fewer, DRF-045), not chosen. */
+    val automatic: Boolean = false,
+)
 @Serializable data class DraftPublicStatus(val round: Int, val rounds: Int, val finished: Boolean, val members: List<DraftMemberStatus>)
 
 object DraftEngine {
@@ -219,6 +239,45 @@ object DraftEngine {
             (queue.size - 1).coerceAtLeast(0), state.pools.getValue(player).map(copies::getValue), visible.drop(1),
             if (state.finished) state.settings.rounds else (state.openedRound(player) + 1).coerceAtMost(state.settings.rounds),
             state.settings.rounds, if (state.finished) 0 else Working(state).incoming(player))
+    }
+
+    /**
+     * [player]'s picks in order (DRF-165), each with the pack as it came to them. Every pack's contents before each
+     * logged pick follow from its cards now and the log, walked backwards; nothing is told beyond the packs [player]
+     * saw: a pack's cards gone since are the difference between what they passed on and what came back.
+     */
+    fun history(state: DraftState, player: String): List<DraftHistoryPick> {
+        require(player in state.seating) { "Not a draft member" }
+        val copies = state.copies.associateBy { it.id }
+        val packs = state.packs.associateBy { it.id }
+        val contents = state.packs.associate { it.id to it.cards.toSet() }.toMutableMap()
+        // The pack's cards before each pick, and after it (what was passed on).
+        val before = arrayOfNulls<Set<String>>(state.log.size)
+        val after = arrayOfNulls<Set<String>>(state.log.size)
+        for (index in state.log.indices.reversed()) {
+            val entry = state.log[index]
+            val passed = contents.getValue(entry.packId)
+            after[index] = passed
+            val previous = (passed + entry.discarded + entry.kept + entry.burned) - entry.librarians.toSet()
+            before[index] = previous
+            contents[entry.packId] = previous
+        }
+        val manual = mutableMapOf<String, Int>()
+        val lastPassed = mutableMapOf<String, Set<String>>()
+        return buildList {
+            state.log.forEachIndexed { index, entry ->
+                val pick = (manual[entry.packId] ?: 0) + 1
+                if (entry.player == player) {
+                    val seen = before[index]!!
+                    val gone = lastPassed[entry.packId]?.let { it - seen }.orEmpty()
+                    add(DraftHistoryPick(packs.getValue(entry.packId).number, pick,
+                        (seen + entry.librarians).map(copies::getValue), entry.kept, entry.burned, entry.librarians,
+                        gone.map(copies::getValue), entry.automatic))
+                    lastPassed[entry.packId] = after[index]!!
+                }
+                if (!entry.automatic) manual[entry.packId] = pick
+            }
+        }
     }
 
     fun publicStatus(state: DraftState) = DraftPublicStatus(

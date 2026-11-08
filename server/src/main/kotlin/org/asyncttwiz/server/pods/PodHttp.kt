@@ -42,16 +42,17 @@ class PodHttp(private val runtime: ServiceRuntime) {
             val allowed = when {
                 path == "/v1/pods" -> "GET, POST"
                 parts.size == 1 && id.isNotEmpty() -> "GET, PUT, DELETE"
-                action == "cube" -> "GET"
+                action == "cube" || action == "draft/history" -> "GET"
                 action in listOf("cube/definitions", "invitations", "accept", "decline", "start", "auto-start", "pick", "grid/select", "turn", "submit", "leave", "cancel", "challenge") -> "POST"
-                action in listOf("cube/move", "build/move", "build/basics", "build/name", "build/notes", "draft/marks") -> "PUT"
+                action in listOf("cube/move", "build/move", "build/basics", "build/name", "build/notes", "draft/marks", "rotisserie/queue") -> "PUT"
                 else -> { error(response, 404, "not_found"); return true }
             }
             if (request.method !in allowed.split(", ")) {
                 response.setHeader("Allow", allowed); error(response, 405, "method_not_allowed"); return true
             }
             val result = if (request.method == "GET") {
-                if (path == "/v1/pods") pods.list(principal) else if (action == "cube") pods.cube(principal, id) else pods.read(principal, id)
+                if (path == "/v1/pods") pods.list(principal) else if (action == "cube") pods.cube(principal, id)
+                else if (action == "draft/history") pods.history(principal, id) else pods.read(principal, id)
             } else {
                 val media = request.contentType.orEmpty().split(';').map(String::trim)
                 if (!media.first().equals("application/json", true) || media.drop(1).any {
@@ -77,6 +78,7 @@ class PodHttp(private val runtime: ServiceRuntime) {
                      action == "pick" -> pods.pick(principal, id, json.decodeFromString<PickPod>(text))
                      action == "grid/select" -> pods.selectGrid(principal, id, json.decodeFromString<SelectPodGrid>(text))
                     action == "turn" -> pods.turn(principal, id, json.decodeFromString<PodTurn>(text))
+                    action == "rotisserie/queue" -> pods.queue(principal, id, json.decodeFromString<PodPickQueue>(text))
                     action == "build/move" -> pods.move(principal, id, json.decodeFromString<MovePodCopy>(text))
                      action == "build/basics" -> pods.basics(principal, id, json.decodeFromString<SetPodBasics>(text))
                      action == "build/name" -> pods.deckName(principal, id, json.decodeFromString<SetPodDeckName>(text))

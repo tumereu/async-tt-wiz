@@ -341,10 +341,12 @@ private fun PodDraftScreen(controller: PodController, detail: PodDetail, account
     val pickColumns = rememberPodPickColumns()
     val buildColumns = rememberPodBuildColumns()
     val buildSideBySide = rememberPodBuildSideBySide()
+    val historyColumns = rememberPodHistoryColumns(podHistoryPackSize(detail))
     val waiting = podWaitingText(detail, accountId)
     Column(Modifier.fillMaxSize()) {
         PodPlayHeader(detail, navigation) {
-            PodViewSettingsButton(pickColumns.takeIf { detail.settings.mode != DraftMode.GRID }, buildColumns, buildSideBySide)
+            PodViewSettingsButton(pickColumns.takeIf { detail.settings.mode != DraftMode.GRID }, buildColumns, buildSideBySide,
+                historyColumns.takeIf { detail.settings.mode.packPassing })
         }
         PodDraftTabs(tabs, selected, controller::tab) {
             PodOverflow(controller, detail.creator.accountId == accountId, detail.phase, compact = true)
@@ -352,10 +354,13 @@ private fun PodDraftScreen(controller: PodController, detail: PodDetail, account
         // DRF-160: Winston, Winchester and Grid show each opponent's picks on request.
         if (selected == PodTab.DRAFT && podHasPicksView(detail.settings.mode))
             PodPicksButton(detail, accountId, definitions)
+        // DRF-165: Booster and Glimpse show your own picks with their packs.
+        if (selected == PodTab.DRAFT && detail.settings.mode.packPassing && detail.phase == PodPhase.DRAFTING)
+            PodHistoryButton(controller, definitions, historyColumns)
         Box(Modifier.weight(1f).fillMaxWidth()) {
             when (selected) {
                 PodTab.DRAFT -> if (detail.settings.mode.limited) PodLimitedDraftView(detail, accountId, definitions,
-                    state.picking || state.uncertain, controller::turn, Modifier.fillMaxSize(), pickColumns, waiting, mainMenu)
+                    state.picking || state.uncertain, controller::turn, Modifier.fillMaxSize(), pickColumns, waiting, mainMenu, controller::queue)
                 else if (detail.settings.mode == DraftMode.GRID) PodGridView(detail.grid, detail.settings.grids,
                     definitions, detail.members.map { it.account }, state.picking || state.uncertain,
                     controller::gridSelect, Modifier.fillMaxSize(), waitingText = waiting, onMainMenu = mainMenu)

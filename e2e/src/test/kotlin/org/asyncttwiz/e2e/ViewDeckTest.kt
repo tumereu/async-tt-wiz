@@ -35,7 +35,8 @@ class ViewDeckTest : E2e() {
         openStillInLibrary(33)
         assertEquals(head, alice.engine { device.session.head }, "looking only: no event")
         pastPopupGuard()
-        alice.tap("Close")
+        // ZON-093 (owner 2026-11-08): a borderless X, its words only its description
+        alice.described("Close").performClick()
         waitUntil("the panel closed") { !alice.shows(hasTestTag("deck-view")) }
         alice.tap("Keep")
         bob.tap("Keep")

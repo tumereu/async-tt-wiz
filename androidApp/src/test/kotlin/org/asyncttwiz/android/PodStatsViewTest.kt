@@ -40,7 +40,8 @@ class PodStatsViewTest {
         compose.onNodeWithText("Creature: 1").performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("Noncreature: 0").assertIsDisplayed()
         compose.onNodeWithText("Land: 39").assertIsDisplayed()
-        compose.onNodeWithText("Land sources").assertIsDisplayed()
+        compose.onNodeWithText("Sources").assertIsDisplayed()
+        compose.onNodeWithTag("pod-stats-sources").assertTextEquals("Sources: 39 lands, 0 others")
         compose.onNodeWithTag("pod-stats-mana-W").assert(hasText("½")).assert(hasText("39"))
         compose.onNodeWithTag("pod-stats-mana-B").assert(hasText("1")).assert(hasText("0"))
         compose.onNodeWithTag("pod-stats-mana-R").assert(hasText("0"))
@@ -55,26 +56,39 @@ class PodStatsViewTest {
         compose.onNodeWithText("Mana sources · approximate").assertDoesNotExist()
     }
 
-    // DRF-112, DRF-113
+    /** The app's check, parsing each card's rules text as the device does (without its cache). */
+    private val parsing = CardListSupportCheck({ cards -> cards.associate { card ->
+        val parsed = org.asyncttwiz.protocol.game.GameCards.parse(card.definition)
+        card.digest to (parsed.definition?.let { org.asyncttwiz.storage.ParsedCard.Read(it, parsed.manualAbilities) }
+            ?: org.asyncttwiz.storage.ParsedCard.Unreadable(parsed.problem.orEmpty()))
+    } })
+
+    // DRF-112, DRF-113, DRF-114, DRF-115
     @Test
     @Config(qualifiers = "w412dp-h892dp-port-xhdpi")
     fun typeCountsWrapBelowTheLegendAndAboveTheManaTable() {
-        fun card(name: String, type: String, cost: String) = CardDefinition(name, listOf(DefinitionFace("front", name, typeLine = type, manaCost = cost)))
+        fun card(name: String, type: String, cost: String, text: String = "") =
+            CardDefinition(name, listOf(DefinitionFace("front", name, typeLine = type, manaCost = cost, rulesText = text)))
         val definitions = mapOf(
             "bear" to card("Bear", "Creature — Bear", "{1}{G}"), "golem" to card("Golem", "Artifact Creature — Golem", "{4}"),
             "hero" to card("Hero", "Legendary Creature — Human Knight", "{1}{W}{W}"), "bolt" to card("Bolt", "Instant", "{R}"),
             "growth" to card("Growth", "Instant", "{G}"), "rampant" to card("Rampant", "Sorcery", "{2}{G}"),
-            "aura" to card("Aura", "Enchantment — Aura", "{1}{W}"), "ring" to card("Ring", "Artifact", "{2}"),
+            "aura" to card("Aura", "Enchantment — Aura", "{1}{W}"), "ring" to card("Ring", "Artifact", "{2}", "{T}: Add one mana of any color."),
             "walker" to card("Walker", "Legendary Planeswalker — Ajani", "{2}{G}{W}"),
             "giant" to card("Giant", "Creature — Giant // Sorcery — Adventure", "{4}{R}"),
-            "gate" to card("Gate", "Land — Gate", ""),
+            "gate" to card("Gate", "Land — Gate", "", "{T}: Add {R} or {G}."),
         )
         val counts = mapOf("bear" to 5, "golem" to 2, "hero" to 3, "bolt" to 2, "growth" to 2, "rampant" to 1, "aura" to 2,
             "ring" to 1, "walker" to 1, "giant" to 2, "gate" to 2)
         val copies = counts.flatMap { (digest, n) -> List(n) { DraftCopy("$digest-$it", digest) } }.associateBy { it.id }
-        compose.setContent { MaterialTheme {
+        compose.setContent { MaterialTheme { androidx.compose.runtime.CompositionLocalProvider(LocalCardListSupport provides parsing) {
             PodStatsView(PodDeckBuild(copies.keys.map { PodDeckCopy(it) }, PodDeckBasics(plains = 7, forest = 8)), copies, definitions)
-        } }
+        } } }
+        // The sources once the cards' mana abilities are known: lands solid, the Ring (any colour) lighter.
+        compose.waitUntil(5_000) { compose.onAllNodesWithText("Sources: 17 lands, 1 other").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("pod-stats-mana-W").assert(hasText("7 + 1"))
+        compose.onNodeWithTag("pod-stats-mana-G").assert(hasText("10 + 1"))
+        compose.onNodeWithTag("pod-stats-mana-R").assert(hasText("2 + 1"))
         compose.onNodeWithTag("pod-stats-type-Creature").assertTextEquals("Creature 12").assertIsDisplayed()
         compose.onNodeWithTag("pod-stats-type-Land").assertTextEquals("Land 17")
         compose.onNodeWithTag("pod-stats-type-Basic").assertTextEquals("Basic 15")
@@ -95,7 +109,8 @@ class PodStatsViewTest {
         assertTrue(types.bottom - types.top < 80.dp, "Nine types wrap into at most a few rows: ${types.bottom - types.top}")
         val output = java.io.File("$SCREENSHOTS/pod-stats-types.png").also { it.parentFile!!.mkdirs() }
         compose.onRoot().captureShot(output.path, "Draft deck Stats in portrait for a 23-card build plus 15 basics: " +
-            "card type counts wrap between the curve legend and the mana table.")
+            "card type counts wrap between the curve legend and the mana table, whose source bars show the lands solid and " +
+            "a mana rock lighter, with the sources' total line under them.")
     }
 
     // DRF-113

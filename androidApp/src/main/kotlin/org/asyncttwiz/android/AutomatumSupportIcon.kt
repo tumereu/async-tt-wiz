@@ -36,6 +36,10 @@ internal class CardListSupportCheck(private val parse: (Collection<SubmittedDefi
     private val dungeons: () -> Set<org.asyncttwiz.protocol.game.OutsideCards.Need> = { AutomatumSupport.ALL_DUNGEONS }) {
     private val byHand = ConcurrentHashMap<String, Boolean>()
 
+    /** The cards' Automatum definitions as the support is worked out from (the device's cache), e.g. for Stats' mana
+     * sources (DRF-115). Blocking. */
+    fun parsed(definitions: Collection<SubmittedDefinition>): Map<String, ParsedCard> = parse(definitions.distinctBy { it.digest })
+
     /** The list's support; throws when the device couldn't read its cards at all (storage closed), so nothing is kept. */
     fun support(definitions: Collection<SubmittedDefinition>): CardListSupport {
         val cards = definitions.distinctBy { it.digest }

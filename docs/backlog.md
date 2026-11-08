@@ -10,13 +10,9 @@ Changes the owner wants but that are not built yet. The feature catalog
 
 ## Build order (owner, 2026-11-05: one implementor at a time, small items batched, full suites after each batch)
 
-2026-11-08, one at a time: (1) built: branch stop, landscape hand, View deck; (2) running: presets, set Redownload, Winchester tables, Stats mana sources; (3) catalog review follow-ups.
+2026-11-08, one at a time: (1) built: branch stop, landscape hand, View deck; (2) built: presets, set Redownload, Winchester tables, Stats mana sources; (3) catalog review follow-ups.
 
 ## Ready to build
-
-Owner notes after beta5 (2026-11-08):
-
-- Stats mana sources (DRF-114, DRF-115): sources come from Arcanum's parsed mana abilities (CR 605) instead of text matching, counting nonland permanents too; rituals and Treasure makers are left out. Each colour row shows a bar, solid part lands and a lighter part other producers, with numbers ("7 lands + 2 others") beside the pips; a card producing several colours (one at a time, or a colour chosen as it enters) counts 1 for each colour it can make; a total line under the rows ("Sources: 17 lands, 3 others").
 
 Catalog review follow-ups (owner, 2026-11-08; the catalog was cleaned on w/catalog-cleanup, these change code):
 

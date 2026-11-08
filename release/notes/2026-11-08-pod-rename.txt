@@ -1,0 +1,1 @@
+fix: Renaming a pod works when you empty the name field first; the field no longer jumps back to the old name

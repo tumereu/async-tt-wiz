@@ -139,7 +139,7 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
         // Problem report YRVZNM: a request left unconfirmed by a connection failure never keeps a pod from opening; opening
         // retries it (with its original request id) and the pod loads after it
         if (state.uncertain) retry()
-        flushSetup()
+        flushSetup(leaving = true)
         setPicker.dismiss()
         presets.dismiss()
         cubePreparation.reset()
@@ -156,7 +156,7 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
         showList()
     }
     fun showList() {
-        flushSetup()
+        flushSetup(leaving = true)
         setPicker.dismiss()
         presets.dismiss()
         cubePreparation.reset()
@@ -265,11 +265,12 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
         if (state.creating != null) cubesPending = true
         refresh()
     }
+    private fun validPodName(name: String) =
+        name.isNotBlank() && DeckValidation.text(name) && name.length <= 120 && name.none { it.isISOControl() }
     fun create() {
         val draft = state.creating ?: return
         if (state.pending > 0 || state.uncertain || state.sourcePreview != null) return
-        if (draft.name.isBlank() || !DeckValidation.text(draft.name) || draft.name.length > 120 ||
-            draft.name.any { it.isISOControl() } || (draft.cubeId == null && draft.setSource == null)) {
+        if (!validPodName(draft.name) || (draft.cubeId == null && draft.setSource == null)) {
             state = state.copy(error = "Enter a name and select a cube or MTG set."); return
         }
         if (draft.settings.validate(2).isNotEmpty()) { state = state.copy(error = "Invalid settings."); return }
@@ -298,11 +299,18 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
         val settings = state.setup?.settings ?: state.detail?.settings ?: return
         editSetup(settings = change(settings))
     }
-    fun flushSetup() {
+    /**
+     * Saves the pending edits. DRF-029 (report NZTPS6): a name the server would refuse, such as the empty field on the way
+     * to typing a new one, stays in the field unsent, since a refusal would throw the edit away; [leaving] the pod sends
+     * the other edits and the last saved name stays.
+     */
+    fun flushSetup(leaving: Boolean = false) {
         val detail = state.detail ?: return
         val edit = state.setup ?: return
         if (state.uncertain || writes.any { it.setupRevision == edit.revision }) return
-        val input = UpdatePod(requestId(), edit.name, edit.cubeId, edit.settings, edit.setSource)
+        val named = validPodName(edit.name)
+        if (!named && !leaving) return
+        val input = UpdatePod(requestId(), edit.name.takeIf { named }, edit.cubeId, edit.settings, edit.setSource)
         val upload by lazy { input.copy(settings = withLibrarian(edit.settings)) }
         enqueue(Write(detail.id, setupRevision = edit.revision, send = { api.update(it, detail.id, upload) }))
     }

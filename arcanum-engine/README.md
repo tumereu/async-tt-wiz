@@ -12,6 +12,7 @@ Engine.view(state): View                         // characteristics after layers
 Engine.explain(state, id): Explanation?          // where one object's characteristics come from, effect by effect
 Engine.explain(state, ids): Map<ObjectId, Explanation> // the same for several objects, one run of the layers
 Engine.options(state, player[, view]): List<Input> // what a player may do now: exact (every input listed is accepted)
+Engine.costMayFall(state): Boolean // whether the waiting cast's cost may still fall with a choice not made yet (CR 601.2f)
 Engine.refusal(state, input[, view]): String?    // why perform refuses a land play, cast or activation at once, without performing it
 Engine.perform(state, input[, view], trace?): Outcome // Outcome(changes, pending); never writes `state`; trace: see Tracing
 Engine.newGame(seats, startingLife): GameState   // a game before it begins; Input.StartGame starts it (CR 103)

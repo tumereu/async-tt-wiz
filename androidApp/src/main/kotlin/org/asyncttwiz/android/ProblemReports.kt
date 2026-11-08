@@ -94,6 +94,7 @@ class ProblemReportSender(private val scope: CoroutineScope,
         scope.launch {
             state = try {
                 val report = withContext(Dispatchers.IO) {
+                    AutomatumReports.logBoard()
                     fitProblemReport(problemReport(description, problem, AppLog.text(), ownLogcat(), automatum = automatum()))
                 }
                 val code = upload(report, token)

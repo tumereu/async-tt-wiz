@@ -48,8 +48,9 @@ import arcanum.engine.view.Subtypes
  *   hand or with a permission, a permission for the hand too, and each alternative cost that applies) and each ability
  *   they may activate, mana abilities included. A cast or activation is listed when it can be begun, everything known at
  *   its start can be done (targets, objects for costs, CR 601.2c, 601.2h), a payment is found for its mana cost as it
- *   stands then (X as 0, cost changes applied, restricted mana that may pay for it, convoke and delve counted), and its
- *   decisions have answers that lead to its end (looked ahead within a bound).
+ *   stands then (X as 0, cost changes applied, restricted mana that may pay for it, convoke and delve counted) or at the
+ *   end of a choice that lowers it (the target or the creature to sacrifice of a reduction, another player's assist,
+ *   CR 601.2f, 702.132a), and its decisions have answers that lead to its end (looked ahead within a bound).
  */
 internal object Options {
     /** [view], when given, is [state]'s view (the caller has it: the layers aren't worked out again for the search). */
@@ -104,14 +105,15 @@ internal object Options {
 
     /**
      * Whether a cast or activation that waits for [pending] in [state] can still be finished (anything else goes on): a
-     * payment is found for its mana cost as it stands (CR 601.2g–h, 605.3a; values not announced yet as 0), and its open
-     * decision has an answer after which it goes on in turn (a later target that depends on an earlier one or on X,
-     * CR 601.2c; a cost the payment can't make, CR 118.3), looking ahead within [budget].
+     * payment is found for its mana cost as it stands (CR 601.2g–h, 605.3a; values not announced yet as 0) unless a choice
+     * still to come may lower it ([Plan.costMayFall]), and its open decision has an answer after which it goes on in turn
+     * (a later target that depends on an earlier one or on X, CR 601.2c; a cost the payment can't make, CR 118.3; the
+     * target that makes it cheap enough, CR 601.2f), looking ahead within [budget].
      */
     private fun goesOn(state: GameState, pending: Pending?, budget: Budget = Budget()): Boolean {
         val c = pending?.continuation as? Continuation.Announcing ?: return true
         if (c.choices.names[Plan.MANUAL] != null || c.choices.paying != null) return true
-        if (!manaFound(Plan(state, c))) return false
+        if (!payableYet(Plan(state, c))) return false
         val d = pending.decision
         if (d is Decision.Random || d is Decision.HostFill || d is Decision.OtherView) return true
         val snap = Snapshot(state)
@@ -125,11 +127,14 @@ internal object Options {
         return budget.left-- <= 0 || goesOn(after, next, budget)
     }
 
-    /** Whether a payment is found for the plan's total mana cost as it stands (§7.8), with its other ways to pay too
-     * (convoke, delve, CR 702.51, 702.66) when mana alone doesn't. */
+    /** Whether a payment is found for the mana the plan's caster pays as it stands (§7.8; what an assisting player pays is
+     * theirs, CR 702.132a), with its other ways to pay too (convoke, delve, CR 702.51, 702.66) when mana alone doesn't. */
     private fun manaFound(plan: Plan): Boolean =
-        !plan.total.hasMana || Mana.suggest(plan.snap, plan.player, plan.total.mana, plan.itemId, plan.manaWays, !plan.cantSpendMana, plan.manaAsAnyColor,
+        !plan.total.hasMana || plan.manaToPay.symbols.isEmpty() || Mana.suggest(plan.snap, plan.player, plan.manaToPay, plan.itemId, plan.manaWays, !plan.cantSpendMana, plan.manaAsAnyColor,
             plan.tappedByCost).isNotEmpty()
+
+    /** [manaFound], or a choice still to come may lower the cost ([Plan.costMayFall]). */
+    private fun payableYet(plan: Plan): Boolean = manaFound(plan) || plan.costMayFall
 
     /**
      * Answers to an X (or another value) announced for a cost (CR 107.3, 601.2b): the least [count] values from the
@@ -145,7 +150,7 @@ internal object Options {
         var n = d.min
         while (n <= most && found.size < count) {
             // A larger value costs no less mana
-            if (!manaFound(Plan(snap.state, c.copy(choices = c.choices.copy(announced = c.choices.announced + (d.name to n)))))) break
+            if (!payableYet(Plan(snap.state, c.copy(choices = c.choices.copy(announced = c.choices.announced + (d.name to n)))))) break
             val answer = Answer.Number(n)
             if (goesOnAfter(snap, pending, answer, budget ?: Budget())) found += answer
             n++
@@ -201,7 +206,9 @@ internal object Options {
         is Decision.ChoosePlayer -> d.options.map { Answer.Player(it) }
         // The least, and a few more ([announced] picks those that work in a cast or activation)
         is Decision.Announce -> (d.min..(d.max ?: Int.MAX_VALUE).coerceAtMost(d.min + NUMBERS - 1)).map { Answer.Number(it) }
-        is Decision.ChooseNumber -> listOfNotNull(d.min, d.max).map { Answer.Number(it) }
+        // In a cast: how much another player assists with (CR 702.132a), what they can pay and the caster the rest may be any amount
+        is Decision.ChooseNumber -> (if (pending.continuation is Continuation.Announcing && d.max != null) (d.min..d.max).toList()
+            else listOfNotNull(d.min, d.max)).map { Answer.Number(it) }
         is Decision.ManaPayment -> if (d.suggestion.isNotEmpty()) listOf(Answer.ManaPayment(d.suggestion)) else emptyList()
         is Decision.Divide -> if (d.among.isNotEmpty()) {
             listOfNotNull(d.suggested.takeIf { it.isNotEmpty() }?.let { Answer.Division(it) },

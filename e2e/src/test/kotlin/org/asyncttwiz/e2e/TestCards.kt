@@ -33,6 +33,10 @@ object TestCards {
     val glint = card("Ember Glint", "Instant", "{0}", "You gain 2 life.")
     /** A free single-target counterspell. */
     val quench = card("Quench Spark", "Instant", "{0}", "Counter target spell.")
+    /** Report KX8GYS: a spell that costs far less on a tapped creature, payable only with that target. */
+    val banishing = card("Ember Banishing", "Sorcery", "{3}{R}", "This spell costs {3} less to cast if it targets a tapped creature.\nExile target creature.")
+    /** A free creature that enters tapped. */
+    val drowsy = card("Drowsy Pup", "Creature — Dog", "{0}", "This creature enters tapped.", "1", "1")
     /** A loop of mandatory actions on its own (CR 104.4b): it enters and is sacrificed, dies and comes back, again and again. */
     val wisp = card("Restless Wisp", "Creature — Spirit", "{0}",
         "When this creature enters, sacrifice a creature.\nWhen this creature dies, return it to the battlefield under its owner's control.",

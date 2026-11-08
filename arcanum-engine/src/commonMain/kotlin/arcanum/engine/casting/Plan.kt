@@ -461,6 +461,28 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
         return increases to reductions
     }
 
+    /**
+     * Whether the mana to pay may still fall with a choice not made yet (CR 601.2f comes after 601.2b-e; report KX8GYS):
+     * a question is still open before the payment, and the spell or ability has a reduction of its own (which may read its
+     * targets or what its costs use: "costs {2} less if it targets a tapped creature", emerge, harmonize), another object's
+     * reduction doesn't apply to it yet ("Equip abilities that target this creature cost {2} less"), or another player may
+     * still assist (CR 702.132a). Which choice does it is for the caller to try.
+     */
+    val costMayFall: Boolean get() {
+        fun lower(m: Mechanic) = m is Mechanic.CostChange && m.change !is CostChange.More
+        // The cheap checks first: most cards a player can't pay have nothing of this, on every look at their hand
+        val any = (assistable > 0 && choices.assist?.amount == null) ||
+            (ability as? Ability.Activated)?.rules?.costChange?.let { it !is CostChange.More } == true ||
+            withGrantedAsSpell().any { inst -> (inst.ability as? Ability.Static)?.mechanics.orEmpty().any(::lower) } ||
+            snap.view.rules.any { applied ->
+                val m = applied.mechanic as? Mechanic.CostChange
+                m != null && lower(m) && !snap.evaluator(applied.controller, self = applied.source, names = applied.names).matches(m.what, itemId)
+            }
+        if (!any) return false
+        val q = next()
+        return q != null && q !is Question.Pay
+    }
+
     /** The objects chosen so far for cost parts that bind them, under their bound names (CR 601.2b, 601.2f: the
      * total cost is worked out after the costs' choices are announced, before they are paid). */
     private fun chosenCostObjects(): Bindings {

@@ -59,6 +59,14 @@ object Engine {
     fun explain(state: GameState, ids: Collection<arcanum.engine.state.ObjectId>): Map<arcanum.engine.state.ObjectId, arcanum.engine.view.Explanation> =
         Layers.explain(state, ids)
 
+    /**
+     * Whether the mana to pay for the cast or activation waiting in [state] may still fall with a choice not made yet
+     * (CR 601.2f comes after 601.2b-e): the target of "costs {2} less if it targets a tapped creature", the creature to
+     * sacrifice for emerge. Its answers may then differ in whether it can be paid: [options] lists those that can.
+     */
+    fun costMayFall(state: GameState): Boolean = (state.pending?.continuation as? arcanum.engine.decision.Continuation.Announcing)
+        ?.let { arcanum.engine.casting.Plan(state, it).costMayFall } == true
+
     /** What [player] may do now: play a land, cast, activate, pass, declare, or answer the open decision. */
     fun options(state: GameState, player: PlayerId): List<Input> = Options.of(state, player)
 

@@ -41,6 +41,12 @@ Card states batch (owner, 2026-11-08; own implementor):
 
 - Audit what the rules state holds and the table doesn't show, then show it (TBL-113, TBL-104, TRN-053). Card states such as Ring-bearer, goaded, monstrous, renowned, suspected, saddled: a word on the chip, a line in Inspect, the hold explanation (TBL-132). Player states such as monarch, initiative, city's blessing, speed, day/night, the Ring's level: chips by the life square, like emblems. Restrictions such as "can't block", "can't attack", "can't be blocked", "doesn't untap": lines in Inspect, adding what Arcanum's public view needs (owner reviews the API addition with the results).
 
+Castable-spell review leftovers (owner, 2026-11-08, report KX8GYS; reductions that depend on a choice are fixed and tested in `CostFallsAfterChoiceOptionsTest`), each to decide or fix (TBL-117, STK-047):
+
+- A mana ability that itself costs mana (Signet, filter land) isn't counted ahead: the card doesn't glow or raise until its mana is floated by tapping (TBL-122).
+- A required choice of two or more tries only the first candidates (`Options.some`), so a spell whose first pair is refused isn't listed though another pair works; with more than 40 candidates the look-ahead stops and lists the cast though none may be payable; a mana search over 3,000 steps gives up (`Mana.search`).
+- "Up to one" and "None" stay possible where the reduction needs a pick (harmonize tapping nothing, with too little mana): the cost can then not be paid and the cast is dropped.
+
 Small, not urgent (owner, 2026-11-08):
 
 - Opponent's modes and X on the Stack, shown and tested (STK-057, STK-018; test and screenshots only, no entry change): screenshots of the other player's modal spell and an X spell, each with the battlefield line and the Stack list, one gallery.tsv entry each; a unit test that the line and the Stack list show the chosen modes (X is already covered by StackLineTest). If the app doesn't show them as the entries say, report it.

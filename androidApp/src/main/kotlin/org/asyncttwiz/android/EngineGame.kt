@@ -199,6 +199,7 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
     private var published = 0L
     private var now = 0L
     private var previous: TableBoard? = null
+    private val gameLog = GameLog(gameId, arcanum.engine.state.PlayerId(me))
     private var lastTransition: Transition? = null
 
     /** The last [Transition] published (the screen applies each once, by its serial). */
@@ -348,6 +349,8 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
             transition(before, play, tip, line, attention, device.move?.value)
         previewed = null
         previous = play
+        // LOB-089 (report KX8GYS): the log says what the player was shown
+        play.engine?.state?.let { state -> gameLog.shown(state).forEach { AppLog.info("game", it) } }
         // HIS-097: a branch's take-back lasts while its playback does (paused by the app's leaving, until the return)
         if (takingBack && (!session.behind || (status !is GameDevice.Status.Playing && status != GameDevice.Status.CatchUp))) takingBack = false
         // HIS-106 (owner 2026-11-08): the stop at the branch point ends with its paused catch-up; what plays on from there
@@ -878,6 +881,11 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
         val drained = device.notes()
         if (device.status != before || device.session.tip != tip || device.request != request || drained.isNotEmpty()) publish(drained)
     }
+
+    /** LOB-089 (report KX8GYS): the board shown and what the player can do on it, into the app log, just before a problem report. */
+    fun logBoard() { worker.call { previous?.engine?.state?.let { state ->
+        AppLog.info("game", gameLog.board(state, GameLog.options(state, device.me)))
+    } } }
 
     /** The device's reproduction bundle (I-D43) for a problem report; null while it can't be made. */
     fun repro(): GameRepro? = worker.call { runCatching {

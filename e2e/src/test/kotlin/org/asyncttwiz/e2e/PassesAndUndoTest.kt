@@ -1,6 +1,8 @@
 package org.asyncttwiz.e2e
 
 import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.isEnabled
 import androidx.compose.ui.test.performClick
 import arcanum.api.TurnStep
 import arcanum.engine.input.Input
@@ -34,6 +36,20 @@ class PassesAndUndoTest : E2e() {
         }
         everyRun.clear()
         return shown
+    }
+
+    /** Alice's Undo dialog is open at the point of her Herald's cast (its Undo enabled: the board there worked out), she
+     * asks, Bob accepts: the server goes back to [target] and both tables show the [herald] back in her hand. */
+    private fun aliceAsksAndBobAccepts(target: String, herald: String) {
+        val confirm = hasTestTag("rewind-confirm") and isEnabled()
+        waitUntil("Alice's undo request dialog at her cast") {
+            alice.shows(confirm) && alice.shows(hasTestTag("undo-point") and hasText("You cast Ember Herald"))
+        }
+        alice.node(confirm).performClick()
+        waitUntil("Bob asked to accept the undo") { bob.shows(hasTestTag("request-accept")) }
+        bob.node(hasTestTag("request-accept")).performClick()
+        waitUntil("the server back at the target") { serverGame()?.headId == target }
+        waitUntil("both tables back") { listOf(alice, bob).all { p -> p.game?.shown?.transition?.undone != null && where(p.shown.board, herald) == "HAND" } }
     }
 
     // HIS-101, HIS-075, HIS-099, HIS-084 (§29.2, owner 2026-11-04): across turns full of passes no timeline
@@ -143,12 +159,7 @@ class PassesAndUndoTest : E2e() {
         // Bob saw it: Alice asks (Undo opens the request), Bob accepts
         val target = assertNotNull(alice.shown.undoTarget)
         alice.tap("Undo")
-        waitUntil("Alice's undo request dialog") { alice.shows(hasTestTag("rewind-confirm")) }
-        alice.node(hasTestTag("rewind-confirm")).performClick()
-        waitUntil("Bob asked to accept the undo") { bob.shows(hasTestTag("request-accept")) }
-        bob.node(hasTestTag("request-accept")).performClick()
-        waitUntil("the server back at the target") { serverGame()?.headId == target }
-        waitUntil("both tables back") { listOf(alice, bob).all { p -> p.game?.shown?.transition?.undone != null && where(p.shown.board, herald) == "HAND" } }
+        aliceAsksAndBobAccepts(target, herald)
 
         for ((player, text) in listOf(alice to "Undid: cast Ember Herald", bob to "${alice.name} undid: cast Ember Herald")) {
             val t = assertNotNull(player.shown.transition)
@@ -163,6 +174,25 @@ class PassesAndUndoTest : E2e() {
             assertTrue(now != "STACK" && now != "BATTLEFIELD", "${player.name}: the Herald back in Alice's hand: $now")
         }
         assertEquals("HAND", where(alice.shown.board, herald))
+    }
+
+    // HIS-084, HIS-099, SYS-025 (full suites 2026-11-08): Alice's phone hasn't heard yet that Bob saw her cast when she
+    // taps Undo, so it shows the undo at once; the server finds it needs Bob's approval, her game loads again and the Undo
+    // dialog opens at the point before her cast (never at the newest point), its Undo waiting until that point's board is
+    // in; she asks, Bob accepts and the server goes back to before her cast
+    @Test fun anUndoShownAtOnceThatNeedsApprovalOpensTheDialogAtItsPoint() {
+        val cast = aliceCastsAHeraldWhileBobIsAway(endTurn = false)
+        val herald = cast.herald
+        // What the server tells Alice waits: she doesn't hear that Bob saw her cast
+        alice.link.holdIncoming()
+        bobCatchesUp()
+        val target = assertNotNull(alice.shown.undoTarget)
+        assertEquals(cast.cast.parentId, target)
+        alice.tap("Undo")
+        waitUntil("the undo shown on her table at once") { where(alice.shown.board, herald) == "HAND" }
+        assertTrue(serverGame()?.headId != target, "not on the server yet")
+        alice.link.releaseIncoming()
+        aliceAsksAndBobAccepts(target, herald)
     }
 
     // HIS-102 (§29.2, smoke 2026-11-04): with both apps open, Alice casts an Ember Herald and Bob's pass lets it resolve:

@@ -913,9 +913,15 @@ private fun EngineRewindDialog(routes: EngineTableRoutes, choice: EngineTableRou
     val published = game.shown ?: return
     val timeline = game.timeline.events(game, names)
     val points = remember(published.version, timeline) { undoPoints(published, timeline) }
-    // The point opened at: the one just after the default target (HIS-084), else the newest
-    var chosen by remember(choice) { mutableStateOf(points.lastOrNull { it.target == choice.target }?.event?.id) }
-    val point = points.firstOrNull { it.event.id == chosen } ?: points.lastOrNull()
+    // The point opened at: the one just after the default target (HIS-084), else the newest. Until the player chooses
+    // one it follows the boards published: a target not among the points yet (the game loading again after an undo shown
+    // at once that the server found needs approval, SYS-025; or in older history) is sought, its older history asked
+    // for, and Undo waits until it is chosen
+    var chosen by remember(choice) { mutableStateOf<String?>(null) }
+    val opening = points.lastOrNull { it.target == choice.target }?.event?.id
+    val seeking = chosen == null && opening == null && choice.target != null && (published.needsReload || !published.olderComplete)
+    LaunchedEffect(seeking, points.size, published.needsReload) { if (seeking && !published.needsReload) game.loadOlder() }
+    val point = points.firstOrNull { it.event.id == (chosen ?: opening) } ?: points.lastOrNull()
     val target = point?.target
     var message by remember(choice) { mutableStateOf("") }
     // HIS-099: the board there and whether the other player must approve, worked out once the choice rests (at once when
@@ -947,7 +953,7 @@ private fun EngineRewindDialog(routes: EngineTableRoutes, choice: EngineTableRou
             }
             routes.rewind = null
             routes.pump()
-        }, Modifier.testTag("rewind-confirm"), enabled = target != null && current != null,
+        }, Modifier.testTag("rewind-confirm"), enabled = target != null && current != null && !seeking && !published.needsReload,
             icon = if (needsRequest == true) "send" else "withdraw")
     }) {
         if (point == null) {

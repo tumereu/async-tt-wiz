@@ -11,14 +11,19 @@ import kotlinx.serialization.json.Json
     GAME_REMOVAL, POD_REMOVAL }
 /** gameId is the pod ID for POD_* kinds; identity is the draft attempt for
  * POD_YOUR_PICK / POD_DRAFT_COMPLETE. The existing game hint shape is unchanged. [resourceName]: the pod's name for
- * POD_* kinds, the game's for GAME_REMOVAL. */
+ * POD_* kinds, the game's for GAME_REMOVAL and INVITATION (a pod challenge's: its pod's). */
 @OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
 @Serializable data class ActivityHint(val activityId: String, val kind: ActivityKind, val gameId: String,
     val identity: String, val authorId: String? = null, val notice: GameNoticeContent? = null, val resourceName: String? = null,
     /** POD_* kinds (I-D57): the set or cube the pod drafts. Omitted when unknown. */
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val sourceName: String? = null,
-    /** GAME_REMOVAL: the recipient's opponent in the game. Omitted otherwise. */
-    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val opponentName: String? = null)
+    /** GAME_REMOVAL: the recipient's opponent in the game; INVITATION and POD_INVITATION: who invited them. Omitted otherwise. */
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val opponentName: String? = null,
+    /** INVITATION of a pod challenge (DRF-123): the pod. Omitted otherwise. */
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val podId: String? = null,
+    /** INVITATION of a pod challenge sent while the recipient is still building: it can be accepted once they submit
+     * their deck (LOB-025). Omitted when false. */
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val held: Boolean = false)
 /** Authenticated projection only; never included in the FCM data hint. [reminder]: the one-off
  * "opponent is waiting" notice after their moves went unanswered (omitted when false). [gameOver]: the opponent
  * accepted the recipient's result suggestion, which was this outcome from the recipient's (its author's) side

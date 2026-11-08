@@ -73,7 +73,7 @@ class MainActivity : ComponentActivity() {
     private fun consumeActivityIntent(intent: android.content.Intent?) {
         if (intent?.action != "org.asyncttwiz.ACTIVITY") return
         val route = ActivityRoute.parse(intent.getStringExtra("account"), intent.getStringExtra("binding"),
-            intent.getStringExtra("kind"), intent.getStringExtra("game"), intent.getStringExtra("identity"))
+            intent.getStringExtra("kind"), intent.getStringExtra("game"), intent.getStringExtra("identity"), intent.getStringExtra("pod"))
         setIntent(android.content.Intent(android.content.Intent.ACTION_MAIN).setClass(this, MainActivity::class.java))
         notificationRoute = route
     }

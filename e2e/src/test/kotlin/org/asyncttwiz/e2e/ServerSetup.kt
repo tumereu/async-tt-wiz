@@ -219,8 +219,18 @@ object ServerSetup {
      * and submits; [a] challenges [b], who accepts. Returns the game, in its lobby (decks prepared from the pod decks).
      */
     fun podGame(a: TestAccount, b: TestAccount, name: String, mainPlains: Int = 40): GameSummary = runBlocking {
+        val pod = draftedPod(a, b, "$name pod", mainPlains)
+        for (who in listOf(a, b)) submitPodDeck(who, pod)
+        val invitation = LobbyApi(origin).use { it.challengeFromPod(a.token, pod, ChallengeFromPod(UUID.randomUUID().toString(), b.id, name, basics)) }
+        Socket(b).use { recipient -> recipient.execute(invitation, recipient.open(invitation), GameAction.AcceptInvitation) }
+        invitation
+    }
+
+    /** A pod [name] of [a] and [b] whose draft has finished (each picked the first card of every pack and has [mainPlains]
+     * Plains in Main), neither deck submitted yet ([submitPodDeck]). */
+    fun draftedPod(a: TestAccount, b: TestAccount, name: String, mainPlains: Int = 40): String = runBlocking {
         fun id() = UUID.randomUUID().toString()
-        val pod = draftingPod(a, b, "$name pod")
+        val pod = draftingPod(a, b, name)
         // As the app does, the basics' card data goes up before the pod deck and the challenge that name them
         DeckApi(origin).use { api -> for (who in listOf(a, b)) api.submit(who.token, SubmitDefinitions(id(), basics)) }
         org.asyncttwiz.android.PodApi(origin).use { api ->
@@ -236,12 +246,32 @@ object ServerSetup {
             for (who in listOf(a, b)) {
                 val attempt = api.detail(who.token, pod).draftAttemptId!!
                 api.basics(who.token, pod, SetPodBasics(id(), attempt, PodDeckBasics(plains = mainPlains)))
-                api.submit(who.token, pod, SubmitPodDeck(id(), attempt, basics))
             }
         }
-        val invitation = LobbyApi(origin).use { it.challengeFromPod(a.token, pod, ChallengeFromPod(id(), b.id, name, basics)) }
-        Socket(b).use { recipient -> recipient.execute(invitation, recipient.open(invitation), GameAction.AcceptInvitation) }
-        invitation
+        pod
+    }
+
+    /** [account] submits their deck of [pod] ([draftedPod]). */
+    fun submitPodDeck(account: TestAccount, pod: String) = runBlocking {
+        org.asyncttwiz.android.PodApi(origin).use { api ->
+            api.submit(account.token, pod, SubmitPodDeck(UUID.randomUUID().toString(), api.detail(account.token, pod).draftAttemptId!!, basics))
+        }
+    }
+
+    /** [a] challenges [b] to a game [name] of [pod] ([a]'s deck submitted). */
+    fun challenge(a: TestAccount, b: TestAccount, pod: String, name: String): GameSummary =
+        LobbyApi(origin).use { runBlocking { it.challengeFromPod(a.token, pod, ChallengeFromPod(UUID.randomUUID().toString(), b.id, name, basics)) } }
+
+    /** [account]'s invitation notices of game [gameId] as the server recorded them (DRF-137): one per notification. Read
+     * from the database (see [gameNotice]). */
+    fun invitationNotices(account: TestAccount, gameId: String): Int =
+        E2eStack.query("SELECT count(*) FROM account_activity WHERE account_id = '${account.id}' AND game_id = '$gameId' " +
+            "AND kind = 'INVITATION'").single().toInt()
+
+    /** [account]'s current invitation notice of game [gameId] as their phone's notification gets it (the activity feed). */
+    fun invitationNotice(account: TestAccount, gameId: String): ActivityHint? = runBlocking {
+        org.asyncttwiz.android.ActivityApi(origin).use { api -> api.page(account.token, "0").entries }
+            .lastOrNull { it.kind == ActivityKind.INVITATION && it.gameId == gameId }
     }
 
     /** Both players of [game] (in its lobby, decks prepared) Ready: the server starts it. Returns the started game. */

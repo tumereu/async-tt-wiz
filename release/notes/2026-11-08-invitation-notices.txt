@@ -1,0 +1,1 @@
+mod: Invitation notifications say who invited you and to which game or pod; a pod challenge sent while you are still building your deck tells you at once, and submitting your deck no longer sends a second one.

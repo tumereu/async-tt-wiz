@@ -14,10 +14,6 @@ Changes the owner wants but that are not built yet. The feature catalog
 
 ## Ready to build
 
-Invitation notifications (owner, 2026-11-08, for beta7):
-
-- Challenge and invitation notices (DRF-137, LOB-072, LOB-077, DRF-123, LOB-025): a pod challenge sent while the recipient is still building notifies at once (Invitations channel) "<pod>: <name> challenged you · submit your deck to accept", opening the pod's Games tab; when they then submit their deck the held challenge becomes acceptable with no notification (today releaseChallenges in PodService records one). A challenge to someone who already submitted notifies as now. Clearer texts: "New invitation" becomes "<name> invited you · <game name>" (a pod challenge: "<pod>: <name> challenged you"), "New pod invitation" becomes "<name> invited you to <pod>".
-
 Small, not urgent (owner, 2026-11-08):
 
 - Opponent's modes and X on the Stack, shown and tested (STK-057, STK-018; test and screenshots only, no entry change): screenshots of the other player's modal spell and an X spell, each with the battlefield line and the Stack list, one gallery.tsv entry each; a unit test that the line and the Stack list show the chosen modes (X is already covered by StackLineTest). If the app doesn't show them as the entries say, report it.

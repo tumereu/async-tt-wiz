@@ -87,7 +87,9 @@ class ActivityPublicLifecycleTest {
                 assertEquals(200, page.statusCode())
                 val hint = json.decodeFromString<ActivityPage>(page.body()).entries.single()
                 assertEquals(game.id, hint.gameId); assertEquals(game.invitationId, hint.identity)
-                assertFalse(page.body().contains("Private")); assertFalse(page.body().contains("@example"))
+                // LOB-072: the recipient's own feed names the inviter and the game; never an email
+                assertEquals("Private game name", hint.resourceName); assertEquals("Inviter", hint.opponentName)
+                assertFalse(page.body().contains("@example"))
                 assertFalse(page.body().contains(recipient.token))
                 val own = request(settings.publicPort(), "GET", "/activity?after=0", inviter.token)
                 assertTrue(json.decodeFromString<ActivityPage>(own.body()).entries.isEmpty())

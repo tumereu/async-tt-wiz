@@ -267,6 +267,22 @@ class PodControllerTest {
         assertEquals(PodTab.GAMES, f.controller.state.tab)
     }
 
+    // DRF-137: a challenge that waits for your deck opens its pod in the Games tab, though you are still building; a tab the
+    // pod's phase hasn't got gives the usual one
+    @Test fun openingWithATabShowsItOnceThePodLoads() {
+        Fixture(PodPhase.DRAFTED).use { f ->
+            f.controller.open(id, PodTab.GAMES); f.deliver()
+            assertFalse(f.controller.state.detail!!.submitted)
+            assertEquals(PodTab.GAMES, f.controller.state.tab)
+            f.controller.tab(PodTab.BUILD); f.controller.refresh(); f.deliver()
+            assertEquals(PodTab.BUILD, f.controller.state.tab, "asked once, at opening")
+        }
+        Fixture(PodPhase.DRAFTING).use { f ->
+            f.controller.open(id, PodTab.GAMES); f.deliver()
+            assertEquals(PodTab.DRAFT, f.controller.state.tab)
+        }
+    }
+
     @Test fun submissionCarriesBasicsForTheDraftDeckResolvedOnceAndWithoutThemWhenUnavailable() {
         var resolutions = 0
         Fixture(PodPhase.DRAFTED, basics = { resolutions++; listOf(definition) }).use { f ->

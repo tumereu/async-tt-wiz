@@ -789,7 +789,9 @@ class PodHttpTest {
         f.send(f.a, "PUT", "/v1/pods/$pod", UpdatePod(id(), settings = DraftSettings(sideboardLimit = -1)), 400)
         f.send(f.a, "POST", "/v1/pods/$pod/invitations", InviteToPod(id(), f.b.account.accountId))
         assertEquals(pod, f.list(f.b).invitations.single().podId)
-        assertTrue(f.activity(f.b).entries.any { it.kind == ActivityKind.POD_INVITATION })
+        // DRF-137: the notice names who invited and the pod
+        val invited = f.activity(f.b).entries.single { it.kind == ActivityKind.POD_INVITATION }
+        assertEquals(f.a.account.username, invited.opponentName); assertEquals(f.get(f.a, pod).name, invited.resourceName)
         f.send(f.b, "POST", "/v1/pods/$pod/decline", PodRequest(id()))
         assertTrue(f.list(f.b).invitations.isEmpty())
         f.join(pod)

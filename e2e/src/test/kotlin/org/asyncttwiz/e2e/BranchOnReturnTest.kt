@@ -120,7 +120,7 @@ class BranchOnReturnTest : E2e() {
      * blocks. Alice's assumed blocks and which events are Bob's no blocks.
      */
     private fun bobBlocksDifferentlyWhileAliceIsAway(): Pair<GameEvent, (GameEvent) -> Boolean> {
-        startGame(TestDeck.thirds(TestCards.cub), TestDeck.thirds(TestCards.herald), aliceSettings = PlaySettings(alwaysAssumeResolves = true),
+        startGame(TestDeck.thirds(TestCards.cub), TestDeck.thirds(TestCards.herald), aliceSettings = PlaySettings(assume = org.asyncttwiz.protocol.game.AssumeResolves.Always),
             deal = { a, b -> "Mountain" in hand(a) && "Ember Cub" in hand(a) && "Mountain" in hand(b) && "Ember Herald" in hand(b) })
         bothOpen()
         bothKeep(bobAway = false)

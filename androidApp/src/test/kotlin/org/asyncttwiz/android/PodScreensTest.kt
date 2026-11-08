@@ -474,10 +474,11 @@ class PodScreensTest {
         assertEquals("Waiting for Bob, Carol", podWaitingText(both, alice.accountId))
         val nobody = booster.copy(members = booster.members.map { it.copy(packsWaiting = 0) })
         assertEquals("Waiting for other players", podWaitingText(nobody, alice.accountId))
-        val board = GridPublicBoard("grid", 3, List(9) { null }, bob.accountId)
+        val board = GridPublicBoard("grid", 3, List(9) { null }, bob.accountId, 2, false,
+            List(9) { org.asyncttwiz.protocol.GridPublicSlot(null) })
         val grid = booster.copy(settings = DraftSettings.grid(), members = listOf(PodMember(alice), PodMember(bob, packsWaiting = 1)),
             grid = org.asyncttwiz.protocol.PodGridView(GridPublicView(2, 6, false, listOf(alice.accountId, bob.accountId), listOf(board), emptyList()),
-                GridPrivateView(alice.accountId, emptyList(), null)))
+                GridPrivateView(alice.accountId, emptyList(), null, round = 2, rounds = 6)))
         assertEquals("Waiting for Bob · Round 2 of 6", podWaitingText(grid, alice.accountId))
         // Members open grid rounds early: the caller's own round wins, and the server's counts say who still picks.
         val early = grid.copy(grid = grid.grid!!.copy(mine = GridPrivateView(alice.accountId, emptyList(), null, round = 3, rounds = 6)))

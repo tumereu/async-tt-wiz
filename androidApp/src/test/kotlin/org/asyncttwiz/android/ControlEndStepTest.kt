@@ -41,7 +41,7 @@ class ControlEndStepTest {
      * the step arrow's taps (To combat, Next, No attack: Control stops on the way, CMB-047). */
     private fun toMain2(mode: ResponseMode) {
         kit.opening()
-        kit.alice.settings(kit.alice.shown!!.settings.copy(mode = mode, alwaysAssumeResolves = true))
+        kit.alice.settings(kit.alice.shown!!.settings.copy(mode = mode, assume = org.asyncttwiz.protocol.game.AssumeResolves.Always))
         kit.scenario.online[kit.f.b] = false
         kit.settle(bobActs = false)
         assertEquals(mode == ResponseMode.FullControl, kit.routes.control())

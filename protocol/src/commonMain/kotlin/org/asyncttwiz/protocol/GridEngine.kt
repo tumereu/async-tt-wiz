@@ -7,8 +7,7 @@ import kotlinx.serialization.Serializable
  *
  * Every grid is dealt at the start with its nine cards and, when grids refill, its own refill cards ([GridBoard.reserve]),
  * so no grid's cards depend on when anyone picks. Scheduling is the shared [DraftSchedule]: [queues], [held] and
- * [opened] work exactly as in [DraftState]. Snapshots from before per-member opening (no [opened]) dealt grids one round
- * at a time from [supply]; every engine call first deals their remaining grids (see [GridEngine.resume]).
+ * [opened] work exactly as in [DraftState].
  */
 @Serializable
 data class GridState(
@@ -73,14 +72,14 @@ data class GridPickResult(val state: GridState? = null, val reason: GridPickReje
     /** The live board; all empty once finished. */
     val positions: List<DraftCopy?>,
     val currentPlayer: String?,
-    /** One-based round of the grid; 0 from older servers. */
-    val round: Int = 0,
-    val finished: Boolean = false,
+    /** One-based round of the grid. */
+    val round: Int,
+    val finished: Boolean,
     /**
      * Nine positions as dealt, cards staying in place: the latest card placed at each position (a refill card replaces
-     * the first selection's card), who picked it, and whether it is a refill. Empty from older servers.
+     * the first selection's card), who picked it, and whether it is a refill.
      */
-    val slots: List<GridPublicSlot> = emptyList(),
+    val slots: List<GridPublicSlot>,
 )
 /** A finished grid's unpicked slot cards were discarded. */
 @Serializable data class GridPublicSlot(val copy: DraftCopy?, val pickedBy: String? = null, val refill: Boolean = false)
@@ -110,9 +109,9 @@ data class GridPickResult(val state: GridState? = null, val reason: GridPickReje
     val headGridId: String?,
     /** Grids the caller can pick from, head first. */
     val queue: List<String> = emptyList(),
-    /** The caller's own one-based round (members open rounds early) and the round count; 0 from older servers. */
-    val round: Int = 0,
-    val rounds: Int = 0,
+    /** The caller's own one-based round (members open rounds early) and the round count. */
+    val round: Int,
+    val rounds: Int,
 )
 
 /** Row-major board positions of a line, in position order; empty for an index outside 0..2. */
@@ -129,13 +128,13 @@ data class GridBoardStage(val slots: List<GridPublicSlot>, val picks: List<GridP
  * first selection's line was refilled, the board before the refill (as dealt, with only that selection made) and then
  * the board after it (refill cards in place, with the later selections). Only public data is used: the cards the first
  * selection kept and cards that stayed in place were seen by everyone who sees the grid, and refill cards appear only
- * on the board after the refill, which was live by then. A board without slots (older servers) stays one board.
+ * on the board after the refill, which was live by then.
  */
 fun gridBoardStages(board: GridPublicBoard, log: List<GridPublicPickLog>): List<GridBoardStage> {
     val entries = log.filter { it.gridId == board.id }
     val first = entries.firstOrNull()
     val line = first?.line
-    if (board.slots.size != 9 || board.slots.none { it.refill } || line == null)
+    if (board.slots.none { it.refill } || line == null)
         return listOf(GridBoardStage(board.slots, entries.filter { it.line != null }))
     // The first selection met a full board, so it kept its line's cards in position order.
     val taken = line.positions()
@@ -232,7 +231,7 @@ object GridEngine {
     /** [supply] is drawn from its end. Every grid is dealt now, so its cards never depend on pick timing. */
     private fun initial(settings: DraftSettings, seating: List<String>, copies: List<DraftCopy>, supply: List<String>): GridState {
         val remaining = supply.toMutableList()
-        val grids = deal(settings, seating, remaining, 0, legacyTurns = false)
+        val grids = deal(settings, seating, remaining)
         return Working(GridState(settings, seating, copies, remaining.toList(), grids, -1,
             seating.associateWith { emptyList() }, queues = seating.associateWith { emptyList() },
             opened = seating.associateWith { -1 })).settle()
@@ -248,58 +247,35 @@ object GridEngine {
         4 to listOf(listOf(0, 1, 2, 3), listOf(1, 2, 3, 0), listOf(2, 3, 0, 1), listOf(3, 0, 1, 2),
             listOf(0, 3, 2, 1), listOf(3, 2, 1, 0), listOf(2, 1, 0, 3), listOf(1, 0, 3, 2)))
 
-    /** Turns of the grid at zero-based [index]. [legacy]: plain rotation, for grids of snapshots dealt before Draftmancer's order. */
-    private fun turns(settings: DraftSettings, seating: List<String>, index: Int, legacy: Boolean): List<String> {
+    /** Turns of the grid at zero-based [index]. */
+    private fun turns(settings: DraftSettings, seating: List<String>, index: Int): List<String> {
         val orders = turnOrders[seating.size]
-        if (legacy || settings.twoPicks || orders == null)
+        if (settings.twoPicks || orders == null)
             return List(if (settings.twoPicks) 4 else seating.size) { turn -> seating[(index + turn) % seating.size] }
         return orders[index % orders.size].map { seating[it] }
     }
 
-    /** Grids from index [from] on, each with nine cards and then its refill cards, drawn from the end of [supply]. */
-    private fun deal(settings: DraftSettings, seating: List<String>, supply: MutableList<String>, from: Int,
-                     legacyTurns: Boolean): List<GridBoard> =
-        (from until settings.grids).map { number ->
+    /** Every grid, each with nine cards and then its refill cards, drawn from the end of [supply]. */
+    private fun deal(settings: DraftSettings, seating: List<String>, supply: MutableList<String>): List<GridBoard> =
+        (0 until settings.grids).map { number ->
             fun draw() = supply.removeAt(supply.lastIndex)
-            val turns = turns(settings, seating, number, legacyTurns)
+            val turns = turns(settings, seating, number)
             val positions = List(9) { draw() }
             val reserve = if (settings.gridRefills(seating.size)) List(3) { draw() } else emptyList()
             GridBoard("grid-$number", number + 1, turns, positions, reserve = reserve)
         }
 
-    /**
-     * Brings a snapshot from before per-member opening to the current model (identity for current snapshots): grids
-     * still waiting for their first selection get their refill cards, every remaining grid is dealt from the supply,
-     * each member's queue is their turns in the open grids (oldest first, the old head rule), and members whose picks of
-     * the round are done open the next round at once.
-     */
-    fun resume(state: GridState): GridState {
-        if (state.opened.isNotEmpty() || state.finished) return state
-        val supply = state.supply.toMutableList()
-        val refills = state.settings.gridRefills(state.seating.size)
-        val existing = state.grids.map { grid ->
-            if (refills && !grid.finished && grid.selection == 0 && grid.reserve.isEmpty())
-                grid.copy(reserve = List(3) { supply.removeAt(supply.lastIndex) }) else grid
-        }
-        // Old pods keep the turn order they started with.
-        val grids = existing + deal(state.settings, state.seating, supply, existing.size, legacyTurns = true)
-        return Working(state.copy(supply = supply.toList(), grids = grids,
-            queues = state.seating.associateWith { player -> existing.filter { !it.finished && it.currentPlayer == player }.map { it.id } },
-            held = emptyMap(), opened = state.seating.associateWith { state.round })).settle()
-    }
-
     fun pick(state: GridState, pick: GridPick): GridPickResult {
         fun reject(reason: GridPickRejection) = GridPickResult(reason = reason)
         if (state.finished) return reject(GridPickRejection.DRAFT_FINISHED)
-        val current = resume(state)
-        val grid = current.grids.firstOrNull { it.id == pick.gridId }
-        val queue = current.queues[pick.player]
+        val grid = state.grids.firstOrNull { it.id == pick.gridId }
+        val queue = state.queues[pick.player]
         if (grid == null || queue == null || grid.id !in queue) return reject(GridPickRejection.NOT_YOUR_TURN)
         if (queue.first() != grid.id) return reject(GridPickRejection.NOT_HEAD_GRID)
         if (pick.line.index !in 0..2) return reject(GridPickRejection.INVALID_LINE)
         val positions = linePositions(pick.line)
         if (positions.all { grid.positions[it] == null }) return reject(GridPickRejection.EMPTY_LINE)
-        return GridPickResult(state = Working(current).applyPick(pick, positions))
+        return GridPickResult(state = Working(state).applyPick(pick, positions))
     }
 
     /**
@@ -310,22 +286,20 @@ object GridEngine {
      * less. Positive exactly when the queue is not empty; 0 for non-members and finished drafts.
      */
     fun consecutivePicks(state: GridState, player: String): Int {
-        val current = resume(state)
-        if (current.finished || current.queues[player].isNullOrEmpty()) return 0
-        return Working(current).soloPicks(player)
+        if (state.finished || state.queues[player].isNullOrEmpty()) return 0
+        return Working(state).soloPicks(player)
     }
 
     /** Grids [player] can pick from now, head first. */
-    fun queue(state: GridState, player: String): List<String> = resume(state).queues[player].orEmpty()
+    fun queue(state: GridState, player: String): List<String> = state.queues[player].orEmpty()
 
     fun privateView(state: GridState, player: String): GridPrivateView {
         require(player in state.seating) { "Not a draft member" }
-        val current = resume(state)
-        val copies = current.copies.associateBy { it.id }
-        val queue = current.queues[player].orEmpty()
-        val rounds = current.settings.rounds
-        return GridPrivateView(player, current.pools.getValue(player).map(copies::getValue), queue.firstOrNull(), queue,
-            if (current.finished) rounds else (current.openedRound(player) + 1).coerceAtMost(rounds), rounds)
+        val copies = state.copies.associateBy { it.id }
+        val queue = state.queues[player].orEmpty()
+        val rounds = state.settings.rounds
+        return GridPrivateView(player, state.pools.getValue(player).map(copies::getValue), queue.firstOrNull(), queue,
+            if (state.finished) rounds else (state.openedRound(player) + 1).coerceAtMost(rounds), rounds)
     }
 
     /**
@@ -333,24 +307,23 @@ object GridEngine {
      * and the grid's opener have opened. Without a viewer, every opened grid.
      */
     fun publicView(state: GridState, viewer: String? = null): GridPublicView {
-        val current = resume(state)
-        val copies = current.copies.associateBy { it.id }
-        val refills = current.settings.gridRefills(current.seating.size)
-        val visible = current.grids.filter { grid ->
-            val round = current.roundOf(grid)
-            round <= current.openedRound(grid.turns.first()) && (viewer == null || round <= current.openedRound(viewer))
+        val copies = state.copies.associateBy { it.id }
+        val refills = state.settings.gridRefills(state.seating.size)
+        val visible = state.grids.filter { grid ->
+            val round = state.roundOf(grid)
+            round <= state.openedRound(grid.turns.first()) && (viewer == null || round <= state.openedRound(viewer))
         }
         val ids = visible.map { it.id }.toSet()
-        val log = current.log.filter { it.gridId in ids }
+        val log = state.log.filter { it.gridId in ids }
         val entries = log.groupBy { it.gridId }
         fun board(grid: GridBoard) = GridPublicBoard(grid.id, grid.number, grid.positions.map { it?.let(copies::getValue) },
-            grid.currentPlayer, current.roundOf(grid) + 1, grid.finished,
+            grid.currentPlayer, state.roundOf(grid) + 1, grid.finished,
             slots(grid, entries[grid.id].orEmpty(), refills).map { (id, player, refill) ->
                 GridPublicSlot(id?.let(copies::getValue), player, refill)
             })
         val lastPick = log.withIndex().associate { it.value.gridId to it.index }
-        return GridPublicView(if (current.finished) current.settings.rounds else current.round + 1,
-            current.settings.rounds, current.finished, current.seating,
+        return GridPublicView(if (state.finished) state.settings.rounds else state.round + 1,
+            state.settings.rounds, state.finished, state.seating,
             visible.filterNot { it.finished }.map(::board),
             log.map { event -> GridPublicPickLog(event.player, event.gridId, event.line,
                 event.kept.map(copies::getValue), event.discarded.map(copies::getValue)) },

@@ -18,7 +18,7 @@ class ReturnPausesTest : E2e() {
     // reloaded): his table waits paused with the centre text. He taps it, leaves in the middle of the playback: it pauses
     // at once; back again, still paused until the centre text
     @Test fun returningToAnOpenGameStartsTheCatchUpPausedAndLeavingPauses() {
-        startGame(TestDeck.thirds(TestCards.herald), TestDeck.thirds(TestCards.herald), aliceSettings = PlaySettings(alwaysAssumeResolves = true),
+        startGame(TestDeck.thirds(TestCards.herald), TestDeck.thirds(TestCards.herald), aliceSettings = PlaySettings(assume = org.asyncttwiz.protocol.game.AssumeResolves.Always),
             deal = { a, _ -> "Mountain" in hand(a) && "Ember Herald" in hand(a) })
         bothOpen()
         bothKeep(bobAway = false)

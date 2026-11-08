@@ -2,14 +2,16 @@ package org.asyncttwiz.android
 
 import org.asyncttwiz.protocol.*
 
-/** Opaque intent data, retained only until the current account can authorize the target. */
+/** Opaque intent data, retained only until the current account can authorize the target. [heldInPod]: a pod challenge
+ * that waits for the recipient's deck, opened in that pod's Games tab (DRF-137). */
 data class ActivityRoute(val accountId: String, val binding: String, val kind: ActivityKind,
-    val gameId: String, val identity: String) {
+    val gameId: String, val identity: String, val heldInPod: String? = null) {
     companion object {
-        fun parse(account: String?, binding: String?, kind: String?, game: String?, identity: String?): ActivityRoute? {
+        fun parse(account: String?, binding: String?, kind: String?, game: String?, identity: String?, pod: String? = null): ActivityRoute? {
             val type = ActivityKind.entries.find { it.name == kind } ?: return null
             if (listOf(account, binding, game, identity).any { it == null || !DeckValidation.uuid(it) }) return null
-            return ActivityRoute(account!!, binding!!, type, game!!, identity!!)
+            if (pod != null && (type != ActivityKind.INVITATION || !DeckValidation.uuid(pod))) return null
+            return ActivityRoute(account!!, binding!!, type, game!!, identity!!, pod)
         }
     }
 }
@@ -42,6 +44,22 @@ internal fun ActivityHint.notificationKey(): String = when {
     kind == ActivityKind.INVITATION -> "invite:$identity"
     kind == ActivityKind.POD_INVITATION -> "pod-invite:$gameId"
     else -> "pod:$gameId"
+}
+
+/**
+ * DRF-137, LOB-072: an invitation's notification: "<name> invited you · <game>"; a pod challenge "<pod>: <name> challenged
+ * you", while it waits for your deck with " · submit your deck to accept"; a pod invitation "<name> invited you to <pod>"
+ * ([podName]: the pod's name when the hint has none). Without the inviter's name, "New invitation" or "New pod invitation".
+ */
+internal fun invitationText(hint: ActivityHint, podName: String? = null): String {
+    val name = hint.opponentName
+    return when {
+        hint.kind == ActivityKind.POD_INVITATION -> name?.let { who -> (hint.resourceName ?: podName)?.let { "$who invited you to $it" } }
+            ?: podActivityText(ActivityKind.POD_INVITATION)
+        name == null -> "New invitation"
+        hint.podId != null -> "${hint.resourceName ?: "Pod"}: $name challenged you" + if (hint.held) " · submit your deck to accept" else ""
+        else -> "$name invited you" + hint.resourceName?.let { " · $it" }.orEmpty()
+    }
 }
 
 internal fun podActivityText(kind: ActivityKind, name: String? = null): String = when (kind) {

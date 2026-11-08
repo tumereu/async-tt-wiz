@@ -28,7 +28,7 @@ class InspectChangesTest : E2e() {
     /** Alice's Hound, pumped once, with her Ember Blade on it, in her Main 1. */
     private fun aliceEquipsHerPumpedHound() {
         startGame(TestDeck("Blades", listOf(TestCards.mountain to 14, TestCards.ashHound to 13, TestCards.blade to 13)),
-            aliceSettings = PlaySettings(alwaysAssumeResolves = true),
+            aliceSettings = PlaySettings(assume = org.asyncttwiz.protocol.game.AssumeResolves.Always),
             deal = { a, _ -> listOf("Mountain", "Ash Hound", "Ember Blade").all { it in hand(a) } })
         bothOpen()
         bothKeep(bobAway = false)

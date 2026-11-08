@@ -79,7 +79,7 @@ class StoredDataContainmentTest {
             owner.execute(GameAction.SetStarter(StarterChoice(a.account.accountId)))
             owner.execute(GameAction.Ready); recipient.execute(GameAction.Ready)
             val play = games.head(a, game.id).play!!.id
-            owner.execute(GameAction.EngineSettings(org.asyncttwiz.protocol.game.PlaySettings(alwaysAssumeResolves = true)), play)
+            owner.execute(GameAction.EngineSettings(org.asyncttwiz.protocol.game.PlaySettings(assume = org.asyncttwiz.protocol.game.AssumeResolves.Always)), play)
             return game to owner
         }
         val (good, goodOwner) = started("Readable game"); val (bad, _) = started("Unreadable game")

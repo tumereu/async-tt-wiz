@@ -575,9 +575,8 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
                 val next = UUID.randomUUID()
                 sql.insertInto(INVITATION).set(INVITATION.ID, next).set(INVITATION.GAME_ID, game.id).execute()
                 sql.update(GAME).set(GAME.CURRENT_INVITATION, next).where(GAME.ID.eq(game.id)).execute()
-                // A still-held challenge notifies when the recipient's deck releases it.
-                if (game.podInvitationHeld != true) org.asyncttwiz.server.activity.ActivityService.record(sql, game.recipientId!!,
-                    ActivityKind.INVITATION, game.id!!, next, account)
+                // DRF-137: also a still-held challenge notifies at once
+                org.asyncttwiz.server.activity.ActivityService.record(sql, game.recipientId!!, ActivityKind.INVITATION, game.id!!, next, account)
             }
             else -> error("Preparation uses the shared preparation processor")
         }

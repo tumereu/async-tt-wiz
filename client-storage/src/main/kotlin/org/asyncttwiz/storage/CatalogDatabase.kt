@@ -11,11 +11,10 @@ import java.util.Locale
 import java.util.UUID
 import java.util.logging.Logger
 
-// 3: printings keep rarity, colour identity and legal formats for card search (search_card is built when finishing).
-// 4 (LOB-125): token_relation holds every set's card→token links (SYS-072); every older catalog downloads again once.
+// The card records' format, kept as the file's user_version. A change to it reaches phones through a client database
+// migration that has them download their card records again (ClientStorage.redownloadCatalog).
 internal const val CATALOG_INDEX_VERSION = 4
-data class CatalogMetadata(val date: String, val version: String, val checksum: String = "", val records: Long = 0,
-    val indexVersion: Int = CATALOG_INDEX_VERSION)
+data class CatalogMetadata(val date: String, val version: String, val checksum: String = "", val records: Long = 0)
 
 data class CatalogSet(val code: String, val releaseDate: String, val installedAt: Long = 0, val checksum: String = "",
     val name: String? = null, val type: String? = null)
@@ -135,6 +134,18 @@ class CatalogRepository(private val directory: File, private val openDriver: (Fi
         activeFile()?.let { file -> CatalogIndex(openDriver(file)).use { read(it) } } ?: read(null)
     }
 
+    /**
+     * Removes the installed card records (the pointer first, then every generation), leaving the device as before its
+     * first download ([ClientStorage.redownloadCatalog]). Other files in the directory, such as the update cadence, stay.
+     */
+    fun clear() = synchronized(lock) {
+        val pointer = File(directory, "current")
+        check(!pointer.exists() || pointer.delete())
+        tokenCache.list = null
+        directory.listFiles()?.filter { it.name.matches(Regex("[a-f0-9-]{36}\\.db(-journal|-wal|-shm)?")) }?.forEach { it.delete() }
+        Unit
+    }
+
     /** Unpublished generations may survive process death; only the atomic pointer is readable. */
     fun stage(copyInstalled: Boolean = false, finishing: () -> Unit = {},
         block: (CatalogIndex) -> CatalogMetadata): CatalogMetadata = synchronized(lock) {
@@ -232,7 +243,6 @@ class CatalogIndex internal constructor(driver: SqlDriver) : app.cash.sqldelight
     }
 
     internal fun installedSets(): List<CatalogSet> {
-        if (long("PRAGMA user_version") < CATALOG_INDEX_VERSION) return emptyList()
         return driver.executeQuery(null, "SELECT code, release_date, installed_at, checksum FROM catalog_set", { cursor ->
             val sets = mutableListOf<CatalogSet>()
             while (cursor.next().value) sets += CatalogSet(cursor.getString(0)!!, cursor.getString(1)!!,
@@ -274,8 +284,7 @@ class CatalogIndex internal constructor(driver: SqlDriver) : app.cash.sqldelight
         }
     }
 
-    // Part of index version 4 (LOB-125). Without rows for a card, its tokens' pictures come from their characteristics
-    // alone.
+    // LOB-125. Without rows for a card, its tokens' pictures come from their characteristics alone.
     private var tokenRelationsReady = false
     /** A card's related tokens: (a card's printing id, a token's printing id) from the card's own links, and (a card
      * name in lower case, a token's printing id) from the token's list of the cards that make it. */
@@ -415,7 +424,7 @@ class CatalogIndex internal constructor(driver: SqlDriver) : app.cash.sqldelight
     fun metadata(): CatalogMetadata = driver.executeQuery(null, "SELECT date, version, checksum, records FROM metadata", { cursor ->
         check(cursor.next().value)
         QueryResult.Value(CatalogMetadata(cursor.getString(0)!!, cursor.getString(1)!!, cursor.getString(2)!!, cursor.getLong(3)!!))
-    }, 0).value.copy(indexVersion = long("PRAGMA user_version").toInt())
+    }, 0).value
 
     fun printing(id: String): CatalogPrinting? = rows("SELECT * FROM printing WHERE id=?", listOf(id)).singleOrNull()
     private var scryfallLookupPrepared = false

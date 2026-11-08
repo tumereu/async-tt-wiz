@@ -53,8 +53,8 @@ class EngineTwoDeviceTest {
         val names = mapOf(f.a to "Alice", f.b to "Bob")
         val online = players.associateWith { true }.toMutableMap()
         // HIS-096: whether the other player's pauses are assumed at once is each player's setting, never their presence
-        for (p in players) sim.settings[p] = org.asyncttwiz.protocol.game.PlaySettings(alwaysAssumeResolves = when (mode) {
-            Mode.LIVE -> false; Mode.ASYNC -> true; Mode.MIXED -> seed % 2 == 0L })
+        for (p in players) sim.settings[p] = org.asyncttwiz.protocol.game.PlaySettings(assume = when (mode) {
+            Mode.LIVE -> false; Mode.ASYNC -> true; Mode.MIXED -> seed % 2 == 0L }.let { if (it) org.asyncttwiz.protocol.game.AssumeResolves.Always else org.asyncttwiz.protocol.game.AssumeResolves.Normal })
         for (p in players) sim.load(p)
         var ticks = 0
         var quiet = 0
@@ -155,7 +155,7 @@ class EngineTwoDeviceTest {
             GameDevice.Status.YourMove -> move(game, rnd)
             is GameDevice.Status.Waiting -> when {
                 // CMB-040: a player who plays on opens the Assume blockers screen and mostly OKs it
-                status.offer == GameDevice.Offer.AssumeBlockers && d.settings.alwaysAssumeResolves ->
+                status.offer == GameDevice.Offer.AssumeBlockers && d.settings.assume == org.asyncttwiz.protocol.game.AssumeResolves.Always ->
                     if (rnd.nextInt(4) > 0) game.assume(blocks(d.model.engine, d.opponent, rnd))
                 status.offer != null && rnd.nextInt(6) == 0 ->
                     game.assume(if (status.offer == GameDevice.Offer.AssumeBlockers) blocks(d.model.engine, d.opponent, rnd) else emptyList())

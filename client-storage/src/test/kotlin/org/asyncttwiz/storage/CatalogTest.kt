@@ -252,16 +252,15 @@ class CatalogTest {
     // LOB-092
     @Test fun initialAndMeteredDownloadsRequireConsentButUnchangedStartupNeverDownloads() {
         val old = CatalogMetadata("2026-01-01", "5.2.2")
-        val new = old.copy(date = "2026-01-02", indexVersion = old.indexVersion + 1)
+        val new = old.copy(date = "2026-01-02")
         for (metered in listOf(false, true)) {
             assertFalse(CatalogUpdatePolicy.download(null, new, metered, false))
             assertTrue(CatalogUpdatePolicy.download(null, new, metered, true))
             assertFalse(CatalogUpdatePolicy.download(old, old, metered, true))
             assertFalse(CatalogUpdatePolicy.download(old, null, metered, true))
         }
-        assertFalse(CatalogUpdatePolicy.download(old, new, true, false))
-        assertTrue(CatalogUpdatePolicy.download(old, new, true, true))
-        assertTrue(CatalogUpdatePolicy.download(old, new, false, false))
+        // Installed records are only updated set by set (CatalogUpdatePolicy.plan), never downloaded whole again
+        assertFalse(CatalogUpdatePolicy.download(old, new, false, true))
         assertFalse(CatalogUpdatePolicy.changed(old, old.copy(version = "5.2.3")))
         assertFalse(CatalogUpdatePolicy.changed(old, old.copy(date = "2026-02-01")))
     }

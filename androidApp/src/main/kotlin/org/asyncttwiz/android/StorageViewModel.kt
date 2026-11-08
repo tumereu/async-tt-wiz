@@ -8,6 +8,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import java.util.concurrent.Executors
+import org.asyncttwiz.storage.AndroidCatalogStorage
 import org.asyncttwiz.storage.AndroidClientStorage
 import org.asyncttwiz.storage.ClientStorage
 import org.asyncttwiz.storage.StorageOpenFailure
@@ -28,7 +29,7 @@ class StorageViewModel(application: Application) : AndroidViewModel(application)
     private var storage: ClientStorage? = null // Worker only; never handed to a Composable.
     private var cleared = false // Main thread only; fences queued UI callbacks after finishing.
 
-    init { open() }
+    init { CatalogRedownloadGate.arm(); open() }
 
     fun retry() {
         check(Looper.myLooper() == Looper.getMainLooper())
@@ -48,11 +49,24 @@ class StorageViewModel(application: Application) : AndroidViewModel(application)
             val next = when (result) {
                 is StorageOpenResult.Opened -> {
                     storage = result.storage
+                    redownloadCatalog(result.storage)
                     StorageState.Ready
                 }
                 is StorageOpenResult.Failed -> StorageState.Failed(result.reason)
             }
+            CatalogRedownloadGate.settle()
             main.post { if (!cleared) state = next }
+        }
+    }
+
+    /** Single version (owner 2026-11-08): once after this update the card records are cleared, so the catalog check
+     * (which waits for this, [CatalogRedownloadGate]) downloads them again as on a first install. */
+    private fun redownloadCatalog(storage: ClientStorage) {
+        try {
+            if (storage.redownloadCatalog { AndroidCatalogStorage.repository(getApplication()).clear() })
+                AppLog.info("catalog", "Card records cleared to be downloaded again")
+        } catch (failure: Exception) {
+            AppLog.warn("catalog", "Clearing the card records to download them again failed", failure)
         }
     }
 
@@ -66,4 +80,18 @@ class StorageViewModel(application: Application) : AndroidViewModel(application)
         }
         worker.shutdown()
     }
+}
+
+/**
+ * The catalog check waits for the client database to be opened (migrated, and the card records cleared when the
+ * migration asks for it, [StorageViewModel]) before it first reads the card records, so it never shows records that are
+ * about to go. Not armed (no [StorageViewModel], as in tests of the catalog alone), it never waits.
+ */
+internal object CatalogRedownloadGate {
+    @Volatile private var opened: java.util.concurrent.CountDownLatch? = null
+    /** Main thread, before the catalog check starts. Once opened, a later arm keeps it open. */
+    fun arm() { if (opened == null) opened = java.util.concurrent.CountDownLatch(1) }
+    fun settle() { opened?.countDown() }
+    /** Worker threads only; bounded, so a stuck open never stops the catalog check for good. */
+    fun await() { opened?.let { if (!it.await(30, java.util.concurrent.TimeUnit.SECONDS)) it.countDown() } }
 }

@@ -24,6 +24,29 @@ class PodActivityTest {
         assertNull(ActivityRoute.parse(id, id, "POD_FUTURE", id, identity))
         assertNull(ActivityRoute.parse(id, id, "FUTURE", id, identity))
     }
+
+    // DRF-137, LOB-072, DRF-122: invitation notices say who invited and to what; a challenge that waits for your deck says so
+    // and opens its pod (its Games tab)
+    @Test fun invitationNoticesNameTheInviterAndTheGameOrPod() {
+        val game = ActivityHint("1", ActivityKind.INVITATION, id, identity, id, resourceName = "Friday game", opponentName = "Alex")
+        assertEquals("Alex invited you · Friday game", invitationText(game))
+        val challenge = game.copy(resourceName = "Cube night", podId = id)
+        assertEquals("Cube night: Alex challenged you", invitationText(challenge))
+        assertEquals("Cube night: Alex challenged you · submit your deck to accept", invitationText(challenge.copy(held = true)))
+        val pod = ActivityHint("2", ActivityKind.POD_INVITATION, id, identity, id, resourceName = "Cube night", opponentName = "Alex")
+        assertEquals("Alex invited you to Cube night", invitationText(pod))
+        assertEquals("Alex invited you to Cube night", invitationText(pod.copy(resourceName = null), podName = "Cube night"))
+        assertEquals("New invitation", invitationText(game.copy(opponentName = null)))
+        assertEquals("New pod invitation", invitationText(pod.copy(opponentName = null)))
+        assertEquals(ActivityChannels.INVITATIONS, ActivityChannels.channel(ActivityKind.INVITATION))
+
+        val pod2 = UUID.randomUUID().toString()
+        val held = ActivityRoute.parse(id, id, "INVITATION", id, identity, pod2)!!
+        assertEquals(pod2, held.heldInPod)
+        assertNull(ActivityRoute.parse(id, id, "INVITATION", id, identity)!!.heldInPod)
+        assertNull(ActivityRoute.parse(id, id, "GAME", id, identity, pod2))
+        assertNull(ActivityRoute.parse(id, id, "INVITATION", id, identity, "not-a-pod"))
+    }
     // DRF-135
     @Test fun picksReplacePerPodNotPerPackAndNeverCollideWithGamesOrInvitations() {
         val savedMarks = mutableMapOf<String, ActivityWatermark>()

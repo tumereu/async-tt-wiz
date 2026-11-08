@@ -76,6 +76,8 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
     private val quietFailures = QuietRefreshFailures(clock)
     private var cubesPending = false
     private var accepted: PodDetail? = null
+    /** The tab [open] asked for, shown when the pod first loads. */
+    private var openTab: PodTab? = null
     private var editRevision = 0L
     private val notices = mutableMapOf<String, String>()
     private data class Write(val pod: String?, val attempt: String? = null, val pick: Boolean = false,
@@ -131,7 +133,9 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
         synchronized(marksLock) { marksPending = null; pickedPacks.clear(); notesPending = null }
     }
     fun dismissError() { state = state.copy(error = null, notice = null) }
-    fun open(id: String) {
+    /** [tab]: the tab to show once the pod has loaded, when it has that tab (else the usual one). */
+    fun open(id: String, tab: PodTab? = null) {
+        openTab = tab
         // Problem report YRVZNM: a request left unconfirmed by a connection failure never keeps a pod from opening; opening
         // retries it (with its original request id) and the pod loads after it
         if (state.uncertain) retry()
@@ -640,7 +644,8 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
         syncMarks(detail)
         syncNotes(detail)
         if (buildHistory?.pod == detail.id && (detail.submitted || buildHistory?.attempt != detail.draftAttemptId)) buildHistory = null
-        if (changed) state = state.copy(tab = podDefaultTab(detail.phase, detail.submitted))
+        if (changed) state = state.copy(tab = openTab?.takeIf { it in podTabs(detail.phase) } ?: podDefaultTab(detail.phase, detail.submitted))
+        openTab = null
         if (detail.phase != PodPhase.SETUP) state = state.copy(setup = null)
     }
     private fun syncCredential(): String? {

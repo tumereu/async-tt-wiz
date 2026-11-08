@@ -13,9 +13,9 @@ import java.security.MessageDigest
 import java.time.LocalDate
 import java.util.zip.GZIPOutputStream
 
-/** LOB-125: card records installed before index version 4 kept the card→token links (SYS-072) are downloaded again
- * once, through the card records update of LOB-092 / LOB-110. Every card here is invented. */
-class CatalogTokenLinksUpdateTest {
+/** Single version (owner 2026-11-08): card records cleared for downloading again ([CatalogRepository.clear]) are as
+ * on a first install until downloaded again (LOB-091). Every card here is invented. */
+class CatalogRedownloadTest {
     @TempDir lateinit var temporary: Path
     private val repository by lazy {
         CatalogRepository(temporary.resolve("catalog").toFile()) { JdbcSqliteDriver("jdbc:sqlite:${it.absolutePath}") }
@@ -60,20 +60,34 @@ class CatalogTokenLinksUpdateTest {
     private fun plan() = CatalogUpdatePolicy.plan(repository.metadata(), repository.installedSets(), available, today)
     private fun links() = repository.snapshot { it!!.long("SELECT count(*) FROM token_relation") }
 
-    // LOB-125, LOB-092
-    @Test fun olderRecordsDownloadAgainOnceAskedAsAnyUpdate() {
+    // LOB-091, LOB-125
+    @Test fun clearedRecordsAreDownloadedAgainAsOnAFirstInstall() {
         install()
-        sql("PRAGMA user_version=3") // any catalog from before version 4, with or without links
-        val installed = repository.metadata()!!
-        assertEquals(3, installed.indexVersion)
+        val first = repository.metadata()!!
+        assertEquals(2L, links())
+        assertNull(plan(), "installed records need nothing more")
+        val directory = temporary.resolve("catalog").toFile()
+        java.io.File(directory, "cadence.properties").writeText("kept")
+
+        repository.clear()
+        assertNull(repository.metadata())
+        assertTrue(repository.installedSets().isEmpty())
+        assertTrue(repository.find("Warren Herald 1").isEmpty())
+        assertThrows(CatalogNotInstalledException::class.java) { repository.loadTokens() }
+        assertEquals(listOf("cadence.properties"), directory.list()!!.toList())
         val plan = plan()!!
         assertTrue(plan.full)
-        assertTrue(CatalogUpdatePolicy.canDownload(installed, plan, metered = false, consent = false), "automatic when unmetered")
-        assertFalse(CatalogUpdatePolicy.canDownload(installed, plan, metered = true, consent = false), "asked when metered")
-        assertTrue(CatalogUpdatePolicy.canDownload(installed, plan, metered = true, consent = true))
+        assertTrue(CatalogUpdatePolicy.changed(null, available.metadata))
+        // As on a first install: never downloaded without the player's go-ahead
+        assertFalse(CatalogUpdatePolicy.canDownload(null, plan, metered = false, consent = false))
+        assertTrue(CatalogUpdatePolicy.canDownload(null, plan, metered = false, consent = true))
 
-        assertEquals(CATALOG_INDEX_VERSION, install(plan).indexVersion)
+        assertEquals(first, install(plan))
         assertEquals(2L, links())
+        assertEquals(1, repository.find("Warren Herald 1").size)
         assertNull(plan(), "once: the new records need nothing more")
+        repository.clear()
+        repository.clear() // nothing installed: nothing to do
+        assertNull(repository.metadata())
     }
 }

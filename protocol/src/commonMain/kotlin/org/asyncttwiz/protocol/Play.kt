@@ -166,7 +166,7 @@ object StartRules {
                 if (action.choice.accountId != null && action.choice.accountId !in current.players.map { it.accountId })
                     reject("inapplicable")
                 else PreparationChange(current.copy(starter = action.choice, players = current.players.map {
-                    if (it.accountId == actor && current.startingChoice != action.choice) it.copy(ready = false) else it
+                    if (it.accountId == actor && current.starter != action.choice) it.copy(ready = false) else it
                 }))
             }
             // Concerns later plays only, so nobody's Ready is withdrawn.
@@ -214,7 +214,7 @@ object StartRules {
         val players = preparation.players.sortedBy { it.accountId }
         require(players.all { DeckValidation.quantities(it.deck!!.entries.map { entry -> entry.quantity }) })
         require(librarySeeds.keys == players.map { it.accountId }.toSet())
-        val choice = preparation.startingChoice
+        val choice = preparation.starter
         val starter = if (choice.accountId == null) InitialStarter(choice,
             RandomV1.starter(players.map { it.accountId }, requireNotNull(starterSeed)), starterSeed, "starter-v1")
         else {

@@ -43,8 +43,7 @@ internal object PreparationStore {
             player.copy(ready = row?.ready ?: false, deck = row?.deck?.let {
                 StoredData.decode("game preparation", game) { json.decodeFromString<PreparedDeck>(it) } },
                 deckShown = shown, shownPodDeckName = row?.podDeckName?.takeIf { shown })
-        }, definitions = definitions(sql, digests), starter = starter?.let {
-            StoredData.decode("game preparation", game) { json.decodeFromString<StarterChoice>(it) } } ?: StarterChoice(),
+        }, definitions = definitions(sql, digests), starter = StoredData.decode("game preparation", game) { json.decodeFromString<StarterChoice>(starter!!) },
             alternateStarter = alternate,
             podRules = if (summary.podId == null) null else PodGameRules(sql.select(GAME.POD_SIDEBOARD_LIMIT).from(GAME)
                 .where(GAME.ID.eq(game)).fetchSingle(GAME.POD_SIDEBOARD_LIMIT))) }
@@ -52,7 +51,7 @@ internal object PreparationStore {
 
     fun saveReadiness(sql: DSLContext, actor: UUID, state: LobbyPreparation) {
         val game = UUID.fromString(state.gameId)
-        sql.update(GAME).set(GAME.STARTER_CHOICE, json.encodeToString(state.startingChoice))
+        sql.update(GAME).set(GAME.STARTER_CHOICE, json.encodeToString(state.starter))
             .set(GAME.ALTERNATE_STARTER, state.alternateStarter).where(GAME.ID.eq(game)).execute()
         val player = state.players.single { it.accountId == actor.toString() }
         sql.insertInto(PLAYER_PREPARATION).set(PLAYER_PREPARATION.GAME_ID, game).set(PLAYER_PREPARATION.ACCOUNT_ID, actor)
@@ -69,7 +68,7 @@ internal object PreparationStore {
         sql.update(PLAYER_PREPARATION).set(PLAYER_PREPARATION.READY, false)
             .where(PLAYER_PREPARATION.GAME_ID.eq(game)).execute()
         sql.update(GAME).set(GAME.PREPARATION_ROUND, UUID.fromString(state.roundId))
-            .set(GAME.STARTER_CHOICE, json.encodeToString(state.startingChoice)) // Alternation may have changed it.
+            .set(GAME.STARTER_CHOICE, json.encodeToString(state.starter)) // Alternation may have changed it.
             .set(GAME.CURRENT_PLAY, null as UUID?).set(GAME.LIFECYCLE, "LOBBY")
             .where(GAME.ID.eq(game)).and(GAME.LIFECYCLE.eq("ACTIVE")).execute().also { check(it == 1) }
     }

@@ -316,7 +316,7 @@ class EngineTableScreenshotTest {
     private fun aliceCastsSpark(mode: org.asyncttwiz.protocol.game.ResponseMode, alwaysAssume: Boolean): EngineGame {
         val game = EngineGame(f.game.id, f.a, f.base, f.snapshot(otherKept = true)).apply { tick(1_000); keep(emptyList()); tick(2_000) }
         game.device.modes(mapOf(f.b to org.asyncttwiz.protocol.game.ResponseMode.Normal))
-        game.settings(game.shown!!.settings.copy(mode = mode, alwaysAssumeResolves = alwaysAssume))
+        game.settings(game.shown!!.settings.copy(mode = mode, assume = if (alwaysAssume) org.asyncttwiz.protocol.game.AssumeResolves.Always else org.asyncttwiz.protocol.game.AssumeResolves.Normal))
         val me = PlayerId(f.a)
         game.send(listOf(Input.PlayLand(me, hand(game, "Mountain"))))
         game.tick(3_000)
@@ -493,7 +493,7 @@ class EngineTableScreenshotTest {
         val h = EngineGameFixture(heralds = true)
         val me = PlayerId(h.a)
         val game = EngineGame(h.game.id, h.a, h.base, h.snapshot(otherKept = true)).apply { tick(1_000); keep(emptyList()); tick(2_000) }
-        game.settings(game.shown!!.settings.copy(mode = org.asyncttwiz.protocol.game.ResponseMode.FullControl, alwaysAssumeResolves = true))
+        game.settings(game.shown!!.settings.copy(mode = org.asyncttwiz.protocol.game.ResponseMode.FullControl, assume = org.asyncttwiz.protocol.game.AssumeResolves.Always))
         fun named(name: String) = game.device.model.engine.let { s -> s.player(me).hand.first { s.obj(it)?.definition?.faces?.first()?.name == name } }
         game.send(listOf(Input.PlayLand(me, named("Mountain"))))
         game.tick(3_000)

@@ -229,7 +229,7 @@ internal fun WaitingLobby(controller: LobbyController, accountId: String, hambur
                     } }
                 }
                 val starter: @Composable () -> Unit = {
-                 StartingPlayerControl(game, state.preparation?.startingChoice ?: StarterChoice(),
+                 StartingPlayerControl(game, state.preparation?.starter ?: StarterChoice(),
                      enabled = state.preparation != null,
                      alternate = state.preparation?.alternateStarter ?: true, setAlternate = controller::alternateStarter,
                      choose = controller::starter)

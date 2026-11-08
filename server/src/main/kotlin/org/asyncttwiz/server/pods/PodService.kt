@@ -74,8 +74,7 @@ class PodService(private val runtime: ServiceRuntime) {
     private fun state(row: PodRecord) = row.draftState?.takeIf { settings(row).mode.packPassing }
         ?.let { stored(row) { json.decodeFromString<DraftState>(it.data()) } }
     private fun gridState(row: PodRecord) = row.draftState?.takeIf { settings(row).mode == DraftMode.GRID }
-        // Snapshots from before per-member opening are brought to the current model (their remaining grids dealt).
-        ?.let { stored(row) { GridEngine.resume(json.decodeFromString<GridState>(it.data())) } }
+        ?.let { stored(row) { json.decodeFromString<GridState>(it.data()) } }
     private fun limitedState(row: PodRecord) = row.draftState?.takeIf { settings(row).mode.limited }
         ?.let { stored(row) { json.decodeFromString<LimitedDraftState>(it.data()) } }
     /** A pod's stored draft, decoded once per request. Settings are read only when there is a draft. */
@@ -84,8 +83,7 @@ class PodService(private val runtime: ServiceRuntime) {
         val data = row.draftState ?: return Draft(null, null)
         return if (settings!!.mode.packPassing) Draft(stored(row) { json.decodeFromString<DraftState>(data.data()) }, null)
             else if (settings.mode.limited) Draft(null, null, stored(row) { json.decodeFromString<LimitedDraftState>(data.data()) })
-            // Snapshots from before per-member opening are brought to the current model (their remaining grids dealt).
-            else Draft(null, stored(row) { GridEngine.resume(json.decodeFromString<GridState>(data.data())) })
+            else Draft(null, stored(row) { json.decodeFromString<GridState>(data.data()) })
     }
     private fun pools(row: PodRecord) = gridState(row)?.pools ?: limitedState(row)?.pools ?: state(row)!!.pools
     private fun copies(row: PodRecord) = gridState(row)?.copies ?: limitedState(row)?.copies ?: state(row)!!.copies
@@ -642,7 +640,8 @@ class PodService(private val runtime: ServiceRuntime) {
             val summary = lobby.summary(sql, game)
             // The recipient's locked deck remains pod-private until they accept the invitation.
             saveChallengeDeck(sql, row, summary, owner.toString(), build, basics, input.basicDefinitions, input.requestId)
-            if (!held) ActivityService.record(sql, UUID.fromString(input.opponentId), ActivityKind.INVITATION, game, invitation, owner)
+            // DRF-137: the recipient hears of it at once, also while still building (they accept once they submit)
+            ActivityService.record(sql, UUID.fromString(input.opponentId), ActivityKind.INVITATION, game, invitation, owner)
             Result(201, json.encodeToString(summary))
         }
 
@@ -656,7 +655,8 @@ class PodService(private val runtime: ServiceRuntime) {
             .flatMap { listOfNotNull(it.value1(), it.value2()) }.toSet()
     }
 
-    /** Challenges sent while [recipient] was still building become ordinary pending invitations once they submit. */
+    /** Challenges sent while [recipient] was still building become ordinary pending invitations once they submit; their
+     * notice went at once when they were sent (DRF-137), so this one adds none. */
     private fun releaseChallenges(sql: DSLContext, pod: UUID, recipient: UUID) {
         // Pod lock is held; lock games in identity order like withdrawal.
         val games = sql.selectFrom(GAME).where(GAME.POD_ID.eq(pod)).and(GAME.RECIPIENT_ID.eq(recipient))
@@ -669,9 +669,6 @@ class PodService(private val runtime: ServiceRuntime) {
                 recipient.toString(), GameScope(summary.id, summary.preparationRound), summary, PreparationStore.read(sql, summary))
             sql.insertInto(GAME_REVISION).set(GAME_REVISION.GAME_ID, row.id).set(GAME_REVISION.REVISION, row.revision!! + 1)
                 .set(GAME_REVISION.PAYLOAD, GameWire.encode(revision)).execute()
-            // A challenge declined while held stays declined; only a still-pending one notifies.
-            if (summary.invitationState == InvitationState.PENDING)
-                ActivityService.record(sql, recipient, ActivityKind.INVITATION, row.id!!, row.currentInvitation!!, row.inviterId)
         }
     }
 

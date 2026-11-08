@@ -431,7 +431,7 @@ class PodChallengeTest {
         assertEquals(200, f.lobby.head(f.c, accepted.id).status)
     }
 
-    // DRF-122
+    // DRF-122, DRF-137: notified at once ("<pod>: <name> challenged you", held), and submitting the deck adds no notice
     @Test fun `challenge before the opponent submits is held until they submit then plays through to a started game`() = fixture { f ->
         val pod = f.pod(sideboardLimit = 3)
         val activity = org.asyncttwiz.server.activity.ActivityService(f.runtime)
@@ -440,8 +440,8 @@ class PodChallengeTest {
         val game = f.challenge(pod)
         assertTrue(game.invitationHeld)
         assertFalse(json.encodeToString(game.copy(invitationHeld = false)).contains("invitationHeld")) // Older clients never see it.
-        // The recipient sees the held challenge among their invitations at once but cannot accept it yet,
-        // and is notified only when their deck releases it.
+        // The recipient sees the held challenge among their invitations at once and is notified at once, but cannot accept
+        // it yet.
         val incoming = json.decodeFromString<GameList>(f.lobby.list(f.b, null, true).body).games.single()
         assertEquals(game.id, incoming.id); assertTrue(incoming.invitationHeld)
         assertTrue(json.decodeFromString<GameList>(f.lobby.list(f.b, null, false).body).games.isEmpty())
@@ -450,7 +450,10 @@ class PodChallengeTest {
         assertTrue(f.games.head(f.b, game.id).summary.invitationHeld)
         assertNull(f.games.head(f.b, game.id).preparation)
         assertEquals("inapplicable", early.execute(GameAction.AcceptInvitation).reason)
-        assertTrue(invitations(f.b).isEmpty())
+        val notice = invitations(f.b).single()
+        assertEquals(game.id, notice.gameId); assertEquals(f.a.account.accountId, notice.authorId)
+        assertEquals(f.a.account.username, notice.opponentName); assertEquals(game.podName, notice.resourceName)
+        assertEquals(pod, notice.podId); assertTrue(notice.held)
         // The challenger sees it, prepares and gets ready meanwhile.
         assertTrue(json.decodeFromString<GameList>(f.lobby.list(f.a, null, false).body).games.single().invitationHeld)
         val owner = f.stream(f.a, game)
@@ -464,7 +467,8 @@ class PodChallengeTest {
         val released = json.decodeFromString<GameList>(f.lobby.list(f.b, null, true).body).games.single()
         assertEquals(game.id, released.id); assertFalse(released.invitationHeld)
         assertFalse(json.decodeFromString<GameSummary>(f.lobby.head(f.a, game.id).body).invitationHeld)
-        assertEquals(game.id, invitations(f.b).single().gameId)
+        // No second notice: the one sent with the challenge now reads as an acceptable one
+        assertEquals(notice.copy(held = false), invitations(f.b).single())
         val recipient = f.stream(f.b, game)
         assertEquals("accepted", recipient.execute(GameAction.AcceptInvitation).outcome)
         assertTrue(f.preparation(game).players.single { it.accountId == f.a.account.accountId }.ready)
@@ -478,8 +482,8 @@ class PodChallengeTest {
         assertEquals(80, started.play!!.board.cards.size) // Each main lost one card to the side.
     }
 
-    // DRF-122
-    @Test fun `a held challenge can be declined and reinvited before submitting and notifies only on release`() = fixture { f ->
+    // DRF-122, DRF-137
+    @Test fun `a held challenge can be declined and reinvited before submitting and notifies at once`() = fixture { f ->
         val pod = f.pod()
         val activity = org.asyncttwiz.server.activity.ActivityService(f.runtime)
         fun invitations(who: AccountService.Principal) = activity.page(who, "0").entries.filter { it.kind == ActivityKind.INVITATION }
@@ -488,13 +492,15 @@ class PodChallengeTest {
         assertEquals("accepted", f.stream(f.b, game).execute(GameAction.DeclineInvitation).outcome)
         assertEquals(InvitationState.DECLINED, f.games.head(f.a, game.id).summary.invitationState)
         assertTrue(json.decodeFromString<GameList>(f.lobby.list(f.b, null, true).body).games.isEmpty())
-        // Reinviting while still held stays silent until the deck is in.
+        assertTrue(invitations(f.b).isEmpty(), "a declined invitation's notice is gone")
+        // Reinviting while still held notifies at once too; submitting adds nothing.
         assertEquals("accepted", f.stream(f.a, game).execute(GameAction.Reinvite).outcome)
         assertTrue(json.decodeFromString<GameList>(f.lobby.list(f.b, null, true).body).games.single().invitationHeld)
-        assertTrue(invitations(f.b).isEmpty())
+        assertTrue(invitations(f.b).single().held)
         f.submit(f.b, pod)
         assertFalse(json.decodeFromString<GameList>(f.lobby.list(f.b, null, true).body).games.single().invitationHeld)
         assertEquals(game.id, invitations(f.b).single().gameId)
+        assertFalse(invitations(f.b).single().held)
         assertEquals("accepted", f.stream(f.b, game).execute(GameAction.AcceptInvitation).outcome)
     }
 

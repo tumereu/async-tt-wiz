@@ -21,8 +21,10 @@ class PodGridViewTest {
     private val bob = AccountIdentity("bob", "Bob")
     private val cards = List(9) { DraftCopy("copy-$it", "definition-$it") }
     private val definitions = cards.associate { it.definition to CardDefinition("Card ${it.id.last()}", listOf(DefinitionFace("face", "Card ${it.id.last()}"))) }
-    private val board = GridPublicBoard("grid-0", 1, cards, alice.accountId)
-    private val mine = GridPrivateView(alice.accountId, emptyList(), board.id)
+    private val board = GridPublicBoard("grid-0", 1, cards, alice.accountId, 1, false, cards.map { GridPublicSlot(it) })
+    private val mine = GridPrivateView(alice.accountId, emptyList(), board.id, round = 1, rounds = 9)
+    /** The live board with [positions], each card in its slot. */
+    private fun GridPublicBoard.placed(positions: List<DraftCopy?>) = copy(positions = positions, slots = positions.map { GridPublicSlot(it) })
     private val initial = GridViewData(GridPublicView(1, 9, false, listOf("alice", "bob"), listOf(board), emptyList()), mine)
 
     private fun show(view: () -> GridViewData = { initial }, busy: () -> Boolean = { false },
@@ -69,7 +71,7 @@ class PodGridViewTest {
 
     @Test fun emptySlotsKeepGeometryAndEmptyLinesHaveDisabledArrows() {
         val positions = cards.mapIndexed { index, copy -> if (index < 3) null else copy }
-        show(view = { initial.copy(publicView = initial.publicView.copy(grids = listOf(board.copy(positions = positions)))) })
+        show(view = { initial.copy(publicView = initial.publicView.copy(grids = listOf(board.placed(positions)))) })
         compose.onNodeWithContentDescription("Select row 1").assertIsNotEnabled()
         compose.onNodeWithContentDescription("Select row 2").assertIsEnabled()
         compose.onNodeWithContentDescription("Select column 1").assertIsEnabled()
@@ -85,7 +87,8 @@ class PodGridViewTest {
         var busy by mutableStateOf(false)
         val later = board.copy(id = "later", number = 2)
         val waiting = board.copy(id = "waiting", number = 3, currentPlayer = "bob")
-        val done = board.copy(id = "done", number = 4, positions = List(9) { null }, currentPlayer = null, finished = true)
+        val done = board.copy(id = "done", number = 4, positions = List(9) { null }, currentPlayer = null, finished = true,
+            slots = List(9) { GridPublicSlot(null) })
         val older = done.copy(id = "older", number = 5)
         show(view = { initial.copy(publicView = initial.publicView.copy(grids = listOf(waiting, later, board),
             finishedGrids = listOf(done, older)), mine = mine.copy(queue = listOf(board.id, later.id))) }, busy = { busy })
@@ -149,7 +152,7 @@ class PodGridViewTest {
         var view by mutableStateOf(initial)
         show(view = { view })
         compose.onNodeWithContentDescription("Select row 1").performClick()
-        compose.runOnIdle { view = view.copy(publicView = view.publicView.copy(grids = listOf(board.copy(positions = cards.reversed())))) }
+        compose.runOnIdle { view = view.copy(publicView = view.publicView.copy(grids = listOf(board.placed(cards.reversed())))) }
         compose.onNodeWithText("Confirm").assertIsNotEnabled()
         repeat(9) { assertHighlighted(it, false) }
     }

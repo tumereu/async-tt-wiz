@@ -149,7 +149,7 @@ class RequestCostTest {
                         // Game action: socket admission, execution, then publication to both players' open tables.
                         // An engine play's private setting (I-D56 §7): a revision without engine work
                         val command = GameCommand(id(), GameScope(game.id, playId = play.id), GameAction.EngineSettings(
-                            org.asyncttwiz.protocol.game.PlaySettings(alwaysAssumeResolves = it % 2 == 0)), streamA.streamId, streamA.generation)
+                            org.asyncttwiz.protocol.game.PlaySettings(assume = if (it % 2 == 0) org.asyncttwiz.protocol.game.AssumeResolves.Always else org.asyncttwiz.protocol.game.AssumeResolves.Normal)), streamA.streamId, streamA.generation)
                         measure("game action: admit") { socket(a.token) { games.admit(it, hello, connection, command) } }
                         measure("game action: execute") { assertTrue(games.executeOne()) }
                         measure("game action: publish") {

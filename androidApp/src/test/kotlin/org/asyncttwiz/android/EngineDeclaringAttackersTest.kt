@@ -90,7 +90,7 @@ class EngineDeclaringAttackersTest {
     @Test fun fullControlActsBeforeAttacksAndTapsOnlyStageAtTheLanesTarget() {
         val (hound, oracle) = toReadyHound()
         // HIS-096: with Bob away, Alice plays on
-        kit.alice.settings(kit.alice.shown!!.settings.copy(mode = ResponseMode.FullControl, alwaysAssumeResolves = true))
+        kit.alice.settings(kit.alice.shown!!.settings.copy(mode = ResponseMode.FullControl, assume = org.asyncttwiz.protocol.game.AssumeResolves.Always))
         kit.scenario.online[f.b] = false
         assertEquals(AutomatumStep.ToCombat, AutomatumStep.of(kit.alice.play()))
         assertTrue(toolkit.automatumStep(TableActionIntent.Next(kit.scope)), "To combat")

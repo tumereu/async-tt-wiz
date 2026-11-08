@@ -24,7 +24,7 @@ class EmblemInspectTest : E2e() {
 
     // TRN-053, SYS-066: the emblem's chip on both tables; holding it on either inspects Alice's emblems
     @Test fun holdingAnEmblemChipInspectsTheEmblems() {
-        startGame(TestDeck.sigils(), aliceSettings = PlaySettings(alwaysAssumeResolves = true),
+        startGame(TestDeck.sigils(), aliceSettings = PlaySettings(assume = org.asyncttwiz.protocol.game.AssumeResolves.Always),
             deal = { a, _ -> "Ember Sigil" in hand(a) })
         bothOpen()
         bothKeep(bobAway = false)

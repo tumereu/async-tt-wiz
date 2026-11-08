@@ -454,7 +454,7 @@ internal fun podWaitingText(detail: PodDetail, accountId: String): String {
     val busy = detail.members.filter { it.packsWaiting > 0 }.map { it.account.accountId }.toSet()
     val names = detail.members.map { it.account }.filter { it.accountId != accountId && it.accountId in busy }.map { it.username }
     val who = if (names.isEmpty()) "Waiting for other players" else "Waiting for ${names.joinToString(", ")}"
-    val round = grid?.takeIf { !it.finished }?.let { (detail.grid?.mine?.round?.takeIf { it > 0 } ?: it.round) to it.rounds }
+    val round = grid?.takeIf { !it.finished }?.let { detail.grid!!.mine.round to it.rounds }
         ?: detail.draft?.takeIf { it.rounds > 0 && it.round in 1..it.rounds }?.let { it.round to it.rounds }
     val draft = detail.draft
     if (grid != null || draft == null) return who + (round?.let { " · Round ${it.first} of ${it.second}" } ?: "")

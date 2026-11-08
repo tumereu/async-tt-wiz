@@ -61,7 +61,7 @@ internal class DeviceSim(val games: EngineGames, every: Int = 16) {
         alwaysAssume: Boolean = true) {
         server.start(starter, handSizes)
         for (p in listOf(alice, bob)) {
-            settings[p] = PlaySettings(mode = mode, alwaysAssumeResolves = alwaysAssume)
+            settings[p] = PlaySettings(mode = mode, assume = if (alwaysAssume) AssumeResolves.Always else AssumeResolves.Normal)
             load(p)
         }
     }

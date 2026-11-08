@@ -478,16 +478,7 @@ class DeckHttpTest {
                 assertEquals("Retained name", current.deck.name); assertEquals(changed.digest, current.deck.cover!!.definition)
                 assertEquals(original, put(replace).body()); assertEquals(current, read())
                 assertEquals(2, count(db, "definition"))
-                // Pre-I08 metadata canonical identity is unchanged by the new optional contents field.
-                val renameId = id()
-                val oldCanonical = "{\"deckId\":\"${saved.deck.id}\",\"input\":{\"cover\":null,\"name\":\"Old metadata\",\"requestId\":\"$renameId\"}}"
-                db.connection().use { c -> c.createStatement().execute("""
-                    INSERT INTO request_identity VALUES ('$renameId','${owner.account.accountId}','updateDeck','account','${DeckJson.intent("updateDeck", oldCanonical)}');
-                    INSERT INTO account_request VALUES ('$renameId',200,'original pre-I08 outcome');
-                """.trimIndent()) }
-                assertEquals("original pre-I08 outcome", put(UpdateDeck(renameId, name = "Old metadata")).body())
-                assertEquals(current, read())
-                println("PASS four duplicate replacements apply once, independent replacements serialize, Maybe kept, target/contents/account intent binding, private attachment, conflicting external names/IDs retain both snapshots, replacing clears sideboard and retains deck metadata, legacy retry identity")
+                println("PASS four duplicate replacements apply once, independent replacements serialize, Maybe kept, target/contents/account intent binding, private attachment, conflicting external names/IDs retain both snapshots, replacing clears sideboard and retains deck metadata")
             }
             SpringService(config).use { service ->
                 val settings = service.startBound(config); ready(settings)

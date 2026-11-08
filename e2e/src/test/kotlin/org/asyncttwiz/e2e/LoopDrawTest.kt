@@ -20,7 +20,7 @@ class LoopDrawTest : E2e() {
         startGame(TestDeck("Wisp", listOf(TestCards.wisp to 1, TestCards.mountain to 39)),
             TestDeck("Thoughts", listOf(TestCards.thoughts to 1, TestCards.mountain to 39)), bobStarts = true,
             // HIS-096: Alice's phone goes on past Bob's pauses while he is away
-            aliceSettings = org.asyncttwiz.protocol.game.PlaySettings(alwaysAssumeResolves = true),
+            aliceSettings = org.asyncttwiz.protocol.game.PlaySettings(assume = org.asyncttwiz.protocol.game.AssumeResolves.Always),
             deal = { a, b -> "Restless Wisp" in hand(a) && "Empty Thoughts" in hand(b) })
         bothOpen()
         alice.tap("Keep")

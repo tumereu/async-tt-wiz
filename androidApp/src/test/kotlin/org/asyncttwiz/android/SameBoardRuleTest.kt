@@ -177,7 +177,7 @@ class SameBoardRuleTest {
     // by her own events, so it takes back her cast, with no note
     @Test fun anUndoOnABoardMovedOnOnlyByHerOwnEventsTakesBackHerAction() {
         val game = aliceInMainWithBobsLand()
-        game.settings(org.asyncttwiz.protocol.game.PlaySettings(alwaysAssumeResolves = true))
+        game.settings(org.asyncttwiz.protocol.game.PlaySettings(assume = org.asyncttwiz.protocol.game.AssumeResolves.Always))
         sim.flush(f.a)
         assertFalse(game.send(spark(game.device.model.engine, alice)) is GameDevice.Acted.Refused)
         val cast = (game.device.session.events + game.device.session.pending).last { e ->

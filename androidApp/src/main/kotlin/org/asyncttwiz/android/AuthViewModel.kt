@@ -27,6 +27,14 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     internal val cardListSupport = CardListSupportCheck(local::cardDefinitions, dungeons = catalog.dungeons::provided)
     val activity = AndroidActivityDelivery.get(application)
     fun openActivity(route: ActivityRoute) {
+        val heldInPod = route.heldInPod
+        if (heldInPod != null) {
+            // DRF-137: a challenge that waits for your deck opens its pod's Games tab
+            controller.navigate(ShellDestination.PODS)
+            if (controller.state.account?.accountId != route.accountId || !activity.accepts(route.accountId, route.binding)) pods.showList()
+            else pods.open(heldInPod, PodTab.GAMES)
+            return
+        }
         if (route.kind.isPodActivity()) {
             controller.navigate(ShellDestination.PODS)
             if (controller.state.account?.accountId != route.accountId || !activity.accepts(route.accountId, route.binding)) {

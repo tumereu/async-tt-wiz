@@ -178,7 +178,7 @@ class ActivityService(private val runtime: ServiceRuntime, private val clock: Cl
         val author = if (reset) SUMMARY.AUTHOR_ID else EVENT.AUTHOR_ID
         val game = if (reset) SUMMARY.GAME_ID else EVENT.GAME_ID
         val ownerField = if (reset) SUMMARY.ACCOUNT_ID else EVENT.ACCOUNT_ID
-        val rows = sql.select(activity, kind, game, identity, author).from(source)
+        val rows = sql.select(activity, kind, game, identity, author, GAME.GAME_NAME, GAME.POD_ID, GAME.POD_NAME, GAME.POD_INVITATION_HELD).from(source)
             .leftJoin(GAME).on(GAME.ID.eq(game)).leftJoin(INVITATION).on(INVITATION.ID.eq(GAME.CURRENT_INVITATION))
             .where(ownerField.eq(owner)).and(activity.gt(if (reset) lower else normal!!))
             .and(activity.le(if (reset) snapshot else high)).and(visible(owner, kind, identity).or(podVisible(DSL.`val`(owner), kind, game, identity)))
@@ -195,13 +195,25 @@ class ActivityService(private val runtime: ServiceRuntime, private val clock: Cl
             recipientName.USERNAME).from(GAME).join(inviterName).on(inviterName.ID.eq(GAME.INVITER_ID))
             .join(recipientName).on(recipientName.ID.eq(GAME.RECIPIENT_ID)).where(GAME.ID.`in`(warned)).fetch()
             .associate { it.value1()!! to (it.value2()!! to if (it.value3() == owner) it.value5()!! else it.value4()!!) }
+        // DRF-137, LOB-072: an invitation names who sent it, in one query
+        val invitingKinds = setOf(ActivityKind.INVITATION, ActivityKind.POD_INVITATION)
+        val inviters = rows.take(100).filterIndexed { index, _ -> kinds[index] in invitingKinds }.mapNotNull { it[author] }.toSet()
+        val inviterNames = if (inviters.isEmpty()) emptyMap() else sql.select(ACCOUNT.ID, ACCOUNT.USERNAME).from(ACCOUNT)
+            .where(ACCOUNT.ID.`in`(inviters)).fetch().associate { it.value1()!! to it.value2()!! }
         val entries = rows.take(100).mapIndexed { index, row ->
             val type = kinds[index]
             val pod = if (type.name.startsWith("POD_")) podNames[row[game]] else null
             val named = if (type == ActivityKind.GAME_REMOVAL) gameNames[row[game]] else null
+            // A game invitation names its game; a pod challenge its pod, and whether it waits for the recipient's deck
+            val invitation = type == ActivityKind.INVITATION
+            val challengePod = row[GAME.POD_ID]?.takeIf { invitation }
             // I-D57: a pod's notice names the set or cube it drafts
             ActivityHint(row[activity].toString(), type, row[game].toString(), row[identity].toString(), row[author]?.toString(),
-                resourceName = pod?.first ?: named?.first, sourceName = pod?.second, opponentName = named?.second)
+                resourceName = pod?.first ?: named?.first ?: (if (challengePod != null) row[GAME.POD_NAME] else row[GAME.GAME_NAME])
+                    ?.takeIf { invitation },
+                sourceName = pod?.second,
+                opponentName = named?.second ?: row[author]?.takeIf { type in invitingKinds }?.let(inviterNames::get),
+                podId = challengePod?.toString(), held = challengePod != null && row[GAME.POD_INVITATION_HELD] == true)
         }
         val more = rows.size > 100
         val next = if (more) {
@@ -360,11 +372,7 @@ class ActivityService(private val runtime: ServiceRuntime, private val clock: Cl
             val member = DSL.exists(DSL.selectOne().from(POD_MEMBER).join(POD).on(POD.ID.eq(POD_MEMBER.POD_ID))
                 .where(POD.ID.eq(resource)).and(POD_MEMBER.ACCOUNT_ID.eq(owner)).and(POD.DRAFT_ATTEMPT_ID.eq(identity)).and(
                     kind.eq("POD_YOUR_PICK").and(POD.PHASE.eq("DRAFTING")).and(DSL.condition(
-                        "jsonb_array_length({0}->'queues'->cast({1} as text)) > 0", POD.DRAFT_STATE, owner).or(DSL.condition(
-                        // Grid snapshots from before per-member opening have no queues: a turn in a dealt grid is a pick.
-                        "({0}->'queues') is null and exists (select 1 from jsonb_array_elements({0}->'grids') as board(value) " +
-                            "where board.value->'turns'->>cast(board.value->>'selection' as integer) = cast({1} as text))",
-                        POD.DRAFT_STATE, owner)))
+                        "jsonb_array_length({0}->'queues'->cast({1} as text)) > 0", POD.DRAFT_STATE, owner))
                         .or(kind.`in`("POD_DRAFT_COMPLETE", "POD_DECKS_READY").and(POD.PHASE.eq("DRAFTED")))))
             val invited = DSL.exists(DSL.selectOne().from(POD_INVITATION).join(POD).on(POD.ID.eq(POD_INVITATION.POD_ID))
                 .where(POD.ID.eq(resource)).and(POD_INVITATION.ACCOUNT_ID.eq(owner)).and(POD_INVITATION.STATE.eq("PENDING"))

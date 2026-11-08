@@ -267,6 +267,22 @@ class PodControllerTest {
         assertEquals(PodTab.GAMES, f.controller.state.tab)
     }
 
+    // DRF-137: a challenge that waits for your deck opens its pod in the Games tab, though you are still building; a tab the
+    // pod's phase hasn't got gives the usual one
+    @Test fun openingWithATabShowsItOnceThePodLoads() {
+        Fixture(PodPhase.DRAFTED).use { f ->
+            f.controller.open(id, PodTab.GAMES); f.deliver()
+            assertFalse(f.controller.state.detail!!.submitted)
+            assertEquals(PodTab.GAMES, f.controller.state.tab)
+            f.controller.tab(PodTab.BUILD); f.controller.refresh(); f.deliver()
+            assertEquals(PodTab.BUILD, f.controller.state.tab, "asked once, at opening")
+        }
+        Fixture(PodPhase.DRAFTING).use { f ->
+            f.controller.open(id, PodTab.GAMES); f.deliver()
+            assertEquals(PodTab.DRAFT, f.controller.state.tab)
+        }
+    }
+
     @Test fun submissionCarriesBasicsForTheDraftDeckResolvedOnceAndWithoutThemWhenUnavailable() {
         var resolutions = 0
         Fixture(PodPhase.DRAFTED, basics = { resolutions++; listOf(definition) }).use { f ->
@@ -931,11 +947,13 @@ class PodControllerTest {
     }
 
     private fun gridDetail(): PodDetail {
-        val boards = listOf(GridPublicBoard("grid-0", 1, List(9) { copy.copy(id = "copy-$it") }, self.accountId),
-            GridPublicBoard("grid-1", 2, List(9) { copy.copy(id = "later-$it") }, self.accountId))
+        val boards = listOf(GridPublicBoard("grid-0", 1, List(9) { copy.copy(id = "copy-$it") }, self.accountId, 1, false,
+            List(9) { org.asyncttwiz.protocol.GridPublicSlot(copy.copy(id = "copy-$it")) }),
+            GridPublicBoard("grid-1", 2, List(9) { copy.copy(id = "later-$it") }, self.accountId, 1, false,
+                List(9) { org.asyncttwiz.protocol.GridPublicSlot(copy.copy(id = "later-$it")) }))
         return detail().copy(settings = DraftSettings.grid(), draft = null,
             grid = org.asyncttwiz.protocol.PodGridView(GridPublicView(1, 9, false, listOf(self.accountId, other.accountId), boards, emptyList()),
-                GridPrivateView(self.accountId, listOf(copy), "grid-0")))
+                GridPrivateView(self.accountId, listOf(copy), "grid-0", round = 1, rounds = 9)))
     }
 
     @Test fun gridSelectSendsAttemptAndLineOnlyOnceAndDoesNotPredict() = Fixture().use { f ->

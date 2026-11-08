@@ -86,7 +86,7 @@ class PodLimitedModelsTest {
             GridPublicPickLog("b", "g1", GridLine(GridLineType.ROW, 0), listOf(c[3], c[4]), emptyList()),
             GridPublicPickLog("a", "g1", GridLine(GridLineType.ROW, 1), listOf(c[5]), emptyList()),
             GridPublicPickLog("b", "g2", null, emptyList(), emptyList()),
-            GridPublicPickLog("b", "g2", GridLine(GridLineType.COLUMN, 0), listOf(c[0]), emptyList()))), GridPrivateView("a", emptyList(), null))
+            GridPublicPickLog("b", "g2", GridLine(GridLineType.COLUMN, 0), listOf(c[0]), emptyList()))), GridPrivateView("a", emptyList(), null, round = 1, rounds = 2))
         val gridPicks = podOpponentPicks(detail.copy(settings = DraftSettings.grid(), limited = null, grid = grid), "a")
         assertEquals(listOf("b"), gridPicks.map { it.account.accountId })
         assertEquals(listOf(c[0], c[3], c[4]), gridPicks.single().cards)

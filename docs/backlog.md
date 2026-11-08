@@ -20,11 +20,9 @@ Bug (owner, 2026-11-08; reports P2XUER, 3WWPA8):
 
 - A player's first main phase was skipped, cause not found: in turn 13 of a beta7 game their phone's passes from main 1 to declare attackers reached the server 30.0 s after the main phase began (server 11:33:44.290 → 11:34:14.284), and they say they didn't press. It doesn't reproduce (`MainPhaseStaysTest`: the same race with the other player's End turn, then 35 s at main 1) and the device has no way of its own to do it, so what is left is a press they didn't register, made at 11:34:14 or (if the phone's uplink stalled) just as main 1 arrived. Nothing to build until it happens again: main-button presses are now in the app log with what the button said and the step, and a pass the device itself makes at your main phase is a warning (LOB-089). At the next report read those lines around the passes; a press line means the tap happened (then the Your move cue and the main phase undo point below are the answer), no press line with passes means a fault to fix.
 
-Castable-spell review leftovers (owner, 2026-11-08, report KX8GYS; reductions that depend on a choice are fixed and tested in `CostFallsAfterChoiceOptionsTest`), each to decide or fix (TBL-117, STK-047):
+Castability, costs and payment (owner, 2026-11-08, report KX8GYS; spec docs/specs/castability.md, reviewed by session async-tt-wiz-dc before merge):
 
-- A mana ability that itself costs mana (Signet, filter land) isn't counted ahead: the card doesn't glow or raise until its mana is floated by tapping (TBL-122).
-- A required choice of two or more tries only the first candidates (`Options.some`), so a spell whose first pair is refused isn't listed though another pair works; with more than 40 candidates the look-ahead stops and lists the cast though none may be payable; a mana search over 3,000 steps gives up (`Mana.search`).
-- "Up to one" and "None" stay possible where the reduction needs a pick (harmonize tapping nothing, with too little mana): the cost can then not be paid and the cast is dropped.
+- Deny a cast only with proof, count every mana ability, pay with any mana ability at every payment, smallest cost + {?}, selections narrowed by what can be paid, partial Autotap override that never blocks a cast, no-false-denial tests (TBL-117, TBL-118, TBL-122, ZON-079, ZON-080, STK-023, STK-024, STK-047, STK-052, SYS-053).
 
 Small, not urgent (owner, 2026-11-08):
 
@@ -40,6 +38,8 @@ Start none of these until the E2E framework above works. Each owner-reported bug
 ## Specified, not started
 
 ## Needs discussion
+
+- "Can't do" explainer (owner, 2026-11-08; TBL-118 today says nothing by design): a short-lived chip or bubble rising from a shaken card, saying in one plain line why ("Costs more than you can pay"). Maybe for every shake, starting from castability's unselectable targets. Where it shows and how long are undecided; the engine's refusal reasons are technical, so the wording needs its own step.
 
 - Opening a game from its very first event (found 2026-11-06, worker A): loading a game's recent events starting at its root gave a wrong board (turn 1 shown with the keep decision open, Keep ignored); the load now stops at the first event, which avoids it, but why loading from the root goes wrong is unexplained. Investigate before relying on root loads.
 - Token look (owner playtest, 2026-11-06): consider a different look and feel for tokens (Inspect now shows them with normal corners).

@@ -253,8 +253,10 @@ object StartRules {
             for (index in cards.indices) if (cards[index].id in inHand) cards[index] = cards[index].copy(containerId = hand)
         }
         containers.add(PlayContainer(CommandIds.uuidV5(playId, "container/STACK"), PlayZone.STACK))
-        // The dungeon cards outside the game (CR 309.2): their card data, for the table and the choice that brings one in
-        val needed = cards.map { it.definition }.toSet() + players.flatMap { it.deck!!.outside }
+        // The cards outside the game: Side and Maybe (LOB-141) and the dungeon cards (CR 309.2): their card data, for the table
+        // and the choice that brings one in
+        val needed = cards.map { it.definition }.toSet() + players.map { it.deck!! }.flatMap { deck ->
+            deck.entries.filter { it.section != SavedDeckSection.MAINBOARD }.map { it.definition } + deck.outside }
         return PlayState(game.id, playId, preparation.roundId, requestId, root,
             BoardState(players.map { PlayPlayer(it.accountId, status = PlayerStatus.OPENING) }, cards.sortedBy { it.id }, containers,
                 TurnState(starter.accountId)),

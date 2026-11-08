@@ -54,6 +54,22 @@ class PlayTest {
         }
     }
 
+    // LOB-141: the play's card data holds the cards outside the game (Side and Maybe), for the choice that fetches one and
+    // the hand it goes to; they are not on the board
+    @Test fun theCardsOutsideTheGameComeWithTheirCardData() {
+        fun card(name: String) = CardDefinition(name, listOf(DefinitionFace(id(40 + name.length), name))).let {
+            SubmittedDefinition(DeckJson.digest(it), it) }
+        val side = card("Side card"); val maybe = card("Maybe card here")
+        val preparation = ready().let { state -> state.copy(definitions = state.definitions + side + maybe, players = state.players.map { player ->
+            player.copy(deck = player.deck!!.copy(entries = listOf(PreparedEntry(submitted.digest, SavedDeckSection.MAINBOARD, "0", 7),
+                PreparedEntry(side.digest, SavedDeckSection.SIDEBOARD, "7", 2), PreparedEntry(maybe.digest, SavedDeckSection.MAYBEBOARD, "9", 1))))
+        }) }
+        val state = StartRules.initialize(game, preparation, id(11), seeds)
+        assertEquals(listOf(submitted, side, maybe).sortedBy { it.digest }, state.definitions)
+        assertEquals(14, state.board.cards.size)
+        assertTrue(state.board.cards.all { it.definition == submitted.digest })
+    }
+
     // TRN-029 (the opening hands: automatumStartDrawsEachOpeningHand)
     @Test fun sharedInitialBoardPreservesConcreteCopiesDefaultsAndDefinitionsExcludesSideboard() {
         val preparation = ready()

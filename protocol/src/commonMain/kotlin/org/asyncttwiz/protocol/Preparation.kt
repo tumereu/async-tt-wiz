@@ -56,6 +56,8 @@ object PreparationRules {
     fun capture(current: LobbyPreparation, actor: String, definition: String, section: SavedDeckSection,
         all: Boolean): PreparedTransfer? {
         val deck = current.players.find { it.accountId == actor }?.deck ?: return null
+        // Preparation moves cards between Main and Side only (LOB-048); Maybe stays as it is.
+        if (section !in SavedDeckSection.PREPARED) return null
         // A pod game's supplied basics are cards like any other here (DRF-124).
         val entries = deck.entries.filter { it.definition == definition && it.section == section }
         if (entries.isEmpty()) return null
@@ -78,6 +80,7 @@ object PreparationRules {
         val entry = deck.entries.find { index >= GameWire.ordinal(it.firstIndex) &&
             index - GameWire.ordinal(it.firstIndex) < it.quantity } ?: return reject("copyUnavailable")
         if (entry.section != action.source) return reject("sourceSectionChanged")
+        if (action.source !in SavedDeckSection.PREPARED) return reject("inapplicable")
         val captured = PreparedTransfer(game.id, current.roundId, deck.id, deck.selectionRequestId, action.source,
             listOf(entry.copy(firstIndex = index.toString(), quantity = 1)))
         return PreparationChange(previewTransfer(current, actor, captured))
@@ -137,8 +140,9 @@ object PreparationRules {
         if (source == null || source.deck.id != action.deckId) return reject("sourceUnavailable")
         if (source.deck.revision != action.sourceRevision) return reject("sourceChanged")
         if (!DeckValidation.create(CreateDeck(requestId, source.deck.name, source.entries))) return reject("invalidSource")
-        // Maybe never reaches a game: neither its cards nor their definitions join the prepared deck.
-        val prepared = source.entries.filter { it.section in SavedDeckSection.PREPARED }
+        // LOB-141: Maybe comes along too (outside the game with Side), after Main and Side.
+        val prepared = source.entries.filter { it.section in SavedDeckSection.PREPARED } +
+            source.entries.filter { it.section !in SavedDeckSection.PREPARED }
         val needed = prepared.map { it.definition }.toSet()
         val attached = definitions.associateBy { it.digest }
         if (attached.size != definitions.size || needed.any { digest -> attached[digest]?.let {

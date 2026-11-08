@@ -1,1 +1,0 @@
-Tapping the Trash header's Review opens the one-by-one review of the two trashed cards: "Trash · MV 1", 1 / 2 and the Main count at the top, the card in the middle, and under it ◀ Side, ✓ Keep and Main ▶ in their colours (a tap keeps, swipes move it as in the columns).

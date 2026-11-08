@@ -266,12 +266,12 @@ class PodHttpTest {
         f.send(f.a, "POST", "/v1/pods/$pod/submit", PodDraftRequest(id(), attempt), 400) // main too small
         f.send(f.a, "PUT", "/v1/pods/$pod/build/basics", SetPodBasics(id(), attempt, PodDeckBasics(plains = 40)))
         assertEquals("sideboard_limit", json.decodeFromString<PodError>(f.send(f.a, "POST", "/v1/pods/$pod/submit", PodDraftRequest(id(), attempt), 400)).code)
-        f.send(f.a, "PUT", "/v1/pods/$pod/build/move", move.copy(requestId = id(), category = PodDeckCategory.TRASH))
+        f.send(f.a, "PUT", "/v1/pods/$pod/build/move", move.copy(requestId = id(), category = PodDeckCategory.MAYBE))
         val submit = PodDraftRequest(id(), attempt)
         val submitted = f.send(f.a, "POST", "/v1/pods/$pod/submit", submit)
         assertEquals(submitted, f.send(f.a, "POST", "/v1/pods/$pod/submit", submit))
         val locked = f.get(f.a, pod)
-        assertTrue(locked.submitted); assertEquals(3, locked.deck!!.copies.size)
+        assertTrue(locked.submitted); assertEquals(4, locked.deck!!.copies.size) // Maybe included (LOB-141)
         assertFalse(f.get(f.b, pod).submitted)
         assertPrivacy(f, pod)
         f.send(f.a, "PUT", "/v1/pods/$pod/build/move", move.copy(requestId = id()), 409)
@@ -1135,7 +1135,7 @@ class PodHttpTest {
         assertEquals(9, after.grid!!.publicView.grids.first().positions.filterNotNull().size) // First-pick refill.
         val copy = after.grid!!.mine.pool.first().id
         val other = listOf(f.a, f.b).single { it != player }
-        f.send(other, "PUT", "/v1/pods/$pod/build/move", MovePodCopy(id(), selection.draftAttemptId, copy, PodDeckCategory.TRASH), 400)
+        f.send(other, "PUT", "/v1/pods/$pod/build/move", MovePodCopy(id(), selection.draftAttemptId, copy, PodDeckCategory.MAYBE), 400)
         f.send(player, "PUT", "/v1/pods/$pod/build/move", MovePodCopy(id(), selection.draftAttemptId, copy, PodDeckCategory.SIDE))
         finishGrid(f, pod, listOf(f.a, f.b))
         val complete = f.get(player, pod)

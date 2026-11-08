@@ -53,11 +53,11 @@ class DraftDeckTest {
             return pod
         }
         fun detail(who: AccountService.Principal, pod: String) = json.decodeFromString<PodDetail>(pods.read(who, pod).body)
-        /** Main: the first card and 8 of each basic; Side: the second card; Trash: the third. */
-        fun build(who: AccountService.Principal, pod: String): PodDetail {
+        /** Main: the first card and 8 of each basic; Side: the second card; Maybe: the third (else Main too). */
+        fun build(who: AccountService.Principal, pod: String, maybe: Boolean = true): PodDetail {
             val detail = detail(who, pod); val attempt = detail.draftAttemptId!!; val copies = detail.build!!.copies
             assertEquals(200, pods.move(who, pod, MovePodCopy(id(), attempt, copies[1].copyId, PodDeckCategory.SIDE)).status)
-            assertEquals(200, pods.move(who, pod, MovePodCopy(id(), attempt, copies[2].copyId, PodDeckCategory.TRASH)).status)
+            if (maybe) assertEquals(200, pods.move(who, pod, MovePodCopy(id(), attempt, copies[2].copyId, PodDeckCategory.MAYBE)).status)
             assertEquals(200, pods.basics(who, pod, SetPodBasics(id(), attempt, PodDeckBasics(8, 8, 8, 8, 8))).status)
             return detail(who, pod)
         }
@@ -80,7 +80,7 @@ class DraftDeckTest {
         }
     }
 
-    // LOB-055
+    // LOB-055: Main, Side (with the Side basics) and the Build's Maybe as its own section
     @Test fun `submitting saves a private read-only draft deck of the whole pool that follows the private name`() = fixture { f ->
         val pod = f.pod()
         val built = f.build(f.a, pod)
@@ -97,10 +97,11 @@ class DraftDeckTest {
         val seventeen = PodDeckBasics(17, 17, 17, 17, 17)
         assertEquals(listOf(SavedDeckEntry(SavedDeckSection.MAINBOARD, copies[0], 1)) +
             BasicLand.entries.map { SavedDeckEntry(SavedDeckSection.MAINBOARD, lands.getValue(it), 8) } +
-            listOf(SavedDeckEntry(SavedDeckSection.SIDEBOARD, copies[1], 1), SavedDeckEntry(SavedDeckSection.SIDEBOARD, copies[2], 1)) +
-            BasicLand.entries.map { SavedDeckEntry(SavedDeckSection.SIDEBOARD, lands.getValue(it), it.count(seventeen)) },
+            listOf(SavedDeckEntry(SavedDeckSection.SIDEBOARD, copies[1], 1)) +
+            BasicLand.entries.map { SavedDeckEntry(SavedDeckSection.SIDEBOARD, lands.getValue(it), it.count(seventeen)) } +
+            listOf(SavedDeckEntry(SavedDeckSection.MAYBEBOARD, copies[2], 1)),
             deck.entries.sortedWith(compareBy({ it.section }, { it.definition in lands.values })))
-        assertEquals(41L, summary.mainboard); assertEquals(2L + 85, summary.sideboard)
+        assertEquals(41L, summary.mainboard); assertEquals(1L + 85, summary.sideboard); assertEquals(1L, summary.maybeboard)
 
         // The private pod deck name, also when changed after submitting.
         assertEquals(200, f.pods.deckName(f.a, pod, SetPodDeckName(id(), built.draftAttemptId!!, "Azorius fliers")).status)
@@ -129,7 +130,7 @@ class DraftDeckTest {
         f.build(f.b, pod)
         assertEquals(200, f.submit(f.b, pod, emptyList()))
         val other = f.read(f.b, f.drafts(f.b).single().id)
-        assertEquals(1L, other.deck.mainboard); assertEquals(2L, other.deck.sideboard)
+        assertEquals(1L, other.deck.mainboard); assertEquals(1L, other.deck.sideboard); assertEquals(1L, other.deck.maybeboard)
     }
 
     @Test fun `a resubmission replaces the same draft deck`() = fixture { f ->
@@ -137,7 +138,7 @@ class DraftDeckTest {
         f.build(f.a, pod)
         assertEquals(200, f.submit(f.a, pod))
         val first = f.drafts(f.a).single()
-        assertEquals(41L, first.mainboard); assertEquals(2L, first.sideboard)
+        assertEquals(41L, first.mainboard); assertEquals(1L, first.sideboard); assertEquals(1L, first.maybeboard)
         // Reopen the build as an edit-after-submit would, then move the Side card to Main.
         f.execute("UPDATE pod_member SET submitted_deck = NULL WHERE pod_id = '$pod' AND account_id = '${f.a.account.accountId}'")
         val detail = f.detail(f.a, pod)
@@ -146,7 +147,7 @@ class DraftDeckTest {
         assertEquals(200, f.submit(f.a, pod))
         val second = f.drafts(f.a).single()
         assertEquals(first.id, second.id); assertEquals(first.createdAt, second.createdAt); assertEquals("2", second.revision)
-        assertEquals(42L, second.mainboard); assertEquals(1L, second.sideboard)
+        assertEquals(42L, second.mainboard); assertEquals(0L, second.sideboard); assertEquals(1L, second.maybeboard)
     }
 
     // LOB-055
@@ -194,7 +195,8 @@ class DraftDeckTest {
 
     @Test fun `the V44 backfill rebuilds draft decks from submitted pod decks`() = fixture { f ->
         val pod = f.pod()
-        f.build(f.a, pod); f.build(f.b, pod)
+        // V44 predates Maybe in draft decks (it folded the then Trash into Side): builds without one
+        f.build(f.a, pod, maybe = false); f.build(f.b, pod, maybe = false)
         assertEquals(200, f.submit(f.a, pod)); assertEquals(200, f.submit(f.b, pod))
         val name = f.detail(f.a, pod).draftAttemptId!!
         assertEquals(200, f.pods.deckName(f.b, pod, SetPodDeckName(id(), name, "B's pile")).status)
@@ -216,5 +218,39 @@ class DraftDeckTest {
         }
         assertEquals(autosaved, snapshot())
         assertEquals("B's pile", autosaved[1].single().first)
+    }
+
+    // DRF-092, LOB-141: V70 turns a stored Trash into Maybe with nothing lost: the build keeps every copy, a submitted deck
+    // (which left Trash out) takes its Maybe back, and stored request responses say Maybe too
+    @Test fun `V70 renames a stored Trash to Maybe and gives submitted decks their Maybe`() = fixture { f ->
+        val pod = f.pod()
+        f.build(f.a, pod)
+        assertEquals(200, f.submit(f.a, pod))
+        val before = f.detail(f.a, pod)
+        assertEquals(before.build, before.deck)
+        val member = "pod_id = '$pod' AND account_id = '${f.a.account.accountId}'"
+        // As stored before V70
+        f.execute("UPDATE pod_member SET build = replace(build::text, '\"MAYBE\"', '\"TRASH\"')::jsonb, " +
+            "submitted_deck = jsonb_set(submitted_deck, '{copies}', (SELECT jsonb_agg(c ORDER BY n) " +
+            "FROM jsonb_array_elements(submitted_deck -> 'copies') WITH ORDINALITY AS t(c, n) WHERE c ->> 'category' IS DISTINCT FROM 'MAYBE')) " +
+            "WHERE $member")
+        f.execute("UPDATE account_request SET response = replace(response, '\"category\":\"MAYBE\"', '\"category\":\"TRASH\"')")
+        fun count(where: String) = f.db.connection().use { c ->
+            c.createStatement().executeQuery("SELECT count(*) FROM $where").use { it.next(); it.getInt(1) } }
+        assertEquals(1, count("pod_member WHERE $member AND build::text LIKE '%TRASH%' AND submitted_deck::text NOT LIKE '%MAYBE%' " +
+            "AND submitted_deck::text NOT LIKE '%TRASH%'"))
+        assertTrue(count("account_request WHERE response LIKE '%\"category\":\"TRASH\"%'") > 0)
+
+        val migration = javaClass.getResource("/db/migration/V70__build_maybe.sql")!!.readText()
+        f.db.connection().use { connection ->
+            connection.autoCommit = false
+            connection.createStatement().execute(migration)
+            connection.commit()
+        }
+        val after = f.detail(f.a, pod)
+        assertEquals(before.build, after.build)
+        assertEquals(before.deck, after.deck)
+        assertEquals(0, count("account_request WHERE response LIKE '%TRASH%'"))
+        assertEquals(0, count("pod_member WHERE build::text LIKE '%TRASH%'"))
     }
 }

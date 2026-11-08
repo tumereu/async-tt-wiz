@@ -2,7 +2,9 @@ package org.asyncttwiz.protocol
 
 import kotlinx.serialization.Serializable
 
-@Serializable enum class PodDeckCategory { MAIN, SIDE, TRASH }
+/** A Build section (DRF-092). Maybe holds cards set aside: in a pod game they are outside the game with Side, never in the
+ * library. */
+@Serializable enum class PodDeckCategory { MAIN, SIDE, MAYBE }
 @Serializable enum class PodDeckSwipe { LEFT, RIGHT }
 @Serializable data class PodDeckCopy(val copyId: String, val category: PodDeckCategory = PodDeckCategory.MAIN)
 @Serializable data class PodDeckBasics(
@@ -26,9 +28,9 @@ object PodDeckRules {
         PodDeckBuild(sideBasics = if (sideboardLimit == null) PodDeckBasics(17, 17, 17, 17, 17) else PodDeckBasics())
 
     fun swipe(category: PodDeckCategory, direction: PodDeckSwipe): PodDeckCategory = when (category) {
-        PodDeckCategory.MAIN -> if (direction == PodDeckSwipe.RIGHT) PodDeckCategory.SIDE else PodDeckCategory.TRASH
-        PodDeckCategory.SIDE -> if (direction == PodDeckSwipe.RIGHT) PodDeckCategory.MAIN else PodDeckCategory.TRASH
-        PodDeckCategory.TRASH -> if (direction == PodDeckSwipe.RIGHT) PodDeckCategory.MAIN else PodDeckCategory.SIDE
+        PodDeckCategory.MAIN -> if (direction == PodDeckSwipe.RIGHT) PodDeckCategory.SIDE else PodDeckCategory.MAYBE
+        PodDeckCategory.SIDE -> if (direction == PodDeckSwipe.RIGHT) PodDeckCategory.MAIN else PodDeckCategory.MAYBE
+        PodDeckCategory.MAYBE -> if (direction == PodDeckSwipe.RIGHT) PodDeckCategory.MAIN else PodDeckCategory.SIDE
     }
 
     /** Merge the latest pool without changing existing assignments or basics. Awards always start in Main. */
@@ -46,7 +48,9 @@ object PodDeckRules {
         })
     }
 
-    /** All drafted copies, including Trash, must be assigned exactly once. Lifecycle/locking is the server's job. */
+    /** All drafted copies, including Maybe, must be assigned exactly once. Every copy and basic goes to the pod's games (Maybe
+     * outside the game), so all of them count toward the deck size bound; the sideboard limit counts Side only (DRF-025).
+     * Lifecycle/locking is the server's job. */
     fun validate(build: PodDeckBuild, pool: List<String>, sideboardLimit: Int? = null): List<PodDeckIssue> {
         require(sideboardLimit == null || sideboardLimit >= 0)
         val ids = build.copies.map { it.copyId }
@@ -56,7 +60,7 @@ object PodDeckRules {
             if (!build.basics.valid || !build.sideBasics.valid) add(PodDeckIssue.NEGATIVE_BASICS)
             if (build.copies.count { it.category == PodDeckCategory.MAIN }.toLong() + build.basics.total < 40)
                 add(PodDeckIssue.MAIN_TOO_SMALL)
-            if (build.copies.count { it.category != PodDeckCategory.TRASH }.toLong() + build.basics.total + build.sideBasics.total > DeckValidation.MAX_CARDS)
+            if (build.copies.size.toLong() + build.basics.total + build.sideBasics.total > DeckValidation.MAX_CARDS)
                 add(PodDeckIssue.DECK_TOO_LARGE)
             if (assigned.any { it !in owned }) add(PodDeckIssue.UNKNOWN_COPY)
             if (assigned.size != ids.size) add(PodDeckIssue.DUPLICATE_COPY)

@@ -122,6 +122,8 @@ object TestCards {
     /** A free sorcery that ends a game by the rules (TRN-065: the other player's life reaches 0). */
     val ruin = card("Ember Ruin", "Sorcery", "{0}", "Each opponent loses 20 life.")
     val snare = card("Frost Snare", "Instant", "{0}", "Tap up to two target creatures.")
+    /** A free wish (LOB-141): its caster may put a card they own from outside the game (their Side and Maybe) into their hand. */
+    val wish = card("Ember Wish", "Instant", "{0}", "You may put a card you own from outside the game into your hand.")
 
     /** A split card ({2}{G} // {1}{R}{R}) as a catalog import keeps it (PhysicalCardFaces): one face holding both halves,
      * the front half's catalog record (its cost only) as the face's source data. */
@@ -136,14 +138,20 @@ object TestCards {
     }
 }
 
-/** A deck: [entries] of cards, in this order (the library's order before the opening shuffle). */
-data class TestDeck(val name: String, val entries: List<Pair<SubmittedDefinition, Int>>) {
+/** A deck: [entries] of cards, in this order (the library's order before the opening shuffle); [side] and [maybe] its Side
+ * and Maybe, the cards outside the game (LOB-141). */
+data class TestDeck(val name: String, val entries: List<Pair<SubmittedDefinition, Int>>,
+    val side: List<Pair<SubmittedDefinition, Int>> = emptyList(), val maybe: List<Pair<SubmittedDefinition, Int>> = emptyList()) {
     val size get() = entries.sumOf { it.second }
 
     companion object {
         /** 40 cards, a third each of Mountains, [creature]s and Storm Sparks (as the interim fixture's decks). */
         fun thirds(creature: SubmittedDefinition = TestCards.cub) =
             TestDeck("Thirds", listOf(TestCards.mountain to 14, creature to 13, TestCards.spark to 13))
+
+        /** 40 cards, Mountains and Ember Wishes, with a Cinder Hound in Side and an Ember Herald in Maybe (LOB-141). */
+        fun wishes() = TestDeck("Wishes", listOf(TestCards.mountain to 20, TestCards.wish to 20),
+            side = listOf(TestCards.hound to 1), maybe = listOf(TestCards.herald to 1))
 
         /** 40 cards: Mountains and Idle Glimmers (a free instant: its holder can always respond). */
         fun glimmers() = TestDeck("Glimmers", listOf(TestCards.mountain to 20, TestCards.glimmer to 20))

@@ -25,7 +25,8 @@ internal class LobbyPreparationActions(private val scope: LobbyScope, private va
         val actor = accountId() ?: return
         val preparation = state.preparation
         val deck = preparation?.players?.find { it.accountId == actor }?.deck
-        val digests = deck?.entries?.filter { it.section in SavedDeckSection.PREPARED }?.map { it.definition }?.toSet().orEmpty()
+        // Every card of the deck may be played: Maybe too, from outside the game (LOB-141)
+        val digests = deck?.entries?.map { it.definition }?.toSet().orEmpty()
         val venturing = preparation?.definitions.orEmpty().any { it.digest in digests &&
             org.asyncttwiz.protocol.game.OutsideCards.mayVenture(it.definition) }
         val load = dungeonDefinitions

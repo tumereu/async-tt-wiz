@@ -11,10 +11,11 @@ import org.jooq.DSLContext
 /** Draft decks: one saved deck per pod membership, kept from the member's latest submitted pod deck.
  * Games never depend on a saved deck (selection copies it), so evicting one cannot affect any game. */
 internal object DraftDeckStore {
-    /** Main = submitted Main cards and basics; Side = the rest of the drafted pool and the Side basics.
-     * Basics are left out when [basicDefinitions] is null. Empty when the result would not be a valid saved deck. */
+    /** Main = submitted Main cards and basics; Side = submitted Side cards and the Side basics; Maybe = the Build's Maybe
+     * (LOB-055). Basics are left out when [basicDefinitions] is null. Empty when the result would not be a valid saved deck. */
     fun entries(build: PodDeckBuild, pool: List<String>, definitions: Map<String, String>,
                 basicDefinitions: Map<BasicLand, String>?): List<SavedDeckEntry> {
+        val category = build.copies.associate { it.copyId to it.category }
         val main = build.copies.filter { it.category == PodDeckCategory.MAIN }.map { it.copyId }
         val inMain = main.toSet()
         fun collect(sideBasics: Boolean): List<SavedDeckEntry> {
@@ -27,8 +28,10 @@ internal object DraftDeckStore {
             }
             main.forEach { add(SavedDeckSection.MAINBOARD, definitions.getValue(it), 1) }
             basics(SavedDeckSection.MAINBOARD, build.basics)
-            pool.filter { it !in inMain }.forEach { add(SavedDeckSection.SIDEBOARD, definitions.getValue(it), 1) }
+            val rest = pool.filter { it !in inMain }
+            rest.filter { category[it] != PodDeckCategory.MAYBE }.forEach { add(SavedDeckSection.SIDEBOARD, definitions.getValue(it), 1) }
             if (sideBasics) basics(SavedDeckSection.SIDEBOARD, build.sideBasics)
+            rest.filter { category[it] == PodDeckCategory.MAYBE }.forEach { add(SavedDeckSection.MAYBEBOARD, definitions.getValue(it), 1) }
             return counts.map { (key, quantity) -> SavedDeckEntry(key.first, key.second, quantity) }
         }
         // Side basics are supplied extras: dropped first when the whole would exceed the deck size bound.

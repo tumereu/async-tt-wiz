@@ -71,12 +71,16 @@ internal val PodBuildCardGap = 1.dp
 internal val PodBuildBlue = Color(0xFF1F5FAF)
 private const val PodBuildSettleMillis = 250
 
-/** Section colours, shared by the headers and the swipe projection: Main green, Side blue, Trash red. */
+/** Section colours, shared by the headers, buttons and review: Main green, Side blue, Maybe amber (SYS-054, the card list
+ * sections' colours). */
 internal fun PodDeckCategory.podBuildColor(): Color = when (this) {
     PodDeckCategory.MAIN -> PodPickGreen
     PodDeckCategory.SIDE -> PodBuildBlue
-    PodDeckCategory.TRASH -> PodPickRed
+    PodDeckCategory.MAYBE -> SectionMaybeAmber
 }
+
+/** Translucent tints (the swipe copy) use Maybe's brighter yellow, as the card list sections do. */
+internal fun PodDeckCategory.podBuildFill(): Color = if (this == PodDeckCategory.MAYBE) SectionMaybeYellow else podBuildColor()
 
 /** Where a horizontal drag of [dragX] px would move a card of [category]; null before any movement. */
 internal fun podBuildSwipeTarget(category: PodDeckCategory, dragX: Float): PodDeckCategory? = when {
@@ -163,7 +167,7 @@ fun PodBuildView(
                 val count = podBuildCount(build, category)
                 val buckets = podBuildColumns(build, category, copies, definitions, columns)
                 val sectionColor = category.podBuildColor()
-                // DRF-107: every section has a review, Trash too
+                // DRF-107: every section has a review, Maybe too
                 val feedable = editable
                 item(key = "header-$category") {
                     Surface(color = sectionColor.copy(alpha = .16f).compositeOver(MaterialTheme.colorScheme.surfaceContainer),
@@ -474,7 +478,7 @@ internal fun PodBuildCard(
 @Composable
 internal fun PodBuildSwipeCopy(
     key: String, reference: ArtworkReference?, name: String, width: Int, drag: Float, progress: Float,
-    target: PodDeckCategory, tint: Color = target.podBuildColor(), label: String = target.podBuildLabel(),
+    target: PodDeckCategory, tint: Color = target.podBuildFill(), label: String = target.podBuildLabel(),
 ) {
     val density = LocalDensity.current
     val cardWidth = with(density) { width.toDp() }

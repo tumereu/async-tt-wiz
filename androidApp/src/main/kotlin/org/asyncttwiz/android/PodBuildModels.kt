@@ -72,7 +72,7 @@ internal fun podBuildIssueText(issue: PodDeckIssue, sideboardLimit: Int?): Strin
 internal fun PodDeckCategory.podBuildLabel(): String = when (this) {
     PodDeckCategory.MAIN -> "Main"
     PodDeckCategory.SIDE -> "Side"
-    PodDeckCategory.TRASH -> "Trash"
+    PodDeckCategory.MAYBE -> "Maybe"
 }
 
 internal fun PodDeckBasics.podBuildValues(): List<Int> = listOf(plains, island, swamp, mountain, forest)

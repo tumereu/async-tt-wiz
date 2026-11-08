@@ -265,14 +265,14 @@ class DraftGalleryScreenshotTest {
         val main = listOf(0, 1, 2, 3, 4, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 26, 28, 29, 30, 31) .map { copy(it) } +
             listOf(copy(0, 1), copy(16, 1), copy(22, 1))
         val side = listOf(5, 6, 7, 25, 27).map { copy(it) }
-        val trash = listOf(10, 11).map { copy(it) }
+        val maybe = listOf(10, 11).map { copy(it) }
         val build = PodDeckBuild(main.map { PodDeckCopy(it.id) } + side.map { PodDeckCopy(it.id, PodDeckCategory.SIDE) } +
-            trash.map { PodDeckCopy(it.id, PodDeckCategory.TRASH) }, PodDeckBasics(plains = 8, mountain = 4, forest = 5),
+            maybe.map { PodDeckCopy(it.id, PodDeckCategory.MAYBE) }, PodDeckBasics(plains = 8, mountain = 4, forest = 5),
             PodDeckBasics(17, 17, 17, 17, 17))
-        return main + side + trash to build
+        return main + side + maybe to build
     }
 
-    // DRF-076, DRF-092, DRF-094, DRF-095, DRF-097, DRF-098, DRF-103, DRF-106 (a tall screen shows Main, Side and Trash)
+    // DRF-076, DRF-092, DRF-094, DRF-095, DRF-097, DRF-098, DRF-103, DRF-106 (a tall screen shows Main, Side and Maybe)
     @Test @Config(qualifiers = "w412dp-h1500dp-port-xhdpi") fun build() = buildShot(false)
 
     // DRF-095
@@ -288,7 +288,7 @@ class DraftGalleryScreenshotTest {
         if (landscape) shot("build-landscape", "Build in landscape after a Booster draft: the same deck in wider columns, the deck " +
             "name and the Main header at the top, Undo and Submit deck in the full-width bottom bar.")
         else shot("build", "Build after a Booster draft, opened on the Build tab (Build · Stats · Games) on a tall screen: Main, " +
-            "Side and Trash with their counts, basics rows, columns Lands then mana value with counts, duplicates as ×2, and Undo " +
+            "Side and Maybe with their counts, basics rows, columns Lands then mana value with counts, duplicates as ×2, and Undo " +
             "with Submit deck at the bottom.")
     }
 

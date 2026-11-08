@@ -588,8 +588,8 @@ class PodService(private val runtime: ServiceRuntime) {
             val pool = pools(row).getValue(owner.toString())
             val issues = PodDeckRules.validate(build, pool, settings(row).sideboardLimit)
             if (issues.isNotEmpty()) return@mutate error(400, issues.first().name.lowercase())
-            val deck = build.copy(copies = build.copies.filter { it.category != PodDeckCategory.TRASH })
-            sql.update(MEMBER).set(MEMBER.SUBMITTED_DECK, encoded(deck)).where(MEMBER.POD_ID.eq(row.id)).and(MEMBER.ACCOUNT_ID.eq(owner)).execute()
+            // LOB-141: Maybe goes to the pod's games too, outside the game with Side
+            sql.update(MEMBER).set(MEMBER.SUBMITTED_DECK, encoded(build)).where(MEMBER.POD_ID.eq(row.id)).and(MEMBER.ACCOUNT_ID.eq(owner)).execute()
             if (basics != null) storeDefinitions(sql, input.basicDefinitions)
             DraftDeckStore.save(sql, owner, row.id!!, row.name!!, member.deckName ?: "${row.name} draft",
                 DraftDeckStore.entries(build, pool, copies(row).associate { it.id to it.definition }, basics))
@@ -630,7 +630,7 @@ class PodService(private val runtime: ServiceRuntime) {
                 ?: return@mutate error(400, "invalid_basic_definitions")
             val build = build(row, players.getValue(owner.toString()).submittedDeck!!.data())
             // Match the existing tabletop's bounded physical deck representation (submission enforces it too).
-            if (build.copies.count { copy -> copy.category != PodDeckCategory.TRASH } + build.basics.total + build.sideBasics.total > DeckValidation.MAX_CARDS)
+            if (build.copies.size + build.basics.total + build.sideBasics.total > DeckValidation.MAX_CARDS)
                 return@mutate error(400, "invalid_deck")
             val game = UUID.randomUUID(); val invitation = UUID.randomUUID()
             sql.insertInto(GAME).set(GAME.ID, game).set(GAME.GAME_NAME, input.gameName).set(GAME.INVITER_ID, owner)
@@ -695,10 +695,13 @@ class PodService(private val runtime: ServiceRuntime) {
         val copies = copies(row).associateBy { it.id }
         val selection = CommandIds.uuidV5(requestId, "pod-deck/$player")
         var index = 0L
-        val entries = build.copies.filter { it.category != PodDeckCategory.TRASH }.map { copy ->
-            PreparedEntry(copies.getValue(copy.copyId).definition,
-                if (copy.category == PodDeckCategory.MAIN) SavedDeckSection.MAINBOARD else SavedDeckSection.SIDEBOARD,
-                (index++).toString(), 1)
+        // LOB-141: Maybe comes along as the deck's Maybe (outside the game with Side)
+        val entries = build.copies.map { copy ->
+            PreparedEntry(copies.getValue(copy.copyId).definition, when (copy.category) {
+                PodDeckCategory.MAIN -> SavedDeckSection.MAINBOARD
+                PodDeckCategory.SIDE -> SavedDeckSection.SIDEBOARD
+                PodDeckCategory.MAYBE -> SavedDeckSection.MAYBEBOARD
+            }, (index++).toString(), 1)
         } + listOf(SavedDeckSection.MAINBOARD to build.basics, SavedDeckSection.SIDEBOARD to build.sideBasics).flatMap { (section, counts) ->
             BasicLand.entries.mapNotNull { land -> land.count(counts).takeIf { it > 0 }?.let { count ->
                 PreparedEntry(basics.getValue(land), section, index.toString(), count, land).also { index += count }

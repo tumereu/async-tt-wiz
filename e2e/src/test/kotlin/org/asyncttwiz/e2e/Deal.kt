@@ -16,7 +16,7 @@ import org.asyncttwiz.protocol.game.TableState
 
 /**
  * A game's deal as the server starts it (EngineGames.start, EngineDecks.seats): players seated by account id, each
- * library in deck order, the game's random [secret] shuffling them and drawing the opening hands, worked out here with
+ * library in deck order (Side and Maybe outside the game), the game's random [secret] shuffling them and drawing the opening hands, worked out here with
  * the same engine and protocol code. [hand] and [library] (top first) by card name.
  */
 class Deal private constructor(private val hands: Map<String, List<String>>, private val libraries: Map<String, List<String>>) {
@@ -27,9 +27,10 @@ class Deal private constructor(private val hands: Map<String, List<String>>, pri
     companion object {
         fun of(players: List<Pair<TestAccount, TestDeck>>, starter: TestAccount, secret: String): Deal {
             val seats = players.sortedBy { it.first.id }.map { (account, deck) ->
-                Seat(PlayerId(account.id), deck.entries.flatMap { (card, n) ->
-                    List(n) { i -> DeckCard(CardId("${account.id}/${card.digest}/$i"), GameCards.parse(card.definition).definition) }
-                })
+                fun cards(prefix: String, list: List<Pair<org.asyncttwiz.protocol.SubmittedDefinition, Int>>) = list.flatMap { (card, n) ->
+                    List(n) { i -> DeckCard(CardId("${account.id}/$prefix${card.digest}/$i"), GameCards.parse(card.definition).definition) }
+                }
+                Seat(PlayerId(account.id), cards("", deck.entries), cards("side/", deck.side) + cards("maybe/", deck.maybe))
             }
             val engine = Engine.newGame(seats)
             for (p in engine.players.toList()) engine.apply(Changes.skipWhenNoChoice(engine, p.id, false))

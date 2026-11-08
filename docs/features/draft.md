@@ -34,7 +34,7 @@ Cubes, pods of 2–8 players drafting asynchronously, the pick and grid screens,
 - **DRF-022** Settings are square tiles (small label, big value); tapping one opens a dialog that saves only valid in-range values, with a short explanation of the setting and its limits. Rochester's "Open packs" tile reads "1 each" (one per player) until a number is set; its dialog has a square "1 each" toggle like the sideboard's ∞. Winston and Winchester have a "Tables" tile after Piles. (r60)
 - **DRF-023** Limits: packs 1–30, pack size 1–30, keep at least 1, keep + burn at most the pack size, open packs up to the pack count; grids 1–60; Rochester, Winston and Winchester packs per player 1–15 and pack size 5–30; Rochester packs open at once 1 up to all (any count above the number of packs opens them all); Rotisserie and cube Sealed cards per player 5–225; Winston piles 2–6, Winchester piles 2–8; Winston and Winchester tables 1–4 (more than the players gives one table per player); set Sealed boosters per player 1–30. (r60)
 - **DRF-024** The pack size tile (Booster, Rochester, Winston and Winchester) shows only for cubes and for set packs without a booster recipe; set recipes fix their own size. (r35)
-- **DRF-025** Sideboard limit is a tile, default unlimited (∞), with a square ∞ toggle inside its dialog; 0 is allowed. (r17)
+- **DRF-025** Sideboard limit is a tile, default unlimited (∞), with a square ∞ toggle inside its dialog; 0 is allowed. It counts Side only, never Maybe. (r60)
 - **DRF-026** "Color balancing" is a square On/Off toggle tile for cube Booster/Glimpse, default on: each pack gets a card of every colour when the cube allows. (r19)
 - **DRF-027** "Fresh boosters" toggle tile (default on) is always shown and greyed out unless the pod drafts grids from a set. (r29)
 - **DRF-028** Grid has a "Two picks each" option, only for 2 players. (r16)
@@ -147,14 +147,14 @@ Cubes, pods of 2–8 players drafting asynchronously, the pick and grid screens,
 
 ### Build
 
-- **DRF-092** Build is one scrolling page with Main, Side and Trash sections (green, blue and red headers with counts); nothing sticks to the top, the deck name and headers scroll away. (r22)
+- **DRF-092** Build is one scrolling page with Main, Side and Maybe sections (green, blue and amber headers with counts, the card list sections' colours, SYS-054); nothing sticks to the top, the deck name and headers scroll away. (r60)
 - **DRF-093** Build works during the draft too: new picks land in Main without moving anything else, and every change is saved on the server. (r16)
 - **DRF-094** The Main header reads "Main X + Y = Z" (nonland cards + all lands incl. basics); Side uses the same split once it holds lands. (r23)
 - **DRF-095** Columns sit side by side filling the width: Lands, then mana value 0, 1, 2 … with the last column "and above"; 2–10 columns, default 7, saved per device and orientation. (r16)
 - **DRF-096** "Build · cards side by side" puts 1–3 cards next to each other in every column, default 1 in both orientations. (r22)
 - **DRF-097** Column labels show the column's card count on a line under the label; columns are faintly tinted, cards whole (never overlapped), 1 dp apart, with wide side margins. (r23)
 - **DRF-098** Duplicates combine into one card with a ×N badge; actions move one copy. Within a column cards sort W U B R G, multicolour, colourless, then name. (r16)
-- **DRF-099** Swipes: Main right→Side, left→Trash; Side right→Main, left→Trash; Trash right→Main, left→Side. (r20)
+- **DRF-099** Swipes: Main right→Side, left→Maybe; Side right→Main, left→Maybe; Maybe right→Main, left→Side. (r60)
 - **DRF-100** While swiping the card stays put and a 70% see-through tilted copy tinted in the destination colour follows the finger; under 20 dp it springs back. (r20)
 - **DRF-101** A moved card fades out where it was and in at its new place while others slide (~250 ms); a brief chip like "→ Side" confirms the move. (r20)
 - **DRF-102** Tapping a card opens a menu with its two destinations; after submitting they are disabled. Holding inspects the card like the pick screen. (r52)
@@ -165,10 +165,10 @@ Cubes, pods of 2–8 players drafting asynchronously, the pick and grid screens,
 
 ### Build review (one by one)
 
-- **DRF-107** Tapping a column label (like "2" or "Lands") or a section header ("Review ›") opens a full-screen one-by-one review of those cards, for Main, Side and Trash alike. (r47)
+- **DRF-107** Tapping a column label (like "2" or "Lands") or a section header ("Review ›") opens a full-screen one-by-one review of those cards, for Main, Side and Maybe alike. (r60)
 - **DRF-108** In the review a tap keeps the card where it is and goes on to the next; a swipe moves it as a swipe in the columns does (DRF-099), committing at 30% of the card width. Under the card the same three as icon-and-word buttons in their colours (◀ left destination, ✓ Keep, right destination ▶), and a flip button for double-faced cards. (r47)
 - **DRF-109** The review shows "Main · MV 2"-style position and the Main count, Undo at the top left and a close button at the top right; system Back also closes it. (r24)
-- **DRF-110** After the last card the review closes itself and a summary chip like "Kept 3 · 2 to Side · 1 to Trash" shows on Build for about 2 s; review moves can be undone with Build's Undo. (r47)
+- **DRF-110** After the last card the review closes itself and a summary chip like "Kept 3 · 2 to Side · 1 to Maybe" shows on Build for about 2 s; review moves can be undone with Build's Undo. (r60)
 
 ### Stats
 
@@ -183,8 +183,8 @@ Cubes, pods of 2–8 players drafting asynchronously, the pick and grid screens,
 
 ### Submitting and pod games
 
-- **DRF-119** Submit is possible once the whole draft is done: Main at least 40 cards incl. basics, Side within the sideboard limit, at most 1000 cards; "Submit deck?" is confirmed. (r16)
-- **DRF-120** Submitting locks Main, Side and basics; the bar then shows "✓ Submitted". Trash is left out of pod games. Members submit independently. (r17)
+- **DRF-119** Submit is possible once the whole draft is done: Main at least 40 cards incl. basics, Side within the sideboard limit, at most 1000 cards in all (Maybe included); "Submit deck?" is confirmed. (r60)
+- **DRF-120** Submitting locks Main, Side, Maybe and basics; the bar then shows "✓ Submitted". Maybe comes along to pod games outside the game with Side (LOB-141). Members submit independently. (r60)
 - **DRF-121** The Games tab lists members as "deck submitted" or "building" and, once yours is submitted, a crossed-swords Challenge button beside every other member; then the pod's Standings (each member's W–L–D in the pod's finished matches, most wins first, then fewest losses, then most draws) and its Matches, played or being played: "<name> vs <name>" with "In play" and the turn reached, or the winner ("<name> won", "Draw", "Unfinished") with date, turns and how it ended; no deck information, also for your own matches; then this pod's games. (r58)
 - **DRF-122** Challenging a member who is still building is allowed: they see the invitation at once and can decline it, but can accept only after submitting; you can prepare and get Ready meanwhile. (r30)
 - **DRF-123** A challenge is a normal game invitation; incoming ones are answered in place in the Games tab. Any two members may play any number of games. (r30)

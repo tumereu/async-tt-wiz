@@ -1,0 +1,1 @@
+mod: Build's Trash is now called Maybe, and in every game your Side and Maybe cards are the cards you own outside the game, so wishes and similar cards can fetch them.

@@ -72,6 +72,8 @@ class BranchNoteTest : E2e() {
         }
 
         waitUntil("Alice told Bob responded") { alice.told("${bob.name} responded") }
+        // HIS-106: her table stops at the branch point; her tap plays Bob's pump back
+        alice.continuesPastBranchStop(this)
         waitUntil("Bob's pump shown on Alice's table") { alice.shown.held.any(::pump) && !alice.shown.behind }
         assertFalse(alice.told("taken back"), "no take-back clause: only her phone's assumed pass was taken back: ${alice.shownTexts}")
         assertTrue(alice.engine { device.session.events }.none { it.id == assumed.id }, "the assumed pass is discarded")

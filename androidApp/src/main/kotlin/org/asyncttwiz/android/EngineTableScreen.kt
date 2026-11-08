@@ -107,7 +107,10 @@ internal fun EngineTableScreen(controller: LobbyController, accountId: String, h
     // HIS-097, HIS-022 (owner playtest 2026-11-05): a branch's rewind back to the branch point waits the Rewind pause
     // after each step
     val rewindPause by playbackPreferences.rewindPauseState()
-    val takingBack = shown.takingBack && reviewPlay == null
+    // HIS-106 (owner 2026-11-08): once the rewind has played, it stops at the branch point as playback stops: the table
+    // is live there with the centre text, and Back, the menu and the timeline work again
+    val branchRewound = shown.branchStop && !(shown.transition?.undone?.branch == true && motion.playing)
+    val takingBack = shown.takingBack && reviewPlay == null && !branchRewound
     val rewindingBranch = takingBack && shown.transition?.undone?.branch == true && motion.playing
     val scope = rememberCoroutineScope()
     SideEffect {
@@ -218,7 +221,8 @@ internal fun EngineTableScreen(controller: LobbyController, accountId: String, h
                         },
                         centreAction = if (reviewPlay == null && (catchUp || pausedStop) && !takingBack && watchTappedAt != shown.version)
                             // HIS-094, HIS-106, HIS-108: what waits: a take-back held on the return, or the other player's moves
-                            TableCentreAction(when (shown.takeBack?.undo) {
+                            TableCentreAction(if (shown.branchStop) "${routes.opponentName} responded differently from here · Tap to continue"
+                            else when (shown.takeBack?.undo) {
                                 false -> "${routes.opponentName} responded differently · Tap to watch"
                                 true -> "${routes.opponentName} undid moves · Tap to watch"
                                 null -> "${routes.opponentName} has made moves · Tap to watch"

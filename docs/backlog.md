@@ -16,7 +16,6 @@ Changes the owner wants but that are not built yet. The feature catalog
 
 Owner notes after beta5 (2026-11-08):
 
-- Branch stop (HIS-106, HIS-097): a branch's rewind stops at the branch point, live and on return alike (as playback stops), with centre text like "<name> responded differently from here · Tap to continue"; the tap plays their new events as catch-up. Undo (HIS-108) is unchanged: live it shows at once.
 - Landscape hand (TBL-009, TBL-121 and the landscape layout entries): the hand moves into the bottom bar between your zones and the right end; it scrolls as in portrait. The right end is a fixed-width area as wide as the Quick / Assume / Autotap buttons; quick actions that appear fit inside it (buttons narrow), so the hand's width never changes. The separate hand strip goes, the battlefield gets its height.
 - View deck (ZON-093): cards use the card size from settings like the other card panels, not their own size; the Close button becomes a borderless X like the Source dialog's.
 - Presets (DRF-031, DRF-032): drop the built-in "Booster" preset (it equals choosing Booster on the mode button); Glimpse stays the only built-in.

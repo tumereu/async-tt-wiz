@@ -21,7 +21,8 @@ import kotlin.test.assertTrue
  * her phone she was told "Bob has made moves · Tap to watch", which didn't say her line was taken back. Owner
  * 2026-11-07 (catch-up rules): coming back to a game whose line the other player's real answer branched while she was
  * away opens it as she left it with "Bob responded differently · Tap to watch"; her tap shows the branch (HIS-097,
- * HIS-106): the take-back to the branch point with its note, then Bob's new events played back.
+ * HIS-106): the take-back to the branch point with its note; owner 2026-11-08: it stops there ("Bob responded differently
+ * from here · Tap to continue"), and her next tap plays Bob's new events back.
  */
 class BranchOnReturnTest : E2e() {
     /** Alice leaves the app (her phone then hears nothing until she is back; Bob is away too, so he isn't told). */
@@ -55,8 +56,8 @@ class BranchOnReturnTest : E2e() {
 
     /** HIS-097, HIS-106, HIS-094 (owner 2026-11-07): back, Alice's table waited as she left it ([discarded] shown) with
      * "Bob responded differently · Tap to watch", nothing moving; her tap took it back to the branch point (the take-back,
-     * with timeline mode's look) with [note], then played Bob's new events back ([theirs]), and she is live at the new
-     * head; [discarded] is gone. */
+     * with timeline mode's look) with [note] and stopped there (owner 2026-11-08), her next tap played Bob's new events
+     * back ([theirs]), and she is live at the new head; [discarded] is gone. */
     private fun assertBranchShown(seen: Seen, note: String, discarded: GameEvent, theirs: (GameEvent) -> Boolean) {
         waitUntil("Alice's centre text") { alice.showsWatch() && alice.current() }
         assertEquals("${bob.name} responded differently · Tap to watch", alice.watchText())
@@ -70,6 +71,10 @@ class BranchOnReturnTest : E2e() {
         fun takeBack(): Int = seen.boards.indexOfFirst { it.transition?.undone?.branch == true && it.transition!!.backward.isNotEmpty() }
         waitUntil("Alice's table going back to the branch point") { takeBack() >= 0 }
         waitUntil("Alice told") { alice.told(note) }
+        // HIS-106 (owner 2026-11-08): the take-back stops at the branch point until her next tap
+        alice.waitsAtBranchStop(this, bob) { seen.boards.any { s -> s.held.any(theirs) } }
+        val stopped = seen.boards.size
+        alice.tapToWatch()
         waitUntil("Bob's answer played back on Alice's table, her table live at the new head") {
             !alice.shown.behind && alice.status !is GameDevice.Status.Playing && alice.shown.held.any(theirs)
         }
@@ -79,8 +84,10 @@ class BranchOnReturnTest : E2e() {
         val played = seen.boards.indexOfFirst { s -> s.held.any(theirs) }
         assertTrue(played > takeBack(), "the take-back first, then Bob's new events")
         assertTrue(takeBack() >= seen.tapped, "the take-back only after her tap")
-        assertTrue(seen.boards.drop(seen.tapped).none { it.status == GameDevice.Status.CatchUp && !it.takingBack },
-            "after her tap never paused for a centre text again: ${seen.boards.map { "${it.status}/${it.takingBack}" }}")
+        assertTrue(seen.boards.subList(seen.tapped, stopped).none { it.status == GameDevice.Status.CatchUp && !it.takingBack },
+            "after her tap paused only at the branch point: ${seen.boards.map { "${it.status}/${it.takingBack}" }}")
+        assertTrue(seen.boards.drop(stopped).none { it.status == GameDevice.Status.CatchUp },
+            "after her tap at the branch point never paused for a centre text again: ${seen.boards.map { "${it.status}/${it.branchStop}" }}")
         assertTrue(alice.engine { device.session.events }.none { it.id == discarded.id }, "her assumed line is discarded")
         assertTrue(alice.leaks.leaks.isEmpty() && bob.leaks.leaks.isEmpty())
     }

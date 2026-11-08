@@ -194,6 +194,29 @@ internal fun E2ePlayer.watchText(): String? = nodes(hasTestTag("centre-action"))
 internal fun E2ePlayer.showsWatch(): Boolean = shows(hasTestTag("centre-action"))
 internal fun E2ePlayer.tapToWatch() { node(hasTestTag("centre-action")).performClick() }
 
+/**
+ * HIS-106 (owner 2026-11-08): a branch's rewind stops at the branch point as playback stops: this player's table waits
+ * there, live, without timeline mode's look, with "<[by]> responded differently from here · Tap to continue", and their
+ * new events ([theirsShown]) don't play while it waits. The caller taps the centre text next.
+ */
+internal fun E2ePlayer.waitsAtBranchStop(e2e: E2e, by: E2ePlayer, theirsShown: () -> Boolean) {
+    e2e.waitUntil("$name's table stopped at the branch point") { game?.shown?.branchStop == true && showsWatch() }
+    kotlin.test.assertEquals("${by.name} responded differently from here · Tap to continue", watchText())
+    repeat(3) { e2e.run(skip = java.time.Duration.ofMillis(600)) }
+    kotlin.test.assertTrue(!theirsShown(), "${by.name}'s new events wait for $name's tap")
+    kotlin.test.assertEquals(GameDevice.Status.CatchUp, status, "waiting at the branch point")
+    kotlin.test.assertTrue(showsWatch() && !showsTimelineLook(), "stopped at the branch point: the centre text, no timeline look")
+}
+
+/** HIS-106 (owner 2026-11-08): after a branch's note, taps the centre text of its stop at the branch point when the table
+ * stops there (the other player's new events follow it), so they play on; nothing when the branch made no stop. */
+internal fun E2ePlayer.continuesPastBranchStop(e2e: E2e) {
+    e2e.waitUntil("$name's table stopped at the branch point, or past it") {
+        game?.shown?.let { s -> !s.takingBack || (s.branchStop && showsWatch()) } == true
+    }
+    if (game?.shown?.branchStop == true) tapToWatch()
+}
+
 /** A tap on the middle of this player's own battlefield (HIS-095: while playback runs it pauses it). */
 internal fun E2ePlayer.tapTable() { node(hasContentDescription("$name Battlefield,", substring = true)).performClick() }
 

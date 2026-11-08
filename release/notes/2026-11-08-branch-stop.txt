@@ -1,0 +1,1 @@
+mod: When the other player answered differently than you assumed, your table now goes back and stops where their answer begins; tap to watch what they did from there.

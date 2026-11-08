@@ -145,12 +145,17 @@ class RewindOnReturnTest : E2e() {
 
     /** HIS-097, HIS-106: back, Alice's table waited as she left it (her assumed pass shown) with "Bob responded
      * differently · Tap to watch"; her tap took it back to the branch point step by step with timeline mode's look and
-     * the note, then played Bob's new events ([theirs]) back, and she is live at the new head. */
+     * the note and stopped there (owner 2026-11-08: "Bob responded differently from here · Tap to continue"); her next
+     * tap played Bob's new events ([theirs]) back, and she is live at the new head. */
     private fun assertBranchShown(seen: Seen, discarded: GameEvent, theirs: (GameEvent) -> Boolean) {
         waitsForTheTap(seen, alice, "${bob.name} responded differently · Tap to watch") { s -> s.held.any { it.id == discarded.id } }
         fun takeBack(): Int = seen.boards.indexOfFirst { s -> s.transition?.let { it.undone?.branch == true && it.backward.isNotEmpty() } == true }
         waitUntil("Alice's table going back to the branch point") { takeBack() >= 0 }
         waitUntil("Alice told") { alice.told("${bob.name} responded") }
+        // HIS-106 (owner 2026-11-08): the take-back stops at the branch point until her next tap
+        alice.waitsAtBranchStop(this, bob) { seen.boards.any { s -> s.held.any(theirs) } }
+        val stopped = seen.boards.size
+        alice.tapToWatch()
         waitUntil("Bob's answer played back on Alice's table, her table live at the new head") {
             !alice.shown.behind && alice.status !is GameDevice.Status.Playing && alice.shown.held.any(theirs)
         }
@@ -164,8 +169,10 @@ class RewindOnReturnTest : E2e() {
             "her table went back from the board she had seen: ${seen.applied.map { (a, o) -> "${a.serial}/${a.undone?.branch}/$o" }}")
         assertTrue(seen.rewinding, "her table drew the take-back's steps with timeline mode's look")
         assertTrue(seen.boards.take(takeBack()).none { s -> s.held.any(theirs) }, "the take-back first, then Bob's new events")
-        assertTrue(seen.boards.drop(seen.tapped).none { it.status == GameDevice.Status.CatchUp && !it.takingBack },
-            "after the tap never paused for a centre text again: ${seen.boards.map { "${it.status}/${it.takingBack}" }}")
+        assertTrue(seen.boards.subList(seen.tapped, stopped).none { it.status == GameDevice.Status.CatchUp && !it.takingBack },
+            "after the tap paused only at the branch point: ${seen.boards.map { "${it.status}/${it.takingBack}" }}")
+        assertTrue(seen.boards.drop(stopped).none { it.status == GameDevice.Status.CatchUp },
+            "after the tap at the branch point never paused for a centre text again: ${seen.boards.map { "${it.status}/${it.branchStop}" }}")
         assertTrue(alice.leaks.leaks.isEmpty() && bob.leaks.leaks.isEmpty())
     }
 

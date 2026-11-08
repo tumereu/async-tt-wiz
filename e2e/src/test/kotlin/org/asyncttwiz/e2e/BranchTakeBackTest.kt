@@ -11,16 +11,18 @@ import kotlin.test.assertTrue
 /**
  * Owner playtest 2026-11-05: when the other player's real answer differed from an assumed one, the assumer's table
  * jumped straight to the branch point. It must show the branch: the rewind animation back to the branch point (paced by
- * the Rewind pause), with HIS-097's note, then the playback of the other player's new events, which the player can't
- * stop, skip or leave.
+ * the Rewind pause), with HIS-097's note, which the player can't stop, skip or leave. Owner 2026-11-08: the rewind then
+ * stops at the branch point, as playback stops, with "<name> responded differently from here · Tap to continue"; the tap
+ * plays the other player's new events back as catch-up playback.
  */
 class BranchTakeBackTest : E2e() {
     // HIS-097, HIS-022, HIS-106: Alice casts an Ember Herald while Bob is away and plays on ("Always assume resolves");
     // Bob comes back and, at his playback's stop at her spell (he could respond), casts an Idle Glimmer instead of
-    // letting it resolve: Alice's table rewinds to the branch point with timeline mode's look (a backward transition with
-    // its steps, the note), then plays Bob's Glimmer back as playback that looks like live play; meanwhile a tap on the
-    // table doesn't pause it and Back does nothing; then her table is live at the new head
-    @Test fun aBranchRewindsThenPlaysTheNewEventsBackAndCantBeLeft() {
+    // letting it resolve: Alice's table, open and live, rewinds to the branch point with timeline mode's look (a backward
+    // transition with its steps, the note), meanwhile a tap on the table doesn't pause it and Back does nothing; it stops
+    // there with "Bob responded differently from here · Tap to continue", Bob's Glimmer not played; her tap plays it back
+    // as playback that looks like live play; then her table is live at the new head
+    @Test fun aBranchRewindsStopsAtTheBranchPointThenPlaysTheNewEventsBack() {
         startGame(TestDeck.thirds(TestCards.herald), TestDeck.glimmers(), aliceSettings = PlaySettings(alwaysAssumeResolves = true),
             deal = { a, b -> "Mountain" in hand(a) && "Ember Herald" in hand(a) && "Idle Glimmer" in hand(b) })
         bothOpen()
@@ -53,18 +55,23 @@ class BranchTakeBackTest : E2e() {
         val back = boards[takeBack()]
         assertTrue(back.transition!!.steps.isNotEmpty(), "the rewind animates back step by step")
         assertTrue(alice.told("${bob.name} responded") && !alice.told("taken back"), "HIS-097's note: only her phone's passes were taken back")
-        // While it plays: no pause, no leaving
+        // While it goes back: no pause, no leaving
         assertTrue(alice.shown.behind, "Bob's new events still to play back")
+        assertTrue(alice.showsTimelineLook() && !alice.showsWatch(), "still going back")
         alice.tapTable()
         alice.activity.onBackPressedDispatcher.onBackPressed()
         run()
         assertNotNull(alice.game, "still at the table")
         assertTrue(!alice.shown.pausing, "a tap on the table doesn't pause the take-back")
-        assertTrue(boards.drop(takeBack()).none { it.status is GameDevice.Status.Stopped && it.behind }, "nothing stopped it")
-        waitUntil("Bob's Glimmer played back on Alice's table") { bobsCast() >= 0 }
-        assertTrue(bobsCast() > takeBack(), "the rewind first, then Bob's new events")
-        waitUntil("Alice's table live at the new head") { !alice.shown.behind && alice.status !is GameDevice.Status.Playing }
+        // HIS-106 (owner 2026-11-08): it stops at the branch point until her tap
+        alice.waitsAtBranchStop(this, bob) { bobsCast() >= 0 }
         assertTrue(timelineLook, "the take-back went back with timeline mode's look")
+        val stopped = boards.size
+        alice.tapToWatch()
+        waitUntil("Bob's Glimmer played back on Alice's table") { bobsCast() >= 0 }
+        assertTrue(bobsCast() >= stopped, "the rewind and its stop first, then Bob's new events")
+        waitUntil("Alice's table live at the new head") { !alice.shown.behind && alice.status !is GameDevice.Status.Playing }
+        assertTrue(boards.drop(stopped).none { it.status == GameDevice.Status.CatchUp || it.branchStop }, "no second stop")
         assertTrue(!alice.showsTimelineLook(), "live again: no timeline look")
         assertTrue(alice.leaks.leaks.isEmpty() && bob.leaks.leaks.isEmpty())
     }

@@ -169,7 +169,10 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
         /** HIS-112: the event of the last play done: playback goes on after it without the playback delay (HIS-021). */
         val showDone: String? = null,
         /** HIS-106, HIS-108: a take-back waiting for the player's tap on the centre text (the table as they left it). */
-        val takeBack: Held? = null) {
+        val takeBack: Held? = null,
+        /** HIS-106 (owner 2026-11-08): a branch's rewind stopped at the branch point: the catch-up waits paused there with
+         * the centre text "<name> responded differently from here · Tap to continue" until the player's tap. */
+        val branchStop: Boolean = false) {
         val engine: GameState get() = board.engine!!.state
         /** Engine-responsiveness R3: what the engine thread worked out with [board]: its computed card values, the player's
          * hand plays (on an own action's early board right after it is published, before the action's follow-up work,
@@ -287,8 +290,8 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
         device.holding = false
         device.play()
         for (w in work) w()
-        // The other player's new events after an undo play back too (a branch's playback goes on by itself, [received])
-        device.play()
+        // The other player's new events after an undo play back too (a branch's stops at the branch point first, [received])
+        if (!branchStop) device.play()
         publish()
     }
 
@@ -347,13 +350,16 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
         previous = play
         // HIS-097: a branch's take-back lasts while its playback does (paused by the app's leaving, until the return)
         if (takingBack && (!session.behind || (status !is GameDevice.Status.Playing && status != GameDevice.Status.CatchUp))) takingBack = false
+        // HIS-106 (owner 2026-11-08): the stop at the branch point ends with its paused catch-up; what plays on from there
+        // is plain catch-up playback
+        if (branchStop && status != GameDevice.Status.CatchUp) { branchStop = false; takingBack = false }
         val older = device.olderEvents
         val olderEnds = olderTurns?.takeIf { it.first === older }?.second
             ?: older.mapNotNullTo(HashSet()) { e -> e.id.takeIf(device::endedTurn) }.also { olderTurns = older to it }
         val shown = Shown(++published, play, status, device.locked, device.settings, device.opponent, session.behind, tip,
             session.localHead, session.drafting, device.request, device.indicator(), device.undoTarget(), line, held, lastTransition,
             device.needsReload, device.pausing, held.mapNotNullTo(HashSet(olderEnds)) { e -> e.id.takeIf(device::endedTurn) }, takingBack,
-            device.reveal, older, device.olderComplete, device.show, device.showDone, heldWork)
+            device.reveal, older, device.olderComplete, device.show, device.showDone, heldWork, branchStop)
         lastShown = shown
         timing?.let { it.boardEnd = clock(); it.version = shown.version; play.values?.promisePlays() }
         worker.main {
@@ -457,7 +463,7 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
         val shown = Shown(++published, play, last.status, last.locked, last.settings, last.opponent, last.behind, last.tip,
             last.localHead, last.drafting, last.request, last.indicator, last.undoTarget, last.line, last.held, last.transition,
             last.needsReload, last.pausing, last.endTurns, last.takingBack, last.reveal, last.older, last.olderComplete, last.show,
-            last.showDone, last.takeBack)
+            last.showDone, last.takeBack, last.branchStop)
         timing.boardEnd = clock(); timing.version = shown.version
         play.values?.promisePlays()
         worker.main { this.shown = shown; shownVersion = shown.version; measure(shown, timing); onShown() }
@@ -494,6 +500,9 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
     private var rewinding: Rewinding? = null
     /** HIS-097: a branch's take-back is being shown (engine thread; [Shown.takingBack]). */
     private var takingBack = false
+    /** HIS-106 (owner 2026-11-08): the take-back stops at the branch point until the player's tap (engine thread;
+     * [Shown.branchStop]). */
+    private var branchStop = false
 
     private var transitions = 0L
     private var pt: Map<String, Pair<Int, Int>> = emptyMap()
@@ -799,10 +808,11 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
         device.revision(events, update)
         if (device.needsReload && update?.target != null) reloadRewind = rewinding
         val drained = device.notes()
-        if (branch && device.session.behind && drained.any { it is GameDevice.Note.Branched }) {
+        val branched = branch && device.session.behind && drained.any { it is GameDevice.Note.Branched }
+        if (branched) {
             takingBack = true
-            // HIS-106: a branch plays to its end, never waiting paused for the centre text ("has made moves") as a catch-up
-            // does: live, or once the player tapped the centre text over it on their return ([releaseHeld])
+            // HIS-106: the rewind back to the branch point plays at once: live, or once the player tapped the centre text
+            // over it on their return ([releaseHeld])
             device.play()
         }
         // A board already shown taken back by the server's revision (owner, N7FU6Y: one line per take-back)
@@ -814,6 +824,13 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
         } + " (events ${events.joinToString(",") { it.id }})", tip, local)
         if (live) device.showPasses()
         device.advance(now)
+        // HIS-106 (owner 2026-11-08): the rewind stops at the branch point as playback stops: the other player's new events
+        // wait paused for the player's tap on the centre text ("<name> responded differently from here · Tap to
+        // continue"); nothing to play after it (or a stop of the player's own there) is no extra stop
+        if (branched) {
+            device.holdPlayback()
+            branchStop = device.status == GameDevice.Status.CatchUp
+        }
         publish(drained)
         rewinding = null
     }
@@ -960,8 +977,9 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
         worker.run {
             val before = device.status
             device.returned()
-            // HIS-106: a branch whose playback the app's leaving paused plays on now, to its end
-            if (takingBack) device.play()
+            // HIS-106: a branch whose playback the app's leaving paused plays on now, to its end (its stop at the branch
+            // point still waits for the tap)
+            if (takingBack && !branchStop) device.play()
             if (device.status != before) publish()
         }
     }
@@ -976,6 +994,9 @@ internal class EngineGame(val gameId: String, val me: String, base: PlayState, s
      * take-back ([Held]) the take-back plays first ([releaseHeld]). */
     fun startPlayback() = worker.run {
         if (heldWork != null) { releaseHeld(); return@run }
+        // HIS-106 (owner 2026-11-08): from the stop at the branch point the other player's new events play back as a plain
+        // catch-up, with its stops
+        if (branchStop) { branchStop = false; takingBack = false }
         device.play()
         device.pausing = false
         val first = device.step()

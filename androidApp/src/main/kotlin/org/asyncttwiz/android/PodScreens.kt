@@ -48,7 +48,7 @@ internal fun PodsDestination(controller: PodController, accountId: String, navig
         }
     }
     val owner = LocalLifecycleOwner.current
-    DisposableEffect(controller) { onDispose { controller.flushSetup() } }
+    DisposableEffect(controller) { onDispose { controller.flushSetup(leaving = true) } }
     LaunchedEffect(controller, state.selected) {
         controller.shown()
         while (true) {

@@ -143,6 +143,19 @@ object ServerSetup {
         }
     }
 
+    /** A pod [name] of [a] (its creator) still in setup, with a cube of [TestCards]. Returns the pod's id. */
+    fun setupPod(a: TestAccount, name: String, cards: List<SubmittedDefinition> = listOf(TestCards.mountain, TestCards.cub, TestCards.spark)): String = runBlocking {
+        fun id() = UUID.randomUUID().toString()
+        val cube = DeckApi(origin).use { api ->
+            api.submit(a.token, SubmitDefinitions(id(), cards))
+            api.create(a.token, CreateCube(id(), "E2E cube", cards.map { SavedCubeEntry(it.digest, 12 / cards.size) }))
+        }
+        org.asyncttwiz.android.PodApi(origin).use { it.create(a.token, CreatePod(id(), name, cube.cube.id)).id }
+    }
+
+    /** The name the server holds for pod [id]. */
+    fun podName(a: TestAccount, id: String): String = runBlocking { org.asyncttwiz.android.PodApi(origin).use { it.detail(a.token, id).name } }
+
     /** A game [name] of [a] (the inviter) and [b], invited and accepted, in its lobby with no deck chosen yet. */
     fun invitation(a: TestAccount, b: TestAccount, name: String): GameSummary {
         val invitation = LobbyApi(origin).use { api ->

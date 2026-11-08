@@ -583,6 +583,30 @@ class PodControllerTest {
         assertEquals(saved, f.controller.state.detail!!.settings)
     }
 
+    // DRF-029, report NZTPS6: the emptied name field waits for the new name; nothing is sent that the server would refuse
+    @Test fun aBlankPodNameStaysInTheFieldUnsentUntilANameIsTyped() = Fixture(PodPhase.SETUP).use { f ->
+        f.open()
+        f.controller.editSetup(name = "   ")
+        f.controller.flushSetup()
+        assertTrue(f.api.calls.isEmpty())
+        assertEquals("   ", f.controller.state.detail!!.name)
+        f.controller.editSetup(name = "Riders")
+        f.controller.flushSetup(); f.deliver()
+        assertEquals("Riders", (f.api.calls.single().second as UpdatePod).name)
+        assertEquals("Riders", f.controller.state.detail!!.name)
+    }
+
+    // DRF-029, report NZTPS6: leaving with the field empty still saves the other edits, without a name
+    @Test fun leavingWithABlankPodNameSavesTheOtherEdits() = Fixture(PodPhase.SETUP).use { f ->
+        f.open()
+        f.controller.editSetup(name = "")
+        f.controller.editSettings { it.copy(keep = 2) }
+        f.controller.showList(); f.deliver()
+        val saved = f.api.calls.single().second as UpdatePod
+        assertEquals(null, saved.name)
+        assertEquals(2, saved.settings!!.keep)
+    }
+
     // DRF-029
     @Test fun setupPredictsImmediatelyAndAcknowledgementsDoNotReplaceNewerEdits() = Fixture(PodPhase.SETUP).use { f ->
         f.open()

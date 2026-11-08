@@ -93,11 +93,6 @@ object ServerSetup {
         E2eStack.query("SELECT activity_id, your_move FROM activity_summary WHERE account_id = '${account.id}' " +
             "AND game_id = '$gameId' AND kind = 'GAME'").singleOrNull()?.split('|')?.let { (id, move) -> id.toLong() to (move == "t") }
 
-    /**
-     * An account request of the setup ([what]): again after a connection failure (the app's AccountApi says only
-     * "network"; a test's setup was seen failing once with "Account request failed"), at most three times; a refusal
-     * fails at once, naming its code.
-     */
     /** A lobby request of the setup: again after a connection failure, as [accountCall] (seen failing a test's setup with
      * "Lobby request failed", a burst of three tests within two seconds), at most three times; a refusal fails at once,
      * naming its code. */
@@ -113,6 +108,11 @@ object ServerSetup {
         error("unreachable")
     }
 
+    /**
+     * An account request of the setup ([what]): again after a connection failure (the app's AccountApi says only
+     * "network"; a test's setup was seen failing once with "Account request failed"), at most three times; a refusal
+     * fails at once, naming its code.
+     */
     private fun <T> accountCall(what: String, call: suspend (AccountApi) -> T): T {
         repeat(3) { attempt ->
             try { return AccountApi(origin).use { api -> runBlocking { call(api) } } }
